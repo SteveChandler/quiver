@@ -49,7 +49,7 @@ export const FEATURE_CARDS = [
     icon: Star,
     title: "Tuned to You",
     description:
-      "Quiver learns your spots, your wave range, and when you like to go. Your forecast gets more specific over time.",
+      "Your surf forecast gets smarter when you log what happened. Quiver learns your spots, your wave range, and when you like to go.",
     iconBgColor: "bg-sunset-orange/10",
     iconColor: "text-sunset-orange",
     features: [
@@ -124,7 +124,7 @@ export const FEATURE_CARDS = [
     icon: BarChart3,
     title: "Session Tracking",
     description:
-      "Auto-prefilled conditions, equipment logs, and accuracy feedback build a rich history of your surf life.",
+      "Auto-prefilled conditions, equipment logs, notes, and accuracy feedback turn each session into useful signal for the next call.",
     iconBgColor: "bg-blue-500/10",
     iconColor: "text-blue-600",
     features: [
@@ -270,9 +270,9 @@ export const SURF_ACTIVITIES = [
 // Content strings to reduce hardcoding
 export const CONTENT = {
   hero: {
-    title: "Quiver: Your best days on repeat.",
+    title: "One surf call, then a smarter next one.",
     subtitle:
-      "Log your sessions, teach Quiver what works for you, and get alerts when the forecast lines up again.",
+      "Quiver forecasts the session, you check the beach, log what happened, and the model keeps tuning your local call.",
     cta: "Get my surf call",
     secondaryCta: "Find your spots",
     benefits: [
@@ -298,9 +298,9 @@ export const CONTENT = {
         "See what surfers are sharing — epic sessions, hidden spots, and the stoke that keeps us coming back",
     },
     forecast: {
-      title: "Pick the right beach for your day",
+      title: "One call before you paddle out",
       subtitle:
-        "Know exactly when to paddle out with forecasts trusted by your local surf community",
+        "Quiver folds swell, wind, tide, and beach context into a clear recommendation so you know where and when to go.",
       primaryCta: "Explore forecasts on the map",
       secondaryCta: "Create a free account",
     },
@@ -314,9 +314,9 @@ export const CONTENT = {
         "From finding surf buddies to sharing epic sessions, your complete surf community platform",
     },
     cta: {
-      title: "Know what today's surf report means",
+      title: "Make the next surf call sharper",
       subtitle:
-        "Free surf reports, beginner-friendly spot discovery, session tracking, and mobile beta alerts.",
+        "Check the forecast, surf the session, log what happened, and help Quiver keep tuning your local calls.",
     },
   },
 } as const;

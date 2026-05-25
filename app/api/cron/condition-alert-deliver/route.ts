@@ -117,6 +117,43 @@ function toRevalidationBeachMeta(
   };
 }
 
+function resolveRuleWeeklyCap(conditions?: AlertConditions | null): number | null {
+  const value = conditions?.max_frequency_per_week;
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    return null;
+  }
+  return Math.min(value, 14);
+}
+
+function resolveQuietHoursOverride(
+  items: QueueItemWithMeta[]
+): { quiet_hours_start: number; quiet_hours_end: number } | null {
+  for (const item of items) {
+    const start =
+      typeof item.conditions?.quiet_hours_start === "number"
+        ? item.conditions.quiet_hours_start
+        : null;
+    const end =
+      typeof item.conditions?.quiet_hours_end === "number"
+        ? item.conditions.quiet_hours_end
+        : null;
+    if (
+      start !== null &&
+      end !== null &&
+      Number.isInteger(start) &&
+      Number.isInteger(end) &&
+      start >= 0 &&
+      start <= 23 &&
+      end >= 0 &&
+      end <= 23 &&
+      start !== end
+    ) {
+      return { quiet_hours_start: start, quiet_hours_end: end };
+    }
+  }
+  return null;
+}
+
 export async function GET(request: Request): Promise<NextResponse> {
   if (!validateCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -456,6 +493,23 @@ export async function GET(request: Request): Promise<NextResponse> {
                 });
                 continue;
               }
+              const ruleCap = resolveRuleWeeklyCap(item.conditions);
+              if (ruleCap !== null) {
+                const count = recentSent.filter(
+                  (attempt) => attempt.rule_id === item.rule_id
+                ).length;
+                if (count >= ruleCap) {
+                  await recordAttempt({
+                    queueId: item.id,
+                    ruleId: item.rule_id,
+                    userId: payload.user_id,
+                    channel,
+                    status: "skipped_user_cap",
+                    skipReason: `rule ${item.rule_id} has ${count} sent attempts in last 7d, cap is ${ruleCap}`,
+                  });
+                  continue;
+                }
+              }
               if (!userCap.ok) {
                 await recordAttempt({
                   queueId: item.id,
@@ -709,6 +763,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                     );
                     const { title, body, data: pushData } = formatPushNotification(pushMatches);
                     const topMatch = pushMatches[0];
+                    const quietHoursOverride = resolveQuietHoursOverride(pushSurvivors);
 
                     const enqueueResult = await enqueueNotification({
                       type: "forecast_alert",
@@ -727,6 +782,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                           window_start: m.window_start,
                           window_end: m.window_end,
                         })),
+                        ...(quietHoursOverride ?? {}),
                         // Queue-item provenance: the forecast_alert
                         // onChannelOutcome hook in lib/notifications/registry.ts
                         // writes alert_delivery_attempts(status=...) for each

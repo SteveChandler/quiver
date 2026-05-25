@@ -1,0 +1,34 @@
+import { render, screen } from "@testing-library/react";
+
+import { LandingPricingTeaser } from "@/components/pricing/landing-pricing-teaser";
+
+const BLOCKED_PUBLIC_COPY = [
+  /monthly/i,
+  /annual/i,
+  /checkout/i,
+  /buy now/i,
+  /\$\d+/,
+] as const;
+
+describe("LandingPricingTeaser", () => {
+  it("links the landing page to founding access without purchase copy", () => {
+    const { container } = render(<LandingPricingTeaser />);
+
+    const link = screen.getByRole("link", {
+      name: /see founding access/i,
+    });
+
+    expect(link).toHaveAttribute("href", "/pricing");
+    expect(
+      screen.getByText(/log 5 sessions\. get pro for lifetime/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/qualify for lifetime pro when plans open/i),
+    ).toBeInTheDocument();
+
+    const pageText = container.textContent ?? "";
+    for (const blockedCopy of BLOCKED_PUBLIC_COPY) {
+      expect(pageText).not.toMatch(blockedCopy);
+    }
+  });
+});

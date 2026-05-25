@@ -34,7 +34,7 @@ export function QuiverSticker({
       alt={decorative ? "" : alt ?? asset.alt}
       width={asset.width}
       height={asset.height}
-      priority={priority}
+      priority={priority || undefined}
       sizes={sizes}
       aria-hidden={decorative || undefined}
       data-zine-sticker={asset.slug}

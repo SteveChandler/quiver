@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PresetType } from "./types";
+import {
+  PERSONALIZATION_LOCKED,
+  type PersonalizationResultCode,
+} from "@/lib/personalization/eligibility";
 
 export type Tier = "free" | "premium";
 
@@ -126,17 +130,26 @@ interface CanCreateRuleInput {
 interface CanCreateRuleResult {
   allowed: boolean;
   reason?: string;
+  code?: PersonalizationResultCode;
 }
 
 export function canCreateRule(input: CanCreateRuleInput): CanCreateRuleResult {
   const caps = CAPS[input.tier];
 
   if (input.tier === "free" && input.targetBeachId !== input.homeBeachId) {
-    return { allowed: false, reason: "Free tier: alerts only on home beach. Upgrade for more beaches." };
+    return {
+      allowed: false,
+      code: PERSONALIZATION_LOCKED,
+      reason: "Free tier: alerts only on home beach. Upgrade for more beaches.",
+    };
   }
 
   if (input.tier === "free" && input.presetType && !FREE_PRESETS.includes(input.presetType)) {
-    return { allowed: false, reason: `${input.presetType} is a premium preset. Upgrade to unlock.` };
+    return {
+      allowed: false,
+      code: PERSONALIZATION_LOCKED,
+      reason: `${input.presetType} is a premium preset. Upgrade to unlock.`,
+    };
   }
 
   // For free tier, beach access is already gated above by the home-beach check.

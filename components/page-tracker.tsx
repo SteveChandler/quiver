@@ -13,6 +13,7 @@ import { useEffect, useRef } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useTrackEvent } from "@/hooks/use-track-event";
+import { getLaunchPageMetadata } from "@/lib/analytics/launch-campaign";
 import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
 
 /**
@@ -41,6 +42,11 @@ function getPageName(pathname: string): string {
 
   // Forecast pages
   if (pathname.startsWith("/forecast")) return "forecast";
+
+  // Launch pricing and blog pages
+  if (pathname === "/pricing") return "pricing";
+  if (pathname === "/blog") return "blog_index";
+  if (pathname.startsWith("/blog/")) return "blog_post";
 
   // Onboarding
   if (pathname.startsWith("/onboarding")) return "onboarding";
@@ -115,12 +121,14 @@ export function PageTracker() {
 
     const page = getPageName(pathname);
     const sessionId = getBrowserSessionId();
+    const launchMetadata = getLaunchPageMetadata(pathname);
     const metadata = {
       page,
       pathname,
       previous_pathname: prevPathname.current || "",
       browser_session_id: sessionId,
       ...attributionMetadata,
+      ...(launchMetadata ?? {}),
     };
 
     track("page_view", {

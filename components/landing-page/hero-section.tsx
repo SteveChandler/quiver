@@ -6,7 +6,14 @@ import { motion } from "framer-motion";
 import { useAuth } from "@/context/auth-context";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { track } from "@/lib/analytics";
-import { IOS_APP_STORE_PREORDER_URL } from "@/lib/constants/app-store";
+import {
+  trackIosAppCtaClick,
+  trackIosAppCtaView,
+} from "@/lib/analytics/ios-app-cta-tracking";
+import {
+  IOS_APP_STORE_CTA,
+  IOS_APP_STORE_URL,
+} from "@/lib/constants/app-store";
 
 const LANDING_HERO_VIDEO_DESKTOP_SRC =
   "/videos/quiver-landing-hero-1280.mp4";
@@ -45,14 +52,13 @@ export function HeroSection() {
     [videoVariant],
   );
 
-  const handlePreorderClick = () => {
-    track("app_store_preorder_click", {
+  const handleIosAppClick = () => {
+    trackIosAppCtaClick({
       source: HERO_DOWNLOAD_BUTTON_SOURCE,
       surface: "landing-page",
-      platform: "ios",
       placement: "hero_video_overlay",
-      cta_text: "Download Quiver",
-      destination_url: IOS_APP_STORE_PREORDER_URL,
+      cta_text: IOS_APP_STORE_CTA,
+      destination_url: IOS_APP_STORE_URL,
       video_loaded: shouldLoadVideo,
     });
   };
@@ -64,13 +70,12 @@ export function HeroSection() {
   useEffect(() => {
     if (user || hasTrackedView.current) return;
     hasTrackedView.current = true;
-    track("app_store_preorder_view", {
+    trackIosAppCtaView({
       source: HERO_DOWNLOAD_BUTTON_SOURCE,
       surface: "landing-page",
-      platform: "ios",
       placement: "hero_video_overlay",
-      cta_text: "Download Quiver",
-      destination_url: IOS_APP_STORE_PREORDER_URL,
+      cta_text: IOS_APP_STORE_CTA,
+      destination_url: IOS_APP_STORE_URL,
     });
   }, [user]);
 
@@ -174,12 +179,12 @@ export function HeroSection() {
               </video>
             ) : null}
             <a
-              href={IOS_APP_STORE_PREORDER_URL}
-              aria-label="Download Quiver"
-              onClick={handlePreorderClick}
-              className="absolute left-[9.8%] top-[80.9%] z-20 block h-[6.2%] w-[13.4%] min-h-9 min-w-[112px] rounded-[9px] outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+              href={IOS_APP_STORE_URL}
+              aria-label={IOS_APP_STORE_CTA}
+              onClick={handleIosAppClick}
+              className="absolute left-[9.8%] top-[80.9%] z-20 flex h-[6.2%] min-h-9 w-[13.4%] min-w-[112px] items-center justify-center overflow-hidden whitespace-nowrap rounded-[9px] bg-[#111B46] px-3 text-center text-sm font-semibold leading-none text-white shadow-[0_8px_24px_rgba(17,27,70,0.28)] ring-1 ring-white/20 transition hover:bg-[#252D6B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
             >
-              <span className="sr-only">Download Quiver</span>
+              <span>{IOS_APP_STORE_CTA}</span>
             </a>
           </div>
         </div>

@@ -213,6 +213,39 @@ describe("applySimilarityLayer", () => {
     expect(out.recommendations[0].score).toBe(60); // unchanged
   });
 
+  it("starter: remains compatible with onboarding similarity consumers", async () => {
+    const rpc = jest.fn(async () => ({
+      data: [
+        {
+          slot_idx: 0,
+          forecast_at: "2026-05-04T15:00:00Z",
+          result: {
+            state: "starter",
+            session_count: 4,
+            sessions_needed: 1,
+          },
+        },
+      ],
+      error: null,
+    }));
+    const supabase = makeSupabase(rpc);
+    const rec = makeRec({ score: 60 });
+
+    const out = await applySimilarityLayer({
+      recommendations: [rec],
+      userId: "user-1",
+      isPro: true,
+      supabase,
+    });
+
+    expect(out.recommendations[0].similarity).toEqual({
+      state: "onboarding",
+      sessionCount: 4,
+      sessionsNeeded: 1,
+    });
+    expect(out.recommendations[0].score).toBe(60);
+  });
+
   it("ready below threshold (4.5): bonusApplied = 0, score unchanged", async () => {
     const rpc = jest.fn(async () => ({
       data: [
@@ -289,6 +322,71 @@ describe("applySimilarityLayer", () => {
       bonusApplied: 10,
     });
     expect(out.recommendations[0].score).toBeCloseTo(70);
+  });
+
+  it("learned above threshold remains compatible with ready similarity consumers", async () => {
+    const rpc = jest.fn(async () => ({
+      data: [
+        {
+          slot_idx: 0,
+          forecast_at: "2026-05-04T15:00:00Z",
+          result: {
+            state: "learned",
+            score: 8,
+            label: "GOOD",
+            reason_bullets: ["Strong match"],
+            sessions_in_profile: 20,
+          },
+        },
+      ],
+      error: null,
+    }));
+    const supabase = makeSupabase(rpc);
+    const rec = makeRec({ score: 60 });
+
+    const out = await applySimilarityLayer({
+      recommendations: [rec],
+      userId: "user-1",
+      isPro: true,
+      supabase,
+    });
+
+    expect(out.recommendations[0].similarity).toMatchObject({
+      state: "ready",
+      score: 8,
+      bonusApplied: 12,
+    });
+    expect(out.recommendations[0].score).toBeCloseTo(72);
+  });
+
+  it("learned without a numeric score does not surface similarity", async () => {
+    const rpc = jest.fn(async () => ({
+      data: [
+        {
+          slot_idx: 0,
+          forecast_at: "2026-05-04T15:00:00Z",
+          result: {
+            state: "learned",
+            score: null,
+            label: "GOOD",
+            sessions_in_profile: 20,
+          },
+        },
+      ],
+      error: null,
+    }));
+    const supabase = makeSupabase(rpc);
+    const rec = makeRec({ score: 60 });
+
+    const out = await applySimilarityLayer({
+      recommendations: [rec],
+      userId: "user-1",
+      isPro: true,
+      supabase,
+    });
+
+    expect(out.recommendations[0].similarity).toBeNull();
+    expect(out.recommendations[0].score).toBe(60);
   });
 
   it("ready exactly at threshold (5.0): bonusApplied = 0, score unchanged", async () => {

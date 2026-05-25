@@ -5,7 +5,11 @@ import { HeroSection } from "@/components/landing-page/hero-section";
 import { useAuth } from "@/context/auth-context";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { track } from "@/lib/analytics";
-import { IOS_APP_STORE_PREORDER_URL } from "@/lib/constants/app-store";
+import {
+  trackIosAppCtaClick,
+  trackIosAppCtaView,
+} from "@/lib/analytics/ios-app-cta-tracking";
+import { IOS_APP_STORE_CTA, IOS_APP_STORE_URL } from "@/lib/constants/app-store";
 
 jest.mock("next/image", () => ({
   __esModule: true,
@@ -50,11 +54,22 @@ jest.mock("@/lib/analytics", () => ({
   track: jest.fn(),
 }));
 
+jest.mock("@/lib/analytics/ios-app-cta-tracking", () => ({
+  trackIosAppCtaClick: jest.fn(),
+  trackIosAppCtaView: jest.fn(),
+}));
+
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockUseReducedMotion = useReducedMotion as jest.MockedFunction<
   typeof useReducedMotion
 >;
 const mockTrack = track as jest.MockedFunction<typeof track>;
+const mockTrackIosAppCtaClick = trackIosAppCtaClick as jest.MockedFunction<
+  typeof trackIosAppCtaClick
+>;
+const mockTrackIosAppCtaView = trackIosAppCtaView as jest.MockedFunction<
+  typeof trackIosAppCtaView
+>;
 
 function mockUnauthenticatedUser() {
   mockUseAuth.mockReturnValue({
@@ -117,21 +132,20 @@ describe("HeroSection", () => {
       ),
     ).toBeInTheDocument();
 
-    const link = screen.getByRole("link", { name: /download quiver/i });
-    expect(link).toHaveAttribute("href", IOS_APP_STORE_PREORDER_URL);
+    const link = screen.getByRole("link", { name: IOS_APP_STORE_CTA });
+    expect(link).toHaveAttribute("href", IOS_APP_STORE_URL);
   });
 
   it("tracks the hero video overlay button view with button-specific metadata", async () => {
     render(<HeroSection />);
 
     await waitFor(() => {
-      expect(mockTrack).toHaveBeenCalledWith("app_store_preorder_view", {
+      expect(mockTrackIosAppCtaView).toHaveBeenCalledWith({
         source: "hero-video-download-button",
         surface: "landing-page",
-        platform: "ios",
         placement: "hero_video_overlay",
-        cta_text: "Download Quiver",
-        destination_url: IOS_APP_STORE_PREORDER_URL,
+        cta_text: IOS_APP_STORE_CTA,
+        destination_url: IOS_APP_STORE_URL,
       });
     });
   });
@@ -140,18 +154,17 @@ describe("HeroSection", () => {
     const user = userEvent.setup();
     render(<HeroSection />);
 
-    const link = screen.getByRole("link", { name: /download quiver/i });
+    const link = screen.getByRole("link", { name: IOS_APP_STORE_CTA });
     link.addEventListener("click", (event) => event.preventDefault());
 
     await user.click(link);
 
-    expect(mockTrack).toHaveBeenCalledWith("app_store_preorder_click", {
+    expect(mockTrackIosAppCtaClick).toHaveBeenCalledWith({
       source: "hero-video-download-button",
       surface: "landing-page",
-      platform: "ios",
       placement: "hero_video_overlay",
-      cta_text: "Download Quiver",
-      destination_url: IOS_APP_STORE_PREORDER_URL,
+      cta_text: IOS_APP_STORE_CTA,
+      destination_url: IOS_APP_STORE_URL,
       video_loaded: false,
     });
   });

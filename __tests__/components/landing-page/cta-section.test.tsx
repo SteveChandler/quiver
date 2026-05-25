@@ -2,10 +2,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { useAuth } from "@/context/auth-context";
-import { track } from "@/lib/analytics";
 import {
-  IOS_APP_STORE_PREORDER_CTA,
-  IOS_APP_STORE_PREORDER_URL,
+  trackIosAppCtaClick,
+  trackIosAppCtaView,
+} from "@/lib/analytics/ios-app-cta-tracking";
+import {
+  IOS_APP_STORE_CTA,
+  IOS_APP_STORE_URL,
 } from "@/lib/constants/app-store";
 import {
   trackSignupCtaClick,
@@ -14,13 +17,14 @@ import {
 
 jest.mock("@/context/auth-context");
 
-jest.mock("@/lib/analytics", () => ({
-  track: jest.fn(),
-}));
-
 jest.mock("@/lib/analytics/signup-conversion-tracking", () => ({
   trackSignupCtaClick: jest.fn(),
   trackSignupCtaView: jest.fn(),
+}));
+
+jest.mock("@/lib/analytics/ios-app-cta-tracking", () => ({
+  trackIosAppCtaClick: jest.fn(),
+  trackIosAppCtaView: jest.fn(),
 }));
 
 jest.mock("@/components/auth/unified-auth-modal", () => ({
@@ -63,9 +67,10 @@ jest.mock("framer-motion", () => ({
 }));
 
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
-const mockTrack = track as jest.Mock;
 const mockTrackSignupCtaClick = trackSignupCtaClick as jest.Mock;
 const mockTrackSignupCtaView = trackSignupCtaView as jest.Mock;
+const mockTrackIosAppCtaClick = trackIosAppCtaClick as jest.Mock;
+const mockTrackIosAppCtaView = trackIosAppCtaView as jest.Mock;
 
 describe("CTASection", () => {
   beforeEach(() => {
@@ -128,39 +133,44 @@ describe("CTASection", () => {
     );
   });
 
-  it("renders and tracks the App Store pre-order CTA variant", async () => {
+  it("renders and tracks the App Store CTA variant", async () => {
     const user = userEvent.setup();
 
     render(
       <CTASection
         source="landing-final-cta"
-        variant="app-store-preorder"
+        variant="app-store"
       />,
     );
 
     await waitFor(() => {
-      expect(mockTrack).toHaveBeenCalledWith("app_store_preorder_view", {
+      expect(mockTrackIosAppCtaView).toHaveBeenCalledWith({
         source: "landing-final-cta",
         surface: "landing-page",
-        platform: "ios",
+        placement: "landing_final_cta",
       });
     });
 
     const link = screen.getByRole("link", {
-      name: new RegExp(IOS_APP_STORE_PREORDER_CTA, "i"),
+      name: new RegExp(IOS_APP_STORE_CTA, "i"),
     });
     link.addEventListener("click", (event) => event.preventDefault());
 
-    expect(link).toHaveAttribute("href", IOS_APP_STORE_PREORDER_URL);
+    expect(link).toHaveAttribute("href", IOS_APP_STORE_URL);
+    expect(
+      screen.getByText(
+        "Opens the current iPhone App Store listing. Core forecasts stay free.",
+      ),
+    ).toBeInTheDocument();
 
     await user.click(link);
 
-    expect(mockTrack).toHaveBeenCalledWith("app_store_preorder_click", {
+    expect(mockTrackIosAppCtaClick).toHaveBeenCalledWith({
       source: "landing-final-cta",
       surface: "landing-page",
-      platform: "ios",
-      cta_text: IOS_APP_STORE_PREORDER_CTA,
-      destination_url: IOS_APP_STORE_PREORDER_URL,
+      placement: "landing_final_cta",
+      cta_text: IOS_APP_STORE_CTA,
+      destination_url: IOS_APP_STORE_URL,
     });
     expect(mockTrackSignupCtaClick).not.toHaveBeenCalled();
     expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument();

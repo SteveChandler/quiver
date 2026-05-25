@@ -8,10 +8,13 @@ import { Button } from "@/components/ui/button";
 import { SectionWrapper } from "./section-wrapper";
 import { CONTENT } from "@/lib/constants/features";
 import { useAuth } from "@/context/auth-context";
-import { track } from "@/lib/analytics";
 import {
-  IOS_APP_STORE_PREORDER_CTA,
-  IOS_APP_STORE_PREORDER_URL,
+  trackIosAppCtaClick,
+  trackIosAppCtaView,
+} from "@/lib/analytics/ios-app-cta-tracking";
+import {
+  IOS_APP_STORE_CTA,
+  IOS_APP_STORE_URL,
 } from "@/lib/constants/app-store";
 
 type FeatureId = "forecast" | "journal" | "intel";
@@ -28,7 +31,7 @@ interface Feature {
 const FEATURES: Feature[] = [
   {
     id: "forecast",
-    railLabel: "Your Surf Call",
+    railLabel: "Forecast",
     headline: CONTENT.sections.forecast.title,
     body: CONTENT.sections.forecast.subtitle,
     imageSrc: "/images/app-screenshots/surf-call.png",
@@ -36,17 +39,17 @@ const FEATURES: Feature[] = [
   },
   {
     id: "journal",
-    railLabel: "Session Journal",
-    headline: "Track your surf story",
-    body: "Log sessions. Unlock better forecasts.",
+    railLabel: "Log",
+    headline: "Log what actually happened",
+    body: "After your session, save the beach, board, rating, notes, and wave check so Quiver has real surf signal to learn from.",
     imageSrc: "/images/app-screenshots/session-log.png",
     imageAlt: "Quiver Log Session screen with beach search, board picker, duration, rating, and wave conditions.",
   },
   {
     id: "intel",
-    railLabel: "Local Intel",
-    headline: "Real conditions from real surfers",
-    body: "Real-time posts, photos, and crowd reports from surfers at your local breaks.",
+    railLabel: "Check",
+    headline: "Check the beach before you commit",
+    body: "Use local reports, photos, and spot context to ground-truth the call before you drive or paddle out.",
     imageSrc: "/images/app-screenshots/local-intel.png",
     imageAlt: "Quiver beach finder screen showing nearby surf spots, skill filters, and trending local breaks.",
   },
@@ -64,20 +67,20 @@ export function ForecastSection() {
   useEffect(() => {
     if (user || !isInView || hasTrackedView.current) return;
     hasTrackedView.current = true;
-    track("app_store_preorder_view", {
+    trackIosAppCtaView({
       source: "forecast-section",
       surface: "landing-page",
-      platform: "ios",
+      placement: "forecast_section",
     });
   }, [user, isInView]);
 
-  const handlePreorderClick = useCallback(() => {
-    track("app_store_preorder_click", {
+  const handleIosAppClick = useCallback(() => {
+    trackIosAppCtaClick({
       source: "forecast-section",
       surface: "landing-page",
-      platform: "ios",
-      cta_text: IOS_APP_STORE_PREORDER_CTA,
-      destination_url: IOS_APP_STORE_PREORDER_URL,
+      placement: "forecast_section",
+      cta_text: IOS_APP_STORE_CTA,
+      destination_url: IOS_APP_STORE_URL,
     });
   }, []);
 
@@ -301,10 +304,10 @@ export function ForecastSection() {
                   data-testid={`forecast-cta-${activeFeatureId}`}
                 >
                   <a
-                    href={IOS_APP_STORE_PREORDER_URL}
-                    onClick={handlePreorderClick}
+                    href={IOS_APP_STORE_URL}
+                    onClick={handleIosAppClick}
                   >
-                    {IOS_APP_STORE_PREORDER_CTA}
+                    {IOS_APP_STORE_CTA}
                   </a>
                 </Button>
               </div>

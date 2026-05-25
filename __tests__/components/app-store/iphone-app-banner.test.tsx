@@ -3,6 +3,11 @@ import { usePathname } from "next/navigation";
 import { IphoneAppBanner } from "@/components/app-store/iphone-app-banner";
 import { track } from "@/lib/analytics";
 import { IPHONE_APP_BANNER_DISMISSAL_STORAGE_KEY } from "@/lib/app-store/iphone-app-banner";
+import {
+  IOS_APP_STORE_CTA,
+  IOS_APP_STORE_DESTINATION_STATUS,
+  IOS_APP_STORE_URL,
+} from "@/lib/constants/app-store";
 
 jest.mock("next/navigation", () => ({
   usePathname: jest.fn(),
@@ -48,7 +53,7 @@ describe("IphoneAppBanner", () => {
 
     expect(await screen.findByTestId("iphone-app-banner")).toBeInTheDocument();
     expect(screen.getByText("Quiver for iPhone")).toBeInTheDocument();
-    expect(screen.getByText("Pre-order on the App Store")).toBeInTheDocument();
+    expect(screen.getByText(IOS_APP_STORE_CTA)).toBeInTheDocument();
 
     await waitFor(() => {
       expect(mockedTrack).toHaveBeenCalledWith(
@@ -56,6 +61,11 @@ describe("IphoneAppBanner", () => {
         expect.objectContaining({
           source: "iphone-app-banner",
           platform: "ios",
+          cta_family: "ios_app",
+          cta_text: IOS_APP_STORE_CTA,
+          destination_type: "app_store",
+          destination_status: IOS_APP_STORE_DESTINATION_STATUS,
+          destination_url: IOS_APP_STORE_URL,
           browser: "chrome_ios",
           pathname: "/map",
         })
@@ -74,12 +84,9 @@ describe("IphoneAppBanner", () => {
     render(<IphoneAppBanner />);
 
     const cta = await screen.findByRole("link", {
-      name: "Pre-order on the App Store",
+      name: IOS_APP_STORE_CTA,
     });
-    expect(cta).toHaveAttribute(
-      "href",
-      "https://apps.apple.com/us/app/surf-forecast-quiver/id6759300320"
-    );
+    expect(cta).toHaveAttribute("href", IOS_APP_STORE_URL);
 
     fireEvent.click(cta);
 
@@ -88,6 +95,9 @@ describe("IphoneAppBanner", () => {
       expect.objectContaining({
         browser: "chrome_ios",
         pathname: "/map",
+        cta_text: IOS_APP_STORE_CTA,
+        destination_status: IOS_APP_STORE_DESTINATION_STATUS,
+        destination_url: IOS_APP_STORE_URL,
       })
     );
   });

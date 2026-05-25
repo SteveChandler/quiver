@@ -7,6 +7,7 @@ import { MLPipelineShowcase } from "@/components/landing-page/ml-pipeline-showca
 import { ActivitiesSection } from "@/components/landing-page/activities-section";
 import { ForecastSection } from "@/components/landing-page/forecast-section";
 import { CTASection } from "@/components/landing-page/cta-section";
+import { LandingPricingTeaser } from "@/components/pricing/landing-pricing-teaser";
 
 function ForecastSectionFallback() {
   // Deterministic placeholder to avoid SSR/client mismatches (e.g. Intl/animation libs).
@@ -53,10 +54,11 @@ export function LandingInteractiveSections() {
       <MLPipelineShowcase />
       <ActivitiesSection />
       <FeatureBentoSection />
+      <LandingPricingTeaser />
       <CTASection
         source="landing-final-cta"
-        ctaCopyVariant="landing_final_v1"
-        variant="app-store-preorder"
+        ctaCopyVariant="landing_ios_app_v1"
+        variant="app-store"
       />
     </div>
   );

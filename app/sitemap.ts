@@ -16,7 +16,10 @@ import {
 import { slugifyAscii } from "@/lib/utils/text-utils";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
-import { blogPosts } from "@/lib/data/blog-posts";
+import {
+  getAllBlogPosts,
+  getLatestBlogModifiedDate,
+} from "@/lib/data/blog-posts";
 import { learnArticles } from "@/lib/data/learn-articles";
 import { INDEXABLE_SEO_FUNNEL_PAGES } from "@/lib/seo/funnel-pages";
 
@@ -126,6 +129,7 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
     "/about",
     "/privacy",
     "/terms",
+    "/pricing",
     "/map",
     "/beaches",
     "/beaches/usa",
@@ -632,7 +636,8 @@ function getLearnRoutes(): MetadataRoute.Sitemap {
  * Blog hub and post pages — founder notes and product transparency updates.
  */
 function getBlogRoutes(): MetadataRoute.Sitemap {
-  const blogDate = "2026-05-21";
+  const blogDate = getLatestBlogModifiedDate();
+  const posts = getAllBlogPosts();
 
   return [
     {
@@ -641,7 +646,7 @@ function getBlogRoutes(): MetadataRoute.Sitemap {
       changeFrequency: "weekly",
       priority: 0.75,
     },
-    ...blogPosts.map((post) => ({
+    ...posts.map((post) => ({
       url: `${baseUrl}/blog/${post.slug}`,
       lastModified: post.dateModified ?? post.datePublished,
       changeFrequency: "monthly" as const,

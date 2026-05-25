@@ -10,10 +10,13 @@ import { preserveQueryParams } from "@/lib/utils/navigation-utils";
 import { useAuth } from "@/context/auth-context";
 import { CONTENT } from "@/lib/constants/features";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
-import { track } from "@/lib/analytics";
 import {
-  IOS_APP_STORE_PREORDER_CTA,
-  IOS_APP_STORE_PREORDER_URL,
+  trackIosAppCtaClick,
+  trackIosAppCtaView,
+} from "@/lib/analytics/ios-app-cta-tracking";
+import {
+  IOS_APP_STORE_CTA,
+  IOS_APP_STORE_URL,
 } from "@/lib/constants/app-store";
 import {
   trackSignupCtaClick,
@@ -33,7 +36,7 @@ interface CTASectionProps {
   ctaCopyVariant?: string;
   returnTo?: string;
   contextMessage?: { title: string; description: string };
-  variant?: "signup" | "app-store-preorder";
+  variant?: "signup" | "app-store";
 }
 
 export function CTASection({
@@ -51,16 +54,16 @@ export function CTASection({
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const isInView = useInView(sectionRef, { once: true, amount: 0.3 });
   const shouldReduceMotion = useReducedMotion();
-  const isAppStorePreorder = variant === "app-store-preorder";
+  const isAppStoreCta = variant === "app-store";
 
   useEffect(() => {
     if (user || isLoading || !isInView || hasTrackedView.current) return;
     hasTrackedView.current = true;
-    if (isAppStorePreorder) {
-      track("app_store_preorder_view", {
+    if (isAppStoreCta) {
+      trackIosAppCtaView({
         source,
         surface: "landing-page",
-        platform: "ios",
+        placement: "landing_final_cta",
       });
       return;
     }
@@ -70,7 +73,7 @@ export function CTASection({
       cta_type: ctaType,
       cta_copy_variant: ctaCopyVariant,
     });
-  }, [ctaCopyVariant, ctaType, isAppStorePreorder, isInView, isLoading, source, user]);
+  }, [ctaCopyVariant, ctaType, isAppStoreCta, isInView, isLoading, source, user]);
 
   // Don't render for authenticated users (show during loading to avoid CLS)
   if (!isLoading && user) return null;
@@ -112,25 +115,25 @@ export function CTASection({
           className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-6"
           {...motionProps(300)}
         >
-          {isAppStorePreorder ? (
+          {isAppStoreCta ? (
             <Button
               size="lg"
               className="bg-ocean-blue text-white rounded-full px-8 py-3 font-sans font-semibold hover:shadow-xl hover:shadow-ocean-blue/20 transition-all duration-200 hover:bg-ocean-blue/90 hover:-translate-y-0.5 active:translate-y-0 focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
               asChild
             >
               <a
-                href={IOS_APP_STORE_PREORDER_URL}
+                href={IOS_APP_STORE_URL}
                 onClick={() => {
-                  track("app_store_preorder_click", {
+                  trackIosAppCtaClick({
                     source,
                     surface: "landing-page",
-                    platform: "ios",
-                    cta_text: IOS_APP_STORE_PREORDER_CTA,
-                    destination_url: IOS_APP_STORE_PREORDER_URL,
+                    placement: "landing_final_cta",
+                    cta_text: IOS_APP_STORE_CTA,
+                    destination_url: IOS_APP_STORE_URL,
                   });
                 }}
               >
-                {IOS_APP_STORE_PREORDER_CTA}
+                {IOS_APP_STORE_CTA}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </a>
             </Button>
@@ -169,8 +172,8 @@ export function CTASection({
           className="text-white/50 text-sm font-sans"
           {...motionProps(400)}
         >
-          {isAppStorePreorder
-            ? "iPhone pre-order is open. Core forecasts stay free."
+          {isAppStoreCta
+            ? "Opens the current iPhone App Store listing. Core forecasts stay free."
             : "Free iOS & Android beta. Free core, Pro adds depth."}
         </motion.p>
       </div>

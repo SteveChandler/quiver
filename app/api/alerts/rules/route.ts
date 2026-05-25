@@ -8,6 +8,55 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import { canCreateRule, getUserEntitlement } from "@/lib/alerts/entitlements";
+import { validateConditionAlertInput } from "@/lib/alerts/condition-validation";
+import {
+  PERSONALIZATION_LOCKED,
+  getPersonalizationEligibility,
+  type PersonalizationEligibilityResult,
+  type PersonalizationResultCode,
+} from "@/lib/personalization/eligibility";
+
+function isPersonalAlertPreset(presetType: unknown): boolean {
+  return presetType === "similarity_match";
+}
+
+function createEligibilityErrorResponse(
+  code: PersonalizationResultCode,
+  message: string,
+  details: Record<string, unknown> = {},
+) {
+  return createErrorResponse(
+    code,
+    {
+      code,
+      message,
+      ...details,
+    },
+    403,
+  );
+}
+
+function createPersonalizationDenialResponse(
+  eligibility: PersonalizationEligibilityResult,
+) {
+  return createEligibilityErrorResponse(
+    eligibility.code,
+    eligibility.code === "ENTITLEMENT_SYNCING"
+      ? "Your purchase is active. We are waiting for the server to catch up."
+      : eligibility.code === "BETA_ACCESS_NOT_ENABLED"
+        ? "Beta access is not enabled for this account."
+        : eligibility.code === "BILLING_ISSUE_LOCKED"
+          ? "Update payment to use personal match."
+          : eligibility.code === "PERSONALIZATION_DISABLED"
+            ? "Personalization is temporarily disabled."
+            : "Personalization unlocks with Pro.",
+    {
+      canUsePersonalMatch: eligibility.canUsePersonalMatch,
+      canCreatePersonalAlert: eligibility.canCreatePersonalAlert,
+      canDeliverPersonalAlert: eligibility.canDeliverPersonalAlert,
+    },
+  );
+}
 
 /**
  * GET /api/alerts/rules — List the authenticated user's alert rules
@@ -37,6 +86,16 @@ export const POST = withAuth(
 
     if (!beach_id || !name) {
       return createValidationError("beach_id and name are required");
+    }
+
+    const validation = validateConditionAlertInput({
+      presetType: preset_type ?? null,
+      conditions: conditions ?? {},
+      notifyEmail: notify_email ?? true,
+      notifyPush: notify_push ?? false,
+    });
+    if (!validation.ok) {
+      return createValidationError(validation.message ?? "Invalid alert conditions");
     }
 
     // Get user's home beach for entitlement check
@@ -83,6 +142,26 @@ export const POST = withAuth(
     // Only count new beach toward cap if it's not already represented
     const existingBeachCount = existingBeachIds.size;
 
+    const personalizationEligibility = await getPersonalizationEligibility(
+      user.id,
+      supabase,
+      {
+        alertDeliveryPaused: process.env.ALERTS_DELIVERY_ENABLED !== "true",
+        betaAccessRequired:
+          process.env.PERSONALIZATION_BETA_REQUIRED === "true" ||
+          request.headers.get("x-quiver-beta-access") === "required",
+        personalizationDisabled:
+          process.env.PERSONALIZATION_DISABLED === "true" ||
+          process.env.PERSONALIZATION_ENABLED === "false",
+      },
+    );
+    if (
+      isPersonalAlertPreset(preset_type) &&
+      !personalizationEligibility.canCreatePersonalAlert
+    ) {
+      return createPersonalizationDenialResponse(personalizationEligibility);
+    }
+
     const tier = await getUserEntitlement(user.id, supabase);
     const isExistingBeach = existingBeachIds.has(beach_id);
     const entitlementResult = canCreateRule({
@@ -96,7 +175,10 @@ export const POST = withAuth(
     });
 
     if (!entitlementResult.allowed) {
-      return createErrorResponse(entitlementResult.reason ?? "Not allowed", undefined, 403);
+      return createEligibilityErrorResponse(
+        entitlementResult.code ?? PERSONALIZATION_LOCKED,
+        entitlementResult.reason ?? "Not allowed",
+      );
     }
 
     // Auto-favorite the beach if not already favorited
@@ -112,7 +194,7 @@ export const POST = withAuth(
         beach_id,
         name,
         preset_type: preset_type ?? null,
-        conditions: conditions ?? {},
+        conditions: validation.conditions ?? {},
         notify_email: notify_email ?? true,
         notify_push: notify_push ?? false,
       })
