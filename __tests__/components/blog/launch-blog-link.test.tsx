@@ -43,16 +43,16 @@ describe("LaunchBlogLink", () => {
 
     render(
       <LaunchBlogLink
-        href="/pricing"
-        trackingLabel="Founding Access Waitlist"
+        href="/plans"
+        trackingLabel="Get Quiver"
         sourceSlug="why-quiver-is-built-around-one-surf-call"
       >
-        Founding Access Waitlist
+        Get Quiver
       </LaunchBlogLink>
     );
 
     await user.click(
-      screen.getByRole("link", { name: "Founding Access Waitlist" })
+      screen.getByRole("link", { name: "Get Quiver" })
     );
 
     expect(mockTrack).toHaveBeenCalledWith("cta_click", {
@@ -66,10 +66,10 @@ describe("LaunchBlogLink", () => {
         surface: "blog-post",
         placement: "related-links",
         blog_slug: "why-quiver-is-built-around-one-surf-call",
-        cta_text: "Founding Access Waitlist",
-        destination_url: "/pricing",
-        destination_path: "/pricing",
-        destination_type: "pricing",
+        cta_text: "Get Quiver",
+        destination_url: "/plans",
+        destination_path: "/plans",
+        destination_type: "plans",
       },
       debounceMs: 0,
     });
@@ -80,17 +80,17 @@ describe("LaunchBlogLink", () => {
 
     render(
       <LaunchBlogLink
-        href="/pricing"
-        trackingLabel="Founding Access Waitlist"
+        href="/plans"
+        trackingLabel="Get Quiver"
         sourceSlug="blog-index"
         onClick={(event) => event.preventDefault()}
       >
-        Founding Access Waitlist
+        Get Quiver
       </LaunchBlogLink>
     );
 
     await user.click(
-      screen.getByRole("link", { name: "Founding Access Waitlist" })
+      screen.getByRole("link", { name: "Get Quiver" })
     );
 
     expect(mockTrack).not.toHaveBeenCalled();

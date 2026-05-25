@@ -129,7 +129,7 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
     "/about",
     "/privacy",
     "/terms",
-    "/pricing",
+    "/plans",
     "/map",
     "/beaches",
     "/beaches/usa",

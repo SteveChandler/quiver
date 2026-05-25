@@ -147,20 +147,20 @@ export const FEATURE_CARDS = [
   },
   {
     icon: Smartphone,
-    title: "Join the Beta",
+    title: "Get the App",
     description:
-      "Free access to the iOS and Android beta. Sign up to help dial in the forecast for your breaks.",
+      "Quiver is live on iPhone. Android is coming soon, so join the waitlist to help dial in the forecast for your breaks.",
     iconBgColor: "bg-[#F78E42]/10",
     iconColor: "text-[#F78E42]",
     features: [
       {
         icon: Apple,
-        text: "Early iOS access",
+        text: "iPhone App Store",
         color: "text-[#F78E42]",
       },
       {
         icon: Smartphone,
-        text: "Early Android access",
+        text: "Android waitlist",
         color: "text-[#F78E42]",
       },
       {

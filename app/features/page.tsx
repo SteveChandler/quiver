@@ -1,278 +1,375 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
-import { ArrowRight, MapPin, Search, Waves } from "lucide-react";
-import { buildPageMetadata } from "@/lib/seo/meta";
-import { BeachSearchAutocomplete } from "@/components/beach/beach-search-autocomplete";
-import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
-import { COVERED_REGIONS } from "@/lib/constants/coverage-areas";
+import type { ReactElement } from "react";
+import type { LucideIcon } from "lucide-react";
 import {
-  US_STATE_SLUG_MAP,
-  getUsStateDisplayNameFromSlug,
-} from "@/lib/utils/beach-url-utils";
+  ArrowRight,
+  BellRing,
+  CheckCircle2,
+  ListChecks,
+  MapPinned,
+  Route,
+  Sparkles,
+  Waves,
+} from "lucide-react";
+
+import { IosAppStoreCta } from "@/components/app-store/ios-app-store-cta";
+import { AndroidWaitlistCta } from "@/components/pricing/android-waitlist-cta";
+import { IOS_APP_STORE_CTA } from "@/lib/constants/app-store";
+import { buildPageMetadata } from "@/lib/seo/meta";
+
+const FEATURES_DESCRIPTION =
+  "Get Quiver's iPhone surf forecast app for personal forecasts, the forecast-log feedback loop, custom spots, and custom surf alerts.";
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Surf Forecast App Features — Free Reports, Tide Charts & More",
-  description:
-    "Quiver turns raw buoy data into a clear surf call for your beach. Free surf reports, tide charts, crowd levels, best-time-to-surf windows, and session tracking for 279+ beaches. iOS, Android, and web.",
+  title: "Quiver App Features | Personal Surf Forecasts",
+  description: FEATURES_DESCRIPTION,
   path: "/features",
+  image: "/images/hero/quiver-landing-hero-social.jpg",
   keywords: [
     "surf forecast app",
-    "best surf app",
-    "free surf report app",
-    "surf tracker app",
-    "surf session tracker",
-    "tide chart app",
-    "surf conditions app",
-    "ios surf app",
-    "android surf app",
+    "personal surf forecast",
+    "custom surf alerts",
+    "custom surf spots",
+    "surf session log app",
+    "iPhone surf app",
+    "Quiver app features",
   ],
 });
 
-const FEATURED_STATE_SLUGS = ["ca", "fl", "hi"] as const;
-
-const QUICK_BREAKS = [
-  { name: "Blacks", href: "/ca/san-diego/blacks" },
-  { name: "Lower Trestles", href: "/ca/san-onofre/lower-trestles" },
-  { name: "Pipeline", href: "/hi/haleiwa/pipeline" },
-  { name: "Ocean Beach SD", href: "/ca/san-diego/ocean-beach" },
-] as const;
-
-const FIELD_NOTES = [
-  "Pick the break you actually check",
-  "Save it as your home break",
-  "Get the surf call tuned to your level",
-] as const;
-
-type StateEntry = {
-  slug: string;
-  name: string;
-  featured: boolean;
+type Feature = {
+  title: string;
+  body: string;
+  icon: LucideIcon;
+  eyebrow: string;
+  imageSrc: string;
+  imageAlt: string;
 };
 
-function buildStateGrid(): { featured: StateEntry[]; rest: StateEntry[] } {
-  // Derive supported USA state slugs from COVERED_REGIONS (source of truth in
-  // lib/constants/coverage-areas.ts). PR has a state hub; Baja Mexico does not.
-  const slugs = new Set<string>();
-  for (const region of COVERED_REGIONS) {
-    for (const [key, slug] of Object.entries(US_STATE_SLUG_MAP)) {
-      if (key.length <= 2) continue;
-      if (region.includes(key)) {
-        slugs.add(slug);
-        break;
-      }
-    }
-  }
+type LoopStep = {
+  title: string;
+  body: string;
+  icon: LucideIcon;
+};
 
-  const all: StateEntry[] = [...slugs].map((slug) => ({
-    slug,
-    name: getUsStateDisplayNameFromSlug(slug),
-    featured: (FEATURED_STATE_SLUGS as readonly string[]).includes(slug),
-  }));
+const HERO_POINTS = [
+  "Personal forecasts tuned to how and where you surf",
+  "A forecast-log loop that learns from real sessions",
+  "Custom spots and custom alerts for the days worth chasing",
+] as const;
 
-  const featured = FEATURED_STATE_SLUGS.map((slug) =>
-    all.find((s) => s.slug === slug),
-  ).filter((entry): entry is StateEntry => Boolean(entry));
+const LOOP_STEPS: LoopStep[] = [
+  {
+    title: "Check",
+    body: "Open one clear call for your spot before you drive.",
+    icon: Waves,
+  },
+  {
+    title: "Surf",
+    body: "Paddle out with the context behind the call.",
+    icon: Route,
+  },
+  {
+    title: "Log",
+    body: "Save what actually happened: board, rating, notes, and conditions.",
+    icon: ListChecks,
+  },
+  {
+    title: "Tune",
+    body: "Quiver turns your session history into a sharper next forecast.",
+    icon: Sparkles,
+  },
+] as const;
 
-  const rest = all
-    .filter((s) => !s.featured)
-    .sort((a, b) => a.name.localeCompare(b.name));
+const NATIVE_FEATURES: Feature[] = [
+  {
+    title: "Personal forecasting and the loop",
+    body: "Quiver does not stop at a generic surf report. You check a forecast, log the session, and the app builds a better read on what works for you.",
+    icon: Sparkles,
+    eyebrow: "Forecast -> log -> learn",
+    imageSrc: "/images/app-screenshots/native-features/beach-detail-personal.png",
+    imageAlt:
+      "Quiver beach detail screen showing a personal match prompt and forecast feedback controls.",
+  },
+  {
+    title: "Custom spots",
+    body: "Save the breaks and tucked-away zones you actually care about, then compare them without rebuilding your dawn patrol from scratch.",
+    icon: MapPinned,
+    eyebrow: "Your coast, saved",
+    imageSrc: "/images/app-screenshots/native-features/save-custom-spot.png",
+    imageAlt:
+      "Quiver custom spot editor with name, break type, visibility, and local rules map.",
+  },
+  {
+    title: "Custom alerts",
+    body: "Set alerts for the setup you are waiting on: swell, wind, tide, and the kind of session Quiver knows you want to repeat.",
+    icon: BellRing,
+    eyebrow: "Conditions, not spam",
+    imageSrc: "/images/app-screenshots/native-features/alerts.png",
+    imageAlt: "Quiver alerts screen with a small clean longboard wave preset.",
+  },
+] as const;
 
-  return { featured, rest };
+const APP_SCREENS = [
+  {
+    src: "/images/app-screenshots/native-features/home-loop.png",
+    alt: "Quiver home screen showing a session logging prompt and surf conditions.",
+    label: "Loop",
+  },
+  {
+    src: "/images/app-screenshots/native-features/explore-beaches.png",
+    alt: "Quiver explore screen showing 300 beaches and saved beach cards.",
+    label: "Explore",
+  },
+  {
+    src: "/images/app-screenshots/native-features/alerts.png",
+    alt: "Quiver alerts screen showing condition alert controls.",
+    label: "Alerts",
+  },
+] as const;
+
+function FeatureIcon({ icon: Icon }: { icon: LucideIcon }): ReactElement {
+  return (
+    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[#F78E42]/35 bg-[#F78E42]/12 text-[#FDB84B]">
+      <Icon className="h-5 w-5" aria-hidden="true" />
+    </span>
+  );
 }
 
-export default function FeaturesPage() {
-  const { featured, rest } = buildStateGrid();
-
+export default function FeaturesPage(): ReactElement {
   return (
-    <div className="min-h-screen overflow-hidden bg-[#F4EBD8] text-[#11100D]">
-      <section className="relative px-4 pb-14 pt-24 md:pb-16 md:pt-28">
+    <main className="min-h-screen bg-[#0D1020] text-white">
+      <section className="relative overflow-hidden px-4 pb-16 pt-24 sm:px-6 lg:px-8">
         <div
-          aria-hidden
-          className="absolute inset-0 opacity-[0.26]"
+          aria-hidden="true"
+          className="absolute inset-0 opacity-[0.08]"
           style={{
             backgroundImage:
-              "radial-gradient(circle at 1px 1px, rgba(17,16,13,0.18) 1px, transparent 0), linear-gradient(90deg, rgba(37,45,107,0.08) 1px, transparent 1px)",
-            backgroundSize: "12px 12px, 72px 72px",
+              "linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.35) 1px, transparent 1px)",
+            backgroundSize: "64px 64px",
           }}
         />
-        <div
-          aria-hidden
-          className="absolute right-0 top-14 hidden h-[88%] w-[46%] border-y-2 border-l-2 border-[#11100D] bg-[#252D6B] lg:block"
-          style={{
-            clipPath: "polygon(10% 0, 100% 0, 100% 100%, 0 100%)",
-          }}
-        />
-        <div
-          aria-hidden
-          className="absolute left-0 top-20 hidden h-10 w-2/5 -rotate-[1.5deg] bg-[#F78E42] md:block"
-        />
-        <div className="relative mx-auto grid max-w-7xl gap-10 lg:grid-cols-[minmax(0,1.05fr)_minmax(360px,0.95fr)] lg:items-end">
-          <div className="space-y-8">
-            <div className="max-w-4xl">
-              <div className="mb-5 inline-flex rotate-[-1deg] items-center gap-2 rounded-sm border-2 border-[#11100D] bg-[#F78E42] px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.35)]">
-                <Waves className="h-4 w-4" />
-                Home-break finder
-              </div>
-              <h1 className="max-w-4xl font-heading text-5xl font-black leading-[0.92] tracking-normal text-[#11100D] sm:text-6xl md:text-7xl lg:text-8xl">
-                Find your home break.
-              </h1>
-              <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-[#252D6B] md:text-2xl md:leading-9">
-                Pick the spot you actually check, then save it. Quiver turns the
-                forecast into a call for your level, updated every 3 hours.
-              </p>
+        <div className="relative mx-auto grid max-w-7xl gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.88fr)] lg:items-center">
+          <div className="max-w-3xl">
+            <div className="mb-5 inline-flex items-center gap-2 rounded-md border border-[#7BDCB5]/45 bg-[#7BDCB5]/12 px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[#7BDCB5]">
+              <Waves className="h-4 w-4" aria-hidden="true" />
+              Native app features
+            </div>
+            <h1 className="font-heading text-5xl font-black leading-[0.94] tracking-normal text-white sm:text-6xl md:text-7xl">
+              A surf app that gets personal.
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-[#B8C7E0] md:text-xl">
+              Quiver turns forecast checks, saved spots, session logs, and
+              alerts into a surf call that is built around the way you actually
+              paddle out.
+            </p>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <IosAppStoreCta
+                source="features-hero-app-store"
+                surface="features-page"
+                placement="hero_primary"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1020]"
+              >
+                {IOS_APP_STORE_CTA}
+                <ArrowRight className="h-5 w-5" aria-hidden="true" />
+              </IosAppStoreCta>
+              <AndroidWaitlistCta
+                source="features-hero-android-waitlist"
+                surface="features-page"
+                placement="hero_secondary"
+                className="inline-flex min-h-12 items-center justify-center rounded-md border border-white/25 px-5 py-3 text-base font-black text-white transition hover:border-[#7BDCB5] hover:text-[#7BDCB5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7BDCB5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1020]"
+              >
+                Android waitlist
+              </AndroidWaitlistCta>
             </div>
 
-            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.12fr)_minmax(320px,0.88fr)]">
-              <div className="relative overflow-hidden rounded-sm border-2 border-[#11100D] bg-[#F8EFD8] p-4 text-[#11100D] shadow-[7px_7px_0_rgba(17,16,13,0.32)] md:p-5">
+            <div className="mt-9 grid max-w-2xl gap-3">
+              {HERO_POINTS.map((point) => (
                 <div
-                  aria-hidden
-                  className="pointer-events-none absolute inset-0 opacity-20 mix-blend-multiply"
-                  style={{
-                    backgroundImage:
-                      "radial-gradient(circle at 1px 1px, rgba(17,16,13,0.28) 1px, transparent 0)",
-                    backgroundSize: "10px 10px",
-                  }}
-                />
-                <div className="relative">
-                  <div className="mb-4 flex items-center gap-2 text-xs font-black uppercase tracking-[0.14em] text-[#9E5010]">
-                    <Search className="h-4 w-4" />
-                    Start here
-                  </div>
-                  <BeachSearchAutocomplete
-                    source="features-home-break-search"
-                    placeholder="Search Blacks, Pipeline, Ocean Beach..."
-                    className="border-0 bg-transparent shadow-none [&_[cmdk-input-wrapper]]:border-b-0 [&_[cmdk-input-wrapper]]:px-4 [&_[cmdk-input-wrapper]_svg]:text-[#9E5010] [&_[cmdk-input-wrapper]_svg]:opacity-100"
-                    inputWrapperClassName="rounded-sm border-2 border-[#11100D] bg-[#FFF8E8] shadow-[3px_3px_0_rgba(17,16,13,0.22)]"
-                    inputClassName="h-12 text-base font-semibold text-[#11100D] placeholder:text-[#11100D]/55"
-                    maxResults={6}
-                  />
-                  <div className="mt-5 flex flex-wrap gap-2">
-                    {QUICK_BREAKS.map((spot) => (
-                      <Link
-                        key={spot.href}
-                        href={spot.href}
-                        className="inline-flex items-center gap-1 rounded-full border border-[#11100D]/25 bg-[oklch(0.98_0.025_90)] px-3 py-1.5 text-sm font-bold text-[#11100D] transition-colors hover:bg-[#F78E42] hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
-                      >
-                        <MapPin className="h-3.5 w-3.5" />
-                        {spot.name}
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <InlineSignupCta
-                title="Save your home break."
-                description="Turn that spot into your daily surf call."
-                primaryButtonText="Save my home break"
-                source="features-hero-save-home-break"
-                ctaCopyVariant="features_home_break_v2"
-                className="h-full"
-                variant="zine"
-              />
-            </div>
-
-            <div className="grid gap-2 sm:grid-cols-3">
-              {FIELD_NOTES.map((note, index) => (
-                <div
-                  key={note}
-                  className="flex items-center gap-3 rounded-sm border-2 border-[#11100D] bg-[#F8EFD8] px-3 py-2 text-sm font-black text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.18)]"
+                  key={point}
+                  className="flex items-start gap-3 text-sm font-semibold leading-6 text-[#E6F0FF]"
                 >
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#F78E42] font-mono text-xs font-black text-[#11100D]">
-                    {index + 1}
-                  </span>
-                  {note}
+                  <CheckCircle2
+                    className="mt-0.5 h-5 w-5 shrink-0 text-[#7BDCB5]"
+                    aria-hidden="true"
+                  />
+                  {point}
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="relative min-h-[440px] lg:min-h-[600px]">
-            <div className="relative ml-auto mt-8 max-w-[520px] rotate-[1.5deg] overflow-hidden rounded-sm border-2 border-[#11100D] bg-[#F4EBD8] p-3 shadow-[12px_14px_0_rgba(17,16,13,0.3)]">
-              <div className="relative aspect-[4/5] overflow-hidden rounded-sm border-2 border-[#11100D]">
-                <Image
-                  src="/images/hero/hero-1-la-jolla.webp"
-                  alt="A surfer walking past a Southern California lineup at golden hour."
-                  fill
-                  priority
-                  sizes="(min-width: 1024px) 480px, 92vw"
-                  className="object-cover"
-                />
-                <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(0deg,rgba(17,16,13,0.86),rgba(17,16,13,0))] p-5 pt-20 text-[#F4EBD8]">
-                  <p className="font-handwritten text-3xl leading-none text-[#F78E42]">
-                    home break
-                  </p>
-                  <p className="mt-2 max-w-xs text-sm font-semibold leading-6">
-                    One spot, one saved call, fewer tabs open before dawn.
-                  </p>
+          <div className="mx-auto grid w-full max-w-[520px] grid-cols-3 gap-3 sm:gap-4 lg:max-w-none">
+            {APP_SCREENS.map((screen, index) => (
+              <figure
+                key={screen.src}
+                className="relative min-w-0 overflow-visible bg-transparent"
+              >
+                <div className="relative aspect-[9/19.5] overflow-hidden rounded-[30px] border border-[#7BDCB5]/55 bg-[#11100D] shadow-[0_0_0_4px_rgba(13,16,32,0.9),0_0_0_5px_rgba(123,220,181,0.2),0_28px_60px_rgba(0,0,0,0.5)]">
+                  <Image
+                    src={screen.src}
+                    alt={screen.alt}
+                    fill
+                    priority={index === 0}
+                    loading={index === 0 ? undefined : "eager"}
+                    sizes="(min-width: 1024px) 170px, 28vw"
+                    className="object-cover"
+                  />
                 </div>
-              </div>
-              <div className="flex items-center justify-between px-1 pt-3 text-xs font-black uppercase tracking-[0.14em] text-[#11100D]/70">
-                <span>Quiver field note</span>
-                <span>279+ breaks</span>
-              </div>
-            </div>
+                <figcaption className="pt-3 text-center text-xs font-black uppercase tracking-[0.18em] text-[#B8C7E0]">
+                  {screen.label}
+                </figcaption>
+              </figure>
+            ))}
           </div>
         </div>
       </section>
 
-      <section className="relative px-4 pb-20">
-        <div className="relative mx-auto max-w-7xl rotate-[-0.35deg] overflow-hidden rounded-sm border-2 border-[#11100D] bg-[#F8EFD8] p-5 shadow-[8px_8px_0_rgba(17,16,13,0.28)] md:p-7">
-          <div
-            aria-hidden
-            className="pointer-events-none absolute inset-0 opacity-[0.17] mix-blend-multiply"
-            style={{
-              backgroundImage:
-                "radial-gradient(circle at 1px 1px, rgba(17,16,13,0.32) 1px, transparent 0)",
-              backgroundSize: "9px 9px",
-            }}
-          />
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="relative">
-              <p className="inline-flex border-2 border-[#11100D] bg-[#F78E42] px-2 py-1 text-xs font-black uppercase tracking-[0.18em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)]">
-                Still exploring?
-              </p>
-              <h2 className="mt-3 font-heading text-4xl font-black leading-none text-[#11100D] md:text-5xl">
-                Browse by state.
-              </h2>
-            </div>
-            <p className="relative max-w-xl text-sm font-semibold leading-6 text-[#252D6B]">
-              Search is the fastest path. State pages are here when you want to
-              wander the coast.
+      <section className="bg-[#F4EBD8] px-4 py-16 text-[#11100D] sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="max-w-3xl">
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-[#9E5010]">
+              The loop
+            </p>
+            <h2 className="mt-3 font-heading text-4xl font-black leading-tight tracking-normal md:text-5xl">
+              Every session you log dials in the next call.
+            </h2>
+            <p className="mt-4 text-lg font-semibold leading-8 text-[#34415E]">
+              Every surf app can show the ocean model. Quiver closes the loop:
+              what you checked, where you went, and how the session actually
+              felt.
             </p>
           </div>
 
-          <div className="mt-6 grid gap-3 md:grid-cols-3">
-            {featured.map((state) => (
-              <Link
-                key={state.slug}
-                href={`/beaches/usa/${state.slug}`}
-                className="group relative flex items-center justify-between rounded-sm border-2 border-[#11100D] bg-[#FFF8E8] px-4 py-3 font-heading text-xl font-black text-[#11100D] shadow-[4px_4px_0_rgba(17,16,13,0.2)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
-                data-state-slug={state.slug}
-              >
-                {state.name}
-                <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
-              </Link>
-            ))}
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            {rest.map((state) => (
-              <Link
-                key={state.slug}
-                href={`/beaches/usa/${state.slug}`}
-                className="group relative inline-flex items-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-2 text-sm font-black text-[#11100D] transition-colors hover:bg-[#F78E42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
-                data-state-slug={state.slug}
-              >
-                {state.name}
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            ))}
+          <div className="mt-10 grid gap-4 md:grid-cols-4">
+            {LOOP_STEPS.map((step, index) => {
+              const Icon = step.icon;
+              return (
+                <div
+                  key={step.title}
+                  className="rounded-md border-2 border-[#11100D] bg-[#FFF8E8] p-5 shadow-[5px_5px_0_rgba(17,16,13,0.16)]"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#252D6B] text-white">
+                      <Icon className="h-5 w-5" aria-hidden="true" />
+                    </span>
+                    <span className="font-mono text-sm font-black text-[#9E5010]">
+                      0{index + 1}
+                    </span>
+                  </div>
+                  <h3 className="mt-5 font-heading text-2xl font-black">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4B5567]">
+                    {step.body}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
-      <div className="pb-12" />
-    </div>
+
+      <section className="bg-[#121832] px-4 py-16 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+            <div className="max-w-3xl">
+              <p className="text-sm font-black uppercase tracking-[0.18em] text-[#7BDCB5]">
+                Built for the app
+              </p>
+              <h2 className="mt-3 font-heading text-4xl font-black leading-tight tracking-normal text-white md:text-5xl">
+                Not a report. A forecast that knows your breaks.
+              </h2>
+            </div>
+            <p className="max-w-md text-sm font-semibold leading-6 text-[#9AABC6]">
+              This is why Quiver isn&apos;t another surf report you check and
+              forget.
+            </p>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-3">
+            {NATIVE_FEATURES.map((feature) => {
+              const Icon = feature.icon;
+              return (
+                <article
+                  key={feature.title}
+                  className="rounded-md border border-white/12 bg-white/[0.045] p-5 shadow-xl shadow-black/20"
+                >
+                  <div className="flex items-center gap-3">
+                    <FeatureIcon icon={Icon} />
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#FDB84B]">
+                        {feature.eyebrow}
+                      </p>
+                      <h3 className="mt-1 font-heading text-2xl font-black text-white">
+                        {feature.title}
+                      </h3>
+                    </div>
+                  </div>
+                  <p className="mt-5 min-h-[112px] text-base font-semibold leading-7 text-[#B8C7E0]">
+                    {feature.body}
+                  </p>
+                  <div className="relative mx-auto mt-8 w-full max-w-[346px] lg:max-w-[286px]">
+                    <div
+                      aria-hidden="true"
+                      className="absolute inset-x-8 -bottom-5 h-12 rounded-full bg-black/45 blur-xl"
+                    />
+                    <div className="relative rounded-[44px] bg-[#F4EBD8] p-2 shadow-[0_0_0_2px_rgba(253,184,75,0.34),0_0_44px_rgba(253,184,75,0.32),0_34px_86px_rgba(0,0,0,0.66)]">
+                      <div className="relative aspect-[9/19.5] overflow-hidden rounded-[36px] border-2 border-[#FDB84B] bg-[#080B18] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18)]">
+                        <Image
+                          src={feature.imageSrc}
+                          alt={feature.imageAlt}
+                          fill
+                          loading="eager"
+                          sizes="(min-width: 1024px) 270px, 82vw"
+                          className="object-cover"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-[#0D1020] px-4 py-16 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 border-y border-white/12 py-12 md:grid-cols-[minmax(0,0.9fr)_minmax(320px,0.55fr)] md:items-center">
+          <div>
+            <p className="text-sm font-black uppercase tracking-[0.18em] text-[#FDB84B]">
+              Get the app
+            </p>
+            <h2 className="mt-3 font-heading text-4xl font-black leading-tight tracking-normal text-white md:text-5xl">
+              Make tomorrow&apos;s forecast about your surfing.
+            </h2>
+            <p className="mt-4 max-w-2xl text-lg font-semibold leading-8 text-[#B8C7E0]">
+              Install Quiver, save the spots you care about, set the alerts you
+              actually want, and start feeding your sessions back into the loop.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 md:items-end">
+            <IosAppStoreCta
+              source="features-final-app-store"
+              surface="features-page"
+              placement="final_cta"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1020]"
+            >
+              {IOS_APP_STORE_CTA}
+              <ArrowRight className="h-5 w-5" aria-hidden="true" />
+            </IosAppStoreCta>
+            <AndroidWaitlistCta
+              source="features-final-android-waitlist"
+              surface="features-page"
+              placement="final_secondary"
+              className="inline-flex min-h-12 items-center justify-center rounded-md border border-white/25 px-5 py-3 text-base font-black text-white transition hover:border-[#7BDCB5] hover:text-[#7BDCB5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7BDCB5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1020]"
+            >
+              Join Android waitlist
+            </AndroidWaitlistCta>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }

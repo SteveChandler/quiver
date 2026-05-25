@@ -113,9 +113,9 @@ describe("Sitemap Generation", () => {
       expect(route).not.toBeUndefined();
     });
 
-    it("should include /pricing route", async () => {
+    it("should include /plans route", async () => {
       const result = await sitemap();
-      const route = result.find((r) => r.url === `${baseUrl}/pricing`);
+      const route = result.find((r) => r.url === `${baseUrl}/plans`);
 
       expect(route).not.toBeUndefined();
       expect(route?.priority).toBe(0.7);
@@ -130,7 +130,7 @@ describe("Sitemap Generation", () => {
 
     it("should set changeFrequency to daily for static routes", async () => {
       const result = await sitemap();
-      const staticRoutes = ["/", "/features", "/about", "/privacy", "/pricing", "/map"];
+      const staticRoutes = ["/", "/features", "/about", "/privacy", "/plans", "/map"];
 
       staticRoutes.forEach((path) => {
         const route = result.find((r) => r.url === `${baseUrl}${path}`);

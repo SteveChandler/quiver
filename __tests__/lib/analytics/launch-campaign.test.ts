@@ -11,11 +11,18 @@ describe("launch campaign analytics helpers", () => {
       launch_surface: "landing",
     });
 
-    expect(getLaunchPageMetadata("/pricing")).toEqual({
+    expect(getLaunchPageMetadata("/plans")).toEqual({
       launch_campaign: "go_live_2026_05",
-      launch_surface: "pricing",
-      monetization_status: "waitlist_until_checkout_verified",
-      purchase_path_status: "waitlist",
+      launch_surface: "plans",
+      monetization_status: "native_app_store_live_web_checkout_unavailable",
+      purchase_path_status: "ios_app_store_android_waitlist",
+    });
+
+    expect(getLaunchPageMetadata("/features")).toEqual({
+      launch_campaign: "go_live_2026_05",
+      launch_surface: "features",
+      monetization_status: "native_app_store_live_web_checkout_unavailable",
+      purchase_path_status: "ios_app_store_android_waitlist",
     });
 
     expect(getLaunchPageMetadata("/blog/fun-observation-session-logs")).toEqual(
@@ -29,7 +36,8 @@ describe("launch campaign analytics helpers", () => {
   });
 
   it("classifies downstream launch destinations coarsely", () => {
-    expect(getLaunchDestinationType("/pricing")).toBe("pricing");
+    expect(getLaunchDestinationType("/plans")).toBe("plans");
+    expect(getLaunchDestinationType("/pricing")).toBe("plans");
     expect(getLaunchDestinationType("/forecast-accuracy")).toBe("forecast");
     expect(getLaunchDestinationType("/ca/san-diego/ocean-beach")).toBe("beach");
     expect(getLaunchDestinationType("/sessions/new")).toBe("session_log");
@@ -46,8 +54,8 @@ describe("launch campaign analytics helpers", () => {
   it("builds click metadata that stays on existing cta_click events", () => {
     expect(
       buildLaunchBlogLinkMetadata({
-        href: "/pricing",
-        label: "Founding Access Waitlist",
+        href: "/plans",
+        label: "Get Quiver",
         sourceSlug: "why-quiver-is-built-around-one-surf-call",
       })
     ).toEqual({
@@ -60,10 +68,10 @@ describe("launch campaign analytics helpers", () => {
       surface: "blog-post",
       placement: "related-links",
       blog_slug: "why-quiver-is-built-around-one-surf-call",
-      cta_text: "Founding Access Waitlist",
-      destination_url: "/pricing",
-      destination_path: "/pricing",
-      destination_type: "pricing",
+      cta_text: "Get Quiver",
+      destination_url: "/plans",
+      destination_path: "/plans",
+      destination_type: "plans",
     });
   });
 });

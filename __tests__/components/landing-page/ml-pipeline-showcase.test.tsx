@@ -89,6 +89,24 @@ describe("MLPipelineShowcase", () => {
     });
   });
 
+  it("uses oversized zine sticker artwork for the loop cards", () => {
+    const { container } = render(<MLPipelineShowcase />);
+
+    const stickers = Array.from(
+      container.querySelectorAll("[data-zine-sticker]")
+    );
+
+    expect(stickers.map((sticker) => sticker.getAttribute("data-zine-sticker"))).toEqual([
+      "spot-best-season",
+      "spot-location",
+      "spot-gallery",
+      "spot-swell-match",
+    ]);
+    stickers.forEach((sticker) => {
+      expect(sticker).toHaveClass("w-[clamp(7rem,9vw,9.5rem)]");
+    });
+  });
+
   it("opens signup from the loop CTA with source attribution", async () => {
     const user = userEvent.setup();
 

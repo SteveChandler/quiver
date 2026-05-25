@@ -118,7 +118,8 @@ describe("HeroSection", () => {
     jest.useRealTimers();
   });
 
-  it("renders the poster-first video hero and download link", () => {
+  it("renders the poster-first video hero and keeps the download link hidden during playback", async () => {
+    jest.useFakeTimers();
     render(<HeroSection />);
 
     expect(
@@ -132,12 +133,29 @@ describe("HeroSection", () => {
       ),
     ).toBeInTheDocument();
 
-    const link = screen.getByRole("link", { name: IOS_APP_STORE_CTA });
+    expect(
+      screen.queryByRole("link", { name: IOS_APP_STORE_CTA }),
+    ).not.toBeInTheDocument();
+
+    const video = await mountLazyVideo();
+    expect(
+      screen.queryByRole("link", { name: IOS_APP_STORE_CTA }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.ended(video);
+
+    const link = await screen.findByRole("link", { name: IOS_APP_STORE_CTA });
     expect(link).toHaveAttribute("href", IOS_APP_STORE_URL);
   });
 
-  it("tracks the hero video overlay button view with button-specific metadata", async () => {
+  it("tracks the hero video overlay button view after the video ends", async () => {
+    jest.useFakeTimers();
     render(<HeroSection />);
+
+    expect(mockTrackIosAppCtaView).not.toHaveBeenCalled();
+
+    const video = await mountLazyVideo();
+    fireEvent.ended(video);
 
     await waitFor(() => {
       expect(mockTrackIosAppCtaView).toHaveBeenCalledWith({
@@ -146,15 +164,21 @@ describe("HeroSection", () => {
         placement: "hero_video_overlay",
         cta_text: IOS_APP_STORE_CTA,
         destination_url: IOS_APP_STORE_URL,
+        video_loaded: true,
+        video_completed: true,
       });
     });
   });
 
   it("tracks the hero video overlay button click with button-specific metadata", async () => {
-    const user = userEvent.setup();
+    jest.useFakeTimers();
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     render(<HeroSection />);
 
-    const link = screen.getByRole("link", { name: IOS_APP_STORE_CTA });
+    const video = await mountLazyVideo();
+    fireEvent.ended(video);
+
+    const link = await screen.findByRole("link", { name: IOS_APP_STORE_CTA });
     link.addEventListener("click", (event) => event.preventDefault());
 
     await user.click(link);
@@ -165,8 +189,18 @@ describe("HeroSection", () => {
       placement: "hero_video_overlay",
       cta_text: IOS_APP_STORE_CTA,
       destination_url: IOS_APP_STORE_URL,
-      video_loaded: false,
+      video_loaded: true,
+      video_completed: true,
     });
+  });
+
+  it("renders the download link immediately for reduced-motion users", async () => {
+    mockUseReducedMotion.mockReturnValue(true);
+
+    render(<HeroSection />);
+
+    const link = await screen.findByRole("link", { name: IOS_APP_STORE_CTA });
+    expect(link).toHaveAttribute("href", IOS_APP_STORE_URL);
   });
 
   it("does not render the video immediately so the poster can paint first", () => {

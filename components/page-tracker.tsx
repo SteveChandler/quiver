@@ -43,8 +43,8 @@ function getPageName(pathname: string): string {
   // Forecast pages
   if (pathname.startsWith("/forecast")) return "forecast";
 
-  // Launch pricing and blog pages
-  if (pathname === "/pricing") return "pricing";
+  // Launch plans and blog pages
+  if (pathname === "/plans" || pathname === "/pricing") return "plans";
   if (pathname === "/blog") return "blog_index";
   if (pathname.startsWith("/blog/")) return "blog_post";
 

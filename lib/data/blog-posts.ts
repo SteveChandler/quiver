@@ -118,10 +118,10 @@ export const blogPosts: BlogPost[] = [
     ],
     relatedLinks: [
       {
-        label: "Founding Access Waitlist",
-        href: "/pricing",
+        label: "Get Quiver",
+        href: "/plans",
         description:
-          "Join early and help shape the clearer-call loop while plans remain gated.",
+          "Open the iPhone app or join the Android waitlist.",
       },
       {
         label: "Forecast Accuracy",

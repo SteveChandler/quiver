@@ -7,7 +7,7 @@ export type LaunchDestinationType =
   | "blog_post"
   | "forecast"
   | "learn"
-  | "pricing"
+  | "plans"
   | "roadmap"
   | "session_log"
   | "site"
@@ -18,8 +18,8 @@ export interface LaunchPageMetadata {
   launch_surface: string;
   launch_content_group?: string;
   blog_slug?: string;
-  monetization_status?: "waitlist_until_checkout_verified";
-  purchase_path_status?: "waitlist";
+  monetization_status?: "native_app_store_live_web_checkout_unavailable";
+  purchase_path_status?: "ios_app_store_android_waitlist";
 }
 
 export interface LaunchBlogLinkMetadata {
@@ -58,12 +58,21 @@ export function getLaunchPageMetadata(
     };
   }
 
-  if (pathname === "/pricing") {
+  if (pathname === "/plans" || pathname === "/pricing") {
     return {
       launch_campaign: LAUNCH_CAMPAIGN_ID,
-      launch_surface: "pricing",
-      monetization_status: "waitlist_until_checkout_verified",
-      purchase_path_status: "waitlist",
+      launch_surface: "plans",
+      monetization_status: "native_app_store_live_web_checkout_unavailable",
+      purchase_path_status: "ios_app_store_android_waitlist",
+    };
+  }
+
+  if (pathname === "/features") {
+    return {
+      launch_campaign: LAUNCH_CAMPAIGN_ID,
+      launch_surface: "features",
+      monetization_status: "native_app_store_live_web_checkout_unavailable",
+      purchase_path_status: "ios_app_store_android_waitlist",
     };
   }
 
@@ -92,7 +101,7 @@ export function getLaunchDestinationType(href: string): LaunchDestinationType {
   const path = stripQueryAndHash(href);
 
   if (/apps\.apple\.com|testflight\.apple\.com/.test(href)) return "app_store";
-  if (path === "/pricing") return "pricing";
+  if (path === "/plans" || path === "/pricing") return "plans";
   if (path.startsWith("/blog/")) return "blog_post";
   if (path.startsWith("/forecast") || path === "/forecast-accuracy") {
     return "forecast";

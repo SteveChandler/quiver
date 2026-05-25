@@ -3,18 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { motion, useInView, useReducedMotion } from "framer-motion";
-import {
-  Brain,
-  CheckCircle2,
-  ClipboardList,
-  Waves,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 import { SectionWrapper } from "./section-wrapper";
 import { MatchScoreRing } from "./match-score-ring";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
 import { Button } from "@/components/ui/button";
+import { QuiverSticker, type QuiverStickerProps } from "@/components/zine";
 import {
   trackSignupCtaClick,
   trackSignupCtaView,
@@ -26,8 +20,10 @@ interface LoopStep {
   number: string;
   title: string;
   body: string;
-  Icon: LucideIcon;
+  sticker: QuiverStickerProps["sticker"];
   chips: string[];
+  cardClassName: string;
+  stickerClassName: string;
   showScore?: boolean;
 }
 
@@ -37,32 +33,40 @@ const LOOP_STEPS: LoopStep[] = [
     title: "Quiver makes the call.",
     body:
       "We read swell, wind, tide, buoys, and beach context, then turn the noise into one surf call for your day.",
-    Icon: Waves,
+    sticker: "spotBestSeason",
     chips: ["Forecast", "Tide", "Wind"],
+    cardClassName: "md:-rotate-[0.6deg]",
+    stickerClassName: "rotate-[5deg]",
   },
   {
     number: "2",
     title: "You check the beach.",
     body:
       "Use local reports, photos, and your own eyes to see whether the call matches the lineup in front of you.",
-    Icon: CheckCircle2,
+    sticker: "spotLocation",
     chips: ["Reports", "Photos", "Lineup"],
+    cardClassName: "md:rotate-[0.45deg]",
+    stickerClassName: "-rotate-[4deg]",
   },
   {
     number: "3",
     title: "You log the session.",
     body:
       "Save where you surfed, what board you rode, how it felt, and what the waves actually did.",
-    Icon: ClipboardList,
+    sticker: "spotGallery",
     chips: ["Board", "Rating", "Notes"],
+    cardClassName: "md:-rotate-[0.35deg]",
+    stickerClassName: "rotate-[3deg]",
   },
   {
     number: "4",
     title: "Quiver tunes the next one.",
     body:
       "Your surf forecast gets smarter when you log what happened, without treating every note like buoy truth.",
-    Icon: Brain,
+    sticker: "spotSwellMatch",
     chips: ["Signal", "Preference", "Next call"],
+    cardClassName: "md:rotate-[0.55deg]",
+    stickerClassName: "-rotate-[6deg]",
     showScore: true,
   },
 ];
@@ -73,38 +77,54 @@ interface LoopStepCardProps {
 }
 
 function LoopStepCard({ step, inView }: LoopStepCardProps) {
-  const { Icon } = step;
-
   return (
-    <div className="bg-white/[0.04] backdrop-blur-md border border-white/[0.08] rounded-2xl p-6 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.05)] flex flex-col gap-4 h-full">
-      <div className="w-8 h-8 rounded-full border-2 border-[#F78E42] flex items-center justify-center text-sm font-bold text-white">
-        {step.number}
+    <div
+      className={`group relative isolate flex min-h-[360px] h-full flex-col overflow-hidden rounded-lg border-2 border-[#121735] bg-[#F5EEDC] p-5 text-[#121735] shadow-[10px_10px_0_rgba(7,12,42,0.35)] transition-transform duration-300 ease-out hover:-translate-y-1 ${step.cardClassName}`}
+    >
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.08] [background-image:radial-gradient(circle_at_center,#121735_1px,transparent_1px)] [background-size:8px_8px]"
+        aria-hidden="true"
+      />
+      <div
+        className="absolute -top-2 left-8 z-20 h-5 w-24 rotate-[-7deg] bg-[#F78E42] shadow-[3px_3px_0_rgba(18,23,53,0.25)]"
+        aria-hidden="true"
+      />
+      <div className="relative z-10 flex items-start justify-between gap-3">
+        <div className="flex h-11 w-11 rotate-[-3deg] items-center justify-center border-2 border-[#121735] bg-[#F78E42] font-heading text-base font-black text-[#121735] shadow-[3px_3px_0_rgba(18,23,53,0.28)]">
+          {step.number}
+        </div>
+        <QuiverSticker
+          sticker={step.sticker}
+          className={`h-auto w-[clamp(7rem,9vw,9.5rem)] drop-shadow-[0_14px_18px_rgba(18,23,53,0.18)] ${step.stickerClassName}`}
+          decorative
+          sizes="(min-width: 1280px) 152px, (min-width: 768px) 136px, 128px"
+        />
       </div>
-      <div>
-        <h3 className="text-lg font-semibold text-white mb-1">
+      <div className="relative z-10 mt-5">
+        <h3 className="mb-2 font-heading text-xl font-black leading-tight text-[#121735]">
           {step.title}
         </h3>
-        <p className="text-sm text-[#B0C0D6]">
+        <p className="max-w-[18rem] font-sans text-sm leading-6 text-[#3E4A6A]">
           {step.body}
         </p>
       </div>
       {step.showScore ? (
-        <div className="flex justify-center mt-auto">
-          <MatchScoreRing score={87} size={96} animated={inView} />
+        <div className="relative z-10 mt-auto flex items-end justify-between gap-4 pt-6">
+          <span className="max-w-[7rem] font-mono text-[10px] uppercase tracking-[0.2em] text-[#6E7895]">
+            Tuned by real sessions
+          </span>
+          <MatchScoreRing score={87} size={108} animated={inView} />
         </div>
       ) : (
-        <div className="flex items-center gap-3 mt-auto">
-          <Icon
-            className="h-6 w-6 text-[#F78E42] shrink-0"
-            aria-hidden="true"
-          />
+        <div className="relative z-10 mt-auto pt-8" aria-hidden="true">
+          <div className="h-2 w-24 rotate-[-2deg] bg-[#00D4AA]/70 shadow-[3px_3px_0_rgba(18,23,53,0.2)]" />
         </div>
       )}
-      <div className="flex flex-wrap gap-2 mt-auto">
+      <div className="relative z-10 mt-5 flex flex-wrap gap-2">
         {step.chips.map((chip) => (
           <span
             key={chip}
-            className="text-[10px] uppercase tracking-wider bg-white/[0.06] px-2 py-0.5 rounded-full border border-white/[0.1] text-white/60"
+            className="border border-[#121735]/20 bg-[#121735]/[0.06] px-2 py-0.5 font-mono text-[10px] uppercase tracking-wider text-[#3E4A6A]"
           >
             {chip}
           </span>

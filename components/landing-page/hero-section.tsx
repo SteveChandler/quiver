@@ -37,8 +37,11 @@ export function HeroSection() {
   const hasTrackedVideoLoad = useRef(false);
   const hasTrackedVideoStart = useRef(false);
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
+  const [hasVideoEnded, setHasVideoEnded] = useState(false);
+  const [hasVideoError, setHasVideoError] = useState(false);
   const [videoVariant, setVideoVariant] =
     useState<HeroVideoVariant>("desktop");
+  const isAppStoreCtaVisible = reducedMotion || hasVideoEnded || hasVideoError;
 
   const trackVideoEvent = useCallback(
     (event: string, extra: Record<string, unknown> = {}) => {
@@ -60,6 +63,7 @@ export function HeroSection() {
       cta_text: IOS_APP_STORE_CTA,
       destination_url: IOS_APP_STORE_URL,
       video_loaded: shouldLoadVideo,
+      video_completed: hasVideoEnded,
     });
   };
 
@@ -68,7 +72,7 @@ export function HeroSection() {
   }, []);
 
   useEffect(() => {
-    if (user || hasTrackedView.current) return;
+    if (user || hasTrackedView.current || !isAppStoreCtaVisible) return;
     hasTrackedView.current = true;
     trackIosAppCtaView({
       source: HERO_DOWNLOAD_BUTTON_SOURCE,
@@ -76,8 +80,10 @@ export function HeroSection() {
       placement: "hero_video_overlay",
       cta_text: IOS_APP_STORE_CTA,
       destination_url: IOS_APP_STORE_URL,
+      video_loaded: shouldLoadVideo,
+      video_completed: hasVideoEnded,
     });
-  }, [user]);
+  }, [hasVideoEnded, isAppStoreCtaVisible, shouldLoadVideo, user]);
 
   useEffect(() => {
     if (reducedMotion || shouldLoadVideo) return;
@@ -160,12 +166,20 @@ export function HeroSection() {
                   trackVideoEvent("landing_hero_video_loaded");
                 }}
                 onPlay={() => {
+                  setHasVideoEnded(false);
+                  setHasVideoError(false);
                   if (hasTrackedVideoStart.current) return;
                   hasTrackedVideoStart.current = true;
                   trackVideoEvent("landing_hero_video_started");
                 }}
-                onEnded={() => trackVideoEvent("landing_hero_video_ended")}
-                onError={() => trackVideoEvent("landing_hero_video_error")}
+                onEnded={() => {
+                  setHasVideoEnded(true);
+                  trackVideoEvent("landing_hero_video_ended");
+                }}
+                onError={() => {
+                  setHasVideoError(true);
+                  trackVideoEvent("landing_hero_video_error");
+                }}
               >
                 <source
                   src={LANDING_HERO_VIDEO_MOBILE_SRC}
@@ -178,14 +192,17 @@ export function HeroSection() {
                 />
               </video>
             ) : null}
-            <a
-              href={IOS_APP_STORE_URL}
-              aria-label={IOS_APP_STORE_CTA}
-              onClick={handleIosAppClick}
-              className="absolute left-[9.8%] top-[80.9%] z-20 flex h-[6.2%] min-h-9 w-[13.4%] min-w-[112px] items-center justify-center overflow-hidden whitespace-nowrap rounded-[9px] bg-[#111B46] px-3 text-center text-sm font-semibold leading-none text-white shadow-[0_8px_24px_rgba(17,27,70,0.28)] ring-1 ring-white/20 transition hover:bg-[#252D6B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
-            >
-              <span>{IOS_APP_STORE_CTA}</span>
-            </a>
+            {isAppStoreCtaVisible ? (
+              <a
+                href={IOS_APP_STORE_URL}
+                data-testid="hero-video-app-store-cta"
+                aria-label={IOS_APP_STORE_CTA}
+                onClick={handleIosAppClick}
+                className="absolute left-[9.8%] top-[80.9%] z-20 flex h-[6.2%] min-h-9 w-[13.4%] min-w-[112px] items-center justify-center overflow-hidden whitespace-nowrap rounded-[9px] bg-[#111B46] px-3 text-center text-sm font-semibold leading-none text-white shadow-[0_8px_24px_rgba(17,27,70,0.28)] ring-1 ring-white/20 transition hover:bg-[#252D6B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]"
+              >
+                <span>{IOS_APP_STORE_CTA}</span>
+              </a>
+            ) : null}
           </div>
         </div>
       </motion.div>

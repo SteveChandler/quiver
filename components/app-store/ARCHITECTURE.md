@@ -12,11 +12,11 @@
 
 ## Current Status Check
 
-Last checked: 2026-05-24 UTC.
+Last checked: 2026-05-25 UTC.
 
 - App Store page: HTTP 200 at `https://apps.apple.com/us/app/surf-forecast-quiver/id6759300320`.
-- iTunes lookup: `trackName` is `Surf Forecast: Quiver`, `version` is `1.0`, `bundleId` is `app.quiversurf.mobile`, and `releaseDate` is `2026-05-25T07:00:00Z`.
-- App Store page metadata still serves preorder offer state (`offerType=preorder`, `isPreorder=true`, expected release date 2026-05-25), so public web CTAs use `Open App Store` with `app_store_preorder` analytics status until the live Apple state is rechecked.
+- iTunes lookup: `trackName` is `Surf Forecast: Quiver`, `version` is `1.0`, and `releaseDate` / `currentVersionReleaseDate` are `2026-05-25T07:00:00Z`.
+- App Store page metadata serves live app state (`offerType=app`, `isPreorder=false`, button title `Get`), so public web CTAs use `Open App Store` with `app_store_live` analytics status.
 - TestFlight link remains HTTP 200 at `https://testflight.apple.com/join/G31D4XW6` and displays `Join the Surf Forecast: Quiver beta`.
 
 ## Component Boundaries
@@ -34,4 +34,4 @@ Use Brand-Vault before generating new app-store visuals:
 - Landing hero source render: `/Users/stevenchandler/Desktop/dev/Brand-Vault/marketing/launch-video/renders/quiver-landing-hero.mp4`
 - App icon source: `/Users/stevenchandler/Desktop/dev/Brand-Vault/logos/web/quiver-app-icon.png`
 
-When Apple changes from preorder to live download, recheck the live App Store page and iTunes lookup before changing `IOS_APP_STORE_DESTINATION_STATUS`.
+Recheck the live App Store page and iTunes lookup before changing `IOS_APP_STORE_DESTINATION_STATUS`.

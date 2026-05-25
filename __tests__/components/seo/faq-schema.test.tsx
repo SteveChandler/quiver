@@ -8,7 +8,7 @@ function getFaqSchema(container: HTMLElement) {
 }
 
 describe("QuiverFAQSchema", () => {
-  it("keeps public paid-plan claims behind the founding access waitlist", () => {
+  it("keeps public paid-plan claims offsite while iOS is live", () => {
     const { container } = render(<QuiverFAQSchema />);
 
     const schema = getFaqSchema(container);
@@ -17,11 +17,12 @@ describe("QuiverFAQSchema", () => {
     );
     const answer = freeUseQuestion.acceptedAnswer.text;
 
-    expect(answer).toContain("Founding Access Waitlist");
-    expect(answer).toContain("will not be charged automatically");
+    expect(answer).toContain("iPhone app is live on the App Store");
+    expect(answer).toContain("Android is coming soon");
     expect(answer).not.toContain("$4.99");
     expect(answer).not.toContain("$39.99");
     expect(answer).not.toMatch(/14-day free trial/i);
     expect(answer).not.toMatch(/buy|purchase|checkout/i);
+    expect(answer).not.toMatch(/plan details|pricing/i);
   });
 });

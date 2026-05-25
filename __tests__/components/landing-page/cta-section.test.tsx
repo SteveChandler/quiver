@@ -159,7 +159,7 @@ describe("CTASection", () => {
     expect(link).toHaveAttribute("href", IOS_APP_STORE_URL);
     expect(
       screen.getByText(
-        "Opens the current iPhone App Store listing. Core forecasts stay free.",
+        "Opens the current iPhone App Store listing.",
       ),
     ).toBeInTheDocument();
 

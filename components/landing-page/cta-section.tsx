@@ -173,8 +173,8 @@ export function CTASection({
           {...motionProps(400)}
         >
           {isAppStoreCta
-            ? "Opens the current iPhone App Store listing. Core forecasts stay free."
-            : "Free iOS & Android beta. Free core, Pro adds depth."}
+            ? "Opens the current iPhone App Store listing."
+            : "iPhone app is live. Android is coming soon."}
         </motion.p>
       </div>
       <UnifiedAuthModal

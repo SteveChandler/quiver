@@ -1,66 +1,95 @@
-import { CheckCircle2, Clock3, ShieldCheck, Waves } from "lucide-react";
+import Link from "next/link";
+import {
+  Apple,
+  ArrowRight,
+  BellRing,
+  CalendarClock,
+  CheckCircle2,
+  CloudOff,
+  Heart,
+  MapPinned,
+  Navigation,
+  Smartphone,
+  Sparkles,
+  Waves,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 import { FoundingAccessCta } from "@/components/pricing/founding-access-cta";
+import { Button } from "@/components/ui/button";
 import { QuiverSticker, type QuiverStickerProps } from "@/components/zine";
+import {
+  IOS_APP_STORE_CTA,
+  IOS_APP_STORE_URL,
+} from "@/lib/constants/app-store";
 
-const LOOP_STEPS = [
+const TRIAL_STEPS = [
   {
-    title: "Forecast",
-    body: "Quiver gives one surf call before you head out.",
-    sticker: "forecastWaveMark",
-    stickerClass: "right-2 top-2 w-20",
-    rotation: "-rotate-2",
+    icon: CheckCircle2,
+    label: "Today",
+    body: "Start your free trial in the App Store.",
   },
   {
-    title: "Check",
-    body: "Surfers compare the call against the real lineup.",
-    sticker: "spotWindRead",
-    stickerClass: "right-2 top-2 w-20",
-    rotation: "rotate-1",
+    icon: BellRing,
+    label: "Day 12",
+    body: "Get a trial reminder before it ends.",
   },
   {
-    title: "Log",
-    body: "Session notes turn what happened into feedback.",
-    sticker: "surfWax",
-    stickerClass: "right-2 top-2 w-20",
-    rotation: "-rotate-1",
-  },
-  {
-    title: "Adjust",
-    body: "The model uses that feedback to make the next call more useful.",
-    sticker: "tealCurvedArrow",
-    stickerClass: "right-2 top-2 w-20",
-    rotation: "rotate-2",
+    icon: CalendarClock,
+    label: "Day 14",
+    body: "Your Apple-managed plan begins unless you cancel.",
   },
 ] as const satisfies ReadonlyArray<{
-  title: string;
+  icon: LucideIcon;
+  label: string;
   body: string;
-  sticker: QuiverStickerProps["sticker"];
-  stickerClass: string;
-  rotation: string;
 }>;
 
-const STATUS_POINTS = [
+const PRO_FEATURES = [
   {
-    icon: Clock3,
-    title: "Plans are not open yet",
-    body: "For now, focus on logging sessions. We'll open plans after the 5-session lifetime Pro offer is ready.",
+    icon: Sparkles,
+    title: "Personal forecasting",
+    body: "Saved beaches and session feedback help Quiver tune the call around how you surf.",
+    sticker: "goldTape",
+  },
+  {
+    icon: Navigation,
+    title: "Best spot + paddle window",
+    body: "See the nearby move and the timing that looks most worth chasing.",
+    sticker: "tealTape",
+  },
+  {
+    icon: Waves,
+    title: "Board-aware picks",
+    body: "Get recommendations that account for the boards in your quiver.",
     sticker: "creamTornStrip",
   },
   {
-    icon: ShieldCheck,
-    title: "Earn Pro for lifetime",
-    body: "Log 5 surf sessions in Quiver during founding access to qualify for Pro for lifetime.",
-    sticker: "navyTape",
+    icon: BellRing,
+    title: "Similarity alerts",
+    body: "Get nudged when a setup starts matching your best logged sessions.",
+    sticker: "tealTape",
   },
   {
-    icon: CheckCircle2,
-    title: "Your logs count toward it",
-    body: "Each session log helps train the surf-call loop and moves you toward the founding Pro offer.",
+    icon: MapPinned,
+    title: "Custom spots",
+    body: "Create and forecast the tucked-away breaks you actually care about.",
+    sticker: "creamTornStrip",
+  },
+  {
+    icon: Heart,
+    title: "Unlimited favorites",
+    body: "Save more than the free tier's three beaches and keep your coast organized.",
     sticker: "goldTape",
   },
+  {
+    icon: CloudOff,
+    title: "Offline session saving",
+    body: "Log sessions when signal drops, then sync them when you're back online.",
+    sticker: "tealTape",
+  },
 ] as const satisfies ReadonlyArray<{
-  icon: typeof Clock3;
+  icon: LucideIcon;
   title: string;
   body: string;
   sticker: QuiverStickerProps["sticker"];
@@ -72,7 +101,7 @@ export function FoundingOfferSurface() {
       className="zine-tab bg-[#0D1020] text-white"
       data-testid="founding-offer-zine-surface"
     >
-      <section className="relative overflow-hidden px-4 pb-16 pt-24 sm:px-6 lg:px-8">
+      <section className="relative overflow-hidden px-4 pb-16 pt-20 sm:px-6 sm:pt-24 lg:px-8">
         <div
           aria-hidden
           className="absolute inset-0 bg-[linear-gradient(180deg,rgba(37,45,107,0.92),rgba(13,16,32,0.98)_62%)]"
@@ -102,8 +131,8 @@ export function FoundingOfferSurface() {
           />
         </div>
 
-        <div className="relative mx-auto grid max-w-6xl gap-12 lg:grid-cols-[minmax(0,1fr)_420px] lg:items-center">
-          <div>
+        <div className="relative mx-auto max-w-6xl">
+          <div className="max-w-4xl">
             <div className="relative mb-5 inline-flex items-center gap-2 border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-1 text-xs font-bold uppercase tracking-widest text-[#11100D] shadow-[3px_4px_0_rgba(247,142,66,0.55)]">
               <QuiverSticker
                 sticker="orangeTape"
@@ -111,114 +140,141 @@ export function FoundingOfferSurface() {
                 sizes="6rem"
               />
               <Waves className="h-4 w-4" />
-              Founding Access Waitlist
+              App Store live
             </div>
-            <h1 className="max-w-4xl font-heading text-4xl font-bold leading-tight tracking-normal text-white sm:text-5xl md:text-6xl">
-              Join early and help the forecast learn from real sessions.
+            <h1 className="max-w-4xl font-heading text-3xl font-bold leading-tight tracking-normal text-white sm:text-5xl md:text-6xl">
+              Get Quiver
             </h1>
-            <p className="mt-6 max-w-2xl text-lg leading-8 text-[#B8C7E0]">
-              Check one clear surf call before you paddle out. Log 5 sessions,
-              help tune the next call, and qualify for Pro for lifetime when
-              plans open.
+            <p className="mt-4 max-w-2xl text-base leading-7 text-[#B8C7E0] sm:mt-6 sm:text-lg sm:leading-8">
+              Start the iPhone app with 14 days free. Android is coming soon,
+              and the waitlist is open.
             </p>
-
-            <div className="mt-8">
-              <FoundingAccessCta />
-            </div>
           </div>
 
-          <div
-            className="torn torn-tb relative overflow-hidden border-2 border-[#11100D] bg-[#F4EBD8] text-[#11100D] shadow-[8px_10px_0_rgba(247,142,66,0.22),0_24px_60px_rgba(0,0,0,0.28)]"
-            style={{ padding: "48px 24px 56px" }}
-          >
-            <span className="tape tl" aria-hidden />
-            <span className="tape br" aria-hidden />
-            <QuiverSticker
-              sticker="creamCoastMap"
-              className="absolute -right-10 -top-7 w-36 rotate-12 opacity-35"
-              sizes="9rem"
-            />
-            <p className="relative z-10 inline-flex border-2 border-[#11100D] bg-[#11100D] px-3 py-1 font-mono text-xs font-semibold uppercase tracking-widest text-[#F4EBD8]">
-              Current status
-            </p>
-            <div className="relative z-10 mt-6 space-y-5">
-              {STATUS_POINTS.map((point) => {
-                const Icon = point.icon;
-                return (
-                  <div key={point.title} className="flex gap-4">
-                    <div className="relative flex h-11 w-11 shrink-0 items-center justify-center border-2 border-[#11100D] bg-[#FBF6E8] text-[#0B3A75] shadow-[2px_3px_0_rgba(17,16,13,0.18)]">
-                      <QuiverSticker
-                        sticker={point.sticker}
-                        className="absolute -right-4 -top-3 w-10 rotate-12 opacity-45"
-                        sizes="2.5rem"
-                      />
-                      <Icon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h2 className="font-heading text-base font-semibold text-[#11100D]">
-                        {point.title}
-                      </h2>
-                      <p className="mt-1 text-sm leading-6 text-[#4B4030]">
-                        {point.body}
+          <div className="mt-8 grid overflow-hidden rounded-[24px] border-2 border-[#11100D] bg-[#F4EBD8] text-[#11100D] shadow-[8px_10px_0_rgba(247,142,66,0.32)] sm:mt-10 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
+            <div className="relative overflow-hidden p-6 sm:p-8 lg:p-10">
+              <QuiverSticker
+                sticker="orangeTape"
+                className="pointer-events-none absolute right-6 top-5 w-24 rotate-12 opacity-70"
+                sizes="6rem"
+              />
+              <div className="mb-5 flex items-center gap-2 font-heading text-lg font-bold">
+                <Sparkles className="h-5 w-5 text-[#F78E42]" />
+                Pro
+              </div>
+              <h2 className="max-w-xl font-heading text-2xl font-bold leading-tight tracking-normal text-[#11100D] sm:text-4xl">
+                Get surf essentials that keep learning from your sessions
+              </h2>
+              <p className="mt-4 text-base leading-7 text-[#4B4030]">
+                14 days free. After that, the App Store shows the current plan
+                before you subscribe.
+              </p>
+
+              <div
+                className="mt-5 space-y-3 sm:mt-6 sm:space-y-4"
+                aria-label="Quiver Pro trial timeline"
+              >
+                {TRIAL_STEPS.map((step) => {
+                  const Icon = step.icon;
+                  return (
+                    <div key={step.label} className="flex gap-3">
+                      <div className="flex flex-col items-center">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#DFE9FF] text-[#252D6B] sm:h-9 sm:w-9">
+                          <Icon className="h-4 w-4" />
+                        </div>
+                        {step.label !== "Day 14" ? (
+                          <div className="h-4 w-1 bg-[#DFE9FF] sm:h-5" />
+                        ) : null}
+                      </div>
+                      <p className="pt-1 text-sm leading-6 text-[#4B4030]">
+                        <span className="font-semibold text-[#11100D]">
+                          {step.label}:
+                        </span>{" "}
+                        {step.body}
                       </p>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section className="relative overflow-hidden border-y border-white/10 bg-[#121832] px-4 py-12 sm:px-6 lg:px-8">
-        <QuiverSticker
-          sticker="navyLightning"
-          className="pointer-events-none absolute right-6 top-8 hidden w-28 rotate-12 opacity-40 md:block"
-          sizes="7rem"
-        />
-        <QuiverSticker
-          sticker="goldDownArrow"
-          className="pointer-events-none absolute bottom-8 left-6 hidden w-16 -rotate-6 opacity-45 md:block"
-          sizes="4rem"
-        />
-        <div className="relative mx-auto max-w-6xl">
-          <div className="mb-8 max-w-2xl">
-            <p className="inline-flex border-2 border-[#11100D] bg-[#7BDCB5] px-3 py-1 font-mono text-xs font-semibold uppercase tracking-widest text-[#11100D] shadow-[3px_4px_0_rgba(17,16,13,0.24)]">
-              How Quiver gets better
-            </p>
-            <h2 className="mt-3 font-heading text-3xl font-bold tracking-normal text-white">
-              Forecast, check, log, adjust.
-            </h2>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-4">
-            {LOOP_STEPS.map((step, index) => (
-              <div
-                key={step.title}
-                className={`torn torn-tb group relative min-h-56 overflow-hidden border-2 border-[#11100D] bg-[#F4EBD8] p-5 text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.28)] transition-transform duration-200 hover:-translate-y-1 ${step.rotation}`}
-                data-testid="pricing-loop-card"
-              >
-                <QuiverSticker
-                  sticker={step.sticker}
-                  className={`absolute rotate-12 opacity-85 transition-transform duration-200 group-hover:scale-105 ${step.stickerClass}`}
-                  sizes="6rem"
-                />
-                <QuiverSticker
-                  sticker={index % 2 === 0 ? "creamTape" : "tealTape"}
-                  className="absolute -left-8 -top-4 w-24 -rotate-12 opacity-85"
-                  sizes="6rem"
-                />
-                <div className="relative z-10 mb-5 flex h-10 w-10 items-center justify-center border-2 border-[#11100D] bg-[#F78E42] font-mono text-sm font-bold text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.2)]">
-                  {index + 1}
-                </div>
-                <h3 className="relative z-10 font-heading text-xl font-semibold uppercase tracking-normal text-[#11100D]">
-                  {step.title}
-                </h3>
-                <p className="relative z-10 mt-3 text-sm leading-6 text-[#4B4030]">
-                  {step.body}
-                </p>
+                  );
+                })}
               </div>
-            ))}
+
+              <Button
+                asChild
+                size="lg"
+                className="mt-7 min-h-14 w-full rounded-full bg-[#11100D] px-6 font-semibold text-[#F4EBD8] hover:bg-[#252D6B] focus-visible:ring-[#F78E42] focus-visible:ring-offset-[#F4EBD8] sm:max-w-sm"
+              >
+                <Link href={IOS_APP_STORE_URL}>
+                  {IOS_APP_STORE_CTA}
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </Button>
+              <p className="mt-4 text-center text-xs font-medium text-[#4B4030] sm:max-w-sm">
+                Cancel anytime in Apple subscriptions.
+              </p>
+
+              <div className="mt-6 border-t-2 border-[#11100D]/15 pt-5 sm:max-w-sm">
+                <div className="flex flex-wrap gap-2">
+                  <div className="rounded-full border border-[#11100D]/20 bg-[#FFF7E6] px-3 py-2">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <Apple className="h-4 w-4 text-[#F78E42]" />
+                      iPhone
+                    </div>
+                    <p className="mt-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-[#252D6B]">
+                      App Store live
+                    </p>
+                  </div>
+                  <div className="rounded-full border border-[#11100D]/20 bg-[#FFF7E6] px-3 py-2">
+                    <div className="flex items-center gap-2 text-sm font-semibold">
+                      <Smartphone className="h-4 w-4 text-[#7BDCB5]" />
+                      Android
+                    </div>
+                    <p className="mt-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-[#252D6B]">
+                      Coming soon
+                    </p>
+                  </div>
+                </div>
+                <FoundingAccessCta className="mt-3" variant="compact" />
+              </div>
+            </div>
+
+            <div className="relative border-t-2 border-[#11100D] bg-[#FFF9EA] p-6 sm:p-8 lg:border-l-2 lg:border-t-0 lg:p-10">
+              <QuiverSticker
+                sticker="navyLightning"
+                className="pointer-events-none absolute right-5 top-5 w-20 rotate-12 opacity-35"
+                sizes="5rem"
+              />
+              <p className="text-sm font-medium uppercase tracking-widest text-[#6B6256]">
+                Pro membership includes
+              </p>
+              <div className="mt-5 divide-y divide-[#11100D]/12">
+                {PRO_FEATURES.map((feature) => {
+                  const Icon = feature.icon;
+                  return (
+                    <div
+                      key={feature.title}
+                      className="grid grid-cols-[3.5rem_minmax(0,1fr)] gap-4 py-4 first:pt-0 sm:grid-cols-[4rem_minmax(0,1fr)]"
+                      data-testid="plans-pro-feature"
+                    >
+                      <div className="relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-lg border-2 border-[#11100D] bg-[#D9EEF4] shadow-[3px_4px_0_rgba(17,16,13,0.16)] sm:h-14 sm:w-14">
+                        <QuiverSticker
+                          sticker={feature.sticker}
+                          className="absolute -right-6 -top-4 w-20 rotate-12 opacity-55"
+                          sizes="5rem"
+                        />
+                        <Icon className="relative z-10 h-6 w-6 text-[#252D6B]" />
+                      </div>
+                      <div>
+                        <h3 className="font-heading text-base font-bold tracking-normal text-[#11100D] sm:text-lg">
+                          {feature.title}
+                        </h3>
+                        <p className="mt-1 text-sm leading-6 text-[#4B4030]">
+                          {feature.body}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       </section>

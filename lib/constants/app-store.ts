@@ -5,7 +5,7 @@ export const IOS_APP_STORE_URL =
 
 export const IOS_APP_STORE_CTA = "Open App Store";
 
-export const IOS_APP_STORE_DESTINATION_STATUS = "app_store_preorder";
+export const IOS_APP_STORE_DESTINATION_STATUS = "app_store_live";
 
 export const IOS_APP_STORE_SMART_BANNER_ARGUMENT =
   "https://www.quiversurf.app";

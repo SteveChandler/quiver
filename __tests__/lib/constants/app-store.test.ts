@@ -9,13 +9,13 @@ import {
 } from "@/lib/constants/app-store";
 
 describe("app-store constants", () => {
-  it("keeps iOS App Store destination copy in one conservative source of truth", () => {
+  it("keeps iOS App Store destination copy in one live source of truth", () => {
     expect(IOS_APP_STORE_APP_ID).toBe("6759300320");
     expect(IOS_APP_STORE_URL).toBe(
       "https://apps.apple.com/us/app/surf-forecast-quiver/id6759300320",
     );
     expect(IOS_APP_STORE_CTA).toBe("Open App Store");
-    expect(IOS_APP_STORE_DESTINATION_STATUS).toBe("app_store_preorder");
+    expect(IOS_APP_STORE_DESTINATION_STATUS).toBe("app_store_live");
     expect(IOS_APP_STORE_CTA).not.toMatch(/download|pre[- ]?order/i);
   });
 

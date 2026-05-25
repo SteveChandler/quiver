@@ -168,7 +168,7 @@ useEffect(() => {
   - Maps pathnames to human-readable page names
   - Generates per-browser-session IDs for session grouping
   - Skips duplicate events for the same path plus safe attribution tuple
-  - Adds launch campaign metadata for landing, pricing, blog index, and blog posts
+  - Adds launch campaign metadata for landing, plans, blog index, and blog posts
   - Supports authenticated and anonymous tracking through `useTrackEvent`
 
 **Integration:**
@@ -196,7 +196,7 @@ function Providers({ children }) {
 | `/map` | `map` |
 | `/profile/*` | `profile` |
 | `/session/*` | `session` |
-| `/pricing` | `pricing` |
+| `/plans` | `plans` |
 | `/blog` | `blog_index` |
 | `/blog/*` | `blog_post` |
 | `/onboarding/*` | `onboarding` |

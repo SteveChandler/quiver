@@ -70,18 +70,18 @@ test.describe('Guest Blog Launch Analytics', () => {
       .toBe(true);
 
     await page
-      .getByRole('link', { name: /founding access waitlist/i })
+      .getByRole('link', { name: /get quiver/i })
       .click();
 
-    await expect(page).toHaveURL(/\/pricing$/);
+    await expect(page).toHaveURL(/\/plans$/);
     await expect
       .poll(() =>
         eventBodies.some(
           (eventBody) =>
             eventBody.eventType === 'cta_click' &&
             eventBody.metadata?.cta_family === 'launch_blog_cross_link' &&
-            eventBody.metadata?.destination_type === 'pricing' &&
-            eventBody.metadata?.destination_path === '/pricing',
+            eventBody.metadata?.destination_type === 'plans' &&
+            eventBody.metadata?.destination_path === '/plans',
         ),
       )
       .toBe(true);

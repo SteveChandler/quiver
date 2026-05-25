@@ -154,6 +154,13 @@ export const QUIVER_STICKER_ASSETS = {
     width: 256,
     height: 256,
   },
+  spotGallery: {
+    slug: "spot-gallery",
+    src: "/images/quiver-stickers/spot-gallery.png",
+    alt: "Gallery icon",
+    width: 256,
+    height: 256,
+  },
   creamTape: {
     slug: "cream-tape",
     src: "/images/quiver-stickers/cream-tape.png",

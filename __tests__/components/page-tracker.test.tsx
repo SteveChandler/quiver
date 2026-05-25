@@ -149,22 +149,45 @@ describe("PageTracker", () => {
       });
     });
 
-    it("adds launch metadata to pricing page views", async () => {
-      mockUsePathname.mockReturnValue("/pricing");
+    it("adds launch metadata to plans page views", async () => {
+      mockUsePathname.mockReturnValue("/plans");
 
       render(<PageTracker />);
 
       await waitFor(() => {
         expect(mockTrack).toHaveBeenCalledWith("page_view", {
           metadata: {
-            page: "pricing",
-            pathname: "/pricing",
+            page: "plans",
+            pathname: "/plans",
             previous_pathname: "",
             browser_session_id: expect.any(String),
             launch_campaign: "go_live_2026_05",
-            launch_surface: "pricing",
-            monetization_status: "waitlist_until_checkout_verified",
-            purchase_path_status: "waitlist",
+            launch_surface: "plans",
+            monetization_status: "native_app_store_live_web_checkout_unavailable",
+            purchase_path_status: "ios_app_store_android_waitlist",
+          },
+          debounceMs: 500,
+        });
+      });
+    });
+
+    it("adds launch metadata to features page views", async () => {
+      mockUsePathname.mockReturnValue("/features");
+
+      render(<PageTracker />);
+
+      await waitFor(() => {
+        expect(mockTrack).toHaveBeenCalledWith("page_view", {
+          metadata: {
+            page: "features",
+            pathname: "/features",
+            previous_pathname: "",
+            browser_session_id: expect.any(String),
+            launch_campaign: "go_live_2026_05",
+            launch_surface: "features",
+            monetization_status:
+              "native_app_store_live_web_checkout_unavailable",
+            purchase_path_status: "ios_app_store_android_waitlist",
           },
           debounceMs: 500,
         });
@@ -304,7 +327,8 @@ describe("PageTracker", () => {
       { pathname: "/settings", expected: "settings" },
       { pathname: "/session/new", expected: "session" },
       { pathname: "/forecast/daily", expected: "forecast" },
-      { pathname: "/pricing", expected: "pricing" },
+      { pathname: "/plans", expected: "plans" },
+      { pathname: "/pricing", expected: "plans" },
       { pathname: "/blog", expected: "blog_index" },
       { pathname: "/blog/fun-observation-session-logs", expected: "blog_post" },
       { pathname: "/onboarding/step1", expected: "onboarding" },

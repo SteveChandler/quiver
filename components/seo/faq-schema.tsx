@@ -152,7 +152,7 @@ export function QuiverFAQSchema() {
     {
       question: "Is Quiver free to use?",
       answer:
-        "Quiver's core is free to use — forecasts at 279+ beaches, unlimited session logging, the community feed, share cards, and 3 favorite beaches. The public path for personalization features is the Founding Access Waitlist: early members get first access when plans open, and beta users will not be charged automatically.",
+        "Quiver's iPhone app is live on the App Store, and Android is coming soon through the Android waitlist. Open the App Store listing for the current iPhone app flow.",
     },
     {
       question: "How accurate are the surf forecasts?",

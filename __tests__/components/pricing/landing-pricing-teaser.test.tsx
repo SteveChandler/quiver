@@ -11,19 +11,19 @@ const BLOCKED_PUBLIC_COPY = [
 ] as const;
 
 describe("LandingPricingTeaser", () => {
-  it("links the landing page to founding access without purchase copy", () => {
+  it("links the landing page to native app availability without purchase copy", () => {
     const { container } = render(<LandingPricingTeaser />);
 
     const link = screen.getByRole("link", {
-      name: /see founding access/i,
+      name: /see app options/i,
     });
 
-    expect(link).toHaveAttribute("href", "/pricing");
+    expect(link).toHaveAttribute("href", "/plans");
     expect(
-      screen.getByText(/log 5 sessions\. get pro for lifetime/i),
+      screen.getByText(/iPhone is live\. Android is next\./i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/qualify for lifetime pro when plans open/i),
+      screen.getByText(/open quiver on the app store or join the android waitlist/i),
     ).toBeInTheDocument();
 
     const pageText = container.textContent ?? "";
