@@ -27,10 +27,7 @@ export function FoundingAccessCta({
   const { user, isLoading } = useAuth();
   const { profile, refreshProfile } = useProfileContext();
   const isCompact = variant === "compact";
-  const hasJoinedAndroidWaitlist = Boolean(
-    (profile as { wants_android_access?: boolean | null } | null)
-      ?.wants_android_access,
-  );
+  const hasJoinedAndroidWaitlist = Boolean(profile?.wants_android_access);
   const refreshAndroidWaitlistStatus = useCallback(() => {
     void refreshProfile();
   }, [refreshProfile]);
