@@ -1,0 +1,74 @@
+[
+  {
+    "slug": "long-beach-long-beach-ny",
+    "name": "Long Beach",
+    "city": "Long Beach",
+    "state": "NY",
+    "country": "USA",
+    "query": "Long Beach New York boardwalk beach",
+    "notes": "Current Quiver beach inventory. Best candidate for a true Long Island beginner anchor."
+  },
+  {
+    "slug": "rockaway-beach-90th-st-queens-ny",
+    "name": "Rockaway Beach - 90th St",
+    "city": "Queens",
+    "state": "NY",
+    "country": "USA",
+    "query": "Rockaway Beach 90th Street Queens surf",
+    "notes": "Current Quiver beach inventory. Useful nearby urban reference, but not a blanket beginner call."
+  },
+  {
+    "slug": "rockaway-beach-98th-st-queens-ny",
+    "name": "Rockaway Beach - 98th St",
+    "city": "Queens",
+    "state": "NY",
+    "country": "USA",
+    "query": "Rockaway Beach 98th Street Queens surf",
+    "notes": "Current Quiver beach inventory. Similar to 90th; only keep if imagery is meaningfully different."
+  },
+  {
+    "slug": "ditch-plains-montauk-ny",
+    "name": "Ditch Plains",
+    "city": "Montauk",
+    "state": "NY",
+    "country": "USA",
+    "query": "Ditch Plains Montauk surf",
+    "notes": "Current Quiver beach inventory. Better for broader Long Island context than beginner positioning."
+  },
+  {
+    "slug": "robert-moses-state-park-ny",
+    "name": "Robert Moses State Park",
+    "city": "Babylon",
+    "state": "NY",
+    "country": "USA",
+    "query": "Robert Moses State Park Long Island beach surf",
+    "notes": "Researched future beach candidate. Mentioned repeatedly in Long Island beginner-surf discussions."
+  },
+  {
+    "slug": "gilgo-beach-ny",
+    "name": "Gilgo Beach",
+    "city": "Babylon",
+    "state": "NY",
+    "country": "USA",
+    "query": "Gilgo Beach Long Island surf",
+    "notes": "Researched future beach candidate. Common Long Island surf reference, but likely more intermediate than beginner."
+  },
+  {
+    "slug": "tobay-beach-ny",
+    "name": "Tobay Beach",
+    "city": "Massapequa",
+    "state": "NY",
+    "country": "USA",
+    "query": "Tobay Beach Long Island surf",
+    "notes": "Researched future beach candidate. Relevant if we want more south-shore breadth."
+  },
+  {
+    "slug": "lido-beach-ny",
+    "name": "Lido Beach",
+    "city": "Lido Beach",
+    "state": "NY",
+    "country": "USA",
+    "query": "Lido Beach New York surf",
+    "notes": "Researched future beach candidate. Mentioned in recent Long Island beginner-surf discussions."
+  }
+]

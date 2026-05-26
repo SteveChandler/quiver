@@ -151,6 +151,10 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     src: "/images/seo-dioramas/beginner/cocoa-beach/cocoa-pier-beginner-diorama.webp",
     alt: "Cocoa Beach Pier beginner surf context",
   },
+  "ditch-plains-montauk-ny": {
+    src: "/images/seo-dioramas/beginner/long-island/ditch-plains-montauk-ny-photo.webp",
+    alt: "Ditch Plains shoreline and Montauk surf context",
+  },
   "doheny-beach": {
     src: "/images/seo-dioramas/beginner/socal/doheny-beach-photo.webp",
     alt: "Doheny State Beach shoreline and soft learner surf context",
@@ -178,6 +182,10 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
   "la-jolla-shores": {
     src: "/images/seo-dioramas/beginner/socal/la-jolla-shores-photo.webp",
     alt: "La Jolla Shores beach and learner surf context",
+  },
+  "long-beach-long-beach-ny": {
+    src: "/images/seo-dioramas/beginner/long-island/long-beach-long-beach-ny-photo.webp",
+    alt: "Long Beach, New York shoreline and barrier-island surf context",
   },
   leadbetter: {
     src: "/images/seo-dioramas/longboard/santa-barbara/santa-barbara-palm-check-diorama.webp",
@@ -218,6 +226,14 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
   "san-onofre-state-beach": {
     src: "/images/seo-dioramas/beginner/socal/san-onofre-state-beach-photo.webp",
     alt: "San Onofre State Beach sunset and gentle-wave planning context",
+  },
+  "rockaway-beach-90th-st-queens-ny": {
+    src: "/images/seo-dioramas/beginner/long-island/gilgo-beach-ny-photo.webp",
+    alt: "Bright South Shore shoreline context for Rockaway small-day planning",
+  },
+  "rockaway-beach-98th-st-queens-ny": {
+    src: "/images/seo-dioramas/beginner/long-island/rockaway-beach-90th-st-queens-ny-photo.webp",
+    alt: "Rockaway Beach shoreline and New York surf context",
   },
   scripps: {
     src: "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
@@ -845,6 +861,7 @@ const LONGBOARD_PAGES = [
         href: "/surf-report/tourmaline-today",
       },
       { label: "Scripps Pier today", href: "/surf-report/scripps-pier-today" },
+      { label: "Best time to surf La Jolla", href: "/best-time-to-surf/la-jolla" },
       { label: "San Diego surf cams", href: "/surf-cams/san-diego" },
     ],
     spots: [
@@ -961,6 +978,10 @@ const LONGBOARD_PAGES = [
     links: [
       { label: "Ventura longboard guide", href: "/longboard/ventura" },
       { label: "Malibu surf report today", href: "/surf-report/malibu-today" },
+      {
+        label: "Best time to surf Santa Barbara",
+        href: "/best-time-to-surf/santa-barbara",
+      },
       { label: "Open Quiver map", href: "/map?search=Santa%20Barbara" },
     ],
     spots: [
@@ -1014,6 +1035,7 @@ const LONGBOARD_PAGES = [
     namedBreaks: ["Waikiki", "Queens", "Canoes", "Diamond Head"],
     links: [
       { label: "Honolulu beginner surf", href: "/beginner/honolulu" },
+      { label: "Best time to surf Honolulu", href: "/best-time-to-surf/honolulu" },
       { label: "Hawaii surf cams", href: "/surf-cams/hawaii" },
       { label: "Open Quiver map", href: "/map?search=Honolulu" },
     ],
@@ -1258,7 +1280,7 @@ const BEGINNER_PAGES = [
     locationName: "Santa Cruz",
     title: "Beginner Surf Spots in Santa Cruz | Quiver",
     metaDescription:
-      "Plan beginner surfing in Santa Cruz with Quiver's guide to Cowell's, Capitola, Pleasure Point context, tide windows, safety notes, and live nearby forecast links.",
+      "Plan beginner surfing in Santa Cruz with Quiver's guide to Cowell's, Capitola, Pleasure Point, tide windows, safety notes, and live forecast links.",
     h1: "Beginner Surf Spots in Santa Cruz",
     intro:
       "Santa Cruz has iconic learner waves, but it also has reefs, cold water, crowds, and fast-changing swell. Keep the beginner plan honest.",
@@ -1416,7 +1438,7 @@ const BEGINNER_PAGES = [
     locationName: "Huntington Beach",
     title: "Beginner Surf Spots in Huntington Beach | Quiver",
     metaDescription:
-      "Plan beginner surfing in Huntington Beach with Quiver's guide to Bolsa Chica, small HB sandbars, Huntington State Beach, Blackies nearby, tide timing, and morning wind.",
+      "Plan beginner surfing in Huntington Beach with Quiver's guide to Bolsa Chica, small HB sandbars, Huntington State Beach, tide timing, and morning wind.",
     h1: "Beginner Surf Spots in Huntington Beach",
     intro:
       "Huntington can work for beginners, but the useful filter is practical: small waves, low wind, an early glass window, and low-to-mid tide.",
@@ -1494,7 +1516,7 @@ const BEGINNER_PAGES = [
     locationName: "Los Angeles",
     title: "Beginner Surf Spots in Los Angeles | Quiver",
     metaDescription:
-      "Plan beginner surfing in Los Angeles with Quiver's guide to Santa Monica, Will Rogers, Dockweiler, Venice, Torrance, small-wave windows, and unsafe-spot caveats.",
+      "Plan beginner surfing in Los Angeles with Quiver's guide to Santa Monica, Will Rogers, Dockweiler, Venice, Torrance, and small-wave safety caveats.",
     h1: "Beginner Surf Spots in Los Angeles",
     intro:
       "Los Angeles beginner surf is less about chasing famous names and more about finding a small, clean, uncrowded sandbar with soft whitewater.",
@@ -1823,6 +1845,89 @@ const BEGINNER_PAGES = [
   }),
   buildLocationPage({
     type: "beginner",
+    slug: "long-island",
+    locationName: "Long Island",
+    title: "Beginner Surf Spots on Long Island",
+    metaDescription:
+      "Plan beginner surf on Long Island with Quiver's guide to Long Beach, Rockaway, small-day filters, and honest Montauk caveats.",
+    h1: "Beginner Surf Spots on Long Island",
+    intro:
+      "Long Island beginner surf works best when you treat it as a small-day planning problem, not a blanket yes for the whole coast.",
+    bestZones:
+      "Long Beach is the cleanest learner anchor in the current Quiver inventory because it gives beginners a straightforward sandy lineup and easy check on smaller days. Rockaway can work as the next option when the size stays tame and the crowd is manageable. Gilgo, Lido, and Robert Moses matter as regional context, but the first Long Island beginner page should stay centered on the softer city-beach calls rather than pretend every exposed stretch is a learner zone.",
+    conditions:
+      "Keep the filter conservative: roughly knee- to waist-high surf, light wind, enough shape to avoid closeouts, and a tide window that does not turn the inside into hard shorebreak. If the Atlantic side is dumping, side-shore, or sweeping sideways, it is not a beginner session even if the beach name is familiar.",
+    boardCall:
+      "A soft-top is still the default. Only move into a hard longboard when the surfer can control trim, stop cleanly, and avoid drift around other learners. Bigger exposed days can turn a beginner board into a liability fast on Long Island because paddling back in and clearing the inside takes more judgment than the forecast headline suggests.",
+    localNotes:
+      "Be explicit about Montauk. Ditch Plains can be a useful advanced-progressing reference, but it is not the core beginner recommendation and Turtle Cove should stay out of learner guidance entirely. If the obvious Long Beach or Rockaway call looks too big, closey, or crowded, the honest move is to skip the session instead of forcing a famous-name check.",
+    namedBreaks: [
+      "Long Beach",
+      "Rockaway 90th",
+      "Rockaway 98th",
+      "Ditch Plains",
+    ],
+    links: [
+      { label: "Best time to surf", href: "/best-time-to-surf" },
+      { label: "Belmar surf report today", href: "/surf-report/belmar-today" },
+      { label: "Open Quiver map", href: "/map?search=Long%20Island" },
+    ],
+    spots: [
+      {
+        label: "Long Beach",
+        href: "/ny/long-beach/long-beach-long-beach-ny",
+        beachSlug: "long-beach-long-beach-ny",
+      },
+      {
+        label: "Rockaway Beach 90th St",
+        href: "/ny/queens/rockaway-beach-90th-st-queens-ny",
+        beachSlug: "rockaway-beach-90th-st-queens-ny",
+      },
+      {
+        label: "Rockaway Beach 98th St",
+        href: "/ny/queens/rockaway-beach-98th-st-queens-ny",
+        beachSlug: "rockaway-beach-98th-st-queens-ny",
+      },
+      {
+        label: "Ditch Plains",
+        href: "/ny/montauk/ditch-plains-montauk-ny",
+        beachSlug: "ditch-plains-montauk-ny",
+      },
+    ],
+    images: [],
+    existingImages: [
+      makeExistingPhotoImage(
+        "long-island-beginner-robert-moses-photo",
+        "/images/seo-dioramas/beginner/long-island/robert-moses-state-park-ny-photo.webp",
+        "Robert Moses State Park shoreline for broad Long Island beginner surf planning",
+        "Robert Moses State Park shoreline and broad Long Island surf context",
+        "Robert Moses State Park - photo by KellyCampbell, CC BY-SA 4.0",
+      ),
+      makeExistingPhotoImage(
+        "long-island-beginner-rockaway-photo",
+        "/images/seo-dioramas/beginner/long-island/rockaway-beach-90th-st-queens-ny-photo.webp",
+        "Rockaway Beach shoreline for New York beginner surf planning",
+        "Rockaway Beach shoreline and New York beginner surf context",
+        "Rockaway Beach - photo by joiseyshowaa, CC BY-SA 2.0",
+      ),
+      makeExistingPhotoImage(
+        "long-island-beginner-long-beach-photo",
+        "/images/seo-dioramas/beginner/long-island/long-beach-long-beach-ny-photo.webp",
+        "Long Beach, New York shoreline for Long Island beginner surf planning",
+        "Long Beach, New York shoreline and barrier-island beginner surf context",
+        "Long Beach, NY - photo by Howard N2GOT, CC BY 2.0",
+      ),
+      makeExistingPhotoImage(
+        "long-island-beginner-lido-photo",
+        "/images/seo-dioramas/beginner/long-island/lido-beach-ny-photo.webp",
+        "Lido Beach shoreline for broader Long Island beginner surf context",
+        "Lido Beach shoreline and broader Long Island surf-planning context",
+        "Lido Beach - photo by Michael LoCascio, CC BY-SA 3.0",
+      ),
+    ].slice(0, 3),
+  }),
+  buildLocationPage({
+    type: "beginner",
     slug: "san-onofre",
     locationName: "San Onofre",
     title: "Beginner Surf Spots in San Onofre | Quiver",
@@ -1929,6 +2034,21 @@ interface TodaySeed {
 
 function buildTodayPage(seed: TodaySeed): SeoPageConfig {
   const images = makeImages("surf-report-today", seed.slug, seed.images);
+  const conditionSections = [
+    {
+      ...seed.sections[0],
+      heading: `${seed.locationName} conditions right now`,
+    },
+    {
+      heading: "Should you surf today?",
+      body: seed.intro,
+    },
+    {
+      ...seed.sections[1],
+      heading: "When this spot is worth it",
+    },
+    ...seed.sections.slice(2),
+  ];
 
   return {
     type: "surf-report-today",
@@ -1942,7 +2062,7 @@ function buildTodayPage(seed: TodaySeed): SeoPageConfig {
     locationName: seed.locationName,
     heroImage: images[0],
     images,
-    sections: seed.sections,
+    sections: conditionSections,
     faqs: [
       {
         question: `Should you surf ${seed.locationName} today?`,
@@ -1987,10 +2107,10 @@ const TODAY_PAGES = [
   buildTodayPage({
     slug: "scripps-pier-today",
     locationName: "Scripps Pier",
-    title: "Scripps Pier Surf Report Today | Should You Surf?",
+    title: "Scripps Pier Surf Report Today: Waves, Tide & Wind",
     metaDescription:
-      "Wondering if Scripps Pier is worth paddling out today? See Quiver's live surf verdict, best window, tide risk, board call, wetsuit guidance, and backups.",
-    h1: "Should You Surf Scripps Pier Today?",
+      "Scripps Pier surf report today with live wave height, tide, wind, best window, board call, wetsuit guidance, and La Jolla backups before you drive.",
+    h1: "Scripps Pier Surf Report Today",
     intro:
       "Scripps can be tempting from the parking lot, but tide, wind, and beachbreak shape decide whether it is worth paddling out.",
     primarySpotSlug: "scripps",
@@ -2027,6 +2147,7 @@ const TODAY_PAGES = [
     links: [
       { label: "San Diego surf cams", href: "/surf-cams/san-diego" },
       { label: "Beginner surf in San Diego", href: "/beginner/san-diego" },
+      { label: "Best time to surf La Jolla", href: "/best-time-to-surf/la-jolla" },
       { label: "Tourmaline today", href: "/surf-report/tourmaline-today" },
     ],
     spots: [
@@ -2071,10 +2192,10 @@ const TODAY_PAGES = [
   buildTodayPage({
     slug: "belmar-today",
     locationName: "Belmar",
-    title: "Belmar Surf Report Today | Should You Surf?",
+    title: "Belmar NJ Surf Report Today: Waves, Wind & Tide",
     metaDescription:
-      "Check if Belmar is worth surfing today with Quiver's live verdict, best window, board call, cold-water wetsuit guidance, wind risk, and backup spots.",
-    h1: "Should You Surf Belmar Today?",
+      "Belmar NJ surf report today with live wave height, tide, wind, best window, board call, cold-water wetsuit guidance, and nearby backup spots.",
+    h1: "Belmar NJ Surf Report Today",
     intro:
       "Belmar can switch from fun beachbreak to drift-heavy work fast. The right call starts with wind, tide, and whether the best window is still open.",
     primarySpotSlug: "belmar-belmar-nj",
@@ -2110,8 +2231,11 @@ const TODAY_PAGES = [
     ],
     links: [
       { label: "Open Quiver map", href: "/map?search=Belmar" },
-      { label: "Beginner surf in San Diego", href: "/beginner/san-diego" },
-      { label: "San Diego cams", href: "/surf-cams/san-diego" },
+      { label: "Best time to surf Belmar", href: "/best-time-to-surf/belmar" },
+      {
+        label: "3rd Avenue Jetty forecast",
+        href: "/nj/belmar/3rd-avenue-jetty-belmar-nj",
+      },
     ],
     spots: [
       {
@@ -2154,10 +2278,10 @@ const TODAY_PAGES = [
   buildTodayPage({
     slug: "tourmaline-today",
     locationName: "Tourmaline",
-    title: "Tourmaline Surf Report Today | Should You Surf?",
+    title: "Tourmaline Surf Report Today: Longboard Window & Wind",
     metaDescription:
-      "See if Tourmaline is worth surfing today with Quiver's live verdict, best longboard window, board call, tide and wind risk, parking note, and backups.",
-    h1: "Should You Surf Tourmaline Today?",
+      "Tourmaline surf report today with live wave height, tide, wind, longboard window, board call, parking note, and La Jolla backups before you drive.",
+    h1: "Tourmaline Surf Report Today",
     intro:
       "Tourmaline is often the softer call, but the crowd, tide, and wind still decide whether it is a glide session or a frustrating paddle.",
     primarySpotSlug: "tourmaline-surf-park",
@@ -2190,6 +2314,7 @@ const TODAY_PAGES = [
     links: [
       { label: "La Jolla longboard guide", href: "/longboard/la-jolla" },
       { label: "San Diego surf cams", href: "/surf-cams/san-diego" },
+      { label: "Best time to surf La Jolla", href: "/best-time-to-surf/la-jolla" },
       { label: "Scripps Pier today", href: "/surf-report/scripps-pier-today" },
     ],
     spots: [
@@ -2229,10 +2354,10 @@ const TODAY_PAGES = [
   buildTodayPage({
     slug: "malibu-today",
     locationName: "Malibu",
-    title: "Malibu Surf Report Today | Should You Surf?",
+    title: "Malibu Surf Report Today: Waves, Tide & Wind",
     metaDescription:
-      "Check if Malibu is worth surfing today with Quiver's live verdict, best point-wave window, board call, tide risk, crowd note, and nearby backups.",
-    h1: "Should You Surf Malibu Today?",
+      "Malibu surf report today with live wave height, tide, wind, best window, board call, crowd notes, and First Point backups before you drive.",
+    h1: "Malibu Surf Report Today",
     intro:
       "Malibu can be magic or mayhem. The decision is not just wave height; it is tide, wind, crowd, and whether the point has room to breathe.",
     primarySpotSlug: "malibu-first-point-surfrider",
@@ -2272,6 +2397,7 @@ const TODAY_PAGES = [
         label: "Santa Barbara longboard guide",
         href: "/longboard/santa-barbara",
       },
+      { label: "Best time to surf Malibu", href: "/best-time-to-surf/malibu" },
       { label: "Open Quiver map", href: "/map?search=Malibu" },
     ],
     spots: [
@@ -2371,7 +2497,7 @@ const CAM_PAGES = [
   buildCamPage({
     slug: "san-diego",
     locationName: "San Diego",
-    title: "San Diego Surf Cams | Quiver",
+    title: "San Diego Live Surf Cams | Quiver",
     metaDescription:
       "Watch San Diego surf cams with Quiver forecast context for Scripps, Tourmaline, Pacific Beach, La Jolla, Ocean Beach, and nearby spots.",
     h1: "San Diego Surf Cams",
@@ -2523,7 +2649,7 @@ const CAM_PAGES = [
   buildCamPage({
     slug: "hawaii",
     locationName: "Hawaii",
-    title: "Hawaii Surf Cams | Quiver",
+    title: "Hawaii Live Surf Cams | Quiver",
     metaDescription:
       "Watch Hawaii surf cams with Quiver forecast context for Waikiki, North Shore, Hanalei, Waimea, Pipeline, Canoes, and nearby spots.",
     h1: "Hawaii Surf Cams",
@@ -2589,7 +2715,7 @@ const CAM_PAGES = [
   buildCamPage({
     slug: "florida",
     locationName: "Florida",
-    title: "Florida Surf Cams | Quiver",
+    title: "Florida Live Surf Cams | Quiver",
     metaDescription:
       "Watch Florida surf cams with Quiver forecast context for Cocoa Beach, New Smyrna, Ponce Inlet, Jacksonville, Satellite Beach, and nearby spots.",
     h1: "Florida Surf Cams",
