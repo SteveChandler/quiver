@@ -65,6 +65,15 @@ describe("SEO funnel pages", () => {
     }
   });
 
+  it("keeps indexable funnel metadata inside SEO quality gates", () => {
+    for (const page of INDEXABLE_SEO_FUNNEL_PAGES) {
+      expect(page.title.length).toBeGreaterThanOrEqual(30);
+      expect(page.title.length).toBeLessThanOrEqual(60);
+      expect(page.metaDescription.length).toBeGreaterThanOrEqual(120);
+      expect(page.metaDescription.length).toBeLessThanOrEqual(160);
+    }
+  });
+
   it("builds deterministic contextual links to canonical planning surfaces", () => {
     const page = getSeoFunnelPageByTypeAndSlug(
       "surf-report-today",
@@ -380,6 +389,96 @@ describe("SEO funnel pages", () => {
         (section) => section.heading === "Local read before you drive",
       )?.body,
     ).toContain("Refugio is conditional");
+  });
+
+  it("keeps existing longboard hubs connected to live spot reports before adding inventory", () => {
+    const laJolla = getSeoFunnelPageByTypeAndSlug("longboard", "la-jolla");
+    const honolulu = getSeoFunnelPageByTypeAndSlug("longboard", "honolulu");
+    const santaBarbara = getSeoFunnelPageByTypeAndSlug(
+      "longboard",
+      "santa-barbara",
+    );
+
+    expect(laJolla).not.toBeNull();
+    expect(honolulu).not.toBeNull();
+    expect(santaBarbara).not.toBeNull();
+
+    expect(getSeoFunnelInternalLinks(laJolla!).map((link) => link.href)).toEqual(
+      expect.arrayContaining([
+        "/surf-report/tourmaline-today",
+        "/surf-report/scripps-pier-today",
+        "/ca/san-diego/tourmaline-surf-park",
+        "/ca/la-jolla/la-jolla-shores",
+      ]),
+    );
+    expect(getSeoFunnelInternalLinks(honolulu!).map((link) => link.href)).toEqual(
+      expect.arrayContaining([
+        "/hi/honolulu/waikiki-beach",
+        "/hi/honolulu/waikiki-canoes",
+        "/best-time-to-surf/honolulu",
+      ]),
+    );
+    expect(
+      getSeoFunnelInternalLinks(santaBarbara!).map((link) => link.href),
+    ).toEqual(
+      expect.arrayContaining([
+        "/ca/santa-barbara/leadbetter",
+        "/longboard/ventura",
+        "/surf-report/malibu-today",
+        "/best-time-to-surf/santa-barbara",
+      ]),
+    );
+  });
+
+  it("frames today surf reports as condition pages, not thin decision stubs", () => {
+    const expectedTitles = new Map([
+      [
+        "scripps-pier-today",
+        "Scripps Pier Surf Report Today: Waves, Tide & Wind",
+      ],
+      ["belmar-today", "Belmar NJ Surf Report Today: Waves, Wind & Tide"],
+      [
+        "tourmaline-today",
+        "Tourmaline Surf Report Today: Longboard Window & Wind",
+      ],
+      ["malibu-today", "Malibu Surf Report Today: Waves, Tide & Wind"],
+    ]);
+    const todayPages = Array.from(expectedTitles.keys()).map((slug) => ({
+      slug,
+      page: getSeoFunnelPageByTypeAndSlug("surf-report-today", slug),
+    }));
+
+    for (const { slug, page } of todayPages) {
+      expect(page).not.toBeNull();
+      expect(page!.title).toBe(expectedTitles.get(slug));
+      expect(page!.metaDescription).toMatch(/wave height/i);
+      expect(page!.metaDescription).toMatch(/wind/i);
+      expect(page!.metaDescription).toMatch(/tide/i);
+      expect(page!.metaDescription).toMatch(/board/i);
+      expect(page!.metaDescription).toMatch(/backup/i);
+      expect(page!.decision).toMatchObject({
+        boardCall: expect.any(String),
+        windRisk: expect.any(String),
+        tideRisk: expect.any(String),
+      });
+      expect(page!.sections.map((section) => section.heading)).toEqual(
+        expect.arrayContaining([
+          `${page!.locationName} conditions right now`,
+          "Should you surf today?",
+          "When this spot is worth it",
+          "Backup plan",
+        ]),
+      );
+    }
+
+    const malibu = getSeoFunnelPageByTypeAndSlug(
+      "surf-report-today",
+      "malibu-today",
+    );
+    expect(malibu?.h1).toBe("Malibu Surf Report Today");
+    expect(malibu?.metaDescription).toBe(
+      "Malibu surf report today with live wave height, tide, wind, best window, board call, crowd notes, and First Point backups before you drive.",
+    );
   });
 
   it("resolves surf report and cam configs by type and slug", () => {
