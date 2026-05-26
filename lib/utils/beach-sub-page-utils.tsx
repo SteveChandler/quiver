@@ -9,6 +9,7 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachFAQSchema, TideFAQSchema, WaterTempFAQSchema } from "@/components/seo/faq-schema";
 import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
 import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
+import Link from "next/link";
 
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
@@ -31,6 +32,10 @@ import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 import { notFound } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
+import {
+  buildBeachSubPageCrawlCopy,
+  type BeachSubPageCrawlCopy,
+} from "@/lib/utils/beach-sub-page-crawl-copy";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -150,6 +155,15 @@ export async function renderBeachSubPage({
   ]);
 
   const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
+  const hasTideHero = pageType === "tides" &&
+    Boolean(tideMeta?.nextHighTime || tideMeta?.nextLowTime);
+  const hasWaterTempHero = pageType === "water-temp" &&
+    waterTempMeta?.tempF != null;
+  const crawlCopy = buildBeachSubPageCrawlCopy({
+    beach,
+    pageType,
+    beachPath,
+  });
 
   return (
     <>
@@ -208,14 +222,17 @@ export async function renderBeachSubPage({
         />
       )}
 
-      {pageType === "tides" && tideMeta && (
+      {hasTideHero && tideMeta && (
         <TideSummaryHero beachName={beach.name} tideData={tideMeta} />
       )}
-      {pageType === "water-temp" && waterTempMeta && (
+      {hasWaterTempHero && waterTempMeta && (
         <WaterTempSummaryHero
           beachName={beach.name}
           waterTempData={waterTempMeta}
         />
+      )}
+      {!hasTideHero && !hasWaterTempHero && (
+        <BeachSubPageCrawlIntro copy={crawlCopy} />
       )}
 
       <BeachDetailClient
@@ -224,6 +241,7 @@ export async function renderBeachSubPage({
         beachTimezone={beachTimezone}
         defaultTab={config.defaultTab}
         defaultSubTab={config.defaultSubTab}
+        heroHeadingLevel="h2"
       />
 
       <div className="container mx-auto px-4 py-8">
@@ -289,6 +307,44 @@ export async function renderBeachSubPage({
         }
       />
     </>
+  );
+}
+
+function BeachSubPageCrawlIntro({ copy }: { copy: BeachSubPageCrawlCopy }) {
+  return (
+    <section
+      className="noise-texture w-full"
+      style={{
+        background:
+          "linear-gradient(180deg, #1E2558 0%, #252D6B 60%, rgba(37,45,107,0) 100%)",
+        borderBottom: "1px solid rgba(64, 76, 146, 0.4)",
+      }}
+    >
+      <div className="container mx-auto px-4 py-6 sm:py-8">
+        <h1 className="font-heading text-2xl font-bold leading-tight text-high sm:text-3xl">
+          {copy.heading}
+        </h1>
+        <p className="mt-3 max-w-3xl text-sm leading-6 text-medium sm:text-base">
+          {copy.summary}
+        </p>
+        <div className="mt-5 grid gap-3 sm:grid-cols-3">
+          {copy.links.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className="group rounded-lg border border-white/10 bg-white/5 p-4 transition-colors hover:border-sky-500/50 hover:bg-white/10"
+            >
+              <span className="text-sm font-semibold text-white/90 group-hover:text-white">
+                {link.label}
+              </span>
+              <p className="mt-1 text-xs leading-5 text-white/55">
+                {link.description}
+              </p>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
   );
 }
 

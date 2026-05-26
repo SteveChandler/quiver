@@ -13,19 +13,28 @@ import {
   HandArrow,
 } from "./atoms";
 
+export type ZineHeroHeadingLevel = "h1" | "h2";
+
 interface ZineHeroProps {
   beach: Beach;
   beachPhoto?: ZineBeachPhoto | null;
   sources?: BeachSources | null;
+  headingLevel?: ZineHeroHeadingLevel;
 }
 
-export function ZineHero({ beach, beachPhoto, sources }: ZineHeroProps) {
+export function ZineHero({
+  beach,
+  beachPhoto,
+  sources,
+  headingLevel = "h1",
+}: ZineHeroProps) {
   const skill = (beach.skill_level || "All").toUpperCase();
   const breakType = (beach.break_type || "Spot").toUpperCase();
   const rating = typeof beach.average_rating === "number" ? beach.average_rating.toFixed(1) : null;
   const reviewCount = beach.review_count ?? 0;
   const filledStars = rating ? Math.round(parseFloat(rating)) : 0;
   const locationName = [beach.city, beach.state].filter(Boolean).join(", ");
+  const HeadingTag = headingLevel;
 
   return (
     <section>
@@ -33,8 +42,7 @@ export function ZineHero({ beach, beachPhoto, sources }: ZineHeroProps) {
       <div>
         <SaltyEyebrow text={`FIELD GUIDE · ${(beach.city || "FIELD").toUpperCase()}`} />
 
-        {/* H1 — the zine is now the page, so this is the canonical page H1. */}
-        <h1
+        <HeadingTag
           className="zine-h1 mt-3"
           style={{
             fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
@@ -47,7 +55,7 @@ export function ZineHero({ beach, beachPhoto, sources }: ZineHeroProps) {
           }}
         >
           {beach.name}
-        </h1>
+        </HeadingTag>
         {locationName && (
           <p
             className="mt-1"

@@ -1,6 +1,12 @@
 import React from "react";
 import { render } from "@testing-library/react";
-import { QuiverFAQSchema } from "@/components/seo/faq-schema";
+import {
+  FAQSchema,
+  QUIVER_FAQ_ITEMS,
+  QuiverFAQSchema,
+} from "@/components/seo/faq-schema";
+import { HowToBoardCalculatorSchema } from "@/components/seo/how-to-board-calculator-schema";
+import { HowToWaveConverterSchema } from "@/components/seo/how-to-wave-converter-schema";
 
 function getFaqSchema(container: HTMLElement) {
   const script = container.querySelector('script[type="application/ld+json"]');
@@ -8,21 +14,57 @@ function getFaqSchema(container: HTMLElement) {
 }
 
 describe("QuiverFAQSchema", () => {
-  it("keeps public paid-plan claims offsite while iOS is live", () => {
+  it("keeps FAQ content available without emitting broad FAQPage JSON-LD", () => {
     const { container } = render(<QuiverFAQSchema />);
 
-    const schema = getFaqSchema(container);
-    const freeUseQuestion = schema.mainEntity.find(
-      (entry: { name: string }) => entry.name === "Is Quiver free to use?",
-    );
-    const answer = freeUseQuestion.acceptedAnswer.text;
+    expect(container.querySelector('script[type="application/ld+json"]')).toBeNull();
+  });
 
-    expect(answer).toContain("iPhone app is live on the App Store");
-    expect(answer).toContain("Android is coming soon");
-    expect(answer).not.toContain("$4.99");
-    expect(answer).not.toContain("$39.99");
-    expect(answer).not.toMatch(/14-day free trial/i);
-    expect(answer).not.toMatch(/buy|purchase|checkout/i);
-    expect(answer).not.toMatch(/plan details|pricing/i);
+  it("does not emit FAQPage JSON-LD for generic Quiver FAQ data", () => {
+    const { container } = render(
+      <FAQSchema
+        items={[{
+          question: "Is Quiver free to use?",
+          answer:
+            "Quiver's iPhone app is live on the App Store, and Android is coming soon through the Android waitlist.",
+        }]}
+      />,
+    );
+
+    expect(container.querySelector('script[type="application/ld+json"]')).toBeNull();
+  });
+
+  it("keeps public paid-plan copy out of the rendered FAQ data source", () => {
+    const freeUseQuestion = QUIVER_FAQ_ITEMS.find(
+      (item) => item.question === "Is Quiver free to use?",
+    );
+    const faqCopy = freeUseQuestion?.answer ?? "";
+
+    expect(faqCopy).toContain("iPhone app is live on the App Store");
+    expect(faqCopy).toContain("Android is coming soon");
+    expect(faqCopy).not.toContain("$4.99");
+    expect(faqCopy).not.toContain("$39.99");
+    expect(faqCopy).not.toMatch(/14-day free trial/i);
+    expect(faqCopy).not.toMatch(/buy|purchase|checkout/i);
+    expect(faqCopy).not.toMatch(/plan details|pricing/i);
+  });
+});
+
+describe("deprecated schema components", () => {
+  it("does not emit HowTo JSON-LD for surf tools", () => {
+    const { container: waveConverter } = render(<HowToWaveConverterSchema />);
+    const { container: boardCalculator } = render(<HowToBoardCalculatorSchema />);
+
+    expect(waveConverter.querySelector('script[type="application/ld+json"]')).toBeNull();
+    expect(boardCalculator.querySelector('script[type="application/ld+json"]')).toBeNull();
+  });
+});
+
+describe("legacy FAQ schema parser", () => {
+  it("returns an empty object when no FAQPage script is emitted", () => {
+    const { container } = render(<QuiverFAQSchema />);
+    const schema = getFaqSchema(container);
+
+    expect(schema).toEqual({});
   });
 });

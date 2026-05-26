@@ -1,17 +1,10 @@
-import { BeachPageStructuredData } from "@/components/seo/structured-data";
-import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import { TideFAQSchema } from "@/components/seo/faq-schema";
-import { BeachDetailClient } from "../beach-detail-client";
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicTideMetadata } from "@/lib/seo/meta";
 import { getTideMetaData } from "@/lib/seo/tide-meta-data";
 import { notFound, redirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
-import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
-
-const baseUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+import { renderBeachSubPage } from "@/lib/utils/beach-sub-page-utils";
 
 export default async function BeachTidesPage(
   props: {
@@ -27,11 +20,6 @@ export default async function BeachTidesPage(
       notFound();
     }
 
-    const beachTimezone =
-      beach.lat != null && beach.lon != null
-        ? getTimezoneFromCoords(beach.lat, beach.lon)
-        : null;
-
     // Redirect to hierarchical URL if beach has complete data
     if (beach.slug && beach.city && beach.state) {
       const hierarchicalUrl = buildBeachUrl(beach);
@@ -42,41 +30,11 @@ export default async function BeachTidesPage(
       }
     }
 
-    return (
-      <>
-        <BeachPageStructuredData
-          beachName={beach.name}
-          description={`Tide chart and tide times for ${beach.name}. High and low tide predictions updated daily.`}
-          latitude={beach.lat || 0}
-          longitude={beach.lon || 0}
-          rating={(beach as any).average_rating || undefined}
-          reviewCount={(beach as any).review_count || undefined}
-          city={beach.city || undefined}
-          state={beach.state || undefined}
-          country={beach.country || undefined}
-        />
-
-        <BreadcrumbStructuredData
-          items={[
-            { name: "Home", url: baseUrl },
-            { name: "Surf Spots Map", url: `${baseUrl}/map` },
-            { name: beach.name, url: `${baseUrl}/beach/${params.slug}` },
-            { name: "Tide Chart", url: `${baseUrl}/beach/${params.slug}/tides` },
-          ]}
-        />
-
-        {/* FAQ Structured Data with tide-specific questions for rich snippets */}
-        <TideFAQSchema beachName={beach.name} />
-
-        <BeachDetailClient
-          beach={beach}
-          slug={params.slug}
-          beachTimezone={beachTimezone}
-          defaultTab="forecast"
-          defaultSubTab="tides"
-        />
-      </>
-    );
+    return renderBeachSubPage({
+      beachSlug: params.slug,
+      pageType: "tides",
+      beachPath: `/beach/${params.slug}`,
+    });
   } catch (error) {
     if (error && typeof error === "object" && "digest" in error) {
       const digest = (error as { digest?: unknown }).digest;

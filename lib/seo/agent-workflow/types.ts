@@ -11,6 +11,7 @@ export const SEO_RECOMMENDATION_SOURCE_VALUES = [
   "keyword-research",
   "gsc-decay",
   "technical-audit",
+  "metadata-audit",
   "vercel-analytics",
   "posthog-behavior",
   "ahrefs-audit",
@@ -217,6 +218,19 @@ export interface SeoEnrichmentInput {
   keywordOpportunities?: AhrefsKeywordOpportunity[];
 }
 
+export interface SeoEnrichmentContext {
+  gsc?: {
+    last28d?: GscPageRow[];
+    topPages?: GscPageRow[];
+  };
+  vercel?: {
+    pages?: VercelSeoPageMetric[];
+  };
+  posthog?: {
+    pages?: PostHogSeoPageMetric[];
+  };
+}
+
 export interface StoreListingSnapshot {
   app: string;
   platform: "ios" | "android" | "web";
@@ -310,6 +324,23 @@ export interface BacklinkProxyInput {
   missing?: string[];
 }
 
+export interface SeoMetadataAuditIssue {
+  path: string;
+  title: string;
+  titleLength: number;
+  metaDescription: string;
+  metaDescriptionLength: number;
+  priority: SeoPriority;
+  problems: string[];
+}
+
+export interface SeoMetadataAuditInput {
+  generatedAt: string;
+  checkedPages: number;
+  issues: SeoMetadataAuditIssue[];
+  recommendations: SeoRecommendation[];
+}
+
 export interface WeeklySeoReportInput {
   generatedAt: string;
   recommendations: SeoRecommendation[];
@@ -320,6 +351,7 @@ export interface WeeklySeoReportInput {
   dataforseo?: DataForSeoExportInput;
   backlink?: BacklinkProxyInput;
   technical?: SeoRecommendation[];
+  metadata?: SeoMetadataAuditInput;
   missing: string[];
 }
 

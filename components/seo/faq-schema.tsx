@@ -1,11 +1,13 @@
 /**
  * FAQ Schema Component
- * Provides structured data for FAQ sections to enhance SEO with rich snippets
+ * Kept as a compatibility no-op. Broad FAQPage JSON-LD is intentionally not
+ * emitted for Quiver because Google limits FAQ rich results to government and
+ * healthcare sites.
  */
 
 import type { RichContent } from "@/lib/seo/rich-content";
 
-interface FAQItem {
+export interface FAQItem {
   question: string;
   answer: string;
 }
@@ -20,37 +22,15 @@ interface FAQSchemaProps {
 }
 
 export function FAQSchema({ items }: FAQSchemaProps) {
-  const faqStructuredData = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: items.map((item) => ({
-      "@type": "Question",
-      name: item.question,
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: item.answer,
-      },
-    })),
-  };
-
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(faqStructuredData),
-      }}
-    />
-  );
+  void items;
+  return null;
 }
 
 // FAQSection is now in ./faq-section.tsx (client component with accordion).
 // Re-export for backwards compatibility.
 export { FAQSection } from "./faq-section";
 
-/**
- * Beach-specific FAQ Schema for individual beach pages
- * Targets common search queries: tide times, water temp, wave size
- */
+/** Compatibility no-op for legacy beach FAQ JSON-LD call sites. */
 export function BeachFAQSchema({ beachName }: { beachName: string }) {
   const faqItems: FAQItem[] = [
     {
@@ -74,11 +54,7 @@ export function BeachFAQSchema({ beachName }: { beachName: string }) {
   return <FAQSchema items={faqItems} />;
 }
 
-/**
- * Tide-specific FAQ Schema for tide sub-pages
- * Targets high-intent queries like "what time is high tide" and "best tide for surfing"
- * These are the exact questions GSC shows with >100 impressions and 0 clicks on tide pages.
- */
+/** Compatibility no-op for legacy tide FAQ JSON-LD call sites. */
 export function TideFAQSchema({ beachName }: { beachName: string }) {
   const faqItems: FAQItem[] = [
     {
@@ -102,10 +78,7 @@ export function TideFAQSchema({ beachName }: { beachName: string }) {
   return <FAQSchema items={faqItems} />;
 }
 
-/**
- * Water temperature-specific FAQ Schema for water-temp sub-pages
- * Targets gear-planning queries that pull users deeper into Quiver's unique value.
- */
+/** Compatibility no-op for legacy water-temp FAQ JSON-LD call sites. */
 export function WaterTempFAQSchema({ beachName }: { beachName: string }) {
   const faqItems: FAQItem[] = [
     {
@@ -129,52 +102,50 @@ export function WaterTempFAQSchema({ beachName }: { beachName: string }) {
   return <FAQSchema items={faqItems} />;
 }
 
-/**
- * Quiver-specific FAQ Schema for Landing Page
- */
-export function QuiverFAQSchema() {
-  const faqItems: FAQItem[] = [
-    {
-      question: "What is Quiver?",
-      answer:
-        "Quiver is a free surf report and forecast app that tells you when to go surfing at your beach. It uses real buoy data from CDIP, NDBC, and IOOS networks to build a forecast model for each of its 279+ beaches across California, Hawaii, Oregon, Washington, Florida, the East Coast, and Puerto Rico. The forecast updates every 3 hours and gets more accurate as surfers log sessions and report conditions. Features include surf reports, tide charts, crowd data, best-time-to-surf windows, session tracking, and a surf community — all free.",
-    },
-    {
-      question: "How do I track surf sessions on Quiver?",
-      answer:
-        "Tracking sessions is easy. Log in to your account, navigate to the journal section, and log a completed session. Record details like beach location, conditions, wave quality, duration, and even add photos. Your sessions build your surf journal over time.",
-    },
-    {
-      question: "How do I find surf buddies?",
-      answer:
-        "Finding surf buddies is one of Quiver's core features. Browse the community feed to see other surfers' sessions, follow surfers who frequent your favorite spots, and use recent session activity to connect with people who surf the same breaks.",
-    },
-    {
-      question: "Is Quiver free to use?",
-      answer:
-        "Quiver's iPhone app is live on the App Store, and Android is coming soon through the Android waitlist. Open the App Store listing for the current iPhone app flow.",
-    },
-    {
-      question: "How accurate are the surf forecasts?",
-      answer:
-        "Quiver provides highly accurate forecasts by combining data from multiple sources including live buoy data, NOAA marine forecasts, and wind conditions. Each forecast includes a confidence rating so you know how reliable the prediction is. We also show data transparency when using fallback sources.",
-    },
-    {
-      question: "Can I share my surf sessions on social media?",
-      answer:
-        "Absolutely! Quiver makes it easy to share your epic sessions on Instagram, TikTok, and other platforms. Each session can be shared with beautiful summary cards showing your beach, conditions, and photos. Perfect for building your surf portfolio.",
-    },
-    {
-      question: "What areas does Quiver cover?",
-      answer:
-        "Quiver covers 279+ surf spots across the US, including California, Hawaii, Florida, Oregon, Washington, the East Coast (NJ, NY, NC, SC), New England, Texas, and Baja Mexico. Every spot includes live conditions, forecasts, tide charts, and crowd data — all free.",
-    },
-    {
-      question: "Is my data private on Quiver?",
-      answer:
-        "Your privacy is important to us. You control what you share - sessions can be public or private, and you can adjust your profile visibility settings. Private sessions are only visible to you, while public sessions help build the community.",
-    },
-  ];
+export const QUIVER_FAQ_ITEMS: FAQItem[] = [
+  {
+    question: "What is Quiver?",
+    answer:
+      "Quiver is a free surf report and forecast app that tells you when to go surfing at your beach. It uses real buoy data from CDIP, NDBC, and IOOS networks to build a forecast model for each of its 279+ beaches across California, Hawaii, Oregon, Washington, Florida, the East Coast, and Puerto Rico. The forecast updates every 3 hours and gets more accurate as surfers log sessions and report conditions. Features include surf reports, tide charts, crowd data, best-time-to-surf windows, session tracking, and a surf community — all free.",
+  },
+  {
+    question: "How do I track surf sessions on Quiver?",
+    answer:
+      "Tracking sessions is easy. Log in to your account, navigate to the journal section, and log a completed session. Record details like beach location, conditions, wave quality, duration, and even add photos. Your sessions build your surf journal over time.",
+  },
+  {
+    question: "How do I find surf buddies?",
+    answer:
+      "Finding surf buddies is one of Quiver's core features. Browse the community feed to see other surfers' sessions, follow surfers who frequent your favorite spots, and use recent session activity to connect with people who surf the same breaks.",
+  },
+  {
+    question: "Is Quiver free to use?",
+    answer:
+      "Quiver's iPhone app is live on the App Store, and Android is coming soon through the Android waitlist. Open the App Store listing for the current iPhone app flow.",
+  },
+  {
+    question: "How accurate are the surf forecasts?",
+    answer:
+      "Quiver provides highly accurate forecasts by combining data from multiple sources including live buoy data, NOAA marine forecasts, and wind conditions. Each forecast includes a confidence rating so you know how reliable the prediction is. We also show data transparency when using fallback sources.",
+  },
+  {
+    question: "Can I share my surf sessions on social media?",
+    answer:
+      "Absolutely! Quiver makes it easy to share your epic sessions on Instagram, TikTok, and other platforms. Each session can be shared with beautiful summary cards showing your beach, conditions, and photos. Perfect for building your surf portfolio.",
+  },
+  {
+    question: "What areas does Quiver cover?",
+    answer:
+      "Quiver covers 279+ surf spots across the US, including California, Hawaii, Florida, Oregon, Washington, the East Coast (NJ, NY, NC, SC), New England, Texas, and Baja Mexico. Every spot includes live conditions, forecasts, tide charts, and crowd data — all free.",
+  },
+  {
+    question: "Is my data private on Quiver?",
+    answer:
+      "Your privacy is important to us. You control what you share - sessions can be public or private, and you can adjust your profile visibility settings. Private sessions are only visible to you, while public sessions help build the community.",
+  },
+];
 
-  return <FAQSchema items={faqItems} />;
+/** Compatibility no-op for legacy Quiver FAQ JSON-LD call sites. */
+export function QuiverFAQSchema() {
+  return <FAQSchema items={QUIVER_FAQ_ITEMS} />;
 }
