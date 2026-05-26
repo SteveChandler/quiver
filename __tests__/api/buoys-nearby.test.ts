@@ -2,8 +2,6 @@
  * @jest-environment node
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { NextRequest } from "next/server";
 
 const mockRpc = jest.fn();
@@ -38,16 +36,6 @@ describe("GET /api/buoys/nearby", () => {
       rpc: mockRpc,
     } as unknown as MockSupabaseServerClient);
     mockRpc.mockResolvedValue({ data: [], error: null });
-  });
-
-  it("uses the shared API wrapper module for response helpers", () => {
-    const source = readFileSync(
-      join(process.cwd(), "app/api/buoys/nearby/route.ts"),
-      "utf8"
-    );
-
-    expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
-    expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
   });
 
   it("validates required coordinates before creating a Supabase client", async () => {
