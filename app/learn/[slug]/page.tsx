@@ -1,32 +1,38 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
-import { learnArticles } from "@/lib/data/learn-articles";
-import { buildPageMetadata } from "@/lib/seo/meta";
+import { notFound } from "next/navigation";
+
+import { ArticleSchema } from "@/components/seo/article-schema";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
-import { WebPageSchema } from "@/components/seo/web-page-schema";
-import { ArticleSchema } from "@/components/seo/article-schema";
-import { SITE_URL } from "@/lib/constants/seo";
-import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { QuiverSticker, ZineSurface } from "@/components/zine";
+import { SITE_URL } from "@/lib/constants/seo";
+import { learnArticles } from "@/lib/data/learn-articles";
+import { buildPageMetadata } from "@/lib/seo/meta";
 
-export const revalidate = 604800; // 1 week — learn articles are static content from a constant
+export const revalidate = 604800; // 1 week - learn articles are static content from a constant
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
 function getArticle(slug: string) {
-  return learnArticles.find((a) => a.slug === slug) ?? null;
+  return learnArticles.find((article) => article.slug === slug) ?? null;
 }
 
 function getNextArticle(slug: string) {
-  const index = learnArticles.findIndex((a) => a.slug === slug);
+  const index = learnArticles.findIndex((article) => article.slug === slug);
   if (index === -1) return null;
   return learnArticles[(index + 1) % learnArticles.length];
+}
+
+export function generateStaticParams(): { slug: string }[] {
+  return learnArticles.map((article) => ({ slug: article.slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -56,12 +62,12 @@ export default async function LearnArticlePage({ params }: Props) {
     { name: article.title, url: `${SITE_URL}/learn/${article.slug}` },
   ];
 
-  const toc = article.sections.map((s) => ({
-    id: s.id,
-    label: s.heading,
+  const toc = article.sections.map((section) => ({
+    id: section.id,
+    label: section.heading,
   }));
 
-  const keyTakeaways = article.sections.filter((s) => s.keyTakeaway);
+  const keyTakeaways = article.sections.filter((section) => section.keyTakeaway);
 
   return (
     <>
@@ -81,307 +87,313 @@ export default async function LearnArticlePage({ params }: Props) {
         dateModified={article.dateModified}
       />
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Hero                                                               */}
-      {/* ------------------------------------------------------------------ */}
-      <header className="relative min-h-[16rem] sm:min-h-[20rem] flex flex-col justify-end overflow-hidden">
-        {/* Background image */}
-        <Image
-          src={article.heroImage}
-          alt={article.title}
-          width={1600}
-          height={900}
-          priority
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-
-        {/* Gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#252D6B] via-[#252D6B]/80 to-[#252D6B]/30" />
-
-        {/* Noise texture */}
-        <div className="noise-texture-subtle absolute inset-0 pointer-events-none" />
-
-        {/* Hero content */}
-        <div className="relative z-10 mx-auto w-full max-w-3xl px-4 pb-8 pt-16 sm:px-6 lg:px-8">
-          {/* Breadcrumb nav */}
-          <nav className="mb-6 text-sm text-gray-300/70">
-            <Link href="/" className="hover:text-white transition-colors">
+      <ZineSurface
+        sectionLabel="Learn"
+        editionLabel={`${article.readingTimeMin} min field note`}
+        data-testid="learn-article-zine-surface"
+      >
+        <main>
+          <nav className="mb-8 flex flex-wrap items-center gap-2 font-mono text-xs uppercase tracking-[0.12em] text-[#11100D]/58">
+            <Link href="/" className="transition-colors hover:text-[#B56A2B]">
               Home
             </Link>
-            <span className="mx-2 select-none">/</span>
-            <Link href="/learn" className="hover:text-white transition-colors">
+            <span aria-hidden>/</span>
+            <Link href="/learn" className="transition-colors hover:text-[#B56A2B]">
               Learn
             </Link>
-            <span className="mx-2 select-none">/</span>
-            <span className="text-gray-200">{article.title}</span>
+            <span aria-hidden>/</span>
+            <span className="text-[#11100D]">{article.title}</span>
           </nav>
 
-          <Link
-            href="/learn"
-            className="mb-3 inline-block text-xs font-semibold uppercase tracking-widest text-[#F78E42] transition-colors hover:text-[#FDB84B]"
-          >
-            Quiver Guides
-          </Link>
-
-          <h1 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">
-            {article.title}
-          </h1>
-
-          <p className="mt-4 max-w-2xl text-lg leading-relaxed text-gray-200/90">
-            {article.description}
-          </p>
-
-          <p className="mt-3 text-sm text-gray-300/60 font-mono">
-            {article.readingTimeMin} min read
-          </p>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
-        {/* ---------------------------------------------------------------- */}
-        {/* Table of Contents                                                */}
-        {/* ---------------------------------------------------------------- */}
-        {toc.length > 3 && (
-          <ScrollReveal>
-            <nav className="mb-10 rounded-lg border border-white/10 bg-white/[0.03] p-4">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                In this guide
-              </p>
-              <ol className="space-y-1">
-                {toc.map((item, i) => (
-                  <li key={item.id}>
-                    <a
-                      href={`#${item.id}`}
-                      className="group flex items-baseline gap-2 text-sm text-gray-400 transition-colors hover:text-white"
-                    >
-                      <span className="font-mono text-xs text-gray-600 group-hover:text-[#F78E42] transition-colors">
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      {item.label}
-                    </a>
-                  </li>
-                ))}
-              </ol>
-            </nav>
-          </ScrollReveal>
-        )}
-
-        {/* ---------------------------------------------------------------- */}
-        {/* Key Takeaways                                                    */}
-        {/* ---------------------------------------------------------------- */}
-        {keyTakeaways.length > 0 && (
-          <ScrollReveal>
-            <div
-              className="mb-12 rounded-xl border border-[#F78E42]/20 bg-[#F78E42]/[0.04] p-6"
-              style={{ transform: "rotate(-0.5deg)" }}
-            >
-              <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-[#F78E42]">
-                Key Takeaways
-              </h2>
-              <ul className="space-y-2.5">
-                {keyTakeaways.map((s) => (
-                  <li
-                    key={s.id}
-                    className="flex items-start gap-2.5 text-sm leading-relaxed text-gray-200"
-                  >
-                    <span className="mt-1.5 block h-1.5 w-1.5 shrink-0 rounded-full bg-[#F78E42]" />
-                    {s.keyTakeaway}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </ScrollReveal>
-        )}
-
-        {/* ---------------------------------------------------------------- */}
-        {/* Article Body                                                     */}
-        {/* ---------------------------------------------------------------- */}
-        {article.sections.map((section, i) => (
-          <ScrollReveal key={section.id}>
-            <section className="mb-14" id={section.id}>
-              {/* Section number + heading */}
-              <div className="mb-4 flex items-baseline gap-3">
-                <span className="font-mono text-xs text-[#F78E42]/50 select-none">
-                  {String(i + 1).padStart(2, "0")}
-                </span>
-                <h2 className="font-display text-xl font-semibold text-white sm:text-2xl">
-                  {section.heading}
-                </h2>
-              </div>
-
-              {/* Section body — split layout when image present, full-width otherwise */}
-              {section.image ? (
-                <div
-                  className={`flex flex-col gap-6 md:flex-row md:items-start md:gap-8 ${
-                    section.image.position === "left" ? "md:flex-row-reverse" : ""
-                  }`}
-                >
-                  {/* Text side */}
-                  <div
-                    className="prose prose-invert prose-gray max-w-none flex-1 text-gray-300 [&_p]:mb-4 [&_p]:leading-relaxed [&_strong]:text-white"
-                    dangerouslySetInnerHTML={{ __html: section.content }}
-                  />
-                  {/* Image side — constrained height so it stays proportional to text */}
-                  <div className="w-full shrink-0 md:w-1/3">
-                    <div className="relative h-48 overflow-hidden rounded-xl border border-white/10 sm:h-52">
-                      <Image
-                        src={section.image.src}
-                        alt={section.image.alt}
-                        width={400}
-                        height={260}
-                        className="absolute inset-0 h-full w-full object-cover"
-                      />
-                      <div className="absolute inset-0 rounded-xl ring-1 ring-inset ring-white/10" />
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  className="prose prose-invert prose-gray max-w-none text-gray-300 [&_p]:mb-4 [&_p]:leading-relaxed [&_strong]:text-white"
-                  dangerouslySetInnerHTML={{ __html: section.content }}
+          <header className="grid gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+            <ScrollReveal>
+              <div className="relative">
+                <QuiverSticker
+                  sticker="orangeTape"
+                  className="absolute -top-8 left-8 hidden w-36 -rotate-6 opacity-85 sm:block"
                 />
-              )}
-            </section>
-
-            {/* Pull quote after every odd section (index 1, 3, 5...) with a keyTakeaway */}
-            {i % 2 === 1 && section.keyTakeaway && (
-              <blockquote className="my-10 border-l-2 border-[#F78E42] pl-6 py-2">
-                <p
-                  className="text-xl leading-relaxed text-gray-200 italic font-handwritten"
+                <Link
+                  href="/learn"
+                  className="label-black mb-5 transition-transform hover:-translate-y-0.5"
                 >
-                  &ldquo;{section.keyTakeaway}&rdquo;
+                  Quiver Guides
+                </Link>
+                <h1 className="zine-h1 font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
+                  {article.title}
+                </h1>
+                <p className="mt-6 max-w-3xl text-xl leading-relaxed text-[#11100D]/75">
+                  {article.description}
                 </p>
-              </blockquote>
-            )}
+                <p className="mt-4 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/58">
+                  {article.readingTimeMin} min read
+                </p>
+              </div>
+            </ScrollReveal>
 
-            {/* CTA after 3rd section -- natural reading break */}
-            {i === 2 && (
-              <InlineSignupCta
-                title="Stop guessing. Start scoring."
-                description="Pick your home beach. We score every hour by tide, wind, and swell and tell you when to paddle out."
-                primaryButtonText="Pick your home beach"
-                source="learn_article"
-                ctaCopyVariant="learn_article_v1"
-                className="my-10"
-              />
-            )}
-          </ScrollReveal>
-        ))}
+            <ScrollReveal delay={80}>
+              <div className="polaroid rot-2">
+                <div className="photo">
+                  <Image
+                    src={article.heroImage}
+                    alt={article.title}
+                    fill
+                    className="object-cover saturate-[0.75]"
+                    sizes="(min-width: 1024px) 440px, 100vw"
+                    priority
+                  />
+                  <div className="absolute inset-0 bg-[#F4EBD8]/10 mix-blend-screen" />
+                  <QuiverSticker
+                    sticker="singleFin"
+                    className="absolute -bottom-8 -right-6 w-28 rotate-6 drop-shadow-md"
+                  />
+                </div>
+                <p className="cap">field note</p>
+              </div>
+            </ScrollReveal>
+          </header>
 
-        {/* ---------------------------------------------------------------- */}
-        {/* FAQ Section                                                      */}
-        {/* ---------------------------------------------------------------- */}
-        {article.faqs.length > 0 && (
-          <ScrollReveal>
-            <section className="mb-12 mt-16 border-t border-white/10 pt-10">
-              <h2 className="mb-6 font-display text-xl font-semibold text-white sm:text-2xl">
-                Frequently Asked Questions
-              </h2>
-              <div className="space-y-4">
-                {article.faqs.map((faq, i) => (
-                  <details
-                    key={i}
-                    className="group rounded-lg border border-white/10 bg-white/[0.03] transition-colors open:border-[#F78E42]/20 open:bg-[#F78E42]/[0.02]"
+          <div className="mt-12 grid gap-10 lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start">
+            <article className="min-w-0">
+              {keyTakeaways.length > 0 && (
+                <ScrollReveal>
+                  <div className="torn torn-tb rot-neg mb-12 border-2 border-[#11100D] bg-[#F0E5CC]">
+                    <div className="mb-4 flex items-center gap-3">
+                      <QuiverSticker
+                        sticker="surfWax"
+                        className="w-14 -rotate-6 drop-shadow-sm"
+                      />
+                      <h2 className="font-display text-2xl font-black uppercase text-[#11100D]">
+                        Key Takeaways
+                      </h2>
+                    </div>
+                    <ul className="space-y-3">
+                      {keyTakeaways.map((section) => (
+                        <li
+                          key={section.id}
+                          className="flex gap-3 text-sm leading-relaxed text-[#11100D]/78"
+                        >
+                          <span className="mt-1.5 block h-2 w-2 shrink-0 rounded-full bg-[#F78E42]" />
+                          {section.keyTakeaway}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </ScrollReveal>
+              )}
+
+              {article.sections.map((section, index) => (
+                <ScrollReveal key={section.id}>
+                  <section className="mb-14 scroll-mt-24" id={section.id}>
+                    <div className="mb-5 flex items-baseline gap-3 border-b-2 border-dashed border-[#11100D]/30 pb-3">
+                      <span className="circled shrink-0">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+                      <h2 className="font-display text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl">
+                        {section.heading}
+                      </h2>
+                    </div>
+
+                    {section.image ? (
+                      <div
+                        className={`flex flex-col gap-7 md:items-start ${
+                          section.image.position === "left"
+                            ? "md:flex-row-reverse"
+                            : "md:flex-row"
+                        }`}
+                      >
+                        <div
+                          className="prose max-w-none flex-1 text-[#11100D]/78 [&_p]:mb-4 [&_p]:leading-relaxed [&_strong]:text-[#11100D]"
+                          dangerouslySetInnerHTML={{ __html: section.content }}
+                        />
+                        <div className="w-full shrink-0 md:w-[38%]">
+                          <div className="polaroid">
+                            <div className="photo">
+                              <Image
+                                src={section.image.src}
+                                alt={section.image.alt}
+                                fill
+                                className="object-cover saturate-[0.78]"
+                                sizes="(min-width: 768px) 320px, 100vw"
+                              />
+                            </div>
+                            <p className="cap">{section.heading}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div
+                        className="prose max-w-none text-[#11100D]/78 [&_p]:mb-4 [&_p]:leading-relaxed [&_strong]:text-[#11100D]"
+                        dangerouslySetInnerHTML={{ __html: section.content }}
+                      />
+                    )}
+                  </section>
+
+                  {index % 2 === 1 && section.keyTakeaway && (
+                    <blockquote className="notebook rot-1 my-10">
+                      <p className="font-handwritten text-2xl leading-tight text-[#11100D]">
+                        {section.keyTakeaway}
+                      </p>
+                    </blockquote>
+                  )}
+
+                  {index === 2 && (
+                    <InlineSignupCta
+                      title="Stop guessing. Start scoring."
+                      description="Pick your home beach. We score every hour by tide, wind, and swell and tell you when to paddle out."
+                      primaryButtonText="Pick your home beach"
+                      source="learn_article"
+                      ctaCopyVariant="learn_article_v1"
+                      className="my-10"
+                      variant="zine"
+                    />
+                  )}
+                </ScrollReveal>
+              ))}
+            </article>
+
+            <aside className="space-y-6 lg:sticky lg:top-6">
+              {toc.length > 3 && (
+                <ScrollReveal>
+                  <nav className="notebook" aria-label="In this guide">
+                    <p className="typewriter mb-3">In this guide</p>
+                    <ol className="space-y-2">
+                      {toc.map((item, index) => (
+                        <li key={item.id}>
+                          <a
+                            href={`#${item.id}`}
+                            className="group flex items-baseline gap-2 text-sm leading-tight text-[#11100D]/72 transition-colors hover:text-[#B56A2B]"
+                          >
+                            <span className="font-mono text-xs text-[#11100D]/42 transition-colors group-hover:text-[#B56A2B]">
+                              {String(index + 1).padStart(2, "0")}
+                            </span>
+                            {item.label}
+                          </a>
+                        </li>
+                      ))}
+                    </ol>
+                  </nav>
+                </ScrollReveal>
+              )}
+
+              <ScrollReveal>
+                <div className="torn torn-tb border-2 border-[#11100D] bg-[#FBF6E8]">
+                  <QuiverSticker
+                    sticker="goldDownArrow"
+                    className="float-right ml-2 w-10 rotate-6"
+                  />
+                  <p className="typewriter mb-2">Next paddle</p>
+                  <p className="text-sm leading-relaxed text-[#11100D]/72">
+                    Use this note, then check a live regional forecast before
+                    committing to the drive.
+                  </p>
+                  <Link
+                    href="/forecast/santa-cruz"
+                    className="mt-4 inline-flex font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#B56A2B] hover:text-[#11100D]"
                   >
-                    <summary className="cursor-pointer select-none p-5 font-medium text-white transition-colors hover:text-[#F78E42] [&::-webkit-details-marker]:hidden list-none">
-                      <span className="flex items-center justify-between">
+                    Santa Cruz forecast &rarr;
+                  </Link>
+                </div>
+              </ScrollReveal>
+            </aside>
+          </div>
+
+          {article.faqs.length > 0 && (
+            <ScrollReveal>
+              <section className="mt-8 border-t-2 border-dashed border-[#11100D]/35 pt-10">
+                <h2 className="mb-6 font-display text-2xl font-black uppercase text-[#11100D]">
+                  Frequently Asked Questions
+                </h2>
+                <div className="space-y-4">
+                  {article.faqs.map((faq) => (
+                    <details
+                      key={faq.question}
+                      className="group torn border-2 border-[#11100D] bg-[#FBF6E8] open:bg-[#F0E5CC]"
+                    >
+                      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-display text-base font-black uppercase text-[#11100D] transition-colors hover:text-[#B56A2B] [&::-webkit-details-marker]:hidden">
                         {faq.question}
-                        <span className="ml-4 shrink-0 text-gray-500 transition-transform duration-200 group-open:rotate-45">
+                        <span className="shrink-0 font-mono text-2xl leading-none transition-transform duration-200 group-open:rotate-45">
                           +
                         </span>
-                      </span>
-                    </summary>
-                    <div className="px-5 pb-5">
-                      <p className="text-sm leading-relaxed text-gray-300">
+                      </summary>
+                      <p className="mt-4 text-sm leading-relaxed text-[#11100D]/72">
                         {faq.answer}
                       </p>
-                    </div>
-                  </details>
-                ))}
-              </div>
-            </section>
-          </ScrollReveal>
-        )}
-
-        {/* ---------------------------------------------------------------- */}
-        {/* Up Next Navigation                                               */}
-        {/* ---------------------------------------------------------------- */}
-        {nextArticle && (
-          <ScrollReveal>
-            <section className="mb-12 mt-16 border-t border-white/10 pt-10">
-              <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-[#F78E42]">
-                Up next
-              </p>
-              <Link
-                href={`/learn/${nextArticle.slug}`}
-                className="group flex items-start gap-5 rounded-lg border border-white/10 bg-white/[0.03] p-5 transition-all duration-200 hover:border-[#F78E42]/30 hover:bg-[#F78E42]/[0.04] hover:-translate-y-0.5"
-              >
-                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-md">
-                  <Image
-                    src={nextArticle.thumbnailImage}
-                    alt={nextArticle.title}
-                    width={200}
-                    height={200}
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
+                    </details>
+                  ))}
                 </div>
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-display text-base font-semibold text-white transition-colors group-hover:text-[#F78E42] sm:text-lg">
-                    {nextArticle.title}
-                  </h3>
-                  <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-gray-400">
-                    {nextArticle.description}
-                  </p>
-                  <p className="mt-2 text-xs text-gray-500 font-mono">
-                    {nextArticle.readingTimeMin} min read
-                  </p>
-                </div>
-              </Link>
-            </section>
-          </ScrollReveal>
-        )}
+              </section>
+            </ScrollReveal>
+          )}
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Related Content                                                  */}
-        {/* ---------------------------------------------------------------- */}
-        {article.relatedLinks.length > 0 && (
-          <ScrollReveal>
-            <section className="mb-12">
-              <h2 className="mb-4 font-display text-lg font-semibold text-white">
-                Keep Exploring
-              </h2>
-              <div className="grid gap-3 sm:grid-cols-2">
-                {article.relatedLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    className="group rounded-lg border border-white/10 bg-white/[0.03] p-4 transition-all duration-200 hover:border-[#F78E42]/30 hover:bg-[#F78E42]/[0.04] hover:-translate-y-0.5"
-                  >
-                    <span className="text-sm font-medium text-white transition-colors duration-200 group-hover:text-[#F78E42]">
-                      {link.label}
-                    </span>
-                    <p className="mt-1 text-xs text-gray-400">
-                      {link.description}
+          {nextArticle && (
+            <ScrollReveal>
+              <section className="mt-14 border-t-2 border-dashed border-[#11100D]/35 pt-10">
+                <p className="label-black mb-5">Up Next</p>
+                <Link
+                  href={`/learn/${nextArticle.slug}`}
+                  className="group torn torn-tb grid gap-5 border-2 border-[#11100D] bg-[#F0E5CC] transition-transform hover:-translate-y-1 sm:grid-cols-[8rem_1fr]"
+                >
+                  <div className="relative h-32 overflow-hidden border-2 border-[#11100D] bg-[#C8C2B0]">
+                    <Image
+                      src={nextArticle.thumbnailImage}
+                      alt={nextArticle.title}
+                      fill
+                      className="object-cover saturate-[0.78] transition-transform duration-300 group-hover:scale-105"
+                      sizes="128px"
+                    />
+                  </div>
+                  <div>
+                    <h3 className="font-display text-xl font-black uppercase leading-tight text-[#11100D] transition-colors group-hover:text-[#B56A2B]">
+                      {nextArticle.title}
+                    </h3>
+                    <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[#11100D]/68">
+                      {nextArticle.description}
                     </p>
-                  </Link>
-                ))}
-              </div>
-            </section>
-          </ScrollReveal>
-        )}
+                    <p className="mt-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/55">
+                      {nextArticle.readingTimeMin} min read
+                    </p>
+                  </div>
+                </Link>
+              </section>
+            </ScrollReveal>
+          )}
 
-        {/* ---------------------------------------------------------------- */}
-        {/* Back to Hub                                                      */}
-        {/* ---------------------------------------------------------------- */}
-        <div className="mb-8 text-center">
-          <Link
-            href="/learn"
-            className="text-sm text-gray-500 transition-colors hover:text-[#F78E42]"
-          >
-            &larr; All guides
-          </Link>
-        </div>
-      </main>
+          {article.relatedLinks.length > 0 && (
+            <ScrollReveal>
+              <section className="mt-12">
+                <h2 className="mb-4 font-display text-xl font-black uppercase text-[#11100D]">
+                  Keep Exploring
+                </h2>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {article.relatedLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="group torn border-2 border-[#11100D] bg-[#FBF6E8] p-4 transition-transform hover:-translate-y-0.5"
+                    >
+                      <span className="text-sm font-bold text-[#11100D] transition-colors group-hover:text-[#B56A2B]">
+                        {link.label}
+                      </span>
+                      <p className="mt-1 text-xs leading-relaxed text-[#11100D]/62">
+                        {link.description}
+                      </p>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            </ScrollReveal>
+          )}
+
+          <div className="mt-12 text-center">
+            <Link
+              href="/learn"
+              className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]/58 transition-colors hover:text-[#B56A2B]"
+            >
+              &larr; All guides
+            </Link>
+          </div>
+        </main>
+      </ZineSurface>
 
       <StickySignupBar source="learn_article" />
     </>

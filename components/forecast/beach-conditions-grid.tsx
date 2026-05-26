@@ -18,6 +18,7 @@ import { formatWaveHeightDecimal as formatWaveHeight } from "@/lib/utils/wave-fo
 import { ScoreBadge } from "./score-badge";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
+import { QuiverSticker } from "@/components/zine";
 import {
   Table,
   TableBody,
@@ -43,6 +44,8 @@ export interface BeachConditionsGridProps {
   showViewAll?: boolean;
   /** Optional className for customization */
   className?: string;
+  /** Visual treatment variant */
+  variant?: "default" | "zine";
 }
 
 /**
@@ -75,16 +78,24 @@ const trendConfig = {
 /**
  * Enhanced trend indicator component with subtle animation for improving conditions
  */
-function TrendIndicator({ trend }: { trend: BeachConditionSummary["trend"] }) {
+function TrendIndicator({
+  trend,
+  variant = "default",
+}: {
+  trend: BeachConditionSummary["trend"];
+  variant?: "default" | "zine";
+}) {
   const config = trendConfig[trend];
   const Icon = config.icon;
+  const isZine = variant === "zine";
 
   return (
     <div
       className={cn(
         "flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-medium transition-all duration-200",
-        config.bgColor,
-        config.color,
+        isZine
+          ? "border border-[#11100D]/25 bg-[#F0E5CC] text-[#11100D]"
+          : [config.bgColor, config.color],
         trend === "improving" && "hover:scale-105"
       )}
     >
@@ -100,16 +111,21 @@ function TrendIndicator({ trend }: { trend: BeachConditionSummary["trend"] }) {
 function BeachConditionRow({
   beach,
   index,
+  variant = "default",
 }: {
   beach: BeachConditionSummary;
   index: number;
+  variant?: "default" | "zine";
 }) {
   const scoreColors = getScoreColorClasses(beach.currentScore);
+  const isZine = variant === "zine";
 
   return (
     <TableRow
       className={cn(
-        "hover:bg-gradient-to-r hover:from-sky-50/50 hover:to-transparent",
+        isZine
+          ? "border-[#11100D]/20 hover:bg-[#F4EBD8]"
+          : "hover:bg-gradient-to-r hover:from-sky-50/50 hover:to-transparent",
         "transition-all duration-200"
       )}
       style={{
@@ -119,15 +135,18 @@ function BeachConditionRow({
       <TableCell className="font-medium">
         <Link
           href={buildBeachUrl({ slug: beach.beachSlug, city: beach.city, state: beach.state, country: beach.country })}
-          className="text-foreground hover:text-primary hover:underline transition-colors"
+          className={cn(
+            "transition-colors hover:underline",
+            isZine ? "font-bold text-[#11100D] hover:text-[#B56A2B]" : "text-foreground hover:text-primary"
+          )}
         >
           {beach.beachName}
         </Link>
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-1.5">
-          <Calendar className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm">{beach.bestDay}</span>
+          <Calendar className={cn("h-4 w-4", isZine ? "text-[#11100D]/58" : "text-muted-foreground")} />
+          <span className={cn("text-sm", isZine && "text-[#11100D]/72")}>{beach.bestDay}</span>
           {beach.bestDayScore > 0 && (
             <span
               className={cn(
@@ -141,9 +160,9 @@ function BeachConditionRow({
         </div>
       </TableCell>
       <TableCell>
-        <div className="flex items-center gap-1.5 text-muted-foreground">
-          <Waves className="h-4 w-4 text-blue-500" />
-          <span className="font-medium text-foreground tabular-nums">
+        <div className={cn("flex items-center gap-1.5", isZine ? "text-[#11100D]/68" : "text-muted-foreground")}>
+          <Waves className={cn("h-4 w-4", isZine ? "text-[#0B3A75]" : "text-blue-500")} />
+          <span className={cn("font-medium tabular-nums", isZine ? "text-[#11100D]" : "text-foreground")}>
             <AnimatedCounter
               value={beach.currentWaveHeight}
               decimals={1}
@@ -154,14 +173,14 @@ function BeachConditionRow({
         </div>
       </TableCell>
       <TableCell>
-        <TrendIndicator trend={beach.trend} />
+        <TrendIndicator trend={beach.trend} variant={variant} />
       </TableCell>
       <TableCell>
         <div className="flex items-center gap-2">
           <div className="transition-transform duration-200 hover:scale-110">
             <ScoreBadge score={beach.currentScore} />
           </div>
-          <span className={cn("text-xs font-medium", scoreColors.text)}>
+          <span className={cn("text-xs font-medium", isZine ? "text-[#11100D]/68" : scoreColors.text)}>
             {scoreColors.label}
           </span>
         </div>
@@ -176,16 +195,26 @@ function BeachConditionRow({
 function BeachConditionCard({
   beach,
   index,
+  variant = "default",
 }: {
   beach: BeachConditionSummary;
   index: number;
+  variant?: "default" | "zine";
 }) {
   const scoreColors = getScoreColorClasses(beach.currentScore);
+  const isZine = variant === "zine";
 
   return (
     <ScrollReveal variant="fadeUp" delay={index * 75}>
-      <Card className="transition-all duration-200 hover:shadow-md hover:border-border/80 group">
-        <CardContent className="p-4">
+      <Card
+        className={cn(
+          "transition-all duration-200 group",
+          isZine
+            ? "torn torn-tb rounded-none border-2 border-[#11100D] bg-[#FBF6E8] shadow-[2px_3px_0_rgba(17,16,13,0.18)] hover:-translate-y-0.5"
+            : "hover:shadow-md hover:border-border/80"
+        )}
+      >
+        <CardContent className={cn("p-4", isZine && "relative z-10")}>
           <div className="flex items-start gap-3">
             {/* Score Badge with hover scale */}
             <div className="transition-transform duration-200 group-hover:scale-110">
@@ -197,21 +226,24 @@ function BeachConditionCard({
               {/* Beach Name */}
               <Link
                 href={buildBeachUrl({ slug: beach.beachSlug, city: beach.city, state: beach.state, country: beach.country })}
-                className="font-semibold text-foreground hover:text-primary hover:underline transition-colors line-clamp-1"
+                className={cn(
+                  "font-semibold hover:underline transition-colors line-clamp-1",
+                  isZine ? "text-[#11100D] hover:text-[#B56A2B]" : "text-foreground hover:text-primary"
+                )}
               >
                 {beach.beachName}
               </Link>
 
               {/* Score Label */}
-              <p className={cn("text-xs font-medium mt-0.5", scoreColors.text)}>
+              <p className={cn("text-xs font-medium mt-0.5", isZine ? "text-[#11100D]/68" : scoreColors.text)}>
                 {scoreColors.label} conditions
               </p>
 
               {/* Quick Stats with animated wave height */}
               <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
-                <span className="flex items-center gap-1 text-muted-foreground">
-                  <Waves className="h-3.5 w-3.5 text-blue-500" />
-                  <span className="font-medium text-foreground tabular-nums">
+                <span className={cn("flex items-center gap-1", isZine ? "text-[#11100D]/68" : "text-muted-foreground")}>
+                  <Waves className={cn("h-3.5 w-3.5", isZine ? "text-[#0B3A75]" : "text-blue-500")} />
+                  <span className={cn("font-medium tabular-nums", isZine ? "text-[#11100D]" : "text-foreground")}>
                     <AnimatedCounter
                       value={beach.currentWaveHeight}
                       decimals={1}
@@ -220,11 +252,11 @@ function BeachConditionCard({
                     />
                   </span>
                 </span>
-                <TrendIndicator trend={beach.trend} />
+                <TrendIndicator trend={beach.trend} variant={variant} />
               </div>
 
               {/* Best Day */}
-              <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <div className={cn("mt-2 flex items-center gap-1.5 text-xs", isZine ? "text-[#11100D]/68" : "text-muted-foreground")}>
                 <Calendar className="h-3.5 w-3.5" />
                 <span>
                   Best: <span className="font-medium">{beach.bestDay}</span>
@@ -271,6 +303,7 @@ export function BeachConditionsGrid({
   maxBeaches = 12,
   showViewAll = true,
   className,
+  variant = "default",
 }: BeachConditionsGridProps) {
   // Sort beaches by current score (highest first) and limit display
   const displayBeaches = beaches
@@ -279,12 +312,21 @@ export function BeachConditionsGrid({
     .slice(0, maxBeaches);
 
   const hasMoreBeaches = beaches.length > maxBeaches;
+  const isZine = variant === "zine";
 
   if (beaches.length === 0) {
     return (
       <section className={cn("space-y-4", className)}>
-        <h2 className="text-2xl font-bold text-foreground">Beach Conditions</h2>
-        <p className="text-muted-foreground">
+        <h2
+          className={cn(
+            isZine
+              ? "font-display text-3xl font-black uppercase text-[#11100D]"
+              : "text-2xl font-bold text-foreground"
+          )}
+        >
+          Beach Conditions
+        </h2>
+        <p className={cn(isZine ? "text-[#11100D]/66" : "text-muted-foreground")}>
           No beach condition data available for this region.
         </p>
       </section>
@@ -296,18 +338,35 @@ export function BeachConditionsGrid({
       {/* Section Header */}
       <ScrollReveal variant="fadeUp">
         <div className="flex justify-between items-center">
-          <div>
-            <h2 className="text-2xl font-bold text-foreground">
+          <div className="flex items-start gap-3">
+            {isZine && (
+              <QuiverSticker
+                sticker="spotLocation"
+                className="hidden w-14 -rotate-6 drop-shadow-sm sm:block"
+              />
+            )}
+            <div>
+            <h2
+              className={cn(
+                isZine
+                  ? "font-display text-3xl font-black uppercase leading-tight text-[#11100D]"
+                  : "text-2xl font-bold text-foreground"
+              )}
+            >
               Beach Conditions
             </h2>
-            <p className="text-sm text-muted-foreground mt-1">
+            <p className={cn("text-sm mt-1", isZine ? "text-[#11100D]/66" : "text-muted-foreground")}>
               Current conditions ranked by surf quality
             </p>
+            </div>
           </div>
           {showViewAll && hasMoreBeaches && (
             <Link
               href={`/guides/surfing-${regionSlug}`}
-              className="text-sm font-medium text-primary hover:text-primary/80 hover:underline transition-colors whitespace-nowrap"
+              className={cn(
+                "text-sm font-medium hover:underline transition-colors whitespace-nowrap",
+                isZine ? "text-[#B56A2B] hover:text-[#11100D]" : "text-primary hover:text-primary/80"
+              )}
             >
               View all{" "}
               <AnimatedCounter value={beaches.length} duration={400} /> beaches
@@ -318,16 +377,16 @@ export function BeachConditionsGrid({
       </ScrollReveal>
 
       {/* Desktop Table View */}
-      <div className="hidden md:block">
+      <div className={cn("hidden md:block", isZine && "torn torn-tb border-2 border-[#11100D] bg-[#FBF6E8] p-2")}>
         <ScrollReveal variant="fadeIn" delay={100}>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="w-[30%]">Beach</TableHead>
-                <TableHead className="w-[20%]">Best Day</TableHead>
-                <TableHead className="w-[15%]">Wave Height</TableHead>
-                <TableHead className="w-[15%]">Trend</TableHead>
-                <TableHead className="w-[20%]">Score</TableHead>
+                <TableHead className={cn("w-[30%]", isZine && "font-mono uppercase tracking-[0.1em] text-[#11100D]/60")}>Beach</TableHead>
+                <TableHead className={cn("w-[20%]", isZine && "font-mono uppercase tracking-[0.1em] text-[#11100D]/60")}>Best Day</TableHead>
+                <TableHead className={cn("w-[15%]", isZine && "font-mono uppercase tracking-[0.1em] text-[#11100D]/60")}>Wave Height</TableHead>
+                <TableHead className={cn("w-[15%]", isZine && "font-mono uppercase tracking-[0.1em] text-[#11100D]/60")}>Trend</TableHead>
+                <TableHead className={cn("w-[20%]", isZine && "font-mono uppercase tracking-[0.1em] text-[#11100D]/60")}>Score</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -336,6 +395,7 @@ export function BeachConditionsGrid({
                   key={beach.beachId}
                   beach={beach}
                   index={index}
+                  variant={variant}
                 />
               ))}
             </TableBody>
@@ -346,7 +406,12 @@ export function BeachConditionsGrid({
       {/* Mobile Card View */}
       <div className="md:hidden grid grid-cols-1 gap-3">
         {displayBeaches.map((beach, index) => (
-          <BeachConditionCard key={beach.beachId} beach={beach} index={index} />
+          <BeachConditionCard
+            key={beach.beachId}
+            beach={beach}
+            index={index}
+            variant={variant}
+          />
         ))}
       </div>
 
@@ -356,7 +421,10 @@ export function BeachConditionsGrid({
           <div className="md:hidden text-center pt-2">
             <Link
               href={`/guides/surfing-${regionSlug}`}
-              className="text-sm font-medium text-primary hover:text-primary/80 hover:underline transition-colors"
+              className={cn(
+                "text-sm font-medium hover:underline transition-colors",
+                isZine ? "text-[#B56A2B] hover:text-[#11100D]" : "text-primary hover:text-primary/80"
+              )}
             >
               View all {beaches.length} beaches &rarr;
             </Link>

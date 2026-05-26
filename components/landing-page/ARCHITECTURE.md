@@ -109,13 +109,26 @@ The unauthenticated `/` route renders the landing navbar in normal document flow
 
 **Directory:** `public/images/app-screenshots/`
 
-The ForecastSection renders real App Store screenshots (1290×2796 PNGs with phone chrome and headline poster text baked in) instead of code-based mockups. Source of truth lives in the native app's worktree at `quiver-native/.worktrees/app-store-screenshots/scripts/app-store-screenshots/output/6.7/`.
+The active `ForecastSection` renders Brand-Vault-backed app screenshots (1320×2868 PNGs with phone chrome and headline poster text baked in) instead of code-based mockups. Source assets are mirrored from `Brand-Vault/marketing/app-store-promo/dist/images/quiver/`.
 
-- `verdict.png` — Your Surf Call tab: Trestles 4–6ft EPIC verdict with swell / tide / water temp.
-- `forecast.png` — Local Intel tab: hourly 4–6ft forecast, 5kt NW wind, rising tide, tide chart.
-- `session.png` — Session Journal tab: Log Session form with board picker, ratings, wave conditions.
+- `surf-call.png` — Forecast tab: La Jolla Shores surf call with swell, wind, water, tide, and recommendation card. Exact source match: `Brand-Vault/marketing/app-store-promo/dist/images/quiver/forecast.png`.
+- `session-log.png` — Log tab: Log Session form with beach, board, duration, rating, and wave conditions. Exact source match: `Brand-Vault/marketing/app-store-promo/dist/images/quiver/session-log.png`.
+- `local-intel.png` — Check tab: Beach finder/local intel surface for nearby surf spots, skill filters, and trending breaks. Exact source match: `Brand-Vault/marketing/app-store-promo/dist/images/quiver/beach-finder.png`.
 
 `ForecastSection` lazy-loads each via `next/image` with `fill` + `object-cover` inside an `aspect-[9/19.5]` `rounded-[32px]` container; `AnimatePresence` cross-fades on tab switch. Re-render new App Store screenshots in the native worktree (`npm run screenshots` inside `quiver-native`) and copy the three files back into `public/images/app-screenshots/` when the app UI changes.
+
+## Landing Hero Media
+
+**Hero runtime assets:**
+
+- `public/images/hero/quiver-landing-hero-poster.jpg`
+- `public/images/hero/quiver-landing-hero-social.jpg`
+- `public/videos/quiver-landing-hero-1280.mp4`
+- `public/videos/quiver-landing-hero-720.mp4`
+
+The nearest Brand-Vault source is `Brand-Vault/marketing/launch-video/renders/quiver-landing-hero.mp4`. The public poster, social image, and 1280/720 MP4 files are optimized web derivatives and do not have exact hash matches in Brand-Vault, so future regeneration should keep a short source/export note with the derived files.
+
+`HeroSection` renders the visible App Store CTA as a real overlay at the poster/video button coordinate. The label comes from `IOS_APP_STORE_CTA` and intentionally covers the baked button text in the media so live page copy can follow the current Apple destination status without regenerating the launch video for each App Store state change.
 
 ## Component Patterns
 

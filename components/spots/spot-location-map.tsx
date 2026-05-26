@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { MapPin, Loader2 } from "lucide-react";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
+import { SpotGeneratedIcon } from "./spot-generated-icon";
 
 interface SpotLocationMapProps {
   latitude: number;
@@ -44,7 +44,7 @@ export function SpotLocationMap({
       <div className="relative aspect-[4/3] bg-slate-100">
         {isLoading ? (
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-sky-50 to-sky-100">
-            <Loader2 className="w-8 h-8 animate-spin text-sky-400" />
+            <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-sky-400/20 border-t-sky-500/75" />
           </div>
         ) : !imageError ? (
           <Image
@@ -57,21 +57,33 @@ export function SpotLocationMap({
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-sky-50 to-sky-100">
-            <MapPin className="w-8 h-8 text-sky-400" />
+            <SpotGeneratedIcon
+              name="location"
+              size={36}
+              className="h-8 w-8 object-contain opacity-60"
+            />
           </div>
         )}
         {/* Map pin overlay for visual emphasis */}
         {!isLoading && !imageError && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="bg-sky-600 text-white p-2 rounded-full shadow-lg">
-              <MapPin className="w-5 h-5" />
+            <div className="rounded-full bg-sky-600 p-2 shadow-lg">
+              <SpotGeneratedIcon
+                name="location"
+                size={22}
+                className="h-5 w-5 object-contain"
+              />
             </div>
           </div>
         )}
       </div>
       <div className="p-3 bg-slate-50 text-sm text-slate-600">
         <div className="flex items-center gap-2">
-          <MapPin className="w-4 h-4 text-sky-600 flex-shrink-0" />
+          <SpotGeneratedIcon
+            name="location"
+            size={18}
+            className="h-4 w-4 flex-shrink-0 object-contain"
+          />
           <div>
             <span className="font-medium text-slate-900">{spotName}</span>
             <p className="text-xs text-slate-500 mt-0.5">

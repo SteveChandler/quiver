@@ -8,6 +8,7 @@ import {
 } from "../../lib/seo/agent-workflow/store-snapshot";
 import { currentAuditDate, resolveSeoAuditFile } from "../../lib/seo/agent-workflow/audit-paths";
 import type { StoreListingSnapshot } from "../../lib/seo/agent-workflow/types";
+import { fetchJsonWithRetry } from "./resilient-fetch";
 
 const outputPath = getFlag("--output") ??
   resolveSeoAuditFile("STORE-SNAPSHOT.json", currentAuditDate());
@@ -84,11 +85,9 @@ async function sampleKeywordRanks(appId: string): Promise<StoreListingSnapshot["
 }
 
 async function fetchJson(url: string): Promise<unknown> {
-  const response = await fetch(url, {
+  return fetchJsonWithRetry(url, {
     headers: { "User-Agent": "QuiverSEOAutomation/1.0" },
   });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  return response.json();
 }
 
 function readCompetitorMemoryDeltas(): string[] {

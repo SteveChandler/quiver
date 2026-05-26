@@ -40,6 +40,10 @@ import type {
   SimilarityRecommendation,
   SurfDiscoveryRecommendation,
 } from "@/types/personalization";
+import {
+  isLearnedMatchState,
+  isStarterMatchState,
+} from "@/lib/personalization/match-state-compat";
 
 const log = createContextLogger("SimilarityLayer");
 
@@ -141,7 +145,7 @@ function interpretRpcResult(
 
   const state = result.state;
 
-  if (state === "onboarding") {
+  if (isStarterMatchState(typeof state === "string" ? state : undefined)) {
     const sessionCount =
       typeof result.session_count === "number" ? result.session_count : 0;
     const sessionsNeeded =
@@ -152,8 +156,11 @@ function interpretRpcResult(
     };
   }
 
-  if (state === "ready") {
-    const score = typeof result.score === "number" ? result.score : 0;
+  if (isLearnedMatchState(typeof state === "string" ? state : undefined)) {
+    if (typeof result.score !== "number") {
+      return { similarity: null, bonus: 0 };
+    }
+    const score = result.score;
     const label = typeof result.label === "string" ? result.label : "";
     const sessionCount =
       typeof result.sessions_in_profile === "number"

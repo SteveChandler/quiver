@@ -80,6 +80,11 @@ describe("AppleBetaPrompt", () => {
     });
   });
 
+  it("keeps the direct TestFlight CTA free of lifetime access promises", () => {
+    expect(IOS_TESTFLIGHT_BETA_CTA).toBe("Join the Quiver iOS beta");
+    expect(IOS_TESTFLIGHT_BETA_CTA).not.toMatch(/lifetime|get Quiver/i);
+  });
+
   it("renders desktop QR prompt with exact copy, logo, and analytics", async () => {
     setPromptCookie();
 

@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-export const runtime = 'edge';
+export const runtime = "nodejs";
 
 function renderFallback() {
   const response = new ImageResponse(

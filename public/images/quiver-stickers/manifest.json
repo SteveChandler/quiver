@@ -1,0 +1,552 @@
+{
+  "name": "quiver-sticker-sheet",
+  "source": "ig_007e7a3c3176be1a016a11373bdb1481979566ad39bfd552ee.png",
+  "sourceSize": {
+    "width": 1024,
+    "height": 1536
+  },
+  "backgroundRemoved": true,
+  "assetCount": 40,
+  "assets": [
+    {
+      "slug": "cream-tape",
+      "label": "Cream tape strip",
+      "file": "cream-tape.png",
+      "webPath": "/images/quiver-stickers/cream-tape.png",
+      "nativePath": "assets/quiver-stickers/cream-tape.png",
+      "width": 395,
+      "height": 103,
+      "sourceBbox": {
+        "left": 48,
+        "top": 53,
+        "right": 442,
+        "bottom": 155
+      }
+    },
+    {
+      "slug": "navy-tape",
+      "label": "Navy tape strip",
+      "file": "navy-tape.png",
+      "webPath": "/images/quiver-stickers/navy-tape.png",
+      "nativePath": "assets/quiver-stickers/navy-tape.png",
+      "width": 383,
+      "height": 98,
+      "sourceBbox": {
+        "left": 54,
+        "top": 177,
+        "right": 436,
+        "bottom": 274
+      }
+    },
+    {
+      "slug": "orange-tape",
+      "label": "Orange tape strip",
+      "file": "orange-tape.png",
+      "webPath": "/images/quiver-stickers/orange-tape.png",
+      "nativePath": "assets/quiver-stickers/orange-tape.png",
+      "width": 388,
+      "height": 81,
+      "sourceBbox": {
+        "left": 48,
+        "top": 295,
+        "right": 435,
+        "bottom": 375
+      }
+    },
+    {
+      "slug": "gold-tape",
+      "label": "Gold tape strip",
+      "file": "gold-tape.png",
+      "webPath": "/images/quiver-stickers/gold-tape.png",
+      "nativePath": "assets/quiver-stickers/gold-tape.png",
+      "width": 379,
+      "height": 86,
+      "sourceBbox": {
+        "left": 48,
+        "top": 403,
+        "right": 426,
+        "bottom": 488
+      }
+    },
+    {
+      "slug": "teal-tape",
+      "label": "Teal tape strip",
+      "file": "teal-tape.png",
+      "webPath": "/images/quiver-stickers/teal-tape.png",
+      "nativePath": "assets/quiver-stickers/teal-tape.png",
+      "width": 401,
+      "height": 89,
+      "sourceBbox": {
+        "left": 41,
+        "top": 513,
+        "right": 441,
+        "bottom": 601
+      }
+    },
+    {
+      "slug": "black-tape",
+      "label": "Black tape strip",
+      "file": "black-tape.png",
+      "webPath": "/images/quiver-stickers/black-tape.png",
+      "nativePath": "assets/quiver-stickers/black-tape.png",
+      "width": 388,
+      "height": 90,
+      "sourceBbox": {
+        "left": 50,
+        "top": 628,
+        "right": 437,
+        "bottom": 717
+      }
+    },
+    {
+      "slug": "navy-torn-square",
+      "label": "Navy torn square",
+      "file": "navy-torn-square.png",
+      "webPath": "/images/quiver-stickers/navy-torn-square.png",
+      "nativePath": "assets/quiver-stickers/navy-torn-square.png",
+      "width": 315,
+      "height": 297,
+      "sourceBbox": {
+        "left": 470,
+        "top": 66,
+        "right": 784,
+        "bottom": 362
+      }
+    },
+    {
+      "slug": "cream-torn-strip",
+      "label": "Cream torn strip",
+      "file": "cream-torn-strip.png",
+      "webPath": "/images/quiver-stickers/cream-torn-strip.png",
+      "nativePath": "assets/quiver-stickers/cream-torn-strip.png",
+      "width": 325,
+      "height": 149,
+      "sourceBbox": {
+        "left": 464,
+        "top": 380,
+        "right": 788,
+        "bottom": 528
+      }
+    },
+    {
+      "slug": "gold-torn-patch",
+      "label": "Gold torn patch",
+      "file": "gold-torn-patch.png",
+      "webPath": "/images/quiver-stickers/gold-torn-patch.png",
+      "nativePath": "assets/quiver-stickers/gold-torn-patch.png",
+      "width": 309,
+      "height": 195,
+      "sourceBbox": {
+        "left": 474,
+        "top": 539,
+        "right": 782,
+        "bottom": 733
+      }
+    },
+    {
+      "slug": "orange-torn-vertical",
+      "label": "Orange torn vertical patch",
+      "file": "orange-torn-vertical.png",
+      "webPath": "/images/quiver-stickers/orange-torn-vertical.png",
+      "nativePath": "assets/quiver-stickers/orange-torn-vertical.png",
+      "width": 207,
+      "height": 328,
+      "sourceBbox": {
+        "left": 791,
+        "top": 91,
+        "right": 996,
+        "bottom": 418
+      }
+    },
+    {
+      "slug": "folded-paper",
+      "label": "Folded cream paper",
+      "file": "folded-paper.png",
+      "webPath": "/images/quiver-stickers/folded-paper.png",
+      "nativePath": "assets/quiver-stickers/folded-paper.png",
+      "width": 172,
+      "height": 150,
+      "sourceBbox": {
+        "left": 820,
+        "top": 438,
+        "right": 991,
+        "bottom": 587
+      }
+    },
+    {
+      "slug": "surf-wax",
+      "label": "Surf wax block",
+      "file": "surf-wax.png",
+      "webPath": "/images/quiver-stickers/surf-wax.png",
+      "nativePath": "assets/quiver-stickers/surf-wax.png",
+      "width": 189,
+      "height": 146,
+      "sourceBbox": {
+        "left": 803,
+        "top": 608,
+        "right": 991,
+        "bottom": 753
+      }
+    },
+    {
+      "slug": "single-fin",
+      "label": "Navy single fin",
+      "file": "single-fin.png",
+      "webPath": "/images/quiver-stickers/single-fin.png",
+      "nativePath": "assets/quiver-stickers/single-fin.png",
+      "width": 287,
+      "height": 267,
+      "sourceBbox": {
+        "left": 34,
+        "top": 740,
+        "right": 320,
+        "bottom": 1006
+      }
+    },
+    {
+      "slug": "breaking-wave",
+      "label": "Breaking wave",
+      "file": "breaking-wave.png",
+      "webPath": "/images/quiver-stickers/breaking-wave.png",
+      "nativePath": "assets/quiver-stickers/breaking-wave.png",
+      "width": 428,
+      "height": 258,
+      "sourceBbox": {
+        "left": 259,
+        "top": 751,
+        "right": 686,
+        "bottom": 1008
+      }
+    },
+    {
+      "slug": "halftone-circle",
+      "label": "Halftone circle",
+      "file": "halftone-circle.png",
+      "webPath": "/images/quiver-stickers/halftone-circle.png",
+      "nativePath": "assets/quiver-stickers/halftone-circle.png",
+      "width": 201,
+      "height": 204,
+      "sourceBbox": {
+        "left": 34,
+        "top": 1035,
+        "right": 234,
+        "bottom": 1238
+      }
+    },
+    {
+      "slug": "grunge-square",
+      "label": "Grunge square",
+      "file": "grunge-square.png",
+      "webPath": "/images/quiver-stickers/grunge-square.png",
+      "nativePath": "assets/quiver-stickers/grunge-square.png",
+      "width": 214,
+      "height": 203,
+      "sourceBbox": {
+        "left": 276,
+        "top": 1045,
+        "right": 489,
+        "bottom": 1247
+      }
+    },
+    {
+      "slug": "black-brush-scrap",
+      "label": "Black brush scrap",
+      "file": "black-brush-scrap.png",
+      "webPath": "/images/quiver-stickers/black-brush-scrap.png",
+      "nativePath": "assets/quiver-stickers/black-brush-scrap.png",
+      "width": 178,
+      "height": 216,
+      "sourceBbox": {
+        "left": 533,
+        "top": 1038,
+        "right": 710,
+        "bottom": 1253
+      }
+    },
+    {
+      "slug": "teal-right-arrow",
+      "label": "Teal right arrow",
+      "file": "teal-right-arrow.png",
+      "webPath": "/images/quiver-stickers/teal-right-arrow.png",
+      "nativePath": "assets/quiver-stickers/teal-right-arrow.png",
+      "width": 303,
+      "height": 92,
+      "sourceBbox": {
+        "left": 692,
+        "top": 771,
+        "right": 994,
+        "bottom": 862
+      }
+    },
+    {
+      "slug": "orange-right-arrow",
+      "label": "Orange right arrow",
+      "file": "orange-right-arrow.png",
+      "webPath": "/images/quiver-stickers/orange-right-arrow.png",
+      "nativePath": "assets/quiver-stickers/orange-right-arrow.png",
+      "width": 284,
+      "height": 127,
+      "sourceBbox": {
+        "left": 711,
+        "top": 866,
+        "right": 994,
+        "bottom": 992
+      }
+    },
+    {
+      "slug": "gold-right-arrow",
+      "label": "Gold right arrow",
+      "file": "gold-right-arrow.png",
+      "webPath": "/images/quiver-stickers/gold-right-arrow.png",
+      "nativePath": "assets/quiver-stickers/gold-right-arrow.png",
+      "width": 248,
+      "height": 90,
+      "sourceBbox": {
+        "left": 746,
+        "top": 999,
+        "right": 993,
+        "bottom": 1088
+      }
+    },
+    {
+      "slug": "navy-lightning",
+      "label": "Navy lightning arrow",
+      "file": "navy-lightning.png",
+      "webPath": "/images/quiver-stickers/navy-lightning.png",
+      "nativePath": "assets/quiver-stickers/navy-lightning.png",
+      "width": 160,
+      "height": 83,
+      "sourceBbox": {
+        "left": 717,
+        "top": 1096,
+        "right": 876,
+        "bottom": 1178
+      }
+    },
+    {
+      "slug": "navy-up-right-arrow",
+      "label": "Navy up-right arrow",
+      "file": "navy-up-right-arrow.png",
+      "webPath": "/images/quiver-stickers/navy-up-right-arrow.png",
+      "nativePath": "assets/quiver-stickers/navy-up-right-arrow.png",
+      "width": 115,
+      "height": 147,
+      "sourceBbox": {
+        "left": 870,
+        "top": 1114,
+        "right": 984,
+        "bottom": 1260
+      }
+    },
+    {
+      "slug": "teal-curved-arrow",
+      "label": "Teal curved arrow",
+      "file": "teal-curved-arrow.png",
+      "webPath": "/images/quiver-stickers/teal-curved-arrow.png",
+      "nativePath": "assets/quiver-stickers/teal-curved-arrow.png",
+      "width": 126,
+      "height": 124,
+      "sourceBbox": {
+        "left": 710,
+        "top": 1203,
+        "right": 835,
+        "bottom": 1326
+      }
+    },
+    {
+      "slug": "gold-down-arrow",
+      "label": "Gold down arrow",
+      "file": "gold-down-arrow.png",
+      "webPath": "/images/quiver-stickers/gold-down-arrow.png",
+      "nativePath": "assets/quiver-stickers/gold-down-arrow.png",
+      "width": 99,
+      "height": 170,
+      "sourceBbox": {
+        "left": 731,
+        "top": 1312,
+        "right": 829,
+        "bottom": 1481
+      }
+    },
+    {
+      "slug": "navy-u-turn-arrow",
+      "label": "Navy u-turn arrow",
+      "file": "navy-u-turn-arrow.png",
+      "webPath": "/images/quiver-stickers/navy-u-turn-arrow.png",
+      "nativePath": "assets/quiver-stickers/navy-u-turn-arrow.png",
+      "width": 105,
+      "height": 184,
+      "sourceBbox": {
+        "left": 851,
+        "top": 1295,
+        "right": 955,
+        "bottom": 1477
+      }
+    },
+    {
+      "slug": "cream-coast-map",
+      "label": "Cream coast map scrap",
+      "file": "cream-coast-map.png",
+      "webPath": "/images/quiver-stickers/cream-coast-map.png",
+      "nativePath": "assets/quiver-stickers/cream-coast-map.png",
+      "width": 304,
+      "height": 215,
+      "sourceBbox": {
+        "left": 34,
+        "top": 1271,
+        "right": 337,
+        "bottom": 1485
+      }
+    },
+    {
+      "slug": "teal-map",
+      "label": "Teal map scrap",
+      "file": "teal-map.png",
+      "webPath": "/images/quiver-stickers/teal-map.png",
+      "nativePath": "assets/quiver-stickers/teal-map.png",
+      "width": 203,
+      "height": 212,
+      "sourceBbox": {
+        "left": 349,
+        "top": 1271,
+        "right": 551,
+        "bottom": 1482
+      }
+    },
+    {
+      "slug": "orange-map",
+      "label": "Orange map scrap",
+      "file": "orange-map.png",
+      "webPath": "/images/quiver-stickers/orange-map.png",
+      "nativePath": "assets/quiver-stickers/orange-map.png",
+      "width": 128,
+      "height": 197,
+      "sourceBbox": {
+        "left": 569,
+        "top": 1283,
+        "right": 696,
+        "bottom": 1479
+      }
+    },
+    {
+      "slug": "spot-water-temp",
+      "label": "Water temperature spot icon",
+      "file": "spot-water-temp.png",
+      "webPath": "/images/quiver-stickers/spot-water-temp.png",
+      "nativePath": "assets/quiver-stickers/spot-water-temp.png",
+      "width": 256,
+      "height": 256,
+      "sourcePath": "quiver/public/images/spot-icons/water-temp.png"
+    },
+    {
+      "slug": "spot-tide-window",
+      "label": "Tide window spot icon",
+      "file": "spot-tide-window.png",
+      "webPath": "/images/quiver-stickers/spot-tide-window.png",
+      "nativePath": "assets/quiver-stickers/spot-tide-window.png",
+      "width": 256,
+      "height": 256,
+      "sourcePath": "quiver/public/images/spot-icons/tide-window.png"
+    },
+    {
+      "slug": "spot-launch-arrow",
+      "label": "Launch arrow spot icon",
+      "file": "spot-launch-arrow.png",
+      "webPath": "/images/quiver-stickers/spot-launch-arrow.png",
+      "nativePath": "assets/quiver-stickers/spot-launch-arrow.png",
+      "width": 256,
+      "height": 256,
+      "sourcePath": "quiver/public/images/spot-icons/launch-arrow.png"
+    },
+    {
+      "slug": "spot-best-season",
+      "label": "Best season spot icon",
+      "file": "spot-best-season.png",
+      "webPath": "/images/quiver-stickers/spot-best-season.png",
+      "nativePath": "assets/quiver-stickers/spot-best-season.png",
+      "width": 256,
+      "height": 256,
+      "sourcePath": "quiver/public/images/spot-icons/best-season.png"
+    },
+    {
+      "slug": "spot-swell-match",
+      "label": "Swell match spot icon",
+      "file": "spot-swell-match.png",
+      "webPath": "/images/quiver-stickers/spot-swell-match.png",
+      "nativePath": "assets/quiver-stickers/spot-swell-match.png",
+      "width": 256,
+      "height": 256,
+      "sourcePath": "quiver/public/images/spot-icons/swell-match.png"
+    },
+    {
+      "slug": "spot-gallery",
+      "label": "Gallery spot icon",
+      "file": "spot-gallery.png",
+      "webPath": "/images/quiver-stickers/spot-gallery.png",
+      "nativePath": "assets/quiver-stickers/spot-gallery.png",
+      "width": 256,
+      "height": 256,
+      "sourcePath": "quiver/public/images/spot-icons/gallery.png"
+    },
+    {
+      "slug": "spot-wind-read",
+      "label": "Wind read spot icon",
+      "file": "spot-wind-read.png",
+      "webPath": "/images/quiver-stickers/spot-wind-read.png",
+      "nativePath": "assets/quiver-stickers/spot-wind-read.png",
+      "width": 256,
+      "height": 256,
+      "sourcePath": "quiver/public/images/spot-icons/wind-read.png"
+    },
+    {
+      "slug": "spot-photo",
+      "label": "Photo spot icon",
+      "file": "spot-photo.png",
+      "webPath": "/images/quiver-stickers/spot-photo.png",
+      "nativePath": "assets/quiver-stickers/spot-photo.png",
+      "width": 256,
+      "height": 256,
+      "sourcePath": "quiver/public/images/spot-icons/photo.png"
+    },
+    {
+      "slug": "spot-location",
+      "label": "Location spot icon",
+      "file": "spot-location.png",
+      "webPath": "/images/quiver-stickers/spot-location.png",
+      "nativePath": "assets/quiver-stickers/spot-location.png",
+      "width": 256,
+      "height": 256,
+      "sourcePath": "quiver/public/images/spot-icons/location.png"
+    },
+    {
+      "slug": "spot-session-profile",
+      "label": "Session profile spot icon",
+      "file": "spot-session-profile.png",
+      "webPath": "/images/quiver-stickers/spot-session-profile.png",
+      "nativePath": "assets/quiver-stickers/spot-session-profile.png",
+      "width": 256,
+      "height": 256,
+      "sourcePath": "quiver/public/images/spot-icons/session-profile.png"
+    },
+    {
+      "slug": "alert-condition-watch-button",
+      "label": "Condition watch label sticker",
+      "file": "alert-condition-watch-button.png",
+      "webPath": "/images/quiver-stickers/alert-condition-watch-button.png",
+      "nativePath": "assets/quiver-stickers/alert-condition-watch-button.png",
+      "width": 512,
+      "height": 187,
+      "sourcePath": "quiver/public/images/alerts/condition-watch-button.webp"
+    },
+    {
+      "slug": "alert-directions-button",
+      "label": "Directions label sticker",
+      "file": "alert-directions-button.png",
+      "webPath": "/images/quiver-stickers/alert-directions-button.png",
+      "nativePath": "assets/quiver-stickers/alert-directions-button.png",
+      "width": 660,
+      "height": 203,
+      "sourcePath": "quiver/public/images/alerts/directions-button.webp"
+    }
+  ]
+}

@@ -167,8 +167,9 @@ useEffect(() => {
   - Fires `page_view` events to `/api/events` on navigation
   - Maps pathnames to human-readable page names
   - Generates per-browser-session IDs for session grouping
-  - Skips duplicate events and landing page (tracked separately)
-  - Only tracks authenticated users
+  - Skips duplicate events for the same path plus safe attribution tuple
+  - Adds launch campaign metadata for landing, plans, blog index, and blog posts
+  - Supports authenticated and anonymous tracking through `useTrackEvent`
 
 **Integration:**
 
@@ -195,8 +196,11 @@ function Providers({ children }) {
 | `/map` | `map` |
 | `/profile/*` | `profile` |
 | `/session/*` | `session` |
+| `/plans` | `plans` |
+| `/blog` | `blog_index` |
+| `/blog/*` | `blog_post` |
 | `/onboarding/*` | `onboarding` |
-| `/` | `landing` (skipped) |
+| `/` | `landing` |
 
 **Event Payload:**
 

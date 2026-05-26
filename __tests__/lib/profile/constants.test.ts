@@ -45,6 +45,11 @@ describe('profile constants', () => {
     it('should include onboarding_completed_at', () => {
       expect(PROFILE_FULL_SELECT).toContain('onboarding_completed_at');
     });
+
+    it('should include Android waitlist fields for signed-in CTA state', () => {
+      expect(PROFILE_FULL_SELECT).toContain('wants_android_access');
+      expect(PROFILE_FULL_SELECT).toContain('android_waitlist_joined_at');
+    });
   });
 
   describe('PROFILE_ONBOARDING_SELECT', () => {

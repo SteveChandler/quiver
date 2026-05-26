@@ -29,6 +29,8 @@ export interface SwellEventCardProps {
   event: SwellEvent;
   /** Compact mode for use in lists */
   compact?: boolean;
+  /** Visual treatment for page-specific surfaces */
+  variant?: "default" | "zine";
   /** Additional CSS classes */
   className?: string;
 }
@@ -37,7 +39,9 @@ export interface SwellEventListProps {
   /** Array of swell events to display */
   events: SwellEvent[];
   /** Section title */
-  title?: string;
+  title?: string | null;
+  /** Visual treatment for page-specific surfaces */
+  variant?: "default" | "zine";
   /** Additional CSS classes */
   className?: string;
 }
@@ -324,6 +328,7 @@ function SwellTimeline({
 export function SwellEventCard({
   event,
   compact = false,
+  variant = "default",
   className,
 }: SwellEventCardProps) {
   const styles = getSizeStyles(event.size);
@@ -332,37 +337,51 @@ export function SwellEventCard({
   // Use the shared formatter for consistent wave height range display (e.g., "4-6ft" not "6-6ft")
   const heightRange = formatWaveHeightRangeString(event.heightRange[0], event.heightRange[1]);
   const isLargeSwell = event.size === "overhead" || event.size === "double-overhead";
+  const isZine = variant === "zine";
+  const primaryTextClass = isZine ? "text-[#11100D]" : styles.text;
+  const mutedTextClass = isZine ? "text-[#11100D]/62" : "text-muted-foreground";
+  const iconClass = isZine ? "text-[#0B3A75]" : styles.icon;
+  const badgeClass = isZine
+    ? "border-2 border-[#11100D] bg-[#F78E42] text-[#11100D]"
+    : styles.badge;
+  const timelineStyles = isZine
+    ? {
+        ...styles,
+        badge: "bg-[#F78E42] text-[#11100D]",
+        peakBg: "bg-[#0B3A75]",
+      }
+    : styles;
 
   if (compact) {
     return (
       <div
         className={cn(
-          "rounded-lg border p-3 transition-all duration-200",
-          "hover:shadow-md",
-          styles.bg,
-          styles.border,
+          "p-3 transition-all duration-200",
+          isZine
+            ? "torn torn-tb border-2 border-[#11100D] bg-[#F4EBD8] shadow-[2px_2px_0_rgba(17,16,13,0.35)] hover:-translate-y-0.5"
+            : cn("rounded-lg border hover:shadow-md", styles.bg, styles.border),
           className
         )}
       >
         <div className="flex items-center justify-between gap-3">
           {/* Left: Icon and label */}
           <div className="flex items-center gap-2 min-w-0">
-            <Waves className={styles.icon} />
+            <Waves className={iconClass} />
             <div className="min-w-0">
-              <p className={cn("font-medium text-sm truncate", styles.text)}>
+              <p className={cn("font-medium text-sm truncate", primaryTextClass)}>
                 {sizeLabel}
               </p>
-              <p className="text-xs text-muted-foreground">{timingLabel}</p>
+              <p className={cn("text-xs", mutedTextClass)}>{timingLabel}</p>
             </div>
           </div>
 
           {/* Right: Key metrics */}
           <div className="flex items-center gap-3 text-sm shrink-0">
             <div className="flex items-center gap-1">
-              <DirectionArrow direction={event.direction} className={styles.icon} />
-              <span className={styles.text}>{event.direction}</span>
+              <DirectionArrow direction={event.direction} className={iconClass} />
+              <span className={primaryTextClass}>{event.direction}</span>
             </div>
-            <span className={cn("font-semibold", styles.text)}>{heightRange}</span>
+            <span className={cn("font-semibold", primaryTextClass)}>{heightRange}</span>
           </div>
         </div>
       </div>
@@ -372,23 +391,22 @@ export function SwellEventCard({
   return (
     <div
       className={cn(
-        "rounded-xl border-2 p-4 transition-all duration-200",
-        "hover:shadow-lg",
-        styles.bg,
-        styles.border,
-        isLargeSwell && styles.glow,
+        "border-2 p-4 transition-all duration-200",
+        isZine
+          ? "torn torn-tb border-[#11100D] bg-[#F4EBD8] shadow-[3px_3px_0_rgba(17,16,13,0.35)] hover:-translate-y-0.5"
+          : cn("rounded-xl hover:shadow-lg", styles.bg, styles.border, isLargeSwell && styles.glow),
         className
       )}
     >
       {/* Header */}
       <div className="flex items-start justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
-          <Waves className={cn("w-6 h-6", styles.icon)} />
+          <Waves className={cn("w-6 h-6", iconClass)} />
           <div>
-            <h3 className={cn("font-semibold text-lg", styles.text)}>
+            <h3 className={cn("font-semibold text-lg", primaryTextClass)}>
               {sizeLabel}
             </h3>
-            <p className="text-sm text-muted-foreground">{timingLabel}</p>
+            <p className={cn("text-sm", mutedTextClass)}>{timingLabel}</p>
           </div>
         </div>
 
@@ -396,7 +414,7 @@ export function SwellEventCard({
         <span
           className={cn(
             "px-2.5 py-1 rounded-full text-xs font-medium capitalize transition-shadow",
-            styles.badge,
+            badgeClass,
             isLargeSwell && "shadow-lg"
           )}
         >
@@ -412,7 +430,7 @@ export function SwellEventCard({
           direction={event.direction}
           width={120}
           chartHeight={48}
-          colorClass={styles.icon}
+          colorClass={iconClass}
         />
       </div>
 
@@ -420,30 +438,30 @@ export function SwellEventCard({
       <div className="grid grid-cols-3 gap-3 mb-3">
         {/* Height */}
         <div className="text-center">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">
+          <p className={cn("text-xs uppercase tracking-wide mb-0.5", mutedTextClass)}>
             Height
           </p>
-          <p className={cn("font-bold text-lg", styles.text)}>{heightRange}</p>
+          <p className={cn("font-bold text-lg", primaryTextClass)}>{heightRange}</p>
         </div>
 
         {/* Period */}
         <div className="text-center">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">
+          <p className={cn("text-xs uppercase tracking-wide mb-0.5", mutedTextClass)}>
             Period
           </p>
-          <p className={cn("font-bold text-lg", styles.text)}>
+          <p className={cn("font-bold text-lg", primaryTextClass)}>
             {formatSwellPeriod(event.period)}
           </p>
         </div>
 
         {/* Direction */}
         <div className="text-center">
-          <p className="text-xs text-muted-foreground uppercase tracking-wide mb-0.5">
+          <p className={cn("text-xs uppercase tracking-wide mb-0.5", mutedTextClass)}>
             Direction
           </p>
           <div className="flex items-center justify-center gap-1">
-            <DirectionArrow direction={event.direction} className={styles.icon} />
-            <span className={cn("font-bold text-lg", styles.text)}>
+            <DirectionArrow direction={event.direction} className={iconClass} />
+            <span className={cn("font-bold text-lg", primaryTextClass)}>
               {event.direction}
             </span>
           </div>
@@ -451,7 +469,7 @@ export function SwellEventCard({
       </div>
 
       {/* Description */}
-      <p className={cn("text-sm", styles.text, "opacity-80 mb-2")}>
+      <p className={cn("text-sm opacity-80 mb-2", primaryTextClass)}>
         {event.description}
       </p>
 
@@ -460,7 +478,7 @@ export function SwellEventCard({
         startDate={event.startDate}
         peakDate={event.peakDate}
         endDate={event.endDate}
-        styles={styles}
+        styles={timelineStyles}
       />
     </div>
   );
@@ -475,6 +493,7 @@ export function SwellEventCard({
 export function SwellEventList({
   events,
   title = "Upcoming Swells",
+  variant = "default",
   className,
 }: SwellEventListProps) {
   if (events.length === 0) {
@@ -498,12 +517,24 @@ export function SwellEventList({
 
   return (
     <section className={className}>
-      <h2 className="text-lg font-semibold mb-4">{title}</h2>
+      {title && (
+        <h2
+          className={cn(
+            "mb-4",
+            variant === "zine"
+              ? "font-heading text-xl font-black uppercase tracking-normal text-[#11100D]"
+              : "text-lg font-semibold"
+          )}
+        >
+          {title}
+        </h2>
+      )}
       <div className="space-y-4">
         {sortedEvents.map((event, index) => (
           <SwellEventCard
             key={`${event.startDate.toISOString()}-${event.direction}-${index}`}
             event={event}
+            variant={variant}
           />
         ))}
       </div>

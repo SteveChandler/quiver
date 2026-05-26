@@ -27,11 +27,11 @@ import {
   BeachConditionsGrid,
   AnimatedScoreGauge,
 } from "@/components/forecast";
-import { OceanBackground } from "@/components/ui/ocean-background";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { QuiverSticker, ZineSurface } from "@/components/zine";
 
 // Force dynamic rendering — this page fetches live forecast data via service-role
 // client (no-store), which is incompatible with static/ISR rendering in Next.js 16.
@@ -177,7 +177,7 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
   const showGuideLink = hasHubGuide(region.slug);
 
   return (
-    <OceanBackground variant="ocean" showWaves animated={false}>
+    <>
       {/* Structured Data */}
       <BreadcrumbStructuredData
         items={[
@@ -228,41 +228,73 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
         }}
       />
 
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* Breadcrumb Navigation */}
-        <ScrollReveal variant="fadeIn">
-          <nav className="mb-6">
-            <Link
-              href="/forecast"
-              className="text-sm text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1 transition-colors"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              All Forecasts
-            </Link>
-          </nav>
-        </ScrollReveal>
+      <ZineSurface
+        sectionLabel="Regional Forecast"
+        editionLabel="Updated hourly"
+        data-testid="forecast-zine-surface"
+      >
+        <main>
+          <ScrollReveal variant="fadeIn">
+            <nav className="mb-8">
+              <Link
+                href="/forecast"
+                className="inline-flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]/62 transition-colors hover:text-[#B56A2B] hover:underline"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                All Forecasts
+              </Link>
+            </nav>
+          </ScrollReveal>
 
-        {/* Hero Section */}
-        <ScrollReveal variant="fadeUp" delay={50}>
-          <header className="mb-12">
-            <div className="inline-flex items-center gap-2 text-sm text-muted-foreground mb-3">
-              <Calendar className="h-4 w-4" />
-              <time dateTime={today.toISOString()}>{todayFormatted}</time>
-            </div>
-
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 mb-4">
+          <ScrollReveal variant="fadeUp" delay={50}>
+            <header className="relative mb-12 grid gap-8 lg:grid-cols-[1fr_auto] lg:items-end">
+              <QuiverSticker
+                sticker="creamCoastMap"
+                className="absolute -right-4 -top-6 hidden w-36 rotate-6 opacity-80 lg:block"
+              />
               <div>
-                <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-2">
+                <div className="mb-4 inline-flex items-center gap-2 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/62">
+                  <Calendar className="h-4 w-4" />
+                  <time dateTime={today.toISOString()}>{todayFormatted}</time>
+                </div>
+
+                <h1 className="zine-h1 font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
                   {region.name} Surf Forecast
                 </h1>
-                <p className="text-lg text-gray-600">
+                <p className="mt-5 text-xl leading-relaxed text-[#11100D]/70">
                   7-day outlook | Updated hourly
                 </p>
+
+                <div className="mt-6 flex flex-wrap items-center gap-4 font-mono text-xs uppercase tracking-[0.12em] text-[#11100D]/65">
+                  <div className="flex items-center gap-1.5">
+                    <MapPin className="h-4 w-4 text-[#0B3A75]" />
+                    <span>
+                      <AnimatedCounter
+                        value={summary.stats.beachesWithData}
+                        duration={400}
+                      />{" "}
+                      of{" "}
+                      <AnimatedCounter
+                        value={summary.stats.totalBeaches}
+                        duration={400}
+                      />{" "}
+                      beaches with data
+                    </span>
+                  </div>
+                  {summary.upcomingSwells.length > 0 && (
+                    <>
+                      <span aria-hidden>/</span>
+                      <span className="font-bold text-[#B56A2B]">
+                        {summary.upcomingSwells.length} swell
+                        {summary.upcomingSwells.length !== 1 ? "s" : ""} incoming
+                      </span>
+                    </>
+                  )}
+                </div>
               </div>
 
-              {/* Regional Score Gauge */}
               {summary.stats.avgRegionScore > 0 && (
-                <div className="flex items-center gap-4">
+                <div className="torn torn-tb border-2 border-[#11100D] bg-[#F0E5CC] p-5">
                   <AnimatedScoreGauge
                     score={summary.stats.avgRegionScore}
                     size="lg"
@@ -270,150 +302,121 @@ async function renderRegionalForecast(region: typeof FORECAST_REGIONS[string]) {
                   />
                 </div>
               )}
-            </div>
-
-            {/* Quick Stats */}
-            <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600">
-              <div className="flex items-center gap-1.5">
-                <MapPin className="h-4 w-4 text-blue-500" />
-                <span>
-                  <AnimatedCounter
-                    value={summary.stats.beachesWithData}
-                    duration={400}
-                  />{" "}
-                  of{" "}
-                  <AnimatedCounter
-                    value={summary.stats.totalBeaches}
-                    duration={400}
-                  />{" "}
-                  beaches with data
-                </span>
-              </div>
-              {summary.upcomingSwells.length > 0 && (
-                <>
-                  <span className="text-gray-400">|</span>
-                  <span className="text-blue-600 font-medium animate-pulse">
-                    {summary.upcomingSwells.length} swell
-                    {summary.upcomingSwells.length !== 1 ? "s" : ""} incoming
-                  </span>
-                </>
-              )}
-            </div>
-          </header>
-        </ScrollReveal>
-
-        {/* Best Days Section */}
-        <BestDaysSection
-          days={summary.days}
-          bestDay={summary.bestDay}
-          regionName={region.name}
-          className="mb-16"
-        />
-
-        {/* Upcoming Swells Section */}
-        {summary.upcomingSwells.length > 0 && (
-          <ScrollReveal variant="fadeUp" delay={100}>
-            <section className="mb-16">
-              <SwellEventList
-                events={summary.upcomingSwells}
-                title="Upcoming Swells"
-              />
-            </section>
+            </header>
           </ScrollReveal>
-        )}
 
-        {/* Beach Conditions Grid */}
-        <BeachConditionsGrid
-          beaches={summary.beachConditions}
-          regionSlug={region.slug}
-          maxBeaches={12}
-          showViewAll={true}
-          className="mb-16"
-        />
+          <BestDaysSection
+            days={summary.days}
+            bestDay={summary.bestDay}
+            regionName={region.name}
+            className="mb-16"
+            variant="zine"
+          />
 
-        {/* Cross-Links Section */}
-        <ScrollReveal variant="fadeUp" delay={200}>
-          <section className="mb-16 bg-gradient-to-br from-slate-50 to-gray-50 dark:from-[#0F1A2E] dark:to-[#2D357D] rounded-xl p-8 border border-slate-200 dark:border-[#404C92]">
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6">
-              Explore More
-            </h2>
-            <div className={`grid ${showGuideLink ? "md:grid-cols-2" : ""} gap-4`}>
-              {/* Link to Regional Guide - only if hub guide exists */}
-              {showGuideLink && (
+          {summary.upcomingSwells.length > 0 && (
+            <ScrollReveal variant="fadeUp" delay={100}>
+              <section className="torn torn-tb mb-16 border-2 border-[#11100D] bg-[#FBF6E8]">
+                <div className="mb-5 flex items-center gap-3">
+                  <QuiverSticker
+                    sticker="breakingWave"
+                    className="w-20 -rotate-6 drop-shadow-sm"
+                  />
+                  <h2 className="font-display text-3xl font-black uppercase leading-tight text-[#11100D]">
+                    Upcoming Swells
+                  </h2>
+                </div>
+                <SwellEventList
+                  events={summary.upcomingSwells}
+                  title={null}
+                  variant="zine"
+                />
+              </section>
+            </ScrollReveal>
+          )}
+
+          <BeachConditionsGrid
+            beaches={summary.beachConditions}
+            regionSlug={region.slug}
+            maxBeaches={12}
+            showViewAll={true}
+            className="mb-16"
+            variant="zine"
+          />
+
+          <ScrollReveal variant="fadeUp" delay={200}>
+            <section className="mb-16">
+              <h2 className="label-black mb-6">Explore More</h2>
+              <div className={`grid gap-4 ${showGuideLink ? "md:grid-cols-2" : ""}`}>
+                {showGuideLink && (
+                  <Link
+                    href={`/guides/surfing-${guideSlug}`}
+                    className="group torn torn-tb relative block min-h-48 overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] p-6 transition-transform hover:-translate-y-1"
+                  >
+                    <QuiverSticker
+                      sticker="orangeMap"
+                      className="absolute -right-4 -top-4 w-16 rotate-12 opacity-80"
+                    />
+                    <h3 className="relative z-10 font-display text-xl font-black uppercase text-[#11100D] transition-colors group-hover:text-[#B56A2B]">
+                      {region.name} Surf Guide
+                    </h3>
+                    <p className="relative z-10 mt-3 text-sm leading-relaxed text-[#11100D]/68">
+                      Explore surf spots, local knowledge, and conditions across{" "}
+                      {region.name}
+                    </p>
+                    <span className="relative z-10 mt-5 inline-flex font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#B56A2B] group-hover:underline">
+                      View Guide &rarr;
+                    </span>
+                  </Link>
+                )}
+
                 <Link
-                  href={`/guides/surfing-${guideSlug}`}
-                  className="block p-6 rounded-lg border border-gray-200 dark:border-[#404C92] bg-white dark:bg-[#2D357D] hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 dark:hover:from-[#354090]/50 dark:hover:to-[#404C92]/30 transition-all duration-200 group"
+                  href="/forecast"
+                  className="group torn torn-tb relative block min-h-48 overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] p-6 transition-transform hover:-translate-y-1"
                 >
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-blue-600 transition-colors">
-                    {region.name} Surf Guide
+                  <QuiverSticker
+                    sticker="goldRightArrow"
+                    className="absolute -right-5 -top-3 w-24 rotate-6 opacity-85"
+                  />
+                  <h3 className="relative z-10 font-display text-xl font-black uppercase text-[#11100D] transition-colors group-hover:text-[#B56A2B]">
+                    Other Regional Forecasts
                   </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                    Explore surf spots, local knowledge, and conditions across{" "}
-                    {region.name}
+                  <p className="relative z-10 mt-3 text-sm leading-relaxed text-[#11100D]/68">
+                    Compare conditions across all regions and find the best waves
                   </p>
-                  <span className="text-sm font-medium text-blue-600 group-hover:underline">
-                    View Guide &rarr;
+                  <span className="relative z-10 mt-5 inline-flex font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#B56A2B] group-hover:underline">
+                    View All Forecasts &rarr;
                   </span>
                 </Link>
-              )}
+              </div>
+            </section>
+          </ScrollReveal>
 
-              {/* Link back to Forecast Hub */}
-              <Link
-                href="/forecast"
-                className="block p-6 rounded-lg border border-gray-200 dark:border-[#404C92] bg-white dark:bg-[#2D357D] hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 dark:hover:from-[#354090]/50 dark:hover:to-[#404C92]/30 transition-all duration-200 group"
-              >
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-blue-600 transition-colors">
-                  Other Regional Forecasts
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                  Compare conditions across all regions and find the best waves
-                </p>
-                <span className="text-sm font-medium text-blue-600 group-hover:underline">
-                  View All Forecasts &rarr;
-                </span>
-              </Link>
-            </div>
-          </section>
-        </ScrollReveal>
-
-        {/* CTA Section */}
-        <ScrollReveal variant="scale" delay={300}>
-          <section className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-8 text-center text-white relative overflow-hidden">
-            {/* Decorative wave pattern */}
-            <div className="absolute inset-0 opacity-10 pointer-events-none">
-              <svg
-                className="absolute bottom-0 left-0 w-full h-24"
-                viewBox="0 0 1440 96"
-                preserveAspectRatio="none"
-              >
-                <path
-                  d="M0,48 Q360,96 720,48 T1440,48 L1440,96 L0,96 Z"
-                  fill="currentColor"
-                />
-              </svg>
-            </div>
-
-            <div className="relative z-10">
-              <h2 className="text-2xl font-semibold mb-4">
+          <ScrollReveal variant="scale" delay={300}>
+            <section className="hazards-panel text-center">
+              <QuiverSticker
+                sticker="spotWindRead"
+                className="mx-auto mb-4 w-20 rotate-6 drop-shadow-md"
+              />
+              <h2 className="font-display text-3xl font-black uppercase text-[#F4EBD8]">
                 Unlock {region.name} Insights
               </h2>
-              <p className="text-blue-100 mb-6 max-w-2xl mx-auto">
+              <p className="mx-auto mt-4 max-w-2xl text-[#F4EBD8]/75">
                 Sign up to log sessions at {region.name} breaks and get
                 personalized spot recommendations.
               </p>
               <Link
                 href="/auth/sign-up"
-                className="inline-flex items-center justify-center px-6 py-3 bg-white text-blue-600 font-medium rounded-lg hover:bg-blue-50 transition-colors"
+                className="mt-6 inline-flex items-center justify-center rounded-full border-2 border-[#F4EBD8] bg-[#F78E42] px-6 py-3 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(244,235,216,0.3)] transition-transform hover:-translate-y-0.5"
               >
                 Sign Up for Free
               </Link>
-            </div>
-          </section>
-        </ScrollReveal>
-      </div>
+            </section>
+          </ScrollReveal>
+        </main>
+      </ZineSurface>
 
       {/* Mobile Sticky Signup Bar */}
       <StickySignupBar source={`forecast-${region.slug}`} />
-    </OceanBackground>
+    </>
   );
 }

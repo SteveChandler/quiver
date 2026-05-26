@@ -55,6 +55,7 @@ import {
   pickBestSimilaritySlot,
   type ScoredSlot,
 } from "@/lib/alerts/similarity-best-pick";
+import { isLearnedMatchState } from "@/lib/personalization/match-state-compat";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -858,7 +859,7 @@ async function scoreCandidates(
 
     for (const r of (rpcRows ?? []) as BatchSlotResult[]) {
       const result = r.result;
-      if (!result || result.state !== "ready") continue;
+      if (!result || !isLearnedMatchState(result.state)) continue;
       if (typeof result.score !== "number") continue;
       const source = byForecastAt.get(r.forecast_at);
       const waveHeightFt = parseFloatOrZero(source?.wave_height);

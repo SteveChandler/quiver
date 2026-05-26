@@ -2,7 +2,7 @@ import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import { remoteImageUrlOrFallback } from '@/lib/share/remote-image-url';
 
-export const runtime = 'edge';
+export const runtime = "nodejs";
 
 const DEFAULT_BG = 'https://quiversurf.app/images/og-location-default.jpg';
 

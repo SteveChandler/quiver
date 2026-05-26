@@ -399,7 +399,18 @@ def _dimension_row(row, key_name):
 
 def build_json_export(service):
     """Build the machine-readable export consumed by the weekly SEO workflow."""
-    comparison = get_sitemap_comparison(service)
+    missing = []
+    comparison = {
+        "sitemap_paths": set(),
+        "gsc_paths": set(),
+        "indexed": set(),
+        "not_indexed": set(),
+    }
+    try:
+        comparison = get_sitemap_comparison(service)
+    except Exception as exc:
+        missing.append(f"Sitemap comparison unavailable: {exc}")
+
     last_7d = query_gsc(service, START_LAST_7D, END_LAST_7D, ["page"], row_limit=25000)
     prior_7d = query_gsc(service, START_PRIOR_7D, END_PRIOR_7D, ["page"], row_limit=25000)
     last_28d = query_gsc(service, START_28D, END_28D, ["page"], row_limit=25000)
@@ -424,6 +435,7 @@ def build_json_export(service):
         "topPages": [_page_row(row) for row in top_pages],
         "byDevice": [_dimension_row(row, "device") for row in by_device],
         "byCountry": [_dimension_row(row, "country") for row in by_country],
+        "missing": missing,
     }
 
 def print_dashboard(service):

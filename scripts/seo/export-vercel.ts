@@ -5,6 +5,7 @@ import path from "node:path";
 import { currentAuditDate, resolveSeoAuditFile } from "../../lib/seo/agent-workflow/audit-paths";
 import { buildVercelExport, DEFAULT_BOT_PATHS } from "../../lib/seo/agent-workflow/vercel-export";
 import { loadSeoEnv } from "./load-env";
+import { fetchWithRetry, isRemoteFetchError, normalizeFetchError } from "./resilient-fetch";
 
 loadSeoEnv();
 
@@ -33,7 +34,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const [overview, pages, referrers, countries, devices, ...botOverviews] = await Promise.all([
+  const result = await Promise.all([
     fetchVercel("overview"),
     fetchVercel("timeseries", { groupBy: "path", limit: "20" }),
     fetchVercel("timeseries", { groupBy: "referrer", limit: "20" }),
@@ -44,13 +45,30 @@ async function main(): Promise<void> {
         filter: JSON.stringify({ path: { operator: "eq", values: [botPath] } }),
       }),
     ),
-  ]);
+  ]).then((responses) => {
+    const [overview, pages, referrers, countries, devices, ...botOverviews] = responses;
+    return buildVercelExport(
+      { overview, pages, referrers, countries, devices, botOverviews },
+      new Date().toISOString(),
+      { from, to },
+    );
+  }).catch((error) => {
+    if (!isRemoteFetchError(error)) throw error;
+    return {
+      generatedAt: new Date().toISOString(),
+      dateRange: { from, to },
+      rawPageViews: 0,
+      adjustedPageViews: 0,
+      botPageViews: 0,
+      pages: [],
+      referrers: [],
+      countries: [],
+      devices: [],
+      missing: [`Vercel export fetch failed: ${normalizeFetchError(error)}`],
+    };
+  });
 
-  writeJson(buildVercelExport(
-    { overview, pages, referrers, countries, devices, botOverviews },
-    new Date().toISOString(),
-    { from, to },
-  ));
+  writeJson(result);
 }
 
 async function fetchVercel(endpoint: string, params: Record<string, string> = {}): Promise<unknown> {
@@ -63,7 +81,7 @@ async function fetchVercel(endpoint: string, params: Record<string, string> = {}
     url.searchParams.set(key, value);
   }
 
-  const response = await fetch(url, {
+  const response = await fetchWithRetry(url, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!response.ok) throw new Error(`Vercel ${endpoint} failed: ${response.status}`);

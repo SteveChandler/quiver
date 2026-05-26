@@ -143,7 +143,7 @@ export default function LandingPage() {
             <CTASection
               source="landing-final-cta"
               ctaCopyVariant="landing_final_v1"
-              variant="app-store-preorder"
+              variant="app-store"
             />
           </ProgressiveSection>
 

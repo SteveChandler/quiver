@@ -50,7 +50,18 @@ interface StickySignupBarProps {
  * - Respects prefers-reduced-motion for animations
  * - Hidden for authenticated users
  */
-export function StickySignupBar({
+export function StickySignupBar(props: StickySignupBarProps) {
+  const { user, isLoading } = useAuth();
+
+  // Authenticated users should not mount the anonymous CTA effects at all.
+  if (user || isLoading) {
+    return null;
+  }
+
+  return <StickySignupBarContent {...props} />;
+}
+
+function StickySignupBarContent({
   source,
   ctaText = "Get alerts",
   supportingText = "Know when conditions fire at your spots",
@@ -64,7 +75,6 @@ export function StickySignupBar({
   ctaCopyVariant,
   buttonClassName,
 }: StickySignupBarProps) {
-  const { user, isLoading } = useAuth();
   const reducedMotion = useReducedMotion();
   const { isSearchReferral } = useSearchReferrer();
 
@@ -142,11 +152,6 @@ export function StickySignupBar({
     setAuthModalOpen(true);
   }, [source, resolvedCtaText, isSearchReferral, resolvedCtaCopyVariant]);
 
-  // Don't render for authenticated users or while loading
-  if (user || isLoading) {
-    return null;
-  }
-
   // Don't render if dismissed
   if (isDismissed) {
     return null;
@@ -221,4 +226,3 @@ export function StickySignupBar({
     </>
   );
 }
-

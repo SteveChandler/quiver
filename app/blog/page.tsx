@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
 
+import { RoughEdgeFilter } from "@/components/beach-detail/zine/atoms";
+import { LaunchBlogLink } from "@/components/blog/launch-blog-link";
 import { BlogSchema } from "@/components/seo/blog-schema";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { QuiverSticker } from "@/components/zine";
 import { SITE_URL } from "@/lib/constants/seo";
-import { blogPosts } from "@/lib/data/blog-posts";
+import { getAllBlogPosts, getFeaturedBlogPost } from "@/lib/data/blog-posts";
 import { buildPageMetadata } from "@/lib/seo/meta";
 
 export const metadata: Metadata = buildPageMetadata({
@@ -42,6 +44,8 @@ const CROSS_LINKS = [
   },
 ];
 
+const CARD_ROTATIONS = ["rot-1", "rot-2", "rot-3"] as const;
+
 function formatPostDate(date: string): string {
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
@@ -50,13 +54,17 @@ function formatPostDate(date: string): string {
   }).format(new Date(`${date}T12:00:00Z`));
 }
 
+function getCardRotation(index: number): (typeof CARD_ROTATIONS)[number] {
+  return CARD_ROTATIONS[index % CARD_ROTATIONS.length];
+}
+
 export default function BlogIndexPage() {
+  const allPosts = getAllBlogPosts();
+  const featuredPost = getFeaturedBlogPost();
   const breadcrumbs = [
     { name: "Home", url: SITE_URL },
     { name: "Blog", url: `${SITE_URL}/blog` },
   ];
-
-  const featuredPost = blogPosts[0];
 
   return (
     <>
@@ -70,7 +78,7 @@ export default function BlogIndexPage() {
         name="Quiver Blog"
         description="Founder notes on surf forecasts, session logs, forecast accuracy, and how Quiver learns from surfers, buoys, and local observations."
         url={`${SITE_URL}/blog`}
-        posts={blogPosts.map((post) => ({
+        posts={allPosts.map((post) => ({
           title: post.title,
           description: post.seoDescription,
           url: `${SITE_URL}/blog/${post.slug}`,
@@ -82,140 +90,182 @@ export default function BlogIndexPage() {
         }))}
       />
 
-      <header className="relative overflow-hidden bg-[#0D1020]">
-        <div className="absolute inset-0">
-          <Image
-            src="/images/OceanBeachSurfers.webp"
-            alt=""
-            fill
-            priority
-            sizes="100vw"
-            className="object-cover opacity-45"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#0D1020] via-[#252D6B]/75 to-[#0D1020]/55" />
-          <div className="noise-texture-subtle absolute inset-0 pointer-events-none" />
-        </div>
+      <div className="zine-page zine-tab min-h-screen bg-[#0D1020]">
+        <RoughEdgeFilter />
+        <div className="zine-stage pt-24">
+          <div className="zine-masthead">
+            <div className="left">
+              <span className="logo">Quiver</span>
+              <span className="rule" aria-hidden />
+              <span>Blog Desk</span>
+            </div>
+            <div>Founder notes / field reports</div>
+          </div>
 
-        <div className="relative mx-auto flex min-h-[72vh] max-w-6xl flex-col justify-end px-4 pb-12 pt-28 sm:px-6 lg:px-8">
-          <p className="mb-4 inline-block w-fit rounded-full bg-[#F78E42]/15 px-3 py-1 text-xs font-bold uppercase tracking-widest text-[#F78E42]">
-            Founder Notes
-          </p>
-          <h1 className="max-w-3xl font-display text-4xl font-bold tracking-tight text-[#F0F0F0] sm:text-6xl">
-            The Quiver Blog
-          </h1>
-          <p className="mt-5 max-w-2xl text-lg leading-relaxed text-[#B8C7E0] sm:text-xl">
-            Product notes, surf forecast receipts, and the real feedback loop
-            behind the forecast that remembers you.
-          </p>
-        </div>
-      </header>
+          <main className="zine-paper overflow-hidden">
+            <QuiverSticker
+              sticker="halftoneCircle"
+              className="pointer-events-none !absolute -left-14 top-14 w-52 -rotate-12 opacity-35 mix-blend-multiply"
+              sizes="13rem"
+            />
+            <QuiverSticker
+              sticker="orangeTape"
+              className="pointer-events-none !absolute left-16 top-7 w-28 -rotate-12 opacity-85"
+              sizes="7rem"
+            />
+            <QuiverSticker
+              sticker="navyLightning"
+              className="pointer-events-none !absolute right-10 top-12 hidden w-32 rotate-12 opacity-35 mix-blend-multiply md:block"
+              sizes="8rem"
+            />
 
-      <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
-        <ScrollReveal>
-          <section className="mb-12 grid gap-4 sm:grid-cols-3">
-            {CROSS_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="group rounded-lg border border-[#F0F0F0]/10 bg-[#F0F0F0]/[0.03] p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#F78E42]/30 hover:bg-[#F78E42]/[0.04]"
-              >
-                <h2 className="font-display text-lg font-semibold text-[#F0F0F0] transition-colors group-hover:text-[#F78E42]">
-                  {link.label}
-                </h2>
-                <p className="mt-2 text-sm leading-relaxed text-[#B8C7E0]">
-                  {link.desc}
+            <header className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+              <div>
+                <p className="label-black mb-5 w-fit">Founder notes</p>
+                <h1 className="zine-h1 font-heading uppercase leading-[0.95] tracking-normal text-[#11100D]">
+                  The Quiver Blog
+                </h1>
+                <p className="mt-5 max-w-2xl text-xl leading-8 text-[#11100D]/75">
+                  Raw product notes, surf forecast receipts, and the feedback
+                  loop behind calls that try to beat the chart shuffle.
                 </p>
-              </Link>
-            ))}
-          </section>
-        </ScrollReveal>
+              </div>
 
-        {featuredPost && (
-          <ScrollReveal>
-            <section className="mb-12">
-              <p className="mb-4 text-xs font-semibold uppercase tracking-widest text-[#F78E42]">
-                Latest
-              </p>
-              <Link
-                href={`/blog/${featuredPost.slug}`}
-                className="group grid overflow-hidden rounded-xl border border-[#F0F0F0]/10 bg-[#252D6B]/55 transition-all duration-300 hover:border-[#F78E42]/40 hover:shadow-2xl hover:shadow-[#F78E42]/10 md:grid-cols-[0.9fr_1.1fr]"
-              >
-                <div className="relative min-h-[18rem]">
-                  <Image
-                    src={featuredPost.heroImage}
-                    alt={featuredPost.title}
-                    fill
-                    sizes="(min-width: 768px) 42vw, 100vw"
-                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-[#252D6B]/70 to-transparent md:bg-gradient-to-r" />
-                </div>
-                <div className="flex flex-col justify-center p-7 sm:p-9">
-                  <div className="mb-4 flex flex-wrap items-center gap-3 text-xs font-mono text-[#B8C7E0]">
-                    <span>{formatPostDate(featuredPost.datePublished)}</span>
-                    <span className="text-[#B8C7E0]/40">/</span>
-                    <span>{featuredPost.readingTimeMin} min read</span>
-                  </div>
-                  <h2 className="font-display text-3xl font-bold text-[#F0F0F0] transition-colors group-hover:text-[#F78E42] sm:text-4xl">
-                    {featuredPost.title}
-                  </h2>
-                  <p className="mt-4 text-base leading-relaxed text-[#B8C7E0]">
-                    {featuredPost.excerpt}
-                  </p>
-                  <div className="mt-6 flex flex-wrap gap-2">
-                    {featuredPost.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full bg-[#F0F0F0]/10 px-3 py-1 text-xs text-[#B8C7E0]"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="mt-6 text-sm font-bold text-[#F78E42] transition-transform duration-200 group-hover:translate-x-1">
-                    Read the note &rarr;
-                  </p>
-                </div>
-              </Link>
-            </section>
-          </ScrollReveal>
-        )}
+              <aside className="notebook rot-2">
+                <p className="font-heading text-2xl font-bold uppercase text-[#11100D]">
+                  What belongs here
+                </p>
+                <p className="mt-4 text-base leading-7 text-[#11100D]/75">
+                  Founder notes, useful surf planning, forecast transparency,
+                  and session-log learning. No generic lifestyle filler.
+                </p>
+              </aside>
+            </header>
 
-        <ScrollReveal>
-          <section>
-            <h2 className="mb-5 font-display text-2xl font-semibold text-[#F0F0F0]">
-              All Posts
-            </h2>
-            <div className="grid gap-4">
-              {blogPosts.map((post) => (
-                <Link
-                  key={post.slug}
-                  href={`/blog/${post.slug}`}
-                  className="group rounded-lg border border-[#F0F0F0]/10 bg-[#F0F0F0]/[0.03] p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#F78E42]/30 hover:bg-[#F78E42]/[0.04]"
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <p className="mb-2 text-xs font-mono text-[#B8C7E0]/60">
-                        {formatPostDate(post.datePublished)} /{" "}
-                        {post.readingTimeMin} min read
+            <ScrollReveal>
+              <section className="mt-12 grid gap-4 sm:grid-cols-3">
+                {CROSS_LINKS.map((link, index) => (
+                  <LaunchBlogLink
+                    key={link.href}
+                    href={link.href}
+                    trackingLabel={link.label}
+                    sourceSlug="blog-index"
+                    sourceSurface="blog-index"
+                    placement="hub-cross-link"
+                    className={`torn torn-tb group block min-h-40 border-2 border-[#11100D] bg-[#FBF6E8] p-5 text-[#11100D] transition-transform duration-200 hover:-translate-y-1 ${getCardRotation(index)}`}
+                  >
+                    <h2 className="font-heading text-xl font-bold uppercase tracking-normal transition-colors group-hover:text-[#0B3A75]">
+                      {link.label}
+                    </h2>
+                    <p className="mt-3 text-sm leading-6 text-[#11100D]/70">
+                      {link.desc}
+                    </p>
+                  </LaunchBlogLink>
+                ))}
+              </section>
+            </ScrollReveal>
+
+            {featuredPost && (
+              <ScrollReveal>
+                <section className="mt-14">
+                  <p className="label-black mb-5 w-fit">Latest</p>
+                  <LaunchBlogLink
+                    href={`/blog/${featuredPost.slug}`}
+                    trackingLabel={featuredPost.title}
+                    sourceSlug="blog-index"
+                    sourceSurface="blog-index"
+                    placement="featured-post"
+                    className="torn torn-tb group grid overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] text-[#11100D] transition-transform duration-300 hover:-translate-y-1 md:grid-cols-[0.82fr_1.18fr]"
+                  >
+                    <div className="relative min-h-[20rem] border-b-2 border-[#11100D] md:border-b-0 md:border-r-2">
+                      <div className="halftone-photo !absolute inset-0">
+                        <Image
+                          src={featuredPost.heroImage}
+                          alt={featuredPost.title}
+                          fill
+                          sizes="(min-width: 768px) 40vw, 100vw"
+                          className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        />
+                      </div>
+                      <QuiverSticker
+                        sticker={featuredPost.sticker}
+                        className="absolute -right-8 -top-8 z-20 w-44 rotate-12 drop-shadow-[3px_5px_0_rgba(17,16,13,0.18)]"
+                        sizes="11rem"
+                      />
+                    </div>
+                    <div className="flex flex-col justify-center p-7 sm:p-9">
+                      <div className="mb-5 flex flex-wrap items-center gap-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]/60">
+                        <span>{formatPostDate(featuredPost.datePublished)}</span>
+                        <span>/</span>
+                        <span>{featuredPost.readingTimeMin} min read</span>
+                      </div>
+                      <h2 className="font-heading text-4xl font-bold uppercase leading-none tracking-normal text-[#11100D] transition-colors group-hover:text-[#0B3A75]">
+                        {featuredPost.title}
+                      </h2>
+                      <p className="mt-5 text-base leading-7 text-[#11100D]/75">
+                        {featuredPost.excerpt}
                       </p>
-                      <h3 className="font-display text-xl font-semibold text-[#F0F0F0] transition-colors group-hover:text-[#F78E42]">
-                        {post.title}
-                      </h3>
-                      <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#B8C7E0]">
-                        {post.description}
+                      <div className="mt-6 flex flex-wrap gap-2">
+                        {featuredPost.tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="border-2 border-[#11100D] bg-[#FBF6E8] px-3 py-1 font-mono text-[11px] font-bold uppercase tracking-[0.14em] text-[#11100D]"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="mt-7 font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#F78E42] transition-transform duration-200 group-hover:translate-x-1">
+                        Read the note -&gt;
                       </p>
                     </div>
-                    <span className="shrink-0 text-sm font-semibold text-[#F78E42]">
-                      Read &rarr;
-                    </span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        </ScrollReveal>
-      </main>
+                  </LaunchBlogLink>
+                </section>
+              </ScrollReveal>
+            )}
+
+            <ScrollReveal>
+              <section className="mt-14 border-t-2 border-dashed border-[#11100D]/35 pt-8">
+                <h2 className="label-black mb-6 w-fit">All Posts</h2>
+                <div className="grid gap-5">
+                  {allPosts.map((post, index) => (
+                    <LaunchBlogLink
+                      key={post.slug}
+                      href={`/blog/${post.slug}`}
+                      trackingLabel={post.title}
+                      sourceSlug="blog-index"
+                      sourceSurface="blog-index"
+                      placement="all-posts"
+                      className={`torn torn-tb group grid gap-5 border-2 border-[#11100D] bg-[#FBF6E8] p-5 text-[#11100D] transition-transform duration-200 hover:-translate-y-1 sm:grid-cols-[94px_minmax(0,1fr)_auto] sm:items-center ${getCardRotation(index)}`}
+                    >
+                      <QuiverSticker
+                        sticker={post.sticker}
+                        className="w-24 rotate-6 drop-shadow-[2px_3px_0_rgba(17,16,13,0.14)]"
+                        sizes="6rem"
+                      />
+                      <div>
+                        <p className="mb-2 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]/55">
+                          {formatPostDate(post.datePublished)} /{" "}
+                          {post.readingTimeMin} min read
+                        </p>
+                        <h3 className="font-heading text-2xl font-bold uppercase tracking-normal text-[#11100D] transition-colors group-hover:text-[#0B3A75]">
+                          {post.title}
+                        </h3>
+                        <p className="mt-2 max-w-2xl text-sm leading-6 text-[#11100D]/70">
+                          {post.description}
+                        </p>
+                      </div>
+                      <span className="shrink-0 font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#F78E42]">
+                        Read -&gt;
+                      </span>
+                    </LaunchBlogLink>
+                  ))}
+                </div>
+              </section>
+            </ScrollReveal>
+          </main>
+        </div>
+      </div>
     </>
   );
 }

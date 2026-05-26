@@ -1,5 +1,5 @@
 # Tests (not needed for production build)
-e2e/
+/e2e/
 __tests__/
 
 # Documentation

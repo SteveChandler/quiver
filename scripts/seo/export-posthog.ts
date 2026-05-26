@@ -9,6 +9,7 @@ import {
 } from "../../lib/seo/agent-workflow/posthog-export";
 import { currentAuditDate, resolveSeoAuditFile } from "../../lib/seo/agent-workflow/audit-paths";
 import { loadSeoEnv } from "./load-env";
+import { fetchWithRetry, isRemoteFetchError, normalizeFetchError } from "./resilient-fetch";
 
 loadSeoEnv();
 
@@ -32,7 +33,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const [web, native] = await Promise.all([
+  const exportData = await Promise.all([
     hogql(`
       SELECT
         event,
@@ -71,18 +72,23 @@ async function main(): Promise<void> {
       GROUP BY platform, event
       ORDER BY platform ASC, count DESC
     `),
-  ]);
-
-  writeJson(buildPostHogExport(
+  ]).then(([web, native]) => buildPostHogExport(
     computePostHogWebRows(parsePostHogWebEvents(web)),
     parsePostHogNativeRows(native),
     new Date().toISOString(),
     { from, to },
-  ));
+  )).catch((error) => {
+    if (!isRemoteFetchError(error)) throw error;
+    return buildPostHogExport([], [], new Date().toISOString(), { from, to }, [
+      `PostHog export fetch failed: ${normalizeFetchError(error)}`,
+    ]);
+  });
+
+  writeJson(exportData);
 }
 
 async function hogql(query: string): Promise<unknown> {
-  const response = await fetch(`${host}/api/projects/${projectId}/query/`, {
+  const response = await fetchWithRetry(`${host}/api/projects/${projectId}/query/`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,

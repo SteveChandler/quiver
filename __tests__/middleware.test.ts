@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { middleware } from "@/middleware";
+import { proxy as middleware } from "@/proxy";
 
 // Setup mock variables at the module level
 let mockNext: any;

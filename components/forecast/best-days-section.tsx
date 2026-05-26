@@ -17,6 +17,7 @@ import { AnimatedScoreGauge } from "./animated-score-gauge";
 import { WaveBackground } from "@/components/ui/ocean-background";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
+import { QuiverSticker } from "@/components/zine";
 import {
   Sun,
   Wind,
@@ -49,6 +50,8 @@ export interface BestDaysSectionProps {
   regionName: string;
   /** Optional className for customization */
   className?: string;
+  /** Visual treatment variant */
+  variant?: "default" | "zine";
 }
 
 /**
@@ -58,6 +61,7 @@ interface BestDayCardProps {
   day: DaySummary;
   isHero?: boolean;
   className?: string;
+  variant?: "default" | "zine";
   /** Stagger index for animation delay */
   index?: number;
   /** Click handler for analytics tracking */
@@ -142,21 +146,37 @@ function ConditionStat({
   label,
   value,
   delay = 0,
+  variant = "default",
 }: {
   icon: React.ReactNode;
   label: string;
   value: string;
   delay?: number;
+  variant?: "default" | "zine";
 }) {
+  const isZine = variant === "zine";
+
   return (
     <div
-      className="flex items-center gap-2 opacity-0 animate-fade-in-up"
+      className={cn(
+        "flex items-center gap-2 opacity-0 animate-fade-in-up",
+        isZine && "rounded-md border-2 border-[#11100D] bg-[#FBF6E8] p-3"
+      )}
       style={{ animationDelay: `${delay}ms`, animationFillMode: "forwards" }}
     >
       {icon}
       <div>
-        <p className="text-sm text-muted-foreground">{label}</p>
-        <p className="font-semibold text-foreground">{value}</p>
+        <p
+          className={cn(
+            "text-sm",
+            isZine ? "font-mono uppercase tracking-[0.1em] text-[#11100D]/58" : "text-muted-foreground"
+          )}
+        >
+          {label}
+        </p>
+        <p className={cn("font-semibold", isZine ? "text-[#11100D]" : "text-foreground")}>
+          {value}
+        </p>
       </div>
     </div>
   );
@@ -165,11 +185,94 @@ function ConditionStat({
 /**
  * Individual day card component
  */
-function BestDayCard({ day, isHero = false, className, index = 0, onClick }: BestDayCardProps) {
+function BestDayCard({
+  day,
+  isHero = false,
+  className,
+  variant = "default",
+  index = 0,
+  onClick,
+}: BestDayCardProps) {
   const scoreColors = getScoreColorClasses(day.score);
   const windInfo = getWindInfo(day.windConditions);
   const timeSlotInfo = getTimeSlotInfo(day.bestTimeSlot);
   const isEpic = day.score >= SCORE_THRESHOLDS.EPIC;
+  const isZine = variant === "zine";
+
+  if (isHero && isZine) {
+    return (
+      <button
+        type="button"
+        className={cn(
+          "torn torn-tb group relative block w-full overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] p-5 text-left shadow-[4px_5px_0_rgba(17,16,13,0.2)] transition-transform hover:-translate-y-1",
+          className
+        )}
+        onClick={onClick}
+        aria-label={`Best day this week: ${day.dayOfWeek}`}
+        data-testid="zine-best-day-card"
+      >
+        <QuiverSticker
+          sticker="spotSwellMatch"
+          className="absolute -right-5 -top-5 w-24 rotate-12 opacity-85 drop-shadow-md"
+        />
+        <div className="relative z-10 flex flex-col gap-6 md:flex-row md:items-center">
+          <AnimatedScoreGauge
+            score={day.score}
+            size="xl"
+            showLabel
+            enableGlow={isEpic}
+          />
+
+          <div className="flex-1 space-y-5">
+            <div>
+              <p className="label-black mb-3">Best Day This Week</p>
+              <h3 className="font-display text-3xl font-black uppercase leading-tight text-[#11100D]">
+                {day.dayOfWeek}, {formatDateStringUTC(day.dateString)}
+              </h3>
+              <p className="mt-2 font-mono text-xs uppercase tracking-[0.12em] text-[#11100D]/62">
+                <AnimatedCounter
+                  value={day.beachesWithGoodConditions}
+                  duration={600}
+                />{" "}
+                beaches with good conditions
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <ConditionStat
+                icon={<Waves className="h-5 w-5 text-[#0B3A75]" />}
+                label="Waves"
+                value={formatWaveRange(day.waveRange)}
+                delay={200}
+                variant="zine"
+              />
+              <ConditionStat
+                icon={windInfo.icon}
+                label="Wind"
+                value={windInfo.label}
+                delay={300}
+                variant="zine"
+              />
+              <ConditionStat
+                icon={timeSlotInfo.icon}
+                label="Best Time"
+                value={timeSlotInfo.label}
+                delay={400}
+                variant="zine"
+              />
+              <ConditionStat
+                icon={<Wind className="h-5 w-5 text-[#11100D]/70" />}
+                label="Direction"
+                value={day.dominantWindDirection}
+                delay={500}
+                variant="zine"
+              />
+            </div>
+          </div>
+        </div>
+      </button>
+    );
+  }
 
   if (isHero) {
     return (
@@ -260,6 +363,48 @@ function BestDayCard({ day, isHero = false, className, index = 0, onClick }: Bes
     );
   }
 
+  if (isZine) {
+    return (
+      <ScrollReveal variant="fadeUp" delay={index * 100}>
+        <button
+          type="button"
+          className={cn(
+            "torn torn-tb group block min-h-44 w-full border-2 border-[#11100D] bg-[#FBF6E8] p-4 text-left transition-transform hover:-translate-y-1",
+            className
+          )}
+          onClick={onClick}
+          aria-label={`Surf day: ${day.dayOfWeek}`}
+        >
+          <div className="flex items-start gap-3">
+            <div className="transition-transform duration-200 group-hover:scale-110">
+              <ScoreBadge score={day.score} />
+            </div>
+
+            <div className="min-w-0 flex-1">
+              <h4 className="font-display text-lg font-black uppercase leading-tight text-[#11100D]">
+                {day.dayOfWeek}
+              </h4>
+              <p className="font-mono text-xs uppercase tracking-[0.12em] text-[#11100D]/55">
+                {formatDateStringUTC(day.dateString)}
+              </p>
+
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-[#11100D]/68">
+                <span className="flex items-center gap-1">
+                  <Waves className="h-3 w-3 text-[#0B3A75]" />
+                  {formatWaveRange(day.waveRange)}
+                </span>
+                <span className="flex items-center gap-1">
+                  {windInfo.icon}
+                  {windInfo.label}
+                </span>
+              </div>
+            </div>
+          </div>
+        </button>
+      </ScrollReveal>
+    );
+  }
+
   // Compact card for secondary days with hover effects
   return (
     <ScrollReveal variant="fadeUp" delay={index * 100}>
@@ -330,6 +475,7 @@ export function BestDaysSection({
   bestDay,
   regionName,
   className,
+  variant = "default",
 }: BestDaysSectionProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const hasTrackedView = useRef(false);
@@ -360,15 +506,23 @@ export function BestDaysSection({
     .sort((a, b) => b.score - a.score)
     .slice(0, 4);
 
+  const isZine = variant === "zine";
+
   return (
     <section ref={sectionRef} className={cn("space-y-6", className)}>
       {/* Section Header */}
       <ScrollReveal variant="fadeUp">
         <div className="space-y-1">
-          <h2 className="text-2xl font-bold text-foreground">
+          <h2
+            className={cn(
+              isZine
+                ? "font-display text-3xl font-black uppercase leading-tight text-[#11100D]"
+                : "text-2xl font-bold text-foreground"
+            )}
+          >
             Best Days to Surf {regionName} This Week
           </h2>
-          <p className="text-muted-foreground">
+          <p className={cn(isZine ? "text-[#11100D]/66" : "text-muted-foreground")}>
             Based on wave height, wind conditions, and swell quality
           </p>
         </div>
@@ -379,7 +533,8 @@ export function BestDaysSection({
         <BestDayCard
           day={bestDay}
           isHero
-          // regionName passed as beachName — these are region-level day cards, not beach-specific
+          variant={variant}
+          // regionName passed as beachName - these are region-level day cards, not beach-specific
           onClick={() => trackBestConditionsClick(regionName, 1, bestDay.score)}
         />
       </ScrollReveal>
@@ -388,7 +543,13 @@ export function BestDaysSection({
       {otherTopDays.length > 0 && (
         <div className="space-y-3">
           <ScrollReveal variant="fadeUp" delay={200}>
-            <h3 className="text-lg font-semibold text-foreground">
+            <h3
+              className={cn(
+                isZine
+                  ? "font-display text-xl font-black uppercase text-[#11100D]"
+                  : "text-lg font-semibold text-foreground"
+              )}
+            >
               Other Good Days
             </h3>
           </ScrollReveal>
@@ -398,7 +559,8 @@ export function BestDaysSection({
                 key={day.dateString}
                 day={day}
                 index={index}
-                // regionName passed as beachName — these are region-level day cards, not beach-specific
+                variant={variant}
+                // regionName passed as beachName - these are region-level day cards, not beach-specific
                 onClick={() => trackBestConditionsClick(regionName, index + 2, day.score)}
               />
             ))}
