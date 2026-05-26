@@ -1,0 +1,197 @@
+/** @jest-environment node */
+
+import { NextRequest } from "next/server";
+
+// NextResponse.json polyfill — jsdom doesn't ship Response.json().
+if (typeof (globalThis as any).Response?.json !== "function") {
+  (globalThis as any).Response.json = (data: any, init?: ResponseInit) =>
+    new Response(JSON.stringify(data), {
+      ...init,
+      headers: {
+        "content-type": "application/json",
+        ...(init?.headers || {}),
+      },
+    });
+}
+
+const mockUser = { id: "user-1" };
+
+const mockSelect = jest.fn();
+const mockEq = jest.fn();
+const mockIn = jest.fn();
+const mockGte = jest.fn();
+const mockOrder = jest.fn();
+const mockLimit = jest.fn();
+const mockFrom = jest.fn();
+
+let notificationRows: unknown[] = [];
+let queryError: { message: string } | null = null;
+
+function buildChain() {
+  const chain: any = {};
+  chain.select = mockSelect.mockImplementation(() => chain);
+  chain.eq = mockEq.mockImplementation(() => chain);
+  chain.in = mockIn.mockImplementation(() => chain);
+  chain.gte = mockGte.mockImplementation(() => chain);
+  chain.order = mockOrder.mockImplementation(() => chain);
+  chain.limit = mockLimit.mockImplementation(() =>
+    Object.assign(
+      Promise.resolve({ data: notificationRows, error: queryError }),
+      chain,
+    ),
+  );
+  chain.then = (resolve: (value: unknown) => unknown) =>
+    Promise.resolve({ data: notificationRows, error: queryError }).then(
+      resolve,
+    );
+  return chain;
+}
+
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const actual = jest.requireActual("@/lib/middleware/api-wrappers");
+  return {
+    ...actual,
+    withAuth:
+      (handler: any) =>
+      (request: Request) =>
+        handler(request, {
+          user: mockUser,
+          supabase: { from: mockFrom },
+        }),
+  };
+});
+
+import { GET } from "@/app/api/alerts/activity/route";
+
+describe("GET /api/alerts/activity", () => {
+  const nowMs = Date.parse("2026-05-26T12:00:00.000Z");
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(Date, "now").mockReturnValue(nowMs);
+    notificationRows = [];
+    queryError = null;
+    mockFrom.mockReturnValue(buildChain());
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("reads recent alert notifications with a clamped 7-day window", async () => {
+    notificationRows = [
+      {
+        id: "notif-similarity",
+        type: "similarity_match",
+        created_at: "2026-05-26T06:00:00.000Z",
+        read_at: null,
+        data: {
+          beach_id: "beach-1",
+          beach_slug: "swamis",
+          beach_name: "Swamis",
+          alert_date: "2026-05-26",
+          forecast_at: "2026-05-26T14:00:00.000Z",
+          score: 8.6,
+          label: "Excellent",
+          reason: "Clean waist-high window matched your best sessions.",
+          window_local: "7-9 AM",
+          condition_summary: "2-3 ft, light offshore wind",
+        },
+      },
+    ];
+
+    const res = await GET(
+      new NextRequest("http://localhost:3000/api/alerts/activity?days=99"),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockFrom).toHaveBeenCalledWith("notifications");
+    expect(mockSelect).toHaveBeenCalledWith(
+      "id, type, data, read_at, created_at",
+    );
+    expect(mockEq).toHaveBeenCalledWith("user_id", "user-1");
+    expect(mockIn).toHaveBeenCalledWith("type", [
+      "forecast_alert",
+      "similarity_match",
+    ]);
+    expect(mockGte).toHaveBeenCalledWith(
+      "created_at",
+      "2026-05-19T12:00:00.000Z",
+    );
+    expect(mockOrder).toHaveBeenCalledWith("created_at", {
+      ascending: false,
+    });
+    expect(mockLimit).toHaveBeenCalledWith(100);
+
+    const body = await res.json();
+    expect(body.data).toMatchObject({
+      days: 7,
+      activity: [
+        {
+          id: "notif-similarity",
+          type: "similarity_match",
+          beach_id: "beach-1",
+          beach_slug: "swamis",
+          beach_name: "Swamis",
+          forecast_at: "2026-05-26T14:00:00.000Z",
+          score: 8.6,
+          title: "Excellent match at Swamis",
+          body: "Clean waist-high window matched your best sessions.",
+          reason: "Clean waist-high window matched your best sessions.",
+          window_label: "7-9 AM",
+          read_at: null,
+          created_at: "2026-05-26T06:00:00.000Z",
+        },
+      ],
+    });
+    expect(body.data.activity[0]).not.toHaveProperty("data");
+  });
+
+  it("normalizes forecast alert context from the in-app payload", async () => {
+    notificationRows = [
+      {
+        id: "notif-forecast",
+        type: "forecast_alert",
+        created_at: "2026-05-26T05:00:00.000Z",
+        read_at: "2026-05-26T05:30:00.000Z",
+        data: {
+          alert_date: "2026-05-26",
+          title: "Small clean longboard waves",
+          body: "Bolsa Chica around 7 AM.",
+          beach_id: "beach-2",
+          beach_slug: "bolsa-chica",
+          forecast_at: "2026-05-26T14:00:00.000Z",
+          matches: [{ beach_name: "Bolsa Chica" }],
+        },
+      },
+    ];
+
+    const res = await GET(
+      new NextRequest("http://localhost:3000/api/alerts/activity?days=3"),
+    );
+
+    expect(res.status).toBe(200);
+    expect(mockGte).toHaveBeenCalledWith(
+      "created_at",
+      "2026-05-23T12:00:00.000Z",
+    );
+    const body = await res.json();
+    expect(body.data).toMatchObject({
+      days: 3,
+      activity: [
+        {
+          id: "notif-forecast",
+          type: "forecast_alert",
+          beach_id: "beach-2",
+          beach_slug: "bolsa-chica",
+          beach_name: "Bolsa Chica",
+          forecast_at: "2026-05-26T14:00:00.000Z",
+          title: "Small clean longboard waves",
+          body: "Bolsa Chica around 7 AM.",
+          read_at: "2026-05-26T05:30:00.000Z",
+        },
+      ],
+    });
+    expect(body.data.activity[0]).not.toHaveProperty("matches");
+  });
+});
