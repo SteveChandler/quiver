@@ -33,6 +33,27 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     });
   });
 
+  it("forecast_alert in-app payload carries selected-window beach context", () => {
+    const out = NOTIFICATION_REGISTRY.forecast_alert.buildInAppPayload!({
+      alert_date: "2026-05-10",
+      title: "Conditions lining up today",
+      body: "Cardiff 7am-9am",
+      beach_id: "beach-1",
+      beach_slug: "cardiff-reef",
+      forecast_at: "2026-05-10T14:30:00.000Z",
+      matches: [{ beach_name: "Cardiff Reef" }],
+    });
+
+    expect(out.data).toMatchObject({
+      alert_date: "2026-05-10",
+      title: "Conditions lining up today",
+      body: "Cardiff 7am-9am",
+      beach_id: "beach-1",
+      beach_slug: "cardiff-reef",
+      forecast_at: "2026-05-10T14:30:00.000Z",
+    });
+  });
+
   it("water_quality has only the in_app channel (no push)", () => {
     const def = NOTIFICATION_REGISTRY.water_quality as unknown as {
       channels: string[];
