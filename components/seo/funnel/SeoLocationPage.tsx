@@ -80,6 +80,10 @@ function getFeaturedCameras(
     .map(({ camera }) => camera);
 }
 
+function extractLeadSentence(text: string): string {
+  return text.match(/[^.!?]+[.!?]+/)?.[0]?.trim() ?? text.trim();
+}
+
 export function SeoLocationPage({ page, cameras = [] }: SeoLocationPageProps) {
   const baseUrl = (
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app"
@@ -92,6 +96,14 @@ export function SeoLocationPage({ page, cameras = [] }: SeoLocationPageProps) {
     0,
   );
   const internalLinks = getSeoFunnelInternalLinks(page);
+  const boardSectionBody = page.sections[2]?.body ?? page.intro;
+  const conditionsSectionBody = page.sections[1]?.body ?? "";
+  const boardLead = extractLeadSentence(boardSectionBody);
+  const conditionsLead = extractLeadSentence(conditionsSectionBody);
+  const boardCardBody =
+    conditionsLead && conditionsLead !== boardLead
+      ? `${boardLead} ${conditionsLead}`
+      : boardLead;
 
   return (
     <div className="seo-paper-page">
@@ -194,7 +206,7 @@ export function SeoLocationPage({ page, cameras = [] }: SeoLocationPageProps) {
             <BoardRecommendationCard
               type={page.type}
               locationName={page.locationName}
-              body={page.sections[2]?.body ?? page.intro}
+              body={boardCardBody}
             />
           ) : (
             <aside className="self-start rounded-lg border border-gray-200 bg-white p-4 shadow-sm">

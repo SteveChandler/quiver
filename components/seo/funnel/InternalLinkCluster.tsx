@@ -8,6 +8,8 @@ interface InternalLinkClusterProps {
   links: SeoInternalLink[];
 }
 
+const MAX_INTERNAL_LINKS = 6;
+
 const KIND_LABEL_BY_LINK_KIND: Record<
   NonNullable<SeoInternalLink["kind"]>,
   string
@@ -27,6 +29,8 @@ export function InternalLinkCluster({
 }: InternalLinkClusterProps) {
   if (links.length === 0) return null;
 
+  const featuredLinks = links.slice(0, MAX_INTERNAL_LINKS);
+
   return (
     <section aria-labelledby="internal-link-cluster-heading" className="py-4">
       <h2
@@ -36,7 +40,7 @@ export function InternalLinkCluster({
         {title}
       </h2>
       <div className="mt-5 grid gap-3 md:grid-cols-3">
-        {links.map((link) => (
+        {featuredLinks.map((link) => (
           <Link
             key={`${link.href}-${link.label}`}
             href={link.href}
