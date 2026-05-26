@@ -256,12 +256,17 @@ test.describe("Database-driven intent pages - Content structure", () => {
   test("should display continue exploring links", async ({ page }) => {
     await page.goto("/beginner/santa-cruz", { timeout: PAGE_LOAD_TIMEOUT });
 
-    const exploreSection = page.getByRole("heading", { name: /continue exploring/i });
+    const exploreSection = page.getByRole("heading", {
+      name: /continue exploring|keep planning/i,
+    });
     await expect(exploreSection).toBeVisible();
 
-    // Should have links to other intents
-    const otherIntentLinks = page.locator("a[href*='/santa-cruz']");
-    await expect(otherIntentLinks.first()).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /open quiver map/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /capitola beach forecast/i }),
+    ).toBeVisible();
   });
 
   test("should display recommendation freshness note", async ({ page }) => {

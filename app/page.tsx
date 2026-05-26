@@ -14,20 +14,20 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { AuthAwareLandingWrapper } from "@/components/landing-page/auth-aware-landing-wrapper";
 import { LandingPageSSRSection } from "@/components/landing-page/landing-page-ssr-section";
-import { IOS_APP_STORE_PREORDER_URL } from "@/lib/constants/app-store";
+import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
 
 // ISR: Revalidate every 10 minutes (aligns with featured beaches cache)
 export const revalidate = 600;
 
 export const metadata: Metadata = {
-  title: "Quiver iPhone Pre-Order | Surf Forecast App",
+  title: "Quiver for iPhone | Surf Forecast App",
   description:
-    "Quiver is open for iPhone pre-order on the App Store. Know where to paddle out with clean surf forecasts, beach context, and session tracking.",
+    "Open Quiver's current iPhone App Store listing. Know where to paddle out with clean surf forecasts, beach context, and session tracking.",
   alternates: {
     canonical: "/",
   },
   openGraph: {
-    title: "Quiver iPhone pre-order is open",
+    title: "Quiver for iPhone",
     description:
       "Know where to paddle out. Quiver brings surf forecasts, beach context, and session tracking to iPhone.",
     url: "/",
@@ -44,14 +44,14 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Quiver iPhone pre-order is open",
+    title: "Quiver for iPhone",
     description:
       "Know where to paddle out. Surf forecasts, beach context, and session tracking for iPhone.",
     images: ["/images/hero/quiver-landing-hero-social.jpg"],
   },
   appLinks: {
     ios: {
-      url: IOS_APP_STORE_PREORDER_URL,
+      url: IOS_APP_STORE_URL,
       app_store_id: "6759300320",
       app_name: "Surf Forecast: Quiver",
     },

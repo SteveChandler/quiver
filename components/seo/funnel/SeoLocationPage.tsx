@@ -1,3 +1,6 @@
+import Link from "next/link";
+import { ChevronLeft } from "lucide-react";
+
 import { CamGrid } from "@/components/cams/cam-grid";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
@@ -118,6 +121,16 @@ export function SeoLocationPage({ page, cameras = [] }: SeoLocationPageProps) {
       />
 
       <main className="container mx-auto max-w-7xl px-4 pb-8">
+        <nav aria-label="breadcrumb" className="pt-5 text-sm">
+          <Link
+            href={page.secondaryCta?.href ?? "/map"}
+            className="inline-flex items-center gap-1 font-medium text-ocean-blue hover:underline"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden />
+            Back to {page.locationName}
+          </Link>
+        </nav>
+
         <SeoHero
           eyebrow={page.eyebrow}
           title={page.h1}

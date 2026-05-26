@@ -67,6 +67,11 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
   // Show "Best at X" for windows > 3 hours (180 minutes)
   const peakTimeCasual = report.peakTime ? formatTimeCasual(report.peakTime, timezone) : null;
   const showBestAtTag = report.windowMinutes != null && report.windowMinutes > 180 && peakTimeCasual;
+  const waveHeightNote = report.waveHeight
+    ? report.isCalibrated
+      ? "Face height at this beach. Use this number to judge session size; bigger jumps mean much more power."
+      : "Approximate forecast height. Use this number to judge session size; bigger jumps mean much more power."
+    : null;
 
   return (
     <section
@@ -165,6 +170,11 @@ export function SpotSurfReport({ report, spotName, timezone, isTomorrow = false 
             {report.whySentence && (
               <p className="mt-2 sm:mt-3 text-sm text-muted-foreground">
                 {report.whySentence}
+              </p>
+            )}
+            {waveHeightNote && (
+              <p className="mt-2 text-xs text-muted-foreground/90">
+                {waveHeightNote}
               </p>
             )}
           </PublicContentGate>

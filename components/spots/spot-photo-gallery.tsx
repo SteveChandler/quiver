@@ -2,14 +2,15 @@
 
 import { useState, useCallback } from "react";
 import Image from "next/image";
-import { Camera, Images } from "lucide-react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getSpotGalleryPhotos, type SpotFeaturedPhoto } from "@/actions/spot/spot-data-actions";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
+import { SpotGeneratedIcon } from "./spot-generated-icon";
 
 interface SpotPhotoGalleryProps {
   beachId: string;
   spotName: string;
+  showHeader?: boolean;
 }
 
 /**
@@ -17,7 +18,11 @@ interface SpotPhotoGalleryProps {
  * Fetches and displays beach photos in a responsive grid.
  * Returns null if no photos are available (hides the section).
  */
-export function SpotPhotoGallery({ beachId, spotName }: SpotPhotoGalleryProps) {
+export function SpotPhotoGallery({
+  beachId,
+  spotName,
+  showHeader = true,
+}: SpotPhotoGalleryProps) {
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
 
   const fetchPhotos = useCallback(async () => {
@@ -42,12 +47,18 @@ export function SpotPhotoGallery({ beachId, spotName }: SpotPhotoGalleryProps) {
   if (loading && validPhotos.length === 0) {
     return (
       <section className="mt-8">
-        <div className="flex items-center gap-2 mb-4">
-          <Images className="w-5 h-5 text-sky-600" />
-          <h2 className="text-xl font-semibold text-slate-900">
-            {spotName} Photos
-          </h2>
-        </div>
+        {showHeader && (
+          <div className="mb-4 flex items-center gap-2">
+            <SpotGeneratedIcon
+              name="gallery"
+              size={24}
+              className="h-5 w-5 object-contain"
+            />
+            <h2 className="text-xl font-semibold text-slate-900">
+              {spotName} Photos
+            </h2>
+          </div>
+        )}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {[...Array(6)].map((_, i) => (
             <div
@@ -67,13 +78,19 @@ export function SpotPhotoGallery({ beachId, spotName }: SpotPhotoGalleryProps) {
 
   return (
     <section className="mt-8">
-      <div className="flex items-center gap-2 mb-4">
-        <Images className="w-5 h-5 text-sky-600" />
-        <h2 className="text-xl font-semibold text-slate-900">
-          {spotName} Photos
-        </h2>
-        <span className="text-sm text-slate-500">({validPhotos.length})</span>
-      </div>
+      {showHeader && (
+        <div className="mb-4 flex items-center gap-2">
+          <SpotGeneratedIcon
+            name="gallery"
+            size={24}
+            className="h-5 w-5 object-contain"
+          />
+          <h2 className="text-xl font-semibold text-slate-900">
+            {spotName} Photos
+          </h2>
+          <span className="text-sm text-slate-500">({validPhotos.length})</span>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         {validPhotos.map((photo, index) => (
@@ -100,7 +117,11 @@ export function SpotPhotoGallery({ beachId, spotName }: SpotPhotoGalleryProps) {
             )}
             {/* Camera icon overlay */}
             <div className="absolute top-2 right-2 bg-black/30 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
-              <Camera className="w-4 h-4 text-white" />
+              <SpotGeneratedIcon
+                name="photo"
+                size={18}
+                className="h-4 w-4 object-contain"
+              />
             </div>
           </div>
         ))}

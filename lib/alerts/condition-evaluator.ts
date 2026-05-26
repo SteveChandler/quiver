@@ -101,7 +101,26 @@ export function evaluateConditions(
     )
       return false;
   }
+  if (conditions.days_of_week && conditions.days_of_week.length > 0) {
+    const localDay = getLocalDayOfWeek(forecast.forecast_at, beach.timezone);
+    if (localDay == null || !conditions.days_of_week.includes(localDay)) {
+      return false;
+    }
+  }
   return true;
+}
+
+function getLocalDayOfWeek(forecastAt: string, timezone: string): number | null {
+  const date = new Date(forecastAt);
+  if (Number.isNaN(date.getTime())) return null;
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: timezone,
+    weekday: "short",
+  });
+  const weekday = formatter.format(date);
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const index = days.indexOf(weekday);
+  return index >= 0 ? index : null;
 }
 
 function isForecastWithinLocalTimeRange(

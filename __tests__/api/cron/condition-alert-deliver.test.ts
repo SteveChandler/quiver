@@ -579,6 +579,53 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
 
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
+
+  it("user-set rule max_frequency_per_week caps that rule before provider send", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedQueueRow({
+      alert_rules: {
+        name: "Low noise rule",
+        notify_email: true,
+        notify_push: false,
+        conditions: {
+          swell_height_min: 1,
+          max_frequency_per_week: 2,
+        },
+      },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    for (let i = 0; i < 2; i++) {
+      store.seededAttempts.push({
+        queue_id: `00000000-0000-0000-0000-0000000001${i}`,
+        rule_id: RULE_1,
+        user_id: USER_A,
+        channel: "email",
+        status: "sent",
+        attempted_at: new Date(
+          Date.now() - (i + 2) * 24 * 60 * 60 * 1000
+        ).toISOString(),
+      });
+    }
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(store.deliveryInserts).toHaveLength(0);
+    expect(store.attemptInserts).toEqual([
+      expect.objectContaining({
+        queue_id: QUEUE_1,
+        rule_id: RULE_1,
+        user_id: USER_A,
+        channel: "email",
+        status: "skipped_user_cap",
+        skip_reason: expect.stringContaining("cap is 2"),
+      }),
+    ]);
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
 });
 
 describe("condition-alert-deliver — orphaned queue rows", () => {
@@ -622,7 +669,12 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
   it("enqueues a forecast_alert notification event instead of sending push directly", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     seedQueueRow({
-      alert_rules: { name: "Test rule", notify_email: false, notify_push: true },
+      alert_rules: {
+        name: "Test rule",
+        notify_email: false,
+        notify_push: true,
+        conditions: { quiet_hours_start: 23, quiet_hours_end: 6 },
+      },
     });
     seedProfile({ notif_email_enabled: false, notif_push_enabled: true });
 
@@ -646,6 +698,8 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
       body: expect.any(String),
       beach_id: BEACH_1,
       forecast_at: "2026-04-26T14:00:00Z",
+      quiet_hours_start: 23,
+      quiet_hours_end: 6,
       // Queue-item provenance for the worker's onChannelOutcome hook to fan
       // back into alert_delivery_attempts after actual delivery (review fix
       // for cooldown burning on terminal-skipped pushes).

@@ -139,6 +139,8 @@ test.describe('Beach Detail Page', () => {
         // Generic resource loading failures from graceful degradation APIs
         'Failed to load resource: the server responded with a status of 400',
         'Failed to load resource: the server responded with a status of 500',
+        'Failed to load resource: the server responded with a status of 429',
+        'status of 429',
         // Mapbox CORS issues in test environments
         'api.mapbox.com',
         'mapbox',

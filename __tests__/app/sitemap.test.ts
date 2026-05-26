@@ -19,6 +19,10 @@ import { getAllBeachLocations } from "@/actions/beach/beach-location-list-action
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-actions";
 import { getCitiesWithBestMonthsData } from "@/actions/city/best-time-actions";
+import {
+  getAllBlogPosts,
+  getLatestBlogModifiedDate,
+} from "@/lib/data/blog-posts";
 
 // Mock the action modules
 jest.mock("@/actions/beach/beach-location-list-actions", () => ({
@@ -109,6 +113,14 @@ describe("Sitemap Generation", () => {
       expect(route).not.toBeUndefined();
     });
 
+    it("should include /plans route", async () => {
+      const result = await sitemap();
+      const route = result.find((r) => r.url === `${baseUrl}/plans`);
+
+      expect(route).not.toBeUndefined();
+      expect(route?.priority).toBe(0.7);
+    });
+
     it("should include /beaches/usa route", async () => {
       const result = await sitemap();
       const route = result.find((r) => r.url === `${baseUrl}/beaches/usa`);
@@ -118,7 +130,7 @@ describe("Sitemap Generation", () => {
 
     it("should set changeFrequency to daily for static routes", async () => {
       const result = await sitemap();
-      const staticRoutes = ["/", "/features", "/about", "/privacy", "/map"];
+      const staticRoutes = ["/", "/features", "/about", "/privacy", "/plans", "/map"];
 
       staticRoutes.forEach((path) => {
         const route = result.find((r) => r.url === `${baseUrl}${path}`);
@@ -140,6 +152,27 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url === `${baseUrl}/surf-cams/san-diego`)).not.toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/beginner/santa-cruz`)).not.toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/surf-cams/santa-cruz`)).toBeUndefined();
+    });
+  });
+
+  describe("Blog Routes", () => {
+    it("should include the blog hub and every finite blog post", async () => {
+      const result = await sitemap();
+
+      const blogHub = result.find((r) => r.url === `${baseUrl}/blog`);
+      expect(blogHub).not.toBeUndefined();
+      expect(blogHub?.lastModified).toBe(getLatestBlogModifiedDate());
+
+      for (const post of getAllBlogPosts()) {
+        const route = result.find(
+          (r) => r.url === `${baseUrl}/blog/${post.slug}`,
+        );
+
+        expect(route).not.toBeUndefined();
+        expect(route?.lastModified).toBe(
+          post.dateModified ?? post.datePublished,
+        );
+      }
     });
   });
 

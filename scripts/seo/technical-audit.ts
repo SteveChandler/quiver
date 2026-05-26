@@ -7,6 +7,12 @@ import {
 } from "../../lib/seo/agent-workflow/technical-audit";
 import { currentAuditDate, resolveSeoAuditFile } from "../../lib/seo/agent-workflow/audit-paths";
 import type { TechnicalAuditInput } from "../../lib/seo/agent-workflow/types";
+import {
+  fetchTextWithRetry,
+  fetchWithRetry,
+  isRemoteFetchError,
+  normalizeFetchError,
+} from "./resilient-fetch";
 
 const dashboardPath = getFlag("--dashboard") ?? undefined;
 const outputPath = getFlag("--output") ??
@@ -17,10 +23,16 @@ const fixturePath = getFlag("--input");
 void main();
 
 async function main(): Promise<void> {
-  const input = fixturePath
-    ? JSON.parse(fs.readFileSync(fixturePath, "utf8")) as TechnicalAuditInput
-    : await fetchLiveInput(dashboardPath);
-  const recommendations = analyzeTechnicalAudit(input, now);
+  let recommendations;
+  try {
+    const input = fixturePath
+      ? JSON.parse(fs.readFileSync(fixturePath, "utf8")) as TechnicalAuditInput
+      : await fetchLiveInput(dashboardPath);
+    recommendations = analyzeTechnicalAudit(input, now);
+  } catch (error) {
+    if (!isRemoteFetchError(error)) throw error;
+    recommendations = [buildFetchFailureRecommendation(error)];
+  }
 
   fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   fs.writeFileSync(outputPath, `${JSON.stringify(recommendations, null, 2)}\n`);
@@ -39,11 +51,11 @@ async function fetchLiveInput(dashboardFilePath?: string): Promise<TechnicalAudi
   ];
   const uniqueUrls = [...new Set(urls)];
   const [robotsTxt, sitemapXml, ...pageResponses] = await Promise.all([
-    fetchText("https://www.quiversurf.app/robots.txt"),
-    fetchText("https://www.quiversurf.app/sitemap.xml"),
+    fetchTextWithRetry("https://www.quiversurf.app/robots.txt"),
+    fetchTextWithRetry("https://www.quiversurf.app/sitemap.xml"),
     ...uniqueUrls.map(async (canonicalPath) => {
       const url = `https://www.quiversurf.app${canonicalPath}`;
-      const response = await fetch(url);
+      const response = await fetchWithRetry(url);
       return {
         url,
         status: response.status,
@@ -59,9 +71,18 @@ async function fetchLiveInput(dashboardFilePath?: string): Promise<TechnicalAudi
   };
 }
 
-async function fetchText(url: string): Promise<string> {
-  const response = await fetch(url);
-  return response.text();
+function buildFetchFailureRecommendation(error: unknown) {
+  const detail = normalizeFetchError(error);
+  return {
+    id: `technical-audit-fetch-failure-${now.slice(0, 10)}`,
+    createdAt: now,
+    source: "technical-audit" as const,
+    priority: "high" as const,
+    canonicalPath: "/",
+    summary: "Technical crawl unavailable due to network/fetch failure.",
+    evidence: [detail],
+    status: "open" as const,
+  };
 }
 
 function getFlag(name: string): string | null {

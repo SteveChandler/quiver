@@ -162,6 +162,18 @@ describe("evaluateConditions", () => {
     ).toBe(false);
   });
 
+  it("requires configured local days of week", () => {
+    // 2026-04-04 is Saturday in America/Los_Angeles.
+    const saturday = { ...baseForecast, forecast_at: "2026-04-04T15:00:00Z" };
+
+    expect(
+      evaluateConditions({ days_of_week: [0, 6] }, saturday, mockBeach),
+    ).toBe(true);
+    expect(
+      evaluateConditions({ days_of_week: [1, 2, 3, 4, 5] }, saturday, mockBeach),
+    ).toBe(false);
+  });
+
   it("evaluates swell direction with degree wrapping", () => {
     expect(
       evaluateConditions(

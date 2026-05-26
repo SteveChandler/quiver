@@ -55,7 +55,13 @@ function getBeachImageUrl(beach: EnrichedBeach): string {
  * Beach Card Component - Simplified Static Version
  * No animations, no client interactivity, no state
  */
-function BeachCard({ beach }: { beach: EnrichedBeach }) {
+function BeachCard({
+  beach,
+  priority = false,
+}: {
+  beach: EnrichedBeach;
+  priority?: boolean;
+}) {
   const beachUrl =
     getBeachHrefSafe({
       id: beach.id,
@@ -86,7 +92,7 @@ function BeachCard({ beach }: { beach: EnrichedBeach }) {
             src={imageUrl}
             alt={beach.name}
             fill
-            loading="lazy"
+            {...(priority ? { priority: true } : { loading: "lazy" as const })}
             className="object-cover group-hover:scale-105 transition-transform duration-300"
             sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
           />
@@ -160,8 +166,8 @@ export function PopularBeachesSection({ beaches }: PopularBeachesSectionProps) {
         {/* Beach Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {displayBeaches.length > 0 ? (
-            displayBeaches.map((beach) => (
-              <BeachCard key={beach.id} beach={beach} />
+            displayBeaches.map((beach, index) => (
+              <BeachCard key={beach.id} beach={beach} priority={index === 0} />
             ))
           ) : (
             <div className="col-span-full text-center py-12 text-gray-500">

@@ -415,7 +415,7 @@ describe("similarity-alerts cron — Plan V4", () => {
             {
               slot_idx: 0,
               forecast_at: "2026-05-04T18:00:00Z",
-              result: { state: "ready", score: 8.5, label: "GOOD" },
+              result: { state: "learned", score: 8.5, label: "GOOD" },
             },
           ],
           error: null,

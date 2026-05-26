@@ -141,6 +141,77 @@ describe("PageTracker", () => {
             pathname: "/",
             previous_pathname: "",
             browser_session_id: expect.any(String),
+            launch_campaign: "go_live_2026_05",
+            launch_surface: "landing",
+          },
+          debounceMs: 500,
+        });
+      });
+    });
+
+    it("adds launch metadata to plans page views", async () => {
+      mockUsePathname.mockReturnValue("/plans");
+
+      render(<PageTracker />);
+
+      await waitFor(() => {
+        expect(mockTrack).toHaveBeenCalledWith("page_view", {
+          metadata: {
+            page: "plans",
+            pathname: "/plans",
+            previous_pathname: "",
+            browser_session_id: expect.any(String),
+            launch_campaign: "go_live_2026_05",
+            launch_surface: "plans",
+            monetization_status: "native_app_store_live_web_checkout_unavailable",
+            purchase_path_status: "ios_app_store_android_waitlist",
+          },
+          debounceMs: 500,
+        });
+      });
+    });
+
+    it("adds launch metadata to features page views", async () => {
+      mockUsePathname.mockReturnValue("/features");
+
+      render(<PageTracker />);
+
+      await waitFor(() => {
+        expect(mockTrack).toHaveBeenCalledWith("page_view", {
+          metadata: {
+            page: "features",
+            pathname: "/features",
+            previous_pathname: "",
+            browser_session_id: expect.any(String),
+            launch_campaign: "go_live_2026_05",
+            launch_surface: "features",
+            monetization_status:
+              "native_app_store_live_web_checkout_unavailable",
+            purchase_path_status: "ios_app_store_android_waitlist",
+          },
+          debounceMs: 500,
+        });
+      });
+    });
+
+    it("adds launch metadata to blog post page views", async () => {
+      mockUsePathname.mockReturnValue(
+        "/blog/why-quiver-is-built-around-one-surf-call"
+      );
+
+      render(<PageTracker />);
+
+      await waitFor(() => {
+        expect(mockTrack).toHaveBeenCalledWith("page_view", {
+          metadata: {
+            page: "blog_post",
+            pathname: "/blog/why-quiver-is-built-around-one-surf-call",
+            previous_pathname: "",
+            browser_session_id: expect.any(String),
+            launch_campaign: "go_live_2026_05",
+            launch_surface: "blog_post",
+            launch_content_group: "launch_blog",
+            blog_slug: "why-quiver-is-built-around-one-surf-call",
           },
           debounceMs: 500,
         });
@@ -256,6 +327,10 @@ describe("PageTracker", () => {
       { pathname: "/settings", expected: "settings" },
       { pathname: "/session/new", expected: "session" },
       { pathname: "/forecast/daily", expected: "forecast" },
+      { pathname: "/plans", expected: "plans" },
+      { pathname: "/pricing", expected: "plans" },
+      { pathname: "/blog", expected: "blog_index" },
+      { pathname: "/blog/fun-observation-session-logs", expected: "blog_post" },
       { pathname: "/onboarding/step1", expected: "onboarding" },
       { pathname: "/login", expected: "auth" },
       { pathname: "/signup", expected: "auth" },
@@ -273,12 +348,12 @@ describe("PageTracker", () => {
 
         await waitFor(() => {
           expect(mockTrack).toHaveBeenCalledWith("page_view", {
-            metadata: {
+            metadata: expect.objectContaining({
               page: expected,
               pathname,
               previous_pathname: expect.any(String),
               browser_session_id: expect.any(String),
-            },
+            }),
             debounceMs: 500,
           });
         });

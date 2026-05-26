@@ -2,10 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   withAuth,
   createSuccessResponse,
+  createValidationError,
   validateUuidParam,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
 import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
+import { validateConditionAlertInput } from "@/lib/alerts/condition-validation";
+import type { AlertConditions } from "@/lib/alerts/types";
 
 const AUTO_MANAGED_MESSAGE =
   "This Pro alert is auto-managed. Disable similarity notifications via Settings → Notifications → Similarity Alerts.";
@@ -26,6 +29,9 @@ interface AlertRuleRowForGuard {
   user_id: string;
   preset_type: string | null;
   auto_created_at: string | null;
+  conditions: AlertConditions | null;
+  notify_email: boolean;
+  notify_push: boolean;
 }
 
 /**
@@ -45,7 +51,7 @@ async function loadOwnedRule(
 ): Promise<AlertRuleRowForGuard | null> {
   const { data, error } = await (supabase as any)
     .from("alert_rules")
-    .select("user_id, preset_type, auto_created_at")
+    .select("user_id, preset_type, auto_created_at, conditions, notify_email, notify_push")
     .eq("id", ruleId)
     .single();
 
@@ -95,9 +101,28 @@ export const PATCH = withAuth(
     const body = await request.json();
     const { name, conditions, notify_email, notify_push, enabled } = body;
 
+    if (
+      conditions !== undefined ||
+      notify_email !== undefined ||
+      notify_push !== undefined
+    ) {
+      const validation = validateConditionAlertInput({
+        presetType: rule.preset_type,
+        conditions: conditions ?? rule.conditions ?? {},
+        notifyEmail: notify_email ?? rule.notify_email,
+        notifyPush: notify_push ?? rule.notify_push,
+      });
+      if (!validation.ok) {
+        return createValidationError(validation.message ?? "Invalid alert conditions");
+      }
+      if (conditions !== undefined) {
+        body.conditions = validation.conditions ?? {};
+      }
+    }
+
     const updates: Record<string, unknown> = {};
     if (name !== undefined) updates.name = name;
-    if (conditions !== undefined) updates.conditions = conditions;
+    if (body.conditions !== undefined) updates.conditions = body.conditions;
     if (notify_email !== undefined) updates.notify_email = notify_email;
     if (notify_push !== undefined) updates.notify_push = notify_push;
     if (enabled !== undefined) updates.enabled = enabled;

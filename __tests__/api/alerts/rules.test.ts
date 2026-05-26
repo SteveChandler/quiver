@@ -55,6 +55,14 @@ interface ProfileRow {
 let mockProfile: ProfileRow = { home_beach_id: "beach-home" };
 let mockExistingRules: AlertRuleRow[] = [];
 let mockUserEntitlementTier: "free" | "premium" = "premium";
+let mockPersonalizationEligibility = {
+  code: "PERSONALIZATION_UNLOCKED",
+  canUsePersonalMatch: true,
+  canUseRankedWindows: true,
+  canCreatePersonalAlert: true,
+  canDeliverPersonalAlert: true,
+  source: "entitlement",
+};
 
 // Track inserts/updates/deletes so tests can assert side effects.
 const insertSpy = jest.fn();
@@ -68,6 +76,17 @@ jest.mock("@/lib/alerts/entitlements", () => ({
   getUserEntitlement: jest.fn(async () => mockUserEntitlementTier),
   // Always allow — we test the new guards here, not entitlement gating.
   canCreateRule: jest.fn(() => ({ allowed: true })),
+}));
+
+jest.mock("@/lib/personalization/eligibility", () => ({
+  PERSONALIZATION_UNLOCKED: "PERSONALIZATION_UNLOCKED",
+  PERSONALIZATION_LOCKED: "PERSONALIZATION_LOCKED",
+  BILLING_ISSUE_LOCKED: "BILLING_ISSUE_LOCKED",
+  ENTITLEMENT_SYNCING: "ENTITLEMENT_SYNCING",
+  BETA_ACCESS_NOT_ENABLED: "BETA_ACCESS_NOT_ENABLED",
+  PERSONALIZATION_DISABLED: "PERSONALIZATION_DISABLED",
+  ALERT_DELIVERY_PAUSED: "ALERT_DELIVERY_PAUSED",
+  getPersonalizationEligibility: jest.fn(async () => mockPersonalizationEligibility),
 }));
 
 jest.mock("@/lib/middleware/api-wrappers", () => {
@@ -295,6 +314,14 @@ beforeEach(() => {
   mockProfile = { home_beach_id: "beach-home" };
   mockExistingRules = [];
   mockUserEntitlementTier = "premium";
+  mockPersonalizationEligibility = {
+    code: "PERSONALIZATION_UNLOCKED",
+    canUsePersonalMatch: true,
+    canUseRankedWindows: true,
+    canCreatePersonalAlert: true,
+    canDeliverPersonalAlert: true,
+    source: "entitlement",
+  };
   insertSpy.mockReset();
   updateSpy.mockReset();
   deleteSpy.mockReset();
@@ -367,6 +394,68 @@ describe("POST /api/alerts/rules — duplicate similarity_match guard", () => {
     });
   });
 
+  it.each([
+    ["ENTITLEMENT_SYNCING", "canCreatePersonalAlert"],
+    ["BETA_ACCESS_NOT_ENABLED", "canCreatePersonalAlert"],
+    ["PERSONALIZATION_DISABLED", "canUsePersonalMatch"],
+  ] as const)(
+    "returns stable %s code for personal alert denials",
+    async (code, expectedDetailKey) => {
+      mockPersonalizationEligibility = {
+        code,
+        canUsePersonalMatch: false,
+        canUseRankedWindows: false,
+        canCreatePersonalAlert: false,
+        canDeliverPersonalAlert: false,
+        source: "none",
+      };
+
+      const res = await POST(
+        makeReq({
+          beach_id: "beach-home",
+          name: "Similarity rule",
+          preset_type: "similarity_match",
+          conditions: {},
+        })
+      );
+
+      expect(res.status).toBe(403);
+      const body = await res.json();
+      expect(body).toMatchObject({
+        success: false,
+        error: code,
+        details: {
+          code,
+          [expectedDetailKey]: false,
+        },
+      });
+      expect(insertSpy).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not block rule editing eligibility when alert delivery is paused", async () => {
+    mockPersonalizationEligibility = {
+      code: "ALERT_DELIVERY_PAUSED",
+      canUsePersonalMatch: true,
+      canUseRankedWindows: true,
+      canCreatePersonalAlert: true,
+      canDeliverPersonalAlert: false,
+      source: "entitlement",
+    };
+
+    const res = await POST(
+      makeReq({
+        beach_id: "beach-home",
+        name: "Similarity rule",
+        preset_type: "similarity_match",
+        conditions: {},
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(insertSpy).toHaveBeenCalledTimes(1);
+  });
+
   it("does NOT block POSTs of other preset types when a similarity rule exists", async () => {
     mockExistingRules = [autoSimilarityRule()];
 
@@ -375,12 +464,115 @@ describe("POST /api/alerts/rules — duplicate similarity_match guard", () => {
         beach_id: "beach-home",
         name: "Custom rule",
         preset_type: "custom",
-        conditions: {},
+        conditions: { swell_height_min: 1, swell_height_max: 3 },
       })
     );
 
     expect(res.status).toBe(201);
     expect(insertSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("POST /api/alerts/rules — condition alert validation", () => {
+  it("rejects empty custom conditions before they can match every forecast", async () => {
+    const res = await POST(
+      makeReq({
+        beach_id: "beach-home",
+        name: "Wildcard rule",
+        preset_type: "custom",
+        conditions: {},
+        notify_push: true,
+      })
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/at least one condition/i);
+    expect(insertSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects cross-type similarity filters on condition alerts", async () => {
+    const res = await POST(
+      makeReq({
+        beach_id: "beach-home",
+        name: "Wrong type",
+        preset_type: null,
+        conditions: { similarity_threshold: 7.5 },
+        notify_push: true,
+      })
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/Condition alerts cannot include/i);
+    expect(insertSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects invalid ranges and rules with no delivery channel", async () => {
+    const rangeRes = await POST(
+      makeReq({
+        beach_id: "beach-home",
+        name: "Bad range",
+        preset_type: null,
+        conditions: { swell_height_min: 4, swell_height_max: 2 },
+        notify_push: true,
+      })
+    );
+    expect(rangeRes.status).toBe(400);
+
+    const channelRes = await POST(
+      makeReq({
+        beach_id: "beach-home",
+        name: "No channel",
+        preset_type: null,
+        conditions: { swell_height_min: 1 },
+        notify_push: false,
+        notify_email: false,
+      })
+    );
+    expect(channelRes.status).toBe(400);
+    expect(insertSpy).not.toHaveBeenCalled();
+  });
+
+  it("accepts advanced condition alert controls and inserts sanitized conditions", async () => {
+    const conditions = {
+      swell_height_min: 1,
+      swell_height_max: 3,
+      swell_period_min: 8,
+      wind_speed_max_kt: 5,
+      wind_direction: "offshore",
+      tide_height_min_ft: 0,
+      tide_height_max_ft: 4,
+      tide_direction: "rising",
+      local_time_start: "05:00",
+      local_time_end: "11:00",
+      days_of_week: [0, 6],
+      board_id: "board-1",
+      board_label: "Log",
+      max_frequency_per_week: 3,
+      quiet_hours_start: 22,
+      quiet_hours_end: 5,
+    };
+
+    const res = await POST(
+      makeReq({
+        beach_id: "beach-home",
+        name: "Advanced rule",
+        preset_type: null,
+        conditions,
+        notify_push: true,
+        notify_email: false,
+      })
+    );
+
+    expect(res.status).toBe(201);
+    expect(insertSpy).toHaveBeenCalledTimes(1);
+    expect(insertSpy.mock.calls[0][0]).toMatchObject({
+      preset_type: null,
+      conditions,
+      notify_push: true,
+      notify_email: false,
+    });
   });
 });
 
@@ -504,5 +696,42 @@ describe("PATCH /api/alerts/rules/[ruleId] — auto-managed guard", () => {
     expect(res.status).toBe(200);
     expect(updateSpy).toHaveBeenCalledTimes(1);
     expect(updateSpy.mock.calls[0][0]).toMatchObject({ name: "Renamed" });
+  });
+
+  it("rejects empty condition updates on user-created condition rules", async () => {
+    const rule = userRule({
+      id: "550e8400-e29b-41d4-a716-446655440014",
+      conditions: { swell_height_min: 1 },
+    });
+    mockExistingRules = [rule];
+
+    const res = await PATCH(makeReq({ conditions: {} }), {
+      params: { ruleId: rule.id },
+    } as any);
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/at least one condition/i);
+    expect(updateSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects condition updates that disable every delivery channel", async () => {
+    const rule = userRule({
+      id: "550e8400-e29b-41d4-a716-446655440015",
+      conditions: { swell_height_min: 1 },
+      notify_email: true,
+      notify_push: false,
+    });
+    mockExistingRules = [rule];
+
+    const res = await PATCH(
+      makeReq({ notify_email: false, notify_push: false }),
+      {
+        params: { ruleId: rule.id },
+      } as any
+    );
+
+    expect(res.status).toBe(400);
+    expect(updateSpy).not.toHaveBeenCalled();
   });
 });

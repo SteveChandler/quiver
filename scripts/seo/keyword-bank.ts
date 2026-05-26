@@ -14,7 +14,7 @@ const productMarketingContext = readOptionalFile(
   path.join(process.cwd(), ".claude/product-marketing-context.md"),
 );
 
-const dashboard = dashboardPath
+const dashboard = dashboardPath && fs.existsSync(dashboardPath)
   ? readSeoDashboard(dashboardPath)
   : safeReadDefaultDashboard(now);
 const nextDashboard = buildKeywordBankDashboard(dashboard, now, {

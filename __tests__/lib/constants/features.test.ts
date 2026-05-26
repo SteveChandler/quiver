@@ -39,7 +39,7 @@ describe("Features Constants", () => {
         "What's Happening Now",
         "Spot Discovery",
         "Session Tracking",
-        "Join the Beta",
+        "Get the App",
         "Community",
       ];
       const actualTitles = FEATURE_CARDS.map((card) => card.title);

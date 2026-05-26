@@ -9,7 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { middleware } from "@/middleware";
+import { proxy as middleware } from "@/proxy";
 
 // Mock dependencies
 jest.mock("@/lib/api-utils", () => ({

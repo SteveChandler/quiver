@@ -689,8 +689,9 @@ async function processChannel(
   if (channel === "push" && def.quietHours.mode === "defer") {
     const tz = resolveNotificationTimezone(profile.timezone);
     const localHour = getLocalHour(now, tz);
-    const start = def.quietHours.windowStart ?? 22;
-    const end = def.quietHours.windowEnd ?? 4;
+    const quietWindow = resolveQuietWindow(def, event.payload);
+    const start = quietWindow.start;
+    const end = quietWindow.end;
     if (isInQuietWindow(localHour, start, end)) {
       return channelDecision("deferred_quiet_hours", {
         nextAttemptAt: getQuietWindowEnd(now, tz, localHour, start, end),
@@ -787,6 +788,41 @@ async function processChannel(
   return channelDecision("failed_internal", {
     errorMessage: "Unsupported notification channel",
   });
+}
+
+function resolveQuietWindow(
+  def: NotificationTypeDef,
+  payload: Json
+): { start: number; end: number } {
+  if (typeof payload === "object" && payload !== null && !Array.isArray(payload)) {
+    const record = payload as Record<string, unknown>;
+    const start =
+      typeof record.quiet_hours_start === "number"
+        ? record.quiet_hours_start
+        : null;
+    const end =
+      typeof record.quiet_hours_end === "number"
+        ? record.quiet_hours_end
+        : null;
+    if (
+      start !== null &&
+      end !== null &&
+      Number.isInteger(start) &&
+      Number.isInteger(end) &&
+      start >= 0 &&
+      start <= 23 &&
+      end >= 0 &&
+      end <= 23 &&
+      start !== end
+    ) {
+      return { start, end };
+    }
+  }
+
+  return {
+    start: def.quietHours.windowStart ?? 22,
+    end: def.quietHours.windowEnd ?? 4,
+  };
 }
 
 function isInQuietWindow(hour: number, start: number, end: number): boolean {

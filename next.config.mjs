@@ -133,23 +133,9 @@ const nextConfig = {
           },
         ],
       },
-      // Aggressive caching for static assets
-      {
-        source: "/_next/static/(.*)",
-        headers: [
-          {
-            key: "Cache-Control",
-            // In dev, prevent cached chunks from causing hydration mismatches during local iteration.
-            value: isProd
-              ? "public, max-age=31536000, immutable"
-              : "no-store, max-age=0",
-          },
-          {
-            key: "Vary",
-            value: "Accept-Encoding",
-          },
-        ],
-      },
+      // Next.js owns immutable caching for build assets under /_next/static.
+      // Custom headers there trigger a Next 16 build warning and can interfere
+      // with development cache invalidation.
       // Cache optimization for images
       {
         source: "/images/(.*)",

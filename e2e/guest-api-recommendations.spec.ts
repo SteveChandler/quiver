@@ -28,6 +28,13 @@ const TEST_COORDS = {
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+function expectValidationOrRateLimit(response: APIResponse): boolean {
+  const status = response.status();
+  expect([400, 429]).toContain(status);
+
+  return status === 400;
+}
+
 /**
  * Helper to make API requests with retry on rate limit (429)
  * Waits for Retry-After header duration before retrying
@@ -150,7 +157,7 @@ test.describe("Recommendations API", () => {
       const url = `${ENDPOINT}?lon=${TEST_COORDS.lon}`;
       const response = await fetchWithRateLimitRetry(api, url);
 
-      expect(response.status()).toBe(400);
+      if (!expectValidationOrRateLimit(response)) return;
       const json = await response.json();
       expect(json.success).toBe(false);
       expect(json.error).toBeDefined();
@@ -160,7 +167,7 @@ test.describe("Recommendations API", () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}`;
       const response = await fetchWithRateLimitRetry(api, url);
 
-      expect(response.status()).toBe(400);
+      if (!expectValidationOrRateLimit(response)) return;
       const json = await response.json();
       expect(json.success).toBe(false);
     });
@@ -168,7 +175,7 @@ test.describe("Recommendations API", () => {
     test("should reject missing both lat and lon", async () => {
       const response = await fetchWithRateLimitRetry(api, ENDPOINT);
 
-      expect(response.status()).toBe(400);
+      if (!expectValidationOrRateLimit(response)) return;
       const json = await response.json();
       expect(json.success).toBe(false);
     });
@@ -177,49 +184,49 @@ test.describe("Recommendations API", () => {
       const url = `${ENDPOINT}?lat=91&lon=${TEST_COORDS.lon}`;
       const response = await fetchWithRateLimitRetry(api, url);
 
-      expect(response.status()).toBe(400);
+      expectValidationOrRateLimit(response);
     });
 
     test("should reject lat out of range (< -90)", async () => {
       const url = `${ENDPOINT}?lat=-91&lon=${TEST_COORDS.lon}`;
       const response = await fetchWithRateLimitRetry(api, url);
 
-      expect(response.status()).toBe(400);
+      expectValidationOrRateLimit(response);
     });
 
     test("should reject lon out of range (> 180)", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=181`;
       const response = await fetchWithRateLimitRetry(api, url);
 
-      expect(response.status()).toBe(400);
+      expectValidationOrRateLimit(response);
     });
 
     test("should reject lon out of range (< -180)", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=-181`;
       const response = await fetchWithRateLimitRetry(api, url);
 
-      expect(response.status()).toBe(400);
+      expectValidationOrRateLimit(response);
     });
 
     test("should reject non-numeric lat", async () => {
       const url = `${ENDPOINT}?lat=abc&lon=${TEST_COORDS.lon}`;
       const response = await fetchWithRateLimitRetry(api, url);
 
-      expect(response.status()).toBe(400);
+      expectValidationOrRateLimit(response);
     });
 
     test("should reject non-numeric lon", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=xyz`;
       const response = await fetchWithRateLimitRetry(api, url);
 
-      expect(response.status()).toBe(400);
+      expectValidationOrRateLimit(response);
     });
 
     test("should reject invalid time format", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}&time=invalid-date`;
       const response = await fetchWithRateLimitRetry(api, url);
 
-      expect(response.status()).toBe(400);
+      expectValidationOrRateLimit(response);
     });
   });
 

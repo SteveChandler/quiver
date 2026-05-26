@@ -49,6 +49,8 @@ const forecastAlertSchema = z.object({
   beach_slug: z.string().nullable().optional(),
   forecast_at: z.string().nullable().optional(),
   matches: z.unknown().optional(),
+  quiet_hours_start: z.number().int().min(0).max(23).optional(),
+  quiet_hours_end: z.number().int().min(0).max(23).optional(),
   queue_items: z
     .array(z.object({ queue_id: z.string(), rule_id: z.string() }))
     .optional(),

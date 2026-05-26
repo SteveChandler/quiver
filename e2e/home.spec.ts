@@ -233,8 +233,8 @@ test.describe('Home Page - Layout', () => {
         await expect(forecastLink).toBeVisible();
         const href = await forecastLink.getAttribute('href');
         expect(href).toBeTruthy();
-        // Link should point to a surf-forecast URL
-        expect(href).toMatch(/surf-forecast/);
+        // Link should point to a canonical beach forecast URL.
+        expect(href).toMatch(/^\/(?:surf-forecast\/|[a-z]{2}\/[^/]+\/[^/]+$)/);
       }
     });
   });

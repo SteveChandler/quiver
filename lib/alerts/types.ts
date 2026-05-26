@@ -12,6 +12,12 @@ export interface AlertConditions {
   avoid_tide_statuses?: string[];
   local_time_start?: string;
   local_time_end?: string;
+  days_of_week?: number[];
+  board_id?: string;
+  board_label?: string;
+  max_frequency_per_week?: number;
+  quiet_hours_start?: number;
+  quiet_hours_end?: number;
   beginner_sandy_window?: boolean;
 }
 

@@ -6,8 +6,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { track } from "@/lib/analytics";
 import {
-  IOS_APP_STORE_PREORDER_CTA,
-  IOS_APP_STORE_PREORDER_URL,
+  IOS_APP_STORE_CTA,
+  IOS_APP_STORE_DESTINATION_STATUS,
+  IOS_APP_STORE_URL,
 } from "@/lib/constants/app-store";
 import {
   getIphoneAppBannerDecision,
@@ -59,6 +60,11 @@ export function IphoneAppBanner() {
     return {
       source: IPHONE_APP_BANNER_SOURCE,
       platform: "ios",
+      cta_family: "ios_app",
+      cta_text: IOS_APP_STORE_CTA,
+      destination_type: "app_store",
+      destination_status: IOS_APP_STORE_DESTINATION_STATUS,
+      destination_url: IOS_APP_STORE_URL,
       browser: decision.browser,
       pathname,
       ...(decision.suppressionReason
@@ -143,13 +149,13 @@ export function IphoneAppBanner() {
           </p>
         </div>
         <a
-          href={IOS_APP_STORE_PREORDER_URL}
+          href={IOS_APP_STORE_URL}
           target="_blank"
           rel="noopener noreferrer"
           onClick={handleClick}
           className="shrink-0 rounded-full bg-[#F78E42] px-4 py-2 text-xs font-semibold text-[#252D6B] transition hover:bg-[#FFAA63] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#111B46]"
         >
-          {IOS_APP_STORE_PREORDER_CTA}
+          {IOS_APP_STORE_CTA}
         </a>
         <button
           type="button"

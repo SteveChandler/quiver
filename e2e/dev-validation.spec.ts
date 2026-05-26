@@ -892,9 +892,10 @@ test.describe('Error Handling @dev', () => {
   });
 
   test('Missing required data shows fallback @dev', async ({ page }) => {
-    // Use regular goto - may have hydration errors
-    await page.goto('/', { timeout: TIMEOUTS.medium });
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await page.goto('/', {
+      timeout: TIMEOUTS.medium,
+      waitUntil: 'domcontentloaded',
+    });
 
     // Page should load even if some data is missing
     const content = page.locator('body');
@@ -902,25 +903,24 @@ test.describe('Error Handling @dev', () => {
   });
 
   test('API errors do not crash page @dev', async ({ page }) => {
-    // First load page normally
-    await page.goto('/', { timeout: TIMEOUTS.medium });
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
-
     // Intercept API calls and return errors
     await page.route('**/api/**', route => {
       route.fulfill({
         status: 500,
+        contentType: 'application/json',
         body: JSON.stringify({ error: 'Internal Server Error' }),
       });
     });
 
-    // Reload page with API errors
-    await page.reload({ timeout: TIMEOUTS.medium });
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await page.goto('/', {
+      timeout: TIMEOUTS.medium,
+      waitUntil: 'domcontentloaded',
+    });
 
     // Page should still render (even with API errors)
     const body = page.locator('body');
     await expect(body).toBeVisible({ timeout: TIMEOUTS.short });
+    await expect(page.getByText(/application error/i)).toHaveCount(0);
 
     // Restore normal routing
     await page.unroute('**/api/**');

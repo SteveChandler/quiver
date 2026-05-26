@@ -12,6 +12,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { BestDaySlot } from "@/lib/mailer/templates/WeeklyRecapEmail";
+import { isLearnedMatchState } from "@/lib/personalization/match-state-compat";
 
 const DIGEST_SCORE_THRESHOLD = 6;
 const DIGEST_LOOKAHEAD_DAYS = 7;
@@ -115,7 +116,7 @@ export async function computeBestDaysForUser(
       );
       if (rpcErr) continue;
       const result = rpcData as MatchScoreResult | null;
-      if (!result || result.state !== "ready") continue;
+      if (!result || !isLearnedMatchState(result.state)) continue;
       if (typeof result.score !== "number") continue;
       if (result.score < DIGEST_SCORE_THRESHOLD) continue;
 
