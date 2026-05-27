@@ -9,6 +9,8 @@ import {
 import {
   consumeInviteForUser,
 } from "@/lib/invites/consume";
+import { recordInviteConsumedEvent } from "@/lib/invites/events";
+import { hashInviteToken } from "@/lib/invites/token-hash";
 import { capturePostHogEvent } from "@/lib/posthog-server";
 
 /**
@@ -35,12 +37,21 @@ export const POST = withAuth(
     }
 
     const result = await consumeInviteForUser(supabase, rawToken, user.id);
+    const tokenHash = hashInviteToken(rawToken);
 
     if (result.status === "invalid") {
       return createErrorResponse("Invalid or expired invite", 400);
     }
 
     if (result.status === "self") {
+      await recordInviteConsumedEvent(supabase, {
+        followerId: user.id,
+        inviterId: result.inviterId,
+        tokenHash,
+        surface: "native",
+        selfInvite: true,
+      });
+
       // Self-invite: no row write, but not an error — native surface can
       // quietly navigate home.
       return createSuccessResponse({
@@ -53,6 +64,15 @@ export const POST = withAuth(
     if (result.status === "insert_error") {
       throw result.error;
     }
+
+    await recordInviteConsumedEvent(supabase, {
+      followerId: user.id,
+      inviterId: result.inviterId,
+      tokenHash,
+      surface: "native",
+      selfInvite: false,
+      flags: result,
+    });
 
     await capturePostHogEvent({
       distinctId: user.id,

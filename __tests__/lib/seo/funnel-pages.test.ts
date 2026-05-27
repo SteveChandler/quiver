@@ -407,16 +407,47 @@ describe("SEO funnel pages", () => {
     expect(page!.nearbySpots.map((spot) => spot.href)).toEqual(
       expect.arrayContaining([
         "/ny/long-beach/long-beach-long-beach-ny",
-        "/ny/queens/rockaway-beach-90th-st-queens-ny",
-        "/ny/queens/rockaway-beach-98th-st-queens-ny",
+        "/ny/babylon/robert-moses-state-park-babylon-ny",
+        "/ny/shirley/smith-point-county-park-shirley-ny",
         "/ny/montauk/ditch-plains-montauk-ny",
       ]),
     );
+    expect(
+      page!.nearbySpots.find((spot) => spot.label === "Long Beach")
+        ?.description,
+    ).toContain("Best first call for lessons");
+    expect(
+      page!.nearbySpots.find((spot) => spot.label === "Robert Moses State Park")
+        ?.description,
+    ).toContain("Cleaner self-practice backup");
+    expect(
+      page!.nearbySpots.find((spot) => spot.label === "Smith Point County Park")
+        ?.description,
+    ).toContain("Closest-ocean option for some surfers");
+    expect(
+      page!.nearbySpots.find((spot) => spot.label === "Ditch Plains")
+        ?.description,
+    ).toContain("Save this for later progression trips");
     expect(
       page!.sections.find(
         (section) => section.heading === "Local read before you drive",
       )?.body,
     ).toContain("Turtle Cove should stay out of learner guidance entirely");
+    expect(
+      page!.sections.find(
+        (section) => section.heading === "Where Long Island works best",
+      )?.body,
+    ).toContain("Robert Moses deserves more weight than a footnote");
+    expect(
+      page!.sections.find(
+        (section) => section.heading === "Board and safety call",
+      )?.body,
+    ).toContain("Body surfing and boogie boarding first are legitimate prep");
+    expect(
+      page!.sections.find(
+        (section) => section.heading === "Local read before you drive",
+      )?.body,
+    ).toContain("book an adult lesson");
   });
 
   it("keeps existing longboard hubs connected to live spot reports before adding inventory", () => {
