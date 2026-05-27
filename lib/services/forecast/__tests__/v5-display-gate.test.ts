@@ -60,6 +60,20 @@ function forecast(
 }
 
 describe("applyV51DisplayOverrideToForecasts", () => {
+  const originalEnabled = process.env.V51_DISPLAY_OVERRIDE_ENABLED;
+
+  beforeEach(() => {
+    delete process.env.V51_DISPLAY_OVERRIDE_ENABLED;
+  });
+
+  afterAll(() => {
+    if (originalEnabled === undefined) {
+      delete process.env.V51_DISPLAY_OVERRIDE_ENABLED;
+      return;
+    }
+    process.env.V51_DISPLAY_OVERRIDE_ENABLED = originalEnabled;
+  });
+
   it("leaves forecasts untouched when disabled", async () => {
     const rows = [forecast()];
     await expect(
@@ -70,7 +84,28 @@ describe("applyV51DisplayOverrideToForecasts", () => {
     ).resolves.toBe(rows);
   });
 
-  it("replaces wave_height with v5.1 display by default", async () => {
+  it("leaves forecasts untouched by default", async () => {
+    const rows = [forecast()];
+    await expect(
+      applyV51DisplayOverrideToForecasts(rows, {
+        calibration: CALIBRATION,
+      })
+    ).resolves.toBe(rows);
+  });
+
+  it("leaves forecasts untouched when old call sites pass enabled true without the rollout flag", async () => {
+    const rows = [forecast()];
+    await expect(
+      applyV51DisplayOverrideToForecasts(rows, {
+        enabled: true,
+        calibration: CALIBRATION,
+      })
+    ).resolves.toBe(rows);
+  });
+
+  it("replaces wave_height with v5.1 display when the rollout flag is enabled", async () => {
+    process.env.V51_DISPLAY_OVERRIDE_ENABLED = "true";
+
     const [row] = await applyV51DisplayOverrideToForecasts([forecast()], {
       calibration: CALIBRATION,
     });
@@ -79,6 +114,8 @@ describe("applyV51DisplayOverrideToForecasts", () => {
   });
 
   it("replaces wave_height with v5.1 display when enabled", async () => {
+    process.env.V51_DISPLAY_OVERRIDE_ENABLED = "true";
+
     const [row] = await applyV51DisplayOverrideToForecasts([forecast()], {
       enabled: true,
       calibration: CALIBRATION,
@@ -88,6 +125,8 @@ describe("applyV51DisplayOverrideToForecasts", () => {
   });
 
   it("uses the W x 0.5-1.0m raw-OM passthrough guardrail", async () => {
+    process.env.V51_DISPLAY_OVERRIDE_ENABLED = "true";
+
     const [row] = await applyV51DisplayOverrideToForecasts(
       [forecast({ wave_height: "1ft", wave_height_om: 0.8, swell_1_direction: "W" })],
       { enabled: true, calibration: CALIBRATION }
@@ -97,6 +136,8 @@ describe("applyV51DisplayOverrideToForecasts", () => {
   });
 
   it("uses raw OM display for NW swells at or above 1m", async () => {
+    process.env.V51_DISPLAY_OVERRIDE_ENABLED = "true";
+
     const [row] = await applyV51DisplayOverrideToForecasts(
       [forecast({ wave_height: "1ft", wave_height_om: 1.2, swell_1_direction: "WNW" })],
       { enabled: true, calibration: CALIBRATION }
@@ -106,6 +147,8 @@ describe("applyV51DisplayOverrideToForecasts", () => {
   });
 
   it("falls back to OM direction when swell_1_direction is missing", async () => {
+    process.env.V51_DISPLAY_OVERRIDE_ENABLED = "true";
+
     const [row] = await applyV51DisplayOverrideToForecasts(
       [forecast({ wave_height_om: 0.8, swell_1_direction: null, wave_direction_om: 270 })],
       { enabled: true, calibration: CALIBRATION }

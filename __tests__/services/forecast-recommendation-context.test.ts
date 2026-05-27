@@ -6,11 +6,12 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { PersonalizedForecastWindow } from "@/types/personalization";
 
-function beach(): Beach {
+function beach(overrides: Partial<Beach> = {}): Beach {
   return {
     id: "obp",
     name: "Ocean Beach Pier",
     timezone: "America/Los_Angeles",
+    ...overrides,
   } as Beach;
 }
 
@@ -114,6 +115,41 @@ describe("buildForecastRecommendationContext", () => {
       tide: null,
     });
     expect(context?.source).toBe("looking_ahead");
+  });
+
+  it("uses OM south swell context when a named north component is outside the beach swell window", () => {
+    const context = buildForecastRecommendationContext({
+      beach: beach({
+        id: "canoes",
+        name: "Waikiki - Canoes",
+        timezone: "Pacific/Honolulu",
+        swell_window_center_deg: 200,
+        swell_window_halfwidth_deg: 65,
+      } as Partial<Beach>),
+      forecasts: [
+        row({
+          beach_id: "canoes",
+          forecast_at: "2026-05-27T16:00:00.000Z",
+          wave_height: "2-3ft",
+          wave_period: "11s",
+          wave_direction: "N",
+          swell_1_period: "11s",
+          swell_1_direction: "N",
+          swell_period_om: 12,
+          swell_direction_om: 188,
+          wind_speed: "12 mph",
+          wind_direction: "ENE",
+        }),
+      ],
+      window: null,
+      now: new Date("2026-05-27T16:38:00.000Z"),
+      timezone: "Pacific/Honolulu",
+    });
+
+    expect(context?.recommendationType).toBe("now");
+    expect(context?.swellPeriod).toBe("12s");
+    expect(context?.periodSec).toBe(12);
+    expect(context?.swellDirection).toBe("S");
   });
 
   it("uses the nearest peak forecast for selected sample and condition drivers", () => {
