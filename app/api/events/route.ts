@@ -14,10 +14,13 @@ import {
   createSuccessResponse,
   createAuthError,
   createErrorResponse,
-} from '@/lib/api-utils';
-import {
   withAuth,
 } from '@/lib/middleware/api-wrappers';
+import {
+  ANONYMOUS_ALLOWED_EVENTS,
+  PRE_AUTH_ONLY_EVENTS,
+  VALID_EVENTS,
+} from '@/lib/analytics/event-taxonomy';
 import type { OptionalAuthContext } from '@/lib/middleware/api-wrappers/types';
 import type {
   ImplicitEventType,
@@ -29,6 +32,12 @@ import { isBot, isSuspiciousFingerprint } from '@/lib/utils/bot-detector';
 import { createServiceRoleClient } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
+
+export {
+  ANONYMOUS_ALLOWED_EVENTS,
+  PRE_AUTH_ONLY_EVENTS,
+  VALID_EVENTS,
+};
 
 // =============================================================================
 // Rate Limiting Configuration
@@ -97,226 +106,6 @@ function checkRateLimit(userId: string, limit: number = RATE_LIMIT): { allowed: 
 
   return { allowed: true, remaining: limit - 1, resetAt };
 }
-
-// =============================================================================
-// Event Configuration
-// =============================================================================
-
-export const VALID_EVENTS: ImplicitEventType[] = [
-  // Implicit preference learning events
-  'beach_view',
-  'discovery_click',
-  'discovery_skip',
-  'forecast_check',
-  'location_update',
-  // Engagement tracking events
-  'page_view',
-  'forecast_interaction',
-  'session_action',
-  'profile_update',
-  'onboarding_step',
-  'cta_click',
-  // Review tracking events
-  'review_form_open',
-  'review_form_abandon',
-  'review_validation_error',
-  'review_submit',
-  // Share tracking events
-  'share_started',
-  'share_completed',
-  'share_link_opened',
-  'share_link_copied',
-  'share_image_saved',
-  'cam_share',
-  'share_intel_button_clicked',
-  'share_intel_signin_prompt',
-  'surf_plan_share',
-  // Signup/auth conversion events
-  'signup_cta_click',
-  'signup_cta_view',
-  'signin_cta_click',
-  // Auth funnel events (fire before user is authenticated)
-  'auth_modal_opened',
-  'auth_modal_closed_without_action',
-  'auth_method_selected',
-  'auth_provider_selected',
-  'signup_started',
-  'signup_success',
-  'login_success',
-  'signup_form_submitted',
-  'login_form_submitted',
-  // Home screen events
-  'home_at_beach_click',
-  'home_plan_weekend_click',
-  'home_plan_weekend_no_recommendation',
-  // Session logging events
-  'session_log_start',
-  'session_log_submit',
-  'session_share_opened_post_save',
-  'session_share_closed_post_save',
-  // Onboarding/tour events
-  'product_tour_started',
-  'product_tour_completed',
-  'product_tour_skipped',
-  'product_tour_step_viewed',
-  // Beach detail events
-  'beach_search',
-  'forecast_tab_click',
-  'horizon_strip_day_selected',
-  'match_score_teaser_click',
-  'match_score_teaser_view',
-  'set_home_beach',
-  'map_marker_click',
-  // Intel events
-  'local_intel_tab_viewed',
-  'intel_post_created',
-  'intel_post_confirmed',
-  'plan_session_from_intel',
-  // Profile events
-  'surf_profile_viewed',
-  'surf_profile_progress_shown',
-  // Discovery events
-  'personalized_score_shown',
-  'favorite_shown_in_carousel',
-  'mini_log_teaser_click',
-  'plan_unlock_click',
-  // Social events
-  'social_follow',
-  'social_like',
-  'social_invite_send',
-  'social_invite_respond',
-  'social_intel_confirm',
-  // Tab and map engagement events
-  'tab_view',
-  'map_interaction',
-  // Map engagement
-  'map_ready',
-  'map_load_failed',
-  // Forecast reliability
-  'forecast_ready',
-  // Session log funnel
-  'session_log_beach_selected',
-  'session_log_rating_set',
-  'session_log_photo_added',
-  'session_photo_upload_started',
-  'session_photo_upload_succeeded',
-  'session_photo_upload_failed',
-  'session_log_abandon',
-  'session_log_validation_failed',
-  // Search
-  'beach_search_result_click',
-  // Growth markers
-  'first_beach_view_post_signup',
-  // Empty states & impressions
-  'empty_state_shown',
-  'cta_impression',
-  // Reliability
-  'client_error',
-  // Engagement depth (anon + auth)
-  'scroll_depth',
-  'time_on_page',
-  // Phase 2 match-feature events (authenticated only)
-  'match_card_rendered',
-  'match_strip_tap',
-  'for_you_tap',
-  'unlock_toast_shown',
-  'session_decomposition_selected',
-  'match_alert_toggle',
-  // Roadmap events
-  'roadmap_vote_cast',
-  'roadmap_item_submitted',
-  'roadmap_item_status_changed',
-  // Anon alert capture funnel (3 pre-auth + 2 post-auth). Pre-auth events
-  // are also added to ANONYMOUS_ALLOWED_EVENTS and PRE_AUTH_ONLY_EVENTS;
-  // the post-auth events fire only from /auth/callback once the session
-  // exists, so they belong to the authed flow only.
-  'anon_alert_capture_view',
-  'anon_alert_capture_submit',
-  'anon_alert_capture_error',
-  'anon_alert_magic_link_clicked',
-  'anon_alert_signup_success',
-  // Paywall + trial funnel (native, added 2026-05-02 — fires from
-  // trial-prompt onboarding step and standalone paywall screen)
-  'paywall_opened',
-  'paywall_dismissed',
-  'paywall_purchase_started',
-  'paywall_purchase_success',
-  'paywall_purchase_failed',
-  'onboarding_paywall_skipped',
-  'onboarding_trial_started',
-  // Push registration observability (native)
-  'push_permission_denied',
-  'push_token_fetch_failed',
-  'push_device_registration_failed',
-  'push_device_registered',
-  // Apple sign-in beta prompt funnel
-  'apple_beta_prompt_eligible',
-  'apple_beta_prompt_viewed',
-  'apple_beta_prompt_qr_rendered',
-  'apple_beta_prompt_open_testflight_clicked',
-  'apple_beta_prompt_copy_link_clicked',
-  'apple_beta_prompt_dismissed',
-];
-
-export const ANONYMOUS_ALLOWED_EVENTS: ImplicitEventType[] = [
-  'page_view', 'beach_view', 'tab_view', 'onboarding_step',
-  // Conversion tracking (critical for understanding anon→authed funnel)
-  'signup_cta_click', 'signup_cta_view', 'signin_cta_click', 'cta_click',
-  // Auth funnel events (fire before user is authenticated — must be anonymous-allowed)
-  'auth_modal_opened', 'auth_modal_closed_without_action',
-  'auth_method_selected', 'auth_provider_selected',
-  // Auth-transition events — legitimately fire for both anon and authed users
-  // (e.g. signup success fires after auth completes). Not on PRE_AUTH_ONLY_EVENTS.
-  'signup_started', 'signup_success', 'login_success',
-  // Form-submitted events — pre-auth only; the form can only be submitted by
-  // an anonymous user. Authed fires are ghost-triggers and dropped server-side
-  // via PRE_AUTH_ONLY_EVENTS.
-  'signup_form_submitted', 'login_form_submitted',
-  // Engagement signals from anonymous visitors
-  'forecast_interaction', 'forecast_tab_click', 'horizon_strip_day_selected',
-  'beach_search', 'beach_search_result_click', 'map_interaction', 'map_marker_click',
-  'share_started', 'share_completed', 'share_link_opened', 'share_link_copied',
-  'match_score_teaser_view', 'match_score_teaser_click',
-  // Map reliability (anon visitors hit the map immediately)
-  'map_ready', 'map_load_failed',
-  // Forecast reliability
-  'forecast_ready',
-  // Empty states + CTA impressions
-  'empty_state_shown', 'cta_impression',
-  // Client error capture
-  'client_error',
-  // Engagement depth
-  'scroll_depth', 'time_on_page',
-  // Anon alert capture (pre-auth only — fired from anonymous SEO landings).
-  // The two post-auth siblings (anon_alert_magic_link_clicked,
-  // anon_alert_signup_success) deliberately omitted; they fire only once
-  // the user is authenticated in /auth/callback.
-  'anon_alert_capture_view',
-  'anon_alert_capture_submit',
-  'anon_alert_capture_error',
-];
-
-/**
- * Pre-auth funnel events should not be recorded for authenticated users.
- * These events are only meaningful when tracking anon → authed conversion.
- * Exported so tests can verify the invariant alongside VALID_EVENTS.
- */
-export const PRE_AUTH_ONLY_EVENTS: ImplicitEventType[] = [
-  'signup_cta_view',
-  'signup_cta_click',
-  'signin_cta_click',
-  'signup_form_submitted',
-  'login_form_submitted',
-  'auth_modal_opened',
-  'auth_modal_closed_without_action',
-  // Anon alert capture (pre-auth only). Ghost-authed fires of these
-  // events are silently dropped server-side. The post-auth siblings
-  // (magic_link_clicked, signup_success) intentionally NOT here — they
-  // require an authenticated user.
-  'anon_alert_capture_view',
-  'anon_alert_capture_submit',
-  'anon_alert_capture_error',
-];
 
 const ANON_RATE_LIMIT = 30; // Lower rate limit for anonymous users
 

@@ -3,6 +3,7 @@
  */
 
 import { signEmailToken } from "@/lib/utils/email-token";
+import type { ReactElement } from "react";
 import {
   createMockSupabaseClient,
   createMockUser,
@@ -27,7 +28,9 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 import InvitePage from "@/app/invite/[token]/page";
+import { InviteLandingClient } from "@/app/invite/[token]/invite-landing-client";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { hashInviteToken } from "@/lib/invites/token-hash";
 
 const TEST_SECRET = "test-secret-key-that-is-at-least-32-characters-long";
 
@@ -71,6 +74,24 @@ function mockAcceptInviteRpc(error: { code: string } | null = null) {
   return mockSupabaseClient.rpc;
 }
 
+function mockInviterProfile() {
+  const chain = {
+    select: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    maybeSingle: jest.fn().mockResolvedValue({
+      data: {
+        id: "inviter-id",
+        full_name: "Kai Reef",
+        display_name: "Kai",
+        avatar_url: "https://example.com/kai.jpg",
+      },
+      error: null,
+    }),
+  };
+  mockSupabaseClient.from.mockReturnValueOnce(chain as any);
+  return chain;
+}
+
 describe("/invite/[token]", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -91,16 +112,27 @@ describe("/invite/[token]", () => {
     expect(mockCookies).not.toHaveBeenCalled();
   });
 
-  it("redirects signed-out valid invite links through /invite/start without mutating cookies", async () => {
+  it("renders signed-out valid invite links as an app install landing without mutating cookies", async () => {
     mockAuthUser(null);
+    mockInviterProfile();
     const token = await inviteToken();
 
-    await expectRedirect(
-      renderInvitePage(token),
-      `/invite/start?token=${encodeURIComponent(token)}`,
-    );
+    const result = await renderInvitePage(token) as ReactElement;
 
-    expect(mockSupabaseClient.from).not.toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
+    expect(result.type).toBe(InviteLandingClient);
+    expect(result.props).toEqual(
+      expect.objectContaining({
+        token,
+        tokenHash: hashInviteToken(token),
+        startPath: `/invite/start?token=${encodeURIComponent(token)}`,
+        inviter: {
+          id: "inviter-id",
+          displayName: "Kai",
+          avatarUrl: "https://example.com/kai.jpg",
+        },
+      }),
+    );
     expect(mockCookies).not.toHaveBeenCalled();
   });
 

@@ -3,6 +3,7 @@
  */
 
 import { verifyEmailToken } from "@/lib/utils/email-token";
+import { hashInviteToken } from "@/lib/invites/token-hash";
 import {
   createMockSupabaseClient,
   createMockUser,
@@ -96,7 +97,7 @@ describe("POST /api/invites/generate", () => {
     expect(response.status).toBe(401);
   });
 
-  it("returns { token, url } for an authenticated user", async () => {
+  it("returns { token, url, token_hash } for an authenticated user", async () => {
     const user = createMockUser({ id: "inviter-uuid-123" });
     mockAuthenticatedUser(mockSupabaseClient, user);
 
@@ -106,7 +107,11 @@ describe("POST /api/invites/generate", () => {
       "http://localhost:3000/api/invites/generate",
     );
     const response = await POST(request, { params: {} });
-    const data = await expectSuccessResponse<{ token: string; url: string }>(
+    const data = await expectSuccessResponse<{
+      token: string;
+      url: string;
+      token_hash: string;
+    }>(
       response,
       200,
     );
@@ -116,6 +121,8 @@ describe("POST /api/invites/generate", () => {
     expect(data.data.url).toBe(
       `https://dev.quiversurf.app/invite/${data.data.token}`,
     );
+    expect(data.data.token_hash).toBe(hashInviteToken(data.data.token));
+    expect(data.data.token_hash).toHaveLength(64);
   });
 
   it("generated token verifies back to the inviter user_id + invite purpose", async () => {
@@ -156,5 +163,23 @@ describe("POST /api/invites/generate", () => {
     );
 
     expect(data.data.url).toMatch(/^http:\/\/localhost:3000\/invite\//);
+  });
+
+  it("returns a stable token_hash for the generated token", async () => {
+    const user = createMockUser({ id: "hash-inviter" });
+    mockAuthenticatedUser(mockSupabaseClient, user);
+
+    const { POST } = require("@/app/api/invites/generate/route");
+    const request = createMockRequest(
+      "POST",
+      "http://localhost:3000/api/invites/generate",
+    );
+    const response = await POST(request, { params: {} });
+    const data = await expectSuccessResponse<{
+      token: string;
+      token_hash: string;
+    }>(response, 200);
+
+    expect(data.data.token_hash).toBe(hashInviteToken(data.data.token));
   });
 });
