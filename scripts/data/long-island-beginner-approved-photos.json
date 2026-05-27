@@ -42,6 +42,20 @@
     "runtimeAssetPath": "public/images/seo-dioramas/beginner/long-island/robert-moses-state-park-ny-photo.webp"
   },
   {
+    "slug": "smith-point-county-park-shirley-ny",
+    "name": "Smith Point County Park",
+    "imageUrl": "https://commons.wikimedia.org/wiki/Special:Redirect/file/SmithPointB.jpg",
+    "sourceUrl": "https://commons.wikimedia.org/wiki/File:SmithPointB.jpg",
+    "title": "SmithPointB.jpg",
+    "creator": "Intelligentlove",
+    "creatorUrl": "https://en.wikipedia.org/wiki/User:Intelligentlove",
+    "licenseCode": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "licenseStatus": "defensible",
+    "usageNotes": "Wikimedia Commons transfer candidate showing Smith Point shoreline and boardwalk context; selected to support a real nearby-spot card for the Long Island beginner page.",
+    "runtimeAssetPath": "public/images/seo-dioramas/beginner/long-island/smith-point-county-park-shirley-ny-photo.webp"
+  },
+  {
     "slug": "rockaway-beach-90th-st-queens-ny",
     "name": "Rockaway Beach",
     "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/e/ea/Rockaway_Beach_Surfing.jpg",

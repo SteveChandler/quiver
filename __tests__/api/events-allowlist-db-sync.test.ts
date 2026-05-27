@@ -14,17 +14,42 @@ function latestCheckMigrationEventTypes(): Set<string> {
     .filter(f => f.endsWith(".sql"))
     .sort(); // timestamps sort lexicographically
 
-  for (let i = files.length - 1; i >= 0; i--) {
-    const content = fs.readFileSync(path.join(dir, files[i]), "utf8");
+  const dbAllowed = new Set<string>();
+  let found = false;
+
+  for (const file of files) {
+    const content = fs.readFileSync(path.join(dir, file), "utf8");
     if (!content.includes("user_events_event_type_check")) continue;
 
-    const arrayMatch = content.match(/CHECK\s*\(\s*event_type\s*=\s*ANY\s*\(\s*ARRAY\s*\[([\s\S]*?)\]\s*\)\s*\)/);
-    if (!arrayMatch) continue;
+    const names = [
+      ...content.matchAll(/ARRAY\s*\[([\s\S]*?)\]/g),
+    ].flatMap(([, arrayBody]) =>
+      [...arrayBody.matchAll(/'([^']+)'::text/g)].map(m => m[1]),
+    );
 
-    const names = [...arrayMatch[1].matchAll(/'([^']+)'::text/g)].map(m => m[1]);
-    return new Set(names);
+    for (const [, name] of content.matchAll(/'([a-z][a-z0-9_]+)'/g)) {
+      names.push(name);
+    }
+
+    if (names.length === 0) continue;
+
+    found = true;
+    const appendsExistingCheck =
+      content.includes("pg_get_constraintdef") || content.includes("current_check");
+    if (!appendsExistingCheck) {
+      dbAllowed.clear();
+    }
+
+    for (const name of names) {
+      dbAllowed.add(name);
+    }
   }
-  throw new Error("No user_events_event_type_check migration found");
+
+  if (!found) {
+    throw new Error("No user_events_event_type_check migration found");
+  }
+
+  return dbAllowed;
 }
 
 describe("user_events allowlist / DB CHECK sync", () => {

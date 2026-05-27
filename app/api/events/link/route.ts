@@ -8,8 +8,11 @@
  * Response: { ok: boolean, linked: number }
  */
 
-import { withAuth } from '@/lib/middleware/api-wrappers';
-import { createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
+import {
+  createErrorResponse,
+  createSuccessResponse,
+  withAuth,
+} from '@/lib/middleware/api-wrappers';
 import { createServiceRoleClient } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';

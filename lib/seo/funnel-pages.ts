@@ -187,6 +187,10 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     src: "/images/seo-dioramas/beginner/long-island/long-beach-long-beach-ny-photo.webp",
     alt: "Long Beach, New York shoreline and barrier-island surf context",
   },
+  "robert-moses-state-park-babylon-ny": {
+    src: "/images/seo-dioramas/beginner/long-island/robert-moses-state-park-ny-photo.webp",
+    alt: "Robert Moses State Park shoreline and open South Shore surf context",
+  },
   leadbetter: {
     src: "/images/seo-dioramas/longboard/santa-barbara/santa-barbara-palm-check-diorama.webp",
     alt: "Santa Barbara longboard surf context near Leadbetter",
@@ -234,6 +238,10 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
   "rockaway-beach-98th-st-queens-ny": {
     src: "/images/seo-dioramas/beginner/long-island/rockaway-beach-90th-st-queens-ny-photo.webp",
     alt: "Rockaway Beach shoreline and New York surf context",
+  },
+  "smith-point-county-park-shirley-ny": {
+    src: "/images/seo-dioramas/beginner/long-island/smith-point-county-park-shirley-ny-photo.webp",
+    alt: "Smith Point County Park shoreline and open South Shore surf context",
   },
   scripps: {
     src: "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
@@ -1852,21 +1860,16 @@ const BEGINNER_PAGES = [
       "Plan beginner surf on Long Island with Quiver's guide to Long Beach, Rockaway, small-day filters, and honest Montauk caveats.",
     h1: "Beginner Surf Spots on Long Island",
     intro:
-      "Long Island beginner surf works best when you treat it as a small-day planning problem, not a blanket yes for the whole coast.",
+      "Long Island beginner surf works best when you treat it as a small-day planning problem, not a blanket yes for the whole coast or a famous-beach checklist.",
     bestZones:
-      "Long Beach is the cleanest learner anchor in the current Quiver inventory because it gives beginners a straightforward sandy lineup and easy check on smaller days. Rockaway can work as the next option when the size stays tame and the crowd is manageable. Gilgo, Lido, and Robert Moses matter as regional context, but the first Long Island beginner page should stay centered on the softer city-beach calls rather than pretend every exposed stretch is a learner zone.",
+      "Long Beach is still the clearest learner anchor because it combines the easiest lesson path, a familiar surf scene, and a straightforward sandy lineup on smaller days. Robert Moses deserves more weight than a footnote for true beginners who mostly need room to paddle, pop up, and learn ocean timing on a mellow day. Rockaway can work when the size stays tame and the crowd is manageable, while Lido and Gilgo are better supporting context than default first-session calls.",
     conditions:
-      "Keep the filter conservative: roughly knee- to waist-high surf, light wind, enough shape to avoid closeouts, and a tide window that does not turn the inside into hard shorebreak. If the Atlantic side is dumping, side-shore, or sweeping sideways, it is not a beginner session even if the beach name is familiar.",
+      "Keep the filter conservative: roughly knee- to waist-high surf, light wind, enough shape to avoid closeouts, and a tide window that does not turn the inside into hard shorebreak. If the Atlantic side is dumping, side-shore, or sweeping sideways, it is not a beginner session even if the beach name is familiar. In summer, also check whether guarded hours compress surfing into smaller designated sections before you assume the beach will feel open and easy.",
     boardCall:
-      "A soft-top is still the default. Only move into a hard longboard when the surfer can control trim, stop cleanly, and avoid drift around other learners. Bigger exposed days can turn a beginner board into a liability fast on Long Island because paddling back in and clearing the inside takes more judgment than the forecast headline suggests.",
+      "A soft-top is still the default. Only move into a hard longboard when the surfer can control trim, stop cleanly, and avoid drift around other learners. Body surfing and boogie boarding first are legitimate prep on Long Island because they teach shorebreak timing and where to be in the water before standing up enters the picture. Bigger exposed days can turn a beginner board into a liability fast because paddling back in and clearing the inside takes more judgment than the forecast headline suggests.",
     localNotes:
-      "Be explicit about Montauk. Ditch Plains can be a useful advanced-progressing reference, but it is not the core beginner recommendation and Turtle Cove should stay out of learner guidance entirely. If the obvious Long Beach or Rockaway call looks too big, closey, or crowded, the honest move is to skip the session instead of forcing a famous-name check.",
-    namedBreaks: [
-      "Long Beach",
-      "Rockaway 90th",
-      "Rockaway 98th",
-      "Ditch Plains",
-    ],
+      "If you do not even own a board yet, Long Beach is the easiest place to call a school and book an adult lesson before you overthink spot hierarchy. Robert Moses is the cleaner self-practice backup when you just want reps on a big floaty board without forcing a crowded lineup. Smith Point can be the closest ocean option for some surfers, but proximity alone should not outrank crowd, shorebreak, and cleanup factor. Be explicit about Montauk: Ditch Plains can be a useful advanced-progressing reference, but it is not the core beginner recommendation and Turtle Cove should stay out of learner guidance entirely. If the obvious Long Beach or Robert Moses call looks too big, closey, or crowded, the honest move is to skip the session instead of forcing a famous-name check.",
+    namedBreaks: ["Long Beach", "Robert Moses", "Smith Point", "Ditch Plains"],
     links: [
       { label: "Best time to surf", href: "/best-time-to-surf" },
       { label: "Belmar surf report today", href: "/surf-report/belmar-today" },
@@ -1877,21 +1880,29 @@ const BEGINNER_PAGES = [
         label: "Long Beach",
         href: "/ny/long-beach/long-beach-long-beach-ny",
         beachSlug: "long-beach-long-beach-ny",
+        description:
+          "Best first call for lessons, a familiar surf scene, and small-day sandy reps.",
       },
       {
-        label: "Rockaway Beach 90th St",
-        href: "/ny/queens/rockaway-beach-90th-st-queens-ny",
-        beachSlug: "rockaway-beach-90th-st-queens-ny",
+        label: "Robert Moses State Park",
+        href: "/ny/babylon/robert-moses-state-park-babylon-ny",
+        beachSlug: "robert-moses-state-park-babylon-ny",
+        description:
+          "Cleaner self-practice backup when you want room to paddle and do not need a lesson scene.",
       },
       {
-        label: "Rockaway Beach 98th St",
-        href: "/ny/queens/rockaway-beach-98th-st-queens-ny",
-        beachSlug: "rockaway-beach-98th-st-queens-ny",
+        label: "Smith Point County Park",
+        href: "/ny/shirley/smith-point-county-park-shirley-ny",
+        beachSlug: "smith-point-county-park-shirley-ny",
+        description:
+          "Closest-ocean option for some surfers, but only when the surf zone and shorebreak stay manageable.",
       },
       {
         label: "Ditch Plains",
         href: "/ny/montauk/ditch-plains-montauk-ny",
         beachSlug: "ditch-plains-montauk-ny",
+        description:
+          "Save this for later progression trips, not the first place to learn on Long Island.",
       },
     ],
     images: [],
