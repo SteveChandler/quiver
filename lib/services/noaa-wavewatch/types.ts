@@ -29,7 +29,7 @@ export interface NOAAValueSeries {
   uom?: string;
   values: Array<{
     validTime: string;
-    value: number;
+    value: number | null;
   }>;
 }
 
