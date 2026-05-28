@@ -539,7 +539,7 @@ describe("processBeachesInBatches", () => {
       processBeach,
     });
 
-    expect(result.summary?.remainingMs).toBeDefined();
+    expect(result.summary?.remainingMs).toEqual(expect.any(Number));
     expect(result.summary?.remainingMs).toBeGreaterThan(0);
   });
 });
