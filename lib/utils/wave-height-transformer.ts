@@ -585,6 +585,63 @@ export function alignmentFactor(
   return cosValue * cosValue;
 }
 
+function hasValidSwellAccessFactors(
+  beach: BeachTerrainConfig | null | undefined,
+): beach is BeachTerrainConfig & { swell_access_factors: number[] } {
+  return (
+    beach?.terrain_enabled === true &&
+    Array.isArray(beach.swell_access_factors) &&
+    beach.swell_access_factors.length === TERRAIN_BINS
+  );
+}
+
+function isTerrainWeightedModelSource(
+  source: WaveHeightSourceTag | undefined,
+): boolean {
+  return source === 'model_swell' || source === 'model_hs';
+}
+
+/**
+ * Compute the per-component access factor used by decomposed face heights.
+ *
+ * CDIP and other calibrated/direct sources keep the strict swell-window
+ * alignment. Model-derived sources can use terrain swell access instead,
+ * because deep-water model partitions otherwise get over-zeroed at protected
+ * or canyon-amplified beaches where partial access is real.
+ */
+export function componentAccessFactor(
+  componentDirDeg: number | null | undefined,
+  periodS: number | null | undefined,
+  beach: BeachTerrainConfig | null | undefined,
+  source?: WaveHeightSourceTag,
+  opts?: { shortPeriodCutoffS?: number },
+): number {
+  const cutoff = opts?.shortPeriodCutoffS ?? SHORT_PERIOD_CUTOFF_S;
+
+  if (periodS == null || !Number.isFinite(periodS) || periodS <= cutoff) {
+    return 0;
+  }
+
+  if (
+    isTerrainWeightedModelSource(source) &&
+    hasValidSwellAccessFactors(beach) &&
+    componentDirDeg != null &&
+    Number.isFinite(componentDirDeg)
+  ) {
+    const bin = toBin5(componentDirDeg);
+    const access = Math.max(0, Math.min(1, beach.swell_access_factors[bin]));
+    return DIRECTION_FACTOR_MIN + Math.sqrt(access) * DIRECTION_FACTOR_RANGE;
+  }
+
+  return alignmentFactor(
+    componentDirDeg,
+    periodS,
+    beach?.swell_window_center_deg ?? null,
+    beach?.swell_window_halfwidth_deg ?? null,
+    opts,
+  );
+}
+
 /**
  * Single swell-component input for `transformToFaceHeightDecomposed`.
  * Heights must already be in feet; callers converting from meters should
@@ -632,12 +689,15 @@ export interface DecomposedFaceHeightResult {
  * the protected break.
  *
  * Fix: decompose the swell into the WW3 components the model already
- * reports, weight each by (bucket factor × alignment to the beach's swell
- * window × short-period gate), and RMS-sum the resulting face heights.
- * RMS is physically correct for significant-height sums (variance adds
- * linearly; Hs scales with the square root), so an N-component decomposition
- * never exceeds the naive linear sum and converges to the single-component
- * case when only one component is populated.
+ * reports, weight each by (bucket factor × access/alignment × short-period
+ * gate), and RMS-sum the resulting face heights. CDIP/direct sources use
+ * strict swell-window alignment. Model sources at terrain-enabled beaches use
+ * the beach's swell_access_factors so partial canyon/protection access is not
+ * zeroed by an overly narrow cosine window. RMS is physically correct for
+ * significant-height sums (variance adds linearly; Hs scales with the square
+ * root), so an N-component decomposition never exceeds the naive linear sum
+ * and converges to the single-component case when only one component is
+ * populated.
  *
  * Fallback policy:
  * - **All slots null or invalid** → delegate to `transformToFaceHeight` with
@@ -653,10 +713,9 @@ export interface DecomposedFaceHeightResult {
  *   `calculatePeriodFactor × BASE_SHOALING` as each component's bucket
  *   factor. The alignment gate and RMS sum still apply, so the decomposed
  *   path is still physically meaningful even without empirical calibration.
- * - **Null swell window** → `alignmentFactor` returns 1.0 for every
- *   component, so decomposition becomes "bucket factor × raw height"
- *   RMS-summed. No direction gating. Preserves the old pipeline's behavior
- *   on beaches that haven't had their window measured yet.
+ * - **Null swell window** → CDIP/direct `alignmentFactor` returns 1.0 for
+ *   every component, so decomposition becomes "bucket factor × raw height"
+ *   RMS-summed. Model sources still use terrain access when available.
  *
  * `isCalibrated` is returned on the `'decomposed'` path iff
  * `source === 'cdip_sig'` AND `beach.shoaling_factors` is populated. On the
@@ -709,8 +768,6 @@ export function transformToFaceHeightDecomposed(params: {
     };
   }
 
-  const windowCenter = beach.swell_window_center_deg ?? null;
-  const windowHalfwidth = beach.swell_window_halfwidth_deg ?? null;
   const shoalingFactors = beach.shoaling_factors ?? null;
 
   // Apply deepwater decay for model data sources.
@@ -729,23 +786,33 @@ export function transformToFaceHeightDecomposed(params: {
       continue;
     }
 
-    const alignment = alignmentFactor(
+    const accessFactor = componentAccessFactor(
       component.directionDeg,
       component.periodS,
-      windowCenter,
-      windowHalfwidth,
+      beach,
+      source,
     );
-    if (alignment === 0) continue;
+    if (accessFactor === 0) continue;
 
     // Only use calibrated bucket factors for CDIP sources — the buckets are
     // measured as surfline_face / cdip_hs and produce overshoot on model data.
     const bucketFactor = source === 'cdip_sig'
       ? lookupShoalingBucket(component.periodS, shoalingFactors)
       : null;
+    const periodFactor = calculatePeriodFactor(component.periodS);
+    // Terrain-access canyon paths should treat 12s+ model swell as organized
+    // groundswell; otherwise the generic 12s=1.1 ramp still undercalls LJS.
+    const terrainModelPeriodFactor =
+      isTerrainWeightedModelSource(source) &&
+      hasValidSwellAccessFactors(beach) &&
+      (beach.deepwater_decay_factor ?? 1) > 1 &&
+      component.periodS >= 12
+        ? Math.max(periodFactor, PERIOD_FACTOR_MAX)
+        : periodFactor;
     const perComponentFactor =
-      bucketFactor ?? BASE_SHOALING * calculatePeriodFactor(component.periodS);
+      bucketFactor ?? BASE_SHOALING * terrainModelPeriodFactor;
 
-    const faceI = component.heightFt * decay * perComponentFactor * alignment;
+    const faceI = component.heightFt * decay * perComponentFactor * accessFactor;
     sumOfSquares += faceI * faceI;
   }
 

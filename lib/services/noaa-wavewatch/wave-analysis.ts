@@ -10,8 +10,14 @@
 import { createContextLogger } from "@/lib/logger";
 import { WAVE_REGIONS, SEASONAL_FACTORS, COMPASS_DIRECTIONS, UNIT_CONVERSIONS } from "./constants";
 import { METERS_TO_FEET, FEET_TO_METERS } from "@/lib/utils/unit-conversions";
+import type { NOAAValueSeries } from "./types";
 
 const log = createContextLogger("NOAAWaveWatch:WaveAnalysis");
+
+export interface NOAAValidTimeInterval {
+  startMs: number;
+  endMs: number;
+}
 
 /**
  * Get base wave height for a geographic location
@@ -184,6 +190,87 @@ export function getTimestampForIndex(index: number): string {
 }
 
 /**
+ * Get a normalized UTC 3-hour forecast slot timestamp.
+ *
+ * NOAA gridpoint fields are interval-valued, so processors should generate
+ * fixed 00/03/06/... UTC slots and sample each field by interval coverage.
+ */
+export function getTimestampForForecastSlot(
+  index: number,
+  baseTime: Date = new Date()
+): string {
+  const slot = Number.isFinite(baseTime.getTime()) ? new Date(baseTime) : new Date();
+  const baseHour = Math.floor(slot.getUTCHours() / 3) * 3;
+  slot.setUTCHours(baseHour + index * 3, 0, 0, 0);
+  return slot.toISOString().replace(".000Z", "Z");
+}
+
+/**
+ * Parse a NOAA NWS gridpoint validTime interval.
+ *
+ * Supports the ISO-8601 duration forms NOAA uses for wave fields, including
+ * PT3H, PT13H, P1DT19H, and P7DT4H. Month/year durations are intentionally
+ * rejected because their millisecond length depends on calendar context.
+ */
+export function parseNOAAValidTime(
+  validTime: string
+): NOAAValidTimeInterval | null {
+  const parts = validTime.split("/");
+  if (parts.length !== 2) return null;
+
+  const [startText, durationText] = parts;
+  if (!startText || !durationText) return null;
+
+  const startMs = Date.parse(startText);
+  if (!Number.isFinite(startMs)) return null;
+
+  const durationMatch = durationText.match(
+    /^P(?:(\d+(?:\.\d+)?)D)?(?:T(?:(\d+(?:\.\d+)?)H)?(?:(\d+(?:\.\d+)?)M)?(?:(\d+(?:\.\d+)?)S)?)?$/
+  );
+  if (!durationMatch) return null;
+
+  const days = Number(durationMatch[1] ?? 0);
+  const hours = Number(durationMatch[2] ?? 0);
+  const minutes = Number(durationMatch[3] ?? 0);
+  const seconds = Number(durationMatch[4] ?? 0);
+
+  const durationMs =
+    days * 24 * 60 * 60 * 1000 +
+    hours * 60 * 60 * 1000 +
+    minutes * 60 * 1000 +
+    seconds * 1000;
+
+  if (!Number.isFinite(durationMs) || durationMs <= 0) return null;
+
+  return {
+    startMs,
+    endMs: startMs + durationMs,
+  };
+}
+
+/**
+ * Extract the value whose NOAA validTime interval covers targetMs.
+ *
+ * Coverage is start-inclusive and end-exclusive, matching how NWS gridpoint
+ * intervals compose without double-counting boundaries.
+ */
+export function getValueAtTime(
+  series: NOAAValueSeries | undefined,
+  targetMs: number
+): number | null {
+  if (!series?.values || !Number.isFinite(targetMs)) return null;
+
+  for (const entry of series.values) {
+    const interval = parseNOAAValidTime(entry.validTime);
+    if (!interval) continue;
+    if (targetMs < interval.startMs || targetMs >= interval.endMs) continue;
+    return Number.isFinite(entry.value) ? entry.value : null;
+  }
+
+  return null;
+}
+
+/**
  * Extract value at specific index from NOAA API time series
  *
  * @param values - Array of time-value pairs from NOAA API
@@ -191,7 +278,7 @@ export function getTimestampForIndex(index: number): string {
  * @returns Value at index or null if unavailable
  */
 export function getValueAtIndex(
-  values: Array<{ validTime: string; value: number }> | undefined,
+  values: Array<{ validTime: string; value: number | null }> | undefined,
   index: number
 ): number | null {
   if (!values || index >= values.length) return null;
@@ -207,7 +294,7 @@ export function getValueAtIndex(
  * @returns True if data is valid and usable
  */
 export function hasValidWaveData(
-  values: Array<{ validTime: string; value: number }> | undefined
+  values: Array<{ validTime: string; value: number | null }> | undefined
 ): boolean {
   if (!values || values.length === 0) return false;
 
@@ -223,9 +310,9 @@ export function hasValidWaveData(
  * @param waveDirectionValues - Wave direction time series
  */
 export function logWaveDataAvailability(
-  waveHeightValues: Array<{ validTime: string; value: number }> | undefined,
-  wavePeriodValues: Array<{ validTime: string; value: number }> | undefined,
-  waveDirectionValues: Array<{ validTime: string; value: number }> | undefined
+  waveHeightValues: Array<{ validTime: string; value: number | null }> | undefined,
+  wavePeriodValues: Array<{ validTime: string; value: number | null }> | undefined,
+  waveDirectionValues: Array<{ validTime: string; value: number | null }> | undefined
 ): void {
   const hasWaveHeight = !!waveHeightValues;
   const hasWavePeriod = !!wavePeriodValues;
