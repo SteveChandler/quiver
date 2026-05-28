@@ -5,7 +5,7 @@
 
 import { ApiError } from "@/lib/errors/forecast-errors";
 
-interface RetryOptions {
+export interface RetryOptions {
   maxRetries?: number;
   baseDelay?: number;
   maxDelay?: number;
@@ -13,12 +13,28 @@ interface RetryOptions {
   jitter?: boolean;
   timeout?: number;
   retryCondition?: (error: any) => boolean;
+  circuitBreakerKey?: string;
+  shouldTripCircuit?: (error: unknown) => boolean;
 }
 
 interface CircuitBreakerOptions {
   failureThreshold?: number;
   recoveryTimeoutMs?: number;
   monitoringPeriodMs?: number;
+}
+
+export class CircuitBreakerOpenError extends Error {
+  readonly circuitBreakerKey: string;
+
+  constructor(circuitBreakerKey: string) {
+    super(`Circuit breaker is OPEN for ${circuitBreakerKey} - service temporarily unavailable`);
+    this.name = "CircuitBreakerOpenError";
+    this.circuitBreakerKey = circuitBreakerKey;
+  }
+}
+
+export function isCircuitBreakerOpenError(error: unknown): error is CircuitBreakerOpenError {
+  return error instanceof CircuitBreakerOpenError;
 }
 
 class CircuitBreaker {
@@ -35,12 +51,16 @@ class CircuitBreaker {
     };
   }
 
-  async execute<T>(fn: () => Promise<T>): Promise<T> {
+  async execute<T>(
+    breakerKey: string,
+    fn: () => Promise<T>,
+    shouldTripCircuit: (error: unknown) => boolean
+  ): Promise<T> {
     if (this.state === 'OPEN') {
       if (Date.now() - this.lastFailureTime > this.options.recoveryTimeoutMs!) {
         this.state = 'HALF_OPEN';
       } else {
-        throw new Error('Circuit breaker is OPEN - service temporarily unavailable');
+        throw new CircuitBreakerOpenError(breakerKey);
       }
     }
 
@@ -49,7 +69,9 @@ class CircuitBreaker {
       this.onSuccess();
       return result;
     } catch (error) {
-      this.onFailure();
+      if (shouldTripCircuit(error)) {
+        this.onFailure();
+      }
       throw error;
     }
   }
@@ -77,7 +99,7 @@ class CircuitBreaker {
   }
 }
 
-class RetryableAPIClient {
+export class RetryableAPIClient {
   private circuitBreakers = new Map<string, CircuitBreaker>();
 
   constructor(private defaultOptions: RetryOptions = {}) {
@@ -93,14 +115,14 @@ class RetryableAPIClient {
     };
   }
 
-  private getCircuitBreaker(service: string): CircuitBreaker {
-    if (!this.circuitBreakers.has(service)) {
-      this.circuitBreakers.set(service, new CircuitBreaker({
-        failureThreshold: service.includes('CDIP') ? 3 : 5, // CDIP is more sensitive
-        recoveryTimeoutMs: service.includes('CDIP') ? 120000 : 60000, // 2min for CDIP, 1min for NOAA
+  private getCircuitBreaker(circuitBreakerKey: string): CircuitBreaker {
+    if (!this.circuitBreakers.has(circuitBreakerKey)) {
+      this.circuitBreakers.set(circuitBreakerKey, new CircuitBreaker({
+        failureThreshold: circuitBreakerKey.includes('CDIP') ? 3 : 5, // CDIP is more sensitive
+        recoveryTimeoutMs: circuitBreakerKey.includes('CDIP') ? 120000 : 60000, // 2min for CDIP, 1min for NOAA
       }));
     }
-    return this.circuitBreakers.get(service)!;
+    return this.circuitBreakers.get(circuitBreakerKey)!;
   }
 
   private isRetryableError(error: any): boolean {
@@ -128,6 +150,33 @@ class RetryableAPIClient {
     return false;
   }
 
+  private shouldTripCDIPCircuit(error: unknown): boolean {
+    if (isCircuitBreakerOpenError(error)) {
+      return false;
+    }
+
+    const candidate = error as { name?: string; message?: string; status?: number };
+    const message = candidate.message ?? "";
+
+    if (candidate.name === "TypeError" && message.includes("fetch")) {
+      return true;
+    }
+
+    if (candidate.name === "AbortError" || message.toLowerCase().includes("timeout")) {
+      return true;
+    }
+
+    if (message.toLowerCase().includes("rate limit")) {
+      return true;
+    }
+
+    if (candidate.status) {
+      return candidate.status === 408 || candidate.status === 429 || candidate.status >= 500;
+    }
+
+    return false;
+  }
+
   private calculateDelay(attempt: number, options: RetryOptions): number {
     const base = options.exponentialBase || 2;
     const baseDelay = options.baseDelay || 1000;
@@ -144,10 +193,16 @@ class RetryableAPIClient {
     return Math.min(delay, maxDelay);
   }
 
-  private createTimeoutSignal(timeoutMs: number): AbortSignal {
+  private createTimeoutSignal(timeoutMs: number): {
+    clear: () => void;
+    signal: AbortSignal;
+  } {
     const controller = new AbortController();
-    setTimeout(() => controller.abort(), timeoutMs);
-    return controller.signal;
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    return {
+      clear: () => clearTimeout(timeoutId),
+      signal: controller.signal,
+    };
   }
 
   async fetchWithRetry(
@@ -157,9 +212,11 @@ class RetryableAPIClient {
     retryOptions: RetryOptions = {}
   ): Promise<Response> {
     const finalOptions = { ...this.defaultOptions, ...retryOptions };
-    const circuitBreaker = this.getCircuitBreaker(serviceName);
+    const circuitBreakerKey = finalOptions.circuitBreakerKey ?? serviceName;
+    const shouldTripCircuit = finalOptions.shouldTripCircuit ?? (() => true);
+    const circuitBreaker = this.getCircuitBreaker(circuitBreakerKey);
     
-    return circuitBreaker.execute(async () => {
+    return circuitBreaker.execute(circuitBreakerKey, async () => {
       let lastError: any;
 
       for (let attempt = 0; attempt <= finalOptions.maxRetries!; attempt++) {
@@ -168,12 +225,17 @@ class RetryableAPIClient {
           const timeoutSignal = this.createTimeoutSignal(finalOptions.timeout!);
           const fetchOptions: RequestInit = {
             ...options,
-            signal: timeoutSignal,
+            signal: timeoutSignal.signal,
           };
 
           console.log(`[${serviceName}] Attempt ${attempt + 1}/${finalOptions.maxRetries! + 1} for ${url}`);
           
-          const response = await fetch(url, fetchOptions);
+          let response: Response;
+          try {
+            response = await fetch(url, fetchOptions);
+          } finally {
+            timeoutSignal.clear();
+          }
           
           // Check if response indicates a retryable error
           if (!response.ok) {
@@ -238,7 +300,7 @@ class RetryableAPIClient {
       }
 
       throw lastError;
-    });
+    }, shouldTripCircuit);
   }
 
   private delay(ms: number): Promise<void> {
@@ -279,6 +341,7 @@ class RetryableAPIClient {
       maxRetries: 2, // CDIP is more sensitive to load
       baseDelay: 1000,
       maxDelay: 10000,
+      shouldTripCircuit: (error) => this.shouldTripCDIPCircuit(error),
       ...retryOptions,
     };
 

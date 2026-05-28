@@ -45,23 +45,19 @@ export const revalidate = 86400;
 // ---------------------------------------------------------------------------
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Quiver vs Surfline: Personal Surf Forecaster vs Regional Reports",
+  title: "Surfline Alternative: Quiver vs Surfline",
   description:
-    "Compare Surfline's regional reports with Quiver's personal surf forecaster: session-aware surf calls, live cams, tide charts, forecast accuracy, and pricing.",
+    "Compare Quiver and Surfline on surf forecasts, cams, tide charts, session logs, accuracy transparency, and when each app fits.",
   path: "/vs/surfline",
   keywords: [
     "surfline alternative",
     "surfline vs quiver",
     "personal surf forecaster",
     "regional surf reports",
-    "free surfline alternative",
     "best surf forecast app",
-    "surfline alternative free",
     "surf forecast app comparison",
     "quiver surf app",
-    "free surf forecast",
     "surfline premium alternative",
-    "surf report app free",
   ],
 });
 
@@ -132,12 +128,12 @@ const FAQ_ITEMS = [
   {
     question: "What beaches does Quiver cover?",
     answer:
-      "Quiver covers 279+ beaches across California, Hawaii, Oregon, Washington, Puerto Rico, Florida, the East Coast, and Baja Mexico. Every beach gets a forecast model, tide charts, crowd data, and session logging, all free.",
+      "Quiver covers 279+ beaches across California, Hawaii, Oregon, Washington, Puerto Rico, Florida, the East Coast, and Baja Mexico. Every beach gets a forecast model, tide charts, crowd data, and session logging with no subscription required.",
   },
   {
     question: "Can I switch from Surfline to Quiver?",
     answer:
-      "You can start using Quiver alongside Surfline immediately. There is nothing to cancel or migrate. Create a free account, set your home beaches, log sessions, and see whether Quiver's personal surf calls fit your local routine.",
+      "You can start using Quiver alongside Surfline immediately. There is nothing to cancel or migrate. Create an account, set your home beaches, log sessions, and see whether Quiver's personal surf calls fit your local routine.",
   },
   {
     question: "Is this page biased toward Quiver?",
@@ -157,7 +153,7 @@ const FAQ_ITEMS = [
   {
     question: "What happened to Magic Seaweed? Is Quiver a replacement?",
     answer:
-      "Magic Seaweed (MSW) merged into Surfline in May 2023, and many of its free features moved behind Surfline's paywall. Quiver isn't a direct MSW clone, but if you liked MSW's free, data-first approach to surf forecasting, Quiver shares that philosophy: beach-specific forecasts, tide charts, and crowd data without a premium subscription.",
+      "Magic Seaweed (MSW) merged into Surfline in May 2023, and many of its open forecast features moved behind Surfline's paywall. Quiver isn't a direct MSW clone, but if you liked MSW's data-first approach to surf forecasting, Quiver shares that philosophy: beach-specific forecasts, tide charts, and crowd data without a premium subscription.",
   },
   {
     question: "Does Quiver work for East Coast and Gulf surfers?",
@@ -175,7 +171,7 @@ const FAQ_ITEMS = [
 // Feature Comparison Data
 // ---------------------------------------------------------------------------
 
-type FeatureStatus = "free" | "paid" | "partial" | "none";
+type FeatureStatus = "included" | "paid" | "partial" | "none";
 
 interface FeatureRow {
   feature: string;
@@ -190,7 +186,7 @@ const COMPARISON_FEATURES: FeatureRow[] = [
   {
     feature: "Forecast Style",
     description: "The shape of the daily surf decision",
-    quiver: "free",
+    quiver: "included",
     quiverNote: "Personal calls for your beaches",
     surfline: "partial",
     surflineNote: "Regional reports and spot forecasts",
@@ -198,7 +194,7 @@ const COMPARISON_FEATURES: FeatureRow[] = [
   {
     feature: "Feedback Loop",
     description: "Whether your sessions sharpen the next call",
-    quiver: "free",
+    quiver: "included",
     quiverNote: "Sessions, ratings, and reports",
     surfline: "none",
     surflineNote: "General spot reads",
@@ -206,7 +202,7 @@ const COMPARISON_FEATURES: FeatureRow[] = [
   {
     feature: "Live Cams",
     description: "Real-time visual checks where streams are available",
-    quiver: "free",
+    quiver: "included",
     quiverNote: "Live cams and regional cam pages",
     surfline: "partial",
     surflineNote: "Cams in broader product",
@@ -214,7 +210,7 @@ const COMPARISON_FEATURES: FeatureRow[] = [
   {
     feature: "Session Media & Journal",
     description: "Logging, user-added media, ratings, and sharing",
-    quiver: "free",
+    quiver: "included",
     quiverNote: "Photos, notes, ratings, crew sharing",
     surfline: "paid",
     surflineNote: "Premium + compatible watch for cam clips",
@@ -222,7 +218,7 @@ const COMPARISON_FEATURES: FeatureRow[] = [
   {
     feature: "Coverage",
     description: "Where the product is strongest",
-    quiver: "free",
+    quiver: "included",
     quiverNote: "US, Puerto Rico, Baja focus",
     surfline: "partial",
     surflineNote: "Broader global coverage",
@@ -230,7 +226,7 @@ const COMPARISON_FEATURES: FeatureRow[] = [
   {
     feature: "Price",
     description: "Supporting evidence, not the main wedge",
-    quiver: "free",
+    quiver: "included",
     quiverNote: "$0 today",
     surfline: "paid",
     surflineNote: "Varies by plan and region",
@@ -242,7 +238,7 @@ const QUICK_DECISIONS = [
     label: "Use Quiver",
     title: "If the question is your next session",
     body:
-      "Home beaches, logged sessions, ratings, condition reports, crew context, and free US/PR/Baja forecasts.",
+      "Home beaches, logged sessions, ratings, condition reports, crew context, and US/PR/Baja forecast coverage.",
     icon: <Star className="h-5 w-5" />,
     href: "/features",
   },
@@ -319,9 +315,9 @@ function StatusBadge({
   isQuiver: boolean;
 }) {
   const config = {
-    free: {
+    included: {
       icon: <Check className="h-4 w-4" />,
-      text: "Free",
+      text: "Included",
       classes: isQuiver
         ? "bg-[#F78E42] text-[#11100D] border-[#11100D]"
         : "bg-[#D6E7C7] text-[#11100D] border-[#11100D]",
@@ -432,7 +428,7 @@ export default function VsSurflinePage() {
                 Quiver vs Surfline
               </p>
               <h1 className="max-w-5xl font-heading text-4xl font-black leading-[0.9] tracking-normal text-[#11100D] sm:text-6xl md:text-7xl lg:text-8xl">
-                Regional Reports vs Your Personal Forecaster
+                Surfline Alternative: Quiver vs Surfline
               </h1>
               <p className="mt-5 max-w-2xl text-base font-black leading-7 text-[#252D6B] md:mt-6 md:text-2xl md:leading-9">
                 Surfline helps you read the region. Quiver helps forecast your
@@ -798,7 +794,7 @@ export default function VsSurflinePage() {
               Ready for a more personal surf call?
             </h2>
             <p className="mt-4 text-base font-semibold leading-7 text-[#F4EBD8]/84 md:text-lg">
-              Create a free account, set your home beaches, log sessions, and
+              Create an account, set your home beaches, log sessions, and
               help Quiver learn what makes a wave worth it for you.
             </p>
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
@@ -817,7 +813,7 @@ export default function VsSurflinePage() {
               </Link>
             </div>
             <p className="mt-5 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#F78E42]">
-              279 beaches. Free forecasts. Live cams where available. Works on any phone.
+              279 beaches. Forecasts included. Live cams where available. Works on any phone.
             </p>
           </div>
 

@@ -1,0 +1,25 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { metadata } from "@/app/vs/surfline/page";
+
+describe("Surfline comparison SEO metadata", () => {
+  it("targets Surfline alternative intent without free positioning", () => {
+    expect(metadata.title).toBe("Surfline Alternative: Quiver vs Surfline");
+    expect(metadata.description).toBe(
+      "Compare Quiver and Surfline on surf forecasts, cams, tide charts, session logs, accuracy transparency, and when each app fits.",
+    );
+    expect(`${metadata.title} ${metadata.description}`).not.toMatch(/\bfree\b/i);
+  });
+
+  it("keeps comparison copy out of free positioning", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/vs/surfline/page.tsx"),
+      "utf8",
+    );
+
+    expect(source).toContain("Forecasts included");
+    expect(source).toContain('text: "Included"');
+    expect(source).not.toMatch(/\bfree\b/i);
+  });
+});

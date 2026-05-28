@@ -11,6 +11,7 @@ jest.mock("@/lib/utils/rate-limiter", () => ({
 const fetchCDIPData = jest.fn();
 
 jest.mock("@/lib/utils/api-retry", () => ({
+  isCircuitBreakerOpenError: jest.fn(() => false),
   apiClient: {
     fetchCDIPData: (...args: any[]) => fetchCDIPData(...args),
   },
@@ -44,6 +45,7 @@ jest.mock("@/lib/constants/cdip-stations", () => ({
     waveDirection: { min: 0, max: 360 },
     dataFreshness: { excellent: 30, good: 120, acceptable: 360, stale: 720 },
   },
+  DEFAULT_BLACKLIST: [],
   getStationConfig: (stationId: string) =>
     stationId === "67"
       ? {
@@ -81,7 +83,9 @@ describe("CDIPService - station id normalization for ERDDAP", () => {
     expect(result).not.toBeNull();
     expect(fetchCDIPData).toHaveBeenCalledTimes(1);
     expect(fetchCDIPData.mock.calls[0]?.[0]).toContain('station_id="067"');
+    expect(fetchCDIPData.mock.calls[0]?.[2]).toMatchObject({
+      circuitBreakerKey: "CDIP:067",
+    });
   });
 });
-
 

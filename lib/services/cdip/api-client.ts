@@ -7,7 +7,12 @@
 import { createContextLogger } from "@/lib/logger";
 import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logger";
 import { CDIPRateLimiter } from "@/lib/utils/rate-limiter";
-import { CDIPDataResponse, CDIPMetaResponse } from "./types";
+import {
+  CDIPDataResponse,
+  CDIPMetaResponse,
+  CDIPSkipReason,
+  CDIPWaveDataDiagnostic,
+} from "./types";
 import {
   CDIP_API_CONFIG,
   USER_AGENT,
@@ -15,6 +20,21 @@ import {
 import { transformERDDAPToDataResponse, normalizeStationIdForErddap } from "./data-parser";
 
 const log = createContextLogger("CDIPApiClient");
+
+function stationBreakerKey(stationId: string): string {
+  return `CDIP:${normalizeStationIdForErddap(stationId)}`;
+}
+
+function statusFromError(error: unknown): number | undefined {
+  const status = (error as { status?: unknown })?.status;
+  return typeof status === "number" ? status : undefined;
+}
+
+function cdipSkipReasonFromStatus(status: number | undefined): CDIPSkipReason {
+  if (status === 400) return "cdip_400";
+  if (status === 404) return "cdip_404";
+  return "cdip_unavailable";
+}
 
 /**
  * CDIP API client for fetching wave data from ERDDAP
@@ -40,12 +60,19 @@ export class CDIPApiClient {
    * @returns Raw data response or null on error
    */
   async fetchWaveData(stationId: string): Promise<CDIPDataResponse | null> {
+    const diagnostic = await this.fetchWaveDataWithDiagnostics(stationId);
+    return diagnostic.data;
+  }
+
+  async fetchWaveDataWithDiagnostics(stationId: string): Promise<CDIPWaveDataDiagnostic> {
+    const normalizedStationId = normalizeStationIdForErddap(stationId);
+    const breakerKey = stationBreakerKey(stationId);
+
     try {
       // Import retry client dynamically to avoid circular dependencies
       const { apiClient } = await import("@/lib/utils/api-retry");
 
       // Use ERDDAP API - construct the URL with wave data endpoint
-      const normalizedStationId = normalizeStationIdForErddap(stationId);
       const endpoint = CDIP_API_CONFIG.endpoints.waveData.replace(
         "{stationId}",
         normalizedStationId
@@ -61,13 +88,21 @@ export class CDIPApiClient {
           "User-Agent": this.userAgent,
           Accept: "application/json",
         },
+      }, {
+        circuitBreakerKey: breakerKey,
       });
 
       if (!response.ok) {
         log.error(
           `❌ CDIP API error: ${response.status} - ${response.statusText} for station ${stationId}`
         );
-        return null;
+        return {
+          data: null,
+          stationId,
+          skipReason: cdipSkipReasonFromStatus(response.status),
+          breakerKey,
+          status: response.status,
+        };
       }
 
       const data = await response.json();
@@ -80,7 +115,12 @@ export class CDIPApiClient {
         data.table.rows.length === 0
       ) {
         log.warn(`⚠️ CDIP returned empty data for station ${stationId}`);
-        return null;
+        return {
+          data: null,
+          stationId,
+          skipReason: "cdip_unavailable",
+          breakerKey,
+        };
       }
 
       // Transform ERDDAP format to CDIPDataResponse format with proper array structure
@@ -92,8 +132,16 @@ export class CDIPApiClient {
         );
       }
 
-      return transformedData;
+      return {
+        data: transformedData,
+        stationId,
+        skipReason: "success",
+        breakerKey,
+      };
     } catch (error) {
+      const { isCircuitBreakerOpenError } = await import("@/lib/utils/api-retry");
+      const status = statusFromError(error);
+
       if (error instanceof Error && error.name === "AbortError") {
         log.error(`⏰ CDIP API request timeout for station ${stationId}`);
       } else {
@@ -102,7 +150,16 @@ export class CDIPApiClient {
           error
         );
       }
-      return null;
+      return {
+        data: null,
+        stationId,
+        skipReason: isCircuitBreakerOpenError(error)
+          ? "circuit_open"
+          : cdipSkipReasonFromStatus(status),
+        breakerKey,
+        status,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
@@ -133,6 +190,8 @@ export class CDIPApiClient {
         headers: {
           "User-Agent": this.userAgent,
         },
+      }, {
+        circuitBreakerKey: stationBreakerKey(stationId),
       });
 
       if (!response.ok) {
