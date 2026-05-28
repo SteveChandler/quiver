@@ -6,6 +6,11 @@ jest.mock("@/lib/services/cdip", () => {
     CDIPService: jest.fn().mockImplementation(() => {
       return {
         fetchBuoyData: jest.fn().mockResolvedValue(null),
+        fetchBuoyDataWithDiagnostics: jest.fn().mockResolvedValue({
+          data: null,
+          stationId: null,
+          skipReason: "no_station",
+        }),
         getNearestStation: jest.fn().mockResolvedValue(null),
       };
     }),
@@ -222,5 +227,38 @@ describe("EnhancedForecastService (unit)", () => {
     } finally {
       (globalThis as any).fetch = originalFetch;
     }
+  });
+
+  it("stores generated forecasts and returns CDIP diagnostics in the beach process result", async () => {
+    const service = new EnhancedForecastService() as any;
+    const mockForecasts = [
+      {
+        beach_id: beach.id,
+        forecast_at: "2024-01-01T12:00:00Z",
+        wave_height: 1.2,
+      },
+    ];
+
+    jest.spyOn(service, "generateComprehensiveForecastWithDiagnostics").mockResolvedValue({
+      forecasts: mockForecasts,
+      cdip: {
+        skipReason: "cdip_404",
+        stationId: "045",
+      },
+    });
+    jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({
+      success: true,
+      data: [],
+    });
+
+    const result = await service.processBeachForecastUpdate(beach, null);
+
+    expect(service.storeEnhancedForecasts).toHaveBeenCalledWith(beach, mockForecasts);
+    expect(result).toMatchObject({
+      beach: "Test Beach",
+      success: true,
+      cdip_skip_reason: "cdip_404",
+      cdip_station: "045",
+    });
   });
 });

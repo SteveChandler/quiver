@@ -13,7 +13,9 @@ import {
 
 // Mock the API retry client
 const mockFetchCDIPData = jest.fn();
+const mockIsCircuitBreakerOpenError = jest.fn(() => false);
 jest.mock("@/lib/utils/api-retry", () => ({
+  isCircuitBreakerOpenError: mockIsCircuitBreakerOpenError,
   apiClient: {
     fetchCDIPData: mockFetchCDIPData,
   },
@@ -78,6 +80,7 @@ jest.mock("@/lib/constants/cdip-stations", () => {
       dataTypes: { wave: "xy" },
       formats: { json: "json" },
     },
+    DEFAULT_BLACKLIST: ["46225", "46236"],
     getStationConfig: jest.fn((stationId: string) => (mockStations as Record<string, any>)[stationId] || null),
     getStationCoverageRadius: jest.fn(() => 50),
   };
@@ -85,6 +88,7 @@ jest.mock("@/lib/constants/cdip-stations", () => {
 
 describe("CDIPService - API integration tests (mocked)", () => {
   let service: CDIPService;
+  const originalBlacklist = process.env.CDIP_BLACKLIST;
 
   const mockMetaResponse: CDIPMetaResponse = {
     stnId: "100p1",
@@ -113,9 +117,16 @@ describe("CDIPService - API integration tests (mocked)", () => {
   };
 
   beforeEach(() => {
+    if (originalBlacklist === undefined) {
+      delete process.env.CDIP_BLACKLIST;
+    } else {
+      process.env.CDIP_BLACKLIST = originalBlacklist;
+    }
     service = new CDIPService();
     jest.clearAllMocks();
     mockFetchCDIPData.mockReset();
+    mockIsCircuitBreakerOpenError.mockReset();
+    mockIsCircuitBreakerOpenError.mockReturnValue(false);
 
     // Default to successful responses (ERDDAP format)
     mockFetchCDIPData.mockImplementation((url: string) => {
@@ -134,6 +145,14 @@ describe("CDIPService - API integration tests (mocked)", () => {
         });
       }
     });
+  });
+
+  afterAll(() => {
+    if (originalBlacklist === undefined) {
+      delete process.env.CDIP_BLACKLIST;
+    } else {
+      process.env.CDIP_BLACKLIST = originalBlacklist;
+    }
   });
 
   describe("fetchBuoyData", () => {
@@ -158,6 +177,31 @@ describe("CDIPService - API integration tests (mocked)", () => {
       expect(result).toBeNull();
     });
 
+    it("returns unknown_station diagnostics for unknown stations", async () => {
+      const result = await service.fetchBuoyDataWithDiagnostics("999");
+
+      expect(result).toMatchObject({
+        data: null,
+        stationId: "999",
+        skipReason: "unknown_station",
+      });
+      expect(mockFetchCDIPData).not.toHaveBeenCalled();
+    });
+
+    it("returns blacklisted_station diagnostics without calling CDIP", async () => {
+      process.env.CDIP_BLACKLIST = "100";
+      const blacklistedService = new CDIPService();
+
+      const result = await blacklistedService.fetchBuoyDataWithDiagnostics("100");
+
+      expect(result).toMatchObject({
+        data: null,
+        stationId: "100",
+        skipReason: "blacklisted_station",
+      });
+      expect(mockFetchCDIPData).not.toHaveBeenCalled();
+    });
+
     it("should handle API errors gracefully", async () => {
       mockFetchCDIPData.mockResolvedValueOnce({
         ok: false,
@@ -167,6 +211,67 @@ describe("CDIPService - API integration tests (mocked)", () => {
 
       const result = await service.fetchBuoyData("100");
       expect(result).toBeNull();
+    });
+
+    it("returns cdip_404 diagnostics for deterministic ERDDAP 404s", async () => {
+      mockFetchCDIPData.mockRejectedValueOnce(
+        Object.assign(new Error("HTTP 404: Not Found"), { status: 404 })
+      );
+
+      const result = await service.fetchBuoyDataWithDiagnostics("100");
+
+      expect(result).toMatchObject({
+        data: null,
+        stationId: "100",
+        skipReason: "cdip_404",
+      });
+    });
+
+    it("returns cdip_400 diagnostics for deterministic ERDDAP 400s", async () => {
+      mockFetchCDIPData.mockRejectedValueOnce(
+        Object.assign(new Error("HTTP 400: Bad Request"), { status: 400 })
+      );
+
+      const result = await service.fetchBuoyDataWithDiagnostics("100");
+
+      expect(result).toMatchObject({
+        data: null,
+        stationId: "100",
+        skipReason: "cdip_400",
+      });
+    });
+
+    it("returns circuit_open diagnostics for open station breakers", async () => {
+      mockIsCircuitBreakerOpenError.mockReturnValueOnce(true);
+      mockFetchCDIPData.mockRejectedValueOnce(
+        Object.assign(new Error("Circuit breaker is open"), {
+          circuitBreakerKey: "CDIP:100",
+        })
+      );
+
+      const result = await service.fetchBuoyDataWithDiagnostics("100");
+
+      expect(result).toMatchObject({
+        data: null,
+        stationId: "100",
+        skipReason: "circuit_open",
+      });
+    });
+
+    it("returns success diagnostics when CDIP data is transformed", async () => {
+      const result = await service.fetchBuoyDataWithDiagnostics("100");
+
+      expect(result.skipReason).toBe("success");
+      expect(result.stationId).toBe("100");
+      expect(result.data?.stationId).toBe("100");
+    });
+
+    it("keeps fetchBuoyData data/null compatibility while diagnostics are available", async () => {
+      mockFetchCDIPData.mockRejectedValueOnce(
+        Object.assign(new Error("HTTP 404: Not Found"), { status: 404 })
+      );
+
+      await expect(service.fetchBuoyData("100")).resolves.toBeNull();
     });
 
     it("should handle malformed data", async () => {

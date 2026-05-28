@@ -7,6 +7,7 @@
  */
 
 import type { Beach } from "@/types/database";
+import type { CDIPSkipReason } from "@/lib/services/cdip/types";
 
 /**
  * Result of processing a single beach
@@ -15,6 +16,8 @@ export interface BeachProcessResult {
   beach: string;
   success: boolean;
   error?: string;
+  cdip_skip_reason?: CDIPSkipReason;
+  cdip_station?: string | null;
 }
 
 /**
@@ -29,6 +32,7 @@ export interface BatchProcessSummary {
   stoppedEarly: boolean;
   stopReason?: string;
   remainingMs?: number;
+  cdipSkipReasonCounts?: Partial<Record<CDIPSkipReason, number>>;
 }
 
 /**
@@ -180,6 +184,7 @@ export async function processBeachesInBatches(
         stoppedEarly: true,
         stopReason: "time_budget",
         remainingMs: deadlineTracker.msRemaining(),
+        cdipSkipReasonCounts: {},
       },
     };
   }
@@ -198,6 +203,13 @@ export async function processBeachesInBatches(
   const allResults: BeachProcessResult[] = [];
   let successCount = 0;
   let failCount = 0;
+  const cdipSkipReasonCounts: Partial<Record<CDIPSkipReason, number>> = {};
+
+  const recordCdipSkipReason = (result: BeachProcessResult): void => {
+    if (!result.cdip_skip_reason) return;
+    cdipSkipReasonCounts[result.cdip_skip_reason] =
+      (cdipSkipReasonCounts[result.cdip_skip_reason] ?? 0) + 1;
+  };
 
   // Process each batch sequentially
   for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
@@ -226,6 +238,7 @@ export async function processBeachesInBatches(
     for (const result of batchResults) {
       if (result.status === "fulfilled") {
         allResults.push(result.value);
+        recordCdipSkipReason(result.value);
         if (result.value.success) {
           successCount++;
         } else {
@@ -277,6 +290,7 @@ export async function processBeachesInBatches(
       remainingMs: deadlineTracker.isDeadlineConfigured()
         ? deadlineTracker.msRemaining()
         : undefined,
+      cdipSkipReasonCounts,
     },
   };
 }

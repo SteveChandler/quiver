@@ -9,9 +9,13 @@ import {
   loadBatchConfig,
   loadCdipBatchConfig,
   processBeachesInBatches,
-  createBeachProcessor,
   type BatchProcessResult,
+  type BeachProcessResult,
 } from "./forecast/batch-beach-processor";
+import type {
+  CDIPBuoyDataDiagnostic,
+  CDIPSkipReason,
+} from "@/lib/services/cdip/types";
 import type { Beach } from "@/types/database";
 import { createContextLogger } from "@/lib/logger";
 import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logger";
@@ -60,6 +64,16 @@ import {
 
 const log = createContextLogger('EnhancedForecastService');
 
+interface CDIPForecastDiagnostic {
+  stationId: string | null;
+  skipReason: CDIPSkipReason;
+}
+
+interface ComprehensiveForecastDiagnosticResult {
+  forecasts: EnhancedForecastWithRawData[];
+  cdip: CDIPForecastDiagnostic;
+}
+
 export class EnhancedForecastService {
   private readonly warnedSchemaColumns = new Set<string>();
 
@@ -85,6 +99,14 @@ export class EnhancedForecastService {
     beach: Beach,
     nowcastAnchor: NowcastAnchor | null = null,
   ): Promise<EnhancedForecastEntity[]> {
+    const result = await this.generateComprehensiveForecastWithDiagnostics(beach, nowcastAnchor);
+    return result.forecasts;
+  }
+
+  async generateComprehensiveForecastWithDiagnostics(
+    beach: Beach,
+    nowcastAnchor: NowcastAnchor | null = null,
+  ): Promise<ComprehensiveForecastDiagnosticResult> {
     return withErrorHandling(
       async () => {
         // Validate input
@@ -118,11 +140,22 @@ export class EnhancedForecastService {
           weatherData:
             weatherData.status === "fulfilled" ? weatherData.value : [],
           buoyData: null,
-          cdipData: cdipData.status === "fulfilled" ? cdipData.value : null,
+          cdipData: cdipData.status === "fulfilled" ? cdipData.value.data : null,
           ioosWaterTempC: ioosWaterTempResult.status === "fulfilled" ? ioosWaterTempResult.value : null,
           coopsWaterTempC: coopsWaterTempResult.status === "fulfilled" ? coopsWaterTempResult.value : null,
           nowcastAnchor,
         };
+
+        const cdipDiagnostic: CDIPForecastDiagnostic =
+          cdipData.status === "fulfilled"
+            ? {
+                stationId: cdipData.value.stationId,
+                skipReason: cdipData.value.skipReason,
+              }
+            : {
+                stationId: null,
+                skipReason: "cdip_unavailable",
+              };
 
         // Log any data source failures
         if (waveData.status === "rejected")
@@ -148,7 +181,11 @@ export class EnhancedForecastService {
           });
 
         // Process and combine all data sources
-        return this.combineDataSources(processedData);
+        const forecasts = await this.combineDataSources(processedData);
+        return {
+          forecasts,
+          cdip: cdipDiagnostic,
+        };
       },
       { beachId: beach.id }
     )();
@@ -249,7 +286,7 @@ export class EnhancedForecastService {
   /**
    * Fetch CDIP data with retry logic
    */
-  private async fetchCDIPDataWithRetry(beach: Beach) {
+  private async fetchCDIPDataWithRetry(beach: Beach): Promise<CDIPBuoyDataDiagnostic> {
     log.debug(`fetchCDIPDataWithRetry called for beach: ${beach.name} (${beach.lat}, ${beach.lon})`);
     return withRetry(async () => {
       try {
@@ -270,19 +307,25 @@ export class EnhancedForecastService {
 
         if (!selectedStation) {
           log.warn(`No nearby CDIP station found for ${beach.name} within 150km`);
-          return null;
+          return {
+            data: null,
+            stationId: null,
+            skipReason: "no_station",
+          };
         }
 
         log.debug(`Selected CDIP station ${selectedStation} for ${beach.name}`);
 
         // Fetch CDIP data for the nearest station
         log.debug(`Fetching CDIP data from station ${selectedStation} for ${beach.name}`);
-        const cdipData = await this.dataSourceManager.getCDIPService().fetchBuoyData(selectedStation);
+        const cdipData = await this.dataSourceManager.getCDIPService().fetchBuoyDataWithDiagnostics(selectedStation);
 
-        if (cdipData) {
+        if (cdipData.data) {
           log.debug(`Successfully fetched CDIP data for ${beach.name} from station ${selectedStation}`);
         } else {
-          log.warn(`CDIP data fetch returned null for ${beach.name} from station ${selectedStation}`);
+          log.warn(
+            `CDIP data fetch returned ${cdipData.skipReason} for ${beach.name} from station ${selectedStation}`
+          );
         }
 
         return cdipData;
@@ -448,6 +491,43 @@ export class EnhancedForecastService {
     return this.storageService.storeEnhancedForecasts(beach, forecasts);
   }
 
+  async processBeachForecastUpdate(
+    beach: Beach,
+    nowcastAnchor: NowcastAnchor | null = null
+  ): Promise<BeachProcessResult> {
+    try {
+      const { forecasts, cdip } = await this.generateComprehensiveForecastWithDiagnostics(
+        beach,
+        nowcastAnchor
+      );
+      const result = await this.storeEnhancedForecasts(beach, forecasts);
+
+      if (result.success) {
+        console.log(`${beach.name}: ${forecasts.length} forecasts stored`);
+      } else {
+        console.warn(`${beach.name}: store failed - ${result.error}`);
+      }
+
+      return {
+        beach: beach.name,
+        success: result.success,
+        error: result.error,
+        cdip_skip_reason: cdip.skipReason,
+        cdip_station: cdip.stationId,
+      };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`${beach.name}: ${errorMsg}`);
+      return {
+        beach: beach.name,
+        success: false,
+        error: errorMsg,
+        cdip_skip_reason: "cdip_unavailable",
+        cdip_station: null,
+      };
+    }
+  }
+
   /**
    * Update all beaches with enhanced forecasts
    * Uses batch processing to avoid overwhelming external APIs and preventing timeouts
@@ -490,10 +570,8 @@ export class EnhancedForecastService {
         beaches: beaches.selected,
         config,
         deadlineTracker,
-        processBeach: createBeachProcessor(
-          (beach) => this.generateComprehensiveForecast(beach, nowcastAnchors.get(beach.id) ?? null),
-          (beach, forecasts) => this.storeEnhancedForecasts(beach, forecasts)
-        ),
+        processBeach: (beach) =>
+          this.processBeachForecastUpdate(beach, nowcastAnchors.get(beach.id) ?? null),
         prefetchCallback: (beaches) => this.prefetchTideStations(beaches),
         logPrefix: "📦 ",
       });
@@ -630,10 +708,8 @@ export class EnhancedForecastService {
         beaches: beaches.selected,
         config,
         deadlineTracker,
-        processBeach: createBeachProcessor(
-          (beach) => this.generateComprehensiveForecast(beach, nowcastAnchors.get(beach.id) ?? null),
-          (beach, forecasts) => this.storeEnhancedForecasts(beach, forecasts)
-        ),
+        processBeach: (beach) =>
+          this.processBeachForecastUpdate(beach, nowcastAnchors.get(beach.id) ?? null),
         prefetchCallback: (beaches) => this.prefetchTideStations(beaches),
         logPrefix: "CDIP ",
       });

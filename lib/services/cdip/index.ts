@@ -18,6 +18,10 @@ export type {
   CDIPMetaResponse,
   CDIPStationConfig,
   CDIPCacheEntry,
+  CDIPSkipReason,
+  CDIPFetchDiagnostic,
+  CDIPWaveDataDiagnostic,
+  CDIPBuoyDataDiagnostic,
 } from "./types";
 
 // Re-export constants for advanced usage

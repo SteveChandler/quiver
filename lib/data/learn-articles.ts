@@ -37,8 +37,8 @@ interface LearnArticle {
 export const learnArticles: LearnArticle[] = [
   {
     slug: "how-to-read-a-surf-forecast",
-    title: "How to Read a Surf Forecast",
-    description: "A surf forecast shows five metrics you read together: wave height (size), swell period (power and quality), swell direction (where waves originate), wind speed and direction (surface texture), and tide (water depth timing). Height alone is misleading — a 4-foot swell at 14 seconds with offshore wind is excellent; the same 4 feet at 6 seconds with onshore wind is junk.",
+    title: "How to Read a Surf Forecast: Height, Period & Wind",
+    description: "Learn how to read a surf forecast by combining wave height, swell period, direction, wind, and tide into one practical surf decision.",
     readingTimeMin: 5,
     datePublished: "2026-03-26",
     dateModified: "2026-03-30",
@@ -178,8 +178,8 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "swell-period-explained",
-    title: "Swell Period Explained",
-    description: "Swell period is the time in seconds between consecutive wave crests at a buoy. It reveals wave quality better than height: under 9 seconds means local wind chop, above 12 seconds means powerful distant-storm energy. A 3-foot swell at 14 seconds outperforms a 6-foot swell at 6 seconds every time.",
+    title: "Swell Period Explained: What Seconds Mean for Surf",
+    description: "Swell period explained for surfers: what 6, 10, 12, and 16 seconds mean, when long period helps, and how to read period in a forecast.",
     datePublished: "2026-03-26",
     dateModified: "2026-03-30",
     readingTimeMin: 4,
@@ -314,8 +314,8 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "best-surf-conditions-for-beginners",
-    title: "Best Surf Conditions for Beginners",
-    description: "Ideal wave size, period, wind, and tide for learning to surf. Master conditions to learn faster and safer.",
+    title: "Best Surf Conditions for Beginners: Size, Wind & Tide",
+    description: "Learn the best beginner surf conditions: 1-3 ft waves, 12+ sec period, light offshore wind, mid tide, and lower-crowd windows before you paddle out.",
     readingTimeMin: 5,
     datePublished: "2026-03-26",
     heroImage: "/4groms.jpg",
@@ -717,9 +717,9 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "offshore-vs-onshore-wind-surfing",
-    title: "What Does Offshore vs Onshore Wind Mean for Surfing?",
+    title: "Offshore vs Onshore Wind: Best Wind for Surfing",
     description:
-      "Offshore wind blows from land to sea, holding up wave faces and creating clean, organized lines. Onshore wind blows sea to land, pushing waves down and adding chop. Most breaks surf best with under 10 knots of offshore wind. Dawn patrol exists because overnight land cooling creates natural offshore flow that reverses by midday.",
+      "Offshore vs onshore wind explained: which wind cleans up surf, how much is too much, and how to use wind direction before choosing a break.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
     heroImage: "/images/activities/offshore-winds.webp",
@@ -1069,9 +1069,9 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "how-accurate-are-surf-forecasts",
-    title: "How Accurate Are Surf Forecasts?",
+    title: "How Accurate Are Surf Forecasts? 3-Day vs 10-Day Guide",
     description:
-      "NOAA's WaveWatch III model is accurate within ±1-2 feet for wave height and ±2-3 seconds for period, 0-3 days out. Accuracy degrades beyond 5 days. Quiver's per-beach ML corrections — trained on 30,000+ buoy observations from CDIP and NDBC — achieve a 90.4% directional match rate and 59% improvement over raw NOAA output.",
+      "How accurate are surf forecasts? See when 3-day forecasts are reliable, why 10-day outlooks drift, and how Quiver checks beach-level error.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
     heroImage: "/images/learn/learn-misty-lineup.jpg",
@@ -1157,9 +1157,9 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "best-time-of-day-to-surf",
-    title: "When Is the Best Time of Day to Surf?",
+    title: "Best Time of Day to Surf: Dawn Patrol vs Glass-Off",
     description:
-      "Early morning (dawn patrol, 5:30-8 AM) and late afternoon (4-6 PM glass-off) produce the cleanest waves. Land cools overnight, pulling wind offshore. Solar heating reverses it midday, bringing onshore chop. Wind is the number one session-quality variable after swell size and period.",
+      "Find the best time of day to surf: dawn patrol, midday wind risk, and glass-off windows, plus how to check today's local forecast.",
     readingTimeMin: 2,
     datePublished: "2026-03-30",
     heroImage: "/images/learn/learn-dawn-patrol.jpg",
@@ -1244,9 +1244,9 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "why-waves-better-in-morning",
-    title: "Why Are Waves Better in the Morning?",
+    title: "Why Waves Are Better in the Morning: Wind Explained",
     description:
-      "Overnight, land cools faster than the ocean, creating a temperature gradient that pulls wind offshore (from land to sea). This offshore flow holds up wave faces and smooths the surface — 'glassy' conditions. By mid-morning, solar heating reverses the gradient, bringing onshore wind and chop. This thermal cycle repeats daily.",
+      "Morning surf is usually cleaner because overnight land cooling creates offshore wind. Learn when dawn patrol works and when it does not.",
     readingTimeMin: 2,
     datePublished: "2026-03-30",
     heroImage: "/images/hero/hero-4-beach-sunset.webp",
@@ -1320,9 +1320,9 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "is-it-safe-to-surf-after-rain",
-    title: "Is It Safe to Surf After It Rains?",
+    title: "Is It Safe to Surf After Rain? The 72-Hour Rule",
     description:
-      "The standard recommendation is wait 72 hours after rain before surfing near urban runoff. Storm drains flush bacteria (fecal coliform, Enterococcus), chemicals, and debris into the ocean. A Surfrider Foundation study found 12 extra illness cases per 1,000 surfers in wet-weather conditions.",
+      "Is it safe to surf after rain? Use the 72-hour rule, runoff risk signs, water-quality checks, and safer open-coast choices.",
     readingTimeMin: 2,
     datePublished: "2026-03-30",
     heroImage: "/images/learn/learn-choppy-sea.jpg",
@@ -2072,9 +2072,9 @@ export const learnArticles: LearnArticle[] = [
 
   {
     slug: "how-do-tides-work",
-    title: "How Do Tides Work?",
+    title: "How Tides Work for Surfing: Tide Timing Guide",
     description:
-      "Tides are the rise and fall of sea level caused by gravitational pull from the moon (primary force) and the sun (secondary). Most US coastlines experience semidiurnal tides — two highs and two lows every 24 hours 50 minutes. Spring tides (new and full moon) produce the largest tidal range. Neap tides (quarter moons) produce the smallest.",
+      "Learn how tides work for surfing: why high and low tide shift, what spring and neap tides mean, and how tide timing changes wave shape.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
     heroImage: "/images/learn/learn-tide-pools.jpg",
