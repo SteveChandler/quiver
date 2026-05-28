@@ -7,6 +7,8 @@
  * It respects user privacy settings (allow_implicit_tracking).
  */
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { POST as _POST } from '@/app/api/events/route';
 // Tests call POST with a plain Request for brevity; the real signature is
 // NextRequest. Cast to loosen for the test harness only.
@@ -32,8 +34,7 @@ jest.mock('@/lib/middleware/api-wrappers', () => {
         const { data, error } = await mockSupabase.auth.getUser();
         const user = error ? null : data?.user ?? null;
         if (!options.optional && !user) {
-          const { createAuthError } = jest.requireActual('@/lib/api-utils');
-          return createAuthError(
+          return actual.createAuthError(
             options.authErrorMessage ?? 'Authentication required'
           );
         }
@@ -82,6 +83,16 @@ describe('POST /api/events', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     __clearTrackingCache(); // Clear the in-memory cache between tests
+  });
+
+  it('uses the shared API wrapper module for response helpers', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'app/api/events/route.ts'),
+      'utf8'
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
   });
 
   it('returns 401 for unauthenticated requests', async () => {
@@ -309,8 +320,18 @@ describe('POST /api/events', () => {
       }),
     });
 
-    const response = await POST(request);
-    expect(response.status).toBe(500);
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation();
+    try {
+      const response = await POST(request);
+
+      expect(response.status).toBe(500);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Error inserting event:',
+        { message: 'Database error' }
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it('accepts all valid event types', async () => {
@@ -533,11 +554,13 @@ describe('POST /api/events', () => {
 
       expect(response.headers.get('X-RateLimit-Limit')).toBe('60');
       expect(response.headers.get('X-RateLimit-Remaining')).toBe('0');
-      expect(response.headers.get('X-RateLimit-Reset')).toBeTruthy();
-      expect(response.headers.get('Retry-After')).toBeTruthy();
+      const rateLimitReset = response.headers.get('X-RateLimit-Reset');
+      const retryAfterHeader = response.headers.get('Retry-After');
+      expect(rateLimitReset).not.toBeNull();
+      expect(retryAfterHeader).not.toBeNull();
 
       // Verify Retry-After is a positive number
-      const retryAfter = parseInt(response.headers.get('Retry-After') || '0', 10);
+      const retryAfter = parseInt(retryAfterHeader || '0', 10);
       expect(retryAfter).toBeGreaterThan(0);
       expect(retryAfter).toBeLessThanOrEqual(60);
     });
@@ -771,6 +794,12 @@ describe('POST /api/events', () => {
         'share_intel_button_clicked',
         'share_intel_signin_prompt',
         'surf_plan_share',
+        // Invite acquisition funnel events
+        'invite_link_opened',
+        'invite_open_app_clicked',
+        'invite_app_store_clicked',
+        'invite_continue_web_clicked',
+        'invite_consumed',
         // Signup/auth conversion events (pre-auth-only events excluded — tested separately)
         // Note: signin_cta_click moved to PRE_AUTH_ONLY_EVENTS, tested in
         // "pre-auth-only events" describe block below.
@@ -1173,6 +1202,50 @@ describe('POST /api/events', () => {
           session_id: '12345678-1234-1234-1234-123456789012',
           event_type: 'page_view',
         })
+      );
+    });
+
+    it('accepts anonymous invite CTA events with token_hash metadata', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'invite_app_store_clicked',
+          sessionId: '12345678-1234-1234-1234-123456789012',
+          metadata: {
+            token_hash: 'hash-1',
+            inviter_id: 'inviter-id',
+            surface: 'invite_landing',
+            destination_type: 'app_store',
+            browser_session_id: 'browser-session-1',
+            platform: 'ios',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: null,
+          session_id: '12345678-1234-1234-1234-123456789012',
+          event_type: 'invite_app_store_clicked',
+          metadata: expect.objectContaining({
+            token_hash: 'hash-1',
+            destination_type: 'app_store',
+          }),
+        }),
       );
     });
 

@@ -151,6 +151,10 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     src: "/images/seo-dioramas/beginner/cocoa-beach/cocoa-pier-beginner-diorama.webp",
     alt: "Cocoa Beach Pier beginner surf context",
   },
+  "ditch-plains-montauk-ny": {
+    src: "/images/seo-dioramas/beginner/long-island/ditch-plains-montauk-ny-photo.webp",
+    alt: "Ditch Plains shoreline and Montauk surf context",
+  },
   "doheny-beach": {
     src: "/images/seo-dioramas/beginner/socal/doheny-beach-photo.webp",
     alt: "Doheny State Beach shoreline and soft learner surf context",
@@ -178,6 +182,14 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
   "la-jolla-shores": {
     src: "/images/seo-dioramas/beginner/socal/la-jolla-shores-photo.webp",
     alt: "La Jolla Shores beach and learner surf context",
+  },
+  "long-beach-long-beach-ny": {
+    src: "/images/seo-dioramas/beginner/long-island/long-beach-long-beach-ny-photo.webp",
+    alt: "Long Beach, New York shoreline and barrier-island surf context",
+  },
+  "robert-moses-state-park-babylon-ny": {
+    src: "/images/seo-dioramas/beginner/long-island/robert-moses-state-park-ny-photo.webp",
+    alt: "Robert Moses State Park shoreline and open South Shore surf context",
   },
   leadbetter: {
     src: "/images/seo-dioramas/longboard/santa-barbara/santa-barbara-palm-check-diorama.webp",
@@ -218,6 +230,18 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
   "san-onofre-state-beach": {
     src: "/images/seo-dioramas/beginner/socal/san-onofre-state-beach-photo.webp",
     alt: "San Onofre State Beach sunset and gentle-wave planning context",
+  },
+  "rockaway-beach-90th-st-queens-ny": {
+    src: "/images/seo-dioramas/beginner/long-island/gilgo-beach-ny-photo.webp",
+    alt: "Bright South Shore shoreline context for Rockaway small-day planning",
+  },
+  "rockaway-beach-98th-st-queens-ny": {
+    src: "/images/seo-dioramas/beginner/long-island/rockaway-beach-90th-st-queens-ny-photo.webp",
+    alt: "Rockaway Beach shoreline and New York surf context",
+  },
+  "smith-point-county-park-shirley-ny": {
+    src: "/images/seo-dioramas/beginner/long-island/smith-point-county-park-shirley-ny-photo.webp",
+    alt: "Smith Point County Park shoreline and open South Shore surf context",
   },
   scripps: {
     src: "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
@@ -1826,6 +1850,92 @@ const BEGINNER_PAGES = [
         "Sunrise soft-top session",
       ],
     ],
+  }),
+  buildLocationPage({
+    type: "beginner",
+    slug: "long-island",
+    locationName: "Long Island",
+    title: "Beginner Surf Spots on Long Island",
+    metaDescription:
+      "Plan beginner surf on Long Island with Quiver's guide to Long Beach, Rockaway, small-day filters, and honest Montauk caveats.",
+    h1: "Beginner Surf Spots on Long Island",
+    intro:
+      "Long Island beginner surf works best when you treat it as a small-day planning problem, not a blanket yes for the whole coast or a famous-beach checklist.",
+    bestZones:
+      "Long Beach is still the clearest learner anchor because it combines the easiest lesson path, a familiar surf scene, and a straightforward sandy lineup on smaller days. Robert Moses deserves more weight than a footnote for true beginners who mostly need room to paddle, pop up, and learn ocean timing on a mellow day. Rockaway can work when the size stays tame and the crowd is manageable, while Lido and Gilgo are better supporting context than default first-session calls.",
+    conditions:
+      "Keep the filter conservative: roughly knee- to waist-high surf, light wind, enough shape to avoid closeouts, and a tide window that does not turn the inside into hard shorebreak. If the Atlantic side is dumping, side-shore, or sweeping sideways, it is not a beginner session even if the beach name is familiar. In summer, also check whether guarded hours compress surfing into smaller designated sections before you assume the beach will feel open and easy.",
+    boardCall:
+      "A soft-top is still the default. Only move into a hard longboard when the surfer can control trim, stop cleanly, and avoid drift around other learners. Body surfing and boogie boarding first are legitimate prep on Long Island because they teach shorebreak timing and where to be in the water before standing up enters the picture. Bigger exposed days can turn a beginner board into a liability fast because paddling back in and clearing the inside takes more judgment than the forecast headline suggests.",
+    localNotes:
+      "If you do not even own a board yet, Long Beach is the easiest place to call a school and book an adult lesson before you overthink spot hierarchy. Robert Moses is the cleaner self-practice backup when you just want reps on a big floaty board without forcing a crowded lineup. Smith Point can be the closest ocean option for some surfers, but proximity alone should not outrank crowd, shorebreak, and cleanup factor. Be explicit about Montauk: Ditch Plains can be a useful advanced-progressing reference, but it is not the core beginner recommendation and Turtle Cove should stay out of learner guidance entirely. If the obvious Long Beach or Robert Moses call looks too big, closey, or crowded, the honest move is to skip the session instead of forcing a famous-name check.",
+    namedBreaks: ["Long Beach", "Robert Moses", "Smith Point", "Ditch Plains"],
+    links: [
+      { label: "Best time to surf", href: "/best-time-to-surf" },
+      { label: "Belmar surf report today", href: "/surf-report/belmar-today" },
+      { label: "Open Quiver map", href: "/map?search=Long%20Island" },
+    ],
+    spots: [
+      {
+        label: "Long Beach",
+        href: "/ny/long-beach/long-beach-long-beach-ny",
+        beachSlug: "long-beach-long-beach-ny",
+        description:
+          "Best first call for lessons, a familiar surf scene, and small-day sandy reps.",
+      },
+      {
+        label: "Robert Moses State Park",
+        href: "/ny/babylon/robert-moses-state-park-babylon-ny",
+        beachSlug: "robert-moses-state-park-babylon-ny",
+        description:
+          "Cleaner self-practice backup when you want room to paddle and do not need a lesson scene.",
+      },
+      {
+        label: "Smith Point County Park",
+        href: "/ny/shirley/smith-point-county-park-shirley-ny",
+        beachSlug: "smith-point-county-park-shirley-ny",
+        description:
+          "Closest-ocean option for some surfers, but only when the surf zone and shorebreak stay manageable.",
+      },
+      {
+        label: "Ditch Plains",
+        href: "/ny/montauk/ditch-plains-montauk-ny",
+        beachSlug: "ditch-plains-montauk-ny",
+        description:
+          "Save this for later progression trips, not the first place to learn on Long Island.",
+      },
+    ],
+    images: [],
+    existingImages: [
+      makeExistingPhotoImage(
+        "long-island-beginner-robert-moses-photo",
+        "/images/seo-dioramas/beginner/long-island/robert-moses-state-park-ny-photo.webp",
+        "Robert Moses State Park shoreline for broad Long Island beginner surf planning",
+        "Robert Moses State Park shoreline and broad Long Island surf context",
+        "Robert Moses State Park - photo by KellyCampbell, CC BY-SA 4.0",
+      ),
+      makeExistingPhotoImage(
+        "long-island-beginner-rockaway-photo",
+        "/images/seo-dioramas/beginner/long-island/rockaway-beach-90th-st-queens-ny-photo.webp",
+        "Rockaway Beach shoreline for New York beginner surf planning",
+        "Rockaway Beach shoreline and New York beginner surf context",
+        "Rockaway Beach - photo by joiseyshowaa, CC BY-SA 2.0",
+      ),
+      makeExistingPhotoImage(
+        "long-island-beginner-long-beach-photo",
+        "/images/seo-dioramas/beginner/long-island/long-beach-long-beach-ny-photo.webp",
+        "Long Beach, New York shoreline for Long Island beginner surf planning",
+        "Long Beach, New York shoreline and barrier-island beginner surf context",
+        "Long Beach, NY - photo by Howard N2GOT, CC BY 2.0",
+      ),
+      makeExistingPhotoImage(
+        "long-island-beginner-lido-photo",
+        "/images/seo-dioramas/beginner/long-island/lido-beach-ny-photo.webp",
+        "Lido Beach shoreline for broader Long Island beginner surf context",
+        "Lido Beach shoreline and broader Long Island surf-planning context",
+        "Lido Beach - photo by Michael LoCascio, CC BY-SA 3.0",
+      ),
+    ].slice(0, 3),
   }),
   buildLocationPage({
     type: "beginner",

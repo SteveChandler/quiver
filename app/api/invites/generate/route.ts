@@ -11,6 +11,7 @@ import {
   getEmailTokenSecret,
 } from "@/lib/utils/email-token";
 import { capturePostHogEvent } from "@/lib/posthog-server";
+import { hashInviteToken } from "@/lib/invites/token-hash";
 
 /**
  * POST /api/invites/generate
@@ -32,13 +33,14 @@ const generateHandler = withAuth(
     const siteUrl =
       process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
     const url = `${siteUrl.replace(/\/$/, "")}/invite/${token}`;
+    const token_hash = hashInviteToken(token);
 
     await capturePostHogEvent({
       distinctId: user.id,
       event: "invite_link_generated",
     });
 
-    return createSuccessResponse({ token, url });
+    return createSuccessResponse({ token, url, token_hash });
   },
   { errorMessage: "Failed to generate invite" },
 );

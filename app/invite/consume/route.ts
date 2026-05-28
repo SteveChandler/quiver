@@ -9,6 +9,8 @@ import {
   INVITE_EXPIRED_REDIRECT_PATH,
   SELF_INVITE_REDIRECT_PATH,
 } from "@/lib/invites/consume";
+import { recordInviteConsumedEvent } from "@/lib/invites/events";
+import { hashInviteToken } from "@/lib/invites/token-hash";
 
 /**
  * GET /invite/consume
@@ -39,11 +41,27 @@ export async function GET(request: NextRequest) {
   }
 
   const result = await consumeInviteForUser(supabase, cookieToken, user.id);
+  const tokenHash = hashInviteToken(cookieToken);
   let redirectTarget = "/";
 
   if (result.status === "accepted") {
+    await recordInviteConsumedEvent(supabase, {
+      followerId: user.id,
+      inviterId: result.inviterId,
+      tokenHash,
+      surface: "web",
+      selfInvite: false,
+      flags: result,
+    });
     redirectTarget = buildInvitedProfilePath(result.inviterId);
   } else if (result.status === "self") {
+    await recordInviteConsumedEvent(supabase, {
+      followerId: user.id,
+      inviterId: result.inviterId,
+      tokenHash,
+      surface: "web",
+      selfInvite: true,
+    });
     redirectTarget = SELF_INVITE_REDIRECT_PATH;
   } else if (result.status === "invalid") {
     redirectTarget = INVITE_EXPIRED_REDIRECT_PATH;

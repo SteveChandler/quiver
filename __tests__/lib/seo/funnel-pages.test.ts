@@ -29,6 +29,7 @@ const REQUIRED_ROUTES = [
   "/beginner/santa-barbara",
   "/beginner/honolulu",
   "/beginner/cocoa-beach",
+  "/beginner/long-island",
   "/beginner/san-onofre",
   "/surf-report/scripps-pier-today",
   "/surf-report/belmar-today",
@@ -44,7 +45,7 @@ describe("SEO funnel pages", () => {
   it("defines the requested indexable routes and excludes Santa Cruz cams", () => {
     const routes = getIndexableSeoFunnelRoutes();
 
-    expect(routes).toHaveLength(25);
+    expect(routes).toHaveLength(26);
     expect(routes).toEqual(expect.arrayContaining(REQUIRED_ROUTES));
     expect(routes).not.toContain("/surf-cams/santa-cruz");
   });
@@ -154,7 +155,7 @@ describe("SEO funnel pages", () => {
   it("resolves every configured SEO image file", () => {
     const prompts = getSeoFunnelImagePrompts();
 
-    expect(prompts).toHaveLength(75);
+    expect(prompts).toHaveLength(78);
     for (const { image } of prompts) {
       expect(
         existsSync(join(process.cwd(), "public", image.src.slice(1))),
@@ -270,7 +271,7 @@ describe("SEO funnel pages", () => {
       ({ image }) => image.assetType === "diorama",
     );
 
-    expect(prompts).toHaveLength(75);
+    expect(prompts).toHaveLength(78);
     for (const { image } of prompts) {
       expect(image.prompt).toContain("Use case: ads-marketing");
       expect(image.prompt).toContain("no text");
@@ -307,6 +308,9 @@ describe("SEO funnel pages", () => {
     ).toBe("/beginner/los-angeles");
     expect(getSeoFunnelPageByIntentRoute("beginner", "ventura")?.path).toBe(
       "/beginner/ventura",
+    );
+    expect(getSeoFunnelPageByIntentRoute("beginner", "long-island")?.path).toBe(
+      "/beginner/long-island",
     );
     expect(
       getSeoFunnelPageByIntentRoute("beginner", "santa-barbara")?.path,
@@ -389,6 +393,61 @@ describe("SEO funnel pages", () => {
         (section) => section.heading === "Local read before you drive",
       )?.body,
     ).toContain("Refugio is conditional");
+  });
+
+  it("keeps Long Island beginner coverage centered on small-day learner zones", () => {
+    const page = getSeoFunnelPageByTypeAndSlug("beginner", "long-island");
+
+    expect(page).not.toBeNull();
+    expect(page!.images.map((image) => image.src)).toEqual([
+      "/images/seo-dioramas/beginner/long-island/robert-moses-state-park-ny-photo.webp",
+      "/images/seo-dioramas/beginner/long-island/rockaway-beach-90th-st-queens-ny-photo.webp",
+      "/images/seo-dioramas/beginner/long-island/long-beach-long-beach-ny-photo.webp",
+    ]);
+    expect(page!.nearbySpots.map((spot) => spot.href)).toEqual(
+      expect.arrayContaining([
+        "/ny/long-beach/long-beach-long-beach-ny",
+        "/ny/babylon/robert-moses-state-park-babylon-ny",
+        "/ny/shirley/smith-point-county-park-shirley-ny",
+        "/ny/montauk/ditch-plains-montauk-ny",
+      ]),
+    );
+    expect(
+      page!.nearbySpots.find((spot) => spot.label === "Long Beach")
+        ?.description,
+    ).toContain("Best first call for lessons");
+    expect(
+      page!.nearbySpots.find((spot) => spot.label === "Robert Moses State Park")
+        ?.description,
+    ).toContain("Cleaner self-practice backup");
+    expect(
+      page!.nearbySpots.find((spot) => spot.label === "Smith Point County Park")
+        ?.description,
+    ).toContain("Closest-ocean option for some surfers");
+    expect(
+      page!.nearbySpots.find((spot) => spot.label === "Ditch Plains")
+        ?.description,
+    ).toContain("Save this for later progression trips");
+    expect(
+      page!.sections.find(
+        (section) => section.heading === "Local read before you drive",
+      )?.body,
+    ).toContain("Turtle Cove should stay out of learner guidance entirely");
+    expect(
+      page!.sections.find(
+        (section) => section.heading === "Where Long Island works best",
+      )?.body,
+    ).toContain("Robert Moses deserves more weight than a footnote");
+    expect(
+      page!.sections.find(
+        (section) => section.heading === "Board and safety call",
+      )?.body,
+    ).toContain("Body surfing and boogie boarding first are legitimate prep");
+    expect(
+      page!.sections.find(
+        (section) => section.heading === "Local read before you drive",
+      )?.body,
+    ).toContain("book an adult lesson");
   });
 
   it("keeps existing longboard hubs connected to live spot reports before adding inventory", () => {

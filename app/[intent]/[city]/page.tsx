@@ -277,10 +277,9 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
   // City lookup failed: return 404-safe metadata with self-referential canonical
   // CRITICAL: Without this, Google picks an arbitrary canonical (e.g., /tide/hull for /beginner/nags-head)
   if (!cityMetadata) {
-    const parsedCityName = parseLocationFromSlug(params.city);
     return {
-      title: `${definition.label} Spots in ${parsedCityName}`,
-      description: `Find ${definition.label.toLowerCase()} surf spots near ${parsedCityName}. Calibrated recommendations for every skill level.`,
+      title: "Page Not Found",
+      description: "This page could not be found.",
       alternates: {
         canonical: `${baseUrl}/${params.intent}/${params.city}`,
       },
