@@ -21,6 +21,28 @@ export type {
   CDIPStationConfig,
 };
 
+export type CDIPSkipReason =
+  | "success"
+  | "no_station"
+  | "unknown_station"
+  | "blacklisted_station"
+  | "cdip_400"
+  | "cdip_404"
+  | "circuit_open"
+  | "cdip_unavailable";
+
+export interface CDIPFetchDiagnostic<TData> {
+  data: TData | null;
+  stationId: string | null;
+  skipReason: CDIPSkipReason;
+  breakerKey?: string;
+  errorMessage?: string;
+  status?: number;
+}
+
+export type CDIPWaveDataDiagnostic = CDIPFetchDiagnostic<CDIPDataResponse>;
+export type CDIPBuoyDataDiagnostic = CDIPFetchDiagnostic<CDIPBuoyData>;
+
 /**
  * Cache entry for CDIP buoy data
  */

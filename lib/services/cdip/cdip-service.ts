@@ -15,7 +15,12 @@
 import { createContextLogger } from "@/lib/logger";
 import { calculateDistance } from "@/lib/utils/distance-utils";
 import { isForecastVerboseLoggingEnabled } from "@/lib/monitoring/forecast-logger";
-import { CDIPBuoyData, CDIPMetaResponse, CDIPStationConfig } from "./types";
+import {
+  CDIPBuoyData,
+  CDIPBuoyDataDiagnostic,
+  CDIPMetaResponse,
+  CDIPStationConfig,
+} from "./types";
 import {
   CDIP_STATIONS,
   SOCAL_PRIMARY_STATIONS,
@@ -45,7 +50,7 @@ export class CDIPService {
    */
   private readonly inFlightFetches = new Map<
     string,
-    Promise<CDIPBuoyData | null>
+    Promise<CDIPBuoyDataDiagnostic>
   >();
   private readonly blacklist: Set<string>;
 
@@ -82,20 +87,33 @@ export class CDIPService {
    * @returns Buoy data or null if unavailable
    */
   async fetchBuoyData(stationId: string): Promise<CDIPBuoyData | null> {
+    const diagnostic = await this.fetchBuoyDataWithDiagnostics(stationId);
+    return diagnostic.data;
+  }
+
+  async fetchBuoyDataWithDiagnostics(stationId: string): Promise<CDIPBuoyDataDiagnostic> {
     if (this.isVerbose()) {
       log.debug(`🌊 CDIP fetchBuoyData called for station: ${stationId}`);
     }
     try {
       if (this.blacklist.has(String(stationId))) {
         log.warn(`🚫 CDIP station ${stationId} is blacklisted. Skipping fetch.`);
-        return null;
+        return {
+          data: null,
+          stationId,
+          skipReason: "blacklisted_station",
+        };
       }
 
       // Check if station exists
       const stationConfig = getStationConfig(stationId);
       if (!stationConfig) {
         log.warn(`❌ Unknown CDIP station: ${stationId}`);
-        return null;
+        return {
+          data: null,
+          stationId,
+          skipReason: "unknown_station",
+        };
       }
       if (this.isVerbose()) {
         log.debug(`✅ CDIP station config found: ${stationConfig.name}`);
@@ -107,7 +125,11 @@ export class CDIPService {
         if (this.isVerbose()) {
           log.debug(`📦 CDIP returning cached data for station ${stationId}`);
         }
-        return cached;
+        return {
+          data: cached,
+          stationId,
+          skipReason: "success",
+        };
       }
 
       // Deduplicate concurrent fetches for the same station within the same process.
@@ -119,7 +141,7 @@ export class CDIPService {
         return await inFlight;
       }
 
-      const fetchPromise = (async (): Promise<CDIPBuoyData | null> => {
+      const fetchPromise = (async (): Promise<CDIPBuoyDataDiagnostic> => {
         try {
           // Check rate limiting (only applies when we actually need to hit the network)
           if (!this.apiClient.canMakeRequest()) {
@@ -127,7 +149,11 @@ export class CDIPService {
             log.warn(
               `⏰ CDIP rate limit exceeded, next request available in ${waitTime}ms`
             );
-            return null;
+            return {
+              data: null,
+              stationId,
+              skipReason: "cdip_unavailable",
+            };
           }
           if (this.isVerbose()) {
             log.debug(`✅ CDIP rate limit check passed`);
@@ -137,12 +163,19 @@ export class CDIPService {
           if (this.isVerbose()) {
             log.debug(`🔄 CDIP fetching raw data for station ${stationId}`);
           }
-          const rawData = await this.apiClient.fetchWaveData(stationId);
-          if (!rawData) {
+          const rawData = await this.apiClient.fetchWaveDataWithDiagnostics(stationId);
+          if (!rawData.data) {
             log.warn(
               `❌ CDIP fetchWaveData returned null for station ${stationId}`
             );
-            return null;
+            return {
+              data: null,
+              stationId,
+              skipReason: rawData.skipReason,
+              breakerKey: rawData.breakerKey,
+              errorMessage: rawData.errorMessage,
+              status: rawData.status,
+            };
           }
           if (this.isVerbose()) {
             log.debug(
@@ -151,9 +184,13 @@ export class CDIPService {
           }
 
           // Transform and validate data
-          const buoyData = transformToCDIPBuoyData(stationId, rawData);
+          const buoyData = transformToCDIPBuoyData(stationId, rawData.data);
           if (!buoyData) {
-            return null;
+            return {
+              data: null,
+              stationId,
+              skipReason: "cdip_unavailable",
+            };
           }
 
           // Cache the data
@@ -162,7 +199,11 @@ export class CDIPService {
           // Record successful request
           this.apiClient.recordRequest(`station/${stationId}`);
 
-          return buoyData;
+          return {
+            data: buoyData,
+            stationId,
+            skipReason: "success",
+          };
         } finally {
           // Always clear in-flight marker (success or failure)
           this.inFlightFetches.delete(stationId);
@@ -176,7 +217,12 @@ export class CDIPService {
         `💥 Error fetching CDIP data for station ${stationId}:`,
         error
       );
-      return null;
+      return {
+        data: null,
+        stationId,
+        skipReason: "cdip_unavailable",
+        errorMessage: error instanceof Error ? error.message : String(error),
+      };
     }
   }
 
