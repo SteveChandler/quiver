@@ -391,6 +391,39 @@ describe("processBeachesInBatches", () => {
     expect(result.summary?.failed).toBe(1);
   });
 
+  it("aggregates CDIP skip reason counts from beach results", async () => {
+    const beaches = [makeBeach("1", "A"), makeBeach("2", "B"), makeBeach("3", "C")];
+    const processBeach = jest.fn(async (beach: Beach): Promise<BeachProcessResult> => {
+      if (beach.name === "A") {
+        return {
+          beach: beach.name,
+          success: true,
+          cdip_skip_reason: "success",
+          cdip_station: "067",
+        };
+      }
+
+      return {
+        beach: beach.name,
+        success: true,
+        cdip_skip_reason: "cdip_404",
+        cdip_station: "045",
+      };
+    });
+
+    const result = await processBeachesInBatches({
+      beaches,
+      config: defaultConfig,
+      deadlineTracker: new DeadlineTracker(),
+      processBeach,
+    });
+
+    expect(result.summary?.cdipSkipReasonCounts).toEqual({
+      success: 1,
+      cdip_404: 2,
+    });
+  });
+
   it("handles rejected processBeach promises gracefully", async () => {
     const beaches = [makeBeach("1", "A"), makeBeach("2", "B")];
     const processBeach = jest.fn(async (beach: Beach): Promise<BeachProcessResult> => {
