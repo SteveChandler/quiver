@@ -6,6 +6,8 @@
  *
  */
 
+import type { EventType } from '@/lib/analytics/event-taxonomy';
+
 // =============================================================================
 // Event Types
 // =============================================================================
@@ -13,157 +15,7 @@
 /**
  * Valid implicit event types that can be tracked
  */
-export type ImplicitEventType =
-  | 'beach_view'
-  | 'discovery_click'
-  | 'discovery_skip'
-  | 'forecast_check'
-  | 'location_update'
-  // Engagement tracking events
-  | 'page_view'
-  | 'forecast_interaction'
-  | 'session_action'
-  | 'profile_update'
-  | 'onboarding_step'
-  | 'cta_click'
-  // Review tracking events
-  | 'review_form_open'
-  | 'review_form_abandon'
-  | 'review_validation_error'
-  | 'review_submit'
-  // Share tracking events
-  | 'share_started'
-  | 'share_completed'
-  | 'share_link_opened'
-  | 'share_link_copied'
-  | 'share_image_saved'
-  | 'cam_share'
-  | 'share_intel_button_clicked'
-  | 'share_intel_signin_prompt'
-  | 'surf_plan_share'
-  // Signup/auth conversion events
-  | 'signup_cta_click'
-  | 'signup_cta_view'
-  | 'signin_cta_click'
-  // Auth funnel events (fire before user is authenticated)
-  | 'auth_modal_opened'
-  | 'auth_modal_closed_without_action'
-  | 'auth_method_selected'
-  | 'auth_provider_selected'
-  | 'signup_started'
-  | 'signup_success'
-  | 'login_success'
-  | 'signup_form_submitted'
-  | 'login_form_submitted'
-  // Home screen events
-  | 'home_at_beach_click'
-  | 'home_plan_weekend_click'
-  | 'home_plan_weekend_no_recommendation'
-  // Session logging events
-  | 'session_log_start'
-  | 'session_log_submit'
-  | 'session_share_opened_post_save'
-  | 'session_share_closed_post_save'
-  // Onboarding/tour events
-  | 'product_tour_started'
-  | 'product_tour_completed'
-  | 'product_tour_skipped'
-  | 'product_tour_step_viewed'
-  // Beach detail events
-  | 'beach_search'
-  | 'forecast_tab_click'
-  | 'horizon_strip_day_selected'
-  | 'match_score_teaser_click'
-  | 'match_score_teaser_view'
-  | 'set_home_beach'
-  | 'map_marker_click'
-  // Intel events
-  | 'local_intel_tab_viewed'
-  | 'intel_post_created'
-  | 'intel_post_confirmed'
-  | 'plan_session_from_intel'
-  // Profile events
-  | 'surf_profile_viewed'
-  | 'surf_profile_progress_shown'
-  // Discovery events
-  | 'personalized_score_shown'
-  | 'favorite_shown_in_carousel'
-  | 'mini_log_teaser_click'
-  | 'plan_unlock_click'
-  // Social events
-  | 'social_follow'
-  | 'social_like'
-  | 'social_invite_send'
-  | 'social_invite_respond'
-  | 'social_intel_confirm'
-  // Tab and map engagement events
-  | 'tab_view'
-  | 'map_interaction'
-  // Map engagement
-  | 'map_ready'
-  | 'map_load_failed'
-  // Forecast reliability
-  | 'forecast_ready'
-  // Session log funnel
-  | 'session_log_beach_selected'
-  | 'session_log_rating_set'
-  | 'session_log_photo_added'
-  | 'session_photo_upload_started'
-  | 'session_photo_upload_succeeded'
-  | 'session_photo_upload_failed'
-  | 'session_log_abandon'
-  | 'session_log_validation_failed'
-  // Search
-  | 'beach_search_result_click'
-  // Growth markers
-  | 'first_beach_view_post_signup'
-  // Empty states & impressions
-  | 'empty_state_shown'
-  | 'cta_impression'
-  // Reliability
-  | 'client_error'
-  // Engagement depth (anon + auth)
-  | 'scroll_depth'
-  | 'time_on_page'
-  // Phase 2 match-feature events (authenticated only)
-  | 'match_card_rendered'
-  | 'match_strip_tap'
-  | 'for_you_tap'
-  | 'unlock_toast_shown'
-  | 'session_decomposition_selected'
-  | 'match_alert_toggle'
-  // Roadmap events (added 2026-04-25)
-  | 'roadmap_vote_cast'
-  | 'roadmap_item_submitted'
-  | 'roadmap_item_status_changed'
-  // Anon alert capture events (added 2026-04-26)
-  // First three are pre-auth only (fire from SEO landings before signup);
-  // last two fire post-auth in /auth/callback when the magic-link finalizes.
-  | 'anon_alert_capture_view'
-  | 'anon_alert_capture_submit'
-  | 'anon_alert_capture_error'
-  | 'anon_alert_magic_link_clicked'
-  | 'anon_alert_signup_success'
-  // Paywall + trial funnel (native, added 2026-05-02)
-  | 'paywall_opened'
-  | 'paywall_dismissed'
-  | 'paywall_purchase_started'
-  | 'paywall_purchase_success'
-  | 'paywall_purchase_failed'
-  | 'onboarding_paywall_skipped'
-  | 'onboarding_trial_started'
-  // Push registration observability (native, added 2026-05-10)
-  | 'push_permission_denied'
-  | 'push_token_fetch_failed'
-  | 'push_device_registration_failed'
-  | 'push_device_registered'
-  // Apple sign-in beta prompt funnel
-  | 'apple_beta_prompt_eligible'
-  | 'apple_beta_prompt_viewed'
-  | 'apple_beta_prompt_qr_rendered'
-  | 'apple_beta_prompt_open_testflight_clicked'
-  | 'apple_beta_prompt_copy_link_clicked'
-  | 'apple_beta_prompt_dismissed';
+export type ImplicitEventType = EventType;
 
 /**
  * Weight multipliers for each event type, determining how much
@@ -197,6 +49,11 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   share_intel_button_clicked: 0,
   share_intel_signin_prompt: 0,
   surf_plan_share: 0,
+  invite_link_opened: 0,
+  invite_open_app_clicked: 0,
+  invite_app_store_clicked: 0,
+  invite_continue_web_clicked: 0,
+  invite_consumed: 0,
   // Signup/auth conversion events
   signup_cta_click: 0,
   signup_cta_view: 0,
@@ -255,6 +112,8 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   // Tab and map engagement events
   tab_view: 0,
   map_interaction: 0,
+  map_marker_tapped: 0,
+  map_viewed: 0,
   // Map engagement
   map_ready: 0,
   map_load_failed: 0,
@@ -289,9 +148,20 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   session_decomposition_selected: 0,
   match_alert_toggle: 0,
   // Roadmap events (added 2026-04-25)
+  feedback_roadmap_opened: 0,
+  feedback_roadmap_request_created: 0,
+  feedback_roadmap_viewed: 0,
+  feedback_roadmap_vote_submitted: 0,
   roadmap_vote_cast: 0,
   roadmap_item_submitted: 0,
   roadmap_item_status_changed: 0,
+  custom_spots_feedback_viewed: 0,
+  custom_spots_feedback_voted: 0,
+  missing_spot_prompt_viewed: 0,
+  missing_spot_prompt_tapped: 0,
+  custom_spot_create_started: 0,
+  custom_spot_saved: 0,
+  custom_spot_failed: 0,
   // Anon alert capture events (added 2026-04-26) — funnel tracking only, no preference weight
   anon_alert_capture_view: 0,
   anon_alert_capture_submit: 0,
@@ -419,6 +289,31 @@ export interface ShareLinkOpenedMetadata {
   utm_source?: string;
   utm_medium?: string;
   utm_campaign?: string;
+}
+
+export type InviteDestinationType =
+  | 'app_store'
+  | 'app_scheme'
+  | 'web_signup'
+  | 'android_waitlist';
+
+export type InvitePlatform = 'ios' | 'android' | 'desktop' | 'web';
+
+export interface InviteEventMetadata {
+  token_hash: string;
+  inviter_id: string;
+  surface: 'invite_landing' | 'web' | 'native';
+  utm_source?: string;
+  utm_medium?: string;
+  utm_campaign?: string;
+  browser_session_id?: string;
+  platform?: InvitePlatform;
+  destination_type?: InviteDestinationType;
+  follow_created?: boolean;
+  follow_existing?: boolean;
+  referral_created?: boolean;
+  referral_existing?: boolean;
+  self_invite?: boolean;
 }
 
 /**
@@ -852,6 +747,7 @@ export type EventMetadata =
   | LocationUpdateMetadata
   | PageViewMetadata
   | ShareLinkOpenedMetadata
+  | InviteEventMetadata
   | ForecastInteractionMetadata
   | SessionActionMetadata
   | ProfileUpdateMetadata

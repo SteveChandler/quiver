@@ -167,10 +167,14 @@ describe("POST /api/roadmap/submissions", () => {
     const mockSingle = jest.fn().mockResolvedValue({ data: { id: "sub-1" }, error: null });
     const mockSelect = jest.fn().mockReturnValue({ single: mockSingle });
     const mockInsert = jest.fn().mockReturnValue({ select: mockSelect });
+    const mockEventInsert = jest.fn().mockResolvedValue({ error: null });
 
     mockSupabaseClient.from.mockImplementation((table: string) => {
       if (table === "roadmap_item_submissions") {
         return { insert: mockInsert };
+      }
+      if (table === "user_events") {
+        return { insert: mockEventInsert };
       }
       throw new Error(`Unexpected table: ${table}`);
     });
@@ -186,6 +190,16 @@ describe("POST /api/roadmap/submissions", () => {
       description: "Would love to see tide charts on the beach page",
       category: "forecasts",
       submitter_user_id: "u1",
+    });
+    expect(mockEventInsert).toHaveBeenCalledWith({
+      user_id: "u1",
+      event_type: "feedback_roadmap_request_created",
+      metadata: {
+        source: "web_roadmap",
+        roadmap_submission_id: "sub-1",
+        category: "forecasts",
+        is_custom_spot_request: false,
+      },
     });
   });
 
@@ -216,10 +230,14 @@ describe("POST /api/roadmap/submissions", () => {
     const mockSingle = jest.fn().mockResolvedValue({ data: { id: "sub-2" }, error: null });
     const mockSelect = jest.fn().mockReturnValue({ single: mockSingle });
     const mockInsert = jest.fn().mockReturnValue({ select: mockSelect });
+    const mockEventInsert = jest.fn().mockResolvedValue({ error: null });
 
     mockSupabaseClient.from.mockImplementation((table: string) => {
       if (table === "roadmap_item_submissions") {
         return { insert: mockInsert };
+      }
+      if (table === "user_events") {
+        return { insert: mockEventInsert };
       }
       throw new Error(`Unexpected table: ${table}`);
     });

@@ -72,6 +72,7 @@ describe("POST /api/roadmap/items/[id]/vote", () => {
 
   it("2. first vote (no existing) → inserts and returns { voted: true }", async () => {
     const mockInsert = jest.fn().mockResolvedValue({ error: null });
+    const mockEventInsert = jest.fn().mockResolvedValue({ error: null });
     mockSupabaseClient.from.mockImplementation((table: string) => {
       if (table === "roadmap_votes") {
         return {
@@ -85,6 +86,24 @@ describe("POST /api/roadmap/items/[id]/vote", () => {
           insert: mockInsert,
         };
       }
+      if (table === "roadmap_items_with_vote_count") {
+        return {
+          select: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({
+                data: {
+                  title: "Custom spots",
+                  description: "Create private custom spots",
+                },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "user_events") {
+        return { insert: mockEventInsert };
+      }
       throw new Error(`Unexpected table: ${table}`);
     });
 
@@ -94,6 +113,26 @@ describe("POST /api/roadmap/items/[id]/vote", () => {
     expect(res.status).toBe(200);
     expect(body.voted).toBe(true);
     expect(mockInsert).toHaveBeenCalledWith({ item_id: "abc", user_id: "u1" });
+    expect(mockEventInsert).toHaveBeenCalledWith({
+      user_id: "u1",
+      event_type: "feedback_roadmap_vote_submitted",
+      metadata: {
+        source: "web_roadmap",
+        roadmap_item_id: "abc",
+        roadmap_item_title: "Custom spots",
+        vote_state: "cast",
+        is_custom_spot_request: true,
+      },
+    });
+    expect(mockEventInsert).toHaveBeenCalledWith({
+      user_id: "u1",
+      event_type: "custom_spots_feedback_voted",
+      metadata: {
+        source: "web_roadmap",
+        roadmap_item_id: "abc",
+        roadmap_item_title: "Custom spots",
+      },
+    });
   });
 
   it("3. toggle off (existing vote) → deletes, returns { voted: false }, insert NOT called", async () => {
