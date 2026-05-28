@@ -34,10 +34,29 @@ function series(values: number[], uom = 'wmoUnit:m'): NOAAValueSeries {
   };
 }
 
+function intervalSeries(
+  values: Array<{ validTime: string; value: number | null }>,
+  uom = 'wmoUnit:m',
+): NOAAValueSeries {
+  return {
+    uom,
+    values,
+  };
+}
+
 const LAT = 33.2;
 const LON = -117.4;
 
 describe('processNOAAGridData — real partition parsing', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-04-21T00:00:00Z'));
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('parses primary + secondary partitions when NOAA returns real values', () => {
     const gridData: NOAAGridData = {
       properties: {
@@ -345,6 +364,125 @@ describe('processNOAAGridData — real partition parsing', () => {
     expect(result[0].swell_2_height).not.toBe(0.8); // 2.0 * 0.4
     expect(result[0].swell_2_period).not.toBe(15.4); // 14 * 1.1
     expect(result[0].swell_2_height).toBe(0);
+  });
+
+  it('expands sparse NOAA intervals into every covered 3-hour slot', () => {
+    const gridData: NOAAGridData = {
+      properties: {
+        waveHeight: intervalSeries([
+          { validTime: '2026-05-27T11:00:00+00:00/PT13H', value: 0.91 },
+          { validTime: '2026-05-28T00:00:00+00:00/PT6H', value: 0.8 },
+        ]),
+        wavePeriod: intervalSeries([
+          { validTime: '2026-05-27T11:00:00+00:00/P1DT19H', value: 8 },
+        ]),
+        primarySwellHeight: intervalSeries([
+          { validTime: '2026-05-27T11:00:00+00:00/PT19H', value: 0.61 },
+        ]),
+        primarySwellDirection: intervalSeries([
+          { validTime: '2026-05-27T11:00:00+00:00/PT19H', value: 250 },
+        ]),
+        secondarySwellHeight: intervalSeries([
+          { validTime: '2026-05-27T11:00:00+00:00/P1DT19H', value: 0.58 },
+        ]),
+        secondarySwellDirection: intervalSeries([
+          { validTime: '2026-05-27T11:00:00+00:00/P1DT19H', value: 201 },
+        ]),
+        wavePeriod2: intervalSeries([
+          { validTime: '2026-05-27T11:00:00+00:00/P1DT19H', value: 12 },
+        ]),
+      },
+    };
+
+    const result = processNOAAGridData(
+      gridData,
+      1,
+      LAT,
+      LON,
+      { baseTime: new Date('2026-05-27T12:00:00Z') },
+    );
+
+    expect(result.map((slot) => slot.timestamp)).toEqual([
+      '2026-05-27T12:00:00Z',
+      '2026-05-27T15:00:00Z',
+      '2026-05-27T18:00:00Z',
+      '2026-05-27T21:00:00Z',
+      '2026-05-28T00:00:00Z',
+      '2026-05-28T03:00:00Z',
+    ]);
+
+    expect(result[0].significant_wave_height).toBeCloseTo(0.91, 2);
+    expect(result[0].swell_1_period).toBe(12);
+    expect(result[0].swell_1_direction).toBe(201);
+    expect(result[0].swell_1_height).toBeCloseTo(0.58, 2);
+    expect(result[0].swell_2_period).toBe(8);
+    expect(result[0].swell_2_direction).toBe(250);
+  });
+
+  it('stops emitting NOAA slots when waveHeight interval coverage ends', () => {
+    const gridData: NOAAGridData = {
+      properties: {
+        waveHeight: intervalSeries([
+          { validTime: '2026-05-27T12:00:00+00:00/PT6H', value: 0.91 },
+        ]),
+        wavePeriod: intervalSeries([
+          { validTime: '2026-05-27T12:00:00+00:00/P1DT', value: 12 },
+        ]),
+        primarySwellHeight: intervalSeries([
+          { validTime: '2026-05-27T12:00:00+00:00/P1DT', value: 0.58 },
+        ]),
+        primarySwellDirection: intervalSeries([
+          { validTime: '2026-05-27T12:00:00+00:00/P1DT', value: 201 },
+        ]),
+      },
+    };
+
+    const result = processNOAAGridData(
+      gridData,
+      1,
+      LAT,
+      LON,
+      { baseTime: new Date('2026-05-27T12:00:00Z') },
+    );
+
+    expect(result.map((slot) => slot.timestamp)).toEqual([
+      '2026-05-27T12:00:00Z',
+      '2026-05-27T15:00:00Z',
+    ]);
+    expect(result.every((slot) => slot.data_source === 'NOAA_NWS')).toBe(true);
+  });
+
+  it('skips covered intervals whose waveHeight value is null', () => {
+    const gridData: NOAAGridData = {
+      properties: {
+        waveHeight: intervalSeries([
+          { validTime: '2026-05-27T12:00:00+00:00/PT3H', value: null },
+          { validTime: '2026-05-27T15:00:00+00:00/PT3H', value: 0.91 },
+        ]),
+        wavePeriod: intervalSeries([
+          { validTime: '2026-05-27T12:00:00+00:00/PT6H', value: 12 },
+        ]),
+        primarySwellHeight: intervalSeries([
+          { validTime: '2026-05-27T12:00:00+00:00/PT6H', value: 0.58 },
+        ]),
+        primarySwellDirection: intervalSeries([
+          { validTime: '2026-05-27T12:00:00+00:00/PT6H', value: 201 },
+        ]),
+      },
+    };
+
+    const result = processNOAAGridData(
+      gridData,
+      1,
+      LAT,
+      LON,
+      { baseTime: new Date('2026-05-27T12:00:00Z') },
+    );
+
+    expect(result.map((slot) => slot.timestamp)).toEqual([
+      '2026-05-27T15:00:00Z',
+    ]);
+    expect(result[0].significant_wave_height).toBeCloseTo(0.91, 2);
   });
 });
 

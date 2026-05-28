@@ -9,10 +9,9 @@
 import { createContextLogger } from "@/lib/logger";
 import { FORECAST_CONFIG } from "./constants";
 import {
-  getBaseWaveHeight,
   getPrevailingWaveDirection,
-  getTimestampForIndex,
-  getValueAtIndex,
+  getTimestampForForecastSlot,
+  getValueAtTime,
 } from "./wave-analysis";
 import type {
   NOAAGridData,
@@ -22,6 +21,10 @@ import type {
 } from "./types";
 
 const log = createContextLogger("NOAAWaveWatch:DataProcessors");
+
+export interface ProcessNOAAGridDataOptions {
+  baseTime?: Date;
+}
 
 /** Return a finite number or null — guards against undefined/NaN in OM payloads. */
 function numberOrNull(value: number | null | undefined): number | null {
@@ -38,56 +41,53 @@ function numberOrNull(value: number | null | undefined): number | null {
  * @param days - Number of forecast days
  * @param latitude - Latitude of forecast location
  * @param longitude - Longitude of forecast location
+ * @param options - Optional processing controls for deterministic tests
  * @returns Array of processed wave forecast data
  */
 export function processNOAAGridData(
   gridData: NOAAGridData,
   days: number,
   latitude: number,
-  longitude: number
+  longitude: number,
+  options: ProcessNOAAGridDataOptions = {}
 ): WaveWatchData[] {
   const forecasts: WaveWatchData[] = [];
   const props = gridData.properties;
 
-  // Get the minimum number of available forecasts across all parameters
   const waveHeightCount = props.waveHeight?.values.length ?? 0;
   const wavePeriodCount = props.wavePeriod?.values.length ?? 0;
   const waveDirectionCount = props.waveDirection?.values.length ?? 0;
 
-  // Cap to waveHeightCount — wave height is the primary signal.
-  // Direction/period arrays are often longer (10 days vs 3 days of heights),
-  // and padding beyond real height data produces fabricated constant defaults.
   if (waveHeightCount < Math.max(wavePeriodCount, waveDirectionCount)) {
     log.info(
-      `NOAA array mismatch: waveHeight=${waveHeightCount}, wavePeriod=${wavePeriodCount}, waveDirection=${waveDirectionCount} — capping to ${waveHeightCount}`
+      `NOAA interval count mismatch: waveHeight=${waveHeightCount}, wavePeriod=${wavePeriodCount}, waveDirection=${waveDirectionCount} — sampling by validTime coverage`
     );
   }
 
-  const maxForecasts = Math.min(
-    days * FORECAST_CONFIG.FORECASTS_PER_DAY,
-    waveHeightCount
-  );
+  const maxForecasts = days * FORECAST_CONFIG.FORECASTS_PER_DAY;
+  const baseTime = options.baseTime ?? new Date();
 
   log.debug(`Processing ${maxForecasts} NOAA grid forecasts`);
 
   for (let i = 0; i < maxForecasts; i++) {
-    const timestamp = getTimestampForIndex(i);
+    const timestamp = getTimestampForForecastSlot(i, baseTime);
+    const targetMs = Date.parse(timestamp);
 
     // Extract wave height (convert from feet to meters if needed)
-    const waveHeight = getValueAtIndex(props.waveHeight?.values, i);
-    const significantWaveHeight = waveHeight
-      ? props.waveHeight?.uom === "wmoUnit:ft"
-        ? waveHeight * 0.3048
-        : waveHeight
-      : getBaseWaveHeight(latitude, longitude);
+    const waveHeight = getValueAtTime(props.waveHeight, targetMs);
+    if (waveHeight === null) {
+      continue;
+    }
+    const significantWaveHeight =
+      props.waveHeight?.uom === "wmoUnit:ft" ? waveHeight * 0.3048 : waveHeight;
 
     // Extract wave period
-    const wavePeriod = getValueAtIndex(props.wavePeriod?.values, i);
+    const wavePeriod = getValueAtTime(props.wavePeriod, targetMs);
     const peakWavePeriod =
       wavePeriod ?? Math.max(4, 6 + significantWaveHeight * 1.5);
 
     // Extract wave direction
-    const waveDirection = getValueAtIndex(props.waveDirection?.values, i);
+    const waveDirection = getValueAtTime(props.waveDirection, targetMs);
     const peakWaveDirection =
       waveDirection ?? getPrevailingWaveDirection(latitude, longitude);
 
@@ -96,31 +96,31 @@ export function processNOAAGridData(
     // `primarySwellHeight` / `primarySwellDirection`). Fall back to the
     // generic `swellHeight` / `swellDirection` / `swellPeriod` fields for
     // coastal-land grids that don't carry partitioned values.
-    const primarySwellHeight = getValueAtIndex(
-      props.primarySwellHeight?.values,
-      i
+    const primarySwellHeight = getValueAtTime(
+      props.primarySwellHeight,
+      targetMs
     );
-    const primarySwellDirection = getValueAtIndex(
-      props.primarySwellDirection?.values,
-      i
+    const primarySwellDirection = getValueAtTime(
+      props.primarySwellDirection,
+      targetMs
     );
-    const swellHeight = getValueAtIndex(props.swellHeight?.values, i);
-    const swellPeriod = getValueAtIndex(props.swellPeriod?.values, i);
-    const swellDirection = getValueAtIndex(props.swellDirection?.values, i);
+    const swellHeight = getValueAtTime(props.swellHeight, targetMs);
+    const swellPeriod = getValueAtTime(props.swellPeriod, targetMs);
+    const swellDirection = getValueAtTime(props.swellDirection, targetMs);
 
     // Secondary partition raw values — NOAA returns 0 (not null) for absent
     // partitions in some cases; we normalize to `0` sentinel so downstream
     // `swell_2_height > 0 && swell_2_period > 0` guards treat them as
     // "no second swell train."
-    const secondarySwellHeightRaw = getValueAtIndex(
-      props.secondarySwellHeight?.values,
-      i
+    const secondarySwellHeightRaw = getValueAtTime(
+      props.secondarySwellHeight,
+      targetMs
     );
-    const secondarySwellDirectionRaw = getValueAtIndex(
-      props.secondarySwellDirection?.values,
-      i
+    const secondarySwellDirectionRaw = getValueAtTime(
+      props.secondarySwellDirection,
+      targetMs
     );
-    const wavePeriod2Raw = getValueAtIndex(props.wavePeriod2?.values, i);
+    const wavePeriod2Raw = getValueAtTime(props.wavePeriod2, targetMs);
     const hasSecondary =
       secondarySwellHeightRaw !== null && secondarySwellHeightRaw > 0;
 

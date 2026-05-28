@@ -4,6 +4,7 @@ import {
   transformToFaceHeightRange,
   transformToFaceHeightDecomposed,
   alignmentFactor,
+  componentAccessFactor,
   calculatePeriodFactor,
   calculateDirectionFactor,
   getTransformationFactors,
@@ -1108,6 +1109,39 @@ describe('Wave Height Transformer', () => {
         6,
       );
     });
+
+    it('uses terrain access for model components when available', () => {
+      const accessFactors = createAccessArray(0);
+      accessFactors[40] = 0.21171; // 200° / 201° bin
+      const beach: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: accessFactors,
+        swell_window_center_deg: 273,
+        swell_window_halfwidth_deg: 78,
+      };
+
+      const strictWindow = alignmentFactor(201, 12, 273, 78);
+      const modelAccess = componentAccessFactor(201, 12, beach, 'model_swell');
+      const modelHsAccess = componentAccessFactor(201, 12, beach, 'model_hs');
+      const cdipAccess = componentAccessFactor(201, 12, beach, 'cdip_sig');
+      const cdipSwellAccess = componentAccessFactor(201, 12, beach, 'cdip_swell');
+      const noTerrainModelAccess = componentAccessFactor(
+        201,
+        12,
+        { ...beach, swell_access_factors: null },
+        'model_swell',
+      );
+
+      expect(strictWindow).toBeLessThan(0.02);
+      expect(modelAccess).toBeCloseTo(
+        DIRECTION_FACTOR_MIN + Math.sqrt(0.21171) * DIRECTION_FACTOR_RANGE,
+        5,
+      );
+      expect(modelHsAccess).toBeCloseTo(modelAccess, 6);
+      expect(cdipAccess).toBeCloseTo(strictWindow, 6);
+      expect(cdipSwellAccess).toBeCloseTo(strictWindow, 6);
+      expect(noTerrainModelAccess).toBeCloseTo(strictWindow, 6);
+    });
   });
 
   describe('transformToFaceHeightDecomposed', () => {
@@ -1150,6 +1184,18 @@ describe('Wave Height Transformer', () => {
       shoaling_factors: BLACKS_FACTORS,
       swell_window_center_deg: 275,
       swell_window_halfwidth_deg: 80,
+    };
+
+    const createDirectionalAccess = (
+      entries: Array<{ directionDeg: number; access: number }>,
+      defaultAccess = 0,
+    ): number[] => {
+      const access = createAccessArray(defaultAccess);
+      for (const entry of entries) {
+        const bin = Math.round(entry.directionDeg / 5) % TERRAIN_BINS;
+        access[bin] = entry.access;
+      }
+      return access;
     };
 
     it('Tourmaline 2026-04-09 scenario — short-period W wind-swell is zeroed', () => {
@@ -1670,6 +1716,106 @@ describe('Wave Height Transformer', () => {
       expect(result.path).toBe('legacy');
       expect(result.faceHeightFt).toBeGreaterThan(0);
       expect(result.faceHeightFt).toBeLessThanOrEqual(2.5);
+    });
+
+    it('La Jolla Shores model SSW fixture stays in the NOAA/Surfline 2ft+ neighborhood', () => {
+      const laJollaShores: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: createDirectionalAccess([
+          { directionDeg: 200, access: 0.21171 },
+        ]),
+        shoaling_factors: {
+          version: 1,
+          type: 'period_lookup',
+          buckets: [
+            { tp_min_s: 0, tp_max_s: 8, factor: 1.18 },
+            { tp_min_s: 8, tp_max_s: 12, factor: 1.19 },
+            { tp_min_s: 12, tp_max_s: 16, factor: 1.42 },
+            { tp_min_s: 16, tp_max_s: 999, factor: 1.46 },
+          ],
+        },
+        swell_window_center_deg: 273,
+        swell_window_halfwidth_deg: 78,
+        deepwater_decay_factor: 1.15,
+      };
+
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 1.9, periodS: 12, directionDeg: 201 },
+          null,
+          null,
+        ],
+        beach: laJollaShores,
+        source: 'model_swell',
+        rawHeightFt: 1.9,
+        periodS: 12,
+        swellDirectionDeg: 201,
+      });
+
+      expect(result.path).toBe('decomposed');
+      expect(result.faceHeightFt).toBeGreaterThanOrEqual(2.0);
+      expect(result.faceHeightFt).toBeLessThanOrEqual(2.5);
+    });
+
+    it('Waikiki Beach terrain model fixture is bounded and nonzero', () => {
+      const waikikiBeach: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: createDirectionalAccess([
+          { directionDeg: 200, access: 1 },
+        ]),
+        shoaling_factors: null,
+        swell_window_center_deg: 195,
+        swell_window_halfwidth_deg: 105,
+        deepwater_decay_factor: 1,
+      };
+
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 2.0, periodS: 13, directionDeg: 200 },
+          null,
+          null,
+        ],
+        beach: waikikiBeach,
+        source: 'model_swell',
+        rawHeightFt: 2.0,
+        periodS: 13,
+        swellDirectionDeg: 200,
+      });
+
+      expect(result.path).toBe('decomposed');
+      expect(result.faceHeightFt).toBeGreaterThan(0.5);
+      expect(result.faceHeightFt).toBeLessThanOrEqual(2.5);
+    });
+
+    it('Malibu First Point terrain model fixture stays bounded and does not overcall', () => {
+      const malibuFirstPoint: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: createDirectionalAccess([
+          { directionDeg: 200, access: 0.575489 },
+          { directionDeg: 290, access: 0.847961 },
+        ]),
+        shoaling_factors: null,
+        swell_window_center_deg: 175,
+        swell_window_halfwidth_deg: 130,
+        deepwater_decay_factor: 0.6,
+      };
+
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 3.0, periodS: 8, directionDeg: 290 },
+          { heightFt: 2.0, periodS: 14, directionDeg: 200 },
+          null,
+        ],
+        beach: malibuFirstPoint,
+        source: 'model_swell',
+        rawHeightFt: 3.0,
+        periodS: 14,
+        swellDirectionDeg: 200,
+      });
+
+      expect(result.path).toBe('decomposed');
+      expect(result.faceHeightFt).toBeGreaterThan(0.5);
+      expect(result.faceHeightFt).toBeLessThanOrEqual(2.0);
     });
   });
 });

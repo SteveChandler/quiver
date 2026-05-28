@@ -41,7 +41,10 @@ export {
   getPrevailingWaveDirection,
   hasValidWaveData,
   getValueAtIndex,
+  getValueAtTime,
   getTimestampForIndex,
+  getTimestampForForecastSlot,
+  parseNOAAValidTime,
 } from "./wave-analysis";
 
 export { generateFallbackData } from "./fallback-generator";
