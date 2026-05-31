@@ -11,6 +11,12 @@ export const revalidate = 0;
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const SENTRY_MONITOR = {
+  slug: "forecast-alerts",
+  schedule: "15 */3 * * *",
+  maxRuntimeMinutes: 5,
+};
+
 /**
  * GET /api/cron/forecast-alerts
  *
@@ -33,6 +39,4 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/forecast-alerts", _GET);
-
-
+export const GET = withObservedCron("/api/cron/forecast-alerts", _GET, SENTRY_MONITOR);

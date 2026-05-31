@@ -4,7 +4,7 @@
 
 import { readFileSync } from "fs";
 import { GET } from "@/app/api/cron/notifications-deliver/route";
-import { withCronObservability } from "@/lib/cron/observability";
+import { withObservedCron } from "@/lib/cron/observability";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { processPendingEvents } from "@/lib/notifications/worker";
 
@@ -17,7 +17,7 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 jest.mock("@/lib/cron/observability", () => ({
-  withCronObservability: jest.fn((_route: string, handler) => handler()),
+  withObservedCron: jest.fn((_route: string, handler) => handler),
 }));
 
 jest.mock("@/lib/notifications/worker", () => ({
@@ -56,6 +56,8 @@ describe("notifications deliver cron route", () => {
   it("uses the API wrapper barrel for cron request validation", () => {
     expect(routeSource).not.toContain("@/lib/api-utils");
     expect(routeSource).toContain("@/lib/middleware/api-wrappers");
+    expect(routeSource).toContain('withObservedCron("/api/cron/notifications-deliver"');
+    expect(routeSource).toContain('slug: "notifications-deliver"');
   });
 
   it("rejects unauthorized cron requests before creating a Supabase client", async () => {
@@ -70,11 +72,11 @@ describe("notifications deliver cron route", () => {
     expect(response.status).toBe(401);
     expect(data).toEqual({ error: "Unauthorized" });
     expect(createSupabaseServiceRoleClient).not.toHaveBeenCalled();
-    expect(withCronObservability).not.toHaveBeenCalled();
+    expect(withObservedCron).not.toHaveBeenCalled();
     expect(processPendingEvents).not.toHaveBeenCalled();
   });
 
-  it("runs the notification worker inside cron observability and returns its summary", async () => {
+  it("runs the notification worker and returns its summary", async () => {
     const response = await GET(
       new Request("http://localhost/api/cron/notifications-deliver")
     );
@@ -82,10 +84,6 @@ describe("notifications deliver cron route", () => {
 
     expect(response.status).toBe(200);
     expect(createSupabaseServiceRoleClient).toHaveBeenCalledTimes(1);
-    expect(withCronObservability).toHaveBeenCalledWith(
-      "/api/cron/notifications-deliver",
-      expect.any(Function)
-    );
     expect(processPendingEvents).toHaveBeenCalledWith(supabase);
     expect(data).toEqual(deliverySummary);
   });

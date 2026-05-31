@@ -103,10 +103,26 @@ describe("NOAAWaveWatchService.mergeForecasts: OM co-location", () => {
       wave_height_om: height,
       wave_period_om: 11,
       wave_direction_om: 230,
+      wave_peak_period_om: 12,
       swell_height_om: height * 0.7,
       swell_period_om: 13,
       swell_direction_om: 225,
+      swell_wave_peak_period_om: 15,
       wind_wave_height_om: 0.3,
+      wind_wave_period_om: 5,
+      wind_wave_direction_om: 205,
+      wind_wave_peak_period_om: 7,
+      secondary_swell_height_om: 0.25,
+      secondary_swell_period_om: 11,
+      secondary_swell_direction_om: 190,
+      tertiary_swell_height_om: 0.15,
+      tertiary_swell_period_om: 9,
+      tertiary_swell_direction_om: 145,
+      om_wind_wave_missing: false,
+      om_primary_swell_missing: false,
+      om_secondary_swell_missing: false,
+      om_tertiary_swell_missing: false,
+      om_partition_schema_version: 1,
     },
   });
 
@@ -143,10 +159,31 @@ describe("NOAAWaveWatchService.mergeForecasts: OM co-location", () => {
     expect(early!.data_source).toBe("NOAA_NWS");
     expect(early!.om_values?.wave_height_om).toBe(1.05);
     expect(early!.om_values?.wave_period_om).toBe(11);
+    expect(early!.om_values).toEqual(
+      expect.objectContaining({
+        wave_peak_period_om: 12,
+        swell_wave_peak_period_om: 15,
+        wind_wave_period_om: 5,
+        wind_wave_direction_om: 205,
+        wind_wave_peak_period_om: 7,
+        secondary_swell_height_om: 0.25,
+        secondary_swell_period_om: 11,
+        secondary_swell_direction_om: 190,
+        tertiary_swell_height_om: 0.15,
+        tertiary_swell_period_om: 9,
+        tertiary_swell_direction_om: 145,
+        om_wind_wave_missing: false,
+        om_primary_swell_missing: false,
+        om_secondary_swell_missing: false,
+        om_tertiary_swell_missing: false,
+        om_partition_schema_version: 1,
+      })
+    );
 
     expect(late).toEqual(expect.any(Object));
     expect(late!.data_source).toBe("OPEN_METEO");
     expect(late!.om_values?.wave_height_om).toBe(0.95);
+    expect(late!.om_values?.om_partition_schema_version).toBe(1);
   });
 
   it("leaves om_values undefined on NOAA slots when OM did not cover that slot", async () => {
