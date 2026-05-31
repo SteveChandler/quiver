@@ -110,6 +110,7 @@ Recent decisions affecting current work:
 - 2026-05-25: Plan 11-02 Task 1 recorded live route truth: production `https://www.quiversurf.app/pbsc` still returns HTTP 404 matched to `/[intent]`, while dev returns HTTP 200 matched to `/pbsc`; release work is blocked on explicit approval.
 - 2026-05-30: Sentry for Startups credit review found $5,000 active through 2027-05-27, current web/native Sentry coverage, native events grouped into the `javascript-nextjs` project, high web tracing volume, disabled native source-map auto-upload, and a need for controlled project split, sampling, release, replay, cron, and usage-budget work.
 - 2026-05-30: Phase 13 was added to carry forward the controlled refactor work from `docs/refactor-roadmap.md`, starting after Slice 81 with the remaining production `@/lib/api-utils` imports outside wrapper internals.
+- 2026-05-31: Phase 12 web work started with centralized Sentry DSN/env/release/sampling helpers, Vercel Preview and `dev.quiversurf.app` filtering, and route-aware tracing caps replacing blanket 100% web trace capture.
 
 ### Roadmap Evolution
 
@@ -120,6 +121,7 @@ Recent decisions affecting current work:
 ### Pending Todos
 
 - Resume `$gsd-execute-phase 11` only after the thread contains an exact approved release action, or `do not deploy`.
+- Continue Phase 12 with Sentry project/DSN split, source-map/debug-symbol upload verification, native release context, Sentry Cron monitor expansion, and a monthly startup-credit usage review cadence.
 - Plan Phase 13 with `$gsd-plan-phase 13` when ready to resume the controlled refactor; start from Slice 82 in `docs/refactor-roadmap.md`.
 
 ### Blockers/Concerns
