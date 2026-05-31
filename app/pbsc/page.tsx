@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
 import Image from "next/image";
-import { ArrowRight, CalendarDays, MapPin, QrCode, Waves } from "lucide-react";
+import { ArrowRight, CalendarDays, MapPin, Waves } from "lucide-react";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { parseUserAgent } from "@/lib/utils/user-agent-parser";
 import { PbscScanCtas } from "./pbsc-scan-ctas";
@@ -9,7 +9,7 @@ import { PbscScanCtas } from "./pbsc-scan-ctas";
 export const metadata: Metadata = buildPageMetadata({
   title: "Quiver at PBSC Summer Longboard Classic",
   description:
-    "Quiver is sponsoring the PBSC Summer Longboard Classic at Tourmaline. Scan to open Quiver on iPhone or join Android updates.",
+    "Quiver turns every session into local knowledge, so the next call is always a little sharper.",
   path: "/pbsc",
   keywords: [
     "PBSC Summer Longboard Classic",
@@ -33,8 +33,8 @@ const REASONS = [
     body: "Log the board, beach, conditions, and rating so your best sessions become useful signal.",
   },
   {
-    title: "Help shape the forecast",
-    body: "Event-day feedback helps tune the way Quiver explains local setup and surfer fit.",
+    title: "Build local knowledge",
+    body: "Every logged session adds context for the next swell, tide, wind, and board call.",
   },
 ] as const;
 
@@ -79,9 +79,8 @@ export default async function PbscPage() {
               Keep them on repeat.
             </h1>
             <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-[#F4EBD8]/88 md:text-xl">
-              Quiver is a surf forecast that explains the call, remembers your
-              sessions, and gets sharper when surfers tell it what actually
-              happened.
+              Quiver turns every session into local knowledge, so the next call
+              is always a little sharper.
             </p>
 
             <PbscScanCtas
@@ -103,7 +102,7 @@ export default async function PbscPage() {
 
           <div className="relative mx-auto w-full max-w-[460px] -rotate-1 overflow-hidden rounded-sm border-2 border-[#F4EBD8]/80 bg-[#11100D] p-3 shadow-[14px_16px_0_rgba(247,142,66,0.34)]">
             <div className="absolute -right-3 top-8 z-10 rotate-6 border-2 border-[#11100D] bg-[#2AC9C6] px-3 py-2 text-center font-mono text-xs font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[4px_4px_0_rgba(247,142,66,0.9)]">
-              Scan before
+              Check before
               <br />
               the next set
             </div>
@@ -118,10 +117,10 @@ export default async function PbscPage() {
               />
               <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(0deg,rgba(17,16,13,0.92),rgba(17,16,13,0))] p-5 pt-24">
                 <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#FDB84B]">
-                  Scan at the sponsor table
+                  PBSC Summer Longboard Classic
                 </p>
                 <p className="mt-2 max-w-xs font-heading text-3xl font-black leading-none text-white">
-                  Try the forecast that remembers you.
+                  Turn sessions into local knowledge.
                 </p>
               </div>
             </div>
@@ -150,12 +149,12 @@ export default async function PbscPage() {
           <div className="mt-10 rounded-sm border-2 border-[#11100D] bg-[#252D6B] p-6 text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.22)] md:flex md:items-center md:justify-between md:gap-8">
             <div>
               <div className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#FDB84B]">
-                <QrCode className="h-4 w-4" />
-                Event live link
+                <Waves className="h-4 w-4" />
+                Local knowledge loop
               </div>
               <p className="mt-3 max-w-2xl text-lg font-semibold leading-8">
-                Stop by the Quiver sponsor table, scan the flyer, and tell us
-                whether the forecast feels useful for your home break.
+                Download Quiver, check the local call, and log the sessions
+                worth remembering.
               </p>
             </div>
             <PbscScanCtas

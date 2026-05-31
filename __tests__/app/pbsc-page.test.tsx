@@ -85,8 +85,26 @@ describe("PbscPage", () => {
 
   it("exports PBSC event metadata", () => {
     expect(metadata.title).toBe("Quiver at PBSC Summer Longboard Classic");
-    expect(metadata.description).toMatch(/PBSC Summer Longboard Classic/i);
-    expect(metadata.description).toMatch(/Tourmaline/i);
+    expect(metadata.description).toBe(
+      "Quiver turns every session into local knowledge, so the next call is always a little sharper.",
+    );
+  });
+
+  it("renders site-first PBSC copy without stale scan-table handoff language", async () => {
+    await renderPbscPage(
+      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    );
+
+    expect(
+      screen.getByText(
+        /Quiver turns every session into local knowledge, so the next call is always a little sharper\./i,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Download Quiver, check the local call/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Scan at the sponsor table/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Event live link/i)).not.toBeInTheDocument();
   });
 
   it("renders tracked App Store CTAs for iOS visitors", async () => {
