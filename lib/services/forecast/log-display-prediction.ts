@@ -62,14 +62,46 @@ export type DisplayPredictionRow = {
   wave_period_om: number | null;
   /** Raw OM peak wave direction in degrees. */
   wave_direction_om: number | null;
+  /** Raw OM wave peak period in seconds. */
+  wave_peak_period_om: number | null;
   /** Raw OM swell height in meters. */
   swell_height_om: number | null;
   /** Raw OM swell period in seconds. */
   swell_period_om: number | null;
   /** Raw OM swell direction in degrees. */
   swell_direction_om: number | null;
+  /** Raw OM primary swell peak period in seconds. */
+  swell_wave_peak_period_om: number | null;
   /** Raw OM wind-wave height in meters. */
   wind_wave_height_om: number | null;
+  /** Raw OM wind-wave period in seconds. */
+  wind_wave_period_om: number | null;
+  /** Raw OM wind-wave direction in degrees. */
+  wind_wave_direction_om: number | null;
+  /** Raw OM wind-wave peak period in seconds. */
+  wind_wave_peak_period_om: number | null;
+  /** Raw OM secondary swell height in meters. */
+  secondary_swell_height_om: number | null;
+  /** Raw OM secondary swell period in seconds. */
+  secondary_swell_period_om: number | null;
+  /** Raw OM secondary swell direction in degrees. */
+  secondary_swell_direction_om: number | null;
+  /** Raw OM tertiary swell height in meters. */
+  tertiary_swell_height_om: number | null;
+  /** Raw OM tertiary swell period in seconds. */
+  tertiary_swell_period_om: number | null;
+  /** Raw OM tertiary swell direction in degrees. */
+  tertiary_swell_direction_om: number | null;
+  /** True when OM returned no wind-wave partition fields for the slot. */
+  om_wind_wave_missing: boolean | null;
+  /** True when OM returned no primary-swell partition fields for the slot. */
+  om_primary_swell_missing: boolean | null;
+  /** True when OM returned no secondary-swell partition fields for the slot. */
+  om_secondary_swell_missing: boolean | null;
+  /** True when OM returned no tertiary-swell partition fields for the slot. */
+  om_tertiary_swell_missing: boolean | null;
+  /** Open-Meteo partition capture schema version. */
+  om_partition_schema_version: number | null;
   /** NWS wind speed converted to meters per second. Null when no weather point was present. */
   wind_speed_ms: number | null;
   /** NWS wind direction in degrees. Null when no weather point was present. */
@@ -131,10 +163,26 @@ export async function logDisplayPredictions(
       wave_direction_deg: r.wave_direction_deg,
       wave_period_om: r.wave_period_om,
       wave_direction_om: r.wave_direction_om,
+      wave_peak_period_om: r.wave_peak_period_om,
       swell_height_om: r.swell_height_om,
       swell_period_om: r.swell_period_om,
       swell_direction_om: r.swell_direction_om,
+      swell_wave_peak_period_om: r.swell_wave_peak_period_om,
       wind_wave_height_om: r.wind_wave_height_om,
+      wind_wave_period_om: r.wind_wave_period_om,
+      wind_wave_direction_om: r.wind_wave_direction_om,
+      wind_wave_peak_period_om: r.wind_wave_peak_period_om,
+      secondary_swell_height_om: r.secondary_swell_height_om,
+      secondary_swell_period_om: r.secondary_swell_period_om,
+      secondary_swell_direction_om: r.secondary_swell_direction_om,
+      tertiary_swell_height_om: r.tertiary_swell_height_om,
+      tertiary_swell_period_om: r.tertiary_swell_period_om,
+      tertiary_swell_direction_om: r.tertiary_swell_direction_om,
+      om_wind_wave_missing: r.om_wind_wave_missing,
+      om_primary_swell_missing: r.om_primary_swell_missing,
+      om_secondary_swell_missing: r.om_secondary_swell_missing,
+      om_tertiary_swell_missing: r.om_tertiary_swell_missing,
+      om_partition_schema_version: r.om_partition_schema_version,
       wind_speed_ms: r.wind_speed_ms,
       wind_direction_deg: r.wind_direction_deg,
       v5_shadow_height_m: r.v5_shadow_height_m,

@@ -551,15 +551,16 @@ export class ForecastBuilder {
       // v5 shadow inputs. Direction comes from NOAA primary swell to match
       // the calibration audits' bucketing; OM direction is a documented
       // fallback only. wave_height_om_m is always meters (already correct).
+      const omValues = wavePoint?.om_values;
       const omHeightM =
-        typeof wavePoint?.om_values?.wave_height_om === "number"
-          ? wavePoint.om_values.wave_height_om
+        typeof omValues?.wave_height_om === "number"
+          ? omValues.wave_height_om
           : null;
       const noaaPrimaryDirDeg =
         cardinalToDegrees(wavePoint?.swell_1_direction) ?? null;
       const omDirDeg =
-        typeof wavePoint?.om_values?.wave_direction_om === "number"
-          ? wavePoint.om_values.wave_direction_om
+        typeof omValues?.wave_direction_om === "number"
+          ? omValues.wave_direction_om
           : null;
       const directionDegForBucket = noaaPrimaryDirDeg ?? omDirDeg;
       const wavePeriodS =
@@ -593,12 +594,40 @@ export class ForecastBuilder {
         wave_height_om_m: omHeightM,
         wave_period_s: wavePeriodS,
         wave_direction_deg: directionDegForBucket,
-        wave_period_om: wavePoint?.om_values?.wave_period_om ?? null,
-        wave_direction_om: wavePoint?.om_values?.wave_direction_om ?? null,
-        swell_height_om: wavePoint?.om_values?.swell_height_om ?? null,
-        swell_period_om: wavePoint?.om_values?.swell_period_om ?? null,
-        swell_direction_om: wavePoint?.om_values?.swell_direction_om ?? null,
-        wind_wave_height_om: wavePoint?.om_values?.wind_wave_height_om ?? null,
+        wave_period_om: omValues?.wave_period_om ?? null,
+        wave_direction_om: omValues?.wave_direction_om ?? null,
+        wave_peak_period_om: omValues?.wave_peak_period_om ?? null,
+        swell_height_om: omValues?.swell_height_om ?? null,
+        swell_period_om: omValues?.swell_period_om ?? null,
+        swell_direction_om: omValues?.swell_direction_om ?? null,
+        swell_wave_peak_period_om:
+          omValues?.swell_wave_peak_period_om ?? null,
+        wind_wave_height_om: omValues?.wind_wave_height_om ?? null,
+        wind_wave_period_om: omValues?.wind_wave_period_om ?? null,
+        wind_wave_direction_om: omValues?.wind_wave_direction_om ?? null,
+        wind_wave_peak_period_om:
+          omValues?.wind_wave_peak_period_om ?? null,
+        secondary_swell_height_om:
+          omValues?.secondary_swell_height_om ?? null,
+        secondary_swell_period_om:
+          omValues?.secondary_swell_period_om ?? null,
+        secondary_swell_direction_om:
+          omValues?.secondary_swell_direction_om ?? null,
+        tertiary_swell_height_om:
+          omValues?.tertiary_swell_height_om ?? null,
+        tertiary_swell_period_om:
+          omValues?.tertiary_swell_period_om ?? null,
+        tertiary_swell_direction_om:
+          omValues?.tertiary_swell_direction_om ?? null,
+        om_wind_wave_missing: omValues?.om_wind_wave_missing ?? null,
+        om_primary_swell_missing:
+          omValues?.om_primary_swell_missing ?? null,
+        om_secondary_swell_missing:
+          omValues?.om_secondary_swell_missing ?? null,
+        om_tertiary_swell_missing:
+          omValues?.om_tertiary_swell_missing ?? null,
+        om_partition_schema_version:
+          omValues?.om_partition_schema_version ?? null,
         wind_speed_ms: windSpeedMs,
         wind_direction_deg: windDirectionDeg,
         v5_shadow_height_m: v5?.v5_shadow_height_m ?? null,

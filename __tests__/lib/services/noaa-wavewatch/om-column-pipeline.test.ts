@@ -23,16 +23,38 @@ describe("processOpenMeteoData: om_values capture", () => {
     const swell_wave_period: number[] = [];
     const swell_wave_direction: number[] = [];
     const wind_wave_height: number[] = [];
+    const wind_wave_period: number[] = [];
+    const wind_wave_direction: number[] = [];
+    const wind_wave_peak_period: number[] = [];
+    const wave_peak_period: number[] = [];
+    const swell_wave_peak_period: number[] = [];
+    const secondary_swell_wave_height: number[] = [];
+    const secondary_swell_wave_period: number[] = [];
+    const secondary_swell_wave_direction: number[] = [];
+    const tertiary_swell_wave_height: number[] = [];
+    const tertiary_swell_wave_period: number[] = [];
+    const tertiary_swell_wave_direction: number[] = [];
     for (let h = 0; h < 24; h += 1) {
       const d = new Date(start.getTime() + h * 3600000);
       time.push(d.toISOString());
       wave_height.push(1.0 + h * 0.05);
       wave_period.push(10 + h * 0.1);
       wave_direction.push(220 + h);
+      wave_peak_period.push(11 + h * 0.1);
       swell_wave_height.push(0.7 + h * 0.03);
       swell_wave_period.push(12 + h * 0.1);
       swell_wave_direction.push(215 + h);
+      swell_wave_peak_period.push(13 + h * 0.1);
       wind_wave_height.push(0.3);
+      wind_wave_period.push(5 + h * 0.05);
+      wind_wave_direction.push(180 + h);
+      wind_wave_peak_period.push(6 + h * 0.05);
+      secondary_swell_wave_height.push(0.2 + h * 0.01);
+      secondary_swell_wave_period.push(9 + h * 0.1);
+      secondary_swell_wave_direction.push(190 + h);
+      tertiary_swell_wave_height.push(0.1 + h * 0.01);
+      tertiary_swell_wave_period.push(8 + h * 0.1);
+      tertiary_swell_wave_direction.push(140 + h);
     }
     return {
       hourly: {
@@ -40,10 +62,21 @@ describe("processOpenMeteoData: om_values capture", () => {
         wave_height,
         wave_period,
         wave_direction,
+        wave_peak_period,
         swell_wave_height,
         swell_wave_period,
         swell_wave_direction,
+        swell_wave_peak_period,
         wind_wave_height,
+        wind_wave_period,
+        wind_wave_direction,
+        wind_wave_peak_period,
+        secondary_swell_wave_height,
+        secondary_swell_wave_period,
+        secondary_swell_wave_direction,
+        tertiary_swell_wave_height,
+        tertiary_swell_wave_period,
+        tertiary_swell_wave_direction,
       },
     };
   };
@@ -74,6 +107,44 @@ describe("processOpenMeteoData: om_values capture", () => {
       expect(fc.om_values?.wind_wave_height_om).toBe(
         resp.hourly!.wind_wave_height![i]
       );
+      expect(fc.om_values?.wave_peak_period_om).toBe(
+        resp.hourly!.wave_peak_period![i]
+      );
+      expect(fc.om_values?.swell_wave_peak_period_om).toBe(
+        resp.hourly!.swell_wave_peak_period![i]
+      );
+      expect(fc.om_values?.wind_wave_period_om).toBe(
+        resp.hourly!.wind_wave_period![i]
+      );
+      expect(fc.om_values?.wind_wave_direction_om).toBe(
+        resp.hourly!.wind_wave_direction![i]
+      );
+      expect(fc.om_values?.wind_wave_peak_period_om).toBe(
+        resp.hourly!.wind_wave_peak_period![i]
+      );
+      expect(fc.om_values?.secondary_swell_height_om).toBe(
+        resp.hourly!.secondary_swell_wave_height![i]
+      );
+      expect(fc.om_values?.secondary_swell_period_om).toBe(
+        resp.hourly!.secondary_swell_wave_period![i]
+      );
+      expect(fc.om_values?.secondary_swell_direction_om).toBe(
+        resp.hourly!.secondary_swell_wave_direction![i]
+      );
+      expect(fc.om_values?.tertiary_swell_height_om).toBe(
+        resp.hourly!.tertiary_swell_wave_height![i]
+      );
+      expect(fc.om_values?.tertiary_swell_period_om).toBe(
+        resp.hourly!.tertiary_swell_wave_period![i]
+      );
+      expect(fc.om_values?.tertiary_swell_direction_om).toBe(
+        resp.hourly!.tertiary_swell_wave_direction![i]
+      );
+      expect(fc.om_values?.om_wind_wave_missing).toBe(false);
+      expect(fc.om_values?.om_primary_swell_missing).toBe(false);
+      expect(fc.om_values?.om_secondary_swell_missing).toBe(false);
+      expect(fc.om_values?.om_tertiary_swell_missing).toBe(false);
+      expect(fc.om_values?.om_partition_schema_version).toBe(1);
     });
   });
 
@@ -83,8 +154,19 @@ describe("processOpenMeteoData: om_values capture", () => {
     delete resp.hourly!.swell_wave_height;
     delete resp.hourly!.swell_wave_period;
     delete resp.hourly!.swell_wave_direction;
+    delete resp.hourly!.swell_wave_peak_period;
     delete resp.hourly!.wind_wave_height;
+    delete resp.hourly!.wind_wave_period;
+    delete resp.hourly!.wind_wave_direction;
+    delete resp.hourly!.wind_wave_peak_period;
+    delete resp.hourly!.secondary_swell_wave_height;
+    delete resp.hourly!.secondary_swell_wave_period;
+    delete resp.hourly!.secondary_swell_wave_direction;
+    delete resp.hourly!.tertiary_swell_wave_height;
+    delete resp.hourly!.tertiary_swell_wave_period;
+    delete resp.hourly!.tertiary_swell_wave_direction;
     delete resp.hourly!.wave_direction;
+    delete resp.hourly!.wave_peak_period;
 
     const forecasts = processOpenMeteoData(resp, 1);
 
@@ -99,6 +181,22 @@ describe("processOpenMeteoData: om_values capture", () => {
       expect(fc.om_values?.swell_period_om).toBeNull();
       expect(fc.om_values?.swell_direction_om).toBeNull();
       expect(fc.om_values?.wind_wave_height_om).toBeNull();
+      expect(fc.om_values?.wave_peak_period_om).toBeNull();
+      expect(fc.om_values?.swell_wave_peak_period_om).toBeNull();
+      expect(fc.om_values?.wind_wave_period_om).toBeNull();
+      expect(fc.om_values?.wind_wave_direction_om).toBeNull();
+      expect(fc.om_values?.wind_wave_peak_period_om).toBeNull();
+      expect(fc.om_values?.secondary_swell_height_om).toBeNull();
+      expect(fc.om_values?.secondary_swell_period_om).toBeNull();
+      expect(fc.om_values?.secondary_swell_direction_om).toBeNull();
+      expect(fc.om_values?.tertiary_swell_height_om).toBeNull();
+      expect(fc.om_values?.tertiary_swell_period_om).toBeNull();
+      expect(fc.om_values?.tertiary_swell_direction_om).toBeNull();
+      expect(fc.om_values?.om_wind_wave_missing).toBe(true);
+      expect(fc.om_values?.om_primary_swell_missing).toBe(true);
+      expect(fc.om_values?.om_secondary_swell_missing).toBe(true);
+      expect(fc.om_values?.om_tertiary_swell_missing).toBe(true);
+      expect(fc.om_values?.om_partition_schema_version).toBe(1);
     });
   });
 });
