@@ -1,5 +1,7 @@
 /** @jest-environment node */
 
+import { readFileSync } from "fs";
+
 // NextResponse.json relies on the static Response.json() helper (available in newer runtimes).
 // Jest's jsdom environment may not provide it, so we polyfill it for route handler tests.
 if (typeof (globalThis as any).Response?.json !== "function") {
@@ -13,8 +15,8 @@ if (typeof (globalThis as any).Response?.json !== "function") {
     });
 }
 
-jest.mock("@/lib/api-utils", () => {
-  const actual = jest.requireActual("@/lib/api-utils");
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const actual = jest.requireActual("@/lib/middleware/api-wrappers");
   return {
     ...actual,
     validateCronRequest: () => true,
@@ -37,6 +39,26 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 describe("/api/cron/forecasts/refresh (tides)", () => {
+  const routeSource = readFileSync(
+    "app/api/cron/forecasts/refresh/route.ts",
+    "utf8"
+  );
+
+  let consoleLogSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+  });
+
+  it("uses the API wrapper barrel for response helpers and cron request validation", () => {
+    expect(routeSource).not.toContain("@/lib/api-utils");
+    expect(routeSource).toContain("@/lib/middleware/api-wrappers");
+  });
+
   it("backfills only missing beaches and fetches tides once per station", async () => {
     jest.resetModules();
     mockGetNearestTideStation.mockReset();
@@ -111,7 +133,6 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
     });
 
     // Import GET after mocks are configured (and module cache reset)
-     
     const { GET } = require("@/app/api/cron/forecasts/refresh/route");
 
     const req = new Request(
@@ -143,8 +164,6 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
     expect(json.data.totals.tides).toBe(4);
   });
 });
-
-
 
 
 

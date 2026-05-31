@@ -57,6 +57,7 @@ interface MockProfile {
   notif_xp_updates: boolean;
   notif_forecast_alerts: boolean;
   notif_water_quality: boolean;
+  notif_similarity_alerts: boolean;
 }
 
 interface MockAttempt {
@@ -75,6 +76,14 @@ interface MockState {
   devices: Map<string, string[]>;
   notificationsInserts: Array<{ user_id: string; type: string; data: unknown }>;
   attempts: MockAttempt[];
+  alertAttempts: Array<{
+    queue_id: string;
+    rule_id: string;
+    user_id: string;
+    channel: "push";
+    status: string;
+    skip_reason: string | null;
+  }>;
   eventUpdates: Array<{ id: string; status: string; skip_reason: string | null }>;
   deviceDeletes: string[];
   /** When set, fetch on this table throws to simulate a Supabase error. */
@@ -101,6 +110,7 @@ function buildProfile(over: Partial<MockProfile> = {}): MockProfile {
     notif_xp_updates: true,
     notif_forecast_alerts: true,
     notif_water_quality: true,
+    notif_similarity_alerts: true,
     ...over,
   };
 }
@@ -303,6 +313,23 @@ function buildMockSupabase(state: MockState) {
         },
       };
     }
+    if (table === "alert_delivery_attempts") {
+      return {
+        insert: async (
+          rows: Array<{
+            queue_id: string;
+            rule_id: string;
+            user_id: string;
+            channel: "push";
+            status: string;
+            skip_reason: string | null;
+          }>
+        ) => {
+          state.alertAttempts.push(...rows);
+          return { error: null };
+        },
+      };
+    }
     if (table === "profiles") {
       return {
         select: () => ({
@@ -382,6 +409,7 @@ function emptyState(): MockState {
     devices: new Map(),
     notificationsInserts: [],
     attempts: [],
+    alertAttempts: [],
     eventUpdates: [],
     deviceDeletes: [],
   };
@@ -492,6 +520,115 @@ describe("processPendingEvents — happy path", () => {
         notification_status: "sent",
       }),
     });
+  });
+
+  it("forecast_alert: worker push success reconciles alert_delivery_attempts", async () => {
+    const state = emptyState();
+    state.events.push(
+      buildEvent({
+        id: "evt-forecast",
+        actor_user_id: null,
+        type: "forecast_alert",
+        entity_type: "beach",
+        entity_id: "beach-1",
+        payload: {
+          alert_date: "2026-05-10",
+          title: "Conditions lining up today",
+          body: "La Jolla Shores 7am-9am",
+          beach_id: "beach-1",
+          forecast_at: "2026-05-10T14:30:00.000Z",
+          queue_items: [{ queue_id: "queue-forecast-1", rule_id: "rule-forecast-1" }],
+        },
+        dedupe_key: "forecast_alert:user-recipient:2026-05-10",
+      })
+    );
+    state.profiles.set("user-recipient", buildProfile());
+    state.devices.set("user-recipient", ["device-token-A"]);
+
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: fakeFcm as never }
+    );
+
+    expect(summary.processed).toBe(1);
+    expect(state.attempts).toEqual([
+      expect.objectContaining({ notification_event_id: "evt-forecast", channel: "push", status: "sent" }),
+      expect.objectContaining({ notification_event_id: "evt-forecast", channel: "in_app", status: "sent" }),
+    ]);
+    expect(state.alertAttempts).toEqual([
+      {
+        queue_id: "queue-forecast-1",
+        rule_id: "rule-forecast-1",
+        user_id: "user-recipient",
+        channel: "push",
+        status: "sent",
+        skip_reason: "sent",
+      },
+    ]);
+  });
+
+  it("similarity_match: worker push success reconciles alert_delivery_attempts", async () => {
+    const state = emptyState();
+    state.events.push(
+      buildEvent({
+        id: "evt-similarity",
+        actor_user_id: null,
+        type: "similarity_match",
+        entity_type: "beach",
+        entity_id: "beach-2",
+        payload: {
+          beach_id: "beach-2",
+          beach_slug: "la-jolla-shores",
+          beach_name: "La Jolla Shores",
+          alert_date: "2026-05-10",
+          forecast_at: "2026-05-10T14:30:00.000Z",
+          score: 8.7,
+          label: "GOOD",
+          reason: "Conditions match your best sessions",
+          queue_items: [{ queue_id: "queue-sim-1", rule_id: "rule-sim-1" }],
+        },
+        dedupe_key: "similarity_match:user-recipient:2026-05-10",
+      })
+    );
+    state.profiles.set("user-recipient", buildProfile());
+    state.devices.set("user-recipient", ["device-token-A"]);
+
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: fakeFcm as never }
+    );
+
+    expect(summary.processed).toBe(1);
+    expect(state.attempts).toEqual([
+      expect.objectContaining({ notification_event_id: "evt-similarity", channel: "push", status: "sent" }),
+      expect.objectContaining({ notification_event_id: "evt-similarity", channel: "in_app", status: "sent" }),
+    ]);
+    expect(state.alertAttempts).toEqual([
+      {
+        queue_id: "queue-sim-1",
+        rule_id: "rule-sim-1",
+        user_id: "user-recipient",
+        channel: "push",
+        status: "sent",
+        skip_reason: "sent",
+      },
+    ]);
   });
 });
 

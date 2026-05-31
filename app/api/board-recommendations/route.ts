@@ -1,9 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createAPIServerClient, getAuthenticatedAPIClient } from "@/lib/supabase/api-server-client";
+import { NextRequest } from "next/server";
+import { getAuthenticatedAPIClient } from "@/lib/supabase/api-server-client";
 import {
   createSuccessResponse,
   createErrorResponse,
-} from "@/lib/api-utils";
+} from "@/lib/middleware/api-wrappers";
 
 // Mark this route as dynamic to prevent static generation
 export const runtime = "nodejs";

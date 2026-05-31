@@ -40,6 +40,10 @@ function applyV51DisplayOverrideToForecast<T extends EnhancedForecastEntity>(
   return { ...forecast, wave_height: waveHeight };
 }
 
+function isV51DisplayOverrideEnabled(): boolean {
+  return process.env.V51_DISPLAY_OVERRIDE_ENABLED === "true";
+}
+
 export async function applyV51DisplayOverrideToForecasts<
   T extends EnhancedForecastEntity,
 >(
@@ -50,6 +54,7 @@ export async function applyV51DisplayOverrideToForecasts<
   } = {}
 ): Promise<T[]> {
   if (options.enabled === false || forecasts.length === 0) return forecasts;
+  if (!isV51DisplayOverrideEnabled()) return forecasts;
 
   const calibration =
     options.calibration === undefined

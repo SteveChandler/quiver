@@ -9,6 +9,7 @@ import type { SupabaseClient, User } from '@supabase/supabase-js';
 import {
   cleanupEphemeralSmokeUsers,
   cleanupOrphanSmokeProfiles,
+  filterAuthBackedUserIds,
   isEphemeralSmokeTestUser,
 } from '../../e2e/utils/test-data-cleanup';
 
@@ -145,6 +146,23 @@ describe('isEphemeralSmokeTestUser', () => {
       app_metadata: {},
     });
     expect(isEphemeralSmokeTestUser(user)).toBe(false);
+  });
+});
+
+describe('filterAuthBackedUserIds', () => {
+  it('drops profile ids that no longer have auth.users rows', async () => {
+    const { client, calls } = makeMockSupabase({
+      pages: [[makeUser({ id: 'auth-backed-user', email: 'mock@example.invalid' })]],
+    });
+
+    const result = await filterAuthBackedUserIds(
+      client,
+      ['auth-backed-user', 'orphan-profile'],
+      false
+    );
+
+    expect(result).toEqual(['auth-backed-user']);
+    expect(calls.listUsers).toBe(1);
   });
 });
 

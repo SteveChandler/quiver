@@ -3,7 +3,10 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { DEFAULT_SECURITY_HEADERS, handleApiError } from "@/lib/api-utils";
+import {
+  DEFAULT_SECURITY_HEADERS,
+  handleApiError,
+} from "@/lib/middleware/api-wrappers";
 
 export async function GET() {
   try {

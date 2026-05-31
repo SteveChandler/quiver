@@ -1,13 +1,13 @@
 // Note: Avoid exporting module-level constants in some environments that treat
 // API modules as "use server" files and enforce function-only exports.
 
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { getSurfForecast } from "./utils";
 import {
   createSuccessResponse,
   createValidationError,
   handleApiError,
-} from "@/lib/api-utils";
+} from "@/lib/middleware/api-wrappers";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
 
 export const dynamic = 'force-dynamic';

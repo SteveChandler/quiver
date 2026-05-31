@@ -14,6 +14,7 @@ import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import type { BeachAmenities } from "@/types/amenities";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
 import type { ZineBeachPhoto } from "@/components/beach-detail/zine/types";
+import type { ZineHeroHeadingLevel } from "@/components/beach-detail/zine/zine-hero";
 
 interface BeachDetailClientProps {
   beach: Beach;
@@ -26,6 +27,7 @@ interface BeachDetailClientProps {
   amenities?: BeachAmenities | null;
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
+  heroHeadingLevel?: ZineHeroHeadingLevel;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
 }
@@ -41,6 +43,7 @@ export function BeachDetailClient({
   amenities,
   waterQuality,
   beachPhoto,
+  heroHeadingLevel,
   beforeTabsContent,
   afterTabsContent,
 }: BeachDetailClientProps) {
@@ -172,6 +175,7 @@ export function BeachDetailClient({
         amenities={amenities}
         waterQuality={waterQuality}
         beachPhoto={beachPhoto}
+        heroHeadingLevel={heroHeadingLevel}
         beforeTabsContent={beforeTabsContent}
         afterTabsContent={afterTabsContent}
         personalizationData={personalizationData}

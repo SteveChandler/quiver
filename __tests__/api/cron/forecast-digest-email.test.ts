@@ -8,6 +8,16 @@ import { readFileSync } from "fs";
 import { join } from "path";
 
 describe("Cron: forecast-digest-email", () => {
+  it("uses the API wrapper barrel for response helpers and cron request validation", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/cron/forecast-digest-email/route.ts"),
+      "utf8",
+    );
+
+    expect(source).not.toContain("@/lib/api-utils");
+    expect(source).toContain("@/lib/middleware/api-wrappers");
+  });
+
   it("does not enqueue forecast push notifications from the email digest route", () => {
     const source = readFileSync(
       join(process.cwd(), "app/api/cron/forecast-digest-email/route.ts"),

@@ -175,23 +175,20 @@ export function InviteLandingClient({
 
             <div className="flex flex-col gap-3 sm:max-w-md">
               {isAndroid ? (
-                <div
-                  onClickCapture={() =>
+                <AndroidWaitlistCta
+                  source="invite_landing"
+                  surface="invite_landing"
+                  placement="primary_android"
+                  onClickTrack={() =>
                     trackInviteEvent(
                       "invite_app_store_clicked",
                       "android_waitlist",
                     )
                   }
+                  className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#F78E42] px-5 py-3 text-center font-semibold text-[#252D6B] transition hover:bg-[#FFAA63] disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  <AndroidWaitlistCta
-                    source="invite_landing"
-                    surface="invite_landing"
-                    placement="primary_android"
-                    className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#F78E42] px-5 py-3 text-center font-semibold text-[#252D6B] transition hover:bg-[#FFAA63] disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    Join Android waitlist
-                  </AndroidWaitlistCta>
-                </div>
+                  Join Android waitlist
+                </AndroidWaitlistCta>
               ) : (
                 <a
                   href={IOS_APP_STORE_URL}

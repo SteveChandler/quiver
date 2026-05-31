@@ -50,10 +50,10 @@ const expectedLearnMetadata = [
       "Is it safe to surf after rain? Use the 72-hour rule, runoff risk signs, water-quality checks, and safer open-coast choices.",
   },
   {
-    slug: "how-to-read-a-surf-forecast",
-    title: "How to Read a Surf Forecast: Height, Period & Wind",
+    slug: "how-to-read-surf-conditions",
+    title: "How to Read Surf Conditions: Why the Same Size Can Surf Differently",
     description:
-      "Learn how to read a surf forecast by combining wave height, swell period, direction, wind, and tide into one practical surf decision.",
+      "Learn how to read surf conditions by checking period, direction, wind, tide, and beach shape instead of wave height alone.",
   },
 ];
 

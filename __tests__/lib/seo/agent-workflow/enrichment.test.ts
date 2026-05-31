@@ -71,6 +71,15 @@ describe("SEO workflow enrichment", () => {
         }],
       },
       NOW,
+      {
+        gsc: {
+          last28d: [{
+            page: "/beginner/california",
+            clicks: 4,
+            impressions: 120,
+          }],
+        },
+      },
     );
 
     expect(recommendations.map((item) => item.source)).toEqual([
@@ -78,6 +87,47 @@ describe("SEO workflow enrichment", () => {
       "ahrefs-audit",
     ]);
     expect(recommendations.find((item) => item.targetKeyword)?.priority).toBe("high");
+    expect(recommendations.find((item) => item.targetKeyword)?.evidence)
+      .toContain("crossCheck=gscImpressions=120,gscClicks=4");
+  });
+
+  it("keeps unvalidated Ahrefs keyword opportunities out of high-priority content work", () => {
+    const recommendations = analyzeSeoEnrichment(
+      {
+        source: "ahrefs",
+        keywordOpportunities: [{
+          path: "/best-time-to-surf/la-jolla",
+          keyword: "la jolla surf report",
+          volume: 250,
+          difficulty: 12,
+          reason: "Ahrefs organic keyword snapshot.",
+        }],
+      },
+      NOW,
+      {
+        gsc: {
+          last28d: [{
+            page: "/best-time-to-surf/westport",
+            clicks: 7,
+            impressions: 245,
+          }],
+        },
+        vercel: {
+          pages: [{ path: "/map", visits: 39 }],
+        },
+        posthog: {
+          pages: [{ path: "/forecast/santa-cruz", landingSessions: 11 }],
+        },
+      },
+    );
+
+    expect(recommendations).toHaveLength(1);
+    expect(recommendations[0]).toMatchObject({
+      priority: "low",
+      status: "open",
+      summary: "Ahrefs keyword opportunity needs GSC, Vercel, or PostHog validation before content work.",
+    });
+    expect(recommendations[0].evidence).toContain("crossCheck=no matching GSC, Vercel, or PostHog demand");
   });
 
   it("blocks Ahrefs tide and water-temp opportunities from active chasing", () => {

@@ -14,8 +14,8 @@ jest.mock("@/lib/utils/browser-session-id", () => ({
 }));
 
 jest.mock("@/components/pricing/android-waitlist-cta", () => ({
-  AndroidWaitlistCta: ({ children }: any) => (
-    <button type="button">
+  AndroidWaitlistCta: ({ children, onClickTrack }: any) => (
+    <button type="button" onClick={onClickTrack}>
       {children}
     </button>
   ),

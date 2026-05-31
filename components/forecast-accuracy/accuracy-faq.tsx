@@ -1,8 +1,8 @@
 /**
  * AccuracyFaq
  *
- * Server component: FAQ section with FAQPage JSON-LD structured data and
- * an interactive accordion (client-side via FAQSection).
+ * Server component: visible FAQ section with an interactive accordion
+ * (client-side via FAQSection). FAQPage JSON-LD is intentionally suppressed.
  */
 
 import { FAQSchema } from "@/components/seo/faq-schema";

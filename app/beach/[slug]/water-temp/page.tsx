@@ -1,17 +1,10 @@
-import { BeachPageStructuredData } from "@/components/seo/structured-data";
-import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
-import { WaterTempFAQSchema } from "@/components/seo/faq-schema";
-import { BeachDetailClient } from "../beach-detail-client";
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicWaterTempMetadata } from "@/lib/seo/meta";
 import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 import { notFound, redirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
-import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
-
-const baseUrl =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+import { renderBeachSubPage } from "@/lib/utils/beach-sub-page-utils";
 
 export default async function BeachWaterTempPage(
   props: {
@@ -27,11 +20,6 @@ export default async function BeachWaterTempPage(
       notFound();
     }
 
-    const beachTimezone =
-      beach.lat != null && beach.lon != null
-        ? getTimezoneFromCoords(beach.lat, beach.lon)
-        : null;
-
     // Redirect to hierarchical URL if beach has complete data
     if (beach.slug && beach.city && beach.state) {
       const hierarchicalUrl = buildBeachUrl(beach);
@@ -42,41 +30,11 @@ export default async function BeachWaterTempPage(
       }
     }
 
-    return (
-      <>
-        <BeachPageStructuredData
-          beachName={beach.name}
-          description={`Current water temperature at ${beach.name}. Wetsuit recommendations and seasonal trends.`}
-          latitude={beach.lat || 0}
-          longitude={beach.lon || 0}
-          rating={(beach as any).average_rating || undefined}
-          reviewCount={(beach as any).review_count || undefined}
-          city={beach.city || undefined}
-          state={beach.state || undefined}
-          country={beach.country || undefined}
-        />
-
-        <BreadcrumbStructuredData
-          items={[
-            { name: "Home", url: baseUrl },
-            { name: "Surf Spots Map", url: `${baseUrl}/map` },
-            { name: beach.name, url: `${baseUrl}/beach/${params.slug}` },
-            { name: "Water Temperature", url: `${baseUrl}/beach/${params.slug}/water-temp` },
-          ]}
-        />
-
-        {/* FAQ Structured Data with water-temp-specific questions for rich snippets */}
-        <WaterTempFAQSchema beachName={beach.name} />
-
-        <BeachDetailClient
-          beach={beach}
-          slug={params.slug}
-          beachTimezone={beachTimezone}
-          defaultTab="forecast"
-          defaultSubTab="conditions"
-        />
-      </>
-    );
+    return renderBeachSubPage({
+      beachSlug: params.slug,
+      pageType: "water-temp",
+      beachPath: `/beach/${params.slug}`,
+    });
   } catch (error) {
     if (error && typeof error === "object" && "digest" in error) {
       const digest = (error as { digest?: unknown }).digest;

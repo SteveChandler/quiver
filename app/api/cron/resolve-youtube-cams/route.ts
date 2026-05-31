@@ -5,7 +5,7 @@ import {
   validateCronRequest,
   createErrorResponse,
   createSuccessResponse,
-} from "@/lib/api-utils";
+} from "@/lib/middleware/api-wrappers";
 import {
   resolveChannelId,
   findLiveStreams,

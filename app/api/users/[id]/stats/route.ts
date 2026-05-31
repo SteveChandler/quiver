@@ -3,10 +3,10 @@ import {
   withAuth,
   createSuccessResponse,
   createValidationError,
+  DEFAULT_SECURITY_HEADERS,
   isValidUuid,
   methodNotAllowed,
 } from "@/lib/middleware/api-wrappers";
-import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import { getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
 
 export const GET = withAuth(async (_request, { user, supabase, params }) => {

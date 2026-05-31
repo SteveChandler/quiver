@@ -5,9 +5,9 @@ import {
   createValidationError,
   methodNotAllowed,
   isValidUuid,
-} from "@/lib/api-utils";
+  withBotBlockingAndRateLimit,
+} from "@/lib/middleware/api-wrappers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 
 /**
  * Core handler for fetching user comments

@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GET } from "@/app/api/v1/recommendations/route";
 import {
   createMockRequest,
@@ -14,6 +16,7 @@ import {
 const mockSupabaseClient = createMockSupabaseClient();
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
+  ...jest.requireActual("@/lib/api-utils"),
   withRateLimit: (handler: any) => handler,
 }));
 
@@ -34,6 +37,16 @@ describe("GET /api/v1/recommendations", () => {
     cleanup?.();
   });
 
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/v1/recommendations/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
+  });
+
   describe("input validation", () => {
     it("returns 400 for missing coordinates", async () => {
       const req = createMockRequest(
@@ -41,6 +54,7 @@ describe("GET /api/v1/recommendations", () => {
         "http://localhost:3000/api/v1/recommendations"
       );
       const res = await GET(req);
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Missing required parameters");
     });
 
@@ -51,6 +65,7 @@ describe("GET /api/v1/recommendations", () => {
         { searchParams: { lat: "nope", lon: "also-nope" } }
       );
       const res = await GET(req);
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Invalid coordinate format");
     });
 
@@ -61,6 +76,7 @@ describe("GET /api/v1/recommendations", () => {
         { searchParams: { lat: "100", lon: "-200" } }
       );
       const res = await GET(req);
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Coordinates out of valid range");
     });
 
@@ -71,6 +87,7 @@ describe("GET /api/v1/recommendations", () => {
         { searchParams: { lat: "32.79", lon: "-117.23", time: "not-a-date" } }
       );
       const res = await GET(req);
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Invalid time format");
     });
   });
@@ -130,21 +147,30 @@ describe("GET /api/v1/recommendations", () => {
         { searchParams: { lat: "32.79", lon: "-117.23" } }
       );
 
-      const res = await GET(req);
-      const body = await expectSuccessResponse<any>(res, 200);
+      const consoleWarnSpy = jest
+        .spyOn(console, "warn")
+        .mockImplementation(() => {});
 
-      expect(body.data).toHaveProperty("metadata");
-      expect(body.data.metadata).toHaveProperty("degradation");
-      expect(body.data.metadata.degradation).toMatchObject({
-        postgis_unavailable: true,
-        fallback_to_simple_query: true,
-      });
+      try {
+        const res = await GET(req);
+        const body = await expectSuccessResponse<any>(res, 200);
+
+        expect(body.data).toHaveProperty("metadata");
+        expect(body.data.metadata).toHaveProperty("degradation");
+        expect(body.data.metadata.degradation).toMatchObject({
+          postgis_unavailable: true,
+          fallback_to_simple_query: true,
+        });
+        expect(consoleWarnSpy).toHaveBeenCalledWith(
+          "[DEGRADED] PostGIS RPC unavailable, using fallback query:",
+          { message: "RPC not found" }
+        );
+      } finally {
+        consoleWarnSpy.mockRestore();
+      }
     });
   });
 });
-
-
-
 
 
 

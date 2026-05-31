@@ -22,7 +22,7 @@ yarn seo:gsc-refresh --input path/to/gsc-export.json
 yarn seo:technical-audit
 yarn seo:enrich --source vercel --input path/to/vercel-export.json
 yarn seo:enrich --source posthog --input path/to/posthog-export.json
-yarn seo:enrich --source ahrefs --input path/to/ahrefs-export.json
+yarn seo:enrich --source ahrefs --input ../Brand-Vault/seo-audit/YYYY-MM-DD/AHREFS-SCREENSHOT-INPUT.json --output ../Brand-Vault/seo-audit/YYYY-MM-DD/AHREFS-ENRICHMENT.json
 yarn seo:recommend --input ../Brand-Vault/seo-audit/YYYY-MM-DD/GSC-REFRESH.json --input ../Brand-Vault/seo-audit/YYYY-MM-DD/TECHNICAL-AUDIT.json --input ../Brand-Vault/seo-audit/YYYY-MM-DD/VERCEL-ENRICHMENT.json
 yarn seo:weekly-report
 ```
@@ -34,7 +34,7 @@ The commands generate dashboard updates or review reports only. They do not publ
 - Vercel: traffic and Speed Insights. Use it to prioritize pages with real visits plus poor LCP, INP, or CLS.
 - PostHog: behavior after landing. Use it to prioritize weak click-around, underused related paths, and high-converting SEO pages that deserve more internal links.
 - DataForSEO: paid API source for Google SERP rank tracking, App Store / Google Play ASO rank snapshots, and competitor keyword rows. Backlinks API is intentionally not used.
-- Ahrefs: external SEO. Use it for crawl issues, backlink/ranking context, and keyword opportunities that should enter the review queue.
+- Ahrefs: external SEO. Use it for crawl issues, backlink/ranking context, and keyword opportunities that should enter the review queue. The manual snapshot file is `AHREFS-SCREENSHOT-INPUT.json`; do not use the same path for `--input` and `--output`, because that overwrites the source export and can silently produce an empty enrichment. Ahrefs keyword priorities are cross-checked against same-folder `GSC-EXPORT.json`, `VERCEL-EXPORT.json`, and `POSTHOG-EXPORT.json`; Ahrefs-only keyword rows stay low priority until one of those sources corroborates demand.
 - GSC remains the indexing/query source of truth when available.
 - Store snapshots: App Store / Play listing metadata, sampled App Store keyword position checks, competitor version/rating/IAP deltas, and listing drift against Brand Vault copy. Current iOS competitor targets are Lazy Surfer, Swellify, Swell Scope, Duune, and Surf Radar.
 - Backlink proxy: Vercel referrers, widget embed referrers, outreach tracker rows, and optional manual Ahrefs Webmaster Tools, Moz Link Explorer, GSC links, or generic backlink CSV/JSON exports.
@@ -46,6 +46,7 @@ The weekly report must explicitly label its coverage boundaries without treating
 - DataForSEO is the paid SERP/API source when `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` are configured; otherwise no paid SERP API is configured.
 - No paid full backlink index is configured unless explicitly enabled. The report uses free/provided backlink sources: referrers, embeds, outreach tracker rows, and manual CSV/JSON imports.
 - Manual backlink imports are auto-discovered from the audit folder and `docs/seo/backlink-reports/` when filenames match Ahrefs Webmaster Tools, Moz Link Explorer, GSC links, manual backlinks, backlinks, or referring domains.
+- Manual Ahrefs screenshot inputs should include `issues` and `keywordOpportunities` arrays. Utility tide/water-temp keyword opportunities stay dismissed by strategy unless the work is technical crawl hygiene; non-utility surf-report, forecast, best-time, beginner, learn, longboard, and local-spot opportunities should remain open for review.
 - DataForSEO Labs covers only the configured competitor set and provider index.
 - No automated Google SERP scraping is performed.
 

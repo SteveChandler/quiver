@@ -16,12 +16,13 @@
 
 import { GET } from "@/app/api/cron/first-session-nudge-push/route";
 import { NextRequest } from "next/server";
+import { readFileSync } from "fs";
 
 // ============================================================================
 // Mocks
 // ============================================================================
 
-jest.mock("@/lib/api-utils", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: jest.fn(() =>
       Promise.resolve({ success: true, data, timestamp: new Date().toISOString() })
@@ -214,20 +215,36 @@ function unconfirmedAuthUser(id: string) {
 // ============================================================================
 
 describe("First-Session-Nudge Push Cron", () => {
+  const routeSource = readFileSync(
+    "app/api/cron/first-session-nudge-push/route.ts",
+    "utf8"
+  );
+  let consoleLogSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     reset();
     mockEnqueueNotification.mockResolvedValue({
       enqueued: true,
       eventId: "evt-mock",
     });
-    const { validateCronRequest } = require("@/lib/api-utils");
+    const { validateCronRequest } = require("@/lib/middleware/api-wrappers");
     validateCronRequest.mockReturnValue(true);
+  });
+
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+  });
+
+  it("uses the API wrapper barrel for response helpers and cron request validation", () => {
+    expect(routeSource).not.toContain("@/lib/api-utils");
+    expect(routeSource).toContain("@/lib/middleware/api-wrappers");
   });
 
   describe("Authentication", () => {
     it("rejects invalid cron requests with 401", async () => {
-      const { validateCronRequest } = require("@/lib/api-utils");
+      const { validateCronRequest } = require("@/lib/middleware/api-wrappers");
       validateCronRequest.mockReturnValue(false);
 
       const response = await GET(mockRequest({ authorization: "Bearer bad" }));

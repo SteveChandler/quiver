@@ -25,11 +25,11 @@ if (typeof (globalThis as any).Response?.json !== "function") {
 }
 
 import { GET } from "@/app/api/cron/condition-alert-evaluate/route";
-import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
+import { readFileSync } from "fs";
 
 // ---- Mocks ----
 
-jest.mock("@/lib/api-utils", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   validateCronRequest: jest.fn(() => true),
 }));
 
@@ -189,6 +189,7 @@ function mockFrom(table: string) {
 }
 
 const mockSupabase = { from: jest.fn(mockFrom) };
+let consoleLogSpy: jest.SpyInstance;
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() => Promise.resolve(mockSupabase)),
@@ -289,6 +290,7 @@ function makeRequest(): Request {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
   // mockReset drains any `mockReturnValueOnce` queue left over from a prior
   // test (jest.clearAllMocks does NOT clear that queue, only call records).
   mockFindMatchingWindows.mockReset();
@@ -342,9 +344,20 @@ beforeEach(() => {
   mockSupabase.from.mockImplementation(mockFrom);
 });
 
+afterEach(() => {
+  consoleLogSpy.mockRestore();
+});
+
 // ---- Tests ----
 
 describe("condition-alert-evaluate — A4.2 flat queries", () => {
+  const routeSource = readFileSync("app/api/cron/condition-alert-evaluate/route.ts", "utf8");
+
+  it("uses the API wrapper barrel for cron request validation", () => {
+    expect(routeSource).not.toContain("@/lib/api-utils");
+    expect(routeSource).toContain("@/lib/middleware/api-wrappers");
+  });
+
   it("1. happy path: 1 rule + matching forecast window => upserts 1 alert_queue row", async () => {
     seedRule();
     seedProfile();
@@ -425,11 +438,12 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     // No profile seeded — profilesById.get(USER_A) will be undefined.
     seedBeach();
 
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const res = await GET(makeRequest());
-
-    // The route logs console.error for the missing-profile case — declare that
-    // intentional so the afterEach guard doesn't fail the test.
-    expectConsoleErrors([/No profile found for user/]);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("No profile found for user")
+    );
+    consoleErrorSpy.mockRestore();
 
     expect(res.status).toBe(200);
 

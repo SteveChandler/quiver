@@ -99,7 +99,7 @@ describe("legacy /beach/[slug] route", () => {
     expect(notFound).toHaveBeenCalled();
   });
 
-  it("generateMetadata skips forecast-preview when the slug will permanent-redirect", async () => {
+  it("generateMetadata skips forecast-preview and noindexes redirecting legacy URLs", async () => {
     // Resolved beach has city + state + slug, so canonical = /ca/san-diego/ocean-beach
     // and request slug "ocean-beach" -> /beach/ocean-beach != canonical -> redirects.
     (getBeachesBySlugFromDb as jest.Mock).mockResolvedValue({
@@ -118,10 +118,20 @@ describe("legacy /beach/[slug] route", () => {
       ],
     });
 
-    await generateMetadata({ params: Promise.resolve({ slug: "ocean-beach" }) });
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: "ocean-beach" }),
+    });
 
     expect(getBeachForecastPreview).not.toHaveBeenCalled();
+    expect(metadata.title).toBe("Ocean Beach Surf Report & Forecast");
+    expect(metadata.description).toContain("live surf report, forecast");
+    expect(metadata.alternates?.canonical).toContain(
+      "/ca/san-diego/ocean-beach",
+    );
+    expect((metadata.robots as any)?.index).toBe(false);
+    expect((metadata.robots as any)?.follow).toBe(true);
+    expect((metadata.robots as any)?.googleBot?.index).toBe(false);
+    expect((metadata.robots as any)?.googleBot?.follow).toBe(true);
   });
 });
-
 

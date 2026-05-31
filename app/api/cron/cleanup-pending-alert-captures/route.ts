@@ -4,7 +4,7 @@
 // Scheduled at 03:30 UTC. See vercel.json.
 
 import { NextResponse } from "next/server";
-import { validateCronRequest } from "@/lib/api-utils";
+import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
 

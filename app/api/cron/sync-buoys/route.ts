@@ -3,7 +3,7 @@ import {
   createSuccessResponse,
   handleApiError,
   validateCronRequest,
-} from "@/lib/api-utils";
+} from "@/lib/middleware/api-wrappers";
 import { NOAABuoySync } from "@/lib/services/noaa-sync";
 import { withObservedCron } from "@/lib/cron/observability";
 

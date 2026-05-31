@@ -37,6 +37,7 @@ interface AndroidWaitlistCtaProps extends AndroidWaitlistIntent {
   children?: ReactNode;
   successLabel?: string;
   onConfirmed?: (data: AndroidWaitlistConfirmation) => void;
+  onClickTrack?: () => void;
 }
 
 interface AndroidWaitlistConfirmation {
@@ -86,6 +87,7 @@ export function AndroidWaitlistCta({
   children,
   successLabel = "Android waitlist joined",
   onConfirmed,
+  onClickTrack,
 }: AndroidWaitlistCtaProps): ReactElement {
   const { user, isLoading } = useAuth();
   const pathname = usePathname();
@@ -177,6 +179,8 @@ export function AndroidWaitlistCta({
 
     const intent = { source, surface, placement };
     const authState = user ? "authenticated" : "anonymous";
+
+    onClickTrack?.();
 
     trackAndroidWaitlistCtaClick({
       ...intent,

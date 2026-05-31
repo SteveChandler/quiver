@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { ArticleSchema } from "@/components/seo/article-schema";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
@@ -21,12 +21,22 @@ interface Props {
   params: Promise<{ slug: string }>;
 }
 
+const LEGACY_LEARN_SLUGS: Record<string, string> = {
+  "how-to-read-a-surf-forecast": "how-to-read-surf-conditions",
+};
+
+function resolveArticleSlug(slug: string): string {
+  return LEGACY_LEARN_SLUGS[slug] ?? slug;
+}
+
 function getArticle(slug: string) {
-  return learnArticles.find((article) => article.slug === slug) ?? null;
+  const resolvedSlug = resolveArticleSlug(slug);
+  return learnArticles.find((article) => article.slug === resolvedSlug) ?? null;
 }
 
 function getNextArticle(slug: string) {
-  const index = learnArticles.findIndex((article) => article.slug === slug);
+  const resolvedSlug = resolveArticleSlug(slug);
+  const index = learnArticles.findIndex((article) => article.slug === resolvedSlug);
   if (index === -1) return null;
   return learnArticles[(index + 1) % learnArticles.length];
 }
@@ -37,7 +47,8 @@ export function generateStaticParams(): { slug: string }[] {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const article = getArticle(slug);
+  const resolvedSlug = resolveArticleSlug(slug);
+  const article = getArticle(resolvedSlug);
   if (!article) return {};
 
   return buildPageMetadata({
@@ -51,6 +62,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function LearnArticlePage({ params }: Props) {
   const { slug } = await params;
+  const resolvedSlug = resolveArticleSlug(slug);
+  if (resolvedSlug !== slug) {
+    redirect(`/learn/${resolvedSlug}`);
+  }
+
   const article = getArticle(slug);
   if (!article) notFound();
 
@@ -156,7 +172,7 @@ export default async function LearnArticlePage({ params }: Props) {
             <article className="min-w-0">
               {keyTakeaways.length > 0 && (
                 <ScrollReveal>
-                  <div className="torn torn-tb rot-neg mb-12 border-2 border-[#11100D] bg-[#F0E5CC]">
+                  <div className="torn torn-tb rot-neg mb-12 border-2 border-[#11100D] bg-[#F0E5CC] pt-8 pb-8">
                     <div className="mb-4 flex items-center gap-3">
                       <QuiverSticker
                         sticker="surfWax"
@@ -166,7 +182,7 @@ export default async function LearnArticlePage({ params }: Props) {
                         Key Takeaways
                       </h2>
                     </div>
-                    <ul className="space-y-3">
+                    <ul className="space-y-3 pb-3">
                       {keyTakeaways.map((section) => (
                         <li
                           key={section.id}

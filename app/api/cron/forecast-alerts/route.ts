@@ -3,7 +3,7 @@ import {
   createSuccessResponse,
   handleApiError,
   validateCronRequest,
-} from "@/lib/api-utils";
+} from "@/lib/middleware/api-wrappers";
 import { runForecastThresholdAlerts } from "@/lib/services/forecast-alerts";
 import { withObservedCron } from "@/lib/cron/observability";
 
@@ -34,6 +34,5 @@ async function _GET(request: Request): Promise<Response> {
 }
 
 export const GET = withObservedCron("/api/cron/forecast-alerts", _GET);
-
 
 

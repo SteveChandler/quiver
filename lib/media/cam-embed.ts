@@ -1,9 +1,12 @@
+import { findLicensedCamOverride } from "@/lib/media/licensed-cam-overrides";
+
 export type CamEmbedIntent =
   | { kind: "none" }
   | { kind: "iframe"; src: string; title?: string; allow?: string }
   | { kind: "video"; src: string }
   | { kind: "hls"; src: string }
-  | { kind: "hdontap"; pageUrl: string };
+  | { kind: "hdontap"; pageUrl: string }
+  | { kind: "external"; pageUrl: string; provider: string };
 
 /**
  * Returns a browser-navigable URL for "Open cam" links.
@@ -106,6 +109,20 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       return { kind: "hdontap", pageUrl: href };
     }
 
+    // The Surfers View pages are link-out only unless an explicit licensed
+    // override maps the source page to an allowlisted owner/player page.
+    if (
+      (u.hostname === "thesurfersview.com" ||
+        u.hostname === "www.thesurfersview.com") &&
+      u.pathname.startsWith("/live-cams/")
+    ) {
+      const licensedOverride = findLicensedCamOverride(href);
+      if (licensedOverride) {
+        return { kind: "hdontap", pageUrl: licensedOverride.importCameraUrl };
+      }
+      return { kind: "external", pageUrl: href, provider: "The Surfers View" };
+    }
+
     // Default iframe attempt (may be blocked)
     return { kind: "iframe", src: href, title: "Live Cam", allow: "autoplay" };
   } catch {
@@ -113,4 +130,3 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
     return { kind: "none" };
   }
 }
-

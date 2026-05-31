@@ -2,10 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-import { createValidationError, handleApiError } from "@/lib/api-utils";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { withRateLimit } from "@/lib/middleware/api-wrappers";
+import {
+  createValidationError,
+  handleApiError,
+  withRateLimit,
+} from "@/lib/middleware/api-wrappers";
 import {
   getNearestNDBCStation,
   fetchLatestNDBCObservation,

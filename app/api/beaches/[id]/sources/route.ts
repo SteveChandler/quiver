@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import {
+  createSuccessResponse,
+  handleApiError,
+} from "@/lib/middleware/api-wrappers";
 import { buildCamEmbed, getViewableUrl } from "@/lib/media/cam-embed";
 
 // GET /api/beaches/[id]/sources - fetch external source mappings (e.g., camera_url)

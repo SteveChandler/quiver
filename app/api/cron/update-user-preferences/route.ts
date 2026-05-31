@@ -5,7 +5,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
   validateCronRequest,
-} from '@/lib/api-utils';
+} from '@/lib/middleware/api-wrappers';
 import { withObservedCron } from '@/lib/cron/observability';
 
 interface UserPreferenceUpdateResult {

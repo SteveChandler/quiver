@@ -3,6 +3,8 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { PersonalizedForecastWindow } from "@/types/personalization";
 import { getLocalDateString, resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import { localDateTimeToUTC } from "@/lib/utils/forecast-time-resolver";
+import { cardinalToDegrees } from "@/lib/services/forecast/forecast-transformer";
+import { degreeToCardinal } from "@/lib/utils/geo-utils";
 
 export type ForecastRecommendationType =
   | "best_window"
@@ -129,11 +131,57 @@ function normalizePeriod(value: string | null | undefined): string | null {
   return trimmed.toLowerCase().endsWith("s") ? trimmed : `${trimmed}s`;
 }
 
-function pickSwellPeriod(row: EnhancedForecastEntity | null, window?: PersonalizedForecastWindow | null): string | null {
+function toFiniteNumber(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return value;
+}
+
+function formatPeriodSeconds(value: number | null): string | null {
+  if (value == null || value <= 0) return null;
+  const rounded = Math.round(value * 10) / 10;
+  return `${Number.isInteger(rounded) ? rounded : rounded.toFixed(1)}s`;
+}
+
+function directionInBeachWindow(directionDeg: number | null, beach: Beach): boolean | null {
+  const center = toFiniteNumber(
+    (beach as { swell_window_center_deg?: number | null }).swell_window_center_deg,
+  );
+  const halfwidth = toFiniteNumber(
+    (beach as { swell_window_halfwidth_deg?: number | null }).swell_window_halfwidth_deg,
+  );
+  if (directionDeg == null || center == null || halfwidth == null || halfwidth <= 0) return null;
+  const delta = ((directionDeg - center) % 360 + 540) % 360 - 180;
+  return Math.abs(delta) <= halfwidth;
+}
+
+function shouldUseOmSwellContext(row: EnhancedForecastEntity | null, beach?: Beach): boolean {
+  if (!row || !beach) return false;
+  const omDirectionDeg = toFiniteNumber(row.swell_direction_om);
+  const omPeriod = toFiniteNumber(row.swell_period_om);
+  if (omDirectionDeg == null || omPeriod == null) return false;
+
+  const namedDirectionDeg = cardinalToDegrees(row.swell_1_direction ?? row.wave_direction ?? null);
+  const omInWindow = directionInBeachWindow(omDirectionDeg, beach);
+  const namedInWindow = directionInBeachWindow(namedDirectionDeg, beach);
+  return omInWindow === true && namedInWindow !== true;
+}
+
+function pickSwellPeriod(
+  row: EnhancedForecastEntity | null,
+  window?: PersonalizedForecastWindow | null,
+  beach?: Beach,
+): string | null {
+  if (shouldUseOmSwellContext(row, beach)) {
+    return formatPeriodSeconds(toFiniteNumber(row?.swell_period_om));
+  }
   return normalizePeriod(row?.swell_1_period ?? row?.wave_period ?? window?.wavePeriod ?? null);
 }
 
-function pickSwellDirection(row: EnhancedForecastEntity | null): string | null {
+function pickSwellDirection(row: EnhancedForecastEntity | null, beach?: Beach): string | null {
+  if (shouldUseOmSwellContext(row, beach)) {
+    const omDirectionDeg = toFiniteNumber(row?.swell_direction_om);
+    return omDirectionDeg == null ? null : degreeToCardinal(omDirectionDeg);
+  }
   return row?.swell_1_direction ?? row?.wave_direction ?? null;
 }
 
@@ -344,7 +392,7 @@ function contextFromRow(args: {
   const rowTime = new Date(args.row.forecast_at);
   const startTime = toIso(rowTime);
   const waveHeightFt = parseAverageNumber(args.row.wave_height);
-  const periodSec = parseAverageNumber(pickSwellPeriod(args.row));
+  const periodSec = parseAverageNumber(pickSwellPeriod(args.row, null, args.beach));
   return {
     beachId: String(args.beach.id),
     localDate: getLocalDateString(rowTime, args.timezone),
@@ -359,9 +407,9 @@ function contextFromRow(args: {
     waveHeight: args.row.wave_height ?? null,
     waveHeightFt,
     waveHeightRangeLabel: formatForecastDisplayWaveHeightRange(waveHeightFt),
-    swellPeriod: pickSwellPeriod(args.row),
+    swellPeriod: pickSwellPeriod(args.row, null, args.beach),
     periodSec,
-    swellDirection: pickSwellDirection(args.row),
+    swellDirection: pickSwellDirection(args.row, args.beach),
     windSpeed: args.row.wind_speed ?? null,
     windDirection: args.row.wind_direction ?? null,
     score: args.score,
@@ -409,10 +457,10 @@ export function buildForecastRecommendationContext({
     const waveHeight = selectedForecast?.wave_height
       ?? (window.waveHeight !== "Unknown" ? window.waveHeight : sourceForecast?.wave_height ?? null);
     const waveHeightFt = parseAverageNumber(waveHeight);
-    const swellPeriod = pickSwellPeriod(selectedForecast, window);
+    const swellPeriod = pickSwellPeriod(selectedForecast, window, beach);
     const periodSec = parseAverageNumber(swellPeriod);
     const waveHeightRangeLabel = formatForecastDisplayWaveHeightRange(waveHeightFt);
-    const swellDirection = pickSwellDirection(selectedForecast);
+    const swellDirection = pickSwellDirection(selectedForecast, beach);
     return {
       beachId: String(beach.id),
       localDate: getLocalDateString(start, resolvedTimezone),

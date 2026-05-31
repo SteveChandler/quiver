@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { NextRequest } from "next/server";
 import {
   createMockSupabaseClient,
@@ -33,10 +35,14 @@ interface BeachesResponse {
 const mockSupabaseClient = createMockSupabaseClient();
 
 // Mock the middleware to pass through (public endpoint)
-jest.mock("@/lib/middleware/api-wrappers", () => ({
-  withBotBlockingAndRateLimit: (handler: any) => handler,
-  withAuth: (handler: any) => handler,
-}));
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const actual = jest.requireActual("@/lib/middleware/api-wrappers");
+  return {
+    ...actual,
+    withBotBlockingAndRateLimit: (handler: unknown) => handler,
+    withAuth: (handler: unknown) => handler,
+  };
+});
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => mockSupabaseClient),
@@ -119,6 +125,16 @@ describe("GET /api/beaches", () => {
 
   afterEach(() => {
     cleanup?.();
+  });
+
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/beaches/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
   });
 
   describe("Success cases", () => {
@@ -395,11 +411,24 @@ describe("GET /api/beaches", () => {
   });
 
   describe("Error cases", () => {
+    let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
+
+    beforeEach(() => {
+      consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      consoleErrorSpy.mockRestore();
+    });
+
     it("handles database errors gracefully", async () => {
-      mockBeachesQuery(mockSupabaseClient, null, {
+      const dbError = {
         message: "Database connection failed",
         code: "PGRST301",
-      });
+      };
+      mockBeachesQuery(mockSupabaseClient, null, dbError);
 
       const request = createMockRequest(
         "GET",
@@ -408,6 +437,8 @@ describe("GET /api/beaches", () => {
 
       const response = await GET(request);
       await expectErrorResponse(response, 500, "Failed to fetch beaches");
+      expect(consoleErrorSpy).toHaveBeenCalledWith("Database error:", dbError);
+      expect(consoleErrorSpy).toHaveBeenCalledWith("API Error:", "Unknown error");
     });
 
     it("returns 500 when Supabase client is null", async () => {
@@ -422,12 +453,21 @@ describe("GET /api/beaches", () => {
 
       const response = await GET(request);
       await expectErrorResponse(response, 500, "Failed to fetch beaches");
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "API Error:",
+        "Supabase client not initialized"
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Stack trace:",
+        expect.stringContaining("Supabase client not initialized")
+      );
     });
 
     it("handles unexpected exceptions gracefully", async () => {
+      const thrownError = new Error("Unexpected database failure");
       // Mock to throw an exception
       mockSupabaseClient.from.mockImplementation(() => {
-        throw new Error("Unexpected database failure");
+        throw thrownError;
       });
 
       const request = createMockRequest(
@@ -437,16 +477,29 @@ describe("GET /api/beaches", () => {
 
       const response = await GET(request);
       await expectErrorResponse(response, 500, "Failed to fetch beaches");
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Error fetching beaches:",
+        thrownError
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "API Error:",
+        "Unexpected database failure"
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Stack trace:",
+        expect.stringContaining("Unexpected database failure")
+      );
     });
 
     it("handles legacy schema fallback failure", async () => {
+      const schemaError = { code: "42703", message: "column does not exist" };
       // Both preferred and legacy schema queries fail
       (mockSupabaseClient.from as jest.Mock).mockReturnValue({
         select: jest.fn(() => ({
           order: jest.fn(() =>
             Promise.resolve({
               data: null,
-              error: { code: "42703", message: "column does not exist" },
+              error: schemaError,
             })
           ),
         })),
@@ -459,6 +512,8 @@ describe("GET /api/beaches", () => {
 
       const response = await GET(request);
       await expectErrorResponse(response, 500, "Failed to fetch beaches");
+      expect(consoleErrorSpy).toHaveBeenCalledWith("Database error:", schemaError);
+      expect(consoleErrorSpy).toHaveBeenCalledWith("API Error:", "Unknown error");
     });
   });
 

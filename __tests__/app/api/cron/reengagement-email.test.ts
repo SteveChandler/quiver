@@ -13,9 +13,10 @@
 
 import { GET } from "@/app/api/cron/reengagement-email/route";
 import { NextRequest } from "next/server";
+import { readFileSync } from "fs";
 
 // Mock API response utilities
-jest.mock("@/lib/api-utils", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: jest.fn(() =>
       Promise.resolve({
@@ -134,6 +135,10 @@ jest.mock("@/lib/utils/email-rate-limiter", () => ({
 }));
 
 describe("Re-engagement Email Cron Job API", () => {
+  const routeSource = readFileSync(
+    "app/api/cron/reengagement-email/route.ts",
+    "utf8"
+  );
   const mockRequest = (
     headers: Record<string, string> = {},
     url = "http://localhost/api/cron/reengagement-email"
@@ -149,12 +154,16 @@ describe("Re-engagement Email Cron Job API", () => {
 
   // Get reference to the mock after module is loaded
   let mockEmailsSend: jest.Mock;
+  let consoleLogSpy: jest.SpyInstance;
+  let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     // Access the global reference set up in the mock
     mockEmailsSend = (global as any).__mockEmailsSend;
     jest.clearAllMocks();
-    require("@/lib/api-utils").validateCronRequest.mockReturnValue(true);
+    consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    require("@/lib/middleware/api-wrappers").validateCronRequest.mockReturnValue(true);
 
     // Setup default Supabase mock chain for intel posts
     const mockChain = {
@@ -188,6 +197,16 @@ describe("Re-engagement Email Cron Job API", () => {
     });
   });
 
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("uses the API wrapper barrel for response helpers and cron request validation", () => {
+    expect(routeSource).not.toContain("@/lib/api-utils");
+    expect(routeSource).toContain("@/lib/middleware/api-wrappers");
+  });
+
   const makeMockCandidate = (overrides = {}) => ({
     user_id: "user-1",
     email: "surfer@example.com",
@@ -206,7 +225,7 @@ describe("Re-engagement Email Cron Job API", () => {
 
   describe("Authentication", () => {
     it("should reject requests without valid cron authentication", async () => {
-      const { validateCronRequest } = require("@/lib/api-utils");
+      const { validateCronRequest } = require("@/lib/middleware/api-wrappers");
       validateCronRequest.mockReturnValue(false);
 
       const request = mockRequest({

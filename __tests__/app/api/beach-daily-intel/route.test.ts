@@ -42,7 +42,20 @@ describe("/api/beach-daily-intel", () => {
       expect(res.status).toBe(400);
       const json = await res.json();
       expect(json.success).toBe(false);
-      expect(json.error).toBeDefined();
+      expect(json.error).toBe("Invalid query parameters");
+    });
+
+    it("does not create a Supabase client for invalid query parameters", async () => {
+      const req = new NextRequest(
+        new URL(
+          "http://localhost/api/beach-daily-intel?beachId=invalid&forecastDate=2026-01-06"
+        )
+      );
+
+      const res = await GET(req);
+
+      expect(res.status).toBe(400);
+      expect(createSupabaseServerClient).not.toHaveBeenCalled();
     });
 
     it("returns 400 for missing forecastDate parameter", async () => {
@@ -55,7 +68,7 @@ describe("/api/beach-daily-intel", () => {
       expect(res.status).toBe(400);
       const json = await res.json();
       expect(json.success).toBe(false);
-      expect(json.error).toBeDefined();
+      expect(json.error).toBe("Invalid query parameters");
     });
 
     it("returns 400 for both missing params", async () => {
@@ -76,7 +89,7 @@ describe("/api/beach-daily-intel", () => {
       expect(res.status).toBe(400);
       const json = await res.json();
       expect(json.success).toBe(false);
-      expect(json.error).toBeDefined();
+      expect(json.error).toBe("Invalid query parameters");
     });
 
     it("returns 400 for invalid forecastDate format (not YYYY-MM-DD)", async () => {
@@ -89,7 +102,7 @@ describe("/api/beach-daily-intel", () => {
       expect(res.status).toBe(400);
       const json = await res.json();
       expect(json.success).toBe(false);
-      expect(json.error).toBeDefined();
+      expect(json.error).toBe("Invalid query parameters");
     });
 
     it("returns 400 for invalid forecastDate format (missing leading zeros)", async () => {
@@ -383,11 +396,20 @@ describe("/api/beach-daily-intel", () => {
         )
       );
 
-      const res = await GET(req);
-      expect(res.status).toBe(500);
-      const json = await res.json();
-      expect(json.success).toBe(false);
-      expect(json.error).toBeDefined();
+      const consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
+
+      try {
+        const res = await GET(req);
+        expect(res.status).toBe(500);
+        const json = await res.json();
+        expect(json.success).toBe(false);
+        expect(json.error).toBe("Failed to load beach daily intel");
+        expect(consoleErrorSpy).toHaveBeenCalledWith("API Error:", "Unknown error");
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
     });
   });
 
@@ -426,8 +448,7 @@ describe("/api/beach-daily-intel", () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.success).toBe(true);
-      expect(json.data.intel).toBeDefined();
-      expect(json.data.intel.forecast_date).toBe("2024-12-05");
+      expect(json.data.intel).toMatchObject({ forecast_date: "2024-12-05" });
     });
 
     it("validates that forecastDate uses YYYY-MM-DD format (as getLocalDateString returns)", async () => {
@@ -445,4 +466,3 @@ describe("/api/beach-daily-intel", () => {
     });
   });
 });
-

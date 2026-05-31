@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   createValidationError,
   handleApiError,
-} from "@/lib/api-utils";
+  withRateLimit,
+} from "@/lib/middleware/api-wrappers";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
-import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import { PAGINATION } from "@/lib/constants/coast-pulse";
 import { generateCoastPulse } from "@/lib/services/coast-pulse/coast-pulse-service";
 

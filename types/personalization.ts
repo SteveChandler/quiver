@@ -11,6 +11,7 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
 import type { SpotProfile } from "@/lib/domains/spot-profile/types";
+import type { RecommendationsV2Response } from "@/lib/services/discovery/recommendations-v2";
 
 // ============================================================================
 // Time Slot Filter Types
@@ -351,6 +352,8 @@ export interface SurfDiscoveryRecommendation {
 export interface SurfDiscoveryResponse {
   /** Ranked list of surf spot recommendations (best first) */
   recommendations: SurfDiscoveryRecommendation[];
+  /** Shared V2 recommendation contract for native recommendation surfaces */
+  recommendationsV2?: RecommendationsV2Response;
   /**
    * Scored recommendations explicitly requested by ID that did not already
    * make the normal top-N `recommendations` list. Existing clients can ignore

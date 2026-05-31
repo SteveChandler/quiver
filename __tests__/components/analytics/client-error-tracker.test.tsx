@@ -29,6 +29,23 @@ describe("ClientErrorTracker", () => {
     });
   });
 
+  it("suppresses stale Next Server Action ID noise after deploys", async () => {
+    render(<ClientErrorTracker />);
+
+    const event = new Event("unhandledrejection") as PromiseRejectionEvent;
+    Object.assign(event, {
+      reason: new Error(
+        'Server Action "40256c33e11f9018ae34e62550c3409e91112dabde" was not found on the server.'
+      ),
+    });
+
+    window.dispatchEvent(event);
+
+    await waitFor(() => {
+      expect(mockTrack).not.toHaveBeenCalled();
+    });
+  });
+
   it("still tracks other unhandled rejections", async () => {
     render(<ClientErrorTracker />);
 

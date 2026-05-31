@@ -16,6 +16,7 @@ import { Waves } from "lucide-react";
 
 import {
   getBestTimeToSurfData,
+  type BestTimeToSurfData,
 } from "@/actions/city/best-time-actions";
 import { findCityBySlug, getCityExcludeIntents } from "@/actions/city/city-metadata-actions";
 import { buildPageMetadata } from "@/lib/seo/meta";
@@ -30,7 +31,10 @@ import { MonthlySurfChart } from "@/components/best-time-to-surf/monthly-chart";
 import { MonthlyViewToggle } from "@/components/best-time-to-surf/monthly-view-toggle";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
-import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
+import {
+  SeoFunnelNextSteps,
+  type SeoFunnelNextStep,
+} from "@/components/seo/seo-funnel-next-steps";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { SITE_URL } from "@/lib/constants/seo";
 import { INTENT_DEFINITIONS, buildCityIntentUrl, type IntentKey } from "@/lib/constants/intent-definitions";
@@ -73,6 +77,52 @@ interface PageParams {
   params: Promise<{ city: string }>;
 }
 
+type BestTimeHandoffBeach = Pick<
+  BestTimeToSurfData["topBeaches"][number],
+  "name" | "slug" | "city" | "state" | "country"
+>;
+
+export function buildBestTimeLiveHandoffSteps({
+  cityName,
+  citySlug,
+  stateSlug,
+  topBeaches,
+}: {
+  cityName: string;
+  citySlug: string;
+  stateSlug: string;
+  topBeaches: BestTimeHandoffBeach[];
+}): SeoFunnelNextStep[] {
+  const primarySpot = topBeaches.find(
+    (beach) => beach.slug && beach.city && beach.state,
+  );
+  const primarySpotHref = primarySpot
+    ? buildBeachUrl(primarySpot)
+    : `/${stateSlug}/${citySlug}`;
+  const primarySpotName = primarySpot?.name ?? cityName;
+
+  return [
+    {
+      label: `Check today's ${primarySpotName} surf report`,
+      href: primarySpotHref,
+      description:
+        "Start with the live wave height, wind, tide, and board call before committing.",
+    },
+    {
+      label: `Find the best current ${cityName} window`,
+      href: `/${stateSlug}/${citySlug}`,
+      description:
+        "Compare the city's current forecast and spot list against the seasonal pattern.",
+    },
+    {
+      label: `Compare nearby ${cityName} spots`,
+      href: `/map?search=${encodeURIComponent(cityName)}`,
+      description:
+        "Use the map to switch beaches when crowd, wind, or tide changes the call.",
+    },
+  ];
+}
+
 // NOTE: generateStaticParams removed — pages are rendered on-demand via ISR.
 
 export async function generateMetadata(props: PageParams): Promise<Metadata> {
@@ -87,7 +137,7 @@ export async function generateMetadata(props: PageParams): Promise<Metadata> {
 
   return buildPageMetadata({
     title: `Best Time to Surf in ${cityName}, ${stateName} (${currentYear})`,
-    description: `Find the best months to surf in ${cityName}, ${stateName}. Month-by-month wave heights, water temperatures, wetsuit guide, and crowd levels. Updated for ${currentYear}.`,
+    description: `Best months to surf ${cityName}, ${stateName}; then check today's surf report, best current window, and nearby spots before you drive. ${currentYear}.`,
     path: `/best-time-to-surf/${citySlug}`,
     keywords: [
       `best time to surf ${cityName}`,
@@ -121,6 +171,12 @@ export default async function BestTimeToSurfPage(props: PageParams) {
   }
 
   const data = dataResult.data;
+  const liveHandoffSteps = buildBestTimeLiveHandoffSteps({
+    cityName,
+    citySlug,
+    stateSlug,
+    topBeaches: data.topBeaches,
+  });
 
   // Get hardcoded state-level monthly data for enriched grid
   const stateProfile = getStateSurfProfile(stateSlug);
@@ -268,6 +324,14 @@ export default async function BestTimeToSurfPage(props: PageParams) {
             </div>
           </header>
         </ScrollReveal>
+
+        <SeoFunnelNextSteps
+          variant="paper"
+          title={`Turn ${cityName}'s season guide into today's surf call`}
+          description="The calendar shows when this zone usually works. Start with the live report before you load boards."
+          steps={liveHandoffSteps}
+          className="mb-12"
+        />
 
         {/* Month-by-Month Chart */}
         <ScrollReveal>
@@ -421,30 +485,6 @@ export default async function BestTimeToSurfPage(props: PageParams) {
           primaryButtonText="Save best windows"
           source={`best-time-${citySlug}-inline`}
           ctaCopyVariant="city_specific_v1"
-          className="mb-8"
-        />
-
-        <SeoFunnelNextSteps
-          variant="paper"
-          title={`Plan the next ${cityName} session`}
-          description="The seasonal calendar is the long view. Use these pages to turn it into a live surf call."
-          steps={[
-            {
-              label: `Check live ${cityName} spots`,
-              href: `/beaches/usa/${stateSlug}/${citySlug}`,
-              description: "Open the local breaks and current surf conditions.",
-            },
-            {
-              label: `Check ${cityName} water temperature`,
-              href: `/water-temp/${citySlug}`,
-              description: "Dial in suit choice before you commit to the window.",
-            },
-            {
-              label: `Watch the tide window`,
-              href: `/tide/${citySlug}`,
-              description: "See when the tide is helping or hurting the session.",
-            },
-          ]}
           className="mb-8"
         />
 

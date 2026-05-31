@@ -29,6 +29,7 @@ const watchlistPath = getFlag("--watchlist") ??
   path.join(process.cwd(), "docs", "seo", "dataforseo-watchlist.json");
 const login = process.env.DATAFORSEO_LOGIN;
 const password = process.env.DATAFORSEO_PASSWORD;
+const dataForSeoEnabled = process.env.DATAFORSEO_ENABLED?.toLowerCase() !== "false";
 const apiBase = process.env.DATAFORSEO_API_BASE ?? "https://api.dataforseo.com";
 const competitorLimit = numberFromEnv("DATAFORSEO_COMPETITOR_KEYWORD_LIMIT", 100);
 const appBatchSize = numberFromEnv("DATAFORSEO_APP_BATCH_SIZE", 5);
@@ -38,6 +39,11 @@ const appPollIntervalMs = numberFromEnv("DATAFORSEO_APP_POLL_INTERVAL_MS", 5000)
 void main();
 
 async function main(): Promise<void> {
+  if (!dataForSeoEnabled) {
+    writeJson(buildMissingDataForSeoExport(new Date().toISOString(), ["DATAFORSEO_DISABLED_BY_CONFIG"]));
+    return;
+  }
+
   const watchlist = readWatchlist(watchlistPath);
   const missing = [
     ...(!login ? ["DATAFORSEO_LOGIN"] : []),
@@ -79,24 +85,27 @@ async function fetchGoogleRankings(
   );
   if (contexts.length === 0) return [];
 
-  try {
-    const raw = await postDataForSeo("/v3/serp/google/organic/live/advanced", contexts.map((context) => ({
-      keyword: context.keyword,
-      language_code: context.languageCode,
-      depth: context.depth,
-      device: context.device,
-      os: context.device === "mobile" ? "ios" : "macos",
-      ...(context.locationCode ? { location_code: context.locationCode } : { location_name: context.location }),
-      tag: `quiver-serp:${context.keyword}:${context.location}`,
-    })));
+  const rankings: DataForSeoSerpRanking[] = [];
 
-    return contexts.map((context) =>
-      parseGoogleSerpRanking(taskResponseAt(raw, contexts.indexOf(context)), context, watchlist.google.domain),
-    );
-  } catch (error) {
-    missing.push(`DataForSEO Google SERP: ${errorMessage(error)}`);
-    return [];
+  for (const context of contexts) {
+    try {
+      const raw = await postDataForSeo("/v3/serp/google/organic/live/advanced", [{
+        keyword: context.keyword,
+        language_code: context.languageCode,
+        depth: context.depth,
+        device: context.device,
+        os: context.device === "mobile" ? "ios" : "macos",
+        ...(context.locationCode ? { location_code: context.locationCode } : { location_name: context.location }),
+        tag: `quiver-serp:${context.keyword}:${context.location}`,
+      }]);
+
+      rankings.push(parseGoogleSerpRanking(raw, context, watchlist.google.domain));
+    } catch (error) {
+      missing.push(`DataForSEO Google SERP ${context.keyword}: ${errorMessage(error)}`);
+    }
   }
+
+  return rankings;
 }
 
 async function fetchAsoRankings(
@@ -249,11 +258,6 @@ async function parseDataForSeoResponse(response: Response): Promise<unknown> {
     throw new Error(`status ${statusCode}${dataForSeoMessage(raw)}`);
   }
   return raw;
-}
-
-function taskResponseAt(raw: unknown, index: number): unknown {
-  if (!isRecord(raw) || !Array.isArray(raw.tasks)) return raw;
-  return { ...raw, tasks: [raw.tasks[index]].filter(Boolean) };
 }
 
 function extractTaskIds(raw: unknown): string[] {

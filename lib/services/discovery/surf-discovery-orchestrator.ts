@@ -76,6 +76,12 @@ import type { WindSnapshot } from '@/lib/services/discovery/regional-call';
 import { isAfterSunset, buildRestOfToday } from '@/lib/services/discovery/evening-transition';
 import { logHeroRankingDiagnostic } from '@/lib/services/discovery/hero-ranking/diagnostics';
 import { rerankHero } from '@/lib/services/discovery/hero-ranking';
+import {
+  buildRecommendationsV2,
+  type RecommendationV2Candidate,
+  type RecommendationV2SourceState,
+} from '@/lib/services/discovery/recommendations-v2';
+import { buildRecommendationEvidence } from '@/lib/services/discovery/recommendation-evidence';
 import { FEATURE_HERO_WINDOW_SCORE } from '@/lib/constants/feature-flags';
 import type { ScoringEngine } from '@/lib/domains/scoring';
 
@@ -343,8 +349,13 @@ export function generatePrimaryReason(
  * Empty response for error cases
  */
 function emptyResponse(maxResults: number): SurfDiscoveryResponse {
+  const generatedAt = new Date();
   return {
     recommendations: [],
+    recommendationsV2: buildRecommendationsV2({
+      candidates: [],
+      now: generatedAt,
+    }),
     searchCriteria: {
       maxResults,
     },
@@ -354,9 +365,101 @@ function emptyResponse(maxResults: number): SurfDiscoveryResponse {
       partialSuccess: false,
       failedBeaches: 0,
       staleBeaches: 0,
-      generated_at: new Date().toISOString(),
+      generated_at: generatedAt.toISOString(),
     },
     regionalCall: '',
+  };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.max(min, Math.min(max, value));
+}
+
+function deriveRecommendationV2SourceState(
+  rec: SurfDiscoveryRecommendation,
+  usingStaleData: boolean,
+): RecommendationV2SourceState {
+  if (usingStaleData) return 'degraded';
+  if (rec.similarity?.state === 'onboarding') return 'starter_fit';
+  if (rec.similarity?.state === 'ready' && rec.similarity.score < 6) {
+    return 'low_confidence';
+  }
+
+  const copy = [
+    rec.personalExplanation,
+    rec.similarity?.state === 'ready' ? rec.similarity.reason : null,
+    ...rec.reasons,
+  ]
+    .filter((part): part is string => Boolean(part))
+    .join(' ')
+    .toLowerCase();
+
+  if (/\b(avoid|avoided|skip|skipped|rough|too big|too small)\b/.test(copy)) {
+    return 'avoidance_learning';
+  }
+
+  return 'learned';
+}
+
+function toRecommendationV2Candidate(
+  rec: SurfDiscoveryRecommendation,
+  rankingPosition: number,
+  usingStaleData: boolean,
+): RecommendationV2Candidate {
+  const sourceState = deriveRecommendationV2SourceState(rec, usingStaleData);
+  const conditionScore = typeof rec.window.score === 'number'
+    ? rec.window.score
+    : rec.score;
+  const personalMatchScore = rec.similarity?.state === 'ready'
+    ? rec.similarity.score
+    : rec.similarity?.state === 'onboarding'
+      ? 6
+      : rec.score / 10;
+  const label = rec.recommendationLabel ?? rec.matchQuality.toUpperCase();
+  const forecastAt =
+    typeof rec.forecast.forecast_at === 'string'
+      ? rec.forecast.forecast_at
+      : rec.window.start.toISOString();
+  const evidence = buildRecommendationEvidence({
+    sourceState,
+    similarity: rec.similarity,
+    personalExplanation: rec.personalExplanation,
+    reasons: rec.reasons,
+    summary: rec.summary,
+    conditionBadges: rec.conditionBadges,
+    conditionPositiveSessionCount: rec.similarity?.state === 'ready'
+      ? rec.similarity.sessionCount
+      : undefined,
+    boardPick: rec.boardPick,
+    boardLinkedPositiveCount: rec.similarity?.state === 'ready' && rec.boardPick
+      ? rec.similarity.sessionCount
+      : undefined,
+  });
+
+  return {
+    recommendationId: `${rec.beach.id}:${forecastAt}`,
+    sourceState,
+    beach: {
+      id: rec.beach.id,
+      name: rec.beach.name,
+      lat: rec.beach.lat ?? null,
+      lon: rec.beach.lon ?? null,
+      photo_url: rec.beach.photo_url ?? null,
+    },
+    window: {
+      start: rec.window.start,
+      end: rec.window.end,
+      timezone: rec.window.timezone,
+    },
+    conditionScore: clamp(conditionScore, 0, 100),
+    personalMatchScore: clamp(personalMatchScore, 0, 10),
+    overallScore: clamp(rec.score, 0, 100),
+    label,
+    reasonType: evidence.reasonType,
+    proofSummary: evidence.proofSummary,
+    evidenceFacts: evidence.evidenceFacts,
+    rankingPosition,
   };
 }
 
@@ -1293,6 +1396,17 @@ async function discoverSurfSpotsInner(
     }
   }
 
+  const recommendationV2Candidates = [
+    ...enrichedRanked,
+    ...enrichedIncluded,
+  ].map((rec, index) =>
+    toRecommendationV2Candidate(rec, index + 1, usingStaleData)
+  );
+  const recommendationsV2 = buildRecommendationsV2({
+    candidates: recommendationV2Candidates,
+    now,
+  });
+
   const duration = Date.now() - startTime;
   log.debug(
     `Discovery complete in ${duration}ms: ${enrichedRanked.length} recommendations from ${finalCandidates.length} candidates`
@@ -1300,6 +1414,7 @@ async function discoverSurfSpotsInner(
 
   return {
     recommendations: enrichedRanked,
+    recommendationsV2,
     includedRecommendations: enrichedIncluded,
     searchCriteria: {
       userLocation,

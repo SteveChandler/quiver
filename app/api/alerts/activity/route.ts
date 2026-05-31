@@ -35,6 +35,8 @@ interface AlertActivityItem {
   beach_name: string | null;
   forecast_at: string | null;
   alert_date: string | null;
+  window_start: string | null;
+  window_end: string | null;
   reason: string | null;
   window_label: string | null;
   score: number | null;
@@ -117,8 +119,21 @@ function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
   const data = isRecord(row.data) ? row.data : {};
   const match = firstMatch(data);
   const beachName = stringFromData(data, match, ["beach_name", "beachName"]);
+  const forecastAt = stringFromData(data, match, ["forecast_at", "forecastAt"]);
   const reason =
     nonEmptyString(data.reason) ?? nonEmptyString(data.condition_summary);
+  const windowStart =
+    row.type === "similarity_match"
+      ? forecastAt
+      : match
+        ? nonEmptyString(match.window_start)
+        : null;
+  const windowEnd =
+    row.type === "similarity_match"
+      ? null
+      : match
+        ? nonEmptyString(match.window_end)
+        : null;
 
   return {
     id: row.id,
@@ -128,8 +143,10 @@ function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
     beach_id: stringFromData(data, match, ["beach_id", "beachId"]),
     beach_slug: stringFromData(data, match, ["beach_slug", "beachSlug"]),
     beach_name: beachName,
-    forecast_at: stringFromData(data, match, ["forecast_at", "forecastAt"]),
+    forecast_at: forecastAt,
     alert_date: stringFromData(data, match, ["alert_date", "alertDate"]),
+    window_start: windowStart,
+    window_end: windowEnd,
     reason,
     window_label: stringFromData(data, match, [
       "window_label",

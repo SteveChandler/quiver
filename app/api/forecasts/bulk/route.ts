@@ -1,9 +1,7 @@
-import { NextRequest } from "next/server";
+import type { NextRequest, NextResponse } from "next/server";
 import {
   createSuccessResponse,
   handleApiError,
-} from "@/lib/api-utils";
-import {
   withAuth,
   withRateLimit,
 } from "@/lib/middleware/api-wrappers";
@@ -133,7 +131,7 @@ async function fetchBulkCurrentForecastsWithV51Display(
 async function bulkForecastHandler(
   request: NextRequest,
   context: OptionalAuthContext
-) {
+): Promise<NextResponse> {
   try {
     const searchParams = request.nextUrl.searchParams;
     const beachIdsParam = searchParams.get("beachIds");

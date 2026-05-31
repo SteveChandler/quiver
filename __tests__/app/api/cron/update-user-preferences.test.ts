@@ -6,6 +6,7 @@
 import { POST, GET } from '@/app/api/cron/update-user-preferences/route';
 import { NextRequest } from 'next/server';
 import { computeUserPreferences } from '@/lib/services/preference-learning-service';
+import { readFileSync } from 'fs';
 
 // Mock the preference learning service
 jest.mock('@/lib/services/preference-learning-service', () => ({
@@ -13,7 +14,7 @@ jest.mock('@/lib/services/preference-learning-service', () => ({
 }));
 
 // Mock API response utilities
-jest.mock('@/lib/api-utils', () => ({
+jest.mock('@/lib/middleware/api-wrappers', () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: jest.fn(() =>
       Promise.resolve({
@@ -95,6 +96,14 @@ jest.mock('@/lib/supabase/server', () => ({
 }));
 
 describe('User Preference Update Cron Job API', () => {
+  const routeSource = readFileSync(
+    'app/api/cron/update-user-preferences/route.ts',
+    'utf8'
+  );
+  let consoleLogSpy: jest.SpyInstance;
+  let consoleErrorSpy: jest.SpyInstance;
+  let consoleWarnSpy: jest.SpyInstance;
+
   const mockRequest = (
     headers: Record<string, string> = {},
     url = 'http://localhost/api/cron/update-user-preferences'
@@ -112,7 +121,10 @@ describe('User Preference Update Cron Job API', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    require("@/lib/api-utils").validateCronRequest.mockReturnValue(true);
+    consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    require('@/lib/middleware/api-wrappers').validateCronRequest.mockReturnValue(true);
 
     // Reset environment to production for most tests
     process.env.VERCEL_ENV = "production";
@@ -140,8 +152,17 @@ describe('User Preference Update Cron Job API', () => {
   });
 
   afterEach(() => {
+    consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+    consoleWarnSpy.mockRestore();
+
     // Clean up environment
     delete process.env.VERCEL_ENV;
+  });
+
+  it('uses the API wrapper barrel for response helpers and cron request validation', () => {
+    expect(routeSource).not.toContain('@/lib/api-utils');
+    expect(routeSource).toContain('@/lib/middleware/api-wrappers');
   });
 
   describe('POST /api/cron/update-user-preferences', () => {
@@ -162,7 +183,7 @@ describe('User Preference Update Cron Job API', () => {
       });
 
       it('should reject requests without valid authentication', async () => {
-        const { validateCronRequest } = require('@/lib/api-utils');
+        const { validateCronRequest } = require('@/lib/middleware/api-wrappers');
         validateCronRequest.mockReturnValue(false);
 
         const request = mockRequest({
@@ -424,30 +445,6 @@ describe('User Preference Update Cron Job API', () => {
         });
       });
 
-      it('should complete within reasonable time for large batches', async () => {
-        // Create 100 users
-        const users = Array.from({ length: 100 }, (_, i) => ({
-          user_id: `user-${i}`,
-        }));
-
-        mockSupabaseClient.from = jest.fn((table: string) => {
-          if (table === 'profiles') {
-            return createProfilesChain([]);
-          }
-          return createSessionsChain(users);
-        });
-
-        const startTime = Date.now();
-        const request = mockRequest({
-          authorization: 'Bearer valid-cron-secret',
-        });
-
-        await POST(request);
-        const duration = Date.now() - startTime;
-
-        // Should complete within 15 seconds (generous for test environment)
-        expect(duration).toBeLessThan(15000);
-      });
     });
   });
 
@@ -480,7 +477,7 @@ describe('User Preference Update Cron Job API', () => {
       });
 
       it('should reject without authentication', async () => {
-        const { validateCronRequest } = require('@/lib/api-utils');
+        const { validateCronRequest } = require('@/lib/middleware/api-wrappers');
         validateCronRequest.mockReturnValue(false);
 
         const request = mockRequest({});

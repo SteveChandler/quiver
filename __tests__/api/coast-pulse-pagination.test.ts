@@ -3,9 +3,21 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, it, expect } from "@jest/globals";
 
 describe("Coast Pulse API Pagination", () => {
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/coast-pulse/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
+  });
+
   describe("Response shape", () => {
     it("should include hasMore and nextCursor in response", () => {
       // Verify the expected response structure
@@ -20,8 +32,12 @@ describe("Coast Pulse API Pagination", () => {
       };
 
       // This validates the type structure we expect
-      expect(expectedShape.data.hasMore).toBeDefined();
-      expect(expectedShape.data.nextCursor).toBeDefined();
+      expect(Object.keys(expectedShape.data)).toEqual([
+        "items",
+        "summary",
+        "hasMore",
+        "nextCursor",
+      ]);
     });
 
     it("should accept valid response with hasMore true", () => {
@@ -37,7 +53,7 @@ describe("Coast Pulse API Pagination", () => {
 
       expect(response.success).toBe(true);
       expect(response.data.hasMore).toBe(true);
-      expect(response.data.nextCursor).toBeTruthy();
+      expect(response.data.nextCursor).toBe("2026-01-15T10:00:00.000Z");
     });
 
     it("should accept valid response with hasMore false", () => {

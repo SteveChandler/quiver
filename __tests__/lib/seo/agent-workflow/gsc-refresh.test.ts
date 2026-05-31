@@ -8,19 +8,19 @@ describe("SEO workflow GSC refresh", () => {
   it("flags decayed pages, low CTR pages, and sitemap URLs missing from GSC", () => {
     const dashboard = upsertSeoEntry(
       createEmptyDashboard(NOW),
-      entry("/learn/how-to-read-a-surf-forecast", "how to read surf forecast"),
+      entry("/learn/how-to-read-surf-conditions", "how to read surf conditions"),
       NOW,
     );
 
     const recommendations = analyzeGscRefresh(
       {
         prior7d: [{
-          page: "https://www.quiversurf.app/learn/how-to-read-a-surf-forecast",
+          page: "https://www.quiversurf.app/learn/how-to-read-surf-conditions",
           clicks: 10,
           impressions: 400,
         }],
         last7d: [{
-          page: "https://www.quiversurf.app/learn/how-to-read-a-surf-forecast",
+          page: "https://www.quiversurf.app/learn/how-to-read-surf-conditions",
           clicks: 4,
           impressions: 180,
         }],
@@ -32,7 +32,7 @@ describe("SEO workflow GSC refresh", () => {
           position: 8,
         }],
         sitemapPaths: [
-          "/learn/how-to-read-a-surf-forecast",
+          "/learn/how-to-read-surf-conditions",
           "/missing-from-gsc",
         ],
       },
@@ -41,12 +41,12 @@ describe("SEO workflow GSC refresh", () => {
     );
 
     expect(recommendations.map((item) => item.id)).toEqual([
-      "gsc-decay-learn-how-to-read-a-surf-forecast",
+      "gsc-decay-learn-how-to-read-surf-conditions",
       "gsc-low-ctr-vs-surfline",
-      "gsc-missing-learn-how-to-read-a-surf-forecast",
+      "gsc-missing-learn-how-to-read-surf-conditions",
       "gsc-missing-missing-from-gsc",
     ]);
-    expect(recommendations[0]?.targetKeyword).toBe("how to read surf forecast");
+    expect(recommendations[0]?.targetKeyword).toBe("how to read surf conditions");
   });
 
   it("canonicalizes legacy beach rows into the unique sitemap beach path", () => {

@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { NextRequest } from "next/server";
 import {
   createMockSupabaseClient,
@@ -126,6 +128,16 @@ function setupMockChain(mockClient: MockSupabaseClient, responses: any[]) {
 // =============================================================================
 
 describe("POST /api/intel/[id]/report", () => {
+  it("uses the shared API wrapper module for validation helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/intel/[id]/report/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
+    expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthenticatedUser(mockSupabaseClient, createMockUser());
@@ -165,6 +177,7 @@ describe("POST /api/intel/[id]/report", () => {
       });
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
+      expect(response.status).toBe(200);
       await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
 
@@ -180,6 +193,7 @@ describe("POST /api/intel/[id]/report", () => {
       const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/report");
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
+      expect(response.status).toBe(200);
       await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
 
@@ -197,6 +211,7 @@ describe("POST /api/intel/[id]/report", () => {
       });
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
+      expect(response.status).toBe(200);
       await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
 
@@ -217,6 +232,7 @@ describe("POST /api/intel/[id]/report", () => {
 
       // Should still succeed but with truncated/ignored reason (validation happens in schema)
       // The route handles parsing failures gracefully
+      expect(response.status).toBe(200);
       await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
   });
@@ -226,6 +242,7 @@ describe("POST /api/intel/[id]/report", () => {
       const request = createMockRequest("POST", "http://localhost/api/intel/not-a-uuid/report");
       const response = await POST(request, { params: { id: "not-a-uuid" } });
 
+      expect(response.status).toBe(400);
       await expectErrorResponse(response, 400, "Invalid intel format");
     });
 
@@ -237,6 +254,7 @@ describe("POST /api/intel/[id]/report", () => {
       const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/report");
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
+      expect(response.status).toBe(404);
       await expectErrorResponse(response, 404, "Intel post not found");
     });
   });
@@ -252,6 +270,7 @@ describe("POST /api/intel/[id]/report", () => {
       const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/report");
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
+      expect(response.status).toBe(400);
       await expectErrorResponse(response, 400, "cannot report your own");
     });
   });
@@ -273,6 +292,7 @@ describe("POST /api/intel/[id]/report", () => {
       const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/report");
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
+      expect(response.status).toBe(400);
       await expectErrorResponse(response, 400, "already reported");
     });
 
@@ -287,6 +307,7 @@ describe("POST /api/intel/[id]/report", () => {
       const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/report");
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
+      expect(response.status).toBe(500);
       await expectErrorResponse(response, 500);
     });
   });
@@ -304,6 +325,7 @@ describe("POST /api/intel/[id]/report", () => {
       const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/report");
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
+      expect(response.status).toBe(500);
       await expectErrorResponse(response, 500, "Failed to report");
     });
 
@@ -326,6 +348,7 @@ describe("POST /api/intel/[id]/report", () => {
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
       // Should still succeed without reason (route catches parsing errors)
+      expect(response.status).toBe(200);
       await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
   });
@@ -347,6 +370,7 @@ describe("POST /api/intel/[id]/report", () => {
       const request = createMockRequest("POST", "http://localhost/api/intel/VALID_INTEL_POST_ID/report");
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
+      expect(response.status).toBe(200);
       await expectSuccessResponse<IntelReportResponse>(response, 200);
 
       // Note: In production, the DB trigger would update report_count
@@ -370,6 +394,7 @@ describe("POST /api/intel/[id]/report", () => {
       });
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
+      expect(response.status).toBe(200);
       await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
 
@@ -387,6 +412,7 @@ describe("POST /api/intel/[id]/report", () => {
       });
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
+      expect(response.status).toBe(200);
       await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
 
@@ -404,6 +430,7 @@ describe("POST /api/intel/[id]/report", () => {
       });
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
+      expect(response.status).toBe(200);
       await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
 
@@ -421,6 +448,7 @@ describe("POST /api/intel/[id]/report", () => {
       });
       const response = await POST(request, { params: { id: VALID_INTEL_POST_ID } });
 
+      expect(response.status).toBe(200);
       await expectSuccessResponse<IntelReportResponse>(response, 200);
     });
   });

@@ -24,6 +24,10 @@ const RATE_LIMIT_MAX_EVENTS = 10;
 const IGNORED_UNHANDLED_REJECTION_MESSAGES = new Set([
   "Error: WKWebView API client did not respond to this postMessage",
 ]);
+const IGNORED_UNHANDLED_REJECTION_PATTERNS = [
+  /^Error: Server Action "[a-f0-9]+" was not found on the server\./,
+  /^UnrecognizedActionError: Server Action "[a-f0-9]+" was not found on the server\./,
+];
 
 // Module-scoped so the window survives React strict-mode double-effect runs.
 const recentErrorTimestamps: number[] = [];
@@ -65,7 +69,10 @@ function shouldEmit(now: number): boolean {
 function shouldIgnoreClientError(metadata: ClientErrorMetadata): boolean {
   return (
     metadata.source === "unhandled_rejection" &&
-    IGNORED_UNHANDLED_REJECTION_MESSAGES.has(metadata.message)
+    (IGNORED_UNHANDLED_REJECTION_MESSAGES.has(metadata.message) ||
+      IGNORED_UNHANDLED_REJECTION_PATTERNS.some((pattern) =>
+        pattern.test(metadata.message)
+      ))
   );
 }
 

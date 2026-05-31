@@ -1,5 +1,8 @@
 /** @jest-environment node */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 // NextResponse.json polyfill — jsdom doesn't ship Response.json().
 if (typeof (globalThis as any).Response?.json !== "function") {
   (globalThis as any).Response.json = (data: any, init?: ResponseInit) =>
@@ -333,6 +336,16 @@ beforeEach(() => {
 // ============================================================================
 
 describe("POST /api/alerts/rules — duplicate similarity_match guard", () => {
+  it("uses the shared API wrapper module for security headers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/alerts/rules/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
+  });
+
   it("returns 409 when user already has a similarity_match rule", async () => {
     mockExistingRules = [autoSimilarityRule()];
 
@@ -581,6 +594,16 @@ describe("POST /api/alerts/rules — condition alert validation", () => {
 // ============================================================================
 
 describe("DELETE /api/alerts/rules/[ruleId] — auto-managed guard", () => {
+  it("uses the shared API wrapper module for detail security headers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/alerts/rules/[ruleId]/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
+  });
+
   it("returns 403 on auto-managed similarity_match (auto_created_at NOT NULL)", async () => {
     const rule = autoSimilarityRule({
       id: "550e8400-e29b-41d4-a716-446655440000",

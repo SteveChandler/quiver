@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { withRateLimit } from "@/lib/middleware/api-wrappers";
-import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
+import {
+  DEFAULT_SECURITY_HEADERS,
+  withRateLimit,
+} from "@/lib/middleware/api-wrappers";
 import { HDONTAP_HLS_RE, HDRELAY_PLAYER_RE } from "@/lib/media/cam-constants";
 
 export const dynamic = "force-dynamic";

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { createSuccessResponse, validateOrError, createValidationError } from "@/lib/api-utils";
 import { INTEL_CONFIG } from "@/lib/constants/intel";
 import type { IntelPostTag, IntelPostWithUser } from "@/types/database";
 import {
@@ -9,9 +8,12 @@ import {
 } from "@/lib/utils/intel-dedupe";
 import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { IntelPostCreateSchema } from "@/lib/validation/schemas";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
 import {
+  createSuccessResponse,
+  createValidationError,
+  validateOrError,
+  withBotBlockingAndRateLimit,
   withAuth,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
@@ -50,6 +52,33 @@ interface CreateIntelPostData {
   crowd_level?: number | null;
   wave_types?: string[];
   forecast_accuracy?: "accurate" | "somewhat" | "inaccurate" | null;
+}
+
+function isMissingPostgisGeographyError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const maybeError = error as { code?: unknown; message?: unknown };
+  return (
+    maybeError.code === "42704" &&
+    typeof maybeError.message === "string" &&
+    maybeError.message.includes("public.geography")
+  );
+}
+
+function createEmptyIntelPostsResponse(params: GetIntelPostsParams): NextResponse {
+  return createSuccessResponse({
+    posts: [],
+    total: 0,
+    filters: {
+      latitude: params.lat,
+      longitude: params.lon,
+      radius: params.radius ?? INTEL_CONFIG.DEFAULT_RADIUS_MILES,
+      tag: params.tag || "all",
+      limit: params.limit ?? INTEL_CONFIG.DEFAULT_LIMIT,
+    },
+  });
 }
 
 /**
@@ -122,21 +151,31 @@ const intelGetHandler = withAuth(
     );
 
     if (intelError) {
+      if (isMissingPostgisGeographyError(intelError)) {
+        console.warn(
+          "Intel geospatial lookup unavailable; returning empty posts",
+          intelError
+        );
+        return createEmptyIntelPostsResponse({
+          lat: coords.lat,
+          lon: coords.lon,
+          radius,
+          tag: tag || "all",
+          limit,
+        });
+      }
+
       console.error("Error fetching intel posts:", intelError);
       throw intelError;
     }
 
     if (!intelPosts || intelPosts.length === 0) {
-      return createSuccessResponse({
-        posts: [],
-        total: 0,
-        filters: {
-          latitude: coords.lat,
-          longitude: coords.lon,
-          radius,
-          tag: tag || "all",
-          limit,
-        },
+      return createEmptyIntelPostsResponse({
+        lat: coords.lat,
+        lon: coords.lon,
+        radius,
+        tag: tag || "all",
+        limit,
       });
     }
 

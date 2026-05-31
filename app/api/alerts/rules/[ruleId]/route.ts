@@ -4,9 +4,9 @@ import {
   createSuccessResponse,
   createValidationError,
   validateUuidParam,
+  DEFAULT_SECURITY_HEADERS,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
-import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import { validateConditionAlertInput } from "@/lib/alerts/condition-validation";
 import type { AlertConditions } from "@/lib/alerts/types";
 

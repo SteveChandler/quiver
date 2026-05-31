@@ -137,11 +137,21 @@ export function shortenBeachNameForSerpTitle(name: string): string {
 function fitDynamicBeachTitle(
   baseTitle: string,
   city: string | null | undefined,
+  state?: string | null | undefined,
 ): string {
-  if (city) {
-    const withCity = `${baseTitle} | ${city}`;
-    if (withCity.length <= MAX_DYNAMIC_BEACH_TITLE_LENGTH) {
-      return withCity;
+  const suffixes = new Set<string>();
+  if (city) suffixes.add(city);
+  if (state) {
+    const rawState = state.toUpperCase();
+    const expandedState = expandStateForMeta(state);
+    suffixes.add(expandedState);
+    suffixes.add(rawState);
+  }
+
+  for (const suffix of suffixes) {
+    const withSuffix = `${baseTitle} | ${suffix}`;
+    if (withSuffix.length <= MAX_DYNAMIC_BEACH_TITLE_LENGTH) {
+      return withSuffix;
     }
   }
 
@@ -322,7 +332,8 @@ export function extractDescriptionSnippet(
  *
  * CTR strategy:
  * - Keep titles short enough for Next's global " | Quiver" suffix.
- * - Prefer "{shortBeach}: {height} Surf Report", adding city only if it fits.
+ * - Prefer "{shortBeach}: {height} Surf Report & Forecast", adding location
+ *   only if it fits.
  * - Use stable descriptions that create click incentive without fragmenting.
  */
 export function buildDynamicBeachMetadata({
@@ -353,23 +364,28 @@ export function buildDynamicBeachMetadata({
 
   if (forecast?.wave_height) {
     const title = fitDynamicBeachTitle(
-      `${shortBeachName}: ${forecast.wave_height} Surf Report`,
+      `${shortBeachName}: ${forecast.wave_height} Surf Report & Forecast`,
       beach.city,
+      beach.state,
     );
     const description = pickMetaDescription([
-      `${forecast.wave_height} at ${beach.name}. See today's surf report, tide window, crowd intel, and 7-day forecast before you paddle out.`,
-      `${forecast.wave_height} at ${shortBeachName}. See today's surf report, tide window, crowd intel, and 7-day forecast before you paddle out.`,
-      `${forecast.wave_height} surf report for ${shortBeachName}. See tide window, crowd intel, and 7-day forecast before you paddle out.`,
+      `Current ${forecast.wave_height} wave height at ${beach.name}. See today's surf report & forecast, wind, tide, crowd intel, and 7-day forecast.`,
+      `Current ${forecast.wave_height} wave height at ${shortBeachName}. See today's surf report & forecast, wind, tide, crowd intel, and 7-day forecast.`,
+      `${forecast.wave_height} surf report & forecast for ${shortBeachName}: wave height, wind, tide, crowd intel, and 7-day forecast.`,
     ]);
 
     return { title, description };
   }
 
-  const title = fitDynamicBeachTitle(`${shortBeachName} Surf Report`, beach.city);
+  const title = fitDynamicBeachTitle(
+    `${shortBeachName} Surf Report & Forecast`,
+    beach.city,
+    beach.state,
+  );
   const description = pickMetaDescription([
-    `${beach.name}${locationContext}. Today's surf report with tide, wind, crowd intel, and 7-day forecast.`,
-    `${shortBeachName}${locationContext}. Today's surf report with tide, wind, crowd intel, and 7-day forecast.`,
-    `${shortBeachName} surf report: tide, wind, crowd intel, and 7-day forecast.`,
+    `Today's surf report & forecast for ${beach.name}${locationContext}: wave height, wind, tide, crowd intel, and 7-day forecast.`,
+    `Today's surf report & forecast for ${shortBeachName}${locationContext}: wave height, wind, tide, crowd intel, and 7-day forecast.`,
+    `${shortBeachName} surf report & forecast: wave height, wind, tide, crowd intel, and 7-day forecast.`,
   ]);
 
   return { title, description };

@@ -6,12 +6,14 @@ import type { BeachSources } from "@/hooks/use-beach-detail-data";
 import type { ZineBeachPhoto } from "./types";
 import { RoughEdgeFilter } from "./atoms";
 import { ZineHero } from "./zine-hero";
+import type { ZineHeroHeadingLevel } from "./zine-hero";
 import { ZineFooter } from "./zine-footer";
 
 interface ZinePageShellProps {
   beach: Beach;
   beachPhoto?: ZineBeachPhoto | null;
   sources?: BeachSources | null;
+  heroHeadingLevel?: ZineHeroHeadingLevel;
   /**
    * The tabs container is rendered here so the cream-paper styling wraps
    * the tabs row and tab content. Sits between the hero and the footer.
@@ -24,7 +26,13 @@ interface ZinePageShellProps {
  * then the footer. This component is the top-level cream-paper container
  * that replaces the dark twilight chrome on the beach detail page.
  */
-export function ZinePageShell({ beach, beachPhoto, sources, children }: ZinePageShellProps) {
+export function ZinePageShell({
+  beach,
+  beachPhoto,
+  sources,
+  heroHeadingLevel,
+  children,
+}: ZinePageShellProps) {
   return (
     <div className="zine-page zine-tab">
       <RoughEdgeFilter />
@@ -47,7 +55,12 @@ export function ZinePageShell({ beach, beachPhoto, sources, children }: ZinePage
         </div>
 
         <div className="zine-paper">
-          <ZineHero beach={beach} beachPhoto={beachPhoto} sources={sources} />
+          <ZineHero
+            beach={beach}
+            beachPhoto={beachPhoto}
+            sources={sources}
+            headingLevel={heroHeadingLevel}
+          />
 
           {/* Integrated tabs row + per-tab content lives inside the cream paper */}
           <div className="zine-tabs-slot mt-7">

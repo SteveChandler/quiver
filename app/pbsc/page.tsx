@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Image from "next/image";
-import Link from "next/link";
-import { ArrowRight, CalendarDays, MapPin, QrCode, Waves } from "lucide-react";
-import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import { ArrowRight, CalendarDays, MapPin, Waves } from "lucide-react";
 import { buildPageMetadata } from "@/lib/seo/meta";
-
-const WEB_APP_URL = "/map";
+import { parseUserAgent } from "@/lib/utils/user-agent-parser";
+import { PbscScanCtas } from "./pbsc-scan-ctas";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Quiver at PBSC Summer Longboard Classic",
   description:
-    "Quiver is sponsoring the PBSC Summer Longboard Classic at Tourmaline. Scan to open Quiver and try a surf forecast that remembers your sessions.",
+    "Quiver turns every session into local knowledge, so the next call is always a little sharper.",
   path: "/pbsc",
   keywords: [
     "PBSC Summer Longboard Classic",
@@ -22,6 +21,8 @@ export const metadata: Metadata = buildPageMetadata({
   ],
 });
 
+export const dynamic = "force-dynamic";
+
 const REASONS = [
   {
     title: "Make your own call",
@@ -32,12 +33,15 @@ const REASONS = [
     body: "Log the board, beach, conditions, and rating so your best sessions become useful signal.",
   },
   {
-    title: "Help shape the forecast",
-    body: "Event-day feedback helps tune the way Quiver explains local setup and surfer fit.",
+    title: "Build local knowledge",
+    body: "Every logged session adds context for the next swell, tide, wind, and board call.",
   },
 ] as const;
 
-export default function PbscPage() {
+export default async function PbscPage() {
+  const userAgent = (await headers()).get("user-agent") ?? "";
+  const isIosVisitor = parseUserAgent(userAgent).os === "iOS";
+
   return (
     <main className="min-h-screen bg-[#252D6B] text-[#F4EBD8]">
       <section className="relative isolate overflow-hidden px-4 pb-16 pt-24 sm:px-6 lg:px-8">
@@ -75,26 +79,14 @@ export default function PbscPage() {
               Keep them on repeat.
             </h1>
             <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-[#F4EBD8]/88 md:text-xl">
-              Quiver is a surf forecast that explains the call, remembers your
-              sessions, and gets sharper when surfers tell it what actually
-              happened.
+              Quiver turns every session into local knowledge, so the next call
+              is always a little sharper.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href={IOS_APP_STORE_URL}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-sm bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
-              >
-                Open Quiver on iPhone
-                <ArrowRight className="h-5 w-5" />
-              </Link>
-              <Link
-                href={WEB_APP_URL}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-sm border border-[#F4EBD8]/40 px-5 py-3 text-base font-black text-white transition hover:border-[#F78E42] hover:text-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
-              >
-                Use Quiver on web
-              </Link>
-            </div>
+            <PbscScanCtas
+              isIosVisitor={isIosVisitor}
+              placement="hero_primary"
+            />
 
             <div className="mt-8 grid gap-3 text-sm font-semibold text-[#F4EBD8]/84 sm:grid-cols-2">
               <div className="flex items-center gap-2">
@@ -110,7 +102,7 @@ export default function PbscPage() {
 
           <div className="relative mx-auto w-full max-w-[460px] -rotate-1 overflow-hidden rounded-sm border-2 border-[#F4EBD8]/80 bg-[#11100D] p-3 shadow-[14px_16px_0_rgba(247,142,66,0.34)]">
             <div className="absolute -right-3 top-8 z-10 rotate-6 border-2 border-[#11100D] bg-[#2AC9C6] px-3 py-2 text-center font-mono text-xs font-black uppercase tracking-[0.12em] text-[#11100D] shadow-[4px_4px_0_rgba(247,142,66,0.9)]">
-              Scan before
+              Check before
               <br />
               the next set
             </div>
@@ -125,10 +117,10 @@ export default function PbscPage() {
               />
               <div className="absolute inset-x-0 bottom-0 bg-[linear-gradient(0deg,rgba(17,16,13,0.92),rgba(17,16,13,0))] p-5 pt-24">
                 <p className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#FDB84B]">
-                  Scan at the sponsor table
+                  PBSC Summer Longboard Classic
                 </p>
                 <p className="mt-2 max-w-xs font-heading text-3xl font-black leading-none text-white">
-                  Try the forecast that remembers you.
+                  Turn sessions into local knowledge.
                 </p>
               </div>
             </div>
@@ -157,21 +149,28 @@ export default function PbscPage() {
           <div className="mt-10 rounded-sm border-2 border-[#11100D] bg-[#252D6B] p-6 text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.22)] md:flex md:items-center md:justify-between md:gap-8">
             <div>
               <div className="flex items-center gap-2 font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#FDB84B]">
-                <QrCode className="h-4 w-4" />
-                Event live link
+                <Waves className="h-4 w-4" />
+                Local knowledge loop
               </div>
               <p className="mt-3 max-w-2xl text-lg font-semibold leading-8">
-                Stop by the Quiver sponsor table, scan the flyer, and tell us
-                whether the forecast feels useful for your home break.
+                Download Quiver, check the local call, and log the sessions
+                worth remembering.
               </p>
             </div>
-            <Link
-              href={IOS_APP_STORE_URL}
-              className="mt-5 inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-sm bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] md:mt-0"
+            <PbscScanCtas
+              isIosVisitor={isIosVisitor}
+              placement="bottom_primary"
+              className="mt-5 md:mt-0"
             >
-              Open Quiver
-              <ArrowRight className="h-5 w-5" />
-            </Link>
+              {isIosVisitor ? (
+                <>
+                  Open Quiver on iPhone
+                  <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                </>
+              ) : (
+                "Join Android waitlist"
+              )}
+            </PbscScanCtas>
           </div>
         </div>
       </section>

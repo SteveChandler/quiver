@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { withAuth, withRateLimit, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
+import { capturePostHogEvent } from "@/lib/posthog-server";
 import type { RoadmapCategory } from "@/lib/roadmap/types";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +53,31 @@ export const POST = withRateLimit(
         console.error("[roadmap] submission insert error:", error);
         return NextResponse.json({ error: "Could not save submission" }, { status: 500 });
       }
+
+      const isCustomSpotRequest = `${title} ${description}`.toLowerCase().includes("custom spot");
+      const { error: eventError } = await supabase.from("user_events").insert({
+        user_id: user.id,
+        event_type: "feedback_roadmap_request_created",
+        metadata: {
+          source: "web_roadmap",
+          roadmap_submission_id: data.id,
+          category,
+          is_custom_spot_request: isCustomSpotRequest,
+        },
+      });
+      if (eventError) {
+        console.warn("[roadmap] submission analytics insert error:", eventError);
+      }
+      await capturePostHogEvent({
+        distinctId: user.id,
+        event: "feedback_roadmap_request_created",
+        properties: {
+          source: "web_roadmap",
+          roadmap_submission_id: data.id,
+          category,
+          is_custom_spot_request: isCustomSpotRequest,
+        },
+      });
 
       return NextResponse.json({ id: data.id, decision: "pending" });
     },

@@ -37,7 +37,7 @@ A: Quiver currently focuses on US coastal areas (California, Oregon, Washington,
 ## Surf Knowledge Base
 
 Q: How do you read a surf report?
-A: Read five metrics together: wave height (size), swell period (quality — 12+ seconds means clean distant-storm energy), swell direction (must face your beach), wind direction (offshore = clean, onshore = choppy), and tide (mid-tide usually best). Quiver displays all five from NOAA WaveWatch III, corrected with real-time NDBC and CDIP buoy data. Learn more: https://www.quiversurf.app/learn/how-to-read-a-surf-forecast
+A: Read surf conditions in this order: period, direction, wind, tide, then height. The same reported 2-4 ft can feel weak or powerful depending on that mix and your local beach shape. Learn more: https://www.quiversurf.app/learn/how-to-read-surf-conditions
 
 Q: What is swell period and why does it matter?
 A: Swell period is the time in seconds between wave crests at a buoy. Under 9 seconds = local wind chop. Above 12 seconds = powerful distant-storm energy. A 3-foot swell at 14 seconds outperforms a 6-foot swell at 6 seconds. Period reveals wave quality better than height. Learn more: https://www.quiversurf.app/learn/swell-period-explained

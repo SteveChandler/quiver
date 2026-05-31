@@ -4,8 +4,8 @@ import {
   createCachedResponse,
   createSuccessResponse,
   methodNotAllowed,
-} from "@/lib/api-utils";
-import { withRateLimit } from "@/lib/middleware/api-wrappers";
+  withRateLimit,
+} from "@/lib/middleware/api-wrappers";
 import {
   getFeaturedBeaches,
   sortLandingFeaturedBeaches,

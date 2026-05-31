@@ -1,6 +1,8 @@
 /**
  * @jest-environment node
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   createMockSupabaseClient,
@@ -19,16 +21,19 @@ interface BeachDetailResponse {
 // Mock the Supabase server client
 const mockSupabaseClient = createMockSupabaseClient();
 
-jest.mock("@/lib/middleware/api-wrappers", () => ({
-  withBotBlockingAndRateLimit: (handler: any) => handler,
-}));
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const actual = jest.requireActual("@/lib/middleware/api-wrappers");
+  return {
+    ...actual,
+    withBotBlockingAndRateLimit: (handler: unknown) => handler,
+  };
+});
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => Promise.resolve(mockSupabaseClient)),
 }));
 
 // Import after mocks
- 
 const { GET } = require("@/app/api/beaches/[id]/route");
 
 describe("GET /api/beaches/[id]", () => {
@@ -69,6 +74,16 @@ describe("GET /api/beaches/[id]", () => {
 
   afterEach(() => {
     cleanup?.();
+  });
+
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/beaches/[id]/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
   });
 
   it("returns beach with all fields", async () => {
@@ -126,6 +141,10 @@ describe("GET /api/beaches/[id]", () => {
 
   it("returns error for invalid beach ID", async () => {
     const invalidBeachId = "non-existent-beach-id";
+    const dbError = { message: "Row not found", code: "PGRST116" };
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
 
     // Mock query returning null data (no beach found)
     // Supabase .single() returns error when no row is found
@@ -135,26 +154,35 @@ describe("GET /api/beaches/[id]", () => {
       single: jest.fn(() =>
         Promise.resolve({
           data: null,
-          error: { message: "Row not found", code: "PGRST116" },
+          error: dbError,
         })
       ),
     }));
 
-    const request = createMockRequest("GET");
-    const response = await GET(request, {
-      params: Promise.resolve({ id: invalidBeachId }),
-    });
+    try {
+      const request = createMockRequest("GET");
+      const response = await GET(request, {
+        params: Promise.resolve({ id: invalidBeachId }),
+      });
 
-    // Row not found errors should return 404, but handleApiError currently returns 500
-    // TODO: Update handleApiError to return 404 for "Row not found" errors
-    expect(response.status).toBe(500);
-    const json = await response.json();
-    expect(json.success).toBe(false);
-    expect(json.error).toContain("Failed to fetch beach");
+      // Row not found errors should return 404, but handleApiError currently returns 500
+      // TODO: Update handleApiError to return 404 for "Row not found" errors
+      expect(response.status).toBe(500);
+      const json = await response.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toContain("Failed to fetch beach");
+      expect(consoleErrorSpy).toHaveBeenCalledWith("API Error:", "Unknown error");
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("returns error for deleted beach", async () => {
     const deletedBeachId = "deleted-beach-123";
+    const dbError = { message: "No rows returned", code: "PGRST116" };
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
 
     // Mock query returning no data (beach was soft-deleted or doesn't exist)
     (mockSupabaseClient.from as jest.Mock).mockImplementation(() => ({
@@ -163,20 +191,25 @@ describe("GET /api/beaches/[id]", () => {
       single: jest.fn(() =>
         Promise.resolve({
           data: null,
-          error: { message: "No rows returned", code: "PGRST116" },
+          error: dbError,
         })
       ),
     }));
 
-    const request = createMockRequest("GET");
-    const response = await GET(request, {
-      params: Promise.resolve({ id: deletedBeachId }),
-    });
+    try {
+      const request = createMockRequest("GET");
+      const response = await GET(request, {
+        params: Promise.resolve({ id: deletedBeachId }),
+      });
 
-    expect(response.status).toBe(500);
-    const json = await response.json();
-    expect(json.success).toBe(false);
-    expect(json.error).toContain("Failed to fetch beach");
+      expect(response.status).toBe(500);
+      const json = await response.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toContain("Failed to fetch beach");
+      expect(consoleErrorSpy).toHaveBeenCalledWith("API Error:", "Unknown error");
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("includes recent sessions count when available", async () => {
@@ -236,6 +269,10 @@ describe("GET /api/beaches/[id]", () => {
 
   it("handles database connection errors gracefully", async () => {
     const beachId = "beach-db-error";
+    const dbError = { message: "Database connection failed", code: "ECONNREFUSED" };
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
 
     // Mock database connection error
     (mockSupabaseClient.from as jest.Mock).mockImplementation(() => ({
@@ -244,18 +281,23 @@ describe("GET /api/beaches/[id]", () => {
       single: jest.fn(() =>
         Promise.resolve({
           data: null,
-          error: { message: "Database connection failed", code: "ECONNREFUSED" },
+          error: dbError,
         })
       ),
     }));
 
-    const request = createMockRequest("GET");
-    const response = await GET(request, { params: Promise.resolve({ id: beachId }) });
+    try {
+      const request = createMockRequest("GET");
+      const response = await GET(request, { params: Promise.resolve({ id: beachId }) });
 
-    expect(response.status).toBe(500);
-    const json = await response.json();
-    expect(json.success).toBe(false);
-    expect(json.error).toContain("Failed to fetch beach");
+      expect(response.status).toBe(500);
+      const json = await response.json();
+      expect(json.success).toBe(false);
+      expect(json.error).toContain("Failed to fetch beach");
+      expect(consoleErrorSpy).toHaveBeenCalledWith("API Error:", "Unknown error");
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("returns beach data with coordinates", async () => {

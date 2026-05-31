@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { getOptimizedImageUrl } from "@/lib/image-proxy";
 import { buildZineMapScene, type ZineMapCue } from "../map-doodle-scene";
 
 export function RoughEdgeFilter() {
@@ -212,6 +213,8 @@ export function HalftonePhoto({
   height?: number;
   ariaHidden?: boolean;
 }) {
+  const imageSrc = src ? getOptimizedImageUrl(src) : null;
+
   return (
     <div
       className="halftone-photo"
@@ -224,10 +227,10 @@ export function HalftonePhoto({
       }}
       aria-hidden={ariaHidden || !src}
     >
-      {src ? (
+      {imageSrc ? (
         // eslint-disable-next-line @next/next/no-img-element -- intentional: halftone CSS treatment + we need full-bleed cover with no Next image optimisation flicker
         <img
-          src={src}
+          src={imageSrc}
           alt={alt ?? ""}
           style={{
             position: "absolute",

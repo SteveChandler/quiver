@@ -97,6 +97,7 @@ describe("joinAndroidWaitlist", () => {
       }),
     });
     expect(revalidatePath).toHaveBeenCalledWith("/features");
+    expect(revalidatePath).toHaveBeenCalledWith("/pbsc");
     expect(revalidatePath).toHaveBeenCalledWith("/plans");
     expect(revalidatePath).toHaveBeenCalledWith("/pricing");
     expect(revalidatePath).toHaveBeenCalledWith("/profile");

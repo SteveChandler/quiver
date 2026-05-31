@@ -3,7 +3,7 @@ import {
   createSuccessResponse,
   handleApiError,
   validateCronRequest,
-} from "@/lib/api-utils";
+} from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { IntelGenerationService } from "@/lib/services/intel-generation-service";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
@@ -129,5 +129,4 @@ async function _GET(request: Request): Promise<Response> {
 }
 
 export const GET = withObservedCron("/api/cron/daily-intel", _GET);
-
 

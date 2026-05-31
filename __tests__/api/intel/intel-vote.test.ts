@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   createMockSupabaseClient,
   createMockRequest,
@@ -159,6 +161,16 @@ function setupMockChain(mockClient: MockSupabaseClient, responses: any[]) {
 // =============================================================================
 
 describe("POST /api/intel/[id]/vote", () => {
+  it("uses the shared API wrapper module for validation helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/intel/[id]/vote/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
+    expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuthenticatedUser(
@@ -184,6 +196,7 @@ describe("POST /api/intel/[id]/vote", () => {
         params: { id: VALID_INTEL_POST_ID },
       });
 
+      expect(response.status).toBe(401);
       await expectErrorResponse(response, 401);
     });
   });
@@ -197,6 +210,7 @@ describe("POST /api/intel/[id]/vote", () => {
       );
       const response = await POST(request, { params: { id: "not-a-uuid" } });
 
+      expect(response.status).toBe(400);
       await expectErrorResponse(response, 400, "Invalid intel format");
     });
 
@@ -210,6 +224,7 @@ describe("POST /api/intel/[id]/vote", () => {
         params: { id: VALID_INTEL_POST_ID },
       });
 
+      expect(response.status).toBe(400);
       await expectErrorResponse(response, 400);
     });
 
@@ -223,6 +238,7 @@ describe("POST /api/intel/[id]/vote", () => {
         params: { id: VALID_INTEL_POST_ID },
       });
 
+      expect(response.status).toBe(400);
       await expectErrorResponse(response, 400);
     });
 
@@ -240,6 +256,7 @@ describe("POST /api/intel/[id]/vote", () => {
         params: { id: VALID_INTEL_POST_ID },
       });
 
+      expect(response.status).toBe(404);
       await expectErrorResponse(response, 404, "Intel post not found");
     });
 
@@ -257,6 +274,7 @@ describe("POST /api/intel/[id]/vote", () => {
         params: { id: VALID_INTEL_POST_ID },
       });
 
+      expect(response.status).toBe(400);
       await expectErrorResponse(response, 400, "no longer active");
     });
 
@@ -279,6 +297,7 @@ describe("POST /api/intel/[id]/vote", () => {
         params: { id: VALID_INTEL_POST_ID },
       });
 
+      expect(response.status).toBe(400);
       await expectErrorResponse(response, 400, "has expired");
     });
 
@@ -297,6 +316,7 @@ describe("POST /api/intel/[id]/vote", () => {
         params: { id: VALID_INTEL_POST_ID },
       });
 
+      expect(response.status).toBe(400);
       await expectErrorResponse(response, 400, "cannot vote on your own");
     });
   });
@@ -406,6 +426,7 @@ describe("POST /api/intel/[id]/vote", () => {
         params: { id: VALID_INTEL_POST_ID },
       });
 
+      expect(response.status).toBe(500);
       await expectErrorResponse(response, 500);
     });
   });
@@ -500,6 +521,7 @@ describe("DELETE /api/intel/[id]/vote", () => {
         params: { id: VALID_INTEL_POST_ID },
       });
 
+      expect(response.status).toBe(401);
       await expectErrorResponse(response, 401);
     });
   });
@@ -512,6 +534,7 @@ describe("DELETE /api/intel/[id]/vote", () => {
       );
       const response = await DELETE(request, { params: { id: "not-a-uuid" } });
 
+      expect(response.status).toBe(400);
       await expectErrorResponse(response, 400, "Invalid intel format");
     });
 
@@ -528,6 +551,7 @@ describe("DELETE /api/intel/[id]/vote", () => {
         params: { id: VALID_INTEL_POST_ID },
       });
 
+      expect(response.status).toBe(404);
       await expectErrorResponse(response, 404, "Intel post not found");
     });
   });
@@ -573,6 +597,7 @@ describe("DELETE /api/intel/[id]/vote", () => {
         params: { id: VALID_INTEL_POST_ID },
       });
 
+      expect(response.status).toBe(500);
       await expectErrorResponse(response, 500);
     });
   });

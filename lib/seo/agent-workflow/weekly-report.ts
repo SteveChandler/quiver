@@ -3,6 +3,7 @@ import type {
   DataForSeoExportInput,
   GscExportInput,
   PostHogExportInput,
+  SeoMetadataAuditInput,
   SeoPriority,
   SeoRecommendation,
   StoreSnapshotInput,
@@ -42,6 +43,10 @@ export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
     "## Keyword / Ranking Movement",
     "",
     renderKeywordMovement(input.gsc, input.dataforseo, openRecommendations),
+    "",
+    "## SEO Metadata",
+    "",
+    renderMetadataAudit(input.metadata),
     "",
     "## Technical Crawl Health",
     "",
@@ -135,6 +140,21 @@ function renderKeywordMovement(
     rows.push(`- Highest-click GSC query: "${gsc.topQueries[0]?.query}" (${gsc.topQueries[0]?.clicks ?? 0} clicks).`);
   }
   return rows.length ? rows.join("\n") : "- No keyword movement available.";
+}
+
+function renderMetadataAudit(metadata?: SeoMetadataAuditInput): string {
+  if (!metadata) return "- SEO metadata audit unavailable.";
+  const issueLabel = metadata.issues.length === 1 ? "issue" : "issues";
+  const rows = [
+    `- SEO metadata audit checked ${metadata.checkedPages} indexable pages and found ${metadata.issues.length} ${issueLabel}.`,
+  ];
+  if (metadata.issues.length > 0) {
+    rows.push(renderRecommendations(
+      metadata.recommendations.slice(0, 8),
+      "No SEO metadata quality issues found.",
+    ));
+  }
+  return rows.join("\n");
 }
 
 function renderBacklink(backlink?: BacklinkProxyInput): string {

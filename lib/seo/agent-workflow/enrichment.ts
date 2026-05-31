@@ -6,6 +6,7 @@ import type {
   AhrefsKeywordOpportunity,
   AhrefsSeoIssue,
   PostHogSeoPageMetric,
+  SeoEnrichmentContext,
   SeoEnrichmentInput,
   SeoRecommendation,
   VercelSeoPageMetric,
@@ -14,6 +15,7 @@ import type {
 export function analyzeSeoEnrichment(
   input: SeoEnrichmentInput,
   now: string,
+  context: SeoEnrichmentContext = {},
 ): SeoRecommendation[] {
   if (input.source === "vercel") {
     return analyzeVercelPages((input.pages ?? []) as VercelSeoPageMetric[], now);
@@ -24,7 +26,7 @@ export function analyzeSeoEnrichment(
 
   return [
     ...analyzeAhrefsIssues(input.issues ?? [], now),
-    ...analyzeAhrefsKeywords(input.keywordOpportunities ?? [], now),
+    ...analyzeAhrefsKeywords(input.keywordOpportunities ?? [], now, context),
   ].sort((a, b) => a.id.localeCompare(b.id));
 }
 
@@ -172,28 +174,36 @@ function analyzeAhrefsIssues(
 function analyzeAhrefsKeywords(
   opportunities: AhrefsKeywordOpportunity[],
   now: string,
+  context: SeoEnrichmentContext,
 ): SeoRecommendation[] {
   return opportunities.map((opportunity) => {
     const canonicalPath = normalizeSeoPath(opportunity.path);
     const volume = opportunity.volume ?? 0;
     const difficulty = opportunity.difficulty ?? 100;
     const isNoChasePage = isNoChaseAhrefsKeywordPath(canonicalPath);
+    const crossCheck = getAhrefsKeywordCrossCheck(canonicalPath, context);
+    const isValidated = crossCheck.validated;
 
     return {
       id: makeSeoId(`ahrefs-keyword-${opportunity.keyword}`, canonicalPath),
       createdAt: now,
       source: "ahrefs-audit",
-      priority: isNoChasePage ? "low" : volume >= 100 && difficulty <= 40 ? "high" : "medium",
+      priority: isNoChasePage || !isValidated
+        ? "low"
+        : volume >= 100 && difficulty <= 40 ? "high" : "medium",
       canonicalPath,
       targetKeyword: opportunity.keyword,
       summary: isNoChasePage
         ? "Ahrefs keyword opportunity is intentionally blocked by Quiver SEO strategy."
-        : "Ahrefs keyword opportunity should feed the keyword bank review queue.",
+        : isValidated
+          ? "Ahrefs keyword opportunity should feed the keyword bank review queue."
+          : "Ahrefs keyword opportunity needs GSC, Vercel, or PostHog validation before content work.",
       evidence: [
         `keyword=${opportunity.keyword}`,
         `volume=${volume}`,
         `difficulty=${difficulty}`,
         opportunity.reason ?? "Ahrefs opportunity export",
+        ...crossCheck.evidence,
         ...(isNoChasePage ? ["strategy=do not chase tide or water-temp pages"] : []),
       ],
       status: isNoChasePage ? "dismissed" : "open",
@@ -206,6 +216,56 @@ function isNoChaseAhrefsKeywordPath(canonicalPath: string): boolean {
   return segments[0] === "tide" ||
     segments[0] === "water-temp" ||
     segments.includes("water-temp");
+}
+
+function getAhrefsKeywordCrossCheck(
+  canonicalPath: string,
+  context: SeoEnrichmentContext,
+): { evidence: string[]; validated: boolean } {
+  const evidence: string[] = [];
+  const gscRows = uniqueGscRows([
+    ...(context.gsc?.last28d ?? []),
+    ...(context.gsc?.topPages ?? []),
+  ]).filter((row) => normalizeSeoPath(row.page) === canonicalPath);
+  const gscClicks = sum(gscRows.map((row) => row.clicks));
+  const gscImpressions = sum(gscRows.map((row) => row.impressions));
+  if (gscClicks > 0 || gscImpressions > 0) {
+    evidence.push(`crossCheck=gscImpressions=${gscImpressions},gscClicks=${gscClicks}`);
+  }
+
+  const vercelVisits = sum((context.vercel?.pages ?? [])
+    .filter((page) => normalizeSeoPath(page.path) === canonicalPath)
+    .map((page) => page.visits ?? 0));
+  if (vercelVisits > 0) {
+    evidence.push(`crossCheck=vercelVisits=${vercelVisits}`);
+  }
+
+  const posthogLandingSessions = sum((context.posthog?.pages ?? [])
+    .filter((page) => normalizeSeoPath(page.path) === canonicalPath)
+    .map((page) => page.landingSessions ?? 0));
+  if (posthogLandingSessions > 0) {
+    evidence.push(`crossCheck=posthogLandingSessions=${posthogLandingSessions}`);
+  }
+
+  const validated = evidence.length > 0;
+  if (!validated) {
+    evidence.push("crossCheck=no matching GSC, Vercel, or PostHog demand");
+  }
+
+  return { evidence, validated };
+}
+
+function sum(values: number[]): number {
+  return values.reduce((total, value) => total + value, 0);
+}
+
+function uniqueGscRows<T extends { page: string; clicks: number; impressions: number }>(
+  rows: T[],
+): T[] {
+  return [...new Map(rows.map((row) => [
+    `${normalizeSeoPath(row.page)}\u0000${row.clicks}\u0000${row.impressions}`,
+    row,
+  ])).values()];
 }
 
 function trafficEvidence(page: VercelSeoPageMetric): string {

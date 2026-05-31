@@ -1,11 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   handleApiError,
   createSuccessResponse,
   createValidationError,
-} from "@/lib/api-utils";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
+  withBotBlockingAndRateLimit,
+} from "@/lib/middleware/api-wrappers";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
 
 export const dynamic = "force-dynamic";

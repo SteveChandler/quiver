@@ -1,11 +1,7 @@
-import { SEO_CONFIG } from "@/lib/constants/seo";
+import { buildRootStructuredDataGraph } from "@/lib/seo/root-structured-data";
 
 export function HomePageStructuredData() {
-  const jsonLd = [
-    SEO_CONFIG.structuredData.organization,
-    SEO_CONFIG.structuredData.softwareApplication,
-    SEO_CONFIG.structuredData.website,
-  ];
+  const jsonLd = buildRootStructuredDataGraph();
 
   return (
     <script

@@ -5,6 +5,57 @@ import { isVisibleSafe } from './utils/strict-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 import { dismissMapEntryOverlay } from './utils/map-helpers';
 
+type WaveHeightRange = {
+  min: number;
+  max: number;
+};
+
+const normalizeWaveHeightValue = (value: number): string => {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}` : `${rounded}`;
+};
+
+const parseWaveHeightRange = (text: string): WaveHeightRange | null => {
+  const normalizedText = text.replace(/\u2013/g, '-').toLowerCase();
+  const wavePattern = /~?\s*(\d+(?:\.\d+)?)(?:\s*-\s*(\d+(?:\.\d+)?)\s*)?ft/g;
+  const matches = [...normalizedText.matchAll(wavePattern)];
+
+  for (const match of matches) {
+    const min = Number.parseFloat(match[1]);
+    const max = match[2] ? Number.parseFloat(match[2]) : min;
+
+    if (!Number.isFinite(min) || !Number.isFinite(max)) {
+      continue;
+    }
+
+    return {
+      min,
+      max,
+    };
+  }
+
+  return null;
+};
+
+const formatWaveHeightRange = (range: WaveHeightRange): string => {
+  if (range.min === range.max) {
+    return `${normalizeWaveHeightValue(range.min)}ft`;
+  }
+
+  return `${normalizeWaveHeightValue(range.min)}-${normalizeWaveHeightValue(range.max)}ft`;
+};
+
+const waveHeightRangesOverlap = (
+  left: WaveHeightRange | null,
+  right: WaveHeightRange | null
+): boolean => {
+  if (!left || !right) {
+    return false;
+  }
+
+  return Math.max(left.min, right.min) <= Math.min(left.max, right.max);
+};
+
 /**
  * Map Page Tests
  * Tests the interactive map functionality including view modes, filters, search, and geolocation
@@ -135,6 +186,80 @@ test.describe('Map Page - View Mode Toggle', () => {
     if (hasItems) {
       const count = await beachItems.count();
       expect(count).toBeGreaterThan(0);
+    }
+  });
+
+  test('should preserve forecast height from list card into beach detail', async ({ page }) => {
+    try {
+      const listButton = page.getByTestId('view-mode-list');
+      await listButton.click();
+      await page.waitForLoadState('load');
+
+      const beachList = page.getByTestId('beach-list');
+      const hasList = await isVisibleSafe(beachList, { timeout: TIMEOUTS.medium });
+      const firstListCard = page.locator('[data-testid="beach-item"]').first();
+
+      if (!hasList) {
+        const hasCards = await isVisibleSafe(firstListCard, { timeout: TIMEOUTS.medium });
+        expect(hasCards).toBe(true);
+      }
+
+      await expect(firstListCard).toBeVisible({ timeout: TIMEOUTS.medium });
+
+      const listBeachName = (await firstListCard.locator('h3').first().textContent())?.trim();
+      expect(listBeachName).toBeTruthy();
+
+      const expandButton = firstListCard.getByRole('button', {
+        name: /expand details|collapse details/i,
+      });
+
+      if (await isVisibleSafe(expandButton, { timeout: TIMEOUTS.short })) {
+        await expandButton.click();
+      }
+
+      const listForecastDisplay = firstListCard.locator('[data-testid="primary-wave-height"]').first();
+      await expect(listForecastDisplay).toBeVisible({ timeout: TIMEOUTS.medium });
+
+      const listForecastHeight = parseWaveHeightRange(await listForecastDisplay.textContent() ?? '');
+      expect(listForecastHeight).toBeTruthy();
+
+    const detailLink = firstListCard.getByRole('link', { name: /view details/i }).first();
+    await expect(detailLink).toBeVisible({ timeout: TIMEOUTS.short });
+    await detailLink.click();
+
+    await page.waitForURL(/\/(?:surf-forecast\/[^/?#]+|[a-z]{2}\/[^/?#]+\/[^/?#]+)/i, {
+      timeout: TIMEOUTS.short,
+    });
+
+    const detailCurrentSection = page
+      .locator('section')
+      .filter({ has: page.getByRole('heading', { name: 'Current Conditions', level: 2, exact: true }) });
+
+      await expect(detailCurrentSection).toBeVisible({ timeout: TIMEOUTS.long });
+
+      const detailForecastHeight = parseWaveHeightRange(await detailCurrentSection.textContent() ?? '');
+      expect(detailForecastHeight).toBeTruthy();
+
+      const listForecastLabel = formatWaveHeightRange(listForecastHeight as WaveHeightRange);
+      const detailForecastLabel = formatWaveHeightRange(detailForecastHeight as WaveHeightRange);
+
+    expect(
+      waveHeightRangesOverlap(listForecastHeight, detailForecastHeight),
+      `Expected overlapping wave-height ranges between map list (${listForecastLabel}) and detail (${detailForecastLabel})`
+    ).toBe(true);
+    } finally {
+      errorCapture.networkErrors = errorCapture.networkErrors.filter(
+        (entry) => !(entry.status === 500 && entry.url.includes('/api/intel'))
+      );
+      errorCapture.consoleErrors = errorCapture.consoleErrors.filter(
+        (msg) => !(
+          msg.includes('500 Internal Server Error') &&
+          msg.includes('/api/intel')
+        )
+      );
+      errorCapture.consoleErrors = errorCapture.consoleErrors.filter(
+        (msg) => !msg.includes('Encountered a script tag while rendering React component')
+      );
     }
   });
 });

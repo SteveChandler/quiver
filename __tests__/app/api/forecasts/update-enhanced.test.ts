@@ -1,6 +1,6 @@
 /**
  * Tests for GET /api/forecasts/update-enhanced
- * 
+ *
  * Validates strict stale behavior and beach-detail display fallback:
  * - Returns empty forecasts when cache is stale by default
  * - Returns empty forecasts when cache is missing
@@ -8,6 +8,9 @@
  * - Allows stale rows only for allowStale=display
  * - Includes appropriate metadata in all cases
  */
+
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 
@@ -62,6 +65,16 @@ describe("GET /api/forecasts/update-enhanced", () => {
     mockBeachShoalingFactors = null;
   });
 
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/forecasts/update-enhanced/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
+  });
+
   it("returns empty forecasts when cache is stale by default", async () => {
     mockGetFreshForecastFromCache.mockResolvedValueOnce({
       forecasts: [], // Empty because stale
@@ -92,7 +105,7 @@ describe("GET /api/forecasts/update-enhanced", () => {
     expect(json.data.metadata.stale).toBe(true);
     expect(json.data.metadata.cached).toBe(true);
     expect(json.data.metadata.reason).toContain("refusing to serve stale cache");
-    
+
     // Verify no-store cache header for stale data
     expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
@@ -120,7 +133,7 @@ describe("GET /api/forecasts/update-enhanced", () => {
     expect(json.data.forecasts).toEqual([]);
     expect(json.data.metadata.missing).toBe(true);
     expect(json.data.metadata.reason).toContain("waiting for background job");
-    
+
     // Verify no-store cache header for missing data
     expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
@@ -166,7 +179,7 @@ describe("GET /api/forecasts/update-enhanced", () => {
     expect(json.data.forecasts).toHaveLength(1);
     expect(json.data.metadata.stale).toBe(false);
     expect(json.data.metadata.cached).toBe(true);
-    
+
     // Verify caching headers for fresh data
     expect(res.headers.get("Cache-Control")).toContain("s-maxage=600");
   });

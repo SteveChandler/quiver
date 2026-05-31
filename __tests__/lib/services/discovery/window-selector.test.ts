@@ -1717,6 +1717,145 @@ describe('scoreWindowWithEngine', () => {
     // Excellent conditions (glass, good period, good size) should score 60+
     expect(score).toBeGreaterThanOrEqual(60);
   });
+
+  it('keeps Mission Beach short-period onshore surf below the good band', () => {
+    const missionBeach = {
+      ...mockBeach,
+      id: 'mission-beach',
+      name: 'Mission Beach',
+      swell_window_min_deg: 255,
+      swell_window_max_deg: 345,
+      wind_offshore_deg: 90,
+      wind_offshore_tol_deg: 30,
+      wind_onshore_bad_kt: 8,
+      preferred_tide_ft_min: 2,
+      preferred_tide_ft_max: 6,
+      preferred_tide_direction: 'rising',
+      break_type: 'jetty',
+    };
+    const forecast = createForecast({
+      wave_height: '2.5',
+      wave_period: '9s',
+      wave_direction: 'WNW',
+      wave_direction_om: 292.5,
+      swell_1_height: '2.5',
+      swell_1_period: '9s',
+      swell_1_direction: 'WNW',
+      wind_wave_height: '1',
+      wind_wave_period: '6s',
+      wind_wave_direction: 'W',
+      wind_speed: '10',
+      wind_direction: 'W',
+      wind_direction_deg: 270,
+      tide_height: '2.7',
+      tide_status: 'Rising',
+    });
+
+    const { scoreWindowWithEngine } = require('@/lib/services/discovery/window-selector');
+    const score = scoreWindowWithEngine(forecast, missionBeach as Beach);
+
+    expect(score).toBeGreaterThanOrEqual(50);
+    expect(score).toBeLessThan(55);
+  });
+});
+
+describe('selectBestWindow Mission Beach regression', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-05-26T04:02:00.000Z')); // May 25, 9:02 PM PDT
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('still selects the least-bad Mission Beach window while keeping its score fair', () => {
+    const missionBeach = {
+      ...mockBeach,
+      id: 'mission-beach',
+      name: 'Mission Beach',
+      lat: 32.771,
+      lon: -117.254,
+      swell_window_min_deg: 255,
+      swell_window_max_deg: 345,
+      wind_offshore_deg: 90,
+      wind_offshore_tol_deg: 30,
+      wind_onshore_bad_kt: 8,
+      preferred_tide_ft_min: 2,
+      preferred_tide_ft_max: 6,
+      preferred_tide_direction: 'rising',
+      break_type: 'jetty',
+    };
+    const forecasts = [
+      createForecast({
+        id: 'mission-1100',
+        forecast_at: '2026-05-26T18:00:00.000Z',
+        forecast_date: '2026-05-26',
+        forecast_time: '11:00',
+        wave_height: '1',
+        wave_period: '6s',
+        wave_direction: 'WSW',
+        swell_1_height: '1',
+        swell_1_period: '6s',
+        swell_1_direction: 'WSW',
+        wind_speed: '10',
+        wind_direction: 'W',
+        wind_direction_deg: 270,
+        tide_height: '1.8',
+        tide_status: 'Falling',
+      }),
+      createForecast({
+        id: 'mission-1400',
+        forecast_at: '2026-05-26T21:00:00.000Z',
+        forecast_date: '2026-05-26',
+        forecast_time: '14:00',
+        wave_height: '2.5',
+        wave_period: '9s',
+        wave_direction: 'WNW',
+        wave_direction_om: 292.5,
+        swell_1_height: '2.5',
+        swell_1_period: '9s',
+        swell_1_direction: 'WNW',
+        wind_wave_height: '1',
+        wind_wave_period: '6s',
+        wind_wave_direction: 'W',
+        wind_speed: '10',
+        wind_direction: 'W',
+        wind_direction_deg: 270,
+        tide_height: '2.7',
+        tide_status: 'Rising',
+      }),
+      createForecast({
+        id: 'mission-1700',
+        forecast_at: '2026-05-27T00:00:00.000Z',
+        forecast_date: '2026-05-26',
+        forecast_time: '17:00',
+        wave_height: '1.6',
+        wave_period: '8s',
+        wave_direction: 'WNW',
+        wave_direction_om: 292.5,
+        swell_1_height: '1.6',
+        swell_1_period: '8s',
+        swell_1_direction: 'WNW',
+        wind_speed: '10',
+        wind_direction: 'W',
+        wind_direction_deg: 270,
+        tide_height: '4.7',
+        tide_status: 'Rising',
+      }),
+    ];
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: missionBeach as Beach,
+      userPrefs: null,
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.score).toBeGreaterThanOrEqual(50);
+    expect(result!.score).toBeLessThan(55);
+    expect(result!.sourceForecast?.id).toBe('mission-1400');
+  });
 });
 
 describe('sub-hour window refinement integration', () => {

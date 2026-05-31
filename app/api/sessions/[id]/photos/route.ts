@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  createValidationError,
-  DEFAULT_SECURITY_HEADERS,
-  isValidUuid,
-} from "@/lib/api-utils";
-import {
   withAuth,
   createSuccessResponse,
   createAuthError,
   methodNotAllowed,
+  createValidationError,
+  DEFAULT_SECURITY_HEADERS,
+  isValidUuid,
 } from "@/lib/middleware/api-wrappers";
 import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 import { getSessionPhotos } from "@/lib/supabase/storage";

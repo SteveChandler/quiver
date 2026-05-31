@@ -1,6 +1,6 @@
 // app/api/cron/condition-alert-evaluate/route.ts
 import { NextResponse } from "next/server";
-import { validateCronRequest } from "@/lib/api-utils";
+import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withCronObservability } from "@/lib/cron/observability";
 import { findMatchingWindows, type FoundWindow } from "@/lib/alerts/window-finder";

@@ -4,7 +4,7 @@ import {
   validateCronRequest,
   createErrorResponse,
   createSuccessResponse,
-} from "@/lib/api-utils";
+} from "@/lib/middleware/api-wrappers";
 import { getCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
 
 export const revalidate = 0;

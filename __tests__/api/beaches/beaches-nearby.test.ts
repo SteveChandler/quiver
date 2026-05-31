@@ -1,6 +1,8 @@
 /**
  * @jest-environment node
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * Tests for GET /api/beaches/nearby
@@ -107,6 +109,16 @@ describe("GET /api/beaches/nearby", () => {
         error: null,
       }),
     });
+  });
+
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/beaches/nearby/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
   });
 
   describe("Coordinate Validation", () => {
@@ -484,23 +496,37 @@ describe("GET /api/beaches/nearby", () => {
 
   describe("Error Handling", () => {
     it("returns 500 when database query fails", async () => {
+      const dbError = { message: "Database connection failed" };
+      const consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+
       (mockSupabaseClient.from as jest.Mock).mockReturnValue({
         select: jest.fn().mockResolvedValue({
           data: null,
-          error: { message: "Database connection failed" },
+          error: dbError,
         }),
       });
 
-      const req = new NextRequest(
-        new URL("http://localhost/api/beaches/nearby?lat=32.75&lon=-117.25")
-      );
+      try {
+        const req = new NextRequest(
+          new URL("http://localhost/api/beaches/nearby?lat=32.75&lon=-117.25")
+        );
 
-      const res = await GET(req);
-      expect(res.status).toBe(500);
+        const res = await GET(req);
+        expect(res.status).toBe(500);
 
-      const json = await res.json();
-      expect(json.success).toBe(false);
-      expect(json.error).toBeDefined();
+        const json = await res.json();
+        expect(json.success).toBe(false);
+        expect(json.error).toBe("Error fetching nearby beaches");
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          "Error fetching nearby beaches:",
+          dbError
+        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith("API Error:", "Unknown error");
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
     });
 
     it("handles beaches with missing coordinates gracefully", async () => {

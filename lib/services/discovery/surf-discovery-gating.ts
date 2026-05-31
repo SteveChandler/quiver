@@ -145,6 +145,7 @@ export function gateSurfDiscoveryResponse(
       entitlement,
       lockedBestSpotTeaser: buildLockedBestSpotTeaser(discovery.recommendations[0]),
       recommendations: [],
+      recommendationsV2: undefined,
       includedRecommendations: [],
     };
   }

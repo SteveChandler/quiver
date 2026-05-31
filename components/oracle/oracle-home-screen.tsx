@@ -895,9 +895,9 @@ export function OracleHomeScreen() {
       {/* TODO: Wire hasSessionToday (check sessions table for today) and
            hasFollows (check follows count) to enable "Share your session"
            and "Tell your crew" CTA branches. */}
-      <div className="md:grid md:grid-cols-[1fr_380px] md:gap-6 md:px-6 md:py-4">
+      <div className="md:grid md:grid-cols-[minmax(0,1fr)_380px] md:gap-6 md:px-6 md:py-4">
         {/* Left column: CTA + Today's Windows */}
-        <div className="space-y-6">
+        <div className="min-w-0 space-y-6">
           <ContextualCTA
             hasHomeBeach={!!homeBeach}
             hasSessionToday={false}
@@ -924,7 +924,7 @@ export function OracleHomeScreen() {
         </div>
 
         {/* Right column: Nearby Spots + Activity Feed */}
-        <div className="space-y-6 px-6 pb-24 md:px-0 md:pb-6">
+        <div className="min-w-0 space-y-6 px-6 pb-24 md:px-0 md:pb-6">
           <NearbySpots
             spots={nearbySpots}
             onViewSpot={handleViewSpot}

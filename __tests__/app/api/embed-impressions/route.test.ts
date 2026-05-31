@@ -7,6 +7,8 @@
  * No auth required — embed visitors are anonymous.
  */
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { POST } from '@/app/api/embed-impressions/route';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 
@@ -42,6 +44,16 @@ describe('POST /api/embed-impressions', () => {
     jest.clearAllMocks();
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(mockSupabase);
     mockInsert.mockReturnValue({ error: null });
+  });
+
+  it('uses the shared API wrapper module for response helpers', () => {
+    const source = readFileSync(
+      join(process.cwd(), 'app/api/embed-impressions/route.ts'),
+      'utf8'
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
   });
 
   // ===========================================================================
@@ -102,7 +114,9 @@ describe('POST /api/embed-impressions', () => {
 
     expect(response.status).toBe(204);
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
-    expect(response.headers.get('Strict-Transport-Security')).toBeTruthy();
+    expect(response.headers.get('Strict-Transport-Security')).toBe(
+      'max-age=31536000; includeSubDomains'
+    );
   });
 
   // ===========================================================================
@@ -255,7 +269,9 @@ describe('POST /api/embed-impressions', () => {
     );
     expect(response.status).toBe(429);
     expect(response.headers.get('X-Content-Type-Options')).toBe('nosniff');
-    expect(response.headers.get('Strict-Transport-Security')).toBeTruthy();
+    expect(response.headers.get('Strict-Transport-Security')).toBe(
+      'max-age=31536000; includeSubDomains'
+    );
   });
 
   it('isolates rate limits per IP', async () => {
@@ -299,8 +315,20 @@ describe('POST /api/embed-impressions', () => {
     mockInsert.mockReturnValue({ error: { message: 'Database error' } });
 
     const request = makeRequest({ widgetType: 'tides', beachSlug: 'swamis' });
-    const response = await POST(request);
-    expect(response.status).toBe(500);
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    try {
+      const response = await POST(request);
+      expect(response.status).toBe(500);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Error inserting embed impression:',
+        { message: 'Database error' }
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it('returns 500 when service role client throws', async () => {
@@ -309,7 +337,19 @@ describe('POST /api/embed-impressions', () => {
     });
 
     const request = makeRequest({ widgetType: 'tides', beachSlug: 'swamis' });
-    const response = await POST(request);
-    expect(response.status).toBe(500);
+    const consoleErrorSpy = jest
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    try {
+      const response = await POST(request);
+      expect(response.status).toBe(500);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Service role client error:',
+        expect.any(Error)
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 });

@@ -66,9 +66,9 @@ function buildPayload(args: {
   isDisplayStaleForecast: boolean;
   forecastTimeLabel?: string | null;
   freshnessLabel?: string | null;
+  routePathname?: string | null;
   feedbackValue: FeedbackValue;
   feedbackNote: string | null;
-  routePathname: string | null;
 }): ForecastFeedbackClientPayload {
   const { beach, forecast, surfCall, forecastMetadata } = args;
   const sourceContext = {
@@ -138,7 +138,7 @@ function buildPayload(args: {
     missingFlags: surfCall ? {} : { surf_call_context: true },
     auditMetadata: {
       surface: "forecast_tab",
-      route: args.routePathname,
+      route: args.routePathname ?? null,
       beach_name: beach.name,
       beach_slug: beach.slug,
       timezone: args.beachTimezone ?? null,
@@ -158,7 +158,7 @@ export function ForecastFeedbackCapture({
   forecastTimeLabel,
   freshnessLabel,
 }: ForecastFeedbackCaptureProps) {
-  const routePathname = usePathname();
+  const pathname = usePathname();
   const { track } = useTrackEvent();
   const [selectedValue, setSelectedValue] = useState<FeedbackValue | null>(
     null,
@@ -188,9 +188,9 @@ export function ForecastFeedbackCapture({
       isDisplayStaleForecast,
       forecastTimeLabel,
       freshnessLabel,
+      routePathname: pathname,
       feedbackValue: selectedValue,
       feedbackNote: compactNote(note),
-      routePathname,
     });
 
     try {

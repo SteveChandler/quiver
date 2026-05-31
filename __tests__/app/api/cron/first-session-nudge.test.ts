@@ -10,10 +10,10 @@
 
 import { GET } from "@/app/api/cron/first-session-nudge/route";
 import { NextRequest } from "next/server";
-import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
+import { readFileSync } from "fs";
 
 // Mock API response utilities
-jest.mock("@/lib/api-utils", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: jest.fn(() =>
       Promise.resolve({
@@ -268,10 +268,17 @@ function setupSupabaseChain({
 // ============================================================================
 
 describe("First Session Nudge Cron Job API", () => {
+  const routeSource = readFileSync(
+    "app/api/cron/first-session-nudge/route.ts",
+    "utf8"
+  );
+  let consoleLogSpy: jest.SpyInstance;
+
   beforeEach(() => {
     // resetAllMocks clears calls AND implementation queues (mockResolvedValueOnce etc.)
     // This is necessary because setupSupabaseChain uses one-time return queues.
     jest.resetAllMocks();
+    consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
 
     // Restore the mocks that have permanent implementations (email send default)
     mockEmailsSend.mockResolvedValue({
@@ -280,11 +287,11 @@ describe("First Session Nudge Cron Job API", () => {
     });
 
     // validateCronRequest defaults to true
-    const { validateCronRequest } = require("@/lib/api-utils");
+    const { validateCronRequest } = require("@/lib/middleware/api-wrappers");
     validateCronRequest.mockReturnValue(true);
 
     // createSuccessResponse / createErrorResponse / handleApiError defaults
-    const apiUtils = require("@/lib/api-utils");
+    const apiUtils = require("@/lib/middleware/api-wrappers");
     apiUtils.createSuccessResponse.mockImplementation((data: unknown, status = 200) => ({
       json: jest.fn(() => Promise.resolve({ success: true, data, timestamp: new Date().toISOString() })),
       status,
@@ -326,13 +333,22 @@ describe("First Session Nudge Cron Job API", () => {
     });
   });
 
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+  });
+
+  it("uses the API wrapper barrel for response helpers and cron request validation", () => {
+    expect(routeSource).not.toContain("@/lib/api-utils");
+    expect(routeSource).toContain("@/lib/middleware/api-wrappers");
+  });
+
   // --------------------------------------------------------------------------
   // Authentication
   // --------------------------------------------------------------------------
 
   describe("Authentication", () => {
     it("rejects requests without valid cron authentication", async () => {
-      const { validateCronRequest } = require("@/lib/api-utils");
+      const { validateCronRequest } = require("@/lib/middleware/api-wrappers");
       validateCronRequest.mockReturnValue(false);
 
       const response = await GET(mockRequest({ authorization: "Bearer invalid" }));
@@ -639,11 +655,15 @@ describe("First Session Nudge Cron Job API", () => {
 
       mockEmailsSend.mockResolvedValueOnce({ data: null, error: new Error("Resend API error") });
 
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
       const data = await response.json();
 
-      // The cron logs console.error on send failure — expected in this test
-      expectConsoleErrors([/Failed to send to user/]);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "[first-session-nudge] Failed to send to user user-err:",
+        expect.any(Error)
+      );
+      consoleErrorSpy.mockRestore();
 
       expect(data.success).toBe(true);
       expect(data.data.summary.sent).toBe(0);

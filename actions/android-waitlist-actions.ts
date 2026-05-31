@@ -80,6 +80,7 @@ export async function joinAndroidWaitlist(input: unknown) {
     }
 
     revalidatePath("/features");
+    revalidatePath("/pbsc");
     revalidatePath("/plans");
     revalidatePath("/pricing");
     revalidatePath("/profile");

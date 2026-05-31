@@ -16,7 +16,9 @@ interface RichFAQItem extends FAQItem {
 }
 
 /**
- * Combined FAQ Section — JSON-LD structured data + interactive accordion.
+ * Combined FAQ Section — visible interactive accordion.
+ * FAQSchema is retained as a compatibility no-op; Quiver does not emit broad
+ * FAQPage JSON-LD.
  * Use on listing pages (city, state) that generate data-driven FAQs.
  */
 export function FAQSection({

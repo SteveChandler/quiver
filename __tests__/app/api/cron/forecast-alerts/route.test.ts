@@ -7,9 +7,9 @@ jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 
-jest.mock("@/lib/api-utils", () => {
-  const actual = jest.requireActual<typeof import("@/lib/api-utils")>(
-    "@/lib/api-utils"
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const actual = jest.requireActual<typeof import("@/lib/middleware/api-wrappers")>(
+    "@/lib/middleware/api-wrappers"
   );
   return {
     ...actual,

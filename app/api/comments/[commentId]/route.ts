@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
-import { createValidationError, isValidUuid } from "@/lib/api-utils";
 import {
   withAuth,
   createSuccessResponse,
+  createValidationError,
+  isValidUuid,
   methodNotAllowed,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";

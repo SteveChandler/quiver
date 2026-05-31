@@ -12,6 +12,7 @@ export const RESERVED_ONE_SEGMENT_SLUGS = new Set([
   "download",
   "login",
   "signup",
+  "plans",
   "pricing",
   "privacy",
   "terms",
@@ -112,7 +113,6 @@ export function getStateDisplayNameFromSlug(stateSlug: string): string {
   const code = toDbState(stateSlug);
   return US_STATE_NAMES_BY_CODE[code] || code;
 }
-
 
 
 

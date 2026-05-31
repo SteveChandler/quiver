@@ -1,5 +1,6 @@
 import { GET } from "@/app/api/cron/resolve-youtube-cams/route";
-import { validateCronRequest } from "@/lib/api-utils";
+import { validateCronRequest } from "@/lib/middleware/api-wrappers";
+import { readFileSync } from "fs";
 
 jest.mock("@/lib/cron/observability", () => ({
   withObservedCron:
@@ -10,7 +11,7 @@ jest.mock("@/lib/cron/observability", () => ({
       handler,
 }));
 
-jest.mock("@/lib/api-utils", () => {
+jest.mock("@/lib/middleware/api-wrappers", () => {
   function jsonResponse(body: unknown, status = 200): Response {
     return new Response(JSON.stringify(body), {
       status,
@@ -74,6 +75,10 @@ function createCronRequest(
 }
 
 describe("GET /api/cron/resolve-youtube-cams", () => {
+  const routeSource = readFileSync(
+    "app/api/cron/resolve-youtube-cams/route.ts",
+    "utf8"
+  );
   const originalEnv = process.env;
 
   beforeEach(() => {
@@ -85,6 +90,11 @@ describe("GET /api/cron/resolve-youtube-cams", () => {
 
   afterAll(() => {
     process.env = originalEnv;
+  });
+
+  it("uses the API wrapper barrel for response helpers and cron request validation", () => {
+    expect(routeSource).not.toContain("@/lib/api-utils");
+    expect(routeSource).toContain("@/lib/middleware/api-wrappers");
   });
 
   it("returns a skipped success response when YOUTUBE_API_KEY is missing", async () => {

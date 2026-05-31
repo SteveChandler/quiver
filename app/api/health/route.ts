@@ -3,7 +3,7 @@ import {
   createSuccessResponse,
   methodNotAllowed,
   DEFAULT_SECURITY_HEADERS,
-} from "@/lib/api-utils";
+} from "@/lib/middleware/api-wrappers";
 import { checkForecastHealth } from "@/lib/monitoring/forecast-health-check";
 
 export async function GET(request: NextRequest) {

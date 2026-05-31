@@ -1,70 +1,12 @@
 import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import {
-  Compass,
-  Sunrise,
-  Sunset,
-  Waves,
-  Users,
-  Thermometer,
-  Sailboat,
-  MapPin,
-  ArrowRight,
-  CalendarDays,
-} from "lucide-react";
-import {
-  stateToSlug,
-  buildCityUrl,
   isValidStateSlug,
+  stateToSlug,
 } from "@/lib/utils/beach-url-utils";
-import { buildCitySlug } from "@/lib/seo/city-slug-utils";
-import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import type { Beach } from "@/types/database";
-
-const INTENT_GUIDES = [
-  {
-    key: "tide",
-    label: "Tide Charts",
-    icon: Waves,
-    description: "Track tide swings for optimal sessions",
-  },
-  {
-    key: "dawn-patrol",
-    label: "Dawn Patrol",
-    icon: Sunrise,
-    description: "Early morning sessions",
-  },
-  {
-    key: "sunset",
-    label: "Sunset Sessions",
-    icon: Sunset,
-    description: "Golden hour surf windows",
-  },
-  {
-    key: "beginner",
-    label: "Beginner Spots",
-    icon: Compass,
-    description: "Mellow waves for learning",
-  },
-  {
-    key: "longboard",
-    label: "Longboard Spots",
-    icon: Sailboat,
-    description: "Cruisy waves for logging",
-  },
-  {
-    key: "least-crowded",
-    label: "Less Crowded",
-    icon: Users,
-    description: "Escape the crowds",
-  },
-  {
-    key: "water-temp",
-    label: "Water Temp",
-    icon: Thermometer,
-    description: "Current ocean temps",
-  },
-] as const;
+import { buildRelatedGuideLinks } from "./related-guides-links";
 
 interface RelatedGuidesSectionProps {
   beach: Beach;
@@ -91,62 +33,59 @@ export async function RelatedGuidesSection({
   // Simple cities: "San Diego" → "san-diego"
   // Collision cities: "Newport, OR" → "newport-or" (avoids ambiguity with Newport, CA etc.)
   const stateSlug = stateToSlug(beach.state);
-
-  // Suppress all intent links for international beaches (e.g. Mexico).
-  // Intent pages only exist for US states.
-  if (!isValidStateSlug(stateSlug)) {
-    return null;
-  }
-
-  const intentSlug = buildCitySlug(beach.city, stateSlug || beach.state || "", COLLISION_CITY_MAP);
-  if (!intentSlug) {
-    return null;
-  }
+  const isUsBeach = isValidStateSlug(stateSlug);
 
   // Check if any beach in this city has light/moderate crowd level so we can
   // decide whether to include the least-crowded intent link. Without this
   // guard the /least-crowded/{city} page returns 404 for cities that have no
   // qualifying beaches.
-  const supabase = createPublicReadClient();
-  const { data: crowdData, error: crowdError } = await supabase
-    .from("beaches")
-    .select("id")
-    .ilike("city", beach.city)
-    .eq("state", beach.state?.toUpperCase() || "")
-    .or("crowd_level.ilike.light,crowd_level.ilike.moderate")
-    .limit(1);
-  if (crowdError) {
-    console.warn("Failed to check crowd data for least-crowded filter:", crowdError.message);
+  let hasLeastCrowded = false;
+  if (isUsBeach) {
+    const supabase = createPublicReadClient();
+    const { data: crowdData, error: crowdError } = await supabase
+      .from("beaches")
+      .select("id")
+      .ilike("city", beach.city)
+      .eq("state", beach.state?.toUpperCase() || "")
+      .or("crowd_level.ilike.light,crowd_level.ilike.moderate")
+      .limit(1);
+    if (crowdError) {
+      console.warn("Failed to check crowd data for least-crowded filter:", crowdError.message);
+    }
+    hasLeastCrowded = Boolean(crowdData && crowdData.length > 0);
   }
-  const hasLeastCrowded = crowdData && crowdData.length > 0;
 
-  const visibleGuides = hasLeastCrowded
-    ? INTENT_GUIDES
-    : INTENT_GUIDES.filter((g) => g.key !== "least-crowded");
+  const linkSet = buildRelatedGuideLinks({
+    beach,
+    hasLeastCrowded,
+    bestTimeToSurfUrl,
+  });
+  if (!linkSet) return null;
+  const PrimaryIcon = linkSet.primaryLink.icon;
 
   return (
     <section className={`${className}`}>
       <h2 className="text-lg font-semibold text-white/90 mb-4">
-        Surf Guides for {beach.city}
+        {linkSet.heading}
       </h2>
       {/* City hub link - primary navigation back to city page */}
       <Link
-        href={buildCityUrl(beach.state, beach.city)}
+        href={linkSet.primaryLink.href}
         className="group flex items-center justify-between gap-3 rounded-lg border border-sky-800/50 bg-sky-950/40 p-4 mb-3 transition-all hover:border-sky-600 hover:bg-sky-900/40 hover:shadow-sm"
       >
         <div className="flex items-center gap-2">
-          <MapPin className="h-5 w-5 text-sky-400" />
+          <PrimaryIcon className="h-5 w-5 text-sky-400" />
           <span className="font-medium text-sky-300 text-sm">
-            Explore all {beach.city} surf spots
+            {linkSet.primaryLink.label}
           </span>
         </div>
         <ArrowRight className="h-4 w-4 text-sky-400 group-hover:translate-x-0.5 transition-transform" />
       </Link>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-        {visibleGuides.map(({ key, label, icon: Icon, description }) => (
+        {linkSet.guides.map(({ key, label, href, icon: Icon, description }) => (
           <Link
             key={key}
-            href={`/${key}/${intentSlug}`}
+            href={href}
             className="group flex flex-col gap-2 rounded-lg border border-white/10 bg-white/5 p-4 transition-all hover:border-sky-500/50 hover:bg-white/10"
           >
             <div className="flex items-center gap-2">
@@ -156,18 +95,6 @@ export async function RelatedGuidesSection({
             <p className="text-xs text-white/50 line-clamp-2">{description}</p>
           </Link>
         ))}
-        {bestTimeToSurfUrl && (
-          <Link
-            href={bestTimeToSurfUrl}
-            className="group flex flex-col gap-2 rounded-lg border border-white/10 bg-white/5 p-4 transition-all hover:border-sky-500/50 hover:bg-white/10"
-          >
-            <div className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-sky-400 group-hover:text-sky-300" />
-              <span className="font-medium text-white/90 text-sm">Best Time to Surf</span>
-            </div>
-            <p className="text-xs text-white/50 line-clamp-2">Month-by-month surf calendar</p>
-          </Link>
-        )}
       </div>
     </section>
   );

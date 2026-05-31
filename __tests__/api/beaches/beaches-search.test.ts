@@ -1,6 +1,8 @@
 /**
  * @jest-environment node
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 import {
   createMockSupabaseClient,
@@ -38,9 +40,13 @@ jest.mock("@/lib/utils/beach-search-utils", () => ({
 }));
 
 // Mock the middleware wrapper to pass through
-jest.mock("@/lib/middleware/api-wrappers", () => ({
-  withBotBlockingAndRateLimit: (handler: unknown) => handler,
-}));
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const actual = jest.requireActual("@/lib/middleware/api-wrappers");
+  return {
+    ...actual,
+    withBotBlockingAndRateLimit: (handler: unknown) => handler,
+  };
+});
 
 // Mock Supabase (not directly used by route but may be by search utility)
 const mockSupabaseClient = createMockSupabaseClient();
@@ -50,7 +56,6 @@ jest.mock("@/lib/supabase/api-server-client", () => ({
 }));
 
 describe("GET /api/beaches/search", () => {
-   
   let GET: any;
   let cleanup: () => void;
 
@@ -69,6 +74,16 @@ describe("GET /api/beaches/search", () => {
 
   afterEach(() => {
     cleanup?.();
+  });
+
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/beaches/search/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
   });
 
   describe("Basic Search Functionality", () => {
@@ -383,15 +398,14 @@ describe("GET /api/beaches/search", () => {
       expect(result.data[9].name).toBe("Beach 9");
 
       // Should include pagination metadata
-      expect(result).toHaveProperty("meta");
-      if (result.meta) {
-        expect(result.meta.page).toBe(1);
-        expect(result.meta.limit).toBe(10);
-        expect(result.meta.total).toBe(25);
-        expect(result.meta.totalPages).toBe(3);
-        expect(result.meta.hasNextPage).toBe(true);
-        expect(result.meta.hasPreviousPage).toBe(false);
-      }
+      expect(result.meta).toMatchObject({
+        page: 1,
+        limit: 10,
+        total: 25,
+        totalPages: 3,
+        hasNextPage: true,
+        hasPreviousPage: false,
+      });
     });
 
     it("returns correct results for page 2", async () => {
@@ -473,6 +487,18 @@ describe("GET /api/beaches/search", () => {
   });
 
   describe("Error Handling", () => {
+    let consoleErrorSpy: jest.SpiedFunction<typeof console.error>;
+
+    beforeEach(() => {
+      consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+    });
+
+    afterEach(() => {
+      consoleErrorSpy.mockRestore();
+    });
+
     it("handles search function errors gracefully", async () => {
       mockSearchBeachesMultiple.mockRejectedValue(new Error("Database connection failed"));
 
@@ -486,6 +512,14 @@ describe("GET /api/beaches/search", () => {
 
       const response = await GET(request);
       await expectErrorResponse(response, 500, "Failed to search beaches");
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Error searching beaches:",
+        expect.any(Error)
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "API Error:",
+        "Database connection failed"
+      );
     });
 
     it("returns proper error structure on failure", async () => {
@@ -505,6 +539,11 @@ describe("GET /api/beaches/search", () => {
       expect(errorData).toHaveProperty("success", false);
       expect(errorData).toHaveProperty("error");
       expect(errorData).toHaveProperty("timestamp");
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Error searching beaches:",
+        expect.any(Error)
+      );
+      expect(consoleErrorSpy).toHaveBeenCalledWith("API Error:", "Search failed");
     });
   });
 

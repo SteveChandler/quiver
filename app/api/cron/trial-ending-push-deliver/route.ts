@@ -29,7 +29,7 @@ import {
   createSuccessResponse,
   handleApiError,
   validateCronRequest,
-} from "@/lib/api-utils";
+} from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { withObservedCron } from "@/lib/cron/observability";

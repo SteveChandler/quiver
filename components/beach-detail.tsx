@@ -45,6 +45,7 @@ import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import type { ZineBeachPhoto } from "@/components/beach-detail/zine/types";
 import type { BeachAmenities } from "@/types/amenities";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
+import type { ZineHeroHeadingLevel } from "@/components/beach-detail/zine/zine-hero";
 
 // New AllTrails-style components
 import { BeachBreadcrumb } from "@/components/beach-detail/beach-breadcrumb";
@@ -233,6 +234,7 @@ interface BeachDetailProps {
   amenities?: BeachAmenities | null;
   waterQuality?: WaterQuality | null;
   beachPhoto?: ZineBeachPhoto | null;
+  heroHeadingLevel?: ZineHeroHeadingLevel;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
   personalizationData?: {
@@ -261,6 +263,7 @@ function BeachDetailContent({
   amenities,
   waterQuality,
   beachPhoto,
+  heroHeadingLevel,
   beforeTabsContent,
   afterTabsContent,
   personalizationData,
@@ -923,6 +926,7 @@ function BeachDetailContent({
         beach={beach as Beach}
         beachPhoto={beachPhoto}
         sources={sources}
+        heroHeadingLevel={heroHeadingLevel}
       >
         <div ref={signupCtaRef} />
         {beforeTabsContent ? (

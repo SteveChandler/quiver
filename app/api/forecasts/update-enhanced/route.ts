@@ -1,14 +1,14 @@
 import { NextRequest } from "next/server";
 import {
-  createSuccessResponse,
   createErrorResponse,
-} from "@/lib/api-utils";
+  createSuccessResponse,
+  withAdminAuth,
+} from "@/lib/middleware/api-wrappers";
 import {
   updateBeachForecast,
   updateAllBeachForecasts,
   getFreshForecastFromCache,
 } from "@/lib/utils/forecast-server-utils";
-import { withAdminAuth } from "@/lib/middleware/api-wrappers";
 import { createPublicReadClient } from "@/lib/supabase/server";
 
 /**

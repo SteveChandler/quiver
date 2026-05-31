@@ -65,6 +65,8 @@ jest.mock("@/lib/services/discovery/window-selector", () => ({
 }));
 
 describe("spot-surf-report-actions", () => {
+  const originalV51DisplayOverrideEnabled = process.env.V51_DISPLAY_OVERRIDE_ENABLED;
+
   const mockBeach = {
     id: "beach-123",
     slug: "test-beach",
@@ -111,7 +113,16 @@ describe("spot-surf-report-actions", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.resetModules();
+    delete process.env.V51_DISPLAY_OVERRIDE_ENABLED;
     formatDateCallCount = 0;
+  });
+
+  afterAll(() => {
+    if (originalV51DisplayOverrideEnabled === undefined) {
+      delete process.env.V51_DISPLAY_OVERRIDE_ENABLED;
+      return;
+    }
+    process.env.V51_DISPLAY_OVERRIDE_ENABLED = originalV51DisplayOverrideEnabled;
   });
 
   describe("getSpotSurfReport", () => {
@@ -452,7 +463,7 @@ describe("spot-surf-report-actions", () => {
       expect(callArgs.userPrefs).toBeNull();
     });
 
-    it("builds forecastContext from v5.1 display heights for PB Point-like rows", async () => {
+    it("keeps forecastContext on raw heights while the v5.1 display rollout is disabled", async () => {
       const { createSupabaseServerClient, createSupabaseServiceRoleClient } = await import(
         "@/lib/supabase/server"
       );
@@ -533,9 +544,9 @@ describe("spot-surf-report-actions", () => {
       const result = await getSpotSurfReport(mockBeach);
 
       expect(mockSelectBestWindow).toHaveBeenCalled();
-      expect(mockSelectBestWindow.mock.calls[0][0].forecasts[0].wave_height).toBe("4-5ft");
-      expect(result?.forecastContext?.waveHeight).toBe("4-5ft");
-      expect(result?.forecastContext?.waveHeightRangeLabel).toBe("4-5 ft");
+      expect(mockSelectBestWindow.mock.calls[0][0].forecasts[0].wave_height).toBe("0.5 ft");
+      expect(result?.forecastContext?.waveHeight).toBe("0.5 ft");
+      expect(result?.forecastContext?.waveHeightRangeLabel).toBe("0-1 ft");
     });
 
     // ------------------------------------------------------------------------

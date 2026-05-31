@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   createMockSupabaseClient,
   createMockUser,
@@ -38,8 +40,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
         const { data, error } = await mockSupabaseClient.auth.getUser();
         const user = error ? null : data?.user ?? null;
         if (!options.optional && !user) {
-          const { createAuthError } = jest.requireActual("@/lib/api-utils");
-          return createAuthError(
+          return actual.createAuthError(
             options.authErrorMessage ?? "Authentication required"
           );
         }
@@ -62,7 +63,7 @@ jest.mock("@/lib/supabase/api-server-client", () => ({
 }));
 
 // Import after mocks
- 
+
 const { GET } = require("@/app/api/profile/[id]/route");
 
 describe("/api/profile/[id]", () => {
@@ -72,7 +73,7 @@ describe("/api/profile/[id]", () => {
     const testEnv = setupApiTestEnvironment();
     cleanup = testEnv.cleanup;
     jest.clearAllMocks();
-    
+
     // Reset mock to return fresh chain objects for each call
     (mockSupabaseClient.from as jest.Mock).mockImplementation(() => ({
       select: jest.fn().mockReturnThis(),
@@ -103,6 +104,16 @@ describe("/api/profile/[id]", () => {
 
   afterEach(() => {
     cleanup?.();
+  });
+
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/profile/[id]/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
   });
 
   describe("GET", () => {
@@ -204,7 +215,10 @@ describe("/api/profile/[id]", () => {
       const request = createMockRequest("GET");
       const response = await GET(request, { params: Promise.resolve({ id: targetUserId }) });
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<{
+        onboarding_completed_at: string | null;
+      }>(response, 200);
+      expect(data.data.onboarding_completed_at).toBe(completionDate);
       expectOnboardingField(data.data, completionDate);
     });
 
@@ -226,7 +240,10 @@ describe("/api/profile/[id]", () => {
       const request = createMockRequest("GET");
       const response = await GET(request, { params: Promise.resolve({ id: targetUserId }) });
 
-      const data = await expectSuccessResponse(response, 200);
+      const data = await expectSuccessResponse<{
+        onboarding_completed_at: string | null;
+      }>(response, 200);
+      expect(data.data.onboarding_completed_at).toBeNull();
       expectOnboardingField(data.data, null);
     });
 
@@ -266,7 +283,7 @@ describe("/api/profile/[id]", () => {
       });
 
       // Simulate concurrent requests
-      const requests = Array.from({ length: 3 }, () => 
+      const requests = Array.from({ length: 3 }, () =>
         createMockRequest("GET")
       );
       const responses = await Promise.all(

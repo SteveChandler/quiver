@@ -15,7 +15,7 @@ import {
 } from "./utils/error-detection";
 
 const UPDATED_LEARN_SLUGS = [
-  "how-to-read-a-surf-forecast",
+  "how-to-read-surf-conditions",
   "swell-period-explained",
   "best-surf-conditions-for-beginners",
   "offshore-vs-onshore-wind-surfing",

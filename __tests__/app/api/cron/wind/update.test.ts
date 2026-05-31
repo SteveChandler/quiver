@@ -1,5 +1,8 @@
 // __tests__/app/api/cron/wind/update.test.ts
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 // Pass-through observability wrapper so importing GET yields the unwrapped
 // handler. Keeps the route's public surface unchanged.
 jest.mock("@/lib/cron/observability", () => ({
@@ -17,7 +20,7 @@ jest.mock("@/lib/supabase/server", () => ({
 // Match the pattern used by other cron route tests
 // (e.g. enhanced-forecast-sync.test.ts) — NextResponse.json isn't implemented
 // in jsdom, so substitute plain envelope objects that expose .status + .json().
-jest.mock("@/lib/api-utils", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     status,
     json: () =>
@@ -40,55 +43,9 @@ jest.mock("@/lib/api-utils", () => ({
   validateCronRequest: jest.fn(() => true),
 }));
 
-// p-limit ships ESM-only and isn't in jest's transformIgnorePatterns allowlist.
-// Provide a faithful in-test reimplementation that preserves the concurrency
-// cap so the limiter assertion is meaningful. Passes the function through
-// immediately, capping how many run concurrently via a counter + queue.
-// p-limit ships ESM-only and isn't in jest's transformIgnorePatterns allowlist.
-// Ship a faithful in-test reimplementation that records the concurrency arg
-// and tracks peak `active` so the limiter assertion is meaningful without
-// relying on chain-level probes (which would over-count because thenable
-// chains synchronously invoke terminal callbacks before yielding).
-const pLimitState = {
-  capArgs: [] as number[],
-  peakActive: 0,
-};
-jest.mock("p-limit", () => {
-  const pLimit = (concurrency: number) => {
-    pLimitState.capArgs.push(concurrency);
-    let active = 0;
-    const queue: Array<() => void> = [];
-    const tryRun = () => {
-      if (active >= concurrency || queue.length === 0) return;
-      active++;
-      pLimitState.peakActive = Math.max(pLimitState.peakActive, active);
-      const next = queue.shift()!;
-      next();
-    };
-    function limited<T>(fn: () => Promise<T>): Promise<T> {
-      return new Promise<T>((resolve, reject) => {
-        const start = async () => {
-          try {
-            resolve(await fn());
-          } catch (err) {
-            reject(err);
-          } finally {
-            active--;
-            tryRun();
-          }
-        };
-        queue.push(start);
-        tryRun();
-      });
-    }
-    return limited;
-  };
-  return { __esModule: true, default: pLimit };
-});
-
 import { fetchHourlyWind } from "@/lib/services/open-meteo-wind-service";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { validateCronRequest } from "@/lib/api-utils";
+import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { GET } from "@/app/api/cron/wind/update/route";
 
 type Beach = { id: string; lat: number; lon: number; name: string };
@@ -117,34 +74,15 @@ function makeRequest(): Request {
 }
 
 describe("GET /api/cron/wind/update", () => {
-  let totalUpdates = 0;
-  const LIMITER_CAP = 80;
+  let rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = [];
+  let consoleLog: jest.SpyInstance;
 
   beforeEach(() => {
     jest.clearAllMocks();
-    totalUpdates = 0;
-    pLimitState.capArgs = [];
-    pLimitState.peakActive = 0;
+    rpcCalls = [];
+    consoleLog = jest.spyOn(console, "log").mockImplementation(() => undefined);
 
     (fetchHourlyWind as jest.Mock).mockImplementation(async () => makeWindPoints(48));
-
-    const updateChain = () => {
-      const chain: Record<string, jest.Mock> = {};
-      const terminal = jest.fn().mockImplementation(async () => {
-        totalUpdates++;
-        // Yield to microtasks so the limiter sees real concurrency churn,
-        // not a 1920-deep synchronous chain. setImmediate is unavailable in
-        // jsdom; queueMicrotask is the cross-env yield.
-        await new Promise<void>((r) => queueMicrotask(r));
-        return { data: [{ id: "row-1" }], error: null };
-      });
-      chain.eq = jest.fn().mockReturnValue(chain);
-      chain.gte = jest.fn().mockReturnValue(chain);
-      chain.lt = jest.fn().mockReturnValue(chain);
-      chain.or = jest.fn().mockReturnValue(chain);
-      chain.select = terminal;
-      return chain;
-    };
 
     const beachesQuery = {
       select: jest.fn().mockReturnValue({
@@ -157,15 +95,30 @@ describe("GET /api/cron/wind/update", () => {
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
       from: jest.fn((table: string) => {
         if (table === "beaches") return beachesQuery;
-        if (table === "enhanced_forecasts") {
-          return { update: jest.fn().mockReturnValue(updateChain()) };
-        }
         throw new Error(`unexpected table: ${table}`);
+      }),
+      rpc: jest.fn(async (fn: string, args: Record<string, unknown>) => {
+        rpcCalls.push({ fn, args });
+        return { data: { updated_count: 8, skipped_count: 40 }, error: null };
       }),
     });
   });
 
-  it("processes all beaches and returns success", async () => {
+  afterEach(() => {
+    consoleLog.mockRestore();
+  });
+
+  it("uses the shared API wrapper module for response helpers and cron auth", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/cron/wind/update/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/from\s+['"]@\/lib\/api-utils['"]/);
+    expect(source).toMatch(/from\s+['"]@\/lib\/middleware\/api-wrappers['"]/);
+  });
+
+  it("updates wind with one RPC call per beach", async () => {
     const response = await GET(makeRequest());
 
     expect(response.status).toBe(200);
@@ -179,18 +132,19 @@ describe("GET /api/cron/wind/update", () => {
         errors: expect.any(Number),
       }),
     });
-    // 40 beaches × 48 windPoints = 1920 expected DB updates
-    expect(totalUpdates).toBe(40 * 48);
-  });
-
-  it("constructs a shared p-limit limiter and never exceeds its cap", async () => {
-    await GET(makeRequest());
-    // Wired up: the route imported and constructed pLimit(80) for this run.
-    expect(pLimitState.capArgs).toContain(LIMITER_CAP);
-    // The limiter actually limited: peak active starts ≤ cap, and parallelism
-    // really happened (a serial implementation would not push past 1).
-    expect(pLimitState.peakActive).toBeLessThanOrEqual(LIMITER_CAP);
-    expect(pLimitState.peakActive).toBeGreaterThan(1);
+    expect(rpcCalls).toHaveLength(40);
+    expect(rpcCalls[0]).toMatchObject({
+      fn: "update_open_meteo_wind_for_beach",
+      args: {
+        p_beach_id: "beach-0",
+      },
+    });
+    expect(rpcCalls[0].args.p_points).toHaveLength(48);
+    expect(body.data).toMatchObject({
+      updated: 40 * 8,
+      skipped: 40 * 40,
+      errors: 0,
+    });
   });
 
   it("returns 401 on unauthorized requests", async () => {
@@ -199,29 +153,7 @@ describe("GET /api/cron/wind/update", () => {
     expect(response.status).toBe(401);
   });
 
-  it("counts thrown Supabase updates as errors instead of stranding the beach task", async () => {
-    // Swap the chain factory so half the windPoint updates throw outright
-    // (simulating a Supabase exception, not just a returned `{error}`).
-    let updateCallCount = 0;
-    const throwingUpdateChain = () => {
-      const chain: Record<string, jest.Mock> = {};
-      const terminal = jest.fn().mockImplementation(async () => {
-        totalUpdates++;
-        await new Promise<void>((r) => queueMicrotask(r));
-        updateCallCount++;
-        if (updateCallCount % 2 === 0) {
-          throw new Error("simulated supabase RST");
-        }
-        return { data: [{ id: "row-1" }], error: null };
-      });
-      chain.eq = jest.fn().mockReturnValue(chain);
-      chain.gte = jest.fn().mockReturnValue(chain);
-      chain.lt = jest.fn().mockReturnValue(chain);
-      chain.or = jest.fn().mockReturnValue(chain);
-      chain.select = terminal;
-      return chain;
-    };
-
+  it("returns an error response when an RPC call fails", async () => {
     const beachesQuery = {
       select: jest.fn().mockReturnValue({
         not: jest.fn().mockReturnValue({
@@ -233,26 +165,57 @@ describe("GET /api/cron/wind/update", () => {
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
       from: jest.fn((table: string) => {
         if (table === "beaches") return beachesQuery;
-        if (table === "enhanced_forecasts") {
-          return { update: jest.fn().mockReturnValue(throwingUpdateChain()) };
-        }
         throw new Error(`unexpected table: ${table}`);
       }),
+      rpc: jest.fn(async (fn: string, args: Record<string, unknown>) => {
+        rpcCalls.push({ fn, args });
+        if (args.p_beach_id === "beach-1") {
+          return { data: null, error: { message: "simulated supabase RST", code: "08006" } };
+        }
+        return { data: { updated_count: 8, skipped_count: 40 }, error: null };
+      }),
     });
+
+    const response = await GET(makeRequest());
+    expect(response.status).toBe(500);
+    const body = await response.json();
+
+    expect(rpcCalls).toHaveLength(5);
+    expect(body.details).toMatchObject({
+      updated: 4 * 8,
+      skipped: 4 * 40,
+      errors: 1,
+      sampleErrors: ["simulated supabase RST (code=08006)"],
+    });
+  });
+
+  it("filters null wind speeds before calling the RPC", async () => {
+    (fetchHourlyWind as jest.Mock).mockResolvedValueOnce([
+      {
+        ts: "2026-05-03T00:00:00.000Z",
+        wind_speed_mph: 8,
+        wind_direction_deg: 90,
+        wind_gust_mph: 12,
+      },
+      {
+        ts: "2026-05-03T01:00:00.000Z",
+        wind_speed_mph: null,
+        wind_direction_deg: 120,
+        wind_gust_mph: 14,
+      },
+    ]);
 
     const response = await GET(makeRequest());
     expect(response.status).toBe(200);
     const body = await response.json();
 
-    // Every windPoint update fired (5 beaches × 48 = 240). If a thrown
-    // Supabase update had short-circuited the per-beach Promise.all, some
-    // queued dbLimit slots would have been stranded and totalUpdates would
-    // be < 240.
-    expect(totalUpdates).toBe(5 * 48);
-    // updated + errors should account for every windPoint that fired (no
-    // counts lost because of the rejection short-circuit).
-    expect(body.data.updated + body.data.errors).toBe(5 * 48);
-    expect(body.data.errors).toBeGreaterThan(0);
-    expect(body.data.updated).toBeGreaterThan(0);
+    expect(body.success).toBe(true);
+    expect(rpcCalls[0].args.p_points).toEqual([
+      {
+        ts: "2026-05-03T00:00:00.000Z",
+        wind_speed_mph: 8,
+        wind_direction_deg: 90,
+      },
+    ]);
   });
 });

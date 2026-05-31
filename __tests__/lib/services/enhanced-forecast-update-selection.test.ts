@@ -84,10 +84,13 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
     // Avoid network calls and DB writes during the test; capture chosen beaches via the forecast generator stub.
     const processedBeachIds: string[] = [];
     jest
-      .spyOn(service, "generateComprehensiveForecast")
+      .spyOn(service, "generateComprehensiveForecastWithDiagnostics")
       .mockImplementation(async (beach: any) => {
         processedBeachIds.push(beach.id);
-        return [];
+        return {
+          forecasts: [],
+          cdip: { stationId: null, skipReason: "no_station" },
+        };
       });
     jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({ success: true });
     jest.spyOn(service, "prefetchTideStations").mockResolvedValue(undefined);
@@ -183,10 +186,13 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
 
     const processedBeachIds: string[] = [];
     jest
-      .spyOn(service, "generateComprehensiveForecast")
+      .spyOn(service, "generateComprehensiveForecastWithDiagnostics")
       .mockImplementation(async (beach: any) => {
         processedBeachIds.push(beach.id);
-        return [];
+        return {
+          forecasts: [],
+          cdip: { stationId: null, skipReason: "no_station" },
+        };
       });
     jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({ success: true });
     jest.spyOn(service, "prefetchTideStations").mockResolvedValue(undefined);
@@ -260,10 +266,13 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
 
     const anchorByBeach: Record<string, unknown> = {};
     jest
-      .spyOn(service, "generateComprehensiveForecast")
+      .spyOn(service, "generateComprehensiveForecastWithDiagnostics")
       .mockImplementation(async (beach: any, anchor: any) => {
         anchorByBeach[beach.id] = anchor;
-        return [];
+        return {
+          forecasts: [],
+          cdip: { stationId: null, skipReason: "no_station" },
+        };
       });
     jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({ success: true });
     jest.spyOn(service, "prefetchTideStations").mockResolvedValue(undefined);
@@ -281,4 +290,3 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
     expect(anchorByBeach["b-no-anchor"]).toBeNull();
   });
 });
-

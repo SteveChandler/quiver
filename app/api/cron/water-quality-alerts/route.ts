@@ -3,7 +3,7 @@ import {
   createSuccessResponse,
   handleApiError,
   validateCronRequest,
-} from "@/lib/api-utils";
+} from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { processWaterQualityAlerts } from "@/lib/services/water-quality/water-quality-alerts-service";
 import { withObservedCron } from "@/lib/cron/observability";

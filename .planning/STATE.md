@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: complete
-stopped_at: Phase 10 complete; go-live campaign implementation and local verification complete
-last_updated: "2026-05-25T00:23:53Z"
-last_activity: 2026-05-24
+status: blocked
+stopped_at: Phase 11 Plan 11-02 release approval checkpoint
+last_updated: "2026-05-30T20:42:22-07:00"
+last_activity: 2026-05-30
 progress:
-  total_phases: 11
+  total_phases: 14
   completed_phases: 11
-  total_plans: 45
-  completed_plans: 45
-  percent: 100
+  total_plans: 57
+  completed_plans: 46
+  percent: 81
 ---
 
 # Project State
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-24)
 
 **Core value:** Drive iOS downloads by making the Quiver loop obvious and compelling: forecast, check, log, and improve.
-**Current focus:** Go-live campaign local verification complete
+**Current focus:** PBSC live QR verification and approval gate
 
 ## Current Position
 
-Phase: 10 (go-live-verification) - COMPLETE
-Plan: 10-04
-Status: All launch campaign phases complete locally; public go-live still requires approved commit/push/deploy and final App Store recheck
-Last activity: 2026-05-24
+Phase: 11 (pbsc-event-route-deploy-and-qr-verification) - EXECUTING
+Plan: 11-02 approval checkpoint
+Status: Plan 11-01 complete; Plan 11-02 Task 1 complete; production `/pbsc` release action awaits explicit approval
+Last activity: 2026-05-25
 
-Progress: [##########] 100%
+Progress: [########░░] 81%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 45
+- Total plans completed: 46
 - Average duration: N/A
 - Total execution time: 0.0 hours
 
@@ -55,10 +55,13 @@ Progress: [##########] 100%
 | 08 | 5 | - | - |
 | 09 | 5 | - | - |
 | 10 | 4 | - | - |
+| 11 | 1 | - | - |
+| 12 | 0 | - | - |
+| 13 | 0 | - | - |
 
 **Recent Trend:**
 
-- Last 5 plans: 09-05, 10-01, 10-02, 10-03, 10-04
+- Last 5 plans: 10-01, 10-02, 10-03, 10-04, 11-01
 - Trend: Phase 10 closed local launch verification with scoped lint, targeted unit/E2E tests, preview build, browser screenshots, live Apple checks, and explicit deploy/release gates
 
 *Updated after each plan completion*
@@ -102,10 +105,22 @@ Recent decisions affecting current work:
 - 2026-05-24: Phase 10 fixed the landing LCP image warning by making the first server-rendered popular beach image eager/priority, then verified the warning cleared in a desktop browser pass.
 - 2026-05-24: Phase 10 local verification passed scoped ESLint, 15 targeted Jest suites / 142 tests, Node 22 typecheck, guest Apple/blog/pricing Playwright coverage, `VERCEL_ENV=preview yarn build`, and desktop/mobile launch route screenshots.
 - 2026-05-24: Phase 10 live checks found App Store and TestFlight reachable, but `www.quiversurf.app/pricing` and `dev.quiversurf.app/pricing` still return 404 until an approved deploy updates the aliases.
+- 2026-05-25: Phase 11 planning created two waves: 11-01 implements the PBSC OS-specific route and tests; 11-02 records approval-gated production QR verification.
+- 2026-05-25: Plan 11-01 implemented the PBSC OS-specific route locally: iOS gets the tracked App Store CTA, non-iOS gets the tracked Android waitlist, and the web fallback is removed.
+- 2026-05-25: Plan 11-02 Task 1 recorded live route truth: production `https://www.quiversurf.app/pbsc` still returns HTTP 404 matched to `/[intent]`, while dev returns HTTP 200 matched to `/pbsc`; release work is blocked on explicit approval.
+- 2026-05-30: Sentry for Startups credit review found $5,000 active through 2027-05-27, current web/native Sentry coverage, native events grouped into the `javascript-nextjs` project, high web tracing volume, disabled native source-map auto-upload, and a need for controlled project split, sampling, release, replay, cron, and usage-budget work.
+- 2026-05-30: Phase 13 was added to carry forward the controlled refactor work from `docs/refactor-roadmap.md`, starting after Slice 81 with the remaining production `@/lib/api-utils` imports outside wrapper internals.
+
+### Roadmap Evolution
+
+- Phase 11 added: PBSC event route deploy and QR verification.
+- Phase 12 added: Sentry observability rollout.
+- Phase 13 added: Controlled refactor completion.
 
 ### Pending Todos
 
-None yet.
+- Resume `$gsd-execute-phase 11` only after the thread contains an exact approved release action, or `do not deploy`.
+- Plan Phase 13 with `$gsd-plan-phase 13` when ready to resume the controlled refactor; start from Slice 82 in `docs/refactor-roadmap.md`.
 
 ### Blockers/Concerns
 
@@ -115,6 +130,8 @@ None yet.
 - Current local code protects lifetime promotional Pro rows, but does not yet implement paid founder lifetime replacement of promotional Pro or a founder-status ledger separate from `user_entitlements`.
 - App Store/App Store Connect status remains time-sensitive; iTunes reports release timestamp `2026-05-25T07:00:00Z`, so recheck after that exact timestamp before declaring the store fully live or changing `app_store_preorder` to a live download/listing status.
 - Public Vercel aliases still need an approved deploy/alias update before `/pricing` can be claimed live; current checks returned 404 on both `www` and `dev`.
+- Public `https://www.quiversurf.app/pbsc` still needs an approved deploy, push, or alias update before the PBSC QR destination can be claimed usable; current check returned 404 matched to `/[intent]`.
+- Sentry startup credits reduce short-term cost pressure, but tracing, replay, logs, and source-map/debug-symbol uploads still need explicit sampling and privacy controls before broad rollout.
 - Hero CTA alignment is tied to the poster/video artwork coordinates; local desktop/mobile visual review and Brand-Vault/current screenshot validation passed in 03-04.
 - Outbound emails, social posts, DMs, comments, Play Console actions, entitlement grants, production mutations, and release actions remain approval-gated.
 
@@ -131,6 +148,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-25T00:23:53Z
-Stopped at: Phase 10 complete; go-live campaign implementation and local verification complete
-Resume file: .planning/phases/10-go-live-verification/10-GO-LIVE-CHECKLIST.md
+Last session: 2026-05-30T20:42:22-07:00
+Stopped at: Phase 11 Plan 11-02 release approval checkpoint; Phase 12 Sentry observability rollout and Phase 13 controlled refactor completion added
+Resume file: .planning/phases/11-pbsc-event-route-deploy-and-qr-verification/11-02-PLAN.md
