@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: blocked
-stopped_at: Phase 11 Plan 11-02 release approval checkpoint
-last_updated: "2026-05-30T20:42:22-07:00"
-last_activity: 2026-05-30
+status: active
+stopped_at: Phase 12 completed; ready for Phase 13 controlled refactor planning
+last_updated: "2026-05-31T14:31:22-07:00"
+last_activity: 2026-05-31
 progress:
   total_phases: 14
-  completed_phases: 11
+  completed_phases: 12
   total_plans: 57
-  completed_plans: 46
-  percent: 81
+  completed_plans: 52
+  percent: 91
 ---
 
 # Project State
@@ -21,22 +21,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-24)
 
 **Core value:** Drive iOS downloads by making the Quiver loop obvious and compelling: forecast, check, log, and improve.
-**Current focus:** PBSC live QR verification and approval gate
+**Current focus:** Controlled refactor completion
 
 ## Current Position
 
-Phase: 11 (pbsc-event-route-deploy-and-qr-verification) - EXECUTING
-Plan: 11-02 approval checkpoint
-Status: Plan 11-01 complete; Plan 11-02 Task 1 complete; production `/pbsc` release action awaits explicit approval
-Last activity: 2026-05-25
+Phase: 13 (controlled-refactor-completion) - READY
+Plan: Phase 13 planning pending
+Status: Phase 12 is complete. Sentry monitor records for the approved critical set are active, owned by the quiver team, and backed by a dedicated Cron monitor failures issue alert rule.
+Last activity: 2026-05-31
 
-Progress: [########░░] 81%
+Progress: [#########░] 91%
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 46
+- Total plans completed: 52
 - Average duration: N/A
 - Total execution time: 0.0 hours
 
@@ -55,14 +55,14 @@ Progress: [########░░] 81%
 | 08 | 5 | - | - |
 | 09 | 5 | - | - |
 | 10 | 4 | - | - |
-| 11 | 1 | - | - |
-| 12 | 0 | - | - |
+| 11 | 2 | - | - |
+| 12 | 5 | - | - |
 | 13 | 0 | - | - |
 
 **Recent Trend:**
 
-- Last 5 plans: 10-01, 10-02, 10-03, 10-04, 11-01
-- Trend: Phase 10 closed local launch verification with scoped lint, targeted unit/E2E tests, preview build, browser screenshots, live Apple checks, and explicit deploy/release gates
+- Last 5 plans: 12-01, 12-02, 12-03, 12-04, 12-05
+- Trend: Phase 12 moved Sentry from audit/design into web, native, critical cron code/runbook hygiene, active monitor ownership, and cron issue alert routing after the Sentry account plan setup.
 
 *Updated after each plan completion*
 
@@ -111,6 +111,12 @@ Recent decisions affecting current work:
 - 2026-05-30: Sentry for Startups credit review found $5,000 active through 2027-05-27, current web/native Sentry coverage, native events grouped into the `javascript-nextjs` project, high web tracing volume, disabled native source-map auto-upload, and a need for controlled project split, sampling, release, replay, cron, and usage-budget work.
 - 2026-05-30: Phase 13 was added to carry forward the controlled refactor work from `docs/refactor-roadmap.md`, starting after Slice 81 with the remaining production `@/lib/api-utils` imports outside wrapper internals.
 - 2026-05-31: Phase 12 web work started with centralized Sentry DSN/env/release/sampling helpers, Vercel Preview and `dev.quiversurf.app` filtering, and route-aware tracing caps replacing blanket 100% web trace capture.
+- 2026-05-31: Plan 12-02 selected target Sentry project ownership for `quiver-web` and `quiver-native`, kept `javascript-nextjs` as the historical source project, and gated all project/DSN/monitor/billing/GitHub/Seer mutations behind explicit approval.
+- 2026-05-31: Plan 12-03 implemented web Sentry helper-based environment detection, route-aware sampling, env-driven DSNs/source-map project settings, Replay caps, and `sendDefaultPii: false`.
+- 2026-05-31: Plan 12-04 implemented native Sentry release/dist/environment/sampling helpers, removed raw email from native Sentry user context, and enforced fail-closed native release upload env after in-thread approval.
+- 2026-05-31: 12-04 risk follow-up created Sentry project `quiver-native`, updated native preview/production public DSNs, copied the existing usable Sentry upload token into ignored native `.env.production`, added the EAS production `SENTRY_AUTH_TOKEN` secret, and verified iOS/Android release preflight mode without running release builds or distribution.
+- 2026-05-31: Plan 12-05 added optional wrapper-driven Sentry Cron check-ins for the critical route set, preserved `cron_runs`, retained explicit sitemap/enhanced forecast check-ins, and documented weekly triage, monthly usage review, and budget expansion gates.
+- 2026-05-31: 12-05 account follow-up created Sentry monitor records for `forecast-health`, `forecast-alerts`, `notifications-deliver`, `trial-ending-push-deliver`, and `first-session-nudge-push`; after the Sentry subscription card/Business Plan setup, the critical monitors and `sitemap-health` were activated, assigned to the `quiver` team, and connected to a dedicated Cron monitor failures issue alert rule.
 
 ### Roadmap Evolution
 
@@ -120,8 +126,6 @@ Recent decisions affecting current work:
 
 ### Pending Todos
 
-- Resume `$gsd-execute-phase 11` only after the thread contains an exact approved release action, or `do not deploy`.
-- Continue Phase 12 with Sentry project/DSN split, source-map/debug-symbol upload verification, native release context, Sentry Cron monitor expansion, and a monthly startup-credit usage review cadence.
 - Plan Phase 13 with `$gsd-plan-phase 13` when ready to resume the controlled refactor; start from Slice 82 in `docs/refactor-roadmap.md`.
 
 ### Blockers/Concerns
@@ -134,6 +138,8 @@ Recent decisions affecting current work:
 - Public Vercel aliases still need an approved deploy/alias update before `/pricing` can be claimed live; current checks returned 404 on both `www` and `dev`.
 - Public `https://www.quiversurf.app/pbsc` still needs an approved deploy, push, or alias update before the PBSC QR destination can be claimed usable; current check returned 404 matched to `/[intent]`.
 - Sentry startup credits reduce short-term cost pressure, but tracing, replay, logs, and source-map/debug-symbol uploads still need explicit sampling and privacy controls before broad rollout.
+- Native Sentry project/DSN/upload-token risk was resolved after 12-04. Plan 12-04 still did not run release builds, App Store uploads, Firebase distribution, or Expo publish.
+- Phase 12 Sentry monitor activation and alert routing are complete for the approved critical cron set. Seer/GitHub automation and production deploys were not changed.
 - Hero CTA alignment is tied to the poster/video artwork coordinates; local desktop/mobile visual review and Brand-Vault/current screenshot validation passed in 03-04.
 - Outbound emails, social posts, DMs, comments, Play Console actions, entitlement grants, production mutations, and release actions remain approval-gated.
 
@@ -150,6 +156,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-05-30T20:42:22-07:00
-Stopped at: Phase 11 Plan 11-02 release approval checkpoint; Phase 12 Sentry observability rollout and Phase 13 controlled refactor completion added
-Resume file: .planning/phases/11-pbsc-event-route-deploy-and-qr-verification/11-02-PLAN.md
+Last session: 2026-05-31T14:31:22-07:00
+Stopped at: Phase 12 completed; ready for Phase 13 controlled refactor planning
+Resume file: .planning/ROADMAP.md

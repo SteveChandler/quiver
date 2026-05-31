@@ -24,8 +24,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: Outreach And Social Kit** - Produce warm outreach, tracker rules, and reusable social assets. (completed 2026-05-24)
 - [x] **Phase 9: Launch Analytics And Reporting** - Instrument and report campaign conversion signals. (completed 2026-05-24)
 - [x] **Phase 10: Go-Live Verification** - Validate claims, routes, links, visuals, tests, and release gates. (completed 2026-05-24)
-- [ ] **Phase 11: PBSC Event Route Deploy And QR Verification** - PBSC event route deploy and QR verification.
-- [ ] **Phase 12: Sentry Observability Rollout** - Turn Sentry startup credits into production debugging, release, replay, cron, and alerting leverage without runaway noise or spend.
+- [x] **Phase 11: PBSC Event Route Deploy And QR Verification** - PBSC event route deploy and QR verification. (completed 2026-05-31)
+- [x] **Phase 12: Sentry Observability Rollout** - Turn Sentry startup credits into production debugging, release, replay, cron, and alerting leverage without runaway noise or spend. (completed 2026-05-31)
 - [ ] **Phase 13: Controlled Refactor Completion** - Finish the remaining controlled refactor slices from `docs/refactor-roadmap.md` without a big-bang rewrite.
 
 ## Phase Details
@@ -317,7 +317,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion and explicit release approval)*
 
-- [ ] 11-02: Capture approval-gated production QR verification, live browser proof, and print/send guardrails.
+- [x] 11-02: Capture approval-gated production QR verification, live browser proof, and print/send guardrails.
 
 ### Phase 12: Sentry Observability Rollout
 
@@ -337,11 +337,18 @@ Plans:
 
 Plans:
 
-- [ ] 12-01: Audit live Sentry org/project/settings, current web/native SDK versions, DSNs, source-map upload paths, alert rules, and recent issue volume.
-- [ ] 12-02: Design the target project split, release/source-map strategy, environment tags, alert ownership, and Sentry/GitHub/Seer workflow.
-- [ ] 12-03: Implement web sampling, source-map/release hygiene, issue filtering, and critical-flow tags without changing unrelated observability surfaces.
-- [ ] 12-04: Implement native release/source-map hygiene, user/release context, critical-flow breadcrumbs/tags, and any replay/profiling pilot behind conservative sampling.
-- [ ] 12-05: Add Sentry Cron monitors, budget/usage review notes, verification commands, and a runbook for triaging the top weekly Sentry issues.
+- [x] 12-01: Audit live Sentry org/project/settings, current web/native SDK versions, DSNs, source-map upload paths, alert rules, and recent issue volume.
+- [x] 12-02: Design the target project split, release/source-map strategy, environment tags, alert ownership, and Sentry/GitHub/Seer workflow.
+- [x] 12-03: Implement web sampling, source-map/release hygiene, issue filtering, and critical-flow tags without changing unrelated observability surfaces.
+- [x] 12-04: Implement native release/source-map hygiene, user/release context, critical-flow breadcrumbs/tags, and any replay/profiling pilot behind conservative sampling.
+- [x] 12-05: Add Sentry Cron monitors, budget/usage review notes, verification commands, and a runbook for triaging the top weekly Sentry issues.
+
+Cross-cutting constraints:
+
+- Do not print, commit, or paste `SENTRY_AUTH_TOKEN`, private DSN values beyond existing public DSNs, raw stack traces, IPs, or raw emails in planning artifacts.
+- No Sentry dashboard/project/DSN/env, GitHub/Seer, billing, Vercel, Expo/EAS, App Store, Firebase, deploy, or release-script mutation happens without explicit approval.
+- `cron_runs` remains the internal run ledger; Sentry Cron monitors only supplement external fire/finish alerting.
+- No broad Replay, Logs, Profiling, or tracing expansion ships without numeric sampling caps and monthly usage review.
 
 ### Phase 13: Controlled Refactor Completion
 
@@ -385,6 +392,6 @@ Phases execute in numeric order: 1 -> 1.1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 
 | 8. Outreach And Social Kit | 5/5 | Complete | 2026-05-24 |
 | 9. Launch Analytics And Reporting | 5/5 | Complete | 2026-05-24 |
 | 10. Go-Live Verification | 4/4 | Complete | 2026-05-24 |
-| 11. PBSC Event Route Deploy And QR Verification | 1/2 | In Progress | - |
-| 12. Sentry Observability Rollout | 0/5 | Planned | - |
+| 11. PBSC Event Route Deploy And QR Verification | 2/2 | Complete | 2026-05-31 |
+| 12. Sentry Observability Rollout | 5/5 | Complete | 2026-05-31 |
 | 13. Controlled Refactor Completion | 0/5 | Planned | - |

@@ -1,5 +1,6 @@
 // __tests__/lib/cron/observability.test.ts
 import { withCronObservability, withObservedCron } from "@/lib/cron/observability";
+import { completeCronCheckIn, startCronCheckIn } from "@/lib/monitoring/sentry-cron";
 
 type MockChain = ReturnType<typeof mockChain>;
 
@@ -51,6 +52,11 @@ function mockChain() {
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
+}));
+
+jest.mock("@/lib/monitoring/sentry-cron", () => ({
+  startCronCheckIn: jest.fn(() => "check-in-1"),
+  completeCronCheckIn: jest.fn(),
 }));
 
 function makeAuthorizedRequest(): Request {
@@ -125,8 +131,15 @@ describe("withCronObservability", () => {
 
 describe("withObservedCron", () => {
   let consoleSpy: jest.SpyInstance;
+  const sentryMonitor = {
+    slug: "test-monitor",
+    schedule: "* * * * *",
+    maxRuntimeMinutes: 3,
+  };
 
   beforeEach(() => {
+    jest.clearAllMocks();
+    (startCronCheckIn as jest.Mock).mockReturnValue("check-in-1");
     consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
   });
 
@@ -150,8 +163,57 @@ describe("withObservedCron", () => {
 
     expect(response.status).toBe(200);
     const okUpdate = findUpdate(client, (row) => row.status === "ok");
-    expect(okUpdate).toBeDefined();
-    expect(okUpdate![0]).toMatchObject({ status: "ok", error_message: null });
+    expect(okUpdate?.[0]).toMatchObject({ status: "ok", error_message: null });
+  });
+
+  it("records Sentry monitor success check-ins for authorized 2xx responses", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron(
+      "/api/cron/test",
+      async (_req: Request) => successEnvelope({ count: 1 }),
+      sentryMonitor
+    );
+    await handler(makeAuthorizedRequest());
+
+    expect(startCronCheckIn).toHaveBeenCalledWith(sentryMonitor);
+    expect(completeCronCheckIn).toHaveBeenCalledWith("check-in-1", "test-monitor", "ok");
+  });
+
+  it("records Sentry monitor error check-ins for authorized non-2xx responses", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron(
+      "/api/cron/test",
+      async (_req: Request) => errorEnvelope("Quota exceeded", { error: "youtube quota 403" }, 500),
+      sentryMonitor
+    );
+    await handler(makeAuthorizedRequest());
+
+    expect(startCronCheckIn).toHaveBeenCalledWith(sentryMonitor);
+    expect(completeCronCheckIn).toHaveBeenCalledWith("check-in-1", "test-monitor", "error");
+  });
+
+  it("records Sentry monitor error check-ins before rethrowing handler errors", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron(
+      "/api/cron/test",
+      async (_req: Request) => {
+        throw new Error("kaboom");
+      },
+      sentryMonitor
+    );
+
+    await expect(handler(makeAuthorizedRequest())).rejects.toThrow("kaboom");
+    expect(startCronCheckIn).toHaveBeenCalledWith(sentryMonitor);
+    expect(completeCronCheckIn).toHaveBeenCalledWith("check-in-1", "test-monitor", "error");
   });
 
   it("extracts 'error: details.error' from createErrorResponse with object details", async () => {
@@ -165,8 +227,7 @@ describe("withObservedCron", () => {
     await handler(makeAuthorizedRequest());
 
     const errUpdate = findUpdate(client, (row) => row.status === "error");
-    expect(errUpdate).toBeDefined();
-    expect(errUpdate![0]).toMatchObject({
+    expect(errUpdate?.[0]).toMatchObject({
       status: "error",
       error_message: "Quota exceeded: youtube quota 403",
     });
@@ -218,7 +279,7 @@ describe("withObservedCron", () => {
       client,
       (row) => row.status === "error" && row.error_message === "kaboom"
     );
-    expect(errUpdate).toBeDefined();
+    expect(errUpdate?.[0]).toMatchObject({ status: "error", error_message: "kaboom" });
   });
 
   it("sweeps stale 'started' rows before inserting the new run", async () => {
@@ -232,8 +293,7 @@ describe("withObservedCron", () => {
     await handler(makeAuthorizedRequest());
 
     const sweepUpdate = findUpdate(client, (row) => row.status === "timeout");
-    expect(sweepUpdate).toBeDefined();
-    expect(sweepUpdate![0]).toMatchObject({
+    expect(sweepUpdate?.[0]).toMatchObject({
       status: "timeout",
       error_message: expect.stringContaining("Vercel function killed"),
     });
@@ -255,5 +315,22 @@ describe("withObservedCron", () => {
     expect(response.status).toBe(401);
     expect(client._insertMock).not.toHaveBeenCalled();
     expect(client._updateMock).not.toHaveBeenCalled();
+  });
+
+  it("skips Sentry monitor check-ins on unauthorized requests", async () => {
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron(
+      "/api/cron/test",
+      async (_req: Request) => errorEnvelope("Unauthorized", null, 401),
+      sentryMonitor
+    );
+    const unauthorizedRequest = new Request("http://test/api/cron/test");
+    await handler(unauthorizedRequest);
+
+    expect(startCronCheckIn).not.toHaveBeenCalled();
+    expect(completeCronCheckIn).not.toHaveBeenCalled();
   });
 });

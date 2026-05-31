@@ -1,4 +1,9 @@
 import { validateCronRequest } from "@/lib/api-utils";
+import {
+  completeCronCheckIn,
+  startCronCheckIn,
+  type CronMonitorConfig,
+} from "@/lib/monitoring/sentry-cron";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 // Supabase query builders are thenables, not full Promises — they expose
@@ -78,11 +83,13 @@ async function sweepStaleStartedRows(db: CronRunsTable): Promise<void> {
  */
 export function withObservedCron<H extends (request: Request) => Promise<Response>>(
   route: string,
-  handler: H
+  handler: H,
+  monitor?: CronMonitorConfig
 ): H {
   const wrapped = (async (request: Request) => {
     const start = Date.now();
     let runId: string | null = null;
+    let checkInId: string | null = null;
 
     // Skip observability for unauthorized requests so the wrapper doesn't
     // touch the DB before the handler returns 401. Each handler still calls
@@ -90,6 +97,9 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
     const authorized = validateCronRequest(request);
 
     if (authorized) {
+      if (monitor) {
+        checkInId = startCronCheckIn(monitor) || null;
+      }
       try {
         const supabase = await createSupabaseServiceRoleClient();
         const db = supabase as unknown as CronRunsTable;
@@ -117,6 +127,10 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
 
     try {
       const response = await handler(request);
+
+      if (checkInId && monitor) {
+        completeCronCheckIn(checkInId, monitor.slug, response.ok ? "ok" : "error");
+      }
 
       if (runId) {
         let summary: unknown = null;
@@ -148,6 +162,10 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
       }
       return response;
     } catch (err) {
+      if (checkInId && monitor) {
+        completeCronCheckIn(checkInId, monitor.slug, "error");
+      }
+
       if (runId) {
         try {
           const supabase = await createSupabaseServiceRoleClient();
