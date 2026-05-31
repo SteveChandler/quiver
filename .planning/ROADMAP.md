@@ -24,6 +24,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 8: Outreach And Social Kit** - Produce warm outreach, tracker rules, and reusable social assets. (completed 2026-05-24)
 - [x] **Phase 9: Launch Analytics And Reporting** - Instrument and report campaign conversion signals. (completed 2026-05-24)
 - [x] **Phase 10: Go-Live Verification** - Validate claims, routes, links, visuals, tests, and release gates. (completed 2026-05-24)
+- [ ] **Phase 11: PBSC Event Route Deploy And QR Verification** - PBSC event route deploy and QR verification.
+- [ ] **Phase 12: Sentry Observability Rollout** - Turn Sentry startup credits into production debugging, release, replay, cron, and alerting leverage without runaway noise or spend.
 
 ## Phase Details
 
@@ -290,10 +292,60 @@ Plans:
 - [x] 10-03: Verify product claims, payment/entitlement claims, App Store/TestFlight links, and Brand-Vault asset provenance.
 - [x] 10-04: Produce go-live checklist, unresolved risks, and approval-gated release steps.
 
+### Phase 11: PBSC Event Route Deploy And QR Verification
+
+**Goal:** Make `https://www.quiversurf.app/pbsc` a production-verified PBSC QR scan route that sends iOS visitors to the App Store, sends every non-iOS visitor to the Android waitlist, removes the web fallback, and preserves approval gates before deploy/print/send actions.
+**Requirements**: [PBSC-01, PBSC-02, PBSC-03, PBSC-04, PBSC-05]
+**Depends on:** Phase 10
+**UI hint**: yes
+**Success Criteria** (what must be TRUE):
+
+  1. `/pbsc` chooses the first-paint primary CTA by OS: iOS gets tracked App Store, and Android/desktop/tablet/unknown visitors get tracked Android waitlist.
+  2. The PBSC scan route no longer renders `Use Quiver on web`, `/map` fallback, or copy that implies immediate unavailable platform access.
+  3. Anonymous Android waitlist clicks on `/pbsc` store PBSC-specific intent, open signup, return to `/pbsc`, and preserve event attribution.
+  4. Local focused Jest, scoped lint/typecheck, and guest Playwright coverage prove iOS, Android, and desktop route behavior.
+  5. After explicit approval, production `https://www.quiversurf.app/pbsc` returns HTTP 200, matches `/pbsc`, and has desktop/mobile browser proof before QR materials are treated as usable.
+
+**Plans:** 2 plans
+
+Plans:
+
+**Wave 1**
+
+- [x] 11-01: Implement PBSC OS-specific CTAs, remove the web fallback, preserve waitlist return behavior, and add focused Jest/guest Playwright coverage.
+
+**Wave 2** *(blocked on Wave 1 completion and explicit release approval)*
+
+- [ ] 11-02: Capture approval-gated production QR verification, live browser proof, and print/send guardrails.
+
+### Phase 12: Sentry Observability Rollout
+
+**Goal:** Use the Sentry for Startups credit to upgrade Quiver from basic error capture into controlled production observability across web, native, and critical jobs while keeping privacy, sampling, source maps, and alert noise under control.
+**Requirements**: [OBS-01, OBS-02, OBS-03, OBS-04, OBS-05]
+**Depends on:** Phase 11
+**UI hint**: no
+**Success Criteria** (what must be TRUE):
+
+  1. Web, native, and any future service projects have separate Sentry project/DSN ownership, correct production/preview/development environment tagging, and clean release/dist mapping.
+  2. Production web and native releases upload source maps/debug symbols so Sentry, Seer, and alert emails show readable Quiver stack traces instead of minified bundle frames.
+  3. Tracing, replay, logs, and issue alerts are sampled and filtered by Quiver-critical flows: auth, onboarding, RevenueCat, push/notification delivery, forecast freshness, cron failures, and launch conversion routes.
+  4. Sentry Cron monitors cover critical production jobs while the existing `cron_runs` table remains the internal operational ledger.
+  5. Startup-credit usage is monitored with a monthly budget/check cadence and no high-volume replay/log/tracing setting ships without an explicit sampling cap.
+
+**Plans:** 5 plans
+
+Plans:
+
+- [ ] 12-01: Audit live Sentry org/project/settings, current web/native SDK versions, DSNs, source-map upload paths, alert rules, and recent issue volume.
+- [ ] 12-02: Design the target project split, release/source-map strategy, environment tags, alert ownership, and Sentry/GitHub/Seer workflow.
+- [ ] 12-03: Implement web sampling, source-map/release hygiene, issue filtering, and critical-flow tags without changing unrelated observability surfaces.
+- [ ] 12-04: Implement native release/source-map hygiene, user/release context, critical-flow breadcrumbs/tags, and any replay/profiling pilot behind conservative sampling.
+- [ ] 12-05: Add Sentry Cron monitors, budget/usage review notes, verification commands, and a runbook for triaging the top weekly Sentry issues.
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 1.1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10
+Phases execute in numeric order: 1 -> 1.1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11 -> 12
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -308,3 +360,5 @@ Phases execute in numeric order: 1 -> 1.1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 
 | 8. Outreach And Social Kit | 5/5 | Complete | 2026-05-24 |
 | 9. Launch Analytics And Reporting | 5/5 | Complete | 2026-05-24 |
 | 10. Go-Live Verification | 4/4 | Complete | 2026-05-24 |
+| 11. PBSC Event Route Deploy And QR Verification | 1/2 | In Progress | - |
+| 12. Sentry Observability Rollout | 0/5 | Planned | - |

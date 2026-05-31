@@ -73,6 +73,22 @@ Requirements for the go-live campaign. Each requirement maps to exactly one road
 - [x] **QA-03**: Public claims are checked against current product behavior, entitlement code, App Store/TestFlight state, and live links before go-live.
 - [x] **QA-04**: Release notes identify approval-gated items including migrations, env changes, App Store/RevenueCat changes, outbound sends, and production deploy steps.
 
+### PBSC Event Route
+
+- [ ] **PBSC-01**: Visitors scanning the PBSC QR at `/pbsc` get an OS-specific primary action: iOS visitors see the App Store path and every non-iOS visitor sees the Android waitlist.
+- [ ] **PBSC-02**: The non-iOS PBSC path uses the existing Android waitlist intent flow in-page and preserves anonymous signup return to `/pbsc`.
+- [ ] **PBSC-03**: The PBSC scan path removes the web fallback and avoids copy that overpromises immediate Tourmaline, web, or Android install access.
+- [ ] **PBSC-04**: Local and live verification prove the PBSC route behavior across iOS, Android, desktop, and the canonical production QR URL.
+- [ ] **PBSC-05**: Production deploy, alias promotion, printing, outbound sends, social posts, tracker writes, and payment actions remain approval-gated.
+
+### Sentry Observability
+
+- [ ] **OBS-01**: Quiver has a Sentry project/DSN ownership model that separates web, native, and future services enough for clean alert routing, issue grouping, releases, and environment filtering.
+- [ ] **OBS-02**: Production web and native releases upload source maps or debug symbols so Sentry issue stacks are readable and tied to the correct release/dist.
+- [ ] **OBS-03**: Tracing, replay, logs, and issue alerts are sampled and filtered around Quiver-critical flows without letting routine route volume, expected fallbacks, or preview/local traffic burn credit.
+- [ ] **OBS-04**: Critical production cron jobs have Sentry monitors and alerts, while `cron_runs` remains the source for internal run summaries and stale-run diagnostics.
+- [ ] **OBS-05**: Startup-credit usage, monthly spend risk, alert ownership, Seer/GitHub workflow, and weekly top-issue triage are documented before expanding replay/log/tracing volume.
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in the current roadmap.
@@ -153,12 +169,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 | QA-02 | Phase 10 | Complete |
 | QA-03 | Phase 10 | Complete |
 | QA-04 | Phase 10 | Complete |
+| PBSC-01 | Phase 11 | Planned |
+| PBSC-02 | Phase 11 | Planned |
+| PBSC-03 | Phase 11 | Planned |
+| PBSC-04 | Phase 11 | Planned |
+| PBSC-05 | Phase 11 | Planned |
+| OBS-01 | Phase 12 | Planned |
+| OBS-02 | Phase 12 | Planned |
+| OBS-03 | Phase 12 | Planned |
+| OBS-04 | Phase 12 | Planned |
+| OBS-05 | Phase 12 | Planned |
 
 **Coverage:**
-- v1 requirements: 39 total
-- Mapped to phases: 39
+- v1 requirements: 49 total
+- Mapped to phases: 49
 - Unmapped: 0
 
 ---
 *Requirements defined: 2026-05-24*
-*Last updated: 2026-05-24 after Phase 10 completion*
+*Last updated: 2026-05-30 during Phase 12 Sentry observability planning*
