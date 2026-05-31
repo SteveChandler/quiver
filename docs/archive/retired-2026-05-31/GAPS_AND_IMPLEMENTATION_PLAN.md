@@ -1,3 +1,10 @@
+# Retired Document
+
+Status: Retired
+Reason: December 2025 gap list is stale relative to current architecture docs and active trackers.
+Retired on: 2026-05-31
+Replacement: [Documentation Index](../../README.md)
+
 # Quiver: Feature Gaps & Implementation Plan
 
 **Generated**: December 10, 2025  
@@ -387,7 +394,6 @@ it("should reject upload when quota exceeded", async () => {
 
 _Document created: December 10, 2025_  
 _Last updated: December 10, 2025_
-
 
 
 

@@ -13,6 +13,12 @@ import { withObservedCron } from '@/lib/cron/observability';
 export const runtime = "nodejs";
 export const dynamic = 'force-dynamic';
 
+const SENTRY_MONITOR = {
+  slug: "forecast-health",
+  schedule: "*/30 * * * *",
+  maxRuntimeMinutes: 3,
+};
+
 function formatCoverage(coverage: number): string {
   return `${(coverage * 100).toFixed(1)}%`;
 }
@@ -155,4 +161,4 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/monitoring/forecast-health", _GET);
+export const GET = withObservedCron("/api/monitoring/forecast-health", _GET, SENTRY_MONITOR);

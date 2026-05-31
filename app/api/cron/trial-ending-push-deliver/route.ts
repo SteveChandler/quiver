@@ -45,6 +45,12 @@ export const maxDuration = 300;
 
 const CONTEXT_TAG = "[trial-ending-push-deliver]";
 
+const SENTRY_MONITOR = {
+  slug: "trial-ending-push-deliver",
+  schedule: "0 17 * * *",
+  maxRuntimeMinutes: 5,
+};
+
 // Selection window: trial_ends_at in [now + 1.5 days, now + 2.5 days].
 // Center on 2.0 days with a ±0.5d buffer so the cron can slip without missing
 // anyone. The idempotency log blocks double-sends on overlap.
@@ -310,4 +316,8 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/trial-ending-push-deliver", _GET);
+export const GET = withObservedCron(
+  "/api/cron/trial-ending-push-deliver",
+  _GET,
+  SENTRY_MONITOR
+);

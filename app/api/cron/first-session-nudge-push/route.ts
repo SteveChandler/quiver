@@ -58,6 +58,12 @@ export const maxDuration = 300;
 const CONTEXT_TAG = "[first-session-nudge-push]";
 const NUDGE_TYPE = "first_session_day7";
 
+const SENTRY_MONITOR = {
+  slug: "first-session-nudge-push",
+  schedule: "0 17 * * *",
+  maxRuntimeMinutes: 5,
+};
+
 // Closed-open signup window: [now - 8d, now - 6d).
 // Mirrors Day-1 cron's off-by-one handling (half-open interval, inclusive
 // on the older boundary, exclusive on the newer boundary).
@@ -595,4 +601,8 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/first-session-nudge-push", _GET);
+export const GET = withObservedCron(
+  "/api/cron/first-session-nudge-push",
+  _GET,
+  SENTRY_MONITOR
+);

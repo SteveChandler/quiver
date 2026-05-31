@@ -21,6 +21,7 @@ import type {
 } from "./types";
 
 const log = createContextLogger("NOAAWaveWatch:DataProcessors");
+const OM_PARTITION_SCHEMA_VERSION = 1;
 
 export interface ProcessNOAAGridDataOptions {
   baseTime?: Date;
@@ -30,6 +31,10 @@ export interface ProcessNOAAGridDataOptions {
 function numberOrNull(value: number | null | undefined): number | null {
   if (value === null || value === undefined) return null;
   return Number.isFinite(value) ? value : null;
+}
+
+function allMissing(values: Array<number | null>): boolean {
+  return values.every((value) => value === null);
 }
 
 /**
@@ -286,11 +291,63 @@ export function processOpenMeteoData(
       wave_height_om: numberOrNull(data.hourly.wave_height?.[i]),
       wave_period_om: numberOrNull(data.hourly.wave_period?.[i]),
       wave_direction_om: numberOrNull(data.hourly.wave_direction?.[i]),
+      wave_peak_period_om: numberOrNull(data.hourly.wave_peak_period?.[i]),
       swell_height_om: numberOrNull(data.hourly.swell_wave_height?.[i]),
       swell_period_om: numberOrNull(data.hourly.swell_wave_period?.[i]),
       swell_direction_om: numberOrNull(data.hourly.swell_wave_direction?.[i]),
+      swell_wave_peak_period_om: numberOrNull(
+        data.hourly.swell_wave_peak_period?.[i]
+      ),
       wind_wave_height_om: numberOrNull(data.hourly.wind_wave_height?.[i]),
+      wind_wave_period_om: numberOrNull(data.hourly.wind_wave_period?.[i]),
+      wind_wave_direction_om: numberOrNull(
+        data.hourly.wind_wave_direction?.[i]
+      ),
+      wind_wave_peak_period_om: numberOrNull(
+        data.hourly.wind_wave_peak_period?.[i]
+      ),
+      secondary_swell_height_om: numberOrNull(
+        data.hourly.secondary_swell_wave_height?.[i]
+      ),
+      secondary_swell_period_om: numberOrNull(
+        data.hourly.secondary_swell_wave_period?.[i]
+      ),
+      secondary_swell_direction_om: numberOrNull(
+        data.hourly.secondary_swell_wave_direction?.[i]
+      ),
+      tertiary_swell_height_om: numberOrNull(
+        data.hourly.tertiary_swell_wave_height?.[i]
+      ),
+      tertiary_swell_period_om: numberOrNull(
+        data.hourly.tertiary_swell_wave_period?.[i]
+      ),
+      tertiary_swell_direction_om: numberOrNull(
+        data.hourly.tertiary_swell_wave_direction?.[i]
+      ),
+      om_partition_schema_version: OM_PARTITION_SCHEMA_VERSION,
     };
+    rawOm.om_wind_wave_missing = allMissing([
+      rawOm.wind_wave_height_om,
+      rawOm.wind_wave_period_om ?? null,
+      rawOm.wind_wave_direction_om ?? null,
+      rawOm.wind_wave_peak_period_om ?? null,
+    ]);
+    rawOm.om_primary_swell_missing = allMissing([
+      rawOm.swell_height_om,
+      rawOm.swell_period_om,
+      rawOm.swell_direction_om,
+      rawOm.swell_wave_peak_period_om ?? null,
+    ]);
+    rawOm.om_secondary_swell_missing = allMissing([
+      rawOm.secondary_swell_height_om ?? null,
+      rawOm.secondary_swell_period_om ?? null,
+      rawOm.secondary_swell_direction_om ?? null,
+    ]);
+    rawOm.om_tertiary_swell_missing = allMissing([
+      rawOm.tertiary_swell_height_om ?? null,
+      rawOm.tertiary_swell_period_om ?? null,
+      rawOm.tertiary_swell_direction_om ?? null,
+    ]);
 
     const forecast: WaveWatchData = {
       timestamp: timestamp.toISOString(),
@@ -300,8 +357,8 @@ export function processOpenMeteoData(
       swell_1_height: swell1Height,
       swell_1_period: swell1Period,
       swell_1_direction: swell1Direction,
-      // Open-Meteo only exposes a single swell partition. Never synthesize
-      // a secondary from swell_1 — emit the `0` sentinel so downstream
+      // Do not synthesize a secondary partition from primary swell. Emit the
+      // `0` sentinel so downstream
       // `swell_2_height > 0 && swell_2_period > 0` guards treat this as
       // "no second swell train," not as "small second swell."
       swell_2_height: 0,

@@ -572,10 +572,26 @@ describe("ForecastBuilder", () => {
             wave_height_om: 1.05,
             wave_period_om: 11.4,
             wave_direction_om: 231,
+            wave_peak_period_om: 12.2,
             swell_height_om: 0.72,
             swell_period_om: 13.1,
             swell_direction_om: 224,
+            swell_wave_peak_period_om: 15.4,
             wind_wave_height_om: 0.34,
+            wind_wave_period_om: 5.8,
+            wind_wave_direction_om: 207,
+            wind_wave_peak_period_om: 7.2,
+            secondary_swell_height_om: 0.25,
+            secondary_swell_period_om: 11.5,
+            secondary_swell_direction_om: 190,
+            tertiary_swell_height_om: 0.15,
+            tertiary_swell_period_om: 9.4,
+            tertiary_swell_direction_om: 145,
+            om_wind_wave_missing: false,
+            om_primary_swell_missing: false,
+            om_secondary_swell_missing: false,
+            om_tertiary_swell_missing: false,
+            om_partition_schema_version: 1,
           },
         },
       ],
@@ -622,6 +638,27 @@ describe("ForecastBuilder", () => {
       expect(typeof f.wave_height).toBe("string");
       // OM-side is numeric (meters), completely independent of the TEXT.
       expect(typeof f.wave_height_om).toBe("number");
+    });
+
+    it("keeps expanded partition fields out of served forecast rows", async () => {
+      const forecasts = await builder.buildForecasts({
+        beach: mockBeach,
+        waveData: waveDataWithOm,
+        tideData: mockTideData,
+        weatherData: [],
+        buoyData: null,
+        cdipData: null,
+        ioosWaterTempC: null,
+        coopsWaterTempC: null,
+      });
+
+      const f = forecasts[0];
+      expect(f).not.toHaveProperty("wave_peak_period_om");
+      expect(f).not.toHaveProperty("swell_wave_peak_period_om");
+      expect(f).not.toHaveProperty("wind_wave_period_om");
+      expect(f).not.toHaveProperty("secondary_swell_height_om");
+      expect(f).not.toHaveProperty("tertiary_swell_height_om");
+      expect(f).not.toHaveProperty("om_partition_schema_version");
     });
 
     it("leaves *_om columns undefined when wave point has no om_values", async () => {

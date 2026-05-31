@@ -69,10 +69,26 @@ export interface OpenMeteoSlotValues {
   wave_height_om: number | null;
   wave_period_om: number | null;
   wave_direction_om: number | null;
+  wave_peak_period_om?: number | null;
   swell_height_om: number | null;
   swell_period_om: number | null;
   swell_direction_om: number | null;
+  swell_wave_peak_period_om?: number | null;
   wind_wave_height_om: number | null;
+  wind_wave_period_om?: number | null;
+  wind_wave_direction_om?: number | null;
+  wind_wave_peak_period_om?: number | null;
+  secondary_swell_height_om?: number | null;
+  secondary_swell_period_om?: number | null;
+  secondary_swell_direction_om?: number | null;
+  tertiary_swell_height_om?: number | null;
+  tertiary_swell_period_om?: number | null;
+  tertiary_swell_direction_om?: number | null;
+  om_wind_wave_missing?: boolean | null;
+  om_primary_swell_missing?: boolean | null;
+  om_secondary_swell_missing?: boolean | null;
+  om_tertiary_swell_missing?: boolean | null;
+  om_partition_schema_version?: number | null;
 }
 
 /**
@@ -163,11 +179,20 @@ export interface OpenMeteoMarineResponse {
     wave_height?: number[];
     wave_direction?: number[];
     wave_period?: number[];
+    wave_peak_period?: number[];
     swell_wave_height?: number[];
     swell_wave_direction?: number[];
     swell_wave_period?: number[];
+    swell_wave_peak_period?: number[];
     wind_wave_height?: number[];
     wind_wave_direction?: number[];
     wind_wave_period?: number[];
+    wind_wave_peak_period?: number[];
+    secondary_swell_wave_height?: number[];
+    secondary_swell_wave_period?: number[];
+    secondary_swell_wave_direction?: number[];
+    tertiary_swell_wave_height?: number[];
+    tertiary_swell_wave_period?: number[];
+    tertiary_swell_wave_direction?: number[];
   };
 }

@@ -50,10 +50,26 @@ const sampleRow = (
   wave_direction_deg: null,
   wave_period_om: null,
   wave_direction_om: null,
+  wave_peak_period_om: null,
   swell_height_om: null,
   swell_period_om: null,
   swell_direction_om: null,
+  swell_wave_peak_period_om: null,
   wind_wave_height_om: null,
+  wind_wave_period_om: null,
+  wind_wave_direction_om: null,
+  wind_wave_peak_period_om: null,
+  secondary_swell_height_om: null,
+  secondary_swell_period_om: null,
+  secondary_swell_direction_om: null,
+  tertiary_swell_height_om: null,
+  tertiary_swell_period_om: null,
+  tertiary_swell_direction_om: null,
+  om_wind_wave_missing: null,
+  om_primary_swell_missing: null,
+  om_secondary_swell_missing: null,
+  om_tertiary_swell_missing: null,
+  om_partition_schema_version: null,
   wind_speed_ms: null,
   wind_direction_deg: null,
   v5_shadow_height_m: null,
@@ -172,10 +188,26 @@ describe("logDisplayPredictions", () => {
       wave_direction_deg: null,
       wave_period_om: null,
       wave_direction_om: null,
+      wave_peak_period_om: null,
       swell_height_om: null,
       swell_period_om: null,
       swell_direction_om: null,
+      swell_wave_peak_period_om: null,
       wind_wave_height_om: null,
+      wind_wave_period_om: null,
+      wind_wave_direction_om: null,
+      wind_wave_peak_period_om: null,
+      secondary_swell_height_om: null,
+      secondary_swell_period_om: null,
+      secondary_swell_direction_om: null,
+      tertiary_swell_height_om: null,
+      tertiary_swell_period_om: null,
+      tertiary_swell_direction_om: null,
+      om_wind_wave_missing: null,
+      om_primary_swell_missing: null,
+      om_secondary_swell_missing: null,
+      om_tertiary_swell_missing: null,
+      om_partition_schema_version: null,
       wind_speed_ms: null,
       wind_direction_deg: null,
       v5_shadow_height_m: null,
@@ -191,6 +223,51 @@ describe("logDisplayPredictions", () => {
     ]);
     const payload = upsertMock.mock.calls[0][0];
     expect(payload[0].model_version).toBe("explicit-model-v2");
+  });
+
+  it("maps the expanded Open-Meteo partition stack into the upsert payload", async () => {
+    await logDisplayPredictions([
+      sampleRow({
+        wave_peak_period_om: 12,
+        swell_wave_peak_period_om: 16,
+        wind_wave_period_om: 6,
+        wind_wave_direction_om: 210,
+        wind_wave_peak_period_om: 8,
+        secondary_swell_height_om: 0.25,
+        secondary_swell_period_om: 12,
+        secondary_swell_direction_om: 195,
+        tertiary_swell_height_om: 0.15,
+        tertiary_swell_period_om: 10,
+        tertiary_swell_direction_om: 145,
+        om_wind_wave_missing: false,
+        om_primary_swell_missing: false,
+        om_secondary_swell_missing: false,
+        om_tertiary_swell_missing: false,
+        om_partition_schema_version: 1,
+      }),
+    ]);
+
+    const payload = upsertMock.mock.calls[0][0];
+    expect(payload[0]).toEqual(
+      expect.objectContaining({
+        wave_peak_period_om: 12,
+        swell_wave_peak_period_om: 16,
+        wind_wave_period_om: 6,
+        wind_wave_direction_om: 210,
+        wind_wave_peak_period_om: 8,
+        secondary_swell_height_om: 0.25,
+        secondary_swell_period_om: 12,
+        secondary_swell_direction_om: 195,
+        tertiary_swell_height_om: 0.15,
+        tertiary_swell_period_om: 10,
+        tertiary_swell_direction_om: 145,
+        om_wind_wave_missing: false,
+        om_primary_swell_missing: false,
+        om_secondary_swell_missing: false,
+        om_tertiary_swell_missing: false,
+        om_partition_schema_version: 1,
+      })
+    );
   });
 
   it("supabase insert failure does NOT throw to caller (fire-and-forget)", async () => {

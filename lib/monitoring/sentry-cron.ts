@@ -39,7 +39,9 @@ export function startCronCheckIn(config: CronMonitorConfig): string {
       }
     );
   } catch (err) {
-    console.warn("[Sentry Cron] Failed to start check-in", config.slug, err);
+    if (process.env.NODE_ENV !== "test") {
+      console.warn("[Sentry Cron] Failed to start check-in", config.slug, err);
+    }
     return "";
   }
 }
@@ -60,7 +62,9 @@ export function completeCronCheckIn(
       status,
     });
   } catch (err) {
-    console.warn("[Sentry Cron] Failed to complete check-in", slug, status, err);
+    if (process.env.NODE_ENV !== "test") {
+      console.warn("[Sentry Cron] Failed to complete check-in", slug, status, err);
+    }
   }
 }
 

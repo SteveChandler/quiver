@@ -1,3 +1,10 @@
+# Retired Document
+
+Status: Retired
+Reason: March 2026 acquisition plan is superseded by the current go-live and refactor trackers.
+Retired on: 2026-05-31
+Replacement: [Documentation Index](../../README.md)
+
 # Quiver User Acquisition Strategy
 ## March 2026 | From 35 Users to Traction
 

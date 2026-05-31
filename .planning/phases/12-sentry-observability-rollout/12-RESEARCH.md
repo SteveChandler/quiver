@@ -34,11 +34,24 @@ Use the credit for a controlled rollout, not blanket high-volume capture:
 6. Add Sentry Cron monitors for critical production jobs while keeping `cron_runs` as the detailed internal run ledger.
 7. Add monthly usage/budget review before increasing replay, log, tracing, or profiling volume.
 
+## Implementation Started
+
+- Web Sentry config now centralizes DSN fallback, environment detection, release/dist lookup, and trace sampling in `lib/monitoring/sentry-config.ts`.
+- Server and edge Sentry initialization no longer rely on `NODE_ENV=production` alone, so Vercel Preview and `dev.quiversurf.app` traffic are classified as preview and dropped instead of being tagged production.
+- Blanket `tracesSampleRate: 1.0` was replaced with a route-aware sampler:
+  - static assets, monitoring tunnel, and health checks: 0%
+  - auth, onboarding, RevenueCat, cron, push/notification routes: 50%
+  - launch conversion routes such as `/pbsc`, `/pricing`, and iOS/download paths: 25%
+  - forecast, beach, map, and analytics ingestion routes: 15%
+  - routine traffic: 5%
+- Session Replay remains lazy-loaded and masked, with session/error replay rates still disabled until project split, source-map hygiene, and usage budget guardrails are verified.
+
 ## Docs Reviewed
 
-- Sentry Next.js setup and source maps
-- Sentry React Native Expo setup and source maps
-- Sentry Session Replay
-- Sentry Cron Monitoring
-- Sentry Projects
-- Sentry pricing and usage model
+- Sentry Next.js manual setup: `instrumentation-client.ts`, `sentry.server.config.ts`, `sentry.edge.config.ts`, `onRequestError`, source-map upload, fixed tunnel route, tracing, replay, and logs guidance.
+- Sentry JavaScript options: `release`, `environment`, `enabled`, `beforeSend`, `tracesSampleRate`, `tracesSampler`, replay sample rates, and trace propagation behavior.
+- Sentry sampling guidance: `tracesSampler` can apply different rates per transaction type, filter health checks, and use `inheritOrSampleWith` for distributed trace inheritance.
+- Sentry Cron Monitoring / JavaScript API: `captureCheckIn` supports `monitorSlug`, `status`, `checkInId`, crontab schedules, check-in margin, max runtime, and timezone.
+- Sentry React Native Expo setup and source maps.
+- Sentry Projects.
+- Sentry pricing and usage model.
