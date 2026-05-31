@@ -4,7 +4,7 @@ milestone: v1.0
 milestone_name: milestone
 status: active
 stopped_at: Phase 12 completed; ready for Phase 13 controlled refactor planning
-last_updated: "2026-05-31T14:31:22-07:00"
+last_updated: "2026-05-31"
 last_activity: 2026-05-31
 progress:
   total_phases: 14
@@ -16,146 +16,48 @@ progress:
 
 # Project State
 
-## Project Reference
+## Current Goal
 
-See: .planning/PROJECT.md (updated 2026-05-24)
+Track the active go-live campaign state without loading the completed phase history by default.
 
-**Core value:** Drive iOS downloads by making the Quiver loop obvious and compelling: forecast, check, log, and improve.
-**Current focus:** Controlled refactor completion
+## Current Status
 
-## Current Position
-
-Phase: 13 (controlled-refactor-completion) - READY
+Phase: 13 controlled-refactor-completion
 Plan: Phase 13 planning pending
-Status: Phase 12 is complete. Sentry monitor records for the approved critical set are active, owned by the quiver team, and backed by a dedicated Cron monitor failures issue alert rule.
-Last activity: 2026-05-31
+Status: Phase 12 is complete; Phase 13 is ready
+Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/STATE-full-history.md](archive/2026-05-31-doc-cleanup/STATE-full-history.md)
 
-Progress: [#########░] 91%
+Progress: 12 of 14 phases complete, 52 of 57 plans complete, 91%.
 
-## Performance Metrics
+## Active Requirements
 
-**Velocity:**
+- Continue controlled refactor work from [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
+- Keep Phase 13 slices independently reviewable, behavior-preserving, and test-backed.
+- Preserve approval gates for deploys, production mutations, outbound sends, payment actions, and entitlement changes.
+- Update planning state only with durable decisions, current gaps, validation outcomes, and next actions.
 
-- Total plans completed: 52
-- Average duration: N/A
-- Total execution time: 0.0 hours
+## Open Gaps
 
-**By Phase:**
+- Phase 13 detailed plan is not written yet.
+- Remaining import cleanup and wrapper ownership gaps are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
+- Public launch deploy/alias status may have changed outside the repo and must be checked live before public claims.
 
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 01 | 3 | - | - |
-| 01.1 | 1 | - | - |
-| 02 | 4 | - | - |
-| 03 | 5 | - | - |
-| 04 | 5 | - | - |
-| 05 | 4 | - | - |
-| 06 | 5 | - | - |
-| 07 | 4 | - | - |
-| 08 | 5 | - | - |
-| 09 | 5 | - | - |
-| 10 | 4 | - | - |
-| 11 | 2 | - | - |
-| 12 | 5 | - | - |
-| 13 | 0 | - | - |
+## Decisions Already Made
 
-**Recent Trend:**
+- Launch objective is iOS downloads.
+- Product story is forecast -> check -> log -> improve.
+- Founding access remains waitlist-safe until RevenueCat Web Billing and entitlement sync are proven.
+- Brand-Vault is the source of truth for public launch visuals.
+- Reddit remains comment-first unless explicitly reopened.
+- Launch reporting uses existing event primitives.
+- Sentry cron monitor ownership and critical alert routing were completed in Phase 12.
 
-- Last 5 plans: 12-01, 12-02, 12-03, 12-04, 12-05
-- Trend: Phase 12 moved Sentry from audit/design into web, native, critical cron code/runbook hygiene, active monitor ownership, and cron issue alert routing after the Sentry account plan setup.
+## Next Actions
 
-*Updated after each plan completion*
+- Plan Phase 13 from the current refactor roadmap.
+- Start with Slice 82: inspect `app/session/confirm/route.ts`, add or extend a source guard, migrate only the UUID validation import, and run the listed local validation.
+- Update [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) and this state file after the slice is complete.
 
-## Accumulated Context
+## Historical Notes
 
-### Decisions
-
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- Initialization: Launch objective is iOS downloads, not a generic web awareness campaign.
-- Initialization: The story must teach the loop: forecast -> surfer checks -> logs session -> model adjusts.
-- Initialization: Founding offer is lifetime membership, with payment/entitlement truth to verify before public claims.
-- Initialization: Blog expansion stays founder notes plus useful SEO content, not generic lifestyle publishing.
-- Initialization: Brand-Vault is the first source for launch visuals and campaign assets.
-- 2026-05-24: Phase 01.1 was inserted after Phase 1 to refresh `/forecast/santa-cruz`, `/learn`, and all learn child pages with the beach-detail zine look and Brand-Vault sticker assets before returning to Phase 2.
-- 2026-05-24: Phase 01.1 shipped shared zine primitives, typed Quiver sticker asset paths, refreshed forecast/learn surfaces, public zine E2E coverage, and preview build validation.
-- 2026-05-24: Plan 02-01 completed as a read-only audit. RevenueCat Web remains the intended v1 direction, but public pricing and lifetime checkout claims remain blocked until web checkout, product semantics, and entitlement sync are proven. Production read-only checks showed 7 entitlement rows, 0 failed webhook rows, and no paid web/founder lifetime product evidence.
-- 2026-05-24: Plan 02-02 selected RevenueCat Web Billing as the intended v1 paid web path, signed-in web checkout as the v1 identity model, waitlist-only public copy until verification, and explicit paid-founder-lifetime replacement as a later implementation requirement.
-- 2026-05-24: Plan 02-03 locked beta/current-user handling: promotional Pro is preserved, no user is auto-billed, earned founder status stays separate from paid founder lifetime, and paid founder replacement must use a narrow allowlisted RevenueCat Web Billing event path.
-- 2026-05-24: Plan 02-04 closed Phase 2. Public offer copy remains Founding Access Waitlist; paid prices, checkout, lifetime purchase, cross-platform unlock, dashboard/env/migration changes, and native web-checkout links remain blocked until the release gates prove them.
-- 2026-05-24: Plan 03-01 confirmed the active landing path is `app/page.tsx` -> `AuthAwareLandingWrapper` -> `Navbar`, `HeroSection`, and `LandingInteractiveSections`, plus server-side `LandingPageSSRSection`.
-- 2026-05-24: Plan 03-01 found that the older `components/landing-page.tsx` and `HowItWorksSection` are not the active `/` landing route; loop copy changes must land in the active interactive section path.
-- 2026-05-24: Plan 03-01 found the hero uses a transparent video-coordinate App Store CTA overlay and `app_store_preorder_*` client analytics events, with browser validation and event persistence decisions deferred to later Phase 3/9 work.
-- 2026-05-24: Plan 03-02 updated the active landing copy hierarchy: ForecastSection now supports Forecast, Log, and Check product moments, and MLPipelineShowcase now teaches Quiver makes the call -> surfer checks -> surfer logs -> Quiver tunes the next one.
-- 2026-05-24: Plan 03-03 normalized active App Store CTA copy/events away from pre-order language. Landing CTA events now use `ios_app_cta_view` / `ios_app_cta_click` and dual-fire to existing internal `cta_impression` / `cta_click` rows with iOS destination metadata.
-- 2026-05-24: Plan 03-04 validated active landing visuals against Brand-Vault/current app assets. The Forecast/Log/Check screenshots, nav icon, activity thumbnails, and SSR fallback image have exact Brand-Vault matches; hero media renders correctly as optimized derivatives of the Brand-Vault launch-video render.
-- 2026-05-24: Plan 03-05 closed Phase 3 with scoped ESLint, 7 targeted Jest suites / 29 tests, TypeScript typecheck, 7 focused guest landing Playwright tests, and desktop/mobile browser captures.
-- 2026-05-24: Phase 4 implemented `/pricing` as a waitlist-safe founding access page, linked it from the active landing page, added conservative WebPage metadata/schema and sitemap inclusion, and kept public copy free of prices, checkout, lifetime purchase, monthly/annual, and cross-platform entitlement claims.
-- 2026-05-24: Phase 4 validation passed scoped ESLint, 5 targeted Jest suites / 67 tests, guest pricing Playwright coverage, Node 22 typecheck, `VERCEL_ENV=preview` build, and desktop/mobile visual capture. Full pay scale and lifetime purchase copy remain blocked until payment release gates are verified.
-- 2026-05-24: Phase 5 prepared the finite blog system for multiple launch posts by adding sorted post helpers, featured/latest modified helpers, helper-backed `/blog`, `/blog/[slug]`, and sitemap usage, blog route docs, and tests for static params, metadata, schema, and sitemap inclusion.
-- 2026-05-24: Phase 6 added `/blog/why-quiver-is-built-around-one-surf-call` and `/blog/how-to-pick-a-surf-spot-before-dawn`, with complete metadata, schema-backed fields, internal related links, and preview build verification of all three blog slugs.
-- 2026-05-24: Phase 7 live Apple checks found the App Store page reachable but still serving preorder offer metadata for the 2026-05-25 release, so web iOS CTAs now say `Open App Store`, analytics use `app_store_preorder`, and the hero renders a real visible CTA overlay over the baked media button.
-- 2026-05-24: Phase 7 documented Brand-Vault-first iOS launch assets: 6.7/6.1 App Store screenshots, launch hero source render, and canonical web app icon. TestFlight remains a separate live beta path, and web pricing remains waitlist-only.
-- 2026-05-24: Phase 8 created draft-only warm outreach, reviewer/DM, social caption, short-script, and visual-brief artifacts under `.planning/phases/08-outreach-and-social-kit/`, with no outbound sends, posts, DMs, tracker writes, Play Console actions, entitlement grants, or production mutations.
-- 2026-05-24: Phase 8 locked channel safety rules: warm users first, Android Play replies only after explicit Google-email confirmation, Apple relay/bounce suppression, exact audit logs, and Reddit comment-first unless the user explicitly reopens launch posting.
-- 2026-05-24: Phase 9 kept launch analytics inside existing `page_view`, `cta_impression`, `cta_click`, and waitlist signup CTA event primitives, avoiding a database event migration.
-- 2026-05-24: Phase 9 added `launch_campaign=go_live_2026_05` page-view metadata for landing, pricing, blog index, and blog posts; blog cross-links now emit `cta_family=launch_blog_cross_link`.
-- 2026-05-24: Phase 9 added read-only launch reporting docs and SQL covering web analytics, iOS CTA events, pricing waitlist events, blog cross-links, App Store/TestFlight checks, Brand-Vault tracker state, and conversion notes.
-- 2026-05-24: Phase 10 fixed the landing LCP image warning by making the first server-rendered popular beach image eager/priority, then verified the warning cleared in a desktop browser pass.
-- 2026-05-24: Phase 10 local verification passed scoped ESLint, 15 targeted Jest suites / 142 tests, Node 22 typecheck, guest Apple/blog/pricing Playwright coverage, `VERCEL_ENV=preview yarn build`, and desktop/mobile launch route screenshots.
-- 2026-05-24: Phase 10 live checks found App Store and TestFlight reachable, but `www.quiversurf.app/pricing` and `dev.quiversurf.app/pricing` still return 404 until an approved deploy updates the aliases.
-- 2026-05-25: Phase 11 planning created two waves: 11-01 implements the PBSC OS-specific route and tests; 11-02 records approval-gated production QR verification.
-- 2026-05-25: Plan 11-01 implemented the PBSC OS-specific route locally: iOS gets the tracked App Store CTA, non-iOS gets the tracked Android waitlist, and the web fallback is removed.
-- 2026-05-25: Plan 11-02 Task 1 recorded live route truth: production `https://www.quiversurf.app/pbsc` still returns HTTP 404 matched to `/[intent]`, while dev returns HTTP 200 matched to `/pbsc`; release work is blocked on explicit approval.
-- 2026-05-30: Sentry for Startups credit review found $5,000 active through 2027-05-27, current web/native Sentry coverage, native events grouped into the `javascript-nextjs` project, high web tracing volume, disabled native source-map auto-upload, and a need for controlled project split, sampling, release, replay, cron, and usage-budget work.
-- 2026-05-30: Phase 13 was added to carry forward the controlled refactor work from `docs/refactor-roadmap.md`, starting after Slice 81 with the remaining production `@/lib/api-utils` imports outside wrapper internals.
-- 2026-05-31: Phase 12 web work started with centralized Sentry DSN/env/release/sampling helpers, Vercel Preview and `dev.quiversurf.app` filtering, and route-aware tracing caps replacing blanket 100% web trace capture.
-- 2026-05-31: Plan 12-02 selected target Sentry project ownership for `quiver-web` and `quiver-native`, kept `javascript-nextjs` as the historical source project, and gated all project/DSN/monitor/billing/GitHub/Seer mutations behind explicit approval.
-- 2026-05-31: Plan 12-03 implemented web Sentry helper-based environment detection, route-aware sampling, env-driven DSNs/source-map project settings, Replay caps, and `sendDefaultPii: false`.
-- 2026-05-31: Plan 12-04 implemented native Sentry release/dist/environment/sampling helpers, removed raw email from native Sentry user context, and enforced fail-closed native release upload env after in-thread approval.
-- 2026-05-31: 12-04 risk follow-up created Sentry project `quiver-native`, updated native preview/production public DSNs, copied the existing usable Sentry upload token into ignored native `.env.production`, added the EAS production `SENTRY_AUTH_TOKEN` secret, and verified iOS/Android release preflight mode without running release builds or distribution.
-- 2026-05-31: Plan 12-05 added optional wrapper-driven Sentry Cron check-ins for the critical route set, preserved `cron_runs`, retained explicit sitemap/enhanced forecast check-ins, and documented weekly triage, monthly usage review, and budget expansion gates.
-- 2026-05-31: 12-05 account follow-up created Sentry monitor records for `forecast-health`, `forecast-alerts`, `notifications-deliver`, `trial-ending-push-deliver`, and `first-session-nudge-push`; after the Sentry subscription card/Business Plan setup, the critical monitors and `sitemap-health` were activated, assigned to the `quiver` team, and connected to a dedicated Cron monitor failures issue alert rule.
-
-### Roadmap Evolution
-
-- Phase 11 added: PBSC event route deploy and QR verification.
-- Phase 12 added: Sentry observability rollout.
-- Phase 13 added: Controlled refactor completion.
-
-### Pending Todos
-
-- Plan Phase 13 with `$gsd-plan-phase 13` when ready to resume the controlled refactor; start from Slice 82 in `docs/refactor-roadmap.md`.
-
-### Blockers/Concerns
-
-- GSD-specific subagent configs were not available during initialization, so initial requirements and roadmap were generated inline; Codex multi-agent subagents were available and used in Phases 8 and 9.
-- GSD `state.add-roadmap-evolution` is SDK-only in this runtime, so the Phase 01.1 roadmap-evolution note was recorded manually in this state file.
-- Pricing/payment claims must remain waitlist-only in Phase 3 and Phase 4 until the 02-04 release gates prove RevenueCat Web Billing checkout, product semantics, webhook filtering, Supabase mirror behavior, native RevenueCat unlock, and policy gates end to end.
-- Current local code protects lifetime promotional Pro rows, but does not yet implement paid founder lifetime replacement of promotional Pro or a founder-status ledger separate from `user_entitlements`.
-- App Store/App Store Connect status remains time-sensitive; iTunes reports release timestamp `2026-05-25T07:00:00Z`, so recheck after that exact timestamp before declaring the store fully live or changing `app_store_preorder` to a live download/listing status.
-- Public Vercel aliases still need an approved deploy/alias update before `/pricing` can be claimed live; current checks returned 404 on both `www` and `dev`.
-- Public `https://www.quiversurf.app/pbsc` still needs an approved deploy, push, or alias update before the PBSC QR destination can be claimed usable; current check returned 404 matched to `/[intent]`.
-- Sentry startup credits reduce short-term cost pressure, but tracing, replay, logs, and source-map/debug-symbol uploads still need explicit sampling and privacy controls before broad rollout.
-- Native Sentry project/DSN/upload-token risk was resolved after 12-04. Plan 12-04 still did not run release builds, App Store uploads, Firebase distribution, or Expo publish.
-- Phase 12 Sentry monitor activation and alert routing are complete for the approved critical cron set. Seer/GitHub automation and production deploys were not changed.
-- Hero CTA alignment is tied to the poster/video artwork coordinates; local desktop/mobile visual review and Brand-Vault/current screenshot validation passed in 03-04.
-- Outbound emails, social posts, DMs, comments, Play Console actions, entitlement grants, production mutations, and release actions remain approval-gated.
-
-## Deferred Items
-
-Items acknowledged and carried forward from previous milestone close:
-
-| Category | Item | Status | Deferred At |
-|----------|------|--------|-------------|
-| Monetization | Full cross-platform subscription management | Deferred to v2 | Initialization |
-| Content | CMS-like blog authoring workflow | Deferred to v2 | Initialization |
-| Campaign | Automated lifecycle nurture sequences | Deferred to v2 | Initialization |
-| Analytics | In-product launch dashboard | Deferred to v2 | Initialization |
-
-## Session Continuity
-
-Last session: 2026-05-31T14:31:22-07:00
-Stopped at: Phase 12 completed; ready for Phase 13 controlled refactor planning
-Resume file: .planning/ROADMAP.md
+The previous state file held detailed accumulated decisions from Phases 1-12. That history is archived because it is useful for audit but too large for future Codex sessions to load by default. Current sessions should read this file, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`, `.planning/PROJECT.md`, and [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) first.

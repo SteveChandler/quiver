@@ -1,3 +1,10 @@
+# Retired Document
+
+Status: Retired
+Reason: March 2026 Week 1 auth-funnel execution spec is no longer the active implementation plan.
+Retired on: 2026-05-31
+Replacement: [Current Planning State](../../../.planning/STATE.md)
+
 # Month 1, Week 1: Auth Funnel Restoration — Technical Spec
 
 **Period**: Mar 18-22, 2026

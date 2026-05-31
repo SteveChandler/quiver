@@ -1,3 +1,10 @@
+# Retired Document
+
+Status: Retired
+Reason: March 2026 Q2 PMF roadmap is historical context, not the current operating plan.
+Retired on: 2026-05-31
+Replacement: [Current Planning Roadmap](../../../.planning/ROADMAP.md)
+
 # Quiver: Path to Product-Market Fit (Q2 2026)
 
 **Date**: March 13, 2026

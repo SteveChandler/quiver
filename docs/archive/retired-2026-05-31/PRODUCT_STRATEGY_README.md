@@ -1,3 +1,10 @@
+# Retired Document
+
+Status: Retired
+Reason: March 2026 strategy index now points to retired PMF docs and is superseded by the docs index.
+Retired on: 2026-05-31
+Replacement: [Documentation Index](../../README.md)
+
 # Quiver Product Strategy: Path to PMF (Q2 2026)
 
 **Comprehensive product assessment + 90-day roadmap** to move Quiver from 0 WASL (Weekly Active Session Loggers) to sustainable growth.

@@ -1,3 +1,10 @@
+# Retired Document
+
+Status: Retired
+Reason: Completed sun-times fix guide is historical implementation context.
+Retired on: 2026-05-31
+Replacement: [Forecast Cron Architecture](../../FORECAST_CRON_ARCHITECTURE.md)
+
 # Sun Times Table Fix - Implementation Guide
 
 ## Problem Summary
