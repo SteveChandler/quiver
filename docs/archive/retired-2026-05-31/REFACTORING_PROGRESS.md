@@ -1,3 +1,10 @@
+# Retired Document
+
+Status: Retired
+Reason: Early duplication-refactor progress is superseded by the active controlled refactor roadmap.
+Retired on: 2026-05-31
+Replacement: [Refactor Roadmap](../../refactor-roadmap.md)
+
 # Code Duplication Refactoring Progress
 
 **Goal**: Reduce code duplication from ~19.3% to <3%

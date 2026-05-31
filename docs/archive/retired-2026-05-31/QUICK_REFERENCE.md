@@ -1,3 +1,10 @@
+# Retired Document
+
+Status: Retired
+Reason: March 2026 PMF quick reference contains stale funnel statuses and implementation targets.
+Retired on: 2026-05-31
+Replacement: [Documentation Index](../../README.md)
+
 # Quiver PMF Strategy: Quick Reference
 
 **Print this. Stick it on your monitor.**

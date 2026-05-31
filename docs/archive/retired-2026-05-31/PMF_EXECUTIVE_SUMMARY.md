@@ -1,3 +1,10 @@
+# Retired Document
+
+Status: Retired
+Reason: March 2026 PMF summary is superseded by the current go-live campaign tracker.
+Retired on: 2026-05-31
+Replacement: [Current Planning State](../../../.planning/STATE.md)
+
 # Quiver: Path to PMF — Executive Summary
 
 **Date**: March 13, 2026
