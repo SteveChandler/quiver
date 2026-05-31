@@ -36,122 +36,115 @@ interface LearnArticle {
 
 export const learnArticles: LearnArticle[] = [
   {
-    slug: "how-to-read-a-surf-forecast",
-    title: "How to Read a Surf Forecast: Height, Period & Wind",
-    description: "Learn how to read a surf forecast by combining wave height, swell period, direction, wind, and tide into one practical surf decision.",
-    readingTimeMin: 5,
+    slug: "how-to-read-surf-conditions",
+    title: "How to Read Surf Conditions: Why the Same Size Can Surf Differently",
+    description: "Learn how to read surf conditions by checking period, direction, wind, tide, and beach shape instead of wave height alone.",
+    readingTimeMin: 6,
     datePublished: "2026-03-26",
-    dateModified: "2026-03-30",
+    dateModified: "2026-05-31",
     heroImage: "/beginnerWhiteWater.jpg",
     thumbnailImage: "/beginnerWhiteWater.jpg",
     keywords: [
+      "how to read surf conditions",
       "how to read surf forecast",
-      "surf forecast explained",
       "understanding surf reports",
+      "beginner surf conditions",
       "wave height",
       "swell period",
-      "swell direction",
+      "surf forecast explained",
     ],
     sections: [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>A surf forecast shows five metrics you read together: <strong>wave height</strong> (size), <strong>swell period</strong> (power and quality), <strong>swell direction</strong> (where waves originate), <strong>wind speed and direction</strong> (surface texture), and <strong>tide</strong> (water depth timing). These come from NOAA's WaveWatch III model, verified by NDBC and CDIP buoy observations. Height alone is misleading — a 4-foot swell at 14 seconds with offshore wind is excellent; the same 4 feet at 6 seconds with onshore wind is junk. Always read all five.</p>`,
+        content: `<p>If you only read <strong>wave height</strong>, you will misread a lot of sessions. The same reported <strong>2-4 ft</strong> can be weak and longboard-friendly one day, then steep and shortboard-only the next. Read surf conditions in this order: <strong>period</strong> for power, <strong>direction</strong> for whether your break even works, <strong>wind</strong> for surface quality, <strong>tide</strong> for shape, then <strong>height</strong> for scale. Local beach shape decides how those numbers translate once the swell hits shore.</p>`,
         keyTakeaway:
-          "A surf forecast combines wave height, swell period, direction, wind, and tide from NOAA models — read all five together to judge conditions.",
+          "Height is the last number to trust by itself. Read period, direction, wind, tide, and local shape first.",
       },
       {
-        id: "overview",
-        heading: "What a Surf Forecast Actually Tells You",
-        content: `<p>A surf forecast predicts the raw ingredients you'll work with when you paddle out: wave size, period, direction, wind, and tide. These come from NOAA's WaveWatch III model, updated every 6 hours using global weather data. Quiver layers in real buoy observations from NDBC and CDIP stations so you can see how the prediction stacks up against reality. Think of it as a weather report for the ocean — useful, not perfect.</p>`,
+        id: "same-size-different-session",
+        heading: "Why the Same 2-4 Ft Day Can Feel Totally Different",
+        content: `<p>This is the beginner trap: the forecast says <strong>2-4 ft</strong>, but when you show up everyone else is on shortboards and your longboard suddenly feels wrong. Usually the missing variable is <strong>period</strong>. A small swell at <strong>7-9 seconds</strong> is often soft local windswell. A small swell at <strong>13-16 seconds</strong> has real push, stands up earlier, and throws steeper takeoffs.</p><p>Then layer in tide and direction. A long-period south swell hitting the right sandbar at mid tide can make a beach break feel punchy even when the headline number still looks modest. That is why experienced surfers seem to “just know” which board to bring. They are not reading one number. They are reading how the whole combo fits that spot.</p>`,
         keyTakeaway:
-          "A surf forecast predicts wave height, period, direction, and wind from NOAA models and real-time buoy observations.",
-        image: { src: "/images/learn/learn-surfer-watching.jpg", alt: "Surfer watching waves from the beach, reading conditions before paddling out", position: "right" },
+          "Two sessions with the same height can surf completely differently because period, tide, and direction change the wave's power and shape.",
+        image: { src: "/images/learn/learn-surfer-watching.jpg", alt: "Surfer watching waves from the beach before paddling out", position: "right" },
       },
       {
-        id: "wave-height",
-        heading: "Wave Height: Significant vs. Face Height",
-        content: `<p>Forecast height means <strong>significant wave height</strong> (Hs) — the average of the tallest third of waves at a buoy. That's not the face height you see paddling out. Face height runs roughly <strong>1.5x to 2x</strong> significant height, so a 6-foot forecast means 9-12 foot faces. Beginners regularly show up expecting smaller waves than they get. Learn your break's conversion by comparing forecasts to what you actually see — sandy beaches and reef breaks scale differently.</p>`,
+        id: "period-first",
+        heading: "Start with Period Before You Judge Height",
+        content: `<p><strong>Period</strong> is the time between waves in seconds. It is the fastest way to separate weak surf from quality surf. Short period, like <strong>6-9 seconds</strong>, usually means local wind energy, closer-spaced waves, and less push. Longer period, like <strong>12-16 seconds</strong>, usually means distant storm energy with cleaner lines and more force behind every takeoff.</p><p>For beginners, period is often the answer to “why was I undergunned?” A longboard that feels great in weak <strong>3 ft @ 8s</strong> surf can feel sticky and late in <strong>3 ft @ 15s</strong> surf because the wave is standing up faster. Height tells you the rough scale. Period tells you whether that scale will actually matter.</p>`,
         keyTakeaway:
-          "Significant wave height (forecast) is roughly 60-70% of face height—multiply the forecast by 1.5-2x to estimate what you'll actually see.",
+          "If you're confused by a session, check period first. It often explains more than the headline height.",
         image: {
           src: "/images/Winter-Swamis.webp",
-          alt: "Winter swell at Swamis — significant wave height vs face height",
+          alt: "Long-period swell creating steeper, more powerful waves",
           position: "right",
         },
       },
       {
-        id: "swell-period",
-        heading: "Swell Period: Why Seconds Matter",
-        content: `<p>Period is the gap between waves — count the seconds between crests passing a buoy. A <strong>6-second period</strong> means local wind chop. A <strong>14-second period</strong> means distant storm energy traveling at roughly 25 mph through deep water. In the lineup, long-period waves feel more powerful, stand up faster, and break cleaner. A 4-foot swell at 14 seconds will outperform a 4-foot swell at 6 seconds every time. Don't ignore this number.</p>`,
+        id: "direction-and-exposure",
+        heading: "Direction Only Matters if Your Break Faces It",
+        content: `<p><strong>Swell direction</strong> tells you where the energy is coming from. But that number only helps if your beach is exposed to that angle. One nearby break might love south swell and another might be shadowed and nearly flat on the same day. This is where local knowledge starts to compound.</p><p>When you're learning a spot, stop asking “is 3 feet good?” and start asking “does this beach like south, west, or northwest swell?” A modest swell from the right angle can be better than a bigger swell from the wrong one. Quiver models this with <strong>beach-specific calibration for exposure and shoaling</strong>, because nearby beaches do not translate the same raw swell in the same way.</p>`,
         keyTakeaway:
-          "Period (in seconds) is more important than height for wave quality: longer periods (12+ sec) mean cleaner, more powerful waves from distant storms.",
+          "A good swell at the wrong angle is still the wrong swell for your break.",
       },
       {
-        id: "swell-direction",
-        heading: "Swell Direction: Is Your Break Facing It?",
-        content: `<p>Swell direction is the compass heading waves arrive from — 300 degrees means northwest. Your break has a preferred window: Rincon wants southwest, Malibu needs south, Sunset Beach wants north. If the swell doesn't face your break, it doesn't matter how big or long-period it is — you won't get waves. Check your break's exposure on a map, compare it to the forecast direction, and if they don't match, paddle somewhere else. Nearby breaks often face completely different directions.</p>`,
+        id: "wind-and-board-choice",
+        heading: "Wind Changes Board Choice More Than Beginners Expect",
+        content: `<p>Wind is not just “good” or “bad.” <strong>Offshore</strong> wind cleans up the face and can hold a wave open longer. <strong>Onshore</strong> wind adds bump and makes sections crumble. <strong>Cross-shore</strong> wind can still be fine if it's light. That is why you can get advice like “the arrows look okay” and still miss the real call: light cross-shore with weak period is completely different from light cross-shore with long-period punch.</p><p>Board choice lives in that difference. On a mushy day you want glide and foam. On a steeper, more powerful day you often want something that gets in later, sets rail quicker, and fits the pocket better. If you're deciding between longboard and shortboard, compare <strong>period + wind + tide</strong> before you compare height.</p>`,
         keyTakeaway:
-          "Swell direction only matters if your break faces it: check your beach's exposure on a map and compare to the forecast direction.",
+          "When board choice feels mysterious, it's usually because the wave shape changed, not just the size.",
       },
       {
-        id: "wind",
-        heading: "Wind Speed and Direction: Offshore vs. Onshore",
-        content: `<p><strong>Offshore</strong> wind blows from land to sea — it holds up the wave face, slows the break, and creates clean lines. <strong>Onshore</strong> does the opposite: pushes waves down and adds chop. Most surfers want wind under <strong>10 knots</strong> with an offshore component. Between 5-15 knots, direction is everything. Above 15 knots, even offshore gets too textured.</p><p>Dawn patrol exists because land cools overnight and creates natural offshore flow before heating reverses it midday. If the forecast shows onshore, go early or wait for a different day.</p>`,
+        id: "tide-and-bottom",
+        heading: "Tide and Bottom Shape Decide Whether Waves Feel Friendly or Heavy",
+        content: `<p><strong>Tide</strong> changes water depth over the sandbar, reef, or point that is shaping the wave. Low tide can make a wave stand up fast and hollow out. High tide can slow the same wave down or swamp it completely. Mid tide is often the most forgiving at beach breaks, but not always. Some points want more water. Some reefs get sketchy below a certain tide.</p><p>This is also where beach shape matters. Two neighboring beaches can receive the same buoy swell, but one will focus energy into a punchy peak while the other spreads it into softer shoulders. That's why “what should I look for?” eventually becomes “what should I look for at <em>this</em> spot?”</p>`,
         keyTakeaway:
-          "Offshore wind (blowing from land to sea) cleans up wave faces; onshore wind creates chop. Most breaks work best with 5-10 knot offshore winds.",
+          "Tide does not just raise and lower the water. It changes how and where the wave breaks.",
         image: {
-          src: "/images/activities/offshore-winds.webp",
-          alt: "Clean offshore wind holding up wave faces",
+          src: "/images/learn/learn-tide-pools.jpg",
+          alt: "Low tide exposing the bottom contours that reshape incoming swell",
           position: "left",
         },
       },
       {
-        id: "tide",
-        heading: "Tide and How It Reshapes Your Break",
-        content: `<p>Tide changes water depth, which controls where and how waves break. Low tide exposes shallow bars and reefs — hollow, fast, often dangerous for beginners. High tide floods things out — slower, mushier. Most beach breaks hit their sweet spot at <strong>mid-tide</strong> when there's enough water to form waves without drowning the bars. Learn your break's tidal window by surfing different tides and noting where peaks form. Tide forecasts are accurate to the minute — use them to time your session, not just the swell.</p>`,
+        id: "reading-order",
+        heading: "A 30-Second Way to Read Surf Conditions Before You Drive",
+        content: `<p>Use this order every time:</p><ol><li><strong>Period</strong>: is this weak windswell or ground swell?</li><li><strong>Direction</strong>: does my spot actually receive this angle?</li><li><strong>Wind</strong>: clean, cross, or blown out?</li><li><strong>Tide</strong>: is the break in its usable window?</li><li><strong>Height</strong>: now that I trust the setup, how big is it really?</li></ol><p>If you want to get good fast, log a few notes after every surf: period, direction, tide, wind, and which board felt right. After 10 to 20 sessions at the same beach, the numbers stop being abstract and start matching what you feel in the water.</p><p>The data behind those checks is public and transparent: NOAA/NWS WaveWatch-style marine forecasts, NDBC/CDIP/IOOS buoy observations where available, NOAA CO-OPS tides, and Open-Meteo for some wind and extended-horizon coverage. The hard part is not getting numbers. It's learning which numbers matter most for your break.</p>`,
         keyTakeaway:
-          "Tide changes wave shape: low tide makes waves hollow and fast, high tide makes them slower, and most beaches work best at mid-tide.",
-        image: { src: "/images/learn/learn-tide-pools.jpg", alt: "Aerial view of tide pools and exposed reef at low tide", position: "left" },
-      },
-      {
-        id: "putting-it-together",
-        heading: "Putting It All Together: Reading a Real Forecast",
-        content: `<p>Good forecast: Tuesday 5 AM, 4 feet at 14 seconds from 230 degrees, 8 knots offshore, high tide 7:30 AM. Quality period, your break faces southwest, wind is clean — go early before tide floods it. Bad forecast: same day, 4 feet at 6 seconds from 230 degrees, 15 knots onshore, low tide. Same height, completely different session. The 6-second period means chop, onshore wind ruins the face, and low tide makes it dangerous.</p><p>The habit: never read height alone. Always check period, direction, wind, and tide before committing.</p>`,
-        keyTakeaway:
-          "Read forecasts in order: height tells you scale, period tells you quality, direction tells you if your break works, wind tells you texture, tide tells you timing.",
+          "Read surf conditions in the same order every time so you stop chasing a misleading height number.",
         image: {
           src: "/images/OceanBeachSurfers.webp",
-          alt: "Surfers reading conditions at Ocean Beach",
+          alt: "Surfers checking conditions from the beach before choosing boards",
           position: "right",
         },
       },
     ],
     faqs: [
       {
-        question: "Why does my forecast height not match the waves I see?",
+        question: "Why were other surfers on shortboards when the forecast still looked small?",
         answer:
-          "Forecast height is significant wave height (average of the biggest waves), not face height. Multiply by 1.5-2x to estimate face height. Also, local bathymetry affects how waves break—a reef creates different scaling than a sand beach at the same forecasted height.",
+          "Because the wave was probably steeper and more powerful than the headline size suggested. Long period, the right swell angle, and a favorable tide can make a modest-height day surf much punchier, which often pushes experienced surfers toward shorter boards.",
       },
       {
-        question: "Which is more important: wave height or period?",
+        question: "What period is usually easier for a beginner longboarder?",
         answer:
-          "Period is more important for wave quality. A 4-foot swell at 14 seconds beats a 6-foot swell at 6 seconds every time. Long periods mean distant storms and cleaner lines. Short periods mean local chop and mushy waves.",
+          "There is no universal magic number, but weaker short-to-mid period surf is usually more forgiving than long-period punch. Many beginners find softer sessions in the roughly 7-11 second range easier than a long-period 14-16 second swell of the same reported size.",
       },
       {
-        question: "How accurate are surf forecasts?",
+        question: "Should I trust the cams or the forecast numbers more?",
         answer:
-          "NOAA's WaveWatch III is accurate within about 1-2 feet for significant height and 2-3 seconds for period, 3-5 days out. Accuracy drops for swell beyond that window. Local effects (reefs, sandbars) mean the global model misses the last mile—that's where CDIP buoys and Quiver's ML adjustments help.",
+          "Use both. The forecast tells you what ingredients are arriving: period, direction, wind, and tide. The cam shows what those ingredients are doing at one angle in real time. Cams are useful, but they can flatten size or miss how steep and fast the wave really is.",
       },
       {
-        question: "Should I check tide if my break is oceanfront?",
+        question: "Where does surf-condition data come from?",
         answer:
-          "Yes. Even ocean breaks are affected by tide. Shallow reefs and sandbars change shape. Some breaks get better or worse with tide change. Always compare your forecast session to your break's tidal window.",
+          "Quiver uses public, transparent sources rather than scraping another surf app: NOAA/NWS WaveWatch-style marine forecasts, CDIP/NDBC/IOOS buoy observations where available, NOAA CO-OPS tides, and Open-Meteo for some wind and extended-horizon coverage.",
       },
       {
-        question: "What wind speed is too strong to surf?",
+        question: "Why do nearby beaches react differently to the same swell?",
         answer:
-          "Depends on wind direction. Offshore at 20 knots can still be fun. Onshore at 10 knots ruins it. Most breaks work best under 10 knots. Above 15 knots, chop usually takes over even with offshore direction.",
+          "Because each beach has different exposure, shoaling, bottom contour, and protection from local wind. The same buoy swell can resolve into weak rollers at one beach and steeper peaks at another. That is why beach-specific calibration matters.",
       },
     ],
     relatedLinks: [
@@ -162,16 +155,16 @@ export const learnArticles: LearnArticle[] = [
           "Deep dive into why swell period matters more than height for wave quality.",
       },
       {
-        label: "Wind Swell vs Ground Swell",
-        href: "/learn/wind-swell-vs-ground-swell",
+        label: "Best Surf Conditions for Beginners",
+        href: "/learn/best-surf-conditions-for-beginners",
         description:
-          "Understand the two types of ocean swells and how they form differently.",
+          "A practical beginner setup for size, wind, tide, and crowd level.",
       },
       {
-        label: "How Surf Forecasts Work",
-        href: "/learn/how-surf-forecasts-work",
+        label: "What Is the Best Tide for Surfing?",
+        href: "/learn/best-tide-for-surfing",
         description:
-          "Learn how NOAA models, buoys, and ML combine to predict the waves you see.",
+          "Learn how tide windows change wave shape at beach breaks, reefs, and points.",
       },
     ],
   },
@@ -292,8 +285,8 @@ export const learnArticles: LearnArticle[] = [
     ],
     relatedLinks: [
       {
-        label: "How to Read a Surf Forecast",
-        href: "/learn/how-to-read-a-surf-forecast",
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
         description:
           "Master all forecast metrics: height, period, direction, wind, and tide.",
       },
@@ -431,8 +424,8 @@ export const learnArticles: LearnArticle[] = [
           "Know the lineup rules before you paddle out.",
       },
       {
-        label: "How to Read a Surf Forecast",
-        href: "/learn/how-to-read-a-surf-forecast",
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
         description:
           "Learn to read all metrics so you can identify beginner-friendly conditions.",
       },
@@ -565,8 +558,8 @@ export const learnArticles: LearnArticle[] = [
           "Period is the key metric that reveals whether swell is ground or wind-generated.",
       },
       {
-        label: "How to Read a Surf Forecast",
-        href: "/learn/how-to-read-a-surf-forecast",
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
         description:
           "Learn to read multiple swell components and understand what each means.",
       },
@@ -691,8 +684,8 @@ export const learnArticles: LearnArticle[] = [
           "See how accurate our forecast is at your local beach based on historical buoy data.",
       },
       {
-        label: "How to Read a Surf Forecast",
-        href: "/learn/how-to-read-a-surf-forecast",
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
         description:
           "Learn what each forecast metric means and how to interpret them.",
       },
@@ -784,8 +777,8 @@ export const learnArticles: LearnArticle[] = [
     ],
     relatedLinks: [
       {
-        label: "How to Read a Surf Forecast",
-        href: "/learn/how-to-read-a-surf-forecast",
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
         description: "Wind is one of five forecast metrics — learn them all.",
       },
       {
@@ -877,8 +870,8 @@ export const learnArticles: LearnArticle[] = [
           "Moon, sun, and gravity — the science behind tidal cycles.",
       },
       {
-        label: "How to Read a Surf Forecast",
-        href: "/learn/how-to-read-a-surf-forecast",
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
         description: "Tide is one of five forecast metrics you need to read.",
       },
       {
@@ -959,8 +952,8 @@ export const learnArticles: LearnArticle[] = [
     ],
     relatedLinks: [
       {
-        label: "How to Read a Surf Forecast",
-        href: "/learn/how-to-read-a-surf-forecast",
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
         description:
           "Height is one of five metrics — learn what they all mean.",
       },
@@ -1047,8 +1040,8 @@ export const learnArticles: LearnArticle[] = [
     ],
     relatedLinks: [
       {
-        label: "How to Read a Surf Forecast",
-        href: "/learn/how-to-read-a-surf-forecast",
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
         description:
           "Direction is one of five metrics you need to check.",
       },
@@ -2144,8 +2137,8 @@ export const learnArticles: LearnArticle[] = [
         description: "Which tide stage produces the best waves at your break.",
       },
       {
-        label: "How to Read a Surf Forecast",
-        href: "/learn/how-to-read-a-surf-forecast",
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
         description: "Tide is one of five metrics you need to check.",
       },
       {
@@ -2260,8 +2253,8 @@ export const learnArticles: LearnArticle[] = [
           "Current water temps and wetsuit recommendations for San Diego.",
       },
       {
-        label: "How to Read a Surf Forecast",
-        href: "/learn/how-to-read-a-surf-forecast",
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
         description:
           "Master wave height, swell period, direction, wind, and tide readings.",
       },
@@ -2372,8 +2365,8 @@ export const learnArticles: LearnArticle[] = [
           "Current water temps and wetsuit recommendations for Santa Cruz.",
       },
       {
-        label: "How to Read a Surf Forecast",
-        href: "/learn/how-to-read-a-surf-forecast",
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
         description:
           "Master wave height, swell period, direction, wind, and tide readings.",
       },
@@ -2609,8 +2602,8 @@ export const learnArticles: LearnArticle[] = [
           "Why direction and period matter more than height at a point — and why a global model alone misses it.",
       },
       {
-        label: "How to Read a Surf Forecast",
-        href: "/learn/how-to-read-a-surf-forecast",
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
         description:
           "The five metrics every forecast hands you, and how to read them together.",
       },

@@ -68,7 +68,7 @@ const CATEGORIES: {
     desc: "Read forecasts like a local: height, period, direction, wind, and tide.",
     sticker: "spotSwellMatch",
     slugs: [
-      "how-to-read-a-surf-forecast",
+      "how-to-read-surf-conditions",
       "swell-period-explained",
       "offshore-vs-onshore-wind-surfing",
       "best-tide-for-surfing",
