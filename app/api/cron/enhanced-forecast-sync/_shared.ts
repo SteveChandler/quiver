@@ -149,10 +149,8 @@ export async function runEnhancedForecastSync(
     ...(isSharded ? { shard, shardCount } : {}),
   });
 
-  // Sentry cron monitoring — alerts if this cron stops firing on schedule
-  const monitorSlug = getEnhancedShardMonitorSlug(shard);
-  const monitorSchedule = getEnhancedShardSchedule(shard);
-  const checkInId = startCronCheckIn({ slug: monitorSlug, schedule: monitorSchedule });
+  let checkInId = "";
+  let monitorSlug = "";
 
   try {
     // Only allow running in production to avoid accidental dev/preview execution
@@ -162,8 +160,6 @@ export async function runEnhancedForecastSync(
         executionId,
         new Error(`Cron disabled for environment: ${env}`)
       );
-      completeCronCheckIn(checkInId, monitorSlug, "error");
-      await Sentry.flush(2000);
       return createErrorResponse(
         "Forbidden",
         `Cron disabled for environment: ${env}`,
@@ -177,14 +173,18 @@ export async function runEnhancedForecastSync(
         executionId,
         new Error("Invalid cron authentication")
       );
-      completeCronCheckIn(checkInId, monitorSlug, "error");
-      await Sentry.flush(2000);
       return createErrorResponse(
         "Unauthorized",
         "Invalid cron authentication",
         401
       );
     }
+
+    // Sentry cron monitoring — only authenticated production cron traffic
+    // should affect monitor status.
+    monitorSlug = getEnhancedShardMonitorSlug(shard);
+    const monitorSchedule = getEnhancedShardSchedule(shard);
+    checkInId = startCronCheckIn({ slug: monitorSlug, schedule: monitorSchedule });
 
     const { deadlineMs, timeBudgetMs, safetyMarginMs } = getCronDeadlineMs();
     const result = await updateAllBeachForecasts({ deadlineMs, shard, shardCount });
@@ -241,8 +241,10 @@ export async function runEnhancedForecastSync(
     const errorMessage = error instanceof Error ? error.message : String(error);
     const duration = Date.now() - startTime;
 
-    completeCronCheckIn(checkInId, monitorSlug, "error");
-    await Sentry.flush(2000);
+    if (checkInId) {
+      completeCronCheckIn(checkInId, monitorSlug, "error");
+      await Sentry.flush(2000);
+    }
 
     forecastLogger.cronFailed(
       executionId,
@@ -300,7 +302,6 @@ export async function runEnhancedForecastSyncHead(
     );
   }
 }
-
 
 
 

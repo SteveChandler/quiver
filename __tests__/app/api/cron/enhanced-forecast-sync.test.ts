@@ -138,6 +138,10 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
 
     it("should handle authentication failures", async () => {
       const { validateCronRequest } = require("@/lib/middleware/api-wrappers");
+      const {
+        startCronCheckIn,
+        completeCronCheckIn,
+      } = require("@/lib/monitoring/sentry-cron");
       validateCronRequest.mockReturnValue(false);
 
       const request = mockRequest({
@@ -149,9 +153,15 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
 
       expect(data.success).toBe(false);
       expect(data.error).toBe("Unauthorized");
+      expect(startCronCheckIn).not.toHaveBeenCalled();
+      expect(completeCronCheckIn).not.toHaveBeenCalled();
     });
 
     it("should return forbidden outside production", async () => {
+      const {
+        startCronCheckIn,
+        completeCronCheckIn,
+      } = require("@/lib/monitoring/sentry-cron");
       process.env.VERCEL_ENV = "preview";
 
       const request = mockRequest({
@@ -163,6 +173,8 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
 
       expect(data.success).toBe(false);
       expect(data.error).toBe("Forbidden");
+      expect(startCronCheckIn).not.toHaveBeenCalled();
+      expect(completeCronCheckIn).not.toHaveBeenCalled();
     });
   });
 
