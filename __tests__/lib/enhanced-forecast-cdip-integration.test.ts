@@ -26,6 +26,7 @@ jest.mock("@/lib/supabase/server", () => ({
 jest.mock("@/lib/services/cdip", () => ({
   CDIPService: jest.fn(() => ({
     fetchBuoyData: jest.fn(),
+    fetchBuoyDataWithDiagnostics: jest.fn(),
     fetchMultipleStations: jest.fn(),
     getSouthernCaliforniaStations: jest.fn(() => ["100", "46225", "46236"]),
     getDataQualityScore: jest.fn(() => 85),
@@ -143,6 +144,14 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
     mockCDIPService = (service as any).dataSourceManager.getCDIPService();
 
     jest.clearAllMocks();
+    mockCDIPService.fetchBuoyDataWithDiagnostics.mockImplementation(async (stationId: string) => {
+      const data = await mockCDIPService.fetchBuoyData(stationId);
+      return {
+        data,
+        stationId,
+        skipReason: data ? "success" : "cdip_unavailable",
+      };
+    });
 
     // Setup default NOAA weather API mocks
     (global.fetch as jest.Mock).mockImplementation((url: string) => {
@@ -196,7 +205,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
         mockBeach.lon,
         150 // 150km radius for nearest station
       );
-      expect(mockCDIPService.fetchBuoyData).toHaveBeenCalledWith("100");
+      expect(mockCDIPService.fetchBuoyDataWithDiagnostics).toHaveBeenCalledWith("100");
 
       // Verify CDIP data is used in forecasts
       const firstForecast = forecasts[0];
