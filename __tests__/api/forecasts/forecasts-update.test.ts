@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   createMockSupabaseClient,
   createMockRequest,
@@ -38,6 +40,10 @@ interface SingleForecastUpdateResponse {
 const mockSupabaseClient = createMockSupabaseClient();
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
+  DEFAULT_SECURITY_HEADERS: {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+  },
   withAuth: (handler: any) => async (req: any) => {
     // Extract user from mock client
     const { data: userData } = await mockSupabaseClient.auth.getUser();
@@ -76,11 +82,20 @@ jest.mock("@/lib/auth/admin", () => ({
 }));
 
 // Import after mocks
- 
 const { POST, GET } = require("@/app/api/forecasts/update/route");
 
 describe("POST /api/forecasts/update", () => {
   let cleanup: () => void;
+
+  it("uses the shared API wrapper module for security headers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/forecasts/update/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
+    expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
+  });
 
   beforeEach(() => {
     const testEnv = setupApiTestEnvironment();
@@ -106,7 +121,7 @@ describe("POST /api/forecasts/update", () => {
       expect(response.status).toBe(401);
       const json = await response.json();
       expect(json.success).toBe(false);
-      expect(json.error).toBeDefined();
+      expect(json.error).toBe("Unauthorized");
     });
 
     it("rejects non-admin users", async () => {
@@ -321,7 +336,7 @@ describe("POST /api/forecasts/update", () => {
       expect(response.status).toBe(401);
       const json = await response.json();
       expect(json.success).toBe(false);
-      expect(json.error).toBeDefined();
+      expect(json.error).toBe("Unauthorized");
     });
 
     it("rejects non-admin users for GET", async () => {

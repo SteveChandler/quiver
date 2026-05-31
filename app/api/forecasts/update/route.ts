@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   withAuth,
   createSuccessResponse,
+  DEFAULT_SECURITY_HEADERS,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
-import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import {
   updateBeachForecast,
   updateAllBeachForecasts,

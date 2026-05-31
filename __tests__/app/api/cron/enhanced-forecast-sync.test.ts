@@ -6,9 +6,10 @@
 import { POST, GET } from "@/app/api/cron/enhanced-forecast-sync/route";
 import { NextRequest } from "next/server";
 import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
+import { readFileSync } from "fs";
 
 // Mock API response utilities
-jest.mock("@/lib/api-utils", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: jest.fn(() =>
       Promise.resolve({
@@ -41,11 +42,30 @@ jest.mock("@/lib/monitoring/forecast-logger", () => ({
   },
 }));
 
+jest.mock("@/lib/monitoring/sentry-cron", () => ({
+  startCronCheckIn: jest.fn(() => "check-in-id"),
+  completeCronCheckIn: jest.fn(),
+  getEnhancedShardMonitorSlug: jest.fn((shard?: number) =>
+    shard === undefined
+      ? "forecast-enhanced-unsharded"
+      : `forecast-enhanced-shard-${shard}`
+  ),
+  getEnhancedShardSchedule: jest.fn(() => "0 * * * *"),
+}));
+
+jest.mock("@sentry/nextjs", () => ({
+  flush: jest.fn(() => Promise.resolve(true)),
+}));
+
 jest.mock("@/lib/utils/forecast-server-utils", () => ({
   updateAllBeachForecasts: jest.fn(),
 }));
 
 describe("Enhanced Forecast Sync Cron Job API", () => {
+  const sharedSource = readFileSync(
+    "app/api/cron/enhanced-forecast-sync/_shared.ts",
+    "utf8"
+  );
   const originalVercelEnv = process.env.VERCEL_ENV;
   const originalCronBudget = process.env.FORECAST_CRON_TIME_BUDGET_MS;
 
@@ -61,7 +81,9 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    require("@/lib/api-utils").validateCronRequest.mockReturnValue(true);
+    require("@/lib/middleware/api-wrappers").validateCronRequest.mockReturnValue(
+      true
+    );
 
     process.env.VERCEL_ENV = "production";
     process.env.FORECAST_CRON_TIME_BUDGET_MS = "1";
@@ -84,6 +106,11 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
     } else {
       process.env.FORECAST_CRON_TIME_BUDGET_MS = originalCronBudget;
     }
+  });
+
+  it("uses the API wrapper barrel for response helpers and cron request validation", () => {
+    expect(sharedSource).not.toContain("@/lib/api-utils");
+    expect(sharedSource).toContain("@/lib/middleware/api-wrappers");
   });
 
   describe("POST /api/cron/enhanced-forecast-sync", () => {
@@ -110,7 +137,7 @@ describe("Enhanced Forecast Sync Cron Job API", () => {
     });
 
     it("should handle authentication failures", async () => {
-      const { validateCronRequest } = require("@/lib/api-utils");
+      const { validateCronRequest } = require("@/lib/middleware/api-wrappers");
       validateCronRequest.mockReturnValue(false);
 
       const request = mockRequest({

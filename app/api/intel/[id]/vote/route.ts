@@ -6,11 +6,11 @@ import {
   validateUuidParam,
   createValidationError,
   createNotFoundError,
+  validateOrError,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
 import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { IntelVoteSchema } from "@/lib/validation/schemas";
-import { validateOrError } from "@/lib/api-utils";
 import { fromIntelVotes, selectIntelVoteCounts } from "@/lib/supabase/intel-votes-query";
 
 export const dynamic = "force-dynamic";

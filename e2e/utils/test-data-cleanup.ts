@@ -131,7 +131,63 @@ async function getTestUserIds(
     }
   }
 
-  return testUserIds;
+  return filterAuthBackedUserIds(supabase, testUserIds, verbose);
+}
+
+/**
+ * Filter profile ids to rows that still have a matching auth.users record.
+ *
+ * Some dev mock profiles predate the cleanup sweep and can be orphaned after
+ * their auth.users row was removed. Updating sessions for those ids fires the
+ * beach-affinity trigger, which inserts into user_beach_affinity and fails its
+ * FK to auth.users. Keep cleanup scoped to auth-backed users so one orphan does
+ * not abort the whole session cleanup update.
+ */
+export async function filterAuthBackedUserIds(
+  supabase: SupabaseClient,
+  userIds: string[],
+  verbose: boolean = false
+): Promise<string[]> {
+  if (userIds.length === 0) return [];
+
+  const authIds = new Set<string>();
+  const perPage = 1000;
+  let page = 1;
+
+  while (true) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage,
+    });
+
+    if (error) {
+      if (verbose) {
+        console.log(
+          `[Cleanup] Warning: Could not filter orphaned profiles: ${error.message}`
+        );
+      }
+      return userIds;
+    }
+
+    const users = data?.users ?? [];
+    for (const user of users) {
+      authIds.add(user.id);
+    }
+
+    if (users.length < perPage) break;
+    page += 1;
+  }
+
+  const filteredIds = userIds.filter((id) => authIds.has(id));
+  const skipped = userIds.length - filteredIds.length;
+
+  if (verbose && skipped > 0) {
+    console.log(
+      `[Cleanup] Skipped ${skipped} test profile(s) without auth.users rows`
+    );
+  }
+
+  return filteredIds;
 }
 
 /**
@@ -355,7 +411,6 @@ export async function cleanupEphemeralSmokeUsers(
     // listUsers round-trip when the cohort is small (<1000) and scales without
     // a silent ceiling when leaks accumulate.
     while (true) {
-      // eslint-disable-next-line no-await-in-loop
       const { data, error } = await supabase.auth.admin.listUsers({
         page,
         perPage,
@@ -402,13 +457,11 @@ export async function cleanupEphemeralSmokeUsers(
     let deleted = 0;
     const errors: string[] = [];
     for (const user of ephemeralUsers) {
-      // eslint-disable-next-line no-await-in-loop
       const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id);
       if (deleteError) {
         errors.push(`${user.email}: ${deleteError.message}`);
         continue;
       }
-      // eslint-disable-next-line no-await-in-loop
       const { error: profileError } = await (supabase.from('profiles') as any)
         .delete()
         .eq('id', user.id);

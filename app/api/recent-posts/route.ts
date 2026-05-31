@@ -6,8 +6,8 @@ import {
   CacheDuration,
   parsePaginationParams,
   createPaginationMeta,
-} from "@/lib/api-utils";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
+  withBotBlockingAndRateLimit,
+} from "@/lib/middleware/api-wrappers";
 
 // Mark this route as dynamic to prevent static generation
 export const runtime = "nodejs";

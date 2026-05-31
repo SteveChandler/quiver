@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   createMockSupabaseClient,
   createMockRequest,
@@ -26,9 +28,7 @@ jest.mock("@/lib/profile/fetchers", () => ({
 }));
 
 // Import after mocks
- 
 const { GET, POST, PUT, PATCH, DELETE } = require("@/app/api/users/[id]/stats/route");
- 
 const { getProfileWithHomeBeachById } = require("@/lib/profile/fetchers");
 
 describe("GET /api/users/[id]/stats", () => {
@@ -41,6 +41,16 @@ describe("GET /api/users/[id]/stats", () => {
     mockSupabaseClient = createMockSupabaseClient();
   });
 
+  it("uses the shared API wrapper module for security headers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/users/[id]/stats/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
+    expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
+  });
+
   describe("Authentication", () => {
     it("returns 401 when user is not authenticated", async () => {
       mockUnauthenticatedUser(mockSupabaseClient);
@@ -51,6 +61,7 @@ describe("GET /api/users/[id]/stats", () => {
       );
 
       const res = await GET(req as any, { params: { id: userId } });
+      expect(res.status).toBe(401);
       await expectErrorResponse(res, 401);
     });
 
@@ -66,6 +77,7 @@ describe("GET /api/users/[id]/stats", () => {
       );
 
       const res = await GET(req as any, { params: { id: userId } });
+      expect(res.status).toBe(401);
       await expectErrorResponse(res, 401);
     });
   });
@@ -80,6 +92,7 @@ describe("GET /api/users/[id]/stats", () => {
       );
 
       const res = await GET(req as any, { params: { id: "not-a-uuid" } });
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Invalid user");
     });
 
@@ -92,6 +105,7 @@ describe("GET /api/users/[id]/stats", () => {
       );
 
       const res = await GET(req as any, { params: { id: "" } });
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Invalid user");
     });
 
@@ -104,6 +118,7 @@ describe("GET /api/users/[id]/stats", () => {
       );
 
       const res = await GET(req as any, { params: { id: undefined as any } });
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Invalid user");
     });
   });
@@ -118,6 +133,7 @@ describe("GET /api/users/[id]/stats", () => {
       );
 
       const res = await GET(req as any, { params: { id: otherUserId } });
+      expect(res.status).toBe(403);
       await expectErrorResponse(res, 403, "Forbidden");
     });
 
@@ -183,7 +199,10 @@ describe("GET /api/users/[id]/stats", () => {
       const res = await GET(req as any, { params: { id: userId } });
       const body = await expectSuccessResponse(res, 200);
 
-      expect((body.data as any).stats).toBeDefined();
+      expect((body.data as any).stats).toMatchObject({
+        sessionCount: 5,
+        boardCount: 3,
+      });
     });
   });
 
@@ -579,6 +598,7 @@ describe("GET /api/users/[id]/stats", () => {
       );
 
       const res = await GET(req as any, { params: { id: userId } });
+      expect(res.status).toBe(500);
       await expectErrorResponse(res, 500, "Failed to load user stats");
     });
 
@@ -620,6 +640,7 @@ describe("GET /api/users/[id]/stats", () => {
       );
 
       const res = await GET(req as any, { params: { id: userId } });
+      expect(res.status).toBe(500);
       await expectErrorResponse(res, 500, "Failed to load user stats");
     });
 
@@ -671,6 +692,7 @@ describe("GET /api/users/[id]/stats", () => {
       );
 
       const res = await GET(req as any, { params: { id: userId } });
+      expect(res.status).toBe(500);
       await expectErrorResponse(res, 500, "Failed to load user stats");
     });
   });

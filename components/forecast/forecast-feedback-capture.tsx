@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { Check, Loader2, Send, TrendingDown, TrendingUp } from "lucide-react";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -65,6 +66,7 @@ function buildPayload(args: {
   isDisplayStaleForecast: boolean;
   forecastTimeLabel?: string | null;
   freshnessLabel?: string | null;
+  routePathname?: string | null;
   feedbackValue: FeedbackValue;
   feedbackNote: string | null;
 }): ForecastFeedbackClientPayload {
@@ -136,8 +138,7 @@ function buildPayload(args: {
     missingFlags: surfCall ? {} : { surf_call_context: true },
     auditMetadata: {
       surface: "forecast_tab",
-      route:
-        typeof window === "undefined" ? null : window.location.pathname,
+      route: args.routePathname ?? null,
       beach_name: beach.name,
       beach_slug: beach.slug,
       timezone: args.beachTimezone ?? null,
@@ -157,6 +158,7 @@ export function ForecastFeedbackCapture({
   forecastTimeLabel,
   freshnessLabel,
 }: ForecastFeedbackCaptureProps) {
+  const pathname = usePathname();
   const { track } = useTrackEvent();
   const [selectedValue, setSelectedValue] = useState<FeedbackValue | null>(
     null,
@@ -186,6 +188,7 @@ export function ForecastFeedbackCapture({
       isDisplayStaleForecast,
       forecastTimeLabel,
       freshnessLabel,
+      routePathname: pathname,
       feedbackValue: selectedValue,
       feedbackNote: compactNote(note),
     });

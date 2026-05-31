@@ -57,6 +57,7 @@ export function CamsSection({
     if (!isYouTubeCameraUrl(cameraUrl)) return null;
     return getYouTubeWatchUrl(cameraUrl) ?? viewableUrl;
   }, [cameraUrl, viewableUrl]);
+  const externalClickoutIntent = intent?.kind === "external" ? intent : null;
   const allowIframe =
     intent &&
     intent.kind === "iframe" &&
@@ -65,6 +66,7 @@ export function CamsSection({
 
   // Resolve HDOnTap page URLs -> HLS stream URLs server-side
   const hdontapPageUrl = intent?.kind === "hdontap" ? intent.pageUrl : null;
+  const openCamUrl = intent?.kind === "hdontap" ? null : viewableUrl;
   useEffect(() => {
     if (!hdontapPageUrl) return;
     let cancelled = false;
@@ -152,6 +154,15 @@ export function CamsSection({
         camLabel={camLabel}
       />
     );
+  } else if (externalClickoutIntent) {
+    visual = (
+      <ExternalCamClickout
+        href={externalClickoutIntent.pageUrl}
+        provider={externalClickoutIntent.provider}
+        thumbnailUrl={sources?.cam_thumbnail_url ?? null}
+        camLabel={camLabel}
+      />
+    );
   } else if (allowIframe && intent) {
     visual = (
       <div key={playerKey} className="relative aspect-video w-full overflow-hidden bg-black">
@@ -216,7 +227,7 @@ export function CamsSection({
   return (
     <div className="overflow-hidden rounded-3xl border border-blue-100/60 bg-white/95 shadow-lg">
       {visual}
-      {!youtubeClickoutUrl && (
+      {!youtubeClickoutUrl && !externalClickoutIntent && (
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-blue-100/60 bg-blue-50/70 px-4 py-3 text-sm">
           <span className="text-muted-foreground">
             Refresh for the latest frame or open the feed in a new tab.
@@ -231,13 +242,13 @@ export function CamsSection({
               <RefreshCw className="mr-2 h-4 w-4" />
               Refresh
             </Button>
-            {viewableUrl ? (
+            {openCamUrl ? (
               <Button
                 asChild
                 size="sm"
                 className="bg-ocean-blue text-white hover:bg-ocean-blue/90"
               >
-                <a href={viewableUrl} target="_blank" rel="noopener noreferrer">
+                <a href={openCamUrl} target="_blank" rel="noopener noreferrer">
                   Open cam
                 </a>
               </Button>
@@ -245,6 +256,52 @@ export function CamsSection({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function ExternalCamClickout({
+  href,
+  provider,
+  thumbnailUrl,
+  camLabel,
+}: {
+  href: string;
+  provider: string;
+  thumbnailUrl: string | null;
+  camLabel: string;
+}) {
+  return (
+    <div className="relative aspect-video w-full overflow-hidden bg-[#11100D]">
+      {thumbnailUrl ? (
+        <Image
+          src={thumbnailUrl}
+          alt=""
+          width={640}
+          height={360}
+          sizes="(min-width: 768px) 40vw, 100vw"
+          className="h-full w-full object-cover opacity-75 saturate-[0.95]"
+        />
+      ) : null}
+      <div className="absolute inset-0 bg-black/45" aria-hidden />
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-5 text-center">
+        <PlayCircle className="h-12 w-12 text-white drop-shadow" aria-hidden />
+        <Button
+          asChild
+          size="sm"
+          className="bg-[#F78E42] text-[#11100D] shadow-[3px_4px_0_rgba(0,0,0,0.35)] hover:bg-[#F78E42]/90"
+        >
+          <a
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${camLabel}: open live cam on ${provider}`}
+          >
+            Open live cam on {provider}
+            <ExternalLink className="ml-1 h-4 w-4" aria-hidden />
+          </a>
+        </Button>
+      </div>
     </div>
   );
 }

@@ -8,6 +8,7 @@
  */
 
 import { GET } from "@/app/api/cron/forecast-alerts/route";
+import { readFileSync } from "fs";
 import {
   setupCronTestEnvironment,
   createMockCronRequest,
@@ -24,6 +25,7 @@ jest.mock("@/lib/services/forecast-alerts", () => ({
 }));
 
 describe("Cron: forecast-alerts", () => {
+  const routeSource = readFileSync("app/api/cron/forecast-alerts/route.ts", "utf8");
   let cronEnv: CronTestEnvironment;
 
   beforeEach(() => {
@@ -36,6 +38,11 @@ describe("Cron: forecast-alerts", () => {
   });
 
   describe("Authentication", () => {
+    it("uses the API wrapper barrel for response helpers and cron request validation", () => {
+      expect(routeSource).not.toContain("@/lib/api-utils");
+      expect(routeSource).toContain("@/lib/middleware/api-wrappers");
+    });
+
     it("requires valid cron authentication", async () => {
       // Setup mock to return a successful result
       mockRunForecastThresholdAlerts.mockResolvedValue(createMockAlertResult());
@@ -173,7 +180,13 @@ describe("Cron: forecast-alerts", () => {
         authMethod: "vercel-header",
       });
 
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       const response = await GET(request);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "API Error:",
+        "Notification enqueue service unavailable"
+      );
+      consoleErrorSpy.mockRestore();
       const data = await response.json();
 
       expect(response.status).toBe(500);
@@ -190,7 +203,13 @@ describe("Cron: forecast-alerts", () => {
         authMethod: "vercel-header",
       });
 
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       const response = await GET(request);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "API Error:",
+        "Failed to load profiles for forecast alerts"
+      );
+      consoleErrorSpy.mockRestore();
       const data = await response.json();
 
       expect(response.status).toBe(500);
@@ -207,7 +226,13 @@ describe("Cron: forecast-alerts", () => {
         authMethod: "vercel-header",
       });
 
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       const response = await GET(request);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "API Error:",
+        "Unexpected internal error"
+      );
+      consoleErrorSpy.mockRestore();
       const data = await response.json();
 
       expect(response.status).toBe(500);
@@ -223,7 +248,10 @@ describe("Cron: forecast-alerts", () => {
         authMethod: "vercel-header",
       });
 
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       const response = await GET(request);
+      expect(consoleErrorSpy).toHaveBeenCalledWith("API Error:", "Unknown error");
+      consoleErrorSpy.mockRestore();
       const data = await response.json();
 
       expect(response.status).toBe(500);

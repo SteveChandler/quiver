@@ -22,8 +22,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
         const { data, error } = await mockSupabaseClient.auth.getUser();
         const user = error ? null : data?.user ?? null;
         if (!options.optional && !user) {
-          const { createAuthError } = jest.requireActual("@/lib/api-utils");
-          return createAuthError(
+          return actual.createAuthError(
             options.authErrorMessage ?? "Authentication required"
           );
         }
@@ -46,7 +45,7 @@ jest.mock("@/lib/supabase/api-server-client", () => ({
 }));
 
 // Import after mocks
- 
+
 const { GET } = require("@/app/api/profile/[id]/route");
 
 describe("/api/profile/[id] includes home_beach", () => {

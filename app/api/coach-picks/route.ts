@@ -1,7 +1,10 @@
 import { NextRequest } from "next/server";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
-import { withRateLimit } from "@/lib/middleware/api-wrappers";
+import {
+  createSuccessResponse,
+  handleApiError,
+  withRateLimit,
+} from "@/lib/middleware/api-wrappers";
 
 export const dynamic = 'force-dynamic';
 
@@ -30,4 +33,3 @@ async function coachPicksHandler(request: NextRequest) {
 
 // Apply rate limiting to prevent abuse of RPC calls
 export const GET = withRateLimit(coachPicksHandler, "coach-picks");
-

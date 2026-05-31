@@ -2,9 +2,12 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { NextRequest } from "next/server";
 import { INTEL_CONFIG } from "@/lib/constants/intel";
 import { DEFAULT_INTEL_DEDUPE_WINDOW_MINUTES } from "@/lib/utils/intel-dedupe";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 
 /**
  * Tests for /api/intel route
@@ -108,6 +111,16 @@ beforeAll(async () => {
   const route = await import("@/app/api/intel/route");
   GET = route.GET;
   POST = route.POST;
+});
+
+it("uses the shared API wrapper module for response and validation helpers", () => {
+  const source = readFileSync(
+    join(process.cwd(), "app/api/intel/route.ts"),
+    "utf8"
+  );
+
+  expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
+  expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
 });
 
 // =============================================================================
@@ -521,6 +534,31 @@ describe("GET /api/intel", () => {
       expect(json.success).toBe(false);
       expect(json.error).toBe("Failed to fetch intel posts");
     });
+
+    it("should return an empty list when local PostGIS geography is unavailable", async () => {
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: null,
+        error: {
+          code: "42704",
+          message: 'type "public.geography" does not exist',
+        },
+      });
+
+      const request = createMockRequest(
+        "GET",
+        "http://localhost/api/intel?lat=32.715&lon=-117.161&limit=1"
+      );
+
+      const response = await GET(request);
+      const json = await response.json();
+      expectConsoleWarnings([/Intel geospatial lookup unavailable/]);
+
+      expect(response.status).toBe(200);
+      expect(json.success).toBe(true);
+      expect(json.data.posts).toEqual([]);
+      expect(json.data.total).toBe(0);
+      expect(mockSupabaseClient.from).not.toHaveBeenCalled();
+    });
   });
 });
 
@@ -539,7 +577,8 @@ describe("POST /api/intel", () => {
 
   describe("Authentication", () => {
     it("should require authentication", async () => {
-      // Note: withAuth middleware handles this, we're testing that it's applied
+      mockUnauthenticatedUser();
+
       const request = createMockRequest("POST", "http://localhost/api/intel", {
         latitude: 32.715,
         longitude: -117.161,
@@ -548,8 +587,11 @@ describe("POST /api/intel", () => {
         description: "Test description",
       });
 
-      // The middleware will add user context, so this tests integration
-      expect(POST).toBeDefined();
+      const response = await POST(request);
+      const json = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(json.error).toContain("Authentication required");
     });
   });
 
@@ -833,7 +875,11 @@ describe("POST /api/intel", () => {
       const json = await response.json();
 
       expect(response.status).toBe(200);
-      expect(capturedInsertData).toBeDefined();
+      expect(capturedInsertData).toEqual(
+        expect.objectContaining({
+          surf_conditions: { wave_height: 3 },
+        })
+      );
       expect(capturedInsertData.surf_conditions).toEqual({
         wave_height: 3,
       });
@@ -868,9 +914,11 @@ describe("POST /api/intel", () => {
       await POST(request);
 
       const insertCall = mockSupabaseClient.insert.mock.calls[0][0];
-      expect(insertCall.dedupe_hash).toBeDefined();
-      expect(typeof insertCall.dedupe_hash).toBe("string");
-      expect(insertCall.dedupe_hash.length).toBe(64); // SHA-256 hex
+      expect(insertCall).toEqual(
+        expect.objectContaining({
+          dedupe_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        })
+      );
     });
 
     it("should detect duplicates within dedupe window", async () => {

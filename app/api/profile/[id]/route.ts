@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
 import { getProfileDTOById, getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
 import {
+  createSuccessResponse,
+  handleApiError,
   withAuth,
   withBotBlockingAndRateLimit,
 } from "@/lib/middleware/api-wrappers";

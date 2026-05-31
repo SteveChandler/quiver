@@ -8,6 +8,9 @@
  * Complements __tests__/api/sessions-comments.test.ts with additional scenarios
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 // Use lightweight NextRequest/NextResponse mock
 jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 import { NextRequest } from "next/server";
@@ -40,6 +43,16 @@ describe("Session Comments API - Access Control", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("uses the shared API wrapper module for delegated comment validation helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/comments/[commentId]/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
+    expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
   });
 
   describe("POST - Comment Creation with Access Control", () => {

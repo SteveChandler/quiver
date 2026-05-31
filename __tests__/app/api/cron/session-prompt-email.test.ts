@@ -13,9 +13,10 @@
 
 import { GET } from "@/app/api/cron/session-prompt-email/route";
 import { NextRequest } from "next/server";
+import { readFileSync } from "fs";
 
 // Mock API response utilities
-jest.mock("@/lib/api-utils", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: jest.fn(() =>
       Promise.resolve({
@@ -106,6 +107,10 @@ jest.mock("@/lib/utils/email-token", () => ({
 }));
 
 describe("Session Prompt Email Cron Job API", () => {
+  const routeSource = readFileSync(
+    "app/api/cron/session-prompt-email/route.ts",
+    "utf8"
+  );
   const mockRequest = (
     headers: Record<string, string> = {},
     url = "http://localhost/api/cron/session-prompt-email"
@@ -119,9 +124,14 @@ describe("Session Prompt Email Cron Job API", () => {
     } as unknown as NextRequest;
   };
 
+  let consoleLogSpy: jest.SpyInstance;
+  let consoleErrorSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
-    require("@/lib/api-utils").validateCronRequest.mockReturnValue(true);
+    consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    require("@/lib/middleware/api-wrappers").validateCronRequest.mockReturnValue(true);
 
     // Default RPC responses
     mockRpc.mockResolvedValue({
@@ -136,9 +146,19 @@ describe("Session Prompt Email Cron Job API", () => {
     });
   });
 
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
+  });
+
+  it("uses the API wrapper barrel for response helpers and cron request validation", () => {
+    expect(routeSource).not.toContain("@/lib/api-utils");
+    expect(routeSource).toContain("@/lib/middleware/api-wrappers");
+  });
+
   describe("Authentication", () => {
     it("should reject requests without valid cron authentication", async () => {
-      const { validateCronRequest } = require("@/lib/api-utils");
+      const { validateCronRequest } = require("@/lib/middleware/api-wrappers");
       validateCronRequest.mockReturnValue(false);
 
       const request = mockRequest({

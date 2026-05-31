@@ -1,6 +1,9 @@
 /**
  * @jest-environment node
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 jest.mock("@/lib/supabase/api-server-client", () => ({
   createAPIServerClient: () => ({
     rpc: jest.fn(async (_fn: string, _args: any) => ({
@@ -26,6 +29,16 @@ jest.mock("@/lib/supabase/api-server-client", () => ({
 }));
 
 describe("GET /api/coach-picks", () => {
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/coach-picks/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
+  });
+
   it("returns picks when beachId is provided", async () => {
     const { GET } = await import("@/app/api/coach-picks/route");
     const { NextRequest } = await import("next/server");
@@ -52,5 +65,4 @@ describe("GET /api/coach-picks", () => {
     expect(picks).toEqual([]);
   });
 });
-
 

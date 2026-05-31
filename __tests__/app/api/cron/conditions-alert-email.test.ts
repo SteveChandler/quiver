@@ -13,9 +13,10 @@
 
 import { GET } from "@/app/api/cron/conditions-alert-email/route";
 import { NextRequest } from "next/server";
+import { readFileSync } from "fs";
 
 // Mock API response utilities
-jest.mock("@/lib/api-utils", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: jest.fn(() =>
       Promise.resolve({
@@ -52,11 +53,26 @@ jest.mock("@/lib/api-utils", () => ({
 
 // Mock Supabase client
 const mockRpc = jest.fn();
+const mockFrom = jest.fn(() => ({
+  select: jest.fn(() => ({
+    eq: jest.fn(() => ({
+      gte: jest.fn(() => ({
+        lt: jest.fn(() => ({
+          order: jest.fn(() => ({
+            limit: jest.fn(() => Promise.resolve({ data: [], error: null })),
+          })),
+        })),
+      })),
+      single: jest.fn(() => Promise.resolve({ data: null, error: null })),
+    })),
+  })),
+}));
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() =>
     Promise.resolve({
       rpc: mockRpc,
+      from: mockFrom,
     })
   ),
 }));
@@ -119,6 +135,10 @@ jest.mock("@/lib/domains/scoring", () => ({
   forecastToSnapshot: jest.fn(() => ({})),
 }));
 
+jest.mock("@/lib/utils/beach-url-utils", () => ({
+  buildBeachUrl: jest.fn(({ slug }: { slug: string }) => `/beach/${slug}`),
+}));
+
 // Mock email logging service
 jest.mock("@/lib/services/email-logging-service", () => ({
   createEmailLogger: jest.fn(() => ({
@@ -138,6 +158,9 @@ jest.mock("@/lib/utils/email-rate-limiter", () => ({
 }));
 
 describe("Conditions Alert Email Cron Job API", () => {
+  const routeSource = readFileSync("app/api/cron/conditions-alert-email/route.ts", "utf8");
+  let consoleLogSpy: jest.SpyInstance;
+
   const mockRequest = (
     headers: Record<string, string> = {},
     url = "http://localhost/api/cron/conditions-alert-email"
@@ -153,7 +176,8 @@ describe("Conditions Alert Email Cron Job API", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    require("@/lib/api-utils").validateCronRequest.mockReturnValue(true);
+    consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    require("@/lib/middleware/api-wrappers").validateCronRequest.mockReturnValue(true);
 
     // Default RPC responses
     mockRpc.mockResolvedValue({
@@ -168,9 +192,18 @@ describe("Conditions Alert Email Cron Job API", () => {
     });
   });
 
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
+  });
+
   describe("Authentication", () => {
+    it("uses the API wrapper barrel for response helpers and cron request validation", () => {
+      expect(routeSource).not.toContain("@/lib/api-utils");
+      expect(routeSource).toContain("@/lib/middleware/api-wrappers");
+    });
+
     it("should reject requests without valid cron authentication", async () => {
-      const { validateCronRequest } = require("@/lib/api-utils");
+      const { validateCronRequest } = require("@/lib/middleware/api-wrappers");
       validateCronRequest.mockReturnValue(false);
 
       const request = mockRequest({
@@ -388,7 +421,13 @@ describe("Conditions Alert Email Cron Job API", () => {
         authorization: "Bearer valid-cron-secret",
       });
 
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       const response = await GET(request);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Error claiming slot for user user-1"),
+        expect.objectContaining({ message: "RPC error" })
+      );
+      consoleErrorSpy.mockRestore();
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -632,7 +671,13 @@ describe("Conditions Alert Email Cron Job API", () => {
         authorization: "Bearer valid-cron-secret",
       });
 
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       const response = await GET(request);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to send to user user-1"),
+        expect.any(Error)
+      );
+      consoleErrorSpy.mockRestore();
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -670,7 +715,13 @@ describe("Conditions Alert Email Cron Job API", () => {
         authorization: "Bearer valid-cron-secret",
       });
 
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       const response = await GET(request);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Error processing candidate user-1"),
+        expect.any(Error)
+      );
+      consoleErrorSpy.mockRestore();
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -828,7 +879,13 @@ describe("Conditions Alert Email Cron Job API", () => {
         .mockResolvedValueOnce({ data: null, error: new Error("Send failed") });
 
       const request = mockRequest({ authorization: "Bearer valid" });
+      const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
       const response = await GET(request);
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to send to user user-3"),
+        expect.any(Error)
+      );
+      consoleErrorSpy.mockRestore();
       const data = await response.json();
 
       expect(data.success).toBe(true);

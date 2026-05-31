@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GET } from "@/app/api/beaches/[id]/sources/route";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -36,6 +38,16 @@ function makeChain(result: unknown): QueryChain {
 }
 
 describe("GET /api/beaches/[id]/sources", () => {
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/beaches/[id]/sources/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
+  });
+
   it("preserves web fields and exposes native-friendly cam fields", async () => {
     const sourceChain = makeChain({
       data: {

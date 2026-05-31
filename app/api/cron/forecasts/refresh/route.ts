@@ -1,4 +1,9 @@
-import { createErrorResponse, createSuccessResponse, handleApiError, validateCronRequest } from "@/lib/api-utils";
+import {
+  createErrorResponse,
+  createSuccessResponse,
+  handleApiError,
+  validateCronRequest,
+} from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { CDIPService } from "@/lib/services/cdip";
 import { NwsWindService } from "@/lib/services/nws-wind-service";

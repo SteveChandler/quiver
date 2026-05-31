@@ -31,10 +31,10 @@ if (typeof (globalThis as any).Response?.json !== "function") {
  */
 
 import { GET } from "@/app/api/cron/condition-alert-deliver/route";
-import { expectConsoleWarnings, expectConsoleErrors } from "@/__tests__/setup/test-utils";
+import { readFileSync } from "fs";
 
-// ---- Mock api-utils ----
-jest.mock("@/lib/api-utils", () => ({
+// ---- Mock API wrappers ----
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   validateCronRequest: jest.fn(() => true),
 }));
 
@@ -55,9 +55,10 @@ jest.mock("@/lib/mailer/templates/ConsolidatedAlertEmail", () => ({
 }));
 
 // ---- Mock email logging + rate limiter ----
+const mockLogDelivery = jest.fn();
 jest.mock("@/lib/services/email-logging-service", () => ({
   createEmailLogger: jest.fn(() => ({
-    logDelivery: jest.fn().mockResolvedValue(undefined),
+    logDelivery: (...args: unknown[]) => mockLogDelivery(...args),
   })),
 }));
 jest.mock("@/lib/utils/email-rate-limiter", () => ({
@@ -236,6 +237,7 @@ function mockFrom(table: string) {
 }
 
 const mockSupabase = { from: jest.fn(mockFrom) };
+let consoleLogSpy: jest.SpyInstance;
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() => Promise.resolve(mockSupabase)),
@@ -289,6 +291,7 @@ const ORIGINAL_ENV = { ...process.env };
 
 beforeEach(() => {
   jest.clearAllMocks();
+  consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
   store.alertQueueRows = [];
   store.profileRows = [];
   store.existingDeliveries = [];
@@ -298,6 +301,7 @@ beforeEach(() => {
   store.queueUpdates = [];
   store.seededAttempts = [];
   store.forecastRows = [];
+  mockLogDelivery.mockReset().mockResolvedValue({ success: true });
   mockEmailsSend.mockResolvedValue({ data: { id: "msg-1" }, error: null });
   mockEnqueueNotification.mockResolvedValue({
     enqueued: true,
@@ -311,7 +315,18 @@ afterAll(() => {
   process.env = ORIGINAL_ENV;
 });
 
+afterEach(() => {
+  consoleLogSpy.mockRestore();
+});
+
 describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows", () => {
+  const routeSource = readFileSync("app/api/cron/condition-alert-deliver/route.ts", "utf8");
+
+  it("uses the API wrapper barrel for cron request validation", () => {
+    expect(routeSource).not.toContain("@/lib/api-utils");
+    expect(routeSource).toContain("@/lib/middleware/api-wrappers");
+  });
+
   it("ALERTS_DELIVERY_ENABLED=false writes skipped_disabled per channel and still marks queue sent", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "false";
     seedQueueRow({
@@ -389,6 +404,16 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       alert_date: "2026-04-26",
       channel: "email",
     });
+    expect(mockLogDelivery).toHaveBeenCalledWith(expect.objectContaining({
+      userId: USER_A,
+      emailType: "conditions_alert",
+      subject: expect.stringMatching(/^Your surf report for /),
+      meta: expect.objectContaining({
+        match_count: expect.any(Number),
+        beaches: expect.any(Array),
+      }),
+      resendMessageId: "msg-1",
+    }));
 
     expect(store.attemptInserts).toHaveLength(1);
     expect(store.attemptInserts[0]).toMatchObject({
@@ -635,8 +660,12 @@ describe("condition-alert-deliver — orphaned queue rows", () => {
       alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
     });
 
+    const consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
     const res = await GET(makeRequest());
-    expectConsoleWarnings([/\[condition-alert-deliver\] No profile found for user/]);
+    expect(consoleWarnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("No profile found for user")
+    );
+    consoleWarnSpy.mockRestore();
     expect(res.status).toBe(200);
 
     expect(mockEmailsSend).not.toHaveBeenCalled();
@@ -756,8 +785,13 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
       reason: "internal_error",
     });
 
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const res = await GET(makeRequest());
-    expectConsoleErrors([/enqueue failed for user/]);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("enqueue failed for user"),
+      expect.objectContaining({ reason: "internal_error" })
+    );
+    consoleErrorSpy.mockRestore();
     expect(res.status).toBe(200);
 
     expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
@@ -988,8 +1022,13 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
       message: "supabase blip",
     });
 
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const res = await GET(makeRequest());
-    expectConsoleErrors([/similarity enqueue failed for user/]);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("similarity enqueue failed for user"),
+      expect.objectContaining({ reason: "internal_error" })
+    );
+    consoleErrorSpy.mockRestore();
     expect(res.status).toBe(200);
 
     expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
@@ -1018,8 +1057,13 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
       message: "beach_id: Required",
     });
 
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     const res = await GET(makeRequest());
-    expectConsoleErrors([/similarity enqueue rejected invalid payload/]);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("similarity enqueue rejected invalid payload"),
+      expect.objectContaining({ reason: "invalid_payload" })
+    );
+    consoleErrorSpy.mockRestore();
     expect(res.status).toBe(200);
 
     const simAttempts = store.attemptInserts.filter((a) => a.queue_id === QUEUE_SIM);

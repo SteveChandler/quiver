@@ -17,6 +17,7 @@ import {
 } from './utils/error-detection';
 import { TEST_BEACHES } from './fixtures/test-data';
 import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
+import { IOS_APP_STORE_URL } from '@/lib/constants/app-store';
 import { isVisibleSafe } from './utils/strict-helpers';
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -31,8 +32,31 @@ test.describe('Guest Smoke: Critical Pages', () => {
   test('Features page loads without errors @smoke', async ({ page }) => {
     await gotoWithErrorCheck(page, errorCapture, '/features', { timeout: 15000 });
 
-    const heading = page.getByRole('heading').first();
-    await expect(heading).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByRole('heading', { name: /a surf app that gets personal/i }),
+    ).toBeVisible({ timeout: 10000 });
+    await expect(
+      page.getByRole('heading', { name: /personal forecasting and the loop/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('heading', {
+        name: /not a report\. a forecast that knows your breaks/i,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByText(
+        /this is why quiver isn't another surf report you check and forget/i,
+      ),
+    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: /custom spots/i })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /custom alerts/i })).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: /open app store/i }).first(),
+    ).toHaveAttribute('href', IOS_APP_STORE_URL);
+    await expect(
+      page.getByRole('button', { name: /android waitlist/i }).first(),
+    ).toBeVisible();
+    await expect(page.getByText(/home-break finder/i)).toHaveCount(0);
 
     // Page should have substantive content
     const main = page.locator('main').first();
@@ -130,21 +154,14 @@ test.describe('Guest Smoke: SEO Infrastructure', () => {
 
     expect(response).not.toBeNull();
     const status = response!.status();
-    if (status === 500 && !process.env.CI) {
-      // Local dev environment — sitemap generation may fail due to stale build cache
-      // In CI, a sitemap 500 is a real failure and should not be silently passed
-      test.info().annotations.push({
-        type: 'skip-reason',
-        description: 'Sitemap 500 in local dev is expected (stale build cache)',
-      });
-      return;
-    }
-    expect(status).toBe(200);
+    // eslint-disable-next-line playwright/no-conditional-in-test -- local dev can 500 here on stale sitemap cache; CI still requires 200.
+    const isExpectedLocalCacheFailure = status === 500 && !process.env.CI;
+    expect(status === 200 || isExpectedLocalCacheFailure).toBe(true);
 
     const content = await page.content();
     // Should be a valid sitemap or sitemap index
-    expect(content).toMatch(/<urlset|<sitemapindex/);
-    expect(content).toMatch(/<url>/);
+    expect(status !== 200 || /<urlset|<sitemapindex/.test(content)).toBe(true);
+    expect(status !== 200 || /<url>/.test(content)).toBe(true);
   });
 
   test('OG image endpoint returns valid image @smoke', async ({ request }) => {
@@ -168,12 +185,17 @@ test.describe('Guest Smoke: SEO Infrastructure', () => {
     });
 
     const noindexMeta = page.locator('meta[name="robots"][content*="noindex"]');
-    const hasNoindex = await noindexMeta.count().then(c => c > 0);
+    const h1 = page.locator('h1').first();
 
-    if (!hasNoindex) {
-      // No noindex -> page should render meaningful content
-      const h1 = page.locator('h1');
-      await expect(h1).toBeVisible({ timeout: 5000 });
-    }
+    await expect
+      .poll(async () => {
+        const [hasNoindex, h1Visible] = await Promise.all([
+          noindexMeta.count().then((count) => count > 0),
+          h1.isVisible(),
+        ]);
+
+        return hasNoindex || h1Visible;
+      })
+      .toBe(true);
   });
 });

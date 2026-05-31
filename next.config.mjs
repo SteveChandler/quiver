@@ -316,6 +316,26 @@ const nextConfig = {
       },
       {
         protocol: "https",
+        hostname: "ccn-media.coastalcameranetwork.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "cdn.target-video.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "splash.thesurfersview.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "thesurfersview.com",
+        pathname: "/wp-content/uploads/**",
+      },
+      {
+        protocol: "https",
         hostname: "www.earthcam.com",
         pathname: "/cams/includes/image.php",
       },

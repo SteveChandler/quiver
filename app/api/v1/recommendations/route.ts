@@ -1,12 +1,12 @@
-import { NextRequest } from "next/server";
+import type { NextRequest, NextResponse } from "next/server";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 import {
   createSuccessResponse,
   createValidationError,
   handleApiError,
-} from "@/lib/api-utils";
+  withRateLimit,
+} from "@/lib/middleware/api-wrappers";
 import { scoreRecommendation } from "@/lib/utils/recommendation-scorer";
-import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import type { Beach } from "@/types/database";
 import type {
   BeachWithDistance,
@@ -38,7 +38,7 @@ function hasDegradation(degradation: DegradationInfo): boolean {
   return Object.keys(degradation).length > 0;
 }
 
-async function recommendationsHandler(request: NextRequest) {
+async function recommendationsHandler(request: NextRequest): Promise<NextResponse> {
   try {
     const DEBUG_RECOMMENDATIONS_PERF =
       process.env.DEBUG_RECOMMENDATIONS_PERF === "true" ||

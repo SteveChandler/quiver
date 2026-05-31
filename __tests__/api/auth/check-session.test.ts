@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GET } from "@/app/api/auth/check-session/route";
 import {
   createMockSupabaseClient,
@@ -39,6 +41,16 @@ describe("/api/auth/check-session", () => {
   });
 
   describe("GET", () => {
+    it("uses the shared API wrapper module for response helpers", () => {
+      const source = readFileSync(
+        join(process.cwd(), "app/api/auth/check-session/route.ts"),
+        "utf8"
+      );
+
+      expect(source).not.toMatch(/@\/lib\/api-utils/);
+      expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
+    });
+
     it("should return session data when user is authenticated", async () => {
       const mockUser = createMockUser({
         id: "user-123",
@@ -81,14 +93,14 @@ describe("/api/auth/check-session", () => {
 
     it("should handle auth errors gracefully", async () => {
       const authError = { message: "Invalid JWT token" };
-      
+
       mockSupabaseClient.auth.getUser.mockResolvedValue({
         data: { user: null },
         error: authError,
       });
 
       const response = await GET();
-      
+
       // Auth failures should not be treated as server errors.
       expect(response.status).toBe(401);
       const data = await response.json();
@@ -120,7 +132,7 @@ describe("/api/auth/check-session", () => {
         email: "test@example.com",
         // Should not include sensitive data
       });
-      
+
       // Ensure sensitive data is not exposed
       expect(data.sessionData).not.toHaveProperty("access_token");
       expect(data.sessionData).not.toHaveProperty("refresh_token");
@@ -129,17 +141,32 @@ describe("/api/auth/check-session", () => {
     });
 
     it("should handle unexpected errors gracefully", async () => {
+      const thrownError = new Error("Database connection failed");
+      const consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
+
       // Simulate an unexpected error during session check
-      mockSupabaseClient.auth.getUser.mockRejectedValue(
-        new Error("Database connection failed")
-      );
+      mockSupabaseClient.auth.getUser.mockRejectedValue(thrownError);
 
-      const response = await GET();
+      try {
+        const response = await GET();
 
-      // Database connection errors are genuine server errors - 500 is correct
-      expect(response.status).toBe(500);
-      const data = await response.json();
-      expect(data.error).toBe("Failed to check session");
+        // Database connection errors are genuine server errors - 500 is correct
+        expect(response.status).toBe(500);
+        const data = await response.json();
+        expect(data.error).toBe("Failed to check session");
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          "API Error:",
+          "Database connection failed"
+        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          "Stack trace:",
+          expect.stringContaining("Database connection failed")
+        );
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
     });
 
     it("should handle missing email safely", async () => {
@@ -170,21 +197,35 @@ describe("/api/auth/check-session", () => {
   describe("Security", () => {
     it("should not leak error stack traces in production", async () => {
       const restoreEnv = mockNodeEnv("production");
+      const consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => undefined);
 
-      mockSupabaseClient.auth.getUser.mockRejectedValue(
-        new Error("Database connection failed with sensitive info")
-      );
+      try {
+        mockSupabaseClient.auth.getUser.mockRejectedValue(
+          new Error("Database connection failed with sensitive info")
+        );
 
-      const response = await GET();
-      const data = await response.json();
+        const response = await GET();
+        const data = await response.json();
 
-      // Database connection errors are genuine server errors - 500 is correct
-      expect(response.status).toBe(500);
-      expect(data.error).toBe("Failed to check session");
-      expect(data).not.toHaveProperty("stack");
-      expect(data).not.toHaveProperty("details");
-
-      restoreEnv();
+        // Database connection errors are genuine server errors - 500 is correct
+        expect(response.status).toBe(500);
+        expect(data.error).toBe("Failed to check session");
+        expect(data).not.toHaveProperty("stack");
+        expect(data).not.toHaveProperty("details");
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          "API Error:",
+          "Database connection failed with sensitive info"
+        );
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          "Stack trace:",
+          expect.stringContaining("Database connection failed with sensitive info")
+        );
+      } finally {
+        consoleErrorSpy.mockRestore();
+        restoreEnv();
+      }
     });
   });
 

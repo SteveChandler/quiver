@@ -4,9 +4,10 @@
 
 import { NextRequest } from "next/server";
 import { GET } from "@/app/api/cron/ioos-sync/route";
+import { readFileSync } from "fs";
 
 // Mock dependencies
-jest.mock("@/lib/api-utils", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data) => ({
     json: async () => data,
     status: 200,
@@ -26,7 +27,6 @@ jest.mock("@/lib/services/ioos", () => ({
   IOOSService: jest.fn(),
 }));
 
-import { createSuccessResponse } from "@/lib/api-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { IOOSService } from "@/lib/services/ioos";
 
@@ -54,6 +54,7 @@ const createChainMock = (finalResult: any) => {
 };
 
 describe("IOOS Sync - Station Deactivation", () => {
+  const routeSource = readFileSync("app/api/cron/ioos-sync/route.ts", "utf8");
   let mockSupabase: any;
   let mockIOOSService: any;
 
@@ -119,6 +120,11 @@ describe("IOOS Sync - Station Deactivation", () => {
 
     (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(mockSupabase);
     (IOOSService as jest.Mock).mockImplementation(() => mockIOOSService);
+  });
+
+  it("uses the API wrapper barrel for response helpers and cron request validation", () => {
+    expect(routeSource).not.toContain("@/lib/api-utils");
+    expect(routeSource).toContain("@/lib/middleware/api-wrappers");
   });
 
   it("resets miss counter for discovered stations after upsert", async () => {

@@ -5,8 +5,9 @@
 import { POST, GET } from "@/app/api/cron/enhanced-forecast-sync-cdip/route";
 import { NextRequest } from "next/server";
 import { updateCdipBeachForecasts } from "@/lib/utils/forecast-server-utils";
+import { readFileSync } from "fs";
 
-jest.mock("@/lib/api-utils", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: jest.fn(() =>
       Promise.resolve({
@@ -39,11 +40,24 @@ jest.mock("@/lib/monitoring/forecast-logger", () => ({
   },
 }));
 
+jest.mock("@/lib/monitoring/sentry-cron", () => ({
+  startCronCheckIn: jest.fn(() => "check-in-id"),
+  completeCronCheckIn: jest.fn(),
+}));
+
+jest.mock("@sentry/nextjs", () => ({
+  flush: jest.fn(() => Promise.resolve(true)),
+}));
+
 jest.mock("@/lib/utils/forecast-server-utils", () => ({
   updateCdipBeachForecasts: jest.fn(),
 }));
 
 describe("CDIP Enhanced Forecast Sync Cron Job API", () => {
+  const sharedSource = readFileSync(
+    "app/api/cron/enhanced-forecast-sync-cdip/_shared.ts",
+    "utf8"
+  );
   const originalVercelEnv = process.env.VERCEL_ENV;
   const originalCronBudget = process.env.FORECAST_CRON_TIME_BUDGET_MS;
 
@@ -58,6 +72,9 @@ describe("CDIP Enhanced Forecast Sync Cron Job API", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    require("@/lib/middleware/api-wrappers").validateCronRequest.mockReturnValue(
+      true
+    );
     process.env.VERCEL_ENV = "production";
     process.env.FORECAST_CRON_TIME_BUDGET_MS = "1";
 
@@ -79,6 +96,11 @@ describe("CDIP Enhanced Forecast Sync Cron Job API", () => {
     } else {
       process.env.FORECAST_CRON_TIME_BUDGET_MS = originalCronBudget;
     }
+  });
+
+  it("uses the API wrapper barrel for response helpers and cron request validation", () => {
+    expect(sharedSource).not.toContain("@/lib/api-utils");
+    expect(sharedSource).toContain("@/lib/middleware/api-wrappers");
   });
 
   it("should successfully run via POST when environment and cron auth are valid", async () => {
@@ -111,9 +133,20 @@ describe("CDIP Enhanced Forecast Sync Cron Job API", () => {
     expect(data.success).toBe(false);
     expect(data.error).toBe("Forbidden");
   });
+
+  it("should handle authentication failures", async () => {
+    const { validateCronRequest } = require("@/lib/middleware/api-wrappers");
+    validateCronRequest.mockReturnValue(false);
+
+    const request = mockRequest({ authorization: "Bearer invalid-cron-secret" });
+    const response = await POST(request);
+    const data = await response.json();
+
+    expect(data.success).toBe(false);
+    expect(data.error).toBe("Unauthorized");
+    expect(updateCdipBeachForecasts).not.toHaveBeenCalled();
+  });
 });
-
-
 
 
 

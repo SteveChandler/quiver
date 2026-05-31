@@ -1,6 +1,9 @@
 import { NextRequest } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
+import {
+  createSuccessResponse,
+  handleApiError,
+} from "@/lib/middleware/api-wrappers";
 import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
 
 // GET /api/beaches/[id]/sessions?limit=5 - fetch recent completed sessions for beach
@@ -47,4 +50,3 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     return handleApiError(err, "Failed to fetch sessions by beach");
   }
 }
-

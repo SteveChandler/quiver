@@ -16,6 +16,8 @@ import { NextRequest } from "next/server";
 
 const mockSupabaseClient = createMockSupabaseClient();
 const mockCapturePostHogEvent = jest.fn();
+const mockUserEventInsert = jest.fn();
+const mockTrackingPreferenceMaybeSingle = jest.fn();
 
 jest.mock("@/lib/middleware/api-wrappers", () => {
   const { NextResponse } = require("next/server");
@@ -98,6 +100,16 @@ function mockAcceptInviteResult(result?: {
   });
 }
 
+function mockTrackingPreference(allowImplicitTracking: boolean | null = true) {
+  mockTrackingPreferenceMaybeSingle.mockResolvedValue({
+    data:
+      allowImplicitTracking === null
+        ? null
+        : { allow_implicit_tracking: allowImplicitTracking },
+    error: null,
+  });
+}
+
 describe("POST /api/invites/consume", () => {
   let cleanup: () => void;
 
@@ -106,6 +118,20 @@ describe("POST /api/invites/consume", () => {
     cleanup = testEnv.cleanup;
     process.env.EMAIL_TOKEN_SECRET = TEST_SECRET;
     jest.clearAllMocks();
+    mockUserEventInsert.mockResolvedValue({ error: null });
+    mockTrackingPreference();
+    mockSupabaseClient.from.mockImplementation((table: string) => {
+      if (table === "profiles") {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              maybeSingle: mockTrackingPreferenceMaybeSingle,
+            })),
+          })),
+        } as any;
+      }
+      return { insert: mockUserEventInsert } as any;
+    });
     mockAcceptInviteResult();
   });
 
@@ -194,6 +220,21 @@ describe("POST /api/invites/consume", () => {
         invitee: "follower-uuid",
       },
     );
+    expect(mockUserEventInsert).toHaveBeenCalledWith({
+      user_id: "follower-uuid",
+      event_type: "invite_consumed",
+      beach_id: null,
+      metadata: expect.objectContaining({
+        token_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        inviter_id: "inviter-uuid",
+        surface: "native",
+        follow_created: true,
+        follow_existing: false,
+        referral_created: true,
+        referral_existing: false,
+        self_invite: false,
+      }),
+    });
     expect(mockCapturePostHogEvent).toHaveBeenCalledWith({
       distinctId: "follower-uuid",
       event: "invite_consumed",
@@ -205,6 +246,34 @@ describe("POST /api/invites/consume", () => {
         referral_existing: false,
       },
     });
+  });
+
+  it("skips invite telemetry when product telemetry is disabled", async () => {
+    const follower = createMockUser({ id: "follower-uuid" });
+    mockAuthenticatedUser(mockSupabaseClient, follower);
+    mockTrackingPreference(false);
+
+    const token = await signEmailToken(
+      { user_id: "inviter-uuid", purpose: "invite" },
+      TEST_SECRET,
+    );
+
+    const { POST } = require("@/app/api/invites/consume/route");
+    const response = await POST(buildRequest({ token }), { params: {} });
+    const data = await expectSuccessResponse<{
+      success: boolean;
+      inviter_id: string;
+    }>(response, 200);
+
+    expect(data.data.inviter_id).toBe("inviter-uuid");
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      "accept_invite_for_user",
+      {
+        inviter: "inviter-uuid",
+        invitee: "follower-uuid",
+      },
+    );
+    expect(mockUserEventInsert).not.toHaveBeenCalled();
   });
 
   it("treats duplicate follow acceptance as success", async () => {
@@ -299,6 +368,16 @@ describe("POST /api/invites/consume", () => {
 
     expect(data.data.self_invite).toBe(true);
     expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+    expect(mockUserEventInsert).toHaveBeenCalledWith({
+      user_id: "same-id",
+      event_type: "invite_consumed",
+      beach_id: null,
+      metadata: expect.objectContaining({
+        inviter_id: "same-id",
+        surface: "native",
+        self_invite: true,
+      }),
+    });
   });
 
   it("bubbles up invite RPC errors as 500", async () => {

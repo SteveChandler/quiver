@@ -11,6 +11,8 @@
  * - Error handling (database errors, email failures)
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { NextRequest } from "next/server";
 
 // ============================================================================
@@ -152,6 +154,16 @@ describe("POST /api/internal/send-welcome-email", () => {
 
     // Default: successful log insert
     mockInsert.mockResolvedValue({ error: null });
+  });
+
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/internal/send-welcome-email/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
+    expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
   });
 
   // ==========================================================================

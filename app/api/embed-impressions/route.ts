@@ -14,7 +14,7 @@ import {
   createValidationError,
   createErrorResponse,
   DEFAULT_SECURITY_HEADERS,
-} from '@/lib/api-utils';
+} from '@/lib/middleware/api-wrappers';
 
 export const dynamic = 'force-dynamic';
 

@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import Image from "next/image";
-import Link from "next/link";
 import { ArrowRight, CalendarDays, MapPin, QrCode, Waves } from "lucide-react";
-import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
 import { buildPageMetadata } from "@/lib/seo/meta";
-
-const WEB_APP_URL = "/map";
+import { parseUserAgent } from "@/lib/utils/user-agent-parser";
+import { PbscScanCtas } from "./pbsc-scan-ctas";
 
 export const metadata: Metadata = buildPageMetadata({
   title: "Quiver at PBSC Summer Longboard Classic",
   description:
-    "Quiver is sponsoring the PBSC Summer Longboard Classic at Tourmaline. Scan to open Quiver and try a surf forecast that remembers your sessions.",
+    "Quiver is sponsoring the PBSC Summer Longboard Classic at Tourmaline. Scan to open Quiver on iPhone or join Android updates.",
   path: "/pbsc",
   keywords: [
     "PBSC Summer Longboard Classic",
@@ -21,6 +20,8 @@ export const metadata: Metadata = buildPageMetadata({
     "surf session log",
   ],
 });
+
+export const dynamic = "force-dynamic";
 
 const REASONS = [
   {
@@ -37,7 +38,10 @@ const REASONS = [
   },
 ] as const;
 
-export default function PbscPage() {
+export default async function PbscPage() {
+  const userAgent = (await headers()).get("user-agent") ?? "";
+  const isIosVisitor = parseUserAgent(userAgent).os === "iOS";
+
   return (
     <main className="min-h-screen bg-[#252D6B] text-[#F4EBD8]">
       <section className="relative isolate overflow-hidden px-4 pb-16 pt-24 sm:px-6 lg:px-8">
@@ -80,21 +84,10 @@ export default function PbscPage() {
               happened.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href={IOS_APP_STORE_URL}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-sm bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
-              >
-                Open Quiver on iPhone
-                <ArrowRight className="h-5 w-5" />
-              </Link>
-              <Link
-                href={WEB_APP_URL}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-sm border border-[#F4EBD8]/40 px-5 py-3 text-base font-black text-white transition hover:border-[#F78E42] hover:text-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
-              >
-                Use Quiver on web
-              </Link>
-            </div>
+            <PbscScanCtas
+              isIosVisitor={isIosVisitor}
+              placement="hero_primary"
+            />
 
             <div className="mt-8 grid gap-3 text-sm font-semibold text-[#F4EBD8]/84 sm:grid-cols-2">
               <div className="flex items-center gap-2">
@@ -165,13 +158,20 @@ export default function PbscPage() {
                 whether the forecast feels useful for your home break.
               </p>
             </div>
-            <Link
-              href={IOS_APP_STORE_URL}
-              className="mt-5 inline-flex min-h-12 shrink-0 items-center justify-center gap-2 rounded-sm bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] md:mt-0"
+            <PbscScanCtas
+              isIosVisitor={isIosVisitor}
+              placement="bottom_primary"
+              className="mt-5 md:mt-0"
             >
-              Open Quiver
-              <ArrowRight className="h-5 w-5" />
-            </Link>
+              {isIosVisitor ? (
+                <>
+                  Open Quiver on iPhone
+                  <ArrowRight className="h-5 w-5" aria-hidden="true" />
+                </>
+              ) : (
+                "Join Android waitlist"
+              )}
+            </PbscScanCtas>
           </div>
         </div>
       </section>

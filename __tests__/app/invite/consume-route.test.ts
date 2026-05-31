@@ -10,6 +10,8 @@ import {
 } from "@/test-utils/api-test-helpers";
 
 const mockSupabaseClient = createMockSupabaseClient();
+const mockUserEventInsert = jest.fn();
+const mockTrackingPreferenceMaybeSingle = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => mockSupabaseClient),
@@ -65,6 +67,16 @@ function mockAcceptInviteResult(result?: {
   });
 }
 
+function mockTrackingPreference(allowImplicitTracking: boolean | null = true) {
+  mockTrackingPreferenceMaybeSingle.mockResolvedValue({
+    data:
+      allowImplicitTracking === null
+        ? null
+        : { allow_implicit_tracking: allowImplicitTracking },
+    error: null,
+  });
+}
+
 function expectInviteCookieCleared(response: Response) {
   const setCookie = response.headers.get("set-cookie") || "";
   expect(setCookie).toMatch(/invite_token=/);
@@ -77,6 +89,20 @@ describe("GET /invite/consume", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.EMAIL_TOKEN_SECRET = TEST_SECRET;
+    mockUserEventInsert.mockResolvedValue({ error: null });
+    mockTrackingPreference();
+    mockSupabaseClient.from.mockImplementation((table: string) => {
+      if (table === "profiles") {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              maybeSingle: mockTrackingPreferenceMaybeSingle,
+            })),
+          })),
+        } as any;
+      }
+      return { insert: mockUserEventInsert } as any;
+    });
     mockAcceptInviteResult();
   });
 
@@ -139,7 +165,39 @@ describe("GET /invite/consume", () => {
         invitee: "invitee-id",
       },
     );
+    expect(mockUserEventInsert).toHaveBeenCalledWith({
+      user_id: "invitee-id",
+      event_type: "invite_consumed",
+      beach_id: null,
+      metadata: expect.objectContaining({
+        token_hash: expect.stringMatching(/^[a-f0-9]{64}$/),
+        inviter_id: "inviter-id",
+        surface: "web",
+        follow_created: true,
+        referral_created: true,
+        self_invite: false,
+      }),
+    });
     expectInviteCookieCleared(response);
+  });
+
+  it("skips invite telemetry when product telemetry is disabled", async () => {
+    mockAuthUser("invitee-id");
+    mockTrackingPreference(false);
+    const token = await inviteToken("inviter-id");
+
+    const response = await GET(buildRequest({ invite_token: token }));
+
+    const location = getRedirectLocation(response);
+    expect(location.pathname).toBe("/profile/inviter-id");
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      "accept_invite_for_user",
+      {
+        inviter: "inviter-id",
+        invitee: "invitee-id",
+      },
+    );
+    expect(mockUserEventInsert).not.toHaveBeenCalled();
   });
 
   it("treats duplicate follows as success, clears the cookie, and redirects to the inviter profile", async () => {
@@ -199,6 +257,16 @@ describe("GET /invite/consume", () => {
     expect(location.pathname).toBe("/community");
     expect(location.searchParams.get("tab")).toBe("friends");
     expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+    expect(mockUserEventInsert).toHaveBeenCalledWith({
+      user_id: "same-id",
+      event_type: "invite_consumed",
+      beach_id: null,
+      metadata: expect.objectContaining({
+        inviter_id: "same-id",
+        surface: "web",
+        self_invite: true,
+      }),
+    });
     expectInviteCookieCleared(response);
   });
 });

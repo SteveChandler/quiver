@@ -7,7 +7,11 @@ import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-en
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { RelatedGuidesSection } from "@/components/beach-detail/related-guides-section";
 import type { Metadata } from "next";
-import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
+import {
+  buildPageMetadata,
+  buildDynamicBeachMetadata,
+  shortenBeachNameForSerpTitle,
+} from "@/lib/seo/meta";
 import { getBeachForecastPreview } from "@/actions/forecast-actions";
 import { notFound, permanentRedirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
@@ -223,11 +227,23 @@ export async function generateMetadata(
     // emit minimal metadata. Crawlers follow the 308 to the real page; the heavy
     // metadata only matters at the canonical destination.
     if (canonicalPath !== `/beach/${params.slug}`) {
-      return buildPageMetadata({
-        title: beach.name,
-        description: `Conditions, intel, photos, and community tips for ${beach.name}.`,
+      const metadata = buildPageMetadata({
+        title: `${shortenBeachNameForSerpTitle(beach.name)} Surf Report & Forecast`,
+        description: `Open the canonical live surf report, forecast, wind, tide, crowd intel, and local notes for ${beach.name}.`,
         path: canonicalPath,
       });
+
+      return {
+        ...metadata,
+        robots: {
+          index: false,
+          follow: true,
+          googleBot: {
+            index: false,
+            follow: true,
+          },
+        },
+      };
     }
 
     // Fetch live forecast data for dynamic title with wave heights

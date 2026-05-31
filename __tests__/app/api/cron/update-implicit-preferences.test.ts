@@ -4,6 +4,7 @@
 
 import { GET, POST } from "@/app/api/cron/update-implicit-preferences/route";
 import { NextRequest } from "next/server";
+import { readFileSync } from "fs";
 
 const mockRpc = jest.fn();
 
@@ -13,7 +14,7 @@ jest.mock("@/lib/supabase/server", () => ({
   })),
 }));
 
-jest.mock("@/lib/api-utils", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: jest.fn(() =>
       Promise.resolve({
@@ -52,6 +53,11 @@ jest.mock("@/lib/api-utils", () => ({
 }));
 
 describe("Implicit Preference Update Cron Job API", () => {
+  const routeSource = readFileSync(
+    "app/api/cron/update-implicit-preferences/route.ts",
+    "utf8"
+  );
+
   const mockRequest = (
     headers: Record<string, string> = {},
     url = "http://localhost/api/cron/update-implicit-preferences"
@@ -68,7 +74,7 @@ describe("Implicit Preference Update Cron Job API", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    require("@/lib/api-utils").validateCronRequest.mockReturnValue(true);
+    require("@/lib/middleware/api-wrappers").validateCronRequest.mockReturnValue(true);
     process.env.VERCEL_ENV = "production";
 
     mockRpc.mockImplementation((fn: string) => {
@@ -86,6 +92,11 @@ describe("Implicit Preference Update Cron Job API", () => {
     delete process.env.VERCEL_ENV;
   });
 
+  it("uses the API wrapper barrel for response helpers and cron request validation", () => {
+    expect(routeSource).not.toContain("@/lib/api-utils");
+    expect(routeSource).toContain("@/lib/middleware/api-wrappers");
+  });
+
   it("should reject requests in non-production environments", async () => {
     process.env.VERCEL_ENV = "development";
 
@@ -98,7 +109,7 @@ describe("Implicit Preference Update Cron Job API", () => {
   });
 
   it("should reject requests without valid cron authentication", async () => {
-    const { validateCronRequest } = require("@/lib/api-utils");
+    const { validateCronRequest } = require("@/lib/middleware/api-wrappers");
     validateCronRequest.mockReturnValue(false);
 
     const response = await GET(mockRequest());

@@ -8,6 +8,7 @@
  */
 
 import { fetchWithAuthRetry } from "@/lib/fetch-with-auth-retry";
+import type { Board } from "@/types/database";
 
 export type ClientBeach = {
   id: string;
@@ -19,12 +20,14 @@ export type ClientBeach = {
   // Other columns exist; we keep this minimal to avoid tight coupling.
 };
 
+export type ClientBoard = Board;
+
 type __CacheEntry<T> = { value: T; expiresAt: number };
 const __CACHE_TTL_MS = 30_000;
 const __cache = {
   usersProfile: new Map<string, __CacheEntry<any>>(),
   usersSessions: new Map<string, __CacheEntry<any[]>>(), // key: `${userId}:${limit}`
-  boards: new Map<string, __CacheEntry<any[]>>(), // key: "me"
+  boards: new Map<string, __CacheEntry<ClientBoard[]>>(), // key: "me"
   sessionLikesStatus: new Map<string, __CacheEntry<{ liked: boolean; likesCount: number }>>(),
   dailyIntel: new Map<string, __CacheEntry<ClientBeachDailyIntel | null>>(), // key: `${beachId}:${forecastDate}`
   inflight: new Map<string, Promise<any>>(),
@@ -152,7 +155,7 @@ export const data = {
     getDaily: getDailyIntel,
   },
   boards: {
-    async list() {
+    async list(): Promise<ClientBoard[]> {
       const cacheKey = "me";
       const cached = __getCached(__cache.boards, cacheKey);
       if (cached) return cached;
@@ -168,7 +171,7 @@ export const data = {
           cache: "no-store",
         });
         if (!res.ok) throw new Error(`Failed to load boards: ${res.status}`);
-        const json = await res.json();
+        const json = (await res.json()) as { data?: { boards?: ClientBoard[] } };
         const boards = json.data?.boards || [];
         __setCached(__cache.boards, cacheKey, boards);
         return boards;

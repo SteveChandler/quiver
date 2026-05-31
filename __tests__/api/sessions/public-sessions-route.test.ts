@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   createMockRequest,
   createMockUser,
@@ -12,10 +14,12 @@ import {
 const mockSupabaseClient = createMockSupabaseClient();
 
 jest.mock("@/lib/middleware/api-wrappers", () => {
+  const actual = jest.requireActual("@/lib/middleware/api-wrappers");
   return {
-    withBotBlockingAndRateLimit: (handler: any) => handler,
-    withErrorHandler: (handler: any) => handler,
-    withRateLimit: (handler: any) => handler,
+    ...actual,
+    withBotBlockingAndRateLimit: (handler: unknown) => handler,
+    withErrorHandler: (handler: unknown) => handler,
+    withRateLimit: (handler: unknown) => handler,
     withAuth:
       (handler: any, options: any = {}) =>
       async (request: any, context: any) => {
@@ -47,12 +51,22 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 // Import after mocks
- 
+
 const { GET } = require("@/app/api/sessions/public/route");
 
 describe("/api/sessions/public", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  it("uses the shared API wrapper module for pagination helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/sessions/public/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
   });
 
   it("returns public sessions without leaking author name/avatar or rating", async () => {
@@ -235,4 +249,3 @@ describe("/api/sessions/public", () => {
     expect(res.headers.get("cache-control")).toContain("no-store");
   });
 });
-

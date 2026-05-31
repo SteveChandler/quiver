@@ -62,7 +62,7 @@ test.describe('Invite landing flow', () => {
     });
   });
 
-  test('guest valid invite lands on signup with redirectTo=/invite/consume', async ({
+  test('guest valid invite renders landing and web fallback reaches signup consume flow', async ({
     page,
   }, testInfo) => {
     skipWhen(testInfo.project.name !== 'guest', 'Guest project only');
@@ -71,6 +71,18 @@ test.describe('Invite landing flow', () => {
     const token = await generateInviteToken(FALLBACK_INVITER_ID);
 
     await page.goto(`/invite/${token}`, { waitUntil: 'domcontentloaded' });
+
+    await expect(
+      page.getByRole('heading', { name: /invited you to their surf crew/i }),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(
+      page.getByRole('link', { name: /open app store/i }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: /already have the app/i }),
+    ).toBeVisible();
+
+    await page.getByRole('link', { name: /continue on web/i }).click();
     await page.waitForURL(/\/auth\/sign-up/, { timeout: 15_000 });
 
     const finalUrl = new URL(page.url());

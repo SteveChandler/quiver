@@ -10,18 +10,25 @@
  * Scheduled: Every hour at :45 via Vercel cron
  */
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
-import { validateCronRequest, createSuccessResponse, createErrorResponse } from '@/lib/api-utils';
+import { validateCronRequest, createSuccessResponse, createErrorResponse } from '@/lib/middleware/api-wrappers';
 import { fetchHourlyWind } from '@/lib/services/open-meteo-wind-service';
 import { withObservedCron } from '@/lib/cron/observability';
-import pLimit from 'p-limit';
 
 export const maxDuration = 120;
 
-/** Cardinal direction from degrees (for wind_direction text field) */
-function degreesToCardinal(deg: number): string {
-  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
-  const idx = Math.round(deg / 22.5) % 16;
-  return dirs[idx];
+type OpenMeteoWindUpdateResult = {
+  updated_count?: number;
+  skipped_count?: number;
+};
+
+type OpenMeteoWindRpcPoint = {
+  ts: string;
+  wind_speed_mph: number;
+  wind_direction_deg: number | null;
+};
+
+function parseRpcCount(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
 
 async function _GET(request: Request): Promise<Response> {
@@ -47,15 +54,9 @@ async function _GET(request: Request): Promise<Response> {
   let updated = 0;
   let skipped = 0;
   let errors = 0;
-  // Open-Meteo returns 48 hourly points, but enhanced_forecasts only has rows at ~3h intervals
-  // so most points won't match → actual DB writes ≈ 273 × 8-10 = ~2,500 (well within 120s timeout)
+  const sampleErrors: string[] = [];
   const BATCH_SIZE = 10; // Parallel API fetches per batch (avoid rate limiting)
   const DELAY_BETWEEN_BATCHES_MS = 200;
-  // Cap total in-flight enhanced_forecasts updates across all beaches in this run.
-  // Without this, BATCH_SIZE * ~48 windPoints could fan out to ~480 concurrent
-  // PostgREST requests, which is unfriendly to pgBouncer. 80 is well under
-  // pgBouncer headroom on a paid Supabase tier and still ~6x faster than serial.
-  const dbLimit = pLimit(80);
 
   for (let i = 0; i < beaches.length; i += BATCH_SIZE) {
     const batch = beaches.slice(i, i + BATCH_SIZE);
@@ -66,60 +67,44 @@ async function _GET(request: Request): Promise<Response> {
           return { beach: beach.name, updated: 0, skipped: 0 };
         }
         const windPoints = await fetchHourlyWind(beach.lat, beach.lon);
-        if (!windPoints.length) return { beach: beach.name, updated: 0, skipped: 0 };
+        const rpcPoints: OpenMeteoWindRpcPoint[] = windPoints
+          .filter((wp): wp is typeof wp & { wind_speed_mph: number } => wp.wind_speed_mph != null)
+          .map((wp) => ({
+            ts: wp.ts,
+            wind_speed_mph: wp.wind_speed_mph,
+            wind_direction_deg: wp.wind_direction_deg,
+          }));
+        if (!rpcPoints.length) return { beach: beach.name, updated: 0, skipped: 0 };
 
-        // Catch inside each limited callback so a thrown Supabase error folds
-        // into the 'error' bucket. If we let it reject, Promise.all short-
-        // circuits — the beach task rejects while the remaining queued dbLimit
-        // tasks keep running, which under-reports counts on the final batch.
-        const updates = await Promise.all(
-          windPoints
-            .filter((wp) => wp.wind_speed_mph != null)
-            .map((wp) =>
-              dbLimit(async () => {
-                try {
-                  const hourStart = wp.ts;
-                  const hourEnd = new Date(new Date(wp.ts).getTime() + 3600000).toISOString();
-                  const cardinal = wp.wind_direction_deg != null
-                    ? degreesToCardinal(wp.wind_direction_deg)
-                    : null;
+        try {
+          const { data, error } = await supabase.rpc('update_open_meteo_wind_for_beach' as never, {
+            p_beach_id: beach.id,
+            p_points: rpcPoints,
+          } as never);
 
-                  // Only update rows where wind_source is NOT a higher-priority source
-                  const { data, error } = await supabase
-                    .from('enhanced_forecasts')
-                    .update({
-                      wind_speed: `${wp.wind_speed_mph} mph`,
-                      wind_direction: cardinal,
-                      wind_direction_deg: wp.wind_direction_deg,
-                      wind_source: 'OPEN_METEO_WIND',
-                    })
-                    .eq('beach_id', beach.id)
-                    .gte('forecast_at', hourStart)
-                    .lt('forecast_at', hourEnd)
-                    .or('wind_source.is.null,wind_source.not.in.(HRRR,NWS)')
-                    .select('id');
+          if (error) {
+            const message = `${error.message}${error.code ? ` (code=${error.code})` : ''}`;
+            errors++;
+            if (sampleErrors.length < 5 && !sampleErrors.includes(message)) {
+              sampleErrors.push(message);
+            }
+            return { beach: beach.name, updated: 0, skipped: 0 };
+          }
 
-                  if (error) return { kind: 'error' as const };
-                  const rowCount = data?.length ?? 0;
-                  return rowCount > 0
-                    ? { kind: 'updated' as const, rowCount }
-                    : { kind: 'skipped' as const };
-                } catch {
-                  return { kind: 'error' as const };
-                }
-              })
-            )
-        );
-
-        let beachUpdated = 0;
-        let beachSkipped = 0;
-        for (const u of updates) {
-          if (u.kind === 'error') errors++;
-          else if (u.kind === 'updated') beachUpdated += u.rowCount;
-          else beachSkipped++;
+          const result = (data ?? {}) as OpenMeteoWindUpdateResult;
+          return {
+            beach: beach.name,
+            updated: parseRpcCount(result.updated_count),
+            skipped: parseRpcCount(result.skipped_count),
+          };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          errors++;
+          if (sampleErrors.length < 5 && !sampleErrors.includes(message)) {
+            sampleErrors.push(message);
+          }
+          return { beach: beach.name, updated: 0, skipped: 0 };
         }
-
-        return { beach: beach.name, updated: beachUpdated, skipped: beachSkipped };
       })
     );
 
@@ -140,12 +125,19 @@ async function _GET(request: Request): Promise<Response> {
 
   console.log(`[Wind] Done: ${updated} rows updated, ${skipped} skipped (protected), ${errors} errors`);
 
-  return createSuccessResponse({
+  const summary = {
     beaches: beaches.length,
     updated,
     skipped,
     errors,
-  });
+    sampleErrors,
+  };
+
+  if (errors > 0) {
+    return createErrorResponse('Wind update completed with row errors', summary);
+  }
+
+  return createSuccessResponse(summary);
 }
 
 export const GET = withObservedCron('/api/cron/wind/update', _GET);

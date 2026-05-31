@@ -10,8 +10,10 @@ import {
 } from "@/lib/analytics/android-waitlist-tracking";
 import { ANDROID_WAITLIST_STORAGE_KEY } from "@/lib/constants/android-waitlist";
 
+let mockPathname = "/features";
+
 jest.mock("next/navigation", () => ({
-  usePathname: () => "/features",
+  usePathname: () => mockPathname,
 }));
 
 jest.mock("@/context/auth-context", () => ({
@@ -97,6 +99,7 @@ describe("AndroidWaitlistCta", () => {
     jest.clearAllMocks();
     localStorage.clear();
     mockAnonymousUser();
+    mockPathname = "/features";
     mockJoinAndroidWaitlist.mockResolvedValue({
       success: true,
       data: { wants_android_access: true },
@@ -162,6 +165,39 @@ describe("AndroidWaitlistCta", () => {
     expect(screen.getByTestId("auth-modal")).toHaveAttribute(
       "data-return-to",
       "/features",
+    );
+    expect(mockJoinAndroidWaitlist).not.toHaveBeenCalled();
+  });
+
+  it("returns anonymous PBSC waitlist clicks to the event route", async () => {
+    const user = userEvent.setup();
+    mockPathname = "/pbsc";
+
+    render(
+      <AndroidWaitlistCta
+        source="pbsc-event-android-waitlist"
+        surface="pbsc-page"
+        placement="hero_primary"
+        successLabel="Android updates are set"
+      >
+        Join Android waitlist
+      </AndroidWaitlistCta>,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /join android waitlist/i }),
+    );
+
+    expect(
+      JSON.parse(localStorage.getItem(ANDROID_WAITLIST_STORAGE_KEY) || "{}"),
+    ).toMatchObject({
+      source: "pbsc-event-android-waitlist",
+      surface: "pbsc-page",
+      placement: "hero_primary",
+    });
+    expect(screen.getByTestId("auth-modal")).toHaveAttribute(
+      "data-return-to",
+      "/pbsc",
     );
     expect(mockJoinAndroidWaitlist).not.toHaveBeenCalled();
   });

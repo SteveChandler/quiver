@@ -17,14 +17,14 @@ import {
   createErrorResponse,
   createSuccessResponse,
   handleApiError,
-} from "@/lib/api-utils";
+  withRateLimit,
+} from "@/lib/middleware/api-wrappers";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { generateWelcomeEmail } from "@/lib/email/templates/welcome-email";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getEmailTokenSecret } from "@/lib/utils/email-token";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
-import { withRateLimit } from "@/lib/middleware/api-wrappers/rate-limit-wrapper";
 
 export const runtime = "nodejs";
 

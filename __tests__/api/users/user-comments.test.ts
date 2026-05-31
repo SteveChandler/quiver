@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   createMockSupabaseClient,
   createMockRequest,
@@ -14,9 +16,13 @@ import {
 let mockSupabaseClient: MockSupabaseClient;
 
 // Mock bot blocking and rate limiting middleware
-jest.mock("@/lib/middleware/api-wrappers", () => ({
-  withBotBlockingAndRateLimit: (handler: any) => handler,
-}));
+jest.mock("@/lib/middleware/api-wrappers", () => {
+  const actual = jest.requireActual("@/lib/middleware/api-wrappers");
+  return {
+    ...actual,
+    withBotBlockingAndRateLimit: (handler: any) => handler,
+  };
+});
 
 // Mock Supabase server client
 jest.mock("@/lib/supabase/server", () => ({
@@ -24,11 +30,20 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 // Import after mocks
- 
 const { GET, POST } = require("@/app/api/users/[id]/comments/route");
 
 describe("GET /api/users/[id]/comments", () => {
   const userId = "550e8400-e29b-41d4-a716-446655440000";
+
+  it("uses the shared API wrapper module for response and validation helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/users/[id]/comments/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
+    expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -45,6 +60,7 @@ describe("GET /api/users/[id]/comments", () => {
       );
 
       const res = await GET(req as any, { params: Promise.resolve({ id: "not-a-uuid" }) });
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Invalid user");
     });
 
@@ -57,6 +73,7 @@ describe("GET /api/users/[id]/comments", () => {
       );
 
       const res = await GET(req as any, { params: Promise.resolve({ id: "" }) });
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Invalid user");
     });
 
@@ -69,6 +86,7 @@ describe("GET /api/users/[id]/comments", () => {
       );
 
       const res = await GET(req as any, { params: Promise.resolve({ id: undefined as any }) });
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Invalid user");
     });
   });
@@ -306,6 +324,7 @@ describe("GET /api/users/[id]/comments", () => {
       );
 
       const res = await GET(req as any, { params: Promise.resolve({ id: userId }) });
+      expect(res.status).toBe(200);
       await expectSuccessResponse(res, 200);
     });
   });
@@ -342,6 +361,7 @@ describe("GET /api/users/[id]/comments", () => {
       );
 
       const res = await GET(req as any, { params: Promise.resolve({ id: userId }) });
+      expect(res.status).toBe(500);
       await expectErrorResponse(res, 500, "Failed to load user comments");
     });
 
@@ -358,6 +378,7 @@ describe("GET /api/users/[id]/comments", () => {
       );
 
       const res = await GET(req as any, { params: Promise.resolve({ id: userId }) });
+      expect(res.status).toBe(500);
       await expectErrorResponse(res, 500);
     });
   });
@@ -458,6 +479,7 @@ describe("GET /api/users/[id]/comments", () => {
       const res = await GET(req as any, {
         params: Promise.resolve({ id: "550e8400-e29b-41d4-a716-446655440000 " }),
       });
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400);
     });
 

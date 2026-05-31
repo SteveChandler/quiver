@@ -11,6 +11,8 @@
  * (createServiceRoleClient) is a separate mock used for the RPC call.
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   createMockSupabaseClient,
   createMockRequest,
@@ -22,7 +24,6 @@ import {
   setupApiTestEnvironment,
   type MockSupabaseClient,
 } from "@/test-utils/api-test-helpers";
-import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 import { createServiceRoleClient } from "@/lib/supabase";
 
 // ---------------------------------------------------------------------------
@@ -47,7 +48,6 @@ jest.mock("@/lib/supabase", () => ({
 // ---------------------------------------------------------------------------
 // Import the route handler *after* mocks are registered.
 // ---------------------------------------------------------------------------
-// eslint-disable-next-line @typescript-eslint/no-require-imports
 const { POST } = require("@/app/api/events/link/route");
 
 // ---------------------------------------------------------------------------
@@ -61,10 +61,12 @@ const VALID_USER_ID = "550e8400-e29b-41d4-a716-446655440000";
 // ---------------------------------------------------------------------------
 describe("POST /api/events/link", () => {
   let cleanup: () => void;
+  let consoleLogSpy: jest.SpyInstance;
 
   beforeEach(() => {
     const env = setupApiTestEnvironment();
     cleanup = env.cleanup;
+    consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
 
     // Fresh mock client for every test so auth state is isolated.
     mockSupabaseClient = createMockSupabaseClient();
@@ -77,7 +79,18 @@ describe("POST /api/events/link", () => {
   });
 
   afterEach(() => {
+    consoleLogSpy.mockRestore();
     cleanup?.();
+  });
+
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/events/link/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
   });
 
   // -------------------------------------------------------------------------
@@ -92,6 +105,7 @@ describe("POST /api/events/link", () => {
 
       const res = await POST(req);
 
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Invalid or missing sessionId");
     });
 
@@ -102,6 +116,7 @@ describe("POST /api/events/link", () => {
 
       const res = await POST(req);
 
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Invalid or missing sessionId");
     });
 
@@ -112,6 +127,7 @@ describe("POST /api/events/link", () => {
 
       const res = await POST(req);
 
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Invalid or missing sessionId");
     });
 
@@ -122,6 +138,7 @@ describe("POST /api/events/link", () => {
 
       const res = await POST(req);
 
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Invalid or missing sessionId");
     });
 
@@ -132,6 +149,7 @@ describe("POST /api/events/link", () => {
 
       const res = await POST(req);
 
+      expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Invalid or missing sessionId");
     });
   });
@@ -242,13 +260,21 @@ describe("POST /api/events/link", () => {
         body: { sessionId: VALID_SESSION_ID },
       });
 
-      const res = await POST(req);
+      const consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
 
-      // The route calls console.error('Error linking anonymous events:', error)
-      // on RPC failure — declare that as intentional so the afterEach guard passes.
-      expectConsoleErrors([/Error linking anonymous events/]);
+      try {
+        const res = await POST(req);
 
-      await expectErrorResponse(res, 500, "Failed to link events");
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          "Error linking anonymous events:",
+          { message: "Database error" }
+        );
+        await expectErrorResponse(res, 500, "Failed to link events");
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
     });
 
     it("returns 500 when the RPC call throws unexpectedly", async () => {
@@ -258,10 +284,22 @@ describe("POST /api/events/link", () => {
         body: { sessionId: VALID_SESSION_ID },
       });
 
-      const res = await POST(req);
+      const consoleErrorSpy = jest
+        .spyOn(console, "error")
+        .mockImplementation(() => {});
 
-      // withAuth catches unhandled errors and returns 500.
-      expect(res.status).toBe(500);
+      try {
+        const res = await POST(req);
+
+        // withAuth catches unhandled errors and returns 500.
+        expect(res.status).toBe(500);
+        expect(consoleErrorSpy).toHaveBeenCalledWith(
+          "API Error:",
+          "Unexpected DB failure"
+        );
+      } finally {
+        consoleErrorSpy.mockRestore();
+      }
     });
   });
 });

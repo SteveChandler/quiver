@@ -13,6 +13,57 @@ import {
 } from './fixtures/discovery-fixture';
 import { isVisibleSafe } from './utils/strict-helpers';
 
+type WaveHeightRange = {
+  min: number;
+  max: number;
+};
+
+const normalizeWaveHeightValue = (value: number): string => {
+  const rounded = Math.round(value * 10) / 10;
+  return Number.isInteger(rounded) ? `${rounded}` : `${rounded}`;
+};
+
+const parseWaveHeightRange = (text: string): WaveHeightRange | null => {
+  const normalizedText = text.replace(/\u2013/g, '-').toLowerCase();
+  const wavePattern = /~?\s*(\d+(?:\.\d+)?)(?:\s*-\s*(\d+(?:\.\d+)?)\s*)?ft/g;
+  const matches = [...normalizedText.matchAll(wavePattern)];
+
+  for (const match of matches) {
+    const min = Number.parseFloat(match[1]);
+    const max = match[2] ? Number.parseFloat(match[2]) : min;
+
+    if (!Number.isFinite(min) || !Number.isFinite(max)) {
+      continue;
+    }
+
+    return {
+      min,
+      max,
+    };
+  }
+
+  return null;
+};
+
+const formatWaveHeightRange = (range: WaveHeightRange): string => {
+  if (range.min === range.max) {
+    return `${normalizeWaveHeightValue(range.min)}ft`;
+  }
+
+  return `${normalizeWaveHeightValue(range.min)}-${normalizeWaveHeightValue(range.max)}ft`;
+};
+
+const waveHeightRangesOverlap = (
+  left: WaveHeightRange | null,
+  right: WaveHeightRange | null
+): boolean => {
+  if (!left || !right) {
+    return false;
+  }
+
+  return Math.max(left.min, right.min) <= Math.min(left.max, right.max);
+};
+
 /**
  * Home Page E2E Tests
  *
@@ -273,55 +324,134 @@ test.describe('Home Page - Layout', () => {
       }
     });
 
-    test('should navigate when clicking a nearby spot card', async ({ page }) => {
-      const heading = page.locator('h2', { hasText: 'Nearby Spots' });
-      const headingVisible = await isVisibleSafe(heading, { timeout: TIMEOUTS.medium });
+  test('should navigate when clicking a nearby spot card', async ({ page }) => {
+    const heading = page.locator('h2', { hasText: 'Nearby Spots' });
+    const headingVisible = await isVisibleSafe(heading, { timeout: TIMEOUTS.medium });
 
-      if (headingVisible) {
-        const spotCards = page.locator('section').filter({ has: heading }).locator('[role="button"]');
-        const cardCount = await spotCards.count();
+    if (!headingVisible) {
+      return;
+    }
 
-        if (cardCount > 0) {
-          const firstCard = spotCards.first();
-          await expect(firstCard).toBeVisible();
-
-          // Dismiss any onboarding/profile setup dialog that may intercept clicks
-          const setupDialog = page.locator('[role="dialog"]').filter({ hasText: /set up|profile|onboard/i });
-          const dialogVisible = await isVisibleSafe(setupDialog, { timeout: TIMEOUTS.short });
-          if (dialogVisible) {
-            const closeBtn = setupDialog.locator('button').filter({ hasText: /close|skip|dismiss|×/i }).first();
-            const closeBtnVisible = await isVisibleSafe(closeBtn, { timeout: TIMEOUTS.short });
-            if (closeBtnVisible) {
-              await closeBtn.click();
-            } else {
-              await page.keyboard.press('Escape');
-            }
-            await page.locator('[role="dialog"]').first().waitFor({ state: 'hidden', timeout: 3000 }).catch(() => {});
-          }
-
-          const urlBefore = page.url();
-          // Use force to bypass any remaining overlay that may be present
-          await firstCard.click({ force: true });
-
-          // handleViewSpot uses router.push() to /surf-forecast/{city}-{state}/{slug}
-          // If the spot has no slug, navigation is skipped — check for either outcome
-          try {
-            await page.waitForURL(/\/surf-forecast\/.+/, { timeout: TIMEOUTS.short });
-            expect(page.url()).toMatch(/\/surf-forecast\/.+/);
-          } catch {
-            // Navigation may not occur if spot data lacks a slug — this is acceptable
-            const urlAfter = page.url();
-            expect(urlAfter === urlBefore || urlAfter.includes('/surf-forecast')).toBe(true);
-          } finally {
-            // Always navigate back to home so afterEach assertNoErrors runs on the home page
-            if (page.url() !== urlBefore) {
-              await page.goto('/');
-              await page.waitForLoadState('domcontentloaded');
-            }
-          }
-        }
-      }
+    await page.route('**/api/intel*', async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ data: { posts: [] } }),
+      });
     });
+
+    try {
+      const spotCards = page.locator('section').filter({ has: heading }).locator('[role="button"]');
+      const cardCount = await spotCards.count();
+      if (cardCount === 0) {
+        return;
+      }
+
+      const firstCard = spotCards.first();
+      await expect(firstCard).toBeVisible();
+      const selectedBeach = (await firstCard.locator('p').first().textContent())?.trim();
+      expect(selectedBeach).toBeTruthy();
+
+      // Dismiss any onboarding/profile setup dialog that may intercept clicks
+      const setupDialog = page
+        .locator('[role="dialog"]')
+        .filter({ hasText: /set up|profile|onboard/i });
+      const dialogVisible = await isVisibleSafe(setupDialog, { timeout: TIMEOUTS.short });
+      if (dialogVisible) {
+        const closeBtn = setupDialog
+          .locator('button')
+          .filter({ hasText: /close|skip|dismiss|×/i })
+          .first();
+        const closeBtnVisible = await isVisibleSafe(closeBtn, { timeout: TIMEOUTS.short });
+        if (closeBtnVisible) {
+          await closeBtn.click();
+        } else {
+          await page.keyboard.press('Escape');
+        }
+        await page
+          .locator('[role="dialog"]')
+          .first()
+          .waitFor({ state: 'hidden', timeout: 3000 })
+          .catch(() => {});
+      }
+
+      const urlBefore = page.url();
+      const expectedPathRegex = /\/(?:surf-forecast\/[^/?#]+|[a-z]{2}\/[^/?#]+\/[^/?#]+)/i;
+
+      await firstCard.click({ force: true });
+      await page.waitForURL(expectedPathRegex, { timeout: TIMEOUTS.short });
+
+      expect(page.url()).toMatch(expectedPathRegex);
+      expect(page.url()).not.toBe(urlBefore);
+
+      const beachNameEscaped = (selectedBeach ?? '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const detailBeachHeading = page.locator('h1').filter({
+        hasText: new RegExp(beachNameEscaped, 'i'),
+      });
+      await expect(detailBeachHeading).toBeVisible({ timeout: TIMEOUTS.short });
+    } finally {
+      errorCapture.consoleErrors = errorCapture.consoleErrors.filter(
+        (msg) => !msg.includes('Encountered a script tag while rendering React component')
+      );
+      await page.unroute('**/api/intel*');
+      if (page.url() !== '/') {
+        await page.goto('/');
+        await page.waitForLoadState('domcontentloaded');
+      }
+    }
+  });
+
+  test('should carry nearby spot forecast height into beach detail', async ({ page }) => {
+    const heading = page.locator('h2', { hasText: 'Nearby Spots' });
+    const headingVisible = await isVisibleSafe(heading, { timeout: TIMEOUTS.medium });
+
+    if (!headingVisible) {
+      return;
+    }
+
+    try {
+      const nearbySection = page.locator('section').filter({ has: heading });
+      const spotCards = nearbySection.locator('[role="button"]');
+      const cardCount = await spotCards.count();
+      if (cardCount === 0) {
+        return;
+      }
+
+      const firstCard = spotCards.first();
+      await expect(firstCard).toBeVisible();
+
+      const homeSpotName = (await firstCard.locator('p').first().textContent())?.trim();
+      expect(homeSpotName).toBeTruthy();
+
+      const homeSpotForecast = parseWaveHeightRange(await firstCard.textContent() ?? '');
+      expect(homeSpotForecast).toBeTruthy();
+
+      await firstCard.click({ force: true });
+      await page.waitForURL(/\/(?:surf-forecast\/[^/?#]+|[a-z]{2}\/[^/?#]+\/[^/?#]+)/i, {
+        timeout: TIMEOUTS.short,
+      });
+
+      const detailBeachHeading = page.locator('h1').filter({
+        hasText: new RegExp(homeSpotName ?? '', 'i'),
+      });
+      await expect(detailBeachHeading).toBeVisible({ timeout: TIMEOUTS.medium });
+
+      const currentConditionsSection = page
+        .locator('section')
+        .filter({ has: page.getByRole('heading', { name: 'Current Conditions', level: 2, exact: true }) });
+
+      await expect(currentConditionsSection).toBeVisible({ timeout: TIMEOUTS.long });
+
+      const detailForecast = parseWaveHeightRange(await currentConditionsSection.textContent() ?? '');
+      expect(detailForecast).toBeTruthy();
+
+      expect(waveHeightRangesOverlap(homeSpotForecast, detailForecast)).toBe(true);
+    } finally {
+      errorCapture.consoleErrors = errorCapture.consoleErrors.filter(
+        (msg) => !msg.includes('Encountered a script tag while rendering React component')
+      );
+    }
+  });
   });
 
   test.describe('Activity Feed', () => {

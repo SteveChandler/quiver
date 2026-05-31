@@ -77,3 +77,16 @@ export const MORNING_TIME_BONUS = 15;
 
 /** 5pm - times after this don't get morning time bonus */
 export const EVENING_CUTOFF_HOUR = 17;
+
+// ============================================================================
+// Recommendations V2 fallback thresholds
+// ============================================================================
+
+/** Minimum condition score for a surfable Recommendation V2 window. */
+export const RECOMMENDATIONS_V2_MIN_CONDITION_SCORE = 65;
+
+/** Minimum personal match score for a surfable Recommendation V2 window. */
+export const RECOMMENDATIONS_V2_MIN_PERSONAL_MATCH_SCORE = 6.0;
+
+/** Future fallback horizon when today is below the surfable thresholds. */
+export const RECOMMENDATIONS_V2_FALLBACK_HORIZON_HOURS = 72;

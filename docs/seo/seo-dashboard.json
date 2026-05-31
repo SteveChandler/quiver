@@ -1,7 +1,7 @@
 {
   "version": 1,
   "site": "https://www.quiversurf.app",
-  "updatedAt": "2026-05-20T01:45:28.550Z",
+  "updatedAt": "2026-05-23T04:10:17.716Z",
   "entries": [
     {
       "id": "static-root",
@@ -95,6 +95,84 @@
       "recommendations": []
     },
     {
+      "id": "beginner-beginner-huntington-beach",
+      "canonicalPath": "/beginner/huntington-beach",
+      "pageType": "beginner",
+      "targetKeyword": "beginner surf spots in huntington beach",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "beginner surf spots in huntington beach",
+        "secondarySemantics": [
+          "beginner surf guide",
+          "huntington beach",
+          "is huntington beach good for beginner surfing?",
+          "what board should a beginner bring in huntington beach?",
+          "what conditions are best in huntington beach?",
+          "which local breaks should i check near huntington beach?"
+        ],
+        "intendedHeadings": [
+          "Beginner Surf Spots in Huntington Beach",
+          "Best conditions to watch for",
+          "Board and safety call",
+          "Local read before you drive",
+          "Where Huntington Beach works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/los-angeles",
+          "/beginner/orange-county",
+          "/beginner/san-onofre",
+          "/ca/huntington-beach/bolsa-chica",
+          "/ca/huntington-beach/goldenwest",
+          "/ca/huntington-beach/huntington-state-beach",
+          "/ca/newport-beach/blackies",
+          "/map",
+          "/surf-cams/orange-county"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "beginner-beginner-los-angeles",
+      "canonicalPath": "/beginner/los-angeles",
+      "pageType": "beginner",
+      "targetKeyword": "beginner surf spots in los angeles",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "beginner surf spots in los angeles",
+        "secondarySemantics": [
+          "beginner surf guide",
+          "is los angeles good for beginner surfing?",
+          "los angeles",
+          "what board should a beginner bring in los angeles?",
+          "what conditions are best in los angeles?",
+          "which local breaks should i check near los angeles?"
+        ],
+        "intendedHeadings": [
+          "Beginner Surf Spots in Los Angeles",
+          "Best conditions to watch for",
+          "Board and safety call",
+          "Local read before you drive",
+          "Where Los Angeles works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/orange-county",
+          "/beginner/san-diego",
+          "/beginner/santa-barbara",
+          "/beginner/ventura",
+          "/ca/long-beach/72nd-place-long-beach-ca",
+          "/ca/playa-del-rey/dockweiler-state-beach-playa-del-rey-ca",
+          "/ca/santa-monica/santa-monica-beach-santa-monica-ca",
+          "/ca/santa-monica/will-rogers-state-beach-santa-monica-ca",
+          "/ca/torrance/torrance-beach-rat-beach-torrance-ca",
+          "/ca/venice/venice-beach-venice-ca",
+          "/map"
+        ]
+      },
+      "recommendations": []
+    },
+    {
       "id": "beginner-beginner-orange-county",
       "canonicalPath": "/beginner/orange-county",
       "pageType": "beginner",
@@ -119,8 +197,15 @@
         ],
         "linkedUrls": [
           "/auth/sign-up",
+          "/beginner/huntington-beach",
+          "/beginner/los-angeles",
+          "/beginner/san-diego",
           "/beginner/san-onofre",
+          "/beginner/ventura",
           "/ca/dana-point/doheny-beach",
+          "/ca/huntington-beach/bolsa-chica",
+          "/ca/huntington-beach/goldenwest",
+          "/ca/newport-beach/blackies",
           "/longboard/encinitas",
           "/map",
           "/surf-cams/orange-county"
@@ -153,6 +238,8 @@
         ],
         "linkedUrls": [
           "/auth/sign-up",
+          "/beginner/los-angeles",
+          "/beginner/orange-county",
           "/ca/la-jolla/la-jolla-shores",
           "/longboard/la-jolla",
           "/map",
@@ -188,12 +275,51 @@
         ],
         "linkedUrls": [
           "/auth/sign-up",
+          "/beginner/los-angeles",
           "/beginner/orange-county",
+          "/beginner/san-diego",
           "/ca/san-onofre/middles",
           "/ca/san-onofre/san-onofre-state-beach",
           "/longboard/encinitas",
           "/map",
           "/surf-cams/orange-county"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "beginner-beginner-santa-barbara",
+      "canonicalPath": "/beginner/santa-barbara",
+      "pageType": "beginner",
+      "targetKeyword": "beginner surf spots in santa barbara",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "beginner surf spots in santa barbara",
+        "secondarySemantics": [
+          "beginner surf guide",
+          "is santa barbara good for beginner surfing?",
+          "santa barbara",
+          "what board should a beginner bring in santa barbara?",
+          "what conditions are best in santa barbara?",
+          "which local breaks should i check near santa barbara?"
+        ],
+        "intendedHeadings": [
+          "Beginner Surf Spots in Santa Barbara",
+          "Best conditions to watch for",
+          "Board and safety call",
+          "Local read before you drive",
+          "Where Santa Barbara works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/los-angeles",
+          "/beginner/orange-county",
+          "/beginner/ventura",
+          "/ca/goleta/refugio-state-beach-goleta-ca",
+          "/ca/santa-barbara/leadbetter",
+          "/ca/ventura/mondos-beach-ventura-ca",
+          "/longboard/santa-barbara",
+          "/map"
         ]
       },
       "recommendations": []
@@ -226,6 +352,41 @@
           "/beginner/san-onofre",
           "/beginner/santa-cruz",
           "/ca/capitola/capitola-beach",
+          "/map"
+        ]
+      },
+      "recommendations": []
+    },
+    {
+      "id": "beginner-beginner-ventura",
+      "canonicalPath": "/beginner/ventura",
+      "pageType": "beginner",
+      "targetKeyword": "beginner surf spots in ventura",
+      "status": "covered",
+      "cluster": {
+        "primaryKeyword": "beginner surf spots in ventura",
+        "secondarySemantics": [
+          "beginner surf guide",
+          "is ventura good for beginner surfing?",
+          "ventura",
+          "what board should a beginner bring in ventura?",
+          "what conditions are best in ventura?",
+          "which local breaks should i check near ventura?"
+        ],
+        "intendedHeadings": [
+          "Beginner Surf Spots in Ventura",
+          "Best conditions to watch for",
+          "Board and safety call",
+          "Local read before you drive",
+          "Where Ventura works best"
+        ],
+        "linkedUrls": [
+          "/auth/sign-up",
+          "/beginner/los-angeles",
+          "/beginner/orange-county",
+          "/beginner/santa-barbara",
+          "/ca/ventura/mondos-beach-ventura-ca",
+          "/longboard/ventura",
           "/map"
         ]
       },
@@ -1587,7 +1748,7 @@
   "proposals": [
     {
       "id": "proposal-beginner-california-beginner-20surf-20spots-20california",
-      "createdAt": "2026-05-20T01:45:28.550Z",
+      "createdAt": "2026-05-23T04:10:17.716Z",
       "source": "keyword-research",
       "priority": "medium",
       "targetKeyword": "beginner surf spots california",
@@ -1614,7 +1775,7 @@
     },
     {
       "id": "proposal-vs-surfline-free-20surfline-20alternative",
-      "createdAt": "2026-05-20T01:45:28.550Z",
+      "createdAt": "2026-05-23T04:10:17.716Z",
       "source": "keyword-research",
       "priority": "medium",
       "targetKeyword": "free surfline alternative",
@@ -1653,7 +1814,7 @@
     },
     {
       "id": "proposal-map-surf-20conditions-20near-20me",
-      "createdAt": "2026-05-20T01:45:28.550Z",
+      "createdAt": "2026-05-23T04:10:17.716Z",
       "source": "keyword-research",
       "priority": "medium",
       "targetKeyword": "surf conditions near me",

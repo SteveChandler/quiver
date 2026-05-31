@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   createMockSupabaseClient,
   createMockRequest,
@@ -52,10 +54,19 @@ jest.mock("@/lib/profile/fetchers", () => ({
 }));
 
 // Import after mocks
- 
 const { GET } = require("@/app/api/users/[id]/profile/route");
 
 describe("/api/users/[id]/profile", () => {
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/users/[id]/profile/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
+    expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
+  });
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockSupabaseClient = createMockSupabaseClient();
@@ -67,6 +78,7 @@ describe("/api/users/[id]/profile", () => {
       "http://localhost:3000/api/users/not-a-uuid/profile"
     );
     const res = await GET(req as any, { params: { id: "not-a-uuid" } });
+    expect(res.status).toBe(400);
     await expectErrorResponse(res, 400);
   });
 
@@ -275,5 +287,3 @@ describe("/api/users/[id]/profile", () => {
     expect((body as any).data.onboarding_completed_at).toBeNull();
   });
 });
-
-

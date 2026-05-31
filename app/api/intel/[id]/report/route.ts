@@ -6,11 +6,11 @@ import {
   validateUuidParam,
   createValidationError,
   createNotFoundError,
+  validateOrError,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
 import { parseAndValidateJson } from "@/lib/validation/middleware";
 import { IntelReportSchema } from "@/lib/validation/schemas";
-import { validateOrError } from "@/lib/api-utils";
 
 export const dynamic = "force-dynamic";
 

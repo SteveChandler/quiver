@@ -4,8 +4,9 @@ import {
   CacheDuration,
   parsePaginationParams,
   createPaginationMeta,
-} from "@/lib/api-utils";
-import { withAuth, withRateLimit } from "@/lib/middleware/api-wrappers";
+  withAuth,
+  withRateLimit,
+} from "@/lib/middleware/api-wrappers";
 import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 
 // Mark this route as dynamic to prevent static generation

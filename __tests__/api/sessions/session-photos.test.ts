@@ -7,6 +7,9 @@
  * Tests the GET /api/sessions/[id]/photos endpoint for retrieving session photos
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 // Use lightweight NextRequest/NextResponse mock
 jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 import { NextRequest } from "next/server";
@@ -76,6 +79,16 @@ describe("GET /api/sessions/[id]/photos", () => {
   const validSessionId = "123e4567-e89b-12d3-a456-426614174000";
   const sessionOwnerId = "987fcdeb-51a2-43c1-a123-456789abcdef";
   const otherUserId = "111fcdeb-51a2-43c1-a123-456789abcd11";
+
+  it("uses the shared API wrapper module for response and validation helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/sessions/[id]/photos/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
+    expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
+  });
 
   beforeEach(() => {
     jest.clearAllMocks();

@@ -8,6 +8,7 @@ import type {
   DataForSeoExportInput,
   GscExportInput,
   PostHogExportInput,
+  SeoMetadataAuditInput,
   SeoRecommendation,
   StoreSnapshotInput,
   VercelExportInput,
@@ -26,10 +27,14 @@ const inputFiles = [
 const optionalInputFiles = ["AHREFS-ENRICHMENT.json"];
 
 const missing: string[] = [];
+const metadata = readJsonIfExists<SeoMetadataAuditInput>(
+  path.join(auditDir, "SEO-METADATA-AUDIT.json"),
+  missing,
+) ?? undefined;
 
 const recommendations = inputFiles.flatMap((fileName) =>
   readJsonIfExists<SeoRecommendation[]>(path.join(auditDir, fileName), missing) ?? [],
-).concat(optionalInputFiles.flatMap((fileName) =>
+).concat(metadata?.recommendations ?? [], optionalInputFiles.flatMap((fileName) =>
   readJsonIfExists<SeoRecommendation[]>(path.join(auditDir, fileName)) ?? [],
 ));
 const technical = readJsonIfExists<SeoRecommendation[]>(
@@ -47,6 +52,7 @@ const input: WeeklySeoReportInput = {
   store: readJsonIfExists<StoreSnapshotInput>(path.join(auditDir, "STORE-SNAPSHOT.json"), missing) ?? undefined,
   dataforseo: readJsonIfExists<DataForSeoExportInput>(path.join(auditDir, "DATAFORSEO-EXPORT.json")) ?? undefined,
   backlink: readJsonIfExists<BacklinkProxyInput>(path.join(auditDir, "BACKLINK-PROXY.json"), missing) ?? undefined,
+  metadata,
   missing,
 };
 

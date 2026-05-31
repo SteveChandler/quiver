@@ -4,9 +4,9 @@ import {
   handleApiError,
   createSuccessResponse,
   createValidationError,
-} from "@/lib/api-utils";
+  withBotBlockingAndRateLimit,
+} from "@/lib/middleware/api-wrappers";
 import { getWindDirectionName } from "@/lib/utils/wind-direction";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 import { normalizeCoordinates } from "@/lib/types/coordinates";
 
 export const dynamic = "force-dynamic";
@@ -24,8 +24,6 @@ async function conditionsHandler(request: NextRequest) {
     },
     { context: "GET /api/buoys/conditions" }
   );
-  const limit = parseInt(searchParams.get("limit") || "50"); // matches Ruby default of 50
-
   if (!coords) {
     return createValidationError("Latitude and longitude are required");
   }

@@ -4,9 +4,9 @@ import {
   createSuccessResponse,
   createValidationError,
   createErrorResponse,
+  DEFAULT_SECURITY_HEADERS,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
-import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
 import { canCreateRule, getUserEntitlement } from "@/lib/alerts/entitlements";
 import { validateConditionAlertInput } from "@/lib/alerts/condition-validation";
 import {

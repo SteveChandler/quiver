@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { createSuccessResponse, handleApiError } from "@/lib/api-utils";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
+import {
+  createSuccessResponse,
+  handleApiError,
+  withBotBlockingAndRateLimit,
+} from "@/lib/middleware/api-wrappers";
 
 // Core handler logic for fetching a single beach
 async function fetchBeachById(beachId: string): Promise<NextResponse> {

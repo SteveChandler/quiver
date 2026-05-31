@@ -56,6 +56,21 @@ jest.mock("@/lib/services/noaa-coops", () => ({
   })),
 }));
 
+jest.mock("@/lib/services/cdip", () => ({
+  CDIPService: jest.fn(() => ({
+    getNearestStation: jest.fn(() => Promise.resolve(null)),
+    fetchBuoyData: jest.fn(() => Promise.resolve(null)),
+    fetchBuoyDataWithDiagnostics: jest.fn((stationId: string) =>
+      Promise.resolve({
+        data: null,
+        stationId,
+        skipReason: "no_station",
+      }),
+    ),
+    getDataQualityScore: jest.fn(() => 0),
+  })),
+}));
+
 // Mock fetch for NOAA weather API
 global.fetch = jest.fn();
 
@@ -266,22 +281,30 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
       expect(dates.length).toBeGreaterThan(0);
 
       // Check that forecasts are spaced 3 hours apart
-      Object.values(forecastsByDate).forEach((dailyForecasts) => {
-        if (dailyForecasts.length > 1) {
-          const times = dailyForecasts.map((f) => f.forecast_time).sort();
-          for (let i = 1; i < times.length; i++) {
-            const prevTime = times[i - 1];
-            const currTime = times[i];
+      const hourDiffs = Object.values(forecastsByDate).flatMap(
+        (dailyForecasts) => {
+          if (dailyForecasts.length <= 1) {
+            return [];
+          }
 
+          const times = dailyForecasts.map((f) => f.forecast_time).sort();
+
+          return times.slice(1).map((currTime, index) => {
+            const prevTime = times[index];
             const prevHour = parseInt(prevTime.split(":")[0]);
             const currHour = parseInt(currTime.split(":")[0]);
 
-            // Should be 3 hours apart (accounting for 24-hour wrap)
-            const hourDiff = (currHour - prevHour + 24) % 24;
-            expect(hourDiff).toBe(FORECAST_CONSTANTS.INTERVAL_HOURS);
-          }
+            return (currHour - prevHour + 24) % 24;
+          });
         }
-      });
+      );
+
+      expect(hourDiffs.length).toBeGreaterThan(0);
+      expect(
+        hourDiffs.every(
+          (hourDiff) => hourDiff === FORECAST_CONSTANTS.INTERVAL_HOURS
+        )
+      ).toBe(true);
 
       // Verify total forecasts is correct
       const totalForecasts = Object.values(forecastsByDate).reduce(

@@ -131,4 +131,51 @@ describe('PR 4 snapshot diff — Horseshoe + OB Pier', () => {
     expect(detailed.matchQuality).not.toBe('excellent');
     expect(detailed.matchQuality).not.toBe('perfect');
   });
+
+  it('Mission Beach: 2.5ft / 9s WNW / W 10mph / rising tide stays fair best-available, not good', () => {
+    const beach = createBeach({
+      id: 'mission-beach-bug',
+      name: 'Mission Beach',
+      swell_window_min_deg: 255,
+      swell_window_max_deg: 345,
+      wind_offshore_deg: 90,
+      wind_offshore_tol_deg: 30,
+      wind_onshore_bad_kt: 8,
+      preferred_tide_ft_min: 2,
+      preferred_tide_ft_max: 6,
+      preferred_tide_direction: 'rising',
+      break_type: 'jetty',
+    });
+    const forecast = createForecast({
+      wave_height: '2.5',
+      wave_period: '9s',
+      wave_direction: 'WNW',
+      wave_direction_om: 292.5,
+      swell_1_height: '2.5',
+      swell_1_period: '9s',
+      swell_1_direction: 'WNW',
+      wind_wave_height: '1',
+      wind_wave_period: '6s',
+      wind_wave_direction: 'W',
+      wind_speed: '10',
+      wind_direction: 'W',
+      wind_direction_deg: 270,
+      tide_height: '2.7',
+      tide_status: 'Rising',
+    });
+    const engine = createDiscoveryScoringEngine();
+    const detailed = scoreBeachWithEngine(engine, beach as any, forecast as any);
+
+    const profile = beachToSpotProfile(beach as any);
+    const snapshot = forecastToSnapshot(forecast as any);
+    const composite = engine.score({ profile, snapshot, window: null, preferences: null });
+    const character = getConditionCharacter(snapshot, profile, composite);
+    const gatedLabel = getRecommendationLabelGated(detailed.total, character.category);
+
+    expect(composite.subscores.get('windQuality')).toBeLessThan(35);
+    expect(detailed.total).toBeLessThan(55);
+    expect(detailed.matchQuality).toBe('fair');
+    expect(character.category).toBe('medium-rough');
+    expect(gatedLabel).toBe('Maybe');
+  });
 });

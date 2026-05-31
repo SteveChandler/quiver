@@ -1,36 +1,75 @@
 import fs from "node:fs";
 import path from "node:path";
 import { VALID_EVENTS } from "@/app/api/events/route";
+import { KNOWN_REJECTED_USER_EVENT_EMITTERS } from "@/lib/analytics/event-taxonomy";
 
 /**
- * Parses the most recent user_events_event_type_check migration file and
- * extracts the ARRAY literal. Compares it to the code-level VALID_EVENTS
- * export. Any code-level event name not in the latest migration's ARRAY
- * will 500 at insert time — this test catches that drift in CI.
+ * Parses user_events_event_type_check migrations and extracts event names from
+ * both full static CHECK arrays and additive dynamic migrations that preserve
+ * the current CHECK before OR-ing in new event names.
  */
-function latestCheckMigrationEventTypes(): Set<string> {
+function userEventsCheckMigrationEventTypes(): Set<string> {
   const dir = path.join(process.cwd(), "supabase", "migrations");
   const files = fs.readdirSync(dir)
     .filter(f => f.endsWith(".sql"))
     .sort(); // timestamps sort lexicographically
+  const dbAllowed = new Set<string>();
+  let found = false;
 
-  for (let i = files.length - 1; i >= 0; i--) {
-    const content = fs.readFileSync(path.join(dir, files[i]), "utf8");
-    if (!content.includes("user_events_event_type_check")) continue;
+  for (const file of files) {
+    const contentWithComments = fs.readFileSync(path.join(dir, file), "utf8");
+    if (!contentWithComments.includes("user_events_event_type_check")) continue;
 
-    const arrayMatch = content.match(/CHECK\s*\(\s*event_type\s*=\s*ANY\s*\(\s*ARRAY\s*\[([\s\S]*?)\]\s*\)\s*\)/);
-    if (!arrayMatch) continue;
+    const content = contentWithComments.replace(/--.*$/gm, "");
+    const names = new Set<string>();
 
-    const names = [...arrayMatch[1].matchAll(/'([^']+)'::text/g)].map(m => m[1]);
-    return new Set(names);
+    for (const arrayMatch of content.matchAll(/ARRAY\s*\[([\s\S]*?)\]/g)) {
+      for (const name of arrayMatch[1].matchAll(/'([^']+)'(?:::text)?/g)) {
+        names.add(name[1]);
+      }
+    }
+
+    for (const formatMatch of content.matchAll(/EXECUTE\s+format\(([\s\S]*?)\);/g)) {
+      for (const name of formatMatch[1].matchAll(/'([a-z][a-z0-9_]+)'/g)) {
+        names.add(name[1]);
+      }
+    }
+
+    if (names.size === 0) continue;
+
+    found = true;
+    const appendsExistingCheck =
+      content.includes("pg_get_constraintdef") || content.includes("current_check");
+    if (!appendsExistingCheck) {
+      dbAllowed.clear();
+    }
+
+    for (const name of names) {
+      dbAllowed.add(name);
+    }
   }
-  throw new Error("No user_events_event_type_check migration found");
+
+  if (!found) {
+    throw new Error("No user_events_event_type_check migration found");
+  }
+
+  return dbAllowed;
 }
 
 describe("user_events allowlist / DB CHECK sync", () => {
-  it("every VALID_EVENTS entry is present in the latest CHECK migration", () => {
-    const dbAllowed = latestCheckMigrationEventTypes();
+  it("every VALID_EVENTS entry is present in a CHECK migration", () => {
+    const dbAllowed = userEventsCheckMigrationEventTypes();
     const missing = VALID_EVENTS.filter(e => !dbAllowed.has(e));
     expect(missing).toEqual([]);
+  });
+
+  it("keeps DB CHECK additions accepted by the API route or explicitly documented", () => {
+    const validEvents = new Set<string>(VALID_EVENTS);
+    const documentedRejectedEvents = new Set<string>(KNOWN_REJECTED_USER_EVENT_EMITTERS);
+    const dbOnlyEvents = [...userEventsCheckMigrationEventTypes()]
+      .filter(e => !validEvents.has(e) && !documentedRejectedEvents.has(e))
+      .sort();
+
+    expect(dbOnlyEvents).toEqual([]);
   });
 });

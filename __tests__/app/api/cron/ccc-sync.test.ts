@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GET } from "@/app/api/cron/ccc-sync/route";
-import { validateCronRequest } from "@/lib/api-utils";
+import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import {
   fetchCCCLocations,
   matchCCCToBeaches,
@@ -15,7 +17,7 @@ jest.mock("@/lib/cron/observability", () => ({
       handler,
 }));
 
-jest.mock("@/lib/api-utils", () => {
+jest.mock("@/lib/middleware/api-wrappers", () => {
   function jsonResponse(body: unknown, status = 200): Response {
     return new Response(JSON.stringify(body), {
       status,
@@ -94,10 +96,13 @@ function createCronRequest(url = "http://localhost/api/cron/ccc-sync"): Request 
 }
 
 describe("GET /api/cron/ccc-sync", () => {
+  let consoleLog: jest.SpyInstance;
+
   beforeEach(() => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date("2026-05-07T16:23:57Z"));
     jest.clearAllMocks();
+    consoleLog = jest.spyOn(console, "log").mockImplementation(() => undefined);
 
     mockValidateCronRequest.mockReturnValue(true);
     mockFetchCCCLocations.mockResolvedValue({
@@ -150,7 +155,18 @@ describe("GET /api/cron/ccc-sync", () => {
   });
 
   afterEach(() => {
+    consoleLog.mockRestore();
     jest.useRealTimers();
+  });
+
+  it("uses the shared API wrapper module for response helpers and cron auth", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/cron/ccc-sync/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
+    expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
   });
 
   it("returns an ok skipped result for an invalid explicit phase", async () => {

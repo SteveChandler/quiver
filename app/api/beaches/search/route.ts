@@ -1,14 +1,13 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import {
   handleApiError,
   createPaginatedResponse,
-  createCachedResponse,
   CacheDuration,
   parsePaginationParams,
   createPaginationMeta,
-} from "@/lib/api-utils";
+  withBotBlockingAndRateLimit,
+} from "@/lib/middleware/api-wrappers";
 import { searchBeachesMultiple } from "@/lib/utils/beach-search-utils";
-import { withBotBlockingAndRateLimit } from "@/lib/middleware/api-wrappers";
 
 export const dynamic = 'force-dynamic';
 

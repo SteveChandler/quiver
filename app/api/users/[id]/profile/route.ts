@@ -1,5 +1,9 @@
 import type { NextRequest } from "next/server";
-import { createValidationError, handleApiError, isValidUuid } from "@/lib/api-utils";
+import {
+  createValidationError,
+  handleApiError,
+  isValidUuid,
+} from "@/lib/middleware/api-wrappers";
 import { GET as canonicalGet } from "@/app/api/profile/[id]/route";
 
 export const dynamic = 'force-dynamic';
@@ -15,5 +19,4 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     return handleApiError(error);
   }
 }
-
 

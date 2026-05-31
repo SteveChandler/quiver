@@ -37,6 +37,41 @@ describe("SEO workflow weekly report", () => {
     expect(report).not.toContain("AHREFS-ENRICHMENT.json");
   });
 
+  it("renders SEO metadata audit coverage and issues", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-05-20T12:00:00Z",
+      recommendations: [],
+      missing: [],
+      metadata: {
+        generatedAt: "2026-05-20T12:00:00Z",
+        checkedPages: 25,
+        issues: [{
+          path: "/surf-cams/hawaii",
+          title: "Hawaii Cams",
+          titleLength: 11,
+          metaDescription: "Short description.",
+          metaDescriptionLength: 18,
+          priority: "high",
+          problems: ["title length 11 outside 30-60"],
+        }],
+        recommendations: [{
+          id: "metadata-audit-surf-cams-hawaii",
+          createdAt: "2026-05-20T12:00:00Z",
+          source: "metadata-audit",
+          priority: "high",
+          canonicalPath: "/surf-cams/hawaii",
+          summary: "SEO metadata quality gates failed.",
+          evidence: ["title length 11 outside 30-60"],
+          status: "open",
+        }],
+      },
+    });
+
+    expect(report).toContain("## SEO Metadata");
+    expect(report).toContain("SEO metadata audit checked 25 indexable pages and found 1 issue.");
+    expect(report).toContain("HIGH: `/surf-cams/hawaii` - SEO metadata quality gates failed.");
+  });
+
   it("renders DataForSEO rank and ASO coverage when available", () => {
     const report = renderWeeklySeoReport({
       generatedAt: "2026-05-20T12:00:00Z",

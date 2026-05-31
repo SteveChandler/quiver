@@ -15,19 +15,18 @@
  * - Security headers on all responses
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { NextRequest } from "next/server";
 
 // Mock withRateLimit to pass through the handler
 jest.mock("@/lib/middleware/api-wrappers", () => ({
-  withRateLimit: (handler: Function) => handler,
-}));
-
-// Mock DEFAULT_SECURITY_HEADERS
-jest.mock("@/lib/api-utils", () => ({
   DEFAULT_SECURITY_HEADERS: {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
   },
+  withRateLimit: (handler: (request: NextRequest) => Promise<Response>) =>
+    handler,
 }));
 
 // Mock global fetch
@@ -55,6 +54,16 @@ function makeHdontapHtmlWithUnicode(hlsUrl: string): string {
 
 describe("GET /api/cam-resolve", () => {
   let GET: (req: NextRequest) => Promise<Response>;
+
+  it("uses the shared API wrapper module for security headers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/cam-resolve/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
+    expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
+  });
 
   beforeAll(async () => {
     const mod = await import("@/app/api/cam-resolve/route");

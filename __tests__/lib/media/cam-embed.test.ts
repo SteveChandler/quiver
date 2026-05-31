@@ -114,6 +114,28 @@ describe("buildCamEmbed", () => {
     });
   });
 
+  it("returns external kind for Surfers View live-cam pages", () => {
+    const result = buildCamEmbed(
+      "https://thesurfersview.com/live-cams/new-jersey/belmar-beach-cam-and-surf-report/"
+    );
+    expect(result).toEqual({
+      kind: "external",
+      pageUrl:
+        "https://thesurfersview.com/live-cams/new-jersey/belmar-beach-cam-and-surf-report/",
+      provider: "The Surfers View",
+    });
+  });
+
+  it("resolves the authorized Surfers View Ocean Beach page through the OB Hotel video resolver", () => {
+    const result = buildCamEmbed(
+      "https://www.thesurfersview.com/live-cams/california/ocean-beach-san-diego-webcam-and-surf-report?ref=test"
+    );
+    expect(result).toEqual({
+      kind: "hdontap",
+      pageUrl: "https://www.obhotel.com/Webcam-Oceanbeach.php",
+    });
+  });
+
   // --- Protocol validation ---
   it("rejects javascript: URIs", () => {
     expect(buildCamEmbed("javascript:alert(1)")).toEqual({ kind: "none" });

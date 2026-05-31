@@ -394,7 +394,7 @@ describe("SEO Meta Builder", () => {
     });
 
     describe("short CTR titles", () => {
-      it("Malibu forecast title fits before the global Quiver suffix", () => {
+      it("Malibu forecast title uses surf-report-and-forecast SERP framing", () => {
         const result = buildDynamicBeachMetadata({
           beach: {
             name: "Malibu Surfrider (First Point)",
@@ -407,7 +407,9 @@ describe("SEO Meta Builder", () => {
           forecast: { wave_height: "2-3ft" },
         });
 
-        expect(result.title).toBe("Malibu Surfrider: 2-3ft Surf Report | Malibu");
+        expect(result.title).toBe(
+          "Malibu Surfrider: 2-3ft Surf Report & Forecast | CA",
+        );
         expect(result.title.length).toBeLessThanOrEqual(51);
         expect(result.title).not.toContain("Long Point");
       });
@@ -425,7 +427,9 @@ describe("SEO Meta Builder", () => {
           forecast: { wave_height: "2-3ft" },
         });
 
-        expect(result.title).toBe("C Street: 2-3ft Surf Report | Ventura");
+        expect(result.title).toBe(
+          "C Street: 2-3ft Surf Report & Forecast | Ventura",
+        );
         expect(result.title.length).toBeLessThanOrEqual(51);
       });
 
@@ -523,7 +527,7 @@ describe("SEO Meta Builder", () => {
     });
 
     describe("Fix 2: description improvements", () => {
-      it("forecast description uses the stable surf-report template", () => {
+      it("forecast description uses the surf report and forecast template", () => {
         const result = buildDynamicBeachMetadata({
           beach: {
             name: "Tres Palmas",
@@ -534,7 +538,7 @@ describe("SEO Meta Builder", () => {
           forecast: { wave_height: "2.7 ft" },
         });
         expect(result.description).toBe(
-          "2.7 ft at Tres Palmas. See today's surf report, tide window, crowd intel, and 7-day forecast before you paddle out.",
+          "Current 2.7 ft wave height at Tres Palmas. See today's surf report & forecast, wind, tide, crowd intel, and 7-day forecast.",
         );
         expect(result.description.length).toBeLessThanOrEqual(160);
       });
@@ -545,6 +549,9 @@ describe("SEO Meta Builder", () => {
           forecast: { wave_height: "3 ft" },
         });
         expect(result.description).toContain("7-day forecast");
+        expect(result.description).toContain("wave height");
+        expect(result.description).toContain("wind");
+        expect(result.description).toContain("tide");
       });
 
       it("wave tips with semicolons split cleanly at clause boundary", () => {
@@ -615,7 +622,9 @@ describe("SEO Meta Builder", () => {
           },
           forecast: { wave_height: "3 ft" },
         });
-        expect(result.title).toBe("Test Beach: 3 ft Surf Report | San Diego");
+        expect(result.title).toBe(
+          "Test Beach: 3 ft Surf Report & Forecast | San Diego",
+        );
         expect(result.title).not.toContain("Beach Break");
       };
 

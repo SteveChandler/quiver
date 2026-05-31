@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { setupApiTestEnvironment } from "@/test-utils/api-test-helpers";
 import { NextRequest } from "next/server";
 
@@ -45,6 +47,16 @@ describe("GET /api/beaches/[id]/sessions", () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/beaches/[id]/sessions/route.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
   });
 
   it("does NOT filter is_public when publicOnly is absent", async () => {

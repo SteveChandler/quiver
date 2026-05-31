@@ -47,7 +47,7 @@ jest.mock("@/lib/supabase/server", () => ({
   ),
 }));
 
-jest.mock("@/lib/api-utils", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   validateCronRequest: jest.fn(() => true),
 }));
 
@@ -74,8 +74,15 @@ import { GET } from "@/app/api/cron/condition-alert-deliver/route";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 describe("condition-alert-deliver: profiles embedded join resolves at runtime", () => {
+  let consoleLogSpy: jest.SpyInstance;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    consoleLogSpy.mockRestore();
   });
 
   it("does NOT throw PGRST200 on the alert_queue -> profiles embedding", async () => {

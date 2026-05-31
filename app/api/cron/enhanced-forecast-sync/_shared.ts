@@ -10,7 +10,7 @@ import {
   createSuccessResponse,
   createErrorResponse,
   validateCronRequest,
-} from "@/lib/api-utils";
+} from "@/lib/middleware/api-wrappers";
 import { forecastLogger } from "@/lib/monitoring/forecast-logger";
 import { updateAllBeachForecasts } from "@/lib/utils/forecast-server-utils";
 import {
@@ -300,7 +300,6 @@ export async function runEnhancedForecastSyncHead(
     );
   }
 }
-
 
 
 

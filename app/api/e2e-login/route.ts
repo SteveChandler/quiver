@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
-import { DEFAULT_SECURITY_HEADERS, createSuccessResponse } from "@/lib/api-utils";
+import {
+  DEFAULT_SECURITY_HEADERS,
+  createSuccessResponse,
+} from "@/lib/middleware/api-wrappers";
 
 export async function GET(req: Request) {
   try {
@@ -75,5 +78,4 @@ export async function GET(req: Request) {
     );
   }
 }
-
 

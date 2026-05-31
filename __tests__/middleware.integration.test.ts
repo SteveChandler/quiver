@@ -10,9 +10,10 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { proxy as middleware } from "@/proxy";
+import { readFileSync } from "fs";
 
 // Mock dependencies
-jest.mock("@/lib/api-utils", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   DEFAULT_SECURITY_HEADERS: {
     "X-Frame-Options": "DENY",
     "X-Content-Type-Options": "nosniff",
@@ -57,6 +58,8 @@ import { RouteGuard } from "@/lib/middleware/route-guard";
 import { AdminChecker } from "@/lib/middleware/admin-checker";
 
 describe("Middleware Integration Tests", () => {
+  const proxySource = readFileSync("proxy.ts", "utf8");
+
   let mockAuthValidator: jest.Mocked<AuthValidator>;
   let mockAdminChecker: jest.Mocked<AdminChecker>;
 
@@ -98,6 +101,11 @@ describe("Middleware Integration Tests", () => {
     } as any;
 
     (AdminChecker as jest.Mock).mockImplementation(() => mockAdminChecker);
+  });
+
+  it("uses the API wrapper barrel for default security headers", () => {
+    expect(proxySource).not.toContain("@/lib/api-utils");
+    expect(proxySource).toContain("@/lib/middleware/api-wrappers");
   });
 
   describe("Public Route Access", () => {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isAdmin, type AdminUser } from "@/lib/auth/admin";
 import {
   createCachedResponse,
   createSuccessResponse,
@@ -8,9 +9,6 @@ import {
   CacheDuration,
   checkNotModified,
   DEFAULT_SECURITY_HEADERS,
-} from "@/lib/api-utils";
-import { isAdmin, type AdminUser } from "@/lib/auth/admin";
-import {
   withBotBlockingAndRateLimit,
   withAuth,
   type AuthenticatedContext,

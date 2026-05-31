@@ -20,6 +20,7 @@ import type {
 } from './types';
 import { DEFAULT_SCORING_CONFIG } from './types';
 import { waveHeightCeiling } from './wave-height-ceiling';
+import { windChopCeiling } from './wind-chop-ceiling';
 
 /**
  * Scoring engine that orchestrates multiple scorer plugins.
@@ -122,20 +123,23 @@ export class ScoringEngine {
 
     const rawTotal = Math.round(weightedSum);
 
-    // Apply a wave-height ceiling post-composite. A clean, well-aligned spot
-    // with ankle-high waves is still unsurfable -- the underlying subscores
-    // (alignment, wind, tide) should remain transparent but the composite
-    // total must be capped so downstream UI does not mislead users.
+    // Apply post-composite quality ceilings. The underlying subscores remain
+    // transparent, but the final band must not overstate marginal surf.
     const ceiling = waveHeightCeiling(input.snapshot.waveHeight);
-    const total = Math.min(rawTotal, ceiling);
+    const chopCeiling = windChopCeiling(input, subscores);
+    const total = Math.min(rawTotal, ceiling, chopCeiling?.ceiling ?? 100);
 
-    if (total < rawTotal) {
+    if (ceiling < rawTotal) {
       const heightStr = Number.isFinite(input.snapshot.waveHeight)
         ? input.snapshot.waveHeight.toFixed(1)
         : 'unknown';
       const capMessage = `Small wave (${heightStr}ft) caps score at ${ceiling}`;
       allReasons.push(capMessage);
       allWarnings.push(capMessage);
+    }
+    if (chopCeiling && chopCeiling.ceiling < rawTotal) {
+      allReasons.push(chopCeiling.reason);
+      allWarnings.push(chopCeiling.reason);
     }
 
     const matchQuality = this.classifyScore(total);

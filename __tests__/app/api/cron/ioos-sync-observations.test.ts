@@ -6,7 +6,7 @@ import { NextRequest } from "next/server";
 import { GET } from "@/app/api/cron/ioos-sync/route";
 
 // Mock dependencies
-jest.mock("@/lib/api-utils", () => ({
+jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data) => ({
     json: async () => data,
     status: 200,
@@ -452,7 +452,10 @@ describe("IOOS Sync - Observation Sync", () => {
 
     // Verify the reactivation update was issued
     const reactivationUpdate = updateCalls.find((c) => c.data?.active === true);
-    expect(reactivationUpdate).toBeDefined();
+    expect(reactivationUpdate).toEqual({
+      table: "ioos_stations",
+      data: { active: true },
+    });
 
     // Verify stationsReactivated is reported
     expect(data.stationsReactivated).toBe(1);

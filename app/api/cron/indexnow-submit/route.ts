@@ -3,7 +3,7 @@ import {
   createSuccessResponse,
   handleApiError,
   validateCronRequest,
-} from "@/lib/api-utils";
+} from "@/lib/middleware/api-wrappers";
 import { submitUrlsInBatches } from "@/lib/services/indexnow-service";
 import { SITE_URL } from "@/lib/constants/seo";
 import { createPublicReadClient } from "@/lib/supabase/server";

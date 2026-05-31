@@ -22,6 +22,7 @@ import {
   expectCronError,
   type CronTestEnvironment,
 } from "@/__tests__/setup/cron-test-utils";
+import { readFileSync } from "fs";
 
 // ============================================================================
 // Module Mocks
@@ -81,7 +82,13 @@ import { GET } from "@/app/api/cron/welcome-email/route";
 // ============================================================================
 
 describe("Cron: welcome-email", () => {
+  const routeSource = readFileSync(
+    "app/api/cron/welcome-email/route.ts",
+    "utf8"
+  );
   let cronEnv: CronTestEnvironment;
+  let consoleLogSpy: jest.SpyInstance;
+  let consoleErrorSpy: jest.SpyInstance;
 
   beforeEach(() => {
     cronEnv = setupCronTestEnvironment({
@@ -91,6 +98,8 @@ describe("Cron: welcome-email", () => {
       },
     });
     jest.clearAllMocks();
+    consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
+    consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
 
     // Default mock implementations
     mockGenerateWelcomeEmail.mockResolvedValue({
@@ -106,7 +115,14 @@ describe("Cron: welcome-email", () => {
   });
 
   afterEach(() => {
+    consoleLogSpy.mockRestore();
+    consoleErrorSpy.mockRestore();
     cronEnv.cleanup();
+  });
+
+  it("uses the API wrapper barrel for response helpers and cron request validation", () => {
+    expect(routeSource).not.toContain("@/lib/api-utils");
+    expect(routeSource).toContain("@/lib/middleware/api-wrappers");
   });
 
   // ==========================================================================
@@ -122,7 +138,12 @@ describe("Cron: welcome-email", () => {
       const response = await GET(request);
       const data = await expectCronSuccess(response);
 
-      expect(data.data.summary).toBeDefined();
+      expect(data.data.summary).toEqual(
+        expect.objectContaining({
+          candidates: expect.any(Number),
+          sent: expect.any(Number),
+        })
+      );
     });
 
     it("accepts Bearer token authentication", async () => {
@@ -143,6 +164,7 @@ describe("Cron: welcome-email", () => {
 
       const response = await GET(request);
 
+      expect(response.status).toBe(401);
       await expectCronError(response, 401, "Unauthorized");
     });
 

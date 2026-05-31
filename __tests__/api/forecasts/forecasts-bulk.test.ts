@@ -35,6 +35,24 @@ type ForecastRow = {
 const mockSupabaseClient = createMockSupabaseClient();
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
+  createSuccessResponse: jest.fn((data: unknown) => {
+    return new Response(
+      JSON.stringify({ success: true, data, timestamp: new Date().toISOString() }),
+      {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }),
+  handleApiError: jest.fn((_error: unknown, message: string) => {
+    return new Response(
+      JSON.stringify({ success: false, error: message, timestamp: new Date().toISOString() }),
+      {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+  }),
   withRateLimit: (handler: any) => handler,
   withAuth: (handler: any) => (request: any, context: any) =>
     handler(request, {

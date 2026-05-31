@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GET } from "@/app/api/forecasts/bulk/route";
 import {
   createMockRequest,
@@ -159,6 +161,16 @@ describe("/api/forecasts/bulk", () => {
     cleanup?.();
   });
 
+  it("uses the shared API wrapper module for response helpers", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/api/forecasts/bulk/route.ts"),
+      "utf8",
+    );
+
+    expect(source).not.toMatch(/@\/lib\/api-utils/);
+    expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
+  });
+
   it("returns empty forecasts when beachIds is missing or empty", async () => {
     for (const url of [
       "http://localhost:3000/api/forecasts/bulk",
@@ -237,14 +249,26 @@ describe("/api/forecasts/bulk", () => {
       forecastError: { message: "Database connection failed" },
     });
 
-    const response = await GET(
-      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
-    );
-    const data = await response.json();
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
-    expect(response.status).toBe(500);
-    expect(data.success).toBe(false);
-    expect(data.error).toContain("Failed to fetch bulk forecasts");
+    try {
+      const response = await GET(
+        createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+      );
+      const data = await response.json();
+
+      expect(response.status).toBe(500);
+      expect(data.success).toBe(false);
+      expect(data.error).toContain("Failed to fetch bulk forecasts");
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Error fetching bulk forecasts:",
+        { message: "Database connection failed" },
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it("returns empty maps when no forecast rows match", async () => {
@@ -344,12 +368,24 @@ describe("/api/forecasts/bulk", () => {
       beachError: { message: "rls denied" },
     });
 
-    const response = await GET(
-      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
-    );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
-    expect(data.data.forecasts).toEqual({ "beach-1": 2.5 });
-    expect(data.data.isCalibrated).toEqual({});
+    try {
+      const response = await GET(
+        createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+      );
+      const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+      expect(data.data.forecasts).toEqual({ "beach-1": 2.5 });
+      expect(data.data.isCalibrated).toEqual({});
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        "Error fetching beach calibration status:",
+        { message: "rls denied" },
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 });
