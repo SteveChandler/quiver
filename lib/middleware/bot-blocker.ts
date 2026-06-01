@@ -12,7 +12,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { detectBot, BotDetectionResult } from "@/lib/security/bot-detection";
-import { DEFAULT_SECURITY_HEADERS } from "@/lib/api-utils";
+import { DEFAULT_SECURITY_HEADERS } from "@/lib/middleware/api-wrappers/response-utils";
 import type { RouteContext } from "@/lib/middleware/api-wrappers/types";
 
 /**

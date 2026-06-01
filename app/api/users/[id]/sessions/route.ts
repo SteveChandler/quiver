@@ -4,8 +4,8 @@ import {
   createSuccessResponse,
   createValidationError,
   methodNotAllowed,
+  type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
-import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
 
 function parseLimit(url: URL, defaultValue = 5, max = 20) {

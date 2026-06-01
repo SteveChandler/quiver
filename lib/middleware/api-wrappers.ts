@@ -24,8 +24,10 @@ export {
   // Types
   type RouteHandler,
   type RouteContext,
+  type ResolvedParams,
   type AuthenticatedContext,
   type AuthenticatedHandler,
+  type OptionalAuthContext,
   type OptionalAuthHandler,
   type WithAuthOptions,
   type WithErrorHandlerOptions,

@@ -5,8 +5,8 @@ import {
   handleApiError,
   withAuth,
   withBotBlockingAndRateLimit,
+  type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
-import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 import { PROFILE_FULL_SELECT } from "@/lib/profile/constants";
 import type { ProfileDTO } from "@/types/profile";
 

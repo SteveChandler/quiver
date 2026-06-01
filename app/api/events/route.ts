@@ -15,13 +15,13 @@ import {
   createAuthError,
   createErrorResponse,
   withAuth,
+  type OptionalAuthContext,
 } from '@/lib/middleware/api-wrappers';
 import {
   ANONYMOUS_ALLOWED_EVENTS,
   PRE_AUTH_ONLY_EVENTS,
   VALID_EVENTS,
 } from '@/lib/analytics/event-taxonomy';
-import type { OptionalAuthContext } from '@/lib/middleware/api-wrappers/types';
 import type {
   ImplicitEventType,
   TrackEventRequest,

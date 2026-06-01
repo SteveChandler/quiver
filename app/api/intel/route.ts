@@ -16,8 +16,8 @@ import {
   withBotBlockingAndRateLimit,
   withAuth,
   type AuthenticatedContext,
+  type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
-import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 
 export const dynamic = "force-dynamic";
 

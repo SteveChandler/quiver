@@ -10,19 +10,17 @@ Status: Active
 Last compressed: 2026-05-31
 Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/ROADMAP-full-history.md](archive/2026-05-31-doc-cleanup/ROADMAP-full-history.md)
 
-Phases 1 through 12 are complete. Phase 13 is ready and should continue the controlled refactor work tracked in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
+Phases 1 through 13 are complete. Phase 13 closed the controlled refactor checkpoint tracked in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 
 ## Active Requirements
 
-- Phase 13 work must remain behavior-preserving, PR-sized, and test-backed.
-- Keep `docs/refactor-roadmap.md` current after each completed refactor slice.
+- Preserve Phase 13 validation evidence in `docs/refactor-roadmap.md`.
 - Do not start broad cleanup, deletion, or risky route/API rewrites under this roadmap.
 - Preserve launch, pricing, App Store, outreach, and Sentry history in archive unless a future phase needs exact detail.
 
 ## Open Gaps
 
-- Phase 13 planning is still pending.
-- Remaining controlled-refactor imports are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
+- Phase 13 is complete; future refactor candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Public go-live deployment/alias promotion and any outbound launch actions remain approval-gated.
 
 ## Decisions Already Made
@@ -31,13 +29,13 @@ Phases 1 through 12 are complete. Phase 13 is ready and should continue the cont
 - Public copy teaches the Quiver loop: forecast, check, log, improve.
 - Public pricing stays waitlist-safe until payment and entitlement release gates are proven.
 - Brand-Vault remains the first source for launch visuals and campaign assets.
+- Remaining production `@/lib/api-utils` imports outside wrapper internals were closed in Phase 13.
 - Outbound sends, posts, DMs, tracker writes, Play Console actions, entitlement grants, production mutations, deploys, alias promotion, and payment changes require exact user approval.
 
 ## Next Actions
 
-- Plan Phase 13 around the next safe refactor slice.
-- Start with Slice 82 from [docs/refactor-roadmap.md](../docs/refactor-roadmap.md): `app/session/confirm/route.ts` UUID validation import cleanup.
-- Run the scoped validation listed in the refactor roadmap before marking any slice complete.
+- Review Phase 13 results or select the next future phase.
+- Keep deploy, production mutation, outbound send, payment, and entitlement actions approval-gated.
 
 ## Historical Notes
 
@@ -56,3 +54,4 @@ Completed phases are summarized here to keep this file small:
 - Phase 10 completed local go-live verification and documented remaining deploy approval gates.
 - Phase 11 completed PBSC event route deploy and QR verification work.
 - Phase 12 completed Sentry observability rollout work.
+- Phase 13 completed controlled refactor import cleanup, wrapper compatibility ownership, and final local validation.

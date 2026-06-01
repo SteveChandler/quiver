@@ -4,8 +4,8 @@ import {
   handleApiError,
   withAuth,
   withRateLimit,
+  type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
-import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 import {
   applyV51DisplayOverrideToForecasts,
 } from "@/lib/services/forecast/v5-display-gate";

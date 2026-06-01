@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: active
-stopped_at: Phase 12 completed; ready for Phase 13 controlled refactor planning
-last_updated: "2026-05-31"
+stopped_at: Phase 13 completed; ready for user review or future phase selection
+last_updated: "2026-05-31T16:20:31-0700"
 last_activity: 2026-05-31
 progress:
   total_phases: 14
-  completed_phases: 12
-  total_plans: 57
-  completed_plans: 52
-  percent: 91
+  completed_phases: 13
+  total_plans: 62
+  completed_plans: 57
+  percent: 92
 ---
 
 # Project State
@@ -23,23 +23,21 @@ Track the active go-live campaign state without loading the completed phase hist
 ## Current Status
 
 Phase: 13 controlled-refactor-completion
-Plan: Phase 13 planning pending
-Status: Phase 12 is complete; Phase 13 is ready
+Plan: 13 complete
+Status: Phase 13 controlled refactor checkpoint is complete with local validation green
 Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/STATE-full-history.md](archive/2026-05-31-doc-cleanup/STATE-full-history.md)
 
-Progress: 12 of 14 phases complete, 52 of 57 plans complete, 91%.
+Progress: 13 of 14 phases complete, 57 of 62 plans complete, 92%.
 
 ## Active Requirements
 
-- Continue controlled refactor work from [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
-- Keep Phase 13 slices independently reviewable, behavior-preserving, and test-backed.
+- Preserve Phase 13 controlled refactor evidence in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Preserve approval gates for deploys, production mutations, outbound sends, payment actions, and entitlement changes.
 - Update planning state only with durable decisions, current gaps, validation outcomes, and next actions.
 
 ## Open Gaps
 
-- Phase 13 detailed plan is not written yet.
-- Remaining import cleanup and wrapper ownership gaps are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
+- Phase 13 is complete. Future candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Public launch deploy/alias status may have changed outside the repo and must be checked live before public claims.
 
 ## Decisions Already Made
@@ -51,12 +49,12 @@ Progress: 12 of 14 phases complete, 52 of 57 plans complete, 91%.
 - Reddit remains comment-first unless explicitly reopened.
 - Launch reporting uses existing event primitives.
 - Sentry cron monitor ownership and critical alert routing were completed in Phase 12.
+- Remaining production `@/lib/api-utils` imports outside wrapper internals were closed in Phase 13.
 
 ## Next Actions
 
-- Plan Phase 13 from the current refactor roadmap.
-- Start with Slice 82: inspect `app/session/confirm/route.ts`, add or extend a source guard, migrate only the UUID validation import, and run the listed local validation.
-- Update [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) and this state file after the slice is complete.
+- Review Phase 13 results or select the next future phase.
+- Keep deploy, production mutation, outbound send, payment, and entitlement actions approval-gated.
 
 ## Historical Notes
 

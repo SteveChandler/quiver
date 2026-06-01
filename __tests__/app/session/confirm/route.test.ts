@@ -8,6 +8,8 @@
  */
 
 import { NextRequest } from 'next/server';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { signEmailToken } from '@/lib/utils/email-token';
 import { expectConsoleErrors } from '@/__tests__/setup/test-utils';
 
@@ -50,6 +52,18 @@ describe('GET /session/confirm', () => {
 
   afterEach(() => {
     delete process.env.EMAIL_TOKEN_SECRET;
+  });
+
+  describe('Source guard', () => {
+    it('uses the API wrapper barrel for UUID validation', () => {
+      const routeSource = readFileSync(
+        join(process.cwd(), 'app/session/confirm/route.ts'),
+        'utf8'
+      );
+
+      expect(routeSource).not.toContain('@/lib/api-utils');
+      expect(routeSource).toContain('@/lib/middleware/api-wrappers');
+    });
   });
 
   describe('Parameter validation', () => {

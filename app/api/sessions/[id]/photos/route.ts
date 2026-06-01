@@ -7,8 +7,8 @@ import {
   createValidationError,
   DEFAULT_SECURITY_HEADERS,
   isValidUuid,
+  type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
-import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 import { getSessionPhotos } from "@/lib/supabase/storage";
 
 /**

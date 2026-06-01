@@ -6,8 +6,8 @@ import {
   createPaginationMeta,
   withAuth,
   withRateLimit,
+  type OptionalAuthContext,
 } from "@/lib/middleware/api-wrappers";
-import type { OptionalAuthContext } from "@/lib/middleware/api-wrappers/types";
 
 // Mark this route as dynamic to prevent static generation
 export const runtime = "nodejs";

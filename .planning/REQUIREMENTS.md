@@ -10,21 +10,20 @@ Track only the active requirements for the current go-live/refactor planning sta
 
 ## Current Status
 
-The active roadmap focus is Phase 13: controlled refactor completion. Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, release-quality, PBSC, and Sentry work is historical for this tracker unless a future task reopens it.
+The Phase 13 controlled refactor checkpoint is complete. Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, release-quality, PBSC, and Sentry work is historical for this tracker unless a future task reopens it.
 
 ## Active Requirements
 
-- **REF-01**: Remaining production `@/lib/api-utils` imports outside wrapper internals are migrated or intentionally retained with documented rationale.
-- **REF-02**: API wrapper compatibility exports and wrapper-internal dependencies have clear ownership, with no `app/api/**/route.ts` regression to direct legacy helper imports.
-- **REF-03**: Each refactor slice is behavior-preserving, PR-sized, and backed by focused characterization, source-guard, or unit coverage before risky edits.
-- **REF-04**: [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) stays current after each completed slice with progress, validation status, current risks, open questions, rollback, and the next recommended slice.
-- **REF-05**: Refactor validation includes targeted Jest, scoped ESLint, `yarn typecheck`, and preview build when runtime, route, middleware, or build-sensitive surfaces are touched.
+- **REF-01**: Completed in Phase 13. Remaining production `@/lib/api-utils` imports outside wrapper internals were migrated.
+- **REF-02**: Completed in Phase 13. API wrapper compatibility exports and wrapper-internal dependencies have documented ownership.
+- **REF-03**: Completed in Phase 13. Each refactor slice stayed behavior-preserving, PR-sized, and test-backed.
+- **REF-04**: Completed in Phase 13. [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) records progress, validation, risks, rollback, and future candidates.
+- **REF-05**: Completed in Phase 13. Targeted Jest, scoped ESLint, `yarn typecheck`, and preview build passed locally.
 
 ## Open Gaps
 
-- Phase 13 has no detailed phase plan yet.
-- Remaining import cleanup targets are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
-- Wrapper-internal ownership cleanup is still open after route-level migration.
+- Future candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
+- Wrapper-internal helper collapse remains future work outside the completed Phase 13 checkpoint.
 
 ## Decisions Already Made
 
@@ -34,8 +33,8 @@ The active roadmap focus is Phase 13: controlled refactor completion. Earlier me
 
 ## Next Actions
 
-- Plan and execute the next controlled refactor slice from [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
-- After each completed slice, update both this file if requirements change and the refactor roadmap with validation evidence.
+- Review Phase 13 results or select the next future phase.
+- Preserve approval gates for deploys, production mutations, outbound sends, payment actions, and entitlement changes.
 
 ## Historical Notes
 
