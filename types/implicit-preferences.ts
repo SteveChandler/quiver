@@ -298,6 +298,20 @@ export interface PageViewMetadata {
   page: string;
   /** Full pathname for landing page attribution */
   pathname?: string;
+  /** Canonical product/acquisition surface (landing-page, map, beach-detail, etc.) */
+  surface?: string;
+  /** Normalized source group used for funnel reporting */
+  source_group?: string;
+  /** Web/native platform for analytics segmentation */
+  platform?: 'web';
+  /** First-touch device platform inferred from the browser user agent */
+  first_touch_platform?: 'ios' | 'android' | 'desktop';
+  /** First landing page captured by attribution cookies */
+  first_touch_landing_page?: string;
+  /** First referrer captured by attribution cookies */
+  first_touch_referrer?: string;
+  /** Cam funnel family for /cams and /surf-cams routes */
+  cam_family?: 'cams-directory' | 'surf-cams-seo';
   /** Previous internal pathname, separate from PostHog's built-in referrer fields */
   previous_pathname?: string;
   /** Browser session identifier for grouping page views (tab-scoped, distinct from DB session_id column) */
@@ -603,6 +617,26 @@ export interface AuthProviderSelectedMetadata {
   mode?: 'login' | 'signup';
   /** Origin of the auth attempt (e.g., 'google_one_tap', 'auth_modal', CTA source id) */
   source?: string;
+  /** Canonical route pathname at the time of auth intent */
+  pathname?: string;
+  /** Canonical product/acquisition surface */
+  surface?: string;
+  /** Normalized source group used for funnel reporting */
+  source_group?: string;
+  /** Metadata-only signup channel for this instrumentation pass */
+  signup_channel?: 'web_app';
+  /** Source that assigned the signup channel */
+  signup_channel_source?: 'web_auth';
+  /** Web/native platform for analytics segmentation */
+  platform?: 'web';
+  /** First-touch device platform inferred from the browser user agent */
+  first_touch_platform?: 'ios' | 'android' | 'desktop';
+  /** First landing page captured by attribution cookies */
+  first_touch_landing_page?: string;
+  /** First referrer captured by attribution cookies */
+  first_touch_referrer?: string;
+  /** Cam funnel family for /cams and /surf-cams routes */
+  cam_family?: 'cams-directory' | 'surf-cams-seo';
 }
 
 /** Metadata for Apple sign-in → iOS beta prompt events */

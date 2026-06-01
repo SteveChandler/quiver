@@ -73,12 +73,15 @@ describe("PageTracker", () => {
 
       await waitFor(() => {
         expect(mockTrack).toHaveBeenCalledWith("page_view", {
-          metadata: {
+          metadata: expect.objectContaining({
             page: "home",
             pathname: "/home",
             previous_pathname: "",
             browser_session_id: expect.any(String),
-          },
+            platform: "web",
+            surface: "home",
+            source_group: "home",
+          }),
           debounceMs: 500,
         });
       });
@@ -102,12 +105,13 @@ describe("PageTracker", () => {
       await waitFor(() => {
         expect(mockTrack).toHaveBeenCalledTimes(2);
         expect(mockTrack).toHaveBeenLastCalledWith("page_view", {
-          metadata: {
+          metadata: expect.objectContaining({
             page: "discover",
             pathname: "/discover",
             previous_pathname: "/home",
             browser_session_id: expect.any(String),
-          },
+            platform: "web",
+          }),
           debounceMs: 500,
         });
       });
@@ -136,14 +140,16 @@ describe("PageTracker", () => {
 
       await waitFor(() => {
         expect(mockTrack).toHaveBeenCalledWith("page_view", {
-          metadata: {
+          metadata: expect.objectContaining({
             page: "landing",
             pathname: "/",
             previous_pathname: "",
             browser_session_id: expect.any(String),
+            surface: "landing-page",
+            source_group: "landing",
             launch_campaign: "go_live_2026_05",
             launch_surface: "landing",
-          },
+          }),
           debounceMs: 500,
         });
       });
@@ -156,7 +162,7 @@ describe("PageTracker", () => {
 
       await waitFor(() => {
         expect(mockTrack).toHaveBeenCalledWith("page_view", {
-          metadata: {
+          metadata: expect.objectContaining({
             page: "plans",
             pathname: "/plans",
             previous_pathname: "",
@@ -165,7 +171,7 @@ describe("PageTracker", () => {
             launch_surface: "plans",
             monetization_status: "native_app_store_live_web_checkout_unavailable",
             purchase_path_status: "ios_app_store_android_waitlist",
-          },
+          }),
           debounceMs: 500,
         });
       });
@@ -178,7 +184,7 @@ describe("PageTracker", () => {
 
       await waitFor(() => {
         expect(mockTrack).toHaveBeenCalledWith("page_view", {
-          metadata: {
+          metadata: expect.objectContaining({
             page: "features",
             pathname: "/features",
             previous_pathname: "",
@@ -188,7 +194,7 @@ describe("PageTracker", () => {
             monetization_status:
               "native_app_store_live_web_checkout_unavailable",
             purchase_path_status: "ios_app_store_android_waitlist",
-          },
+          }),
           debounceMs: 500,
         });
       });
@@ -203,7 +209,7 @@ describe("PageTracker", () => {
 
       await waitFor(() => {
         expect(mockTrack).toHaveBeenCalledWith("page_view", {
-          metadata: {
+          metadata: expect.objectContaining({
             page: "blog_post",
             pathname: "/blog/why-quiver-is-built-around-one-surf-call",
             previous_pathname: "",
@@ -212,7 +218,7 @@ describe("PageTracker", () => {
             launch_surface: "blog_post",
             launch_content_group: "launch_blog",
             blog_slug: "why-quiver-is-built-around-one-surf-call",
-          },
+          }),
           debounceMs: 500,
         });
       });
@@ -238,7 +244,7 @@ describe("PageTracker", () => {
       });
 
       expect(mockTrack).toHaveBeenNthCalledWith(1, "page_view", {
-        metadata: {
+        metadata: expect.objectContaining({
           page: "session",
           pathname: "/sessions/session-1",
           previous_pathname: "",
@@ -247,11 +253,11 @@ describe("PageTracker", () => {
           utm_source: "quiver_native",
           utm_medium: "share",
           utm_campaign: "session_share",
-        },
+        }),
         debounceMs: 500,
       });
       expect(mockTrack).toHaveBeenNthCalledWith(2, "share_link_opened", {
-        metadata: {
+        metadata: expect.objectContaining({
           share_id: "share-123",
           session_id: "session-1",
           pathname: "/sessions/session-1",
@@ -261,7 +267,7 @@ describe("PageTracker", () => {
           utm_source: "quiver_native",
           utm_medium: "share",
           utm_campaign: "session_share",
-        },
+        }),
         debounceMs: 0,
       });
     });
@@ -319,9 +325,14 @@ describe("PageTracker", () => {
       { pathname: "/discover", expected: "discover" },
       { pathname: "/explore", expected: "discover" },
       { pathname: "/beach/some-beach-slug", expected: "beach_detail" },
+      { pathname: "/ca/san-diego/blacks", expected: "beach_detail" },
       { pathname: "/beaches/california", expected: "beaches" },
+      { pathname: "/beaches/usa/ca", expected: "state_hub" },
       { pathname: "/map", expected: "map" },
       { pathname: "/map/search", expected: "map" },
+      { pathname: "/cams", expected: "cams" },
+      { pathname: "/cams/pacific-northwest", expected: "cams" },
+      { pathname: "/surf-cams/san-diego", expected: "surf_cams" },
       { pathname: "/profile", expected: "profile" },
       { pathname: "/profile/settings", expected: "profile" },
       { pathname: "/settings", expected: "settings" },
@@ -353,6 +364,60 @@ describe("PageTracker", () => {
               pathname,
               previous_pathname: expect.any(String),
               browser_session_id: expect.any(String),
+            }),
+            debounceMs: 500,
+          });
+        });
+      }
+    );
+  });
+
+  describe("canonical route metadata", () => {
+    it.each([
+      {
+        pathname: "/beaches/usa/ca",
+        surface: "state-hub",
+        sourceGroup: "state-hub",
+      },
+      {
+        pathname: "/ca/san-diego/blacks",
+        surface: "beach-detail",
+        sourceGroup: "beach-detail",
+      },
+      {
+        pathname: "/map",
+        surface: "map",
+        sourceGroup: "map",
+      },
+      {
+        pathname: "/cams",
+        surface: "cams-directory",
+        sourceGroup: "cams-directory",
+        camFamily: "cams-directory",
+      },
+      {
+        pathname: "/surf-cams/san-diego",
+        surface: "surf-cams-seo",
+        sourceGroup: "surf-cams-seo",
+        camFamily: "surf-cams-seo",
+      },
+    ])(
+      "adds canonical metadata for $pathname",
+      async ({ pathname, surface, sourceGroup, camFamily }) => {
+        mockUsePathname.mockReturnValue(pathname);
+        mockTrack.mockClear();
+
+        render(<PageTracker />);
+
+        await waitFor(() => {
+          expect(mockTrack).toHaveBeenCalledWith("page_view", {
+            metadata: expect.objectContaining({
+              pathname,
+              surface,
+              source_group: sourceGroup,
+              platform: "web",
+              first_touch_platform: "desktop",
+              ...(camFamily ? { cam_family: camFamily } : {}),
             }),
             debounceMs: 500,
           });

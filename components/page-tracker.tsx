@@ -14,55 +14,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import { getLaunchPageMetadata } from "@/lib/analytics/launch-campaign";
-import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
-
-/**
- * Maps pathname to a human-readable page name
- */
-function getPageName(pathname: string): string {
-  // Home/dashboard
-  if (pathname === "/home" || pathname === "/dashboard") return "home";
-
-  // Discovery/explore pages
-  if (pathname === "/discover" || pathname === "/explore") return "discover";
-
-  // Beach detail pages
-  if (pathname.startsWith("/beach/")) return "beach_detail";
-  if (pathname.startsWith("/beaches/")) return "beaches";
-
-  // Map pages
-  if (pathname.startsWith("/map")) return "map";
-
-  // Profile and settings
-  if (pathname === "/profile" || pathname.startsWith("/profile/")) return "profile";
-  if (pathname === "/settings" || pathname.startsWith("/settings/")) return "settings";
-
-  // Session logging
-  if (pathname.startsWith("/session")) return "session";
-
-  // Forecast pages
-  if (pathname.startsWith("/forecast")) return "forecast";
-
-  // Launch plans and blog pages
-  if (pathname === "/plans" || pathname === "/pricing") return "plans";
-  if (pathname === "/blog") return "blog_index";
-  if (pathname.startsWith("/blog/")) return "blog_post";
-
-  // Onboarding
-  if (pathname.startsWith("/onboarding")) return "onboarding";
-
-  // Auth pages
-  if (pathname === "/login" || pathname === "/signup" || pathname === "/auth") {
-    return "auth";
-  }
-
-  // Landing page
-  if (pathname === "/") return "landing";
-
-  // Fallback to pathname segment
-  const segment = pathname.split("/").filter(Boolean)[0];
-  return segment || "unknown";
-}
+import { getWebAnalyticsContext } from "@/lib/analytics/web-context";
 
 type ShareAttributionMetadata = {
   share_id?: string;
@@ -119,14 +71,11 @@ export function PageTracker() {
     // Skip if the route plus safe attribution params haven't changed.
     if (prevTrackingKey.current === trackingKey) return;
 
-    const page = getPageName(pathname);
-    const sessionId = getBrowserSessionId();
+    const context = getWebAnalyticsContext({ pathname });
     const launchMetadata = getLaunchPageMetadata(pathname);
     const metadata = {
-      page,
-      pathname,
+      ...context,
       previous_pathname: prevPathname.current || "",
-      browser_session_id: sessionId,
       ...attributionMetadata,
       ...(launchMetadata ?? {}),
     };
@@ -146,7 +95,7 @@ export function PageTracker() {
           session_id: sharedSessionId,
           pathname,
           previous_pathname: prevPathname.current || "",
-          browser_session_id: sessionId,
+          browser_session_id: context.browser_session_id,
           source: "web_page_tracker",
           utm_source: attributionMetadata.utm_source,
           utm_medium: attributionMetadata.utm_medium,
