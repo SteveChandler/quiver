@@ -123,7 +123,7 @@ Place in `supabase/migrations/` named `YYYYMMDDHHMMSS_descriptive_name.sql`. Wra
 
 **PROHIBITED:** bulk `DELETE`/`TRUNCATE` on user tables, `DROP TABLE` for core tables, deleting by user-provided strings.
 **REQUIRED:** `WHERE NOT EXISTS` for inserts, rollback migrations for destructive changes, carry forward `WITH (security_invoker = true)` when recreating views.
-**Production:** `claude_migrator` role only. Read-only by default. Mutations require PLAN → APPROVAL two-step protocol.
+**Production:** use the production owner connection required by Supabase CLI migration tracking; do not use `claude_migrator`. Read-only by default. Mutations require PLAN → APPROVAL two-step protocol.
 Full rules: `docs/MIGRATION_SAFETY.md`.
 
 MCP `apply_migration` query is whitespace-sensitive — multi-line SQL fails with `syntax error at or near "</"`; collapse to single-line statements, drop comments.
