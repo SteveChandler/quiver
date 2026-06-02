@@ -10,7 +10,9 @@ Intelligence app-link fallback, analytics readiness, canonical/schema safety,
 source sparsity, responsive layout, and slow-route regression checks.
 
 Native app-installed universal-link behavior is manual unless a signed native
-simulator or device test is added.
+simulator or device test is added. For Phase 20, simulator app-scheme route
+evidence is accepted; signed HTTPS handoff is deferred to the next native
+release lane.
 
 ## Matrix
 
@@ -30,8 +32,8 @@ simulator or device test is added.
 | No user reports | Same focused unit coverage checks no user-report source label is invented and the data note remains explicit. | None. | Quiver Web | Covered locally. |
 | Model only | `__tests__/components/session-intelligence/best-surf-windows.test.tsx` checks the `Model only` badge for model-only non-low confidence. | None. | Quiver Web | Covered locally. |
 | Low confidence | `__tests__/components/session-intelligence/best-surf-windows.test.tsx` checks `Low - sparse data`; adapter tests check low-confidence data notes. | None. | Quiver Web | Covered locally. |
-| App not installed | `/app/spot/la-jolla-shores?window=phase20-smoke` is covered in `e2e/guest-session-intelligence-phase20.spec.ts` as the browser fallback path. | Verify on an iPhone without Quiver installed that a universal link opens the fallback and the App Store CTA is usable. | Quiver Web + Native | Automated fallback covered; native manual pending. |
-| App-link fallback | `e2e/guest-session-intelligence-phase20.spec.ts` checks App Store and web fallback links on `/app/spot/:slug?window=:id`. `__tests__/app/app-spot-handoff-page.test.tsx` checks server-rendered fallback content. | Verify production `https://www.quiversurf.app/app/spot/la-jolla-shores?window=phase20-smoke` on device. | Quiver Web + Native | Automated fallback covered; live/native pending. |
+| App not installed | `/app/spot/la-jolla-shores?window=phase20-smoke` is covered in `e2e/guest-session-intelligence-phase20.spec.ts` as the browser fallback path. | Verify on an iPhone without Quiver installed that a universal link opens the fallback and the App Store CTA is usable. | Quiver Web + Native | Automated fallback covered; physical no-install spot check still useful. |
+| App-link fallback | `e2e/guest-session-intelligence-phase20.spec.ts` checks App Store and web fallback links on `/app/spot/:slug?window=:id`. `__tests__/app/app-spot-handoff-page.test.tsx` checks server-rendered fallback content. | Verify production `https://www.quiversurf.app/app/spot/la-jolla-shores?window=phase20-smoke` on signed device/TestFlight before the next native release. | Quiver Web + Native | Automated fallback and simulator native route covered; signed HTTPS handoff deferred. |
 | Canonical tags | `e2e/guest-session-intelligence-phase20.spec.ts` checks canonicals on `/forecast`, `/forecast-accuracy`, and `/best-time-to-surf/la-jolla`; 20-01 unit tests check canonical web URLs omit `window=`. | Live production spot-check after deploy. | Quiver Web | Covered locally. |
 | Schema | `e2e/guest-session-intelligence-phase20.spec.ts` checks JSON-LD presence on `/forecast`, `/forecast-accuracy`, and `/best-time-to-surf/la-jolla`; Phase 19 component tests cover Dataset schema. | Live Rich Results or schema validator sample after deploy if release risk is high. | Quiver Web | Covered locally. |
 | Slow route regression | `docs/session-intelligence/phase-20-before-after-measurement.md` records before p75 LCP/INP/CLS where samples exist; `VERCEL_ENV=preview yarn build` passed in 20-02. | After deploy, compare Vercel/PostHog route performance for 3-day, 7-day, and 28-day windows. | Quiver Web | Baseline covered; after-check pending. |
@@ -45,7 +47,7 @@ simulator or device test is added.
 ## Manual Gates Before Public Claims
 
 - Production AASA and Android assetlinks must be checked live.
-- Native app-installed universal-link handling must be verified on a signed app
-  build or documented as blocked.
+- Native app-installed HTTPS handoff must be verified on a signed app build or
+  device before claiming installed-app HTTPS handoff works in a native release.
 - App-not-installed fallback must be verified on a real iOS Safari device.
 - GSC/PostHog/Vercel after windows must complete before any lift claim.

@@ -21,8 +21,11 @@ Phases 1 through 19 are complete. Phase 13 closed the controlled refactor checkp
 
 ## Open Gaps
 
-- Phase 20 final live verification is blocked on production app-link deployment
-  and migration approval.
+- Phase 20 production web verification passed after approved deploy. Native
+  `/app/spot/:slug` routing is patched in `quiver-native` and
+  simulator-verified through the app scheme. Simulator evidence is accepted for
+  closeout; signed iOS HTTPS handoff is deferred to the next native release
+  validation lane.
 - Future refactor candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Public go-live deployment/alias promotion and any outbound launch actions remain approval-gated.
 
@@ -37,8 +40,9 @@ Phases 1 through 19 are complete. Phase 13 closed the controlled refactor checkp
 
 ## Next Actions
 
-- After approval, deploy Phase 20, apply the additive analytics migration if
-  appropriate, and rerun 20-05 live verification.
+- Start 3-day, 7-day, and 28-day after-measurement checks from deployment time
+  `2026-06-02T18:55:38Z`; run signed HTTPS handoff validation before the next
+  native release.
 - Keep deploy, production mutation, outbound send, payment, and entitlement actions approval-gated.
 
 ## Session Intelligence v1 Addendum
@@ -310,7 +314,7 @@ full Session Intelligence rollout.
      model only, low confidence, app not installed, app-link fallback, canonical
      tags, schema, and slow route regression.
 
-**Plans:** 4/5 plans executed
+**Plans:** 5/5 plans executed
 
 Plans:
 
@@ -318,7 +322,7 @@ Plans:
 - [x] [20-02: Add Session Intelligence Analytics Events](phases/20-app-links-analytics-and-qa/20-02-PLAN.md) (completed 2026-06-02)
 - [x] [20-03: Capture Before Baselines And Measurement Protocol](phases/20-app-links-analytics-and-qa/20-03-PLAN.md) (completed 2026-06-02)
 - [x] [20-04: Expand Public QA Matrix](phases/20-app-links-analytics-and-qa/20-04-PLAN.md) (completed 2026-06-02)
-- [ ] [20-05: Final Live Verification And Closeout](phases/20-app-links-analytics-and-qa/20-05-PLAN.md) (blocked 2026-06-02: production AASA lacks `/app/spot/*` and `/app/spot` fallback returns 404)
+- [x] [20-05: Final Live Verification And Closeout](phases/20-app-links-analytics-and-qa/20-05-PLAN.md) (completed 2026-06-02; simulator native evidence accepted)
 
 ## Historical Notes
 

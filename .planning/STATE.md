@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: active
-last_updated: "2026-06-02T17:05:09.000Z"
+last_updated: "2026-06-02T19:42:00.000Z"
 progress:
   total_phases: 7
-  completed_phases: 6
+  completed_phases: 7
   total_plans: 31
-  completed_plans: 30
-  percent: 97
+  completed_plans: 31
+  percent: 100
 ---
 
 # Project State
@@ -22,10 +22,10 @@ Track the active go-live campaign state without loading the completed phase hist
 
 Phase: 20
 Plan: 20-05
-Status: Phase 20 local verification passes, but final live verification is blocked because production AASA lacks `/app/spot/*` and production `/app/spot` fallback returns 404
+Status: Phase 20 production web verification passed after approved deploy; native `/app/spot` route gap is patched and simulator evidence is accepted for closeout
 Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/STATE-full-history.md](archive/2026-05-31-doc-cleanup/STATE-full-history.md)
 
-Progress: 19 of 20 phases complete. Active Session Intelligence addendum execution progress through Phase 20 plan 20-04: 30 of 31 planned plans complete, 97%.
+Progress: 20 of 20 phases complete. Active Session Intelligence addendum execution progress: 31 of 31 planned plans complete, 100%.
 
 ## Active Requirements
 
@@ -35,8 +35,10 @@ Progress: 19 of 20 phases complete. Active Session Intelligence addendum executi
 
 ## Open Gaps
 
-- Phase 20 final live verification is blocked until deployment, migration
-  approval, and native universal-link validation are completed.
+- Native `/app/spot/:slug` routing is patched in `quiver-native` and verified
+  through the simulator app scheme. Full HTTPS universal-link handoff is
+  deferred to signed physical/TestFlight validation before the next native
+  release.
 - Phase 13 is complete. Future refactor candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Public launch deploy/alias status may have changed outside the repo and must be checked live before public claims.
 
@@ -57,8 +59,9 @@ Progress: 19 of 20 phases complete. Active Session Intelligence addendum executi
 
 ## Next Actions
 
-- After explicit approval, deploy Phase 20, apply the additive analytics
-  migration if appropriate, and rerun 20-05 live verification.
+- Start the 3-day, 7-day, and 28-day after-measurement checks from deployment
+  time `2026-06-02T18:55:38Z`; run signed HTTPS handoff validation before the
+  next native release.
 - Preserve the Phase 16 sticker treatment when wiring Session Intelligence into
   real surfaces; use Brand-Vault stickers/tape/condition icons before inventing
   new decorative assets.
@@ -88,7 +91,8 @@ Progress: 19 of 20 phases complete. Active Session Intelligence addendum executi
   Intelligence measurement events are valid, anonymous-allowed, not
   pre-auth-only, zero-weighted for implicit preferences, covered by an additive
   `user_events` constraint migration, and emitted from surf-window, app-link,
-  forecast-accuracy, alert CTA, and SEO intent handoff surfaces. Focused unit,
+  forecast-accuracy, alert CTA, and SEO intent handoff surfaces. The production
+  allowlist migration was applied and verified on 2026-06-02. Focused unit,
   lint, typecheck, and preview build gates passed.
 - Phase 20 plan 20-03 completed before-baseline documentation: GSC, PostHog,
   Vercel Web Analytics, app CTA, app deep-link conversion, multi-page behavior,
@@ -103,7 +107,14 @@ Progress: 19 of 20 phases complete. Active Session Intelligence addendum executi
   `www.quiversurf.app` is reachable and live assetlinks has a concrete Android
   fingerprint, but live AASA lacks `/app/spot/*` and the live
   `/app/spot/la-jolla-shores?window=phase20-smoke` fallback route returns 404.
-  Local unit, lint, typecheck, guest Playwright, and preview build checks pass.
+  The approved production deploy at `2026-06-02T18:55:38Z` resolved the blocker:
+  live AASA includes `/app/spot/*` and the fallback route returns `HTTP/2 200`
+  matched to `/app/spot/[slug]`. Local unit, lint, typecheck, guest Playwright,
+  and preview build checks pass. Native `/app/spot/:slug` routing was patched
+  in `quiver-native` and verified through the simulator app scheme; simulator
+  evidence is accepted for Phase 20 closeout. Full iOS HTTPS Associated Domains
+  handoff is deferred to signed physical/TestFlight evidence before the next
+  native release.
 
 ## Historical Notes
 

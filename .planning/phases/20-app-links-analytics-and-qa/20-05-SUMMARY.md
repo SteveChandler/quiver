@@ -1,8 +1,8 @@
 ---
 phase: 20-app-links-analytics-and-qa
 plan: 20-05
-status: blocked
-completed_at: "2026-06-02T17:05:09.000Z"
+status: complete_with_simulator_native_evidence
+completed_at: "2026-06-02T19:00:51.000Z"
 requirements:
   - SI-07
 ---
@@ -11,15 +11,16 @@ requirements:
 
 ## Outcome
 
-20-05 verification ran, but Phase 20 is not production-ready. Local checks pass.
-Read-only live checks found that production has not yet deployed the app-link
-route/AASA changes from this branch.
+20-05 verification ran after the approved production deploy. Local checks pass,
+the production analytics allowlist migration is applied and tracked, and
+`www.quiversurf.app` now serves the Phase 20 app-link route/AASA changes.
 
-## Blocker
+## Native Follow-Up
 
-`https://www.quiversurf.app/app/spot/la-jolla-shores?window=phase20-smoke`
-returns `404`, and live AASA is missing `/app/spot/*`. Deployment remains
-approval-gated, so no production mutation was performed.
+The native `/app/spot/:slug` route gap was patched in `quiver-native` and
+verified through the app scheme on the stable iOS simulator. Simulator evidence
+is accepted for Phase 20; full HTTPS universal-link handoff is deferred to the
+next signed physical/TestFlight native validation lane.
 
 ## Evidence
 
@@ -28,6 +29,6 @@ approval-gated, so no production mutation was performed.
 
 ## Next Required Action
 
-After explicit approval, deploy the branch and apply the additive analytics
-migration if appropriate. Then rerun the live AASA, assetlinks, app-link
-fallback, and native universal-link checks before marking Phase 20 complete.
+Start the 3-day, 7-day, and 28-day after-measurement checks from deployment time
+`2026-06-02T18:55:38Z`. Run signed HTTPS handoff validation before the next
+native release.
