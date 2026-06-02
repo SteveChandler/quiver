@@ -21,6 +21,16 @@ jest.mock("@/lib/utils/timezone-utils.server", () => ({
   isNightHour: jest.fn((h: number) => h >= 21 || h < 6),
 }));
 
+jest.mock("@/lib/utils/timezone-utils", () => {
+  const actual = jest.requireActual<typeof import("@/lib/utils/timezone-utils")>(
+    "@/lib/utils/timezone-utils"
+  );
+  return {
+    ...actual,
+    getTimezoneFromCoords: jest.fn(() => "UTC"),
+  };
+});
+
 jest.mock("@/lib/services/preference-learning-service", () => {
   // Preserve non-mocked exports (parseForecastNumber, etc.) so downstream
   // services that use them at runtime don't throw "is not a function".
@@ -1163,4 +1173,3 @@ describe("discoverSurfSpots sunset filtering", () => {
     expect(rec.window.start.getUTCHours()).not.toBe(21); // NOT 9pm UTC
   });
 });
-
