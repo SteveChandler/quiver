@@ -93,6 +93,48 @@ async function mountLazyVideo() {
   return screen.findByLabelText(/quiver iphone launch video/i);
 }
 
+function setMediaState(
+  video: HTMLElement,
+  overrides: {
+    error?: Partial<MediaError> | null;
+    readyState?: number;
+    networkState?: number;
+    currentSrc?: string;
+  } = {}
+) {
+  Object.defineProperty(video, "error", {
+    configurable: true,
+    value:
+      overrides.error === null
+        ? null
+        : {
+            code: 4,
+            message: "No supported source was found",
+            ...overrides.error,
+          },
+  });
+  Object.defineProperty(video, "readyState", {
+    configurable: true,
+    value: overrides.readyState ?? 0,
+  });
+  Object.defineProperty(video, "networkState", {
+    configurable: true,
+    value: overrides.networkState ?? 3,
+  });
+  Object.defineProperty(video, "currentSrc", {
+    configurable: true,
+    value:
+      overrides.currentSrc ?? "/videos/quiver-landing-hero-1280.mp4",
+  });
+}
+
+function setDocumentVisibility(visibilityState: DocumentVisibilityState) {
+  Object.defineProperty(document, "visibilityState", {
+    configurable: true,
+    value: visibilityState,
+  });
+}
+
 describe("HeroSection", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -116,6 +158,7 @@ describe("HeroSection", () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    setDocumentVisibility("visible");
   });
 
   it("renders the poster-first video hero and keeps the download link hidden during playback", async () => {
@@ -220,6 +263,11 @@ describe("HeroSection", () => {
     fireEvent.loadedData(video);
     fireEvent.play(video);
     fireEvent.ended(video);
+    setMediaState(video, {
+      readyState: 4,
+      networkState: 1,
+      currentSrc: "/videos/quiver-landing-hero-1280.mp4",
+    });
     fireEvent.error(video);
 
     expect(mockTrack).toHaveBeenCalledWith("landing_hero_video_loaded", {
@@ -241,8 +289,208 @@ describe("HeroSection", () => {
       source: "landing-hero-video",
       surface: "landing-page",
       video_variant: "desktop",
+      media_error_code: 4,
+      media_error_message: "No supported source was found",
+      ready_state: 4,
+      network_state: 1,
+      current_src: "/videos/quiver-landing-hero-1280.mp4",
+      has_loaded: true,
+      has_started: true,
+      has_ended: true,
+      visibility_state: "visible",
     });
+    expect(mockTrack).not.toHaveBeenCalledWith(
+      "landing_hero_video_failed_to_start",
+      expect.anything()
+    );
 
     jest.useRealTimers();
+  });
+
+  it("tracks failed-to-start when the video errors before loading or playing", async () => {
+    jest.useFakeTimers();
+    render(<HeroSection />);
+
+    const video = await mountLazyVideo();
+    setMediaState(video, {
+      readyState: 0,
+      networkState: 3,
+      currentSrc: "/videos/quiver-landing-hero-1280.mp4",
+    });
+    fireEvent.error(video);
+
+    const expectedMetadata = {
+      source: "landing-hero-video",
+      surface: "landing-page",
+      video_variant: "desktop",
+      media_error_code: 4,
+      media_error_message: "No supported source was found",
+      ready_state: 0,
+      network_state: 3,
+      current_src: "/videos/quiver-landing-hero-1280.mp4",
+      has_loaded: false,
+      has_started: false,
+      has_ended: false,
+      visibility_state: "visible",
+    };
+
+    expect(mockTrack).toHaveBeenCalledWith(
+      "landing_hero_video_error",
+      expectedMetadata
+    );
+    expect(mockTrack).toHaveBeenCalledWith(
+      "landing_hero_video_failed_to_start",
+      expectedMetadata
+    );
+  });
+
+  it("dedupes repeated video error events", async () => {
+    jest.useFakeTimers();
+    render(<HeroSection />);
+
+    const video = await mountLazyVideo();
+    setMediaState(video);
+    fireEvent.error(video);
+    fireEvent.error(video);
+
+    expect(
+      mockTrack.mock.calls.filter(([event]) => event === "landing_hero_video_error")
+    ).toHaveLength(1);
+    expect(
+      mockTrack.mock.calls.filter(
+        ([event]) => event === "landing_hero_video_failed_to_start"
+      )
+    ).toHaveLength(1);
+  });
+
+  it("tracks a visible-page failed start timeout and reveals the CTA", async () => {
+    jest.useFakeTimers();
+    render(<HeroSection />);
+
+    await mountLazyVideo();
+
+    expect(
+      screen.queryByRole("link", { name: IOS_APP_STORE_CTA })
+    ).not.toBeInTheDocument();
+
+    act(() => {
+      jest.advanceTimersByTime(6000);
+    });
+
+    expect(mockTrack).toHaveBeenCalledWith(
+      "landing_hero_video_failed_to_start",
+      expect.objectContaining({
+        source: "landing-hero-video",
+        surface: "landing-page",
+        video_variant: "desktop",
+        has_loaded: false,
+        has_started: false,
+        visibility_state: "visible",
+      })
+    );
+    expect(
+      screen.getByRole("link", { name: IOS_APP_STORE_CTA })
+    ).toBeInTheDocument();
+  });
+
+  it("does not track a failed start timeout while the document is hidden", async () => {
+    jest.useFakeTimers();
+    setDocumentVisibility("hidden");
+    render(<HeroSection />);
+
+    await mountLazyVideo();
+
+    act(() => {
+      jest.advanceTimersByTime(6000);
+    });
+
+    expect(mockTrack).not.toHaveBeenCalledWith(
+      "landing_hero_video_failed_to_start",
+      expect.anything()
+    );
+  });
+
+  it("reveals the CTA on visible recovery after a hidden-page stall and delays failed-start tracking", async () => {
+    jest.useFakeTimers();
+    setDocumentVisibility("hidden");
+    render(<HeroSection />);
+
+    await mountLazyVideo();
+
+    act(() => {
+      jest.advanceTimersByTime(6000);
+    });
+
+    expect(
+      screen.queryByRole("link", { name: IOS_APP_STORE_CTA })
+    ).not.toBeInTheDocument();
+    expect(mockTrack).not.toHaveBeenCalledWith(
+      "landing_hero_video_failed_to_start",
+      expect.anything()
+    );
+
+    act(() => {
+      setDocumentVisibility("visible");
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    expect(
+      screen.getByRole("link", { name: IOS_APP_STORE_CTA })
+    ).toBeInTheDocument();
+    expect(mockTrack).not.toHaveBeenCalledWith(
+      "landing_hero_video_failed_to_start",
+      expect.anything()
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(1500);
+    });
+
+    expect(mockTrack).toHaveBeenCalledWith(
+      "landing_hero_video_failed_to_start",
+      expect.objectContaining({
+        source: "landing-hero-video",
+        surface: "landing-page",
+        video_variant: "desktop",
+        has_loaded: false,
+        has_started: false,
+        visibility_state: "visible",
+      })
+    );
+  });
+
+  it("uses one computed desktop video source", async () => {
+    jest.useFakeTimers();
+    render(<HeroSection />);
+
+    const video = await mountLazyVideo();
+
+    expect(video).toHaveAttribute(
+      "src",
+      "/videos/quiver-landing-hero-1280.mp4"
+    );
+    expect(video.querySelector("source")).not.toBeInTheDocument();
+  });
+
+  it("uses one computed mobile video source", async () => {
+    jest.useFakeTimers();
+    (window.matchMedia as jest.Mock).mockImplementation((query: string) => ({
+      matches: query.includes("max-width"),
+      media: query,
+      onchange: null,
+      addListener: jest.fn(),
+      removeListener: jest.fn(),
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+      dispatchEvent: jest.fn(),
+    }));
+    render(<HeroSection />);
+
+    const video = await mountLazyVideo();
+
+    expect(video).toHaveAttribute(
+      "src",
+      "/videos/quiver-landing-hero-720.mp4"
+    );
   });
 });
