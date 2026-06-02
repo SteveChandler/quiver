@@ -31,6 +31,11 @@ class MockNextRequest {
     if (typeof this._body === 'string') return this._body;
     return new TextDecoder().decode(this._body);
   }
+
+  async formData() {
+    if (this._body instanceof FormData) return this._body;
+    return new FormData();
+  }
 }
 
 class MockNextResponse extends Response {
@@ -58,4 +63,3 @@ export { MockNextRequest as NextRequest, MockNextResponse as NextResponse };
 
 // Provide a minimal type export for compatibility in some imports
 export type { MockNextRequest as NextRequestType };
-
