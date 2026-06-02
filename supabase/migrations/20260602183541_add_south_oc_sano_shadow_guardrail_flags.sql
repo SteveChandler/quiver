@@ -24,8 +24,7 @@ WITH target(slug) AS (
 UPDATE public.beaches AS b
 SET
   features = COALESCE(b.features, ARRAY[]::text[])
-    || ARRAY['south_oc_sano_shadow_guardrail']::text[],
-  updated_at = NOW()
+    || ARRAY['south_oc_sano_shadow_guardrail']::text[]
 FROM target
 WHERE b.slug = target.slug
   AND b.deleted_at IS NULL
