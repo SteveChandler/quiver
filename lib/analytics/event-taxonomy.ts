@@ -142,6 +142,9 @@ export const VALID_EVENTS = [
   'session_photo_upload_failed',
   'session_log_abandon',
   'session_log_validation_failed',
+  'session_spot_search_no_results',
+  'session_custom_spot_cta_tapped',
+  'session_custom_spot_returned',
   // Search
   'beach_search_result_click',
   // Growth markers

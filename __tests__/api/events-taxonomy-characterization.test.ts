@@ -21,7 +21,7 @@ import {
 import { EVENT_WEIGHTS } from "@/types/implicit-preferences";
 
 const CURRENT_EVENT_SET_HASHES = {
-  valid: "38139ba8ba13daceec2447bf6fcc9050c15a9d2d8be10de8e0a4884437c60eac",
+  valid: "1a1526a54d41b5c7f72747757fba94c9099061fa04f9fa83729d62f1834430bf",
   anonymousAllowed:
     "075066386791f1a86eb16b4e7966a6b9f90d00d14695b07065e69d4d788b97be",
   preAuthOnly:
@@ -36,6 +36,12 @@ const PHASE_20_MEASUREMENT_EVENTS = [
   "forecast_accuracy_table_viewed",
   "save_alert_clicked",
   "seo_intent_page_window_clicked",
+] as const;
+
+const SESSION_CUSTOM_SPOT_EVENTS = [
+  "session_spot_search_no_results",
+  "session_custom_spot_cta_tapped",
+  "session_custom_spot_returned",
 ] as const;
 
 function sortedEventSetHash(eventTypes: readonly string[]): string {
@@ -108,6 +114,22 @@ describe("events taxonomy characterization", () => {
     );
 
     for (const eventType of PHASE_20_MEASUREMENT_EVENTS) {
+      expect(EVENT_WEIGHTS[eventType]).toBe(0);
+    }
+  });
+
+  it("accepts native session custom spot funnel events without preference scoring", () => {
+    expect(VALID_EVENTS).toEqual(
+      expect.arrayContaining([...SESSION_CUSTOM_SPOT_EVENTS])
+    );
+    expect(ANONYMOUS_ALLOWED_EVENTS).toEqual(
+      expect.not.arrayContaining([...SESSION_CUSTOM_SPOT_EVENTS])
+    );
+    expect(PRE_AUTH_ONLY_EVENTS).toEqual(
+      expect.not.arrayContaining([...SESSION_CUSTOM_SPOT_EVENTS])
+    );
+
+    for (const eventType of SESSION_CUSTOM_SPOT_EVENTS) {
       expect(EVENT_WEIGHTS[eventType]).toBe(0);
     }
   });

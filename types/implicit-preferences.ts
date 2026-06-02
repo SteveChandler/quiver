@@ -159,6 +159,9 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   session_photo_upload_failed: 0,
   session_log_abandon: 0,
   session_log_validation_failed: 0,
+  session_spot_search_no_results: 0,
+  session_custom_spot_cta_tapped: 0,
+  session_custom_spot_returned: 0,
   // Search
   beach_search_result_click: 0,
   // Growth markers
