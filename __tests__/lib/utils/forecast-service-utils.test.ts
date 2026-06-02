@@ -434,3 +434,99 @@ describe("getBatchFreshForecastsFromCache", () => {
     expect(beach1?.forecasts).toEqual([]);
   });
 });
+
+describe("updateBeachForecast", () => {
+  let updateBeachForecast: typeof import("@/lib/utils/forecast-service-utils").updateBeachForecast;
+  let generateComprehensiveForecast: jest.Mock;
+  let storeEnhancedForecasts: jest.Mock;
+  let fetchNowcastAnchors: jest.Mock;
+  let fetchSouthOcSanoShadowZoneSnapshot: jest.Mock;
+  let supabaseClient: {
+    from: (table: string) => unknown;
+  };
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    jest.resetModules();
+
+    const beach = {
+      id: "beach-lowers",
+      name: "Lower Trestles",
+      slug: "lower-trestles",
+      features: ["south_oc_sano_shadow_guardrail"],
+    };
+    const nowcastAnchor = {
+      beachId: beach.id,
+      stationId: "46258",
+      observedAt: "2026-06-02T18:00:00Z",
+      waveHeightM: 0.7,
+      wavePeriodS: 14,
+      waveDirectionDeg: 220,
+    };
+    const shadowSnapshot = {
+      zone: "south_oc_sano_shadow_zone",
+      observedAtMs: Date.parse("2026-06-02T18:00:00Z"),
+      observations: [],
+      confirmedNearshore: null,
+      offshoreContext: null,
+    };
+
+    supabaseClient = {
+      from: jest.fn((table: string) => {
+        if (table !== "beaches") {
+          throw new Error(`Unexpected table: ${table}`);
+        }
+
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              single: jest.fn(async () => ({ data: beach, error: null })),
+            })),
+          })),
+        };
+      }),
+    };
+
+    generateComprehensiveForecast = jest.fn(async () => [
+      { beach_id: beach.id, wave_height: "4ft" },
+    ]);
+    storeEnhancedForecasts = jest.fn(async () => ({ success: true }));
+    fetchNowcastAnchors = jest.fn(async () => new Map([[beach.id, nowcastAnchor]]));
+    fetchSouthOcSanoShadowZoneSnapshot = jest.fn(async () => shadowSnapshot);
+
+    jest.doMock("@/lib/supabase/server", () => ({
+      createSupabaseServiceRoleClient: jest.fn(async () => supabaseClient),
+    }));
+    jest.doMock("@/lib/services/enhanced-forecast-service", () => ({
+      EnhancedForecastService: jest.fn().mockImplementation(() => ({
+        generateComprehensiveForecast,
+        storeEnhancedForecasts,
+      })),
+    }));
+    jest.doMock("@/lib/services/observations/nowcast-anchor", () => ({
+      fetchNowcastAnchors,
+    }));
+    jest.doMock("@/lib/services/forecast/south-oc-sano-shadow-guardrail", () => ({
+      fetchSouthOcSanoShadowZoneSnapshot,
+    }));
+
+    ({ updateBeachForecast } = await import("@/lib/utils/forecast-service-utils"));
+  });
+
+  it("passes per-run nowcast and South OC/SanO shadow validation snapshots into single-beach regeneration", async () => {
+    const result = await updateBeachForecast("beach-lowers");
+
+    expect(fetchNowcastAnchors).toHaveBeenCalledWith(supabaseClient);
+    expect(fetchSouthOcSanoShadowZoneSnapshot).toHaveBeenCalledWith(supabaseClient);
+    expect(generateComprehensiveForecast).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "beach-lowers" }),
+      expect.objectContaining({ stationId: "46258" }),
+      expect.objectContaining({ zone: "south_oc_sano_shadow_zone" }),
+    );
+    expect(storeEnhancedForecasts).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "beach-lowers" }),
+      [{ beach_id: "beach-lowers", wave_height: "4ft" }],
+    );
+    expect(result.forecastsGenerated).toBe(1);
+  });
+});

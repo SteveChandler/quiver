@@ -382,6 +382,8 @@ export function formatWaveHeightRangeString(low: number, high: number): string {
  * Wave height source selection input parameters
  */
 export interface WaveHeightSourceParams {
+  /** Explicit nowcast/guardrail observation anchor in meters. Wins over forecast sources. */
+  nowcastAnchorM?: number | null;
   cdipSigFt?: number | null;
   cdipSwellFt?: number | null;
   modelSwellM?: number | null;
@@ -420,11 +422,12 @@ export interface WaveHeightSource {
  * Select the best available wave height source using priority rules
  *
  * Priority:
- * 1. CDIP significant height (when reasonable and not outlier vs model)
- * 2. Model primary swell
- * 3. CDIP swell
- * 4. Model Hs
- * 5. NDBC buoy
+ * 1. Explicit nowcast anchor
+ * 2. CDIP significant height (when reasonable and not outlier vs model)
+ * 3. Model primary swell
+ * 4. CDIP swell
+ * 5. Model Hs
+ * 6. NDBC buoy
  *
  * @param params Wave height source parameters
  * @returns Best available source with height, or null if no valid source
@@ -432,11 +435,16 @@ export interface WaveHeightSource {
 export function selectWaveHeightSource(
   params: WaveHeightSourceParams
 ): WaveHeightSource | null {
+  const nowcastAnchor = metersToFeet(params.nowcastAnchorM);
   const cdipSig = validateWaveHeight(params.cdipSigFt);
   const cdipSwell = validateWaveHeight(params.cdipSwellFt);
   const modelSwell = metersToFeet(params.modelSwellM);
   const modelHs = metersToFeet(params.modelHsM);
   const ndbcBuoy = metersToFeet(params.ndbcBuoyM);
+
+  if (nowcastAnchor !== undefined) {
+    return { heightFt: nowcastAnchor, source: 'nowcast_anchor' };
+  }
 
   // Prefer CDIP significant height when available and within reasonable range
   if (cdipSig !== undefined && cdipSig <= MAX_TRUSTED_CDIP_FT) {
@@ -519,6 +527,8 @@ export interface FaceHeightParams extends WaveHeightSourceParams {
   periodS?: number | null;
   /** Swell direction in degrees for terrain-based direction factor */
   swellDirectionDeg?: number | null;
+  /** Allows guarded nowcast anchors to use calibrated per-beach shoaling factors. */
+  allowCalibratedShoaling?: boolean;
 }
 
 /**
@@ -552,6 +562,7 @@ export function toFaceHeightFeet(params: FaceHeightParams): string | null {
     swellDirectionDeg: params.swellDirectionDeg ?? null,
     beach: params.beach ?? null,
     source: source.source,
+    allowCalibratedShoaling: params.allowCalibratedShoaling,
   });
 
   // Clamp and round
@@ -686,6 +697,7 @@ export function toFaceHeightFeetDecomposedWithDebug(
     rawHeightFt: source.heightFt,
     periodS: params.periodS ?? null,
     swellDirectionDeg: params.swellDirectionDeg ?? null,
+    allowCalibratedShoaling: params.allowCalibratedShoaling,
   });
 
   const clamped = clampWaveHeight(result.faceHeightFt);

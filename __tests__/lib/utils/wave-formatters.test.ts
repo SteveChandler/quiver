@@ -745,6 +745,20 @@ describe("wave-formatters", () => {
   // selectWaveHeightSource (merged from wave-height-formatter.test.ts)
   // =========================================================================
   describe("selectWaveHeightSource", () => {
+    it("should prefer explicit nowcast anchor height over all forecast sources", () => {
+      const result = selectWaveHeightSource({
+        nowcastAnchorM: 0.94,
+        cdipSigFt: 3.0,
+        cdipSwellFt: 2.0,
+        modelSwellM: 1.0,
+        modelHsM: 0.5,
+        ndbcBuoyM: 0.8,
+      });
+
+      expect(result?.source).toBe("nowcast_anchor");
+      expect(result?.heightFt).toBeCloseTo(3.08, 1);
+    });
+
     it("should prefer CDIP significant height", () => {
       const result = selectWaveHeightSource({
         cdipSigFt: 3.0,

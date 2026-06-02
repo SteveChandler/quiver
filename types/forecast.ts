@@ -547,6 +547,21 @@ export interface WaveHeightProvenance {
     raw_cdip_hs: number;
     raw_model_hs: number | null;
   };
+  /** Targeted South OC/San Onofre shadow-guardrail provenance when it fired. */
+  south_oc_sano_guardrail?: {
+    zone: 'south_oc_sano_shadow_zone';
+    branch: 'non_cluster_anchor_floor' | 'trestles_calibrated_anchor';
+    height_floor_applied: boolean;
+    station_ids_used: string[];
+    station_ages_minutes: Record<string, number>;
+    confirmed_nearshore_hs_m: number;
+    confirmed_nearshore_hs_ft: number;
+    confirmed_period_s: number;
+    confirmed_direction_deg: number;
+    offshore_context_station_id: string | null;
+    offshore_context_hs_m: number | null;
+    offshore_context_age_minutes: number | null;
+  };
 }
 
 // Enhanced Forecast with Raw Data

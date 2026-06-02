@@ -50,6 +50,11 @@ import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.t
 import { isNowcastAnchorEnabled } from "@/lib/services/observations/nowcast-anchor.types";
 import { STALENESS_THRESHOLDS } from "@/lib/config/forecast-staleness";
 import { pickDominantSwell } from "@/lib/domains/conditions";
+import {
+  resolveSouthOcSanoShadowGuardrail,
+  type SouthOcSanoGuardrailResult,
+  type SouthOcSanoShadowZoneSnapshot,
+} from "./south-oc-sano-shadow-guardrail";
 
 /**
  * Nowcast-anchor design (see plan golden-sleeping-steele.md):
@@ -144,6 +149,8 @@ export interface ForecastInputs {
    * forecast-only path (current behavior).
    */
   nowcastAnchor?: NowcastAnchor | null;
+  /** Optional per-run validation-zone snapshot for South OC/San Onofre guardrail. */
+  southOcSanoShadowZoneSnapshot?: SouthOcSanoShadowZoneSnapshot | null;
   /**
    * Optional per-beach height offset row (source='display'), loaded for the
    * beach being built. When undefined the helper short-circuits to identity
@@ -243,7 +250,19 @@ export class ForecastBuilder {
    * Build forecasts from raw data sources
    */
   async buildForecasts(inputs: ForecastInputs): Promise<EnhancedForecastWithRawData[]> {
-    const { beach, waveData, tideData, weatherData, buoyData, cdipData, ioosWaterTempC, coopsWaterTempC, nowcastAnchor, heightOffset } = inputs;
+    const {
+      beach,
+      waveData,
+      tideData,
+      weatherData,
+      buoyData,
+      cdipData,
+      ioosWaterTempC,
+      coopsWaterTempC,
+      nowcastAnchor,
+      southOcSanoShadowZoneSnapshot,
+      heightOffset,
+    } = inputs;
     const forecasts: EnhancedForecastWithRawData[] = [];
     const now = new Date();
 
@@ -332,6 +351,12 @@ export class ForecastBuilder {
         nowMs: now.getTime(),
       });
       const effectiveAnchor = applyAnchor ? (nowcastAnchor ?? null) : null;
+      const southOcSanoGuardrail = resolveSouthOcSanoShadowGuardrail({
+        beach,
+        snapshot: southOcSanoShadowZoneSnapshot,
+        forecastAtMs: forecastTime.getTime(),
+        nowMs: now.getTime(),
+      });
 
       // Build the forecast entity
       const forecast = this.buildSingleForecast({
@@ -355,6 +380,7 @@ export class ForecastBuilder {
         ioosWaterTempC,
         coopsWaterTempC,
         nowcastAnchor: effectiveAnchor,
+        southOcSanoGuardrail,
         heightOffset: resolvedOffset ?? null,
         snapshotBuffer,
       });
@@ -430,6 +456,7 @@ export class ForecastBuilder {
     ioosWaterTempC: number | null;
     coopsWaterTempC: number | null;
     nowcastAnchor: NowcastAnchor | null;
+    southOcSanoGuardrail: SouthOcSanoGuardrailResult;
     heightOffset: BeachHeightOffsetRow | null;
     snapshotBuffer: DisplayPredictionRow[];
     calibration: Awaited<ReturnType<typeof getActiveCalibration>>;
@@ -454,6 +481,7 @@ export class ForecastBuilder {
       ioosWaterTempC,
       coopsWaterTempC,
       nowcastAnchor,
+      southOcSanoGuardrail,
       heightOffset,
       snapshotBuffer,
       calibration,
@@ -462,7 +490,7 @@ export class ForecastBuilder {
     // Compute wave height once and capture provenance metadata for raw_forecast.
     // The debug record explains which source/transform path produced the number,
     // making post-hoc "why does Quiver show X?" questions answerable from one row.
-    const waveHeightResult = this.getWaveHeight(
+    let waveHeightResult = this.getWaveHeight(
       cdipPoint,
       wavePoint,
       buoyData,
@@ -470,6 +498,24 @@ export class ForecastBuilder {
       beach,
       nowcastAnchor,
     );
+    let appliedSouthOcSanoGuardrail: SouthOcSanoGuardrailResult | null = null;
+
+    if (southOcSanoGuardrail.kind !== "noop") {
+      const guardedWaveHeightResult = this.getWaveHeight(
+        cdipPoint,
+        wavePoint,
+        buoyData,
+        useCDIPData,
+        beach,
+        southOcSanoGuardrail.anchor,
+      );
+      const baseFt = parseDisplayHeightFt(waveHeightResult.value).numericFt;
+      const guardedFt = parseDisplayHeightFt(guardedWaveHeightResult.value).numericFt;
+      if (guardedFt != null && (baseFt == null || guardedFt > baseFt)) {
+        waveHeightResult = guardedWaveHeightResult;
+        appliedSouthOcSanoGuardrail = southOcSanoGuardrail;
+      }
+    }
 
     // Telemetry feedback-loop invariant: parse the PRE-offset display value
     // and capture rawDisplayHeightFt BEFORE applyBeachHeightOffset runs. The
@@ -721,7 +767,11 @@ export class ForecastBuilder {
         tideData,
         now,
         waveHeightDebug: waveHeightResult.debug,
-        nowcastAnchor,
+        nowcastAnchor: appliedSouthOcSanoGuardrail?.anchor ?? nowcastAnchor,
+        southOcSanoGuardrail:
+          southOcSanoGuardrail.kind !== "noop" ? southOcSanoGuardrail : null,
+        southOcSanoGuardrailHeightFloorApplied:
+          appliedSouthOcSanoGuardrail !== null,
       }),
     } as EnhancedForecastWithRawData;
   }
@@ -739,6 +789,8 @@ export class ForecastBuilder {
     now: Date;
     waveHeightDebug: WaveHeightDebugInfo;
     nowcastAnchor: NowcastAnchor | null;
+    southOcSanoGuardrail: SouthOcSanoGuardrailResult | null;
+    southOcSanoGuardrailHeightFloorApplied: boolean;
   }): EnhancedForecastWithRawData["raw_forecast"] {
     const {
       dataSources,
@@ -750,6 +802,8 @@ export class ForecastBuilder {
       now,
       waveHeightDebug,
       nowcastAnchor,
+      southOcSanoGuardrail,
+      southOcSanoGuardrailHeightFloorApplied,
     } = params;
 
     // Resolve the station_id for the wave-height provenance record. The
@@ -801,6 +855,30 @@ export class ForecastBuilder {
                 reason: waveHeightDebug.cdipRejection.reason,
                 raw_cdip_hs: waveHeightDebug.cdipRejection.rawCdipHs,
                 raw_model_hs: waveHeightDebug.cdipRejection.rawModelHs,
+              },
+            }
+          : {}),
+        ...(southOcSanoGuardrail && southOcSanoGuardrail.kind !== "noop"
+          ? {
+              south_oc_sano_guardrail: {
+                zone: southOcSanoGuardrail.metadata.zone,
+                branch: southOcSanoGuardrail.metadata.branch,
+                height_floor_applied: southOcSanoGuardrailHeightFloorApplied,
+                station_ids_used: southOcSanoGuardrail.metadata.stationIdsUsed,
+                station_ages_minutes: southOcSanoGuardrail.metadata.stationAgesMinutes,
+                confirmed_nearshore_hs_m:
+                  southOcSanoGuardrail.metadata.confirmedNearshoreHsM,
+                confirmed_nearshore_hs_ft:
+                  southOcSanoGuardrail.metadata.confirmedNearshoreHsFt,
+                confirmed_period_s: southOcSanoGuardrail.metadata.confirmedPeriodS,
+                confirmed_direction_deg:
+                  southOcSanoGuardrail.metadata.confirmedDirectionDeg,
+                offshore_context_station_id:
+                  southOcSanoGuardrail.metadata.offshoreContextStationId,
+                offshore_context_hs_m:
+                  southOcSanoGuardrail.metadata.offshoreContextHsM,
+                offshore_context_age_minutes:
+                  southOcSanoGuardrail.metadata.offshoreContextAgeMinutes,
               },
             }
           : {}),
@@ -1033,7 +1111,7 @@ export class ForecastBuilder {
     //   3. NOAA-only or buoy fallback → original decomposed path.
 
     // Branch 1: Nowcast anchor.
-    // Swap in the observation Hs via the ndbcBuoyM slot AND pass empty
+    // Swap in the observation Hs via the explicit nowcastAnchorM slot AND pass empty
     // components. The decomposed branch sums over populated components and
     // never reads `rawHeightFt` when any are present — so keeping NOAA's
     // components would silently discard the anchor height. Empty components
@@ -1046,16 +1124,14 @@ export class ForecastBuilder {
         cdipSwellFt: undefined,
         modelSwellM: undefined,
         modelHsM: undefined,
-        ndbcBuoyM: nowcastAnchor.waveHeightM,
+        nowcastAnchorM: nowcastAnchor.waveHeightM,
         beach: beachTerrain,
         periodS,
         swellDirectionDeg,
+        allowCalibratedShoaling: nowcastAnchor.allowCalibratedShoaling === true,
         components: [null, null, null],
       });
-      return {
-        value: result.value,
-        debug: { ...result.debug, source: 'nowcast_anchor' },
-      };
+      return result;
     }
 
     // Branch 2: CDIP data present. Force the scalar/legacy path so CDIP `Hs`
