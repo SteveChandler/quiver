@@ -28,11 +28,13 @@ export function createThenableQuery<T>(result: QueryResult<T>) {
 
   // Mutation helpers used in some admin actions
   self.insert = jest.fn((_values?: unknown) => self);
+  self.upsert = jest.fn((_values?: unknown, _opts?: unknown) => self);
   self.update = jest.fn((_values?: unknown) => self);
   self.delete = jest.fn(() => self);
 
   // End-of-chain helpers
   self.single = jest.fn(() => Promise.resolve(result));
+  self.maybeSingle = jest.fn(() => Promise.resolve(result));
 
   // Make the query awaitable: `const { data, error } = await query`
   self.then = (onFulfilled: unknown, onRejected: unknown) =>
@@ -43,5 +45,4 @@ export function createThenableQuery<T>(result: QueryResult<T>) {
 
   return self;
 }
-
 

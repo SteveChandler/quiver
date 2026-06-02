@@ -41,7 +41,17 @@ describe("admin photos actions", () => {
           caption: "Nice",
           created_at: "2025-01-01T00:00:00Z",
           deleted_at: null,
+          metadata: {
+            moderation_status: "pending",
+            source: "native_session_upload",
+          },
           profiles: { display_name: "Alice", email: "a@example.com" },
+          sessions: {
+            id: "s1",
+            beach_id: "b1",
+            beach_name: null,
+            beaches: { id: "b1", name: "Blacks Beach" },
+          },
         },
       ] as any,
       error: null,
@@ -63,6 +73,102 @@ describe("admin photos actions", () => {
         type: "session_media",
         imageUrl: "https://example.com/p1.jpg",
         status: "active",
+        metadata: expect.objectContaining({
+          beachId: "b1",
+          beachName: "Blacks Beach",
+          moderationStatus: "pending",
+          canPromoteToBeachHeader: true,
+        }),
+      })
+    );
+  });
+
+  test("approveSessionMediaForBeachHeader promotes reviewed session media into approved beach photos", async () => {
+    const { getCurrentUser } = await import("@/lib/auth/admin");
+    const { createSupabaseServiceRoleClient } = await import("@/lib/supabase/server");
+    const { recordAdminEvent } = await import("@/lib/logging/admin-audit");
+
+    (getCurrentUser as jest.Mock).mockResolvedValue({ id: "admin-1" });
+
+    const fetchQuery = createThenableQuery<any>({
+      data: {
+        id: "m1",
+        session_id: "s1",
+        user_id: "u1",
+        public_url: "https://cdn.example.com/session-photo.jpg",
+        storage_path: "s1/u1/01.jpg",
+        caption: "Clean morning lines",
+        metadata: {
+          moderation_status: "pending",
+          order: 1,
+        },
+        deleted_at: null,
+        profiles: { display_name: "Alice", email: "a@example.com" },
+        sessions: {
+          id: "s1",
+          beach_id: "b1",
+          beach_name: null,
+          beaches: { id: "b1", name: "Blacks Beach" },
+        },
+      },
+      error: null,
+    });
+    const upsertQuery = createThenableQuery<any>({
+      data: { id: "bp1" },
+      error: null,
+    });
+    const updateQuery = createThenableQuery<any>({
+      data: null,
+      error: null,
+    });
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+      from: jest
+        .fn()
+        .mockImplementationOnce(() => fetchQuery)
+        .mockImplementationOnce(() => upsertQuery)
+        .mockImplementationOnce(() => updateQuery),
+    });
+
+    const { approveSessionMediaForBeachHeader } = await import("@/actions/admin/photos");
+    const res = await approveSessionMediaForBeachHeader("m1");
+
+    expect(res.success).toBe(true);
+    expect(res.data).toEqual({ success: true, beachPhotoId: "bp1" });
+    expect(upsertQuery.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        beach_id: "b1",
+        source: "user",
+        source_id: "session_media:m1",
+        image_url: "https://cdn.example.com/session-photo.jpg",
+        thumb_url: "https://cdn.example.com/session-photo.jpg",
+        title: "Clean morning lines",
+        creator_name: "Alice",
+        approved: true,
+        deleted_at: null,
+      }),
+      { onConflict: "beach_id,source,source_id" }
+    );
+    expect(upsertQuery.maybeSingle).toHaveBeenCalled();
+    expect(updateQuery.update).toHaveBeenCalledWith({
+      metadata: expect.objectContaining({
+        moderation_status: "approved",
+        is_eligible_beach_header: true,
+        approved_beach_photo_id: "bp1",
+        approved_by: "admin-1",
+      }),
+    });
+    expect(recordAdminEvent).toHaveBeenCalledWith(
+      "admin-1",
+      "photo",
+      "approve",
+      expect.objectContaining({
+        entityId: "m1",
+        payloadSummary: expect.objectContaining({
+          beach_id: "b1",
+          beach_photo_id: "bp1",
+          source_id: "session_media:m1",
+        }),
       })
     );
   });
@@ -400,6 +506,5 @@ describe("admin photos actions", () => {
     });
   });
 });
-
 
 
