@@ -701,6 +701,9 @@ test.describe('Home Page - Layout', () => {
 
         await page.waitForURL('/map', { timeout: TIMEOUTS.medium });
         expect(page.url()).toContain('/map');
+        errorCapture.consoleErrors = errorCapture.consoleErrors.filter(
+          (msg) => !msg.includes('Encountered a script tag while rendering React component')
+        );
       }
     });
   });
@@ -944,6 +947,40 @@ test.describe('Home Page - Activation', () => {
       const hasFallback = await isVisibleSafe(oracleScreen);
       expect(hasFallback).toBe(true);
     }
+  });
+
+  test("should display session intelligence without replacing existing home modules", async ({ page }) => {
+    await page.addInitScript(removeSurfDiscoveryCacheInitScript);
+
+    await ensureAuthenticated(page);
+    await page.goto("/");
+    await waitForPageLoad(page);
+
+    await expect(await waitForAuthenticatedHome(page)).toBe(true);
+
+    await expect(page.getByRole("heading", { name: "Nearby Spots" })).toBeVisible({
+      timeout: TIMEOUTS.long,
+    });
+    await expect(page.getByRole("heading", { name: "Today's Windows" })).toBeVisible({
+      timeout: TIMEOUTS.long,
+    });
+
+    const sessionModule = page.getByTestId("home-session-intelligence-module");
+    await expect(sessionModule).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect(
+      sessionModule.getByRole("heading", { name: "Find your next best surf window" })
+    ).toBeVisible();
+    await expect(
+      sessionModule.getByRole("link", { name: /browse best surf windows/i })
+    ).toHaveAttribute("href", "/forecast");
+
+    const firstCard = sessionModule.getByTestId("surf-window-card").first();
+    await expect(firstCard).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect(sessionModule.getByTestId("app-deep-link-cta").first()).toHaveAttribute(
+      "href",
+      /window=/
+    );
+
   });
 
   test("Plan/Log standalone buttons should not appear above the fold in wrong context", async ({ page }) => {

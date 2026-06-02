@@ -7,6 +7,8 @@ import {
   generateMetadata,
 } from "@/app/best-time-to-surf/[city]/page";
 import { findCityBySlug } from "@/actions/city/city-metadata-actions";
+import { readFileSync } from "fs";
+import { join } from "path";
 
 jest.mock("@/actions/city/city-metadata-actions", () => ({
   findCityBySlug: jest.fn(),
@@ -85,5 +87,87 @@ describe("best-time city SEO page", () => {
           "Use the map to switch beaches when crowd, wind, or tide changes the call.",
       },
     ]);
+  });
+
+  it.each([
+    {
+      cityName: "La Jolla",
+      citySlug: "la-jolla",
+      stateSlug: "ca",
+      spotName: "La Jolla Shores",
+      spotSlug: "la-jolla-shores",
+      spotHref: "/ca/la-jolla/la-jolla-shores",
+      state: "CA",
+    },
+    {
+      cityName: "Westport",
+      citySlug: "westport",
+      stateSlug: "wa",
+      spotName: "Westport Jetty",
+      spotSlug: "westport-jetty",
+      spotHref: "/wa/westport/westport-jetty",
+      state: "WA",
+    },
+    {
+      cityName: "Cocoa Beach",
+      citySlug: "cocoa-beach",
+      stateSlug: "fl",
+      spotName: "Cocoa Beach Pier",
+      spotSlug: "cocoa-beach-pier",
+      spotHref: "/fl/cocoa-beach/cocoa-beach-pier",
+      state: "FL",
+    },
+  ])(
+    "builds Phase 18 live-condition handoff steps for $cityName",
+    ({ cityName, citySlug, stateSlug, spotName, spotSlug, spotHref, state }) => {
+      const steps = buildBestTimeLiveHandoffSteps({
+        cityName,
+        citySlug,
+        path: `/best-time-to-surf/${citySlug}`,
+        stateSlug,
+        topBeaches: [
+          {
+            name: spotName,
+            slug: spotSlug,
+            city: cityName,
+            state,
+            country: "USA",
+          },
+        ],
+      });
+
+      expect(steps).toEqual([
+        {
+          label: `Open live ${spotName} conditions`,
+          href: spotHref,
+          description:
+            "Use the current wave height, wind, tide, and local call before applying the seasonal pattern.",
+        },
+        {
+          label: `Check today's ${cityName} surf hub`,
+          href: `/${stateSlug}/${citySlug}`,
+          description:
+            "Compare live spots in this city before picking the window that fits your plan.",
+        },
+        {
+          label: "Scan the 7-day regional forecast",
+          href: "/forecast",
+          description:
+            "Use the forecast hub to confirm whether this seasonal setup is building or fading.",
+        },
+      ]);
+    }
+  );
+
+  it("keeps the best-time page source anchored to seasonal intent", () => {
+    const source = readFileSync(
+      join(process.cwd(), "app/best-time-to-surf/[city]/page.tsx"),
+      "utf8"
+    );
+
+    expect(source).toContain("Best Time to Surf {cityName}");
+    expect(source).toContain("Surf Score by Month");
+    expect(source).toContain("Monthly Breakdown");
+    expect(source).toContain("path: `/best-time-to-surf/${citySlug}`");
   });
 });

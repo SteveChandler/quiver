@@ -16,6 +16,7 @@ import {
   getBeachesForRegion,
   type RegionalForecastSummary,
 } from "@/lib/utils/regional-forecast-utils";
+import { buildRegionalSurfWindowRecommendations } from "@/lib/recommendations/session-intelligence-surface-adapters";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
 import { getBeachesFromDb } from "@/lib/services/beach-query-service";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
@@ -23,6 +24,7 @@ import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withApprovedPhotos } from "@/lib/supabase/query-builders";
 import type { Beach } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 
 /**
  * Get regional forecast summaries for all regions.
@@ -32,8 +34,14 @@ import type { Beach } from "@/types/database";
  *
  * @param beaches - Optional pre-fetched beach array. If not provided, will fetch beaches internally.
  */
+export interface GetRegionalSummariesOptions {
+  now?: Date;
+  baseUrl?: string;
+}
+
 export async function getRegionalSummaries(
-  beaches?: Beach[]
+  beaches?: Beach[],
+  options: GetRegionalSummariesOptions = {}
 ): Promise<Record<string, RegionalForecastSummary>> {
   const regions = Object.values(FORECAST_REGIONS);
   const summaries: Record<string, RegionalForecastSummary> = {};
@@ -72,7 +80,7 @@ export async function getRegionalSummaries(
     const regionBeaches = regionBeachesMap.get(region.slug) || [];
 
     // Filter forecast map to only this region's beaches
-    const regionForecastMap = new Map();
+    const regionForecastMap = new Map<string, EnhancedForecastEntity[]>();
     for (const beach of regionBeaches) {
       const result = forecastMap.get(beach.id);
       if (result && result.forecasts.length > 0) {
@@ -81,11 +89,22 @@ export async function getRegionalSummaries(
     }
 
     // Aggregate into regional summary
-    summaries[region.slug] = aggregateRegionalForecast(
+    const summary = aggregateRegionalForecast(
       region,
       regionBeaches,
       regionForecastMap
     );
+    summary.bestSurfWindows = buildRegionalSurfWindowRecommendations({
+      groups: regionBeaches
+        .map((beach) => ({
+          beach,
+          forecasts: regionForecastMap.get(beach.id) ?? [],
+        }))
+        .filter((group) => group.forecasts.length > 0),
+      now: options.now,
+      baseUrl: options.baseUrl,
+    });
+    summaries[region.slug] = summary;
   }
 
   // Attach one approved photo per region (from the region's highest-scored

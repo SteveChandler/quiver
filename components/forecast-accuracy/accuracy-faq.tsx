@@ -5,7 +5,6 @@
  * (client-side via FAQSection). FAQPage JSON-LD is intentionally suppressed.
  */
 
-import { FAQSchema } from "@/components/seo/faq-schema";
 import { FAQSection } from "@/components/seo/faq-section";
 
 interface AccuracyFaqProps {
@@ -13,6 +12,11 @@ interface AccuracyFaqProps {
 }
 
 export function AccuracyFaq({ beachCount }: AccuracyFaqProps) {
+  const trackedBeachAnswer =
+    beachCount > 0
+      ? `The live report currently has qualifying forecast accuracy rows for ${beachCount} beaches. A beach needs enough validated forecast-buoy pairs to appear with beach-level MAE, improvement, last-updated, and confidence values.`
+      : "The live report is currently building qualifying beach rows. Until enough validated forecast-buoy pairs are ready, Quiver shows methodology and in-progress status instead of an accuracy lift claim.";
+
   const faqItems = [
     {
       question: "How is forecast accuracy measured?",
@@ -22,7 +26,7 @@ export function AccuracyFaq({ beachCount }: AccuracyFaqProps) {
     {
       question: "How often is accuracy data updated?",
       answer:
-        "Accuracy data updates daily. We use a rolling 14-day window, so today's numbers reflect the past two weeks of forecast-versus-buoy comparisons. This keeps the metrics current and avoids overfitting to seasonal averages.",
+        "Accuracy data is evaluated on a rolling window. The page shows last-updated status on the live summary and each qualifying beach row so you can see when the latest forecast-buoy match was recorded.",
     },
     {
       question: "Where does the ground truth data come from?",
@@ -32,23 +36,18 @@ export function AccuracyFaq({ beachCount }: AccuracyFaqProps) {
     {
       question: "What is the NOAA baseline?",
       answer:
-        "The NOAA baseline is the raw National Weather Service (NWS) marine wave height forecast, unmodified. It represents the regional average forecast that any surfer can access from weather.gov. Quiver's ML model starts from this baseline and applies per-beach corrections. The improvement percentage shown is how much smaller our error is compared to using the raw NOAA forecast.",
+        "The NOAA baseline is the raw National Weather Service (NWS) marine wave height forecast, unmodified. It represents the regional average forecast that any surfer can access from weather.gov. Quiver starts from this baseline and applies per-beach corrections. A positive improvement percentage is only shown as a lift claim when the current validated sample supports it.",
     },
     {
       question: "How does ML improve the forecasts?",
       answer:
-        "NOAA publishes regional forecasts that don't account for individual beach geography. Quiver's XGBoost model learns per-beach bias correction factors from historical buoy observations. It adjusts for each beach's unique exposure to swell direction, wind patterns, and terrain features like offshore reefs and headlands. The model retrains weekly on a 90-day rolling window of matched data.",
+        "NOAA publishes regional forecasts that don't account for individual beach geography. Quiver's model applies per-beach correction factors from historical buoy validation and local context such as swell direction, wind exposure, and terrain shape. The public report only claims lift when the current validated sample supports it.",
     },
     {
       question: `How many beaches are tracked for accuracy?`,
-      answer: `We currently track forecast accuracy for ${beachCount} beaches with at least 10 validated forecast-buoy pairs. Beaches need sufficient matched data to appear in accuracy statistics. As more buoy observations accumulate, additional beaches are added automatically. New beaches typically reach minimum data thresholds within 2–4 weeks of activation.`,
+      answer: trackedBeachAnswer,
     },
   ];
 
-  return (
-    <>
-      <FAQSchema items={faqItems} />
-      <FAQSection items={faqItems} locationName="surf forecast accuracy" />
-    </>
-  );
+  return <FAQSection items={faqItems} locationName="surf forecast accuracy" />;
 }

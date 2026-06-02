@@ -41,6 +41,15 @@ describe("AliasMatchStrategy", () => {
       matchType: "alias-contains",
     });
   });
+
+  it("matches aliases against parenthesized canonical names", () => {
+    const beach = makeBeach({ name: "38th Avenue (Santa Cruz)" });
+    expect(strategy.matches(beach, "jacks", "38th avenue santa cruz")).toEqual({
+      matches: true,
+      score: 900,
+      matchType: "alias-exact",
+    });
+  });
 });
 
 describe("ExactMatchStrategy", () => {

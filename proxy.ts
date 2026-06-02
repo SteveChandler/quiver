@@ -35,6 +35,7 @@ const INTERNATIONAL_RESERVED_SEGMENTS = new Set([
   "auth",
   "admin",
   "alerts",
+  "app",
   "beach",
   "beaches",
   "discover",
@@ -217,6 +218,28 @@ export async function proxy(request: NextRequest) {
     redirectUrl.pathname = `/ca/huntington-beach/goldenwest${
       northHbStreetsMatch[1] ?? ""
     }`;
+    return NextResponse.redirect(redirectUrl, { status: 301 });
+  }
+
+  const rockviewStateMatch = pathname
+    .toLowerCase()
+    .match(
+      /^\/ca\/santa-cruz\/rockview-santa-cruz-ca(\/(?:tides|water-temp))?$/,
+    );
+  if (rockviewStateMatch) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = `/ca/santa-cruz/the-hook-santa-cruz-ca${
+      rockviewStateMatch[1] ?? ""
+    }`;
+    return NextResponse.redirect(redirectUrl, { status: 301 });
+  }
+
+  if (
+    pathname.toLowerCase() === "/spots/rockview-santa-cruz-ca" ||
+    pathname.toLowerCase() === "/beach/rockview-santa-cruz-ca"
+  ) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/ca/santa-cruz/the-hook-santa-cruz-ca";
     return NextResponse.redirect(redirectUrl, { status: 301 });
   }
 

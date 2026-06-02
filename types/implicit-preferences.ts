@@ -142,6 +142,14 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   map_load_failed: 0,
   // Forecast reliability
   forecast_ready: 0,
+  // Session Intelligence measurement events
+  surf_window_impression: 0,
+  surf_window_click: 0,
+  why_this_call_opened: 0,
+  app_deeplink_clicked: 0,
+  forecast_accuracy_table_viewed: 0,
+  save_alert_clicked: 0,
+  seo_intent_page_window_clicked: 0,
   // Session log funnel
   session_log_beach_selected: 0,
   session_log_rating_set: 0,
@@ -748,6 +756,53 @@ export interface ForecastReadyMetadata {
   cached?: boolean;
 }
 
+/** Metadata for Session Intelligence surf-window measurement events. */
+export interface SurfWindowMeasurementMetadata {
+  surface: string;
+  beach_id?: string;
+  beach_slug?: string | null;
+  beach_name?: string;
+  window_id?: string;
+  rank?: number;
+  score?: number;
+  verdict?: string;
+  local_time_label?: string;
+  canonical_web_url?: string | null;
+  target_href?: string;
+  link_type?: "universal_link" | "app_path" | "app_store";
+  fallback_to_app_store?: boolean;
+}
+
+/** Metadata for forecast_accuracy_table_viewed events. */
+export interface ForecastAccuracyTableViewedMetadata {
+  surface: "forecast_accuracy";
+  row_count: number;
+  claimable_row_count: number;
+  top_beach_id?: string;
+  top_beach_slug?: string | null;
+}
+
+/** Metadata for save_alert_clicked events. */
+export interface SaveAlertClickedMetadata {
+  surface: "seo_alert_capture_cta";
+  page_context: string;
+  beach_id: string;
+  beach_name: string;
+  source: string;
+  preset_types: string[];
+}
+
+/** Metadata for seo_intent_page_window_clicked events. */
+export interface SeoIntentPageWindowClickedMetadata {
+  surface: "intent_handoff";
+  city_name: string;
+  city_slug: string;
+  state_slug: string;
+  target_href: string;
+  link_label: string;
+  link_index: number;
+}
+
 /** Metadata for empty_state_shown events */
 export interface EmptyStateShownMetadata {
   /** Identifier for which empty state surface rendered (e.g., 'beach_reviews', 'map_no_beaches_in_viewport', 'intel_feed', 'session_list') */
@@ -835,6 +890,10 @@ export type EventMetadata =
   | MapReadyMetadata
   | MapLoadFailedMetadata
   | ForecastReadyMetadata
+  | SurfWindowMeasurementMetadata
+  | ForecastAccuracyTableViewedMetadata
+  | SaveAlertClickedMetadata
+  | SeoIntentPageWindowClickedMetadata
   | EmptyStateShownMetadata
   | CtaImpressionMetadata
   | ClientErrorMetadata

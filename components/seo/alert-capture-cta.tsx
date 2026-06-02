@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
 import { usePendingAction } from "@/hooks/use-pending-action";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import {
   trackSignupCtaClick,
   trackSignupCtaView,
@@ -55,6 +56,7 @@ export function AlertCaptureCta({
 }: AlertCaptureCtaProps) {
   const { user, isLoading } = useAuth();
   const { setPendingAction } = usePendingAction();
+  const { track } = useTrackEvent();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const hasTrackedView = useRef(false);
 
@@ -73,6 +75,19 @@ export function AlertCaptureCta({
   }, [user, isLoading, source, pageContext]);
 
   const handleCtaClick = useCallback(() => {
+    void track("save_alert_clicked", {
+      beachId,
+      metadata: {
+        surface: "seo_alert_capture_cta",
+        page_context: pageContext,
+        beach_id: beachId,
+        beach_name: beachName,
+        source,
+        preset_types: config.presets,
+      },
+      debounceMs: 0,
+    });
+
     trackSignupCtaClick({
       source,
       cta_type: "alert_capture",
@@ -90,7 +105,7 @@ export function AlertCaptureCta({
     });
 
     setAuthModalOpen(true);
-  }, [source, config, pageContext, beachId, beachName, setPendingAction]);
+  }, [track, beachId, pageContext, beachName, source, config, setPendingAction]);
 
   // Don't render for authenticated users or while loading
   if (user || isLoading) {

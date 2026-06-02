@@ -18,6 +18,7 @@ import { IntentGuidesGrid } from "@/components/shared/intent-guides-grid";
 import { SunTimesHeroSection } from "./sun-times-hero-section";
 import { SevenDaySunTimesTable } from "./seven-day-sun-times-table";
 import { BeachEditorialSection } from "./beach-editorial-section";
+import { UtilitySessionHandoff } from "./utility-session-handoff";
 
 interface SunsetPageContentProps {
   cityName: string;
@@ -115,6 +116,14 @@ export function SunsetPageContent({
 
           {/* Module 2: 7-day sun schedule */}
           <SevenDaySunTimesTable days={sunTimesData.sevenDayTimes} />
+
+          <UtilitySessionHandoff
+            bestTimeToSurfUrl={bestTimeToSurfUrl}
+            cityName={cityName}
+            citySlug={citySlug}
+            intent="sunset"
+            stateSlug={stateSlug}
+          />
 
           {/* Alert Capture CTA */}
           <AlertCaptureCta

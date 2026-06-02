@@ -2,9 +2,38 @@ import { NextResponse } from "next/server";
 
 const DEFAULT_APPLE_TEAM_ID = "QBA8TA48NG";
 const DEFAULT_APPLE_BUNDLE_IDS = "app.quiversurf.mobile";
+const APPLE_TEAM_ID_PATTERN = /^[A-Z0-9]{10}$/;
 
-const teamId = process.env.APPLE_TEAM_ID?.trim() || DEFAULT_APPLE_TEAM_ID;
-const explicitAppId = process.env.APPLE_APP_ID?.trim();
+function isPlaceholderValue(value: string): boolean {
+  const normalized = value.trim().toUpperCase();
+  if (!normalized) return true;
+
+  return (
+    normalized.includes("YOUR") ||
+    normalized.includes("REPLACE") ||
+    normalized.includes("PLACEHOLDER") ||
+    normalized.includes("TODO")
+  );
+}
+
+function normalizeAppleTeamId(value: string | undefined): string {
+  const normalized = value?.trim().toUpperCase();
+  if (!normalized) return DEFAULT_APPLE_TEAM_ID;
+  if (isPlaceholderValue(normalized)) return DEFAULT_APPLE_TEAM_ID;
+  if (!APPLE_TEAM_ID_PATTERN.test(normalized)) return DEFAULT_APPLE_TEAM_ID;
+
+  return normalized;
+}
+
+function normalizeExplicitAppId(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed || isPlaceholderValue(trimmed)) return undefined;
+
+  return trimmed;
+}
+
+const teamId = normalizeAppleTeamId(process.env.APPLE_TEAM_ID);
+const explicitAppId = normalizeExplicitAppId(process.env.APPLE_APP_ID);
 
 const pathEnv = process.env.APPLE_APP_SITE_ASSOCIATION_PATHS ??
   "/auth/*,/sessions/*,/beach/*,/profile/*,/map*";
@@ -16,6 +45,7 @@ const requiredApplinkPaths = [
   "/map*",
   "/invite/*",
   "/settings*",
+  "/app/spot/*",
 ];
 const applinkPaths = Array.from(
   new Set([

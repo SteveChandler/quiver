@@ -18,6 +18,7 @@ import { TideHeroSection } from "./tide-hero-section";
 import { TideFullChart } from "./tide-full-chart";
 import { SevenDayTideTable } from "./seven-day-tide-table";
 import { BeachTideCards } from "./beach-tide-cards";
+import { UtilitySessionHandoff } from "./utility-session-handoff";
 
 interface TidePageContentProps {
   cityName: string;
@@ -126,6 +127,16 @@ export function TidePageContent({
           {/* Module 3: 7-day high/low table */}
           <SectionFadeUp>
             <SevenDayTideTable days={tideData.sevenDayExtrema} />
+          </SectionFadeUp>
+
+          <SectionFadeUp>
+            <UtilitySessionHandoff
+              bestTimeToSurfUrl={bestTimeToSurfUrl}
+              cityName={cityName}
+              citySlug={citySlug}
+              intent="tide"
+              stateSlug={stateSlug}
+            />
           </SectionFadeUp>
 
           {/* Module 4: Per-beach tide preferences */}

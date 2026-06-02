@@ -125,6 +125,14 @@ export const VALID_EVENTS = [
   'map_load_failed',
   // Forecast reliability
   'forecast_ready',
+  // Session Intelligence measurement events
+  'surf_window_impression',
+  'surf_window_click',
+  'why_this_call_opened',
+  'app_deeplink_clicked',
+  'forecast_accuracy_table_viewed',
+  'save_alert_clicked',
+  'seo_intent_page_window_clicked',
   // Session log funnel
   'session_log_beach_selected',
   'session_log_rating_set',
@@ -284,6 +292,14 @@ export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   'map_ready', 'map_load_failed',
   // Forecast reliability
   'forecast_ready',
+  // Session Intelligence public measurement
+  'surf_window_impression',
+  'surf_window_click',
+  'why_this_call_opened',
+  'app_deeplink_clicked',
+  'forecast_accuracy_table_viewed',
+  'save_alert_clicked',
+  'seo_intent_page_window_clicked',
   // Empty states + CTA impressions
   'empty_state_shown', 'cta_impression',
   // Client error capture

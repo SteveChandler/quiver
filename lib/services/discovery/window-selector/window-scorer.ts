@@ -9,6 +9,7 @@
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
+import type { CompositeScore } from '@/lib/domains/scoring';
 import {
   beachToSpotProfile,
   forecastToSnapshot,
@@ -158,16 +159,25 @@ export function scoreWindowWithEngine(
   forecast: EnhancedForecastEntity,
   beach: Beach
 ): number {
+  return scoreWindowWithComposite(forecast, beach).total;
+}
+
+/**
+ * Score a forecast window using the unified discovery scoring engine and
+ * return the composite result for downstream explanation/confidence builders.
+ */
+export function scoreWindowWithComposite(
+  forecast: EnhancedForecastEntity,
+  beach: Beach
+): CompositeScore {
   const engine = getScoringEngine();
   const profile = beachToSpotProfile(beach);
   const snapshot = forecastToSnapshot(forecast);
 
-  const result = engine.score({
+  return engine.score({
     profile,
     snapshot,
     window: null,
     preferences: null,
   });
-
-  return result.total;
 }

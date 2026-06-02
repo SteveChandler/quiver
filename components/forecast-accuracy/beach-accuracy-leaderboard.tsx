@@ -9,9 +9,12 @@
  * The Predictions column is hidden on mobile to reduce horizontal overflow.
  */
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { useTrackEvent } from "@/hooks/use-track-event";
+import type { ForecastAccuracyConfidence } from "@/actions/ml/forecast-accuracy-actions";
+import { AccuracySourceConfidenceBadge } from "./accuracy-source-confidence-badge";
 
 export interface LeaderboardBeachRow {
   beachId: string;
@@ -20,10 +23,17 @@ export interface LeaderboardBeachRow {
   city: string | null;
   state: string | null;
   country: string | null;
-  rawMae: number | null;
-  correctedMae: number | null;
-  maeImprovementPct: number | null;
-  predictionsMatched: number | null;
+  rawMae?: number | null;
+  correctedMae?: number | null;
+  maeImprovementPct?: number | null;
+  predictionsMatched?: number | null;
+  noaaBaselineMae?: number | null;
+  quiverMae?: number | null;
+  improvementPct?: number | null;
+  validatedPairCount?: number | null;
+  lastUpdated?: string | null;
+  confidence?: ForecastAccuracyConfidence;
+  canClaimImprovement?: boolean;
 }
 
 interface BeachAccuracyLeaderboardProps {
@@ -41,6 +51,16 @@ function formatMae(mae: number | null): string {
   return `${mae.toFixed(3)}m`;
 }
 
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "Last updated pending";
+  const date = new Date(dateStr);
+  if (Number.isNaN(date.getTime())) return "Last updated pending";
+  return `Last updated ${date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  })}`;
+}
+
 function formatImprovement(pct: number | null): string {
   if (!isFiniteMetric(pct)) return "—";
   const rounded = Math.round(pct);
@@ -53,8 +73,45 @@ function improvementBarWidth(pct: number | null, maxPct: number): string {
   return `${Math.max(0, Math.min(100, (pct / maxPct) * 100))}%`;
 }
 
+function noaaMae(beach: LeaderboardBeachRow): number | null {
+  return beach.noaaBaselineMae ?? beach.rawMae ?? null;
+}
+
+function quiverMae(beach: LeaderboardBeachRow): number | null {
+  return beach.quiverMae ?? beach.correctedMae ?? null;
+}
+
+function improvementPct(beach: LeaderboardBeachRow): number | null {
+  return beach.improvementPct ?? beach.maeImprovementPct ?? null;
+}
+
+function validatedPairs(beach: LeaderboardBeachRow): number | null {
+  return beach.validatedPairCount ?? beach.predictionsMatched ?? null;
+}
+
 export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardProps) {
+  const { track } = useTrackEvent();
   const [expanded, setExpanded] = useState(false);
+  const hasTrackedView = useRef(false);
+
+  useEffect(() => {
+    if (hasTrackedView.current || beaches.length === 0) return;
+
+    hasTrackedView.current = true;
+    const topBeach = beaches[0];
+    void track("forecast_accuracy_table_viewed", {
+      metadata: {
+        surface: "forecast_accuracy",
+        row_count: beaches.length,
+        claimable_row_count: beaches.filter(
+          (beach) => beach.canClaimImprovement === true
+        ).length,
+        ...(topBeach?.beachId ? { top_beach_id: topBeach.beachId } : {}),
+        ...(topBeach?.slug ? { top_beach_slug: topBeach.slug } : {}),
+      },
+      debounceMs: 5000,
+    });
+  }, [beaches, track]);
 
   if (beaches.length === 0) return null;
 
@@ -63,7 +120,7 @@ export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardPr
   const maxImprovement = Math.max(
     1,
     ...beaches
-      .map((beach) => beach.maeImprovementPct)
+      .map((beach) => improvementPct(beach))
       .filter((pct): pct is number => isFiniteMetric(pct) && pct > 0),
   );
 
@@ -76,7 +133,7 @@ export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardPr
           </h2>
           <p className="mt-1 text-sm font-semibold text-[#5F5646]">
             Ranked by reduction in wave height error versus the NOAA baseline.
-            Minimum 20 validated predictions.
+            Rows only claim lift when validated-pair and MAE checks pass.
           </p>
         </div>
 
@@ -91,16 +148,19 @@ export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardPr
                   Beach
                 </th>
                 <th className="px-4 py-3 text-right font-black text-[#5F5646]">
-                  NOAA Error
+                  NOAA baseline
                 </th>
                 <th className="px-4 py-3 text-right font-black text-[#5F5646]">
-                  Quiver Error
+                  Quiver MAE
                 </th>
                 <th className="min-w-[120px] px-4 py-3 text-right font-black text-[#5F5646]">
-                  Improvement
+                  Result
                 </th>
-                <th className="hidden px-4 py-3 text-right font-black text-[#5F5646] sm:table-cell">
-                  Predictions
+                <th className="hidden px-4 py-3 text-right font-black text-[#5F5646] md:table-cell">
+                  Validated pairs
+                </th>
+                <th className="hidden px-4 py-3 text-left font-black text-[#5F5646] lg:table-cell">
+                  Confidence
                 </th>
               </tr>
             </thead>
@@ -144,30 +204,53 @@ export function BeachAccuracyLeaderboard({ beaches }: BeachAccuracyLeaderboardPr
                           {beach.city}, {beach.state}
                         </span>
                       )}
+                      <span className="mt-0.5 block text-xs font-semibold text-[#5F5646]">
+                        {formatDate(beach.lastUpdated)}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-xs font-semibold text-[#5F5646]">
-                      {formatMae(beach.rawMae)}
+                      {formatMae(noaaMae(beach))}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-xs font-semibold text-[#5F5646]">
-                      {formatMae(beach.correctedMae)}
+                      {formatMae(quiverMae(beach))}
                     </td>
                     <td className="px-4 py-3 text-right font-mono text-xs">
                       <div className="flex items-center justify-end gap-2">
                         <div className="hidden h-1.5 w-16 overflow-hidden rounded-full bg-[#11100D]/10 sm:block">
                           <div
                             className="h-full rounded-full bg-[#008A7A]"
-                            style={{ width: improvementBarWidth(beach.maeImprovementPct, maxImprovement) }}
+                            style={{ width: improvementBarWidth(improvementPct(beach), maxImprovement) }}
                           />
                         </div>
-                        <span className="font-black text-[#008A7A]">
-                          {formatImprovement(beach.maeImprovementPct)}
+                        <span
+                          className={
+                            beach.canClaimImprovement === false
+                              ? "font-black text-[#C0521B]"
+                              : "font-black text-[#008A7A]"
+                          }
+                        >
+                          {beach.canClaimImprovement === false
+                            ? "No lift yet"
+                            : formatImprovement(improvementPct(beach))}
                         </span>
                       </div>
                     </td>
-                    <td className="hidden px-4 py-3 text-right text-xs font-semibold text-[#5F5646] sm:table-cell">
-                      {isFiniteMetric(beach.predictionsMatched)
-                        ? beach.predictionsMatched.toLocaleString("en-US")
+                    <td className="hidden px-4 py-3 text-right text-xs font-semibold text-[#5F5646] md:table-cell">
+                      {isFiniteMetric(validatedPairs(beach))
+                        ? validatedPairs(beach)!.toLocaleString("en-US")
                         : "—"}
+                    </td>
+                    <td className="hidden px-4 py-3 lg:table-cell">
+                      {beach.confidence ? (
+                        <AccuracySourceConfidenceBadge
+                          confidence={beach.confidence}
+                          className="bg-[#0B3A75] text-[#F4EBD8]"
+                        />
+                      ) : (
+                        <span className="text-xs font-semibold text-[#5F5646]">
+                          Low - sparse data
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );

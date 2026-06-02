@@ -33,11 +33,12 @@ interface NOAAComparisonBarProps {
   rawMae: number;
   correctedMae: number;
   timeSeries?: DailyAccuracyPoint[];
+  canClaimImprovement?: boolean;
 }
 
 const chartConfig = {
   improvementPct: {
-    label: "Forecast lift",
+    label: "MAE change",
     color: "#34d399",
   },
 } satisfies ChartConfig;
@@ -65,10 +66,12 @@ function CustomTooltip({
   active,
   payload,
   label,
+  canClaimImprovement = true,
 }: {
   active?: boolean;
   payload?: TimeSeriesPayloadEntry[];
   label?: string;
+  canClaimImprovement?: boolean;
 }) {
   if (!active || !payload || payload.length === 0) return null;
 
@@ -84,9 +87,15 @@ function CustomTooltip({
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full" style={{ background: "#34d399" }} />
-          <span className="text-xs font-bold text-[#5F5646]">Lift:</span>
+          <span className="text-xs font-bold text-[#5F5646]">
+            {canClaimImprovement ? "Lift:" : "Change:"}
+          </span>
           <span className="text-xs font-black text-[#11100D]">
-            {improvement.toFixed(1)}% better than NOAA
+            {improvement > 0 && canClaimImprovement
+              ? `${improvement.toFixed(1)}% better than NOAA`
+              : improvement > 0
+                ? `${improvement.toFixed(1)}% change versus NOAA`
+                : "No measurable lift vs NOAA"}
           </span>
         </div>
         <div className="mt-1 border-t border-[#11100D]/15 pt-1">
@@ -107,10 +116,12 @@ function TimeSeriesChart({
   timeSeries,
   rawMae,
   correctedMae,
+  canClaimImprovement = true,
 }: {
   timeSeries: DailyAccuracyPoint[];
   rawMae: number;
   correctedMae: number;
+  canClaimImprovement?: boolean;
 }) {
   const improvementPct =
     rawMae > 0 ? ((rawMae - correctedMae) / rawMae) * 100 : 0;
@@ -125,7 +136,7 @@ function TimeSeriesChart({
     .filter((point) => Number.isFinite(point.improvementPct));
 
   return (
-    <section aria-label="Quiver forecast lift over NOAA by day">
+    <section aria-label="Quiver forecast MAE change versus NOAA by day">
       <div className="relative overflow-hidden rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] p-5 shadow-[4px_4px_0_#11100D] md:p-6">
         <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -133,12 +144,13 @@ function TimeSeriesChart({
               The receipts
             </p>
             <h2 className="font-heading text-2xl font-black text-[#11100D]">
-              Quiver lift, day by day
+              Quiver MAE change, day by day
             </h2>
           </div>
           <p className="max-w-sm text-sm font-semibold leading-6 text-[#5F5646]">
-            How much better Quiver performed than the NOAA baseline against buoy
-            checks.
+            {canClaimImprovement
+              ? "How much better Quiver performed than the NOAA baseline against buoy checks."
+              : "The latest sample is shown without an accuracy-lift claim."}
           </p>
         </div>
 
@@ -175,7 +187,11 @@ function TimeSeriesChart({
                 tickLine={false}
                 width={42}
               />
-              <Tooltip content={<CustomTooltip />} />
+              <Tooltip
+                content={
+                  <CustomTooltip canClaimImprovement={canClaimImprovement} />
+                }
+              />
 
               <Area
                 type="monotone"
@@ -188,7 +204,7 @@ function TimeSeriesChart({
               <Line
                 type="monotone"
                 dataKey="improvementPct"
-                name="Forecast lift"
+                name="MAE change"
                 stroke="#34d399"
                 strokeWidth={3}
                 dot={false}
@@ -208,7 +224,7 @@ function TimeSeriesChart({
           <div className="flex items-center gap-2">
             <span className="h-0.5 w-5 rounded-full" style={{ background: "#34d399" }} />
             <span className="text-xs font-bold text-[#5F5646]">
-              Improvement over NOAA
+              {canClaimImprovement ? "Improvement over NOAA" : "Change versus NOAA"}
             </span>
           </div>
         </div>
@@ -220,7 +236,9 @@ function TimeSeriesChart({
             <span className="font-mono font-black text-[#008A7A]">
               {improvementPct.toFixed(1)}%
             </span>
-            {" "}better than the NOAA baseline.
+            {canClaimImprovement
+              ? " better than the NOAA baseline."
+              : " change versus the NOAA baseline; no lift claim yet."}
           </p>
         </div>
       </div>
@@ -231,9 +249,11 @@ function TimeSeriesChart({
 function FallbackBarChart({
   rawMae,
   correctedMae,
+  canClaimImprovement = true,
 }: {
   rawMae: number;
   correctedMae: number;
+  canClaimImprovement?: boolean;
 }) {
   const data = [
     { name: "NOAA Baseline", mae: rawMae, key: "rawMae" },
@@ -247,10 +267,27 @@ function FallbackBarChart({
           NOAA Baseline vs. Quiver
         </h2>
         <p className="mb-6 text-sm font-semibold text-[#5F5646]">
-          Quiver reduces wave height error from{" "}
-          <strong className="text-[#11100D]">{rawMae.toFixed(3)}m</strong> to{" "}
-          <strong className="text-[#11100D]">{correctedMae.toFixed(3)}m</strong>, measured as Mean Absolute
-          Error (MAE) against live buoy readings.
+          {canClaimImprovement ? (
+            <>
+              Quiver reduces wave height error from{" "}
+              <strong className="text-[#11100D]">{rawMae.toFixed(3)}m</strong>{" "}
+              to{" "}
+              <strong className="text-[#11100D]">
+                {correctedMae.toFixed(3)}m
+              </strong>
+              , measured as Mean Absolute Error (MAE) against live buoy readings.
+            </>
+          ) : (
+            <>
+              Latest buoy check compares NOAA baseline MAE at{" "}
+              <strong className="text-[#11100D]">{rawMae.toFixed(3)}m</strong>{" "}
+              with Quiver MAE at{" "}
+              <strong className="text-[#11100D]">
+                {correctedMae.toFixed(3)}m
+              </strong>
+              . No accuracy lift claim is shown until Quiver MAE is lower.
+            </>
+          )}
         </p>
 
         <ChartContainer config={chartConfig} className="h-48 w-full">
@@ -302,16 +339,28 @@ function FallbackBarChart({
   );
 }
 
-export function NOAAComparisonBar({ rawMae, correctedMae, timeSeries }: NOAAComparisonBarProps) {
+export function NOAAComparisonBar({
+  rawMae,
+  correctedMae,
+  timeSeries,
+  canClaimImprovement = true,
+}: NOAAComparisonBarProps) {
   if (timeSeries && timeSeries.length > 0) {
     return (
       <TimeSeriesChart
         timeSeries={timeSeries}
         rawMae={rawMae}
         correctedMae={correctedMae}
+        canClaimImprovement={canClaimImprovement}
       />
     );
   }
 
-  return <FallbackBarChart rawMae={rawMae} correctedMae={correctedMae} />;
+  return (
+    <FallbackBarChart
+      rawMae={rawMae}
+      correctedMae={correctedMae}
+      canClaimImprovement={canClaimImprovement}
+    />
+  );
 }

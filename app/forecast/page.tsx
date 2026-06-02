@@ -15,6 +15,7 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BestRightNow } from "@/components/forecast";
 import { RegionalCallHero } from "@/components/forecast/regional-call-hero";
+import { RegionalBestSurfWindows } from "@/components/forecast/regional-best-surf-windows";
 import { SevenDayOutlook } from "@/components/forecast/seven-day-outlook";
 import { OtherRegionsStrip } from "@/components/forecast/other-regions-strip";
 import { RegionalGuidesStrip } from "@/components/forecast/regional-guides-strip";
@@ -202,6 +203,11 @@ export default async function ForecastHubPage({
           region={region}
           summary={activeSummary}
           isAuthed={isAuthed}
+        />
+
+        <RegionalBestSurfWindows
+          regionName={region.name}
+          recommendations={activeSummary?.bestSurfWindows}
         />
 
         <SevenDayOutlook summary={activeSummary} regionName={region.name} />

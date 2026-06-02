@@ -37,6 +37,7 @@ import { TimeSlotSelector } from "./time-slot-selector";
 import { BottomNav } from "./bottom-nav";
 import { ForecastOutlookCard } from "./forecast-outlook-card";
 import { HomeConditionsTicker } from "./home-conditions-ticker";
+import { SessionIntelligenceModule } from "./session-intelligence-module";
 
 // Dynamic imports for below-fold components to reduce initial bundle size
 const CoastPulse = dynamic(
@@ -518,6 +519,14 @@ export function HomeScreen() {
                 onUseMyLocation={requestLocation}
                 showLocationCta={geoSource !== "browser"}
                 locationLoading={geoLoading}
+              />
+            </section>
+          )}
+
+          {profile && !discoveryLoading && (
+            <section className="centered-container px-4 sm:px-0">
+              <SessionIntelligenceModule
+                recommendations={discovery?.recommendations ?? []}
               />
             </section>
           )}

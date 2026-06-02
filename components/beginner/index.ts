@@ -1,6 +1,7 @@
 export { BeginnerPageContent } from "./BeginnerPageContent";
 export { BeginnerHero } from "./BeginnerHero";
 export { RightNowConditions } from "./RightNowConditions";
+export { BeginnerSessionDecision } from "./beginner-session-decision";
 export { BeginnerSpotList } from "./BeginnerSpotList";
 export { WhatToExpect } from "./WhatToExpect";
 export { SeasonalGuide } from "./SeasonalGuide";

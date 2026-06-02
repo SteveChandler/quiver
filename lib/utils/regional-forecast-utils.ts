@@ -11,6 +11,7 @@
 import type { ForecastRegion } from "@/lib/data/forecast-regions";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { SurfWindowRecommendation } from "@/types/session-intelligence";
 import { getWaveSizeDescription } from "@/lib/utils/wave-formatters";
 import { classifyWindDirection, getWindScore } from "@/lib/utils/wind-classification";
 
@@ -111,6 +112,8 @@ export interface RegionalForecastSummary {
   upcomingSwells: SwellEvent[];
   /** Individual beach condition summaries */
   beachConditions: BeachConditionSummary[];
+  /** Top surf-window recommendations for the active regional pilot surface. */
+  bestSurfWindows?: SurfWindowRecommendation[];
   /**
    * Approved photo representing the region (from `beach_photos` table).
    * Attached by `getRegionalSummaries` — null when no top beach has an

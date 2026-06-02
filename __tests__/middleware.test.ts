@@ -7,6 +7,7 @@ import { proxy as middleware } from "@/proxy";
 // Setup mock variables at the module level
 let mockNext: any;
 let mockRedirect: any;
+let mockRewrite: any;
 const mockURL = jest.fn(() => ({}));
 let mockUser: any = null;
 let mockSession: any = null;
@@ -30,6 +31,9 @@ jest.mock("next/server", () => ({
     get redirect() {
       return mockRedirect;
     },
+    get rewrite() {
+      return mockRewrite;
+    },
   },
 }));
 
@@ -39,6 +43,10 @@ describe("Middleware", () => {
   beforeEach(() => {
     mockNext = jest.fn(() => ({ headers: new Headers(), cookies: { set: jest.fn(), delete: jest.fn() } }));
     mockRedirect = jest.fn(() => ({
+      headers: new Headers(),
+      cookies: { set: jest.fn(), delete: jest.fn() },
+    }));
+    mockRewrite = jest.fn(() => ({
       headers: new Headers(),
       cookies: { set: jest.fn(), delete: jest.fn() },
     }));
@@ -118,6 +126,29 @@ describe("Middleware", () => {
     const request: any = { nextUrl: { pathname: "/forecast/123" }, url: "http://localhost/forecast/123", method: "GET", headers: new Headers(), cookies: { get: () => undefined, getAll: () => [] } };
     await middleware(request);
     expect(mockNext).toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  test("does not rewrite app spot handoff routes as international city pages", async () => {
+    const request: any = {
+      nextUrl: {
+        pathname: "/app/spot/la-jolla-shores",
+        search: "?window=phase20-smoke",
+        clone: () => ({
+          pathname: "/app/spot/la-jolla-shores",
+          search: "?window=phase20-smoke",
+        }),
+      },
+      url: "http://localhost/app/spot/la-jolla-shores?window=phase20-smoke",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+
+    await middleware(request);
+
+    expect(mockNext).toHaveBeenCalled();
+    expect(mockRewrite).not.toHaveBeenCalled();
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
@@ -224,5 +255,77 @@ describe("Middleware", () => {
     await middleware(request);
     expect(mockRedirect).toHaveBeenCalled();
     expect(clonedUrl.pathname).toBe("/ca/huntington-beach/goldenwest/tides");
+  });
+
+  test("redirects legacy Rockview slug to The Hook canonical URL", async () => {
+    const clonedUrl = { pathname: "/ca/santa-cruz/rockview-santa-cruz-ca" };
+    const request: any = {
+      nextUrl: {
+        pathname: "/ca/santa-cruz/rockview-santa-cruz-ca",
+        clone: () => clonedUrl,
+      },
+      url: "http://localhost/ca/santa-cruz/rockview-santa-cruz-ca",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+    await middleware(request);
+    expect(mockRedirect).toHaveBeenCalled();
+    expect(clonedUrl.pathname).toBe("/ca/santa-cruz/the-hook-santa-cruz-ca");
+  });
+
+  test("redirects legacy Rockview subpages to The Hook subpages", async () => {
+    const clonedUrl = {
+      pathname: "/ca/santa-cruz/rockview-santa-cruz-ca/water-temp",
+    };
+    const request: any = {
+      nextUrl: {
+        pathname: "/ca/santa-cruz/rockview-santa-cruz-ca/water-temp",
+        clone: () => clonedUrl,
+      },
+      url: "http://localhost/ca/santa-cruz/rockview-santa-cruz-ca/water-temp",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+    await middleware(request);
+    expect(mockRedirect).toHaveBeenCalled();
+    expect(clonedUrl.pathname).toBe(
+      "/ca/santa-cruz/the-hook-santa-cruz-ca/water-temp"
+    );
+  });
+
+  test("redirects legacy Rockview spots URL to The Hook canonical URL", async () => {
+    const clonedUrl = { pathname: "/spots/rockview-santa-cruz-ca" };
+    const request: any = {
+      nextUrl: {
+        pathname: "/spots/rockview-santa-cruz-ca",
+        clone: () => clonedUrl,
+      },
+      url: "http://localhost/spots/rockview-santa-cruz-ca",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+    await middleware(request);
+    expect(mockRedirect).toHaveBeenCalled();
+    expect(clonedUrl.pathname).toBe("/ca/santa-cruz/the-hook-santa-cruz-ca");
+  });
+
+  test("redirects legacy Rockview beach URL to The Hook canonical URL", async () => {
+    const clonedUrl = { pathname: "/beach/rockview-santa-cruz-ca" };
+    const request: any = {
+      nextUrl: {
+        pathname: "/beach/rockview-santa-cruz-ca",
+        clone: () => clonedUrl,
+      },
+      url: "http://localhost/beach/rockview-santa-cruz-ca",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+    await middleware(request);
+    expect(mockRedirect).toHaveBeenCalled();
+    expect(clonedUrl.pathname).toBe("/ca/santa-cruz/the-hook-santa-cruz-ca");
   });
 });

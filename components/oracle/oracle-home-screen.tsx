@@ -11,6 +11,7 @@ import { TodaysWindows } from "@/components/oracle/todays-windows";
 import { NearbySpots } from "@/components/oracle/nearby-spots";
 import { ActivityFeed } from "@/components/oracle/activity-feed";
 import { HomeBeachCard } from "@/components/oracle/home-beach-card";
+import { SessionIntelligenceModule } from "@/components/home-screen/session-intelligence-module";
 import {
   bearingFromTo,
   calculateDistanceInMiles,
@@ -936,6 +937,14 @@ export function OracleHomeScreen() {
           )}
         </div>
       </div>
+
+      {!oracle.discoveryLoading && (
+        <div className="px-6 pb-24 md:pb-6">
+          <SessionIntelligenceModule
+            recommendations={oracle.discovery?.recommendations ?? []}
+          />
+        </div>
+      )}
 
       <BottomNav />
 

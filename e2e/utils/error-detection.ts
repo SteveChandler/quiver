@@ -316,6 +316,14 @@ function isIgnorableConsoleError(text: string): boolean {
     // Hot reload in dev
     'Fast Refresh',
     '[HMR]',
+    'webpack-hmr',
+    'Failed to load chunk /_next/static/chunks/',
+    '[turbopack]/browser/dev/hmr-client',
+    // Local Next dev server can reset HMR/chunk sockets while compiling dynamic
+    // routes. Route status and visible assertions still prove page rendering.
+    'net::ERR_CONNECTION_RESET',
+    'net::ERR_CONNECTION_REFUSED',
+    'net::ERR_INCOMPLETE_CHUNKED_ENCODING',
 
     // Sentry noise
     'Sentry',
@@ -371,6 +379,9 @@ function isIgnorableConsoleError(text: string): boolean {
     'CORS policy',
     'blocked by CORS',
     'mapbox',
+    // Mapbox GL error events can stringify to their internal event constructor
+    // in headless Chromium even when the map keeps rendering.
+    'Map error: Qt',
 
     // WebGL initialization failures - headless Chromium may lack GPU support
     'Failed to initialize WebGL',
@@ -386,7 +397,10 @@ function isIgnorableConsoleError(text: string): boolean {
     // No Google account is available in headless Chromium, so these are expected:
     // - "Provider's accounts list is empty." (no signed-in Google user)
     // - "[GSI_LOGGER]: FedCM get() rejects with NetworkError" (FedCM token fetch fails)
+    // - "Error retrieving a token." (FedCM token fetch fails without an account)
     "Provider's accounts list is empty",
+    'Not signed in with the identity provider.',
+    'Error retrieving a token.',
     '[GSI_LOGGER]',
   ];
 
@@ -422,7 +436,11 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
 
   // Analytics/tracking API errors - background operations that don't affect user experience
   // These should never block tests as they're non-essential functionality
-  if (url.includes('/api/events') || url.includes('/api/embed-impressions')) {
+  if (
+    url.includes('/api/events') ||
+    url.includes('/api/embed-impressions') ||
+    url.includes('/ingest/array')
+  ) {
     return true;
   }
 
@@ -438,6 +456,7 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
       'facebook',
       '/sw.js', // Service worker is optional
       'placeholder.svg', // UserAvatar fallback image — not a real resource
+      '/api/hls-proxy/', // Optional live-cam HLS manifests can be unavailable in local fixtures
     ];
     return optional.some((pattern) => url.includes(pattern));
   }

@@ -123,6 +123,8 @@ const mockBeaches: Beach[] = [
   } as unknown as Beach,
 ];
 
+const SURF_WINDOW_NOW = new Date("2026-02-10T15:00:00Z");
+
 function createMockForecast(
   beachId: string,
   date: string,
@@ -210,6 +212,7 @@ function createMockRegionalSummary(
     },
     upcomingSwells: [],
     beachConditions,
+    bestSurfWindows: [],
     photoUrl: null,
     photoBeachName: null,
     secondaryPhotoUrl: null,
@@ -302,6 +305,61 @@ describe("forecast-hub-utils", () => {
         ["beach-1", "beach-3", "beach-2"], // All unique beach IDs
         168 // 7 days in hours
       );
+    });
+
+    it("attaches up to three regional surf windows from the existing forecast batch", async () => {
+      const forecastDate = "2026-02-10";
+
+      (getBeachesFromDb as jest.Mock).mockResolvedValue({
+        success: true,
+        data: mockBeaches,
+      });
+
+      (getBeachesForRegion as jest.Mock)
+        .mockReturnValueOnce([mockBeaches[0], mockBeaches[2]])
+        .mockReturnValueOnce([mockBeaches[1]]);
+
+      const mockForecastMap = new Map();
+      mockForecastMap.set("beach-1", {
+        forecasts: [createMockForecast("beach-1", forecastDate, "16:00")],
+      });
+      mockForecastMap.set("beach-2", {
+        forecasts: [createMockForecast("beach-2", forecastDate, "17:00")],
+      });
+      mockForecastMap.set("beach-3", {
+        forecasts: [createMockForecast("beach-3", forecastDate, "18:00")],
+      });
+      (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+        mockForecastMap
+      );
+
+      (aggregateRegionalForecast as jest.Mock)
+        .mockReturnValueOnce(createMockRegionalSummary(mockRegion1, 75))
+        .mockReturnValueOnce(createMockRegionalSummary(mockRegion2, 65));
+
+      const result = await getRegionalSummaries(undefined, {
+        now: SURF_WINDOW_NOW,
+        baseUrl: "https://example.com",
+      });
+
+      expect(getBatchFreshForecastsFromCache).toHaveBeenCalledTimes(1);
+      const regionOne = result["test-region-1"];
+      const regionTwo = result["test-region-2"];
+      expect(regionOne).toMatchObject({
+        region: expect.objectContaining({ slug: "test-region-1" }),
+      });
+      expect(regionTwo).toMatchObject({
+        region: expect.objectContaining({ slug: "test-region-2" }),
+      });
+      const regionOneWindows = regionOne?.bestSurfWindows ?? [];
+      const regionTwoWindows = regionTwo?.bestSurfWindows ?? [];
+
+      expect(regionOneWindows).toHaveLength(2);
+      expect(regionOneWindows.map((item) => item.rank)).toEqual([1, 2]);
+      expect(regionTwoWindows).toHaveLength(1);
+      expect(regionTwoWindows[0]).toMatchObject({
+        appDeepLink: expect.stringContaining("window="),
+      });
     });
 
     it("fetches all beaches once and reuses for all regions", async () => {

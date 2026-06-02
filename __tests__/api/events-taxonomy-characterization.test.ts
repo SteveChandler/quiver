@@ -21,12 +21,22 @@ import {
 import { EVENT_WEIGHTS } from "@/types/implicit-preferences";
 
 const CURRENT_EVENT_SET_HASHES = {
-  valid: "4ac3f9bd861ffbfa222eebf3819d957531f35cf2433de08ce5b6d4fdb0d86470",
+  valid: "38139ba8ba13daceec2447bf6fcc9050c15a9d2d8be10de8e0a4884437c60eac",
   anonymousAllowed:
-    "42d47b00b43837466f479edfad4278583ef87d9cac9a12166839a4fbb2a73030",
+    "075066386791f1a86eb16b4e7966a6b9f90d00d14695b07065e69d4d788b97be",
   preAuthOnly:
     "f55c47e91fb773e725b6ef914a93099aeb5e963f3f7d88cc34bf4a0023e99367",
 } as const;
+
+const PHASE_20_MEASUREMENT_EVENTS = [
+  "surf_window_impression",
+  "surf_window_click",
+  "why_this_call_opened",
+  "app_deeplink_clicked",
+  "forecast_accuracy_table_viewed",
+  "save_alert_clicked",
+  "seo_intent_page_window_clicked",
+] as const;
 
 function sortedEventSetHash(eventTypes: readonly string[]): string {
   return createHash("sha256")
@@ -84,6 +94,22 @@ describe("events taxonomy characterization", () => {
 
   it("keeps preference weights aligned with accepted event types", () => {
     expect(Object.keys(EVENT_WEIGHTS).sort()).toEqual([...VALID_EVENTS].sort());
+  });
+
+  it("accepts Phase 20 public measurement events without making them pre-auth-only", () => {
+    expect(VALID_EVENTS).toEqual(
+      expect.arrayContaining([...PHASE_20_MEASUREMENT_EVENTS])
+    );
+    expect(ANONYMOUS_ALLOWED_EVENTS).toEqual(
+      expect.arrayContaining([...PHASE_20_MEASUREMENT_EVENTS])
+    );
+    expect(PRE_AUTH_ONLY_EVENTS).toEqual(
+      expect.not.arrayContaining([...PHASE_20_MEASUREMENT_EVENTS])
+    );
+
+    for (const eventType of PHASE_20_MEASUREMENT_EVENTS) {
+      expect(EVENT_WEIGHTS[eventType]).toBe(0);
+    }
   });
 
   it("wires the API route exports to the shared registry arrays", () => {
