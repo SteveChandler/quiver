@@ -300,7 +300,7 @@ test.describe('Spot Surf Report', () => {
       expect(await cards.count()).toBeLessThanOrEqual(3);
 
       const cta = page.getByTestId('app-deep-link-cta').first();
-      await expect(cta).toHaveAttribute('href', /\/beach\/.+window=/);
+      await expect(cta).toHaveAttribute('href', /\/app\/spot\/.+\?window=/);
     }
 
     await expect(page.getByRole('tab', { name: /^forecast$/i })).toBeVisible();
