@@ -1,6 +1,6 @@
 /**
  * Extract a static thumbnail URL from a camera URL.
- * Currently supports YouTube; returns null for other providers.
+ * Supports providers with stable public thumbnail patterns.
  */
 export function getCamThumbnailUrl(
   cameraUrl: string | null | undefined
@@ -12,7 +12,29 @@ export function getCamThumbnailUrl(
     return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
   }
 
+  const surflineCamId = getSurflineCamId(cameraUrl);
+  if (surflineCamId) {
+    return `https://camstills.cdn-surfline.com/${surflineCamId}/latest_small.jpg`;
+  }
+
   return null;
+}
+
+function getSurflineCamId(cameraUrl: string | null | undefined): string | null {
+  if (!cameraUrl) return null;
+
+  try {
+    const url = new URL(cameraUrl);
+    const hostname = url.hostname.replace(/^www\./, "");
+    if (hostname !== "embed.cdn-surfline.com") return null;
+
+    const [section, camId] = url.pathname.split("/").filter(Boolean);
+    if (section !== "cams" || !camId) return null;
+
+    return camId;
+  } catch {
+    return null;
+  }
 }
 
 export function getYouTubeVideoId(

@@ -85,6 +85,16 @@ describe("getCamThumbnailUrl", () => {
     ).toBeNull();
   });
 
+  it("extracts thumbnails from Surfline embed URLs", () => {
+    expect(
+      getCamThumbnailUrl(
+        "https://embed.cdn-surfline.com/cams/5834a0733421b20545c4b584/64ba68ebf1c960a93d1faba8f86cc16a3ed05913"
+      )
+    ).toBe(
+      "https://camstills.cdn-surfline.com/5834a0733421b20545c4b584/latest_small.jpg"
+    );
+  });
+
   it("returns null for direct video URLs", () => {
     expect(getCamThumbnailUrl("https://example.com/cam.mp4")).toBeNull();
   });
@@ -174,6 +184,18 @@ describe("getDisplayCamThumbnailUrl", () => {
       })
     ).toBe(
       "https://vawdnbbgawichorsjiwe.supabase.co/storage/v1/object/public/cam-thumbnails/4b88f10a-c794-4144-b17a-133af9fee9f9.jpg"
+    );
+  });
+
+  it("derives Surfline thumbnails when no stored thumbnail is supplied", () => {
+    expect(
+      getDisplayCamThumbnailUrl({
+        cameraUrl:
+          "https://embed.cdn-surfline.com/cams/58349b9b3421b20545c4b54d/199ae31e65bf748a7c7d928332998440490cd979",
+        thumbnailUrl: null,
+      })
+    ).toBe(
+      "https://camstills.cdn-surfline.com/58349b9b3421b20545c4b54d/latest_small.jpg"
     );
   });
 });

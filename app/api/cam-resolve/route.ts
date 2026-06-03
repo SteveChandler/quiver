@@ -14,6 +14,8 @@ export const dynamic = "force-dynamic";
  * HDOnTap blocks iframe embedding (X-Frame-Options: DENY) and their HLS
  * streams at live.hdontap.com are CORS-blocked. We extract the signed HLS URL
  * from the page HTML server-side, then the client proxies it via /api/hls-proxy/.
+ * Surfline embed widgets expose a cam-config JSON and cam-details JSON; native
+ * uses this route to resolve those iframe widgets to the underlying HLS stream.
  *
  * GET /api/cam-resolve?url=https://hdontap.com/stream/186699/...
  * → { hlsUrl: "https://live.hdontap.com/hls/.../playlist.m3u8?t=...&e=..." }
@@ -21,7 +23,10 @@ export const dynamic = "force-dynamic";
 
 const REQUEST_TIMEOUT = 10_000;
 const MAX_HTML_SIZE = 512 * 1024; // 512 KB — HDOnTap pages are ~50-100 KB
+const MAX_JSON_SIZE = 64 * 1024;
 const HDRELAY_CONFIG_BASE = "https://manage.hdrelay.com/player";
+const SURFLINE_EMBED_HOST = "embed.cdn-surfline.com";
+const SURFLINE_HLS_HOST = "hls.cdn-surfline.com";
 
 /** Hostnames we're willing to scrape for stream URLs */
 const ALLOWED_RESOLVE_HOSTS = [
@@ -32,7 +37,160 @@ const ALLOWED_RESOLVE_HOSTS = [
   "obhotel.com",
   "www.portofbrookingsharbor.com",
   "portofbrookingsharbor.com",
+  SURFLINE_EMBED_HOST,
 ];
+
+function parseSurflineEmbedPath(parsed: URL): {
+  camId: string;
+  configId: string | null;
+} | null {
+  const match = parsed.pathname.match(
+    /^\/cams\/([0-9a-f]{24})(?:\/([0-9a-f]{40}))?\/?$/i
+  );
+  if (!match) return null;
+  return { camId: match[1], configId: match[2] ?? null };
+}
+
+async function fetchSurflineJson(url: string): Promise<{
+  data: any | null;
+  response: NextResponse | null;
+}> {
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+    },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT),
+    redirect: "manual",
+  });
+
+  if (res.status >= 300 && res.status < 400) {
+    return {
+      data: null,
+      response: NextResponse.json(
+        { error: "Redirects not followed" },
+        { status: 502, headers: DEFAULT_SECURITY_HEADERS }
+      ),
+    };
+  }
+
+  if (!res.ok) {
+    return {
+      data: null,
+      response: NextResponse.json(
+        { error: "Surfline config unavailable" },
+        { status: 502, headers: DEFAULT_SECURITY_HEADERS }
+      ),
+    };
+  }
+
+  const contentLength = res.headers?.get("content-length");
+  if (contentLength && parseInt(contentLength, 10) > MAX_JSON_SIZE) {
+    return {
+      data: null,
+      response: NextResponse.json(
+        { error: "Surfline config too large" },
+        { status: 502, headers: DEFAULT_SECURITY_HEADERS }
+      ),
+    };
+  }
+
+  const text = await res.text();
+  if (text.length > MAX_JSON_SIZE) {
+    return {
+      data: null,
+      response: NextResponse.json(
+        { error: "Surfline config too large" },
+        { status: 502, headers: DEFAULT_SECURITY_HEADERS }
+      ),
+    };
+  }
+
+  try {
+    return { data: JSON.parse(text), response: null };
+  } catch {
+    return {
+      data: null,
+      response: NextResponse.json(
+        { error: "Surfline config malformed" },
+        { status: 502, headers: DEFAULT_SECURITY_HEADERS }
+      ),
+    };
+  }
+}
+
+async function resolveSurflineEmbed(parsed: URL): Promise<NextResponse> {
+  const ids = parseSurflineEmbedPath(parsed);
+  if (!ids) {
+    return NextResponse.json(
+      { error: "Invalid Surfline embed URL" },
+      { status: 400, headers: DEFAULT_SECURITY_HEADERS }
+    );
+  }
+
+  if (ids.configId) {
+    const config = await fetchSurflineJson(
+      `https://${SURFLINE_EMBED_HOST}/cam-config/${ids.configId}.json`
+    );
+    if (config.response) return config.response;
+
+    if (config.data?.camId !== ids.camId) {
+      return NextResponse.json(
+        { error: "Surfline config mismatch" },
+        { status: 502, headers: DEFAULT_SECURITY_HEADERS }
+      );
+    }
+  }
+
+  const details = await fetchSurflineJson(
+    `https://${SURFLINE_EMBED_HOST}/cam-details/${ids.camId}.json`
+  );
+  if (details.response) return details.response;
+
+  if (details.data?.cam?.isDown?.status === true) {
+    return NextResponse.json(
+      { error: "Stream unavailable" },
+      { status: 404, headers: DEFAULT_SECURITY_HEADERS }
+    );
+  }
+
+  const hlsUrl = details.data?.cam?.streamUrl;
+  if (typeof hlsUrl !== "string") {
+    return NextResponse.json(
+      { error: "No stream found" },
+      { status: 404, headers: DEFAULT_SECURITY_HEADERS }
+    );
+  }
+
+  try {
+    const stream = new URL(hlsUrl);
+    if (
+      stream.protocol !== "https:" ||
+      stream.hostname !== SURFLINE_HLS_HOST ||
+      !stream.pathname.endsWith(".m3u8")
+    ) {
+      return NextResponse.json(
+        { error: "Untrusted stream server" },
+        { status: 502, headers: DEFAULT_SECURITY_HEADERS }
+      );
+    }
+  } catch {
+    return NextResponse.json(
+      { error: "Invalid stream URL" },
+      { status: 502, headers: DEFAULT_SECURITY_HEADERS }
+    );
+  }
+
+  return NextResponse.json(
+    { hlsUrl },
+    {
+      headers: {
+        ...DEFAULT_SECURITY_HEADERS,
+        "Cache-Control": "public, max-age=300, stale-while-revalidate=120",
+      },
+    }
+  );
+}
 
 async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
   const url = request.nextUrl.searchParams.get("url");
@@ -53,6 +211,10 @@ async function camResolveHandler(request: NextRequest): Promise<NextResponse> {
 
   if (!ALLOWED_RESOLVE_HOSTS.includes(parsed.hostname)) {
     return NextResponse.json({ error: "Host not allowed" }, { status: 403, headers: DEFAULT_SECURITY_HEADERS });
+  }
+
+  if (parsed.hostname === SURFLINE_EMBED_HOST) {
+    return resolveSurflineEmbed(parsed);
   }
 
   // Ensure we fetch the /embed/ version (lighter HTML)
