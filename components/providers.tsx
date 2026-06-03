@@ -64,7 +64,6 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "@/components/ui/sonner";
 import { AppHeader } from "@/components/app-header";
 import { IphoneAppBanner } from "@/components/app-store/iphone-app-banner";
-import { AppleBetaPrompt } from "@/components/app-store/apple-beta-prompt";
 
 /**
  * EmbedBodyOverride - Sets body styles for embed routes and cleans up on unmount.
@@ -159,7 +158,6 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const isLandingPage = pathname === "/";
   const isWelcomePage = pathname === "/welcome";
   const isEmbedRoute = pathname.startsWith("/embed");
-  const [suppressIphoneBanner, setSuppressIphoneBanner] = useState(true);
 
   // Embed routes get a minimal shell — no providers, nav, footer, or heavy assets.
   // Body styles are applied via EmbedBodyOverride since the root layout is now
@@ -202,25 +200,18 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <ProfileProvider>
             {/* Auth-only overlays (do not mount when logged out) */}
             <AuthOverlays />
-            <AppleBetaPrompt
-              onPromptActivityChange={setSuppressIphoneBanner}
-            />
 
             <SelectedBeachProvider>
               {isWelcomePage ? (
                 /* Welcome/onboarding — full-screen, no nav or footer */
                 <>{children}</>
               ) : !isLandingPage ? (
-                <AuthenticatedAppContent
-                  suppressIphoneBanner={suppressIphoneBanner}
-                >
+                <AuthenticatedAppContent>
                   {children}
                 </AuthenticatedAppContent>
               ) : (
                 /* Landing Page Optimized Path */
-                <LandingPageContent
-                  suppressIphoneBanner={suppressIphoneBanner}
-                >
+                <LandingPageContent>
                   {children}
                 </LandingPageContent>
               )}
@@ -234,10 +225,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
 function AuthenticatedAppContent({
   children,
-  suppressIphoneBanner,
 }: {
   children: React.ReactNode;
-  suppressIphoneBanner: boolean;
 }) {
   return (
     <>
@@ -250,7 +239,7 @@ function AuthenticatedAppContent({
       <Suspense fallback={null}>
         <AppHeader />
       </Suspense>
-      {!suppressIphoneBanner ? <IphoneAppBanner /> : null}
+      <IphoneAppBanner />
       <main id="main-content" role="main">
         {children}
       </main>
@@ -274,17 +263,15 @@ function AuthenticatedAppContent({
 
 function LandingPageContent({
   children,
-  suppressIphoneBanner,
 }: {
   children: React.ReactNode;
-  suppressIphoneBanner: boolean;
 }) {
   return (
     <>
       <Suspense fallback={null}>
         <AppHeader />
       </Suspense>
-      {!suppressIphoneBanner ? <IphoneAppBanner /> : null}
+      <IphoneAppBanner />
       {/* PWA SW registration/unregistration (runtime-controlled; never on localhost) */}
       <Suspense fallback={null}>
         <PWAAndPushListeners />
