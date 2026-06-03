@@ -120,17 +120,21 @@ test.describe("Regional Forecast Pages", () => {
 
   test("should display Upcoming Swells section if swells exist", async ({ page }) => {
     // Swells may not always exist, so make this conditional
-    const swellHeading = page.getByRole("heading", { name: /Upcoming Swells/i });
+    const swellsSection = page.locator("section").filter({
+      has: page.getByRole("heading", { name: /Upcoming Swells/i }),
+    }).first();
 
-    if (await swellHeading.isVisible()) {
+    if (await swellsSection.isVisible()) {
       // If swells section exists, check for swell details
-      await expect(swellHeading).toBeVisible();
+      await expect(
+        swellsSection.getByRole("heading", { name: /Upcoming Swells/i })
+      ).toBeVisible();
 
       // Check for wave height indicators
-      await expect(page.getByText(/\d+-\d+ft/)).toBeVisible();
+      await expect(swellsSection.getByText(/\d+-\d+ft/).first()).toBeVisible();
 
       // Check for swell period
-      await expect(page.getByText(/\d+s/)).toBeVisible();
+      await expect(swellsSection.getByText(/^\d+s$/).first()).toBeVisible();
     } else {
       // If no swells, check for empty state message
       const emptyMessage = page.getByText(/No significant swells/i);

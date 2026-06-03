@@ -8,6 +8,7 @@ import {
   IMAGE_TRANSFORM_PRESETS,
   type ImageTransformPreset,
 } from "@/lib/utils/image-utils";
+import { getOptimizedImageUrl } from "@/lib/image-proxy";
 
 describe("Image Transformation Utils", () => {
   const SUPABASE_CO_URL =
@@ -275,25 +276,26 @@ describe("Image Transformation Utils", () => {
     });
 
     it("should have valid width/height values within Supabase limits", () => {
-      Object.values(IMAGE_TRANSFORM_PRESETS).forEach((preset) => {
-        if (preset.width) {
-          expect(preset.width).toBeGreaterThan(0);
-          expect(preset.width).toBeLessThanOrEqual(2500);
-        }
-        if ("height" in preset && preset.height) {
-          expect(preset.height).toBeGreaterThan(0);
-          expect(preset.height).toBeLessThanOrEqual(2500);
-        }
-      });
+      const widthsAreValid = Object.values(IMAGE_TRANSFORM_PRESETS).every(
+        (preset) => preset.width > 0 && preset.width <= 2500
+      );
+      const heightsAreValid = Object.values(IMAGE_TRANSFORM_PRESETS).every(
+        (preset) =>
+          !("height" in preset) ||
+          preset.height === undefined ||
+          (preset.height > 0 && preset.height <= 2500)
+      );
+
+      expect(widthsAreValid).toBe(true);
+      expect(heightsAreValid).toBe(true);
     });
 
     it("should have valid quality values (1-100)", () => {
-      Object.values(IMAGE_TRANSFORM_PRESETS).forEach((preset) => {
-        if (preset.quality) {
-          expect(preset.quality).toBeGreaterThanOrEqual(1);
-          expect(preset.quality).toBeLessThanOrEqual(100);
-        }
-      });
+      const qualitiesAreValid = Object.values(IMAGE_TRANSFORM_PRESETS).every(
+        (preset) => preset.quality >= 1 && preset.quality <= 100
+      );
+
+      expect(qualitiesAreValid).toBe(true);
     });
   });
 });
@@ -349,6 +351,14 @@ describe("Image Proxy Utils", () => {
       // Should proxy but without format=json
       expect(result).toContain("/api/image-proxy");
       expect(result).not.toContain("format%3Djson");
+    });
+
+    it("should not re-proxy image proxy URLs", () => {
+      const proxiedUrl =
+        "/api/image-proxy?url=https%3A%2F%2Fapi.openverse.org%2Fv1%2Fimages%2Fabc123%2Fthumb%2F";
+
+      expect(getProxiedImageUrl(proxiedUrl)).toBe(proxiedUrl);
+      expect(getOptimizedImageUrl(proxiedUrl)).toBe(proxiedUrl);
     });
   });
 

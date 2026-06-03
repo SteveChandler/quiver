@@ -249,6 +249,15 @@ function shouldProxyUrl(url: string | null | undefined): boolean {
     return false;
   }
 
+  try {
+    const parsed = new URL(url, "https://www.quiversurf.app");
+    if (parsed.pathname === "/api/image-proxy") {
+      return false;
+    }
+  } catch {
+    return false;
+  }
+
   // Relative URLs don't need proxying
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
     return false;

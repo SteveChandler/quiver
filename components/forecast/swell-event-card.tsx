@@ -152,10 +152,17 @@ function getDirectionRotation(direction: string): number {
  */
 function getDaysUntil(date: Date): number {
   const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const targetDate = new Date(date);
-  targetDate.setHours(0, 0, 0, 0);
-  const diff = targetDate.getTime() - now.getTime();
+  const todayUtc = Date.UTC(
+    now.getUTCFullYear(),
+    now.getUTCMonth(),
+    now.getUTCDate()
+  );
+  const targetUtc = Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate()
+  );
+  const diff = targetUtc - todayUtc;
   return Math.ceil(diff / (1000 * 60 * 60 * 24));
 }
 

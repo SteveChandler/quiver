@@ -11,6 +11,8 @@
  * @project guest - These are public pages accessible without auth
  */
 
+/* eslint-disable playwright/no-conditional-in-test -- guide pages branch around Mapbox availability and optional JSON-LD scripts. */
+
 import { test, expect } from "@playwright/test";
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 import { isVisibleSafe } from './utils/strict-helpers';
@@ -254,7 +256,7 @@ test.describe("Hub Region Guides", () => {
       await expect(metaDescription).toHaveAttribute("content", /.+/);
     });
 
-    test("has FAQ structured data", async ({ page }) => {
+    test("omits broad FAQ structured data while keeping page schemas", async ({ page }) => {
       await page.goto("/guides/surfing-southern-california", {
         timeout: 20000,
         waitUntil: "domcontentloaded",
@@ -263,19 +265,22 @@ test.describe("Hub Region Guides", () => {
       // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for structured data scripts to render
       await page.waitForTimeout(500);
 
-      // Check for FAQ schema in page source
       const faqScripts = await page.locator('script[type="application/ld+json"]').all();
-      let hasFaqSchema = false;
+      const schemaTypes = new Set<string>();
 
       for (const script of faqScripts) {
         const content = await script.textContent();
-        if (content && content.includes("FAQPage")) {
-          hasFaqSchema = true;
-          break;
+        if (!content) continue;
+        const parsed = JSON.parse(content) as { "@type"?: string };
+        if (parsed["@type"]) {
+          schemaTypes.add(parsed["@type"]);
         }
       }
 
-      expect(hasFaqSchema).toBe(true);
+      expect(Array.from(schemaTypes)).toEqual(
+        expect.arrayContaining(["BreadcrumbList", "WebPage", "Article"])
+      );
+      expect(schemaTypes.has("FAQPage")).toBe(false);
     });
 
     test("has breadcrumb structured data", async ({ page }) => {

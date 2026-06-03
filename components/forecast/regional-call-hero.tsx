@@ -60,10 +60,17 @@ const MONTH_ABBR = [
 const DAY_ABBR = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
 function formatDateSticker(date: Date): string {
-  const dayName = DAY_ABBR[date.getDay()];
-  const month = MONTH_ABBR[date.getMonth()];
-  const day = date.getDate();
+  const dayName = DAY_ABBR[date.getUTCDay()];
+  const month = MONTH_ABBR[date.getUTCMonth()];
+  const day = date.getUTCDate();
   return `${dayName} · ${month} ${day}`;
+}
+
+function coerceDate(value: Date | string | undefined): Date | null {
+  if (!value) return null;
+
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function headlineForScore(peakScore: number, regionName: string): string {
@@ -172,8 +179,9 @@ export function RegionalCallHero({
   isAuthed,
 }: RegionalCallHeroProps) {
   const heroRef = useRef<HTMLElement>(null);
-  const today = new Date();
-  const dateSticker = formatDateSticker(today);
+  const stickerDate = coerceDate(summary?.generatedAt);
+  const dateSticker = stickerDate ? formatDateSticker(stickerDate) : "TODAY";
+  const stickerDateTime = stickerDate?.toISOString();
   const angle = computeHeadlineAngle(region, summary);
   const photoUrl = summary?.photoUrl ?? null;
   const photoAlt = summary?.photoBeachName
@@ -460,7 +468,7 @@ export function RegionalCallHero({
               transform: stickerTransform(7, 4, -22, "-2deg"),
             }}
           >
-            <time dateTime={today.toISOString()}>{dateSticker}</time>
+            <time dateTime={stickerDateTime}>{dateSticker}</time>
           </span>
 
           {angle.peakWaveRange && (
