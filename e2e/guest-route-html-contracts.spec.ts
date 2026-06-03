@@ -1,0 +1,439 @@
+/**
+ * Route HTML Contract Tests
+ *
+ * Request-only coverage for route status, redirects, metadata, headings, and
+ * structured data that does not require browser hydration.
+ */
+
+import { expect, test, type APIRequestContext, type APIResponse } from '@playwright/test';
+import { TEST_BEACHES } from './fixtures/test-data';
+
+const WAVE_HEIGHT_PATTERN = /\d+(\.\d+)?(-\d+(\.\d+)?)?\s*ft/i;
+
+test.use({ storageState: { cookies: [], origins: [] } });
+
+type MetaSelector = {
+  name?: string;
+  property?: string;
+};
+
+async function getResponse(
+  request: APIRequestContext,
+  path: string,
+  options?: Parameters<APIRequestContext['get']>[1],
+): Promise<APIResponse> {
+  return request.get(path, options);
+}
+
+async function getHtml(
+  request: APIRequestContext,
+  path: string,
+  expectedStatus = 200,
+): Promise<string> {
+  const response = await getResponse(request, path);
+
+  expect(response.status()).toBe(expectedStatus);
+
+  return response.text();
+}
+
+function decodeHtmlEntities(value: string): string {
+  return value
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+function getTagAttribute(tag: string, attribute: string): string | null {
+  const match = tag.match(
+    new RegExp(`${attribute}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i'),
+  );
+
+  if (!match) return null;
+
+  return decodeHtmlEntities(match[2] ?? match[3] ?? match[4] ?? '');
+}
+
+function stripTags(value: string): string {
+  return decodeHtmlEntities(value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
+}
+
+function getTitle(html: string): string | null {
+  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+
+  return match ? stripTags(match[1]) : null;
+}
+
+function getMetaContent(html: string, selector: MetaSelector): string | null {
+  const tags = html.match(/<meta\b[^>]*>/gi) ?? [];
+
+  for (const tag of tags) {
+    const selectorAttribute = selector.property ? 'property' : 'name';
+    const selectorValue = selector.property ?? selector.name;
+    const actualSelectorValue = getTagAttribute(tag, selectorAttribute);
+
+    if (actualSelectorValue !== selectorValue) continue;
+
+    return getTagAttribute(tag, 'content');
+  }
+
+  return null;
+}
+
+function getHeadingTexts(html: string, level: 1 | 2): string[] {
+  const pattern = new RegExp(`<h${level}\\b[^>]*>([\\s\\S]*?)<\\/h${level}>`, 'gi');
+
+  return Array.from(html.matchAll(pattern), (match) => stripTags(match[1])).filter(Boolean);
+}
+
+function getJsonLdScripts(html: string): string[] {
+  return Array.from(
+    html.matchAll(
+      /<script\b(?=[^>]*type=["']application\/ld\+json["'])[^>]*>([\s\S]*?)<\/script>/gi,
+    ),
+    (match) => stripTags(match[1]),
+  );
+}
+
+test.describe('Route HTML Contracts', () => {
+  test.describe('Beach SEO metadata', () => {
+    test('/beach/[slug] exposes social metadata without browser hydration', async ({ request }) => {
+      const beach = TEST_BEACHES.blacks;
+      const html = await getHtml(request, `/beach/${beach.slug}`);
+      const ogImage = getMetaContent(html, { property: 'og:image' });
+      const ogTitle = getMetaContent(html, { property: 'og:title' });
+      const ogDescription = getMetaContent(html, { property: 'og:description' });
+      const twitterCard = getMetaContent(html, { name: 'twitter:card' });
+      const twitterImage = getMetaContent(html, { name: 'twitter:image' });
+
+      expect(getTitle(html)).toContain(beach.name);
+      expect(getTitle(html)).toContain('Quiver');
+      expect(getTitle(html)).toMatch(WAVE_HEIGHT_PATTERN);
+
+      expect(ogImage).toMatch(/^https?:\/\//);
+      expect(ogImage).toContain('/api/og/beach');
+      expect(ogImage).toContain(`slug=${beach.slug}`);
+
+      expect(ogTitle).toContain(beach.name);
+      expect(ogTitle).toMatch(WAVE_HEIGHT_PATTERN);
+
+      expect(ogDescription).toMatch(/\d+(\.\d+)?\s*ft\s*(waves)?/i);
+      expect(ogDescription).toContain('forecast');
+
+      expect(getMetaContent(html, { property: 'og:image:width' })).toBe('1200');
+      expect(getMetaContent(html, { property: 'og:image:height' })).toBe('630');
+      expect(twitterCard).not.toBeNull();
+      expect(twitterImage).toContain('/api/og/beach');
+    });
+
+    test('/[state]/[city]/[beachSlug] exposes social metadata without browser hydration', async ({
+      request,
+    }) => {
+      const beach = TEST_BEACHES.blacks;
+      const state = beach.state.toLowerCase();
+      const city = beach.city.toLowerCase().replace(/\s+/g, '-');
+      const html = await getHtml(request, `/${state}/${city}/${beach.slug}`);
+      const ogImage = getMetaContent(html, { property: 'og:image' });
+      const description = getMetaContent(html, { name: 'description' });
+
+      expect(getTitle(html)).toContain(beach.name);
+      expect(getTitle(html)).toContain('Quiver');
+      expect(getTitle(html)).toMatch(WAVE_HEIGHT_PATTERN);
+
+      expect(ogImage).toMatch(/^https?:\/\//);
+      expect(ogImage).toContain('/api/og/beach');
+      expect(ogImage).toContain(`slug=${beach.slug}`);
+
+      expect(description).toMatch(/\d+(\.\d+)?\s*ft\s*(waves)?/i);
+      expect(description).toContain('forecast');
+    });
+  });
+
+  test.describe('SEO infrastructure', () => {
+    test('sitemap returns XML when available', async ({ request }) => {
+      const response = await getResponse(request, '/sitemap.xml');
+      const xml = await response.text();
+
+      expect(response.status()).toBe(200);
+      expect(xml).toMatch(/<urlset|<sitemapindex/);
+      expect(xml).toContain('<url>');
+    });
+
+    test('robots.txt returns a readable response when configured', async ({ request }) => {
+      const response = await getResponse(request, '/robots.txt');
+
+      expect([200, 404]).toContain(response.status());
+      expect((await response.text()).length).toBeGreaterThan(0);
+    });
+
+    test('thin-content intent routes expose noindex or valid content', async ({ request }) => {
+      const html = await getHtml(request, '/longboard/san-diego');
+      const robots = getMetaContent(html, { name: 'robots' });
+      const hasNoindex = robots?.includes('noindex') ?? false;
+      const hasH1 = getHeadingTexts(html, 1).length > 0;
+
+      expect(hasNoindex || hasH1).toBe(true);
+    });
+  });
+
+  test.describe('Redirect and status contracts', () => {
+    test('supported state root renders surf-beach content', async ({ request }) => {
+      const html = await getHtml(request, '/ca');
+
+      expect(getHeadingTexts(html, 1).join(' ')).toMatch(/best surf beaches in ca/i);
+    });
+
+    test('uppercase state root canonicalizes to lowercase', async ({ request }) => {
+      const response = await getResponse(request, '/CA', { maxRedirects: 0 });
+
+      expect([301, 308]).toContain(response.status());
+      expect(response.headers().location).toMatch(/\/ca$/);
+    });
+
+    test('unsupported state root returns 404', async ({ request }) => {
+      const response = await getResponse(request, '/zz');
+
+      expect(response.status()).toBe(404);
+    });
+
+    test('reserved one-segment routes are not treated as state roots', async ({ request }) => {
+      const response = await getResponse(request, '/map', { maxRedirects: 0 });
+      const html = await response.text();
+
+      expect(response.status()).toBe(200);
+      expect(response.headers().location).toBeUndefined();
+      expect(html.length).toBeGreaterThan(0);
+    });
+
+    test('legacy beach-compatible route loads without browser navigation', async ({ request }) => {
+      const html = await getHtml(request, '/ca/san-diego/blacks');
+
+      expect(html.toLowerCase()).toContain('blacks');
+    });
+
+    test('Mexico beach route serves existing international beach content', async ({ request }) => {
+      const html = await getHtml(request, '/mexico/baja-california/rosarito/alfonsos');
+
+      expect(getHeadingTexts(html, 1).join(' ')).toMatch(/alfonsos/i);
+    });
+
+    test('canonical beach URL loads directly', async ({ request }) => {
+      const response = await getResponse(request, '/ca/dana-point/doheny-state-beach', {
+        maxRedirects: 0,
+      });
+      const html = await response.text();
+
+      expect(response.status()).toBe(200);
+      expect(response.headers().location).toBeUndefined();
+      expect(html.toLowerCase()).toContain('doheny');
+    });
+
+    const northHbRedirects = [
+      {
+        source: '/ca/huntington-beach/north-hb-streets',
+        destination: '/ca/huntington-beach/goldenwest',
+      },
+      {
+        source: '/ca/huntington-beach/north-hb-streets/tides',
+        destination: '/ca/huntington-beach/goldenwest/tides',
+      },
+      {
+        source: '/ca/huntington-beach/north-hb-streets/water-temp',
+        destination: '/ca/huntington-beach/goldenwest/water-temp',
+      },
+    ] as const;
+
+    for (const redirect of northHbRedirects) {
+      test(`301 redirects ${redirect.source} to Goldenwest`, async ({ request }) => {
+        const response = await getResponse(request, redirect.source, { maxRedirects: 0 });
+
+        expect(response.status()).toBe(301);
+        expect(response.headers().location).toBe(redirect.destination);
+      });
+    }
+  });
+
+  test.describe('Intent route contracts', () => {
+    const stateRoutes = [
+      {
+        path: '/beginner/ca',
+        heading: /california/i,
+        body: /beginner/i,
+      },
+      {
+        path: '/tide/hi',
+        heading: /hawaii/i,
+        body: /tide|hawaii/i,
+      },
+      {
+        path: '/longboard/or',
+        heading: /oregon/i,
+        body: /longboard|oregon/i,
+      },
+      {
+        path: '/beginner/nd',
+        heading: /north dakota|beginner/i,
+        body: /north dakota|beginner/i,
+      },
+      {
+        path: '/dawn-patrol/or',
+        heading: /oregon/i,
+        body: /dawn patrol|oregon/i,
+      },
+    ] as const;
+
+    for (const route of stateRoutes) {
+      test(`${route.path} returns intent state content`, async ({ request }) => {
+        const html = await getHtml(request, route.path);
+
+        expect(getHeadingTexts(html, 1).join(' ')).toMatch(route.heading);
+        expect(stripTags(html).toLowerCase()).toMatch(route.body);
+      });
+    }
+
+    test('state intent pages expose spot count and FAQ content', async ({ request }) => {
+      const html = await getHtml(request, '/beginner/ca');
+
+      expect(stripTags(html)).toMatch(/\d+\s+spot/i);
+      expect(stripTags(html)).toMatch(/frequently asked questions/i);
+    });
+
+    test('invalid state-level intent routes return 404', async ({ request }) => {
+      expect((await getResponse(request, '/invalid-intent/ca')).status()).toBe(404);
+      expect((await getResponse(request, '/beginner/zz')).status()).toBe(404);
+    });
+
+    test('city intent route returns city heading and breadcrumb JSON-LD', async ({
+      request,
+    }) => {
+      const html = await getHtml(request, '/beginner/ca/san-diego');
+      const jsonLdScripts = getJsonLdScripts(html);
+
+      expect(getHeadingTexts(html, 1).join(' ')).toMatch(/beginner surf spots in san diego/i);
+      expect(jsonLdScripts.some((script) => script.includes('"@type":"BreadcrumbList"'))).toBe(
+        true,
+      );
+    });
+
+    test('invalid city intent routes render not-found content', async ({ request }) => {
+      const invalidRoutes = [
+        '/invalid-intent/ca/san-diego',
+        '/beginner/zz/san-diego',
+        '/beginner/ca/nonexistent-city-xyz',
+      ] as const;
+
+      for (const path of invalidRoutes) {
+        const response = await getResponse(request, path);
+        const html = await response.text();
+        const pageText = stripTags(html).toLowerCase();
+
+        expect([200, 404]).toContain(response.status());
+        expect(pageText.includes('not found') || pageText.includes('404')).toBe(true);
+      }
+    });
+
+    test('state intent titles and meta descriptions are available in HTML', async ({
+      request,
+    }) => {
+      const html = await getHtml(request, '/beginner/ca');
+
+      expect(getTitle(html)).toContain('California');
+      expect(getTitle(html)?.toLowerCase()).toContain('beginner');
+      expect(getMetaContent(html, { name: 'description' })?.toLowerCase()).toContain(
+        'california',
+      );
+      expect(getHeadingTexts(html, 1)).toHaveLength(1);
+      expect(getHeadingTexts(html, 2).length).toBeGreaterThan(0);
+      expect(getJsonLdScripts(html).length).toBeGreaterThan(0);
+    });
+
+    test('supported intents render distinct California headings', async ({ request }) => {
+      const intents = [
+        'beginner',
+        'least-crowded',
+        'tide',
+        'water-temp',
+        'longboard',
+        'dawn-patrol',
+        'sunset',
+      ] as const;
+      const headings: string[] = [];
+
+      for (const intent of intents) {
+        const html = await getHtml(request, `/${intent}/ca`);
+        const h1 = getHeadingTexts(html, 1).join(' ');
+
+        expect(h1).toMatch(/california/i);
+        headings.push(h1);
+      }
+
+      expect(new Set(headings).size).toBe(headings.length);
+    });
+  });
+
+  test.describe('Database-driven intent route contracts', () => {
+    const cityRoutes = [
+      {
+        path: '/beginner/santa-cruz',
+        heading: /santa cruz/i,
+        body: /beginner/i,
+      },
+      {
+        path: '/tide/honolulu',
+        heading: /honolulu/i,
+        body: /tide/i,
+      },
+      {
+        path: '/water-temp/newport-beach',
+        heading: /newport/i,
+        body: /newport|water/i,
+      },
+    ] as const;
+
+    for (const route of cityRoutes) {
+      test(`${route.path} returns database-driven city content`, async ({ request }) => {
+        const html = await getHtml(request, route.path);
+
+        expect(getHeadingTexts(html, 1).join(' ')).toMatch(route.heading);
+        expect(stripTags(html).toLowerCase()).toMatch(route.body);
+      });
+    }
+
+    test('database-driven 404 contracts stay stable', async ({ request }) => {
+      const routes = [
+        '/beginner/nonexistent-city-xyz',
+        '/beginner/random-inland-city-99',
+        '/invalid-intent/santa-cruz',
+        '/least-crowded/encinitas',
+      ] as const;
+
+      for (const path of routes) {
+        const response = await getResponse(request, path);
+
+        expect(response.status()).toBe(404);
+      }
+    });
+
+    test('database-driven city SEO metadata is present in HTML', async ({ request }) => {
+      const html = await getHtml(request, '/beginner/santa-cruz');
+
+      expect(getTitle(html)).toContain('Santa Cruz');
+      expect(getTitle(html)?.toLowerCase()).toContain('beginner');
+      expect(getMetaContent(html, { name: 'description' })?.toLowerCase()).toContain(
+        'santa cruz',
+      );
+    });
+
+    test('database-driven city structured data is present in HTML', async ({ request }) => {
+      const html = await getHtml(request, '/beginner/san-diego');
+      const jsonLdScripts = getJsonLdScripts(html);
+
+      expect(jsonLdScripts.some((script) => script.includes('BreadcrumbList'))).toBe(true);
+      expect(jsonLdScripts.some((script) => script.includes('FAQPage'))).toBe(false);
+      expect(getHeadingTexts(html, 1)).toHaveLength(1);
+      expect(getHeadingTexts(html, 2).length).toBeGreaterThan(0);
+    });
+  });
+});
