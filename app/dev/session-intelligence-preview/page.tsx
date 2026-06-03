@@ -15,6 +15,12 @@ function getPreviewLocalTimeLabel(rank: number): string {
   return "10:00 AM-12:00 PM";
 }
 
+function getPreviewBeachId(rank: number): string {
+  if (rank === 1) return "15c7337e-5258-4339-9dc3-c435c666926b";
+  if (rank === 2) return "65d177de-e75a-4ad8-aa0d-48a67c0851b0";
+  return "e8a921b7-c2b5-4259-9e5c-bd06765f7ae4";
+}
+
 function recommendationFixture(
   rank: number,
   overrides: Partial<SurfWindowRecommendation> = {}
@@ -23,7 +29,7 @@ function recommendationFixture(
     windowId: `preview-beach-${rank}-2026-06-03T14-00-00-000Z`,
     rank,
     beach: {
-      id: `preview-beach-${rank}`,
+      id: getPreviewBeachId(rank),
       name: rank === 1 ? "Ocean Beach" : `Preview Beach ${rank}`,
       slug: rank === 1 ? "ocean-beach" : `preview-beach-${rank}`,
       city: "San Diego",
