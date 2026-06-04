@@ -25,7 +25,7 @@ import type {
   TimeSlot,
 } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
-import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
+import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils';
 import { createContextLogger } from '@/lib/logger';
 import { resolveForecastTime, localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
 
@@ -419,6 +419,81 @@ function buildResult(
   };
 }
 
+interface NormalizedWindowSelectorOptions {
+  forecasts: EnhancedForecastEntity[];
+  beach: Beach;
+  userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null;
+  horizonHours: number | undefined;
+  sunTimesCache: Map<string, { sunrises: Date[]; sunsets: Date[] }> | undefined;
+  timeSlot: TimeSlot | undefined;
+  now: Date;
+  maxWindows: number;
+}
+
+interface RankedCandidateWindow extends CandidateWindow {
+  adjustedScore: number;
+}
+
+const DEFAULT_MAX_WINDOWS = 3;
+
+function normalizeWindowSelectorOptions(
+  optionsOrForecasts: WindowSelectorOptions | EnhancedForecastEntity[],
+  beach?: Beach,
+  userPrefs?: Awaited<ReturnType<typeof getUserSurfPreferences>> | null,
+  horizonHours?: number,
+  sunTimesCache?: Map<string, { sunrises: Date[]; sunsets: Date[] }>,
+  timeSlot?: TimeSlot,
+  now?: Date,
+  maxWindows?: number
+): NormalizedWindowSelectorOptions {
+  if (Array.isArray(optionsOrForecasts)) {
+    return {
+      forecasts: optionsOrForecasts,
+      beach: beach!,
+      userPrefs: userPrefs ?? null,
+      horizonHours,
+      sunTimesCache,
+      timeSlot,
+      now: now ?? new Date(),
+      maxWindows: maxWindows ?? DEFAULT_MAX_WINDOWS,
+    };
+  }
+
+  return {
+    forecasts: optionsOrForecasts.forecasts,
+    beach: optionsOrForecasts.beach,
+    userPrefs: optionsOrForecasts.userPrefs,
+    horizonHours: optionsOrForecasts.horizonHours,
+    sunTimesCache: optionsOrForecasts.sunTimesCache,
+    timeSlot: optionsOrForecasts.timeSlot,
+    now: optionsOrForecasts.now ?? new Date(),
+    maxWindows: optionsOrForecasts.maxWindows ?? DEFAULT_MAX_WINDOWS,
+  };
+}
+
+function compareRankedWindows(
+  a: RankedCandidateWindow,
+  b: RankedCandidateWindow
+): number {
+  const adjustedScoreDelta = b.adjustedScore - a.adjustedScore;
+  if (adjustedScoreDelta !== 0) return adjustedScoreDelta;
+
+  const scoreDelta = b.score - a.score;
+  if (scoreDelta !== 0) return scoreDelta;
+
+  const startDelta = a.start.getTime() - b.start.getTime();
+  if (startDelta !== 0) return startDelta;
+
+  return a.forecast.id.localeCompare(b.forecast.id);
+}
+
+function windowsOverlap(
+  a: PersonalizedForecastWindow,
+  b: PersonalizedForecastWindow
+): boolean {
+  return a.start.getTime() < b.end.getTime() && b.start.getTime() < a.end.getTime();
+}
+
 function getPeakTimeTideAdjustment(
   forecast: EnhancedForecastEntity,
   beach: Beach
@@ -533,34 +608,87 @@ export function selectBestWindow(
   sunTimesCache?: Map<string, { sunrises: Date[]; sunsets: Date[] }>,
   timeSlot?: TimeSlot
 ): PersonalizedForecastWindow | null {
-  // Handle options object vs positional parameters
-  let forecasts: EnhancedForecastEntity[];
-  let actualBeach: Beach;
-  let actualHorizonHours: number | undefined;
-  let actualSunTimesCache: Map<string, { sunrises: Date[]; sunsets: Date[] }> | undefined;
-  let actualTimeSlot: TimeSlot | undefined;
-
   if (Array.isArray(optionsOrForecasts)) {
-    forecasts = optionsOrForecasts;
-    actualBeach = beach!;
-    actualHorizonHours = horizonHours;
-    actualSunTimesCache = sunTimesCache;
-    actualTimeSlot = timeSlot;
-  } else {
-    forecasts = optionsOrForecasts.forecasts;
-    actualBeach = optionsOrForecasts.beach;
-    actualHorizonHours = optionsOrForecasts.horizonHours;
-    actualSunTimesCache = optionsOrForecasts.sunTimesCache;
-    actualTimeSlot = optionsOrForecasts.timeSlot;
+    return selectBestWindows(
+      optionsOrForecasts,
+      beach!,
+      userPrefs ?? null,
+      horizonHours,
+      sunTimesCache,
+      timeSlot
+    )[0] ?? null;
+  }
+
+  return selectBestWindows(optionsOrForecasts)[0] ?? null;
+}
+
+/**
+ * Select ranked, non-overlapping surf windows from forecast data.
+ *
+ * @param options - Window selection options including forecasts, beach, user prefs
+ * @returns Ranked windows or an empty array if none are viable
+ */
+export function selectBestWindows(
+  options: WindowSelectorOptions
+): PersonalizedForecastWindow[];
+
+/**
+ * Select ranked, non-overlapping surf windows from forecast data.
+ * (Legacy-style overload with positional parameters)
+ */
+export function selectBestWindows(
+  forecasts: EnhancedForecastEntity[],
+  beach: Beach,
+  userPrefs: Awaited<ReturnType<typeof getUserSurfPreferences>> | null,
+  horizonHours?: number,
+  sunTimesCache?: Map<string, { sunrises: Date[]; sunsets: Date[] }>,
+  timeSlot?: TimeSlot,
+  now?: Date,
+  maxWindows?: number
+): PersonalizedForecastWindow[];
+
+export function selectBestWindows(
+  optionsOrForecasts: WindowSelectorOptions | EnhancedForecastEntity[],
+  beach?: Beach,
+  userPrefs?: Awaited<ReturnType<typeof getUserSurfPreferences>> | null,
+  horizonHours?: number,
+  sunTimesCache?: Map<string, { sunrises: Date[]; sunsets: Date[] }>,
+  timeSlot?: TimeSlot,
+  now?: Date,
+  maxWindows?: number
+): PersonalizedForecastWindow[] {
+  const {
+    forecasts,
+    beach: actualBeach,
+    horizonHours: actualHorizonHours,
+    sunTimesCache: actualSunTimesCache,
+    timeSlot: actualTimeSlot,
+    now: actualNow,
+    maxWindows: actualMaxWindows,
+  } = normalizeWindowSelectorOptions(
+    optionsOrForecasts,
+    beach,
+    userPrefs,
+    horizonHours,
+    sunTimesCache,
+    timeSlot,
+    now,
+    maxWindows
+  );
+
+  const windowLimit = Math.max(0, Math.floor(actualMaxWindows));
+  if (windowLimit === 0) {
+    return [];
   }
 
   if (forecasts.length === 0) {
-    log.debug(`[selectBestWindow] ${actualBeach.name}: No forecasts provided`);
-    return null;
+    log.debug(`[selectBestWindows] ${actualBeach.name}: No forecasts provided`);
+    return [];
   }
 
-  const now = new Date();
-  const beachTz = getTimezoneFromCoords(actualBeach.lat || 0, actualBeach.lon || 0);
+  const beachTz =
+    (actualBeach as { timezone?: string | null }).timezone ||
+    getTimezoneFromCoords(actualBeach.lat || 0, actualBeach.lon || 0);
 
   // Helper: get local date string for beach timezone
   const getLocalDateStrForBeach = (time: Date): string => getLocalDateStr(time, beachTz);
@@ -574,7 +702,7 @@ export function selectBestWindow(
         hour: "numeric",
         hour12: false,
         timeZone: beachTz,
-      }).format(now),
+      }).format(actualNow),
       10
     );
     isMorning = localHourNow < MORNING_CUTOFF_HOUR;
@@ -583,16 +711,16 @@ export function selectBestWindow(
       month: "2-digit",
       day: "2-digit",
       timeZone: beachTz,
-    }).format(now);
+    }).format(actualNow);
   } catch {
     // If timezone conversion fails, default to not morning priority
   }
 
   // Score and prepare forecasts
-  const scoredForecasts = prepareForecasts(forecasts, actualBeach, beachTz, now, todayDateStr);
+  const scoredForecasts = prepareForecasts(forecasts, actualBeach, beachTz, actualNow, todayDateStr);
   if (scoredForecasts.length === 0) {
-    log.debug(`[selectBestWindow] ${actualBeach.name}: No scored forecasts after filtering past times`);
-    return null;
+    log.debug(`[selectBestWindows] ${actualBeach.name}: No scored forecasts after filtering past times`);
+    return [];
   }
 
   // Get sun times
@@ -603,14 +731,13 @@ export function selectBestWindow(
   // Filter by time slot
   const filteredForecasts = filterByTimeSlot(scoredForecasts, actualTimeSlot, sunrises, beachTz);
   if (filteredForecasts.length === 0) {
-    log.debug(`[selectBestWindow] ${actualBeach.name}: No forecasts after time slot filter (slot=${actualTimeSlot || 'any'})`);
-    return null;
+    log.debug(`[selectBestWindows] ${actualBeach.name}: No forecasts after time slot filter (slot=${actualTimeSlot || 'any'})`);
+    return [];
   }
 
-  log.debug(`[selectBestWindow] ${actualBeach.name}: ${filteredForecasts.length} forecasts to evaluate, isMorning=${isMorning}`);
+  log.debug(`[selectBestWindows] ${actualBeach.name}: ${filteredForecasts.length} forecasts to evaluate, isMorning=${isMorning}`);
 
-  let bestWindow: CandidateWindow | null = null;
-  let bestAdjustedScore = -1;
+  const candidateWindows: RankedCandidateWindow[] = [];
 
   for (let i = 0; i < filteredForecasts.length; i++) {
     const { forecast, forecastTime: startTime, score: startScore, isToday } = filteredForecasts[i];
@@ -647,7 +774,7 @@ export function selectBestWindow(
     }
 
     // Horizon constraint
-    const rawHoursAhead = (startTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const rawHoursAhead = (startTime.getTime() - actualNow.getTime()) / (1000 * 60 * 60);
     const hoursAhead = Math.max(0, rawHoursAhead);
     if (actualHorizonHours && hoursAhead > actualHorizonHours) continue;
 
@@ -745,71 +872,92 @@ export function selectBestWindow(
     }
 
     // Calculate adjusted score
-    const adjustedScore = calculateAdjustedScore(startScore, startTime, now, isToday, isMorning, beachTz);
+    const adjustedScore = calculateAdjustedScore(startScore, startTime, actualNow, isToday, isMorning, beachTz);
 
-    if (adjustedScore > bestAdjustedScore) {
-      bestAdjustedScore = adjustedScore;
-      bestWindow = {
-        forecast,
-        start: effectiveStartTime,
-        end: endTime,
-        score: startScore,
-        usedTideBoundaries: useTideBoundaries,
-      };
-    }
+    candidateWindows.push({
+      forecast,
+      start: effectiveStartTime,
+      end: endTime,
+      score: startScore,
+      usedTideBoundaries: useTideBoundaries,
+      adjustedScore,
+    });
   }
 
   // Log main loop result
-  if (bestWindow) {
-    log.debug(`[selectBestWindow] ${actualBeach.name}: Main loop found window with score=${bestWindow.score}`);
+  if (candidateWindows.length > 0) {
+    log.debug(`[selectBestWindows] ${actualBeach.name}: Main loop found ${candidateWindows.length} candidate windows`);
   } else {
-    log.debug(`[selectBestWindow] ${actualBeach.name}: Main loop found no valid window, trying fallback...`);
+    log.debug(`[selectBestWindows] ${actualBeach.name}: Main loop found no valid window, trying fallback...`);
   }
 
   // Fallback: if no forecasts passed threshold, use the best available anyway
-  if (!bestWindow && filteredForecasts.length > 0) {
-    bestWindow = selectFallbackWindow(
+  if (candidateWindows.length === 0 && filteredForecasts.length > 0) {
+    const fallbackWindow = selectFallbackWindow(
       filteredForecasts,
       sunsets,
       sunrises,
       actualTimeSlot,
       actualHorizonHours,
-      now,
+      actualNow,
       beachTz,
       isMorning,
       getLocalDateStrForBeach,
       actualBeach.name // Pass beach name for logging
     );
+    if (fallbackWindow) {
+      candidateWindows.push({
+        ...fallbackWindow,
+        adjustedScore: fallbackWindow.score,
+      });
+    }
   }
 
-  if (!bestWindow) {
-    log.debug(`[selectBestWindow] ${actualBeach.name}: Both main loop and fallback returned null - NO WINDOW SELECTED`);
-    return null;
+  if (candidateWindows.length === 0) {
+    log.debug(`[selectBestWindows] ${actualBeach.name}: Both main loop and fallback returned null - NO WINDOW SELECTED`);
+    return [];
   }
 
-  // Apply sub-hour refinement
-  const refinedTimes = applySubHourRefinement(
-    bestWindow,
-    filteredForecasts,
-    forecasts,
-    sunsets,
-    sunrises,
-    actualBeach,
-    beachTz
-  );
-  bestWindow = {
-    ...bestWindow,
-    start: refinedTimes.start,
-    end: refinedTimes.end,
-  };
+  const refinedWindows = candidateWindows
+    .sort(compareRankedWindows)
+    .map((candidateWindow) => {
+      const refinedTimes = applySubHourRefinement(
+        candidateWindow,
+        filteredForecasts,
+        forecasts,
+        sunsets,
+        sunrises,
+        actualBeach,
+        beachTz
+      );
 
-  // Final night guard after refinement
-  if (shouldSkipDueToLight({ startTime: bestWindow.start, sunsets, sunrises, beachTz, getLocalDateStrForBeach })) {
-    log.debug(`[selectBestWindow] ${actualBeach.name}: Refined start falls in night hours, returning null`);
-    return null;
+      return {
+        ...candidateWindow,
+        start: refinedTimes.start,
+        end: refinedTimes.end,
+      };
+    })
+    .filter((candidateWindow) => {
+      if (shouldSkipDueToLight({ startTime: candidateWindow.start, sunsets, sunrises, beachTz, getLocalDateStrForBeach })) {
+        log.debug(`[selectBestWindows] ${actualBeach.name}: Refined start falls in night hours, skipping`);
+        return false;
+      }
+      return true;
+    })
+    .map((candidateWindow) =>
+      buildResult(candidateWindow, filteredForecasts, actualBeach, beachTz, actualNow)
+    );
+
+  const nonOverlappingWindows: PersonalizedForecastWindow[] = [];
+  for (const candidateWindow of refinedWindows) {
+    if (nonOverlappingWindows.some((selectedWindow) => windowsOverlap(selectedWindow, candidateWindow))) {
+      continue;
+    }
+    nonOverlappingWindows.push(candidateWindow);
+    if (nonOverlappingWindows.length >= windowLimit) break;
   }
 
-  return buildResult(bestWindow, filteredForecasts, actualBeach, beachTz, now);
+  return nonOverlappingWindows;
 }
 
 /**

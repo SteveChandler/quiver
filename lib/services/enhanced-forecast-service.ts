@@ -47,6 +47,10 @@ import { toFaceHeightFeet } from "@/lib/utils/wave-formatters";
 import { fetchNowcastAnchors } from "@/lib/services/observations/nowcast-anchor";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
 import {
+  fetchSouthOcSanoShadowZoneSnapshot,
+  type SouthOcSanoShadowZoneSnapshot,
+} from "@/lib/services/forecast/south-oc-sano-shadow-guardrail";
+import {
   ForecastError,
   ForecastErrorCode,
   DataSourceError,
@@ -98,14 +102,20 @@ export class EnhancedForecastService {
   async generateComprehensiveForecast(
     beach: Beach,
     nowcastAnchor: NowcastAnchor | null = null,
+    southOcSanoShadowZoneSnapshot: SouthOcSanoShadowZoneSnapshot | null = null,
   ): Promise<EnhancedForecastEntity[]> {
-    const result = await this.generateComprehensiveForecastWithDiagnostics(beach, nowcastAnchor);
+    const result = await this.generateComprehensiveForecastWithDiagnostics(
+      beach,
+      nowcastAnchor,
+      southOcSanoShadowZoneSnapshot,
+    );
     return result.forecasts;
   }
 
   async generateComprehensiveForecastWithDiagnostics(
     beach: Beach,
     nowcastAnchor: NowcastAnchor | null = null,
+    southOcSanoShadowZoneSnapshot: SouthOcSanoShadowZoneSnapshot | null = null,
   ): Promise<ComprehensiveForecastDiagnosticResult> {
     return withErrorHandling(
       async () => {
@@ -144,6 +154,7 @@ export class EnhancedForecastService {
           ioosWaterTempC: ioosWaterTempResult.status === "fulfilled" ? ioosWaterTempResult.value : null,
           coopsWaterTempC: coopsWaterTempResult.status === "fulfilled" ? coopsWaterTempResult.value : null,
           nowcastAnchor,
+          southOcSanoShadowZoneSnapshot,
         };
 
         const cdipDiagnostic: CDIPForecastDiagnostic =
@@ -440,6 +451,7 @@ export class EnhancedForecastService {
     ioosWaterTempC,
     coopsWaterTempC,
     nowcastAnchor,
+    southOcSanoShadowZoneSnapshot,
   }: {
     beach: Beach;
     waveData: any;
@@ -450,6 +462,7 @@ export class EnhancedForecastService {
     ioosWaterTempC: number | null;
     coopsWaterTempC: number | null;
     nowcastAnchor: NowcastAnchor | null;
+    southOcSanoShadowZoneSnapshot: SouthOcSanoShadowZoneSnapshot | null;
   }): Promise<EnhancedForecastWithRawData[]> {
     // Use ForecastBuilder to build forecasts
     const builder = new ForecastBuilder({
@@ -475,6 +488,7 @@ export class EnhancedForecastService {
       ioosWaterTempC,
       coopsWaterTempC,
       nowcastAnchor,
+      southOcSanoShadowZoneSnapshot,
     });
 
     return forecasts;
@@ -493,12 +507,14 @@ export class EnhancedForecastService {
 
   async processBeachForecastUpdate(
     beach: Beach,
-    nowcastAnchor: NowcastAnchor | null = null
+    nowcastAnchor: NowcastAnchor | null = null,
+    southOcSanoShadowZoneSnapshot: SouthOcSanoShadowZoneSnapshot | null = null,
   ): Promise<BeachProcessResult> {
     try {
       const { forecasts, cdip } = await this.generateComprehensiveForecastWithDiagnostics(
         beach,
-        nowcastAnchor
+        nowcastAnchor,
+        southOcSanoShadowZoneSnapshot,
       );
       const result = await this.storeEnhancedForecasts(beach, forecasts);
 
@@ -565,13 +581,23 @@ export class EnhancedForecastService {
       const supabase = await createSupabaseServiceRoleClient();
       const nowcastAnchors = await fetchNowcastAnchors(supabase);
       log.info(`Loaded ${nowcastAnchors.size} nowcast anchors for this run`);
+      const southOcSanoShadowZoneSnapshot =
+        await fetchSouthOcSanoShadowZoneSnapshot(supabase);
+      log.info(
+        `Loaded South OC/SanO shadow snapshot with ` +
+        `${southOcSanoShadowZoneSnapshot.confirmedNearshore ? "nearshore confirmation" : "no nearshore confirmation"}`
+      );
 
       const result = await processBeachesInBatches({
         beaches: beaches.selected,
         config,
         deadlineTracker,
         processBeach: (beach) =>
-          this.processBeachForecastUpdate(beach, nowcastAnchors.get(beach.id) ?? null),
+          this.processBeachForecastUpdate(
+            beach,
+            nowcastAnchors.get(beach.id) ?? null,
+            southOcSanoShadowZoneSnapshot,
+          ),
         prefetchCallback: (beaches) => this.prefetchTideStations(beaches),
         logPrefix: "📦 ",
       });
@@ -703,13 +729,23 @@ export class EnhancedForecastService {
       const supabase = await createSupabaseServiceRoleClient();
       const nowcastAnchors = await fetchNowcastAnchors(supabase);
       log.info(`Loaded ${nowcastAnchors.size} nowcast anchors for this CDIP run`);
+      const southOcSanoShadowZoneSnapshot =
+        await fetchSouthOcSanoShadowZoneSnapshot(supabase);
+      log.info(
+        `Loaded South OC/SanO shadow snapshot for CDIP run with ` +
+        `${southOcSanoShadowZoneSnapshot.confirmedNearshore ? "nearshore confirmation" : "no nearshore confirmation"}`
+      );
 
       const result = await processBeachesInBatches({
         beaches: beaches.selected,
         config,
         deadlineTracker,
         processBeach: (beach) =>
-          this.processBeachForecastUpdate(beach, nowcastAnchors.get(beach.id) ?? null),
+          this.processBeachForecastUpdate(
+            beach,
+            nowcastAnchors.get(beach.id) ?? null,
+            southOcSanoShadowZoneSnapshot,
+          ),
         prefetchCallback: (beaches) => this.prefetchTideStations(beaches),
         logPrefix: "CDIP ",
       });

@@ -43,6 +43,7 @@ import {
   getBestTimeSeoScene,
   getBestTimeSessionSeoScene,
 } from "@/lib/constants/seo-scenes";
+import { isPhase18BestTimePath } from "@/lib/recommendations/session-intelligence-rollout";
 
 export const revalidate = 86400;
 
@@ -85,11 +86,13 @@ type BestTimeHandoffBeach = Pick<
 export function buildBestTimeLiveHandoffSteps({
   cityName,
   citySlug,
+  path,
   stateSlug,
   topBeaches,
 }: {
   cityName: string;
   citySlug: string;
+  path?: string;
   stateSlug: string;
   topBeaches: BestTimeHandoffBeach[];
 }): SeoFunnelNextStep[] {
@@ -100,6 +103,29 @@ export function buildBestTimeLiveHandoffSteps({
     ? buildBeachUrl(primarySpot)
     : `/${stateSlug}/${citySlug}`;
   const primarySpotName = primarySpot?.name ?? cityName;
+
+  if (path && isPhase18BestTimePath(path)) {
+    return [
+      {
+        label: `Open live ${primarySpotName} conditions`,
+        href: primarySpotHref,
+        description:
+          "Use the current wave height, wind, tide, and local call before applying the seasonal pattern.",
+      },
+      {
+        label: `Check today's ${cityName} surf hub`,
+        href: `/${stateSlug}/${citySlug}`,
+        description:
+          "Compare live spots in this city before picking the window that fits your plan.",
+      },
+      {
+        label: "Scan the 7-day regional forecast",
+        href: "/forecast",
+        description:
+          "Use the forecast hub to confirm whether this seasonal setup is building or fading.",
+      },
+    ];
+  }
 
   return [
     {
@@ -174,6 +200,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
   const liveHandoffSteps = buildBestTimeLiveHandoffSteps({
     cityName,
     citySlug,
+    path: `/best-time-to-surf/${citySlug}`,
     stateSlug,
     topBeaches: data.topBeaches,
   });

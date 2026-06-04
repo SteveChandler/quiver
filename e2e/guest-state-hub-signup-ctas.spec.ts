@@ -92,5 +92,9 @@ test.describe("State hub signup CTAs", () => {
     expect(click.metadata.source).toBe("state-hub-ca");
     expect(click.metadata.cta_copy_variant).toBe("v1-breaks-count");
     expect(click.metadata.cta_type).toBe("sticky_bar");
+    expect(click.metadata.pathname).toBe("/beaches/usa/ca");
+    expect(click.metadata.surface).toBe("state-hub");
+    expect(click.metadata.source_group).toBe("state-hub");
+    expect(click.metadata.platform).toBe("web");
   });
 });

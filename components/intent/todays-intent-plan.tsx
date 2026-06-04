@@ -1,18 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { Clock, Wind, Lock } from "lucide-react";
-import { useAuth } from "@/context/auth-context";
-import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
-import { track } from "@/lib/analytics";
-import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
+import type { ReactElement } from "react";
+import { Clock, Wind } from "lucide-react";
 import type { IntentForecastSummary } from "@/actions/forecast/intent-forecast-actions";
 import type { SurfIntentSlug } from "@/lib/constants/surf-intents";
 import type { SeoScene } from "@/lib/constants/seo-scenes";
 import { cityToSlug } from "@/lib/utils/beach-url-utils";
 import { SeoScenePanel } from "@/components/seo/seo-scene-panel";
+import { SessionIntelligenceIntentHandoff } from "@/components/intent/session-intelligence-intent-handoff";
 
 interface TodaysIntentPlanProps {
   /** Forecast summary data */
@@ -42,11 +38,6 @@ const INTENT_LABELS: Record<string, string> = {
 /**
  * TodaysIntentPlan - Client component rendering the "Today's Plan" module.
  *
- * Auth-gated: logged-out users see the structure but best-window times are
- * locked and blurred. Clicking the lock prompt opens the unified auth modal.
- * After login the component auto-scrolls back to this section if the
- * sessionStorage flag "scroll-to-plan" is present.
- *
  * When forecast summary data is available, shows the best surf window,
  * ranked top beach picks with wave/wind info, and focus tag chips.
  * Falls back to static focus point pills when no summary data exists.
@@ -59,65 +50,41 @@ export function TodaysIntentPlan({
   citySlug,
   focusPoints,
   scene,
-}: TodaysIntentPlanProps) {
-  const { user } = useAuth();
-  const isUnlocked = !!user;
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const pathname = usePathname();
-
-  // Auto-scroll to this section after the user authenticates
-  useEffect(() => {
-    if (isUnlocked && typeof window !== "undefined") {
-      const shouldScroll = sessionStorage.getItem("scroll-to-plan");
-      if (shouldScroll) {
-        sessionStorage.removeItem("scroll-to-plan");
-        const el = document.getElementById("todays-plan");
-        if (el) {
-          setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
-        }
-      }
-    }
-  }, [isUnlocked]);
-
-  const handleUnlockClick = () => {
-    sessionStorage.setItem("scroll-to-plan", "1");
-    // GA4-only: not a Supabase funnel event.
-    track("plan_unlock_click", { intent: intentSlug });
-    trackSignupCtaClick({
-      source: `plan-unlock-${intentSlug}`,
-      surface: "intent-page",
-      intent: intentSlug,
-    });
-    setAuthModalOpen(true);
-  };
-
+}: TodaysIntentPlanProps): ReactElement {
   if (!summary) {
     return (
-      <section>
-        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] md:items-stretch">
-          <div>
-            <h2 className="text-2xl font-semibold text-gray-800 mb-4">
-              What to focus on today
-            </h2>
-            <ul className="grid gap-3 sm:grid-cols-2">
-              {focusPoints.map((point) => (
-                <li
-                  key={point}
-                  className="rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 p-4 text-sm text-gray-700 shadow-sm"
-                >
-                  {point}
-                </li>
-              ))}
-            </ul>
+      <>
+        <section>
+          <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] md:items-stretch">
+            <div>
+              <h2 className="text-2xl font-semibold text-gray-800 mb-4">
+                What to focus on today
+              </h2>
+              <ul className="grid gap-3 sm:grid-cols-2">
+                {focusPoints.map((point) => (
+                  <li
+                    key={point}
+                    className="rounded-xl border border-blue-100/50 bg-gradient-to-br from-white/90 to-blue-50/30 p-4 text-sm text-gray-700 shadow-sm"
+                  >
+                    {point}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {scene && (
+              <SeoScenePanel
+                scene={scene}
+                mediaClassName="min-h-[240px] md:h-full md:min-h-full"
+              />
+            )}
           </div>
-          {scene && (
-            <SeoScenePanel
-              scene={scene}
-              mediaClassName="min-h-[240px] md:h-full md:min-h-full"
-            />
-          )}
-        </div>
-      </section>
+        </section>
+        <SessionIntelligenceIntentHandoff
+          cityName={cityName}
+          citySlug={citySlug}
+          stateSlug={stateSlug}
+        />
+      </>
     );
   }
 
@@ -133,43 +100,21 @@ export function TodaysIntentPlan({
 
         <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_minmax(260px,320px)] md:items-stretch">
           <div className="rounded-2xl border border-blue-200/50 bg-gradient-to-br from-white/95 to-blue-50/30 shadow-sm overflow-hidden">
-            {/* Best Window (skip for water-temp intent) */}
             {intentSlug !== "water-temp" && summary.bestWindow && (
-              isUnlocked ? (
-                <div className="bg-gradient-to-r from-ocean-blue/10 to-blue-100/30 px-5 py-4 border-b border-blue-100/50">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Clock className="h-4 w-4 text-ocean-blue" />
-                    <span className="text-sm font-medium text-gray-600">
-                      Best window
-                    </span>
-                  </div>
-                  <p className="text-lg font-semibold text-gray-900">
-                    {summary.bestWindow.start}&ndash;{summary.bestWindow.end}
-                  </p>
-                  <p className="text-sm text-gray-600 mt-0.5">
-                    {summary.bestWindow.reason}
-                  </p>
+              <div className="bg-gradient-to-r from-ocean-blue/10 to-blue-100/30 px-5 py-4 border-b border-blue-100/50">
+                <div className="flex items-center gap-2 mb-1">
+                  <Clock className="h-4 w-4 text-ocean-blue" />
+                  <span className="text-sm font-medium text-gray-600">
+                    Best window
+                  </span>
                 </div>
-              ) : (
-                <div
-                  className="bg-gradient-to-r from-ocean-blue/10 to-blue-100/30 px-5 py-4 border-b border-blue-100/50 cursor-pointer"
-                  onClick={handleUnlockClick}
-                >
-                  <div className="flex items-center gap-2 mb-1">
-                    <Clock className="h-4 w-4 text-ocean-blue" />
-                    <span className="text-sm font-medium text-gray-600">Best window</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Lock className="h-4 w-4 text-gray-400" />
-                    <p className="text-lg font-semibold text-gray-400 blur-[6px] select-none" aria-hidden="true">
-                      8:10 AM–10:45 AM
-                    </p>
-                  </div>
-                  <p className="text-sm text-ocean-blue mt-1 font-medium">
-                    Sign in to reveal exact windows
-                  </p>
-                </div>
-              )
+                <p className="text-lg font-semibold text-gray-900">
+                  {summary.bestWindow.start}&ndash;{summary.bestWindow.end}
+                </p>
+                <p className="text-sm text-gray-600 mt-0.5">
+                  {summary.bestWindow.reason}
+                </p>
+              </div>
             )}
 
             {/* Top Picks */}
@@ -197,28 +142,11 @@ export function TodaysIntentPlan({
                           <Wind className="h-3 w-3" />
                           {pick.windDirection}
                         </span>
-                        {!isUnlocked && (
-                          <span className="flex items-center gap-1 text-xs text-gray-400 ml-2">
-                            <Lock className="h-3 w-3" />
-                            <span className="blur-[4px] select-none" aria-hidden="true">9am</span>
-                          </span>
-                        )}
                       </div>
                     </Link>
                   ))}
                 </div>
               </div>
-            )}
-
-            {/* Lock callout bar — logged-out only */}
-            {!isUnlocked && (
-              <button
-                onClick={handleUnlockClick}
-                className="w-full px-5 py-3 bg-ocean-blue/5 border-t border-b border-blue-100/50 flex items-center justify-center gap-2 text-sm font-medium text-ocean-blue hover:bg-ocean-blue/10 transition-colors"
-              >
-                <Lock className="h-4 w-4" />
-                Sign in to reveal exact windows
-              </button>
             )}
 
             {/* Focus Point Chips */}
@@ -244,16 +172,10 @@ export function TodaysIntentPlan({
         </div>
       </section>
 
-      <UnifiedAuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        mode="signup"
-        source={`plan-unlock-${intentSlug}`}
-        returnTo={pathname ?? undefined}
-        contextMessage={{
-          title: `Unlock your best ${intentLabel} windows`,
-          description: "Free account. Takes ~10 seconds.",
-        }}
+      <SessionIntelligenceIntentHandoff
+        cityName={cityName}
+        citySlug={citySlug}
+        stateSlug={stateSlug}
       />
     </>
   );

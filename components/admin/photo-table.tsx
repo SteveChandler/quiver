@@ -33,6 +33,7 @@ interface PhotoTableProps {
   onDelete: (photo: PhotoModerationItem) => void;
   onRestore: (photo: PhotoModerationItem) => void;
   onApprove?: (photo: PhotoModerationItem, approved: boolean) => void; // Beach photos only
+  onPromoteToBeachPhoto?: (photo: PhotoModerationItem) => void; // Session media only
   onBulkDelete?: (photoIds: string[], photoType: "session_media" | "beach_photo") => void; // Bulk soft delete
   onHardDelete?: (photo: PhotoModerationItem) => void; // Permanent delete
   onBulkHardDelete?: (photoIds: string[], photoType: "session_media" | "beach_photo") => void; // Bulk permanent delete
@@ -46,6 +47,7 @@ export function PhotoTable({
   onDelete,
   onRestore,
   onApprove,
+  onPromoteToBeachPhoto,
   onBulkDelete,
   onHardDelete,
   onBulkHardDelete,
@@ -141,6 +143,11 @@ export function PhotoTable({
 
   const isDeleted = (photo: PhotoModerationItem) => photo.status === "deleted";
   const isBeachPhoto = (photo: PhotoModerationItem) => photo.type === "beach_photo";
+  const canPromoteToBeachPhoto = (photo: PhotoModerationItem) =>
+    !isBeachPhoto(photo) &&
+    !isDeleted(photo) &&
+    Boolean(photo.metadata.canPromoteToBeachHeader) &&
+    Boolean(onPromoteToBeachPhoto);
 
   const formatFileSize = (bytes?: number) => {
     if (!bytes) return "N/A";
@@ -349,6 +356,17 @@ export function PhotoTable({
                           )}
                         </div>
                       )}
+                      {!isBeachPhoto(photo) && !isDeleted(photo) && photo.metadata.moderationStatus && (
+                        <div>
+                          {photo.metadata.moderationStatus === "approved" ? (
+                            <Badge variant="default" className="bg-blue-600">
+                              Promoted
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary">Pending review</Badge>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </TableCell>
 
@@ -387,6 +405,22 @@ export function PhotoTable({
                               )}
                               <span className="sr-only">
                                 {photo.approved ? "Unapprove" : "Approve"} photo
+                              </span>
+                            </Button>
+                          )}
+
+                          {/* Promote session media into approved beach photos */}
+                          {canPromoteToBeachPhoto(photo) && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onPromoteToBeachPhoto?.(photo)}
+                              className="h-8 w-8 p-0 text-blue-600 hover:text-blue-700"
+                              title="Promote to approved beach header photo"
+                            >
+                              <CheckCircle className="h-4 w-4" />
+                              <span className="sr-only">
+                                Promote session photo to beach header
                               </span>
                             </Button>
                           )}

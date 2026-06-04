@@ -65,6 +65,18 @@ describe("buildCamEmbed", () => {
     });
   });
 
+  it("classifies Surfline embed widgets as iframe cams", () => {
+    const src =
+      "https://embed.cdn-surfline.com/cams/5834a0733421b20545c4b584/64ba68ebf1c960a93d1faba8f86cc16a3ed05913";
+
+    expect(buildCamEmbed(src)).toEqual({
+      kind: "iframe",
+      src,
+      title: "Live Cam",
+      allow: "autoplay; fullscreen; picture-in-picture",
+    });
+  });
+
   // --- HDOnTap ---
   it("returns hdontap kind with pageUrl for HDOnTap stream URLs", () => {
     const result = buildCamEmbed(

@@ -51,10 +51,14 @@ export { findPeakWithinWindow } from './peak-finder';
 export { applySubHourRefinement } from './window-refiner';
 
 // Re-export window scorer
-export { scoreForecastWindow, scoreWindowWithEngine } from './window-scorer';
+export {
+  scoreForecastWindow,
+  scoreWindowWithComposite,
+  scoreWindowWithEngine,
+} from './window-scorer';
 
 // Re-export scoring engine singleton
 export { getScoringEngine } from './scoring-engine-singleton';
 
 // Re-export main algorithm
-export { selectBestWindow } from './window-selector-core';
+export { selectBestWindow, selectBestWindows } from './window-selector-core';

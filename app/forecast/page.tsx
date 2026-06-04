@@ -7,7 +7,10 @@ import {
   getForecastRegionForCity,
   hasHubGuide,
 } from "@/lib/data/forecast-regions";
-import { getRegionalSummaries } from "@/lib/utils/forecast-hub-utils";
+import {
+  createEmptyRegionalSummary,
+  getRegionalSummary,
+} from "@/lib/utils/forecast-hub-utils";
 import { resolveActiveRegion } from "@/lib/utils/resolve-active-region";
 import { getCurrentUser } from "@/lib/auth/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -15,6 +18,7 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BestRightNow } from "@/components/forecast";
 import { RegionalCallHero } from "@/components/forecast/regional-call-hero";
+import { RegionalBestSurfWindows } from "@/components/forecast/regional-best-surf-windows";
 import { SevenDayOutlook } from "@/components/forecast/seven-day-outlook";
 import { OtherRegionsStrip } from "@/components/forecast/other-regions-strip";
 import { RegionalGuidesStrip } from "@/components/forecast/regional-guides-strip";
@@ -112,12 +116,7 @@ export default async function ForecastHubPage({
 }) {
   const resolvedSearchParams = await searchParams;
 
-  // Parallelize: auth read, summaries fetch, and cookie-based region resolution.
-  const [user, summaries] = await Promise.all([
-    getCurrentUser(),
-    getRegionalSummaries(),
-  ]);
-
+  const user = await getCurrentUser();
   const isAuthed = user !== null;
   const authedUserHomeRegionSlug = user
     ? await getAuthedUserHomeRegionSlug(user.id)
@@ -127,12 +126,23 @@ export default async function ForecastHubPage({
     searchParams: resolvedSearchParams,
     authedUserHomeRegionSlug,
   });
-  const activeSummary = summaries[region.slug];
 
   const allRegions = Object.values(FORECAST_REGIONS);
 
   const baseUrl =
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+
+  const activeSummary = await getRegionalSummary(region, undefined, {
+    baseUrl,
+  });
+  const summaries = Object.fromEntries(
+    allRegions.map((forecastRegion) => [
+      forecastRegion.slug,
+      forecastRegion.slug === region.slug
+        ? activeSummary
+        : createEmptyRegionalSummary(forecastRegion),
+    ])
+  );
 
   // Deduplicated guide cross-links (multiple regions can share a guide).
   // Prefer the active region as the mapped source for its guide slug (so the
@@ -202,6 +212,11 @@ export default async function ForecastHubPage({
           region={region}
           summary={activeSummary}
           isAuthed={isAuthed}
+        />
+
+        <RegionalBestSurfWindows
+          regionName={region.name}
+          recommendations={activeSummary?.bestSurfWindows}
         />
 
         <SevenDayOutlook summary={activeSummary} regionName={region.name} />

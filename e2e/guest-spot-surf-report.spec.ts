@@ -32,6 +32,7 @@ test.describe('Spot Surf Report', () => {
     const surfReport = page.locator('section[aria-label*="surf call"]');
     const isVisible = await isVisibleSafe(surfReport, { timeout: 10000 });
 
+    // eslint-disable-next-line playwright/no-conditional-in-test -- surf report availability depends on local forecast fixture data.
     if (isVisible) {
       // The PublicContentGate CTA overlay should be shown over the blurred conditions
       const gateTitle = page.getByRole('heading', { name: /see today's best window/i });
@@ -47,24 +48,32 @@ test.describe('Spot Surf Report', () => {
     expect(title).toMatch(/\d+(\.\d+)?\s*ft/i);
   });
 
-  test('page includes FAQ structured data', async ({ page }) => {
+  test('does not emit broad FAQPage structured data', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
-    // Check for FAQ JSON-LD script tag
-    const faqSchema = await page.evaluate(() => {
+    const hasFaqPageSchema = await page.evaluate(() => {
       const scripts = document.querySelectorAll('script[type="application/ld+json"]');
       for (const script of scripts) {
         try {
           const data = JSON.parse(script.textContent || '');
-          if (data['@type'] === 'FAQPage') return data;
+          const stack = Array.isArray(data) ? [...data] : [data];
+
+          while (stack.length > 0) {
+            const item = stack.pop();
+            if (!item || typeof item !== 'object') continue;
+
+            const record = item as Record<string, unknown>;
+            if (record['@type'] === 'FAQPage') return true;
+
+            const graph = record['@graph'];
+            if (Array.isArray(graph)) stack.push(...graph);
+          }
         } catch { /* skip invalid JSON */ }
       }
-      return null;
+      return false;
     });
 
-    expect(faqSchema).not.toBeNull();
-    expect(faqSchema?.mainEntity).toBeDefined();
-    expect(faqSchema?.mainEntity.length).toBeGreaterThan(0);
+    expect(hasFaqPageSchema).toBe(false);
   });
 
   test('page includes WebPage dateModified structured data', async ({ page }) => {
@@ -94,6 +103,7 @@ test.describe('Spot Surf Report', () => {
     const surfReport = page.locator('section[aria-label*="surf call"]');
     const isVisible = await isVisibleSafe(surfReport, { timeout: 10000 });
 
+    // eslint-disable-next-line playwright/no-conditional-in-test -- surf report availability depends on local forecast fixture data.
     if (isVisible) {
       // PublicContentGate overlays a signup CTA on the blurred conditions
       const signUpFreeButton = page.getByRole('button', { name: /sign up free/i });
@@ -109,6 +119,7 @@ test.describe('Spot Surf Report', () => {
     const surfReport = page.locator('section[aria-label*="surf call"]');
     const isVisible = await isVisibleSafe(surfReport, { timeout: 10000 });
 
+    // eslint-disable-next-line playwright/no-conditional-in-test -- surf report availability depends on local forecast fixture data.
     if (isVisible) {
       // PublicContentGate shows signup CTA over blurred conditions on mobile
       const signUpFreeButton = page.getByRole('button', { name: /sign up free/i });
@@ -116,6 +127,7 @@ test.describe('Spot Surf Report', () => {
 
       // Verify the surf report section doesn't overflow the 375px viewport
       const box = await surfReport.boundingBox();
+      // eslint-disable-next-line playwright/no-conditional-in-test -- bounding box can be null when Chromium skips layout during hidden-state transitions.
       if (box) {
         expect(box.width).toBeLessThanOrEqual(375);
       }
@@ -129,6 +141,7 @@ test.describe('Spot Surf Report', () => {
     const surfReport = page.locator('section[aria-label*="surf call"]');
     const isVisible = await isVisibleSafe(surfReport, { timeout: 10000 });
 
+    // eslint-disable-next-line playwright/no-conditional-in-test -- surf report availability depends on local forecast fixture data.
     if (isVisible) {
       // Click the "Sign Up Free" button inside the PublicContentGate overlay
       const signUpFreeButton = page.getByRole('button', { name: /sign up free/i }).first();
@@ -173,6 +186,7 @@ test.describe('Spot Surf Report', () => {
     const outlookHeading = page.getByText(/3-day outlook/i);
     const hasOutlook = await isVisibleSafe(outlookHeading);
 
+    // eslint-disable-next-line playwright/no-conditional-in-test -- some local data snapshots omit the forecast preview heading.
     if (hasOutlook) {
       await expect(outlookHeading).toBeVisible();
     }
@@ -265,5 +279,33 @@ test.describe('Spot Surf Report', () => {
     await reviewsTab.click();
     const reviewsPanel = page.getByRole('tabpanel', { name: /reviews/i });
     await expect(reviewsPanel).toBeVisible();
+  });
+
+  test('session intelligence pilot is additive to spot tabs when windows render', async ({ page }) => {
+    await navigateToBeach(page, TEST_BEACHES.blacks);
+    await page.waitForLoadState('load');
+
+    const pilot = page.getByTestId('session-intelligence-pilot');
+    const pilotVisible = await isVisibleSafe(pilot, { timeout: 10000 });
+
+    // eslint-disable-next-line playwright/no-conditional-in-test -- pilot visibility depends on local forecast fixture availability.
+    if (pilotVisible) {
+      await expect(
+        page.getByRole('heading', { name: /best surf windows at/i })
+      ).toBeVisible();
+      await expect(page.getByRole('button', { name: /why this call/i }).first()).toBeVisible();
+
+      const cards = page.getByTestId('surf-window-card');
+      await expect(cards.first()).toBeVisible();
+      expect(await cards.count()).toBeLessThanOrEqual(3);
+
+      const cta = page.getByTestId('app-deep-link-cta').first();
+      await expect(cta).toHaveAttribute('href', /\/app\/spot\/.+\?window=/);
+    }
+
+    await expect(page.getByRole('tab', { name: /^forecast$/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /reviews/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /local intel/i })).toBeVisible();
+    await expect(page.getByRole('tab', { name: /sessions/i })).toBeVisible();
   });
 });

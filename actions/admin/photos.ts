@@ -19,6 +19,23 @@ type AdminContext = {
   supabaseAdmin: SupabaseClient<Database>;
 };
 
+type JsonRecord = Record<string, unknown>;
+
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+  if (Array.isArray(value)) return value[0] ?? null;
+  return value ?? null;
+}
+
+function jsonRecord(value: unknown): JsonRecord {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as JsonRecord)
+    : {};
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
 // ================================================
 // Session Media Actions
 // ================================================
@@ -44,6 +61,8 @@ export interface PhotoModerationItem {
     caption?: string;
     source?: string;
     storagePath?: string;
+    moderationStatus?: string;
+    canPromoteToBeachHeader?: boolean;
   };
 }
 
@@ -67,6 +86,7 @@ export const listSessionMedia = withAdminActionAndUser(
         file_size,
         media_type,
         caption,
+        metadata,
         created_at,
         deleted_at,
         profiles!session_media_user_id_fkey(
@@ -74,9 +94,15 @@ export const listSessionMedia = withAdminActionAndUser(
           display_name,
           email
         ),
-        sessions(
+        sessions!session_media_session_id_fkey(
           id,
-          session_date
+          beach_id,
+          beach_name,
+          arrival_time,
+          beaches!sessions_beach_id_fkey(
+            id,
+            name
+          )
         )
       `
       )
@@ -99,23 +125,181 @@ export const listSessionMedia = withAdminActionAndUser(
     }
 
     // Transform to PhotoModerationItem format
-    const items: PhotoModerationItem[] = (data || []).map((item: any) => ({
-      id: item.id,
-      type: "session_media" as const,
-      imageUrl: item.public_url,
-      uploadedAt: item.created_at,
-      fileSize: item.file_size,
-      status: item.deleted_at ? ("deleted" as const) : ("active" as const),
-      metadata: {
-        userId: item.user_id,
-        userName: item.profiles?.display_name || item.profiles?.email || "Unknown",
-        sessionId: item.session_id,
-        caption: item.caption,
-        storagePath: item.storage_path,
-      },
-    }));
+    const items: PhotoModerationItem[] = (data || []).map((item: any) => {
+      const metadata = jsonRecord(item.metadata);
+      const session = firstRelation<any>(item.sessions);
+      const beach = firstRelation<any>(session?.beaches);
+      const moderationStatus =
+        stringOrNull(metadata.moderation_status) ||
+        (item.deleted_at ? "deleted" : "pending");
+      const beachId = stringOrNull(session?.beach_id) || stringOrNull(metadata.beach_id);
+      const beachName =
+        stringOrNull(beach?.name) ||
+        stringOrNull(session?.beach_name) ||
+        stringOrNull(metadata.beach_name);
+
+      return {
+        id: item.id,
+        type: "session_media" as const,
+        imageUrl: item.public_url,
+        uploadedAt: item.created_at,
+        fileSize: item.file_size,
+        status: item.deleted_at ? ("deleted" as const) : ("active" as const),
+        metadata: {
+          userId: item.user_id,
+          userName: item.profiles?.display_name || item.profiles?.email || "Unknown",
+          sessionId: item.session_id,
+          beachId: beachId ?? undefined,
+          beachName: beachName ?? undefined,
+          caption: item.caption,
+          source:
+            stringOrNull(metadata.moderation_source) ||
+            stringOrNull(metadata.upload_source) ||
+            stringOrNull(metadata.source) ||
+            undefined,
+          storagePath: item.storage_path,
+          moderationStatus,
+          canPromoteToBeachHeader:
+            Boolean(beachId) &&
+            !item.deleted_at &&
+            moderationStatus !== "approved",
+        },
+      };
+    });
 
     return items;
+  }
+);
+
+/**
+ * Promote a reviewed session photo into approved beach header/gallery rotation.
+ *
+ * Native uploads remain private moderation candidates until this action creates
+ * or updates the corresponding approved beach_photos row.
+ */
+export const approveSessionMediaForBeachHeader = withAdminActionAndUser(
+  async (mediaId: string, { user, supabaseAdmin }: AdminContext) => {
+    const { data: media, error: mediaError } = await supabaseAdmin
+      .from("session_media")
+      .select(
+        `
+        id,
+        session_id,
+        user_id,
+        public_url,
+        storage_path,
+        caption,
+        metadata,
+        deleted_at,
+        profiles!session_media_user_id_fkey(
+          id,
+          display_name,
+          email
+        ),
+        sessions!session_media_session_id_fkey(
+          id,
+          beach_id,
+          beach_name,
+          beaches!sessions_beach_id_fkey(
+            id,
+            name
+          )
+        )
+      `
+      )
+      .eq("id", mediaId)
+      .single();
+
+    if (mediaError) {
+      throw new Error(`Failed to fetch session media: ${mediaError.message}`);
+    }
+
+    if (!media) {
+      throw new Error("Media not found");
+    }
+
+    if (media.deleted_at) {
+      throw new Error("Cannot promote deleted session media");
+    }
+
+    const metadata = jsonRecord(media.metadata);
+    const session = firstRelation<any>((media as any).sessions);
+    const beach = firstRelation<any>(session?.beaches);
+    const beachId = stringOrNull(session?.beach_id) || stringOrNull(metadata.beach_id);
+
+    if (!beachId) {
+      throw new Error("Session media is not linked to a beach");
+    }
+
+    const beachName =
+      stringOrNull(beach?.name) ||
+      stringOrNull(session?.beach_name) ||
+      "surf spot";
+    const profile = firstRelation<any>((media as any).profiles);
+    const creatorName =
+      stringOrNull(profile?.display_name) ||
+      stringOrNull(profile?.email);
+    const sourceId = `session_media:${media.id}`;
+    const title = media.caption || `Session photo at ${beachName}`;
+
+    const { data: beachPhoto, error: upsertError } = await supabaseAdmin
+      .from("beach_photos")
+      .upsert(
+        {
+          beach_id: beachId,
+          source: "user",
+          source_id: sourceId,
+          image_url: media.public_url,
+          thumb_url: media.public_url,
+          title,
+          creator_name: creatorName,
+          attribution_html: "User-uploaded session photo reviewed by Quiver.",
+          approved: true,
+          deleted_at: null,
+        },
+        { onConflict: "beach_id,source,source_id" }
+      )
+      .select("id")
+      .maybeSingle();
+
+    if (upsertError) {
+      throw new Error(`Failed to promote photo: ${upsertError.message}`);
+    }
+
+    const promotedAt = new Date().toISOString();
+    const beachPhotoId = beachPhoto?.id ?? null;
+    const updatedMetadata = {
+      ...metadata,
+      moderation_status: "approved",
+      is_eligible_beach_header: true,
+      approved_beach_photo_id: beachPhotoId,
+      approved_at: promotedAt,
+      approved_by: user.id,
+    };
+
+    const { error: metadataError } = await supabaseAdmin
+      .from("session_media")
+      .update({ metadata: updatedMetadata })
+      .eq("id", mediaId);
+
+    if (metadataError) {
+      throw new Error(`Failed to update session media metadata: ${metadataError.message}`);
+    }
+
+    await recordAdminEvent(user.id, "photo", "approve", {
+      entityId: mediaId,
+      description: "Promoted session media to approved beach photo",
+      payloadSummary: {
+        beach_id: beachId,
+        beach_name: beachName,
+        beach_photo_id: beachPhotoId,
+        source_id: sourceId,
+        owner_id: media.user_id,
+        storage_path: media.storage_path,
+      },
+    });
+
+    return { success: true, beachPhotoId };
   }
 );
 

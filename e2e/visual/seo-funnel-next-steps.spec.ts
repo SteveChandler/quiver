@@ -12,33 +12,49 @@ const VIEWPORTS = [
   { name: "desktop", width: 1440, height: 900 },
 ] as const;
 
+type NextStepsSurface = "seo-funnel" | "utility-handoff";
+
+interface SeoFunnelRoute {
+  slug: string;
+  path: string;
+  expectedLink: RegExp;
+  surface: NextStepsSurface;
+  sectionName?: RegExp;
+}
+
 const SEO_FUNNEL_ROUTES = [
   {
     slug: "water-temp",
     path: "/water-temp/huntington-beach",
-    expectedLink: /live Huntington Beach spots/i,
+    expectedLink: /Open live Huntington Beach conditions/i,
+    surface: "utility-handoff",
+    sectionName: /Use water temperature to pick gear/i,
   },
   {
     slug: "best-time",
     path: "/best-time-to-surf/huntington-beach",
-    expectedLink: /live Huntington Beach spots/i,
+    expectedLink: /Find the best current Huntington Beach window/i,
+    surface: "seo-funnel",
   },
   {
     slug: "state-hub",
     path: "/beaches/usa/ca",
     expectedLink: /California surf cities/i,
+    surface: "seo-funnel",
   },
   {
     slug: "city-guide",
     path: "/beaches/usa/ca/huntington-beach",
     expectedLink: /Find the best surf window/i,
+    surface: "seo-funnel",
   },
   {
     slug: "generic-intent-state",
     path: "/beginner/ca",
     expectedLink: /California surf cities/i,
+    surface: "seo-funnel",
   },
-] as const;
+] as const satisfies readonly SeoFunnelRoute[];
 
 async function expectPaperTheme(page: Page, section: Locator): Promise<void> {
   const pageRoot = page.locator(".seo-paper-page").first();
@@ -66,6 +82,48 @@ async function expectPaperTheme(page: Page, section: Locator): Promise<void> {
 
   expect(cardStyles.backgroundColor).toContain("251, 246, 232");
   expect(cardStyles.borderColor).not.toBe("rgb(64, 76, 146)");
+}
+
+async function expectUtilityHandoffTheme(page: Page, section: Locator): Promise<void> {
+  const pageRoot = page.locator(".seo-paper-page").first();
+  await expect(pageRoot).toBeVisible();
+
+  const sectionStyles = await section.evaluate((element) => {
+    const styles = window.getComputedStyle(element);
+    return {
+      backgroundColor: styles.backgroundColor,
+      borderColor: styles.borderTopColor,
+      color: styles.color,
+    };
+  });
+
+  expect(sectionStyles.backgroundColor).toContain("251, 246, 232");
+  expect(sectionStyles.borderColor).not.toBe("rgb(64, 76, 146)");
+  expect(sectionStyles.color).toBe("rgb(17, 16, 13)");
+}
+
+function getNextStepsSection(page: Page, route: SeoFunnelRoute): Locator {
+  if (route.surface === "utility-handoff") {
+    if (!route.sectionName) {
+      throw new Error(`Missing utility handoff section name for ${route.slug}`);
+    }
+    return page.getByRole("region", { name: route.sectionName });
+  }
+
+  return page.getByTestId("seo-funnel-next-steps");
+}
+
+async function expectRouteTheme(
+  page: Page,
+  section: Locator,
+  route: SeoFunnelRoute
+): Promise<void> {
+  if (route.surface === "utility-handoff") {
+    await expectUtilityHandoffTheme(page, section);
+    return;
+  }
+
+  await expectPaperTheme(page, section);
 }
 
 async function expectNonOverlappingLinks(section: Locator): Promise<void> {
@@ -139,7 +197,7 @@ test.describe("SEO funnel next steps visual validation", () => {
         await page.goto(route.path);
         await page.waitForLoadState("load");
 
-        const section = page.getByTestId("seo-funnel-next-steps");
+        const section = getNextStepsSection(page, route);
         await expect(section).toBeVisible({ timeout: 15_000 });
         await expect(section.getByRole("link", { name: route.expectedLink })).toBeVisible();
 
@@ -149,7 +207,7 @@ test.describe("SEO funnel next steps visual validation", () => {
         expect(box!.height).toBeGreaterThan(140);
 
         await expectNonOverlappingLinks(section);
-        await expectPaperTheme(page, section);
+        await expectRouteTheme(page, section, route);
         await attachSectionScreenshot(
           page,
           section,

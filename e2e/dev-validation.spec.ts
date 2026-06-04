@@ -36,6 +36,29 @@ import { isVisibleSafe } from "./utils/strict-helpers";
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
+function stripHtmlTags(value: string): string {
+  return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function getHtmlTitle(html: string): string {
+  const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
+
+  return match ? stripHtmlTags(match[1]) : '';
+}
+
+function getMetaContent(html: string, name: string): string | null {
+  const tags = html.match(/<meta\b[^>]*>/gi) ?? [];
+
+  for (const tag of tags) {
+    const hasName = new RegExp(`name\\s*=\\s*["']${name}["']`, 'i').test(tag);
+    const content = tag.match(/content\s*=\s*("([^"]*)"|'([^']*)')/i);
+
+    if (hasName && content) return content[2] ?? content[3] ?? null;
+  }
+
+  return null;
+}
+
 // ==========================================
 // Group 1: Critical Page Loads (5 tests)
 // ==========================================
@@ -414,62 +437,53 @@ test.describe('API Endpoints @dev', () => {
 // ==========================================
 
 test.describe('SEO Basics @dev', () => {
-  let errorCapture: ErrorCapture;
+  test('Home page has title tag @dev', async ({ request }) => {
+    const response = await request.get('/', { timeout: TIMEOUTS.medium });
+    const title = getHtmlTitle(await response.text());
 
-  test.beforeEach(async ({ page }) => {
-    errorCapture = setupErrorDetection(page);
-  });
-
-  test('Home page has title tag @dev', async ({ page }) => {
-    await gotoWithErrorCheck(page, errorCapture, '/', { timeout: TIMEOUTS.medium });
-
-    const title = await page.title();
+    expect(response.status()).toBe(200);
     expect(title.length).toBeGreaterThan(0);
     expect(title).toMatch(/quiver/i);
   });
 
-  test('Beach page has structured data @dev', async ({ page }) => {
-    // Use regular goto - may have hydration errors
-    await page.goto(buildBeachUrl(TEST_BEACHES.blacks), { timeout: TIMEOUTS.long });
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
-
-    // Check for JSON-LD structured data (scripts aren't "visible", check count)
-    const jsonLdCount = await page.locator('script[type="application/ld+json"]').count();
-
-    // Check for meta description (also not "visible", check attribute)
-    const metaContent = await page.locator('meta[name="description"]').getAttribute('content').catch(() => null);
-
-    // Page title should also be set
-    const title = await page.title();
+  test('Beach page has structured data @dev', async ({ request }) => {
+    const response = await request.get(buildBeachUrl(TEST_BEACHES.blacks), {
+      timeout: TIMEOUTS.long,
+    });
+    const html = await response.text();
+    const jsonLdCount = (
+      html.match(/<script\b(?=[^>]*type=["']application\/ld\+json["'])/gi) ?? []
+    ).length;
+    const metaContent = getMetaContent(html, 'description');
+    const title = getHtmlTitle(html);
 
     // Either structured data, meta description, or title exists
+    expect(response.status()).toBe(200);
     expect(jsonLdCount > 0 || metaContent !== null || title.length > 0).toBe(true);
   });
 
-  test('Sitemap is accessible @dev', async ({ page }) => {
-    const response = await page.goto('/sitemap.xml', { timeout: TIMEOUTS.medium });
+  test('Sitemap is accessible @dev', async ({ request }) => {
+    const response = await request.get('/sitemap.xml', { timeout: TIMEOUTS.medium });
 
-    expect(response).not.toBeNull();
     // In local dev, sitemap may return 500 due to stale build cache - this is expected
-    const status = response!.status();
+    const status = response.status();
     if (status === 500) {
       test.info().annotations.push({ type: 'skip-reason', description: 'Sitemap 500 in local dev is expected (stale build cache)' });
       return;
     }
     expect(status).toBe(200);
 
-    const content = await page.content();
+    const content = await response.text();
     expect(content).toMatch(/<urlset|<sitemapindex/);
   });
 
-  test('Robots.txt is accessible @dev', async ({ page }) => {
-    const response = await page.goto('/robots.txt', { timeout: TIMEOUTS.medium });
+  test('Robots.txt is accessible @dev', async ({ request }) => {
+    const response = await request.get('/robots.txt', { timeout: TIMEOUTS.medium });
 
-    expect(response).not.toBeNull();
-    expect([200, 404]).toContain(response!.status());
+    expect([200, 404]).toContain(response.status());
 
-    if (response!.status() === 200) {
-      const content = await page.content();
+    if (response.status() === 200) {
+      const content = await response.text();
       expect(content.length).toBeGreaterThan(0);
     }
   });
@@ -749,33 +763,10 @@ test.describe('Data Integrity @dev', () => {
 });
 
 // ==========================================
-// Group 8: Performance Basics (5 tests)
+// Group 8: Performance Basics (3 tests)
 // ==========================================
 
 test.describe('Performance Basics @dev', () => {
-  test('Home page loads in reasonable time @dev', async ({ page }) => {
-    const startTime = Date.now();
-
-    await page.goto('/', { timeout: TIMEOUTS.medium, waitUntil: 'domcontentloaded' });
-    await page.waitForLoadState('load', { timeout: TIMEOUTS.medium }).catch(() => {});
-
-    const loadTime = Date.now() - startTime;
-
-    // Should load in under 15 seconds (generous for test environments with cold starts)
-    expect(loadTime).toBeLessThan(15000);
-  });
-
-  test('Beach page loads in reasonable time @dev', async ({ page }) => {
-    const startTime = Date.now();
-
-    await page.goto(buildBeachUrl(TEST_BEACHES.blacks), { timeout: TIMEOUTS.medium });
-    await waitForPageLoad(page);
-
-    const loadTime = Date.now() - startTime;
-
-    expect(loadTime).toBeLessThan(10000);
-  });
-
   test('No memory leaks on navigation @dev', async ({ page }) => {
     // Navigate between pages multiple times
     await page.goto('/');

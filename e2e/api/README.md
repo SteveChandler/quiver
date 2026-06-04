@@ -28,6 +28,18 @@ Contract tests for `/api/beaches/featured` endpoint.
 - Rate limiting (burst protection)
 - Security headers (CORS, CSP, etc.)
 
+### `surfline-parity.spec.ts`
+
+Opt-in live API parity checks comparing Quiver forecast API responses to Surfline LOTUS wave rows for exact and similar beach mappings.
+
+Run against dev with:
+
+```bash
+yarn test:e2e:surfline-parity
+```
+
+This spec is tagged `@infra`, so Playwright excludes it by default. It requires `RUN_INFRA_TESTS=true` and `RUN_SURFLINE_PARITY=1`.
+
 ## Running the Tests
 
 ### Prerequisites

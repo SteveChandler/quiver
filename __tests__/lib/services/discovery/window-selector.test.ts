@@ -87,8 +87,11 @@ jest.mock('@/lib/utils/timezone-utils.server', () => ({
 // Import after mocks
 import {
   selectBestWindow,
+  selectBestWindows,
   capEndTimeToTimeSlot,
   scoreForecastWindow,
+  scoreWindowWithComposite,
+  scoreWindowWithEngine,
 } from '@/lib/services/discovery/window-selector';
 
 describe('scoreForecastWindow', () => {
@@ -198,6 +201,24 @@ describe('scoreForecastWindow', () => {
     );
 
     expect(typeof score).toBe('number');
+  });
+
+  it('should expose composite score while preserving numeric engine score', () => {
+    const forecast = createForecast({
+      wave_height: '4',
+      wave_period: '12s',
+      wind_speed: '5',
+      wind_direction: 'NE',
+      wind_direction_deg: 45,
+      tide_height: '3.5',
+    });
+
+    const composite = scoreWindowWithComposite(forecast, mockBeach as Beach);
+    const numericScore = scoreWindowWithEngine(forecast, mockBeach as Beach);
+
+    expect(composite.total).toBe(numericScore);
+    expect(composite.reasons.length).toBeGreaterThan(0);
+    expect(Number.isFinite(composite.confidence)).toBe(true);
   });
 });
 
@@ -364,10 +385,8 @@ describe('selectBestWindow', () => {
       'dawn-patrol'
     );
 
-    // Should only consider 6am forecast (dawn-patrol is 6am-9am)
-    if (result) {
-      expect(result.start.getUTCHours()).toBe(14); // 6am PST
-    }
+    // Should only consider 6am forecast (dawn-patrol is 6am-9am) if a window is available.
+    expect(result ? result.start.getUTCHours() === 14 : true).toBe(true); // 6am PST
   });
 
   it('should cap windows at sunset', () => {
@@ -399,12 +418,11 @@ describe('selectBestWindow', () => {
       sunTimesCache
     );
 
-    if (result) {
-      // End should be at or before sunset
-      expect(result.end.getTime()).toBeLessThanOrEqual(
-        new Date('2024-01-16T01:00:00Z').getTime()
-      );
-    }
+    expect(result).not.toBeNull();
+    // End should be at or before sunset
+    expect(result!.end.getTime()).toBeLessThanOrEqual(
+      new Date('2024-01-16T01:00:00Z').getTime()
+    );
   });
 
   it('should return best scoring window', () => {
@@ -529,9 +547,250 @@ describe('selectBestWindow', () => {
     );
 
     // Should pick the soon forecast, not the better one 2 days away
-    if (result) {
-      expect(result.start.getDate()).toBe(15);
+    expect(result?.start.getDate()).toBe(15);
+  });
+});
+
+describe('selectBestWindows', () => {
+  const fixedNow = new Date('2024-01-15T16:00:00Z'); // 8am PST
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(fixedNow);
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('should return top 3 ranked non-overlapping windows by default', () => {
+    const forecasts = [
+      createForecast({
+        id: 'forecast-day-1',
+        forecast_at: '2024-01-15T17:00:00Z',
+        forecast_date: '2024-01-15',
+        forecast_time: '09:00',
+        wave_height: '4',
+        wave_period: '12s',
+        wind_speed: '5',
+        wind_direction: 'NE',
+        wind_direction_deg: 45,
+        confidence_score: 85,
+      }),
+      createForecast({
+        id: 'forecast-day-2',
+        forecast_at: '2024-01-16T17:00:00Z',
+        forecast_date: '2024-01-16',
+        forecast_time: '09:00',
+        wave_height: '5',
+        wave_period: '14s',
+        wind_speed: '4',
+        wind_direction: 'NE',
+        wind_direction_deg: 45,
+        confidence_score: 90,
+      }),
+      createForecast({
+        id: 'forecast-day-3',
+        forecast_at: '2024-01-17T17:00:00Z',
+        forecast_date: '2024-01-17',
+        forecast_time: '09:00',
+        wave_height: '3.5',
+        wave_period: '11s',
+        wind_speed: '6',
+        wind_direction: 'NE',
+        wind_direction_deg: 45,
+        confidence_score: 80,
+      }),
+      createForecast({
+        id: 'forecast-day-4',
+        forecast_at: '2024-01-18T17:00:00Z',
+        forecast_date: '2024-01-18',
+        forecast_time: '09:00',
+        wave_height: '3',
+        wave_period: '10s',
+        wind_speed: '8',
+        wind_direction: 'NE',
+        wind_direction_deg: 45,
+        confidence_score: 75,
+      }),
+    ];
+
+    const windows = selectBestWindows({
+      forecasts,
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: fixedNow,
+    });
+
+    expect(windows).toHaveLength(3);
+    for (let i = 1; i < windows.length; i++) {
+      expect(windows[i - 1].start.getTime()).not.toBe(windows[i].start.getTime());
+      expect(windows[i - 1].start.getTime() < windows[i].end.getTime()).toBe(true);
+      expect(windows[i].start.getTime() < windows[i - 1].end.getTime()).toBe(false);
     }
+  });
+
+  it('should respect maxWindows', () => {
+    const forecasts = [
+      createForecast({
+        id: 'forecast-day-1',
+        forecast_at: '2024-01-15T17:00:00Z',
+        forecast_date: '2024-01-15',
+        forecast_time: '09:00',
+      }),
+      createForecast({
+        id: 'forecast-day-2',
+        forecast_at: '2024-01-16T17:00:00Z',
+        forecast_date: '2024-01-16',
+        forecast_time: '09:00',
+      }),
+      createForecast({
+        id: 'forecast-day-3',
+        forecast_at: '2024-01-17T17:00:00Z',
+        forecast_date: '2024-01-17',
+        forecast_time: '09:00',
+      }),
+    ];
+
+    const windows = selectBestWindows({
+      forecasts,
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: fixedNow,
+      maxWindows: 2,
+    });
+
+    expect(windows).toHaveLength(2);
+  });
+
+  it('should return an empty array for no candidates', () => {
+    const windows = selectBestWindows({
+      forecasts: [],
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: fixedNow,
+    });
+
+    expect(windows).toEqual([]);
+  });
+
+  it('should use injected now instead of wall-clock time', () => {
+    jest.setSystemTime(new Date('2024-01-17T16:00:00Z'));
+    const forecasts = [
+      createForecast({
+        id: 'forecast-injected-now',
+        forecast_at: '2024-01-15T17:00:00Z',
+        forecast_date: '2024-01-15',
+        forecast_time: '09:00',
+      }),
+    ];
+
+    const windows = selectBestWindows({
+      forecasts,
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: fixedNow,
+    });
+
+    expect(windows).toHaveLength(1);
+    expect(windows[0].sourceForecast?.id).toBe('forecast-injected-now');
+  });
+
+  it('should preserve selectBestWindow first-window compatibility', () => {
+    const forecasts = [
+      createForecast({
+        id: 'forecast-day-1',
+        forecast_at: '2024-01-15T17:00:00Z',
+        forecast_date: '2024-01-15',
+        forecast_time: '09:00',
+        wave_height: '4',
+      }),
+      createForecast({
+        id: 'forecast-day-2',
+        forecast_at: '2024-01-16T17:00:00Z',
+        forecast_date: '2024-01-16',
+        forecast_time: '09:00',
+        wave_height: '5',
+      }),
+    ];
+
+    const options = {
+      forecasts,
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: fixedNow,
+    };
+    const windows = selectBestWindows(options);
+    const bestWindow = selectBestWindow(options);
+
+    expect(bestWindow?.sourceForecast?.id).toBe(windows[0].sourceForecast?.id);
+    expect(bestWindow?.start.toISOString()).toBe(windows[0].start.toISOString());
+  });
+
+  it('should respect horizon filtering', () => {
+    const forecasts = [
+      createForecast({
+        id: 'forecast-in-horizon',
+        forecast_at: '2024-01-15T17:00:00Z',
+        forecast_date: '2024-01-15',
+        forecast_time: '09:00',
+        wave_height: '3',
+      }),
+      createForecast({
+        id: 'forecast-outside-horizon',
+        forecast_at: '2024-01-17T17:00:00Z',
+        forecast_date: '2024-01-17',
+        forecast_time: '09:00',
+        wave_height: '6',
+      }),
+    ];
+
+    const windows = selectBestWindows({
+      forecasts,
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      horizonHours: 24,
+      now: fixedNow,
+    });
+
+    expect(windows).toHaveLength(1);
+    expect(windows[0].sourceForecast?.id).toBe('forecast-in-horizon');
+  });
+
+  it('should not duplicate overlapping windows', () => {
+    const forecasts = [
+      createForecast({
+        id: 'forecast-9am',
+        forecast_at: '2024-01-15T17:00:00Z',
+        forecast_date: '2024-01-15',
+        forecast_time: '09:00',
+        wave_height: '4',
+      }),
+      createForecast({
+        id: 'forecast-10am',
+        forecast_at: '2024-01-15T18:00:00Z',
+        forecast_date: '2024-01-15',
+        forecast_time: '10:00',
+        wave_height: '4',
+      }),
+      createForecast({
+        id: 'forecast-11am',
+        forecast_at: '2024-01-15T19:00:00Z',
+        forecast_date: '2024-01-15',
+        forecast_time: '11:00',
+        wave_height: '4',
+      }),
+    ];
+
+    const windows = selectBestWindows({
+      forecasts,
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: fixedNow,
+      maxWindows: 3,
+    });
+
+    expect(windows).toHaveLength(1);
   });
 });
 
@@ -990,14 +1249,13 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       userPrefs: null,
     });
 
-    // Should be null or have very short/no window since tide doesn't reach 3ft until after sunset
-    // The behavior depends on whether tide boundaries or sunset takes precedence
-    // If a window is returned, it should end at sunset
-    if (result) {
-      expect(result.end.getTime()).toBeLessThanOrEqual(
-        new Date('2024-01-16T01:00:00Z').getTime()
-      );
-    }
+    // Should be null or have very short/no window since tide doesn't reach 3ft until after sunset.
+    // The behavior depends on whether tide boundaries or sunset takes precedence.
+    expect(
+      result
+        ? result.end.getTime() <= new Date('2024-01-16T01:00:00Z').getTime()
+        : true
+    ).toBe(true);
   });
 
   it('should show full tide window for dawn-patrol even if it extends past 9am', () => {
@@ -1093,17 +1351,13 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       userPrefs: null,
     });
 
-    // Tide-driven windows still calculate precise start times
-    // The start time is when tide crosses the min threshold
-    if (result) {
-      // Start should be tide-driven (non-zero minutes indicates tide boundary)
-      // The time slot cap applies to the end, not the start
-      expect(result).not.toBeNull();
-      // The window start is calculated from tide threshold crossing
-      expect(result.start.getTime()).toBeGreaterThan(
-        new Date('2024-01-15T14:30:00Z').getTime() // After current time
-      );
-    }
+    // Tide-driven windows still calculate precise start times.
+    // The start time is when tide crosses the min threshold.
+    expect(
+      result
+        ? result.start.getTime() > new Date('2024-01-15T14:30:00Z').getTime()
+        : true
+    ).toBe(true);
   });
 
   it('should handle time slot filter with lunch-session slot and tide boundaries', () => {
@@ -1148,19 +1402,16 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       userPrefs: null,
     });
 
-    if (result) {
-      // Window START should be within lunch session slot (11am-2pm PST)
-      // Window END can extend past 2pm for tide-driven windows (not capped)
-      const startHour = result.start.getUTCHours();
-      const endHour = result.end.getUTCHours();
+    // Window START should be within lunch session slot (11am-2pm PST).
+    // Window END can extend past 2pm for tide-driven windows (not capped).
+    const startHour = result?.start.getUTCHours();
+    const endHour = result?.end.getUTCHours();
 
-      // 11am PST = 19:00 UTC, 2pm PST = 22:00 UTC
-      // Start should be in lunch session slot
-      expect(startHour).toBeGreaterThanOrEqual(19);
-      // This tide naturally ends before 2pm (~10:50am PST), so end is still <= 22
-      // For tide windows that extend past 2pm, this assertion would be different
-      expect(endHour).toBeLessThanOrEqual(22);
-    }
+    // 11am PST = 19:00 UTC, 2pm PST = 22:00 UTC
+    expect(startHour == null || startHour >= 19).toBe(true);
+    // This tide naturally ends before 2pm (~10:50am PST), so end is still <= 22.
+    // For tide windows that extend past 2pm, this assertion would be different.
+    expect(endHour == null || endHour <= 22).toBe(true);
   });
 
   it('should reject tide-driven boundaries that span overnight', () => {
@@ -1205,16 +1456,14 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       userPrefs: null,
     });
 
-    // If a result is returned, it should NOT span overnight (in local timezone)
-    if (result) {
-      const fmt = (d: Date) => new Intl.DateTimeFormat("en-CA", {
-        year: "numeric", month: "2-digit", day: "2-digit",
-        timeZone: "America/Los_Angeles",
-      }).format(d);
-      const startDate = fmt(result.start);
-      const endDate = fmt(result.end);
-      expect(startDate).toBe(endDate);
-    }
+    const fmt = (d: Date) => new Intl.DateTimeFormat("en-CA", {
+      year: "numeric", month: "2-digit", day: "2-digit",
+      timeZone: "America/Los_Angeles",
+    }).format(d);
+    const startDate = result ? fmt(result.start) : null;
+    const endDate = result ? fmt(result.end) : null;
+    // If a result is returned, it should NOT span overnight (in local timezone).
+    expect(startDate).toBe(endDate);
   });
 
   it('should reject tide-driven boundaries outside time slot', () => {
@@ -1259,20 +1508,19 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       timeSlot: 'lunch-session', // 11am-2pm
     });
 
-    // If a result is returned, start should be within lunch session slot (11am-2pm)
-    if (result) {
-      const startHour = parseInt(
-        new Intl.DateTimeFormat("en-US", {
-          hour: "numeric",
-          hour12: false,
-          timeZone: "America/Los_Angeles",
-        }).format(result.start),
-        10
-      );
-      // Lunch session slot is 11am-2pm
-      expect(startHour).toBeGreaterThanOrEqual(11);
-      expect(startHour).toBeLessThan(14);
-    }
+    const startHour = result
+      ? parseInt(
+          new Intl.DateTimeFormat("en-US", {
+            hour: "numeric",
+            hour12: false,
+            timeZone: "America/Los_Angeles",
+          }).format(result.start),
+          10
+        )
+      : null;
+    // If a result is returned, start should be within lunch session slot (11am-2pm).
+    expect(startHour == null || startHour >= 11).toBe(true);
+    expect(startHour == null || startHour < 14).toBe(true);
   });
 
   it('should reject tide-adjusted windows that shift start time to night hours (e.g. 1am-2am)', () => {
@@ -1327,21 +1575,20 @@ describe('selectBestWindow with tide-driven boundaries', () => {
       sunTimesCache
     );
 
+    const startHour = result
+      ? parseInt(
+          new Intl.DateTimeFormat("en-US", {
+            hour: "numeric",
+            hour12: false,
+            timeZone: "America/Los_Angeles",
+          }).format(result.start),
+          10
+        )
+      : null;
     // If the tide-adjusted start time falls during night hours (before sunrise),
     // the window should be rejected. The result may be null or have a daytime start.
-    if (result) {
-      // If a window is returned, verify its start time is during daylight hours
-      const startHour = parseInt(
-        new Intl.DateTimeFormat("en-US", {
-          hour: "numeric",
-          hour12: false,
-          timeZone: "America/Los_Angeles",
-        }).format(result.start),
-        10
-      );
-      expect(startHour).toBeGreaterThanOrEqual(6);
-      expect(startHour).toBeLessThan(21);
-    }
+    expect(startHour == null || startHour >= 6).toBe(true);
+    expect(startHour == null || startHour < 21).toBe(true);
   });
 
   it('should reject tide boundary when it lands on a different calendar day than source forecast', () => {
@@ -2358,7 +2605,7 @@ describe('sub-hour window refinement with peak centering', () => {
     expect(durationHours).toBeLessThanOrEqual(4);
 
     // peakTime should be set within the window
-    expect(result!.peakTime).toBeDefined();
+    expect(result!.peakTime instanceof Date).toBe(true);
     expect(result!.peakTime!.getTime()).toBeGreaterThanOrEqual(result!.start.getTime());
     expect(result!.peakTime!.getTime()).toBeLessThanOrEqual(result!.end.getTime());
   });
@@ -2445,7 +2692,7 @@ describe('sub-hour window refinement with peak centering', () => {
     );
 
     // peakTime should be tracked
-    expect(result!.peakTime).toBeDefined();
+    expect(result!.peakTime instanceof Date).toBe(true);
   });
 
   it('biases peakTime away from exact high tide when the spot prefers a rising tide', () => {
@@ -2508,7 +2755,7 @@ describe('sub-hour window refinement with peak centering', () => {
     });
 
     expect(result).not.toBeNull();
-    expect(result!.peakTime).toBeDefined();
+    expect(result!.peakTime instanceof Date).toBe(true);
     expect([
       '2024-01-15T15:00:00.000Z',
       '2024-01-15T16:00:00.000Z',

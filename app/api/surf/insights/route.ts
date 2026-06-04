@@ -5,8 +5,8 @@ import {
   validateOrError,
   withAuth,
   withRateLimit,
+  type OptionalAuthContext,
 } from '@/lib/middleware/api-wrappers';
-import type { OptionalAuthContext } from '@/lib/middleware/api-wrappers/types';
 import { computeSimilarityInsights } from '@/lib/services/similarity-insights-service';
 
 export const dynamic = 'force-dynamic';

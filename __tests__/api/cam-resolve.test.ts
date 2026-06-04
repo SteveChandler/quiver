@@ -71,7 +71,7 @@ describe("GET /api/cam-resolve", () => {
   });
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    mockFetch.mockReset();
   });
 
   // ===== Input Validation =====
@@ -937,6 +937,72 @@ describe("GET /api/cam-resolve", () => {
       expect(res.status).toBe(200);
       const json = await res.json();
       expect(json.hlsUrl).toContain("relay99.hdrelay.com");
+    });
+  });
+
+  // ===== Surfline Embed Support =====
+
+  describe("Surfline Embed Support", () => {
+    it("resolves Surfline embed widgets to their native HLS stream", async () => {
+      const camId = "5834a0733421b20545c4b584";
+      const configId = "64ba68ebf1c960a93d1faba8f86cc16a3ed05913";
+      const hlsUrl = "https://hls.cdn-surfline.com/oregon/wc-scripps/playlist.m3u8";
+
+      mockFetch
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () => Promise.resolve(JSON.stringify({ camId })),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          text: () =>
+            Promise.resolve(
+              JSON.stringify({
+                cam: {
+                  streamUrl: hlsUrl,
+                  isDown: { status: false },
+                  isPremium: false,
+                },
+              })
+            ),
+        });
+
+      const res = await GET(
+        makeRequest(`https://embed.cdn-surfline.com/cams/${camId}/${configId}`)
+      );
+
+      expect(res.status).toBe(200);
+      const json = await res.json();
+      expect(json.hlsUrl).toBe(hlsUrl);
+      expect(mockFetch.mock.calls[0][0]).toBe(
+        `https://embed.cdn-surfline.com/cam-config/${configId}.json`
+      );
+      expect(mockFetch.mock.calls[1][0]).toBe(
+        `https://embed.cdn-surfline.com/cam-details/${camId}.json`
+      );
+    });
+
+    it("rejects Surfline config when the config cam id does not match the embed URL", async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: () =>
+          Promise.resolve(
+            JSON.stringify({ camId: "different-surfline-cam-id" })
+          ),
+      });
+
+      const res = await GET(
+        makeRequest(
+          "https://embed.cdn-surfline.com/cams/5834a0733421b20545c4b584/64ba68ebf1c960a93d1faba8f86cc16a3ed05913"
+        )
+      );
+
+      expect(res.status).toBe(502);
+      const json = await res.json();
+      expect(json.error).toBe("Surfline config mismatch");
     });
   });
 

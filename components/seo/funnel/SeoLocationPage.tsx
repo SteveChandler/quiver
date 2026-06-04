@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 
 import { CamGrid } from "@/components/cams/cam-grid";
+import { BeginnerSessionDecision } from "@/components/beginner/beginner-session-decision";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
 import {
@@ -25,6 +26,13 @@ interface SeoLocationPageProps {
 }
 
 const CAM_PREVIEW_LIMIT = 6;
+
+interface BeginnerDecisionLink {
+  citySlug: string;
+  decisionSummary: string;
+  referenceSpotName: string;
+  stateSlug: string;
+}
 
 const FEATURED_CAMERA_TERMS_BY_SLUG: Record<string, string[]> = {
   "san-diego": [
@@ -84,6 +92,35 @@ function extractLeadSentence(text: string): string {
   return text.match(/[^.!?]+[.!?]+/)?.[0]?.trim() ?? text.trim();
 }
 
+function getBeginnerDecisionLink(page: SeoPageConfig): BeginnerDecisionLink | null {
+  if (page.type !== "beginner") {
+    return null;
+  }
+
+  const sameCitySpot = page.nearbySpots.find((spot) => {
+    const match = spot.href.match(/^\/([a-z]{2})\/([^/?#]+)\/[^/?#]+/);
+
+    return match?.[2] === page.slug;
+  });
+
+  if (!sameCitySpot) {
+    return null;
+  }
+
+  const match = sameCitySpot.href.match(/^\/([a-z]{2})\/([^/?#]+)\/[^/?#]+/);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    citySlug: match[2],
+    decisionSummary: page.sections[1]?.body ?? page.intro,
+    referenceSpotName: sameCitySpot.label,
+    stateSlug: match[1],
+  };
+}
+
 export function SeoLocationPage({ page, cameras = [] }: SeoLocationPageProps) {
   const baseUrl = (
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app"
@@ -104,6 +141,7 @@ export function SeoLocationPage({ page, cameras = [] }: SeoLocationPageProps) {
     conditionsLead && conditionsLead !== boardLead
       ? `${boardLead} ${conditionsLead}`
       : boardLead;
+  const beginnerDecisionLink = getBeginnerDecisionLink(page);
 
   return (
     <div className="seo-paper-page">
@@ -153,6 +191,18 @@ export function SeoLocationPage({ page, cameras = [] }: SeoLocationPageProps) {
         />
 
         {page.decision ? <SurfDecisionCard decision={page.decision} /> : null}
+
+        {beginnerDecisionLink ? (
+          <div className="py-5">
+            <BeginnerSessionDecision
+              cityName={page.locationName}
+              citySlug={beginnerDecisionLink.citySlug}
+              stateSlug={beginnerDecisionLink.stateSlug}
+              referenceSpotName={beginnerDecisionLink.referenceSpotName}
+              decisionSummary={beginnerDecisionLink.decisionSummary}
+            />
+          </div>
+        ) : null}
 
         {page.type === "surf-cams" ? (
           <section aria-labelledby="cam-grid-heading" className="py-5">

@@ -16,6 +16,7 @@ import {
   getBeachesForRegion,
   type RegionalForecastSummary,
 } from "@/lib/utils/regional-forecast-utils";
+import { buildRegionalSurfWindowRecommendations } from "@/lib/recommendations/session-intelligence-surface-adapters";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
 import { getBeachesFromDb } from "@/lib/services/beach-query-service";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
@@ -23,6 +24,8 @@ import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withApprovedPhotos } from "@/lib/supabase/query-builders";
 import type { Beach } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { SurfWindowRecommendation } from "@/types/session-intelligence";
 
 /**
  * Get regional forecast summaries for all regions.
@@ -32,8 +35,16 @@ import type { Beach } from "@/types/database";
  *
  * @param beaches - Optional pre-fetched beach array. If not provided, will fetch beaches internally.
  */
+export interface GetRegionalSummariesOptions {
+  now?: Date;
+  baseUrl?: string;
+  includeBestSurfWindows?: boolean;
+  includePhotos?: boolean;
+}
+
 export async function getRegionalSummaries(
-  beaches?: Beach[]
+  beaches?: Beach[],
+  options: GetRegionalSummariesOptions = {}
 ): Promise<Record<string, RegionalForecastSummary>> {
   const regions = Object.values(FORECAST_REGIONS);
   const summaries: Record<string, RegionalForecastSummary> = {};
@@ -72,7 +83,7 @@ export async function getRegionalSummaries(
     const regionBeaches = regionBeachesMap.get(region.slug) || [];
 
     // Filter forecast map to only this region's beaches
-    const regionForecastMap = new Map();
+    const regionForecastMap = new Map<string, EnhancedForecastEntity[]>();
     for (const beach of regionBeaches) {
       const result = forecastMap.get(beach.id);
       if (result && result.forecasts.length > 0) {
@@ -81,18 +92,153 @@ export async function getRegionalSummaries(
     }
 
     // Aggregate into regional summary
-    summaries[region.slug] = aggregateRegionalForecast(
+    const summary = aggregateRegionalForecast(
       region,
       regionBeaches,
       regionForecastMap
     );
+    if (options.includeBestSurfWindows !== false) {
+      summary.bestSurfWindows = buildRegionalSurfWindowRecommendations({
+        groups: regionBeaches
+          .map((beach) => ({
+            beach,
+            forecasts: regionForecastMap.get(beach.id) ?? [],
+          }))
+          .filter((group) => group.forecasts.length > 0),
+        now: options.now,
+        baseUrl: options.baseUrl,
+      });
+    }
+    summaries[region.slug] = summary;
   }
 
   // Attach one approved photo per region (from the region's highest-scored
   // beach). Single batched query across all regions keeps the cost flat.
-  await attachRegionPhotos(summaries);
+  if (options.includePhotos !== false) {
+    await attachRegionPhotos(summaries);
+  }
 
   return summaries;
+}
+
+async function resolveBeaches(beaches?: Beach[]): Promise<Beach[] | null> {
+  if (beaches) return beaches;
+
+  const beachesResult = await getBeachesFromDb();
+  if (!beachesResult.success || !beachesResult.data) {
+    console.error("Failed to fetch beaches for forecast hub");
+    return null;
+  }
+
+  return beachesResult.data;
+}
+
+function buildBestSurfWindowsForRegion(
+  regionBeaches: Beach[],
+  regionForecastMap: Map<string, EnhancedForecastEntity[]>,
+  options: GetRegionalSummariesOptions
+): SurfWindowRecommendation[] {
+  return buildRegionalSurfWindowRecommendations({
+    groups: regionBeaches
+      .map((beach) => ({
+        beach,
+        forecasts: regionForecastMap.get(beach.id) ?? [],
+      }))
+      .filter((group) => group.forecasts.length > 0),
+    now: options.now,
+    baseUrl: options.baseUrl,
+  });
+}
+
+export function createEmptyRegionalSummary(
+  region: ForecastRegion
+): RegionalForecastSummary {
+  const generatedAt = new Date();
+  const bestDay = {
+    date: generatedAt,
+    dateString: "",
+    dayOfWeek: "",
+    score: 0,
+    avgWaveHeight: 0,
+    waveRange: [0, 0] as [number, number],
+    dominantWindDirection: "",
+    windConditions: "onshore" as const,
+    bestTimeSlot: "morning" as const,
+    topBeaches: [],
+    beachesWithGoodConditions: 0,
+  };
+
+  return {
+    region,
+    generatedAt,
+    days: [],
+    bestDay,
+    upcomingSwells: [],
+    beachConditions: [],
+    bestSurfWindows: [],
+    photoUrl: null,
+    photoBeachName: null,
+    secondaryPhotoUrl: null,
+    secondaryPhotoBeachName: null,
+    stats: {
+      totalBeaches: 0,
+      beachesWithData: 0,
+      avgRegionScore: 0,
+    },
+  };
+}
+
+/**
+ * Get a full forecast summary for one region only.
+ *
+ * The /forecast hub uses this path after resolving the active region so a
+ * single page request does not aggregate every Quiver forecast region.
+ */
+export async function getRegionalSummary(
+  region: ForecastRegion,
+  beaches?: Beach[],
+  options: GetRegionalSummariesOptions = {}
+): Promise<RegionalForecastSummary> {
+  const allBeaches = await resolveBeaches(beaches);
+  if (!allBeaches) {
+    return createEmptyRegionalSummary(region);
+  }
+
+  const regionBeaches = getBeachesForRegion(region, allBeaches);
+  if (regionBeaches.length === 0) {
+    return createEmptyRegionalSummary(region);
+  }
+
+  const beachIds = regionBeaches.map((beach) => beach.id);
+  const forecastMap = await getBatchFreshForecastsFromCache(beachIds, 168);
+  const regionForecastMap = new Map<string, EnhancedForecastEntity[]>();
+
+  for (const beach of regionBeaches) {
+    const result = forecastMap.get(beach.id);
+    if (result && result.forecasts.length > 0) {
+      regionForecastMap.set(beach.id, result.forecasts);
+    }
+  }
+
+  const summary = aggregateRegionalForecast(
+    region,
+    regionBeaches,
+    regionForecastMap
+  );
+
+  if (options.includeBestSurfWindows !== false) {
+    summary.bestSurfWindows = buildBestSurfWindowsForRegion(
+      regionBeaches,
+      regionForecastMap,
+      options
+    );
+  }
+
+  if (options.includePhotos !== false) {
+    await attachRegionPhotos({ [region.slug]: summary });
+  }
+
+  return summary;
 }
 
 /**
@@ -314,7 +460,6 @@ export async function getTopBeachesRightNow(
   }
 
   const allBeaches = beachesResult.data;
-  const summaries = await getRegionalSummaries(allBeaches);
 
   // Build lookup from beach ID -> Beach for URL generation
   const beachMap = new Map<string, Beach>();
@@ -322,26 +467,39 @@ export async function getTopBeachesRightNow(
     beachMap.set(beach.id, beach);
   }
 
-  // Build lookup from beach ID -> region name
-  const beachRegionMap = new Map<string, string>();
-  for (const summary of Object.values(summaries)) {
-    for (const bc of summary.beachConditions) {
-      beachRegionMap.set(bc.beachId, summary.region.name);
-    }
-  }
-
   // Determine which summaries to pull beach conditions from
   let targetSummaries: RegionalForecastSummary[];
 
   if (userCoords) {
     const closestRegion = getClosestRegion(userCoords);
-    if (closestRegion && summaries[closestRegion.slug]) {
-      targetSummaries = [summaries[closestRegion.slug]];
+    if (closestRegion) {
+      targetSummaries = [
+        await getRegionalSummary(closestRegion, allBeaches, {
+          includeBestSurfWindows: false,
+          includePhotos: false,
+        }),
+      ];
     } else {
+      const summaries = await getRegionalSummaries(allBeaches, {
+        includeBestSurfWindows: false,
+        includePhotos: false,
+      });
       targetSummaries = Object.values(summaries);
     }
   } else {
+    const summaries = await getRegionalSummaries(allBeaches, {
+      includeBestSurfWindows: false,
+      includePhotos: false,
+    });
     targetSummaries = Object.values(summaries);
+  }
+
+  // Build lookup from beach ID -> region name
+  const beachRegionMap = new Map<string, string>();
+  for (const summary of targetSummaries) {
+    for (const bc of summary.beachConditions) {
+      beachRegionMap.set(bc.beachId, summary.region.name);
+    }
   }
 
   // Flatten beach conditions from target summaries

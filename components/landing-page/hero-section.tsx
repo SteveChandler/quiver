@@ -20,6 +20,8 @@ const LANDING_HERO_VIDEO_DESKTOP_SRC =
 const LANDING_HERO_VIDEO_MOBILE_SRC = "/videos/quiver-landing-hero-720.mp4";
 const LANDING_HERO_POSTER_SRC = "/images/hero/quiver-landing-hero-poster.jpg";
 const HERO_VIDEO_LOAD_DELAY_MS = 2500;
+const HERO_VIDEO_FAILED_START_TIMEOUT_MS = 5000;
+const HERO_VIDEO_VISIBLE_FAILED_START_GRACE_MS = 1500;
 const HERO_DOWNLOAD_BUTTON_SOURCE = "hero-video-download-button";
 
 type HeroVideoVariant = "mobile" | "desktop";
@@ -31,17 +33,31 @@ function getHeroVideoVariant(): HeroVideoVariant {
 
 export function HeroSection() {
   const sectionRef = useRef<HTMLElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const reducedMotion = useReducedMotion();
   const { user } = useAuth();
   const hasTrackedView = useRef(false);
   const hasTrackedVideoLoad = useRef(false);
   const hasTrackedVideoStart = useRef(false);
+  const hasTrackedVideoError = useRef(false);
+  const hasTrackedVideoFailedStart = useRef(false);
+  const hasVideoLoaded = useRef(false);
+  const hasVideoStarted = useRef(false);
+  const hasVideoEndedRef = useRef(false);
+  const hasHiddenVideoStall = useRef(false);
+  const visibleFailedStartTimeoutId = useRef<number | null>(null);
   const [shouldLoadVideo, setShouldLoadVideo] = useState(false);
   const [hasVideoEnded, setHasVideoEnded] = useState(false);
   const [hasVideoError, setHasVideoError] = useState(false);
+  const [hasVideoFailedToStart, setHasVideoFailedToStart] = useState(false);
   const [videoVariant, setVideoVariant] =
     useState<HeroVideoVariant>("desktop");
-  const isAppStoreCtaVisible = reducedMotion || hasVideoEnded || hasVideoError;
+  const videoSrc =
+    videoVariant === "mobile"
+      ? LANDING_HERO_VIDEO_MOBILE_SRC
+      : LANDING_HERO_VIDEO_DESKTOP_SRC;
+  const isAppStoreCtaVisible =
+    reducedMotion || hasVideoEnded || hasVideoError || hasVideoFailedToStart;
 
   const trackVideoEvent = useCallback(
     (event: string, extra: Record<string, unknown> = {}) => {
@@ -53,6 +69,45 @@ export function HeroSection() {
       });
     },
     [videoVariant],
+  );
+
+  const clearVisibleFailedStartTimer = useCallback(() => {
+    if (visibleFailedStartTimeoutId.current === null) return;
+    window.clearTimeout(visibleFailedStartTimeoutId.current);
+    visibleFailedStartTimeoutId.current = null;
+  }, []);
+
+  const getVideoDiagnostics = useCallback(
+    (video: HTMLVideoElement | null = videoRef.current) => ({
+      media_error_code: video?.error?.code ?? null,
+      media_error_message: video?.error?.message ?? null,
+      ready_state: video?.readyState ?? null,
+      network_state: video?.networkState ?? null,
+      current_src: video?.currentSrc || video?.getAttribute("src") || videoSrc,
+      has_loaded: hasVideoLoaded.current,
+      has_started: hasVideoStarted.current,
+      has_ended: hasVideoEndedRef.current,
+      visibility_state:
+        typeof document === "undefined" ? "visible" : document.visibilityState,
+    }),
+    [videoSrc],
+  );
+
+  const trackFailedStart = useCallback(
+    (metadata: Record<string, unknown>) => {
+      if (hasTrackedVideoFailedStart.current) return;
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "hidden"
+      ) {
+        hasHiddenVideoStall.current = true;
+        return;
+      }
+      hasTrackedVideoFailedStart.current = true;
+      setHasVideoFailedToStart(true);
+      trackVideoEvent("landing_hero_video_failed_to_start", metadata);
+    },
+    [trackVideoEvent],
   );
 
   const handleIosAppClick = () => {
@@ -129,6 +184,62 @@ export function HeroSection() {
     };
   }, [reducedMotion, shouldLoadVideo]);
 
+  useEffect(() => {
+    if (reducedMotion || !shouldLoadVideo) return;
+
+    const timeoutId = window.setTimeout(() => {
+      if (hasVideoLoaded.current || hasVideoStarted.current) return;
+      if (document.visibilityState === "hidden") {
+        hasHiddenVideoStall.current = true;
+        return;
+      }
+      trackFailedStart(getVideoDiagnostics());
+    }, HERO_VIDEO_FAILED_START_TIMEOUT_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [getVideoDiagnostics, reducedMotion, shouldLoadVideo, trackFailedStart]);
+
+  useEffect(() => {
+    if (reducedMotion || !shouldLoadVideo) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!hasHiddenVideoStall.current) return;
+
+      clearVisibleFailedStartTimer();
+
+      if (hasVideoLoaded.current || hasVideoStarted.current) {
+        hasHiddenVideoStall.current = false;
+        return;
+      }
+
+      setHasVideoFailedToStart(true);
+      visibleFailedStartTimeoutId.current = window.setTimeout(() => {
+        visibleFailedStartTimeoutId.current = null;
+        if (!hasHiddenVideoStall.current) return;
+        if (hasVideoLoaded.current || hasVideoStarted.current) {
+          hasHiddenVideoStall.current = false;
+          return;
+        }
+
+        hasHiddenVideoStall.current = false;
+        trackFailedStart(getVideoDiagnostics());
+      }, HERO_VIDEO_VISIBLE_FAILED_START_GRACE_MS);
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      clearVisibleFailedStartTimer();
+    };
+  }, [
+    clearVisibleFailedStartTimer,
+    getVideoDiagnostics,
+    reducedMotion,
+    shouldLoadVideo,
+    trackFailedStart,
+  ]);
+
   return (
     <section
       ref={sectionRef}
@@ -153,6 +264,8 @@ export function HeroSection() {
             />
             {shouldLoadVideo && !reducedMotion ? (
               <video
+                ref={videoRef}
+                src={videoSrc}
                 autoPlay
                 muted
                 playsInline
@@ -161,36 +274,45 @@ export function HeroSection() {
                 aria-label="Quiver iPhone launch video"
                 className="absolute inset-0 h-full w-full object-cover"
                 onLoadedData={() => {
+                  hasVideoLoaded.current = true;
+                  hasHiddenVideoStall.current = false;
+                  clearVisibleFailedStartTimer();
                   if (hasTrackedVideoLoad.current) return;
                   hasTrackedVideoLoad.current = true;
                   trackVideoEvent("landing_hero_video_loaded");
                 }}
                 onPlay={() => {
+                  hasVideoStarted.current = true;
+                  hasVideoEndedRef.current = false;
+                  hasHiddenVideoStall.current = false;
+                  clearVisibleFailedStartTimer();
                   setHasVideoEnded(false);
                   setHasVideoError(false);
+                  setHasVideoFailedToStart(false);
                   if (hasTrackedVideoStart.current) return;
                   hasTrackedVideoStart.current = true;
                   trackVideoEvent("landing_hero_video_started");
                 }}
                 onEnded={() => {
+                  hasVideoEndedRef.current = true;
                   setHasVideoEnded(true);
                   trackVideoEvent("landing_hero_video_ended");
                 }}
-                onError={() => {
+                onError={(event) => {
                   setHasVideoError(true);
-                  trackVideoEvent("landing_hero_video_error");
+                  const diagnostics = getVideoDiagnostics(event.currentTarget);
+                  if (!hasTrackedVideoError.current) {
+                    hasTrackedVideoError.current = true;
+                    trackVideoEvent(
+                      "landing_hero_video_error",
+                      diagnostics,
+                    );
+                  }
+                  if (!hasVideoLoaded.current && !hasVideoStarted.current) {
+                    trackFailedStart(diagnostics);
+                  }
                 }}
-              >
-                <source
-                  src={LANDING_HERO_VIDEO_MOBILE_SRC}
-                  type="video/mp4"
-                  media="(max-width: 767px)"
-                />
-                <source
-                  src={LANDING_HERO_VIDEO_DESKTOP_SRC}
-                  type="video/mp4"
-                />
-              </video>
+              />
             ) : null}
             {isAppStoreCtaVisible ? (
               <a

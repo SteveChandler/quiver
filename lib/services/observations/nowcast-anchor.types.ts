@@ -10,6 +10,14 @@ export interface NowcastAnchor {
   waveHeightM: number; // offshore Hs (pre-shoaling, same frame as NDBC buoy input)
   wavePeriodS: number | null;
   waveDirectionDeg: number | null;
+  /**
+   * Explicitly allows this anchor to use per-beach shoaling buckets when it
+   * flows through the nowcast-anchor source path. Normal resolver anchors do
+   * not set this; targeted guardrails opt in deliberately.
+   */
+  allowCalibratedShoaling?: boolean;
+  /** Machine-readable provenance for targeted forecast guardrails. */
+  guardrailMetadata?: Record<string, unknown>;
 }
 
 /**

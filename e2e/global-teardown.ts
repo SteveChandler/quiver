@@ -109,6 +109,14 @@ async function globalTeardown(config: FullConfig) {
   console.log('[Global Teardown] Cleaning up test data...');
   console.log('[Global Teardown] ============================================\n');
 
+  if (process.env.SKIP_E2E_CLEANUP === 'true') {
+    console.log('[Global Teardown] Skipping test data cleanup (SKIP_E2E_CLEANUP=true)');
+    console.log('\n[Global Teardown] ============================================');
+    console.log('[Global Teardown] Teardown complete');
+    console.log('[Global Teardown] ============================================\n');
+    return;
+  }
+
   try {
     const testEnv = process.env.TEST_ENV || 'local';
     const baseURL = process.env.BASE_URL || '';

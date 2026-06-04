@@ -69,6 +69,45 @@ describe("beach-search-utils", () => {
       expect(normalizeSearchText(results[0].name)).toBe("pacific beach");
     });
 
+    it("supports Jack's aliases and ranks 38th Avenue first", async () => {
+      getBeachesMock.mockResolvedValue({
+        success: true,
+        data: beachesSearchFixture,
+        error: null,
+      });
+
+      const asciiResults = await searchBeachesMultiple("jacks");
+      const curlyResults = await searchBeachesMultiple("Jack’s");
+      const santaCruzResults = await searchBeachesMultiple("jacks santa cruz");
+
+      expect(normalizeSearchText(asciiResults[0].name)).toBe(
+        "38th avenue santa cruz"
+      );
+      expect(normalizeSearchText(curlyResults[0].name)).toBe(
+        "38th avenue santa cruz"
+      );
+      expect(normalizeSearchText(santaCruzResults[0].name)).toBe(
+        "38th avenue santa cruz"
+      );
+    });
+
+    it("supports Hook aliases and ranks The Hook ahead of Sandy Hook", async () => {
+      getBeachesMock.mockResolvedValue({
+        success: true,
+        data: beachesSearchFixture,
+        error: null,
+      });
+
+      const hookResults = await searchBeachesMultiple("hook");
+      const rockviewResults = await searchBeachesMultiple("rockview");
+
+      expect(hookResults.map((beach) => beach.name).slice(0, 2)).toEqual([
+        "The Hook",
+        "Sandy Hook",
+      ]);
+      expect(rockviewResults[0].name).toBe("The Hook");
+    });
+
     it("is deterministic: same input yields same ordered results", async () => {
       getBeachesMock.mockResolvedValue({
         success: true,
@@ -151,5 +190,4 @@ describe("beach-search-utils", () => {
     });
   });
 });
-
 

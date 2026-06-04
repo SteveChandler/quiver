@@ -7,6 +7,10 @@
  */
 
 import { track } from "@/lib/analytics";
+import {
+  deriveSurfaceFromPath,
+  enrichWithWebAnalyticsContext,
+} from "@/lib/analytics/web-context";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 
 /**
@@ -90,64 +94,7 @@ function fireToUserEvents(eventType: string, params: Record<string, any>) {
   }
 }
 
-// Explicit US state / territory slugs per app/[intent]/[city]/[beachSlug].
-// Mirrors covered regions in lib/constants/coverage-areas.ts — keep in sync.
-// Allowlist (vs a 2-letter regex) prevents locale prefixes (`/en`, `/js`) and
-// arbitrary short segments from false-matching as state-hub.
-const STATE_SLUGS = new Set([
-  "ca", "or", "wa",                                      // West Coast
-  "me", "nh", "ma", "ri", "ny", "nj",                    // Northeast
-  "nc", "sc", "ga", "fl", "tx",                          // Southeast / Gulf
-  "hi", "pr",                                            // Islands / territory
-]);
-
-// Auto-derives a canonical surface label from the URL so the signup funnel
-// dashboard can group by page type even when the caller forgot to pass one.
-// Caller-provided `surface` always wins (see enrichWithSurface).
-// `pathname` arg is optional — defaults to `window.location.pathname` in the
-// browser, or "" in SSR. Exported primarily for testability; prefer passing
-// undefined in app code so the browser pathname is used.
-export function deriveSurfaceFromPath(pathname?: string): string {
-  const raw =
-    pathname ??
-    // eslint-disable-next-line no-restricted-properties -- pathname-derivation utility, not navigation; gracefully returns null in SSR
-    (typeof window === "undefined" ? null : window.location.pathname);
-  if (raw === null) return "server";
-
-  // Normalize: strip trailing slashes so /about/ and /about bucket together.
-  const path = raw.replace(/\/+$/, "") || "/";
-
-  if (path === "/") return "landing-page";
-  if (path === "/about") return "about-page";
-  if (path === "/features" || path.startsWith("/features/")) return "features-page";
-  if (path === "/map" || path.startsWith("/map/")) return "map";
-  if (path.startsWith("/guides/")) return "guides-page";
-  if (path === "/tools" || path.startsWith("/tools/")) return "tools-page";
-
-  // Authenticated account surfaces — meaningfully distinct from "other"
-  // because `public-content-gate` fires on some of these pages too.
-  if (path === "/profile" || path.startsWith("/profile/")) return "auth-gated";
-  if (path === "/settings" || path.startsWith("/settings/")) return "auth-gated";
-  if (path === "/account" || path.startsWith("/account/")) return "auth-gated";
-
-  // State hierarchy: /[state]/[city]/[beach] per app/[intent]/[city]/[beachSlug].
-  // Uses explicit STATE_SLUGS allowlist instead of a 2-letter regex to prevent
-  // locale prefixes (/en/...) and arbitrary short segments (/js, /ts) from
-  // false-matching.
-  const segments = path.split("/").filter(Boolean);
-  if (segments.length >= 1 && STATE_SLUGS.has(segments[0])) {
-    if (segments.length >= 3) return "beach-detail";
-    if (segments.length === 2) return "city-hub";
-    return "state-hub";
-  }
-
-  return "other";
-}
-
-function enrichWithSurface(params: Record<string, any>): Record<string, any> {
-  if (typeof params.surface === "string" && params.surface.length > 0) return params;
-  return { ...params, surface: deriveSurfaceFromPath() };
-}
+export { deriveSurfaceFromPath };
 
 const VIEW_DWELL_MS = 500;
 
@@ -170,7 +117,7 @@ export function trackSignupCtaView(params: Record<string, any>) {
     }
     if (hasViewedInSession(sourceKey)) return;
     markViewedInSession(sourceKey);
-    const enriched = enrichWithSurface(params);
+    const enriched = enrichWithWebAnalyticsContext(params);
     track("signup_cta_view", enriched);
     fireToUserEvents("signup_cta_view", enriched);
   };
@@ -180,13 +127,13 @@ export function trackSignupCtaView(params: Record<string, any>) {
 }
 
 export function trackSignupCtaClick(params: Record<string, any>) {
-  const enriched = enrichWithSurface(params);
+  const enriched = enrichWithWebAnalyticsContext(params);
   track("signup_cta_click", enriched);
   fireToUserEvents("signup_cta_click", enriched);
 }
 
 export function trackSigninCtaClick(params: Record<string, any>) {
-  const enriched = enrichWithSurface(params);
+  const enriched = enrichWithWebAnalyticsContext(params);
   track("signin_cta_click", enriched);
   fireToUserEvents("signin_cta_click", enriched);
 }

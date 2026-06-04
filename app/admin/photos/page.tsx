@@ -26,6 +26,7 @@ import {
   listBeachPhotos,
   softDeleteSessionMedia,
   restoreSessionMedia,
+  approveSessionMediaForBeachHeader,
   softDeleteBeachPhoto,
   restoreBeachPhoto,
   toggleBeachPhotoApproval,
@@ -50,6 +51,7 @@ export default function AdminPhotosPage() {
     description: string;
     action: () => Promise<void>;
     variant?: "default" | "destructive";
+    actionLabel?: string;
   }>({
     open: false,
     title: "",
@@ -149,6 +151,29 @@ export default function AdminPhotosPage() {
         }
         toast.success("Photo restored successfully");
         refetchSession();
+      },
+    });
+  };
+
+  // Handle promotion of reviewed session media into public beach photo rotation
+  const handlePromoteSessionMedia = (photo: PhotoModerationItem) => {
+    const beachName = photo.metadata.beachName || "this beach";
+
+    setConfirmDialog({
+      open: true,
+      title: "Promote Session Photo",
+      description: `Approve this user-uploaded session photo for ${beachName} header and gallery rotation? It will become available through the approved beach photo pipeline.`,
+      variant: "default",
+      actionLabel: "Promote",
+      action: async () => {
+        const result = await approveSessionMediaForBeachHeader(photo.id);
+        if (!result.success) {
+          toast.error(result.error || "Failed to promote photo");
+          return;
+        }
+        toast.success("Session photo promoted to beach photos");
+        refetchSession();
+        refetchBeach();
       },
     });
   };
@@ -434,6 +459,7 @@ export default function AdminPhotosPage() {
             onPreview={handlePreview}
             onDelete={handleDeleteSessionMedia}
             onRestore={handleRestoreSessionMedia}
+            onPromoteToBeachPhoto={handlePromoteSessionMedia}
             onBulkDelete={handleBulkDelete}
           />
         </TabsContent>
@@ -479,7 +505,10 @@ export default function AdminPhotosPage() {
         onOpenChange={(open) => setConfirmDialog((prev) => ({ ...prev, open }))}
         title={confirmDialog.title}
         description={confirmDialog.description}
-        actionLabel={confirmDialog.variant === "destructive" ? "Delete" : "Restore"}
+        actionLabel={
+          confirmDialog.actionLabel ||
+          (confirmDialog.variant === "destructive" ? "Delete" : "Restore")
+        }
         actionVariant={confirmDialog.variant}
         onConfirm={confirmDialog.action}
       />

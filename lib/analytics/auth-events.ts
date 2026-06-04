@@ -22,6 +22,7 @@ import { track } from "@/lib/analytics";
 import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 import { captureClientPostHogEvent } from "@/lib/posthog-client";
+import { enrichWithWebAnalyticsContext } from "@/lib/analytics/web-context";
 
 /**
  * Fire a funnel event to the internal /api/events endpoint.
@@ -74,11 +75,14 @@ export function trackAuthModalOpened(params: {
   source: string;
   context?: string;
 }) {
-  const payload = {
-    mode: params.mode,
-    source: params.source,
-    context: params.context,
-  };
+  const payload = enrichWithWebAnalyticsContext(
+    {
+      mode: params.mode,
+      source: params.source,
+      context: params.context,
+    },
+    { includeSignupChannel: params.mode === "signup" }
+  );
   track("auth_modal_opened", payload);
   fireToUserEvents("auth_modal_opened", payload);
 }
@@ -93,10 +97,13 @@ export function trackAuthModalClosedWithoutAction(params: {
   mode: "login" | "signup" | "auto";
   source: string;
 }) {
-  const payload = {
-    mode: params.mode,
-    source: params.source,
-  };
+  const payload = enrichWithWebAnalyticsContext(
+    {
+      mode: params.mode,
+      source: params.source,
+    },
+    { includeSignupChannel: params.mode === "signup" }
+  );
   track("auth_modal_closed_without_action", payload);
   fireToUserEvents("auth_modal_closed_without_action", payload);
 }
@@ -143,17 +150,23 @@ export function trackAuthProviderSelected(params: {
   source: string;
   email_method?: "password" | "magic_link";
 }) {
-  const ga4Payload = {
-    provider: params.provider,
-    mode: params.mode,
-    source: params.source,
-    ...(params.email_method && { email_method: params.email_method }),
-  };
-  const userEventsPayload = {
-    provider: params.provider,
-    mode: params.mode,
-    source: params.source,
-  };
+  const ga4Payload = enrichWithWebAnalyticsContext(
+    {
+      provider: params.provider,
+      mode: params.mode,
+      source: params.source,
+      ...(params.email_method && { email_method: params.email_method }),
+    },
+    { includeSignupChannel: params.mode === "signup" }
+  );
+  const userEventsPayload = enrichWithWebAnalyticsContext(
+    {
+      provider: params.provider,
+      mode: params.mode,
+      source: params.source,
+    },
+    { includeSignupChannel: params.mode === "signup" }
+  );
   track("auth_provider_selected", ga4Payload);
   fireToUserEvents("auth_provider_selected", userEventsPayload);
 }
@@ -173,10 +186,13 @@ export function trackAuthProviderSelected(params: {
 export function trackSignupFormSubmitted(params: {
   source: string;
 }) {
-  const payload = {
-    mode: "signup" as const,
-    source: params.source,
-  };
+  const payload = enrichWithWebAnalyticsContext(
+    {
+      mode: "signup" as const,
+      source: params.source,
+    },
+    { includeSignupChannel: true }
+  );
   track("signup_form_submitted", payload);
   fireToUserEvents("signup_form_submitted", payload);
 }
@@ -256,12 +272,15 @@ export function trackSignupStarted(
   method: string,
   options?: { source?: string; landing_page?: string }
 ) {
-  const eventParams = withBrowserSessionId({
-    method,
-    timestamp: Date.now(),
-    ...(options?.source && { source: options.source }),
-    ...(options?.landing_page && { landing_page: options.landing_page }),
-  });
+  const eventParams = enrichWithWebAnalyticsContext(
+    withBrowserSessionId({
+      method,
+      timestamp: Date.now(),
+      ...(options?.source && { source: options.source }),
+      ...(options?.landing_page && { landing_page: options.landing_page }),
+    }),
+    { includeSignupChannel: true, pathname: options?.landing_page }
+  );
   track("signup_started", eventParams);
   fireToUserEvents("signup_started", eventParams);
 }
@@ -279,12 +298,15 @@ export function trackSignupSuccess(params: {
   source?: string;
   landing_page?: string;
 }) {
-  const eventParams = withBrowserSessionId({
-    method: params.method,
-    requires_verification: params.requires_verification,
-    ...(params.source && { source: params.source }),
-    ...(params.landing_page && { landing_page: params.landing_page }),
-  });
+  const eventParams = enrichWithWebAnalyticsContext(
+    withBrowserSessionId({
+      method: params.method,
+      requires_verification: params.requires_verification,
+      ...(params.source && { source: params.source }),
+      ...(params.landing_page && { landing_page: params.landing_page }),
+    }),
+    { includeSignupChannel: true, pathname: params.landing_page }
+  );
   track("signup_success", eventParams);
   fireToUserEvents("signup_success", eventParams);
 }

@@ -151,43 +151,11 @@ describe("/auth/callback invite_token handoff", () => {
     expect(getSetCookie(response)).not.toMatch(/invite_token=/);
   });
 
-  it("sets the Apple beta prompt cookie after successful Apple auth", async () => {
+  it("does not set a beta handoff cookie for Apple callbacks", async () => {
     const tables = primeProfileMock();
 
     const response = await GET(
       buildCallbackRequest({ code: "abc", redirect: "/", provider: "apple" }),
-    );
-
-    expect(getSetCookie(response)).toContain(
-      "quiver_ios_beta_prompt=apple-signin",
-    );
-    expect(tables.inserts).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          table: "user_events",
-          payload: expect.objectContaining({
-            event_type: "apple_beta_prompt_eligible",
-            user_id: "new-user-id",
-            metadata: expect.objectContaining({
-              provider: "apple",
-              source: "apple-signin-beta-prompt",
-              device_mode: "desktop_qr",
-              platform_guess: "unknown",
-              destination_url: "https://testflight.apple.com/join/G31D4XW6",
-              prompt_reason: "apple-signin",
-              redirect_path: "/",
-            }),
-          }),
-        }),
-      ])
-    );
-  });
-
-  it("does not set the Apple beta prompt cookie for non-Apple callbacks", async () => {
-    const tables = primeProfileMock();
-
-    const response = await GET(
-      buildCallbackRequest({ code: "abc", redirect: "/" }),
     );
 
     expect(getSetCookie(response)).not.toContain("quiver_ios_beta_prompt=");
@@ -203,7 +171,7 @@ describe("/auth/callback invite_token handoff", () => {
     );
   });
 
-  it("does not set the Apple beta prompt cookie when session exchange fails", async () => {
+  it("does not set a beta handoff cookie when an Apple session exchange fails", async () => {
     (mockSupabaseClient.auth as Record<string, unknown>).exchangeCodeForSession = jest
       .fn()
       .mockResolvedValue({ error: new Error("bad code") });

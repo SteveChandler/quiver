@@ -22,12 +22,12 @@ function cleanThumbnailUrl(url: string | null): string | null {
 
 /**
  * Return public image URLs for beach photos.
- * Fetches from beach_photos table (third-party sources like Openverse, Flickr, etc.)
- * and falls back to session_media if no beach photos are available.
+ * Fetches only approved beach_photos rows. User-uploaded session media must be
+ * promoted into beach_photos by an admin before it can appear in public beach
+ * header or gallery surfaces.
  */
 export async function getBestBeachPhotosAction(beachId: string, limit = DEFAULT_BEACH_PHOTOS_LIMIT) {
   return withDatabaseOperation(async (supabase) => {
-    // First, try to get photos from beach_photos table (third-party sources)
     const { data: beachPhotos, error: beachPhotosError } = await withApprovedPhotos(
       supabase
         .from("beach_photos")
@@ -51,30 +51,6 @@ export async function getBestBeachPhotosAction(beachId: string, limit = DEFAULT_
       return { data: mapped, error: null };
     }
 
-    // Fallback: Try session_media if no beach_photos
-    const { data: sessionMedia, error: sessionError } = await supabase
-      .from("session_media")
-      .select(
-        `id, created_at, storage_path, media_type, session:sessions!inner(id, beach_id)`
-      )
-      .in("media_type", ["photo", "image"])
-      .eq("session.beach_id", beachId)
-      .order("created_at", { ascending: false })
-      .limit(limit);
-
-    if (sessionError) return { data: null, error: sessionError };
-
-    const mapped = (sessionMedia || []).map((row: Pick<Database['public']['Tables']['session_media']['Row'], 'id' | 'created_at' | 'storage_path' | 'media_type'>) => {
-      const { data: pub } = supabase.storage
-        .from("session-media")
-        .getPublicUrl(row.storage_path);
-      return {
-        id: row.id,
-        created_at: row.created_at,
-        public_url: pub.publicUrl,
-      };
-    });
-
-    return { data: mapped, error: null };
+    return { data: [], error: null };
   }, { allowNull: true });
 }

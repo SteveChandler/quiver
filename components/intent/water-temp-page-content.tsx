@@ -6,7 +6,6 @@ import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
-import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 import type { CityWaterTempExpanded } from "@/actions/forecast/intent-forecast-actions";
@@ -20,6 +19,7 @@ import { WaterTempHeroSection } from "./water-temp-hero-section";
 import { MonthlyAveragesChart } from "./monthly-averages-chart";
 import { BeachTempComparison } from "./beach-temp-comparison";
 import { BeachEditorialSection } from "./beach-editorial-section";
+import { UtilitySessionHandoff } from "./utility-session-handoff";
 
 interface WaterTempPageContentProps {
   cityName: string;
@@ -120,36 +120,20 @@ export function WaterTempPageContent({
             cityName={cityName}
           />
 
+          <UtilitySessionHandoff
+            bestTimeToSurfUrl={bestTimeToSurfUrl}
+            cityName={cityName}
+            citySlug={citySlug}
+            intent="water-temp"
+            stateSlug={stateSlug}
+          />
+
           {/* Alert Capture CTA */}
           <AlertCaptureCta
             pageContext="water-temp"
             beachId={spots[0]?.id ?? ""}
             beachName={cityName}
             source={`intent-water-temp-${citySlug}`}
-            className="my-8"
-          />
-
-          <SeoFunnelNextSteps
-            variant="paper"
-            title={`Keep planning ${cityName}`}
-            description={`Water temperature answers the gear question. Use the live spot list, best-window guide, and tide page to pick the actual session.`}
-            steps={[
-              {
-                label: `Check live ${cityName} spots`,
-                href: `/beaches/usa/${stateSlug}/${citySlug}`,
-                description: "See the local breaks and jump into current surf conditions.",
-              },
-              {
-                label: `Find the best surf window`,
-                href: bestTimeToSurfUrl ?? `/best-time-to-surf/${citySlug}`,
-                description: "Match the seasonal call with the days worth watching.",
-              },
-              {
-                label: `Watch the tide window`,
-                href: `/tide/${citySlug}`,
-                description: "Pair the water temperature with the next useful tide shift.",
-              },
-            ]}
             className="my-8"
           />
 

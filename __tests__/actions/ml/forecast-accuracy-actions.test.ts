@@ -12,6 +12,7 @@ describe("forecast accuracy actions", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     jest.spyOn(console, "error").mockImplementation(() => {});
+    jest.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -25,6 +26,7 @@ describe("forecast accuracy actions", () => {
 
     const {
       getDailyAccuracyTimeSeries,
+      getForecastAccuracyReport,
       getOverallAccuracyStats,
       getRegionalAccuracy,
       getTopBeaches,
@@ -34,6 +36,12 @@ describe("forecast accuracy actions", () => {
     await expect(getRegionalAccuracy()).resolves.toEqual([]);
     await expect(getTopBeaches()).resolves.toEqual([]);
     await expect(getDailyAccuracyTimeSeries()).resolves.toEqual([]);
+
+    const report = await getForecastAccuracyReport();
+    expect(report.summary.status).toBe("building");
+    expect(report.summary.canClaimImprovement).toBe(false);
+    expect(report.summary.confidence.label).toBe("Model only");
+    expect(report.buildingRows.length).toBeGreaterThan(0);
   });
 
   it("returns null overall stats when the baseline query fails", async () => {
@@ -118,5 +126,215 @@ describe("forecast accuracy actions", () => {
         predictionsMatched: 24,
       },
     ]);
+  });
+
+  it("builds a live report when validated beach rows are available", async () => {
+    const lastUpdated = new Date().toISOString();
+    const reportBaselineLimit = jest.fn(async () => ({
+      data: [
+        {
+          beach_id: "beach-live",
+          beach_name: "Live Metrics Beach",
+          predictions_total: 80,
+          predictions_matched: 52,
+          raw_mae: 0.5,
+          corrected_mae: 0.35,
+          mae_improvement_pct: 30,
+          last_prediction_at: lastUpdated,
+          period_start: "2026-05-19T00:00:00.000Z",
+          period_end: lastUpdated,
+        },
+        {
+          beach_id: "beach-older-window",
+          beach_name: "Older Window Beach",
+          predictions_total: 20,
+          predictions_matched: 8,
+          raw_mae: 0.6,
+          corrected_mae: 0.48,
+          mae_improvement_pct: 20,
+          last_prediction_at: lastUpdated,
+          period_start: "2026-05-01T00:00:00.000Z",
+          period_end: "2026-05-25T00:00:00.000Z",
+        },
+      ],
+      error: null,
+    }));
+    const reportBaselineOrder = jest.fn(() => ({ limit: reportBaselineLimit }));
+    const reportBaselineGte = jest.fn(() => ({ order: reportBaselineOrder }));
+    const reportBaselineSelect = jest.fn(() => ({ gte: reportBaselineGte }));
+    const reportBeachIn = jest.fn(async () => ({
+      data: [
+        {
+          id: "beach-live",
+          slug: "live-metrics-beach",
+          city: "San Diego",
+          state: "CA",
+          country: "USA",
+        },
+        {
+          id: "beach-older-window",
+          slug: "older-window-beach",
+          city: "Santa Cruz",
+          state: "CA",
+          country: "USA",
+        },
+      ],
+      error: null,
+    }));
+    const reportBeachSelect = jest.fn(() => ({ in: reportBeachIn }));
+    const reportClient = {
+      from: jest
+        .fn()
+        .mockReturnValueOnce({ select: reportBaselineSelect })
+        .mockReturnValueOnce({ select: reportBeachSelect }),
+    };
+    const emptyRegionalClient = {
+      from: jest.fn(() => ({
+        select: jest.fn(() => ({
+          gte: jest.fn(async () => ({ data: [], error: null })),
+        })),
+      })),
+    };
+    const emptyDailyClient = {
+      from: jest.fn(() => ({
+        select: jest.fn(() => ({
+          gt: jest.fn(() => ({
+            gte: jest.fn(() => ({
+              order: jest.fn(async () => ({ data: [], error: null })),
+            })),
+          })),
+        })),
+      })),
+    };
+    mockCreateSupabaseServiceRoleClient
+      .mockReturnValueOnce(reportClient)
+      .mockReturnValueOnce(emptyRegionalClient)
+      .mockReturnValueOnce(emptyDailyClient);
+
+    const { getForecastAccuracyReport } =
+      await import("@/actions/ml/forecast-accuracy-actions");
+
+    const report = await getForecastAccuracyReport();
+
+    expect(report.summary.status).toBe("live");
+    expect(report.summary.canClaimImprovement).toBe(true);
+    expect(report.summary.validatedPairCount).toBe(60);
+    expect(report.summary.confidence.label).toBe("High - buoy + model");
+    expect(report.summary.periodStart).toBe("2026-05-01T00:00:00.000Z");
+    expect(report.summary.periodEnd).toBe(lastUpdated);
+    expect(report.buildingRows).toEqual([]);
+    expect(report.beachRows[0]).toMatchObject({
+      beachId: "beach-live",
+      beachName: "Live Metrics Beach",
+      noaaBaselineMae: 0.5,
+      quiverMae: 0.35,
+      improvementPct: 30,
+      validatedPairCount: 52,
+      lastUpdated,
+      confidence: expect.objectContaining({
+        label: "High - buoy + model",
+      }),
+      canClaimImprovement: true,
+    });
+  });
+
+  it("returns a building report when no qualifying accuracy rows exist", async () => {
+    const reportBaselineLimit = jest.fn(async () => ({
+      data: [],
+      error: null,
+    }));
+    const reportBaselineOrder = jest.fn(() => ({ limit: reportBaselineLimit }));
+    const reportBaselineGte = jest.fn(() => ({ order: reportBaselineOrder }));
+    const reportBaselineSelect = jest.fn(() => ({ gte: reportBaselineGte }));
+
+    mockCreateSupabaseServiceRoleClient.mockReturnValue({
+      from: jest.fn(() => ({ select: reportBaselineSelect })),
+    });
+
+    const { getForecastAccuracyReport } =
+      await import("@/actions/ml/forecast-accuracy-actions");
+
+    const report = await getForecastAccuracyReport();
+
+    expect(report.summary.status).toBe("building");
+    expect(report.summary.canClaimImprovement).toBe(false);
+    expect(report.beachRows).toEqual([]);
+    expect(report.buildingRows).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          confidenceLabel: "Low - sparse data",
+        }),
+        expect.objectContaining({
+          confidenceLabel: "Model only",
+        }),
+      ]),
+    );
+  });
+
+  it("does not allow improvement claims when Quiver MAE is not lower than NOAA", async () => {
+    const lastUpdated = new Date().toISOString();
+    const reportBaselineLimit = jest.fn(async () => ({
+      data: [
+        {
+          beach_id: "beach-negative",
+          beach_name: "Negative Lift Beach",
+          predictions_total: 60,
+          predictions_matched: 40,
+          raw_mae: 0.4,
+          corrected_mae: 0.5,
+          mae_improvement_pct: -25,
+          last_prediction_at: lastUpdated,
+          period_start: "2026-05-19T00:00:00.000Z",
+          period_end: lastUpdated,
+        },
+      ],
+      error: null,
+    }));
+    const reportBaselineOrder = jest.fn(() => ({ limit: reportBaselineLimit }));
+    const reportBaselineGte = jest.fn(() => ({ order: reportBaselineOrder }));
+    const reportBaselineSelect = jest.fn(() => ({ gte: reportBaselineGte }));
+    const reportBeachIn = jest.fn(async () => ({ data: [], error: null }));
+    const reportBeachSelect = jest.fn(() => ({ in: reportBeachIn }));
+    const reportClient = {
+      from: jest
+        .fn()
+        .mockReturnValueOnce({ select: reportBaselineSelect })
+        .mockReturnValueOnce({ select: reportBeachSelect }),
+    };
+    const emptyRegionalClient = {
+      from: jest.fn(() => ({
+        select: jest.fn(() => ({
+          gte: jest.fn(async () => ({ data: [], error: null })),
+        })),
+      })),
+    };
+    const emptyDailyClient = {
+      from: jest.fn(() => ({
+        select: jest.fn(() => ({
+          gt: jest.fn(() => ({
+            gte: jest.fn(() => ({
+              order: jest.fn(async () => ({ data: [], error: null })),
+            })),
+          })),
+        })),
+      })),
+    };
+    mockCreateSupabaseServiceRoleClient
+      .mockReturnValueOnce(reportClient)
+      .mockReturnValueOnce(emptyRegionalClient)
+      .mockReturnValueOnce(emptyDailyClient);
+
+    const { getForecastAccuracyReport } =
+      await import("@/actions/ml/forecast-accuracy-actions");
+
+    const report = await getForecastAccuracyReport();
+
+    expect(report.summary.status).toBe("live");
+    expect(report.summary.canClaimImprovement).toBe(false);
+    expect(report.beachRows[0]).toMatchObject({
+      beachId: "beach-negative",
+      improvementPct: -25,
+      canClaimImprovement: false,
+    });
   });
 });

@@ -13,6 +13,7 @@
  *   "Ocean  Beach" → "ocean beach"
  *   "La Jolla" → "la jolla"
  *   "Swami's" → "swamis"
+ *   "38th Avenue (Santa Cruz)" → "38th avenue santa cruz"
  * 
  * @param text - Text to normalize
  * @returns Normalized text (lowercase, no punctuation, single spaces)
@@ -21,8 +22,8 @@ export function normalizeSearchText(text: string): string {
   return text
     .toLowerCase()
     .trim()
-    // Remove punctuation (apostrophes, hyphens, periods, etc)
-    .replace(/['''`\-\.]/g, '')
+    // Remove punctuation (apostrophes, hyphens, periods, parentheses, etc)
+    .replace(/['‘’`().-]/g, '')
     // Collapse multiple spaces into single space
     .replace(/\s+/g, ' ');
 }
@@ -38,6 +39,12 @@ export const BEACH_ALIASES: Record<string, string> = {
   'ib': 'imperial beach',
   'swamis': 'swamis',
   'windansea': 'windansea beach',
+  'hook': 'the hook',
+  'the hook': 'the hook',
+  'rockview': 'the hook',
+  'rockview santa cruz': 'the hook',
+  'jacks': '38th avenue santa cruz',
+  'jacks santa cruz': '38th avenue santa cruz',
 };
 
 /**
@@ -56,4 +63,3 @@ export function expandSearchWithAliases(query: string): string[] {
   const expansion = BEACH_ALIASES[normalized];
   return expansion ? [normalized, expansion] : [normalized];
 }
-

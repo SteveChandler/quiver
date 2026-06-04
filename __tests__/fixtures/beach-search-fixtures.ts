@@ -76,6 +76,30 @@ export const beachScrippsPier = makeBeach({
   state: "CA",
 });
 
+export const beachTheHook = makeBeach({
+  id: "beach-the-hook",
+  name: "The Hook",
+  slug: "the-hook-santa-cruz-ca",
+  city: "Santa Cruz",
+  state: "CA",
+});
+
+export const beachSandyHook = makeBeach({
+  id: "beach-sandy-hook",
+  name: "Sandy Hook",
+  slug: "sandy-hook-sandy-hook-nj",
+  city: "Sandy Hook",
+  state: "NJ",
+});
+
+export const beachThirtyEighthAvenue = makeBeach({
+  id: "beach-38th-avenue",
+  name: "38th Avenue (Santa Cruz)",
+  slug: "38th-avenue-santa-cruz-ca",
+  city: "Santa Cruz",
+  state: "CA",
+});
+
 export const beachHuntington = makeBeach({
   id: "beach-huntington",
   name: "Huntington Beach",
@@ -92,9 +116,11 @@ export const beachesSearchFixture: Beach[] = [
   beachOceanBeach,
   beachLaJollaShores,
   beachScrippsPier,
+  beachTheHook,
+  beachSandyHook,
+  beachThirtyEighthAvenue,
   beachHuntington,
 ];
-
 
 
 

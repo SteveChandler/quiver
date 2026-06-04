@@ -323,7 +323,7 @@ export const GET = withAuth(handler);
 **Invocation & Security**:
 
 - Triggered exclusively via Vercel Cron as configured in `vercel.json`
-- Authorization uses centralized validator `validateCronRequest(request)` from `lib/api-utils.ts`
+- Authorization uses centralized validator `validateCronRequest(request)` from `@/lib/middleware/api-wrappers`
   - Accepts `x-vercel-cron` header (added by Vercel) OR `Authorization: Bearer <CRON_SECRET>`
   - Keep `CRON_SECRET` in Vercel env if you need to trigger manually
 
@@ -769,7 +769,7 @@ import {
   createValidationError,
   createAuthError,
   handleApiError,
-} from "@/lib/api-utils";
+} from "@/lib/middleware/api-wrappers";
 ```
 
 #### Error Categories

@@ -15,6 +15,7 @@ import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import { BeginnerHero } from "./BeginnerHero";
 import { RightNowConditions } from "./RightNowConditions";
+import { BeginnerSessionDecision } from "./beginner-session-decision";
 import { BeginnerSpotList } from "./BeginnerSpotList";
 import { WhatToExpect } from "./WhatToExpect";
 import { SeasonalGuide } from "./SeasonalGuide";
@@ -110,6 +111,18 @@ export function BeginnerPageContent({
           {rightNowConditions && (
             <SectionFadeUp delay={0.1}>
               <RightNowConditions conditions={rightNowConditions} />
+            </SectionFadeUp>
+          )}
+
+          {rightNowConditions && (
+            <SectionFadeUp delay={0.12}>
+              <BeginnerSessionDecision
+                bestTimeToSurfUrl={bestTimeToSurfUrl}
+                cityName={cityName}
+                citySlug={citySlug}
+                conditions={rightNowConditions}
+                stateSlug={stateSlug}
+              />
             </SectionFadeUp>
           )}
 

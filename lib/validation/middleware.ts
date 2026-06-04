@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createValidationError } from '@/lib/api-utils';
+import { createValidationError } from '@/lib/middleware/api-wrappers';
 
 /**
  * Validates that the request has the correct Content-Type header for JSON

@@ -17,12 +17,23 @@ import { NextRequest } from "next/server";
 // Mock createSupabaseServerClient before imports
 const mockFrom = jest.fn();
 const mockAuthGetUser = jest.fn();
+const mockStorageUpload = jest.fn();
+const mockStorageGetPublicUrl = jest.fn();
+const mockStorageRemove = jest.fn();
+const mockStorageFrom = jest.fn(() => ({
+  upload: mockStorageUpload,
+  getPublicUrl: mockStorageGetPublicUrl,
+  remove: mockStorageRemove,
+}));
 
 const mockSupabaseClient = {
   auth: {
     getUser: mockAuthGetUser,
   },
   from: mockFrom,
+  storage: {
+    from: mockStorageFrom,
+  },
 };
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -72,8 +83,37 @@ jest.mock("@/lib/supabase/storage", () => ({
 }));
 
 // Import route handlers after mocks are set up
-import { GET } from "@/app/api/sessions/[id]/photos/route";
+import { GET, POST } from "@/app/api/sessions/[id]/photos/route";
 import { getSessionPhotos as mockGetSessionPhotos } from "@/lib/supabase/storage";
+
+function createPhotoForm(files: File[]): FormData {
+  const formData = new FormData();
+  files.forEach((file) => formData.append("photos", file));
+  return formData;
+}
+
+function createImageFile(
+  name = "session.jpg",
+  type = "image/jpeg",
+  size = 1024
+): File {
+  return new File([new Uint8Array(size)], name, { type });
+}
+
+function createResolvedChain(result: unknown) {
+  const chain: any = {
+    select: jest.fn().mockReturnThis(),
+    insert: jest.fn().mockReturnThis(),
+    update: jest.fn().mockReturnThis(),
+    delete: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    in: jest.fn().mockReturnThis(),
+    is: jest.fn().mockReturnThis(),
+    single: jest.fn().mockResolvedValue(result),
+    then: jest.fn((onResolve: any) => onResolve(result)),
+  };
+  return chain;
+}
 
 describe("GET /api/sessions/[id]/photos", () => {
   const validSessionId = "123e4567-e89b-12d3-a456-426614174000";
@@ -692,6 +732,439 @@ describe("GET /api/sessions/[id]/photos", () => {
       // Should handle gracefully (likely 403 or error)
       expect([403, 500]).toContain(response.status);
       expect(data.success).toBe(false);
+    });
+  });
+
+  describe("POST /api/sessions/[id]/photos", () => {
+    beforeEach(() => {
+      mockStorageUpload.mockResolvedValue({
+        data: { path: `${validSessionId}/${sessionOwnerId}/1700000000000-0.jpg` },
+        error: null,
+      });
+      mockStorageGetPublicUrl.mockReturnValue({
+        data: {
+          publicUrl:
+            "https://vawdnbbgawichorsjiwe.supabase.co/storage/v1/object/public/session-media/photo.jpg",
+        },
+      });
+      mockStorageRemove.mockResolvedValue({ data: [], error: null });
+    });
+
+    it("requires authentication for native photo uploads", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: null },
+        error: new Error("Not authenticated"),
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/photos`,
+        {
+          method: "POST",
+          body: createPhotoForm([createImageFile()]) as any,
+        }
+      );
+
+      const response = await POST(request, {
+        params: Promise.resolve({ id: validSessionId }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(401);
+      expect(data.success).toBe(false);
+      expect(mockStorageUpload).not.toHaveBeenCalled();
+    });
+
+    it("rejects invalid session ids before reading multipart data", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: sessionOwnerId, email: "owner@example.com" } },
+        error: null,
+      });
+
+      const request = new NextRequest(
+        "http://localhost:3000/api/sessions/not-a-uuid/photos",
+        {
+          method: "POST",
+          body: createPhotoForm([createImageFile()]) as any,
+        }
+      );
+
+      const response = await POST(request, {
+        params: Promise.resolve({ id: "not-a-uuid" }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.details).toEqual({
+        stage: "validation",
+        error_code: "invalid_session_id",
+      });
+      expect(mockFrom).not.toHaveBeenCalled();
+    });
+
+    it("rejects empty multipart uploads", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: sessionOwnerId, email: "owner@example.com" } },
+        error: null,
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/photos`,
+        {
+          method: "POST",
+          body: createPhotoForm([]) as any,
+        }
+      );
+
+      const response = await POST(request, {
+        params: Promise.resolve({ id: validSessionId }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.details).toEqual({
+        stage: "validation",
+        error_code: "no_photos",
+      });
+      expect(mockStorageUpload).not.toHaveBeenCalled();
+    });
+
+    it("rejects unsupported photo MIME types", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: sessionOwnerId, email: "owner@example.com" } },
+        error: null,
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/photos`,
+        {
+          method: "POST",
+          body: createPhotoForm([createImageFile("notes.txt", "text/plain")]) as any,
+        }
+      );
+
+      const response = await POST(request, {
+        params: Promise.resolve({ id: validSessionId }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.details).toEqual({
+        stage: "validation",
+        error_code: "invalid_file_type",
+      });
+      expect(mockStorageUpload).not.toHaveBeenCalled();
+    });
+
+    it("rejects oversized photo files", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: sessionOwnerId, email: "owner@example.com" } },
+        error: null,
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/photos`,
+        {
+          method: "POST",
+          body: createPhotoForm([
+            createImageFile("huge.jpg", "image/jpeg", 10 * 1024 * 1024 + 1),
+          ]) as any,
+        }
+      );
+
+      const response = await POST(request, {
+        params: Promise.resolve({ id: validSessionId }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.details).toEqual({
+        stage: "validation",
+        error_code: "file_too_large",
+      });
+      expect(mockStorageUpload).not.toHaveBeenCalled();
+    });
+
+    it("rejects uploads that would exceed five photos on the session", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: sessionOwnerId, email: "owner@example.com" } },
+        error: null,
+      });
+
+      const sessionChain = createResolvedChain({
+        data: {
+          id: validSessionId,
+          user_id: sessionOwnerId,
+          image_url: null,
+        },
+        error: null,
+      });
+      const existingMediaChain = createResolvedChain({
+        data: [{ id: "existing-1" }, { id: "existing-2" }],
+        error: null,
+      });
+      const sessionChains = [sessionChain];
+      const mediaChains = [existingMediaChain];
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "sessions") return sessionChains.shift();
+        if (table === "session_media") return mediaChains.shift();
+        throw new Error(`Unexpected table ${table}`);
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/photos`,
+        {
+          method: "POST",
+          body: createPhotoForm([
+            createImageFile("1.jpg"),
+            createImageFile("2.jpg"),
+            createImageFile("3.jpg"),
+            createImageFile("4.jpg"),
+          ]) as any,
+        }
+      );
+
+      const response = await POST(request, {
+        params: Promise.resolve({ id: validSessionId }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.details).toEqual({
+        stage: "validation",
+        error_code: "too_many_photos",
+      });
+      expect(mockStorageUpload).not.toHaveBeenCalled();
+    });
+
+    it("rejects non-owner uploads to private sessions", async () => {
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: otherUserId, email: "other@example.com" } },
+        error: null,
+      });
+
+      const sessionChain = createResolvedChain({
+        data: {
+          id: validSessionId,
+          user_id: sessionOwnerId,
+          image_url: null,
+        },
+        error: null,
+      });
+      mockFrom.mockReturnValue(sessionChain);
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/photos`,
+        {
+          method: "POST",
+          body: createPhotoForm([createImageFile()]) as any,
+        }
+      );
+
+      const response = await POST(request, {
+        params: Promise.resolve({ id: validSessionId }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(data.error).toBe("Forbidden");
+      expect(mockStorageUpload).not.toHaveBeenCalled();
+    });
+
+    it("uploads photos, inserts session_media, and attaches the first photo as hero image", async () => {
+      const nowSpy = jest.spyOn(Date, "now").mockReturnValue(1700000000000);
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: sessionOwnerId, email: "owner@example.com" } },
+        error: null,
+      });
+
+      const sessionChain = createResolvedChain({
+        data: {
+          id: validSessionId,
+          user_id: sessionOwnerId,
+          image_url: null,
+        },
+        error: null,
+      });
+      const existingMediaChain = createResolvedChain({ data: [], error: null });
+      const mediaInsertChain = createResolvedChain({
+        data: [
+          {
+            id: "media-1",
+            public_url:
+              "https://vawdnbbgawichorsjiwe.supabase.co/storage/v1/object/public/session-media/photo.jpg",
+            storage_path: `${validSessionId}/${sessionOwnerId}/1700000000000-0.jpg`,
+            file_size: 1024,
+            media_type: "photo",
+          },
+        ],
+        error: null,
+      });
+      const sessionUpdateChain = createResolvedChain({ data: [], error: null });
+      const sessionChains = [sessionChain, sessionUpdateChain];
+      const mediaChains = [existingMediaChain, mediaInsertChain];
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "sessions") return sessionChains.shift();
+        if (table === "session_media") return mediaChains.shift();
+        throw new Error(`Unexpected table ${table}`);
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/photos`,
+        {
+          method: "POST",
+          body: createPhotoForm([createImageFile()]) as any,
+        }
+      );
+
+      const response = await POST(request, {
+        params: Promise.resolve({ id: validSessionId }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.uploaded_count).toBe(1);
+      expect(data.data.hero_attached).toBe(true);
+      expect(data.data.photos[0]).toMatchObject({
+        id: "media-1",
+        storage_path: `${validSessionId}/${sessionOwnerId}/1700000000000-0.jpg`,
+        file_size: 1024,
+        media_type: "photo",
+      });
+      expect(mockStorageFrom).toHaveBeenCalledWith("session-media");
+      expect(mockStorageUpload).toHaveBeenCalledWith(
+        `${validSessionId}/${sessionOwnerId}/1700000000000-0.jpg`,
+        expect.any(File),
+        {
+          cacheControl: "3600",
+          contentType: "image/jpeg",
+          upsert: false,
+        }
+      );
+      expect(mediaInsertChain.insert).toHaveBeenCalledWith([
+        expect.objectContaining({
+          session_id: validSessionId,
+          user_id: sessionOwnerId,
+          storage_path: `${validSessionId}/${sessionOwnerId}/1700000000000-0.jpg`,
+          file_size: 1024,
+          media_type: "photo",
+        }),
+      ]);
+      expect(sessionUpdateChain.update).toHaveBeenCalledWith({
+        image_url:
+          "https://vawdnbbgawichorsjiwe.supabase.co/storage/v1/object/public/session-media/photo.jpg",
+      });
+
+      nowSpy.mockRestore();
+    });
+
+    it("does not overwrite an existing session hero image", async () => {
+      const nowSpy = jest.spyOn(Date, "now").mockReturnValue(1700000000000);
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: sessionOwnerId, email: "owner@example.com" } },
+        error: null,
+      });
+
+      const sessionChain = createResolvedChain({
+        data: {
+          id: validSessionId,
+          user_id: sessionOwnerId,
+          image_url: "https://example.com/existing.jpg",
+        },
+        error: null,
+      });
+      const existingMediaChain = createResolvedChain({ data: [], error: null });
+      const mediaInsertChain = createResolvedChain({
+        data: [
+          {
+            id: "media-1",
+            public_url:
+              "https://vawdnbbgawichorsjiwe.supabase.co/storage/v1/object/public/session-media/photo.jpg",
+            storage_path: `${validSessionId}/${sessionOwnerId}/1700000000000-0.jpg`,
+            file_size: 1024,
+            media_type: "photo",
+          },
+        ],
+        error: null,
+      });
+      const sessionUpdateChain = createResolvedChain({ data: [], error: null });
+      const mediaChains = [existingMediaChain, mediaInsertChain];
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "sessions") return sessionChain;
+        if (table === "session_media") return mediaChains.shift();
+        throw new Error(`Unexpected table ${table}`);
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/photos`,
+        {
+          method: "POST",
+          body: createPhotoForm([createImageFile()]) as any,
+        }
+      );
+
+      const response = await POST(request, {
+        params: Promise.resolve({ id: validSessionId }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(data.data.hero_attached).toBe(false);
+      expect(sessionUpdateChain.update).not.toHaveBeenCalled();
+
+      nowSpy.mockRestore();
+    });
+
+    it("cleans up uploaded storage objects when session_media insert fails", async () => {
+      const nowSpy = jest.spyOn(Date, "now").mockReturnValue(1700000000000);
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: { id: sessionOwnerId, email: "owner@example.com" } },
+        error: null,
+      });
+
+      const sessionChain = createResolvedChain({
+        data: {
+          id: validSessionId,
+          user_id: sessionOwnerId,
+          image_url: null,
+        },
+        error: null,
+      });
+      const existingMediaChain = createResolvedChain({ data: [], error: null });
+      const mediaInsertChain = createResolvedChain({
+        data: null,
+        error: { message: "new row violates row-level security policy" },
+      });
+      const sessionChains = [sessionChain];
+      const mediaChains = [existingMediaChain, mediaInsertChain];
+      mockFrom.mockImplementation((table: string) => {
+        if (table === "sessions") return sessionChains.shift();
+        if (table === "session_media") return mediaChains.shift();
+        throw new Error(`Unexpected table ${table}`);
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/photos`,
+        {
+          method: "POST",
+          body: createPhotoForm([createImageFile()]) as any,
+        }
+      );
+
+      const response = await POST(request, {
+        params: Promise.resolve({ id: validSessionId }),
+      });
+      const data = await response.json();
+
+      expect(response.status).toBe(502);
+      expect(data.details).toEqual({
+        stage: "media_insert",
+        error_code: "media_insert_failed",
+      });
+      expect(mockStorageRemove).toHaveBeenCalledWith([
+        `${validSessionId}/${sessionOwnerId}/1700000000000-0.jpg`,
+      ]);
+
+      nowSpy.mockRestore();
     });
   });
 });

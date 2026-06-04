@@ -13,11 +13,22 @@ const EXTERNAL_IMAGE_PATTERNS = [
   "wp.com",
 ];
 
+function isImageProxyUrl(url: string): boolean {
+  if (url.startsWith("/api/image-proxy")) return true;
+
+  try {
+    return new URL(url).pathname === "/api/image-proxy";
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Checks if a URL should be proxied through our image proxy API
  */
 function shouldProxyImage(url: string): boolean {
   if (!url) return false;
+  if (isImageProxyUrl(url)) return false;
   return EXTERNAL_IMAGE_PATTERNS.some((pattern) => url.includes(pattern));
 }
 

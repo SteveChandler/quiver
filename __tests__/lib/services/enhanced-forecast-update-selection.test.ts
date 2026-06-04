@@ -289,4 +289,78 @@ describe("EnhancedForecastService.updateAllEnhancedForecasts selection", () => {
     });
     expect(anchorByBeach["b-no-anchor"]).toBeNull();
   });
+
+  it("updateCdipEnhancedForecasts() fetches and passes South OC/SanO validation snapshot per beach", async () => {
+    const allBeaches = [
+      { ...makeBeach("b-shadow", "South OC shadow"), cdip_eligible: true },
+    ];
+    const latestRows = [
+      { beach_id: "b-shadow", updated_at: "2025-12-11T08:00:00Z", data_source: "CDIP" },
+    ];
+    const validationSnapshot = {
+      zone: "south_oc_sano_shadow_zone",
+      observedAtMs: Date.parse("2025-12-11T12:00:00Z"),
+      observations: [],
+      confirmedNearshore: null,
+      offshoreContext: null,
+    };
+    const fetchValidationSnapshot = jest.fn().mockResolvedValue(validationSnapshot);
+
+    jest.doMock("@/lib/services/forecast/south-oc-sano-shadow-guardrail", () => ({
+      ...jest.requireActual("@/lib/services/forecast/south-oc-sano-shadow-guardrail"),
+      fetchSouthOcSanoShadowZoneSnapshot: fetchValidationSnapshot,
+    }));
+
+    const mockSupabase = {
+      from: (table: string) => {
+        if (table === "beaches") {
+          return {
+            select: () => ({
+              eq: (column: string, value: boolean) =>
+                column === "cdip_eligible" && value === true
+                  ? Promise.resolve({ data: allBeaches.filter((b) => b.cdip_eligible), error: null })
+                  : Promise.resolve({ data: allBeaches, error: null }),
+            }),
+          };
+        }
+        if (table === "v_enhanced_forecast_latest") {
+          return { select: () => Promise.resolve({ data: latestRows, error: null }) };
+        }
+        throw new Error(`Unexpected table: ${table}`);
+      },
+      rpc: () => Promise.resolve({ data: [], error: null }),
+    };
+
+    jest.doMock("@/lib/supabase/server", () => ({
+      createSupabaseServiceRoleClient: async () => mockSupabase,
+    }));
+
+    const { EnhancedForecastService: Service } = await import(
+      "@/lib/services/enhanced-forecast-service"
+    );
+    const service = new Service() as any;
+
+    process.env.FORECAST_CDIP_FRESHNESS_WINDOW_HOURS = "2";
+    process.env.FORECAST_CDIP_MAX_BEACHES_PER_RUN = "10";
+
+    const snapshotByBeach: Record<string, unknown> = {};
+    jest
+      .spyOn(service, "generateComprehensiveForecastWithDiagnostics")
+      .mockImplementation(async (beach: any, _anchor: any, snapshot: any) => {
+        snapshotByBeach[beach.id] = snapshot;
+        return {
+          forecasts: [],
+          cdip: { stationId: null, skipReason: "no_station" },
+        };
+      });
+    jest.spyOn(service, "storeEnhancedForecasts").mockResolvedValue({ success: true });
+    jest.spyOn(service, "prefetchTideStations").mockResolvedValue(undefined);
+
+    const run = service.updateCdipEnhancedForecasts();
+    await jest.runAllTimersAsync();
+    await run;
+
+    expect(fetchValidationSnapshot).toHaveBeenCalledTimes(1);
+    expect(snapshotByBeach["b-shadow"]).toBe(validationSnapshot);
+  });
 });

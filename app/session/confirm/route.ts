@@ -11,7 +11,7 @@ import { NextRequest } from 'next/server';
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { renderEmailActionPage } from '@/lib/email/html-response';
 import { verifyEmailActionToken } from '@/lib/email/verify-email-action';
-import { isValidUuid } from '@/lib/api-utils';
+import { isValidUuid } from '@/lib/middleware/api-wrappers';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;

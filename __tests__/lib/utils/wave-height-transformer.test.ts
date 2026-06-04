@@ -589,6 +589,31 @@ describe('Wave Height Transformer', () => {
         ).toBe(4.2);
       });
 
+      it('should allow guarded nowcast anchors to use calibrated shoaling buckets', () => {
+        const result = transformToFaceHeight({
+          rawHeightFt: 2.0,
+          periodS: 14,
+          swellDirectionDeg: null,
+          beach: { shoaling_factors: blacksFactors },
+          source: 'nowcast_anchor',
+          allowCalibratedShoaling: true,
+        });
+
+        expect(result).toBe(4.2);
+      });
+
+      it('should keep regular nowcast anchors on the generic path without explicit opt-in', () => {
+        const result = transformToFaceHeight({
+          rawHeightFt: 2.0,
+          periodS: 14,
+          swellDirectionDeg: null,
+          beach: { shoaling_factors: blacksFactors },
+          source: 'nowcast_anchor',
+        });
+
+        expect(result).toBe(2.4);
+      });
+
       it('should SKIP short-circuit when source is omitted (safe default)', () => {
         // Defensive: if a caller forgets to pass source, the short-circuit
         // must not fire. Undefined is treated as non-cdip — the transformer
@@ -1589,6 +1614,20 @@ describe('Wave Height Transformer', () => {
           source: 'cdip_sig',
         });
         // No decay for CDIP: 3.1 * 1.0 * 1.15 * 1.0 = 3.565 → 3.6
+        expect(result).toBeCloseTo(3.6, 1);
+      });
+
+      it('does NOT apply decay to nowcast anchors in legacy scalar path', () => {
+        const result = transformToFaceHeight({
+          rawHeightFt: 3.1,
+          periodS: 13,
+          swellDirectionDeg: null,
+          beach: {
+            deepwater_decay_factor: 0.4,
+          },
+          source: 'nowcast_anchor',
+        });
+
         expect(result).toBeCloseTo(3.6, 1);
       });
 

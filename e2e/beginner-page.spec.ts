@@ -212,8 +212,9 @@ test.describe("Beginner SEO funnel pages", () => {
 
       const schemaTypes = await getJsonLdTypes(page);
       expect(Array.from(schemaTypes)).toEqual(
-        expect.arrayContaining(["BreadcrumbList", "WebPage", "ItemList", "FAQPage"]),
+        expect.arrayContaining(["BreadcrumbList", "WebPage", "ItemList"]),
       );
+      expect(schemaTypes.has("FAQPage")).toBe(false);
 
       await scrollPageToLoadImages(page);
       await expect.poll(() => getBrokenImages(page)).toEqual([]);

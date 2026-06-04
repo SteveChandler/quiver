@@ -1,11 +1,15 @@
 import {
+  ANDROID_BETA_CONTACT_EMAIL,
+  ANDROID_BETA_CONTACT_MAILTO,
+  ANDROID_BETA_GROUP_URL,
+  ANDROID_BETA_LANDING_PATH,
+  ANDROID_BETA_LANDING_URL,
+  ANDROID_BETA_PLAY_URL,
   IOS_APP_STORE_APP_ID,
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_DESTINATION_STATUS,
   IOS_APP_STORE_SMART_BANNER_ARGUMENT,
   IOS_APP_STORE_URL,
-  IOS_TESTFLIGHT_BETA_CTA,
-  IOS_TESTFLIGHT_BETA_URL,
 } from "@/lib/constants/app-store";
 
 describe("app-store constants", () => {
@@ -19,13 +23,19 @@ describe("app-store constants", () => {
     expect(IOS_APP_STORE_CTA).not.toMatch(/download|pre[- ]?order/i);
   });
 
-  it("keeps smart banner and TestFlight destinations separate", () => {
+  it("keeps smart banner and Android beta destinations separate", () => {
     expect(IOS_APP_STORE_SMART_BANNER_ARGUMENT).toBe(
       "https://www.quiversurf.app",
     );
-    expect(IOS_TESTFLIGHT_BETA_URL).toBe(
-      "https://testflight.apple.com/join/G31D4XW6",
+    expect(ANDROID_BETA_LANDING_PATH).toBe("/android-beta");
+    expect(ANDROID_BETA_LANDING_URL).toBe(
+      "https://www.quiversurf.app/android-beta",
     );
-    expect(IOS_TESTFLIGHT_BETA_CTA).toBe("Join the Quiver iOS beta");
+    expect(ANDROID_BETA_GROUP_URL).toBe(
+      "https://groups.google.com/g/quiver-android-testers",
+    );
+    expect(ANDROID_BETA_CONTACT_EMAIL).toBe("steven@quiversurf.app");
+    expect(ANDROID_BETA_CONTACT_MAILTO).toBe("mailto:steven@quiversurf.app");
+    expect(ANDROID_BETA_PLAY_URL).toBeNull();
   });
 });

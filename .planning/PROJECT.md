@@ -10,7 +10,7 @@ Status: Active
 Last compressed: 2026-05-31
 Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/PROJECT-full-history.md](archive/2026-05-31-doc-cleanup/PROJECT-full-history.md)
 
-The public launch packaging work is complete through Sentry observability rollout. The current focus is controlled refactor completion, tracked in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
+The public launch packaging work is complete through Sentry observability rollout. The controlled refactor checkpoint in Phase 13 is complete and tracked in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 
 ## Active Requirements
 
@@ -18,13 +18,13 @@ The public launch packaging work is complete through Sentry observability rollou
 - Keep pricing/founding copy waitlist-safe until purchase and entitlement release gates are proven.
 - Use Brand-Vault as the first source for launch visuals and campaign assets.
 - Keep all outbound, deploy, production mutation, and payment actions approval-gated.
-- Continue Phase 13 refactor work in small, behavior-preserving, test-backed slices.
+- Preserve Phase 13 validation evidence and approval gates.
 
 ## Open Gaps
 
 - Public pay scale and lifetime purchase details remain blocked until payment release gates are verified.
 - Production deploy/alias promotion and outbound launch actions remain explicit-approval items.
-- Phase 13 detailed planning is still pending.
+- Future candidates include wrapper-internal helper collapse and the documented `social_share` taxonomy gap.
 
 ## Decisions Already Made
 
@@ -37,10 +37,11 @@ The public launch packaging work is complete through Sentry observability rollou
 - Launch reporting uses existing event primitives rather than new launch-only event names.
 - App Store/TestFlight truth is a live report input and must be checked before public claims.
 - Public go-live requires an approved deploy after local verification.
+- Remaining production `@/lib/api-utils` imports outside wrapper internals were closed in Phase 13.
 
 ## Next Actions
 
-- Use [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) as the active Phase 13 work plan.
+- Review Phase 13 results or select the next future phase.
 - Keep this project summary updated only when the campaign objective, constraints, or approval gates change.
 
 ## Historical Notes

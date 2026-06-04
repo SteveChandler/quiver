@@ -7,7 +7,7 @@
 
 import { getConditionBoardPick } from '@/lib/scoring/board-pick';
 import type { BoardForPick } from '@/lib/scoring/board-pick';
-import type { ForecastForScoring } from '@/lib/scoring/types';
+import type { BeachWithThresholds, ForecastForScoring } from '@/lib/scoring/types';
 
 // Full quiver fixture
 const mockBoards: BoardForPick[] = [
@@ -21,7 +21,8 @@ const mockBoards: BoardForPick[] = [
 function makeForecast(
   waveHeight: number,
   windSpeed: number,
-  windDirection: number = 90 // 90 = offshore for standard beach
+  windDirection: number = 90, // 90 = offshore for standard beach
+  overrides: Partial<ForecastForScoring> = {}
 ): ForecastForScoring {
   return {
     forecastTime: new Date('2026-03-25T08:00:00Z'),
@@ -31,7 +32,17 @@ function makeForecast(
     windDirection,
     tideHeight: 3.0,
     tideStatus: 'rising',
+    ...overrides,
   };
+}
+
+function makeBeach(slug: string): BeachWithThresholds {
+  return {
+    id: `beach-${slug}`,
+    name: slug,
+    slug,
+    wind_offshore_deg: 90,
+  } as BeachWithThresholds;
 }
 
 // Clean = offshore wind (windDirection=90, low speed)
@@ -224,8 +235,8 @@ describe('getConditionBoardPick', () => {
       const result = getConditionBoardPick(forecast, boards);
 
       expect(result).not.toBeNull();
-      expect(result!.reason).toBeTruthy();
-      expect(typeof result!.reason).toBe('string');
+      expect(result!.reason).toEqual(expect.any(String));
+      expect(result!.reason.length).toBeGreaterThan(0);
     });
 
     it('result includes boardId, boardName, boardType, reason', () => {
@@ -240,7 +251,8 @@ describe('getConditionBoardPick', () => {
       expect(result!.boardId).toBe('sb-1');
       expect(result!.boardName).toBe("5'10 Lost Driver");
       expect(result!.boardType).toBe('shortboard');
-      expect(result!.reason).toBeTruthy();
+      expect(result!.reason).toEqual(expect.any(String));
+      expect(result!.reason.length).toBeGreaterThan(0);
     });
 
     it('returns null for conditions that are not rideable (score 0, skip conditions)', () => {
@@ -256,6 +268,86 @@ describe('getConditionBoardPick', () => {
       // This is intentional: board pick is about WHICH board, not WHETHER to surf
       const result = getConditionBoardPick(forecast, boards);
       expect(result).not.toBeNull();
+    });
+  });
+
+  describe('South OC/SanO power-day board protection', () => {
+    const powerDay = makeForecast(3.2, 4, 90, {
+      wavePeriod: 17,
+      swellDirection: 203,
+    });
+
+    it('blocks Lowers small-wave boards and recommends a shortboard when available', () => {
+      const boards = [
+        { id: 'lb-1', name: "9'0 Longboard", board_type: 'longboard', volume: 75 },
+        { id: 'fb-1', name: "7'0 Funboard", board_type: 'funboard', volume: 50 },
+        { id: 'sb-1', name: "5'10 Driver", board_type: 'shortboard', volume: 28 },
+      ];
+
+      const result = getConditionBoardPick(powerDay, boards, makeBeach('lower-trestles'));
+
+      expect(result).not.toBeNull();
+      expect(result!.boardType).toBe('shortboard');
+    });
+
+    it('returns null for Lowers when the quiver only has blocked small-wave boards', () => {
+      const boards = [
+        { id: 'lb-1', name: "9'0 Longboard", board_type: 'longboard', volume: 75 },
+        { id: 'sf-1', name: "8'0 Softboard", board_type: 'softboard', volume: 80 },
+      ];
+
+      const result = getConditionBoardPick(powerDay, boards, makeBeach('lower-trestles'));
+
+      expect(result).toBeNull();
+    });
+
+    it('allows Church funboards below 4ft face height but blocks them at 4ft+', () => {
+      const boards = [
+        { id: 'fb-1', name: "7'0 Funboard", board_type: 'funboard', volume: 50 },
+        { id: 'lb-1', name: "9'0 Longboard", board_type: 'longboard', volume: 75 },
+      ];
+
+      const belowFour = getConditionBoardPick(powerDay, boards, makeBeach('church'));
+      const atFourPlus = getConditionBoardPick(
+        { ...powerDay, waveHeight: 4.1 },
+        boards,
+        makeBeach('church'),
+      );
+
+      expect(belowFour).not.toBeNull();
+      expect(belowFour!.boardType).toBe('funboard');
+      expect(atFourPlus).toBeNull();
+    });
+
+    it('blocks Church softboard, foil, SUP, groveler, and small-wave labels on confirmed power days', () => {
+      const boards = [
+        { id: 'gr-1', name: "5'6 Groveler", board_type: 'groveler', volume: 35 },
+        { id: 'sw-1', name: "Small Wave Twin", board_type: 'small-wave', volume: 34 },
+        { id: 'sup-1', name: "SUP", board_type: 'sup', volume: 120 },
+      ];
+
+      const result = getConditionBoardPick(powerDay, boards, makeBeach('church'));
+
+      expect(result).toBeNull();
+    });
+
+    it('uses guardrail provenance when the stored base model period/direction would not qualify', () => {
+      const boards = [
+        { id: 'lb-1', name: "9'0 Longboard", board_type: 'longboard', volume: 75 },
+      ];
+      const forecast = makeForecast(5.2, 4, 90, {
+        wavePeriod: 8,
+        swellDirection: 270,
+        southOcSanoGuardrail: {
+          branch: 'trestles_calibrated_anchor',
+          confirmedPeriodS: 17,
+          confirmedDirectionDeg: 203,
+        },
+      });
+
+      const result = getConditionBoardPick(forecast, boards, makeBeach('lower-trestles'));
+
+      expect(result).toBeNull();
     });
   });
 });

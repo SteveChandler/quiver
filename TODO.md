@@ -1,5 +1,34 @@
 # TODO
 
+## Analytics And Funnel Follow-Ups
+
+- [ ] Add explicit first-touch signup channel capture.
+  - Capture `signup_channel` as a stable enum such as `web_app`, `ios_app`, `android_app`, `app_store_native`, or `unknown`.
+  - Also capture first-touch platform, app build/version when native, landing path, referrer, UTM fields, and attribution source such as web auth, native auth, Smart App Banner, App Store CTA, or later device registration.
+  - Use this to answer whether new signups are coming mostly from App Store/native app or web without inferring from device rows after the fact.
+
+- [ ] Canonicalize signup CTA page and source metadata.
+  - Every `signup_cta_view` and `signup_cta_click` should carry canonical `page`, `pathname`, `surface`, raw `source`, normalized `source_group`, `cta_type`, and `cta_copy_variant`.
+  - Fix cases where CTA clicks must be joined to the nearest `page_view` to infer the page.
+  - Audit known mismatches: `beach-alert-cta` reporting `surface='beach-detail'` near landing-page views, and `state-hub-ca` clicks reporting `surface='other'`.
+
+- [ ] Clean PostHog web navigation instrumentation.
+  - Decide whether Quiver should use custom `page_view`, PostHog `$pageview`, or both; avoid double-counting.
+  - Remove or explain `(unknown)` paths before building a sticky-parts dashboard.
+  - Ensure core web events consistently include `pathname`, `page`, `$session_id`, visitor type, and product surface.
+
+- [ ] Build a sticky-parts readout for web behavior.
+  - Segment anonymous vs identified users.
+  - Report repeat usage and downstream behavior for home, map, beach detail, water-temp, tide, forecast, cam, and SEO funnel pages.
+  - Treat one-person power-user loops separately from broad anonymous traffic.
+  - Lead with product loops: home -> map -> beach detail -> forecast details -> nearby spots.
+
+- [ ] Improve cam funnel attribution.
+  - Track `/cams` and `/surf-cams/...` as separate acquisition/product families.
+  - Attribute cam-page CTA views, clicks, auth opens, signups, beach views, map interactions, and forecast interactions with a stable `source_group`.
+  - Add reliable next-path attribution so cam sessions can be evaluated without fragile session/path joins.
+  - Use the current read as baseline: cam pages show engagement into beach/forecast/map behavior, but traffic is too low to call acquisition proven.
+
 ## Forecast Trust Follow-Ups
 
 - [ ] Draft a forecast-literacy guide.

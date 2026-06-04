@@ -170,6 +170,52 @@ describe('toForecastForScoring', () => {
     expect(toForecastForScoring(withoutSuffix as EnhancedForecastEntity).wavePeriod).toBe(14);
   });
 
+  it('carries South OC/SanO guardrail confirmation for downstream board picks', () => {
+    const forecast: Partial<EnhancedForecastEntity> = {
+      forecast_at: '2026-06-02T18:00:00Z',
+      forecast_date: '2026-06-02',
+      forecast_time: '18:00:00',
+      wave_height: '5ft',
+      wave_period: '8s',
+      swell_1_direction: 'W',
+      raw_forecast: {
+        data_sources: ['NOAA_NWS'],
+        wave_height_provenance: {
+          source: 'nowcast_anchor',
+          raw_value_ft: 3.08,
+          station_id: '46285',
+          transform_path: 'scalar_calibrated',
+          components_used: false,
+          calibrated_shoaling_fired: true,
+          south_oc_sano_guardrail: {
+            zone: 'south_oc_sano_shadow_zone',
+            branch: 'trestles_calibrated_anchor',
+            height_floor_applied: true,
+            station_ids_used: ['46285'],
+            station_ages_minutes: { '46285': 30 },
+            confirmed_nearshore_hs_m: 1.0,
+            confirmed_nearshore_hs_ft: 3.28,
+            confirmed_period_s: 17,
+            confirmed_direction_deg: 203,
+            offshore_context_station_id: '46277',
+            offshore_context_hs_m: 0.9,
+            offshore_context_age_minutes: 25,
+          },
+        },
+      },
+    };
+
+    const result = toForecastForScoring(forecast as EnhancedForecastEntity);
+
+    expect(result.wavePeriod).toBe(8);
+    expect(result.swellDirection).toBe(270);
+    expect(result.southOcSanoGuardrail).toEqual({
+      branch: 'trestles_calibrated_anchor',
+      confirmedPeriodS: 17,
+      confirmedDirectionDeg: 203,
+    });
+  });
+
   it('creates valid Date from forecast_date and forecast_time', () => {
     const forecast: Partial<EnhancedForecastEntity> = {
       forecast_at: '2026-01-14T15:30:00Z',

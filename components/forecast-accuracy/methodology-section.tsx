@@ -15,11 +15,11 @@ export function MethodologySection() {
               How to read it
             </p>
             <h2 className="font-heading text-2xl font-black text-[#11100D]">
-              Three checks, no mystery math.
+              Three checks, then a plain score.
             </h2>
           </div>
           <p className="max-w-md text-sm font-semibold leading-6 text-[#5F5646]">
-            MAE means average wave-height miss. Lower is better.
+            MAE means average wave-height miss in meters. Lower is better.
           </p>
         </div>
 
@@ -32,7 +32,8 @@ export function MethodologySection() {
               Start with NOAA
             </h3>
             <p className="mt-2 text-sm font-semibold leading-6">
-              Use the raw marine forecast a surfer could check anywhere.
+              NOAA baseline MAE uses the raw marine forecast before Quiver
+              applies beach-level correction.
             </p>
           </li>
           <li className="rotate-1 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
@@ -43,7 +44,8 @@ export function MethodologySection() {
               Tune per beach
             </h3>
             <p className="mt-2 text-sm font-semibold leading-6">
-              Account for exposure, swell direction, shelter, and local shape.
+              Quiver MAE uses the corrected forecast after local exposure,
+              swell direction, shelter, and spot-shape signals are applied.
             </p>
           </li>
           <li className="-rotate-1 rounded-[8px] border-2 border-[#11100D] bg-[#8AB4F8] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
@@ -54,10 +56,38 @@ export function MethodologySection() {
               Check the buoys
             </h3>
             <p className="mt-2 text-sm font-semibold leading-6">
-              Compare both forecasts to IOOS buoy observations within 3 hours.
+              Quiver trusts the comparison only after matching forecast rows to
+              IOOS or NOAA buoy observations inside the validation window.
             </p>
           </li>
         </ol>
+
+        <div className="mt-5 grid gap-3 md:grid-cols-[1.1fr_0.9fr]">
+          <div className="rounded-[8px] border-2 border-[#11100D] bg-[#0B3A75] p-4 text-[#F4EBD8] shadow-[3px_3px_0_#11100D]">
+            <h3 className="font-heading text-xl font-black">
+              When the page claims lift
+            </h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#D8E8F7]">
+              Quiver only says it beat the NOAA baseline when Quiver MAE is
+              lower, at least 10 validated forecast-buoy pairs exist, and the
+              row has a real last-updated timestamp. Otherwise the page shows
+              building status or no measurable lift yet.
+            </p>
+          </div>
+          <div className="rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
+            <h3 className="font-heading text-xl font-black">Known limits</h3>
+            <p className="mt-2 text-sm font-semibold leading-6 text-[#5F5646]">
+              Nearby buoys are not perfect proxies for every break. Sparse
+              samples can move quickly in a rolling window, and NOAA is a
+              regional marine baseline, not a spot-specific competitor product.
+            </p>
+          </div>
+        </div>
+
+        <p className="mt-4 text-center text-xs font-bold uppercase tracking-[0.12em] text-[#5F5646]">
+          Last updated appears on the live report summary and each qualifying
+          beach row.
+        </p>
       </div>
     </section>
   );

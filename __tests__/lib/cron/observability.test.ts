@@ -1,4 +1,6 @@
 // __tests__/lib/cron/observability.test.ts
+import { readFileSync } from "fs";
+import { join } from "path";
 import { withCronObservability, withObservedCron } from "@/lib/cron/observability";
 import { completeCronCheckIn, startCronCheckIn } from "@/lib/monitoring/sentry-cron";
 
@@ -58,6 +60,18 @@ jest.mock("@/lib/monitoring/sentry-cron", () => ({
   startCronCheckIn: jest.fn(() => "check-in-1"),
   completeCronCheckIn: jest.fn(),
 }));
+
+describe("cron observability source guard", () => {
+  it("uses the API wrapper barrel for cron request validation", () => {
+    const source = readFileSync(
+      join(process.cwd(), "lib/cron/observability.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toContain("@/lib/api-utils");
+    expect(source).toContain("@/lib/middleware/api-wrappers");
+  });
+});
 
 function makeAuthorizedRequest(): Request {
   return new Request("http://test/api/cron/test", {

@@ -21,6 +21,8 @@ export interface WindowSelectorOptions {
   horizonHours?: number;
   sunTimesCache?: Map<string, { sunrises: Date[]; sunsets: Date[] }>;
   timeSlot?: TimeSlot;
+  now?: Date;
+  maxWindows?: number;
 }
 
 /**

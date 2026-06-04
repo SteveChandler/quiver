@@ -38,6 +38,7 @@ import { track } from "@/lib/analytics";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import { useCtaImpression } from "@/hooks/use-cta-impression";
 import { slugify } from "@/lib/utils/text-utils";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { FullPageLoader } from "@/components/ui/loading-states";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
@@ -70,6 +71,7 @@ import { TabLoadingSkeleton } from "@/components/beach-detail/tab-loading-skelet
 import { MatchScoreTeaser } from "@/components/recommendations";
 import { TrustStrip } from "@/components/beach-detail/trust-strip";
 import { ForecastConfidenceBadge } from "@/components/beach-detail/forecast-confidence-badge";
+import { SessionIntelligencePilot } from "@/components/beach-detail/session-intelligence-pilot";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { aggregateDayForecasts } from "@/lib/utils/horizon-strip-utils";
 import { AlertCreationPopover } from "@/components/alerts/alert-creation-popover";
@@ -902,6 +904,7 @@ function BeachDetailContent({
       </Button>
     </>
   );
+  const beachCanonicalPath = buildBeachUrl(beach);
 
   return (
     <div className="min-h-screen" style={{ background: "#0D1020" }}>
@@ -949,6 +952,12 @@ function BeachDetailContent({
             className="bg-[#F78E42] text-white hover:bg-[#F78E42]/90"
           />
         </div>
+        <SessionIntelligencePilot
+          beach={beach}
+          canonicalPath={beachCanonicalPath}
+          forecasts={forecasts || []}
+          beachTimezone={beachTimezone}
+        />
         <BeachTabs
           activeTab={activeTab}
           onTabChange={setActiveTab}

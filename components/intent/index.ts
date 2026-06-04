@@ -14,6 +14,8 @@ export { SevenDayTideTable } from "./seven-day-tide-table";
 export { BeachTideCards } from "./beach-tide-cards";
 export { SmartChecklist } from "./smart-checklist";
 export { TodaysIntentPlan } from "./todays-intent-plan";
+export { SessionIntelligenceIntentHandoff } from "./session-intelligence-intent-handoff";
+export { UtilitySessionHandoff } from "./utility-session-handoff";
 export { MiniLogTeaser } from "./mini-log-teaser";
 export { BeachEditorialSection } from "./beach-editorial-section";
 export { WaterTempPageContent } from "./water-temp-page-content";

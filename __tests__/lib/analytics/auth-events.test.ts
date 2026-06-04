@@ -44,6 +44,19 @@ jest.mock("@/lib/posthog-client", () => ({
   captureClientPostHogEvent: jest.fn(),
 }));
 
+jest.mock("@/lib/attribution", () => ({
+  getAttributionFromCookies: jest.fn(() => ({
+    utm_source: "google",
+    utm_medium: "organic",
+    utm_campaign: "signup",
+    utm_content: "hero",
+    utm_term: "surf app",
+    referrer: "https://www.google.com/search",
+    first_touch_ts: "2026-06-01T12:00:00.000Z",
+    landing_page: "/surf-cams/san-diego",
+  })),
+}));
+
 import { track } from "@/lib/analytics";
 import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
 import { getVisitorId } from "@/lib/utils/visitor-id";
@@ -74,11 +87,18 @@ describe("auth-events", () => {
       it("should track modal opened with mode and source", () => {
         trackAuthModalOpened({ mode: "login", source: "landing-navbar" });
 
-        expect(track).toHaveBeenCalledWith("auth_modal_opened", {
-          mode: "login",
-          source: "landing-navbar",
-          context: undefined,
-        });
+        expect(track).toHaveBeenCalledWith(
+          "auth_modal_opened",
+          expect.objectContaining({
+            mode: "login",
+            source: "landing-navbar",
+            context: undefined,
+            pathname: "/",
+            surface: "landing-page",
+            source_group: "landing",
+            platform: "web",
+          })
+        );
       });
 
       it("should track modal opened with context", () => {
@@ -88,21 +108,30 @@ describe("auth-events", () => {
           context: "beach-detail",
         });
 
-        expect(track).toHaveBeenCalledWith("auth_modal_opened", {
-          mode: "signup",
-          source: "auth-gate",
-          context: "beach-detail",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "auth_modal_opened",
+          expect.objectContaining({
+            mode: "signup",
+            source: "auth-gate",
+            context: "beach-detail",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+          })
+        );
       });
 
       it("should track auto mode", () => {
         trackAuthModalOpened({ mode: "auto", source: "content-gate" });
 
-        expect(track).toHaveBeenCalledWith("auth_modal_opened", {
-          mode: "auto",
-          source: "content-gate",
-          context: undefined,
-        });
+        expect(track).toHaveBeenCalledWith(
+          "auth_modal_opened",
+          expect.objectContaining({
+            mode: "auto",
+            source: "content-gate",
+            context: undefined,
+            platform: "web",
+          })
+        );
       });
     });
 
@@ -110,10 +139,15 @@ describe("auth-events", () => {
       it("should track modal closed without action with mode and source", () => {
         trackAuthModalClosedWithoutAction({ mode: "signup", source: "landing-cta" });
 
-        expect(track).toHaveBeenCalledWith("auth_modal_closed_without_action", {
-          mode: "signup",
-          source: "landing-cta",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "auth_modal_closed_without_action",
+          expect.objectContaining({
+            mode: "signup",
+            source: "landing-cta",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+          })
+        );
       });
 
       it("should dual-fire to /api/events", () => {
@@ -133,11 +167,16 @@ describe("auth-events", () => {
       it("should track provider selected with provider, mode, and source", () => {
         trackAuthProviderSelected({ provider: "google", mode: "signup", source: "landing-cta" });
 
-        expect(track).toHaveBeenCalledWith("auth_provider_selected", {
-          provider: "google",
-          mode: "signup",
-          source: "landing-cta",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "auth_provider_selected",
+          expect.objectContaining({
+            provider: "google",
+            mode: "signup",
+            source: "landing-cta",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+          })
+        );
       });
 
       it("should dual-fire to /api/events", () => {
@@ -157,10 +196,15 @@ describe("auth-events", () => {
       it("should track form submission with hardcoded signup mode and source", () => {
         trackSignupFormSubmitted({ source: "landing-cta" });
 
-        expect(track).toHaveBeenCalledWith("signup_form_submitted", {
-          mode: "signup",
-          source: "landing-cta",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "signup_form_submitted",
+          expect.objectContaining({
+            mode: "signup",
+            source: "landing-cta",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+          })
+        );
       });
 
       it("should dual-fire to /api/events", () => {
@@ -270,11 +314,15 @@ describe("auth-events", () => {
           source: "auth-modal",
         });
 
-        expect(track).toHaveBeenCalledWith("auth_provider_selected", {
-          provider: "google",
-          mode: "login",
-          source: "auth-modal",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "auth_provider_selected",
+          expect.objectContaining({
+            provider: "google",
+            mode: "login",
+            source: "auth-modal",
+            platform: "web",
+          })
+        );
       });
 
       it("should track Apple provider selection", () => {
@@ -284,11 +332,16 @@ describe("auth-events", () => {
           source: "auth-modal",
         });
 
-        expect(track).toHaveBeenCalledWith("auth_provider_selected", {
-          provider: "apple",
-          mode: "signup",
-          source: "auth-modal",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "auth_provider_selected",
+          expect.objectContaining({
+            provider: "apple",
+            mode: "signup",
+            source: "auth-modal",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+          })
+        );
       });
 
       it("should track email/password provider selection", () => {
@@ -299,12 +352,17 @@ describe("auth-events", () => {
           email_method: "password",
         });
 
-        expect(track).toHaveBeenCalledWith("auth_provider_selected", {
-          provider: "email",
-          mode: "signup",
-          source: "auth-modal",
-          email_method: "password",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "auth_provider_selected",
+          expect.objectContaining({
+            provider: "email",
+            mode: "signup",
+            source: "auth-modal",
+            email_method: "password",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+          })
+        );
       });
 
       it("should track email/magic-link provider selection", () => {
@@ -315,12 +373,16 @@ describe("auth-events", () => {
           email_method: "magic_link",
         });
 
-        expect(track).toHaveBeenCalledWith("auth_provider_selected", {
-          provider: "email",
-          mode: "login",
-          source: "auth-modal",
-          email_method: "magic_link",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "auth_provider_selected",
+          expect.objectContaining({
+            provider: "email",
+            mode: "login",
+            source: "auth-modal",
+            email_method: "magic_link",
+            platform: "web",
+          })
+        );
       });
     });
   });
@@ -374,11 +436,17 @@ describe("auth-events", () => {
       it("should track signup started with method and timestamp", () => {
         trackSignupStarted("password");
 
-        expect(track).toHaveBeenCalledWith("signup_started", {
-          method: "password",
-          timestamp: expect.any(Number),
-          browser_session_id: "test-browser-session-id",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "signup_started",
+          expect.objectContaining({
+            method: "password",
+            timestamp: expect.any(Number),
+            browser_session_id: "test-browser-session-id",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+            platform: "web",
+          })
+        );
       });
 
       it("should include source and landing_page when provided", () => {
@@ -387,13 +455,19 @@ describe("auth-events", () => {
           landing_page: "/longboard/torrance/torrance-beach",
         });
 
-        expect(track).toHaveBeenCalledWith("signup_started", {
-          method: "google",
-          timestamp: expect.any(Number),
-          source: "intent-longboard-torrance",
-          landing_page: "/longboard/torrance/torrance-beach",
-          browser_session_id: "test-browser-session-id",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "signup_started",
+          expect.objectContaining({
+            method: "google",
+            timestamp: expect.any(Number),
+            source: "intent-longboard-torrance",
+            landing_page: "/longboard/torrance/torrance-beach",
+            browser_session_id: "test-browser-session-id",
+            pathname: "/longboard/torrance/torrance-beach",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+          })
+        );
       });
 
       it("should omit source and landing_page when not provided", () => {
@@ -413,11 +487,16 @@ describe("auth-events", () => {
           requires_verification: true,
         });
 
-        expect(track).toHaveBeenCalledWith("signup_success", {
-          method: "password",
-          requires_verification: true,
-          browser_session_id: "test-browser-session-id",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "signup_success",
+          expect.objectContaining({
+            method: "password",
+            requires_verification: true,
+            browser_session_id: "test-browser-session-id",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+          })
+        );
       });
 
       it("should track signup without verification", () => {
@@ -426,11 +505,16 @@ describe("auth-events", () => {
           requires_verification: false,
         });
 
-        expect(track).toHaveBeenCalledWith("signup_success", {
-          method: "google",
-          requires_verification: false,
-          browser_session_id: "test-browser-session-id",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "signup_success",
+          expect.objectContaining({
+            method: "google",
+            requires_verification: false,
+            browser_session_id: "test-browser-session-id",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+          })
+        );
       });
 
       it("should include source and landing_page when provided", () => {
@@ -441,13 +525,21 @@ describe("auth-events", () => {
           landing_page: "/ca/san-diego/blacks-beach",
         });
 
-        expect(track).toHaveBeenCalledWith("signup_success", {
-          method: "google",
-          requires_verification: false,
-          source: "beach-detail-blacks",
-          landing_page: "/ca/san-diego/blacks-beach",
-          browser_session_id: "test-browser-session-id",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "signup_success",
+          expect.objectContaining({
+            method: "google",
+            requires_verification: false,
+            source: "beach-detail-blacks",
+            landing_page: "/ca/san-diego/blacks-beach",
+            browser_session_id: "test-browser-session-id",
+            pathname: "/ca/san-diego/blacks-beach",
+            surface: "beach-detail",
+            source_group: "beach-detail",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+          })
+        );
       });
 
       it("should omit source and landing_page when not provided", () => {
@@ -539,21 +631,30 @@ describe("auth-events", () => {
       it("calls both track() and fetch('/api/events')", () => {
         trackAuthModalOpened({ mode: "signup", source: "landing-navbar" });
 
-        expect(track).toHaveBeenCalledWith("auth_modal_opened", {
-          mode: "signup",
-          source: "landing-navbar",
-          context: undefined,
-        });
-        expect(mockFetch).toHaveBeenCalledWith("/api/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventType: "auth_modal_opened",
-            metadata: { mode: "signup", source: "landing-navbar", context: undefined },
-            sessionId: "test-visitor-id",
-            viewportWidth: 375,
-          }),
-          keepalive: true,
+        expect(track).toHaveBeenCalledWith(
+          "auth_modal_opened",
+          expect.objectContaining({
+            mode: "signup",
+            source: "landing-navbar",
+            context: undefined,
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+          })
+        );
+        const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+        expect(callArgs[0]).toBe("/api/events");
+        const body = JSON.parse(callArgs[1].body as string);
+        expect(body).toMatchObject({
+          eventType: "auth_modal_opened",
+          metadata: {
+            mode: "signup",
+            source: "landing-navbar",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+            platform: "web",
+          },
+          sessionId: "test-visitor-id",
+          viewportWidth: 375,
         });
       });
 
@@ -564,7 +665,13 @@ describe("auth-events", () => {
         const body = JSON.parse(callArgs[1].body as string);
         expect(body).toMatchObject({
           eventType: "auth_modal_opened",
-          metadata: { mode: "login", source: "auth-gate", context: "beach-detail" },
+          metadata: {
+            mode: "login",
+            source: "auth-gate",
+            context: "beach-detail",
+            platform: "web",
+            pathname: "/",
+          },
           sessionId: "test-visitor-id",
           viewportWidth: 375,
         });
@@ -579,25 +686,31 @@ describe("auth-events", () => {
           source: "landing-cta",
         });
 
-        expect(track).toHaveBeenCalledWith("auth_provider_selected", {
-          provider: "google",
-          mode: "signup",
-          source: "landing-cta",
-        });
-        expect(mockFetch).toHaveBeenCalledWith("/api/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventType: "auth_provider_selected",
-            metadata: {
-              provider: "google",
-              mode: "signup",
-              source: "landing-cta",
-            },
-            sessionId: "test-visitor-id",
-            viewportWidth: 375,
-          }),
-          keepalive: true,
+        expect(track).toHaveBeenCalledWith(
+          "auth_provider_selected",
+          expect.objectContaining({
+            provider: "google",
+            mode: "signup",
+            source: "landing-cta",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+          })
+        );
+        const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+        expect(callArgs[0]).toBe("/api/events");
+        const body = JSON.parse(callArgs[1].body as string);
+        expect(body).toMatchObject({
+          eventType: "auth_provider_selected",
+          metadata: {
+            provider: "google",
+            mode: "signup",
+            source: "landing-cta",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+            platform: "web",
+          },
+          sessionId: "test-visitor-id",
+          viewportWidth: 375,
         });
       });
     });
@@ -607,25 +720,31 @@ describe("auth-events", () => {
         jest.spyOn(Date, "now").mockReturnValue(1741827600000);
         trackSignupStarted("password");
 
-        expect(track).toHaveBeenCalledWith("signup_started", {
-          method: "password",
-          timestamp: 1741827600000,
-          browser_session_id: "test-browser-session-id",
-        });
-        expect(mockFetch).toHaveBeenCalledWith("/api/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventType: "signup_started",
-            metadata: {
-              method: "password",
-              timestamp: 1741827600000,
-              browser_session_id: "test-browser-session-id",
-            },
-            sessionId: "test-visitor-id",
-            viewportWidth: 375,
-          }),
-          keepalive: true,
+        expect(track).toHaveBeenCalledWith(
+          "signup_started",
+          expect.objectContaining({
+            method: "password",
+            timestamp: 1741827600000,
+            browser_session_id: "test-browser-session-id",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+          })
+        );
+        const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+        expect(callArgs[0]).toBe("/api/events");
+        const body = JSON.parse(callArgs[1].body as string);
+        expect(body).toMatchObject({
+          eventType: "signup_started",
+          metadata: {
+            method: "password",
+            timestamp: 1741827600000,
+            browser_session_id: "test-browser-session-id",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+            platform: "web",
+          },
+          sessionId: "test-visitor-id",
+          viewportWidth: 375,
         });
         jest.spyOn(Date, "now").mockRestore();
       });
@@ -653,25 +772,31 @@ describe("auth-events", () => {
       it("calls both track() and fetch('/api/events')", () => {
         trackSignupSuccess({ method: "google", requires_verification: false });
 
-        expect(track).toHaveBeenCalledWith("signup_success", {
-          method: "google",
-          requires_verification: false,
-          browser_session_id: "test-browser-session-id",
-        });
-        expect(mockFetch).toHaveBeenCalledWith("/api/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventType: "signup_success",
-            metadata: {
-              method: "google",
-              requires_verification: false,
-              browser_session_id: "test-browser-session-id",
-            },
-            sessionId: "test-visitor-id",
-            viewportWidth: 375,
-          }),
-          keepalive: true,
+        expect(track).toHaveBeenCalledWith(
+          "signup_success",
+          expect.objectContaining({
+            method: "google",
+            requires_verification: false,
+            browser_session_id: "test-browser-session-id",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+          })
+        );
+        const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
+        expect(callArgs[0]).toBe("/api/events");
+        const body = JSON.parse(callArgs[1].body as string);
+        expect(body).toMatchObject({
+          eventType: "signup_success",
+          metadata: {
+            method: "google",
+            requires_verification: false,
+            browser_session_id: "test-browser-session-id",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+            platform: "web",
+          },
+          sessionId: "test-visitor-id",
+          viewportWidth: 375,
         });
       });
 

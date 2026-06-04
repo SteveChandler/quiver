@@ -15,6 +15,7 @@ import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 export interface BeachWithThresholds {
   id: string;
   name: string;
+  slug?: string | null;
   lat?: number | null;
   lon?: number | null;
   is_private?: boolean;
@@ -156,6 +157,12 @@ export interface ForecastForScoring {
   tideStatus: string | null;
   /** Primary swell direction in degrees (0-360) */
   swellDirection?: number | null;
+  /** Confirmed South OC/San Onofre guardrail signal from stored forecast provenance. */
+  southOcSanoGuardrail?: {
+    branch: 'non_cluster_anchor_floor' | 'trestles_calibrated_anchor';
+    confirmedPeriodS: number;
+    confirmedDirectionDeg: number;
+  };
 }
 
 /**
@@ -190,6 +197,7 @@ export function toForecastForScoring(
 
   // Parse primary swell direction from swell_1_direction (cardinal or degrees)
   const swellDirection = parseSwellDirection(forecast.swell_1_direction);
+  const southOcSanoGuardrail = readSouthOcSanoGuardrailForScoring(forecast);
 
   return {
     forecastTime,
@@ -200,6 +208,27 @@ export function toForecastForScoring(
     tideHeight: parseFloat(forecast.tide_height || '0') || 0,
     tideStatus: forecast.tide_status?.toLowerCase() || null,
     swellDirection,
+    ...(southOcSanoGuardrail ? { southOcSanoGuardrail } : {}),
+  };
+}
+
+function readSouthOcSanoGuardrailForScoring(
+  forecast: EnhancedForecastEntity
+): ForecastForScoring['southOcSanoGuardrail'] | undefined {
+  const guardrail =
+    forecast.raw_forecast?.wave_height_provenance?.south_oc_sano_guardrail;
+  if (!guardrail) return undefined;
+
+  const confirmedPeriodS = guardrail.confirmed_period_s;
+  const confirmedDirectionDeg = guardrail.confirmed_direction_deg;
+  if (!Number.isFinite(confirmedPeriodS) || !Number.isFinite(confirmedDirectionDeg)) {
+    return undefined;
+  }
+
+  return {
+    branch: guardrail.branch,
+    confirmedPeriodS,
+    confirmedDirectionDeg,
   };
 }
 

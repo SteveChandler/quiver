@@ -1,4 +1,4 @@
-import { validateCronRequest } from "@/lib/api-utils";
+import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import {
   completeCronCheckIn,
   startCronCheckIn,

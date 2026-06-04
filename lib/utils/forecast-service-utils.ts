@@ -2,6 +2,8 @@ import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-servic
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { getStalenessThreshold } from "@/lib/config/forecast-staleness";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
+import { fetchNowcastAnchors } from "@/lib/services/observations/nowcast-anchor";
+import { fetchSouthOcSanoShadowZoneSnapshot } from "@/lib/services/forecast/south-oc-sano-shadow-guardrail";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 // Removed unused type import to satisfy TS6133
 
@@ -566,9 +568,17 @@ export async function updateBeachForecast(beachId: string) {
   }
 
   const service = getEnhancedForecastService();
+  const nowcastAnchors = await fetchNowcastAnchors(supabase);
+  const nowcastAnchor = nowcastAnchors.get(beachId) ?? null;
+  const southOcSanoShadowZoneSnapshot =
+    await fetchSouthOcSanoShadowZoneSnapshot(supabase);
 
   // Generate comprehensive forecast
-  const forecasts = await service.generateComprehensiveForecast(beach);
+  const forecasts = await service.generateComprehensiveForecast(
+    beach,
+    nowcastAnchor,
+    southOcSanoShadowZoneSnapshot,
+  );
 
   // Store enhanced forecasts
   const result = await service.storeEnhancedForecasts(beach, forecasts);

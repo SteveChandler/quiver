@@ -82,6 +82,18 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       return { kind: "hls", src: href };
     }
 
+    if (
+      u.hostname === "embed.cdn-surfline.com" &&
+      u.pathname.startsWith("/cams/")
+    ) {
+      return {
+        kind: "iframe",
+        src: href,
+        title: "Live Cam",
+        allow: "autoplay; fullscreen; picture-in-picture",
+      };
+    }
+
     // HDOnTap - resolve to HLS stream server-side (iframe embedding blocked)
     if (
       (u.hostname === "hdontap.com" || u.hostname === "www.hdontap.com") &&

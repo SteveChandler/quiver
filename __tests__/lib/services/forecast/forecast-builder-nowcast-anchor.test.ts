@@ -14,6 +14,10 @@
 
 import { ForecastBuilder, shouldApplyNowcastAnchor } from "@/lib/services/forecast/forecast-builder";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
+import {
+  buildSouthOcSanoShadowZoneSnapshot,
+  SOUTH_OC_SANO_SHADOW_GUARDRAIL_FEATURE_FLAG,
+} from "@/lib/services/forecast/south-oc-sano-shadow-guardrail";
 import type { Beach } from "@/types/database";
 
 const FROZEN_NOW = new Date("2026-04-19T15:00:00Z").getTime();
@@ -161,10 +165,14 @@ describe("ForecastBuilder nowcast anchor output", () => {
   const NOAA_HS_M = 2.8; // ghost-swell-like NOAA forecast
   const ANCHOR_HS_M = 0.6; // observed ground truth, much lower
 
-  function makeTestBeach(features: string[]): Beach {
+  function makeTestBeach(
+    features: string[],
+    overrides: Record<string, unknown> = {},
+  ): Beach {
     return {
       id: "beach-test",
       name: "Test Beach",
+      slug: "test-beach",
       lat: 32.76,
       lon: -117.25,
       center_lat: 32.76,
@@ -178,6 +186,7 @@ describe("ForecastBuilder nowcast anchor output", () => {
       swell_access_factors: null,
       wind_exposure_factors: null,
       timezone: "America/Los_Angeles",
+      ...overrides,
     } as unknown as Beach;
   }
 
@@ -216,6 +225,86 @@ describe("ForecastBuilder nowcast anchor output", () => {
         },
       ],
     };
+  }
+
+  function makeSouthOcUndercallWaveData(nowIso: string) {
+    return {
+      lat: 33.38,
+      lng: -117.59,
+      data_source: "NOAA_NWS" as const,
+      forecast: [
+        {
+          timestamp: nowIso,
+          forecast_at: nowIso,
+          significant_wave_height: 0.65,
+          peak_wave_period: 16,
+          peak_wave_direction: 203,
+          swell_1_height: 0.62,
+          swell_1_period: 16,
+          swell_1_direction: 203,
+          swell_2_height: 0.2,
+          swell_2_period: 11,
+          swell_2_direction: 250,
+          wind_wave_height: 0.2,
+          wind_wave_period: 6,
+          wind_wave_direction: 270,
+          data_source: "NOAA_NWS" as const,
+        },
+      ],
+    };
+  }
+
+  function makeSouthOcAlreadyHigherWaveData(nowIso: string) {
+    return {
+      lat: 33.38,
+      lng: -117.59,
+      data_source: "NOAA_NWS" as const,
+      forecast: [
+        {
+          timestamp: nowIso,
+          forecast_at: nowIso,
+          significant_wave_height: 6.0,
+          peak_wave_period: 14,
+          peak_wave_direction: 270,
+          swell_1_height: 6.0,
+          swell_1_period: 14,
+          swell_1_direction: 270,
+          swell_2_height: 0.2,
+          swell_2_period: 11,
+          swell_2_direction: 250,
+          wind_wave_height: 0.2,
+          wind_wave_period: 6,
+          wind_wave_direction: 270,
+          data_source: "NOAA_NWS" as const,
+        },
+      ],
+    };
+  }
+
+  function makeSouthOcSnapshot(nowIso: string) {
+    return buildSouthOcSanoShadowZoneSnapshot(
+      [
+        {
+          station_id: "46277",
+          observed_at: nowIso,
+          wave_height_m: 1.0,
+          wave_period_s: 17,
+          wave_direction_deg: 203,
+          source: "ndbc_direct",
+          source_network: "ndbc",
+        },
+        {
+          station_id: "46275",
+          observed_at: nowIso,
+          wave_height_m: 0.94,
+          wave_period_s: 17,
+          wave_direction_deg: 203,
+          source: "ndbc_direct",
+          source_network: "ndbc",
+        },
+      ],
+      Date.parse(nowIso),
+    );
   }
 
   function extractFt(waveHeight: string | null): number {
@@ -346,5 +435,169 @@ describe("ForecastBuilder nowcast anchor output", () => {
     const nowFt = extractFt(result[0].wave_height);
     const futureFt = extractFt(result[1].wave_height);
     expect(nowFt).toBeLessThan(futureFt * 0.65);
+  });
+
+  test("South OC guardrail lifts Lower Trestles via calibrated Trestles anchor provenance", async () => {
+    const nowIso = new Date().toISOString();
+    const builder = makeBuilder();
+
+    const result = await builder.buildForecasts({
+      beach: makeTestBeach([SOUTH_OC_SANO_SHADOW_GUARDRAIL_FEATURE_FLAG], {
+        slug: "lower-trestles",
+        name: "Lower Trestles",
+        lat: 33.3844,
+        lon: -117.5934,
+        center_lat: 33.3844,
+        center_lng: -117.5934,
+        swell_window_center_deg: 220,
+        swell_window_halfwidth_deg: 105,
+        deepwater_decay_factor: 0.6,
+        shoaling_factors: {
+          version: 1,
+          type: "period_lookup",
+          buckets: [{ tp_min_s: 16, tp_max_s: 999, factor: 1.62 }],
+        },
+      }),
+      waveData: makeSouthOcUndercallWaveData(nowIso),
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+      southOcSanoShadowZoneSnapshot: makeSouthOcSnapshot(nowIso),
+    });
+
+    const ft = extractFt(result[0].wave_height);
+    expect(ft).toBeGreaterThan(4.5);
+    expect(result[0].raw_forecast?.wave_height_provenance?.source).toBe("nowcast_anchor");
+    expect(result[0].raw_forecast?.wave_height_provenance?.calibrated_shoaling_fired).toBe(true);
+    expect(result[0].raw_forecast?.wave_height_provenance?.south_oc_sano_guardrail?.branch).toBe(
+      "trestles_calibrated_anchor",
+    );
+  });
+
+  test("South OC guardrail lifts Church via calibrated Trestles anchor provenance", async () => {
+    const nowIso = new Date().toISOString();
+    const builder = makeBuilder();
+
+    const result = await builder.buildForecasts({
+      beach: makeTestBeach([SOUTH_OC_SANO_SHADOW_GUARDRAIL_FEATURE_FLAG], {
+        slug: "church",
+        name: "Church",
+        lat: 33.3726,
+        lon: -117.5746,
+        center_lat: 33.3726,
+        center_lng: -117.5746,
+        swell_window_center_deg: 210,
+        swell_window_halfwidth_deg: 105,
+        deepwater_decay_factor: 0.6,
+        shoaling_factors: {
+          version: 1,
+          type: "period_lookup",
+          buckets: [{ tp_min_s: 16, tp_max_s: 999, factor: 1.55 }],
+        },
+      }),
+      waveData: makeSouthOcUndercallWaveData(nowIso),
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+      southOcSanoShadowZoneSnapshot: makeSouthOcSnapshot(nowIso),
+    });
+
+    const ft = extractFt(result[0].wave_height);
+    expect(ft).toBeGreaterThan(4.5);
+    expect(result[0].raw_forecast?.wave_height_provenance?.source).toBe("nowcast_anchor");
+    expect(result[0].raw_forecast?.wave_height_provenance?.calibrated_shoaling_fired).toBe(true);
+    expect(result[0].raw_forecast?.wave_height_provenance?.south_oc_sano_guardrail?.branch).toBe(
+      "trestles_calibrated_anchor",
+    );
+  });
+
+  test("South OC guardrail records confirmation when base output is already higher than the guarded floor", async () => {
+    const nowIso = new Date().toISOString();
+    const builder = makeBuilder();
+
+    const result = await builder.buildForecasts({
+      beach: makeTestBeach([SOUTH_OC_SANO_SHADOW_GUARDRAIL_FEATURE_FLAG], {
+        slug: "lower-trestles",
+        name: "Lower Trestles",
+        lat: 33.3844,
+        lon: -117.5934,
+        center_lat: 33.3844,
+        center_lng: -117.5934,
+        swell_window_center_deg: 270,
+        swell_window_halfwidth_deg: 180,
+        deepwater_decay_factor: 1,
+        shoaling_factors: {
+          version: 1,
+          type: "period_lookup",
+          buckets: [{ tp_min_s: 16, tp_max_s: 999, factor: 1.62 }],
+        },
+      }),
+      waveData: makeSouthOcAlreadyHigherWaveData(nowIso),
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+      southOcSanoShadowZoneSnapshot: makeSouthOcSnapshot(nowIso),
+    });
+
+    const provenance = result[0].raw_forecast?.wave_height_provenance;
+
+    expect(extractFt(result[0].wave_height)).toBeGreaterThanOrEqual(5);
+    expect(provenance?.source).not.toBe("nowcast_anchor");
+    expect(provenance?.south_oc_sano_guardrail?.branch).toBe(
+      "trestles_calibrated_anchor",
+    );
+    expect(provenance?.south_oc_sano_guardrail?.height_floor_applied).toBe(false);
+    expect(provenance?.south_oc_sano_guardrail?.confirmed_period_s).toBe(17);
+    expect(provenance?.south_oc_sano_guardrail?.confirmed_direction_deg).toBe(203);
+  });
+
+  test("South OC guardrail floors non-cluster spots without Trestles calibrated uplift", async () => {
+    const nowIso = new Date().toISOString();
+    const builder = makeBuilder();
+
+    const result = await builder.buildForecasts({
+      beach: makeTestBeach([SOUTH_OC_SANO_SHADOW_GUARDRAIL_FEATURE_FLAG], {
+        slug: "t-street",
+        name: "T-Street",
+        lat: 33.4209,
+        lon: -117.6241,
+        center_lat: 33.4209,
+        center_lng: -117.6241,
+        swell_window_center_deg: 205,
+        swell_window_halfwidth_deg: 95,
+        deepwater_decay_factor: 0.6,
+        shoaling_factors: {
+          version: 1,
+          type: "period_lookup",
+          buckets: [{ tp_min_s: 16, tp_max_s: 999, factor: 3.0 }],
+        },
+      }),
+      waveData: makeSouthOcUndercallWaveData(nowIso),
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+      southOcSanoShadowZoneSnapshot: makeSouthOcSnapshot(nowIso),
+    });
+
+    const ft = extractFt(result[0].wave_height);
+    expect(ft).toBeGreaterThan(3);
+    expect(ft).toBeLessThan(4.5);
+    expect(result[0].raw_forecast?.wave_height_provenance?.source).toBe("nowcast_anchor");
+    expect(result[0].raw_forecast?.wave_height_provenance?.calibrated_shoaling_fired).toBe(false);
+    expect(result[0].raw_forecast?.wave_height_provenance?.south_oc_sano_guardrail?.branch).toBe(
+      "non_cluster_anchor_floor",
+    );
   });
 });

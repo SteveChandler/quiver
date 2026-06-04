@@ -71,7 +71,7 @@ export function getLocalDateString(
  * We cannot derive timezone from coordinates in the browser without shipping
  * heavy boundary data or calling an external API, so we return a safe default.
  */
-function getTimezoneFromCoords(_lat: number, _lon: number): string {
+export function getTimezoneFromCoords(_lat: number, _lon: number): string {
   return DEFAULT_TIMEZONE;
 }
 
@@ -127,5 +127,4 @@ export function getLocalHour(date: Date, timezone: string): number {
 export function isNightHour(hour: number): boolean {
   return hour >= 21 || hour < 5;
 }
-
 

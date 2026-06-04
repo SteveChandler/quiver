@@ -42,6 +42,66 @@ export interface TopBeachRow {
   predictionsMatched: number;
 }
 
+export type ForecastAccuracyReportStatus = "live" | "building";
+export type ForecastAccuracyConfidenceLevel = "high" | "medium" | "low";
+
+export interface ForecastAccuracyConfidence {
+  level: ForecastAccuracyConfidenceLevel;
+  label: string;
+  score: number;
+  sources: string[];
+  reason: string;
+}
+
+export interface ForecastAccuracyBeachRow {
+  id: string;
+  beachId: string;
+  beachName: string;
+  slug: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  noaaBaselineMae: number;
+  quiverMae: number;
+  improvementPct: number;
+  validatedPairCount: number;
+  lastUpdated: string | null;
+  confidence: ForecastAccuracyConfidence;
+  canClaimImprovement: boolean;
+}
+
+export interface ForecastAccuracyBuildingRow {
+  id: string;
+  label: string;
+  status: string;
+  detail: string;
+  confidenceLabel: string;
+}
+
+export interface ForecastAccuracySummary {
+  status: ForecastAccuracyReportStatus;
+  beachCount: number;
+  totalPredictions: number;
+  validatedPairCount: number;
+  noaaBaselineMae: number | null;
+  quiverMae: number | null;
+  improvementPct: number | null;
+  lastUpdated: string | null;
+  periodStart: string | null;
+  periodEnd: string | null;
+  confidence: ForecastAccuracyConfidence;
+  canClaimImprovement: boolean;
+}
+
+export interface ForecastAccuracyReport {
+  generatedAt: string;
+  summary: ForecastAccuracySummary;
+  beachRows: ForecastAccuracyBeachRow[];
+  buildingRows: ForecastAccuracyBuildingRow[];
+  dailyTimeSeries: DailyAccuracyPoint[];
+  regionalData: RegionalAccuracyRow[];
+}
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -63,6 +123,20 @@ interface MatviewRow {
   period_end: string | null;
 }
 
+type AccuracyReportMatviewRow = Pick<
+  MatviewRow,
+  | "beach_id"
+  | "beach_name"
+  | "predictions_total"
+  | "predictions_matched"
+  | "raw_mae"
+  | "corrected_mae"
+  | "mae_improvement_pct"
+  | "last_prediction_at"
+  | "period_start"
+  | "period_end"
+>;
+
 interface BeachRow {
   id: string;
   slug: string | null;
@@ -76,7 +150,7 @@ type ForecastAccuracyClient = ReturnType<
 >;
 
 function logForecastAccuracyError(scope: string, error: unknown): void {
-  console.error(`[forecast-accuracy] ${scope} error:`, error);
+  console.warn(`[forecast-accuracy] ${scope} error:`, error);
 }
 
 function getForecastAccuracyClient(
@@ -94,9 +168,425 @@ function isFiniteMetric(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+const MIN_VALIDATED_PAIRS_FOR_ROW = 10;
+const HIGH_CONFIDENCE_VALIDATED_PAIRS = 50;
+const MEDIUM_CONFIDENCE_VALIDATED_PAIRS = 10;
+const STALE_CONFIDENCE_DAYS = 14;
+
+function positiveMetricOrNull(value: unknown): number | null {
+  return isFiniteMetric(value) && value > 0 ? value : null;
+}
+
+function latestIso(values: Array<string | null | undefined>): string | null {
+  let latest: string | null = null;
+
+  for (const value of values) {
+    if (!value) continue;
+    if (!latest || new Date(value).getTime() > new Date(latest).getTime()) {
+      latest = value;
+    }
+  }
+
+  return latest;
+}
+
+function earliestIso(values: Array<string | null | undefined>): string | null {
+  let earliest: string | null = null;
+
+  for (const value of values) {
+    if (!value) continue;
+    if (!earliest || new Date(value).getTime() < new Date(earliest).getTime()) {
+      earliest = value;
+    }
+  }
+
+  return earliest;
+}
+
+function daysSince(iso: string | null, now: Date): number | null {
+  if (!iso) return null;
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return Math.max(0, (now.getTime() - parsed.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+function confidenceLabel(level: ForecastAccuracyConfidenceLevel): string {
+  return level.charAt(0).toUpperCase() + level.slice(1);
+}
+
+function buildForecastAccuracyConfidence({
+  validatedPairCount,
+  lastUpdated,
+  hasBuoyMatches,
+  now = new Date(),
+}: {
+  validatedPairCount: number;
+  lastUpdated: string | null;
+  hasBuoyMatches: boolean;
+  now?: Date;
+}): ForecastAccuracyConfidence {
+  if (!hasBuoyMatches) {
+    return {
+      level: "low",
+      label: "Model only",
+      score: 25,
+      sources: ["model"],
+      reason: "No validated buoy matches are ready for this report yet.",
+    };
+  }
+
+  const ageDays = daysSince(lastUpdated, now);
+  const isStale = ageDays !== null && ageDays > STALE_CONFIDENCE_DAYS;
+
+  if (
+    validatedPairCount >= HIGH_CONFIDENCE_VALIDATED_PAIRS &&
+    !isStale &&
+    lastUpdated
+  ) {
+    return {
+      level: "high",
+      label: "High - buoy + model",
+      score: 85,
+      sources: ["buoy", "model"],
+      reason: "The report has a recent, high-volume buoy-matched sample.",
+    };
+  }
+
+  if (
+    validatedPairCount >= MEDIUM_CONFIDENCE_VALIDATED_PAIRS &&
+    !isStale &&
+    lastUpdated
+  ) {
+    return {
+      level: "medium",
+      label: "Medium - buoy + model",
+      score: 65,
+      sources: ["buoy", "model"],
+      reason: "The report has enough recent buoy-matched data for a cautious read.",
+    };
+  }
+
+  return {
+    level: "low",
+    label: "Low - sparse data",
+    score: 35,
+    sources: hasBuoyMatches ? ["buoy", "model"] : ["model"],
+    reason: isStale
+      ? "The latest buoy-matched sample is stale."
+      : "The buoy-matched sample is still sparse.",
+  };
+}
+
+function canClaimForecastAccuracyImprovement({
+  noaaBaselineMae,
+  quiverMae,
+  validatedPairCount,
+  lastUpdated,
+}: {
+  noaaBaselineMae: number | null;
+  quiverMae: number | null;
+  validatedPairCount: number;
+  lastUpdated: string | null;
+}): boolean {
+  if (!lastUpdated) return false;
+  if (validatedPairCount < MIN_VALIDATED_PAIRS_FOR_ROW) return false;
+  if (!isFiniteMetric(noaaBaselineMae) || noaaBaselineMae <= 0) return false;
+  if (!isFiniteMetric(quiverMae) || quiverMae <= 0) return false;
+  return quiverMae < noaaBaselineMae;
+}
+
+function buildAccuracyBuildingRows(reason: string): ForecastAccuracyBuildingRow[] {
+  return [
+    {
+      id: "validated-pairs",
+      label: "Validated forecast-buoy pairs",
+      status: "Building",
+      detail:
+        "Waiting for enough IOOS buoy matches before publishing beach-level accuracy lift.",
+      confidenceLabel: "Low - sparse data",
+    },
+    {
+      id: "noaa-comparison",
+      label: "NOAA baseline comparison",
+      status: "Queued",
+      detail:
+        "Quiver needs both NOAA baseline MAE and Quiver MAE before showing improvement.",
+      confidenceLabel: "Model only",
+    },
+    {
+      id: "accuracy-claim",
+      label: "Accuracy lift claim",
+      status: "Held",
+      detail: reason,
+      confidenceLabel: "Low - sparse data",
+    },
+  ];
+}
+
+function buildBuildingReport(reason: string, now = new Date()): ForecastAccuracyReport {
+  const confidence = buildForecastAccuracyConfidence({
+    validatedPairCount: 0,
+    lastUpdated: null,
+    hasBuoyMatches: false,
+    now,
+  });
+
+  return {
+    generatedAt: now.toISOString(),
+    summary: {
+      status: "building",
+      beachCount: 0,
+      totalPredictions: 0,
+      validatedPairCount: 0,
+      noaaBaselineMae: null,
+      quiverMae: null,
+      improvementPct: null,
+      lastUpdated: null,
+      periodStart: null,
+      periodEnd: null,
+      confidence,
+      canClaimImprovement: false,
+    },
+    beachRows: [],
+    buildingRows: buildAccuracyBuildingRows(reason),
+    dailyTimeSeries: [],
+    regionalData: [],
+  };
+}
+
+function mapAccuracyBeachRow(
+  row: AccuracyReportMatviewRow,
+  beach: BeachRow | undefined,
+  now: Date
+): ForecastAccuracyBeachRow | null {
+  const noaaBaselineMae = positiveMetricOrNull(row.raw_mae);
+  const quiverMae = positiveMetricOrNull(row.corrected_mae);
+  const improvementPct = isFiniteMetric(row.mae_improvement_pct)
+    ? row.mae_improvement_pct
+    : noaaBaselineMae && quiverMae
+      ? ((noaaBaselineMae - quiverMae) / noaaBaselineMae) * 100
+      : null;
+  const validatedPairCount = isFiniteMetric(row.predictions_matched)
+    ? row.predictions_matched
+    : 0;
+
+  if (
+    !row.beach_id ||
+    !row.beach_name ||
+    noaaBaselineMae === null ||
+    quiverMae === null ||
+    improvementPct === null
+  ) {
+    return null;
+  }
+
+  const confidence = buildForecastAccuracyConfidence({
+    validatedPairCount,
+    lastUpdated: row.last_prediction_at,
+    hasBuoyMatches: validatedPairCount > 0,
+    now,
+  });
+
+  return {
+    id: row.beach_id,
+    beachId: row.beach_id,
+    beachName: row.beach_name,
+    slug: beach?.slug ?? null,
+    city: beach?.city ?? null,
+    state: beach?.state ?? null,
+    country: beach?.country ?? null,
+    noaaBaselineMae,
+    quiverMae,
+    improvementPct,
+    validatedPairCount,
+    lastUpdated: row.last_prediction_at,
+    confidence,
+    canClaimImprovement: canClaimForecastAccuracyImprovement({
+      noaaBaselineMae,
+      quiverMae,
+      validatedPairCount,
+      lastUpdated: row.last_prediction_at,
+    }),
+  };
+}
+
+function buildAccuracySummary(
+  rows: AccuracyReportMatviewRow[],
+  beachRows: ForecastAccuracyBeachRow[],
+  now: Date
+): ForecastAccuracySummary {
+  if (beachRows.length === 0) {
+    return buildBuildingReport(
+      "Accuracy metrics are still building; no qualifying beach rows are ready.",
+      now
+    ).summary;
+  }
+
+  const validatedPairCount = beachRows.reduce(
+    (sum, row) => sum + row.validatedPairCount,
+    0
+  );
+  const totalPredictions = rows.reduce(
+    (sum, row) => sum + (isFiniteMetric(row.predictions_total) ? row.predictions_total : 0),
+    0
+  );
+  const weightedNoaaMae =
+    beachRows.reduce(
+      (sum, row) => sum + row.noaaBaselineMae * row.validatedPairCount,
+      0
+    ) / Math.max(1, validatedPairCount);
+  const weightedQuiverMae =
+    beachRows.reduce(
+      (sum, row) => sum + row.quiverMae * row.validatedPairCount,
+      0
+    ) / Math.max(1, validatedPairCount);
+  const improvementPct =
+    weightedNoaaMae > 0
+      ? ((weightedNoaaMae - weightedQuiverMae) / weightedNoaaMae) * 100
+      : null;
+  const lastUpdated = latestIso(beachRows.map((row) => row.lastUpdated));
+  const confidence = buildForecastAccuracyConfidence({
+    validatedPairCount,
+    lastUpdated,
+    hasBuoyMatches: validatedPairCount > 0,
+    now,
+  });
+
+  return {
+    status: "live",
+    beachCount: beachRows.length,
+    totalPredictions,
+    validatedPairCount,
+    noaaBaselineMae: weightedNoaaMae,
+    quiverMae: weightedQuiverMae,
+    improvementPct,
+    lastUpdated,
+    periodStart: earliestIso(rows.map((row) => row.period_start)),
+    periodEnd: latestIso(rows.map((row) => row.period_end)),
+    confidence,
+    canClaimImprovement: canClaimForecastAccuracyImprovement({
+      noaaBaselineMae: weightedNoaaMae,
+      quiverMae: weightedQuiverMae,
+      validatedPairCount,
+      lastUpdated,
+    }),
+  };
+}
+
 // ============================================================================
 // Actions
 // ============================================================================
+
+/**
+ * Single report model for the public /forecast-accuracy trust page.
+ * The UI should render from this state instead of re-deciding claim policy.
+ */
+export async function getForecastAccuracyReport(): Promise<ForecastAccuracyReport> {
+  const now = new Date();
+  const supabase = getForecastAccuracyClient("getForecastAccuracyReport");
+  if (!supabase) {
+    return buildBuildingReport(
+      "Accuracy metrics are still building; the public report client is not ready.",
+      now
+    );
+  }
+
+  try {
+    const { data: matviewRows, error: matviewError } = await supabase
+      .from("beach_ml_performance_baseline")
+      .select(
+        [
+          "beach_id",
+          "beach_name",
+          "predictions_total",
+          "predictions_matched",
+          "raw_mae",
+          "corrected_mae",
+          "mae_improvement_pct",
+          "last_prediction_at",
+          "period_start",
+          "period_end",
+        ].join(", "),
+      )
+      .gte("predictions_matched", 5)
+      .order("predictions_matched", { ascending: false })
+      .limit(20);
+
+    if (matviewError) {
+      logForecastAccuracyError("getForecastAccuracyReport baseline", matviewError);
+      return buildBuildingReport(
+        "Accuracy metrics are still building; baseline rows are not ready.",
+        now
+      );
+    }
+
+    const rows = (matviewRows ?? []) as unknown as AccuracyReportMatviewRow[];
+    if (rows.length === 0) {
+      return buildBuildingReport(
+        "Accuracy metrics are still building; no qualifying buoy-matched rows are ready.",
+        now
+      );
+    }
+
+    const beachIds = rows
+      .map((row) => row.beach_id)
+      .filter((id): id is string => typeof id === "string" && id.length > 0);
+
+    const { data: beaches, error: beachError } = await supabase
+      .from("beaches")
+      .select("id, slug, city, state, country")
+      .in("id", beachIds);
+
+    if (beachError) {
+      logForecastAccuracyError("getForecastAccuracyReport beaches", beachError);
+    }
+
+    const beachMap = new Map<string, BeachRow>();
+    for (const beach of (beaches ?? []) as BeachRow[]) {
+      beachMap.set(beach.id, beach);
+    }
+
+    const beachRows = rows
+      .map((row) => mapAccuracyBeachRow(row, beachMap.get(row.beach_id), now))
+      .filter((row): row is ForecastAccuracyBeachRow => row !== null);
+    const summary = buildAccuracySummary(rows, beachRows, now);
+
+    if (beachRows.length === 0) {
+      return {
+        ...buildBuildingReport(
+          "Accuracy metrics are still building; no displayable beach rows are ready.",
+          now
+        ),
+        generatedAt: now.toISOString(),
+      };
+    }
+
+    const [regionalData, dailyTimeSeries] = await Promise.all([
+      getRegionalAccuracy(),
+      getDailyAccuracyTimeSeries(),
+    ]);
+
+    return {
+      generatedAt: now.toISOString(),
+      summary,
+      beachRows,
+      buildingRows:
+        summary.status === "building"
+          ? buildAccuracyBuildingRows(
+              "Accuracy metrics are still building; no positive lift claim is ready."
+            )
+          : [],
+      dailyTimeSeries,
+      regionalData,
+    };
+  } catch (error) {
+    logForecastAccuracyError("getForecastAccuracyReport unexpected", error);
+    return buildBuildingReport(
+      "Accuracy metrics are still building after an unexpected report error.",
+      now
+    );
+  }
+}
 
 /**
  * Aggregate accuracy statistics across all beaches with >= 10 matched predictions.

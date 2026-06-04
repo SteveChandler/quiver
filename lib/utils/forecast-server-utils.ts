@@ -7,6 +7,7 @@
 
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
 import { fetchNowcastAnchors } from "@/lib/services/observations/nowcast-anchor";
+import { fetchSouthOcSanoShadowZoneSnapshot } from "@/lib/services/forecast/south-oc-sano-shadow-guardrail";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 // Re-export from forecast-service-utils for convenience
@@ -62,9 +63,15 @@ export async function updateBeachForecast(beachId: string) {
   // empty map; anchor is null and behavior is unchanged.
   const anchorsMap = await fetchNowcastAnchors(supabase);
   const nowcastAnchor = anchorsMap.get(beachId) ?? null;
+  const southOcSanoShadowZoneSnapshot =
+    await fetchSouthOcSanoShadowZoneSnapshot(supabase);
 
   // Generate comprehensive forecast
-  const forecasts = await service.generateComprehensiveForecast(beach, nowcastAnchor);
+  const forecasts = await service.generateComprehensiveForecast(
+    beach,
+    nowcastAnchor,
+    southOcSanoShadowZoneSnapshot,
+  );
 
   // Store enhanced forecasts
   const result = await service.storeEnhancedForecasts(beach, forecasts);
@@ -116,4 +123,3 @@ export async function updateCdipBeachForecasts(options: ForecastUpdateOptions = 
 
   return result;
 }
-

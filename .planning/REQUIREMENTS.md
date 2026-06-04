@@ -10,32 +10,41 @@ Track only the active requirements for the current go-live/refactor planning sta
 
 ## Current Status
 
-The active roadmap focus is Phase 13: controlled refactor completion. Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, release-quality, PBSC, and Sentry work is historical for this tracker unless a future task reopens it.
+The Phase 14 Session Intelligence guardrails and inventory, Phase 15 recommendation primitive, Phase 16 reusable UI, and Phase 17 limited pilot are complete. Phase 18 SEO-safe intent rollout is planned and ready for execution. Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, release-quality, PBSC, Sentry, and controlled-refactor work is historical for this tracker unless a future task reopens it.
 
 ## Active Requirements
 
-- **REF-01**: Remaining production `@/lib/api-utils` imports outside wrapper internals are migrated or intentionally retained with documented rationale.
-- **REF-02**: API wrapper compatibility exports and wrapper-internal dependencies have clear ownership, with no `app/api/**/route.ts` regression to direct legacy helper imports.
-- **REF-03**: Each refactor slice is behavior-preserving, PR-sized, and backed by focused characterization, source-guard, or unit coverage before risky edits.
-- **REF-04**: [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) stays current after each completed slice with progress, validation status, current risks, open questions, rollback, and the next recommended slice.
-- **REF-05**: Refactor validation includes targeted Jest, scoped ESLint, `yarn typecheck`, and preview build when runtime, route, middleware, or build-sensitive surfaces are touched.
+- **REF-01**: Completed in Phase 13. Remaining production `@/lib/api-utils` imports outside wrapper internals were migrated.
+- **REF-02**: Completed in Phase 13. API wrapper compatibility exports and wrapper-internal dependencies have documented ownership.
+- **REF-03**: Completed in Phase 13. Each refactor slice stayed behavior-preserving, PR-sized, and test-backed.
+- **REF-04**: Completed in Phase 13. [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) records progress, validation, risks, rollback, and future candidates.
+- **REF-05**: Completed in Phase 13. Targeted Jest, scoped ESLint, `yarn typecheck`, and preview build passed locally.
+- **SI-01**: Completed in Phase 14. Eligible web templates and data availability were inventoried before adding heavier recommendation UI.
+- **SI-02**: Create a deterministic `SurfWindowRecommendation` model and helper that returns top surf windows from existing forecast data without a new ML model.
+- **SI-03**: Build reusable, accessible UI components for best windows, explanations, source confidence, and app deep links. Session Intelligence UI must use Brand-Vault styling and sticker-sheet assets where visual treatment is introduced, including the web mirror at `public/images/quiver-stickers`.
+- **SI-04**: Prove Session Intelligence on a limited pilot before rollout: one major spot page, one regional forecast page, and a compact homepage module.
+- **SI-05**: Roll out only after pilot validation while preserving page intent, canonical URLs, schema, app CTAs, and measurement.
+- **SI-06**: Upgrade `/forecast-accuracy` so it never appears empty and only shows accuracy claims backed by data.
+- **SI-07**: Phase 14 baseline complete. Universal/app links, analytics, performance, structured-data, source-claim, and fallback-state checklists are documented; later implementation phases must preserve and extend validation before broad rollout.
 
 ## Open Gaps
 
-- Phase 13 has no detailed phase plan yet.
-- Remaining import cleanup targets are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
-- Wrapper-internal ownership cleanup is still open after route-level migration.
+- Phase 18 SEO-safe intent rollout is planned and still needs execution. Phases 19-20 still need planning and execution.
+- Future candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
+- Wrapper-internal helper collapse remains future work outside the completed Phase 13 checkpoint.
 
 ## Decisions Already Made
 
 - Completed launch requirements remain preserved in the full-history archive, not repeated in this active tracker.
 - Monetization, CMS-style blog management, automated lifecycle nurture, and dedicated launch dashboards remain deferred v2 scope.
 - Production database migrations, deploys, alias promotion, outbound sends, and payment actions require explicit approval.
+- Ahrefs crawl limit remains fixed; treat Ahrefs as a sampled audit and confirm findings against GSC, Vercel, PostHog, direct template review, or code inspection.
+- Session Intelligence surfaces should pull visual direction from Brand-Vault before adding new icons, stickers, tape treatments, screenshots, or decorative art.
 
 ## Next Actions
 
-- Plan and execute the next controlled refactor slice from [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
-- After each completed slice, update both this file if requirements change and the refactor roadmap with validation evidence.
+- Execute Phase 18 SEO-safe intent rollout before planning Phase 19 forecast-accuracy trust page.
+- Preserve approval gates for deploys, production mutations, outbound sends, payment actions, and entitlement changes.
 
 ## Historical Notes
 

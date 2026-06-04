@@ -124,6 +124,12 @@ export interface TransformParams {
    * short-circuit is skipped and the legacy pipeline runs (safe default).
    */
   source?: WaveHeightSourceTag;
+  /**
+   * Guarded nowcast anchors may opt into per-beach shoaling buckets when the
+   * caller has already proven that the nearshore observation is a valid local
+   * floor. Normal nowcast anchors leave this false and use the generic path.
+   */
+  allowCalibratedShoaling?: boolean;
 }
 
 // ===================================================
@@ -400,7 +406,14 @@ export interface FaceHeightWithMetadata {
 export function transformToFaceHeightWithMetadata(
   params: TransformParams
 ): FaceHeightWithMetadata {
-  const { rawHeightFt, periodS, swellDirectionDeg, beach, source } = params;
+  const {
+    rawHeightFt,
+    periodS,
+    swellDirectionDeg,
+    beach,
+    source,
+    allowCalibratedShoaling,
+  } = params;
 
   // Validate input - return 0 for invalid values (not calibrated: a
   // meaningless number cannot be "calibrated").
@@ -414,7 +427,7 @@ export function transformToFaceHeightWithMetadata(
   // when CDIP has been rejected (>10ft, outlier, or null) produces the wrong
   // answer. When source is anything else (or omitted), fall through to the
   // generic pipeline which is the correct treatment for model inputs.
-  if (source === 'cdip_sig') {
+  if (canUseCalibratedShoaling(source, allowCalibratedShoaling)) {
     const bucketFactor = lookupShoalingBucket(periodS, beach?.shoaling_factors);
     if (bucketFactor != null) {
       return {
@@ -431,7 +444,7 @@ export function transformToFaceHeightWithMetadata(
   // Apply deepwater decay for model data sources.
   // CDIP buoy data already reflects nearshore conditions — decay would double-correct.
   // Model data (Open-Meteo, WW3) predicts deep-water energy that may not reach sheltered beaches.
-  const decay = (source !== 'cdip_sig' && beach?.deepwater_decay_factor != null)
+  const decay = (shouldApplyDeepwaterDecay(source) && beach?.deepwater_decay_factor != null)
     ? beach.deepwater_decay_factor
     : 1.0;
 
@@ -601,6 +614,20 @@ function isTerrainWeightedModelSource(
   return source === 'model_swell' || source === 'model_hs';
 }
 
+function canUseCalibratedShoaling(
+  source: WaveHeightSourceTag | undefined,
+  allowCalibratedShoaling?: boolean,
+): boolean {
+  return source === 'cdip_sig' ||
+    (source === 'nowcast_anchor' && allowCalibratedShoaling === true);
+}
+
+function shouldApplyDeepwaterDecay(
+  source: WaveHeightSourceTag | undefined,
+): boolean {
+  return source !== 'cdip_sig' && source !== 'nowcast_anchor';
+}
+
 /**
  * Compute the per-component access factor used by decomposed face heights.
  *
@@ -726,6 +753,7 @@ export function transformToFaceHeightDecomposed(params: {
   components: Array<SwellComponentInput | null>;
   beach: BeachTerrainConfig;
   source?: WaveHeightSourceTag;
+  allowCalibratedShoaling?: boolean;
   // Legacy fallback inputs (used when no components are populated).
   rawHeightFt: number;
   periodS: number | null;
@@ -735,6 +763,7 @@ export function transformToFaceHeightDecomposed(params: {
     components,
     beach,
     source,
+    allowCalibratedShoaling,
     rawHeightFt,
     periodS,
     swellDirectionDeg,
@@ -760,6 +789,7 @@ export function transformToFaceHeightDecomposed(params: {
       swellDirectionDeg,
       beach,
       source,
+      allowCalibratedShoaling,
     });
     return {
       faceHeightFt: legacy.faceHeightFt,
@@ -773,7 +803,7 @@ export function transformToFaceHeightDecomposed(params: {
   // Apply deepwater decay for model data sources.
   // CDIP buoy data already reflects nearshore conditions — decay would double-correct.
   // Model data (Open-Meteo, WW3) predicts deep-water energy that may not reach sheltered beaches.
-  const decay = (source !== 'cdip_sig' && beach.deepwater_decay_factor != null)
+  const decay = (shouldApplyDeepwaterDecay(source) && beach.deepwater_decay_factor != null)
     ? beach.deepwater_decay_factor
     : 1.0;
 
@@ -796,7 +826,7 @@ export function transformToFaceHeightDecomposed(params: {
 
     // Only use calibrated bucket factors for CDIP sources — the buckets are
     // measured as surfline_face / cdip_hs and produce overshoot on model data.
-    const bucketFactor = source === 'cdip_sig'
+    const bucketFactor = canUseCalibratedShoaling(source, allowCalibratedShoaling)
       ? lookupShoalingBucket(component.periodS, shoalingFactors)
       : null;
     const periodFactor = calculatePeriodFactor(component.periodS);
@@ -821,6 +851,7 @@ export function transformToFaceHeightDecomposed(params: {
   if (sumOfSquares === 0) {
     const legacy = transformToFaceHeightWithMetadata({
       rawHeightFt, periodS, swellDirectionDeg, beach, source,
+      allowCalibratedShoaling,
     });
     return {
       faceHeightFt: legacy.faceHeightFt,
@@ -837,7 +868,8 @@ export function transformToFaceHeightDecomposed(params: {
     // Calibrated iff the short-circuit would have fired for the combined
     // reading: source is CDIP sig AND the beach has a lookup table. Per-
     // component bucket misses don't invalidate the beach-level claim.
-    isCalibrated: source === 'cdip_sig' && shoalingFactors != null,
+    isCalibrated: canUseCalibratedShoaling(source, allowCalibratedShoaling) &&
+      shoalingFactors != null,
     path: 'decomposed',
   };
 }

@@ -17,6 +17,26 @@ const ONSHORE_TOLERANCE_DEG = 60;
 const DEFAULT_OFFSHORE_DEG = 90;
 // Wind speed above which conditions are considered choppy (onshore)
 const CHOPPY_WIND_SPEED_MPH = 10;
+const POWER_DAY_MIN_HEIGHT_FT = 3;
+const POWER_DAY_CHURCH_STRICT_HEIGHT_FT = 4;
+const POWER_DAY_MIN_PERIOD_S = 15;
+const POWER_DAY_MIN_DIRECTION_DEG = 175;
+const POWER_DAY_MAX_DIRECTION_DEG = 220;
+
+const ALWAYS_BLOCKED_POWER_DAY_TYPES = new Set([
+  'softboard',
+  'foil',
+  'sup',
+  'groveler',
+  'small-wave',
+  'small_wave',
+  'foamie-first',
+  'foamie_first',
+  'mellow',
+]);
+
+const LOWERS_EXTRA_BLOCKED_TYPES = new Set(['longboard', 'funboard']);
+const CHURCH_STRICT_EXTRA_BLOCKED_TYPES = new Set(['longboard', 'funboard']);
 
 export interface BoardForPick {
   id: string;
@@ -138,6 +158,47 @@ function findBoardForTier(
   return null;
 }
 
+function isConfirmedSouthOcPowerDay(
+  forecast: ForecastForScoring,
+  beach?: BeachWithThresholds
+): boolean {
+  const slug = beach?.slug;
+  if (slug !== 'lower-trestles' && slug !== 'church') return false;
+  if (forecast.waveHeight < POWER_DAY_MIN_HEIGHT_FT) return false;
+  const confirmedPeriodS =
+    forecast.southOcSanoGuardrail?.confirmedPeriodS ?? forecast.wavePeriod;
+  const confirmedDirectionDeg =
+    forecast.southOcSanoGuardrail?.confirmedDirectionDeg ?? forecast.swellDirection;
+
+  if (confirmedPeriodS < POWER_DAY_MIN_PERIOD_S) return false;
+  if (confirmedDirectionDeg == null) return false;
+  return (
+    confirmedDirectionDeg >= POWER_DAY_MIN_DIRECTION_DEG &&
+    confirmedDirectionDeg <= POWER_DAY_MAX_DIRECTION_DEG
+  );
+}
+
+function isBlockedPowerDayBoard(
+  board: BoardForPick,
+  forecast: ForecastForScoring,
+  beach?: BeachWithThresholds
+): boolean {
+  if (!isConfirmedSouthOcPowerDay(forecast, beach)) return false;
+
+  const boardType = board.board_type.toLowerCase();
+  if (ALWAYS_BLOCKED_POWER_DAY_TYPES.has(boardType)) return true;
+
+  if (beach?.slug === 'lower-trestles') {
+    return LOWERS_EXTRA_BLOCKED_TYPES.has(boardType);
+  }
+
+  if (beach?.slug === 'church' && forecast.waveHeight >= POWER_DAY_CHURCH_STRICT_HEIGHT_FT) {
+    return CHURCH_STRICT_EXTRA_BLOCKED_TYPES.has(boardType);
+  }
+
+  return false;
+}
+
 /**
  * Picks the best board from a user's quiver for the given forecast conditions.
  *
@@ -158,9 +219,15 @@ export function getConditionBoardPick(
 ): BoardPickResult | null {
   if (boards.length === 0) return null;
 
+  const candidateBoards = isConfirmedSouthOcPowerDay(forecast, beach)
+    ? boards.filter((board) => !isBlockedPowerDayBoard(board, forecast, beach))
+    : boards;
+
+  if (candidateBoards.length === 0) return null;
+
   // Single-board quiver — always return it
-  if (boards.length === 1) {
-    const board = boards[0];
+  if (candidateBoards.length === 1) {
+    const board = candidateBoards[0];
     const tier = getConditionTier(forecast, beach);
     return {
       boardId: board.id,
@@ -173,11 +240,11 @@ export function getConditionBoardPick(
   const tier = getConditionTier(forecast, beach);
   const priorityList = BOARD_PRIORITY[tier];
 
-  const picked = findBoardForTier(boards, priorityList);
+  const picked = findBoardForTier(candidateBoards, priorityList);
 
   if (!picked) {
     // None of the priority types match — fall back to first board in quiver
-    const fallback = boards[0];
+    const fallback = candidateBoards[0];
     return {
       boardId: fallback.id,
       boardName: fallback.name,

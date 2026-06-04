@@ -10,19 +10,23 @@ Status: Active
 Last compressed: 2026-05-31
 Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/ROADMAP-full-history.md](archive/2026-05-31-doc-cleanup/ROADMAP-full-history.md)
 
-Phases 1 through 12 are complete. Phase 13 is ready and should continue the controlled refactor work tracked in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
+Phases 1 through 19 are complete. Phase 13 closed the controlled refactor checkpoint tracked in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md); Phase 14 closed the Session Intelligence guardrails and template inventory. Phases 15-17 delivered the shared recommendation primitive, reusable UI components, and the limited Session Intelligence pilot surfaces. Phase 18 completed the allowlisted SEO-safe intent rollout with rollout guards, public answers, utility handoffs, best-time/Malibu enrichment, guest browser QA, and measurement docs. Phase 19 completed the forecast-accuracy trust page.
 
 ## Active Requirements
 
-- Phase 13 work must remain behavior-preserving, PR-sized, and test-backed.
-- Keep `docs/refactor-roadmap.md` current after each completed refactor slice.
+- Preserve Phase 13 validation evidence in `docs/refactor-roadmap.md`.
+- Preserve Phase 14 Session Intelligence inventory evidence in `docs/session-intelligence/phase-14-template-inventory.md`.
 - Do not start broad cleanup, deletion, or risky route/API rewrites under this roadmap.
 - Preserve launch, pricing, App Store, outreach, and Sentry history in archive unless a future phase needs exact detail.
 
 ## Open Gaps
 
-- Phase 13 planning is still pending.
-- Remaining controlled-refactor imports are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
+- Phase 20 production web verification passed after approved deploy. Native
+  `/app/spot/:slug` routing is patched in `quiver-native` and
+  simulator-verified through the app scheme. Simulator evidence is accepted for
+  closeout; signed iOS HTTPS handoff is deferred to the next native release
+  validation lane.
+- Future refactor candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Public go-live deployment/alias promotion and any outbound launch actions remain approval-gated.
 
 ## Decisions Already Made
@@ -31,13 +35,294 @@ Phases 1 through 12 are complete. Phase 13 is ready and should continue the cont
 - Public copy teaches the Quiver loop: forecast, check, log, improve.
 - Public pricing stays waitlist-safe until payment and entitlement release gates are proven.
 - Brand-Vault remains the first source for launch visuals and campaign assets.
+- Remaining production `@/lib/api-utils` imports outside wrapper internals were closed in Phase 13.
 - Outbound sends, posts, DMs, tracker writes, Play Console actions, entitlement grants, production mutations, deploys, alias promotion, and payment changes require exact user approval.
 
 ## Next Actions
 
-- Plan Phase 13 around the next safe refactor slice.
-- Start with Slice 82 from [docs/refactor-roadmap.md](../docs/refactor-roadmap.md): `app/session/confirm/route.ts` UUID validation import cleanup.
-- Run the scoped validation listed in the refactor roadmap before marking any slice complete.
+- Start 3-day, 7-day, and 28-day after-measurement checks from deployment time
+  `2026-06-02T18:55:38Z`; run signed HTTPS handoff validation before the next
+  native release.
+- Keep deploy, production mutation, outbound send, payment, and entitlement actions approval-gated.
+
+## Session Intelligence v1 Addendum
+
+This addendum is future planned work. It is additive to the completed launch and
+refactor phases and must not replace, renumber, or rewrite previous phases.
+
+Shared guardrails for Phases 14-20:
+
+- Use GSD: ship small, safe, measurable slices.
+- Do not overhaul the whole site or mass-change metadata/templates before the
+  pilot proves value.
+
+- Do not create duplicate thin SEO pages, retarget water-temp pages as surf
+  reports, hide useful answers behind sign-in, add unsupported data-source
+  claims, introduce a new ML model, or change canonical URLs.
+
+- Ahrefs remains a sampled audit input. Do not pay to increase the crawl cap;
+  confirm findings against GSC, Vercel, PostHog, direct template review, or code
+  inspection.
+
+### Phase 14: Guardrails, Data Inventory, And Template Safety
+
+**Goal:** Make sure Session Intelligence can be added safely without hurting
+existing SEO pages, app CTAs, or page performance.
+**Mode:** mvp
+**Requirements**: SI-01, SI-07
+**Depends on:** Phase 13
+**UI hint:** no
+**Success Criteria** (what must be TRUE):
+
+  1. A guardrail note exists for Ahrefs sampling, fixed crawl cap, and required
+     confirmation sources.
+
+  2. Eligible templates are inventoried: spot, regional forecast, homepage,
+     city/region, best-time, beginner, longboard, dawn patrol, sunset session,
+     tide-window, less-crowded, water-temp, tide, and forecast-accuracy pages.
+
+  3. Data availability is clear by template: forecast horizon, tide, water-temp,
+     buoy, cam, user reports, local spot intel, and app CTA/deep-link support.
+
+  4. Slow template risks are profiled or avoided before heavier UI is added,
+     including `/for-surf-schools`, tide pages, and water-temp pages.
+
+  5. Structured data is sampled on one tide page, one water-temp page, one US
+     spot page, and one non-US/Baja spot page.
+
+  6. Existing canonical URLs are unchanged.
+
+**Plans:** 4/4 plans complete
+
+Plans:
+
+- [x] [14-01: Create Session Intelligence Guardrail And Template Inventory](phases/14-session-intelligence-addendum/14-01-PLAN.md)
+- [x] [14-02: Map Data Availability And Source Claims By Template](phases/14-session-intelligence-addendum/14-02-PLAN.md)
+- [x] [14-03: Document Performance And Structured Data Safety Checks](phases/14-session-intelligence-addendum/14-03-PLAN.md)
+- [x] [14-04: Verify App-Link, Deeplink, Analytics, And Phase Evidence](phases/14-session-intelligence-addendum/14-04-PLAN.md)
+
+### Phase 15: Shared Recommendation Primitive
+
+**Goal:** Create the shared `SurfWindowRecommendation` model and deterministic
+recommendation helper that returns the top 3 surf windows from existing forecast
+rows.
+**Mode:** mvp
+**Requirements**: SI-02, SI-07
+**Depends on:** Phase 14
+**UI hint:** no
+**Success Criteria** (what must be TRUE):
+
+  1. The helper returns top 3 windows for a beach or region with forecast rows.
+  2. It prefers 14 days when available and falls back to 7 days when only 7 days
+     exists.
+
+  3. It uses deterministic v1 scoring only; no new ML model is introduced.
+  4. Scores use only surf-relevant inputs: wave height range, swell period,
+     swell direction fit when available, wind direction/strength, tide
+     phase/trend, skill fit, board fit, local spot intel when available, and
+     confidence/buoy alignment when available.
+
+  5. Each recommendation includes score, verdict, headline, wave/wind/tide
+     summary, best-for tags, reasons, confidence, app deep link, universal link,
+     and canonical web URL.
+
+  6. Missing tide, buoy, cam, or user-report data is handled gracefully and never
+     displayed as an available source.
+
+  7. Unit tests cover normal scoring, no tide data, no buoy data, sparse rows,
+     only 7-day horizon, low-confidence output, and no recommendation available.
+
+**Plans:** 4/4 plans complete
+
+Plans:
+
+- [ ] [15-01: Add Shared Session Intelligence Recommendation Model](phases/15-shared-recommendation-primitive/15-01-PLAN.md)
+- [ ] [15-02: Add Deterministic Top Window Selection](phases/15-shared-recommendation-primitive/15-02-PLAN.md)
+- [ ] [15-03: Build Shared Surf Window Recommendation Helper](phases/15-shared-recommendation-primitive/15-03-PLAN.md)
+- [ ] [15-04: Add Source Flags, Links, And Final Verification](phases/15-shared-recommendation-primitive/15-04-PLAN.md)
+
+### Phase 16: Reusable Session Intelligence UI Components
+
+**Goal:** Build reusable UI once, then drop it into existing surfaces.
+**Mode:** mvp
+**Requirements**: SI-03, SI-07
+**Depends on:** Phase 15
+**UI hint:** yes
+**Success Criteria** (what must be TRUE):
+
+  1. `BestSurfWindows` renders 1-3 recommendations with local time, score,
+     verdict, wave/wind/tide summary, best-for tags, confidence badge, "Open
+     this window in Quiver", and "Why this call?"
+
+  2. `WhyThisCall` exposes positives, watchouts, confidence, and source chips in
+     an accessible mobile/desktop drawer, modal, or accordion.
+
+  3. `SourceConfidenceBadge` shows labels such as "High - buoy + model",
+     "Medium - model + tide", "Low - sparse data", or "Model only" without
+     inventing unavailable sources.
+
+  4. `AppDeepLinkCTA` generates exact beach/window deep links and universal
+     links, with a safe App Store fallback if app-link config is unavailable.
+
+  5. Components render at 360px, 390px, 412px, tablet, and desktop.
+  6. Components work with missing tide, buoy, cam, or user-report data.
+  7. Component tests exist for `BestSurfWindows` and `WhyThisCall`.
+
+**Plans:** 4/4 plans complete
+
+Plans:
+
+- [x] [16-01: Add Source Badge And Deep-Link CTA](phases/16-reusable-session-intelligence-ui-components/16-01-PLAN.md) (completed 2026-06-02)
+- [x] [16-02: Add Accessible WhyThisCall Disclosure](phases/16-reusable-session-intelligence-ui-components/16-02-PLAN.md) (completed 2026-06-02)
+- [x] [16-03: Add BestSurfWindows Composition Component](phases/16-reusable-session-intelligence-ui-components/16-03-PLAN.md) (completed 2026-06-02)
+- [x] [16-04: Add Dev Preview And Final Responsive Verification](phases/16-reusable-session-intelligence-ui-components/16-04-PLAN.md) (completed 2026-06-02)
+
+### Phase 17: Limited Session Intelligence Pilot
+
+**Goal:** Prove Session Intelligence on a small surface before rollout.
+**Mode:** mvp
+**Requirements**: SI-04, SI-07
+**Depends on:** Phase 16
+**UI hint:** yes
+**Success Criteria** (what must be TRUE):
+
+  1. One major spot page, preferably `/ca/san-diego/blacks` or another
+     high-value existing spot page, shows the top 3 upcoming surf windows.
+
+  2. One regional forecast page, such as `/forecast` or `/forecast/santa-cruz`,
+     shows "Best windows this week" while preserving the current 7-day outlook.
+
+  3. The homepage includes a compact "Find your next best surf window" module
+     that works without user location.
+
+  4. Each pilot window explains why through the shared `WhyThisCall` format.
+  5. Existing spot/forecast content is not removed.
+  6. Existing app CTAs still work.
+  7. No pilot route becomes noticeably slower.
+
+**Plans:** 5/5 plans executed
+Plans:
+
+- [x] [17-01: Add Pilot Recommendation Adapters](phases/17-limited-session-intelligence-pilot/17-01-PLAN.md) (completed 2026-06-02)
+- [x] [17-02: Add Spot Page Pilot](phases/17-limited-session-intelligence-pilot/17-02-PLAN.md) (completed 2026-06-02)
+- [x] [17-03: Add Regional Forecast Pilot](phases/17-limited-session-intelligence-pilot/17-03-PLAN.md) (completed 2026-06-02)
+- [x] [17-04: Add Homepage Compact Module](phases/17-limited-session-intelligence-pilot/17-04-PLAN.md) (completed 2026-06-02)
+- [x] [17-05: Final Pilot QA And Evidence](phases/17-limited-session-intelligence-pilot/17-05-PLAN.md) (completed 2026-06-02)
+
+### Phase 18: SEO-Safe Intent Rollout
+
+**Goal:** Improve SEO and click-around by adding surfer decision value after the
+pilot is validated, not by chasing keywords blindly.
+**Mode:** mvp
+**Requirements**: SI-05, SI-07
+**Depends on:** Phase 17
+**UI hint:** yes
+**Success Criteria** (what must be TRUE):
+
+  1. Rollout starts only after pilot validation.
+  2. Page intent remains clean on longboard, beginner, dawn patrol, sunset,
+     tide-window, less-crowded, city best-time, selected water-temp, selected
+     tide, and selected high-impression spot pages.
+
+  3. Basic useful answers remain visible without sign-in; alerts or
+     personalization may be gated.
+
+  4. Selected water-temp pages add surfer decision value without being retargeted
+     as surf-report pages.
+
+  5. `/ca/malibu/malibu-surfrider-first-point-malibu-ca` is enriched without
+     cannibalizing `/surf-report/malibu-today`.
+
+  6. `/best-time-to-surf/la-jolla`, `/best-time-to-surf/westport`, and
+     `/best-time-to-surf/cocoa-beach` keep best-time intent and link to live
+     conditions where appropriate.
+
+  7. Contextual internal links connect spot, tide, water-temp, dawn patrol,
+     longboard/beginner, forecast, and exact spot/window pages.
+
+  8. No canonical changes or unsupported data-source claims ship.
+  9. CTR and multi-page behavior are measured before/after, and sister pages do
+     not lose impressions through cannibalization.
+
+**Plans:** 5/5 plans executed
+
+Plans:
+
+- [x] [18-01: Add Rollout Guards And Eligibility Policy](phases/18-seo-safe-intent-rollout/18-01-PLAN.md) (completed 2026-06-02)
+- [x] [18-02: Make Generic And Beginner Intent Answers Public](phases/18-seo-safe-intent-rollout/18-02-PLAN.md) (completed 2026-06-02)
+- [x] [18-03: Add Dedicated Utility Intent Handoffs](phases/18-seo-safe-intent-rollout/18-03-PLAN.md) (completed 2026-06-02)
+- [x] [18-04: Enrich Best-Time Pages And Malibu Spot Safely](phases/18-seo-safe-intent-rollout/18-04-PLAN.md) (completed 2026-06-02)
+- [x] [18-05: Final SEO Rollout QA And Measurement Evidence](phases/18-seo-safe-intent-rollout/18-05-PLAN.md) (completed 2026-06-02)
+
+### Phase 19: Forecast Accuracy Trust Page
+
+**Goal:** Upgrade `/forecast-accuracy` into a visible proof/trust page.
+**Mode:** mvp
+**Requirements**: SI-06, SI-07
+**Depends on:** Phase 18
+**UI hint:** yes
+**Success Criteria** (what must be TRUE):
+
+  1. If live metrics exist, the page renders beach, Quiver MAE, NOAA baseline
+     MAE, improvement percentage, validated-pair count, last updated, and
+     confidence.
+
+  2. If metrics are not ready, the page renders graceful building/in-progress
+     rows and does not claim accuracy improvements.
+
+  3. The page explains how the score works, data sources used, when Quiver
+     trusts buoy/observed data, known limits, and last updated.
+
+  4. Confidence/source language matches the recommendation UI.
+  5. `/forecast-accuracy` never looks empty.
+
+**Plans:** 4 plans
+
+Plans:
+
+- [x] [19-01: Build The Accuracy Report And Claim Policy](phases/19-forecast-accuracy-trust-page/19-01-PLAN.md) (completed 2026-06-02)
+- [x] [19-02: Render The Non-Empty Trust Page](phases/19-forecast-accuracy-trust-page/19-02-PLAN.md) (completed 2026-06-02)
+- [x] [19-03: Tighten Methodology, Limits, And SEO Copy](phases/19-forecast-accuracy-trust-page/19-03-PLAN.md) (completed 2026-06-02)
+- [x] [19-04: Add Guest E2E And Final Verification](phases/19-forecast-accuracy-trust-page/19-04-PLAN.md) (completed 2026-06-02)
+
+### Phase 20: Domain, App Links, Analytics, And QA
+
+**Goal:** Make web-to-native handoff measurable and reliable while validating the
+full Session Intelligence rollout.
+**Mode:** mvp
+**Requirements**: SI-07
+**Depends on:** Phase 19
+**UI hint:** yes
+**Success Criteria** (what must be TRUE):
+
+  1. Canonical web domain `www.quiversurf.app` is verified.
+  2. `apple-app-site-association`, `assetlinks.json`, universal links for
+     `/app/spot/:slug?window=:id`, and App Store fallback are validated.
+
+  3. No placeholder team IDs or certificate fingerprints ship.
+  4. Analytics exist for `surf_window_impression`, `surf_window_click`,
+     `why_this_call_opened`, `app_deeplink_clicked`,
+     `forecast_accuracy_table_viewed`, `save_alert_clicked`, and
+     `seo_intent_page_window_clicked`.
+
+  5. GSC CTR, GSC average position, GSC impressions, multi-page rate, app CTA
+     clicks, app deep-link conversion, bounce rate, and route performance are
+     measured before/after.
+
+  6. QA covers mobile 360px, 390px, 412px, tablet, desktop, no forecast data,
+     7-day only, 14-day available, no buoy, no tide, no cam, no user reports,
+     model only, low confidence, app not installed, app-link fallback, canonical
+     tags, schema, and slow route regression.
+
+**Plans:** 5/5 plans executed
+
+Plans:
+
+- [x] [20-01: Align App-Link Route, Manifests, And Fallback](phases/20-app-links-analytics-and-qa/20-01-PLAN.md) (completed 2026-06-02)
+- [x] [20-02: Add Session Intelligence Analytics Events](phases/20-app-links-analytics-and-qa/20-02-PLAN.md) (completed 2026-06-02)
+- [x] [20-03: Capture Before Baselines And Measurement Protocol](phases/20-app-links-analytics-and-qa/20-03-PLAN.md) (completed 2026-06-02)
+- [x] [20-04: Expand Public QA Matrix](phases/20-app-links-analytics-and-qa/20-04-PLAN.md) (completed 2026-06-02)
+- [x] [20-05: Final Live Verification And Closeout](phases/20-app-links-analytics-and-qa/20-05-PLAN.md) (completed 2026-06-02; simulator native evidence accepted)
 
 ## Historical Notes
 
@@ -56,3 +341,4 @@ Completed phases are summarized here to keep this file small:
 - Phase 10 completed local go-live verification and documented remaining deploy approval gates.
 - Phase 11 completed PBSC event route deploy and QR verification work.
 - Phase 12 completed Sentry observability rollout work.
+- Phase 13 completed controlled refactor import cleanup, wrapper compatibility ownership, and final local validation.

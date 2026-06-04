@@ -149,16 +149,15 @@ test.describe('Guest Smoke: Critical Pages', () => {
 });
 
 test.describe('Guest Smoke: SEO Infrastructure', () => {
-  test('Sitemap returns valid XML response @smoke', async ({ page }) => {
-    const response = await page.goto('/sitemap.xml', { timeout: 10000 });
+  test('Sitemap returns valid XML response @smoke', async ({ request }) => {
+    const response = await request.get('/sitemap.xml', { timeout: 10000 });
 
-    expect(response).not.toBeNull();
-    const status = response!.status();
+    const status = response.status();
     // eslint-disable-next-line playwright/no-conditional-in-test -- local dev can 500 here on stale sitemap cache; CI still requires 200.
     const isExpectedLocalCacheFailure = status === 500 && !process.env.CI;
     expect(status === 200 || isExpectedLocalCacheFailure).toBe(true);
 
-    const content = await page.content();
+    const content = await response.text();
     // Should be a valid sitemap or sitemap index
     expect(status !== 200 || /<urlset|<sitemapindex/.test(content)).toBe(true);
     expect(status !== 200 || /<url>/.test(content)).toBe(true);
@@ -173,29 +172,20 @@ test.describe('Guest Smoke: SEO Infrastructure', () => {
     expect(contentType).toMatch(/image\/(png|jpeg|webp)/);
   });
 
-  test('Thin-content pages have noindex meta or valid content @smoke', async ({ page }) => {
+  test('Thin-content pages have noindex meta or valid content @smoke', async ({ request }) => {
     // Use a valid skill-intent + city route that exercises the thin-content logic.
     // The noindex mechanism triggers for skill intents (beginner, longboard) when
     // a city has no matching beaches. Either outcome validates the infrastructure:
     // - noindex present -> thin-content protection is working
     // - noindex absent + content visible -> page has matching beaches and renders
-    await page.goto('/longboard/san-diego', {
+    const response = await request.get('/longboard/san-diego', {
       timeout: 10000,
-      waitUntil: 'domcontentloaded',
     });
+    const html = await response.text();
+    const hasNoindexMeta = /<meta\b(?=[^>]*name=["']robots["'])(?=[^>]*content=["'][^"']*noindex)/i.test(html);
+    const hasH1 = /<h1\b/i.test(html);
 
-    const noindexMeta = page.locator('meta[name="robots"][content*="noindex"]');
-    const h1 = page.locator('h1').first();
-
-    await expect
-      .poll(async () => {
-        const [hasNoindex, h1Visible] = await Promise.all([
-          noindexMeta.count().then((count) => count > 0),
-          h1.isVisible(),
-        ]);
-
-        return hasNoindex || h1Visible;
-      })
-      .toBe(true);
+    expect(response.status()).toBe(200);
+    expect(hasNoindexMeta || hasH1).toBe(true);
   });
 });

@@ -115,10 +115,16 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
     expect(await chips.count()).toBeGreaterThanOrEqual(4);
   });
 
-  test("seven-day outlook section renders with a heading", async ({ page }) => {
+  test("best windows section and seven-day outlook both render", async ({ page }) => {
     await page.goto("/forecast?region=southern-california");
     await waitForPageLoad(page);
     await dismissOnboardingWizard(page);
+
+    const bestWindows = page.getByTestId("regional-best-surf-windows");
+    await expect(bestWindows).toBeVisible();
+    await expect(
+      bestWindows.getByRole("heading", { name: /best windows this week/i })
+    ).toBeVisible();
 
     const outlook = page.getByTestId("seven-day-outlook");
     await expect(outlook).toBeVisible();

@@ -31,9 +31,10 @@ All migrations go in `supabase/migrations/` with naming `YYYYMMDDHHMMSS_descript
 
 ## Production Execution Protocol
 
-- **Role:** Use `claude_migrator` role only
+- **Connection:** Use the production owner connection required by Supabase CLI migration tracking.
+- **Deprecated:** Do not use `claude_migrator`; it was decommissioned because it could not apply or track normal migrations.
 - **Default:** Read-only. Mutations require two-step protocol:
-  1. **PLAN** - Output: exact SQL, target role, tables affected, backup artifact name
+  1. **PLAN** - Output: exact SQL or migration file, target connection/role, objects affected, backup artifact name
   2. **APPROVAL** - Maintainer replies with `APPROVE: <sha>` of the plan text
 - **No approval = no changes.** Refuse mutations without the approval token.
 

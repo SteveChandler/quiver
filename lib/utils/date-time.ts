@@ -775,6 +775,7 @@ export function formatCompactDate(date: Date): string {
     weekday: "short",
     month: "short",
     day: "numeric",
+    timeZone: "UTC",
   });
 }
 
@@ -791,6 +792,7 @@ export function formatShortDate(date: Date): string {
   return date.toLocaleDateString("en-US", {
     weekday: "short",
     day: "numeric",
+    timeZone: "UTC",
   });
 }
 
@@ -809,5 +811,6 @@ export function formatFullDateWithYear(date: Date): string {
     month: "long",
     day: "numeric",
     year: "numeric",
+    timeZone: "UTC",
   });
 }

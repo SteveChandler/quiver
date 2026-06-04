@@ -16,6 +16,19 @@ jest.mock("@/lib/utils/visitor-id", () => ({
   getVisitorId: jest.fn(() => "test-visitor-id"),
 }));
 
+jest.mock("@/lib/attribution", () => ({
+  getAttributionFromCookies: jest.fn(() => ({
+    utm_source: "google",
+    utm_medium: "organic",
+    utm_campaign: "surf-cams",
+    utm_content: "result",
+    utm_term: "live surf cams",
+    referrer: "https://www.google.com/search",
+    first_touch_ts: "2026-06-01T12:00:00.000Z",
+    landing_page: "/surf-cams/san-diego",
+  })),
+}));
+
 const mockFetch = jest.fn(() =>
   Promise.resolve({ ok: true } as Response)
 );
@@ -68,14 +81,35 @@ describe("trackSignupCtaView", () => {
 
     expect(track).toHaveBeenCalledWith(
       "signup_cta_view",
-      expect.objectContaining({ source: "test-page", cta_title: "Sign Up", surface: "landing-page" })
+      expect.objectContaining({
+        source: "test-page",
+        cta_title: "Sign Up",
+        pathname: "/",
+        page: "landing",
+        surface: "landing-page",
+        source_group: "landing",
+        platform: "web",
+        first_touch_platform: "desktop",
+        first_touch_landing_page: "/surf-cams/san-diego",
+        first_touch_referrer: "https://www.google.com/search",
+      })
     );
     expect(mockFetch).toHaveBeenCalledTimes(1);
     const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(callArgs[0]).toBe("/api/events");
     const body = JSON.parse(callArgs[1].body as string);
     expect(body.eventType).toBe("signup_cta_view");
-    expect(body.metadata).toMatchObject({ source: "test-page", cta_title: "Sign Up", surface: "landing-page" });
+    expect(body.metadata).toMatchObject({
+      source: "test-page",
+      cta_title: "Sign Up",
+      pathname: "/",
+      page: "landing",
+      surface: "landing-page",
+      source_group: "landing",
+      platform: "web",
+      first_touch_landing_page: "/surf-cams/san-diego",
+      first_touch_referrer: "https://www.google.com/search",
+    });
     expect(body.sessionId).toBe("test-visitor-id");
     expect(body.viewportWidth).toBe(375);
   });
@@ -139,13 +173,26 @@ describe("trackSignupCtaClick", () => {
 
     expect(track).toHaveBeenCalledWith(
       "signup_cta_click",
-      expect.objectContaining({ source: "sticky-bar", cta_type: "sticky_bar", surface: "landing-page" })
+      expect.objectContaining({
+        source: "sticky-bar",
+        cta_type: "sticky_bar",
+        pathname: "/",
+        page: "landing",
+        surface: "landing-page",
+        source_group: "landing",
+        platform: "web",
+      })
     );
     const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(callArgs[0]).toBe("/api/events");
     const body = JSON.parse(callArgs[1].body as string);
     expect(body.eventType).toBe("signup_cta_click");
-    expect(body.metadata).toMatchObject({ source: "sticky-bar", surface: "landing-page" });
+    expect(body.metadata).toMatchObject({
+      source: "sticky-bar",
+      surface: "landing-page",
+      source_group: "landing",
+      platform: "web",
+    });
   });
 
   it("is NOT deduplicated — fires every time (clicks are discrete actions)", () => {
@@ -165,7 +212,13 @@ describe("trackSigninCtaClick", () => {
 
     expect(track).toHaveBeenCalledWith(
       "signin_cta_click",
-      expect.objectContaining({ source: "content-gate", cta_title: "Log in", surface: "landing-page" })
+      expect.objectContaining({
+        source: "content-gate",
+        cta_title: "Log in",
+        surface: "landing-page",
+        source_group: "landing",
+        platform: "web",
+      })
     );
     const callArgs = mockFetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(callArgs[0]).toBe("/api/events");
@@ -186,6 +239,10 @@ describe("deriveSurfaceFromPath (pure)", () => {
     ["/tools", "tools-page"],
     ["/tools/tide-chart", "tools-page"],
     ["/guides/surfing-san-diego", "guides-page"],
+    ["/beaches/usa/ca", "state-hub"],
+    ["/cams", "cams-directory"],
+    ["/cams/pacific-northwest", "cams-directory"],
+    ["/surf-cams/san-diego", "surf-cams-seo"],
     ["/ca", "state-hub"],
     ["/or", "state-hub"],
     ["/fl", "state-hub"],
@@ -256,6 +313,45 @@ describe("surface auto-injection in tracker", () => {
     expect(track).toHaveBeenCalledWith(
       "signup_cta_click",
       expect.objectContaining({ surface: "features-page" })
+    );
+  });
+
+  it("injects state-hub source group from CTA source", () => {
+    setPathname("/beaches/usa/ca");
+    trackSignupCtaClick({ source: "state-hub-ca" });
+    expect(track).toHaveBeenCalledWith(
+      "signup_cta_click",
+      expect.objectContaining({
+        surface: "state-hub",
+        source_group: "state-hub",
+        pathname: "/beaches/usa/ca",
+      })
+    );
+  });
+
+  it("injects cam family and source group for cam CTAs", () => {
+    setPathname("/cams");
+    trackSignupCtaClick({ source: "cams-hub-inline" });
+    expect(track).toHaveBeenCalledWith(
+      "signup_cta_click",
+      expect.objectContaining({
+        surface: "cams-directory",
+        source_group: "cams-directory",
+        cam_family: "cams-directory",
+      })
+    );
+  });
+
+  it("injects surf-cams SEO source group from source and path", () => {
+    setPathname("/surf-cams/san-diego");
+    trackSignupCtaClick({ source: "seo-funnel-surf-cams-san-diego" });
+    expect(track).toHaveBeenCalledWith(
+      "signup_cta_click",
+      expect.objectContaining({
+        surface: "surf-cams-seo",
+        source_group: "surf-cams-seo",
+        cam_family: "surf-cams-seo",
+      })
     );
   });
 
