@@ -99,6 +99,21 @@ function getJsonLdScripts(html: string): string[] {
 
 test.describe('Route HTML Contracts', () => {
   test.describe('Beach SEO metadata', () => {
+    test('/app/spot selected forecast links expose forecast-window social metadata', async ({
+      request,
+    }) => {
+      const html = await getHtml(
+        request,
+        '/app/spot/la-jolla-shores?window=2026-06-03T14%3A30%3A00.000Z',
+      );
+      const ogImage = getMetaContent(html, { property: 'og:image' });
+      const ogTitle = getMetaContent(html, { property: 'og:title' });
+
+      expect(ogTitle).toContain('is lining up');
+      expect(ogImage).toContain('/api/og/forecast-window');
+      expect(ogImage).not.toContain('utm_');
+    });
+
     test('/beach/[slug] exposes social metadata without browser hydration', async ({ request }) => {
       const beach = TEST_BEACHES.blacks;
       const html = await getHtml(request, `/beach/${beach.slug}`);
