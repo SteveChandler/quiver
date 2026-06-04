@@ -43,6 +43,8 @@ export async function generateMetadata({
   const shareMetadata = await loadForecastWindowShareMetadata({
     slug,
     window: windowId,
+    windowLabel: firstSearchValue(resolvedSearchParams.label),
+    conditions: firstSearchValue(resolvedSearchParams.conditions),
   });
   const ogImage = absoluteUrl(shareMetadata.ogImagePath);
 
@@ -108,6 +110,8 @@ export default async function AppSpotHandoffPage({
   const shareMetadata = await loadForecastWindowShareMetadata({
     slug,
     window: windowId,
+    windowLabel: firstSearchValue(resolvedSearchParams.label),
+    conditions: firstSearchValue(resolvedSearchParams.conditions),
   });
   const spotName = formatSpotName(slug);
   const webFallbackHref = buildBeachFallbackPath(slug);

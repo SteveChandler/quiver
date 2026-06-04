@@ -47,6 +47,26 @@ describe("/app/spot/[slug] handoff page", () => {
     expect(firstOpenGraphImageUrl(metadata)).not.toContain("utm_");
   });
 
+  it("returns exact forecast-window CTA metadata from compact preview params", async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: "204s" }),
+      searchParams: Promise.resolve({
+        window: "2026-06-04T22:30:00.000Z",
+        label: "3:30-6:00 PM",
+        conditions: "2-3 ft · 18s SSW · 7 mph SW · 3 ft, rising",
+      }),
+    });
+    const imageUrl = firstOpenGraphImageUrl(metadata);
+
+    expect(metadata.title).toBe("204s 3:30-6:00 PM is lining up");
+    expect(metadata.description).toBe(
+      "204s 3:30-6:00 PM is lining up: 2-3 ft · 18s SSW · 7 mph SW · 3 ft, rising. Check it on Quiver.",
+    );
+    expect(imageUrl).toContain("label=3%3A30-6%3A00");
+    expect(imageUrl).toContain("conditions=2-3");
+    expect(imageUrl).not.toContain("utm_");
+  });
+
   it("renders App Store and canonical web fallback links while preserving window context", async () => {
     const page = await AppSpotHandoffPage({
       params: Promise.resolve({ slug: "ocean-beach" }),
@@ -86,5 +106,20 @@ describe("/app/spot/[slug] handoff page", () => {
       }),
       { includeAttribution: false },
     );
+  });
+
+  it("renders the shared preview window range on the handoff page", async () => {
+    const page = await AppSpotHandoffPage({
+      params: Promise.resolve({ slug: "204s" }),
+      searchParams: Promise.resolve({
+        window: "2026-06-04T22:30:00.000Z",
+        label: "3:30-6:00 PM",
+        conditions: "2-3 ft · 18s SSW · 7 mph SW · 3 ft, rising",
+      }),
+    });
+
+    render(page);
+
+    expect(screen.getByText(/3:30-6:00 PM/i)).toBeInTheDocument();
   });
 });

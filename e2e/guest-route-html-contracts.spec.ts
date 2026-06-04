@@ -104,13 +104,19 @@ test.describe('Route HTML Contracts', () => {
     }) => {
       const html = await getHtml(
         request,
-        '/app/spot/la-jolla-shores?window=2026-06-03T14%3A30%3A00.000Z',
+        '/app/spot/204s?window=2026-06-04T22%3A30%3A00.000Z&label=3%3A30-6%3A00+PM&conditions=2-3+ft+%C2%B7+18s+SSW+%C2%B7+7+mph+SW+%C2%B7+3+ft%2C+rising',
       );
       const ogImage = getMetaContent(html, { property: 'og:image' });
       const ogTitle = getMetaContent(html, { property: 'og:title' });
+      const ogDescription = getMetaContent(html, { property: 'og:description' });
 
-      expect(ogTitle).toContain('is lining up');
+      expect(ogTitle).toBe('204s 3:30-6:00 PM is lining up');
+      expect(ogDescription).toBe(
+        '204s 3:30-6:00 PM is lining up: 2-3 ft · 18s SSW · 7 mph SW · 3 ft, rising. Check it on Quiver.',
+      );
       expect(ogImage).toContain('/api/og/forecast-window');
+      expect(ogImage).toContain('label=3%3A30-6%3A00');
+      expect(ogImage).toContain('conditions=2-3');
       expect(ogImage).not.toContain('utm_');
     });
 
