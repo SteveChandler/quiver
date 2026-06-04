@@ -3,24 +3,75 @@ import type { ReactElement } from "react";
 import { ExternalLink, Smartphone, Waves } from "lucide-react";
 
 import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import { loadForecastWindowShareMetadata } from "@/lib/share/forecast-window-share";
+import { ShareLinkOpenTracker } from "./share-link-open-tracker";
 
 interface AppSpotHandoffPageProps {
   params: Promise<{ slug: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 }
 
-export const metadata: Metadata = {
-  title: "Open Quiver Surf Window",
-  description: "Open this surf window in Quiver.",
-  robots: {
+const NOINDEX_ROBOTS: Metadata["robots"] = {
+  index: false,
+  follow: false,
+  googleBot: {
     index: false,
     follow: false,
-    googleBot: {
-      index: false,
-      follow: false,
-    },
   },
 };
+
+const METADATA_BASE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.NEXT_PUBLIC_APP_URL ||
+  "https://www.quiversurf.app";
+
+function absoluteUrl(path: string): string {
+  try {
+    return new URL(path, METADATA_BASE_URL).toString();
+  } catch {
+    return path;
+  }
+}
+
+export async function generateMetadata({
+  params,
+  searchParams,
+}: AppSpotHandoffPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  const resolvedSearchParams = (await searchParams) ?? {};
+  const windowId = firstSearchValue(resolvedSearchParams.window);
+  const shareMetadata = await loadForecastWindowShareMetadata({
+    slug,
+    window: windowId,
+  });
+  const ogImage = absoluteUrl(shareMetadata.ogImagePath);
+
+  return {
+    title: shareMetadata.title,
+    description: shareMetadata.description,
+    robots: NOINDEX_ROBOTS,
+    openGraph: {
+      title: shareMetadata.title,
+      description: shareMetadata.description,
+      type: "website",
+      siteName: "Quiver",
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: shareMetadata.title,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: shareMetadata.title,
+      description: shareMetadata.description,
+      images: [ogImage],
+    },
+  };
+}
 
 function firstSearchValue(value: string | string[] | undefined): string | undefined {
   if (Array.isArray(value)) return value[0];
@@ -54,11 +105,17 @@ export default async function AppSpotHandoffPage({
   const { slug } = await params;
   const resolvedSearchParams = (await searchParams) ?? {};
   const windowId = firstSearchValue(resolvedSearchParams.window);
+  const shareMetadata = await loadForecastWindowShareMetadata({
+    slug,
+    window: windowId,
+  });
   const spotName = formatSpotName(slug);
   const webFallbackHref = buildBeachFallbackPath(slug);
+  const displayWindowLabel = shareMetadata.windowLabel ?? windowId;
 
   return (
     <main className="min-h-screen bg-[#101436] px-5 py-12 text-white sm:px-8">
+      <ShareLinkOpenTracker slug={safeDecodeSlug(slug)} windowValue={windowId ?? null} />
       <section className="mx-auto flex min-h-[calc(100vh-6rem)] max-w-3xl flex-col justify-center">
         <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-md bg-[#F78E42] text-[#11100D] shadow-lg shadow-black/25">
           <Waves className="h-7 w-7" aria-hidden="true" />
@@ -70,9 +127,9 @@ export default async function AppSpotHandoffPage({
         <h1 className="font-heading text-4xl font-black leading-tight text-white sm:text-5xl">
           {spotName || "This spot"} is ready in Quiver.
         </h1>
-        {windowId ? (
+        {displayWindowLabel ? (
           <p className="mt-4 text-base font-semibold text-[#B8C7E0]">
-            Window: <span className="text-white">{windowId}</span>
+            Window: <span className="text-white">{displayWindowLabel}</span>
           </p>
         ) : null}
 
