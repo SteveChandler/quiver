@@ -162,6 +162,9 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   session_spot_search_no_results: 0,
   session_custom_spot_cta_tapped: 0,
   session_custom_spot_returned: 0,
+  // Phase 21 native board management events
+  board_form_saved: 0,
+  session_board_fit_feedback_selected: 0,
   // Search
   beach_search_result_click: 0,
   // Growth markers

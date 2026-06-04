@@ -145,6 +145,9 @@ export const VALID_EVENTS = [
   'session_spot_search_no_results',
   'session_custom_spot_cta_tapped',
   'session_custom_spot_returned',
+  // Phase 21 native board management events
+  'board_form_saved',
+  'session_board_fit_feedback_selected',
   // Search
   'beach_search_result_click',
   // Growth markers
