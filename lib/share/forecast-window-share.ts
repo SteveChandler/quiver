@@ -8,6 +8,8 @@ export interface ForecastWindowShareMetadataInput {
   timezone?: string | null;
   waveHeight?: string | number | null;
   conditionSegments?: ConditionSegment[];
+  windowLabel?: string | string[] | null;
+  conditions?: string | string[] | null;
 }
 
 export interface ForecastWindowShareMetadata {
@@ -28,11 +30,14 @@ export interface ForecastWindowShareMetadata {
 interface ForecastWindowOgPathInput {
   slug: string;
   window: string;
+  windowLabel?: string | null;
+  conditions?: string | null;
 }
 
 const DEFAULT_TIMEZONE = "America/Los_Angeles";
 const FALLBACK_TITLE = "Open Quiver Surf Window";
 const FALLBACK_DESCRIPTION = "Open this surf window in Quiver.";
+const MAX_PREVIEW_PARAM_LENGTH = 180;
 
 function firstSearchValue(value: string | string[] | null | undefined): string | null {
   if (Array.isArray(value)) return value[0] ?? null;
@@ -41,8 +46,14 @@ function firstSearchValue(value: string | string[] | null | undefined): string |
 
 function cleanText(value: unknown): string | null {
   if (typeof value !== "string" && typeof value !== "number") return null;
-  const trimmed = String(value).trim();
+  const trimmed = String(value).replace(/[\u0000-\u001F\u007F]/g, " ").replace(/\s+/g, " ").trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function cleanPreviewParam(value: string | string[] | null | undefined): string | null {
+  const text = cleanText(firstSearchValue(value));
+  if (!text) return null;
+  return text.slice(0, MAX_PREVIEW_PARAM_LENGTH);
 }
 
 function safeDecode(value: string): string {
@@ -92,6 +103,30 @@ function buildConditionRow(segments: ConditionSegment[] | undefined): string {
     .join(" · ");
 }
 
+function previewConditionParts(value: string | string[] | null | undefined): {
+  waveHeight: string | null;
+  conditionSegments: string[] | null;
+  conditions: string | null;
+} {
+  const conditions = cleanPreviewParam(value);
+  if (!conditions) {
+    return { waveHeight: null, conditionSegments: null, conditions: null };
+  }
+
+  const segments = conditions
+    .split("·")
+    .map((segment) => cleanText(segment))
+    .filter((segment): segment is string => Boolean(segment));
+  const [firstSegment, ...remainingSegments] = segments;
+  const waveHeight = firstSegment && /\bft\b/i.test(firstSegment) ? firstSegment : null;
+
+  return {
+    waveHeight,
+    conditionSegments: waveHeight ? remainingSegments : segments,
+    conditions,
+  };
+}
+
 function formatWaveHeight(value: string | number | null | undefined): string {
   const clean = cleanText(value);
   if (!clean) return "Forecast window";
@@ -102,10 +137,16 @@ function formatWaveHeight(value: string | number | null | undefined): string {
 export function buildForecastWindowOgImagePath({
   slug,
   window,
+  windowLabel,
+  conditions,
 }: ForecastWindowOgPathInput): string {
   const searchParams = new URLSearchParams();
   searchParams.set("slug", normalizeSlug(slug));
   searchParams.set("window", window);
+  const labelParam = cleanPreviewParam(windowLabel);
+  const conditionsParam = cleanPreviewParam(conditions);
+  if (labelParam) searchParams.set("label", labelParam);
+  if (conditionsParam) searchParams.set("conditions", conditionsParam);
   return `/api/og/forecast-window?${searchParams.toString()}`;
 }
 
@@ -122,11 +163,15 @@ export function buildForecastWindowShareMetadata(
   const slug = normalizeSlug(input.slug);
   const forecastAt = normalizeForecastWindowParam(input.window);
   const beachName = cleanText(input.beachName) ?? cleanText(titleCaseSlug(slug)) ?? "This spot";
+  const previewLabel = forecastAt ? cleanPreviewParam(input.windowLabel) : null;
   const windowLabel = forecastAt
-    ? formatForecastWindowLabel(forecastAt, input.timezone)
+    ? previewLabel ?? formatForecastWindowLabel(forecastAt, input.timezone)
     : null;
-  const waveHeight = formatWaveHeight(input.waveHeight);
-  const conditionRow = buildConditionRow(input.conditionSegments);
+  const previewConditions = previewConditionParts(input.conditions);
+  const waveHeight = previewConditions.waveHeight ?? formatWaveHeight(input.waveHeight);
+  const conditionRow = buildConditionRow(
+    previewConditions.conditionSegments ?? input.conditionSegments,
+  );
   const locationLabel = cleanText(input.locationLabel);
   const appSpotPath = buildAppSpotPath(slug, forecastAt);
 
@@ -164,7 +209,12 @@ export function buildForecastWindowShareMetadata(
     waveHeight,
     conditionRow,
     locationLabel,
-    ogImagePath: buildForecastWindowOgImagePath({ slug, window: forecastAt }),
+    ogImagePath: buildForecastWindowOgImagePath({
+      slug,
+      window: forecastAt,
+      windowLabel: previewLabel,
+      conditions: previewConditions.conditions,
+    }),
     appSpotPath,
     isFallback: conditions.length === 0,
   };
@@ -198,11 +248,20 @@ function forecastConditionSegments(forecast: Record<string, any> | null): Condit
 export async function loadForecastWindowShareMetadata({
   slug,
   window,
+  windowLabel,
+  conditions,
 }: {
   slug: string;
   window: string | string[] | null | undefined;
+  windowLabel?: string | string[] | null;
+  conditions?: string | string[] | null;
 }): Promise<ForecastWindowShareMetadata> {
-  const fallback = buildForecastWindowShareMetadata({ slug, window });
+  const fallback = buildForecastWindowShareMetadata({
+    slug,
+    window,
+    windowLabel,
+    conditions,
+  });
   if (!fallback.forecastAt || !fallback.slug) return fallback;
   if (process.env.JEST_WORKER_ID) return fallback;
 
@@ -237,6 +296,8 @@ export async function loadForecastWindowShareMetadata({
       beachName: beach.name,
       locationLabel: locationFromBeach(beach),
       timezone: beach.timezone,
+      windowLabel,
+      conditions,
       waveHeight: forecast?.wave_height ?? forecast?.wave_height_om ?? null,
       conditionSegments: forecastConditionSegments(forecast),
     });

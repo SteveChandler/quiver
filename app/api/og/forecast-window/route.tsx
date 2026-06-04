@@ -66,6 +66,7 @@ function renderForecastWindowCard(
                   justifyContent: "center",
                 }}
               >
+                {/* eslint-disable-next-line @next/next/no-img-element -- ImageResponse renders plain HTML, not Next image components. */}
                 <img
                   src={appIconSrc}
                   alt="Quiver"
@@ -105,7 +106,7 @@ function renderForecastWindowCard(
             </div>
           </div>
 
-          <div style={{ display: "flex", flexDirection: "column", maxWidth: 880 }}>
+          <div style={{ display: "flex", flexDirection: "column", maxWidth: 760 }}>
             <div
               style={{
                 display: "flex",
@@ -121,10 +122,10 @@ function renderForecastWindowCard(
               style={{
                 display: "flex",
                 color: "#F78E42",
-                fontSize: 56,
+                fontSize: 50,
                 fontWeight: 900,
-                lineHeight: 1.05,
-                maxWidth: 900,
+                lineHeight: 1.08,
+                maxWidth: 760,
               }}
             >
               {title}
@@ -174,6 +175,8 @@ export async function GET(request: NextRequest): Promise<ImageResponse> {
     const metadata = await loadForecastWindowShareMetadata({
       slug,
       window: windowValue,
+      windowLabel: searchParams.get("label"),
+      conditions: searchParams.get("conditions"),
     });
 
     return renderForecastWindowCard(metadata, appIconSrc);

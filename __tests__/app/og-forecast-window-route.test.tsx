@@ -33,6 +33,27 @@ function collectImageProps(node: unknown, props: Record<string, unknown>[] = [])
   return props;
 }
 
+function collectText(node: unknown, text: string[] = []): string[] {
+  if (typeof node === "string" || typeof node === "number") {
+    text.push(String(node));
+    return text;
+  }
+
+  if (Array.isArray(node)) {
+    node.forEach((child) => collectText(child, text));
+    return text;
+  }
+
+  if (!isValidElement(node)) return text;
+
+  Children.forEach(
+    (node.props as { children?: ReactNode }).children,
+    (child) => collectText(child, text),
+  );
+
+  return text;
+}
+
 describe("/api/og/forecast-window route", () => {
   beforeEach(() => {
     mockCapturedImageElement = null;
@@ -51,5 +72,19 @@ describe("/api/og/forecast-window route", () => {
         alt: "Quiver",
       }),
     );
+  });
+
+  it("renders shared CTA preview copy instead of the fallback forecast-window card", async () => {
+    await GET(
+      new Request(
+        "http://localhost:3000/api/og/forecast-window?slug=204s&window=2026-06-04T22%3A30%3A00.000Z&label=3%3A30-6%3A00+PM&conditions=2-3+ft+%C2%B7+18s+SSW+%C2%B7+7+mph+SW+%C2%B7+3+ft%2C+rising",
+      ) as never,
+    );
+
+    const renderedText = collectText(mockCapturedImageElement).join(" ");
+    expect(renderedText).toContain("204s 3:30-6:00 PM is lining up");
+    expect(renderedText).toContain("2-3 ft");
+    expect(renderedText).toContain("18s SSW · 7 mph SW · 3 ft, rising");
+    expect(renderedText).not.toContain("Forecast window");
   });
 });
