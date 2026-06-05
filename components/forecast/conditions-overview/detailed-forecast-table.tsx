@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -177,17 +177,20 @@ export function DetailedForecastTable({
     () => groupForecasts(forecasts, timezone),
     [forecasts, timezone],
   );
+  const groupDateKey = useMemo(
+    () => groups.map((group) => group.date).join("|"),
+    [groups],
+  );
+  const initializedGroupDateKeyRef = useRef<string | null>(null);
   const [expandedDates, setExpandedDates] = useState<Set<string>>(new Set());
 
   useEffect(() => {
-    if (expandedDates.size > 0) return;
-    const todayGroup = groups.find((group) => group.isToday);
-    if (todayGroup) {
-      setExpandedDates(new Set([todayGroup.date]));
-    } else if (groups[0]) {
-      setExpandedDates(new Set([groups[0].date]));
-    }
-  }, [expandedDates.size, groups]);
+    if (initializedGroupDateKeyRef.current === groupDateKey) return;
+
+    initializedGroupDateKeyRef.current = groupDateKey;
+    const defaultGroup = groups.find((group) => group.isToday) ?? groups[0];
+    setExpandedDates(defaultGroup ? new Set([defaultGroup.date]) : new Set());
+  }, [groupDateKey, groups]);
 
   if (groups.length === 0) {
     return null;
@@ -218,6 +221,7 @@ export function DetailedForecastTable({
           >
             <button
               type="button"
+              aria-expanded={isExpanded}
               className="flex w-full items-center justify-between gap-3 border-b-2 border-[#11100D] bg-[#F4EBD8] px-4 py-3 text-left"
               onClick={() => {
                 setExpandedDates((prev) => {
