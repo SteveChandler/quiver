@@ -35,7 +35,13 @@ describe("sentry-config", () => {
       ).toBe("preview");
     });
 
-    it("keeps production enabled only for the production runtime environment", () => {
+    it("keeps production enabled for the Vercel production runtime environment", () => {
+      expect(
+        getSentryRuntimeEnvironment({
+          NODE_ENV: "production",
+          VERCEL_ENV: "production",
+        })
+      ).toBe("vercel-production");
       expect(
         isSentryRuntimeEnabled({
           NODE_ENV: "production",
@@ -52,6 +58,7 @@ describe("sentry-config", () => {
 
     it("drops non-production Sentry environments", () => {
       expect(shouldDropSentryEnvironment("production")).toBe(false);
+      expect(shouldDropSentryEnvironment("vercel-production")).toBe(false);
       expect(shouldDropSentryEnvironment("preview")).toBe(true);
       expect(shouldDropSentryEnvironment("development")).toBe(true);
     });
