@@ -44,6 +44,14 @@ export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
     "",
     renderKeywordMovement(input.gsc, input.dataforseo, openRecommendations),
     "",
+    "## Product-Led SEO Opportunities",
+    "",
+    renderProductLedOpportunities(input.gsc, input.dataforseo),
+    "",
+    "## Do Not Chase",
+    "",
+    renderDoNotChase(input.gsc, input.dataforseo),
+    "",
     "## SEO Metadata",
     "",
     renderMetadataAudit(input.metadata),
@@ -332,8 +340,23 @@ function renderCompetitorKeywordCoverage(dataforseo?: DataForSeoExportInput): st
     .sort((a, b) => b[1].rows - a[1].rows || b[1].volume - a[1].volume)
     .map(([competitor, value]) => `${competitor}=${value.rows}`)
     .join(", ");
-  const actionableRows = rows.filter((row) => isActionableCompetitorKeyword(row.keyword));
-  const topKeywords = (actionableRows.length ? actionableRows : rows)
+  const productFitRows = rows.filter((row) =>
+    isProductLedKeyword(row.keyword) && !isLowFitCompetitorKeyword(row.keyword)
+  );
+  const actionableRows = rows.filter((row) =>
+    isActionableCompetitorKeyword(row.keyword) && !isLowFitCompetitorKeyword(row.keyword)
+  );
+  const keywordRows = productFitRows.length
+    ? productFitRows
+    : actionableRows.length
+      ? actionableRows
+      : rows;
+  const keywordLabel = productFitRows.length
+    ? "Product-fit competitor keyword opportunities by volume"
+    : actionableRows.length
+      ? "Top actionable competitor keyword opportunities by volume"
+      : "Top competitor keywords by volume";
+  const topKeywords = keywordRows
     .slice()
     .sort((a, b) => (b.searchVolume ?? 0) - (a.searchVolume ?? 0))
     .slice(0, 5)
@@ -352,10 +375,133 @@ function renderCompetitorKeywordCoverage(dataforseo?: DataForSeoExportInput): st
 
   return [
     `DataForSEO Labs competitor keyword rows: ${rows.length} rows across ${byCompetitor.size} competitors (${competitorSummary}).`,
-    topKeywords ? `Top actionable competitor keyword opportunities by volume: ${topKeywords}.` : "",
+    topKeywords ? `${keywordLabel}: ${topKeywords}.` : "",
     clusterSummary ? `Competitor keyword clusters: ${clusterSummary}.` : "",
     topPages ? `Competitor ranking pages with the broadest keyword footprint: ${topPages}.` : "",
   ].filter((row) => row.length > 0);
+}
+
+function renderProductLedOpportunities(
+  gsc: GscExportInput | undefined,
+  dataforseo: DataForSeoExportInput | undefined,
+): string {
+  const rows = [
+    ...productLedGscPages(gsc).map((page) =>
+      `- ${productLedLabel(page.page)}: \`${page.page}\` - ${page.impressions} impressions, ${page.clicks} clicks, avg position ${formatNumber(page.position)}. Improve the page around judgment, timing, local conditions, and app/session CTAs.`,
+    ),
+    ...productLedAsoKeywords(dataforseo).map((rank) => {
+      const quiver = rank.quiverRank === null ? "not top 100" : `rank ${rank.quiverRank}`;
+      const leader = rank.topCompetitors[0]?.app ? `; leader=${rank.topCompetitors[0].app}` : "";
+      return `- ASO product wedge: "${rank.keyword}" (${rank.platform}) - Quiver ${quiver}${leader}.`;
+    }),
+    ...productLedCompetitorKeywords(dataforseo).map((row) =>
+      `- Competitor-inspired content: "${row.keyword}" (${row.competitor}, vol ${row.searchVolume ?? "n/a"}, rank ${row.rank ?? "n/a"}) - use as education that leads into Quiver forecast/session workflows.`,
+    ),
+  ];
+
+  return rows.length
+    ? rows.slice(0, 12).join("\n")
+    : "- No product-led SEO opportunities in available inputs.";
+}
+
+function renderDoNotChase(
+  gsc: GscExportInput | undefined,
+  dataforseo: DataForSeoExportInput | undefined,
+): string {
+  const gscRows = (gsc?.topPages ?? [])
+    .filter((page) => isCommodityFactPhrase(page.page))
+    .slice()
+    .sort((a, b) => b.impressions - a.impressions)
+    .slice(0, 5)
+    .map((page) =>
+      `- Commodity fact page: \`${page.page}\` - ${page.impressions} impressions but answer is mostly a fact box unless paired with surf timing/context.`,
+    );
+  const competitorRows = (dataforseo?.competitorKeywords ?? [])
+    .filter((row) => isLowFitCompetitorKeyword(row.keyword))
+    .slice()
+    .sort((a, b) => (b.searchVolume ?? 0) - (a.searchVolume ?? 0))
+    .slice(0, 5)
+    .map((row) =>
+      `- Low-fit competitor keyword: "${row.keyword}" (${row.competitor}, vol ${row.searchVolume ?? "n/a"}) - informational/trivia traffic, weak product intent.`,
+    );
+  const rows = [...gscRows, ...competitorRows];
+
+  return rows.length
+    ? rows.join("\n")
+    : "- No obvious commodity fact or low-fit trivia targets in available inputs.";
+}
+
+function productLedGscPages(gsc?: GscExportInput): GscExportInput["topPages"] {
+  return (gsc?.topPages ?? [])
+    .filter((page) => isProductLedSeoPath(page.page))
+    .slice()
+    .sort((a, b) => {
+      const productDelta = productLedScore(b.page) - productLedScore(a.page);
+      if (productDelta !== 0) return productDelta;
+      return b.impressions - a.impressions;
+    })
+    .slice(0, 8);
+}
+
+function productLedAsoKeywords(dataforseo?: DataForSeoExportInput): DataForSeoExportInput["asoRankings"] {
+  return (dataforseo?.asoRankings ?? [])
+    .filter((rank) => isProductLedKeyword(rank.keyword))
+    .slice()
+    .sort((a, b) => {
+      const delta = productLedScore(b.keyword) - productLedScore(a.keyword);
+      if (delta !== 0) return delta;
+      return (a.quiverRank ?? 999) - (b.quiverRank ?? 999);
+    })
+    .slice(0, 6);
+}
+
+function productLedCompetitorKeywords(dataforseo?: DataForSeoExportInput): DataForSeoExportInput["competitorKeywords"] {
+  return (dataforseo?.competitorKeywords ?? [])
+    .filter((row) => isProductLedKeyword(row.keyword) && !isLowFitCompetitorKeyword(row.keyword))
+    .slice()
+    .sort((a, b) => {
+      const delta = productLedScore(b.keyword) - productLedScore(a.keyword);
+      if (delta !== 0) return delta;
+      return (b.searchVolume ?? 0) - (a.searchVolume ?? 0);
+    })
+    .slice(0, 6);
+}
+
+function productLedLabel(path: string): string {
+  if (/dawn-patrol/i.test(path)) return "Dawn patrol planning";
+  if (/best-time-to-surf/i.test(path)) return "Best-time planning";
+  if (/longboard/i.test(path)) return "Board-fit planning";
+  return "Local surf decision";
+}
+
+function isProductLedSeoPath(path: string): boolean {
+  return /\/(best-time-to-surf|dawn-patrol|longboard)\//i.test(path) ||
+    /\/[a-z]{2}\/[^/]+\/[^/]+$/i.test(path);
+}
+
+function isProductLedKeyword(keyword: string): boolean {
+  return /(best time to surf|best tide|best wind|dawn patrol|surf session|surf journal|session log|surf tracker|custom spot|custom surf forecast|how to read.*surf forecast|swell period|swell height|surf height|wind swell|ground swell|beginner surf spots|surf forecast app|surf report app|surfline alternative|personal surf forecast)/i.test(keyword);
+}
+
+function isCommodityFactPhrase(value: string): boolean {
+  return /(water-temp|water temp|water temperature|ocean temp|ocean temperature|tide-chart|\/tides$)/i.test(value);
+}
+
+function isLowFitCompetitorKeyword(keyword: string): boolean {
+  return /(history|origin|invented|tom blake|free surfers|freesurf|surfer best)/i.test(keyword);
+}
+
+function productLedScore(value: string): number {
+  const text = value.toLowerCase();
+  let score = 0;
+  if (/(best-time-to-surf|best time to surf|best tide|best wind)/.test(text)) score += 5;
+  if (/(dawn-patrol|dawn patrol)/.test(text)) score += 5;
+  if (/(session|journal|tracker|log)/.test(text)) score += 4;
+  if (/(custom spot|custom surf forecast|personal surf forecast)/.test(text)) score += 4;
+  if (/(how to read|swell period|swell height|surf height|wind swell|ground swell)/.test(text)) score += 3;
+  if (/(longboard|board-fit|board)/.test(text)) score += 3;
+  if (/(water temp|water-temp|ocean temp|tide-chart|\/tides$|history|origin|invented)/.test(text)) score -= 5;
+  return score;
 }
 
 function classifyCompetitorKeyword(keyword: string): string {
@@ -393,4 +539,8 @@ function isActionableCompetitorKeyword(keyword: string): boolean {
 
 function sum(values: number[]): number {
   return values.reduce((total, value) => total + value, 0);
+}
+
+function formatNumber(value: number | undefined): string {
+  return typeof value === "number" && Number.isFinite(value) ? value.toFixed(1) : "n/a";
 }

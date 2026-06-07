@@ -114,7 +114,108 @@ describe("SEO workflow weekly report", () => {
     expect(report).toContain("DataForSEO ASO rank checks: 1/1");
     expect(report).toContain("DataForSEO is enabled");
     expect(report).toContain("DataForSEO Labs competitor keyword rows: 1 rows across 1 competitors");
+    expect(report).toContain("Product-fit competitor keyword opportunities by volume");
     expect(report).not.toContain("DataForSEO is not configured");
+  });
+
+  it("prioritizes product-led opportunities over commodity fact queries", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-05-20T12:00:00Z",
+      recommendations: [],
+      missing: [],
+      gsc: {
+        generatedAt: "2026-05-20T12:00:00Z",
+        siteUrl: "https://www.quiversurf.app",
+        dateRanges: {
+          last7d: { start: "2026-05-13", end: "2026-05-20" },
+          prior7d: { start: "2026-05-06", end: "2026-05-12" },
+          last28d: { start: "2026-04-22", end: "2026-05-20" },
+        },
+        last7d: [],
+        prior7d: [],
+        last28d: [],
+        sitemapPaths: [],
+        topQueries: [],
+        topPages: [{
+          page: "/water-temp/huntington-beach",
+          clicks: 20,
+          impressions: 4000,
+          position: 7,
+        }, {
+          page: "/best-time-to-surf/cocoa-beach",
+          clicks: 2,
+          impressions: 442,
+          position: 6.4,
+        }, {
+          page: "/dawn-patrol/san-francisco",
+          clicks: 2,
+          impressions: 55,
+          position: 9,
+        }],
+        byDevice: [],
+        byCountry: [],
+      },
+      dataforseo: {
+        generatedAt: "2026-05-20T12:00:00Z",
+        googleRankings: [],
+        asoRankings: [{
+          keyword: "surf session",
+          platform: "ios",
+          location: "United States",
+          depth: 100,
+          quiverRank: null,
+          topCompetitors: [{ app: "Surfmore", rank: 1 }],
+        }],
+        competitorKeywords: [{
+          competitor: "Lazy Surfer",
+          domain: "lazysurfer.app",
+          keyword: "history of surfing",
+          rank: 66,
+          searchVolume: 14800,
+        }, {
+          competitor: "Swellify",
+          domain: "swellify.app",
+          keyword: "swell period",
+          rank: 8,
+          searchVolume: 1200,
+        }],
+        missing: [],
+      },
+    });
+
+    expect(report).toContain("## Product-Led SEO Opportunities");
+    expect(report).toContain("Best-time planning: `/best-time-to-surf/cocoa-beach`");
+    expect(report).toContain("Dawn patrol planning: `/dawn-patrol/san-francisco`");
+    expect(report).toContain('ASO product wedge: "surf session"');
+    expect(report).toContain('Competitor-inspired content: "swell period"');
+    expect(report).toContain("## Do Not Chase");
+    expect(report).toContain("Commodity fact page: `/water-temp/huntington-beach`");
+    expect(report).toContain('Low-fit competitor keyword: "history of surfing"');
+  });
+
+  it("does not label low-fit-only competitor keywords as product-fit", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-05-20T12:00:00Z",
+      recommendations: [],
+      missing: [],
+      dataforseo: {
+        generatedAt: "2026-05-20T12:00:00Z",
+        googleRankings: [],
+        asoRankings: [],
+        competitorKeywords: [{
+          competitor: "Lazy Surfer",
+          domain: "lazysurfer.app",
+          keyword: "history of surfing",
+          rank: 4,
+          searchVolume: 14800,
+        }],
+        missing: [],
+      },
+    });
+
+    expect(report).not.toContain("Product-fit competitor keyword opportunities");
+    expect(report).toContain("Top competitor keywords by volume");
+    expect(report).toContain('Low-fit competitor keyword: "history of surfing"');
   });
 
   it("renders manual backlink import coverage without calling it missing data", () => {
