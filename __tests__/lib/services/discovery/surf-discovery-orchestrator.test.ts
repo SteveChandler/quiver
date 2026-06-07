@@ -170,6 +170,7 @@ jest.mock('@/lib/services/discovery/window-selector', () => ({
       timezone: 'America/Los_Angeles',
     };
   }),
+  scoreWindowWithEngine: jest.fn(() => 70),
   getLocalDateStr: jest.fn((date: Date, _tz: string) => {
     return date.toISOString().split('T')[0];
   }),
@@ -1268,6 +1269,148 @@ describe('discoverSurfSpots - Personalization Integration', () => {
 
     // Should still return recommendations (graceful degradation)
     expect(result.recommendations.length).toBeGreaterThan(0);
+  });
+});
+
+describe('discoverSurfSpots - Now Discovery Mode', () => {
+  const testUserId = 'test-user-now';
+  const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2024-01-15T17:30:00.000Z'));
+
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 0,
+      affinityBonus: 0,
+      personalizationBonus: 0,
+      reasons: [],
+    });
+
+    scoreBeachWithEngine.mockImplementation((_engine: any, _beach: any, forecast: any) => {
+      const scoreByForecastId: Record<string, number> = {
+        'beach-1-now': 60,
+        'beach-1-future': 99,
+        'beach-2-now': 84,
+        'beach-2-future': 90,
+        'beach-3-future': 100,
+      };
+      const total = scoreByForecastId[forecast?.id] ?? 50;
+      return {
+        total,
+        subscores: {
+          waveHeightFit: total,
+          periodEnergyScore: 0,
+          windAlignment: 0,
+          tideFit: 0,
+          affinityBonus: 0,
+          personalizationBonus: 0,
+          distancePenalty: 0,
+        },
+        matchQuality: total >= 80 ? 'excellent' : 'fair',
+        reasons: [`score ${total}`],
+        warnings: [],
+        conditionBadges: [],
+      };
+    });
+
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1, mockBeach2, mockBeach3] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: [
+        {
+          beach: mockBeach1,
+          forecasts: [
+            {
+              ...mockForecast,
+              id: 'beach-1-now',
+              beach_id: 'beach-1',
+              forecast_at: '2024-01-15T17:00:00.000Z',
+              forecast_date: '2024-01-15',
+              forecast_time: '09:00:00',
+            },
+            {
+              ...mockForecast,
+              id: 'beach-1-future',
+              beach_id: 'beach-1',
+              forecast_at: '2024-01-15T20:00:00.000Z',
+              forecast_date: '2024-01-15',
+              forecast_time: '12:00:00',
+            },
+          ],
+        },
+        {
+          beach: mockBeach2,
+          forecasts: [
+            {
+              ...mockForecast,
+              id: 'beach-2-now',
+              beach_id: 'beach-2',
+              forecast_at: '2024-01-15T17:00:00.000Z',
+              forecast_date: '2024-01-15',
+              forecast_time: '09:00:00',
+            },
+            {
+              ...mockForecast,
+              id: 'beach-2-future',
+              beach_id: 'beach-2',
+              forecast_at: '2024-01-15T20:00:00.000Z',
+              forecast_date: '2024-01-15',
+              forecast_time: '12:00:00',
+            },
+          ],
+        },
+        {
+          beach: mockBeach3,
+          forecasts: [
+            {
+              ...mockForecast,
+              id: 'beach-3-future',
+              beach_id: 'beach-3',
+              forecast_at: '2024-01-15T20:00:00.000Z',
+              forecast_date: '2024-01-15',
+              forecast_time: '12:00:00',
+            },
+          ],
+        },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+    mockState.favoriteBeaches = [];
+    mockState.favoritesError = null;
+    mockState.boards = [];
+    mockState.boardsError = null;
+    mockState.userPrefs = null;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('scores active forecast buckets and ignores future-only beaches', async () => {
+    const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      discoveryMode: 'now',
+      maxResults: 5,
+    });
+
+    expect(mockSelectBestWindow).not.toHaveBeenCalled();
+    expect(result.recommendations.map((rec) => rec.beach.id)).toEqual(['beach-2', 'beach-1']);
+    expect(result.recommendations.map((rec) => rec.forecast.id)).toEqual([
+      'beach-2-now',
+      'beach-1-now',
+    ]);
   });
 });
 

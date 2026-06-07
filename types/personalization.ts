@@ -42,6 +42,8 @@ export const TIME_SLOT_RANGES: Record<TimeSlot, { startHour: number; endHour: nu
   'afternoon': { startHour: 14, endHour: 18 },
 };
 
+export type SurfDiscoveryMode = 'best-window' | 'now';
+
 /**
  * Optimal surf window within a forecast period
  * 
@@ -411,6 +413,8 @@ export interface SurfDiscoveryOptions {
   horizonHours?: number;
   /** Filter windows to specific time of day (default: 'any') */
   timeSlot?: TimeSlot;
+  /** Discovery ranking mode: future best window or immediate current conditions */
+  discoveryMode?: SurfDiscoveryMode;
   /** Maximum recommendations to return (default: 5, max: 10) */
   maxResults?: number;
   /**

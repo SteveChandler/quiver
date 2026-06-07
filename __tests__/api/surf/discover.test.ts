@@ -313,6 +313,22 @@ describe("/api/surf/discover entitlement resolution", () => {
     });
   });
 
+  it("passes now discovery mode through to the discovery orchestrator", async () => {
+    const supabase = makeSupabaseStub(null);
+    const { GET } = await import("@/app/api/surf/discover/route");
+
+    await GET(makeRequest("lat=32.7157&lon=-117.1611&mode=now"), {
+      user: { id: "user-now-mode" } as any,
+      supabase: supabase as any,
+      params: {},
+    } as any);
+
+    expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(1);
+    expect(mockDiscoverSurfSpots.mock.calls[0][1]).toMatchObject({
+      discoveryMode: "now",
+    });
+  });
+
   it("rejects malformed includeBeachIds before calling discovery", async () => {
     const supabase = makeSupabaseStub(null);
     const { GET } = await import("@/app/api/surf/discover/route");

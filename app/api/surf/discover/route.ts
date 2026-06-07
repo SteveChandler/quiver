@@ -31,6 +31,8 @@ const QuerySchema = z.object({
   horizonHours: z.coerce.number().int().min(1).max(72).optional(),
   // Result limits
   maxResults: z.coerce.number().int().min(1).max(10).optional(),
+  // Discovery mode
+  mode: z.enum(['best-window', 'now']).optional(),
   // Explicit curated beaches to score in the same batch as nearby discovery.
   includeBeachIds: z.string().optional().transform((value, ctx) => {
     if (!value) return [];
@@ -75,6 +77,7 @@ const QuerySchema = z.object({
  * - lon (required): User's longitude for GPS discovery
  * - radius (optional): Search radius in miles (default: 25, max: 100)
  * - maxResults (optional): Maximum recommendations (default: 5, max: 10)
+ * - mode (optional): Discovery mode ('best-window' default, 'now' for immediate current-condition ranking)
  * - timeSlot (optional): Time slot preference ('any', 'lunch-session', 'afternoon', 'dawn-patrol', default: 'any')
  * - includeBeachIds (optional): Comma-separated curated beach UUIDs to score alongside nearby discovery
  *
@@ -99,6 +102,7 @@ async function surfDiscoveryHandler(
     radius: searchParams.get('radius') || undefined,
     horizonHours: searchParams.get('horizonHours') || undefined,
     maxResults: searchParams.get('maxResults') || undefined,
+    mode: searchParams.get('mode') || undefined,
     includeBeachIds: searchParams.get('includeBeachIds') || undefined,
   };
 
@@ -107,7 +111,7 @@ async function surfDiscoveryHandler(
     return validationResult.error;
   }
 
-  const { lat, lon, radius, horizonHours, maxResults, includeBeachIds } = validationResult.data;
+  const { lat, lon, radius, horizonHours, maxResults, mode, includeBeachIds } = validationResult.data;
 
   // Parse timeSlot query parameter
   const timeSlotParam = searchParams.get('timeSlot');
@@ -153,6 +157,7 @@ async function surfDiscoveryHandler(
     radiusMiles: radius,
     horizonHours,
     maxResults,
+    discoveryMode: mode ?? 'best-window',
     timeSlot,
     isPro,
     includeBeachIds,

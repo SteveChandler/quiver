@@ -27,6 +27,7 @@ import type {
   SurfDiscoveryOptions,
   DetailedScore,
   EveningTransition,
+  PersonalizedForecastWindow,
 } from '@/types/personalization';
 import type { ConditionBadge } from '@/types/personalization';
 import {
@@ -43,6 +44,7 @@ import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/li
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
+import { localDateTimeToUTC, resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 import {
   getConditionBoardPick,
   toForecastForScoring,
@@ -60,6 +62,7 @@ import {
   MIN_SESSION_HOURS,
   FORECAST_WINDOW_DURATION_MINUTES,
   PAST_WINDOW_TOLERANCE_MINUTES,
+  scoreWindowWithEngine,
 } from './window-selector';
 import {
   enrichWithPhotos,
@@ -727,6 +730,172 @@ async function scoreBeachForDiscovery(args: {
   };
 }
 
+// Immediate discovery ranks the forecast bucket that covers "right now".
+// Keep this separate from daypart window selection so "now" cannot drift into
+// a future best-window scan.
+const IMMEDIATE_FORECAST_BUCKET_MAX_HOURS = 4;
+
+interface ImmediateForecastBucket {
+  forecast: EnhancedForecastEntity;
+  start: Date;
+  end: Date;
+}
+
+function isImmediateDaylight(
+  now: Date,
+  beachTz: string,
+  sunTimes: { sunrises: Date[]; sunsets: Date[] } | undefined
+): boolean {
+  const localHour = getLocalHour(now, beachTz);
+  if (localHour === null) return false;
+  if (localHour < 6 || localHour >= 21) return false;
+
+  const todayStr = getLocalDateStr(now, beachTz);
+  const sameDaySunrise = sunTimes?.sunrises.find(
+    (sunrise) => getLocalDateStr(sunrise, beachTz) === todayStr
+  );
+  if (sameDaySunrise && now.getTime() < sameDaySunrise.getTime() - 30 * 60 * 1000) {
+    return false;
+  }
+
+  const sameDaySunset = sunTimes?.sunsets.find(
+    (sunset) => getLocalDateStr(sunset, beachTz) === todayStr
+  );
+  if (sameDaySunset) {
+    return now.getTime() < sameDaySunset.getTime();
+  }
+
+  if (localHour >= 18) {
+    return false;
+  }
+
+  return true;
+}
+
+function capImmediateEndAtSunset(
+  end: Date,
+  now: Date,
+  beachTz: string,
+  sunTimes: { sunrises: Date[]; sunsets: Date[] } | undefined
+): Date {
+  const todayStr = getLocalDateStr(now, beachTz);
+  const sameDaySunset = sunTimes?.sunsets.find(
+    (sunset) => getLocalDateStr(sunset, beachTz) === todayStr
+  );
+  if (sameDaySunset && sameDaySunset < end) {
+    return sameDaySunset;
+  }
+  if (!sameDaySunset) {
+    try {
+      const localDateParts = new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: beachTz,
+      }).formatToParts(now);
+
+      const year = localDateParts.find((part) => part.type === 'year')?.value;
+      const month = localDateParts.find((part) => part.type === 'month')?.value;
+      const day = localDateParts.find((part) => part.type === 'day')?.value;
+      if (!year || !month || !day) return end;
+
+      const conservative6pm = localDateTimeToUTC(`${year}-${month}-${day}`, '18:00:00', beachTz);
+      if (conservative6pm < end) {
+        return conservative6pm;
+      }
+    } catch {
+      return end;
+    }
+  }
+  return end;
+}
+
+function findImmediateForecastBucket(
+  forecasts: EnhancedForecastEntity[],
+  beachTz: string,
+  now: Date
+): ImmediateForecastBucket | null {
+  const sortedForecasts = forecasts
+    .map((forecast) => ({
+      forecast,
+      forecastTime: resolveForecastTime(forecast, beachTz),
+    }))
+    .filter(({ forecastTime }) => Number.isFinite(forecastTime.getTime()))
+    .sort((a, b) => a.forecastTime.getTime() - b.forecastTime.getTime());
+
+  let activeBucket: ImmediateForecastBucket | null = null;
+  const nowMs = now.getTime();
+
+  for (let index = 0; index < sortedForecasts.length; index++) {
+    const current = sortedForecasts[index];
+    const next = sortedForecasts[index + 1];
+    const fallbackEnd = new Date(
+      current.forecastTime.getTime() + IMMEDIATE_FORECAST_BUCKET_MAX_HOURS * 60 * 60 * 1000
+    );
+    const gapHours = next
+      ? (next.forecastTime.getTime() - current.forecastTime.getTime()) / (60 * 60 * 1000)
+      : null;
+    const bucketEnd =
+      next && gapHours !== null && gapHours > 0 && gapHours <= IMMEDIATE_FORECAST_BUCKET_MAX_HOURS
+        ? next.forecastTime
+        : fallbackEnd;
+
+    if (current.forecastTime.getTime() <= nowMs && bucketEnd.getTime() > nowMs) {
+      activeBucket = {
+        forecast: current.forecast,
+        start: current.forecastTime,
+        end: bucketEnd,
+      };
+    }
+  }
+
+  return activeBucket;
+}
+
+function selectImmediateWindow(
+  forecasts: EnhancedForecastEntity[],
+  beach: Beach,
+  sunTimesCache: Map<string, { sunrises: Date[]; sunsets: Date[] }>,
+  now: Date
+): PersonalizedForecastWindow | null {
+  if (forecasts.length === 0) return null;
+
+  const beachTz =
+    (beach as { timezone?: string | null }).timezone ||
+    getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
+  const sunTimes = sunTimesCache.get(beach.id);
+
+  if (!isImmediateDaylight(now, beachTz, sunTimes)) {
+    return null;
+  }
+
+  const bucket = findImmediateForecastBucket(forecasts, beachTz, now);
+  if (!bucket) return null;
+
+  const end = capImmediateEndAtSunset(bucket.end, now, beachTz, sunTimes);
+  if (end.getTime() <= now.getTime()) return null;
+
+  const wind = [bucket.forecast.wind_speed, bucket.forecast.wind_direction]
+    .filter((part) => part != null && String(part).trim().length > 0)
+    .join(' ');
+
+  return {
+    start: bucket.start,
+    end,
+    tide: bucket.forecast.tide_status || 'Unknown',
+    wind: wind || 'Unknown',
+    waveHeight: bucket.forecast.wave_height || 'Unknown',
+    wavePeriod: bucket.forecast.wave_period || 'Unknown',
+    dataSource: bucket.forecast.data_source || 'FALLBACK',
+    confidence: bucket.forecast.confidence_score || 50,
+    timezone: beachTz,
+    usedTideBoundaries: false,
+    score: scoreWindowWithEngine(bucket.forecast, beach),
+    peakTime: now,
+    sourceForecast: bucket.forecast,
+  };
+}
+
 // ============================================================================
 // Main Entry Point
 // ============================================================================
@@ -749,6 +918,7 @@ async function discoverSurfSpotsInner(
     timeout = DEFAULT_TIMEOUT_MS,
     overallTimeout = DEFAULT_OVERALL_TIMEOUT_MS,
     timeSlot,
+    discoveryMode = 'best-window',
     isPro = false,
     includeBeachIds,
   } = options;
@@ -950,11 +1120,18 @@ async function discoverSurfSpotsInner(
       (hoursUntilSunset !== null && hoursUntilSunset < MIN_SESSION_HOURS) ||
       (todayForecasts.length > 0 && !hasUsableTodayForecast);
 
-    let bestWindow = todayForecasts.length > 0
-      ? selectBestWindow(todayForecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot)
-      : null;
+    let bestWindow =
+      discoveryMode === 'now'
+        ? selectImmediateWindow(forecasts, beach, sunTimesCache, nowForFallback)
+        : todayForecasts.length > 0
+          ? selectBestWindow(todayForecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot)
+          : null;
 
-    if (!bestWindow && (todayForecasts.length === 0 || todayIsEffectivelyOver)) {
+    if (
+      discoveryMode !== 'now' &&
+      !bestWindow &&
+      (todayForecasts.length === 0 || todayIsEffectivelyOver)
+    ) {
       bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
       if (!bestWindow && todayForecasts.length === 0) {
         log.warn(`[discoverSurfSpots] ${beach.name}: no today forecasts (total=${forecasts.length}), tomorrow fallback returned null`);
@@ -1312,7 +1489,7 @@ async function discoverSurfSpotsInner(
 
   // 7. Compute sleep-in scores and assign strategy tags
   const sleepInScores = new Map<string, number>();
-  if (enrichedRanked.length > 1) {
+  if (discoveryMode !== 'now' && enrichedRanked.length > 1) {
     for (const rec of enrichedRanked.slice(1)) {
       const beachForecasts_ = forecastsByBeachId.get(rec.beach.id);
       if (!beachForecasts_) continue;
