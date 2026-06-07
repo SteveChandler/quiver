@@ -340,8 +340,23 @@ function renderCompetitorKeywordCoverage(dataforseo?: DataForSeoExportInput): st
     .sort((a, b) => b[1].rows - a[1].rows || b[1].volume - a[1].volume)
     .map(([competitor, value]) => `${competitor}=${value.rows}`)
     .join(", ");
-  const actionableRows = rows.filter((row) => isActionableCompetitorKeyword(row.keyword));
-  const topKeywords = (actionableRows.length ? actionableRows : rows)
+  const productFitRows = rows.filter((row) =>
+    isProductLedKeyword(row.keyword) && !isLowFitCompetitorKeyword(row.keyword)
+  );
+  const actionableRows = rows.filter((row) =>
+    isActionableCompetitorKeyword(row.keyword) && !isLowFitCompetitorKeyword(row.keyword)
+  );
+  const keywordRows = productFitRows.length
+    ? productFitRows
+    : actionableRows.length
+      ? actionableRows
+      : rows;
+  const keywordLabel = productFitRows.length
+    ? "Product-fit competitor keyword opportunities by volume"
+    : actionableRows.length
+      ? "Top actionable competitor keyword opportunities by volume"
+      : "Top competitor keywords by volume";
+  const topKeywords = keywordRows
     .slice()
     .sort((a, b) => (b.searchVolume ?? 0) - (a.searchVolume ?? 0))
     .slice(0, 5)
@@ -360,7 +375,7 @@ function renderCompetitorKeywordCoverage(dataforseo?: DataForSeoExportInput): st
 
   return [
     `DataForSEO Labs competitor keyword rows: ${rows.length} rows across ${byCompetitor.size} competitors (${competitorSummary}).`,
-    topKeywords ? `Product-fit competitor keyword opportunities by volume: ${topKeywords}.` : "",
+    topKeywords ? `${keywordLabel}: ${topKeywords}.` : "",
     clusterSummary ? `Competitor keyword clusters: ${clusterSummary}.` : "",
     topPages ? `Competitor ranking pages with the broadest keyword footprint: ${topPages}.` : "",
   ].filter((row) => row.length > 0);

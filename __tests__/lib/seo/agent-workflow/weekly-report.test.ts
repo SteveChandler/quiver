@@ -193,6 +193,31 @@ describe("SEO workflow weekly report", () => {
     expect(report).toContain('Low-fit competitor keyword: "history of surfing"');
   });
 
+  it("does not label low-fit-only competitor keywords as product-fit", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-05-20T12:00:00Z",
+      recommendations: [],
+      missing: [],
+      dataforseo: {
+        generatedAt: "2026-05-20T12:00:00Z",
+        googleRankings: [],
+        asoRankings: [],
+        competitorKeywords: [{
+          competitor: "Lazy Surfer",
+          domain: "lazysurfer.app",
+          keyword: "history of surfing",
+          rank: 4,
+          searchVolume: 14800,
+        }],
+        missing: [],
+      },
+    });
+
+    expect(report).not.toContain("Product-fit competitor keyword opportunities");
+    expect(report).toContain("Top competitor keywords by volume");
+    expect(report).toContain('Low-fit competitor keyword: "history of surfing"');
+  });
+
   it("renders manual backlink import coverage without calling it missing data", () => {
     const report = renderWeeklySeoReport({
       generatedAt: "2026-05-20T12:00:00Z",
