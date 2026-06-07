@@ -169,4 +169,46 @@ describe("SEO workflow weekly report", () => {
       "rawPaths=/beach/c-street-ventura-ca -> /ca/ventura/c-street-ventura-ca",
     );
   });
+
+  it("separates low-confidence Vercel traffic from qualified signup demand", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-05-20T12:00:00Z",
+      recommendations: [],
+      missing: [],
+      vercel: {
+        generatedAt: "2026-05-20T12:00:00Z",
+        dateRange: { from: "2026-05-13", to: "2026-05-20" },
+        rawPageViews: 100,
+        adjustedPageViews: 90,
+        botPageViews: 10,
+        pages: [],
+        referrers: [{ referrer: "(direct)", visits: 40 }],
+        countries: [{ country: "SG", visits: 25 }],
+        devices: [{ device: "desktop", visits: 70 }],
+        lowConfidenceSegments: [
+          {
+            segment: "country:SG",
+            visits: 25,
+            reason: "Singapore traffic is treated as acquisition context until linked to signup or activation.",
+          },
+        ],
+      },
+      posthog: {
+        generatedAt: "2026-05-20T12:00:00Z",
+        dateRange: { from: "2026-05-13", to: "2026-05-20" },
+        pages: [],
+        nativeFunnels: [],
+        qualifiedDemand: {
+          signupCtaViews: 20,
+          signupCtaClicks: 4,
+          signupSuccesses: 2,
+          activatedSignups: 1,
+        },
+      },
+    });
+
+    expect(report).toContain("## Qualified Web Demand");
+    expect(report).toContain("Signup CTA: 20 views / 4 clicks / 2 signups / 1 activated signup.");
+    expect(report).toContain("Low-confidence Vercel segments: country:SG=25.");
+  });
 });

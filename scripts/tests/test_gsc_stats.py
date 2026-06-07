@@ -29,6 +29,14 @@ def _load_gsc_stats_module():
 
 
 class GscStatsTests(unittest.TestCase):
+    def test_get_local_network_blocker_reports_codex_sandbox_network_disabled(self):
+        gsc_stats = _load_gsc_stats_module()
+
+        with mock.patch.dict(gsc_stats.os.environ, {"CODEX_SANDBOX_NETWORK_DISABLED": "1"}, clear=False):
+            blocker = gsc_stats.get_local_network_blocker()
+
+        self.assertIn("CODEX_SANDBOX_NETWORK_DISABLED=1", blocker)
+
     def test_build_json_export_writes_partial_when_sitemap_fails(self):
         gsc_stats = _load_gsc_stats_module()
 

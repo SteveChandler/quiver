@@ -7,7 +7,8 @@ import {
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import {
   getActiveNDBCStations,
-  fetchRecentNDBCObservations,
+  fetchRecentNDBCObservationsWithStatus,
+  type NDBCObservationFetchStatus,
 } from "@/lib/services/ndbc-service";
 import {
   IOOS_STATION_FILTERS,
@@ -43,6 +44,9 @@ interface ObservationSyncResult {
   stationsSynced: number;
   stationsSkippedIOOS: number;
   stationsFailed: number;
+  stationsNoWaveData: number;
+  stationsNotFound: number;
+  stationsFetchErrored: number;
   stationsSkippedTimeout: number;
   observationsUpserted: number;
   errors: string[];
@@ -268,6 +272,9 @@ async function syncObservations(): Promise<ObservationSyncResult> {
     stationsSynced: 0,
     stationsSkippedIOOS: 0,
     stationsFailed: 0,
+    stationsNoWaveData: 0,
+    stationsNotFound: 0,
+    stationsFetchErrored: 0,
     stationsSkippedTimeout: 0,
     observationsUpserted: 0,
     errors: [],
@@ -350,19 +357,11 @@ async function syncObservations(): Promise<ObservationSyncResult> {
 
       const batchResults = await Promise.allSettled(
         batch.map(async (station) => {
-          try {
-            const observations = await fetchRecentNDBCObservations(
-              station.station_id,
-              24
-            );
-            return { stationId: station.station_id, observations };
-          } catch (err) {
-            console.error(
-              `[NDBC-Direct] Error fetching ${station.station_id}:`,
-              err
-            );
-            return { stationId: station.station_id, observations: [] };
-          }
+          const fetchResult = await fetchRecentNDBCObservationsWithStatus(
+            station.station_id,
+            24
+          );
+          return { stationId: station.station_id, ...fetchResult };
         })
       );
 
@@ -378,23 +377,46 @@ async function syncObservations(): Promise<ObservationSyncResult> {
         wind_direction_deg: number | null;
       }> = [];
 
-      const successfulStationIds: string[] = [];
+      const successfulStationHealth: Array<{
+        latestObservedAt: string;
+        stationId: string;
+      }> = [];
+      const failedStationIdsByStatus: Record<
+        Exclude<NDBCObservationFetchStatus, "ok">,
+        string[]
+      > = {
+        error: [],
+        no_wave_data: [],
+        not_found: [],
+      };
 
       for (const settled of batchResults) {
         if (settled.status === "rejected") {
           result.stationsFailed++;
+          result.stationsFetchErrored++;
           continue;
         }
 
-        const { stationId, observations } = settled.value;
+        const { stationId, observations, status } = settled.value;
 
-        if (observations.length === 0) {
+        if (status !== "ok" || observations.length === 0) {
           result.stationsFailed++;
+          const failedStatus = status === "ok" ? "no_wave_data" : status;
+          failedStationIdsByStatus[failedStatus].push(stationId);
+          if (failedStatus === "no_wave_data") result.stationsNoWaveData++;
+          if (failedStatus === "not_found") result.stationsNotFound++;
+          if (failedStatus === "error") result.stationsFetchErrored++;
           continue;
         }
 
         result.stationsSynced++;
-        successfulStationIds.push(stationId);
+        successfulStationHealth.push({
+          stationId,
+          latestObservedAt: observations
+            .map((obs) => obs.ts)
+            .sort()
+            .at(-1)!,
+        });
 
         for (const obs of observations) {
           observationsToInsert.push({
@@ -409,6 +431,8 @@ async function syncObservations(): Promise<ObservationSyncResult> {
           });
         }
       }
+
+      const fetchRecordedAt = new Date().toISOString();
 
       // Upsert observations (ignore duplicates via unique index)
       if (observationsToInsert.length > 0) {
@@ -427,16 +451,46 @@ async function syncObservations(): Promise<ObservationSyncResult> {
         }
       }
 
-      // Update last_seen_at and has_wave_data for successful stations
-      if (successfulStationIds.length > 0) {
+      // Update source-health metadata for successful stations.
+      for (const stationHealth of successfulStationHealth) {
         // TODO: Remove `as any` once db:types is regenerated with ndbc_direct_* tables
-        await (supabase as any)
+        const { error: healthError } = await (supabase as any)
           .from("ndbc_direct_stations")
           .update({
-            last_seen_at: new Date().toISOString(),
             has_wave_data: true,
+            last_seen_at: fetchRecordedAt,
+            last_wave_fetch_at: fetchRecordedAt,
+            last_wave_fetch_status: "ok",
+            last_wave_observed_at: stationHealth.latestObservedAt,
           })
-          .in("station_id", successfulStationIds);
+          .eq("station_id", stationHealth.stationId);
+
+        if (healthError) {
+          result.errors.push(
+            `Failed to update NDBC wave health for ${stationHealth.stationId}: ${healthError.message}`
+          );
+        }
+      }
+
+      // Record failed source-health outcomes so resolver/audits can distinguish
+      // stale/no-wave sources from transport failures.
+      for (const [status, stationIds] of Object.entries(failedStationIdsByStatus)) {
+        if (stationIds.length === 0) continue;
+
+        // TODO: Remove `as any` once db:types is regenerated with ndbc_direct_* tables
+        const { error: healthError } = await (supabase as any)
+          .from("ndbc_direct_stations")
+          .update({
+            last_wave_fetch_at: fetchRecordedAt,
+            last_wave_fetch_status: status,
+          })
+          .in("station_id", stationIds);
+
+        if (healthError) {
+          result.errors.push(
+            `Failed to update NDBC ${status} wave health: ${healthError.message}`
+          );
+        }
       }
 
       // Politeness delay between batches

@@ -74,6 +74,7 @@
     "db:types:remote": "supabase gen types typescript --linked 2>/dev/null > types/database.generated.ts",
     "db:reset": "supabase db reset",
     "db:reset:types": "supabase db reset && yarn db:types",
+    "db:lint:app": "node scripts/db/lint-app-functions.mjs",
     "db:advisor:rollback": "node scripts/db/rollback-validate-advisor-cleanup.mjs",
     "db:advisor:extension-inventory": "psql \"$POSTGRES_URL_NON_POOLING\" -v ON_ERROR_STOP=1 -f scripts/db/extension-relocation-inventory.sql",
     "db:advisor:extension-apply": "psql \"$POSTGRES_URL_NON_POOLING\" -v ON_ERROR_STOP=1 -f scripts/db/extension-relocation-apply.sql",

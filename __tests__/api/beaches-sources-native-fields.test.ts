@@ -84,6 +84,7 @@ describe("GET /api/beaches/[id]/sources", () => {
       ndbc_buoy_ids: ["46225"],
       forecast_source_id: "forecast-1",
       camera_url: "https://cams.example/blacks",
+      cam_stream_endpoint: "/api/beaches/beach-1/stream",
       cam_open_url: "https://cams.example/blacks",
       cam_thumbnail_url: "https://cams.example/blacks.jpg",
       cam_kind: expect.any(String),

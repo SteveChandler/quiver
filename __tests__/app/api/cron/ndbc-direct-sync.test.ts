@@ -6,7 +6,10 @@ import { readFileSync } from "fs";
 import { NextRequest } from "next/server";
 import { GET } from "@/app/api/cron/ndbc-direct-sync/route";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { fetchRecentNDBCObservations } from "@/lib/services/ndbc-service";
+import {
+  fetchRecentNDBCObservations,
+  fetchRecentNDBCObservationsWithStatus,
+} from "@/lib/services/ndbc-service";
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
@@ -44,6 +47,7 @@ jest.mock("@/lib/supabase/server", () => ({
 jest.mock("@/lib/services/ndbc-service", () => ({
   getActiveNDBCStations: jest.fn(),
   fetchRecentNDBCObservations: jest.fn(),
+  fetchRecentNDBCObservationsWithStatus: jest.fn(),
 }));
 
 type QueryResult<T> = {
@@ -68,6 +72,57 @@ function createObservationStationsQuery<T>(
   });
 
   return query;
+}
+
+type SupabaseUpdate = {
+  ids: string[];
+  payload: Record<string, unknown>;
+};
+
+function createObservationSyncSupabase(
+  stations: Array<{ station_id: string; ioos_station_id: string | null }>
+) {
+  const stationUpdates: SupabaseUpdate[] = [];
+  const observationUpserts: unknown[][] = [];
+  const refreshRpc = jest.fn().mockResolvedValue({ data: null, error: null });
+
+  const stationQuery: any = {};
+  let stationEqCalls = 0;
+  stationQuery.select = jest.fn((_columns: string) => stationQuery);
+  stationQuery.eq = jest.fn((_column: string, _value: unknown) => {
+    stationEqCalls += 1;
+    return stationEqCalls >= 2
+      ? Promise.resolve({ data: stations, error: null })
+      : stationQuery;
+  });
+  stationQuery.update = jest.fn((payload: Record<string, unknown>) => ({
+    in: jest.fn((_column: string, ids: string[]) => {
+      stationUpdates.push({ ids, payload });
+      return Promise.resolve({ data: null, error: null });
+    }),
+    eq: jest.fn((_column: string, id: string) => {
+      stationUpdates.push({ ids: [id], payload });
+      return Promise.resolve({ data: null, error: null });
+    }),
+  }));
+
+  const observationsQuery = {
+    upsert: jest.fn((rows: unknown[]) => {
+      observationUpserts.push(rows);
+      return Promise.resolve({ data: null, error: null });
+    }),
+  };
+
+  const supabase = {
+    from: jest.fn((table: string) => {
+      if (table === "ndbc_direct_stations") return stationQuery;
+      if (table === "ndbc_direct_observations") return observationsQuery;
+      return createObservationStationsQuery({ data: [], error: null });
+    }),
+    rpc: refreshRpc,
+  };
+
+  return { observationUpserts, refreshRpc, stationUpdates, supabase };
 }
 
 describe("NDBC direct sync cron route", () => {
@@ -150,5 +205,107 @@ describe("NDBC direct sync cron route", () => {
     expect(typeof data.data.duration_ms).toBe("number");
     expect(refreshRpc).not.toHaveBeenCalled();
     expect(fetchRecentNDBCObservations).not.toHaveBeenCalled();
+    expect(fetchRecentNDBCObservationsWithStatus).not.toHaveBeenCalled();
+  });
+
+  it("records no-wave NDBC fetch status without inserting observations", async () => {
+    const { observationUpserts, refreshRpc, stationUpdates, supabase } =
+      createObservationSyncSupabase([
+        { station_id: "44069", ioos_station_id: null },
+      ]);
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (fetchRecentNDBCObservationsWithStatus as jest.Mock).mockResolvedValue({
+      observations: [],
+      status: "no_wave_data",
+    });
+
+    const request = new NextRequest(
+      "http://localhost/api/cron/ndbc-direct-sync?phase=observations"
+    );
+
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.data).toMatchObject({
+      phase: "observations",
+      stationsQueried: 1,
+      stationsSynced: 0,
+      stationsFailed: 1,
+      stationsNoWaveData: 1,
+      observationsUpserted: 0,
+    });
+    expect(observationUpserts).toEqual([]);
+    expect(stationUpdates).toEqual([
+      {
+        ids: ["44069"],
+        payload: expect.objectContaining({
+          last_wave_fetch_status: "no_wave_data",
+        }),
+      },
+    ]);
+    expect(refreshRpc).toHaveBeenCalledTimes(1);
+  });
+
+  it("records successful NDBC wave source health with latest observed time", async () => {
+    const { observationUpserts, stationUpdates, supabase } =
+      createObservationSyncSupabase([
+        { station_id: "46215", ioos_station_id: null },
+      ]);
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue(supabase);
+    (fetchRecentNDBCObservationsWithStatus as jest.Mock).mockResolvedValue({
+      observations: [
+        {
+          ts: "2026-06-04T19:56:00.000Z",
+          wave_height_m: 1.2,
+          wave_period_s: 14,
+          wave_direction_deg: 260,
+          water_temp_c: null,
+          wind_speed_ms: null,
+          wind_direction_deg: null,
+        },
+        {
+          ts: "2026-06-04T19:26:00.000Z",
+          wave_height_m: 1.1,
+          wave_period_s: 13,
+          wave_direction_deg: 255,
+          water_temp_c: null,
+          wind_speed_ms: null,
+          wind_direction_deg: null,
+        },
+      ],
+      status: "ok",
+    });
+
+    const request = new NextRequest(
+      "http://localhost/api/cron/ndbc-direct-sync?phase=observations"
+    );
+
+    const response = await GET(request);
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(data.data).toMatchObject({
+      stationsQueried: 1,
+      stationsSynced: 1,
+      stationsFailed: 0,
+      stationsNoWaveData: 0,
+      observationsUpserted: 2,
+    });
+    expect(observationUpserts).toHaveLength(1);
+    expect(stationUpdates).toEqual(
+      expect.arrayContaining([
+        {
+          ids: ["46215"],
+          payload: expect.objectContaining({
+            has_wave_data: true,
+            last_wave_fetch_status: "ok",
+            last_wave_observed_at: "2026-06-04T19:56:00.000Z",
+          }),
+        },
+      ])
+    );
   });
 });

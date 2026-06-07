@@ -16,6 +16,7 @@
 
 import { withAuthenticatedAction } from '@/lib/server-action-utils';
 import type { UserSurfPreferences } from '@/lib/services/preference-learning-service';
+import type { Json } from '@/types/database';
 
 /**
  * Valid tide status values
@@ -209,9 +210,13 @@ export async function updateUserSurfPreferences(
   }
 
   return withAuthenticatedAction(async (user, supabase) => {
+    const { avoidance_by_beach, ...restOverrides } = overrides;
     // Add manual_override flag to indicate user has customized preferences
     const updateData = {
-      ...overrides,
+      ...restOverrides,
+      ...(avoidance_by_beach !== undefined
+        ? { avoidance_by_beach: avoidance_by_beach as unknown as Json }
+        : {}),
       manual_override: true,
     };
 

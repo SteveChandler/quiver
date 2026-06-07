@@ -83,12 +83,16 @@ describe("CamsSection", () => {
     const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({
-        hlsUrl:
-          "https://b16.hdrelay.com/camera/1549b2bd-baa9-4eb6-a6bf-c7500a22dc90/relay/playlist.m3u8",
+        data: {
+          kind: "hls",
+          stream_url:
+            "/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc123&e=9999999999",
+        },
       }),
     } as Response);
     const sources: BeachSources = {
       camera_url: "https://www.obhotel.com/Webcam-Oceanbeach.php",
+      cam_stream_endpoint: "/api/beaches/ocean-beach/stream",
       embed_allowed: false,
     };
 
@@ -97,11 +101,11 @@ describe("CamsSection", () => {
     await waitFor(() => {
       expect(screen.getByTestId("hls-video-player")).toHaveAttribute(
         "src",
-        "https://b16.hdrelay.com/camera/1549b2bd-baa9-4eb6-a6bf-c7500a22dc90/relay/playlist.m3u8"
+        "/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc123&e=9999999999"
       );
     });
     expect(fetchSpy).toHaveBeenCalledWith(
-      "/api/cam-resolve?url=https%3A%2F%2Fwww.obhotel.com%2FWebcam-Oceanbeach.php"
+      "/api/beaches/ocean-beach/stream"
     );
     expect(screen.queryByRole("link", { name: /open live cam/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /open cam/i })).not.toBeInTheDocument();
@@ -111,13 +115,17 @@ describe("CamsSection", () => {
     const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
       ok: true,
       json: async () => ({
-        hlsUrl:
-          "https://b16.hdrelay.com/camera/1549b2bd-baa9-4eb6-a6bf-c7500a22dc90/relay/playlist.m3u8",
+        data: {
+          kind: "hls",
+          stream_url:
+            "/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc123&e=9999999999",
+        },
       }),
     } as Response);
     const sources: BeachSources = {
       camera_url:
         "https://thesurfersview.com/live-cams/california/ocean-beach-san-diego-webcam-and-surf-report/",
+      cam_stream_endpoint: "/api/beaches/ocean-beach/stream",
       embed_allowed: false,
     };
 
@@ -126,11 +134,11 @@ describe("CamsSection", () => {
     await waitFor(() => {
       expect(screen.getByTestId("hls-video-player")).toHaveAttribute(
         "src",
-        "https://b16.hdrelay.com/camera/1549b2bd-baa9-4eb6-a6bf-c7500a22dc90/relay/playlist.m3u8"
+        "/api/hls-proxy/live.hdontap.com/hls/hosb1/stream.stream/playlist.m3u8?t=abc123&e=9999999999"
       );
     });
     expect(fetchSpy).toHaveBeenCalledWith(
-      "/api/cam-resolve?url=https%3A%2F%2Fwww.obhotel.com%2FWebcam-Oceanbeach.php"
+      "/api/beaches/ocean-beach/stream"
     );
     expect(
       screen.queryByRole("link", {
@@ -138,5 +146,20 @@ describe("CamsSection", () => {
       })
     ).not.toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /open cam/i })).not.toBeInTheDocument();
+  });
+
+  it("renders direct image cams inline with a cache-busting refresh token", () => {
+    const sources: BeachSources = {
+      camera_url: "https://cams.example.com/belmar/latest.jpg",
+      embed_allowed: false,
+    };
+
+    render(<CamsSection sources={sources} beachName="Belmar" />);
+
+    const image = screen.getByRole("img", { name: /live cam of belmar/i });
+    expect(image).toHaveAttribute(
+      "src",
+      expect.stringMatching(/^https:\/\/cams\.example\.com\/belmar\/latest\.jpg\?t=\d+$/)
+    );
   });
 });

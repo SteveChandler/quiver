@@ -12,6 +12,10 @@ import type {
   ProfilePageProfile,
 } from "@/types/profile-page";
 import type { Board, Beach, SessionWithDetails } from "@/types/database";
+import {
+  normalizeAvoidanceByBeach,
+  type UserSurfPreferences,
+} from "@/lib/services/preference-learning-service";
 
 /**
  * GET /api/me/profile-page - Aggregated profile page data endpoint
@@ -181,7 +185,25 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
     ? (learnedPrefsResult.error.code !== "PGRST116" &&
         console.warn("Learned prefs fetch failed:", learnedPrefsResult.error),
       null)
-    : learnedPrefsResult.data ?? null;
+    : learnedPrefsResult.data
+      ? ({
+          wave_min_ft: learnedPrefsResult.data.wave_min_ft,
+          wave_max_ft: learnedPrefsResult.data.wave_max_ft,
+          wave_period_min_s: learnedPrefsResult.data.wave_period_min_s,
+          wave_period_max_s: learnedPrefsResult.data.wave_period_max_s,
+          max_wind_mph: learnedPrefsResult.data.max_wind_mph,
+          preferred_wind_directions: learnedPrefsResult.data.preferred_wind_directions,
+          preferred_tide_statuses: learnedPrefsResult.data.preferred_tide_statuses,
+          confidence: learnedPrefsResult.data.confidence,
+          sample_size: learnedPrefsResult.data.sample_size,
+          eligible_session_count: learnedPrefsResult.data.eligible_session_count,
+          avoidance_by_beach: normalizeAvoidanceByBeach(
+            learnedPrefsResult.data.avoidance_by_beach,
+          ),
+          validated_at: learnedPrefsResult.data.validated_at,
+          manual_override: learnedPrefsResult.data.manual_override,
+        } satisfies UserSurfPreferences)
+      : null;
 
   const onboarding = {
     experience_level: profileData.experience_level ?? undefined,

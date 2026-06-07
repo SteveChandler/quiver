@@ -275,6 +275,7 @@ export const KNOWN_REJECTED_USER_EVENT_EMITTERS = [
 
 export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   'page_view', 'beach_view', 'tab_view', 'onboarding_step',
+  'onboarding_video_started', 'onboarding_video_completed', 'onboarding_video_skipped',
   // Conversion tracking (critical for understanding anon→authed funnel)
   'signup_cta_click', 'signup_cta_view', 'signin_cta_click', 'cta_click',
   // Auth funnel events (fire before user is authenticated — must be anonymous-allowed)

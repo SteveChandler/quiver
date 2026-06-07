@@ -20,6 +20,19 @@ export type NDBCObservation = {
   water_temp_c: number | null; // WTMP water temperature in Celsius
 };
 
+export type NDBCObservationFetchStatus =
+  | "ok"
+  | "no_wave_data"
+  | "not_found"
+  | "error";
+
+export type NDBCObservationFetchResult = {
+  observations: NDBCObservation[];
+  status: NDBCObservationFetchStatus;
+  error?: string;
+  httpStatus?: number;
+};
+
 /**
  * Fetch the active NDBC station list (lat/lon) and cache in memory
  */
@@ -171,12 +184,46 @@ export async function fetchRecentNDBCObservations(
   stationId: string,
   maxRows: number = 48
 ): Promise<NDBCObservation[]> {
-  const url = `https://www.ndbc.noaa.gov/data/realtime2/${stationId}.txt`;
-  const res = await fetchWithTimeout(url, { timeoutMs: 15000 });
-  if (!res.ok) return [];
+  const result = await fetchRecentNDBCObservationsWithStatus(
+    stationId,
+    maxRows
+  );
+  return result.observations;
+}
 
-  const text = await res.text();
-  return parseRealtime2Text(text, maxRows);
+/**
+ * Fetch multiple recent observations and classify source-health outcome.
+ * A 200 response with only WVHT=MM rows is not a transport failure; it means
+ * the station currently has no usable wave-height observations for ML truth.
+ */
+export async function fetchRecentNDBCObservationsWithStatus(
+  stationId: string,
+  maxRows: number = 48
+): Promise<NDBCObservationFetchResult> {
+  const url = `https://www.ndbc.noaa.gov/data/realtime2/${stationId}.txt`;
+  try {
+    const res = await fetchWithTimeout(url, { timeoutMs: 15000 });
+    if (!res.ok) {
+      return {
+        observations: [],
+        status: res.status === 404 ? "not_found" : "error",
+        httpStatus: res.status,
+      };
+    }
+
+    const text = await res.text();
+    const observations = parseRealtime2Text(text, maxRows);
+    return {
+      observations,
+      status: observations.length > 0 ? "ok" : "no_wave_data",
+    };
+  } catch (error) {
+    return {
+      observations: [],
+      status: "error",
+      error: error instanceof Error ? error.message : "Unknown NDBC fetch error",
+    };
+  }
 }
 
 /**

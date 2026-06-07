@@ -67,6 +67,13 @@ function shouldEmit(now: number): boolean {
 }
 
 function shouldIgnoreClientError(metadata: ClientErrorMetadata): boolean {
+  if (
+    metadata.source === "window_onerror" &&
+    metadata.message === "Error: Script error."
+  ) {
+    return true;
+  }
+
   return (
     metadata.source === "unhandled_rejection" &&
     (IGNORED_UNHANDLED_REJECTION_MESSAGES.has(metadata.message) ||

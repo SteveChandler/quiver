@@ -46,6 +46,21 @@ describe("ClientErrorTracker", () => {
     });
   });
 
+  it("suppresses opaque cross-origin Safari script errors", async () => {
+    render(<ClientErrorTracker />);
+
+    const event = new ErrorEvent("error", {
+      message: "Script error.",
+      error: null,
+    });
+
+    window.dispatchEvent(event);
+
+    await waitFor(() => {
+      expect(mockTrack).not.toHaveBeenCalled();
+    });
+  });
+
   it("still tracks other unhandled rejections", async () => {
     render(<ClientErrorTracker />);
 

@@ -115,6 +115,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       ndbc_buoy_ids: (data as any)?.ndbc_buoy_ids || null,
       forecast_source_id: (data as any)?.forecast_source_id || null,
       camera_url: cameraUrl,
+      cam_stream_endpoint: cameraUrl ? `/api/beaches/${params.id}/stream` : null,
       embed_allowed: embedAllowed,
       diorama_url: dioramaUrl,
       cam_open_url: cameraUrl ? getViewableUrl(cameraUrl) : null,

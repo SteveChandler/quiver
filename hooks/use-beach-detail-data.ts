@@ -7,6 +7,7 @@ import { trackFallback } from "@/lib/monitoring/fallback-tracker";
 export interface BeachSources {
   camera_url?: string | null;
   cam_thumbnail_url?: string | null;
+  cam_stream_endpoint?: string | null;
   embed_allowed?: boolean | null;
   diorama_url?: string | null;
 }

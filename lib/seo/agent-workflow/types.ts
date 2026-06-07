@@ -157,6 +157,12 @@ export interface VercelReferrerMetric {
   visits: number;
 }
 
+export interface VercelLowConfidenceSegment {
+  segment: string;
+  visits: number;
+  reason: string;
+}
+
 export interface VercelExportInput {
   generatedAt: string;
   dateRange: { from: string; to: string };
@@ -169,6 +175,7 @@ export interface VercelExportInput {
   referrers: VercelReferrerMetric[];
   countries: Array<{ country: string; visits: number }>;
   devices: Array<{ device: string; visits: number }>;
+  lowConfidenceSegments?: VercelLowConfidenceSegment[];
   missing?: string[];
 }
 
@@ -187,11 +194,19 @@ export interface NativeFunnelMetric {
   events: Record<string, number>;
 }
 
+export interface QualifiedDemandMetric {
+  signupCtaViews: number;
+  signupCtaClicks: number;
+  signupSuccesses: number;
+  activatedSignups: number;
+}
+
 export interface PostHogExportInput {
   generatedAt: string;
   dateRange: { from: string; to: string };
   pages: PostHogSeoPageMetric[];
   nativeFunnels: NativeFunnelMetric[];
+  qualifiedDemand?: QualifiedDemandMetric;
   missing?: string[];
 }
 

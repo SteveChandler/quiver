@@ -11,6 +11,8 @@ import {
   syncWQStations,
 } from "@/lib/services/water-quality";
 
+const mockObservedCronInvocation = jest.fn();
+
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
     json: async () => ({
@@ -41,7 +43,10 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
 }));
 
 jest.mock("@/lib/cron/observability", () => ({
-  withObservedCron: jest.fn((_route: string, handler) => handler),
+  withObservedCron: jest.fn((_route: string, handler) => (request: Request) => {
+    mockObservedCronInvocation(request.url);
+    return handler(request);
+  }),
 }));
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -146,6 +151,7 @@ describe("water quality sync cron route", () => {
       details: 'Query param "phase" must be "stations", "samples", or "evaluate"',
       timestamp: "2026-05-26T00:00:00.000Z",
     });
+    expect(mockObservedCronInvocation).not.toHaveBeenCalled();
     expect(createSupabaseServiceRoleClient).not.toHaveBeenCalled();
   });
 
@@ -156,6 +162,9 @@ describe("water quality sync cron route", () => {
     const data = await response.json();
 
     expect(response.status).toBe(200);
+    expect(mockObservedCronInvocation).toHaveBeenCalledWith(
+      "http://localhost/api/cron/water-quality-sync?phase=stations"
+    );
     expect(createSupabaseServiceRoleClient).toHaveBeenCalledTimes(1);
     expect(syncWQStations).toHaveBeenCalledWith(supabase);
     expect(syncWQSamples).not.toHaveBeenCalled();

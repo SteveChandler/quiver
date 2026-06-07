@@ -3,6 +3,7 @@ import { findLicensedCamOverride } from "@/lib/media/licensed-cam-overrides";
 export type CamEmbedIntent =
   | { kind: "none" }
   | { kind: "iframe"; src: string; title?: string; allow?: string }
+  | { kind: "image"; src: string }
   | { kind: "video"; src: string }
   | { kind: "hls"; src: string }
   | { kind: "hdontap"; pageUrl: string }
@@ -70,6 +71,10 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
     }
 
     // Direct media
+    if (/\.(jpg|jpeg|png|webp|gif)(\?.*)?$/i.test(href)) {
+      return { kind: "image", src: href };
+    }
+
     if (href.endsWith(".mp4") || href.endsWith(".webm") || href.endsWith(".ogg")) {
       return { kind: "video", src: href };
     }

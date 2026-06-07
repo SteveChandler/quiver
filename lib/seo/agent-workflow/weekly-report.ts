@@ -40,6 +40,10 @@ export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
     "",
     renderWebSeo(input.gsc, input.vercel),
     "",
+    "## Qualified Web Demand",
+    "",
+    renderQualifiedWebDemand(input.vercel, input.posthog),
+    "",
     "## Keyword / Ranking Movement",
     "",
     renderKeywordMovement(input.gsc, input.dataforseo, openRecommendations),
@@ -119,6 +123,35 @@ function renderWebSeo(gsc?: GscExportInput, vercel?: VercelExportInput): string 
   } else {
     rows.push("- Vercel export unavailable.");
   }
+  return rows.join("\n");
+}
+
+function renderQualifiedWebDemand(
+  vercel?: VercelExportInput,
+  posthog?: PostHogExportInput,
+): string {
+  const rows: string[] = [];
+  const qualifiedDemand = posthog?.qualifiedDemand;
+
+  if (qualifiedDemand) {
+    rows.push(
+      `- Signup CTA: ${qualifiedDemand.signupCtaViews} views / ${qualifiedDemand.signupCtaClicks} clicks / ${qualifiedDemand.signupSuccesses} signups / ${qualifiedDemand.activatedSignups} activated signup${qualifiedDemand.activatedSignups === 1 ? "" : "s"}.`,
+    );
+  } else {
+    rows.push("- Qualified signup and activation demand unavailable.");
+  }
+
+  const lowConfidenceSegments = vercel?.lowConfidenceSegments ?? [];
+  if (lowConfidenceSegments.length > 0) {
+    rows.push(
+      `- Low-confidence Vercel segments: ${lowConfidenceSegments.map((segment) =>
+        `${segment.segment}=${segment.visits}`
+      ).join(", ")}.`,
+    );
+  } else if (vercel) {
+    rows.push("- No low-confidence Vercel traffic segments were flagged.");
+  }
+
   return rows.join("\n");
 }
 

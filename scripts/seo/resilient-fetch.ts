@@ -13,6 +13,11 @@ export async function fetchWithRetry(
   init: RequestInit = {},
   options: ResilientFetchOptions = {},
 ): Promise<Response> {
+  const localNetworkBlocker = getLocalNetworkBlocker();
+  if (localNetworkBlocker) {
+    throw new Error(localNetworkBlocker);
+  }
+
   const timeoutMs = options.timeoutMs ?? DEFAULT_TIMEOUT_MS;
   const retries = options.retries ?? DEFAULT_RETRIES;
   const retryDelayMs = options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS;
@@ -83,6 +88,7 @@ export function normalizeFetchError(error: unknown): string {
 export function isRemoteFetchError(error: unknown): boolean {
   const message = normalizeFetchError(error).toLowerCase();
   return [
+    "codex_sandbox_network_disabled",
     "enotfound",
     "econnreset",
     "timed out",
@@ -93,6 +99,13 @@ export function isRemoteFetchError(error: unknown): boolean {
     "http ",
     " failed:",
   ].some((token) => message.includes(token));
+}
+
+export function getLocalNetworkBlocker(): string | null {
+  if (process.env.CODEX_SANDBOX_NETWORK_DISABLED === "1") {
+    return "Local network unavailable: CODEX_SANDBOX_NETWORK_DISABLED=1";
+  }
+  return null;
 }
 
 function mergeSignals(existing?: AbortSignal, timeout?: AbortSignal): AbortSignal | undefined {

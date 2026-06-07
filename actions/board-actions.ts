@@ -5,7 +5,7 @@ import {
   withAuthenticatedAction,
 } from "@/lib/server-action-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import type { Board } from "@/types/database";
+import type { Board, BoardInsert, BoardUpdate } from "@/types/database";
 import { revalidatePath } from "next/cache";
 
 // Optional XP tracking - imported dynamically to avoid circular dependency
@@ -31,7 +31,7 @@ export async function getUserBoards(userId: string) {
 
 export async function createBoard(
   boardData: Omit<
-    Board,
+    BoardInsert,
     "id" | "user_id" | "session_count" | "created_at" | "updated_at"
   >
 ) {
@@ -83,7 +83,7 @@ export async function createBoard(
 export async function updateBoard(
   id: string,
   boardData: Partial<
-    Omit<Board, "id" | "user_id" | "created_at" | "updated_at">
+    Omit<BoardUpdate, "id" | "user_id" | "created_at" | "updated_at">
   >
 ) {
   const supabase = await createSupabaseServerClient();

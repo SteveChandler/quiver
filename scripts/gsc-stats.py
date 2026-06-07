@@ -25,9 +25,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
@@ -56,15 +53,29 @@ CREDENTIALS_FILE = PROJECT_ROOT / "gsc-credentials.json"
 
 def get_service():
     """Build an authenticated Search Console service."""
+    local_network_blocker = get_local_network_blocker()
+    if local_network_blocker:
+        raise RuntimeError(local_network_blocker)
+
     if not CREDENTIALS_FILE.exists():
         print(f"ERROR: Credentials file not found at {CREDENTIALS_FILE}", file=sys.stderr)
         print("Place your service account JSON key at the project root as gsc-credentials.json", file=sys.stderr)
         sys.exit(1)
 
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+
     credentials = service_account.Credentials.from_service_account_file(
         str(CREDENTIALS_FILE), scopes=SCOPES
     )
     return build("searchconsole", "v1", credentials=credentials)
+
+
+def get_local_network_blocker():
+    """Return a deterministic blocker when Codex has disabled shell networking."""
+    if os.environ.get("CODEX_SANDBOX_NETWORK_DISABLED") == "1":
+        return "Local network unavailable: CODEX_SANDBOX_NETWORK_DISABLED=1"
+    return None
 
 
 def query_gsc(service, start_date, end_date, dimensions, row_limit=25000, order_by=None):

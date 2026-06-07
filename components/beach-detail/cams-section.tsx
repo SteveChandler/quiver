@@ -39,6 +39,7 @@ export function CamsSection({
   const [iframeBlocked, setIframeBlocked] = useState(false);
   const [hlsError, setHlsError] = useState(false);
   const [resolvedHlsUrl, setResolvedHlsUrl] = useState<string | null>(null);
+  const [imageRefreshToken, setImageRefreshToken] = useState(() => Date.now());
   // Counter to re-mount the player on Refresh
   const [playerKey, setPlayerKey] = useState(0);
 
@@ -48,6 +49,7 @@ export function CamsSection({
     setIframeBlocked(false);
     setHlsError(false);
     setResolvedHlsUrl(null);
+    setImageRefreshToken(Date.now());
   }, [cameraUrl]);
 
   const intent = cameraUrl ? buildCamEmbed(cameraUrl) : null;
@@ -64,33 +66,53 @@ export function CamsSection({
     iframeBlocked === false &&
     sources?.embed_allowed !== false;
 
-  // Resolve HDOnTap page URLs -> HLS stream URLs server-side
+  // Resolve provider pages -> normalized stream URLs server-side
   const hdontapPageUrl = intent?.kind === "hdontap" ? intent.pageUrl : null;
+  const streamEndpoint = sources?.cam_stream_endpoint ?? null;
   const openCamUrl = intent?.kind === "hdontap" ? null : viewableUrl;
   useEffect(() => {
-    if (!hdontapPageUrl) return;
+    if (!hdontapPageUrl || !streamEndpoint) return;
     let cancelled = false;
     setResolvedHlsUrl(null);
     setHlsError(false);
-    fetch(`/api/cam-resolve?url=${encodeURIComponent(hdontapPageUrl)}`)
+    fetch(streamEndpoint)
       .then((res) => (res.ok ? res.json() : Promise.reject(res.status)))
-      .then((data: { hlsUrl?: string }) => {
-        if (!cancelled && data.hlsUrl) {
-          setResolvedHlsUrl(toProxiedHlsUrl(data.hlsUrl));
-        } else if (!cancelled) {
-          setHlsError(true);
+      .then(
+        (data:
+          | { data?: { kind?: string; stream_url?: string | null } }
+          | { kind?: string; stream_url?: string | null }) => {
+          let payload: { kind?: string; stream_url?: string | null };
+          if ("data" in data && data.data) {
+            payload = data.data;
+          } else {
+            payload = data as { kind?: string; stream_url?: string | null };
+          }
+          if (!cancelled && payload.kind === "hls" && payload.stream_url) {
+            setResolvedHlsUrl(payload.stream_url);
+          } else if (!cancelled) {
+            setHlsError(true);
+          }
         }
-      })
+      )
       .catch(() => {
         if (!cancelled) setHlsError(true);
       });
     return () => { cancelled = true; };
-  }, [hdontapPageUrl, playerKey]);
+  }, [hdontapPageUrl, streamEndpoint, playerKey]);
+
+  useEffect(() => {
+    if (intent?.kind !== "image") return;
+    const intervalId = window.setInterval(() => {
+      setImageRefreshToken(Date.now());
+    }, 5000);
+    return () => window.clearInterval(intervalId);
+  }, [intent?.kind]);
 
   const handleRefresh = () => {
     setHlsError(false);
     setResolvedHlsUrl(null);
     setIframeBlocked(false);
+    setImageRefreshToken(Date.now());
     setPlayerKey((k) => k + 1);
   };
 
@@ -192,6 +214,17 @@ export function CamsSection({
     visual = hlsError
       ? (dioramaVisual ?? streamUnavailableVisual)
       : <HLSVideoPlayer key={playerKey} src={intent.src} title={camLabel} onError={() => setHlsError(true)} />;
+  } else if (intent?.kind === "image") {
+    const refreshedSrc = `${intent.src}${intent.src.includes("?") ? "&" : "?"}t=${imageRefreshToken}`;
+    visual = (
+      <div key={playerKey} className="relative aspect-video w-full overflow-hidden bg-black">
+        <img
+          src={refreshedSrc}
+          alt={camLabel}
+          className="h-full w-full object-cover"
+        />
+      </div>
+    );
   } else if (intent?.kind === "video") {
     visual = (
       <div key={playerKey} className="relative aspect-video w-full overflow-hidden bg-black">

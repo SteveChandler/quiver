@@ -1140,6 +1140,55 @@ describe('POST /api/events', () => {
       expect(data.data.status).toBe('bot_filtered');
     });
 
+    it('accepts anonymous native launch-primer video events without browser headers', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const sessionId = '12345678-1234-1234-1234-123456789012';
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'QuiverNative/1.0 ios',
+        },
+        body: JSON.stringify({
+          eventType: 'onboarding_video_started',
+          sessionId,
+          metadata: {
+            _platform: 'native-ios',
+            launch_primer_session_id: sessionId,
+            app_version: '1.0.0',
+            is_emulator: false,
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: null,
+          session_id: sessionId,
+          event_type: 'onboarding_video_started',
+          metadata: expect.objectContaining({
+            _platform: 'native-ios',
+            launch_primer_session_id: sessionId,
+            app_version: '1.0.0',
+            is_emulator: false,
+            _device: expect.any(Object),
+          }),
+        }),
+      );
+    });
+
     it('filters requests with suspiciously short User-Agent', async () => {
       const request = new Request('http://localhost/api/events', {
         method: 'POST',

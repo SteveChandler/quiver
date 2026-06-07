@@ -49,6 +49,14 @@ describe("buildCamEmbed", () => {
     expect(result).toEqual({ kind: "video", src: "https://example.com/cam.mp4" });
   });
 
+  it("returns image kind for still camera snapshot URLs", () => {
+    const result = buildCamEmbed("https://cams.example.com/belmar/latest.jpg");
+    expect(result).toEqual({
+      kind: "image",
+      src: "https://cams.example.com/belmar/latest.jpg",
+    });
+  });
+
   // --- HLS ---
   it("returns hls kind for .m3u8 URLs", () => {
     const result = buildCamEmbed("https://example.com/stream.m3u8");

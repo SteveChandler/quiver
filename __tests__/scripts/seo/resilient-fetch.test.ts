@@ -1,15 +1,26 @@
 import {
   fetchWithRetry,
+  getLocalNetworkBlocker,
   isRemoteFetchError,
   normalizeFetchError,
 } from "@/scripts/seo/resilient-fetch";
 
 describe("resilient-fetch", () => {
   const originalFetch = global.fetch;
+  const originalNetworkDisabled = process.env.CODEX_SANDBOX_NETWORK_DISABLED;
+
+  beforeEach(() => {
+    delete process.env.CODEX_SANDBOX_NETWORK_DISABLED;
+  });
 
   afterEach(() => {
     global.fetch = originalFetch;
     jest.restoreAllMocks();
+    if (originalNetworkDisabled === undefined) {
+      delete process.env.CODEX_SANDBOX_NETWORK_DISABLED;
+    } else {
+      process.env.CODEX_SANDBOX_NETWORK_DISABLED = originalNetworkDisabled;
+    }
   });
 
   it("retries transient fetch failures and eventually succeeds", async () => {
@@ -53,5 +64,20 @@ describe("resilient-fetch", () => {
     expect(isRemoteFetchError(new Error("getaddrinfo ENOTFOUND example.com"))).toBe(true);
     expect(isRemoteFetchError(new Error("HTTP 503"))).toBe(true);
     expect(isRemoteFetchError(new TypeError("Cannot read properties of undefined"))).toBe(false);
+  });
+
+  it("reports Codex shell sandbox network disablement before remote fetch retries", async () => {
+    process.env.CODEX_SANDBOX_NETWORK_DISABLED = "1";
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock as typeof fetch;
+
+    await expect(fetchWithRetry("https://example.com", {}, {
+      retries: 3,
+      retryDelayMs: 1,
+      timeoutMs: 1000,
+    })).rejects.toThrow("CODEX_SANDBOX_NETWORK_DISABLED=1");
+
+    expect(getLocalNetworkBlocker()).toContain("CODEX_SANDBOX_NETWORK_DISABLED=1");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

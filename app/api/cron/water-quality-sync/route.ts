@@ -24,6 +24,8 @@ export const maxDuration = 300; // Vercel hard limit (5min)
 
 type SyncPhase = "stations" | "samples" | "evaluate";
 
+const VALID_PHASES = new Set<SyncPhase>(["stations", "samples", "evaluate"]);
+
 interface StationPhaseResult {
   phase: "stations";
   result: StationSyncResult;
@@ -37,6 +39,18 @@ interface SamplePhaseResult {
 interface EvaluatePhaseResult {
   phase: "evaluate";
   result: EvaluationResult;
+}
+
+function getSyncPhase(request: Request): SyncPhase | null {
+  const url = new URL(request.url);
+  const phase = url.searchParams.get("phase");
+  return phase && VALID_PHASES.has(phase as SyncPhase)
+    ? (phase as SyncPhase)
+    : null;
+}
+
+function shouldObserveWaterQualityCron(request: Request): boolean {
+  return validateCronRequest(request) && getSyncPhase(request) !== null;
 }
 
 /**
@@ -81,7 +95,7 @@ async function _GET(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const phase = url.searchParams.get("phase") as SyncPhase | null;
 
-    if (!phase || !["stations", "samples", "evaluate"].includes(phase)) {
+    if (!phase || !VALID_PHASES.has(phase as SyncPhase)) {
       return createErrorResponse(
         "Invalid phase",
         'Query param "phase" must be "stations", "samples", or "evaluate"',
@@ -136,4 +150,12 @@ async function _GET(request: Request): Promise<Response> {
   }
 }
 
-export const GET = withObservedCron("/api/cron/water-quality-sync", _GET);
+const observedGET = withObservedCron("/api/cron/water-quality-sync", _GET);
+
+export function GET(request: Request): Promise<Response> {
+  if (!shouldObserveWaterQualityCron(request)) {
+    return _GET(request);
+  }
+
+  return observedGET(request);
+}

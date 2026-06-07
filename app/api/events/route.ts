@@ -111,6 +111,21 @@ const ANON_RATE_LIMIT = 30; // Lower rate limit for anonymous users
 
 import { isValidUUID } from '@/lib/utils/validation';
 
+const NATIVE_LAUNCH_PRIMER_VIDEO_EVENTS = new Set<string>([
+  'onboarding_video_started',
+  'onboarding_video_completed',
+  'onboarding_video_skipped',
+]);
+
+function isNativeLaunchPrimerVideoEvent(body: TrackEventRequest): boolean {
+  const metadata = body.metadata;
+  if (!metadata || typeof metadata !== 'object') return false;
+  const metadataRecord = metadata as Record<string, unknown>;
+  if (!NATIVE_LAUNCH_PRIMER_VIDEO_EVENTS.has(body.eventType ?? '')) return false;
+  if (metadataRecord.launch_primer_session_id !== body.sessionId) return false;
+  return metadataRecord._platform === 'native-ios' || metadataRecord._platform === 'native-android';
+}
+
 /**
  * Check if implicit tracking is allowed for a user
  * Uses 5-minute in-memory cache to reduce database queries
@@ -168,13 +183,6 @@ export const POST = withAuth(
     return createSuccessResponse({ ok: true, status: 'bot_filtered' });
   }
 
-  // Header-based heuristics: real browsers always send Accept-Language.
-  // Headless clients and programmatic requests commonly omit it.
-  // Short or missing UAs are also a strong signal.
-  if (!ua || ua.length < 15 || !acceptLanguage) {
-    return createSuccessResponse({ ok: true, status: 'bot_filtered' });
-  }
-
   // Headless browser / automation tool signatures not caught by isBot()
   const headlessPatterns = /headlesschrome|phantomjs|selenium|puppeteer|playwright|webdriver|chrome-lighthouse|pagespeed|lighthouse/i;
   if (headlessPatterns.test(ua)) {
@@ -187,6 +195,15 @@ export const POST = withAuth(
     body = await request.json();
   } catch {
     return createErrorResponse('Invalid JSON body', undefined, 400);
+  }
+
+  const isNativeLaunchPrimerVideo = isNativeLaunchPrimerVideoEvent(body);
+
+  // Header-based heuristics: real browsers always send Accept-Language.
+  // Native launch-primer video events are pre-auth and can fire before the app
+  // has browser-grade headers; they are still rate-limited by sessionId below.
+  if (!isNativeLaunchPrimerVideo && (!ua || ua.length < 15 || !acceptLanguage)) {
+    return createSuccessResponse({ ok: true, status: 'bot_filtered' });
   }
 
   // 2a. Fingerprint-based bot filtering (requires body for viewportWidth).
