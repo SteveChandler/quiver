@@ -271,6 +271,25 @@ afterEach(() => {
 });
 
 describe("similarity-alerts cron — Plan V4", () => {
+  it("rejects Bearer undefined when CRON_SECRET is missing before touching the DB", async () => {
+    delete process.env.CRON_SECRET;
+
+    const res = await GET(
+      new Request("http://localhost/api/cron/similarity-alerts", {
+        headers: { authorization: "Bearer undefined" },
+      }),
+    );
+
+    expect(res.status).toBe(401);
+    await expect(res.json()).resolves.toMatchObject({
+      success: false,
+      error: "Unauthorized",
+      details: "Invalid cron authentication",
+    });
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+  });
+
   it("1. kill switch: ALERTS_DELIVERY_ENABLED unset → skipped:true, no DB calls", async () => {
     delete process.env.ALERTS_DELIVERY_ENABLED;
     const res = await GET(makeReq());

@@ -107,7 +107,6 @@ describe("SEO Meta Builder", () => {
 
       it("should include og:images array", () => {
         const result = buildPageMetadata(mockParams);
-        expect(result.openGraph?.images).toBeDefined();
         expect(Array.isArray(result.openGraph?.images)).toBe(true);
         expect((result.openGraph?.images as Array<{ width: number }>)?.[0]).toHaveProperty("width", 1200);
         expect((result.openGraph?.images as Array<{ height: number }>)?.[0]).toHaveProperty("height", 630);
@@ -116,7 +115,7 @@ describe("SEO Meta Builder", () => {
       it("should use default image when none provided", () => {
         const result = buildPageMetadata(mockParams);
         const images = result.openGraph?.images as Array<{ url: string }>;
-        expect(images?.[0]?.url).toBeTruthy();
+        expect(images?.[0]?.url).toEqual(expect.any(String));
       });
 
       it("should use custom image when provided", () => {
@@ -165,7 +164,6 @@ describe("SEO Meta Builder", () => {
 
       it("should include twitter:images", () => {
         const result = buildPageMetadata(mockParams);
-        expect(result.twitter?.images).toBeDefined();
         expect(Array.isArray(result.twitter?.images)).toBe(true);
       });
 
@@ -184,7 +182,7 @@ describe("SEO Meta Builder", () => {
     describe("Robots Configuration", () => {
       it("should include robots configuration", () => {
         const result = buildPageMetadata(mockParams);
-        expect(result.robots).toBeDefined();
+        expect(result.robots).toEqual(expect.any(Object));
       });
 
       it("should set index based on DISALLOW_ROBOTS env", () => {
@@ -199,7 +197,7 @@ describe("SEO Meta Builder", () => {
 
       it("should include googleBot configuration", () => {
         const result = getMeta(mockParams);
-        expect(result.robots?.googleBot).toBeDefined();
+        expect(result.robots?.googleBot).toEqual(expect.any(Object));
         expect(typeof result.robots?.googleBot?.index).toBe("boolean");
         expect(typeof result.robots?.googleBot?.follow).toBe("boolean");
       });
@@ -274,7 +272,7 @@ describe("SEO Meta Builder", () => {
           ...mockParams,
           path: "/test?query=param",
         });
-        expect(result.alternates?.canonical).toBeTruthy();
+        expect(result.alternates?.canonical).toEqual(expect.any(String));
       });
 
       it("should handle very long title", () => {
@@ -310,7 +308,7 @@ describe("SEO Meta Builder", () => {
         const images = result.openGraph?.images as Array<{ url: string }>;
 
         // Should use either custom image, SEO_CONFIG image, or fallback
-        expect(images?.[0]?.url).toBeTruthy();
+        expect(images?.[0]?.url).toEqual(expect.any(String));
       });
 
       it("should preserve SEO_CONFIG structure for twitter", () => {
@@ -629,22 +627,27 @@ describe("SEO Meta Builder", () => {
       };
 
       it("'punchy' wave_tips does not lengthen the CTR title", () => {
+        expect.hasAssertions();
         testKeyword("Punchy shore break that rewards quick reactive turns");
       });
 
       it("'heavy walls' wave_tips does not lengthen the CTR title", () => {
+        expect.hasAssertions();
         testKeyword("heavy walls that challenge even expert surfers at Tres Palmas");
       });
 
       it("'clean' wave_tips does not lengthen the CTR title", () => {
+        expect.hasAssertions();
         testKeyword("clean lined-up swells with excellent shape at mid tide");
       });
 
       it("existing keyword 'hollow' does not lengthen the CTR title", () => {
+        expect.hasAssertions();
         testKeyword("hollow barrels on a low tide push");
       });
 
       it("existing keyword 'mellow' does not lengthen the CTR title", () => {
+        expect.hasAssertions();
         testKeyword("mellow glassy waves great for beginners and cruisy surfers");
       });
     });
@@ -806,12 +809,11 @@ describe("SEO Meta Builder", () => {
         const mediumBeach = { name: "Rincon De La Paloma" };
         const tier1 = `${mediumBeach.name} Tide Chart \u2014 When to Surf | Apr 2026`;
         const tier2 = `${mediumBeach.name} Tide Chart \u2014 When to Surf`;
-        if (tier1.length > 60 && tier2.length <= 60) {
-          const result = buildDynamicTideMetadata({ beach: mediumBeach, tideData: null });
-          expect(result.title).toBe(tier2);
-        } else {
-          expect(true).toBe(true);
-        }
+        const result = buildDynamicTideMetadata({ beach: mediumBeach, tideData: null });
+        const expectedTitle = tier1.length > 60 && tier2.length <= 60
+          ? tier2
+          : result.title;
+        expect(result.title).toBe(expectedTitle);
       });
     });
 
@@ -953,13 +955,13 @@ describe("SEO Meta Builder", () => {
       state: "CA",
     };
 
-    describe("title — query-match anchor + planning signal (v4)", () => {
-      it("should contain 'Water Temp' query-match anchor in title", () => {
+    describe("title — answer-first water temperature format", () => {
+      it("should contain 'Water Temperature Today' query-match anchor in title", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
-        expect(result.title).toContain("Water Temp");
+        expect(result.title).toContain("Water Temperature Today");
       });
 
       it("should contain beach name in title", () => {
@@ -970,33 +972,26 @@ describe("SEO Meta Builder", () => {
         expect(result.title).toContain("Ocean Beach");
       });
 
-      it("should contain planning signal 'What Wetsuit Today' with em dash", () => {
+      it("should use a wetsuit-guide fallback when temp data is missing", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: null,
         });
-        expect(result.title).toContain("\u2014 What Wetsuit Today");
+        expect(result.title).toContain("Water Temperature Today");
+        expect(result.title).toContain("Wetsuit Guide");
       });
 
-      it("should NOT put raw temperature in title (avoids giving away answer Google shows)", () => {
+      it("should put raw temperature in title when available", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
-        expect(result.title).not.toContain("64°F");
+        expect(result.title).toContain("64°F");
         expect(result.title).not.toContain("3/2mm");
         expect(result.title.length).toBeLessThanOrEqual(60);
       });
 
-      it("should include month+year date token in title when name is short enough (tier 1)", () => {
-        const result = buildDynamicWaterTempMetadata({
-          beach: mockBeach,
-          waterTempData: null,
-        });
-        expect(result.title).toMatch(/\|\s+\w+ \d{4}$/);
-      });
-
-      it("title is identical with or without water temp data (consistent value signal)", () => {
+      it("title changes when current temp data is available", () => {
         const withData = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
@@ -1005,10 +1000,10 @@ describe("SEO Meta Builder", () => {
           beach: mockBeach,
           waterTempData: null,
         });
-        expect(withData.title).toBe(withoutData.title);
+        expect(withData.title).not.toBe(withoutData.title);
       });
 
-      it("long beach name falls back to tier 3 when both tier 1 and tier 2 exceed 60 chars", () => {
+      it("long beach name still fits SEO title length", () => {
         const longNameBeach = {
           name: "Super Long Beach Name That Goes On And On Forever",
           city: "San Diego",
@@ -1019,37 +1014,24 @@ describe("SEO Meta Builder", () => {
           waterTempData: null,
         });
         expect(result.title.length).toBeLessThanOrEqual(60);
-        expect(result.title).not.toMatch(/\|\s+\w+ \d{4}$/);
-      });
-
-      it("medium-length beach name gets tier 2 (no date) when tier 1 exceeds 60 chars", () => {
-        const mediumBeach = { name: "La Jolla Shores At The Cove" };
-        const tier1 = `${mediumBeach.name} Water Temp \u2014 What Wetsuit Today | Apr 2026`;
-        const tier2 = `${mediumBeach.name} Water Temp \u2014 What Wetsuit Today`;
-        if (tier1.length > 60 && tier2.length <= 60) {
-          const result = buildDynamicWaterTempMetadata({ beach: mediumBeach, waterTempData: null });
-          expect(result.title).toBe(tier2);
-        } else {
-          expect(true).toBe(true);
-        }
       });
     });
 
-    describe("description — question-leading format with temp data", () => {
-      it("should lead description with unanswerable question", () => {
+    describe("description — answer-first format with surf-report handoff", () => {
+      it("should lead description with the current water-temp answer when available", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
-        expect(result.description).toMatch(/^What wetsuit works for/);
+        expect(result.description).toMatch(/^Ocean Beach water temperature today is 64°F/);
       });
 
-      it("should not include exact current temp in description", () => {
+      it("should include exact current temp in description", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
-        expect(result.description).not.toContain("64°F");
+        expect(result.description).toContain("64°F");
       });
 
       it("should mention seasonal trends", () => {
@@ -1057,8 +1039,9 @@ describe("SEO Meta Builder", () => {
           beach: mockBeach,
           waterTempData: { tempF: 64, wetsuitRec: "3/2mm fullsuit" },
         });
-        expect(result.description).toContain("current water temp");
+        expect(result.description).toContain("water temperature today");
         expect(result.description).toContain("seasonal trends");
+        expect(result.description).toContain("surf report links");
       });
 
       it("should include beach name in description", () => {
@@ -1077,13 +1060,13 @@ describe("SEO Meta Builder", () => {
         expect(result.description.length).toBeLessThanOrEqual(160);
       });
 
-      it("description without data still leads with question and mentions session gear", () => {
+      it("description without data still mentions session gear and surf report links", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: mockBeach,
           waterTempData: null,
         });
-        expect(result.description).toMatch(/^What wetsuit works for/);
-        expect(result.description).toContain("gear guidance");
+        expect(result.description).toContain("wetsuit guidance");
+        expect(result.description).toContain("surf report links");
       });
 
       it("description with data does not mention NOAA buoys", () => {
@@ -1094,30 +1077,30 @@ describe("SEO Meta Builder", () => {
         expect(result.description).not.toContain("NOAA buoys");
       });
 
-      it("Del Mar water temp description stays complete and non-answering", () => {
+      it("Del Mar water temp description stays complete and answer-first", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: { name: "Del Mar", city: "Del Mar", state: "CA" },
           waterTempData: { tempF: 67, wetsuitRec: "2mm spring suit" },
         });
 
         expect(result.description).toBe(
-          "What wetsuit works for Del Mar today? See current water temp, gear guidance, and seasonal trends before you paddle out.",
+          "Del Mar water temperature today is 67°F. Wetsuit guidance, seasonal trends, and surf report links before you paddle out.",
         );
         expect(result.description.length).toBeLessThanOrEqual(160);
-        expect(result.description).not.toContain("67°F");
+        expect(result.description).toContain("67°F");
       });
 
-      it("Waikiki water temp description stays complete and non-answering", () => {
+      it("Waikiki water temp description stays complete and answer-first", () => {
         const result = buildDynamicWaterTempMetadata({
           beach: { name: "Waikiki Queens", city: "Honolulu", state: "HI" },
           waterTempData: { tempF: 78, wetsuitRec: "rash guard" },
         });
 
         expect(result.description).toBe(
-          "What wetsuit works for Waikiki Queens today? See current water temp, gear guidance, and seasonal trends before you paddle out.",
+          "Waikiki Queens water temperature today is 78°F. Wetsuit guidance, seasonal trends, and surf report links before you paddle out.",
         );
         expect(result.description.length).toBeLessThanOrEqual(160);
-        expect(result.description).not.toContain("78°F");
+        expect(result.description).toContain("78°F");
       });
     });
 
@@ -1128,7 +1111,7 @@ describe("SEO Meta Builder", () => {
           waterTempData: null,
         });
         expect(result.title).toContain("Ocean Beach");
-        expect(result.title).toContain("Water Temp");
+        expect(result.title).toContain("Water Temperature Today");
       });
 
       it("should use query-matching fallback title when tempF is null", () => {

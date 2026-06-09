@@ -70,8 +70,7 @@ interface SkippedSyncResult {
  * - radiusM: Match radius in meters (default: 1500, match phase only)
  *
  * Auth:
- * - Vercel Cron header (`x-vercel-cron`)
- * - OR Authorization: Bearer <CRON_SECRET>
+ * - Authorization: Bearer <CRON_SECRET>
  */
 async function _GET(request: Request): Promise<Response> {
   const startTime = Date.now();

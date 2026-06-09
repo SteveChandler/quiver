@@ -26,6 +26,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   global.fetch = mockFetch;
   Object.defineProperty(window, "innerWidth", { value: 390, writable: true });
+  window.history.pushState({}, "", "/");
 });
 
 describe("ios-app-cta-tracking", () => {
@@ -43,6 +44,9 @@ describe("ios-app-cta-tracking", () => {
       destination_status: IOS_APP_STORE_DESTINATION_STATUS,
       destination_url: IOS_APP_STORE_URL,
       cta_text: IOS_APP_STORE_CTA,
+      page_type: "other",
+      query_intent: "other",
+      seo_landing_page: false,
       source: "hero-video-download-button",
       surface: "landing-page",
       placement: "hero_video_overlay",
@@ -88,6 +92,9 @@ describe("ios-app-cta-tracking", () => {
       destination_status: IOS_APP_STORE_DESTINATION_STATUS,
       destination_url: IOS_APP_STORE_URL,
       cta_text: IOS_APP_STORE_CTA,
+      page_type: "other",
+      query_intent: "other",
+      seo_landing_page: false,
       source: "forecast-section",
       surface: "landing-page",
       placement: "forecast_section",
@@ -110,5 +117,25 @@ describe("ios-app-cta-tracking", () => {
       sessionId: "test-visitor-id",
       viewportWidth: 390,
     });
+  });
+
+  it("enriches SEO landing page CTA metadata from the current path", () => {
+    window.history.pushState({}, "", "/water-temp/huntington-beach");
+
+    trackIosAppCtaClick({
+      source: "seo-water-temp-inline",
+      surface: "water-temp",
+      placement: "utility_handoff",
+    });
+
+    expect(mockTrack).toHaveBeenCalledWith(
+      IOS_APP_CTA_CLICK_EVENT,
+      expect.objectContaining({
+        source: "seo-water-temp-inline",
+        page_type: "city_water_temp",
+        query_intent: "water_temp",
+        seo_landing_page: true,
+      })
+    );
   });
 });

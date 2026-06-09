@@ -46,6 +46,35 @@ describe("ClientErrorTracker", () => {
     });
   });
 
+  it("suppresses opaque cross-origin script errors without stack context", async () => {
+    render(<ClientErrorTracker />);
+
+    window.dispatchEvent(
+      new ErrorEvent("error", {
+        message: "Script error.",
+      })
+    );
+
+    await waitFor(() => {
+      expect(mockTrack).not.toHaveBeenCalled();
+    });
+  });
+
+  it("suppresses browser-injected object update rejection noise", async () => {
+    render(<ClientErrorTracker />);
+
+    const event = new Event("unhandledrejection") as PromiseRejectionEvent;
+    Object.assign(event, {
+      reason: "Object Not Found Matching Id:5, MethodName:update, ParamCount:4",
+    });
+
+    window.dispatchEvent(event);
+
+    await waitFor(() => {
+      expect(mockTrack).not.toHaveBeenCalled();
+    });
+  });
+
   it("still tracks other unhandled rejections", async () => {
     render(<ClientErrorTracker />);
 

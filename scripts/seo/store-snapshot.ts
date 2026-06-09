@@ -24,11 +24,20 @@ const IOS_TARGETS = [
 ];
 
 const ASO_KEYWORDS = [
+  "free surf app",
   "surf forecast",
   "surf report",
+  "waves",
+  "swell",
   "session log",
+  "surf tracker",
+  "surf journal",
+  "surf alerts",
+  "surf spots",
   "custom spot",
   "tide chart",
+  "wind forecast",
+  "buoy",
   "swell scope",
 ];
 

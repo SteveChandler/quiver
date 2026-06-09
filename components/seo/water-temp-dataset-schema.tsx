@@ -20,6 +20,7 @@ export function WaterTempDatasetSchema({
   if (!cityOrBeachName || !url) return null;
 
   const now = new Date();
+  const roundedTempF = tempF != null ? Math.round(tempF) : null;
   const todayIso = now.toISOString().split("T")[0];
   const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
   const sevenDaysLaterIso = sevenDaysLater.toISOString().split("T")[0];
@@ -28,11 +29,11 @@ export function WaterTempDatasetSchema({
 
   const variableMeasured: Array<Record<string, string>> = [];
 
-  if (tempF != null) {
+  if (roundedTempF != null) {
     variableMeasured.push({
       "@type": "PropertyValue",
       name: "Water Temperature",
-      value: String(tempF),
+      value: String(roundedTempF),
       unitText: "°F",
       description: `Current water temperature at ${cityOrBeachName}`,
     });
@@ -51,7 +52,7 @@ export function WaterTempDatasetSchema({
     "@context": "https://schema.org",
     "@type": "Dataset",
     name: `${cityOrBeachName} Water Temperature — ${todayIso}`,
-    description: buildDescription(cityOrBeachName, tempF, wetsuitRec),
+    description: buildDescription(cityOrBeachName, roundedTempF, wetsuitRec),
     url,
     temporalCoverage: `${todayIso}/${sevenDaysLaterIso}`,
     spatialCoverage: {

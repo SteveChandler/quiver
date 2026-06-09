@@ -8,11 +8,17 @@
 
 jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 
-import { describe, it, expect, jest, beforeEach } from "@jest/globals";
+import { describe, it, expect, jest, beforeEach, afterEach } from "@jest/globals";
 
 const mockStaleDataDetected = jest.fn() as jest.MockedFunction<(...args: any[]) => any>;
 const mockHealthCheck = jest.fn() as jest.MockedFunction<() => Promise<any>>;
 const mockLogHealthCheck = jest.fn() as jest.MockedFunction<(...args: any[]) => any>;
+
+jest.mock("@/lib/cron/observability", () => ({
+  withObservedCron: jest.fn(
+    (_route: string, handler: (request: Request) => Promise<Response>) => handler,
+  ),
+}));
 
 jest.mock("@/lib/monitoring/forecast-health-check", () => ({
   checkForecastHealth: () => mockHealthCheck(),
@@ -28,8 +34,34 @@ jest.mock("@/lib/monitoring/forecast-logger", () => ({
 }));
 
 describe("GET /api/monitoring/forecast-health", () => {
+  const originalCronSecret = process.env.CRON_SECRET;
+
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.CRON_SECRET = "test-cron-secret";
+  });
+
+  afterEach(() => {
+    if (originalCronSecret === undefined) {
+      delete process.env.CRON_SECRET;
+    } else {
+      process.env.CRON_SECRET = originalCronSecret;
+    }
+  });
+
+  it("rejects unauthenticated cron requests before running the health check", async () => {
+    const { GET } = await import("@/app/api/monitoring/forecast-health/route");
+    const res = await GET(new Request("http://localhost:3000/api/monitoring/forecast-health"));
+
+    expect(res.status).toBe(401);
+    await expect(res.json()).resolves.toMatchObject({
+      success: false,
+      error: "Unauthorized",
+      details: "Invalid cron authentication",
+    });
+    expect(mockHealthCheck).not.toHaveBeenCalled();
+    expect(mockLogHealthCheck).not.toHaveBeenCalled();
+    expect(mockStaleDataDetected).not.toHaveBeenCalled();
   });
 
   it("logs warning-level staleness with 'warning' severity (not 'error')", async () => {
@@ -111,7 +143,11 @@ describe("GET /api/monitoring/forecast-health", () => {
     });
 
     const { GET } = await import("@/app/api/monitoring/forecast-health/route");
-    const res = await GET(new Request("http://localhost:3000/api/monitoring/forecast-health"));
+    const res = await GET(
+      new Request("http://localhost:3000/api/monitoring/forecast-health", {
+        headers: { authorization: "Bearer test-cron-secret" },
+      }),
+    );
 
     expect(res.status).toBe(200);
 
@@ -205,7 +241,11 @@ describe("GET /api/monitoring/forecast-health", () => {
     });
 
     const { GET } = await import("@/app/api/monitoring/forecast-health/route");
-    const res = await GET(new Request("http://localhost:3000/api/monitoring/forecast-health"));
+    const res = await GET(
+      new Request("http://localhost:3000/api/monitoring/forecast-health", {
+        headers: { authorization: "Bearer test-cron-secret" },
+      }),
+    );
 
     expect(res.status).toBe(503); // critical status returns 503
 
@@ -220,4 +260,3 @@ describe("GET /api/monitoring/forecast-health", () => {
     );
   });
 });
-

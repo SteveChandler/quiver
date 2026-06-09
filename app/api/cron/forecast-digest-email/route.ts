@@ -15,8 +15,7 @@
  * Users with no match are skipped (no "bad day" emails).
  *
  * Auth:
- * - Vercel Cron header (`x-vercel-cron`)
- * - OR Authorization: Bearer <CRON_SECRET>
+ * - Authorization: Bearer <CRON_SECRET>
  */
 
 import {

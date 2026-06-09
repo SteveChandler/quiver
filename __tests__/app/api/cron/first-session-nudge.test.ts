@@ -360,9 +360,9 @@ describe("First Session Nudge Cron Job API", () => {
       expect(response.status).toBe(401);
     });
 
-    it("accepts a valid Vercel cron header", async () => {
+    it("accepts a valid Bearer cron token", async () => {
       setupSupabaseChain({ profiles: [] });
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
       expect(data.success).toBe(true);
     });
@@ -376,7 +376,7 @@ describe("First Session Nudge Cron Job API", () => {
     it("returns empty summary when no users are in the signup window", async () => {
       setupSupabaseChain({ profiles: [] });
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -393,7 +393,7 @@ describe("First Session Nudge Cron Job API", () => {
         authUsers: [],
       });
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -409,7 +409,7 @@ describe("First Session Nudge Cron Job API", () => {
         authUsers: [],
       });
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -431,7 +431,7 @@ describe("First Session Nudge Cron Job API", () => {
         authUsers: [{ user: { email: "newbie@example.com" } }],
       });
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -473,7 +473,7 @@ describe("First Session Nudge Cron Job API", () => {
         },
       });
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -514,7 +514,7 @@ describe("First Session Nudge Cron Job API", () => {
         },
       });
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -549,7 +549,7 @@ describe("First Session Nudge Cron Job API", () => {
         intel: null, // both tomorrow and today return null
       });
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -577,7 +577,7 @@ describe("First Session Nudge Cron Job API", () => {
         authUsers: [{ user: { email: "shredder@example.com" } }],
       });
 
-      await GET(mockRequest({ "x-vercel-cron": "1" }));
+      await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
 
       // The route uses React.createElement(FirstSessionNudgeEmail, props) — inspect the
       // React element stored in the `react` field of the Resend send call.
@@ -621,7 +621,7 @@ describe("First Session Nudge Cron Job API", () => {
         },
       });
 
-      await GET(mockRequest({ "x-vercel-cron": "1" }));
+      await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
 
       // The route uses React.createElement(PersonalizedNudgeEmail, props) — inspect the
       // React element stored in the `react` field of the Resend send call.
@@ -656,7 +656,7 @@ describe("First Session Nudge Cron Job API", () => {
       mockEmailsSend.mockResolvedValueOnce({ data: null, error: new Error("Resend API error") });
 
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(consoleErrorSpy).toHaveBeenCalledWith(
@@ -694,7 +694,7 @@ describe("First Session Nudge Cron Job API", () => {
       mockGte.mockReturnValue(chain);
       mockLte.mockResolvedValueOnce({ data: null, error: { message: "DB failure" } });
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       // handleApiError is called — success is false
@@ -722,7 +722,7 @@ describe("First Session Nudge Cron Job API", () => {
       });
 
       mockThrottle.mockClear();
-      await GET(mockRequest({ "x-vercel-cron": "1" }));
+      await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
 
       expect(mockThrottle).toHaveBeenCalledTimes(2);
     });
@@ -736,7 +736,7 @@ describe("First Session Nudge Cron Job API", () => {
     it("returns correct durationMs type", async () => {
       setupSupabaseChain({ profiles: [] });
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(typeof data.data.summary.durationMs).toBe("number");
@@ -751,7 +751,7 @@ describe("First Session Nudge Cron Job API", () => {
         authUsers: [{ user: { email: "a@example.com" } }],
       });
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(data.data.summary).toEqual({

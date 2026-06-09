@@ -4,7 +4,7 @@
  * Tests for GET /api/cron/welcome-email
  *
  * Validates:
- * - Cron authentication (Vercel header, Bearer token)
+ * - Cron authentication (Bearer token)
  * - Sending welcome emails to unconfirmed users after 24h
  * - Sending welcome emails to users without home beach after 48h
  * - Auto-confirmation of unconfirmed users
@@ -132,7 +132,7 @@ describe("Cron: welcome-email", () => {
   describe("Authentication", () => {
     it("requires valid cron authentication", async () => {
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -204,7 +204,7 @@ describe("Cron: welcome-email", () => {
       });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -239,7 +239,7 @@ describe("Cron: welcome-email", () => {
       });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -278,7 +278,7 @@ describe("Cron: welcome-email", () => {
       mockRpc.mockResolvedValue({ data: candidates, error: null });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -293,7 +293,7 @@ describe("Cron: welcome-email", () => {
       mockRpc.mockResolvedValue({ data: [], error: null });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -323,7 +323,7 @@ describe("Cron: welcome-email", () => {
       mockRpc.mockResolvedValue({ data: [candidate], error: null });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -349,7 +349,7 @@ describe("Cron: welcome-email", () => {
       mockRpc.mockResolvedValue({ data: [candidate], error: null });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -375,7 +375,7 @@ describe("Cron: welcome-email", () => {
       });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -405,7 +405,7 @@ describe("Cron: welcome-email", () => {
       mockRpc.mockResolvedValue({ data: [candidate], error: null });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       await GET(request);
@@ -436,7 +436,7 @@ describe("Cron: welcome-email", () => {
       });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -479,7 +479,7 @@ describe("Cron: welcome-email", () => {
         .mockResolvedValueOnce({ data: { id: "email-456" }, error: null });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -497,7 +497,7 @@ describe("Cron: welcome-email", () => {
       });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -523,7 +523,7 @@ describe("Cron: welcome-email", () => {
       );
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -568,7 +568,7 @@ describe("Cron: welcome-email", () => {
         .mockResolvedValueOnce({ data: { id: "email-3" }, error: null });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -590,7 +590,7 @@ describe("Cron: welcome-email", () => {
       mockRpc.mockResolvedValue({ data: [], error: null });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const result = await verifyIdempotency(GET, request, {
@@ -604,10 +604,10 @@ describe("Cron: welcome-email", () => {
       mockRpc.mockResolvedValue({ data: [], error: null });
 
       const request1 = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
       const request2 = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response1 = await GET(request1);
@@ -647,10 +647,10 @@ describe("Cron: welcome-email", () => {
       mockRpc.mockResolvedValueOnce({ data: [], error: null });
 
       const request1 = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
       const request2 = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response1 = await GET(request1);
@@ -674,7 +674,7 @@ describe("Cron: welcome-email", () => {
       mockRpc.mockResolvedValue({ data: [], error: null });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -695,7 +695,7 @@ describe("Cron: welcome-email", () => {
       mockRpc.mockResolvedValue({ data: [], error: null });
 
       const request = createMockCronRequest("/api/cron/welcome-email", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);

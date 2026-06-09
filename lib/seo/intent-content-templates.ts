@@ -114,11 +114,14 @@ function getIntentTemplates(
   const sunsetIntro = `After-work glass-offs in ${cityName} can rival dawn patrol on good days. Afternoon thermals die, the crowd thins, and these ${totalBeaches} west-facing breaks catch the last clean sets of the day.`;
 
   const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().toLocaleDateString("en-US", { month: "long" });
   const spotCount = beginnerCount > 0 ? beginnerCount : totalBeaches;
   const DATA_FRESHNESS_SUFFIX = "Updated hourly with live buoy data.";
   const spotNoun = (n: number) => n === 1 ? "spot" : "spots";
   const breakNoun = (n: number) => n === 1 ? "break" : "breaks";
+  const roundedWaterTemp =
+    waterTempData?.currentTemp != null
+      ? Math.round(waterTempData.currentTemp)
+      : null;
 
   return {
     beginner: {
@@ -157,16 +160,16 @@ function getIntentTemplates(
     },
     "water-temp": {
       title: truncateTitleForSEO(
-        waterTempData?.currentTemp
-          ? `${cityName} Water Temp: ${waterTempData.currentTemp}°F Today | Wetsuit Guide for ${currentMonth}`
-          : `${cityName} Water Temp Today | Wetsuit Guide (${currentYear})`
+        roundedWaterTemp != null
+          ? `${cityName} Water Temperature Today: ${roundedWaterTemp}°F`
+          : `${cityName} Water Temperature Today | Wetsuit Guide`
       ),
-      heading: `Water temperature in ${cityName}`,
+      heading: `${cityName} water temperature today`,
       intro: waterTempIntro,
       metaDescription: truncateMetaDescription(
-        waterTempData?.currentTemp
-          ? `${cityName} water is ${waterTempData.currentTemp}°F today. Wetsuit guide & seasonal temps for ${totalBeaches} surf ${spotNoun(totalBeaches)} including ${topSpotNames}. ${DATA_FRESHNESS_SUFFIX}`
-          : `Current water temperatures in ${cityName}, ${stateName}. Wetsuit guide & seasonal trends for ${totalBeaches} surf ${spotNoun(totalBeaches)} including ${topSpotNames}. ${DATA_FRESHNESS_SUFFIX}`
+        roundedWaterTemp != null
+          ? `${cityName} water temperature today is ${roundedWaterTemp}°F. Wetsuit guide, seasonal ocean temps, and surf report links for ${topSpotNames}. ${DATA_FRESHNESS_SUFFIX}`
+          : `Current ${cityName} water temperature, wetsuit guide, seasonal ocean temps, and surf report links for ${totalBeaches} surf ${spotNoun(totalBeaches)} including ${topSpotNames}. ${DATA_FRESHNESS_SUFFIX}`
       ),
     },
     longboard: {

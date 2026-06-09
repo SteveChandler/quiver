@@ -137,7 +137,7 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
 
     const req = new Request(
       "http://localhost:3000/api/cron/forecasts/refresh?tidesBackfillMissing=1",
-      { headers: { "x-vercel-cron": "1" } }
+      { headers: { authorization: "Bearer test-cron-secret" } }
     );
 
     const res = await GET(req);

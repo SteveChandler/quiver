@@ -27,6 +27,7 @@ const IGNORED_UNHANDLED_REJECTION_MESSAGES = new Set([
 const IGNORED_UNHANDLED_REJECTION_PATTERNS = [
   /^Error: Server Action "[a-f0-9]+" was not found on the server\./,
   /^UnrecognizedActionError: Server Action "[a-f0-9]+" was not found on the server\./,
+  /^String: Object Not Found Matching Id:\d+, MethodName:update, ParamCount:\d+$/,
 ];
 
 // Module-scoped so the window survives React strict-mode double-effect runs.
@@ -67,6 +68,13 @@ function shouldEmit(now: number): boolean {
 }
 
 function shouldIgnoreClientError(metadata: ClientErrorMetadata): boolean {
+  if (
+    metadata.source === "window_onerror" &&
+    metadata.message === "Error: Script error."
+  ) {
+    return true;
+  }
+
   return (
     metadata.source === "unhandled_rejection" &&
     (IGNORED_UNHANDLED_REJECTION_MESSAGES.has(metadata.message) ||

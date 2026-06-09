@@ -9,15 +9,22 @@ jest.mock("@/lib/supabase/server", () => ({
 
 jest.mock("@/lib/api-utils", () => ({
   createSuccessResponse: jest.fn((data: unknown) => ({
+    status: 200,
     headers: { set: jest.fn() },
     json: async () => ({ success: true, data }),
   })),
-  handleApiError: jest.fn((error: unknown) => {
-    throw error;
-  }),
+  handleApiError: jest.fn(async () => ({
+    status: 500,
+    headers: { set: jest.fn() },
+    json: async () => ({
+      success: false,
+      error: "Failed to fetch beach sources",
+    }),
+  })),
 }));
 
 const mockCreateSupabaseServerClient = createSupabaseServerClient as jest.Mock;
+const VALID_BEACH_UUID = "11111111-1111-4111-8111-111111111111";
 
 interface QueryChain {
   select: jest.Mock<QueryChain, [string]>;
@@ -38,6 +45,10 @@ function makeChain(result: unknown): QueryChain {
 }
 
 describe("GET /api/beaches/[id]/sources", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("uses the shared API wrapper module for response helpers", () => {
     const source = readFileSync(
       join(process.cwd(), "app/api/beaches/[id]/sources/route.ts"),
@@ -51,7 +62,7 @@ describe("GET /api/beaches/[id]/sources", () => {
   it("preserves web fields and exposes native-friendly cam fields", async () => {
     const sourceChain = makeChain({
       data: {
-        beach_id: "beach-1",
+        beach_id: VALID_BEACH_UUID,
         ndbc_buoy_ids: ["46225"],
         forecast_source_id: "forecast-1",
         camera_url: "https://cams.example/blacks",
@@ -70,17 +81,17 @@ describe("GET /api/beaches/[id]/sources", () => {
     });
 
     const request = {
-      nextUrl: new URL("https://www.quiversurf.app/api/beaches/beach-1/sources"),
+      nextUrl: new URL(`https://www.quiversurf.app/api/beaches/${VALID_BEACH_UUID}/sources`),
     };
 
     const response = await GET(request as any, {
-      params: Promise.resolve({ id: "beach-1" }),
+      params: Promise.resolve({ id: VALID_BEACH_UUID }),
     });
 
     const body = await response.json();
 
     expect(body.data.sources).toMatchObject({
-      beach_id: "beach-1",
+      beach_id: VALID_BEACH_UUID,
       ndbc_buoy_ids: ["46225"],
       forecast_source_id: "forecast-1",
       camera_url: "https://cams.example/blacks",
@@ -88,5 +99,134 @@ describe("GET /api/beaches/[id]/sources", () => {
       cam_thumbnail_url: "https://cams.example/blacks.jpg",
       cam_kind: expect.any(String),
     });
+  });
+
+  it("resolves beach slugs before querying source and diorama rows", async () => {
+    const beachLookupChain = makeChain({
+      data: {
+        id: VALID_BEACH_UUID,
+      },
+      error: null,
+    });
+    const sourceChain = makeChain({
+      data: {
+        beach_id: VALID_BEACH_UUID,
+        ndbc_buoy_ids: ["46254"],
+        forecast_source_id: "forecast-birdrock",
+        camera_url: "https://cams.example/birdrock",
+        thumbnail_url: null,
+      },
+      error: null,
+    });
+    const dioramaChain = makeChain({ data: null, error: null });
+
+    mockCreateSupabaseServerClient.mockResolvedValue({
+      from: jest.fn((table: string) => {
+        if (table === "beaches") return beachLookupChain;
+        if (table === "beach_sources") return sourceChain;
+        if (table === "beach_dioramas") return dioramaChain;
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    });
+
+    const response = await GET(
+      {
+        nextUrl: new URL("https://www.quiversurf.app/api/beaches/birdrock/sources"),
+      } as any,
+      {
+        params: Promise.resolve({ id: "birdrock" }),
+      }
+    );
+
+    const body = await response.json();
+
+    expect(beachLookupChain.eq).toHaveBeenCalledWith("slug", "birdrock");
+    expect(sourceChain.eq).toHaveBeenCalledWith("beach_id", VALID_BEACH_UUID);
+    expect(dioramaChain.eq).toHaveBeenCalledWith("beach_id", VALID_BEACH_UUID);
+    expect(body.data.sources).toMatchObject({
+      beach_id: VALID_BEACH_UUID,
+      ndbc_buoy_ids: ["46254"],
+      forecast_source_id: "forecast-birdrock",
+      camera_url: "https://cams.example/birdrock",
+    });
+  });
+
+  it("returns 404 for unknown beach slugs instead of a 500", async () => {
+    const beachLookupChain = makeChain({ data: null, error: null });
+
+    mockCreateSupabaseServerClient.mockResolvedValue({
+      from: jest.fn((table: string) => {
+        if (table === "beaches") return beachLookupChain;
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    });
+
+    const response = await GET(
+      {
+        nextUrl: new URL("https://www.quiversurf.app/api/beaches/not-a-real-beach/sources"),
+      } as any,
+      {
+        params: Promise.resolve({ id: "not-a-real-beach" }),
+      }
+    );
+
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body).toMatchObject({
+      success: false,
+      error: "Beach not found",
+    });
+  });
+
+  it("returns 400 for malformed identifiers before querying Supabase", async () => {
+    mockCreateSupabaseServerClient.mockResolvedValue({
+      from: jest.fn(() => {
+        throw new Error("Supabase should not be queried for malformed ids");
+      }),
+    });
+
+    const response = await GET(
+      {
+        nextUrl: new URL("https://www.quiversurf.app/api/beaches/bird_rock/sources"),
+      } as any,
+      {
+        params: Promise.resolve({ id: "bird_rock" }),
+      }
+    );
+
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body).toMatchObject({
+      success: false,
+      error: "Invalid beach identifier",
+    });
+    expect(mockCreateSupabaseServerClient).not.toHaveBeenCalled();
+  });
+
+  it("keeps database failures as 500 responses", async () => {
+    const sourceChain = makeChain({
+      data: null,
+      error: new Error("database unavailable"),
+    });
+
+    mockCreateSupabaseServerClient.mockResolvedValue({
+      from: jest.fn((table: string) => {
+        if (table === "beach_sources") return sourceChain;
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    });
+
+    const response = await GET(
+      {
+        nextUrl: new URL(`https://www.quiversurf.app/api/beaches/${VALID_BEACH_UUID}/sources`),
+      } as any,
+      {
+        params: Promise.resolve({ id: VALID_BEACH_UUID }),
+      }
+    );
+
+    expect(response.status).toBe(500);
   });
 });
