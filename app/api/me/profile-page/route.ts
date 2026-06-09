@@ -5,6 +5,7 @@ import {
   methodNotAllowed,
 } from "@/lib/middleware/api-wrappers";
 import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
+import { normalizeAvoidanceByBeach } from "@/lib/services/preference-learning-service";
 import type {
   ProfilePageData,
   ProfilePageStats,
@@ -181,7 +182,14 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
     ? (learnedPrefsResult.error.code !== "PGRST116" &&
         console.warn("Learned prefs fetch failed:", learnedPrefsResult.error),
       null)
-    : learnedPrefsResult.data ?? null;
+    : learnedPrefsResult.data
+      ? {
+          ...learnedPrefsResult.data,
+          avoidance_by_beach: normalizeAvoidanceByBeach(
+            learnedPrefsResult.data.avoidance_by_beach,
+          ),
+        }
+      : null;
 
   const onboarding = {
     experience_level: profileData.experience_level ?? undefined,

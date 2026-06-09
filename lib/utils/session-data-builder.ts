@@ -1,3 +1,8 @@
+import {
+  normalizeSessionDecomposition,
+  type SessionDecomposition,
+} from "@/lib/session-fit";
+
 /**
  * Shared session data builder — single source of truth for mapping form state
  * to the database payload shape used by createLoggedSession.
@@ -41,6 +46,7 @@ export interface SessionPayloadInput {
   // Goals and skill ratings
   selectedGoals?: string[];
   skillRatings?: Record<string, number>;
+  sessionDecomposition?: SessionDecomposition | null;
 
   // Visibility and feed controls
   isPublic?: boolean;
@@ -78,6 +84,7 @@ export interface SessionPayload {
   // Goals and skill ratings
   goals?: string[];
   skill_ratings?: Record<string, number>;
+  session_decomposition: SessionDecomposition | null;
 
   // Visibility and feed controls
   is_public?: boolean;
@@ -158,6 +165,7 @@ export function buildSessionPayload(
     status: "completed",
     is_public: input.isPublic ?? true,
     muted: input.isMuted ?? false,
+    session_decomposition: normalizeSessionDecomposition(input.sessionDecomposition),
   };
 
   // Add duration, ratings, and the 6 condition fields.

@@ -56,6 +56,7 @@ const baseFormState: SessionFormState = {
   isMuted: false,
   selectedGoals: [],
   skillRatings: {},
+  sessionDecomposition: null,
 };
 
 function Harness({

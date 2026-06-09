@@ -17,6 +17,10 @@ import { PhotoSelectionSection } from "./PhotoSelectionSection";
 import { NotesSection } from "./NotesSection";
 import { VisibilitySection } from "./VisibilitySection";
 import { SessionSlider } from "./SessionSlider";
+import {
+  SessionFitPicker,
+  type SessionFitSelection,
+} from "./SessionFitPicker";
 import { WaveTypeSelector } from "@/components/ui/wave-type-selector";
 import { FORECAST_ACCURACY_OPTIONS } from "./shared/constants";
 import { SessionCelebration } from "@/components/session/session-celebration";
@@ -46,6 +50,11 @@ function promoteStep(
   next: SessionLogStep
 ): SessionLogStep {
   return STEP_ORDER.indexOf(next) > STEP_ORDER.indexOf(current) ? next : current;
+}
+
+function parseOverallRating(rating: string): number | undefined {
+  const parsed = parseInt(rating, 10);
+  return Number.isFinite(parsed) ? parsed : undefined;
 }
 
 interface SessionScrollFormProps {
@@ -282,6 +291,39 @@ export function SessionScrollForm({
     setPendingFormState(formState);
   }, [canSave, formState]);
 
+  const handleSessionFitSelection = useCallback(
+    (selection: SessionFitSelection) => {
+      const rating = parseOverallRating(formState.overallRating);
+      if (selection.kind === "board_fit") {
+        trackEvent("session_board_fit_feedback_selected", {
+          beachId: formState.selectedBeachId,
+          metadata: {
+            beach_id: formState.selectedBeachId,
+            rating,
+            board_fit: selection.value,
+            source: "session_fit_picker",
+          } as SessionLogMetadata,
+          debounceMs: 0,
+        });
+        return;
+      }
+
+      trackEvent("session_decomposition_selected", {
+        beachId: formState.selectedBeachId,
+        metadata: {
+          beach_id: formState.selectedBeachId,
+          rating,
+          tag: selection.tag,
+          ...(selection.tag === "skill_fit"
+            ? { skill_fit: selection.value }
+            : {}),
+        } as SessionLogMetadata,
+        debounceMs: 0,
+      });
+    },
+    [formState.overallRating, formState.selectedBeachId, trackEvent]
+  );
+
   const handleCelebrationDismiss = useCallback(() => {
     if (pendingFormState) {
       const captured = pendingFormState;
@@ -292,6 +334,15 @@ export function SessionScrollForm({
       onComplete(captured);
     }
   }, [pendingFormState, onComplete]);
+
+  const sessionFitPicker = (
+    <SessionFitPicker
+      rating={formState.overallRating}
+      value={formState.sessionDecomposition}
+      onChange={(next) => updateField("sessionDecomposition", next)}
+      onSelection={handleSessionFitSelection}
+    />
+  );
 
   return (
     <div className={cn("relative min-h-screen bg-[#252D6B] session-scroll-form", className)}>
@@ -339,6 +390,7 @@ export function SessionScrollForm({
                 detectedBeach={detectedBeach ?? null}
                 detectedSource={detectedSource ?? null}
                 detectedConfidence={detectedConfidence ?? null}
+                sessionFitPicker={sessionFitPicker}
                 detailSections={
                   <>
                     {/* Wave quality + crowd sliders */}
@@ -430,6 +482,7 @@ export function SessionScrollForm({
                 <section className="space-y-6">
                   <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">How were the waves?</h2>
                   <SessionSlider label="Overall" labels={["Rough", "Meh", "Fun", "Great", "Epic"]} colors={["#9CA3AF", "#F59E0B", "#EA580C"]} value={formState.overallRating} onChange={(v) => updateField("overallRating", v)} hero />
+                  {sessionFitPicker}
                   <SessionSlider label="Wave Quality" labels={["Flat", "Choppy", "Fun", "Good", "Firing"]} colors={["#0D9488", "#F59E0B", "#EA580C"]} value={formState.waveQuality} onChange={(v) => updateField("waveQuality", v)} />
                   <SessionSlider label="Crowd" labels={["Empty", "Chill", "Moderate", "Busy", "Packed"]} colors={["#16A34A", "#FBBF24", "#DC2626"]} value={formState.crowdLevel} onChange={(v) => updateField("crowdLevel", v)} />
                   <div className="space-y-2">

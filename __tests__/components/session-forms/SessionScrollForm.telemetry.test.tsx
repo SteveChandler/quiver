@@ -52,6 +52,7 @@ const defaultFormState: SessionFormState = {
   isMuted: false,
   selectedGoals: [],
   skillRatings: {},
+  sessionDecomposition: null,
 };
 
 let currentFormState: SessionFormState = { ...defaultFormState };
@@ -101,6 +102,35 @@ jest.mock("@/components/session-forms/VisibilitySection", () => ({
 }));
 jest.mock("@/components/session-forms/SessionSlider", () => ({
   SessionSlider: () => <div data-testid="stub-slider" />,
+}));
+jest.mock("@/components/session-forms/SessionFitPicker", () => ({
+  SessionFitPicker: ({ onSelection }: { onSelection: (selection: any) => void }) => (
+    <div data-testid="stub-session-fit-picker">
+      <button
+        type="button"
+        onClick={() =>
+          onSelection({
+            kind: "decomposition",
+            tag: "skill_fit",
+            value: "dialed",
+          })
+        }
+      >
+        choose skill fit
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onSelection({
+            kind: "board_fit",
+            value: "right",
+          })
+        }
+      >
+        choose board fit
+      </button>
+    </div>
+  ),
 }));
 jest.mock("@/components/session-forms/QuickLogView", () => ({
   QuickLogView: () => <div data-testid="stub-quicklog" />,
@@ -253,6 +283,52 @@ describe("SessionScrollForm telemetry", () => {
       expect(beachEvents[1][1]).toEqual({
         beachId: "beach-2",
         metadata: { beach_id: "beach-2" },
+      });
+    });
+  });
+
+  describe("session fit picker telemetry", () => {
+    it("fires session_decomposition_selected when the skill fit signal is selected", () => {
+      resetFormState({
+        selectedBeachId: "beach-abc",
+        selectedBeach: "Ocean Beach",
+        overallRating: "4",
+      });
+
+      renderForm();
+      fireEvent.click(screen.getByText("choose skill fit"));
+
+      expect(mockTrack).toHaveBeenCalledWith("session_decomposition_selected", {
+        beachId: "beach-abc",
+        metadata: {
+          beach_id: "beach-abc",
+          rating: 4,
+          tag: "skill_fit",
+          skill_fit: "dialed",
+        },
+        debounceMs: 0,
+      });
+    });
+
+    it("fires session_board_fit_feedback_selected when the board fit signal is selected", () => {
+      resetFormState({
+        selectedBeachId: "beach-abc",
+        selectedBeach: "Ocean Beach",
+        overallRating: "4",
+      });
+
+      renderForm();
+      fireEvent.click(screen.getByText("choose board fit"));
+
+      expect(mockTrack).toHaveBeenCalledWith("session_board_fit_feedback_selected", {
+        beachId: "beach-abc",
+        metadata: {
+          beach_id: "beach-abc",
+          rating: 4,
+          board_fit: "right",
+          source: "session_fit_picker",
+        },
+        debounceMs: 0,
       });
     });
   });

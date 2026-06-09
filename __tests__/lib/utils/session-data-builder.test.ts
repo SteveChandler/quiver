@@ -28,6 +28,13 @@ describe("session-data-builder", () => {
     tideHeight: 3.2,
     tideStatus: "rising",
     forecastAccuracy: "accurate",
+    sessionDecomposition: {
+      version: 1,
+      waves: true,
+      vibe: true,
+      skill_fit: "dialed",
+      board_fit: "right",
+    },
   };
 
   describe("buildSessionPayload - logged session", () => {
@@ -43,6 +50,49 @@ describe("session-data-builder", () => {
       expect(payload.tide_height_ft).toBe(3.2);
       expect(payload.tide_status).toBe("rising");
       expect(payload.forecast_accuracy).toBe("accurate");
+    });
+
+    it("includes the structured session fit signal when the picker is used", () => {
+      const payload = buildSessionPayload(fullInput, userId);
+
+      expect(payload.session_decomposition).toEqual({
+        version: 1,
+        waves: true,
+        vibe: true,
+        skill_fit: "dialed",
+        board_fit: "right",
+      });
+    });
+
+    it("writes null for session_decomposition when the picker is skipped", () => {
+      const payload = buildSessionPayload(
+        { selectedBeach: "Pacific Beach", sessionDecomposition: null },
+        userId
+      );
+
+      expect(payload.session_decomposition).toBeNull();
+    });
+
+    it("normalizes the session fit signal before persistence", () => {
+      const payload = buildSessionPayload(
+        {
+          selectedBeach: "Pacific Beach",
+          sessionDecomposition: {
+            version: 1,
+            waves: true,
+            crew: false,
+            skill_fit: "dialed",
+            board_fit: undefined,
+          } as unknown as SessionPayloadInput["sessionDecomposition"],
+        },
+        userId
+      );
+
+      expect(payload.session_decomposition).toEqual({
+        version: 1,
+        waves: true,
+        skill_fit: "dialed",
+      });
     });
 
     it("includes rating and quality fields", () => {

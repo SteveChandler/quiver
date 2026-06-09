@@ -28,6 +28,7 @@ describe('Session Tide Fields Transformation', () => {
         waveTypes: [],
         selectedGoals: [],
         skillRatings: {},
+        sessionDecomposition: null,
         // New condition fields
         waveHeight: 4.5,
         windSpeed: 10,
@@ -71,6 +72,7 @@ describe('Session Tide Fields Transformation', () => {
         waveTypes: [],
         selectedGoals: [],
         skillRatings: {},
+        sessionDecomposition: null,
         isPublic: true,
         isMuted: false,
         // No tide fields provided
@@ -81,6 +83,69 @@ describe('Session Tide Fields Transformation', () => {
       // Tide fields should not be present if not provided
       expect(dbData.tide_height_ft).toBeUndefined();
       expect(dbData.tide_status).toBeUndefined();
+    });
+
+    it('should write null session_decomposition when the picker is skipped', () => {
+      const formState: SessionFormState = {
+        selectedBeach: 'Pacific Beach',
+        selectedBeachId: 'beach-123',
+        selectedDate: '2026-01-07',
+        selectedTime: '08:00',
+        selectedBoard: '',
+        duration: '60m',
+        waveQuality: '',
+        waterTemp: '',
+        crowdLevel: '',
+        parkingEase: '',
+        overallRating: '',
+        notes: '',
+        photos: [],
+        waveTypes: [],
+        selectedGoals: [],
+        skillRatings: {},
+        sessionDecomposition: null,
+        isPublic: true,
+        isMuted: false,
+      };
+
+      const dbData = transformSessionFormStateToDbSchema(formState);
+
+      expect(dbData.session_decomposition).toBeNull();
+    });
+
+    it('should normalize an empty session_decomposition object to null before DB write', () => {
+      const formState: SessionFormState = {
+        selectedBeach: 'Pacific Beach',
+        selectedBeachId: 'beach-123',
+        selectedDate: '2026-01-07',
+        selectedTime: '08:00',
+        selectedBoard: '',
+        duration: '60m',
+        waveQuality: '',
+        waterTemp: '',
+        crowdLevel: '',
+        parkingEase: '',
+        overallRating: '',
+        notes: '',
+        photos: [],
+        waveTypes: [],
+        selectedGoals: [],
+        skillRatings: {},
+        sessionDecomposition: {
+          version: 1,
+          waves: false,
+          crew: false,
+          vibe: false,
+          skill_fit: undefined,
+          board_fit: undefined,
+        } as unknown as SessionFormState['sessionDecomposition'],
+        isPublic: true,
+        isMuted: false,
+      };
+
+      const dbData = transformSessionFormStateToDbSchema(formState);
+
+      expect(dbData.session_decomposition).toBeNull();
     });
 
     it('should handle partial tide data', () => {
@@ -101,6 +166,7 @@ describe('Session Tide Fields Transformation', () => {
         waveTypes: [],
         selectedGoals: [],
         skillRatings: {},
+        sessionDecomposition: null,
         isPublic: true,
         isMuted: false,
         tideHeight: 2.5, // Only height provided
@@ -127,6 +193,7 @@ describe('Session Tide Fields Transformation', () => {
         waveTypes: [],
         selectedGoals: [],
         skillRatings: {},
+        sessionDecomposition: null,
         isPublic: true,
         isMuted: false,
         tideStatus: 'falling', // Only status provided
@@ -158,6 +225,7 @@ describe('Session Tide Fields Transformation', () => {
           waveTypes: [],
           selectedGoals: [],
           skillRatings: {},
+          sessionDecomposition: null,
           isPublic: true,
           isMuted: false,
           tideStatus: status,
