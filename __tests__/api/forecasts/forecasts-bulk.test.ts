@@ -13,6 +13,8 @@ interface ForecastsBulkResponse {
   forecasts: Record<string, number>;
   waterTemps: Record<string, string | undefined>;
   isCalibrated: Record<string, boolean>;
+  conditionScores: Record<string, number | undefined>;
+  conditionSummaries: Record<string, "GOOD" | "FAIR" | "CHECK" | "UNKNOWN">;
 }
 
 type QueryResult<T> = {
@@ -26,10 +28,47 @@ type ForecastRow = {
   forecast_time: string;
   forecast_at: string;
   wave_height: string | null;
+  wave_period: string | null;
+  wave_direction: string | null;
   wave_height_om: number | null;
   wave_direction_om: number | null;
   swell_direction_om: number | null;
+  swell_1_height: string | null;
+  swell_1_period: string | null;
   swell_1_direction: string | null;
+  swell_2_height: string | null;
+  swell_2_period: string | null;
+  swell_2_direction: string | null;
+  wind_wave_height: string | null;
+  wind_wave_period: string | null;
+  wind_wave_direction: string | null;
+  wind_speed: string | null;
+  wind_direction: string | null;
+  wind_direction_deg: number | null;
+  tide_height: string | null;
+  tide_status: string | null;
+  confidence_score: number | null;
+  data_source: string | null;
+};
+
+type BeachRow = {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  shoaling_factors: unknown;
+  swell_window_min_deg: number | null;
+  swell_window_max_deg: number | null;
+  wind_offshore_deg: number | null;
+  wind_offshore_tol_deg: number | null;
+  wind_onshore_bad_kt: number | null;
+  wind_cross_shore_ok_kt: number | null;
+  preferred_tide_ft_min: number | null;
+  preferred_tide_ft_max: number | null;
+  preferred_tide_direction: string | null;
+  tide_direction_sensitivity: string | null;
+  skill_level: string | null;
+  break_type: string | null;
 };
 
 const mockSupabaseClient = createMockSupabaseClient();
@@ -66,6 +105,10 @@ jest.mock("@/lib/services/forecast/v5-display-gate", () => ({
   applyV51DisplayOverrideToForecasts: jest.fn(async (forecasts: ForecastRow[]) => forecasts),
 }));
 
+jest.mock("@/lib/services/discovery/window-selector/window-scorer", () => ({
+  scoreWindowWithEngine: jest.fn(() => 72),
+}));
+
 const { GET } = require("@/app/api/forecasts/bulk/route");
 
 function forecastRow(
@@ -80,10 +123,50 @@ function forecastRow(
     forecast_date: forecastAt.toISOString().split("T")[0],
     forecast_time: forecastAt.toISOString().slice(11, 19),
     wave_height: waveHeight,
+    wave_period: "12s",
+    wave_direction: "W",
     wave_height_om: null,
     wave_direction_om: null,
     swell_direction_om: null,
+    swell_1_height: waveHeight,
+    swell_1_period: "12s",
     swell_1_direction: null,
+    swell_2_height: null,
+    swell_2_period: null,
+    swell_2_direction: null,
+    wind_wave_height: null,
+    wind_wave_period: null,
+    wind_wave_direction: null,
+    wind_speed: "6 mph",
+    wind_direction: "E",
+    wind_direction_deg: 90,
+    tide_height: "2.5 ft",
+    tide_status: "Rising",
+    confidence_score: 80,
+    data_source: "NOAA_NWS",
+  };
+}
+
+function beachRow(id: string, overrides: Partial<BeachRow> = {}): BeachRow {
+  return {
+    id,
+    name: `Beach ${id}`,
+    lat: 32.75,
+    lon: -117.25,
+    shoaling_factors: null,
+    swell_window_min_deg: null,
+    swell_window_max_deg: null,
+    wind_offshore_deg: null,
+    wind_offshore_tol_deg: null,
+    wind_onshore_bad_kt: null,
+    wind_cross_shore_ok_kt: null,
+    preferred_tide_ft_min: null,
+    preferred_tide_ft_max: null,
+    preferred_tide_direction: null,
+    tide_direction_sensitivity: null,
+    skill_level: null,
+    break_type: null,
+    ...overrides,
   };
 }
 
@@ -111,7 +194,7 @@ function queryChain<T>(result: QueryResult<T>) {
 function mockBulkQueries(options: {
   forecastRows?: ForecastRow[] | null;
   forecastError?: { message: string } | null;
-  beachRows?: Array<{ id: string; shoaling_factors: unknown }> | null;
+  beachRows?: BeachRow[] | null;
   waterRows?: Array<{ beach_id: string; water_temp: string | null }> | null;
 } = {}) {
   const forecastChain = queryChain({
@@ -161,6 +244,11 @@ describe("GET /api/forecasts/bulk", () => {
         forecastRow("beach-2", "3.2"),
         forecastRow("beach-3", "5.8"),
       ],
+      beachRows: [
+        beachRow("beach-1"),
+        beachRow("beach-2"),
+        beachRow("beach-3"),
+      ],
     });
 
     const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
@@ -175,9 +263,19 @@ describe("GET /api/forecasts/bulk", () => {
       "beach-2": 3.2,
       "beach-3": 5.8,
     });
+    expect(result.data.conditionScores).toEqual({
+      "beach-1": 72,
+      "beach-2": 72,
+      "beach-3": 72,
+    });
+    expect(result.data.conditionSummaries).toEqual({
+      "beach-1": "GOOD",
+      "beach-2": "GOOD",
+      "beach-3": "GOOD",
+    });
   });
 
-  it("returns empty forecasts for missing, empty, or whitespace-only beachIds", async () => {
+  it("returns all empty maps for missing, empty, or whitespace-only beachIds", async () => {
     const cases: Array<Record<string, string>> = [
       {},
       { beachIds: "" },
@@ -192,7 +290,13 @@ describe("GET /api/forecasts/bulk", () => {
       const response = await GET(request);
       const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
-      expect(result.data.forecasts).toEqual({});
+      expect(result.data).toEqual({
+        forecasts: {},
+        waterTemps: {},
+        isCalibrated: {},
+        conditionScores: {},
+        conditionSummaries: {},
+      });
     }
     expect(mockSupabaseClient.from).not.toHaveBeenCalled();
   });
@@ -211,6 +315,10 @@ describe("GET /api/forecasts/bulk", () => {
 
     expect(result.data.forecasts).toHaveProperty("beach-with-forecast", 4.5);
     expect(result.data.forecasts).not.toHaveProperty("beach-without-forecast");
+    expect(result.data.conditionSummaries).toEqual({
+      "beach-with-forecast": "UNKNOWN",
+      "beach-without-forecast": "UNKNOWN",
+    });
   });
 
   it("limits to 50 beaches maximum", async () => {
@@ -327,7 +435,7 @@ describe("GET /api/forecasts/bulk", () => {
     mockBulkQueries({
       forecastRows: [forecastRow("beach-1", "4.5")],
       waterRows: [{ beach_id: "beach-1", water_temp: "63" }],
-      beachRows: [{ id: "beach-1", shoaling_factors: { "270": 1.05 } }],
+      beachRows: [beachRow("beach-1", { shoaling_factors: { "270": 1.05 } })],
     });
 
     const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
@@ -340,5 +448,6 @@ describe("GET /api/forecasts/bulk", () => {
     expect(result.data.forecasts["beach-1"]).toBe(4.5);
     expect(result.data.waterTemps).toEqual({ "beach-1": "63" });
     expect(result.data.isCalibrated).toEqual({ "beach-1": true });
+    expect(result.data.conditionSummaries).toEqual({ "beach-1": "GOOD" });
   });
 });

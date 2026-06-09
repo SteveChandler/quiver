@@ -148,6 +148,14 @@ export const VALID_EVENTS = [
   // Phase 21 native board management events
   'board_form_saved',
   'session_board_fit_feedback_selected',
+  // Phase 22 native forecast-visual and custom-spot funnel events.
+  // These are written directly to user_events by native clients. The DB
+  // CHECK constraint must include these names (see migration
+  // 20260609120000_add_phase22_native_analytics_events.sql).
+  'custom_spot_save_confirmation_viewed',
+  'custom_spot_forecast_source_viewed',
+  'forecast_visual_layer_selected',
+  'synced_forecast_time_selected',
   // Search
   'beach_search_result_click',
   // Growth markers

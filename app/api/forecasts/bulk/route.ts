@@ -9,11 +9,29 @@ import {
 import {
   applyV51DisplayOverrideToForecasts,
 } from "@/lib/services/forecast/v5-display-gate";
+import { scoreWindowWithEngine } from "@/lib/services/discovery/window-selector/window-scorer";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { Beach } from "@/types/database";
 import type { Database } from "@/types/database.generated";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = 'force-dynamic';
+
+type ConditionSummary = "GOOD" | "FAIR" | "CHECK" | "UNKNOWN";
+
+const emptyBulkForecastResponse = {
+  forecasts: {},
+  waterTemps: {},
+  isCalibrated: {},
+  conditionScores: {},
+  conditionSummaries: {},
+};
+
+const BULK_FORECAST_SELECT =
+  "beach_id, forecast_date, forecast_time, forecast_at, wave_height, wave_period, wave_direction, wave_height_om, wave_direction_om, swell_height_om, swell_period_om, swell_direction_om, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, wind_wave_height, wind_wave_period, wind_wave_direction, wind_speed, wind_direction, wind_direction_deg, tide_height, tide_status, confidence_score, data_source" as const;
+
+const BULK_BEACH_SELECT =
+  "id, name, lat, lon, shoaling_factors, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, wind_onshore_bad_kt, wind_cross_shore_ok_kt, preferred_tide_ft_min, preferred_tide_ft_max, preferred_tide_direction, tide_direction_sensitivity, skill_level, break_type" as const;
 
 /**
  * GET /api/forecasts/bulk
@@ -36,9 +54,9 @@ export const dynamic = 'force-dynamic';
  *     waterTemps: {
  *       [beachId]: string | undefined
  *     },
- *     isCalibrated: {
- *       [beachId]: boolean
- *     }
+ *     isCalibrated: { [beachId]: boolean },
+ *     conditionScores: { [beachId]: number | undefined },
+ *     conditionSummaries: { [beachId]: "GOOD" | "FAIR" | "CHECK" | "UNKNOWN" }
  *   }
  * }
  */
@@ -76,10 +94,19 @@ function parseDisplayWaveHeight(value: string | null): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function conditionSummaryFromScore(score: number): ConditionSummary {
+  // Web map v1 derives native-aligned summaries from the current-row score.
+  // Native currently maps from the final verdict in surf-spot-map-summary.ts.
+  // TODO(map parity): expose verdicts here so window demotions can't diverge.
+  if (score >= 70) return "GOOD";
+  if (score >= 40) return "FAIR";
+  return "CHECK";
+}
+
 async function fetchBulkCurrentForecastsWithV51Display(
   supabase: SupabaseClient<Database>,
   beachIds: string[]
-): Promise<{ data: Array<{ beach_id: string; wave_height: string | null }> | null; error: { message: string } | null }> {
+): Promise<{ data: EnhancedForecastEntity[] | null; error: { message: string } | null }> {
   const now = new Date();
   const targetDate = now.toISOString().split("T")[0];
   const tomorrow = nextUtcDateString(now);
@@ -87,9 +114,7 @@ async function fetchBulkCurrentForecastsWithV51Display(
 
   const { data, error } = await supabase
     .from("enhanced_forecasts")
-    .select(
-      "beach_id, forecast_date, forecast_time, forecast_at, wave_height, wave_height_om, wave_direction_om, swell_direction_om, swell_1_direction"
-    )
+    .select(BULK_FORECAST_SELECT)
     .in("beach_id", beachIds)
     .in("forecast_date", [targetDate, tomorrow]);
 
@@ -120,10 +145,7 @@ async function fetchBulkCurrentForecastsWithV51Display(
   );
 
   return {
-    data: displayRows.map((row) => ({
-      beach_id: row.beach_id,
-      wave_height: row.wave_height,
-    })),
+    data: displayRows,
     error: null,
   };
 }
@@ -138,7 +160,7 @@ async function bulkForecastHandler(
 
     // Return empty forecasts for missing/empty beachIds (not an error)
     if (!beachIdsParam || !beachIdsParam.trim()) {
-      return createSuccessResponse({ forecasts: {}, waterTemps: {}, isCalibrated: {} });
+      return createSuccessResponse(emptyBulkForecastResponse);
     }
 
     // Parse beach IDs and filter out empty strings
@@ -148,7 +170,7 @@ async function bulkForecastHandler(
       .filter(Boolean);
 
     if (beachIds.length === 0) {
-      return createSuccessResponse({ forecasts: {}, waterTemps: {}, isCalibrated: {} });
+      return createSuccessResponse(emptyBulkForecastResponse);
     }
 
     // Limit to prevent abuse
@@ -167,12 +189,18 @@ async function bulkForecastHandler(
     }
 
     const waveHeightMap: Record<string, number | undefined> = {};
-    (data || []).forEach((row: { beach_id: string; wave_height: string | null }) => {
+    (data || []).forEach((row) => {
       const parsedWaveHeight = parseDisplayWaveHeight(row.wave_height);
       if (parsedWaveHeight != null) {
         waveHeightMap[row.beach_id] = parsedWaveHeight;
       }
     });
+
+    const conditionScoreMap: Record<string, number | undefined> = {};
+    const conditionSummaryMap: Record<string, ConditionSummary> =
+      Object.fromEntries(
+        limitedBeachIds.map((beachId) => [beachId, "UNKNOWN" as ConditionSummary])
+      );
 
     // Fetch calibration status for each beach. We expose only the boolean —
     // `shoaling_factors` is ~4KB of JSONB per beach and the client only needs
@@ -182,15 +210,41 @@ async function bulkForecastHandler(
     const isCalibratedMap: Record<string, boolean> = {};
     const { data: beachRows, error: beachError } = await supabase
       .from("beaches")
-      .select("id, shoaling_factors")
+      .select(BULK_BEACH_SELECT)
       .in("id", limitedBeachIds);
 
     if (beachError) {
       console.error("Error fetching beach calibration status:", beachError);
       // Non-fatal: leave map empty, clients default to `false`.
     } else {
-      (beachRows || []).forEach((row: { id: string; shoaling_factors: unknown }) => {
+      const scoringBeachRows = (beachRows || []) as unknown as Beach[];
+
+      scoringBeachRows.forEach((row) => {
         isCalibratedMap[row.id] = row.shoaling_factors !== null;
+      });
+
+      const beachesById = new Map(scoringBeachRows.map((beach) => [
+        beach.id,
+        beach,
+      ]));
+
+      (data || []).forEach((forecast) => {
+        const beach = beachesById.get(forecast.beach_id);
+        if (!beach) return;
+
+        try {
+          const score = scoreWindowWithEngine(forecast, beach);
+          if (!Number.isFinite(score)) return;
+
+          conditionScoreMap[forecast.beach_id] = score;
+          conditionSummaryMap[forecast.beach_id] =
+            conditionSummaryFromScore(score);
+        } catch (error) {
+          console.warn("Failed to score bulk forecast condition:", {
+            beachId: forecast.beach_id,
+            error,
+          });
+        }
       });
     }
 
@@ -219,6 +273,8 @@ async function bulkForecastHandler(
       forecasts: waveHeightMap,
       waterTemps: waterTempMap,
       isCalibrated: isCalibratedMap,
+      conditionScores: conditionScoreMap,
+      conditionSummaries: conditionSummaryMap,
     });
   } catch (error) {
     console.error("Unexpected error in bulk forecast API:", error);

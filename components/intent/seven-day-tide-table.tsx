@@ -137,7 +137,7 @@ export function SevenDayTideTable({ days }: SevenDayTideTableProps) {
                 ))}
                 {day.events.length === 0 && (
                   <p className="col-span-2 text-gray-400 text-xs">
-                    No data available
+                    no data
                   </p>
                 )}
               </div>

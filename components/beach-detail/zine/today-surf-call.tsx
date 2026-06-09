@@ -12,8 +12,10 @@ interface TodaySurfCallProps {
   beachTimezone?: string | null;
 }
 
+const ZINE_YES_DARK_TEAL_3_95_CONTRAST_ON_TAN = "#006B5F";
+
 const VERDICT_COLOR: Record<SurfCallVerdict, string> = {
-  YES: "#B91C1C",
+  YES: ZINE_YES_DARK_TEAL_3_95_CONTRAST_ON_TAN,
   MAYBE: "#B47A0F",
   NO: "#5C5A57",
 };
@@ -453,16 +455,30 @@ function isNonTimeTrailOverride(trail: string | null | undefined): boolean {
   return !!trail && !/^(BEST|TRY) AT /i.test(trail);
 }
 
+function normalizeTrailOverride(
+  verdict: SurfCallVerdict,
+  trail: string | null | undefined,
+): string | null {
+  if (!trail) return null;
+  if (verdict === "YES" && trail.trim().toUpperCase() === "PADDLE OUT") {
+    return "GO SURF!";
+  }
+  return trail;
+}
+
 function buildDisplayTrail(
   verdict: SurfCallVerdict,
   windowStart: string | null | undefined,
   timezone: string | null | undefined,
   trailOverride?: string | null,
 ): string {
-  if (trailOverride && isNonTimeTrailOverride(trailOverride)) return trailOverride;
+  const normalizedTrailOverride = normalizeTrailOverride(verdict, trailOverride);
+  if (normalizedTrailOverride && isNonTimeTrailOverride(normalizedTrailOverride)) {
+    return normalizedTrailOverride;
+  }
 
   const formattedWindow = formatWindow(windowStart, timezone);
-  if (verdict === "YES") return formattedWindow ? `BEST AT ${formattedWindow}` : "PADDLE OUT";
+  if (verdict === "YES") return formattedWindow ? `BEST AT ${formattedWindow}` : "GO SURF!";
   if (verdict === "MAYBE") return formattedWindow ? `TRY AT ${formattedWindow}` : "KEEP WATCHING";
   return "WAIT FOR SWELL";
 }

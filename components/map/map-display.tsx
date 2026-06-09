@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { MapPin, Loader2 } from "lucide-react";
+import { Loader2, MapPin, Waves } from "lucide-react";
 import { MapImage } from "@/components/map-image";
 import { getStaticMapImageUrlWithWaveHeight } from "@/lib/map-utils";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -166,13 +166,15 @@ export function MapDisplay({
               : "Loading beach locations..."}
           </p>
           {waveHeight && (
-            <p className="text-xs text-blue-600 mt-1 font-medium">
-              📊 Current wave height: {waveHeight}ft
+            <p className="mt-1 flex items-center gap-1 text-xs font-medium text-ocean-blue">
+              <Waves className="h-3 w-3" aria-hidden="true" />
+              Current wave height: {waveHeight}ft
             </p>
           )}
           {waveHeightLoading && (
-            <p className="text-xs text-gray-500 mt-1">
-              🌊 Loading wave conditions...
+            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+              Loading wave conditions...
             </p>
           )}
           {filteredBeaches.length > 0 && (
