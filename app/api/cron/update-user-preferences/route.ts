@@ -49,8 +49,7 @@ function isTruthyParam(value: string | null): boolean {
  * Excludes NPC/bot users (is_mock = true) from preference learning.
  *
  * Authentication:
- * - Vercel Cron header (x-vercel-cron: 1)
- * - OR Bearer token (Authorization: Bearer CRON_SECRET_TOKEN)
+ * - Bearer token (Authorization: Bearer <CRON_SECRET>)
  *
  * Schedule: Daily at 3:00 AM UTC (defined in vercel.json)
  *
@@ -87,7 +86,7 @@ async function _GET(request: Request): Promise<Response> {
       console.error('❌ Unauthorized preference update cron attempt');
       return createErrorResponse(
         'Unauthorized',
-        'Invalid cron authentication. Requires Vercel Cron header or valid Bearer token.',
+        'Invalid cron authentication. Requires valid Bearer token.',
         401
       );
     }

@@ -252,9 +252,9 @@ describe("Re-engagement Email Cron Job API", () => {
       expect(data.success).toBe(true);
     });
 
-    it("should accept Vercel cron header", async () => {
+    it("should accept Bearer cron token", async () => {
       const request = mockRequest({
-        "x-vercel-cron": "1",
+        authorization: "Bearer test-cron-secret",
       });
 
       const response = await GET(request);
@@ -685,7 +685,7 @@ describe("Re-engagement Email Cron Job API", () => {
       // Claim slot succeeds
       mockRpc.mockResolvedValueOnce({ data: true, error: null });
 
-      await GET(mockRequest({ "x-vercel-cron": "true" }));
+      await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
 
       expect(signEmailToken).toHaveBeenCalledWith(
         expect.objectContaining({

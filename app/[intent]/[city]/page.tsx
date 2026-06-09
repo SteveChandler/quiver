@@ -78,6 +78,7 @@ import {
 import { BeginnerPageContent } from "@/components/beginner/BeginnerPageContent";
 import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 import { getSeoFunnelPageByIntentRoute } from "@/lib/seo/funnel-pages";
 
 export const revalidate = 3600;
@@ -694,7 +695,6 @@ export default async function IntentPage(props: IntentPageParams) {
   if (params.intent === "water-temp") {
     const stateSlugLower = cityMetadata.state.toLowerCase();
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
-    const waterTempPageContent = buildIntentPageContent("water-temp", cityMetadata);
 
     const [expandedWaterTempData, waterTempBeachesResult, bestTimeToSurfUrl, editorialBeaches, excludeIntents] = await Promise.all([
       getCityWaterTempExpanded(cityMetadata.cityName, cityMetadata.state),
@@ -706,6 +706,9 @@ export default async function IntentPage(props: IntentPageParams) {
 
     // If expanded data available, render dedicated water-temp page
     if (expandedWaterTempData) {
+      const waterTempPageContent = buildIntentPageContent("water-temp", cityMetadata, {
+        waterTempData: { currentTemp: expandedWaterTempData.currentTemp },
+      });
       const waterTempBeaches = waterTempBeachesResult.success && waterTempBeachesResult.data
         ? waterTempBeachesResult.data
         : [];
@@ -754,6 +757,15 @@ export default async function IntentPage(props: IntentPageParams) {
           <WebPageSchema
             name={waterTempPageContent.title}
             url={waterTempPageUrl}
+          />
+          <WaterTempDatasetSchema
+            cityOrBeachName={cityMetadata.cityName}
+            state={cityMetadata.state}
+            url={waterTempPageUrl}
+            latitude={cityMetadata.centerLat}
+            longitude={cityMetadata.centerLon}
+            tempF={expandedWaterTempData.currentTemp}
+            wetsuitRec={expandedWaterTempData.wetsuitRecommendation.thickness}
           />
           <WaterTempPageContent
             cityName={cityMetadata.cityName}

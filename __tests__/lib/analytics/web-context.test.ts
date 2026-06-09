@@ -1,4 +1,5 @@
 import {
+  deriveSeoPageContextFromPath,
   deriveSourceGroup,
   deriveSurfaceFromPath,
   getCamFamily,
@@ -88,6 +89,57 @@ describe("web analytics context", () => {
       cam_family: "surf-cams-seo",
       signup_channel: "web_app",
       signup_channel_source: "web_auth",
+    });
+  });
+
+  it.each([
+    [
+      "/water-temp/huntington-beach",
+      "city_water_temp",
+      "water_temp",
+      true,
+    ],
+    [
+      "/ca/del-mar/del-mar/water-temp",
+      "beach_water_temp",
+      "water_temp",
+      true,
+    ],
+    [
+      "/beach/legacy-beach/water-temp",
+      "beach_water_temp",
+      "water_temp",
+      true,
+    ],
+    [
+      "/mexico/baja-california/rosarito/teresas/water-temp",
+      "beach_water_temp",
+      "water_temp",
+      true,
+    ],
+    ["/best-time-to-surf/la-jolla", "best_time", "best_time", true],
+    ["/surf-report/blacks-beach", "surf_report", "surf_report", true],
+    ["/about", "other", "other", false],
+  ])(
+    "derives SEO intent reporting context for %s",
+    (pathname, pageType, queryIntent, seoLandingPage) => {
+      expect(deriveSeoPageContextFromPath(pathname)).toMatchObject({
+        page_type: pageType,
+        query_intent: queryIntent,
+        seo_landing_page: seoLandingPage,
+      });
+    }
+  );
+
+  it("adds SEO intent reporting fields to canonical context", () => {
+    expect(
+      getWebAnalyticsContext({
+        pathname: "/ca/del-mar/del-mar/water-temp",
+      })
+    ).toMatchObject({
+      page_type: "beach_water_temp",
+      query_intent: "water_temp",
+      seo_landing_page: true,
     });
   });
 });

@@ -55,7 +55,7 @@ export type MockBehavior = "success" | "timeout" | "error" | "rate-limited";
 /**
  * Cron authentication method types
  */
-export type CronAuthMethod = "vercel-header" | "vercel-ua" | "bearer-token" | "none";
+export type CronAuthMethod = "bearer-token" | "none";
 
 /**
  * Configuration for external API mocks
@@ -225,7 +225,7 @@ export function mockCronAuth(
 export interface CronRequestOptions {
   /** HTTP method (default: "GET") */
   method?: "GET" | "POST" | "HEAD";
-  /** Authentication method (default: "vercel-header") */
+  /** Authentication method (default: "bearer-token") */
   authMethod?: CronAuthMethod;
   /** Custom cron secret for bearer auth (default: "test-cron-secret") */
   cronSecret?: string;
@@ -245,7 +245,7 @@ export interface CronRequestOptions {
 function buildCronRequestConfig(path: string, options: CronRequestOptions = {}) {
   const {
     method = "GET",
-    authMethod = "vercel-header",
+    authMethod = "bearer-token",
     cronSecret = "test-cron-secret",
     body,
     headers = {},
@@ -266,12 +266,6 @@ function buildCronRequestConfig(path: string, options: CronRequestOptions = {}) 
   };
 
   switch (authMethod) {
-    case "vercel-header":
-      requestHeaders["x-vercel-cron"] = "1";
-      break;
-    case "vercel-ua":
-      requestHeaders["user-agent"] = "vercel-cron/1.0";
-      break;
     case "bearer-token":
       requestHeaders["authorization"] = `Bearer ${cronSecret}`;
       break;
@@ -294,10 +288,10 @@ function buildCronRequestConfig(path: string, options: CronRequestOptions = {}) 
  *
  * @example
  * ```typescript
- * // With Vercel cron header
+ * // With Bearer token
  * const request = createCronRequest("/api/cron/my-job");
  *
- * // With Bearer token
+ * // With a custom Bearer token
  * const request = createCronRequest("/api/cron/my-job", {
  *   authMethod: "bearer-token",
  *   cronSecret: "my-secret",
@@ -345,7 +339,7 @@ export function createMockCronRequest(
 ): Request {
   const {
     method = "GET",
-    authMethod = "vercel-header",
+    authMethod = "bearer-token",
     cronSecret = "test-cron-secret",
     body,
     headers = {},
@@ -366,12 +360,6 @@ export function createMockCronRequest(
   };
 
   switch (authMethod) {
-    case "vercel-header":
-      requestHeaders["x-vercel-cron"] = "1";
-      break;
-    case "vercel-ua":
-      requestHeaders["user-agent"] = "vercel-cron/1.0";
-      break;
     case "bearer-token":
       requestHeaders["authorization"] = `Bearer ${cronSecret}`;
       break;

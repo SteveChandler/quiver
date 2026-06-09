@@ -4,10 +4,7 @@
  * Cron Authentication Tests
  *
  * Tests the validateCronRequest function from lib/api-utils.ts
- * to ensure cron routes properly authenticate requests from:
- * - Vercel Cron (x-vercel-cron header)
- * - Vercel Cron User-Agent
- * - Bearer token with CRON_SECRET
+ * to ensure cron routes authenticate requests with Bearer CRON_SECRET.
  */
 
 import { validateCronRequest, validateCronAuth } from "@/lib/api-utils";
@@ -31,14 +28,16 @@ describe("Cron Authentication", () => {
   });
 
   describe("validateCronRequest", () => {
-    it("accepts valid x-vercel-cron header", () => {
-      const request = createMockCronRequest("/api/cron/test", {
-        authMethod: "vercel-header",
+    it("rejects x-vercel-cron header without Bearer CRON_SECRET", () => {
+      const request = new Request("http://localhost:3000/api/cron/test", {
+        headers: {
+          "x-vercel-cron": "1",
+        },
       });
 
       const isValid = validateCronRequest(request);
 
-      expect(isValid).toBe(true);
+      expect(isValid).toBe(false);
     });
 
     it("accepts valid Bearer CRON_SECRET", () => {
@@ -131,8 +130,7 @@ describe("Cron Authentication", () => {
   });
 
   describe("Authentication Priority", () => {
-    it("vercel-header takes priority over invalid bearer token", () => {
-      // Request has valid vercel-header but also sends an invalid bearer token
+    it("rejects x-vercel-cron header with invalid bearer token", () => {
       const mockHeaders = new Headers({
         "Content-Type": "application/json",
         "x-vercel-cron": "1",
@@ -150,13 +148,12 @@ describe("Cron Authentication", () => {
 
       const isValid = validateCronRequest(mockRequest);
 
-      // Should be valid because x-vercel-cron header is checked first
-      expect(isValid).toBe(true);
+      expect(isValid).toBe(false);
     });
   });
 
   describe("Edge Cases", () => {
-    it("handles x-vercel-cron header with any truthy value", () => {
+    it("rejects x-vercel-cron header with any truthy value", () => {
       const mockHeaders = new Headers({
         "Content-Type": "application/json",
         "x-vercel-cron": "true",
@@ -173,7 +170,7 @@ describe("Cron Authentication", () => {
 
       const isValid = validateCronRequest(mockRequest);
 
-      expect(isValid).toBe(true);
+      expect(isValid).toBe(false);
     });
 
     it("uses CRON_SECRET for bearer token validation", () => {

@@ -47,6 +47,10 @@ import { NextResponse } from "next/server";
 
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import {
+  createErrorResponse,
+  validateCronRequest,
+} from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
 import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
@@ -305,12 +309,8 @@ function buildConditionSummary(args: {
 }
 
 async function _GET(req: Request): Promise<Response> {
-  const auth = req.headers.get("authorization") ?? "";
-  const vercelHeader = req.headers.get("x-vercel-cron");
-  const isAuthorized =
-    !!vercelHeader || auth === `Bearer ${process.env.CRON_SECRET}`;
-  if (!isAuthorized) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!validateCronRequest(req)) {
+    return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
   }
 
   const deliveryEnabled = process.env.ALERTS_DELIVERY_ENABLED === "true";

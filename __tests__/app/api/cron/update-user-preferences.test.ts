@@ -197,9 +197,9 @@ describe('User Preference Update Cron Job API', () => {
         expect(data.error).toBe('Unauthorized');
       });
 
-      it('should accept requests with valid Vercel Cron header', async () => {
+      it('should accept requests with valid Bearer cron token', async () => {
         const request = mockRequest({
-          'x-vercel-cron': '1',
+          authorization: 'Bearer test-cron-secret',
         });
 
         const response = await POST(request);

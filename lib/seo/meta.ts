@@ -485,21 +485,10 @@ export function buildDynamicTideMetadata({
  *
  * CTR Optimization — 4th iteration:
  *
- * Failed framings (iterations 1-3):
- * - v1 "What Wetsuit for {Beach}?" — 0% CTR on 766+ impressions. Didn't match
- *   the dominant query pattern "{beach} water temp".
- * - v2 "{Beach} Water Temperature: 78°F" — gave away the answer Google already
- *   surfaces in its knowledge panel; zero click incentive.
- * - v3 "{Beach} Water Temp & Wetsuit Guide | {Mon YYYY}" — better query match but
- *   "Wetsuit Guide" is a passive label that doesn't create urgency.
- *
- * Current strategy (v4): query-match anchor + planning signal
- * - Keep "Water Temp" as the anchor term (matches dominant query intent).
- * - Add planning signal via em dash: "— What Wetsuit Today" frames the page as a
- *   gear-planning tool, not just a data display. "Today" adds temporal urgency.
- * - Descriptions avoid exact water temperature so the SERP does not fully
- *   answer the gear-planning question.
- * - Month+Year date token keeps title fresh without encoding daily-volatile data.
+ * Current strategy: answer-first title and description.
+ * GSC showed top-10 water-temp pages with weak CTR, so the SERP copy now
+ * matches the dominant "water temperature today" query and pairs the answer
+ * with wetsuit guidance plus a surf-report handoff.
  */
 export function buildDynamicWaterTempMetadata({
   beach,
@@ -511,31 +500,23 @@ export function buildDynamicWaterTempMetadata({
     wetsuitRec?: string | null;
   } | null;
 }): { title: string; description: string } {
-  const now = new Date();
-  const monthYear = now.toLocaleDateString("en-US", { month: "short", year: "numeric" });
-
-  // Title: query-match anchor "Water Temp" + planning signal "What Wetsuit Today"
-  // Tier 1: "{Beach} Water Temp — What Wetsuit Today | {Mon YYYY}" (if <=60 chars)
-  // Tier 2: "{Beach} Water Temp — What Wetsuit Today" (drop date, if <=60 chars)
-  // Tier 3: "{Beach} Water Temperature" (very long names)
-  const tier1 = `${beach.name} Water Temp \u2014 What Wetsuit Today | ${monthYear}`;
-  const tier2 = `${beach.name} Water Temp \u2014 What Wetsuit Today`;
-  const tier3 = `${beach.name} Water Temperature`;
-  let title: string;
-  if (tier1.length <= MAX_TITLE_LENGTH) {
-    title = tier1;
-  } else if (tier2.length <= MAX_TITLE_LENGTH) {
-    title = tier2;
-  } else {
-    title = truncateTitleForSEO(tier3);
-  }
-
   const shortBeachName = shortenBeachNameForSerpTitle(beach.name);
-  const description = pickMetaDescription([
-    `What wetsuit works for ${beach.name} today? See current water temp, gear guidance, and seasonal trends before you paddle out.`,
-    `What wetsuit works for ${shortBeachName} today? See current water temp, gear guidance, and seasonal trends before you paddle out.`,
-    `See current water temp, wetsuit guidance, and seasonal trends for ${shortBeachName} before you paddle out.`,
-  ]);
+  const tempF = waterTempData?.tempF;
+  const title =
+    tempF != null
+      ? truncateTitleForSEO(`${beach.name} Water Temperature Today: ${tempF}°F`)
+      : truncateTitleForSEO(`${beach.name} Water Temperature Today | Wetsuit Guide`);
+
+  const description =
+    tempF != null
+      ? pickMetaDescription([
+          `${beach.name} water temperature today is ${tempF}°F. Wetsuit guidance, seasonal trends, and surf report links before you paddle out.`,
+          `${shortBeachName} water temp today is ${tempF}°F. Wetsuit guidance, seasonal trends, and surf report links before you paddle out.`,
+        ])
+      : pickMetaDescription([
+          `Current water temperature, wetsuit guidance, seasonal trends, and surf report links for ${beach.name} before you paddle out.`,
+          `Current water temp, wetsuit guidance, seasonal trends, and surf report links for ${shortBeachName}.`,
+        ]);
 
   return { title, description };
 }

@@ -8,8 +8,13 @@ Copy-paste-ready content for App Store Connect. Referenced by `IOS_RELEASE_GUIDE
 
 | Field | Value |
 |-------|-------|
-| **Name** | `Quiver: Surf Forecast & Crew` |
+| **Live Name** | `Surf Forecast: Quiver` |
 | **Bundle ID** | `app.quiversurf.mobile` |
+| **Apple App ID** | `6759300320` |
+| **Current Version** | `1.0` |
+| **Current Version Release Date** | `2026-05-25` |
+| **Price** | Free download |
+| **Pro Pricing** | `$4.99/month` or `$39.99/year` with a 14-day free trial |
 | **SKU** | `quiver-surf-v1` |
 | **Primary Category** | Sports |
 | **Secondary Category** | Weather |
@@ -30,7 +35,7 @@ Surf Forecasts & Session Log
 _Can be updated without a new app review._
 
 ```
-Real-time surf forecasts, session logging with photos, and beach discovery for the West Coast, Hawaii, and beyond. Free to use.
+Surf forecasts, session logging, alerts, tide, wind, swell, buoy, and spot guidance. Free download with Quiver Pro available.
 ```
 
 ---
@@ -38,52 +43,21 @@ Real-time surf forecasts, session logging with photos, and beach discovery for t
 ## Description (4000 chars max)
 
 ```
-Surf smarter. Log your sessions. Discover new breaks.
+Quiver is the surf forecast that remembers you. Log what you rode, and Quiver learns when conditions match your best days — then tells you.
 
-Quiver gives you the tools to plan better surf sessions and keep a record of every wave you ride. Built for surfers who want accurate forecasts, a personal surf journal, and an easy way to explore new spots.
+With Quiver Pro:
 
-ACCURATE SURF FORECASTS
-Plan your sessions with confidence. Quiver provides detailed multi-day surf forecasts so you know exactly when conditions line up at your favorite breaks.
+• Similarity alerts — push notifications when conditions match your highest-rated sessions
+• Similarity score suggestions — "9.2 for you at Swami's" based on your logged sessions
+• Board recommendations per spot — "Grab your 5'8"
+• Surf call verdicts — "Worth it / Maybe / Skip" one-line calls
+• Custom spots — add breaks only you know
+• Unlimited favorite beaches (free tier includes 3)
+• Offline mode — session logs sync when signal returns
 
-• Multi-day surf forecasts for hundreds of spots
-• Wave height, period, and direction
-• Wind speed and direction
-• Tide charts and predictions
-• Water temperature data
-• Spot-specific conditions at a glance
+Quiver Pro is $4.99/month or $39.99/year with a 14-day free trial. Cancel anytime in App Store settings. Subscription auto-renews unless turned off at least 24 hours before the current period ends. Payment is charged to your Apple ID account at confirmation of purchase. Manage or cancel your subscription in your Apple ID account settings.
 
-LOG YOUR SESSIONS
-Keep a detailed surf journal. Log every session with conditions data, photos, and personal notes. Look back on your best days and track how you're progressing.
-
-• Log sessions with date, location, and conditions
-• Add photos to remember your best waves
-• Rate wave quality and crowd levels
-• Review your complete surf history
-• Share sessions with friends
-
-DISCOVER NEW BREAKS
-Explore surf spots up and down the coast. Browse beach details, check conditions, and find your next session spot — whether it's a local favorite or somewhere new.
-
-• Hundreds of beaches with detailed info
-• Community reviews and ratings
-• Parking, access, and crowd info
-• Interactive map to explore nearby spots
-• Real conditions data for every break
-
-BUILT FOR THE SURF COMMUNITY
-Quiver is designed to bring surfers together. See what your friends are surfing, share your sessions, and connect with other surfers at your local breaks.
-
-• Social feed of recent sessions
-• Like and comment on posts
-• Follow friends and local surfers
-• Session invitations and crew coordination
-• Push notifications for session updates
-
-COVERAGE
-Currently covering California, Oregon, Washington, Hawaii, Puerto Rico, and Baja — with more regions being added.
-
-FREE TO USE
-All features are free. No paywalls, no premium tiers. Just a better way to surf.
+Terms of Use (EULA): https://www.apple.com/legal/internet-services/itunes/dev/stdeula/
 ```
 
 ---
@@ -91,8 +65,10 @@ All features are free. No paywalls, no premium tiers. Just a better way to surf.
 ## Keywords (100 chars max, comma-separated)
 
 ```
-surf,surfing,forecast,waves,beach,ocean,session,log,journal,community,swell,tide,conditions,weather
+surf,forecast,report,free,waves,swell,tide,wind,buoy,tracker,journal,session,alerts,spots
 ```
+
+Coverage targets for ASO drafts: free, surf, forecast, report, waves, swell, tide, wind, buoy, tracker, journal, session, alerts, and spots. Do not publish App Store Connect metadata changes without credentials and explicit approval.
 
 ---
 
@@ -101,11 +77,10 @@ surf,surfing,forecast,waves,beach,ocean,session,log,journal,community,swell,tide
 ```
 Quiver v1.0 — our first App Store release.
 
-• Multi-day surf forecasts for hundreds of West Coast, Hawaii, and Puerto Rico beaches
-• Session logging with photos, conditions, and personal notes
-• Beach discovery with community reviews and interactive map
-• Social feed to share sessions and follow other surfers
-• Push notifications for session invites and updates
+• Surf forecast pages for beaches and custom spots
+• Session logging that teaches Quiver your best conditions
+• Similarity alerts and score suggestions with Quiver Pro
+• Board recommendations, surf-call verdicts, and offline sync
 ```
 
 ---
@@ -148,7 +123,7 @@ KEY FEATURES TO TEST:
 4. Social Feed — See recent sessions from other surfers, like and comment
 5. Map — Explore nearby surf spots on the interactive map
 
-The app is a free community platform for surfers. We use standard iOS push notifications for session invites and updates. All content is user-generated.
+The app is a free download with optional Quiver Pro subscription features. Quiver Pro is $4.99/month or $39.99/year with a 14-day free trial, managed through Apple. We use standard iOS push notifications for surf alerts and session updates. User session content is user-generated.
 
 Please reach out if you have any questions!
 ```

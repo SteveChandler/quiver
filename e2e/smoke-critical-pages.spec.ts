@@ -26,20 +26,25 @@ test.describe('Smoke: Critical Pages', () => {
   });
 
   test('Beach detail page loads without errors @smoke', async ({ page }) => {
-    test.fixme(true, 'Beach detail smoke still checks retired ticker/stats test ids; update it to current surf-call content.');
     await gotoWithErrorCheck(page, errorCapture, buildBeachUrl(TEST_BEACHES.blacks), { timeout: 15000 });
 
     // Beach name heading should be visible (use .first() — page has multiple headings matching)
     const heading = page.getByRole('heading', { name: /blacks/i }).first();
     await expect(heading).toBeVisible({ timeout: 10000 });
 
-    // Conditions ticker or stats grid should render (matches actual testids on the page)
-    const ticker = page.locator('[data-testid="ticker-content"]');
+    const currentConditions = page.getByRole('heading', {
+      name: /current conditions/i,
+    });
+    const forecastTab = page.getByRole('tab', { name: /forecast/i });
     const statsGrid = page.locator('[data-testid="beach-stats-grid"]');
-    const hasTicker = await isVisibleSafe(ticker, { timeout: 10000 });
-    const hasStats = await isVisibleSafe(statsGrid, { timeout: 5000 });
+    const beachActions = page.locator('[data-testid="beach-actions"]');
 
-    expect(hasTicker || hasStats).toBe(true);
+    const hasForecast = await isVisibleSafe(currentConditions, { timeout: 15000 });
+    const hasForecastTab = await isVisibleSafe(forecastTab, { timeout: 10000 });
+    const hasStats = await isVisibleSafe(statsGrid, { timeout: 10000 });
+    const hasBeachActions = await isVisibleSafe(beachActions, { timeout: 10000 });
+
+    expect(hasForecast || hasForecastTab || hasStats || hasBeachActions).toBe(true);
 
     await assertNoErrors(page, errorCapture, { context: 'Beach detail page' });
   });

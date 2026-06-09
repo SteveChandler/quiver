@@ -38,9 +38,11 @@ describe("best-time city SEO page", () => {
       params: Promise.resolve({ city: "san-diego" }),
     });
 
-    expect(metadata.title).toContain("Best Time to Surf in San Diego");
-    expect(metadata.description).toContain("today's surf report");
-    expect(metadata.description).toContain("best current window");
+    expect(metadata.title).toContain("Best Time to Surf San Diego Today & This Week");
+    expect(metadata.description).toContain("today and this week");
+    expect(metadata.description).toContain("live surf report");
+    expect(metadata.description).toContain("tides");
+    expect(metadata.description).toContain("wind");
     expect(metadata.description).toContain("nearby spots");
   });
 

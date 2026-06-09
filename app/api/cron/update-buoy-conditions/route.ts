@@ -22,8 +22,7 @@ export const maxDuration = 60;
  * Runs hourly to keep buoy data fresh.
  *
  * Auth:
- * - Vercel Cron header (`x-vercel-cron`)
- * - OR Authorization: Bearer <CRON_SECRET>
+ * - Authorization: Bearer <CRON_SECRET>
  */
 async function _GET(request: Request): Promise<Response> {
   try {

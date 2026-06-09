@@ -4,7 +4,7 @@
  * Tests for the /api/cron/forecast-alerts route.
  *
  * This route owns the disabled legacy daily forecast summary producer.
- * It requires valid cron authentication (Vercel cron header or Bearer token).
+ * It requires valid cron authentication (Bearer token).
  */
 
 import { GET } from "@/app/api/cron/forecast-alerts/route";
@@ -47,9 +47,9 @@ describe("Cron: forecast-alerts", () => {
       // Setup mock to return a successful result
       mockRunForecastThresholdAlerts.mockResolvedValue(createMockAlertResult());
 
-      // Create request with valid Vercel cron header
+      // Create request with valid Bearer token
       const request = createMockCronRequest("/api/cron/forecast-alerts", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -127,7 +127,7 @@ describe("Cron: forecast-alerts", () => {
       mockRunForecastThresholdAlerts.mockResolvedValue(alertResult);
 
       const request = createMockCronRequest("/api/cron/forecast-alerts", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -157,7 +157,7 @@ describe("Cron: forecast-alerts", () => {
       mockRunForecastThresholdAlerts.mockResolvedValue(alertResult);
 
       const request = createMockCronRequest("/api/cron/forecast-alerts", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -177,7 +177,7 @@ describe("Cron: forecast-alerts", () => {
       );
 
       const request = createMockCronRequest("/api/cron/forecast-alerts", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
@@ -200,7 +200,7 @@ describe("Cron: forecast-alerts", () => {
       );
 
       const request = createMockCronRequest("/api/cron/forecast-alerts", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
@@ -223,7 +223,7 @@ describe("Cron: forecast-alerts", () => {
       );
 
       const request = createMockCronRequest("/api/cron/forecast-alerts", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
@@ -245,7 +245,7 @@ describe("Cron: forecast-alerts", () => {
       mockRunForecastThresholdAlerts.mockRejectedValue("String error message");
 
       const request = createMockCronRequest("/api/cron/forecast-alerts", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
@@ -273,7 +273,7 @@ describe("Cron: forecast-alerts", () => {
       const result = await verifyIdempotency(
         GET,
         createMockCronRequest("/api/cron/forecast-alerts", {
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }),
         {
           // Ignore fields that are expected to vary between calls
@@ -322,14 +322,14 @@ describe("Cron: forecast-alerts", () => {
 
       // First request
       const request1 = createMockCronRequest("/api/cron/forecast-alerts", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
       const response1 = await GET(request1);
       const data1 = await response1.json();
 
       // Retry request
       const request2 = createMockCronRequest("/api/cron/forecast-alerts", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
       const response2 = await GET(request2);
       const data2 = await response2.json();
@@ -350,7 +350,7 @@ describe("Cron: forecast-alerts", () => {
       mockRunForecastThresholdAlerts.mockResolvedValue(createMockAlertResult());
 
       const request = createMockCronRequest("/api/cron/forecast-alerts", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -398,7 +398,7 @@ describe("Cron: forecast-alerts", () => {
       mockRunForecastThresholdAlerts.mockResolvedValue(alertResult);
 
       const request = createMockCronRequest("/api/cron/forecast-alerts", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -433,7 +433,7 @@ describe("Cron: forecast-alerts", () => {
       mockRunForecastThresholdAlerts.mockResolvedValue(alertResult);
 
       const request = createMockCronRequest("/api/cron/forecast-alerts", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);
@@ -461,7 +461,7 @@ describe("Cron: forecast-alerts", () => {
       mockRunForecastThresholdAlerts.mockResolvedValue(alertResult);
 
       const request = createMockCronRequest("/api/cron/forecast-alerts", {
-        authMethod: "vercel-header",
+        authMethod: "bearer-token",
       });
 
       const response = await GET(request);

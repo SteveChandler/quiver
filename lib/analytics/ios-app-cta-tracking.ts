@@ -1,4 +1,5 @@
 import { track } from "@/lib/analytics";
+import { deriveSeoPageContextFromPath } from "@/lib/analytics/web-context";
 import {
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_DESTINATION_STATUS,
@@ -27,6 +28,8 @@ export interface IosAppCtaMetadata {
 function buildIosAppCtaMetadata(
   metadata: IosAppCtaMetadata
 ): IosAppCtaMetadata {
+  const seoPageContext = deriveSeoPageContextFromPath();
+
   return {
     cta_family: "ios_app",
     platform: "ios",
@@ -34,6 +37,7 @@ function buildIosAppCtaMetadata(
     destination_status: IOS_APP_STORE_DESTINATION_STATUS,
     destination_url: IOS_APP_STORE_URL,
     cta_text: IOS_APP_STORE_CTA,
+    ...seoPageContext,
     ...metadata,
   };
 }

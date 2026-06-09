@@ -26,7 +26,7 @@ describe("buildIntentPageContent", () => {
     expect(content.title).toContain("Santa Cruz");
     expect(content.title).toContain("Beginner");
     expect(content.heading).toContain("Santa Cruz");
-    expect(content.intro).toBeTruthy();
+    expect(content.intro.length).toBeGreaterThan(0);
     expect(content.metaDescription).toContain("Santa Cruz");
     expect(content.metaDescription.length).toBeLessThanOrEqual(160);
   });
@@ -51,7 +51,7 @@ describe("buildIntentPageContent", () => {
     };
     const content = buildIntentPageContent("beginner", noBeginnerMetadata);
 
-    expect(content.intro).toBeTruthy();
+    expect(content.intro.length).toBeGreaterThan(0);
     // Should mention alternatives or acknowledge challenge
     expect(content.intro.toLowerCase()).toMatch(/challenging|advanced|experienced/);
   });
@@ -71,10 +71,10 @@ describe("buildIntentPageContent", () => {
       it(`generates valid content for ${intent} intent`, () => {
         const content = buildIntentPageContent(intent, mockMetadata);
 
-        expect(content.title).toBeTruthy();
-        expect(content.heading).toBeTruthy();
-        expect(content.intro).toBeTruthy();
-        expect(content.metaDescription).toBeTruthy();
+        expect(content.title.length).toBeGreaterThan(0);
+        expect(content.heading.length).toBeGreaterThan(0);
+        expect(content.intro.length).toBeGreaterThan(0);
+        expect(content.metaDescription.length).toBeGreaterThan(0);
         expect(content.metaDescription.length).toBeLessThanOrEqual(160);
       });
     });
@@ -206,6 +206,31 @@ describe("buildIntentPageContent", () => {
         waterTempData: { currentTemp: 62 },
       });
       expect(content.title).toContain("62°F");
+    });
+
+    it("rounds decimal water temps in SERP title and description copy", () => {
+      const content = buildIntentPageContent("water-temp", mockMetadata, {
+        waterTempData: { currentTemp: 62.4 },
+      });
+
+      expect(content.title).toContain("62°F");
+      expect(content.title).not.toContain("62.4°F");
+      expect(content.metaDescription).toContain("62°F");
+      expect(content.metaDescription).not.toContain("62.4°F");
+    });
+
+    it("uses answer-first water-temp copy for ranking city pages", () => {
+      const content = buildIntentPageContent("water-temp", mockMetadata, {
+        waterTempData: { currentTemp: 62 },
+      });
+
+      expect(content.title).toBe("Santa Cruz Water Temperature Today: 62°F");
+      expect(content.heading).toBe("Santa Cruz water temperature today");
+      expect(content.metaDescription).toContain(
+        "Santa Cruz water temperature today is 62°F"
+      );
+      expect(content.metaDescription.toLowerCase()).toContain("wetsuit");
+      expect(content.metaDescription.toLowerCase()).toContain("surf report");
     });
 
     it("uses fallback water-temp title when no temp data", () => {
