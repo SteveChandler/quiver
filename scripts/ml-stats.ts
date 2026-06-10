@@ -129,6 +129,16 @@ interface SessionWaveObservationCounts {
   effective_weak_label_mass?: number;
 }
 
+interface SessionTruthDiagnostics {
+  wave_height_sessions_90d_raw?: number;
+  wave_height_sessions_90d_non_deleted?: number;
+  wave_height_sessions_90d_strict_real?: number;
+  wave_height_sessions_90d_excluded_by_analytics_flag?: number;
+  wave_height_sessions_90d_mock_or_test_diagnostic?: number;
+  wave_height_sessions_90d_bot_flagged?: number;
+  wave_height_sessions_90d_snapshot_linked?: number;
+}
+
 interface AnonymousUserReliability {
   anonymous_user_rank: number;
   comparisons: number;
@@ -146,6 +156,7 @@ interface MatchDeltaBucket {
 
 interface SessionWaveObservationAnalytics {
   generated_at?: string;
+  session_truth?: SessionTruthDiagnostics;
   funnel?: SessionWaveObservationFunnel;
   quality?: SessionWaveObservationQuality;
   candidate_counts?: SessionWaveObservationCounts;
@@ -820,6 +831,7 @@ function formatSessionWaveObservationAnalytics(
   }
 
   const funnel = data.funnel ?? {};
+  const sessionTruth = data.session_truth ?? {};
   const quality = data.quality ?? {};
   const counts = data.candidate_counts ?? {};
   const userReliability = data.anonymous_user_reliability ?? [];
@@ -827,6 +839,16 @@ function formatSessionWaveObservationAnalytics(
 
   const lines = [
     "### Session Wave Observation Analytics",
+    "",
+    "| Session Truth Diagnostic (90d) | Count |",
+    "|--------------------------------|-------|",
+    `| Raw Wave-Height Sessions | ${sessionTruth.wave_height_sessions_90d_raw ?? 0} |`,
+    `| Non-Deleted Wave-Height Sessions | ${sessionTruth.wave_height_sessions_90d_non_deleted ?? 0} |`,
+    `| Strict Real Wave-Height Sessions | ${sessionTruth.wave_height_sessions_90d_strict_real ?? 0} |`,
+    `| Excluded by analytics_is_real_user | ${sessionTruth.wave_height_sessions_90d_excluded_by_analytics_flag ?? 0} |`,
+    `| Mock/Test Diagnostic | ${sessionTruth.wave_height_sessions_90d_mock_or_test_diagnostic ?? 0} |`,
+    `| Bot-Flagged Linked Events | ${sessionTruth.wave_height_sessions_90d_bot_flagged ?? 0} |`,
+    `| Strict Real with Forecast Snapshot | ${sessionTruth.wave_height_sessions_90d_snapshot_linked ?? 0} |`,
     "",
     "| Funnel | Count |",
     "|--------|-------|",

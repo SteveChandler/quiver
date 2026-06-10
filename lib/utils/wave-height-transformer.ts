@@ -526,6 +526,11 @@ export const SHORT_PERIOD_CUTOFF_S = 8;
  */
 export const WIND_WAVE_FACE_HEIGHT_CUTOFF_S = 9;
 
+const LONG_PERIOD_SOUTH_SWELL_FLOOR_MIN_PERIOD_S = 15;
+const LONG_PERIOD_SOUTH_SWELL_FLOOR_MIN_ACCESS = 0.02;
+const SOUTH_SWELL_FLOOR_MIN_DIRECTION_DEG = 160;
+const SOUTH_SWELL_FLOOR_MAX_DIRECTION_DEG = 230;
+
 /**
  * Compute the alignment weight for a single swell component against a beach's
  * swell window.
@@ -614,6 +619,38 @@ function isTerrainWeightedModelSource(
   return source === 'model_swell' || source === 'model_hs';
 }
 
+function isCdipObservationSource(
+  source: WaveHeightSourceTag | undefined,
+): boolean {
+  return source === 'cdip_sig' || source === 'cdip_swell';
+}
+
+function terrainAccessFactor(access: number): number {
+  if (access <= 0) {
+    return 0;
+  }
+
+  return DIRECTION_FACTOR_MIN + Math.sqrt(access) * DIRECTION_FACTOR_RANGE;
+}
+
+function directObservationFloorAccessFactor(access: number): number {
+  if (access <= 0) {
+    return 0;
+  }
+
+  return Math.sqrt(access);
+}
+
+function isLongPeriodSouthSwell(
+  componentDirDeg: number,
+  periodS: number,
+): boolean {
+  const direction = ((componentDirDeg % 360) + 360) % 360;
+  return periodS >= LONG_PERIOD_SOUTH_SWELL_FLOOR_MIN_PERIOD_S &&
+    direction >= SOUTH_SWELL_FLOOR_MIN_DIRECTION_DEG &&
+    direction <= SOUTH_SWELL_FLOOR_MAX_DIRECTION_DEG;
+}
+
 function canUseCalibratedShoaling(
   source: WaveHeightSourceTag | undefined,
   allowCalibratedShoaling?: boolean,
@@ -650,14 +687,38 @@ export function componentAccessFactor(
   }
 
   if (
-    isTerrainWeightedModelSource(source) &&
     hasValidSwellAccessFactors(beach) &&
     componentDirDeg != null &&
     Number.isFinite(componentDirDeg)
   ) {
     const bin = toBin5(componentDirDeg);
     const access = Math.max(0, Math.min(1, beach.swell_access_factors[bin]));
-    return DIRECTION_FACTOR_MIN + Math.sqrt(access) * DIRECTION_FACTOR_RANGE;
+
+    if (isTerrainWeightedModelSource(source)) {
+      return terrainAccessFactor(access);
+    }
+
+    const strictAlignment = alignmentFactor(
+      componentDirDeg,
+      periodS,
+      beach?.swell_window_center_deg ?? null,
+      beach?.swell_window_halfwidth_deg ?? null,
+      opts,
+    );
+
+    if (strictAlignment > 0) {
+      return strictAlignment;
+    }
+
+    if (
+      isCdipObservationSource(source) &&
+      access >= LONG_PERIOD_SOUTH_SWELL_FLOOR_MIN_ACCESS &&
+      isLongPeriodSouthSwell(componentDirDeg, periodS)
+    ) {
+      return directObservationFloorAccessFactor(access);
+    }
+
+    return strictAlignment;
   }
 
   return alignmentFactor(
@@ -816,6 +877,10 @@ export function transformToFaceHeightDecomposed(params: {
       continue;
     }
 
+    if (component.periodS <= SHORT_PERIOD_CUTOFF_S) {
+      continue;
+    }
+
     const accessFactor = componentAccessFactor(
       component.directionDeg,
       component.periodS,
@@ -846,8 +911,8 @@ export function transformToFaceHeightDecomposed(params: {
     sumOfSquares += faceI * faceI;
   }
 
-  // If every component was zeroed (e.g. all periods ≤ 8s on a short-period
-  // wind-swell day), fall back to legacy rather than displaying 0 ft.
+  // If every component was zeroed (e.g. all periods ≤ 8s or all components are
+  // outside the beach window), fall back to legacy rather than displaying 0 ft.
   if (sumOfSquares === 0) {
     const legacy = transformToFaceHeightWithMetadata({
       rawHeightFt, periodS, swellDirectionDeg, beach, source,
