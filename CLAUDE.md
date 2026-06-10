@@ -31,6 +31,16 @@ Full roster: `docs/AGENT_ROSTER.md`
 
 ---
 
+## Cross-App Product Unity
+
+Quiver web and Quiver Native are separate repos but one product. For UI, UX, surf-condition displays, API contracts, domain models, analytics events, or refactoring-opportunity work, use the `quiver-product-unity` skill.
+
+Before visible or contract changes, compare the counterpart surface in `../quiver-native` and the canonical design reference in `../Brand-Vault/style-guide/source-docs/DESIGN_SYSTEM.md`. If `graphify-out/graph.json` exists, query it before inventing a new pattern. Surface refactor opportunities as `P0` bug/regression, `P1` product drift, or `P2` cleanup, with file references.
+
+Do not make opportunistic cross-repo changes unless required for the requested task and covered by the relevant web/native tests.
+
+---
+
 ## Core Patterns
 
 ### Data Fetching
