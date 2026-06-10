@@ -310,6 +310,90 @@ describe("session intelligence surface adapters", () => {
     expect(recommendations.every((item) => item.universalLink)).toBe(true);
   });
 
+  describe("verdict/score consistency", () => {
+    it("overrides a gate-capped label with the score-band verdict and surfaces a character watchout first", () => {
+      const recommendation = makeDiscoveryRecommendation(1, {
+        score: 92,
+        recommendationLabel: "Maybe",
+        character: { label: "Rough", category: "rough" },
+      });
+
+      const [result] = buildHomepageSurfWindowRecommendations({
+        recommendations: [recommendation],
+        now: NOW,
+      });
+
+      expect(result.score).toBe(92);
+      expect(result.verdict).toBe("Worth it");
+      expect(result.watchouts[0]).toMatch(/rough/i);
+      expect(result.watchouts[0]).toMatch(/despite the high score/i);
+    });
+
+    it("uses a generic watchout when the gate fired without a character label", () => {
+      const recommendation = makeDiscoveryRecommendation(1, {
+        score: 92,
+        recommendationLabel: "Maybe",
+        character: undefined,
+      });
+
+      const [result] = buildHomepageSurfWindowRecommendations({
+        recommendations: [recommendation],
+        now: NOW,
+      });
+
+      expect(result.verdict).toBe("Worth it");
+      expect(result.watchouts[0]).toMatch(/high score but mixed conditions/i);
+    });
+
+    it("keeps the label when it agrees with the score band and injects no watchout", () => {
+      const recommendation = makeDiscoveryRecommendation(1, {
+        score: 92,
+        recommendationLabel: "Worth it",
+      });
+
+      const [result] = buildHomepageSurfWindowRecommendations({
+        recommendations: [recommendation],
+        now: NOW,
+      });
+
+      expect(result.verdict).toBe("Worth it");
+      expect(result.watchouts).toEqual(["Watch the tide swing"]);
+    });
+
+    it("keeps an agreeing Maybe label for a mid-band score", () => {
+      const recommendation = makeDiscoveryRecommendation(1, {
+        score: 55,
+        recommendationLabel: "Maybe",
+      });
+
+      const [result] = buildHomepageSurfWindowRecommendations({
+        recommendations: [recommendation],
+        now: NOW,
+      });
+
+      expect(result.verdict).toBe("Maybe");
+      expect(result.watchouts).toEqual(["Watch the tide swing"]);
+    });
+
+    it("falls back to score bands when no label exists", () => {
+      const [maybe] = buildHomepageSurfWindowRecommendations({
+        recommendations: [
+          makeDiscoveryRecommendation(1, { score: 65, recommendationLabel: undefined }),
+        ],
+        now: NOW,
+      });
+      const [skip] = buildHomepageSurfWindowRecommendations({
+        recommendations: [
+          makeDiscoveryRecommendation(1, { score: 35, recommendationLabel: undefined }),
+        ],
+        now: NOW,
+      });
+
+      expect(maybe.verdict).toBe("Maybe");
+      expect(skip.verdict).toBe("Skip");
+    });
+  });
+
   it("handles cached homepage discovery peak times restored as strings", () => {
     const recommendation = makeDiscoveryRecommendation(1, {
       window: {

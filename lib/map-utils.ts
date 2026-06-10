@@ -365,6 +365,7 @@ export function getStaticMapImageUrl(
     height?: number;
     zoom?: number;
     markerText?: string;
+    style?: string;
   } = {}
 ): string {
   // If no coordinates, return enhanced placeholder with helpful message
@@ -392,7 +393,8 @@ export function getStaticMapImageUrl(
   }
 
   // Check cache first to prevent duplicate generation
-  const cacheKey = `${latitude},${longitude},${options.width || 300},${options.height || 120},${options.zoom || 14},${options.markerText || ''}`;
+  // Style is part of the key so satellite and outdoors URLs for the same coords don't collide
+  const cacheKey = `${latitude},${longitude},${options.width || 300},${options.height || 120},${options.zoom || 14},${options.markerText || ''},${options.style || ''}`;
   const cachedUrl = getCachedMapUrl(cacheKey);
   if (cachedUrl) {
     return cachedUrl;
@@ -483,6 +485,59 @@ export function getStaticMapImageUrlWithWaveHeight(
     ...options,
     markerText: waveHeightText,
   });
+}
+
+export interface StaticMapPin {
+  latitude: number;
+  longitude: number;
+  /** Mapbox pin label — rank numbers 0-99 or a single letter */
+  label?: string;
+  /** Hex color without the leading hash */
+  color?: string;
+}
+
+/**
+ * Generate a multi-pin static map URL with an auto-fitted viewport.
+ *
+ * Returns null when the Mapbox token is missing or no valid pins remain —
+ * callers should hide the map entirely. The single-coordinate SVG placeholder
+ * is intentionally NOT used here because it cannot represent multiple pins.
+ */
+export function getStaticMapImageUrlWithPins(
+  pins: StaticMapPin[],
+  options: {
+    width?: number;
+    height?: number;
+    style?: string;
+    padding?: number;
+  } = {}
+): string | null {
+  const {
+    width = 768,
+    height = 320,
+    style = "mapbox/outdoors-v12",
+    padding = 50,
+  } = options;
+
+  const accessToken =
+    process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN ||
+    (process as any).env?.NEXT_PUBLIC_MAPBOX_TOKEN;
+  if (!accessToken) return null;
+
+  const validPins = pins.filter((pin) =>
+    isValidCoordinates(pin.latitude, pin.longitude)
+  );
+  if (validPins.length === 0) return null;
+
+  const markers = validPins
+    .map((pin) => {
+      const label = pin.label ? `-${pin.label}` : "";
+      const color = pin.color ?? "F78E42"; // Charming Orange
+      return `pin-s${label}+${color}(${pin.longitude},${pin.latitude})`;
+    })
+    .join(",");
+
+  return `https://api.mapbox.com/styles/v1/${style}/static/${markers}/auto/${width}x${height}@2x?access_token=${accessToken}&padding=${padding}`;
 }
 
 // Helper function to extract coordinates from Beach object

@@ -1,5 +1,6 @@
 import {
   getStaticMapImageUrl,
+  getStaticMapImageUrlWithPins,
   getStaticMapImageUrlWithWaveHeight,
   getBeachCoordinates,
   resolveBeachCoordinates,
@@ -68,6 +69,67 @@ describe("Map Utils", () => {
       // Should either be a URL or placeholder
       expect(result).toBeDefined();
       expect(typeof result).toBe("string");
+    });
+
+    it("passes a custom style through to the Mapbox URL and keys the cache by style", () => {
+      // Unique coords so earlier tests' cached entries can't collide
+      const satellite = getStaticMapImageUrl(33.123, -117.456, {
+        style: "mapbox/satellite-v9",
+      });
+      const outdoors = getStaticMapImageUrl(33.123, -117.456, {});
+
+      expect(satellite).toContain("mapbox/satellite-v9");
+      expect(outdoors).toContain("mapbox/outdoors-v12");
+      expect(satellite).not.toEqual(outdoors);
+    });
+  });
+
+  describe("getStaticMapImageUrlWithPins", () => {
+    it("builds an auto-viewport multi-pin URL with rank labels", () => {
+      const url = getStaticMapImageUrlWithPins(
+        [
+          { latitude: 32.8, longitude: -117.25, label: "1" },
+          { latitude: 33.0, longitude: -117.3, label: "2" },
+          { latitude: 32.9, longitude: -117.28, label: "3" },
+        ],
+        { style: "mapbox/satellite-streets-v12" }
+      );
+
+      expect(url).not.toBeNull();
+      expect(url).toContain("pin-s-1+F78E42(");
+      expect(url).toContain("pin-s-2+");
+      expect(url).toContain("pin-s-3+");
+      expect(url).toContain("/auto/");
+      expect(url).toContain("@2x");
+      expect(url).toContain("mapbox/satellite-streets-v12");
+      expect(url).toContain("access_token=test-mapbox-token");
+    });
+
+    it("returns null when no Mapbox token is configured", () => {
+      delete process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+      delete process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+      const url = getStaticMapImageUrlWithPins([
+        { latitude: 32.8, longitude: -117.25, label: "1" },
+      ]);
+
+      expect(url).toBeNull();
+    });
+
+    it("filters invalid pins and returns null when none remain", () => {
+      const url = getStaticMapImageUrlWithPins([
+        { latitude: 999, longitude: -117.25, label: "1" },
+        { latitude: 32.8, longitude: -117.25, label: "2" },
+      ]);
+
+      expect(url).not.toBeNull();
+      expect(url).toContain("pin-s-2+");
+      expect(url).not.toContain("pin-s-1+");
+
+      expect(getStaticMapImageUrlWithPins([])).toBeNull();
+      expect(
+        getStaticMapImageUrlWithPins([{ latitude: 999, longitude: 999 }])
+      ).toBeNull();
     });
   });
 
