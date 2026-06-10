@@ -13,7 +13,10 @@ import { Badge } from "@/components/ui/badge";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import { cn } from "@/lib/utils";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
-import { getSurfWindowSourceLabels } from "./source-confidence-badge";
+import {
+  SourceConfidenceBadge,
+  getSurfWindowSourceLabels,
+} from "./source-confidence-badge";
 import {
   buildSurfWindowTrackingContext,
   buildSurfWindowTrackingMetadata,
@@ -142,6 +145,11 @@ export function WhyThisCall({
               <h4 className="font-heading text-sm font-semibold text-white">
                 Confidence
               </h4>
+              {/* Demoted from the card badge row — confidence detail belongs with the explanation */}
+              <SourceConfidenceBadge
+                confidence={recommendation.confidence}
+                sources={recommendation.sources}
+              />
               <p className="text-sm text-white/70">{recommendation.confidence.summary}</p>
               <ExplanationList
                 items={recommendation.confidence.reasons}

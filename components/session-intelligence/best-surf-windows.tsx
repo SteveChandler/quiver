@@ -1,17 +1,19 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Clock, Tags } from "lucide-react";
+import { ArrowRight, Clock, Tags } from "lucide-react";
 
+import { MapImage } from "@/components/map-image";
 import { QuiverSticker } from "@/components/zine/quiver-sticker";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useTrackEvent } from "@/hooks/use-track-event";
+import { getStaticMapImageUrl } from "@/lib/map-utils";
 import { cn } from "@/lib/utils";
 import type { QuiverStickerKey } from "@/lib/ui/quiver-sticker-assets";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
 import { AppDeepLinkCTA } from "./app-deep-link-cta";
-import { SourceConfidenceBadge } from "./source-confidence-badge";
 import { WhyThisCall } from "./why-this-call";
 import {
   buildSurfWindowTrackingContext,
@@ -26,6 +28,8 @@ export interface BestSurfWindowsProps {
   ctaLabel?: string;
   surface?: string;
   className?: string;
+  /** Suppress the inner title/subtitle block (the section keeps aria-label={title}) */
+  hideHeader?: boolean;
 }
 
 function verdictClasses(verdict: SurfWindowRecommendation["verdict"]): string {
@@ -87,23 +91,98 @@ function WindowCard({
   ctaLabel?: string;
   surface: string;
 }) {
+  const { track } = useTrackEvent();
   const tracking = buildSurfWindowTrackingContext(recommendation, surface);
+  const isFeatured = recommendation.rank === 1;
+  const beach = recommendation.beach;
+  const locality =
+    [beach.city, beach.state].filter(Boolean).join(", ") || beach.region || null;
+  const webUrl = recommendation.canonicalWebUrl;
+
+  // Real satellite tile or nothing — the single-coord SVG placeholder would
+  // break the dark zine card, so data: URLs (missing token) hide the thumb.
+  const mapSrc =
+    beach.lat != null && beach.lon != null
+      ? getStaticMapImageUrl(beach.lat, beach.lon, {
+          width: 640,
+          height: 280,
+          zoom: 13,
+          style: "mapbox/satellite-v9",
+        })
+      : null;
+  const thumbnailSrc = mapSrc && !mapSrc.startsWith("data:") ? mapSrc : null;
+
+  function handleWebClick(): void {
+    if (!webUrl) return;
+    void track("surf_window_click", {
+      beachId: beach.id,
+      metadata: buildSurfWindowTrackingMetadata(tracking, {
+        targetHref: webUrl,
+        linkType: "web",
+      }),
+      debounceMs: 0,
+    });
+  }
+
+  const thumbnail = thumbnailSrc ? (
+    <MapImage
+      src={thumbnailSrc}
+      alt={`Satellite view of ${beach.name}`}
+      fill
+      beachName={beach.name}
+    />
+  ) : null;
+
+  const titleHeading = (
+    <h3
+      className={cn(
+        "font-heading font-semibold leading-tight text-white",
+        isFeatured ? "text-2xl" : "text-lg"
+      )}
+    >
+      {beach.name}
+    </h3>
+  );
 
   return (
     <Card
       data-testid="surf-window-card"
-      className="relative flex h-full flex-col gap-4 overflow-hidden rounded-xl border-[#404C92] bg-[#2D357D] p-4 text-white shadow-[0_8px_24px_rgba(0,0,0,0.28)]"
+      className={cn(
+        "relative flex h-full flex-col gap-4 overflow-hidden rounded-xl border-[#404C92] bg-[#2D357D] p-4 text-white shadow-[0_8px_24px_rgba(0,0,0,0.28)]",
+        isFeatured && "md:col-span-2 xl:col-span-2"
+      )}
     >
       <QuiverSticker
-        sticker={recommendation.rank === 1 ? "breakingWave" : "singleFin"}
+        sticker={isFeatured ? "breakingWave" : "singleFin"}
         className={cn(
           "absolute -right-8 -top-8 h-24 w-24 object-contain opacity-[0.08]",
-          recommendation.rank === 1 ? "rotate-6" : "-rotate-12"
+          isFeatured ? "rotate-6" : "-rotate-12"
         )}
         sizes="96px"
       />
+      {thumbnail ? (
+        <div
+          className={cn(
+            "relative shrink-0 overflow-hidden rounded-[12px_4px_14px_6px] border border-white/10 shadow-[2px_3px_0_rgba(0,0,0,0.22)]",
+            isFeatured ? "h-44" : "h-28"
+          )}
+        >
+          {webUrl ? (
+            <a
+              href={webUrl}
+              aria-label={`View ${beach.name} forecast`}
+              onClick={handleWebClick}
+              className="block h-full w-full"
+            >
+              {thumbnail}
+            </a>
+          ) : (
+            thumbnail
+          )}
+        </div>
+      ) : null}
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 space-y-2">
+        <div className="min-w-0 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <Badge
               variant="outline"
@@ -116,9 +195,22 @@ function WindowCard({
               {recommendation.localTimeLabel}
             </span>
           </div>
-          <h3 className="font-heading text-lg font-semibold leading-tight text-white">
-            {recommendation.headline}
-          </h3>
+          {webUrl ? (
+            <a
+              href={webUrl}
+              onClick={handleWebClick}
+              className="block decoration-[#F78E42]/60 underline-offset-4 hover:underline"
+            >
+              {titleHeading}
+            </a>
+          ) : (
+            titleHeading
+          )}
+          {locality ? (
+            <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#B8C7E0]/65">
+              {locality}
+            </p>
+          ) : null}
         </div>
         <ScoreDisk score={recommendation.score} />
       </div>
@@ -133,10 +225,6 @@ function WindowCard({
         >
           {recommendation.verdict}
         </Badge>
-        <SourceConfidenceBadge
-          confidence={recommendation.confidence}
-          sources={recommendation.sources}
-        />
       </div>
 
       <div className="grid gap-2">
@@ -176,9 +264,26 @@ function WindowCard({
       </div>
 
       <div className="mt-auto grid gap-3">
+        {webUrl ? (
+          <Button
+            asChild
+            size="sm"
+            className="h-10 w-full rounded-[12px_4px_14px_6px] bg-[#F78E42] text-[#252D6B] shadow-[2px_3px_0_rgba(0,0,0,0.28)] hover:bg-[#F78E42]/90"
+          >
+            <a
+              href={webUrl}
+              data-testid="surf-window-web-cta"
+              onClick={handleWebClick}
+            >
+              <span>View spot forecast</span>
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </a>
+          </Button>
+        ) : null}
         <AppDeepLinkCTA
           links={recommendation}
           label={ctaLabel}
+          variant="ghost"
           tracking={tracking}
         />
         <WhyThisCall recommendation={recommendation} surface={surface} />
@@ -195,6 +300,7 @@ export function BestSurfWindows({
   ctaLabel,
   surface = "session_intelligence",
   className,
+  hideHeader = false,
 }: BestSurfWindowsProps) {
   const { track } = useTrackEvent();
   const trackedImpressions = useRef<Set<string>>(new Set());
@@ -222,7 +328,9 @@ export function BestSurfWindows({
         aria-label={title}
         className={cn("space-y-3", className)}
       >
-        <h2 className="font-heading text-xl font-semibold text-white">{title}</h2>
+        {hideHeader ? null : (
+          <h2 className="font-heading text-xl font-semibold text-white">{title}</h2>
+        )}
         <p role="status" className="text-sm text-white/65">
           No recommended surf windows are available yet.
         </p>
@@ -236,10 +344,12 @@ export function BestSurfWindows({
       aria-label={title}
       className={cn("space-y-4", className)}
     >
-      <div className="space-y-1">
-        <h2 className="font-heading text-xl font-semibold text-white">{title}</h2>
-        {subtitle ? <p className="text-sm text-white/62">{subtitle}</p> : null}
-      </div>
+      {hideHeader ? null : (
+        <div className="space-y-1">
+          <h2 className="font-heading text-xl font-semibold text-white">{title}</h2>
+          {subtitle ? <p className="text-sm text-white/62">{subtitle}</p> : null}
+        </div>
+      )}
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         {visibleRecommendations.map((recommendation) => (
           <WindowCard

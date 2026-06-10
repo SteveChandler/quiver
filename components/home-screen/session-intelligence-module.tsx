@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
+import { MapImage } from "@/components/map-image";
 import { BestSurfWindows } from "@/components/session-intelligence";
+import { getStaticMapImageUrlWithPins } from "@/lib/map-utils";
 import { buildHomepageSurfWindowRecommendations } from "@/lib/recommendations/session-intelligence-surface-adapters";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 
@@ -20,6 +22,24 @@ export function SessionIntelligenceModule({
     recommendations,
     baseUrl,
   });
+
+  // Regional overview map: numbered rank pins for every window with coords.
+  // Hidden entirely (no placeholder) below 2 pins or without a Mapbox token.
+  const rankPins = surfWindows
+    .filter((window) => window.beach.lat != null && window.beach.lon != null)
+    .map((window) => ({
+      latitude: window.beach.lat as number,
+      longitude: window.beach.lon as number,
+      label: String(window.rank),
+    }));
+  const overviewMapUrl =
+    rankPins.length >= 2
+      ? getStaticMapImageUrlWithPins(rankPins, {
+          width: 1024,
+          height: 288,
+          style: "mapbox/satellite-streets-v12",
+        })
+      : null;
 
   return (
     <section
@@ -48,12 +68,20 @@ export function SessionIntelligenceModule({
         </Link>
       </div>
 
+      {overviewMapUrl ? (
+        <div className="relative mb-4 h-40 overflow-hidden rounded-xl border border-white/10 sm:h-48">
+          <MapImage
+            src={overviewMapUrl}
+            alt="Map of your top surf windows"
+            fill
+          />
+        </div>
+      ) : null}
+
       {surfWindows.length > 0 ? (
         <BestSurfWindows
           recommendations={surfWindows}
-          title="Best windows from your feed"
-          subtitle="Open the app link when you want the exact spot and time window."
-          ctaLabel="Open in app"
+          hideHeader
           surface="homepage"
         />
       ) : (

@@ -86,6 +86,12 @@ describe("RegionalBestSurfWindows", () => {
     expect(screen.getByRole("heading", { name: "Best windows this week" })).toBeVisible();
     expect(screen.getByText(/southern california/i)).toBeVisible();
     expect(screen.getAllByTestId("surf-window-card")).toHaveLength(2);
+    // Cards lead with the spot name + locality, not the sentence headline
+    expect(screen.getByRole("heading", { name: "Blacks" })).toBeVisible();
+    expect(screen.getAllByText("San Diego, CA")[0]).toBeVisible();
+    expect(
+      screen.queryByText("Window 1 looks worth it at Blacks")
+    ).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /why this call/i })[0]).toBeVisible();
   });
 

@@ -115,6 +115,10 @@ function makeDiscoveryRecommendation(
 }
 
 describe("SessionIntelligenceModule", () => {
+  afterEach(() => {
+    delete process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+  });
+
   it("renders a compact homepage module with browse and app CTAs", () => {
     render(
       <SessionIntelligenceModule
@@ -135,10 +139,75 @@ describe("SessionIntelligenceModule", () => {
       "href",
       "/forecast"
     );
-    expect(screen.getAllByRole("link", { name: "Open in app" })[0]).toHaveAttribute(
+    expect(screen.getAllByRole("link", { name: "Take it with you" })[0]).toHaveAttribute(
       "href",
       expect.stringMatching(/^https:\/\/example.com\/app\/spot\/blacks\?window=/)
     );
+  });
+
+  it("renders exactly one heading without the inner duplicate title or apologetic subtitle", () => {
+    render(
+      <SessionIntelligenceModule
+        recommendations={[
+          makeDiscoveryRecommendation(1),
+          makeDiscoveryRecommendation(2),
+        ]}
+        baseUrl="https://example.com"
+      />
+    );
+
+    expect(
+      screen.getAllByRole("heading", { name: "Find your next best surf window" })
+    ).toHaveLength(1);
+    expect(screen.queryByText("Best windows from your feed")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/open the app link when you want/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders a regional overview map with rank pins when 2+ windows have coords and a token exists", () => {
+    process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = "test-mapbox-token";
+
+    render(
+      <SessionIntelligenceModule
+        recommendations={[
+          makeDiscoveryRecommendation(1),
+          makeDiscoveryRecommendation(2),
+          makeDiscoveryRecommendation(3),
+        ]}
+        baseUrl="https://example.com"
+      />
+    );
+
+    const overviewMap = screen.getByAltText("Map of your top surf windows");
+    expect(overviewMap).toHaveAttribute(
+      "src",
+      expect.stringContaining("pin-s-1")
+    );
+    expect(overviewMap).toHaveAttribute(
+      "src",
+      expect.stringContaining("/auto/")
+    );
+  });
+
+  it("renders no overview map without a Mapbox token", () => {
+    delete process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+    delete process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+
+    render(
+      <SessionIntelligenceModule
+        recommendations={[
+          makeDiscoveryRecommendation(1),
+          makeDiscoveryRecommendation(2),
+        ]}
+        baseUrl="https://example.com"
+      />
+    );
+
+    expect(
+      screen.queryByAltText("Map of your top surf windows")
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("surf-window-card")).toHaveLength(2);
   });
 
   it("renders a forecast fallback when discovery has no recommendations", () => {
