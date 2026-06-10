@@ -25,6 +25,14 @@ const DEFAULT_MAX_RECOMMENDATIONS = 3;
 const REGIONAL_MAX_RECOMMENDATIONS = 5;
 const HOMEPAGE_MAX_RECOMMENDATIONS = 5;
 
+function recommendationWindowIdentity(
+  recommendation: SurfDiscoveryRecommendation
+): string {
+  return recommendation.kind === "custom_spot" && recommendation.customSpotId
+    ? `custom:${recommendation.customSpotId}`
+    : recommendation.beach.id;
+}
+
 export interface BuildSpotSurfWindowRecommendationsInput
   extends Pick<
     BuildSurfWindowRecommendationsOptions,
@@ -222,7 +230,7 @@ function homepageRecommendation(
   const startIso = start.toISOString();
   const endIso = end.toISOString();
   const peakIso = peak.toISOString();
-  const windowId = buildWindowId(recommendation.beach.id, startIso);
+  const windowId = buildWindowId(recommendationWindowIdentity(recommendation), startIso);
   const score = clampScore(recommendation.score);
   const confidenceScore = clampScore(recommendation.window.confidence);
   const confidence = confidenceLevel(confidenceScore);

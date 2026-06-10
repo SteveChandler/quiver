@@ -80,6 +80,10 @@ function makeDiscoveryResponse() {
   return {
     recommendations: [
       {
+        kind: "custom_spot",
+        customSpotId: "custom-spot-contract-id",
+        visibility: "public",
+        isOwn: false,
         beach: {
           id: "beach-secret-id",
           name: "Ocean Beach Pier",
@@ -151,6 +155,10 @@ function makeDiscoveryResponse() {
     ],
     includedRecommendations: [
       {
+        kind: "beach",
+        customSpotId: null,
+        visibility: null,
+        isOwn: false,
         beach: {
           id: "included-secret-id",
           name: "Saved Secret Beach",
@@ -452,6 +460,31 @@ describe("/api/surf/discover entitlement resolution", () => {
     expect(body.data.recommendations[0].personalExplanation).not.toEqual(
       expect.stringContaining("Matches your surfing patterns")
     );
+  });
+
+  it("preserves recommendation discriminator metadata in the route response", async () => {
+    mockDiscoverSurfSpots.mockResolvedValue(makeDiscoveryResponse());
+
+    const response = await callDiscoverRoute({
+      is_pro: true,
+      is_trialing: false,
+      billing_issue: false,
+      expires_at: null,
+    });
+    const body = await response.json();
+
+    expect(body.data.recommendations[0]).toMatchObject({
+      kind: "custom_spot",
+      customSpotId: "custom-spot-contract-id",
+      visibility: "public",
+      isOwn: false,
+    });
+    expect(body.data.includedRecommendations[0]).toMatchObject({
+      kind: "beach",
+      customSpotId: null,
+      visibility: null,
+      isOwn: false,
+    });
   });
 
   it("free users receive recommendations when the best-spot gate is not enabled", async () => {

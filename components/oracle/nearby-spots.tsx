@@ -9,6 +9,9 @@ import type { StrategyTag } from "@/types/personalization";
 
 export interface NearbySpot {
   id: string;
+  kind?: "beach" | "custom_spot";
+  beachId?: string | null;
+  customSpotId?: string | null;
   name: string;
   conditions: string;
   height: string;

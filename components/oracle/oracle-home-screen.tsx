@@ -308,6 +308,16 @@ type HeroReasonContext = {
   verdict?: "YES" | "MAYBE" | "NO";
 };
 
+function isCustomSpotRecommendation(rec: SurfDiscoveryRecommendation | null | undefined): boolean {
+  return rec?.kind === "custom_spot" && !!rec.customSpotId;
+}
+
+function getRecommendationIdentity(rec: SurfDiscoveryRecommendation): string {
+  return isCustomSpotRecommendation(rec)
+    ? `custom:${rec.customSpotId}`
+    : `beach:${rec.beach.id}`;
+}
+
 /**
  * Build a short, hero-relative reason string for a backup spot card.
  *
@@ -366,8 +376,12 @@ function transformToNearbySpots(
     const waveHeight = parseFloat(String(rec.forecast.wave_height ?? "0"));
     // Show skill mismatch when beach exceeds user level AND conditions are non-trivial
     const skillMismatch = userRank >= 0 && beachRank > userRank && waveHeight > 2;
+    const isCustom = isCustomSpotRecommendation(rec);
     return {
-      id: rec.beach.id,
+      id: getRecommendationIdentity(rec),
+      kind: isCustom ? "custom_spot" : "beach",
+      beachId: rec.beach.id,
+      customSpotId: isCustom ? rec.customSpotId ?? null : null,
       name: rec.beach.name,
       conditions: rec.summary,
       height: rec.waveHeightBadge ?? rec.forecast.wave_height ?? "—",
@@ -485,13 +499,18 @@ export function OracleHomeScreen() {
 
   const homeBeachRec = useMemo(() => {
     if (!homeBeach?.id || !oracle.discovery?.recommendations) return null;
-    return oracle.discovery.recommendations.find(r => r.beach.id === homeBeach.id) ?? null;
+    return oracle.discovery.recommendations.find(
+      r => !isCustomSpotRecommendation(r) && r.beach.id === homeBeach.id
+    ) ?? null;
   }, [homeBeach?.id, oracle.discovery?.recommendations]);
 
   const heroRec = topRec;
   const heroBeach = heroRec?.beach;
 
-  const homeIsTopRec = !!homeBeach?.id && topRec?.beach.id === homeBeach.id;
+  const homeIsTopRec =
+    !!homeBeach?.id &&
+    !isCustomSpotRecommendation(topRec) &&
+    topRec?.beach.id === homeBeach.id;
   const showHomeCard = !!homeBeach && !!homeBeachRec && !homeIsTopRec;
 
   // ------------------------------------------------------------------
@@ -654,7 +673,12 @@ export function OracleHomeScreen() {
 
   const handleViewSpot = useCallback(
     (spotId: string) => {
-      const spot = oracle.discovery?.recommendations?.find((r) => r.beach.id === spotId);
+      const spot = oracle.discovery?.recommendations?.find(
+        (r) =>
+          getRecommendationIdentity(r) === spotId ||
+          (!isCustomSpotRecommendation(r) && r.beach.id === spotId)
+      );
+      if (!spot || isCustomSpotRecommendation(spot)) return;
       if (!spot?.beach.slug) return;
 
       const city = spot.beach.city?.toLowerCase().replace(/\s+/g, "-") ?? "";
@@ -773,14 +797,14 @@ export function OracleHomeScreen() {
   }, [heroSurfCall]);
 
   const nearbySpots = useMemo(() => {
-    const heroBeachId = heroRec?.beach?.id;
+    const heroIdentity = heroRec ? getRecommendationIdentity(heroRec) : null;
     const spots = (oracle.discovery?.recommendations ?? [])
-      .filter(r => r.beach.id !== heroBeachId)
+      .filter(r => getRecommendationIdentity(r) !== heroIdentity)
       .sort((a, b) => (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity));
     return transformToNearbySpots(spots, oracle.userSkillLevel, heroReasonContext);
   }, [
     oracle.discovery?.recommendations,
-    heroRec?.beach?.id,
+    heroRec,
     oracle.userSkillLevel,
     heroReasonContext,
   ]);
@@ -891,12 +915,15 @@ export function OracleHomeScreen() {
           settings surface, not as a full-width prompt above the
           primary CTA. Plan: abstract-exploring-phoenix (E2). */}
 
-      {/* 2-column at md+: left = CTA + Windows, right = Nearby + Activity.
+      {/* 2-column at lg+: left = CTA + Windows, right = Nearby + Activity.
           On mobile this falls back to a single stacked column automatically. */}
       {/* TODO: Wire hasSessionToday (check sessions table for today) and
            hasFollows (check follows count) to enable "Share your session"
            and "Tell your crew" CTA branches. */}
-      <div className="md:grid md:grid-cols-[minmax(0,1fr)_380px] md:gap-6 md:px-6 md:py-4">
+      <div
+        className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-6 lg:px-6 lg:py-4"
+        data-testid="oracle-home-content-grid"
+      >
         {/* Left column: CTA + Today's Windows */}
         <div className="min-w-0 space-y-6">
           <ContextualCTA
@@ -913,7 +940,7 @@ export function OracleHomeScreen() {
             onShareSession={handleShareSession}
           />
 
-          <div className="px-6 md:px-0">
+          <div className="px-6 lg:px-0">
             <TodaysWindows
               windows={timeWindows}
               preferredTime={preferredTime}
@@ -925,7 +952,7 @@ export function OracleHomeScreen() {
         </div>
 
         {/* Right column: Nearby Spots + Activity Feed */}
-        <div className="min-w-0 space-y-6 px-6 pb-24 md:px-0 md:pb-6">
+        <div className="min-w-0 space-y-6 px-6 pb-24 lg:px-0 lg:pb-6">
           <NearbySpots
             spots={nearbySpots}
             onViewSpot={handleViewSpot}
