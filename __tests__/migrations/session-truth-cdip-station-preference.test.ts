@@ -103,3 +103,22 @@ describe("CDIP station impact report", () => {
     expect(reportSQL).not.toMatch(/\bREFRESH\b/i);
   });
 });
+
+describe("CDIP station resolver search path hotfix", () => {
+  it("keeps PostGIS extension types visible to station resolver fallback tiers", () => {
+    const migrationDir = join(__dirname, "../../supabase/migrations");
+    const hotfixFile = readdirSync(migrationDir).find((file: string) =>
+      file.includes("fix_cdip_station_resolver_search_path")
+    );
+
+    if (!hotfixFile) {
+      throw new Error("CDIP station resolver search-path hotfix migration not found");
+    }
+
+    const hotfixSQL = readFileSync(join(migrationDir, hotfixFile), "utf8");
+
+    expect(hotfixSQL).toMatch(/ALTER FUNCTION public\.get_beach_observation_station\(uuid\)/i);
+    expect(hotfixSQL).toMatch(/SET search_path = public, extensions, pg_temp/i);
+    expect(hotfixSQL).not.toMatch(/CREATE\s+OR\s+REPLACE\s+FUNCTION/i);
+  });
+});
