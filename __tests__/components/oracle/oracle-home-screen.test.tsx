@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OracleHomeScreen } from "@/components/oracle/oracle-home-screen";
 import type { OracleData } from "@/hooks/use-oracle-data";
@@ -376,9 +376,10 @@ describe("OracleHomeScreen", () => {
 
   it("renders the hero section with beach data", () => {
     render(<OracleHomeScreen />);
-    expect(screen.getByRole("banner")).toBeInTheDocument();
+    const hero = screen.getByRole("banner");
+    expect(hero).toBeInTheDocument();
     // Beach name appears inside the hero conditions overlay
-    expect(screen.getByText("Blacks Beach")).toBeInTheDocument();
+    expect(within(hero).getByText("Blacks Beach")).toBeInTheDocument();
   });
 
   it("renders wave height in the hero", () => {
@@ -931,7 +932,8 @@ describe("OracleHomeScreen", () => {
       // NOT the home beach wave height (1-2ft from MOCK_HOME_REC).
       expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("3-4ft");
       // Beach name in the conditions overlay is the topRec's name.
-      expect(screen.getByText("Blacks Beach")).toBeInTheDocument();
+      const hero = screen.getByRole("banner");
+      expect(within(hero).getByText("Blacks Beach")).toBeInTheDocument();
     });
 
     it("renders the drive subtitle with rounded miles + cardinal word", () => {

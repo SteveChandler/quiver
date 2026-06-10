@@ -95,13 +95,39 @@ function confidenceLevel(score: number): SurfWindowConfidenceLevel {
   return "low";
 }
 
+function verdictForScore(score: number): SurfWindowVerdict {
+  if (score >= 70) return "Worth it";
+  if (score >= 40) return "Maybe";
+  return "Skip";
+}
+
+const VERDICT_SEVERITY: Record<SurfWindowVerdict, number> = {
+  Skip: 0,
+  Maybe: 1,
+  "Worth it": 2,
+};
+
+// One-system rule: the verdict always derives from the displayed score band so a
+// 92 can never render beside a "Maybe" badge. The upstream recommendationLabel
+// gate encodes condition character (rough/mixed/weak), not personalization — when
+// it disagrees downward, that nuance moves into a watchout instead of the badge.
 function verdictForRecommendation(
   recommendation: SurfDiscoveryRecommendation
 ): SurfWindowVerdict {
-  if (recommendation.recommendationLabel) return recommendation.recommendationLabel;
-  if (recommendation.score >= 70) return "Worth it";
-  if (recommendation.score >= 40) return "Maybe";
-  return "Skip";
+  return verdictForScore(clampScore(recommendation.score));
+}
+
+function gateCapWatchout(
+  recommendation: SurfDiscoveryRecommendation,
+  verdict: SurfWindowVerdict
+): string | null {
+  const label = recommendation.recommendationLabel;
+  if (!label || VERDICT_SEVERITY[label] >= VERDICT_SEVERITY[verdict]) return null;
+  const characterLabel = recommendation.character?.label;
+  if (characterLabel) {
+    return `Conditions read ${characterLabel.toLowerCase()} despite the high score`;
+  }
+  return "High score but mixed conditions — double-check this window before trusting it.";
 }
 
 function localTimeLabel(
@@ -188,6 +214,7 @@ function homepageRecommendation(
   const confidenceScore = clampScore(recommendation.window.confidence);
   const confidence = confidenceLevel(confidenceScore);
   const verdict = verdictForRecommendation(recommendation);
+  const capWatchout = gateCapWatchout(recommendation, verdict);
   const sources = buildSurfWindowSourceFlags({
     forecast: recommendation.forecast,
     beach: recommendation.beach,
@@ -252,7 +279,10 @@ function homepageRecommendation(
     },
     bestFor: bestForTags(recommendation, start),
     positives: recommendation.reasons.slice(0, 3),
-    watchouts: recommendation.warnings.slice(0, 3),
+    watchouts: [
+      ...(capWatchout ? [capWatchout] : []),
+      ...recommendation.warnings,
+    ].slice(0, 3),
     dataNotes: buildSurfWindowDataNotes({
       forecast: recommendation.forecast,
       beach: recommendation.beach,
