@@ -214,6 +214,35 @@ describe("session intelligence surface adapters", () => {
     expect(recommendations.map((item) => item.rank)).toEqual([1, 2, 3]);
   });
 
+  it("can expand regional recommendations to five ranked beaches", () => {
+    const recommendations = buildRegionalSurfWindowRecommendations({
+      groups: Array.from({ length: 7 }, (_, index) => {
+        const rank = index + 1;
+        const beach = makeBeach({
+          id: `beach-${rank}`,
+          slug: `beach-${rank}`,
+        });
+        return {
+          beach,
+          forecasts: [
+            makeForecast(
+              `forecast-${rank}`,
+              `2026-02-${10 + rank}T16:00:00Z`,
+              { beach_id: beach.id }
+            ),
+          ],
+        };
+      }),
+      maxRecommendations: 5,
+      now: NOW,
+    });
+
+    expect(recommendations).toHaveLength(5);
+    expect(recommendations.map((item) => item.rank)).toEqual([
+      1, 2, 3, 4, 5,
+    ]);
+  });
+
   it("maps homepage discovery recommendations without false tide or buoy claims", () => {
     const recommendation = makeDiscoveryRecommendation(1, {
       forecast: makeForecast("sparse", "2026-02-11T16:00:00Z", {
@@ -292,22 +321,44 @@ describe("session intelligence surface adapters", () => {
     expect(recommendations[0].watchouts).toContain("Sparse model confidence");
   });
 
-  it("caps homepage discovery output at three with stable ranks and CTA links", () => {
+  it("caps homepage discovery output at five with stable ranks and CTA links", () => {
     const recommendations = buildHomepageSurfWindowRecommendations({
       recommendations: [
         makeDiscoveryRecommendation(1),
         makeDiscoveryRecommendation(2),
         makeDiscoveryRecommendation(3),
         makeDiscoveryRecommendation(4),
+        makeDiscoveryRecommendation(5),
+        makeDiscoveryRecommendation(6),
+        makeDiscoveryRecommendation(7),
       ],
       now: NOW,
       baseUrl: "https://example.com",
     });
 
-    expect(recommendations).toHaveLength(3);
-    expect(recommendations.map((item) => item.rank)).toEqual([1, 2, 3]);
+    expect(recommendations).toHaveLength(5);
+    expect(recommendations.map((item) => item.rank)).toEqual([1, 2, 3, 4, 5]);
     expect(recommendations.every((item) => item.appDeepLink)).toBe(true);
     expect(recommendations.every((item) => item.universalLink)).toBe(true);
+  });
+
+  it("carries discovery beach photos into homepage surf windows", () => {
+    const baseRecommendation = makeDiscoveryRecommendation(1);
+
+    const [recommendation] = buildHomepageSurfWindowRecommendations({
+      recommendations: [
+        {
+          ...baseRecommendation,
+          beach: {
+            ...baseRecommendation.beach,
+            photo_url: "https://example.com/blacks.jpg",
+          },
+        },
+      ],
+      now: NOW,
+    });
+
+    expect(recommendation.beach.photoUrl).toBe("https://example.com/blacks.jpg");
   });
 
   describe("verdict/score consistency", () => {

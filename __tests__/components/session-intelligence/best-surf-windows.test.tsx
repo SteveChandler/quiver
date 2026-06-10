@@ -39,6 +39,7 @@ function makeRecommendation(
       region: "Southern California",
       lat: 32.75,
       lon: -117.25,
+      photoUrl: null,
     },
     startIso: "2026-06-03T14:00:00.000Z",
     endIso: "2026-06-03T16:30:00.000Z",
@@ -125,16 +126,36 @@ describe("BestSurfWindows", () => {
     expect(screen.getByRole("button", { name: /why this call/i })).toBeInTheDocument();
   });
 
-  it("renders a satellite map thumbnail when coordinates exist", () => {
+  it("renders a beach photo when one is available", () => {
+    render(
+      <BestSurfWindows
+        recommendations={[
+          makeRecommendation(1, {
+            beach: {
+              ...makeRecommendation(1).beach,
+              photoUrl: "https://example.com/ocean-beach.jpg",
+            },
+          }),
+        ]}
+      />
+    );
+
+    const thumb = screen.getByAltText(/surf photo of ocean beach/i);
+    expect(thumb).toHaveAttribute(
+      "src",
+      expect.stringContaining("ocean-beach.jpg")
+    );
+    expect(screen.queryByAltText(/map view of ocean beach/i)).not.toBeInTheDocument();
+  });
+
+  it("does not render a card-level map when no photo exists", () => {
     process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = "test-mapbox-token";
     try {
       render(<BestSurfWindows recommendations={[makeRecommendation(1)]} />);
 
-      const thumb = screen.getByAltText(/satellite view of ocean beach/i);
-      expect(thumb).toHaveAttribute(
-        "src",
-        expect.stringMatching(/api\.mapbox\.com.*satellite/)
-      );
+      expect(screen.queryByAltText(/map view of ocean beach/i)).not.toBeInTheDocument();
+      expect(screen.queryByText("Map")).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Ocean Beach" })).toBeInTheDocument();
     } finally {
       delete process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
     }
@@ -157,7 +178,7 @@ describe("BestSurfWindows", () => {
         />
       );
 
-      expect(screen.queryByAltText(/satellite view/i)).not.toBeInTheDocument();
+      expect(screen.queryByAltText(/map view/i)).not.toBeInTheDocument();
       expect(screen.getByRole("heading", { name: "Ocean Beach" })).toBeInTheDocument();
     } finally {
       delete process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
@@ -218,6 +239,32 @@ describe("BestSurfWindows", () => {
     expect(cards[0].className).toContain("md:col-span-2");
     expect(cards[1].className).not.toContain("md:col-span-2");
     expect(cards[2].className).not.toContain("md:col-span-2");
+  });
+
+  it("can keep rank 1 as a feature card and collapse the rest into ranked rows", () => {
+    render(
+      <BestSurfWindows
+        recommendations={[
+          makeRecommendation(1),
+          makeRecommendation(2),
+          makeRecommendation(3),
+        ]}
+        layout="feature-list"
+      />
+    );
+
+    const cards = screen.getAllByTestId("surf-window-card");
+    expect(cards).toHaveLength(3);
+    expect(cards[0].className).not.toContain("md:col-span-2");
+    expect(cards[1]).toHaveAttribute("data-layout", "compact-row");
+    expect(cards[2]).toHaveAttribute("data-layout", "compact-row");
+    expect(screen.getByRole("heading", { name: "Beach 2" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View Beach 2 forecast" })).toHaveAttribute(
+      "href",
+      "https://www.quiversurf.app/ca/san-diego/ocean-beach"
+    );
+    expect(screen.getAllByTestId("app-deep-link-cta")).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /why this call/i })).toHaveLength(1);
   });
 
   it("hides the source-confidence badge until Why-this-call is expanded", async () => {

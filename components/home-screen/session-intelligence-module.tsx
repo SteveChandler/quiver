@@ -68,22 +68,28 @@ export function SessionIntelligenceModule({
         </Link>
       </div>
 
-      {overviewMapUrl ? (
-        <div className="relative mb-4 h-40 overflow-hidden rounded-xl border border-white/10 sm:h-48">
-          <MapImage
-            src={overviewMapUrl}
-            alt="Map of your top surf windows"
-            fill
-          />
-        </div>
-      ) : null}
-
       {surfWindows.length > 0 ? (
-        <BestSurfWindows
-          recommendations={surfWindows}
-          hideHeader
-          surface="homepage"
-        />
+        <>
+          <BestSurfWindows
+            recommendations={surfWindows}
+            maxItems={5}
+            layout="feature-list"
+            hideHeader
+            surface="homepage"
+          />
+          {overviewMapUrl ? (
+            <div
+              className="relative mt-4 h-40 overflow-hidden rounded-xl border border-white/10 sm:h-48"
+              data-testid="surf-window-overview-map"
+            >
+              <MapImage
+                src={overviewMapUrl}
+                alt="Map of your top surf windows"
+                fill
+              />
+            </div>
+          ) : null}
+        </>
       ) : (
         <div
           className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-5 text-sm text-white/68"

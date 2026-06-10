@@ -10,7 +10,7 @@ export function RegionalBestSurfWindows({
   regionName,
   recommendations = [],
 }: RegionalBestSurfWindowsProps) {
-  const visibleRecommendations = recommendations.slice(0, 3);
+  const visibleRecommendations = recommendations.slice(0, 5);
 
   if (visibleRecommendations.length === 0) {
     return (
@@ -42,6 +42,7 @@ export function RegionalBestSurfWindows({
     >
       <BestSurfWindows
         recommendations={visibleRecommendations}
+        maxItems={5}
         title="Best windows this week"
         subtitle={`The strongest upcoming surf calls across ${regionName}.`}
         surface="regional_forecast"

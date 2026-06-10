@@ -142,6 +142,30 @@ test.describe("Forecast Hub (Regional Oracle)", () => {
     expect(await dayRows.count()).toBeLessThanOrEqual(7);
   });
 
+  test("uses the wide desktop space for the beach leaderboard", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/forecast?region=san-diego");
+    await waitForPageLoad(page);
+    await dismissOnboardingWizard(page);
+
+    const outlook = page.getByTestId("seven-day-outlook");
+    const topSpots = page.getByTestId("forecast-top-spots-panel");
+    await expect(outlook).toBeVisible();
+    await expect(topSpots).toBeVisible();
+
+    const outlookBox = await outlook.boundingBox();
+    const topSpotsBox = await topSpots.boundingBox();
+
+    expect(outlookBox).not.toBeNull();
+    expect(topSpotsBox).not.toBeNull();
+    expect(topSpotsBox!.x).toBeGreaterThan(
+      outlookBox!.x + outlookBox!.width
+    );
+    expect(Math.abs(topSpotsBox!.y - outlookBox!.y)).toBeLessThan(80);
+  });
+
   test("has SEO metadata and WebPage structured data (regression guard)", async ({
     page,
   }) => {

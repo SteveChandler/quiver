@@ -20,6 +20,7 @@ function makeRecommendation(
       region: "Southern California",
       lat: 32.889,
       lon: -117.253,
+      photoUrl: null,
     },
     startIso: "2026-06-03T14:00:00.000Z",
     endIso: "2026-06-03T16:30:00.000Z",
@@ -93,6 +94,23 @@ describe("RegionalBestSurfWindows", () => {
       screen.queryByText("Window 1 looks worth it at Blacks")
     ).not.toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /why this call/i })[0]).toBeVisible();
+  });
+
+  it("renders up to five regional windows to avoid a lonely final card", () => {
+    render(
+      <RegionalBestSurfWindows
+        regionName="Southern California"
+        recommendations={Array.from({ length: 7 }, (_, index) =>
+          makeRecommendation(index + 1)
+        )}
+      />
+    );
+
+    expect(screen.getAllByTestId("surf-window-card")).toHaveLength(5);
+    expect(screen.getByRole("heading", { name: "Beach 5" })).toBeVisible();
+    expect(
+      screen.queryByRole("heading", { name: "Beach 6" })
+    ).not.toBeInTheDocument();
   });
 
   it("renders a quiet empty state without removing the section", () => {
