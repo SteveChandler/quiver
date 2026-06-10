@@ -3,6 +3,7 @@ import { formatWaveHeightBucket as formatWaveHeight, formatWaterTemp } from "@/l
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
+import type { ConditionSummary } from "@/components/map/map-beach-loader";
 
 /** Controls what data the map markers display */
 export type MapDisplayMode = "wave-height" | "water-temp";
@@ -11,7 +12,7 @@ export type MapDisplayMode = "wave-height" | "water-temp";
  * Get badge background color for water temperature display.
  * Uses a warm→cold color scale.
  */
-function getWaterTempBadgeColor(temp?: string | null): string {
+export function getWaterTempBadgeColor(temp?: string | null): string {
   if (!temp) return "linear-gradient(to right, #93B4D8, #7FA3C9)"; // cold default
   const num = parseFloat(temp);
   if (isNaN(num)) return "linear-gradient(to right, #93B4D8, #7FA3C9)";
@@ -19,6 +20,21 @@ function getWaterTempBadgeColor(temp?: string | null): string {
   if (num >= 65) return "linear-gradient(to right, #FDB84B, #E5A63E)"; // mild amber
   if (num >= 55) return "linear-gradient(to right, #B8C7E0, #A3B5D1)"; // cool light blue
   return "linear-gradient(to right, #93B4D8, #7FA3C9)"; // cold steel blue
+}
+
+export function getConditionMarkerGradient(
+  summary: ConditionSummary = "UNKNOWN"
+): string {
+  // Derived from Quiver brand/score colors but darkened for white marker text
+  // on light map tiles; raw native teal (#00D4AA) is too low-contrast here.
+  if (summary === "GOOD") return "linear-gradient(to right, #005B52, #008F7A)";
+  if (summary === "FAIR") return "linear-gradient(to right, #8A4A12, #9E5010)";
+  if (summary === "CHECK") return "linear-gradient(to right, #334155, #475569)";
+  return "linear-gradient(to right, #5F6673, #475569)";
+}
+
+function getWaveHeightBadgeColor(summary?: ConditionSummary): string {
+  return getConditionMarkerGradient(summary ?? "UNKNOWN");
 }
 
 /**
@@ -46,6 +62,10 @@ export interface MarkerBuilderDeps {
   displayMode?: MapDisplayMode;
   /** Water temperature string for this beach (used when displayMode is water-temp) */
   waterTemp?: string | null;
+  /** Native-aligned condition summary for wave-height mode marker color */
+  conditionSummary?: ConditionSummary;
+  /** 0-100 condition score, reserved for tooltips/analytics */
+  conditionScore?: number;
 }
 
 /**
@@ -71,6 +91,7 @@ export function createWaveHeightBadge(
   try {
     const isFavorite = deps.favoriteBeachIds.has(location.id);
     const displayMode = deps.displayMode ?? "wave-height";
+    const conditionSummary = deps.conditionSummary ?? "UNKNOWN";
     const badgeText = displayMode === "water-temp"
       ? formatWaterTemp(deps.waterTemp)
       : formatWaveHeight(waveHeight);
@@ -81,6 +102,10 @@ export function createWaveHeightBadge(
     const wrapper = document.createElement("div");
     wrapper.setAttribute("data-testid", "beach-marker");
     wrapper.setAttribute("data-beach-id", location.id);
+    wrapper.setAttribute("data-condition-summary", conditionSummary);
+    if (typeof deps.conditionScore === "number") {
+      wrapper.setAttribute("data-condition-score", String(deps.conditionScore));
+    }
     wrapper.style.cssText = `
       pointer-events: auto;
       display: flex;
@@ -108,6 +133,12 @@ export function createWaveHeightBadge(
 
     // Create the actual badge element as a child
     const badge = document.createElement("div");
+    const markerGradient =
+      displayMode === "water-temp"
+        ? getWaterTempBadgeColor(deps.waterTemp)
+        : getWaveHeightBadgeColor(conditionSummary);
+    badge.setAttribute("data-marker-badge", "true");
+    badge.setAttribute("data-marker-gradient", markerGradient);
     badge.style.cssText = `
       padding: 6px 14px;
       border-radius: 9999px;
@@ -123,15 +154,7 @@ export function createWaveHeightBadge(
       transform-origin: center;
       transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
       transform: scale(${isSelected ? "1.4" : isHovered ? "1.2" : "1"});
-      background: ${
-        isSelected
-          ? "linear-gradient(to right, #F78E42, #D57835)"
-          : displayMode === "water-temp"
-          ? getWaterTempBadgeColor(deps.waterTemp)
-          : isFavorite
-          ? "linear-gradient(to right, #3b82f6, #2563eb)"
-          : "linear-gradient(to right, #fbbf24, #f59e0b)"
-      };
+      background: ${markerGradient};
       box-shadow: ${
         isSelected
           ? "0 0 20px rgba(247, 142, 66,0.4), 0 8px 25px rgba(0, 0, 0, 0.3)"
@@ -140,6 +163,9 @@ export function createWaveHeightBadge(
           : "0 4px 12px rgba(0, 0, 0, 0.3)"
       };
     `;
+    if (isFavorite) {
+      badge.style.borderColor = "#FDB84B";
+    }
     badge.innerHTML = badgeText;
 
     // Enhanced hover effects with motion

@@ -19,6 +19,11 @@ import {
   type BestTimeToSurfData,
 } from "@/actions/city/best-time-actions";
 import { findCityBySlug, getCityExcludeIntents } from "@/actions/city/city-metadata-actions";
+import { getBeachesByIntentAndCity } from "@/actions/beach/beach-query-actions";
+import {
+  getIntentForecastSummary,
+  type IntentForecastSummary,
+} from "@/actions/forecast/intent-forecast-actions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getStateSurfProfile } from "@/lib/data/monthly-surf-data";
@@ -48,9 +53,7 @@ import { isPhase18BestTimePath } from "@/lib/recommendations/session-intelligenc
 export const revalidate = 86400;
 
 // Constants
-const now = new Date();
-const currentYear = now.getFullYear();
-const currentMonthIndex = now.getMonth(); // 0-based
+const currentMonthIndex = new Date().getMonth(); // 0-based
 
 const MONTH_ABBREVS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -149,6 +152,70 @@ export function buildBestTimeLiveHandoffSteps({
   ];
 }
 
+interface BestTimeTodayAnswerCopyArgs {
+  cityName: string;
+  currentMonthName: string;
+  currentMonthScore: number;
+  currentBestMonthCount: number;
+  totalBeaches: number;
+  peakMonthName: string;
+  waveHeightRange?: string | null;
+  waterTempF?: number | null;
+  forecastSummary?: IntentForecastSummary | null;
+}
+
+export function buildBestTimeTodayAnswerCopy({
+  cityName,
+  currentMonthName,
+  currentMonthScore,
+  currentBestMonthCount,
+  totalBeaches,
+  peakMonthName,
+  waveHeightRange,
+  waterTempF,
+  forecastSummary,
+}: BestTimeTodayAnswerCopyArgs): {
+  eyebrow: string;
+  heading: string;
+  weekHeading: string;
+  todayAnswer: string;
+  thisWeekAnswer: string;
+  surfReportCue: string;
+} {
+  const seasonStrength =
+    currentBestMonthCount > 0
+      ? `${currentBestMonthCount} of ${totalBeaches} local beaches are in peak season`
+      : `${cityName} is between peak-season windows`;
+  const waveText = waveHeightRange ? ` with ${waveHeightRange} surf` : "";
+  const waterText = waterTempF != null ? ` and ${waterTempF}°F water` : "";
+  const forecastDay = forecastSummary?.isTomorrow ? "tomorrow" : "today";
+  const topPick = forecastSummary?.topPicks[0];
+  const liveTodayAnswer =
+    forecastSummary?.bestWindow
+      ? `${cityName}'s best surf window ${forecastDay} is ${forecastSummary.bestWindow.start}-${forecastSummary.bestWindow.end}: ${forecastSummary.bestWindow.reason}. ${
+          topPick
+            ? `${topPick.name} is the top pick at ${topPick.waveHeight}.`
+            : "Check the live report before you drive."
+        }`
+      : null;
+  const liveSurfReportCue = forecastSummary
+    ? `${forecastSummary.conditions.tide} tide, ${forecastSummary.conditions.wind} wind, and ${forecastSummary.conditions.swell} swell are the live surf report cues to confirm first.`
+    : null;
+
+  return {
+    eyebrow: "Live surf planning",
+    heading: `Best time to surf ${cityName} today`,
+    weekHeading: `Best time to surf ${cityName} this week`,
+    todayAnswer:
+      liveTodayAnswer ??
+      `${cityName}'s best surf window today starts with the live report: check tide, wind, and swell before you drive${waveText}${waterText}.`,
+    thisWeekAnswer: `${currentMonthName} rates ${currentMonthScore}/100 for ${cityName}. ${seasonStrength}; ${peakMonthName} is the historical peak if this week's surf report looks marginal.`,
+    surfReportCue:
+      liveSurfReportCue ??
+      `Use the surf report first, then treat this seasonal guide as the tiebreaker for which ${cityName} spot and window to choose.`,
+  };
+}
+
 // NOTE: generateStaticParams removed — pages are rendered on-demand via ISR.
 
 export async function generateMetadata(props: PageParams): Promise<Metadata> {
@@ -162,11 +229,13 @@ export async function generateMetadata(props: PageParams): Promise<Metadata> {
   const { cityName, stateName } = cityResult.data;
 
   return buildPageMetadata({
-    title: `Best Time to Surf in ${cityName}, ${stateName} (${currentYear})`,
-    description: `Best months to surf ${cityName}, ${stateName}; then check today's surf report, best current window, and nearby spots before you drive. ${currentYear}.`,
+    title: `Best Time to Surf ${cityName} Today & This Week`,
+    description: `Best time to surf ${cityName} today and this week. Start with the live surf report, then use seasonal windows, tides, wind, and nearby spots.`,
     path: `/best-time-to-surf/${citySlug}`,
     keywords: [
       `best time to surf ${cityName}`,
+      `best time to surf ${cityName} today`,
+      `${cityName} surf report today`,
       `${cityName} surf season`,
       `when to surf ${cityName}`,
       `${cityName} wave season`,
@@ -188,15 +257,37 @@ export default async function BestTimeToSurfPage(props: PageParams) {
   const heroScene = getBestTimeSeoScene(citySlug);
   const sessionScene = getBestTimeSessionSeoScene(citySlug);
 
-  const [dataResult, excludeIntents] = await Promise.all([
+  const [dataResult, excludeIntents, forecastBeachesResult] = await Promise.all([
     getBestTimeToSurfData(cityName, state),
     getCityExcludeIntents(cityName, state),
+    getBeachesByIntentAndCity("best-time", citySlug, stateSlug),
   ]);
   if (!dataResult.success || !dataResult.data) {
     return notFound();
   }
 
   const data = dataResult.data;
+  const forecastBeaches =
+    forecastBeachesResult.success && forecastBeachesResult.data
+      ? forecastBeachesResult.data
+      : [];
+  const forecastSummary = await getIntentForecastSummary(
+    forecastBeaches.slice(0, 5).map((beach) => ({
+      id: beach.id,
+      name: beach.name,
+      slug: beach.slug ?? "",
+      city: beach.city ?? undefined,
+      state: beach.state ?? undefined,
+      skill_level: beach.skill_level,
+      swell_window_center_deg: beach.swell_window_center_deg,
+      swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg,
+      wind_offshore_deg: beach.wind_offshore_deg,
+      wind_offshore_tol_deg: beach.wind_offshore_tol_deg,
+      preferred_tide_ft_min: beach.preferred_tide_ft_min,
+      preferred_tide_ft_max: beach.preferred_tide_ft_max,
+    })),
+    "best-time"
+  );
   const liveHandoffSteps = buildBestTimeLiveHandoffSteps({
     cityName,
     citySlug,
@@ -207,6 +298,19 @@ export default async function BestTimeToSurfPage(props: PageParams) {
 
   // Get hardcoded state-level monthly data for enriched grid
   const stateProfile = getStateSurfProfile(stateSlug);
+  const currentMonthData = data.monthly[currentMonthIndex];
+  const currentStateMonth = stateProfile?.monthly[currentMonthIndex];
+  const liveAnswerCopy = buildBestTimeTodayAnswerCopy({
+    cityName,
+    currentMonthName: currentMonthData.monthName,
+    currentMonthScore: currentMonthData.score,
+    currentBestMonthCount: currentMonthData.bestMonthCount,
+    totalBeaches: data.totalBeaches,
+    peakMonthName: data.peakMonthName,
+    waveHeightRange: currentStateMonth?.waveHeightRange,
+    waterTempF: currentStateMonth?.waterTemp,
+    forecastSummary,
+  });
 
   // Parse water temperature range once (Issue 3: bounds checking)
   const [minTemp, maxTemp] = (data.waterTempRange ?? "").split("-");
@@ -305,32 +409,70 @@ export default async function BestTimeToSurfPage(props: PageParams) {
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] lg:items-stretch">
               <div>
                 <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-                  Best Time to Surf {cityName} ({currentYear})
+                  Best Time to Surf {cityName} Today
                 </h1>
                 <p className="text-lg text-gray-600 mb-6">
-                  {cityName}, {stateName} &mdash; Month-by-month surf guide
+                  {cityName}, {stateName} &mdash; today, this week, and the seasonal pattern
                 </p>
+
+                <div className="mb-5 rounded-lg border border-[#11100D]/15 bg-white p-5 text-[#11100D] shadow-sm">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-[#655C4C]">
+                    {liveAnswerCopy.eyebrow}
+                  </p>
+                  <h2 className="mb-3 text-2xl font-semibold text-gray-900">
+                    Today&apos;s surf call
+                  </h2>
+                  <p className="text-sm leading-6 text-gray-700">
+                    {liveAnswerCopy.todayAnswer}
+                  </p>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-md bg-[#FBF6E8] p-3">
+                      <h3 className="text-sm font-semibold text-gray-900">
+                        This week&apos;s surf window
+                      </h3>
+                      <p className="mt-1 text-sm leading-6 text-gray-700">
+                        {liveAnswerCopy.thisWeekAnswer}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-[#EEF6FB] p-3">
+                      <h3 className="text-sm font-semibold text-gray-900">
+                        Match the surf report
+                      </h3>
+                      <p className="mt-1 text-sm leading-6 text-gray-700">
+                        {liveAnswerCopy.surfReportCue}
+                      </p>
+                    </div>
+                  </div>
+                  {liveHandoffSteps[0] && (
+                    <Link
+                      href={liveHandoffSteps[0].href}
+                      className="mt-4 inline-flex text-sm font-semibold text-ocean-blue underline-offset-2 hover:underline"
+                    >
+                      {liveHandoffSteps[0].label}
+                    </Link>
+                  )}
+                </div>
 
                 {/* Current month hero card */}
                 <div className="flex flex-col items-center gap-6 rounded-lg border border-[#11100D]/15 bg-gradient-to-br from-[#FBF6E8]/95 to-[#EEE3C9]/75 p-6 text-[#11100D] shadow-[0_18px_38px_rgba(17,16,13,0.14)] md:flex-row md:p-8">
                   <AnimatedScoreGauge
-                    score={data.monthly[currentMonthIndex].score}
+                    score={currentMonthData.score}
                     size="xl"
                     showLabel
                   />
                   <div className="text-center md:text-left">
                     <p className="mb-1 text-sm font-medium uppercase tracking-wide text-[#655C4C]">
-                      Surfing in {data.monthly[currentMonthIndex].monthName}
+                      Seasonal pattern in {currentMonthData.monthName}
                     </p>
                     <p className="mb-2 text-3xl font-bold text-[#11100D] md:text-4xl">
-                      {data.monthly[currentMonthIndex].monthName}
+                      {currentMonthData.monthName}
                     </p>
                     <p className="max-w-md text-[#655C4C]">
-                      {data.monthly[currentMonthIndex].bestMonthCount > 0
-                        ? `${data.monthly[currentMonthIndex].bestMonthCount} of ${data.totalBeaches} beaches are in peak season right now.`
+                      {currentMonthData.bestMonthCount > 0
+                        ? `${currentMonthData.bestMonthCount} of ${data.totalBeaches} beaches are in peak season right now.`
                         : `${cityName} is between peak seasons right now.`}
-                      {stateProfile
-                        ? ` Expect ${stateProfile.monthly[currentMonthIndex].waveHeightRange} waves and ${stateProfile.monthly[currentMonthIndex].waterTemp}°F water.`
+                      {currentStateMonth
+                        ? ` Expect ${currentStateMonth.waveHeightRange} waves and ${currentStateMonth.waterTemp}°F water.`
                         : data.waterTempRange
                           ? ` Water temperatures range ${data.waterTempRange}°F year-round.`
                           : ""}

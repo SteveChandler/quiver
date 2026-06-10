@@ -33,6 +33,7 @@ const defaultFormState: SessionFormState = {
   isMuted: false,
   selectedGoals: [],
   skillRatings: {},
+  sessionDecomposition: null,
 };
 
 let currentFormState: SessionFormState = { ...defaultFormState };

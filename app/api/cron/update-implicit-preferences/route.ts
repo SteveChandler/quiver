@@ -36,8 +36,7 @@ function getSearchParams(request: Request | NextRequest): URLSearchParams {
  * Aggregates recent user_events into user_implicit_preferences.
  *
  * Auth:
- * - Vercel Cron header (`x-vercel-cron`)
- * - OR Authorization: Bearer <CRON_SECRET>
+ * - Authorization: Bearer <CRON_SECRET>
  *
  * Query params:
  * - userId: optional UUID for a single-user manual recompute

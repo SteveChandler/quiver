@@ -6,38 +6,86 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { buildCamEmbed, getViewableUrl } from "@/lib/media/cam-embed";
 
+interface BeachLookupRow {
+  id: string;
+}
+
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const BEACH_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function isBeachUuid(identifier: string): boolean {
+  return UUID_PATTERN.test(identifier);
+}
+
+function isBeachSlug(identifier: string): boolean {
+  return BEACH_SLUG_PATTERN.test(identifier);
+}
+
+function createBeachSourcesErrorResponse(
+  error: string,
+  status: number
+): Response {
+  return new Response(
+    JSON.stringify({
+      success: false,
+      error,
+      timestamp: new Date().toISOString(),
+    }),
+    {
+      status,
+      headers: { "Content-Type": "application/json" },
+    }
+  );
+}
+
 // GET /api/beaches/[id]/sources - fetch external source mappings (e.g., camera_url)
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   try {
+    const requestedBeachId = params.id?.trim();
+    if (!requestedBeachId) {
+      return createBeachSourcesErrorResponse("Beach identifier is required", 400);
+    }
+
+    const isUuid = isBeachUuid(requestedBeachId);
+    if (!isUuid && !isBeachSlug(requestedBeachId)) {
+      return createBeachSourcesErrorResponse("Invalid beach identifier", 400);
+    }
+
     const supabase = await createSupabaseServerClient();
+    let beachId = requestedBeachId;
+
+    if (!isUuid) {
+      const { data: beachRow, error: beachLookupError } = await supabase
+        .from("beaches")
+        .select("id")
+        .eq("slug", requestedBeachId)
+        .maybeSingle();
+
+      if (beachLookupError) {
+        return handleApiError(beachLookupError, "Failed to fetch beach sources");
+      }
+
+      if (!beachRow) {
+        return createBeachSourcesErrorResponse("Beach not found", 404);
+      }
+
+      beachId = (beachRow as BeachLookupRow).id;
+    }
+
     const { data, error } = await supabase
       .from("beach_sources")
       .select("beach_id, ndbc_buoy_ids, forecast_source_id, camera_url, thumbnail_url")
-      .eq("beach_id", params.id)
+      .eq("beach_id", beachId)
       .maybeSingle();
 
     if (error) {
       return handleApiError(error, "Failed to fetch beach sources");
     }
 
-    // Fallback: if beach_sources missing or camera_url empty, check beaches table for live_cam_url variants
     let cameraUrl: string | null = (data as any)?.camera_url || null;
     let cameraThumbnailUrl: string | null = (data as any)?.thumbnail_url || null;
-    if (!cameraUrl) {
-      const { data: beachRow, error: beachErr } = await supabase
-        .from("beaches")
-        .select("id, live_cam_url, camera_url")
-        .eq("id", params.id)
-        .maybeSingle();
-      if (!beachErr && beachRow) {
-        cameraUrl =
-          ((beachRow as any).liveCamUrl as string | null) ||
-          ((beachRow as any).live_cam_url as string | null) ||
-          ((beachRow as any).camera_url as string | null) ||
-          null;
-      }
-    }
 
     // Diorama: match to condition_key if provided, fallback chain: exact -> medium_day -> any
     let dioramaUrl: string | null = null;
@@ -45,7 +93,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     const { data: diorama } = await supabase
       .from("beach_dioramas" as any)
       .select("video_url")
-      .eq("beach_id", params.id)
+      .eq("beach_id", beachId)
       .eq("condition_key", conditionKey)
       .maybeSingle();
     if ((diorama as any)?.video_url) {
@@ -54,7 +102,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       const { data: mid } = await supabase
         .from("beach_dioramas" as any)
         .select("video_url")
-        .eq("beach_id", params.id)
+        .eq("beach_id", beachId)
         .eq("condition_key", "medium_day")
         .maybeSingle();
       if ((mid as any)?.video_url) {
@@ -65,7 +113,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
       const { data: fallback } = await supabase
         .from("beach_dioramas" as any)
         .select("video_url")
-        .eq("beach_id", params.id)
+        .eq("beach_id", beachId)
         .order("condition_key" as any)
         .limit(1)
         .maybeSingle();
@@ -111,7 +159,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     }
 
     const merged = {
-      beach_id: params.id,
+      beach_id: beachId,
       ndbc_buoy_ids: (data as any)?.ndbc_buoy_ids || null,
       forecast_source_id: (data as any)?.forecast_source_id || null,
       camera_url: cameraUrl,

@@ -96,6 +96,7 @@ export interface SurfWindowBeachIdentity {
   region: string | null;
   lat: number | null;
   lon: number | null;
+  photoUrl: string | null;
 }
 
 export interface SurfWindowSourceFlags {

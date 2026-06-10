@@ -42,6 +42,8 @@ export const TIME_SLOT_RANGES: Record<TimeSlot, { startHour: number; endHour: nu
   'afternoon': { startHour: 14, endHour: 18 },
 };
 
+export type SurfDiscoveryMode = 'best-window' | 'now';
+
 /**
  * Optimal surf window within a forecast period
  * 
@@ -261,6 +263,14 @@ export interface SurfDiscoveryBoardPick {
  * match quality indicators, and distance information for GPS phase.
  */
 export interface SurfDiscoveryRecommendation {
+  /** Recommendation source discriminator. Missing values should be treated as "beach" by older clients. */
+  kind?: 'beach' | 'custom_spot';
+  /** Custom spot id when kind="custom_spot"; null/undefined for curated beach recommendations. */
+  customSpotId?: string | null;
+  /** Custom spot visibility when kind="custom_spot"; null/undefined for curated beach recommendations. */
+  visibility?: string | null;
+  /** True when the custom spot belongs to the requesting user. */
+  isOwn?: boolean;
   /** Beach with location coordinates and optional photo */
   beach: Beach & { photo_url?: string | null };
   /** True if this beach is in user's favorites */
@@ -411,6 +421,8 @@ export interface SurfDiscoveryOptions {
   horizonHours?: number;
   /** Filter windows to specific time of day (default: 'any') */
   timeSlot?: TimeSlot;
+  /** Discovery ranking mode: future best window or immediate current conditions */
+  discoveryMode?: SurfDiscoveryMode;
   /** Maximum recommendations to return (default: 5, max: 10) */
   maxResults?: number;
   /**

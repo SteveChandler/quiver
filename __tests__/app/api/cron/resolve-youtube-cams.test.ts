@@ -69,7 +69,7 @@ function createCronRequest(
 ): Request {
   return new Request(url, {
     headers: {
-      "x-vercel-cron": "1",
+      authorization: "Bearer test-cron-secret",
     },
   });
 }

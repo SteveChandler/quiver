@@ -167,7 +167,7 @@ export async function runEnhancedForecastSync(
       );
     }
 
-    // Validate cron origin (Vercel Cron header or Bearer secret)
+    // Validate cron origin with the shared CRON_SECRET bearer check.
     if (!validateCronRequest(request)) {
       forecastLogger.cronFailed(
         executionId,
@@ -302,7 +302,6 @@ export async function runEnhancedForecastSyncHead(
     );
   }
 }
-
 
 
 

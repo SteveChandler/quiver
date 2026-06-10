@@ -1,5 +1,6 @@
 import type { SessionWithDetails, Session } from "@/types/database";
 import type { SessionFormState } from "@/hooks/use-session-form";
+import { normalizeSessionDecomposition } from "@/lib/session-fit";
 import { getStaticMapImageUrl, resolveBeachCoordinates } from "@/lib/map-utils";
 
 // Helper function to format session description with additional details
@@ -242,6 +243,10 @@ export function transformSessionFormStateToDbSchema(
     dbData.tide_status = formState.tideStatus;
   }
 
+  dbData.session_decomposition = normalizeSessionDecomposition(
+    formState.sessionDecomposition
+  ) as unknown as Session["session_decomposition"];
+
   // Handle wave types as goals (session planning feature)
   if (formState.waveTypes && formState.waveTypes.length > 0) {
     dbData.goals = formState.waveTypes;
@@ -254,6 +259,10 @@ export function transformSessionFormStateToDbSchema(
   // Clean up undefined/empty values
   const cleaned: Partial<Session> = {};
   for (const [key, value] of Object.entries(dbData)) {
+    if (key === "session_decomposition" && value === null) {
+      (cleaned as any)[key] = value;
+      continue;
+    }
     if (value !== undefined && value !== null && value !== "") {
       (cleaned as any)[key] = value;
     }
@@ -334,6 +343,8 @@ export function sessionToFormState(session: any): any {
 
     // Forecast accuracy (NEW FIELD)
     forecastAccuracy: session.forecast_accuracy || undefined,
+
+    sessionDecomposition: session.session_decomposition || null,
 
     // Notes
     notes: session.notes || "",

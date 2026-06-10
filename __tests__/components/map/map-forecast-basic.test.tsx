@@ -178,6 +178,18 @@ describe("Map Forecast Basic Tests", () => {
     }).not.toThrow();
   });
 
+  it("should render the condition summary legend in wave-height mode", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+
+    render(<InteractiveMap />);
+
+    expect(screen.getByTestId("map-condition-legend")).toBeInTheDocument();
+    expect(screen.getByText("GOOD")).toBeInTheDocument();
+    expect(screen.getByText("FAIR")).toBeInTheDocument();
+    expect(screen.getByText("CHECK")).toBeInTheDocument();
+    expect(screen.getByText("UNKNOWN")).toBeInTheDocument();
+  });
+
   it("should call Mapbox Map constructor with correct parameters", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     

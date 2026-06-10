@@ -26,6 +26,7 @@ function makeRecommendation(
       region: "Southern California",
       lat: 32.75,
       lon: -117.25,
+      photoUrl: null,
     },
     startIso: "2026-06-03T14:00:00.000Z",
     endIso: "2026-06-03T16:30:00.000Z",

@@ -12,8 +12,7 @@
  * - Top spot (most visited beach)
  *
  * Auth:
- * - Vercel Cron header (`x-vercel-cron`)
- * - OR Authorization: Bearer <CRON_SECRET>
+ * - Authorization: Bearer <CRON_SECRET>
  */
 
 import {

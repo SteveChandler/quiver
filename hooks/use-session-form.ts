@@ -6,6 +6,7 @@ import { getBeaches } from "@/actions/beach-actions";
 import { Board, Beach } from "@/types/database";
 import { toast } from "sonner";
 import { useAuth } from "@/context/auth-context";
+import type { SessionDecomposition } from "@/lib/session-fit";
 
 export type SessionFormState = {
   selectedBeach: string;
@@ -36,6 +37,7 @@ export type SessionFormState = {
   isMuted: boolean; // Whether session is hidden from community feed (default false)
   selectedGoals: string[];
   skillRatings: Record<string, number>;
+  sessionDecomposition: SessionDecomposition | null;
 };
 
 export type SessionFormMode = "log";
@@ -107,6 +109,7 @@ function getDefaultFormState(mode: SessionFormMode): SessionFormState {
     isMuted: false,
     selectedGoals: [],
     skillRatings: {},
+    sessionDecomposition: null,
   };
 }
 

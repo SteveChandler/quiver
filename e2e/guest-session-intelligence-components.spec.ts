@@ -54,9 +54,17 @@ test.describe("Guest Session Intelligence component preview", () => {
 
       await expect(firstCard).toContainText("#1");
       await expect(firstCard).toContainText("7:00-9:30 AM");
-      await expect(firstCard).toContainText("7:00-9:30 AM looks worth it at Ocean Beach");
+      await expect(
+        firstCard.getByRole("link", { name: "Ocean Beach", exact: true })
+      ).toBeVisible();
+      await expect(firstCard).not.toContainText("7:00-9:30 AM looks worth it at Ocean Beach");
       await expect(firstCard).toContainText("Worth it");
-      await expect(firstCard).toContainText("High - buoy + model");
+      await expect(firstCard).not.toContainText("High - buoy + model");
+      await expect(firstCard.getByAltText("Surf photo of Ocean Beach")).toHaveAttribute(
+        "src",
+        /OceanBeachSurfers\.jpg/
+      );
+      await expect(firstCard.getByAltText(/map view/i)).toHaveCount(0);
       await expect(firstCard).toContainText("Wave");
       await expect(firstCard).toContainText("4 ft at 12s from W");
       await expect(firstCard).toContainText("Wind");
@@ -70,24 +78,27 @@ test.describe("Guest Session Intelligence component preview", () => {
       await expect(thirdCard).toContainText("#3");
       await expect(thirdCard).toContainText("10:00 AM-12:00 PM");
       await expect(thirdCard).toContainText("Maybe");
-      await expect(thirdCard).toContainText("Low - sparse data");
+      await expect(thirdCard).not.toContainText("Low - sparse data");
       await expect(thirdCard).toContainText("Wave data is sparse");
-      await expect(thirdCard).toContainText("Tide data is unavailable");
+      await expect(thirdCard).not.toContainText("Tide data is unavailable");
+      await expect(
+        thirdCard.getByRole("link", { name: "View Preview Beach 3 forecast" })
+      ).toBeVisible();
 
       await expect(
-        page.getByRole("link", { name: "Open this window in Quiver" }).first()
+        page.getByRole("link", { name: "Take it with you" }).first()
       ).toBeVisible();
-      await expect(page.getByRole("button", { name: /why this call/i }).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: /why this call/i })).toHaveCount(1);
 
       await page
         .getByRole("button", {
-          name: "Why this call for Preview Beach 3 10:00 AM-12:00 PM",
+          name: "Why this call for Ocean Beach 7:00-9:30 AM",
         })
         .click();
-      await expect(thirdCard.getByRole("heading", { name: "Positive signals" })).toBeVisible();
-      await expect(thirdCard).toContainText("Forecast confidence is low");
-      await expect(thirdCard).toContainText("Sources present");
-      await expect(thirdCard).toContainText("model");
+      await expect(firstCard.getByRole("heading", { name: "Positive signals" })).toBeVisible();
+      await expect(firstCard).toContainText("Forecast model row is present");
+      await expect(firstCard).toContainText("Sources present");
+      await expect(firstCard).toContainText("model");
 
       const hasHorizontalOverflow = await page.evaluate(
         () => document.documentElement.scrollWidth > window.innerWidth + 1

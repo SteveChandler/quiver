@@ -22,6 +22,16 @@ import {
 } from "@/lib/recommendations/surf-window-recommendations";
 
 const DEFAULT_MAX_RECOMMENDATIONS = 3;
+const REGIONAL_MAX_RECOMMENDATIONS = 5;
+const HOMEPAGE_MAX_RECOMMENDATIONS = 5;
+
+function recommendationWindowIdentity(
+  recommendation: SurfDiscoveryRecommendation
+): string {
+  return recommendation.kind === "custom_spot" && recommendation.customSpotId
+    ? `custom:${recommendation.customSpotId}`
+    : recommendation.beach.id;
+}
 
 export interface BuildSpotSurfWindowRecommendationsInput
   extends Pick<
@@ -50,12 +60,19 @@ export interface BuildHomepageSurfWindowRecommendationsInput {
   sourceHints?: SurfWindowSourceSupportHints;
 }
 
-function normalizeMaxRecommendations(maxRecommendations: number | undefined): number {
+function normalizeMaxRecommendations(
+  maxRecommendations: number | undefined,
+  defaultValue = DEFAULT_MAX_RECOMMENDATIONS,
+  limit = defaultValue
+): number {
+  const candidate = maxRecommendations ?? defaultValue;
+  if (!Number.isFinite(candidate)) return defaultValue;
+
   return Math.max(
     0,
     Math.min(
-      DEFAULT_MAX_RECOMMENDATIONS,
-      Math.floor(maxRecommendations ?? DEFAULT_MAX_RECOMMENDATIONS)
+      limit,
+      Math.floor(candidate)
     )
   );
 }
@@ -79,7 +96,11 @@ export function buildRegionalSurfWindowRecommendations({
 }: BuildRegionalSurfWindowRecommendationsInput): SurfWindowRecommendation[] {
   return buildSurfWindowRecommendations(groups, {
     ...options,
-    maxRecommendations: normalizeMaxRecommendations(maxRecommendations),
+    maxRecommendations: normalizeMaxRecommendations(
+      maxRecommendations,
+      DEFAULT_MAX_RECOMMENDATIONS,
+      REGIONAL_MAX_RECOMMENDATIONS
+    ),
     maxWindowsPerBeach: 1,
   }).recommendations;
 }
@@ -95,13 +116,39 @@ function confidenceLevel(score: number): SurfWindowConfidenceLevel {
   return "low";
 }
 
+function verdictForScore(score: number): SurfWindowVerdict {
+  if (score >= 70) return "Worth it";
+  if (score >= 40) return "Maybe";
+  return "Skip";
+}
+
+const VERDICT_SEVERITY: Record<SurfWindowVerdict, number> = {
+  Skip: 0,
+  Maybe: 1,
+  "Worth it": 2,
+};
+
+// One-system rule: the verdict always derives from the displayed score band so a
+// 92 can never render beside a "Maybe" badge. The upstream recommendationLabel
+// gate encodes condition character (rough/mixed/weak), not personalization — when
+// it disagrees downward, that nuance moves into a watchout instead of the badge.
 function verdictForRecommendation(
   recommendation: SurfDiscoveryRecommendation
 ): SurfWindowVerdict {
-  if (recommendation.recommendationLabel) return recommendation.recommendationLabel;
-  if (recommendation.score >= 70) return "Worth it";
-  if (recommendation.score >= 40) return "Maybe";
-  return "Skip";
+  return verdictForScore(clampScore(recommendation.score));
+}
+
+function gateCapWatchout(
+  recommendation: SurfDiscoveryRecommendation,
+  verdict: SurfWindowVerdict
+): string | null {
+  const label = recommendation.recommendationLabel;
+  if (!label || VERDICT_SEVERITY[label] >= VERDICT_SEVERITY[verdict]) return null;
+  const characterLabel = recommendation.character?.label;
+  if (characterLabel) {
+    return `Conditions read ${characterLabel.toLowerCase()} despite the high score`;
+  }
+  return "High score but mixed conditions — double-check this window before trusting it.";
 }
 
 function localTimeLabel(
@@ -183,11 +230,12 @@ function homepageRecommendation(
   const startIso = start.toISOString();
   const endIso = end.toISOString();
   const peakIso = peak.toISOString();
-  const windowId = buildWindowId(recommendation.beach.id, startIso);
+  const windowId = buildWindowId(recommendationWindowIdentity(recommendation), startIso);
   const score = clampScore(recommendation.score);
   const confidenceScore = clampScore(recommendation.window.confidence);
   const confidence = confidenceLevel(confidenceScore);
   const verdict = verdictForRecommendation(recommendation);
+  const capWatchout = gateCapWatchout(recommendation, verdict);
   const sources = buildSurfWindowSourceFlags({
     forecast: recommendation.forecast,
     beach: recommendation.beach,
@@ -217,6 +265,7 @@ function homepageRecommendation(
       region: recommendation.beach.region ?? null,
       lat: recommendation.beach.lat ?? null,
       lon: recommendation.beach.lon ?? null,
+      photoUrl: recommendation.beach.photo_url ?? null,
     },
     startIso,
     endIso,
@@ -252,7 +301,10 @@ function homepageRecommendation(
     },
     bestFor: bestForTags(recommendation, start),
     positives: recommendation.reasons.slice(0, 3),
-    watchouts: recommendation.warnings.slice(0, 3),
+    watchouts: [
+      ...(capWatchout ? [capWatchout] : []),
+      ...recommendation.warnings,
+    ].slice(0, 3),
     dataNotes: buildSurfWindowDataNotes({
       forecast: recommendation.forecast,
       beach: recommendation.beach,
@@ -281,7 +333,14 @@ export function buildHomepageSurfWindowRecommendations({
   sourceHints,
 }: BuildHomepageSurfWindowRecommendationsInput): SurfWindowRecommendation[] {
   return recommendations
-    .slice(0, normalizeMaxRecommendations(maxRecommendations))
+    .slice(
+      0,
+      normalizeMaxRecommendations(
+        maxRecommendations,
+        HOMEPAGE_MAX_RECOMMENDATIONS,
+        HOMEPAGE_MAX_RECOMMENDATIONS
+      )
+    )
     .map((recommendation, index) =>
       homepageRecommendation(recommendation, index, baseUrl, sourceHints)
     );

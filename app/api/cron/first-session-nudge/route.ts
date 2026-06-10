@@ -10,8 +10,7 @@
  * 4. Haven't received ANY email in the last 24 hours (global cooldown)
  *
  * Auth:
- * - Vercel Cron header (`x-vercel-cron`)
- * - OR Authorization: Bearer <CRON_SECRET>
+ * - Authorization: Bearer <CRON_SECRET>
  */
 
 import * as React from "react";

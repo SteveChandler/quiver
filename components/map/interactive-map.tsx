@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState, useMemo } from "react";
+import {
+  useEffect,
+  useRef,
+  useCallback,
+  useState,
+  useMemo,
+  type ReactElement,
+} from "react";
 import mapboxgl from "mapbox-gl";
 import { debounce } from "@/lib/utils/debounce";
 import type { Beach } from "@/types/database";
@@ -11,8 +18,17 @@ import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-util
 import { CACHE_TTL } from "@/lib/constants/ui";
 import { useBeachClustering, type ClusterPoint } from "@/hooks/use-beach-clustering";
 import { loadFavoriteBeaches } from "@/components/map/map-favorites-loader";
-import { createWaveHeightBadge, type MarkerBuilderDeps, type MapDisplayMode } from "@/components/map/map-marker-builder";
-import { loadBeachesAndWaveHeights } from "@/components/map/map-beach-loader";
+import {
+  createWaveHeightBadge,
+  getConditionMarkerGradient,
+  getWaterTempBadgeColor,
+  type MarkerBuilderDeps,
+  type MapDisplayMode,
+} from "@/components/map/map-marker-builder";
+import {
+  loadBeachesAndWaveHeights,
+  type ConditionSummary,
+} from "@/components/map/map-beach-loader";
 import {
   createClusterMapMarker,
   type ClusterClickBehavior,
@@ -49,6 +65,41 @@ interface InteractiveMapProps {
 }
 
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
+
+const CONDITION_LEGEND_ITEMS: Array<{
+  label: ConditionSummary;
+  caption: string;
+}> = [
+  { label: "GOOD", caption: "Go" },
+  { label: "FAIR", caption: "Maybe" },
+  { label: "CHECK", caption: "Check" },
+  { label: "UNKNOWN", caption: "No read" },
+];
+
+function MapConditionLegend(): ReactElement {
+  return (
+    <div
+      data-testid="map-condition-legend"
+      className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md border border-white/15 bg-slate-950/88 px-3 py-2 text-white shadow-lg backdrop-blur"
+    >
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
+        {CONDITION_LEGEND_ITEMS.map((item) => (
+          <div key={item.label} className="flex items-center gap-1.5">
+            <span
+              aria-hidden="true"
+              className="h-2.5 w-2.5 rounded-full border border-white/35"
+              style={{ background: getConditionMarkerGradient(item.label) }}
+            />
+            <span className="text-[10px] font-semibold leading-none tracking-normal">
+              {item.label}
+            </span>
+            <span className="sr-only">{item.caption}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function InteractiveMap({
   initialCenter = SAN_DIEGO,
@@ -90,6 +141,8 @@ export function InteractiveMap({
   const [currentZoom, setCurrentZoom] = useState(initialZoom);
   const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
   const [waterTempMap, setWaterTempMap] = useState<Map<string, string | undefined>>(new Map());
+  const [conditionScoreMap, setConditionScoreMap] = useState<Map<string, number | undefined>>(new Map());
+  const [conditionSummaryMap, setConditionSummaryMap] = useState<Map<string, ConditionSummary>>(new Map());
   const isMapReadyRef = useRef(false);
   const favoriteBeachIdsRef = useRef<Set<string>>(new Set());
   const selectedBeachIdRef = useRef<string | null>(null);
@@ -339,10 +392,22 @@ export function InteractiveMap({
         autoNavigate: autoNavigateOnMarkerClick,
         displayMode,
         waterTemp: waterTempMap.get(location.id),
+        conditionScore: conditionScoreMap.get(location.id),
+        conditionSummary: conditionSummaryMap.get(location.id),
       };
       return createWaveHeightBadge(location, waveHeight, deps);
     },
-    [onLocationClick, router, autoNavigateOnMarkerClick, track, displayMode, waterTempMap, getMapViewportMetadata]
+    [
+      onLocationClick,
+      router,
+      autoNavigateOnMarkerClick,
+      track,
+      displayMode,
+      waterTempMap,
+      conditionScoreMap,
+      conditionSummaryMap,
+      getMapViewportMetadata,
+    ]
   );
 
   const openClusterDetailsPopup = useCallback(
@@ -438,6 +503,8 @@ export function InteractiveMap({
         // Store wave heights and water temps for clustering
         setWaveHeightMap(result.waveHeightMap);
         setWaterTempMap(result.waterTempMap);
+        setConditionScoreMap(result.conditionScoreMap);
+        setConditionSummaryMap(result.conditionSummaryMap);
         onWaveHeightsChangeRef.current?.(result.waveHeightMap);
       } catch (e) {
         lastPopulateKeyRef.current = null;
@@ -749,9 +816,10 @@ export function InteractiveMap({
 
     // Update all markers to reflect current selection state
     Object.entries(markersRef.current).forEach(([markerId, marker]) => {
+      if (typeof marker.getElement !== "function") return;
       const beachId = markerId.replace("location-", "");
       const element = marker.getElement();
-      const badge = element.querySelector('div[style*="padding"]');
+      const badge = element.querySelector("[data-marker-badge='true']");
       const existingRing = element.querySelector(
         '[data-testid="selection-ring"]'
       );
@@ -777,9 +845,15 @@ export function InteractiveMap({
 
         // Update badge scale and background
         if (badge) {
+          const gradient =
+            displayMode === "water-temp"
+              ? getWaterTempBadgeColor(waterTempMap.get(beachId))
+              : getConditionMarkerGradient(
+                  conditionSummaryMap.get(beachId) ?? "UNKNOWN"
+                );
           (badge as HTMLElement).style.transform = "scale(1.4)";
-          (badge as HTMLElement).style.background =
-            "linear-gradient(to right, #F78E42, #D57835)";
+          (badge as HTMLElement).style.background = gradient;
+          badge.setAttribute("data-marker-gradient", gradient);
         }
       } else {
         // Remove selection ring if present
@@ -794,14 +868,26 @@ export function InteractiveMap({
             ? "scale(1.2)"
             : "scale(1)";
 
-          const isFavorite = favoriteBeachIds.has(beachId);
-          (badge as HTMLElement).style.background = isFavorite
-            ? "linear-gradient(to right, #3b82f6, #2563eb)"
-            : "linear-gradient(to right, #fbbf24, #f59e0b)";
+          const gradient =
+            displayMode === "water-temp"
+              ? getWaterTempBadgeColor(waterTempMap.get(beachId))
+              : getConditionMarkerGradient(
+                  conditionSummaryMap.get(beachId) ?? "UNKNOWN"
+                );
+          (badge as HTMLElement).style.background = gradient;
+          badge.setAttribute("data-marker-gradient", gradient);
         }
       }
     });
-  }, [selectedBeachId, hoveredBeachId, favoriteBeachIds, isMapReady]);
+  }, [
+    selectedBeachId,
+    hoveredBeachId,
+    favoriteBeachIds,
+    isMapReady,
+    displayMode,
+    waterTempMap,
+    conditionSummaryMap,
+  ]);
 
   // Update map center when initialCenter prop changes
   useEffect(() => {
@@ -876,8 +962,10 @@ export function InteractiveMap({
   return (
     <div
       ref={mapContainerRef}
-      className={`${className} mapbox-container`}
+      className={`${className} mapbox-container relative overflow-hidden`}
       style={{ width: "100%", height: "100%" }}
-    />
+    >
+      {displayMode === "wave-height" && <MapConditionLegend />}
+    </div>
   );
 }

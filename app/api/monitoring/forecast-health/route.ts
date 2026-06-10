@@ -9,6 +9,10 @@ import { NextResponse } from 'next/server';
 import { checkForecastHealth } from '@/lib/monitoring/forecast-health-check';
 import { forecastLogger } from '@/lib/monitoring/forecast-logger';
 import { withObservedCron } from '@/lib/cron/observability';
+import {
+  createErrorResponse,
+  validateCronRequest,
+} from '@/lib/middleware/api-wrappers';
 
 export const runtime = "nodejs";
 export const dynamic = 'force-dynamic';
@@ -39,6 +43,10 @@ function getSupabaseProjectRef(): string | null {
 }
 
 async function _GET(request: Request): Promise<Response> {
+  if (!validateCronRequest(request)) {
+    return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
+  }
+
   const startTime = Date.now();
   
   try {

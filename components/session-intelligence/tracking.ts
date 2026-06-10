@@ -38,7 +38,7 @@ export function buildSurfWindowTrackingMetadata(
   context: SurfWindowTrackingContext,
   extra: {
     targetHref?: string;
-    linkType?: AppDeepLinkType;
+    linkType?: AppDeepLinkType | "web";
     fallbackToAppStore?: boolean;
   } = {}
 ): EventMetadata {

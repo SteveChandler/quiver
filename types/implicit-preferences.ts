@@ -165,6 +165,11 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   // Phase 21 native board management events
   board_form_saved: 0,
   session_board_fit_feedback_selected: 0,
+  // Phase 22 native forecast/custom-spot funnel events
+  custom_spot_save_confirmation_viewed: 0,
+  custom_spot_forecast_source_viewed: 0,
+  forecast_visual_layer_selected: 0,
+  synced_forecast_time_selected: 0,
   // Search
   beach_search_result_click: 0,
   // Growth markers
@@ -716,7 +721,13 @@ export interface SessionLogMetadata {
   /** Local URI schemes only, never raw device paths */
   uri_schemes?: Array<'file' | 'content' | 'http' | 'https' | 'data' | 'unknown'>;
   /** For native photo events: which client pipeline emitted this */
-  source?: 'image_library' | 'session_outbox';
+  source?: 'image_library' | 'session_outbox' | 'session_fit_picker';
+  /** For session_decomposition_selected: selected decomposition tag */
+  tag?: 'waves' | 'crew' | 'vibe' | 'skill_fit';
+  /** For session_decomposition_selected: categorical skill fit value */
+  skill_fit?: 'under' | 'dialed' | 'over_my_head';
+  /** For session_board_fit_feedback_selected: categorical board fit value */
+  board_fit?: 'too_small' | 'right' | 'too_much_board' | 'wrong_type' | 'na';
   /** For session_photo_upload_*: outbox attempt number */
   attempt?: number;
   /** For session_photo_upload_*: age of the outbox item when emitted */

@@ -1,5 +1,6 @@
 import type { TidePoint, TideChartProps } from "../tide-chart-recharts";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { extractMergedTideSchedule } from "@/lib/utils/tide-schedule";
 
 // --- Internal Types --------------------------------------------------------
 
@@ -171,23 +172,13 @@ export const normalizeEvents = (
 export const normalizeTideSchedule = (
   forecasts?: EnhancedForecastEntity[]
 ): InternalPoint[] => {
-  if (!Array.isArray(forecasts)) return [];
-
-  // Find first forecast with tide_schedule
-  for (const forecast of forecasts) {
-    const schedule = forecast.raw_forecast?.tide_schedule;
-    if (Array.isArray(schedule) && schedule.length > 0) {
-      return schedule.map((tide) => ({
-        t: new Date(tide.time * 1000),
-        h: tide.height,
-        isHigh: tide.type === "high",
-        isLow: tide.type === "low",
-        timestamp: tide.time * 1000,
-      }));
-    }
-  }
-
-  return [];
+  return extractMergedTideSchedule(forecasts).map((tide) => ({
+    t: new Date(tide.time * 1000),
+    h: tide.height,
+    isHigh: tide.type === "high",
+    isLow: tide.type === "low",
+    timestamp: tide.time * 1000,
+  }));
 };
 
 export const normalizeForecasts = (

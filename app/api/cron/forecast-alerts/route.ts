@@ -23,8 +23,7 @@ const SENTRY_MONITOR = {
  * Cron job entrypoint for the disabled legacy daily forecast summary producer.
  *
  * Auth:
- * - Vercel Cron header (`x-vercel-cron`)
- * - OR Authorization: Bearer <CRON_SECRET>
+ * - Authorization: Bearer <CRON_SECRET>
  */
 async function _GET(request: Request): Promise<Response> {
   try {

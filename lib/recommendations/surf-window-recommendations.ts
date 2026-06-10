@@ -371,6 +371,9 @@ function buildRecommendation(
       region: group.beach.region ?? null,
       lat: group.beach.lat ?? null,
       lon: group.beach.lon ?? null,
+      photoUrl:
+        (group.beach as Beach & { photo_url?: string | null }).photo_url ??
+        null,
     },
     startIso,
     endIso,

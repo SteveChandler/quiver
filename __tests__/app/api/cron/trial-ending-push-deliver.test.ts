@@ -2,7 +2,7 @@
  * Unit tests for Day-12 Trial-Ending Push Cron Job API
  *
  * Test coverage:
- * - Auth gating (CRON_SECRET / x-vercel-cron)
+ * - Auth gating (CRON_SECRET bearer token)
  * - Empty pipeline (no trialing users)
  * - Idempotency skip (already-pushed user ignored)
  * - Push disabled skip
@@ -211,9 +211,9 @@ describe("Trial-Ending Push Cron", () => {
       expect(mockSendPushNotifications).not.toHaveBeenCalled();
     });
 
-    it("accepts x-vercel-cron header", async () => {
+    it("accepts Bearer cron token", async () => {
       seed("user_entitlements", []);
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
       expect(data.success).toBe(true);
     });
@@ -222,7 +222,7 @@ describe("Trial-Ending Push Cron", () => {
   describe("Empty pipeline", () => {
     it("returns empty summary when no users are in the Day-12 window", async () => {
       seed("user_entitlements", []);
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -238,7 +238,7 @@ describe("Trial-Ending Push Cron", () => {
       seed("user_entitlements", [{ user_id: "u-1", trial_ends_at: trialEndsAt }]);
       seed("trial_ending_push_log", [{ user_id: "u-1" }]);
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -256,7 +256,7 @@ describe("Trial-Ending Push Cron", () => {
       seed("trial_ending_push_log", []);
       seed("profiles", [{ id: "u-2", notif_push_enabled: false }]);
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -273,7 +273,7 @@ describe("Trial-Ending Push Cron", () => {
       seed("profiles", [{ id: "u-3", notif_push_enabled: true }]);
       seed("user_devices", []);
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -292,7 +292,7 @@ describe("Trial-Ending Push Cron", () => {
       seed("profiles", [{ id: "u-4", notif_push_enabled: true }]);
       seed("user_devices", [{ user_id: "u-4", device_token: "token-abc" }]);
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(data.success).toBe(true);
@@ -342,7 +342,7 @@ describe("Trial-Ending Push Cron", () => {
         { user_id: "u-5", device_token: "android-token" },
       ]);
 
-      const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
       const data = await response.json();
 
       expect(data.success).toBe(true);

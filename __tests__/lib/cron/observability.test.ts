@@ -75,7 +75,7 @@ describe("cron observability source guard", () => {
 
 function makeAuthorizedRequest(): Request {
   return new Request("http://test/api/cron/test", {
-    headers: { "x-vercel-cron": "1" },
+    headers: { authorization: "Bearer test-cron-secret" },
   });
 }
 
@@ -145,6 +145,7 @@ describe("withCronObservability", () => {
 
 describe("withObservedCron", () => {
   let consoleSpy: jest.SpyInstance;
+  const originalCronSecret = process.env.CRON_SECRET;
   const sentryMonitor = {
     slug: "test-monitor",
     schedule: "* * * * *",
@@ -153,12 +154,18 @@ describe("withObservedCron", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.CRON_SECRET = "test-cron-secret";
     (startCronCheckIn as jest.Mock).mockReturnValue("check-in-1");
     consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
   });
 
   afterEach(() => {
     consoleSpy.mockRestore();
+    if (originalCronSecret === undefined) {
+      delete process.env.CRON_SECRET;
+    } else {
+      process.env.CRON_SECRET = originalCronSecret;
+    }
   });
 
   function findUpdate(client: MockChain, predicate: (row: Record<string, unknown>) => boolean) {

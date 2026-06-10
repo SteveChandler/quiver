@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { OracleHomeScreen } from "@/components/oracle/oracle-home-screen";
 import type { OracleData } from "@/hooks/use-oracle-data";
@@ -376,9 +376,10 @@ describe("OracleHomeScreen", () => {
 
   it("renders the hero section with beach data", () => {
     render(<OracleHomeScreen />);
-    expect(screen.getByRole("banner")).toBeInTheDocument();
+    const hero = screen.getByRole("banner");
+    expect(hero).toBeInTheDocument();
     // Beach name appears inside the hero conditions overlay
-    expect(screen.getByText("Blacks Beach")).toBeInTheDocument();
+    expect(within(hero).getByText("Blacks Beach")).toBeInTheDocument();
   });
 
   it("renders wave height in the hero", () => {
@@ -453,9 +454,49 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByText("Today's Windows")).toBeInTheDocument();
   });
 
+  it("keeps the forecast feed single-column until the layout has desktop width", () => {
+    render(<OracleHomeScreen />);
+
+    const layout = screen.getByTestId("oracle-home-content-grid");
+    expect(layout).not.toHaveClass("md:grid");
+    expect(layout).toHaveClass("lg:grid");
+  });
+
   it("renders Nearby Spots section", () => {
     render(<OracleHomeScreen />);
     expect(screen.getByText("Nearby Spots")).toBeInTheDocument();
+  });
+
+  it("keeps custom spot recommendations distinct from their nearest beach identity", async () => {
+    const customSpotRec = {
+      ...MOCK_TOP_REC,
+      kind: "custom_spot" as const,
+      customSpotId: "custom-reef-1",
+      visibility: "public",
+      isOwn: false,
+      beach: {
+        ...MOCK_TOP_REC.beach,
+        name: "Community Reef",
+      },
+      summary: "Community reef summary",
+    };
+    mockOracleData = {
+      ...mockOracleData,
+      topRecommendation: MOCK_HOME_REC,
+      discovery: {
+        ...mockOracleData.discovery!,
+        recommendations: [MOCK_HOME_REC, MOCK_TOP_REC, customSpotRec],
+      },
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    const rail = screen.getByTestId("nearby-spots-scroll");
+    const card = await within(rail).findByText("Community Reef");
+    expect(card).toBeInTheDocument();
+
+    await userEvent.click(card.closest('[role="button"]') ?? card);
+    expect(mockRouterPush).not.toHaveBeenCalledWith("/ca/la-jolla/blacks");
   });
 
   it("hides Activity section when no activity items exist", () => {
@@ -931,7 +972,8 @@ describe("OracleHomeScreen", () => {
       // NOT the home beach wave height (1-2ft from MOCK_HOME_REC).
       expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("3-4ft");
       // Beach name in the conditions overlay is the topRec's name.
-      expect(screen.getByText("Blacks Beach")).toBeInTheDocument();
+      const hero = screen.getByRole("banner");
+      expect(within(hero).getByText("Blacks Beach")).toBeInTheDocument();
     });
 
     it("renders the drive subtitle with rounded miles + cardinal word", () => {

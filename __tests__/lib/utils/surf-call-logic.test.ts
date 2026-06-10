@@ -86,13 +86,13 @@ describe('computeSurfCall', () => {
     it('returns NO with message when no forecasts', () => {
       const result = computeSurfCall(null, [], makeBeach());
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('No forecast data available');
+      expect(result.whySentence).toBe('no forecast data right now');
     });
 
     it('returns NO with message when forecasts array is empty', () => {
       const result = computeSurfCall(makeWindow(), [], makeBeach());
       expect(result.verdict).toBe('NO');
-      expect(result.whySentence).toBe('No forecast data available');
+      expect(result.whySentence).toBe('no forecast data right now');
     });
 
     it('returns NO when max wave height is below minimum rideable and no window', () => {
@@ -972,9 +972,9 @@ describe('computeSurfCall', () => {
       expect(result.whySentence).toContain('choppy');
     });
 
-    it('uses "No forecast data available" for empty forecasts', () => {
+    it('uses brand-voice copy for empty forecasts', () => {
       const result = computeSurfCall(null, [], makeBeach());
-      expect(result.whySentence).toBe('No forecast data available');
+      expect(result.whySentence).toBe('no forecast data right now');
     });
   });
 

@@ -27,6 +27,7 @@ import type {
   SurfDiscoveryOptions,
   DetailedScore,
   EveningTransition,
+  PersonalizedForecastWindow,
 } from '@/types/personalization';
 import type { ConditionBadge } from '@/types/personalization';
 import {
@@ -43,6 +44,7 @@ import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/li
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
+import { localDateTimeToUTC, resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 import {
   getConditionBoardPick,
   toForecastForScoring,
@@ -60,6 +62,7 @@ import {
   MIN_SESSION_HOURS,
   FORECAST_WINDOW_DURATION_MINUTES,
   PAST_WINDOW_TOLERANCE_MINUTES,
+  scoreWindowWithEngine,
 } from './window-selector';
 import {
   enrichWithPhotos,
@@ -103,6 +106,32 @@ const DEFAULT_MAX_CONCURRENT = 5; // Increased from 3 for discovery
 const DEFAULT_TIMEOUT_MS = 5000; // Per-beach timeout
 const DEFAULT_OVERALL_TIMEOUT_MS = 12000; // Increased from 8s for more beaches
 const MAX_INCLUDED_BEACH_IDS = 12;
+const MAX_PUBLIC_CUSTOM_SPOTS = 5;
+
+interface CustomSpotDiscoveryRow {
+  id: string;
+  user_id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  visibility: string;
+  nearest_beach_id: string | null;
+  nearest_beach_distance_mi: number | null;
+  break_type: string | null;
+  facing_direction_deg: number | null;
+  swell_window_min_deg: number | null;
+  swell_window_max_deg: number | null;
+  offshore_direction_deg: number | null;
+  exposure_level: string | null;
+  deleted_at: string | null;
+}
+
+interface CustomSpotDiscoveryCandidate {
+  spot: CustomSpotDiscoveryRow;
+  nearestBeach: Beach;
+  isOwn: boolean;
+  distanceMiles: number;
+}
 
 // ============================================================================
 // Badge Generation
@@ -307,6 +336,43 @@ function calculateDistance(
   return R * c;
 }
 
+function boundingBoxForRadius(
+  center: { lat: number; lon: number },
+  radiusMiles: number
+): { minLat: number; maxLat: number; minLon: number; maxLon: number } {
+  const latDelta = radiusMiles / 69;
+  const lonScale = Math.cos((center.lat * Math.PI) / 180);
+  const lonDelta = lonScale === 0 ? 180 : radiusMiles / (69 * Math.abs(lonScale));
+
+  return {
+    minLat: center.lat - latDelta,
+    maxLat: center.lat + latDelta,
+    minLon: center.lon - lonDelta,
+    maxLon: center.lon + lonDelta,
+  };
+}
+
+function swellCenterAndHalfwidth(
+  minDeg: number | null,
+  maxDeg: number | null,
+): { centerDeg: number | null; halfwidthDeg: number | null } {
+  if (minDeg == null || maxDeg == null) {
+    return { centerDeg: null, halfwidthDeg: null };
+  }
+
+  const normalizedMin = ((minDeg % 360) + 360) % 360;
+  const normalizedMax = ((maxDeg % 360) + 360) % 360;
+  let clockwiseSpan = (normalizedMax - normalizedMin + 360) % 360;
+  if (clockwiseSpan === 0 && maxDeg !== minDeg) {
+    clockwiseSpan = 360;
+  }
+  const centerDeg = (normalizedMin + clockwiseSpan / 2) % 360;
+  return {
+    centerDeg,
+    halfwidthDeg: clockwiseSpan / 2,
+  };
+}
+
 /**
  * Generate a primary recommendation reason based on skill match and conditions.
  * This becomes the hero subtitle in the Oracle UI.
@@ -421,6 +487,10 @@ function toRecommendationV2Candidate(
     typeof rec.forecast.forecast_at === 'string'
       ? rec.forecast.forecast_at
       : rec.window.start.toISOString();
+  const recommendationEntityId =
+    rec.kind === 'custom_spot' && rec.customSpotId
+      ? `custom:${rec.customSpotId}`
+      : `beach:${rec.beach.id}`;
   const evidence = buildRecommendationEvidence({
     sourceState,
     similarity: rec.similarity,
@@ -438,7 +508,7 @@ function toRecommendationV2Candidate(
   });
 
   return {
-    recommendationId: `${rec.beach.id}:${forecastAt}`,
+    recommendationId: `${recommendationEntityId}:${forecastAt}`,
     sourceState,
     beach: {
       id: rec.beach.id,
@@ -523,6 +593,145 @@ async function fetchIncludedBeachCandidates(includeBeachIds: string[] | undefine
   return uniqueIds
     .map((id) => byId.get(id))
     .filter((beach): beach is Beach => Boolean(beach));
+}
+
+async function fetchCustomSpotRows(
+  userId: string,
+  userLocation: { lat: number; lon: number },
+  radiusMiles: number,
+): Promise<CustomSpotDiscoveryRow[]> {
+  try {
+    const supabase = createSupabaseServiceRoleClient();
+    const selectColumns = [
+      'id',
+      'user_id',
+      'name',
+      'lat',
+      'lon',
+      'visibility',
+      'nearest_beach_id',
+      'nearest_beach_distance_mi',
+      'break_type',
+      'facing_direction_deg',
+      'swell_window_min_deg',
+      'swell_window_max_deg',
+      'offshore_direction_deg',
+      'exposure_level',
+      'deleted_at',
+    ].join(', ');
+    const bounds = boundingBoxForRadius(userLocation, radiusMiles);
+
+    const [ownResult, publicResult] = await Promise.all([
+      supabase
+        .from('custom_spots')
+        .select(selectColumns)
+        .eq('user_id', userId)
+        .is('deleted_at', null)
+        .gte('lat', bounds.minLat)
+        .lte('lat', bounds.maxLat)
+        .gte('lon', bounds.minLon)
+        .lte('lon', bounds.maxLon),
+      supabase
+        .from('custom_spots')
+        .select(selectColumns)
+        .eq('visibility', 'public')
+        .is('deleted_at', null)
+        .neq('user_id', userId)
+        .gte('lat', bounds.minLat)
+        .lte('lat', bounds.maxLat)
+        .gte('lon', bounds.minLon)
+        .lte('lon', bounds.maxLon),
+    ]);
+
+    if (ownResult.error) {
+      log.warn(`[discoverSurfSpots] Failed to fetch own custom spots: ${ownResult.error.message}`);
+    }
+    if (publicResult.error) {
+      log.warn(`[discoverSurfSpots] Failed to fetch public custom spots: ${publicResult.error.message}`);
+    }
+
+    const ownRows = ((ownResult.data ?? []) as unknown as CustomSpotDiscoveryRow[])
+      .filter((spot) => spot.nearest_beach_id)
+      .map((spot) => ({
+        spot,
+        distanceMiles: calculateDistance(userLocation, { lat: spot.lat, lon: spot.lon }),
+      }))
+      .filter(({ distanceMiles }) => Number.isFinite(distanceMiles) && distanceMiles <= radiusMiles)
+      .sort((a, b) => a.distanceMiles - b.distanceMiles)
+      .map(({ spot }) => spot);
+    const publicRows = ((publicResult.data ?? []) as unknown as CustomSpotDiscoveryRow[])
+      .filter((spot) => spot.nearest_beach_id)
+      .map((spot) => ({
+        spot,
+        distanceMiles: calculateDistance(userLocation, { lat: spot.lat, lon: spot.lon }),
+      }))
+      .filter(({ distanceMiles }) => Number.isFinite(distanceMiles) && distanceMiles <= radiusMiles)
+      .sort((a, b) => a.distanceMiles - b.distanceMiles)
+      .slice(0, MAX_PUBLIC_CUSTOM_SPOTS)
+      .map(({ spot }) => spot);
+
+    const byId = new Map<string, CustomSpotDiscoveryRow>();
+    for (const spot of [...ownRows, ...publicRows]) {
+      if (spot.id) byId.set(spot.id, spot);
+    }
+    return Array.from(byId.values());
+  } catch (error) {
+    log.warn('[discoverSurfSpots] Custom spot candidate lookup failed; continuing with beaches only', error);
+    return [];
+  }
+}
+
+async function buildCustomSpotCandidates(
+  userId: string,
+  userLocation: { lat: number; lon: number },
+  radiusMiles: number,
+): Promise<CustomSpotDiscoveryCandidate[]> {
+  const spots = await fetchCustomSpotRows(userId, userLocation, radiusMiles);
+  const nearestBeachIds = Array.from(
+    new Set(spots.map((spot) => spot.nearest_beach_id).filter((id): id is string => Boolean(id)))
+  );
+  if (nearestBeachIds.length === 0) return [];
+
+  const nearestBeaches = await fetchIncludedBeachCandidates(nearestBeachIds);
+  const beachesById = new Map(nearestBeaches.map((beach) => [beach.id, beach]));
+
+  return spots
+    .map((spot) => {
+      const nearestBeach = spot.nearest_beach_id ? beachesById.get(spot.nearest_beach_id) : undefined;
+      if (!nearestBeach) return null;
+      return {
+        spot,
+        nearestBeach,
+        isOwn: spot.user_id === userId,
+        distanceMiles: calculateDistance(userLocation, { lat: spot.lat, lon: spot.lon }),
+      };
+    })
+    .filter((candidate): candidate is CustomSpotDiscoveryCandidate => candidate !== null);
+}
+
+function buildCustomSpotBeach(
+  spot: CustomSpotDiscoveryRow,
+  nearestBeach: Beach,
+): Beach {
+  const minDeg = spot.swell_window_min_deg ?? nearestBeach.swell_window_min_deg;
+  const maxDeg = spot.swell_window_max_deg ?? nearestBeach.swell_window_max_deg;
+  const computedSwellWindow = swellCenterAndHalfwidth(minDeg, maxDeg);
+
+  return {
+    ...nearestBeach,
+    name: spot.name,
+    lat: spot.lat,
+    lon: spot.lon,
+    break_type: spot.break_type ?? nearestBeach.break_type,
+    aspect_deg: spot.facing_direction_deg ?? nearestBeach.aspect_deg,
+    wind_offshore_deg: spot.offshore_direction_deg ?? nearestBeach.wind_offshore_deg,
+    swell_window_min_deg: minDeg,
+    swell_window_max_deg: maxDeg,
+    swell_window_center_deg:
+      computedSwellWindow.centerDeg ?? nearestBeach.swell_window_center_deg,
+    swell_window_halfwidth_deg:
+      computedSwellWindow.halfwidthDeg ?? nearestBeach.swell_window_halfwidth_deg,
+  };
 }
 
 function mergeCandidatePools(nearbyCandidates: Beach[], includedCandidates: Beach[]): Beach[] {
@@ -727,6 +936,172 @@ async function scoreBeachForDiscovery(args: {
   };
 }
 
+// Immediate discovery ranks the forecast bucket that covers "right now".
+// Keep this separate from daypart window selection so "now" cannot drift into
+// a future best-window scan.
+const IMMEDIATE_FORECAST_BUCKET_MAX_HOURS = 4;
+
+interface ImmediateForecastBucket {
+  forecast: EnhancedForecastEntity;
+  start: Date;
+  end: Date;
+}
+
+function isImmediateDaylight(
+  now: Date,
+  beachTz: string,
+  sunTimes: { sunrises: Date[]; sunsets: Date[] } | undefined
+): boolean {
+  const localHour = getLocalHour(now, beachTz);
+  if (localHour === null) return false;
+  if (localHour < 6 || localHour >= 21) return false;
+
+  const todayStr = getLocalDateStr(now, beachTz);
+  const sameDaySunrise = sunTimes?.sunrises.find(
+    (sunrise) => getLocalDateStr(sunrise, beachTz) === todayStr
+  );
+  if (sameDaySunrise && now.getTime() < sameDaySunrise.getTime() - 30 * 60 * 1000) {
+    return false;
+  }
+
+  const sameDaySunset = sunTimes?.sunsets.find(
+    (sunset) => getLocalDateStr(sunset, beachTz) === todayStr
+  );
+  if (sameDaySunset) {
+    return now.getTime() < sameDaySunset.getTime();
+  }
+
+  if (localHour >= 18) {
+    return false;
+  }
+
+  return true;
+}
+
+function capImmediateEndAtSunset(
+  end: Date,
+  now: Date,
+  beachTz: string,
+  sunTimes: { sunrises: Date[]; sunsets: Date[] } | undefined
+): Date {
+  const todayStr = getLocalDateStr(now, beachTz);
+  const sameDaySunset = sunTimes?.sunsets.find(
+    (sunset) => getLocalDateStr(sunset, beachTz) === todayStr
+  );
+  if (sameDaySunset && sameDaySunset < end) {
+    return sameDaySunset;
+  }
+  if (!sameDaySunset) {
+    try {
+      const localDateParts = new Intl.DateTimeFormat('en-US', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: beachTz,
+      }).formatToParts(now);
+
+      const year = localDateParts.find((part) => part.type === 'year')?.value;
+      const month = localDateParts.find((part) => part.type === 'month')?.value;
+      const day = localDateParts.find((part) => part.type === 'day')?.value;
+      if (!year || !month || !day) return end;
+
+      const conservative6pm = localDateTimeToUTC(`${year}-${month}-${day}`, '18:00:00', beachTz);
+      if (conservative6pm < end) {
+        return conservative6pm;
+      }
+    } catch {
+      return end;
+    }
+  }
+  return end;
+}
+
+function findImmediateForecastBucket(
+  forecasts: EnhancedForecastEntity[],
+  beachTz: string,
+  now: Date
+): ImmediateForecastBucket | null {
+  const sortedForecasts = forecasts
+    .map((forecast) => ({
+      forecast,
+      forecastTime: resolveForecastTime(forecast, beachTz),
+    }))
+    .filter(({ forecastTime }) => Number.isFinite(forecastTime.getTime()))
+    .sort((a, b) => a.forecastTime.getTime() - b.forecastTime.getTime());
+
+  let activeBucket: ImmediateForecastBucket | null = null;
+  const nowMs = now.getTime();
+
+  for (let index = 0; index < sortedForecasts.length; index++) {
+    const current = sortedForecasts[index];
+    const next = sortedForecasts[index + 1];
+    const fallbackEnd = new Date(
+      current.forecastTime.getTime() + IMMEDIATE_FORECAST_BUCKET_MAX_HOURS * 60 * 60 * 1000
+    );
+    const gapHours = next
+      ? (next.forecastTime.getTime() - current.forecastTime.getTime()) / (60 * 60 * 1000)
+      : null;
+    const bucketEnd =
+      next && gapHours !== null && gapHours > 0 && gapHours <= IMMEDIATE_FORECAST_BUCKET_MAX_HOURS
+        ? next.forecastTime
+        : fallbackEnd;
+
+    if (current.forecastTime.getTime() <= nowMs && bucketEnd.getTime() > nowMs) {
+      activeBucket = {
+        forecast: current.forecast,
+        start: current.forecastTime,
+        end: bucketEnd,
+      };
+    }
+  }
+
+  return activeBucket;
+}
+
+function selectImmediateWindow(
+  forecasts: EnhancedForecastEntity[],
+  beach: Beach,
+  sunTimesCache: Map<string, { sunrises: Date[]; sunsets: Date[] }>,
+  now: Date
+): PersonalizedForecastWindow | null {
+  if (forecasts.length === 0) return null;
+
+  const beachTz =
+    (beach as { timezone?: string | null }).timezone ||
+    getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
+  const sunTimes = sunTimesCache.get(beach.id);
+
+  if (!isImmediateDaylight(now, beachTz, sunTimes)) {
+    return null;
+  }
+
+  const bucket = findImmediateForecastBucket(forecasts, beachTz, now);
+  if (!bucket) return null;
+
+  const end = capImmediateEndAtSunset(bucket.end, now, beachTz, sunTimes);
+  if (end.getTime() <= now.getTime()) return null;
+
+  const wind = [bucket.forecast.wind_speed, bucket.forecast.wind_direction]
+    .filter((part) => part != null && String(part).trim().length > 0)
+    .join(' ');
+
+  return {
+    start: bucket.start,
+    end,
+    tide: bucket.forecast.tide_status || 'Unknown',
+    wind: wind || 'Unknown',
+    waveHeight: bucket.forecast.wave_height || 'Unknown',
+    wavePeriod: bucket.forecast.wave_period || 'Unknown',
+    dataSource: bucket.forecast.data_source || 'FALLBACK',
+    confidence: bucket.forecast.confidence_score || 50,
+    timezone: beachTz,
+    usedTideBoundaries: false,
+    score: scoreWindowWithEngine(bucket.forecast, beach),
+    peakTime: now,
+    sourceForecast: bucket.forecast,
+  };
+}
+
 // ============================================================================
 // Main Entry Point
 // ============================================================================
@@ -749,6 +1124,7 @@ async function discoverSurfSpotsInner(
     timeout = DEFAULT_TIMEOUT_MS,
     overallTimeout = DEFAULT_OVERALL_TIMEOUT_MS,
     timeSlot,
+    discoveryMode = 'best-window',
     isPro = false,
     includeBeachIds,
   } = options;
@@ -759,22 +1135,35 @@ async function discoverSurfSpotsInner(
   log.debug(`Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
 
   // 1. Build candidate pool (GPS-based, sorted by distance)
-  const [{ candidates, userSkillLevel }, includedCandidates] = await Promise.all([
+  const [{ candidates, userSkillLevel }, includedCandidates, customSpotCandidates] = await Promise.all([
     buildCandidatePool(userId, {
       userLocation,
       radiusMiles,
     }),
     fetchIncludedBeachCandidates(requestedIncludeBeachIds),
+    buildCustomSpotCandidates(userId, userLocation, radiusMiles),
   ]);
 
   // Limit nearby candidates to prevent excessive forecast work, then append
   // explicit include targets. Included beaches are capped separately at the
   // route boundary so saved/home targets can be scored without N native calls.
   const maxNearbyCandidates = Math.min(candidates.length, 20);
+  const nearbyCandidates = candidates.slice(0, maxNearbyCandidates);
+  const customNearestCandidates = customSpotCandidates.map((candidate) => candidate.nearestBeach);
   const finalCandidates = mergeCandidatePools(
-    candidates.slice(0, maxNearbyCandidates),
-    includedCandidates,
+    mergeCandidatePools(nearbyCandidates, includedCandidates),
+    customNearestCandidates,
   );
+  const discoverableBeachIds = new Set(
+    [...nearbyCandidates, ...includedCandidates].map((beach) => beach.id)
+  );
+  const customSpotCandidatesByNearestBeachId = new Map<string, CustomSpotDiscoveryCandidate[]>();
+  for (const candidate of customSpotCandidates) {
+    const nearestBeachId = candidate.nearestBeach.id;
+    const existing = customSpotCandidatesByNearestBeachId.get(nearestBeachId) ?? [];
+    existing.push(candidate);
+    customSpotCandidatesByNearestBeachId.set(nearestBeachId, existing);
+  }
 
   if (finalCandidates.length === 0) {
     log.warn(`No candidate beaches found for user ${userId}`);
@@ -783,7 +1172,8 @@ async function discoverSurfSpotsInner(
 
   log.debug(
     `Found ${finalCandidates.length} candidate beaches ` +
-    `(${maxNearbyCandidates} nearby, ${includedCandidates.length} included)`
+    `(${maxNearbyCandidates} nearby, ${includedCandidates.length} included, ` +
+    `${customSpotCandidates.length} custom spots)`
   );
 
   // 2. Fetch forecasts for all candidates
@@ -950,11 +1340,18 @@ async function discoverSurfSpotsInner(
       (hoursUntilSunset !== null && hoursUntilSunset < MIN_SESSION_HOURS) ||
       (todayForecasts.length > 0 && !hasUsableTodayForecast);
 
-    let bestWindow = todayForecasts.length > 0
-      ? selectBestWindow(todayForecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot)
-      : null;
+    let bestWindow =
+      discoveryMode === 'now'
+        ? selectImmediateWindow(forecasts, beach, sunTimesCache, nowForFallback)
+        : todayForecasts.length > 0
+          ? selectBestWindow(todayForecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot)
+          : null;
 
-    if (!bestWindow && (todayForecasts.length === 0 || todayIsEffectivelyOver)) {
+    if (
+      discoveryMode !== 'now' &&
+      !bestWindow &&
+      (todayForecasts.length === 0 || todayIsEffectivelyOver)
+    ) {
       bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
       if (!bestWindow && todayForecasts.length === 0) {
         log.warn(`[discoverSurfSpots] ${beach.name}: no today forecasts (total=${forecasts.length}), tomorrow fallback returned null`);
@@ -991,7 +1388,8 @@ async function discoverSurfSpotsInner(
          }, forecasts[0]);
 
     // Strip sourceForecast to avoid bloating the API response
-    delete bestWindow.sourceForecast;
+    const responseWindow: PersonalizedForecastWindow = { ...bestWindow };
+    delete responseWindow.sourceForecast;
 
     // Calculate distance
     const distanceMiles = calculateDistance(userLocation, {
@@ -1065,9 +1463,13 @@ async function discoverSurfSpotsInner(
           )
         : null;
 
-    scored.push({
+    const baseRecommendation: SurfDiscoveryRecommendation = {
+      kind: 'beach',
+      customSpotId: null,
+      visibility: null,
+      isOwn: false,
       beach,
-      window: bestWindow,
+      window: responseWindow,
       forecast: bestWindowForecast,
       score: detailedScore.total,
       matchQuality: detailedScore.matchQuality,
@@ -1082,7 +1484,7 @@ async function discoverSurfSpotsInner(
       // produces values from the ConditionCharacterCategory union by construction.
       recommendationLabel,
       subscores: detailedScore.subscores,
-      summary: generateDiscoverySummary(beach, bestWindow, detailedScore),
+      summary: generateDiscoverySummary(beach, responseWindow, detailedScore),
       message: buildDiscoveryMessage(
         detailedScore.total,
         detailedScore.reasons,
@@ -1106,7 +1508,111 @@ async function discoverSurfSpotsInner(
       // remains null for free users. Required field — initialize to null.
       similarity: null,
       generated_at: new Date().toISOString(),
-    });
+    };
+
+    if (discoverableBeachIds.has(beach.id)) {
+      scored.push(baseRecommendation);
+    }
+
+    const customCandidates = customSpotCandidatesByNearestBeachId.get(beach.id) ?? [];
+    for (const customCandidate of customCandidates) {
+      const customBeach = buildCustomSpotBeach(customCandidate.spot, beach);
+      const customPersResult = calculatePersonalizationBonus(
+        customBeach,
+        bestWindowForecast,
+        personalizationCtx,
+      );
+      const customDetailedScore = await scoreBeachForDiscovery({
+        beach: customBeach,
+        forecast: bestWindowForecast,
+        userPrefs,
+        userSkillLevel,
+        distanceMiles: customCandidate.distanceMiles,
+        affinityBonus: customPersResult.affinityBonus,
+        personalizationBonus: customPersResult.personalizationBonus,
+        personalizationReasons: customPersResult.reasons,
+      });
+
+      if (wqStatus === 'closure') {
+        customDetailedScore.total = 0;
+        customDetailedScore.matchQuality = 'fair';
+        customDetailedScore.warnings = ['Water quality closure — health advisory active'];
+      } else if (wqStatus === 'advisory') {
+        customDetailedScore.warnings.push('Water quality advisory — elevated bacteria levels');
+      }
+
+      let customConditionCharacter: SurfDiscoveryRecommendation['character'] | undefined;
+      try {
+        const profile = beachToSpotProfile(customBeach);
+        const snapshot = forecastToSnapshot(bestWindowForecast);
+        const composite = getDiscoveryScoringEngine().score({
+          profile,
+          snapshot,
+          window: null,
+          preferences: null,
+        });
+        const character = getConditionCharacter(snapshot, profile, composite);
+        customConditionCharacter = {
+          label: character.label,
+          category: character.category,
+        };
+      } catch {
+        // Non-fatal — character is optional
+      }
+
+      const customRecommendationLabel = getRecommendationLabelGated(
+        customDetailedScore.total,
+        (customConditionCharacter?.category ?? null) as ConditionCharacterCategory | null,
+      );
+      const customBoardPick =
+        userBoardsForPicks.length > 0
+          ? getConditionBoardPick(
+              toForecastForScoring(bestWindowForecast, beachTz),
+              userBoardsForPicks,
+              customBeach,
+            )
+          : null;
+
+      scored.push({
+        kind: 'custom_spot',
+        customSpotId: customCandidate.spot.id,
+        visibility: customCandidate.spot.visibility,
+        isOwn: customCandidate.isOwn,
+        beach: customBeach,
+        window: { ...responseWindow },
+        forecast: bestWindowForecast,
+        score: customDetailedScore.total,
+        matchQuality: customDetailedScore.matchQuality,
+        character: customConditionCharacter,
+        spotProfile: beachToSpotProfile(customBeach),
+        recommendationLabel: customRecommendationLabel,
+        subscores: customDetailedScore.subscores,
+        summary: generateDiscoverySummary(customBeach, responseWindow, customDetailedScore),
+        message: buildDiscoveryMessage(
+          customDetailedScore.total,
+          customDetailedScore.reasons,
+          customDetailedScore.warnings,
+          customRecommendationLabel,
+        ),
+        reasons: customDetailedScore.reasons,
+        warnings: customDetailedScore.warnings,
+        conditionBadges: customDetailedScore.conditionBadges,
+        waveHeightBadge: customDetailedScore.waveHeightBadge,
+        boardPick: customBoardPick
+          ? {
+              boardName: customBoardPick.boardName,
+              boardType: customBoardPick.boardType,
+              reason: customBoardPick.reason,
+            }
+          : null,
+        distanceMiles: customCandidate.distanceMiles,
+        drivingTimeMinutes: customCandidate.distanceMiles
+          ? Math.round(customCandidate.distanceMiles * 1.5)
+          : undefined,
+        similarity: null,
+        generated_at: new Date().toISOString(),
+      });
+    }
 
     log.info(
       `RANKING DEBUG: ${beach.name} score=${detailedScore.total} ` +
@@ -1156,7 +1662,7 @@ async function discoverSurfSpotsInner(
 
     allRecs.push({
       ...rec,
-      isFavorite: favoriteBeachIds.has(rec.beach.id),
+      isFavorite: (rec.kind ?? 'beach') === 'beach' && favoriteBeachIds.has(rec.beach.id),
     });
   }
 
@@ -1212,10 +1718,23 @@ async function discoverSurfSpotsInner(
   // verbatim. When on, return the hero-lifted slice (only [0] moves;
   // remaining order is preserved).
   const finalSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
-  const finalSliceBeachIds = new Set(finalSlice.map((rec) => rec.beach.id));
-  const includedSlice = allRecsScored.filter((rec) =>
-    requestedIncludeBeachIdSet.has(rec.beach.id) && !finalSliceBeachIds.has(rec.beach.id)
-  );
+  const finalSliceKeys = new Set(finalSlice.map((rec) =>
+    rec.kind === 'custom_spot'
+      ? `custom:${rec.customSpotId ?? rec.beach.id}`
+      : `beach:${rec.beach.id}`
+  ));
+  const includedSlice = allRecsScored.filter((rec) => {
+    if ((rec.kind ?? 'beach') === 'beach') {
+      return (
+        requestedIncludeBeachIdSet.has(rec.beach.id) &&
+        !finalSliceKeys.has(`beach:${rec.beach.id}`)
+      );
+    }
+    if (rec.kind === 'custom_spot' && rec.isOwn) {
+      return !finalSliceKeys.has(`custom:${rec.customSpotId ?? rec.beach.id}`);
+    }
+    return false;
+  });
 
   const favoriteCount = finalSlice.filter(r => r.isFavorite).length;
   log.debug(
@@ -1312,7 +1831,7 @@ async function discoverSurfSpotsInner(
 
   // 7. Compute sleep-in scores and assign strategy tags
   const sleepInScores = new Map<string, number>();
-  if (enrichedRanked.length > 1) {
+  if (discoveryMode !== 'now' && enrichedRanked.length > 1) {
     for (const rec of enrichedRanked.slice(1)) {
       const beachForecasts_ = forecastsByBeachId.get(rec.beach.id);
       if (!beachForecasts_) continue;

@@ -27,6 +27,8 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
 
+const REGIONAL_BEST_SURF_WINDOW_LIMIT = 5;
+
 /**
  * Get regional forecast summaries for all regions.
  *
@@ -105,6 +107,7 @@ export async function getRegionalSummaries(
             forecasts: regionForecastMap.get(beach.id) ?? [],
           }))
           .filter((group) => group.forecasts.length > 0),
+        maxRecommendations: REGIONAL_BEST_SURF_WINDOW_LIMIT,
         now: options.now,
         baseUrl: options.baseUrl,
       });
@@ -145,6 +148,7 @@ function buildBestSurfWindowsForRegion(
         forecasts: regionForecastMap.get(beach.id) ?? [],
       }))
       .filter((group) => group.forecasts.length > 0),
+    maxRecommendations: REGIONAL_BEST_SURF_WINDOW_LIMIT,
     now: options.now,
     baseUrl: options.baseUrl,
   });

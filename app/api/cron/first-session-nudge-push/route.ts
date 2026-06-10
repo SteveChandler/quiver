@@ -32,8 +32,7 @@
  * SessionForm (see quiver-native/src/lib/push-notifications.ts).
  *
  * Auth:
- * - Vercel Cron header (`x-vercel-cron`)
- * - OR Authorization: Bearer <CRON_SECRET>
+ * - Authorization: Bearer <CRON_SECRET>
  */
 
 import { enqueueNotification } from "@/lib/notifications/enqueue";

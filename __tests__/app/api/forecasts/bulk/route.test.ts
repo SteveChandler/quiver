@@ -5,6 +5,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { GET } from "@/app/api/forecasts/bulk/route";
+import { scoreWindowWithEngine } from "@/lib/services/discovery/window-selector/window-scorer";
 import {
   createMockRequest,
   createMockSupabaseClient,
@@ -16,6 +17,8 @@ interface BulkForecastResponse {
   forecasts: Record<string, number | undefined>;
   waterTemps: Record<string, string | undefined>;
   isCalibrated: Record<string, boolean>;
+  conditionScores: Record<string, number | undefined>;
+  conditionSummaries: Record<string, "GOOD" | "FAIR" | "CHECK" | "UNKNOWN">;
 }
 
 type QueryResult<T> = {
@@ -29,10 +32,47 @@ type ForecastRow = {
   forecast_time: string;
   forecast_at: string;
   wave_height: string | null;
+  wave_period: string | null;
+  wave_direction: string | null;
   wave_height_om: number | null;
   wave_direction_om: number | null;
   swell_direction_om: number | null;
+  swell_1_height: string | null;
+  swell_1_period: string | null;
   swell_1_direction: string | null;
+  swell_2_height: string | null;
+  swell_2_period: string | null;
+  swell_2_direction: string | null;
+  wind_wave_height: string | null;
+  wind_wave_period: string | null;
+  wind_wave_direction: string | null;
+  wind_speed: string | null;
+  wind_direction: string | null;
+  wind_direction_deg: number | null;
+  tide_height: string | null;
+  tide_status: string | null;
+  confidence_score: number | null;
+  data_source: string | null;
+};
+
+type BeachRow = {
+  id: string;
+  name: string;
+  lat: number;
+  lon: number;
+  shoaling_factors: unknown;
+  swell_window_min_deg: number | null;
+  swell_window_max_deg: number | null;
+  wind_offshore_deg: number | null;
+  wind_offshore_tol_deg: number | null;
+  wind_onshore_bad_kt: number | null;
+  wind_cross_shore_ok_kt: number | null;
+  preferred_tide_ft_min: number | null;
+  preferred_tide_ft_max: number | null;
+  preferred_tide_direction: string | null;
+  tide_direction_sensitivity: string | null;
+  skill_level: string | null;
+  break_type: string | null;
 };
 
 const mockSupabaseClient = createMockSupabaseClient();
@@ -47,6 +87,10 @@ jest.mock("@/lib/supabase/server", () => ({
 
 jest.mock("@/lib/services/forecast/v5-display-gate", () => ({
   applyV51DisplayOverrideToForecasts: jest.fn(async (forecasts: ForecastRow[]) => forecasts),
+}));
+
+jest.mock("@/lib/services/discovery/window-selector/window-scorer", () => ({
+  scoreWindowWithEngine: jest.fn(() => 72),
 }));
 
 jest.mock("@/lib/api-utils", () => {
@@ -86,10 +130,50 @@ function forecastRow(
     forecast_date: forecastAt.toISOString().split("T")[0],
     forecast_time: forecastAt.toISOString().slice(11, 19),
     wave_height: waveHeight,
+    wave_period: "12s",
+    wave_direction: "W",
     wave_height_om: null,
     wave_direction_om: null,
     swell_direction_om: null,
+    swell_1_height: waveHeight,
+    swell_1_period: "12s",
     swell_1_direction: null,
+    swell_2_height: null,
+    swell_2_period: null,
+    swell_2_direction: null,
+    wind_wave_height: null,
+    wind_wave_period: null,
+    wind_wave_direction: null,
+    wind_speed: "6 mph",
+    wind_direction: "E",
+    wind_direction_deg: 90,
+    tide_height: "2.5 ft",
+    tide_status: "Rising",
+    confidence_score: 80,
+    data_source: "NOAA_NWS",
+  };
+}
+
+function beachRow(id: string, overrides: Partial<BeachRow> = {}): BeachRow {
+  return {
+    id,
+    name: `Beach ${id}`,
+    lat: 32.75,
+    lon: -117.25,
+    shoaling_factors: null,
+    swell_window_min_deg: null,
+    swell_window_max_deg: null,
+    wind_offshore_deg: null,
+    wind_offshore_tol_deg: null,
+    wind_onshore_bad_kt: null,
+    wind_cross_shore_ok_kt: null,
+    preferred_tide_ft_min: null,
+    preferred_tide_ft_max: null,
+    preferred_tide_direction: null,
+    tide_direction_sensitivity: null,
+    skill_level: null,
+    break_type: null,
+    ...overrides,
   };
 }
 
@@ -117,7 +201,7 @@ function queryChain<T>(result: QueryResult<T>) {
 function mockBulkQueries(options: {
   forecastRows?: ForecastRow[] | null;
   forecastError?: { message: string } | null;
-  beachRows?: Array<{ id: string; shoaling_factors: unknown }> | null;
+  beachRows?: BeachRow[] | null;
   beachError?: { message: string } | null;
   waterRows?: Array<{ beach_id: string; water_temp: string | null }> | null;
 } = {}) {
@@ -154,6 +238,7 @@ describe("/api/forecasts/bulk", () => {
     const testEnv = setupApiTestEnvironment();
     cleanup = testEnv.cleanup;
     jest.clearAllMocks();
+    (scoreWindowWithEngine as jest.Mock).mockReturnValue(72);
     mockSupabaseClient.from = jest.fn(() => queryChain({ data: null, error: null })) as any;
   });
 
@@ -169,9 +254,10 @@ describe("/api/forecasts/bulk", () => {
 
     expect(source).not.toMatch(/@\/lib\/api-utils/);
     expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
+    expect(source).toMatch(/optional:\s*true/);
   });
 
-  it("returns empty forecasts when beachIds is missing or empty", async () => {
+  it("returns all empty maps when beachIds is missing or empty", async () => {
     for (const url of [
       "http://localhost:3000/api/forecasts/bulk",
       "http://localhost:3000/api/forecasts/bulk?beachIds=",
@@ -180,9 +266,30 @@ describe("/api/forecasts/bulk", () => {
       const response = await GET(createMockRequest("GET", url));
       const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
 
-      expect(data.data).toEqual({ forecasts: {}, waterTemps: {}, isCalibrated: {} });
+      expect(data.data).toEqual({
+        forecasts: {},
+        waterTemps: {},
+        isCalibrated: {},
+        conditionScores: {},
+        conditionSummaries: {},
+      });
     }
     expect(mockSupabaseClient.from).not.toHaveBeenCalled();
+  });
+
+  it("allows anonymous requests through optional auth", async () => {
+    mockBulkQueries({
+      forecastRows: [forecastRow("beach-1", "2.4")],
+      beachRows: [beachRow("beach-1")],
+    });
+
+    const response = await GET(
+      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+    expect(data.data.forecasts).toEqual({ "beach-1": 2.4 });
+    expect(data.data.conditionSummaries).toEqual({ "beach-1": "GOOD" });
   });
 
   it("fetches current forecasts from enhanced_forecasts for a single beach", async () => {
@@ -279,7 +386,16 @@ describe("/api/forecasts/bulk", () => {
     );
     const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
 
-    expect(data.data).toEqual({ forecasts: {}, waterTemps: {}, isCalibrated: {} });
+    expect(data.data).toEqual({
+      forecasts: {},
+      waterTemps: {},
+      isCalibrated: {},
+      conditionScores: {},
+      conditionSummaries: {
+        "beach-1": "UNKNOWN",
+        "beach-2": "UNKNOWN",
+      },
+    });
   });
 
   it("omits beaches with null or non-numeric wave_height", async () => {
@@ -338,6 +454,75 @@ describe("/api/forecasts/bulk", () => {
     expect(data.data.waterTemps).toEqual({ "beach-1": "64" });
   });
 
+  it("returns condition scores and native summaries for scored current rows", async () => {
+    (scoreWindowWithEngine as jest.Mock)
+      .mockReturnValueOnce(71)
+      .mockReturnValueOnce(40)
+      .mockReturnValueOnce(39);
+    mockBulkQueries({
+      forecastRows: [
+        forecastRow("beach-good", "3.5"),
+        forecastRow("beach-fair", "2.5"),
+        forecastRow("beach-check", "1.2"),
+      ],
+      beachRows: [
+        beachRow("beach-good"),
+        beachRow("beach-fair"),
+        beachRow("beach-check"),
+      ],
+    });
+
+    const response = await GET(
+      createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-good,beach-fair,beach-check,beach-missing",
+      ),
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+    expect(data.data.conditionScores).toEqual({
+      "beach-good": 71,
+      "beach-fair": 40,
+      "beach-check": 39,
+    });
+    expect(data.data.conditionSummaries).toEqual({
+      "beach-good": "GOOD",
+      "beach-fair": "FAIR",
+      "beach-check": "CHECK",
+      "beach-missing": "UNKNOWN",
+    });
+  });
+
+  it("keeps wave-height data when condition scoring fails", async () => {
+    (scoreWindowWithEngine as jest.Mock).mockImplementation(() => {
+      throw new Error("scoring unavailable");
+    });
+    mockBulkQueries({
+      forecastRows: [forecastRow("beach-1", "2.5")],
+      beachRows: [beachRow("beach-1")],
+    });
+    const consoleWarnSpy = jest
+      .spyOn(console, "warn")
+      .mockImplementation(() => {});
+
+    try {
+      const response = await GET(
+        createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+      );
+      const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+      expect(data.data.forecasts).toEqual({ "beach-1": 2.5 });
+      expect(data.data.conditionScores).toEqual({});
+      expect(data.data.conditionSummaries).toEqual({ "beach-1": "UNKNOWN" });
+      expect(consoleWarnSpy).toHaveBeenCalledWith(
+        "Failed to score bulk forecast condition:",
+        expect.objectContaining({ beachId: "beach-1" }),
+      );
+    } finally {
+      consoleWarnSpy.mockRestore();
+    }
+  });
+
   it("returns calibration status for beaches with shoaling_factors", async () => {
     mockBulkQueries({
       forecastRows: [
@@ -345,8 +530,8 @@ describe("/api/forecasts/bulk", () => {
         forecastRow("beach-b", "3.1"),
       ],
       beachRows: [
-        { id: "beach-a", shoaling_factors: { "270": 1.05 } },
-        { id: "beach-b", shoaling_factors: null },
+        beachRow("beach-a", { shoaling_factors: { "270": 1.05 } }),
+        beachRow("beach-b", { shoaling_factors: null }),
       ],
     });
 
@@ -380,6 +565,7 @@ describe("/api/forecasts/bulk", () => {
 
       expect(data.data.forecasts).toEqual({ "beach-1": 2.5 });
       expect(data.data.isCalibrated).toEqual({});
+      expect(data.data.conditionSummaries).toEqual({ "beach-1": "UNKNOWN" });
       expect(consoleErrorSpy).toHaveBeenCalledWith(
         "Error fetching beach calibration status:",
         { message: "rls denied" },

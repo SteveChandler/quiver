@@ -189,6 +189,45 @@ describe("GET /api/cron/wind/update", () => {
     });
   });
 
+  it("keeps the cron successful when one Open-Meteo fetch fails", async () => {
+    const beachesQuery = {
+      select: jest.fn().mockReturnValue({
+        not: jest.fn().mockReturnValue({
+          not: jest.fn().mockResolvedValue({ data: makeBeaches(3), error: null }),
+        }),
+      }),
+    };
+
+    (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+      from: jest.fn((table: string) => {
+        if (table === "beaches") return beachesQuery;
+        throw new Error(`unexpected table: ${table}`);
+      }),
+      rpc: jest.fn(async (fn: string, args: Record<string, unknown>) => {
+        rpcCalls.push({ fn, args });
+        return { data: { updated_count: 8, skipped_count: 40 }, error: null };
+      }),
+    });
+    (fetchHourlyWind as jest.Mock)
+      .mockResolvedValueOnce(makeWindPoints(48))
+      .mockRejectedValueOnce(new TypeError("fetch failed"))
+      .mockResolvedValueOnce(makeWindPoints(48));
+
+    const response = await GET(makeRequest());
+    expect(response.status).toBe(200);
+    const body = await response.json();
+
+    expect(rpcCalls).toHaveLength(2);
+    expect(body.data).toMatchObject({
+      beaches: 3,
+      updated: 16,
+      skipped: 80,
+      errors: 0,
+      fetchErrors: 1,
+      sampleErrors: ["Beach 1: fetch failed"],
+    });
+  });
+
   it("filters null wind speeds before calling the RPC", async () => {
     (fetchHourlyWind as jest.Mock).mockResolvedValueOnce([
       {

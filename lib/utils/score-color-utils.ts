@@ -12,28 +12,32 @@
  * Color configuration for score-based styling
  */
 export interface ScoreColorConfig {
-  /** Background color class (e.g., "bg-green-500") */
+  /** Background color class (e.g., "bg-teal-500") */
   bg: string;
-  /** Text color class for score labels (e.g., "text-green-700 dark:text-green-400") */
+  /** Text color class for score labels (e.g., "text-teal-700 dark:text-teal-300") */
   text: string;
-  /** Border color class (e.g., "border-green-500/30") */
+  /** Border color class (e.g., "border-teal-500/30") */
   border: string;
-  /** Quality label (e.g., "Epic", "Good", "Fair", "Poor") */
+  /** Quality label (e.g., "EPIC", "GOOD", "FAIR", "RIDEABLE", "MEH") */
   label: string;
 }
 
 /**
  * Score thresholds for quality categories
  *
- * 80-100: Epic conditions
- * 60-79: Good conditions
- * 40-59: Fair conditions
- * 0-39: Poor conditions
+ * 80-100: EPIC conditions
+ * 60-79: GOOD conditions
+ * 40-59: FAIR conditions
+ * 30-39: RIDEABLE conditions
+ * 0-29: MEH conditions
  */
 export const SCORE_THRESHOLDS = {
   EPIC: 80,
   GOOD: 60,
   FAIR: 40,
+  RIDEABLE: 30,
+  MEH: 0,
+  /** @deprecated Use MEH for the native-aligned score vocabulary. */
   POOR: 0,
 } as const;
 
@@ -46,39 +50,47 @@ export const SCORE_THRESHOLDS = {
  * @example
  * ```typescript
  * const colors = getScoreColorClasses(85);
- * // Returns: { bg: "bg-green-500", text: "text-green-700 dark:text-green-400", border: "border-green-500/30", label: "Epic" }
+ * // Returns: { bg: "bg-teal-500", text: "text-teal-700 dark:text-teal-300", border: "border-teal-500/30", label: "EPIC" }
  * ```
  */
 export function getScoreColorClasses(score: number): ScoreColorConfig {
   if (score >= SCORE_THRESHOLDS.EPIC) {
     return {
-      bg: "bg-green-500",
-      text: "text-green-700 dark:text-green-400",
-      border: "border-green-500/30",
-      label: "Epic",
+      bg: "bg-teal-500",
+      text: "text-teal-700 dark:text-teal-300",
+      border: "border-teal-500/30",
+      label: "EPIC",
     };
   }
   if (score >= SCORE_THRESHOLDS.GOOD) {
     return {
-      bg: "bg-blue-500",
-      text: "text-blue-700 dark:text-blue-400",
-      border: "border-blue-500/30",
-      label: "Good",
+      bg: "bg-ocean-blue-decorative",
+      text: "text-ocean-blue dark:text-ocean-blue-decorative",
+      border: "border-ocean-blue-decorative/40",
+      label: "GOOD",
     };
   }
   if (score >= SCORE_THRESHOLDS.FAIR) {
     return {
-      bg: "bg-yellow-500",
-      text: "text-yellow-700 dark:text-yellow-400",
-      border: "border-yellow-500/30",
-      label: "Fair",
+      bg: "bg-accent-orange",
+      text: "text-amber-800 dark:text-accent-orange",
+      border: "border-accent-orange/40",
+      label: "FAIR",
+    };
+  }
+  if (score >= SCORE_THRESHOLDS.RIDEABLE) {
+    return {
+      bg: "bg-slate-500",
+      text: "text-slate-600 dark:text-slate-300",
+      border: "border-slate-500/30",
+      label: "RIDEABLE",
     };
   }
   return {
-    bg: "bg-gray-400",
-    text: "text-gray-600 dark:text-gray-400",
-    border: "border-gray-400/30",
-    label: "Poor",
+    bg: "bg-slate-400",
+    text: "text-slate-500 dark:text-slate-400",
+    border: "border-slate-400/30",
+    label: "MEH",
   };
 }
 
@@ -90,8 +102,8 @@ export function getScoreColorClasses(score: number): ScoreColorConfig {
  *
  * @example
  * ```typescript
- * getQualityLabel(75) // "Good"
- * getQualityLabel(90) // "Epic"
+ * getQualityLabel(75) // "GOOD"
+ * getQualityLabel(90) // "EPIC"
  * ```
  */
 export function getQualityLabel(score: number): string {
@@ -106,28 +118,34 @@ export function getQualityLabel(score: number): string {
  */
 export const QUALITY_CONFIG = {
   epic: {
-    label: "Epic",
+    label: "EPIC",
     minScore: SCORE_THRESHOLDS.EPIC,
-    badgeClass: "bg-emerald-100 text-emerald-700 border-emerald-200",
-    textClass: "text-emerald-700",
+    badgeClass: "bg-teal-100 text-teal-700 border-teal-200",
+    textClass: "text-teal-700",
   },
   good: {
-    label: "Good",
+    label: "GOOD",
     minScore: SCORE_THRESHOLDS.GOOD,
-    badgeClass: "bg-blue-100 text-blue-700 border-blue-200",
-    textClass: "text-blue-700",
+    badgeClass: "bg-ocean-blue-decorative/15 text-ocean-blue border-ocean-blue-decorative/40",
+    textClass: "text-ocean-blue",
   },
   fair: {
-    label: "Fair",
+    label: "FAIR",
     minScore: SCORE_THRESHOLDS.FAIR,
-    badgeClass: "bg-amber-100 text-amber-700 border-amber-200",
-    textClass: "text-amber-700",
+    badgeClass: "bg-accent-orange/20 text-amber-800 border-accent-orange/40",
+    textClass: "text-amber-800",
+  },
+  rideable: {
+    label: "RIDEABLE",
+    minScore: SCORE_THRESHOLDS.RIDEABLE,
+    badgeClass: "bg-slate-100 text-slate-700 border-slate-200",
+    textClass: "text-slate-700",
   },
   poor: {
-    label: "Poor",
-    minScore: SCORE_THRESHOLDS.POOR,
-    badgeClass: "bg-gray-100 text-gray-600 border-gray-200",
-    textClass: "text-gray-600",
+    label: "MEH",
+    minScore: SCORE_THRESHOLDS.MEH,
+    badgeClass: "bg-slate-100 text-slate-600 border-slate-200",
+    textClass: "text-slate-600",
   },
 } as const;
 
@@ -140,12 +158,13 @@ export const QUALITY_CONFIG = {
  * @example
  * ```typescript
  * const config = getQualityConfig(75);
- * // Returns: { label: "Good", minScore: 60, badgeClass: "bg-blue-100 text-blue-700 border-blue-200", textClass: "text-blue-700" }
+ * // Returns: { label: "GOOD", minScore: 60, badgeClass: "...", textClass: "..." }
  * ```
  */
 export function getQualityConfig(score: number) {
   if (score >= QUALITY_CONFIG.epic.minScore) return QUALITY_CONFIG.epic;
   if (score >= QUALITY_CONFIG.good.minScore) return QUALITY_CONFIG.good;
   if (score >= QUALITY_CONFIG.fair.minScore) return QUALITY_CONFIG.fair;
+  if (score >= QUALITY_CONFIG.rideable.minScore) return QUALITY_CONFIG.rideable;
   return QUALITY_CONFIG.poor;
 }

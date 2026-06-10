@@ -1167,6 +1167,59 @@ describe('Wave Height Transformer', () => {
       expect(cdipSwellAccess).toBeCloseTo(strictWindow, 6);
       expect(noTerrainModelAccess).toBeCloseTo(strictWindow, 6);
     });
+
+    it('uses a long-period south-swell terrain floor for CDIP/direct components with real access', () => {
+      const accessFactors = createAccessArray(0);
+      accessFactors[38] = 0.022199; // OB Pier production access at 192°.
+      const obPier: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: accessFactors,
+        swell_window_center_deg: 293,
+        swell_window_halfwidth_deg: 73,
+      };
+
+      const strictWindow = alignmentFactor(192, 18, 293, 73);
+      const cdipSwellAccess = componentAccessFactor(192, 18, obPier, 'cdip_swell');
+      const cdipSigAccess = componentAccessFactor(192, 18, obPier, 'cdip_sig');
+      const modelAccess = componentAccessFactor(192, 18, obPier, 'model_swell');
+
+      expect(strictWindow).toBe(0);
+      expect(cdipSwellAccess).toBeGreaterThan(0);
+      expect(cdipSwellAccess).toBeLessThan(0.2);
+      expect(cdipSwellAccess).toBeLessThan(modelAccess);
+      expect(cdipSigAccess).toBeCloseTo(cdipSwellAccess, 6);
+    });
+
+    it('keeps low-but-nonzero CDIP/direct south-swell access as a small fraction', () => {
+      const accessFactors = createAccessArray(0);
+      accessFactors[38] = 0.05;
+      const shelteredBeach: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: accessFactors,
+        swell_window_center_deg: 293,
+        swell_window_halfwidth_deg: 73,
+      };
+
+      const access = componentAccessFactor(192, 18, shelteredBeach, 'cdip_swell');
+
+      expect(alignmentFactor(192, 18, 293, 73)).toBe(0);
+      expect(access).toBeGreaterThan(0);
+      expect(access).toBeLessThan(0.25);
+    });
+
+    it('keeps exact-zero terrain-access south swell blocked', () => {
+      const accessFactors = createAccessArray(0);
+      const blockedCove: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: accessFactors,
+        swell_window_center_deg: 270,
+        swell_window_halfwidth_deg: 35,
+      };
+
+      expect(alignmentFactor(192, 18, 270, 35)).toBe(0);
+      expect(componentAccessFactor(192, 18, blockedCove, 'cdip_swell')).toBe(0);
+      expect(componentAccessFactor(192, 18, blockedCove, 'model_swell')).toBe(0);
+    });
   });
 
   describe('transformToFaceHeightDecomposed', () => {
@@ -1824,6 +1877,95 @@ describe('Wave Height Transformer', () => {
       expect(result.path).toBe('decomposed');
       expect(result.faceHeightFt).toBeGreaterThan(0.5);
       expect(result.faceHeightFt).toBeLessThanOrEqual(2.5);
+    });
+
+    it('OB Pier model-source 192° long-period south swell stays nonzero despite strict window zero', () => {
+      const obPier: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: createDirectionalAccess([
+          { directionDeg: 192, access: 0.022199 },
+        ]),
+        shoaling_factors: null,
+        swell_window_center_deg: 293,
+        swell_window_halfwidth_deg: 73,
+        deepwater_decay_factor: 1,
+      };
+
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 5.9, periodS: 18, directionDeg: 192 },
+          null,
+          null,
+        ],
+        beach: obPier,
+        source: 'model_swell',
+        rawHeightFt: 5.9,
+        periodS: 18,
+        swellDirectionDeg: 192,
+      });
+
+      expect(alignmentFactor(192, 18, 293, 73)).toBe(0);
+      expect(result.path).toBe('decomposed');
+      expect(result.faceHeightFt).toBeGreaterThanOrEqual(4.5);
+      expect(result.faceHeightFt).toBeLessThanOrEqual(5.5);
+    });
+
+    it('OB Pier CDIP/direct 192° long-period south swell uses a scaled nonzero terrain floor', () => {
+      const obPier: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: createDirectionalAccess([
+          { directionDeg: 192, access: 0.022199 },
+        ]),
+        shoaling_factors: null,
+        swell_window_center_deg: 293,
+        swell_window_halfwidth_deg: 73,
+        deepwater_decay_factor: 1,
+      };
+
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 5.9, periodS: 18, directionDeg: 192 },
+          null,
+          null,
+        ],
+        beach: obPier,
+        source: 'cdip_swell',
+        rawHeightFt: 5.9,
+        periodS: 18,
+        swellDirectionDeg: 192,
+      });
+
+      expect(alignmentFactor(192, 18, 293, 73)).toBe(0);
+      expect(result.path).toBe('decomposed');
+      expect(result.faceHeightFt).toBeGreaterThanOrEqual(0.8);
+      expect(result.faceHeightFt).toBeLessThanOrEqual(1.3);
+    });
+
+    it('exact-zero south-swell access keeps the legacy fallback for this pass', () => {
+      const blockedCove: BeachTerrainConfig = {
+        terrain_enabled: true,
+        swell_access_factors: createAccessArray(0),
+        shoaling_factors: null,
+        swell_window_center_deg: 270,
+        swell_window_halfwidth_deg: 35,
+        deepwater_decay_factor: 1,
+      };
+
+      const result = transformToFaceHeightDecomposed({
+        components: [
+          { heightFt: 5.9, periodS: 18, directionDeg: 192 },
+          null,
+          null,
+        ],
+        beach: blockedCove,
+        source: 'cdip_swell',
+        rawHeightFt: 5.9,
+        periodS: 18,
+        swellDirectionDeg: 192,
+      });
+
+      expect(result.path).toBe('legacy');
+      expect(result.faceHeightFt).toBeGreaterThan(0);
     });
 
     it('Malibu First Point terrain model fixture stays bounded and does not overcall', () => {

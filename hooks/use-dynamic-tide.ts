@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import type { EnhancedForecastEntity } from "@/types/forecast";
+import { extractMergedTideSchedule } from "@/lib/utils/tide-schedule";
 
 export interface TideExtreme {
   time: number; // Unix timestamp (seconds)
@@ -38,17 +39,10 @@ export function useDynamicTide(
   // between server and client). Real value is set in useEffect on mount.
   const [computedAt, setComputedAt] = useState<number | null>(null);
 
-  // Extract tide_schedule from the first forecast that has it
+  // Tide schedules are embedded across multiple forecast rows.
   const tideSchedule = useMemo(() => {
-    if (!forecasts || forecasts.length === 0) return null;
-
-    for (const forecast of forecasts) {
-      const schedule = forecast.raw_forecast?.tide_schedule;
-      if (Array.isArray(schedule) && schedule.length > 0) {
-        return schedule;
-      }
-    }
-    return null;
+    const mergedSchedule = extractMergedTideSchedule(forecasts);
+    return mergedSchedule.length > 0 ? mergedSchedule : null;
   }, [forecasts]);
 
   // Compute next tides from schedule

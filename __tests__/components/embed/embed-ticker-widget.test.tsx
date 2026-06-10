@@ -180,16 +180,16 @@ describe("EmbedTickerWidget - partial data", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. "No data available" when ALL fields are null / empty object
+// 3. "no data" when ALL fields are null / empty object
 // ---------------------------------------------------------------------------
 
 describe("EmbedTickerWidget - no data", () => {
-  it("shows 'No data available' text when data is an empty object", () => {
+  it("shows 'no data' text when data is an empty object", () => {
     renderWidget({});
-    expect(screen.getByText("No data available")).toBeInTheDocument();
+    expect(screen.getByText("no data")).toBeInTheDocument();
   });
 
-  it("shows 'No data available' when all fields are explicitly null", () => {
+  it("shows 'no data' when all fields are explicitly null", () => {
     const emptyData: ConditionsData = {
       waveHeight: null,
       wavePeriod: null,
@@ -201,7 +201,7 @@ describe("EmbedTickerWidget - no data", () => {
       tideHeight: null,
     };
     renderWidget(emptyData);
-    expect(screen.getByText("No data available")).toBeInTheDocument();
+    expect(screen.getByText("no data")).toBeInTheDocument();
   });
 
   it("does NOT render any card labels when there is no data", () => {
@@ -220,7 +220,7 @@ describe("EmbedTickerWidget - no data", () => {
 
   it("includes the beach name in the no-data container's title attribute", () => {
     renderWidget({});
-    const noDataSpan = screen.getByText("No data available");
+    const noDataSpan = screen.getByText("no data");
     expect(noDataSpan).toHaveAttribute("title", BEACH_NAME);
   });
 });

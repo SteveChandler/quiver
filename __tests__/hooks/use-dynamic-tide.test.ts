@@ -75,6 +75,26 @@ describe("useDynamicTide - schedule extraction", () => {
     expect(result.current.nextLow?.height).toBe(4.8);
   });
 
+  it("uses future high and low tides from later forecast rows", () => {
+    const pastTime = Math.floor(Date.now() / 1000) - 3600;
+    const futureHighTime = Math.floor(Date.now() / 1000) + 3600;
+    const futureLowTime = Math.floor(Date.now() / 1000) + 7200;
+    const forecasts = [
+      createMockForecast([{ time: pastTime, height: 4.0, type: "high" }]),
+      createMockForecast([
+        { time: futureHighTime, height: 5.4, type: "high" },
+        { time: futureLowTime, height: 0.4, type: "low" },
+      ]),
+    ];
+
+    const { result } = renderHook(() => useDynamicTide(forecasts));
+
+    expect(result.current.usingFallback).toBe(false);
+    expect(result.current.nextTide?.type).toBe("high");
+    expect(result.current.nextHigh?.height).toBe(5.4);
+    expect(result.current.nextLow?.height).toBe(0.4);
+  });
+
   it("returns fallback when no tide_schedule found", () => {
     const forecasts = [createMockForecast(), createMockForecast()];
 

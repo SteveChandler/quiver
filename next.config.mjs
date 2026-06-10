@@ -1,60 +1,10 @@
 import { createRequire } from "node:module";
 import withPWA from "@ducanh2912/next-pwa";
 import { withSentryConfig } from "@sentry/nextjs";
+import { validateEnvironment } from "./config/environment-validation.mjs";
 import { isCacheableForecastApiPath } from "./config/forecast-api-cache-rules.mjs";
 
 const require = createRequire(import.meta.url);
-
-// Validate environment variables at build time
-// Note: This validation runs inline instead of importing from a TS file
-// to avoid ESM/TypeScript import issues in next.config.mjs
-const validateEnvironment = () => {
-  const errors = [];
-  const warnings = [];
-
-  // Required variables
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-    errors.push("NEXT_PUBLIC_SUPABASE_URL is required");
-  }
-  if (!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    errors.push("NEXT_PUBLIC_SUPABASE_ANON_KEY is required");
-  }
-
-  // Optional but recommended
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    warnings.push(
-      "SUPABASE_SERVICE_ROLE_KEY not set - admin operations will fail"
-    );
-  }
-  if (!process.env.NEXT_PUBLIC_SITE_URL) {
-    warnings.push(
-      "NEXT_PUBLIC_SITE_URL not set - OAuth redirects may not work correctly"
-    );
-  }
-
-  // Log warnings
-  if (warnings.length > 0) {
-    console.warn("⚠️  Environment Configuration Warnings:");
-    warnings.forEach((w) => console.warn(`   • ${w}`));
-  }
-
-  // Handle errors
-  if (errors.length > 0) {
-    const msg = [
-      "❌ Environment Configuration Errors:",
-      ...errors.map((e) => `   • ${e}`),
-      "",
-      "💡 Setup: Copy .env.example to .env.local and fill in your values",
-      "   See docs/SUPABASE_SETUP.md for detailed instructions",
-    ].join("\n");
-
-    if (process.env.NODE_ENV === "development") {
-      throw new Error(msg);
-    } else {
-      console.error(msg);
-    }
-  }
-};
 
 validateEnvironment();
 

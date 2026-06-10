@@ -70,8 +70,7 @@ interface ObservationSyncResult {
  * - batchSize: Stations per batch (default: 10)
  *
  * Auth:
- * - Vercel Cron header (`x-vercel-cron`)
- * - OR Authorization: Bearer <CRON_SECRET>
+ * - Authorization: Bearer <CRON_SECRET>
  */
 async function _GET(request: Request): Promise<Response> {
   const startTime = Date.now();

@@ -2,6 +2,15 @@ import type { Beach } from "@/types/database";
 import { API_BATCH_CONFIG } from "@/lib/constants/ui";
 import { fetchInBatches } from "@/lib/utils/batch-fetch";
 
+export type ConditionSummary = "GOOD" | "FAIR" | "CHECK" | "UNKNOWN";
+
+const VALID_CONDITION_SUMMARIES = new Set<ConditionSummary>([
+  "GOOD",
+  "FAIR",
+  "CHECK",
+  "UNKNOWN",
+]);
+
 /**
  * Dependencies for fetchNearbyBeaches — injected so the module
  * can be tested without real API calls.
@@ -21,6 +30,10 @@ export interface BeachLoaderResult {
   waveHeightMap: Map<string, number | undefined>;
   /** Map from beach ID to water temperature string (e.g., "52") */
   waterTempMap: Map<string, string | undefined>;
+  /** Map from beach ID to 0-100 condition score */
+  conditionScoreMap: Map<string, number | undefined>;
+  /** Map from beach ID to native-aligned condition summary */
+  conditionSummaryMap: Map<string, ConditionSummary>;
 }
 
 /**
@@ -98,6 +111,8 @@ export async function loadBeachesAndWaveHeights(
   // Fetch wave heights for ALL beaches that clustering will use
   const waveHeightMap = new Map<string, number | undefined>();
   const waterTempMap = new Map<string, string | undefined>();
+  const conditionScoreMap = new Map<string, number | undefined>();
+  const conditionSummaryMap = new Map<string, ConditionSummary>();
   const beachesForWaveData = providedBeaches?.length
     ? providedBeaches
     : locations;
@@ -148,6 +163,22 @@ export async function loadBeachesAndWaveHeights(
             waterTempMap.set(beachId, temp as string);
           }
         });
+
+        const conditionScores = data?.data?.conditionScores || {};
+        Object.entries(conditionScores).forEach(([beachId, score]) => {
+          const parsed =
+            typeof score === "number" ? score : parseFloat(score as string);
+          if (!isNaN(parsed)) {
+            conditionScoreMap.set(beachId, parsed);
+          }
+        });
+
+        const conditionSummaries = data?.data?.conditionSummaries || {};
+        Object.entries(conditionSummaries).forEach(([beachId, summary]) => {
+          if (VALID_CONDITION_SUMMARIES.has(summary as ConditionSummary)) {
+            conditionSummaryMap.set(beachId, summary as ConditionSummary);
+          }
+        });
       });
     } catch (error) {
       console.warn("Failed to fetch bulk forecasts:", error);
@@ -157,7 +188,7 @@ export async function loadBeachesAndWaveHeights(
   // Fill missing wave heights from nearest beach with data
   interpolateMissingWaveHeights(beachesForWaveData, waveHeightMap);
 
-  return { locations, waveHeightMap, waterTempMap };
+  return { locations, waveHeightMap, waterTempMap, conditionScoreMap, conditionSummaryMap };
 }
 
 /**

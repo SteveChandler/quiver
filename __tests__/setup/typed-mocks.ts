@@ -247,6 +247,12 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     location: null,
     activity_level: null,
     allow_implicit_tracking: false,
+    analytics_exclusion_reason: null,
+    analytics_is_real_user: true,
+    android_waitlist_joined_at: null,
+    android_waitlist_placement: null,
+    android_waitlist_source: null,
+    android_waitlist_surface: null,
     personality_type: null,
     posting_window: null,
     preferred_session_time: null,
@@ -280,6 +286,7 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     timezone: null,
     // Trust score for intel voting
     trust_score: 0.4,
+    wants_android_access: false,
     ...restOverrides,
   };
 }
@@ -294,6 +301,7 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
     beach_id: "beach-123",
     beach_name: "Test Beach",
     board_id: null,
+    board_fit: null,
     arrival_time: new Date().toISOString(),
     rating: 4,
     notes: null,
@@ -325,6 +333,8 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
     source: null,
     custom_spot_id: null,
     session_decomposition: null,
+    session_board_fit: null,
+    session_skill_fit: null,
     ...overrides,
   };
 }

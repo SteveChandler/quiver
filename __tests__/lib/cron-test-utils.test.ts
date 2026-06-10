@@ -121,10 +121,10 @@ describe("Cron Test Utilities", () => {
     // These tests verify the same functionality via createMockCronRequest
     // which shares the same internal configuration logic
 
-    it("creates request with Vercel cron header by default", () => {
+    it("creates request with Bearer cron token by default", () => {
       const request = createMockCronRequest("/api/cron/test");
 
-      expect(request.headers.get("x-vercel-cron")).toBe("1");
+      expect(request.headers.get("authorization")).toBe("Bearer test-cron-secret");
       expect(request.url).toContain("/api/cron/test");
     });
 
@@ -142,9 +142,9 @@ describe("Cron Test Utilities", () => {
         authMethod: "none",
       });
 
-      expect(request.headers.get("x-vercel-cron")).toBeNull();
-      expect(request.headers.get("authorization")).toBeNull();
-      expect(request.headers.get("user-agent")).toBeNull();
+      expect(Object.fromEntries(request.headers.entries())).toEqual({
+        "content-type": "application/json",
+      });
     });
 
     it("supports POST method with body", () => {
@@ -180,7 +180,7 @@ describe("Cron Test Utilities", () => {
 
       expect(request.url).toContain("/api/cron/test");
       expect(request.method).toBe("GET");
-      expect(request.headers.get("x-vercel-cron")).toBe("1");
+      expect(request.headers.get("authorization")).toBe("Bearer test-cron-secret");
     });
 
     it("provides json() method", async () => {
@@ -205,10 +205,8 @@ describe("Cron Test Utilities", () => {
       env.cleanup();
     });
 
-    it("validates request with vercel-header auth", () => {
-      const request = createMockCronRequest("/api/cron/test", {
-        authMethod: "vercel-header",
-      });
+    it("validates request with default Bearer token auth", () => {
+      const request = createMockCronRequest("/api/cron/test");
 
       const isValid = validateCronRequest(request);
       expect(isValid).toBe(true);
@@ -319,7 +317,7 @@ describe("Cron Test Utilities", () => {
       for (const service of services) {
         const { mock, restore } = mockExternalAPI(service, "success");
         const result = await mock();
-        expect(result).toBeDefined();
+        expect(result).toEqual(expect.any(Object));
         restore();
       }
     });
@@ -404,7 +402,7 @@ describe("Cron Test Utilities", () => {
       const result = await verifyIdempotency(handler, request);
 
       expect(result.isIdempotent).toBe(false);
-      expect(result.differences).toBeDefined();
+      expect(result.differences).toEqual(expect.any(Array));
       expect(result.differences!.length).toBeGreaterThan(0);
     });
 
@@ -641,10 +639,10 @@ describe("Cron Test Utilities", () => {
       it("creates all API utility mocks", () => {
         const mocks = createApiUtilsMocks();
 
-        expect(mocks.createSuccessResponse).toBeDefined();
-        expect(mocks.createErrorResponse).toBeDefined();
-        expect(mocks.handleApiError).toBeDefined();
-        expect(mocks.validateCronRequest).toBeDefined();
+        expect(mocks.createSuccessResponse).toEqual(expect.any(Function));
+        expect(mocks.createErrorResponse).toEqual(expect.any(Function));
+        expect(mocks.handleApiError).toEqual(expect.any(Function));
+        expect(mocks.validateCronRequest).toEqual(expect.any(Function));
       });
 
       it("createSuccessResponse returns proper structure", async () => {
@@ -654,7 +652,7 @@ describe("Cron Test Utilities", () => {
 
         expect(data.success).toBe(true);
         expect(data.data).toEqual({ test: "data" });
-        expect(data.timestamp).toBeDefined();
+        expect(data.timestamp).toEqual(expect.any(String));
       });
 
       it("createErrorResponse returns proper structure", async () => {

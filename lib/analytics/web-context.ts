@@ -3,6 +3,24 @@ import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
 
 export type FirstTouchPlatform = "ios" | "android" | "desktop";
 export type CamFamily = "cams-directory" | "surf-cams-seo";
+export type SeoPageType =
+  | "city_water_temp"
+  | "beach_water_temp"
+  | "best_time"
+  | "surf_report"
+  | "other";
+export type SeoQueryIntent =
+  | "water_temp"
+  | "best_time"
+  | "surf_report"
+  | "app_store"
+  | "other";
+
+export interface SeoPageContext {
+  page_type: SeoPageType;
+  query_intent: SeoQueryIntent;
+  seo_landing_page: boolean;
+}
 
 export interface WebAnalyticsContext {
   pathname: string;
@@ -20,6 +38,9 @@ export interface WebAnalyticsContext {
   utm_content?: string;
   utm_term?: string;
   cam_family?: CamFamily;
+  page_type: SeoPageType;
+  query_intent: SeoQueryIntent;
+  seo_landing_page: boolean;
   signup_channel?: "web_app";
   signup_channel_source?: "web_auth";
 }
@@ -72,6 +93,71 @@ export function getCamFamily(pathname?: string | null): CamFamily | undefined {
   return undefined;
 }
 
+export function deriveSeoPageContextFromPath(
+  pathname?: string | null
+): SeoPageContext {
+  const path = normalizePathname(pathname);
+  const segments = path.split("/").filter(Boolean);
+
+  if (path === "/water-temp" || path.startsWith("/water-temp/")) {
+    return {
+      page_type: "city_water_temp",
+      query_intent: "water_temp",
+      seo_landing_page: true,
+    };
+  }
+
+  const isHierarchicalBeachWaterTemp =
+    segments.length >= 4 &&
+    STATE_SLUGS.has(segments[0]) &&
+    segments[3] === "water-temp";
+  const isLegacyBeachWaterTemp =
+    segments.length === 3 &&
+    segments[0] === "beach" &&
+    segments[2] === "water-temp";
+  const isMexicoBeachWaterTemp =
+    segments.length >= 5 &&
+    segments[0] === "mexico" &&
+    segments[segments.length - 1] === "water-temp";
+
+  if (
+    isHierarchicalBeachWaterTemp ||
+    isLegacyBeachWaterTemp ||
+    isMexicoBeachWaterTemp
+  ) {
+    return {
+      page_type: "beach_water_temp",
+      query_intent: "water_temp",
+      seo_landing_page: true,
+    };
+  }
+
+  if (
+    path === "/best-time-to-surf" ||
+    path.startsWith("/best-time-to-surf/")
+  ) {
+    return {
+      page_type: "best_time",
+      query_intent: "best_time",
+      seo_landing_page: true,
+    };
+  }
+
+  if (path === "/surf-report" || path.startsWith("/surf-report/")) {
+    return {
+      page_type: "surf_report",
+      query_intent: "surf_report",
+      seo_landing_page: true,
+    };
+  }
+
+  return {
+    page_type: "other",
+    query_intent: "other",
+    seo_landing_page: false,
+  };
+}
+
 export function deriveSurfaceFromPath(pathname?: string | null): string {
   if (pathname == null && typeof window === "undefined") return "server";
 
@@ -90,6 +176,8 @@ export function deriveSurfaceFromPath(pathname?: string | null): string {
   if (path === "/water-temp" || path.startsWith("/water-temp/")) return "water-temp";
   if (path === "/tide" || path.startsWith("/tide/")) return "tide";
   if (path === "/forecast" || path.startsWith("/forecast/")) return "forecast";
+  if (path === "/best-time-to-surf" || path.startsWith("/best-time-to-surf/")) return "best-time";
+  if (path === "/surf-report" || path.startsWith("/surf-report/")) return "surf-report";
 
   if (path === "/profile" || path.startsWith("/profile/")) return "auth-gated";
   if (path === "/settings" || path.startsWith("/settings/")) return "auth-gated";
@@ -124,6 +212,8 @@ export function getPageName(pathname?: string | null): string {
   if (path === "/settings" || path.startsWith("/settings/")) return "settings";
   if (path.startsWith("/session")) return "session";
   if (surface === "forecast") return "forecast";
+  if (surface === "best-time") return "best_time";
+  if (surface === "surf-report") return "surf_report";
   if (surface === "cams-directory") return "cams";
   if (surface === "surf-cams-seo") return "surf_cams";
   if (surface === "water-temp") return "water_temp";
@@ -173,12 +263,14 @@ export function getWebAnalyticsContext(options: {
   const attribution = getAttributionFromCookies();
   const browserSessionId = getBrowserSessionId();
   const camFamily = getCamFamily(pathname);
+  const seoPageContext = deriveSeoPageContextFromPath(pathname);
 
   return {
     pathname,
     page: getPageName(pathname),
     surface: deriveSurfaceFromPath(pathname),
     source_group: deriveSourceGroup(options.source, pathname),
+    ...seoPageContext,
     ...(browserSessionId ? { browser_session_id: browserSessionId } : {}),
     platform: "web",
     first_touch_platform: getFirstTouchPlatform(),

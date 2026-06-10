@@ -57,15 +57,17 @@ describe("WaterTempDatasetSchema", () => {
     const tempEntry = schema.variableMeasured.find(
       (e: { name: string }) => e.name === "Water Temperature"
     );
-    expect(tempEntry).toBeDefined();
-    expect(tempEntry.value).toBe("68");
-    expect(tempEntry.unitText).toBe("°F");
+    expect(tempEntry).toMatchObject({
+      value: "68",
+      unitText: "°F",
+    });
 
     const wetsuitEntry = schema.variableMeasured.find(
       (e: { name: string }) => e.name === "Wetsuit Recommendation"
     );
-    expect(wetsuitEntry).toBeDefined();
-    expect(wetsuitEntry.value).toBe("2mm shorty");
+    expect(wetsuitEntry).toMatchObject({
+      value: "2mm shorty",
+    });
   });
 
   it("renders minimal Dataset without variableMeasured when data is null", () => {
@@ -124,6 +126,28 @@ describe("WaterTempDatasetSchema", () => {
     const schema = schemas[0];
     expect(schema.variableMeasured).toHaveLength(1);
     expect(schema.variableMeasured[0].name).toBe("Water Temperature");
+  });
+
+  it("rounds decimal water temperatures in Dataset JSON-LD", () => {
+    const { container } = render(
+      <WaterTempDatasetSchema
+        cityOrBeachName="Huntington Beach"
+        state="CA"
+        url="https://www.quiversurf.app/water-temp/huntington-beach"
+        tempF={64.4}
+        wetsuitRec="3/2mm fullsuit"
+      />
+    );
+
+    const schemas = getJsonLdScripts(container);
+    const schema = schemas[0];
+    const tempEntry = schema.variableMeasured.find(
+      (entry: { name: string }) => entry.name === "Water Temperature"
+    );
+
+    expect(tempEntry.value).toBe("64");
+    expect(schema.description).toContain("64°F");
+    expect(schema.description).not.toContain("64.4°F");
   });
 
   it("omits geo from spatialCoverage when coordinates are not provided", () => {

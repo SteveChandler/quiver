@@ -263,7 +263,7 @@ export function EmbedTickerWidget({
           isDark ? "bg-slate-900 text-slate-400" : "bg-white text-slate-500"
         }`}
       >
-        <span title={beachName}>No data available</span>
+        <span title={beachName}>no data</span>
       </div>
     );
   }

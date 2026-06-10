@@ -307,27 +307,41 @@ describe("forecast-hub-utils", () => {
       );
     });
 
-    it("attaches up to three regional surf windows from the existing forecast batch", async () => {
+    it("attaches up to five regional surf windows from the existing forecast batch", async () => {
       const forecastDate = "2026-02-10";
+      const regionalBeaches = Array.from({ length: 7 }, (_, index) => {
+        const rank = index + 1;
+        return {
+          ...mockBeaches[0],
+          id: `region-beach-${rank}`,
+          name: `Test Beach ${rank}`,
+          slug: `test-beach-${rank}`,
+        } as Beach;
+      });
 
       (getBeachesFromDb as jest.Mock).mockResolvedValue({
         success: true,
-        data: mockBeaches,
+        data: [...regionalBeaches, mockBeaches[1]],
       });
 
       (getBeachesForRegion as jest.Mock)
-        .mockReturnValueOnce([mockBeaches[0], mockBeaches[2]])
+        .mockReturnValueOnce(regionalBeaches)
         .mockReturnValueOnce([mockBeaches[1]]);
 
       const mockForecastMap = new Map();
-      mockForecastMap.set("beach-1", {
-        forecasts: [createMockForecast("beach-1", forecastDate, "16:00")],
+      regionalBeaches.forEach((beach, index) => {
+        mockForecastMap.set(beach.id, {
+          forecasts: [
+            createMockForecast(
+              beach.id,
+              forecastDate,
+              `${String(16 + index).padStart(2, "0")}:00`
+            ),
+          ],
+        });
       });
       mockForecastMap.set("beach-2", {
         forecasts: [createMockForecast("beach-2", forecastDate, "17:00")],
-      });
-      mockForecastMap.set("beach-3", {
-        forecasts: [createMockForecast("beach-3", forecastDate, "18:00")],
       });
       (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
         mockForecastMap
@@ -354,8 +368,10 @@ describe("forecast-hub-utils", () => {
       const regionOneWindows = regionOne?.bestSurfWindows ?? [];
       const regionTwoWindows = regionTwo?.bestSurfWindows ?? [];
 
-      expect(regionOneWindows).toHaveLength(2);
-      expect(regionOneWindows.map((item) => item.rank)).toEqual([1, 2]);
+      expect(regionOneWindows).toHaveLength(5);
+      expect(regionOneWindows.map((item) => item.rank)).toEqual([
+        1, 2, 3, 4, 5,
+      ]);
       expect(regionTwoWindows).toHaveLength(1);
       expect(regionTwoWindows[0]).toMatchObject({
         appDeepLink: expect.stringContaining("window="),

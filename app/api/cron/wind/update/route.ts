@@ -54,6 +54,7 @@ async function _GET(request: Request): Promise<Response> {
   let updated = 0;
   let skipped = 0;
   let errors = 0;
+  let fetchErrors = 0;
   const sampleErrors: string[] = [];
   const BATCH_SIZE = 10; // Parallel API fetches per batch (avoid rate limiting)
   const DELAY_BETWEEN_BATCHES_MS = 200;
@@ -66,7 +67,19 @@ async function _GET(request: Request): Promise<Response> {
         if (beach.lat == null || beach.lon == null) {
           return { beach: beach.name, updated: 0, skipped: 0 };
         }
-        const windPoints = await fetchHourlyWind(beach.lat, beach.lon);
+        let windPoints: Awaited<ReturnType<typeof fetchHourlyWind>>;
+        try {
+          windPoints = await fetchHourlyWind(beach.lat, beach.lon);
+        } catch (err) {
+          const reason = err instanceof Error ? err.message : String(err);
+          const message = `${beach.name}: ${reason}`;
+          fetchErrors++;
+          if (sampleErrors.length < 5 && !sampleErrors.includes(message)) {
+            sampleErrors.push(message);
+          }
+          return { beach: beach.name, updated: 0, skipped: 0 };
+        }
+
         const rpcPoints: OpenMeteoWindRpcPoint[] = windPoints
           .filter((wp): wp is typeof wp & { wind_speed_mph: number } => wp.wind_speed_mph != null)
           .map((wp) => ({
@@ -130,6 +143,7 @@ async function _GET(request: Request): Promise<Response> {
     updated,
     skipped,
     errors,
+    fetchErrors,
     sampleErrors,
   };
 

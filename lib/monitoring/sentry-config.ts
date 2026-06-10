@@ -70,7 +70,11 @@ export type SentryTraceSamplingContext = {
   inheritOrSampleWith?: (fallbackSampleRate: number) => number;
 };
 
-export type QuiverSentryEnvironment = "production" | "preview" | "development";
+export type QuiverSentryEnvironment =
+  | "production"
+  | "vercel-production"
+  | "preview"
+  | "development";
 
 export function getSentryClientDsn(env: EnvSource = process.env): string {
   return env.NEXT_PUBLIC_SENTRY_DSN || WEB_SENTRY_DSN;
@@ -85,7 +89,7 @@ export function getSentryRuntimeEnvironment(
 ): QuiverSentryEnvironment {
   const vercelEnv = env.NEXT_PUBLIC_VERCEL_ENV || env.VERCEL_ENV;
 
-  if (vercelEnv === "production") return "production";
+  if (vercelEnv === "production") return "vercel-production";
   if (vercelEnv === "preview") return "preview";
   if (vercelEnv) return "development";
 
@@ -93,7 +97,8 @@ export function getSentryRuntimeEnvironment(
 }
 
 export function isSentryRuntimeEnabled(env: EnvSource = process.env): boolean {
-  return getSentryRuntimeEnvironment(env) === "production";
+  const environment = getSentryRuntimeEnvironment(env);
+  return environment === "production" || environment === "vercel-production";
 }
 
 export function getSentryRelease(env: EnvSource = process.env): string | undefined {
@@ -156,7 +161,7 @@ export function detectSentryEnvironmentFromUrl(
 export function shouldDropSentryEnvironment(
   environment: QuiverSentryEnvironment
 ): boolean {
-  return environment !== "production";
+  return environment !== "production" && environment !== "vercel-production";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

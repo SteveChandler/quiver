@@ -57,12 +57,12 @@ describe("Cron: enhanced-forecast-sync", () => {
         createMockForecastSyncResult()
       );
 
-      // Create request with valid Vercel cron header
+      // Create request with valid Bearer token
       const request = createMockCronRequest(
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -144,7 +144,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -167,7 +167,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -199,7 +199,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -224,7 +224,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -267,7 +267,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -305,7 +305,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -349,7 +349,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       );
 
@@ -383,7 +383,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -400,7 +400,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "POST",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -413,7 +413,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "HEAD",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -433,7 +433,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "HEAD",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -471,7 +471,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -492,7 +492,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -512,7 +512,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -536,7 +536,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -568,7 +568,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
@@ -593,14 +593,14 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
         }
       ) as unknown as NextRequest;
 
       const response = await GET(request);
       const data = await response.json();
 
-      expect(data.data.executionId).toBeDefined();
+      expect(typeof data.data.executionId).toBe("string");
       // UUID format validation
       expect(data.data.executionId).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -618,7 +618,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
           searchParams: {
             shard: "0",
             shardCount: "3",
@@ -645,7 +645,7 @@ describe("Cron: enhanced-forecast-sync", () => {
         "/api/cron/enhanced-forecast-sync",
         {
           method: "GET",
-          authMethod: "vercel-header",
+          authMethod: "bearer-token",
           searchParams: {
             shard: "1",
             shardCount: "4",

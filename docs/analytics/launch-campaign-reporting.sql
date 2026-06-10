@@ -22,12 +22,15 @@ where event_type = 'page_view'
 group by 1, 2, 3, 4
 order by events desc;
 
--- 2. iOS App Store CTA funnel by source, surface, placement, and status.
+-- 2. iOS App Store CTA funnel by source, surface, placement, page type, query intent, and status.
 select
   event_type,
   metadata->>'source' as source,
   metadata->>'surface' as surface,
   metadata->>'placement' as placement,
+  metadata->>'page_type' as page_type,
+  metadata->>'query_intent' as query_intent,
+  coalesce((metadata->>'seo_landing_page')::boolean, false) as seo_landing_page,
   metadata->>'platform' as platform,
   metadata->>'destination_type' as destination_type,
   metadata->>'destination_status' as destination_status,
@@ -38,8 +41,8 @@ where event_type in ('cta_impression', 'cta_click')
   and metadata->>'cta_family' = 'ios_app'
   and created_at >= :start_at::timestamptz
   and created_at < :end_at::timestamptz
-group by 1, 2, 3, 4, 5, 6, 7
-order by source, surface, placement, event_type;
+group by 1, 2, 3, 4, 5, 6, 7, 8, 9, 10
+order by page_type, query_intent, source, surface, placement, event_type;
 
 -- 3. Pricing and founding-access waitlist funnel.
 select

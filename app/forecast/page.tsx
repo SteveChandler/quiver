@@ -207,7 +207,7 @@ export default async function ForecastHubPage({
         }}
       />
 
-      <div className="container mx-auto max-w-5xl px-4 py-8">
+      <div className="container mx-auto max-w-7xl px-4 py-8">
         <RegionalCallHero
           region={region}
           summary={activeSummary}
@@ -219,24 +219,30 @@ export default async function ForecastHubPage({
           recommendations={activeSummary?.bestSurfWindows}
         />
 
-        <SevenDayOutlook summary={activeSummary} regionName={region.name} />
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(20rem,26rem)] xl:items-start">
+          <SevenDayOutlook summary={activeSummary} regionName={region.name} />
 
-        {/* Top spots scoped to the active region via explicit coords override */}
-        <section className="mb-10" aria-labelledby="top-spots-heading">
-          <h2
-            id="top-spots-heading"
-            className="mb-4 font-[var(--font-heading)] text-2xl font-bold text-white"
+          {/* Top spots scoped to the active region via explicit coords override */}
+          <section
+            className="mb-10 min-w-0"
+            aria-labelledby="top-spots-heading"
+            data-testid="forecast-top-spots-panel"
           >
-            Top spots now
-          </h2>
-          <BestRightNow
-            userCoordsOverride={{
-              lat: region.centerLat,
-              lon: region.centerLon,
-            }}
-            headingOverride="Top spots now"
-          />
-        </section>
+            <h2
+              id="top-spots-heading"
+              className="mb-4 font-[var(--font-heading)] text-2xl font-bold text-white"
+            >
+              Top spots now
+            </h2>
+            <BestRightNow
+              userCoordsOverride={{
+                lat: region.centerLat,
+                lon: region.centerLon,
+              }}
+              headingOverride="Top spots now"
+            />
+          </section>
+        </div>
 
         <OtherRegionsStrip summaries={summaries} excludeSlug={region.slug} />
 

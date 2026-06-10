@@ -1,3 +1,4 @@
+/* eslint-disable playwright/no-conditional-in-test -- session form E2E handles auth, geolocation, and quick-log variants in one spec. */
 import { test, expect } from '@playwright/test';
 import { waitForPageLoad } from './utils/test-helpers';
 import { isVisibleSafe } from './utils/strict-helpers';
@@ -21,7 +22,7 @@ test.describe('Session Form - Log Mode', () => {
 
   test.beforeEach(async ({ page }) => {
     errorCapture = setupErrorDetection(page);
-    await page.goto('/sessions/new?mode=log');
+    await page.goto('/sessions/new?mode=log', { waitUntil: 'domcontentloaded' });
     await waitForPageLoad(page);
   });
 
@@ -142,6 +143,34 @@ test.describe('Session Form - Log Mode', () => {
       await expect(forecastSection).not.toContainText('NaN');
     }
   });
+
+  test('should expose session fit picker after rating and keep categorical selections checked', async ({
+    page,
+  }) => {
+    const sessionFitHeading = page.getByRole('heading', { name: /session fit/i });
+    expect(await isVisibleSafe(sessionFitHeading, { timeout: 1000 })).toBe(false);
+
+    const slider = page.getByRole('slider').first();
+    await expect(slider).toBeVisible({ timeout: 5000 });
+    await slider.focus();
+    await page.keyboard.press('ArrowRight');
+
+    await expect(sessionFitHeading).toBeVisible({ timeout: 5000 });
+
+    const skillFit = page.getByRole('radio', { name: /dialed/i });
+    await expect(skillFit).toBeVisible({ timeout: 5000 });
+    await skillFit.click();
+    await expect(skillFit).toHaveAttribute('aria-checked', 'true');
+
+    const boardFit = page.getByRole('radio', { name: /right board/i });
+    await expect(boardFit).toBeVisible({ timeout: 5000 });
+    await boardFit.click();
+    await expect(boardFit).toHaveAttribute('aria-checked', 'true');
+
+    await expect(page.locator('body')).not.toContainText('NaN', {
+      timeout: 10000,
+    });
+  });
 });
 
 test.describe('Session Form - Complete Flow', () => {
@@ -157,7 +186,7 @@ test.describe('Session Form - Complete Flow', () => {
 
   test('should complete log session flow end-to-end', async ({ page }) => {
     test.fixme(true, 'Session log form now requires additional completion before Save; update the flow fixture to the current requirements.');
-    await page.goto('/sessions/new?mode=log');
+    await page.goto('/sessions/new?mode=log', { waitUntil: 'domcontentloaded' });
     await waitForPageLoad(page);
 
     // Beach selection — always visible in scroll form, no step navigation needed
@@ -207,7 +236,7 @@ test.describe('Session Form - Complete Flow', () => {
 
   test('should redirect to profile after successful session creation', async ({ page }) => {
     // Smoke test: scroll form renders with its core container
-    await page.goto('/sessions/new?mode=log');
+    await page.goto('/sessions/new?mode=log', { waitUntil: 'domcontentloaded' });
     await waitForPageLoad(page);
 
     // The page wraps SessionScrollForm in a min-h-screen container
@@ -217,7 +246,7 @@ test.describe('Session Form - Complete Flow', () => {
   });
 
   test('should allow canceling session creation via the close button', async ({ page }) => {
-    await page.goto('/sessions/new?mode=log');
+    await page.goto('/sessions/new?mode=log', { waitUntil: 'domcontentloaded' });
     await waitForPageLoad(page);
 
     // The scroll form header has an X button with aria-label="Cancel"
@@ -246,7 +275,7 @@ test.describe('Session Form - Validation', () => {
   });
 
   test('should not allow saving without required fields (beach + date)', async ({ page }) => {
-    await page.goto('/sessions/new?mode=log');
+    await page.goto('/sessions/new?mode=log', { waitUntil: 'domcontentloaded' });
     await waitForPageLoad(page);
 
     // canSave = Boolean(selectedBeachId && selectedDate) — the Save buttons are
@@ -282,7 +311,7 @@ test.describe('Session Form - Forecast Snapshot Creation', () => {
 
   test('should successfully create session (snapshot created in background)', async ({ page }) => {
     // Navigate to log mode (completed sessions trigger snapshot creation)
-    await page.goto('/sessions/new?mode=log');
+    await page.goto('/sessions/new?mode=log', { waitUntil: 'domcontentloaded' });
     await waitForPageLoad(page);
 
     // Select beach — QuickLogView may auto-detect or show search input

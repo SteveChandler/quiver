@@ -192,6 +192,113 @@ describe("normalizeTideSchedule", () => {
     expect(result).toHaveLength(1);
     expect(result[0].h).toBe(4.2);
   });
+
+  it("merges tide_schedule entries from multiple forecast rows", () => {
+    const forecasts = [
+      {
+        id: "1",
+        beach_id: "beach-1",
+        forecast_at: "2026-01-15T00:00Z",
+        forecast_date: "2026-01-15",
+        forecast_time: "00:00",
+        wave_height: "3.0 ft",
+        water_temp: "60F",
+        confidence_score: 85,
+        data_source: "NOAA_NWS" as const,
+        created_at: "2026-01-15T00:00:00Z",
+        updated_at: "2026-01-15T00:00:00Z",
+        raw_forecast: {
+          tide_schedule: [
+            { time: 1760000000, height: 4.1, type: "high" as const },
+            { time: 1760021600, height: 0.3, type: "low" as const },
+          ],
+        },
+      },
+      {
+        id: "2",
+        beach_id: "beach-1",
+        forecast_at: "2026-01-16T00:00Z",
+        forecast_date: "2026-01-16",
+        forecast_time: "00:00",
+        wave_height: "3.5 ft",
+        water_temp: "60F",
+        confidence_score: 85,
+        data_source: "NOAA_NWS" as const,
+        created_at: "2026-01-15T00:00:00Z",
+        updated_at: "2026-01-15T00:00:00Z",
+        raw_forecast: {
+          tide_schedule: [
+            { time: 1760043200, height: 4.6, type: "high" as const },
+            { time: 1760064800, height: 0.1, type: "low" as const },
+          ],
+        },
+      },
+    ];
+
+    const result = normalizeTideSchedule(forecasts);
+
+    expect(result).toHaveLength(4);
+    expect(result.map((point) => point.timestamp)).toEqual([
+      1760000000 * 1000,
+      1760021600 * 1000,
+      1760043200 * 1000,
+      1760064800 * 1000,
+    ]);
+    expect(result.map((point) => point.h)).toEqual([4.1, 0.3, 4.6, 0.1]);
+  });
+
+  it("dedupes repeated tide_schedule timestamps while preserving first valid value", () => {
+    const forecasts = [
+      {
+        id: "1",
+        beach_id: "beach-1",
+        forecast_at: "2026-01-15T00:00Z",
+        forecast_date: "2026-01-15",
+        forecast_time: "00:00",
+        wave_height: "3.0 ft",
+        water_temp: "60F",
+        confidence_score: 85,
+        data_source: "NOAA_NWS" as const,
+        created_at: "2026-01-15T00:00:00Z",
+        updated_at: "2026-01-15T00:00:00Z",
+        raw_forecast: {
+          tide_schedule: [
+            { time: 1760000000, height: 4.1, type: "high" as const },
+            { time: 1760021600, height: 0.3, type: "low" as const },
+          ],
+        },
+      },
+      {
+        id: "2",
+        beach_id: "beach-1",
+        forecast_at: "2026-01-16T00:00Z",
+        forecast_date: "2026-01-16",
+        forecast_time: "00:00",
+        wave_height: "3.5 ft",
+        water_temp: "60F",
+        confidence_score: 85,
+        data_source: "NOAA_NWS" as const,
+        created_at: "2026-01-15T00:00:00Z",
+        updated_at: "2026-01-15T00:00:00Z",
+        raw_forecast: {
+          tide_schedule: [
+            { time: 1760021600, height: 9.9, type: "high" as const },
+            { time: 1760043200, height: 4.6, type: "high" as const },
+          ],
+        },
+      },
+    ];
+
+    const result = normalizeTideSchedule(forecasts);
+
+    expect(result).toHaveLength(3);
+    expect(result[1]).toMatchObject({
+      h: 0.3,
+      isHigh: false,
+      isLow: true,
+      timestamp: 1760021600 * 1000,
+    });
+  });
 });
 
 describe("TideChart (smoke)", () => {

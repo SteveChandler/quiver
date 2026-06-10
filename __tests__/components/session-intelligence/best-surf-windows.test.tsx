@@ -39,6 +39,7 @@ function makeRecommendation(
       region: "Southern California",
       lat: 32.75,
       lon: -117.25,
+      photoUrl: null,
     },
     startIso: "2026-06-03T14:00:00.000Z",
     endIso: "2026-06-03T16:30:00.000Z",
@@ -107,7 +108,11 @@ describe("BestSurfWindows", () => {
     expect(screen.getAllByTestId("surf-window-card")).toHaveLength(1);
     expect(screen.getByRole("heading", { name: "Best surf windows" })).toBeInTheDocument();
     expect(screen.getByText("7:00-9:30 AM")).toBeInTheDocument();
-    expect(screen.getByText("7:00-9:30 AM looks worth it at Ocean Beach")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ocean Beach" })).toBeInTheDocument();
+    expect(screen.getByText("San Diego, CA")).toBeInTheDocument();
+    expect(
+      screen.queryByText("7:00-9:30 AM looks worth it at Ocean Beach")
+    ).not.toBeInTheDocument();
     expect(screen.getByText("Worth it")).toBeInTheDocument();
     expect(screen.getByText("4 ft at 12s from W")).toBeInTheDocument();
     expect(screen.getByText("5 NE (offshore)")).toBeInTheDocument();
@@ -117,8 +122,180 @@ describe("BestSurfWindows", () => {
     expect(card.querySelector('[data-zine-sticker="spot-swell-match"]')).toBeInTheDocument();
     expect(card.querySelector('[data-zine-sticker="spot-wind-read"]')).toBeInTheDocument();
     expect(card.querySelector('[data-zine-sticker="spot-tide-window"]')).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open this window in Quiver" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Take it with you" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /why this call/i })).toBeInTheDocument();
+  });
+
+  it("renders a beach photo when one is available", () => {
+    render(
+      <BestSurfWindows
+        recommendations={[
+          makeRecommendation(1, {
+            beach: {
+              ...makeRecommendation(1).beach,
+              photoUrl: "https://example.com/ocean-beach.jpg",
+            },
+          }),
+        ]}
+      />
+    );
+
+    const thumb = screen.getByAltText(/surf photo of ocean beach/i);
+    expect(thumb).toHaveAttribute(
+      "src",
+      expect.stringContaining("ocean-beach.jpg")
+    );
+    expect(screen.queryByAltText(/map view of ocean beach/i)).not.toBeInTheDocument();
+  });
+
+  it("does not render a card-level map when no photo exists", () => {
+    process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = "test-mapbox-token";
+    try {
+      render(<BestSurfWindows recommendations={[makeRecommendation(1)]} />);
+
+      expect(screen.queryByAltText(/map view of ocean beach/i)).not.toBeInTheDocument();
+      expect(screen.queryByText("Map")).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Ocean Beach" })).toBeInTheDocument();
+    } finally {
+      delete process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+    }
+  });
+
+  it("renders no map thumbnail and does not crash when coordinates are missing", () => {
+    process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN = "test-mapbox-token";
+    try {
+      render(
+        <BestSurfWindows
+          recommendations={[
+            makeRecommendation(1, {
+              beach: {
+                ...makeRecommendation(1).beach,
+                lat: null,
+                lon: null,
+              },
+            }),
+          ]}
+        />
+      );
+
+      expect(screen.queryByAltText(/map view/i)).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Ocean Beach" })).toBeInTheDocument();
+    } finally {
+      delete process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN;
+    }
+  });
+
+  it("links the title and a visible primary CTA to the canonical web URL", () => {
+    render(<BestSurfWindows recommendations={[makeRecommendation(1)]} />);
+
+    const titleLink = screen.getByRole("link", { name: "Ocean Beach" });
+    expect(titleLink).toHaveAttribute(
+      "href",
+      "https://www.quiversurf.app/ca/san-diego/ocean-beach"
+    );
+    expect(screen.getByTestId("surf-window-web-cta")).toHaveAttribute(
+      "href",
+      "https://www.quiversurf.app/ca/san-diego/ocean-beach"
+    );
+  });
+
+  it("renders no beach-detail anchor when canonicalWebUrl is null", () => {
+    render(
+      <BestSurfWindows
+        recommendations={[makeRecommendation(1, { canonicalWebUrl: null })]}
+      />
+    );
+
+    expect(screen.queryByTestId("surf-window-web-cta")).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Ocean Beach" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ocean Beach" })).toBeInTheDocument();
+    const links = screen.getAllByRole("link");
+    for (const link of links) {
+      expect(link).not.toHaveAttribute("href", expect.stringContaining("/beach/unknown"));
+    }
+  });
+
+  it("keeps the app deep link as a ghost secondary CTA", () => {
+    render(<BestSurfWindows recommendations={[makeRecommendation(1)]} />);
+
+    const appCta = screen.getByTestId("app-deep-link-cta");
+    expect(appCta).toBeInTheDocument();
+    expect(appCta).toHaveTextContent("Take it with you");
+    expect(appCta).toHaveAttribute("href", expect.stringMatching(/window=/));
+  });
+
+  it("gives only the rank-1 card the featured treatment", () => {
+    render(
+      <BestSurfWindows
+        recommendations={[
+          makeRecommendation(1),
+          makeRecommendation(2),
+          makeRecommendation(3),
+        ]}
+      />
+    );
+
+    const cards = screen.getAllByTestId("surf-window-card");
+    expect(cards[0].className).toContain("md:col-span-2");
+    expect(cards[1].className).not.toContain("md:col-span-2");
+    expect(cards[2].className).not.toContain("md:col-span-2");
+  });
+
+  it("can keep rank 1 as a feature card and collapse the rest into ranked rows", () => {
+    render(
+      <BestSurfWindows
+        recommendations={[
+          makeRecommendation(1),
+          makeRecommendation(2),
+          makeRecommendation(3),
+        ]}
+        layout="feature-list"
+      />
+    );
+
+    const cards = screen.getAllByTestId("surf-window-card");
+    expect(cards).toHaveLength(3);
+    expect(cards[0].className).not.toContain("md:col-span-2");
+    expect(cards[1]).toHaveAttribute("data-layout", "compact-row");
+    expect(cards[2]).toHaveAttribute("data-layout", "compact-row");
+    expect(screen.getByRole("heading", { name: "Beach 2" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View Beach 2 forecast" })).toHaveAttribute(
+      "href",
+      "https://www.quiversurf.app/ca/san-diego/ocean-beach"
+    );
+    expect(screen.getAllByTestId("app-deep-link-cta")).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /why this call/i })).toHaveLength(1);
+  });
+
+  it("hides the source-confidence badge until Why-this-call is expanded", async () => {
+    const user = userEvent.setup();
+
+    render(<BestSurfWindows recommendations={[makeRecommendation(1)]} />);
+
+    expect(screen.queryByText(/high.*buoy/i)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /why this call/i }));
+
+    expect(screen.getByText(/high.*buoy/i)).toBeInTheDocument();
+  });
+
+  it("suppresses the inner header when hideHeader is set", () => {
+    render(
+      <BestSurfWindows
+        recommendations={[makeRecommendation(1)]}
+        hideHeader
+        subtitle="Should not render"
+      />
+    );
+
+    expect(
+      screen.queryByRole("heading", { name: "Best surf windows" })
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText("Should not render")).not.toBeInTheDocument();
+    expect(screen.getByTestId("best-surf-windows")).toHaveAttribute(
+      "aria-label",
+      "Best surf windows"
+    );
   });
 
   it("renders two recommendations", () => {
@@ -144,10 +321,12 @@ describe("BestSurfWindows", () => {
     );
 
     expect(screen.getAllByTestId("surf-window-card")).toHaveLength(3);
-    expect(screen.queryByText("Window 4 looks surfable")).not.toBeInTheDocument();
+    expect(screen.queryByText("Beach 4")).not.toBeInTheDocument();
   });
 
-  it("works with missing tide, buoy, cam, and user-report data", () => {
+  it("works with missing tide, buoy, cam, and user-report data", async () => {
+    const user = userEvent.setup();
+
     render(
       <BestSurfWindows
         recommendations={[
@@ -183,6 +362,9 @@ describe("BestSurfWindows", () => {
     );
 
     expect(screen.getByText("Tide data is unavailable")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /why this call/i }));
+
     expect(screen.getByText("Low - sparse data")).toBeInTheDocument();
     expect(screen.queryByText("buoy")).not.toBeInTheDocument();
     expect(screen.queryByText("cam")).not.toBeInTheDocument();
@@ -221,10 +403,9 @@ describe("BestSurfWindows", () => {
       />
     );
 
-    expect(screen.getByText("Model only")).toBeInTheDocument();
-
     await user.click(screen.getByRole("button", { name: /why this call/i }));
 
+    expect(screen.getByText("Model only")).toBeInTheDocument();
     expect(screen.getByText("model")).toBeInTheDocument();
     expect(screen.queryByText("buoy")).not.toBeInTheDocument();
     expect(screen.queryByText("cam")).not.toBeInTheDocument();
@@ -258,10 +439,9 @@ describe("BestSurfWindows", () => {
       />
     );
 
-    expect(screen.getByText("Medium - sparse data")).toBeInTheDocument();
-
     await user.click(screen.getByRole("button", { name: /why this call/i }));
 
+    expect(screen.getByText("Medium - sparse data")).toBeInTheDocument();
     expect(screen.getByText("No source claims are attached.")).toBeInTheDocument();
   });
 

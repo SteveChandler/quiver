@@ -90,7 +90,7 @@ const mockMatchCCCToBeaches = matchCCCToBeaches as jest.MockedFunction<
 function createCronRequest(url = "http://localhost/api/cron/ccc-sync"): Request {
   return new Request(url, {
     headers: {
-      "x-vercel-cron": "1",
+      authorization: "Bearer test-cron-secret",
     },
   });
 }

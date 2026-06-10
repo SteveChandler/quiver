@@ -13,8 +13,7 @@
  * 4. User hasn't received ANY email in 48 hours (global rate limit)
  *
  * Auth:
- * - Vercel Cron header (`x-vercel-cron`)
- * - OR Authorization: Bearer <CRON_SECRET>
+ * - Authorization: Bearer <CRON_SECRET>
  */
 
 import {

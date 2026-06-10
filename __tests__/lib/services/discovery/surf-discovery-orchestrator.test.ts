@@ -80,6 +80,7 @@ const mockState = {
   forecastBatchResponse: { successful: [] as any[], failed: [], staleCount: 0 },
   favoriteBeaches: [] as Partial<Beach>[],
   includedBeachRows: [] as Partial<Beach>[],
+  customSpots: [] as any[],
   favoritesError: null as Error | null,
   boards: [] as Array<{ id: string; name: string; board_type: string; volume?: number | null }>,
   boardsError: null as { message: string } | null,
@@ -99,6 +100,56 @@ const mockSupabaseRpc = jest.fn(async () => ({
   ],
   error: null,
 }));
+
+function makeCustomSpotsQuery() {
+  const filters: Array<{ op: 'eq' | 'is' | 'neq' | 'gte' | 'lte'; column: string; value: unknown }> = [];
+  const query: any = {
+    select: jest.fn(() => query),
+    eq: jest.fn((column: string, value: unknown) => {
+      filters.push({ op: 'eq', column, value });
+      return query;
+    }),
+    is: jest.fn((column: string, value: unknown) => {
+      filters.push({ op: 'is', column, value });
+      return query;
+    }),
+    neq: jest.fn((column: string, value: unknown) => {
+      filters.push({ op: 'neq', column, value });
+      return query;
+    }),
+    gte: jest.fn((column: string, value: unknown) => {
+      filters.push({ op: 'gte', column, value });
+      return query;
+    }),
+    lte: jest.fn((column: string, value: unknown) => {
+      filters.push({ op: 'lte', column, value });
+      return query;
+    }),
+    then: (resolve: (value: { data: any[]; error: null }) => void) => {
+      const rows = mockState.customSpots.filter((row) =>
+        filters.every((filter) => {
+          const value = row[filter.column];
+          switch (filter.op) {
+            case 'eq':
+              return value === filter.value;
+            case 'is':
+              return value === filter.value;
+            case 'neq':
+              return value !== filter.value;
+            case 'gte':
+              return typeof value === 'number' && typeof filter.value === 'number' && value >= filter.value;
+            case 'lte':
+              return typeof value === 'number' && typeof filter.value === 'number' && value <= filter.value;
+            default:
+              return true;
+          }
+        }),
+      );
+      return Promise.resolve(resolve({ data: rows, error: null }));
+    },
+  };
+  return query;
+}
 
 const mockSupabaseFrom = jest.fn((table: string) => {
   if (table === 'beaches') {
@@ -121,6 +172,10 @@ const mockSupabaseFrom = jest.fn((table: string) => {
         })),
       })),
     };
+  }
+
+  if (table === 'custom_spots') {
+    return makeCustomSpotsQuery();
   }
 
   if (table === 'sun_times') {
@@ -170,6 +225,7 @@ jest.mock('@/lib/services/discovery/window-selector', () => ({
       timezone: 'America/Los_Angeles',
     };
   }),
+  scoreWindowWithEngine: jest.fn(() => 70),
   getLocalDateStr: jest.fn((date: Date, _tz: string) => {
     return date.toISOString().split('T')[0];
   }),
@@ -353,8 +409,41 @@ function resetDefaultDiscoveryMocks(): void {
   });
 }
 
+function customSpotRow(input: {
+  id: string;
+  userId: string;
+  name: string;
+  visibility: 'private' | 'public';
+  nearestBeachId?: string | null;
+  lat?: number;
+  lon?: number;
+}) {
+  return {
+    id: input.id,
+    user_id: input.userId,
+    name: input.name,
+    lat: input.lat ?? 32.795,
+    lon: input.lon ?? -117.254,
+    visibility: input.visibility,
+    nearest_beach_id: input.nearestBeachId === undefined ? 'beach-4' : input.nearestBeachId,
+    nearest_beach_distance_mi: 0.2,
+    break_type: 'reef',
+    facing_direction_deg: 245,
+    swell_window_min_deg: 210,
+    swell_window_max_deg: 285,
+    offshore_direction_deg: 65,
+    exposure_level: 'sheltered',
+    fingerprint_confidence: 'medium',
+    fingerprint_updated_at: '2024-01-01T00:00:00.000Z',
+    deleted_at: null,
+    created_at: '2024-01-01T00:00:00.000Z',
+    updated_at: '2024-01-01T00:00:00.000Z',
+  };
+}
+
 afterEach(() => {
   mockState.includedBeachRows = [];
+  mockState.customSpots = [];
   resetDefaultDiscoveryMocks();
 });
 
@@ -432,6 +521,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     };
     mockState.favoriteBeaches = [];
     mockState.includedBeachRows = [];
+    mockState.customSpots = [];
     mockState.favoritesError = null;
     mockState.boards = [];
     mockState.boardsError = null;
@@ -790,6 +880,249 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     expect(result.recommendations.map((rec) => rec.beach.id)).toEqual(['beach-4', 'beach-1']);
     expect(result.includedRecommendations).toEqual([]);
+  });
+
+  test('includes own and nearby public custom spots without leaking other users private spots', async () => {
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.includedBeachRows = [mockBeach4];
+    mockState.customSpots = [
+      customSpotRow({
+        id: 'own-private-spot',
+        userId: testUserId,
+        name: 'Own Private Peak',
+        visibility: 'private',
+      }),
+      customSpotRow({
+        id: 'other-public-spot',
+        userId: 'other-user',
+        name: 'Community Reef',
+        visibility: 'public',
+      }),
+      customSpotRow({
+        id: 'other-private-spot',
+        userId: 'other-user',
+        name: 'Leaky Private Reef',
+        visibility: 'private',
+      }),
+      customSpotRow({
+        id: 'far-public-spot',
+        userId: 'other-user',
+        name: 'Far Public Reef',
+        visibility: 'public',
+        lat: 40,
+        lon: -125,
+      }),
+      customSpotRow({
+        id: 'unresolved-own-spot',
+        userId: testUserId,
+        name: 'Unresolved Own Spot',
+        visibility: 'private',
+        nearestBeachId: null,
+      }),
+    ];
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: mockBeach1, forecasts: [mockForecast] },
+        { beach: mockBeach4, forecasts: [{ ...mockForecast, beach_id: 'beach-4' }] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    const { batchFetchForecasts } = require('@/lib/services/discovery/forecast-batch-fetcher');
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+    });
+
+    expect(batchFetchForecasts.mock.calls[0][0].map((beach: Beach) => beach.id)).toEqual([
+      'beach-1',
+      'beach-4',
+    ]);
+    const customRecs = [
+      ...result.recommendations,
+      ...(result.includedRecommendations ?? []),
+    ].filter((rec) => rec.kind === 'custom_spot');
+    expect(customRecs.map((rec) => rec.customSpotId).sort()).toEqual([
+      'other-public-spot',
+      'own-private-spot',
+    ]);
+    expect(customRecs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'custom_spot',
+          customSpotId: 'own-private-spot',
+          visibility: 'private',
+          isOwn: true,
+          beach: expect.objectContaining({
+            id: 'beach-4',
+            name: 'Own Private Peak',
+            lat: 32.795,
+            lon: -117.254,
+          }),
+        }),
+        expect.objectContaining({
+          kind: 'custom_spot',
+          customSpotId: 'other-public-spot',
+          visibility: 'public',
+          isOwn: false,
+          beach: expect.objectContaining({
+            id: 'beach-4',
+            name: 'Community Reef',
+          }),
+        }),
+      ]),
+    );
+    expect(customRecs.find((rec) => rec.customSpotId === 'other-private-spot')).toBeUndefined();
+    expect(customRecs.find((rec) => rec.customSpotId === 'far-public-spot')).toBeUndefined();
+    expect(customRecs.find((rec) => rec.customSpotId === 'unresolved-own-spot')).toBeUndefined();
+  });
+
+  test('excludes own custom spots outside the discovery radius', async () => {
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.includedBeachRows = [mockBeach4];
+    mockState.customSpots = [
+      customSpotRow({
+        id: 'near-own-spot',
+        userId: testUserId,
+        name: 'Near Own Peak',
+        visibility: 'private',
+      }),
+      customSpotRow({
+        id: 'far-own-spot',
+        userId: testUserId,
+        name: 'Far Own Peak',
+        visibility: 'private',
+        lat: 40,
+        lon: -125,
+      }),
+    ];
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: mockBeach1, forecasts: [mockForecast] },
+        { beach: mockBeach4, forecasts: [{ ...mockForecast, beach_id: 'beach-4' }] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+    });
+
+    const customIds = [
+      ...result.recommendations,
+      ...(result.includedRecommendations ?? []),
+    ]
+      .filter((rec) => rec.kind === 'custom_spot')
+      .map((rec) => rec.customSpotId)
+      .sort();
+
+    expect(customIds).toEqual(['near-own-spot']);
+  });
+
+  test('treats custom spot 0 to 360 swell windows as full-circle exposure', async () => {
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.includedBeachRows = [mockBeach4];
+    mockState.customSpots = [
+      {
+        ...customSpotRow({
+          id: 'all-direction-own-spot',
+          userId: testUserId,
+          name: 'All Direction Peak',
+          visibility: 'private',
+        }),
+        swell_window_min_deg: 0,
+        swell_window_max_deg: 360,
+      },
+    ];
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: mockBeach1, forecasts: [mockForecast] },
+        { beach: mockBeach4, forecasts: [{ ...mockForecast, beach_id: 'beach-4' }] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+    });
+
+    const customRec = [
+      ...result.recommendations,
+      ...(result.includedRecommendations ?? []),
+    ].find((rec) => rec.kind === 'custom_spot' && rec.customSpotId === 'all-direction-own-spot');
+
+    expect(customRec).toMatchObject({
+      kind: 'custom_spot',
+      beach: expect.objectContaining({
+        swell_window_min_deg: 0,
+        swell_window_max_deg: 360,
+        swell_window_center_deg: 180,
+        swell_window_halfwidth_deg: 180,
+      }),
+    });
+  });
+
+  test('keeps omitted own custom spots in includedRecommendations without consuming includeBeachIds cap', async () => {
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.includedBeachRows = [mockBeach4];
+    mockState.customSpots = [
+      customSpotRow({
+        id: 'own-private-spot',
+        userId: testUserId,
+        name: 'Own Private Peak',
+        visibility: 'private',
+      }),
+    ];
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: mockBeach1, forecasts: [mockForecast] },
+        { beach: mockBeach4, forecasts: [{ ...mockForecast, beach_id: 'beach-4' }] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 1,
+    });
+
+    expect(result.recommendations).toHaveLength(1);
+    expect(result.includedRecommendations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'custom_spot',
+          customSpotId: 'own-private-spot',
+          isOwn: true,
+        }),
+      ]),
+    );
   });
 });
 
@@ -1268,6 +1601,217 @@ describe('discoverSurfSpots - Personalization Integration', () => {
 
     // Should still return recommendations (graceful degradation)
     expect(result.recommendations.length).toBeGreaterThan(0);
+  });
+});
+
+describe('discoverSurfSpots - Now Discovery Mode', () => {
+  const testUserId = 'test-user-now';
+  const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2024-01-15T17:30:00.000Z'));
+
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
+
+    calculatePersonalizationBonus.mockReturnValue({
+      total: 0,
+      affinityBonus: 0,
+      personalizationBonus: 0,
+      reasons: [],
+    });
+
+    scoreBeachWithEngine.mockImplementation((_engine: any, _beach: any, forecast: any) => {
+      const scoreByForecastId: Record<string, number> = {
+        'beach-1-now': 60,
+        'beach-1-future': 99,
+        'beach-2-now': 84,
+        'beach-2-future': 90,
+        'beach-3-future': 100,
+      };
+      const total = scoreByForecastId[forecast?.id] ?? 50;
+      return {
+        total,
+        subscores: {
+          waveHeightFit: total,
+          periodEnergyScore: 0,
+          windAlignment: 0,
+          tideFit: 0,
+          affinityBonus: 0,
+          personalizationBonus: 0,
+          distancePenalty: 0,
+        },
+        matchQuality: total >= 80 ? 'excellent' : 'fair',
+        reasons: [`score ${total}`],
+        warnings: [],
+        conditionBadges: [],
+      };
+    });
+
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1, mockBeach2, mockBeach3] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: [
+        {
+          beach: mockBeach1,
+          forecasts: [
+            {
+              ...mockForecast,
+              id: 'beach-1-now',
+              beach_id: 'beach-1',
+              forecast_at: '2024-01-15T17:00:00.000Z',
+              forecast_date: '2024-01-15',
+              forecast_time: '09:00:00',
+            },
+            {
+              ...mockForecast,
+              id: 'beach-1-future',
+              beach_id: 'beach-1',
+              forecast_at: '2024-01-15T20:00:00.000Z',
+              forecast_date: '2024-01-15',
+              forecast_time: '12:00:00',
+            },
+          ],
+        },
+        {
+          beach: mockBeach2,
+          forecasts: [
+            {
+              ...mockForecast,
+              id: 'beach-2-now',
+              beach_id: 'beach-2',
+              forecast_at: '2024-01-15T17:00:00.000Z',
+              forecast_date: '2024-01-15',
+              forecast_time: '09:00:00',
+            },
+            {
+              ...mockForecast,
+              id: 'beach-2-future',
+              beach_id: 'beach-2',
+              forecast_at: '2024-01-15T20:00:00.000Z',
+              forecast_date: '2024-01-15',
+              forecast_time: '12:00:00',
+            },
+          ],
+        },
+        {
+          beach: mockBeach3,
+          forecasts: [
+            {
+              ...mockForecast,
+              id: 'beach-3-future',
+              beach_id: 'beach-3',
+              forecast_at: '2024-01-15T20:00:00.000Z',
+              forecast_date: '2024-01-15',
+              forecast_time: '12:00:00',
+            },
+          ],
+        },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+    mockState.favoriteBeaches = [];
+    mockState.favoritesError = null;
+    mockState.boards = [];
+    mockState.boardsError = null;
+    mockState.userPrefs = null;
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  test('scores active forecast buckets and ignores future-only beaches', async () => {
+    const { selectBestWindow: mockSelectBestWindow } = require('@/lib/services/discovery/window-selector');
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      discoveryMode: 'now',
+      maxResults: 5,
+    });
+
+    expect(mockSelectBestWindow).not.toHaveBeenCalled();
+    expect(result.recommendations.map((rec) => rec.beach.id)).toEqual(['beach-2', 'beach-1']);
+    expect(result.recommendations.map((rec) => rec.forecast.id)).toEqual([
+      'beach-2-now',
+      'beach-1-now',
+    ]);
+  });
+
+  test('scores custom spots from active nearest-beach forecast buckets in now mode', async () => {
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.includedBeachRows = [mockBeach4];
+    mockState.customSpots = [
+      customSpotRow({
+        id: 'own-now-spot',
+        userId: testUserId,
+        name: 'Own Now Peak',
+        visibility: 'private',
+      }),
+    ];
+    mockState.forecastBatchResponse = {
+      successful: [
+        {
+          beach: mockBeach1,
+          forecasts: [
+            {
+              ...mockForecast,
+              id: 'beach-1-now',
+              beach_id: 'beach-1',
+              forecast_at: '2024-01-15T17:00:00.000Z',
+              forecast_date: '2024-01-15',
+              forecast_time: '09:00:00',
+            },
+          ],
+        },
+        {
+          beach: mockBeach4,
+          forecasts: [
+            {
+              ...mockForecast,
+              id: 'beach-4-now',
+              beach_id: 'beach-4',
+              forecast_at: '2024-01-15T17:00:00.000Z',
+              forecast_date: '2024-01-15',
+              forecast_time: '09:00:00',
+            },
+          ],
+        },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      discoveryMode: 'now',
+      maxResults: 5,
+    });
+
+    expect(result.recommendations).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          kind: 'custom_spot',
+          customSpotId: 'own-now-spot',
+          visibility: 'private',
+          isOwn: true,
+          forecast: expect.objectContaining({ id: 'beach-4-now' }),
+          window: expect.objectContaining({ peakTime: new Date('2024-01-15T17:30:00.000Z') }),
+        }),
+      ]),
+    );
   });
 });
 

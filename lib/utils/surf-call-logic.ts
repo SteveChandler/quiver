@@ -722,7 +722,7 @@ export function computeSurfCall(
   if (!forecasts || forecasts.length === 0) {
     return {
       ...baseResult,
-      whySentence: 'No forecast data available',
+      whySentence: 'no forecast data right now',
     };
   }
 
@@ -950,7 +950,7 @@ export function computeSurfCall(
  * A per-skill verdict slice. Same shape repeated for beginner / intermediate /
  * advanced so the UI can render a 3-stamp ladder. The `trail` is the secondary
  * caption beneath the verdict word ("TRY AT 4:00 PM" / "BEST AT 8:00 AM" /
- * "WAIT FOR SWELL" / "TOO BIG" / "TOO SMALL").
+ * "GO SURF!" / "WAIT FOR SWELL" / "TOO BIG" / "TOO SMALL").
  */
 export interface TierVerdict {
   verdict: SurfCallVerdict;
@@ -975,7 +975,7 @@ function formatWindowShort(iso: string | null): string | null {
 function buildTrail(verdict: SurfCallVerdict, windowStart: string | null, override?: string): string {
   if (override) return override;
   const t = formatWindowShort(windowStart);
-  if (verdict === 'YES') return t ? `BEST AT ${t}` : 'PADDLE OUT';
+  if (verdict === 'YES') return t ? `BEST AT ${t}` : 'GO SURF!';
   if (verdict === 'MAYBE') return t ? `TRY AT ${t}` : 'KEEP WATCHING';
   return 'WAIT FOR SWELL';
 }

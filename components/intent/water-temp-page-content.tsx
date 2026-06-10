@@ -57,6 +57,7 @@ export function WaterTempPageContent({
     spots.slice(0, 3).map((s) => s.name),
     stateSlug
   );
+  const roundedCurrentTemp = Math.round(waterTempData.currentTemp);
 
   return (
     <div className="seo-paper-page">
@@ -97,6 +98,11 @@ export function WaterTempPageContent({
           </h1>
           <p className="text-lg text-gray-600 mb-4">{regionLabel}</p>
           <div className="space-y-2 mt-6">
+            <p className="text-base font-medium text-gray-900">
+              {cityName} water temperature today is {roundedCurrentTemp}°F.
+              Most surfers should plan around{" "}
+              {waterTempData.wetsuitRecommendation.thickness}.
+            </p>
             <p className="text-base text-gray-700">
               Water temperatures refreshed hourly from NOAA buoys and forecast
               models.

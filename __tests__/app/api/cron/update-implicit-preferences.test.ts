@@ -121,7 +121,7 @@ describe("Implicit Preference Update Cron Job API", () => {
   });
 
   it("should compute implicit preferences and clean expired events", async () => {
-    const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+    const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
     const data = await response.json();
 
     expect(data.success).toBe(true);
@@ -172,7 +172,7 @@ describe("Implicit Preference Update Cron Job API", () => {
       Promise.resolve({ data: null, error: { message: "RPC failed" } })
     );
 
-    const response = await GET(mockRequest({ "x-vercel-cron": "1" }));
+    const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
     const data = await response.json();
 
     expect(data.success).toBe(false);

@@ -21,6 +21,12 @@ function getPreviewBeachId(rank: number): string {
   return "e8a921b7-c2b5-4259-9e5c-bd06765f7ae4";
 }
 
+function getPreviewPhotoUrl(rank: number): string {
+  if (rank === 1) return "/images/OceanBeachSurfers.jpg";
+  if (rank === 2) return "/images/blacks.jpg";
+  return "/images/tourmaline.png";
+}
+
 function recommendationFixture(
   rank: number,
   overrides: Partial<SurfWindowRecommendation> = {}
@@ -38,6 +44,7 @@ function recommendationFixture(
       region: "Southern California",
       lat: 32.75,
       lon: -117.25,
+      photoUrl: getPreviewPhotoUrl(rank),
     },
     startIso: "2026-06-03T14:00:00.000Z",
     endIso: "2026-06-03T16:30:00.000Z",
@@ -143,6 +150,7 @@ export default function SessionIntelligencePreviewPage() {
         <BestSurfWindows
           recommendations={recommendations}
           subtitle="Static fixture data for responsive validation."
+          layout="feature-list"
           surface="dev_preview"
         />
       </div>

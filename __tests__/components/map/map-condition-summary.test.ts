@@ -1,0 +1,101 @@
+import type { Beach } from "@/types/database";
+import { loadBeachesAndWaveHeights } from "@/components/map/map-beach-loader";
+import {
+  createWaveHeightBadge,
+  getConditionMarkerGradient,
+  getWaterTempBadgeColor,
+} from "@/components/map/map-marker-builder";
+
+const beach = (id: string): Beach =>
+  ({
+    id,
+    name: `Beach ${id}`,
+    lat: 32.75,
+    lon: -117.25,
+    region: "San Diego",
+  }) as Beach;
+
+describe("map condition summaries", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        success: true,
+        data: {
+          forecasts: {
+            "beach-good": 3.2,
+          },
+          waterTemps: {
+            "beach-good": "66",
+          },
+          conditionScores: {
+            "beach-good": 74,
+          },
+          conditionSummaries: {
+            "beach-good": "GOOD",
+            "beach-unknown": "UNKNOWN",
+          },
+        },
+      }),
+    }) as Response) as unknown as typeof fetch;
+  });
+
+  it("parses bulk condition score and summary maps in the beach loader", async () => {
+    const result = await loadBeachesAndWaveHeights(
+      32.75,
+      -117.25,
+      [beach("beach-good"), beach("beach-unknown")],
+      { fetchNearbyBeaches: jest.fn() }
+    );
+
+    expect(result.waveHeightMap.get("beach-good")).toBe(3.2);
+    expect(result.waterTempMap.get("beach-good")).toBe("66");
+    expect(result.conditionScoreMap.get("beach-good")).toBe(74);
+    expect(result.conditionSummaryMap.get("beach-good")).toBe("GOOD");
+    expect(result.conditionSummaryMap.get("beach-unknown")).toBe("UNKNOWN");
+  });
+
+  it("renders wave-height markers with condition semantics and gradients", () => {
+    const marker = createWaveHeightBadge(beach("beach-fair"), 2.8, {
+      favoriteBeachIds: new Set(),
+      selectedBeachId: null,
+      hoveredBeachId: null,
+      onHoverChange: jest.fn(),
+      onSelectChange: jest.fn(),
+      router: { push: jest.fn() },
+      autoNavigate: false,
+      displayMode: "wave-height",
+      conditionSummary: "FAIR",
+    });
+    const badge = marker.querySelector("[data-marker-badge='true']");
+
+    expect(marker).toHaveAttribute("data-condition-summary", "FAIR");
+    expect(badge).toHaveAttribute(
+      "data-marker-gradient",
+      getConditionMarkerGradient("FAIR")
+    );
+  });
+
+  it("keeps water-temp marker colors in water-temp mode", () => {
+    const marker = createWaveHeightBadge(beach("beach-good"), 3.1, {
+      favoriteBeachIds: new Set(),
+      selectedBeachId: null,
+      hoveredBeachId: null,
+      onHoverChange: jest.fn(),
+      onSelectChange: jest.fn(),
+      router: { push: jest.fn() },
+      autoNavigate: false,
+      displayMode: "water-temp",
+      waterTemp: "76",
+      conditionSummary: "GOOD",
+    });
+    const badge = marker.querySelector("[data-marker-badge='true']");
+
+    expect(marker).toHaveAttribute("data-condition-summary", "GOOD");
+    expect(badge).toHaveAttribute(
+      "data-marker-gradient",
+      getWaterTempBadgeColor("76")
+    );
+  });
+});
