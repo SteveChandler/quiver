@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from "@testing-library/react";
+import { WAVE_CHARACTERISTICS } from "@/components/session-forms/shared";
 import { WaveTypeSelector, WAVE_TYPES } from "@/components/ui/wave-type-selector";
 
 describe("WaveTypeSelector", () => {
@@ -17,7 +18,7 @@ describe("WaveTypeSelector", () => {
     expect(screen.getByText("Wave characteristics:")).toBeInTheDocument();
   });
 
-  it("renders all 8 wave type options in 2x4 grid", () => {
+  it("renders all 12 canonical wave characteristic options", () => {
     render(<WaveTypeSelector {...defaultProps} />);
     
     // Check that all wave types are rendered
@@ -25,10 +26,34 @@ describe("WaveTypeSelector", () => {
       expect(screen.getByText(waveType.label)).toBeInTheDocument();
       expect(screen.getByText(waveType.description)).toBeInTheDocument();
     });
+
+    expect(WAVE_TYPES.map((waveType) => waveType.id)).toEqual([
+      "clean",
+      "glassy",
+      "choppy",
+      "blown_out",
+      "fat",
+      "mushy",
+      "peaky",
+      "powerful",
+      "closeouts",
+      "barreling",
+      "reform",
+      "walled",
+    ]);
     
     // Check grid layout - should have 2 columns
     const gridContainer = screen.getByText("Wave characteristics:").nextElementSibling;
     expect(gridContainer).toHaveClass("grid", "grid-cols-2");
+  });
+
+  it("keeps the session shared value/label vocabulary in sync with the selector", () => {
+    expect(WAVE_CHARACTERISTICS).toEqual(
+      WAVE_TYPES.map((waveType) => ({
+        value: waveType.id,
+        label: waveType.label,
+      }))
+    );
   });
 
   it("displays empty state message when no types selected", () => {

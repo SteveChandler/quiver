@@ -7,7 +7,7 @@
  */
 
 import React from "react";
-import { render } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import type {
   SessionFormMode,
   SessionFormState,
@@ -29,6 +29,7 @@ const defaultFormState: SessionFormState = {
   notes: "",
   photos: [],
   waveTypes: [],
+  waveCharacteristics: [],
   isPublic: true,
   isMuted: false,
   selectedGoals: [],
@@ -77,7 +78,7 @@ jest.mock("@/components/session-forms/EquipmentStep", () => ({
   EquipmentStep: () => <div />,
 }));
 jest.mock("@/components/session-forms/ConditionsSection", () => ({
-  ConditionsSection: () => <div />,
+  ConditionsSection: () => <div data-testid="stub-conditions" />,
 }));
 jest.mock("@/components/session-forms/PhotoSelectionSection", () => ({
   PhotoSelectionSection: () => <div />,
@@ -92,10 +93,12 @@ jest.mock("@/components/session-forms/SessionSlider", () => ({
   SessionSlider: () => <div />,
 }));
 jest.mock("@/components/session-forms/QuickLogView", () => ({
-  QuickLogView: () => <div />,
+  QuickLogView: ({ detailSections }: { detailSections: React.ReactNode }) => (
+    <div data-testid="stub-quicklog">{detailSections}</div>
+  ),
 }));
 jest.mock("@/components/ui/wave-type-selector", () => ({
-  WaveTypeSelector: () => <div />,
+  WaveTypeSelector: () => <div data-testid="stub-wavetypes" />,
 }));
 jest.mock("@/components/session/session-celebration", () => ({
   SessionCelebration: () => <div />,
@@ -184,6 +187,27 @@ describe("SessionScrollForm canSave gate", () => {
       );
 
       expect(getSaveButton(container).disabled).toBe(true);
+    });
+
+    it("includes conditions and wave type controls in quick-log details", () => {
+      resetFormState({
+        selectedBeachId: "beach-abc",
+        selectedBeach: "Ocean Beach",
+        overallRating: "4",
+      });
+
+      render(
+        <SessionScrollForm
+          initialMode="log"
+          onComplete={jest.fn()}
+          onCancel={jest.fn()}
+          quickMode
+        />
+      );
+
+      expect(screen.getByTestId("stub-quicklog")).toBeInTheDocument();
+      expect(screen.getByTestId("stub-conditions")).toBeInTheDocument();
+      expect(screen.getByTestId("stub-wavetypes")).toBeInTheDocument();
     });
   });
 

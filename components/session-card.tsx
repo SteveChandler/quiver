@@ -24,6 +24,20 @@ import { UserPlus } from "lucide-react";
 import { useUserFollow } from "@/hooks/use-user-follow";
 import type { SessionWithDetails } from "@/types/database";
 import { SessionCardPhotos, type SessionPhoto } from "@/components/session-card-photos";
+import { getWaveTypeLabel } from "@/components/ui/wave-type-selector";
+import { formatSessionTideSnapshot } from "@/lib/services/session-tide-snapshot";
+
+const RIP_CURRENT_LABELS: Record<string, string> = {
+  none: "None",
+  light: "Light",
+  strong: "Strong",
+};
+
+const RIP_RISK_LABELS: Record<string, string> = {
+  low: "Low",
+  moderate: "Moderate",
+  high: "High",
+};
 
 interface SessionCardProps {
   id?: string;
@@ -80,6 +94,35 @@ export function SessionCard({
     toggleFollow,
     isToggling: isFollowToggling,
   } = useUserFollow(session?.user?.id || "");
+  const waveCharacteristics =
+    ((session as { wave_characteristics?: string[] | null } | undefined)
+      ?.wave_characteristics ?? []);
+  const tideRateFtPerHr =
+    ((session as { tide_rate_ft_per_hr?: number | null } | undefined)
+      ?.tide_rate_ft_per_hr ?? null);
+  const tideDisplay =
+    session?.tide_height_ft !== null &&
+    session?.tide_height_ft !== undefined &&
+    session?.tide_status &&
+    tideRateFtPerHr !== null
+      ? formatSessionTideSnapshot({
+          tideHeightFt: session.tide_height_ft,
+          tideStatus: session.tide_status as "rising" | "falling" | "high" | "low",
+          tideRateFtPerHr,
+        })
+      : null;
+  const ripCurrentObserved =
+    ((session as { rip_current_observed?: string | null } | undefined)
+      ?.rip_current_observed ?? null);
+  const ripCurrentLabel = ripCurrentObserved
+    ? RIP_CURRENT_LABELS[ripCurrentObserved] ?? ripCurrentObserved
+    : null;
+  const ripCurrentRisk =
+    ((session as { rip_current_risk?: string | null } | undefined)
+      ?.rip_current_risk ?? null);
+  const ripRiskLabel = ripCurrentRisk
+    ? RIP_RISK_LABELS[ripCurrentRisk] ?? ripCurrentRisk
+    : null;
 
   const handleCommentsClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -162,6 +205,47 @@ export function SessionCard({
       )}
 
       {rating > 0 && <StarRating rating={rating} size="md" />}
+
+      {waveCharacteristics.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {waveCharacteristics.map((characteristic) => (
+            <span
+              key={characteristic}
+              className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700"
+            >
+              {getWaveTypeLabel(characteristic)}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {tideDisplay && (
+        <div className="text-xs font-medium text-muted-foreground">
+          Tide: {tideDisplay}
+        </div>
+      )}
+
+      {ripCurrentLabel && (
+        <div
+          className={`text-xs font-medium ${
+            ripCurrentObserved === "none"
+              ? "text-muted-foreground"
+              : "text-amber-700"
+          }`}
+        >
+          Rip current observed: {ripCurrentLabel}
+        </div>
+      )}
+
+      {ripRiskLabel && (
+        <div
+          className={`text-xs font-medium ${
+            ripCurrentRisk === "high" ? "text-amber-700" : "text-muted-foreground"
+          }`}
+        >
+          Rip risk that day: {ripRiskLabel}
+        </div>
+      )}
 
       {/* Session Conditions - Only show if session data is available */}
       {session && (

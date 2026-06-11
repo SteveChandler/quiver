@@ -16,6 +16,7 @@ import {
   Trash2,
   Loader2,
   Share2,
+  TrendingUp,
 } from "lucide-react";
 import Link from "next/link";
 // import Image from "next/image";
@@ -45,6 +46,20 @@ import type { SessionPhoto } from "@/lib/supabase/storage";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 import { ShareSheet } from "@/components/share";
 import { buildSessionShareSheetData } from "@/lib/share/session-share";
+import { getWaveTypeLabel } from "@/components/ui/wave-type-selector";
+import { formatSessionTideSnapshot } from "@/lib/services/session-tide-snapshot";
+
+const RIP_CURRENT_LABELS: Record<string, string> = {
+  none: "None",
+  light: "Light",
+  strong: "Strong",
+};
+
+const RIP_RISK_LABELS: Record<string, string> = {
+  low: "Low",
+  moderate: "Moderate",
+  high: "High",
+};
 
 // Dynamically import SessionPhotoGallery to avoid SSR issues
 const SessionPhotoGallery = dynamic(
@@ -238,6 +253,31 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
   });
 
   const shareData = buildSessionShareSheetData(session);
+  const waveCharacteristics =
+    (session as { wave_characteristics?: string[] | null }).wave_characteristics ?? [];
+  const tideRateFtPerHr =
+    (session as { tide_rate_ft_per_hr?: number | null }).tide_rate_ft_per_hr ?? null;
+  const tideDisplay =
+    session.tide_height_ft !== null &&
+    session.tide_height_ft !== undefined &&
+    session.tide_status &&
+    tideRateFtPerHr !== null
+      ? formatSessionTideSnapshot({
+          tideHeightFt: session.tide_height_ft,
+          tideStatus: session.tide_status as "rising" | "falling" | "high" | "low",
+          tideRateFtPerHr,
+        })
+      : null;
+  const ripCurrentObserved =
+    (session as { rip_current_observed?: string | null }).rip_current_observed ?? null;
+  const ripCurrentLabel = ripCurrentObserved
+    ? RIP_CURRENT_LABELS[ripCurrentObserved] ?? ripCurrentObserved
+    : null;
+  const ripCurrentRisk =
+    (session as { rip_current_risk?: string | null }).rip_current_risk ?? null;
+  const ripRiskLabel = ripCurrentRisk
+    ? RIP_RISK_LABELS[ripCurrentRisk] ?? ripCurrentRisk
+    : null;
 
   return (
     <div className="flex-1 flex flex-col">
@@ -364,6 +404,24 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
             </Card>
           )}
 
+          {waveCharacteristics.length > 0 && (
+            <Card>
+              <CardContent className="p-4 space-y-3">
+                <p className="text-sm text-muted-foreground">Wave Characteristics</p>
+                <div className="flex flex-wrap gap-2">
+                  {waveCharacteristics.map((characteristic) => (
+                    <span
+                      key={characteristic}
+                      className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700"
+                    >
+                      {getWaveTypeLabel(characteristic)}
+                    </span>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             {session.board && (
               <Card>
@@ -413,6 +471,72 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
                   <div>
                     <p className="text-sm text-muted-foreground">Water Temp</p>
                     <p className="font-medium">{session.water_temp}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {tideDisplay && (
+              <Card>
+                <CardContent className="p-4 flex items-center gap-3">
+                  <TrendingUp className="h-6 w-6 text-primary" />
+                  <div>
+                    <p className="text-sm text-muted-foreground">Tide</p>
+                    <p className="font-medium">{tideDisplay}</p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {ripCurrentLabel && (
+              <Card>
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Waves
+                    className={`h-6 w-6 ${
+                      ripCurrentObserved === "none"
+                        ? "text-primary"
+                        : "text-amber-600"
+                    }`}
+                  />
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Rip current observed
+                    </p>
+                    <p
+                      className={`font-medium ${
+                        ripCurrentObserved === "none"
+                          ? ""
+                          : "text-amber-700"
+                      }`}
+                    >
+                      {ripCurrentLabel}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {ripRiskLabel && (
+              <Card>
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Waves
+                    className={`h-6 w-6 ${
+                      ripCurrentRisk === "high"
+                        ? "text-amber-600"
+                        : "text-primary"
+                    }`}
+                  />
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Rip risk that day
+                    </p>
+                    <p
+                      className={`font-medium ${
+                        ripCurrentRisk === "high" ? "text-amber-700" : ""
+                      }`}
+                    >
+                      {ripRiskLabel}
+                    </p>
                   </div>
                 </CardContent>
               </Card>

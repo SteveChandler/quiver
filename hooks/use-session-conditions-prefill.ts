@@ -8,17 +8,13 @@ type FieldKey =
   | "waveHeight"
   | "windSpeed"
   | "windDirection"
-  | "waterTemp"
-  | "tideHeight"
-  | "tideStatus";
+  | "waterTemp";
 
 const FIELD_KEYS: FieldKey[] = [
   "waveHeight",
   "windSpeed",
   "windDirection",
   "waterTemp",
-  "tideHeight",
-  "tideStatus",
 ];
 
 function isFieldEmpty(formState: SessionFormState, field: FieldKey): boolean {
@@ -31,10 +27,6 @@ function isFieldEmpty(formState: SessionFormState, field: FieldKey): boolean {
       return !formState.windDirection;
     case "waterTemp":
       return !formState.waterTemp;
-    case "tideHeight":
-      return formState.tideHeight === undefined || formState.tideHeight === null;
-    case "tideStatus":
-      return !formState.tideStatus;
   }
 }
 
@@ -43,7 +35,8 @@ function isFieldEmpty(formState: SessionFormState, field: FieldKey): boolean {
  *
  * Runs at the form level so prefill happens regardless of whether the user has
  * opened the conditions UI (QuickLog hides it behind a collapsed accordion).
- * The cron and forecast_vs_actual diffs depend on these fields being populated.
+ * Tide fields are preview-only so the database snapshot trigger can preserve
+ * NOAA provenance unless the user actually edits tide values.
  *
  * Behavior:
  *   - Log mode only.
@@ -112,18 +105,6 @@ export function useSessionConditionsPrefill(
       "waterTemp",
       forecastData.water_temp !== undefined
         ? String(forecastData.water_temp)
-        : undefined
-    );
-    tryPrefill(
-      "tideHeight",
-      "tideHeight",
-      forecastData.tide_height === null ? undefined : forecastData.tide_height
-    );
-    tryPrefill(
-      "tideStatus",
-      "tideStatus",
-      forecastData.tide_status
-        ? forecastData.tide_status.toLowerCase()
         : undefined
     );
   }, [

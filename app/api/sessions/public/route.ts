@@ -167,7 +167,7 @@ async function publicSessionsHandler(
   const { count } = await countQuery;
 
   // Fetch public sessions with profile data
-  let dataQuery = supabase
+  let dataQuery = (supabase as any)
     .from("sessions")
     .select(
       `
@@ -178,6 +178,12 @@ async function publicSessionsHandler(
         arrival_time,
         wave_quality,
         wave_height_ft,
+        wave_characteristics,
+        tide_height_ft,
+        tide_status,
+        tide_rate_ft_per_hr,
+        rip_current_observed,
+        rip_current_risk,
         notes,
         description,
         image_url,
@@ -238,7 +244,7 @@ async function publicSessionsHandler(
   // Batch-fetch like status for the authenticated user
   let likedSessionIds = new Set<string>();
   if (user && sessions?.length) {
-    const sessionIds = sessions.map((s) => s.id);
+    const sessionIds = sessions.map((s: any) => s.id);
     const { data: likes } = await supabase
       .from("session_likes")
       .select("session_id")
@@ -252,7 +258,7 @@ async function publicSessionsHandler(
 
   // Transform the data for frontend consumption
   const publicSessions =
-    sessions?.map((session) => ({
+    sessions?.map((session: any) => ({
       id: session.id,
       userId: session.user_id,
       beachName: session.beach_name || (session.beaches as any)?.name || null,
@@ -260,6 +266,12 @@ async function publicSessionsHandler(
       arrivalTime: session.arrival_time,
       waveQuality: session.wave_quality,
       waveHeight: session.wave_height_ft,
+      waveCharacteristics: session.wave_characteristics ?? null,
+      tideHeightFt: session.tide_height_ft ?? null,
+      tideStatus: session.tide_status ?? null,
+      tideRateFtPerHr: session.tide_rate_ft_per_hr ?? null,
+      ripCurrentObserved: session.rip_current_observed ?? null,
+      ripCurrentRisk: session.rip_current_risk ?? null,
       notes: session.notes,
       description: session.description,
       title: session.description || session.notes || null,

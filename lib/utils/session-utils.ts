@@ -3,6 +3,11 @@ import type { SessionFormState } from "@/hooks/use-session-form";
 import { normalizeSessionDecomposition } from "@/lib/session-fit";
 import { getStaticMapImageUrl, resolveBeachCoordinates } from "@/lib/map-utils";
 
+type SessionWithWaveCharacteristics = Partial<Session> & {
+  wave_characteristics?: string[] | null;
+  rip_current_observed?: string | null;
+};
+
 // Helper function to format session description with additional details
 export const formatSessionDescription = (session: SessionWithDetails) => {
   const parts = [];
@@ -128,7 +133,7 @@ export const getSessionMapImageUrl = (session: SessionWithDetails) => {
 export function transformSessionFormStateToDbSchema(
   formState: SessionFormState
 ): Partial<Session> {
-  const dbData: Partial<Session> = {};
+  const dbData: SessionWithWaveCharacteristics = {};
 
   // Map camelCase form fields to snake_case database columns
   if (formState.selectedBeachId) {
@@ -243,13 +248,23 @@ export function transformSessionFormStateToDbSchema(
     dbData.tide_status = formState.tideStatus;
   }
 
+  if (formState.ripCurrentObserved) {
+    dbData.rip_current_observed = formState.ripCurrentObserved;
+  }
+
   dbData.session_decomposition = normalizeSessionDecomposition(
     formState.sessionDecomposition
   ) as unknown as Session["session_decomposition"];
 
-  // Handle wave types as goals (session planning feature)
-  if (formState.waveTypes && formState.waveTypes.length > 0) {
-    dbData.goals = formState.waveTypes;
+  const waveCharacteristics =
+    formState.waveCharacteristics?.length > 0
+      ? formState.waveCharacteristics
+      : formState.waveTypes?.length > 0
+        ? formState.waveTypes
+        : null;
+
+  if (waveCharacteristics) {
+    dbData.wave_characteristics = waveCharacteristics;
   }
 
   // Visibility and feed controls
@@ -325,7 +340,8 @@ export function sessionToFormState(session: any): any {
     // Wave conditions
     waveHeight: session.wave_height_ft || undefined,
     waveQuality: session.wave_quality?.toString() || "",
-    waveTypes: session.wave_types || session.goals || [],
+    waveCharacteristics: session.wave_characteristics || [],
+    waveTypes: session.wave_characteristics || [],
 
     // Environmental conditions (NEW FIELDS)
     windSpeed: session.wind_speed_mph || undefined,
@@ -335,6 +351,7 @@ export function sessionToFormState(session: any): any {
     // Tide conditions (NEW FIELDS)
     tideHeight: session.tide_height_ft || undefined,
     tideStatus: session.tide_status || undefined,
+    ripCurrentObserved: session.rip_current_observed || undefined,
 
     // Experience ratings
     crowdLevel: session.crowd_level?.toString() || "",

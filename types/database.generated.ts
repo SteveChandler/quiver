@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "12.2.3 (519615d)"
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -39,6 +34,315 @@ export type Database = {
   }
   public: {
     Tables: {
+      _backup_baja_conditions_20260202: {
+        Row: {
+          id: string | null
+          name: string | null
+          preferred_tide_ft_max: number | null
+          preferred_tide_ft_min: number | null
+          swell_window_max_deg: number | null
+          swell_window_min_deg: number | null
+          wave_tips: string | null
+        }
+        Insert: {
+          id?: string | null
+          name?: string | null
+          preferred_tide_ft_max?: number | null
+          preferred_tide_ft_min?: number | null
+          swell_window_max_deg?: number | null
+          swell_window_min_deg?: number | null
+          wave_tips?: string | null
+        }
+        Update: {
+          id?: string | null
+          name?: string | null
+          preferred_tide_ft_max?: number | null
+          preferred_tide_ft_min?: number | null
+          swell_window_max_deg?: number | null
+          swell_window_min_deg?: number | null
+          wave_tips?: string | null
+        }
+        Relationships: []
+      }
+      _backup_baja_descriptions_20260202: {
+        Row: {
+          description: string | null
+          id: string | null
+          name: string | null
+        }
+        Insert: {
+          description?: string | null
+          id?: string | null
+          name?: string | null
+        }
+        Update: {
+          description?: string | null
+          id?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+      _backup_beach_timezones_20260202: {
+        Row: {
+          id: string | null
+          name: string | null
+          state: string | null
+          timezone: string | null
+        }
+        Insert: {
+          id?: string | null
+          name?: string | null
+          state?: string | null
+          timezone?: string | null
+        }
+        Update: {
+          id?: string | null
+          name?: string | null
+          state?: string | null
+          timezone?: string | null
+        }
+        Relationships: []
+      }
+      _backup_mock_profiles_20260202: {
+        Row: {
+          activity_level: string | null
+          allow_implicit_tracking: boolean | null
+          avatar_url: string | null
+          bio: string | null
+          created_at: string | null
+          crowd_preference: string | null
+          digest_session_invites: boolean | null
+          display_name: string | null
+          email: string | null
+          email_session_invites: boolean | null
+          experience_level: string | null
+          favorite_spot: string | null
+          favorite_spot_id: string | null
+          followers_count: number | null
+          following_count: number | null
+          full_name: string | null
+          home_beach_id: string | null
+          home_beach_ids: string[] | null
+          home_region: string | null
+          id: string | null
+          inapp_session_invites: boolean | null
+          instagram: string | null
+          is_admin: boolean | null
+          is_mock: boolean | null
+          is_system_account: boolean | null
+          location: string | null
+          notif_email_enabled: boolean | null
+          notif_follows: boolean | null
+          notif_forecast_alerts: boolean | null
+          notif_inapp_enabled: boolean | null
+          notif_likes: boolean | null
+          notif_push_enabled: boolean | null
+          notif_reminders: boolean | null
+          notif_session_invites: boolean | null
+          notif_xp_updates: boolean | null
+          onboarding_completed_at: string | null
+          personality_type: string | null
+          phone_number: string | null
+          posting_window: Json | null
+          preferences_v2_shown_at: string | null
+          preferred_break_type: string | null
+          preferred_wave_size: string | null
+          referral_code: string | null
+          secondary_beaches: string[] | null
+          signup_context: Json | null
+          signup_location: Json | null
+          surf_styles: string[] | null
+          timezone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          activity_level?: string | null
+          allow_implicit_tracking?: boolean | null
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          crowd_preference?: string | null
+          digest_session_invites?: boolean | null
+          display_name?: string | null
+          email?: string | null
+          email_session_invites?: boolean | null
+          experience_level?: string | null
+          favorite_spot?: string | null
+          favorite_spot_id?: string | null
+          followers_count?: number | null
+          following_count?: number | null
+          full_name?: string | null
+          home_beach_id?: string | null
+          home_beach_ids?: string[] | null
+          home_region?: string | null
+          id?: string | null
+          inapp_session_invites?: boolean | null
+          instagram?: string | null
+          is_admin?: boolean | null
+          is_mock?: boolean | null
+          is_system_account?: boolean | null
+          location?: string | null
+          notif_email_enabled?: boolean | null
+          notif_follows?: boolean | null
+          notif_forecast_alerts?: boolean | null
+          notif_inapp_enabled?: boolean | null
+          notif_likes?: boolean | null
+          notif_push_enabled?: boolean | null
+          notif_reminders?: boolean | null
+          notif_session_invites?: boolean | null
+          notif_xp_updates?: boolean | null
+          onboarding_completed_at?: string | null
+          personality_type?: string | null
+          phone_number?: string | null
+          posting_window?: Json | null
+          preferences_v2_shown_at?: string | null
+          preferred_break_type?: string | null
+          preferred_wave_size?: string | null
+          referral_code?: string | null
+          secondary_beaches?: string[] | null
+          signup_context?: Json | null
+          signup_location?: Json | null
+          surf_styles?: string[] | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          activity_level?: string | null
+          allow_implicit_tracking?: boolean | null
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string | null
+          crowd_preference?: string | null
+          digest_session_invites?: boolean | null
+          display_name?: string | null
+          email?: string | null
+          email_session_invites?: boolean | null
+          experience_level?: string | null
+          favorite_spot?: string | null
+          favorite_spot_id?: string | null
+          followers_count?: number | null
+          following_count?: number | null
+          full_name?: string | null
+          home_beach_id?: string | null
+          home_beach_ids?: string[] | null
+          home_region?: string | null
+          id?: string | null
+          inapp_session_invites?: boolean | null
+          instagram?: string | null
+          is_admin?: boolean | null
+          is_mock?: boolean | null
+          is_system_account?: boolean | null
+          location?: string | null
+          notif_email_enabled?: boolean | null
+          notif_follows?: boolean | null
+          notif_forecast_alerts?: boolean | null
+          notif_inapp_enabled?: boolean | null
+          notif_likes?: boolean | null
+          notif_push_enabled?: boolean | null
+          notif_reminders?: boolean | null
+          notif_session_invites?: boolean | null
+          notif_xp_updates?: boolean | null
+          onboarding_completed_at?: string | null
+          personality_type?: string | null
+          phone_number?: string | null
+          posting_window?: Json | null
+          preferences_v2_shown_at?: string | null
+          preferred_break_type?: string | null
+          preferred_wave_size?: string | null
+          referral_code?: string | null
+          secondary_beaches?: string[] | null
+          signup_context?: Json | null
+          signup_location?: Json | null
+          surf_styles?: string[] | null
+          timezone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      _backup_orphaned_intel_posts_20260202: {
+        Row: {
+          beach_id: string | null
+          confirmations_count: number | null
+          created_at: string | null
+          dedupe_hash: string | null
+          description: string | null
+          emoji_rating: string | null
+          expires_at: string | null
+          id: string | null
+          is_active: boolean | null
+          latitude: number | null
+          longitude: number | null
+          photo_storage_path: string | null
+          photo_url: string | null
+          report_count: number | null
+          surf_conditions: Json | null
+          tag: Database["public"]["Enums"]["intel_post_tag"] | null
+          title: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          beach_id?: string | null
+          confirmations_count?: number | null
+          created_at?: string | null
+          dedupe_hash?: string | null
+          description?: string | null
+          emoji_rating?: string | null
+          expires_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          latitude?: number | null
+          longitude?: number | null
+          photo_storage_path?: string | null
+          photo_url?: string | null
+          report_count?: number | null
+          surf_conditions?: Json | null
+          tag?: Database["public"]["Enums"]["intel_post_tag"] | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          beach_id?: string | null
+          confirmations_count?: number | null
+          created_at?: string | null
+          dedupe_hash?: string | null
+          description?: string | null
+          emoji_rating?: string | null
+          expires_at?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          latitude?: number | null
+          longitude?: number | null
+          photo_storage_path?: string | null
+          photo_url?: string | null
+          report_count?: number | null
+          surf_conditions?: Json | null
+          tag?: Database["public"]["Enums"]["intel_post_tag"] | null
+          title?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      _backup_skill_levels_20260202: {
+        Row: {
+          id: string | null
+          name: string | null
+          skill_level: string | null
+        }
+        Insert: {
+          id?: string | null
+          name?: string | null
+          skill_level?: string | null
+        }
+        Update: {
+          id?: string | null
+          name?: string | null
+          skill_level?: string | null
+        }
+        Relationships: []
+      }
       account_deletions: {
         Row: {
           comments_anonymized: number
@@ -740,83 +1044,6 @@ export type Database = {
           },
           {
             foreignKeyName: "beach_daily_intel_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "v_tide_forecast_latest"
-            referencedColumns: ["beach_id"]
-          },
-        ]
-      }
-      beach_dioramas: {
-        Row: {
-          beach_id: string
-          condition_key: string
-          created_at: string | null
-          id: string
-          thumbnail_url: string | null
-          video_url: string
-        }
-        Insert: {
-          beach_id: string
-          condition_key: string
-          created_at?: string | null
-          id?: string
-          thumbnail_url?: string | null
-          video_url: string
-        }
-        Update: {
-          beach_id?: string
-          condition_key?: string
-          created_at?: string | null
-          id?: string
-          thumbnail_url?: string | null
-          video_url?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "beach_dioramas_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "beach_location_audit"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "beach_dioramas_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "beach_ml_performance_baseline"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "beach_dioramas_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "beaches"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "beach_dioramas_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "v_enhanced_forecast_latest"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "beach_dioramas_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "v_marine_forecast_latest"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "beach_dioramas_beach_id_fkey"
-            columns: ["beach_id"]
-            isOneToOne: false
-            referencedRelation: "v_sun_times_latest"
-            referencedColumns: ["beach_id"]
-          },
-          {
-            foreignKeyName: "beach_dioramas_beach_id_fkey"
             columns: ["beach_id"]
             isOneToOne: false
             referencedRelation: "v_tide_forecast_latest"
@@ -1830,10 +2057,14 @@ export type Database = {
           height_offset_min_sample_count: number
           id: string
           is_private: boolean
-          lat: number
+          lat: number | null
           local_etiquette: string | null
-          lon: number
+          lon: number | null
+          max_wind_any_mph: number | null
+          max_wind_onshore_mph: number | null
           name: string
+          nws_forecast_zone: string | null
+          nws_office: string | null
           owner_id: string | null
           parking_tips: string | null
           persona: Database["public"]["Enums"]["beach_persona"] | null
@@ -1843,6 +2074,7 @@ export type Database = {
           preferred_tide_ft_min: number | null
           real_takeaways: string[] | null
           region: string | null
+          region_id: string | null
           review_count: number | null
           shoaling_factors: Json | null
           skill_level: string | null
@@ -1897,10 +2129,14 @@ export type Database = {
           height_offset_min_sample_count?: number
           id?: string
           is_private?: boolean
-          lat: number
+          lat?: number | null
           local_etiquette?: string | null
-          lon: number
+          lon?: number | null
+          max_wind_any_mph?: number | null
+          max_wind_onshore_mph?: number | null
           name: string
+          nws_forecast_zone?: string | null
+          nws_office?: string | null
           owner_id?: string | null
           parking_tips?: string | null
           persona?: Database["public"]["Enums"]["beach_persona"] | null
@@ -1910,6 +2146,7 @@ export type Database = {
           preferred_tide_ft_min?: number | null
           real_takeaways?: string[] | null
           region?: string | null
+          region_id?: string | null
           review_count?: number | null
           shoaling_factors?: Json | null
           skill_level?: string | null
@@ -1964,10 +2201,14 @@ export type Database = {
           height_offset_min_sample_count?: number
           id?: string
           is_private?: boolean
-          lat?: number
+          lat?: number | null
           local_etiquette?: string | null
-          lon?: number
+          lon?: number | null
+          max_wind_any_mph?: number | null
+          max_wind_onshore_mph?: number | null
           name?: string
+          nws_forecast_zone?: string | null
+          nws_office?: string | null
           owner_id?: string | null
           parking_tips?: string | null
           persona?: Database["public"]["Enums"]["beach_persona"] | null
@@ -1977,6 +2218,7 @@ export type Database = {
           preferred_tide_ft_min?: number | null
           real_takeaways?: string[] | null
           region?: string | null
+          region_id?: string | null
           review_count?: number | null
           shoaling_factors?: Json | null
           skill_level?: string | null
@@ -2026,63 +2268,45 @@ export type Database = {
       boards: {
         Row: {
           board_type: string
-          color: string | null
           created_at: string | null
           description: string | null
           dimensions: string
-          fin_setup: string | null
           id: string
           image_url: string | null
-          model: string | null
           name: string
           session_count: number | null
-          shaper: string | null
           size: string | null
-          thickness: string | null
           updated_at: string | null
           user_id: string
           volume: number | null
-          width: string | null
         }
         Insert: {
           board_type: string
-          color?: string | null
           created_at?: string | null
           description?: string | null
           dimensions: string
-          fin_setup?: string | null
           id?: string
           image_url?: string | null
-          model?: string | null
           name: string
           session_count?: number | null
-          shaper?: string | null
           size?: string | null
-          thickness?: string | null
           updated_at?: string | null
           user_id: string
           volume?: number | null
-          width?: string | null
         }
         Update: {
           board_type?: string
-          color?: string | null
           created_at?: string | null
           description?: string | null
           dimensions?: string
-          fin_setup?: string | null
           id?: string
           image_url?: string | null
-          model?: string | null
           name?: string
           session_count?: number | null
-          shaper?: string | null
           size?: string | null
-          thickness?: string | null
           updated_at?: string | null
           user_id?: string
           volume?: number | null
-          width?: string | null
         }
         Relationships: []
       }
@@ -2724,54 +2948,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      dev_session_mutation_audit: {
-        Row: {
-          application_name: string | null
-          at: string
-          client_addr: unknown
-          current_query: string | null
-          current_user_role: unknown
-          id: number
-          new_row: Json | null
-          old_row: Json | null
-          op: string
-          session_id: string | null
-          session_user_role: unknown
-          txid: number
-          user_id: string | null
-        }
-        Insert: {
-          application_name?: string | null
-          at?: string
-          client_addr?: unknown
-          current_query?: string | null
-          current_user_role?: unknown
-          id?: number
-          new_row?: Json | null
-          old_row?: Json | null
-          op: string
-          session_id?: string | null
-          session_user_role?: unknown
-          txid?: number
-          user_id?: string | null
-        }
-        Update: {
-          application_name?: string | null
-          at?: string
-          client_addr?: unknown
-          current_query?: string | null
-          current_user_role?: unknown
-          id?: number
-          new_row?: Json | null
-          old_row?: Json | null
-          op?: string
-          session_id?: string | null
-          session_user_role?: unknown
-          txid?: number
-          user_id?: string | null
-        }
-        Relationships: []
       }
       digest_run_stats: {
         Row: {
@@ -3928,7 +4104,6 @@ export type Database = {
           id: number
           observed_at: string
           raw_data: Json | null
-          source: string
           station_id: string | null
           water_temp_c: number | null
           wave_direction_deg: number | null
@@ -3942,7 +4117,6 @@ export type Database = {
           id?: number
           observed_at: string
           raw_data?: Json | null
-          source?: string
           station_id?: string | null
           water_temp_c?: number | null
           wave_direction_deg?: number | null
@@ -3956,7 +4130,6 @@ export type Database = {
           id?: number
           observed_at?: string
           raw_data?: Json | null
-          source?: string
           station_id?: string | null
           water_temp_c?: number | null
           wave_direction_deg?: number | null
@@ -5453,6 +5626,105 @@ export type Database = {
           },
         ]
       }
+      push_notification_log: {
+        Row: {
+          beach_id: string | null
+          body: string | null
+          created_at: string
+          data: Json | null
+          error_message: string | null
+          id: string
+          notification_type: string
+          sent_at: string
+          status: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          beach_id?: string | null
+          body?: string | null
+          created_at?: string
+          data?: Json | null
+          error_message?: string | null
+          id?: string
+          notification_type: string
+          sent_at?: string
+          status?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          beach_id?: string | null
+          body?: string | null
+          created_at?: string
+          data?: Json | null
+          error_message?: string | null
+          id?: string
+          notification_type?: string
+          sent_at?: string
+          status?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_notification_log_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_notification_log_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "push_notification_log_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "push_notification_log_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "push_notification_log_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "push_notification_log_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "push_notification_log_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "push_notification_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       recommendation_session_contexts: {
         Row: {
           beach_id: string | null
@@ -5642,6 +5914,92 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles_with_home_beach"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      rip_current_risks: {
+        Row: {
+          beach_id: string
+          created_at: string
+          fetched_at: string
+          id: string
+          raw_zone: string | null
+          risk_level: string
+          source: string
+          updated_at: string
+          valid_date: string
+        }
+        Insert: {
+          beach_id: string
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          raw_zone?: string | null
+          risk_level: string
+          source: string
+          updated_at?: string
+          valid_date: string
+        }
+        Update: {
+          beach_id?: string
+          created_at?: string
+          fetched_at?: string
+          id?: string
+          raw_zone?: string | null
+          risk_level?: string
+          source?: string
+          updated_at?: string
+          valid_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rip_current_risks_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rip_current_risks_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "rip_current_risks_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rip_current_risks_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "rip_current_risks_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "rip_current_risks_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "rip_current_risks_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
         ]
       }
@@ -6561,7 +6919,6 @@ export type Database = {
           arrival_time: string
           beach_id: string
           beach_name: string | null
-          board_fit: string | null
           board_id: string | null
           board_snapshot: Json | null
           comments_count: number
@@ -6582,6 +6939,8 @@ export type Database = {
           notes: string | null
           parking_ease: number | null
           rating: number | null
+          rip_current_observed: string | null
+          rip_current_risk: string | null
           session_board_fit: string | null
           session_decomposition: Json | null
           session_skill_fit: string | null
@@ -6589,10 +6948,13 @@ export type Database = {
           skill_ratings: Json | null
           source: string | null
           status: string | null
+          tide_data_source: string | null
           tide_height_ft: number | null
+          tide_rate_ft_per_hr: number | null
           tide_status: string | null
           user_id: string
           water_temp: number | null
+          wave_characteristics: string[] | null
           wave_height_ft: number | null
           wave_quality: number | null
           wind_direction: string | null
@@ -6602,7 +6964,6 @@ export type Database = {
           arrival_time?: string
           beach_id: string
           beach_name?: string | null
-          board_fit?: string | null
           board_id?: string | null
           board_snapshot?: Json | null
           comments_count?: number
@@ -6623,6 +6984,8 @@ export type Database = {
           notes?: string | null
           parking_ease?: number | null
           rating?: number | null
+          rip_current_observed?: string | null
+          rip_current_risk?: string | null
           session_board_fit?: string | null
           session_decomposition?: Json | null
           session_skill_fit?: string | null
@@ -6630,10 +6993,13 @@ export type Database = {
           skill_ratings?: Json | null
           source?: string | null
           status?: string | null
+          tide_data_source?: string | null
           tide_height_ft?: number | null
+          tide_rate_ft_per_hr?: number | null
           tide_status?: string | null
           user_id: string
           water_temp?: number | null
+          wave_characteristics?: string[] | null
           wave_height_ft?: number | null
           wave_quality?: number | null
           wind_direction?: string | null
@@ -6643,7 +7009,6 @@ export type Database = {
           arrival_time?: string
           beach_id?: string
           beach_name?: string | null
-          board_fit?: string | null
           board_id?: string | null
           board_snapshot?: Json | null
           comments_count?: number
@@ -6664,6 +7029,8 @@ export type Database = {
           notes?: string | null
           parking_ease?: number | null
           rating?: number | null
+          rip_current_observed?: string | null
+          rip_current_risk?: string | null
           session_board_fit?: string | null
           session_decomposition?: Json | null
           session_skill_fit?: string | null
@@ -6671,10 +7038,13 @@ export type Database = {
           skill_ratings?: Json | null
           source?: string | null
           status?: string | null
+          tide_data_source?: string | null
           tide_height_ft?: number | null
+          tide_rate_ft_per_hr?: number | null
           tide_status?: string | null
           user_id?: string
           water_temp?: number | null
+          wave_characteristics?: string[] | null
           wave_height_ft?: number | null
           wave_quality?: number | null
           wind_direction?: string | null
@@ -6759,6 +7129,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      spatial_ref_sys: {
+        Row: {
+          auth_name: string | null
+          auth_srid: number | null
+          proj4text: string | null
+          srid: number
+          srtext: string | null
+        }
+        Insert: {
+          auth_name?: string | null
+          auth_srid?: number | null
+          proj4text?: string | null
+          srid: number
+          srtext?: string | null
+        }
+        Update: {
+          auth_name?: string | null
+          auth_srid?: number | null
+          proj4text?: string | null
+          srid?: number
+          srtext?: string | null
+        }
+        Relationships: []
       }
       spot_feedback: {
         Row: {
@@ -8333,6 +8727,48 @@ export type Database = {
           },
         ]
       }
+      geography_columns: {
+        Row: {
+          coord_dimension: number | null
+          f_geography_column: unknown
+          f_table_catalog: unknown
+          f_table_name: unknown
+          f_table_schema: unknown
+          srid: number | null
+          type: string | null
+        }
+        Relationships: []
+      }
+      geometry_columns: {
+        Row: {
+          coord_dimension: number | null
+          f_geometry_column: unknown
+          f_table_catalog: string | null
+          f_table_name: unknown
+          f_table_schema: unknown
+          srid: number | null
+          type: string | null
+        }
+        Insert: {
+          coord_dimension?: number | null
+          f_geometry_column?: unknown
+          f_table_catalog?: string | null
+          f_table_name?: unknown
+          f_table_schema?: unknown
+          srid?: number | null
+          type?: string | null
+        }
+        Update: {
+          coord_dimension?: number | null
+          f_geometry_column?: unknown
+          f_table_catalog?: string | null
+          f_table_name?: unknown
+          f_table_schema?: unknown
+          srid?: number | null
+          type?: string | null
+        }
+        Relationships: []
+      }
       mv_beach_amenities: {
         Row: {
           beach_id: string | null
@@ -8771,19 +9207,137 @@ export type Database = {
       }
     }
     Functions: {
+      _postgis_deprecate: {
+        Args: { newname: string; oldname: string; version: string }
+        Returns: undefined
+      }
+      _postgis_index_extent: {
+        Args: { col: string; tbl: unknown }
+        Returns: unknown
+      }
+      _postgis_pgsql_version: { Args: never; Returns: string }
+      _postgis_scripts_pgsql_version: { Args: never; Returns: string }
+      _postgis_selectivity: {
+        Args: { att_name: string; geom: unknown; mode?: string; tbl: unknown }
+        Returns: number
+      }
+      _postgis_stats: {
+        Args: { ""?: string; att_name: string; tbl: unknown }
+        Returns: string
+      }
+      _st_3dintersects: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_contains: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_containsproperly: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_coveredby:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      _st_covers:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      _st_crosses: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_dwithin: {
+        Args: {
+          geog1: unknown
+          geog2: unknown
+          tolerance: number
+          use_spheroid?: boolean
+        }
+        Returns: boolean
+      }
+      _st_equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      _st_intersects: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_linecrossingdirection: {
+        Args: { line1: unknown; line2: unknown }
+        Returns: number
+      }
+      _st_longestline: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      _st_maxdistance: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      _st_orderingequals: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_overlaps: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_sortablehash: { Args: { geom: unknown }; Returns: number }
+      _st_touches: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      _st_voronoi: {
+        Args: {
+          clip?: unknown
+          g1: unknown
+          return_polygons?: boolean
+          tolerance?: number
+        }
+        Returns: unknown
+      }
+      _st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       accept_invite_for_user: {
         Args: { invitee: string; inviter: string }
         Returns: Json
       }
-      backfill_ml_observations: {
-        Args: { batch_size?: number }
-        Returns: {
-          elapsed_ms: number
-          matched: number
-          no_match: number
-          processed: number
-        }[]
-      }
+      addauth: { Args: { "": string }; Returns: boolean }
+      addgeometrycolumn:
+        | {
+            Args: {
+              catalog_name: string
+              column_name: string
+              new_dim: number
+              new_srid_in: number
+              new_type: string
+              schema_name: string
+              table_name: string
+              use_typmod?: boolean
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              column_name: string
+              new_dim: number
+              new_srid: number
+              new_type: string
+              schema_name: string
+              table_name: string
+              use_typmod?: boolean
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              column_name: string
+              new_dim: number
+              new_srid: number
+              new_type: string
+              table_name: string
+              use_typmod?: boolean
+            }
+            Returns: string
+          }
       backfill_ml_observations_batch: {
         Args: { batch_size?: number }
         Returns: {
@@ -8804,15 +9358,6 @@ export type Database = {
         }[]
       }
       check_ml_drift: { Args: never; Returns: boolean }
-      check_ml_ground_truth_health: {
-        Args: never
-        Returns: {
-          message: string
-          metric: string
-          status: string
-          value: number
-        }[]
-      }
       claim_daily_forecast_notification_slot: {
         Args: {
           p_beach_id: string
@@ -8899,6 +9444,15 @@ export type Database = {
         Args: { target_user_id?: string }
         Returns: number
       }
+      compute_session_tide_snapshot: {
+        Args: { p_arrival_time: string; p_beach_id: string }
+        Returns: {
+          tide_data_source: string
+          tide_height_ft: number
+          tide_rate_ft_per_hr: number
+          tide_status: string
+        }[]
+      }
       compute_user_match_score: {
         Args: {
           p_beach_id: string
@@ -8981,6 +9535,39 @@ export type Database = {
         }[]
       }
       delete_user_account: { Args: { p_user_id: string }; Returns: Json }
+      disablelongtransactions: { Args: never; Returns: string }
+      dropgeometrycolumn:
+        | {
+            Args: {
+              catalog_name: string
+              column_name: string
+              schema_name: string
+              table_name: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              column_name: string
+              schema_name: string
+              table_name: string
+            }
+            Returns: string
+          }
+        | { Args: { column_name: string; table_name: string }; Returns: string }
+      dropgeometrytable:
+        | {
+            Args: {
+              catalog_name: string
+              schema_name: string
+              table_name: string
+            }
+            Returns: string
+          }
+        | { Args: { schema_name: string; table_name: string }; Returns: string }
+        | { Args: { table_name: string }; Returns: string }
+      enablelongtransactions: { Args: never; Returns: string }
+      equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       finalize_anon_alert_capture: {
         Args: { p_email: string; p_user_id: string }
         Returns: {
@@ -9055,6 +9642,104 @@ export type Database = {
         Returns: Json
       }
       generate_referral_code: { Args: never; Returns: string }
+      geometry: { Args: { "": string }; Returns: unknown }
+      geometry_above: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_below: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_cmp: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      geometry_contained_3d: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_contains: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_contains_3d: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_distance_box: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      geometry_distance_centroid: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      geometry_eq: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_ge: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_gt: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_le: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_left: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_lt: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_overabove: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_overbelow: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_overlaps: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_overlaps_3d: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_overleft: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_overright: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_right: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_same: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_same_3d: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geometry_within: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      geomfromewkt: { Args: { "": string }; Returns: unknown }
       get_all_beach_locations: {
         Args: never
         Returns: {
@@ -9687,6 +10372,7 @@ export type Database = {
           should_display: boolean
         }[]
       }
+      gettransactionid: { Args: never; Returns: unknown }
       increment_session_share_count: {
         Args: { session_id: string }
         Returns: undefined
@@ -9704,6 +10390,7 @@ export type Database = {
         Args: { p_session_id: string; p_user_id: string }
         Returns: number
       }
+      longtransactionsenabled: { Args: never; Returns: boolean }
       nightly_forecast_maintenance: { Args: never; Returns: Json }
       notify_session_invite: {
         Args: {
@@ -9729,6 +10416,46 @@ export type Database = {
         }
       }
       parse_numeric_from_text: { Args: { input: string }; Returns: number }
+      populate_geometry_columns:
+        | { Args: { tbl_oid: unknown; use_typmod?: boolean }; Returns: number }
+        | { Args: { use_typmod?: boolean }; Returns: string }
+      postgis_constraint_dims: {
+        Args: { geomcolumn: string; geomschema: string; geomtable: string }
+        Returns: number
+      }
+      postgis_constraint_srid: {
+        Args: { geomcolumn: string; geomschema: string; geomtable: string }
+        Returns: number
+      }
+      postgis_constraint_type: {
+        Args: { geomcolumn: string; geomschema: string; geomtable: string }
+        Returns: string
+      }
+      postgis_extensions_upgrade: { Args: never; Returns: string }
+      postgis_full_version: { Args: never; Returns: string }
+      postgis_geos_version: { Args: never; Returns: string }
+      postgis_lib_build_date: { Args: never; Returns: string }
+      postgis_lib_revision: { Args: never; Returns: string }
+      postgis_lib_version: { Args: never; Returns: string }
+      postgis_libjson_version: { Args: never; Returns: string }
+      postgis_liblwgeom_version: { Args: never; Returns: string }
+      postgis_libprotobuf_version: { Args: never; Returns: string }
+      postgis_libxml_version: { Args: never; Returns: string }
+      postgis_proj_version: { Args: never; Returns: string }
+      postgis_scripts_build_date: { Args: never; Returns: string }
+      postgis_scripts_installed: { Args: never; Returns: string }
+      postgis_scripts_released: { Args: never; Returns: string }
+      postgis_svn_version: { Args: never; Returns: string }
+      postgis_type_name: {
+        Args: {
+          coord_dimension: number
+          geomname: string
+          use_new_name?: boolean
+        }
+        Returns: string
+      }
+      postgis_version: { Args: never; Returns: string }
+      postgis_wagyu_version: { Args: never; Returns: string }
       preset_default_conditions: {
         Args: { p_beach_id: string; p_preset: string }
         Returns: Json
@@ -9804,6 +10531,587 @@ export type Database = {
         Args: { entity_id: string; table_name: string }
         Returns: boolean
       }
+      st_3dclosestpoint: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_3ddistance: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      st_3dintersects: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      st_3dlongestline: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_3dmakebox: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_3dmaxdistance: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      st_3dshortestline: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_addpoint: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_angle:
+        | { Args: { line1: unknown; line2: unknown }; Returns: number }
+        | {
+            Args: { pt1: unknown; pt2: unknown; pt3: unknown; pt4?: unknown }
+            Returns: number
+          }
+      st_area:
+        | { Args: { geog: unknown; use_spheroid?: boolean }; Returns: number }
+        | { Args: { "": string }; Returns: number }
+      st_asencodedpolyline: {
+        Args: { geom: unknown; nprecision?: number }
+        Returns: string
+      }
+      st_asewkt: { Args: { "": string }; Returns: string }
+      st_asgeojson:
+        | {
+            Args: { geog: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | {
+            Args: {
+              geom_column?: string
+              maxdecimaldigits?: number
+              pretty_bool?: boolean
+              r: Record<string, unknown>
+            }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
+      st_asgml:
+        | {
+            Args: {
+              geog: unknown
+              id?: string
+              maxdecimaldigits?: number
+              nprefix?: string
+              options?: number
+            }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
+        | {
+            Args: {
+              geog: unknown
+              id?: string
+              maxdecimaldigits?: number
+              nprefix?: string
+              options?: number
+              version: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              geom: unknown
+              id?: string
+              maxdecimaldigits?: number
+              nprefix?: string
+              options?: number
+              version: number
+            }
+            Returns: string
+          }
+      st_askml:
+        | {
+            Args: { geog: unknown; maxdecimaldigits?: number; nprefix?: string }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; nprefix?: string }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
+      st_aslatlontext: {
+        Args: { geom: unknown; tmpl?: string }
+        Returns: string
+      }
+      st_asmarc21: { Args: { format?: string; geom: unknown }; Returns: string }
+      st_asmvtgeom: {
+        Args: {
+          bounds: unknown
+          buffer?: number
+          clip_geom?: boolean
+          extent?: number
+          geom: unknown
+        }
+        Returns: unknown
+      }
+      st_assvg:
+        | {
+            Args: { geog: unknown; maxdecimaldigits?: number; rel?: number }
+            Returns: string
+          }
+        | {
+            Args: { geom: unknown; maxdecimaldigits?: number; rel?: number }
+            Returns: string
+          }
+        | { Args: { "": string }; Returns: string }
+      st_astext: { Args: { "": string }; Returns: string }
+      st_astwkb:
+        | {
+            Args: {
+              geom: unknown
+              prec?: number
+              prec_m?: number
+              prec_z?: number
+              with_boxes?: boolean
+              with_sizes?: boolean
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              geom: unknown[]
+              ids: number[]
+              prec?: number
+              prec_m?: number
+              prec_z?: number
+              with_boxes?: boolean
+              with_sizes?: boolean
+            }
+            Returns: string
+          }
+      st_asx3d: {
+        Args: { geom: unknown; maxdecimaldigits?: number; options?: number }
+        Returns: string
+      }
+      st_azimuth:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: number }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
+      st_boundingdiagonal: {
+        Args: { fits?: boolean; geom: unknown }
+        Returns: unknown
+      }
+      st_buffer:
+        | {
+            Args: { geom: unknown; options?: string; radius: number }
+            Returns: unknown
+          }
+        | {
+            Args: { geom: unknown; quadsegs: number; radius: number }
+            Returns: unknown
+          }
+      st_centroid: { Args: { "": string }; Returns: unknown }
+      st_clipbybox2d: {
+        Args: { box: unknown; geom: unknown }
+        Returns: unknown
+      }
+      st_closestpoint: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_collect: { Args: { geom1: unknown; geom2: unknown }; Returns: unknown }
+      st_concavehull: {
+        Args: {
+          param_allow_holes?: boolean
+          param_geom: unknown
+          param_pctconvex: number
+        }
+        Returns: unknown
+      }
+      st_contains: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      st_containsproperly: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      st_coorddim: { Args: { geometry: unknown }; Returns: number }
+      st_coveredby:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_covers:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_crosses: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_curvetoline: {
+        Args: { flags?: number; geom: unknown; tol?: number; toltype?: number }
+        Returns: unknown
+      }
+      st_delaunaytriangles: {
+        Args: { flags?: number; g1: unknown; tolerance?: number }
+        Returns: unknown
+      }
+      st_difference: {
+        Args: { geom1: unknown; geom2: unknown; gridsize?: number }
+        Returns: unknown
+      }
+      st_disjoint: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      st_distance:
+        | {
+            Args: { geog1: unknown; geog2: unknown; use_spheroid?: boolean }
+            Returns: number
+          }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
+      st_distancesphere:
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: number }
+        | {
+            Args: { geom1: unknown; geom2: unknown; radius: number }
+            Returns: number
+          }
+      st_distancespheroid: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      st_dwithin: {
+        Args: {
+          geog1: unknown
+          geog2: unknown
+          tolerance: number
+          use_spheroid?: boolean
+        }
+        Returns: boolean
+      }
+      st_equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_expand:
+        | { Args: { box: unknown; dx: number; dy: number }; Returns: unknown }
+        | {
+            Args: { box: unknown; dx: number; dy: number; dz?: number }
+            Returns: unknown
+          }
+        | {
+            Args: {
+              dm?: number
+              dx: number
+              dy: number
+              dz?: number
+              geom: unknown
+            }
+            Returns: unknown
+          }
+      st_force3d: { Args: { geom: unknown; zvalue?: number }; Returns: unknown }
+      st_force3dm: {
+        Args: { geom: unknown; mvalue?: number }
+        Returns: unknown
+      }
+      st_force3dz: {
+        Args: { geom: unknown; zvalue?: number }
+        Returns: unknown
+      }
+      st_force4d: {
+        Args: { geom: unknown; mvalue?: number; zvalue?: number }
+        Returns: unknown
+      }
+      st_generatepoints:
+        | { Args: { area: unknown; npoints: number }; Returns: unknown }
+        | {
+            Args: { area: unknown; npoints: number; seed: number }
+            Returns: unknown
+          }
+      st_geogfromtext: { Args: { "": string }; Returns: unknown }
+      st_geographyfromtext: { Args: { "": string }; Returns: unknown }
+      st_geohash:
+        | { Args: { geog: unknown; maxchars?: number }; Returns: string }
+        | { Args: { geom: unknown; maxchars?: number }; Returns: string }
+      st_geomcollfromtext: { Args: { "": string }; Returns: unknown }
+      st_geometricmedian: {
+        Args: {
+          fail_if_not_converged?: boolean
+          g: unknown
+          max_iter?: number
+          tolerance?: number
+        }
+        Returns: unknown
+      }
+      st_geometryfromtext: { Args: { "": string }; Returns: unknown }
+      st_geomfromewkt: { Args: { "": string }; Returns: unknown }
+      st_geomfromgeojson:
+        | { Args: { "": Json }; Returns: unknown }
+        | { Args: { "": Json }; Returns: unknown }
+        | { Args: { "": string }; Returns: unknown }
+      st_geomfromgml: { Args: { "": string }; Returns: unknown }
+      st_geomfromkml: { Args: { "": string }; Returns: unknown }
+      st_geomfrommarc21: { Args: { marc21xml: string }; Returns: unknown }
+      st_geomfromtext: { Args: { "": string }; Returns: unknown }
+      st_gmltosql: { Args: { "": string }; Returns: unknown }
+      st_hasarc: { Args: { geometry: unknown }; Returns: boolean }
+      st_hausdorffdistance: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      st_hexagon: {
+        Args: { cell_i: number; cell_j: number; origin?: unknown; size: number }
+        Returns: unknown
+      }
+      st_hexagongrid: {
+        Args: { bounds: unknown; size: number }
+        Returns: Record<string, unknown>[]
+      }
+      st_interpolatepoint: {
+        Args: { line: unknown; point: unknown }
+        Returns: number
+      }
+      st_intersection: {
+        Args: { geom1: unknown; geom2: unknown; gridsize?: number }
+        Returns: unknown
+      }
+      st_intersects:
+        | { Args: { geog1: unknown; geog2: unknown }; Returns: boolean }
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_isvaliddetail: {
+        Args: { flags?: number; geom: unknown }
+        Returns: Database["public"]["CompositeTypes"]["valid_detail"]
+        SetofOptions: {
+          from: "*"
+          to: "valid_detail"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      st_length:
+        | { Args: { geog: unknown; use_spheroid?: boolean }; Returns: number }
+        | { Args: { "": string }; Returns: number }
+      st_letters: { Args: { font?: Json; letters: string }; Returns: unknown }
+      st_linecrossingdirection: {
+        Args: { line1: unknown; line2: unknown }
+        Returns: number
+      }
+      st_linefromencodedpolyline: {
+        Args: { nprecision?: number; txtin: string }
+        Returns: unknown
+      }
+      st_linefromtext: { Args: { "": string }; Returns: unknown }
+      st_linelocatepoint: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      st_linetocurve: { Args: { geometry: unknown }; Returns: unknown }
+      st_locatealong: {
+        Args: { geometry: unknown; leftrightoffset?: number; measure: number }
+        Returns: unknown
+      }
+      st_locatebetween: {
+        Args: {
+          frommeasure: number
+          geometry: unknown
+          leftrightoffset?: number
+          tomeasure: number
+        }
+        Returns: unknown
+      }
+      st_locatebetweenelevations: {
+        Args: { fromelevation: number; geometry: unknown; toelevation: number }
+        Returns: unknown
+      }
+      st_longestline: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_makebox2d: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_makeline: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_makevalid: {
+        Args: { geom: unknown; params: string }
+        Returns: unknown
+      }
+      st_maxdistance: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: number
+      }
+      st_minimumboundingcircle: {
+        Args: { inputgeom: unknown; segs_per_quarter?: number }
+        Returns: unknown
+      }
+      st_mlinefromtext: { Args: { "": string }; Returns: unknown }
+      st_mpointfromtext: { Args: { "": string }; Returns: unknown }
+      st_mpolyfromtext: { Args: { "": string }; Returns: unknown }
+      st_multilinestringfromtext: { Args: { "": string }; Returns: unknown }
+      st_multipointfromtext: { Args: { "": string }; Returns: unknown }
+      st_multipolygonfromtext: { Args: { "": string }; Returns: unknown }
+      st_node: { Args: { g: unknown }; Returns: unknown }
+      st_normalize: { Args: { geom: unknown }; Returns: unknown }
+      st_offsetcurve: {
+        Args: { distance: number; line: unknown; params?: string }
+        Returns: unknown
+      }
+      st_orderingequals: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      st_overlaps: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: boolean
+      }
+      st_perimeter: {
+        Args: { geog: unknown; use_spheroid?: boolean }
+        Returns: number
+      }
+      st_pointfromtext: { Args: { "": string }; Returns: unknown }
+      st_pointm: {
+        Args: {
+          mcoordinate: number
+          srid?: number
+          xcoordinate: number
+          ycoordinate: number
+        }
+        Returns: unknown
+      }
+      st_pointz: {
+        Args: {
+          srid?: number
+          xcoordinate: number
+          ycoordinate: number
+          zcoordinate: number
+        }
+        Returns: unknown
+      }
+      st_pointzm: {
+        Args: {
+          mcoordinate: number
+          srid?: number
+          xcoordinate: number
+          ycoordinate: number
+          zcoordinate: number
+        }
+        Returns: unknown
+      }
+      st_polyfromtext: { Args: { "": string }; Returns: unknown }
+      st_polygonfromtext: { Args: { "": string }; Returns: unknown }
+      st_project: {
+        Args: { azimuth: number; distance: number; geog: unknown }
+        Returns: unknown
+      }
+      st_quantizecoordinates: {
+        Args: {
+          g: unknown
+          prec_m?: number
+          prec_x: number
+          prec_y?: number
+          prec_z?: number
+        }
+        Returns: unknown
+      }
+      st_reduceprecision: {
+        Args: { geom: unknown; gridsize: number }
+        Returns: unknown
+      }
+      st_relate: { Args: { geom1: unknown; geom2: unknown }; Returns: string }
+      st_removerepeatedpoints: {
+        Args: { geom: unknown; tolerance?: number }
+        Returns: unknown
+      }
+      st_segmentize: {
+        Args: { geog: unknown; max_segment_length: number }
+        Returns: unknown
+      }
+      st_setsrid:
+        | { Args: { geog: unknown; srid: number }; Returns: unknown }
+        | { Args: { geom: unknown; srid: number }; Returns: unknown }
+      st_sharedpaths: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_shortestline: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_simplifypolygonhull: {
+        Args: { geom: unknown; is_outer?: boolean; vertex_fraction: number }
+        Returns: unknown
+      }
+      st_split: { Args: { geom1: unknown; geom2: unknown }; Returns: unknown }
+      st_square: {
+        Args: { cell_i: number; cell_j: number; origin?: unknown; size: number }
+        Returns: unknown
+      }
+      st_squaregrid: {
+        Args: { bounds: unknown; size: number }
+        Returns: Record<string, unknown>[]
+      }
+      st_srid:
+        | { Args: { geog: unknown }; Returns: number }
+        | { Args: { geom: unknown }; Returns: number }
+      st_subdivide: {
+        Args: { geom: unknown; gridsize?: number; maxvertices?: number }
+        Returns: unknown[]
+      }
+      st_swapordinates: {
+        Args: { geom: unknown; ords: unknown }
+        Returns: unknown
+      }
+      st_symdifference: {
+        Args: { geom1: unknown; geom2: unknown; gridsize?: number }
+        Returns: unknown
+      }
+      st_symmetricdifference: {
+        Args: { geom1: unknown; geom2: unknown }
+        Returns: unknown
+      }
+      st_tileenvelope: {
+        Args: {
+          bounds?: unknown
+          margin?: number
+          x: number
+          y: number
+          zoom: number
+        }
+        Returns: unknown
+      }
+      st_touches: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_transform:
+        | {
+            Args: { from_proj: string; geom: unknown; to_proj: string }
+            Returns: unknown
+          }
+        | {
+            Args: { from_proj: string; geom: unknown; to_srid: number }
+            Returns: unknown
+          }
+        | { Args: { geom: unknown; to_proj: string }; Returns: unknown }
+      st_triangulatepolygon: { Args: { g1: unknown }; Returns: unknown }
+      st_union:
+        | { Args: { geom1: unknown; geom2: unknown }; Returns: unknown }
+        | {
+            Args: { geom1: unknown; geom2: unknown; gridsize: number }
+            Returns: unknown
+          }
+      st_voronoilines: {
+        Args: { extend_to?: unknown; g1: unknown; tolerance?: number }
+        Returns: unknown
+      }
+      st_voronoipolygons: {
+        Args: { extend_to?: unknown; g1: unknown; tolerance?: number }
+        Returns: unknown
+      }
+      st_within: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
+      st_wkbtosql: { Args: { wkb: string }; Returns: unknown }
+      st_wkttosql: { Args: { "": string }; Returns: unknown }
+      st_wrapx: {
+        Args: { geom: unknown; move: number; wrap: number }
+        Returns: unknown
+      }
       strict_session_snapshot_repair_candidates: {
         Args: { p_limit?: number }
         Returns: {
@@ -9860,6 +11168,7 @@ export type Database = {
         }[]
       }
       unaccent: { Args: { "": string }; Returns: string }
+      unlockrows: { Args: { "": string }; Returns: number }
       update_beach_coordinates: {
         Args: { p_beach_id: string; p_latitude: number; p_longitude: number }
         Returns: undefined
@@ -9914,6 +11223,16 @@ export type Database = {
         }
         Returns: undefined
       }
+      updategeometrysrid: {
+        Args: {
+          catalogn_name: string
+          column_name: string
+          new_srid_in: number
+          schema_name: string
+          table_name: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       beach_persona:
@@ -9961,7 +11280,15 @@ export type Database = {
         | "merged_into"
     }
     CompositeTypes: {
-      [_ in never]: never
+      geometry_dump: {
+        path: number[] | null
+        geom: unknown
+      }
+      valid_detail: {
+        valid: boolean | null
+        reason: string | null
+        location: unknown
+      }
     }
   }
 }
@@ -10141,3 +11468,4 @@ export const Constants = {
     },
   },
 } as const
+
