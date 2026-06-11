@@ -34,7 +34,7 @@ TypeScript, 2-space indentation, PascalCase components, camelCase variables/func
 - **API routes**: use `withAuth` from `lib/middleware/api-wrappers/` (40+ routes). Legacy routes using `lib/api-utils.ts` should migrate when edited. Also: `withErrorHandler`, `withRateLimit`, `withBotBlockingAndRateLimit`, `withFullProtection`, `validateUuidParam`, `requireOwnership`.
 - **Data fetching**: prefer `useDataFetcher` with a memoized fetch fn. Some hooks use SWR or TanStack Query — check existing patterns before adding new ones.
 - **Realtime**: subscribe in `useEffect`, return `() => supabase.removeChannel(channel)` cleanup.
-- **Coordinates**: prefer `lon`/`longitude` in new code. DB legacy fields are `center_lat`/`center_lng`. `beach.latitude` does NOT exist — use `beach.center_lat`/`beach.center_lng`. Component props use `latitude`/`longitude`.
+- **Coordinates**: prefer `lat`/`lon` for beach rows and `lon`/`longitude` in new API/component shapes. `beach.latitude` does NOT exist — use `beach.lat`/`beach.lon`.
 - **Timestamps**: use `forecast_at` (timestamptz). Adapter at `lib/utils/forecast-at-adapter.ts`. Query: `.gte("forecast_at", startISO).lt("forecast_at", endISO).order("forecast_at")`.
 - **User reference**: use `user_id`. Never `profile_id` — dropped Feb 2026. `sessions.profile_id` does not exist.
 
@@ -155,7 +155,7 @@ Never commit secrets. Don't hand-edit `types/database.generated.ts`. RLS on all 
 - Don't skip `withAuthenticatedAction` for protected server actions
 - Don't skip `withAuth` wrapper for authenticated API routes
 - Don't add monetization or non-growth features without direction
-- Don't assume `beach.latitude` exists (it's `beach.center_lat`)
+- Don't assume `beach.latitude` exists (it's `beach.lat`)
 - Don't use `lng` in new code (use `lon`)
 - Don't use `forecast_date` + `forecast_time` in new queries (use `forecast_at`)
 - Don't reference `sessions.profile_id` (dropped Feb 2026 — use `user_id`)

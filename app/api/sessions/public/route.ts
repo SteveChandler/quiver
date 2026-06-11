@@ -123,13 +123,15 @@ async function publicSessionsHandler(
     const latRange = radiusMiles / 69;
     const lonRange = radiusMiles / (69 * Math.cos((lat * Math.PI) / 180));
 
-    const { data: nearbyBeaches } = await supabase
+    const { data: nearbyBeaches, error: nearbyError } = await supabase
       .from("beaches")
       .select("id")
-      .gte("center_lat", lat - latRange)
-      .lte("center_lat", lat + latRange)
-      .gte("center_lng", lon - lonRange)
-      .lte("center_lng", lon + lonRange);
+      .gte("lat", lat - latRange)
+      .lte("lat", lat + latRange)
+      .gte("lon", lon - lonRange)
+      .lte("lon", lon + lonRange);
+
+    if (nearbyError) throw nearbyError;
 
     nearbyBeachIds = nearbyBeaches?.map((b) => b.id) ?? [];
     if (nearbyBeachIds.length === 0) {
