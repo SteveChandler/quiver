@@ -393,6 +393,14 @@ export function SessionScrollForm({
                 sessionFitPicker={sessionFitPicker}
                 detailSections={
                   <>
+                    {/* Conditions */}
+                    <section className="space-y-3">
+                      <h2 className="text-xs font-bold text-[#9AABC6] uppercase tracking-wider">Conditions</h2>
+                      <ConditionsSection mode={initialMode} formState={formState} updateField={updateField} />
+                    </section>
+
+                    <hr className="border-[#404C92]" />
+
                     {/* Wave quality + crowd sliders */}
                     <section className="space-y-6">
                       <SessionSlider
@@ -409,6 +417,10 @@ export function SessionScrollForm({
                         value={formState.crowdLevel}
                         onChange={(v) => updateField("crowdLevel", v)}
                       />
+                      <div className="space-y-2">
+                        <span className="text-sm font-bold text-[#F0F0F0]">Wave Types</span>
+                        <WaveTypeSelector selectedTypes={formState.waveCharacteristics} onChange={(types) => updateField("waveCharacteristics", types)} />
+                      </div>
                     </section>
 
                     <hr className="border-[#404C92]" />
@@ -487,7 +499,7 @@ export function SessionScrollForm({
                   <SessionSlider label="Crowd" labels={["Empty", "Chill", "Moderate", "Busy", "Packed"]} colors={["#16A34A", "#FBBF24", "#DC2626"]} value={formState.crowdLevel} onChange={(v) => updateField("crowdLevel", v)} />
                   <div className="space-y-2">
                     <span className="text-sm font-bold text-[#F0F0F0]">Wave Types</span>
-                    <WaveTypeSelector selectedTypes={formState.waveTypes} onChange={(types) => updateField("waveTypes", types)} />
+                    <WaveTypeSelector selectedTypes={formState.waveCharacteristics} onChange={(types) => updateField("waveCharacteristics", types)} />
                   </div>
                 </section>
 

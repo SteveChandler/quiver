@@ -96,6 +96,12 @@ describe("/api/sessions/public", () => {
               rating: 5, // intentionally present in DB row; should not be exposed by API
               wave_quality: 4,
               wave_height_ft: 3,
+              wave_characteristics: ["clean", "fat"],
+              tide_height_ft: 3.2,
+              tide_status: "rising",
+              tide_rate_ft_per_hr: 0.8,
+              rip_current_observed: "light",
+              rip_current_risk: "high",
               notes: "Great waves",
               description: null,
               image_url: null,
@@ -140,6 +146,12 @@ describe("/api/sessions/public", () => {
       id: "session-1",
       beachName: "Ocean Beach",
       author: { id: profileId },
+      waveCharacteristics: ["clean", "fat"],
+      tideHeightFt: 3.2,
+      tideStatus: "rising",
+      tideRateFtPerHr: 0.8,
+      ripCurrentObserved: "light",
+      ripCurrentRisk: "high",
     });
 
     // Route exposes rating as public data for community feed

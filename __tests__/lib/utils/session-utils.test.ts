@@ -1,6 +1,7 @@
 import {
   formatSessionDate,
   formatSessionDescription,
+  transformSessionFormStateToDbSchema,
 } from "@/lib/utils/session-utils";
 import type { SessionWithDetails } from "@/types/database";
 
@@ -86,5 +87,41 @@ describe("session-utils", () => {
     const session = makeSession({});
     const result = formatSessionDescription(session);
     expect(result).toBe("No description provided.");
+  });
+
+  test("transformSessionFormStateToDbSchema maps wave chips to wave_characteristics, not goals", () => {
+    const result = transformSessionFormStateToDbSchema({
+      selectedBeach: "Test Beach",
+      selectedBeachId: "beach-1",
+      selectedDate: "2026-06-10",
+      selectedTime: "07:00",
+      selectedBoard: "",
+      duration: "60m",
+      waveQuality: "4",
+      waterTemp: "",
+      crowdLevel: "3",
+      parkingEase: "",
+      overallRating: "5",
+      notes: "",
+      photos: [],
+      waveCharacteristics: ["fat", "closeouts"],
+      waveTypes: ["fat", "closeouts"],
+      waveHeight: undefined,
+      windSpeed: undefined,
+      windDirection: undefined,
+      forecastAccuracy: undefined,
+      tideHeight: undefined,
+      tideStatus: undefined,
+      ripCurrentObserved: "light",
+      isPublic: true,
+      isMuted: false,
+      selectedGoals: [],
+      skillRatings: {},
+      sessionDecomposition: null,
+    } as any);
+
+    expect((result as any).wave_characteristics).toEqual(["fat", "closeouts"]);
+    expect((result as any).rip_current_observed).toBe("light");
+    expect(result.goals).toBeUndefined();
   });
 });

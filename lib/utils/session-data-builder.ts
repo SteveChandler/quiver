@@ -12,7 +12,8 @@ import {
  *
  * Condition fields:
  *   wave_height_ft, wind_speed_mph, wind_direction,
- *   tide_height_ft, tide_status, forecast_accuracy
+ *   tide_height_ft, tide_status, forecast_accuracy,
+ *   wave_characteristics, rip_current_observed
  */
 
 /** Input shape accepted by the builder — matches SessionFormState field names. */
@@ -42,6 +43,9 @@ export interface SessionPayloadInput {
   tideHeight?: number;
   tideStatus?: string;
   forecastAccuracy?: "accurate" | "somewhat" | "inaccurate" | string;
+  waveCharacteristics?: string[];
+  waveTypes?: string[];
+  ripCurrentObserved?: "none" | "light" | "strong" | string;
 
   // Goals and skill ratings
   selectedGoals?: string[];
@@ -80,6 +84,8 @@ export interface SessionPayload {
   tide_height_ft?: number;
   tide_status?: string;
   forecast_accuracy?: string;
+  wave_characteristics: string[] | null;
+  rip_current_observed: string | null;
 
   // Goals and skill ratings
   goals?: string[];
@@ -166,6 +172,13 @@ export function buildSessionPayload(
     is_public: input.isPublic ?? true,
     muted: input.isMuted ?? false,
     session_decomposition: normalizeSessionDecomposition(input.sessionDecomposition),
+    wave_characteristics:
+      input.waveCharacteristics?.length
+        ? input.waveCharacteristics
+        : input.waveTypes?.length
+          ? input.waveTypes
+          : null,
+    rip_current_observed: input.ripCurrentObserved ?? null,
   };
 
   // Add duration, ratings, and the 6 condition fields.

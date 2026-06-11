@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
+import { WAVE_CHARACTERISTICS } from "@/components/session-forms/shared/constants";
 
 export interface WaveType {
   id: string;
@@ -13,64 +14,83 @@ export interface WaveType {
   color: string;
 }
 
-export const WAVE_TYPES: WaveType[] = [
-  {
-    id: "fat",
-    label: "Fat",
-    emoji: "🌊",
-    description: "Wide, mellow waves",
-    color: "bg-blue-100 text-blue-800 hover:bg-blue-200",
-  },
-  {
-    id: "mushy",
-    label: "Mushy",
-    emoji: "🫧",
-    description: "Soft, slow-breaking waves",
-    color: "bg-gray-100 text-gray-800 hover:bg-gray-200",
-  },
-  {
-    id: "peaky",
-    label: "Peaky",
-    emoji: "⛰️",
-    description: "Sharp, defined peaks",
-    color: "bg-purple-100 text-purple-800 hover:bg-purple-200",
-  },
-  {
-    id: "powerful",
-    label: "Powerful",
-    emoji: "💪",
-    description: "Strong, heavy waves",
-    color: "bg-red-100 text-red-800 hover:bg-red-200",
-  },
-  {
-    id: "closeouts",
-    label: "Closeouts",
-    emoji: "🚪",
-    description: "Waves breaking all at once",
-    color: "bg-orange-100 text-orange-800 hover:bg-orange-200",
-  },
-  {
-    id: "barreling",
-    label: "Barreling",
-    emoji: "🌀",
-    description: "Hollow, tube-forming waves",
-    color: "bg-cyan-100 text-cyan-800 hover:bg-cyan-200",
-  },
-  {
-    id: "reform",
-    label: "Reform",
-    emoji: "🔄",
-    description: "Waves that break, then reform",
-    color: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
-  },
-  {
-    id: "clean",
-    label: "Clean",
+const WAVE_TYPE_DETAILS: Record<
+  (typeof WAVE_CHARACTERISTICS)[number]["value"],
+  Omit<WaveType, "id" | "label">
+> = {
+  clean: {
     emoji: "📏",
     description: "Well-organized, smooth waves",
     color: "bg-green-100 text-green-800 hover:bg-green-200",
   },
-];
+  glassy: {
+    emoji: "🪞",
+    description: "Smooth, mirror-like surface",
+    color: "bg-teal-100 text-teal-800 hover:bg-teal-200",
+  },
+  choppy: {
+    emoji: "🌬️",
+    description: "Bumpy, wind-ruffled surface",
+    color: "bg-slate-100 text-slate-800 hover:bg-slate-200",
+  },
+  blown_out: {
+    emoji: "💨",
+    description: "Windy, disorganized surf",
+    color: "bg-zinc-100 text-zinc-800 hover:bg-zinc-200",
+  },
+  fat: {
+    emoji: "🌊",
+    description: "Wide, mellow waves",
+    color: "bg-blue-100 text-blue-800 hover:bg-blue-200",
+  },
+  mushy: {
+    emoji: "🫧",
+    description: "Soft, slow-breaking waves",
+    color: "bg-gray-100 text-gray-800 hover:bg-gray-200",
+  },
+  peaky: {
+    emoji: "⛰️",
+    description: "Sharp, defined peaks",
+    color: "bg-purple-100 text-purple-800 hover:bg-purple-200",
+  },
+  powerful: {
+    emoji: "💪",
+    description: "Strong, heavy waves",
+    color: "bg-red-100 text-red-800 hover:bg-red-200",
+  },
+  closeouts: {
+    emoji: "🚪",
+    description: "Waves breaking all at once",
+    color: "bg-orange-100 text-orange-800 hover:bg-orange-200",
+  },
+  barreling: {
+    emoji: "🌀",
+    description: "Hollow, tube-forming waves",
+    color: "bg-cyan-100 text-cyan-800 hover:bg-cyan-200",
+  },
+  reform: {
+    emoji: "🔄",
+    description: "Waves that break, then reform",
+    color: "bg-yellow-100 text-yellow-800 hover:bg-yellow-200",
+  },
+  walled: {
+    emoji: "🧱",
+    description: "Long sections with little shoulder",
+    color: "bg-stone-100 text-stone-800 hover:bg-stone-200",
+  },
+};
+
+export const WAVE_TYPES: WaveType[] = WAVE_CHARACTERISTICS.map(
+  ({ value, label }) => ({
+    id: value,
+    label,
+    ...WAVE_TYPE_DETAILS[value],
+  })
+);
+
+export function getWaveTypeLabel(typeId: string): string {
+  return WAVE_TYPES.find((waveType) => waveType.id === typeId)?.label ?? typeId;
+}
 
 interface WaveTypeSelectorProps {
   selectedTypes: string[];

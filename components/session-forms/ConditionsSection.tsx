@@ -10,6 +10,7 @@ import {
   TrendingDown,
 } from "lucide-react";
 import { useSessionForecast } from "@/hooks/use-session-forecast";
+import { useSessionTideSnapshot } from "@/hooks/use-session-tide-snapshot";
 import { SimpleCardLayout } from "@/components/ui/form-layout";
 import { Input } from "@/components/ui/input";
 import {
@@ -21,8 +22,9 @@ import {
 } from "@/components/ui/select";
 import { SessionFormMode } from "@/lib/constants/session-form-constants";
 import { SessionFormState } from "@/hooks/use-session-form";
-import { WIND_DIRECTIONS } from "./shared";
+import { RIP_CURRENT_OBSERVED_OPTIONS, WIND_DIRECTIONS } from "./shared";
 import { formatWaterTemp } from "@/lib/formatters/surf-data";
+import { formatSessionTideSnapshot } from "@/lib/services/session-tide-snapshot";
 
 // Tide status options for the dropdown
 const tideStatusOptions = [
@@ -76,6 +78,18 @@ export function ConditionsSection({
     formState.selectedDate ?? null,
     formState.selectedTime ?? null
   );
+  const { tideSnapshot } = useSessionTideSnapshot(
+    formState.selectedBeachId ?? null,
+    formState.selectedDate ?? null,
+    formState.selectedTime ?? null
+  );
+  const tidePreviewText = tideSnapshot
+    ? formatSessionTideSnapshot(tideSnapshot)
+    : forecastData?.tide_height !== null && forecastData?.tide_height !== undefined
+      ? `${forecastData.tide_height} ft · ${forecastData.tide_status || "tide"}`
+      : null;
+  const tidePreviewStatus =
+    tideSnapshot?.tideStatus ?? forecastData?.tide_status?.toLowerCase();
 
   // Breadcrumb for diagnostics (log once on mount)
   useEffect(() => {
@@ -146,19 +160,16 @@ export function ConditionsSection({
                   <span>{formatWaterTemp(forecastData.water_temp as number)} water</span>
                 </div>
               )}
-              {forecastData.tide_height !== null && (
+              {tidePreviewText && (
                 <div className="flex items-center gap-2">
-                  {forecastData.tide_status?.toLowerCase() === "rising" ? (
+                  {tidePreviewStatus === "rising" ? (
                     <TrendingUp className="h-4 w-4 text-blue-600" />
-                  ) : forecastData.tide_status?.toLowerCase() === "falling" ? (
+                  ) : tidePreviewStatus === "falling" ? (
                     <TrendingDown className="h-4 w-4 text-blue-600" />
                   ) : (
                     <Waves className="h-4 w-4 text-blue-600" />
                   )}
-                  <span>
-                    {forecastData.tide_height} ft{" "}
-                    {forecastData.tide_status || "tide"}
-                  </span>
+                  <span>{tidePreviewText}</span>
                 </div>
               )}
             </div>
@@ -330,6 +341,11 @@ export function ConditionsSection({
                   updateField("tideHeight", stringToNumber(e.target.value))
                 }
               />
+              {tidePreviewText && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Forecast: {tidePreviewText}
+                </p>
+              )}
             </div>
 
             {/* Tide Status */}
@@ -357,6 +373,39 @@ export function ConditionsSection({
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* Rip Current */}
+            <div className="md:col-span-2">
+              <span className="mb-2 block text-sm font-medium">
+                Rip current?
+              </span>
+              <div className="grid grid-cols-3 gap-2">
+                {RIP_CURRENT_OBSERVED_OPTIONS.map((option) => {
+                  const selected = formState.ripCurrentObserved === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() =>
+                        updateField(
+                          "ripCurrentObserved",
+                          selected ? undefined : option.value
+                        )
+                      }
+                      className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                        selected
+                          ? option.value === "none"
+                            ? "border-slate-300 bg-slate-100 text-slate-900"
+                            : "border-amber-400 bg-amber-100 text-amber-900"
+                          : "border-border bg-background text-muted-foreground hover:bg-muted"
+                      }`}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>

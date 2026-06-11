@@ -23,7 +23,8 @@ export type SessionFormState = {
   overallRating: string;
   notes: string;
   photos: File[]; // Changed from string[] to File[] to fix photo handling
-  waveTypes: string[]; // Array of wave type IDs
+  waveCharacteristics: string[]; // Array of wave characteristic IDs
+  waveTypes: string[]; // Back-compat alias for older call sites
   // NEW FIELDS (fix data loss from ConditionsSection):
   waveHeight?: number; // Actual wave height in feet
   windSpeed?: number; // Wind speed in mph
@@ -32,6 +33,7 @@ export type SessionFormState = {
   // Tide fields for session conditions:
   tideHeight?: number; // User-reported tide height in feet
   tideStatus?: string; // User-reported tide status (rising, falling, high, low)
+  ripCurrentObserved?: "none" | "light" | "strong"; // User-observed rip current strength
   // Visibility fields
   isPublic: boolean; // Whether session is visible to others (default true)
   isMuted: boolean; // Whether session is hidden from community feed (default false)
@@ -95,6 +97,7 @@ function getDefaultFormState(mode: SessionFormMode): SessionFormState {
     overallRating: "",
     notes: "",
     photos: [],
+    waveCharacteristics: [],
     waveTypes: [],
     // NEW FIELDS (initialize to undefined to prevent data loss)
     waveHeight: undefined,
@@ -104,6 +107,7 @@ function getDefaultFormState(mode: SessionFormMode): SessionFormState {
     // Tide fields (initialize to undefined)
     tideHeight: undefined,
     tideStatus: undefined,
+    ripCurrentObserved: undefined,
     // Visibility defaults
     isPublic: true,
     isMuted: false,

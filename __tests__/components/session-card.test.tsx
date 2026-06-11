@@ -75,6 +75,75 @@ describe("SessionCard", () => {
     expect(screen.getByText("68°F")).toBeInTheDocument();
   });
 
+  it("renders wave characteristic chips when session data includes them", () => {
+    const sessionWithCharacteristics = {
+      id: "session-with-characteristics",
+      beach: { name: "Test Beach" },
+      status: "completed",
+      rating: 4,
+      session_date: "2024-01-01",
+      wave_characteristics: ["fat", "closeouts"],
+      user: { full_name: "Test User" },
+    };
+
+    render(
+      <SessionCard {...defaultProps} session={sessionWithCharacteristics as any} />
+    );
+
+    expect(screen.getByText("Fat")).toBeInTheDocument();
+    expect(screen.getByText("Closeouts")).toBeInTheDocument();
+  });
+
+  it("renders the stamped tide snapshot", () => {
+    const sessionWithTide = {
+      id: "session-with-tide",
+      beach: { name: "Test Beach" },
+      status: "completed",
+      rating: 4,
+      session_date: "2024-01-01",
+      tide_height_ft: 3.24,
+      tide_status: "rising",
+      tide_rate_ft_per_hr: 0.82,
+      user: { full_name: "Test User" },
+    };
+
+    render(<SessionCard {...defaultProps} session={sessionWithTide as any} />);
+
+    expect(screen.getByText("Tide: 3.2 ft · rising · 0.8 ft/hr")).toBeInTheDocument();
+  });
+
+  it("renders observed rip current text", () => {
+    const sessionWithRip = {
+      id: "session-with-rip",
+      beach: { name: "Test Beach" },
+      status: "completed",
+      rating: 4,
+      session_date: "2024-01-01",
+      rip_current_observed: "strong",
+      user: { full_name: "Test User" },
+    };
+
+    render(<SessionCard {...defaultProps} session={sessionWithRip as any} />);
+
+    expect(screen.getByText("Rip current observed: Strong")).toBeInTheDocument();
+  });
+
+  it("renders stamped rip risk text", () => {
+    const sessionWithRisk = {
+      id: "session-with-risk",
+      beach: { name: "Test Beach" },
+      status: "completed",
+      rating: 4,
+      session_date: "2024-01-01",
+      rip_current_risk: "high",
+      user: { full_name: "Test User" },
+    };
+
+    render(<SessionCard {...defaultProps} session={sessionWithRisk as any} />);
+
+    expect(screen.getByText("Rip risk that day: High")).toBeInTheDocument();
+  });
+
   it("handles owner vs non-owner display correctly", () => {
     render(<SessionCard {...defaultProps} isOwner={true} />);
 

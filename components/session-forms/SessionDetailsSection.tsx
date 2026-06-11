@@ -573,8 +573,8 @@ export function SessionDetailsSection({
           {/* Wave Types */}
           <div>
             <WaveTypeSelector
-              selectedTypes={formState.waveTypes}
-              onChange={(types) => updateField("waveTypes", types)}
+              selectedTypes={formState.waveCharacteristics}
+              onChange={(types) => updateField("waveCharacteristics", types)}
             />
           </div>
         </div>

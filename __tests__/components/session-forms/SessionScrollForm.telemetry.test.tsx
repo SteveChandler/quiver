@@ -48,6 +48,7 @@ const defaultFormState: SessionFormState = {
   notes: "",
   photos: [],
   waveTypes: [],
+  waveCharacteristics: [],
   isPublic: true,
   isMuted: false,
   selectedGoals: [],

@@ -138,6 +138,56 @@ describe("session-data-builder", () => {
       expect(payload.tide_height_ft).toBe(0);
     });
 
+    it("passes wave characteristics through as an array", () => {
+      const input: SessionPayloadInput = {
+        selectedBeach: "Trestles",
+        waveCharacteristics: ["fat", "closeouts"],
+      };
+
+      const payload = buildSessionPayload(input, userId);
+
+      expect(payload.wave_characteristics).toEqual(["fat", "closeouts"]);
+    });
+
+    it("normalizes empty wave characteristics to null", () => {
+      const input: SessionPayloadInput = {
+        selectedBeach: "Trestles",
+        waveCharacteristics: [],
+      };
+
+      const payload = buildSessionPayload(input, userId);
+
+      expect(payload.wave_characteristics).toBeNull();
+    });
+
+    it("normalizes omitted wave characteristics to null", () => {
+      const input: SessionPayloadInput = {
+        selectedBeach: "Trestles",
+      };
+
+      const payload = buildSessionPayload(input, userId);
+
+      expect(payload.wave_characteristics).toBeNull();
+    });
+
+    it("passes observed rip current value through", () => {
+      const payload = buildSessionPayload(
+        {
+          selectedBeach: "Trestles",
+          ripCurrentObserved: "strong",
+        },
+        userId
+      );
+
+      expect(payload.rip_current_observed).toBe("strong");
+    });
+
+    it("normalizes omitted observed rip current value to null", () => {
+      const payload = buildSessionPayload({ selectedBeach: "Trestles" }, userId);
+
+      expect(payload.rip_current_observed).toBeNull();
+    });
+
     it("handles water temp edge cases", () => {
       // Non-numeric water temp
       const badTemp: SessionPayloadInput = {

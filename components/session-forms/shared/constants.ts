@@ -48,3 +48,24 @@ export const FORECAST_ACCURACY_OPTIONS = [
     description: "Way off the mark",
   },
 ] as const;
+
+export const WAVE_CHARACTERISTICS = [
+  { value: "clean", label: "Clean" },
+  { value: "glassy", label: "Glassy" },
+  { value: "choppy", label: "Choppy" },
+  { value: "blown_out", label: "Blown out" },
+  { value: "fat", label: "Fat" },
+  { value: "mushy", label: "Mushy" },
+  { value: "peaky", label: "Peaky" },
+  { value: "powerful", label: "Powerful" },
+  { value: "closeouts", label: "Closeouts" },
+  { value: "barreling", label: "Barreling" },
+  { value: "reform", label: "Reform" },
+  { value: "walled", label: "Walled" },
+] as const;
+
+export const RIP_CURRENT_OBSERVED_OPTIONS = [
+  { value: "none", label: "None" },
+  { value: "light", label: "Light" },
+  { value: "strong", label: "Strong" },
+] as const;
