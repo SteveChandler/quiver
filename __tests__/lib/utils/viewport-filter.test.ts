@@ -16,7 +16,12 @@ function makeBeach(overrides: Partial<Beach> & { id: string; name: string }): Be
     height_offset_enabled: false,
     height_offset_max_age_days: 30,
     height_offset_min_sample_count: 5,
+    max_wind_any_mph: null,
+    max_wind_onshore_mph: null,
+    nws_forecast_zone: null,
+    nws_office: null,
     created_at: new Date().toISOString(),
+    region_id: null,
 
     // Nullable fields with null defaults
     access_tips: null,
