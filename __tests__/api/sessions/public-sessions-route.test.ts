@@ -54,6 +54,21 @@ jest.mock("@/lib/supabase/server", () => ({
 
 const { GET } = require("@/app/api/sessions/public/route");
 
+function createThenableChain(result: any) {
+  const chain: any = {
+    select: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    gte: jest.fn().mockReturnThis(),
+    lte: jest.fn().mockReturnThis(),
+    in: jest.fn().mockReturnThis(),
+    not: jest.fn().mockReturnThis(),
+    order: jest.fn().mockReturnThis(),
+    range: jest.fn().mockReturnThis(),
+    then: jest.fn((onResolve: any) => onResolve(result)),
+  };
+  return chain;
+}
+
 describe("/api/sessions/public", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -259,5 +274,97 @@ describe("/api/sessions/public", () => {
     ]);
     expect(likesChain.eq).toHaveBeenCalledWith("user_id", "current-user");
     expect(res.headers.get("cache-control")).toContain("no-store");
+  });
+
+  it("uses beach lat/lon columns for nearby filtering and applies those beach IDs to session queries", async () => {
+    mockSupabaseClient.auth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: null,
+    });
+
+    const nearbyChain = createThenableChain({
+      data: [{ id: "beach-1" }, { id: "beach-2" }],
+      error: null,
+    });
+    const countChain = createThenableChain({ count: 1, data: null, error: null });
+    const dataChain = createThenableChain({
+      data: [
+        {
+          id: "session-1",
+          user_id: "surfer-1",
+          beach_name: "Ocean Beach Pier",
+          beach_id: "beach-1",
+          arrival_time: "2026-06-11T13:05:00.000Z",
+          wave_quality: 4,
+          wave_height_ft: 3,
+          notes: "Fun morning",
+          description: null,
+          image_url: null,
+          likes_count: 0,
+          created_at: "2026-06-11T14:26:06.000Z",
+          duration_minutes: 60,
+          crowd_level: 2,
+          water_temp: null,
+          rating: 4,
+          beaches: { name: "Ocean Beach Pier" },
+          profiles: {
+            id: "surfer-1",
+            full_name: "Local Surfer",
+            avatar_url: null,
+          },
+          session_media: [],
+        },
+      ],
+      error: null,
+    });
+
+    const sessionChains = [countChain, dataChain];
+    mockSupabaseClient.from.mockImplementation((table: string) => {
+      if (table === "beaches") return nearbyChain;
+      if (table === "sessions") return sessionChains.shift();
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const req = createMockRequest(
+      "GET",
+      "http://localhost:3000/api/sessions/public?lat=32.75&lon=-117.25&radius_miles=30&page=1&limit=10",
+    );
+    const res = await GET(req as any);
+    const payload = await expectSuccessResponse<any[]>(res, 200);
+
+    expect(payload.data).toHaveLength(1);
+    expect(nearbyChain.gte).toHaveBeenCalledWith("lat", expect.any(Number));
+    expect(nearbyChain.lte).toHaveBeenCalledWith("lat", expect.any(Number));
+    expect(nearbyChain.gte).toHaveBeenCalledWith("lon", expect.any(Number));
+    expect(nearbyChain.lte).toHaveBeenCalledWith("lon", expect.any(Number));
+    expect(nearbyChain.gte).not.toHaveBeenCalledWith("center_lat", expect.any(Number));
+    expect(nearbyChain.lte).not.toHaveBeenCalledWith("center_lng", expect.any(Number));
+    expect(countChain.in).toHaveBeenCalledWith("beach_id", ["beach-1", "beach-2"]);
+    expect(dataChain.in).toHaveBeenCalledWith("beach_id", ["beach-1", "beach-2"]);
+  });
+
+  it("throws when nearby beach lookup fails instead of silently returning an empty feed", async () => {
+    mockSupabaseClient.auth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: null,
+    });
+
+    const nearbyError = new Error("column beaches.center_lat does not exist");
+    const nearbyChain = createThenableChain({
+      data: null,
+      error: nearbyError,
+    });
+
+    mockSupabaseClient.from.mockImplementation((table: string) => {
+      if (table === "beaches") return nearbyChain;
+      throw new Error(`Unexpected table ${table}`);
+    });
+
+    const req = createMockRequest(
+      "GET",
+      "http://localhost:3000/api/sessions/public?lat=32.75&lon=-117.25&page=1&limit=10",
+    );
+
+    await expect(GET(req as any)).rejects.toThrow("column beaches.center_lat does not exist");
   });
 });
