@@ -96,6 +96,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   product_tour_skipped: 0,
   product_tour_step_viewed: 0,
   onboarding_started: 0,
+  onboarding_intro_get_started: 0,
   onboarding_step_viewed: 0,
   onboarding_step_completed: 0,
   onboarding_step_auto_skipped: 0,
