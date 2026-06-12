@@ -79,6 +79,7 @@ export const VALID_EVENTS = [
   'product_tour_skipped',
   'product_tour_step_viewed',
   'onboarding_started',
+  'onboarding_intro_get_started',
   'onboarding_step_viewed',
   'onboarding_step_completed',
   'onboarding_step_auto_skipped',
@@ -296,6 +297,8 @@ export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   // an anonymous user. Authed fires are ghost-triggers and dropped server-side
   // via PRE_AUTH_ONLY_EVENTS.
   'signup_form_submitted', 'login_form_submitted',
+  // Native signed-out onboarding intro CTA.
+  'onboarding_intro_get_started',
   // Engagement signals from anonymous visitors
   'forecast_interaction', 'forecast_tab_click', 'horizon_strip_day_selected',
   'beach_search', 'beach_search_result_click', 'map_interaction', 'map_marker_click',
@@ -343,6 +346,8 @@ export const PRE_AUTH_ONLY_EVENTS: readonly EventType[] = [
   'login_form_submitted',
   'auth_modal_opened',
   'auth_modal_closed_without_action',
+  // Native signed-out onboarding intro CTA.
+  'onboarding_intro_get_started',
   // Anon alert capture (pre-auth only). Ghost-authed fires of these
   // events are silently dropped server-side. The post-auth siblings
   // (magic_link_clicked, signup_success) intentionally NOT here — they
