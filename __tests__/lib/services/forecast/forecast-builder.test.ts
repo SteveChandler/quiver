@@ -1,5 +1,9 @@
 import { ForecastBuilder } from "@/lib/services/forecast/forecast-builder";
 import type { ForecastInputs } from "@/lib/services/forecast/forecast-builder";
+import {
+  buildGfsWaveShadowForecast,
+  logGfsWaveShadowRows,
+} from "@/lib/services/noaa-wavewatch/gfs-wave-shadow";
 import type { Beach } from "@/types/database";
 
 // Mock dependencies
@@ -32,6 +36,14 @@ jest.mock("@/lib/utils/wave-formatters", () => ({
   metersToFeet: jest.fn((m: number) => m * 3.28084),
   METERS_TO_FEET: 3.28084,
 }));
+
+jest.mock("@/lib/services/noaa-wavewatch/gfs-wave-shadow", () => {
+  const actual = jest.requireActual("@/lib/services/noaa-wavewatch/gfs-wave-shadow");
+  return {
+    ...actual,
+    logGfsWaveShadowRows: jest.fn(async () => undefined),
+  };
+});
 
 describe("ForecastBuilder", () => {
   const mockBeach: Beach = {
@@ -99,6 +111,7 @@ describe("ForecastBuilder", () => {
   let builder: ForecastBuilder;
 
   beforeEach(() => {
+    jest.clearAllMocks();
     builder = new ForecastBuilder({
       getWaveDirectionText: (deg: number) => "SW",
       getTideStatusAtTime: () => "Rising",
@@ -111,6 +124,67 @@ describe("ForecastBuilder", () => {
       }),
       getDataQualityScore: () => 85,
     });
+  });
+
+  it("logs issue-time GFS-Wave shadow rows without changing display forecasts", async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date("2026-06-10T00:00:00Z"));
+
+    try {
+      const waveData = {
+        ...mockWaveData,
+        forecast: [
+          {
+            ...mockWaveData.forecast[0],
+            timestamp: "2026-06-10T00:00:00Z",
+          },
+        ],
+      };
+      const gfsWaveData = buildGfsWaveShadowForecast(
+        {
+          hourly: {
+            time: Array.from({ length: 24 }, (_, index) =>
+              new Date(Date.parse("2026-06-10T00:00:00Z") + index * 60 * 60 * 1000).toISOString(),
+            ),
+            wave_height: Array.from({ length: 24 }, (_, index) => 1 + index * 0.1),
+            wave_period: Array.from({ length: 24 }, (_, index) => 10 + index * 0.1),
+            wave_direction: Array.from({ length: 24 }, (_, index) => 220 + index),
+            tertiary_swell_wave_height: Array.from({ length: 24 }, () => 0.1),
+            tertiary_swell_wave_period: Array.from({ length: 24 }, () => 8),
+            tertiary_swell_wave_direction: Array.from({ length: 24 }, () => 150),
+          },
+        },
+        { forecastDays: 1, fetchedAt: new Date("2026-06-10T00:00:00Z") },
+      );
+
+      const forecasts = await builder.buildForecasts({
+        beach: mockBeach,
+        waveData,
+        tideData: mockTideData,
+        weatherData: [],
+        buoyData: null,
+        cdipData: null,
+        ioosWaterTempC: null,
+        coopsWaterTempC: null,
+        gfsWaveData,
+      });
+
+      expect(forecasts[0].beach_id).toBe("beach-1");
+      expect(logGfsWaveShadowRows).toHaveBeenCalledTimes(1);
+      const rows = (logGfsWaveShadowRows as jest.Mock).mock.calls[0][0];
+      expect(rows[0]).toEqual(
+        expect.objectContaining({
+          beach_id: "beach-1",
+          predicted_at: "2026-06-10T00:00:00Z",
+          source_model: "ncep_gfswave016",
+          capture_status: "ok",
+          wave_height_m: 1,
+          tertiary_swell_height_m: 0.1,
+        }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("builds forecast entities from raw data", async () => {

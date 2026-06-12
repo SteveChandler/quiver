@@ -28,9 +28,35 @@ export interface ProcessNOAAGridDataOptions {
 }
 
 /** Return a finite number or null — guards against undefined/NaN in OM payloads. */
-function numberOrNull(value: number | null | undefined): number | null {
+export function numberOrNull(value: unknown): number | null {
   if (value === null || value === undefined) return null;
-  return Number.isFinite(value) ? value : null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+export function openMeteoTimeToDate(value: unknown): Date | null {
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) return null;
+    return new Date(value * 1000);
+  }
+
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const numericValue = Number(trimmed);
+  const isoValue =
+    Number.isFinite(numericValue)
+      ? null
+      : /(?:Z|[+-]\d{2}:?\d{2})$/.test(trimmed)
+        ? trimmed
+        : `${trimmed}Z`;
+  const date = isoValue === null
+    ? new Date(numericValue * 1000)
+    : new Date(isoValue);
+
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function allMissing(values: Array<number | null>): boolean {
@@ -261,7 +287,9 @@ export function processOpenMeteoData(
 
   for (let step = 0; step < maxForecasts; step++) {
     const i = step * HOURS_PER_STEP;
-    const timestamp = new Date(data.hourly.time[i]);
+    const openMeteoTime = data.hourly.time[i];
+    const timestamp = openMeteoTimeToDate(openMeteoTime);
+    if (!timestamp) continue;
 
     // Extract wave data (already in meters from Open-Meteo)
     const significantWaveHeight = data.hourly.wave_height?.[i] ?? 0.8;

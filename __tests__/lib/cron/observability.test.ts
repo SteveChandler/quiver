@@ -146,6 +146,7 @@ describe("withCronObservability", () => {
 describe("withObservedCron", () => {
   let consoleSpy: jest.SpyInstance;
   const originalCronSecret = process.env.CRON_SECRET;
+  const originalVercelEnv = process.env.VERCEL_ENV;
   const sentryMonitor = {
     slug: "test-monitor",
     schedule: "* * * * *",
@@ -155,6 +156,7 @@ describe("withObservedCron", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     process.env.CRON_SECRET = "test-cron-secret";
+    process.env.VERCEL_ENV = "production";
     (startCronCheckIn as jest.Mock).mockReturnValue("check-in-1");
     consoleSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
   });
@@ -165,6 +167,11 @@ describe("withObservedCron", () => {
       delete process.env.CRON_SECRET;
     } else {
       process.env.CRON_SECRET = originalCronSecret;
+    }
+    if (originalVercelEnv === undefined) {
+      delete process.env.VERCEL_ENV;
+    } else {
+      process.env.VERCEL_ENV = originalVercelEnv;
     }
   });
 
@@ -351,6 +358,28 @@ describe("withObservedCron", () => {
     const unauthorizedRequest = new Request("http://test/api/cron/test");
     await handler(unauthorizedRequest);
 
+    expect(startCronCheckIn).not.toHaveBeenCalled();
+    expect(completeCronCheckIn).not.toHaveBeenCalled();
+  });
+
+  it("skips Sentry monitor check-ins for authorized non-production requests", async () => {
+    process.env.VERCEL_ENV = "preview";
+    const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
+    const client = mockChain();
+    createSupabaseServiceRoleClient.mockResolvedValue(client);
+
+    const handler = withObservedCron(
+      "/api/cron/test",
+      async (_req: Request) => successEnvelope({ count: 1 }),
+      sentryMonitor
+    );
+    const response = await handler(makeAuthorizedRequest());
+
+    expect(response.status).toBe(200);
+    expect(client._insertMock).toHaveBeenCalledWith({
+      route: "/api/cron/test",
+      status: "started",
+    });
     expect(startCronCheckIn).not.toHaveBeenCalled();
     expect(completeCronCheckIn).not.toHaveBeenCalled();
   });

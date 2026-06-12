@@ -7,7 +7,10 @@
  * from synthesized defaults.
  */
 
-import { processOpenMeteoData } from "@/lib/services/noaa-wavewatch/data-processors";
+import {
+  openMeteoTimeToDate,
+  processOpenMeteoData,
+} from "@/lib/services/noaa-wavewatch/data-processors";
 import type { OpenMeteoMarineResponse } from "@/lib/services/noaa-wavewatch/types";
 
 describe("processOpenMeteoData: om_values capture", () => {
@@ -146,6 +149,30 @@ describe("processOpenMeteoData: om_values capture", () => {
       expect(fc.om_values?.om_tertiary_swell_missing).toBe(false);
       expect(fc.om_values?.om_partition_schema_version).toBe(1);
     });
+  });
+
+  it("parses Open-Meteo unixtime hourly timestamps as seconds", () => {
+    const resp = baseResponse();
+    const startMs = Date.parse("2026-06-10T00:00:00Z");
+    resp.hourly!.time = Array.from(
+      { length: 24 },
+      (_, index) => (startMs + index * 3600000) / 1000,
+    );
+
+    const forecasts = processOpenMeteoData(resp, 1);
+
+    expect(forecasts[0].timestamp).toBe("2026-06-10T00:00:00.000Z");
+    expect(forecasts[1].timestamp).toBe("2026-06-10T03:00:00.000Z");
+  });
+
+  it("parses Open-Meteo numeric strings and timezone-less ISO strings as UTC", () => {
+    expect(openMeteoTimeToDate("1781161200")?.toISOString()).toBe(
+      "2026-06-11T07:00:00.000Z",
+    );
+    expect(openMeteoTimeToDate("2026-06-11T00:00")?.toISOString()).toBe(
+      "2026-06-11T00:00:00.000Z",
+    );
+    expect(openMeteoTimeToDate("not-a-date")).toBeNull();
   });
 
   it("records null in om_values for fields the API did not return", () => {
