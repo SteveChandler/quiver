@@ -25,6 +25,11 @@ import {
   type DisplayPredictionRow,
 } from "./log-display-prediction";
 import {
+  buildGfsWaveShadowRows,
+  logGfsWaveShadowRows,
+  type GfsWaveShadowForecast,
+} from "@/lib/services/noaa-wavewatch/gfs-wave-shadow";
+import {
   computeV5Shadow,
   getActiveCalibration,
 } from "./calibration-v5";
@@ -157,6 +162,8 @@ export interface ForecastInputs {
    * and wave_height is byte-identical to today's output.
    */
   heightOffset?: BeachHeightOffsetRow | null;
+  /** Optional report-only GFS-Wave issue-time source shadow data. */
+  gfsWaveData?: GfsWaveShadowForecast | null;
 }
 
 const log = createContextLogger("ForecastBuilder");
@@ -262,6 +269,7 @@ export class ForecastBuilder {
       nowcastAnchor,
       southOcSanoShadowZoneSnapshot,
       heightOffset,
+      gfsWaveData,
     } = inputs;
     const forecasts: EnhancedForecastWithRawData[] = [];
     const now = new Date();
@@ -283,6 +291,7 @@ export class ForecastBuilder {
     // feedback-loop invariant) inside buildSingleForecast and flushed after
     // the row loop completes.
     const snapshotBuffer: DisplayPredictionRow[] = [];
+    const gfsWaveForecastTimes: Date[] = [];
 
     // v5 shadow calibration (Phase 2, 2026-05-02). Loaded once per
     // buildForecasts call; the helper caches in-process for 1h. Failure to
@@ -305,6 +314,7 @@ export class ForecastBuilder {
       const forecastTime = new Date(
         now.getTime() + i * FORECAST_CONSTANTS.INTERVAL_HOURS * 60 * 60 * 1000
       );
+      gfsWaveForecastTimes.push(forecastTime);
 
       // Get data for this time point
       const wavePoint = this.getWaveDataForTime(waveData, forecastTime);
@@ -398,6 +408,24 @@ export class ForecastBuilder {
         log.warn("Snapshot dispatch threw (caught, non-blocking)", {
           err: String(err),
         });
+      }
+    }
+
+    if (gfsWaveData) {
+      const gfsRows = buildGfsWaveShadowRows({
+        beachId: beach.id,
+        generatedAt: now,
+        forecastTimes: gfsWaveForecastTimes,
+        shadow: gfsWaveData,
+      });
+      if (gfsRows.length > 0) {
+        try {
+          await logGfsWaveShadowRows(gfsRows);
+        } catch (err) {
+          log.warn("GFS-Wave shadow dispatch threw (caught, non-blocking)", {
+            err: String(err),
+          });
+        }
       }
     }
 

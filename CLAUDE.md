@@ -82,7 +82,7 @@ Always clean up channels — subscribe in `useEffect`, return `() => supabase.re
 
 ### Coordinate Naming
 
-**Never use `lng` in new code** — use `lon` or `longitude`. DB legacy fields are `center_lat`/`center_lng` (don't rename without migration). Component props use `latitude`/`longitude`. **Critical pitfall:** `beach.latitude` doesn't exist — use `beach.center_lat`/`beach.center_lng`.
+**Never use `lng` in new code** — use `lon` or `longitude`. Beach rows use `lat`/`lon`. **Critical pitfall:** `beach.latitude` doesn't exist — use `beach.lat`/`beach.lon`.
 Full guide: `docs/COORDINATE_CONVENTIONS.md`
 
 ### Forecast Timestamps
@@ -207,7 +207,7 @@ Before touching `lib/seo/meta.ts` or related SEO files, define the target patter
 - Don't skip `withAuthenticatedAction` for protected server actions
 - Don't skip `withAuth` wrapper for authenticated API routes
 - Don't add monetization or non-growth features without direction
-- Don't assume `beach.latitude` exists (it's `beach.center_lat`)
+- Don't assume `beach.latitude` exists (it's `beach.lat`)
 - Don't use `lng` in new code (use `lon`)
 - Don't use `forecast_date` + `forecast_time` in new queries (use `forecast_at`)
 - Don't reference `sessions.profile_id` (dropped Feb 2026 -- use `user_id`)

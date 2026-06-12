@@ -24,3 +24,15 @@ export {
   getSkillLevelOrDefault,
   SKILL_WAVE_RANGES,
 } from './skill-level';
+
+// Board class types and utilities
+export type { BoardClass } from './board-class';
+export {
+  BOARD_CLASSES,
+  BOARD_TYPE_TO_BOARD_CLASS,
+  DEFAULT_BOARD_CLASS,
+  normalizeBoardClass,
+  parseBoardClass,
+  getBoardClassOrDefault,
+  mapBoardTypeToBoardClass,
+} from './board-class';

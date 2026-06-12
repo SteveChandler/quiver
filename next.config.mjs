@@ -299,13 +299,18 @@ const nextConfig = {
         hostname: "static-1.redstone.net",
         pathname: "/images/cameras/**",
       },
+      {
+        protocol: "https",
+        hostname: "auth.quiversurf.app",
+        pathname: "/storage/v1/object/**",
+      },
       // Add specific Supabase hostname if available
       ...(supabaseHostname
         ? [
             {
               protocol: "https",
               hostname: supabaseHostname,
-              pathname: "/storage/v1/object/public/**",
+              pathname: "/storage/v1/object/**",
             },
           ]
         : []),

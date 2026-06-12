@@ -1,23 +1,58 @@
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
+import { fetchGfsWaveShadowForecast } from "@/lib/services/noaa-wavewatch/gfs-wave-shadow";
 
 // Mock external services and supabase client used internally
 const upsertMock: jest.Mock<any, any> = jest.fn(async () => ({
   data: [],
   error: null,
 }));
+const mockObservableBeachSelect: jest.Mock<any, any> = jest.fn(async () => ({
+  data: [],
+  error: null,
+}));
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: async () => ({
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          single: async () => ({ data: { id: "1" }, error: null }),
+    from: (table: string) => {
+      if (table === "observable_beaches") {
+        return {
+          select: mockObservableBeachSelect,
+        };
+      }
+
+      return {
+        select: () => ({
+          eq: () => ({
+            single: async () => ({ data: { id: "1" }, error: null }),
+          }),
         }),
-      }),
-      upsert: upsertMock,
-    }),
+        upsert: upsertMock,
+      };
+    },
   }),
 }));
+
+jest.mock("@/lib/services/noaa-wavewatch/gfs-wave-shadow", () => {
+  const actual = jest.requireActual("@/lib/services/noaa-wavewatch/gfs-wave-shadow");
+  return {
+    ...actual,
+    fetchGfsWaveShadowForecast: jest.fn(),
+  };
+});
+
+function setNodeEnv(value: string | undefined): void {
+  if (value === undefined) {
+    Reflect.deleteProperty(process.env, "NODE_ENV");
+    return;
+  }
+
+  Object.defineProperty(process.env, "NODE_ENV", {
+    value,
+    configurable: true,
+    enumerable: true,
+    writable: true,
+  });
+}
 
 // Mock the new modular services
 jest.mock("@/lib/services/forecast/data-source-manager", () => ({
@@ -83,6 +118,9 @@ jest.mock("@/lib/services/noaa-coops");
 jest.mock("@/lib/services/cdip");
 
 describe("EnhancedForecastService", () => {
+  const originalGfsCaptureEnabled = process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED;
+  const originalGfsTimeoutMs = process.env.GFS_WAVE_SHADOW_TIMEOUT_MS;
+  const originalNodeEnv = process.env.NODE_ENV;
   const beach = {
     id: "b1",
     name: "Test Beach",
@@ -95,6 +133,25 @@ describe("EnhancedForecastService", () => {
   beforeEach(() => {
     upsertMock.mockReset();
     upsertMock.mockResolvedValue({ data: [], error: null });
+    mockObservableBeachSelect.mockReset();
+    mockObservableBeachSelect.mockResolvedValue({ data: [], error: null });
+    (fetchGfsWaveShadowForecast as jest.Mock).mockReset();
+    (fetchGfsWaveShadowForecast as jest.Mock).mockResolvedValue(null);
+  });
+
+  afterEach(() => {
+    if (originalGfsCaptureEnabled === undefined) {
+      delete process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED;
+    } else {
+      process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED = originalGfsCaptureEnabled;
+    }
+    if (originalGfsTimeoutMs === undefined) {
+      delete process.env.GFS_WAVE_SHADOW_TIMEOUT_MS;
+    } else {
+      process.env.GFS_WAVE_SHADOW_TIMEOUT_MS = originalGfsTimeoutMs;
+    }
+    setNodeEnv(originalNodeEnv);
+    jest.useRealTimers();
   });
 
   test("generateComprehensiveForecast returns forecasts array and storeEnhancedForecasts succeeds", async () => {
@@ -191,5 +248,63 @@ describe("EnhancedForecastService", () => {
       .mockResolvedValueOnce({ success: false, error: "db" });
     const res = await service.storeEnhancedForecasts(beach, []);
     expect(res.success).toBe(false);
+  });
+
+  test("GFS-Wave shadow scope is not loaded when capture is disabled", async () => {
+    delete process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED;
+    const service = new EnhancedForecastService() as any;
+
+    const result = await service.fetchGfsWaveShadowIfEligible(beach);
+
+    expect(result).toBeNull();
+    expect(mockObservableBeachSelect).not.toHaveBeenCalled();
+  });
+
+  test("GFS-Wave shadow scope failures are negative-cached", async () => {
+    process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED = "true";
+    mockObservableBeachSelect.mockResolvedValue({
+      data: null,
+      error: { message: "temporary db failure" },
+    });
+    const service = new EnhancedForecastService() as any;
+
+    await service.fetchGfsWaveShadowIfEligible(beach);
+    await service.fetchGfsWaveShadowIfEligible(beach);
+
+    expect(mockObservableBeachSelect).toHaveBeenCalledTimes(1);
+  });
+
+  test("GFS-Wave shadow fetch uses a single best-effort attempt", async () => {
+    setNodeEnv("production");
+    jest.useFakeTimers();
+    (fetchGfsWaveShadowForecast as jest.Mock).mockRejectedValue(
+      new Error("Open-Meteo unavailable"),
+    );
+    const service = new EnhancedForecastService() as any;
+
+    const resultPromise = service.fetchGfsWaveShadowWithRetry(beach);
+    void resultPromise.catch(() => undefined);
+    await jest.runAllTimersAsync();
+
+    await expect(resultPromise).rejects.toThrow("Open-Meteo unavailable");
+    expect(fetchGfsWaveShadowForecast).toHaveBeenCalledTimes(1);
+  });
+
+  test("GFS-Wave shadow timeout aborts the in-flight fetch and returns null", async () => {
+    jest.useFakeTimers();
+    process.env.GFS_WAVE_SHADOW_TIMEOUT_MS = "25";
+    const service = new EnhancedForecastService() as any;
+    const pending = new Promise<null>(() => undefined);
+    const abortController = new AbortController();
+
+    const resultPromise = service.resolveGfsWaveShadowWithinTimeout(
+      pending,
+      beach.id,
+      abortController,
+    );
+    jest.advanceTimersByTime(25);
+
+    await expect(resultPromise).resolves.toBeNull();
+    expect(abortController.signal.aborted).toBe(true);
   });
 });

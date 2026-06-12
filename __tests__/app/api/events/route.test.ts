@@ -859,6 +859,7 @@ describe('POST /api/events', () => {
         'paywall_purchase_started',
         'paywall_purchase_success',
         'paywall_purchase_failed',
+        'paywall_ready',
         'onboarding_paywall_skipped',
         'onboarding_trial_started',
         'push_permission_denied',

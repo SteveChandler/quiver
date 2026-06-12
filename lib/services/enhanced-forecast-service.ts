@@ -63,10 +63,25 @@ import {
   withRetry,
   logError,
 } from "@/lib/errors/forecast-errors";
+import {
+  fetchGfsWaveShadowForecast,
+  isGfsWaveShadowCaptureEnabled,
+  type GfsWaveShadowForecast,
+} from "@/lib/services/noaa-wavewatch/gfs-wave-shadow";
 
 // Data source implementations moved to lib/services/forecast/data-source-manager.ts
 
 const log = createContextLogger('EnhancedForecastService');
+const GFS_WAVE_SHADOW_SCOPE_CACHE_TTL_MS = 60 * 60 * 1000;
+const GFS_WAVE_SHADOW_SCOPE_NEGATIVE_CACHE_TTL_MS = 5 * 60 * 1000;
+const DEFAULT_GFS_WAVE_SHADOW_TIMEOUT_MS = 1500;
+
+function getGfsWaveShadowTimeoutMs(): number {
+  const timeoutMs = Number(process.env.GFS_WAVE_SHADOW_TIMEOUT_MS);
+  return Number.isFinite(timeoutMs) && timeoutMs > 0
+    ? timeoutMs
+    : DEFAULT_GFS_WAVE_SHADOW_TIMEOUT_MS;
+}
 
 interface CDIPForecastDiagnostic {
   stationId: string | null;
@@ -80,6 +95,11 @@ interface ComprehensiveForecastDiagnosticResult {
 
 export class EnhancedForecastService {
   private readonly warnedSchemaColumns = new Set<string>();
+  private gfsWaveObservableBeachIds: {
+    loadedAtMs: number;
+    beachIds: Set<string>;
+    isNegative: boolean;
+  } | null = null;
 
   private dataSourceManager: ForecastDataSourceManager;
   private storageService: ForecastStorageService;
@@ -128,7 +148,16 @@ export class EnhancedForecastService {
           );
         }
 
-        // Fetch all data sources in parallel with error handling
+        const gfsWaveAbortController = new AbortController();
+        const gfsWaveDataPromise = this.fetchGfsWaveShadowIfEligible(
+          beach,
+          gfsWaveAbortController.signal,
+        ).catch((err) => {
+          logError(err, { beachId: beach.id, dataSource: "gfs_wave_shadow" });
+          return null;
+        });
+
+        // Fetch display data sources in parallel with error handling
         // Note: NDBC buoy fetch was removed — it picked a random buoy (no geographic
         // filtering) so its wave/temp data was incorrect for non-local beaches.
         // Water temp is now sourced from IOOS; wave data from CDIP + WaveWatch.
@@ -141,6 +170,11 @@ export class EnhancedForecastService {
             this.fetchIOOSWaterTemp(beach),
             this.fetchCOOPSWaterTemp(beach),
           ]);
+        const gfsWaveData = await this.resolveGfsWaveShadowWithinTimeout(
+          gfsWaveDataPromise,
+          beach.id,
+          gfsWaveAbortController,
+        );
 
         // Process results and handle failures gracefully
         const processedData = {
@@ -153,6 +187,7 @@ export class EnhancedForecastService {
           cdipData: cdipData.status === "fulfilled" ? cdipData.value.data : null,
           ioosWaterTempC: ioosWaterTempResult.status === "fulfilled" ? ioosWaterTempResult.value : null,
           coopsWaterTempC: coopsWaterTempResult.status === "fulfilled" ? coopsWaterTempResult.value : null,
+          gfsWaveData,
           nowcastAnchor,
           southOcSanoShadowZoneSnapshot,
         };
@@ -190,7 +225,6 @@ export class EnhancedForecastService {
             beachId: beach.id,
             dataSource: "coops_water_temp",
           });
-
         // Process and combine all data sources
         const forecasts = await this.combineDataSources(processedData);
         return {
@@ -220,6 +254,121 @@ export class EnhancedForecastService {
       }
       return result;
     });
+  }
+
+  private async fetchGfsWaveShadowWithRetry(
+    beach: Beach,
+    signal?: AbortSignal,
+  ): Promise<GfsWaveShadowForecast | null> {
+    const latitude = beach.lat;
+    const longitude = beach.lon;
+    if (typeof latitude !== "number" || typeof longitude !== "number") {
+      log.warn("Skipping GFS-Wave shadow fetch for beach without coordinates", {
+        beachId: beach.id,
+      });
+      return null;
+    }
+
+    return withRetry(async () =>
+      fetchGfsWaveShadowForecast(
+        latitude,
+        longitude,
+        FORECAST_CONSTANTS.DAYS,
+        { signal },
+      ),
+      1,
+    );
+  }
+
+  private async fetchGfsWaveShadowIfEligible(
+    beach: Beach,
+    signal?: AbortSignal,
+  ): Promise<GfsWaveShadowForecast | null> {
+    if (!isGfsWaveShadowCaptureEnabled()) return null;
+    const beachIds = await this.loadGfsWaveObservableBeachIds();
+    if (!beachIds.has(beach.id)) return null;
+    return this.fetchGfsWaveShadowWithRetry(beach, signal);
+  }
+
+  private async resolveGfsWaveShadowWithinTimeout(
+    promise: Promise<GfsWaveShadowForecast | null>,
+    beachId: string,
+    abortController?: AbortController,
+  ): Promise<GfsWaveShadowForecast | null> {
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    const timeoutMs = getGfsWaveShadowTimeoutMs();
+    const timeout = new Promise<null>((resolve) => {
+      timeoutId = setTimeout(() => {
+        log.warn("GFS-Wave shadow fetch timed out; continuing display forecast", {
+          beachId,
+          timeoutMs,
+        });
+        abortController?.abort();
+        resolve(null);
+      }, timeoutMs);
+    });
+
+    try {
+      return await Promise.race([promise, timeout]);
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+    }
+  }
+
+  private async loadGfsWaveObservableBeachIds(): Promise<Set<string>> {
+    const nowMs = Date.now();
+    const cacheTtlMs = this.gfsWaveObservableBeachIds?.isNegative
+      ? GFS_WAVE_SHADOW_SCOPE_NEGATIVE_CACHE_TTL_MS
+      : GFS_WAVE_SHADOW_SCOPE_CACHE_TTL_MS;
+    if (
+      this.gfsWaveObservableBeachIds &&
+      nowMs - this.gfsWaveObservableBeachIds.loadedAtMs < cacheTtlMs
+    ) {
+      return this.gfsWaveObservableBeachIds.beachIds;
+    }
+
+    try {
+      const supabase = await createSupabaseServiceRoleClient();
+      const { data, error } = await supabase
+        .from("observable_beaches" as never)
+        .select("beach_id");
+
+      if (error) {
+        log.warn("Failed to load observable beaches for GFS-Wave shadow scope", {
+          error: error.message,
+        });
+        const beachIds = new Set<string>();
+        this.gfsWaveObservableBeachIds = {
+          loadedAtMs: nowMs,
+          beachIds,
+          isNegative: true,
+        };
+        return beachIds;
+      }
+
+      const beachIds = new Set(
+        ((data ?? []) as Array<{ beach_id?: string | null }>)
+          .map((row) => row.beach_id)
+          .filter((id): id is string => typeof id === "string" && id.length > 0),
+      );
+      this.gfsWaveObservableBeachIds = {
+        loadedAtMs: nowMs,
+        beachIds,
+        isNegative: false,
+      };
+      return beachIds;
+    } catch (err) {
+      log.warn("Unexpected error loading GFS-Wave shadow scope", {
+        error: err instanceof Error ? err.message : String(err),
+      });
+      const beachIds = new Set<string>();
+      this.gfsWaveObservableBeachIds = {
+        loadedAtMs: nowMs,
+        beachIds,
+        isNegative: true,
+      };
+      return beachIds;
+    }
   }
 
   /**
@@ -450,6 +599,7 @@ export class EnhancedForecastService {
     cdipData,
     ioosWaterTempC,
     coopsWaterTempC,
+    gfsWaveData,
     nowcastAnchor,
     southOcSanoShadowZoneSnapshot,
   }: {
@@ -461,6 +611,7 @@ export class EnhancedForecastService {
     cdipData: CDIPBuoyData | null;
     ioosWaterTempC: number | null;
     coopsWaterTempC: number | null;
+    gfsWaveData: GfsWaveShadowForecast | null;
     nowcastAnchor: NowcastAnchor | null;
     southOcSanoShadowZoneSnapshot: SouthOcSanoShadowZoneSnapshot | null;
   }): Promise<EnhancedForecastWithRawData[]> {
@@ -487,6 +638,7 @@ export class EnhancedForecastService {
       cdipData,
       ioosWaterTempC,
       coopsWaterTempC,
+      gfsWaveData,
       nowcastAnchor,
       southOcSanoShadowZoneSnapshot,
     });

@@ -217,6 +217,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   paywall_purchase_started: 0,
   paywall_purchase_success: 0,
   paywall_purchase_failed: 0,
+  paywall_ready: 0,
   paywall_plan_selected: 0,
   paywall_cadence_selected: 0,
   paywall_restore_started: 0,

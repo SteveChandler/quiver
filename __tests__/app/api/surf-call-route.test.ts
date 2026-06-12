@@ -9,14 +9,17 @@ import { getSpotSurfReport } from "@/actions/spot/spot-surf-report-actions";
 const mockSupabase = {
   from: jest.fn(),
 };
+const mockUser = {
+  id: "native-user-123",
+};
 
 jest.mock("@/lib/middleware/api-wrappers", () => {
   const actual = jest.requireActual("@/lib/api-utils");
   return {
     withAuth:
-      (handler: (request: NextRequest, context: { supabase: typeof mockSupabase }) => Promise<Response>) =>
+      (handler: (request: NextRequest, context: { user: typeof mockUser; supabase: typeof mockSupabase }) => Promise<Response>) =>
       (request: NextRequest) =>
-        handler(request, { supabase: mockSupabase }),
+        handler(request, { user: mockUser, supabase: mockSupabase }),
     withRateLimit:
       (handler: (request: NextRequest) => Promise<Response>) =>
       (request: NextRequest) =>
@@ -51,6 +54,29 @@ function mockBeachQuery(beach: Record<string, unknown>) {
   query.is.mockReturnValue(query);
   mockSupabase.from.mockReturnValue(query);
   return query;
+}
+
+function mockSurfReportResult(beachId: string) {
+  (getSpotSurfReport as jest.Mock).mockResolvedValue({
+    report: {
+      verdict: "YES",
+      whySentence: "Clean best-window surf.",
+      waveHeight: "2.7 ft",
+      windSpeed: "5 mph",
+      windCompass: "W",
+      score: 72,
+      forecastConfidence: 80,
+      lowForecastConfidence: false,
+      rideableWavesPerHour: 25,
+    },
+    isTomorrow: false,
+    forecastContext: {
+      beachId,
+      localDate: "2026-05-08",
+      recommendationType: "best_window",
+      contextType: "best_window",
+    },
+  });
 }
 
 describe("GET /api/surf/call", () => {
@@ -128,5 +154,51 @@ describe("GET /api/surf/call", () => {
     expect(body.success).toBe(true);
     expect(body.data.report).toEqual(report);
     expect(body.data.forecastContext).toEqual(forecastContext);
+  });
+
+  it("passes a valid boardClass and auth context to getSpotSurfReport", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      deleted_at: null,
+    });
+    mockSurfReportResult(beachId);
+
+    await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&boardClass=longboard`),
+    );
+
+    expect(getSpotSurfReport).toHaveBeenCalledWith(
+      expect.objectContaining({ id: beachId }),
+      "longboard",
+      { user: mockUser, supabase: mockSupabase }
+    );
+  });
+
+  it("passes null for invalid boardClass values", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      deleted_at: null,
+    });
+    mockSurfReportResult(beachId);
+
+    await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}&boardClass=banana`),
+    );
+
+    expect(getSpotSurfReport).toHaveBeenCalledWith(
+      expect.objectContaining({ id: beachId }),
+      null,
+      { user: mockUser, supabase: mockSupabase }
+    );
   });
 });

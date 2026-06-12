@@ -66,6 +66,10 @@ async function sweepStaleStartedRows(db: CronRunsTable): Promise<void> {
   }
 }
 
+function shouldStartSentryCronMonitor(env: NodeJS.ProcessEnv = process.env): boolean {
+  return (env.VERCEL_ENV || env.NODE_ENV) === "production";
+}
+
 /**
  * Response-level wrapper: takes an existing route handler and returns one that
  * logs every invocation to `cron_runs`. Works on routes that already do their
@@ -97,7 +101,7 @@ export function withObservedCron<H extends (request: Request) => Promise<Respons
     const authorized = validateCronRequest(request);
 
     if (authorized) {
-      if (monitor) {
+      if (monitor && shouldStartSentryCronMonitor()) {
         checkInId = startCronCheckIn(monitor) || null;
       }
       try {

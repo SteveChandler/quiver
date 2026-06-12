@@ -11,6 +11,7 @@ import {
   compositeToDetailedScore,
   scoreBeachWithEngine,
 } from '@/lib/domains/scoring';
+import { checkBoardFit } from '@/lib/domains/scoring/discovery-adapter';
 import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import { trackFallback } from '@/lib/monitoring/fallback-tracker';
@@ -358,6 +359,48 @@ describe('Discovery Adapter', () => {
 
       expect(advancedScore.total).toBeLessThan(beginnerScore.total);
       expect(advancedScore.warnings).toContain('Waves are below your usual range');
+    });
+  });
+
+  describe('checkBoardFit', () => {
+    it('returns a sweet-spot bonus for ideal board-aware waves', () => {
+      const result = checkBoardFit(2, 'advanced', 'longboard');
+
+      expect(result).toEqual({
+        penalty: 0,
+        bonus: 6,
+        note: 'in the sweet spot for your longboard',
+      });
+    });
+
+    it('returns a capped small-wave penalty when waves are too small for the board', () => {
+      const result = checkBoardFit(2, 'advanced', 'shortboard');
+
+      expect(result).toEqual({
+        penalty: 2,
+        bonus: 0,
+        note: 'too small for your shortboard',
+      });
+    });
+
+    it('returns a size penalty when waves are too big for the board', () => {
+      const result = checkBoardFit(5, 'beginner', 'longboard');
+
+      expect(result).toEqual({
+        penalty: 18,
+        bonus: 0,
+        note: 'too big for your longboard',
+      });
+    });
+
+    it('returns no adjustment when board is absent', () => {
+      const result = checkBoardFit(2, 'advanced', null);
+
+      expect(result).toEqual({
+        penalty: 0,
+        bonus: 0,
+        note: null,
+      });
     });
   });
 

@@ -207,6 +207,7 @@ export const VALID_EVENTS = [
   'paywall_purchase_started',
   'paywall_purchase_success',
   'paywall_purchase_failed',
+  'paywall_ready',
   'paywall_plan_selected',
   'paywall_cadence_selected',
   'paywall_restore_started',

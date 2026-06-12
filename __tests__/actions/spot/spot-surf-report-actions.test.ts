@@ -5,6 +5,8 @@
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { CalibrationVersion } from "@/lib/services/forecast/calibration-v5";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase";
 
 // Mock server modules
 jest.mock("@/lib/supabase/server", () => ({
@@ -20,13 +22,38 @@ jest.mock("@/lib/services/preference-learning-service", () => ({
   getUserSurfPreferences: jest.fn(),
 }));
 
-jest.mock("@/lib/domains/scoring/discovery-adapter", () => ({
-  calculatePreferenceAdjustment: jest.fn(() => ({ adjustment: 0, reason: null, warning: null })),
-  checkSkillCeiling: jest.fn(() => ({ penalty: 0, warning: null })),
-}));
+jest.mock("@/lib/domains/scoring/discovery-adapter", () => {
+  const actual = jest.requireActual("@/lib/domains/scoring/discovery-adapter");
+  return {
+    ...actual,
+    calculatePreferenceAdjustment: jest.fn(() => ({ adjustment: 0, reason: null, warning: null })),
+    checkSkillCeiling: jest.fn(actual.checkSkillCeiling),
+    checkSkillFloor: jest.fn(actual.checkSkillFloor),
+    checkBoardFit: jest.fn(actual.checkBoardFit),
+  };
+});
 
 jest.mock("@/lib/domains/user-preferences", () => ({
   parseSkillLevel: jest.fn(() => null),
+  getSkillLevelOrDefault: jest.fn((skillLevel: string | null | undefined) => skillLevel ?? "beginner"),
+}));
+
+const mockRideabilityBand = {
+  ideal: { min: 2, max: 4 },
+  acceptable: { min: 1, max: 5 },
+  prefersClean: false,
+  powerBias: 0.4,
+};
+const mockShortboardRideabilityBand = {
+  ideal: { min: 3, max: 5 },
+  acceptable: { min: 2.5, max: 7 },
+  prefersClean: false,
+  powerBias: 0.6,
+};
+jest.mock("@/lib/domains/rideability", () => ({
+  getRideabilityBand: jest.fn((_skillLevel: string, boardClass: string | null) => (
+    boardClass === "shortboard" ? mockShortboardRideabilityBand : mockRideabilityBand
+  )),
 }));
 
 jest.mock("@/lib/utils/timezone-utils.server", () => ({
@@ -43,6 +70,7 @@ jest.mock("@/lib/services/forecast/calibration-v5", () => {
 
 // Track call count for formatDateInTimezone to return different values
 let formatDateCallCount = 0;
+const mockCachedSurfReportCalls: unknown[][] = [];
 jest.mock("@/lib/utils/date-time", () => ({
   formatDateInTimezone: jest.fn((date: Date) => {
     // First call is for "today", second call is for "tomorrow"
@@ -55,7 +83,12 @@ jest.mock("@/lib/utils/date-time", () => ({
 }));
 
 jest.mock("next/cache", () => ({
-  unstable_cache: jest.fn((fn) => fn),
+  unstable_cache: jest.fn((fn: (...args: unknown[]) => unknown) => (
+    ...args: unknown[]
+  ) => {
+    mockCachedSurfReportCalls.push(args);
+    return fn(...args);
+  }),
 }));
 
 // Mock the window-selector to capture what parameters are passed
@@ -115,6 +148,7 @@ describe("spot-surf-report-actions", () => {
     jest.resetModules();
     delete process.env.V51_DISPLAY_OVERRIDE_ENABLED;
     formatDateCallCount = 0;
+    mockCachedSurfReportCalls.length = 0;
   });
 
   afterAll(() => {
@@ -126,6 +160,92 @@ describe("spot-surf-report-actions", () => {
   });
 
   describe("getSpotSurfReport", () => {
+    async function setupBoardAwareScenario(options: {
+      profileSkill?: string | null;
+      waveHeight?: string;
+      windowScore?: number;
+      forecastRows?: Partial<EnhancedForecastEntity>[];
+    } = {}): Promise<void> {
+      const {
+        profileSkill = "advanced",
+        waveHeight = "2",
+        windowScore = 80,
+        forecastRows,
+      } = options;
+      const { createSupabaseServerClient, createSupabaseServiceRoleClient } = await import(
+        "@/lib/supabase/server"
+      );
+      const { getBatchSunTimes } = await import("@/lib/services/discovery");
+      const { getUserSurfPreferences } = await import("@/lib/services/preference-learning-service");
+      const { parseSkillLevel } = await import("@/lib/domains/user-preferences");
+
+      (parseSkillLevel as jest.Mock).mockReturnValue(profileSkill);
+      (createSupabaseServerClient as jest.Mock).mockReturnValue({
+        auth: {
+          getUser: jest.fn().mockResolvedValue({ data: { user: { id: "user-board-fit" } } }),
+        },
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              single: jest.fn().mockResolvedValue({
+                data: profileSkill ? { experience_level: profileSkill } : null,
+                error: null,
+              }),
+            })),
+          })),
+        })),
+      });
+      (getUserSurfPreferences as jest.Mock).mockResolvedValue(null);
+
+      (getBatchSunTimes as jest.Mock).mockResolvedValue(new Map([
+        [
+          "beach-123",
+          {
+            sunrises: [new Date("2024-01-15T14:47:00Z")],
+            sunsets: [new Date("2024-01-16T01:00:00Z")],
+          },
+        ],
+      ]));
+
+      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              gte: jest.fn(() => ({
+                lt: jest.fn(() => ({
+                  order: jest.fn(() => ({
+                    limit: jest.fn(async () => ({
+                      data: forecastRows ?? [
+                        {
+                          ...mockForecasts[0],
+                          wave_height: waveHeight,
+                          wave_period: "12s",
+                          wind_speed: "3 mph",
+                          wind_direction: "E",
+                          wind_direction_deg: 90,
+                        },
+                      ],
+                      error: null,
+                    })),
+                  })),
+                })),
+              })),
+            })),
+          })),
+        })),
+      });
+
+      mockSelectBestWindow.mockReturnValue({
+        start: new Date("2024-01-15T22:00:00Z"),
+        end: new Date("2024-01-16T00:00:00Z"),
+        score: windowScore,
+        waveHeight,
+        wavePeriod: "12s",
+        confidence: 80,
+        peakTime: new Date("2024-01-15T23:00:00Z"),
+      });
+    }
+
     it("fetches sun times and passes them to selectBestWindow", async () => {
       const { createSupabaseServerClient, createSupabaseServiceRoleClient } = await import(
         "@/lib/supabase/server"
@@ -387,6 +507,104 @@ describe("spot-surf-report-actions", () => {
       expect(callArgs.userPrefs).toEqual(mockUserPrefs);
     });
 
+    it("uses supplied auth context for native bearer-backed surf reports", async () => {
+      const { createSupabaseServerClient, createSupabaseServiceRoleClient } = await import(
+        "@/lib/supabase/server"
+      );
+      const { getBatchSunTimes } = await import("@/lib/services/discovery");
+      const { getUserSurfPreferences } = await import("@/lib/services/preference-learning-service");
+      const { parseSkillLevel } = await import("@/lib/domains/user-preferences");
+
+      const mockUserId = "native-user-456";
+      const profileQuery = {
+        select: jest.fn(),
+        eq: jest.fn(),
+        single: jest.fn().mockResolvedValue({
+          data: { experience_level: "intermediate" },
+          error: null,
+        }),
+      };
+      profileQuery.select.mockReturnValue(profileQuery);
+      profileQuery.eq.mockReturnValue(profileQuery);
+
+      const suppliedSupabase = {
+        from: jest.fn((table: string) => {
+          if (table === "profiles") return profileQuery;
+          throw new Error(`Unexpected table: ${table}`);
+        }),
+      } as unknown as SupabaseClient<Database>;
+      const suppliedUser = { id: mockUserId } as User;
+      const mockUserPrefs = {
+        wave_min_ft: 2,
+        wave_max_ft: 5,
+        wave_period_min_s: 9,
+        wave_period_max_s: 16,
+        max_wind_mph: 12,
+        preferred_wind_directions: [270],
+        preferred_tide_statuses: ["rising"],
+        confidence: 0.74,
+        sample_size: 8,
+      };
+
+      (createSupabaseServerClient as jest.Mock).mockImplementation(() => {
+        throw new Error("createSupabaseServerClient should not be called");
+      });
+      (getUserSurfPreferences as jest.Mock).mockResolvedValue(mockUserPrefs);
+      (parseSkillLevel as jest.Mock).mockReturnValue("intermediate");
+      (getBatchSunTimes as jest.Mock).mockResolvedValue(new Map([
+        [
+          "beach-123",
+          {
+            sunrises: [new Date("2024-01-15T14:47:00Z")],
+            sunsets: [new Date("2024-01-16T01:00:00Z")],
+          },
+        ],
+      ]));
+      (createSupabaseServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              gte: jest.fn(() => ({
+                lt: jest.fn(() => ({
+                  order: jest.fn(() => ({
+                    limit: jest.fn(async () => ({
+                      data: mockForecasts,
+                      error: null,
+                    })),
+                  })),
+                })),
+              })),
+            })),
+          })),
+        })),
+      });
+      mockSelectBestWindow.mockReturnValue({
+        start: new Date("2024-01-15T22:00:00Z"),
+        end: new Date("2024-01-16T00:00:00Z"),
+        score: 80,
+        waveHeight: "4",
+        confidence: 80,
+        peakTime: new Date("2024-01-15T23:00:00Z"),
+      });
+
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+      await getSpotSurfReport(mockBeach, "longboard", {
+        user: suppliedUser,
+        supabase: suppliedSupabase,
+      });
+
+      expect(createSupabaseServerClient).not.toHaveBeenCalled();
+      expect(getUserSurfPreferences).toHaveBeenCalledWith(mockUserId);
+      expect(suppliedSupabase.from).toHaveBeenCalledWith("profiles");
+      expect(profileQuery.select).toHaveBeenCalledWith("experience_level");
+      expect(profileQuery.eq).toHaveBeenCalledWith("id", mockUserId);
+      expect(profileQuery.single).toHaveBeenCalled();
+      expect(mockCachedSurfReportCalls[0]?.[2]).toBe(mockUserId);
+      expect(mockCachedSurfReportCalls[0]?.[4]).toBe("longboard");
+    });
+
     it("passes null userPrefs for anonymous users", async () => {
       const { createSupabaseServerClient, createSupabaseServiceRoleClient } = await import(
         "@/lib/supabase/server"
@@ -461,6 +679,93 @@ describe("spot-surf-report-actions", () => {
       expect(mockSelectBestWindow).toHaveBeenCalled();
       const callArgs = mockSelectBestWindow.mock.calls[0][0];
       expect(callArgs.userPrefs).toBeNull();
+    });
+
+    it("keeps absent boardClass behavior unchanged", async () => {
+      await setupBoardAwareScenario();
+
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+      const result = await getSpotSurfReport(mockBeach);
+
+      expect(result?.report.score).toBe(74);
+      expect(result?.report.whySentence).not.toContain("Board fit:");
+    });
+
+    it("scores a clean 2 ft-ish day higher for longboard with a sweet-spot note", async () => {
+      await setupBoardAwareScenario();
+
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+      const noBoard = await getSpotSurfReport(mockBeach);
+      const longboard = await getSpotSurfReport(mockBeach, "longboard");
+
+      expect(longboard?.report.score).toBeGreaterThan(noBoard?.report.score ?? 0);
+      expect(longboard?.report.whySentence).toContain(
+        "Board fit: in the sweet spot for your longboard."
+      );
+    });
+
+    it("scores the same 2 ft-ish day lower for shortboard with a too-small note", async () => {
+      await setupBoardAwareScenario();
+
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+      const noBoard = await getSpotSurfReport(mockBeach);
+      const shortboard = await getSpotSurfReport(mockBeach, "shortboard");
+
+      expect(shortboard?.report.score).toBeLessThan(noBoard?.report.score ?? 0);
+      expect(shortboard?.report.whySentence).toContain(
+        "Board fit: too small for your shortboard."
+      );
+    });
+
+    it("passes boardClass as a distinct cached argument", async () => {
+      await setupBoardAwareScenario();
+
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+      await getSpotSurfReport(mockBeach, "longboard");
+      await getSpotSurfReport(mockBeach, "shortboard");
+
+      expect(mockCachedSurfReportCalls.map((args) => args[4])).toEqual([
+        "longboard",
+        "shortboard",
+      ]);
+    });
+
+    it("passes a rideability band to window selection when boardClass is present", async () => {
+      await setupBoardAwareScenario();
+
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+      await getSpotSurfReport(mockBeach, "longboard");
+
+      expect(mockSelectBestWindow).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rideabilityBand: mockRideabilityBand,
+        })
+      );
+    });
+
+    it("passes null rideability band to window selection when boardClass is absent", async () => {
+      await setupBoardAwareScenario();
+
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+      await getSpotSurfReport(mockBeach);
+
+      expect(mockSelectBestWindow).toHaveBeenCalledWith(
+        expect.objectContaining({
+          rideabilityBand: null,
+        })
+      );
     });
 
     it("keeps forecastContext on raw heights while the v5.1 display rollout is disabled", async () => {
