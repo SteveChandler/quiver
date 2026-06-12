@@ -14,8 +14,8 @@ import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/l
 import { getBatchSunTimes } from '@/lib/services/discovery';
 import { getUserSurfPreferences, type UserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { checkBoardFit, checkSkillCeiling, checkSkillFloor } from '@/lib/domains/scoring/discovery-adapter';
-import { getSkillLevelOrDefault, parseSkillLevel, type BoardClass } from '@/lib/domains/user-preferences';
-import { getRideabilityBand } from '@/lib/domains/rideability';
+import { parseSkillLevel, type BoardClass } from '@/lib/domains/user-preferences';
+import { getRideabilityBand, resolveVerdictSkill, type ResolvedVerdictSkill } from '@/lib/domains/rideability';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
 import {
   buildForecastRecommendationContext,
@@ -49,7 +49,7 @@ function buildReport(
   forecasts: EnhancedForecastEntity[],
   beach: Beach,
   options: BuildReportOptions,
-  userSkillLevel: ReturnType<typeof parseSkillLevel>,
+  resolvedSkill: ResolvedVerdictSkill | null,
 ): SurfCallResult {
   const surfCallOptions = { isTomorrow: options.isTomorrow };
   const baseline = computeSurfCall(window, forecasts, beach, surfCallOptions);
@@ -63,7 +63,8 @@ function buildReport(
     whySentence,
     score: clampScore(baseline.score),
     tiers,
-    userTier: userSkillLevel ?? null,
+    userTier: resolvedSkill?.skill ?? null,
+    skillSource: resolvedSkill?.source ?? null,
   };
 }
 
@@ -206,21 +207,21 @@ interface PreferenceAdjustmentResult {
  */
 function applyPreferenceAdjustments(
   window: PersonalizedForecastWindow,
-  userSkillLevel: ReturnType<typeof parseSkillLevel>,
+  resolvedSkill: ResolvedVerdictSkill | null,
   boardClass: BoardClass | null
 ): PreferenceAdjustmentResult {
   const waveHeight = parseFloat(window.waveHeight || '0');
   let adjustedWindow = window;
 
-  if (userSkillLevel) {
-    const skillResult = checkSkillCeiling(waveHeight, userSkillLevel);
+  if (resolvedSkill) {
+    const skillResult = checkSkillCeiling(waveHeight, resolvedSkill.skill);
     if (skillResult.penalty > 0) {
       adjustedWindow = {
         ...adjustedWindow,
         score: clampScore((adjustedWindow.score ?? 0) - skillResult.penalty),
       };
     } else {
-      const floorResult = checkSkillFloor(waveHeight, userSkillLevel);
+      const floorResult = checkSkillFloor(waveHeight, resolvedSkill.skill);
       if (floorResult.penalty > 0) {
         adjustedWindow = {
           ...adjustedWindow,
@@ -230,13 +231,13 @@ function applyPreferenceAdjustments(
     }
   }
 
-  if (!boardClass) {
+  if (!boardClass || !resolvedSkill) {
     return { window: adjustedWindow, boardNote: null };
   }
 
   const boardFit = checkBoardFit(
     waveHeight,
-    getSkillLevelOrDefault(userSkillLevel),
+    resolvedSkill.skill,
     boardClass
   );
   const boardAdjustment = boardFit.bonus - boardFit.penalty;
@@ -333,6 +334,13 @@ const getCachedSurfReport = unstable_cache(
     userPrefs: UserSurfPreferences | null,
     userSkillLevel: ReturnType<typeof parseSkillLevel>
   ): Promise<SpotSurfReportResult | null> => {
+    const resolvedSkillForBoard = boardClass
+      ? resolveVerdictSkill(userSkillLevel, boardClass)
+      : null;
+    const resolvedSkill = userId === 'anonymous' && !boardClass
+      ? null
+      : resolvedSkillForBoard ?? resolveVerdictSkill(userSkillLevel, null);
+
     // 1. Determine beach timezone
     const beachTz = beach.lat != null && beach.lon != null
       ? getTimezoneFromCoords(beach.lat, beach.lon)
@@ -366,7 +374,7 @@ const getCachedSurfReport = unstable_cache(
         code: error.code,
       });
       return {
-        report: buildReport(null, [], beach, {}, userSkillLevel),
+        report: buildReport(null, [], beach, {}, resolvedSkill),
         isTomorrow: false,
         forecastContext: null,
       };
@@ -374,7 +382,7 @@ const getCachedSurfReport = unstable_cache(
 
     if (!data || data.length === 0) {
       return {
-        report: buildReport(null, [], beach, {}, userSkillLevel),
+        report: buildReport(null, [], beach, {}, resolvedSkill),
         isTomorrow: false,
         forecastContext: null,
       };
@@ -389,7 +397,7 @@ const getCachedSurfReport = unstable_cache(
     const todayForecasts = forecasts.filter(f => extractForecastDate(f.forecast_at, beachTz) === todayStr);
     const tomorrowForecasts = forecasts.filter(f => extractForecastDate(f.forecast_at, beachTz) === tomorrowStr);
     const rideabilityBand = boardClass
-      ? getRideabilityBand(getSkillLevelOrDefault(userSkillLevel), boardClass)
+      ? getRideabilityBand(resolvedSkillForBoard!.skill, boardClass)
       : null;
 
     const { selectBestWindow } = await import('@/lib/services/discovery/window-selector');
@@ -409,7 +417,7 @@ const getCachedSurfReport = unstable_cache(
         const {
           window: adjustedWindow,
           boardNote,
-        } = applyPreferenceAdjustments(window, userSkillLevel, boardClass);
+        } = applyPreferenceAdjustments(window, resolvedSkill, boardClass);
         const forecastContext = buildForecastRecommendationContext({
           beach,
           forecasts: todayForecasts,
@@ -418,7 +426,7 @@ const getCachedSurfReport = unstable_cache(
         });
         delete adjustedWindow.sourceForecast;
         return {
-          report: buildReport(adjustedWindow, todayForecasts, beach, { isTomorrow: false, boardNote }, userSkillLevel),
+          report: buildReport(adjustedWindow, todayForecasts, beach, { isTomorrow: false, boardNote }, resolvedSkill),
           isTomorrow: false,
           forecastContext,
         };
@@ -440,7 +448,7 @@ const getCachedSurfReport = unstable_cache(
         const {
           window: adjustedWindow,
           boardNote,
-        } = applyPreferenceAdjustments(window, userSkillLevel, boardClass);
+        } = applyPreferenceAdjustments(window, resolvedSkill, boardClass);
         const forecastContext = buildForecastRecommendationContext({
           beach,
           forecasts: tomorrowForecasts,
@@ -449,13 +457,13 @@ const getCachedSurfReport = unstable_cache(
         });
         delete adjustedWindow.sourceForecast;
         return {
-          report: buildReport(adjustedWindow, tomorrowForecasts, beach, { isTomorrow: true, boardNote }, userSkillLevel),
+          report: buildReport(adjustedWindow, tomorrowForecasts, beach, { isTomorrow: true, boardNote }, resolvedSkill),
           isTomorrow: true,
           forecastContext,
         };
       }
       return {
-        report: buildReport(null, tomorrowForecasts, beach, { isTomorrow: true }, userSkillLevel),
+        report: buildReport(null, tomorrowForecasts, beach, { isTomorrow: true }, resolvedSkill),
         isTomorrow: true,
         forecastContext: buildForecastRecommendationContext({
           beach,
@@ -468,7 +476,7 @@ const getCachedSurfReport = unstable_cache(
 
     // No forecast data for either day
     return {
-      report: buildReport(null, [], beach, {}, userSkillLevel),
+      report: buildReport(null, [], beach, {}, resolvedSkill),
       isTomorrow: false,
       forecastContext: null,
     };

@@ -44,16 +44,35 @@ const mockRideabilityBand = {
   prefersClean: false,
   powerBias: 0.4,
 };
-const mockShortboardRideabilityBand = {
+const mockIntermediateShortboardRideabilityBand = {
   ideal: { min: 3, max: 5 },
   acceptable: { min: 2.5, max: 7 },
   prefersClean: false,
   powerBias: 0.6,
 };
+const mockAdvancedShortboardRideabilityBand = {
+  ideal: { min: 4, max: 7 },
+  acceptable: { min: 3, max: 9 },
+  prefersClean: false,
+  powerBias: 0.7,
+};
+const mockBeginnerShortboardRideabilityBand = {
+  ideal: { min: 1, max: 3 },
+  acceptable: { min: 0.5, max: 4 },
+  prefersClean: false,
+  powerBias: 0.4,
+};
 jest.mock("@/lib/domains/rideability", () => ({
-  getRideabilityBand: jest.fn((_skillLevel: string, boardClass: string | null) => (
-    boardClass === "shortboard" ? mockShortboardRideabilityBand : mockRideabilityBand
-  )),
+  ...jest.requireActual("@/lib/domains/rideability"),
+  getRideabilityBand: jest.fn((skillLevel: string, boardClass: string | null) =>
+    boardClass === "shortboard"
+      ? skillLevel === "beginner"
+        ? mockBeginnerShortboardRideabilityBand
+        : skillLevel === "advanced"
+          ? mockAdvancedShortboardRideabilityBand
+          : mockIntermediateShortboardRideabilityBand
+      : mockRideabilityBand
+  ),
 }));
 
 jest.mock("@/lib/utils/timezone-utils.server", () => ({
@@ -670,7 +689,7 @@ describe("spot-surf-report-actions", () => {
       const { getSpotSurfReport } = await import(
         "@/actions/spot/spot-surf-report-actions"
       );
-      await getSpotSurfReport(mockBeach);
+      const result = await getSpotSurfReport(mockBeach);
 
       // Verify getUserSurfPreferences was NOT called for anonymous users
       expect(getUserSurfPreferences).not.toHaveBeenCalled();
@@ -679,6 +698,8 @@ describe("spot-surf-report-actions", () => {
       expect(mockSelectBestWindow).toHaveBeenCalled();
       const callArgs = mockSelectBestWindow.mock.calls[0][0];
       expect(callArgs.userPrefs).toBeNull();
+      expect(result?.report.userTier).toBeNull();
+      expect(result?.report.skillSource).toBeNull();
     });
 
     it("keeps absent boardClass behavior unchanged", async () => {
@@ -721,6 +742,73 @@ describe("spot-surf-report-actions", () => {
       expect(shortboard?.report.whySentence).toContain(
         "Board fit: too small for your shortboard."
       );
+    });
+
+    it("uses the shortboard-implied intermediate prior when profile skill is missing", async () => {
+      await setupBoardAwareScenario({
+        profileSkill: null,
+        waveHeight: "4.5",
+        windowScore: 70,
+      });
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+      const result = await getSpotSurfReport(mockBeach, "shortboard");
+      const { checkBoardFit, checkSkillCeiling, checkSkillFloor } =
+        jest.requireMock("@/lib/domains/scoring/discovery-adapter");
+      const { getRideabilityBand } = jest.requireMock("@/lib/domains/rideability");
+
+      expect(getRideabilityBand).toHaveBeenCalledWith("intermediate", "shortboard");
+      expect(checkSkillCeiling).toHaveBeenCalledWith(4.5, "intermediate");
+      expect(checkSkillFloor).toHaveBeenCalledWith(4.5, "intermediate");
+      expect(checkBoardFit).toHaveBeenCalledWith(4.5, "intermediate", "shortboard");
+      expect(result?.report.userTier).toBe("intermediate");
+      expect(result?.report.skillSource).toBe("board_prior");
+      expect(result?.report.score).toBeGreaterThan(70);
+      expect(result?.report.whySentence).toContain(
+        "Board fit: in the sweet spot for your shortboard."
+      );
+    });
+
+    it("keeps profile skill ahead of the board-implied prior when boardClass is present", async () => {
+      await setupBoardAwareScenario({
+        profileSkill: "advanced",
+        waveHeight: "4.5",
+        windowScore: 70,
+      });
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+      const result = await getSpotSurfReport(mockBeach, "shortboard");
+      const { checkBoardFit, checkSkillCeiling, checkSkillFloor } =
+        jest.requireMock("@/lib/domains/scoring/discovery-adapter");
+      const { getRideabilityBand } = jest.requireMock("@/lib/domains/rideability");
+
+      expect(getRideabilityBand).toHaveBeenCalledWith("advanced", "shortboard");
+      expect(checkSkillCeiling).toHaveBeenCalledWith(4.5, "advanced");
+      expect(checkSkillFloor).toHaveBeenCalledWith(4.5, "advanced");
+      expect(checkBoardFit).toHaveBeenCalledWith(4.5, "advanced", "shortboard");
+      expect(result?.report.userTier).toBe("advanced");
+      expect(result?.report.skillSource).toBe("profile");
+    });
+
+    it("uses the intermediate default for logged-in users missing both profile skill and board", async () => {
+      await setupBoardAwareScenario({
+        profileSkill: null,
+        waveHeight: "1.5",
+        windowScore: 80,
+      });
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+      const result = await getSpotSurfReport(mockBeach);
+      const { checkSkillFloor } =
+        jest.requireMock("@/lib/domains/scoring/discovery-adapter");
+
+      expect(checkSkillFloor).toHaveBeenCalledWith(1.5, "intermediate");
+      expect(result?.report.userTier).toBe("intermediate");
+      expect(result?.report.skillSource).toBe("default");
+      expect(result?.report.score).toBeLessThan(80);
     });
 
     it("passes boardClass as a distinct cached argument", async () => {
