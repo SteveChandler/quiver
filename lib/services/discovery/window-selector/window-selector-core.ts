@@ -25,6 +25,7 @@ import type {
   TimeSlot,
 } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
+import type { RideabilityBand } from '@/lib/domains/rideability';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils';
 import { createContextLogger } from '@/lib/logger';
 import { resolveForecastTime, localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
@@ -53,7 +54,7 @@ import { getLocalDateStr, getTimeSlotRange, capEndTimeToTimeSlot, getLocalHour }
 import { calculateTideDrivenBoundaries } from './tide-boundary-calculator';
 import { findPeakWithinWindow } from './peak-finder';
 import { applySubHourRefinement } from './window-refiner';
-import { scoreWindowWithEngine } from './window-scorer';
+import { scoreWindowForSelection, scoreWindowWithEngine } from './window-scorer';
 
 // ============================================================================
 // Helper Functions
@@ -68,14 +69,22 @@ function prepareForecasts(
   beach: Beach,
   beachTz: string,
   now: Date,
-  todayDateStr: string
+  todayDateStr: string,
+  rideabilityBand: RideabilityBand | null
 ): ScoredForecast[] {
   return forecasts
     .map((forecast) => {
       // Interpret forecast_date + forecast_time as LOCAL time in the beach timezone.
       // This avoids UTC boundary bugs where forecast_time stores local hours.
       const forecastTime = resolveForecastTime(forecast, beachTz);
-      const score = scoreWindowWithEngine(forecast, beach);
+      const selectionScore = scoreWindowForSelection(
+        forecast,
+        beach,
+        rideabilityBand
+      );
+      const score = rideabilityBand
+        ? scoreWindowWithEngine(forecast, beach)
+        : selectionScore;
 
       // Check if forecast is for today (in beach timezone)
       let isToday = false;
@@ -98,7 +107,14 @@ function prepareForecasts(
         // Default to not today if timezone conversion fails
       }
 
-      return { forecast, forecastTime, score, isToday, localHourStr };
+      return {
+        forecast,
+        forecastTime,
+        score,
+        selectionScore,
+        isToday,
+        localHourStr,
+      };
     })
     .filter(({ forecastTime }) => {
       // Only show windows that are still in progress or just ended
@@ -293,11 +309,14 @@ function calculateWindowEnd(
     const nextLocalDate = getLocalDateStrForBeach(next.forecastTime);
     if (currentLocalDate !== nextLocalDate) break;
 
-    if (current.score >= effectiveThreshold && next.score < effectiveThreshold) {
+    const currentSelectionScore = getSelectionScore(current);
+    const nextSelectionScore = getSelectionScore(next);
+
+    if (currentSelectionScore >= effectiveThreshold && nextSelectionScore < effectiveThreshold) {
       // Linear interpolation to find precise degradation time
-      const dropAmount = current.score - next.score;
+      const dropAmount = currentSelectionScore - nextSelectionScore;
       if (dropAmount <= 0) break;
-      const thresholdDiff = current.score - effectiveThreshold;
+      const thresholdDiff = currentSelectionScore - effectiveThreshold;
       const fractionOfHour = dropAmount > 0 ? thresholdDiff / dropAmount : 0;
 
       const degradationTime = new Date(
@@ -387,9 +406,11 @@ function buildResult(
   beachTz: string,
   now: Date
 ): PersonalizedForecastWindow {
-  const peakCandidates = filteredForecasts.map(({ forecast, forecastTime, score }) => ({
-    forecastTime,
-    score: score + getPeakTimeTideAdjustment(forecast, beach),
+  const peakCandidates = filteredForecasts.map((scoredForecast) => ({
+    forecastTime: scoredForecast.forecastTime,
+    score:
+      getSelectionScore(scoredForecast) +
+      getPeakTimeTideAdjustment(scoredForecast.forecast, beach),
   }));
 
   // Pass `now` through so findPeakWithinWindow can clamp past peaks to the
@@ -428,6 +449,7 @@ interface NormalizedWindowSelectorOptions {
   timeSlot: TimeSlot | undefined;
   now: Date;
   maxWindows: number;
+  rideabilityBand: RideabilityBand | null;
 }
 
 interface RankedCandidateWindow extends CandidateWindow {
@@ -435,6 +457,12 @@ interface RankedCandidateWindow extends CandidateWindow {
 }
 
 const DEFAULT_MAX_WINDOWS = 3;
+
+function getSelectionScore(
+  scored: Pick<ScoredForecast | CandidateWindow, 'score' | 'selectionScore'>
+): number {
+  return scored.selectionScore ?? scored.score;
+}
 
 function normalizeWindowSelectorOptions(
   optionsOrForecasts: WindowSelectorOptions | EnhancedForecastEntity[],
@@ -456,6 +484,7 @@ function normalizeWindowSelectorOptions(
       timeSlot,
       now: now ?? new Date(),
       maxWindows: maxWindows ?? DEFAULT_MAX_WINDOWS,
+      rideabilityBand: null,
     };
   }
 
@@ -468,6 +497,7 @@ function normalizeWindowSelectorOptions(
     timeSlot: optionsOrForecasts.timeSlot,
     now: optionsOrForecasts.now ?? new Date(),
     maxWindows: optionsOrForecasts.maxWindows ?? DEFAULT_MAX_WINDOWS,
+    rideabilityBand: optionsOrForecasts.rideabilityBand ?? null,
   };
 }
 
@@ -665,6 +695,7 @@ export function selectBestWindows(
     timeSlot: actualTimeSlot,
     now: actualNow,
     maxWindows: actualMaxWindows,
+    rideabilityBand: actualRideabilityBand,
   } = normalizeWindowSelectorOptions(
     optionsOrForecasts,
     beach,
@@ -717,7 +748,14 @@ export function selectBestWindows(
   }
 
   // Score and prepare forecasts
-  const scoredForecasts = prepareForecasts(forecasts, actualBeach, beachTz, actualNow, todayDateStr);
+  const scoredForecasts = prepareForecasts(
+    forecasts,
+    actualBeach,
+    beachTz,
+    actualNow,
+    todayDateStr,
+    actualRideabilityBand
+  );
   if (scoredForecasts.length === 0) {
     log.debug(`[selectBestWindows] ${actualBeach.name}: No scored forecasts after filtering past times`);
     return [];
@@ -740,7 +778,13 @@ export function selectBestWindows(
   const candidateWindows: RankedCandidateWindow[] = [];
 
   for (let i = 0; i < filteredForecasts.length; i++) {
-    const { forecast, forecastTime: startTime, score: startScore, isToday } = filteredForecasts[i];
+    const {
+      forecast,
+      forecastTime: startTime,
+      score: startScore,
+      isToday,
+    } = filteredForecasts[i];
+    const startSelectionScore = getSelectionScore(filteredForecasts[i]);
 
     // Determine threshold
     const shouldApplyThreshold = !actualTimeSlot || actualTimeSlot === 'any';
@@ -748,8 +792,8 @@ export function selectBestWindows(
       ? (isMorning && isToday) ? MIN_SCORE_THRESHOLD_MORNING : MIN_SCORE_THRESHOLD
       : 0;
 
-    if (startScore < effectiveThreshold) {
-      log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} score=${startScore} < threshold=${effectiveThreshold}, skipping`);
+    if (startSelectionScore < effectiveThreshold) {
+      log.debug(`[selectBestWindow] ${actualBeach.name}: Forecast ${i} selectionScore=${startSelectionScore} < threshold=${effectiveThreshold}, skipping`);
       continue;
     }
 
@@ -872,13 +916,21 @@ export function selectBestWindows(
     }
 
     // Calculate adjusted score
-    const adjustedScore = calculateAdjustedScore(startScore, startTime, actualNow, isToday, isMorning, beachTz);
+    const adjustedScore = calculateAdjustedScore(
+      startSelectionScore,
+      startTime,
+      actualNow,
+      isToday,
+      isMorning,
+      beachTz
+    );
 
     candidateWindows.push({
       forecast,
       start: effectiveStartTime,
       end: endTime,
       score: startScore,
+      selectionScore: startSelectionScore,
       usedTideBoundaries: useTideBoundaries,
       adjustedScore,
     });
@@ -908,7 +960,7 @@ export function selectBestWindows(
     if (fallbackWindow) {
       candidateWindows.push({
         ...fallbackWindow,
-        adjustedScore: fallbackWindow.score,
+        adjustedScore: getSelectionScore(fallbackWindow),
       });
     }
   }
@@ -923,7 +975,10 @@ export function selectBestWindows(
     .map((candidateWindow) => {
       const refinedTimes = applySubHourRefinement(
         candidateWindow,
-        filteredForecasts,
+        filteredForecasts.map((scoredForecast) => ({
+          ...scoredForecast,
+          score: getSelectionScore(scoredForecast),
+        })),
         forecasts,
         sunsets,
         sunrises,
@@ -1062,7 +1117,7 @@ function selectFallbackWindow(
       }
     }
 
-    return f.score + bonus + soonBonus + underwayBonus;
+    return getSelectionScore(f) + bonus + soonBonus + underwayBonus;
   };
 
   const best = daylightForecasts.reduce((prev, curr) =>
@@ -1125,13 +1180,14 @@ function selectFallbackWindow(
     return null;
   }
 
-  log.debug(`${logPrefix}: Fallback selected window with score=${best.score}, duration=${durationHours.toFixed(1)}h`);
+  log.debug(`${logPrefix}: Fallback selected window with score=${best.score}, selectionScore=${getSelectionScore(best)}, duration=${durationHours.toFixed(1)}h`);
 
   return {
     forecast: best.forecast,
     start: effectiveStartTime,
     end: endTime,
     score: best.score,
+    selectionScore: getSelectionScore(best),
     usedTideBoundaries: false,
   };
 }

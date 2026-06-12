@@ -10,6 +10,7 @@ import {
 import { getSpotSurfReport } from '@/actions/spot/spot-surf-report-actions';
 import type { Beach } from '@/types/database';
 import { applyForceVerdict } from '@/lib/utils/dev-force-verdict';
+import { normalizeBoardClass } from '@/lib/domains/rideability';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -19,7 +20,7 @@ const QuerySchema = z.object({
 });
 
 /**
- * GET /api/surf/call?beachId=<uuid>
+ * GET /api/surf/call?beachId=<uuid>&boardClass=<BoardClass>
  *
  * Returns a personalized surf-call verdict for a single beach.
  * Consumed by the Quiver Native app so the native surf call matches web exactly.
@@ -30,7 +31,7 @@ const QuerySchema = z.object({
  */
 async function surfCallHandler(
   request: NextRequest,
-  { supabase }: AuthenticatedContext
+  { user, supabase }: AuthenticatedContext
 ): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const validation = validateOrError(QuerySchema, {
@@ -41,6 +42,7 @@ async function surfCallHandler(
   }
 
   const { beachId } = validation.data;
+  const boardClass = normalizeBoardClass(searchParams.get('boardClass'));
 
   // Narrow column list — only what getSpotSurfReport, selectBestWindow, and
   // computeSurfCall actually read. Skips the heavy text/jsonb columns
@@ -71,7 +73,11 @@ async function surfCallHandler(
     );
   }
 
-  const rawResult = await getSpotSurfReport(beach as unknown as Beach);
+  const rawResult = await getSpotSurfReport(
+    beach as unknown as Beach,
+    boardClass,
+    { user, supabase }
+  );
   if (!rawResult) {
     return NextResponse.json(
       { success: false, error: 'Unable to compute surf call' },

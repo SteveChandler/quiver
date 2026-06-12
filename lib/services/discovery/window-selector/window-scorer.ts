@@ -10,12 +10,18 @@ import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import type { CompositeScore } from '@/lib/domains/scoring';
+import type { RideabilityBand } from '@/lib/domains/rideability';
 import {
   beachToSpotProfile,
   forecastToSnapshot,
 } from '@/lib/domains/scoring';
 import { getDirectionDegrees } from './direction-utils';
 import { getScoringEngine } from './scoring-engine-singleton';
+
+const SELECTOR_IDEAL_RIDEABILITY_BONUS = 4;
+const SELECTOR_ACCEPTABLE_RIDEABILITY_BONUS = 1;
+const SELECTOR_OUT_OF_BAND_PENALTY_PER_FOOT = 5;
+const SELECTOR_OUT_OF_BAND_PENALTY_CAP = 12;
 
 /**
  * Score a single forecast window based on conditions and user preferences.
@@ -163,6 +169,26 @@ export function scoreWindowWithEngine(
 }
 
 /**
+ * Score a forecast window for selector ranking, with a small board-aware
+ * rideability nudge. The adjustment is intentionally kept out of
+ * scoreWindowWithEngine so display/report scoring remains globally unchanged.
+ */
+export function scoreWindowForSelection(
+  forecast: EnhancedForecastEntity,
+  beach: Beach,
+  rideabilityBand: RideabilityBand | null = null
+): number {
+  const baseScore = scoreWindowWithEngine(forecast, beach);
+  if (!rideabilityBand) {
+    return baseScore;
+  }
+
+  return clampSelectionScore(
+    baseScore + getRideabilitySelectionAdjustment(forecast, rideabilityBand)
+  );
+}
+
+/**
  * Score a forecast window using the unified discovery scoring engine and
  * return the composite result for downstream explanation/confidence builders.
  */
@@ -180,4 +206,43 @@ export function scoreWindowWithComposite(
     window: null,
     preferences: null,
   });
+}
+
+function getRideabilitySelectionAdjustment(
+  forecast: EnhancedForecastEntity,
+  rideabilityBand: RideabilityBand
+): number {
+  const waveHeight = parseFloat(forecast.wave_height || '0');
+  if (!Number.isFinite(waveHeight) || waveHeight <= 0) {
+    return 0;
+  }
+
+  if (
+    waveHeight >= rideabilityBand.ideal.min &&
+    waveHeight <= rideabilityBand.ideal.max
+  ) {
+    return SELECTOR_IDEAL_RIDEABILITY_BONUS;
+  }
+
+  if (waveHeight < rideabilityBand.acceptable.min) {
+    const under = rideabilityBand.acceptable.min - waveHeight;
+    return -Math.min(
+      SELECTOR_OUT_OF_BAND_PENALTY_CAP,
+      Math.round(under * SELECTOR_OUT_OF_BAND_PENALTY_PER_FOOT)
+    );
+  }
+
+  if (waveHeight > rideabilityBand.acceptable.max) {
+    const over = waveHeight - rideabilityBand.acceptable.max;
+    return -Math.min(
+      SELECTOR_OUT_OF_BAND_PENALTY_CAP,
+      Math.round(over * SELECTOR_OUT_OF_BAND_PENALTY_PER_FOOT)
+    );
+  }
+
+  return SELECTOR_ACCEPTABLE_RIDEABILITY_BONUS;
+}
+
+function clampSelectionScore(score: number): number {
+  return Math.max(0, Math.min(100, score));
 }

@@ -10,6 +10,7 @@ import type { Beach } from '@/types/database';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { TimeSlot } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
+import type { RideabilityBand } from '@/lib/domains/rideability';
 
 /**
  * Options for the window selector algorithm.
@@ -23,6 +24,7 @@ export interface WindowSelectorOptions {
   timeSlot?: TimeSlot;
   now?: Date;
   maxWindows?: number;
+  rideabilityBand?: RideabilityBand | null;
 }
 
 /**
@@ -33,6 +35,7 @@ export interface CandidateWindow {
   start: Date;
   end: Date;
   score: number;
+  selectionScore?: number;
   usedTideBoundaries: boolean;
 }
 
@@ -43,6 +46,7 @@ export interface ScoredForecast {
   forecast: EnhancedForecastEntity;
   forecastTime: Date;
   score: number;
+  selectionScore?: number;
   isToday: boolean;
   localHourStr: string;
 }

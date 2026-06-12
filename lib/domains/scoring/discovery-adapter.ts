@@ -24,6 +24,7 @@ import type { UserPreferences } from '../user-preferences/types';
 import type { SkillLevel } from '../user-preferences/skill-level';
 import { getSkillLevelOrDefault, parseSkillLevel, SKILL_WAVE_RANGES as SKILL_WAVE_RANGES_SOURCE } from '../user-preferences/skill-level';
 import type { SkillWaveRanges } from '../user-preferences/skill-level';
+import { getRideabilityBand, type BoardClass } from '../rideability';
 import { createSpotProfile } from '../spot-profile';
 import { createSwellComponent, pickDominantSwell } from '../conditions';
 import type { SwellPartition, SwellPartitions } from '../conditions';
@@ -304,6 +305,12 @@ export const WAVE_SIZE_SCORING_CONFIG = {
   skillFloorPenaltyCap: 18,
   /** Bonus points for waves in skill ideal range */
   skillIdealBonus: 3,
+  /** Points deducted per foot outside the board's acceptable band */
+  boardFitPenaltyPerFoot: 8,
+  /** Cap for small-wave board penalties so clean small days can remain possible */
+  boardFitSmallWavePenaltyCap: 18,
+  /** Bonus points for waves in the board's ideal band */
+  boardFitIdealBonus: 6,
   /** Warning thresholds */
   warnings: {
     /** Feet over limit for "dangerous" warning */
@@ -416,6 +423,64 @@ export function checkSkillFloor(
       : 'Waves are smaller than your ideal range';
 
   return { penalty, warning };
+}
+
+/**
+ * Result of checking wave height against a board-aware rideability band.
+ */
+export interface BoardFitResult {
+  /** Penalty points (0 if board is appropriate for the wave height) */
+  penalty: number;
+  /** Bonus points (0 unless wave height is in the board's ideal band) */
+  bonus: number;
+  /** User-facing note for board-specific fit, if any */
+  note: string | null;
+}
+
+/**
+ * Check if the current wave height fits the selected board class.
+ */
+export function checkBoardFit(
+  waveHeight: number,
+  skillLevel: SkillLevel,
+  board: BoardClass | null
+): BoardFitResult {
+  if (!board || !Number.isFinite(waveHeight)) {
+    return { penalty: 0, bonus: 0, note: null };
+  }
+
+  const band = getRideabilityBand(skillLevel, board);
+
+  if (waveHeight > band.acceptable.max) {
+    const over = waveHeight - band.acceptable.max;
+    return {
+      penalty: Math.round(over * WAVE_SIZE_SCORING_CONFIG.boardFitPenaltyPerFoot),
+      bonus: 0,
+      note: `too big for your ${board}`,
+    };
+  }
+
+  if (waveHeight < band.acceptable.min) {
+    const under = band.acceptable.min - waveHeight;
+    return {
+      penalty: Math.min(
+        WAVE_SIZE_SCORING_CONFIG.boardFitSmallWavePenaltyCap,
+        Math.round(under * WAVE_SIZE_SCORING_CONFIG.boardFitPenaltyPerFoot)
+      ),
+      bonus: 0,
+      note: `too small for your ${board}`,
+    };
+  }
+
+  if (waveHeight >= band.ideal.min && waveHeight <= band.ideal.max) {
+    return {
+      penalty: 0,
+      bonus: WAVE_SIZE_SCORING_CONFIG.boardFitIdealBonus,
+      note: `in the sweet spot for your ${board}`,
+    };
+  }
+
+  return { penalty: 0, bonus: 0, note: null };
 }
 
 /**

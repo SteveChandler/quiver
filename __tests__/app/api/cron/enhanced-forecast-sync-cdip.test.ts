@@ -125,6 +125,8 @@ describe("CDIP Enhanced Forecast Sync Cron Job API", () => {
   });
 
   it("should return forbidden outside production", async () => {
+    const { completeCronCheckIn, startCronCheckIn } = require("@/lib/monitoring/sentry-cron");
+
     process.env.VERCEL_ENV = "preview";
     const request = mockRequest({ authorization: "Bearer valid-cron-secret" });
     const response = await POST(request);
@@ -132,9 +134,12 @@ describe("CDIP Enhanced Forecast Sync Cron Job API", () => {
 
     expect(data.success).toBe(false);
     expect(data.error).toBe("Forbidden");
+    expect(startCronCheckIn).not.toHaveBeenCalled();
+    expect(completeCronCheckIn).not.toHaveBeenCalled();
   });
 
   it("should handle authentication failures", async () => {
+    const { completeCronCheckIn, startCronCheckIn } = require("@/lib/monitoring/sentry-cron");
     const { validateCronRequest } = require("@/lib/middleware/api-wrappers");
     validateCronRequest.mockReturnValue(false);
 
@@ -145,8 +150,9 @@ describe("CDIP Enhanced Forecast Sync Cron Job API", () => {
     expect(data.success).toBe(false);
     expect(data.error).toBe("Unauthorized");
     expect(updateCdipBeachForecasts).not.toHaveBeenCalled();
+    expect(startCronCheckIn).not.toHaveBeenCalled();
+    expect(completeCronCheckIn).not.toHaveBeenCalled();
   });
 });
-
 
 

@@ -175,7 +175,7 @@ export interface WaveWatchForecast {
  */
 export interface OpenMeteoMarineResponse {
   hourly?: {
-    time: string[];
+    time: Array<string | number>;
     wave_height?: number[];
     wave_direction?: number[];
     wave_period?: number[];

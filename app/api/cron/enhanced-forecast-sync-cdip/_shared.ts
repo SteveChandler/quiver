@@ -74,9 +74,8 @@ export async function runEnhancedForecastSyncCdip(
     mode: "cdip_only",
   });
 
-  // Sentry cron monitoring — alerts if this cron stops firing on schedule
+  let checkInId = "";
   const monitorSlug = "forecast-cdip-sync";
-  const checkInId = startCronCheckIn({ slug: monitorSlug, schedule: "0 * * * *" });
 
   try {
     const env = process.env.VERCEL_ENV || process.env.NODE_ENV;
@@ -85,8 +84,6 @@ export async function runEnhancedForecastSyncCdip(
         executionId,
         new Error(`Cron disabled for environment: ${env}`)
       );
-      completeCronCheckIn(checkInId, monitorSlug, "error");
-      await Sentry.flush(2000);
       return createErrorResponse(
         "Forbidden",
         `Cron disabled for environment: ${env}`,
@@ -99,14 +96,16 @@ export async function runEnhancedForecastSyncCdip(
         executionId,
         new Error("Invalid cron authentication")
       );
-      completeCronCheckIn(checkInId, monitorSlug, "error");
-      await Sentry.flush(2000);
       return createErrorResponse(
         "Unauthorized",
         "Invalid cron authentication",
         401
       );
     }
+
+    // Sentry cron monitoring — only authenticated production cron traffic
+    // should affect monitor status.
+    checkInId = startCronCheckIn({ slug: monitorSlug, schedule: "0 * * * *" });
 
     const { deadlineMs, timeBudgetMs, safetyMarginMs } = getCronDeadlineMs();
     const result = await updateCdipBeachForecasts({ deadlineMs });
@@ -164,8 +163,10 @@ export async function runEnhancedForecastSyncCdip(
     const errorMessage = error instanceof Error ? error.message : String(error);
     const duration = Date.now() - startTime;
 
-    completeCronCheckIn(checkInId, monitorSlug, "error");
-    await Sentry.flush(2000);
+    if (checkInId) {
+      completeCronCheckIn(checkInId, monitorSlug, "error");
+      await Sentry.flush(2000);
+    }
 
     forecastLogger.cronFailed(
       executionId,
@@ -223,7 +224,6 @@ export async function runEnhancedForecastSyncCdipHead(
     );
   }
 }
-
 
 
 

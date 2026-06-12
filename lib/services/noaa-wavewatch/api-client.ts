@@ -25,6 +25,23 @@ const pointCache = new Map<
   { value: NOAAWavePoint; expiresAt: number }
 >();
 
+interface OpenMeteoFetchBaseOptions {
+  model?: string;
+  signal?: AbortSignal;
+}
+
+export type OpenMeteoFetchOptions = OpenMeteoFetchBaseOptions &
+  (
+    | {
+        timeformat?: "iso8601";
+        timezone?: "UTC";
+      }
+    | {
+        timeformat: "unixtime";
+        timezone?: "UTC" | "America/Los_Angeles";
+      }
+  );
+
 function cacheKey(lat: number, lon: number): string {
   // Round to 4 decimals (~11m) so tiny floating-point drift on repeat
   // callers still hits the same cache entry.
@@ -175,15 +192,18 @@ export function constructGridUrl(pointData: NOAAWavePoint): string | null {
  * @param latitude - Latitude in decimal degrees
  * @param longitude - Longitude in decimal degrees
  * @param days - Number of forecast days (capped to FORECAST_CONFIG.OPEN_METEO_API_LIMIT)
+ * @param options - Optional model pin, response formatting, and request controls
  * @returns Marine forecast data or null if unavailable
  */
 export async function fetchOpenMeteoData(
   latitude: number,
   longitude: number,
-  days: number
+  days: number,
+  options: OpenMeteoFetchOptions = {}
 ): Promise<OpenMeteoMarineResponse | null> {
   try {
     log.debug(`Fetching Open-Meteo marine data for ${latitude}, ${longitude}`);
+    const requestOptions = options;
 
     const params = new URLSearchParams({
       latitude: latitude.toString(),
@@ -208,9 +228,15 @@ export async function fetchOpenMeteoData(
         "tertiary_swell_wave_period",
         "tertiary_swell_wave_direction",
       ].join(","),
-      timezone: "America/Los_Angeles",
+      timezone: requestOptions.timezone ?? "UTC",
       forecast_days: Math.min(days, FORECAST_CONFIG.OPEN_METEO_API_LIMIT).toString(),
     });
+    if (requestOptions.model) {
+      params.set("models", requestOptions.model);
+    }
+    if (requestOptions.timeformat) {
+      params.set("timeformat", requestOptions.timeformat);
+    }
 
     const url = `${API_ENDPOINTS.OPEN_METEO_MARINE_BASE}?${params.toString()}`;
     log.debug(`Fetching Open-Meteo data from: ${url}`);
@@ -219,6 +245,7 @@ export async function fetchOpenMeteoData(
       headers: {
         "User-Agent": HTTP_CONFIG.USER_AGENT,
       },
+      signal: requestOptions.signal,
     });
 
     if (!response.ok) {
@@ -235,6 +262,13 @@ export async function fetchOpenMeteoData(
 
     return data;
   } catch (error) {
+    if (
+      options.signal?.aborted ||
+      (error instanceof Error && error.name === "AbortError")
+    ) {
+      log.debug("Open-Meteo fetch aborted");
+      return null;
+    }
     log.error("Error fetching Open-Meteo data:", error);
     return null;
   }

@@ -474,6 +474,100 @@ describe('selectBestWindow', () => {
     expect(result?.wavePeriod).toBe('12s');
   });
 
+  it('should prefer an in-band window over a generic-best out-of-band window when rideabilityBand is provided', () => {
+    const outOfBandGenericBest = createForecast({
+      id: 'forecast-generic-best-out-of-band',
+      forecast_at: '2024-01-15T17:00:00Z',
+      forecast_date: '2024-01-15',
+      forecast_time: '09:00',
+      wave_height: '4',
+      wave_period: '14s',
+      wind_speed: '4',
+      wind_direction: 'NE',
+      wind_direction_deg: 45,
+      tide_height: '3.5',
+    });
+    const inBandLowerGenericScore = createForecast({
+      id: 'forecast-lower-generic-in-band',
+      forecast_at: '2024-01-15T18:00:00Z',
+      forecast_date: '2024-01-15',
+      forecast_time: '10:00',
+      wave_height: '3',
+      wave_period: '11s',
+      wind_speed: '6',
+      wind_direction: 'NE',
+      wind_direction_deg: 45,
+      tide_height: '3.5',
+    });
+    const forecasts = [outOfBandGenericBest, inBandLowerGenericScore];
+    const rideabilityBand = {
+      ideal: { min: 2.5, max: 3.2 },
+      acceptable: { min: 1.5, max: 3.4 },
+      prefersClean: true,
+      powerBias: -0.7,
+    };
+
+    const outOfBandGenericScore = scoreWindowWithEngine(
+      outOfBandGenericBest,
+      mockBeach as Beach
+    );
+    const inBandGenericScore = scoreWindowWithEngine(
+      inBandLowerGenericScore,
+      mockBeach as Beach
+    );
+
+    expect(outOfBandGenericScore).toBeGreaterThan(inBandGenericScore);
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: fixedNow,
+      rideabilityBand,
+    });
+
+    expect(result?.sourceForecast?.id).toBe('forecast-lower-generic-in-band');
+    expect(result?.score).toBe(inBandGenericScore);
+  });
+
+  it('should keep the generic-best window when rideabilityBand is absent', () => {
+    const forecasts = [
+      createForecast({
+        id: 'forecast-generic-best-out-of-band',
+        forecast_at: '2024-01-15T17:00:00Z',
+        forecast_date: '2024-01-15',
+        forecast_time: '09:00',
+        wave_height: '4',
+        wave_period: '14s',
+        wind_speed: '4',
+        wind_direction: 'NE',
+        wind_direction_deg: 45,
+        tide_height: '3.5',
+      }),
+      createForecast({
+        id: 'forecast-lower-generic-in-band',
+        forecast_at: '2024-01-15T18:00:00Z',
+        forecast_date: '2024-01-15',
+        forecast_time: '10:00',
+        wave_height: '3',
+        wave_period: '11s',
+        wind_speed: '6',
+        wind_direction: 'NE',
+        wind_direction_deg: 45,
+        tide_height: '3.5',
+      }),
+    ];
+
+    const result = selectBestWindow({
+      forecasts,
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: fixedNow,
+    });
+
+    expect(result?.sourceForecast?.id).toBe('forecast-generic-best-out-of-band');
+  });
+
   it('should include timezone in result', () => {
     const forecasts = [
       createForecast({
