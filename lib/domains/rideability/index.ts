@@ -11,3 +11,6 @@ export {
 
 export type { RideabilityBand } from './rideability';
 export { getRideabilityBand } from './rideability';
+
+export type { ResolvedVerdictSkill, SkillSource } from './ability';
+export { boardImpliedSkill, resolveVerdictSkill } from './ability';

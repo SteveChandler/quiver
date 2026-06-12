@@ -33,9 +33,15 @@ jest.mock("@/lib/services/preference-learning-service", () => ({
   getUserSurfPreferences: jest.fn(),
 }));
 
-jest.mock("@/lib/domains/scoring/discovery-adapter", () => ({
-  checkSkillCeiling: jest.fn(() => ({ penalty: 0, warning: null })),
-}));
+jest.mock("@/lib/domains/scoring/discovery-adapter", () => {
+  const actual = jest.requireActual("@/lib/domains/scoring/discovery-adapter");
+  return {
+    ...actual,
+    checkSkillCeiling: jest.fn(() => ({ penalty: 0, warning: null })),
+    checkSkillFloor: jest.fn(() => ({ penalty: 0, warning: null })),
+    checkBoardFit: jest.fn(() => ({ penalty: 0, bonus: 0, note: null })),
+  };
+});
 
 jest.mock("@/lib/domains/user-preferences", () => ({
   parseSkillLevel: jest.fn(() => null),
@@ -219,7 +225,10 @@ describe("Spot Surf Report Preferences Integration", () => {
 
       // Should return a result (using null/default preferences)
       expect(result).not.toBeNull();
-      expect(result?.report).toBeDefined();
+      expect(result?.report).toMatchObject({
+        verdict: expect.any(String),
+        score: expect.any(Number),
+      });
     });
 
     it("gracefully handles getUserSurfPreferences returning corrupted data", async () => {
@@ -241,7 +250,12 @@ describe("Spot Surf Report Preferences Integration", () => {
 
       // Should NOT crash
       const result = await getSpotSurfReport(mockBeach);
-      expect(result).toBeDefined();
+      expect(result).toMatchObject({
+        report: expect.objectContaining({
+          verdict: expect.any(String),
+          score: expect.any(Number),
+        }),
+      });
     });
 
     it("gracefully handles auth.getUser failure", async () => {
@@ -534,7 +548,10 @@ describe("Spot Surf Report Preferences Integration", () => {
 
       // 4. Result was returned
       expect(result).not.toBeNull();
-      expect(result?.report).toBeDefined();
+      expect(result?.report).toMatchObject({
+        verdict: expect.any(String),
+        score: expect.any(Number),
+      });
       expect(result?.isTomorrow).toBe(false);
     });
 

@@ -13,6 +13,7 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import { computeTrendTags, type TrendTag } from '@/lib/scoring';
 import { formatTideHeight, formatWaveHeightRange as formatWaveHeight } from '@/lib/formatters/surf-data';
 import { parseSkillLevel, SKILL_WAVE_RANGES, type SkillLevel } from '@/lib/domains/user-preferences/skill-level';
+import type { SkillSource } from '@/lib/domains/rideability/ability';
 import { calculateRideableWaves } from '@/lib/domains/wave-frequency/calculator';
 import {
   beachToSpotProfile,
@@ -87,11 +88,15 @@ export interface SurfCallResult {
    */
   tiers?: SurfCallTiers | null;
   /**
-   * The viewer's experience level at request time, parsed from
-   * `profiles.experience_level`. `null` for anonymous viewers. Used by the
-   * web UI to highlight which tier row in `tiers` belongs to the user.
+   * The viewer's resolved experience level at request time. Used by the web UI
+   * to highlight which tier row in `tiers` belongs to the user.
    */
   userTier?: SkillLevel | null;
+  /**
+   * Source for `userTier`: profile skill, board-implied prior, or default.
+   * Additive telemetry/debug metadata for web and native clients.
+   */
+  skillSource?: SkillSource | null;
   /**
    * User-facing cautions from setup-specific guardrails. Additive for web and
    * native consumers; absent/empty means no extra warning needs to be shown.
