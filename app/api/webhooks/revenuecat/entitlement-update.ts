@@ -1,6 +1,9 @@
 export const PRO_ENTITLEMENT_ID = "Quiver Pro";
 
 const PROMOTIONAL_PRODUCT_PREFIX = "rc_promo_";
+const PAID_LIFETIME_PRODUCT_IDS = new Set<string>([
+  "app.quiversurf.surf.pro.lifetime",
+]);
 
 export interface RCEvent {
   type: string;
@@ -40,6 +43,14 @@ export function isPromotionalProductId(productId?: string | null): boolean {
   return Boolean(productId?.startsWith(PROMOTIONAL_PRODUCT_PREFIX));
 }
 
+export function isPaidLifetimeProductId(productId?: string | null): boolean {
+  return Boolean(productId && PAID_LIFETIME_PRODUCT_IDS.has(productId));
+}
+
+function isLifetimeProductId(productId?: string | null): boolean {
+  return isPromotionalProductId(productId) || isPaidLifetimeProductId(productId);
+}
+
 export function isLifetimePromotionalRow(
   row?: ExistingEntitlementRow | null,
 ): boolean {
@@ -58,11 +69,26 @@ function nonRenewingProductId(event: RCEvent, expiresAt: string | null): string 
   return event.product_id ?? fallbackPromotionalProductId(expiresAt);
 }
 
-function isLifetimePromotionalUpdate(update: EntitlementUpdate): boolean {
+function isLifetimeRow(row?: ExistingEntitlementRow | null): boolean {
+  return (
+    row?.is_pro === true &&
+    row.expires_at == null &&
+    isLifetimeProductId(row.product_id)
+  );
+}
+
+function isLifetimeUpdate(update: EntitlementUpdate): boolean {
   return (
     update.is_pro === true &&
     update.expires_at == null &&
-    isPromotionalProductId(update.product_id)
+    isLifetimeProductId(update.product_id)
+  );
+}
+
+function revokesLifetimePurchase(update: EntitlementUpdate): boolean {
+  return (
+    update.is_pro === false &&
+    isPaidLifetimeProductId(update.previous_product_id)
   );
 }
 
@@ -73,10 +99,10 @@ export function mergeEntitlementUpdate({
   currentRow?: ExistingEntitlementRow | null;
   update: EntitlementUpdate;
 }): EntitlementUpdate | null {
-  if (
-    isLifetimePromotionalRow(currentRow) &&
-    !isLifetimePromotionalUpdate(update)
-  ) {
+  if (isLifetimeRow(currentRow) && !isLifetimeUpdate(update)) {
+    if (revokesLifetimePurchase(update)) {
+      return update;
+    }
     return null;
   }
 
@@ -120,6 +146,18 @@ export function buildEntitlementUpdate(event: RCEvent): EntitlementUpdate | null
       };
 
     case "CANCELLATION":
+      if (isPaidLifetimeProductId(event.product_id)) {
+        return {
+          is_pro: false,
+          is_trialing: false,
+          will_renew: false,
+          billing_issue: false,
+          lapsed_at: new Date(
+            event.event_timestamp_ms ?? Date.now(),
+          ).toISOString(),
+          previous_product_id: event.product_id ?? null,
+        };
+      }
       return {
         will_renew: false,
       };
