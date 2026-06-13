@@ -17,6 +17,13 @@ const LIFETIME_PROMO_ROW: ExistingEntitlementRow = {
   product_id: "rc_promo_Quiver Pro_lifetime",
 };
 
+const PAID_LIFETIME_ROW: ExistingEntitlementRow = {
+  is_pro: true,
+  is_trialing: false,
+  expires_at: null,
+  product_id: "app.quiversurf.surf.pro.lifetime",
+};
+
 function updateFor(event: RCEvent): EntitlementUpdate {
   const update = buildEntitlementUpdate(event);
   if (!update) {
@@ -120,5 +127,92 @@ describe("RevenueCat entitlement webhook updates", () => {
         update,
       }),
     ).toBeNull();
+  });
+
+  describe("paid lifetime non-consumable", () => {
+    it("sets non-expiring Pro for a paid lifetime purchase", () => {
+      const update = updateFor({
+        type: "NON_RENEWING_PURCHASE",
+        app_user_id: "user-lifetime",
+        store: "APP_STORE",
+        product_id: "app.quiversurf.surf.pro.lifetime",
+        entitlement_ids: ["Quiver Pro"],
+        environment: "PRODUCTION",
+      });
+
+      expect(update).toEqual({
+        is_pro: true,
+        is_trialing: false,
+        trial_ends_at: null,
+        expires_at: null,
+        product_id: "app.quiversurf.surf.pro.lifetime",
+        will_renew: false,
+        billing_issue: false,
+        lapsed_at: null,
+      });
+    });
+
+    it("does not let a later subscription expiration downgrade paid lifetime Pro", () => {
+      const update = updateFor({
+        type: "EXPIRATION",
+        app_user_id: "user-lifetime",
+        product_id: "app.quiversurf.surf.pro.annual",
+        event_timestamp_ms: Date.parse("2026-06-20T00:00:00.000Z"),
+        environment: "PRODUCTION",
+      });
+
+      expect(
+        mergeEntitlementUpdate({ currentRow: PAID_LIFETIME_ROW, update }),
+      ).toBeNull();
+    });
+
+    it("does not let a subscription cancellation touch paid lifetime Pro", () => {
+      const update = updateFor({
+        type: "CANCELLATION",
+        app_user_id: "user-lifetime",
+        product_id: "app.quiversurf.surf.pro.annual",
+        environment: "PRODUCTION",
+      });
+
+      expect(
+        mergeEntitlementUpdate({ currentRow: PAID_LIFETIME_ROW, update }),
+      ).toBeNull();
+    });
+
+    it("revokes paid lifetime Pro when the lifetime purchase is refunded (CANCELLATION)", () => {
+      const update = updateFor({
+        type: "CANCELLATION",
+        app_user_id: "user-lifetime",
+        product_id: "app.quiversurf.surf.pro.lifetime",
+        event_timestamp_ms: Date.parse("2026-06-21T00:00:00.000Z"),
+        environment: "PRODUCTION",
+      });
+
+      expect(update).toEqual({
+        is_pro: false,
+        is_trialing: false,
+        will_renew: false,
+        billing_issue: false,
+        lapsed_at: "2026-06-21T00:00:00.000Z",
+        previous_product_id: "app.quiversurf.surf.pro.lifetime",
+      });
+      expect(
+        mergeEntitlementUpdate({ currentRow: PAID_LIFETIME_ROW, update }),
+      ).toEqual(update);
+    });
+
+    it("revokes paid lifetime Pro when the lifetime purchase is refunded (EXPIRATION)", () => {
+      const update = updateFor({
+        type: "EXPIRATION",
+        app_user_id: "user-lifetime",
+        product_id: "app.quiversurf.surf.pro.lifetime",
+        event_timestamp_ms: Date.parse("2026-06-22T00:00:00.000Z"),
+        environment: "PRODUCTION",
+      });
+
+      expect(
+        mergeEntitlementUpdate({ currentRow: PAID_LIFETIME_ROW, update }),
+      ).toEqual(update);
+    });
   });
 });
