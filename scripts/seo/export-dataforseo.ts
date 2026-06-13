@@ -15,6 +15,7 @@ import type {
   DataForSeoSerpRanking,
 } from "../../lib/seo/agent-workflow/types";
 import type {
+  DataForSeoAsoPlatform,
   DataForSeoAsoTaskContext,
   DataForSeoTaskContext,
   DataForSeoWatchlist,
@@ -112,37 +113,35 @@ async function fetchAsoRankings(
   watchlist: DataForSeoWatchlist,
   missing: string[],
 ): Promise<DataForSeoAsoRanking[]> {
-  const iosContexts = watchlist.aso.keywords.map((keyword): DataForSeoAsoTaskContext => ({
-    keyword,
-    platform: "ios",
-    location: "United States",
-    depth: watchlist.aso.depth,
-  }));
-  const androidContexts = watchlist.aso.keywords.map((keyword): DataForSeoAsoTaskContext => ({
-    keyword,
-    platform: "android",
-    location: "United States",
-    depth: watchlist.aso.depth,
-  }));
+  const platforms = activeAsoPlatforms(watchlist);
+  const rankings: Array<Promise<DataForSeoAsoRanking[]>> = [];
 
-  const [ios, android] = await Promise.all([
-    fetchAppSearchRankings(
+  if (platforms.includes("ios")) {
+    rankings.push(fetchAppSearchRankings(
       "/v3/app_data/apple/app_searches/task_post",
       "/v3/app_data/apple/app_searches/task_get/advanced",
-      iosContexts,
+      buildAsoContexts(watchlist, "ios"),
       watchlist.aso.quiver.iosAppId,
       missing,
-    ),
-    fetchAppSearchRankings(
-      "/v3/app_data/google/app_searches/task_post",
-      "/v3/app_data/google/app_searches/task_get/advanced",
-      androidContexts,
-      watchlist.aso.quiver.androidAppId,
-      missing,
-    ),
-  ]);
+    ));
+  }
 
-  return [...ios, ...android];
+  if (platforms.includes("android")) {
+    const androidAppId = watchlist.aso.quiver.androidAppId;
+    if (!androidAppId) {
+      missing.push("DATAFORSEO_ANDROID_APP_ID");
+    } else {
+      rankings.push(fetchAppSearchRankings(
+        "/v3/app_data/google/app_searches/task_post",
+        "/v3/app_data/google/app_searches/task_get/advanced",
+        buildAsoContexts(watchlist, "android"),
+        androidAppId,
+        missing,
+      ));
+    }
+  }
+
+  return (await Promise.all(rankings)).flat();
 }
 
 async function fetchAppSearchRankings(
@@ -274,10 +273,26 @@ function hasTaskResult(raw: unknown): boolean {
 
 function estimateRunCost(watchlist: DataForSeoWatchlist): number {
   const serpTasks = watchlist.google.keywords.length * watchlist.google.locations.length;
-  const asoTasks = watchlist.aso.keywords.length * 2;
+  const asoTasks = watchlist.aso.keywords.length * activeAsoPlatforms(watchlist).length;
   const competitorRows = watchlist.competitors.length * competitorLimit;
   const estimate = (serpTasks * 0.00465) + (asoTasks * 0.011) + (watchlist.competitors.length * 0.01) + (competitorRows * 0.0001);
   return Math.round(estimate * 100) / 100;
+}
+
+function activeAsoPlatforms(watchlist: DataForSeoWatchlist): DataForSeoAsoPlatform[] {
+  return watchlist.aso.platforms ?? ["ios", "android"];
+}
+
+function buildAsoContexts(
+  watchlist: DataForSeoWatchlist,
+  platform: DataForSeoAsoPlatform,
+): DataForSeoAsoTaskContext[] {
+  return watchlist.aso.keywords.map((keyword): DataForSeoAsoTaskContext => ({
+    keyword,
+    platform,
+    location: "United States",
+    depth: watchlist.aso.depth,
+  }));
 }
 
 function authHeader(): string {

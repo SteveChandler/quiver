@@ -12,8 +12,10 @@ loadSeoEnv();
 const outputPath = getFlag("--output") ??
   resolveSeoAuditFile("VERCEL-EXPORT.json", currentAuditDate());
 const projectId = process.env.VERCEL_PROJECT_ID ?? "prj_z7DDSIF65y1EbOfuDrZfYsx9Mmbx";
+const teamId = process.env.VERCEL_WEB_ANALYTICS_TEAM_ID ?? "stcha0004-9905s-projects";
 const token = process.env.VERCEL_TOKEN ?? readVercelCliToken();
 const { from, to } = defaultDateRange();
+const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
 void main();
 
@@ -35,14 +37,15 @@ async function main(): Promise<void> {
   }
 
   const result = await Promise.all([
-    fetchVercel("overview"),
-    fetchVercel("timeseries", { groupBy: "path", limit: "20" }),
-    fetchVercel("timeseries", { groupBy: "referrer", limit: "20" }),
-    fetchVercel("timeseries", { groupBy: "country", limit: "15" }),
-    fetchVercel("timeseries", { groupBy: "device_type" }),
+    fetchVercel("overview", { withBounceRate: "true" }),
+    fetchVercel("stats", { type: "path", limit: "20" }),
+    fetchVercel("stats", { type: "referrer", limit: "20" }),
+    fetchVercel("stats", { type: "country", limit: "15" }),
+    fetchVercel("stats", { type: "device_type" }),
     ...DEFAULT_BOT_PATHS.map((botPath) =>
       fetchVercel("overview", {
         filter: JSON.stringify({ path: { operator: "eq", values: [botPath] } }),
+        withBounceRate: "true",
       }),
     ),
   ]).then((responses) => {
@@ -72,11 +75,14 @@ async function main(): Promise<void> {
 }
 
 async function fetchVercel(endpoint: string, params: Record<string, string> = {}): Promise<unknown> {
-  const url = new URL(`https://vercel.com/api/web-analytics/${endpoint}`);
+  const url = new URL(`https://vercel.com/api/web-analytics/v2/${endpoint}`);
   url.searchParams.set("projectId", projectId);
+  url.searchParams.set("teamId", teamId);
   url.searchParams.set("environment", "production");
   url.searchParams.set("from", from);
   url.searchParams.set("to", to);
+  url.searchParams.set("tz", timezone);
+  url.searchParams.set("filter", "{}");
   for (const [key, value] of Object.entries(params)) {
     url.searchParams.set(key, value);
   }

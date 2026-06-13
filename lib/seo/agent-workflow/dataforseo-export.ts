@@ -5,6 +5,8 @@ import type {
   DataForSeoSerpRanking,
 } from "./types";
 
+export type DataForSeoAsoPlatform = "ios" | "android";
+
 export interface DataForSeoWatchlist {
   google: {
     domain: string;
@@ -16,9 +18,14 @@ export interface DataForSeoWatchlist {
   aso: {
     quiver: {
       iosAppId: string;
-      androidAppId: string;
+      androidAppId?: string;
     };
     depth: number;
+    platforms?: DataForSeoAsoPlatform[];
+    disabledPlatforms?: Array<{
+      platform: DataForSeoAsoPlatform;
+      reason: string;
+    }>;
     keywords: string[];
   };
   competitors: Array<{ name: string; domain: string }>;

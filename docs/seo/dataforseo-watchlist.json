@@ -58,10 +58,18 @@
   },
   "aso": {
     "quiver": {
-      "iosAppId": "6759300320",
-      "androidAppId": "app.quiversurf.surf"
+      "iosAppId": "6759300320"
     },
     "depth": 100,
+    "platforms": [
+      "ios"
+    ],
+    "disabledPlatforms": [
+      {
+        "platform": "android",
+        "reason": "Google Play ASO checks are disabled until the Android store listing is live. Add android back to aso.platforms and restore androidAppId once launched."
+      }
+    ],
     "keywords": [
       "surf forecast",
       "free surf forecast",

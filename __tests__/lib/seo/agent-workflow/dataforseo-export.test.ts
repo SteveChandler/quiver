@@ -34,7 +34,7 @@ describe("SEO workflow DataForSEO export", () => {
     expect(ranking.topCompetitors[0]?.domain).toBe("surfline.com");
   });
 
-  it("parses ASO rankings for iOS and Android app searches", () => {
+  it("parses ASO rankings for app searches", () => {
     const ranking = parseAsoRanking(
       {
         tasks: [{
