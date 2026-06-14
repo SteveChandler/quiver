@@ -53,7 +53,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
 
 // Mock Supabase client
 const mockRpc = jest.fn();
-const mockFrom = jest.fn(() => ({
+const defaultFromImpl = (_table?: string) => ({
   select: jest.fn(() => ({
     eq: jest.fn(() => ({
       gte: jest.fn(() => ({
@@ -66,7 +66,8 @@ const mockFrom = jest.fn(() => ({
       single: jest.fn(() => Promise.resolve({ data: null, error: null })),
     })),
   })),
-}));
+});
+const mockFrom = jest.fn(defaultFromImpl);
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() =>
@@ -95,6 +96,21 @@ jest.mock("@/lib/mailer/client", () => ({
 // Mock email template
 jest.mock("@/lib/mailer/templates/ConditionsAlertEmail", () => ({
   ConditionsAlertEmail: jest.fn(() => "ConditionsAlertEmail"),
+}));
+
+// Mock signal enrichment — the route calls this per candidate; it degrades
+// gracefully, so a fixed empty-ish payload keeps these tests focused on the
+// cron orchestration rather than the enrichment internals.
+const mockEnrichBeachSignals = jest.fn();
+jest.mock("@/lib/email/signal-enrichment", () => ({
+  enrichBeachSignals: (...args: unknown[]) => mockEnrichBeachSignals(...args),
+}));
+
+// Mock the digest service — the route reuses evaluateDigestMatch to derive the
+// why bullets + crowd warning. Default to an empty (no-match) result.
+const mockEvaluateDigestMatch = jest.fn();
+jest.mock("@/lib/services/forecast-digest-service", () => ({
+  evaluateDigestMatch: (...args: unknown[]) => mockEvaluateDigestMatch(...args),
 }));
 
 // Mock email formatters
@@ -176,6 +192,8 @@ describe("Conditions Alert Email Cron Job API", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    // Restore the default table-agnostic from() behavior (some tests override it).
+    mockFrom.mockImplementation(defaultFromImpl);
     consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     require("@/lib/middleware/api-wrappers").validateCronRequest.mockReturnValue(true);
 
@@ -189,6 +207,25 @@ describe("Conditions Alert Email Cron Job API", () => {
     mockEmailsSend.mockResolvedValue({
       data: { id: "mock-resend-id" },
       error: null,
+    });
+
+    // Default enrichment: every signal null (graceful-degradation baseline).
+    mockEnrichBeachSignals.mockResolvedValue({
+      ripRisk: null,
+      rideableWavesPerHour: null,
+      setIntervalSeconds: null,
+      waveFrequencyConfidence: null,
+      forecastConfidence: null,
+      conditionCharacter: null,
+    });
+
+    // Default digest evaluation: no match → empty why content.
+    mockEvaluateDigestMatch.mockReturnValue({
+      isMatch: false,
+      matchQuality: "no_match",
+      whyText: [],
+      crowdWarning: null,
+      bestWindow: null,
     });
   });
 
@@ -583,20 +620,146 @@ describe("Conditions Alert Email Cron Job API", () => {
 
       await GET(request);
 
-      expect(ConditionsAlertEmail).toHaveBeenCalledWith({
-        displayName: "John Doe",
-        beachName: "Ocean Beach",
-        conditionsScore: 90,
-        surfDescription: "Clean 3-4ft",
-        windDescription: "Light offshore",
-        bestWindow: {
-          start: "8:00 AM",
-          end: "10:00 AM",
+      expect(ConditionsAlertEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          beachName: "Ocean Beach",
+          conditionsScore: 90,
+          surfDescription: "Clean 3-4ft",
+          windDescription: "Light offshore",
+          bestWindow: {
+            start: "8:00 AM",
+            end: "10:00 AM",
+          },
+          ctaUrl: "https://quiversurf.app/beach/ocean-beach",
+          manageUrl: "https://quiversurf.app/settings",
+          unsubscribeUrl: "https://quiversurf.app/settings",
+        })
+      );
+    });
+
+    it("passes enrichment signals + digest why content to the template", async () => {
+      const candidates = [
+        {
+          user_id: "user-1",
+          email: "user1@example.com",
+          display_name: "John Doe",
+          home_beach_id: "beach-1",
+          beach_name: "Ocean Beach",
+          beach_slug: "ocean-beach",
+          conditions_score: 90,
+          surf_description: "Clean 3-4ft",
+          wind_description: "Light offshore",
+          best_window_start: "08:00:00",
+          best_window_end: "10:00:00",
         },
-        ctaUrl: "https://quiversurf.app/beach/ocean-beach",
-        logSessionUrl: "https://quiversurf.app/sessions/new?mode=log&beach=beach-1",
-        unsubscribeUrl: "https://quiversurf.app/settings",
+      ];
+
+      mockRpc
+        .mockResolvedValueOnce({ data: candidates, error: null })
+        .mockResolvedValueOnce({ data: true, error: null });
+
+      const signals = {
+        ripRisk: "moderate",
+        rideableWavesPerHour: 18,
+        setIntervalSeconds: 90,
+        waveFrequencyConfidence: "high",
+        forecastConfidence: 82,
+        conditionCharacter: "Dialed — everything's lining up",
+      };
+      mockEnrichBeachSignals.mockResolvedValueOnce(signals);
+      mockEvaluateDigestMatch.mockReturnValueOnce({
+        isMatch: true,
+        matchQuality: "perfect",
+        whyText: ["Optimal NW swell window."],
+        crowdWarning: "Expect crowds.",
+        bestWindow: null,
       });
+
+      // Return a populated beach + forecast row so deriveWhyContent reaches
+      // evaluateDigestMatch (it short-circuits when either is missing). Route by
+      // table name since the route queries both enhanced_forecasts and beaches.
+      mockFrom.mockImplementation(((table?: string) => {
+        if (table === "enhanced_forecasts") {
+          return {
+            select: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                gte: jest.fn(() => ({
+                  lt: jest.fn(() => ({
+                    order: jest.fn(() => ({
+                      limit: jest.fn(() =>
+                        Promise.resolve({
+                          data: [
+                            {
+                              id: "f1",
+                              beach_id: "beach-1",
+                              forecast_at: "2026-06-13T15:00:00Z",
+                              forecast_date: "2026-06-13",
+                              forecast_time: "08:00:00",
+                              wave_height: "3-4 ft",
+                              wave_period: "12",
+                              wave_direction: "NW",
+                              wind_speed: "5",
+                              wind_direction_deg: 90,
+                              tide_height: "2.1",
+                              tide_status: "incoming",
+                            },
+                          ],
+                          error: null,
+                        })
+                      ),
+                    })),
+                  })),
+                })),
+              })),
+            })),
+          };
+        }
+        // beaches
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              single: jest.fn(() =>
+                Promise.resolve({
+                  data: {
+                    id: "beach-1",
+                    name: "Ocean Beach",
+                    slug: "ocean-beach",
+                    skill_level: "intermediate",
+                    swell_window_center_deg: 315,
+                    swell_window_halfwidth_deg: 45,
+                    wind_offshore_deg: 90,
+                    wind_offshore_tol_deg: 45,
+                    preferred_tide_ft_min: 1,
+                    preferred_tide_ft_max: 4,
+                    timezone: "America/Los_Angeles",
+                  },
+                  error: null,
+                })
+              ),
+            })),
+          })),
+        };
+      }) as unknown as typeof defaultFromImpl);
+
+      const { ConditionsAlertEmail } = require("@/lib/mailer/templates/ConditionsAlertEmail");
+      const request = mockRequest({ authorization: "Bearer valid" });
+      await GET(request);
+
+      expect(mockEnrichBeachSignals).toHaveBeenCalledWith(
+        expect.anything(),
+        "beach-1",
+        expect.any(String)
+      );
+      expect(ConditionsAlertEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          signals,
+          why: {
+            whyText: ["Optimal NW swell window."],
+            crowdWarning: "Expect crowds.",
+          },
+          dateline: expect.any(String),
+        })
+      );
     });
 
     it("should handle null best window", async () => {
