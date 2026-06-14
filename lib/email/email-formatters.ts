@@ -6,20 +6,24 @@
 export interface ConditionLabelData {
   label: string;
   color: string;
-  emoji: string;
 }
 
 /**
  * Get the condition label with styling data for the email template.
  * Score is on 0-100 scale from beach_daily_intel.
+ * Labels follow the brand vocabulary (EPIC / GOOD / FAIR / RIDEABLE / MEH) — no emoji.
  */
 export function getConditionLabel(score: number): ConditionLabelData {
   if (score >= 85) {
-    return { label: "Perfect", color: "#10b981", emoji: "🔥" };
+    return { label: "EPIC", color: "#00D4AA" };
   } else if (score >= 70) {
-    return { label: "Excellent", color: "#3b82f6", emoji: "✨" };
+    return { label: "GOOD", color: "#1D9E75" };
+  } else if (score >= 55) {
+    return { label: "FAIR", color: "#FDB84B" };
+  } else if (score >= 40) {
+    return { label: "RIDEABLE", color: "#888780" };
   } else {
-    return { label: "Good", color: "#22c55e", emoji: "🌊" };
+    return { label: "MEH", color: "#5F5E5A" };
   }
 }
 

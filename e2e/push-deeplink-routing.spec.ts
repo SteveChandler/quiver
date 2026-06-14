@@ -13,7 +13,7 @@ import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error
  * browser automation).
  *
  * @project e2e
- * @see /lib/services/forecast-alerts.ts - Push payload construction
+ * @see /lib/notifications/registry.ts - Notification payload construction
  * @see /public/firebase-messaging-sw.js - Service worker click handler
  */
 
@@ -305,7 +305,7 @@ test.describe("Push Notification Payload Compatibility", () => {
   test("should handle forecast_alert type with data.url fallback", async ({
     page,
   }) => {
-    // Simulate the exact payload structure from forecast-alerts.ts
+    // Simulate a push payload that provides an explicit service-worker URL fallback.
     const mockPayload = {
       notification: {
         title: "Quiver Forecast Alert",

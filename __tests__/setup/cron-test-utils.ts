@@ -963,9 +963,11 @@ export function mockEmailFormatters() {
       return `${displayHour}:${minutes} ${ampm}`;
     }),
     getConditionLabel: jest.fn((score: number) => {
-      if (score >= 85) return { label: "Perfect", color: "#10b981", emoji: "🔥" };
-      if (score >= 70) return { label: "Excellent", color: "#3b82f6", emoji: "✨" };
-      return { label: "Good", color: "#22c55e", emoji: "🌊" };
+      if (score >= 85) return { label: "EPIC", color: "#00D4AA" };
+      if (score >= 70) return { label: "GOOD", color: "#1D9E75" };
+      if (score >= 55) return { label: "FAIR", color: "#FDB84B" };
+      if (score >= 40) return { label: "RIDEABLE", color: "#888780" };
+      return { label: "MEH", color: "#5F5E5A" };
     }),
   }));
 }

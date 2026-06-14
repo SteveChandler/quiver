@@ -45,7 +45,6 @@ export function ConditionsAlertEmail({
   const {
     label: conditionLabel,
     color: conditionColor,
-    emoji,
   } = getConditionLabel(conditionsScore);
   const motivationalCopy = getMotivationalCopy(conditionsScore);
 
@@ -75,7 +74,7 @@ export function ConditionsAlertEmail({
             fontWeight: "bold",
           }}
         >
-          {beachName} {emoji}
+          {beachName}
         </h1>
       </div>
 

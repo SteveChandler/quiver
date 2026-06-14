@@ -109,9 +109,9 @@ jest.mock("@/lib/email/email-formatters", () => ({
     return `${displayHour}:${minutes} ${ampm}`;
   }),
   getConditionLabel: jest.fn((score: number) => {
-    if (score >= 85) return { label: "Perfect", color: "#10b981", emoji: "🔥" };
-    if (score >= 70) return { label: "Excellent", color: "#3b82f6", emoji: "✨" };
-    return { label: "Good", color: "#22c55e", emoji: "🌊" };
+    if (score >= 85) return { label: "EPIC", color: "#00D4AA" };
+    if (score >= 70) return { label: "GOOD", color: "#1D9E75" };
+    return { label: "FAIR", color: "#FDB84B" };
   }),
 }));
 
@@ -475,7 +475,7 @@ describe("Conditions Alert Email Cron Job API", () => {
   });
 
   describe("Email Sending", () => {
-    it("should send email with correct parameters including emoji subject", async () => {
+    it("should send email with correct parameters and plain score subject", async () => {
       const candidates = [
         {
           user_id: "user-1",
@@ -509,16 +509,16 @@ describe("Conditions Alert Email Cron Job API", () => {
         from: "Quiver <test@quiversurf.app>",
         replyTo: "Quiver <test@quiversurf.app>",
         to: "user1@example.com",
-        subject: "🔥 Ocean Beach: 90 today",
+        subject: "Ocean Beach: 90 today",
         react: "ConditionsAlertEmail", // Mocked component
       });
     });
 
     it.each([
-      { score: 90, expectedEmoji: "🔥", expectedSubject: "🔥 Test Beach: 90 today" },
-      { score: 80, expectedEmoji: "✨", expectedSubject: "✨ Test Beach: 80 today" },
-      { score: 65, expectedEmoji: "🌊", expectedSubject: "🌊 Test Beach: 65 today" },
-    ])("should use emoji $expectedEmoji in subject for score $score", async ({ score, expectedSubject }) => {
+      { score: 90, expectedSubject: "Test Beach: 90 today" },
+      { score: 80, expectedSubject: "Test Beach: 80 today" },
+      { score: 65, expectedSubject: "Test Beach: 65 today" },
+    ])("should use a plain score subject for score $score", async ({ score, expectedSubject }) => {
       jest.clearAllMocks();
 
       const candidates = [
@@ -811,7 +811,7 @@ describe("Conditions Alert Email Cron Job API", () => {
       expect(mockLogDelivery).toHaveBeenCalledWith({
         userId: "user-1",
         emailType: "conditions_alert",
-        subject: "🔥 Test Beach: 90 today",
+        subject: "Test Beach: 90 today",
         bestScore: 90,
         bestBeachId: "beach-1",
         resendMessageId: "mock-resend-id",

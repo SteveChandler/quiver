@@ -43,7 +43,6 @@ environments.
    - `trial-ending-push-deliver`
    - `first-session-nudge-push`
    - `forecast-health`
-   - `forecast-alerts`
    - `sitemap-health`
 3. Delete, mute, or resolve stale `vercel-production` monitor environments
    after confirming the corresponding `production` environment has fresh

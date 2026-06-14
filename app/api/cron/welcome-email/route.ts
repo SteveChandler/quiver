@@ -27,6 +27,7 @@ import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getEmailTokenSecret } from "@/lib/utils/email-token";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
+import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
@@ -110,8 +111,14 @@ async function _GET(request: Request): Promise<Response> {
       return createSuccessResponse({ summary });
     }
 
-    summary.candidates = candidates.length;
-    console.log(`${CONTEXT_TAG} Found ${candidates.length} candidates`);
+    const deliverable = await filterSuppressedRecipients(
+      supabase,
+      candidates as WelcomeCandidate[]
+    );
+    summary.candidates = deliverable.length;
+    console.log(
+      `${CONTEXT_TAG} Found ${deliverable.length} candidates (${candidates.length} before suppression)`
+    );
 
     // Initialize shared utilities
     const rateLimiter = createResendRateLimiter();
@@ -120,7 +127,7 @@ async function _GET(request: Request): Promise<Response> {
     // 2. Process each candidate
     const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD for local_date
 
-    for (const candidate of candidates as WelcomeCandidate[]) {
+    for (const candidate of deliverable) {
       try {
         // Rate limit before sending
         await rateLimiter.throttle();

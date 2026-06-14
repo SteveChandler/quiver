@@ -21,9 +21,8 @@ const mockBeach: BeachAlertMeta = {
 describe("daily_check_in preset", () => {
   it("is registered and produces loose validation conditions", () => {
     const preset = getPreset("daily_check_in");
-    expect(preset).toBeDefined();
     expect(preset!.type).toBe("daily_check_in");
-    expect(preset!.group).toBe("specific");
+    expect(preset!.group).toBe("internal");
 
     const conditions = preset!.buildConditions(mockBeach);
     expect(conditions).toEqual({

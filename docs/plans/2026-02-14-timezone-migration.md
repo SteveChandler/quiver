@@ -943,7 +943,6 @@ Same mechanical transformation. Replace query filters and date construction patt
 - `lib/scorers/session-window-scorer.ts:64-65,298-300`
 - `lib/analyzers/wind-analyzer.ts:63-64,88,94`
 - `lib/services/forecast/confidence-scorer.ts:139-141,188`
-- `lib/services/forecast-alerts.ts:186`
 - `lib/services/magic-hour/magic-hour-finder.ts:126`
 - `lib/services/magic-hour/types.ts:14-16,52-53`
 - `lib/services/discovery/window-selector/window-selector-core.ts:74-76`

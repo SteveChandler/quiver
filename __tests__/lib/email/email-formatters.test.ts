@@ -12,180 +12,133 @@ import {
 
 describe("email-formatters", () => {
   describe("getConditionLabel", () => {
-    describe("Perfect tier (score >= 85)", () => {
-      it("returns Perfect label for score 100", () => {
+    describe("EPIC tier (score >= 85)", () => {
+      it("returns EPIC label for score 100", () => {
         const result = getConditionLabel(100);
 
-        expect(result.label).toBe("Perfect");
-        expect(result.color).toBe("#10b981");
-        expect(result.emoji).toBe("🔥");
+        expect(result.label).toBe("EPIC");
+        expect(result.color).toBe("#00D4AA");
       });
 
-      it("returns Perfect label for score 90", () => {
-        const result = getConditionLabel(90);
-
-        expect(result.label).toBe("Perfect");
-        expect(result.color).toBe("#10b981");
-        expect(result.emoji).toBe("🔥");
+      it("returns EPIC label at the 85 boundary", () => {
+        expect(getConditionLabel(85).label).toBe("EPIC");
       });
 
-      it("returns Perfect label for score 95", () => {
-        const result = getConditionLabel(95);
-
-        expect(result.label).toBe("Perfect");
-        expect(result.color).toBe("#10b981");
-        expect(result.emoji).toBe("🔥");
-      });
-    });
-
-    describe("Excellent tier (70 <= score < 85)", () => {
-      it("returns Excellent label for score 80", () => {
-        const result = getConditionLabel(80);
-
-        expect(result.label).toBe("Excellent");
-        expect(result.color).toBe("#3b82f6");
-        expect(result.emoji).toBe("✨");
-      });
-
-      it("returns Excellent label for score 75", () => {
-        const result = getConditionLabel(75);
-
-        expect(result.label).toBe("Excellent");
-        expect(result.color).toBe("#3b82f6");
-        expect(result.emoji).toBe("✨");
-      });
-
-      it("returns Excellent label for score 84", () => {
-        const result = getConditionLabel(84);
-
-        expect(result.label).toBe("Excellent");
-        expect(result.color).toBe("#3b82f6");
-        expect(result.emoji).toBe("✨");
-      });
-    });
-
-    describe("Good tier (score < 70)", () => {
-      it("returns Good label for score 65", () => {
-        const result = getConditionLabel(65);
-
-        expect(result.label).toBe("Good");
-        expect(result.color).toBe("#22c55e");
-        expect(result.emoji).toBe("🌊");
-      });
-
-      it("returns Good label for score 50", () => {
-        const result = getConditionLabel(50);
-
-        expect(result.label).toBe("Good");
-        expect(result.color).toBe("#22c55e");
-        expect(result.emoji).toBe("🌊");
-      });
-
-      it("returns Good label for score 0", () => {
-        const result = getConditionLabel(0);
-
-        expect(result.label).toBe("Good");
-        expect(result.color).toBe("#22c55e");
-        expect(result.emoji).toBe("🌊");
-      });
-
-      it("returns Good label for score 69", () => {
-        const result = getConditionLabel(69);
-
-        expect(result.label).toBe("Good");
-        expect(result.color).toBe("#22c55e");
-        expect(result.emoji).toBe("🌊");
-      });
-    });
-
-    describe("Boundary conditions", () => {
-      it("handles score exactly at 85 boundary (Perfect)", () => {
-        const result = getConditionLabel(85);
-
-        expect(result.label).toBe("Perfect");
-      });
-
-      it("handles score just below 85 boundary (Excellent)", () => {
-        const result = getConditionLabel(84);
-
-        expect(result.label).toBe("Excellent");
-      });
-
-      it("handles score exactly at 70 boundary (Excellent)", () => {
-        const result = getConditionLabel(70);
-
-        expect(result.label).toBe("Excellent");
-      });
-
-      it("handles score just below 70 boundary (Good)", () => {
-        const result = getConditionLabel(69);
-
-        expect(result.label).toBe("Good");
-      });
-    });
-
-    describe("Edge cases", () => {
-      it("handles negative scores as Good", () => {
-        const result = getConditionLabel(-1);
-
-        expect(result.label).toBe("Good");
-        expect(result.color).toBe("#22c55e");
-        expect(result.emoji).toBe("🌊");
-      });
-
-      it("handles scores above 100 as Perfect", () => {
+      it("treats scores above 100 as EPIC", () => {
         const result = getConditionLabel(110);
 
-        expect(result.label).toBe("Perfect");
-        expect(result.color).toBe("#10b981");
-        expect(result.emoji).toBe("🔥");
+        expect(result.label).toBe("EPIC");
+        expect(result.color).toBe("#00D4AA");
+      });
+    });
+
+    describe("GOOD tier (70 <= score < 85)", () => {
+      it("returns GOOD label for score 80", () => {
+        const result = getConditionLabel(80);
+
+        expect(result.label).toBe("GOOD");
+        expect(result.color).toBe("#1D9E75");
       });
 
-      it("handles fractional scores correctly", () => {
-        const result = getConditionLabel(75.5);
+      it("returns GOOD label at the 70 boundary", () => {
+        expect(getConditionLabel(70).label).toBe("GOOD");
+      });
 
-        expect(result.label).toBe("Excellent");
+      it("returns GOOD label just below 85", () => {
+        expect(getConditionLabel(84).label).toBe("GOOD");
+      });
+    });
+
+    describe("FAIR tier (55 <= score < 70)", () => {
+      it("returns FAIR label for score 60", () => {
+        const result = getConditionLabel(60);
+
+        expect(result.label).toBe("FAIR");
+        expect(result.color).toBe("#FDB84B");
+      });
+
+      it("returns FAIR label at the 55 boundary", () => {
+        expect(getConditionLabel(55).label).toBe("FAIR");
+      });
+
+      it("returns FAIR label just below 70", () => {
+        expect(getConditionLabel(69).label).toBe("FAIR");
+      });
+    });
+
+    describe("RIDEABLE tier (40 <= score < 55)", () => {
+      it("returns RIDEABLE label for score 45", () => {
+        const result = getConditionLabel(45);
+
+        expect(result.label).toBe("RIDEABLE");
+        expect(result.color).toBe("#888780");
+      });
+
+      it("returns RIDEABLE label at the 40 boundary", () => {
+        expect(getConditionLabel(40).label).toBe("RIDEABLE");
+      });
+    });
+
+    describe("MEH tier (score < 40)", () => {
+      it("returns MEH label for score 30", () => {
+        const result = getConditionLabel(30);
+
+        expect(result.label).toBe("MEH");
+        expect(result.color).toBe("#5F5E5A");
+      });
+
+      it("returns MEH label for score 0", () => {
+        expect(getConditionLabel(0).label).toBe("MEH");
+      });
+
+      it("treats negative scores as MEH", () => {
+        expect(getConditionLabel(-1).label).toBe("MEH");
+      });
+    });
+
+    describe("Brand voice", () => {
+      it("uses brand-vocabulary labels in descending order with no emoji", () => {
+        const labels = [100, 80, 60, 45, 10].map(
+          (score) => getConditionLabel(score).label
+        );
+
+        expect(labels).toEqual(["EPIC", "GOOD", "FAIR", "RIDEABLE", "MEH"]);
+        for (const label of labels) {
+          expect(label).toMatch(/^[A-Z]+$/);
+        }
+      });
+    });
+
+    describe("Fractional scores", () => {
+      it("handles fractional scores at the EPIC boundary", () => {
+        expect(getConditionLabel(84.9).label).toBe("GOOD");
+        expect(getConditionLabel(85.1).label).toBe("EPIC");
       });
     });
   });
 
   describe("getConditionLabelText", () => {
     it("returns just the label string for score 100", () => {
-      const result = getConditionLabelText(100);
-
-      expect(result).toBe("Perfect");
-    });
-
-    it("returns just the label string for score 90", () => {
-      const result = getConditionLabelText(90);
-
-      expect(result).toBe("Perfect");
+      expect(getConditionLabelText(100)).toBe("EPIC");
     });
 
     it("returns just the label string for score 75", () => {
-      const result = getConditionLabelText(75);
-
-      expect(result).toBe("Excellent");
+      expect(getConditionLabelText(75)).toBe("GOOD");
     });
 
-    it("returns just the label string for score 65", () => {
-      const result = getConditionLabelText(65);
-
-      expect(result).toBe("Good");
+    it("returns just the label string for score 60", () => {
+      expect(getConditionLabelText(60)).toBe("FAIR");
     });
 
-    it("returns just the label string for score 50", () => {
-      const result = getConditionLabelText(50);
-
-      expect(result).toBe("Good");
+    it("returns just the label string for score 30", () => {
+      expect(getConditionLabelText(30)).toBe("MEH");
     });
 
-    it("does not return color or emoji properties", () => {
+    it("does not return color or emoji characters", () => {
       const result = getConditionLabelText(90);
 
-      expect(result).toBe("Perfect");
+      expect(result).toBe("EPIC");
       expect(result).not.toContain("#");
-      expect(result).not.toContain("🔥");
     });
   });
 
@@ -360,8 +313,7 @@ describe("email-formatters", () => {
       it("handles times with extra whitespace gracefully", () => {
         const result = formatDatabaseTime("  14:30:00  ");
 
-        // Should handle or return original
-        expect(result).toBeTruthy();
+        expect(result).toBe("2:30 PM");
       });
     });
 

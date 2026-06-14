@@ -5,10 +5,10 @@
  * Test coverage:
  * - Rendering with all props
  * - Rendering with minimal props (null optional fields)
- * - Score-based messaging (Perfect, Excellent, Good)
+ * - Score-based messaging (EPIC, GOOD, FAIR, RIDEABLE, MEH)
  * - Score display (0-100 scale from beach_daily_intel)
  * - Optional sections visibility (bestWindow, recentIntel)
- * - URL construction (ctaUrl, logSessionUrl, unsubscribeUrl)
+ * - URL construction (ctaUrl, unsubscribeUrl)
  * - Time formatting
  * - Tag formatting
  * - Accessibility and semantic HTML
@@ -38,8 +38,7 @@ describe("ReengagementEmail", () => {
       { id: "intel-1", tag: "waves", description: "Clean sets rolling through" },
       { id: "intel-2", tag: "wind", description: "Glassy in the morning" },
     ],
-    logSessionUrl: "https://quiversurf.app/session/confirm?token=test&beach_id=beach-1&date=2026-03-12",
-    ctaUrl: "https://quiversurf.app/beaches/ocean-beach",
+    ctaUrl: "https://quiversurf.app/beach/ocean-beach",
     unsubscribeUrl: "https://quiversurf.app/settings",
     baseUrl: "https://quiversurf.app",
   };
@@ -63,8 +62,7 @@ describe("ReengagementEmail", () => {
         windDescription: null,
         bestWindow: null,
         recentIntel: [],
-        logSessionUrl: "https://quiversurf.app/session/confirm?token=test&beach_id=beach-2&date=2026-03-12",
-        ctaUrl: "https://quiversurf.app/beaches/test-beach",
+        ctaUrl: "https://quiversurf.app/beach/test-beach",
         unsubscribeUrl: "https://quiversurf.app/settings",
       };
 
@@ -84,14 +82,11 @@ describe("ReengagementEmail", () => {
       const { container } = render(
         <ReengagementEmail {...propsWithoutBaseUrl} />
       );
-      const logSessionLink = container.querySelector(
-        'a[href*="/session/confirm"]'
+      const ctaLink = container.querySelector(
+        'a[href="https://quiversurf.app/beach/ocean-beach"]'
       );
 
-      expect(logSessionLink).toHaveAttribute(
-        "href",
-        defaultProps.logSessionUrl
-      );
+      expect(ctaLink).toHaveTextContent("Check the forecast");
     });
   });
 
@@ -115,7 +110,7 @@ describe("ReengagementEmail", () => {
   });
 
   describe("Score-based Messaging", () => {
-    it("should show 'Perfect' label and emoji for score >= 85", () => {
+    it("should show 'EPIC' label for score >= 85", () => {
       const testScores = [90, 95, 100];
 
       testScores.forEach((score) => {
@@ -123,44 +118,41 @@ describe("ReengagementEmail", () => {
           <ReengagementEmail {...defaultProps} conditionsScore={score} />
         );
 
-        expect(container.textContent).toContain("Perfect Conditions");
-        expect(container.textContent).toContain("🔥");
+        expect(container.textContent).toContain("EPIC Conditions");
         expect(container.textContent).toContain(
           "This is as good as it gets. Drop what you're doing."
         );
       });
     });
 
-    it("should show 'Excellent' label and emoji for score 70-84", () => {
+    it("should show 'GOOD' label for score 70-84", () => {
       const { container } = render(
         <ReengagementEmail {...defaultProps} conditionsScore={80} />
       );
 
-      expect(container.textContent).toContain("Excellent Conditions");
-      expect(container.textContent).toContain("✨");
+      expect(container.textContent).toContain("GOOD Conditions");
       expect(container.textContent).toContain(
         "Conditions are dialed. Worth rearranging your schedule."
       );
     });
 
-    it("should show 'Good' label and emoji for score < 70", () => {
+    it("should show 'FAIR' label for score 55-69", () => {
       const { container } = render(
         <ReengagementEmail {...defaultProps} conditionsScore={65} />
       );
 
-      expect(container.textContent).toContain("Good Conditions");
-      expect(container.textContent).toContain("🌊");
+      expect(container.textContent).toContain("FAIR Conditions");
       expect(container.textContent).toContain(
         "Solid conditions today. A good day to shake off the rust."
       );
     });
 
-    it("should show 'Good' label for edge case score 60", () => {
+    it("should show 'FAIR' label for edge case score 60", () => {
       const { container } = render(
         <ReengagementEmail {...defaultProps} conditionsScore={60} />
       );
 
-      expect(container.textContent).toContain("Good Conditions");
+      expect(container.textContent).toContain("FAIR Conditions");
     });
   });
 
@@ -332,24 +324,28 @@ describe("ReengagementEmail", () => {
   });
 
   describe("Call-to-Action URLs", () => {
-    it("should use ctaUrl for main CTA button", () => {
+    it("should render one primary forecast CTA", () => {
       const { container } = render(<ReengagementEmail {...defaultProps} />);
 
       const ctaButton = container.querySelector(
-        'a[href="https://quiversurf.app/beaches/ocean-beach"]'
+        'a[href="https://quiversurf.app/beach/ocean-beach"]'
       );
       expect(ctaButton).toBeInTheDocument();
-      expect(ctaButton?.textContent).toContain("Check Full Forecast");
+      expect(ctaButton).toHaveTextContent("Check the forecast");
+
+      const links = container.querySelectorAll("a");
+      expect(links).toHaveLength(2);
+      expect(container.textContent).not.toContain("Check Full Forecast");
     });
 
-    it("should use logSessionUrl prop for log session link", () => {
+    it("should not render the secondary log-session CTA", () => {
       const { container } = render(<ReengagementEmail {...defaultProps} />);
 
-      const logSessionLink = container.querySelector(
-        `a[href="${defaultProps.logSessionUrl}"]`
-      );
-      expect(logSessionLink).toBeInTheDocument();
-      expect(logSessionLink?.textContent).toContain("Log Your Session");
+      expect(container.textContent).not.toContain("Log Your Session");
+      expect(container.textContent).not.toContain("Going surfing?");
+      expect(
+        container.querySelector('a[href*="/session/confirm"]')
+      ).not.toBeInTheDocument();
     });
 
     it("should use unsubscribeUrl for manage preferences link", () => {
@@ -364,21 +360,6 @@ describe("ReengagementEmail", () => {
       );
     });
 
-    it("should use custom logSessionUrl when provided", () => {
-      const customLogUrl = "https://staging.quiversurf.app/session/confirm?token=abc&beach_id=b1&date=2026-03-12";
-      const props: ReengagementEmailProps = {
-        ...defaultProps,
-        logSessionUrl: customLogUrl,
-        baseUrl: "https://staging.quiversurf.app",
-      };
-
-      const { container } = render(<ReengagementEmail {...props} />);
-
-      const logSessionLink = container.querySelector(
-        `a[href="${customLogUrl}"]`
-      );
-      expect(logSessionLink).toBeInTheDocument();
-    });
   });
 
   describe("Header and Footer", () => {
@@ -412,7 +393,6 @@ describe("ReengagementEmail", () => {
 
       // React inline styles render as objects, so check via element directly
       const mainDiv = container.firstChild as HTMLElement;
-      expect(mainDiv).toBeTruthy();
       expect(mainDiv.style.maxWidth).toBe("600px");
     });
 
@@ -424,14 +404,14 @@ describe("ReengagementEmail", () => {
       const headerDiv = Array.from(divs).find(
         (div) => div.style.backgroundColor === "rgb(37, 45, 107)"
       );
-      expect(headerDiv).toBeTruthy();
+      expect(headerDiv?.style.backgroundColor).toBe("rgb(37, 45, 107)");
     });
 
     it("should display score badge with condition color", () => {
       const testCases = [
-        { score: 90, color: "rgb(16, 185, 129)" }, // Perfect - green
-        { score: 80, color: "rgb(59, 130, 246)" }, // Excellent - blue
-        { score: 65, color: "rgb(34, 197, 94)" }, // Good - green
+        { score: 90, color: "rgb(0, 212, 170)" }, // EPIC - teal
+        { score: 80, color: "rgb(29, 158, 117)" }, // GOOD - teal
+        { score: 65, color: "rgb(253, 184, 75)" }, // FAIR - gold
       ];
 
       testCases.forEach(({ score, color }) => {
@@ -444,7 +424,7 @@ describe("ReengagementEmail", () => {
         const badge = Array.from(divs).find(
           (div) => div.style.backgroundColor === color
         );
-        expect(badge).toBeTruthy();
+        expect(badge?.style.backgroundColor).toBe(color);
       });
     });
 
@@ -456,7 +436,7 @@ describe("ReengagementEmail", () => {
       const centeredDiv = Array.from(divs).find(
         (div) => div.style.textAlign === "center"
       );
-      expect(centeredDiv).toBeTruthy();
+      expect(centeredDiv?.style.textAlign).toBe("center");
     });
 
     it("should have proper spacing in motivational copy section", () => {
@@ -467,7 +447,7 @@ describe("ReengagementEmail", () => {
       const motivationalDiv = Array.from(divs).find(
         (div) => div.style.backgroundColor === "rgb(53, 64, 144)"
       );
-      expect(motivationalDiv).toBeTruthy();
+      expect(motivationalDiv?.style.backgroundColor).toBe("rgb(53, 64, 144)");
     });
   });
 
@@ -505,11 +485,10 @@ describe("ReengagementEmail", () => {
 
       const { container } = render(<ReengagementEmail {...props} />);
 
-      // logSessionUrl is a prop now, just check it renders
-      const logSessionLink = container.querySelector(
-        'a[href*="/session/confirm"]'
+      const forecastLink = container.querySelector(
+        'a[href="https://quiversurf.app/beach/ocean-beach"]'
       );
-      expect(logSessionLink).toBeInTheDocument();
+      expect(forecastLink).toBeInTheDocument();
     });
 
     it("should handle score edge case 0", () => {
@@ -521,7 +500,7 @@ describe("ReengagementEmail", () => {
       const { container } = render(<ReengagementEmail {...props} />);
 
       expect(container.textContent).toContain("0");
-      expect(container.textContent).toContain("Good Conditions");
+      expect(container.textContent).toContain("MEH Conditions");
     });
 
     it("should handle score edge case 100", () => {
@@ -533,7 +512,7 @@ describe("ReengagementEmail", () => {
       const { container } = render(<ReengagementEmail {...props} />);
 
       expect(container.textContent).toContain("100");
-      expect(container.textContent).toContain("Perfect Conditions");
+      expect(container.textContent).toContain("EPIC Conditions");
     });
 
     it("should handle fractional scores correctly", () => {
@@ -545,7 +524,7 @@ describe("ReengagementEmail", () => {
       const { container } = render(<ReengagementEmail {...props} />);
 
       expect(container.textContent).toContain("82");
-      expect(container.textContent).toContain("Excellent Conditions");
+      expect(container.textContent).toContain("GOOD Conditions");
     });
   });
 
