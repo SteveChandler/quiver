@@ -37,10 +37,6 @@
       "schedule": "*/30 * * * *"
     },
     {
-      "path": "/api/cron/forecast-digest-email",
-      "schedule": "0 14 * * *"
-    },
-    {
       "path": "/api/cron/update-buoy-conditions",
       "schedule": "0 14,16,18,20,22,0,2,4 * * *"
     },
