@@ -14,7 +14,6 @@ export interface ReengagementEmailProps {
     end: string;
   } | null;
   recentIntel: IntelPost[];
-  logSessionUrl: string;
   ctaUrl: string;
   unsubscribeUrl: string;
   baseUrl?: string;
@@ -47,13 +46,12 @@ export function ReengagementEmail({
   windDescription,
   bestWindow,
   recentIntel,
-  logSessionUrl,
   ctaUrl,
   unsubscribeUrl,
   baseUrl = "https://quiversurf.app",
 }: ReengagementEmailProps) {
   const greeting = displayName ? `Hey ${displayName}!` : "Hey there!";
-  const { label: conditionLabel, color: conditionColor, emoji } = getConditionLabel(conditionsScore);
+  const { label: conditionLabel, color: conditionColor } = getConditionLabel(conditionsScore);
   const motivationalCopy = getMotivationalCopy(conditionsScore);
 
   return (
@@ -82,7 +80,7 @@ export function ReengagementEmail({
             fontWeight: "bold",
           }}
         >
-          Conditions are Looking Good! {emoji}
+          Conditions are Looking Good!
         </h1>
       </div>
 
@@ -296,36 +294,7 @@ export function ReengagementEmail({
               fontWeight: "bold",
             }}
           >
-            Check Full Forecast &rarr;
-          </a>
-        </div>
-
-        {/* Log Session CTA */}
-        <div style={{ textAlign: "center" as const, marginBottom: 32 }}>
-          <p
-            style={{
-              fontSize: 14,
-              color: "rgba(255,255,255,0.6)",
-              margin: "0 0 12px 0",
-            }}
-          >
-            Going surfing? Let us know how it was:
-          </p>
-          <a
-            href={logSessionUrl}
-            style={{
-              backgroundColor: "transparent",
-              color: "#4A70D9",
-              padding: "12px 24px",
-              textDecoration: "none",
-              borderRadius: 8,
-              display: "inline-block",
-              fontSize: 14,
-              fontWeight: "bold",
-              border: "2px solid #4A70D9",
-            }}
-          >
-            Log Your Session
+            Check the forecast &rarr;
           </a>
         </div>
       </div>

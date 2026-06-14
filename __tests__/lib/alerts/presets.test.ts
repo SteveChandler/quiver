@@ -23,9 +23,12 @@ describe("presets", () => {
     expect(PRESETS).toHaveLength(8);
   });
 
-  it("has 3 popular and 5 specific presets", () => {
+  it("has 3 popular, 4 specific, and 1 internal preset", () => {
     expect(getPresetsForGroup("popular")).toHaveLength(3);
-    expect(getPresetsForGroup("specific")).toHaveLength(5);
+    expect(getPresetsForGroup("specific")).toHaveLength(4);
+    expect(PRESETS.filter((preset) => preset.group === "internal")).toHaveLength(
+      1,
+    );
   });
 
   it("each preset has required fields", () => {
@@ -34,9 +37,18 @@ describe("presets", () => {
       expect(preset.name.length).toBeGreaterThan(0);
       expect(preset.description.length).toBeGreaterThan(0);
       expect(preset.conditionsSummary.length).toBeGreaterThan(0);
-      expect(preset.group).toMatch(/^(popular|specific)$/);
+      expect(preset.group).toMatch(/^(popular|specific|internal)$/);
       expect(typeof preset.buildConditions).toBe("function");
     }
+  });
+
+  it("excludes daily_check_in from user-facing preset groups", () => {
+    const userFacingPresetTypes = [
+      ...getPresetsForGroup("popular"),
+      ...getPresetsForGroup("specific"),
+    ].map((preset) => preset.type);
+
+    expect(userFacingPresetTypes).not.toContain("daily_check_in");
   });
 
   it("glass_off builds correct conditions", () => {

@@ -343,7 +343,6 @@ const unsubscribe = subscriptionManager.subscribe(
 |----------|--------|---------|----------|
 | `/api/cron/enhanced-forecast-sync` | POST/GET | NOAA data sync | Every 90 min |
 | `/api/cron/enhanced-forecast-sync-cdip` | POST/GET | CDIP data sync | Every 2 hours |
-| `/api/cron/forecast-alerts` | GET | Push notifications | Hourly |
 | `/api/cron/sync-buoys` | GET | Buoy station sync | Daily |
 | `/api/cron/update-buoy-conditions` | GET | Buoy conditions | Hourly |
 | `/api/cron/daily-intel` | GET | Intel generation | Daily |

@@ -29,6 +29,7 @@ import { SessionPromptEmail } from "@/lib/mailer/templates/SessionPromptEmail";
 import type { SessionPromptCandidate } from "@/lib/email/email-types";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
+import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { signEmailToken, getEmailTokenSecret } from "@/lib/utils/email-token";
 import { withObservedCron } from "@/lib/cron/observability";
 
@@ -249,7 +250,11 @@ async function _GET(request: Request): Promise<Response> {
       return createSuccessResponse({ summary });
     }
 
-    summary.candidates = candidates.length;
+    const deliverable = await filterSuppressedRecipients(
+      supabase,
+      candidates as SessionPromptCandidate[]
+    );
+    summary.candidates = deliverable.length;
     const baseUrl = getBaseUrl();
 
     // Initialize shared utilities
@@ -257,7 +262,7 @@ async function _GET(request: Request): Promise<Response> {
     const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
 
     // 3. Process each candidate
-    for (const candidate of candidates as SessionPromptCandidate[]) {
+    for (const candidate of deliverable) {
       try {
         const result = await processCandidate(
           candidate,

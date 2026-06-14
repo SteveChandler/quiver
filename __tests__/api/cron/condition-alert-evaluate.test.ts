@@ -97,7 +97,9 @@ interface Store {
   beaches: any[];
   entitlements: any[];
   deliveries: any[]; // alert_deliveries
+  deliveriesError: Error | null;
   forecasts: any[]; // enhanced_forecasts
+  forecastsError: Error | null;
   queueUpserts: any[];
   ruleUpdates: { id: string; last_matched_at: string }[];
 }
@@ -108,7 +110,9 @@ const store: Store = {
   beaches: [],
   entitlements: [],
   deliveries: [],
+  deliveriesError: null,
   forecasts: [],
+  forecastsError: null,
   queueUpserts: [],
   ruleUpdates: [],
 };
@@ -178,8 +182,22 @@ function mockFrom(table: string) {
     case "user_entitlements":
       return makeChain(() => store.entitlements);
     case "alert_deliveries":
+      if (store.deliveriesError) {
+        const chain = makeChain(() => []);
+        chain.then = jest.fn((resolve: any) =>
+          resolve({ data: null, error: store.deliveriesError })
+        );
+        return chain;
+      }
       return makeChain(() => store.deliveries);
     case "enhanced_forecasts":
+      if (store.forecastsError) {
+        const chain = makeChain(() => []);
+        chain.then = jest.fn((resolve: any) =>
+          resolve({ data: null, error: store.forecastsError })
+        );
+        return chain;
+      }
       return makeChain(() => store.forecasts);
     case "alert_queue":
       return makeChain(() => [], (row) => store.queueUpserts.push(row));
@@ -260,7 +278,7 @@ function seedForecast() {
   });
 }
 
-function seedMatchingWindow() {
+function seedMatchingWindow(bestScore = 0.9) {
   mockFindMatchingWindows.mockReturnValueOnce([
     {
       rule_id: RULE_1,
@@ -271,7 +289,7 @@ function seedMatchingWindow() {
       window_start: "2026-04-26T14:00:00Z",
       window_end: "2026-04-26T16:00:00Z",
       best_hour: "2026-04-26T15:00:00Z",
-      best_score: 0.9,
+      best_score: bestScore,
       conditions_snapshot: { wave_height: 3.5 },
       notify_email: true,
       notify_push: false,
@@ -302,7 +320,9 @@ beforeEach(() => {
   store.beaches = [];
   store.entitlements = [];
   store.deliveries = [];
+  store.deliveriesError = null;
   store.forecasts = [];
+  store.forecastsError = null;
   store.queueUpserts = [];
   store.ruleUpdates = [];
 
@@ -363,7 +383,7 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     seedProfile();
     seedBeach();
     seedForecast();
-    seedMatchingWindow();
+    seedMatchingWindow(0.73);
 
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
@@ -383,6 +403,7 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
       window_start: "2026-04-26T14:00:00Z",
       window_end: "2026-04-26T16:00:00Z",
       best_hour: "2026-04-26T15:00:00Z",
+      best_score: 0.73,
       conditions_snapshot: { wave_height: 3.5 },
     });
     expect(mockSelectBestWindow).not.toHaveBeenCalled();
@@ -481,6 +502,43 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     expect(store.ruleUpdates).toHaveLength(0);
   });
 
+  it("treats alert delivery dedupe lookup failures as errors instead of queueing duplicates", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach();
+    seedForecast();
+    seedMatchingWindow();
+    store.deliveriesError = new Error("dedupe lookup failed");
+
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const res = await GET(makeRequest());
+    consoleErrorSpy.mockRestore();
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.errors).toBe(1);
+    expect(body.queued).toBe(0);
+    expect(store.queueUpserts).toHaveLength(0);
+  });
+
+  it("counts forecast lookup failures as errors instead of silently skipping alerts", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach();
+    store.forecastsError = new Error("forecast lookup failed");
+
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const res = await GET(makeRequest());
+    consoleErrorSpy.mockRestore();
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.evaluated).toBe(1);
+    expect(body.errors).toBe(1);
+    expect(body.queued).toBe(0);
+    expect(store.queueUpserts).toHaveLength(0);
+  });
+
   it("queues the matched condition window instead of a separate surf-call window", async () => {
     seedRule();
     seedProfile();
@@ -523,6 +581,7 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
       window_start: "2026-04-26T15:00:00Z",
       window_end: "2026-04-26T16:00:00Z",
       best_hour: "2026-04-26T15:00:00Z",
+      best_score: 0.9,
       conditions_snapshot: { wave_height: 3.5, wind_speed: 5 },
     });
     expect(mockSelectBestWindow).not.toHaveBeenCalled();

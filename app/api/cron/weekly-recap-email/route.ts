@@ -27,6 +27,7 @@ import { WeeklyRecapEmail } from "@/lib/mailer/templates/WeeklyRecapEmail";
 import { subDays, format, startOfDay, endOfDay } from "date-fns";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
+import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { computeBestDaysForUser } from "@/lib/alerts/best-days";
 import { withObservedCron } from "@/lib/cron/observability";
 
@@ -202,6 +203,13 @@ async function _GET(request: Request): Promise<Response> {
 
     summary.activeUsers = profiles.length;
 
+    const deliverable = await filterSuppressedRecipients(
+      supabase,
+      profiles
+        .filter((p) => p.email)
+        .map((p) => ({ ...p, user_id: p.id, email: p.email as string }))
+    );
+
     const baseUrl = getBaseUrl();
 
     // Initialize shared utilities
@@ -209,7 +217,7 @@ async function _GET(request: Request): Promise<Response> {
     const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
 
     // 5. Process each active user
-    for (const profile of profiles) {
+    for (const profile of deliverable) {
       try {
         if (!profile.email) {
           summary.skipped.noEmail++;

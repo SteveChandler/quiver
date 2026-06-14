@@ -10,7 +10,6 @@ The `/lib/services` directory provides comprehensive integration with external A
 lib/services/
 ├── cdip-service.ts                           # CDIP buoy data integration
 ├── enhanced-forecast-service.ts              # Comprehensive forecast generation
-├── forecast-alerts.ts                        # Forecast threshold push alerts (home beach)
 ├── implicit-preferences-service.ts           # Implicit preference learning (behavioral)
 ├── inactive-buoy-cleanup.ts                  # Buoy maintenance and cleanup
 ├── noaa-conditions-sync.ts                   # NOAA buoy conditions synchronization
@@ -647,19 +646,6 @@ Tests should verify:
 - Capping at 6pm for afternoon
 - No capping for "any" time slot
 - Graceful handling of timezone conversion failures
-
-### **ForecastAlertService** (Legacy Daily Forecast Summary)
-
-- **Purpose**: Disabled legacy daily digest producer. Actionable forecast pushes are owned by the condition-alert pipeline.
-- **Service Location**: `lib/services/forecast-alerts.ts`
-- **Trigger**: `/api/cron/forecast-alerts` (see `app/api/cron/forecast-alerts/route.ts`)
-- **Constraints**:
-  - Exits before DB reads, forecast cache reads, delivery-slot claims, or `notification_events` enqueue
-  - `daily_digest` stays registered with no channels for schema compatibility only
-- **Storage**:
-  - User preference: `profiles.notif_forecast_alerts` (default true)
-  - Favorite opt-in: `favorite_beaches.alerts_enabled`
-  - Delivery state: none while disabled
 
 ### **PersonalizedScoringService** (Preference-Based Scoring)
 

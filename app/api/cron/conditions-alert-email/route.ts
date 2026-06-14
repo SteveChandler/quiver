@@ -26,10 +26,8 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { ConditionsAlertEmail } from "@/lib/mailer/templates/ConditionsAlertEmail";
-import {
-  formatDatabaseTime,
-  getConditionLabel,
-} from "@/lib/email/email-formatters";
+import { formatDatabaseTime } from "@/lib/email/email-formatters";
+import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import type { ConditionsAlertCandidate } from "@/lib/email/email-types";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
@@ -202,8 +200,7 @@ async function processCandidate(
   const ctaUrl = `${baseUrl}${buildBeachUrl({ slug: candidate.beach_slug, city: candidate.beach_city, state: candidate.beach_state })}`;
   const logSessionUrl = `${baseUrl}/sessions/new?mode=log&beach=${candidate.home_beach_id}`;
   const unsubscribeUrl = `${baseUrl}/settings`;
-  const { emoji } = getConditionLabel(freshScore);
-  const emailSubject = `${emoji} ${candidate.beach_name}: ${freshScore} today`;
+  const emailSubject = `${candidate.beach_name}: ${freshScore} today`;
 
   // 5. Rate limit and send email
   await rateLimiter.throttle();
@@ -308,7 +305,11 @@ async function _GET(request: Request): Promise<Response> {
       return createSuccessResponse({ summary });
     }
 
-    summary.candidates = candidates.length;
+    const deliverable = await filterSuppressedRecipients(
+      supabase,
+      candidates as ConditionsAlertCandidate[]
+    );
+    summary.candidates = deliverable.length;
     const baseUrl = getBaseUrl();
 
     // Initialize shared utilities
@@ -316,7 +317,7 @@ async function _GET(request: Request): Promise<Response> {
     const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
 
     // 3. Process each candidate
-    for (const candidate of candidates as ConditionsAlertCandidate[]) {
+    for (const candidate of deliverable) {
       try {
         const result = await processCandidate(
           candidate,

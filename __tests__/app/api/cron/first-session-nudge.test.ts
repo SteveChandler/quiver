@@ -201,6 +201,8 @@ function setupSupabaseChain({
   sessions = [] as object[],
   emailLog = [] as object[],
   authUsers = [] as { user: { email: string } | null }[],
+  suppressedEmails = [] as { email: string }[],
+  suppressionError = null as { message: string } | null,
   beach = null as object | null,
   intel = null as object | null,
 } = {}) {
@@ -238,9 +240,21 @@ function setupSupabaseChain({
 
   // sessions: first .in() call terminates (resolves sessions data)
   // email_send_log: second .in() call is a pass-through (returns chain); .or() terminates
-  mockIn
-    .mockResolvedValueOnce({ data: sessions, error: null }) // sessions query leaf
-    .mockReturnValue(chain); // email_send_log middle step (returns chain for .or())
+  // email_suppression_list: third .in() call terminates (resolves suppressed emails)
+  let inCallCount = 0;
+  mockIn.mockImplementation(() => {
+    inCallCount += 1;
+    if (inCallCount === 1) {
+      return Promise.resolve({ data: sessions, error: null });
+    }
+    if (inCallCount === 2) {
+      return chain;
+    }
+    return Promise.resolve({
+      data: suppressedEmails,
+      error: suppressionError,
+    });
+  });
 
   // email_send_log: .or() terminates
   mockOr.mockResolvedValue({ data: emailLog, error: null });
@@ -559,6 +573,46 @@ describe("First Session Nudge Cron Job API", () => {
       expect(sentCall.subject).toContain("Mavericks");
       expect(sentCall.subject).not.toContain("✨");
       expect(sentCall.subject).toContain("check tomorrow's forecast");
+    });
+  });
+
+  // --------------------------------------------------------------------------
+  // Suppression filtering
+  // --------------------------------------------------------------------------
+
+  describe("Suppression filtering", () => {
+    it("does not send to suppressed candidates and reports deliverable candidates", async () => {
+      setupSupabaseChain({
+        profiles: [
+          { id: "deliverable-user", display_name: null, home_beach_id: null, onboarding_completed_at: null },
+          { id: "suppressed-user", display_name: null, home_beach_id: null, onboarding_completed_at: null },
+        ],
+        sessions: [],
+        emailLog: [],
+        authUsers: [
+          { user: { email: "keep@example.com" } },
+          { user: { email: "Blocked@Example.com" } },
+        ],
+        suppressedEmails: [{ email: "blocked@example.com" }],
+      });
+
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const data = await response.json();
+
+      expect(data.success).toBe(true);
+      expect(data.data.summary.candidates).toBe(1);
+      expect(data.data.summary.sent).toBe(1);
+      expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+      expect(mockEmailsSend).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: "keep@example.com",
+        })
+      );
+      expect(mockEmailsSend).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: "Blocked@Example.com",
+        })
+      );
     });
   });
 

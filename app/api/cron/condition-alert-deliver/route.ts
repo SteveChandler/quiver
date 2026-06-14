@@ -77,6 +77,23 @@ type BeachEmbed = {
   skill_level?: string | null;
 };
 
+type AlertQueueRowWithBestScore = {
+  id: string;
+  user_id: string;
+  rule_id: string;
+  beach_id: string;
+  alert_date: string;
+  send_at: string;
+  window_start: string;
+  window_end: string;
+  best_hour: string;
+  best_score: number | string | null;
+  conditions_snapshot: unknown;
+  sent: boolean;
+  alert_rules: unknown;
+  beaches: unknown;
+};
+
 function enabledChannels(item: QueueItemWithMeta): Channel[] {
   const channels: Channel[] = [];
   if (item.notify_email) channels.push("email");
@@ -115,6 +132,11 @@ function toRevalidationBeachMeta(
     break_type: beach.break_type ?? null,
     skill_level: beach.skill_level ?? null,
   };
+}
+
+function parseQueuedBestScore(value: unknown): number {
+  const score = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(score) ? score : 0;
 }
 
 function resolveRuleWeeklyCap(conditions?: AlertConditions | null): number | null {
@@ -255,7 +277,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           .from("alert_queue")
           .select(`
             id, user_id, rule_id, beach_id, alert_date, send_at,
-            window_start, window_end, best_hour, conditions_snapshot, sent,
+            window_start, window_end, best_hour, best_score, conditions_snapshot, sent,
             alert_rules!inner(name, notify_email, notify_push, conditions),
             beaches!inner(
               id, name, slug, timezone, lat, lon,
@@ -270,15 +292,16 @@ export async function GET(request: Request): Promise<NextResponse> {
           .order("send_at", { ascending: true });
 
         if (queueError) throw queueError;
-        if (!rawItems || rawItems.length === 0) {
+        const queueRows = (rawItems ?? []) as unknown as AlertQueueRowWithBestScore[];
+        if (queueRows.length === 0) {
           console.log(`${CONTEXT_TAG} No due queue items`);
           return { ...result, message: "No items due" };
         }
 
-        console.log(`${CONTEXT_TAG} Found ${rawItems.length} due queue items`);
+        console.log(`${CONTEXT_TAG} Found ${queueRows.length} due queue items`);
 
         // 2. Reshape into flat QueueItemWithMeta (consolidateQueueItems expects this shape)
-        const allItems: QueueItemWithMeta[] = rawItems.map((row) => {
+        const allItems: QueueItemWithMeta[] = queueRows.map((row) => {
           const rule = row.alert_rules as unknown as RuleEmbed;
           const beach = row.beaches as unknown as BeachEmbed;
           return {
@@ -301,8 +324,7 @@ export async function GET(request: Request): Promise<NextResponse> {
             notify_push: rule.notify_push,
             conditions: rule.conditions ?? null,
             beach_meta: toRevalidationBeachMeta(row.beach_id, beach),
-            // best_score not stored in queue — use 0 as default; consolidate sorts by it
-            best_score: 0,
+            best_score: parseQueuedBestScore(row.best_score),
           };
         });
 
@@ -371,7 +393,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           notif_email_enabled: boolean;
           notif_push_enabled: boolean;
         };
-        const userIds = Array.from(new Set(rawItems.map((r) => r.user_id)));
+        const userIds = Array.from(new Set(queueRows.map((r) => r.user_id)));
         const { data: profileRows, error: profilesError } = await supabase
           .from("profiles")
           .select("id, email, display_name, notif_email_enabled, notif_push_enabled")
@@ -387,11 +409,13 @@ export async function GET(request: Request): Promise<NextResponse> {
         // 3b. Fetch recent 'sent' attempts once for cooldown (per-rule, 24h) and
         //     weekly cap (per-user, 7d) decisions. The 7d window covers both.
         const sinceWeek = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-        const { data: recentSentRaw } = await supabase
+        const { data: recentSentRaw, error: recentSentError } = await supabase
           .from("alert_delivery_attempts")
           .select("rule_id, user_id, attempted_at")
           .eq("status", "sent")
           .gte("attempted_at", sinceWeek);
+        if (recentSentError) throw recentSentError;
+
         const recentSent = (recentSentRaw ?? []).map((r: { rule_id: string; user_id: string; attempted_at: string }) => ({
           rule_id: r.rule_id,
           user_id: r.user_id,
@@ -588,13 +612,14 @@ export async function GET(request: Request): Promise<NextResponse> {
                   }
                 } else {
                   // Dedup: only send if no email delivery recorded today
-                  const { data: existingEmail } = await supabase
+                  const { data: existingEmail, error: existingEmailError } = await supabase
                     .from("alert_deliveries")
                     .select("id")
                     .eq("user_id", payload.user_id)
                     .eq("alert_date", payload.alert_date)
                     .eq("channel", "email")
                     .limit(1);
+                  if (existingEmailError) throw existingEmailError;
 
                   if (existingEmail && existingEmail.length > 0) {
                     for (const item of emailSurvivors) {
@@ -656,35 +681,52 @@ export async function GET(request: Request): Promise<NextResponse> {
                       }
                     } else {
                       // Write dedup record
-                      await supabase.from("alert_deliveries").insert({
+                      const { error: deliveryInsertError } = await supabase.from("alert_deliveries").insert({
                         user_id: payload.user_id,
                         alert_date: payload.alert_date,
                         channel: "email",
                         payload: { match_count: emailMatches.length, beaches: emailMatches.map((m) => m.beach_name) },
                       });
 
-                      await emailLogger.logDelivery({
-                        userId: payload.user_id,
-                        emailType: "conditions_alert",
-                        subject: `Your surf report for ${alertDate}`,
-                        meta: {
-                          match_count: emailMatches.length,
-                          beaches: emailMatches.map((m) => m.beach_name),
-                        },
-                        resendMessageId: sendData?.id,
-                      });
-
-                      result.emailSent++;
-                      console.log(`${CONTEXT_TAG} Email sent to user ${payload.user_id} (${emailMatches.length} matches)`);
-
-                      for (const item of emailSurvivors) {
-                        await recordAttempt({
-                          queueId: item.id,
-                          ruleId: item.rule_id,
+                      if (deliveryInsertError) {
+                        console.error(
+                          `${CONTEXT_TAG} Email sent but alert_deliveries insert failed for user ${payload.user_id}:`,
+                          deliveryInsertError
+                        );
+                        result.errors++;
+                        for (const item of emailSurvivors) {
+                          await recordAttempt({
+                            queueId: item.id,
+                            ruleId: item.rule_id,
+                            userId: payload.user_id,
+                            channel: "email",
+                            status: "sent",
+                          });
+                        }
+                      } else {
+                        await emailLogger.logDelivery({
                           userId: payload.user_id,
-                          channel: "email",
-                          status: "sent",
+                          emailType: "conditions_alert",
+                          subject: `Your surf report for ${alertDate}`,
+                          meta: {
+                            match_count: emailMatches.length,
+                            beaches: emailMatches.map((m) => m.beach_name),
+                          },
+                          resendMessageId: sendData?.id,
                         });
+
+                        result.emailSent++;
+                        console.log(`${CONTEXT_TAG} Email sent to user ${payload.user_id} (${emailMatches.length} matches)`);
+
+                        for (const item of emailSurvivors) {
+                          await recordAttempt({
+                            queueId: item.id,
+                            ruleId: item.rule_id,
+                            userId: payload.user_id,
+                            channel: "email",
+                            status: "sent",
+                          });
+                        }
                       }
                     }
                   }
@@ -732,13 +774,14 @@ export async function GET(request: Request): Promise<NextResponse> {
                     });
                   }
                 } else {
-                  const { data: existingPush } = await supabase
+                  const { data: existingPush, error: existingPushError } = await supabase
                     .from("alert_deliveries")
                     .select("id")
                     .eq("user_id", payload.user_id)
                     .eq("alert_date", payload.alert_date)
                     .eq("channel", "push")
                     .limit(1);
+                  if (existingPushError) throw existingPushError;
 
                   if (existingPush && existingPush.length > 0) {
                     for (const item of pushSurvivors) {
@@ -807,7 +850,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                       // not "we've delivered" — actual delivery is recorded by
                       // the worker via the forecast_alert onChannelOutcome hook
                       // (per-rule rows in alert_delivery_attempts).
-                      await supabase.from("alert_deliveries").insert({
+                      const { error: deliveryInsertError } = await supabase.from("alert_deliveries").insert({
                         user_id: payload.user_id,
                         alert_date: payload.alert_date,
                         channel: "push",
@@ -818,10 +861,18 @@ export async function GET(request: Request): Promise<NextResponse> {
                         },
                       });
 
-                      result.pushSent++;
-                      console.log(
-                        `${CONTEXT_TAG} Push enqueued for user ${payload.user_id} (event ${enqueueResult.eventId})`
-                      );
+                      if (deliveryInsertError) {
+                        console.error(
+                          `${CONTEXT_TAG} Push enqueued but alert_deliveries insert failed for user ${payload.user_id}:`,
+                          deliveryInsertError
+                        );
+                        result.errors++;
+                      } else {
+                        result.pushSent++;
+                        console.log(
+                          `${CONTEXT_TAG} Push enqueued for user ${payload.user_id} (event ${enqueueResult.eventId})`
+                        );
+                      }
 
                       // Note: per-rule alert_delivery_attempts rows are NOT
                       // written here. The worker's onChannelOutcome hook
