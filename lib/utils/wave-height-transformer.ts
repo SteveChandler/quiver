@@ -181,6 +181,18 @@ export const DIRECTION_FACTOR_MIN = 0.6;
 export const DIRECTION_FACTOR_RANGE = 0.4;
 
 /**
+ * Minimum alignment weight for a swell component that is genuinely INSIDE the
+ * beach's swell window. The `cos²` taper in `alignmentFactor` falls to ~0 near
+ * the window edge, which crushed real long-period groundswell that was in-window
+ * but off-center (e.g. a 2 ft 15s swell from 190° at Malibu, center 220°/±40°,
+ * rendered as ~0.4 ft). This floor keeps a qualifying in-window component from
+ * being attenuated below a meaningful contribution. It applies ONLY to the
+ * in-window cos² return — the short-period gate (0) and out-of-window gate (0)
+ * are unaffected.
+ */
+export const ALIGNMENT_FLOOR = 0.35;
+
+/**
  * Set wave variance multiplier
  * Set waves are typically 50% larger than average waves
  * Used to display wave height ranges like "3-5ft"
@@ -600,7 +612,7 @@ export function alignmentFactor(
 
   const normalized = distance / windowHalfwidthDeg; // [0, 1)
   const cosValue = Math.cos((normalized * Math.PI) / 2);
-  return cosValue * cosValue;
+  return Math.max(cosValue * cosValue, ALIGNMENT_FLOOR);
 }
 
 function hasValidSwellAccessFactors(
