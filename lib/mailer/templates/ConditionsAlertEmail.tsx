@@ -62,6 +62,8 @@ export interface ConditionsAlertSignals {
   forecastConfidence: number | null;
   /** Human condition-character headline, e.g. "Dialed — everything's lining up". */
   conditionCharacter: string | null;
+  /** Current water-quality status. Rendered only when good/advisory/closure. */
+  waterQuality: "good" | "advisory" | "closure" | "unknown" | null;
 }
 
 export interface ConditionsAlertEmailProps {
@@ -156,6 +158,29 @@ function getRipPresentation(
   if (ripRisk === "moderate") return { label: "Moderate", color: GOLD };
   if (ripRisk === "high") return { label: "High", color: CORAL };
   // Omit low/null entirely — no need to alarm or clutter.
+  return null;
+}
+
+interface WaterQualityPresentation {
+  label: string;
+  color: string;
+  /** Closure is more urgent than an advisory — render it bolder + uppercased. */
+  urgent: boolean;
+}
+
+function getWaterQualityPresentation(
+  waterQuality: "good" | "advisory" | "closure" | "unknown" | null
+): WaterQualityPresentation | null {
+  if (waterQuality === "closure") {
+    return { label: "Closed", color: CORAL, urgent: true };
+  }
+  if (waterQuality === "advisory") {
+    return { label: "Advisory", color: GOLD, urgent: false };
+  }
+  if (waterQuality === "good") {
+    return { label: "Clean", color: TEAL, urgent: false };
+  }
+  // Omit unknown/null entirely — no actionable signal.
   return null;
 }
 
@@ -267,6 +292,7 @@ export function ConditionsAlertEmail({
     signals.waveFrequencyConfidence
   );
   const rip = getRipPresentation(signals.ripRisk);
+  const water = getWaterQualityPresentation(signals.waterQuality);
 
   // The signal grid keeps a fixed three-column structure; cells render null when
   // their datum is missing so the table stays balanced without empty boxes.
@@ -521,9 +547,9 @@ export function ConditionsAlertEmail({
           )}
 
           {/* ---------------------------------------------------------------- */}
-          {/* Safety strip (rip risk) */}
+          {/* Safety strip (rip risk + water quality) */}
           {/* ---------------------------------------------------------------- */}
-          {rip && (
+          {(rip || water) && (
             <tr>
               <td {...cellBg(NAVY_PANEL, { padding: "4px 24px 8px 24px" })}>
                 <table
@@ -533,35 +559,81 @@ export function ConditionsAlertEmail({
                   style={{ borderCollapse: "collapse" as const }}
                 >
                   <tbody>
-                    <tr>
-                      <td
-                        valign="middle"
-                        style={{
-                          fontFamily: FONT_MONO,
-                          fontSize: 11,
-                          letterSpacing: "1.2px",
-                          textTransform: "uppercase" as const,
-                          color: CREAM_MUTED,
-                          paddingRight: 10,
-                          verticalAlign: "middle" as const,
-                        }}
-                      >
-                        RIP RISK
-                      </td>
-                      <td valign="middle" style={{ verticalAlign: "middle" as const }}>
-                        <span
+                    {rip && (
+                      <tr>
+                        <td
+                          valign="middle"
                           style={{
                             fontFamily: FONT_MONO,
-                            fontSize: 12,
-                            fontWeight: 700,
-                            letterSpacing: "0.5px",
-                            color: rip.color,
+                            fontSize: 11,
+                            letterSpacing: "1.2px",
+                            textTransform: "uppercase" as const,
+                            color: CREAM_MUTED,
+                            paddingRight: 10,
+                            verticalAlign: "middle" as const,
                           }}
                         >
-                          {rip.label}
-                        </span>
-                      </td>
-                    </tr>
+                          RIP RISK
+                        </td>
+                        <td
+                          valign="middle"
+                          style={{ verticalAlign: "middle" as const }}
+                        >
+                          <span
+                            style={{
+                              fontFamily: FONT_MONO,
+                              fontSize: 12,
+                              fontWeight: 700,
+                              letterSpacing: "0.5px",
+                              color: rip.color,
+                            }}
+                          >
+                            {rip.label}
+                          </span>
+                        </td>
+                      </tr>
+                    )}
+                    {water && (
+                      <tr>
+                        <td
+                          valign="middle"
+                          style={{
+                            fontFamily: FONT_MONO,
+                            fontSize: 11,
+                            letterSpacing: "1.2px",
+                            textTransform: "uppercase" as const,
+                            color: CREAM_MUTED,
+                            paddingRight: 10,
+                            paddingTop: rip ? 6 : 0,
+                            verticalAlign: "middle" as const,
+                          }}
+                        >
+                          WATER
+                        </td>
+                        <td
+                          valign="middle"
+                          style={{
+                            paddingTop: rip ? 6 : 0,
+                            verticalAlign: "middle" as const,
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontFamily: FONT_MONO,
+                              fontSize: water.urgent ? 13 : 12,
+                              fontWeight: 700,
+                              letterSpacing: water.urgent ? "1px" : "0.5px",
+                              textTransform: water.urgent
+                                ? ("uppercase" as const)
+                                : ("none" as const),
+                              color: water.color,
+                            }}
+                          >
+                            {water.label}
+                          </span>
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </td>

@@ -54,14 +54,63 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     });
   });
 
-  it("water_quality has only the in_app channel (no push)", () => {
+  it("water_quality delivers on push and in_app, gated by the single wq toggle", () => {
     const def = NOTIFICATION_REGISTRY.water_quality as unknown as {
       channels: string[];
       prefs: { master: Record<string, unknown>; perType: Record<string, unknown> };
     };
-    expect(def.channels).toEqual(["in_app"]);
-    expect(def.prefs.master.push).toBeUndefined();
-    expect(def.prefs.perType.push).toBeUndefined();
+    expect(def.channels).toEqual(["push", "in_app"]);
+    // Both channels honor their master pref...
+    expect(def.prefs.master.push).toBe("notif_push_enabled");
+    expect(def.prefs.master.in_app).toBe("notif_inapp_enabled");
+    // ...and the single per-type toggle gates both, so turning it off kills
+    // push AND inbox rows.
+    expect(def.prefs.perType.push).toBe("notif_water_quality");
+    expect(def.prefs.perType.in_app).toBe("notif_water_quality");
+  });
+
+  it("water_quality closure push reads more urgent than an advisory", () => {
+    const base = {
+      beach_id: "beach-1",
+      beach_slug: "ocean-beach",
+      beach_name: "Ocean Beach",
+      status_changed_at: "2026-06-13T12:00:00.000Z",
+    };
+
+    const closure = NOTIFICATION_REGISTRY.water_quality.buildPushPayload!({
+      ...base,
+      status: "closure",
+      previous_status: "advisory",
+    });
+    expect(closure.title).toBe("Beach closed: Ocean Beach");
+    expect(closure.body).toMatch(/don't enter the water/i);
+    expect(closure.body).toMatch(/bacteria/i);
+
+    const advisory = NOTIFICATION_REGISTRY.water_quality.buildPushPayload!({
+      ...base,
+      status: "advisory",
+      previous_status: "good",
+    });
+    expect(advisory.title).toBe("Water advisory: Ocean Beach");
+    expect(advisory.body).toMatch(/check before paddling out/i);
+    // Advisory must NOT carry the harder closure language.
+    expect(advisory.body).not.toMatch(/don't enter the water/i);
+
+    // The closure title is the unambiguously stronger of the two.
+    expect(closure.title).not.toBe(advisory.title);
+  });
+
+  it("water_quality recovery push reads as all-clear", () => {
+    const recovery = NOTIFICATION_REGISTRY.water_quality.buildPushPayload!({
+      beach_id: "beach-1",
+      beach_slug: "ocean-beach",
+      beach_name: "Ocean Beach",
+      status: "good",
+      previous_status: "closure",
+      status_changed_at: "2026-06-13T12:00:00.000Z",
+    });
+    expect(recovery.title).toBe("All clear: Ocean Beach");
+    expect(recovery.body).toMatch(/safe levels/i);
   });
 
   it("daily_digest is fully disabled", () => {

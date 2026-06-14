@@ -29,7 +29,6 @@ type ChangedBeachRow = {
 type EligibleProfileRow = {
   id: string;
   home_beach_id: string | null;
-  notif_push_enabled: boolean;
   notif_water_quality: boolean;
   is_mock: boolean;
   timezone: string | null;
@@ -68,17 +67,21 @@ function buildNotificationContent(
     };
   }
 
+  // A closure is unambiguously more urgent than an advisory. The worker
+  // rebuilds the user-facing title/body from `status` via the registry's
+  // buildPushPayload, so this copy only needs to keep the same severity
+  // ordering for any caller that reads it directly.
+  if (status === "closure") {
+    return {
+      title: "Beach Closed",
+      body: `High bacteria levels at ${beachName} — don't enter the water`,
+    };
+  }
+
   if (status === "advisory") {
     return {
       title: "Water Advisory",
       body: `Elevated bacteria levels detected at ${beachName}`,
-    };
-  }
-
-  if (status === "closure") {
-    return {
-      title: "Water Quality Alert",
-      body: `Health advisory issued at ${beachName}`,
     };
   }
 
@@ -135,10 +138,12 @@ export async function processWaterQualityAlerts(
   const beachById = new Map<string, BeachRow>();
   (beaches || []).forEach((b: BeachRow) => beachById.set(b.id, b));
 
-  // 4) Find eligible users: home_beach_id in changed set + push enabled + wq notifs on
+  // 4) Find eligible users: home_beach_id in changed set + wq notifs on. The
+  //    delivery worker applies the per-channel master prefs (push/in_app), so
+  //    the producer only gates on the per-type opt-in here.
   const { data: profiles, error: profilesError } = await supabase
     .from("profiles")
-    .select("id, home_beach_id, notif_push_enabled, notif_water_quality, is_mock, timezone")
+    .select("id, home_beach_id, notif_water_quality, is_mock, timezone")
     .in("home_beach_id", changedBeachIds);
 
   if (profilesError) {
@@ -149,11 +154,16 @@ export async function processWaterQualityAlerts(
 
   const allProfiles = (profiles || []) as EligibleProfileRow[];
 
-  // Filter to users who have opted in and are not mocks
+  // Gate only on the per-type opt-in (notif_water_quality). The channel set is
+  // now push + in_app, and the notifications-deliver worker applies each
+  // channel's master pref per-channel (push -> notif_push_enabled,
+  // in_app -> notif_inapp_enabled). Pre-excluding on notif_push_enabled here
+  // would wrongly drop users who have push off but in-app on — they should
+  // still get the inbox row. Push-off users are still correctly skipped on the
+  // push channel by the worker.
   const eligibleProfiles = allProfiles.filter(
     (p) =>
       !p.is_mock &&
-      p.notif_push_enabled === true &&
       p.notif_water_quality === true &&
       p.home_beach_id !== null
   );
