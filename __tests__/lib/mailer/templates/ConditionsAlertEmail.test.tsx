@@ -37,6 +37,7 @@ function makeProps(
       waveFrequencyConfidence: "high",
       forecastConfidence: 82,
       conditionCharacter: "Dialed — everything's lining up",
+      waterQuality: "advisory",
     },
     why: {
       whyText: [
@@ -59,6 +60,7 @@ const EMPTY_SIGNALS: ConditionsAlertEmailProps["signals"] = {
   waveFrequencyConfidence: null,
   forecastConfidence: null,
   conditionCharacter: null,
+  waterQuality: null,
 };
 
 describe("ConditionsAlertEmail", () => {
@@ -279,6 +281,99 @@ describe("ConditionsAlertEmail", () => {
         />
       );
       expect(none.container.textContent).not.toContain("RIP RISK");
+    });
+
+    it("renders WATER Advisory in amber", () => {
+      const { container } = render(
+        <ConditionsAlertEmail
+          {...makeProps({
+            signals: { ...makeProps().signals, waterQuality: "advisory" },
+          })}
+        />
+      );
+      expect(container.textContent).toContain("WATER");
+      const advisory = Array.from(container.querySelectorAll("span")).find(
+        (s) => s.textContent === "Advisory"
+      );
+      expect(advisory?.textContent).toBe("Advisory");
+      // Amber (GOLD #FDB84B).
+      expect(advisory?.style.color).toBe("rgb(253, 184, 75)");
+    });
+
+    it("renders WATER Closed in coral with more urgent styling than advisory", () => {
+      const closure = render(
+        <ConditionsAlertEmail
+          {...makeProps({
+            signals: { ...makeProps().signals, waterQuality: "closure" },
+          })}
+        />
+      );
+      const closedSpan = Array.from(
+        closure.container.querySelectorAll("span")
+      ).find((s) => s.textContent === "Closed");
+      expect(closedSpan?.textContent).toBe("Closed");
+      // Coral (CORAL #FF6B5C) — the high-urgency color.
+      expect(closedSpan?.style.color).toBe("rgb(255, 107, 92)");
+      // Closure is bolder/uppercased — more urgent than an advisory.
+      expect(closedSpan?.style.textTransform).toBe("uppercase");
+
+      const advisory = render(
+        <ConditionsAlertEmail
+          {...makeProps({
+            signals: { ...makeProps().signals, waterQuality: "advisory" },
+          })}
+        />
+      );
+      const advisorySpan = Array.from(
+        advisory.container.querySelectorAll("span")
+      ).find((s) => s.textContent === "Advisory");
+      // Advisory is not uppercased — visually less urgent than a closure.
+      expect(advisorySpan?.style.textTransform).toBe("none");
+    });
+
+    it("renders WATER Clean in teal for good status", () => {
+      const { container } = render(
+        <ConditionsAlertEmail
+          {...makeProps({
+            signals: { ...makeProps().signals, waterQuality: "good" },
+          })}
+        />
+      );
+      const clean = Array.from(container.querySelectorAll("span")).find(
+        (s) => s.textContent === "Clean"
+      );
+      expect(clean?.textContent).toBe("Clean");
+      // Teal (TEAL #00D4AA).
+      expect(clean?.style.color).toBe("rgb(0, 212, 170)");
+    });
+
+    it("omits the WATER cell for unknown or null water quality", () => {
+      const unknown = render(
+        <ConditionsAlertEmail
+          {...makeProps({
+            // Clear rip risk so the strip is driven only by water quality.
+            signals: {
+              ...makeProps().signals,
+              ripRisk: null,
+              waterQuality: "unknown",
+            },
+          })}
+        />
+      );
+      expect(unknown.container.textContent).not.toContain("WATER");
+
+      const none = render(
+        <ConditionsAlertEmail
+          {...makeProps({
+            signals: {
+              ...makeProps().signals,
+              ripRisk: null,
+              waterQuality: null,
+            },
+          })}
+        />
+      );
+      expect(none.container.textContent).not.toContain("WATER");
     });
   });
 

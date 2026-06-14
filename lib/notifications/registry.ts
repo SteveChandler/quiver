@@ -533,26 +533,44 @@ export const NOTIFICATION_REGISTRY = {
 
   water_quality: {
     type: "water_quality",
-    // Phase 5h: water_quality push channel removed. The morning daily_digest
-    // (6am PT) summarizes today's beach advisories/closures into a single
-    // push. Per-event water_quality rows continue to land in the in-app
-    // inbox so users can see status changes on demand.
-    channels: ["in_app"],
+    // Water-quality status changes (advisory / closure / all-clear) are
+    // actionable safety info, so they go out as push AND land in the in-app
+    // inbox. The single "Water quality" Settings toggle (notif_water_quality)
+    // gates both channels — same pattern as like/follow/forecast_alert — so a
+    // user who turns it off never gets a push or an inbox row.
+    channels: ["push", "in_app"],
     prefs: {
-      master: { in_app: "notif_inapp_enabled" },
-      perType: { in_app: "notif_water_quality" },
+      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
+      perType: { push: "notif_water_quality", in_app: "notif_water_quality" },
     },
     suppressSelfNotify: false,
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) => waterQualitySchema.parse(input),
     buildPushPayload: (p) => {
-      const isAdvisory = p.status === "advisory" || p.status === "closure";
-      const title = isAdvisory
-        ? `Advisory: ${p.beach_name}`
-        : `All clear: ${p.beach_name}`;
-      const body = isAdvisory
-        ? "Water quality has dropped. Check before paddling out."
-        : "Water quality is back to good.";
+      // Severity ordering: a closure is unambiguously more urgent than an
+      // advisory, and an all-clear is reassuring. Recovery is detected via the
+      // transition back to 'good' from a prior advisory/closure.
+      const isRecovery =
+        p.status === "good" &&
+        (p.previous_status === "advisory" || p.previous_status === "closure");
+
+      let title: string;
+      let body: string;
+      if (p.status === "closure") {
+        title = `Beach closed: ${p.beach_name}`;
+        body = "High bacteria levels. Don't enter the water.";
+      } else if (p.status === "advisory") {
+        title = `Water advisory: ${p.beach_name}`;
+        body = "Elevated bacteria. Check before paddling out.";
+      } else if (isRecovery) {
+        title = `All clear: ${p.beach_name}`;
+        body = "Water quality is back to safe levels.";
+      } else {
+        // 'good' with no prior advisory/closure, or 'unknown' — the producer
+        // gates these out, but keep the payload safe if one slips through.
+        title = `Water update: ${p.beach_name}`;
+        body = "Water quality status updated.";
+      }
       return {
         title,
         body,

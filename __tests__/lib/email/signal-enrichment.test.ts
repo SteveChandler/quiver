@@ -48,6 +48,7 @@ function createEnrichmentSupabaseMock(config: {
   beaches?: SourceConfig;
   rip_current_risks?: SourceConfig;
   enhanced_forecasts?: SourceConfig;
+  beach_water_quality?: SourceConfig;
 }) {
   const fromMock = jest.fn((table: string) => {
     const source = config[table as keyof typeof config];
@@ -131,6 +132,7 @@ describe("enrichBeachSignals", () => {
       beaches: { data: beachRow() },
       rip_current_risks: { data: { risk_level: "moderate" } },
       enhanced_forecasts: { data: [forecastRow()] },
+      beach_water_quality: { data: { status: "advisory" } },
     });
 
     const result = await enrichBeachSignals(
@@ -146,6 +148,7 @@ describe("enrichBeachSignals", () => {
       waveFrequencyConfidence: "high",
       forecastConfidence: 82,
       conditionCharacter: "Dialed — everything's lining up",
+      waterQuality: "advisory",
     };
     expect(result).toEqual(expected);
   });
@@ -214,6 +217,83 @@ describe("enrichBeachSignals", () => {
     expect(result.ripRisk).toBeNull();
   });
 
+  it.each(["good", "advisory", "closure", "unknown"] as const)(
+    "surfaces water-quality status %s when the source has a row",
+    async (status) => {
+      const { supabase, fromMock } = createEnrichmentSupabaseMock({
+        beaches: { data: beachRow() },
+        rip_current_risks: { data: { risk_level: "low" } },
+        enhanced_forecasts: { data: [forecastRow()] },
+        beach_water_quality: { data: { status } },
+      });
+
+      const result = await enrichBeachSignals(
+        supabase as never,
+        BEACH_ID,
+        LOCAL_DATE
+      );
+
+      expect(fromMock).toHaveBeenCalledWith("beach_water_quality");
+      expect(result.waterQuality).toBe(status);
+    }
+  );
+
+  it("returns null water quality when the source has no row", async () => {
+    const { supabase } = createEnrichmentSupabaseMock({
+      beaches: { data: beachRow() },
+      rip_current_risks: { data: { risk_level: "low" } },
+      enhanced_forecasts: { data: [forecastRow()] },
+      beach_water_quality: { data: null },
+    });
+
+    const result = await enrichBeachSignals(
+      supabase as never,
+      BEACH_ID,
+      LOCAL_DATE
+    );
+
+    expect(result.waterQuality).toBeNull();
+    // Other signals still resolve.
+    expect(result.rideableWavesPerHour).toBe(14);
+  });
+
+  it("returns null water quality (no throw) when the source errors", async () => {
+    const { supabase } = createEnrichmentSupabaseMock({
+      beaches: { data: beachRow() },
+      rip_current_risks: { data: { risk_level: "low" } },
+      enhanced_forecasts: { data: [forecastRow()] },
+      beach_water_quality: { error: { message: "permission denied" } },
+    });
+
+    const result = await enrichBeachSignals(
+      supabase as never,
+      BEACH_ID,
+      LOCAL_DATE
+    );
+
+    expect(result.waterQuality).toBeNull();
+    // Independent sources still resolve.
+    expect(result.ripRisk).toBe("low");
+    expect(result.conditionCharacter).toBe("Dialed — everything's lining up");
+  });
+
+  it("ignores water-quality values outside the known status set", async () => {
+    const { supabase } = createEnrichmentSupabaseMock({
+      beaches: { data: beachRow() },
+      rip_current_risks: { data: { risk_level: "low" } },
+      enhanced_forecasts: { data: [forecastRow()] },
+      beach_water_quality: { data: { status: "contaminated" } },
+    });
+
+    const result = await enrichBeachSignals(
+      supabase as never,
+      BEACH_ID,
+      LOCAL_DATE
+    );
+
+    expect(result.waterQuality).toBeNull();
+  });
+
   it("nulls wave-frequency, confidence, and character when no forecast rows match the local date", async () => {
     const { supabase } = createEnrichmentSupabaseMock({
       beaches: { data: beachRow() },
@@ -274,6 +354,7 @@ describe("enrichBeachSignals", () => {
       waveFrequencyConfidence: null,
       forecastConfidence: null,
       conditionCharacter: null,
+      waterQuality: null,
     });
   });
 

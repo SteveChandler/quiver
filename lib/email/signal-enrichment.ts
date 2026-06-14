@@ -15,6 +15,7 @@ const CONTEXT_TAG = "[email-signal-enrichment]";
 
 export type RipRiskLevel = "low" | "moderate" | "high";
 export type WaveFrequencyConfidence = "high" | "medium" | "low";
+export type WaterQualityStatus = "good" | "advisory" | "closure" | "unknown";
 
 /**
  * Surf-decision signals our redesigned emails surface. Every field degrades to
@@ -34,6 +35,8 @@ export interface BeachSignalEnrichment {
   forecastConfidence: number | null;
   /** Human condition label, e.g. "Dialed — everything's lining up". */
   conditionCharacter: string | null;
+  /** Current beach_water_quality status; null on missing row or error. */
+  waterQuality: WaterQualityStatus | null;
 }
 
 const EMPTY_ENRICHMENT: BeachSignalEnrichment = {
@@ -43,12 +46,20 @@ const EMPTY_ENRICHMENT: BeachSignalEnrichment = {
   waveFrequencyConfidence: null,
   forecastConfidence: null,
   conditionCharacter: null,
+  waterQuality: null,
 };
 
 const RIP_RISK_LEVELS: ReadonlySet<string> = new Set<RipRiskLevel>([
   "low",
   "moderate",
   "high",
+]);
+
+const WATER_QUALITY_STATUSES: ReadonlySet<string> = new Set<WaterQualityStatus>([
+  "good",
+  "advisory",
+  "closure",
+  "unknown",
 ]);
 
 /**
@@ -65,16 +76,48 @@ export async function enrichBeachSignals(
   // wave-frequency/character/confidence signals share the day's forecast rows
   // and the beach profile. Fetch them in parallel so one slow source doesn't
   // serialize the others.
-  const [ripRisk, waveAndForecast] = await Promise.all([
+  const [ripRisk, waterQuality, waveAndForecast] = await Promise.all([
     fetchRipRisk(supabase, beachId, localDate),
+    fetchWaterQuality(supabase, beachId),
     fetchWaveAndForecastSignals(supabase, beachId, localDate),
   ]);
 
   return {
     ...EMPTY_ENRICHMENT,
     ripRisk,
+    waterQuality,
     ...waveAndForecast,
   };
+}
+
+/**
+ * Current water-quality status for the beach. The `beach_water_quality` table
+ * holds one row per beach (status, status_changed_at, …), so we read it by
+ * beach id alone. Unknown/missing/error all degrade to null.
+ */
+async function fetchWaterQuality(
+  supabase: SupabaseClient<Database>,
+  beachId: string
+): Promise<WaterQualityStatus | null> {
+  try {
+    const { data, error } = await supabase
+      .from("beach_water_quality")
+      .select("status")
+      .eq("beach_id", beachId)
+      .maybeSingle();
+
+    if (error) {
+      console.error(`${CONTEXT_TAG} Failed to load water quality:`, error);
+      return null;
+    }
+    const status = data?.status;
+    return status && WATER_QUALITY_STATUSES.has(status)
+      ? (status as WaterQualityStatus)
+      : null;
+  } catch (error) {
+    console.error(`${CONTEXT_TAG} Failed to load water quality:`, error);
+    return null;
+  }
 }
 
 async function fetchRipRisk(
