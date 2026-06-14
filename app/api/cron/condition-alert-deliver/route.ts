@@ -36,6 +36,12 @@ import { generateDisableToken, generateEmailUnsubscribeToken } from "@/lib/alert
 import type { AttemptStatus } from "@/lib/alerts/throttle";
 import { cooldownDecision, weeklyCapDecision } from "@/lib/alerts/throttle";
 import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
+import { getLocalHour } from "@/lib/utils/timezone-utils";
+import {
+  DEFAULT_QUIET,
+  isInQuietWindow,
+  resolveNotificationTimezone,
+} from "@/lib/notifications/quiet-hours";
 import {
   selectFreshAlertWindow,
   type EnhancedForecastAlertRow,
@@ -265,6 +271,10 @@ export async function GET(request: Request): Promise<NextResponse> {
           pushSent: 0,
           queueMarked: 0,
           skippedStale: 0,
+          // Email items deferred because the recipient is inside their
+          // quiet-hours window. These rows stay due+unsent so a later hourly
+          // run re-evaluates and sends once they're out of quiet hours.
+          emailQuietHoursSkipped: 0,
           errors: 0,
         };
 
@@ -392,11 +402,15 @@ export async function GET(request: Request): Promise<NextResponse> {
           display_name: string | null;
           notif_email_enabled: boolean;
           notif_push_enabled: boolean;
+          // Drives the email quiet-hours window resolution (same source the
+          // push worker uses via resolveNotificationTimezone). Nullable;
+          // falls back to DEFAULT_TIMEZONE.
+          timezone: string | null;
         };
         const userIds = Array.from(new Set(queueRows.map((r) => r.user_id)));
         const { data: profileRows, error: profilesError } = await supabase
           .from("profiles")
-          .select("id, email, display_name, notif_email_enabled, notif_push_enabled")
+          .select("id, email, display_name, notif_email_enabled, notif_push_enabled, timezone")
           .in("id", userIds);
 
         if (profilesError) throw profilesError;
@@ -550,6 +564,29 @@ export async function GET(request: Request): Promise<NextResponse> {
             return survivors;
           }
 
+          // Quiet-hours guard for the EMAIL channel. Mirrors the push worker:
+          // resolve the recipient timezone the same way, honor the per-rule
+          // quiet_hours override (else DEFAULT_QUIET), and defer the whole email
+          // send if the recipient is currently inside the window. Most dawn
+          // alerts have a pre-dawn send_at (after the 04:00 window end), so this
+          // rarely triggers — it's an edge-case correctness fix.
+          const emailQuietHoursOverride = resolveQuietHoursOverride(emailItems);
+          const recipientTimezone = resolveNotificationTimezone(profile.timezone);
+          const recipientLocalHour = getLocalHour(new Date(), recipientTimezone);
+          const emailInQuietHours =
+            emailItems.length > 0 &&
+            isInQuietWindow(
+              recipientLocalHour,
+              emailQuietHoursOverride?.quiet_hours_start ?? DEFAULT_QUIET.windowStart,
+              emailQuietHoursOverride?.quiet_hours_end ?? DEFAULT_QUIET.windowEnd
+            );
+
+          // Queue ids whose EMAIL item was deferred this run because the
+          // recipient is inside their quiet-hours window. These must NOT be
+          // marked sent below — the row stays due+unsent so a later hourly run
+          // (once send_at has passed AND they're out of quiet hours) sends it.
+          const quietDeferredEmailQueueIds = new Set<string>();
+
           try {
             // ---- Email branch ----
             if (emailItems.length > 0) {
@@ -576,6 +613,20 @@ export async function GET(request: Request): Promise<NextResponse> {
                     skipReason: `user not in ALERTS_DELIVERY_USER_ALLOWLIST`,
                   });
                 }
+              } else if (emailInQuietHours) {
+                // Defer the whole email send: no resend, no alert_deliveries
+                // dedup row, no logDelivery, no sent attempt. Cooldown/cap reads
+                // only count status='sent' rows, so this deferral cannot
+                // suppress the later real send. The row is left due+unsent
+                // below so a later hourly run sends once they're out of quiet
+                // hours and send_at has passed.
+                for (const item of emailItems) {
+                  quietDeferredEmailQueueIds.add(item.id);
+                }
+                result.emailQuietHoursSkipped += emailItems.length;
+                console.log(
+                  `${CONTEXT_TAG} Email deferred for user ${payload.user_id} (quiet hours; ${emailItems.length} item(s) left due)`
+                );
               } else {
                 // Throttle (cooldown per-rule, weekly cap per-user). Items that
                 // trip throttle get an attempt row written here and don't proceed
@@ -916,17 +967,26 @@ export async function GET(request: Request): Promise<NextResponse> {
             }
 
             // 6. Mark queue items as sent (always — even when delivery is disabled —
-            //    so the queue cannot accumulate forever during a pause).
-            const { error: markError } = await supabase
-              .from("alert_queue")
-              .update({ sent: true })
-              .in("id", queueIds);
+            //    so the queue cannot accumulate forever during a pause). EXCEPT
+            //    rows whose email item was quiet-hours-deferred this run: those
+            //    stay due+unsent so a later hourly tick re-evaluates and sends.
+            //    (Push on the same row is dedup-protected by the push
+            //    alert_deliveries row + dedupeKey, so re-processing is safe.)
+            const queueIdsToMark = queueIds.filter(
+              (id) => !quietDeferredEmailQueueIds.has(id)
+            );
+            if (queueIdsToMark.length > 0) {
+              const { error: markError } = await supabase
+                .from("alert_queue")
+                .update({ sent: true })
+                .in("id", queueIdsToMark);
 
-            if (markError) {
-              console.error(`${CONTEXT_TAG} Failed to mark queue items sent for user ${payload.user_id}:`, markError);
-              result.errors++;
-            } else {
-              result.queueMarked += queueIds.length;
+              if (markError) {
+                console.error(`${CONTEXT_TAG} Failed to mark queue items sent for user ${payload.user_id}:`, markError);
+                result.errors++;
+              } else {
+                result.queueMarked += queueIdsToMark.length;
+              }
             }
           } catch (userErr) {
             console.error(`${CONTEXT_TAG} Error processing user ${payload.user_id}:`, userErr);
