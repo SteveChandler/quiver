@@ -178,8 +178,6 @@ behavior file.
 - Web-to-native fallback CTAs should reuse `IOS_APP_STORE_URL` from
   `lib/constants/app-store.ts` unless a later native-app phase defines a more
   specific destination.
-- Current forecast-alert deeplink format is `/beach/{beach_slug}`; the unit
-  contract is in `__tests__/lib/services/forecast-alerts-deeplink.test.ts`.
 - Invite landing uses the native scheme `quiver://invite/{token}` and web
   fallback `/invite/start?token=...`.
 - `e2e/push-deeplink-routing.spec.ts` includes skipped bug-quarantine coverage

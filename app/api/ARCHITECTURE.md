@@ -349,16 +349,6 @@ export const GET = withAuth(handler);
 - **Template**: `FirstSessionNudgeEmail` with quick-log CTA
 - **Service Layer**: `lib/services/email-logging-service.ts`, `lib/utils/email-rate-limiter.ts`
 
-#### `/cron/forecast-alerts/route.ts`
-
-- **Methods**: `GET`
-- **Function**: Legacy daily forecast summary endpoint; producer is disabled.
-- **Auth**: `validateCronRequest(request)` accepts `x-vercel-cron` or `Authorization: Bearer <CRON_SECRET>`
-- **Service Layer**: `lib/services/forecast-alerts.ts` (`runForecastThresholdAlerts()`)
-- **Constraints**:
-  - Exits before forecast reads, delivery-slot claims, or `daily_digest` enqueue
-  - Actionable forecast pushes are owned by the condition-alert pipeline
-
 ### 🔮 `/forecasts` - Surf Forecast System
 
 **Data Sources**: NOAA WaveWatch III, CO-OPS, Weather Service, NDBC

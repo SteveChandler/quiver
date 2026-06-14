@@ -207,6 +207,13 @@ describe("Re-engagement Email Cron Job API", () => {
     expect(routeSource).toContain("@/lib/middleware/api-wrappers");
   });
 
+  it("does not import token utilities or condition-label subject copy", () => {
+    expect(routeSource).not.toContain("@/lib/utils/email-token");
+    expect(routeSource).not.toContain("signEmailToken");
+    expect(routeSource).not.toContain("getEmailTokenSecret");
+    expect(routeSource).not.toContain("getConditionLabelText");
+  });
+
   const makeMockCandidate = (overrides = {}) => ({
     user_id: "user-1",
     email: "surfer@example.com",
@@ -500,6 +507,7 @@ describe("Re-engagement Email Cron Job API", () => {
 
   describe("Email Sending", () => {
     it("should send email with correct parameters", async () => {
+      const { ReengagementEmail } = require("@/lib/mailer/templates/ReengagementEmail");
       const candidates = [
         {
           user_id: "user-1",
@@ -543,19 +551,21 @@ describe("Re-engagement Email Cron Job API", () => {
         from: "Quiver <test@quiversurf.app>",
         replyTo: "Quiver <test@quiversurf.app>",
         to: "user1@example.com",
-        subject: "Perfect conditions at Ocean Beach today!",
+        subject: "Ocean Beach is firing — your first session back?",
         react: "ReengagementEmail", // Mocked component
       });
+      expect(ReengagementEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ctaUrl: "https://quiversurf.app/beach/ocean-beach",
+        })
+      );
     });
 
-    it("should use correct email subject based on score", async () => {
-      const testCases = [
-        { score: 90, expectedLabel: "Perfect" },
-        { score: 80, expectedLabel: "Excellent" },
-        { score: 65, expectedLabel: "Good" },
-      ];
+    it("should use warmer email subject independent of score", async () => {
+      const { getConditionLabelText } = require("@/lib/email/email-formatters");
+      const testCases = [90, 80, 65];
 
-      for (const testCase of testCases) {
+      for (const score of testCases) {
         jest.clearAllMocks();
 
         const candidates = [
@@ -566,7 +576,7 @@ describe("Re-engagement Email Cron Job API", () => {
             home_beach_id: "beach-1",
             beach_name: "Test Beach",
             beach_slug: "test-beach",
-            conditions_score: testCase.score,
+            conditions_score: score,
             surf_description: "Test",
             wind_description: "Test",
             best_window_start: null,
@@ -586,9 +596,10 @@ describe("Re-engagement Email Cron Job API", () => {
 
         expect(mockEmailsSend).toHaveBeenCalledWith(
           expect.objectContaining({
-            subject: `${testCase.expectedLabel} conditions at Test Beach today!`,
+            subject: "Test Beach is firing — your first session back?",
           })
         );
+        expect(getConditionLabelText).not.toHaveBeenCalled();
       }
     });
 
@@ -673,9 +684,12 @@ describe("Re-engagement Email Cron Job API", () => {
       expect(data.data.summary.skipped.sendFailed).toBe(1);
     });
 
-    it("should pass logSessionUrl to the email template", async () => {
+    it("should not sign tokens or pass logSessionUrl to the email template", async () => {
       const { ReengagementEmail } = require("@/lib/mailer/templates/ReengagementEmail");
-      const { signEmailToken } = require("@/lib/utils/email-token");
+      const {
+        signEmailToken,
+        getEmailTokenSecret,
+      } = require("@/lib/utils/email-token");
 
       mockRpc.mockResolvedValueOnce({
         data: [makeMockCandidate()],
@@ -687,19 +701,11 @@ describe("Re-engagement Email Cron Job API", () => {
 
       await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
 
-      expect(signEmailToken).toHaveBeenCalledWith(
-        expect.objectContaining({
-          user_id: expect.any(String),
-          purpose: "log_session",
-        }),
-        "mock-secret"
-      );
-
+      expect(getEmailTokenSecret).not.toHaveBeenCalled();
+      expect(signEmailToken).not.toHaveBeenCalled();
       expect(ReengagementEmail).toHaveBeenCalledWith(
-        expect.objectContaining({
-          logSessionUrl: expect.stringMatching(
-            /\/session\/confirm\?token=.+&beach_id=.+&date=\d{4}-\d{2}-\d{2}/
-          ),
+        expect.not.objectContaining({
+          logSessionUrl: expect.anything(),
         })
       );
     });

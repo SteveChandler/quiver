@@ -29,6 +29,10 @@ type EntitlementRow = Pick<
   Database["public"]["Tables"]["user_entitlements"]["Row"],
   "user_id" | "is_pro" | "is_trialing" | "billing_issue" | "expires_at"
 >;
+type AlertQueueInsertWithBestScore =
+  Database["public"]["Tables"]["alert_queue"]["Insert"] & {
+    best_score: number;
+  };
 
 function selectBestMatchedWindow(windows: FoundWindow[]): FoundWindow {
   return [...windows].sort((a, b) => {
@@ -135,12 +139,14 @@ export async function GET(request: Request) {
             const userLocalDate = new Date().toLocaleDateString("en-CA", { timeZone: homeBeachTz });
 
             // Check if already delivered today.
-            const { data: existing } = await supabase
+            const { data: existing, error: existingError } = await supabase
               .from("alert_deliveries")
               .select("id")
               .eq("user_id", userId)
               .eq("alert_date", userLocalDate)
               .limit(1);
+
+            if (existingError) throw existingError;
 
             if (existing && existing.length > 0) {
               result.skipped += userRules.length;
@@ -163,13 +169,15 @@ export async function GET(request: Request) {
 
               const { start: todayStart, end: todayEnd } = getUtcDayBounds(userLocalDate, beach.timezone);
 
-              const { data: forecasts } = await supabase
+              const { data: forecasts, error: forecastsError } = await supabase
                 .from("enhanced_forecasts")
                 .select("*")
                 .eq("beach_id", rule.beach_id)
                 .gte("forecast_at", todayStart)
                 .lt("forecast_at", todayEnd)
                 .order("forecast_at", { ascending: true });
+
+              if (forecastsError) throw forecastsError;
 
               if (!forecasts || forecasts.length === 0) continue;
 
@@ -278,23 +286,25 @@ export async function GET(request: Request) {
                 const sendAtDate = new Date(new Date(window.window_start).getTime() - 2 * 60 * 60 * 1000);
                 const clampedSendAt = sendAtDate < sunrise ? sunrise : sendAtDate;
                 const sendAt = clampedSendAt < new Date() ? new Date() : clampedSendAt;
+                const queueRow: AlertQueueInsertWithBestScore = {
+                  user_id: userId,
+                  rule_id: rule.id,
+                  beach_id: rule.beach_id,
+                  alert_date: userLocalDate,
+                  send_at: sendAt.toISOString(),
+                  window_start: window.window_start,
+                  window_end: window.window_end,
+                  best_hour: window.best_hour,
+                  best_score: window.best_score,
+                  // conditions_snapshot is Record<string,unknown> from MatchingWindow
+                  // but the DB column is typed as Json — structurally compatible.
+                  conditions_snapshot: window.conditions_snapshot as import("@/types/database.generated").Json,
+                };
 
                 const { error: insertError } = await supabase
                   .from("alert_queue")
                   .upsert(
-                    {
-                      user_id: userId,
-                      rule_id: rule.id,
-                      beach_id: rule.beach_id,
-                      alert_date: userLocalDate,
-                      send_at: sendAt.toISOString(),
-                      window_start: window.window_start,
-                      window_end: window.window_end,
-                      best_hour: window.best_hour,
-                      // conditions_snapshot is Record<string,unknown> from MatchingWindow
-                      // but the DB column is typed as Json — structurally compatible.
-                      conditions_snapshot: window.conditions_snapshot as import("@/types/database.generated").Json,
-                    },
+                    queueRow,
                     { onConflict: "rule_id,alert_date,window_start", ignoreDuplicates: true }
                   );
 

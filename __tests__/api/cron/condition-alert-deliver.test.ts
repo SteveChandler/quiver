@@ -31,6 +31,7 @@ if (typeof (globalThis as any).Response?.json !== "function") {
  */
 
 import { GET } from "@/app/api/cron/condition-alert-deliver/route";
+import { ConsolidatedAlertEmail } from "@/lib/mailer/templates/ConsolidatedAlertEmail";
 import { readFileSync } from "fs";
 
 // ---- Mock API wrappers ----
@@ -115,10 +116,14 @@ type QueueUpdate = { ids: string[]; sent: boolean };
 
 interface MockStore {
   alertQueueRows: any[];
+  alertQueueSelects: string[];
   profileRows: any[];
   existingDeliveries: DeliveryRow[];
+  deliverySelectError: Error | null;
+  deliveryInsertError: Error | null;
   deviceRows: { user_id: string; device_token: string }[];
   attemptInserts: AttemptRow[];
+  recentAttemptsError: Error | null;
   deliveryInserts: DeliveryRow[];
   queueUpdates: QueueUpdate[];
   // Pre-existing attempt rows (for cooldown/cap throttle queries).
@@ -130,10 +135,14 @@ interface MockStore {
 
 const store: MockStore = {
   alertQueueRows: [],
+  alertQueueSelects: [],
   profileRows: [],
   existingDeliveries: [],
+  deliverySelectError: null,
+  deliveryInsertError: null,
   deviceRows: [],
   attemptInserts: [],
+  recentAttemptsError: null,
   deliveryInserts: [],
   queueUpdates: [],
   seededAttempts: [],
@@ -175,6 +184,10 @@ function makeChain(rowsResolver: () => any[], onTerminal?: () => void) {
 function mockFrom(table: string) {
   if (table === "alert_queue") {
     const queueChain: any = makeChain(() => store.alertQueueRows);
+    queueChain.select = jest.fn((columns: string) => {
+      store.alertQueueSelects.push(columns);
+      return queueChain;
+    });
     queueChain.update = jest.fn((vals: any) => {
       const updateChain: any = {
         in: jest.fn((_col: string, ids: string[]) => {
@@ -191,6 +204,7 @@ function mockFrom(table: string) {
   }
   if (table === "alert_deliveries") {
     const chain: any = makeChain(() => {
+      if (store.deliverySelectError) return [];
       const f = chain._filters;
       return store.existingDeliveries.filter(
         (d) =>
@@ -199,9 +213,20 @@ function mockFrom(table: string) {
           (f.channel == null || d.channel === f.channel)
       );
     });
+    chain.then = jest.fn((resolve: any) =>
+      resolve({
+        data: store.deliverySelectError ? null : chain._filters && store.existingDeliveries.filter(
+          (d) =>
+            (chain._filters.user_id == null || d.user_id === chain._filters.user_id) &&
+            (chain._filters.alert_date == null || d.alert_date === chain._filters.alert_date) &&
+            (chain._filters.channel == null || d.channel === chain._filters.channel)
+        ),
+        error: store.deliverySelectError,
+      })
+    );
     chain.insert = jest.fn((row: DeliveryRow) => {
       store.deliveryInserts.push(row);
-      return Promise.resolve({ error: null });
+      return Promise.resolve({ error: store.deliveryInsertError });
     });
     return chain;
   }
@@ -217,6 +242,7 @@ function mockFrom(table: string) {
     //   .gte("attempted_at", sinceWeek)
     // Filter the seeded rows accordingly so the worker exercises its real query intent.
     const chain: any = makeChain(() => {
+      if (store.recentAttemptsError) return [];
       const f = chain._filters;
       return store.seededAttempts.filter((a) => {
         if (f.status != null && a.status !== f.status) return false;
@@ -224,6 +250,19 @@ function mockFrom(table: string) {
         return true;
       });
     });
+    chain.then = jest.fn((resolve: any) =>
+      resolve({
+        data: store.recentAttemptsError
+          ? null
+          : store.seededAttempts.filter((a) => {
+              const f = chain._filters;
+              if (f.status != null && a.status !== f.status) return false;
+              if (f.attempted_at__gte != null && a.attempted_at < f.attempted_at__gte) return false;
+              return true;
+            }),
+        error: store.recentAttemptsError,
+      })
+    );
     chain.insert = jest.fn((row: AttemptRow) => {
       store.attemptInserts.push(row);
       return Promise.resolve({ error: null });
@@ -249,6 +288,7 @@ const USER_B = "00000000-0000-0000-0000-000000000002";
 const RULE_1 = "00000000-0000-0000-0000-0000000000a1";
 const BEACH_1 = "00000000-0000-0000-0000-0000000000b1";
 const QUEUE_1 = "00000000-0000-0000-0000-0000000000c1";
+const mockConsolidatedAlertEmail = ConsolidatedAlertEmail as jest.Mock;
 
 function seedQueueRow(overrides: Partial<any> = {}) {
   store.alertQueueRows.push({
@@ -261,6 +301,7 @@ function seedQueueRow(overrides: Partial<any> = {}) {
     window_start: "2026-04-26T13:00:00Z",
     window_end: "2026-04-26T15:00:00Z",
     best_hour: "2026-04-26T14:00:00Z",
+    best_score: 0.8,
     conditions_snapshot: {},
     sent: false,
     alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
@@ -293,10 +334,14 @@ beforeEach(() => {
   jest.clearAllMocks();
   consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
   store.alertQueueRows = [];
+  store.alertQueueSelects = [];
   store.profileRows = [];
   store.existingDeliveries = [];
+  store.deliverySelectError = null;
+  store.deliveryInsertError = null;
   store.deviceRows = [];
   store.attemptInserts = [];
+  store.recentAttemptsError = null;
   store.deliveryInserts = [];
   store.queueUpdates = [];
   store.seededAttempts = [];
@@ -427,6 +472,75 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 
+  it("counts email delivery-row insert failure after send without retrying the provider action", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    store.deliveryInsertError = new Error("dedupe insert failed");
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const res = await GET(makeRequest());
+    consoleErrorSpy.mockRestore();
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.errors).toBe(1);
+    expect(body.emailSent).toBe(0);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockLogDelivery).not.toHaveBeenCalled();
+    expect(store.deliveryInserts).toHaveLength(1);
+    expect(store.attemptInserts).toEqual([
+      expect.objectContaining({
+        queue_id: QUEUE_1,
+        user_id: USER_A,
+        rule_id: RULE_1,
+        channel: "email",
+        status: "sent",
+      }),
+    ]);
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+
+  it("maps queued best_score into consolidated email ordering", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedQueueRow({
+      id: "00000000-0000-0000-0000-0000000000c2",
+      rule_id: "00000000-0000-0000-0000-0000000000a2",
+      beach_id: "00000000-0000-0000-0000-0000000000b2",
+      best_score: 0.25,
+      alert_rules: { name: "Lower score rule", notify_email: true, notify_push: false },
+      beaches: { name: "Lower Score Beach", timezone: "America/Los_Angeles" },
+    });
+    seedQueueRow({
+      id: "00000000-0000-0000-0000-0000000000c3",
+      rule_id: "00000000-0000-0000-0000-0000000000a3",
+      beach_id: "00000000-0000-0000-0000-0000000000b3",
+      best_score: 0.95,
+      alert_rules: { name: "Higher score rule", notify_email: true, notify_push: false },
+      beaches: { name: "Higher Score Beach", timezone: "America/Los_Angeles" },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(store.alertQueueSelects[0]).toContain("best_score");
+    expect(mockConsolidatedAlertEmail).toHaveBeenCalledTimes(1);
+    const emailProps = mockConsolidatedAlertEmail.mock.calls[0][0];
+    expect(emailProps.matches.map((m: any) => ({
+      beach_name: m.beach_name,
+      best_score: m.best_score,
+    }))).toEqual([
+      { beach_name: "Higher Score Beach", best_score: 0.95 },
+      { beach_name: "Lower Score Beach", best_score: 0.25 },
+    ]);
+  });
+
   it("email-only rule, profile.email is null → skipped_no_email, no Resend call, queue still marked sent", async () => {
     // Regression for the 2026-04-27 failed_provider crash where Resend rejected
     // a null `to` field. The deliver worker must guard before the provider call.
@@ -524,6 +638,26 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
 });
 
 describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
+  it("fails closed when the recent sent-attempt history query fails", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    store.recentAttemptsError = new Error("attempt history failed");
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const res = await GET(makeRequest());
+    consoleErrorSpy.mockRestore();
+
+    expect(res.status).toBe(500);
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(store.attemptInserts).toHaveLength(0);
+    expect(store.queueUpdates).toHaveLength(0);
+  });
+
   it("rule cooldown: prior sent attempt 12h ago records skipped_cooldown and skips provider", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
@@ -751,6 +885,32 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
     // status. So no push-channel attempt row should exist at this point.
     const pushAttempt = store.attemptInserts.find((a) => a.channel === "push");
     expect(pushAttempt).toBeUndefined();
+  });
+
+  it("counts push delivery-row insert failure after enqueue without pre-writing a sent attempt", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    store.deliveryInsertError = new Error("dedupe insert failed");
+    seedQueueRow({
+      alert_rules: {
+        name: "Test rule",
+        notify_email: false,
+        notify_push: true,
+      },
+    });
+    seedProfile({ notif_email_enabled: false, notif_push_enabled: true });
+
+    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const res = await GET(makeRequest());
+    consoleErrorSpy.mockRestore();
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(body.errors).toBe(1);
+    expect(body.pushSent).toBe(0);
+    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
+    expect(store.deliveryInserts).toHaveLength(1);
+    expect(store.attemptInserts.find((a) => a.channel === "push")).toBeUndefined();
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 
   it("records skipped_dedup_collision when enqueue returns duplicate", async () => {

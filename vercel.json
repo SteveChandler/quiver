@@ -29,10 +29,6 @@
       "schedule": "30 3 * * *"
     },
     {
-      "path": "/api/cron/forecast-alerts",
-      "schedule": "15 */3 * * *"
-    },
-    {
       "path": "/api/cron/daily-intel?generationTime=06:00&maxBeaches=60",
       "schedule": "0 14,18,22 * * *"
     },

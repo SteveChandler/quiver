@@ -159,7 +159,7 @@ export const PRESETS: PresetDefinition[] = [
       "Used to prove the alert delivery chain during Phase 1 rollout. Not " +
       "intended for general user creation.",
     conditionsSummary: "Rideable surf, non storm winds",
-    group: "specific",
+    group: "internal",
     buildConditions: (): AlertConditions => ({
       swell_height_min: 0.5,
       wind_speed_max_kt: 25,

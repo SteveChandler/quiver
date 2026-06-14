@@ -13,9 +13,9 @@ import {
 // Mock the email formatters module
 jest.mock("@/lib/email/email-formatters", () => ({
   getConditionLabel: jest.fn((score: number) => {
-    if (score >= 9) {
+    if (score >= 85) {
       return { label: "Perfect", color: "#10b981", emoji: "🔥" };
-    } else if (score >= 8) {
+    } else if (score >= 70) {
       return { label: "Excellent", color: "#3b82f6", emoji: "✨" };
     } else {
       return { label: "Good", color: "#22c55e", emoji: "🌊" };
@@ -30,7 +30,7 @@ function makeProps(
   return {
     displayName: "John",
     beachName: "Black's Beach",
-    conditionsScore: 8,
+    conditionsScore: 70,
     surfDescription: "Clean 4-6ft sets",
     confirmUrl: "https://quiversurf.app/sessions/new?beach=blacks&action=confirm",
     skipUrl: "https://quiversurf.app/sessions/new?beach=blacks&action=skip",
@@ -90,45 +90,47 @@ describe("SessionPromptEmail", () => {
   });
 
   describe("Condition Score Display", () => {
-    it("displays condition score as X/10 format", () => {
-      const props = makeProps({ conditionsScore: 8 });
+    it("renders a 0-100 condition score without a /10 scale", () => {
+      const props = makeProps({ conditionsScore: 85 });
       render(<SessionPromptEmail {...props} />);
 
-      expect(screen.getByText(/\(8\/10\)/i)).toBeInTheDocument();
+      const paragraph = screen.getByText(/Conditions were looking/i);
+      expect(paragraph.textContent).toContain("yesterday (scored 85).");
+      expect(paragraph.textContent).not.toContain("/10");
     });
 
-    it("displays score 9 correctly", () => {
-      const props = makeProps({ conditionsScore: 9 });
+    it("displays score 70 correctly", () => {
+      const props = makeProps({ conditionsScore: 70 });
       render(<SessionPromptEmail {...props} />);
 
-      expect(screen.getByText(/\(9\/10\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/scored 70/i)).toBeInTheDocument();
     });
 
-    it("displays score 7 correctly", () => {
-      const props = makeProps({ conditionsScore: 7 });
+    it("displays score 69 correctly", () => {
+      const props = makeProps({ conditionsScore: 69 });
       render(<SessionPromptEmail {...props} />);
 
-      expect(screen.getByText(/\(7\/10\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/scored 69/i)).toBeInTheDocument();
     });
 
-    it("displays score 10 correctly", () => {
-      const props = makeProps({ conditionsScore: 10 });
+    it("displays score 100 correctly", () => {
+      const props = makeProps({ conditionsScore: 100 });
       render(<SessionPromptEmail {...props} />);
 
-      expect(screen.getByText(/\(10\/10\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/scored 100/i)).toBeInTheDocument();
     });
 
-    it("displays score 5 correctly", () => {
-      const props = makeProps({ conditionsScore: 5 });
+    it("displays score 45 correctly", () => {
+      const props = makeProps({ conditionsScore: 45 });
       render(<SessionPromptEmail {...props} />);
 
-      expect(screen.getByText(/\(5\/10\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/scored 45/i)).toBeInTheDocument();
     });
   });
 
   describe("Condition Label", () => {
-    it("uses lowercase condition label for score 9 (perfect)", () => {
-      const props = makeProps({ conditionsScore: 9 });
+    it("uses lowercase condition label for score 85 (perfect)", () => {
+      const props = makeProps({ conditionsScore: 85 });
       render(<SessionPromptEmail {...props} />);
 
       // Label is in <strong> tag
@@ -136,8 +138,8 @@ describe("SessionPromptEmail", () => {
       expect(screen.getByText(/Conditions were looking/i)).toBeInTheDocument();
     });
 
-    it("uses lowercase condition label for score 8 (excellent)", () => {
-      const props = makeProps({ conditionsScore: 8 });
+    it("uses lowercase condition label for score 70 (excellent)", () => {
+      const props = makeProps({ conditionsScore: 70 });
       render(<SessionPromptEmail {...props} />);
 
       // Label is in <strong> tag
@@ -145,8 +147,8 @@ describe("SessionPromptEmail", () => {
       expect(screen.getByText(/Conditions were looking/i)).toBeInTheDocument();
     });
 
-    it("uses lowercase condition label for score 7 (good)", () => {
-      const props = makeProps({ conditionsScore: 7 });
+    it("uses lowercase condition label for score 69 (good)", () => {
+      const props = makeProps({ conditionsScore: 69 });
       render(<SessionPromptEmail {...props} />);
 
       // Label is in <strong> tag
@@ -188,8 +190,8 @@ describe("SessionPromptEmail", () => {
       const props = makeProps({ surfDescription: null });
       render(<SessionPromptEmail {...props} />);
 
-      // Should end with "...yesterday (8/10). If you got out there..."
-      const text = screen.getByText(/yesterday \(8\/10\)\./i);
+      // Should end with "...yesterday (scored 70). If you got out there..."
+      const text = screen.getByText(/yesterday \(scored 70\)\./i);
       expect(text).toBeInTheDocument();
     });
   });
@@ -283,7 +285,7 @@ describe("SessionPromptEmail", () => {
       expect(screen.getByText(/Conditions were looking/i)).toBeInTheDocument();
       expect(screen.getByText("excellent")).toBeInTheDocument();
       expect(screen.getByText("Black's Beach")).toBeInTheDocument();
-      expect(screen.getByText(/\(8\/10\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/scored 70/i)).toBeInTheDocument();
 
       // Surf description
       expect(screen.getByText(/Clean 4-6ft sets\./i)).toBeInTheDocument();
@@ -322,7 +324,7 @@ describe("SessionPromptEmail", () => {
       expect(screen.getByText(/Conditions were looking/i)).toBeInTheDocument();
       expect(screen.getByText("excellent")).toBeInTheDocument();
       expect(screen.getByText("Black's Beach")).toBeInTheDocument();
-      expect(screen.getByText(/\(8\/10\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/scored 70/i)).toBeInTheDocument();
 
       // No surf description appended
       const paragraph = screen.getByText(/Conditions were looking/i);
@@ -332,29 +334,29 @@ describe("SessionPromptEmail", () => {
       expect(screen.getByText(/Yes, I surfed!/i)).toBeInTheDocument();
     });
 
-    it("renders with perfect conditions (score 10)", () => {
+    it("renders with perfect conditions (score 100)", () => {
       const props = makeProps({
-        conditionsScore: 10,
+        conditionsScore: 100,
         surfDescription: "Epic 6-8ft barrels",
       });
       render(<SessionPromptEmail {...props} />);
 
       expect(screen.getByText(/Conditions were looking/i)).toBeInTheDocument();
       expect(screen.getByText("perfect")).toBeInTheDocument();
-      expect(screen.getByText(/\(10\/10\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/scored 100/i)).toBeInTheDocument();
       expect(screen.getByText(/Epic 6-8ft barrels\./i)).toBeInTheDocument();
     });
 
-    it("renders with lower conditions (score 5)", () => {
+    it("renders with lower conditions (score 45)", () => {
       const props = makeProps({
-        conditionsScore: 5,
+        conditionsScore: 45,
         surfDescription: "Small 1-2ft wind chop",
       });
       render(<SessionPromptEmail {...props} />);
 
       expect(screen.getByText(/Conditions were looking/i)).toBeInTheDocument();
       expect(screen.getByText("good")).toBeInTheDocument();
-      expect(screen.getByText(/\(5\/10\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/scored 45/i)).toBeInTheDocument();
       expect(screen.getByText(/Small 1-2ft wind chop\./i)).toBeInTheDocument();
     });
   });
@@ -373,7 +375,7 @@ describe("SessionPromptEmail", () => {
 
     it("displays full content paragraph correctly", () => {
       const props = makeProps({
-        conditionsScore: 9,
+        conditionsScore: 85,
         beachName: "Swami's",
         surfDescription: "Perfect peeling rights",
       });
@@ -382,7 +384,7 @@ describe("SessionPromptEmail", () => {
       // Should have complete sentence structure
       const paragraph = screen.getByText(/Conditions were looking/i);
       expect(paragraph.textContent).toMatch(
-        /Conditions were looking perfect at Swami's yesterday \(9\/10\)\. Perfect peeling rights\. If you got out there/i
+        /Conditions were looking perfect at Swami's yesterday \(scored 85\)\. Perfect peeling rights\. If you got out there/i
       );
     });
   });

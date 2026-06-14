@@ -26,14 +26,11 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { ReengagementEmail } from "@/lib/mailer/templates/ReengagementEmail";
-import {
-  formatDatabaseTime,
-  getConditionLabelText,
-} from "@/lib/email/email-formatters";
+import { formatDatabaseTime } from "@/lib/email/email-formatters";
 import type { IntelPost, ReengagementCandidate } from "@/lib/email/email-types";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
-import { signEmailToken, getEmailTokenSecret } from "@/lib/utils/email-token";
+import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
@@ -144,7 +141,6 @@ async function processCandidate(
   candidate: ReengagementCandidate,
   supabase: SupabaseClient,
   baseUrl: string,
-  tokenSecret: string,
   rateLimiter: ReturnType<typeof createResendRateLimiter>,
   emailLogger: ReturnType<typeof createEmailLogger>
 ): Promise<ProcessingResult> {
@@ -172,22 +168,9 @@ async function processCandidate(
       : null;
 
   // 4. Prepare email content
-  const ctaUrl = `${baseUrl}/beaches/${candidate.beach_slug}`;
+  const ctaUrl = `${baseUrl}/beach/${candidate.beach_slug}`;
   const unsubscribeUrl = `${baseUrl}/settings`;
-  const conditionLabel = getConditionLabelText(candidate.conditions_score);
-  const emailSubject = `${conditionLabel} conditions at ${candidate.beach_name} today!`;
-
-  // 4b. Generate one-tap session log URL
-  const token = await signEmailToken(
-    { user_id: candidate.user_id, purpose: "log_session" },
-    tokenSecret
-  );
-  // UTC date -- matches cron schedule at 18:00 UTC (10 AM Pacific)
-  const today = new Date().toISOString().slice(0, 10);
-  const logSessionUrl =
-    `${baseUrl}/session/confirm?token=${encodeURIComponent(token)}` +
-    `&beach_id=${encodeURIComponent(candidate.home_beach_id)}` +
-    `&date=${encodeURIComponent(today)}`;
+  const emailSubject = `${candidate.beach_name} is firing — your first session back?`;
 
   // 5. Rate limit and send email
   await rateLimiter.throttle();
@@ -206,7 +189,6 @@ async function processCandidate(
       windDescription: candidate.wind_description,
       bestWindow,
       recentIntel,
-      logSessionUrl,
       ctaUrl,
       unsubscribeUrl,
       baseUrl,
@@ -298,22 +280,24 @@ async function _GET(request: Request): Promise<Response> {
       return createSuccessResponse({ summary });
     }
 
-    summary.candidates = candidates.length;
+    const deliverable = await filterSuppressedRecipients(
+      supabase,
+      candidates as ReengagementCandidate[]
+    );
+    summary.candidates = deliverable.length;
     const baseUrl = getBaseUrl();
-    const tokenSecret = getEmailTokenSecret();
 
     // Initialize shared utilities
     const rateLimiter = createResendRateLimiter();
     const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
 
     // 3. Process each candidate
-    for (const candidate of candidates as ReengagementCandidate[]) {
+    for (const candidate of deliverable) {
       try {
         const result = await processCandidate(
           candidate,
           supabase,
           baseUrl,
-          tokenSecret,
           rateLimiter,
           emailLogger
         );

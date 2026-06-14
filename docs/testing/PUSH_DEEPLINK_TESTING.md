@@ -2,13 +2,13 @@
 
 ## Overview
 
-This document describes the testing strategy for push notification deeplink routing in the Quiver application, specifically for forecast alerts that navigate users to beach detail pages.
+This document describes the testing strategy for push notification deeplink routing in the Quiver application.
 
 ## Architecture
 
 ### Payload Flow
 ```
-forecast-alerts.ts
+push notification producer
   ↓ constructs payload with data.url
 sendPushNotification()
   ↓ sends to Firebase Cloud Messaging
@@ -22,45 +22,42 @@ firebase-messaging-sw.js
   ↓ loads beach detail page
 ```
 
-### URL Format
+### Explicit URL Fallback
 
-Forecast alert push notifications use this payload structure:
+The service worker can navigate directly when a push payload includes an
+explicit `data.url` value:
 
 ```typescript
 {
   notification: {
-    title: "Quiver Forecast Alert",
+    title: "Quiver Alert",
     body: "Ocean Beach looks good 1/15 2PM UTC: 3.5ft @ 12s • 10mph wind"
   },
   data: {
-    type: "forecast_alert",
+    type: "admin_test",
     beach_id: "beach-001",
     beach_slug: "ocean-beach",
-    forecast_ts: "2025-01-15T14:00:00Z",
     url: "/beach/ocean-beach"  // ← Deeplink URL
   }
 }
 ```
 
-**URL Format**: `/beach/{beach_slug}`
+**Explicit beach URL format**: `/beach/{beach_slug}`
 - Relative path (starts with `/`)
 - Uses beach slug directly (no encoding)
 - No query parameters or fragments
 - Lowercase with hyphens only
 
+Current centralized `forecast_alert` notifications are produced by
+`app/api/cron/condition-alert-deliver/route.ts` and reconciled through
+`lib/notifications/registry.ts`. They carry `beach_id` and `forecast_at` in the
+push payload; this E2E covers only the service-worker fallback for payloads that
+already include `data.url`.
+
 ## Testing Strategy
 
 ### 1. Unit Tests
-**File**: `__tests__/lib/services/forecast-alerts-deeplink.test.ts`
-
-Tests URL construction logic and payload structure validation:
-- ✅ URL format validation
-- ✅ Payload structure verification
-- ✅ Service worker contract documentation
-- ✅ Edge cases (missing slugs, special characters)
-- ✅ Manual testing checklist
-
-**Run**: `yarn test:unit --testPathPattern=forecast-alerts-deeplink`
+Payload URL construction is covered by producer-specific unit tests.
 
 ### 2. E2E Tests
 **File**: `e2e/push-deeplink-routing.spec.ts`
@@ -87,7 +84,7 @@ The service worker cannot be easily unit tested, but its behavior is documented:
 const data = event.notification.data || {};
 let urlToOpen = self.location.origin;
 
-// For forecast_alert type, uses data.url fallback
+// Uses data.url fallback when provided by the notification payload.
 if (data.url) {
   urlToOpen = data.url.startsWith("http")
     ? data.url
@@ -118,38 +115,31 @@ clients.matchAll({ type: "window", includeUncontrolled: true })
 
 ### Test Procedure
 
-#### 1. Trigger Forecast Alert
+#### 1. Send Admin Test Push
 
-**Option A: Wait for scheduled cron**
-- Cron runs daily (configured in vercel.json)
-- Checks if home beach conditions match user thresholds
+The admin test endpoint enqueues an `admin_test` push to the authenticated admin
+user through the centralized notifications pipeline. It does not create a
+forecast-alert payload or accept a target beach slug.
 
-**Option B: Use test endpoint**
 ```bash
 curl -X POST https://quiver.app/api/admin/test-push \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "userId": "user-123",
-    "beachSlug": "ocean-beach",
-    "title": "Test Forecast Alert",
-    "body": "Ocean Beach looks good!"
+    "title": "Test Push",
+    "body": "Pipeline smoke test"
   }'
 ```
 
-**Option C: Manual database trigger**
-```sql
--- Update user preferences to match current forecast
-UPDATE user_surf_preferences
-SET wave_min_ft = 2, wave_max_ft = 6
-WHERE user_id = 'your-user-id';
-```
+For beach URL fallback testing, run the Playwright spec or manually trigger the
+service-worker click path with a notification payload that includes
+`data.url: "/beach/ocean-beach"`.
 
 #### 2. Verify Notification Delivery
 
 - [ ] Notification appears on device
-- [ ] Title: "Quiver Forecast Alert"
-- [ ] Body includes beach name and conditions
+- [ ] Title matches the test payload
+- [ ] Body matches the test payload
 - [ ] Icon displays correctly
 
 #### 3. Test Navigation
@@ -224,13 +214,13 @@ WHERE user_id = 'your-user-id';
    });
    ```
 
-2. **Verify notification payload**:
+2. **Verify explicit URL payload**:
    - Check browser console for service worker logs
    - Look for `[firebase-messaging-sw] Notification clicked`
-   - Verify `data.url` is present
+   - Verify `data.url` is present when testing URL fallback behavior
 
 3. **Check route configuration**:
-   - Verify `/beach/[beachSlug]/page.tsx` exists
+   - Verify `/app/beach/[slug]/page.tsx` exists
    - Test direct navigation: `window.location.href = '/beach/ocean-beach'`
 
 ### Beach Page Not Loading
@@ -267,21 +257,18 @@ WHERE user_id = 'your-user-id';
 
 ### Manual Testing
 - ✅ Push notifications delivered
-- ✅ Deeplink navigation works
+- ✅ Explicit `data.url` fallback navigation works
 - ✅ Correct beach page loads
 - ✅ Works on all platforms (web, iOS, Android)
 
 ## Related Files
 
 ### Source Code
-- `/lib/services/forecast-alerts.ts` - Payload construction (lines 390-402)
 - `/public/firebase-messaging-sw.js` - Service worker click handler (lines 61-103)
-- `/app/beach/[beachSlug]/page.tsx` - Beach detail page
+- `/app/beach/[slug]/page.tsx` - Beach detail page
 
 ### Tests
-- `/__tests__/lib/services/forecast-alerts-deeplink.test.ts` - Unit tests
 - `/e2e/push-deeplink-routing.spec.ts` - E2E tests
-- `/__tests__/lib/services/forecast-alerts.test.ts` - Existing forecast alert tests
 
 ### Documentation
 - `/docs/api/api-guidelines.md` - API patterns
@@ -300,6 +287,7 @@ WHERE user_id = 'your-user-id';
 ### Technical Debt
 - [ ] Service worker unit testing (requires browser automation)
 - [ ] Automated deeplink validation in CI/CD
+- [ ] Add a current `forecast_alert` click-routing contract once the payload includes a URL or the service worker maps `beach_id` / `beach_slug`
 - [ ] Push notification delivery metrics
 - [ ] User engagement tracking
 

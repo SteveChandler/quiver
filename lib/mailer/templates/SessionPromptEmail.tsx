@@ -4,7 +4,7 @@ import { getConditionLabel } from "@/lib/email/email-formatters";
 export interface SessionPromptEmailProps {
   displayName: string | null;
   beachName: string;
-  conditionsScore: number; // 0-10 scale, yesterday's score
+  conditionsScore: number; // 0-100 scale, yesterday's score
   surfDescription: string | null;
   confirmUrl: string;
   skipUrl: string;
@@ -62,7 +62,7 @@ export function SessionPromptEmail({
 
         <p style={{ fontSize: 16, margin: "0 0 20px 0", color: "#333333" }}>
           Conditions were looking <strong>{conditionLabel.toLowerCase()}</strong> at{" "}
-          <strong>{beachName}</strong> yesterday ({conditionsScore}/10).
+          <strong>{beachName}</strong> yesterday (scored {conditionsScore}).
           {surfDescription && ` ${surfDescription}.`}{" "}If you got out there, we&apos;d love to hear how it was!
         </p>
 

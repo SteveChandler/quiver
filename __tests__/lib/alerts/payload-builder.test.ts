@@ -25,6 +25,7 @@ describe("consolidateQueueItems", () => {
     ];
     const payloads = consolidateQueueItems(items);
     expect(payloads[0].matches[0].beach_name).toBe("Trestles");
+    expect(payloads[0].matches.map((match) => match.best_score)).toEqual([0.9, 0.5]);
   });
 
   it("uses earliest send_at for the payload", () => {

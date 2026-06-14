@@ -566,7 +566,7 @@ async function _GET(request: Request): Promise<Response> {
             },
           });
 
-          // Forecast push summaries are owned by /api/cron/forecast-alerts.
+          // Push summaries are owned by the condition-alert pipeline.
         } else {
           // NO MATCH: Skip entirely - no more "bad day" emails
           console.log(

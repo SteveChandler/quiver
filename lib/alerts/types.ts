@@ -36,7 +36,7 @@ export interface PresetDefinition {
   name: string;
   description: string;
   conditionsSummary: string;
-  group: "popular" | "specific";
+  group: "popular" | "specific" | "internal";
   buildConditions: (beach: BeachAlertMeta) => AlertConditions;
 }
 

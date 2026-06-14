@@ -26,6 +26,7 @@ import { FirstSessionNudgeEmail } from "@/lib/mailer/templates/FirstSessionNudge
 import { PersonalizedNudgeEmail } from "@/lib/mailer/templates/PersonalizedNudgeEmail";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { formatDatabaseTime } from "@/lib/email/email-formatters";
+import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { withObservedCron } from "@/lib/cron/observability";
@@ -263,12 +264,15 @@ async function _GET(request: Request): Promise<Response> {
       }
     }
 
-    summary.candidates = candidates.length;
+    const deliverable = await filterSuppressedRecipients(supabase, candidates);
+    const suppressedCount = candidates.length - deliverable.length;
+
+    summary.candidates = deliverable.length;
     console.log(
-      `${CONTEXT_TAG} Found ${candidates.length} candidates (${windowProfiles.length} in window, ${userIdsWithSessions.size} with sessions, ${userIdsWithNudge.size} already nudged)`
+      `${CONTEXT_TAG} Found ${deliverable.length} deliverable candidates (${candidates.length} built, ${suppressedCount} suppressed, ${windowProfiles.length} in window, ${userIdsWithSessions.size} with sessions, ${userIdsWithNudge.size} already nudged)`
     );
 
-    if (candidates.length === 0) {
+    if (deliverable.length === 0) {
       summary.durationMs = Date.now() - startTime;
       return createSuccessResponse({ summary });
     }
@@ -278,7 +282,7 @@ async function _GET(request: Request): Promise<Response> {
     const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
     const today = new Date().toISOString().slice(0, 10);
 
-    for (const candidate of candidates) {
+    for (const candidate of deliverable) {
       try {
         await rateLimiter.throttle();
 
