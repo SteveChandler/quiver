@@ -88,6 +88,22 @@ export function shouldApplyNowcastAnchor(args: {
   return true;
 }
 
+/** Per-beach tally of how many forecast slots kept the calibrated shoaling path. */
+export interface CalibrationCoverage {
+  beachId: string;
+  calibrated: boolean;
+  nowcastEligibleSlots: number;
+  calibratedSlots: number;
+}
+
+/** True when a calibrated beach lost calibration on at least one slot. */
+export function hasCalibrationLoss(coverage: CalibrationCoverage): boolean {
+  return (
+    coverage.calibrated &&
+    coverage.calibratedSlots < coverage.nowcastEligibleSlots
+  );
+}
+
 function parseWindSpeedMs(windSpeed: string | null | undefined): number | null {
   if (!windSpeed) return null;
   const match = windSpeed.match(/(\d+(?:\.\d+)?)/);
@@ -292,6 +308,12 @@ export class ForecastBuilder {
     // the row loop completes.
     const snapshotBuffer: DisplayPredictionRow[] = [];
     const gfsWaveForecastTimes: Date[] = [];
+    const calibrationCoverage: CalibrationCoverage = {
+      beachId: beach.id,
+      calibrated: beach.shoaling_factors != null,
+      nowcastEligibleSlots: 0,
+      calibratedSlots: 0,
+    };
 
     // v5 shadow calibration (Phase 2, 2026-05-02). Loaded once per
     // buildForecasts call; the helper caches in-process for 1h. Failure to
@@ -393,9 +415,22 @@ export class ForecastBuilder {
         southOcSanoGuardrail,
         heightOffset: resolvedOffset ?? null,
         snapshotBuffer,
+        calibrationCoverage,
       });
 
       forecasts.push(forecast);
+    }
+
+    if (hasCalibrationLoss(calibrationCoverage)) {
+      log.warn("calibrated_shoaling_coverage_gap", {
+        beachId: calibrationCoverage.beachId,
+        beachName: beach.name,
+        nowcastEligibleSlots: calibrationCoverage.nowcastEligibleSlots,
+        calibratedSlots: calibrationCoverage.calibratedSlots,
+        lostSlots:
+          calibrationCoverage.nowcastEligibleSlots -
+          calibrationCoverage.calibratedSlots,
+      });
     }
 
     // Snapshot write — awaited so the Vercel runtime keeps the function alive
@@ -487,6 +522,7 @@ export class ForecastBuilder {
     southOcSanoGuardrail: SouthOcSanoGuardrailResult;
     heightOffset: BeachHeightOffsetRow | null;
     snapshotBuffer: DisplayPredictionRow[];
+    calibrationCoverage: CalibrationCoverage;
     calibration: Awaited<ReturnType<typeof getActiveCalibration>>;
   }): EnhancedForecastWithRawData {
     const {
@@ -512,6 +548,7 @@ export class ForecastBuilder {
       southOcSanoGuardrail,
       heightOffset,
       snapshotBuffer,
+      calibrationCoverage,
       calibration,
     } = params;
 
@@ -545,6 +582,22 @@ export class ForecastBuilder {
       }
     }
 
+    // Compute the forecast horizon in hours from issue time (now) to the
+    // forecast slot. Used for the CDIP nowcast coverage log, the offset gate
+    // (only 24h+ horizons in initial rollout), and the snapshot row.
+    const forecastHorizonHours =
+      (forecastTime.getTime() - now.getTime()) / (60 * 60 * 1000);
+
+    const isCdipNowcastEligibleSlot =
+      forecastHorizonHours >= 0 &&
+      forecastHorizonHours <= STALENESS_THRESHOLDS.CDIP;
+    if (isCdipNowcastEligibleSlot) {
+      calibrationCoverage.nowcastEligibleSlots += 1;
+      if (waveHeightResult.debug.calibratedShoalingFired) {
+        calibrationCoverage.calibratedSlots += 1;
+      }
+    }
+
     // Telemetry feedback-loop invariant: parse the PRE-offset display value
     // and capture rawDisplayHeightFt BEFORE applyBeachHeightOffset runs. The
     // snapshot writer below uses this raw value directly; it never re-derives
@@ -552,12 +605,6 @@ export class ForecastBuilder {
     // once the cron starts writing offsets).
     const parsedDisplay = parseDisplayHeightFt(waveHeightResult.value);
     const rawDisplayHeightFt = parsedDisplay.numericFt;
-
-    // Compute the forecast horizon in hours from issue time (now) to the
-    // forecast slot. Used for both the offset gate (only 24h+ horizons in
-    // initial rollout) and the snapshot row's forecast_horizon_hours column.
-    const forecastHorizonHours =
-      (forecastTime.getTime() - now.getTime()) / (60 * 60 * 1000);
 
     // Apply offset. The helper short-circuits to identity when:
     //   - heightOffset is null (no row yet for this beach)
