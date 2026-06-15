@@ -53,7 +53,10 @@ import {
 } from "@/types/forecast";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
 import { isNowcastAnchorEnabled } from "@/lib/services/observations/nowcast-anchor.types";
-import { STALENESS_THRESHOLDS } from "@/lib/config/forecast-staleness";
+import {
+  CDIP_NOWCAST_HORIZON_HOURS,
+  STALENESS_THRESHOLDS,
+} from "@/lib/config/forecast-staleness";
 import { pickDominantSwell } from "@/lib/domains/conditions";
 import {
   resolveSouthOcSanoShadowGuardrail,
@@ -124,6 +127,48 @@ import type {
   NDBCBuoyRow,
   ResolvedTideInfo,
 } from "./api-types";
+
+export function resolveCdipNowcastPoint(args: {
+  cdipData: CDIPBuoyData | null;
+  targetMs: number;
+  nowMs: number;
+  horizonHours: number;
+  maxMeasurementAgeHours: number;
+}): CDIPDataPoint | null {
+  const {
+    cdipData,
+    targetMs,
+    nowMs,
+    horizonHours,
+    maxMeasurementAgeHours,
+  } = args;
+  if (!cdipData?.data || cdipData.data.length === 0) return null;
+
+  const slotAheadHours = (targetMs - nowMs) / 3_600_000;
+  if (slotAheadHours > horizonHours) return null;
+
+  const validPoints = cdipData.data
+    .map((point) => ({
+      point,
+      timestampMs: Date.parse(point.timestamp),
+    }))
+    .filter(
+      ({ timestampMs }) =>
+        Number.isFinite(timestampMs) && timestampMs <= nowMs,
+    );
+  if (validPoints.length === 0) return null;
+
+  const latest = [...validPoints].sort(
+    (a, b) => b.timestampMs - a.timestampMs,
+  )[0];
+
+  const measurementAgeHours = (nowMs - latest.timestampMs) / 3_600_000;
+  if (measurementAgeHours > maxMeasurementAgeHours) {
+    return null;
+  }
+
+  return latest.point;
+}
 
 /**
  * Interface for injected dependencies (services)
@@ -981,22 +1026,14 @@ export class ForecastBuilder {
    */
 
   private getCDIPDataForTime(cdipData: CDIPBuoyData | null, targetTime: Date) {
-    if (!cdipData?.data || cdipData.data.length === 0) return null;
-
     const now = new Date();
-    const hoursFromNow = (targetTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-    // Only use CDIP data for current conditions (within 1 hour)
-    if (hoursFromNow > 1) {
-      return null;
-    }
-
-    // Use the most recent CDIP measurement
-    const sortedData = [...cdipData.data].sort(
-      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-    );
-
-    return sortedData[0];
+    return resolveCdipNowcastPoint({
+      cdipData,
+      targetMs: targetTime.getTime(),
+      nowMs: now.getTime(),
+      horizonHours: CDIP_NOWCAST_HORIZON_HOURS,
+      maxMeasurementAgeHours: STALENESS_THRESHOLDS.CDIP,
+    });
   }
 
   private getWaveDataForTime(waveData: WaveWatchForecast | null, targetTime: Date): WaveWatchData | null {

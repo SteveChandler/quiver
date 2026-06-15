@@ -28,6 +28,24 @@ export const STALENESS_THRESHOLDS = {
   DEFAULT: 6        // Default for unknown sources
 } as const;
 
+/**
+ * How far ahead of generation time the latest fresh CDIP buoy reading may
+ * drive a forecast slot. Matches CDIP staleness so calibrated CDIP shoaling
+ * survives between cron runs; slots beyond this use the model.
+ */
+export const CDIP_NOWCAST_HORIZON_HOURS = STALENESS_THRESHOLDS.CDIP;
+
+/**
+ * CDIP significant-height readings above this multiple of model swell are
+ * treated as outliers and fall back to model data.
+ */
+export const CDIP_OUTLIER_THRESHOLD = 1.8;
+
+/**
+ * Maximum CDIP significant wave height, in feet, trusted by source selection.
+ */
+export const MAX_TRUSTED_CDIP_FT = 10;
+
 export type DataSource = keyof typeof STALENESS_THRESHOLDS;
 
 /**
