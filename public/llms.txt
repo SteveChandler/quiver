@@ -54,10 +54,13 @@ Quiver is a free surf forecasting platform that applies per-beach XGBoost bias c
 - Surf Map: https://www.quiversurf.app/map
 - Forecast Accuracy: https://www.quiversurf.app/forecast-accuracy
 
-## Learn: Surf Knowledge Base (22 articles)
+## Learn: Priority Surf Knowledge Targets
+
+Curated AEO targets for surf-report, surf-forecast, forecast-accuracy, ML forecast, safety, wetsuit, and beginner-intent answers. This is not the full Learn index.
 
 ### Forecast Fundamentals
-- How to Read Surf Conditions: https://www.quiversurf.app/learn/how-to-read-surf-conditions
+- How to Read a Surf Report: https://www.quiversurf.app/learn/how-to-read-surf-conditions
+- How to Read a Surf Forecast: https://www.quiversurf.app/learn/how-to-read-surf-conditions
 - Swell Period Explained: https://www.quiversurf.app/learn/swell-period-explained
 - Offshore vs Onshore Wind: https://www.quiversurf.app/learn/offshore-vs-onshore-wind-surfing
 - Best Tide for Surfing: https://www.quiversurf.app/learn/best-tide-for-surfing
@@ -65,6 +68,7 @@ Quiver is a free surf forecasting platform that applies per-beach XGBoost bias c
 - Ground Swell vs Wind Swell: https://www.quiversurf.app/learn/wind-swell-vs-ground-swell
 - Swell Direction and Surf: https://www.quiversurf.app/learn/how-swell-direction-affects-surf
 - Surf Forecast Accuracy: https://www.quiversurf.app/learn/how-accurate-are-surf-forecasts
+- ML Surf Forecast: https://www.quiversurf.app/learn/how-quiver-calibrates-your-beach
 - How Surf Forecasts Work: https://www.quiversurf.app/learn/how-surf-forecasts-work
 
 ### Timing & Conditions

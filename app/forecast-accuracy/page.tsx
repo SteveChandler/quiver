@@ -5,7 +5,7 @@
  * Pulls from the beach_ml_performance_baseline materialized view via service role.
  *
  * URL: /forecast-accuracy
- * Rendering: force-dynamic (requires service role key at runtime)
+ * Rendering: force-dynamic (service-role Supabase fetches opt out of static rendering)
  */
 
 import Link from "next/link";

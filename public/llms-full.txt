@@ -37,7 +37,10 @@ A: Quiver currently focuses on US coastal areas (California, Oregon, Washington,
 ## Surf Knowledge Base
 
 Q: How do you read a surf report?
-A: Read surf conditions in this order: period, direction, wind, tide, then height. The same reported 2-4 ft can feel weak or powerful depending on that mix and your local beach shape. Learn more: https://www.quiversurf.app/learn/how-to-read-surf-conditions
+A: Read a surf report or surf forecast in this order: period, direction, wind, tide, then height. Period tells you power, direction tells you whether your break receives the swell, wind tells you surface quality, tide tells you shape, and height tells you scale after the setup already makes sense. Learn more: https://www.quiversurf.app/learn/how-to-read-surf-conditions
+
+Q: How do you read a surf forecast?
+A: Read a surf forecast by checking period first, then swell direction, wind direction/speed, tide stage, and finally wave height. The same 2-4 ft forecast can surf weak or powerful depending on period, wind, tide, and local beach shape. Learn more: https://www.quiversurf.app/learn/how-to-read-surf-conditions
 
 Q: What is swell period and why does it matter?
 A: Swell period is the time in seconds between wave crests at a buoy. Under 9 seconds = local wind chop. Above 12 seconds = powerful distant-storm energy. A 3-foot swell at 14 seconds outperforms a 6-foot swell at 6 seconds. Period reveals wave quality better than height. Learn more: https://www.quiversurf.app/learn/swell-period-explained
@@ -59,6 +62,9 @@ A: Swell direction is the compass heading waves arrive from (e.g., 300° = NW). 
 
 Q: How accurate are surf forecasts?
 A: NOAA's WaveWatch III is accurate within ±1-2 ft height and ±2-3 sec period, 0-3 days out. Accuracy degrades beyond 5 days. Quiver's ML corrections (trained on 30,000+ buoy observations from CDIP/NDBC) achieve a 90.4% match rate and 59% improvement over raw NOAA baseline. Learn more: https://www.quiversurf.app/learn/how-accurate-are-surf-forecasts
+
+Q: What is an ML surf forecast?
+A: An ML surf forecast uses machine learning to correct a raw marine forecast with observed buoy history. Quiver trains per-beach XGBoost models on CDIP, NDBC, and IOOS buoy observations, then publishes forecast accuracy against the NOAA baseline so surfers can audit the correction loop. Learn more: https://www.quiversurf.app/learn/how-quiver-calibrates-your-beach and https://www.quiversurf.app/forecast-accuracy
 
 Q: When is the best time of day to surf?
 A: Early morning (dawn patrol, 5:30-8 AM) and late afternoon (4-6 PM). Land cools overnight creating offshore wind flow. Solar heating reverses it midday. Evening "glass-off" happens when onshore dies at sunset. Wind is the #1 session-quality variable after swell. Learn more: https://www.quiversurf.app/learn/best-time-of-day-to-surf

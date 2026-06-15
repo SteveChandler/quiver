@@ -22,6 +22,7 @@ interface Props {
 }
 
 const LEGACY_LEARN_SLUGS: Record<string, string> = {
+  "how-to-read-a-surf-report": "how-to-read-surf-conditions",
   "how-to-read-a-surf-forecast": "how-to-read-surf-conditions",
 };
 

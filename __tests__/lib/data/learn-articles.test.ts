@@ -51,9 +51,9 @@ const expectedLearnMetadata = [
   },
   {
     slug: "how-to-read-surf-conditions",
-    title: "How to Read Surf Conditions: Why the Same Size Can Surf Differently",
+    title: "How to Read a Surf Report: Forecast & Conditions Guide",
     description:
-      "Learn how to read surf conditions by checking period, direction, wind, tide, and beach shape instead of wave height alone.",
+      "Learn how to read a surf report or surf forecast: period, direction, wind, tide, and wave height, plus what changes at your break.",
   },
 ];
 

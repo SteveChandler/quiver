@@ -37,16 +37,21 @@ interface LearnArticle {
 export const learnArticles: LearnArticle[] = [
   {
     slug: "how-to-read-surf-conditions",
-    title: "How to Read Surf Conditions: Why the Same Size Can Surf Differently",
-    description: "Learn how to read surf conditions by checking period, direction, wind, tide, and beach shape instead of wave height alone.",
+    title: "How to Read a Surf Report: Forecast & Conditions Guide",
+    description: "Learn how to read a surf report or surf forecast: period, direction, wind, tide, and wave height, plus what changes at your break.",
     readingTimeMin: 6,
     datePublished: "2026-03-26",
-    dateModified: "2026-05-31",
+    dateModified: "2026-06-15",
     heroImage: "/beginnerWhiteWater.jpg",
     thumbnailImage: "/beginnerWhiteWater.jpg",
     keywords: [
+      "how to read a surf report",
+      "how to read surf report",
       "how to read surf conditions",
       "how to read surf forecast",
+      "how to read a surf forecast",
+      "surf report explained",
+      "surf forecast guide",
       "understanding surf reports",
       "beginner surf conditions",
       "wave height",
@@ -57,9 +62,9 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>If you only read <strong>wave height</strong>, you will misread a lot of sessions. The same reported <strong>2-4 ft</strong> can be weak and longboard-friendly one day, then steep and shortboard-only the next. Read surf conditions in this order: <strong>period</strong> for power, <strong>direction</strong> for whether your break even works, <strong>wind</strong> for surface quality, <strong>tide</strong> for shape, then <strong>height</strong> for scale. Local beach shape decides how those numbers translate once the swell hits shore.</p>`,
+        content: `<p>To read a <strong>surf report</strong> or <strong>surf forecast</strong>, do not start with wave height. Start with <strong>period</strong> for power, <strong>direction</strong> for whether your break receives the swell, <strong>wind</strong> for surface quality, <strong>tide</strong> for shape, then <strong>height</strong> for scale. The same reported <strong>2-4 ft</strong> can be weak and longboard-friendly one day, then steep and shortboard-only the next. Local beach shape decides how those numbers translate once the swell hits shore.</p>`,
         keyTakeaway:
-          "Height is the last number to trust by itself. Read period, direction, wind, tide, and local shape first.",
+          "Read a surf report in this order: period, direction, wind, tide, then height. Height is the last number to trust by itself.",
       },
       {
         id: "same-size-different-session",
@@ -109,10 +114,10 @@ export const learnArticles: LearnArticle[] = [
       },
       {
         id: "reading-order",
-        heading: "A 30-Second Way to Read Surf Conditions Before You Drive",
-        content: `<p>Use this order every time:</p><ol><li><strong>Period</strong>: is this weak windswell or ground swell?</li><li><strong>Direction</strong>: does my spot actually receive this angle?</li><li><strong>Wind</strong>: clean, cross, or blown out?</li><li><strong>Tide</strong>: is the break in its usable window?</li><li><strong>Height</strong>: now that I trust the setup, how big is it really?</li></ol><p>If you want to get good fast, log a few notes after every surf: period, direction, tide, wind, and which board felt right. After 10 to 20 sessions at the same beach, the numbers stop being abstract and start matching what you feel in the water.</p><p>The data behind those checks is public and transparent: NOAA/NWS WaveWatch-style marine forecasts, NDBC/CDIP/IOOS buoy observations where available, NOAA CO-OPS tides, and Open-Meteo for some wind and extended-horizon coverage. The hard part is not getting numbers. It's learning which numbers matter most for your break.</p>`,
+        heading: "A 30-Second Way to Read a Surf Report Before You Drive",
+        content: `<p>Use this order every time you open a surf report:</p><ol><li><strong>Period</strong>: is this weak windswell or ground swell?</li><li><strong>Direction</strong>: does my spot actually receive this angle?</li><li><strong>Wind</strong>: clean, cross, or blown out?</li><li><strong>Tide</strong>: is the break in its usable window?</li><li><strong>Height</strong>: now that I trust the setup, how big is it really?</li></ol><p>If you want to get good fast, log a few notes after every surf: period, direction, tide, wind, and which board felt right. After 10 to 20 sessions at the same beach, the numbers stop being abstract and start matching what you feel in the water.</p><p>The data behind those checks is public and transparent: NOAA/NWS WaveWatch-style marine forecasts, NDBC/CDIP/IOOS buoy observations where available, NOAA CO-OPS tides, and Open-Meteo for some wind and extended-horizon coverage. The hard part is not getting numbers. It's learning which numbers matter most for your break.</p>`,
         keyTakeaway:
-          "Read surf conditions in the same order every time so you stop chasing a misleading height number.",
+          "Read surf reports in the same order every time so you stop chasing a misleading height number.",
         image: {
           src: "/images/OceanBeachSurfers.webp",
           alt: "Surfers checking conditions from the beach before choosing boards",
@@ -121,6 +126,11 @@ export const learnArticles: LearnArticle[] = [
       },
     ],
     faqs: [
+      {
+        question: "How do you read a surf report?",
+        answer:
+          "Read the surf report in this order: period, direction, wind, tide, then height. Period tells you power, direction tells you whether your break receives the swell, wind tells you surface quality, tide tells you shape, and height tells you scale after the setup already makes sense.",
+      },
       {
         question: "Why were other surfers on shortboards when the forecast still looked small?",
         answer:
