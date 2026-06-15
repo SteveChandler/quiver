@@ -16,10 +16,15 @@
  * end-to-end transform actually runs.
  */
 
-import { ForecastBuilder } from "@/lib/services/forecast/forecast-builder";
+import {
+  ForecastBuilder,
+  hasCalibrationLoss,
+} from "@/lib/services/forecast/forecast-builder";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
 
 const FROZEN_NOW_ISO = "2026-04-19T15:00:00Z";
+const CALIBRATION_COVERAGE_WARNING = /calibrated_shoaling_coverage_gap/;
 
 function makeBuilder(): ForecastBuilder {
   return new ForecastBuilder({
@@ -165,6 +170,41 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
+describe("hasCalibrationLoss", () => {
+  it("flags a calibrated beach that lost calibration on some slots", () => {
+    expect(
+      hasCalibrationLoss({
+        beachId: "b",
+        calibrated: true,
+        nowcastEligibleSlots: 2,
+        calibratedSlots: 1,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not flag full coverage", () => {
+    expect(
+      hasCalibrationLoss({
+        beachId: "b",
+        calibrated: true,
+        nowcastEligibleSlots: 2,
+        calibratedSlots: 2,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not flag uncalibrated beaches", () => {
+    expect(
+      hasCalibrationLoss({
+        beachId: "b",
+        calibrated: false,
+        nowcastEligibleSlots: 2,
+        calibratedSlots: 0,
+      }),
+    ).toBe(false);
+  });
+});
+
 describe("ForecastBuilder CDIP height semantics", () => {
   test("CDIP + WaveWatch components: wave_height follows CDIP Hs × calibrated bucket, not NOAA component sum", async () => {
     const builder = makeBuilder();
@@ -180,6 +220,7 @@ describe("ForecastBuilder CDIP height semantics", () => {
       ioosWaterTempC: null,
       coopsWaterTempC: null,
     });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
 
     // Calibrated path: 2.0 ft × bucket factor at 14s (2.0) = 4.0 ft (clamped/rounded).
     const expectedFt = cdipHsFt * 2.0;
@@ -250,6 +291,7 @@ describe("ForecastBuilder CDIP height semantics", () => {
       ioosWaterTempC: null,
       coopsWaterTempC: null,
     });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
 
     const actualFt = extractFt(forecasts[0].wave_height);
     expect(actualFt).toBeGreaterThanOrEqual(3.5);
@@ -343,5 +385,58 @@ describe("ForecastBuilder CDIP height semantics", () => {
     );
     expect(prov?.cdip_rejection?.raw_cdip_hs).toBeCloseTo(8.0, 2);
     expect(prov?.cdip_rejection?.raw_model_hs).toBeCloseTo(3.28, 1);
+  });
+
+  test("calibrated beach logs a coverage gap when later slots lose calibrated shoaling", async () => {
+    const builder = makeBuilder();
+    const consoleWarnSpy = jest.spyOn(console, "warn");
+
+    await builder.buildForecasts({
+      beach: makeBeach({
+        id: "beach-with-calibration-gap",
+        name: "Calibration Gap Beach",
+        shoaling_factors: CALIBRATED_SHOALING as unknown as Beach["shoaling_factors"],
+      }),
+      waveData: makeWaveData(FROZEN_NOW_ISO),
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: makeCdipBuoyData(FROZEN_NOW_ISO, 2.0) as never,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    const coverageCall = consoleWarnSpy.mock.calls.find(
+      ([, eventName]) => eventName === "calibrated_shoaling_coverage_gap",
+    );
+    consoleWarnSpy.mockRestore();
+    if (!coverageCall) {
+      throw new Error("expected calibrated_shoaling_coverage_gap warning");
+    }
+
+    const [, , payload] = coverageCall as [
+      string,
+      string,
+      {
+        beachId: string;
+        beachName: string;
+        nowcastEligibleSlots: number;
+        calibratedSlots: number;
+        lostSlots: number;
+      },
+    ];
+    expect(payload).toEqual(
+      expect.objectContaining({
+        beachId: "beach-with-calibration-gap",
+        beachName: "Calibration Gap Beach",
+      }),
+    );
+    expect(payload.nowcastEligibleSlots).toBe(2);
+    expect(payload.calibratedSlots).toBeGreaterThan(0);
+    expect(payload.calibratedSlots).toBeLessThan(payload.nowcastEligibleSlots);
+    expect(payload.lostSlots).toBe(
+      payload.nowcastEligibleSlots - payload.calibratedSlots,
+    );
   });
 });
