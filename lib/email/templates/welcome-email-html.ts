@@ -55,18 +55,40 @@ const FONT_FAMILY =
 const HEADING_FONT_FAMILY =
   "'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif";
 
-const PRIMARY_BUTTON_STYLE = `
+// Dark ink on the orange button. The brand Twilight Navy clears WCAG AA
+// against #F78E42 and reads as deliberate brand contrast, not the default
+// white-on-orange every SaaS ships.
+const BUTTON_TEXT_COLOR = COLORS.heading; // #252D6B Twilight Navy
+
+const PRIMARY_BUTTON_LINK_STYLE = `
   display: inline-block;
-  padding: 14px 28px;
-  background: ${COLORS.primary};
-  color: #ffffff;
+  padding: 15px 30px;
+  color: ${BUTTON_TEXT_COLOR};
   text-decoration: none;
-  border-radius: 10px;
   font-family: ${HEADING_FONT_FAMILY};
-  font-weight: 600;
-  font-size: 16px;
+  font-weight: 700;
+  font-size: 17px;
   letter-spacing: 0.01em;
+  line-height: 1;
 `.trim();
+
+/**
+ * Bulletproof, email-client-safe primary button. Uses a <table> + `bgcolor`
+ * so Outlook (Word renderer — ignores `background`/`border-radius` on inline
+ * <a>) still paints the orange fill; the rounded corners and padding degrade
+ * gracefully there. The href + label come from the variant logic so there's a
+ * single strong activation CTA per case.
+ */
+function renderPrimaryButton(href: string, label: string): string {
+  return `
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 8px 0 28px;">
+    <tr>
+      <td align="center" bgcolor="${COLORS.primary}" style="border-radius: 10px; background-color: ${COLORS.primary};">
+        <a href="${href}" style="${PRIMARY_BUTTON_LINK_STYLE}">${label}</a>
+      </td>
+    </tr>
+  </table>`.trim();
+}
 
 /**
  * Generates the welcome email HTML.
@@ -131,9 +153,7 @@ export function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
     ${body}
   </p>
 
-  <p style="margin: 8px 0 28px;">
-    <a href="${ctaHref}" style="${PRIMARY_BUTTON_STYLE}">${ctaLabel}</a>
-  </p>
+  ${renderPrimaryButton(ctaHref, ctaLabel)}
 
   <p style="font-size: 14px; line-height: 1.5; color: ${COLORS.textSecondary}; margin: 0 0 8px;">
     Every session you log levels you up and makes the forecast smarter.

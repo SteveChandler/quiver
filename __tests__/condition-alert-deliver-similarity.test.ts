@@ -100,7 +100,9 @@ describe("formatPushNotification: similarity_match branch", () => {
       notify_push: true,
     };
     const { title, data } = formatPushNotification([nonSim]);
-    expect(title).toBe("Conditions lining up today");
+    // Condition-alert branch now emits a dynamic title: quality — beach, window.
+    expect(title).not.toBe("Conditions lining up today");
+    expect(title).toContain("Blacks");
     expect(data.type).toBe("forecast_alert");
     expect(data.forecast_at).toBe("2026-04-23T14:00:00.000Z");
   });
