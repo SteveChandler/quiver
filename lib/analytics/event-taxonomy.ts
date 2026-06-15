@@ -42,6 +42,8 @@ export const VALID_EVENTS = [
   'signup_cta_click',
   'signup_cta_view',
   'signin_cta_click',
+  'signed_in',
+  'auth_failed',
   // Auth funnel events (fire before user is authenticated)
   'auth_modal_opened',
   'auth_modal_closed_without_action',
@@ -52,7 +54,9 @@ export const VALID_EVENTS = [
   'login_success',
   'signup_form_submitted',
   'login_form_submitted',
+  'native_app_first_open',
   // Home screen events
+  'home_viewed',
   'home_at_beach_click',
   'home_plan_weekend_click',
   'home_plan_weekend_no_recommendation',
@@ -294,6 +298,7 @@ export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   // Auth funnel events (fire before user is authenticated — must be anonymous-allowed)
   'auth_modal_opened', 'auth_modal_closed_without_action',
   'auth_method_selected', 'auth_provider_selected',
+  'auth_failed', 'native_app_first_open',
   // Auth-transition events — legitimately fire for both anon and authed users
   // (e.g. signup success fires after auth completes). Not on PRE_AUTH_ONLY_EVENTS.
   'signup_started', 'signup_success', 'login_success',
@@ -350,6 +355,8 @@ export const PRE_AUTH_ONLY_EVENTS: readonly EventType[] = [
   'login_form_submitted',
   'auth_modal_opened',
   'auth_modal_closed_without_action',
+  'auth_failed',
+  'native_app_first_open',
   // Native signed-out onboarding intro CTA.
   'onboarding_intro_get_started',
   // Anon alert capture (pre-auth only). Ghost-authed fires of these

@@ -21,11 +21,11 @@ import {
 import { EVENT_WEIGHTS } from "@/types/implicit-preferences";
 
 const CURRENT_EVENT_SET_HASHES = {
-  valid: "b144dce9d9c970d1e42b2bf5f7fe64000d213b89ca0429e61daac6228e758800",
+  valid: "ffef04f238c51f50f8082d72d009a0496e4c40404ecca52c2f8e8a6200117715",
   anonymousAllowed:
-    "041f46e53eaf19d40bd24cc74d92b2f01f86c5dfeca0a1745e8bb3fbc851d5d7",
+    "319476202d2dde96e993560d01d6eb2d21fb3fb05350d03b5ad63c6c5c00979c",
   preAuthOnly:
-    "8a7190af3042418d91c03cacb3f3be72cce78497cb86a5ba42fcd2dc62819d69",
+    "3a16cb4ecd871469db54bad8b25b440242a07c04e21f66bc69a70abfe5ae6e08",
 } as const;
 
 const PHASE_20_MEASUREMENT_EVENTS = [
