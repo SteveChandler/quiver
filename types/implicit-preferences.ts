@@ -59,6 +59,8 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   signup_cta_click: 0,
   signup_cta_view: 0,
   signin_cta_click: 0,
+  signed_in: 0,
+  auth_failed: 0,
   // Auth funnel events (fire before user is authenticated)
   auth_modal_opened: 0,
   auth_modal_closed_without_action: 0,
@@ -69,7 +71,9 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   login_success: 0,
   signup_form_submitted: 0,
   login_form_submitted: 0,
+  native_app_first_open: 0,
   // Home screen events
+  home_viewed: 0,
   home_at_beach_click: 0,
   home_plan_weekend_click: 0,
   home_plan_weekend_no_recommendation: 0,

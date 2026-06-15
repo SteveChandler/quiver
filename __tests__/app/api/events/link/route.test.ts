@@ -243,6 +243,27 @@ describe("POST /api/events/link", () => {
 
       expect(createServiceRoleClient).toHaveBeenCalledTimes(1);
     });
+
+    it("includes session and user ids in the structured link log for race diagnostics", async () => {
+      mockRpc.mockResolvedValue({ data: 3, error: null });
+
+      const req = createMockRequest("POST", "http://localhost/api/events/link", {
+        body: { sessionId: VALID_SESSION_ID },
+      });
+
+      await POST(req);
+
+      expect(consoleLogSpy).toHaveBeenCalledTimes(1);
+      const logPayload = JSON.parse(consoleLogSpy.mock.calls[0][0]);
+      expect(logPayload).toMatchObject({
+        event: "events_link_attempt",
+        session_id: VALID_SESSION_ID,
+        user_id: VALID_USER_ID,
+        duration_ms: expect.any(Number),
+        events_updated: 3,
+        outcome: "success",
+      });
+    });
   });
 
   // -------------------------------------------------------------------------
