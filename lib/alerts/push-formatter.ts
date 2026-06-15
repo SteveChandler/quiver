@@ -6,11 +6,35 @@ import {
 } from "@/lib/formatters/surf-data";
 
 const KNOTS_TO_MPH = 1.15078;
+const MAX_BODY_LENGTH = 150;
 
 interface PushContent {
   title: string;
   body: string;
   data: { type: string; beach_id: string; forecast_at?: string };
+}
+
+/**
+ * Map a normalized window quality (best_score, 0..1) to a punchy, honest,
+ * brand-consistent word. NOT the 0-100 composite — do not route through
+ * getConditionLabel. Never implies ML correction.
+ */
+function qualityWord(score: number): string {
+  if (!Number.isFinite(score)) return "Looking good";
+  if (score >= 0.85) return "Pumping";
+  if (score >= 0.7) return "Firing";
+  if (score >= 0.45) return "Looking good";
+  if (score >= 0.3) return "Fun";
+  return "Rideable";
+}
+
+/**
+ * Short surf-voice phrase for the beginner sandy window. The snapshot carries a
+ * verbose comma-joined reason for the email; the push only has room for a punchy
+ * tag, so condense it here rather than spilling past the body budget.
+ */
+function shortBeginnerReason(raw: string): string {
+  return raw.trim().length > 0 ? "beginner-friendly" : "";
 }
 
 /**
@@ -70,10 +94,16 @@ export function formatPushNotification(matches: MatchingWindow[]): PushContent {
     return formatSimilarityPush(topMatch);
   }
 
-  const title = "Conditions lining up today";
-
   if (matches.length === 1) {
     const snap = topMatch.conditions_snapshot;
+    const timeWindow = formatTitleWindow(
+      topMatch.window_start,
+      topMatch.window_end,
+      topMatch.beach_timezone
+    );
+    // Lead with quality, then beach + window: "Pumping — Blacks Beach, 7–9 AM".
+    const title = `${qualityWord(topMatch.best_score)} — ${topMatch.beach_name}, ${timeWindow}`;
+
     // Match the email's units + rounding so push and email don't disagree.
     // wind_speed is knots (per ForecastHour), wave_period prefers the total-
     // spectrum field that the website Current Conditions card reads, with
@@ -93,14 +123,23 @@ export function formatPushNotification(matches: MatchingWindow[]): PushContent {
       typeof snap.wind_speed === "number" && Number.isFinite(snap.wind_speed)
         ? `, ${formatWindSpeed(snap.wind_speed * KNOTS_TO_MPH)}`
         : "";
+    const bodyTimeWindow = formatTimeRange(
+      topMatch.window_start,
+      topMatch.window_end,
+      topMatch.beach_timezone
+    );
+    const core = `${topMatch.beach_name} ${bodyTimeWindow} — ${waveHeight}${period}${wind}`;
+
+    // Append the beginner reason only when it fits within the budget — never
+    // let it trigger the truncation fallback that would drop the real data.
     const beginnerReason =
       typeof snap.beginner_window_reason === "string"
-        ? `, ${snap.beginner_window_reason.replace(/\.$/, "")}`
+        ? shortBeginnerReason(snap.beginner_window_reason)
         : "";
-    const timeWindow = formatTimeRange(topMatch.window_start, topMatch.window_end, topMatch.beach_timezone);
-    let body = `${topMatch.beach_name} ${timeWindow} — ${waveHeight}${period}${wind}${beginnerReason}`;
-    if (body.length > 150) body = `${topMatch.beach_name} ${timeWindow} — ${waveHeight}${period}`;
-    if (body.length > 150) body = body.substring(0, 147) + "...";
+    const withReason = beginnerReason ? `${core}, ${beginnerReason}` : core;
+
+    let body = withReason.length <= MAX_BODY_LENGTH ? withReason : core;
+    if (body.length > MAX_BODY_LENGTH) body = body.substring(0, MAX_BODY_LENGTH - 3) + "...";
     return {
       title,
       body,
@@ -112,24 +151,54 @@ export function formatPushNotification(matches: MatchingWindow[]): PushContent {
     };
   }
 
-  const showCount = Math.min(matches.length, 2);
+  // The consolidator sorts matches by best_score desc; sort defensively in case
+  // a caller passes an unsorted list so the title always leads with the best.
+  const sorted = [...matches].sort((a, b) => b.best_score - a.best_score);
+  const best = sorted[0];
+  const others = sorted.length - 1;
+  const title = `${best.beach_name} + ${others} more break${others === 1 ? "" : "s"} today`;
+
+  const showCount = Math.min(sorted.length, 2);
   const parts: string[] = [];
   for (let i = 0; i < showCount; i++) {
-    const m = matches[i];
+    const m = sorted[i];
     parts.push(`${m.beach_name} ${formatTimeRange(m.window_start, m.window_end, m.beach_timezone)}`);
   }
   let body = parts.join(" · ");
-  if (matches.length > 2) body += ` and ${matches.length - 2} more`;
-  if (body.length > 150) body = body.substring(0, 147) + "...";
+  if (sorted.length > 2) body += ` and ${sorted.length - 2} more`;
+  if (body.length > MAX_BODY_LENGTH) body = body.substring(0, MAX_BODY_LENGTH - 3) + "...";
   return {
     title,
     body,
     data: {
       type: "forecast_alert",
-      beach_id: topMatch.beach_id,
-      forecast_at: topMatch.best_hour ?? topMatch.window_start,
+      beach_id: best.beach_id,
+      forecast_at: best.best_hour ?? best.window_start,
     },
   };
+}
+
+/**
+ * Title window: en-dash, meridiem collapsed when shared ("7–9 AM"), so the
+ * lock-screen line reads tight. Body uses formatTimeRange (hyphen, full).
+ */
+function formatTitleWindow(start: string, end: string, timezone: string): string {
+  const opts: Intl.DateTimeFormatOptions = {
+    hour: "numeric",
+    hour12: true,
+    timeZone: timezone,
+  };
+  const startParts = new Intl.DateTimeFormat("en-US", opts).formatToParts(new Date(start));
+  const endParts = new Intl.DateTimeFormat("en-US", opts).formatToParts(new Date(end));
+  const startHour = startParts.find((p) => p.type === "hour")?.value ?? "";
+  const startMeridiem = startParts.find((p) => p.type === "dayPeriod")?.value ?? "";
+  const endHour = endParts.find((p) => p.type === "hour")?.value ?? "";
+  const endMeridiem = endParts.find((p) => p.type === "dayPeriod")?.value ?? "";
+
+  if (startMeridiem && startMeridiem === endMeridiem) {
+    return `${startHour}–${endHour} ${endMeridiem}`;
+  }
+  return `${startHour} ${startMeridiem}–${endHour} ${endMeridiem}`.trim();
 }
 
 function formatTimeRange(start: string, end: string, timezone: string): string {

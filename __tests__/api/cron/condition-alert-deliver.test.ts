@@ -787,6 +787,167 @@ describe("condition-alert-deliver — throttle (cooldown + weekly cap)", () => {
   });
 });
 
+describe("condition-alert-deliver — email quiet-hours guard", () => {
+  // Current local hour in the recipient's timezone (profile.timezone unset ⇒
+  // DEFAULT_TIMEZONE = America/Los_Angeles, matching the push worker). Build
+  // override windows relative to it so the test is deterministic at any clock.
+  function ptHourNow(): number {
+    const h = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Los_Angeles",
+      hour: "numeric",
+      hour12: false,
+    }).format(new Date());
+    const n = parseInt(h, 10);
+    return n === 24 ? 0 : n;
+  }
+
+  it("recipient inside quiet hours: email deferred, NOT sent/deduped/marked-sent", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+
+    // A 1-hour quiet window that contains the current local hour.
+    const start = ptHourNow();
+    const end = (start + 1) % 24;
+    seedQueueRow({
+      alert_rules: {
+        name: "Test rule",
+        notify_email: true,
+        notify_push: false,
+        conditions: { quiet_hours_start: start, quiet_hours_end: end },
+      },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    // Deferred: provider not called, no dedup row, no log, no attempt row.
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(store.deliveryInserts).toHaveLength(0);
+    expect(mockLogDelivery).not.toHaveBeenCalled();
+    expect(store.attemptInserts).toHaveLength(0);
+
+    // Counter incremented; emailSent untouched.
+    expect(body.emailQuietHoursSkipped).toBe(1);
+    expect(body.emailSent).toBe(0);
+
+    // CRITICAL: the queue row is left due+unsent so the next hourly run retries.
+    expect(store.queueUpdates).toEqual([]);
+  });
+
+  it("recipient inside DEFAULT_QUIET (no per-rule override) defers", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+
+    // Pin the clock to 06:00 UTC = 23:00 PT (previous day) — inside the default
+    // 22→04 window. profile.timezone is unset ⇒ DEFAULT_TIMEZONE (PT), matching
+    // the push worker.
+    jest.useFakeTimers().setSystemTime(new Date("2026-04-26T06:00:00Z"));
+    try {
+      seedQueueRow({
+        send_at: "2026-04-26T05:00:00Z",
+        alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+      });
+      seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+      const res = await GET(makeRequest());
+      expect(res.status).toBe(200);
+      const body = await res.json();
+
+      expect(mockEmailsSend).not.toHaveBeenCalled();
+      expect(body.emailQuietHoursSkipped).toBe(1);
+      expect(store.queueUpdates).toEqual([]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("recipient outside DEFAULT_QUIET (no per-rule override) sends", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+
+    // 17:00 UTC = 10:00 PT — well outside the default 22→04 window.
+    jest.useFakeTimers().setSystemTime(new Date("2026-04-26T17:00:00Z"));
+    try {
+      seedQueueRow({
+        send_at: "2026-04-26T05:00:00Z",
+        alert_rules: { name: "Test rule", notify_email: true, notify_push: false },
+      });
+      seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+      const res = await GET(makeRequest());
+      expect(res.status).toBe(200);
+      const body = await res.json();
+
+      expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+      expect(body.emailQuietHoursSkipped).toBe(0);
+      expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("recipient outside quiet hours: email sends, deduped, marked sent", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+
+    // A 1-hour quiet window that does NOT contain the current local hour.
+    const now = ptHourNow();
+    const start = (now + 2) % 24;
+    const end = (now + 3) % 24;
+    seedQueueRow({
+      alert_rules: {
+        name: "Test rule",
+        notify_email: true,
+        notify_push: false,
+        conditions: { quiet_hours_start: start, quiet_hours_end: end },
+      },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    const body = await res.json();
+
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(store.deliveryInserts).toHaveLength(1);
+    expect(body.emailQuietHoursSkipped).toBe(0);
+    expect(body.emailSent).toBe(1);
+    expect(store.attemptInserts).toEqual([
+      expect.objectContaining({ channel: "email", status: "sent" }),
+    ]);
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+
+  it("a quiet-hours deferral does not write a 'sent' attempt, so cooldown stays clear for the retry", async () => {
+    // Verifies the retry-safety invariant directly: after a deferral there are
+    // zero status='sent' rows for the rule, so the next run's cooldownDecision
+    // sees no history and the real send proceeds.
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+
+    const start = ptHourNow();
+    const end = (start + 1) % 24;
+    seedQueueRow({
+      alert_rules: {
+        name: "Test rule",
+        notify_email: true,
+        notify_push: false,
+        conditions: { quiet_hours_start: start, quiet_hours_end: end },
+      },
+    });
+    seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+
+    await GET(makeRequest());
+
+    const sentForRule = store.attemptInserts.filter(
+      (a) => a.rule_id === RULE_1 && a.status === "sent"
+    );
+    expect(sentForRule).toHaveLength(0);
+  });
+});
+
 describe("condition-alert-deliver — orphaned queue rows", () => {
   it("marks rows sent and records failed_internal when the queued user has no profile", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";

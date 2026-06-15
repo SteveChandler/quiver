@@ -24,11 +24,13 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.generated";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { ConditionsAlertEmail } from "@/lib/mailer/templates/ConditionsAlertEmail";
 import { formatDatabaseTime } from "@/lib/email/email-formatters";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import type { ConditionsAlertCandidate } from "@/lib/email/email-types";
+import { enrichBeachSignals } from "@/lib/email/signal-enrichment";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
@@ -38,6 +40,8 @@ import {
   forecastToSnapshot,
   type ScoringEngine,
 } from "@/lib/domains/scoring";
+import { evaluateDigestMatch } from "@/lib/services/forecast-digest-service";
+import type { BeachMetadata, EnhancedForecastEntity as MagicHourForecast } from "@/lib/services/magic-hour";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { withObservedCron } from "@/lib/cron/observability";
@@ -122,6 +126,80 @@ async function claimDeliverySlot(
 }
 
 /**
+ * Build a mono dateline for the masthead, e.g. "FRI · JUN 13", in the beach's
+ * Pacific-default timezone. Errors degrade to an empty string.
+ */
+function buildDateline(date: Date): string {
+  try {
+    const weekday = date
+      .toLocaleDateString("en-US", {
+        weekday: "short",
+        timeZone: "America/Los_Angeles",
+      })
+      .toUpperCase();
+    const monthDay = date
+      .toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        timeZone: "America/Los_Angeles",
+      })
+      .toUpperCase();
+    return `${weekday} · ${monthDay}`;
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Compose a tide summary like "2.1 ft, incoming" from a forecast row. Returns
+ * null when no usable tide datum exists so the template can omit the cell.
+ */
+function formatTideDescription(
+  forecast: { tide_height?: string | null; tide_status?: string | null } | null
+): string | null {
+  if (!forecast) return null;
+  const parsed = parseFloat(forecast.tide_height ?? "");
+  const heightPart = Number.isFinite(parsed) ? `${parsed.toFixed(1)} ft` : null;
+  const status = forecast.tide_status?.trim() || null;
+  if (heightPart && status) return `${heightPart}, ${status}`;
+  return heightPart ?? status;
+}
+
+interface DigestWhyContent {
+  whyText: string[];
+  crowdWarning: string | null;
+}
+
+const EMPTY_WHY: DigestWhyContent = { whyText: [], crowdWarning: null };
+
+/**
+ * Derive the personalized "why this matches" bullets + crowd warning by reusing
+ * the digest service's multi-gate evaluation. Degrades to empty content when the
+ * beach metadata or forecasts are unavailable — a missing playbook section must
+ * never block the send.
+ */
+function deriveWhyContent(
+  beach: BeachMetadata | null,
+  forecasts: MagicHourForecast[]
+): DigestWhyContent {
+  if (!beach || forecasts.length === 0) {
+    return EMPTY_WHY;
+  }
+  try {
+    // Skill level is not in the alert candidate payload; the digest service
+    // defaults a null user level to 'intermediate', which is the right neutral.
+    const match = evaluateDigestMatch(forecasts, beach, null, null);
+    return {
+      whyText: match.whyText,
+      crowdWarning: match.crowdWarning,
+    };
+  } catch (error) {
+    console.warn(`${CONTEXT_TAG} deriveWhyContent failed:`, error);
+    return EMPTY_WHY;
+  }
+}
+
+/**
  * Process a single conditions alert candidate: claim slot, send email, log delivery.
  */
 async function processCandidate(
@@ -142,16 +220,18 @@ async function processCandidate(
     return { status: "claim_failed" };
   }
 
-  // 2. Re-score with fresh forecast data for accuracy
+  // 2. Re-score with fresh forecast data for accuracy + gather the day's
+  // forecast rows and beach metadata reused below for the why-bullets.
+  const now = new Date();
+  const todayStr = now.toISOString().split("T")[0];
   let freshScore = candidate.conditions_score;
+  let dayForecasts: MagicHourForecast[] = [];
+  let beachMeta: BeachMetadata | null = null;
   try {
-    // Fetch current forecast for this beach
-    const now = new Date();
-    const todayStr = now.toISOString().split("T")[0];
     const { data: forecasts } = await supabase
       .from("enhanced_forecasts")
       .select(
-        "wave_height, wave_period, wind_speed, wind_direction_deg, wind_direction, tide_height, tide_status, forecast_at"
+        "id, beach_id, forecast_at, forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction_deg, wind_direction, tide_height, tide_status, created_at, updated_at"
       )
       .eq("beach_id", candidate.home_beach_id)
       .gte("forecast_at", `${todayStr}T00:00:00Z`)
@@ -159,14 +239,34 @@ async function processCandidate(
       .order("forecast_at", { ascending: true })
       .limit(12);
 
-    // Fetch beach thresholds
+    // Fetch beach thresholds (incl. swell window + tide prefs for the why-gates).
     const { data: beach } = await supabase
       .from("beaches")
       .select(
-        "id, name, wind_offshore_deg, wind_offshore_tol_deg, preferred_tide_ft_min, preferred_tide_ft_max, skill_level"
+        "id, name, slug, wind_offshore_deg, wind_offshore_tol_deg, preferred_tide_ft_min, preferred_tide_ft_max, skill_level, swell_window_center_deg, swell_window_halfwidth_deg, timezone"
       )
       .eq("id", candidate.home_beach_id)
       .single();
+
+    if (forecasts?.length) {
+      dayForecasts = forecasts as unknown as MagicHourForecast[];
+    }
+
+    if (beach) {
+      beachMeta = {
+        id: beach.id,
+        name: beach.name,
+        slug: beach.slug,
+        skill_level: beach.skill_level,
+        swell_window_center_deg: beach.swell_window_center_deg,
+        swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg,
+        wind_offshore_deg: beach.wind_offshore_deg,
+        wind_offshore_tol_deg: beach.wind_offshore_tol_deg,
+        preferred_tide_ft_min: beach.preferred_tide_ft_min,
+        preferred_tide_ft_max: beach.preferred_tide_ft_max,
+        timezone: beach.timezone ?? undefined,
+      };
+    }
 
     if (forecasts?.length && beach) {
       // Score the morning window (first available forecast) via the domain engine.
@@ -187,7 +287,17 @@ async function processCandidate(
     );
   }
 
-  // 3. Format best window
+  // 3. Enrich surf-decision signals + derive the personalized why bullets.
+  // enrichBeachSignals degrades each field to null independently; deriveWhyContent
+  // returns empty content when the beach/forecasts are missing — neither blocks.
+  const signals = await enrichBeachSignals(
+    supabase as SupabaseClient<Database>,
+    candidate.home_beach_id,
+    todayStr
+  );
+  const why = deriveWhyContent(beachMeta, dayForecasts);
+
+  // 4. Format best window + tide summary.
   const bestWindow =
     candidate.best_window_start && candidate.best_window_end
       ? {
@@ -195,14 +305,16 @@ async function processCandidate(
           end: formatDatabaseTime(candidate.best_window_end) || "",
         }
       : null;
+  const tideDescription = formatTideDescription(dayForecasts[0] ?? null);
 
-  // 4. Prepare email content
+  // 5. Prepare email content
   const ctaUrl = `${baseUrl}${buildBeachUrl({ slug: candidate.beach_slug, city: candidate.beach_city, state: candidate.beach_state })}`;
-  const logSessionUrl = `${baseUrl}/sessions/new?mode=log&beach=${candidate.home_beach_id}`;
+  const manageUrl = `${baseUrl}/settings`;
   const unsubscribeUrl = `${baseUrl}/settings`;
   const emailSubject = `${candidate.beach_name}: ${freshScore} today`;
+  const dateline = buildDateline(now);
 
-  // 5. Rate limit and send email
+  // 6. Rate limit and send email
   await rateLimiter.throttle();
 
   const { data: sendData, error: sendError } = await resend.emails.send({
@@ -211,14 +323,17 @@ async function processCandidate(
     to: candidate.email,
     subject: emailSubject,
     react: ConditionsAlertEmail({
-      displayName: candidate.display_name,
       beachName: candidate.beach_name,
       conditionsScore: freshScore,
       surfDescription: candidate.surf_description,
       windDescription: candidate.wind_description,
+      tideDescription,
       bestWindow,
+      dateline,
+      signals,
+      why,
       ctaUrl,
-      logSessionUrl,
+      manageUrl,
       unsubscribeUrl,
     }),
   });
@@ -231,7 +346,7 @@ async function processCandidate(
     return { status: "send_failed", error: sendError };
   }
 
-  // 6. Log to email_send_log for tracking
+  // 7. Log to email_send_log for tracking
   await emailLogger.logDelivery({
     userId: candidate.user_id,
     emailType: "conditions_alert",

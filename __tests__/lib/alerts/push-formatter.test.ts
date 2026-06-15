@@ -26,9 +26,28 @@ function makeMatch(overrides: Partial<MatchingWindow> = {}): MatchingWindow {
 }
 
 describe("formatPushNotification", () => {
+  it("single-match title is dynamic — beach + window, not the old static string", () => {
+    const result = formatPushNotification([makeMatch()]);
+    expect(result.title).not.toBe("Conditions lining up today");
+    expect(result.title).toContain("Blacks Beach");
+    // 7-10 AM PDT for the 14:00-17:00Z window, with an en-dash + shared meridiem.
+    expect(result.title).toContain("7–10 AM");
+  });
+
+  it("single-match title carries a quality word from best_score", () => {
+    const result = formatPushNotification([makeMatch({ best_score: 0.92 })]);
+    expect(result.title).toContain("Pumping");
+  });
+
+  it("single-match quality word reflects mid and low bands", () => {
+    const mid = formatPushNotification([makeMatch({ best_score: 0.55 })]);
+    expect(mid.title).toContain("Looking good");
+    const low = formatPushNotification([makeMatch({ best_score: 0.2 })]);
+    expect(low.title).toContain("Rideable");
+  });
+
   it("formats single beach with rich detail", () => {
     const result = formatPushNotification([makeMatch()]);
-    expect(result.title).toBe("Conditions lining up today");
     expect(result.body).toContain("Blacks Beach");
     expect(result.data.forecast_at).toBe("2026-04-01T15:30:00Z");
     expect(result.body.length).toBeLessThanOrEqual(150);
@@ -67,20 +86,44 @@ describe("formatPushNotification", () => {
     expect(result.body).toContain("@ 12s");
   });
 
-  it("includes beginner rationale when present", () => {
+  it("includes beginner rationale when present and it fits the budget", () => {
     const result = formatPushNotification([
       makeMatch({
         conditions_snapshot: {
           wave_height: 1.5,
           wave_period: 6,
           wind_speed: 3,
+          beginner_window_reason: "beginner-friendly",
+        },
+      }),
+    ]);
+
+    expect(result.body).toContain("beginner-friendly");
+    expect(result.body.length).toBeLessThanOrEqual(150);
+  });
+
+  it("drops the beginner rationale rather than triggering the truncation fallback", () => {
+    const result = formatPushNotification([
+      makeMatch({
+        // Long enough that core + ", beginner-friendly" exceeds 150 chars
+        // while core alone stays within budget.
+        beach_name:
+          "A Fairly Long Surf Spot Name Here On The Far North Coast Region Near The Old Wooden Pier And Boat Ramp Landing",
+        conditions_snapshot: {
+          wave_height: 4.5,
+          wave_period: 14,
+          wind_speed: 5,
           beginner_window_reason:
             "small waves, light wind, morning window, rising tide.",
         },
       }),
     ]);
-
-    expect(result.body).toContain("small waves, light wind, morning window");
+    // Core data survives; the reason is dropped, nothing hard-truncated.
+    expect(result.body).toContain("4-5ft @ 14s");
+    expect(result.body).toContain("6 mph");
+    expect(result.body).not.toContain("beginner-friendly");
+    expect(result.body).not.toContain("...");
+    expect(result.body.length).toBeLessThanOrEqual(150);
   });
 
   it("falls back to swell_1_period when wave_period is missing", () => {
@@ -94,6 +137,28 @@ describe("formatPushNotification", () => {
       }),
     ]);
     expect(result.body).toContain("@ 8s");
+  });
+
+  it("multi-match title leads with the best-score beach + count", () => {
+    const matches = [
+      makeMatch({ beach_name: "Trestles", beach_id: "b2", best_score: 0.9 }),
+      makeMatch({ beach_name: "Malibu", beach_id: "b3", best_score: 0.7 }),
+      makeMatch({ beach_name: "Blacks Beach", beach_id: "b1", best_score: 0.6 }),
+    ];
+    const result = formatPushNotification(matches);
+    expect(result.title).not.toBe("Conditions lining up today");
+    expect(result.title).toContain("Trestles");
+    expect(result.title).toContain("2 more");
+  });
+
+  it("multi-match title sorts defensively when matches are not best-first", () => {
+    const matches = [
+      makeMatch({ beach_name: "Malibu", beach_id: "b3", best_score: 0.5 }),
+      makeMatch({ beach_name: "Trestles", beach_id: "b2", best_score: 0.95 }),
+    ];
+    const result = formatPushNotification(matches);
+    expect(result.title).toContain("Trestles");
+    expect(result.title).toContain("1 more");
   });
 
   it("formats two beaches", () => {
