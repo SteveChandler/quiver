@@ -422,8 +422,9 @@ export function transformToFaceHeightWithMetadata(
   if (canUseCalibratedShoaling(source, allowCalibratedShoaling)) {
     const bucketFactor = lookupShoalingBucket(periodS, beach?.shoaling_factors);
     if (bucketFactor != null) {
+      const shadow = calibratedShadowFactor(swellDirectionDeg, beach);
       return {
-        faceHeightFt: Math.round(rawHeightFt * bucketFactor * 10) / 10,
+        faceHeightFt: Math.round(rawHeightFt * bucketFactor * shadow * 10) / 10,
         isCalibrated: true,
       };
     }
@@ -593,6 +594,54 @@ export function alignmentFactor(
   const normalized = distance / windowHalfwidthDeg; // [0, 1)
   const cosValue = Math.cos((normalized * Math.PI) / 2);
   return Math.max(cosValue * cosValue, ALIGNMENT_FLOOR);
+}
+
+/**
+ * Direction-aware shadow multiplier for the CDIP calibrated short-circuit.
+ *
+ * The period bucket (surfline_face / cdip_hs) is direction-blind, so on the
+ * CDIP path a south swell at a Point-Loma-shadowed break can read the full
+ * offshore Hs. This applies a floored geometric-shadow factor, but only when
+ * the incident direction is outside the beach's swell window.
+ */
+export function calibratedShadowFactor(
+  swellDirectionDeg: number | null | undefined,
+  beach: BeachTerrainConfig | null | undefined,
+): number {
+  if (swellDirectionDeg == null || !Number.isFinite(swellDirectionDeg)) {
+    return 1.0;
+  }
+
+  const center = beach?.swell_window_center_deg;
+  const halfwidth = beach?.swell_window_halfwidth_deg;
+  if (
+    center == null ||
+    halfwidth == null ||
+    !Number.isFinite(center) ||
+    !Number.isFinite(halfwidth) ||
+    halfwidth <= 0
+  ) {
+    return 1.0;
+  }
+
+  const rawDelta = ((swellDirectionDeg - center) % 360 + 540) % 360 - 180;
+  const distance = Math.abs(rawDelta);
+  if (distance < halfwidth) {
+    return 1.0;
+  }
+
+  const access = beach?.swell_access_factors;
+  if (!Array.isArray(access) || access.length !== TERRAIN_BINS) {
+    return 1.0;
+  }
+
+  const rawAccess = access[toBin5(swellDirectionDeg)];
+  if (!Number.isFinite(rawAccess)) {
+    return 1.0;
+  }
+
+  const clampedAccess = Math.max(0, Math.min(1, rawAccess));
+  return DIRECTION_FACTOR_MIN + Math.sqrt(clampedAccess) * DIRECTION_FACTOR_RANGE;
 }
 
 function hasValidSwellAccessFactors(
