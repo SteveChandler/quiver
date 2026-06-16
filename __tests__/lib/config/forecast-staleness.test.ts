@@ -1,4 +1,7 @@
 import {
+  CDIP_NOWCAST_HORIZON_HOURS,
+  CDIP_OUTLIER_THRESHOLD,
+  MAX_TRUSTED_CDIP_FT,
   STALENESS_THRESHOLDS,
   getStalenessThreshold,
   getStalenessInfo,
@@ -11,6 +14,15 @@ describe('Forecast Staleness Configuration', () => {
       expect(STALENESS_THRESHOLDS.NOAA_NWS).toBe(12);
       expect(STALENESS_THRESHOLDS.FALLBACK).toBe(12);
       expect(STALENESS_THRESHOLDS.DEFAULT).toBe(6);
+    });
+
+    it('should align CDIP nowcast horizon with CDIP staleness', () => {
+      expect(CDIP_NOWCAST_HORIZON_HOURS).toBe(STALENESS_THRESHOLDS.CDIP);
+    });
+
+    it('should expose CDIP trust thresholds from forecast staleness config', () => {
+      expect(CDIP_OUTLIER_THRESHOLD).toBe(1.8);
+      expect(MAX_TRUSTED_CDIP_FT).toBe(10);
     });
   });
 

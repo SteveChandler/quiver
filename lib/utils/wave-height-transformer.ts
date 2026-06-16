@@ -16,6 +16,9 @@
  */
 
 import { toBin5, TERRAIN_BINS } from '@/types/terrain';
+import type { WaveHeightSourceTag } from './wave-height-source';
+
+export type { WaveHeightSourceTag } from './wave-height-source';
 
 /**
  * One bucket in a period-keyed shoaling factor lookup table.
@@ -80,29 +83,6 @@ export interface BeachTerrainConfig {
    */
   deepwater_decay_factor?: number | null;
 }
-
-/**
- * Identifies which upstream feed produced `rawHeightFt`. Must match the
- * string union in `wave-formatters.ts::WaveHeightSource['source']` — the two
- * type definitions are intentionally colocated with their consumers instead
- * of shared to avoid a circular import. Adding a new source here requires
- * the same addition in wave-formatters.ts and (if applicable) gating below.
- *
- * Critical: the per-beach `shoaling_factors` calibration in the Phase 1.4
- * migration was measured as `surfline_face_ft / cdip_hs_ft`, meaning the
- * bucket multiplier is ONLY valid when rawHeightFt came from a CDIP
- * significant-height reading for the beach's assigned cdip_station. For
- * every other source (model swell, model Hs, NDBC buoy, CDIP swell
- * component) the denominator semantics differ and the bucket factor would
- * produce the wrong answer. `transformToFaceHeight` enforces this gate.
- */
-export type WaveHeightSourceTag =
-  | 'cdip_sig'
-  | 'model_swell'
-  | 'cdip_swell'
-  | 'model_hs'
-  | 'ndbc_buoy'
-  | 'nowcast_anchor';
 
 /**
  * Parameters for wave height transformation
@@ -179,6 +159,18 @@ export const DIRECTION_FACTOR_MIN = 0.6;
  * Direction factor = MIN + (access * RANGE), giving 0.6-1.0 range
  */
 export const DIRECTION_FACTOR_RANGE = 0.4;
+
+/**
+ * Minimum alignment weight for a swell component that is genuinely INSIDE the
+ * beach's swell window. The `cos²` taper in `alignmentFactor` falls to ~0 near
+ * the window edge, which crushed real long-period groundswell that was in-window
+ * but off-center (e.g. a 2 ft 15s swell from 190° at Malibu, center 220°/±40°,
+ * rendered as ~0.4 ft). This floor keeps a qualifying in-window component from
+ * being attenuated below a meaningful contribution. It applies ONLY to the
+ * in-window cos² return — the short-period gate (0) and out-of-window gate (0)
+ * are unaffected.
+ */
+export const ALIGNMENT_FLOOR = 0.35;
 
 /**
  * Set wave variance multiplier
@@ -430,8 +422,9 @@ export function transformToFaceHeightWithMetadata(
   if (canUseCalibratedShoaling(source, allowCalibratedShoaling)) {
     const bucketFactor = lookupShoalingBucket(periodS, beach?.shoaling_factors);
     if (bucketFactor != null) {
+      const shadow = calibratedShadowFactor(swellDirectionDeg, beach);
       return {
-        faceHeightFt: Math.round(rawHeightFt * bucketFactor * 10) / 10,
+        faceHeightFt: Math.round(rawHeightFt * bucketFactor * shadow * 10) / 10,
         isCalibrated: true,
       };
     }
@@ -600,7 +593,55 @@ export function alignmentFactor(
 
   const normalized = distance / windowHalfwidthDeg; // [0, 1)
   const cosValue = Math.cos((normalized * Math.PI) / 2);
-  return cosValue * cosValue;
+  return Math.max(cosValue * cosValue, ALIGNMENT_FLOOR);
+}
+
+/**
+ * Direction-aware shadow multiplier for the CDIP calibrated short-circuit.
+ *
+ * The period bucket (surfline_face / cdip_hs) is direction-blind, so on the
+ * CDIP path a south swell at a Point-Loma-shadowed break can read the full
+ * offshore Hs. This applies a floored geometric-shadow factor, but only when
+ * the incident direction is outside the beach's swell window.
+ */
+export function calibratedShadowFactor(
+  swellDirectionDeg: number | null | undefined,
+  beach: BeachTerrainConfig | null | undefined,
+): number {
+  if (swellDirectionDeg == null || !Number.isFinite(swellDirectionDeg)) {
+    return 1.0;
+  }
+
+  const center = beach?.swell_window_center_deg;
+  const halfwidth = beach?.swell_window_halfwidth_deg;
+  if (
+    center == null ||
+    halfwidth == null ||
+    !Number.isFinite(center) ||
+    !Number.isFinite(halfwidth) ||
+    halfwidth <= 0
+  ) {
+    return 1.0;
+  }
+
+  const rawDelta = ((swellDirectionDeg - center) % 360 + 540) % 360 - 180;
+  const distance = Math.abs(rawDelta);
+  if (distance < halfwidth) {
+    return 1.0;
+  }
+
+  const access = beach?.swell_access_factors;
+  if (!Array.isArray(access) || access.length !== TERRAIN_BINS) {
+    return 1.0;
+  }
+
+  const rawAccess = access[toBin5(swellDirectionDeg)];
+  if (!Number.isFinite(rawAccess)) {
+    return 1.0;
+  }
+
+  const clampedAccess = Math.max(0, Math.min(1, rawAccess));
+  return DIRECTION_FACTOR_MIN + Math.sqrt(clampedAccess) * DIRECTION_FACTOR_RANGE;
 }
 
 function hasValidSwellAccessFactors(

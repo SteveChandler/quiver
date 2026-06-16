@@ -1,4 +1,5 @@
 import {
+  calibratedShadowFactor,
   transformToFaceHeight,
   transformToFaceHeightWithMetadata,
   transformToFaceHeightRange,
@@ -11,6 +12,7 @@ import {
   lookupShoalingBucket,
   SHORT_PERIOD_CUTOFF_S,
   WIND_WAVE_FACE_HEIGHT_CUTOFF_S,
+  ALIGNMENT_FLOOR,
   BASE_SHOALING,
   PERIOD_REF,
   PERIOD_MULT,
@@ -25,11 +27,17 @@ import {
   type TransformParams,
   type WaveHeightSourceTag,
 } from '@/lib/utils/wave-height-transformer';
-import { TERRAIN_BINS } from '@/types/terrain';
+import { TERRAIN_BINS, toBin5 } from '@/types/terrain';
 import {
   createMockBeach,
   createAccessArray,
 } from './test-helpers/wave-height-test-utils';
+
+function accessArray(overrides: Record<number, number>): number[] {
+  const a = new Array(TERRAIN_BINS).fill(1.0);
+  for (const [bin, val] of Object.entries(overrides)) a[Number(bin)] = val;
+  return a;
+}
 
 describe('Wave Height Transformer', () => {
   describe('Constants', () => {
@@ -177,6 +185,57 @@ describe('Wave Height Transformer', () => {
       expect(calculateDirectionFactor(180, beach)).toBe(1.0);
       // Clamped -0.5 -> 0.0: 0.6 + 0.0 * 0.4 = 0.6
       expect(calculateDirectionFactor(0, beach)).toBe(0.6);
+    });
+  });
+
+  describe('calibratedShadowFactor', () => {
+    // OB Pier-like: window center 293, halfwidth 73 => window 220-366 deg.
+    const obBeach = {
+      swell_window_center_deg: 293,
+      swell_window_halfwidth_deg: 73,
+      swell_access_factors: accessArray({ [toBin5(202)]: 0.008 }),
+    };
+
+    it('returns 1.0 for in-window directions (bucket already calibrated there)', () => {
+      expect(calibratedShadowFactor(293, obBeach)).toBe(1.0); // dead center
+      expect(calibratedShadowFactor(250, obBeach)).toBe(1.0); // inside halfwidth
+    });
+
+    it('applies the floored shadow for an out-of-window low-access direction', () => {
+      // 202deg is 91deg from center 293 (> halfwidth 73) => out of window.
+      // 0.6 + sqrt(0.008)*0.4 = 0.6353
+      expect(calibratedShadowFactor(202, obBeach)).toBeCloseTo(0.6353, 3);
+    });
+
+    it('floors at 0.6 even when access is exactly 0 (diffraction floor, not zero)', () => {
+      const beach = { ...obBeach, swell_access_factors: accessArray({ [toBin5(202)]: 0 }) };
+      expect(calibratedShadowFactor(202, beach)).toBeCloseTo(0.6, 5);
+    });
+
+    it('returns 1.0 for an out-of-window but fully-exposed direction', () => {
+      const beach = { ...obBeach, swell_access_factors: accessArray({ [toBin5(202)]: 1.0 }) };
+      expect(calibratedShadowFactor(202, beach)).toBeCloseTo(1.0, 5);
+    });
+
+    it('treats the window boundary (distance == halfwidth) as out-of-window', () => {
+      // 220deg is exactly 73deg from center 293 => boundary => shadow applies.
+      const beach = { ...obBeach, swell_access_factors: accessArray({ [toBin5(220)]: 0.01 }) };
+      expect(calibratedShadowFactor(220, beach)).toBeLessThan(1.0);
+    });
+
+    it('is a no-op (1.0) when direction, window, or access is missing/invalid', () => {
+      expect(calibratedShadowFactor(null, obBeach)).toBe(1.0);
+      expect(calibratedShadowFactor(202, {
+        swell_window_center_deg: null,
+        swell_window_halfwidth_deg: null,
+        swell_access_factors: obBeach.swell_access_factors,
+      })).toBe(1.0);
+      expect(calibratedShadowFactor(202, {
+        swell_window_center_deg: 293,
+        swell_window_halfwidth_deg: 73,
+        swell_access_factors: [0.1, 0.2],
+      })).toBe(1.0);
+      expect(calibratedShadowFactor(202, null)).toBe(1.0);
     });
   });
 
@@ -1046,6 +1105,81 @@ describe('Wave Height Transformer', () => {
     });
   });
 
+  describe('transformToFaceHeightWithMetadata — CDIP direction shadow', () => {
+    const OB_BUCKETS = {
+      version: 1 as const,
+      type: 'period_lookup' as const,
+      buckets: [
+        { tp_min_s: 0, tp_max_s: 8, factor: 0.96 },
+        { tp_min_s: 8, tp_max_s: 12, factor: 1.0 },
+        { tp_min_s: 12, tp_max_s: 16, factor: 1.04 },
+        { tp_min_s: 16, tp_max_s: 999, factor: 1.0 },
+      ],
+    };
+    const BLACKS_BUCKETS = {
+      version: 1 as const,
+      type: 'period_lookup' as const,
+      buckets: [
+        { tp_min_s: 0, tp_max_s: 8, factor: 1.57 },
+        { tp_min_s: 8, tp_max_s: 12, factor: 1.7 },
+        { tp_min_s: 12, tp_max_s: 16, factor: 2.13 },
+        { tp_min_s: 16, tp_max_s: 999, factor: 2.4 },
+      ],
+    };
+
+    it('shadows OB Pier south swell on the CDIP calibrated path', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 4.30,
+        periodS: 14,
+        swellDirectionDeg: 202,
+        source: 'cdip_sig',
+        beach: {
+          shoaling_factors: OB_BUCKETS,
+          swell_window_center_deg: 293,
+          swell_window_halfwidth_deg: 73,
+          swell_access_factors: accessArray({ [toBin5(202)]: 0.008 }),
+        },
+      });
+
+      expect(result.isCalibrated).toBe(true);
+      expect(result.faceHeightFt).toBeCloseTo(2.8, 1);
+    });
+
+    it('leaves OB Pier own in-window WNW swell unchanged', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 4.30,
+        periodS: 14,
+        swellDirectionDeg: 290,
+        source: 'cdip_sig',
+        beach: {
+          shoaling_factors: OB_BUCKETS,
+          swell_window_center_deg: 293,
+          swell_window_halfwidth_deg: 73,
+          swell_access_factors: accessArray({ [toBin5(290)]: 0.74 }),
+        },
+      });
+
+      expect(result.faceHeightFt).toBeCloseTo(4.5, 1);
+    });
+
+    it('leaves a west-facing in-window break (Blacks) byte-identical', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.0,
+        periodS: 16,
+        swellDirectionDeg: 270,
+        source: 'cdip_sig',
+        beach: {
+          shoaling_factors: BLACKS_BUCKETS,
+          swell_window_center_deg: 268,
+          swell_window_halfwidth_deg: 73,
+          swell_access_factors: accessArray({}),
+        },
+      });
+
+      expect(result.faceHeightFt).toBeCloseTo(4.8, 1);
+    });
+  });
+
   // ==========================================================================
   // Workstream A: per-component decomposition + alignment weighting
   // ==========================================================================
@@ -1055,6 +1189,78 @@ describe('Wave Height Transformer', () => {
     // center 247.5°, halfwidth 67.5° (spans 180° – 315°).
     const TOURMALINE_CENTER = 247.5;
     const TOURMALINE_HALFWIDTH = 67.5;
+
+    describe('in-window alignment floor (ALIGNMENT_FLOOR)', () => {
+      // Malibu: center 220°, halfwidth 40°. A real long-period groundswell
+      // inside the window but off-center used to get crushed by the cos²
+      // taper. The floor keeps qualifying in-window groundswell meaningful.
+      const MALIBU_CENTER = 220;
+      const MALIBU_HALFWIDTH = 40;
+
+      // Mirror the in-window cos² so the test can prove WHICH value the
+      // floor returns without depending on the implementation under test.
+      const rawCos2 = (
+        componentDirDeg: number,
+        windowCenterDeg: number,
+        windowHalfwidthDeg: number,
+      ): number => {
+        const distance = Math.abs(
+          (((componentDirDeg - windowCenterDeg) % 360) + 540) % 360 - 180,
+        );
+        const normalized = distance / windowHalfwidthDeg;
+        const cosValue = Math.cos((normalized * Math.PI) / 2);
+        return cosValue * cosValue;
+      };
+
+      it('exports a floor of 0.35', () => {
+        expect(ALIGNMENT_FLOOR).toBe(0.35);
+      });
+
+      it('lifts a collapsed in-window component up to the floor', () => {
+        // 190° is ~30° off a 40° halfwidth → raw cos² ≈ 0.146, below the floor.
+        const raw = rawCos2(190, MALIBU_CENTER, MALIBU_HALFWIDTH);
+        expect(raw).toBeLessThan(ALIGNMENT_FLOOR);
+        expect(raw).toBeCloseTo(0.1464, 4);
+
+        expect(
+          alignmentFactor(190, 15, MALIBU_CENTER, MALIBU_HALFWIDTH),
+        ).toBe(ALIGNMENT_FLOOR);
+      });
+
+      it('leaves a well-aligned (center) component unchanged at 1.0', () => {
+        expect(
+          alignmentFactor(MALIBU_CENTER, 15, MALIBU_CENTER, MALIBU_HALFWIDTH),
+        ).toBeCloseTo(1.0, 6);
+      });
+
+      it('leaves a moderately-aligned component above the floor unchanged', () => {
+        // 205° is 15° off a 40° halfwidth → raw cos² ≈ 0.691, above the floor.
+        const raw = rawCos2(205, MALIBU_CENTER, MALIBU_HALFWIDTH);
+        expect(raw).toBeGreaterThan(ALIGNMENT_FLOOR);
+
+        const result = alignmentFactor(205, 15, MALIBU_CENTER, MALIBU_HALFWIDTH);
+        expect(result).toBeCloseTo(raw, 10);
+        expect(result).not.toBe(ALIGNMENT_FLOOR);
+      });
+
+      it('does NOT lift an out-of-window component (stays 0)', () => {
+        // 160° → distance 60 ≥ halfwidth 40 → genuinely out of window.
+        expect(
+          alignmentFactor(160, 15, MALIBU_CENTER, MALIBU_HALFWIDTH),
+        ).toBe(0);
+      });
+
+      it('does NOT lift a short-period component (stays 0)', () => {
+        // 6s ≤ SHORT_PERIOD_CUTOFF_S → wind-swell gate, even at the center.
+        expect(
+          alignmentFactor(MALIBU_CENTER, 6, MALIBU_CENTER, MALIBU_HALFWIDTH),
+        ).toBe(0);
+      });
+
+      it('does NOT lift an uncalibrated window (stays 1.0)', () => {
+        expect(alignmentFactor(190, 15, null, null)).toBe(1.0);
+      });
+    });
 
     it('returns 1.0 at the window center', () => {
       expect(
@@ -1072,15 +1278,17 @@ describe('Wave Height Transformer', () => {
       );
       expect(atEdge).toBe(0);
 
-      // Approaching the edge — strictly positive but near zero.
+      // Approaching the edge — still inside the window, so the ALIGNMENT_FLOOR
+      // applies: the raw cos² (~0.0005) is below the floor and gets lifted to
+      // it. The floor only ever lifts IN-window components; the at-edge case
+      // above (distance === halfwidth) remains exactly 0.
       const nearEdge = alignmentFactor(
         TOURMALINE_CENTER + TOURMALINE_HALFWIDTH - 1,
         14,
         TOURMALINE_CENTER,
         TOURMALINE_HALFWIDTH,
       );
-      expect(nearEdge).toBeGreaterThan(0);
-      expect(nearEdge).toBeLessThan(0.01);
+      expect(nearEdge).toBe(ALIGNMENT_FLOOR);
     });
 
     it('returns 0 for components outside the window', () => {
@@ -1157,11 +1365,16 @@ describe('Wave Height Transformer', () => {
         'model_swell',
       );
 
-      expect(strictWindow).toBeLessThan(0.02);
+      // 201° is in the 273°±78° window but off-center; raw cos² ≈ 0.0145 sits
+      // below the ALIGNMENT_FLOOR, so the in-window strict alignment now floors
+      // to 0.35. Model sources still prefer the (higher) terrain access; CDIP
+      // sources still track the strict (now floored) alignment.
+      expect(strictWindow).toBe(ALIGNMENT_FLOOR);
       expect(modelAccess).toBeCloseTo(
         DIRECTION_FACTOR_MIN + Math.sqrt(0.21171) * DIRECTION_FACTOR_RANGE,
         5,
       );
+      expect(modelAccess).toBeGreaterThan(strictWindow);
       expect(modelHsAccess).toBeCloseTo(modelAccess, 6);
       expect(cdipAccess).toBeCloseTo(strictWindow, 6);
       expect(cdipSwellAccess).toBeCloseTo(strictWindow, 6);

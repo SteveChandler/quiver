@@ -13,6 +13,7 @@
  */
 
 import { ForecastBuilder, shouldApplyNowcastAnchor } from "@/lib/services/forecast/forecast-builder";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { NowcastAnchor } from "@/lib/services/observations/nowcast-anchor.types";
 import {
   buildSouthOcSanoShadowZoneSnapshot,
@@ -21,6 +22,7 @@ import {
 import type { Beach } from "@/types/database";
 
 const FROZEN_NOW = new Date("2026-04-19T15:00:00Z").getTime();
+const CALIBRATION_COVERAGE_WARNING = /calibrated_shoaling_coverage_gap/;
 
 function makeAnchor(overrides: Partial<NowcastAnchor> = {}): NowcastAnchor {
   return {
@@ -467,6 +469,7 @@ describe("ForecastBuilder nowcast anchor output", () => {
       coopsWaterTempC: null,
       southOcSanoShadowZoneSnapshot: makeSouthOcSnapshot(nowIso),
     });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
 
     const ft = extractFt(result[0].wave_height);
     expect(ft).toBeGreaterThan(4.5);
@@ -507,6 +510,7 @@ describe("ForecastBuilder nowcast anchor output", () => {
       coopsWaterTempC: null,
       southOcSanoShadowZoneSnapshot: makeSouthOcSnapshot(nowIso),
     });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
 
     const ft = extractFt(result[0].wave_height);
     expect(ft).toBeGreaterThan(4.5);
@@ -547,6 +551,7 @@ describe("ForecastBuilder nowcast anchor output", () => {
       coopsWaterTempC: null,
       southOcSanoShadowZoneSnapshot: makeSouthOcSnapshot(nowIso),
     });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
 
     const provenance = result[0].raw_forecast?.wave_height_provenance;
 
@@ -590,6 +595,7 @@ describe("ForecastBuilder nowcast anchor output", () => {
       coopsWaterTempC: null,
       southOcSanoShadowZoneSnapshot: makeSouthOcSnapshot(nowIso),
     });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
 
     const ft = extractFt(result[0].wave_height);
     expect(ft).toBeGreaterThan(3);

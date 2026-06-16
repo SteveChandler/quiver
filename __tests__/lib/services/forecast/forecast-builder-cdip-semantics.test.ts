@@ -16,10 +16,18 @@
  * end-to-end transform actually runs.
  */
 
-import { ForecastBuilder } from "@/lib/services/forecast/forecast-builder";
+import {
+  ForecastBuilder,
+  hasCalibrationLoss,
+  resolveCdipNowcastPoint,
+} from "@/lib/services/forecast/forecast-builder";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
+import { CDIP_NOWCAST_HORIZON_HOURS } from "@/lib/config/forecast-staleness";
 import type { Beach } from "@/types/database";
 
 const FROZEN_NOW_ISO = "2026-04-19T15:00:00Z";
+const CALIBRATION_COVERAGE_WARNING = /calibrated_shoaling_coverage_gap/;
+const HELPER_NOW_MS = Date.parse("2026-06-15T12:00:00Z");
 
 function makeBuilder(): ForecastBuilder {
   return new ForecastBuilder({
@@ -149,6 +157,23 @@ function makeCdipBuoyData(nowIso: string, sigHeightFt: number, periodS = 14) {
   };
 }
 
+function makeCdipForAge(ageHours: number) {
+  return {
+    stationId: "201",
+    stationName: "Test CDIP",
+    dataSource: "CDIP" as const,
+    lastUpdated: "",
+    data: [
+      {
+        timestamp: new Date(HELPER_NOW_MS - ageHours * 3_600_000).toISOString(),
+        significantWaveHeight: 3.9,
+        peakWavePeriod: 15,
+        peakWaveDirection: 200,
+      },
+    ],
+  };
+}
+
 function extractFt(waveHeight: string | null | undefined): number {
   if (!waveHeight) throw new Error(`wave_height is null`);
   const match = waveHeight.match(/([\d.]+)/);
@@ -163,6 +188,171 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.useRealTimers();
+});
+
+describe("hasCalibrationLoss", () => {
+  it("flags a calibrated beach that lost calibration on some slots", () => {
+    expect(
+      hasCalibrationLoss({
+        beachId: "b",
+        calibrated: true,
+        nowcastEligibleSlots: 2,
+        calibratedSlots: 1,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not flag full coverage", () => {
+    expect(
+      hasCalibrationLoss({
+        beachId: "b",
+        calibrated: true,
+        nowcastEligibleSlots: 2,
+        calibratedSlots: 2,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not flag uncalibrated beaches", () => {
+    expect(
+      hasCalibrationLoss({
+        beachId: "b",
+        calibrated: false,
+        nowcastEligibleSlots: 2,
+        calibratedSlots: 0,
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("resolveCdipNowcastPoint", () => {
+  it("returns the latest point for the legacy now slot", () => {
+    expect(
+      resolveCdipNowcastPoint({
+        cdipData: makeCdipForAge(1),
+        targetMs: HELPER_NOW_MS,
+        nowMs: HELPER_NOW_MS,
+        horizonHours: 1,
+        maxMeasurementAgeHours: Infinity,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        significantWaveHeight: 3.9,
+      }),
+    );
+  });
+
+  it("preserves legacy 1h behavior by dropping a 3h-ahead slot", () => {
+    expect(
+      resolveCdipNowcastPoint({
+        cdipData: makeCdipForAge(1),
+        targetMs: HELPER_NOW_MS + 3 * 3_600_000,
+        nowMs: HELPER_NOW_MS,
+        horizonHours: 1,
+        maxMeasurementAgeHours: Infinity,
+      }),
+    ).toBeNull();
+  });
+
+  it("ignores malformed timestamps and returns the freshest valid point", () => {
+    const cdipData = makeCdipForAge(2);
+    cdipData.data.push({
+      timestamp: "not-a-date",
+      significantWaveHeight: 9.9,
+      peakWavePeriod: 18,
+      peakWaveDirection: 220,
+    });
+
+    expect(
+      resolveCdipNowcastPoint({
+        cdipData,
+        targetMs: HELPER_NOW_MS,
+        nowMs: HELPER_NOW_MS,
+        horizonHours: 1,
+        maxMeasurementAgeHours: Infinity,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        significantWaveHeight: 3.9,
+      }),
+    );
+  });
+
+  it("rejects future-dated CDIP measurements", () => {
+    const cdipData = makeCdipForAge(-1);
+
+    expect(
+      resolveCdipNowcastPoint({
+        cdipData,
+        targetMs: HELPER_NOW_MS,
+        nowMs: HELPER_NOW_MS,
+        horizonHours: 1,
+        maxMeasurementAgeHours: 4,
+      }),
+    ).toBeNull();
+  });
+
+  it("ignores future-dated rows when an older valid measurement is available", () => {
+    const cdipData = makeCdipForAge(2);
+    cdipData.data.push({
+      timestamp: new Date(HELPER_NOW_MS + 60_000).toISOString(),
+      significantWaveHeight: 9.9,
+      peakWavePeriod: 18,
+      peakWaveDirection: 220,
+    });
+
+    expect(
+      resolveCdipNowcastPoint({
+        cdipData,
+        targetMs: HELPER_NOW_MS,
+        nowMs: HELPER_NOW_MS,
+        horizonHours: CDIP_NOWCAST_HORIZON_HOURS,
+        maxMeasurementAgeHours: 4,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        significantWaveHeight: 3.9,
+      }),
+    );
+  });
+
+  it("applies a fresh buoy reading to a 3h-ahead slot inside the widened horizon", () => {
+    expect(
+      resolveCdipNowcastPoint({
+        cdipData: makeCdipForAge(1),
+        targetMs: HELPER_NOW_MS + 3 * 3_600_000,
+        nowMs: HELPER_NOW_MS,
+        horizonHours: CDIP_NOWCAST_HORIZON_HOURS,
+        maxMeasurementAgeHours: 4,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        significantWaveHeight: 3.9,
+      }),
+    );
+  });
+
+  it("drops slots beyond the widened horizon and stale measurements inside it", () => {
+    expect(
+      resolveCdipNowcastPoint({
+        cdipData: makeCdipForAge(1),
+        targetMs: HELPER_NOW_MS + 5 * 3_600_000,
+        nowMs: HELPER_NOW_MS,
+        horizonHours: CDIP_NOWCAST_HORIZON_HOURS,
+        maxMeasurementAgeHours: 4,
+      }),
+    ).toBeNull();
+
+    expect(
+      resolveCdipNowcastPoint({
+        cdipData: makeCdipForAge(6),
+        targetMs: HELPER_NOW_MS,
+        nowMs: HELPER_NOW_MS,
+        horizonHours: CDIP_NOWCAST_HORIZON_HOURS,
+        maxMeasurementAgeHours: 4,
+      }),
+    ).toBeNull();
+  });
 });
 
 describe("ForecastBuilder CDIP height semantics", () => {
@@ -180,6 +370,7 @@ describe("ForecastBuilder CDIP height semantics", () => {
       ioosWaterTempC: null,
       coopsWaterTempC: null,
     });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
 
     // Calibrated path: 2.0 ft × bucket factor at 14s (2.0) = 4.0 ft (clamped/rounded).
     const expectedFt = cdipHsFt * 2.0;
@@ -250,6 +441,7 @@ describe("ForecastBuilder CDIP height semantics", () => {
       ioosWaterTempC: null,
       coopsWaterTempC: null,
     });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
 
     const actualFt = extractFt(forecasts[0].wave_height);
     expect(actualFt).toBeGreaterThanOrEqual(3.5);
@@ -343,5 +535,114 @@ describe("ForecastBuilder CDIP height semantics", () => {
     );
     expect(prov?.cdip_rejection?.raw_cdip_hs).toBeCloseTo(8.0, 2);
     expect(prov?.cdip_rejection?.raw_model_hs).toBeCloseTo(3.28, 1);
+  });
+
+  test("fresh CDIP drives now and +3h slots, while +6h remains model-backed", async () => {
+    const builder = makeBuilder();
+    const consoleWarnSpy = jest.spyOn(console, "warn");
+
+    const forecasts = await builder.buildForecasts({
+      beach: makeBeach({
+        id: "beach-cdip-window",
+        name: "CDIP Window Beach",
+        shoaling_factors: CALIBRATED_SHOALING as unknown as Beach["shoaling_factors"],
+      }),
+      waveData: makeWaveData(FROZEN_NOW_ISO),
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: makeCdipBuoyData(FROZEN_NOW_ISO, 2.0) as never,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    expect(forecasts[0].data_source).toBe("CDIP");
+    expect(forecasts[1].data_source).toBe("CDIP");
+    expect(forecasts[2].data_source).toBe("NOAA_NWS");
+
+    expect(forecasts[0].raw_forecast?.wave_height_provenance).toEqual(
+      expect.objectContaining({
+        source: "cdip_sig",
+        transform_path: "scalar_calibrated",
+        calibrated_shoaling_fired: true,
+      }),
+    );
+    expect(forecasts[1].raw_forecast?.wave_height_provenance).toEqual(
+      expect.objectContaining({
+        source: "cdip_sig",
+        transform_path: "scalar_calibrated",
+        calibrated_shoaling_fired: true,
+      }),
+    );
+    expect(forecasts[2].raw_forecast?.wave_height_provenance).toEqual(
+      expect.objectContaining({
+        source: "model_swell",
+        calibrated_shoaling_fired: false,
+      }),
+    );
+
+    expect(extractFt(forecasts[0].wave_height)).toBeCloseTo(4.0, 1);
+    expect(extractFt(forecasts[1].wave_height)).toBeCloseTo(4.0, 1);
+
+    const coverageCall = consoleWarnSpy.mock.calls.find(
+      ([, eventName]) => eventName === "calibrated_shoaling_coverage_gap",
+    );
+    consoleWarnSpy.mockRestore();
+    expect(coverageCall).toBeUndefined();
+  });
+
+  test("calibrated beach logs a coverage gap when later slots lose calibrated shoaling", async () => {
+    const builder = makeBuilder();
+    const consoleWarnSpy = jest.spyOn(console, "warn");
+    const staleCdipIso = new Date(
+      Date.parse(FROZEN_NOW_ISO) - 6 * 3_600_000,
+    ).toISOString();
+
+    await builder.buildForecasts({
+      beach: makeBeach({
+        id: "beach-with-calibration-gap",
+        name: "Calibration Gap Beach",
+        shoaling_factors: CALIBRATED_SHOALING as unknown as Beach["shoaling_factors"],
+      }),
+      waveData: makeWaveData(FROZEN_NOW_ISO),
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: makeCdipBuoyData(staleCdipIso, 2.0) as never,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    const coverageCall = consoleWarnSpy.mock.calls.find(
+      ([, eventName]) => eventName === "calibrated_shoaling_coverage_gap",
+    );
+    consoleWarnSpy.mockRestore();
+    if (!coverageCall) {
+      throw new Error("expected calibrated_shoaling_coverage_gap warning");
+    }
+
+    const [, , payload] = coverageCall as [
+      string,
+      string,
+      {
+        beachId: string;
+        beachName: string;
+        nowcastEligibleSlots: number;
+        calibratedSlots: number;
+        lostSlots: number;
+      },
+    ];
+    expect(payload).toEqual(
+      expect.objectContaining({
+        beachId: "beach-with-calibration-gap",
+        beachName: "Calibration Gap Beach",
+      }),
+    );
+    expect(payload.nowcastEligibleSlots).toBe(2);
+    expect(payload.calibratedSlots).toBeLessThan(payload.nowcastEligibleSlots);
+    expect(payload.lostSlots).toBe(
+      payload.nowcastEligibleSlots - payload.calibratedSlots,
+    );
   });
 });

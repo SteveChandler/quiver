@@ -23,6 +23,10 @@ import {
 } from './wave-height-transformer';
 import { METERS_TO_FEET } from './unit-conversions';
 import { createContextLogger } from '@/lib/logger';
+import {
+  CDIP_OUTLIER_THRESHOLD,
+  MAX_TRUSTED_CDIP_FT,
+} from '@/lib/config/forecast-staleness';
 
 // Re-export for backward compatibility (consumers may import from here)
 export { METERS_TO_FEET };
@@ -63,16 +67,6 @@ const MIN_WAVE_HEIGHT_FT = 0.5;
  * Maximum allowed wave height after clamping (feet)
  */
 const MAX_WAVE_HEIGHT_FT = 15;
-
-/**
- * CDIP outlier threshold - if CDIP exceeds model by this factor, use model instead
- */
-const CDIP_OUTLIER_THRESHOLD = 1.8;
-
-/**
- * Maximum CDIP significant height to trust (feet)
- */
-const MAX_TRUSTED_CDIP_FT = 10;
 
 /**
  * Minimum transformation ratio that indicates proper transformation occurred.
