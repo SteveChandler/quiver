@@ -747,6 +747,12 @@ function mergeCandidatePools(nearbyCandidates: Beach[], includedCandidates: Beac
   return Array.from(byId.values());
 }
 
+function recommendationKey(rec: Pick<SurfDiscoveryRecommendation, 'kind' | 'customSpotId' | 'beach'>): string {
+  return rec.kind === 'custom_spot'
+    ? `custom:${rec.customSpotId ?? rec.beach.id}`
+    : `beach:${rec.beach.id}`;
+}
+
 async function fetchUserBoardsForPicks(
   supabase: Pick<SupabaseClient, 'from'>,
   userId: string,
@@ -1154,6 +1160,10 @@ async function discoverSurfSpotsInner(
     mergeCandidatePools(nearbyCandidates, includedCandidates),
     customNearestCandidates,
   );
+  const primaryEligibleKeys = new Set<string>([
+    ...nearbyCandidates.map((beach) => `beach:${beach.id}`),
+    ...customSpotCandidates.map((candidate) => `custom:${candidate.spot.id}`),
+  ]);
   const discoverableBeachIds = new Set(
     [...nearbyCandidates, ...includedCandidates].map((beach) => beach.id)
   );
@@ -1696,7 +1706,9 @@ async function discoverSurfSpotsInner(
   allRecsScored.sort((a, b) => b.score - a.score);
 
   // Take top results AFTER similarity bonus is applied.
-  const merged = allRecsScored.slice(0, maxResults);
+  const merged = allRecsScored
+    .filter((rec) => primaryEligibleKeys.has(recommendationKey(rec)))
+    .slice(0, maxResults);
 
   // Phase 2: populate per-slot scorer outputs across each candidate's window
   // BEFORE rerank so hero-window-score's persistence/duration evidence is
@@ -1718,11 +1730,7 @@ async function discoverSurfSpotsInner(
   // verbatim. When on, return the hero-lifted slice (only [0] moves;
   // remaining order is preserved).
   const finalSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
-  const finalSliceKeys = new Set(finalSlice.map((rec) =>
-    rec.kind === 'custom_spot'
-      ? `custom:${rec.customSpotId ?? rec.beach.id}`
-      : `beach:${rec.beach.id}`
-  ));
+  const finalSliceKeys = new Set(finalSlice.map((rec) => recommendationKey(rec)));
   const includedSlice = allRecsScored.filter((rec) => {
     if ((rec.kind ?? 'beach') === 'beach') {
       return (

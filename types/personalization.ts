@@ -427,7 +427,9 @@ export interface SurfDiscoveryOptions {
   maxResults?: number;
   /**
    * Curated beach IDs that should be scored in the same batch as nearby
-   * discovery candidates, even when outside the GPS radius.
+   * discovery candidates, even when outside the GPS radius. Outside-radius
+   * includes are auxiliary visibility targets: they can appear in
+   * includedRecommendations, but primary recommendations stay GPS-local.
    */
   includeBeachIds?: string[];
   /** Maximum concurrent forecast fetches (default: 5) */
