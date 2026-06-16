@@ -1,4 +1,5 @@
 import {
+  calibratedShadowFactor,
   transformToFaceHeight,
   transformToFaceHeightWithMetadata,
   transformToFaceHeightRange,
@@ -26,11 +27,17 @@ import {
   type TransformParams,
   type WaveHeightSourceTag,
 } from '@/lib/utils/wave-height-transformer';
-import { TERRAIN_BINS } from '@/types/terrain';
+import { TERRAIN_BINS, toBin5 } from '@/types/terrain';
 import {
   createMockBeach,
   createAccessArray,
 } from './test-helpers/wave-height-test-utils';
+
+function accessArray(overrides: Record<number, number>): number[] {
+  const a = new Array(TERRAIN_BINS).fill(1.0);
+  for (const [bin, val] of Object.entries(overrides)) a[Number(bin)] = val;
+  return a;
+}
 
 describe('Wave Height Transformer', () => {
   describe('Constants', () => {
@@ -178,6 +185,57 @@ describe('Wave Height Transformer', () => {
       expect(calculateDirectionFactor(180, beach)).toBe(1.0);
       // Clamped -0.5 -> 0.0: 0.6 + 0.0 * 0.4 = 0.6
       expect(calculateDirectionFactor(0, beach)).toBe(0.6);
+    });
+  });
+
+  describe('calibratedShadowFactor', () => {
+    // OB Pier-like: window center 293, halfwidth 73 => window 220-366 deg.
+    const obBeach = {
+      swell_window_center_deg: 293,
+      swell_window_halfwidth_deg: 73,
+      swell_access_factors: accessArray({ [toBin5(202)]: 0.008 }),
+    };
+
+    it('returns 1.0 for in-window directions (bucket already calibrated there)', () => {
+      expect(calibratedShadowFactor(293, obBeach)).toBe(1.0); // dead center
+      expect(calibratedShadowFactor(250, obBeach)).toBe(1.0); // inside halfwidth
+    });
+
+    it('applies the floored shadow for an out-of-window low-access direction', () => {
+      // 202deg is 91deg from center 293 (> halfwidth 73) => out of window.
+      // 0.6 + sqrt(0.008)*0.4 = 0.6353
+      expect(calibratedShadowFactor(202, obBeach)).toBeCloseTo(0.6353, 3);
+    });
+
+    it('floors at 0.6 even when access is exactly 0 (diffraction floor, not zero)', () => {
+      const beach = { ...obBeach, swell_access_factors: accessArray({ [toBin5(202)]: 0 }) };
+      expect(calibratedShadowFactor(202, beach)).toBeCloseTo(0.6, 5);
+    });
+
+    it('returns 1.0 for an out-of-window but fully-exposed direction', () => {
+      const beach = { ...obBeach, swell_access_factors: accessArray({ [toBin5(202)]: 1.0 }) };
+      expect(calibratedShadowFactor(202, beach)).toBeCloseTo(1.0, 5);
+    });
+
+    it('treats the window boundary (distance == halfwidth) as out-of-window', () => {
+      // 220deg is exactly 73deg from center 293 => boundary => shadow applies.
+      const beach = { ...obBeach, swell_access_factors: accessArray({ [toBin5(220)]: 0.01 }) };
+      expect(calibratedShadowFactor(220, beach)).toBeLessThan(1.0);
+    });
+
+    it('is a no-op (1.0) when direction, window, or access is missing/invalid', () => {
+      expect(calibratedShadowFactor(null, obBeach)).toBe(1.0);
+      expect(calibratedShadowFactor(202, {
+        swell_window_center_deg: null,
+        swell_window_halfwidth_deg: null,
+        swell_access_factors: obBeach.swell_access_factors,
+      })).toBe(1.0);
+      expect(calibratedShadowFactor(202, {
+        swell_window_center_deg: 293,
+        swell_window_halfwidth_deg: 73,
+        swell_access_factors: [0.1, 0.2],
+      })).toBe(1.0);
+      expect(calibratedShadowFactor(202, null)).toBe(1.0);
     });
   });
 
@@ -1044,6 +1102,81 @@ describe('Wave Height Transformer', () => {
         const meta = transformToFaceHeightWithMetadata(params);
         expect(meta.faceHeightFt).toBe(legacy);
       }
+    });
+  });
+
+  describe('transformToFaceHeightWithMetadata — CDIP direction shadow', () => {
+    const OB_BUCKETS = {
+      version: 1 as const,
+      type: 'period_lookup' as const,
+      buckets: [
+        { tp_min_s: 0, tp_max_s: 8, factor: 0.96 },
+        { tp_min_s: 8, tp_max_s: 12, factor: 1.0 },
+        { tp_min_s: 12, tp_max_s: 16, factor: 1.04 },
+        { tp_min_s: 16, tp_max_s: 999, factor: 1.0 },
+      ],
+    };
+    const BLACKS_BUCKETS = {
+      version: 1 as const,
+      type: 'period_lookup' as const,
+      buckets: [
+        { tp_min_s: 0, tp_max_s: 8, factor: 1.57 },
+        { tp_min_s: 8, tp_max_s: 12, factor: 1.7 },
+        { tp_min_s: 12, tp_max_s: 16, factor: 2.13 },
+        { tp_min_s: 16, tp_max_s: 999, factor: 2.4 },
+      ],
+    };
+
+    it('shadows OB Pier south swell on the CDIP calibrated path', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 4.30,
+        periodS: 14,
+        swellDirectionDeg: 202,
+        source: 'cdip_sig',
+        beach: {
+          shoaling_factors: OB_BUCKETS,
+          swell_window_center_deg: 293,
+          swell_window_halfwidth_deg: 73,
+          swell_access_factors: accessArray({ [toBin5(202)]: 0.008 }),
+        },
+      });
+
+      expect(result.isCalibrated).toBe(true);
+      expect(result.faceHeightFt).toBeCloseTo(2.8, 1);
+    });
+
+    it('leaves OB Pier own in-window WNW swell unchanged', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 4.30,
+        periodS: 14,
+        swellDirectionDeg: 290,
+        source: 'cdip_sig',
+        beach: {
+          shoaling_factors: OB_BUCKETS,
+          swell_window_center_deg: 293,
+          swell_window_halfwidth_deg: 73,
+          swell_access_factors: accessArray({ [toBin5(290)]: 0.74 }),
+        },
+      });
+
+      expect(result.faceHeightFt).toBeCloseTo(4.5, 1);
+    });
+
+    it('leaves a west-facing in-window break (Blacks) byte-identical', () => {
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 2.0,
+        periodS: 16,
+        swellDirectionDeg: 270,
+        source: 'cdip_sig',
+        beach: {
+          shoaling_factors: BLACKS_BUCKETS,
+          swell_window_center_deg: 268,
+          swell_window_halfwidth_deg: 73,
+          swell_access_factors: accessArray({}),
+        },
+      });
+
+      expect(result.faceHeightFt).toBeCloseTo(4.8, 1);
     });
   });
 
