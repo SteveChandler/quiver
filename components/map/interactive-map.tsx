@@ -172,6 +172,8 @@ export function InteractiveMap({
   const [conditionScoreMap, setConditionScoreMap] = useState<Map<string, number | undefined>>(new Map());
   const [conditionSummaryMap, setConditionSummaryMap] = useState<Map<string, ConditionSummary>>(new Map());
   const [partitionsMap, setPartitionsMap] = useState<Map<string, SwellPartition>>(new Map());
+  // Loader-resolved beaches that partitionsMap is keyed by (the prop may be empty).
+  const [swellFieldBeaches, setSwellFieldBeaches] = useState<Beach[]>([]);
   const reducedMotion = useReducedMotion();
   // Live flow field read by the GL layer each frame (avoids re-adding the layer on scrub).
   const flowFieldRef = useRef<FlowField>({ cols: 0, rows: 0, cells: [] });
@@ -539,6 +541,7 @@ export function InteractiveMap({
         setConditionScoreMap(result.conditionScoreMap);
         setConditionSummaryMap(result.conditionSummaryMap);
         setPartitionsMap(result.partitionsMap);
+        setSwellFieldBeaches(result.locations);
         onWaveHeightsChangeRef.current?.(result.waveHeightMap);
       } catch (e) {
         lastPopulateKeyRef.current = null;
@@ -562,7 +565,7 @@ export function InteractiveMap({
       flowFieldRef.current = { cols: 0, rows: 0, cells: [] };
       return;
     }
-    const beachList = beaches && beaches.length > 0 ? beaches : [];
+    const beachList = swellFieldBeaches.length > 0 ? swellFieldBeaches : (beaches ?? []);
     const points: BeachPartitionPoint[] = [];
     for (const beach of beachList) {
       const partition = partitionsMap.get(beach.id);
@@ -587,7 +590,7 @@ export function InteractiveMap({
     );
     // Nudge a repaint so a static (reduced-motion) frame reflects the new field.
     map.triggerRepaint();
-  }, [partitionsMap, swellLayerId, swellTimelineIndex, isMapReady, showSwellField, beaches, mapBounds]);
+  }, [partitionsMap, swellFieldBeaches, swellLayerId, swellTimelineIndex, isMapReady, showSwellField, beaches, mapBounds]);
 
   useEffect(() => {
     const map = mapRef.current;
