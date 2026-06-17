@@ -17,6 +17,7 @@ import { filterBeachesByViewport, type ViewportBounds } from "@/lib/utils/viewpo
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   SWELL_MAP_CTA_CLASS,
+  SWELL_LAYER_COLOR,
   type SwellLayerId,
 } from "@/components/map/swell-map-theme";
 import type { Beach } from "@/types/database";
@@ -380,7 +381,20 @@ export function MapView() {
             aria-pressed={showSwellField}
             data-testid="swell-field-toggle"
             onClick={() => setShowSwellField((v) => !v)}
-            className={`rounded-md px-3 py-1.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${SWELL_MAP_CTA_CLASS}`}
+            className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${
+              showSwellField
+                ? // Engaged: solid Charming-Orange sticker fill, dark navy text, inset
+                  // shadow + ring so the pressed/active state is unmistakable. Orange-on-
+                  // navy text is the AA-safe active treatment (same as the layer chips).
+                  "text-[#161A40] shadow-inner ring-1 ring-black/20"
+                : // Idle: AA-safe ocean-blue CTA (white text).
+                  SWELL_MAP_CTA_CLASS
+            }`}
+            style={
+              showSwellField
+                ? { background: SWELL_LAYER_COLOR.s1 }
+                : undefined
+            }
           >
             {showSwellField ? "Hide swell field" : "Show swell field"}
           </button>
