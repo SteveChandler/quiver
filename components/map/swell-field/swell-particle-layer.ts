@@ -147,8 +147,10 @@ export function createSwellParticleLayer(
   const rng = Math.random;
   // Fraction of the current viewport a speed=1 particle ADVANCES per frame (drift
   // speed), scaled to the live Mercator span so motion reads the same at any zoom.
-  // Small => slow, calm Windy-style drift.
-  const STEP_FRACTION = 0.0012;
+  // Small => slow, calm Windy-style drift. Kept very gentle (≈3× slower than the
+  // earlier 0.0012) so the crawl matches Windy's pace; dash LENGTH is decoupled via
+  // DASH_FRACTION, so slowing the step does not shrink the marks.
+  const STEP_FRACTION = 0.0004;
   // Fixed dash LENGTH as a fraction of the viewport span, DECOUPLED from drift speed
   // so dashes stay visible (~10px) no matter how slow they move. Tying length to the
   // per-frame step made slow dashes sub-pixel and invisible.
