@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Menu, X, ChevronDown } from "lucide-react";
@@ -15,18 +15,26 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FORECAST_REGIONS } from "@/lib/data/forecast-regions";
 import { REGION_GROUPS } from "@/lib/data/region-groups";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import { trackSigninCtaClick } from "@/lib/analytics/signup-conversion-tracking";
+import { IosAppStoreCta } from "@/components/app-store/ios-app-store-cta";
+import { NativeAppFunnelCta } from "@/components/app-store/native-app-funnel-cta";
 import {
-  trackSigninCtaClick,
-  trackSignupCtaClick,
-  trackSignupCtaView,
-} from "@/lib/analytics/signup-conversion-tracking";
+  getFirstTouchPlatform,
+  type FirstTouchPlatform,
+} from "@/lib/analytics/web-context";
 import { useLandingLocation } from "@/hooks/use-landing-location";
-import { useAuth } from "@/context/auth-context";
 import HeroSearchLazy from "@/components/landing-page/hero-search-lazy";
 import { useRouter } from "next/navigation";
+import { IOS_APP_STORE_CTA } from "@/lib/constants/app-store";
 
 const STATIC_MENU_ITEMS = [
   { label: "7-Day Outlook", href: "/forecast", category: "Forecast" },
@@ -65,6 +73,45 @@ const GROUPED_STATIC_ITEMS = STATIC_MENU_ITEMS.reduce(
 );
 
 type NavbarPosition = "overlay" | "static";
+type NavbarNativeCtaPlacement = "navbar_primary" | "navbar_mobile_primary";
+
+const NAVBAR_CTA_CLASS =
+  "inline-flex min-h-11 items-center justify-center rounded-full bg-ocean-blue px-6 py-3 font-sans text-sm font-semibold text-white shadow-sm transition hover:bg-ocean-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]";
+const NAVBAR_MOBILE_CTA_CLASS =
+  "inline-flex min-h-12 w-full items-center justify-center rounded-md bg-ocean-blue px-4 text-base font-semibold text-white transition hover:bg-ocean-blue/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue";
+
+function NavbarNativeCta({
+  platform,
+  placement,
+  className,
+}: {
+  platform: FirstTouchPlatform;
+  placement: NavbarNativeCtaPlacement;
+  className: string;
+}): ReactElement {
+  if (platform === "desktop") {
+    return (
+      <IosAppStoreCta
+        source="landing-navbar-app-store"
+        surface="landing-page"
+        placement={placement}
+        className={className}
+      >
+        {IOS_APP_STORE_CTA}
+      </IosAppStoreCta>
+    );
+  }
+
+  return (
+    <NativeAppFunnelCta
+      platform={platform}
+      source="landing-navbar"
+      surface="landing-page"
+      placement={placement}
+      className={className}
+    />
+  );
+}
 
 export function Navbar({
   autoOpenLogin = false,
@@ -77,8 +124,9 @@ export function Navbar({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [nativeCtaPlatform, setNativeCtaPlatform] =
+    useState<FirstTouchPlatform>("desktop");
   const { regionName } = useLandingLocation();
-  const { user } = useAuth();
   const router = useRouter();
 
   const navigateToMap = (query?: string) => {
@@ -93,14 +141,8 @@ export function Navbar({
   // Prevent hydration mismatch from Radix UI components generating different IDs
   useEffect(() => {
     setMounted(true);
+    setNativeCtaPlatform(getFirstTouchPlatform());
   }, []);
-
-  // Fire a single landing-navbar CTA view per browser session.
-  // Session-level dedup inside trackSignupCtaView keys on source.
-  useEffect(() => {
-    if (user) return;
-    trackSignupCtaView({ source: "landing-navbar", cta_type: "nav_button" });
-  }, [user]);
 
   // Auto-open login modal for returning users (once per mount)
   const hasAutoOpened = useRef(false);
@@ -237,19 +279,11 @@ export function Navbar({
               >
                 Log in
               </button>
-              <Button
-                onClick={() => {
-                  trackSignupCtaClick({
-                    source: "landing-navbar",
-                    cta_type: "nav_button",
-                  });
-                  setAuthMode("signup");
-                  setAuthModalOpen(true);
-                }}
-                className="bg-ocean-blue text-white rounded-full px-6 py-3 font-sans font-semibold shadow-sm hover:bg-ocean-blue/90"
-              >
-                Get free alerts
-              </Button>
+              <NavbarNativeCta
+                platform={nativeCtaPlatform}
+                placement="navbar_primary"
+                className={NAVBAR_CTA_CLASS}
+              />
             </div>
           </div>
 
@@ -273,6 +307,10 @@ export function Navbar({
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="right" className="w-80 p-0 flex flex-col">
+                  <SheetTitle className="sr-only">Navigation</SheetTitle>
+                  <SheetDescription className="sr-only">
+                    Browse surf spots, search beaches, open the app, or log in.
+                  </SheetDescription>
                   {/* Scrollable menu content */}
                   <div className="flex-1 overflow-y-auto px-6">
                     <div className="flex flex-col gap-6 mt-8">
@@ -346,21 +384,11 @@ export function Navbar({
 
                   {/* Mobile Auth Buttons - Pinned to bottom */}
                   <div className="border-t pt-4 pb-6 px-6 mt-auto flex flex-col gap-3">
-                    <Button
-                      size="lg"
-                      className="w-full bg-ocean-blue hover:bg-ocean-blue/90 text-white font-semibold"
-                      onClick={() => {
-                        trackSignupCtaClick({
-                          source: "landing-navbar-mobile",
-                          cta_type: "nav_button",
-                        });
-                        setMobileMenuOpen(false);
-                        setAuthMode("signup");
-                        setAuthModalOpen(true);
-                      }}
-                    >
-                      Get free alerts
-                    </Button>
+                    <NavbarNativeCta
+                      platform={nativeCtaPlatform}
+                      placement="navbar_mobile_primary"
+                      className={NAVBAR_MOBILE_CTA_CLASS}
+                    />
                     <Button
                       variant="ghost"
                       size="lg"

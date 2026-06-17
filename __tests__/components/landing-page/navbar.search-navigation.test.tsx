@@ -18,6 +18,15 @@ jest.mock("next/navigation", () => ({
   usePathname: () => "/",
 }));
 
+jest.mock("next/image", () => ({
+  __esModule: true,
+  default: ({
+    alt = "",
+    priority: _priority,
+    ...props
+  }: Record<string, unknown>) => <img alt={String(alt)} {...props} />,
+}));
+
 jest.mock("@/hooks/use-track-event", () => ({
   useTrackEvent: () => ({ track: jest.fn() }),
 }));
