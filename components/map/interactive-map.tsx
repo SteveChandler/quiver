@@ -42,6 +42,9 @@ import { useTrackEvent } from "@/hooks/use-track-event";
 import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
 import {
   SWELL_FIELD_PARTICLE_COLOR,
+  SWELL_MAP_SURFACE,
+  SWELL_MAP_STICKER_SHADOW,
+  SWELL_MAP_STICKER_RADIUS,
   type SwellLayerId,
 } from "@/components/map/swell-map-theme";
 import {
@@ -143,7 +146,13 @@ function MapConditionLegend(): ReactElement {
   return (
     <div
       data-testid="map-condition-legend"
-      className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md border border-white/15 bg-slate-950/88 px-3 py-2 text-white shadow-lg backdrop-blur"
+      className="pointer-events-none absolute bottom-3 left-3 z-10 px-3 py-2 text-white"
+      style={{
+        background: SWELL_MAP_SURFACE.panelDeep,
+        border: `1px solid ${SWELL_MAP_SURFACE.border}`,
+        borderRadius: SWELL_MAP_STICKER_RADIUS,
+        boxShadow: SWELL_MAP_STICKER_SHADOW,
+      }}
     >
       <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
         {CONDITION_LEGEND_ITEMS.map((item) => (
