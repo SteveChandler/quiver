@@ -766,6 +766,7 @@ export function InteractiveMap({
             reducedMotion,
             viewportWidthPx,
             count: COMBINED_PARTICLE_COUNT,
+            markStyle: component === "wind" ? "dot" : "dash",
           })
         );
       }
@@ -780,6 +781,7 @@ export function InteractiveMap({
           getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[swellLayerIdRef.current],
           reducedMotion,
           viewportWidthPx,
+          markStyle: activeComponent === "wind" ? "dot" : "dash",
         })
       );
     }

@@ -123,8 +123,13 @@ describe("jittered-grid seeding — even Windy-style distribution", () => {
 describe("createSwellParticleLayer — particle count", () => {
   const FIELD: FlowField = { cols: 0, rows: 0, cells: [] };
 
-  /** Drive onAdd + a single render and capture the vertex count drawArrays sees. */
-  function renderedVertexCount(count?: number): number {
+  /** Drive onAdd + a single render and capture the draw mode + vertex count. */
+  function renderedDraw(opts?: {
+    count?: number;
+    markStyle?: "dash" | "dot";
+  }): { mode: number; vertexCount: number; LINES: number; POINTS: number } {
+    const LINES = 11;
+    const POINTS = 12;
     const gl = {
       VERTEX_SHADER: 1,
       FRAGMENT_SHADER: 2,
@@ -136,7 +141,8 @@ describe("createSwellParticleLayer — particle count", () => {
       BLEND: 8,
       SRC_ALPHA: 9,
       ONE_MINUS_SRC_ALPHA: 10,
-      LINES: 11,
+      LINES,
+      POINTS,
       createShader: jest.fn(() => ({})),
       shaderSource: jest.fn(),
       compileShader: jest.fn(),
@@ -176,14 +182,25 @@ describe("createSwellParticleLayer — particle count", () => {
       getColorHex: () => "#B5450F",
       reducedMotion: true, // skip triggerRepaint loop
       viewportWidthPx: 1440,
-      count,
+      count: opts?.count,
+      markStyle: opts?.markStyle,
     });
 
     layer.onAdd?.(map, gl);
     layer.render(gl, new Array(16).fill(0));
     const draw = (gl.drawArrays as jest.Mock).mock.calls[0];
-    // drawArrays(LINES, 0, vertexCount) — two vertices per particle.
-    return draw[2] as number;
+    // drawArrays(mode, 0, vertexCount).
+    return {
+      mode: draw[0] as number,
+      vertexCount: draw[2] as number,
+      LINES,
+      POINTS,
+    };
+  }
+
+  /** Backwards-compat helper: just the vertex count for the default dash path. */
+  function renderedVertexCount(count?: number): number {
+    return renderedDraw({ count }).vertexCount;
   }
 
   it("defaults to the viewport-derived count when no override is given", () => {
@@ -196,5 +213,20 @@ describe("createSwellParticleLayer — particle count", () => {
 
   it("ignores a non-positive override and falls back to the default", () => {
     expect(renderedVertexCount(0)).toBe(PARTICLE_COUNT_DESKTOP * 2);
+  });
+
+  it("draws LINES with two vertices per particle for the default dash style", () => {
+    const { mode, vertexCount, LINES } = renderedDraw({ count: 300 });
+    expect(mode).toBe(LINES);
+    expect(vertexCount).toBe(300 * 2);
+  });
+
+  it("draws POINTS with one vertex per particle for the dot style (wind layer)", () => {
+    const { mode, vertexCount, POINTS } = renderedDraw({
+      count: 300,
+      markStyle: "dot",
+    });
+    expect(mode).toBe(POINTS);
+    expect(vertexCount).toBe(300);
   });
 });

@@ -29,20 +29,28 @@ export function resolveParticleCount(viewportWidthPx: number): number {
 }
 
 /** Uniform names referenced by the shaders (asserted in unit tests). */
-export const SHADER_UNIFORM_NAMES = ["u_matrix", "u_color", "u_alpha"] as const;
+export const SHADER_UNIFORM_NAMES = [
+  "u_matrix",
+  "u_color",
+  "u_alpha",
+  "u_pointSize",
+] as const;
 
 // Vertex shader: positions arrive as line endpoints already in Mercator [0..1]
 // unit space; the passed mapbox projection matrix (u_matrix) maps them to clip
-// space. a_alpha carries per-vertex trail fade.
+// space. a_alpha carries per-vertex trail fade. gl_PointSize is honored only in
+// POINTS draw mode (the wind dot layer) and ignored when drawing LINES.
 export const PARTICLE_VERTEX_SHADER = `
 precision highp float;
 attribute vec2 a_pos;
 attribute float a_alpha;
 uniform mat4 u_matrix;
+uniform float u_pointSize;
 varying float v_alpha;
 void main() {
   v_alpha = a_alpha;
   gl_Position = u_matrix * vec4(a_pos, 0.0, 1.0);
+  gl_PointSize = u_pointSize;
 }
 `;
 
@@ -163,6 +171,12 @@ export interface SwellParticleLayerOptions {
    * (keeps the total in budget).
    */
   count?: number;
+  /**
+   * Mark style for the drawn particle. "dash" (default) renders a crest line
+   * (two vertices per particle, GL LINES). "dot" renders a single GL point per
+   * particle — used by the wind layer to read as a stippled dot field.
+   */
+  markStyle?: "dash" | "dot";
 }
 
 /**
@@ -176,6 +190,7 @@ export function createSwellParticleLayer(
     options.count != null && options.count > 0
       ? Math.floor(options.count)
       : resolveParticleCount(options.viewportWidthPx);
+  const markStyle = options.markStyle ?? "dash";
   let program: WebGLProgram | null = null;
   let posBuffer: WebGLBuffer | null = null;
   let alphaBuffer: WebGLBuffer | null = null;
@@ -184,6 +199,7 @@ export function createSwellParticleLayer(
   let uMatrixLoc: WebGLUniformLocation | null = null;
   let uColorLoc: WebGLUniformLocation | null = null;
   let uAlphaLoc: WebGLUniformLocation | null = null;
+  let uPointSizeLoc: WebGLUniformLocation | null = null;
   let mapRef: mapboxgl.Map | null = null;
 
   // Particle state in Mercator unit space [0..1].
@@ -268,17 +284,24 @@ export function createSwellParticleLayer(
         px[i] = s.x;
         py[i] = s.y;
         page[i] = 0;
-        // Zero-length segment on respawn so we don't draw a jump streak.
-        vertexPos[i * 4 + 0] = px[i];
-        vertexPos[i * 4 + 1] = py[i];
-        vertexPos[i * 4 + 2] = px[i];
-        vertexPos[i * 4 + 3] = py[i];
-        vertexAlpha[i * 2 + 0] = 0;
-        vertexAlpha[i * 2 + 1] = 0;
+        if (markStyle === "dot") {
+          // One vertex per particle; invisible on respawn so we don't flash a dot.
+          vertexPos[i * 2 + 0] = px[i];
+          vertexPos[i * 2 + 1] = py[i];
+          vertexAlpha[i] = 0;
+        } else {
+          // Zero-length segment on respawn so we don't draw a jump streak.
+          vertexPos[i * 4 + 0] = px[i];
+          vertexPos[i * 4 + 1] = py[i];
+          vertexPos[i * 4 + 2] = px[i];
+          vertexPos[i * 4 + 3] = py[i];
+          vertexAlpha[i * 2 + 0] = 0;
+          vertexAlpha[i * 2 + 1] = 0;
+        }
         continue;
       }
 
-      // Push populated cells toward opaque so the dark dashes read solidly on the
+      // Push populated cells toward opaque so the dark marks read solidly on the
       // light basemap; keep DEAD cells (no nearby beach data, speed === 0) fully
       // invisible so open water / land stays clean.
       const trail = 1 - page[i] / life[i];
@@ -286,14 +309,23 @@ export function createSwellParticleLayer(
         cell.speed > 0
           ? Math.min(1, 0.85 + cell.alpha) * Math.min(1, trail * 4)
           : 0;
-      // Draw a small fixed-length dash oriented ALONG the flow vector (the swell-travel
-      // direction), centered on the particle — a directional mark like Windy's wave
-      // layer (confirmed from the reference video: small arrows pointing along travel,
-      // not crest lines). Visible length is independent of drift speed.
+
+      if (markStyle === "dot") {
+        // One GL point per particle, centered on the particle position.
+        vertexPos[i * 2 + 0] = px[i];
+        vertexPos[i * 2 + 1] = py[i];
+        vertexAlpha[i] = fade;
+        continue;
+      }
+
+      // Draw a small fixed-length dash oriented PERPENDICULAR to the flow vector — a
+      // wave-CREST mark (the line of the wave front), centered on the particle. The
+      // particle still ADVANCES along (vx,vy); only the drawn mark is rotated 90°.
+      // Visible length is independent of drift speed.
       const vlen = Math.hypot(cell.vx, cell.vy) || 1;
       const dashHalf = span * DASH_FRACTION * 0.5;
-      const dx = (cell.vx / vlen) * dashHalf;
-      const dy = (cell.vy / vlen) * dashHalf;
+      const dx = (-cell.vy / vlen) * dashHalf;
+      const dy = (cell.vx / vlen) * dashHalf;
       vertexPos[i * 4 + 0] = px[i] - dx;
       vertexPos[i * 4 + 1] = py[i] - dy;
       vertexPos[i * 4 + 2] = px[i] + dx;
@@ -330,6 +362,7 @@ export function createSwellParticleLayer(
       uMatrixLoc = gl.getUniformLocation(prog, "u_matrix");
       uColorLoc = gl.getUniformLocation(prog, "u_color");
       uAlphaLoc = gl.getUniformLocation(prog, "u_alpha");
+      uPointSizeLoc = gl.getUniformLocation(prog, "u_pointSize");
 
       posBuffer = gl.createBuffer();
       alphaBuffer = gl.createBuffer();
@@ -347,6 +380,11 @@ export function createSwellParticleLayer(
       // Near-opaque so the dark dashes read crisply on the light basemap; the static
       // reduced-motion frame stays a touch dimmer.
       gl.uniform1f(uAlphaLoc, options.reducedMotion ? 0.95 : 1.0);
+      // Dot diameter in device pixels (≈3 CSS px scaled for retina). Ignored when
+      // drawing LINES; only the dot layer reads gl_PointSize.
+      const dpr =
+        typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
+      gl.uniform1f(uPointSizeLoc, 3.0 * dpr);
 
       gl.enable(gl.BLEND);
       // Normal alpha blending — dark marks paint over the light water (additive glow
@@ -363,8 +401,13 @@ export function createSwellParticleLayer(
       gl.enableVertexAttribArray(aAlphaLoc);
       gl.vertexAttribPointer(aAlphaLoc, 1, gl.FLOAT, false, 0, 0);
 
-      gl.lineWidth(1);
-      gl.drawArrays(gl.LINES, 0, count * 2);
+      if (markStyle === "dot") {
+        // One vertex per particle drawn as a GL point.
+        gl.drawArrays(gl.POINTS, 0, count);
+      } else {
+        gl.lineWidth(1);
+        gl.drawArrays(gl.LINES, 0, count * 2);
+      }
 
       // Animate only when motion is allowed. Under reduced motion we draw a
       // single static frame and never request another.
