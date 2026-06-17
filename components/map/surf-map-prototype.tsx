@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import * as Dialog from "@radix-ui/react-dialog";
 import type mapboxgl from "mapbox-gl";
 import {
   Bell,
@@ -993,142 +994,147 @@ export function SurfMapPrototype() {
         </div>
       </div>
 
-      <div
-        className={cn(
-          "absolute inset-y-0 right-0 z-40 w-[min(292px,74vw)] border-l p-3 transition-transform duration-300 motion-reduce:transition-none md:hidden",
-          menuOpen ? "translate-x-0" : "translate-x-full",
-        )}
-        style={{
-          background: SWELL_MAP_SURFACE.panelDeep,
-          borderColor: SWELL_MAP_SURFACE.border,
-          boxShadow: SWELL_MAP_STICKER_SHADOW,
-        }}
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <Button
-            type="button"
-            size="sm"
-            className={cn("h-8 rounded-full px-3 text-white", SWELL_MAP_CTA_CLASS)}
+      <Dialog.Root open={menuOpen} onOpenChange={setMenuOpen}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-40 bg-[rgba(22,26,64,0.55)] md:hidden" />
+          <Dialog.Content
+            aria-label="Surf map layers and settings"
+            className="fixed inset-y-0 right-0 z-50 w-[min(292px,74vw)] overflow-y-auto border-l p-3 text-white outline-none data-[state=open]:animate-in data-[state=closed]:animate-out motion-reduce:transition-none md:hidden"
+            style={{
+              background: SWELL_MAP_SURFACE.panelDeep,
+              borderColor: SWELL_MAP_SURFACE.border,
+              boxShadow: SWELL_MAP_STICKER_SHADOW,
+            }}
           >
-            <Lock className="h-4 w-4" />
-            Go Pro
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="h-10 w-10 rounded-full text-white hover:text-white"
-            style={{ background: SWELL_MAP_SURFACE.panel, boxShadow: SWELL_MAP_STICKER_SHADOW }}
-            aria-label="Close layer menu"
-            onClick={() => setMenuOpen(false)}
-          >
-            <X className="h-6 w-6" />
-          </Button>
-        </div>
-        <div className="grid grid-cols-3 gap-2 text-center text-xs text-white/72">
-          <button type="button" className="rounded-md p-2 hover:bg-white/10">
-            <Smartphone className="mx-auto mb-1 h-5 w-5" />
-            App
-          </button>
-          <button type="button" className="rounded-md p-2 hover:bg-white/10">
-            <Bell className="mx-auto mb-1 h-5 w-5" />
-            Alerts
-          </button>
-          <button type="button" className="rounded-md p-2 hover:bg-white/10">
-            <Settings className="mx-auto mb-1 h-5 w-5" />
-            Settings
-          </button>
-        </div>
-        <div className="my-3 flex flex-wrap gap-2 text-sm">
-          {["All", "Swell", "Wind", "Tide", "Cams", "Search"].map((label) => (
-            <button
-              key={label}
-              type="button"
-              className={cn(
-                "rounded-full px-2 py-1 text-white/82 hover:bg-white/12",
-                label === "All" && "bg-[rgba(253,184,75,0.18)] text-[#FDB84B]",
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {SURF_LAYERS.map((layer) => {
-            const Icon = layer.icon;
-            return (
-              <button
-                key={layer.id}
+            <Dialog.Title className="sr-only">Surf map layers and settings</Dialog.Title>
+            <div className="mb-3 flex items-center justify-between">
+              <Button
                 type="button"
-                className={cn(
-                  "rounded-lg border border-white/10 p-2 text-left text-sm hover:bg-white/10",
-                  layer.id === selectedLayerId && "border-white/42 bg-white/12",
-                )}
-                onClick={() => {
-                  setSelectedLayerId(layer.id);
-                  setMenuOpen(false);
-                }}
+                size="sm"
+                className={cn("h-8 rounded-full px-3 text-white", SWELL_MAP_CTA_CLASS)}
               >
-                <span
-                  className="mb-2 flex h-16 items-center justify-center rounded-md"
-                  style={{ background: layer.background }}
+                <Lock className="h-4 w-4" />
+                Go Pro
+              </Button>
+              <Dialog.Close asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-full text-white hover:text-white"
+                  style={{ background: SWELL_MAP_SURFACE.panel, boxShadow: SWELL_MAP_STICKER_SHADOW }}
+                  aria-label="Close layer menu"
                 >
-                  <Icon className="h-7 w-7 text-white" />
-                </span>
-                {layer.label}
+                  <X className="h-6 w-6" />
+                </Button>
+              </Dialog.Close>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-center text-xs text-white/72">
+              <button type="button" className="rounded-md p-2 hover:bg-white/10">
+                <Smartphone className="mx-auto mb-1 h-5 w-5" />
+                App
               </button>
-            );
-          })}
-        </div>
-        <button
-          type="button"
-          className="mt-4 flex w-full items-center justify-center gap-1 text-base text-white"
-        >
-          Display more layers (12)
-          <ChevronDown className="h-4 w-4" />
-        </button>
-        <div
-          className="mt-4 rounded-lg p-3"
-          style={{ background: SWELL_MAP_SURFACE.panelDeep }}
-        >
-          <div className="mb-2 flex items-center gap-2 text-sm text-white/80">
-            <Clock3 className="h-4 w-4" />
-            Timeline: {selectedTime.time}
-          </div>
-          <input
-            suppressHydrationWarning
-            type="range"
-            min={0}
-            max={TIME_STEPS.length - 1}
-            value={selectedTimeIndex}
-            onChange={(event) => setSelectedTimeIndex(Number(event.target.value))}
-            className="w-full accent-[#F78E42]"
-          />
-        </div>
-        <div
-          className="mt-3 rounded-lg p-2"
-          style={{ background: SWELL_MAP_SURFACE.panelDeep }}
-        >
-          <ToggleRow
-            icon={Waves}
-            label="Particles animation"
-            enabled={particlesEnabled}
-            onClick={() => setParticlesEnabled((enabled) => !enabled)}
-          />
-          <ToggleRow
-            icon={Info}
-            label="Isolines"
-            enabled={isolinesEnabled}
-            onClick={() => setIsolinesEnabled((enabled) => !enabled)}
-          />
-          <ToggleRow
-            icon={Star}
-            label="Favorite spots"
-            enabled
-            onClick={() => undefined}
-          />
-        </div>
-      </div>
+              <button type="button" className="rounded-md p-2 hover:bg-white/10">
+                <Bell className="mx-auto mb-1 h-5 w-5" />
+                Alerts
+              </button>
+              <button type="button" className="rounded-md p-2 hover:bg-white/10">
+                <Settings className="mx-auto mb-1 h-5 w-5" />
+                Settings
+              </button>
+            </div>
+            <div className="my-3 flex flex-wrap gap-2 text-sm">
+              {["All", "Swell", "Wind", "Tide", "Cams", "Search"].map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  className={cn(
+                    "rounded-full px-2 py-1 text-white/82 hover:bg-white/12",
+                    label === "All" && "bg-[rgba(253,184,75,0.18)] text-[#FDB84B]",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {SURF_LAYERS.map((layer) => {
+                const Icon = layer.icon;
+                return (
+                  <button
+                    key={layer.id}
+                    type="button"
+                    className={cn(
+                      "rounded-lg border border-white/10 p-2 text-left text-sm hover:bg-white/10",
+                      layer.id === selectedLayerId && "border-white/42 bg-white/12",
+                    )}
+                    onClick={() => {
+                      setSelectedLayerId(layer.id);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <span
+                      className="mb-2 flex h-16 items-center justify-center rounded-md"
+                      style={{ background: layer.background }}
+                    >
+                      <Icon className="h-7 w-7 text-white" />
+                    </span>
+                    {layer.label}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              className="mt-4 flex w-full items-center justify-center gap-1 text-base text-white"
+            >
+              Display more layers (12)
+              <ChevronDown className="h-4 w-4" />
+            </button>
+            <div
+              className="mt-4 rounded-lg p-3"
+              style={{ background: SWELL_MAP_SURFACE.panelDeep }}
+            >
+              <div className="mb-2 flex items-center gap-2 text-sm text-white/80">
+                <Clock3 className="h-4 w-4" />
+                Timeline: {selectedTime.time}
+              </div>
+              <input
+                suppressHydrationWarning
+                type="range"
+                min={0}
+                max={TIME_STEPS.length - 1}
+                value={selectedTimeIndex}
+                onChange={(event) => setSelectedTimeIndex(Number(event.target.value))}
+                className="w-full accent-[#F78E42]"
+              />
+            </div>
+            <div
+              className="mt-3 rounded-lg p-2"
+              style={{ background: SWELL_MAP_SURFACE.panelDeep }}
+            >
+              <ToggleRow
+                icon={Waves}
+                label="Particles animation"
+                enabled={particlesEnabled}
+                onClick={() => setParticlesEnabled((enabled) => !enabled)}
+              />
+              <ToggleRow
+                icon={Info}
+                label="Isolines"
+                enabled={isolinesEnabled}
+                onClick={() => setIsolinesEnabled((enabled) => !enabled)}
+              />
+              <ToggleRow
+                icon={Star}
+                label="Favorite spots"
+                enabled
+                onClick={() => undefined}
+              />
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }

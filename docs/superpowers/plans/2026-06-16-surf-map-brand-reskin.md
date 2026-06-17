@@ -957,14 +957,14 @@ This is the key correctness win that ports forward. When reduced motion is prefe
 
 No TDD (interaction; the E2E smoke in Task 10 exercises Esc + focus). Radix Dialog is already a dependency. Wrap the drawer in `Dialog`/`DialogPortal`/`DialogContent` so it gets a real focus trap, Esc-to-close, `aria-modal`, scroll lock, and inert-when-closed for free. Keep the navy sticker styling from Task 2/5.
 
-- [ ] **Step 1: Import Radix Dialog primitives.**
+- [x] **Step 1: Import Radix Dialog primitives.**
   Add near the top imports:
   ```ts
   import * as Dialog from "@radix-ui/react-dialog";
   ```
   (Confirm availability first: `grep -R "@radix-ui/react-dialog" package.json` — it is a transitive/direct dep used by shadcn `dialog.tsx`. If `components/ui/dialog.tsx` exists, prefer importing the project wrapper; otherwise the raw primitive is fine for a noindex prototype.)
 
-- [ ] **Step 2: Replace the drawer block with a Dialog (was 887-1010).**
+- [x] **Step 2: Replace the drawer block with a Dialog (was 887-1010).**
   Drive `open` from `menuOpen`, route close through `onOpenChange`, and move the navy sticker style onto `Dialog.Content`. Replace the entire trailing `<div className={cn("absolute inset-y-0 right-0 ...")}> ... </div>` drawer with:
   ```tsx
         <Dialog.Root open={menuOpen} onOpenChange={setMenuOpen}>
@@ -987,7 +987,7 @@ No TDD (interaction; the E2E smoke in Task 10 exercises Esc + focus). Radix Dial
   ```
   Move the existing inner drawer markup (the Go Pro button, the 3-up app/alerts/settings grid, the filter chips, the layer grid, the "Display more layers" button, the timeline range, and the toggles panel) INSIDE `Dialog.Content` unchanged except for the close button (next step).
 
-- [ ] **Step 3: Wire the close FAB through `Dialog.Close` (was 902-911).**
+- [x] **Step 3: Wire the close FAB through `Dialog.Close` (was 902-911).**
   Replace the close `<Button>` with a `Dialog.Close` asChild so it participates in the dialog focus contract:
   ```tsx
               <Dialog.Close asChild>
@@ -1005,23 +1005,23 @@ No TDD (interaction; the E2E smoke in Task 10 exercises Esc + focus). Radix Dial
   ```
   (Remove the old `onClick={() => setMenuOpen(false)}` — `Dialog.Close` handles it. The layer-grid buttons inside that call `setMenuOpen(false)` after `setSelectedLayerId` are fine to keep — they close via state, which `open={menuOpen}` reflects.)
 
-- [ ] **Step 4: Point the trigger FAB at the dialog (was 761-770).**
+- [x] **Step 4: Point the trigger FAB at the dialog (was 761-770).**
   The "Open layer menu" FAB can stay a plain button that sets `menuOpen(true)` (Radix opens on controlled `open` change), OR wrap it in `Dialog.Trigger asChild`. Keep it simple — leave the existing `onClick={() => setMenuOpen(true)}`; the controlled `open` prop already drives the dialog. No change needed beyond the Task 2/5 reskin.
 
-- [ ] **Step 5: Remove the now-dead interim drawer transition classes.**
+- [x] **Step 5: Remove the now-dead interim drawer transition classes.**
   Confirm the old `translate-x-0 / translate-x-full / transition-transform` drawer wrapper is fully gone (replaced by `Dialog.Content`):
   ```bash
   grep -nE "translate-x-full|inset-y-0 right-0 z-40 w-\[min\(292px" components/map/surf-map-prototype.tsx
   ```
   Expected: NO matches (the Dialog replaced it).
 
-- [ ] **Step 6: Typecheck.**
+- [x] **Step 6: Typecheck.**
   ```bash
   NODE_OPTIONS="--max-old-space-size=8192" yarn typecheck
   ```
   Expected: clean.
 
-- [ ] **Step 7: Commit.**
+- [x] **Step 7: Commit.**
   ```bash
   git add components/map/surf-map-prototype.tsx
   git commit -m "feat(map): make mobile drawer a focus-trapped Radix dialog"
