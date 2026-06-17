@@ -42,6 +42,7 @@ import { useTrackEvent } from "@/hooks/use-track-event";
 import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
 import {
   SWELL_LAYER_COLOR,
+  SWELL_MAP_SURFACE,
   type SwellLayerId,
 } from "@/components/map/swell-map-theme";
 import {
@@ -56,6 +57,94 @@ import { SwellForecastTimeline } from "@/components/map/swell-field/swell-foreca
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
 // Mapbox CSS is imported globally in app/globals.css
+
+// Quiver navy palette for the swell-field basemap (DESIGN_SYSTEM.md: always-dark).
+const NAVY_WATER = "#0E1330"; // deep ocean — darkest surface, also the background
+const NAVY_LAND = "#162049"; // lifted navy land, reads against the water
+const NAVY_LABEL = "rgba(255,255,255,0.82)"; // legible labels on navy
+const NAVY_LABEL_HALO = "#0E1330"; // navy halo so labels don't smear
+
+type PaintProp = keyof mapboxgl.PaintSpecification;
+
+/** A captured paint property so the basemap can be restored exactly on toggle-off. */
+interface CapturedPaint {
+  layerId: string;
+  prop: PaintProp;
+  originalValue: unknown;
+}
+
+/**
+ * Recolor the live Mapbox basemap to the Quiver navy palette so additive-blended
+ * swell particles read on-brand. Captures the original paint props for every layer
+ * it touches into `capture` so `restoreBasemap` can revert exactly — avoiding a full
+ * `setStyle` reload (which would drop the custom layer + markers).
+ */
+function recolorBasemapToNavy(
+  map: mapboxgl.Map,
+  capture: CapturedPaint[]
+): void {
+  const style = map.getStyle();
+  if (!style?.layers) return;
+
+  const remember = (layerId: string, prop: PaintProp): void => {
+    capture.push({
+      layerId,
+      prop,
+      originalValue: map.getPaintProperty(layerId, prop),
+    });
+  };
+
+  for (const layer of style.layers) {
+    try {
+      if (layer.type === "background") {
+        remember(layer.id, "background-color");
+        map.setPaintProperty(layer.id, "background-color", NAVY_WATER);
+        continue;
+      }
+      if (layer.type !== "fill" && layer.type !== "line" && layer.type !== "symbol") {
+        continue;
+      }
+
+      const id = layer.id.toLowerCase();
+      const isWater =
+        id.includes("water") || id.includes("ocean") || id.includes("bathymetry");
+
+      if (layer.type === "fill") {
+        remember(layer.id, "fill-color");
+        map.setPaintProperty(layer.id, "fill-color", isWater ? NAVY_WATER : NAVY_LAND);
+      } else if (layer.type === "line") {
+        remember(layer.id, "line-color");
+        map.setPaintProperty(layer.id, "line-color", SWELL_MAP_SURFACE.border);
+      } else if (layer.type === "symbol") {
+        remember(layer.id, "text-color");
+        remember(layer.id, "text-halo-color");
+        map.setPaintProperty(layer.id, "text-color", NAVY_LABEL);
+        map.setPaintProperty(layer.id, "text-halo-color", NAVY_LABEL_HALO);
+      }
+    } catch {
+      // Some layers reject paint props for their type; skip silently.
+    }
+  }
+}
+
+/** Restore the light basemap by replaying captured paint props in reverse order. */
+function restoreBasemap(map: mapboxgl.Map, capture: CapturedPaint[]): void {
+  for (const { layerId, prop, originalValue } of capture) {
+    try {
+      if (!map.getLayer(layerId)) continue;
+      // Per-element prop/value correlation can't be tracked through the array; the
+      // value was read from this exact prop via getPaintProperty so it is sound.
+      map.setPaintProperty(
+        layerId,
+        prop,
+        originalValue as mapboxgl.PaintSpecification[typeof prop]
+      );
+    } catch {
+      // Layer may no longer exist after a style change; skip silently.
+    }
+  }
+  capture.length = 0;
+}
 
 interface InteractiveMapProps {
   initialCenter?: [number, number]; // [lat, lng]
@@ -177,6 +266,8 @@ export function InteractiveMap({
   const reducedMotion = useReducedMotion();
   // Live flow field read by the GL layer each frame (avoids re-adding the layer on scrub).
   const flowFieldRef = useRef<FlowField>({ cols: 0, rows: 0, cells: [] });
+  // Original basemap paint values captured before the navy recolor, for exact restore.
+  const basemapCaptureRef = useRef<CapturedPaint[]>([]);
   const swellLayerIdRef = useRef<SwellLayerId>(swellLayerId);
   const isMapReadyRef = useRef(false);
   const favoriteBeachIdsRef = useRef<Set<string>>(new Set());
@@ -596,11 +687,18 @@ export function InteractiveMap({
     const map = mapRef.current;
     if (!map || !isMapReady) return;
     const layerId = "quiver-swell-field";
+    // Stable array identity, copied locally so cleanup restores the same capture.
+    const basemapCapture = basemapCaptureRef.current;
 
     if (!showSwellField) {
       if (map.getLayer(layerId)) map.removeLayer(layerId);
+      restoreBasemap(map, basemapCapture);
       return;
     }
+
+    // Recolor to navy first so the additive-blended particles read on-brand.
+    restoreBasemap(map, basemapCapture);
+    recolorBasemapToNavy(map, basemapCapture);
 
     if (map.getLayer(layerId)) map.removeLayer(layerId);
     const viewportWidthPx =
@@ -617,6 +715,7 @@ export function InteractiveMap({
 
     return () => {
       if (map.getLayer(layerId)) map.removeLayer(layerId);
+      restoreBasemap(map, basemapCapture);
     };
     // Re-add only when toggled, motion preference flips, or the map (re)mounts.
   }, [showSwellField, isMapReady, reducedMotion]);
