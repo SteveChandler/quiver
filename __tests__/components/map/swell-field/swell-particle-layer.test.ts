@@ -34,4 +34,11 @@ describe("swell particle layer — pure exports", () => {
     expect(resolveParticleCount(380)).toBe(PARTICLE_COUNT_MOBILE);
     expect(PARTICLE_COUNT_MOBILE).toBeLessThan(PARTICLE_COUNT_DESKTOP);
   });
+
+  it("keeps the desktop count populated but performant", () => {
+    expect(PARTICLE_COUNT_DESKTOP).toBe(3200);
+    expect(PARTICLE_COUNT_MOBILE).toBe(1000);
+    // Stay performant: never blow past ~4000 desktop particles.
+    expect(PARTICLE_COUNT_DESKTOP).toBeLessThanOrEqual(4000);
+  });
 });

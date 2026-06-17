@@ -14,8 +14,8 @@ export interface ParticleSeed {
   age: number;
 }
 
-export const PARTICLE_COUNT_DESKTOP = 2400;
-export const PARTICLE_COUNT_MOBILE = 700;
+export const PARTICLE_COUNT_DESKTOP = 3200;
+export const PARTICLE_COUNT_MOBILE = 1000;
 
 /** Below this CSS width we treat the device as small and cut particle count. */
 const SMALL_SCREEN_PX = 640;
@@ -270,7 +270,9 @@ export function createSwellParticleLayer(
       gl.uniformMatrix4fv(uMatrixLoc, false, matrix);
       const [r, g, b] = hexToRgb(options.getColorHex());
       gl.uniform3f(uColorLoc, r, g, b);
-      gl.uniform1f(uAlphaLoc, options.reducedMotion ? 0.5 : 0.85);
+      // Slightly lifted so the field reads as a clear but calm drift on the navy
+      // basemap; the static reduced-motion frame gets a touch more presence too.
+      gl.uniform1f(uAlphaLoc, options.reducedMotion ? 0.6 : 0.95);
 
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // additive trails
