@@ -1,4 +1,5 @@
 import type { Beach } from "@/types/database";
+import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
 import { API_BATCH_CONFIG } from "@/lib/constants/ui";
 import { fetchInBatches } from "@/lib/utils/batch-fetch";
 
@@ -34,6 +35,8 @@ export interface BeachLoaderResult {
   conditionScoreMap: Map<string, number | undefined>;
   /** Map from beach ID to native-aligned condition summary */
   conditionSummaryMap: Map<string, ConditionSummary>;
+  /** Map from beach ID to parsed swell/wind partition for the flow field */
+  partitionsMap: Map<string, SwellPartition>;
 }
 
 /**
@@ -113,6 +116,7 @@ export async function loadBeachesAndWaveHeights(
   const waterTempMap = new Map<string, string | undefined>();
   const conditionScoreMap = new Map<string, number | undefined>();
   const conditionSummaryMap = new Map<string, ConditionSummary>();
+  const partitionsMap = new Map<string, SwellPartition>();
   const beachesForWaveData = providedBeaches?.length
     ? providedBeaches
     : locations;
@@ -179,6 +183,13 @@ export async function loadBeachesAndWaveHeights(
             conditionSummaryMap.set(beachId, summary as ConditionSummary);
           }
         });
+
+        const swellPartitions = data?.data?.swellPartitions || {};
+        Object.entries(swellPartitions).forEach(([beachId, partition]) => {
+          if (partition && typeof partition === "object") {
+            partitionsMap.set(beachId, partition as SwellPartition);
+          }
+        });
       });
     } catch (error) {
       console.warn("Failed to fetch bulk forecasts:", error);
@@ -188,7 +199,7 @@ export async function loadBeachesAndWaveHeights(
   // Fill missing wave heights from nearest beach with data
   interpolateMissingWaveHeights(beachesForWaveData, waveHeightMap);
 
-  return { locations, waveHeightMap, waterTempMap, conditionScoreMap, conditionSummaryMap };
+  return { locations, waveHeightMap, waterTempMap, conditionScoreMap, conditionSummaryMap, partitionsMap };
 }
 
 /**
