@@ -205,7 +205,7 @@ export function createSwellParticleLayer(
   // Fixed dash LENGTH as a fraction of the viewport span, DECOUPLED from drift speed
   // so dashes stay visible (~10px) no matter how slow they move. Tying length to the
   // per-frame step made slow dashes sub-pixel and invisible.
-  const DASH_FRACTION = 0.016;
+  const DASH_FRACTION = 0.011;
 
   function viewBoxMercator(map: mapboxgl.Map): MercatorBox {
     const b = map.getBounds();
@@ -286,15 +286,14 @@ export function createSwellParticleLayer(
         cell.speed > 0
           ? Math.min(1, 0.85 + cell.alpha) * Math.min(1, trail * 4)
           : 0;
-      // Draw a fixed-length dash oriented PERPENDICULAR to the flow vector, centered
-      // on the particle, so each mark reads as a wave CREST (a wave front) rather than
-      // an arrow along travel. The particle still advances along (vx,vy); only the
-      // drawn dash is rotated 90° (perpendicular = (-vy, vx)). Visible length is
-      // independent of drift speed (Windy-style mark).
+      // Draw a small fixed-length dash oriented ALONG the flow vector (the swell-travel
+      // direction), centered on the particle — a directional mark like Windy's wave
+      // layer (confirmed from the reference video: small arrows pointing along travel,
+      // not crest lines). Visible length is independent of drift speed.
       const vlen = Math.hypot(cell.vx, cell.vy) || 1;
       const dashHalf = span * DASH_FRACTION * 0.5;
-      const dx = (-cell.vy / vlen) * dashHalf;
-      const dy = (cell.vx / vlen) * dashHalf;
+      const dx = (cell.vx / vlen) * dashHalf;
+      const dy = (cell.vy / vlen) * dashHalf;
       vertexPos[i * 4 + 0] = px[i] - dx;
       vertexPos[i * 4 + 1] = py[i] - dy;
       vertexPos[i * 4 + 2] = px[i] + dx;
