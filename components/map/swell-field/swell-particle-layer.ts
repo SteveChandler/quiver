@@ -230,12 +230,15 @@ export function createSwellParticleLayer(
         cell.speed > 0
           ? Math.min(1, 0.55 + cell.alpha) * trail
           : 0;
-      // Draw a fixed-length dash oriented along the flow vector, centered on the
-      // particle. Visible length is independent of drift speed (Windy-style mark).
+      // Draw a fixed-length dash oriented PERPENDICULAR to the flow vector, centered
+      // on the particle, so each mark reads as a wave CREST (a wave front) rather than
+      // an arrow along travel. The particle still advances along (vx,vy); only the
+      // drawn dash is rotated 90° (perpendicular = (-vy, vx)). Visible length is
+      // independent of drift speed (Windy-style mark).
       const vlen = Math.hypot(cell.vx, cell.vy) || 1;
       const dashHalf = span * DASH_FRACTION * 0.5;
-      const dx = (cell.vx / vlen) * dashHalf;
-      const dy = (cell.vy / vlen) * dashHalf;
+      const dx = (-cell.vy / vlen) * dashHalf;
+      const dy = (cell.vx / vlen) * dashHalf;
       vertexPos[i * 4 + 0] = px[i] - dx;
       vertexPos[i * 4 + 1] = py[i] - dy;
       vertexPos[i * 4 + 2] = px[i] + dx;
