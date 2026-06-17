@@ -513,15 +513,16 @@ function ToggleRow({
 }
 
 function recolorBasemapToNavy(map: mapboxgl.Map): void {
-  const NAVY_LAND = SWELL_MAP_SURFACE.base;
-  const NAVY_WATER = SWELL_MAP_SURFACE.panel;
+  // Clear land/water separation: deep ocean vs a distinctly lighter land.
+  const NAVY_WATER = "#0E1330"; // deep ocean — darkest surface on the map
+  const NAVY_LAND = "#2C3676";  // lifted navy land — clearly readable against the water
   const style = map.getStyle();
   if (!style?.layers) return;
 
   for (const layer of style.layers) {
     try {
       if (layer.type === "background") {
-        map.setPaintProperty(layer.id, "background-color", NAVY_LAND);
+        map.setPaintProperty(layer.id, "background-color", NAVY_WATER);
         continue;
       }
       if (layer.type !== "fill" && layer.type !== "line" && layer.type !== "symbol") continue;
