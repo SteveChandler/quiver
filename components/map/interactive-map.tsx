@@ -685,6 +685,21 @@ export function InteractiveMap({
         const point = partitionToPoint(beach.lon, beach.lat, partition, component);
         if (point) points.push(point);
       }
+      // A regional swell layer should move in UNISON (one direction), but per-beach
+      // readings vary ~45° (e.g. SD primary is SW/SSW/WSW), which would fan the marks
+      // out. Collapse to the circular-mean direction so every mark shares one heading;
+      // per-beach period/height still vary (so speed/density read locally).
+      if (points.length > 0) {
+        let sumX = 0;
+        let sumY = 0;
+        for (const p of points) {
+          const rad = (p.dir * Math.PI) / 180;
+          sumX += Math.cos(rad);
+          sumY += Math.sin(rad);
+        }
+        const meanDeg = ((Math.atan2(sumY, sumX) * 180) / Math.PI + 360) % 360;
+        for (const p of points) p.dir = meanDeg;
+      }
       nextFields[component] = buildFlowField(points, bounds, 12);
     }
     flowFieldsRef.current = nextFields;
