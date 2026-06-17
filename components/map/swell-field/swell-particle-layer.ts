@@ -329,14 +329,15 @@ export function createSwellParticleLayer(
       }
 
       if (markStyle === "comet") {
-        // A small comet: vert 0 is the tail end (transparent), vert 1 is the head at
-        // the particle position (solid). The tail extends BEHIND the head, opposite
-        // the travel direction, so it trails the moving dot. Drawn as a LINES segment
-        // (the fading streak) plus a POINTS pass (the dot head) sharing this buffer.
+        // A small comet: a solid dot at the particle position (vert 1) with a fading
+        // streak extending in the SAME direction the dot is moving (vert 0, transparent)
+        // — so the tail points the way the wind travels, matching the dots' motion.
+        // Drawn as a LINES segment (the fading streak) plus a POINTS pass (the dot)
+        // sharing this buffer.
         const vlen = Math.hypot(cell.vx, cell.vy) || 1;
         const tailLen = span * COMET_TAIL_FRACTION;
-        vertexPos[i * 4 + 0] = px[i] - (cell.vx / vlen) * tailLen;
-        vertexPos[i * 4 + 1] = py[i] - (cell.vy / vlen) * tailLen;
+        vertexPos[i * 4 + 0] = px[i] + (cell.vx / vlen) * tailLen;
+        vertexPos[i * 4 + 1] = py[i] + (cell.vy / vlen) * tailLen;
         vertexPos[i * 4 + 2] = px[i];
         vertexPos[i * 4 + 3] = py[i];
         vertexAlpha[i * 2 + 0] = 0;
