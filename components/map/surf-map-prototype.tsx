@@ -344,10 +344,19 @@ function runCanvasParticleFallback(
       const alpha = Math.min(0.78, 0.22 + vector.strength * 0.22);
       context.strokeStyle = activeLayer.color;
       context.globalAlpha = Math.min(0.96, alpha + 0.18);
-      context.lineWidth = layerId === "wind" ? 1.65 : 2.2 + vector.strength * 0.32;
       context.beginPath();
-      context.moveTo(particle.previousX, particle.previousY);
-      context.lineTo(particle.x, particle.y);
+      if (layerId === "wind") {
+        // Wind: flowing streaks that trail along the direction of travel.
+        context.lineWidth = 1.65;
+        context.moveTo(particle.previousX, particle.previousY);
+        context.lineTo(particle.x, particle.y);
+      } else {
+        // Swell: upright "|" wave-crest marks that drift with the field.
+        const halfLen = 4 + vector.strength * 2.4;
+        context.lineWidth = 2.4 + vector.strength * 0.3;
+        context.moveTo(particle.x, particle.y - halfLen);
+        context.lineTo(particle.x, particle.y + halfLen);
+      }
       context.stroke();
     }
 
