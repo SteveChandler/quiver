@@ -168,9 +168,9 @@ const COMBINED_SUBLAYERS: ReadonlyArray<"s1" | "s2" | "wind"> = [
   "s2",
   "wind",
 ];
-// Per-layer particle count for the combined view so three stacked layers stay in
-// budget (3 × 1600 = 4800 total ≤ ~5000).
-const COMBINED_PARTICLE_COUNT = 1600;
+// Per-layer particle count for the combined view so three stacked layers keep the
+// sparse Windy-style spacing in budget (3 × 500 = 1500 total).
+const COMBINED_PARTICLE_COUNT = 500;
 
 const EMPTY_FLOW_FIELD: FlowField = { cols: 0, rows: 0, cells: [] };
 

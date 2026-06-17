@@ -22,12 +22,17 @@ import {
   PARTICLE_FRAGMENT_SHADER,
   SHADER_UNIFORM_NAMES,
   reseedParticle,
+  gridDimensions,
+  gridSeedParticle,
   PARTICLE_COUNT_DESKTOP,
   PARTICLE_COUNT_MOBILE,
   resolveParticleCount,
   createSwellParticleLayer,
 } from "@/components/map/swell-field/swell-particle-layer";
-import type { FlowField } from "@/components/map/swell-field/field-sampler";
+import type {
+  FlowField,
+} from "@/components/map/swell-field/field-sampler";
+import type { MercatorBox } from "@/components/map/swell-field/swell-particle-layer";
 
 describe("swell particle layer — pure exports", () => {
   it("exposes GLSL sources referencing the declared uniforms", () => {
@@ -56,11 +61,62 @@ describe("swell particle layer — pure exports", () => {
     expect(PARTICLE_COUNT_MOBILE).toBeLessThan(PARTICLE_COUNT_DESKTOP);
   });
 
-  it("keeps the desktop count densely populated but performant", () => {
-    expect(PARTICLE_COUNT_DESKTOP).toBe(4000);
-    expect(PARTICLE_COUNT_MOBILE).toBe(1400);
-    // Stay performant: never blow past ~4000 desktop particles.
-    expect(PARTICLE_COUNT_DESKTOP).toBeLessThanOrEqual(4000);
+  it("keeps the desktop count sparse (Windy-style spacing) but populated", () => {
+    expect(PARTICLE_COUNT_DESKTOP).toBe(900);
+    expect(PARTICLE_COUNT_MOBILE).toBe(400);
+    // Sparse, evenly spaced field — well below the earlier dense 4000 blanket.
+    expect(PARTICLE_COUNT_DESKTOP).toBeLessThanOrEqual(900);
+  });
+});
+
+describe("jittered-grid seeding — even Windy-style distribution", () => {
+  const UNIT_BOX: MercatorBox = { minX: 0, minY: 0, maxX: 1, maxY: 1 };
+
+  it("derives a grid sized to the box aspect ratio (cols × rows ≥ count)", () => {
+    // Square box: ~sqrt(count) per side.
+    expect(gridDimensions(900, UNIT_BOX)).toEqual({ cols: 30, rows: 30 });
+    // Wide box (aspect 4): more cols than rows.
+    const wide: MercatorBox = { minX: 0, minY: 0, maxX: 4, maxY: 1 };
+    const { cols, rows } = gridDimensions(900, wide);
+    expect(cols).toBeGreaterThan(rows);
+    expect(cols * rows).toBeGreaterThanOrEqual(900);
+  });
+
+  it("never produces a degenerate (zero) grid dimension", () => {
+    expect(gridDimensions(1, UNIT_BOX)).toEqual({ cols: 1, rows: 1 });
+    const flat: MercatorBox = { minX: 0.5, minY: 0.5, maxX: 0.5, maxY: 0.5 };
+    const { cols, rows } = gridDimensions(100, flat);
+    expect(cols).toBeGreaterThanOrEqual(1);
+    expect(rows).toBeGreaterThanOrEqual(1);
+  });
+
+  it("places particle i inside ITS OWN grid cell (jitter stays in-cell)", () => {
+    const count = 16; // 4 × 4 grid on the unit square
+    const { cols, rows } = gridDimensions(count, UNIT_BOX);
+    expect({ cols, rows }).toEqual({ cols: 4, rows: 4 });
+    const cellW = 1 / cols;
+    const cellH = 1 / rows;
+    // rng=0 -> cell origin; rng→1 stays within the cell (upper bound exclusive).
+    for (let i = 0; i < count; i += 1) {
+      const col = i % cols;
+      const row = Math.floor(i / cols) % rows;
+      const lo = gridSeedParticle(i, count, UNIT_BOX, () => 0);
+      expect(lo.x).toBeCloseTo(col * cellW, 9);
+      expect(lo.y).toBeCloseTo(row * cellH, 9);
+      const hi = gridSeedParticle(i, count, UNIT_BOX, () => 0.999);
+      expect(hi.x).toBeGreaterThanOrEqual(col * cellW);
+      expect(hi.x).toBeLessThan((col + 1) * cellW);
+      expect(hi.y).toBeGreaterThanOrEqual(row * cellH);
+      expect(hi.y).toBeLessThan((row + 1) * cellH);
+      expect(lo.age).toBe(0);
+    }
+  });
+
+  it("respects the box origin offset", () => {
+    const offset: MercatorBox = { minX: 0.2, minY: 0.4, maxX: 0.6, maxY: 0.8 };
+    const s = gridSeedParticle(0, 4, offset, () => 0);
+    expect(s.x).toBeCloseTo(0.2, 9);
+    expect(s.y).toBeCloseTo(0.4, 9);
   });
 });
 
@@ -135,7 +191,7 @@ describe("createSwellParticleLayer — particle count", () => {
   });
 
   it("honors an explicit count override (combined-view per-layer budget)", () => {
-    expect(renderedVertexCount(1600)).toBe(1600 * 2);
+    expect(renderedVertexCount(500)).toBe(500 * 2);
   });
 
   it("ignores a non-positive override and falls back to the default", () => {

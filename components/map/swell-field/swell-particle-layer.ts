@@ -14,8 +14,10 @@ export interface ParticleSeed {
   age: number;
 }
 
-export const PARTICLE_COUNT_DESKTOP = 4000;
-export const PARTICLE_COUNT_MOBILE = 1400;
+// Windy-like spacing: sparse + evenly distributed (jittered grid) so water shows
+// between dashes. Lower than the earlier dense random blanket (4000/1400).
+export const PARTICLE_COUNT_DESKTOP = 900;
+export const PARTICLE_COUNT_MOBILE = 400;
 
 /** Below this CSS width we treat the device as small and cut particle count. */
 const SMALL_SCREEN_PX = 640;
@@ -61,6 +63,46 @@ export function reseedParticle(rng: () => number, box: MercatorBox): ParticleSee
   return {
     x: box.minX + (box.maxX - box.minX) * rng(),
     y: box.minY + (box.maxY - box.minY) * rng(),
+    age: 0,
+  };
+}
+
+/**
+ * Derive an even grid (cols × rows) covering `count` cells across the box, sized to
+ * the box aspect ratio so cells stay roughly square. `rows` is ceil'd so cols × rows
+ * always ≥ count (the trailing partial row holds the remainder of the particles).
+ */
+export function gridDimensions(
+  count: number,
+  box: MercatorBox
+): { cols: number; rows: number } {
+  const width = Math.max(box.maxX - box.minX, 1e-9);
+  const height = Math.max(box.maxY - box.minY, 1e-9);
+  const aspect = width / height;
+  const cols = Math.max(1, Math.round(Math.sqrt(count * aspect)));
+  const rows = Math.max(1, Math.ceil(count / cols));
+  return { cols, rows };
+}
+
+/**
+ * Seed particle `i` into ITS OWN grid cell (jittered within the cell) so coverage
+ * stays even as particles drift and respawn — a Windy-style regular field rather
+ * than a random blanket. `rng` injectable for deterministic tests.
+ */
+export function gridSeedParticle(
+  i: number,
+  count: number,
+  box: MercatorBox,
+  rng: () => number
+): ParticleSeed {
+  const { cols, rows } = gridDimensions(count, box);
+  const col = i % cols;
+  const row = Math.floor(i / cols) % rows;
+  const cellW = (box.maxX - box.minX) / cols;
+  const cellH = (box.maxY - box.minY) / rows;
+  return {
+    x: box.minX + (col + rng()) * cellW,
+    y: box.minY + (row + rng()) * cellH,
     age: 0,
   };
 }
@@ -189,7 +231,8 @@ export function createSwellParticleLayer(
   function seedAll(map: mapboxgl.Map): void {
     const box = viewBoxMercator(map);
     for (let i = 0; i < count; i += 1) {
-      const s = reseedParticle(rng, box);
+      // Jittered grid: even, Windy-style spacing instead of a random blanket.
+      const s = gridSeedParticle(i, count, box, rng);
       px[i] = s.x;
       py[i] = s.y;
       page[i] = Math.floor(rng() * 60);
@@ -219,7 +262,9 @@ export function createSwellParticleLayer(
         py[i] > box.maxY ||
         page[i] > life[i];
       if (out) {
-        const s = reseedParticle(rng, box);
+        // Respawn back into THIS particle's own grid cell so even coverage holds as
+        // particles drift out-of-box or exceed their life.
+        const s = gridSeedParticle(i, count, box, rng);
         px[i] = s.x;
         py[i] = s.y;
         page[i] = 0;
