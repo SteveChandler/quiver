@@ -43,6 +43,62 @@ export interface GeoBounds {
   north: number;
 }
 
+/** One point of the data footprint used to derive the coastal camera corridor. */
+export interface LatLonPoint {
+  lat: number | null | undefined;
+  lon: number | null | undefined;
+}
+
+// Coastal-corridor camera leash padding (degrees). Generous ALONG-coast (lat)
+// padding lets the next stretch of beaches enter the viewport and load before the
+// corridor edge, so the bbox chains up/down coast on the next recompute; smaller
+// cross-shore (lon) margin keeps the field near the coast, not out in open sea.
+export const COASTAL_CORRIDOR_LAT_PAD = 0.35;
+export const COASTAL_CORRIDOR_LON_PAD = 0.12;
+// Floor span for a degenerate (single-beach) footprint so it's still navigable.
+export const COASTAL_CORRIDOR_MIN_SPAN = 0.1;
+
+/**
+ * Padded lat/lon bounding box of a beach data footprint, for `map.setMaxBounds`.
+ * APPROXIMATE rectangular coast corridor, not a pixel-perfect coastline mask.
+ * Returns null when no point has finite lat/lon.
+ */
+export function computeCoastalBounds(points: LatLonPoint[]): GeoBounds | null {
+  let minLat = Infinity;
+  let maxLat = -Infinity;
+  let minLon = Infinity;
+  let maxLon = -Infinity;
+  for (const { lat, lon } of points) {
+    if (lat == null || lon == null || !Number.isFinite(lat) || !Number.isFinite(lon)) {
+      continue;
+    }
+    if (lat < minLat) minLat = lat;
+    if (lat > maxLat) maxLat = lat;
+    if (lon < minLon) minLon = lon;
+    if (lon > maxLon) maxLon = lon;
+  }
+  if (!Number.isFinite(minLat) || !Number.isFinite(minLon)) return null;
+
+  // Pad a degenerate axis to a sane minimum span so the corridor stays navigable.
+  if (maxLat - minLat < COASTAL_CORRIDOR_MIN_SPAN) {
+    const mid = (minLat + maxLat) / 2;
+    minLat = mid - COASTAL_CORRIDOR_MIN_SPAN / 2;
+    maxLat = mid + COASTAL_CORRIDOR_MIN_SPAN / 2;
+  }
+  if (maxLon - minLon < COASTAL_CORRIDOR_MIN_SPAN) {
+    const mid = (minLon + maxLon) / 2;
+    minLon = mid - COASTAL_CORRIDOR_MIN_SPAN / 2;
+    maxLon = mid + COASTAL_CORRIDOR_MIN_SPAN / 2;
+  }
+
+  return {
+    west: minLon - COASTAL_CORRIDOR_LON_PAD,
+    south: minLat - COASTAL_CORRIDOR_LAT_PAD,
+    east: maxLon + COASTAL_CORRIDOR_LON_PAD,
+    north: maxLat + COASTAL_CORRIDOR_LAT_PAD,
+  };
+}
+
 /**
  * Convert an oceanographic FROM-bearing to a screen-space travel vector.
  * Energy travels in the bearing + 180deg. Screen-y points DOWN, so a swell

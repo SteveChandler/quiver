@@ -1,6 +1,10 @@
 import {
   degToVector,
   buildFlowField,
+  computeCoastalBounds,
+  COASTAL_CORRIDOR_LAT_PAD,
+  COASTAL_CORRIDOR_LON_PAD,
+  COASTAL_CORRIDOR_MIN_SPAN,
   type BeachPartitionPoint,
 } from "@/components/map/swell-field/field-sampler";
 
@@ -82,5 +86,53 @@ describe("buildFlowField", () => {
   it("empty sources yields empty cells", () => {
     const field = buildFlowField([], { west: -1, south: -1, east: 1, north: 1 }, 4);
     expect(field.cells).toHaveLength(0);
+  });
+});
+
+describe("computeCoastalBounds", () => {
+  it("returns null when no point has finite lat/lon", () => {
+    expect(computeCoastalBounds([])).toBeNull();
+    expect(
+      computeCoastalBounds([
+        { lat: null, lon: -117.2 },
+        { lat: 32.7, lon: undefined },
+        { lat: NaN, lon: NaN },
+      ])
+    ).toBeNull();
+  });
+
+  it("pads the footprint bbox: generous along-coast (lat), tighter cross-shore (lon)", () => {
+    // A north/south spread of beaches along the coast.
+    const bounds = computeCoastalBounds([
+      { lat: 32.6, lon: -117.2 },
+      { lat: 33.4, lon: -117.4 },
+    ]);
+    expect(bounds).not.toBeNull();
+    expect(bounds?.south).toBeCloseTo(32.6 - COASTAL_CORRIDOR_LAT_PAD, 6);
+    expect(bounds?.north).toBeCloseTo(33.4 + COASTAL_CORRIDOR_LAT_PAD, 6);
+    expect(bounds?.west).toBeCloseTo(-117.4 - COASTAL_CORRIDOR_LON_PAD, 6);
+    expect(bounds?.east).toBeCloseTo(-117.2 + COASTAL_CORRIDOR_LON_PAD, 6);
+    // Along-coast padding is more generous than cross-shore (chaining travel).
+    expect(COASTAL_CORRIDOR_LAT_PAD).toBeGreaterThan(COASTAL_CORRIDOR_LON_PAD);
+  });
+
+  it("floors a degenerate single-beach bbox to a navigable minimum span", () => {
+    const bounds = computeCoastalBounds([{ lat: 32.7, lon: -117.2 }]);
+    expect(bounds).not.toBeNull();
+    const latSpan = (bounds as NonNullable<typeof bounds>).north - (bounds as NonNullable<typeof bounds>).south;
+    const lonSpan = (bounds as NonNullable<typeof bounds>).east - (bounds as NonNullable<typeof bounds>).west;
+    // Minimum span + both sides of padding.
+    expect(latSpan).toBeCloseTo(COASTAL_CORRIDOR_MIN_SPAN + 2 * COASTAL_CORRIDOR_LAT_PAD, 6);
+    expect(lonSpan).toBeCloseTo(COASTAL_CORRIDOR_MIN_SPAN + 2 * COASTAL_CORRIDOR_LON_PAD, 6);
+  });
+
+  it("skips non-finite points but uses the finite ones", () => {
+    const bounds = computeCoastalBounds([
+      { lat: 32.6, lon: -117.2 },
+      { lat: null, lon: null },
+      { lat: 33.0, lon: -117.5 },
+    ]);
+    expect(bounds?.south).toBeCloseTo(32.6 - COASTAL_CORRIDOR_LAT_PAD, 6);
+    expect(bounds?.west).toBeCloseTo(-117.5 - COASTAL_CORRIDOR_LON_PAD, 6);
   });
 });

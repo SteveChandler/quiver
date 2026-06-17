@@ -47,6 +47,7 @@ import {
 } from "@/components/map/swell-map-theme";
 import {
   buildFlowField,
+  computeCoastalBounds,
   partitionToPoint,
   type BeachPartitionPoint,
   type FlowField,
@@ -144,6 +145,20 @@ function restoreBasemap(map: mapboxgl.Map, capture: CapturedPaint[]): void {
     }
   }
   capture.length = 0;
+}
+
+// Zoom-lock bounds for the coastal camera leash (swell field ON only): keeps the
+// user hugging the coast where we have beach data instead of pulling back to
+// open-ocean / continent scale. The pan corridor (maxBounds) is derived from the
+// loaded-beach footprint via computeCoastalBounds (an APPROXIMATE rectangular
+// coast corridor, not a pixel-perfect coastline mask).
+const SWELL_FIELD_MIN_ZOOM = 9;
+const SWELL_FIELD_MAX_ZOOM = 13.5;
+
+/** Captured zoom limits so the free camera can be restored exactly on toggle-off. */
+interface CapturedZoomLimits {
+  minZoom: number;
+  maxZoom: number;
 }
 
 interface InteractiveMapProps {
@@ -268,6 +283,10 @@ export function InteractiveMap({
   const flowFieldRef = useRef<FlowField>({ cols: 0, rows: 0, cells: [] });
   // Original basemap paint values captured before the navy recolor, for exact restore.
   const basemapCaptureRef = useRef<CapturedPaint[]>([]);
+  // Free-camera zoom limits captured before the swell-field leash, for exact restore.
+  // Non-null only while the leash is applied — also gates the release path so we
+  // never touch the camera constraint API when it was never set.
+  const zoomLimitsCaptureRef = useRef<CapturedZoomLimits | null>(null);
   const swellLayerIdRef = useRef<SwellLayerId>(swellLayerId);
   const isMapReadyRef = useRef(false);
   const favoriteBeachIdsRef = useRef<Set<string>>(new Set());
@@ -719,6 +738,57 @@ export function InteractiveMap({
     };
     // Re-add only when toggled, motion preference flips, or the map (re)mounts.
   }, [showSwellField, isMapReady, reducedMotion]);
+
+  // Leash the camera to the coastal data corridor while the swell field is ON.
+  // Locks zoom (so users can't pull back to open-ocean/continent scale) and pins
+  // a dynamic maxBounds to the loaded-beach footprint. Recomputes as beaches load
+  // so the reachable corridor extends along the coast (along-coast travel chains:
+  // the generous lat padding lets the next stretch enter the viewport and load,
+  // which widens the bbox on the next pass). Fully restores the free camera on OFF.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isMapReady) return;
+
+    const releaseLeash = (): void => {
+      const captured = zoomLimitsCaptureRef.current;
+      // Nothing was ever leashed — leave the free camera untouched.
+      if (!captured) return;
+      // Runtime accepts null to clear; the public typings only expose the setter.
+      map.setMaxBounds(null as unknown as mapboxgl.LngLatBoundsLike);
+      map.setMinZoom(captured.minZoom);
+      map.setMaxZoom(captured.maxZoom);
+      zoomLimitsCaptureRef.current = null;
+    };
+
+    // Wait until beaches load before constraining; never leash an empty footprint.
+    if (!showSwellField || swellFieldBeaches.length === 0) {
+      releaseLeash();
+      return;
+    }
+
+    const bounds = computeCoastalBounds(swellFieldBeaches);
+    if (!bounds) {
+      releaseLeash();
+      return;
+    }
+
+    // Capture the free-camera zoom limits once, before the first lock. Presence of
+    // this capture also marks the leash as applied (gates the release path).
+    if (!zoomLimitsCaptureRef.current) {
+      zoomLimitsCaptureRef.current = {
+        minZoom: map.getMinZoom(),
+        maxZoom: map.getMaxZoom(),
+      };
+    }
+    map.setMinZoom(SWELL_FIELD_MIN_ZOOM);
+    map.setMaxZoom(SWELL_FIELD_MAX_ZOOM);
+    map.setMaxBounds([
+      [bounds.west, bounds.south],
+      [bounds.east, bounds.north],
+    ]);
+
+    return releaseLeash;
+  }, [showSwellField, isMapReady, swellFieldBeaches]);
 
   // Stable ref to track so the debounced handler can always access the latest version
   const trackRef = useRef(track);
