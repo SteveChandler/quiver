@@ -36,6 +36,96 @@ export interface FlowField {
   cells: FlowCell[];
 }
 
+/** Minimal style-layer shape we need to sniff water layers (id only). */
+export interface StyleLayerLike {
+  id: string;
+}
+
+/**
+ * Pick the basemap layer ids that represent water from a style's layer list, by
+ * matching id substrings (`water`/`ocean`/`bathymetry`). On the light Mapbox style
+ * the open ocean returns the `water` fill layer, so masking field cells to these
+ * layers keeps the flow field on the sea and off the land.
+ */
+export function detectWaterLayerIds(layers: StyleLayerLike[]): string[] {
+  const ids: string[] = [];
+  for (const layer of layers) {
+    if (typeof layer?.id !== "string") continue;
+    const id = layer.id.toLowerCase();
+    if (id.includes("water") || id.includes("ocean") || id.includes("bathymetry")) {
+      ids.push(layer.id);
+    }
+  }
+  return ids;
+}
+
+/** Minimal projected screen point (CSS pixels). */
+export interface ScreenPoint {
+  x: number;
+  y: number;
+}
+
+/**
+ * Just enough of a Mapbox map for water masking: project a lng/lat to screen pixels
+ * and query rendered features at a point against specific layers.
+ */
+export interface WaterMaskMap {
+  project(lngLat: [number, number]): ScreenPoint;
+  queryRenderedFeatures(
+    point: [number, number],
+    options: { layers: string[] }
+  ): unknown[];
+}
+
+export interface WaterMaskOptions {
+  /** Current map canvas size in CSS pixels. */
+  width: number;
+  height: number;
+  /** Basemap layer ids that count as water. */
+  waterLayerIds: string[];
+}
+
+/**
+ * Mutate a flow field IN PLACE so cells over land are zeroed (speed/alpha 0),
+ * leaving water cells untouched. Robust against mask-timing pitfalls:
+ *  - Only masks cells whose projected point is INSIDE the current viewport
+ *    (0..width / 0..height); off-screen points are left alone (never zeroed),
+ *    so a cell isn't blanked just because it's projected off the edge.
+ *  - A throw from project/query is treated as water (skip zeroing) so a transient
+ *    failure can never blank the whole field.
+ * No-ops when there are no water layer ids (nothing to query against → err toward
+ * leaving the field intact rather than zeroing everything).
+ */
+export function maskFieldToWater(
+  field: FlowField,
+  map: WaterMaskMap,
+  options: WaterMaskOptions
+): void {
+  if (options.waterLayerIds.length === 0) return;
+  for (const cell of field.cells) {
+    if (cell.speed === 0 && cell.alpha === 0) continue; // already dead
+    try {
+      const pt = map.project([cell.lon, cell.lat]);
+      // Outside the rendered viewport → can't reliably query; leave it alone.
+      if (pt.x < 0 || pt.x > options.width || pt.y < 0 || pt.y > options.height) {
+        continue;
+      }
+      const hits = map.queryRenderedFeatures([pt.x, pt.y], {
+        layers: options.waterLayerIds,
+      });
+      if (!hits || hits.length === 0) {
+        // No water feature here → land → blank the cell.
+        cell.speed = 0;
+        cell.alpha = 0;
+        cell.vx = 0;
+        cell.vy = 0;
+      }
+    } catch {
+      // Transient projection/query failure → treat as water, leave the cell.
+    }
+  }
+}
+
 export interface GeoBounds {
   west: number;
   south: number;

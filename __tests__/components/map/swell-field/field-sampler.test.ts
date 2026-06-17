@@ -2,10 +2,14 @@ import {
   degToVector,
   buildFlowField,
   computeCoastalBounds,
+  detectWaterLayerIds,
+  maskFieldToWater,
   COASTAL_CORRIDOR_LAT_PAD,
   COASTAL_CORRIDOR_LON_PAD,
   COASTAL_CORRIDOR_MIN_SPAN,
   type BeachPartitionPoint,
+  type FlowField,
+  type WaterMaskMap,
 } from "@/components/map/swell-field/field-sampler";
 
 describe("degToVector", () => {
@@ -169,5 +173,108 @@ describe("computeCoastalBounds", () => {
     ]);
     expect(bounds?.south).toBeCloseTo(32.6 - COASTAL_CORRIDOR_LAT_PAD, 6);
     expect(bounds?.west).toBeCloseTo(-117.5 - COASTAL_CORRIDOR_LON_PAD, 6);
+  });
+});
+
+describe("detectWaterLayerIds", () => {
+  it("matches water/ocean/bathymetry ids, case-insensitively", () => {
+    const ids = detectWaterLayerIds([
+      { id: "background" },
+      { id: "water" },
+      { id: "Water-Shadow" },
+      { id: "ocean-pattern" },
+      { id: "bathymetry-deep" },
+      { id: "landuse" },
+      { id: "road" },
+    ]);
+    expect(ids).toEqual(["water", "Water-Shadow", "ocean-pattern", "bathymetry-deep"]);
+  });
+
+  it("returns an empty array when no water layers exist", () => {
+    expect(detectWaterLayerIds([{ id: "land" }, { id: "road" }])).toEqual([]);
+    expect(detectWaterLayerIds([])).toEqual([]);
+  });
+});
+
+describe("maskFieldToWater", () => {
+  const makeField = (): FlowField => ({
+    cols: 2,
+    rows: 1,
+    cells: [
+      { lon: -117.3, lat: 32.7, vx: 1, vy: 0, speed: 0.5, alpha: 0.6 }, // will project on-screen
+      { lon: -117.1, lat: 32.7, vx: 1, vy: 0, speed: 0.5, alpha: 0.6 }, // will project on-screen
+    ],
+  });
+
+  it("zeroes in-viewport cells with no water feature (land), leaves water cells", () => {
+    const field = makeField();
+    const map: WaterMaskMap = {
+      // both cells project on-screen
+      project: ([lon]) => ({ x: lon === -117.3 ? 100 : 300, y: 200 }),
+      // the first cell (x=100) is water, the second (x=300) is land
+      queryRenderedFeatures: ([x]) => (x === 100 ? [{}] : []),
+    };
+    maskFieldToWater(field, map, { width: 800, height: 600, waterLayerIds: ["water"] });
+    expect(field.cells[0].speed).toBe(0.5); // water → untouched
+    expect(field.cells[1].speed).toBe(0); // land → zeroed
+    expect(field.cells[1].alpha).toBe(0);
+    expect(field.cells[1].vx).toBe(0);
+  });
+
+  it("never zeroes a cell whose projected point is outside the viewport", () => {
+    const field = makeField();
+    const map: WaterMaskMap = {
+      project: () => ({ x: -50, y: -50 }), // off-screen
+      queryRenderedFeatures: () => [], // would say "land" if asked
+    };
+    maskFieldToWater(field, map, { width: 800, height: 600, waterLayerIds: ["water"] });
+    expect(field.cells[0].speed).toBe(0.5); // left alone, not blanked
+    expect(field.cells[1].speed).toBe(0.5);
+  });
+
+  it("treats a thrown projection/query error as water (leaves the cell)", () => {
+    const field = makeField();
+    const map: WaterMaskMap = {
+      project: () => {
+        throw new Error("not ready");
+      },
+      queryRenderedFeatures: () => [],
+    };
+    maskFieldToWater(field, map, { width: 800, height: 600, waterLayerIds: ["water"] });
+    expect(field.cells[0].speed).toBe(0.5);
+    expect(field.cells[1].speed).toBe(0.5);
+  });
+
+  it("no-ops when there are no water layer ids (errs toward not blanking)", () => {
+    const field = makeField();
+    let queried = false;
+    const map: WaterMaskMap = {
+      project: () => ({ x: 100, y: 100 }),
+      queryRenderedFeatures: () => {
+        queried = true;
+        return [];
+      },
+    };
+    maskFieldToWater(field, map, { width: 800, height: 600, waterLayerIds: [] });
+    expect(queried).toBe(false);
+    expect(field.cells[0].speed).toBe(0.5);
+  });
+
+  it("skips already-dead cells", () => {
+    const field: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: -117.2, lat: 32.7, vx: 0, vy: 0, speed: 0, alpha: 0 }],
+    };
+    let queried = false;
+    const map: WaterMaskMap = {
+      project: () => ({ x: 100, y: 100 }),
+      queryRenderedFeatures: () => {
+        queried = true;
+        return [];
+      },
+    };
+    maskFieldToWater(field, map, { width: 800, height: 600, waterLayerIds: ["water"] });
+    expect(queried).toBe(false);
   });
 });

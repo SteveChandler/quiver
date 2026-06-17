@@ -47,6 +47,8 @@ import {
 import {
   buildFlowField,
   computeCoastalBounds,
+  detectWaterLayerIds,
+  maskFieldToWater,
   partitionToPoint,
   type BeachPartitionPoint,
   type FlowField,
@@ -578,6 +580,31 @@ export function InteractiveMap({
     swellLayerIdRef.current = swellLayerId;
   }, [swellLayerId]);
 
+  // Mask the live flow field to water IN PLACE (Windy shows waves only on the sea).
+  // Robust against the timing pitfall that blanked an earlier attempt: only zeroes
+  // in-viewport cells that miss the basemap water layer, never touches off-screen
+  // cells, treats a throw as water, and no-ops when no water layers are detected.
+  // Skipped for the wind layer (over-land wind is fine).
+  const applyWaterMask = useCallback((map: mapboxgl.Map): void => {
+    if (swellLayerIdRef.current === "wind") return;
+    const field = flowFieldRef.current;
+    if (field.cells.length === 0) return;
+    let waterLayerIds: string[] = [];
+    try {
+      const style = map.getStyle();
+      waterLayerIds = detectWaterLayerIds(style?.layers ?? []);
+    } catch {
+      return; // can't read the style yet → leave the field intact
+    }
+    if (waterLayerIds.length === 0) return;
+    const canvas = map.getCanvas();
+    maskFieldToWater(field, map as unknown as Parameters<typeof maskFieldToWater>[1], {
+      width: canvas.clientWidth,
+      height: canvas.clientHeight,
+      waterLayerIds,
+    });
+  }, []);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !isMapReady || !showSwellField) {
@@ -607,9 +634,30 @@ export function InteractiveMap({
       },
       12
     );
+    // Best-effort mask now; the idle/moveend listener re-masks once tiles render.
+    applyWaterMask(map);
     // Nudge a repaint so a static (reduced-motion) frame reflects the new field.
     map.triggerRepaint();
-  }, [partitionsMap, swellFieldBeaches, swellLayerId, swellTimelineIndex, isMapReady, showSwellField, beaches, mapBounds]);
+  }, [partitionsMap, swellFieldBeaches, swellLayerId, swellTimelineIndex, isMapReady, showSwellField, beaches, mapBounds, applyWaterMask]);
+
+  // Re-mask the field to water once the map has actually rendered tiles. Running on
+  // `idle` (fired after tiles finish loading) and `moveend` is what makes the mask
+  // robust — querying rendered features before tiles paint returns nothing and would
+  // blank the field. Re-masks the existing field in place (cheap) and repaints.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isMapReady || !showSwellField) return;
+    const remask = (): void => {
+      applyWaterMask(map);
+      map.triggerRepaint();
+    };
+    map.on("idle", remask);
+    map.on("moveend", remask);
+    return () => {
+      map.off("idle", remask);
+      map.off("moveend", remask);
+    };
+  }, [isMapReady, showSwellField, applyWaterMask]);
 
   useEffect(() => {
     const map = mapRef.current;
