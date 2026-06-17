@@ -23,11 +23,22 @@ export const SWELL_MAP_STICKER_SHADOW = "2px 3px 0 0 rgba(0,0,0,0.35)";
 export const SWELL_MAP_STICKER_RADIUS = "12px 4px 14px 6px"; // asymmetric
 
 // Layer accent colors — sanctioned palette only, NO cyan/purple.
+// Used for the UI chips / layer selector (bright on the navy panels).
 export const SWELL_LAYER_COLOR: Record<SwellLayerId, string> = {
   s1: "#F78E42",   // primary swell — Charming Orange (decorative)
   s2: "#FDB84B",   // secondary swell — Paradise Gold
   wind: "#00D4AA", // wind — Pacific Teal (the ONE sanctioned teal; NOT #38bdf8 cyan)
   combined: "#F78E42",
+};
+
+// Particle-trail colors for the Windy-style swell flow field on the LIGHT basemap.
+// Darker, saturated variants of the layer accents so normal-blended dashes read
+// against light-blue water (the bright SWELL_LAYER_COLOR washes out on light fill).
+export const SWELL_FIELD_PARTICLE_COLOR: Record<SwellLayerId, string> = {
+  s1: "#B5450F",   // deep rust-orange (dark Charming Orange)
+  s2: "#A35E00",   // dark amber (dark Paradise Gold)
+  wind: "#0B6E63", // deep teal (dark Pacific Teal)
+  combined: "#B5450F",
 };
 
 // CTA tokens (Tailwind classes). Interactive buttons w/ white text MUST use ocean-blue

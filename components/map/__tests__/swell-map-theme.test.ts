@@ -3,6 +3,7 @@ import {
   SWELL_MAP_STICKER_SHADOW,
   SWELL_MAP_STICKER_RADIUS,
   SWELL_LAYER_COLOR,
+  SWELL_FIELD_PARTICLE_COLOR,
   SWELL_MAP_CTA_CLASS,
   buildLegendRampCss,
   degreesToCompass,
@@ -30,6 +31,28 @@ describe("swell-map-theme tokens", () => {
     expect(SWELL_LAYER_COLOR.combined).toBe("#F78E42");
     const banned = ["#38bdf8", "#47e0d1", "#67e8f9", "#7dd3fc", "#7c3aed", "#9333ea", "#818cf8"];
     const values = Object.values(SWELL_LAYER_COLOR).map((c) => c.toLowerCase());
+    for (const bad of banned) expect(values).not.toContain(bad);
+  });
+
+  it("maps each layer to a DARK particle color for the light-basemap flow field", () => {
+    expect(SWELL_FIELD_PARTICLE_COLOR.s1).toBe("#B5450F");
+    expect(SWELL_FIELD_PARTICLE_COLOR.s2).toBe("#A35E00");
+    expect(SWELL_FIELD_PARTICLE_COLOR.wind).toBe("#0B6E63");
+    expect(SWELL_FIELD_PARTICLE_COLOR.combined).toBe("#B5450F");
+    // Particle colors must be darker than the bright UI-chip colors so normal-blended
+    // dashes read on light-blue water (a higher hex sum means a lighter color).
+    const hexSum = (hex: string): number =>
+      parseInt(hex.slice(1, 3), 16) +
+      parseInt(hex.slice(3, 5), 16) +
+      parseInt(hex.slice(5, 7), 16);
+    for (const id of ["s1", "s2", "wind", "combined"] as SwellLayerId[]) {
+      expect(hexSum(SWELL_FIELD_PARTICLE_COLOR[id])).toBeLessThan(
+        hexSum(SWELL_LAYER_COLOR[id])
+      );
+    }
+    // Still no banned cyan/purple hues.
+    const banned = ["#38bdf8", "#47e0d1", "#67e8f9", "#7dd3fc", "#7c3aed", "#9333ea", "#818cf8"];
+    const values = Object.values(SWELL_FIELD_PARTICLE_COLOR).map((c) => c.toLowerCase());
     for (const bad of banned) expect(values).not.toContain(bad);
   });
 
