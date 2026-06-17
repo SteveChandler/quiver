@@ -6,9 +6,10 @@ import {
 } from "@/lib/analytics/ios-app-cta-tracking";
 import { track } from "@/lib/analytics";
 import {
+  APP_FIRST_CAMPAIGN,
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_DESTINATION_STATUS,
-  IOS_APP_STORE_URL,
+  iosAppStoreUrlWithCampaign,
 } from "@/lib/constants/app-store";
 
 jest.mock("@/lib/analytics", () => ({
@@ -21,6 +22,8 @@ jest.mock("@/lib/utils/visitor-id", () => ({
 
 const mockFetch = jest.fn(() => Promise.resolve({ ok: true } as Response));
 const mockTrack = track as jest.Mock;
+const IOS_APP_STORE_CAMPAIGN_URL =
+  iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN);
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -42,7 +45,7 @@ describe("ios-app-cta-tracking", () => {
       platform: "ios",
       destination_type: "app_store",
       destination_status: IOS_APP_STORE_DESTINATION_STATUS,
-      destination_url: IOS_APP_STORE_URL,
+      destination_url: IOS_APP_STORE_CAMPAIGN_URL,
       cta_text: IOS_APP_STORE_CTA,
       page_type: "other",
       query_intent: "other",
@@ -90,7 +93,7 @@ describe("ios-app-cta-tracking", () => {
       platform: "ios",
       destination_type: "app_store",
       destination_status: IOS_APP_STORE_DESTINATION_STATUS,
-      destination_url: IOS_APP_STORE_URL,
+      destination_url: IOS_APP_STORE_CAMPAIGN_URL,
       cta_text: IOS_APP_STORE_CTA,
       page_type: "other",
       query_intent: "other",
