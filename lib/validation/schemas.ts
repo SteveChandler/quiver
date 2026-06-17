@@ -131,6 +131,15 @@ export const IntelPostCreateSchema = z.object({
 
 export type IntelPostCreateInput = z.infer<typeof IntelPostCreateSchema>;
 
+export const AppLinkEmailSchema = z.object({
+  email: z.string().email("Enter a valid email address.").max(254),
+  source: z.string().max(64).optional(),
+  surface: z.string().max(64).optional(),
+  placement: z.string().max(64).optional(),
+});
+
+export type AppLinkEmailInput = z.infer<typeof AppLinkEmailSchema>;
+
 export const IntelReportSchema = z.object({
   reason: z.string()
     .max(500, 'Reason cannot exceed 500 characters')
