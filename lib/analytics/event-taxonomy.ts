@@ -239,6 +239,13 @@ export const VALID_EVENTS = [
   'apple_beta_prompt_open_testflight_clicked',
   'apple_beta_prompt_copy_link_clicked',
   'apple_beta_prompt_dismissed',
+  // App-first landing handoff funnel (web -> native)
+  'app_handoff_view',
+  'app_handoff_qr_rendered',
+  'app_handoff_email_submit',
+  'app_handoff_email_sent',
+  'app_handoff_email_failed',
+  'app_handoff_link_opened',
 ] as const;
 
 export type EventType = (typeof VALID_EVENTS)[number];
@@ -340,6 +347,9 @@ export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   'anon_alert_capture_view',
   'anon_alert_capture_submit',
   'anon_alert_capture_error',
+  // App-first landing handoff funnel - fire for signed-out landing visitors.
+  'app_handoff_view', 'app_handoff_qr_rendered', 'app_handoff_email_submit',
+  'app_handoff_email_sent', 'app_handoff_email_failed', 'app_handoff_link_opened',
 ] as const;
 
 /**
