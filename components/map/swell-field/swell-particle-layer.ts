@@ -212,12 +212,13 @@ export function createSwellParticleLayer(
   const vertexAlpha = new Float32Array(count * 2);
 
   const rng = Math.random;
-  // Fraction of the current viewport a speed=1 particle ADVANCES per frame (drift
-  // speed), scaled to the live Mercator span so motion reads the same at any zoom.
-  // Small => slow, calm Windy-style drift. Kept very gentle (≈3× slower than the
-  // earlier 0.0012) so the crawl matches Windy's pace; dash LENGTH is decoupled via
-  // DASH_FRACTION, so slowing the step does not shrink the marks.
-  const STEP_FRACTION = 0.00022;
+  // Fraction of the current viewport a speed=1 particle ADVANCES per frame, scaled to
+  // the live Mercator span so motion reads the same at any zoom. Very gentle so the
+  // crawl matches Windy's pace; dash LENGTH is decoupled via DASH_FRACTION, so slowing
+  // the step does not shrink the marks. Per-frame step = span * STEP_FRACTION *
+  // cell.speed, and cell.speed is the swell's deep-water celerity (∝ period) — so
+  // longer-period swells visibly drift faster, short-period swells slower.
+  const STEP_FRACTION = 0.00012;
   // Fixed dash LENGTH as a fraction of the viewport span, DECOUPLED from drift speed
   // so dashes stay visible (~10px) no matter how slow they move. Tying length to the
   // per-frame step made slow dashes sub-pixel and invisible.
@@ -265,7 +266,9 @@ export function createSwellParticleLayer(
       const merc = new mapboxgl.MercatorCoordinate(px[i], py[i]);
       const ll = merc.toLngLat();
       const cell = sampleField(field, ll.lng, ll.lat);
-      const step = span * STEP_FRACTION * (0.25 + cell.speed);
+      // Drift rate is driven by the swell's celerity (cell.speed ∝ period) — no flat
+      // floor, so the motion genuinely reflects how fast each swell is moving.
+      const step = span * STEP_FRACTION * cell.speed;
       // Screen-y down maps to +Mercator-y down, so vy sign is consistent.
       px[i] += cell.vx * step;
       py[i] += cell.vy * step;
