@@ -28,7 +28,10 @@ export function SwellLayerSelector({
   return (
     <div
       data-testid="swell-layer-selector"
-      className="pointer-events-auto absolute right-3 top-3 z-10 flex flex-col gap-1.5 p-2"
+      // top-16 (64px) clears the "Use My Actual Location" control above it
+      // (absolute top-4 right-4, an h-10/40px button spanning 16–56px) on both
+      // desktop and mobile, so the two no longer overlap in the top-right corner.
+      className="pointer-events-auto absolute right-3 top-16 z-10 flex flex-col gap-1.5 p-2"
       style={{
         background: SWELL_MAP_SURFACE.panel,
         border: `1px solid ${SWELL_MAP_SURFACE.border}`,
