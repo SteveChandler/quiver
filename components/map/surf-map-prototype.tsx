@@ -738,7 +738,7 @@ export function SurfMapPrototype() {
         <Button
           type="button"
           size="sm"
-          className="h-8 rounded-full bg-[#f78e42] px-3 font-semibold text-white hover:bg-[#ff7f11]"
+          className={cn("h-8 rounded-full px-3 font-semibold", SWELL_MAP_CTA_CLASS)}
         >
           <Smartphone className="h-4 w-4" />
           Get app
@@ -747,7 +747,8 @@ export function SurfMapPrototype() {
           type="button"
           variant="secondary"
           size="sm"
-          className="h-8 rounded-full bg-black/42 px-3 text-white hover:bg-black/58"
+          className="h-8 rounded-full px-3 text-white hover:text-white"
+          style={{ background: SWELL_MAP_SURFACE.panel, boxShadow: SWELL_MAP_STICKER_SHADOW }}
         >
           Login
         </Button>
@@ -885,7 +886,7 @@ export function SurfMapPrototype() {
           <Button
             type="button"
             size="xs"
-            className="h-8 flex-1 bg-[#f78e42] text-white hover:bg-[#ff7f11]"
+            className={cn("h-8 flex-1", SWELL_MAP_CTA_CLASS)}
           >
             <Bell className="h-3.5 w-3.5" />
             Alert me
@@ -894,7 +895,8 @@ export function SurfMapPrototype() {
             type="button"
             variant="secondary"
             size="xs"
-            className="h-8 flex-1 bg-white/12 text-white hover:bg-white/20"
+            className="h-8 flex-1 text-white hover:text-white"
+            style={{ background: SWELL_MAP_SURFACE.panelDeep }}
           >
             <Heart className="h-3.5 w-3.5" />
             Save spot

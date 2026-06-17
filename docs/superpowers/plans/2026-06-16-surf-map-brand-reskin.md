@@ -717,7 +717,7 @@ No TDD (visual + typography). Add `font-mono` to all technical numeric VALUES (k
 
 No TDD (visual + WCAG). Every white-text orange button becomes the AA-safe ocean-blue CTA. The particle stroke color already follows `SURF_LAYERS[].color`, which Task 4 pointed at `SWELL_LAYER_COLOR` — so the canvas now strokes sanctioned hues automatically. This task just verifies that and fixes the remaining raw-orange buttons.
 
-- [ ] **Step 1: Fix the desktop "Get app" CTA (was 691-698).**
+- [x] **Step 1: Fix the desktop "Get app" CTA (was 691-698).**
   Replace its className. `bg-[#f78e42] ... hover:bg-[#ff7f11]` fails AA with white text — use the CTA token:
   ```tsx
           <Button
@@ -730,7 +730,7 @@ No TDD (visual + WCAG). Every white-text orange button becomes the AA-safe ocean
           </Button>
   ```
 
-- [ ] **Step 2: Fix the "Login" pill next to it (was 699-706).**
+- [x] **Step 2: Fix the "Login" pill next to it (was 699-706).**
   `bg-black/42` is off-brand chrome — navy it (still a secondary action, lower emphasis than the ocean-blue CTA):
   ```tsx
           <Button
@@ -744,7 +744,7 @@ No TDD (visual + WCAG). Every white-text orange button becomes the AA-safe ocean
           </Button>
   ```
 
-- [ ] **Step 3: Fix the "Alert me" CTA (was 821-828).**
+- [x] **Step 3: Fix the "Alert me" CTA (was 821-828).**
   Replace its className:
   ```tsx
             <Button
@@ -757,7 +757,7 @@ No TDD (visual + WCAG). Every white-text orange button becomes the AA-safe ocean
             </Button>
   ```
 
-- [ ] **Step 4: Fix the "Save spot" secondary CTA (was 829-837).**
+- [x] **Step 4: Fix the "Save spot" secondary CTA (was 829-837).**
   `bg-white/12` is low-contrast chrome — navy it for consistency:
   ```tsx
             <Button
@@ -772,31 +772,31 @@ No TDD (visual + WCAG). Every white-text orange button becomes the AA-safe ocean
             </Button>
   ```
 
-- [ ] **Step 5: Confirm no white-text raw-orange CTA remains.**
+- [x] **Step 5: Confirm no white-text raw-orange CTA remains.**
   ```bash
   grep -nE "bg-\[#f78e42\]|#ff7f11|bg-black/42|bg-black/35|bg-black/58|bg-black/50" components/map/surf-map-prototype.tsx
   ```
   Expected: NO matches.
 
-- [ ] **Step 6: Verify the particle stroke uses sanctioned colors (no code change expected).**
+- [x] **Step 6: Verify the particle stroke uses sanctioned colors (no code change expected).**
   ```bash
   grep -nE "shadowColor = activeLayer.color|strokeStyle = activeLayer.color" components/map/surf-map-prototype.tsx
   ```
   Expected: BOTH lines present and unchanged — `activeLayer.color` resolves through `LAYER_BY_ID` -> `SURF_LAYERS[].color` -> `SWELL_LAYER_COLOR`, which Task 4 made sanctioned. No banned hue can reach the canvas stroke. (If this grep returns nothing, a prior task accidentally removed the stroke — stop and investigate.)
 
-- [ ] **Step 7: Scoped lint on the touched files (catches any now-unused theme import).**
+- [x] **Step 7: Scoped lint on the touched files (catches any now-unused theme import).**
   ```bash
   npx eslint --max-warnings=0 components/map/surf-map-prototype.tsx components/map/swell-map-theme.ts app/surf-map-prototype/page.tsx
   ```
   Expected: clean. (`degreesToCompass` is consumed in Task 9's layer meta; if you reach this point before Task 9 and lint flags it unused, leave the import and proceed — Task 9 consumes it. Alternatively gate the import addition in Task 2 to the symbols used so far and add `degreesToCompass` in Task 9. Pick one and stay consistent.)
 
-- [ ] **Step 8: Typecheck.**
+- [x] **Step 8: Typecheck.**
   ```bash
   NODE_OPTIONS="--max-old-space-size=8192" yarn typecheck
   ```
   Expected: clean.
 
-- [ ] **Step 9: Commit.**
+- [x] **Step 9: Commit.**
   ```bash
   git add components/map/surf-map-prototype.tsx
   git commit -m "fix(map): swap white-text orange CTAs to AA-safe ocean-blue"
