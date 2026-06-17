@@ -55,6 +55,7 @@ import {
 } from "@/components/map/swell-field/field-sampler";
 import { createSwellParticleLayer } from "@/components/map/swell-field/swell-particle-layer";
 import { SwellLayerSelector } from "@/components/map/swell-field/swell-layer-selector";
+import { SwellFieldLegend } from "@/components/map/swell-field/swell-field-legend";
 import { SwellForecastTimeline } from "@/components/map/swell-field/swell-forecast-timeline";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
@@ -1292,6 +1293,13 @@ export function InteractiveMap({
       {displayMode === "wave-height" && <MapConditionLegend />}
       {showSwellField && onSwellLayerChange && (
         <SwellLayerSelector active={swellLayerId} onChange={onSwellLayerChange} />
+      )}
+      {showSwellField && (
+        // Sits in the same right-side stack, below the layer selector
+        // (top-16 + the selector's header/2x2 grid). top-[10.5rem] clears it.
+        <div className="pointer-events-none absolute right-3 top-[10.5rem] z-10">
+          <SwellFieldLegend activeLayer={swellLayerId} />
+        </div>
       )}
       {showSwellField && onSwellTimelineChange && swellTimelineSteps.length > 0 && (
         <SwellForecastTimeline
