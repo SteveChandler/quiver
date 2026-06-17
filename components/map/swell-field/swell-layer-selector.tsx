@@ -54,17 +54,21 @@ export function SwellLayerSelector({
               aria-current={isActive ? "true" : undefined}
               data-testid={`swell-layer-${layer.id}`}
               onClick={() => onChange(layer.id)}
-              className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-[11px] font-semibold text-white transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+              className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
               style={{
-                background: isActive
-                  ? SWELL_MAP_SURFACE.panelDeep
-                  : "transparent",
+                // Active chip: solid fill in its layer color + dark bold text, so the
+                // selected field is unmistakable at a glance. Inactive: transparent.
+                background: isActive ? SWELL_LAYER_COLOR[layer.id] : "transparent",
+                color: isActive ? "#161A40" : "rgba(255,255,255,0.85)",
+                fontWeight: isActive ? 800 : 600,
               }}
             >
               <span
                 aria-hidden="true"
                 className="h-2.5 w-2.5 rounded-full"
-                style={{ background: SWELL_LAYER_COLOR[layer.id] }}
+                style={{
+                  background: isActive ? "#161A40" : SWELL_LAYER_COLOR[layer.id],
+                }}
               />
               {layer.label}
             </button>

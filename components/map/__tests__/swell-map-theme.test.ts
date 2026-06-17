@@ -35,10 +35,10 @@ describe("swell-map-theme tokens", () => {
   });
 
   it("maps each layer to a DARK particle color for the light-basemap flow field", () => {
-    expect(SWELL_FIELD_PARTICLE_COLOR.s1).toBe("#B5450F");
-    expect(SWELL_FIELD_PARTICLE_COLOR.s2).toBe("#A35E00");
-    expect(SWELL_FIELD_PARTICLE_COLOR.wind).toBe("#0B6E63");
-    expect(SWELL_FIELD_PARTICLE_COLOR.combined).toBe("#B5450F");
+    expect(SWELL_FIELD_PARTICLE_COLOR.s1).toBe("#8F3408");
+    expect(SWELL_FIELD_PARTICLE_COLOR.s2).toBe("#6E4500");
+    expect(SWELL_FIELD_PARTICLE_COLOR.wind).toBe("#064A43");
+    expect(SWELL_FIELD_PARTICLE_COLOR.combined).toBe("#8F3408");
     // Particle colors must be darker than the bright UI-chip colors so normal-blended
     // dashes read on light-blue water (a higher hex sum means a lighter color).
     const hexSum = (hex: string): number =>

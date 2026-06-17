@@ -163,7 +163,7 @@ export function createSwellParticleLayer(
   // Fixed dash LENGTH as a fraction of the viewport span, DECOUPLED from drift speed
   // so dashes stay visible (~10px) no matter how slow they move. Tying length to the
   // per-frame step made slow dashes sub-pixel and invisible.
-  const DASH_FRACTION = 0.012;
+  const DASH_FRACTION = 0.016;
 
   function viewBoxMercator(map: mapboxgl.Map): MercatorBox {
     const b = map.getBounds();
@@ -239,7 +239,7 @@ export function createSwellParticleLayer(
       const trail = 1 - page[i] / life[i];
       const fade =
         cell.speed > 0
-          ? Math.min(1, 0.55 + cell.alpha) * trail
+          ? Math.min(1, 0.85 + cell.alpha) * Math.min(1, trail * 4)
           : 0;
       // Draw a fixed-length dash oriented PERPENDICULAR to the flow vector, centered
       // on the particle, so each mark reads as a wave CREST (a wave front) rather than
@@ -302,7 +302,7 @@ export function createSwellParticleLayer(
       gl.uniform3f(uColorLoc, r, g, b);
       // Near-opaque so the dark dashes read crisply on the light basemap; the static
       // reduced-motion frame stays a touch dimmer.
-      gl.uniform1f(uAlphaLoc, options.reducedMotion ? 0.8 : 0.9);
+      gl.uniform1f(uAlphaLoc, options.reducedMotion ? 0.95 : 1.0);
 
       gl.enable(gl.BLEND);
       // Normal alpha blending — dark marks paint over the light water (additive glow

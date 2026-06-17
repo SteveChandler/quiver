@@ -35,10 +35,10 @@ export const SWELL_LAYER_COLOR: Record<SwellLayerId, string> = {
 // Darker, saturated variants of the layer accents so normal-blended dashes read
 // against light-blue water (the bright SWELL_LAYER_COLOR washes out on light fill).
 export const SWELL_FIELD_PARTICLE_COLOR: Record<SwellLayerId, string> = {
-  s1: "#B5450F",   // deep rust-orange (dark Charming Orange)
-  s2: "#A35E00",   // dark amber (dark Paradise Gold)
-  wind: "#0B6E63", // deep teal (dark Pacific Teal)
-  combined: "#B5450F",
+  s1: "#8F3408",   // dark rust-orange — high contrast on light-blue water
+  s2: "#6E4500",   // dark brown-amber — distinct from primary, reads on light water
+  wind: "#064A43", // very dark teal — darkness gives contrast vs the blue ocean
+  combined: "#8F3408",
 };
 
 // CTA tokens (Tailwind classes). Interactive buttons w/ white text MUST use ocean-blue
