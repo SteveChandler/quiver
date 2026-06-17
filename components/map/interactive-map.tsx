@@ -68,6 +68,29 @@ import { useReducedMotion } from "@/hooks/use-reduced-motion";
 const SWELL_FIELD_MIN_ZOOM = 9;
 const SWELL_FIELD_MAX_ZOOM = 13.5;
 
+// Base custom-layer id for the single-layer swell field.
+const SWELL_FIELD_LAYER_ID = "quiver-swell-field";
+// Component sub-layers overlaid for the "combined" view, each its own GL layer +
+// flow field + color. Per-layer ids derive as `${SWELL_FIELD_LAYER_ID}-${id}`.
+const COMBINED_SUBLAYERS: ReadonlyArray<"s1" | "s2" | "wind"> = [
+  "s1",
+  "s2",
+  "wind",
+];
+// Per-layer particle count for the combined view so three stacked layers stay in
+// budget (3 × 1600 = 4800 total ≤ ~5000).
+const COMBINED_PARTICLE_COUNT = 1600;
+
+const EMPTY_FLOW_FIELD: FlowField = { cols: 0, rows: 0, cells: [] };
+
+/** Sub-layer component ids whose flow fields a given active layer needs built. */
+function componentsForLayer(
+  layerId: SwellLayerId
+): ReadonlyArray<"s1" | "s2" | "wind"> {
+  if (layerId === "combined") return COMBINED_SUBLAYERS;
+  return [layerId];
+}
+
 /** Captured zoom limits so the free camera can be restored exactly on toggle-off. */
 interface CapturedZoomLimits {
   minZoom: number;
@@ -192,8 +215,14 @@ export function InteractiveMap({
   // Loader-resolved beaches that partitionsMap is keyed by (the prop may be empty).
   const [swellFieldBeaches, setSwellFieldBeaches] = useState<Beach[]>([]);
   const reducedMotion = useReducedMotion();
-  // Live flow field read by the GL layer each frame (avoids re-adding the layer on scrub).
-  const flowFieldRef = useRef<FlowField>({ cols: 0, rows: 0, cells: [] });
+  // Live per-component flow fields read by the GL layers each frame (avoids re-adding
+  // a layer on scrub). Keyed by component id: a single active layer populates just its
+  // own key; the "combined" view populates s1/s2/wind so three layers can overlay.
+  const flowFieldsRef = useRef<Record<"s1" | "s2" | "wind", FlowField>>({
+    s1: EMPTY_FLOW_FIELD,
+    s2: EMPTY_FLOW_FIELD,
+    wind: EMPTY_FLOW_FIELD,
+  });
   // Free-camera zoom limits captured before the swell-field leash, for exact restore.
   // Non-null only while the leash is applied — also gates the release path so we
   // never touch the camera constraint API when it was never set.
@@ -580,15 +609,16 @@ export function InteractiveMap({
     swellLayerIdRef.current = swellLayerId;
   }, [swellLayerId]);
 
-  // Mask the live flow field to water IN PLACE (Windy shows waves only on the sea).
-  // Robust against the timing pitfall that blanked an earlier attempt: only zeroes
-  // in-viewport cells that miss the basemap water layer, never touches off-screen
-  // cells, treats a throw as water, and no-ops when no water layers are detected.
-  // Skipped for the wind layer (over-land wind is fine).
+  // Mask the live swell flow fields to water IN PLACE (Windy shows waves only on the
+  // sea). Robust against the timing pitfall that blanked an earlier attempt: only
+  // zeroes in-viewport cells that miss the basemap water layer, never touches
+  // off-screen cells, treats a throw as water, and no-ops when no water layers are
+  // detected. The WIND component is never masked (over-land wind is fine), whether
+  // it is the active single layer or a sub-layer of the combined view.
   const applyWaterMask = useCallback((map: mapboxgl.Map): void => {
-    if (swellLayerIdRef.current === "wind") return;
-    const field = flowFieldRef.current;
-    if (field.cells.length === 0) return;
+    const components = componentsForLayer(swellLayerIdRef.current);
+    const maskable = components.filter((c) => c !== "wind");
+    if (maskable.length === 0) return;
     let waterLayerIds: string[] = [];
     try {
       const style = map.getStyle();
@@ -598,42 +628,66 @@ export function InteractiveMap({
     }
     if (waterLayerIds.length === 0) return;
     const canvas = map.getCanvas();
-    maskFieldToWater(field, map as unknown as Parameters<typeof maskFieldToWater>[1], {
-      width: canvas.clientWidth,
-      height: canvas.clientHeight,
-      waterLayerIds,
-    });
+    for (const component of maskable) {
+      const field = flowFieldsRef.current[component];
+      if (field.cells.length === 0) continue;
+      maskFieldToWater(
+        field,
+        map as unknown as Parameters<typeof maskFieldToWater>[1],
+        {
+          width: canvas.clientWidth,
+          height: canvas.clientHeight,
+          waterLayerIds,
+        }
+      );
+    }
   }, []);
 
   useEffect(() => {
     const map = mapRef.current;
+    const resetFields = (): void => {
+      flowFieldsRef.current = {
+        s1: EMPTY_FLOW_FIELD,
+        s2: EMPTY_FLOW_FIELD,
+        wind: EMPTY_FLOW_FIELD,
+      };
+    };
     if (!map || !isMapReady || !showSwellField) {
-      flowFieldRef.current = { cols: 0, rows: 0, cells: [] };
+      resetFields();
       return;
-    }
-    const beachList = swellFieldBeaches.length > 0 ? swellFieldBeaches : (beaches ?? []);
-    const points: BeachPartitionPoint[] = [];
-    for (const beach of beachList) {
-      const partition = partitionsMap.get(beach.id);
-      if (!partition || beach.lat == null || beach.lon == null) continue;
-      const point = partitionToPoint(beach.lon, beach.lat, partition, swellLayerId);
-      if (point) points.push(point);
     }
     const b = map.getBounds();
     if (!b) {
-      flowFieldRef.current = { cols: 0, rows: 0, cells: [] };
+      resetFields();
       return;
     }
-    flowFieldRef.current = buildFlowField(
-      points,
-      {
-        west: b.getWest(),
-        south: b.getSouth(),
-        east: b.getEast(),
-        north: b.getNorth(),
-      },
-      12
-    );
+    const bounds = {
+      west: b.getWest(),
+      south: b.getSouth(),
+      east: b.getEast(),
+      north: b.getNorth(),
+    };
+    const beachList =
+      swellFieldBeaches.length > 0 ? swellFieldBeaches : (beaches ?? []);
+    const components = componentsForLayer(swellLayerId);
+    // Build a flow field per active component (one for a single layer, three for
+    // combined); leave the rest empty so stale fields never render.
+    const nextFields: Record<"s1" | "s2" | "wind", FlowField> = {
+      s1: EMPTY_FLOW_FIELD,
+      s2: EMPTY_FLOW_FIELD,
+      wind: EMPTY_FLOW_FIELD,
+    };
+    for (const component of components) {
+      const points: BeachPartitionPoint[] = [];
+      for (const beach of beachList) {
+        const partition = partitionsMap.get(beach.id);
+        if (!partition || beach.lat == null || beach.lon == null) continue;
+        const point = partitionToPoint(beach.lon, beach.lat, partition, component);
+        if (point) points.push(point);
+      }
+      nextFields[component] = buildFlowField(points, bounds, 12);
+    }
+    flowFieldsRef.current = nextFields;
     // Best-effort mask now; the idle/moveend listener re-masks once tiles render.
     applyWaterMask(map);
     // Nudge a repaint so a static (reduced-motion) frame reflects the new field.
@@ -662,33 +716,62 @@ export function InteractiveMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !isMapReady) return;
-    const layerId = "quiver-swell-field";
 
-    if (!showSwellField) {
-      if (map.getLayer(layerId)) map.removeLayer(layerId);
-      return;
-    }
+    // Every swell GL layer id this component can mount: the single-layer id plus the
+    // three combined sub-layer ids. Removing the full set before (re)adding the active
+    // set guarantees no layer leaks when switching between combined and a single layer.
+    const allLayerIds = [
+      SWELL_FIELD_LAYER_ID,
+      ...COMBINED_SUBLAYERS.map((c) => `${SWELL_FIELD_LAYER_ID}-${c}`),
+    ];
+    const removeAll = (): void => {
+      for (const id of allLayerIds) {
+        if (map.getLayer(id)) map.removeLayer(id);
+      }
+    };
+
+    removeAll();
+    if (!showSwellField) return;
 
     // Keep the light basemap (Windy-style). Dark, normal-blended particles read
     // directly on the light-blue water — no recolor needed.
-    if (map.getLayer(layerId)) map.removeLayer(layerId);
     const viewportWidthPx =
       typeof window !== "undefined" ? window.innerWidth : 1024;
-    map.addLayer(
-      createSwellParticleLayer({
-        id: layerId,
-        getField: () => flowFieldRef.current,
-        getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[swellLayerIdRef.current],
-        reducedMotion,
-        viewportWidthPx,
-      })
-    );
 
-    return () => {
-      if (map.getLayer(layerId)) map.removeLayer(layerId);
-    };
-    // Re-add only when toggled, motion preference flips, or the map (re)mounts.
-  }, [showSwellField, isMapReady, reducedMotion]);
+    if (swellLayerId === "combined") {
+      // Overlay the three components, each its own colored layer + flow field. Cap
+      // per-layer particle count so three stacked layers stay in budget.
+      for (const component of COMBINED_SUBLAYERS) {
+        map.addLayer(
+          createSwellParticleLayer({
+            id: `${SWELL_FIELD_LAYER_ID}-${component}`,
+            getField: () => flowFieldsRef.current[component],
+            getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[component],
+            reducedMotion,
+            viewportWidthPx,
+            count: COMBINED_PARTICLE_COUNT,
+          })
+        );
+      }
+    } else {
+      // Single active layer. getField/getColorHex read refs each frame so a timeline
+      // scrub or layer recolor applies without re-adding the layer.
+      const activeComponent = swellLayerId;
+      map.addLayer(
+        createSwellParticleLayer({
+          id: SWELL_FIELD_LAYER_ID,
+          getField: () => flowFieldsRef.current[activeComponent],
+          getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[swellLayerIdRef.current],
+          reducedMotion,
+          viewportWidthPx,
+        })
+      );
+    }
+
+    return removeAll;
+    // Re-add when toggled, the active layer changes (the layer SET differs between
+    // combined and single), motion preference flips, or the map (re)mounts.
+  }, [showSwellField, isMapReady, reducedMotion, swellLayerId]);
 
   // Leash the camera to the coastal data corridor while the swell field is ON.
   // Locks zoom (so users can't pull back to open-ocean/continent scale) and pins

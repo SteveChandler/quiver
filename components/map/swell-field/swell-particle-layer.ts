@@ -115,6 +115,12 @@ export interface SwellParticleLayerOptions {
   reducedMotion: boolean;
   /** CSS viewport width for particle-count scaling. */
   viewportWidthPx: number;
+  /**
+   * Optional explicit particle count, overriding the viewport-derived default.
+   * Used by the combined view to cap per-layer count when three layers stack
+   * (keeps the total in budget).
+   */
+  count?: number;
 }
 
 /**
@@ -124,7 +130,10 @@ export interface SwellParticleLayerOptions {
 export function createSwellParticleLayer(
   options: SwellParticleLayerOptions
 ): mapboxgl.CustomLayerInterface {
-  const count = resolveParticleCount(options.viewportWidthPx);
+  const count =
+    options.count != null && options.count > 0
+      ? Math.floor(options.count)
+      : resolveParticleCount(options.viewportWidthPx);
   let program: WebGLProgram | null = null;
   let posBuffer: WebGLBuffer | null = null;
   let alphaBuffer: WebGLBuffer | null = null;
