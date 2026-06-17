@@ -544,6 +544,7 @@ export function SurfMapPrototype() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [particlesEnabled, setParticlesEnabled] = useState(true);
   const [isolinesEnabled, setIsolinesEnabled] = useState(true);
+  const [favoriteSpotsEnabled, setFavoriteSpotsEnabled] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [spotPositions, setSpotPositions] = useState<Record<string, MarkerPosition>>(
     () => Object.fromEntries(SURF_SPOTS.map((spot) => [spot.id, fallbackPosition(spot)])),
@@ -676,7 +677,7 @@ export function SurfMapPrototype() {
           background: selected ? SWELL_LAYER_COLOR.s1 : SWELL_MAP_SURFACE.panel,
           borderRadius: SWELL_MAP_STICKER_RADIUS,
           boxShadow: SWELL_MAP_STICKER_SHADOW,
-          transform: `translate(-50%, -50%) rotate(${selected ? -1.5 : 1.5}deg)`,
+          transform: `translate(-50%, -50%) rotate(${selected ? -1.5 : 1.5}deg) scale(var(--marker-scale, 1))`,
         },
       };
     },
@@ -881,7 +882,7 @@ export function SurfMapPrototype() {
             aria-pressed={selected}
             aria-current={selected ? "true" : undefined}
             className={cn(
-              "absolute z-10 border border-white/35 px-2.5 py-1 font-mono text-xs font-bold transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]",
+              "absolute z-10 border border-white/35 px-2.5 py-1 font-mono text-xs font-bold transition hover:[--marker-scale:1.12] motion-reduce:transition-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]",
               selected ? "z-20 text-[#161A40]" : "text-white",
             )}
             {...markerStyle(spot)}
@@ -1012,7 +1013,7 @@ export function SurfMapPrototype() {
           <Dialog.Overlay className="fixed inset-0 z-40 bg-[rgba(22,26,64,0.55)] md:hidden" />
           <Dialog.Content
             aria-label="Surf map layers and settings"
-            className="fixed inset-y-0 right-0 z-50 w-[min(292px,74vw)] overflow-y-auto border-l p-3 text-white outline-none data-[state=open]:animate-in data-[state=closed]:animate-out motion-reduce:transition-none md:hidden"
+            className="fixed inset-y-0 right-0 z-50 w-[min(292px,74vw)] overflow-y-auto border-l p-3 text-white outline-none data-[state=open]:animate-in data-[state=closed]:animate-out motion-reduce:transition-none motion-reduce:animate-none md:hidden"
             style={{
               background: SWELL_MAP_SURFACE.panelDeep,
               borderColor: SWELL_MAP_SURFACE.border,
@@ -1154,8 +1155,8 @@ export function SurfMapPrototype() {
               <ToggleRow
                 icon={Star}
                 label="Favorite spots"
-                enabled
-                onClick={() => undefined}
+                enabled={favoriteSpotsEnabled}
+                onClick={() => setFavoriteSpotsEnabled((enabled) => !enabled)}
               />
             </div>
           </Dialog.Content>
