@@ -812,13 +812,13 @@ No TDD (visual + WCAG). Every white-text orange button becomes the AA-safe ocean
 
 This is the key correctness win that ports forward. When reduced motion is preferred: paint exactly ONE static frame and do NOT schedule `requestAnimationFrame`; default `particlesEnabled` off; gate the isoline overlay and the drawer transition with `motion-reduce:transition-none`. We expose a `data-raf-scheduled` attribute on the particle canvas so the E2E smoke can assert the rAF gate without timing flakiness.
 
-- [ ] **Step 1: Import the hook.**
+- [x] **Step 1: Import the hook.**
   After the theme import added in Task 2, add:
   ```ts
   import { useReducedMotion } from "@/hooks/use-reduced-motion";
   ```
 
-- [ ] **Step 2: Thread `reducedMotion` through `runCanvasParticleFallback` (was 282-368).**
+- [x] **Step 2: Thread `reducedMotion` through `runCanvasParticleFallback` (was 282-368).**
   Change the signature and the `render` loop so that when reduced, it paints one frame and returns WITHOUT scheduling rAF, and stamps the canvas `data-raf-scheduled`. Replace the function signature line and the rAF scheduling. New signature:
   ```ts
   function runCanvasParticleFallback(
@@ -862,7 +862,7 @@ This is the key correctness win that ports forward. When reduced motion is prefe
   ```
   (Combined effect: rAF is scheduled ONLY when motion is allowed AND particles are enabled. The `data-raf-scheduled` attribute reflects the real state.)
 
-- [ ] **Step 3: Pass `reducedMotion` through `useParticleCanvas` (was 370-389).**
+- [x] **Step 3: Pass `reducedMotion` through `useParticleCanvas` (was 370-389).**
   Replace the hook so it accepts and forwards `reducedMotion`:
   ```ts
   function useParticleCanvas(
@@ -889,7 +889,7 @@ This is the key correctness win that ports forward. When reduced motion is prefe
   }
   ```
 
-- [ ] **Step 4: Read the preference and default particles accordingly (was 476, 486-490).**
+- [x] **Step 4: Read the preference and default particles accordingly (was 476, 486-490).**
   Add the hook call at the top of the component body and use it to default `particlesEnabled`. Replace the `particlesEnabled` state init AND the `useParticleCanvas` call:
   ```ts
     const reducedMotion = useReducedMotion();
@@ -912,7 +912,7 @@ This is the key correctness win that ports forward. When reduced motion is prefe
     }, [reducedMotion]);
   ```
 
-- [ ] **Step 5: Initialize the data attribute on the canvas element (was 615-620).**
+- [x] **Step 5: Initialize the data attribute on the canvas element (was 615-620).**
   Give the particle canvas a default `data-raf-scheduled="false"` so the attribute exists before first paint:
   ```tsx
         <canvas
@@ -924,7 +924,7 @@ This is the key correctness win that ports forward. When reduced motion is prefe
         />
   ```
 
-- [ ] **Step 6: Gate the isoline overlay and drawer transition for reduced motion (was 622-624, 887-891).**
+- [x] **Step 6: Gate the isoline overlay and drawer transition for reduced motion (was 622-624, 887-891).**
   The isoline overlay is decorative; hide it when reduced motion is preferred. Replace its conditional:
   ```tsx
         {isolinesEnabled && !reducedMotion && (
@@ -936,13 +936,13 @@ This is the key correctness win that ports forward. When reduced motion is prefe
           "... transition-transform duration-300 motion-reduce:transition-none md:hidden",
   ```
 
-- [ ] **Step 7: Typecheck.**
+- [x] **Step 7: Typecheck.**
   ```bash
   NODE_OPTIONS="--max-old-space-size=8192" yarn typecheck
   ```
   Expected: clean.
 
-- [ ] **Step 8: Commit.**
+- [x] **Step 8: Commit.**
   ```bash
   git add components/map/surf-map-prototype.tsx
   git commit -m "feat(map): honor prefers-reduced-motion in particle engine, isolines, and drawer"

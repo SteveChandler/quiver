@@ -44,6 +44,7 @@ import {
   buildLegendRampCss,
   degreesToCompass,
 } from "@/components/map/swell-map-theme";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
 type LayerId = "s1" | "s2" | "wind" | "combined";
 
@@ -293,28 +294,13 @@ function runCanvasParticleFallback(
   layerId: LayerId,
   timeIndex: number,
   particlesEnabled: boolean,
+  reducedMotion: boolean,
 ): () => void {
   const context = canvas.getContext("2d");
   if (!context) return () => undefined;
 
   let animationFrame = 0;
   let particles: Particle[] = [];
-
-  const resize = () => {
-    const rect = canvas.getBoundingClientRect();
-    const ratio = window.devicePixelRatio || 1;
-    canvas.width = Math.max(1, Math.floor(rect.width * ratio));
-    canvas.height = Math.max(1, Math.floor(rect.height * ratio));
-    context.setTransform(ratio, 0, 0, ratio, 0, 0);
-    particles = Array.from({ length: Math.min(950, Math.max(320, Math.round(rect.width * rect.height / 1100))) }, () =>
-      randomParticle(rect.width, rect.height),
-    );
-    context.clearRect(0, 0, rect.width, rect.height);
-  };
-
-  const observer = new ResizeObserver(resize);
-  observer.observe(canvas);
-  resize();
 
   const render = () => {
     const rect = canvas.getBoundingClientRect();
@@ -323,7 +309,7 @@ function runCanvasParticleFallback(
 
     if (!particlesEnabled) {
       context.clearRect(0, 0, width, height);
-      animationFrame = window.requestAnimationFrame(render);
+      canvas.dataset.rafScheduled = "false";
       return;
     }
 
@@ -365,14 +351,37 @@ function runCanvasParticleFallback(
     }
 
     context.globalAlpha = 1;
+    if (reducedMotion || !particlesEnabled) {
+      canvas.dataset.rafScheduled = "false";
+      return;
+    }
     animationFrame = window.requestAnimationFrame(render);
+    canvas.dataset.rafScheduled = "true";
   };
 
-  render();
+  const resize = () => {
+    const rect = canvas.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = Math.max(1, Math.floor(rect.width * ratio));
+    canvas.height = Math.max(1, Math.floor(rect.height * ratio));
+    context.setTransform(ratio, 0, 0, ratio, 0, 0);
+    particles = Array.from({ length: Math.min(950, Math.max(320, Math.round(rect.width * rect.height / 1100))) }, () =>
+      randomParticle(rect.width, rect.height),
+    );
+    context.clearRect(0, 0, rect.width, rect.height);
+    if (reducedMotion && particlesEnabled) render();
+  };
+
+  const observer = new ResizeObserver(resize);
+  observer.observe(canvas);
+  resize();
+
+  if (!reducedMotion || !particlesEnabled) render();
 
   return () => {
     observer.disconnect();
     window.cancelAnimationFrame(animationFrame);
+    canvas.dataset.rafScheduled = "false";
   };
 }
 
@@ -380,6 +389,7 @@ function useParticleCanvas(
   layerId: LayerId,
   timeIndex: number,
   particlesEnabled: boolean,
+  reducedMotion: boolean,
 ) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -391,10 +401,24 @@ function useParticleCanvas(
       layerId,
       timeIndex,
       particlesEnabled,
+      reducedMotion,
     );
-  }, [layerId, particlesEnabled, timeIndex]);
+  }, [layerId, particlesEnabled, timeIndex, reducedMotion]);
 
   return canvasRef;
+}
+
+function useMotionPreferenceChecked(): boolean {
+  const [motionPreferenceChecked, setMotionPreferenceChecked] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.matchMedia) return;
+
+    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setMotionPreferenceChecked(typeof mediaQuery.matches === "boolean");
+  }, []);
+
+  return motionPreferenceChecked;
 }
 
 function SurfLayerButton({
@@ -507,6 +531,9 @@ function recolorBasemapToNavy(map: mapboxgl.Map): void {
 }
 
 export function SurfMapPrototype() {
+  const reducedMotion = useReducedMotion();
+  const motionPreferenceChecked = useMotionPreferenceChecked();
+  const effectiveReducedMotion = !motionPreferenceChecked || reducedMotion;
   const [selectedLayerId, setSelectedLayerId] = useState<LayerId>("combined");
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(2);
   const [selectedSpotId, setSelectedSpotId] = useState("ocean-beach");
@@ -525,7 +552,12 @@ export function SurfMapPrototype() {
     selectedLayerId,
     selectedTimeIndex,
     particlesEnabled,
+    effectiveReducedMotion,
   );
+
+  useEffect(() => {
+    if (motionPreferenceChecked && reducedMotion) setParticlesEnabled(false);
+  }, [motionPreferenceChecked, reducedMotion]);
 
   const selectedLayer = LAYER_BY_ID[selectedLayerId];
   const selectedSpot = useMemo(
@@ -659,11 +691,12 @@ export function SurfMapPrototype() {
       <canvas
         ref={canvasRef}
         data-testid="surf-map-particles"
+        data-raf-scheduled="false"
         className="pointer-events-none absolute inset-0 h-full w-full mix-blend-screen"
         aria-hidden="true"
       />
 
-      {isolinesEnabled && (
+      {isolinesEnabled && !effectiveReducedMotion && (
         <div className="pointer-events-none absolute inset-0 opacity-45 [background-image:repeating-radial-gradient(ellipse_at_70%_52%,transparent_0,transparent_44px,rgba(255,255,255,0.18)_45px,transparent_47px)]" />
       )}
 
@@ -962,7 +995,7 @@ export function SurfMapPrototype() {
 
       <div
         className={cn(
-          "absolute inset-y-0 right-0 z-40 w-[min(292px,74vw)] border-l p-3 transition-transform duration-300 md:hidden",
+          "absolute inset-y-0 right-0 z-40 w-[min(292px,74vw)] border-l p-3 transition-transform duration-300 motion-reduce:transition-none md:hidden",
           menuOpen ? "translate-x-0" : "translate-x-full",
         )}
         style={{
