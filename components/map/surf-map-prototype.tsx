@@ -438,9 +438,10 @@ function SurfLayerButton({
       type="button"
       variant="ghost"
       size="sm"
+      aria-pressed={selected}
       className={cn(
-        "h-auto justify-start rounded-md px-2.5 py-2 text-left text-white hover:bg-white/14 hover:text-white",
-        selected && "bg-white/16 shadow-sm ring-1 ring-white/35",
+        "h-auto justify-start rounded-md px-2.5 py-2 text-left text-white hover:text-white focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#161A40]",
+        selected && "ring-1 ring-white/35",
       )}
       onClick={onClick}
     >
@@ -454,7 +455,7 @@ function SurfLayerButton({
         <span className="block truncate text-sm font-semibold leading-5">
           {layer.label}
         </span>
-        <span className="block truncate text-xs text-white/66">
+        <span className="block truncate font-mono text-xs text-white/70">
           {layer.meta}
         </span>
       </span>
@@ -478,7 +479,9 @@ function ToggleRow({
       type="button"
       variant="ghost"
       size="sm"
-      className="h-10 justify-between rounded-md px-3 text-white hover:bg-white/12 hover:text-white"
+      role="switch"
+      aria-checked={enabled}
+      className="h-10 justify-between rounded-md px-3 text-white hover:text-white focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#161A40]"
       onClick={onClick}
     >
       <span className="flex items-center gap-2">
@@ -486,12 +489,12 @@ function ToggleRow({
         <span>{label}</span>
       </span>
       <span
-        className="h-5 w-9 rounded-full border border-white/28 p-0.5 transition-colors"
+        className="h-5 w-9 rounded-full border border-white/28 p-0.5 transition-colors motion-reduce:transition-none"
         style={{ background: enabled ? SWELL_LAYER_COLOR.wind : "rgba(255,255,255,0.12)" }}
       >
         <span
           className={cn(
-            "block h-3.5 w-3.5 rounded-full bg-white transition-transform",
+            "block h-3.5 w-3.5 rounded-full bg-white transition-transform motion-reduce:transition-none",
             enabled && "translate-x-4",
           )}
         />
@@ -561,6 +564,8 @@ export function SurfMapPrototype() {
   }, [motionPreferenceChecked, reducedMotion]);
 
   const selectedLayer = LAYER_BY_ID[selectedLayerId];
+  const selectedLayerHeading =
+    selectedLayer.id === "wind" ? `wind from ${degreesToCompass(270)}` : selectedLayer.meta;
   const selectedSpot = useMemo(
     () => SURF_SPOTS.find((spot) => spot.id === selectedSpotId) ?? SURF_SPOTS[0],
     [selectedSpotId],
@@ -696,6 +701,9 @@ export function SurfMapPrototype() {
         className="pointer-events-none absolute inset-0 h-full w-full mix-blend-screen"
         aria-hidden="true"
       />
+      <div aria-live="polite" className="sr-only" data-testid="surf-map-live">
+        {`${selectedLayer.label} layer active — ${selectedLayerHeading}`}
+      </div>
 
       {isolinesEnabled && !effectiveReducedMotion && (
         <div className="pointer-events-none absolute inset-0 opacity-45 [background-image:repeating-radial-gradient(ellipse_at_70%_52%,transparent_0,transparent_44px,rgba(255,255,255,0.18)_45px,transparent_47px)]" />
@@ -739,8 +747,10 @@ export function SurfMapPrototype() {
             <button
               key={step.label}
               type="button"
+              aria-pressed={selectedTimeIndex === index}
+              aria-current={selectedTimeIndex === index ? "true" : undefined}
               className={cn(
-                "border-r border-white/10 px-2 py-2 text-left last:border-r-0 hover:bg-white/10",
+                "border-r border-white/10 px-2 py-2 text-left last:border-r-0 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FDB84B]",
                 selectedTimeIndex === index && "bg-white/12",
               )}
               onClick={() => setSelectedTimeIndex(index)}
@@ -961,10 +971,13 @@ export function SurfMapPrototype() {
               <button
                 key={step.label}
                 type="button"
+                aria-pressed={selectedTimeIndex === index}
+                aria-current={selectedTimeIndex === index ? "true" : undefined}
                 className={cn(
-                  "relative min-w-[104px] border-l border-white/12 px-3 text-left text-sm transition hover:bg-white/10",
+                  "relative min-w-[104px] border-l px-3 text-left text-sm transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#FDB84B] motion-reduce:transition-none",
                   selectedTimeIndex === index && "bg-white/12",
                 )}
+                style={{ borderColor: SWELL_MAP_SURFACE.border }}
                 onClick={() => setSelectedTimeIndex(index)}
               >
                 {selectedTimeIndex === index && (
@@ -1030,15 +1043,24 @@ export function SurfMapPrototype() {
               </Dialog.Close>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center text-xs text-white/72">
-              <button type="button" className="rounded-md p-2 hover:bg-white/10">
+              <button
+                type="button"
+                className="rounded-md p-2 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+              >
                 <Smartphone className="mx-auto mb-1 h-5 w-5" />
                 App
               </button>
-              <button type="button" className="rounded-md p-2 hover:bg-white/10">
+              <button
+                type="button"
+                className="rounded-md p-2 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+              >
                 <Bell className="mx-auto mb-1 h-5 w-5" />
                 Alerts
               </button>
-              <button type="button" className="rounded-md p-2 hover:bg-white/10">
+              <button
+                type="button"
+                className="rounded-md p-2 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+              >
                 <Settings className="mx-auto mb-1 h-5 w-5" />
                 Settings
               </button>
@@ -1049,7 +1071,7 @@ export function SurfMapPrototype() {
                   key={label}
                   type="button"
                   className={cn(
-                    "rounded-full px-2 py-1 text-white/82 hover:bg-white/12",
+                    "rounded-full px-2 py-1 text-white/82 hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]",
                     label === "All" && "bg-[rgba(253,184,75,0.18)] text-[#FDB84B]",
                   )}
                 >
@@ -1064,9 +1086,10 @@ export function SurfMapPrototype() {
                   <button
                     key={layer.id}
                     type="button"
+                    aria-pressed={layer.id === selectedLayerId}
                     className={cn(
-                      "rounded-lg border border-white/10 p-2 text-left text-sm hover:bg-white/10",
-                      layer.id === selectedLayerId && "border-white/42 bg-white/12",
+                      "rounded-lg border p-2 text-left text-sm hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]",
+                      layer.id === selectedLayerId ? "border-white/42 bg-white/12" : "border-white/10",
                     )}
                     onClick={() => {
                       setSelectedLayerId(layer.id);
@@ -1086,7 +1109,7 @@ export function SurfMapPrototype() {
             </div>
             <button
               type="button"
-              className="mt-4 flex w-full items-center justify-center gap-1 text-base text-white"
+              className="mt-4 flex w-full items-center justify-center gap-1 text-base text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
             >
               Display more layers (12)
               <ChevronDown className="h-4 w-4" />

@@ -1036,7 +1036,7 @@ No TDD (interaction; the E2E smoke in Task 10 exercises Esc + focus). Radix Dial
 
 No TDD (a11y semantics; the E2E smoke asserts the live region updates). Add switch/pressed/current semantics, focus-visible rings to raw buttons, and an `sr-only` `aria-live="polite"` region announcing the active layer (the canvases are `aria-hidden`, so non-visual users get nothing otherwise).
 
-- [ ] **Step 1: Make `ToggleRow` a real switch (was 431-469).**
+- [x] **Step 1: Make `ToggleRow` a real switch (was 431-469).**
   Add `role="switch"` + `aria-checked` + a focus ring. Replace the `<Button>` opening tag and props in `ToggleRow`:
   ```tsx
       <Button
@@ -1060,7 +1060,7 @@ No TDD (a11y semantics; the E2E smoke asserts the live region updates). Add swit
   ```
   (Drops `bg-teal-400/80` / `bg-white/12`.)
 
-- [ ] **Step 2: Make `SurfLayerButton` announce selection (was 391-428).**
+- [x] **Step 2: Make `SurfLayerButton` announce selection (was 391-428).**
   Add `aria-pressed` and a focus ring:
   ```tsx
       <Button
@@ -1082,7 +1082,7 @@ No TDD (a11y semantics; the E2E smoke asserts the live region updates). Add swit
           </span>
   ```
 
-- [ ] **Step 3: Focus rings + `aria-pressed`/`aria-current` on the top-panel time steps (was 656-672).**
+- [x] **Step 3: Focus rings + `aria-pressed`/`aria-current` on the top-panel time steps (was 656-672).**
   Replace the time-step `<button>`:
   ```tsx
               <button
@@ -1098,7 +1098,7 @@ No TDD (a11y semantics; the E2E smoke asserts the live region updates). Add swit
               >
   ```
 
-- [ ] **Step 4: Focus rings + selection semantics on the timeline steps (was 852-871).**
+- [x] **Step 4: Focus rings + selection semantics on the timeline steps (was 852-871).**
   Replace the timeline `<button>` opening tag:
   ```tsx
               <button
@@ -1116,7 +1116,7 @@ No TDD (a11y semantics; the E2E smoke asserts the live region updates). Add swit
   ```
   (Drops `border-white/12`; uses the border token.)
 
-- [ ] **Step 5: Focus rings + selection on the drawer layer grid (was 941-966).**
+- [x] **Step 5: Focus rings + selection on the drawer layer grid (was 941-966).**
   Replace the drawer layer `<button>` opening tag:
   ```tsx
                 <button
@@ -1134,7 +1134,7 @@ No TDD (a11y semantics; the E2E smoke asserts the live region updates). Add swit
                 >
   ```
 
-- [ ] **Step 6: Add the sr-only aria-live layer announcer (near root, after the particle canvas ~620).**
+- [x] **Step 6: Add the sr-only aria-live layer announcer (near root, after the particle canvas ~620).**
   Insert right after the particle `<canvas>` element:
   ```tsx
         <div aria-live="polite" className="sr-only" data-testid="surf-map-live">
@@ -1152,20 +1152,20 @@ No TDD (a11y semantics; the E2E smoke asserts the live region updates). Add swit
           {`${selectedLayer.label} layer active — ${selectedLayerHeading}`}
   ```
 
-- [ ] **Step 7: Confirm no banned `teal-`/`bg-white/14`/`bg-white/16` chrome and rings exist.**
+- [x] **Step 7: Confirm no banned `teal-`/`bg-white/14`/`bg-white/16` chrome and rings exist.**
   ```bash
   grep -nE "bg-teal-400|focus-visible:ring-\[#FDB84B\]" components/map/surf-map-prototype.tsx
   ```
   Expected: the first pattern returns NO matches; the second returns MULTIPLE matches (the rings you added).
 
-- [ ] **Step 8: Typecheck + scoped lint.**
+- [x] **Step 8: Typecheck + scoped lint.**
   ```bash
   NODE_OPTIONS="--max-old-space-size=8192" yarn typecheck
   npx eslint --max-warnings=0 components/map/surf-map-prototype.tsx components/map/swell-map-theme.ts
   ```
   Expected: both clean.
 
-- [ ] **Step 9: Commit.**
+- [x] **Step 9: Commit.**
   ```bash
   git add components/map/surf-map-prototype.tsx
   git commit -m "feat(map): add switch/pressed ARIA, focus rings, and aria-live layer announcer"
