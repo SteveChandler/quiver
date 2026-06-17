@@ -14,6 +14,7 @@ import {
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_URL,
 } from "@/lib/constants/app-store";
+import type { FirstTouchPlatform } from "@/lib/analytics/web-context";
 
 const LANDING_HERO_VIDEO_DESKTOP_SRC =
   "/videos/quiver-landing-hero-1280.mp4";
@@ -26,12 +27,17 @@ const HERO_DOWNLOAD_BUTTON_SOURCE = "hero-video-download-button";
 
 type HeroVideoVariant = "mobile" | "desktop";
 
+interface HeroSectionProps {
+  initialPlatform?: FirstTouchPlatform;
+  appFirst?: boolean;
+}
+
 function getHeroVideoVariant(): HeroVideoVariant {
   if (typeof window === "undefined") return "desktop";
   return window.matchMedia("(max-width: 767px)").matches ? "mobile" : "desktop";
 }
 
-export function HeroSection() {
+export function HeroSection({}: HeroSectionProps = {}) {
   const sectionRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const reducedMotion = useReducedMotion();

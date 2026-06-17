@@ -10,11 +10,14 @@
  * Featured beaches already have a 10-minute cache, so this aligns with that strategy.
  */
 
-import { Suspense } from "react";
+import { Suspense, type ReactElement } from "react";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { AuthAwareLandingWrapper } from "@/components/landing-page/auth-aware-landing-wrapper";
 import { LandingPageSSRSection } from "@/components/landing-page/landing-page-ssr-section";
 import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import { getFirstTouchPlatform } from "@/lib/analytics/web-context";
+import { isAppFirstLandingEnabled } from "@/lib/flags/app-first-landing";
 
 // ISR: Revalidate every 10 minutes (aligns with featured beaches cache)
 export const revalidate = 600;
@@ -58,7 +61,11 @@ export const metadata: Metadata = {
   },
 };
 
-export default function Home() {
+export default async function Home(): Promise<ReactElement> {
+  const ua = (await headers()).get("user-agent") ?? "";
+  const initialPlatform = getFirstTouchPlatform(ua);
+  const appFirst = isAppFirstLandingEnabled();
+
   return (
     <>
       <link
@@ -68,7 +75,10 @@ export default function Home() {
         type="image/jpeg"
       />
       <Suspense>
-        <AuthAwareLandingWrapper />
+        <AuthAwareLandingWrapper
+          initialPlatform={initialPlatform}
+          appFirst={appFirst}
+        />
       </Suspense>
       <LandingPageSSRSection />
     </>
