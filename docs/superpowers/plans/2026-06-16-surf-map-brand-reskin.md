@@ -223,7 +223,7 @@ This task is TDD. The module is pure (no React, no DOM), so it is fully unit-tes
 
 No TDD (visual). Every change shows complete replacement code. Import the theme and apply `SWELL_MAP_SURFACE` / `SWELL_MAP_STICKER_SHADOW` as inline styles where a Tailwind token does not exist; drop every `backdrop-blur*` and every translucency suffix (`/94 /88 /92 /96`).
 
-- [ ] **Step 1: Import the theme tokens.**
+- [x] **Step 1: Import the theme tokens.**
   After the `import { cn } from "@/lib/utils";` line (37), add:
   ```ts
   import {
@@ -238,19 +238,19 @@ No TDD (visual). Every change shows complete replacement code. Import the theme 
   ```
   (Not every symbol is used until later tasks; that is fine — later steps consume them. If lint flags an unused import mid-task, finish the task before linting.)
 
-- [ ] **Step 2: Navy the page wrapper.**
+- [x] **Step 2: Navy the page wrapper.**
   In `app/surf-map-prototype/page.tsx` (line 16), replace `bg-slate-950` with the navy base:
   ```tsx
       <div className="h-[calc(100dvh-64px)] overflow-hidden bg-[#252D6B]">
   ```
 
-- [ ] **Step 3: Navy the root container.**
+- [x] **Step 3: Navy the root container.**
   Replace the root `<div>` (line 605):
   ```tsx
       <div className="relative h-full w-full overflow-hidden bg-[#252D6B] text-white">
   ```
 
-- [ ] **Step 4: Re-skin the top-left search/metric panel (was line 626).**
+- [x] **Step 4: Re-skin the top-left search/metric panel (was line 626).**
   Replace the opening panel `<div>`:
   ```tsx
         <div
@@ -260,7 +260,7 @@ No TDD (visual). Every change shows complete replacement code. Import the theme 
   ```
   (Removes `bg-[#3f3f3f]/94`, `shadow-lg`, and `backdrop-blur-md`.)
 
-- [ ] **Step 5: Re-skin the right-side Layers panel (was line 710).**
+- [x] **Step 5: Re-skin the right-side Layers panel (was line 710).**
   Replace:
   ```tsx
           <div
@@ -270,7 +270,7 @@ No TDD (visual). Every change shows complete replacement code. Import the theme 
   ```
   (Removes `bg-[#373737]/88 shadow-lg backdrop-blur`.)
 
-- [ ] **Step 6: Re-skin the right-side Toggles panel (was line 726).**
+- [x] **Step 6: Re-skin the right-side Toggles panel (was line 726).**
   Replace:
   ```tsx
           <div
@@ -279,7 +279,7 @@ No TDD (visual). Every change shows complete replacement code. Import the theme 
           >
   ```
 
-- [ ] **Step 7: Re-skin the three mobile FAB buttons (was 747, 756, 765).**
+- [x] **Step 7: Re-skin the three mobile FAB buttons (was 747, 756, 765).**
   These use `bg-black/35 ... backdrop-blur` (two of them) and `bg-[#a3271e]` (menu). Replace the className of the **Center map** FAB (747) and the **Share map** FAB (756) respectively with navy opaque + no blur:
   ```tsx
             className="h-10 w-10 rounded-full text-white hover:text-white"
@@ -292,7 +292,7 @@ No TDD (visual). Every change shows complete replacement code. Import the theme 
   ```
   (Removes `bg-[#a3271e] hover:bg-[#8d2019]`; `SWELL_MAP_CTA_CLASS` carries the ocean-blue bg + hover.)
 
-- [ ] **Step 8: Re-skin the bottom-left spot detail card (was line 792).**
+- [x] **Step 8: Re-skin the bottom-left spot detail card (was line 792).**
   Replace:
   ```tsx
         <div
@@ -302,7 +302,7 @@ No TDD (visual). Every change shows complete replacement code. Import the theme 
   ```
   (Removes `bg-[#373737]/92 shadow-lg backdrop-blur-md`.)
 
-- [ ] **Step 9: Re-skin the bottom timeline bar (was line 841).**
+- [x] **Step 9: Re-skin the bottom timeline bar (was line 841).**
   Replace:
   ```tsx
         <div
@@ -316,7 +316,7 @@ No TDD (visual). Every change shows complete replacement code. Import the theme 
   ```
   (Removes `border-white/12 bg-[#3a3a3a]/96`, the blurred drop shadow, and `backdrop-blur-md`; uses a hard no-blur top shadow.)
 
-- [ ] **Step 10: Re-skin the mobile drawer container (was line 889).**
+- [x] **Step 10: Re-skin the mobile drawer container (was line 889).**
   > NOTE: Task 7 converts this drawer to a Radix Dialog. For now just navy it in place so the surface pass is complete; Task 7 will move this className/style onto the Dialog content. Replace the drawer `<div>`'s className/style:
   ```tsx
         className={cn(
@@ -331,19 +331,19 @@ No TDD (visual). Every change shows complete replacement code. Import the theme 
   ```
   (Removes `border-white/12 bg-[#333333]/96 shadow-2xl backdrop-blur-md`.)
 
-- [ ] **Step 11: Verify no backdrop-blur or gray hex remains in the file.**
+- [x] **Step 11: Verify no backdrop-blur or gray hex remains in the file.**
   ```bash
   grep -nE "backdrop-blur|#3f3f3f|#373737|#3a3a3a|#333333|#4d4d4d|bg-slate-950" components/map/surf-map-prototype.tsx app/surf-map-prototype/page.tsx
   ```
   Expected: NO matches (empty output). If any line prints, fix it before committing.
 
-- [ ] **Step 12: Typecheck.**
+- [x] **Step 12: Typecheck.**
   ```bash
   NODE_OPTIONS="--max-old-space-size=8192" yarn typecheck
   ```
   Expected: clean (unused-import warnings for theme symbols consumed in later tasks are acceptable here; they are resolved by Task 6).
 
-- [ ] **Step 13: Commit.**
+- [x] **Step 13: Commit.**
   ```bash
   git add components/map/surf-map-prototype.tsx app/surf-map-prototype/page.tsx
   git commit -m "refactor(map): navy opaque surfaces and sticker shadows on surf-map prototype"
