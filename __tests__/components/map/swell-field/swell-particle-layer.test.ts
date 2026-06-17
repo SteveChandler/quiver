@@ -62,10 +62,10 @@ describe("swell particle layer — pure exports", () => {
   });
 
   it("keeps the desktop count sparse (Windy-style spacing) but populated", () => {
-    expect(PARTICLE_COUNT_DESKTOP).toBe(900);
-    expect(PARTICLE_COUNT_MOBILE).toBe(400);
+    expect(PARTICLE_COUNT_DESKTOP).toBe(450);
+    expect(PARTICLE_COUNT_MOBILE).toBe(200);
     // Sparse, evenly spaced field — well below the earlier dense 4000 blanket.
-    expect(PARTICLE_COUNT_DESKTOP).toBeLessThanOrEqual(900);
+    expect(PARTICLE_COUNT_DESKTOP).toBeLessThanOrEqual(450);
   });
 });
 

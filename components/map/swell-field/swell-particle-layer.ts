@@ -16,8 +16,8 @@ export interface ParticleSeed {
 
 // Windy-like spacing: sparse + evenly distributed (jittered grid) so water shows
 // between dashes. Lower than the earlier dense random blanket (4000/1400).
-export const PARTICLE_COUNT_DESKTOP = 900;
-export const PARTICLE_COUNT_MOBILE = 400;
+export const PARTICLE_COUNT_DESKTOP = 450;
+export const PARTICLE_COUNT_MOBILE = 200;
 
 /** Below this CSS width we treat the device as small and cut particle count. */
 const SMALL_SCREEN_PX = 640;
@@ -201,7 +201,7 @@ export function createSwellParticleLayer(
   // Small => slow, calm Windy-style drift. Kept very gentle (≈3× slower than the
   // earlier 0.0012) so the crawl matches Windy's pace; dash LENGTH is decoupled via
   // DASH_FRACTION, so slowing the step does not shrink the marks.
-  const STEP_FRACTION = 0.0004;
+  const STEP_FRACTION = 0.00022;
   // Fixed dash LENGTH as a fraction of the viewport span, DECOUPLED from drift speed
   // so dashes stay visible (~10px) no matter how slow they move. Tying length to the
   // per-frame step made slow dashes sub-pixel and invisible.
