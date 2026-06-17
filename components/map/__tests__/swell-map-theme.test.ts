@@ -1,0 +1,81 @@
+import {
+  SWELL_MAP_SURFACE,
+  SWELL_MAP_STICKER_SHADOW,
+  SWELL_MAP_STICKER_RADIUS,
+  SWELL_LAYER_COLOR,
+  SWELL_MAP_CTA_CLASS,
+  buildLegendRampCss,
+  degreesToCompass,
+  type SwellLayerId,
+} from "../swell-map-theme";
+
+describe("swell-map-theme tokens", () => {
+  it("uses Deep Twilight navy surfaces, never gray or pure black", () => {
+    expect(SWELL_MAP_SURFACE.base).toBe("#252D6B");
+    expect(SWELL_MAP_SURFACE.panel).toBe("#1E2558");
+    expect(SWELL_MAP_SURFACE.panelDeep).toBe("#161A40");
+    expect(SWELL_MAP_SURFACE.border).toBe("rgba(255,255,255,0.12)");
+  });
+
+  it("uses a hard offset sticker shadow with NO blur and asymmetric radius", () => {
+    expect(SWELL_MAP_STICKER_SHADOW).toBe("2px 3px 0 0 rgba(0,0,0,0.35)");
+    expect(SWELL_MAP_STICKER_RADIUS).toBe("12px 4px 14px 6px");
+  });
+
+  it("maps each layer to a sanctioned accent (no cyan/purple)", () => {
+    expect(SWELL_LAYER_COLOR.s1).toBe("#F78E42");
+    expect(SWELL_LAYER_COLOR.s2).toBe("#FDB84B");
+    expect(SWELL_LAYER_COLOR.wind).toBe("#00D4AA");
+    expect(SWELL_LAYER_COLOR.combined).toBe("#F78E42");
+    const banned = ["#38bdf8", "#47e0d1", "#67e8f9", "#7dd3fc", "#7c3aed", "#9333ea", "#818cf8"];
+    const values = Object.values(SWELL_LAYER_COLOR).map((c) => c.toLowerCase());
+    for (const bad of banned) expect(values).not.toContain(bad);
+  });
+
+  it("ships an AA-safe interactive CTA class (ocean-blue, not raw orange)", () => {
+    expect(SWELL_MAP_CTA_CLASS).toBe("bg-ocean-blue text-white hover:bg-ocean-blue/90");
+    expect(SWELL_MAP_CTA_CLASS).not.toContain("#f78e42");
+    expect(SWELL_MAP_CTA_CLASS).not.toContain("bg-[#");
+  });
+});
+
+describe("buildLegendRampCss", () => {
+  it("builds a navy -> gold -> orange linear-gradient with no banned hues", () => {
+    const css = buildLegendRampCss();
+    expect(css.startsWith("linear-gradient(90deg,")).toBe(true);
+    expect(css).toContain("#1E2558");
+    expect(css).toContain("#FDB84B");
+    expect(css).toContain("#F78E42");
+    for (const bad of ["#38bdf8", "#67e8f9", "#818cf8", "#9333ea", "#e11d48", "#f43f5e"]) {
+      expect(css.toLowerCase()).not.toContain(bad);
+    }
+  });
+});
+
+describe("degreesToCompass", () => {
+  it("converts cardinal and intercardinal degrees to 16-point labels", () => {
+    expect(degreesToCompass(0)).toBe("N");
+    expect(degreesToCompass(90)).toBe("E");
+    expect(degreesToCompass(180)).toBe("S");
+    expect(degreesToCompass(270)).toBe("W");
+    expect(degreesToCompass(315)).toBe("NW");
+    expect(degreesToCompass(292.5)).toBe("WNW");
+  });
+
+  it("wraps past 360 and handles negatives", () => {
+    expect(degreesToCompass(360)).toBe("N");
+    expect(degreesToCompass(720)).toBe("N");
+    expect(degreesToCompass(-90)).toBe("W");
+  });
+
+  it("returns an em dash for non-finite input", () => {
+    expect(degreesToCompass(Number.NaN)).toBe("—");
+    expect(degreesToCompass(Number.POSITIVE_INFINITY)).toBe("—");
+  });
+});
+
+// Type-level sanity: the union is exactly these four ids.
+it("exposes the SwellLayerId union", () => {
+  const ids: SwellLayerId[] = ["s1", "s2", "wind", "combined"];
+  expect(ids).toHaveLength(4);
+});
