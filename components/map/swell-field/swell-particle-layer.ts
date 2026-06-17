@@ -145,7 +145,9 @@ export function createSwellParticleLayer(
   const vertexAlpha = new Float32Array(count * 2);
 
   const rng = Math.random;
-  const SPEED_SCALE = 0.0008; // Mercator-unit step per frame at speed=1.
+  // Fraction of the current viewport a speed=1 particle crosses per frame.
+  // Step is scaled to the live Mercator span so motion reads the same at any zoom.
+  const STEP_FRACTION = 0.0025;
 
   function viewBoxMercator(map: mapboxgl.Map): MercatorBox {
     const b = map.getBounds();
@@ -182,6 +184,7 @@ export function createSwellParticleLayer(
   function advanceAndFill(map: mapboxgl.Map): void {
     const field = options.getField();
     const box = viewBoxMercator(map);
+    const span = Math.max(box.maxX - box.minX, 1e-6);
     for (let i = 0; i < count; i += 1) {
       const prevX = px[i];
       const prevY = py[i];
@@ -189,7 +192,7 @@ export function createSwellParticleLayer(
       const merc = new mapboxgl.MercatorCoordinate(px[i], py[i]);
       const ll = merc.toLngLat();
       const cell = sampleField(field, ll.lng, ll.lat);
-      const step = SPEED_SCALE * (0.25 + cell.speed);
+      const step = span * STEP_FRACTION * (0.25 + cell.speed);
       // Screen-y down maps to +Mercator-y down, so vy sign is consistent.
       px[i] += cell.vx * step;
       py[i] += cell.vy * step;
