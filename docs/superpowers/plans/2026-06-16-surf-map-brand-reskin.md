@@ -360,7 +360,7 @@ No TDD (canvas/map paint is visual). DEFAULT approach: keep `mapbox://styles/map
 
 > Optional later upgrade (NOT a step): a dedicated Mapbox Studio style baked to navy would avoid the brief dark-v11 flash before `load` fires. Out of scope for Track 1 — the runtime recolor is sufficient for visual approval.
 
-- [ ] **Step 1: Add a runtime navy-recolor helper above the component.**
+- [x] **Step 1: Add a runtime navy-recolor helper above the component.**
   Insert this function just above `export function SurfMapPrototype()` (line 471). It paints the base style navy by setting paint properties on the layer groups dark-v11 ships:
   ```ts
   function recolorBasemapToNavy(map: mapboxgl.Map) {
@@ -395,7 +395,7 @@ No TDD (canvas/map paint is visual). DEFAULT approach: keep `mapbox://styles/map
   }
   ```
 
-- [ ] **Step 2: Call the recolor on `load`.**
+- [x] **Step 2: Call the recolor on `load`.**
   In the `map.on("load", ...)` handler (was lines 549-552), call the helper before updating positions:
   ```ts
         map.on("load", () => {
@@ -406,14 +406,14 @@ No TDD (canvas/map paint is visual). DEFAULT approach: keep `mapbox://styles/map
   ```
   (Leave the `style: "mapbox://styles/mapbox/dark-v11"` line as-is — we recolor it at runtime. Do not change the style URL.)
 
-- [ ] **Step 3: Navy the radial wash overlay (was line 614).**
+- [x] **Step 3: Navy the radial wash overlay (was line 614).**
   Replace the teal radial + black linear wash with a navy depth wash (subtle, keeps the map readable, NO teal):
   ```tsx
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_56%,rgba(30,37,88,0.55),transparent_42%),linear-gradient(180deg,rgba(22,26,64,0.10),rgba(22,26,64,0.42))]" />
   ```
   (Removes `rgba(20,184,166,0.22)` teal.)
 
-- [ ] **Step 4: Navy the fallback ocean gradient (was 245-250).**
+- [x] **Step 4: Navy the fallback ocean gradient (was 245-250).**
   In `paintFallbackMap`, replace the three ocean stops:
   ```ts
     oceanGradient.addColorStop(0, "#1E2558");
@@ -422,7 +422,7 @@ No TDD (canvas/map paint is visual). DEFAULT approach: keep `mapbox://styles/map
   ```
   (Removes `#243442 / #1b4250 / #0a2435` teal-gray.)
 
-- [ ] **Step 5: Navy the fallback land gradient (was 252-254).**
+- [x] **Step 5: Navy the fallback land gradient (was 252-254).**
   Replace the two land stops with a slightly lifted navy so land is distinguishable from water:
   ```ts
     landGradient.addColorStop(0, "#2E3878");
@@ -430,19 +430,19 @@ No TDD (canvas/map paint is visual). DEFAULT approach: keep `mapbox://styles/map
   ```
   (Removes the `#5c5e5d / #343837` gray.)
 
-- [ ] **Step 6: Confirm no banned basemap hues remain.**
+- [x] **Step 6: Confirm no banned basemap hues remain.**
   ```bash
   grep -nE "#243442|#1b4250|#0a2435|#5c5e5d|#343837|184,166|20,184" components/map/surf-map-prototype.tsx
   ```
   Expected: NO matches.
 
-- [ ] **Step 7: Typecheck.**
+- [x] **Step 7: Typecheck.**
   ```bash
   NODE_OPTIONS="--max-old-space-size=8192" yarn typecheck
   ```
   Expected: clean.
 
-- [ ] **Step 8: Commit.**
+- [x] **Step 8: Commit.**
   ```bash
   git add components/map/surf-map-prototype.tsx
   git commit -m "refactor(map): recolor basemap, wash, and canvas fallback to navy"

@@ -252,15 +252,15 @@ function layerVector(
 
 function paintFallbackMap(context: CanvasRenderingContext2D, width: number, height: number) {
   const oceanGradient = context.createLinearGradient(0, 0, width, height);
-  oceanGradient.addColorStop(0, "#243442");
-  oceanGradient.addColorStop(0.42, "#1b4250");
-  oceanGradient.addColorStop(1, "#0a2435");
+  oceanGradient.addColorStop(0, "#1E2558");
+  oceanGradient.addColorStop(0.42, "#252D6B");
+  oceanGradient.addColorStop(1, "#161A40");
   context.fillStyle = oceanGradient;
   context.fillRect(0, 0, width, height);
 
   const landGradient = context.createLinearGradient(0, 0, width * 0.62, height);
-  landGradient.addColorStop(0, "#5c5e5d");
-  landGradient.addColorStop(1, "#343837");
+  landGradient.addColorStop(0, "#2E3878");
+  landGradient.addColorStop(1, "#1E2558");
   context.fillStyle = landGradient;
   context.beginPath();
   context.moveTo(0, 0);
@@ -477,6 +477,37 @@ function ToggleRow({
   );
 }
 
+function recolorBasemapToNavy(map: mapboxgl.Map): void {
+  const NAVY_LAND = SWELL_MAP_SURFACE.base;
+  const NAVY_WATER = SWELL_MAP_SURFACE.panel;
+  const style = map.getStyle();
+  if (!style?.layers) return;
+
+  for (const layer of style.layers) {
+    try {
+      if (layer.type === "background") {
+        map.setPaintProperty(layer.id, "background-color", NAVY_LAND);
+        continue;
+      }
+      if (layer.type !== "fill" && layer.type !== "line" && layer.type !== "symbol") continue;
+
+      const id = layer.id.toLowerCase();
+      const isWater = id.includes("water") || id.includes("ocean") || id.includes("bathymetry");
+      if (layer.type === "fill") {
+        map.setPaintProperty(layer.id, "fill-color", isWater ? NAVY_WATER : NAVY_LAND);
+      } else if (layer.type === "line") {
+        map.setPaintProperty(layer.id, "line-color", SWELL_MAP_SURFACE.border);
+      } else if (layer.type === "symbol") {
+        // Keep labels legible on navy.
+        map.setPaintProperty(layer.id, "text-color", "rgba(255,255,255,0.78)");
+        map.setPaintProperty(layer.id, "text-halo-color", NAVY_LAND);
+      }
+    } catch {
+      // Some layers reject paint props for their type; skip silently.
+    }
+  }
+}
+
 export function SurfMapPrototype() {
   const [selectedLayerId, setSelectedLayerId] = useState<LayerId>("combined");
   const [selectedTimeIndex, setSelectedTimeIndex] = useState(2);
@@ -556,6 +587,7 @@ export function SurfMapPrototype() {
 
       mapRef.current = map;
       map.on("load", () => {
+        recolorBasemapToNavy(map!);
         setMapLoaded(true);
         updateSpotPositions();
       });
@@ -620,7 +652,7 @@ export function SurfMapPrototype() {
           aria-hidden="true"
         />
       )}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_56%,rgba(20,184,166,0.22),transparent_28%),linear-gradient(180deg,rgba(0,0,0,0.08),rgba(0,0,0,0.34))]" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_72%_56%,rgba(30,37,88,0.55),transparent_42%),linear-gradient(180deg,rgba(22,26,64,0.10),rgba(22,26,64,0.42))]" />
       <canvas
         ref={canvasRef}
         data-testid="surf-map-particles"
