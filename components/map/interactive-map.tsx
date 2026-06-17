@@ -229,6 +229,13 @@ export function InteractiveMap({
   // so we surface a small "no swell data" sticker. Defaults true to avoid a
   // flash before the first build.
   const [hasSwellData, setHasSwellData] = useState(true);
+  // One-time coastal-leash hint: the camera silently loses zoom-out when the
+  // field's leash applies, so we flash a one-shot note the FIRST time it locks
+  // per mount. Ref guards "shown once"; `showLeashHint` mounts it, `leashHintFading`
+  // drives the opacity transition out (skipped under reduced motion).
+  const [showLeashHint, setShowLeashHint] = useState(false);
+  const [leashHintFading, setLeashHintFading] = useState(false);
+  const leashHintShownRef = useRef(false);
   const reducedMotion = useReducedMotion();
   // Live per-component flow fields read by the GL layers each frame (avoids re-adding
   // a layer on scrub). Keyed by component id: a single active layer populates just its
@@ -853,6 +860,11 @@ export function InteractiveMap({
         minZoom: map.getMinZoom(),
         maxZoom: map.getMaxZoom(),
       };
+      // First time the leash locks this mount → flash the one-time zoom hint.
+      if (!leashHintShownRef.current) {
+        leashHintShownRef.current = true;
+        setShowLeashHint(true);
+      }
     }
     map.setMinZoom(SWELL_FIELD_MIN_ZOOM);
     map.setMaxZoom(SWELL_FIELD_MAX_ZOOM);
@@ -863,6 +875,26 @@ export function InteractiveMap({
 
     return releaseLeash;
   }, [showSwellField, isMapReady, swellFieldBeaches]);
+
+  // Auto-dismiss the one-time coastal-leash hint ~4s after it appears. With
+  // motion, kick a CSS opacity fade ~500ms before unmount; under reduced motion
+  // just remove it (no fade), honoring prefers-reduced-motion.
+  useEffect(() => {
+    if (!showLeashHint) return;
+    if (reducedMotion) {
+      const remove = setTimeout(() => setShowLeashHint(false), 4000);
+      return () => clearTimeout(remove);
+    }
+    const fade = setTimeout(() => setLeashHintFading(true), 3500);
+    const remove = setTimeout(() => {
+      setShowLeashHint(false);
+      setLeashHintFading(false);
+    }, 4000);
+    return () => {
+      clearTimeout(fade);
+      clearTimeout(remove);
+    };
+  }, [showLeashHint, reducedMotion]);
 
   // Stable ref to track so the debounced handler can always access the latest version
   const trackRef = useRef(track);
@@ -1328,6 +1360,25 @@ export function InteractiveMap({
           index={swellTimelineIndex}
           onIndexChange={onSwellTimelineChange}
         />
+      )}
+      {showLeashHint && (
+        // One-time, auto-dismissing hint that the field locked the camera to the
+        // coast (zoom-out is gone). Top-center, fades out under motion.
+        <div
+          data-testid="swell-field-leash-hint"
+          className={`pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 px-3 py-1.5 text-[11px] text-white/90 ${
+            reducedMotion ? "" : "transition-opacity duration-500"
+          }`}
+          style={{
+            background: SWELL_MAP_SURFACE.panel,
+            border: `1px solid ${SWELL_MAP_SURFACE.border}`,
+            borderRadius: SWELL_MAP_STICKER_RADIUS,
+            boxShadow: SWELL_MAP_STICKER_SHADOW,
+            opacity: leashHintFading ? 0 : 1,
+          }}
+        >
+          Zoomed to your coast for swell detail
+        </div>
       )}
       {showSwellField && !hasSwellData && (
         // Field is ON but no beach partitions resolved into points — say so
