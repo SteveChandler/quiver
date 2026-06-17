@@ -127,6 +127,52 @@ function recolorBasemapToNavy(
   }
 }
 
+/** Style layer ids that paint water — used to keep the swell field off the land. */
+function detectWaterLayerIds(map: mapboxgl.Map): string[] {
+  const style = map.getStyle();
+  if (!style?.layers) return [];
+  return style.layers
+    .filter((layer) => {
+      const id = layer.id.toLowerCase();
+      return (
+        id.includes("water") ||
+        id.includes("ocean") ||
+        id.includes("bathymetry")
+      );
+    })
+    .map((layer) => layer.id);
+}
+
+/**
+ * Zero out flow-field cells that fall over land so swell particles only drift on
+ * water. Projects each cell to a screen point and asks Mapbox whether a water
+ * feature is rendered there; cells with no water hit get speed/alpha set to 0
+ * (the particle layer draws those invisibly and reseeds). O(cells), not O(particles).
+ */
+function maskFlowFieldToWater(
+  map: mapboxgl.Map,
+  field: FlowField,
+  waterLayerIds: string[]
+): void {
+  if (field.cells.length === 0 || waterLayerIds.length === 0) return;
+  for (const cell of field.cells) {
+    let onWater = false;
+    try {
+      const point = map.project([cell.lon, cell.lat]);
+      const hits = map.queryRenderedFeatures(point, { layers: waterLayerIds });
+      onWater = hits.length > 0;
+    } catch {
+      // queryRenderedFeatures can throw if a layer id isn't queryable; treat as
+      // water so we never blank the whole field on a transient style hiccup.
+      onWater = true;
+    }
+    if (!onWater) {
+      cell.speed = 0;
+      cell.alpha = 0;
+    }
+  }
+}
+
 /** Restore the light basemap by replaying captured paint props in reverse order. */
 function restoreBasemap(map: mapboxgl.Map, capture: CapturedPaint[]): void {
   for (const { layerId, prop, originalValue } of capture) {
@@ -268,6 +314,8 @@ export function InteractiveMap({
   const flowFieldRef = useRef<FlowField>({ cols: 0, rows: 0, cells: [] });
   // Original basemap paint values captured before the navy recolor, for exact restore.
   const basemapCaptureRef = useRef<CapturedPaint[]>([]);
+  // Style layer ids that paint water, memoized so we don't rescan the style each scrub.
+  const waterLayerIdsRef = useRef<string[]>([]);
   const swellLayerIdRef = useRef<SwellLayerId>(swellLayerId);
   const isMapReadyRef = useRef(false);
   const favoriteBeachIdsRef = useRef<Set<string>>(new Set());
@@ -679,6 +727,15 @@ export function InteractiveMap({
       },
       12
     );
+
+    // Keep swell off the land. Wind over land is fine, so skip masking for it.
+    if (swellLayerId !== "wind") {
+      if (waterLayerIdsRef.current.length === 0) {
+        waterLayerIdsRef.current = detectWaterLayerIds(map);
+      }
+      maskFlowFieldToWater(map, flowFieldRef.current, waterLayerIdsRef.current);
+    }
+
     // Nudge a repaint so a static (reduced-motion) frame reflects the new field.
     map.triggerRepaint();
   }, [partitionsMap, swellFieldBeaches, swellLayerId, swellTimelineIndex, isMapReady, showSwellField, beaches, mapBounds]);
