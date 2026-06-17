@@ -89,7 +89,8 @@ describe("buildFlowField", () => {
   });
 
   it("cells beyond the influence radius from every beach are dead (speed/alpha 0)", () => {
-    // One beach near the SW corner; the far NE corner is >0.6deg away in both axes.
+    // One beach near the SW corner; the far NE corner is ~2.8deg away (well beyond
+    // the 1.0deg influence radius), so it stays dead.
     const field = buildFlowField(
       [pt(-118.0, 32.0, 270, 14, 4)],
       { west: -118.0, south: 32.0, east: -116.0, north: 34.0 },

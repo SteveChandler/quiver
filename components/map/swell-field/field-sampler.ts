@@ -188,14 +188,16 @@ export function buildFlowField(
   const cells: FlowCell[] = [];
   const lonSpan = bounds.east - bounds.west;
   const latSpan = bounds.north - bounds.south;
-  // Gentle falloff so the coastal band stays well-covered between beaches.
+  // Gentle falloff so the coastal band stays densely covered between beaches
+  // (Windy reads as a uniform, gridded fill rather than tight blobs at each beach).
   const POWER = 1.6;
   const EPS = 1e-9;
   // A cell more than this far (degrees) from EVERY beach has no nearby data and
-  // emits nothing, so off-coast / open-water areas stay clean.
-  const INFLUENCE_RADIUS_DEG = 0.6;
+  // emits nothing, so far-off-coast / open-ocean areas stay clean. Widened so the
+  // band between and around beaches fills in densely, Windy-style.
+  const INFLUENCE_RADIUS_DEG = 1.0;
   const INFLUENCE_RADIUS2 = INFLUENCE_RADIUS_DEG * INFLUENCE_RADIUS_DEG;
-  // Lift the emitted band so the populated coast reads clearly on the navy basemap.
+  // Lift the emitted band so the populated coast reads clearly.
   const ALPHA_GAIN = 1.6;
 
   for (let r = 0; r < rows; r += 1) {

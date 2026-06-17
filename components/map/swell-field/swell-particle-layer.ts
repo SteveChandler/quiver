@@ -14,8 +14,8 @@ export interface ParticleSeed {
   age: number;
 }
 
-export const PARTICLE_COUNT_DESKTOP = 3200;
-export const PARTICLE_COUNT_MOBILE = 1000;
+export const PARTICLE_COUNT_DESKTOP = 4000;
+export const PARTICLE_COUNT_MOBILE = 1400;
 
 /** Below this CSS width we treat the device as small and cut particle count. */
 const SMALL_SCREEN_PX = 640;
@@ -44,8 +44,8 @@ void main() {
 }
 `;
 
-// Fragment shader: additive trail color, modulated by per-vertex fade and a
-// global u_alpha (reduced-motion / layer dimming).
+// Fragment shader: dark trail color (normal alpha-blended), modulated by per-vertex
+// fade and a global u_alpha (reduced-motion / layer dimming).
 export const PARTICLE_FRAGMENT_SHADER = `
 precision highp float;
 uniform vec3 u_color;
@@ -147,8 +147,9 @@ export function createSwellParticleLayer(
   const rng = Math.random;
   // Fraction of the current viewport a speed=1 particle crosses per frame.
   // Step is scaled to the live Mercator span so motion reads the same at any zoom.
-  // Slightly longer trails read as a clearer, calmer drift on the navy basemap.
-  const STEP_FRACTION = 0.0035;
+  // Small step => slow, calm Windy-style drift AND short dashes (the per-frame step
+  // is also the drawn trail-segment length, so a smaller step keeps the marks short).
+  const STEP_FRACTION = 0.0012;
 
   function viewBoxMercator(map: mapboxgl.Map): MercatorBox {
     const b = map.getBounds();
@@ -220,12 +221,13 @@ export function createSwellParticleLayer(
         continue;
       }
 
-      // Floor populated cells so the band reads vividly; keep DEAD cells (no
-      // nearby beach data, speed === 0) fully invisible so empty areas stay clean.
+      // Push populated cells toward opaque so the dark dashes read solidly on the
+      // light basemap; keep DEAD cells (no nearby beach data, speed === 0) fully
+      // invisible so open water / land stays clean.
       const trail = 1 - page[i] / life[i];
       const fade =
         cell.speed > 0
-          ? Math.min(1, 0.4 + cell.alpha) * trail
+          ? Math.min(1, 0.55 + cell.alpha) * trail
           : 0;
       vertexPos[i * 4 + 0] = prevX;
       vertexPos[i * 4 + 1] = prevY;
@@ -277,12 +279,14 @@ export function createSwellParticleLayer(
       gl.uniformMatrix4fv(uMatrixLoc, false, matrix);
       const [r, g, b] = hexToRgb(options.getColorHex());
       gl.uniform3f(uColorLoc, r, g, b);
-      // Lifted to full so the field reads as a clear but calm drift on the navy
-      // basemap; the static reduced-motion frame gets a touch more presence too.
-      gl.uniform1f(uAlphaLoc, options.reducedMotion ? 0.7 : 1.0);
+      // Near-opaque so the dark dashes read crisply on the light basemap; the static
+      // reduced-motion frame stays a touch dimmer.
+      gl.uniform1f(uAlphaLoc, options.reducedMotion ? 0.8 : 0.9);
 
       gl.enable(gl.BLEND);
-      gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // additive trails
+      // Normal alpha blending — dark marks paint over the light water (additive glow
+      // is invisible on a light map).
+      gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 
       gl.bindBuffer(gl.ARRAY_BUFFER, posBuffer);
       gl.bufferData(gl.ARRAY_BUFFER, vertexPos, gl.DYNAMIC_DRAW);
