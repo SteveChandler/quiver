@@ -224,6 +224,11 @@ export function InteractiveMap({
   const [partitionsMap, setPartitionsMap] = useState<Map<string, SwellPartition>>(new Map());
   // Loader-resolved beaches that partitionsMap is keyed by (the prop may be empty).
   const [swellFieldBeaches, setSwellFieldBeaches] = useState<Beach[]>([]);
+  // Whether the last flow-field build resolved ANY field points. False → the
+  // field is ON but no beach partitions drew (blank water looks like a bug),
+  // so we surface a small "no swell data" sticker. Defaults true to avoid a
+  // flash before the first build.
+  const [hasSwellData, setHasSwellData] = useState(true);
   const reducedMotion = useReducedMotion();
   // Live per-component flow fields read by the GL layers each frame (avoids re-adding
   // a layer on scrub). Keyed by component id: a single active layer populates just its
@@ -664,11 +669,15 @@ export function InteractiveMap({
     };
     if (!map || !isMapReady || !showSwellField) {
       resetFields();
+      // Field is off → reset to the optimistic default so the empty-state note
+      // never lingers after toggling the field back on.
+      setHasSwellData(true);
       return;
     }
     const b = map.getBounds();
     if (!b) {
       resetFields();
+      setHasSwellData(true);
       return;
     }
     const bounds = {
@@ -687,6 +696,7 @@ export function InteractiveMap({
       s2: EMPTY_FLOW_FIELD,
       wind: EMPTY_FLOW_FIELD,
     };
+    let anyPoints = false;
     for (const component of components) {
       const points: BeachPartitionPoint[] = [];
       for (const beach of beachList) {
@@ -695,6 +705,7 @@ export function InteractiveMap({
         const point = partitionToPoint(beach.lon, beach.lat, partition, component);
         if (point) points.push(point);
       }
+      if (points.length > 0) anyPoints = true;
       // A regional swell layer should move in UNISON (one direction), but per-beach
       // readings vary ~45° (e.g. SD primary is SW/SSW/WSW), which would fan the marks
       // out. Collapse to the circular-mean direction so every mark shares one heading;
@@ -713,6 +724,7 @@ export function InteractiveMap({
       nextFields[component] = buildFlowField(points, bounds, 12);
     }
     flowFieldsRef.current = nextFields;
+    setHasSwellData(anyPoints);
     // Best-effort mask now; the idle/moveend listener re-masks once tiles render.
     applyWaterMask(map);
     // Nudge a repaint so a static (reduced-motion) frame reflects the new field.
@@ -1316,6 +1328,22 @@ export function InteractiveMap({
           index={swellTimelineIndex}
           onIndexChange={onSwellTimelineChange}
         />
+      )}
+      {showSwellField && !hasSwellData && (
+        // Field is ON but no beach partitions resolved into points — say so
+        // instead of leaving blank water look broken. Subtle sticker note.
+        <div
+          data-testid="swell-field-empty-note"
+          className="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-3 py-1.5 text-[11px] text-white/80"
+          style={{
+            background: SWELL_MAP_SURFACE.panel,
+            border: `1px solid ${SWELL_MAP_SURFACE.border}`,
+            borderRadius: SWELL_MAP_STICKER_RADIUS,
+            boxShadow: SWELL_MAP_STICKER_SHADOW,
+          }}
+        >
+          No swell data for this stretch
+        </div>
       )}
     </div>
   );
