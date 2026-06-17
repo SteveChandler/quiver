@@ -16,6 +16,12 @@ const LAYERS: Array<{ id: SwellLayerId; label: string }> = [
   { id: "combined", label: "Combined" },
 ];
 
+// Combined reuses Primary's orange token (SWELL_LAYER_COLOR.combined === .s1), so a
+// flat swatch would read as a SECOND orange chip. Render its indicator as a tri-segment
+// dot of all three single-layer hues so it reads as "all layers" instead — three equal
+// vertical bands clipped to the circle. Sanctioned hues only, no new color introduced.
+const COMBINED_SWATCH_SEGMENTS: SwellLayerId[] = ["s1", "s2", "wind"];
+
 interface SwellLayerSelectorProps {
   active: SwellLayerId;
   onChange: (id: SwellLayerId) => void;
@@ -42,8 +48,6 @@ export function SwellLayerSelector({
       <span className="font-heading text-[10px] uppercase tracking-wide text-white/70">
         Swell field
       </span>
-      {/* The four layers are mutually exclusive, so this is a radio group (exactly one
-          checked), not a set of independent switches. */}
       <div
         role="radiogroup"
         aria-label="Swell field layer"
@@ -51,6 +55,7 @@ export function SwellLayerSelector({
       >
         {LAYERS.map((layer) => {
           const isActive = layer.id === active;
+          const isCombined = layer.id === "combined";
           return (
             <button
               key={layer.id}
@@ -68,14 +73,34 @@ export function SwellLayerSelector({
                 fontWeight: isActive ? 800 : 600,
               }}
             >
-              <span
-                aria-hidden="true"
-                data-testid={`swell-layer-${layer.id}-swatch`}
-                className="h-2.5 w-2.5 rounded-full"
-                style={{
-                  background: isActive ? "#161A40" : SWELL_LAYER_COLOR[layer.id],
-                }}
-              />
+              {isCombined ? (
+                // Tri-segment composite so Combined reads as "all layers" rather than a
+                // second Primary-orange chip — three equal bands of the single-layer
+                // hues clipped to the dot. Identity survives selection (no active swap).
+                <span
+                  aria-hidden="true"
+                  data-testid={`swell-layer-${layer.id}-swatch`}
+                  className="flex h-2.5 w-2.5 overflow-hidden rounded-full"
+                >
+                  {COMBINED_SWATCH_SEGMENTS.map((segId) => (
+                    <span
+                      key={segId}
+                      data-testid={`swell-layer-combined-swatch-${segId}`}
+                      className="h-full flex-1"
+                      style={{ background: SWELL_LAYER_COLOR[segId] }}
+                    />
+                  ))}
+                </span>
+              ) : (
+                <span
+                  aria-hidden="true"
+                  data-testid={`swell-layer-${layer.id}-swatch`}
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{
+                    background: isActive ? "#161A40" : SWELL_LAYER_COLOR[layer.id],
+                  }}
+                />
+              )}
               {layer.label}
             </button>
           );
