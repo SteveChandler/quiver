@@ -18,7 +18,6 @@ import {
 } from "@/lib/analytics/app-handoff-tracking";
 import {
   APP_FIRST_CAMPAIGN,
-  buildAppHandoffPath,
   buildAppHandoffUrl,
   iosAppStoreUrlWithCampaign,
 } from "@/lib/constants/app-handoff";
@@ -31,6 +30,7 @@ interface SendToPhoneCtaProps {
   variant?: string;
   cohort?: string;
   className?: string;
+  showEmailForm?: boolean;
 }
 
 type SendState = "idle" | "sending" | "sent" | "error" | "rate_limited";
@@ -44,23 +44,12 @@ export function SendToPhoneCta({
   variant,
   cohort,
   className,
+  showEmailForm = true,
 }: SendToPhoneCtaProps): ReactElement {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<SendState>("idle");
   const [inlineError, setInlineError] = useState<string | null>(null);
   const qrTracked = useRef(false);
-
-  const handoffPath = useMemo(
-    () =>
-      buildAppHandoffPath({
-        source,
-        placement,
-        utm_source: "qr",
-        utm_medium: "desktop_handoff",
-        utm_campaign: APP_FIRST_CAMPAIGN,
-      }),
-    [placement, source],
-  );
 
   const qrValue = useMemo(
     () =>
@@ -193,54 +182,55 @@ export function SendToPhoneCta({
 
         <div className="min-w-0 flex-1">
           <p className="font-sans text-sm leading-6 text-white/80">
-            Scan to get Quiver on your phone, or email yourself the link.
-          </p>
-          <p className="mt-1 truncate font-mono text-xs text-sunset-orange/80">
-            {handoffPath}
+            {showEmailForm
+              ? "Scan to get Quiver on your phone, or email yourself the link."
+              : "Scan with your phone to open Quiver."}
           </p>
 
-          <form onSubmit={onSubmit} className="mt-3" noValidate>
-            <label
-              htmlFor="send-to-phone-email"
-              className="block font-sans text-xs font-semibold uppercase tracking-widest text-white/60"
-            >
-              Your email
-            </label>
-            <div className="mt-1 flex flex-col gap-2 sm:flex-row">
-              <input
-                id="send-to-phone-email"
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@email.com"
-                className="min-h-11 flex-1 rounded-md border border-white/12 bg-white/10 px-3 font-sans text-base text-white placeholder:text-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue-decorative"
-              />
-              <button
-                type="submit"
-                disabled={state === "sending"}
-                className="inline-flex min-h-11 items-center justify-center rounded-md bg-ocean-blue-decorative px-5 font-sans text-base font-bold text-header-end transition hover:bg-[#D57835] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:bg-[#C06A25] disabled:opacity-60"
+          {showEmailForm ? (
+            <form onSubmit={onSubmit} className="mt-3" noValidate>
+              <label
+                htmlFor="send-to-phone-email"
+                className="block font-sans text-xs font-semibold uppercase tracking-widest text-white/60"
               >
-                {state === "sending" ? "Sending..." : "Send link"}
-              </button>
-            </div>
-
-            <div aria-live="polite" className="mt-2 min-h-5 font-sans text-sm">
-              {inlineError ? (
-                <span className="text-sunset-orange">{inlineError}</span>
-              ) : null}
-              {statusCopy ? (
-                <span
-                  className={
-                    state === "sent" ? "text-emerald-300" : "text-sunset-orange"
-                  }
+                Your email
+              </label>
+              <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+                <input
+                  id="send-to-phone-email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@email.com"
+                  className="min-h-11 flex-1 rounded-md border border-white/12 bg-white/10 px-3 font-sans text-base text-white placeholder:text-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue-decorative"
+                />
+                <button
+                  type="submit"
+                  disabled={state === "sending"}
+                  className="inline-flex min-h-11 items-center justify-center rounded-md bg-ocean-blue-decorative px-5 font-sans text-base font-bold text-header-end transition hover:bg-[#D57835] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:bg-[#C06A25] disabled:opacity-60"
                 >
-                  {statusCopy}
-                </span>
-              ) : null}
-            </div>
-          </form>
+                  {state === "sending" ? "Sending..." : "Send link"}
+                </button>
+              </div>
+
+              <div aria-live="polite" className="mt-2 min-h-5 font-sans text-sm">
+                {inlineError ? (
+                  <span className="text-sunset-orange">{inlineError}</span>
+                ) : null}
+                {statusCopy ? (
+                  <span
+                    className={
+                      state === "sent" ? "text-emerald-300" : "text-sunset-orange"
+                    }
+                  >
+                    {statusCopy}
+                  </span>
+                ) : null}
+              </div>
+            </form>
+          ) : null}
 
           <a
             href={iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN)}

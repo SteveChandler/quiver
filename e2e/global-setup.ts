@@ -193,28 +193,35 @@ async function globalSetup(config: FullConfig) {
       if (!authDialogVisible) {
         await page.waitForSelector('[role="dialog"]', { timeout: 10000 });
       }
+      const authDialog = page.locator('[role="dialog"]').last();
       console.log('[Global Setup] Auth modal appeared');
 
       // Click "Continue with Email" button to get to email/password form
-      const emailButton = page.getByRole('button', { name: /continue with email|sign in with email/i }).first();
+      const emailButton = authDialog
+        .getByRole('button', { name: /continue with email|sign in with email/i })
+        .first();
       const emailButtonVisible = await emailButton.isVisible().catch(() => false);
 
       if (emailButtonVisible) {
         await emailButton.click();
-        await page.getByPlaceholder(/email/i).waitFor({ state: 'visible', timeout: 5000 });
+        await authDialog
+          .getByRole('textbox', { name: /email/i })
+          .waitFor({ state: 'visible', timeout: 5000 });
         console.log('[Global Setup] Clicked "Continue with Email"');
       }
 
       // Fill in email and password
-      const emailInput = page.getByPlaceholder(/email/i);
-      const passwordInput = page.getByLabel(/password/i);
+      const emailInput = authDialog.getByRole('textbox', { name: /email/i });
+      const passwordInput = authDialog.getByLabel(/password/i);
 
       await emailInput.fill(testEmail);
       await passwordInput.fill(testPassword);
       console.log('[Global Setup] Filled credentials');
 
       // Submit login
-      const submitButton = page.getByRole('button', { name: /log in|sign in/i }).last();
+      const submitButton = authDialog
+        .getByRole('button', { name: /log in|sign in/i })
+        .last();
       await submitButton.click();
       console.log('[Global Setup] Submitted login form');
 

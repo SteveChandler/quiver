@@ -44,6 +44,24 @@ jest.mock("@/components/landing-page/hero-section", () => ({
     />
   ),
 }));
+jest.mock(
+  "@/components/landing-page/field-guide/quiver-field-guide-landing",
+  () => ({
+    QuiverFieldGuideLanding: ({
+      platform,
+      appFirst,
+    }: {
+      platform?: string;
+      appFirst?: boolean;
+    }) => (
+      <div
+        data-testid="quiver-field-guide-landing"
+        data-platform={platform}
+        data-app-first={String(appFirst)}
+      />
+    ),
+  }),
+);
 jest.mock("@/components/landing-page/navbar", () => ({
   Navbar: ({ position }: { position?: string }) => (
     <nav data-position={position} data-testid="landing-navbar" />
@@ -121,7 +139,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
       "data-position",
       "static"
     );
-    expect(screen.getByTestId("hero-section")).toBeInTheDocument();
+    expect(screen.getByTestId("quiver-field-guide-landing")).toBeInTheDocument();
 
     // Should show the email confirmation modal
     await waitFor(() => {
@@ -259,7 +277,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
 
     // Should render landing page
     expect(screen.getByTestId("landing-navbar")).toBeInTheDocument();
-    expect(screen.getByTestId("hero-section")).toBeInTheDocument();
+    expect(screen.getByTestId("quiver-field-guide-landing")).toBeInTheDocument();
 
     // Should NOT show modal
     expect(screen.queryByText("Check your email")).not.toBeInTheDocument();
@@ -268,25 +286,17 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("threads app-first platform props to the guest hero", () => {
+  it("threads app-first platform props to the guest field guide", () => {
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
     (useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams());
 
     render(<AuthAwareLandingWrapper initialPlatform="ios" appFirst />);
 
-    expect(screen.getByTestId("hero-section")).toHaveAttribute(
+    expect(screen.getByTestId("quiver-field-guide-landing")).toHaveAttribute(
       "data-platform",
       "ios",
     );
-    expect(screen.getByTestId("hero-section")).toHaveAttribute(
-      "data-app-first",
-      "true",
-    );
-    expect(screen.getByTestId("landing-interactive-sections")).toHaveAttribute(
-      "data-platform",
-      "ios",
-    );
-    expect(screen.getByTestId("landing-interactive-sections")).toHaveAttribute(
+    expect(screen.getByTestId("quiver-field-guide-landing")).toHaveAttribute(
       "data-app-first",
       "true",
     );
@@ -306,7 +316,9 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
 
     // Should NOT show landing page elements
     expect(screen.queryByTestId("landing-navbar")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("hero-section")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("quiver-field-guide-landing"),
+    ).not.toBeInTheDocument();
 
     // Should NOT show modal
     expect(screen.queryByText("Check your email")).not.toBeInTheDocument();
@@ -320,7 +332,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
 
     // Should render landing page, not redirect to sign-in
     expect(screen.getByTestId("landing-navbar")).toBeInTheDocument();
-    expect(screen.getByTestId("hero-section")).toBeInTheDocument();
+    expect(screen.getByTestId("quiver-field-guide-landing")).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
 
     // Should NOT show modal

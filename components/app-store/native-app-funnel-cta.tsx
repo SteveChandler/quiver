@@ -18,6 +18,7 @@ interface NativeAppFunnelCtaProps {
   className?: string;
   /** Desktop send-to-phone card className. */
   desktopClassName?: string;
+  desktopShowEmailForm?: boolean;
   iosLabel?: ReactNode;
   androidLabel?: ReactNode;
 }
@@ -33,6 +34,7 @@ export function NativeAppFunnelCta({
   cohort,
   className,
   desktopClassName,
+  desktopShowEmailForm,
   iosLabel = IOS_APP_STORE_CTA,
   androidLabel = ANDROID_WAITLIST_CTA,
 }: NativeAppFunnelCtaProps): ReactElement {
@@ -58,6 +60,7 @@ export function NativeAppFunnelCta({
         variant={variant}
         cohort={cohort}
         className={desktopClassName}
+        showEmailForm={desktopShowEmailForm}
       />
     );
   }

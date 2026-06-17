@@ -35,6 +35,19 @@ describe("SendToPhoneCta", () => {
     render(<SendToPhoneCta {...baseProps} />);
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByText(/send link/i)).toBeInTheDocument();
+    expect(screen.queryByText("quiversurf.app/app")).not.toBeInTheDocument();
+    expect(screen.queryByText(/utm_medium=desktop_handoff/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/open app store anyway/i)).toBeInTheDocument();
+  });
+
+  it("can render QR-only copy without the email form", () => {
+    render(<SendToPhoneCta {...baseProps} showEmailForm={false} />);
+
+    expect(
+      screen.getByText(/scan with your phone to open quiver/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/send link/i)).not.toBeInTheDocument();
     expect(screen.getByText(/open app store anyway/i)).toBeInTheDocument();
   });
 

@@ -2,10 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 import { Navbar } from "@/components/landing-page/navbar";
-import {
-  IOS_APP_STORE_CTA,
-  IOS_APP_STORE_URL,
-} from "@/lib/constants/app-store";
+import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
 
 const pushMock = jest.fn();
 
@@ -29,11 +26,6 @@ jest.mock("@/context/auth-context", () => ({
 
 jest.mock("@/hooks/use-landing-location", () => ({
   useLandingLocation: () => ({ regionName: null, isLoading: false }),
-}));
-
-jest.mock("@/components/landing-page/hero-search-lazy", () => ({
-  __esModule: true,
-  default: () => <input aria-label="Search by beach" />,
 }));
 
 jest.mock("@/components/auth/unified-auth-modal", () => ({
@@ -84,12 +76,16 @@ jest.mock("@/components/app-store/native-app-funnel-cta", () => ({
     surface,
     placement,
     className,
+    iosLabel,
+    androidLabel,
   }: {
     platform: string;
     source: string;
     surface: string;
     placement: string;
     className?: string;
+    iosLabel?: ReactNode;
+    androidLabel?: ReactNode;
   }) => (
     <button
       type="button"
@@ -100,7 +96,7 @@ jest.mock("@/components/app-store/native-app-funnel-cta", () => ({
       data-placement={placement}
       className={className}
     >
-      {platform === "android" ? "Join Android waitlist" : IOS_APP_STORE_CTA}
+      {platform === "android" ? androidLabel : iosLabel}
     </button>
   ),
 }));
@@ -139,7 +135,7 @@ describe("Navbar native app CTA", () => {
     expect(cta).toHaveAttribute("data-source", "landing-navbar");
     expect(cta).toHaveAttribute("data-surface", "landing-page");
     expect(cta).toHaveAttribute("data-placement", "navbar_primary");
-    expect(cta).toHaveTextContent(IOS_APP_STORE_CTA);
+    expect(cta).toHaveTextContent("Get the app");
     expect(screen.queryByText(/get free alerts/i)).not.toBeInTheDocument();
   });
 
@@ -161,7 +157,7 @@ describe("Navbar native app CTA", () => {
     expect(cta).toHaveAttribute("data-source", "landing-navbar");
     expect(cta).toHaveAttribute("data-surface", "landing-page");
     expect(cta).toHaveAttribute("data-placement", "navbar_primary");
-    expect(cta).toHaveTextContent(/join android waitlist/i);
+    expect(cta).toHaveTextContent("Get the app");
     expect(screen.queryByText(/get free alerts/i)).not.toBeInTheDocument();
   });
 
@@ -177,9 +173,25 @@ describe("Navbar native app CTA", () => {
     expect(cta).toHaveAttribute("data-source", "landing-navbar-app-store");
     expect(cta).toHaveAttribute("data-surface", "landing-page");
     expect(cta).toHaveAttribute("data-placement", "navbar_primary");
-    expect(cta).toHaveTextContent(IOS_APP_STORE_CTA);
+    expect(cta).toHaveTextContent("Get the app");
     expect(screen.queryByTestId("native-app-funnel-cta")).not.toBeInTheDocument();
     expect(screen.queryByTestId("send-to-phone")).not.toBeInTheDocument();
     expect(screen.queryByText(/get free alerts/i)).not.toBeInTheDocument();
+  });
+
+  it("shows the simplified landing links and removes navbar search", () => {
+    render(<Navbar position="static" />);
+
+    expect(screen.getByRole("link", { name: "Features" })).toHaveAttribute(
+      "href",
+      "#features",
+    );
+    expect(screen.getByTestId("ios-app-store-cta")).toHaveTextContent(
+      "Get the app",
+    );
+    expect(screen.queryByLabelText(/search by beach/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText(/search by beach/i),
+    ).not.toBeInTheDocument();
   });
 });

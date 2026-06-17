@@ -8,8 +8,7 @@ import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { hasSupabaseAuthCookie } from "@/lib/utils/supabase-cookie-utils";
 import { BODY_CLASSES, PERFORMANCE_TIMING } from "@/lib/constants/css-classes";
 import { Navbar } from "@/components/landing-page/navbar";
-import { HeroSection } from "@/components/landing-page/hero-section";
-import { LandingInteractiveSections } from "@/components/landing-page/landing-interactive-sections";
+import { QuiverFieldGuideLanding } from "@/components/landing-page/field-guide/quiver-field-guide-landing";
 import { OracleHomeSkeleton } from "@/components/oracle/oracle-home-skeleton";
 import {
   Dialog,
@@ -147,10 +146,8 @@ export function AuthAwareLandingWrapper({
       <Navbar position="static" />
 
       <main role="main">
-        <HeroSection initialPlatform={initialPlatform} appFirst={appFirst} />
-
-        <LandingInteractiveSections
-          initialPlatform={initialPlatform}
+        <QuiverFieldGuideLanding
+          platform={initialPlatform}
           appFirst={appFirst}
         />
       </main>
