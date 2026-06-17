@@ -1180,7 +1180,7 @@ No TDD (a11y semantics; the E2E smoke asserts the live region updates). Add swit
 
 This task IS test-first: the spec encodes the acceptance criteria for the whole plan. It must use `setupErrorDetection`/`assertNoErrors` per `quiver/CLAUDE.md`.
 
-- [ ] **Step 1: Write the spec.**
+- [x] **Step 1: Write the spec.**
   Create `e2e/surf-map-prototype.spec.ts` with the COMPLETE content:
   ```ts
   import { test, expect } from "@playwright/test";
@@ -1233,14 +1233,14 @@ This task IS test-first: the spec encodes the acceptance criteria for the whole 
   });
   ```
 
-- [ ] **Step 2: Run the spec, expect the reduced-motion + live-region assertions to PASS (they exercise Task 7/9 code).**
+- [x] **Step 2: Run the spec, expect the reduced-motion + live-region assertions to PASS (they exercise Task 7/9 code).**
   ```bash
   npx playwright test e2e/surf-map-prototype.spec.ts
   ```
   Expected: all three tests PASS. If `reduced-motion ... rAF` FAILS with `data-raf-scheduled="true"`, the Task 7 rAF gate is wrong — fix `runCanvasParticleFallback` (the reduced/disabled branch must `return` before `requestAnimationFrame`). If `aria-live` FAILS, re-check the Task 9 Step 6 announcer text.
   > ENV NOTE: the spec needs `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` available to the dev/preview server (it is set in `.env`). The reduced-motion and live-region assertions do NOT depend on the map actually loading (the particle canvas + aria-live render regardless), so the smoke is robust even if the basemap is slow or unavailable in CI.
 
-- [ ] **Step 3: Commit.**
+- [x] **Step 3: Commit.**
   ```bash
   git add e2e/surf-map-prototype.spec.ts
   git commit -m "test(map): smoke surf-map prototype reskin (render, reduced-motion, aria-live)"
