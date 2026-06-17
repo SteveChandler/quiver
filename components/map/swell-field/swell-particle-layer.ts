@@ -174,9 +174,11 @@ export interface SwellParticleLayerOptions {
   /**
    * Mark style for the drawn particle. "dash" (default) renders a crest line
    * (two vertices per particle, GL LINES). "dot" renders a single GL point per
-   * particle — used by the wind layer to read as a stippled dot field.
+   * particle — used by the wind layer to read as a stippled dot field. "comet"
+   * renders a dot head with a short fading trail (two vertices per particle,
+   * drawn as LINES then POINTS) trailing OPPOSITE the wind's travel direction.
    */
-  markStyle?: "dash" | "dot";
+  markStyle?: "dash" | "dot" | "comet";
 }
 
 /**
@@ -223,6 +225,10 @@ export function createSwellParticleLayer(
   // so dashes stay visible (~10px) no matter how slow they move. Tying length to the
   // per-frame step made slow dashes sub-pixel and invisible.
   const DASH_FRACTION = 0.011;
+  // Comet TAIL length as a fraction of the viewport span — a short streak behind the
+  // moving dot head. Shorter than a crest dash so it reads as a trailing wisp, not a
+  // line. Decoupled from drift speed (same rationale as DASH_FRACTION).
+  const COMET_TAIL_FRACTION = 0.02;
 
   function viewBoxMercator(map: mapboxgl.Map): MercatorBox {
     const b = map.getBounds();
@@ -293,7 +299,8 @@ export function createSwellParticleLayer(
           vertexPos[i * 2 + 1] = py[i];
           vertexAlpha[i] = 0;
         } else {
-          // Zero-length segment on respawn so we don't draw a jump streak.
+          // Dash and comet share the 2-vertex layout: collapse both verts onto the new
+          // position with alpha 0 so respawn draws no jump streak.
           vertexPos[i * 4 + 0] = px[i];
           vertexPos[i * 4 + 1] = py[i];
           vertexPos[i * 4 + 2] = px[i];
@@ -318,6 +325,22 @@ export function createSwellParticleLayer(
         vertexPos[i * 2 + 0] = px[i];
         vertexPos[i * 2 + 1] = py[i];
         vertexAlpha[i] = fade;
+        continue;
+      }
+
+      if (markStyle === "comet") {
+        // A small comet: vert 0 is the tail end (transparent), vert 1 is the head at
+        // the particle position (solid). The tail extends BEHIND the head, opposite
+        // the travel direction, so it trails the moving dot. Drawn as a LINES segment
+        // (the fading streak) plus a POINTS pass (the dot head) sharing this buffer.
+        const vlen = Math.hypot(cell.vx, cell.vy) || 1;
+        const tailLen = span * COMET_TAIL_FRACTION;
+        vertexPos[i * 4 + 0] = px[i] - (cell.vx / vlen) * tailLen;
+        vertexPos[i * 4 + 1] = py[i] - (cell.vy / vlen) * tailLen;
+        vertexPos[i * 4 + 2] = px[i];
+        vertexPos[i * 4 + 3] = py[i];
+        vertexAlpha[i * 2 + 0] = 0;
+        vertexAlpha[i * 2 + 1] = fade;
         continue;
       }
 
@@ -407,6 +430,14 @@ export function createSwellParticleLayer(
       if (markStyle === "dot") {
         // One vertex per particle drawn as a GL point.
         gl.drawArrays(gl.POINTS, 0, count);
+      } else if (markStyle === "comet") {
+        // Two passes over the SAME 2-vertex-per-particle buffer:
+        // 1. LINES — the fading tail (tail vert alpha 0 → head vert alpha fade).
+        // 2. POINTS — a point at every vertex; tail ends are alpha 0 (invisible),
+        //    heads carry alpha fade and read as the dot (u_pointSize set above).
+        gl.lineWidth(1);
+        gl.drawArrays(gl.LINES, 0, count * 2);
+        gl.drawArrays(gl.POINTS, 0, count * 2);
       } else {
         gl.lineWidth(1);
         gl.drawArrays(gl.LINES, 0, count * 2);

@@ -123,11 +123,20 @@ describe("jittered-grid seeding — even Windy-style distribution", () => {
 describe("createSwellParticleLayer — particle count", () => {
   const FIELD: FlowField = { cols: 0, rows: 0, cells: [] };
 
-  /** Drive onAdd + a single render and capture the draw mode + vertex count. */
+  /**
+   * Drive onAdd + a single render and capture EVERY draw call (comet issues two:
+   * a LINES tail then a POINTS head). `draws[0]` is the first call for back-compat.
+   */
   function renderedDraw(opts?: {
     count?: number;
-    markStyle?: "dash" | "dot";
-  }): { mode: number; vertexCount: number; LINES: number; POINTS: number } {
+    markStyle?: "dash" | "dot" | "comet";
+  }): {
+    mode: number;
+    vertexCount: number;
+    draws: { mode: number; vertexCount: number }[];
+    LINES: number;
+    POINTS: number;
+  } {
     const LINES = 11;
     const POINTS = 12;
     const gl = {
@@ -188,11 +197,15 @@ describe("createSwellParticleLayer — particle count", () => {
 
     layer.onAdd?.(map, gl);
     layer.render(gl, new Array(16).fill(0));
-    const draw = (gl.drawArrays as jest.Mock).mock.calls[0];
-    // drawArrays(mode, 0, vertexCount).
+    // drawArrays(mode, 0, vertexCount) — capture all calls (comet draws twice).
+    const draws = (gl.drawArrays as jest.Mock).mock.calls.map((c) => ({
+      mode: c[0] as number,
+      vertexCount: c[2] as number,
+    }));
     return {
-      mode: draw[0] as number,
-      vertexCount: draw[2] as number,
+      mode: draws[0].mode,
+      vertexCount: draws[0].vertexCount,
+      draws,
       LINES,
       POINTS,
     };
@@ -228,5 +241,18 @@ describe("createSwellParticleLayer — particle count", () => {
     });
     expect(mode).toBe(POINTS);
     expect(vertexCount).toBe(300);
+  });
+
+  it("draws a LINES tail AND a POINTS head for the comet style (wind layer)", () => {
+    const { draws, LINES, POINTS } = renderedDraw({
+      count: 300,
+      markStyle: "comet",
+    });
+    // Two passes over the shared 2-vertex-per-particle buffer: LINES tail then POINTS.
+    expect(draws).toHaveLength(2);
+    const lines = draws.find((d) => d.mode === LINES);
+    const points = draws.find((d) => d.mode === POINTS);
+    expect(lines).toEqual({ mode: LINES, vertexCount: 300 * 2 });
+    expect(points).toEqual({ mode: POINTS, vertexCount: 300 * 2 });
   });
 });
