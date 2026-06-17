@@ -10,6 +10,7 @@ import {
   trackIosAppCtaView,
 } from "@/lib/analytics/ios-app-cta-tracking";
 import { IOS_APP_STORE_CTA, IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import { trackAppHandoffView } from "@/lib/analytics/app-handoff-tracking";
 
 jest.mock("next/image", () => ({
   __esModule: true,
@@ -59,6 +60,40 @@ jest.mock("@/lib/analytics/ios-app-cta-tracking", () => ({
   trackIosAppCtaView: jest.fn(),
 }));
 
+jest.mock("@/lib/analytics/app-handoff-tracking", () => ({
+  trackAppHandoffView: jest.fn(),
+}));
+
+jest.mock("@/components/app-store/native-app-funnel-cta", () => ({
+  NativeAppFunnelCta: ({
+    platform,
+    source,
+    surface,
+    placement,
+    className,
+    desktopClassName,
+  }: {
+    platform: string;
+    source: string;
+    surface: string;
+    placement: string;
+    className?: string;
+    desktopClassName?: string;
+  }) => (
+    <div
+      data-testid="native-app-funnel-cta"
+      data-platform={platform}
+      data-source={source}
+      data-surface={surface}
+      data-placement={placement}
+      data-class-name={className}
+      data-desktop-class-name={desktopClassName}
+    >
+      {platform === "desktop" ? "Get Quiver on your phone" : IOS_APP_STORE_CTA}
+    </div>
+  ),
+}));
+
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockUseReducedMotion = useReducedMotion as jest.MockedFunction<
   typeof useReducedMotion
@@ -69,6 +104,9 @@ const mockTrackIosAppCtaClick = trackIosAppCtaClick as jest.MockedFunction<
 >;
 const mockTrackIosAppCtaView = trackIosAppCtaView as jest.MockedFunction<
   typeof trackIosAppCtaView
+>;
+const mockTrackAppHandoffView = trackAppHandoffView as jest.MockedFunction<
+  typeof trackAppHandoffView
 >;
 
 function mockUnauthenticatedUser() {
@@ -159,6 +197,54 @@ describe("HeroSection", () => {
   afterEach(() => {
     jest.useRealTimers();
     setDocumentVisibility("visible");
+  });
+
+  it("renders the app-first hero with a visible headline and desktop handoff CTA", async () => {
+    render(<HeroSection initialPlatform="desktop" appFirst />);
+
+    expect(
+      screen.getByRole("heading", {
+        level: 1,
+        name: /know where to paddle out\. get quiver on your phone\./i,
+      }),
+    ).toBeVisible();
+    expect(
+      screen.getByText(/surf call, beach context, and session log/i),
+    ).toBeInTheDocument();
+
+    const cta = screen.getByTestId("native-app-funnel-cta");
+    expect(cta).toHaveAttribute("data-platform", "desktop");
+    expect(cta).toHaveAttribute("data-source", "landing_hero");
+    expect(cta).toHaveAttribute("data-surface", "landing-page");
+    expect(cta).toHaveAttribute("data-placement", "hero_primary");
+    expect(screen.getByRole("link", { name: /see how it works/i })).toHaveAttribute(
+      "href",
+      "#proof",
+    );
+
+    await waitFor(() => {
+      expect(mockTrackAppHandoffView).toHaveBeenCalledWith(
+        expect.objectContaining({
+          source: "landing_hero",
+          surface: "landing-page",
+          placement: "hero_primary",
+          platform: "desktop",
+          cohort: "app_first",
+        }),
+      );
+    });
+  });
+
+  it("uses the server-resolved mobile platform for the app-first primary CTA", () => {
+    render(<HeroSection initialPlatform="ios" appFirst />);
+
+    expect(screen.getByTestId("native-app-funnel-cta")).toHaveAttribute(
+      "data-platform",
+      "ios",
+    );
+    expect(
+      screen.queryByTestId("hero-video-app-store-cta"),
+    ).not.toBeInTheDocument();
   });
 
   it("renders the poster-first video hero and keeps the download link hidden during playback", async () => {

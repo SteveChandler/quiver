@@ -30,7 +30,19 @@ jest.mock("@/components/oracle/oracle-home-screen", () => ({
   OracleHomeScreen: () => <div data-testid="home-screen" />,
 }));
 jest.mock("@/components/landing-page/hero-section", () => ({
-  HeroSection: () => <div data-testid="hero-section" />,
+  HeroSection: ({
+    initialPlatform,
+    appFirst,
+  }: {
+    initialPlatform?: string;
+    appFirst?: boolean;
+  }) => (
+    <div
+      data-testid="hero-section"
+      data-platform={initialPlatform}
+      data-app-first={String(appFirst)}
+    />
+  ),
 }));
 jest.mock("@/components/landing-page/navbar", () => ({
   Navbar: ({ position }: { position?: string }) => (
@@ -53,7 +65,19 @@ jest.mock("@/components/landing-page/cta-section", () => ({
   CTASection: () => <div data-testid="cta" />,
 }));
 jest.mock("@/components/landing-page/landing-interactive-sections", () => ({
-  LandingInteractiveSections: () => <div data-testid="landing-interactive-sections" />,
+  LandingInteractiveSections: ({
+    initialPlatform,
+    appFirst,
+  }: {
+    initialPlatform?: string;
+    appFirst?: boolean;
+  }) => (
+    <div
+      data-testid="landing-interactive-sections"
+      data-platform={initialPlatform}
+      data-app-first={String(appFirst)}
+    />
+  ),
 }));
 jest.mock("@/components/landing-page/landing-conditions-ticker", () => ({
   LandingConditionsTicker: () => <div data-testid="landing-conditions-ticker" />,
@@ -242,6 +266,30 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
 
     // Should NOT call replace (no URL cleanup needed)
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("threads app-first platform props to the guest hero", () => {
+    (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
+    (useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams());
+
+    render(<AuthAwareLandingWrapper initialPlatform="ios" appFirst />);
+
+    expect(screen.getByTestId("hero-section")).toHaveAttribute(
+      "data-platform",
+      "ios",
+    );
+    expect(screen.getByTestId("hero-section")).toHaveAttribute(
+      "data-app-first",
+      "true",
+    );
+    expect(screen.getByTestId("landing-interactive-sections")).toHaveAttribute(
+      "data-platform",
+      "ios",
+    );
+    expect(screen.getByTestId("landing-interactive-sections")).toHaveAttribute(
+      "data-app-first",
+      "true",
+    );
   });
 
   it("renders HomeScreen immediately for authenticated users", async () => {

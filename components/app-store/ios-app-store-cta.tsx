@@ -7,8 +7,9 @@ import {
   trackIosAppCtaView,
 } from "@/lib/analytics/ios-app-cta-tracking";
 import {
+  APP_FIRST_CAMPAIGN,
   IOS_APP_STORE_CTA,
-  IOS_APP_STORE_URL,
+  iosAppStoreUrlWithCampaign,
 } from "@/lib/constants/app-store";
 
 interface IosAppStoreCtaProps {
@@ -18,6 +19,9 @@ interface IosAppStoreCtaProps {
   className?: string;
   children?: ReactNode;
 }
+
+const IOS_APP_STORE_CAMPAIGN_URL =
+  iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN);
 
 export function IosAppStoreCta({
   source,
@@ -40,6 +44,7 @@ export function IosAppStoreCta({
         source,
         surface,
         placement,
+        destination_url: IOS_APP_STORE_CAMPAIGN_URL,
       });
     };
 
@@ -66,7 +71,7 @@ export function IosAppStoreCta({
   return (
     <a
       ref={linkRef}
-      href={IOS_APP_STORE_URL}
+      href={IOS_APP_STORE_CAMPAIGN_URL}
       className={className}
       onClick={() => {
         trackIosAppCtaClick({
@@ -74,7 +79,7 @@ export function IosAppStoreCta({
           surface,
           placement,
           cta_text: IOS_APP_STORE_CTA,
-          destination_url: IOS_APP_STORE_URL,
+          destination_url: IOS_APP_STORE_CAMPAIGN_URL,
         });
       }}
     >
