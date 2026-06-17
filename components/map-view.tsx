@@ -15,6 +15,10 @@ import { MapBottomSheet } from "@/components/map/map-bottom-sheet";
 import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
 import { filterBeachesByViewport, type ViewportBounds } from "@/lib/utils/viewport-filter";
 import { useIsMobile } from "@/hooks/use-mobile";
+import {
+  SWELL_MAP_CTA_CLASS,
+  type SwellLayerId,
+} from "@/components/map/swell-map-theme";
 import type { Beach } from "@/types/database";
 
 const MISSION_BEACH_COORDS = { lat: 32.7702, lon: -117.2525 } as const;
@@ -44,6 +48,13 @@ export function MapView() {
 
   const [viewportBounds, setViewportBounds] = useState<ViewportBounds | null>(null);
   const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
+  const [showSwellField, setShowSwellField] = useState(false);
+  const [swellLayerId, setSwellLayerId] = useState<SwellLayerId>("s1");
+  const [swellTimelineIndex, setSwellTimelineIndex] = useState(0);
+  const swellTimelineSteps = useMemo(
+    () => ["Now", "+3h", "+6h", "+9h", "+12h"],
+    []
+  );
 
   // Custom hooks for state management
   const {
@@ -364,6 +375,15 @@ export function MapView() {
               Clear all
             </Badge>
           )}
+          <button
+            type="button"
+            aria-pressed={showSwellField}
+            data-testid="swell-field-toggle"
+            onClick={() => setShowSwellField((v) => !v)}
+            className={`rounded-md px-3 py-1.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${SWELL_MAP_CTA_CLASS}`}
+          >
+            {showSwellField ? "Hide swell field" : "Show swell field"}
+          </button>
         </div>
       </div>
 
@@ -404,6 +424,12 @@ export function MapView() {
               autoNavigateOnMarkerClick={!isMobile}
               onShowBeaches={isMobile && showRecovery ? handleShowBeaches : undefined}
               visibleBeachCount={viewportBeaches.length}
+              showSwellField={showSwellField}
+              swellLayerId={swellLayerId}
+              onSwellLayerChange={setSwellLayerId}
+              swellTimelineSteps={swellTimelineSteps}
+              swellTimelineIndex={swellTimelineIndex}
+              onSwellTimelineChange={setSwellTimelineIndex}
             />
 
           </div>

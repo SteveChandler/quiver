@@ -43,6 +43,14 @@ interface MapContentProps {
   autoNavigateOnMarkerClick?: boolean;
   onShowBeaches?: () => void;
   visibleBeachCount?: number;
+  showSwellField?: boolean;
+  swellLayerId?: import("@/components/map/swell-map-theme").SwellLayerId;
+  onSwellLayerChange?: (
+    id: import("@/components/map/swell-map-theme").SwellLayerId,
+  ) => void;
+  swellTimelineSteps?: string[];
+  swellTimelineIndex?: number;
+  onSwellTimelineChange?: (index: number) => void;
 }
 
 const MAX_DISTANCE_MILES = 30;
@@ -74,6 +82,12 @@ export function MapContent({
   autoNavigateOnMarkerClick,
   onShowBeaches,
   visibleBeachCount,
+  showSwellField,
+  swellLayerId,
+  onSwellLayerChange,
+  swellTimelineSteps,
+  swellTimelineIndex,
+  onSwellTimelineChange,
 }: MapContentProps) {
   const [shouldLoadInteractiveMap, setShouldLoadInteractiveMap] =
     useState(false);
@@ -215,6 +229,12 @@ export function MapContent({
               onBoundsChange={onBoundsChange}
               onWaveHeightsChange={onWaveHeightsChange}
               autoNavigateOnMarkerClick={autoNavigateOnMarkerClick}
+              showSwellField={showSwellField}
+              swellLayerId={swellLayerId}
+              onSwellLayerChange={onSwellLayerChange}
+              swellTimelineSteps={swellTimelineSteps}
+              swellTimelineIndex={swellTimelineIndex}
+              onSwellTimelineChange={onSwellTimelineChange}
               className="absolute inset-0 z-0 w-full h-full"
             />
           </DataErrorBoundary>
