@@ -188,8 +188,15 @@ export function buildFlowField(
   const cells: FlowCell[] = [];
   const lonSpan = bounds.east - bounds.west;
   const latSpan = bounds.north - bounds.south;
-  const POWER = 2;
+  // Gentle falloff so the coastal band stays well-covered between beaches.
+  const POWER = 1.6;
   const EPS = 1e-9;
+  // A cell more than this far (degrees) from EVERY beach has no nearby data and
+  // emits nothing, so off-coast / open-water areas stay clean.
+  const INFLUENCE_RADIUS_DEG = 0.6;
+  const INFLUENCE_RADIUS2 = INFLUENCE_RADIUS_DEG * INFLUENCE_RADIUS_DEG;
+  // Lift the emitted band so the populated coast reads clearly on the navy basemap.
+  const ALPHA_GAIN = 1.6;
 
   for (let r = 0; r < rows; r += 1) {
     for (let c = 0; c < cols; c += 1) {
@@ -201,11 +208,13 @@ export function buildFlowField(
       let vy = 0;
       let speed = 0;
       let alpha = 0;
+      let nearest2 = Infinity;
 
       for (const p of points) {
         const dLon = lon - p.lon;
         const dLat = lat - p.lat;
         const dist2 = dLon * dLon + dLat * dLat;
+        if (dist2 < nearest2) nearest2 = dist2;
         const w = 1 / Math.pow(dist2 + EPS, POWER / 2);
         const vec = degToVector(p.dir);
         vx += w * vec.x;
@@ -215,7 +224,13 @@ export function buildFlowField(
         wSum += w;
       }
 
-      const inv = wSum > 0 ? 1 / wSum : 0;
+      // No beach within the influence radius -> dead cell (speed 0 / alpha 0).
+      if (nearest2 > INFLUENCE_RADIUS2 || wSum <= 0) {
+        cells.push({ lon, lat, vx: 0, vy: 0, speed: 0, alpha: 0 });
+        continue;
+      }
+
+      const inv = 1 / wSum;
       // Re-normalize the blended direction to a unit vector (magnitude carries via speed).
       let nvx = vx * inv;
       let nvy = vy * inv;
@@ -234,7 +249,7 @@ export function buildFlowField(
         vx: nvx,
         vy: nvy,
         speed: speed * inv,
-        alpha: alpha * inv,
+        alpha: Math.min(1, alpha * inv * ALPHA_GAIN),
       });
     }
   }

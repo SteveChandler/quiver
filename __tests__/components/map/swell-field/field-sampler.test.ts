@@ -87,6 +87,40 @@ describe("buildFlowField", () => {
     const field = buildFlowField([], { west: -1, south: -1, east: 1, north: 1 }, 4);
     expect(field.cells).toHaveLength(0);
   });
+
+  it("cells beyond the influence radius from every beach are dead (speed/alpha 0)", () => {
+    // One beach near the SW corner; the far NE corner is >0.6deg away in both axes.
+    const field = buildFlowField(
+      [pt(-118.0, 32.0, 270, 14, 4)],
+      { west: -118.0, south: 32.0, east: -116.0, north: 34.0 },
+      3
+    );
+    const sw = field.cells.find(
+      (c) => Math.abs(c.lon - -118.0) < 1e-6 && Math.abs(c.lat - 32.0) < 1e-6
+    );
+    const ne = field.cells.find(
+      (c) => Math.abs(c.lon - -116.0) < 1e-6 && Math.abs(c.lat - 34.0) < 1e-6
+    );
+    // Near the beach: populated.
+    expect(sw?.speed).toBeGreaterThan(0);
+    expect(sw?.alpha).toBeGreaterThan(0);
+    // Far off-coast: dead so empty areas stay clean.
+    expect(ne?.speed).toBe(0);
+    expect(ne?.alpha).toBe(0);
+    expect(ne?.vx).toBe(0);
+    expect(ne?.vy).toBe(0);
+  });
+
+  it("lifts emitted alpha so the populated band reads clearly (still clamped <= 1)", () => {
+    const cell = buildFlowField(
+      [pt(-117.2, 32.7, 270, 14, 3)],
+      { west: -117.3, south: 32.6, east: -117.1, north: 32.8 },
+      2
+    ).cells[0];
+    // A 3ft swell would emit alphaFromHeight = 0.09 raw; the gain lifts it well above.
+    expect(cell.alpha).toBeGreaterThan(0.12);
+    expect(cell.alpha).toBeLessThanOrEqual(1);
+  });
 });
 
 describe("computeCoastalBounds", () => {

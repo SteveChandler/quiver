@@ -147,7 +147,8 @@ export function createSwellParticleLayer(
   const rng = Math.random;
   // Fraction of the current viewport a speed=1 particle crosses per frame.
   // Step is scaled to the live Mercator span so motion reads the same at any zoom.
-  const STEP_FRACTION = 0.0025;
+  // Slightly longer trails read as a clearer, calmer drift on the navy basemap.
+  const STEP_FRACTION = 0.0035;
 
   function viewBoxMercator(map: mapboxgl.Map): MercatorBox {
     const b = map.getBounds();
@@ -219,7 +220,13 @@ export function createSwellParticleLayer(
         continue;
       }
 
-      const fade = Math.min(1, cell.alpha) * (1 - page[i] / life[i]);
+      // Floor populated cells so the band reads vividly; keep DEAD cells (no
+      // nearby beach data, speed === 0) fully invisible so empty areas stay clean.
+      const trail = 1 - page[i] / life[i];
+      const fade =
+        cell.speed > 0
+          ? Math.min(1, 0.4 + cell.alpha) * trail
+          : 0;
       vertexPos[i * 4 + 0] = prevX;
       vertexPos[i * 4 + 1] = prevY;
       vertexPos[i * 4 + 2] = px[i];
@@ -270,9 +277,9 @@ export function createSwellParticleLayer(
       gl.uniformMatrix4fv(uMatrixLoc, false, matrix);
       const [r, g, b] = hexToRgb(options.getColorHex());
       gl.uniform3f(uColorLoc, r, g, b);
-      // Slightly lifted so the field reads as a clear but calm drift on the navy
+      // Lifted to full so the field reads as a clear but calm drift on the navy
       // basemap; the static reduced-motion frame gets a touch more presence too.
-      gl.uniform1f(uAlphaLoc, options.reducedMotion ? 0.6 : 0.95);
+      gl.uniform1f(uAlphaLoc, options.reducedMotion ? 0.7 : 1.0);
 
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.SRC_ALPHA, gl.ONE); // additive trails
