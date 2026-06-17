@@ -461,10 +461,8 @@ function ToggleRow({
         <span>{label}</span>
       </span>
       <span
-        className={cn(
-          "h-5 w-9 rounded-full border border-white/28 p-0.5 transition-colors",
-          enabled ? "bg-teal-400/80" : "bg-white/12",
-        )}
+        className="h-5 w-9 rounded-full border border-white/28 p-0.5 transition-colors"
+        style={{ background: enabled ? SWELL_LAYER_COLOR.wind : "rgba(255,255,255,0.12)" }}
       >
         <span
           className={cn(
@@ -625,22 +623,27 @@ export function SurfMapPrototype() {
     return () => observer.disconnect();
   }, [mapLoaded]);
 
-  const markerStyle = useCallback((spot: SurfSpot): CSSProperties => {
-    const position = spotPositions[spot.id] ?? fallbackPosition(spot);
-    const map = mapRef.current;
+  const markerStyle = useCallback(
+    (spot: SurfSpot): { style: CSSProperties } => {
+      const position = spotPositions[spot.id] ?? fallbackPosition(spot);
+      const map = mapRef.current;
+      const left = map ? `${position.x}px` : `${position.x}%`;
+      const top = map ? `${position.y}px` : `${position.y}%`;
+      const selected = spot.id === selectedSpotId;
 
-    if (map) {
       return {
-        left: `${position.x}px`,
-        top: `${position.y}px`,
+        style: {
+          left,
+          top,
+          background: selected ? SWELL_LAYER_COLOR.s1 : SWELL_MAP_SURFACE.panel,
+          borderRadius: SWELL_MAP_STICKER_RADIUS,
+          boxShadow: SWELL_MAP_STICKER_SHADOW,
+          transform: `translate(-50%, -50%) rotate(${selected ? -1.5 : 1.5}deg)`,
+        },
       };
-    }
-
-    return {
-      left: `${position.x}%`,
-      top: `${position.y}%`,
-    };
-  }, [spotPositions]);
+    },
+    [spotPositions, selectedSpotId],
+  );
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-[#252D6B] text-white">
@@ -690,7 +693,7 @@ export function SurfMapPrototype() {
               <span className="text-lg font-semibold">ft</span>
               <span className="text-sm text-white/72">{selectedLayer.meta}</span>
             </div>
-            <div className="mt-1 flex items-center gap-2 text-xs text-white/72">
+            <div className="mt-1 flex items-center gap-2 font-mono text-xs text-white/75">
               <Wind className="h-3.5 w-3.5" />
               <span>{selectedSpot.windMph} mph wind</span>
               <span>{selectedSpot.periodS}s period</span>
@@ -711,7 +714,7 @@ export function SurfMapPrototype() {
               <span className="block font-semibold uppercase text-white/58">
                 {step.label}
               </span>
-              <span className="mt-1 block font-semibold">{step.swell}</span>
+              <span className="mt-1 block font-mono font-semibold">{step.swell}</span>
             </button>
           ))}
         </div>
@@ -830,11 +833,13 @@ export function SurfMapPrototype() {
           <button
             key={spot.id}
             type="button"
+            aria-pressed={selected}
+            aria-current={selected ? "true" : undefined}
             className={cn(
-              "absolute z-10 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/35 bg-black/42 px-2.5 py-1 text-xs font-bold text-white shadow-lg transition hover:scale-110",
-              selected && "z-20 bg-[#f78e42] text-white ring-4 ring-[#f78e42]/25",
+              "absolute z-10 border border-white/35 px-2.5 py-1 font-mono text-xs font-bold text-white transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]",
+              selected && "z-20",
             )}
-            style={markerStyle(spot)}
+            {...markerStyle(spot)}
             onClick={() => setSelectedSpotId(spot.id)}
           >
             {spot.waveFt.toFixed(1)}ft
@@ -855,22 +860,25 @@ export function SurfMapPrototype() {
               {selectedTime.time} surf call
             </p>
           </div>
-          <div className="rounded-md bg-emerald-400/16 px-2 py-1 text-sm font-bold text-emerald-200">
+          <div
+            className="rounded-md px-2 py-1 font-mono text-sm font-bold text-[#FDB84B]"
+            style={{ background: "rgba(253,184,75,0.16)" }}
+          >
             {selectedSpot.rating}
           </div>
         </div>
         <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-          <div className="rounded-md bg-white/10 p-2">
-            <span className="block text-white/55">Swell</span>
-            <span className="font-semibold">{selectedTime.swell}</span>
+          <div className="rounded-md p-2" style={{ background: SWELL_MAP_SURFACE.panelDeep }}>
+            <span className="block text-white/70">Swell</span>
+            <span className="font-mono font-semibold">{selectedTime.swell}</span>
           </div>
-          <div className="rounded-md bg-white/10 p-2">
-            <span className="block text-white/55">Wind</span>
-            <span className="font-semibold">{selectedSpot.windMph} mph</span>
+          <div className="rounded-md p-2" style={{ background: SWELL_MAP_SURFACE.panelDeep }}>
+            <span className="block text-white/70">Wind</span>
+            <span className="font-mono font-semibold">{selectedSpot.windMph} mph</span>
           </div>
-          <div className="rounded-md bg-white/10 p-2">
-            <span className="block text-white/55">Tide</span>
-            <span className="font-semibold">{selectedSpot.tide}</span>
+          <div className="rounded-md p-2" style={{ background: SWELL_MAP_SURFACE.panelDeep }}>
+            <span className="block text-white/70">Tide</span>
+            <span className="font-mono font-semibold">{selectedSpot.tide}</span>
           </div>
         </div>
         <div className="mt-3 flex gap-2">
@@ -924,12 +932,15 @@ export function SurfMapPrototype() {
                 onClick={() => setSelectedTimeIndex(index)}
               >
                 {selectedTimeIndex === index && (
-                  <span className="absolute -top-8 left-1/2 -translate-x-1/2 rounded-md bg-[#d8a12c] px-4 py-1.5 text-sm font-semibold shadow">
+                  <span
+                    className="absolute -top-8 left-1/2 -translate-x-1/2 rounded-md px-4 py-1.5 font-mono text-sm font-semibold text-[#161A40]"
+                    style={{ background: SWELL_LAYER_COLOR.s2, boxShadow: SWELL_MAP_STICKER_SHADOW }}
+                  >
                     {step.time}
                   </span>
                 )}
                 <span className="block text-white/55">{step.label}</span>
-                <span className="block font-semibold">{step.swell}</span>
+                <span className="block font-mono font-semibold">{step.swell}</span>
               </button>
             ))}
           </div>
@@ -962,7 +973,7 @@ export function SurfMapPrototype() {
           <Button
             type="button"
             size="sm"
-            className="h-8 rounded-full bg-[#d5a12f] px-3 text-white hover:bg-[#c58f23]"
+            className={cn("h-8 rounded-full px-3 text-white", SWELL_MAP_CTA_CLASS)}
           >
             <Lock className="h-4 w-4" />
             Go Pro
@@ -971,7 +982,8 @@ export function SurfMapPrototype() {
             type="button"
             variant="ghost"
             size="icon"
-            className="h-10 w-10 rounded-full bg-[#a3271e] text-white hover:bg-[#8d2019] hover:text-white"
+            className="h-10 w-10 rounded-full text-white hover:text-white"
+            style={{ background: SWELL_MAP_SURFACE.panel, boxShadow: SWELL_MAP_STICKER_SHADOW }}
             aria-label="Close layer menu"
             onClick={() => setMenuOpen(false)}
           >
@@ -999,7 +1011,7 @@ export function SurfMapPrototype() {
               type="button"
               className={cn(
                 "rounded-full px-2 py-1 text-white/82 hover:bg-white/12",
-                label === "All" && "bg-[#d5a12f] text-white",
+                label === "All" && "bg-[rgba(253,184,75,0.18)] text-[#FDB84B]",
               )}
             >
               {label}
@@ -1040,7 +1052,10 @@ export function SurfMapPrototype() {
           Display more layers (12)
           <ChevronDown className="h-4 w-4" />
         </button>
-        <div className="mt-4 rounded-lg bg-teal-500/22 p-3">
+        <div
+          className="mt-4 rounded-lg p-3"
+          style={{ background: SWELL_MAP_SURFACE.panelDeep }}
+        >
           <div className="mb-2 flex items-center gap-2 text-sm text-white/80">
             <Clock3 className="h-4 w-4" />
             Timeline: {selectedTime.time}
@@ -1052,10 +1067,13 @@ export function SurfMapPrototype() {
             max={TIME_STEPS.length - 1}
             value={selectedTimeIndex}
             onChange={(event) => setSelectedTimeIndex(Number(event.target.value))}
-            className="w-full accent-[#d5a12f]"
+            className="w-full accent-[#F78E42]"
           />
         </div>
-        <div className="mt-3 rounded-lg bg-indigo-500/22 p-2">
+        <div
+          className="mt-3 rounded-lg p-2"
+          style={{ background: SWELL_MAP_SURFACE.panelDeep }}
+        >
           <ToggleRow
             icon={Waves}
             label="Particles animation"

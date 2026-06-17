@@ -542,7 +542,7 @@ No TDD for the JSX swaps; the `buildLegendRampCss()` helper they consume is alre
 
 No TDD (visual + typography). Add `font-mono` to all technical numeric VALUES (keep `font-heading` on the big metric + spot name + wordmark — those are already correct), give the selected spot marker the sticker treatment, and collapse every off-palette accent to a sanctioned token.
 
-- [ ] **Step 1: Mono the period/wind sub-line (was 649-653).**
+- [x] **Step 1: Mono the period/wind sub-line (was 649-653).**
   Replace the inner stat line in the top panel (the `Wind` + mph + period row):
   ```tsx
               <div className="mt-1 flex items-center gap-2 font-mono text-xs text-white/75">
@@ -553,14 +553,14 @@ No TDD (visual + typography). Add `font-mono` to all technical numeric VALUES (k
   ```
   (`font-mono` added; `text-white/72` -> `text-white/75` for a hair more contrast. The big `{selectedSpot.waveFt.toFixed(1)}` keeps `font-heading` — leave 641-642 unchanged.)
 
-- [ ] **Step 2: Mono the top-panel time-step swell values (was 667-670).**
+- [x] **Step 2: Mono the top-panel time-step swell values (was 667-670).**
   In the `TIME_STEPS.slice(0, 4)` buttons, the `{step.swell}` is a technical value. Replace that span:
   ```tsx
                 <span className="mt-1 block font-mono font-semibold">{step.swell}</span>
   ```
   (Keep the uppercase `{step.label}` as-is — it is a label, not a value.)
 
-- [ ] **Step 3: Mono + fix contrast on the spot-card Swell/Wind/Tide tiles (was 806-818).**
+- [x] **Step 3: Mono + fix contrast on the spot-card Swell/Wind/Tide tiles (was 806-818).**
   Replace the three-tile grid. The labels move from `text-white/55` (fails contrast on `bg-white/10`) to `text-white/70`, the tile darkens to navy, and the VALUES get `font-mono`:
   ```tsx
           <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
@@ -579,7 +579,7 @@ No TDD (visual + typography). Add `font-mono` to all technical numeric VALUES (k
           </div>
   ```
 
-- [ ] **Step 4: Recolor the emerald rating chip to gold (was 802-804).**
+- [x] **Step 4: Recolor the emerald rating chip to gold (was 802-804).**
   Replace the rating chip. The rating number is a technical value -> `font-mono`; emerald -> Paradise Gold on navy:
   ```tsx
             <div
@@ -591,7 +591,7 @@ No TDD (visual + typography). Add `font-mono` to all technical numeric VALUES (k
   ```
   (Drops `bg-emerald-400/16 text-emerald-200`.)
 
-- [ ] **Step 5: Sticker-treat the spot markers + mono the badge (was 773-790).**
+- [x] **Step 5: Sticker-treat the spot markers + mono the badge (was 773-790).**
   Replace the marker `<button>`. Selected state keeps decorative Charming Orange (`#F78E42` is sanctioned for the selected/decorative state, NOT a white-text CTA), gains the asymmetric radius, hard shadow, a 1.5° rotation, and a focus-visible ring; the `ft` badge value becomes `font-mono`:
   ```tsx
         {SURF_SPOTS.map((spot) => {
@@ -623,7 +623,7 @@ No TDD (visual + typography). Add `font-mono` to all technical numeric VALUES (k
   ```
   > GOTCHA: `markerStyle(spot)` currently returns a `style` OBJECT with `left/top`. Because we now set `style` inline AND a `transform` (the old `-translate-x-1/2 -translate-y-1/2` Tailwind classes are removed since `transform` overrides them), the `left/top` must merge into the same style object. Change `markerStyle` to return the left/top as part of a spread. Do Step 6 next.
 
-- [ ] **Step 6: Make `markerStyle` mergeable (was 587-602).**
+- [x] **Step 6: Make `markerStyle` mergeable (was 587-602).**
   The marker now needs `left/top` merged with our inline `transform`. Replace the `markerStyle` callback so it returns `{ style: CSSProperties }` consumable via `{...markerStyle(spot)}`, merging position with the sticker transform set in Step 5. Replace the callback body:
   ```ts
     const markerStyle = useCallback(
@@ -666,7 +666,7 @@ No TDD (visual + typography). Add `font-mono` to all technical numeric VALUES (k
   ```
   (`markerStyle` now owns background/radius/shadow/transform; the className no longer carries the translate utilities.)
 
-- [ ] **Step 6b: Re-skin the bottom timeline active tooltip (was 864 `#d8a12c`).**
+- [x] **Step 6b: Re-skin the bottom timeline active tooltip (was 864 `#d8a12c`).**
   Replace the active-step floating time tooltip so it reads Paradise Gold on navy with a mono time value:
   ```tsx
                   <span
@@ -681,7 +681,7 @@ No TDD (visual + typography). Add `font-mono` to all technical numeric VALUES (k
                   <span className="block font-mono font-semibold">{step.swell}</span>
   ```
 
-- [ ] **Step 7: Collapse the drawer muddy accents (was 897, 906, 934, 975, 987, 990).**
+- [x] **Step 7: Collapse the drawer muddy accents (was 897, 906, 934, 975, 987, 990).**
   In the mobile drawer, recolor:
   - "Go Pro" button (897) `bg-[#d5a12f] hover:bg-[#c58f23]` -> sanctioned interactive CTA. Replace its className with `cn("h-8 rounded-full px-3 text-white", SWELL_MAP_CTA_CLASS)`.
   - "Close layer menu" FAB (906) `bg-[#a3271e] hover:bg-[#8d2019]` -> navy opaque: className `"h-10 w-10 rounded-full text-white hover:text-white"` plus `style={{ background: SWELL_MAP_SURFACE.panel, boxShadow: SWELL_MAP_STICKER_SHADOW }}`.
@@ -690,19 +690,19 @@ No TDD (visual + typography). Add `font-mono` to all technical numeric VALUES (k
   - Range input accent (987) `accent-[#d5a12f]` -> `accent-[#F78E42]`.
   - Toggles panel wrapper (990) `bg-indigo-500/22` -> `style={{ background: SWELL_MAP_SURFACE.panelDeep }}` and drop the bg class.
 
-- [ ] **Step 8: Confirm no muddy accent hex remains.**
+- [x] **Step 8: Confirm no muddy accent hex remains.**
   ```bash
   grep -nE "#d8a12c|#d5a12f|#c58f23|#a3271e|#8d2019|emerald|teal-|indigo-|bg-teal|bg-indigo" components/map/surf-map-prototype.tsx
   ```
   Expected: NO matches. (The ONE sanctioned teal `#00D4AA` lives in the theme module via `SWELL_LAYER_COLOR.wind`, not as a Tailwind `teal-*` class — so this grep should be empty.)
 
-- [ ] **Step 9: Typecheck.**
+- [x] **Step 9: Typecheck.**
   ```bash
   NODE_OPTIONS="--max-old-space-size=8192" yarn typecheck
   ```
   Expected: clean.
 
-- [ ] **Step 10: Commit.**
+- [x] **Step 10: Commit.**
   ```bash
   git add components/map/surf-map-prototype.tsx
   git commit -m "refactor(map): mono technical values, sticker markers, collapse off-palette accents"
