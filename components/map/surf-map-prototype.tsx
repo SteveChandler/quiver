@@ -1020,6 +1020,9 @@ export function SurfMapPrototype() {
             }}
           >
             <Dialog.Title className="sr-only">Surf map layers and settings</Dialog.Title>
+            <Dialog.Description className="sr-only">
+              Layer, timeline, and display controls for the surf map.
+            </Dialog.Description>
             <div className="mb-3 flex items-center justify-between">
               <Button
                 type="button"
