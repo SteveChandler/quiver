@@ -34,22 +34,27 @@ describe("swell-map-theme tokens", () => {
     for (const bad of banned) expect(values).not.toContain(bad);
   });
 
-  it("maps each layer to the native brand accent for the navy-basemap flow field", () => {
-    expect(SWELL_FIELD_PARTICLE_COLOR.s1).toBe("#F78E42");
-    expect(SWELL_FIELD_PARTICLE_COLOR.s2).toBe("#FDB84B");
-    expect(SWELL_FIELD_PARTICLE_COLOR.wind).toBe("#00D4AA");
-    expect(SWELL_FIELD_PARTICLE_COLOR.combined).toBe("#F78E42");
-    // The field rides the navy basemap (recolored ON), so the dashes use the SAME
-    // bright native colors as the UI chips — they pop on deep-ocean navy rather than
-    // needing darkened light-basemap variants. Assert equality with the chip palette.
-    const nativePalette = new Set([
-      "#f78e42", // Charming Orange
-      "#fdb84b", // Paradise Gold
-      "#00d4aa", // Pacific Teal
-    ]);
+  it("darkens the native brand hues so the flow field reads on the light basemap", () => {
+    expect(SWELL_FIELD_PARTICLE_COLOR.s1).toBe("#8F3408");
+    expect(SWELL_FIELD_PARTICLE_COLOR.s2).toBe("#6E4500");
+    expect(SWELL_FIELD_PARTICLE_COLOR.wind).toBe("#064A43");
+    expect(SWELL_FIELD_PARTICLE_COLOR.combined).toBe("#8F3408");
+    // The field rides the LIGHT Windy-style basemap (no recolor), so the dashes are
+    // DARKENED variants of the native hues — recognizably the brand colors, just dark
+    // enough to read on light-blue water. Each field color must be DARKER than its
+    // bright chip counterpart (lower summed RGB), which keeps the selector chips bright.
+    const hexSum = (hex: string): number => {
+      const h = hex.replace("#", "");
+      return (
+        parseInt(h.slice(0, 2), 16) +
+        parseInt(h.slice(2, 4), 16) +
+        parseInt(h.slice(4, 6), 16)
+      );
+    };
     for (const id of ["s1", "s2", "wind", "combined"] as SwellLayerId[]) {
-      expect(SWELL_FIELD_PARTICLE_COLOR[id]).toBe(SWELL_LAYER_COLOR[id]);
-      expect(nativePalette.has(SWELL_FIELD_PARTICLE_COLOR[id].toLowerCase())).toBe(true);
+      expect(hexSum(SWELL_FIELD_PARTICLE_COLOR[id])).toBeLessThan(
+        hexSum(SWELL_LAYER_COLOR[id])
+      );
     }
     // Still no banned cyan/purple hues.
     const banned = ["#38bdf8", "#47e0d1", "#67e8f9", "#7dd3fc", "#7c3aed", "#9333ea", "#818cf8"];
