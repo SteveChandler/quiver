@@ -19,6 +19,7 @@ interface BulkForecastResponse {
   isCalibrated: Record<string, boolean>;
   conditionScores: Record<string, number | undefined>;
   conditionSummaries: Record<string, "GOOD" | "FAIR" | "CHECK" | "UNKNOWN">;
+  swellPartitions: Record<string, unknown>;
 }
 
 type QueryResult<T> = {
@@ -272,6 +273,7 @@ describe("/api/forecasts/bulk", () => {
         isCalibrated: {},
         conditionScores: {},
         conditionSummaries: {},
+        swellPartitions: {},
       });
     }
     expect(mockSupabaseClient.from).not.toHaveBeenCalled();
@@ -395,6 +397,7 @@ describe("/api/forecasts/bulk", () => {
         "beach-1": "UNKNOWN",
         "beach-2": "UNKNOWN",
       },
+      swellPartitions: {},
     });
   });
 

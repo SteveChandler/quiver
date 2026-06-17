@@ -14,8 +14,11 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import type { Database } from "@/types/database.generated";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { rowToSwellPartition, type SwellPartition } from "./swell-partition";
 
 export const dynamic = 'force-dynamic';
+
+export type { SwellPartition };
 
 type ConditionSummary = "GOOD" | "FAIR" | "CHECK" | "UNKNOWN";
 
@@ -25,6 +28,7 @@ const emptyBulkForecastResponse = {
   isCalibrated: {},
   conditionScores: {},
   conditionSummaries: {},
+  swellPartitions: {},
 };
 
 const BULK_FORECAST_SELECT =
@@ -196,6 +200,11 @@ async function bulkForecastHandler(
       }
     });
 
+    const swellPartitionMap: Record<string, SwellPartition> = {};
+    (data || []).forEach((row) => {
+      swellPartitionMap[row.beach_id] = rowToSwellPartition(row);
+    });
+
     const conditionScoreMap: Record<string, number | undefined> = {};
     const conditionSummaryMap: Record<string, ConditionSummary> =
       Object.fromEntries(
@@ -275,6 +284,7 @@ async function bulkForecastHandler(
       isCalibrated: isCalibratedMap,
       conditionScores: conditionScoreMap,
       conditionSummaries: conditionSummaryMap,
+      swellPartitions: swellPartitionMap,
     });
   } catch (error) {
     console.error("Unexpected error in bulk forecast API:", error);

@@ -65,3 +65,17 @@ export function degreesToCompass(degrees: number): string {
   const index = Math.round(normalized / 22.5) % 16;
   return COMPASS_16[index];
 }
+
+/**
+ * Convert a 16-point compass label to its heading in degrees.
+ * Live `enhanced_forecasts.swell_*_direction` rows store compass TEXT ("SSW",
+ * "WNW", "N"), not numeric degrees — the inverse of `degreesToCompass`.
+ * Case-insensitive, trims whitespace; returns null for unrecognized labels.
+ */
+export function compassToDegrees(label: string): number | null {
+  if (typeof label !== "string") return null;
+  const index = COMPASS_16.indexOf(
+    label.trim().toUpperCase() as (typeof COMPASS_16)[number]
+  );
+  return index === -1 ? null : index * 22.5;
+}

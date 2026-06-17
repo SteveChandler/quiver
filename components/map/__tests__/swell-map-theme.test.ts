@@ -6,6 +6,7 @@ import {
   SWELL_MAP_CTA_CLASS,
   buildLegendRampCss,
   degreesToCompass,
+  compassToDegrees,
   type SwellLayerId,
 } from "../swell-map-theme";
 
@@ -71,6 +72,30 @@ describe("degreesToCompass", () => {
   it("returns an em dash for non-finite input", () => {
     expect(degreesToCompass(Number.NaN)).toBe("—");
     expect(degreesToCompass(Number.POSITIVE_INFINITY)).toBe("—");
+  });
+});
+
+describe("compassToDegrees", () => {
+  it("converts 16-point labels back to degrees (inverse of degreesToCompass)", () => {
+    expect(compassToDegrees("N")).toBe(0);
+    expect(compassToDegrees("E")).toBe(90);
+    expect(compassToDegrees("S")).toBe(180);
+    expect(compassToDegrees("W")).toBe(270);
+    expect(compassToDegrees("SSW")).toBe(202.5);
+    expect(compassToDegrees("WNW")).toBe(292.5);
+    expect(compassToDegrees("ESE")).toBe(112.5);
+  });
+
+  it("is case-insensitive and trims whitespace", () => {
+    expect(compassToDegrees("wnw")).toBe(292.5);
+    expect(compassToDegrees("  ssw  ")).toBe(202.5);
+    expect(compassToDegrees("n")).toBe(0);
+  });
+
+  it("returns null for unrecognized labels", () => {
+    expect(compassToDegrees("zzz")).toBeNull();
+    expect(compassToDegrees("")).toBeNull();
+    expect(compassToDegrees("123")).toBeNull();
   });
 });
 

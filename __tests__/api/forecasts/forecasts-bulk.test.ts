@@ -15,6 +15,7 @@ interface ForecastsBulkResponse {
   isCalibrated: Record<string, boolean>;
   conditionScores: Record<string, number | undefined>;
   conditionSummaries: Record<string, "GOOD" | "FAIR" | "CHECK" | "UNKNOWN">;
+  swellPartitions: Record<string, unknown>;
 }
 
 type QueryResult<T> = {
@@ -296,6 +297,7 @@ describe("GET /api/forecasts/bulk", () => {
         isCalibrated: {},
         conditionScores: {},
         conditionSummaries: {},
+        swellPartitions: {},
       });
     }
     expect(mockSupabaseClient.from).not.toHaveBeenCalled();
