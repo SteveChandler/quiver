@@ -145,11 +145,14 @@ export function createSwellParticleLayer(
   const vertexAlpha = new Float32Array(count * 2);
 
   const rng = Math.random;
-  // Fraction of the current viewport a speed=1 particle crosses per frame.
-  // Step is scaled to the live Mercator span so motion reads the same at any zoom.
-  // Small step => slow, calm Windy-style drift AND short dashes (the per-frame step
-  // is also the drawn trail-segment length, so a smaller step keeps the marks short).
+  // Fraction of the current viewport a speed=1 particle ADVANCES per frame (drift
+  // speed), scaled to the live Mercator span so motion reads the same at any zoom.
+  // Small => slow, calm Windy-style drift.
   const STEP_FRACTION = 0.0012;
+  // Fixed dash LENGTH as a fraction of the viewport span, DECOUPLED from drift speed
+  // so dashes stay visible (~10px) no matter how slow they move. Tying length to the
+  // per-frame step made slow dashes sub-pixel and invisible.
+  const DASH_FRACTION = 0.012;
 
   function viewBoxMercator(map: mapboxgl.Map): MercatorBox {
     const b = map.getBounds();
@@ -188,8 +191,6 @@ export function createSwellParticleLayer(
     const box = viewBoxMercator(map);
     const span = Math.max(box.maxX - box.minX, 1e-6);
     for (let i = 0; i < count; i += 1) {
-      const prevX = px[i];
-      const prevY = py[i];
       // Convert this particle's Mercator pos back to lng/lat to sample the geo field.
       const merc = new mapboxgl.MercatorCoordinate(px[i], py[i]);
       const ll = merc.toLngLat();
@@ -229,11 +230,17 @@ export function createSwellParticleLayer(
         cell.speed > 0
           ? Math.min(1, 0.55 + cell.alpha) * trail
           : 0;
-      vertexPos[i * 4 + 0] = prevX;
-      vertexPos[i * 4 + 1] = prevY;
-      vertexPos[i * 4 + 2] = px[i];
-      vertexPos[i * 4 + 3] = py[i];
-      vertexAlpha[i * 2 + 0] = 0;
+      // Draw a fixed-length dash oriented along the flow vector, centered on the
+      // particle. Visible length is independent of drift speed (Windy-style mark).
+      const vlen = Math.hypot(cell.vx, cell.vy) || 1;
+      const dashHalf = span * DASH_FRACTION * 0.5;
+      const dx = (cell.vx / vlen) * dashHalf;
+      const dy = (cell.vy / vlen) * dashHalf;
+      vertexPos[i * 4 + 0] = px[i] - dx;
+      vertexPos[i * 4 + 1] = py[i] - dy;
+      vertexPos[i * 4 + 2] = px[i] + dx;
+      vertexPos[i * 4 + 3] = py[i] + dy;
+      vertexAlpha[i * 2 + 0] = fade;
       vertexAlpha[i * 2 + 1] = fade;
     }
   }
