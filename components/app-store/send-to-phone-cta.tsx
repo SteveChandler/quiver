@@ -19,6 +19,7 @@ import {
 import {
   APP_FIRST_CAMPAIGN,
   buildAppHandoffPath,
+  buildAppHandoffUrl,
   iosAppStoreUrlWithCampaign,
 } from "@/lib/constants/app-handoff";
 import { cn } from "@/lib/utils";
@@ -61,11 +62,17 @@ export function SendToPhoneCta({
     [placement, source],
   );
 
-  const qrValue = useMemo(() => {
-    if (typeof window === "undefined") return handoffPath;
-    // eslint-disable-next-line no-restricted-properties -- Need an absolute same-origin QR target, not navigation.
-    return `${window.location.origin}${handoffPath}`;
-  }, [handoffPath]);
+  const qrValue = useMemo(
+    () =>
+      buildAppHandoffUrl({
+        source,
+        placement,
+        utm_source: "qr",
+        utm_medium: "desktop_handoff",
+        utm_campaign: APP_FIRST_CAMPAIGN,
+      }),
+    [placement, source],
+  );
 
   useEffect(() => {
     if (qrTracked.current) return;

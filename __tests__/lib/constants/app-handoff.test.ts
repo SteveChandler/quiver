@@ -1,12 +1,23 @@
 import {
   APP_HANDOFF_PATH,
   buildAppHandoffPath,
+  buildAppHandoffUrl,
   type HandoffParams,
   iosAppStoreUrlWithCampaign,
 } from "@/lib/constants/app-handoff";
 import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
 
 describe("app-handoff constants", () => {
+  const originalSiteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+
+  afterEach(() => {
+    if (originalSiteUrl === undefined) {
+      delete process.env.NEXT_PUBLIC_SITE_URL;
+    } else {
+      process.env.NEXT_PUBLIC_SITE_URL = originalSiteUrl;
+    }
+  });
+
   it("exposes the /app handoff path", () => {
     expect(APP_HANDOFF_PATH).toBe("/app");
   });
@@ -27,6 +38,14 @@ describe("app-handoff constants", () => {
     expect(path).toContain("placement=hero_primary");
     expect(path).toContain("utm_source=qr");
     expect(path).not.toContain("nope%40example.com");
+  });
+
+  it("builds an absolute handoff URL from the configured public site origin", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://dev.quiversurf.app/";
+
+    expect(buildAppHandoffUrl({ source: "landing_hero" })).toBe(
+      "https://dev.quiversurf.app/app?source=landing_hero",
+    );
   });
 
   it("appends Apple campaign tokens to the App Store URL", () => {

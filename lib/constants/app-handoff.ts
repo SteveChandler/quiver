@@ -21,6 +21,8 @@ export const SAFE_HANDOFF_PARAM_KEYS = [
 export type SafeHandoffParamKey = (typeof SAFE_HANDOFF_PARAM_KEYS)[number];
 export type HandoffParams = Partial<Record<SafeHandoffParamKey, string>>;
 
+const DEFAULT_APP_HANDOFF_ORIGIN = "https://www.quiversurf.app";
+
 export function buildAppHandoffPath(params: HandoffParams): string {
   const search = new URLSearchParams();
   for (const key of SAFE_HANDOFF_PARAM_KEYS) {
@@ -29,4 +31,13 @@ export function buildAppHandoffPath(params: HandoffParams): string {
   }
   const qs = search.toString();
   return qs ? `${APP_HANDOFF_PATH}?${qs}` : APP_HANDOFF_PATH;
+}
+
+export function buildAppHandoffUrl(params: HandoffParams): string {
+  const origin = (
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    DEFAULT_APP_HANDOFF_ORIGIN
+  ).replace(/\/$/, "");
+  return `${origin}${buildAppHandoffPath(params)}`;
 }
