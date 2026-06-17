@@ -65,7 +65,19 @@ jest.mock("@/components/landing-page/cta-section", () => ({
   CTASection: () => <div data-testid="cta" />,
 }));
 jest.mock("@/components/landing-page/landing-interactive-sections", () => ({
-  LandingInteractiveSections: () => <div data-testid="landing-interactive-sections" />,
+  LandingInteractiveSections: ({
+    initialPlatform,
+    appFirst,
+  }: {
+    initialPlatform?: string;
+    appFirst?: boolean;
+  }) => (
+    <div
+      data-testid="landing-interactive-sections"
+      data-platform={initialPlatform}
+      data-app-first={String(appFirst)}
+    />
+  ),
 }));
 jest.mock("@/components/landing-page/landing-conditions-ticker", () => ({
   LandingConditionsTicker: () => <div data-testid="landing-conditions-ticker" />,
@@ -267,6 +279,14 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
       "ios",
     );
     expect(screen.getByTestId("hero-section")).toHaveAttribute(
+      "data-app-first",
+      "true",
+    );
+    expect(screen.getByTestId("landing-interactive-sections")).toHaveAttribute(
+      "data-platform",
+      "ios",
+    );
+    expect(screen.getByTestId("landing-interactive-sections")).toHaveAttribute(
       "data-app-first",
       "true",
     );

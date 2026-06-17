@@ -149,7 +149,10 @@ export function AuthAwareLandingWrapper({
       <main role="main">
         <HeroSection initialPlatform={initialPlatform} appFirst={appFirst} />
 
-        <LandingInteractiveSections />
+        <LandingInteractiveSections
+          initialPlatform={initialPlatform}
+          appFirst={appFirst}
+        />
       </main>
 
       {/* Email confirmation modal - requires user action to dismiss */}
