@@ -222,13 +222,17 @@ export function createSwellParticleLayer(
   // longer-period swells visibly drift faster, short-period swells slower.
   const STEP_FRACTION = 0.00012;
   // Fixed dash LENGTH as a fraction of the viewport span, DECOUPLED from drift speed
-  // so dashes stay visible (~10px) no matter how slow they move. Tying length to the
-  // per-frame step made slow dashes sub-pixel and invisible.
-  const DASH_FRACTION = 0.011;
-  // Comet TAIL length as a fraction of the viewport span — a short streak behind the
-  // moving dot head. Shorter than a crest dash so it reads as a trailing wisp, not a
-  // line. Decoupled from drift speed (same rationale as DASH_FRACTION).
-  const COMET_TAIL_FRACTION = 0.02;
+  // so dashes stay visible (~14px) no matter how slow they move. Tying length to the
+  // per-frame step made slow dashes sub-pixel and invisible. Bumped 0.011 -> 0.016 so
+  // the dark crest "|" marks read on the pale Mapbox water (lineWidth>1 is unreliable
+  // across GPUs, so length is the lever) — still kept clearly SHORTER than the wind
+  // comet tail below so the swell crest and the wind streak stay visually distinct.
+  const DASH_FRACTION = 0.016;
+  // Comet TAIL length as a fraction of the viewport span — a streak trailing BEHIND the
+  // moving dot head. Lengthened 0.02 -> 0.028 so the wind streak reads as motion on the
+  // light basemap, and stays LONGER than the crest dash so the two marks don't blur
+  // together. Decoupled from drift speed (same rationale as DASH_FRACTION).
+  const COMET_TAIL_FRACTION = 0.028;
 
   function viewBoxMercator(map: mapboxgl.Map): MercatorBox {
     const b = map.getBounds();
@@ -315,10 +319,14 @@ export function createSwellParticleLayer(
       // light basemap; keep DEAD cells (no nearby beach data, speed === 0) fully
       // invisible so open water / land stays clean.
       const trail = 1 - page[i] / life[i];
+      // Lifetime fade tightened for LEGIBILITY: a live mark holds full alpha for most of
+      // its life and only eases out over the final ~15% (trail < 0.15) instead of the
+      // old quarter-life (trail < 0.25) fade that left aging marks washed out on the
+      // pale water. The respawn frame still zeroes alpha explicitly above, so there is
+      // no spawn pop.
+      const lifeFade = Math.min(1, trail * 6.7);
       const fade =
-        cell.speed > 0
-          ? Math.min(1, 0.85 + cell.alpha) * Math.min(1, trail * 4)
-          : 0;
+        cell.speed > 0 ? Math.min(1, 0.85 + cell.alpha) * lifeFade : 0;
 
       if (markStyle === "dot") {
         // One GL point per particle, centered on the particle position.
@@ -329,15 +337,16 @@ export function createSwellParticleLayer(
       }
 
       if (markStyle === "comet") {
-        // A small comet: a solid dot at the particle position (vert 1) with a fading
-        // streak extending in the SAME direction the dot is moving (vert 0, transparent)
-        // — so the tail points the way the wind travels, matching the dots' motion.
-        // Drawn as a LINES segment (the fading streak) plus a POINTS pass (the dot)
-        // sharing this buffer.
+        // A small comet: a solid dot HEAD at the leading particle position (vert 1) with
+        // a fading streak TRAILING BEHIND it (vert 0, transparent), i.e. OPPOSITE the
+        // travel direction (vx,vy). The particle advances along +(vx,vy), so the head
+        // leads and the wisp streams out behind — the comet reads as moving head-first,
+        // tail chasing, matching the dot's motion. Drawn as a LINES segment (the fading
+        // streak) plus a POINTS pass (the head) sharing this buffer.
         const vlen = Math.hypot(cell.vx, cell.vy) || 1;
         const tailLen = span * COMET_TAIL_FRACTION;
-        vertexPos[i * 4 + 0] = px[i] + (cell.vx / vlen) * tailLen;
-        vertexPos[i * 4 + 1] = py[i] + (cell.vy / vlen) * tailLen;
+        vertexPos[i * 4 + 0] = px[i] - (cell.vx / vlen) * tailLen;
+        vertexPos[i * 4 + 1] = py[i] - (cell.vy / vlen) * tailLen;
         vertexPos[i * 4 + 2] = px[i];
         vertexPos[i * 4 + 3] = py[i];
         vertexAlpha[i * 2 + 0] = 0;
@@ -407,11 +416,13 @@ export function createSwellParticleLayer(
       // Near-opaque so the dark dashes read crisply on the light basemap; the static
       // reduced-motion frame stays a touch dimmer.
       gl.uniform1f(uAlphaLoc, options.reducedMotion ? 0.95 : 1.0);
-      // Dot diameter in device pixels (≈3 CSS px scaled for retina). Ignored when
-      // drawing LINES; only the dot layer reads gl_PointSize.
+      // Dot diameter in device pixels (≈3.6 CSS px scaled for retina). Ignored when
+      // drawing LINES; only the dot/comet-head layer reads gl_PointSize. Bumped 3.0 ->
+      // 3.6 so the wind comet head reads against the pale basemap (lineWidth>1 is
+      // unreliable, so head size is the lever).
       const dpr =
         typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-      gl.uniform1f(uPointSizeLoc, 3.0 * dpr);
+      gl.uniform1f(uPointSizeLoc, 3.6 * dpr);
 
       gl.enable(gl.BLEND);
       // Normal alpha blending — dark marks paint over the light water (additive glow

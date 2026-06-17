@@ -35,10 +35,10 @@ describe("swell-map-theme tokens", () => {
   });
 
   it("darkens the native brand hues so the flow field reads on the light basemap", () => {
-    expect(SWELL_FIELD_PARTICLE_COLOR.s1).toBe("#8F3408");
-    expect(SWELL_FIELD_PARTICLE_COLOR.s2).toBe("#6E4500");
-    expect(SWELL_FIELD_PARTICLE_COLOR.wind).toBe("#064A43");
-    expect(SWELL_FIELD_PARTICLE_COLOR.combined).toBe("#8F3408");
+    expect(SWELL_FIELD_PARTICLE_COLOR.s1).toBe("#7A2C06");
+    expect(SWELL_FIELD_PARTICLE_COLOR.s2).toBe("#5C3A00");
+    expect(SWELL_FIELD_PARTICLE_COLOR.wind).toBe("#053C36");
+    expect(SWELL_FIELD_PARTICLE_COLOR.combined).toBe("#7A2C06");
     // The field rides the LIGHT Windy-style basemap (no recolor), so the dashes are
     // DARKENED variants of the native hues — recognizably the brand colors, just dark
     // enough to read on light-blue water. Each field color must be DARKER than its

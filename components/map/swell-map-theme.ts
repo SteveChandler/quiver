@@ -37,10 +37,10 @@ export const SWELL_LAYER_COLOR: Record<SwellLayerId, string> = {
 // just dark enough to read against the light-blue water (the bright chip palette
 // washes out there). The bright chip colors stay in SWELL_LAYER_COLOR.
 export const SWELL_FIELD_PARTICLE_COLOR: Record<SwellLayerId, string> = {
-  s1: "#8F3408",   // primary swell — dark Charming Orange
-  s2: "#6E4500",   // secondary swell — dark Paradise Gold
-  wind: "#064A43", // wind — dark Pacific Teal (still teal, NOT cyan)
-  combined: "#8F3408",
+  s1: "#7A2C06",   // primary swell — deep Charming Orange (deepened for light-water contrast)
+  s2: "#5C3A00",   // secondary swell — deep Paradise Gold
+  wind: "#053C36", // wind — deep Pacific Teal (still teal, NOT cyan)
+  combined: "#7A2C06",
 };
 
 // CTA tokens (Tailwind classes). Interactive buttons w/ white text MUST use ocean-blue
