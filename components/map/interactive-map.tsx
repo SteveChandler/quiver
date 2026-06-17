@@ -39,6 +39,21 @@ import {
   getClusterPopupBeaches,
 } from "@/components/map/map-cluster-popup";
 import { useTrackEvent } from "@/hooks/use-track-event";
+import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
+import {
+  SWELL_LAYER_COLOR,
+  type SwellLayerId,
+} from "@/components/map/swell-map-theme";
+import {
+  buildFlowField,
+  partitionToPoint,
+  type BeachPartitionPoint,
+  type FlowField,
+} from "@/components/map/swell-field/field-sampler";
+import { createSwellParticleLayer } from "@/components/map/swell-field/swell-particle-layer";
+import { SwellLayerSelector } from "@/components/map/swell-field/swell-layer-selector";
+import { SwellForecastTimeline } from "@/components/map/swell-field/swell-forecast-timeline";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
 // Mapbox CSS is imported globally in app/globals.css
 
@@ -62,6 +77,13 @@ interface InteractiveMapProps {
   autoNavigateOnMarkerClick?: boolean; // Whether marker clicks auto-navigate to beach page (default: true)
   displayMode?: MapDisplayMode; // What data to show in markers: 'wave-height' (default) or 'water-temp'
   clusterClickBehavior?: ClusterClickBehavior; // Whether clusters expand or show grouped spot details
+  showSwellField?: boolean;
+  swellLayerId?: SwellLayerId;
+  onSwellLayerChange?: (id: SwellLayerId) => void;
+  /** Forecast-step labels for the timeline scrubber (e.g. ["Now","+3h"]). */
+  swellTimelineSteps?: string[];
+  swellTimelineIndex?: number;
+  onSwellTimelineChange?: (index: number) => void;
 }
 
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
@@ -115,6 +137,12 @@ export function InteractiveMap({
   autoNavigateOnMarkerClick = true,
   displayMode = "wave-height",
   clusterClickBehavior = "expand",
+  showSwellField = false,
+  swellLayerId = "s1",
+  onSwellLayerChange,
+  swellTimelineSteps = [],
+  swellTimelineIndex = 0,
+  onSwellTimelineChange,
 }: InteractiveMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -143,6 +171,11 @@ export function InteractiveMap({
   const [waterTempMap, setWaterTempMap] = useState<Map<string, string | undefined>>(new Map());
   const [conditionScoreMap, setConditionScoreMap] = useState<Map<string, number | undefined>>(new Map());
   const [conditionSummaryMap, setConditionSummaryMap] = useState<Map<string, ConditionSummary>>(new Map());
+  const [partitionsMap, setPartitionsMap] = useState<Map<string, SwellPartition>>(new Map());
+  const reducedMotion = useReducedMotion();
+  // Live flow field read by the GL layer each frame (avoids re-adding the layer on scrub).
+  const flowFieldRef = useRef<FlowField>({ cols: 0, rows: 0, cells: [] });
+  const swellLayerIdRef = useRef<SwellLayerId>(swellLayerId);
   const isMapReadyRef = useRef(false);
   const favoriteBeachIdsRef = useRef<Set<string>>(new Set());
   const selectedBeachIdRef = useRef<string | null>(null);
@@ -505,6 +538,7 @@ export function InteractiveMap({
         setWaterTempMap(result.waterTempMap);
         setConditionScoreMap(result.conditionScoreMap);
         setConditionSummaryMap(result.conditionSummaryMap);
+        setPartitionsMap(result.partitionsMap);
         onWaveHeightsChangeRef.current?.(result.waveHeightMap);
       } catch (e) {
         lastPopulateKeyRef.current = null;
@@ -517,6 +551,72 @@ export function InteractiveMap({
   useEffect(() => {
     populateLocationsRef.current = populateLocations;
   }, [populateLocations]);
+
+  useEffect(() => {
+    swellLayerIdRef.current = swellLayerId;
+  }, [swellLayerId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isMapReady || !showSwellField) {
+      flowFieldRef.current = { cols: 0, rows: 0, cells: [] };
+      return;
+    }
+    const beachList = beaches && beaches.length > 0 ? beaches : [];
+    const points: BeachPartitionPoint[] = [];
+    for (const beach of beachList) {
+      const partition = partitionsMap.get(beach.id);
+      if (!partition || beach.lat == null || beach.lon == null) continue;
+      const point = partitionToPoint(beach.lon, beach.lat, partition, swellLayerId);
+      if (point) points.push(point);
+    }
+    const b = map.getBounds();
+    if (!b) {
+      flowFieldRef.current = { cols: 0, rows: 0, cells: [] };
+      return;
+    }
+    flowFieldRef.current = buildFlowField(
+      points,
+      {
+        west: b.getWest(),
+        south: b.getSouth(),
+        east: b.getEast(),
+        north: b.getNorth(),
+      },
+      12
+    );
+    // Nudge a repaint so a static (reduced-motion) frame reflects the new field.
+    map.triggerRepaint();
+  }, [partitionsMap, swellLayerId, swellTimelineIndex, isMapReady, showSwellField, beaches, mapBounds]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isMapReady) return;
+    const layerId = "quiver-swell-field";
+
+    if (!showSwellField) {
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
+      return;
+    }
+
+    if (map.getLayer(layerId)) map.removeLayer(layerId);
+    const viewportWidthPx =
+      typeof window !== "undefined" ? window.innerWidth : 1024;
+    map.addLayer(
+      createSwellParticleLayer({
+        id: layerId,
+        getField: () => flowFieldRef.current,
+        getColorHex: () => SWELL_LAYER_COLOR[swellLayerIdRef.current],
+        reducedMotion,
+        viewportWidthPx,
+      })
+    );
+
+    return () => {
+      if (map.getLayer(layerId)) map.removeLayer(layerId);
+    };
+    // Re-add only when toggled, motion preference flips, or the map (re)mounts.
+  }, [showSwellField, isMapReady, reducedMotion]);
 
   // Stable ref to track so the debounced handler can always access the latest version
   const trackRef = useRef(track);
@@ -966,6 +1066,16 @@ export function InteractiveMap({
       style={{ width: "100%", height: "100%" }}
     >
       {displayMode === "wave-height" && <MapConditionLegend />}
+      {showSwellField && onSwellLayerChange && (
+        <SwellLayerSelector active={swellLayerId} onChange={onSwellLayerChange} />
+      )}
+      {showSwellField && onSwellTimelineChange && swellTimelineSteps.length > 0 && (
+        <SwellForecastTimeline
+          steps={swellTimelineSteps}
+          index={swellTimelineIndex}
+          onIndexChange={onSwellTimelineChange}
+        />
+      )}
     </div>
   );
 }

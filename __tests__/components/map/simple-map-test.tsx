@@ -37,6 +37,10 @@ jest.mock("mapbox-gl", () => ({
       getNorth: () => 32.8,
     })),
     getCanvasContainer: jest.fn(() => document.createElement("div")),
+    getLayer: jest.fn(() => undefined),
+    addLayer: jest.fn(),
+    removeLayer: jest.fn(),
+    triggerRepaint: jest.fn(),
   })),
   Marker: jest.fn(() => ({
     setLngLat: jest.fn().mockReturnThis(),
