@@ -42,16 +42,21 @@ export function SwellLayerSelector({
       <span className="font-heading text-[10px] uppercase tracking-wide text-white/70">
         Swell field
       </span>
-      <div className="grid grid-cols-2 gap-1.5">
+      {/* The four layers are mutually exclusive, so this is a radio group (exactly one
+          checked), not a set of independent switches. */}
+      <div
+        role="radiogroup"
+        aria-label="Swell field layer"
+        className="grid grid-cols-2 gap-1.5"
+      >
         {LAYERS.map((layer) => {
           const isActive = layer.id === active;
           return (
             <button
               key={layer.id}
               type="button"
-              role="switch"
+              role="radio"
               aria-checked={isActive}
-              aria-current={isActive ? "true" : undefined}
               data-testid={`swell-layer-${layer.id}`}
               onClick={() => onChange(layer.id)}
               className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
@@ -65,6 +70,7 @@ export function SwellLayerSelector({
             >
               <span
                 aria-hidden="true"
+                data-testid={`swell-layer-${layer.id}-swatch`}
                 className="h-2.5 w-2.5 rounded-full"
                 style={{
                   background: isActive ? "#161A40" : SWELL_LAYER_COLOR[layer.id],
