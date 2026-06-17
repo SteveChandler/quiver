@@ -28,6 +28,7 @@ interface SendToPhoneCtaProps {
   surface: string;
   placement: string;
   variant?: string;
+  cohort?: string;
   className?: string;
 }
 
@@ -40,6 +41,7 @@ export function SendToPhoneCta({
   surface,
   placement,
   variant,
+  cohort,
   className,
 }: SendToPhoneCtaProps): ReactElement {
   const [email, setEmail] = useState("");
@@ -73,10 +75,11 @@ export function SendToPhoneCta({
       surface,
       placement,
       variant,
+      cohort,
       platform: "desktop",
       destination_type: "app_handoff",
     });
-  }, [placement, source, surface, variant]);
+  }, [cohort, placement, source, surface, variant]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -95,6 +98,7 @@ export function SendToPhoneCta({
       surface,
       placement,
       variant,
+      cohort,
       platform: "desktop",
       email_domain: emailDomain,
     });
@@ -113,6 +117,7 @@ export function SendToPhoneCta({
           surface,
           placement,
           variant,
+          cohort,
           platform: "desktop",
           email_domain: emailDomain,
         });
@@ -125,6 +130,7 @@ export function SendToPhoneCta({
         surface,
         placement,
         variant,
+        cohort,
         platform: "desktop",
         email_domain: emailDomain,
       });
@@ -135,6 +141,7 @@ export function SendToPhoneCta({
         surface,
         placement,
         variant,
+        cohort,
         platform: "desktop",
         email_domain: emailDomain,
       });

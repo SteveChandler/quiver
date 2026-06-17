@@ -1,14 +1,17 @@
 import { track } from "@/lib/analytics";
 import { deriveSeoPageContextFromPath } from "@/lib/analytics/web-context";
 import {
+  APP_FIRST_CAMPAIGN,
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_DESTINATION_STATUS,
-  IOS_APP_STORE_URL,
+  iosAppStoreUrlWithCampaign,
 } from "@/lib/constants/app-store";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 
 export const IOS_APP_CTA_VIEW_EVENT = "ios_app_cta_view";
 export const IOS_APP_CTA_CLICK_EVENT = "ios_app_cta_click";
+const IOS_APP_STORE_CAMPAIGN_URL =
+  iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN);
 
 type InternalCtaEventType = "cta_impression" | "cta_click";
 
@@ -35,7 +38,7 @@ function buildIosAppCtaMetadata(
     platform: "ios",
     destination_type: "app_store",
     destination_status: IOS_APP_STORE_DESTINATION_STATUS,
-    destination_url: IOS_APP_STORE_URL,
+    destination_url: IOS_APP_STORE_CAMPAIGN_URL,
     cta_text: IOS_APP_STORE_CTA,
     ...seoPageContext,
     ...metadata,

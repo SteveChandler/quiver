@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { SendToPhoneCta } from "@/components/app-store/send-to-phone-cta";
+import { trackAppHandoffQrRendered } from "@/lib/analytics/app-handoff-tracking";
 
 jest.mock("@/lib/analytics/app-handoff-tracking", () => ({
   trackAppHandoffQrRendered: jest.fn(),
@@ -8,6 +9,11 @@ jest.mock("@/lib/analytics/app-handoff-tracking", () => ({
   trackAppHandoffEmailSent: jest.fn(),
   trackAppHandoffEmailFailed: jest.fn(),
 }));
+
+const mockTrackAppHandoffQrRendered =
+  trackAppHandoffQrRendered as jest.MockedFunction<
+    typeof trackAppHandoffQrRendered
+  >;
 
 describe("SendToPhoneCta", () => {
   const baseProps = {
@@ -30,6 +36,14 @@ describe("SendToPhoneCta", () => {
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByText(/send link/i)).toBeInTheDocument();
     expect(screen.getByText(/open app store anyway/i)).toBeInTheDocument();
+  });
+
+  it("adds the rollout cohort to QR render tracking when provided", () => {
+    render(<SendToPhoneCta {...baseProps} cohort="app_first" />);
+
+    expect(mockTrackAppHandoffQrRendered).toHaveBeenCalledWith(
+      expect.objectContaining({ cohort: "app_first" }),
+    );
   });
 
   it("rejects an invalid email inline without calling the API", async () => {

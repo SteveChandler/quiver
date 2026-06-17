@@ -13,6 +13,7 @@ interface NativeAppFunnelCtaProps {
   surface: string;
   placement: string;
   variant?: string;
+  cohort?: string;
   /** Applied to the iOS/Android button surfaces. Desktop module is self-styled. */
   className?: string;
   /** Desktop send-to-phone card className. */
@@ -29,6 +30,7 @@ export function NativeAppFunnelCta({
   surface,
   placement,
   variant,
+  cohort,
   className,
   desktopClassName,
   iosLabel = IOS_APP_STORE_CTA,
@@ -54,6 +56,7 @@ export function NativeAppFunnelCta({
         surface={surface}
         placement={placement}
         variant={variant}
+        cohort={cohort}
         className={desktopClassName}
       />
     );
