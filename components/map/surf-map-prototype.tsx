@@ -881,8 +881,8 @@ export function SurfMapPrototype() {
             aria-pressed={selected}
             aria-current={selected ? "true" : undefined}
             className={cn(
-              "absolute z-10 border border-white/35 px-2.5 py-1 font-mono text-xs font-bold text-white transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]",
-              selected && "z-20",
+              "absolute z-10 border border-white/35 px-2.5 py-1 font-mono text-xs font-bold transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]",
+              selected ? "z-20 text-[#161A40]" : "text-white",
             )}
             {...markerStyle(spot)}
             onClick={() => setSelectedSpotId(spot.id)}
