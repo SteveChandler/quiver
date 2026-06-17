@@ -1252,25 +1252,25 @@ This task IS test-first: the spec encodes the acceptance criteria for the whole 
 
 **Files:** none (verification only)
 
-- [ ] **Step 1: Run the theme unit test.**
+- [x] **Step 1: Run the theme unit test.**
   ```bash
   yarn test:unit components/map/__tests__/swell-map-theme.test.ts
   ```
   Expected: PASS.
 
-- [ ] **Step 2: Run the E2E smoke.**
+- [x] **Step 2: Run the E2E smoke.**
   ```bash
   npx playwright test e2e/surf-map-prototype.spec.ts
   ```
   Expected: 3 passed.
 
-- [ ] **Step 3: Typecheck the whole project (Node 22).**
+- [x] **Step 3: Typecheck the whole project (Node 22).**
   ```bash
   NODE_OPTIONS="--max-old-space-size=8192" yarn typecheck
   ```
   Expected: clean.
 
-- [ ] **Step 4: Scoped lint on every touched file.**
+- [x] **Step 4: Scoped lint on every touched file.**
   ```bash
   npx eslint --max-warnings=0 \
     components/map/surf-map-prototype.tsx \
@@ -1281,17 +1281,17 @@ This task IS test-first: the spec encodes the acceptance criteria for the whole 
   ```
   Expected: clean.
 
-- [ ] **Step 5: Final banned-token sweep across both source files.**
+- [x] **Step 5: Final banned-token sweep across both source files.**
   ```bash
   grep -nE "backdrop-blur|#38bdf8|#47e0d1|#67e8f9|#7dd3fc|#7c3aed|#9333ea|#818cf8|bg-teal-|bg-indigo-|emerald|bg-\[#f78e42\]|bg-slate-950|#3f3f3f|#373737|#3a3a3a|#333333|#4d4d4d|#d5a12f|#a3271e|#d8a12c" \
     components/map/surf-map-prototype.tsx app/surf-map-prototype/page.tsx
   ```
   Expected: NO matches. Any hit is a brand regression — fix before declaring done.
 
-- [ ] **Step 6: Visual confirmation via Playwright MCP (per quiver/CLAUDE.md UI rule).**
+- [x] **Step 6: Visual confirmation via Playwright MCP (per quiver/CLAUDE.md UI rule).**
   Start the dev server (`yarn dev`), navigate to `http://localhost:3000/surf-map-prototype` with the Playwright MCP, screenshot desktop (1280×800) and mobile (390×844). Confirm: navy canvas (no gray), opaque panels (no glass), orange/gold/teal accents only, mono numerals, sticker markers with the offset shadow, and the mobile drawer traps focus + closes on Esc. Attach screenshots to the PR.
 
-- [ ] **Step 7: Update CHANGELOG.**
+- [x] **Step 7: Update CHANGELOG.**
   Add under `[Unreleased]` → `Changed`: "Re-skinned the surf-map prototype to the Quiver brand (navy surfaces, sanctioned accents, mono technical values, sticker texture) and added a shared swell-map token module, reduced-motion support, ARIA roles, and a focus-trapped mobile drawer." Commit:
   ```bash
   git add CHANGELOG.md
