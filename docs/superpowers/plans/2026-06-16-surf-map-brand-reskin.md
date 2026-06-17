@@ -457,7 +457,7 @@ No TDD (canvas/map paint is visual). DEFAULT approach: keep `mapbox://styles/map
 
 No TDD for the JSX swaps; the `buildLegendRampCss()` helper they consume is already tested in Task 1. Replace every cyan/teal/purple in `SURF_LAYERS` with `SWELL_LAYER_COLOR` plus navy→accent backgrounds, and replace both rainbow legend gradients with `buildLegendRampCss()`.
 
-- [ ] **Step 1: Recolor `SURF_LAYERS` (was 82-115).**
+- [x] **Step 1: Recolor `SURF_LAYERS` (was 82-115).**
   Replace the whole `const SURF_LAYERS: SurfLayer[] = [ ... ];` block:
   ```ts
   const SURF_LAYERS: SurfLayer[] = [
@@ -497,37 +497,37 @@ No TDD for the JSX swaps; the `buildLegendRampCss()` helper they consume is alre
   ```
   (Drops every `#0f766e/#38bdf8/#47e0d1/#7c3aed/#9333ea/#1d4ed8/#7dd3fc/#14b8a6/#f6c453/#f59e0b`.)
 
-- [ ] **Step 2: Replace the top-panel legend gradient (was line 674).**
+- [x] **Step 2: Replace the top-panel legend gradient (was line 674).**
   Replace the `<div className="h-2 rounded-b-lg bg-[linear-gradient(...)]" />`:
   ```tsx
         <div className="h-2 rounded-b-lg" style={{ background: buildLegendRampCss() }} />
   ```
 
-- [ ] **Step 3: Replace the bottom desktop legend gradient (was line 882).**
+- [x] **Step 3: Replace the bottom desktop legend gradient (was line 882).**
   Replace the `<div className="h-2 rounded-full bg-[linear-gradient(...)]" />`:
   ```tsx
             <div className="h-2 rounded-full" style={{ background: buildLegendRampCss() }} />
   ```
 
-- [ ] **Step 4: Make the bottom legend tick labels mono (was 874-880).**
+- [x] **Step 4: Make the bottom legend tick labels mono (was 874-880).**
   Replace the tick-row container className so the `ft / 1.6 / 3.3 / 5 / 6.6 / 20` ticks are Space Mono technical values:
   ```tsx
             <div className="mb-1 flex items-center justify-between font-mono text-xs text-white/72">
   ```
 
-- [ ] **Step 5: Confirm no banned layer/legend hues remain.**
+- [x] **Step 5: Confirm no banned layer/legend hues remain.**
   ```bash
   grep -nE "#0f766e|#38bdf8|#47e0d1|#7dd3fc|#7c3aed|#9333ea|#1d4ed8|#14b8a6|#f6c453|#67e8f9|#818cf8|#34d399|#f43f5e|#2dd4bf|#e11d48|#2dd4|#0a2435" components/map/surf-map-prototype.tsx
   ```
   Expected: NO matches.
 
-- [ ] **Step 6: Typecheck.**
+- [x] **Step 6: Typecheck.**
   ```bash
   NODE_OPTIONS="--max-old-space-size=8192" yarn typecheck
   ```
   Expected: clean.
 
-- [ ] **Step 7: Commit.**
+- [x] **Step 7: Commit.**
   ```bash
   git add components/map/surf-map-prototype.tsx
   git commit -m "refactor(map): replace rainbow layer colors and legends with sanctioned navy->gold->orange ramp"

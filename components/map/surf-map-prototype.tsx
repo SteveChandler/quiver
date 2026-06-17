@@ -94,32 +94,32 @@ const SURF_LAYERS: SurfLayer[] = [
     label: "Primary swell",
     meta: "WNW 14s",
     icon: Waves,
-    color: "#47e0d1",
-    background: "linear-gradient(135deg, #0f766e, #38bdf8)",
+    color: SWELL_LAYER_COLOR.s1, // #F78E42
+    background: "linear-gradient(135deg, #161A40, #F78E42)",
   },
   {
     id: "s2",
     label: "Secondary swell",
     meta: "SSW 11s",
     icon: Droplets,
-    color: "#f6c453",
-    background: "linear-gradient(135deg, #7c3aed, #f59e0b)",
+    color: SWELL_LAYER_COLOR.s2, // #FDB84B
+    background: "linear-gradient(135deg, #161A40, #FDB84B)",
   },
   {
     id: "wind",
     label: "Wind",
     meta: "W 8 mph",
     icon: Wind,
-    color: "#7dd3fc",
-    background: "linear-gradient(135deg, #1d4ed8, #38bdf8)",
+    color: SWELL_LAYER_COLOR.wind, // #00D4AA Pacific Teal (the ONE sanctioned teal)
+    background: "linear-gradient(135deg, #161A40, #00D4AA)",
   },
   {
     id: "combined",
     label: "Combined",
     meta: "Surf energy",
     icon: CloudSun,
-    color: "#f78e42",
-    background: "linear-gradient(135deg, #14b8a6, #f78e42 58%, #9333ea)",
+    color: SWELL_LAYER_COLOR.combined, // #F78E42
+    background: "linear-gradient(135deg, #1E2558, #FDB84B 55%, #F78E42)",
   },
 ];
 
@@ -715,7 +715,7 @@ export function SurfMapPrototype() {
             </button>
           ))}
         </div>
-        <div className="h-2 rounded-b-lg bg-[linear-gradient(90deg,#34d399,#67e8f9,#818cf8,#f78e42,#f43f5e)]" />
+        <div className="h-2 rounded-b-lg" style={{ background: buildLegendRampCss() }} />
       </div>
 
       <div className="pointer-events-none absolute left-1/2 top-3 z-20 hidden -translate-x-1/2 items-center gap-2 md:flex">
@@ -934,7 +934,7 @@ export function SurfMapPrototype() {
             ))}
           </div>
           <div className="hidden w-80 border-l border-white/12 px-4 py-2 md:block">
-            <div className="mb-1 flex items-center justify-between text-xs text-white/72">
+            <div className="mb-1 flex items-center justify-between font-mono text-xs text-white/72">
               <span>ft</span>
               <span>1.6</span>
               <span>3.3</span>
@@ -942,7 +942,7 @@ export function SurfMapPrototype() {
               <span>6.6</span>
               <span>20</span>
             </div>
-            <div className="h-2 rounded-full bg-[linear-gradient(90deg,#2dd4bf,#38bdf8,#818cf8,#f78e42,#e11d48)]" />
+            <div className="h-2 rounded-full" style={{ background: buildLegendRampCss() }} />
           </div>
         </div>
       </div>
