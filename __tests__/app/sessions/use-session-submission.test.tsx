@@ -48,6 +48,18 @@ jest.mock("sonner", () => ({
 
 import { useSessionSubmission } from "@/app/sessions/new/useSessionSubmission";
 
+const createSessionFormData = () => ({
+  selectedBeach: "Ocean Beach",
+  selectedBeachId: "beach-123",
+  selectedDate: "2026-05-20",
+  selectedTime: "07:00",
+  waveQuality: "4",
+  crowdLevel: "2",
+  waterTemp: "63F",
+  forecastAccuracy: "somewhat",
+  photos: [],
+});
+
 describe("useSessionSubmission", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -102,5 +114,45 @@ describe("useSessionSubmission", () => {
       id: "beach-123",
       name: "Ocean Beach",
     });
+  });
+
+  it("threads a forecast feedback id into the logged-session payload", async () => {
+    const forecastFeedbackId = "123e4567-e89b-42d3-a456-426614174999";
+    const { result } = renderHook(() =>
+      useSessionSubmission({
+        mode: "log",
+        user: { id: "user-123" },
+        forecastFeedbackId,
+      })
+    );
+
+    await act(async () => {
+      await result.current.handleSessionComplete(createSessionFormData());
+    });
+
+    expect(mockCreateLoggedSession).toHaveBeenCalledWith(
+      expect.objectContaining({
+        beach_id: "beach-123",
+        forecast_feedback_context_id: forecastFeedbackId,
+      })
+    );
+  });
+
+  it("does not add a forecast feedback id when none was provided", async () => {
+    const { result } = renderHook(() =>
+      useSessionSubmission({
+        mode: "log",
+        user: { id: "user-123" },
+      })
+    );
+
+    await act(async () => {
+      await result.current.handleSessionComplete(createSessionFormData());
+    });
+
+    expect(mockCreateLoggedSession).toHaveBeenCalledTimes(1);
+    expect(mockCreateLoggedSession.mock.calls[0][0]).not.toHaveProperty(
+      "forecast_feedback_context_id",
+    );
   });
 });

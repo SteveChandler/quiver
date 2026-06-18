@@ -42,6 +42,12 @@ export interface SessionWizardPrefillParams {
 
   /** Target wizard step (1-4, 1-indexed) */
   step: string;
+
+  /** Forecast feedback context UUID captured before the session log CTA */
+  forecastFeedbackId?: string;
+
+  /** One-tap forecast verification value captured before session logging */
+  forecastFeedbackValue?: 'too_low' | 'about_right' | 'too_high';
 }
 
 /**
@@ -69,4 +75,10 @@ export interface ValidatedSessionWizardParams {
 
   /** Validated wizard step number (1-4) */
   targetStep: number;
+
+  /** Forecast feedback context UUID captured before the session log CTA */
+  forecastFeedbackId?: string;
+
+  /** One-tap forecast verification value captured before session logging */
+  forecastFeedbackValue?: 'too_low' | 'about_right' | 'too_high';
 }

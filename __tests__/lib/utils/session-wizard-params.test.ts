@@ -7,8 +7,32 @@ import {
   buildSessionWizardUrl,
   hasWizardParams,
   extractFormState,
+  type ParseResult,
 } from '@/lib/utils/session-wizard-params';
 import type { ValidatedSessionWizardParams } from '@/types/session-wizard';
+
+function expectSuccessfulParse(
+  result: ParseResult<ValidatedSessionWizardParams>,
+): ValidatedSessionWizardParams {
+  expect(result.success).toBe(true);
+  if (!result.success) {
+    throw new Error(`Expected successful parse, got: ${result.error}`);
+  }
+  return result.data;
+}
+
+function expectFailedParse(
+  result: ParseResult<ValidatedSessionWizardParams>,
+): { error: string; defaults: Partial<ValidatedSessionWizardParams> } {
+  expect(result.success).toBe(false);
+  if (result.success) {
+    throw new Error('Expected failed parse');
+  }
+  return {
+    error: result.error,
+    defaults: result.defaults,
+  };
+}
 
 describe('parseSessionWizardParams', () => {
   it('should parse valid parameters successfully', () => {
@@ -22,16 +46,14 @@ describe('parseSessionWizardParams', () => {
     });
 
     const result = parseSessionWizardParams(params);
+    const data = expectSuccessfulParse(result);
 
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.mode).toBe('log');
-      expect(result.data.beachId).toBe('123e4567-e89b-12d3-a456-426614174000');
-      expect(result.data.beachName).toBe('Pacific Beach');
-      expect(result.data.startTime).toBeInstanceOf(Date);
-      expect(result.data.endTime).toBeInstanceOf(Date);
-      expect(result.data.targetStep).toBe(3);
-    }
+    expect(data.mode).toBe('log');
+    expect(data.beachId).toBe('123e4567-e89b-12d3-a456-426614174000');
+    expect(data.beachName).toBe('Pacific Beach');
+    expect(data.startTime).toBeInstanceOf(Date);
+    expect(data.endTime).toBeInstanceOf(Date);
+    expect(data.targetStep).toBe(3);
   });
 
   it('should handle missing optional parameters with defaults', () => {
@@ -40,15 +62,13 @@ describe('parseSessionWizardParams', () => {
     });
 
     const result = parseSessionWizardParams(params);
+    const failure = expectFailedParse(result);
 
     // Missing beach/startTime/endTime triggers Zod validation error
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      // Should provide defaults for graceful degradation
-      expect(result.defaults.mode).toBe('log');
-      expect(result.defaults.targetStep).toBe(1); // Default
-      expect(result.error).toBeTruthy(); // Some error message
-    }
+    // Should provide defaults for graceful degradation
+    expect(failure.defaults.mode).toBe('log');
+    expect(failure.defaults.targetStep).toBe(1); // Default
+    expect(failure.error).not.toBe('');
   });
 
   it('should reject invalid UUID format', () => {
@@ -62,13 +82,11 @@ describe('parseSessionWizardParams', () => {
     });
 
     const result = parseSessionWizardParams(params);
+    const failure = expectFailedParse(result);
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toContain('Invalid');
-      expect(result.defaults.mode).toBe('log');
-      expect(result.defaults.targetStep).toBe(1);
-    }
+    expect(failure.error).toContain('Invalid');
+    expect(failure.defaults.mode).toBe('log');
+    expect(failure.defaults.targetStep).toBe(1);
   });
 
   it('should reject invalid timestamp format', () => {
@@ -82,12 +100,10 @@ describe('parseSessionWizardParams', () => {
     });
 
     const result = parseSessionWizardParams(params);
+    const failure = expectFailedParse(result);
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toBeTruthy();
-      expect(result.defaults).toBeDefined();
-    }
+    expect(failure.error).not.toBe('');
+    expect(failure.defaults).toEqual(expect.any(Object));
   });
 
   it('should reject end time before start time', () => {
@@ -101,11 +117,9 @@ describe('parseSessionWizardParams', () => {
     });
 
     const result = parseSessionWizardParams(params);
+    const failure = expectFailedParse(result);
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toContain('after start time');
-    }
+    expect(failure.error).toContain('after start time');
   });
 
   it('should reject session duration over 12 hours', () => {
@@ -119,11 +133,9 @@ describe('parseSessionWizardParams', () => {
     });
 
     const result = parseSessionWizardParams(params);
+    const failure = expectFailedParse(result);
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toContain('12 hours');
-    }
+    expect(failure.error).toContain('12 hours');
   });
 
   it('should reject step number out of range', () => {
@@ -137,11 +149,9 @@ describe('parseSessionWizardParams', () => {
     });
 
     const result = parseSessionWizardParams(params);
+    const failure = expectFailedParse(result);
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toContain('between 1 and 4');
-    }
+    expect(failure.error).toContain('between 1 and 4');
   });
 
   it('should sanitize beach name (trim whitespace)', () => {
@@ -155,11 +165,9 @@ describe('parseSessionWizardParams', () => {
     });
 
     const result = parseSessionWizardParams(params);
+    const data = expectSuccessfulParse(result);
 
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.beachName).toBe('Pacific Beach'); // Trimmed
-    }
+    expect(data.beachName).toBe('Pacific Beach'); // Trimmed
   });
 
   it('should accept "log" mode', () => {
@@ -173,9 +181,9 @@ describe('parseSessionWizardParams', () => {
     });
 
     const result = parseSessionWizardParams(params);
+    const data = expectSuccessfulParse(result);
 
-    expect(result.success).toBe(true);
-    if (result.success) expect(result.data.mode).toBe('log');
+    expect(data.mode).toBe('log');
   });
 
   it('should reject invalid mode', () => {
@@ -184,8 +192,9 @@ describe('parseSessionWizardParams', () => {
     });
 
     const result = parseSessionWizardParams(params);
+    const failure = expectFailedParse(result);
 
-    expect(result.success).toBe(false);
+    expect(failure.error).toContain('Invalid input');
   });
 });
 
@@ -233,17 +242,44 @@ describe('buildSessionWizardUrl', () => {
 
     // Parse it back
     const result = parseSessionWizardParams(searchParams);
+    const data = expectSuccessfulParse(result);
 
-    expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.mode).toBe(validParams.mode);
-      expect(result.data.beachId).toBe(validParams.beachId);
-      expect(result.data.beachName).toBe(validParams.beachName);
-      expect(result.data.targetStep).toBe(validParams.targetStep);
-      // Timestamps should be equivalent (allow small millisecond differences)
-      expect(Math.abs(result.data.startTime!.getTime() - validParams.startTime!.getTime())).toBeLessThan(1000);
-      expect(Math.abs(result.data.endTime!.getTime() - validParams.endTime!.getTime())).toBeLessThan(1000);
-    }
+    expect(data.mode).toBe(validParams.mode);
+    expect(data.beachId).toBe(validParams.beachId);
+    expect(data.beachName).toBe(validParams.beachName);
+    expect(data.targetStep).toBe(validParams.targetStep);
+    // Timestamps should be equivalent (allow small millisecond differences)
+    expect(Math.abs(data.startTime!.getTime() - validParams.startTime!.getTime())).toBeLessThan(1000);
+    expect(Math.abs(data.endTime!.getTime() - validParams.endTime!.getTime())).toBeLessThan(1000);
+  });
+
+  it('should round-trip forecast feedback handoff params', () => {
+    const url = buildSessionWizardUrl({
+      ...validParams,
+      quick: true,
+      forecastFeedbackId: '123e4567-e89b-42d3-a456-426614174999',
+      forecastFeedbackValue: 'too_high',
+    });
+
+    const result = parseSessionWizardParams(
+      new URLSearchParams(url.split('?')[1]),
+    );
+    const data = expectSuccessfulParse(result);
+
+    expect(data.quick).toBe(true);
+    expect(data.forecastFeedbackId).toBe(
+      '123e4567-e89b-42d3-a456-426614174999',
+    );
+    expect(data.forecastFeedbackValue).toBe('too_high');
+  });
+
+  it('should throw when asked to serialize an invalid start time', () => {
+    expect(() =>
+      buildSessionWizardUrl({
+        ...validParams,
+        startTime: new Date('garbage'),
+      }),
+    ).toThrow(RangeError);
   });
 });
 
@@ -320,6 +356,29 @@ describe('extractFormState', () => {
     // We just check it's in HH:MM format
     expect(formState.selectedTime).toMatch(/^\d{2}:\d{2}$/);
   });
+
+  it('should carry one-tap forecast feedback into session forecast accuracy', () => {
+    expect(
+      extractFormState({
+        ...validParams,
+        forecastFeedbackValue: 'about_right',
+      }).forecastAccuracy,
+    ).toBe('accurate');
+
+    expect(
+      extractFormState({
+        ...validParams,
+        forecastFeedbackValue: 'too_low',
+      }).forecastAccuracy,
+    ).toBe('inaccurate');
+
+    expect(
+      extractFormState({
+        ...validParams,
+        forecastFeedbackValue: 'too_high',
+      }).forecastAccuracy,
+    ).toBe('inaccurate');
+  });
 });
 
 describe('URL length validation', () => {
@@ -356,11 +415,9 @@ describe('Security validation', () => {
 
     // Should still parse (beach name is just a string)
     // React will auto-escape when rendering
-    expect(result.success).toBe(true);
-    if (result.success) {
-      // The malicious string is preserved but will be escaped by React
-      expect(result.data.beachName).toContain('script');
-    }
+    const data = expectSuccessfulParse(result);
+    // The malicious string is preserved but will be escaped by React
+    expect(data.beachName).toContain('script');
   });
 
   it('should reject SQL injection attempts in UUID', () => {
@@ -374,9 +431,10 @@ describe('Security validation', () => {
     });
 
     const result = parseSessionWizardParams(params);
+    const failure = expectFailedParse(result);
 
     // Should reject invalid UUID format
-    expect(result.success).toBe(false);
+    expect(failure.error).toContain('Invalid');
   });
 
   it('should reject excessively long beach names', () => {
@@ -390,10 +448,8 @@ describe('Security validation', () => {
     });
 
     const result = parseSessionWizardParams(params);
+    const failure = expectFailedParse(result);
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error).toContain('too long');
-    }
+    expect(failure.error).toContain('too long');
   });
 });

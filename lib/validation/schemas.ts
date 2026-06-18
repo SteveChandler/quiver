@@ -331,6 +331,15 @@ export const SessionWizardPrefillSchema = z.object({
       'Step must be between 1 and 4'
     )
     .describe('Target wizard step (1-indexed)'),
+
+  // Forecast feedback handoff (optional, from one-tap verification CTA)
+  forecastFeedbackId: uuidSchema
+    .optional()
+    .describe('Forecast feedback context UUID to link to the logged session'),
+
+  forecastFeedbackValue: z.enum(['too_low', 'about_right', 'too_high'])
+    .optional()
+    .describe('One-tap forecast feedback value used to prefill session accuracy'),
 })
   // Cross-field validation: end time must be after start time
   .refine(

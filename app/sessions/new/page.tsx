@@ -19,11 +19,13 @@ import { useNearestBeach } from "@/hooks/use-nearest-beach";
 interface NewSessionPageContentProps {
   initialFormState?: Partial<SessionFormState>;
   mode: SessionFormMode;
+  forecastFeedbackId?: string;
 }
 
 function NewSessionPageContent({
   initialFormState,
   mode,
+  forecastFeedbackId,
 }: NewSessionPageContentProps) {
   const router = useRouter();
   const { user, isLoading } = useAuth();
@@ -39,6 +41,7 @@ function NewSessionPageContent({
   const submission = useSessionSubmission({
     mode,
     user,
+    forecastFeedbackId,
   });
 
   // Handle cancellation
@@ -145,10 +148,12 @@ function NewSessionPageWrapper() {
 
   // Prepare initial form state if validation succeeded
   let initialFormState: Partial<SessionFormState> | undefined;
+  let forecastFeedbackId: string | undefined;
 
   if (parseResult.success) {
     // Convert validated params to form state format
     initialFormState = extractFormState(parseResult.data);
+    forecastFeedbackId = parseResult.data.forecastFeedbackId;
 
     // Log successful prefill (development only)
     if (process.env.NODE_ENV === "development") {
@@ -186,6 +191,7 @@ function NewSessionPageWrapper() {
     <NewSessionPageContent
       initialFormState={initialFormState}
       mode={mode}
+      forecastFeedbackId={forecastFeedbackId}
     />
   );
 }
