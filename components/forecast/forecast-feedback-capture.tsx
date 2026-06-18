@@ -218,14 +218,26 @@ export function ForecastFeedbackCapture({
           ? body.data.id
           : undefined;
       const forecastFeedbackId = isUuid(feedbackId) ? feedbackId : undefined;
+      const toValidDate = (
+        value: string | null | undefined,
+      ): Date | undefined => {
+        if (!value) return undefined;
+        const d = new Date(value);
+        return Number.isNaN(d.getTime()) ? undefined : d;
+      };
+      const windowStart = toValidDate(payload.windowStart ?? payload.forecastAt);
+      const windowEnd = toValidDate(payload.windowEnd);
+      // "Log the session" records a surf that happened -- never pre-date the
+      // form to a future forecast window.
+      const carryWindow = windowStart ? windowStart.getTime() <= Date.now() : false;
       setSessionLogUrl(
         buildSessionWizardUrl({
           mode: "log",
           quick: true,
           beachId: beach.id,
           beachName: beach.name,
-          startTime: new Date(payload.windowStart ?? payload.forecastAt),
-          endTime: payload.windowEnd ? new Date(payload.windowEnd) : undefined,
+          startTime: carryWindow ? windowStart : undefined,
+          endTime: carryWindow ? windowEnd : undefined,
           targetStep: 1,
           forecastFeedbackId,
           forecastFeedbackValue: selectedValue,
