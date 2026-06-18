@@ -319,28 +319,27 @@ export async function getSessionMetadata(sessionId: string) {
 export async function createLoggedSession(data: SessionFormState | SessionInputWithFeedbackContext) {
   return withAuthenticatedAction(async (user, supabase) => {
 
-    // Transform SessionFormState to database schema if needed
-    let sessionData: Partial<Session>;
-    let forecastFeedbackContextId: string | undefined;
-    if ('selectedBeach' in data || 'selectedBeachId' in data || 'boardId' in data) {
-      // This is SessionFormState, transform it
-      const formData = data as SessionFormState;
-      sessionData = transformSessionFormStateToDbSchema(formData);
-    } else {
-      // This is already SessionInput, use as-is
-      const {
-        forecast_feedback_context_id,
-        ...input
-      } = data as SessionInputWithFeedbackContext;
-      forecastFeedbackContextId = forecast_feedback_context_id;
-      sessionData = input;
-    }
-
+    const {
+      forecast_feedback_context_id,
+      ...rest
+    } = data as SessionInputWithFeedbackContext;
+    let forecastFeedbackContextId = forecast_feedback_context_id;
     if (
       forecastFeedbackContextId &&
       !z.string().uuid().safeParse(forecastFeedbackContextId).success
     ) {
       forecastFeedbackContextId = undefined;
+    }
+
+    // Transform SessionFormState to database schema if needed
+    let sessionData: Partial<Session>;
+    if ('selectedBeach' in rest || 'selectedBeachId' in rest || 'boardId' in rest) {
+      // This is SessionFormState, transform it
+      const formData = rest as SessionFormState;
+      sessionData = transformSessionFormStateToDbSchema(formData);
+    } else {
+      // This is already SessionInput, use as-is
+      sessionData = rest as SessionInput;
     }
 
     // Create the session with completed status
@@ -431,6 +430,7 @@ export async function createLoggedSession(data: SessionFormState | SessionInputW
           .from("forecast_feedback_contexts")
           .update({
             session_id: session.id,
+            // No updated_at trigger exists on forecast_feedback_contexts.
             updated_at: new Date().toISOString(),
           })
           .eq("id", forecastFeedbackContextId)
