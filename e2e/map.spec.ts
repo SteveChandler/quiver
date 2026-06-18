@@ -467,6 +467,9 @@ test.describe('Map Page - Responsive Design', () => {
 
     await expect(page.getByTestId('view-mode-map')).toHaveCount(0);
     await expect(page.getByTestId('view-mode-list')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Use My Actual Location' })
+    ).toHaveCount(0);
 
     // No critical console errors (filter benign ones)
     const criticalErrors = consoleErrors.filter(err =>
@@ -663,7 +666,7 @@ test.describe('Map Page - Marker Interactions', () => {
   });
 });
 
-test.describe('Map Page - Beach Card Navigation', () => {
+test.describe('Map Page - Beach Detail Navigation', () => {
   let errorCapture: ErrorCapture;
 
   test.beforeEach(async ({ page }) => {
@@ -674,7 +677,7 @@ test.describe('Map Page - Beach Card Navigation', () => {
     await assertNoErrors(page, errorCapture, { context: 'Map Beach Card Nav' });
   });
 
-  test('mobile: clicking selected beach card navigates to beach detail page', async ({ page, context }) => {
+  test('mobile: tapping a marker navigates directly to the beach detail page', async ({ page, context }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
 
     await context.grantPermissions(['geolocation']);
@@ -691,21 +694,13 @@ test.describe('Map Page - Beach Card Navigation', () => {
 
     // Wait for beach markers to load
     const beachMarkers = page.locator('[data-testid="beach-marker"]');
-    const hasMarkers = await isVisibleSafe(beachMarkers.first(), { timeout: TIMEOUTS.long });
+    await expect(beachMarkers.first()).toBeVisible({ timeout: TIMEOUTS.long });
 
-    if (!hasMarkers) {
-      throw new Error('No beach markers found on mobile map page');
-    }
+    await expect(page.getByTestId('bottom-sheet')).toHaveCount(0);
 
-    // Click a marker to select a beach (triggers SelectedBeachCard in bottom sheet)
+    // Click a marker. Mobile now matches desktop: the marker selection animation
+    // runs, then the marker navigates directly to the beach detail page.
     await beachMarkers.first().click({ force: true });
-
-    // Wait for the selected beach card link to appear
-    const selectedCardLink = page.locator('a[aria-label*="View details for"]');
-    await expect(selectedCardLink).toBeVisible({ timeout: TIMEOUTS.medium });
-
-    // Click the selected beach card link
-    await selectedCardLink.click();
 
     // Should have navigated away from /map
     await page.waitForURL(/\/(ca|or|wa|hi|beach)\//, { timeout: TIMEOUTS.medium });
@@ -723,72 +718,17 @@ test.describe('Map Page - Mobile Bug Fix Regression', () => {
     await assertNoErrors(page, errorCapture, { context: 'Map Mobile Regression' });
   });
 
-  test('mobile: bottom sheet stays visible after aggressive downward swipe', async ({ page }) => {
+  test('mobile: bottom sheet is removed from the map', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/map');
     await waitForPageLoad(page);
 
     await dismissMapEntryOverlay(page);
 
-    const handleArea = page.getByTestId('drawer-handle-area');
-    await expect(handleArea).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(page.locator('canvas').first()).toBeVisible({ timeout: TIMEOUTS.long });
 
-    const box = await handleArea.boundingBox();
-    if (!box) throw new Error('Drawer handle area not found');
-
-    // Drag handle aggressively downward (attempting to dismiss)
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(box.x + box.width / 2, box.y + 400, { steps: 10 });
-    await page.mouse.up();
-
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- snap animation settling time
-    await page.waitForTimeout(500);
-
-    // Drawer should still be visible (snapped to peek, not dismissed)
-    await expect(handleArea).toBeVisible();
-  });
-
-  test('mobile: close button on selected beach card meets 44px touch target', async ({ page, context }) => {
-    await page.setViewportSize({ width: 375, height: 667 });
-    await context.grantPermissions(['geolocation']);
-    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
-
-    await page.goto('/map');
-    await waitForPageLoad(page);
-
-    await dismissMapEntryOverlay(page);
-
-    // Wait for markers then click one to select a beach
-    const markers = page.locator('[data-testid="beach-marker"]');
-    const hasMarkers = await isVisibleSafe(markers.first(), { timeout: TIMEOUTS.long });
-    if (!hasMarkers) throw new Error('No beach markers found for touch target test');
-
-    await markers.first().click({ force: true });
-
-    const closeButton = page.getByLabel('Deselect beach');
-    await expect(closeButton).toBeVisible({ timeout: TIMEOUTS.medium });
-
-    const box = await closeButton.boundingBox();
-    if (!box) throw new Error('Close button bounding box not found');
-    expect(box.width).toBeGreaterThanOrEqual(44);
-    expect(box.height).toBeGreaterThanOrEqual(44);
-  });
-
-  test('mobile: drawer handle area has adequate touch target', async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('/map');
-    await waitForPageLoad(page);
-
-    await dismissMapEntryOverlay(page);
-
-    const handleArea = page.getByTestId('drawer-handle-area');
-    await expect(handleArea).toBeVisible({ timeout: TIMEOUTS.medium });
-
-    const box = await handleArea.boundingBox();
-    if (!box) throw new Error('Drawer handle area bounding box not found');
-    // py-4 = 16px top + 16px bottom + handle height should give adequate target
-    expect(box.height).toBeGreaterThanOrEqual(32);
+    await expect(page.getByTestId('bottom-sheet')).toHaveCount(0);
+    await expect(page.getByTestId('drawer-handle-area')).toHaveCount(0);
   });
 
   test('mobile: map status overlay is removed', async ({ page }) => {
@@ -803,28 +743,4 @@ test.describe('Map Page - Mobile Bug Fix Regression', () => {
 
     await expect(page.getByTestId('map-overlay')).toHaveCount(0);
   });
-
-  test('mobile: selected beach card icon is hidden on small screens', async ({ page, context }) => {
-    await page.setViewportSize({ width: 375, height: 667 });
-    await context.grantPermissions(['geolocation']);
-    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
-
-    await page.goto('/map');
-    await waitForPageLoad(page);
-
-    await dismissMapEntryOverlay(page);
-
-    const markers = page.locator('[data-testid="beach-marker"]');
-    const hasMarkers = await isVisibleSafe(markers.first(), { timeout: TIMEOUTS.long });
-    if (!hasMarkers) throw new Error('No beach markers found for icon visibility test');
-
-    await markers.first().click({ force: true });
-
-    const iconContainer = page.locator('[data-testid="beach-icon-container"]');
-    const exists = await iconContainer.count() > 0;
-    if (exists) {
-      await expect(iconContainer).not.toBeVisible();
-    }
-  });
-
 });

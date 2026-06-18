@@ -15,6 +15,7 @@ import {
   MapPin,
   Search,
   SlidersHorizontal,
+  Waves,
   X,
 } from "lucide-react";
 import type { Beach } from "@/types/database";
@@ -56,7 +57,7 @@ const filterChipClass = (active: boolean): string =>
   ].join(" ");
 
 const toolbarActionClass =
-  "h-10 w-full justify-center whitespace-nowrap sm:min-w-0 lg:w-auto";
+  "h-10 w-full min-w-0 justify-center whitespace-nowrap px-2 text-xs sm:px-3 sm:text-sm lg:w-auto";
 
 export function MapToolbar({
   searchQuery,
@@ -195,20 +196,25 @@ export function MapToolbar({
             )}
           </div>
 
-          <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end">
+          <div
+            data-testid="map-toolbar-actions"
+            className="grid w-full grid-cols-3 gap-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end"
+          >
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
+                  aria-label="Regions and filters"
                   variant="secondary"
                   size="sm"
                   className={toolbarActionClass}
                 >
                   <SlidersHorizontal
-                    className="mr-1 h-4 w-4"
+                    className="h-4 w-4 shrink-0"
                     aria-hidden="true"
                   />
-                  Regions and filters
+                  <span className="sm:hidden">Filters</span>
+                  <span className="hidden sm:inline">Regions and filters</span>
                   {hasActiveFilters && (
                     <span
                       className="ml-1 h-2 w-2 rounded-full bg-[#F78E42]"
@@ -298,16 +304,18 @@ export function MapToolbar({
               onClick={onUseMyLocation}
               className={toolbarActionClass}
             >
-              <MapPin className="mr-1 h-4 w-4" aria-hidden="true" />
-              Use Near Me
+              <MapPin className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="sm:hidden">Near Me</span>
+              <span className="hidden sm:inline">Use Near Me</span>
             </Button>
 
             <button
               type="button"
+              aria-label={showSwellField ? "Hide swell field" : "Show swell field"}
               aria-pressed={showSwellField}
               data-testid="swell-field-toggle"
               onClick={onToggleSwellField}
-              className={`${toolbarActionClass} rounded-md px-3 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${
+              className={`${toolbarActionClass} inline-flex items-center gap-2 rounded-md py-1.5 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${
                 showSwellField
                   ? "text-[#161A40] shadow-inner ring-1 ring-black/20"
                   : SWELL_MAP_CTA_CLASS
@@ -318,7 +326,13 @@ export function MapToolbar({
                   : undefined
               }
             >
-              {showSwellField ? "Hide swell field" : "Show swell field"}
+              <Waves className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="sm:hidden">
+                {showSwellField ? "Swell on" : "Swell off"}
+              </span>
+              <span className="hidden sm:inline">
+                {showSwellField ? "Hide swell field" : "Show swell field"}
+              </span>
             </button>
           </div>
         </div>

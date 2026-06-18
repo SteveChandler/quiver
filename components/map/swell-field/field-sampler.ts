@@ -36,8 +36,29 @@ export interface FlowField {
   cells: FlowCell[];
 }
 
+const WIND_PARTICLE_MIN_SCALE = 0.25;
+const WIND_PARTICLE_FULL_SPEED = 0.85;
+
 const clamp01 = (value: number): number =>
   Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0));
+
+export function resolveWindParticleCount(
+  baseCount: number,
+  field: FlowField
+): number {
+  const safeBase = Math.max(1, Math.floor(baseCount));
+  const liveCells = field.cells.filter((cell) => cell.speed > 0);
+  if (liveCells.length === 0) return 1;
+
+  const averageSpeed =
+    liveCells.reduce((sum, cell) => sum + cell.speed, 0) / liveCells.length;
+  const densityScale = Math.min(
+    1,
+    Math.max(WIND_PARTICLE_MIN_SCALE, averageSpeed / WIND_PARTICLE_FULL_SPEED)
+  );
+
+  return Math.max(1, Math.round(safeBase * densityScale));
+}
 
 function lerpNullable(
   from: number | null,

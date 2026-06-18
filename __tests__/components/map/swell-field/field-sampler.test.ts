@@ -5,6 +5,7 @@ import {
   detectWaterLayerIds,
   interpolateSwellPartition,
   maskFieldToWater,
+  resolveWindParticleCount,
   COASTAL_CORRIDOR_LAT_PAD,
   COASTAL_CORRIDOR_LON_PAD,
   COASTAL_CORRIDOR_MIN_SPAN,
@@ -175,6 +176,30 @@ describe("buildFlowField", () => {
     // A 3ft swell would emit alphaFromHeight = 0.09 raw; the gain lifts it well above.
     expect(cell.alpha).toBeGreaterThan(0.12);
     expect(cell.alpha).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("resolveWindParticleCount", () => {
+  it("makes light wind visibly sparser than strong wind", () => {
+    const lightWind: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 0.18, alpha: 0.1 }],
+    };
+    const strongWind: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1.1, alpha: 0.8 }],
+    };
+
+    expect(resolveWindParticleCount(450, lightWind)).toBeLessThan(225);
+    expect(resolveWindParticleCount(450, strongWind)).toBe(450);
+  });
+
+  it("keeps an empty wind field from falling back to full density", () => {
+    expect(
+      resolveWindParticleCount(450, { cols: 0, rows: 0, cells: [] })
+    ).toBe(1);
   });
 });
 

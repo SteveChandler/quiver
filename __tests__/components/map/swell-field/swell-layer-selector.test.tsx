@@ -77,3 +77,49 @@ describe("SwellLayerSelector — combined chip composite swatch", () => {
     expect(segBg("wind")).toBe(hexToRgb(SWELL_LAYER_COLOR.wind));
   });
 });
+
+describe("SwellLayerSelector — integrated legend", () => {
+  it("keeps the swell-size key inside the layer panel", () => {
+    render(<SwellLayerSelector active="wind" onChange={jest.fn()} />);
+
+    const panel = screen.getByTestId("swell-layer-selector");
+    const legend = screen.getByTestId("swell-field-legend");
+
+    expect(panel).toContainElement(legend);
+    expect(screen.getByTestId("swell-field-legend-caption")).toHaveTextContent(
+      "dots + tails = wind speed & direction"
+    );
+  });
+
+  it("keeps the mobile selector compact while preserving the desktop legend", () => {
+    render(<SwellLayerSelector active="s1" onChange={jest.fn()} />);
+
+    const panel = screen.getByTestId("swell-layer-selector");
+    const legend = screen.getByTestId("swell-field-legend");
+
+    expect(panel).toHaveClass("w-44");
+    expect(panel).toHaveClass("sm:w-52");
+    expect(legend).toHaveClass("hidden");
+    expect(legend).toHaveClass("sm:block");
+  });
+
+  it("renders as an embedded bottom-legend control without its own panel chrome", () => {
+    render(
+      <SwellLayerSelector
+        active="s1"
+        onChange={jest.fn()}
+        placement="legend"
+      />,
+    );
+
+    const panel = screen.getByTestId("swell-layer-selector");
+
+    expect(panel.className).not.toContain("absolute");
+    expect(panel.className).not.toContain("top-3");
+    expect(panel).toHaveClass("w-full");
+    expect(panel).toContainElement(screen.getByTestId("swell-field-legend"));
+    expect(screen.getByTestId("swell-field-legend-caption")).toHaveTextContent(
+      "denser = bigger · longer marks = longer period"
+    );
+  });
+});

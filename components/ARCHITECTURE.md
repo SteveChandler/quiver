@@ -581,15 +581,12 @@ For detailed documentation, see [`/components/home-screen/ARCHITECTURE.md`](/com
 
 - **`interactive-map.tsx`** - Mapbox-powered beach discovery
 - **`map-content.tsx`** - Map interface orchestrator
-- **`map-toolbar.tsx`** - Single `/map` toolbar with search, location, view mode, swell toggle, and region/filter dropdown
-- **`beach-list.tsx`** - Beach listing with search
-- **`map-bottom-sheet.tsx`** - Mobile viewport beach list
+- **`map-toolbar.tsx`** - Single `/map` toolbar with search, location, swell toggle, and region/filter dropdown
 - **`map-display.tsx`** - Map rendering and controls
 
 #### Interface Components
 
 - **`map-header.tsx`** - Search and view controls
-- **`selected-beach-card.tsx`** - Beach detail overlay
 - **`nearby-beach-scroll.tsx`** - Horizontal beach browser
 
 #### Features

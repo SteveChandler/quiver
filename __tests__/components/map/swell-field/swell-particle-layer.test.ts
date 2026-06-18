@@ -133,6 +133,7 @@ describe("createSwellParticleLayer — particle count", () => {
     reducedMotion?: boolean;
     renders?: number;
     field?: FlowField;
+    fields?: FlowField[];
     captureUploads?: boolean;
   }): {
     mode: number;
@@ -195,9 +196,17 @@ describe("createSwellParticleLayer — particle count", () => {
       triggerRepaint: jest.fn(),
     } as unknown as import("mapbox-gl").Map;
 
+    let fieldIndex = 0;
+    const getField = (): FlowField => {
+      if (!opts?.fields?.length) return opts?.field ?? FIELD;
+      const field = opts.fields[Math.min(fieldIndex, opts.fields.length - 1)];
+      fieldIndex += 1;
+      return field;
+    };
+
     const layer = createSwellParticleLayer({
       id: "test-layer",
-      getField: () => opts?.field ?? FIELD,
+      getField,
       getColorHex: () => "#B5450F",
       reducedMotion: opts?.reducedMotion ?? true, // skip triggerRepaint loop
       viewportWidthPx: 1440,
@@ -287,5 +296,31 @@ describe("createSwellParticleLayer — particle count", () => {
 
     expect(positionUploads).toHaveLength(2);
     expect(positionUploads[1]).toEqual(positionUploads[0]);
+  });
+
+  it("refreshes the reduced-motion static frame when the flow field changes", () => {
+    const calmField: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 0, vy: 0, speed: 0, alpha: 0 }],
+    };
+    const activeField: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha: 1 }],
+    };
+
+    const { uploads } = renderedDraw({
+      count: 2,
+      fields: [calmField, activeField],
+      reducedMotion: true,
+      renders: 2,
+      captureUploads: true,
+    });
+    const alphaUploads = uploads.filter((upload) => upload.length === 4);
+
+    expect(alphaUploads).toHaveLength(2);
+    expect(alphaUploads[0].every((alpha) => alpha === 0)).toBe(true);
+    expect(alphaUploads[1].some((alpha) => alpha > 0)).toBe(true);
   });
 });

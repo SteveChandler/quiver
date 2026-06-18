@@ -1,5 +1,7 @@
 import React from "react";
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+
+const mockAddControl = jest.fn();
 
 // Mock all the external dependencies to isolate our test
 jest.mock("mapbox-gl", () => ({
@@ -25,9 +27,11 @@ jest.mock("mapbox-gl", () => ({
     getCanvasContainer: jest.fn(() => document.createElement("div")),
     getLayer: jest.fn(() => undefined),
     addLayer: jest.fn(),
+    addControl: mockAddControl,
     removeLayer: jest.fn(),
     triggerRepaint: jest.fn(),
   })),
+  AttributionControl: jest.fn(() => ({ type: "attribution" })),
   Marker: jest.fn(() => ({
     setLngLat: jest.fn().mockReturnThis(),
     setPopup: jest.fn().mockReturnThis(),
@@ -213,6 +217,60 @@ describe("Map Forecast Basic Tests", () => {
     expect(timeline.className).not.toContain("absolute");
   });
 
+  it("should embed the swell layer selector inside the condition legend", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+
+    render(
+      <InteractiveMap
+        showSwellField
+        onSwellLayerChange={jest.fn()}
+      />,
+    );
+
+    const legend = screen.getByTestId("map-condition-legend");
+    const selector = within(legend).getByTestId("swell-layer-selector");
+
+    expect(selector).toBeInTheDocument();
+    expect(selector.className).not.toContain("absolute");
+    expect(selector.className).not.toContain("top-3");
+    expect(within(selector).getByTestId("swell-field-legend-caption")).toHaveTextContent(
+      "denser = bigger · longer marks = longer period"
+    );
+  });
+
+  it("should minimize the bottom legend while keeping the timeline available", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+
+    render(
+      <InteractiveMap
+        showSwellField
+        onSwellLayerChange={jest.fn()}
+        swellTimelineSteps={["Now", "+3h", "+6h"]}
+        onSwellTimelineChange={jest.fn()}
+      />,
+    );
+
+    const legend = screen.getByTestId("map-condition-legend");
+
+    fireEvent.click(
+      within(legend).getByRole("button", { name: "Minimize map legend" })
+    );
+
+    expect(within(legend).queryByText("GOOD")).toBeNull();
+    expect(within(legend).queryByTestId("swell-layer-selector")).toBeNull();
+    expect(within(legend).getByTestId("swell-forecast-timeline")).toBeInTheDocument();
+    expect(
+      within(legend).getByRole("button", { name: "Expand map legend" })
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(legend).getByRole("button", { name: "Expand map legend" })
+    );
+
+    expect(within(legend).getByText("GOOD")).toBeInTheDocument();
+    expect(within(legend).getByTestId("swell-layer-selector")).toBeInTheDocument();
+  });
+
   it("should call Mapbox Map constructor with correct parameters", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     
@@ -224,7 +282,26 @@ describe("Map Forecast Basic Tests", () => {
         style: "mapbox://styles/mapbox/streets-v11",
         center: [-117.2511, 32.7493], // lng, lat for Mapbox
         zoom: 14,
+        attributionControl: false,
+        logoPosition: "top-left",
       })
+    );
+  });
+
+  it("should position Mapbox attribution away from the bottom legend", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+
+    render(<InteractiveMap />);
+
+    const mapboxgl = require("mapbox-gl");
+    const mapInstance = mapboxgl.Map.mock.results.at(-1)?.value;
+
+    expect(mapboxgl.AttributionControl).toHaveBeenCalledWith({
+      compact: true,
+    });
+    expect(mapInstance.addControl).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "attribution" }),
+      "top-right"
     );
   });
 

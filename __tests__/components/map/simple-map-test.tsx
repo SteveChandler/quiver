@@ -39,9 +39,11 @@ jest.mock("mapbox-gl", () => ({
     getCanvasContainer: jest.fn(() => document.createElement("div")),
     getLayer: jest.fn(() => undefined),
     addLayer: jest.fn(),
+    addControl: jest.fn(),
     removeLayer: jest.fn(),
     triggerRepaint: jest.fn(),
   })),
+  AttributionControl: jest.fn(() => ({ type: "attribution" })),
   Marker: jest.fn(() => ({
     setLngLat: jest.fn().mockReturnThis(),
     setPopup: jest.fn().mockReturnThis(),

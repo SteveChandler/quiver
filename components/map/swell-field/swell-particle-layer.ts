@@ -202,7 +202,7 @@ export function createSwellParticleLayer(
   let uColorLoc: WebGLUniformLocation | null = null;
   let uAlphaLoc: WebGLUniformLocation | null = null;
   let uPointSizeLoc: WebGLUniformLocation | null = null;
-  let hasRenderedReducedMotionFrame = false;
+  let reducedMotionRenderedField: FlowField | null = null;
   let mapRef: mapboxgl.Map | null = null;
 
   // Particle state in Mercator unit space [0..1].
@@ -268,8 +268,7 @@ export function createSwellParticleLayer(
     }
   }
 
-  function advanceAndFill(map: mapboxgl.Map): void {
-    const field = options.getField();
+  function advanceAndFill(map: mapboxgl.Map, field: FlowField): void {
     const box = viewBoxMercator(map);
     const span = Math.max(box.maxX - box.minX, 1e-6);
     for (let i = 0; i < count; i += 1) {
@@ -408,9 +407,10 @@ export function createSwellParticleLayer(
 
     render(gl: WebGL2RenderingContext, matrix: number[]) {
       if (!program || !mapRef) return;
-      if (!options.reducedMotion || !hasRenderedReducedMotionFrame) {
-        advanceAndFill(mapRef);
-        hasRenderedReducedMotionFrame = options.reducedMotion;
+      const field = options.getField();
+      if (!options.reducedMotion || reducedMotionRenderedField !== field) {
+        advanceAndFill(mapRef, field);
+        reducedMotionRenderedField = options.reducedMotion ? field : null;
       }
 
       gl.useProgram(program);

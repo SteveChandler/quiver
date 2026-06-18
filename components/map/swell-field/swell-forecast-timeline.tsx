@@ -46,7 +46,7 @@ export function SwellForecastTimeline({
     const intervalId = window.setInterval(() => {
       const stepDelta = reducedMotion ? 1 : PLAYBACK_FRAME_MS / PLAYBACK_STEP_MS;
       const nextRaw = progressRef.current + stepDelta;
-      const next = nextRaw >= steps.length - 1 ? 0 : nextRaw;
+      const next = nextRaw > steps.length - 1 ? 0 : nextRaw;
       progressRef.current = next;
       onIndexChange(next);
     }, reducedMotion ? PLAYBACK_STEP_MS : PLAYBACK_FRAME_MS);

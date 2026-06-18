@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Children,
   useEffect,
   useRef,
   useCallback,
@@ -9,6 +10,7 @@ import {
   type ReactElement,
   type ReactNode,
 } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import mapboxgl from "mapbox-gl";
 import { debounce } from "@/lib/utils/debounce";
 import type { Beach } from "@/types/database";
@@ -55,12 +57,15 @@ import {
   interpolateSwellPartition,
   maskFieldToWater,
   partitionToPoint,
+  resolveWindParticleCount,
   type BeachPartitionPoint,
   type FlowField,
 } from "@/components/map/swell-field/field-sampler";
-import { createSwellParticleLayer } from "@/components/map/swell-field/swell-particle-layer";
+import {
+  createSwellParticleLayer,
+  resolveParticleCount,
+} from "@/components/map/swell-field/swell-particle-layer";
 import { SwellLayerSelector } from "@/components/map/swell-field/swell-layer-selector";
-import { SwellFieldLegend } from "@/components/map/swell-field/swell-field-legend";
 import { SwellForecastTimeline } from "@/components/map/swell-field/swell-forecast-timeline";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
@@ -173,19 +178,39 @@ const CONDITION_LEGEND_ITEMS: Array<{
 ];
 
 interface MapConditionLegendProps {
-  children?: ReactNode;
+  controls?: ReactNode;
+  timeline?: ReactNode;
 }
 
 function MapConditionLegend({
-  children,
+  controls,
+  timeline,
 }: MapConditionLegendProps): ReactElement {
-  const hasEmbeddedControls = Boolean(children);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const embeddedControls = Children.toArray(controls);
+  const hasEmbeddedControls = embeddedControls.length > 0;
+  const hasTimeline = Boolean(timeline);
+  const isWide = hasTimeline || (!isMinimized && hasEmbeddedControls);
+  const toggleLabel = isMinimized ? "Expand map legend" : "Minimize map legend";
+  const ToggleIcon = isMinimized ? ChevronUp : ChevronDown;
+  const toggleButton = (
+    <button
+      type="button"
+      aria-label={toggleLabel}
+      title={toggleLabel}
+      data-testid="map-legend-toggle"
+      onClick={() => setIsMinimized((current) => !current)}
+      className="pointer-events-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-white/10 text-white/90 transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+    >
+      <ToggleIcon className="h-4 w-4" aria-hidden="true" />
+    </button>
+  );
 
   return (
     <div
       data-testid="map-condition-legend"
       className={`pointer-events-none absolute bottom-3 left-3 z-10 px-3 py-2 text-white ${
-        hasEmbeddedControls
+        isWide
           ? "w-[calc(100%-1.5rem)] max-w-[27rem] sm:w-auto"
           : ""
       }`}
@@ -196,23 +221,38 @@ function MapConditionLegend({
         boxShadow: SWELL_MAP_STICKER_SHADOW,
       }}
     >
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
-        {CONDITION_LEGEND_ITEMS.map((item) => (
-          <div key={item.label} className="flex items-center gap-1.5">
-            <span
-              aria-hidden="true"
-              className="h-2.5 w-2.5 rounded-full border border-white/35"
-              style={{ background: getConditionMarkerGradient(item.label) }}
-            />
-            <span className="text-[10px] font-semibold leading-none tracking-normal">
-              {item.label}
-            </span>
-            <span className="sr-only">{item.caption}</span>
+      {isMinimized ? (
+        <div className="flex items-center gap-2">
+          {toggleButton}
+          {hasTimeline && <div className="min-w-0 flex-1">{timeline}</div>}
+        </div>
+      ) : (
+        <>
+          <div className="flex items-start gap-2">
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
+              {CONDITION_LEGEND_ITEMS.map((item) => (
+                <div key={item.label} className="flex items-center gap-1.5">
+                  <span
+                    aria-hidden="true"
+                    className="h-2.5 w-2.5 rounded-full border border-white/35"
+                    style={{ background: getConditionMarkerGradient(item.label) }}
+                  />
+                  <span className="text-[10px] font-semibold leading-none tracking-normal">
+                    {item.label}
+                  </span>
+                  <span className="sr-only">{item.caption}</span>
+                </div>
+              ))}
+            </div>
+            {toggleButton}
           </div>
-        ))}
-      </div>
-      {children && (
-        <div className="mt-2 border-t border-white/15 pt-2">{children}</div>
+          {(hasEmbeddedControls || hasTimeline) && (
+            <div className="mt-2 flex flex-col gap-2 border-t border-white/15 pt-2">
+              {embeddedControls}
+              {timeline}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
@@ -277,6 +317,7 @@ export function InteractiveMap({
   // so we surface a small "no swell data" sticker. Defaults true to avoid a
   // flash before the first build.
   const [hasSwellData, setHasSwellData] = useState(true);
+  const [windParticleDensity, setWindParticleDensity] = useState(1);
   // One-time coastal-leash hint: the camera silently loses zoom-out when the
   // field's leash applies, so we flash a one-shot note the FIRST time it locks
   // per mount. Ref guards "shown once"; `showLeashHint` mounts it, `leashHintFading`
@@ -789,6 +830,9 @@ export function InteractiveMap({
       nextFields[component] = buildFlowField(points, bounds, 12);
     }
     flowFieldsRef.current = nextFields;
+    setWindParticleDensity(
+      resolveWindParticleCount(1000, nextFields.wind) / 1000
+    );
     setHasSwellData(anyPoints);
     // Best-effort mask now; the idle/moveend listener re-masks once tiles render.
     applyWaterMask(map);
@@ -840,6 +884,15 @@ export function InteractiveMap({
     // on the light-blue water, so no basemap recolor is needed.
     const viewportWidthPx =
       typeof window !== "undefined" ? window.innerWidth : 1024;
+    const baseParticleCount = resolveParticleCount(viewportWidthPx);
+    const windCount = resolveWindParticleCount(
+      baseParticleCount,
+      flowFieldsRef.current.wind
+    );
+    const combinedWindCount = resolveWindParticleCount(
+      COMBINED_PARTICLE_COUNT,
+      flowFieldsRef.current.wind
+    );
 
     if (swellLayerId === "combined") {
       // Overlay the three components, each its own colored layer + flow field. Cap
@@ -852,7 +905,10 @@ export function InteractiveMap({
             getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[component],
             reducedMotion,
             viewportWidthPx,
-            count: COMBINED_PARTICLE_COUNT,
+            count:
+              component === "wind"
+                ? combinedWindCount
+                : COMBINED_PARTICLE_COUNT,
             markStyle: component === "wind" ? "comet" : "dash",
           })
         );
@@ -868,6 +924,7 @@ export function InteractiveMap({
           getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[swellLayerIdRef.current],
           reducedMotion,
           viewportWidthPx,
+          count: activeComponent === "wind" ? windCount : undefined,
           markStyle: activeComponent === "wind" ? "comet" : "dash",
         })
       );
@@ -876,7 +933,7 @@ export function InteractiveMap({
     return teardown;
     // Re-add when toggled, the active layer changes (the layer SET differs between
     // combined and single), motion preference flips, or the map (re)mounts.
-  }, [showSwellField, isMapReady, reducedMotion, swellLayerId]);
+  }, [showSwellField, isMapReady, reducedMotion, swellLayerId, windParticleDensity]);
 
   // Leash the camera to the coastal data corridor while the swell field is ON.
   // Locks zoom (so users can't pull back to open-ocean/continent scale) and pins
@@ -1080,7 +1137,13 @@ export function InteractiveMap({
       style: "mapbox://styles/mapbox/streets-v11",
       center: [initialCenterRef.current[1], initialCenterRef.current[0]], // lng, lat
       zoom: initialZoom,
+      attributionControl: false,
+      logoPosition: "top-left",
     });
+    map.addControl(
+      new mapboxgl.AttributionControl({ compact: true }),
+      "top-right"
+    );
 
     mapRef.current = map;
 
@@ -1405,6 +1468,15 @@ export function InteractiveMap({
       />
     ) : null;
 
+  const swellLayerSelector =
+    showSwellField && onSwellLayerChange ? (
+      <SwellLayerSelector
+        active={swellLayerId}
+        onChange={onSwellLayerChange}
+        placement={displayMode === "wave-height" ? "legend" : "floating"}
+      />
+    ) : null;
+
   return (
     <div
       ref={mapContainerRef}
@@ -1412,18 +1484,12 @@ export function InteractiveMap({
       style={{ width: "100%", height: "100%" }}
     >
       {displayMode === "wave-height" && (
-        <MapConditionLegend>{swellTimeline}</MapConditionLegend>
+        <MapConditionLegend
+          controls={swellLayerSelector}
+          timeline={swellTimeline}
+        />
       )}
-      {showSwellField && onSwellLayerChange && (
-        <SwellLayerSelector active={swellLayerId} onChange={onSwellLayerChange} />
-      )}
-      {showSwellField && (
-        // Sits in the same right-side stack, below the layer selector
-        // (top-16 + the selector's header/2x2 grid). top-[10.5rem] clears it.
-        <div className="pointer-events-none absolute right-3 top-[10.5rem] z-10">
-          <SwellFieldLegend activeLayer={swellLayerId} />
-        </div>
-      )}
+      {displayMode !== "wave-height" && swellLayerSelector}
       {displayMode !== "wave-height" && swellTimeline}
       {showLeashHint && (
         // One-time, auto-dismissing hint that the field locked the camera to the

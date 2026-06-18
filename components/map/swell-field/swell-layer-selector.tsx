@@ -2,6 +2,7 @@
 
 import type { ReactElement } from "react";
 import {
+  buildLegendRampCss,
   SWELL_LAYER_COLOR,
   SWELL_MAP_SURFACE,
   SWELL_MAP_STICKER_SHADOW,
@@ -22,36 +23,57 @@ const LAYERS: Array<{ id: SwellLayerId; label: string }> = [
 // vertical bands clipped to the circle. Sanctioned hues only, no new color introduced.
 const COMBINED_SWATCH_SEGMENTS: SwellLayerId[] = ["s1", "s2", "wind"];
 
+function captionForLayer(activeLayer: SwellLayerId): string {
+  if (activeLayer === "wind") return "dots + tails = wind speed & direction";
+  return "denser = bigger · longer marks = longer period";
+}
+
 interface SwellLayerSelectorProps {
   active: SwellLayerId;
   onChange: (id: SwellLayerId) => void;
+  placement?: "floating" | "legend";
 }
 
 export function SwellLayerSelector({
   active,
   onChange,
+  placement = "floating",
 }: SwellLayerSelectorProps): ReactElement {
-  return (
-    <div
-      data-testid="swell-layer-selector"
-      // top-16 (64px) clears the "Use My Actual Location" control above it
-      // (absolute top-4 right-4, an h-10/40px button spanning 16–56px) on both
-      // desktop and mobile, so the two no longer overlap in the top-right corner.
-      className="pointer-events-auto absolute right-3 top-16 z-10 flex flex-col gap-1.5 p-2"
-      style={{
+  const isLegendPlacement = placement === "legend";
+  const containerClassName = isLegendPlacement
+    ? "pointer-events-auto flex w-full flex-col gap-1"
+    : "pointer-events-auto absolute right-3 top-3 z-10 flex w-44 flex-col gap-1 p-1.5 sm:top-4 sm:w-52 sm:gap-1.5 sm:p-2";
+  const containerStyle = isLegendPlacement
+    ? undefined
+    : {
         background: SWELL_MAP_SURFACE.panel,
         border: `1px solid ${SWELL_MAP_SURFACE.border}`,
         borderRadius: SWELL_MAP_STICKER_RADIUS,
         boxShadow: SWELL_MAP_STICKER_SHADOW,
-      }}
+      };
+  const groupClassName = isLegendPlacement
+    ? "grid grid-cols-4 gap-1"
+    : "grid grid-cols-2 gap-1 sm:gap-1.5";
+  const optionClassName = isLegendPlacement
+    ? "flex items-center gap-1 rounded-sm px-1 py-0.5 text-[9px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] sm:gap-1.5 sm:px-2 sm:text-[10px]"
+    : "flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] sm:gap-1.5 sm:px-2 sm:py-1 sm:text-[11px]";
+  const legendClassName = isLegendPlacement
+    ? "mt-1 border-t border-white/15 pt-1"
+    : "mt-1.5 hidden border-t border-white/15 pt-2 sm:block";
+
+  return (
+    <div
+      data-testid="swell-layer-selector"
+      className={containerClassName}
+      style={containerStyle}
     >
-      <span className="font-heading text-[10px] uppercase tracking-wide text-white/70">
+      <span className="font-heading text-[9px] uppercase tracking-wide text-white/70 sm:text-[10px]">
         Swell field
       </span>
       <div
         role="radiogroup"
         aria-label="Swell field layer"
-        className="grid grid-cols-2 gap-1.5"
+        className={groupClassName}
       >
         {LAYERS.map((layer) => {
           const isActive = layer.id === active;
@@ -64,7 +86,7 @@ export function SwellLayerSelector({
               aria-checked={isActive}
               data-testid={`swell-layer-${layer.id}`}
               onClick={() => onChange(layer.id)}
-              className="flex items-center gap-1.5 rounded-sm px-2 py-1 text-[11px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+              className={optionClassName}
               style={{
                 // Active chip: solid fill in its layer color + dark bold text, so the
                 // selected field is unmistakable at a glance. Inactive: transparent.
@@ -80,7 +102,7 @@ export function SwellLayerSelector({
                 <span
                   aria-hidden="true"
                   data-testid={`swell-layer-${layer.id}-swatch`}
-                  className="flex h-2.5 w-2.5 overflow-hidden rounded-full"
+                  className="flex h-2 w-2 overflow-hidden rounded-full sm:h-2.5 sm:w-2.5"
                 >
                   {COMBINED_SWATCH_SEGMENTS.map((segId) => (
                     <span
@@ -95,7 +117,7 @@ export function SwellLayerSelector({
                 <span
                   aria-hidden="true"
                   data-testid={`swell-layer-${layer.id}-swatch`}
-                  className="h-2.5 w-2.5 rounded-full"
+                  className="h-2 w-2 rounded-full sm:h-2.5 sm:w-2.5"
                   style={{
                     background: isActive ? "#161A40" : SWELL_LAYER_COLOR[layer.id],
                   }}
@@ -105,6 +127,27 @@ export function SwellLayerSelector({
             </button>
           );
         })}
+      </div>
+      <div data-testid="swell-field-legend" className={legendClassName}>
+        <span className="font-heading text-[10px] uppercase tracking-wide text-white/70">
+          Swell size
+        </span>
+        <div className="mt-1 flex items-center gap-1.5">
+          <span className="font-mono text-[9px] text-white/70">small</span>
+          <span
+            aria-hidden="true"
+            data-testid="swell-field-legend-ramp"
+            className="h-2 flex-1 rounded"
+            style={{ background: buildLegendRampCss() }}
+          />
+          <span className="font-mono text-[9px] text-white/70">big</span>
+        </div>
+        <p
+          data-testid="swell-field-legend-caption"
+          className="mt-1 text-[9px] leading-tight text-white/70 sm:text-[10px]"
+        >
+          {captionForLayer(active)}
+        </p>
       </div>
     </div>
   );

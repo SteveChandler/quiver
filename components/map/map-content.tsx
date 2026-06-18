@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { MapPin } from "lucide-react";
 import dynamic from "next/dynamic";
 import { MapSkeleton } from "@/components/skeletons/map-skeleton";
 import { DataErrorBoundary } from "@/components/error-boundaries";
@@ -38,7 +37,6 @@ interface MapContentProps {
   onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
   onMapClick?: () => void;
   autoNavigateOnMarkerClick?: boolean;
-  onShowBeaches?: () => void;
   showSwellField?: boolean;
   swellLayerId?: import("@/components/map/swell-map-theme").SwellLayerId;
   onSwellLayerChange?: (
@@ -75,7 +73,6 @@ export function MapContent({
   onWaveHeightsChange,
   onMapClick,
   autoNavigateOnMarkerClick,
-  onShowBeaches,
   showSwellField,
   swellLayerId,
   onSwellLayerChange,
@@ -243,32 +240,6 @@ export function MapContent({
             className="absolute inset-0 z-0 bg-[linear-gradient(135deg,#17213a_0%,#0f766e_45%,#1d4ed8_100%)]"
             aria-hidden="true"
           />
-        )}
-
-        {/* Location controls */}
-        {(usingDefaultLocation || !userLocation) && (
-          <div className="absolute top-4 right-4 z-10">
-            <Button
-              onClick={onGetUserLocation}
-              size="sm"
-              variant="secondary"
-              className="shadow-md"
-            >
-              <MapPin className="h-4 w-4 mr-1" />
-              {!userLocation ? "Use My Location" : "Use My Actual Location"}
-            </Button>
-          </div>
-        )}
-
-        {/* Recovery button to bring back bottom sheet */}
-        {onShowBeaches && (
-          <button
-            onClick={onShowBeaches}
-            aria-label="Show beach list"
-            className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 bg-primary text-primary-foreground rounded-full px-4 py-2 shadow-lg text-sm font-medium md:hidden"
-          >
-            Show Beaches
-          </button>
         )}
       </div>
     </>

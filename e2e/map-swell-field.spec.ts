@@ -204,20 +204,33 @@ for (const viewport of [
       await waitForMapIdle(page);
 
       const legend = page.getByTestId("map-condition-legend");
+      const selector = page.getByTestId("swell-layer-selector");
       const timeline = page.getByTestId("swell-forecast-timeline");
 
       await expect(legend).toBeVisible();
+      await expect(selector).toBeVisible();
       await expect(timeline).toBeVisible();
 
       const legendBox = await legend.boundingBox();
+      const selectorBox = await selector.boundingBox();
       const timelineBox = await timeline.boundingBox();
 
       expect(legendBox).not.toBeNull();
+      expect(selectorBox).not.toBeNull();
       expect(timelineBox).not.toBeNull();
 
       const visibleLegendBox = legendBox!;
+      const visibleSelectorBox = selectorBox!;
       const visibleTimelineBox = timelineBox!;
 
+      expect(visibleSelectorBox.x).toBeGreaterThanOrEqual(visibleLegendBox.x);
+      expect(visibleSelectorBox.y).toBeGreaterThanOrEqual(visibleLegendBox.y);
+      expect(
+        visibleSelectorBox.x + visibleSelectorBox.width
+      ).toBeLessThanOrEqual(visibleLegendBox.x + visibleLegendBox.width);
+      expect(
+        visibleSelectorBox.y + visibleSelectorBox.height
+      ).toBeLessThanOrEqual(visibleLegendBox.y + visibleLegendBox.height);
       expect(visibleTimelineBox.x).toBeGreaterThanOrEqual(visibleLegendBox.x);
       expect(visibleTimelineBox.y).toBeGreaterThanOrEqual(visibleLegendBox.y);
       expect(
@@ -229,6 +242,23 @@ for (const viewport of [
         visibleLegendBox.y + visibleLegendBox.height
       );
       expect(visibleLegendBox.width).toBeLessThanOrEqual(viewport.width - 12);
+
+      await legend
+        .getByRole("button", { name: "Minimize map legend" })
+        .press("Enter");
+
+      await expect(page.getByTestId("swell-layer-selector")).toHaveCount(0);
+      await expect(timeline).toBeVisible();
+      await expect(
+        legend.getByRole("button", { name: "Expand map legend" })
+      ).toBeVisible();
+
+      await legend
+        .getByRole("button", { name: "Expand map legend" })
+        .press("Enter");
+
+      await expect(page.getByTestId("swell-layer-selector")).toBeVisible();
+      await expect(timeline).toBeVisible();
     });
 
     test("animates when motion allowed, static under reduced motion", async ({

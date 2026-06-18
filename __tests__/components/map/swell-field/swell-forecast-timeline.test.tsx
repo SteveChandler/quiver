@@ -3,8 +3,12 @@ import userEvent from "@testing-library/user-event";
 import { useState, type ReactElement } from "react";
 import { SwellForecastTimeline } from "@/components/map/swell-field/swell-forecast-timeline";
 
-function TimelineHarness(): ReactElement {
-  const [index, setIndex] = useState(0);
+function TimelineHarness({
+  initialIndex = 0,
+}: {
+  initialIndex?: number;
+}): ReactElement {
+  const [index, setIndex] = useState(initialIndex);
 
   return (
     <>
@@ -96,6 +100,41 @@ describe("SwellForecastTimeline", () => {
     });
 
     expect(screen.getByText("+3h")).toBeInTheDocument();
+
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: originalMatchMedia,
+    });
+  });
+
+  it("plays the final reduced-motion step before wrapping", async () => {
+    const originalMatchMedia = window.matchMedia;
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: jest.fn().mockImplementation((query: string) => ({
+        matches: query === "(prefers-reduced-motion: reduce)",
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      })),
+    });
+
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    render(<TimelineHarness initialIndex={1} />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Play forecast timeline" }),
+    );
+
+    act(() => {
+      jest.advanceTimersByTime(1200);
+    });
+
+    expect(screen.getByText("+6h")).toBeInTheDocument();
 
     Object.defineProperty(window, "matchMedia", {
       writable: true,

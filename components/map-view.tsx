@@ -10,10 +10,6 @@ import {
   type MapRegionPill,
 } from "@/components/map/map-regions";
 import { MapContent } from "@/components/map/map-content";
-import { MapBottomSheet } from "@/components/map/map-bottom-sheet";
-import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
-import { filterBeachesByViewport, type ViewportBounds } from "@/lib/utils/viewport-filter";
-import { useIsMobile } from "@/hooks/use-mobile";
 import { type SwellLayerId } from "@/components/map/swell-map-theme";
 import type { Beach } from "@/types/database";
 
@@ -23,8 +19,6 @@ export function MapView() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const isMobile = useIsMobile();
-  const [showRecovery, setShowRecovery] = useState(false);
   const [mapFocusCenter, setMapFocusCenter] = useState<{
     lat: number;
     lon: number;
@@ -34,8 +28,6 @@ export function MapView() {
   const lastLocationRef = useRef<{ lat: number; lon: number } | null>(null);
   const preserveSearchStateOnNextUrlClearRef = useRef(false);
 
-  const [viewportBounds, setViewportBounds] = useState<ViewportBounds | null>(null);
-  const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
   const [showSwellField, setShowSwellField] = useState(true);
   const [swellLayerId, setSwellLayerId] = useState<SwellLayerId>("s1");
   const [swellTimelineIndex, setSwellTimelineIndex] = useState(0);
@@ -225,56 +217,12 @@ export function MapView() {
     [clearSearch, loadNearbyBeaches, setSelectedBeach, stripMapUrlParams]
   );
 
-  // Distance calculation function using centralized utility
-  // Uses userLocation from closure - child components call with (beachLat, beachLng) only
-  const getDistanceFromUser = useCallback(
-    (beachLat: number, beachLng: number): string => {
-      if (!userLocation) return "";
-      return (
-        calculateDistanceFormatted(
-          { lat: userLocation.lat, lon: userLocation.lon },
-          { lat: beachLat, lon: beachLng },
-          "miles"
-        ) + " away"
-      );
-    },
-    [userLocation]
-  );
-
   const handleMapClick = useCallback(() => {
     setMapFocusCenter(null);
     setSelectedBeach(null);
   }, [setSelectedBeach]);
 
-  const handleShowBeaches = useCallback(() => {
-    setSelectedBeach(null);
-    setShowRecovery(false);
-  }, [setSelectedBeach]);
-
-  const handleDismissAttempt = useCallback(() => {
-    setShowRecovery(true);
-  }, []);
-
-  const handleBoundsChange = useCallback(
-    (bounds: { west: number; south: number; east: number; north: number }) => {
-      setViewportBounds(bounds);
-    },
-    []
-  );
-
-  const handleWaveHeightsChange = useCallback(
-    (map: Map<string, number | undefined>) => {
-      setWaveHeightMap(map);
-    },
-    []
-  );
-
   const loading = locationLoading || beachLoading;
-
-  const viewportBeaches = useMemo(
-    () => filterBeachesByViewport(filteredBeaches, viewportBounds),
-    [filteredBeaches, viewportBounds]
-  );
 
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||
@@ -320,11 +268,8 @@ export function MapView() {
             onGetUserLocation={handleUseMyLocation}
             onUseDefaultLocation={handleUseDefaultLocation}
             onBeachSelect={handleBeachSelect}
-            onBoundsChange={handleBoundsChange}
-            onWaveHeightsChange={handleWaveHeightsChange}
-            onMapClick={isMobile ? handleMapClick : undefined}
-            autoNavigateOnMarkerClick={!isMobile}
-            onShowBeaches={isMobile && showRecovery ? handleShowBeaches : undefined}
+            onMapClick={handleMapClick}
+            autoNavigateOnMarkerClick={true}
             showSwellField={showSwellField}
             swellLayerId={swellLayerId}
             onSwellLayerChange={setSwellLayerId}
@@ -333,20 +278,6 @@ export function MapView() {
             onSwellTimelineChange={setSwellTimelineIndex}
           />
         </div>
-
-        {/* Mobile bottom sheet (JS-conditional: Vaul Drawer uses portal, escapes CSS) */}
-        {isMobile && (
-          <MapBottomSheet
-            beaches={viewportBeaches}
-            waveHeightMap={waveHeightMap}
-            selectedBeach={selectedBeachForMap}
-            userLocation={userLocation}
-            onBeachSelect={handleBeachSelect}
-            getDistanceFromUser={getDistanceFromUser}
-            onDeselectBeach={handleMapClick}
-            onDismissAttempt={handleDismissAttempt}
-          />
-        )}
       </div>
     </div>
   );

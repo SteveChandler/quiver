@@ -120,6 +120,14 @@ describe("MapToolbar", () => {
     );
   });
 
+  it("keeps the three toolbar actions in one compact mobile row", () => {
+    render(<MapToolbar {...defaultProps} showSwellField />);
+
+    const actions = screen.getByTestId("map-toolbar-actions");
+    expect(actions.className).toContain("grid-cols-3");
+    expect(actions.className).not.toContain("grid-cols-1");
+  });
+
   it("only shows Clear all when active filters exist", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<MapToolbar {...defaultProps} />);

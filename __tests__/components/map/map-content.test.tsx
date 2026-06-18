@@ -157,7 +157,7 @@ describe("MapContent", () => {
     });
   });
 
-  it("should show use my location button when using default location", () => {
+  it("does not render the duplicate map location button when using default location", () => {
     render(
       <MapContent
         {...defaultProps}
@@ -166,10 +166,12 @@ describe("MapContent", () => {
       />,
     );
 
-    expect(screen.getByText("Use My Location")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Use My Location" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("should show use my actual location button when location is approximate", () => {
+  it("does not render the duplicate map location button when location is approximate", () => {
     render(
       <MapContent
         {...defaultProps}
@@ -178,22 +180,9 @@ describe("MapContent", () => {
       />,
     );
 
-    expect(screen.getByText("Use My Actual Location")).toBeInTheDocument();
-  });
-
-  it("should handle location button clicks", () => {
-    render(
-      <MapContent
-        {...defaultProps}
-        usingDefaultLocation={true}
-        userLocation={null}
-      />,
-    );
-
-    const locationButton = screen.getByText("Use My Location");
-    fireEvent.click(locationButton);
-
-    expect(defaultProps.onGetUserLocation).toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Use My Actual Location" }),
+    ).not.toBeInTheDocument();
   });
 
   it("should handle try again button click", () => {
@@ -266,34 +255,13 @@ describe("MapContent", () => {
     });
   });
 
-  // Bug 13: Recovery button for drawer dismissal
-  describe("Bug 13: Show Beaches recovery button", () => {
-    it("should render Show Beaches button when onShowBeaches is provided", () => {
-      const onShowBeaches = jest.fn();
-      render(<MapContent {...defaultProps} onShowBeaches={onShowBeaches} />);
-      const button = screen.getByRole("button", { name: "Show beach list" });
-      expect(button).toBeInTheDocument();
-    });
-
-    it("should call onShowBeaches when button is clicked", () => {
-      const onShowBeaches = jest.fn();
-      render(<MapContent {...defaultProps} onShowBeaches={onShowBeaches} />);
-      const button = screen.getByRole("button", { name: "Show beach list" });
-      fireEvent.click(button);
-      expect(onShowBeaches).toHaveBeenCalledTimes(1);
-    });
-
-    it("should NOT render Show Beaches button when onShowBeaches is not provided", () => {
+  describe("mobile map chrome", () => {
+    it("does not render the old bottom-sheet recovery button", () => {
       render(<MapContent {...defaultProps} />);
-      const button = screen.queryByRole("button", { name: "Show beach list" });
-      expect(button).not.toBeInTheDocument();
-    });
 
-    it("should have md:hidden class to only show on mobile", () => {
-      const onShowBeaches = jest.fn();
-      render(<MapContent {...defaultProps} onShowBeaches={onShowBeaches} />);
-      const button = screen.getByRole("button", { name: "Show beach list" });
-      expect(button.className).toContain("md:hidden");
+      expect(
+        screen.queryByRole("button", { name: "Show beach list" }),
+      ).not.toBeInTheDocument();
     });
   });
 });

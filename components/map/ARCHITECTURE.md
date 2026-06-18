@@ -17,13 +17,9 @@ components/map/
 ├── map-cluster-renderer.ts   # createClusterMapMarker — cluster marker creation + click handling
 ├── map-cluster-popup.ts      # createClusterPopupContent — grouped beach detail popup
 ├── cluster-marker.tsx        # createClusterMarkerElement — cluster marker DOM element factory
-├── map-bottom-sheet.tsx      # Mobile bottom sheet (custom touch gestures) with beach list
-├── sidebar-beach-card.tsx    # Compact beach card for mobile bottom sheet
 ├── map-display.tsx            # Static map with wave height overlays
-├── beach-list.tsx            # Legacy standalone searchable beach list with reviews
 ├── map-header.tsx            # Navigation header (legacy)
-├── nearby-beach-scroll.tsx   # Horizontal beach scroller (no longer used in MapView)
-└── selected-beach-card.tsx   # Selected beach detail card
+└── nearby-beach-scroll.tsx   # Horizontal beach scroller (no longer used in MapView)
 ```
 
 ### **InteractiveMap Module Decomposition**
@@ -279,12 +275,10 @@ const LocationSelector = () => {
 ```typescript
 MapView
 ├── MapToolbar (Search + location + swell toggle + region/filter dropdown)
-├── MapContent (Interactive/Static Map)
-├── SelectedBeachCard (Mobile: quick view)
-└── MapBottomSheet (Mobile: viewport beach list)
+└── MapContent (Interactive/Static Map)
 ```
 
-**Note**: Desktop map browsing is full-width. The viewport beach list lives in `MapBottomSheet` on mobile.
+**Note**: Map browsing is full-width on desktop and mobile. Marker taps navigate directly to beach detail pages; list browsing is intentionally outside the map surface.
 
 ### **Dynamic Map Loading**
 
@@ -504,93 +498,6 @@ const handleMoveEnd = useCallback(
   - Region quick-jumps that recenter through the remount path
   - Filter chips inside a compact dropdown
 
-### **SelectedBeachCard** (Detail Preview)
-
-- **Purpose**: Quick-view card for the currently selected beach
-- **Rendering context**: On mobile, renders **inside `MapBottomSheet`** (above the scrollable list). On desktop, markers can navigate directly to beach detail pages.
-- **Props**: `selectedBeach`, `getDistanceFromUser`, `userLocation`, `onClose?`
-- **Features**:
-  - Tappable card that navigates to the beach detail page via `router.push`
-  - `onClose` callback (X button) deselects without navigating; uses `stopPropagation` to prevent the outer link handler from firing
-  - Distance and rating display
-  - Inline forecast preview via `useForecastPreview`
-
-### **MapBottomSheet** (Mobile Viewport List)
-
-- **Purpose**: AllTrails-style mobile bottom sheet with three snap points, custom touch gestures
-- **Props**: `beaches`, `waveHeightMap`, `selectedBeach`, `userLocation`, `onBeachSelect`, `getDistanceFromUser`, `onDeselectBeach`
-- **Implementation**: Custom touch-based bottom sheet (replaced Vaul Drawer for Android WebView compatibility)
-- **Gesture hook**: `useBottomSheetGesture` (`hooks/use-bottom-sheet-gesture.ts`)
-- **Features**:
-  - Three snap points: **10% peek** (default), **40% detail** (on selection), **90% full** (scrollable list)
-  - Embeds `SelectedBeachCard` above the scrollable beach list when a beach is selected
-  - Auto-snaps to detail (40%) on selection, peek (10%) on deselection
-  - `onDeselectBeach` prop wired to `SelectedBeachCard`'s `onClose` and map-tap deselection
-  - Always visible and non-modal so the map stays interactive
-  - Scrolling enabled at detail (40%) and full (90%) snap points
-  - Shared state via `useBeachListState` hook (card refs, distance map)
-
-**Why custom instead of Vaul:**
-- Vaul uses CSS `dvh` units (unsupported in Android WebView)
-- Vaul's `setPointerCapture` is unreliable in Capacitor
-- Vaul's `requestAnimationFrame`-based snap transitions race with WebView layout
-- Custom implementation uses `touchstart`/`touchmove`/`touchend` events + direct DOM `transform` updates for reliable 60fps
-
-**Why `vh` instead of `dvh`:**
-- `dvh` (dynamic viewport height) is not supported in Android WebView
-- `vh` is universally supported and sufficient since the sheet uses `window.innerHeight` for snap-point math
-- The `useBottomSheetGesture` hook recalculates on `resize` events (keyboard show/hide, orientation changes)
-
-**Note:** `components/ui/drawer.tsx` (standard modal Vaul drawer used elsewhere in the app) is unaffected — `vaul` remains in `package.json`.
-
-**Implementation:**
-
-```typescript
-const SNAP_POINTS = [0.1, 0.4, 0.9]; // peek, detail, full
-
-function MapBottomSheet({ beaches, selectedBeach, onDeselectBeach, ... }) {
-  const [activeSnapIndex, setActiveSnapIndex] = useState(PEEK_INDEX);
-  const handleRef = useRef<HTMLDivElement>(null);
-
-  const { sheetRef } = useBottomSheetGesture({
-    snapPoints: SNAP_POINTS,
-    activeSnapIndex,
-    onSnapChange: setActiveSnapIndex,
-    handleRef,
-  });
-
-  // Snap to detail on selection, peek on deselection
-  useEffect(() => {
-    setActiveSnapIndex(selectedBeach ? DETAIL_INDEX : PEEK_INDEX);
-  }, [selectedBeach?.id]);
-
-  return (
-    <div ref={sheetRef} className="fixed inset-x-0 bottom-0 z-40 h-[90vh] ...">
-      <div ref={handleRef} style={{ touchAction: "none" }}>
-        {/* Handle bar + header — entire area is draggable */}
-      </div>
-
-      {selectedBeach && <SelectedBeachCard ... />}
-
-      <div style={{ overflowY: isScrollable ? "auto" : "hidden", overscrollBehavior: "none" }}>
-        {beaches.map(beach => <SidebarBeachCard ... />)}
-      </div>
-    </div>
-  );
-}
-```
-
-### **SidebarBeachCard** (Compact Beach Card)
-
-- **Purpose**: Compact beach card for mobile bottom sheet lists
-- **Props**: Beach data, wave height, selection state, callbacks
-- **Features**:
-  - Compact layout (fits more in viewport)
-  - Wave height badge display
-  - Expandable details section
-  - Selection indicator
-  - Click to select beach on map
-
 ### **Viewport Filter Utility** (`lib/utils/viewport-filter.ts`)
 
 - **Purpose**: Pure function for filtering beaches by geographic bounds
@@ -620,29 +527,6 @@ export function filterBeachesByViewport(
 const visibleBeaches = useMemo(() => {
   return filterBeachesByViewport(allBeaches, mapBounds);
 }, [allBeaches, mapBounds]);
-```
-
-### **useBeachListState Hook** (`hooks/use-beach-list-state.ts`)
-
-- **Purpose**: Shared state management for beach list components
-- **Features**:
-  - Manages expanded beach card state
-  - Shared by mobile bottom sheet beach cards
-  - Prevents state conflicts between repeated card renders
-
-**API:**
-
-```typescript
-export function useBeachListState() {
-  const [expandedBeachId, setExpandedBeachId] = useState<string | null>(null);
-
-  return {
-    expandedBeachId,
-    setExpandedBeachId: (beachId: string | null) => {
-      setExpandedBeachId((prev) => (prev === beachId ? null : beachId));
-    },
-  };
-}
 ```
 
 ## **MAPBOX INTEGRATION**

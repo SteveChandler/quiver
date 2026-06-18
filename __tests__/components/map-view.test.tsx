@@ -5,6 +5,7 @@ import { MapView } from "@/components/map-view";
 const mockLoadNearbyBeaches = jest.fn();
 const mockRouterReplace = jest.fn();
 const mockSetSearchQuery = jest.fn();
+let mockIsMobile = false;
 let mockSearchParams = new URLSearchParams();
 
 jest.mock("next/navigation", () => ({
@@ -14,7 +15,7 @@ jest.mock("next/navigation", () => ({
 }));
 
 jest.mock("@/hooks/use-mobile", () => ({
-  useIsMobile: () => false,
+  useIsMobile: () => mockIsMobile,
 }));
 
 jest.mock("@/hooks/use-geolocation", () => ({
@@ -48,21 +49,25 @@ jest.mock("@/hooks/use-beach-search", () => ({
 }));
 
 jest.mock("@/components/map/map-content", () => ({
-  MapContent: ({ showSwellField }: { showSwellField?: boolean }) => (
+  MapContent: ({
+    autoNavigateOnMarkerClick,
+    showSwellField,
+  }: {
+    autoNavigateOnMarkerClick?: boolean;
+    showSwellField?: boolean;
+  }) => (
     <div
+      data-auto-navigate-on-marker-click={String(autoNavigateOnMarkerClick)}
       data-show-swell-field={String(showSwellField)}
       data-testid="map-content"
     />
   ),
 }));
 
-jest.mock("@/components/map/map-bottom-sheet", () => ({
-  MapBottomSheet: () => <div data-testid="map-bottom-sheet" />,
-}));
-
 describe("MapView", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsMobile = false;
     mockSearchParams = new URLSearchParams();
   });
 
@@ -118,5 +123,17 @@ describe("MapView", () => {
 
     expect(mockRouterReplace).toHaveBeenCalledWith("/map", { scroll: false });
     expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(33.63, -117.95);
+  });
+
+  it("does not render the mobile bottom sheet and keeps marker navigation enabled on mobile", () => {
+    mockIsMobile = true;
+
+    render(<MapView />);
+
+    expect(screen.queryByTestId("map-bottom-sheet")).not.toBeInTheDocument();
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-auto-navigate-on-marker-click",
+      "true",
+    );
   });
 });
