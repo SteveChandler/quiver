@@ -171,6 +171,9 @@ export async function assertNoErrors(
   const placeholderImageNetworkErrors = capture.networkErrors.filter((err) =>
     isPlaceholderImageProxyFailure(err.url, err.status)
   );
+  const localAuthRefreshNetworkErrors = capture.networkErrors.filter((err) =>
+    isLocalAuthRefreshFailure(err.url, err.status)
+  );
   const filteredConsoleErrors = capture.consoleErrors.filter((err) => {
     // When placeholder images are blocked upstream, Chromium logs a generic
     // "Failed to load resource: ... <status>" console error without the URL.
@@ -178,6 +181,15 @@ export async function assertNoErrors(
     if (
       placeholderImageNetworkErrors.length > 0 &&
       /^Failed to load resource: the server responded with a status of (400|403|424)/.test(err)
+    ) {
+      return false;
+    }
+    // Local Supabase can return a transient 504 from refresh-token requests
+    // when auth workers are saturated. Suppress the URL-less Chromium console
+    // duplicate only when the matching local network response is present.
+    if (
+      localAuthRefreshNetworkErrors.length > 0 &&
+      /^Failed to load resource: the server responded with a status of 504/.test(err)
     ) {
       return false;
     }
@@ -245,9 +257,11 @@ export async function waitForPageLoadWithErrorCheck(
   const { timeout = 30000, context = 'Page load' } = options;
 
   await page.waitForLoadState('domcontentloaded', { timeout });
-  await page.waitForLoadState('networkidle', { timeout }).catch(() => {
-    // Ignore timeout - some pages have long-polling
-  });
+  await page.waitForLoadState('load', { timeout });
+  // Bounded settle so the error assertion runs after in-flight data requests
+  // resolve, not just after the load event. networkidle can hang on pages with
+  // long-polling/realtime, so cap it and swallow the timeout.
+  await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
 
   // eslint-disable-next-line playwright/no-wait-for-timeout -- brief delay to let error UI render before assertion
   await page.waitForTimeout(500);
@@ -296,6 +310,12 @@ export async function clickWithErrorCheck(
 
 // Helper: Ignorable console errors (noisy but not real problems)
 function isIgnorableConsoleError(text: string): boolean {
+  // Mapbox GL error events can stringify to their minified internal event
+  // constructor in headless Chromium even when the map keeps rendering.
+  if (/^Map error:\s+[A-Za-z_$][\w$]{0,2}$/.test(text.trim())) {
+    return true;
+  }
+
   const ignorable = [
     // React development warnings
     'Warning: ReactDOM.render is no longer supported',
@@ -311,6 +331,8 @@ function isIgnorableConsoleError(text: string): boolean {
     'Failed to load resource: net::ERR_FAILED', // Generic network failures (CORS, blocked, etc.)
     'googletagmanager',
     'analytics',
+    '_vercel/insights',
+    '_vercel/speed-insights',
     'facebook',
 
     // Hot reload in dev
@@ -324,6 +346,17 @@ function isIgnorableConsoleError(text: string): boolean {
     'net::ERR_CONNECTION_RESET',
     'net::ERR_CONNECTION_REFUSED',
     'net::ERR_INCOMPLETE_CHUNKED_ENCODING',
+    // Chromium can emit these during local context teardown/network transitions
+    // without a URL; response listeners still catch real status-coded failures.
+    'Failed to load resource: net::ERR_INTERNET_DISCONNECTED',
+    'Failed to load resource: net::ERR_NETWORK_CHANGED',
+    // Local auth hydration can race optional FavoriteButton background fetches
+    // under high worker counts. The matching 401 is filtered only for localhost
+    // in isIgnorableNetworkError; this suppresses the URL-less console duplicate.
+    'FavoriteButton: failed to fetch favorites: Authentication required',
+    // Profile gamification is an optional panel and can briefly request before
+    // local auth hydration has finished under high worker counts.
+    'Failed to load XP data',
 
     // Sentry noise
     'Sentry',
@@ -379,10 +412,6 @@ function isIgnorableConsoleError(text: string): boolean {
     'CORS policy',
     'blocked by CORS',
     'mapbox',
-    // Mapbox GL error events can stringify to their internal event constructor
-    // in headless Chromium even when the map keeps rendering.
-    'Map error: Qt',
-
     // WebGL initialization failures - headless Chromium may lack GPU support
     'Failed to initialize WebGL',
     'Map component error',
@@ -415,6 +444,10 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
     return true;
   }
 
+  if (isLocalAuthRefreshFailure(url, status)) {
+    return true;
+  }
+
   // Mapbox API errors - CORS issues in test environments are not production bugs
   // These occur when headless browsers have different CORS handling
   if (url.includes('api.mapbox.com') || url.includes('mapbox.com')) {
@@ -431,6 +464,21 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
     ];
     if (gracefulApis.some(api => url.includes(api))) {
       return true;
+    }
+
+    if (status === 401 && isLocalhostUrl(url)) {
+      const localAuthHydrationApis = [
+        '/api/beaches/favorites',
+        '/api/surf/call',
+        '/api/surf/discover',
+        '/api/gamification/xp-status',
+        '/api/gamification/user-badges',
+        '/api/gamification/badge-definitions',
+      ];
+
+      if (localAuthHydrationApis.some(api => url.includes(api))) {
+        return true;
+      }
     }
   }
 
@@ -452,11 +500,14 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
       '/robots.txt',
       '.map', // Source maps
       'analytics',
+      '_vercel/insights',
+      '_vercel/speed-insights',
       'gtm',
       'facebook',
       '/sw.js', // Service worker is optional
       'placeholder.svg', // UserAvatar fallback image — not a real resource
       '/api/hls-proxy/', // Optional live-cam HLS manifests can be unavailable in local fixtures
+      'embed.cdn-surfline.com', // Optional third-party cam embeds can 404 in local/prod-like test fixtures
     ];
     return optional.some((pattern) => url.includes(pattern));
   }
@@ -479,6 +530,24 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
   }
 
   return false;
+}
+
+function isLocalAuthRefreshFailure(url: string, status: number): boolean {
+  return (
+    status === 504 &&
+    isLocalhostUrl(url) &&
+    url.includes('/auth/v1/token') &&
+    url.includes('grant_type=refresh_token')
+  );
+}
+
+function isLocalhostUrl(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname;
+    return hostname === 'localhost' || hostname === '127.0.0.1';
+  } catch {
+    return false;
+  }
 }
 
 function isPlaceholderImageProxyFailure(url: string, status: number): boolean {

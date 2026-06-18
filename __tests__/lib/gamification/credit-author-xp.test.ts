@@ -16,12 +16,16 @@ function chainSelectSingle(final: any) {
         eq: jest.fn(() => ({
           eq: jest.fn(() => ({
             single: jest.fn(async () => final),
+            maybeSingle: jest.fn(async () => final),
           })),
           single: jest.fn(async () => final),
+          maybeSingle: jest.fn(async () => final),
         })),
         single: jest.fn(async () => final),
+        maybeSingle: jest.fn(async () => final),
       })),
       single: jest.fn(async () => final),
+      maybeSingle: jest.fn(async () => final),
       in: jest.fn(async () => final),
       order: jest.fn(async () => final),
     })),
@@ -84,4 +88,3 @@ describe("creditAuthorWithXP", () => {
     expect(res.level_title).toBe("Grom");
   });
 });
-

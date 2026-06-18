@@ -12,14 +12,25 @@
  * @see e2e/scripts/cleanup-test-data.ts - Standalone CLI script
  */
 
+import { spawn } from 'node:child_process';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
+import { existsSync } from 'fs';
 
 // Load environment variables
-dotenv.config({ path: '.env.playwright' });
-dotenv.config({ path: '.env.playwright.local' });
-dotenv.config({ path: '.env.local' });
+const lockedEnv = new Map<string, string | undefined>(Object.entries(process.env));
 dotenv.config();
+dotenv.config({ path: '.env.playwright', override: true });
+if (existsSync('.env.playwright.local')) {
+  dotenv.config({ path: '.env.playwright.local', override: true });
+}
+for (const [key, value] of lockedEnv.entries()) {
+  if (value === undefined) {
+    delete process.env[key];
+  } else {
+    process.env[key] = value;
+  }
+}
 
 export interface CleanupResult {
   table: string;
@@ -53,6 +64,19 @@ export interface CleanupOptions {
    * session/intel-post cleanup).
    */
   skipEphemeralSmokeUsers?: boolean;
+}
+
+function isLocalSupabaseUrl(url: string | undefined): boolean {
+  return Boolean(
+    url && (url.includes('127.0.0.1') || url.includes('localhost'))
+  );
+}
+
+function getLocalDbUrl(): string {
+  return (
+    process.env.E2E_LOCAL_DB_URL ||
+    'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+  );
 }
 
 /**
@@ -321,6 +345,10 @@ export async function cleanupOrphanSmokeProfiles(
   supabase: SupabaseClient,
   verbose: boolean
 ): Promise<CleanupResult> {
+  if (isLocalSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL)) {
+    return cleanupLocalOrphanEphemeralProfiles(verbose);
+  }
+
   try {
     const { data, error } = await supabase.rpc('cleanup_orphan_smoke_profiles');
     if (error) {
@@ -341,6 +369,73 @@ export async function cleanupOrphanSmokeProfiles(
   } catch (err) {
     return { table: 'orphan_profiles', count: 0, error: String(err) };
   }
+}
+
+async function cleanupLocalOrphanEphemeralProfiles(
+  verbose: boolean
+): Promise<CleanupResult> {
+  const sql = `
+    begin;
+    set local app.allow_destructive=on;
+    with deleted as (
+      delete from public.profiles p
+      where (
+        p.email like 'smoke+%@quiversurf.test'
+        or p.email like 'e2e-worker-%@quivertest.local'
+      )
+      and not exists (select 1 from auth.users u where u.id = p.id)
+      returning 1
+    )
+    select count(*) from deleted;
+    commit;
+  `;
+
+  return new Promise((resolve) => {
+    const child = spawn('psql', [
+      getLocalDbUrl(),
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-At',
+      '-c',
+      sql,
+    ]);
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    child.on('error', (error) => {
+      resolve({
+        table: 'orphan_profiles',
+        count: 0,
+        error: error.message,
+      });
+    });
+    child.on('close', (code) => {
+      if (code !== 0) {
+        resolve({
+          table: 'orphan_profiles',
+          count: 0,
+          error: stderr.trim() || `psql exited ${code}`,
+        });
+        return;
+      }
+
+      const count = stdout
+        .split('\n')
+        .map((line) => Number.parseInt(line, 10))
+        .find((value) => Number.isFinite(value));
+
+      if (verbose && count && count > 0) {
+        console.log(`[Cleanup] Swept ${count} local orphan profile(s)`);
+      }
+      resolve({ table: 'orphan_profiles', count: count ?? 0 });
+    });
+  });
 }
 
 /**
@@ -456,22 +551,34 @@ export async function cleanupEphemeralSmokeUsers(
     // 20260430170000_brake_exception_for_ephemeral_smoke_tests.sql).
     let deleted = 0;
     const errors: string[] = [];
+    const useLocalOrphanSweep = isLocalSupabaseUrl(
+      process.env.NEXT_PUBLIC_SUPABASE_URL
+    );
     for (const user of ephemeralUsers) {
       const { error: deleteError } = await supabase.auth.admin.deleteUser(user.id);
       if (deleteError) {
         errors.push(`${user.email}: ${deleteError.message}`);
         continue;
       }
-      const { error: profileError } = await (supabase.from('profiles') as any)
-        .delete()
-        .eq('id', user.id);
-      if (profileError) {
-        // Auth user is gone but profile cleanup failed — log and move on.
-        // The next sweep won't re-pick this row (no auth.users to match), so
-        // surface it as a non-fatal error rather than silently leaking.
-        errors.push(`${user.email} (profile orphan): ${profileError.message}`);
+      if (!useLocalOrphanSweep) {
+        const { error: profileError } = await (supabase.from('profiles') as any)
+          .delete()
+          .eq('id', user.id);
+        if (profileError) {
+          // Auth user is gone but profile cleanup failed — log and move on.
+          // The next sweep won't re-pick this row (no auth.users to match), so
+          // surface it as a non-fatal error rather than silently leaking.
+          errors.push(`${user.email} (profile orphan): ${profileError.message}`);
+        }
       }
       deleted += 1;
+    }
+
+    if (useLocalOrphanSweep) {
+      const orphanResult = await cleanupLocalOrphanEphemeralProfiles(verbose);
+      if (orphanResult.error) {
+        errors.push(`local profile orphan sweep: ${orphanResult.error}`);
+      }
     }
 
     if (verbose) {

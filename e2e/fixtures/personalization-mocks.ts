@@ -28,8 +28,8 @@ import { Page } from "@playwright/test";
 // Shared constants
 // ---------------------------------------------------------------------------
 
-const TEST_BEACH_ID = "84d3468b-c1ec-46ad-8621-d8507e5f167a";
-const TEST_BEACH_ID_2 = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+const TEST_BEACH_ID = "907bfaa4-11db-4ebe-9762-440714850a0a";
+const TEST_BEACH_ID_2 = "a59d4065-8872-477b-ba28-0673b7eff7fb";
 const TEST_SESSION_ID = "session-uuid-1234-5678-abcd-ef0000000001";
 const GENERATED_AT = new Date().toISOString();
 
@@ -112,7 +112,7 @@ export const MOCK_DISCOVER_RESPONSE = {
         id: TEST_BEACH_ID,
         name: "Blacks Beach",
         slug: "blacks",
-        city: "San Diego",
+        city: "La Jolla",
         state: "CA",
         center_lat: 32.8726,
         center_lng: -117.2536,
@@ -241,7 +241,7 @@ export const MOCK_FAVORITES_RESPONSE = {
       id: TEST_BEACH_ID,
       name: "Blacks Beach",
       slug: "blacks",
-      city: "San Diego",
+      city: "La Jolla",
       state: "CA",
       center_lat: 32.8726,
       center_lng: -117.2536,

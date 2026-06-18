@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "./fixtures/auth-fixture";
+import type { Locator, Page } from "@playwright/test";
 import { VIEWPORTS, TIMEOUTS } from './fixtures/test-data';
 import { waitForPageLoad } from './utils/test-helpers';
 import { isVisibleSafe } from './utils/strict-helpers';
@@ -45,6 +46,81 @@ const formatWaveHeightRange = (range: WaveHeightRange): string => {
   return `${normalizeWaveHeightValue(range.min)}-${normalizeWaveHeightValue(range.max)}ft`;
 };
 
+const FORECAST_CONDITIONS_HEADING = /^(Current|Forecasted) Conditions$/i;
+const LIST_FORECAST_TIMEOUT_MS = TIMEOUTS.long;
+
+interface ForecastListCard {
+  card: Locator;
+  listForecastHeight: WaveHeightRange;
+}
+
+async function waitForMapListCards(page: Page): Promise<void> {
+  await expect(page.locator('[data-testid="beach-list"]:not([aria-busy="true"])')).toBeVisible({
+    timeout: TIMEOUTS.long,
+  });
+  await expect(page.getByTestId('beach-card').first())
+    .toBeVisible({ timeout: TIMEOUTS.long });
+  await expect(page.locator('[data-testid="beach-item"] h3').first())
+    .toHaveText(/\S+/, { timeout: TIMEOUTS.long });
+}
+
+const findListCardWithForecastHeight = async (
+  page: Page
+): Promise<ForecastListCard> => {
+  await waitForMapListCards(page);
+
+  const beachItems = page.locator('[data-testid="beach-item"]');
+  const visibleCount = await beachItems.count();
+
+  for (let index = 0; index < visibleCount; index++) {
+    const card = beachItems.nth(index);
+    const hasHeading = await isVisibleSafe(card.locator('h3').first(), {
+      timeout: LIST_FORECAST_TIMEOUT_MS,
+    });
+    if (!hasHeading) {
+      continue;
+    }
+
+    const expandButton = card.getByRole('button', {
+      name: /expand details|collapse details/i,
+    });
+
+    if (await isVisibleSafe(expandButton, { timeout: LIST_FORECAST_TIMEOUT_MS })) {
+      const isExpanded = await expandButton.getAttribute('aria-expanded');
+      if (isExpanded !== 'true') {
+        await expandButton.click();
+      }
+
+      await expect(card.getByTestId('expanded-content')).toBeVisible({
+        timeout: LIST_FORECAST_TIMEOUT_MS,
+      });
+      await expect(card.getByText(/loading forecast/i)).toHaveCount(0, {
+        timeout: LIST_FORECAST_TIMEOUT_MS,
+      });
+    }
+
+    const listForecastDisplay = card
+      .locator('[data-testid="primary-wave-height"]')
+      .first();
+    const hasForecastDisplay = await isVisibleSafe(listForecastDisplay, {
+      timeout: LIST_FORECAST_TIMEOUT_MS,
+    });
+    const forecastText = hasForecastDisplay
+      ? (await listForecastDisplay.textContent()) ?? ''
+      : (await card.textContent()) ?? '';
+
+    const listForecastHeight = parseWaveHeightRange(forecastText);
+
+    if (!listForecastHeight) {
+      continue;
+    }
+
+    return { card, listForecastHeight };
+  }
+
+  throw new Error('No visible map list card rendered a parseable forecast height');
+};
+
 const waveHeightRangesOverlap = (
   left: WaveHeightRange | null,
   right: WaveHeightRange | null
@@ -62,6 +138,8 @@ const waveHeightRangesOverlap = (
  *
  * @project auth
  */
+
+test.describe.configure({ mode: 'serial' });
 
 test.describe('Map Page - Core Functionality', () => {
   let errorCapture: ErrorCapture;
@@ -191,62 +269,54 @@ test.describe('Map Page - View Mode Toggle', () => {
 
   test('should preserve forecast height from list card into beach detail', async ({ page }) => {
     try {
+      await page.goto('/map?search=blacks');
+      await waitForPageLoad(page);
+      await dismissMapEntryOverlay(page);
+
       const listButton = page.getByTestId('view-mode-list');
       await listButton.click();
-      await page.waitForLoadState('load');
-
-      const beachList = page.getByTestId('beach-list');
-      const hasList = await isVisibleSafe(beachList, { timeout: TIMEOUTS.medium });
+      await waitForMapListCards(page);
       const firstListCard = page.locator('[data-testid="beach-item"]').first();
-
-      if (!hasList) {
-        const hasCards = await isVisibleSafe(firstListCard, { timeout: TIMEOUTS.medium });
-        expect(hasCards).toBe(true);
-      }
 
       await expect(firstListCard).toBeVisible({ timeout: TIMEOUTS.medium });
 
-      const listBeachName = (await firstListCard.locator('h3').first().textContent())?.trim();
+      const forecastCard = await findListCardWithForecastHeight(page);
+      const listBeachName = (
+        await forecastCard.card.locator('h3').first().textContent()
+      )?.trim();
       expect(listBeachName).toBeTruthy();
 
-      const expandButton = firstListCard.getByRole('button', {
-        name: /expand details|collapse details/i,
+      const detailLink = forecastCard.card
+        .getByRole('link', { name: /view details/i })
+        .first();
+      await expect(detailLink).toBeVisible({ timeout: TIMEOUTS.short });
+      await detailLink.click();
+
+      await page.waitForURL(/\/(?:surf-forecast\/[^/?#]+|[a-z]{2}\/[^/?#]+\/[^/?#]+)/i, {
+        timeout: TIMEOUTS.short,
       });
 
-      if (await isVisibleSafe(expandButton, { timeout: TIMEOUTS.short })) {
-        await expandButton.click();
-      }
-
-      const listForecastDisplay = firstListCard.locator('[data-testid="primary-wave-height"]').first();
-      await expect(listForecastDisplay).toBeVisible({ timeout: TIMEOUTS.medium });
-
-      const listForecastHeight = parseWaveHeightRange(await listForecastDisplay.textContent() ?? '');
-      expect(listForecastHeight).toBeTruthy();
-
-    const detailLink = firstListCard.getByRole('link', { name: /view details/i }).first();
-    await expect(detailLink).toBeVisible({ timeout: TIMEOUTS.short });
-    await detailLink.click();
-
-    await page.waitForURL(/\/(?:surf-forecast\/[^/?#]+|[a-z]{2}\/[^/?#]+\/[^/?#]+)/i, {
-      timeout: TIMEOUTS.short,
-    });
-
-    const detailCurrentSection = page
-      .locator('section')
-      .filter({ has: page.getByRole('heading', { name: 'Current Conditions', level: 2, exact: true }) });
+      const detailCurrentSection = page
+        .locator('section')
+        .filter({
+          has: page.getByRole('heading', {
+            name: FORECAST_CONDITIONS_HEADING,
+            level: 2,
+          }),
+        });
 
       await expect(detailCurrentSection).toBeVisible({ timeout: TIMEOUTS.long });
 
       const detailForecastHeight = parseWaveHeightRange(await detailCurrentSection.textContent() ?? '');
       expect(detailForecastHeight).toBeTruthy();
 
-      const listForecastLabel = formatWaveHeightRange(listForecastHeight as WaveHeightRange);
+      const listForecastLabel = formatWaveHeightRange(forecastCard.listForecastHeight);
       const detailForecastLabel = formatWaveHeightRange(detailForecastHeight as WaveHeightRange);
 
-    expect(
-      waveHeightRangesOverlap(listForecastHeight, detailForecastHeight),
-      `Expected overlapping wave-height ranges between map list (${listForecastLabel}) and detail (${detailForecastLabel})`
-    ).toBe(true);
+      expect(
+        waveHeightRangesOverlap(forecastCard.listForecastHeight, detailForecastHeight),
+        `Expected overlapping wave-height ranges between map list (${listForecastLabel}) and detail (${detailForecastLabel})`
+      ).toBe(true);
     } finally {
       errorCapture.networkErrors = errorCapture.networkErrors.filter(
         (entry) => !(entry.status === 500 && entry.url.includes('/api/intel'))

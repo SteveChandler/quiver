@@ -30,6 +30,21 @@ function makeUser(overrides: Partial<User> & { id: string }): User {
   } as User;
 }
 
+const originalSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+
+beforeEach(() => {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://unit-test.supabase.co';
+});
+
+afterEach(() => {
+  if (originalSupabaseUrl === undefined) {
+    delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+    return;
+  }
+
+  process.env.NEXT_PUBLIC_SUPABASE_URL = originalSupabaseUrl;
+});
+
 function makeMockSupabase(opts: {
   pages: User[][];
   deleteFailIds?: Set<string>;

@@ -21,7 +21,7 @@
  * @project auth
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/auth-fixture";
 import { waitForPageLoad, ensureAuthenticated, navigateToBeach } from "./utils/test-helpers";
 import { VIEWPORTS, TIMEOUTS, TEST_BEACHES, isDevEnvironment } from "./fixtures/test-data";
 import { isVisibleSafe } from "./utils/strict-helpers";

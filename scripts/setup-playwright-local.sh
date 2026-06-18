@@ -1,87 +1,60 @@
 #!/bin/bash
 
-# Playwright Local Setup Script
-# This script helps set up Playwright tests to run locally
+set -euo pipefail
 
-set -e
-
-echo "🎭 Playwright Local Setup"
-echo "========================="
+echo "Playwright local setup"
+echo "======================"
 echo ""
 
-# Check if Playwright is installed
-if ! command -v npx &> /dev/null; then
-    echo "❌ Error: npx not found. Please install Node.js first."
+if ! command -v npx >/dev/null 2>&1; then
+    echo "Error: npx not found. Install Node.js first."
     exit 1
 fi
 
-# Prefer `.env.playwright.local` for local runs (no copy step needed).
-if [ -f ".env.playwright.local" ]; then
-    echo "✅ Found .env.playwright.local (will be loaded automatically by Playwright config)"
-else
-    echo "⚠️  .env.playwright.local not found."
-    echo "   Create it to pin BASE_URL=http://localhost:3000 and local-only toggles."
-    echo "   Note: Playwright loads env in this order: CLI/OS > .env.playwright.local > .env.playwright > .env"
-fi
-
-# Ensure `.env.playwright` exists for shared/default settings (optional but recommended).
 if [ ! -f ".env.playwright" ]; then
-    echo ""
-    echo "📝 Creating .env.playwright from template (shared defaults)..."
+    echo "Creating .env.playwright from template..."
     cp .env.playwright.example .env.playwright
-    echo "✅ Created .env.playwright"
 fi
 
-# Note: local E2E runs can point at prod DB (via `.env.playwright`), so Supabase
-# may not be running locally. We keep this script focused on Playwright + localhost.
+if [ ! -f ".env.playwright.local" ]; then
+    echo "Error: .env.playwright.local is required for local parallel-safe E2E."
+    echo "Add local Supabase keys, E2E_POOL_PASSWORD, E2E_PROD_READ_URL, and E2E_PROD_READ_KEY."
+    exit 1
+fi
 
-# Install Playwright browsers
-echo ""
-echo "🌐 Installing Playwright browsers..."
+echo "Installing Chromium if needed..."
 npx playwright install chromium
 
-# Create auth directory if it doesn't exist
 mkdir -p e2e/.auth
+rm -f e2e/.auth/worker-*.json
+E2E_LOCAL_DB_URL="${E2E_LOCAL_DB_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}"
+SUPABASE_START_EXCLUDES="${SUPABASE_START_EXCLUDES:-studio,mailpit}"
 
-# Check if dev server is running
 echo ""
-echo "🔍 Checking if dev server is running..."
-if curl -s http://localhost:3000 > /dev/null 2>&1; then
-    echo "✅ Dev server is running on http://localhost:3000"
-    DEV_SERVER_RUNNING=true
+echo "Starting local Supabase..."
+if [ -n "$SUPABASE_START_EXCLUDES" ]; then
+    supabase start -x "$SUPABASE_START_EXCLUDES"
 else
-    echo "⚠️  Dev server is not running"
-    echo ""
-    echo "The dev server will start automatically when you run tests,"
-    echo "or you can start it manually with:"
-    echo "  yarn dev"
-    DEV_SERVER_RUNNING=false
+    supabase start
 fi
 
-# Summary
 echo ""
-echo "========================="
-echo "✅ Setup Complete!"
-echo "========================="
-echo ""
-echo "Next steps:"
-echo ""
-echo "1. Ensure the test user exists in the Supabase environment configured in .env.playwright"
-echo "   (Localhost runs may point at prod DB; there is no local Supabase Studio requirement.)"
-echo ""
-echo "2. Generate authentication state:"
-echo "   yarn test:e2e:auth:setup"
-echo ""
-echo "3. Run tests:"
-echo "   yarn test:e2e              # All tests"
-echo "   yarn test:e2e:headed      # With browser visible"
-echo "   yarn test:e2e:ui          # Interactive UI"
-echo ""
-echo "For more information, see: e2e/README.md"
-echo ""
+echo "Resetting local Supabase database..."
+supabase db reset --db-url "$E2E_LOCAL_DB_URL"
 
+echo ""
+echo "Snapshotting production reference data into local Supabase..."
+yarn e2e:snapshot-ref
 
+echo ""
+echo "Seeding worker pool users..."
+yarn e2e:seed-pool
 
+echo ""
+echo "Verifying local reference data..."
+psql "$E2E_LOCAL_DB_URL" -At -c "select slug from beaches where slug='blacks' limit 1;"
+psql "$E2E_LOCAL_DB_URL" -At -c "select count(*) from profiles where is_mock=true and full_name like 'E2E Worker%';"
 
-
-
+echo ""
+echo "Setup complete."
+echo "Run: yarn test:e2e"

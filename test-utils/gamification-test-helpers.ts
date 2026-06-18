@@ -69,12 +69,13 @@ export interface MockOperationTracker {
   selects: Array<{ table: string; filters: Record<string, any> }>;
   inserts: Array<{ table: string; data: any }>;
   updates: Array<{ table: string; data: any; filters: Record<string, any> }>;
+  rpcs?: Array<{ fn: string; args?: Record<string, any> }>;
 }
 
 // Create a comprehensive Supabase client mock
 export function createGamificationSupabaseMock(
   state: MockDatabaseState,
-  tracker: MockOperationTracker = { selects: [], inserts: [], updates: [] }
+  tracker: MockOperationTracker = { selects: [], inserts: [], updates: [], rpcs: [] }
 ) {
   let selectCallIndex = 0;
   let insertCallIndex = 0;
@@ -112,6 +113,21 @@ export function createGamificationSupabaseMock(
                   }
                   if (tableName === 'user_badges' && column === 'user_id') {
                     return Promise.resolve({ data: state.userBadges, error: null });
+                  }
+                  return Promise.resolve({ data: null, error: null });
+                }),
+                maybeSingle: jest.fn(() => {
+                  if (tableName === 'user_xp' && column === 'user_id') {
+                    return Promise.resolve({
+                      data: state.userXP ? { id: 'mock-user-xp-id' } : null,
+                      error: null,
+                    });
+                  }
+                  if (tableName === 'user_surf_preferences' && column === 'user_id') {
+                    return Promise.resolve({
+                      data: { confidence: state.userStats.sweet_spot_confidence ?? 0 },
+                      error: null,
+                    });
                   }
                   return Promise.resolve({ data: null, error: null });
                 }),
@@ -215,7 +231,23 @@ export function createGamificationSupabaseMock(
       };
       
       return queryBuilder;
-    })
+    }),
+    rpc: jest.fn((fn: string, args?: Record<string, any>) => {
+      if (tracker.rpcs) {
+        tracker.rpcs.push({ fn, args });
+      }
+
+      if (fn === 'ensure_user_xp') {
+        state.userXP = state.userXP || {
+          xp_total: 0,
+          level: 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+      }
+
+      return Promise.resolve({ data: null, error: null });
+    }),
   };
 
   return mockSupabase;

@@ -10,7 +10,7 @@
  *
  * @project auth
  */
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/auth-fixture";
 import { TIMEOUTS } from "./fixtures/test-data";
 import { ensureAuthenticated, waitForPageLoad } from "./utils/test-helpers";
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';

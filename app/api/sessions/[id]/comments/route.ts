@@ -3,6 +3,7 @@ import {
   withAuth,
   validateUuidParam,
   createSuccessResponse,
+  createNotFoundError,
   methodNotAllowed,
   validateOrError,
   type AuthenticatedContext,
@@ -77,6 +78,14 @@ export const POST = withAuth(
 
     const { content } = validationResult.data;
 
+    const { data: session, error: sessionError } = await supabase
+      .from("sessions")
+      .select("id")
+      .eq("id", sessionId)
+      .maybeSingle();
+    if (sessionError) throw sessionError;
+    if (!session) return createNotFoundError("Session");
+
     const { error: insertError } = await supabase.from("comments").insert({
       session_id: sessionId,
       user_id: user.id,
@@ -92,5 +101,3 @@ export const POST = withAuth(
 export function DELETE() {
   return methodNotAllowed(["GET", "POST"]);
 }
-
-

@@ -41,6 +41,47 @@ describe("Session Comments API - Access Control", () => {
   const commentAuthorId = "111fcdeb-51a2-43c1-a123-456789abcd11";
   const otherUserId = "222fcdeb-51a2-43c1-a123-456789abcd22";
 
+  function mockExistingSessionThenInsert(
+    mockInsert: jest.Mock,
+    sessionId: string = validSessionId
+  ): void {
+    const mockMaybeSingle = jest.fn().mockResolvedValue({
+      data: { id: sessionId },
+      error: null,
+    });
+    const mockEq = jest.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
+    const mockSelect = jest.fn().mockReturnValue({ eq: mockEq });
+
+    mockFrom.mockImplementation((tableName: string) => {
+      if (tableName === "sessions") {
+        return { select: mockSelect };
+      }
+      if (tableName === "comments") {
+        return { insert: mockInsert };
+      }
+      return {};
+    });
+  }
+
+  function mockCommentDeleteResult(
+    result: { data: { id: string } | null; error: Error | null }
+  ): {
+    mockDeleteEq1: jest.Mock;
+    mockDeleteEq2: jest.Mock;
+  } {
+    const mockMaybeSingle = jest.fn().mockResolvedValue(result);
+    const mockSelect = jest.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
+    const mockDeleteEq2 = jest.fn().mockReturnValue({ select: mockSelect });
+    const mockDeleteEq1 = jest.fn().mockReturnValue({ eq: mockDeleteEq2 });
+    const mockDelete = jest.fn().mockReturnValue({ eq: mockDeleteEq1 });
+
+    mockFrom.mockReturnValue({
+      delete: mockDelete,
+    });
+
+    return { mockDeleteEq1, mockDeleteEq2 };
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -69,9 +110,7 @@ describe("Session Comments API - Access Control", () => {
         error: null,
       });
 
-      mockFrom.mockReturnValue({
-        insert: mockInsert,
-      });
+      mockExistingSessionThenInsert(mockInsert);
 
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${validSessionId}/comments`,
@@ -111,9 +150,7 @@ describe("Session Comments API - Access Control", () => {
         error: null,
       });
 
-      mockFrom.mockReturnValue({
-        insert: mockInsert,
-      });
+      mockExistingSessionThenInsert(mockInsert);
 
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${validSessionId}/comments`,
@@ -153,9 +190,7 @@ describe("Session Comments API - Access Control", () => {
         },
       });
 
-      mockFrom.mockReturnValue({
-        insert: mockInsert,
-      });
+      mockExistingSessionThenInsert(mockInsert);
 
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${validSessionId}/comments`,
@@ -185,16 +220,9 @@ describe("Session Comments API - Access Control", () => {
         error: null,
       });
 
-      // Mock delete
-      const mockDeleteEq2 = jest.fn().mockResolvedValue({
-        data: null,
+      const { mockDeleteEq1, mockDeleteEq2 } = mockCommentDeleteResult({
+        data: { id: validCommentId },
         error: null,
-      });
-      const mockDeleteEq1 = jest.fn().mockReturnValue({ eq: mockDeleteEq2 });
-      const mockDelete = jest.fn().mockReturnValue({ eq: mockDeleteEq1 });
-
-      mockFrom.mockReturnValue({
-        delete: mockDelete,
       });
 
       const request = new NextRequest(
@@ -214,11 +242,7 @@ describe("Session Comments API - Access Control", () => {
       expect(mockDeleteEq2).toHaveBeenCalledWith("user_id", commentAuthorId);
     });
 
-    it("silently succeeds when deleting others' comments (no rows affected)", async () => {
-      // NOTE: Current API implementation uses .eq("user_id", user.id) constraint,
-      // which means unauthorized delete attempts return 200 OK but affect 0 rows.
-      // This is idempotent behavior - the comment remains untouched.
-      // A 403 Forbidden would require explicit ownership check before delete.
+    it("returns not found when deleting others' comments (no rows affected)", async () => {
       mockAuthGetUser.mockResolvedValue({
         data: {
           user: { id: otherUserId, email: "other@example.com" },
@@ -226,16 +250,9 @@ describe("Session Comments API - Access Control", () => {
         error: null,
       });
 
-      // Mock delete with no rows affected (due to user_id mismatch)
-      const mockDeleteEq2 = jest.fn().mockResolvedValue({
+      const { mockDeleteEq2 } = mockCommentDeleteResult({
         data: null,
-        error: null, // No error, but no rows deleted either
-      });
-      const mockDeleteEq1 = jest.fn().mockReturnValue({ eq: mockDeleteEq2 });
-      const mockDelete = jest.fn().mockReturnValue({ eq: mockDeleteEq1 });
-
-      mockFrom.mockReturnValue({
-        delete: mockDelete,
+        error: null,
       });
 
       const request = new NextRequest(
@@ -248,10 +265,9 @@ describe("Session Comments API - Access Control", () => {
       });
       const data = await response.json();
 
-      // Since the delete query includes .eq("user_id", user.id),
-      // it will succeed but affect 0 rows if the comment doesn't belong to the user
-      expect(response.status).toBe(200);
-      expect(data.success).toBe(true);
+      expect(response.status).toBe(404);
+      expect(data.success).toBe(false);
+      expect(data.error).toContain("Comment not found");
       expect(mockDeleteEq2).toHaveBeenCalledWith("user_id", otherUserId);
     });
 
@@ -332,16 +348,9 @@ describe("Session Comments API - Access Control", () => {
         error: null,
       });
 
-      // Mock delete error
-      const mockDeleteEq2 = jest.fn().mockResolvedValue({
+      mockCommentDeleteResult({
         data: null,
         error: new Error("Database connection lost"),
-      });
-      const mockDeleteEq1 = jest.fn().mockReturnValue({ eq: mockDeleteEq2 });
-      const mockDelete = jest.fn().mockReturnValue({ eq: mockDeleteEq1 });
-
-      mockFrom.mockReturnValue({
-        delete: mockDelete,
       });
 
       const request = new NextRequest(

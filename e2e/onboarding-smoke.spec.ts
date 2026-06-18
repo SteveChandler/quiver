@@ -38,6 +38,7 @@ import {
 // Onboarding-smoke provisions its own ephemeral users; always start from a
 // clean context so cookies from the shared auth state can't pollute tests.
 test.use({ storageState: { cookies: [], origins: [] } });
+test.describe.configure({ mode: 'serial' });
 
 test.describe('Onboarding Smoke: entry paths', () => {
   let errorCapture: ErrorCapture;

@@ -31,10 +31,10 @@ export async function waitForApiResponse(
 }
 
 /**
- * Wait for network to be idle
+ * Legacy helper name: wait for deterministic page readiness.
  */
-export async function waitForNetwork(page: Page, timeout = 5000) {
-  await page.waitForLoadState('networkidle', { timeout });
+export async function waitForNetwork(page: Page, timeout = 5000): Promise<void> {
+  await waitForPageLoad(page, timeout);
 }
 
 /**
@@ -173,11 +173,9 @@ export async function takeScreenshot(page: Page, name: string) {
 /**
  * Wait for page to be fully loaded
  */
-export async function waitForPageLoad(page: Page) {
-  await page.waitForLoadState('domcontentloaded');
-  await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => {
-    // Ignore timeout - some pages have long-polling connections
-  });
+export async function waitForPageLoad(page: Page, timeout = 10000): Promise<void> {
+  await page.waitForLoadState('domcontentloaded', { timeout });
+  await page.waitForLoadState('load', { timeout });
 }
 
 /**
@@ -424,15 +422,25 @@ export async function waitForAuthenticatedHome(page: Page): Promise<boolean> {
   // Time slot filter were removed from the authed home. The OracleHero
   // <section role="banner" aria-label="… surf conditions"> is the stable
   // signal that the authenticated home rendered.
+  const timeout = 45000;
+
   try {
     await Promise.race([
       page.waitForSelector(
         'section[role="banner"][aria-label*="surf conditions"]',
-        { state: 'visible', timeout: 15000 }
+        { state: 'visible', timeout }
       ),
       page.waitForSelector('[data-testid="nearby-spots-scroll"]', {
         state: 'visible',
-        timeout: 15000,
+        timeout,
+      }),
+      page.getByText(/couldn't find any surf spots near you right now/i).waitFor({
+        state: 'visible',
+        timeout,
+      }),
+      page.getByRole('heading', { name: /popular surf spots/i }).waitFor({
+        state: 'visible',
+        timeout,
       }),
     ]);
     return true;

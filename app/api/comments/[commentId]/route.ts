@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import {
   withAuth,
   createSuccessResponse,
+  createNotFoundError,
   createValidationError,
   isValidUuid,
   methodNotAllowed,
@@ -18,13 +19,16 @@ export const DELETE = withAuth(
       return createValidationError("Invalid comment id format");
     }
 
-    const { error: deleteError } = await supabase
+    const { data: deletedComment, error: deleteError } = await supabase
       .from("comments")
       .delete()
       .eq("id", commentId)
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .select("id")
+      .maybeSingle();
 
     if (deleteError) throw deleteError;
+    if (!deletedComment) return createNotFoundError("Comment");
 
     return createSuccessResponse({ message: "Comment deleted successfully" });
   },

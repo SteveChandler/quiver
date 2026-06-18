@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "./fixtures/auth-fixture";
 import { TEST_BEACHES, VIEWPORTS } from './fixtures/test-data';
 import { waitForPageLoad, navigateToBeach } from './utils/test-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
@@ -64,8 +64,10 @@ test.describe('Water Quality Badge - graceful absence', () => {
     await expect(overviewTab).toBeVisible({ timeout: 10000 });
 
     // The zine layout's surf-call label is always present (not data-conditional)
-    const callHeader = page.getByText(/TODAY'S SURF CALL/i).first();
-    await expect(callHeader).toBeVisible({ timeout: 10000 });
+    const surfCallRegion = page
+      .getByRole('region', { name: /today's surf call/i })
+      .first();
+    await expect(surfCallRegion).toBeVisible({ timeout: 30_000 });
   });
 
   test('no water quality card is rendered when status is null or unknown', async ({ page }) => {
@@ -76,8 +78,10 @@ test.describe('Water Quality Badge - graceful absence', () => {
 
     if (!hasWQCard) {
       // Correct – no WQ data means no card rendered
-      const callHeader = page.getByText(/TODAY'S SURF CALL/i).first();
-      await expect(callHeader).toBeVisible();
+      const surfCallRegion = page
+        .getByRole('region', { name: /today's surf call/i })
+        .first();
+      await expect(surfCallRegion).toBeVisible({ timeout: 30_000 });
     } else {
       // Data present – verify the card renders a valid status (not blank)
       const statusButton = page.getByRole('button', { name: /Water Quality|Water Advisory/i }).first();

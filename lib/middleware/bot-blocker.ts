@@ -15,6 +15,10 @@ import { detectBot, BotDetectionResult } from "@/lib/security/bot-detection";
 import { DEFAULT_SECURITY_HEADERS } from "@/lib/middleware/api-wrappers/response-utils";
 import type { RouteContext } from "@/lib/middleware/api-wrappers/types";
 
+const IS_E2E =
+  process.env.PLAYWRIGHT_TEST === "true" ||
+  process.env.E2E_RELAX_RATE_LIMITS === "true";
+
 /**
  * Log bot blocking event with privacy-safe IP masking
  *
@@ -67,6 +71,10 @@ export function withBotBlocking<T extends NextRequest>(
   handler: (req: T, context?: RouteContext) => Promise<NextResponse>
 ): (req: T, context?: RouteContext) => Promise<NextResponse> {
   return async (req: T, context?: RouteContext): Promise<NextResponse> => {
+    if (IS_E2E) {
+      return handler(req, context);
+    }
+
     const detection = detectBot(req);
 
     if (detection.shouldBlock) {

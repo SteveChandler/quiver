@@ -9,7 +9,22 @@
 
 import { RateLimiterConfig } from "@/types/forecast";
 
-const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const IS_E2E =
+  process.env.PLAYWRIGHT_TEST === "true" ||
+  process.env.E2E_RELAX_RATE_LIMITS === "true";
+const IS_PRODUCTION = process.env.NODE_ENV === "production" && !IS_E2E;
+
+function relaxForE2E(config: RateLimiterConfig): RateLimiterConfig {
+  if (!IS_E2E) return config;
+
+  return {
+    ...config,
+    burstLimit: 10000,
+    rapidStreakLimit: config.rapidStreakLimit ? 10000 : undefined,
+    requestsPerHour: 100000,
+    requestsPerMinute: 10000,
+  };
+}
 
 /**
  * Rate limit presets for different endpoint types
@@ -29,7 +44,7 @@ export const RATE_LIMITS = {
    *
    * Very strict limits to prevent abuse
    */
-  "image-proxy": {
+  "image-proxy": relaxForE2E({
     // NOTE:
     // This endpoint is hit by Next.js Image Optimization, which can legitimately
     // issue many parallel requests on a single page load (multiple images, sizes).
@@ -38,7 +53,7 @@ export const RATE_LIMITS = {
     requestsPerMinute: 60,
     requestsPerHour: 600,
     burstLimit: 25,
-  } as RateLimiterConfig,
+  }),
 
   /**
    * Recommendations - HIGH
@@ -49,11 +64,11 @@ export const RATE_LIMITS = {
    *
    * Strict limits until N+1 query is optimized
    */
-  recommendations: {
+  recommendations: relaxForE2E({
     requestsPerMinute: 20,
     requestsPerHour: 200,
     burstLimit: 5,
-  } as RateLimiterConfig,
+  }),
 
   /**
    * Beach Search - HIGH
@@ -64,11 +79,11 @@ export const RATE_LIMITS = {
    *
    * Moderate limits for expensive operations
    */
-  "beach-search": {
+  "beach-search": relaxForE2E({
     requestsPerMinute: 30,
     requestsPerHour: 300,
     burstLimit: 10,
-  } as RateLimiterConfig,
+  }),
 
   /**
    * Forecast Bulk - MEDIUM
@@ -79,11 +94,11 @@ export const RATE_LIMITS = {
    *
    * Higher limits but still controlled
    */
-  "forecast-bulk": {
+  "forecast-bulk": relaxForE2E({
     requestsPerMinute: 60,
     requestsPerHour: 1000,
     burstLimit: 20,
-  } as RateLimiterConfig,
+  }),
 
   /**
    * Coach Picks - MEDIUM
@@ -92,11 +107,11 @@ export const RATE_LIMITS = {
    * Risk: Complex RPC calls
    * Cost: Database RPC function execution
    */
-  "coach-picks": {
+  "coach-picks": relaxForE2E({
     requestsPerMinute: 60,
     requestsPerHour: 1000,
     burstLimit: 20,
-  } as RateLimiterConfig,
+  }),
 
   /**
    * Public Default - MEDIUM
@@ -109,20 +124,20 @@ export const RATE_LIMITS = {
    *
    * Standard limits for public endpoints
    */
-  "public-default": {
+  "public-default": relaxForE2E({
     requestsPerMinute: 60,
     requestsPerHour: 1000,
     // Dev/test environments can issue many parallel requests (maps, image hydration, etc).
     // Keep production strict, but allow larger bursts locally to avoid breaking UX/tests.
     burstLimit: IS_PRODUCTION ? 20 : 200,
-  } as RateLimiterConfig,
+  }),
 
   /**
    * Public Showcase - optimized for marketing endpoints that need
    * higher burst tolerance (e.g., featured beaches) while still
    * enforcing rate limits after an initial warmup period.
    */
-  "public-showcase": {
+  "public-showcase": relaxForE2E({
     requestsPerMinute: 120,
     requestsPerHour: 2000,
     burstLimit: 100,
@@ -132,7 +147,7 @@ export const RATE_LIMITS = {
     rapidThresholdMs: 250,
     rapidCooldownMs: 4000,
     softBurstRecovery: true,
-  } as RateLimiterConfig,
+  }),
 
   /**
    * Authenticated Default - LOW
@@ -140,11 +155,11 @@ export const RATE_LIMITS = {
    * For endpoints requiring authentication
    * Higher limits since users are identified
    */
-  "authenticated-default": {
+  "authenticated-default": relaxForE2E({
     requestsPerMinute: 120,
     requestsPerHour: 5000,
     burstLimit: 50,
-  } as RateLimiterConfig,
+  }),
 
   /**
    * Surf Discovery - MEDIUM
@@ -155,11 +170,11 @@ export const RATE_LIMITS = {
    *
    * Moderate limits for personalized recommendations
    */
-  "surf-discovery": {
+  "surf-discovery": relaxForE2E({
     requestsPerMinute: IS_PRODUCTION ? 15 : 60,
     requestsPerHour: IS_PRODUCTION ? 150 : 600,
     burstLimit: IS_PRODUCTION ? 6 : 30, // Allow clicking through all 4 time slots quickly
-  } as RateLimiterConfig,
+  }),
 
   /**
    * Surf Insights - MEDIUM
@@ -170,11 +185,11 @@ export const RATE_LIMITS = {
    *
    * Moderate limits for personalized insights (same as surf-discovery)
    */
-  "surf-insights": {
+  "surf-insights": relaxForE2E({
     requestsPerMinute: IS_PRODUCTION ? 10 : 40,
     requestsPerHour: IS_PRODUCTION ? 100 : 400,
     burstLimit: IS_PRODUCTION ? 3 : 15,
-  } as RateLimiterConfig,
+  }),
 
   /**
    * Webhook - Resend
@@ -185,11 +200,11 @@ export const RATE_LIMITS = {
    *
    * Higher limits to accommodate burst webhook deliveries
    */
-  "webhook-resend": {
+  "webhook-resend": relaxForE2E({
     requestsPerMinute: 120,
     requestsPerHour: 5000,
     burstLimit: 50,
-  } as RateLimiterConfig,
+  }),
 
   /**
    * HLS Proxy - HIGH
@@ -201,11 +216,11 @@ export const RATE_LIMITS = {
    * HLS streams request many segments per minute per viewer.
    * A single viewer ~10-30 req/min. Allow moderate concurrency.
    */
-  "hls-proxy": {
+  "hls-proxy": relaxForE2E({
     requestsPerMinute: 120,
     requestsPerHour: 5000,
     burstLimit: 60,
-  } as RateLimiterConfig,
+  }),
 
   /**
    * Cam Resolve - MEDIUM
@@ -217,11 +232,11 @@ export const RATE_LIMITS = {
    * Resolves HDOnTap page URLs to HLS stream URLs.
    * One call per camera view; signed URLs cached ~2min.
    */
-  "cam-resolve": {
+  "cam-resolve": relaxForE2E({
     requestsPerMinute: 30,
     requestsPerHour: 500,
     burstLimit: 10,
-  } as RateLimiterConfig,
+  }),
 
   /**
    * Anon Alert Capture - HIGH abuse risk
@@ -232,11 +247,11 @@ export const RATE_LIMITS = {
    *
    * Strict 5/hour per IP — anonymous users only need to submit once.
    */
-  "anon-alert-capture": {
+  "anon-alert-capture": relaxForE2E({
     requestsPerMinute: 2,
     requestsPerHour: 5,
     burstLimit: 2,
-  } as RateLimiterConfig,
+  }),
 } as const;
 
 /**

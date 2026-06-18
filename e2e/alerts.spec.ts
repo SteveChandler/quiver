@@ -1,4 +1,5 @@
-import { test, expect, type Page, type Route } from '@playwright/test';
+import { test, expect } from "./fixtures/auth-fixture";
+import { type Page, type Route } from '@playwright/test';
 import { TEST_BEACHES, VIEWPORTS } from './fixtures/test-data';
 import { navigateToBeach } from './utils/test-helpers';
 import { assertNoErrors, setupErrorDetection, type ErrorCapture } from './utils/error-detection';
@@ -472,7 +473,12 @@ test.describe('Beach detail alert entry point', () => {
 
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole('heading', { name: /^Blacks Beach$/i })).toBeVisible();
+    await expect(
+      dialog.getByRole('heading', {
+        name: TEST_BEACHES.blacks.name,
+        exact: true,
+      })
+    ).toBeVisible();
     await expect(dialog.getByText('Condition watch')).toBeVisible();
   });
 });

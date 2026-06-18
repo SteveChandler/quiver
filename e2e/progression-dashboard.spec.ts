@@ -1,7 +1,9 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "./fixtures/auth-fixture";
 import { waitForPageLoad } from './utils/test-helpers';
 import { isVisibleSafe } from './utils/strict-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+
+const JOURNAL_READY_TIMEOUT_MS = 45_000;
 
 /**
  * Progression Dashboard Tests
@@ -14,6 +16,8 @@ import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error
  * @project auth
  */
 
+test.describe.configure({ mode: 'serial' });
+
 test.describe('Progression Dashboard', () => {
   let errorCapture: ErrorCapture;
 
@@ -23,6 +27,10 @@ test.describe('Progression Dashboard', () => {
     // under the "sessions" (Journal+) tab. There is no standalone /journal route.
     await page.goto('/profile?tab=sessions');
     await waitForPageLoad(page);
+    await page
+      .getByText(/loading your surf journal/i)
+      .waitFor({ state: 'hidden', timeout: JOURNAL_READY_TIMEOUT_MS })
+      .catch(() => {});
   });
 
   test.afterEach(async ({ page }) => {
@@ -154,13 +162,16 @@ test.describe('Progression Dashboard', () => {
     await progressionTab.click();
     await page.waitForLoadState('load');
 
+    const progressionContent = page.locator('[data-testid="progression-dashboard"]');
+    await expect(progressionContent).toBeVisible({ timeout: 10000 });
+
     const impactCard = page.locator('[data-testid="forecast-impact-card"]');
-    const hasImpactCard = await isVisibleSafe(impactCard);
+    const hasImpactCard = await isVisibleSafe(impactCard, { timeout: 10_000 });
 
     if (!hasImpactCard) {
       // Zero state is acceptable
       const zeroState = page.locator('[data-testid="progression-zero-state"]');
-      const hasZeroState = await isVisibleSafe(zeroState);
+      const hasZeroState = await isVisibleSafe(zeroState, { timeout: 10_000 });
       expect(hasZeroState).toBe(true);
       return;
     }

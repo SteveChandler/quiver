@@ -1,158 +1,317 @@
-import * as fs from 'fs';
 import { FullConfig } from '@playwright/test';
+import { spawn } from 'node:child_process';
+import { existsSync, readdirSync, rmSync } from 'node:fs';
+import path from 'node:path';
+import { config as dotenvConfig } from 'dotenv';
+import type { SupabaseClient, User } from '@supabase/supabase-js';
 import {
   cleanupAllTestData,
   cleanupEphemeralSmokeUsers,
+  cleanupOrphanSmokeProfiles,
   createServiceClient,
 } from './utils/test-data-cleanup';
+import { USER_OWNED_TABLES } from './scripts/lib/user-owned-tables';
+import { POOL_SIZE, poolEmail } from './scripts/lib/worker-pool';
+import { isLocalSupabaseUrl, loadPlaywrightEnv } from './scripts/lib/playwright-env';
 
-/**
- * Global teardown runs once after all tests complete
- * Validates authentication state, cleans up test data, and provides debugging information
- */
-async function globalTeardown(config: FullConfig) {
-  console.log('\n[Global Teardown] ============================================');
-  console.log('[Global Teardown] Validating test execution state');
-  console.log('[Global Teardown] ============================================\n');
+function getLocalDbUrl(): string {
+  return (
+    process.env.E2E_LOCAL_DB_URL ||
+    'postgresql://postgres:postgres@127.0.0.1:54322/postgres'
+  );
+}
 
-  const statePath = 'e2e/.auth/state.json';
+function isLocalBaseURL(baseURL: string): boolean {
+  return baseURL.includes('localhost') || baseURL.includes('127.0.0.1');
+}
 
-  // Auth-state validation is best-effort and only relevant when authenticated
-  // tests ran. Skip it for guest-only runs but keep going to the cleanup block —
-  // the smoke-user sweep must run regardless of which projects executed.
-  if (!fs.existsSync(statePath)) {
-    console.warn(`[Global Teardown] ⚠️  Auth state file not found: ${statePath}`);
-    console.warn('[Global Teardown] This is expected if only guest tests ran');
-  } else {
-   try {
-    // Read and validate auth state
-    const stateContent = fs.readFileSync(statePath, 'utf-8');
-    const state = JSON.parse(stateContent);
+function clearLocalAuthStates(): void {
+  const authDir = path.resolve('e2e/.auth');
 
-    // Count authentication artifacts
-    const cookieCount = state.cookies?.length || 0;
-    const originCount = state.origins?.length || 0;
+  if (!existsSync(authDir)) return;
 
-    console.log('[Global Teardown] Auth state summary:');
-    console.log(`  - Cookies: ${cookieCount}`);
-    console.log(`  - Origins: ${originCount}`);
-
-    // Check for Supabase auth cookies
-    const supabaseCookies = state.cookies?.filter((cookie: any) =>
-      cookie.name?.startsWith('sb-') && cookie.name?.includes('auth-token')
-    ) || [];
-
-    console.log(`  - Supabase auth cookies: ${supabaseCookies.length}`);
-
-    // Validate auth state quality
-    if (cookieCount === 0 && originCount === 0) {
-      console.error('\n[Global Teardown] ❌ WARNING: Auth state is empty!');
-      console.error('[Global Teardown] This indicates authentication may have failed during setup.');
-      console.error('[Global Teardown] Authenticated tests likely failed.');
-      console.error('[Global Teardown] Run: npm run test:e2e:auth:reset && npm run test:e2e:setup');
-    } else if (supabaseCookies.length === 0) {
-      console.warn('\n[Global Teardown] ⚠️  WARNING: No Supabase auth cookies found!');
-      console.warn('[Global Teardown] Auth state contains cookies, but none are Supabase auth tokens.');
-      console.warn('[Global Teardown] This may indicate an authentication problem.');
-    } else {
-      console.log('\n[Global Teardown] ✓ Auth state appears valid');
-
-      // Show cookie details (without values for security)
-      console.log('\n[Global Teardown] Supabase cookies:');
-      supabaseCookies.forEach((cookie: any) => {
-        console.log(`  - ${cookie.name} (domain: ${cookie.domain})`);
-      });
+  for (const entry of readdirSync(authDir)) {
+    if (entry === 'state.json' || /^worker-\d+\.json$/.test(entry)) {
+      rmSync(path.join(authDir, entry), { force: true });
     }
+  }
+}
 
-    // Show storage state if present
-    if (state.origins && state.origins.length > 0) {
-      console.log('\n[Global Teardown] Storage origins:');
-      state.origins.forEach((origin: any) => {
-        const localStorageCount = origin.localStorage?.length || 0;
-        console.log(`  - ${origin.origin}: ${localStorageCount} localStorage items`);
-      });
-    }
+function forceLocalPlaywrightEnvIfNeeded(config: FullConfig): void {
+  const projects = Array.isArray(config.projects) ? config.projects : [];
+  if (projects.length === 0) return;
 
-    // File size check
-    const stats = fs.statSync(statePath);
-    const fileSizeKB = (stats.size / 1024).toFixed(2);
-    console.log(`\n[Global Teardown] State file size: ${fileSizeKB} KB`);
+  const authProject = projects.find((project) => project.name === 'auth');
+  const projectBaseURL =
+    typeof authProject?.use.baseURL === 'string' ? authProject.use.baseURL : '';
+  const envBaseURL = process.env.BASE_URL || '';
+  const baseURL = envBaseURL || projectBaseURL;
 
-    if (stats.size < 100) {
-      console.warn('[Global Teardown] ⚠️  State file is very small, may be incomplete');
-    }
+  if (!baseURL || isLocalBaseURL(baseURL)) {
+    dotenvConfig({ path: '.env.playwright.local', override: true });
+  }
+}
 
-   } catch (error) {
-    console.error('[Global Teardown] ❌ Error validating auth state:', error);
-    console.error('[Global Teardown] This may indicate corrupted state file');
+async function listAllUsers(supabase: SupabaseClient): Promise<User[]> {
+  const users: User[] = [];
+  const perPage = 1000;
 
-    if (error instanceof SyntaxError) {
-      console.error('[Global Teardown] State file contains invalid JSON');
-      console.error('[Global Teardown] Run: npm run test:e2e:auth:reset to fix');
-    }
-   }
+  for (let page = 1; ; page += 1) {
+    const { data, error } = await supabase.auth.admin.listUsers({
+      page,
+      perPage,
+    });
+    if (error) throw error;
+
+    users.push(...(data?.users ?? []));
+    if ((data?.users ?? []).length < perPage) break;
   }
 
-  // ============================================
-  // Clean up test data
-  // ============================================
-  // Two layers:
-  //   1. Ephemeral smoke users — always-on. The matcher requires
-  //      `app_metadata.is_ephemeral_smoke_test === true` (server-controlled,
-  //      cannot be set by a real user), with a legacy email-pattern fallback
-  //      for pre-marker accounts. Filter-safe enough to run on any env so
-  //      developer machines self-heal.
-  //   2. Sessions + intel posts — dev-only. These soft-delete content owned
-  //      by `is_mock=true` profiles or the main TEST_USER_EMAIL, which on prod
-  //      could touch real-user content via mis-tags. Stays gated.
+  return users;
+}
+
+async function getPoolUserIds(supabase: SupabaseClient): Promise<string[]> {
+  const poolEmails = new Set(
+    Array.from({ length: POOL_SIZE }, (_, index) => poolEmail(index))
+  );
+
+  const ids = new Set(
+    (await listAllUsers(supabase))
+    .filter((user) => user.email && poolEmails.has(user.email))
+      .map((user) => user.id)
+  );
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id')
+    .like('email', 'e2e-worker-%@quivertest.local');
+
+  if (error) throw error;
+
+  for (const profile of data ?? []) {
+    if (profile.id) ids.add(profile.id);
+  }
+
+  return Array.from(ids);
+}
+
+async function countRowsForIds(
+  supabase: SupabaseClient,
+  table: string,
+  column: string,
+  userIds: string[]
+): Promise<number> {
+  if (userIds.length === 0) return 0;
+
+  const { count, error } = await supabase
+    .from(table)
+    .select(column, { count: 'exact', head: true })
+    .in(column, userIds);
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function countWorkerProfiles(supabase: SupabaseClient): Promise<number> {
+  const { count, error } = await supabase
+    .from('profiles')
+    .select('id', { count: 'exact', head: true })
+    .like('email', 'e2e-worker-%@quivertest.local');
+
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function countWorkerAuthUsers(supabase: SupabaseClient): Promise<number> {
+  const poolEmails = new Set(
+    Array.from({ length: POOL_SIZE }, (_, index) => poolEmail(index))
+  );
+
+  return (await listAllUsers(supabase)).filter(
+    (user) => user.email && poolEmails.has(user.email)
+  ).length;
+}
+
+async function cleanupWorkerPoolUsers(): Promise<number> {
+  const sql = `
+    begin;
+    set local app.allow_destructive=on;
+    with deleted as (
+      delete from auth.users
+      where email like 'e2e-worker-%@quivertest.local'
+      returning 1
+    )
+    select count(*) from deleted;
+    commit;
+  `;
+
+  return new Promise((resolve, reject) => {
+    const child = spawn('psql', [
+      getLocalDbUrl(),
+      '-v',
+      'ON_ERROR_STOP=1',
+      '-At',
+      '-c',
+      sql,
+    ]);
+    let stdout = '';
+    let stderr = '';
+
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+    child.on('error', reject);
+    child.on('close', (code) => {
+      if (code !== 0) {
+        reject(
+          new Error(
+            stderr.trim() ||
+              `[Global Teardown] Worker pool SQL cleanup exited ${code}`
+          )
+        );
+        return;
+      }
+
+      const deleted = stdout
+        .split('\n')
+        .map((line) => Number.parseInt(line, 10))
+        .find((value) => Number.isFinite(value));
+
+      if (deleted && deleted > 0) {
+        console.log(`[Global Teardown] Deleted ${deleted} worker pool user(s)`);
+      }
+      resolve(deleted ?? 0);
+    });
+  });
+}
+
+async function assertPoolClean(
+  supabase: SupabaseClient,
+  poolUserIds: string[]
+): Promise<void> {
+  const warnings: string[] = [];
+  const publicTables = USER_OWNED_TABLES.filter(
+    (entry) => entry.schema === 'public'
+  );
+
+  for (const entry of publicTables) {
+    try {
+      const count = await countRowsForIds(
+        supabase,
+        entry.table,
+        entry.column,
+        poolUserIds
+      );
+      if (count > 0) {
+        warnings.push(`${entry.table}.${entry.column}: ${count}`);
+      }
+    } catch (error) {
+      warnings.push(`${entry.table}.${entry.column}: ${String(error)}`);
+    }
+  }
+
+  try {
+    const authCount = await countWorkerAuthUsers(supabase);
+    if (authCount > 0) warnings.push(`auth.users.email: ${authCount}`);
+  } catch (error) {
+    warnings.push(`auth.users.email: ${String(error)}`);
+  }
+
+  try {
+    const profileCount = await countWorkerProfiles(supabase);
+    if (profileCount > 0) warnings.push(`profiles.email: ${profileCount}`);
+  } catch (error) {
+    warnings.push(`profiles.email: ${String(error)}`);
+  }
+
+  if (warnings.length === 0) {
+    console.log('[Global Teardown] ✓ Pool cleanup assertion passed');
+    return;
+  }
+
+  throw new Error(
+    [
+      '[Global Teardown] Pool cleanup assertion failed:',
+      ...warnings.map((warning) => `  - ${warning}`),
+    ].join('\n')
+  );
+}
+
+async function globalTeardown(config: FullConfig): Promise<void> {
+  loadPlaywrightEnv();
+  forceLocalPlaywrightEnvIfNeeded(config);
+
   console.log('\n[Global Teardown] ============================================');
   console.log('[Global Teardown] Cleaning up test data...');
   console.log('[Global Teardown] ============================================\n');
 
   if (process.env.SKIP_E2E_CLEANUP === 'true') {
     console.log('[Global Teardown] Skipping test data cleanup (SKIP_E2E_CLEANUP=true)');
-    console.log('\n[Global Teardown] ============================================');
-    console.log('[Global Teardown] Teardown complete');
-    console.log('[Global Teardown] ============================================\n');
     return;
   }
 
   try {
     const testEnv = process.env.TEST_ENV || 'local';
     const baseURL = process.env.BASE_URL || '';
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+    const isLocalSupabase = isLocalSupabaseUrl(supabaseUrl);
     const isDevEnvironment = testEnv === 'dev' || baseURL.includes('dev.quiversurf.app');
-
-    // Layer 1: always-on ephemeral sweep.
+    const hasPlaywrightProjects =
+      Array.isArray(config.projects) && config.projects.length > 0;
+    const shouldRunLocalPoolCleanup =
+      isLocalSupabase && !isDevEnvironment && hasPlaywrightProjects;
+    let serviceClient: SupabaseClient | null = null;
+    let poolUserIds: string[] = [];
     let ephemeralCount = 0;
+
     try {
-      const serviceClient = createServiceClient();
-      const ephemeralResult = await cleanupEphemeralSmokeUsers(serviceClient, false, true);
-      ephemeralCount = ephemeralResult.count;
-      if (ephemeralResult.error) {
-        console.warn(`[Global Teardown] ⚠️  Ephemeral users cleanup warning: ${ephemeralResult.error}`);
-      }
-    } catch (err) {
-      // Missing service-role env (e.g. local runs without .env.playwright.local)
-      // is the common shape — log and continue rather than fail the run.
-      console.warn('[Global Teardown] ⚠️  Skipping ephemeral sweep (service client unavailable):', err);
+      serviceClient = createServiceClient();
+      poolUserIds = shouldRunLocalPoolCleanup ? await getPoolUserIds(serviceClient) : [];
+    } catch (error) {
+      console.warn(
+        '[Global Teardown] ⚠️  Skipping ephemeral sweep (service client unavailable):',
+        error
+      );
     }
 
-    // Layer 2: dev-only session + intel-post cleanup.
-    if (isDevEnvironment) {
+    if (serviceClient) {
+      try {
+        const ephemeralResult = await cleanupEphemeralSmokeUsers(
+          serviceClient,
+          false,
+          true
+        );
+        ephemeralCount = ephemeralResult.count;
+        if (ephemeralResult.error) {
+          console.warn(
+            `[Global Teardown] ⚠️  Ephemeral users cleanup warning: ${ephemeralResult.error}`
+          );
+        }
+      } catch (error) {
+        console.warn('[Global Teardown] ⚠️  Skipping ephemeral sweep:', error);
+      }
+    }
+
+    if (shouldRunLocalPoolCleanup && serviceClient) {
+      await cleanupWorkerPoolUsers();
+      clearLocalAuthStates();
+      const orphanResult = await cleanupOrphanSmokeProfiles(serviceClient, true);
+      if (orphanResult.error) {
+        throw new Error(
+          `[Global Teardown] Worker pool profile cleanup failed: ${orphanResult.error}`
+        );
+      }
+      await assertPoolClean(serviceClient, poolUserIds);
+    } else if (isDevEnvironment) {
       const result = await cleanupAllTestData({
         verbose: true,
         skipEphemeralSmokeUsers: true,
       });
-
       const totalCleaned = result.totalCleaned + ephemeralCount;
-      if (totalCleaned > 0) {
-        console.log(`[Global Teardown] ✓ Cleaned ${totalCleaned} test item(s)`);
-        console.log(`  - Sessions: ${result.sessions.count}`);
-        console.log(`  - Intel Posts: ${result.intelPosts.count}`);
-        console.log(`  - Ephemeral smoke users: ${ephemeralCount}`);
-      } else {
-        console.log('[Global Teardown] ✓ No test data to clean up');
-      }
+      console.log(`[Global Teardown] Cleaned ${totalCleaned} test item(s)`);
 
       if (result.sessions.error) {
         console.warn(`[Global Teardown] ⚠️  Sessions cleanup warning: ${result.sessions.error}`);
@@ -160,18 +319,17 @@ async function globalTeardown(config: FullConfig) {
       if (result.intelPosts.error) {
         console.warn(`[Global Teardown] ⚠️  Intel posts cleanup warning: ${result.intelPosts.error}`);
       }
-    } else {
-      if (ephemeralCount > 0) {
-        console.log(`[Global Teardown] ✓ Cleaned ${ephemeralCount} ephemeral smoke user(s)`);
-      }
+    } else if (ephemeralCount > 0) {
       console.log(
-        `[Global Teardown] Skipping session/intel cleanup (env=${testEnv}, not dev environment)`
+        `[Global Teardown] ✓ Cleaned ${ephemeralCount} ephemeral smoke user(s)`
       );
     }
   } catch (error) {
-    // Don't fail tests if cleanup fails - just log the warning
     console.warn('[Global Teardown] ⚠️  Test data cleanup failed (non-fatal):', error);
     console.warn('[Global Teardown] Tests completed but test data may remain in the database');
+    if (isLocalSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL || '')) {
+      throw error;
+    }
   }
 
   console.log('\n[Global Teardown] ============================================');

@@ -19,7 +19,7 @@
  * @project auth
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/auth-fixture";
 import { TIMEOUTS } from "./fixtures/test-data";
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from "./utils/error-detection";
 import { isVisibleSafe } from "./utils/strict-helpers";
