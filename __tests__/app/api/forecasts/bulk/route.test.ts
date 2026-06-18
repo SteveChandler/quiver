@@ -20,6 +20,7 @@ interface BulkForecastResponse {
   conditionScores: Record<string, number | undefined>;
   conditionSummaries: Record<string, "GOOD" | "FAIR" | "CHECK" | "UNKNOWN">;
   swellPartitions: Record<string, unknown>;
+  swellPartitionTimeline: Record<string, unknown[]>;
 }
 
 type QueryResult<T> = {
@@ -274,6 +275,7 @@ describe("/api/forecasts/bulk", () => {
         conditionScores: {},
         conditionSummaries: {},
         swellPartitions: {},
+        swellPartitionTimeline: {},
       });
     }
     expect(mockSupabaseClient.from).not.toHaveBeenCalled();
@@ -398,6 +400,7 @@ describe("/api/forecasts/bulk", () => {
         "beach-2": "UNKNOWN",
       },
       swellPartitions: {},
+      swellPartitionTimeline: {},
     });
   });
 
@@ -428,6 +431,56 @@ describe("/api/forecasts/bulk", () => {
     const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
 
     expect(data.data.forecasts).toEqual({ "beach-1": 3 });
+  });
+
+  it("returns a five-step swell partition timeline from nearest forecast rows", async () => {
+    mockBulkQueries({
+      forecastRows: [
+        {
+          ...forecastRow("beach-1", "2.0", 1),
+          swell_1_direction: "W",
+          swell_1_period: "10s",
+          wind_direction_deg: 80,
+        },
+        {
+          ...forecastRow("beach-1", "4.0", 4),
+          swell_1_direction: "WNW",
+          swell_1_period: "14s",
+          wind_direction_deg: 120,
+        },
+        {
+          ...forecastRow("beach-1", "5.0", 7),
+          swell_1_direction: "NW",
+          swell_1_period: "16s",
+          wind_direction_deg: 160,
+        },
+      ],
+    });
+
+    const response = await GET(
+      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+    expect(data.data.swellPartitionTimeline["beach-1"]).toHaveLength(5);
+    expect(data.data.swellPartitionTimeline["beach-1"][0]).toMatchObject({
+      s1Dir: 270,
+      s1PeriodS: 10,
+      s1HeightFt: 2,
+      windDir: 80,
+    });
+    expect(data.data.swellPartitionTimeline["beach-1"][1]).toMatchObject({
+      s1Dir: 292.5,
+      s1PeriodS: 14,
+      s1HeightFt: 4,
+      windDir: 120,
+    });
+    expect(data.data.swellPartitionTimeline["beach-1"][2]).toMatchObject({
+      s1Dir: 315,
+      s1PeriodS: 16,
+      s1HeightFt: 5,
+      windDir: 160,
+    });
   });
 
   it("preserves flat v5.1 display as zero", async () => {

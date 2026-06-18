@@ -6,10 +6,6 @@ import { MapPin } from "lucide-react";
 import dynamic from "next/dynamic";
 import { MapSkeleton } from "@/components/skeletons/map-skeleton";
 import { DataErrorBoundary } from "@/components/error-boundaries";
-import {
-  COVERAGE_MESSAGES,
-  isLikelyOutOfAreaSearch,
-} from "@/lib/constants/coverage-areas";
 import type { Beach } from "@/types/database";
 import { LocationTimeoutBanner } from "@/components/map/location-timeout-banner";
 
@@ -43,8 +39,6 @@ interface MapContentProps {
   onMapClick?: () => void;
   autoNavigateOnMarkerClick?: boolean;
   onShowBeaches?: () => void;
-  hasInlineBeachList?: boolean;
-  visibleBeachCount?: number;
   showSwellField?: boolean;
   swellLayerId?: import("@/components/map/swell-map-theme").SwellLayerId;
   onSwellLayerChange?: (
@@ -54,8 +48,6 @@ interface MapContentProps {
   swellTimelineIndex?: number;
   onSwellTimelineChange?: (index: number) => void;
 }
-
-const MAX_DISTANCE_MILES = 30;
 
 const InteractiveMap = dynamic(
   () =>
@@ -84,8 +76,6 @@ export function MapContent({
   onMapClick,
   autoNavigateOnMarkerClick,
   onShowBeaches,
-  hasInlineBeachList = false,
-  visibleBeachCount,
   showSwellField,
   swellLayerId,
   onSwellLayerChange,
@@ -254,87 +244,6 @@ export function MapContent({
             aria-hidden="true"
           />
         )}
-
-        {/* Map overlay with beach count */}
-        <div
-          data-testid="map-overlay"
-          className="absolute top-4 left-4 bg-white/90 backdrop-blur-sm rounded-lg p-3 shadow-md max-w-[55vw] sm:max-w-xs z-10"
-        >
-          <p className="text-sm font-medium">
-            {(() => {
-              const displayCount = visibleBeachCount ?? filteredBeaches.length;
-
-              if (searchQuery) {
-                if (filteredBeaches.length > 0) {
-                  return `Found ${displayCount} ${displayCount === 1 ? "beach" : "beaches"} for "${searchQuery}"`;
-                }
-                return isLikelyOutOfAreaSearch(searchQuery)
-                  ? `"${searchQuery}" is outside our coverage area`
-                  : `No beaches found for "${searchQuery}"`;
-              }
-
-              if (userLocation) {
-                if (usingDefaultLocation) {
-                  return `Showing beaches near Mission Beach`;
-                }
-                if (displayCount > 0) {
-                  return `Found ${displayCount} ${displayCount === 1 ? "beach" : "beaches"} near you`;
-                }
-                return `No beaches within ${MAX_DISTANCE_MILES} miles of your location`;
-              }
-
-              return "Loading beach locations...";
-            })()}
-          </p>
-          {(() => {
-            const displayCount = visibleBeachCount ?? filteredBeaches.length;
-            const hasMoreOffscreen =
-              visibleBeachCount != null &&
-              visibleBeachCount < filteredBeaches.length;
-            if (hasMoreOffscreen) {
-              return (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {selectedBeach
-                    ? `Showing ${selectedBeach.name} · Zoom out to find more`
-                    : "Zoom out to find more"}
-                </p>
-              );
-            }
-            if (displayCount > 0) {
-              return (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {selectedBeach
-                    ? `Showing ${selectedBeach.name}`
-                    : searchQuery && displayCount === 1
-                      ? `Showing ${filteredBeaches[0].name} on the map`
-                      : searchQuery && displayCount > 1
-                        ? hasInlineBeachList
-                          ? `Showing ${filteredBeaches[0].name} - tap other beach cards below to see them on the map`
-                          : `Showing ${filteredBeaches[0].name} on the map`
-                        : hasInlineBeachList
-                          ? "Tap a beach card below to see it on the map"
-                          : "Switch to List view to browse surf spots"}
-                </p>
-              );
-            }
-            return null;
-          })()}
-          {filteredBeaches.length === 0 && searchQuery && (
-            <p className="text-xs text-muted-foreground mt-1">
-              {isLikelyOutOfAreaSearch(searchQuery)
-                ? COVERAGE_MESSAGES.COVERAGE_AREA_INFO
-                : "Try a different search term or clear your search"}
-            </p>
-          )}
-          {filteredBeaches.length === 0 &&
-            userLocation &&
-            !usingDefaultLocation &&
-            !searchQuery && (
-              <p className="text-xs text-muted-foreground mt-1">
-                Try searching for a specific beach or expand your search area
-              </p>
-            )}
-        </div>
 
         {/* Location controls */}
         {(usingDefaultLocation || !userLocation) && (

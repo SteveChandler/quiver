@@ -7,6 +7,7 @@ import {
   useState,
   useMemo,
   type ReactElement,
+  type ReactNode,
 } from "react";
 import mapboxgl from "mapbox-gl";
 import { debounce } from "@/lib/utils/debounce";
@@ -51,6 +52,7 @@ import {
   buildFlowField,
   computeCoastalBounds,
   detectWaterLayerIds,
+  interpolateSwellPartition,
   maskFieldToWater,
   partitionToPoint,
   type BeachPartitionPoint,
@@ -86,6 +88,34 @@ const COMBINED_SUBLAYERS: ReadonlyArray<"s1" | "s2" | "wind"> = [
 const COMBINED_PARTICLE_COUNT = 260;
 
 const EMPTY_FLOW_FIELD: FlowField = { cols: 0, rows: 0, cells: [] };
+
+function partitionAtTimelinePosition(
+  beachId: string,
+  position: number,
+  timelineMap: Map<string, SwellPartition[]>,
+  currentMap: Map<string, SwellPartition>
+): SwellPartition | undefined {
+  const fallback = currentMap.get(beachId);
+  const timeline = timelineMap.get(beachId);
+  if (!timeline || timeline.length === 0) return fallback;
+
+  const safePosition = Number.isFinite(position) ? position : 0;
+  const clampedPosition = Math.min(
+    Math.max(safePosition, 0),
+    timeline.length - 1
+  );
+  const leftIndex = Math.floor(clampedPosition);
+  const rightIndex = Math.ceil(clampedPosition);
+  const progress = clampedPosition - leftIndex;
+  const left = timeline[leftIndex] ?? fallback;
+  const right = timeline[rightIndex] ?? left ?? fallback;
+
+  if (left && right && progress > 0) {
+    return interpolateSwellPartition(left, right, progress);
+  }
+
+  return left ?? right ?? fallback;
+}
 
 /** Sub-layer component ids whose flow fields a given active layer needs built. */
 function componentsForLayer(
@@ -142,11 +172,23 @@ const CONDITION_LEGEND_ITEMS: Array<{
   { label: "UNKNOWN", caption: "No read" },
 ];
 
-function MapConditionLegend(): ReactElement {
+interface MapConditionLegendProps {
+  children?: ReactNode;
+}
+
+function MapConditionLegend({
+  children,
+}: MapConditionLegendProps): ReactElement {
+  const hasEmbeddedControls = Boolean(children);
+
   return (
     <div
       data-testid="map-condition-legend"
-      className="pointer-events-none absolute bottom-3 left-3 z-10 px-3 py-2 text-white"
+      className={`pointer-events-none absolute bottom-3 left-3 z-10 px-3 py-2 text-white ${
+        hasEmbeddedControls
+          ? "w-[calc(100%-1.5rem)] max-w-[27rem] sm:w-auto"
+          : ""
+      }`}
       style={{
         background: SWELL_MAP_SURFACE.panelDeep,
         border: `1px solid ${SWELL_MAP_SURFACE.border}`,
@@ -169,6 +211,9 @@ function MapConditionLegend(): ReactElement {
           </div>
         ))}
       </div>
+      {children && (
+        <div className="mt-2 border-t border-white/15 pt-2">{children}</div>
+      )}
     </div>
   );
 }
@@ -222,6 +267,9 @@ export function InteractiveMap({
   const [conditionScoreMap, setConditionScoreMap] = useState<Map<string, number | undefined>>(new Map());
   const [conditionSummaryMap, setConditionSummaryMap] = useState<Map<string, ConditionSummary>>(new Map());
   const [partitionsMap, setPartitionsMap] = useState<Map<string, SwellPartition>>(new Map());
+  const [partitionsTimelineMap, setPartitionsTimelineMap] = useState<
+    Map<string, SwellPartition[]>
+  >(new Map());
   // Loader-resolved beaches that partitionsMap is keyed by (the prop may be empty).
   const [swellFieldBeaches, setSwellFieldBeaches] = useState<Beach[]>([]);
   // Whether the last flow-field build resolved ANY field points. False → the
@@ -613,6 +661,7 @@ export function InteractiveMap({
         setConditionScoreMap(result.conditionScoreMap);
         setConditionSummaryMap(result.conditionSummaryMap);
         setPartitionsMap(result.partitionsMap);
+        setPartitionsTimelineMap(result.partitionsTimelineMap);
         setSwellFieldBeaches(result.locations);
         onWaveHeightsChangeRef.current?.(result.waveHeightMap);
       } catch (e) {
@@ -696,6 +745,10 @@ export function InteractiveMap({
     const beachList =
       swellFieldBeaches.length > 0 ? swellFieldBeaches : (beaches ?? []);
     const components = componentsForLayer(swellLayerId);
+    const timelinePosition = Math.min(
+      Math.max(Number.isFinite(swellTimelineIndex) ? swellTimelineIndex : 0, 0),
+      Math.max(0, swellTimelineSteps.length - 1)
+    );
     // Build a flow field per active component (one for a single layer, three for
     // combined); leave the rest empty so stale fields never render.
     const nextFields: Record<"s1" | "s2" | "wind", FlowField> = {
@@ -707,7 +760,12 @@ export function InteractiveMap({
     for (const component of components) {
       const points: BeachPartitionPoint[] = [];
       for (const beach of beachList) {
-        const partition = partitionsMap.get(beach.id);
+        const partition = partitionAtTimelinePosition(
+          beach.id,
+          timelinePosition,
+          partitionsTimelineMap,
+          partitionsMap
+        );
         if (!partition || beach.lat == null || beach.lon == null) continue;
         const point = partitionToPoint(beach.lon, beach.lat, partition, component);
         if (point) points.push(point);
@@ -736,7 +794,7 @@ export function InteractiveMap({
     applyWaterMask(map);
     // Nudge a repaint so a static (reduced-motion) frame reflects the new field.
     map.triggerRepaint();
-  }, [partitionsMap, swellFieldBeaches, swellLayerId, swellTimelineIndex, isMapReady, showSwellField, beaches, mapBounds, applyWaterMask]);
+  }, [partitionsMap, partitionsTimelineMap, swellFieldBeaches, swellLayerId, swellTimelineIndex, swellTimelineSteps.length, isMapReady, showSwellField, beaches, mapBounds, applyWaterMask]);
 
   // Re-mask the field to water once the map has actually rendered tiles. Running on
   // `idle` (fired after tiles finish loading) and `moveend` is what makes the mask
@@ -1337,13 +1395,25 @@ export function InteractiveMap({
     });
   }, [clusters, isMapReady, buildClusterMarker, buildWaveHeightBadge, cleanupMarkers]);
 
+  const swellTimeline =
+    showSwellField && onSwellTimelineChange && swellTimelineSteps.length > 0 ? (
+      <SwellForecastTimeline
+        steps={swellTimelineSteps}
+        index={swellTimelineIndex}
+        onIndexChange={onSwellTimelineChange}
+        placement={displayMode === "wave-height" ? "legend" : "floating"}
+      />
+    ) : null;
+
   return (
     <div
       ref={mapContainerRef}
       className={`${className} mapbox-container relative overflow-hidden`}
       style={{ width: "100%", height: "100%" }}
     >
-      {displayMode === "wave-height" && <MapConditionLegend />}
+      {displayMode === "wave-height" && (
+        <MapConditionLegend>{swellTimeline}</MapConditionLegend>
+      )}
       {showSwellField && onSwellLayerChange && (
         <SwellLayerSelector active={swellLayerId} onChange={onSwellLayerChange} />
       )}
@@ -1354,13 +1424,7 @@ export function InteractiveMap({
           <SwellFieldLegend activeLayer={swellLayerId} />
         </div>
       )}
-      {showSwellField && onSwellTimelineChange && swellTimelineSteps.length > 0 && (
-        <SwellForecastTimeline
-          steps={swellTimelineSteps}
-          index={swellTimelineIndex}
-          onIndexChange={onSwellTimelineChange}
-        />
-      )}
+      {displayMode !== "wave-height" && swellTimeline}
       {showLeashHint && (
         // One-time, auto-dismissing hint that the field locked the camera to the
         // coast (zoom-out is gone). Top-center, fades out under motion.

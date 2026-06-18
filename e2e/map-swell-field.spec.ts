@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { PNG } from "pngjs";
 import {
   setupErrorDetection,
   assertNoErrors,
@@ -13,6 +14,44 @@ async function waitForMapInstance(page: Page): Promise<void> {
           .__quiverMapInstance
       ),
     { timeout: 30000 }
+  );
+}
+
+async function waitForMapIdle(page: Page): Promise<void> {
+  await waitForMapInstance(page);
+  await page.waitForFunction(
+    () => {
+      const map = (
+        window as unknown as {
+          __quiverMapInstance?: {
+            isStyleLoaded?: () => boolean;
+          };
+        }
+      ).__quiverMapInstance;
+
+      return Boolean(map?.isStyleLoaded?.());
+    },
+    { timeout: 30000 },
+  );
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        const map = (
+          window as unknown as {
+            __quiverMapInstance?: {
+              loaded?: () => boolean;
+              once: (event: "idle", callback: () => void) => void;
+            };
+          }
+        ).__quiverMapInstance;
+
+        if (!map || map.loaded?.()) {
+          resolve();
+          return;
+        }
+
+        map.once("idle", resolve);
+      }),
   );
 }
 
@@ -41,6 +80,66 @@ async function waitForLayer(page: Page): Promise<void> {
   );
 }
 
+async function canvasFrame(page: Page): Promise<Buffer> {
+  await waitForMapIdle(page);
+  const canvas = page.locator("canvas.mapboxgl-canvas").first();
+  await expect(canvas).toBeVisible();
+  return canvas.screenshot();
+}
+
+function changedPixelCount(left: Buffer, right: Buffer): number {
+  const leftPng = PNG.sync.read(left);
+  const rightPng = PNG.sync.read(right);
+
+  expect(leftPng.width).toBe(rightPng.width);
+  expect(leftPng.height).toBe(rightPng.height);
+
+  let changed = 0;
+  for (let i = 0; i < leftPng.data.length; i += 4) {
+    const delta =
+      Math.abs(leftPng.data[i] - rightPng.data[i]) +
+      Math.abs(leftPng.data[i + 1] - rightPng.data[i + 1]) +
+      Math.abs(leftPng.data[i + 2] - rightPng.data[i + 2]) +
+      Math.abs(leftPng.data[i + 3] - rightPng.data[i + 3]);
+
+    if (delta > 24) {
+      changed += 1;
+    }
+  }
+
+  return changed;
+}
+
+async function waitForAnimatedCanvas(page: Page): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const first = await canvasFrame(page);
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- sample two settled frames to confirm particles have seeded and are moving
+        await page.waitForTimeout(350);
+        const second = await canvasFrame(page);
+        return changedPixelCount(first, second);
+      },
+      { timeout: 10000 },
+    )
+    .toBeGreaterThan(250);
+}
+
+async function waitForStableCanvas(page: Page): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        const first = await canvasFrame(page);
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- wait for tiles/labels to settle before asserting reduced-motion static particles
+        await page.waitForTimeout(350);
+        const second = await canvasFrame(page);
+        return changedPixelCount(first, second);
+      },
+      { timeout: 15000 },
+    )
+    .toBeLessThanOrEqual(250);
+}
+
 for (const viewport of [
   { name: "desktop", width: 1280, height: 800 },
   { name: "mobile", width: 390, height: 844 },
@@ -60,25 +159,29 @@ for (const viewport of [
       await assertNoErrors(page, errorCapture);
     });
 
-    test("toggles the swell field layer on and off", async ({ page }) => {
+    test("starts with the swell field layer on and toggles it off and on", async ({ page }) => {
       await page.goto("/map");
       await page.waitForLoadState("load");
       await waitForMapInstance(page);
+      await waitForMapIdle(page);
 
-      expect(await layerExists(page)).toBe(false);
-      await page.getByTestId("swell-field-toggle").click();
       await expect(page.getByTestId("swell-layer-selector")).toBeVisible();
       await waitForLayer(page);
 
       await page.getByTestId("swell-field-toggle").click();
       await expect(page.getByTestId("swell-layer-selector")).toHaveCount(0);
+      expect(await layerExists(page)).toBe(false);
+
+      await page.getByTestId("swell-field-toggle").click();
+      await expect(page.getByTestId("swell-layer-selector")).toBeVisible();
+      await waitForLayer(page);
     });
 
     test("switches layers without console errors", async ({ page }) => {
       await page.goto("/map");
       await page.waitForLoadState("load");
       await waitForMapInstance(page);
-      await page.getByTestId("swell-field-toggle").click();
+      await waitForMapIdle(page);
       await expect(page.getByTestId("swell-layer-selector")).toBeVisible();
 
       await page.getByTestId("swell-layer-wind").click();
@@ -94,6 +197,40 @@ for (const viewport of [
       expect(await layerExists(page)).toBe(true);
     });
 
+    test("keeps the forecast timeline inside the map legend", async ({ page }) => {
+      await page.goto("/map");
+      await page.waitForLoadState("load");
+      await waitForMapInstance(page);
+      await waitForMapIdle(page);
+
+      const legend = page.getByTestId("map-condition-legend");
+      const timeline = page.getByTestId("swell-forecast-timeline");
+
+      await expect(legend).toBeVisible();
+      await expect(timeline).toBeVisible();
+
+      const legendBox = await legend.boundingBox();
+      const timelineBox = await timeline.boundingBox();
+
+      expect(legendBox).not.toBeNull();
+      expect(timelineBox).not.toBeNull();
+
+      const visibleLegendBox = legendBox!;
+      const visibleTimelineBox = timelineBox!;
+
+      expect(visibleTimelineBox.x).toBeGreaterThanOrEqual(visibleLegendBox.x);
+      expect(visibleTimelineBox.y).toBeGreaterThanOrEqual(visibleLegendBox.y);
+      expect(
+        visibleTimelineBox.x + visibleTimelineBox.width
+      ).toBeLessThanOrEqual(visibleLegendBox.x + visibleLegendBox.width);
+      expect(
+        visibleTimelineBox.y + visibleTimelineBox.height
+      ).toBeLessThanOrEqual(
+        visibleLegendBox.y + visibleLegendBox.height
+      );
+      expect(visibleLegendBox.width).toBeLessThanOrEqual(viewport.width - 12);
+    });
+
     test("animates when motion allowed, static under reduced motion", async ({
       browser,
     }) => {
@@ -107,19 +244,13 @@ for (const viewport of [
       await page1.goto("/map");
       await page1.waitForLoadState("load");
       await waitForMapInstance(page1);
-      await page1.getByTestId("swell-field-toggle").click();
       await waitForLayer(page1);
-      const a = await page1
-        .locator("canvas.mapboxgl-canvas")
-        .first()
-        .screenshot();
+      await waitForAnimatedCanvas(page1);
+      const a = await canvasFrame(page1);
       // eslint-disable-next-line playwright/no-wait-for-timeout -- need two frames apart to observe animation
       await page1.waitForTimeout(900);
-      const b = await page1
-        .locator("canvas.mapboxgl-canvas")
-        .first()
-        .screenshot();
-      expect(Buffer.compare(a, b)).not.toBe(0); // frames differ -> animating
+      const b = await canvasFrame(page1);
+      expect(changedPixelCount(a, b)).toBeGreaterThan(250);
       await assertNoErrors(page1, cap1);
       await ctx1.close();
 
@@ -133,19 +264,13 @@ for (const viewport of [
       await page2.goto("/map");
       await page2.waitForLoadState("load");
       await waitForMapInstance(page2);
-      await page2.getByTestId("swell-field-toggle").click();
       await waitForLayer(page2);
-      const c = await page2
-        .locator("canvas.mapboxgl-canvas")
-        .first()
-        .screenshot();
+      await waitForStableCanvas(page2);
+      const c = await canvasFrame(page2);
       // eslint-disable-next-line playwright/no-wait-for-timeout -- confirm NO change over time under reduced motion
       await page2.waitForTimeout(900);
-      const d = await page2
-        .locator("canvas.mapboxgl-canvas")
-        .first()
-        .screenshot();
-      expect(Buffer.compare(c, d)).toBe(0); // identical -> static
+      const d = await canvasFrame(page2);
+      expect(changedPixelCount(c, d)).toBeLessThanOrEqual(250);
       await assertNoErrors(page2, cap2);
       await ctx2.close();
     });

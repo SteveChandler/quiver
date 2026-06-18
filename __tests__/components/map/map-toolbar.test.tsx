@@ -29,8 +29,6 @@ const defaultProps = {
   regions,
   onRegionSelect: jest.fn(),
   onUseMyLocation: jest.fn(),
-  viewMode: "map" as const,
-  onViewModeChange: jest.fn(),
   filters: { beginnerFriendly: false, breakTypes: new Set<string>() },
   onToggleBeginner: jest.fn(),
   onToggleBreakType: jest.fn(),
@@ -49,7 +47,7 @@ describe("MapToolbar", () => {
     render(<MapToolbar {...defaultProps} />);
 
     expect(
-      screen.getByRole("searchbox", {
+      screen.getByRole("combobox", {
         name: "Search beaches, spots, or cities",
       }),
     ).toBeInTheDocument();
@@ -60,7 +58,7 @@ describe("MapToolbar", () => {
     render(<MapToolbar {...defaultProps} />);
 
     await user.type(
-      screen.getByRole("searchbox", {
+      screen.getByRole("combobox", {
         name: "Search beaches, spots, or cities",
       }),
       "Black",
@@ -73,7 +71,23 @@ describe("MapToolbar", () => {
     const user = userEvent.setup();
     render(<MapToolbar {...defaultProps} searchQuery="Black" />);
 
-    await user.click(screen.getByRole("button", { name: /Blacks San Diego, CA/i }));
+    await user.click(screen.getByRole("option", { name: /Blacks San Diego, CA/i }));
+
+    expect(defaultProps.onSuggestionSelect).toHaveBeenCalledWith(suggestions[0]);
+  });
+
+  it("supports keyboard selection from the suggestions combobox", async () => {
+    const user = userEvent.setup();
+    render(<MapToolbar {...defaultProps} searchQuery="Black" />);
+
+    const search = screen.getByRole("combobox", {
+      name: "Search beaches, spots, or cities",
+    });
+
+    expect(search).toHaveAttribute("aria-expanded", "true");
+
+    await user.click(search);
+    await user.keyboard("{ArrowDown}{Enter}");
 
     expect(defaultProps.onSuggestionSelect).toHaveBeenCalledWith(suggestions[0]);
   });
@@ -82,18 +96,19 @@ describe("MapToolbar", () => {
     const user = userEvent.setup();
     render(<MapToolbar {...defaultProps} />);
 
+    await user.click(
+      screen.getByRole("button", { name: "Regions and filters" }),
+    );
     await user.click(screen.getByRole("button", { name: "OC" }));
 
     expect(defaultProps.onRegionSelect).toHaveBeenCalledWith(regions[1]);
   });
 
-  it("calls onViewModeChange from the Map/List segmented control", async () => {
-    const user = userEvent.setup();
+  it("does not render the removed Map/List segmented control", () => {
     render(<MapToolbar {...defaultProps} />);
 
-    await user.click(screen.getByTestId("view-mode-list"));
-
-    expect(defaultProps.onViewModeChange).toHaveBeenCalledWith("list");
+    expect(screen.queryByTestId("view-mode-map")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("view-mode-list")).not.toBeInTheDocument();
   });
 
   it("keeps the swell toggle testid and pressed state", () => {
@@ -105,13 +120,43 @@ describe("MapToolbar", () => {
     );
   });
 
-  it("only shows Clear all when active filters exist", () => {
+  it("only shows Clear all when active filters exist", async () => {
+    const user = userEvent.setup();
     const { rerender } = render(<MapToolbar {...defaultProps} />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Regions and filters" }),
+    );
 
     expect(screen.queryByTestId("map-clear-all")).not.toBeInTheDocument();
 
     rerender(<MapToolbar {...defaultProps} hasActiveFilters />);
 
+    expect(screen.getByTestId("map-clear-all")).toBeInTheDocument();
+  });
+
+  it("moves regions and filters into a dropdown", async () => {
+    const user = userEvent.setup();
+    render(<MapToolbar {...defaultProps} hasActiveFilters />);
+
+    expect(
+      screen.getByRole("button", { name: "Regions and filters" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("map-region-pill-san-diego"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Beginner-friendly" }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Regions and filters" }),
+    );
+
+    expect(screen.getByTestId("map-region-pill-san-diego")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Beginner-friendly" }),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("map-clear-all")).toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 
 // Mock all the external dependencies to isolate our test
 jest.mock("mapbox-gl", () => ({
@@ -192,6 +192,25 @@ describe("Map Forecast Basic Tests", () => {
     expect(screen.getByText("FAIR")).toBeInTheDocument();
     expect(screen.getByText("CHECK")).toBeInTheDocument();
     expect(screen.getByText("UNKNOWN")).toBeInTheDocument();
+  });
+
+  it("should embed the swell timeline inside the condition legend", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+
+    render(
+      <InteractiveMap
+        showSwellField
+        swellTimelineSteps={["Now", "+3h", "+6h"]}
+        onSwellTimelineChange={jest.fn()}
+      />,
+    );
+
+    const legend = screen.getByTestId("map-condition-legend");
+    const timeline = within(legend).getByTestId("swell-forecast-timeline");
+
+    expect(timeline).toBeInTheDocument();
+    expect(timeline.className).toContain("w-full");
+    expect(timeline.className).not.toContain("absolute");
   });
 
   it("should call Mapbox Map constructor with correct parameters", async () => {

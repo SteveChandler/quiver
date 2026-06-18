@@ -3,6 +3,7 @@ import {
   buildFlowField,
   computeCoastalBounds,
   detectWaterLayerIds,
+  interpolateSwellPartition,
   maskFieldToWater,
   COASTAL_CORRIDOR_LAT_PAD,
   COASTAL_CORRIDOR_LON_PAD,
@@ -11,6 +12,7 @@ import {
   type FlowField,
   type WaterMaskMap,
 } from "@/components/map/swell-field/field-sampler";
+import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
 
 describe("degToVector", () => {
   // Swell direction is the bearing the swell COMES FROM; travel vector is +180deg.
@@ -32,6 +34,54 @@ describe("degToVector", () => {
   it("returns a unit vector", () => {
     const v = degToVector(217);
     expect(Math.hypot(v.x, v.y)).toBeCloseTo(1, 5);
+  });
+});
+
+describe("interpolateSwellPartition", () => {
+  const partition = (overrides: Partial<SwellPartition>): SwellPartition => ({
+    s1Dir: 270,
+    s1PeriodS: 12,
+    s1HeightFt: 2,
+    s2Dir: 180,
+    s2PeriodS: 8,
+    s2HeightFt: 1,
+    windDir: 300,
+    windMph: 10,
+    ...overrides,
+  });
+
+  it("interpolates numeric partition values", () => {
+    const result = interpolateSwellPartition(
+      partition({ s1PeriodS: 10, s1HeightFt: 2, windMph: 8 }),
+      partition({ s1PeriodS: 16, s1HeightFt: 5, windMph: 20 }),
+      0.5
+    );
+
+    expect(result.s1PeriodS).toBe(13);
+    expect(result.s1HeightFt).toBe(3.5);
+    expect(result.windMph).toBe(14);
+  });
+
+  it("uses the shortest compass arc for directions", () => {
+    const result = interpolateSwellPartition(
+      partition({ s1Dir: 350, windDir: 10 }),
+      partition({ s1Dir: 10, windDir: 350 }),
+      0.5
+    );
+
+    expect(result.s1Dir).toBeCloseTo(0, 6);
+    expect(result.windDir).toBeCloseTo(0, 6);
+  });
+
+  it("falls back to the available side when one row is sparse", () => {
+    const result = interpolateSwellPartition(
+      partition({ s2Dir: null, s2HeightFt: null }),
+      partition({ s2Dir: 220, s2HeightFt: 2.5 }),
+      0.5
+    );
+
+    expect(result.s2Dir).toBe(220);
+    expect(result.s2HeightFt).toBe(2.5);
   });
 });
 

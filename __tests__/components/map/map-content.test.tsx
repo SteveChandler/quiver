@@ -128,32 +128,16 @@ describe("MapContent", () => {
     });
   });
 
-  it("should show beach count overlay", () => {
+  it("should not render the map status overlay", () => {
     render(<MapContent {...defaultProps} />);
 
-    expect(screen.getByText("Found 3 beaches near you")).toBeInTheDocument();
-  });
-
-  it("should point desktop map users to List view when no inline beach list exists", () => {
-    render(<MapContent {...defaultProps} />);
-
+    expect(screen.queryByTestId("map-overlay")).not.toBeInTheDocument();
     expect(
-      screen.getByText("Switch to List view to browse surf spots"),
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByText("Tap a beach card below to see it on the map"),
+      screen.queryByText("Showing beaches near Mission Beach"),
     ).not.toBeInTheDocument();
   });
 
-  it("should keep bottom-sheet copy when an inline beach list exists", () => {
-    render(<MapContent {...defaultProps} hasInlineBeachList />);
-
-    expect(
-      screen.getByText("Tap a beach card below to see it on the map"),
-    ).toBeInTheDocument();
-  });
-
-  it("should show search results overlay", () => {
+  it("should center the map on the first search result", async () => {
     render(
       <MapContent
         {...defaultProps}
@@ -162,35 +146,15 @@ describe("MapContent", () => {
       />,
     );
 
-    expect(screen.getByText('Found 1 beach for "Ocean"')).toBeInTheDocument();
-  });
+    const mapContainer = screen.getByTestId("map-container");
+    fireEvent.pointerDown(mapContainer);
 
-  it("should show no results message for empty search", () => {
-    render(
-      <MapContent
-        {...defaultProps}
-        searchQuery="nonexistent"
-        filteredBeaches={[]}
-      />,
-    );
-
-    expect(
-      screen.getByText('No beaches found for "nonexistent"'),
-    ).toBeInTheDocument();
-  });
-
-  it("should treat in-coverage regions like Hawaii as normal search", () => {
-    render(
-      <MapContent
-        {...defaultProps}
-        searchQuery="Hawaii"
-        filteredBeaches={[]}
-      />,
-    );
-
-    expect(
-      screen.getByText('No beaches found for "Hawaii"'),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+        "data-initial-center",
+        `${mockBeaches[0].lat},${mockBeaches[0].lon}`,
+      );
+    });
   });
 
   it("should show use my location button when using default location", () => {
@@ -262,36 +226,25 @@ describe("MapContent", () => {
     expect(defaultProps.onUseDefaultLocation).toHaveBeenCalled();
   });
 
-  it("should show selected beach name in overlay", () => {
+  it("should center focus-region navigation without rendering stale status copy", async () => {
     render(
-      <MapContent {...defaultProps} selectedBeach={mockBeaches[0] as any} />,
+      <MapContent
+        {...defaultProps}
+        usingDefaultLocation={true}
+        focusCenter={{ lat: 37.76, lon: -122.51 }}
+      />,
     );
 
-    expect(
-      screen.getByText(`Showing ${mockBeaches[0].name}`),
-    ).toBeInTheDocument();
-  });
+    const mapContainer = screen.getByTestId("map-container");
+    fireEvent.pointerDown(mapContainer);
 
-  it("should handle no user location", () => {
-    render(<MapContent {...defaultProps} userLocation={null} />);
-
-    expect(screen.getByText("Loading beach locations...")).toBeInTheDocument();
-  });
-
-  it("should show default location message", () => {
-    render(<MapContent {...defaultProps} usingDefaultLocation={true} />);
-
-    expect(
-      screen.getByText("Showing beaches near Mission Beach"),
-    ).toBeInTheDocument();
-  });
-
-  it("should show no beaches message when none nearby", () => {
-    render(<MapContent {...defaultProps} filteredBeaches={[]} />);
-
-    expect(
-      screen.getByText("No beaches within 30 miles of your location"),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+        "data-initial-center",
+        "37.76,-122.51",
+      );
+    });
+    expect(screen.queryByText("Mission Beach")).not.toBeInTheDocument();
   });
 
   // Bug 2: Map minHeight overflows mobile viewport
@@ -310,25 +263,6 @@ describe("MapContent", () => {
       const classes = mapContainer.className.split(/\s+/);
       expect(classes).toContain("min-h-[200px]");
       expect(classes).toContain("sm:min-h-[400px]");
-    });
-  });
-
-  // Bug 9: Beach count overlay too wide on mobile
-  describe("Bug 9: Beach count overlay responsive width", () => {
-    it("should NOT have standalone max-w-xs class on overlay", () => {
-      render(<MapContent {...defaultProps} />);
-      const overlay = screen.getByTestId("map-overlay");
-      // Split classes and check none is exactly "max-w-xs" (sm:max-w-xs is fine)
-      const classes = overlay.className.split(/\s+/);
-      expect(classes).not.toContain("max-w-xs");
-    });
-
-    it("should have responsive max-w-[55vw] sm:max-w-xs classes on overlay", () => {
-      render(<MapContent {...defaultProps} />);
-      const overlay = screen.getByTestId("map-overlay");
-      const classes = overlay.className.split(/\s+/);
-      expect(classes).toContain("max-w-[55vw]");
-      expect(classes).toContain("sm:max-w-xs");
     });
   });
 

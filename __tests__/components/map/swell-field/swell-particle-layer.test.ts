@@ -130,15 +130,21 @@ describe("createSwellParticleLayer — particle count", () => {
   function renderedDraw(opts?: {
     count?: number;
     markStyle?: "dash" | "dot" | "comet";
+    reducedMotion?: boolean;
+    renders?: number;
+    field?: FlowField;
+    captureUploads?: boolean;
   }): {
     mode: number;
     vertexCount: number;
     draws: { mode: number; vertexCount: number }[];
+    uploads: number[][];
     LINES: number;
     POINTS: number;
   } {
     const LINES = 11;
     const POINTS = 12;
+    const uploads: number[][] = [];
     const gl = {
       VERTEX_SHADER: 1,
       FRAGMENT_SHADER: 2,
@@ -173,7 +179,11 @@ describe("createSwellParticleLayer — particle count", () => {
       enable: jest.fn(),
       blendFunc: jest.fn(),
       bindBuffer: jest.fn(),
-      bufferData: jest.fn(),
+      bufferData: jest.fn((_target: number, data: unknown) => {
+        if (opts?.captureUploads && data instanceof Float32Array) {
+          uploads.push(Array.from(data));
+        }
+      }),
       enableVertexAttribArray: jest.fn(),
       vertexAttribPointer: jest.fn(),
       lineWidth: jest.fn(),
@@ -187,16 +197,18 @@ describe("createSwellParticleLayer — particle count", () => {
 
     const layer = createSwellParticleLayer({
       id: "test-layer",
-      getField: () => FIELD,
+      getField: () => opts?.field ?? FIELD,
       getColorHex: () => "#B5450F",
-      reducedMotion: true, // skip triggerRepaint loop
+      reducedMotion: opts?.reducedMotion ?? true, // skip triggerRepaint loop
       viewportWidthPx: 1440,
       count: opts?.count,
       markStyle: opts?.markStyle,
     });
 
     layer.onAdd?.(map, gl);
-    layer.render(gl, new Array(16).fill(0));
+    for (let i = 0; i < (opts?.renders ?? 1); i += 1) {
+      layer.render(gl, new Array(16).fill(0));
+    }
     // drawArrays(mode, 0, vertexCount) — capture all calls (comet draws twice).
     const draws = (gl.drawArrays as jest.Mock).mock.calls.map((c) => ({
       mode: c[0] as number,
@@ -206,6 +218,7 @@ describe("createSwellParticleLayer — particle count", () => {
       mode: draws[0].mode,
       vertexCount: draws[0].vertexCount,
       draws,
+      uploads,
       LINES,
       POINTS,
     };
@@ -254,5 +267,25 @@ describe("createSwellParticleLayer — particle count", () => {
     const points = draws.find((d) => d.mode === POINTS);
     expect(lines).toEqual({ mode: LINES, vertexCount: 300 * 2 });
     expect(points).toEqual({ mode: POINTS, vertexCount: 300 * 2 });
+  });
+
+  it("keeps reduced-motion particles static after the first rendered frame", () => {
+    const movingField: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha: 1 }],
+    };
+
+    const { uploads } = renderedDraw({
+      count: 2,
+      field: movingField,
+      reducedMotion: true,
+      renders: 2,
+      captureUploads: true,
+    });
+    const positionUploads = uploads.filter((upload) => upload.length === 8);
+
+    expect(positionUploads).toHaveLength(2);
+    expect(positionUploads[1]).toEqual(positionUploads[0]);
   });
 });

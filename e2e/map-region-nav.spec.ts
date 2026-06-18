@@ -70,6 +70,10 @@ async function waitForMapCenterNear(
   );
 }
 
+async function openRegionsAndFilters(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Regions and filters" }).click();
+}
+
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe("Map toolbar region navigation", () => {
@@ -83,7 +87,7 @@ test.describe("Map toolbar region navigation", () => {
     await assertNoErrors(page, errorCapture, { context: "Map region nav" });
   });
 
-  test("anonymous desktop has one toolbar, search, region pills, and no desktop sidebar", async ({
+  test("anonymous desktop has one toolbar, search, region dropdown, and no desktop sidebar", async ({
     page,
   }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
@@ -94,10 +98,17 @@ test.describe("Map toolbar region navigation", () => {
 
     await expect(page.getByTestId("map-controls")).toHaveCount(1);
     await expect(
-      page.getByRole("searchbox", {
+      page.getByRole("combobox", {
         name: "Search beaches, spots, or cities",
       }),
     ).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(
+      page.getByRole("button", { name: "Regions and filters" }),
+    ).toBeVisible();
+    await expect(page.getByTestId("map-region-pill-san-diego")).toHaveCount(0);
+
+    await openRegionsAndFilters(page);
+
     await expect(page.getByTestId("map-region-pill-san-diego")).toBeVisible();
     await expect(page.getByTestId("map-region-pill-hawaii")).toBeVisible();
     await expect(page.getByText(/spots in view/i)).toHaveCount(0);
@@ -115,11 +126,11 @@ test.describe("Map toolbar region navigation", () => {
 
     const initialCenter = await getMapCenter(page);
 
-    await page.getByTestId("swell-field-toggle").click();
     await expect(page.getByTestId("swell-layer-selector")).toBeVisible({
       timeout: TIMEOUTS.medium,
     });
 
+    await openRegionsAndFilters(page);
     await page.getByTestId("map-region-pill-hawaii").click();
     await waitForMapCenterNear(
       page,
@@ -139,15 +150,17 @@ test.describe("Map toolbar region navigation", () => {
     await dismissMapEntryOverlay(page);
     await waitForMapInstance(page);
 
+    await openRegionsAndFilters(page);
     await page.getByTestId("map-region-pill-hawaii").click();
     await waitForMapCenterNear(
       page,
       { lat: 21.66, lon: -158.06 },
       1.25,
     );
+    await page.keyboard.press("Escape");
 
     const hawaiiCenter = await getMapCenter(page);
-    const search = page.getByRole("searchbox", {
+    const search = page.getByRole("combobox", {
       name: "Search beaches, spots, or cities",
     });
     await search.fill("Blacks");
@@ -162,7 +175,7 @@ test.describe("Map toolbar region navigation", () => {
     expect(Math.abs(sanDiegoCenter.lon - hawaiiCenter.lon)).toBeGreaterThan(10);
   });
 
-  test("mobile keeps search and region pills visible", async ({ page }) => {
+  test("mobile keeps search and region dropdown visible", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
 
     await page.goto("/map");
@@ -170,10 +183,16 @@ test.describe("Map toolbar region navigation", () => {
     await dismissMapEntryOverlay(page);
 
     await expect(
-      page.getByRole("searchbox", {
+      page.getByRole("combobox", {
         name: "Search beaches, spots, or cities",
       }),
     ).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(
+      page.getByRole("button", { name: "Regions and filters" }),
+    ).toBeVisible();
+
+    await openRegionsAndFilters(page);
+
     await expect(page.getByTestId("map-region-pill-san-diego")).toBeVisible();
   });
 });

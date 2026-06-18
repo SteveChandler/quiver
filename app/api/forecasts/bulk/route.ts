@@ -29,6 +29,7 @@ const emptyBulkForecastResponse = {
   conditionScores: {},
   conditionSummaries: {},
   swellPartitions: {},
+  swellPartitionTimeline: {},
 };
 
 const BULK_FORECAST_SELECT =
@@ -36,6 +37,8 @@ const BULK_FORECAST_SELECT =
 
 const BULK_BEACH_SELECT =
   "id, name, lat, lon, shoaling_factors, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, wind_onshore_bad_kt, wind_cross_shore_ok_kt, preferred_tide_ft_min, preferred_tide_ft_max, preferred_tide_direction, tide_direction_sensitivity, skill_level, break_type" as const;
+
+const SWELL_TIMELINE_HOUR_OFFSETS = [0, 3, 6, 9, 12] as const;
 
 /**
  * GET /api/forecasts/bulk
@@ -107,10 +110,83 @@ function conditionSummaryFromScore(score: number): ConditionSummary {
   return "CHECK";
 }
 
+function forecastTimeMs(
+  row: Pick<EnhancedForecastEntity, "forecast_at" | "forecast_date" | "forecast_time">
+): number | null {
+  const direct = Date.parse(String(row.forecast_at ?? ""));
+  if (Number.isFinite(direct)) return direct;
+
+  const fallback = Date.parse(
+    `${row.forecast_date ?? ""}T${row.forecast_time ?? "00:00:00"}Z`
+  );
+  return Number.isFinite(fallback) ? fallback : null;
+}
+
+function nearestForecastRow(
+  rows: EnhancedForecastEntity[],
+  targetMs: number
+): EnhancedForecastEntity | null {
+  let best: EnhancedForecastEntity | null = null;
+  let bestDelta = Infinity;
+  let bestIsFuture = false;
+
+  for (const row of rows) {
+    const rowMs = forecastTimeMs(row);
+    if (rowMs == null) continue;
+
+    const delta = Math.abs(rowMs - targetMs);
+    const isFuture = rowMs >= targetMs;
+    if (
+      delta < bestDelta ||
+      (delta === bestDelta && isFuture && !bestIsFuture)
+    ) {
+      best = row;
+      bestDelta = delta;
+      bestIsFuture = isFuture;
+    }
+  }
+
+  return best;
+}
+
+function buildSwellPartitionTimeline(
+  rows: EnhancedForecastEntity[],
+  now: Date
+): Record<string, SwellPartition[]> {
+  const rowsByBeach = new Map<string, EnhancedForecastEntity[]>();
+
+  for (const row of rows) {
+    const existing = rowsByBeach.get(row.beach_id) ?? [];
+    existing.push(row);
+    rowsByBeach.set(row.beach_id, existing);
+  }
+
+  const timeline: Record<string, SwellPartition[]> = {};
+  const nowMs = now.getTime();
+
+  rowsByBeach.forEach((beachRows, beachId) => {
+    const partitions = SWELL_TIMELINE_HOUR_OFFSETS.map((offsetHours) => {
+      const targetMs = nowMs + offsetHours * 60 * 60 * 1000;
+      const row = nearestForecastRow(beachRows, targetMs);
+      return row ? rowToSwellPartition(row) : null;
+    }).filter((partition): partition is SwellPartition => partition !== null);
+
+    if (partitions.length > 0) {
+      timeline[beachId] = partitions;
+    }
+  });
+
+  return timeline;
+}
+
 async function fetchBulkCurrentForecastsWithV51Display(
   supabase: SupabaseClient<Database>,
   beachIds: string[]
-): Promise<{ data: EnhancedForecastEntity[] | null; error: { message: string } | null }> {
+): Promise<{
+  data: EnhancedForecastEntity[] | null;
+  timelineRows: EnhancedForecastEntity[];
+  error: { message: string } | null;
+}> {
   const now = new Date();
   const targetDate = now.toISOString().split("T")[0];
   const tomorrow = nextUtcDateString(now);
@@ -123,7 +199,11 @@ async function fetchBulkCurrentForecastsWithV51Display(
     .in("forecast_date", [targetDate, tomorrow]);
 
   if (error || !data) {
-    return { data: null, error: error ? { message: error.message } : null };
+    return {
+      data: null,
+      timelineRows: [],
+      error: error ? { message: error.message } : null,
+    };
   }
 
   const rankedByBeach = new Map<string, EnhancedForecastEntity>();
@@ -150,6 +230,7 @@ async function fetchBulkCurrentForecastsWithV51Display(
 
   return {
     data: displayRows,
+    timelineRows: data as unknown as EnhancedForecastEntity[],
     error: null,
   };
 }
@@ -182,10 +263,11 @@ async function bulkForecastHandler(
     const limitedBeachIds = beachIds.slice(0, maxBeaches);
     const { supabase } = context;
 
-    const { data, error } = await fetchBulkCurrentForecastsWithV51Display(
-      supabase,
-      limitedBeachIds
-    );
+    const {
+      data,
+      timelineRows,
+      error,
+    } = await fetchBulkCurrentForecastsWithV51Display(supabase, limitedBeachIds);
 
     if (error) {
       console.error("Error fetching bulk forecasts:", error);
@@ -204,6 +286,10 @@ async function bulkForecastHandler(
     (data || []).forEach((row) => {
       swellPartitionMap[row.beach_id] = rowToSwellPartition(row);
     });
+    const swellPartitionTimeline = buildSwellPartitionTimeline(
+      timelineRows,
+      new Date()
+    );
 
     const conditionScoreMap: Record<string, number | undefined> = {};
     const conditionSummaryMap: Record<string, ConditionSummary> =
@@ -285,6 +371,7 @@ async function bulkForecastHandler(
       conditionScores: conditionScoreMap,
       conditionSummaries: conditionSummaryMap,
       swellPartitions: swellPartitionMap,
+      swellPartitionTimeline,
     });
   } catch (error) {
     console.error("Unexpected error in bulk forecast API:", error);

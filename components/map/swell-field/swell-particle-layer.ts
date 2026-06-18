@@ -202,6 +202,7 @@ export function createSwellParticleLayer(
   let uColorLoc: WebGLUniformLocation | null = null;
   let uAlphaLoc: WebGLUniformLocation | null = null;
   let uPointSizeLoc: WebGLUniformLocation | null = null;
+  let hasRenderedReducedMotionFrame = false;
   let mapRef: mapboxgl.Map | null = null;
 
   // Particle state in Mercator unit space [0..1].
@@ -407,7 +408,10 @@ export function createSwellParticleLayer(
 
     render(gl: WebGL2RenderingContext, matrix: number[]) {
       if (!program || !mapRef) return;
-      advanceAndFill(mapRef);
+      if (!options.reducedMotion || !hasRenderedReducedMotionFrame) {
+        advanceAndFill(mapRef);
+        hasRenderedReducedMotionFrame = options.reducedMotion;
+      }
 
       gl.useProgram(program);
       gl.uniformMatrix4fv(uMatrixLoc, false, matrix);

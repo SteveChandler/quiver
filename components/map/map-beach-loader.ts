@@ -37,6 +37,8 @@ export interface BeachLoaderResult {
   conditionSummaryMap: Map<string, ConditionSummary>;
   /** Map from beach ID to parsed swell/wind partition for the flow field */
   partitionsMap: Map<string, SwellPartition>;
+  /** Map from beach ID to parsed swell/wind partitions by forecast timeline step */
+  partitionsTimelineMap: Map<string, SwellPartition[]>;
 }
 
 /**
@@ -117,6 +119,7 @@ export async function loadBeachesAndWaveHeights(
   const conditionScoreMap = new Map<string, number | undefined>();
   const conditionSummaryMap = new Map<string, ConditionSummary>();
   const partitionsMap = new Map<string, SwellPartition>();
+  const partitionsTimelineMap = new Map<string, SwellPartition[]>();
   const beachesForWaveData = providedBeaches?.length
     ? providedBeaches
     : locations;
@@ -190,6 +193,22 @@ export async function loadBeachesAndWaveHeights(
             partitionsMap.set(beachId, partition as SwellPartition);
           }
         });
+
+        const swellPartitionTimeline =
+          data?.data?.swellPartitionTimeline || {};
+        Object.entries(swellPartitionTimeline).forEach(
+          ([beachId, partitions]) => {
+            if (Array.isArray(partitions)) {
+              partitionsTimelineMap.set(
+                beachId,
+                partitions.filter(
+                  (partition): partition is SwellPartition =>
+                    partition != null && typeof partition === "object"
+                ) as SwellPartition[]
+              );
+            }
+          }
+        );
       });
     } catch (error) {
       console.warn("Failed to fetch bulk forecasts:", error);
@@ -199,7 +218,15 @@ export async function loadBeachesAndWaveHeights(
   // Fill missing wave heights from nearest beach with data
   interpolateMissingWaveHeights(beachesForWaveData, waveHeightMap);
 
-  return { locations, waveHeightMap, waterTempMap, conditionScoreMap, conditionSummaryMap, partitionsMap };
+  return {
+    locations,
+    waveHeightMap,
+    waterTempMap,
+    conditionScoreMap,
+    conditionSummaryMap,
+    partitionsMap,
+    partitionsTimelineMap,
+  };
 }
 
 /**

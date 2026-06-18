@@ -116,18 +116,11 @@ test.describe('Usage Critical: authenticated surfaces', () => {
     await expectAnyVisible([
       { locator: page.getByTestId('map-view'), name: 'map view' },
       { locator: page.locator('canvas'), name: 'map canvas' },
-      { locator: page.getByTestId('beach-list'), name: 'beach list' },
     ], TIMEOUTS.long);
 
-    const listButton = page.getByTestId('view-mode-list');
-    // eslint-disable-next-line playwright/no-conditional-in-test -- map can already render list mode on small or degraded viewports
-    if (await isVisibleSafe(listButton, { timeout: TIMEOUTS.short })) {
-      await listButton.click();
-    }
-
-    const beachLink = page.locator('a[href*="/blacks"]').first();
-    await expect(beachLink).toBeVisible({ timeout: TIMEOUTS.long });
-    await beachLink.click();
+    const beachMarker = page.locator('[data-testid="beach-marker"]').first();
+    await expect(beachMarker).toBeVisible({ timeout: TIMEOUTS.long });
+    await beachMarker.click({ force: true });
     await page.waitForURL(/\/(ca|california|beach)\//, { timeout: TIMEOUTS.long });
 
     await expect(page).toHaveURL(/\/(ca|california|beach)\//);

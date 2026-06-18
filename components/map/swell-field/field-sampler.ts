@@ -36,6 +36,56 @@ export interface FlowField {
   cells: FlowCell[];
 }
 
+const clamp01 = (value: number): number =>
+  Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0));
+
+function lerpNullable(
+  from: number | null,
+  to: number | null,
+  progress: number
+): number | null {
+  if (from == null && to == null) return null;
+  if (from == null) return to;
+  if (to == null) return from;
+  if (!Number.isFinite(from) && !Number.isFinite(to)) return null;
+  if (!Number.isFinite(from)) return to;
+  if (!Number.isFinite(to)) return from;
+  return from + (to - from) * progress;
+}
+
+function lerpDirectionNullable(
+  from: number | null,
+  to: number | null,
+  progress: number
+): number | null {
+  if (from == null && to == null) return null;
+  if (from == null) return to;
+  if (to == null) return from;
+  if (!Number.isFinite(from) && !Number.isFinite(to)) return null;
+  if (!Number.isFinite(from)) return to;
+  if (!Number.isFinite(to)) return from;
+  const delta = ((((to - from) % 360) + 540) % 360) - 180;
+  return (from + delta * progress + 360) % 360;
+}
+
+export function interpolateSwellPartition(
+  from: SwellPartition,
+  to: SwellPartition,
+  progress: number
+): SwellPartition {
+  const t = clamp01(progress);
+  return {
+    s1Dir: lerpDirectionNullable(from.s1Dir, to.s1Dir, t),
+    s1PeriodS: lerpNullable(from.s1PeriodS, to.s1PeriodS, t),
+    s1HeightFt: lerpNullable(from.s1HeightFt, to.s1HeightFt, t),
+    s2Dir: lerpDirectionNullable(from.s2Dir, to.s2Dir, t),
+    s2PeriodS: lerpNullable(from.s2PeriodS, to.s2PeriodS, t),
+    s2HeightFt: lerpNullable(from.s2HeightFt, to.s2HeightFt, t),
+    windDir: lerpDirectionNullable(from.windDir, to.windDir, t),
+    windMph: lerpNullable(from.windMph, to.windMph, t),
+  };
+}
+
 /** Minimal style-layer shape we need to sniff water layers (id only). */
 export interface StyleLayerLike {
   id: string;

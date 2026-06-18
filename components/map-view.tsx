@@ -10,7 +10,6 @@ import {
   type MapRegionPill,
 } from "@/components/map/map-regions";
 import { MapContent } from "@/components/map/map-content";
-import { BeachList } from "@/components/map/beach-list";
 import { MapBottomSheet } from "@/components/map/map-bottom-sheet";
 import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
 import { filterBeachesByViewport, type ViewportBounds } from "@/lib/utils/viewport-filter";
@@ -25,7 +24,6 @@ export function MapView() {
   const router = useRouter();
   const pathname = usePathname();
   const isMobile = useIsMobile();
-  const [viewMode, setViewMode] = useState<"map" | "list">("map");
   const [showRecovery, setShowRecovery] = useState(false);
   const [mapFocusCenter, setMapFocusCenter] = useState<{
     lat: number;
@@ -34,10 +32,11 @@ export function MapView() {
 
   // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
   const lastLocationRef = useRef<{ lat: number; lon: number } | null>(null);
+  const preserveSearchStateOnNextUrlClearRef = useRef(false);
 
   const [viewportBounds, setViewportBounds] = useState<ViewportBounds | null>(null);
   const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
-  const [showSwellField, setShowSwellField] = useState(false);
+  const [showSwellField, setShowSwellField] = useState(true);
   const [swellLayerId, setSwellLayerId] = useState<SwellLayerId>("s1");
   const [swellTimelineIndex, setSwellTimelineIndex] = useState(0);
   const swellTimelineSteps = useMemo(
@@ -65,7 +64,6 @@ export function MapView() {
     searchQuery,
     selectedBeach,
     filters,
-    loadBeaches,
     loadNearbyBeaches,
     setSearchQuery,
     clearSearch,
@@ -97,11 +95,20 @@ export function MapView() {
     loadNearbyBeaches(userLocation.lat, userLocation.lon);
   }, [userLocation, locationLoading, loadNearbyBeaches]);
 
-  // URL is the source of truth for the search query.
-  // Syncing both directions (state → URL via router.replace in clearers; URL → state here)
-  // prevents snap-back when Clear all strips ?search= while state also clears.
+  // Hydrate deep-linked search state from the URL. Local toolbar edits may strip the
+  // stale URL param without clearing the active input state.
   useEffect(() => {
-    const searchFromUrl = searchParams.get("search") ?? "";
+    const searchFromUrl = searchParams.get("search");
+    if (searchFromUrl === null) {
+      if (preserveSearchStateOnNextUrlClearRef.current) {
+        preserveSearchStateOnNextUrlClearRef.current = false;
+        return;
+      }
+      setSearchQuery("");
+      return;
+    }
+
+    preserveSearchStateOnNextUrlClearRef.current = false;
     setSearchQuery(searchFromUrl);
     if (searchFromUrl) {
       setMapFocusCenter(null);
@@ -138,7 +145,10 @@ export function MapView() {
   );
 
   const stripMapUrlParams = useCallback(
-    (keys: readonly string[]) => {
+    (
+      keys: readonly string[],
+      options?: { preserveSearchState?: boolean }
+    ) => {
       const params = new URLSearchParams(searchParams.toString());
       let mutated = false;
       for (const key of keys) {
@@ -148,6 +158,9 @@ export function MapView() {
         }
       }
       if (mutated) {
+        if (options?.preserveSearchState && keys.includes("search")) {
+          preserveSearchStateOnNextUrlClearRef.current = true;
+        }
         const qs = params.toString();
         router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
       }
@@ -176,8 +189,9 @@ export function MapView() {
       setMapFocusCenter(null);
       setSelectedBeach(null);
       setSearchQuery(query);
+      stripMapUrlParams(["search"], { preserveSearchState: true });
     },
-    [setSearchQuery, setSelectedBeach]
+    [setSearchQuery, setSelectedBeach, stripMapUrlParams]
   );
 
   const handleClearAll = useCallback(() => {
@@ -204,10 +218,11 @@ export function MapView() {
       setSelectedBeach(null);
       clearSearch();
       setMapFocusCenter(region.center);
+      stripMapUrlParams(["search"]);
       lastLocationRef.current = null;
       void loadNearbyBeaches(region.center.lat, region.center.lon);
     },
-    [clearSearch, loadNearbyBeaches, setSelectedBeach]
+    [clearSearch, loadNearbyBeaches, setSelectedBeach, stripMapUrlParams]
   );
 
   // Distance calculation function using centralized utility
@@ -279,8 +294,6 @@ export function MapView() {
         regions={MAP_REGION_PILLS}
         onRegionSelect={handleRegionSelect}
         onUseMyLocation={handleUseMyLocation}
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
         filters={filters}
         onToggleBeginner={toggleBeginnerFriendly}
         onToggleBreakType={toggleBreakType}
@@ -291,68 +304,50 @@ export function MapView() {
       />
 
       {/* Content */}
-      {viewMode === "map" ? (
-        <div className="flex-1 flex flex-col min-h-0">
-          <div className="flex-1 relative min-h-0 flex flex-col">
-            <MapContent
-              loading={loading}
-              locationError={locationError}
-              usingDefaultLocation={usingDefaultLocation}
-              hasTimedOut={hasTimedOut}
-              userLocation={userLocation}
-              focusCenter={mapFocusCenter}
-              selectedBeach={selectedBeachForMap}
-              filteredBeaches={filteredBeaches}
-              searchQuery={searchQuery}
-              regionViewport={null}
-              onGetUserLocation={handleUseMyLocation}
-              onUseDefaultLocation={handleUseDefaultLocation}
-              onBeachSelect={handleBeachSelect}
-              onBoundsChange={handleBoundsChange}
-              onWaveHeightsChange={handleWaveHeightsChange}
-              onMapClick={isMobile ? handleMapClick : undefined}
-              autoNavigateOnMarkerClick={!isMobile}
-              onShowBeaches={isMobile && showRecovery ? handleShowBeaches : undefined}
-              hasInlineBeachList={isMobile}
-              visibleBeachCount={viewportBeaches.length}
-              showSwellField={showSwellField}
-              swellLayerId={swellLayerId}
-              onSwellLayerChange={setSwellLayerId}
-              swellTimelineSteps={swellTimelineSteps}
-              swellTimelineIndex={swellTimelineIndex}
-              onSwellTimelineChange={setSwellTimelineIndex}
-            />
-          </div>
-
-          {/* Mobile bottom sheet (JS-conditional: Vaul Drawer uses portal, escapes CSS) */}
-          {isMobile && (
-            <MapBottomSheet
-              beaches={viewportBeaches}
-              waveHeightMap={waveHeightMap}
-              selectedBeach={selectedBeachForMap}
-              userLocation={userLocation}
-              onBeachSelect={handleBeachSelect}
-              getDistanceFromUser={getDistanceFromUser}
-              onDeselectBeach={handleMapClick}
-              onDismissAttempt={handleDismissAttempt}
-            />
-          )}
-
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 relative min-h-0 flex flex-col">
+          <MapContent
+            loading={loading}
+            locationError={locationError}
+            usingDefaultLocation={usingDefaultLocation}
+            hasTimedOut={hasTimedOut}
+            userLocation={userLocation}
+            focusCenter={mapFocusCenter}
+            selectedBeach={selectedBeachForMap}
+            filteredBeaches={filteredBeaches}
+            searchQuery={searchQuery}
+            regionViewport={null}
+            onGetUserLocation={handleUseMyLocation}
+            onUseDefaultLocation={handleUseDefaultLocation}
+            onBeachSelect={handleBeachSelect}
+            onBoundsChange={handleBoundsChange}
+            onWaveHeightsChange={handleWaveHeightsChange}
+            onMapClick={isMobile ? handleMapClick : undefined}
+            autoNavigateOnMarkerClick={!isMobile}
+            onShowBeaches={isMobile && showRecovery ? handleShowBeaches : undefined}
+            showSwellField={showSwellField}
+            swellLayerId={swellLayerId}
+            onSwellLayerChange={setSwellLayerId}
+            swellTimelineSteps={swellTimelineSteps}
+            swellTimelineIndex={swellTimelineIndex}
+            onSwellTimelineChange={setSwellTimelineIndex}
+          />
         </div>
-      ) : (
-        <BeachList
-          filteredBeaches={filteredBeaches}
-          searchQuery={searchQuery}
-          userLocation={userLocation}
-          usingDefaultLocation={usingDefaultLocation}
-          loading={loading}
-          onBeachSelect={handleBeachSelect}
-          onClearSearch={handleClearSearch}
-          onGetUserLocation={getUserLocation}
-          onLoadBeaches={loadBeaches}
-          getDistanceFromUser={getDistanceFromUser}
-        />
-      )}
+
+        {/* Mobile bottom sheet (JS-conditional: Vaul Drawer uses portal, escapes CSS) */}
+        {isMobile && (
+          <MapBottomSheet
+            beaches={viewportBeaches}
+            waveHeightMap={waveHeightMap}
+            selectedBeach={selectedBeachForMap}
+            userLocation={userLocation}
+            onBeachSelect={handleBeachSelect}
+            getDistanceFromUser={getDistanceFromUser}
+            onDeselectBeach={handleMapClick}
+            onDismissAttempt={handleDismissAttempt}
+          />
+        )}
+      </div>
     </div>
   );
 }
