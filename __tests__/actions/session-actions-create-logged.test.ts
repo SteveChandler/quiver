@@ -17,7 +17,9 @@ function createSupabaseMock() {
     from: jest.fn().mockReturnThis() as MockFn,
     select: jest.fn().mockReturnThis() as MockFn,
     insert: jest.fn().mockReturnThis() as MockFn,
+    update: jest.fn().mockReturnThis() as MockFn,
     eq: jest.fn().mockReturnThis() as MockFn,
+    is: jest.fn().mockReturnThis() as MockFn,
     ilike: jest.fn().mockReturnThis() as MockFn,
     limit: jest.fn().mockReturnThis() as MockFn,
     single: jest.fn() as MockFn,
@@ -127,5 +129,37 @@ describe("createLoggedSession personalization recompute", () => {
 
     expect(result.success).toBe(true);
     expect(mockComputeUserPreferences).toHaveBeenCalledWith("user-123");
+  });
+
+  it("links carried forecast feedback context to the created session", async () => {
+    const result = await createLoggedSession({
+      beach_id: "beach-123",
+      beach_name: "Ocean Beach",
+      arrival_time: "2026-05-20 14:00:00+00",
+      forecast_accuracy: "inaccurate",
+      forecast_feedback_context_id: "123e4567-e89b-42d3-a456-426614174999",
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockSupabase.from).toHaveBeenCalledWith("forecast_feedback_contexts");
+    expect(mockSupabase.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        session_id: "session-123",
+      }),
+    );
+    expect(mockSupabase.eq).toHaveBeenCalledWith(
+      "id",
+      "123e4567-e89b-42d3-a456-426614174999",
+    );
+    expect(mockSupabase.eq).toHaveBeenCalledWith("user_id", "user-123");
+    expect(mockSupabase.eq).toHaveBeenCalledWith("beach_id", "beach-123");
+    expect(mockSupabase.is).toHaveBeenCalledWith("session_id", null);
+
+    const sessionsInsertCall = mockSupabase.insert.mock.calls.find(
+      ([payload]) => payload?.beach_name === "Ocean Beach",
+    );
+    expect(sessionsInsertCall?.[0]).not.toHaveProperty(
+      "forecast_feedback_context_id",
+    );
   });
 });
