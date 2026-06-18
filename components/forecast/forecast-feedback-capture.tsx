@@ -329,7 +329,11 @@ export function ForecastFeedbackCapture({
       )}
 
       {status === "success" && (
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
+          role="status"
+          aria-live="polite"
+        >
           <p className="text-sm font-bold text-[#0B7A4B]">
             Feedback saved.
           </p>
@@ -344,7 +348,11 @@ export function ForecastFeedbackCapture({
         </div>
       )}
       {status === "error" && (
-        <p className="mt-2 text-sm font-bold text-[#B42318]">
+        <p
+          className="mt-2 text-sm font-bold text-[#B42318]"
+          role="status"
+          aria-live="polite"
+        >
           Feedback could not be saved.
         </p>
       )}
