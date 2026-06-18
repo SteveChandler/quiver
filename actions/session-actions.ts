@@ -23,6 +23,7 @@ import {
   sanitizeSessionPayload 
 } from "@/lib/utils/session-utils";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import type { BoardSnapshot } from "@/types/personalization";
 
 // Optional XP tracking - imported dynamically to avoid circular dependency
@@ -333,6 +334,13 @@ export async function createLoggedSession(data: SessionFormState | SessionInputW
       } = data as SessionInputWithFeedbackContext;
       forecastFeedbackContextId = forecast_feedback_context_id;
       sessionData = input;
+    }
+
+    if (
+      forecastFeedbackContextId &&
+      !z.string().uuid().safeParse(forecastFeedbackContextId).success
+    ) {
+      forecastFeedbackContextId = undefined;
     }
 
     // Create the session with completed status
