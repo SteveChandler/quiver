@@ -354,9 +354,8 @@ export function createSwellParticleLayer(
         continue;
       }
 
-      // Draw a small fixed-length dash oriented PERPENDICULAR to the flow vector — a
-      // wave-CREST mark (the line of the wave front), centered on the particle. The
-      // particle still ADVANCES along (vx,vy); only the drawn mark is rotated 90°.
+      // Draw a small fixed-length dash PERPENDICULAR to the flow vector, centered on
+      // the particle, so the visible mark reads like a wave crest.
       // Visible length is independent of drift speed.
       const vlen = Math.hypot(cell.vx, cell.vy) || 1;
       const dashHalf = span * DASH_FRACTION * 0.5;

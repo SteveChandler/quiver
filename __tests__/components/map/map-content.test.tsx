@@ -2,31 +2,40 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MapContent } from "@/components/map/map-content";
 import { createMockBeaches } from "@/__tests__/setup/test-utils";
 
+let mockInteractiveMapMounts = 0;
+
 // Mock the dynamic import for InteractiveMap
 jest.mock("next/dynamic", () => () => {
   const InteractiveMapMock = ({
     initialCenter,
     onLocationClick,
     onBeachSelect,
-  }: any) => (
-    <div
-      data-testid="interactive-map"
-      data-initial-center={initialCenter?.join(",")}
-    >
-      <button
-        onClick={() => onLocationClick?.(mockBeaches[0])}
-        data-testid="mock-beach-click"
+  }: any) => {
+    const [mountId] = require("react").useState(
+      () => ++mockInteractiveMapMounts,
+    );
+
+    return (
+      <div
+        data-testid="interactive-map"
+        data-initial-center={initialCenter?.join(",")}
+        data-mount-id={mountId}
       >
-        Click Beach
-      </button>
-      <button
-        onClick={() => onBeachSelect?.(mockBeaches[0])}
-        data-testid="mock-beach-select"
-      >
-        Select Beach
-      </button>
-    </div>
-  );
+        <button
+          onClick={() => onLocationClick?.(mockBeaches[0])}
+          data-testid="mock-beach-click"
+        >
+          Click Beach
+        </button>
+        <button
+          onClick={() => onBeachSelect?.(mockBeaches[0])}
+          data-testid="mock-beach-select"
+        >
+          Select Beach
+        </button>
+      </div>
+    );
+  };
   InteractiveMapMock.displayName = "InteractiveMap";
   return InteractiveMapMock;
 });
@@ -59,6 +68,7 @@ describe("MapContent", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockInteractiveMapMounts = 0;
   });
 
   it("should render map skeleton when loading", () => {
@@ -95,16 +105,50 @@ describe("MapContent", () => {
     expect(screen.getByText(/Set Location to "Allow"/)).toBeInTheDocument();
   });
 
-  it("should render interactive map after interaction", async () => {
+  it("should render interactive map immediately without an idle placeholder", async () => {
     render(<MapContent {...defaultProps} />);
 
     const mapContainer = screen.getByTestId("map-container");
-    fireEvent.pointerDown(mapContainer);
 
-    await waitFor(() => {
-      expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
-    });
+    expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
+    expect(mapContainer.querySelector("[aria-hidden='true']")).toBeNull();
     expect(mapContainer).toBeInTheDocument();
+  });
+
+  it("should recenter user location changes without remounting the map", () => {
+    const { rerender } = render(
+      <MapContent
+        {...defaultProps}
+        filteredBeaches={[]}
+        selectedBeach={null}
+        userLocation={{ lat: 32.7702, lon: -117.2525 }}
+      />,
+    );
+
+    const firstMap = screen.getByTestId("interactive-map");
+    const firstMountId = firstMap.getAttribute("data-mount-id");
+    if (!firstMountId) {
+      throw new Error("Expected interactive map mount id");
+    }
+    expect(firstMap).toHaveAttribute("data-initial-center", "32.7702,-117.2525");
+
+    rerender(
+      <MapContent
+        {...defaultProps}
+        filteredBeaches={[]}
+        selectedBeach={null}
+        userLocation={{ lat: 33.63, lon: -117.95 }}
+      />,
+    );
+
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-mount-id",
+      firstMountId,
+    );
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-initial-center",
+      "33.63,-117.95",
+    );
   });
 
   it("should center the map on focusCenter when no beach or search result is selected", async () => {

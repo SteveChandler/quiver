@@ -169,12 +169,12 @@ const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
 
 const CONDITION_LEGEND_ITEMS: Array<{
   label: ConditionSummary;
-  caption: string;
+  display: string;
 }> = [
-  { label: "GOOD", caption: "Go" },
-  { label: "FAIR", caption: "Maybe" },
-  { label: "CHECK", caption: "Check" },
-  { label: "UNKNOWN", caption: "No read" },
+  { label: "GOOD", display: "Worth it" },
+  { label: "FAIR", display: "Maybe" },
+  { label: "CHECK", display: "Scout it" },
+  { label: "UNKNOWN", display: "No read" },
 ];
 
 interface MapConditionLegendProps {
@@ -238,9 +238,8 @@ function MapConditionLegend({
                     style={{ background: getConditionMarkerGradient(item.label) }}
                   />
                   <span className="text-[10px] font-semibold leading-none tracking-normal">
-                    {item.label}
+                    {item.display}
                   </span>
-                  <span className="sr-only">{item.caption}</span>
                 </div>
               ))}
             </div>
@@ -859,6 +858,22 @@ export function InteractiveMap({
     };
   }, [isMapReady, showSwellField, applyWaterMask]);
 
+  const particleLayerDensityKey =
+    swellLayerId === "wind" || swellLayerId === "combined"
+      ? windParticleDensity
+      : 0;
+
+  const releaseSwellFieldLeash = useCallback((map: mapboxgl.Map): void => {
+    const captured = zoomLimitsCaptureRef.current;
+    // Nothing was ever leashed — leave the free camera untouched.
+    if (!captured) return;
+    // Runtime accepts null to clear; the public typings only expose the setter.
+    map.setMaxBounds(null as unknown as mapboxgl.LngLatBoundsLike);
+    map.setMinZoom(captured.minZoom);
+    map.setMaxZoom(captured.maxZoom);
+    zoomLimitsCaptureRef.current = null;
+  }, []);
+
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !isMapReady) return;
@@ -932,8 +947,9 @@ export function InteractiveMap({
 
     return teardown;
     // Re-add when toggled, the active layer changes (the layer SET differs between
-    // combined and single), motion preference flips, or the map (re)mounts.
-  }, [showSwellField, isMapReady, reducedMotion, swellLayerId, windParticleDensity]);
+    // combined and single), motion preference flips, the map (re)mounts, or the
+    // wind particle count changes for a layer that actually renders wind.
+  }, [showSwellField, isMapReady, reducedMotion, swellLayerId, particleLayerDensityKey]);
 
   // Leash the camera to the coastal data corridor while the swell field is ON.
   // Locks zoom (so users can't pull back to open-ocean/continent scale) and pins
@@ -945,26 +961,15 @@ export function InteractiveMap({
     const map = mapRef.current;
     if (!map || !isMapReady) return;
 
-    const releaseLeash = (): void => {
-      const captured = zoomLimitsCaptureRef.current;
-      // Nothing was ever leashed — leave the free camera untouched.
-      if (!captured) return;
-      // Runtime accepts null to clear; the public typings only expose the setter.
-      map.setMaxBounds(null as unknown as mapboxgl.LngLatBoundsLike);
-      map.setMinZoom(captured.minZoom);
-      map.setMaxZoom(captured.maxZoom);
-      zoomLimitsCaptureRef.current = null;
-    };
-
     // Wait until beaches load before constraining; never leash an empty footprint.
     if (!showSwellField || swellFieldBeaches.length === 0) {
-      releaseLeash();
+      releaseSwellFieldLeash(map);
       return;
     }
 
     const bounds = computeCoastalBounds(swellFieldBeaches);
     if (!bounds) {
-      releaseLeash();
+      releaseSwellFieldLeash(map);
       return;
     }
 
@@ -988,8 +993,8 @@ export function InteractiveMap({
       [bounds.east, bounds.north],
     ]);
 
-    return releaseLeash;
-  }, [showSwellField, isMapReady, swellFieldBeaches]);
+    return () => releaseSwellFieldLeash(map);
+  }, [showSwellField, isMapReady, swellFieldBeaches, releaseSwellFieldLeash]);
 
   // Auto-dismiss the one-time coastal-leash hint ~4s after it appears. With
   // motion, kick a CSS opacity fade ~500ms before unmount; under reduced motion
@@ -1400,9 +1405,11 @@ export function InteractiveMap({
       const lngDiff = Math.abs(currentCenter.lng - newLng);
 
       if (latDiff > threshold || lngDiff > threshold) {
-        mapRef.current.flyTo({
+        const map = mapRef.current;
+        releaseSwellFieldLeash(map);
+        map.flyTo({
           center: [newLng, newLat],
-          zoom: mapRef.current.getZoom(),
+          zoom: map.getZoom(),
           duration: 1000,
         });
 
@@ -1410,7 +1417,7 @@ export function InteractiveMap({
         populateLocationsRef.current?.(newLat, newLng);
       }
     }
-  }, [isMapReady, initialCenter]);
+  }, [isMapReady, initialCenter, releaseSwellFieldLeash]);
 
   // Re-populate locations when beaches prop changes (filters applied)
   useEffect(() => {

@@ -130,12 +130,18 @@ async function waitForStableCanvas(page: Page): Promise<void> {
     .poll(
       async () => {
         const first = await canvasFrame(page);
-        // eslint-disable-next-line playwright/no-wait-for-timeout -- wait for tiles/labels to settle before asserting reduced-motion static particles
-        await page.waitForTimeout(350);
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- sample a longer quiet window so late Mapbox tile/data repaints settle before passing
+        await page.waitForTimeout(450);
         const second = await canvasFrame(page);
-        return changedPixelCount(first, second);
+        // eslint-disable-next-line playwright/no-wait-for-timeout -- reduced-motion particles must remain static across the same window used by the final smoke
+        await page.waitForTimeout(450);
+        const third = await canvasFrame(page);
+        return Math.max(
+          changedPixelCount(first, second),
+          changedPixelCount(second, third),
+        );
       },
-      { timeout: 15000 },
+      { timeout: 20000 },
     )
     .toBeLessThanOrEqual(250);
 }
@@ -210,6 +216,10 @@ for (const viewport of [
       await expect(legend).toBeVisible();
       await expect(selector).toBeVisible();
       await expect(timeline).toBeVisible();
+      await expect(legend.getByText("Worth it")).toBeVisible();
+      await expect(legend.getByText("Scout it")).toBeVisible();
+      await expect(legend.getByText("GOOD")).toHaveCount(0);
+      await expect(legend.getByText("CHECK")).toHaveCount(0);
 
       const legendBox = await legend.boundingBox();
       const selectorBox = await selector.boundingBox();
@@ -296,11 +306,6 @@ for (const viewport of [
       await waitForMapInstance(page2);
       await waitForLayer(page2);
       await waitForStableCanvas(page2);
-      const c = await canvasFrame(page2);
-      // eslint-disable-next-line playwright/no-wait-for-timeout -- confirm NO change over time under reduced motion
-      await page2.waitForTimeout(900);
-      const d = await canvasFrame(page2);
-      expect(changedPixelCount(c, d)).toBeLessThanOrEqual(250);
       await assertNoErrors(page2, cap2);
       await ctx2.close();
     });

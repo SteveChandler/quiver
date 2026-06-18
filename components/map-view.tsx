@@ -52,7 +52,6 @@ export function MapView() {
 
   const {
     filteredBeaches,
-    loading: beachLoading,
     searchQuery,
     selectedBeach,
     filters,
@@ -222,8 +221,6 @@ export function MapView() {
     setSelectedBeach(null);
   }, [setSelectedBeach]);
 
-  const loading = locationLoading || beachLoading;
-
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||
     filters.beginnerFriendly ||
@@ -255,7 +252,7 @@ export function MapView() {
       <div className="flex-1 flex flex-col min-h-0">
         <div className="flex-1 relative min-h-0 flex flex-col">
           <MapContent
-            loading={loading}
+            loading={false}
             locationError={locationError}
             usingDefaultLocation={usingDefaultLocation}
             hasTimedOut={hasTimedOut}

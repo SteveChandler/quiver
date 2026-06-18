@@ -256,6 +256,33 @@ describe("createSwellParticleLayer — particle count", () => {
     expect(vertexCount).toBe(300 * 2);
   });
 
+  it("orients the default dash perpendicular to particle travel like a wave crest", () => {
+    const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.25);
+    const eastField: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha: 1 }],
+    };
+
+    try {
+      const { uploads } = renderedDraw({
+        count: 1,
+        field: eastField,
+        captureUploads: true,
+      });
+      const positionUpload = uploads.find((upload) => upload.length === 4);
+
+      if (!positionUpload) {
+        throw new Error("Expected particle position upload");
+      }
+      const [x1, y1, x2, y2] = positionUpload;
+      expect(Math.abs(x2 - x1)).toBeLessThan(1e-9);
+      expect(Math.abs(y2 - y1)).toBeGreaterThan(0);
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
   it("draws POINTS with one vertex per particle for the dot style (wind layer)", () => {
     const { mode, vertexCount, POINTS } = renderedDraw({
       count: 300,

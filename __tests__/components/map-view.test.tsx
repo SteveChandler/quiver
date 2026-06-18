@@ -7,6 +7,8 @@ const mockRouterReplace = jest.fn();
 const mockSetSearchQuery = jest.fn();
 let mockIsMobile = false;
 let mockSearchParams = new URLSearchParams();
+let mockGeolocationLoading = false;
+let mockBeachLoading = false;
 
 jest.mock("next/navigation", () => ({
   usePathname: () => "/map",
@@ -24,7 +26,7 @@ jest.mock("@/hooks/use-geolocation", () => ({
     locationError: null,
     usingDefaultLocation: true,
     hasTimedOut: false,
-    loading: false,
+    loading: mockGeolocationLoading,
     getUserLocation: jest.fn(),
     useDefaultLocation: jest.fn(),
   }),
@@ -33,7 +35,7 @@ jest.mock("@/hooks/use-geolocation", () => ({
 jest.mock("@/hooks/use-beach-search", () => ({
   useBeachSearch: () => ({
     filteredBeaches: [],
-    loading: false,
+    loading: mockBeachLoading,
     searchQuery: "",
     selectedBeach: null,
     filters: { beginnerFriendly: false, breakTypes: new Set<string>() },
@@ -51,13 +53,16 @@ jest.mock("@/hooks/use-beach-search", () => ({
 jest.mock("@/components/map/map-content", () => ({
   MapContent: ({
     autoNavigateOnMarkerClick,
+    loading,
     showSwellField,
   }: {
     autoNavigateOnMarkerClick?: boolean;
+    loading?: boolean;
     showSwellField?: boolean;
   }) => (
     <div
       data-auto-navigate-on-marker-click={String(autoNavigateOnMarkerClick)}
+      data-loading={String(loading)}
       data-show-swell-field={String(showSwellField)}
       data-testid="map-content"
     />
@@ -69,6 +74,8 @@ describe("MapView", () => {
     jest.clearAllMocks();
     mockIsMobile = false;
     mockSearchParams = new URLSearchParams();
+    mockGeolocationLoading = false;
+    mockBeachLoading = false;
   });
 
   it("enables the swell field by default", () => {
@@ -86,6 +93,18 @@ describe("MapView", () => {
       "true",
     );
     expect(screen.queryByTestId("view-mode-list")).not.toBeInTheDocument();
+  });
+
+  it("does not block the map behind geolocation or beach loading", () => {
+    mockGeolocationLoading = true;
+    mockBeachLoading = true;
+
+    render(<MapView />);
+
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-loading",
+      "false",
+    );
   });
 
   it("strips stale search URL params when toolbar search changes", async () => {
