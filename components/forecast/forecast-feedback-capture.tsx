@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Check, Loader2, Send, TrendingDown, TrendingUp } from "lucide-react";
 import type { Beach } from "@/types/database";
@@ -333,12 +334,12 @@ export function ForecastFeedbackCapture({
             Feedback saved.
           </p>
           {sessionLogUrl && (
-            <a
+            <Link
               href={sessionLogUrl}
               className="inline-flex min-h-10 items-center justify-center rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-heading text-xs font-black uppercase text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#11100D]"
             >
               Log the session
-            </a>
+            </Link>
           )}
         </div>
       )}
