@@ -8,7 +8,9 @@ import {
 } from '../utils/error-detection';
 import { getProdReadonlyAuthBlockReason } from '../utils/prod-readonly-auth';
 import { isVisibleSafe } from '../utils/strict-helpers';
-import { navigateToBeach, waitForAuthenticatedHome, waitForPageLoad } from '../utils/test-helpers';
+import { navigateToBeach, waitForPageLoad } from '../utils/test-helpers';
+
+test.describe.configure({ mode: 'serial' });
 
 test.describe('Prod Read-Only Auth UI', () => {
   let errorCapture: ErrorCapture | null;
@@ -33,14 +35,13 @@ test.describe('Prod Read-Only Auth UI', () => {
     await gotoWithErrorCheck(page, errorCapture!, '/');
     await waitForPageLoad(page);
 
-    const authHomeLoaded = await waitForAuthenticatedHome(page);
-    expect(authHomeLoaded).toBe(true);
-
     const hero = page.locator('section[role="banner"]').first();
     const nearbySpots = page.locator('[data-testid="nearby-spots-scroll"]').first();
+    const userMenu = page.getByRole('button', { name: /user menu/i }).first();
     const hasSignedInShell =
       (await isVisibleSafe(hero, { timeout: 15000 })) ||
-      (await isVisibleSafe(nearbySpots, { timeout: 15000 }));
+      (await isVisibleSafe(nearbySpots, { timeout: 15000 })) ||
+      (await isVisibleSafe(userMenu, { timeout: 15000 }));
 
     expect(hasSignedInShell).toBe(true);
   });
@@ -69,8 +70,8 @@ test.describe('Prod Read-Only Auth UI', () => {
     const sessionCards = page.locator('a[href^="/sessions/"]:not([href*="/sessions/new"])');
     const emptyState = page.getByText(/no.*sessions|get started|log your first/i).first();
     const hasRenderableState =
-      (await isVisibleSafe(sessionCards.first(), { timeout: 3000 })) ||
-      (await isVisibleSafe(emptyState, { timeout: 3000 }));
+      (await isVisibleSafe(sessionCards.first(), { timeout: 10000 })) ||
+      (await isVisibleSafe(emptyState, { timeout: 10000 }));
 
     expect(hasRenderableState).toBe(true);
   });

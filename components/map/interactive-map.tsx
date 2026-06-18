@@ -1167,8 +1167,11 @@ export function InteractiveMap({
         });
       }
       setIsMapReady(true);
-      // Expose map instance in dev/test mode for E2E tests
-      if (process.env.NODE_ENV !== 'production') {
+      // Expose map instance in dev and Playwright builds for E2E map assertions.
+      if (
+        process.env.NODE_ENV !== "production" ||
+        process.env.NEXT_PUBLIC_PLAYWRIGHT_TEST === "true"
+      ) {
         (window as any).__quiverMapInstance = mapRef.current;
       }
       // Initialize bounds for clustering

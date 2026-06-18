@@ -10,15 +10,70 @@
  * @project auth (requires authentication)
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/auth-fixture';
+import type { APIRequestContext } from '@playwright/test';
+import { createServiceClient } from '../utils/test-data-cleanup';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const BOARDS_ENDPOINT = `${BASE_URL}/api/boards`;
+const BOARD_TEST_NAME_PATTERNS = [
+  'E2E Test%',
+  'Test Board%',
+  'Performance Test Board%',
+  'Test Session Count%',
+];
 
 // UUID format regex (v1-v5)
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
+type SessionCheckResponse = {
+  sessionData?: {
+    userId?: string;
+  };
+};
+
+async function getAuthenticatedUserIdForCleanup(
+  request: APIRequestContext,
+): Promise<string | null> {
+  const response = await request.get('/api/auth/check-session');
+  if (response.status() !== 200) return null;
+
+  const body = (await response.json().catch(() => null)) as SessionCheckResponse | null;
+  return body?.sessionData?.userId ?? null;
+}
+
+async function cleanupCreatedBoardRows(
+  request: APIRequestContext,
+): Promise<void> {
+  if (
+    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    !process.env.SUPABASE_SERVICE_ROLE_KEY
+  ) {
+    return;
+  }
+
+  const userId = await getAuthenticatedUserIdForCleanup(request);
+  if (!userId) return;
+
+  const supabase = createServiceClient();
+  for (const pattern of BOARD_TEST_NAME_PATTERNS) {
+    const { error } = await supabase
+      .from('boards')
+      .delete()
+      .eq('user_id', userId)
+      .like('name', pattern);
+
+    if (error) {
+      throw new Error(`Board cleanup failed for ${pattern}: ${error.message}`);
+    }
+  }
+}
+
 test.describe('Boards API Contract', () => {
+  test.afterEach(async ({ request }) => {
+    await cleanupCreatedBoardRows(request);
+  });
+
   test.describe('GET /api/boards', () => {
     test.describe('Authentication Requirements', () => {
       test('should require authentication', async ({ playwright }) => {

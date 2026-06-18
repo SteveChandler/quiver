@@ -1,8 +1,23 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "./fixtures/auth-fixture";
+import type { Page } from '@playwright/test';
 import { TEST_BEACHES, VIEWPORTS } from './fixtures/test-data';
 import { waitForPageLoad, navigateToBeach } from './utils/test-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 import { isVisibleSafe } from './utils/strict-helpers';
+
+async function openOverviewTab(page: Page): Promise<void> {
+  const overviewTab = page.getByRole('tab', { name: /overview/i });
+  await expect(overviewTab).toBeVisible({ timeout: 10000 });
+  await overviewTab.click();
+
+  const overviewPanel = page.getByRole('tabpanel', { name: /overview/i });
+  await expect(overviewPanel).toBeVisible({ timeout: 10000 });
+}
+
+// This data-conditional beach page spec pounds the same cached route when fully
+// parallel. Keep the assertions independent, but avoid self-inflicted local
+// Next/Supabase cache stalls.
+test.describe.configure({ mode: 'serial' });
 
 /**
  * Beach Amenities Tests
@@ -27,14 +42,9 @@ test.describe('Beach Amenities - CA beach (CCC data path)', () => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
     await waitForPageLoad(page);
 
-    // Beach pages default to the Forecast tab. Click Overview to reveal
-    // the amenities and spot summary cards.
-    const overviewTab = page.getByRole('tab', { name: /overview/i });
-    const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 10000 });
-    if (isTabVisible) {
-      await overviewTab.click();
-      await page.getByRole('tabpanel').first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
-    }
+    // Beach pages default to the Forecast tab. Overview renders the
+    // amenities and spot summary cards.
+    await openOverviewTab(page);
   });
 
   test.afterEach(async ({ page }) => {
@@ -54,9 +64,8 @@ test.describe('Beach Amenities - CA beach (CCC data path)', () => {
     const overviewTab = page.getByRole('tab', { name: /overview/i });
     await expect(overviewTab).toBeVisible({ timeout: 10000 });
 
-    // The zine layout's TODAY'S SURF CALL label is always present (not data-conditional)
-    const spotSummary = page.getByText(/TODAY'S SURF CALL/i).first();
-    await expect(spotSummary).toBeVisible({ timeout: 10000 });
+    // The Overview panel itself is the invariant; its child cards are data-conditional.
+    await expect(page.getByRole('tabpanel', { name: /overview/i })).toBeVisible();
   });
 
   test('amenities card renders with at least one badge when CCC data is present', async ({ page }) => {
@@ -149,9 +158,7 @@ test.describe('Beach Amenities - CA beach (CCC data path)', () => {
     const hasAmenities = await isVisibleSafe(amenitiesHeading, { timeout: 5000 });
 
     if (!hasAmenities) {
-      // Still verify the surf-call header is intact on mobile
-      const spotSummary = page.getByText(/TODAY'S SURF CALL/i).first();
-      await expect(spotSummary).toBeVisible({ timeout: 10000 });
+      await expect(page.getByRole('tabpanel', { name: /overview/i })).toBeVisible();
       console.log('[beach-amenities] Amenities card absent on mobile – skipping responsive badge check.');
       return;
     }
@@ -194,13 +201,8 @@ test.describe('Beach Amenities - non-CA beach (fallback path)', () => {
     await navigateToBeach(page, TEST_BEACHES.beacons);
     await waitForPageLoad(page);
 
-    // Beach pages default to the Forecast tab. Click Overview to reveal amenities.
-    const overviewTab = page.getByRole('tab', { name: /overview/i });
-    const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 10000 });
-    if (isTabVisible) {
-      await overviewTab.click();
-      await page.getByRole('tabpanel').first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
-    }
+    // Beach pages default to the Forecast tab. Overview renders amenities.
+    await openOverviewTab(page);
   });
 
   test.afterEach(async ({ page }) => {
@@ -214,8 +216,7 @@ test.describe('Beach Amenities - non-CA beach (fallback path)', () => {
     const overviewTab = page.getByRole('tab', { name: /overview/i });
     await expect(overviewTab).toBeVisible({ timeout: 10000 });
 
-    const spotSummary = page.getByText(/TODAY'S SURF CALL/i).first();
-    await expect(spotSummary).toBeVisible({ timeout: 10000 });
+    await expect(page.getByRole('tabpanel', { name: /overview/i })).toBeVisible();
   });
 
   test('amenities section either shows derived badges or is gracefully absent', async ({ page }) => {
@@ -247,8 +248,7 @@ test.describe('Beach Amenities - non-CA beach (fallback path)', () => {
       expect(foundAmenity).toBe(true);
     } else {
       // Graceful absence – page content is still fully rendered
-      const spotSummary = page.getByText(/TODAY'S SURF CALL/i).first();
-      await expect(spotSummary).toBeVisible();
+      await expect(page.getByRole('tabpanel', { name: /overview/i })).toBeVisible();
     }
   });
 });
@@ -261,13 +261,8 @@ test.describe('Beach Amenities - known badge labels', () => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
     await waitForPageLoad(page);
 
-    // Beach pages default to the Forecast tab. Click Overview to reveal amenities.
-    const overviewTab = page.getByRole('tab', { name: /overview/i });
-    const isTabVisible = await isVisibleSafe(overviewTab, { timeout: 10000 });
-    if (isTabVisible) {
-      await overviewTab.click();
-      await page.getByRole('tabpanel').first().waitFor({ state: 'visible', timeout: 5000 }).catch(() => {});
-    }
+    // Beach pages default to the Forecast tab. Overview renders amenities.
+    await openOverviewTab(page);
   });
 
   test.afterEach(async ({ page }) => {

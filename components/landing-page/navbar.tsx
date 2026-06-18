@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Menu, X, ChevronDown } from "lucide-react";
@@ -15,18 +15,24 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FORECAST_REGIONS } from "@/lib/data/forecast-regions";
 import { REGION_GROUPS } from "@/lib/data/region-groups";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { trackAuthModalOpened } from "@/lib/analytics/auth-events";
+import { trackSigninCtaClick } from "@/lib/analytics/signup-conversion-tracking";
+import { IosAppStoreCta } from "@/components/app-store/ios-app-store-cta";
+import { NativeAppFunnelCta } from "@/components/app-store/native-app-funnel-cta";
 import {
-  trackSigninCtaClick,
-  trackSignupCtaClick,
-  trackSignupCtaView,
-} from "@/lib/analytics/signup-conversion-tracking";
+  getFirstTouchPlatform,
+  type FirstTouchPlatform,
+} from "@/lib/analytics/web-context";
 import { useLandingLocation } from "@/hooks/use-landing-location";
-import { useAuth } from "@/context/auth-context";
-import HeroSearchLazy from "@/components/landing-page/hero-search-lazy";
-import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 
 const STATIC_MENU_ITEMS = [
   { label: "7-Day Outlook", href: "/forecast", category: "Forecast" },
@@ -65,6 +71,48 @@ const GROUPED_STATIC_ITEMS = STATIC_MENU_ITEMS.reduce(
 );
 
 type NavbarPosition = "overlay" | "static";
+type NavbarNativeCtaPlacement = "navbar_primary" | "navbar_mobile_primary";
+
+const NAVBAR_CTA_CLASS =
+  "inline-flex min-h-11 items-center justify-center rounded-full bg-[#F78E42] px-6 py-3 font-sans text-sm font-bold text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.22)] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]";
+const NAVBAR_MOBILE_CTA_CLASS =
+  "inline-flex min-h-12 w-full items-center justify-center rounded-md bg-[#F78E42] px-4 text-base font-bold text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]";
+const NAVBAR_APP_CTA_LABEL = "Get the app";
+
+function NavbarNativeCta({
+  platform,
+  placement,
+  className,
+}: {
+  platform: FirstTouchPlatform;
+  placement: NavbarNativeCtaPlacement;
+  className: string;
+}): ReactElement {
+  if (platform === "desktop") {
+    return (
+      <IosAppStoreCta
+        source="landing-navbar-app-store"
+        surface="landing-page"
+        placement={placement}
+        className={className}
+      >
+        {NAVBAR_APP_CTA_LABEL}
+      </IosAppStoreCta>
+    );
+  }
+
+  return (
+    <NativeAppFunnelCta
+      platform={platform}
+      source="landing-navbar"
+      surface="landing-page"
+      placement={placement}
+      className={className}
+      iosLabel={NAVBAR_APP_CTA_LABEL}
+      androidLabel={NAVBAR_APP_CTA_LABEL}
+    />
+  );
+}
 
 export function Navbar({
   autoOpenLogin = false,
@@ -77,30 +125,15 @@ export function Navbar({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [nativeCtaPlatform, setNativeCtaPlatform] =
+    useState<FirstTouchPlatform>("desktop");
   const { regionName } = useLandingLocation();
-  const { user } = useAuth();
-  const router = useRouter();
-
-  const navigateToMap = (query?: string) => {
-    const trimmed = query?.trim();
-    const url =
-      trimmed && trimmed.length > 0
-        ? `/map?search=${encodeURIComponent(trimmed)}`
-        : "/map";
-    router.push(url);
-  };
 
   // Prevent hydration mismatch from Radix UI components generating different IDs
   useEffect(() => {
     setMounted(true);
+    setNativeCtaPlatform(getFirstTouchPlatform());
   }, []);
-
-  // Fire a single landing-navbar CTA view per browser session.
-  // Session-level dedup inside trackSignupCtaView keys on source.
-  useEffect(() => {
-    if (user) return;
-    trackSignupCtaView({ source: "landing-navbar", cta_type: "nav_button" });
-  }, [user]);
 
   // Auto-open login modal for returning users (once per mount)
   const hasAutoOpened = useRef(false);
@@ -125,16 +158,21 @@ export function Navbar({
     return match?.slug ?? null;
   }, [regionName]);
 
+  const isStatic = position === "static";
+  const navTextClass = isStatic
+    ? "text-[#11100D] hover:text-[#0B3A75] [text-shadow:none]"
+    : "text-white hover:text-white/80 [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]";
+
   return (
     <nav
       className={
-        position === "static"
-          ? "relative z-50 w-full bg-[#252D6B]"
+        isStatic
+          ? "relative z-50 w-full border-b border-[#11100D]/10 bg-[#F4EBD8]"
           : "absolute top-0 left-0 right-0 z-50 w-full"
       }
     >
-      <div className="max-w-7xl mx-auto px-6">
-        <div className="flex justify-between items-center py-5">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+        <div className="flex items-center justify-between py-3 sm:py-4 md:py-3">
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2 group">
@@ -144,9 +182,16 @@ export function Navbar({
                 width={48}
                 height={48}
                 priority
-                className="transition-transform group-hover:scale-110"
+                className="h-10 w-10 transition-transform group-hover:scale-110 sm:h-12 sm:w-12"
               />
-              <span className="text-white font-semibold text-lg tracking-tight [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)] hidden sm:inline">
+              <span
+                className={cn(
+                  "hidden text-lg font-semibold tracking-tight sm:inline",
+                  isStatic
+                    ? "text-[#11100D]"
+                    : "text-white [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]",
+                )}
+              >
                 Quiver
               </span>
             </Link>
@@ -154,10 +199,25 @@ export function Navbar({
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6" suppressHydrationWarning>
+            <Link
+              href="#features"
+              className={cn(
+                "font-mono text-sm font-bold uppercase tracking-[0.18em] transition-colors",
+                navTextClass,
+              )}
+            >
+              Features
+            </Link>
+
             {/* Explore Dropdown */}
             {mounted ? (
               <DropdownMenu>
-                <DropdownMenuTrigger className="flex items-center gap-1 text-white hover:text-white/80 transition-colors font-medium [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]">
+                <DropdownMenuTrigger
+                  className={cn(
+                    "flex items-center gap-1 font-mono text-sm font-bold uppercase tracking-[0.18em] transition-colors",
+                    navTextClass,
+                  )}
+                >
                   Spots
                   <ChevronDown className="h-4 w-4" />
                 </DropdownMenuTrigger>
@@ -211,16 +271,16 @@ export function Navbar({
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <span className="flex items-center gap-1 text-white hover:text-white/80 transition-colors font-medium [text-shadow:_0_1px_3px_rgb(0_0_0_/_40%)]">
+              <span
+                className={cn(
+                  "flex items-center gap-1 font-mono text-sm font-bold uppercase tracking-[0.18em] transition-colors",
+                  navTextClass,
+                )}
+              >
                 Spots
                 <ChevronDown className="h-4 w-4" />
               </span>
             )}
-
-            {/* Compact Search Bar */}
-            <div className="w-[300px]">
-              <HeroSearchLazy onFallback={navigateToMap} />
-            </div>
 
             {/* Auth Buttons */}
             <div className="flex items-center gap-4 ml-2">
@@ -233,23 +293,18 @@ export function Navbar({
                   setAuthMode("login");
                   setAuthModalOpen(true);
                 }}
-                className="text-medium hover:text-white text-sm font-medium transition-colors"
+                className={cn(
+                  "font-mono text-xs font-bold uppercase tracking-[0.14em] transition-colors",
+                  navTextClass,
+                )}
               >
                 Log in
               </button>
-              <Button
-                onClick={() => {
-                  trackSignupCtaClick({
-                    source: "landing-navbar",
-                    cta_type: "nav_button",
-                  });
-                  setAuthMode("signup");
-                  setAuthModalOpen(true);
-                }}
-                className="bg-ocean-blue text-white rounded-full px-6 py-3 font-sans font-semibold shadow-sm hover:bg-ocean-blue/90"
-              >
-                Get free alerts
-              </Button>
+              <NavbarNativeCta
+                platform={nativeCtaPlatform}
+                placement="navbar_primary"
+                className={NAVBAR_CTA_CLASS}
+              />
             </div>
           </div>
 
@@ -261,7 +316,11 @@ export function Navbar({
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="text-white hover:bg-white/10"
+                    className={cn(
+                      isStatic
+                        ? "text-[#11100D] hover:bg-[#11100D]/10"
+                        : "text-white hover:bg-white/10",
+                    )}
                     aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
                     data-testid="mobile-menu-button"
                   >
@@ -273,13 +332,20 @@ export function Navbar({
                   </Button>
                 </SheetTrigger>
                 <SheetContent side="right" className="w-80 p-0 flex flex-col">
+                  <SheetTitle className="sr-only">Navigation</SheetTitle>
+                  <SheetDescription className="sr-only">
+                    Browse surf spots, open the app, or log in.
+                  </SheetDescription>
                   {/* Scrollable menu content */}
                   <div className="flex-1 overflow-y-auto px-6">
                     <div className="flex flex-col gap-6 mt-8">
-                      {/* Mobile Search */}
-                      <div className="w-full">
-                        <HeroSearchLazy onFallback={navigateToMap} />
-                      </div>
+                      <Link
+                        href="#features"
+                        className="block px-3 py-2 font-mono text-sm font-bold uppercase tracking-[0.18em] text-dark-grey hover:text-ocean-blue hover:bg-blue-50 rounded"
+                        onClick={() => setMobileMenuOpen(false)}
+                      >
+                        Features
+                      </Link>
 
                       {/* Mobile Explore - Region groups */}
                       <div>
@@ -346,21 +412,11 @@ export function Navbar({
 
                   {/* Mobile Auth Buttons - Pinned to bottom */}
                   <div className="border-t pt-4 pb-6 px-6 mt-auto flex flex-col gap-3">
-                    <Button
-                      size="lg"
-                      className="w-full bg-ocean-blue hover:bg-ocean-blue/90 text-white font-semibold"
-                      onClick={() => {
-                        trackSignupCtaClick({
-                          source: "landing-navbar-mobile",
-                          cta_type: "nav_button",
-                        });
-                        setMobileMenuOpen(false);
-                        setAuthMode("signup");
-                        setAuthModalOpen(true);
-                      }}
-                    >
-                      Get free alerts
-                    </Button>
+                    <NavbarNativeCta
+                      platform={nativeCtaPlatform}
+                      placement="navbar_mobile_primary"
+                      className={NAVBAR_MOBILE_CTA_CLASS}
+                    />
                     <Button
                       variant="ghost"
                       size="lg"
@@ -384,7 +440,11 @@ export function Navbar({
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-white hover:bg-white/10"
+                className={cn(
+                  isStatic
+                    ? "text-[#11100D] hover:bg-[#11100D]/10"
+                    : "text-white hover:bg-white/10",
+                )}
                 aria-label="Open menu"
                 data-testid="mobile-menu-button"
               >

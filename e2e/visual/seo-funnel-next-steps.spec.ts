@@ -110,7 +110,7 @@ function getNextStepsSection(page: Page, route: SeoFunnelRoute): Locator {
     return page.getByRole("region", { name: route.sectionName });
   }
 
-  return page.getByTestId("seo-funnel-next-steps");
+  return page.getByTestId("seo-funnel-next-steps").first();
 }
 
 async function expectRouteTheme(

@@ -1,0 +1,245 @@
+"use client";
+
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+  type ReactElement,
+} from "react";
+import { QRCodeSVG } from "qrcode.react";
+
+import {
+  trackAppHandoffEmailFailed,
+  trackAppHandoffEmailSent,
+  trackAppHandoffEmailSubmit,
+  trackAppHandoffQrRendered,
+} from "@/lib/analytics/app-handoff-tracking";
+import {
+  APP_FIRST_CAMPAIGN,
+  buildAppHandoffUrl,
+  iosAppStoreUrlWithCampaign,
+} from "@/lib/constants/app-handoff";
+import { cn } from "@/lib/utils";
+
+interface SendToPhoneCtaProps {
+  source: string;
+  surface: string;
+  placement: string;
+  variant?: string;
+  cohort?: string;
+  className?: string;
+  showEmailForm?: boolean;
+}
+
+type SendState = "idle" | "sending" | "sent" | "error" | "rate_limited";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+export function SendToPhoneCta({
+  source,
+  surface,
+  placement,
+  variant,
+  cohort,
+  className,
+  showEmailForm = true,
+}: SendToPhoneCtaProps): ReactElement {
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<SendState>("idle");
+  const [inlineError, setInlineError] = useState<string | null>(null);
+  const qrTracked = useRef(false);
+
+  const qrValue = useMemo(
+    () =>
+      buildAppHandoffUrl({
+        source,
+        placement,
+        utm_source: "qr",
+        utm_medium: "desktop_handoff",
+        utm_campaign: APP_FIRST_CAMPAIGN,
+      }),
+    [placement, source],
+  );
+
+  useEffect(() => {
+    if (qrTracked.current) return;
+    qrTracked.current = true;
+    trackAppHandoffQrRendered({
+      source,
+      surface,
+      placement,
+      variant,
+      cohort,
+      platform: "desktop",
+      destination_type: "app_handoff",
+    });
+  }, [cohort, placement, source, surface, variant]);
+
+  async function onSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setInlineError(null);
+
+    if (!EMAIL_RE.test(email)) {
+      setInlineError("Enter a valid email address.");
+      setState("idle");
+      return;
+    }
+
+    const emailDomain = email.split("@")[1] ?? "";
+    setState("sending");
+    trackAppHandoffEmailSubmit({
+      source,
+      surface,
+      placement,
+      variant,
+      cohort,
+      platform: "desktop",
+      email_domain: emailDomain,
+    });
+
+    try {
+      const response = await fetch("/api/app-link-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, source, surface, placement }),
+      });
+
+      if (!response.ok) {
+        setState(response.status === 429 ? "rate_limited" : "error");
+        trackAppHandoffEmailFailed({
+          source,
+          surface,
+          placement,
+          variant,
+          cohort,
+          platform: "desktop",
+          email_domain: emailDomain,
+        });
+        return;
+      }
+
+      setState("sent");
+      trackAppHandoffEmailSent({
+        source,
+        surface,
+        placement,
+        variant,
+        cohort,
+        platform: "desktop",
+        email_domain: emailDomain,
+      });
+    } catch {
+      setState("error");
+      trackAppHandoffEmailFailed({
+        source,
+        surface,
+        placement,
+        variant,
+        cohort,
+        platform: "desktop",
+        email_domain: emailDomain,
+      });
+    }
+  }
+
+  const statusCopy =
+    state === "sent"
+      ? "Check your email, then open it on your phone."
+      : state === "rate_limited"
+        ? "Too many attempts. Scan the QR code or try again later."
+        : state === "error"
+          ? "Could not send the link. Try again or scan the QR code."
+          : null;
+
+  return (
+    <div
+      className={cn(
+        "rounded-[1.25rem] border border-white/12 bg-header-end p-6 text-white shadow-[0_18px_60px_rgba(0,0,0,0.24)]",
+        className,
+      )}
+    >
+      <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+        <div className="mx-auto shrink-0 -rotate-1 rounded-[1.1rem] bg-white p-3 shadow-md">
+          <QRCodeSVG
+            aria-label="Scan to open Quiver on your phone"
+            data-testid="app-handoff-qr"
+            value={qrValue}
+            size={150}
+            level="H"
+            marginSize={3}
+            bgColor="#FFFFFF"
+            fgColor="#252D6B"
+            imageSettings={{
+              src: "/quiver-app-icon-128.png",
+              width: 28,
+              height: 28,
+              excavate: true,
+            }}
+          />
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="font-sans text-sm leading-6 text-white/80">
+            {showEmailForm
+              ? "Scan to get Quiver on your phone, or email yourself the link."
+              : "Scan with your phone to open Quiver."}
+          </p>
+
+          {showEmailForm ? (
+            <form onSubmit={onSubmit} className="mt-3" noValidate>
+              <label
+                htmlFor="send-to-phone-email"
+                className="block font-sans text-xs font-semibold uppercase tracking-widest text-white/60"
+              >
+                Your email
+              </label>
+              <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+                <input
+                  id="send-to-phone-email"
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  placeholder="you@email.com"
+                  className="min-h-11 flex-1 rounded-md border border-white/12 bg-white/10 px-3 font-sans text-base text-white placeholder:text-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue-decorative"
+                />
+                <button
+                  type="submit"
+                  disabled={state === "sending"}
+                  className="inline-flex min-h-11 items-center justify-center rounded-md bg-ocean-blue-decorative px-5 font-sans text-base font-bold text-header-end transition hover:bg-[#D57835] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:bg-[#C06A25] disabled:opacity-60"
+                >
+                  {state === "sending" ? "Sending..." : "Send link"}
+                </button>
+              </div>
+
+              <div aria-live="polite" className="mt-2 min-h-5 font-sans text-sm">
+                {inlineError ? (
+                  <span className="text-sunset-orange">{inlineError}</span>
+                ) : null}
+                {statusCopy ? (
+                  <span
+                    className={
+                      state === "sent" ? "text-emerald-300" : "text-sunset-orange"
+                    }
+                  >
+                    {statusCopy}
+                  </span>
+                ) : null}
+              </div>
+            </form>
+          ) : null}
+
+          <a
+            href={iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN)}
+            className="mt-2 inline-block font-sans text-sm text-white/72 underline underline-offset-2 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue-decorative"
+          >
+            Open App Store anyway
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}

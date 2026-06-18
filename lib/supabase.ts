@@ -38,6 +38,8 @@ export function createNoStoreFetch(baseFetch: typeof fetch = globalThis.fetch): 
 const createBrowserClient = () => {
   const supabaseUrl = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
   const supabaseAnonKey = (process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "").trim();
+  const disableE2EAuthRefresh =
+    process.env.NEXT_PUBLIC_E2E_DISABLE_AUTH_REFRESH === "true";
 
   if (!supabaseUrl || !supabaseAnonKey) {
     console.error("Supabase URL or Anon Key is missing");
@@ -56,7 +58,7 @@ const createBrowserClient = () => {
 
   return createSupabaseBrowserClient<Database>(supabaseUrl, supabaseAnonKey, {
     auth: {
-      autoRefreshToken: true,
+      autoRefreshToken: !disableE2EAuthRefresh,
       persistSession: true,
       detectSessionInUrl: true,
       flowType: 'pkce'

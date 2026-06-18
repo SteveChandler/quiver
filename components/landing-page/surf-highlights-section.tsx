@@ -35,9 +35,15 @@ interface FetchResult {
   isNearby: boolean;
 }
 
-export function SurfHighlightsSection() {
+interface SurfHighlightsSectionProps {
+  trustProof?: boolean;
+}
+
+export function SurfHighlightsSection({
+  trustProof = false,
+}: SurfHighlightsSectionProps = {}) {
   const [page, setPage] = useState(0);
-  const pageSize = 4;
+  const pageSize = trustProof ? 3 : 4;
   const locationCtx = useLocationSafe();
   const location = locationCtx?.location;
   const hasPreciseLocation = locationCtx?.hasPreciseLocation ?? false;
@@ -164,7 +170,11 @@ export function SurfHighlightsSection() {
   return (
     <section
       ref={sectionRef}
-      className="pt-16 pb-8 md:pt-24 md:pb-10 bg-[#252D6B] noise-texture border-t border-white/[0.06]"
+      className={
+        trustProof
+          ? "bg-background noise-texture border-t border-white/[0.06] pb-12 pt-12 md:pb-14 md:pt-16"
+          : "pt-16 pb-8 md:pt-24 md:pb-10 bg-[#252D6B] noise-texture border-t border-white/[0.06]"
+      }
     >
       <div className="max-w-7xl mx-auto px-6">
         {/* Section header */}
@@ -179,7 +189,9 @@ export function SurfHighlightsSection() {
             }
             transition={{ duration: 0.5, ease: easeOutQuart }}
           >
-            Start with the beach, not the buoy chart
+            {trustProof
+              ? "Proof Quiver knows real beaches"
+              : "Start with the beach, not the buoy chart"}
           </motion.h2>
 
           <motion.p
@@ -190,10 +202,12 @@ export function SurfHighlightsSection() {
           >
             {isNearby
               ? "Nearby spots are labeled by difficulty so a newer surfer can spot the mellow options first."
-              : "Difficulty labels are now front and center. Start with beginner-friendly beaches, then open the full forecast when you are ready for the details."}
+              : trustProof
+                ? "Real spot pages stay here as local proof. The first decision is still the app handoff, not a web browsing maze."
+                : "Difficulty labels are now front and center. Start with beginner-friendly beaches, then open the full forecast when you are ready for the details."}
           </motion.p>
 
-          {!hasPreciseLocation && requestPreciseLocation && !loading && !locationLoading && (
+          {!trustProof && !hasPreciseLocation && requestPreciseLocation && !loading && !locationLoading && (
             <motion.div
               className="flex items-center gap-3 flex-wrap md:col-span-2"
               initial={shouldReduceMotion ? false : { opacity: 0 }}
@@ -226,7 +240,13 @@ export function SurfHighlightsSection() {
           </div>
         ) : (
           <div className="relative">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div
+              className={
+                trustProof
+                  ? "grid grid-cols-1 gap-5 md:grid-cols-3"
+                  : "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+              }
+            >
               {visibleSpots.length > 0 ? (
                 visibleSpots.map((spot, index) => (
                   <motion.div
@@ -286,7 +306,11 @@ export function SurfHighlightsSection() {
         >
           <Link
             href="/map"
-            className="font-heading text-sm font-bold text-[#F78E42] transition-colors underline-offset-4 hover:text-[#FDB84B] hover:underline"
+            className={
+              trustProof
+                ? "font-heading text-sm font-bold text-foreground/70 transition-colors underline-offset-4 hover:text-foreground hover:underline"
+                : "font-heading text-sm font-bold text-[#F78E42] transition-colors underline-offset-4 hover:text-[#FDB84B] hover:underline"
+            }
           >
             Browse all surf spots &rarr;
           </Link>

@@ -343,14 +343,13 @@ describe("DiscoverPage", () => {
       const searchButton = screen.getByRole("button", { name: /search/i });
       await user.click(searchButton);
 
-      await waitFor(async () => {
-        const viewProfileButton = screen.getByRole("button", {
-          name: /view profile/i,
-        });
-        await user.click(viewProfileButton);
-        expect(screen.getByRole("dialog")).toBeInTheDocument();
-        expect(screen.getByText("Surfer Profile")).toBeInTheDocument();
+      const viewProfileButton = await screen.findByRole("button", {
+        name: /view profile/i,
       });
+      await user.click(viewProfileButton);
+
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+      expect(screen.getByText("Surfer Profile")).toBeInTheDocument();
     });
   });
 

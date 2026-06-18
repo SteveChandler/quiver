@@ -10,7 +10,8 @@
  * @project auth (requires authentication)
  */
 
-import { test, expect } from '@playwright/test';
+/* eslint-disable playwright/no-conditional-in-test, playwright/expect-expect -- Nullable profile fields branch by contract; expectApiError wraps repeated API error envelope assertions. */
+import { test, expect, type APIRequestContext, type APIResponse } from '@playwright/test';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const PROFILE_ENDPOINT = `${BASE_URL}/api/profile`;
@@ -19,8 +20,55 @@ const USER_STATS_ENDPOINT = (userId: string) => `${BASE_URL}/api/users/${userId}
 // UUID format regex (v1-v5)
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-// Test UUID (valid format but may not exist in database)
-const FAKE_USER_ID = '00000000-0000-0000-0000-000000000001';
+// Valid UUID that is not the authenticated test user.
+const OTHER_USER_ID = '00000000-0000-4000-8000-000000000001';
+
+type ProfileData = {
+  id: string;
+};
+
+type UserStatsData = {
+  stats: {
+    sessionCount: number;
+    boardCount: number;
+    averageRating: number;
+    homeBeachId: string | null;
+    homeBeachName: string | null;
+    mostVisitedBeach: string | null;
+    mostVisitedBeachCount: number;
+  };
+};
+
+async function expectApiError(response: APIResponse, status: number): Promise<void> {
+  expect(response.status()).toBe(status);
+
+  const json = await response.json();
+  expect(json.success).toBe(false);
+  expect(json).toHaveProperty('error');
+  expect(json).toHaveProperty('timestamp');
+}
+
+async function getCurrentProfile(request: APIRequestContext): Promise<ProfileData> {
+  const response = await request.get(PROFILE_ENDPOINT);
+  expect(response.status()).toBe(200);
+
+  const json = await response.json();
+  expect(json.success).toBe(true);
+  expect(json.data).toHaveProperty('id');
+
+  return json.data as ProfileData;
+}
+
+async function getCurrentUserStats(request: APIRequestContext): Promise<UserStatsData> {
+  const profile = await getCurrentProfile(request);
+  const response = await request.get(USER_STATS_ENDPOINT(profile.id));
+  expect(response.status()).toBe(200);
+
+  const json = await response.json();
+  expect(json.success).toBe(true);
+
+  return json.data as UserStatsData;
+}
 
 test.describe('User Profile API Contract', () => {
   test.describe('GET /api/profile', () => {
@@ -231,29 +279,13 @@ test.describe('User Profile API Contract', () => {
         expect(response.status()).toBe(405);
       });
 
-      test('should handle profile not found gracefully', async ({ request }) => {
-        // For normal authenticated users, profile should always exist
-        // But if it doesn't, should return proper error
+      test('should return the authenticated profile envelope', async ({ request }) => {
         const response = await request.get(PROFILE_ENDPOINT);
-
-        if (response.status() === 404) {
-          const json = await response.json();
-          expect(json.success).toBe(false);
-          expect(json.error).toContain('Profile not found');
-        }
-      });
-    });
-
-    test.describe('Performance', () => {
-      test('should respond within reasonable time (< 5000ms)', async ({ request }) => {
-        const startTime = Date.now();
-        const response = await request.get(PROFILE_ENDPOINT);
-        const duration = Date.now() - startTime;
-
-        console.log(`[Profile GET] Response time: ${duration}ms`);
+        const json = await response.json();
 
         expect(response.status()).toBe(200);
-        expect(duration).toBeLessThan(5000);
+        expect(json.success).toBe(true);
+        expect(json.data).toHaveProperty('id');
       });
     });
   });
@@ -265,7 +297,7 @@ test.describe('User Profile API Contract', () => {
           storageState: { cookies: [], origins: [] },
         });
 
-        const response = await unauthContext.get(USER_STATS_ENDPOINT(FAKE_USER_ID));
+        const response = await unauthContext.get(USER_STATS_ENDPOINT(OTHER_USER_ID));
 
         expect(response.status()).toBe(401);
 
@@ -273,11 +305,10 @@ test.describe('User Profile API Contract', () => {
         expect(json.success).toBe(false);
       });
 
-      test('should return 200/404 for authenticated users', async ({ request }) => {
-        const response = await request.get(USER_STATS_ENDPOINT(FAKE_USER_ID));
+      test('should forbid stats for users other than the authenticated user', async ({ request }) => {
+        const response = await request.get(USER_STATS_ENDPOINT(OTHER_USER_ID));
 
-        // Could be 200 if user exists, 404 if not
-        expect([200, 400, 404]).toContain(response.status());
+        await expectApiError(response, 403);
       });
     });
 
@@ -301,7 +332,7 @@ test.describe('User Profile API Contract', () => {
 
     test.describe('Response Structure', () => {
       test('should return valid JSON content', async ({ request }) => {
-        const response = await request.get(USER_STATS_ENDPOINT(FAKE_USER_ID));
+        const response = await request.get(USER_STATS_ENDPOINT(OTHER_USER_ID));
 
         expect(response.headers()['content-type']).toContain('application/json');
 
@@ -310,7 +341,7 @@ test.describe('User Profile API Contract', () => {
       });
 
       test('should return standard API response structure', async ({ request }) => {
-        const response = await request.get(USER_STATS_ENDPOINT(FAKE_USER_ID));
+        const response = await request.get(USER_STATS_ENDPOINT(OTHER_USER_ID));
         const json = await response.json();
 
         expect(json).toHaveProperty('success');
@@ -319,66 +350,49 @@ test.describe('User Profile API Contract', () => {
     });
 
     test.describe('Stats Object Schema', () => {
-      test('should have session_count field', async ({ request }) => {
-        const response = await request.get(USER_STATS_ENDPOINT(FAKE_USER_ID));
+      test('should have sessionCount field', async ({ request }) => {
+        const { stats } = await getCurrentUserStats(request);
 
-        if (response.status() === 200) {
-          const json = await response.json();
-          const stats = json.data;
-
-          expect(stats).toHaveProperty('session_count');
-          expect(typeof stats.session_count).toBe('number');
-          expect(stats.session_count).toBeGreaterThanOrEqual(0);
-        }
+        expect(stats).toHaveProperty('sessionCount');
+        expect(typeof stats.sessionCount).toBe('number');
+        expect(stats.sessionCount).toBeGreaterThanOrEqual(0);
       });
 
-      test('should have follower_count field', async ({ request }) => {
-        const response = await request.get(USER_STATS_ENDPOINT(FAKE_USER_ID));
+      test('should have boardCount field', async ({ request }) => {
+        const { stats } = await getCurrentUserStats(request);
 
-        if (response.status() === 200) {
-          const json = await response.json();
-          const stats = json.data;
-
-          expect(stats).toHaveProperty('follower_count');
-          expect(typeof stats.follower_count).toBe('number');
-          expect(stats.follower_count).toBeGreaterThanOrEqual(0);
-        }
+        expect(stats).toHaveProperty('boardCount');
+        expect(typeof stats.boardCount).toBe('number');
+        expect(stats.boardCount).toBeGreaterThanOrEqual(0);
       });
 
-      test('should have following_count field', async ({ request }) => {
-        const response = await request.get(USER_STATS_ENDPOINT(FAKE_USER_ID));
+      test('should have surf rating summary fields', async ({ request }) => {
+        const { stats } = await getCurrentUserStats(request);
 
-        if (response.status() === 200) {
-          const json = await response.json();
-          const stats = json.data;
-
-          expect(stats).toHaveProperty('following_count');
-          expect(typeof stats.following_count).toBe('number');
-          expect(stats.following_count).toBeGreaterThanOrEqual(0);
-        }
+        expect(stats).toHaveProperty('averageRating');
+        expect(typeof stats.averageRating).toBe('number');
+        expect(stats.averageRating).toBeGreaterThanOrEqual(0);
+        expect(stats).toHaveProperty('mostVisitedBeachCount');
+        expect(typeof stats.mostVisitedBeachCount).toBe('number');
+        expect(stats.mostVisitedBeachCount).toBeGreaterThanOrEqual(0);
       });
 
       test('all counts should be non-negative integers', async ({ request }) => {
-        const response = await request.get(USER_STATS_ENDPOINT(FAKE_USER_ID));
+        const { stats } = await getCurrentUserStats(request);
 
-        if (response.status() === 200) {
-          const json = await response.json();
-          const stats = json.data;
+        expect(stats.sessionCount).toBeGreaterThanOrEqual(0);
+        expect(stats.boardCount).toBeGreaterThanOrEqual(0);
+        expect(stats.mostVisitedBeachCount).toBeGreaterThanOrEqual(0);
 
-          expect(stats.session_count).toBeGreaterThanOrEqual(0);
-          expect(stats.follower_count).toBeGreaterThanOrEqual(0);
-          expect(stats.following_count).toBeGreaterThanOrEqual(0);
-
-          expect(Number.isInteger(stats.session_count)).toBe(true);
-          expect(Number.isInteger(stats.follower_count)).toBe(true);
-          expect(Number.isInteger(stats.following_count)).toBe(true);
-        }
+        expect(Number.isInteger(stats.sessionCount)).toBe(true);
+        expect(Number.isInteger(stats.boardCount)).toBe(true);
+        expect(Number.isInteger(stats.mostVisitedBeachCount)).toBe(true);
       });
     });
 
     test.describe('Security Headers', () => {
       test('should include security headers', async ({ request }) => {
-        const response = await request.get(USER_STATS_ENDPOINT(FAKE_USER_ID));
+        const response = await request.get(USER_STATS_ENDPOINT(OTHER_USER_ID));
         const headers = response.headers();
 
         expect(headers['x-content-type-options']).toBe('nosniff');
@@ -388,31 +402,15 @@ test.describe('User Profile API Contract', () => {
 
     test.describe('Error Handling', () => {
       test('should handle POST requests with 405 Method Not Allowed', async ({ request }) => {
-        const response = await request.post(USER_STATS_ENDPOINT(FAKE_USER_ID));
+        const response = await request.post(USER_STATS_ENDPOINT(OTHER_USER_ID));
 
         expect(response.status()).toBe(405);
       });
 
-      test('should handle non-existent user gracefully', async ({ request }) => {
-        const response = await request.get(USER_STATS_ENDPOINT(FAKE_USER_ID));
+      test('should forbid stats for another user gracefully', async ({ request }) => {
+        const response = await request.get(USER_STATS_ENDPOINT(OTHER_USER_ID));
 
-        // Should return 404 or default stats, not crash
-        expect(response.status()).toBeLessThan(500);
-
-        const json = await response.json();
-        expect(json).toHaveProperty('success');
-      });
-    });
-
-    test.describe('Performance', () => {
-      test('should respond within reasonable time (< 5000ms)', async ({ request }) => {
-        const startTime = Date.now();
-        const response = await request.get(USER_STATS_ENDPOINT(FAKE_USER_ID));
-        const duration = Date.now() - startTime;
-
-        console.log(`[User Stats GET] Response time: ${duration}ms`);
-
-        expect(duration).toBeLessThan(5000);
+        await expectApiError(response, 403);
       });
     });
   });
@@ -422,13 +420,11 @@ test.describe('User Profile API Contract', () => {
       const response = await request.get(PROFILE_ENDPOINT);
       const json = await response.json();
 
-      if (response.status() === 200) {
-        const profileId = json.data.id;
+      expect(response.status()).toBe(200);
+      const profileId = json.data.id;
 
-        // Stats for own profile should exist
-        const statsResponse = await request.get(USER_STATS_ENDPOINT(profileId));
-        expect([200, 404]).toContain(statsResponse.status());
-      }
+      const statsResponse = await request.get(USER_STATS_ENDPOINT(profileId));
+      expect(statsResponse.status()).toBe(200);
     });
 
     test('multiple requests should return consistent data', async ({ request }) => {

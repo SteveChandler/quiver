@@ -27,10 +27,62 @@ export interface ServerSessionCheckResult {
   body: unknown | null;
 }
 
+function getErrorText(error: unknown): string {
+  if (error instanceof Error) {
+    return `${error.name} ${error.message}`;
+  }
+
+  return String(error);
+}
+
+function isTransientSessionCheckError(error: unknown): boolean {
+  return /\b(ECONNRESET|ECONNREFUSED|ECONNABORTED|socket hang up|connection reset|timeout|net::ERR_)/i.test(
+    getErrorText(error)
+  );
+}
+
+async function waitForRetryDelay(attempt: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, 250 * (attempt + 1)));
+}
+
 function isCheckSessionBody(
   body: unknown
 ): body is { hasSession?: boolean } {
   return typeof body === 'object' && body !== null && 'hasSession' in body;
+}
+
+function parseStoredAccessToken(value: string | null): string | null {
+  if (!value) return null;
+
+  try {
+    const raw = value.startsWith('base64-')
+      ? Buffer.from(value.slice('base64-'.length), 'base64').toString('utf8')
+      : value;
+    const parsed = JSON.parse(raw) as {
+      access_token?: unknown;
+      currentSession?: { access_token?: unknown };
+    };
+    const token = parsed.access_token ?? parsed.currentSession?.access_token;
+    return typeof token === 'string' && token.length > 0 ? token : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getStoredAccessToken(page: Page): Promise<string | null> {
+  const state = await page.context().storageState();
+  for (const origin of state.origins) {
+    for (const item of origin.localStorage) {
+      if (!item.name.startsWith('sb-') || !item.name.includes('auth-token')) {
+        continue;
+      }
+
+      const token = parseStoredAccessToken(item.value);
+      if (token) return token;
+    }
+  }
+
+  return null;
 }
 
 /**
@@ -113,23 +165,51 @@ export async function checkServerSession(
 ): Promise<ServerSessionCheckResult> {
   const baseUrl = options.baseUrl?.replace(/\/$/, '');
   const url = baseUrl ? `${baseUrl}/api/auth/check-session` : '/api/auth/check-session';
+  const accessToken = await getStoredAccessToken(page);
+  const requestOptions = {
+    headers: accessToken ? { authorization: `Bearer ${accessToken}` } : undefined,
+  };
 
-  const response = await page.request.get(url);
+  let lastError: unknown = null;
 
-  let body: unknown | null = null;
-  try {
-    body = await response.json();
-  } catch {
-    body = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await page.request.get(url, requestOptions);
+
+      let body: unknown | null = null;
+      try {
+        body = await response.json();
+      } catch {
+        body = null;
+      }
+
+      const hasSession =
+        response.ok() && isCheckSessionBody(body) && body.hasSession === true;
+
+      return {
+        ok: response.ok(),
+        status: response.status(),
+        hasSession,
+        body,
+      };
+    } catch (error) {
+      lastError = error;
+
+      if (!isTransientSessionCheckError(error)) {
+        throw error;
+      }
+
+      if (attempt < 2) {
+        await waitForRetryDelay(attempt);
+      }
+    }
   }
 
-  const hasSession = response.ok() && isCheckSessionBody(body) && body.hasSession === true;
-
   return {
-    ok: response.ok(),
-    status: response.status(),
-    hasSession,
-    body,
+    ok: false,
+    status: 0,
+    hasSession: false,
+    body: { error: getErrorText(lastError) },
   };
 }
 
@@ -244,6 +324,78 @@ export async function logAuthState(page: Page, label = 'Auth State'): Promise<vo
     console.log(`    - ${key}=[REDACTED]`);
   });
   console.log('');
+}
+
+export async function loginAs(
+  page: Page,
+  email: string,
+  password: string,
+  baseURL: string
+): Promise<void> {
+  const baseUrlString = baseURL.replace(/\/$/, '');
+
+  await page.goto(baseUrlString, { waitUntil: 'domcontentloaded', timeout: 30000 });
+
+  try {
+    await page.waitForSelector('body.js-loaded, body.authenticated', { timeout: 15000 });
+  } catch {
+    await page.waitForLoadState('load', { timeout: 15000 });
+  }
+
+  const isAlreadyAuth = await verifySupabaseAuth(page);
+  if (isAlreadyAuth) {
+    const serverCheck = await checkServerSession(page, { baseUrl: baseUrlString });
+    if (serverCheck.hasSession) return;
+  }
+
+  const loginButton = page.getByRole('button', { name: /log in/i });
+  let authDialogVisible = false;
+
+  try {
+    await loginButton.waitFor({ state: 'visible', timeout: 15000 });
+    await loginButton.click({ force: true });
+  } catch {
+    await page.goto(`${baseUrlString}/auth/sign-in`, {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    });
+    await page.waitForSelector('[role="dialog"]', { timeout: 15000 });
+    authDialogVisible = true;
+  }
+
+  if (!authDialogVisible) {
+    await page.waitForSelector('[role="dialog"]', { timeout: 10000 });
+  }
+
+  const emailButton = page
+    .getByRole('button', { name: /continue with email|sign in with email/i })
+    .first();
+  const emailButtonVisible = await emailButton.isVisible().catch(() => false);
+
+  if (emailButtonVisible) {
+    await emailButton.click();
+    await page.getByPlaceholder(/email/i).waitFor({ state: 'visible', timeout: 5000 });
+  }
+
+  await page.getByPlaceholder(/email/i).fill(email);
+  await page.getByLabel(/password/i).fill(password);
+  await page.getByRole('button', { name: /log in|sign in/i }).last().click();
+
+  await waitForAuthCompletion(page, 15000);
+
+  const serverCheck = await checkServerSession(page, { baseUrl: baseUrlString });
+  if (!serverCheck.hasSession) {
+    const bodyPreview =
+      serverCheck.body == null
+        ? 'null'
+        : JSON.stringify(serverCheck.body).slice(0, 500);
+    throw new Error(
+      `Server session validation failed after login. status=${serverCheck.status} body=${bodyPreview}`
+    );
+  }
+
+  await page.waitForSelector('[role="dialog"]', { state: 'hidden', timeout: 5000 })
+    .catch(() => undefined);
 }
 
 /**

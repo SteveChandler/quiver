@@ -30,8 +30,38 @@ jest.mock("@/components/oracle/oracle-home-screen", () => ({
   OracleHomeScreen: () => <div data-testid="home-screen" />,
 }));
 jest.mock("@/components/landing-page/hero-section", () => ({
-  HeroSection: () => <div data-testid="hero-section" />,
+  HeroSection: ({
+    initialPlatform,
+    appFirst,
+  }: {
+    initialPlatform?: string;
+    appFirst?: boolean;
+  }) => (
+    <div
+      data-testid="hero-section"
+      data-platform={initialPlatform}
+      data-app-first={String(appFirst)}
+    />
+  ),
 }));
+jest.mock(
+  "@/components/landing-page/field-guide/quiver-field-guide-landing",
+  () => ({
+    QuiverFieldGuideLanding: ({
+      platform,
+      appFirst,
+    }: {
+      platform?: string;
+      appFirst?: boolean;
+    }) => (
+      <div
+        data-testid="quiver-field-guide-landing"
+        data-platform={platform}
+        data-app-first={String(appFirst)}
+      />
+    ),
+  }),
+);
 jest.mock("@/components/landing-page/navbar", () => ({
   Navbar: ({ position }: { position?: string }) => (
     <nav data-position={position} data-testid="landing-navbar" />
@@ -53,7 +83,19 @@ jest.mock("@/components/landing-page/cta-section", () => ({
   CTASection: () => <div data-testid="cta" />,
 }));
 jest.mock("@/components/landing-page/landing-interactive-sections", () => ({
-  LandingInteractiveSections: () => <div data-testid="landing-interactive-sections" />,
+  LandingInteractiveSections: ({
+    initialPlatform,
+    appFirst,
+  }: {
+    initialPlatform?: string;
+    appFirst?: boolean;
+  }) => (
+    <div
+      data-testid="landing-interactive-sections"
+      data-platform={initialPlatform}
+      data-app-first={String(appFirst)}
+    />
+  ),
 }));
 jest.mock("@/components/landing-page/landing-conditions-ticker", () => ({
   LandingConditionsTicker: () => <div data-testid="landing-conditions-ticker" />,
@@ -97,7 +139,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
       "data-position",
       "static"
     );
-    expect(screen.getByTestId("hero-section")).toBeInTheDocument();
+    expect(screen.getByTestId("quiver-field-guide-landing")).toBeInTheDocument();
 
     // Should show the email confirmation modal
     await waitFor(() => {
@@ -235,13 +277,29 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
 
     // Should render landing page
     expect(screen.getByTestId("landing-navbar")).toBeInTheDocument();
-    expect(screen.getByTestId("hero-section")).toBeInTheDocument();
+    expect(screen.getByTestId("quiver-field-guide-landing")).toBeInTheDocument();
 
     // Should NOT show modal
     expect(screen.queryByText("Check your email")).not.toBeInTheDocument();
 
     // Should NOT call replace (no URL cleanup needed)
     expect(replace).not.toHaveBeenCalled();
+  });
+
+  it("threads app-first platform props to the guest field guide", () => {
+    (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
+    (useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams());
+
+    render(<AuthAwareLandingWrapper initialPlatform="ios" appFirst />);
+
+    expect(screen.getByTestId("quiver-field-guide-landing")).toHaveAttribute(
+      "data-platform",
+      "ios",
+    );
+    expect(screen.getByTestId("quiver-field-guide-landing")).toHaveAttribute(
+      "data-app-first",
+      "true",
+    );
   });
 
   it("renders HomeScreen immediately for authenticated users", async () => {
@@ -258,7 +316,9 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
 
     // Should NOT show landing page elements
     expect(screen.queryByTestId("landing-navbar")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("hero-section")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("quiver-field-guide-landing"),
+    ).not.toBeInTheDocument();
 
     // Should NOT show modal
     expect(screen.queryByText("Check your email")).not.toBeInTheDocument();
@@ -272,7 +332,7 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
 
     // Should render landing page, not redirect to sign-in
     expect(screen.getByTestId("landing-navbar")).toBeInTheDocument();
-    expect(screen.getByTestId("hero-section")).toBeInTheDocument();
+    expect(screen.getByTestId("quiver-field-guide-landing")).toBeInTheDocument();
     expect(replace).not.toHaveBeenCalled();
 
     // Should NOT show modal

@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test';
+import { test, expect } from './fixtures/auth-fixture';
+import type { Page } from '@playwright/test';
 import { VIEWPORTS, TIMEOUTS } from './fixtures/test-data';
 import { waitForPageLoad } from './utils/test-helpers';
 import { isVisibleSafe } from './utils/strict-helpers';
@@ -15,6 +16,8 @@ async function openRegionsAndFilters(page: Page): Promise<void> {
  *
  * @project auth
  */
+
+test.describe.configure({ mode: 'serial' });
 
 test.describe('Map Page - Core Functionality', () => {
   let errorCapture: ErrorCapture;

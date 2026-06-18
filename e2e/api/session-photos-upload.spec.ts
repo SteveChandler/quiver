@@ -9,7 +9,8 @@
  */
 
 import { randomUUID } from 'crypto';
-import { expect, test, type APIRequestContext } from '@playwright/test';
+import { expect, test } from '../fixtures/auth-fixture';
+import type { APIRequestContext } from '@playwright/test';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createServiceClient } from '../utils/test-data-cleanup';
 

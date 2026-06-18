@@ -1,6 +1,6 @@
-import { config as dotenvConfig } from "dotenv";
+import { config as dotenvConfig, parse as dotenvParse } from "dotenv";
 import { defineConfig, devices } from "@playwright/test";
-import { existsSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 
 /**
  * Env precedence for Playwright runs:
@@ -35,6 +35,35 @@ for (const [key, value] of lockedEnv.entries()) {
   }
 }
 
+const defaultBaseURL = process.env.BASE_URL ||
+  `http://localhost:${process.env.E2E_PORT || "3100"}`;
+const localWebServerPort = new URL(defaultBaseURL).port || "3000";
+const nextFontGoogleMockPath = `${process.cwd()}/e2e/fixtures/next-font-google-mock.cjs`;
+const shouldStartLocalWebServer =
+  !process.env.BASE_URL ||
+  process.env.BASE_URL.includes("localhost") ||
+  process.env.BASE_URL.includes("127.0.0.1");
+
+function readEnvFileValue(filePath: string, key: string): string | undefined {
+  if (!existsSync(filePath)) return undefined;
+
+  const parsed = dotenvParse(readFileSync(filePath));
+  const value = parsed[key];
+  return value && value.length > 0 ? value : undefined;
+}
+
+function shellQuote(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+const localCronSecret =
+  process.env.CRON_SECRET ||
+  readEnvFileValue(".env.local", "CRON_SECRET") ||
+  readEnvFileValue(".env.production.local", "CRON_SECRET");
+const localCronSecretEnv = localCronSecret
+  ? ` CRON_SECRET=${shellQuote(localCronSecret)}`
+  : "";
+
 // Minimal fresh Playwright configuration
 export default defineConfig({
   globalSetup: './e2e/global-setup.ts',
@@ -45,14 +74,14 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1
     : (process.env.BASE_URL && !process.env.BASE_URL.includes("localhost")) ? 1 : 0,
-  workers: process.env.CI ? 5 : 3,  // Reduced to 3 for local testing against prod to avoid rate limits
+  workers: process.env.CI ? 5 : 3,
   reporter: [["list"], ["html", { open: "never" }]],
   // Grep to skip data-dependent tests in local dev (when SKIP_DATA_TESTS=true)
   grep: process.env.SKIP_DATA_TESTS === 'true' ? /^(?!.*@requires-data)/ : undefined,
   // Exclude @infra tests by default unless RUN_INFRA_TESTS=true
   grepInvert: process.env.RUN_INFRA_TESTS !== 'true' ? /@infra/ : undefined,
   use: {
-    baseURL: process.env.BASE_URL || "http://localhost:3000",
+    baseURL: defaultBaseURL,
     locale: 'en-US',
     // Avoid bot-blocking heuristics that flag HeadlessChrome/Playwright UAs.
     // We still run headless, but present a standard Chrome UA.
@@ -97,7 +126,7 @@ export default defineConfig({
         storageState: { cookies: [], origins: [] },
       },
     },
-    // Authenticated: uses storageState produced by globalSetup
+    // Authenticated: storageState is supplied by e2e/fixtures/auth-fixture.ts
     {
       name: 'auth',
       testIgnore: [
@@ -108,13 +137,13 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], storageState: 'e2e/.auth/state.json' },
     },
   ],
-  webServer: (!process.env.BASE_URL || process.env.BASE_URL.includes("localhost"))
+  webServer: shouldStartLocalWebServer
     ? {
-        command: "npm run dev",
+        command: `env -u E2E_PROD_READ_URL -u E2E_PROD_READ_KEY PLAYWRIGHT_TEST=true NEXT_PUBLIC_PLAYWRIGHT_TEST=true NEXT_PUBLIC_E2E_DISABLE_AUTH_REFRESH=true NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN= NEXT_PUBLIC_POSTHOG_HOST= POSTHOG_HOST=${localCronSecretEnv} NEXT_FONT_GOOGLE_MOCKED_RESPONSES="${nextFontGoogleMockPath}" E2E_PORT=${localWebServerPort} yarn e2e:serve`,
         // Use a deterministic health endpoint for readiness checks (homepage can legitimately error in dev)
-        url: `${process.env.BASE_URL || "http://localhost:3000"}/api/health`,
-        reuseExistingServer: true,
-        timeout: 120_000,
+        url: `${defaultBaseURL}/api/health`,
+        reuseExistingServer: false,
+        timeout: 240_000,
       }
     : undefined,
 });

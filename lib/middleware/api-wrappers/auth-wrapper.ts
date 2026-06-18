@@ -6,8 +6,10 @@
  */
 
 import type { NextRequest } from "next/server";
+import { createServerClient as createSupabaseSSRClient } from "@supabase/ssr";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.generated";
+import { createNoStoreFetch } from "@/lib/supabase";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createBearerTokenClient } from "@/lib/supabase/bearer-client";
 import { handleApiError, createAuthError } from "@/lib/api-utils";
@@ -37,6 +39,51 @@ function extractBearerToken(request: NextRequest): string | null {
   if (!authHeader) return null;
   const match = authHeader.match(/^Bearer\s+(\S+)\s*$/i);
   return match ? match[1] : null;
+}
+
+async function createRequestCookieClient(
+  request: NextRequest
+): Promise<SupabaseClient<Database>> {
+  const requestCookies = request.cookies;
+  const hasCookieHeader = Boolean(request.headers?.get("cookie"));
+  if (
+    !requestCookies ||
+    typeof requestCookies.getAll !== "function" ||
+    !hasCookieHeader
+  ) {
+    return await createSupabaseServerClient();
+  }
+
+  const supabaseUrl = (
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.SUPABASE_URL ||
+    ""
+  ).trim();
+  const supabaseAnonKey = (
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.SUPABASE_ANON_KEY ||
+    ""
+  ).trim();
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error(
+      "Supabase configuration missing. Check NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY environment variables."
+    );
+  }
+
+  return createSupabaseSSRClient<Database>(supabaseUrl, supabaseAnonKey, {
+    global: {
+      fetch: createNoStoreFetch(globalThis.fetch) as typeof fetch,
+    },
+    cookies: {
+      getAll() {
+        return requestCookies.getAll();
+      },
+      setAll() {
+        // API auth wrappers do not own the final response object here.
+      },
+    },
+  });
 }
 
 /**
@@ -71,8 +118,8 @@ async function resolveAuth(request: NextRequest): Promise<{
     }
   }
 
-  // Web client — cookie-based SSR auth (unchanged legacy path).
-  const supabase = await createSupabaseServerClient();
+  // Web client — cookie-based API auth scoped to this concrete request.
+  const supabase = await createRequestCookieClient(request);
   try {
     const { data, error } = await supabase.auth.getUser();
     return { supabase, user: data.user, error };
@@ -232,7 +279,7 @@ export function createApiHandler(
   // No auth required - just wrap with error handling
   return withErrorHandler(
     async (request, context) => {
-      const supabase = await createSupabaseServerClient();
+      const supabase = await createRequestCookieClient(request);
 
       // In Next.js 15+, params is a Promise that must be awaited
       const resolvedParams = context?.params

@@ -59,6 +59,11 @@ function getMetaContent(html: string, name: string): string | null {
   return null;
 }
 
+// This smoke file intentionally touches many heavy pages. Running each test in
+// the file concurrently overloads the local Next dev server and turns readiness
+// checks into load-order noise while other spec files still run worker-parallel.
+test.describe.configure({ mode: 'serial' });
+
 // ==========================================
 // Group 1: Critical Page Loads (5 tests)
 // ==========================================
@@ -72,8 +77,8 @@ test.describe('Critical Page Loads @dev', () => {
 
   test('Home page loads without errors @dev', async ({ page }) => {
     // Use regular goto - React hydration errors are environmental
-    await page.goto('/', { timeout: TIMEOUTS.medium });
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await page.goto('/', { timeout: TIMEOUTS.medium, waitUntil: 'domcontentloaded' });
+    await waitForPageLoad(page, TIMEOUTS.medium);
 
     // Check for greeting or main content
     const greeting = page.getByRole('heading', { level: 1 }).first();
@@ -164,33 +169,17 @@ test.describe('Core Navigation @dev', () => {
 
   test('Navigation to sessions @dev', async ({ page }) => {
     // Direct navigation - most reliable approach
-    await page.goto('/sessions');
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await page.goto('/sessions', { waitUntil: 'domcontentloaded' });
+    await waitForPageLoad(page, TIMEOUTS.medium);
     expect(page.url()).toContain('/sessions');
 
     await assertNoErrors(page, errorCapture, { context: 'Sessions navigation' });
   });
 
   test('Navigation to profile @dev', async ({ page }) => {
-    const profileButton = page.getByRole('button', { name: /profile|user menu|account/i }).first();
-    const isVisible = await isVisibleSafe(profileButton, { timeout: TIMEOUTS.short });
-
-    if (isVisible) {
-      await profileButton.click();
-
-      // May open dropdown - click profile link
-      const profileLink = page.getByRole('menuitem', { name: /profile/i });
-      const linkVisible = await isVisibleSafe(profileLink, { timeout: 2000 });
-
-      if (linkVisible) {
-        await profileLink.click();
-      }
-
-      await expect(page).toHaveURL(/\/profile/, { timeout: TIMEOUTS.short });
-    } else {
-      await page.goto('/profile');
-      await expect(page).toHaveURL('/profile');
-    }
+    await page.goto('/profile', { waitUntil: 'domcontentloaded' });
+    await waitForPageLoad(page, TIMEOUTS.medium);
+    await expect(page).toHaveURL(/\/profile/, { timeout: TIMEOUTS.short });
 
     await assertNoErrors(page, errorCapture, { context: 'Profile navigation' });
   });
@@ -198,7 +187,7 @@ test.describe('Core Navigation @dev', () => {
   test('Beach detail navigation @dev', async ({ page }) => {
     const beachUrl = buildBeachUrl(TEST_BEACHES.blacks);
     await page.goto(beachUrl, { timeout: TIMEOUTS.long });
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await waitForPageLoad(page, TIMEOUTS.medium);
 
     expect(page.url()).toContain('/blacks');
   });
@@ -206,15 +195,15 @@ test.describe('Core Navigation @dev', () => {
   test('Back button works @dev', async ({ page }) => {
     // Start fresh from sessions (not map to avoid Mapbox issues)
     await page.goto('/sessions', { timeout: TIMEOUTS.medium });
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await waitForPageLoad(page, TIMEOUTS.medium);
 
     // Navigate to profile
     await page.goto('/profile', { timeout: TIMEOUTS.medium });
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await waitForPageLoad(page, TIMEOUTS.medium);
 
     // Go back
     await page.goBack();
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await waitForPageLoad(page, TIMEOUTS.medium);
 
     // Should be back at sessions
     expect(page.url()).toContain('/sessions');
@@ -222,8 +211,8 @@ test.describe('Core Navigation @dev', () => {
 
   test('Logo click returns to home @dev', async ({ page }) => {
     // Navigate away from home
-    await page.goto('/sessions');
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await page.goto('/sessions', { waitUntil: 'domcontentloaded' });
+    await waitForPageLoad(page, TIMEOUTS.medium);
 
     // Look for logo link - could be image, text, or link
     const logo = page.locator('a[href="/"], header a').first();
@@ -231,7 +220,7 @@ test.describe('Core Navigation @dev', () => {
 
     if (isVisible) {
       await logo.click();
-      await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+      await waitForPageLoad(page, TIMEOUTS.medium);
       // Home URL or redirected home
       expect(page.url()).toMatch(/\/$|\/?$/);
     } else {
@@ -245,8 +234,8 @@ test.describe('Core Navigation @dev', () => {
 
   test('Deep link to beach works @dev', async ({ page }) => {
     const beachUrl = buildBeachUrl(TEST_BEACHES.beacons);
-    await page.goto(beachUrl, { timeout: TIMEOUTS.long });
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await page.goto(beachUrl, { timeout: TIMEOUTS.long, waitUntil: 'domcontentloaded' });
+    await waitForPageLoad(page, TIMEOUTS.medium);
 
     // Verify we're on the beach page
     expect(page.url()).toContain('/beacons');
@@ -259,12 +248,12 @@ test.describe('Core Navigation @dev', () => {
 
   test('Reload preserves page state @dev', async ({ page }) => {
     await page.goto('/sessions');
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await waitForPageLoad(page, TIMEOUTS.medium);
 
     const urlBeforeReload = page.url();
 
     await page.reload();
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await waitForPageLoad(page, TIMEOUTS.medium);
 
     // URL should be the same (or with minor query param differences)
     expect(page.url()).toContain('/sessions');
@@ -389,10 +378,13 @@ test.describe('API Endpoints @dev', () => {
   });
 
   test('GET /api/beaches/:id returns beach data @dev', async () => {
-    const response = await api.get(`/api/beaches/${TEST_BEACHES.blacks.id}`);
+    const localBlacksBeachId = '907bfaa4-11db-4ebe-9762-440714850a0a';
+    const beachId = TEST_BEACHES.blacks.id === 'blacks'
+      ? localBlacksBeachId
+      : TEST_BEACHES.blacks.id;
+    const response = await api.get(`/api/beaches/${beachId}`);
 
-    // In local env, TEST_BEACHES.blacks.id is a slug (not UUID), so the
-    // bot-blocking middleware may return 403. In dev env it's a real UUID.
+    // Bot-blocking middleware may return 403 in remote dev.
     const status = response.status();
     expect([200, 403]).toContain(status);
 
@@ -565,8 +557,11 @@ test.describe('User Interactions @dev', () => {
 
   test('Forecast data displays on beach page @dev', async ({ page }) => {
     // Use regular goto - may have hydration errors
-    await page.goto(buildBeachUrl(TEST_BEACHES.blacks), { timeout: TIMEOUTS.long });
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await page.goto(buildBeachUrl(TEST_BEACHES.blacks), {
+      timeout: TIMEOUTS.long,
+      waitUntil: 'domcontentloaded',
+    });
+    await waitForPageLoad(page, TIMEOUTS.medium);
 
     // Verify page loaded successfully
     expect(page.url()).toContain('/blacks');
@@ -579,8 +574,11 @@ test.describe('User Interactions @dev', () => {
 
   test('Beach photos display @dev', async ({ page }) => {
     // Use regular goto - may have hydration errors
-    await page.goto(buildBeachUrl(TEST_BEACHES.blacks), { timeout: TIMEOUTS.long });
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await page.goto(buildBeachUrl(TEST_BEACHES.blacks), {
+      timeout: TIMEOUTS.long,
+      waitUntil: 'domcontentloaded',
+    });
+    await waitForPageLoad(page, TIMEOUTS.medium);
 
     // Look for images (may be lazy loaded)
     const imageCount = await page.locator('img').count();
@@ -633,7 +631,7 @@ test.describe('User Interactions @dev', () => {
     // Go to home page where beach cards are more likely to be
     await gotoWithErrorCheck(page, errorCapture, '/', { timeout: TIMEOUTS.long });
 
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await waitForPageLoad(page, TIMEOUTS.medium);
 
     // Look for first beach card/link
     const beachCard = page.locator('[data-testid="beach-card"], a[href*="/ca/"], a[href*="/hi/"], a[href*="/fl/"], [class*="beach-card"]').first();
@@ -667,8 +665,11 @@ test.describe('Data Integrity @dev', () => {
 
   test('Beach data has required fields @dev', async ({ page }) => {
     // Use regular goto - may have hydration errors
-    await page.goto(buildBeachUrl(TEST_BEACHES.blacks), { timeout: TIMEOUTS.long });
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await page.goto(buildBeachUrl(TEST_BEACHES.blacks), {
+      timeout: TIMEOUTS.long,
+      waitUntil: 'domcontentloaded',
+    });
+    await waitForPageLoad(page, TIMEOUTS.medium);
 
     // Verify we're on the correct page
     expect(page.url()).toContain('/blacks');
@@ -682,7 +683,7 @@ test.describe('Data Integrity @dev', () => {
   test('Session list shows valid data @dev', async ({ page }) => {
     await gotoWithErrorCheck(page, errorCapture, '/sessions', { timeout: TIMEOUTS.medium });
 
-    await page.waitForLoadState('networkidle', { timeout: TIMEOUTS.medium });
+    await waitForPageLoad(page, TIMEOUTS.medium);
 
     // Page should have content - sessions, empty state, or session-related heading
     const pageContent = page.locator('main, [role="main"]').first();
