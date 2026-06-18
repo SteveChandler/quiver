@@ -4,8 +4,15 @@ import { createMockBeaches } from "@/__tests__/setup/test-utils";
 
 // Mock the dynamic import for InteractiveMap
 jest.mock("next/dynamic", () => () => {
-  const InteractiveMapMock = ({ onLocationClick, onBeachSelect }: any) => (
-    <div data-testid="interactive-map">
+  const InteractiveMapMock = ({
+    initialCenter,
+    onLocationClick,
+    onBeachSelect,
+  }: any) => (
+    <div
+      data-testid="interactive-map"
+      data-initial-center={initialCenter?.join(",")}
+    >
       <button
         onClick={() => onLocationClick?.(mockBeaches[0])}
         data-testid="mock-beach-click"
@@ -100,10 +107,50 @@ describe("MapContent", () => {
     expect(mapContainer).toBeInTheDocument();
   });
 
+  it("should center the map on focusCenter when no beach or search result is selected", async () => {
+    render(
+      <MapContent
+        {...defaultProps}
+        focusCenter={{ lat: 33.63, lon: -117.95 }}
+        selectedBeach={null}
+        searchQuery=""
+      />,
+    );
+
+    const mapContainer = screen.getByTestId("map-container");
+    fireEvent.pointerDown(mapContainer);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+        "data-initial-center",
+        "33.63,-117.95",
+      );
+    });
+  });
+
   it("should show beach count overlay", () => {
     render(<MapContent {...defaultProps} />);
 
     expect(screen.getByText("Found 3 beaches near you")).toBeInTheDocument();
+  });
+
+  it("should point desktop map users to List view when no inline beach list exists", () => {
+    render(<MapContent {...defaultProps} />);
+
+    expect(
+      screen.getByText("Switch to List view to browse surf spots"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Tap a beach card below to see it on the map"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("should keep bottom-sheet copy when an inline beach list exists", () => {
+    render(<MapContent {...defaultProps} hasInlineBeachList />);
+
+    expect(
+      screen.getByText("Tap a beach card below to see it on the map"),
+    ).toBeInTheDocument();
   });
 
   it("should show search results overlay", () => {

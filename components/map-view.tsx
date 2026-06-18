@@ -3,23 +3,19 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useGeolocation } from "@/hooks/use-geolocation";
-import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { useBeachSearch } from "@/hooks/use-beach-search";
-import { MapSearchHeader } from "@/components/map/map-search-header";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { MapToolbar } from "@/components/map/map-toolbar";
+import {
+  MAP_REGION_PILLS,
+  type MapRegionPill,
+} from "@/components/map/map-regions";
 import { MapContent } from "@/components/map/map-content";
 import { BeachList } from "@/components/map/beach-list";
-import { MapSidebar } from "@/components/map/map-sidebar";
 import { MapBottomSheet } from "@/components/map/map-bottom-sheet";
 import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
 import { filterBeachesByViewport, type ViewportBounds } from "@/lib/utils/viewport-filter";
 import { useIsMobile } from "@/hooks/use-mobile";
-import {
-  SWELL_MAP_CTA_CLASS,
-  SWELL_LAYER_COLOR,
-  type SwellLayerId,
-} from "@/components/map/swell-map-theme";
+import { type SwellLayerId } from "@/components/map/swell-map-theme";
 import type { Beach } from "@/types/database";
 
 const MISSION_BEACH_COORDS = { lat: 32.7702, lon: -117.2525 } as const;
@@ -31,21 +27,13 @@ export function MapView() {
   const isMobile = useIsMobile();
   const [viewMode, setViewMode] = useState<"map" | "list">("map");
   const [showRecovery, setShowRecovery] = useState(false);
+  const [mapFocusCenter, setMapFocusCenter] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
 
   // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
   const lastLocationRef = useRef<{ lat: number; lon: number } | null>(null);
-
-  type RegionViewport = {
-    region: string;
-    key: string;
-    center: [number, number];
-    bounds?: [[number, number], [number, number]];
-    zoom?: number;
-  };
-
-  const [regionViewport, setRegionViewport] = useState<RegionViewport | null>(
-    null
-  );
 
   const [viewportBounds, setViewportBounds] = useState<ViewportBounds | null>(null);
   const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
@@ -65,7 +53,7 @@ export function MapView() {
     hasTimedOut,
     loading: locationLoading,
     getUserLocation,
-    useDefaultLocation,
+    useDefaultLocation: applyDefaultLocation,
   } = useGeolocation({
     useLastBeach: false,
     defaultLocation: MISSION_BEACH_COORDS,
@@ -76,16 +64,12 @@ export function MapView() {
     loading: beachLoading,
     searchQuery,
     selectedBeach,
-    beaches,
-    regions,
-    activeRegion,
     filters,
     loadBeaches,
     loadNearbyBeaches,
     setSearchQuery,
     clearSearch,
     setSelectedBeach,
-    setActiveRegion,
     toggleBeginnerFriendly,
     toggleBreakType,
     clearAllFilters,
@@ -119,6 +103,9 @@ export function MapView() {
   useEffect(() => {
     const searchFromUrl = searchParams.get("search") ?? "";
     setSearchQuery(searchFromUrl);
+    if (searchFromUrl) {
+      setMapFocusCenter(null);
+    }
   }, [searchParams, setSearchQuery]);
 
   // Apply filters from URL params on initial mount (e.g. /map?type=reef or /map?level=beginner)
@@ -142,24 +129,12 @@ export function MapView() {
 
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
+      setMapFocusCenter(null);
       setSelectedBeach(beach);
       // Smooth scroll to top to show the selected beach on map
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
     [setSelectedBeach]
-  );
-
-  const handleSidebarNavigate = useCallback(
-    (beach: Beach) => {
-      const beachUrl = getBeachHrefSafe({
-        id: beach.id,
-        slug: beach.slug,
-        city: beach.city,
-        state: beach.state,
-      });
-      if (beachUrl) router.push(beachUrl);
-    },
-    [router]
   );
 
   const stripMapUrlParams = useCallback(
@@ -185,6 +160,7 @@ export function MapView() {
   // update lands — same value, React bails — but skipping the direct hook write would
   // introduce a one-tick window where the UI still shows filtered results.
   const handleClearSearch = useCallback(() => {
+    setMapFocusCenter(null);
     clearSearch();
     stripMapUrlParams(["search"]);
     // Reset to nearby beaches when clearing search
@@ -195,10 +171,44 @@ export function MapView() {
     }
   }, [clearSearch, stripMapUrlParams, userLocation, loadNearbyBeaches, getUserLocation]);
 
+  const handleSearchChange = useCallback(
+    (query: string) => {
+      setMapFocusCenter(null);
+      setSelectedBeach(null);
+      setSearchQuery(query);
+    },
+    [setSearchQuery, setSelectedBeach]
+  );
+
   const handleClearAll = useCallback(() => {
+    setMapFocusCenter(null);
     clearAllFilters();
     stripMapUrlParams(["search", "type", "level"]);
   }, [clearAllFilters, stripMapUrlParams]);
+
+  const handleUseMyLocation = useCallback(() => {
+    setSelectedBeach(null);
+    clearSearch();
+    setMapFocusCenter(null);
+    lastLocationRef.current = null;
+    getUserLocation(true);
+  }, [clearSearch, getUserLocation, setSelectedBeach]);
+
+  const handleUseDefaultLocation = useCallback(() => {
+    setMapFocusCenter(null);
+    applyDefaultLocation();
+  }, [applyDefaultLocation]);
+
+  const handleRegionSelect = useCallback(
+    (region: MapRegionPill) => {
+      setSelectedBeach(null);
+      clearSearch();
+      setMapFocusCenter(region.center);
+      lastLocationRef.current = null;
+      void loadNearbyBeaches(region.center.lat, region.center.lon);
+    },
+    [clearSearch, loadNearbyBeaches, setSelectedBeach]
+  );
 
   // Distance calculation function using centralized utility
   // Uses userLocation from closure - child components call with (beachLat, beachLng) only
@@ -217,6 +227,7 @@ export function MapView() {
   );
 
   const handleMapClick = useCallback(() => {
+    setMapFocusCenter(null);
     setSelectedBeach(null);
   }, [setSelectedBeach]);
 
@@ -250,174 +261,38 @@ export function MapView() {
     [filteredBeaches, viewportBounds]
   );
 
-  // Update region viewport when the active region changes
-  useEffect(() => {
-    if (!activeRegion || activeRegion === "ALL") {
-      setRegionViewport(null);
-      return;
-    }
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 ||
+    filters.beginnerFriendly ||
+    filters.breakTypes.size > 0;
 
-    const regionBeaches = (beaches || []).filter(
-      (beach) => (beach.region || "") === activeRegion
-    );
-
-    const coordinates = regionBeaches
-      .map((beach) => {
-        if (typeof beach.lat === "number" && typeof beach.lon === "number") {
-          return { lat: beach.lat, lon: beach.lon };
-        }
-        return null;
-      })
-      .filter(Boolean) as Array<{ lat: number; lon: number }>;
-
-    if (coordinates.length === 0) {
-      setRegionViewport(null);
-      return;
-    }
-
-    const lats = coordinates.map((coord) => coord.lat);
-    const lons = coordinates.map((coord) => coord.lon);
-
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLon = Math.min(...lons);
-    const maxLon = Math.max(...lons);
-
-    const centerLat = (minLat + maxLat) / 2;
-    const centerLon = (minLon + maxLon) / 2;
-
-    const latSpan = Math.abs(maxLat - minLat);
-    const lonSpan = Math.abs(maxLon - minLon);
-    const keyBase = `${minLat.toFixed(5)}-${minLon.toFixed(5)}-${maxLat.toFixed(
-      5
-    )}-${maxLon.toFixed(5)}`;
-
-    if (latSpan < 0.002 && lonSpan < 0.002) {
-      setRegionViewport({
-        region: activeRegion,
-        key: `${activeRegion}-center-${keyBase}`,
-        center: [centerLat, centerLon],
-        zoom: 13,
-      });
-      return;
-    }
-
-    setRegionViewport({
-      region: activeRegion,
-      key: `${activeRegion}-bounds-${keyBase}`,
-      center: [centerLat, centerLon],
-      bounds: [
-        [minLon, minLat],
-        [maxLon, maxLat],
-      ],
-    });
-  }, [activeRegion, beaches]);
+  const selectedBeachForMap = mapFocusCenter ? null : selectedBeach;
 
   return (
     <div className="flex-1 flex flex-col min-h-0" data-testid="map-view">
-      {/* Map Controls (View Mode Toggle & Near Me) */}
-      <MapSearchHeader
+      <MapToolbar
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
+        onClearSearch={handleClearSearch}
+        suggestions={filteredBeaches.slice(0, 6)}
+        onSuggestionSelect={handleBeachSelect}
+        regions={MAP_REGION_PILLS}
+        onRegionSelect={handleRegionSelect}
+        onUseMyLocation={handleUseMyLocation}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
-        onNearMe={() => {
-          // Clear selection so map centers on user location
-          setSelectedBeach(null);
-          clearSearch();
-          lastLocationRef.current = null; // Allow reload at same location
-          getUserLocation(true); // Force fresh geolocation
-        }}
+        filters={filters}
+        onToggleBeginner={toggleBeginnerFriendly}
+        onToggleBreakType={toggleBreakType}
+        onClearAll={handleClearAll}
+        hasActiveFilters={hasActiveFilters}
+        showSwellField={showSwellField}
+        onToggleSwellField={() => setShowSwellField((v) => !v)}
       />
-
-      {/* Region Tabs + Filter Chips */}
-      <div className="sticky top-[64px] z-10 bg-background border-b px-4 py-2">
-        {/* Regions */}
-        {regions && regions.length > 0 && (
-          <Tabs
-            defaultValue="ALL"
-            onValueChange={(v) => setActiveRegion(v as any)}
-          >
-            <TabsList className="flex flex-wrap gap-1 overflow-x-auto">
-              <TabsTrigger value="ALL">All</TabsTrigger>
-              {regions.map((r) => (
-                <TabsTrigger key={r} value={r}>
-                  {r}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        )}
-
-        {/* Filter Chips */}
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Badge
-            variant={filters.beginnerFriendly ? "default" : "outline"}
-            className="cursor-pointer"
-            onClick={() => toggleBeginnerFriendly()}
-          >
-            Beginner-friendly
-          </Badge>
-          {["beach", "point", "reef", "longboard", "bodyboard"].map((t) => (
-            <Badge
-              key={t}
-              variant={filters.breakTypes.has(t) ? "default" : "outline"}
-              className="cursor-pointer"
-              onClick={() => toggleBreakType(t)}
-            >
-              {t}
-            </Badge>
-          ))}
-          {(searchQuery || filters.beginnerFriendly || filters.breakTypes.size > 0) && (
-            <Badge
-              variant="secondary"
-              className="cursor-pointer"
-              onClick={handleClearAll}
-              data-testid="map-clear-all"
-            >
-              Clear all
-            </Badge>
-          )}
-          <button
-            type="button"
-            aria-pressed={showSwellField}
-            data-testid="swell-field-toggle"
-            onClick={() => setShowSwellField((v) => !v)}
-            className={`rounded-md px-3 py-1.5 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${
-              showSwellField
-                ? // Engaged: solid Charming-Orange sticker fill, dark navy text, inset
-                  // shadow + ring so the pressed/active state is unmistakable. Orange-on-
-                  // navy text is the AA-safe active treatment (same as the layer chips).
-                  "text-[#161A40] shadow-inner ring-1 ring-black/20"
-                : // Idle: AA-safe ocean-blue CTA (white text).
-                  SWELL_MAP_CTA_CLASS
-            }`}
-            style={
-              showSwellField
-                ? { background: SWELL_LAYER_COLOR.s1 }
-                : undefined
-            }
-          >
-            {showSwellField ? "Hide swell field" : "Show swell field"}
-          </button>
-        </div>
-      </div>
 
       {/* Content */}
       {viewMode === "map" ? (
-        <div className="flex-1 flex flex-col md:flex-row min-h-0">
-          {/* Desktop sidebar (JS-conditional: portal-based Drawer can't be hidden via CSS) */}
-          {!isMobile && (
-            <div className="flex w-[380px] shrink-0 border-r">
-              <MapSidebar
-                beaches={viewportBeaches}
-                waveHeightMap={waveHeightMap}
-                selectedBeach={selectedBeach}
-                userLocation={userLocation}
-                onBeachSelect={handleSidebarNavigate}
-              />
-            </div>
-          )}
-
-          {/* Map fills remaining space */}
+        <div className="flex-1 flex flex-col min-h-0">
           <div className="flex-1 relative min-h-0 flex flex-col">
             <MapContent
               loading={loading}
@@ -425,18 +300,20 @@ export function MapView() {
               usingDefaultLocation={usingDefaultLocation}
               hasTimedOut={hasTimedOut}
               userLocation={userLocation}
-              selectedBeach={selectedBeach}
+              focusCenter={mapFocusCenter}
+              selectedBeach={selectedBeachForMap}
               filteredBeaches={filteredBeaches}
               searchQuery={searchQuery}
-              regionViewport={regionViewport}
-              onGetUserLocation={() => getUserLocation(true)}
-              onUseDefaultLocation={useDefaultLocation}
+              regionViewport={null}
+              onGetUserLocation={handleUseMyLocation}
+              onUseDefaultLocation={handleUseDefaultLocation}
               onBeachSelect={handleBeachSelect}
               onBoundsChange={handleBoundsChange}
               onWaveHeightsChange={handleWaveHeightsChange}
               onMapClick={isMobile ? handleMapClick : undefined}
               autoNavigateOnMarkerClick={!isMobile}
               onShowBeaches={isMobile && showRecovery ? handleShowBeaches : undefined}
+              hasInlineBeachList={isMobile}
               visibleBeachCount={viewportBeaches.length}
               showSwellField={showSwellField}
               swellLayerId={swellLayerId}
@@ -445,7 +322,6 @@ export function MapView() {
               swellTimelineIndex={swellTimelineIndex}
               onSwellTimelineChange={setSwellTimelineIndex}
             />
-
           </div>
 
           {/* Mobile bottom sheet (JS-conditional: Vaul Drawer uses portal, escapes CSS) */}
@@ -453,7 +329,7 @@ export function MapView() {
             <MapBottomSheet
               beaches={viewportBeaches}
               waveHeightMap={waveHeightMap}
-              selectedBeach={selectedBeach}
+              selectedBeach={selectedBeachForMap}
               userLocation={userLocation}
               onBeachSelect={handleBeachSelect}
               getDistanceFromUser={getDistanceFromUser}

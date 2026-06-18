@@ -19,6 +19,7 @@ interface MapContentProps {
   usingDefaultLocation: boolean;
   hasTimedOut: boolean;
   userLocation: { lat: number; lon: number } | null;
+  focusCenter?: { lat: number; lon: number } | null;
   selectedBeach: Beach | null;
   filteredBeaches: Beach[];
   searchQuery: string;
@@ -42,6 +43,7 @@ interface MapContentProps {
   onMapClick?: () => void;
   autoNavigateOnMarkerClick?: boolean;
   onShowBeaches?: () => void;
+  hasInlineBeachList?: boolean;
   visibleBeachCount?: number;
   showSwellField?: boolean;
   swellLayerId?: import("@/components/map/swell-map-theme").SwellLayerId;
@@ -69,6 +71,7 @@ export function MapContent({
   usingDefaultLocation,
   hasTimedOut,
   userLocation,
+  focusCenter,
   selectedBeach,
   filteredBeaches,
   searchQuery,
@@ -81,6 +84,7 @@ export function MapContent({
   onMapClick,
   autoNavigateOnMarkerClick,
   onShowBeaches,
+  hasInlineBeachList = false,
   visibleBeachCount,
   showSwellField,
   swellLayerId,
@@ -147,13 +151,19 @@ export function MapContent({
       }
     }
     if (
+      focusCenter &&
+      hasValidCoordinates(focusCenter.lat, focusCenter.lon)
+    ) {
+      return focusCenter;
+    }
+    if (
       userLocation &&
       hasValidCoordinates(userLocation.lat, userLocation.lon)
     ) {
       return userLocation;
     }
     return { lat: 32.7702, lon: -117.2525 }; // Mission Beach default
-  }, [selectedBeach, searchQuery, filteredBeaches, userLocation]);
+  }, [selectedBeach, searchQuery, filteredBeaches, focusCenter, userLocation]);
 
   // Stable array reference — only changes when lat/lon values actually change
   const initialCenterArray = useMemo(
@@ -298,8 +308,12 @@ export function MapContent({
                     : searchQuery && displayCount === 1
                       ? `Showing ${filteredBeaches[0].name} on the map`
                       : searchQuery && displayCount > 1
-                        ? `Showing ${filteredBeaches[0].name} - tap other beach cards below to see them on the map`
-                        : "Tap a beach card below to see it on the map"}
+                        ? hasInlineBeachList
+                          ? `Showing ${filteredBeaches[0].name} - tap other beach cards below to see them on the map`
+                          : `Showing ${filteredBeaches[0].name} on the map`
+                        : hasInlineBeachList
+                          ? "Tap a beach card below to see it on the map"
+                          : "Switch to List view to browse surf spots"}
                 </p>
               );
             }

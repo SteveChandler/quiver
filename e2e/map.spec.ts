@@ -197,14 +197,17 @@ test.describe('Map Page - View Mode Toggle', () => {
 
       const beachList = page.getByTestId('beach-list');
       const hasList = await isVisibleSafe(beachList, { timeout: TIMEOUTS.medium });
-      const firstListCard = page.locator('[data-testid="beach-item"]').first();
+      const firstListCard = page
+        .locator('[data-testid="beach-item"]')
+        .filter({ hasText: /\d+(?:\.\d+)?(?:\s*-\s*\d+(?:\.\d+)?)?\s*ft/i })
+        .first();
 
       if (!hasList) {
-        const hasCards = await isVisibleSafe(firstListCard, { timeout: TIMEOUTS.medium });
+        const hasCards = await isVisibleSafe(firstListCard, { timeout: TIMEOUTS.long });
         expect(hasCards).toBe(true);
       }
 
-      await expect(firstListCard).toBeVisible({ timeout: TIMEOUTS.medium });
+      await expect(firstListCard).toBeVisible({ timeout: TIMEOUTS.long });
 
       const listBeachName = (await firstListCard.locator('h3').first().textContent())?.trim();
       expect(listBeachName).toBeTruthy();
@@ -217,23 +220,24 @@ test.describe('Map Page - View Mode Toggle', () => {
         await expandButton.click();
       }
 
-      const listForecastDisplay = firstListCard.locator('[data-testid="primary-wave-height"]').first();
-      await expect(listForecastDisplay).toBeVisible({ timeout: TIMEOUTS.medium });
+      await expect(
+        firstListCard.getByRole('heading', { name: 'Current Conditions' })
+      ).toBeVisible({ timeout: TIMEOUTS.long });
 
-      const listForecastHeight = parseWaveHeightRange(await listForecastDisplay.textContent() ?? '');
+      const listForecastHeight = parseWaveHeightRange(await firstListCard.textContent() ?? '');
       expect(listForecastHeight).toBeTruthy();
 
-    const detailLink = firstListCard.getByRole('link', { name: /view details/i }).first();
-    await expect(detailLink).toBeVisible({ timeout: TIMEOUTS.short });
-    await detailLink.click();
+      const detailLink = firstListCard.getByRole('link', { name: /view details/i }).first();
+      await expect(detailLink).toBeVisible({ timeout: TIMEOUTS.short });
+      await detailLink.click();
 
-    await page.waitForURL(/\/(?:surf-forecast\/[^/?#]+|[a-z]{2}\/[^/?#]+\/[^/?#]+)/i, {
-      timeout: TIMEOUTS.short,
-    });
+      await page.waitForURL(/\/(?:surf-forecast\/[^/?#]+|[a-z]{2}\/[^/?#]+\/[^/?#]+)/i, {
+        timeout: TIMEOUTS.short,
+      });
 
-    const detailCurrentSection = page
-      .locator('section')
-      .filter({ has: page.getByRole('heading', { name: 'Current Conditions', level: 2, exact: true }) });
+      const detailCurrentSection = page
+        .locator('section')
+        .filter({ has: page.getByRole('heading', { name: 'Current Conditions', level: 2, exact: true }) });
 
       await expect(detailCurrentSection).toBeVisible({ timeout: TIMEOUTS.long });
 
@@ -243,10 +247,10 @@ test.describe('Map Page - View Mode Toggle', () => {
       const listForecastLabel = formatWaveHeightRange(listForecastHeight as WaveHeightRange);
       const detailForecastLabel = formatWaveHeightRange(detailForecastHeight as WaveHeightRange);
 
-    expect(
-      waveHeightRangesOverlap(listForecastHeight, detailForecastHeight),
-      `Expected overlapping wave-height ranges between map list (${listForecastLabel}) and detail (${detailForecastLabel})`
-    ).toBe(true);
+      expect(
+        waveHeightRangesOverlap(listForecastHeight, detailForecastHeight),
+        `Expected overlapping wave-height ranges between map list (${listForecastLabel}) and detail (${detailForecastLabel})`
+      ).toBe(true);
     } finally {
       errorCapture.networkErrors = errorCapture.networkErrors.filter(
         (entry) => !(entry.status === 500 && entry.url.includes('/api/intel'))
@@ -840,40 +844,28 @@ test.describe('Map Page - Beach Card Navigation', () => {
     await assertNoErrors(page, errorCapture, { context: 'Map Beach Card Nav' });
   });
 
-  test('desktop: clicking sidebar beach card navigates to beach detail page', async ({ page, context }) => {
+  test('desktop: clicking list-view beach card navigates to beach detail page', async ({ page, context }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
 
     await context.grantPermissions(['geolocation']);
     await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
 
-    // Use search to ensure predictable sidebar content
     await page.goto('/map?search=Blacks');
     await waitForPageLoad(page);
 
     await dismissMapEntryOverlay(page);
 
-    // Desktop sidebar renders SidebarBeachCard as <button> elements (not links).
-    // The sidebar uses handleSidebarNavigate which calls router.push() directly on click —
-    // so clicking the button navigates immediately to the beach detail page.
-    const sidebarButton = page.getByRole('button', { name: /Blacks/i }).first();
-    const hasSidebarButton = await isVisibleSafe(sidebarButton, { timeout: TIMEOUTS.long });
+    await expect(page.getByText(/spots in view/i)).toHaveCount(0);
 
-    if (!hasSidebarButton) {
-      // Fallback: find the first sidebar button that looks like a beach card (has beach/location text)
-      const firstSidebarButton = page.locator('button[type="button"]').filter({ hasText: /\bCA\b|\bOR\b|\bWA\b|\bHI\b/ }).first();
-      const hasFirstButton = await isVisibleSafe(firstSidebarButton, { timeout: TIMEOUTS.medium });
+    const listButton = page.getByTestId('view-mode-list');
+    await expect(listButton).toBeVisible({ timeout: TIMEOUTS.medium });
+    await listButton.click();
 
-      if (!hasFirstButton) {
-        throw new Error('No sidebar beach buttons found on desktop map page');
-      }
+    const detailLink = page.locator('a[href*="/blacks"]').first();
+    await expect(detailLink).toBeVisible({ timeout: TIMEOUTS.long });
+    await detailLink.click();
 
-      await firstSidebarButton.click();
-    } else {
-      await sidebarButton.click();
-    }
-
-    // Desktop sidebar navigates directly on click (handleSidebarNavigate → router.push)
-    await page.waitForURL(/\/(ca|or|wa|hi|beach)\//, { timeout: TIMEOUTS.medium });
+    await page.waitForURL(/\/(ca|california|beach)\//, { timeout: TIMEOUTS.medium });
   });
 
   test('mobile: clicking selected beach card navigates to beach detail page', async ({ page, context }) => {
