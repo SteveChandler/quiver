@@ -9,6 +9,7 @@ import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import type { BeachForecastMetadata } from "@/hooks/use-beach-detail-data";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import type { ForecastFeedbackClientPayload } from "@/lib/services/forecast/forecast-feedback";
+import { buildSessionWizardUrl } from "@/lib/utils/session-wizard-params";
 
 type FeedbackValue = "too_low" | "about_right" | "too_high";
 
@@ -54,6 +55,14 @@ function forecastHorizonHours(
   if (forecastMs == null || issuedMs == null) return null;
   const hours = Math.round((forecastMs - issuedMs) / (1000 * 60 * 60));
   return hours >= 0 && hours <= 168 ? hours : null;
+}
+
+function isUuid(value: string | undefined): value is string {
+  return Boolean(
+    value?.match(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    ),
+  );
 }
 
 function buildPayload(args: {
@@ -166,6 +175,7 @@ export function ForecastFeedbackCapture({
   const [note, setNote] = useState("");
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sessionLogUrl, setSessionLogUrl] = useState<string | null>(null);
 
   const selectedLabel = useMemo(
     () =>
@@ -203,6 +213,24 @@ export function ForecastFeedbackCapture({
       if (!response.ok || body?.success !== true) {
         throw new Error("Feedback submit failed");
       }
+      const feedbackId =
+        typeof body?.data?.id === "string" && body.data.id.trim()
+          ? body.data.id
+          : undefined;
+      const forecastFeedbackId = isUuid(feedbackId) ? feedbackId : undefined;
+      setSessionLogUrl(
+        buildSessionWizardUrl({
+          mode: "log",
+          quick: true,
+          beachId: beach.id,
+          beachName: beach.name,
+          startTime: new Date(payload.windowStart ?? payload.forecastAt),
+          endTime: payload.windowEnd ? new Date(payload.windowEnd) : undefined,
+          targetStep: 1,
+          forecastFeedbackId,
+          forecastFeedbackValue: selectedValue,
+        }),
+      );
       setStatus("success");
       setNote("");
       track("forecast_interaction", {
@@ -214,6 +242,7 @@ export function ForecastFeedbackCapture({
       });
     } catch {
       setStatus("error");
+      setSessionLogUrl(null);
     } finally {
       setIsSubmitting(false);
     }
@@ -287,9 +316,19 @@ export function ForecastFeedbackCapture({
       )}
 
       {status === "success" && (
-        <p className="mt-2 text-sm font-bold text-[#0B7A4B]">
-          Feedback saved.
-        </p>
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-bold text-[#0B7A4B]">
+            Feedback saved.
+          </p>
+          {sessionLogUrl && (
+            <a
+              href={sessionLogUrl}
+              className="inline-flex min-h-10 items-center justify-center rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-heading text-xs font-black uppercase text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#11100D]"
+            >
+              Log the session
+            </a>
+          )}
+        </div>
       )}
       {status === "error" && (
         <p className="mt-2 text-sm font-bold text-[#B42318]">
