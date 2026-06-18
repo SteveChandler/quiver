@@ -1,4 +1,5 @@
 import {
+  GFS_WAVE_SHADOW_CAPTURE_DISABLED,
   GFS_WAVE_SHADOW_MODEL,
   buildGfsWaveShadowForecast,
   buildGfsWaveShadowRows,
@@ -53,12 +54,14 @@ describe("GFS-Wave shadow capture helpers", () => {
     }
   });
 
-  it("is off unless explicitly enabled", () => {
+  it("is hard-disabled even when the legacy env flag is enabled", () => {
+    expect(GFS_WAVE_SHADOW_CAPTURE_DISABLED).toBe(true);
+
     delete process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED;
     expect(isGfsWaveShadowCaptureEnabled()).toBe(false);
 
     process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED = "true";
-    expect(isGfsWaveShadowCaptureEnabled()).toBe(true);
+    expect(isGfsWaveShadowCaptureEnabled()).toBe(false);
   });
 
   it("classifies an all-zero wave_height payload as missing-source data", () => {
