@@ -275,3 +275,13 @@ The main change above is **implemented, reviewed (ship-with-nits, 0 P0/P1), and 
    - Prefer a small pixel-delta tolerance over strict `Buffer.compare === 0` (WebGL readback is not guaranteed bit-identical frame to frame).
 
 6. **De-flake `e2e/map.spec.ts:192`** *"preserve forecast height from list card into beach detail"*. It waits 30s for a List card matching `/…ft/`, which local data doesn't render. Gate on forecast-data presence (skip-with-reason via `throw new Error("Not implemented: no forecast data in env")` per the repo E2E rules) or seed forecast data in the fixture, rather than a hard 30s wait, so it's deterministic.
+
+---
+
+## Follow-up (Round 3) — after the status-overlay + List-view removal
+
+The map status overlay and List view were both removed (map-only experience, swell field defaults ON). That surfaced two items:
+
+7. **Restore out-of-area / no-result search feedback** (regression). The "X is outside our coverage area" message lived in BOTH the deleted status overlay AND `BeachList` (now removed), so searching an uncovered place (e.g. "Bali", "Cornwall") now shows **nothing** — no list, no message. Add feedback to the toolbar search: when `searchQuery.trim()` is non-empty and `filteredBeaches.length === 0`, show a small message in / under the search input or the suggestions dropdown. Reuse `isLikelyOutOfAreaSearch(searchQuery)` + `COVERAGE_MESSAGES` from `lib/constants/coverage-areas.ts` (`getOutOfAreaMessage(q)` + `COVERAGE_AREA_INFO` for out-of-area; fall back to `No beaches match "{q}"` for in-area no-matches). Keep it on-brand (NO glassmorphism — the removed overlay used `bg-white/90 backdrop-blur-sm`; don't reintroduce it). File: `components/map/map-toolbar.tsx`; add a unit test for both branches.
+
+8. **Finish the `BeachList` removal** — the component (`components/map/beach-list.tsx`) and its test (`__tests__/components/map/beach-list.test.tsx`) are **already deleted** (orphaned once List view was removed; verified sole importer was its own test). Remaining cleanup: drop the now-stale references in `components/map/ARCHITECTURE.md` (the `beach-list.tsx` component-structure line, the `### BeachList (Legacy Standalone List)` section ~427-497, and the `data-testid="beach-list"` reference ~1008). Then check whether `hooks/use-beach-list-state.ts` (`useBeachListState`) is now orphaned — `BeachList` was likely its only consumer (`rg useBeachListState components app`); if so, delete the hook + its ARCHITECTURE.md section (~625) too.
