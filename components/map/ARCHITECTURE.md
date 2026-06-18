@@ -2,13 +2,14 @@
 
 ## **PURPOSE**
 
-The map components provide an interactive beach discovery system with dual map/list views, real-time wave data, search functionality, location-based services, **beach marker clustering for dense areas**, and **Phase 2 enhanced motion interactions** for delightful user experiences.
+The map components provide an interactive beach discovery system with real-time wave data, search functionality, location-based services, **beach marker clustering for dense areas**, and **Phase 2 enhanced motion interactions** for delightful user experiences.
 
 ## **COMPONENT STRUCTURE**
 
 ```
 components/map/
 ├── map-content.tsx            # Main map container with dynamic loading
+├── map-toolbar.tsx            # Single map toolbar with search, controls, and region/filter dropdown
 ├── interactive-map.tsx        # Mapbox interactive map core (~550 LOC, orchestration + lifecycle)
 ├── map-marker-builder.ts     # createWaveHeightBadge — beach marker DOM creation + styling
 ├── map-favorites-loader.ts   # loadFavoriteBeaches — async fetch of user's favorite beach IDs
@@ -16,13 +17,11 @@ components/map/
 ├── map-cluster-renderer.ts   # createClusterMapMarker — cluster marker creation + click handling
 ├── map-cluster-popup.ts      # createClusterPopupContent — grouped beach detail popup
 ├── cluster-marker.tsx        # createClusterMarkerElement — cluster marker DOM element factory
-├── map-sidebar.tsx           # Desktop sidebar with viewport-filtered beach list
 ├── map-bottom-sheet.tsx      # Mobile bottom sheet (custom touch gestures) with beach list
-├── sidebar-beach-card.tsx    # Compact beach card for sidebar/bottom sheet
+├── sidebar-beach-card.tsx    # Compact beach card for mobile bottom sheet
 ├── map-display.tsx            # Static map with wave height overlays
-├── beach-list.tsx            # Searchable beach list with reviews
+├── beach-list.tsx            # Legacy standalone searchable beach list with reviews
 ├── map-header.tsx            # Navigation header (legacy)
-├── map-search-header.tsx     # Search header with view toggles
 ├── nearby-beach-scroll.tsx   # Horizontal beach scroller (no longer used in MapView)
 └── selected-beach-card.tsx   # Selected beach detail card
 ```
@@ -275,19 +274,17 @@ const LocationSelector = () => {
 
 ## **ARCHITECTURE PATTERNS**
 
-### **Dual View System**
+### **Map View System**
 
 ```typescript
 MapView
-├── MapSearchHeader (Search + View Toggle)
-├── MapSidebar (Desktop: viewport beach list)
+├── MapToolbar (Search + location + swell toggle + region/filter dropdown)
 ├── MapContent (Interactive/Static Map)
 ├── SelectedBeachCard (Mobile: quick view)
-├── MapBottomSheet (Mobile: viewport beach list)
-└── BeachList (List View - alternative mode)
+└── MapBottomSheet (Mobile: viewport beach list)
 ```
 
-**Note**: `NearbyBeachScroll` component has been replaced by `MapSidebar` (desktop) and `MapBottomSheet` (mobile) for better integration with the map viewport.
+**Note**: Desktop map browsing is full-width. The viewport beach list lives in `MapBottomSheet` on mobile.
 
 ### **Dynamic Map Loading**
 
@@ -339,10 +336,28 @@ const populateLocations = async (lat: number, lng: number) => {
 const mapCenter = useMemo(() => {
   if (selectedBeach) return beachCoords;
   if (searchQuery && filteredBeaches.length > 0) return searchResultCoords;
+  if (focusCenter) return focusCenter;          // region-pill jump (leash-safe, see below)
   if (userLocation) return userLocation;
   return defaultOceanBeachCoords;
-}, [selectedBeach, searchQuery, filteredBeaches, userLocation]);
+}, [selectedBeach, searchQuery, filteredBeaches, focusCenter, userLocation]);
 ```
+
+**Region navigation & the swell-field leash.** `InteractiveMap` is keyed on `mapCenter`
+(``key={`${lat.toFixed(4)}-${lon.toFixed(4)}`}``), so any center change **remounts** the map.
+Toolbar search (`searchQuery` → first result) and region pills (`focusCenter`, set by
+`MapToolbar` from `map-regions.ts`) both recenter through this remount path. Remount is what
+makes cross-region nav **leash-safe**: when the swell field is ON, `interactive-map.tsx` pins
+`maxBounds` + zoom 9–13.5 to the current coast, but a remount starts a fresh map (no leash)
+and the leash re-derives around the new region. The retired region *tabs* used in-place
+`fitBounds`, which the leash silently clamped. `focusCenter` is cleared on every other
+camera-pinning action (beach select, search change, "use my location") so it never pins the
+camera.
+
+**Verifying /map changes.** The map exposes `window.__quiverMapInstance` in non-prod. The
+canvas paints slowly (~30s locally — a too-early screenshot looks blank/navy but is **not** a
+broken layout), and `canvas.toDataURL()` returns blank for Mapbox. See the `quiver-map-verify`
+skill for the full gotchas (wait-for-idle, compositor screenshots, animation diffing, the
+leash assertions, and the known-flaky map e2e).
 
 ### **InteractiveMap** (Mapbox Integration)
 
@@ -409,9 +424,9 @@ const handleMoveEnd = useCallback(
   - Wave height data integration
   - Fallback for interactive map issues
 
-### **BeachList** (List View) - **Enhanced with Motion**
+### **BeachList** (Legacy Standalone List) - **Enhanced with Motion**
 
-- **Purpose**: Searchable, filterable beach list with staggered animations
+- **Purpose**: Searchable, filterable beach list with staggered animations (not mounted by the current `/map` toolbar flow)
 - **Props**: Beaches, search state, user location, callbacks
 - **Features**:
   - Beach card integration with reviews
@@ -480,68 +495,25 @@ const handleMoveEnd = useCallback(
 }
 ```
 
-### **MapSearchHeader** (Search Interface)
+### **MapToolbar** (Search + Controls)
 
-- **Purpose**: Search input with view mode toggles
-- **Props**: Search state, view mode, callbacks
+- **Purpose**: Single sticky `/map` toolbar with always-visible search, location, swell-field toggle, and region/filter dropdown
+- **Props**: Search state, suggestions, region pills, filters, swell-field state, callbacks
 - **Features**:
-  - Real-time search input
-  - Map/List view toggle
-  - Search clearing functionality
+  - Anonymous/mobile beach search with suggestions
+  - Region quick-jumps that recenter through the remount path
+  - Filter chips inside a compact dropdown
 
 ### **SelectedBeachCard** (Detail Preview)
 
 - **Purpose**: Quick-view card for the currently selected beach
-- **Rendering context**: On mobile, renders **inside `MapBottomSheet`** (above the scrollable list). On desktop, the sidebar handles selection display.
+- **Rendering context**: On mobile, renders **inside `MapBottomSheet`** (above the scrollable list). On desktop, markers can navigate directly to beach detail pages.
 - **Props**: `selectedBeach`, `getDistanceFromUser`, `userLocation`, `onClose?`
 - **Features**:
   - Tappable card that navigates to the beach detail page via `router.push`
   - `onClose` callback (X button) deselects without navigating; uses `stopPropagation` to prevent the outer link handler from firing
   - Distance and rating display
   - Inline forecast preview via `useForecastPreview`
-
-### **MapSidebar** (Desktop Viewport List)
-
-- **Purpose**: Desktop sidebar showing beaches visible in current map viewport
-- **Props**: Map bounds, beaches, wave heights, selected beach, callbacks
-- **Features**:
-  - Viewport-aware beach filtering using `filterBeachesByViewport`
-  - Real-time updates as map pans/zooms
-  - Compact `SidebarBeachCard` components
-  - Scroll overflow handling
-  - Wave height display integration
-  - Shared state via `useBeachListState` hook
-
-**Implementation:**
-
-```typescript
-const MapSidebar = ({ bounds, beaches, waveHeights, selectedBeach, onBeachSelect }) => {
-  // Filter beaches to viewport
-  const visibleBeaches = useMemo(
-    () => filterBeachesByViewport(beaches, bounds),
-    [beaches, bounds]
-  );
-
-  // Shared state with MapBottomSheet
-  const { expandedBeachId, setExpandedBeachId } = useBeachListState();
-
-  return (
-    <div className="hidden lg:block w-80 border-r overflow-y-auto">
-      {visibleBeaches.map((beach) => (
-        <SidebarBeachCard
-          key={beach.id}
-          beach={beach}
-          waveHeight={waveHeights.get(beach.id)}
-          isSelected={selectedBeach?.id === beach.id}
-          isExpanded={expandedBeachId === beach.id}
-          onSelect={() => onBeachSelect(beach)}
-          onToggle={() => setExpandedBeachId(beach.id)}
-        />
-      ))}
-    </div>
-  );
-};
-```
 
 ### **MapBottomSheet** (Mobile Viewport List)
 
@@ -610,7 +582,7 @@ function MapBottomSheet({ beaches, selectedBeach, onDeselectBeach, ... }) {
 
 ### **SidebarBeachCard** (Compact Beach Card)
 
-- **Purpose**: Compact beach card for sidebar/bottom sheet lists
+- **Purpose**: Compact beach card for mobile bottom sheet lists
 - **Props**: Beach data, wave height, selection state, callbacks
 - **Features**:
   - Compact layout (fits more in viewport)
@@ -655,8 +627,8 @@ const visibleBeaches = useMemo(() => {
 - **Purpose**: Shared state management for beach list components
 - **Features**:
   - Manages expanded beach card state
-  - Shared between MapSidebar and MapBottomSheet
-  - Prevents state conflicts between desktop/mobile views
+  - Shared by mobile bottom sheet beach cards
+  - Prevents state conflicts between repeated card renders
 
 **API:**
 
@@ -777,17 +749,6 @@ const BeachCard = ({ beach }) => {
   {isExpanded ? <ChevronUp /> : <ChevronDown />}
 </motion.button>
 
-// View mode toggle with motion feedback
-<motion.div className="flex-1">
-  <Button
-    whileHover={{ scale: 1.02 }}
-    whileTap={{ scale: 0.98 }}
-    onClick={() => onViewModeChange("list")}
-  >
-    <List className="h-4 w-4 mr-1" />
-    List
-  </Button>
-</motion.div>
 ```
 
 ## **DESIGN PATTERNS**
