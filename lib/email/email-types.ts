@@ -37,6 +37,7 @@ export interface ConditionsAlertCandidate {
   user_id: string;
   email: string;
   display_name: string | null;
+  experience_level: string | null;
   home_beach_id: string;
   beach_name: string;
   beach_slug: string;

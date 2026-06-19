@@ -11,10 +11,12 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import type { CompositeScore } from '@/lib/domains/scoring';
 import type { RideabilityBand } from '@/lib/domains/rideability';
+import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 import {
   beachToSpotProfile,
   forecastToSnapshot,
 } from '@/lib/domains/scoring';
+import { scoreNativeForecastSlot } from '@/lib/scoring/native-condition-score';
 import { getDirectionDegrees } from './direction-utils';
 import { getScoringEngine } from './scoring-engine-singleton';
 
@@ -26,7 +28,7 @@ const SELECTOR_OUT_OF_BAND_PENALTY_CAP = 12;
 /**
  * Score a single forecast window based on conditions and user preferences.
  *
- * @deprecated Use `scoreWindowWithEngine` instead. This function uses a
+ * @deprecated Use `scoreWindowConditionScore` instead. This function uses a
  * different 0-80 scale that doesn't match the display score (0-100).
  * Kept for backwards compatibility with tests.
  *
@@ -152,33 +154,38 @@ export function scoreForecastWindow(
 }
 
 /**
- * Score a forecast window using the unified discovery scoring engine.
+ * Score a forecast window using the native-compatible condition score.
  *
- * This replaces scoreForecastWindow with the same scoring system used
- * for display, ensuring consistency between window selection and UI.
+ * This replaces scoreForecastWindow with the same scoring system used for
+ * display, ensuring consistency between window selection and UI.
  *
  * @param forecast - Forecast entity to score
  * @param beach - Beach metadata
  * @returns Score from 0-100
  */
-export function scoreWindowWithEngine(
+export function scoreWindowConditionScore(
   forecast: EnhancedForecastEntity,
-  beach: Beach
+  _beach: Beach,
+  skillLevel?: SkillLevel | string | null
 ): number {
-  return scoreWindowWithComposite(forecast, beach).total;
+  return scoreNativeForecastSlot(forecast, skillLevel);
 }
+
+/** @deprecated Use `scoreWindowConditionScore` for native-compatible display scoring. */
+export const scoreWindowWithEngine = scoreWindowConditionScore;
 
 /**
  * Score a forecast window for selector ranking, with a small board-aware
  * rideability nudge. The adjustment is intentionally kept out of
- * scoreWindowWithEngine so display/report scoring remains globally unchanged.
+ * scoreWindowConditionScore so display/report scoring remains globally unchanged.
  */
 export function scoreWindowForSelection(
   forecast: EnhancedForecastEntity,
   beach: Beach,
-  rideabilityBand: RideabilityBand | null = null
+  rideabilityBand: RideabilityBand | null = null,
+  skillLevel?: SkillLevel | string | null
 ): number {
-  const baseScore = scoreWindowWithEngine(forecast, beach);
+  const baseScore = scoreWindowConditionScore(forecast, beach, skillLevel);
   if (!rideabilityBand) {
     return baseScore;
   }
@@ -189,8 +196,8 @@ export function scoreWindowForSelection(
 }
 
 /**
- * Score a forecast window using the unified discovery scoring engine and
- * return the composite result for downstream explanation/confidence builders.
+ * Score a forecast window with the domain engine and return the composite
+ * result for downstream explanation/confidence builders.
  */
 export function scoreWindowWithComposite(
   forecast: EnhancedForecastEntity,

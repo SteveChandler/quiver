@@ -69,6 +69,65 @@ const defaultFromImpl = (_table?: string) => ({
 });
 const mockFrom = jest.fn(defaultFromImpl);
 
+// Shared beach-metadata row for the re-score path tests. Mirrors the columns
+// the route selects from `beaches`.
+const RESCORE_BEACH_ROW = {
+  id: "beach-1",
+  name: "Test Beach",
+  slug: "test-beach",
+  skill_level: "beginner",
+  swell_window_center_deg: 315,
+  swell_window_halfwidth_deg: 45,
+  wind_offshore_deg: 90,
+  wind_offshore_tol_deg: 45,
+  preferred_tide_ft_min: 1,
+  preferred_tide_ft_max: 4,
+  timezone: "America/Los_Angeles",
+};
+
+// Builds a `from()` implementation that serves one beach's day forecasts and
+// metadata row, falling back to the empty-result default for any other table.
+// Both queries are thunks so callers can resolve (happy path) or reject (fetch
+// failure) the enhanced_forecasts and/or beaches queries independently — the
+// route fails closed on a forecast error but degrades gracefully on a beaches
+// error. Centralizes the verbose Supabase query-chain shape so the re-score
+// tests don't each re-derive it.
+function mockBeachForecastFrom(
+  forecastsResult: () => Promise<unknown>,
+  beachResult: () => Promise<unknown> = () =>
+    Promise.resolve({ data: RESCORE_BEACH_ROW, error: null })
+) {
+  return ((table?: string) => {
+    if (table === "enhanced_forecasts") {
+      return {
+        select: jest.fn(() => ({
+          eq: jest.fn(() => ({
+            gte: jest.fn(() => ({
+              lt: jest.fn(() => ({
+                order: jest.fn(() => ({
+                  limit: jest.fn(() => forecastsResult()),
+                })),
+              })),
+            })),
+          })),
+        })),
+      };
+    }
+
+    if (table === "beaches") {
+      return {
+        select: jest.fn(() => ({
+          eq: jest.fn(() => ({
+            single: jest.fn(() => beachResult()),
+          })),
+        })),
+      };
+    }
+
+    return defaultFromImpl(table);
+  }) as unknown as typeof defaultFromImpl;
+}
+
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() =>
     Promise.resolve({
@@ -300,6 +359,8 @@ describe("Conditions Alert Email Cron Job API", () => {
         durationMs: expect.any(Number),
         skipped: {
           claimFailed: 0,
+          rescoreFailed: 0,
+          scoreBelowFloor: 0,
           sendFailed: 0,
         },
       });
@@ -518,6 +579,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           user_id: "user-1",
           email: "user1@example.com",
           display_name: "John Doe",
+          experience_level: "intermediate",
           home_beach_id: "beach-1",
           beach_name: "Ocean Beach",
           beach_slug: "ocean-beach",
@@ -554,7 +616,7 @@ describe("Conditions Alert Email Cron Job API", () => {
     it.each([
       { score: 90, expectedSubject: "Test Beach: 90 today" },
       { score: 80, expectedSubject: "Test Beach: 80 today" },
-      { score: 65, expectedSubject: "Test Beach: 65 today" },
+      { score: 70, expectedSubject: "Test Beach: 70 today" },
     ])("should use a plain score subject for score $score", async ({ score, expectedSubject }) => {
       jest.clearAllMocks();
 
@@ -594,6 +656,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           user_id: "user-1",
           email: "user1@example.com",
           display_name: "John Doe",
+          experience_level: "intermediate",
           home_beach_id: "beach-1",
           beach_name: "Ocean Beach",
           beach_slug: "ocean-beach",
@@ -643,6 +706,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           user_id: "user-1",
           email: "user1@example.com",
           display_name: "John Doe",
+          experience_level: "intermediate",
           home_beach_id: "beach-1",
           beach_name: "Ocean Beach",
           beach_slug: "ocean-beach",
@@ -768,6 +832,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           user_id: "user-1",
           email: "user1@example.com",
           display_name: "User One",
+          experience_level: "intermediate",
           home_beach_id: "beach-1",
           beach_name: "Test Beach",
           beach_slug: "test-beach",
@@ -798,6 +863,313 @@ describe("Conditions Alert Email Cron Job API", () => {
         expect.objectContaining({
           bestWindow: null,
         })
+      );
+    });
+
+    it("uses the best-scoring forecast slot for both fresh score and tide description", async () => {
+      const candidates = [
+        {
+          user_id: "user-1",
+          email: "user1@example.com",
+          display_name: "User One",
+          experience_level: "beginner",
+          home_beach_id: "beach-1",
+          beach_name: "Test Beach",
+          beach_slug: "test-beach",
+          beach_state: "CA",
+          beach_city: "San Diego",
+          conditions_score: 72,
+          surf_description: "Clean 2ft",
+          wind_description: "Light offshore",
+          best_window_start: null,
+          best_window_end: null,
+          recommendation: null,
+        },
+      ];
+
+      mockRpc
+        .mockResolvedValueOnce({ data: candidates, error: null })
+        .mockResolvedValueOnce({ data: true, error: null });
+
+      mockFrom.mockImplementation(
+        mockBeachForecastFrom(() =>
+          Promise.resolve({
+            data: [
+              {
+                id: "dawn",
+                beach_id: "beach-1",
+                forecast_at: "2026-06-13T13:00:00Z",
+                wave_height: "0.5 ft",
+                wave_period: "8s",
+                wave_direction: "NW",
+                wind_speed: "5 mph",
+                wind_direction_deg: 90,
+                tide_height: "0.4",
+                tide_status: "Low",
+                swell_1_period: "8s",
+                created_at: "2026-06-13T00:00:00Z",
+                updated_at: "2026-06-13T00:00:00Z",
+              },
+              {
+                id: "best",
+                beach_id: "beach-1",
+                forecast_at: "2026-06-13T21:00:00Z",
+                wave_height: "2 ft",
+                wave_period: "17s",
+                wave_direction: "NW",
+                wind_speed: "4 mph",
+                wind_direction_deg: 90,
+                tide_height: "2.8",
+                tide_status: "Falling",
+                swell_1_period: "17s",
+                created_at: "2026-06-13T00:00:00Z",
+                updated_at: "2026-06-13T00:00:00Z",
+              },
+            ],
+            error: null,
+          })
+        )
+      );
+
+      const { ConditionsAlertEmail } = require("@/lib/mailer/templates/ConditionsAlertEmail");
+
+      const request = mockRequest({ authorization: "Bearer valid-cron-secret" });
+      await GET(request);
+
+      // The "best" slot (2ft @ 17s, 4mph wind, 2.8ft falling tide) scored as
+      // beginner (ideal 1-3ft, peak 2ft): wave 45 (at peak) + energy 20 (>=13s)
+      // + wind ~16.7 (25*(1-4/12)) + tide 10 (in-range 8, +2 falling) = 92.
+      // Update this expectation if the native scorer's component weights change.
+      expect(ConditionsAlertEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          conditionsScore: 92,
+          tideDescription: "2.8 ft, Falling",
+        })
+      );
+      expect(mockFrom).not.toHaveBeenCalledWith("profiles");
+    });
+
+    it("skips sending when fresh native scoring falls below the alert floor", async () => {
+      const candidates = [
+        {
+          user_id: "user-1",
+          email: "user1@example.com",
+          display_name: "User One",
+          experience_level: "beginner",
+          home_beach_id: "beach-1",
+          beach_name: "Test Beach",
+          beach_slug: "test-beach",
+          beach_state: "CA",
+          beach_city: "San Diego",
+          conditions_score: 75,
+          surf_description: "Stored score looked good",
+          wind_description: "Light offshore",
+          best_window_start: null,
+          best_window_end: null,
+          recommendation: null,
+        },
+      ];
+
+      mockRpc
+        .mockResolvedValueOnce({ data: candidates, error: null })
+        .mockResolvedValueOnce({ data: true, error: null });
+
+      mockFrom.mockImplementation(
+        mockBeachForecastFrom(() =>
+          Promise.resolve({
+            data: [
+              {
+                id: "too-small",
+                beach_id: "beach-1",
+                forecast_at: "2026-06-13T16:00:00Z",
+                wave_height: "1 ft",
+                wave_period: "8s",
+                wave_direction: "NW",
+                wind_speed: "4 mph",
+                wind_direction_deg: 90,
+                tide_height: "2.0",
+                tide_status: "Rising",
+                swell_1_period: "8s",
+                created_at: "2026-06-13T00:00:00Z",
+                updated_at: "2026-06-13T00:00:00Z",
+              },
+            ],
+            error: null,
+          })
+        )
+      );
+
+      const request = mockRequest({ authorization: "Bearer valid-cron-secret" });
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(data.data.summary.sent).toBe(0);
+      expect(data.data.summary.skipped.scoreBelowFloor).toBe(1);
+      expect(mockEmailsSend).not.toHaveBeenCalled();
+    });
+
+    it("fails closed (claims slot, no send) when fresh re-scoring throws", async () => {
+      const candidates = [
+        {
+          user_id: "user-1",
+          email: "user1@example.com",
+          display_name: "User One",
+          experience_level: "intermediate",
+          home_beach_id: "beach-1",
+          beach_name: "Test Beach",
+          beach_slug: "test-beach",
+          beach_state: "CA",
+          beach_city: "San Diego",
+          conditions_score: 80,
+          surf_description: "Stored score looked good",
+          wind_description: "Light offshore",
+          best_window_start: null,
+          best_window_end: null,
+          recommendation: null,
+        },
+      ];
+
+      mockRpc
+        .mockResolvedValueOnce({ data: candidates, error: null })
+        .mockResolvedValueOnce({ data: true, error: null });
+
+      // Forecast fetch rejects → the re-score try/catch fires. The stored score
+      // (80) is >= MIN_SCORE, so without the fail-closed guard this would send
+      // an unverified alert. Assert we skip instead.
+      mockFrom.mockImplementation(
+        mockBeachForecastFrom(() =>
+          Promise.reject(new Error("forecast fetch failed"))
+        )
+      );
+
+      const request = mockRequest({ authorization: "Bearer valid-cron-secret" });
+      const response = await GET(request);
+      const data = await response.json();
+
+      // The slot must still be claimed before we fail closed — that is what
+      // prevents the cron from retrying this candidate all day.
+      expect(mockRpc).toHaveBeenCalledWith(
+        "claim_forecast_delivery_slot",
+        expect.objectContaining({ p_user_id: "user-1" })
+      );
+      expect(data.data.summary.sent).toBe(0);
+      expect(data.data.summary.skipped.rescoreFailed).toBe(1);
+      expect(mockEmailsSend).not.toHaveBeenCalled();
+    });
+
+    it("still sends (with degraded why-content) when only the beach metadata fetch fails", async () => {
+      const candidates = [
+        {
+          user_id: "user-1",
+          email: "user1@example.com",
+          display_name: "User One",
+          experience_level: "beginner",
+          home_beach_id: "beach-1",
+          beach_name: "Test Beach",
+          beach_slug: "test-beach",
+          beach_state: "CA",
+          beach_city: "San Diego",
+          conditions_score: 72,
+          surf_description: "Clean 2ft",
+          wind_description: "Light offshore",
+          best_window_start: null,
+          best_window_end: null,
+          recommendation: null,
+        },
+      ];
+
+      mockRpc
+        .mockResolvedValueOnce({ data: candidates, error: null })
+        .mockResolvedValueOnce({ data: true, error: null });
+
+      // Forecasts re-score fine (best slot scores 92), but the beaches fetch
+      // rejects. Beach metadata only powers the why-bullets, so the send must
+      // proceed on the verified fresh score rather than failing closed.
+      mockFrom.mockImplementation(
+        mockBeachForecastFrom(
+          () =>
+            Promise.resolve({
+              data: [
+                {
+                  id: "best",
+                  beach_id: "beach-1",
+                  forecast_at: "2026-06-13T21:00:00Z",
+                  wave_height: "2 ft",
+                  wave_period: "17s",
+                  wave_direction: "NW",
+                  wind_speed: "4 mph",
+                  wind_direction_deg: 90,
+                  tide_height: "2.8",
+                  tide_status: "Falling",
+                  swell_1_period: "17s",
+                  created_at: "2026-06-13T00:00:00Z",
+                  updated_at: "2026-06-13T00:00:00Z",
+                },
+              ],
+              error: null,
+            }),
+          () => Promise.reject(new Error("beach metadata fetch failed"))
+        )
+      );
+
+      const { ConditionsAlertEmail } = require("@/lib/mailer/templates/ConditionsAlertEmail");
+
+      const request = mockRequest({ authorization: "Bearer valid-cron-secret" });
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(data.data.summary.sent).toBe(1);
+      expect(data.data.summary.skipped.rescoreFailed).toBe(0);
+      expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+      expect(ConditionsAlertEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ conditionsScore: 92 })
+      );
+    });
+
+    it("sends on the stored score when there are no fresh forecast slots", async () => {
+      const candidates = [
+        {
+          user_id: "user-1",
+          email: "user1@example.com",
+          display_name: "User One",
+          experience_level: "intermediate",
+          home_beach_id: "beach-1",
+          beach_name: "Test Beach",
+          beach_slug: "test-beach",
+          beach_state: "CA",
+          beach_city: "San Diego",
+          conditions_score: 75,
+          surf_description: "Clean conditions",
+          wind_description: "Light offshore",
+          best_window_start: null,
+          best_window_end: null,
+          recommendation: null,
+        },
+      ];
+
+      mockRpc
+        .mockResolvedValueOnce({ data: candidates, error: null })
+        .mockResolvedValueOnce({ data: true, error: null });
+
+      // Empty forecast result (not an error) — best-effort: fall through on the
+      // RPC-gated stored score (75) rather than failing closed.
+      mockFrom.mockImplementation(
+        mockBeachForecastFrom(() =>
+          Promise.resolve({ data: [], error: null })
+        )
+      );
+
+      const { ConditionsAlertEmail } = require("@/lib/mailer/templates/ConditionsAlertEmail");
+
+      const request = mockRequest({ authorization: "Bearer valid-cron-secret" });
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(data.data.summary.sent).toBe(1);
+      expect(data.data.summary.skipped.rescoreFailed).toBe(0);
+      expect(data.data.summary.skipped.scoreBelowFloor).toBe(0);
+      expect(ConditionsAlertEmail).toHaveBeenCalledWith(
+        expect.objectContaining({ conditionsScore: 75 })
       );
     });
 
@@ -1058,6 +1430,8 @@ describe("Conditions Alert Email Cron Job API", () => {
         durationMs: expect.any(Number),
         skipped: {
           claimFailed: 1,
+          rescoreFailed: 0,
+          scoreBelowFloor: 0,
           sendFailed: 1,
         },
       });
