@@ -88,7 +88,7 @@ async function getProfileExperienceLevel(
     .from('profiles')
     .select('experience_level')
     .eq('id', userId)
-    .maybeSingle();
+    .single();
   if (error) return null;
   const level = data?.experience_level;
   return typeof level === 'string' ? (level as SkillLevel) : null;

@@ -11,6 +11,13 @@ import {
 
 interface ForecastsBulkResponse {
   forecasts: Record<string, number>;
+  displayForecasts: Record<string, {
+    label: string;
+    minFt: number;
+    maxFt: number;
+    forecastAt: string;
+    context: "today_headline" | "selected_hour";
+  } | undefined>;
   waterTemps: Record<string, string | undefined>;
   isCalibrated: Record<string, boolean>;
   conditionScores: Record<string, number | undefined>;
@@ -107,8 +114,75 @@ jest.mock("@/lib/services/forecast/v5-display-gate", () => ({
   applyV51DisplayOverrideToForecasts: jest.fn(async (forecasts: ForecastRow[]) => forecasts),
 }));
 
+jest.mock("@/lib/services/discovery", () => ({
+  getBatchSunTimes: jest.fn(async () => new Map()),
+}));
+
+function mockDisplayForForecast(
+  forecast: ForecastRow,
+  context: "today_headline" | "selected_hour",
+) {
+  const value = forecast.wave_height;
+  if (value == null) return null;
+  if (value.trim().toLowerCase() === "flat") {
+    return {
+      label: "Flat",
+      minFt: 0,
+      maxFt: 0,
+      forecastAt: forecast.forecast_at,
+      context,
+    };
+  }
+
+  const rangeMatch = value.match(/(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)/);
+  if (rangeMatch) {
+    const minFt = Math.floor(Number(rangeMatch[1]));
+    const maxFt = Math.ceil(Number(rangeMatch[2]));
+    return {
+      label: minFt === maxFt ? `${minFt}ft` : `${minFt}-${maxFt}ft`,
+      minFt,
+      maxFt,
+      forecastAt: forecast.forecast_at,
+      context,
+    };
+  }
+
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) return null;
+  const minFt = Math.floor(parsed);
+  const maxFt = Math.ceil(parsed);
+  return {
+    label: minFt === maxFt ? `${minFt}ft` : `${minFt}-${maxFt}ft`,
+    minFt,
+    maxFt,
+    forecastAt: forecast.forecast_at,
+    context,
+  };
+}
+
+jest.mock("@/lib/services/forecast/today-headline", () => ({
+  resolveTodayHeadline: jest.fn(({ forecasts }: { forecasts: ForecastRow[] }) => {
+    const forecast = forecasts[0];
+    if (!forecast) return null;
+    const display = mockDisplayForForecast(forecast, "today_headline");
+    if (!display) return null;
+    return {
+      display,
+      window: {
+        start: new Date(forecast.forecast_at),
+        end: new Date(new Date(forecast.forecast_at).getTime() + 60 * 60 * 1000),
+        waveHeight: forecast.wave_height,
+        sourceForecast: forecast,
+      },
+    };
+  }),
+  resolveSelectedHourDisplay: jest.fn((forecast: ForecastRow | null) =>
+    forecast ? mockDisplayForForecast(forecast, "selected_hour") : null
+  ),
+}));
+
 jest.mock("@/lib/services/discovery/window-selector/window-scorer", () => ({
-  scoreWindowWithEngine: jest.fn(() => 72),
+  scoreWindowConditionScore: jest.fn(() => 72),
 }));
 
 const { GET } = require("@/app/api/forecasts/bulk/route");
@@ -177,6 +251,7 @@ function queryChain<T>(result: QueryResult<T>) {
     select: jest.fn(),
     in: jest.fn(),
     gte: jest.fn(),
+    lt: jest.fn(),
     not: jest.fn(),
     order: jest.fn(),
     then: jest.fn((onResolve: (value: QueryResult<T>) => unknown) =>
@@ -187,6 +262,7 @@ function queryChain<T>(result: QueryResult<T>) {
   chain.select.mockReturnValue(chain);
   chain.in.mockReturnValue(chain);
   chain.gte.mockReturnValue(chain);
+  chain.lt.mockReturnValue(chain);
   chain.not.mockReturnValue(chain);
   chain.order.mockReturnValue(chain);
 
@@ -203,8 +279,14 @@ function mockBulkQueries(options: {
     data: options.forecastRows ?? [],
     error: options.forecastError ?? null,
   });
+  const derivedBeachRows =
+    options.beachRows === undefined
+      ? Array.from(new Set((options.forecastRows ?? []).map((row) => row.beach_id))).map((id) =>
+          beachRow(id),
+        )
+      : options.beachRows;
   const beachChain = queryChain({
-    data: options.beachRows ?? [],
+    data: derivedBeachRows ?? [],
     error: null,
   });
   const waterChain = queryChain({
@@ -294,6 +376,7 @@ describe("GET /api/forecasts/bulk", () => {
 
       expect(result.data).toEqual({
         forecasts: {},
+        displayForecasts: {},
         waterTemps: {},
         isCalibrated: {},
         conditionScores: {},
@@ -320,7 +403,7 @@ describe("GET /api/forecasts/bulk", () => {
     expect(result.data.forecasts).toHaveProperty("beach-with-forecast", 4.5);
     expect(result.data.forecasts).not.toHaveProperty("beach-without-forecast");
     expect(result.data.conditionSummaries).toEqual({
-      "beach-with-forecast": "UNKNOWN",
+      "beach-with-forecast": "GOOD",
       "beach-without-forecast": "UNKNOWN",
     });
   });

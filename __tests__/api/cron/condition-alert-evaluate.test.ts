@@ -90,6 +90,7 @@ jest.mock("@/lib/utils/surf-call-logic", () => {
 const USER_A = "00000000-0000-0000-0000-000000000001";
 const RULE_1 = "00000000-0000-0000-0000-0000000000a1";
 const BEACH_1 = "00000000-0000-0000-0000-0000000000b1";
+const TEST_NOW = new Date("2026-04-26T12:00:00Z");
 
 interface Store {
   rules: any[];
@@ -307,6 +308,7 @@ function makeRequest(): Request {
 // ---- Reset ----
 
 beforeEach(() => {
+  jest.useFakeTimers().setSystemTime(TEST_NOW);
   jest.clearAllMocks();
   consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
   // mockReset drains any `mockReturnValueOnce` queue left over from a prior
@@ -366,6 +368,7 @@ beforeEach(() => {
 
 afterEach(() => {
   consoleLogSpy.mockRestore();
+  jest.useRealTimers();
 });
 
 // ---- Tests ----
