@@ -68,6 +68,7 @@ import {
 import { SwellLayerSelector } from "@/components/map/swell-field/swell-layer-selector";
 import { SwellForecastTimeline } from "@/components/map/swell-field/swell-forecast-timeline";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 
 // Mapbox CSS is imported globally in app/globals.css
 
@@ -144,6 +145,7 @@ interface InteractiveMapProps {
   onLocationMove?: (latlng: mapboxgl.LngLat, beach: Beach) => void;
   onBoundsChange?: (bounds: { west: number; south: number; east: number; north: number }) => void;
   onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
+  onDisplayForecastsChange?: (map: Map<string, ForecastDisplay | undefined>) => void;
   className?: string;
   regionViewport?: {
     region: string;
@@ -265,6 +267,7 @@ export function InteractiveMap({
   onLocationMove,
   onBoundsChange,
   onWaveHeightsChange,
+  onDisplayForecastsChange,
   className = "h-full w-full",
   regionViewport,
   beaches,
@@ -302,6 +305,7 @@ export function InteractiveMap({
   } | null>(null);
   const [currentZoom, setCurrentZoom] = useState(initialZoom);
   const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
+  const [displayForecastMap, setDisplayForecastMap] = useState<Map<string, ForecastDisplay | undefined>>(new Map());
   const [waterTempMap, setWaterTempMap] = useState<Map<string, string | undefined>>(new Map());
   const [conditionScoreMap, setConditionScoreMap] = useState<Map<string, number | undefined>>(new Map());
   const [conditionSummaryMap, setConditionSummaryMap] = useState<Map<string, ConditionSummary>>(new Map());
@@ -346,6 +350,7 @@ export function InteractiveMap({
   const clusterCleanupRef = useRef<Map<string, () => void>>(new Map());
   const onBoundsChangeRef = useRef(onBoundsChange);
   const onWaveHeightsChangeRef = useRef(onWaveHeightsChange);
+  const onDisplayForecastsChangeRef = useRef(onDisplayForecastsChange);
   const initialCenterRef = useRef(initialCenter);
   const onMapClickRef = useRef(onMapClick);
   // Typed broadly; handleMoveEnd & populateLocations are assigned via sync effects below
@@ -391,6 +396,10 @@ export function InteractiveMap({
   useEffect(() => {
     onWaveHeightsChangeRef.current = onWaveHeightsChange;
   }, [onWaveHeightsChange]);
+
+  useEffect(() => {
+    onDisplayForecastsChangeRef.current = onDisplayForecastsChange;
+  }, [onDisplayForecastsChange]);
 
   useEffect(() => {
     initialCenterRef.current = initialCenter;
@@ -587,6 +596,7 @@ export function InteractiveMap({
         autoNavigate: autoNavigateOnMarkerClick,
         displayMode,
         waterTemp: waterTempMap.get(location.id),
+        waveHeightLabel: displayForecastMap.get(location.id)?.label ?? null,
         conditionScore: conditionScoreMap.get(location.id),
         conditionSummary: conditionSummaryMap.get(location.id),
       };
@@ -599,6 +609,7 @@ export function InteractiveMap({
       track,
       displayMode,
       waterTempMap,
+      displayForecastMap,
       conditionScoreMap,
       conditionSummaryMap,
       getMapViewportMetadata,
@@ -618,6 +629,7 @@ export function InteractiveMap({
         cluster,
         beaches: clusterBeaches,
         waveHeightMap,
+        displayForecastMap,
         waterTempMap,
         displayMode,
       });
@@ -636,7 +648,7 @@ export function InteractiveMap({
 
       activeClusterPopupRef.current = popup;
     },
-    [displayMode, waterTempMap, waveHeightMap]
+    [displayMode, displayForecastMap, waterTempMap, waveHeightMap]
   );
 
   // Create cluster marker using extracted module with deps from refs
@@ -697,6 +709,7 @@ export function InteractiveMap({
 
         // Store wave heights and water temps for clustering
         setWaveHeightMap(result.waveHeightMap);
+        setDisplayForecastMap(result.displayForecastMap);
         setWaterTempMap(result.waterTempMap);
         setConditionScoreMap(result.conditionScoreMap);
         setConditionSummaryMap(result.conditionSummaryMap);
@@ -704,6 +717,7 @@ export function InteractiveMap({
         setPartitionsTimelineMap(result.partitionsTimelineMap);
         setSwellFieldBeaches(result.locations);
         onWaveHeightsChangeRef.current?.(result.waveHeightMap);
+        onDisplayForecastsChangeRef.current?.(result.displayForecastMap);
       } catch (e) {
         lastPopulateKeyRef.current = null;
         console.error("Error populating locations", e);

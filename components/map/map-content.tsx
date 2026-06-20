@@ -7,6 +7,7 @@ import { MapSkeleton } from "@/components/skeletons/map-skeleton";
 import { DataErrorBoundary } from "@/components/error-boundaries";
 import type { Beach } from "@/types/database";
 import { LocationTimeoutBanner } from "@/components/map/location-timeout-banner";
+import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 
 const DEFAULT_MAP_CENTER = { lat: 32.7702, lon: -117.2525 } as const;
 
@@ -46,6 +47,7 @@ interface MapContentProps {
     north: number;
   }) => void;
   onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
+  onDisplayForecastsChange?: (map: Map<string, ForecastDisplay | undefined>) => void;
   onMapClick?: () => void;
   autoNavigateOnMarkerClick?: boolean;
   showSwellField?: boolean;
@@ -82,6 +84,7 @@ export function MapContent({
   onBeachSelect,
   onBoundsChange,
   onWaveHeightsChange,
+  onDisplayForecastsChange,
   onMapClick,
   autoNavigateOnMarkerClick,
   showSwellField,
@@ -212,6 +215,7 @@ export function MapContent({
             beaches={filteredBeaches}
             onBoundsChange={onBoundsChange}
             onWaveHeightsChange={onWaveHeightsChange}
+            onDisplayForecastsChange={onDisplayForecastsChange}
             autoNavigateOnMarkerClick={autoNavigateOnMarkerClick}
             showSwellField={showSwellField}
             swellLayerId={swellLayerId}

@@ -22,7 +22,10 @@ import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withCronObservability } from "@/lib/cron/observability";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
-import { ConsolidatedAlertEmail } from "@/lib/mailer/templates/ConsolidatedAlertEmail";
+import {
+  buildConditionsLine,
+  ConsolidatedAlertEmail,
+} from "@/lib/mailer/templates/ConsolidatedAlertEmail";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import {
@@ -47,6 +50,8 @@ import {
   type EnhancedForecastAlertRow,
 } from "@/lib/alerts/revalidate-alert-window";
 import type { AlertConditions } from "@/lib/alerts/types";
+import type { MatchingWindow } from "@/lib/alerts/types";
+import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -98,6 +103,14 @@ type AlertQueueRowWithBestScore = {
   sent: boolean;
   alert_rules: unknown;
   beaches: unknown;
+};
+
+type AlertQueueRefreshUpdateWithBestScore = {
+  window_start: string;
+  window_end: string;
+  best_hour: string;
+  best_score: number;
+  conditions_snapshot: Record<string, unknown>;
 };
 
 function enabledChannels(item: QueueItemWithMeta): Channel[] {
@@ -182,6 +195,27 @@ function resolveQuietHoursOverride(
   return null;
 }
 
+function waveLabelFromSnapshot(snapshot: Record<string, unknown>): string | null {
+  const value = snapshot.wave_height;
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return formatWaveHeightRange(value);
+}
+
+function buildRenderedMatchDetails(matches: MatchingWindow[]): Array<Record<string, unknown>> {
+  return matches.map((match) => ({
+    rule_id: match.rule_id,
+    rule_name: match.rule_name,
+    beach_id: match.beach_id,
+    beach_name: match.beach_name,
+    window_start: match.window_start,
+    window_end: match.window_end,
+    best_hour: match.best_hour,
+    best_score: match.best_score,
+    wave_label: waveLabelFromSnapshot(match.conditions_snapshot),
+    snapshot_summary: buildConditionsLine(match.conditions_snapshot),
+  }));
+}
+
 export async function GET(request: Request): Promise<NextResponse> {
   if (!validateCronRequest(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -259,6 +293,29 @@ export async function GET(request: Request): Promise<NextResponse> {
       best_score: freshWindow.best_score,
       conditions_snapshot: freshWindow.conditions_snapshot,
     };
+  }
+
+  async function persistRefreshedQueueItem(
+    item: QueueItemWithMeta
+  ): Promise<void> {
+    const update: AlertQueueRefreshUpdateWithBestScore = {
+      window_start: item.window_start,
+      window_end: item.window_end,
+      best_hour: item.best_hour,
+      best_score: item.best_score,
+      conditions_snapshot: item.conditions_snapshot,
+    };
+
+    // alert_queue.best_score exists in DB but generated types are stale.
+    const { error } = await (supabase.from("alert_queue") as any)
+      .update(update)
+      .eq("id", item.id);
+
+    if (error) {
+      throw new Error(
+        `failed to persist refreshed alert_queue row ${item.id}: ${error.message}`
+      );
+    }
   }
 
   try {
@@ -357,6 +414,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         for (const item of forecastItems) {
           const refreshed = await refreshQueueItemFromLatestForecasts(item);
           if (refreshed) {
+            await persistRefreshedQueueItem(refreshed);
             items.push(refreshed);
           } else {
             staleItems.push(item);
@@ -688,6 +746,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                     const emailMatches = payload.matches
                       .filter((m) => m.notify_email && survivorRuleIds.has(m.rule_id))
                       .map((m) => ({ ...m, disable_token: generateDisableToken(m.rule_id) }));
+                    const renderedEmailMatches = buildRenderedMatchDetails(emailMatches);
                     const manageAlertsUrl = `${baseUrl}/settings`;
                     const unsubscribeToken = generateEmailUnsubscribeToken(payload.user_id);
                     const unsubscribeUrl =
@@ -736,7 +795,11 @@ export async function GET(request: Request): Promise<NextResponse> {
                         user_id: payload.user_id,
                         alert_date: payload.alert_date,
                         channel: "email",
-                        payload: { match_count: emailMatches.length, beaches: emailMatches.map((m) => m.beach_name) },
+                        payload: {
+                          match_count: emailMatches.length,
+                          beaches: emailMatches.map((m) => m.beach_name),
+                          matches: renderedEmailMatches,
+                        } as import("@/types/database.generated").Json,
                       });
 
                       if (deliveryInsertError) {
@@ -762,6 +825,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                           meta: {
                             match_count: emailMatches.length,
                             beaches: emailMatches.map((m) => m.beach_name),
+                            matches: renderedEmailMatches,
                           },
                           resendMessageId: sendData?.id,
                         });
@@ -855,6 +919,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                     const pushMatches = payload.matches.filter(
                       (m) => m.notify_push && survivorRuleIdsPush.has(m.rule_id)
                     );
+                    const renderedPushMatches = buildRenderedMatchDetails(pushMatches);
                     const { title, body, data: pushData } = formatPushNotification(pushMatches);
                     const topMatch = pushMatches[0];
                     const quietHoursOverride = resolveQuietHoursOverride(pushSurvivors);
@@ -875,7 +940,10 @@ export async function GET(request: Request): Promise<NextResponse> {
                           beach_name: m.beach_name,
                           window_start: m.window_start,
                           window_end: m.window_end,
+                          best_hour: m.best_hour,
+                          best_score: m.best_score,
                         })),
+                        rendered_matches: renderedPushMatches,
                         ...(quietHoursOverride ?? {}),
                         // Queue-item provenance: the forecast_alert
                         // onChannelOutcome hook in lib/notifications/registry.ts
@@ -909,7 +977,8 @@ export async function GET(request: Request): Promise<NextResponse> {
                           match_count: pushMatches.length,
                           notification_event_id: enqueueResult.eventId,
                           method: "enqueued_via_pipeline",
-                        },
+                          matches: renderedPushMatches,
+                        } as import("@/types/database.generated").Json,
                       });
 
                       if (deliveryInsertError) {

@@ -14,7 +14,7 @@ import { createSupabaseServerClient, createSupabaseServiceRoleClient } from '@/l
 import { getBatchSunTimes } from '@/lib/services/discovery';
 import { getUserSurfPreferences, type UserSurfPreferences } from '@/lib/services/preference-learning-service';
 import { checkBoardFit, checkSkillCeiling, checkSkillFloor } from '@/lib/domains/scoring/discovery-adapter';
-import { parseSkillLevel, type BoardClass } from '@/lib/domains/user-preferences';
+import type { BoardClass, SkillLevel } from '@/lib/domains/user-preferences';
 import { getRideabilityBand, resolveVerdictSkill, type ResolvedVerdictSkill } from '@/lib/domains/rideability';
 import type { PersonalizedForecastWindow } from '@/types/personalization';
 import {
@@ -22,6 +22,7 @@ import {
   type ForecastRecommendationContext,
 } from '@/lib/services/forecast-recommendation-context';
 import { applyV51DisplayOverrideToForecasts } from '@/lib/services/forecast/v5-display-gate';
+import { resolveTodayHeadline } from '@/lib/services/forecast/today-headline';
 
 export interface SpotSurfReportResult {
   report: SurfCallResult;
@@ -76,6 +77,21 @@ function appendBoardNote(whySentence: string, boardNote: string): string {
 
 function clampScore(score: number): number {
   return Math.max(0, Math.min(100, score));
+}
+
+async function getProfileExperienceLevel(
+  supabase: SupabaseClient<Database>,
+  userId: string | null | undefined
+): Promise<SkillLevel | null> {
+  if (!userId) return null;
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('experience_level')
+    .eq('id', userId)
+    .maybeSingle();
+  if (error) return null;
+  const level = data?.experience_level;
+  return typeof level === 'string' ? (level as SkillLevel) : null;
 }
 
 /**
@@ -159,19 +175,7 @@ export async function getSpotSurfReport(
       }
     }
 
-    // Fetch skill level from profile
-    let userSkillLevel: ReturnType<typeof parseSkillLevel> = null;
-    if (user) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('experience_level')
-        .eq('id', user.id)
-        .single();
-
-      if (profile) {
-        userSkillLevel = parseSkillLevel((profile as Record<string, unknown>)?.experience_level as string | null | undefined);
-      }
-    }
+    const userSkillLevel = await getProfileExperienceLevel(supabase, user?.id);
 
     // Generate stable preference key for cache (avoids object serialization issues)
     const prefsKey = getPrefsKey(userPrefs);
@@ -332,7 +336,7 @@ const getCachedSurfReport = unstable_cache(
     prefsKey: string,
     boardClass: BoardClass | null,
     userPrefs: UserSurfPreferences | null,
-    userSkillLevel: ReturnType<typeof parseSkillLevel>
+    userSkillLevel: SkillLevel | null
   ): Promise<SpotSurfReportResult | null> => {
     const resolvedSkillForBoard = boardClass
       ? resolveVerdictSkill(userSkillLevel, boardClass)
@@ -400,11 +404,9 @@ const getCachedSurfReport = unstable_cache(
       ? getRideabilityBand(resolvedSkillForBoard!.skill, boardClass)
       : null;
 
-    const { selectBestWindow } = await import('@/lib/services/discovery/window-selector');
-
     // Try today's forecasts first
     if (todayForecasts.length > 0) {
-      const window = selectBestWindow({
+      const headline = resolveTodayHeadline({
         forecasts: todayForecasts,
         beach,
         userPrefs,
@@ -413,11 +415,11 @@ const getCachedSurfReport = unstable_cache(
         rideabilityBand,
       });
 
-      if (window) {
+      if (headline) {
         const {
           window: adjustedWindow,
           boardNote,
-        } = applyPreferenceAdjustments(window, resolvedSkill, boardClass);
+        } = applyPreferenceAdjustments(headline.window, resolvedSkill, boardClass);
         const forecastContext = buildForecastRecommendationContext({
           beach,
           forecasts: todayForecasts,
@@ -435,7 +437,7 @@ const getCachedSurfReport = unstable_cache(
 
     // Fall back to tomorrow if today has no viable window (or no data)
     if (tomorrowForecasts.length > 0) {
-      const window = selectBestWindow({
+      const headline = resolveTodayHeadline({
         forecasts: tomorrowForecasts,
         beach,
         userPrefs,
@@ -444,11 +446,11 @@ const getCachedSurfReport = unstable_cache(
         rideabilityBand,
       });
 
-      if (window) {
+      if (headline) {
         const {
           window: adjustedWindow,
           boardNote,
-        } = applyPreferenceAdjustments(window, resolvedSkill, boardClass);
+        } = applyPreferenceAdjustments(headline.window, resolvedSkill, boardClass);
         const forecastContext = buildForecastRecommendationContext({
           beach,
           forecasts: tomorrowForecasts,

@@ -57,7 +57,7 @@ describe("map condition summaries", () => {
   });
 
   it("renders wave-height markers with condition semantics and gradients", () => {
-    const marker = createWaveHeightBadge(beach("beach-fair"), 2.8, {
+    const marker = createWaveHeightBadge(beach("beach-fair"), 2.0, {
       favoriteBeachIds: new Set(),
       selectedBeachId: null,
       hoveredBeachId: null,
@@ -71,6 +71,7 @@ describe("map condition summaries", () => {
     const badge = marker.querySelector("[data-marker-badge='true']");
 
     expect(marker).toHaveAttribute("data-condition-summary", "FAIR");
+    expect(badge).toHaveTextContent("2ft");
     expect(badge).toHaveAttribute(
       "data-marker-gradient",
       getConditionMarkerGradient("FAIR")

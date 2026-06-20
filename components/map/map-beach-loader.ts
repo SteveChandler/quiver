@@ -2,6 +2,7 @@ import type { Beach } from "@/types/database";
 import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
 import { API_BATCH_CONFIG } from "@/lib/constants/ui";
 import { fetchInBatches } from "@/lib/utils/batch-fetch";
+import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 
 export type ConditionSummary = "GOOD" | "FAIR" | "CHECK" | "UNKNOWN";
 
@@ -29,6 +30,8 @@ export interface BeachLoaderResult {
   locations: Beach[];
   /** Map from beach ID to wave height (includes interpolated values) */
   waveHeightMap: Map<string, number | undefined>;
+  /** Map from beach ID to canonical forecast display label */
+  displayForecastMap: Map<string, ForecastDisplay | undefined>;
   /** Map from beach ID to water temperature string (e.g., "52") */
   waterTempMap: Map<string, string | undefined>;
   /** Map from beach ID to 0-100 condition score */
@@ -115,6 +118,7 @@ export async function loadBeachesAndWaveHeights(
 
   // Fetch wave heights for ALL beaches that clustering will use
   const waveHeightMap = new Map<string, number | undefined>();
+  const displayForecastMap = new Map<string, ForecastDisplay | undefined>();
   const waterTempMap = new Map<string, string | undefined>();
   const conditionScoreMap = new Map<string, number | undefined>();
   const conditionSummaryMap = new Map<string, ConditionSummary>();
@@ -161,6 +165,14 @@ export async function loadBeachesAndWaveHeights(
               : parseFloat(waveHeight as string);
           if (!isNaN(parsed)) {
             waveHeightMap.set(beachId, parsed);
+          }
+        });
+
+        const displayForecasts = data?.data?.displayForecasts || {};
+        Object.entries(displayForecasts).forEach(([beachId, display]) => {
+          const forecastDisplay = display as ForecastDisplay | null | undefined;
+          if (forecastDisplay?.label) {
+            displayForecastMap.set(beachId, forecastDisplay);
           }
         });
 
@@ -221,6 +233,7 @@ export async function loadBeachesAndWaveHeights(
   return {
     locations,
     waveHeightMap,
+    displayForecastMap,
     waterTempMap,
     conditionScoreMap,
     conditionSummaryMap,

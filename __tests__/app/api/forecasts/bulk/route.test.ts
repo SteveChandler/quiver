@@ -5,7 +5,8 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { GET } from "@/app/api/forecasts/bulk/route";
-import { scoreWindowWithEngine } from "@/lib/services/discovery/window-selector/window-scorer";
+import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
+import { resolveTodayHeadline } from "@/lib/services/forecast/today-headline";
 import {
   createMockRequest,
   createMockSupabaseClient,
@@ -15,6 +16,13 @@ import {
 
 interface BulkForecastResponse {
   forecasts: Record<string, number | undefined>;
+  displayForecasts: Record<string, {
+    label: string;
+    minFt: number;
+    maxFt: number;
+    forecastAt: string;
+    context: "today_headline" | "selected_hour";
+  } | undefined>;
   waterTemps: Record<string, string | undefined>;
   isCalibrated: Record<string, boolean>;
   conditionScores: Record<string, number | undefined>;
@@ -60,6 +68,12 @@ type ForecastRow = {
 type BeachRow = {
   id: string;
   name: string;
+  slug: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  region: string | null;
+  timezone: string | null;
   lat: number;
   lon: number;
   shoaling_factors: unknown;
@@ -75,6 +89,17 @@ type BeachRow = {
   tide_direction_sensitivity: string | null;
   skill_level: string | null;
   break_type: string | null;
+  cdip_station: string | null;
+  cdip_eligible: boolean | null;
+  swell_window_center_deg: number | null;
+  swell_window_halfwidth_deg: number | null;
+  swell_access_factors: unknown;
+  wind_exposure_factors: unknown;
+  preference_model: unknown;
+  features: unknown;
+  hazards: unknown;
+  average_rating: number | null;
+  review_count: number | null;
 };
 
 const mockSupabaseClient = createMockSupabaseClient();
@@ -91,8 +116,73 @@ jest.mock("@/lib/services/forecast/v5-display-gate", () => ({
   applyV51DisplayOverrideToForecasts: jest.fn(async (forecasts: ForecastRow[]) => forecasts),
 }));
 
+jest.mock("@/lib/services/discovery", () => ({
+  getBatchSunTimes: jest.fn(async () => new Map()),
+}));
+
+function mockDisplayForForecast(
+  forecast: ForecastRow,
+  context: "today_headline" | "selected_hour",
+) {
+  const value = forecast.wave_height;
+  if (value == null) return null;
+  if (value.trim().toLowerCase() === "flat") {
+    return {
+      label: "Flat",
+      minFt: 0,
+      maxFt: 0,
+      forecastAt: forecast.forecast_at,
+      context,
+    };
+  }
+  const rangeMatch = value.match(/(\d+(?:\.\d+)?)\s*-\s*(\d+(?:\.\d+)?)/);
+  if (rangeMatch) {
+    const minFt = Math.floor(Number(rangeMatch[1]));
+    const maxFt = Math.ceil(Number(rangeMatch[2]));
+    return {
+      label: minFt === maxFt ? `${minFt}ft` : `${minFt}-${maxFt}ft`,
+      minFt,
+      maxFt,
+      forecastAt: forecast.forecast_at,
+      context,
+    };
+  }
+  const parsed = Number.parseFloat(value);
+  if (!Number.isFinite(parsed)) return null;
+  const minFt = Math.floor(parsed);
+  const maxFt = Math.ceil(parsed);
+  return {
+    label: minFt === maxFt ? `${minFt}ft` : `${minFt}-${maxFt}ft`,
+    minFt,
+    maxFt,
+    forecastAt: forecast.forecast_at,
+    context,
+  };
+}
+
+jest.mock("@/lib/services/forecast/today-headline", () => ({
+  resolveTodayHeadline: jest.fn(({ forecasts }: { forecasts: ForecastRow[] }) => {
+    const forecast = forecasts[0];
+    if (!forecast) return null;
+    const display = mockDisplayForForecast(forecast, "today_headline");
+    if (!display) return null;
+    return {
+      display,
+      window: {
+        start: new Date(forecast.forecast_at),
+        end: new Date(new Date(forecast.forecast_at).getTime() + 60 * 60 * 1000),
+        waveHeight: forecast.wave_height,
+        sourceForecast: forecast,
+      },
+    };
+  }),
+  resolveSelectedHourDisplay: jest.fn((forecast: ForecastRow | null) =>
+    forecast ? mockDisplayForForecast(forecast, "selected_hour") : null
+  ),
+}));
+
 jest.mock("@/lib/services/discovery/window-selector/window-scorer", () => ({
-  scoreWindowWithEngine: jest.fn(() => 72),
+  scoreWindowConditionScore: jest.fn(() => 72),
 }));
 
 jest.mock("@/lib/api-utils", () => {
@@ -160,6 +250,12 @@ function beachRow(id: string, overrides: Partial<BeachRow> = {}): BeachRow {
   return {
     id,
     name: `Beach ${id}`,
+    slug: `beach-${id}`,
+    city: "San Diego",
+    state: "CA",
+    country: "USA",
+    region: "Southern California",
+    timezone: "America/Los_Angeles",
     lat: 32.75,
     lon: -117.25,
     shoaling_factors: null,
@@ -175,6 +271,17 @@ function beachRow(id: string, overrides: Partial<BeachRow> = {}): BeachRow {
     tide_direction_sensitivity: null,
     skill_level: null,
     break_type: null,
+    cdip_station: null,
+    cdip_eligible: null,
+    swell_window_center_deg: null,
+    swell_window_halfwidth_deg: null,
+    swell_access_factors: null,
+    wind_exposure_factors: null,
+    preference_model: null,
+    features: null,
+    hazards: null,
+    average_rating: null,
+    review_count: null,
     ...overrides,
   };
 }
@@ -184,6 +291,7 @@ function queryChain<T>(result: QueryResult<T>) {
     select: jest.fn(),
     in: jest.fn(),
     gte: jest.fn(),
+    lt: jest.fn(),
     not: jest.fn(),
     order: jest.fn(),
     then: jest.fn((onResolve: (value: QueryResult<T>) => unknown) =>
@@ -194,6 +302,7 @@ function queryChain<T>(result: QueryResult<T>) {
   chain.select.mockReturnValue(chain);
   chain.in.mockReturnValue(chain);
   chain.gte.mockReturnValue(chain);
+  chain.lt.mockReturnValue(chain);
   chain.not.mockReturnValue(chain);
   chain.order.mockReturnValue(chain);
 
@@ -211,8 +320,14 @@ function mockBulkQueries(options: {
     data: options.forecastRows ?? [],
     error: options.forecastError ?? null,
   });
+  const derivedBeachRows =
+    options.beachRows === undefined
+      ? Array.from(
+          new Set((options.forecastRows ?? []).map((row) => row.beach_id)),
+        ).map((id) => beachRow(id))
+      : options.beachRows;
   const beachChain = queryChain({
-    data: options.beachRows ?? [],
+    data: derivedBeachRows ?? [],
     error: options.beachError ?? null,
   });
   const waterChain = queryChain({
@@ -240,7 +355,8 @@ describe("/api/forecasts/bulk", () => {
     const testEnv = setupApiTestEnvironment();
     cleanup = testEnv.cleanup;
     jest.clearAllMocks();
-    (scoreWindowWithEngine as jest.Mock).mockReturnValue(72);
+    (scoreWindowConditionScore as jest.Mock).mockReturnValue(72);
+    (resolveTodayHeadline as jest.Mock).mockClear();
     mockSupabaseClient.from = jest.fn(() => queryChain({ data: null, error: null })) as any;
   });
 
@@ -270,6 +386,7 @@ describe("/api/forecasts/bulk", () => {
 
       expect(data.data).toEqual({
         forecasts: {},
+        displayForecasts: {},
         waterTemps: {},
         isCalibrated: {},
         conditionScores: {},
@@ -340,6 +457,44 @@ describe("/api/forecasts/bulk", () => {
     });
   });
 
+  it("returns the canonical today headline display instead of recomputing from the first row", async () => {
+    const currentRow = forecastRow("beach-1", "1.9", 1);
+    const headlineRow = forecastRow("beach-1", "2.7", 10);
+    (resolveTodayHeadline as jest.Mock).mockImplementationOnce(
+      ({ forecasts }: { forecasts: ForecastRow[] }) => {
+        const forecast = forecasts.find((row) => row.wave_height === "2.7") ?? headlineRow;
+        const display = mockDisplayForForecast(forecast, "today_headline");
+        return {
+          display,
+          window: {
+            start: new Date(forecast.forecast_at),
+            end: new Date(new Date(forecast.forecast_at).getTime() + 60 * 60 * 1000),
+            waveHeight: forecast.wave_height,
+            sourceForecast: forecast,
+          },
+        };
+      },
+    );
+    mockBulkQueries({
+      forecastRows: [currentRow, headlineRow],
+      beachRows: [beachRow("beach-1")],
+    });
+
+    const response = await GET(
+      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+    expect(data.data.displayForecasts["beach-1"]).toMatchObject({
+      label: "2-3ft",
+      minFt: 2,
+      maxFt: 3,
+      forecastAt: headlineRow.forecast_at,
+      context: "today_headline",
+    });
+    expect(data.data.forecasts).toEqual({ "beach-1": 2.7 });
+  });
+
   it("limits, trims, and filters beach IDs before querying", async () => {
     const beachIds = Array.from({ length: 60 }, (_, i) => `beach-${i}`);
     const { forecastChain } = mockBulkQueries();
@@ -392,6 +547,7 @@ describe("/api/forecasts/bulk", () => {
 
     expect(data.data).toEqual({
       forecasts: {},
+      displayForecasts: {},
       waterTemps: {},
       isCalibrated: {},
       conditionScores: {},
@@ -418,6 +574,7 @@ describe("/api/forecasts/bulk", () => {
     const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
 
     expect(data.data.forecasts).toEqual({});
+    expect(data.data.displayForecasts).toEqual({});
   });
 
   it("parses v5.1 display ranges without dropping the beach", async () => {
@@ -431,6 +588,10 @@ describe("/api/forecasts/bulk", () => {
     const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
 
     expect(data.data.forecasts).toEqual({ "beach-1": 3 });
+    expect(data.data.displayForecasts["beach-1"]).toMatchObject({
+      label: "3-4ft",
+      context: "today_headline",
+    });
   });
 
   it("returns a five-step swell partition timeline from nearest forecast rows", async () => {
@@ -494,6 +655,10 @@ describe("/api/forecasts/bulk", () => {
     const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
 
     expect(data.data.forecasts).toEqual({ "beach-1": 0 });
+    expect(data.data.displayForecasts["beach-1"]).toMatchObject({
+      label: "Flat",
+      context: "today_headline",
+    });
   });
 
   it("returns water temps from the nearest future enhanced forecast row", async () => {
@@ -511,7 +676,7 @@ describe("/api/forecasts/bulk", () => {
   });
 
   it("returns condition scores and native summaries for scored current rows", async () => {
-    (scoreWindowWithEngine as jest.Mock)
+    (scoreWindowConditionScore as jest.Mock)
       .mockReturnValueOnce(71)
       .mockReturnValueOnce(40)
       .mockReturnValueOnce(39);
@@ -550,7 +715,7 @@ describe("/api/forecasts/bulk", () => {
   });
 
   it("keeps wave-height data when condition scoring fails", async () => {
-    (scoreWindowWithEngine as jest.Mock).mockImplementation(() => {
+    (scoreWindowConditionScore as jest.Mock).mockImplementation(() => {
       throw new Error("scoring unavailable");
     });
     mockBulkQueries({

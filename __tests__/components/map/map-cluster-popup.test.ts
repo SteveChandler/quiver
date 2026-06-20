@@ -57,7 +57,7 @@ describe("map cluster popup", () => {
       cluster,
       beaches,
       waveHeightMap: new Map([
-        ["beach-1", 1.1],
+        ["beach-1", 2.0],
         ["beach-2", 1.7],
       ]),
     });
@@ -65,6 +65,7 @@ describe("map cluster popup", () => {
     expect(content.textContent).toContain("2 beginner spots nearby");
     expect(content.textContent).toContain("Domes");
     expect(content.textContent).toContain("Sandy Beach");
+    expect(content.textContent).toContain("2ft");
     expect(content.textContent).toContain("1-2ft");
     expect(content.textContent).toContain("Rincón");
     expect(content.textContent).toContain("beginner option around Rincón");

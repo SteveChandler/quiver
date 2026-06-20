@@ -118,7 +118,7 @@ export function ConsolidatedAlertEmail({
 }
 
 export interface FormattedEmailWindow {
-  label: "Best Around" | "Best Window";
+  label: "Good Around" | "Good Window";
   text: string;
 }
 
@@ -161,13 +161,13 @@ export function formatWindow(match: MatchingWindow): FormattedEmailWindow {
 
   if (Number.isFinite(durationMinutes) && durationMinutes <= 75) {
     return {
-      label: "Best Around",
+      label: "Good Around",
       text: `${best} ${tzAbbr}`,
     };
   }
 
   return {
-    label: "Best Window",
+    label: "Good Window",
     text: `${start} \u2013 ${end} ${tzAbbr} · peak ${best}`,
   };
 }
