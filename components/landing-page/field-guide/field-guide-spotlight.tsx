@@ -68,7 +68,7 @@ export function FieldGuideSpotlight({
               alt="Quiver Swell View — live swell field over a stretch of coast"
               fill
               sizes="(max-width: 768px) 100vw, 470px"
-              className="object-cover"
+              className="object-cover object-left"
             />
             <div className="absolute bottom-1.5 right-1.5 z-10 border border-[#11100D] bg-[#F4EBD8]/85 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[#11100D]">
               Swell View
