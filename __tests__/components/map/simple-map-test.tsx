@@ -38,6 +38,8 @@ jest.mock("mapbox-gl", () => ({
     })),
     getCanvasContainer: jest.fn(() => document.createElement("div")),
     getLayer: jest.fn(() => undefined),
+    isStyleLoaded: jest.fn(() => true),
+    setStyle: jest.fn(),
     addLayer: jest.fn(),
     addControl: jest.fn(),
     removeLayer: jest.fn(),

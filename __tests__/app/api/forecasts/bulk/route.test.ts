@@ -433,7 +433,29 @@ describe("/api/forecasts/bulk", () => {
     expect(data.data.forecasts).toEqual({ "beach-1": 3 });
   });
 
-  it("returns a five-step swell partition timeline from nearest forecast rows", async () => {
+  it("queries forecast rows through the second future UTC date for the 48-hour timeline", async () => {
+    jest.useFakeTimers().setSystemTime(new Date("2026-06-20T10:30:00Z"));
+    const { forecastChain } = mockBulkQueries({
+      forecastRows: [forecastRow("beach-1", "2.0")],
+    });
+
+    try {
+      const response = await GET(
+        createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+      );
+      await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+      expect(forecastChain.in).toHaveBeenCalledWith("forecast_date", [
+        "2026-06-20",
+        "2026-06-21",
+        "2026-06-22",
+      ]);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("returns an eight-step 48-hour swell partition timeline from nearest forecast rows", async () => {
     mockBulkQueries({
       forecastRows: [
         {
@@ -454,6 +476,30 @@ describe("/api/forecasts/bulk", () => {
           swell_1_period: "16s",
           wind_direction_deg: 160,
         },
+        {
+          ...forecastRow("beach-1", "6.0", 18),
+          swell_1_direction: "N",
+          swell_1_period: "18s",
+          wind_direction_deg: 200,
+        },
+        {
+          ...forecastRow("beach-1", "7.0", 25),
+          swell_1_direction: "NE",
+          swell_1_period: "20s",
+          wind_direction_deg: 240,
+        },
+        {
+          ...forecastRow("beach-1", "8.0", 36),
+          swell_1_direction: "E",
+          swell_1_period: "22s",
+          wind_direction_deg: 280,
+        },
+        {
+          ...forecastRow("beach-1", "9.0", 48),
+          swell_1_direction: "SE",
+          swell_1_period: "24s",
+          wind_direction_deg: 320,
+        },
       ],
     });
 
@@ -462,7 +508,7 @@ describe("/api/forecasts/bulk", () => {
     );
     const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
 
-    expect(data.data.swellPartitionTimeline["beach-1"]).toHaveLength(5);
+    expect(data.data.swellPartitionTimeline["beach-1"]).toHaveLength(8);
     expect(data.data.swellPartitionTimeline["beach-1"][0]).toMatchObject({
       s1Dir: 270,
       s1PeriodS: 10,
@@ -480,6 +526,12 @@ describe("/api/forecasts/bulk", () => {
       s1PeriodS: 16,
       s1HeightFt: 5,
       windDir: 160,
+    });
+    expect(data.data.swellPartitionTimeline["beach-1"][7]).toMatchObject({
+      s1Dir: 135,
+      s1PeriodS: 24,
+      s1HeightFt: 9,
+      windDir: 320,
     });
   });
 

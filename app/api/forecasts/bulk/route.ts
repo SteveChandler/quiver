@@ -38,7 +38,7 @@ const BULK_FORECAST_SELECT =
 const BULK_BEACH_SELECT =
   "id, name, lat, lon, shoaling_factors, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, wind_onshore_bad_kt, wind_cross_shore_ok_kt, preferred_tide_ft_min, preferred_tide_ft_max, preferred_tide_direction, tide_direction_sensitivity, skill_level, break_type" as const;
 
-const SWELL_TIMELINE_HOUR_OFFSETS = [0, 3, 6, 9, 12] as const;
+const SWELL_TIMELINE_HOUR_OFFSETS = [0, 3, 6, 12, 18, 24, 36, 48] as const;
 
 /**
  * GET /api/forecasts/bulk
@@ -190,13 +190,16 @@ async function fetchBulkCurrentForecastsWithV51Display(
   const now = new Date();
   const targetDate = now.toISOString().split("T")[0];
   const tomorrow = nextUtcDateString(now);
+  const dayAfterTomorrow = nextUtcDateString(
+    new Date(`${tomorrow}T00:00:00Z`)
+  );
   const currentTime = now.toISOString().slice(11, 19);
 
   const { data, error } = await supabase
     .from("enhanced_forecasts")
     .select(BULK_FORECAST_SELECT)
     .in("beach_id", beachIds)
-    .in("forecast_date", [targetDate, tomorrow]);
+    .in("forecast_date", [targetDate, tomorrow, dayAfterTomorrow]);
 
   if (error || !data) {
     return {

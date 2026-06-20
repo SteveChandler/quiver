@@ -11,9 +11,55 @@ import {
 } from "@/components/map/map-regions";
 import { MapContent } from "@/components/map/map-content";
 import { type SwellLayerId } from "@/components/map/swell-map-theme";
+import { useProfileContext } from "@/context/profile-context";
 import type { Beach } from "@/types/database";
 
 const MISSION_BEACH_COORDS = { lat: 32.7702, lon: -117.2525 } as const;
+
+// Shared with use-geolocation / use-nearest-beach. The two writers disagree on
+// shape ({lat,lon} vs {id,name}), so the resolver below handles both.
+const LAST_BEACH_KEY = "quiver:lastBeach";
+
+function isFiniteCoord(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+/**
+ * Resolve the last beach the user was looking at into map coordinates.
+ * Accepts both stored shapes: `{lat,lon}` (geolocation writer) directly, or
+ * `{id,name}` (session-save writer) by looking the beach up via the API.
+ */
+async function resolveLastViewedCenter(): Promise<{
+  lat: number;
+  lon: number;
+} | null> {
+  try {
+    if (typeof window === "undefined") return null;
+    const raw = window.localStorage.getItem(LAST_BEACH_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+
+    if (isFiniteCoord(parsed?.lat) && isFiniteCoord(parsed?.lon)) {
+      return { lat: parsed.lat, lon: parsed.lon };
+    }
+
+    if (parsed?.id) {
+      const res = await fetch(`/api/beaches/${parsed.id}`, {
+        headers: { Accept: "application/json" },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const beach = json?.data?.beach ?? json?.beach;
+        if (isFiniteCoord(beach?.lat) && isFiniteCoord(beach?.lon)) {
+          return { lat: beach.lat, lon: beach.lon };
+        }
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export function MapView() {
   const searchParams = useSearchParams();
@@ -24,19 +70,26 @@ export function MapView() {
     lon: number;
   } | null>(null);
 
-  // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
-  const lastLocationRef = useRef<{ lat: number; lon: number } | null>(null);
+  // Tracks the last location we loaded beaches for, to prevent duplicate calls.
+  // Seeded with the default center so the userLocation effect below doesn't fire
+  // a redundant default-area load before the center resolver (home/last/nearest)
+  // has run; the resolver owns the initial load.
+  const lastLocationRef = useRef<{ lat: number; lon: number } | null>(
+    MISSION_BEACH_COORDS
+  );
   const preserveSearchStateOnNextUrlClearRef = useRef(false);
 
   const [showSwellField, setShowSwellField] = useState(true);
   const [swellLayerId, setSwellLayerId] = useState<SwellLayerId>("s1");
   const [swellTimelineIndex, setSwellTimelineIndex] = useState(0);
   const swellTimelineSteps = useMemo(
-    () => ["Now", "+3h", "+6h", "+9h", "+12h"],
+    () => ["Now", "+3h", "+6h", "+12h", "+18h", "+24h", "+36h", "+48h"],
     []
   );
 
   // Custom hooks for state management
+  const { homeBeach, isLoading: profileLoading } = useProfileContext();
+
   const {
     userLocation,
     locationError,
@@ -48,6 +101,10 @@ export function MapView() {
   } = useGeolocation({
     useLastBeach: false,
     defaultLocation: MISSION_BEACH_COORDS,
+    // Don't auto-prompt for GPS: a signed-in home beach or last-viewed beach
+    // should center the map first (and skip the permission prompt entirely).
+    // GPS is requested only as the final fallback, in the resolver effect below.
+    autoRequest: false,
   });
 
   const {
@@ -71,6 +128,12 @@ export function MapView() {
       return;
     }
 
+    // A home/last/region focus center owns the map and its own beach load; don't
+    // override it with the userLocation (default or GPS) load.
+    if (mapFocusCenter) {
+      return;
+    }
+
     // Check if we've already loaded beaches for this location
     const lastLocation = lastLocationRef.current;
     if (
@@ -84,7 +147,54 @@ export function MapView() {
     // Update the last location and load nearby beaches
     lastLocationRef.current = userLocation;
     loadNearbyBeaches(userLocation.lat, userLocation.lon);
-  }, [userLocation, locationLoading, loadNearbyBeaches]);
+  }, [userLocation, locationLoading, loadNearbyBeaches, mapFocusCenter]);
+
+  // Resolve the initial map center once, in priority order: signed-in home
+  // beach → last beach the user was looking at → nearest to their GPS location.
+  // Gated on `profileLoading` so a signed-in user's home beach wins before any
+  // fallback fires (and we never prompt for GPS when we already have a center).
+  const initialCenterResolvedRef = useRef(false);
+  useEffect(() => {
+    if (initialCenterResolvedRef.current) return;
+    if (profileLoading) return;
+
+    let cancelled = false;
+
+    const centerOn = (lat: number, lon: number) => {
+      if (cancelled) return;
+      initialCenterResolvedRef.current = true;
+      setMapFocusCenter({ lat, lon });
+      lastLocationRef.current = { lat, lon };
+      void loadNearbyBeaches(lat, lon);
+    };
+
+    // 1. Signed-in home beach.
+    if (homeBeach && isFiniteCoord(homeBeach.lat) && isFiniteCoord(homeBeach.lon)) {
+      centerOn(homeBeach.lat, homeBeach.lon);
+      return;
+    }
+
+    // 2. Last beach the user was looking at, then 3. nearest to their location.
+    void (async () => {
+      const last = await resolveLastViewedCenter();
+      if (cancelled || initialCenterResolvedRef.current) return;
+      if (last) {
+        centerOn(last.lat, last.lon);
+        return;
+      }
+      // 3. Nearest to the user — only now do we request GPS. Load the default
+      // area first as a baseline so a denied or slow GPS still shows beaches;
+      // a granted GPS fix updates userLocation and the effect above reloads.
+      initialCenterResolvedRef.current = true;
+      lastLocationRef.current = { ...MISSION_BEACH_COORDS };
+      void loadNearbyBeaches(MISSION_BEACH_COORDS.lat, MISSION_BEACH_COORDS.lon);
+      getUserLocation();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profileLoading, homeBeach, loadNearbyBeaches, getUserLocation]);
 
   // Hydrate deep-linked search state from the URL. Local toolbar edits may strip the
   // stale URL param without clearing the active input state.

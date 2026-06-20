@@ -62,4 +62,34 @@ describe("createClusterMapMarker", () => {
     expect(deps.getExpansionZoom).toHaveBeenCalledWith(12);
     expect(deps.flyTo).toHaveBeenCalledWith([-67.26, 18.36], 9);
   });
+
+  it("falls back to details when expansion exceeds the camera max-zoom cap", () => {
+    const deps = {
+      ...baseDeps(),
+      getExpansionZoom: jest.fn(() => 15),
+      getMaxZoom: jest.fn(() => 13.5),
+      onClusterClick: jest.fn(),
+    } satisfies ClusterRendererDeps;
+
+    createClusterMapMarker(cluster, deps);
+    getMarkerElement().dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(deps.onClusterClick).toHaveBeenCalledWith(cluster);
+    expect(deps.flyTo).not.toHaveBeenCalled();
+  });
+
+  it("still expands when the cluster splits within the camera max-zoom cap", () => {
+    const deps = {
+      ...baseDeps(),
+      getExpansionZoom: jest.fn(() => 12),
+      getMaxZoom: jest.fn(() => 13.5),
+      onClusterClick: jest.fn(),
+    } satisfies ClusterRendererDeps;
+
+    createClusterMapMarker(cluster, deps);
+    getMarkerElement().dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(deps.flyTo).toHaveBeenCalledWith([-67.26, 18.36], 12);
+    expect(deps.onClusterClick).not.toHaveBeenCalled();
+  });
 });

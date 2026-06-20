@@ -5,6 +5,7 @@ import {
   detectWaterLayerIds,
   interpolateSwellPartition,
   maskFieldToWater,
+  waterMaskableFlowComponents,
   resolveWindParticleCount,
   COASTAL_CORRIDOR_LAT_PAD,
   COASTAL_CORRIDOR_LON_PAD,
@@ -268,6 +269,16 @@ describe("detectWaterLayerIds", () => {
   it("returns an empty array when no water layers exist", () => {
     expect(detectWaterLayerIds([{ id: "land" }, { id: "road" }])).toEqual([]);
     expect(detectWaterLayerIds([])).toEqual([]);
+  });
+});
+
+describe("waterMaskableFlowComponents", () => {
+  it("excludes wind, matching native's viewport-wide wind advection", () => {
+    expect(waterMaskableFlowComponents(["wind"])).toEqual([]);
+    expect(waterMaskableFlowComponents(["s1", "s2", "wind"])).toEqual([
+      "s1",
+      "s2",
+    ]);
   });
 });
 

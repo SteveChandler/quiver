@@ -38,6 +38,8 @@ jest.mock("mapbox-gl", () => ({
     })),
     getCanvasContainer: jest.fn(() => document.createElement("div")),
     getLayer: jest.fn(() => undefined),
+    isStyleLoaded: jest.fn(() => true),
+    setStyle: jest.fn(),
     addLayer: jest.fn(),
     addControl: mockAddControl,
     removeLayer: jest.fn(),
@@ -300,6 +302,27 @@ describe("Map Forecast Basic Tests", () => {
         zoom: 14,
         attributionControl: false,
         logoPosition: "top-left",
+      })
+    );
+  });
+
+  it("keeps the original streets style when the swell field is initially visible", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+
+    render(
+      <InteractiveMap
+        initialCenter={[32.7493, -117.2511]}
+        initialZoom={14}
+        showSwellField
+      />
+    );
+
+    const MapboxMap = require("mapbox-gl").Map;
+    expect(MapboxMap).toHaveBeenCalledWith(
+      expect.objectContaining({
+        style: "mapbox://styles/mapbox/streets-v11",
+        center: [-117.2511, 32.7493],
+        zoom: 14,
       })
     );
   });
