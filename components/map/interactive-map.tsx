@@ -93,6 +93,9 @@ const COMBINED_SUBLAYERS: ReadonlyArray<FlowComponentId> = [
 // Per-layer particle count for the combined view so three stacked layers keep the
 // sparse Windy-style spacing in budget (3 × 260 = 780 total).
 const COMBINED_PARTICLE_COUNT = 260;
+// Wind reads cleaner with a sparser field than swell — scale its particle count
+// down. Count drives the seed grid, so coverage stays even, just less dense.
+const WIND_PARTICLE_SCALE = 0.75;
 
 const EMPTY_FLOW_FIELD: FlowField = { cols: 0, rows: 0, cells: [] };
 
@@ -919,7 +922,10 @@ export function InteractiveMap({
             getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[component],
             reducedMotion,
             viewportWidthPx,
-            count: COMBINED_PARTICLE_COUNT,
+            count:
+              component === "wind"
+                ? Math.round(COMBINED_PARTICLE_COUNT * WIND_PARTICLE_SCALE)
+                : COMBINED_PARTICLE_COUNT,
             markStyle: component === "wind" ? "comet" : "dash",
           })
         );
@@ -935,7 +941,10 @@ export function InteractiveMap({
           getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[swellLayerIdRef.current],
           reducedMotion,
           viewportWidthPx,
-          count: activeComponent === "wind" ? baseParticleCount : undefined,
+          count:
+            activeComponent === "wind"
+              ? Math.round(baseParticleCount * WIND_PARTICLE_SCALE)
+              : undefined,
           markStyle: activeComponent === "wind" ? "comet" : "dash",
         })
       );
