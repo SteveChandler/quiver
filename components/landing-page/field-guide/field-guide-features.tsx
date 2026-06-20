@@ -20,21 +20,9 @@ interface Feature {
 
 const FEATURES: Feature[] = [
   {
-    sticker: "forecastWaveMark",
-    title: "Honest forecasts",
-    body: "Per-break wave heights and confidence without making every morning sound epic.",
-    tier: "free",
-  },
-  {
-    sticker: "spotWindRead",
-    title: "Wind & tide reads",
-    body: "Plain-language calls on the wind, tide window, and hour worth protecting.",
-    tier: "free",
-  },
-  {
     sticker: "blogSessionLog",
-    title: "Session log + crew",
-    body: "Save what happened, remember the board, and share the call with the people you surf with.",
+    title: "Personal forecasting",
+    body: "Saved beaches and session feedback help Quiver tune the call around how you surf.",
     tier: "free",
   },
   {
@@ -45,8 +33,8 @@ const FEATURES: Feature[] = [
   },
   {
     sticker: "tealCurvedArrow",
-    title: "Smart alerts",
-    body: "Get pinged when your spots line up for the boards you own.",
+    title: "Best spot + paddle window",
+    body: "See the nearby move and the timing that looks most worth chasing.",
     tier: "pro",
   },
   {
@@ -54,6 +42,18 @@ const FEATURES: Feature[] = [
     title: "Custom spots",
     body: "Drop your own breaks and get the same honest read anywhere.",
     tier: "pro",
+  },
+  {
+    sticker: "forecastWaveMark",
+    title: "Honest forecasts",
+    body: "Per-break wave heights and confidence without making every morning sound epic.",
+    tier: "free",
+  },
+  {
+    sticker: "spotWindRead",
+    title: "Wind & tide reads",
+    body: "Plain-language calls on the wind, tide window, and hour worth protecting.",
+    tier: "free",
   },
 ];
 

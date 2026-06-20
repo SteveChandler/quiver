@@ -36,7 +36,7 @@ export function FieldGuideInsideApp(): ReactElement {
         <div className="notebook relative overflow-hidden bg-[#FFFDF4] p-5 shadow-[2px_4px_0_rgba(0,0,0,0.18)]">
           <QuiverSticker
             sticker="surfWax"
-            className="absolute left-8 top-2 z-20 w-24 -rotate-3"
+            className="absolute right-4 top-3 z-20 w-24 -rotate-3 md:left-[42%] md:right-auto"
             sizes="6rem"
           />
           <div className="grid gap-5 md:grid-cols-[0.84fr_1.16fr] md:items-center">
