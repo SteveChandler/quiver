@@ -35,7 +35,7 @@ export function FieldGuideInsideApp(): ReactElement {
 
         <div className="notebook relative overflow-hidden bg-[#FFFDF4] p-5 shadow-[2px_4px_0_rgba(0,0,0,0.18)]">
           <QuiverSticker
-            sticker="orangeTape"
+            sticker="surfWax"
             className="absolute left-8 top-2 z-20 w-24 -rotate-3"
             sizes="6rem"
           />
@@ -67,7 +67,7 @@ export function FieldGuideInsideApp(): ReactElement {
                 </div>
               </div>
               <QuiverSticker
-                sticker="breakingWave"
+                sticker="singleFin"
                 className="absolute -bottom-5 -left-8 w-24 rotate-6"
                 sizes="6rem"
               />
