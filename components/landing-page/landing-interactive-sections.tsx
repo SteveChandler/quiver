@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactElement } from "react";
 import { useEffect, useState } from "react";
 import { SurfHighlightsSection } from "@/components/landing-page/surf-highlights-section";
 import { FeatureBentoSection } from "./feature-bento-section";
@@ -8,6 +9,10 @@ import { ActivitiesSection } from "@/components/landing-page/activities-section"
 import { ForecastSection } from "@/components/landing-page/forecast-section";
 import { CTASection } from "@/components/landing-page/cta-section";
 import { LandingPricingTeaser } from "@/components/pricing/landing-pricing-teaser";
+import { PlatformStatusStrip } from "@/components/landing-page/platform-status-strip";
+import { AppProofWalkthrough } from "@/components/landing-page/app-proof-walkthrough";
+import { NativeAppFunnelCta } from "@/components/app-store/native-app-funnel-cta";
+import type { FirstTouchPlatform } from "@/lib/analytics/web-context";
 
 function ForecastSectionFallback() {
   // Deterministic placeholder to avoid SSR/client mismatches (e.g. Intl/animation libs).
@@ -38,12 +43,70 @@ function ForecastSectionFallback() {
   );
 }
 
-export function LandingInteractiveSections() {
+interface LandingInteractiveSectionsProps {
+  initialPlatform?: FirstTouchPlatform;
+  appFirst?: boolean;
+}
+
+const FINAL_NATIVE_CTA_CLASS =
+  "inline-flex min-h-12 items-center justify-center rounded-[14px_6px_16px_6px] bg-ocean-blue-decorative px-6 py-3 font-heading text-base font-bold text-background shadow-[0_4px_0_rgba(0,0,0,0.32)] transition hover:bg-[#D57835] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-blue-decorative focus-visible:ring-offset-2 focus-visible:ring-offset-background active:bg-[#C06A25]";
+
+function FinalNativeCtaSection({
+  platform,
+}: {
+  platform: FirstTouchPlatform;
+}): ReactElement {
+  return (
+    <section className="bg-background px-5 py-16 text-foreground md:py-20">
+      <div className="mx-auto grid max-w-7xl gap-8 rounded-[28px_12px_32px_16px] border border-white/12 bg-card p-6 shadow-[0_18px_70px_rgba(0,0,0,0.28)] md:grid-cols-[minmax(0,0.9fr)_minmax(320px,1fr)] md:items-center md:p-10">
+        <div>
+          <p className="font-mono text-xs font-bold uppercase tracking-[0.2em] text-sunset-orange">
+            keep the call close
+          </p>
+          <h2 className="mt-3 font-heading text-3xl font-black uppercase leading-none sm:text-5xl">
+            Get the surf call where you check it.
+          </h2>
+          <p className="mt-4 max-w-xl font-sans text-base leading-7 text-muted-foreground">
+            Same app-first handoff: App Store on iPhone, waitlist on Android,
+            QR and email on desktop.
+          </p>
+        </div>
+
+        <NativeAppFunnelCta
+          platform={platform}
+          source="landing_final_cta"
+          surface="landing-page"
+          placement="final_cta"
+          variant="app_first"
+          cohort="app_first"
+          className={FINAL_NATIVE_CTA_CLASS}
+          desktopClassName="w-full rounded-[22px_10px_26px_12px] border-sunset-orange/20"
+        />
+      </div>
+    </section>
+  );
+}
+
+export function LandingInteractiveSections({
+  initialPlatform = "desktop",
+  appFirst = false,
+}: LandingInteractiveSectionsProps = {}) {
   const [hasMounted, setHasMounted] = useState(false);
 
   useEffect(() => {
     setHasMounted(true);
   }, []);
+
+  if (appFirst) {
+    return (
+      <div className="space-y-0">
+        <PlatformStatusStrip platform={initialPlatform} />
+        <AppProofWalkthrough />
+        <SurfHighlightsSection trustProof />
+        <FinalNativeCtaSection platform={initialPlatform} />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-0">

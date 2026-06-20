@@ -1,15 +1,14 @@
 "use client";
 
 import { useAuth } from "@/context/auth-context";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { PerformanceUtils } from "@/lib/utils/performance-utils";
 import { hasSupabaseAuthCookie } from "@/lib/utils/supabase-cookie-utils";
 import { BODY_CLASSES, PERFORMANCE_TIMING } from "@/lib/constants/css-classes";
 import { Navbar } from "@/components/landing-page/navbar";
-import { HeroSection } from "@/components/landing-page/hero-section";
-import { LandingInteractiveSections } from "@/components/landing-page/landing-interactive-sections";
+import { QuiverFieldGuideLanding } from "@/components/landing-page/field-guide/quiver-field-guide-landing";
 import { OracleHomeSkeleton } from "@/components/oracle/oracle-home-skeleton";
 import {
   Dialog,
@@ -20,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Mail } from "lucide-react";
+import type { FirstTouchPlatform } from "@/lib/analytics/web-context";
 
 const OracleHomeScreenDynamic = dynamic(
   () =>
@@ -55,7 +55,15 @@ const OracleHomeScreenDynamic = dynamic(
  * Note: PopularBeachesSection and SiteFooter are rendered in the server shell
  * to ensure beach links are always in the HTML for SEO purposes.
  */
-export function AuthAwareLandingWrapper() {
+interface AuthAwareLandingWrapperProps {
+  initialPlatform?: FirstTouchPlatform;
+  appFirst?: boolean;
+}
+
+export function AuthAwareLandingWrapper({
+  initialPlatform = "desktop",
+  appFirst = true,
+}: AuthAwareLandingWrapperProps = {}): ReactElement {
   const { user, isLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -138,9 +146,10 @@ export function AuthAwareLandingWrapper() {
       <Navbar position="static" />
 
       <main role="main">
-        <HeroSection />
-
-        <LandingInteractiveSections />
+        <QuiverFieldGuideLanding
+          platform={initialPlatform}
+          appFirst={appFirst}
+        />
       </main>
 
       {/* Email confirmation modal - requires user action to dismiss */}
