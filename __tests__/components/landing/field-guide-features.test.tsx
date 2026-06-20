@@ -11,15 +11,19 @@ describe("FieldGuideFeatures badged grid", () => {
   const escapeRegExp = (value: string): string =>
     value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-  it("shows 3 FREE and 3 PRO feature cards", () => {
+  it("shows 2 FREE and 4 PRO feature cards", () => {
     render(<FieldGuideFeatures />);
-    expect(screen.getAllByText("Free")).toHaveLength(3);
-    expect(screen.getAllByText("Pro")).toHaveLength(3);
+    expect(screen.getAllByText("Free")).toHaveLength(2);
+    expect(screen.getAllByText("Pro")).toHaveLength(4);
   });
 
   it("badges pro feature cards", () => {
     render(<FieldGuideFeatures />);
-    for (const title of ["Best spot + paddle window", "Custom spots"]) {
+    for (const title of [
+      "Personal forecasting",
+      "Best spot + paddle window",
+      "Custom spots",
+    ]) {
       const heading = screen.getByRole("heading", {
         name: new RegExp(escapeRegExp(title), "i"),
       });

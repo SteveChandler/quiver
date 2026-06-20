@@ -23,7 +23,7 @@ const FEATURES: Feature[] = [
     sticker: "blogSessionLog",
     title: "Personal forecasting",
     body: "Saved beaches and session feedback help Quiver tune the call around how you surf.",
-    tier: "free",
+    tier: "pro",
   },
   {
     sticker: "spotSwellMatch",
