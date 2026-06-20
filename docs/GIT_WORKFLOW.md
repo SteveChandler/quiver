@@ -58,13 +58,35 @@ This keeps both branches in sync without back-merging.
 
 ## CI Protection
 
-PRs targeting `prod` run the `prod-gate` workflow (`.github/workflows/prod-gate.yml`):
+The configured `prod-gate` workflow (`.github/workflows/prod-gate.yml`) is
+intended to gate PRs targeting `prod` with:
 - TypeScript type check
 - Lint
+- Unit tests
 - Build
 - Playwright smoke tests
 
-All checks must pass before merging to `prod`.
+When that workflow is enabled, all checks must pass before merging to `prod`.
+
+**Current CI reality (confirmed 2026-06-20):** GitHub reports the `Prod Gate`
+workflow as `disabled_manually` and its workflow metadata was last updated when
+Actions were disabled on 2026-05-06. This workflow currently does **not** run
+automatically on PRs, so a green or mergeable PR has **not** been gated by CI.
+When enabled, the workflow runs typecheck, lint, unit tests, build, and
+Playwright `@smoke`, but the smoke job targets `https://dev.quiversurf.app`
+rather than the PR's own deployment.
+
+Until Actions are re-enabled, contributors must treat local verification as the
+gate. Use Node 22 and run:
+
+```bash
+yarn typecheck
+yarn test:unit
+yarn build
+npx playwright test --grep @smoke --project=guest
+```
+
+Run the relevant smoke target for the deployment being validated.
 
 ## Naming Conventions
 
