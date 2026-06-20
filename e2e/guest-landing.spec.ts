@@ -266,7 +266,7 @@ test.describe('Guest Landing - Zine Field Guide', () => {
     await expect(proofSection).toBeVisible({ timeout: 5000 });
     await expect(proofSection.getByText('10-day')).toBeVisible();
     await expect(proofSection.getByText('Every 3 hours')).toBeVisible();
-    await expect(proofSection.getByText('1-tap')).toBeVisible();
+    await expect(proofSection.getByText('Sharper calls')).toBeVisible();
   });
 
   test('shows coverage and comparison context', async ({ page }) => {
