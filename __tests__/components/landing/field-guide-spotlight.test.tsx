@@ -10,7 +10,6 @@ jest.mock("next/image", () => ({
     fill: _fill,
     ...props
   }: ImgHTMLAttributes<HTMLImageElement> & { fill?: boolean }) => (
-    // eslint-disable-next-line jsx-a11y/alt-text -- mirrors the project-level next/image test mock
     <img alt={alt} {...props} />
   ),
 }));

@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { ImgHTMLAttributes } from "react";
 
 import { QuiverFieldGuideLanding } from "@/components/landing-page/field-guide/quiver-field-guide-landing";
@@ -31,6 +31,7 @@ describe("QuiverFieldGuideLanding", () => {
     render(<QuiverFieldGuideLanding platform="ios" />);
 
     expect(screen.getByTestId("field-guide-hero")).toBeInTheDocument();
+    expect(screen.getByTestId("field-guide-spotlight")).toBeInTheDocument();
     expect(screen.getByTestId("field-guide-proof")).toBeInTheDocument();
     expect(screen.getByTestId("field-guide-coverage")).toBeInTheDocument();
     expect(screen.getByTestId("field-guide-inside-app")).toBeInTheDocument();
@@ -48,15 +49,37 @@ describe("QuiverFieldGuideLanding", () => {
     expect(
       screen.getByRole("heading", { name: /know where to paddle out/i }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Get the app" })).toHaveAttribute(
+    const hero = screen.getByTestId("field-guide-hero");
+    expect(
+      within(hero).getByRole("link", { name: "Get the app" }),
+    ).toHaveAttribute(
       "href",
       "/download?source=landing_hero&placement=hero&platform=ios",
     );
-    expect(screen.getByRole("link", { name: "Watch demo" })).toHaveAttribute(
-      "href",
-      "#demo",
-    );
+    expect(
+      within(hero).getByRole("link", { name: "Watch demo" }),
+    ).toHaveAttribute("href", "#demo");
     expect(screen.getByTestId("funnel-cta")).toBeInTheDocument();
+  });
+
+  it("renders the Swell View spotlight CTA", () => {
+    render(<QuiverFieldGuideLanding platform="ios" />);
+
+    const spotlight = screen.getByTestId("field-guide-spotlight");
+    expect(
+      within(spotlight).getByRole("heading", {
+        name: /quiver's swell view is here/i,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(spotlight).getByText("FREE · NEW IN THE APP"),
+    ).toBeInTheDocument();
+    expect(
+      within(spotlight).getByRole("link", { name: "Get the app" }),
+    ).toHaveAttribute(
+      "href",
+      "/download?source=landing_swell_view&placement=spotlight&platform=ios",
+    );
   });
 
   it("uses defensible proof claims", () => {

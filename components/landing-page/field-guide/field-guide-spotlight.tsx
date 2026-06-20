@@ -9,6 +9,11 @@ interface FieldGuideSpotlightProps {
   platform: FirstTouchPlatform;
 }
 
+// 2026-06-20 beach/cam inventory query snapshot:
+// 318 active breaks, 73 with cams, 245 wave-map-only.
+const SWELL_VIEW_STAT_LINE =
+  "318 breaks · 73 cams · wave maps for the other 245";
+
 export function FieldGuideSpotlight({
   platform,
 }: FieldGuideSpotlightProps): ReactElement {
@@ -29,7 +34,7 @@ export function FieldGuideSpotlight({
             FREE · NEW IN THE APP
           </span>
           <p className="mt-3 font-mono text-[11px] font-bold uppercase tracking-[0.06em] text-[#0B3A75]">
-            318 breaks · 73 cams · wave maps for the other 245
+            {SWELL_VIEW_STAT_LINE}
           </p>
           <h2 className="zine-h1 mt-2 max-w-xl leading-[0.96] text-[#11100D] md:!text-[clamp(40px,4.4vw,58px)]">
             Quiver&apos;s Swell View is here.
