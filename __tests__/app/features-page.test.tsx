@@ -2,7 +2,11 @@ import { render, screen } from "@testing-library/react";
 import type { ReactNode } from "react";
 
 import FeaturesPage, { metadata } from "@/app/features/page";
-import { IOS_APP_STORE_CTA, IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import {
+  APP_FIRST_CAMPAIGN,
+  IOS_APP_STORE_CTA,
+  iosAppStoreUrlWithCampaign,
+} from "@/lib/constants/app-store";
 
 jest.mock("next/image", () => ({
   __esModule: true,
@@ -94,7 +98,10 @@ describe("FeaturesPage", () => {
     });
     expect(appStoreLinks).toHaveLength(2);
     appStoreLinks.forEach((link) => {
-      expect(link).toHaveAttribute("href", IOS_APP_STORE_URL);
+      expect(link).toHaveAttribute(
+        "href",
+        iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN),
+      );
     });
 
     const androidWaitlistButtons = screen.getAllByTestId(
