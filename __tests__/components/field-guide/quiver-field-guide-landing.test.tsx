@@ -88,7 +88,7 @@ describe("QuiverFieldGuideLanding", () => {
     const proof = screen.getByTestId("field-guide-proof");
     expect(proof).toHaveTextContent("10-day");
     expect(proof).toHaveTextContent("Every 3 hours");
-    expect(proof).toHaveTextContent("1-tap");
+    expect(proof).toHaveTextContent("Sharper calls");
   });
 
   it("renders coverage and Surfline comparison context", () => {
