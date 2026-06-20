@@ -3,6 +3,7 @@ import type { ReactElement } from "react";
 import { FieldGuideFeatures } from "@/components/landing-page/field-guide/field-guide-features";
 import { FieldGuideFinalCta } from "@/components/landing-page/field-guide/field-guide-final-cta";
 import { FieldGuideHero } from "@/components/landing-page/field-guide/field-guide-hero";
+import { FieldGuideSpotlight } from "@/components/landing-page/field-guide/field-guide-spotlight";
 import { FieldGuideWalkthrough } from "@/components/landing-page/field-guide/field-guide-walkthrough";
 import type { FirstTouchPlatform } from "@/lib/analytics/web-context";
 
@@ -20,6 +21,7 @@ export function QuiverFieldGuideLanding({
       className="bg-[#0D1020]"
     >
       <FieldGuideHero platform={platform} />
+      <FieldGuideSpotlight platform={platform} />
       <FieldGuideFeatures />
       <FieldGuideWalkthrough />
       <FieldGuideFinalCta platform={platform} />
