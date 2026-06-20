@@ -16,7 +16,10 @@ import {
   beachToSpotProfile,
   forecastToSnapshot,
 } from '@/lib/domains/scoring';
-import { scoreNativeForecastSlot } from '@/lib/scoring/native-condition-score';
+import {
+  resolveNativeSkillLevel,
+  scoreNativeForecastSlot,
+} from '@/lib/scoring/native-condition-score';
 import { getDirectionDegrees } from './direction-utils';
 import { getScoringEngine } from './scoring-engine-singleton';
 
@@ -168,7 +171,8 @@ export function scoreWindowConditionScore(
   _beach: Beach,
   skillLevel?: SkillLevel | string | null
 ): number {
-  return scoreNativeForecastSlot(forecast, skillLevel);
+  const resolvedSkillLevel = resolveNativeSkillLevel(skillLevel, 'intermediate');
+  return scoreNativeForecastSlot(forecast, resolvedSkillLevel);
 }
 
 /** @deprecated Use `scoreWindowConditionScore` for native-compatible display scoring. */
