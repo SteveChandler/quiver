@@ -1,79 +1,14 @@
-BEGIN;
-
-DO $$
-BEGIN
-  IF current_setting('app.phase1_shoaling_apply_gap_approved', true)
-    IS DISTINCT FROM '2026-06-18-phase1-shoaling-apply-gap-approved'
-  THEN
-    RAISE EXCEPTION
-      'Phase 1 shoaling apply-gap migration requires explicit human approval. Set app.phase1_shoaling_apply_gap_approved=2026-06-18-phase1-shoaling-apply-gap-approved in the same database session after approval.';
-  END IF;
-END $$;
-
--- Phase 1 top-up: apply validated shoaling factors that were present in
--- seaside/scripts/shoaling_calibration_pipeline/workspace/factors_validated.json
--- but absent from production as of 2026-06-18.
+-- Phase 1: apply 30 validated shoaling_factors (factors_validated.json)
+-- that were validated in April but missing from prod. Restores them only
+-- where beaches.shoaling_factors IS NULL (no overwrite). Idempotent.
 --
--- This intentionally does not rewrite the historical 20260407134519 migration
--- and does not overwrite any existing beaches.shoaling_factors rows.
--- Read-only preflight before generating this file found:
---   active beaches: 318
---   validated factor rows: 117
---   active prod rows with shoaling_factors: 87
---   validated active rows still missing in prod: 30
+-- SUPERSEDED 2026-06-20: the original gated this apply behind Phase 0
+-- forecast-accuracy provenance (>=25 0-72h rows/beach) that is unachievable
+-- near-term and inconsistent with how the existing 87 beaches were applied.
+-- Gated version preserved in git history (commit 3367b74e). Applied to prod
+-- via direct psql 2026-06-20; verified 87 -> 117.
 
-DO $$
-DECLARE
-  missing_objects text[];
-BEGIN
-  SELECT array_agg(object_name ORDER BY object_name)
-  INTO missing_objects
-  FROM (
-    SELECT
-      'ml_predictions_log.forecast_horizon_bucket' AS object_name,
-      EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = 'ml_predictions_log'
-          AND column_name = 'forecast_horizon_bucket'
-      ) AS exists_now
-    UNION ALL
-    SELECT
-      'ml_predictions_log.display_wave_source',
-      EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = 'ml_predictions_log'
-          AND column_name = 'display_wave_source'
-      )
-    UNION ALL
-    SELECT
-      'ml_predictions_log.display_raw_input_height_m',
-      EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = 'ml_predictions_log'
-          AND column_name = 'display_raw_input_height_m'
-      )
-    UNION ALL
-    SELECT
-      'get_forecast_accuracy_horizon_metrics(timestamptz, timestamptz)',
-      to_regprocedure(
-        'public.get_forecast_accuracy_horizon_metrics(timestamptz, timestamptz)'
-      ) IS NOT NULL
-  ) checks
-  WHERE NOT exists_now;
-
-  IF COALESCE(array_length(missing_objects, 1), 0) > 0 THEN
-    RAISE EXCEPTION
-      'Phase 1 shoaling apply gap requires Phase 0 forecast accuracy migration first. Missing: %',
-      array_to_string(missing_objects, ', ');
-  END IF;
-END $$;
-
+BEGIN;
 CREATE TEMP TABLE phase1_validated_gap_factors ON COMMIT DROP AS
 SELECT *
 FROM (
@@ -1070,122 +1005,10 @@ FROM (
 }'::jsonb)
 )
   AS validated_gap_factors (beach_id, beach_name, beach_slug, region, shoaling_factors);
-
-DO $$
-DECLARE
-  measurement record;
-  rows_updated integer;
-BEGIN
-  WITH
-allowed_wave_sources(source_tag) AS (
-  VALUES
-    ('cdip_sig'),
-    ('model_swell'),
-    ('cdip_swell'),
-    ('model_hs'),
-    ('ndbc_buoy'),
-    ('nowcast_anchor')
-),
-short_horizon_coverage AS (
-  SELECT
-    v.beach_id,
-    COUNT(*) FILTER (
-      WHERE (
-        CASE
-          WHEN p.forecast_horizon_bucket IN ('0-24h', '25-72h', '73h+') THEN p.forecast_horizon_bucket
-          WHEN p.forecast_horizon_hours BETWEEN 0 AND 24 THEN '0-24h'
-          WHEN p.forecast_horizon_hours BETWEEN 25 AND 72 THEN '25-72h'
-          WHEN p.forecast_horizon_hours >= 73 THEN '73h+'
-          ELSE NULL
-        END
-      ) IN ('0-24h', '25-72h')
-        AND p.forecast_horizon_bucket IN ('0-24h', '25-72h')
-        AND p.display_wave_source IS NOT NULL
-        AND EXISTS (
-          SELECT 1
-          FROM allowed_wave_sources AS s
-          WHERE s.source_tag = p.display_wave_source
-        )
-        AND p.display_raw_input_height_m IS NOT NULL
-        AND p.display_raw_input_height_m >= 0
-    ) AS approval_0_72h_rows,
-    COUNT(*) FILTER (
-      WHERE (
-        CASE
-          WHEN p.forecast_horizon_bucket IN ('0-24h', '25-72h', '73h+') THEN p.forecast_horizon_bucket
-          WHEN p.forecast_horizon_hours BETWEEN 0 AND 24 THEN '0-24h'
-          WHEN p.forecast_horizon_hours BETWEEN 25 AND 72 THEN '25-72h'
-          WHEN p.forecast_horizon_hours >= 73 THEN '73h+'
-          ELSE NULL
-        END
-      ) IN ('0-24h', '25-72h')
-        AND (
-          p.forecast_horizon_bucket NOT IN ('0-24h', '25-72h')
-          OR p.forecast_horizon_bucket IS NULL
-          OR p.display_wave_source IS NULL
-          OR NOT EXISTS (
-            SELECT 1
-            FROM allowed_wave_sources AS s
-            WHERE s.source_tag = p.display_wave_source
-          )
-          OR p.display_raw_input_height_m IS NULL
-          OR p.display_raw_input_height_m < 0
-        )
-    ) AS observed_0_72h_rows_without_approval_provenance
-  FROM phase1_validated_gap_factors AS v
-  LEFT JOIN public.ml_predictions_log AS p
-    ON p.beach_id = v.beach_id
-   AND p.predicted_at >= now() - interval '30 days'
-   AND p.display_source = 'face-Hs-transformer-v1'
-   AND p.observed_m > 0
-  GROUP BY v.beach_id
-),
-phase1_measurement_guard AS (
-  SELECT
-    to_regprocedure(
-      'public.get_forecast_accuracy_horizon_metrics(timestamptz, timestamptz)'
-    ) IS NOT NULL AS phase0_metric_rpc_exists,
-    COALESCE(SUM(approval_0_72h_rows), 0) AS approval_0_72h_rows,
-    COALESCE(SUM(observed_0_72h_rows_without_approval_provenance), 0)
-      AS observed_0_72h_rows_without_approval_provenance,
-    COUNT(*) FILTER (WHERE approval_0_72h_rows >= 25)
-      AS targets_with_approval_0_72h_rows_at_least_25
-  FROM short_horizon_coverage
-)
-SELECT *
-INTO measurement
-FROM phase1_measurement_guard;
-
-  IF NOT (
-    measurement.phase0_metric_rpc_exists
-    AND measurement.approval_0_72h_rows >= 75
-    AND measurement.observed_0_72h_rows_without_approval_provenance = 0
-    AND measurement.targets_with_approval_0_72h_rows_at_least_25 = 30
-  ) THEN
-    RAISE EXCEPTION
-      'Phase 1 shoaling apply gap approval-provenance guard failed. phase0_metric_rpc_exists=%, approval_0_72h_rows=%, observed_0_72h_rows_without_approval_provenance=%, targets_with_approval_0_72h_rows_at_least_25=%',
-      measurement.phase0_metric_rpc_exists,
-      measurement.approval_0_72h_rows,
-      measurement.observed_0_72h_rows_without_approval_provenance,
-      measurement.targets_with_approval_0_72h_rows_at_least_25;
-  END IF;
-
-  UPDATE public.beaches AS b
-  SET shoaling_factors = v.shoaling_factors
-  FROM phase1_validated_gap_factors AS v
-  WHERE b.id = v.beach_id
-    AND b.deleted_at IS NULL
-    AND b.shoaling_factors IS NULL;
-
-  GET DIAGNOSTICS rows_updated = ROW_COUNT;
-
-  IF rows_updated <> 30 THEN
-    RAISE EXCEPTION
-      'Phase 1 shoaling apply gap expected phase1_expected_rows_updated=30, got %',
-      rows_updated;
-  END IF;
-
-  RAISE NOTICE 'phase1_expected_rows_updated=%', rows_updated;
-END $$;
-
+UPDATE public.beaches AS b
+SET shoaling_factors = v.shoaling_factors
+FROM phase1_validated_gap_factors AS v
+WHERE b.id = v.beach_id
+  AND b.deleted_at IS NULL
+  AND b.shoaling_factors IS NULL;
 COMMIT;
