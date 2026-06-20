@@ -11,9 +11,9 @@ const AUDIENCES = [
 ] as const;
 
 const ACCESS_POINTS = [
-  "Three saved beaches on the free tier",
-  "14-day App Store trial for Pro",
-  "Pro adds board-aware picks, alerts, custom spots, and offline session saving",
+  "Public forecast data stays free forever",
+  "No paywall for basic beach reads",
+  "Pro adds board-aware picks, alerts, custom spots, offline session saving, and personal forecasting",
 ] as const;
 
 export function FieldGuideAudienceAccess(): ReactElement {
@@ -41,7 +41,7 @@ export function FieldGuideAudienceAccess(): ReactElement {
 
       <div className="mx-auto max-w-3xl text-center">
         <p className="mx-auto inline-flex rounded-full border border-[#128A48]/25 bg-[#D7F5DD] px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#145A35]">
-          Free tier + App Store trial
+          Public forecast data is free forever
         </p>
         <h2
           id="field-guide-access-heading"
@@ -50,8 +50,9 @@ export function FieldGuideAudienceAccess(): ReactElement {
           One surf app. Pro when you need the sharper call.
         </h2>
         <p className="mx-auto mt-4 max-w-2xl font-mono text-sm leading-relaxed text-[#11100D]/70 sm:text-base">
-          Start with the free tier, then use the Apple-managed trial when you
-          want Quiver to learn from your boards, spots, alerts, and saved
+          Public forecast data is free forever. Upgrade for board-aware picks,
+          smart alerts, custom spots, offline session saving, and personal
+          forecasting that learns from your boards, spots, alerts, and saved
           sessions.
         </p>
 

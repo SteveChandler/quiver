@@ -298,9 +298,15 @@ test.describe('Guest Landing - Zine Field Guide', () => {
     await expect(
       audienceAccessSection.getByText('Dawn patrol regulars'),
     ).toBeVisible();
+    await expect(audienceAccessSection).toContainText(
+      'Public forecast data is free forever',
+    );
     await expect(
-      audienceAccessSection.getByText(/three saved beaches/i),
+      audienceAccessSection.getByText(/no paywall for basic beach reads/i),
     ).toBeVisible();
+    await expect(
+      audienceAccessSection.getByText(/14-day App Store trial for Pro/i),
+    ).toHaveCount(0);
     await expect(
       audienceAccessSection.getByRole('link', { name: /see plans/i }),
     ).toHaveAttribute('href', '/plans');
