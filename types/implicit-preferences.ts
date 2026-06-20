@@ -247,6 +247,13 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   apple_beta_prompt_open_testflight_clicked: 0,
   apple_beta_prompt_copy_link_clicked: 0,
   apple_beta_prompt_dismissed: 0,
+  // App-first landing handoff funnel - tracking only, no preference weight
+  app_handoff_view: 0,
+  app_handoff_qr_rendered: 0,
+  app_handoff_email_submit: 0,
+  app_handoff_email_sent: 0,
+  app_handoff_email_failed: 0,
+  app_handoff_link_opened: 0,
 } as const;
 
 // -----------------------------------------------------------------------------
