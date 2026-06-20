@@ -20,6 +20,11 @@
 
 import { createServiceRoleClient } from "@/lib/supabase";
 import { createContextLogger } from "@/lib/logger";
+import type { ForecastAccuracyHorizonBucket } from "./accuracy-metrics";
+import {
+  WAVE_HEIGHT_SOURCE_TAG_SET,
+  type WaveHeightSourceTag,
+} from "@/lib/utils/wave-height-source";
 
 const log = createContextLogger("LogDisplayPrediction");
 
@@ -29,6 +34,8 @@ export type DisplayPredictionRow = {
   predicted_at: string;
   /** 0..168 — hours from issue time to the forecast slot. */
   forecast_horizon_hours: number;
+  /** Canonical Phase 0 lead-time split for frozen accuracy snapshots. */
+  forecast_horizon_bucket: ForecastAccuracyHorizonBucket;
   /** PRE-offset face height in meters. Telemetry feedback-loop invariant. */
   raw_display_height_m: number;
   /** POST-offset face height in meters. Equal to raw when no offset applied. */
@@ -39,6 +46,18 @@ export type DisplayPredictionRow = {
   height_offset_sample_count: number | null;
   /** Display path identifier, e.g. 'face-Hs-transformer-v1'. */
   display_source: string;
+  /**
+   * Source tag that selected the raw input for the face-height transformer.
+   * Phase 0 replay needs this so proposed `shoaling_factors` only fire on
+   * CDIP-denominated snapshots, matching runtime behavior.
+   */
+  display_wave_source: WaveHeightSourceTag | null;
+  /**
+   * Raw input height in meters handed to the face-height transformer before
+   * shoaling, terrain, and display offset. This is distinct from
+   * raw_display_height_m, which is already the transformed display output.
+   */
+  display_raw_input_height_m: number | null;
   /**
    * model_version is NOT NULL on ml_predictions_log. When the caller does not
    * supply one we fall back to display_source so the constraint is satisfied.
@@ -54,6 +73,24 @@ export type DisplayPredictionRow = {
    */
   /** Raw OM Hs in meters (wavePoint.om_values.wave_height_om). Comparator. */
   wave_height_om_m: number | null;
+  /** NOAA primary swell partition height in meters. */
+  noaa_swell_1_height_m: number | null;
+  /** NOAA primary swell partition period in seconds. */
+  noaa_swell_1_period_s: number | null;
+  /** NOAA primary swell partition direction in degrees. */
+  noaa_swell_1_direction_deg: number | null;
+  /** NOAA secondary swell partition height in meters. */
+  noaa_swell_2_height_m: number | null;
+  /** NOAA secondary swell partition period in seconds. */
+  noaa_swell_2_period_s: number | null;
+  /** NOAA secondary swell partition direction in degrees. */
+  noaa_swell_2_direction_deg: number | null;
+  /** NOAA wind-wave partition height in meters. */
+  noaa_wind_wave_height_m: number | null;
+  /** NOAA wind-wave partition period in seconds. */
+  noaa_wind_wave_period_s: number | null;
+  /** NOAA wind-wave partition direction in degrees. */
+  noaa_wind_wave_direction_deg: number | null;
   /** NOAA/merged peak wave period in seconds. */
   wave_period_s: number | null;
   /** Primary swell direction in degrees, parsed from NOAA cardinal at log time. */
@@ -148,17 +185,41 @@ export async function logDisplayPredictions(
   try {
     const supabase = createServiceRoleClient();
 
-    const payload = rows.map((r) => ({
+    const validRows = rows.filter(hasPhase0ReplayProvenance);
+    const skippedRows = rows.length - validRows.length;
+    if (skippedRows > 0) {
+      log.warn("logDisplayPredictions: skipped rows missing replay provenance", {
+        rowCount: rows.length,
+        skippedRows,
+      });
+    }
+    if (validRows.length === 0) {
+      return;
+    }
+
+    const payload = validRows.map((r) => ({
       beach_id: r.beach_id,
       predicted_at: r.predicted_at,
       forecast_horizon_hours: r.forecast_horizon_hours,
+      forecast_horizon_bucket: r.forecast_horizon_bucket,
       raw_display_height_m: r.raw_display_height_m,
       offset_corrected_display_height_m: r.offset_corrected_display_height_m,
       height_offset_m: r.height_offset_m,
       height_offset_sample_count: r.height_offset_sample_count,
       display_source: r.display_source,
+      display_wave_source: r.display_wave_source,
+      display_raw_input_height_m: r.display_raw_input_height_m,
       model_version: r.model_version ?? r.display_source,
       wave_height_om: r.wave_height_om_m,
+      noaa_swell_1_height_m: r.noaa_swell_1_height_m,
+      noaa_swell_1_period_s: r.noaa_swell_1_period_s,
+      noaa_swell_1_direction_deg: r.noaa_swell_1_direction_deg,
+      noaa_swell_2_height_m: r.noaa_swell_2_height_m,
+      noaa_swell_2_period_s: r.noaa_swell_2_period_s,
+      noaa_swell_2_direction_deg: r.noaa_swell_2_direction_deg,
+      noaa_wind_wave_height_m: r.noaa_wind_wave_height_m,
+      noaa_wind_wave_period_s: r.noaa_wind_wave_period_s,
+      noaa_wind_wave_direction_deg: r.noaa_wind_wave_direction_deg,
       wave_period_s: r.wave_period_s,
       wave_direction_deg: r.wave_direction_deg,
       wave_period_om: r.wave_period_om,
@@ -192,22 +253,54 @@ export async function logDisplayPredictions(
     }));
 
     // Upsert with ignoreDuplicates=true → INSERT ... ON CONFLICT (beach_id,
-    // predicted_at) DO NOTHING. The unique index `idx_ml_predictions_beach_
-    // predicted_at_unique` (migration 20260222140000) makes this a single-call
-    // batch with no rollback risk on conflict. First-write-wins matches the
-    // telemetry feedback-loop invariant: raw_display_height_m is frozen at
-    // first issue and never overwritten on subsequent cron runs, even before
-    // observed_m is filled. Also protects observed rows from being clobbered.
+    // predicted_at, forecast_horizon_bucket, display_source) DO NOTHING. This
+    // keeps the feedback-loop invariant inside each Phase 0 horizon bucket
+    // while still allowing short-horizon snapshots to land after an earlier
+    // long-horizon snapshot for the same forecast slot.
     const { error } = await supabase
       .from("ml_predictions_log")
       .upsert(payload as unknown as never, {
-        onConflict: "beach_id,predicted_at",
+        onConflict:
+          "beach_id,predicted_at,forecast_horizon_bucket,display_source",
         ignoreDuplicates: true,
       });
 
     if (error) {
+      if (shouldFallbackToLegacyConflictTarget(error)) {
+        const legacyPayload = payload.map(
+          ({
+            forecast_horizon_bucket: _forecastHorizonBucket,
+            display_wave_source: _displayWaveSource,
+            display_raw_input_height_m: _displayRawInputHeightM,
+            ...row
+          }) => row
+        );
+        const { error: legacyError } = await supabase
+          .from("ml_predictions_log")
+          .upsert(legacyPayload as unknown as never, {
+            onConflict: "beach_id,predicted_at",
+            ignoreDuplicates: true,
+          });
+
+        if (!legacyError) {
+          log.warn("logDisplayPredictions: used legacy snapshot conflict key", {
+            rowCount: validRows.length,
+            error: error.message,
+            code: error.code,
+          });
+          return;
+        }
+
+        log.warn("logDisplayPredictions: legacy insert failed", {
+          rowCount: validRows.length,
+          error: legacyError.message,
+          code: legacyError.code,
+        });
+        return;
+      }
+
       log.warn("logDisplayPredictions: insert failed", {
-        rowCount: rows.length,
+        rowCount: validRows.length,
         error: error.message,
         code: error.code,
       });
@@ -219,4 +312,37 @@ export async function logDisplayPredictions(
       error: err instanceof Error ? err.message : String(err),
     });
   }
+}
+
+function shouldFallbackToLegacyConflictTarget(error: {
+  code?: string;
+  message?: string;
+}): boolean {
+  const message = (error.message ?? "").toLowerCase();
+  const isMissingPhase0Column =
+    message.includes("could not find") &&
+    message.includes("ml_predictions_log") &&
+    (message.includes("forecast_horizon_bucket") ||
+      message.includes("display_wave_source") ||
+      message.includes("display_raw_input_height_m"));
+  const isLegacyConflictShape =
+    error.code === "42P10" &&
+    message.includes("no unique or exclusion constraint");
+
+  return (
+    error.code === "PGRST204" ||
+    error.code === "42703" ||
+    isMissingPhase0Column ||
+    isLegacyConflictShape
+  );
+}
+
+function hasPhase0ReplayProvenance(row: DisplayPredictionRow): boolean {
+  return (
+    row.display_wave_source != null &&
+    WAVE_HEIGHT_SOURCE_TAG_SET.has(row.display_wave_source) &&
+    typeof row.display_raw_input_height_m === "number" &&
+    Number.isFinite(row.display_raw_input_height_m) &&
+    row.display_raw_input_height_m >= 0
+  );
 }
