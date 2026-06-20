@@ -5,10 +5,13 @@ import { MapView } from "@/components/map-view";
 const mockLoadNearbyBeaches = jest.fn();
 const mockRouterReplace = jest.fn();
 const mockSetSearchQuery = jest.fn();
+const mockGetUserLocation = jest.fn();
 let mockIsMobile = false;
 let mockSearchParams = new URLSearchParams();
 let mockGeolocationLoading = false;
 let mockBeachLoading = false;
+let mockHomeBeach: { lat: number; lon: number } | null = null;
+let mockProfileLoading = false;
 
 jest.mock("next/navigation", () => ({
   usePathname: () => "/map",
@@ -20,6 +23,17 @@ jest.mock("@/hooks/use-mobile", () => ({
   useIsMobile: () => mockIsMobile,
 }));
 
+jest.mock("@/context/profile-context", () => ({
+  useProfileContext: () => ({
+    profile: null,
+    homeBeach: mockHomeBeach,
+    isLoading: mockProfileLoading,
+    error: null,
+    updateProfile: jest.fn(),
+    refreshProfile: jest.fn(),
+  }),
+}));
+
 jest.mock("@/hooks/use-geolocation", () => ({
   useGeolocation: () => ({
     userLocation: { lat: 32.7702, lon: -117.2525 },
@@ -27,7 +41,7 @@ jest.mock("@/hooks/use-geolocation", () => ({
     usingDefaultLocation: true,
     hasTimedOut: false,
     loading: mockGeolocationLoading,
-    getUserLocation: jest.fn(),
+    getUserLocation: mockGetUserLocation,
     useDefaultLocation: jest.fn(),
   }),
 }));
@@ -55,15 +69,18 @@ jest.mock("@/components/map/map-content", () => ({
     autoNavigateOnMarkerClick,
     loading,
     showSwellField,
+    swellTimelineSteps,
   }: {
     autoNavigateOnMarkerClick?: boolean;
     loading?: boolean;
     showSwellField?: boolean;
+    swellTimelineSteps?: string[];
   }) => (
     <div
       data-auto-navigate-on-marker-click={String(autoNavigateOnMarkerClick)}
       data-loading={String(loading)}
       data-show-swell-field={String(showSwellField)}
+      data-swell-timeline-steps={swellTimelineSteps?.join(",") ?? ""}
       data-testid="map-content"
     />
   ),
@@ -76,6 +93,13 @@ describe("MapView", () => {
     mockSearchParams = new URLSearchParams();
     mockGeolocationLoading = false;
     mockBeachLoading = false;
+    mockHomeBeach = null;
+    mockProfileLoading = false;
+    try {
+      window.localStorage.clear();
+    } catch {
+      // ignore
+    }
   });
 
   it("enables the swell field by default", () => {
@@ -93,6 +117,15 @@ describe("MapView", () => {
       "true",
     );
     expect(screen.queryByTestId("view-mode-list")).not.toBeInTheDocument();
+  });
+
+  it("passes a 48-hour swell timeline to the map", () => {
+    render(<MapView />);
+
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-swell-timeline-steps",
+      "Now,+3h,+6h,+12h,+18h,+24h,+36h,+48h",
+    );
   });
 
   it("does not block the map behind geolocation or beach loading", () => {
@@ -142,6 +175,29 @@ describe("MapView", () => {
 
     expect(mockRouterReplace).toHaveBeenCalledWith("/map", { scroll: false });
     expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(33.63, -117.95);
+  });
+
+  it("centers on the signed-in home beach without prompting for GPS", async () => {
+    mockHomeBeach = { lat: 36.9512, lon: -122.0258 }; // Steamer Lane, Santa Cruz
+
+    render(<MapView />);
+
+    await screen.findByTestId("map-content");
+
+    expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(36.9512, -122.0258);
+    expect(mockLoadNearbyBeaches).not.toHaveBeenCalledWith(32.7702, -117.2525);
+    expect(mockGetUserLocation).not.toHaveBeenCalled();
+  });
+
+  it("falls back to GPS (with a default baseline load) when no home or last beach", async () => {
+    render(<MapView />);
+
+    await screen.findByTestId("map-content");
+    // Wait a tick for the async last-beach resolver to fall through to GPS.
+    await Promise.resolve();
+
+    expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(32.7702, -117.2525);
+    expect(mockGetUserLocation).toHaveBeenCalled();
   });
 
   it("does not render the mobile bottom sheet and keeps marker navigation enabled on mobile", () => {

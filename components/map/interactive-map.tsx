@@ -57,8 +57,9 @@ import {
   interpolateSwellPartition,
   maskFieldToWater,
   partitionToPoint,
-  resolveWindParticleCount,
+  waterMaskableFlowComponents,
   type BeachPartitionPoint,
+  type FlowComponentId,
   type FlowField,
 } from "@/components/map/swell-field/field-sampler";
 import {
@@ -84,7 +85,7 @@ const SWELL_FIELD_MAX_ZOOM = 13.5;
 const SWELL_FIELD_LAYER_ID = "quiver-swell-field";
 // Component sub-layers overlaid for the "combined" view, each its own GL layer +
 // flow field + color. Per-layer ids derive as `${SWELL_FIELD_LAYER_ID}-${id}`.
-const COMBINED_SUBLAYERS: ReadonlyArray<"s1" | "s2" | "wind"> = [
+const COMBINED_SUBLAYERS: ReadonlyArray<FlowComponentId> = [
   "s1",
   "s2",
   "wind",
@@ -126,7 +127,7 @@ function partitionAtTimelinePosition(
 /** Sub-layer component ids whose flow fields a given active layer needs built. */
 function componentsForLayer(
   layerId: SwellLayerId
-): ReadonlyArray<"s1" | "s2" | "wind"> {
+): ReadonlyArray<FlowComponentId> {
   if (layerId === "combined") return COMBINED_SUBLAYERS;
   return [layerId];
 }
@@ -320,7 +321,6 @@ export function InteractiveMap({
   // so we surface a small "no swell data" sticker. Defaults true to avoid a
   // flash before the first build.
   const [hasSwellData, setHasSwellData] = useState(true);
-  const [windParticleDensity, setWindParticleDensity] = useState(1);
   // One-time coastal-leash hint: the camera silently loses zoom-out when the
   // field's leash applies, so we flash a one-shot note the FIRST time it locks
   // per mount. Ref guards "shown once"; `showLeashHint` mounts it, `leashHintFading`
@@ -658,6 +658,7 @@ export function InteractiveMap({
         favoriteBeachIds: favoriteBeachIdsRef.current,
         clusterCleanupMap: clusterCleanupRef.current,
         getExpansionZoom,
+        getMaxZoom: () => mapRef.current?.getMaxZoom() ?? Infinity,
         flyTo: (center, zoom) => {
           mapRef.current?.flyTo({ center, zoom, duration: 500 });
         },
@@ -734,15 +735,15 @@ export function InteractiveMap({
     swellLayerIdRef.current = swellLayerId;
   }, [swellLayerId]);
 
-  // Mask the live swell flow fields to water IN PLACE (Windy shows waves only on the
-  // sea). Robust against the timing pitfall that blanked an earlier attempt: only
+  // Mask the live swell flow fields to water IN PLACE. Native lets wind advect
+  // across the viewport, so only swell components are maskable. Robust against the
+  // timing pitfall that blanked an earlier attempt: only
   // zeroes in-viewport cells that miss the basemap water layer, never touches
   // off-screen cells, treats a throw as water, and no-ops when no water layers are
-  // detected. The WIND component is never masked (over-land wind is fine), whether
-  // it is the active single layer or a sub-layer of the combined view.
+  // detected.
   const applyWaterMask = useCallback((map: mapboxgl.Map): void => {
     const components = componentsForLayer(swellLayerIdRef.current);
-    const maskable = components.filter((c) => c !== "wind");
+    const maskable = waterMaskableFlowComponents(components);
     if (maskable.length === 0) return;
     let waterLayerIds: string[] = [];
     try {
@@ -843,9 +844,6 @@ export function InteractiveMap({
       nextFields[component] = buildFlowField(points, bounds, 12);
     }
     flowFieldsRef.current = nextFields;
-    setWindParticleDensity(
-      resolveWindParticleCount(1000, nextFields.wind) / 1000
-    );
     setHasSwellData(anyPoints);
     // Best-effort mask now; the idle/moveend listener re-masks once tiles render.
     applyWaterMask(map);
@@ -872,11 +870,6 @@ export function InteractiveMap({
     };
   }, [isMapReady, showSwellField, applyWaterMask]);
 
-  const particleLayerDensityKey =
-    swellLayerId === "wind" || swellLayerId === "combined"
-      ? windParticleDensity
-      : 0;
-
   const releaseSwellFieldLeash = useCallback((map: mapboxgl.Map): void => {
     const captured = zoomLimitsCaptureRef.current;
     // Nothing was ever leashed — leave the free camera untouched.
@@ -891,6 +884,9 @@ export function InteractiveMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !isMapReady) return;
+    if (typeof map.isStyleLoaded === "function" && !map.isStyleLoaded()) {
+      return;
+    }
 
     // Every swell GL layer id this component can mount: the single-layer id plus the
     // three combined sub-layer ids. Removing the full set before (re)adding the active
@@ -908,20 +904,9 @@ export function InteractiveMap({
     teardown();
     if (!showSwellField) return;
 
-    // Keep the light basemap (Windy-style) — the swell field rides it untouched.
-    // The darkened native particle colors (SWELL_FIELD_PARTICLE_COLOR) read directly
-    // on the light-blue water, so no basemap recolor is needed.
     const viewportWidthPx =
       typeof window !== "undefined" ? window.innerWidth : 1024;
     const baseParticleCount = resolveParticleCount(viewportWidthPx);
-    const windCount = resolveWindParticleCount(
-      baseParticleCount,
-      flowFieldsRef.current.wind
-    );
-    const combinedWindCount = resolveWindParticleCount(
-      COMBINED_PARTICLE_COUNT,
-      flowFieldsRef.current.wind
-    );
 
     if (swellLayerId === "combined") {
       // Overlay the three components, each its own colored layer + flow field. Cap
@@ -934,10 +919,7 @@ export function InteractiveMap({
             getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[component],
             reducedMotion,
             viewportWidthPx,
-            count:
-              component === "wind"
-                ? combinedWindCount
-                : COMBINED_PARTICLE_COUNT,
+            count: COMBINED_PARTICLE_COUNT,
             markStyle: component === "wind" ? "comet" : "dash",
           })
         );
@@ -953,7 +935,7 @@ export function InteractiveMap({
           getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[swellLayerIdRef.current],
           reducedMotion,
           viewportWidthPx,
-          count: activeComponent === "wind" ? windCount : undefined,
+          count: activeComponent === "wind" ? baseParticleCount : undefined,
           markStyle: activeComponent === "wind" ? "comet" : "dash",
         })
       );
@@ -961,9 +943,8 @@ export function InteractiveMap({
 
     return teardown;
     // Re-add when toggled, the active layer changes (the layer SET differs between
-    // combined and single), motion preference flips, the map (re)mounts, or the
-    // wind particle count changes for a layer that actually renders wind.
-  }, [showSwellField, isMapReady, reducedMotion, swellLayerId, particleLayerDensityKey]);
+    // combined and single), motion preference flips, or the map (re)mounts.
+  }, [showSwellField, isMapReady, reducedMotion, swellLayerId]);
 
   // Leash the camera to the coastal data corridor while the swell field is ON.
   // Locks zoom (so users can't pull back to open-ocean/continent scale) and pins

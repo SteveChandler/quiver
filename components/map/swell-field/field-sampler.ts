@@ -36,6 +36,8 @@ export interface FlowField {
   cells: FlowCell[];
 }
 
+export type FlowComponentId = "s1" | "s2" | "wind";
+
 const WIND_PARTICLE_MIN_SCALE = 0.25;
 const WIND_PARTICLE_FULL_SPEED = 0.85;
 
@@ -128,6 +130,12 @@ export function detectWaterLayerIds(layers: StyleLayerLike[]): string[] {
     }
   }
   return ids;
+}
+
+export function waterMaskableFlowComponents(
+  components: ReadonlyArray<FlowComponentId>
+): FlowComponentId[] {
+  return components.filter((component) => component !== "wind");
 }
 
 /** Minimal projected screen point (CSS pixels). */
