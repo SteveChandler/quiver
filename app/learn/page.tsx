@@ -73,7 +73,7 @@ const CATEGORIES: {
       "offshore-vs-onshore-wind-surfing",
       "best-tide-for-surfing",
       "how-are-waves-measured",
-      "wind-swell-vs-ground-swell",
+      "groundswell-vs-wind-swell",
       "how-swell-direction-affects-surf",
       "how-swell-wraps-around-points",
       "how-accurate-are-surf-forecasts",

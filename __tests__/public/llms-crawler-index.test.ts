@@ -32,5 +32,14 @@ describe("llms.txt crawler index", () => {
     expect(llmsTxt).toContain(
       "Wetsuit Thickness Guide: https://www.quiversurf.app/learn/what-wetsuit-thickness-do-i-need",
     );
+    expect(llmsTxt).toContain(
+      "Groundswell vs Wind Swell: https://www.quiversurf.app/learn/groundswell-vs-wind-swell",
+    );
+    expect(llmsTxt).toContain(
+      "Free Surf Reports: https://www.quiversurf.app/free-surf-reports",
+    );
+    expect(llmsTxt).not.toContain(
+      "https://www.quiversurf.app/learn/wind-swell-vs-ground-swell",
+    );
   });
 });

@@ -17,6 +17,7 @@ import {
 const UPDATED_LEARN_SLUGS = [
   "how-to-read-surf-conditions",
   "swell-period-explained",
+  "groundswell-vs-wind-swell",
   "best-surf-conditions-for-beginners",
   "offshore-vs-onshore-wind-surfing",
   "how-accurate-are-surf-forecasts",
@@ -70,6 +71,22 @@ test.describe("Updated SEO public surfaces", () => {
     ).toBeVisible();
     await expect(page.getByText("Included").first()).toBeVisible();
     await expect(page.locator("body")).not.toContainText(/\bfree\b/i);
+  });
+
+  test("/free-surf-reports targets free surf report intent", async ({
+    page,
+  }) => {
+    await gotoPublicPage(page, "/free-surf-reports");
+
+    await expect(page).toHaveTitle(/Free Surf Reports, Forecasts & Conditions/);
+    await expect(
+      page.getByRole("heading", { name: "Free Surf Reports", level: 1 }),
+    ).toBeVisible();
+    await expect(page.getByTestId("free-surf-reports-zine-surface")).toBeVisible();
+    await expect(page.getByText("279+ beaches").first()).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /Check the forecast/i }),
+    ).toHaveAttribute("href", "/forecast");
   });
 
   for (const slug of UPDATED_SURF_REPORT_SLUGS) {

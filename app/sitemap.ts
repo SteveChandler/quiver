@@ -135,13 +135,21 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
     "/beaches/usa",
     "/for-surf-schools",
     "/for-businesses",
+    "/free-surf-reports",
     "/forecast-accuracy",
     "/vs/surfline",
   ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: staticPageDate,
     changeFrequency: "daily",
-    priority: route === "/" ? 1 : route === "/forecast-accuracy" ? 0.85 : route === "/vs/surfline" ? 0.8 : 0.7,
+    priority:
+      route === "/"
+        ? 1
+        : route === "/free-surf-reports" || route === "/forecast-accuracy"
+          ? 0.85
+          : route === "/vs/surfline"
+            ? 0.8
+            : 0.7,
   }));
 }
 

@@ -417,6 +417,7 @@ function collectStaticSeoUrls(): string[] {
     `${SITE_URL}/best-time-to-surf`,
     `${SITE_URL}/tools`,
     `${SITE_URL}/learn`,
+    `${SITE_URL}/free-surf-reports`,
     `${SITE_URL}/vs/surfline`,
     `${SITE_URL}/forecast-accuracy`
   );

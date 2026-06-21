@@ -51,6 +51,7 @@ Quiver is a free surf forecasting platform that applies per-beach XGBoost bias c
 
 - Home: https://www.quiversurf.app
 - Forecast Hub: https://www.quiversurf.app/forecast
+- Free Surf Reports: https://www.quiversurf.app/free-surf-reports
 - Surf Map: https://www.quiversurf.app/map
 - Forecast Accuracy: https://www.quiversurf.app/forecast-accuracy
 
@@ -65,7 +66,7 @@ Curated AEO targets for surf-report, surf-forecast, forecast-accuracy, ML foreca
 - Offshore vs Onshore Wind: https://www.quiversurf.app/learn/offshore-vs-onshore-wind-surfing
 - Best Tide for Surfing: https://www.quiversurf.app/learn/best-tide-for-surfing
 - How Waves Are Measured: https://www.quiversurf.app/learn/how-are-waves-measured
-- Ground Swell vs Wind Swell: https://www.quiversurf.app/learn/wind-swell-vs-ground-swell
+- Groundswell vs Wind Swell: https://www.quiversurf.app/learn/groundswell-vs-wind-swell
 - Swell Direction and Surf: https://www.quiversurf.app/learn/how-swell-direction-affects-surf
 - Surf Forecast Accuracy: https://www.quiversurf.app/learn/how-accurate-are-surf-forecasts
 - ML Surf Forecast: https://www.quiversurf.app/learn/how-quiver-calibrates-your-beach

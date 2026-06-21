@@ -34,4 +34,16 @@ describe("learn article redirect aliases", () => {
       "/learn/how-to-read-surf-conditions",
     );
   });
+
+  it("redirects the retired wind-swell slug to the groundswell guide", async () => {
+    await expect(
+      LearnArticlePage({
+        params: Promise.resolve({ slug: "wind-swell-vs-ground-swell" }),
+      }),
+    ).rejects.toMatchObject({ digest: "NEXT_REDIRECT" });
+
+    expect(redirect).toHaveBeenCalledWith(
+      "/learn/groundswell-vs-wind-swell",
+    );
+  });
 });
