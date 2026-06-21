@@ -143,8 +143,10 @@ scripts/*-to-delete.txt
 .env.sentry-build-plugin
 
 # Database backups (SECURITY - never commit)
+backups/
 db_backups/
 supabase/backups/
+supabase/migrations_backup_*
 *.sql.backup
 *.backup
 supabase/remote_*.sql
