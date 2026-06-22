@@ -19,7 +19,7 @@ export const revalidate = 86400;
 export const metadata: Metadata = buildPageMetadata({
   title: "Surf Beaches by State",
   description:
-    "Browse surf beaches across every US coastal state. Find real-time conditions, calibrated forecasts, and community reviews for hundreds of breaks from California to Hawaii.",
+    "Browse surf beaches by US state. Find live conditions, calibrated forecasts, and community reviews for breaks from California to Hawaii.",
   path: "/beaches/usa",
 });
 

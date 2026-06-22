@@ -10,6 +10,7 @@ import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-acti
 import {
   buildBeachUrl,
   cityToSlug,
+  isValidCountrySlug,
   isValidStateSlug,
   stateToSlug,
 } from "@/lib/utils/beach-url-utils";
@@ -133,6 +134,7 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
     "/map",
     "/beaches",
     "/beaches/usa",
+    "/beaches/mexico",
     "/for-surf-schools",
     "/for-businesses",
     "/free-surf-reports",
@@ -227,6 +229,7 @@ async function getLocationRoutes(validCitySlugs: Set<string>): Promise<MetadataR
   const locationPageDate = "2026-02-01";
 
   const usaStates = new Set<string>();
+  const internationalHubs = new Set<string>();
   const emittedUrls = new Set<string>();
   const locationRoutes: MetadataRoute.Sitemap = [];
   let filteredCount = 0;
@@ -301,6 +304,10 @@ async function getLocationRoutes(validCitySlugs: Set<string>): Promise<MetadataR
       const regionSlug = slugifyAscii(location.state);
       const citySlug = slugifyAscii(location.city);
       if (countrySlug && regionSlug && citySlug) {
+        if (isValidCountrySlug(countrySlug)) {
+          internationalHubs.add(`${baseUrl}/beaches/${countrySlug}`);
+          internationalHubs.add(`${baseUrl}/beaches/${countrySlug}/${regionSlug}`);
+        }
         const intlUrl = `${baseUrl}/${countrySlug}/${regionSlug}/${citySlug}`;
         if (emittedUrls.has(intlUrl)) continue;
         emittedUrls.add(intlUrl);
@@ -326,7 +333,14 @@ async function getLocationRoutes(validCitySlugs: Set<string>): Promise<MetadataR
     priority: 0.7,
   }));
 
-  return [...stateRoutes, ...locationRoutes];
+  const internationalHubRoutes: MetadataRoute.Sitemap = [...internationalHubs].map((url) => ({
+    url,
+    lastModified: locationPageDate,
+    changeFrequency: "weekly",
+    priority: url.split("/").length <= 5 ? 0.7 : 0.65,
+  }));
+
+  return [...stateRoutes, ...internationalHubRoutes, ...locationRoutes];
 }
 
 /**

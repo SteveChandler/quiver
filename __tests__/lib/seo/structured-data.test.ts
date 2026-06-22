@@ -1,3 +1,7 @@
+import { createElement } from "react";
+import { render } from "@testing-library/react";
+
+import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { buildLocationPlaceStructuredData } from "@/lib/seo/location-structured-data";
 import { buildRootStructuredDataGraph } from "@/lib/seo/root-structured-data";
 import { SEO_CONFIG } from "@/lib/constants/seo";
@@ -46,10 +50,66 @@ describe("SEO_CONFIG structured data", () => {
     expect(org.sameAs).toContain("https://x.com/quiversurf");
   });
 
+  it("keeps app-only properties off Organization schema", () => {
+    const org = SEO_CONFIG.structuredData.organization as any;
+
+    expect(org.applicationCategory).toBeUndefined();
+    expect(org.operatingSystem).toBeUndefined();
+  });
+
+  it("keeps application properties on SoftwareApplication schema", () => {
+    const software = SEO_CONFIG.structuredData.softwareApplication as any;
+
+    expect(software["@type"]).toBe("SoftwareApplication");
+    expect(software.applicationCategory).toBe("Sports & Recreation");
+    expect(software.operatingSystem).toBe("Web, iOS, Android");
+  });
+
   it("WebSite includes SearchAction for sitelinks search box", () => {
     const website = SEO_CONFIG.structuredData.website as any;
     expect(website["@type"]).toBe("WebSite");
     expect(website.potentialAction).toBeDefined();
     expect(website.potentialAction["@type"]).toBe("SearchAction");
+  });
+});
+
+describe("BeachPageStructuredData", () => {
+  it("splits Place and SportsActivityLocation without address on the activity schema", () => {
+    const { container } = render(
+      createElement(BeachPageStructuredData, {
+        beachName: "Banyans",
+        description:
+          "Surf conditions, tides, wind, swell and community intel for Banyans.",
+        latitude: 19.604,
+        longitude: -155.981,
+        city: "Kailua-Kona",
+        state: "HI",
+        country: "US",
+        amenities: { has_parking: true },
+      }),
+    );
+
+    const scripts = [...container.querySelectorAll('script[type="application/ld+json"]')]
+      .map((script) => JSON.parse(script.textContent ?? "{}"));
+    const place = scripts.find((schema) => schema["@type"] === "Place");
+    const activity = scripts.find(
+      (schema) => schema["@type"] === "SportsActivityLocation",
+    );
+
+    expect(place).toMatchObject({
+      "@type": "Place",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "Kailua-Kona",
+        addressRegion: "HI",
+        addressCountry: "US",
+      },
+    });
+    expect(activity).toMatchObject({
+      "@type": "SportsActivityLocation",
+      sport: "Surfing",
+    });
+    expect(activity.address).toBeUndefined();
+    expect(JSON.stringify(scripts)).not.toContain('"@type":["Place","SportsActivityLocation"]');
   });
 });

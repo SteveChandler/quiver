@@ -10,9 +10,20 @@ import {
   IOS_APP_STORE_DESTINATION_STATUS,
   IOS_APP_STORE_SMART_BANNER_ARGUMENT,
   IOS_APP_STORE_URL,
+  iosAppStoreUrlWithCampaign,
 } from "@/lib/constants/app-store";
 
 describe("app-store constants", () => {
+  const originalProviderToken = process.env.IOS_APP_STORE_PROVIDER_TOKEN;
+
+  afterEach(() => {
+    if (originalProviderToken === undefined) {
+      delete process.env.IOS_APP_STORE_PROVIDER_TOKEN;
+    } else {
+      process.env.IOS_APP_STORE_PROVIDER_TOKEN = originalProviderToken;
+    }
+  });
+
   it("keeps iOS App Store destination copy in one live source of truth", () => {
     expect(IOS_APP_STORE_APP_ID).toBe("6759300320");
     expect(IOS_APP_STORE_URL).toBe(
@@ -37,5 +48,27 @@ describe("app-store constants", () => {
     expect(ANDROID_BETA_CONTACT_EMAIL).toBe("steven@quiversurf.app");
     expect(ANDROID_BETA_CONTACT_MAILTO).toBe("mailto:steven@quiversurf.app");
     expect(ANDROID_BETA_PLAY_URL).toBeNull();
+  });
+
+  it("builds campaign URLs without the legacy mt=8 redirect parameter", () => {
+    delete process.env.IOS_APP_STORE_PROVIDER_TOKEN;
+
+    const url = iosAppStoreUrlWithCampaign("app_first_v1");
+    const parsed = new URL(url);
+
+    expect(parsed.origin + parsed.pathname).toBe(IOS_APP_STORE_URL);
+    expect(parsed.searchParams.get("ct")).toBe("app_first_v1");
+    expect(parsed.searchParams.has("mt")).toBe(false);
+  });
+
+  it("preserves the optional App Store provider token", () => {
+    process.env.IOS_APP_STORE_PROVIDER_TOKEN = "123456";
+
+    const url = iosAppStoreUrlWithCampaign("app_first_v1");
+    const parsed = new URL(url);
+
+    expect(parsed.searchParams.get("pt")).toBe("123456");
+    expect(parsed.searchParams.get("ct")).toBe("app_first_v1");
+    expect(parsed.searchParams.has("mt")).toBe(false);
   });
 });

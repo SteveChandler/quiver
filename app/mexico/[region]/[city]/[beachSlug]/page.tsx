@@ -140,7 +140,7 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
             },
             {
               name: cityDisplay,
-              url: `${baseUrl}/beaches/mexico/${params.region}/${params.city}`,
+              url: `${baseUrl}/mexico/${params.region}/${params.city}`,
             },
             {
               name: beach.name,

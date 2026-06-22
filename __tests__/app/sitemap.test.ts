@@ -146,9 +146,25 @@ describe("Sitemap Generation", () => {
       expect(route).not.toBeUndefined();
     });
 
+    it("should include /beaches/mexico route", async () => {
+      const result = await sitemap();
+      const route = result.find((r) => r.url === `${baseUrl}/beaches/mexico`);
+
+      expect(route).not.toBeUndefined();
+    });
+
     it("should set changeFrequency to daily for static routes", async () => {
       const result = await sitemap();
-      const staticRoutes = ["/", "/features", "/about", "/privacy", "/plans", "/map", "/free-surf-reports"];
+      const staticRoutes = [
+        "/",
+        "/features",
+        "/about",
+        "/privacy",
+        "/plans",
+        "/map",
+        "/free-surf-reports",
+        "/beaches/mexico",
+      ];
 
       staticRoutes.forEach((path) => {
         const route = result.find((r) => r.url === `${baseUrl}${path}`);
@@ -888,6 +904,16 @@ describe("Sitemap Generation", () => {
         r.url.endsWith("/mexico/baja-california/rosarito")
       );
       expect(rosaritoRoute).not.toBeUndefined();
+
+      const mexicoIndexRoute = result.find((r) =>
+        r.url.endsWith("/beaches/mexico")
+      );
+      expect(mexicoIndexRoute).not.toBeUndefined();
+
+      const bajaCaliforniaRoute = result.find((r) =>
+        r.url.endsWith("/beaches/mexico/baja-california")
+      );
+      expect(bajaCaliforniaRoute).not.toBeUndefined();
     });
 
     it("should include USA state index routes under /beaches/usa/{state}", async () => {

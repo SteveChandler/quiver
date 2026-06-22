@@ -130,9 +130,9 @@ interface BeachPageStructuredDataProps {
   reviewCount?: number;
 }
 
-const beachSchema = {
+const placeSchema = {
   "@context": "https://schema.org",
-  "@type": ["Place", "SportsActivityLocation"],
+  "@type": "Place",
   name: beachName,
   description: description,
   geo: {
@@ -143,6 +143,17 @@ const beachSchema = {
   // NOTE: Do not emit AggregateRating here. Google review snippets do not support
   // ratings for Place/Beach types, and emitting it can trigger Search Console
   // "Review snippets" errors.
+};
+
+const sportsActivityLocationSchema = {
+  "@context": "https://schema.org",
+  "@type": "SportsActivityLocation",
+  name: beachName,
+  description: description,
+  sport: "Surfing",
+  geo: placeSchema.geo,
+  // Keep address on Place only. Ahrefs flags address on the combined
+  // Place + SportsActivityLocation item.
 };
 ```
 

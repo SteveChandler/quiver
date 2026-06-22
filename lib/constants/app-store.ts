@@ -8,13 +8,12 @@ export const APP_FIRST_CAMPAIGN = "app_first_v1";
 
 /** Apple App Store campaign attribution. `ct` is our free-form campaign label;
  *  `pt` is set only when IOS_APP_STORE_PROVIDER_TOKEN is configured in App
- *  Store Connect. `mt=8` marks the link as an app link. */
+ *  Store Connect. */
 export function iosAppStoreUrlWithCampaign(campaign: string): string {
   const search = new URLSearchParams();
   const providerToken = process.env.IOS_APP_STORE_PROVIDER_TOKEN;
   if (providerToken) search.set("pt", providerToken);
   search.set("ct", campaign);
-  search.set("mt", "8");
   return `${IOS_APP_STORE_URL}?${search.toString()}`;
 }
 

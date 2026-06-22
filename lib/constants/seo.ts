@@ -91,8 +91,6 @@ export const SEO_CONFIG = {
       url: SITE_URL,
       logo: `${SITE_URL}/quiver-app-icon.png`,
       foundingDate: "2024",
-      applicationCategory: "Sports & Recreation",
-      operatingSystem: "Web, iOS, Android",
       sameAs: [
         "https://bsky.app/profile/quiversurf.app",
         "https://x.com/quiversurf",
