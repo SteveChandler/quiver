@@ -33,9 +33,9 @@ import { formatDatabaseTime } from "@/lib/email/email-formatters";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import type { ConditionsAlertCandidate } from "@/lib/email/email-types";
 import { enrichBeachSignals } from "@/lib/email/signal-enrichment";
+import { buildBeachEmailLink } from "@/lib/mailer/email-links";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
-import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { evaluateDigestMatch } from "@/lib/services/forecast-digest-service";
 import type { BeachMetadata, EnhancedForecastEntity as MagicHourForecast } from "@/lib/services/magic-hour";
 import type { EnhancedForecastEntity } from "@/types/forecast";
@@ -350,7 +350,16 @@ async function processCandidate(
   );
 
   // 5. Prepare email content
-  const ctaUrl = `${baseUrl}${buildBeachUrl({ slug: candidate.beach_slug, city: candidate.beach_city, state: candidate.beach_state })}`;
+  const messageInstanceId = crypto.randomUUID();
+  const ctaUrl = buildBeachEmailLink({
+    origin: baseUrl,
+    beachSlug: candidate.beach_slug,
+    emailType: "conditions_alert",
+    utmMedium: "conditions_alert",
+    utmCampaign: "conditions_alert",
+    source: "conditions_alert_email",
+    messageInstanceId,
+  });
   const manageUrl = `${baseUrl}/settings`;
   const unsubscribeUrl = `${baseUrl}/settings`;
   const emailSubject = `${candidate.beach_name}: ${freshScore} today`;
@@ -399,6 +408,7 @@ async function processCandidate(
     meta: {
       beach_name: candidate.beach_name,
       beach_slug: candidate.beach_slug,
+      message_instance_id: messageInstanceId,
     },
   });
 
