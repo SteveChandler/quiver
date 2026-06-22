@@ -42,6 +42,11 @@ describe("forecast accuracy actions", () => {
     expect(report.summary.canClaimImprovement).toBe(false);
     expect(report.summary.confidence.label).toBe("Model only");
     expect(report.buildingRows.length).toBeGreaterThan(0);
+    expect(report.buildingRows.map((row) => row.status)).toEqual([
+      "Building",
+      "Queued",
+      "Held",
+    ]);
   });
 
   it("returns null overall stats when the baseline query fails", async () => {
@@ -198,9 +203,11 @@ describe("forecast accuracy actions", () => {
     const emptyDailyClient = {
       from: jest.fn(() => ({
         select: jest.fn(() => ({
-          gt: jest.fn(() => ({
-            gte: jest.fn(() => ({
-              order: jest.fn(async () => ({ data: [], error: null })),
+          eq: jest.fn(() => ({
+            gt: jest.fn(() => ({
+              gte: jest.fn(() => ({
+                order: jest.fn(async () => ({ data: [], error: null })),
+              })),
             })),
           })),
         })),
@@ -262,9 +269,11 @@ describe("forecast accuracy actions", () => {
     expect(report.buildingRows).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
+          status: "Building",
           confidenceLabel: "Low - sparse data",
         }),
         expect.objectContaining({
+          status: "Queued",
           confidenceLabel: "Model only",
         }),
       ]),
@@ -311,9 +320,11 @@ describe("forecast accuracy actions", () => {
     const emptyDailyClient = {
       from: jest.fn(() => ({
         select: jest.fn(() => ({
-          gt: jest.fn(() => ({
-            gte: jest.fn(() => ({
-              order: jest.fn(async () => ({ data: [], error: null })),
+          eq: jest.fn(() => ({
+            gt: jest.fn(() => ({
+              gte: jest.fn(() => ({
+                order: jest.fn(async () => ({ data: [], error: null })),
+              })),
             })),
           })),
         })),
@@ -336,5 +347,65 @@ describe("forecast accuracy actions", () => {
       improvementPct: -25,
       canClaimImprovement: false,
     });
+  });
+
+  it("computes daily time series from live face-height columns", async () => {
+    const order = jest.fn(async () => ({
+      data: [
+        {
+          predicted_at: "2026-06-20T03:00:00.000Z",
+          observed_m: 1,
+          wave_height_om: 1.5,
+          offset_corrected_display_height_m: 1.25,
+        },
+        {
+          predicted_at: "2026-06-20T09:00:00.000Z",
+          observed_m: 1,
+          wave_height_om: null,
+          offset_corrected_display_height_m: 1.1,
+        },
+        {
+          predicted_at: "2026-06-21T03:00:00.000Z",
+          observed_m: 2,
+          wave_height_om: 2.75,
+          offset_corrected_display_height_m: 1.5,
+        },
+      ],
+      error: null,
+    }));
+    const gte = jest.fn(() => ({ order }));
+    const gt = jest.fn(() => ({ gte }));
+    const eq = jest.fn(() => ({ gt }));
+    const select = jest.fn(() => ({ eq }));
+
+    mockCreateSupabaseServiceRoleClient.mockReturnValue({
+      from: jest.fn(() => ({ select })),
+    });
+
+    const { getDailyAccuracyTimeSeries } =
+      await import("@/actions/ml/forecast-accuracy-actions");
+
+    const points = await getDailyAccuracyTimeSeries();
+    expect(points).toHaveLength(2);
+    expect(points[0]).toMatchObject({
+      date: "2026-06-20",
+      rawMae: 0.5,
+      count: 2,
+    });
+    expect(points[0]?.correctedMae).toBeCloseTo(0.175);
+    expect(points[1]).toMatchObject({
+      date: "2026-06-21",
+      rawMae: 0.75,
+      correctedMae: 0.5,
+      count: 1,
+    });
+    expect(select).toHaveBeenCalledWith(
+      "predicted_at, observed_m, wave_height_om, offset_corrected_display_height_m",
+    );
+    expect(eq).toHaveBeenCalledWith(
+      "display_source",
+      "face-Hs-transformer-v1",
+    );
+    expect(gt).toHaveBeenCalledWith("observed_m", 0);
   });
 });

@@ -855,7 +855,10 @@ export async function getDailyAccuracyTimeSeries(): Promise<
 
     const { data, error } = await supabase
       .from("ml_predictions_log")
-      .select("predicted_at, raw_error_m, corrected_error_m")
+      .select(
+        "predicted_at, observed_m, wave_height_om, offset_corrected_display_height_m",
+      )
+      .eq("display_source", "face-Hs-transformer-v1")
       .gt("observed_m", 0)
       .gte("predicted_at", thirtyDaysAgo.toISOString())
       .order("predicted_at", { ascending: true });
@@ -870,32 +873,63 @@ export async function getDailyAccuracyTimeSeries(): Promise<
     // Group by date in JS
     const byDate = new Map<
       string,
-      { rawSum: number; correctedSum: number; count: number }
+      {
+        rawSum: number;
+        rawCount: number;
+        correctedSum: number;
+        correctedCount: number;
+        count: number;
+      }
     >();
 
     for (const row of data as {
       predicted_at: string;
-      raw_error_m: number | null;
-      corrected_error_m: number | null;
+      observed_m: number;
+      wave_height_om: number | null;
+      offset_corrected_display_height_m: number | null;
     }[]) {
+      const rawDistance = isFiniteMetric(row.wave_height_om)
+        ? Math.abs(row.wave_height_om - row.observed_m)
+        : null;
+      const correctedDistance = isFiniteMetric(
+        row.offset_corrected_display_height_m,
+      )
+        ? Math.abs(row.offset_corrected_display_height_m - row.observed_m)
+        : null;
+      if (rawDistance === null && correctedDistance === null) {
+        continue;
+      }
+
       const date = row.predicted_at.split("T")[0];
       const existing = byDate.get(date) ?? {
         rawSum: 0,
+        rawCount: 0,
         correctedSum: 0,
+        correctedCount: 0,
         count: 0,
       };
-      existing.rawSum += Math.abs(row.raw_error_m ?? 0);
-      existing.correctedSum += Math.abs(row.corrected_error_m ?? 0);
+      if (rawDistance !== null) {
+        existing.rawSum += rawDistance;
+        existing.rawCount += 1;
+      }
+      if (correctedDistance !== null) {
+        existing.correctedSum += correctedDistance;
+        existing.correctedCount += 1;
+      }
       existing.count += 1;
       byDate.set(date, existing);
     }
 
     const result: DailyAccuracyPoint[] = [];
     for (const [date, agg] of byDate.entries()) {
+      if (agg.rawCount === 0 || agg.correctedCount === 0) {
+        continue;
+      }
+
       result.push({
         date,
-        rawMae: agg.rawSum / agg.count,
-        correctedMae: agg.correctedSum / agg.count,
+        rawMae: agg.rawSum / agg.rawCount,
+        correctedMae: agg.correctedSum / agg.correctedCount,
         count: agg.count,
       });
     }

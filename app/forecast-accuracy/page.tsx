@@ -8,8 +8,9 @@
  * Rendering: force-dynamic (service-role Supabase fetches opt out of static rendering)
  */
 
-import Link from "next/link";
 import type { Metadata } from "next";
+import Link from "next/link";
+import { cache } from "react";
 
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
@@ -33,8 +34,12 @@ const SITE_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app"
 ).replace(/\/$/, "");
 
+const getReport = cache(getForecastAccuracyReport);
+
 export async function generateMetadata(): Promise<Metadata> {
-  return buildPageMetadata({
+  const report = await getReport();
+  const hasLive = report.beachRows.length > 0;
+  const metadata = buildPageMetadata({
     title: "Surf Forecast Accuracy: ML vs NOAA Baseline",
     description:
       "See how Quiver measures surf forecast accuracy against the NOAA marine baseline, with buoy-validated metrics when the live sample is ready.",
@@ -50,10 +55,26 @@ export async function generateMetadata(): Promise<Metadata> {
       "wave height forecast error",
     ],
   });
+
+  if (hasLive) {
+    return metadata;
+  }
+
+  return {
+    ...metadata,
+    robots: {
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true,
+      },
+    },
+  };
 }
 
 export default async function ForecastAccuracyPage() {
-  const report = await getForecastAccuracyReport();
+  const report = await getReport();
   const { summary } = report;
   const hasLiveRows = report.beachRows.length > 0;
 
@@ -73,11 +94,13 @@ export default async function ForecastAccuracyPage() {
         url={`${SITE_ORIGIN}/forecast-accuracy`}
         description="Quiver's public surf forecast accuracy report, with buoy-validated metrics when the live sample is ready and clear building status when it is not."
       />
-      <ForecastAccuracyDatasetSchema
-        url={`${SITE_ORIGIN}/forecast-accuracy`}
-        summary={summary}
-        generatedAt={report.generatedAt}
-      />
+      {hasLiveRows && (
+        <ForecastAccuracyDatasetSchema
+          url={`${SITE_ORIGIN}/forecast-accuracy`}
+          summary={summary}
+          generatedAt={report.generatedAt}
+        />
+      )}
 
       <div className="container mx-auto max-w-5xl px-4 py-8">
         <ScrollReveal>

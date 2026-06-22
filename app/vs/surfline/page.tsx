@@ -268,8 +268,9 @@ const PROOF_ITEMS = [
   },
   {
     icon: <Activity className="h-5 w-5" />,
-    title: "Published accuracy",
-    description: "Beach-level data so the claim has receipts.",
+    title: "Transparent accuracy method",
+    description:
+      "We publish how we measure forecast accuracy — and don't claim lift until the buoy sample backs it.",
     href: "/forecast-accuracy",
   },
   {
@@ -599,7 +600,7 @@ export default function VsSurflinePage() {
                 href="/forecast-accuracy"
                 className="inline-flex w-fit items-center gap-2 rounded-sm border-2 border-[#11100D] bg-[#252D6B] px-4 py-2 font-heading text-xs font-black uppercase tracking-[0.1em] text-[#F4EBD8] shadow-[4px_4px_0_rgba(17,16,13,0.24)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
               >
-                Accuracy data
+                How we measure accuracy
                 <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
@@ -715,15 +716,15 @@ export default function VsSurflinePage() {
             <p className="mt-5 text-base font-semibold leading-7 text-[#F4EBD8]/84 md:text-lg">
               NOAA data is open-ocean input. A 4ft offshore reading might mean
               2ft mush at a sheltered beach or 6ft surf at an exposed reef.
-              Quiver&apos;s Oracle model publishes beach-level accuracy and uses
-              session reports to keep the feedback loop close to the water.
+              Quiver publishes its accuracy methodology and validates against
+              buoys as the sample grows.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link
                 href="/forecast-accuracy"
                 className="inline-flex items-center gap-2 rounded-sm border-2 border-[#F78E42] bg-[#F78E42] px-4 py-2 font-heading text-xs font-black uppercase tracking-[0.1em] text-[#11100D] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
               >
-                See accuracy
+                How we measure accuracy
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
