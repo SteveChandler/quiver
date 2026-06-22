@@ -208,7 +208,7 @@ After:  Server → Render → Stream → Hydrate Islands → Interactive
 
    ```bash
    # Identify large packages
-   npx depcheck
+   yarn dead:knip
    npx webpack-bundle-analyzer
 
    # Example: Replace framer-motion with CSS
@@ -559,7 +559,7 @@ vercel analytics
 - [ ] Lazy loading for non-critical components
 - [ ] Code-splitting by route
 - [ ] Tree-shaking enabled (default in Next.js)
-- [ ] Unused dependencies removed (depcheck)
+- [ ] Unused dependencies removed (`yarn dead:knip`)
 
 ### Resource Optimization
 
@@ -740,7 +740,7 @@ npx @next/bundle-analyzer
 **Dependency Check**
 
 ```bash
-npx depcheck
+yarn dead:knip
 npm outdated
 ```
 

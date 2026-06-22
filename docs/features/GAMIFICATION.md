@@ -46,7 +46,6 @@ Authoritative reference for Quiver's gamification system: current status, conden
 - UI:
   - Gamification section: `components/profile/gamification-section.tsx`
   - XP card + badges: `components/gamification/user-xp-card.tsx`, `components/gamification/badge-gallery.tsx`
-  - Toasts + confetti (SSR-safe): `components/gamification/xp-toast-system.tsx`
   - App toaster mount: `app/layout.tsx` -> `components/ui/toaster`
 - Server actions wiring:
   - Sessions: `actions/session-actions.ts` (plan/log, tag board, reflection, temp, media)
@@ -108,7 +107,7 @@ Authoritative reference for Quiver's gamification system: current status, conden
 ## Resolved Items (from previous critical fixes)
 
 - Server action $$id errors: avoided double-bind; consistent `withAuthenticatedAction` usage
-- Confetti SSR: dynamic import in `xp-toast-system.tsx`, window-guarded
+- Toast SSR: global toaster stays mounted from `app/layout.tsx`
 - Playwright port: set to 3002 with `BASE_URL` override
 - Profile beach column: migrations add/rename; API returns `home_beach_id` and `default_beach_id` for compatibility
 
