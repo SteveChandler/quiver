@@ -14,7 +14,7 @@ import {
 } from "@/lib/personalization/match-state-compat";
 
 export const STARTER_MATCH_BODY =
-  "This fits your stated preferences. We will get more personal as you rate sessions.";
+  "A starter read from your skill. It gets more personal as you rate sessions.";
 
 const AVOIDANCE_BODY =
   "We know what you tend to avoid. Rate a few good sessions to sharpen your match.";
@@ -101,6 +101,11 @@ interface RawMatchScoreResult {
   confidence?: string | null;
   reason?: string | null;
   aversion_sample_count?: number | null;
+  body?: string | null;
+  skill_used?: string | null;
+  skill_source?: string | null;
+  board_class?: string | null;
+  prior_dimensions?: string[] | null;
 }
 
 export interface ResolveMatchScoreStateInput {
@@ -113,6 +118,10 @@ type MatchScoreRpcClient = Pick<SupabaseClient, "rpc">;
 
 function coerceCount(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function coerceScore(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function hasDebugCopy(text: string): boolean {
@@ -180,6 +189,22 @@ function reasonFactsFor(
   if (rpcResult.profile_kind) {
     facts.push({ kind: "profile_kind", value: rpcResult.profile_kind });
   }
+  if (rpcResult.skill_used) {
+    facts.push({ kind: "skill_used", value: rpcResult.skill_used });
+  }
+  if (rpcResult.skill_source) {
+    facts.push({ kind: "skill_source", value: rpcResult.skill_source });
+  }
+  if (rpcResult.board_class) {
+    facts.push({ kind: "board_class", value: rpcResult.board_class });
+  }
+  if (Array.isArray(rpcResult.prior_dimensions)) {
+    for (const dimension of rpcResult.prior_dimensions) {
+      if (typeof dimension === "string" && dimension.length > 0) {
+        facts.push({ kind: "prior_dimension", value: dimension });
+      }
+    }
+  }
   if (typeof rpcResult.aversion_sample_count === "number") {
     facts.push({
       kind: "aversion_sample_count",
@@ -190,9 +215,12 @@ function reasonFactsFor(
   return facts;
 }
 
-function starterReasons(forecast: MatchScoreForecastInput): string[] {
+function starterReasons(
+  forecast: MatchScoreForecastInput,
+  body: string,
+): string[] {
   return [
-    STARTER_MATCH_BODY,
+    body,
     `Current window: ${forecast.waveHeight} ft, ${forecast.wavePeriod}s period, ${forecast.windSpeed} mph wind.`,
     "Rate sessions after you surf so Quiver can learn what works for you.",
   ];
@@ -399,16 +427,18 @@ export function resolveMatchScoreState({
   }
 
   if (sessionCount < 5 || isStarterMatchState(rpcResult.state)) {
+    const starterBody = rpcResult.body ?? STARTER_MATCH_BODY;
+
     return {
       state: "starter",
-      fit_label: rpcResult.fit_label ?? "Fits your stated preferences",
-      body: STARTER_MATCH_BODY,
-      reason_bullets: starterReasons(forecast),
+      fit_label: rpcResult.fit_label ?? "Based on your skill level",
+      body: starterBody,
+      reason_bullets: starterReasons(forecast, starterBody),
       session_count: sessionCount,
       sessions_needed: sessionsNeeded,
       source: sourceForEligible(eligibilitySource, false),
       quality_band: "starter",
-      score: null,
+      score: coerceScore(rpcResult.score),
       reason_type: "starter_preferences",
       reason_facts: reasonFactsFor(
         forecast,
@@ -432,7 +462,7 @@ export function resolveMatchScoreState({
     sessions_needed: 0,
     source: sourceForEligible(eligibilitySource, true),
     quality_band: qualityBandFor(sessionCount, rpcResult),
-    score: typeof rpcResult.score === "number" ? rpcResult.score : null,
+    score: coerceScore(rpcResult.score),
     reason_type: "session_history",
     reason_facts: reasonFactsFor(forecast, sessionCount, 0, rpcResult),
     latency_ms: 0,

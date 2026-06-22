@@ -55,6 +55,43 @@ describe("resolveMatchScoreState", () => {
     });
   });
 
+  it("passes through starter prior score and backend copy", () => {
+    const body =
+      "A starter read from your skill and this spot's setup. It gets more personal as you rate sessions.";
+    const result = resolveMatchScoreState({
+      eligibilitySource: "entitlement",
+      forecast,
+      rpcResult: {
+        state: "starter",
+        score: 7.2,
+        fit_label: "Based on your skill + this spot",
+        body,
+        session_count: 2,
+        sessions_needed: 3,
+        skill_used: "intermediate",
+        skill_source: "profile",
+        board_class: "fish",
+        prior_dimensions: ["skill_wave", "spot_wind_direction", "spot_tide"],
+      },
+    });
+
+    expect(result).toMatchObject({
+      state: "starter",
+      score: 7.2,
+      fit_label: "Based on your skill + this spot",
+      body,
+      reason_bullets: expect.arrayContaining([body]),
+      reason_facts: expect.arrayContaining([
+        { kind: "skill_used", value: "intermediate" },
+        { kind: "skill_source", value: "profile" },
+        { kind: "board_class", value: "fish" },
+        { kind: "prior_dimension", value: "skill_wave" },
+        { kind: "prior_dimension", value: "spot_wind_direction" },
+        { kind: "prior_dimension", value: "spot_tide" },
+      ]),
+    });
+  });
+
   it("adds starter reason facts without a numeric score", () => {
     const result = resolveMatchScoreState({
       eligibilitySource: "entitlement",
