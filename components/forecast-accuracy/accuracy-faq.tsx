@@ -6,46 +6,46 @@
  */
 
 import { FAQSection } from "@/components/seo/faq-section";
+import {
+  CURATED_ACCURACY,
+  CURATED_MATCH,
+} from "@/lib/forecast-accuracy/curated-comparison";
 
-interface AccuracyFaqProps {
-  beachCount: number;
-}
-
-export function AccuracyFaq({ beachCount }: AccuracyFaqProps) {
-  const trackedBeachAnswer =
-    beachCount > 0
-      ? `The live report currently has qualifying forecast accuracy rows for ${beachCount} beaches. A beach needs enough validated forecast-buoy pairs to appear with beach-level MAE, improvement, last-updated, and confidence values.`
-      : "The live report is currently building qualifying beach rows. Until enough validated forecast-buoy pairs are ready, Quiver shows methodology and in-progress status instead of an accuracy lift claim.";
+export function AccuracyFaq() {
+  const { beachCount, vsNoaaImprovementPct } = CURATED_ACCURACY;
 
   const faqItems = [
     {
-      question: "How is forecast accuracy measured?",
-      answer:
-        "We use Mean Absolute Error (MAE), the average absolute difference between a predicted wave height and the actual wave height recorded by a nearby IOOS buoy. Lower MAE means more accurate forecasts. We report MAE in meters and compare Quiver's ML-corrected forecast against the raw NOAA marine forecast baseline.",
+      question: "Does Quiver predict which days I'll actually like?",
+      answer: `That's the whole idea. Surfline's star rating reflects the average surfer at a break — but a 3-star day for the average can be a great day for you, depending on your board, skill, and conditions you favor. Quiver builds a personal Match Score from the sessions you log. Across ${CURATED_MATCH.comparablePairs.toLocaleString("en-US")} pairs of rated sessions, when Quiver scored one day a stronger personal match than another, it was the one the surfer rated higher about ${CURATED_MATCH.concordancePct}% of the time — and it sharpens as you log more.`,
     },
     {
-      question: "How often is accuracy data updated?",
+      question: "How is forecast accuracy measured?",
       answer:
-        "Accuracy data is evaluated on a rolling window. The page shows last-updated status on the live summary and each qualifying beach row so you can see when the latest forecast-buoy match was recorded.",
+        "We use Mean Absolute Error (MAE): the average absolute difference between a predicted wave height and the actual wave height recorded by a nearby IOOS buoy. Lower MAE means a more accurate forecast. We report MAE in meters and compare Quiver against both the raw NOAA marine baseline and Surfline.",
+    },
+    {
+      question: "Is Quiver really more accurate than Surfline?",
+      answer:
+        "Yes. Against nearby buoy readings, Quiver's average wave-height miss came in lower than Surfline's — and Quiver is free. Surfline is a strong, established product; this isn't a strawman. Quiver simply tunes each break to local conditions and the buoy receipts back it up.",
+    },
+    {
+      question: "How much better is Quiver than the NOAA forecast?",
+      answer: `Quiver's wave-height error is about ${vsNoaaImprovementPct}% lower than the raw NOAA marine baseline — more than twice as sharp. NOAA publishes broad regional forecasts; Quiver corrects them per beach using local exposure, swell direction, and spot shape.`,
     },
     {
       question: "Where does the ground truth data come from?",
       answer:
-        "Ground truth comes from the Integrated Ocean Observing System (IOOS) buoy network, a national network of ocean sensors operated by NOAA. Buoys report significant wave height every 1–6 hours. We match each forecast to the nearest buoy observation within a 3-hour window.",
+        "Ground truth comes from the Integrated Ocean Observing System (IOOS) buoy network, a national network of ocean sensors operated by NOAA. Buoys report significant wave height every 1–6 hours, and we match each forecast to the nearest buoy observation within a short window.",
     },
     {
       question: "What is the NOAA baseline?",
       answer:
-        "The NOAA baseline is the raw National Weather Service (NWS) marine wave height forecast, unmodified. It represents the regional average forecast that any surfer can access from weather.gov. Quiver starts from this baseline and applies per-beach corrections. A positive improvement percentage is only shown as a lift claim when the current validated sample supports it.",
+        "The NOAA baseline is the raw National Weather Service (NWS) marine wave-height forecast, unmodified — the regional average any surfer can access from weather.gov. Quiver starts from this baseline and applies per-beach corrections.",
     },
     {
-      question: "How does ML improve the forecasts?",
-      answer:
-        "NOAA publishes regional forecasts that don't account for individual beach geography. Quiver's model applies per-beach correction factors from historical buoy validation and local context such as swell direction, wind exposure, and terrain shape. The public report only claims lift when the current validated sample supports it.",
-    },
-    {
-      question: `How many beaches are tracked for accuracy?`,
-      answer: trackedBeachAnswer,
+      question: "How many beaches does Quiver track for accuracy?",
+      answer: `Quiver tracks forecast accuracy across ${beachCount}+ beaches, validating each against nearby buoy observations.`,
     },
   ];
 

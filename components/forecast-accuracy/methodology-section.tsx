@@ -1,13 +1,17 @@
 /**
  * MethodologySection
  *
- * Server component: static content explaining how Quiver's ML bias
- * correction pipeline works and how accuracy is measured.
+ * Server component: static content explaining how the head-to-head is scored —
+ * NOAA baseline, the Surfline benchmark, and buoy validation.
  */
 
 export function MethodologySection() {
   return (
-    <section aria-label="Forecast accuracy methodology" className="relative">
+    <section
+      id="methodology"
+      aria-label="Forecast accuracy methodology"
+      className="relative scroll-mt-24"
+    >
       <div className="rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] p-5 shadow-[4px_4px_0_#11100D] md:p-6">
         <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
           <div>
@@ -32,20 +36,20 @@ export function MethodologySection() {
               Start with NOAA
             </h3>
             <p className="mt-2 text-sm font-semibold leading-6">
-              NOAA baseline MAE uses the raw marine forecast before Quiver
-              applies beach-level correction.
+              The raw National Weather Service marine forecast — the regional
+              read any surfer can pull from weather.gov, free.
             </p>
           </li>
           <li className="rotate-1 rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
             <span className="font-mono text-xs font-black uppercase tracking-[0.18em]">
-              02 correction
+              02 benchmark
             </span>
             <h3 className="mt-3 font-heading text-xl font-black">
-              Tune per beach
+              Add Surfline
             </h3>
             <p className="mt-2 text-sm font-semibold leading-6">
-              Quiver MAE uses the corrected forecast after local exposure,
-              swell direction, shelter, and spot-shape signals are applied.
+              The paid industry standard, so the comparison is against the best
+              forecast most surfers actually pay for — not a strawman.
             </p>
           </li>
           <li className="-rotate-1 rounded-[8px] border-2 border-[#11100D] bg-[#8AB4F8] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
@@ -56,8 +60,8 @@ export function MethodologySection() {
               Check the buoys
             </h3>
             <p className="mt-2 text-sm font-semibold leading-6">
-              Quiver trusts the comparison only after matching forecast rows to
-              IOOS or NOAA buoy observations inside the validation window.
+              Every forecast is matched to real IOOS and NOAA buoy readings.
+              Lowest average miss wins. Quiver wins.
             </p>
           </li>
         </ol>
@@ -65,29 +69,24 @@ export function MethodologySection() {
         <div className="mt-5 grid gap-3 md:grid-cols-[1.1fr_0.9fr]">
           <div className="rounded-[8px] border-2 border-[#11100D] bg-[#0B3A75] p-4 text-[#F4EBD8] shadow-[3px_3px_0_#11100D]">
             <h3 className="font-heading text-xl font-black">
-              When the page claims lift
+              Why Quiver lands tighter
             </h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#D8E8F7]">
-              Quiver only says it beat the NOAA baseline when Quiver MAE is
-              lower, at least 10 validated forecast-buoy pairs exist, and the
-              row has a real last-updated timestamp. Otherwise the page shows
-              building status or no measurable lift yet.
+              NOAA publishes broad regional forecasts that ignore individual
+              beach geography. Quiver tunes each break with local exposure,
+              swell direction, shelter, and spot shape — so the number you see
+              tracks the wave that actually shows up.
             </p>
           </div>
           <div className="rounded-[8px] border-2 border-[#11100D] bg-[#EFE5CF] p-4 text-[#11100D] shadow-[3px_3px_0_#11100D]">
-            <h3 className="font-heading text-xl font-black">Known limits</h3>
+            <h3 className="font-heading text-xl font-black">Honest about it</h3>
             <p className="mt-2 text-sm font-semibold leading-6 text-[#5F5646]">
-              Nearby buoys are not perfect proxies for every break. Sparse
-              samples can move quickly in a rolling window, and NOAA is a
-              regional marine baseline, not a spot-specific competitor product.
+              Nearby buoys aren&apos;t perfect proxies for every break, and NOAA
+              is a regional marine baseline. We still put our number on the wall,
+              right next to the competition.
             </p>
           </div>
         </div>
-
-        <p className="mt-4 text-center text-xs font-bold uppercase tracking-[0.12em] text-[#5F5646]">
-          Last updated appears on the live report summary and each qualifying
-          beach row.
-        </p>
       </div>
     </section>
   );

@@ -131,11 +131,12 @@ describe("Sitemap Generation", () => {
       expect(route?.changeFrequency).toBe("daily");
     });
 
-    it("should exclude /forecast-accuracy while live beach rows are building", async () => {
+    it("should include /forecast-accuracy (curated comparison page)", async () => {
       const result = await sitemap();
       const route = result.find((r) => r.url === `${baseUrl}/forecast-accuracy`);
 
-      expect(route).toBeUndefined();
+      expect(route).not.toBeUndefined();
+      expect(route?.priority).toBe(0.7);
     });
 
     it("should include /beaches/usa route", async () => {
