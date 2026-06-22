@@ -7,28 +7,14 @@ import { toForecastForScoring } from "@/lib/scoring";
 import { calculateMultipleWindows } from "@/lib/scoring/window-calculator";
 import { getConditionBoardPick } from "@/lib/scoring/board-pick";
 import { calculateRelativeContext } from "@/lib/scoring/relative-context";
-import {
-  beachToSpotProfile,
-  createDiscoveryScoringEngine,
-  forecastToSnapshot,
-  type ScoringEngine,
-} from "@/lib/domains/scoring";
+import { scoreNativeForecastSlot } from "@/lib/scoring/native-condition-score";
+import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { getUserBoards } from "@/actions/board-actions";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 import type { BeachWithThresholds, ConditionCharacter, MultiWindowResult, RelativeContext } from "@/lib/scoring/types";
 import type { BoardPickResult, BoardForPick } from "@/lib/scoring/board-pick";
-
-// Singleton engine — created lazily on first call. Module scope so it
-// survives re-renders.
-let _engine: ScoringEngine | null = null;
-function getEngine(): ScoringEngine {
-  if (!_engine) {
-    _engine = createDiscoveryScoringEngine();
-  }
-  return _engine;
-}
 
 export interface ConditionIntelligenceResult {
   windows: MultiWindowResult["windows"];
@@ -57,7 +43,8 @@ export interface ConditionIntelligenceResult {
 export function useConditionIntelligence(
   forecasts: EnhancedForecastEntity[] | undefined,
   beach: BeachWithThresholds | null | undefined,
-  beachTimezone?: string | null
+  beachTimezone?: string | null,
+  skillLevel?: SkillLevel | string | null
 ): ConditionIntelligenceResult {
   const { user } = useAuth();
 
@@ -98,7 +85,9 @@ export function useConditionIntelligence(
     );
 
     // Calculate multiple surf windows for today
-    const multiWindowResult = calculateMultipleWindows(scoringForecasts, beach);
+    const multiWindowResult = calculateMultipleWindows(scoringForecasts, beach, {
+      skillLevel,
+    });
 
     // Determine today's character and score from the best window
     let todayCharacter: ConditionCharacter | null = null;
@@ -109,26 +98,17 @@ export function useConditionIntelligence(
       todayScore = multiWindowResult.bestWindow.avgScore ?? null;
     }
 
-    // Group forecasts by date and compute max score per day (for relative context).
-    // Uses the domain engine — the same scorer chain calculateMultipleWindows runs.
-    const profile = beachToSpotProfile(beach as unknown as Beach);
-    const engine = getEngine();
+    // Group forecasts by date and compute max native score per day.
     const dateScoreMap: Record<string, number> = {};
     for (const forecast of forecasts) {
       const date = extractForecastDate(
         forecast.forecast_at,
         beachTimezone ?? undefined
       );
-      const snapshot = forecastToSnapshot(forecast);
-      const composite = engine.score({
-        profile,
-        snapshot,
-        window: null,
-        preferences: null,
-      });
+      const total = scoreNativeForecastSlot(forecast, skillLevel);
       const currentMax = dateScoreMap[date] ?? 0;
-      if (composite.total > currentMax) {
-        dateScoreMap[date] = composite.total;
+      if (total > currentMax) {
+        dateScoreMap[date] = total;
       }
     }
 
@@ -155,7 +135,7 @@ export function useConditionIntelligence(
       todayScore,
       relativeContext,
     };
-  }, [forecasts, beach, beachTimezone]);
+  }, [forecasts, beach, beachTimezone, skillLevel]);
 
   // Board pick computation — recomputes when scoring result or boards change
   const boardPick = useMemo(() => {

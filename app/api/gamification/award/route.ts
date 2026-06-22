@@ -11,9 +11,8 @@ import {
   fetchUserXPStatus,
   getCurrentXP,
   getXPForAction,
+  incrementUserXP,
   initializeUserXP,
-  logXPEvent,
-  updateUserXP,
 } from "@/lib/gamification/xp-service";
 import { calculateLevel } from "@/lib/gamification/level-service";
 import { evaluateBadgeUnlocks } from "@/lib/gamification/badge-service";
@@ -90,7 +89,7 @@ async function awardHandler(
     );
   }
 
-  const { action, related_entity_id, related_entity_type } = validation.data;
+  const { action, related_entity_id } = validation.data;
 
   const ownershipError = await verifyRelatedEntityOwnership(validation.data, {
     user,
@@ -118,22 +117,30 @@ async function awardHandler(
 
   const xpGained = getXPForAction(action);
   await initializeUserXP(user.id, supabase);
-  const { xp_total: currentXpTotal, level: previousLevel } =
-    await getCurrentXP(user.id, supabase);
-
-  const newTotalXP = currentXpTotal + xpGained;
-  const { level: newLevel, title: levelTitle } = calculateLevel(newTotalXP);
-  const levelUp = newLevel > previousLevel;
-
-  await updateUserXP(user.id, newTotalXP, newLevel, supabase);
-  await logXPEvent(
+  const { level: previousLevel } = await getCurrentXP(user.id, supabase);
+  const idempotencyKey = `${action}:${related_entity_id}`;
+  const xpResult = await incrementUserXP(
     user.id,
-    action,
     xpGained,
+    action,
     related_entity_id,
-    action === "make_call" ? undefined : related_entity_type,
+    idempotencyKey,
     supabase,
   );
+
+  if (xpResult.awarded === 0) {
+    const xp = await fetchUserXPStatus(user.id, supabase);
+    return createSuccessResponse({
+      awarded: false,
+      reason: "already_awarded",
+      xp,
+    });
+  }
+
+  const newTotalXP = xpResult.xp_total;
+  const newLevel = xpResult.level;
+  const { title: levelTitle } = calculateLevel(newTotalXP);
+  const levelUp = newLevel > previousLevel;
 
   const newBadges = await evaluateBadgeUnlocks(user.id, supabase);
   invalidateUserCaches(user.id);
@@ -141,7 +148,7 @@ async function awardHandler(
   return createSuccessResponse({
     awarded: true,
     result: {
-      xp_gained: xpGained,
+      xp_gained: xpResult.awarded,
       total_xp: newTotalXP,
       previous_level: previousLevel,
       new_level: newLevel,

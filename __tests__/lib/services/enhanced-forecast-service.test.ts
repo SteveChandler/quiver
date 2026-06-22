@@ -40,7 +40,9 @@ jest.mock("@/lib/services/noaa-wavewatch/gfs-wave-shadow", () => {
   return {
     ...actual,
     fetchGfsWaveShadowForecast: jest.fn(),
-    isGfsWaveShadowCaptureEnabled: jest.fn(),
+    isGfsWaveShadowCaptureEnabled: jest.fn(
+      () => process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED === "true",
+    ),
   };
 });
 

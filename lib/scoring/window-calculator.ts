@@ -22,6 +22,7 @@ import {
   getConditionCharacter,
   type ScoringEngine,
 } from '@/lib/domains/scoring';
+import { scoreNativeConditionInputs } from '@/lib/scoring/native-condition-score';
 import { generateWindowMessage } from './message-generator';
 
 // Singleton engine for performance — created lazily on first call.
@@ -92,22 +93,21 @@ function forecastForScoringToSnapshot(forecast: ForecastForScoring): ConditionsS
 }
 
 /**
- * Score a forecast against a beach using the domain engine.
+ * Score a forecast against the native-compatible conditions model.
  * Returns the same `total` shape as the legacy scorer for downstream use.
  */
 function scoreForecastTotal(
   forecast: ForecastForScoring,
-  beach: BeachWithThresholds,
+  _beach: BeachWithThresholds,
+  skillLevel?: WindowCalculatorOptions['skillLevel'],
 ): number {
-  const profile = beachToSpotProfile(beach as unknown as Beach);
-  const snapshot = forecastForScoringToSnapshot(forecast);
-  const composite = getEngine().score({
-    profile,
-    snapshot,
-    window: null,
-    preferences: null,
-  });
-  return composite.total;
+  return scoreNativeConditionInputs({
+    waveHeightFt: forecast.waveHeight,
+    windSpeedMph: forecast.windSpeed,
+    periodSec: forecast.wavePeriod,
+    tideHeightFt: Number.isFinite(forecast.tideHeight) ? forecast.tideHeight : null,
+    tideStatus: forecast.tideStatus,
+  }, skillLevel);
 }
 
 // Default configuration
@@ -155,7 +155,12 @@ export function calculateOptimalWindow(
   } = options;
 
   // Score all forecasts
-  const scoredForecasts = scoreForecasts(forecasts, beach, minScoreThreshold);
+  const scoredForecasts = scoreForecasts(
+    forecasts,
+    beach,
+    minScoreThreshold,
+    options.skillLevel
+  );
 
   // Find best contiguous window
   const windowIndices = findBestWindow(scoredForecasts);
@@ -235,10 +240,11 @@ export function calculateOptimalWindow(
 function scoreForecasts(
   forecasts: ForecastForScoring[],
   beach: BeachWithThresholds,
-  minScoreThreshold: number
+  minScoreThreshold: number,
+  skillLevel?: WindowCalculatorOptions['skillLevel']
 ): ScoredForecast[] {
   return forecasts.map(forecast => {
-    const total = scoreForecastTotal(forecast, beach);
+    const total = scoreForecastTotal(forecast, beach, skillLevel);
     return {
       forecast,
       score: total,
@@ -784,7 +790,7 @@ export function calculateMultipleWindows(
 
   // Score all forecasts
   const scoredForecasts: ScoredForecast[] = forecasts.map(forecast => {
-    const total = scoreForecastTotal(forecast, beach);
+    const total = scoreForecastTotal(forecast, beach, options.skillLevel);
     return {
       forecast,
       score: total,

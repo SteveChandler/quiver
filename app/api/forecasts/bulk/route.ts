@@ -10,6 +10,7 @@ import {
   applyV51DisplayOverrideToForecasts,
 } from "@/lib/services/forecast/v5-display-gate";
 import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
+import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
 import {
   resolveSelectedHourDisplay,
   resolveTodayHeadline,
@@ -288,8 +289,9 @@ async function bulkForecastHandler(
     // Limit to prevent abuse
     const maxBeaches = 50;
     const limitedBeachIds = beachIds.slice(0, maxBeaches);
-    const { supabase } = context;
+    const { supabase, user } = context;
 
+    const userSkillLevel = await getProfileExperienceLevel(supabase, user?.id);
     const fetchWindow = resolveForecastFetchWindow(forecastAtParam);
 
     const {
@@ -401,6 +403,7 @@ async function bulkForecastHandler(
             userPrefs: null,
             horizonHours: 24,
             sunTimesCache,
+            userSkillLevel,
           });
           display = headline?.display ?? null;
           scoreForecast = headline?.window.sourceForecast ?? null;
@@ -416,7 +419,7 @@ async function bulkForecastHandler(
         if (!forecast) continue;
 
         try {
-          const score = scoreWindowConditionScore(forecast, beach);
+          const score = scoreWindowConditionScore(forecast, beach, userSkillLevel);
           if (!Number.isFinite(score)) continue;
 
           conditionScoreMap[beach.id] = score;

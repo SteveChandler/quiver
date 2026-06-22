@@ -27,7 +27,6 @@ export function buildBacklinkProxy(
     embedReferrers?: VercelReferrerMetric[];
     outreachMarkdown?: string;
     manualExports?: ManualBacklinkExport[];
-    competitorDeltas?: string[];
     missing?: string[];
   },
 ): BacklinkProxyInput {
@@ -37,7 +36,6 @@ export function buildBacklinkProxy(
     embedReferrers: options.embedReferrers ?? [],
     outreachStatuses: parseOutreachStatuses(options.outreachMarkdown ?? ""),
     manualExports: options.manualExports ?? [],
-    competitorDeltas: options.competitorDeltas ?? [],
     missing: options.missing ?? [],
   };
 }

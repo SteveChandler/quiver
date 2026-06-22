@@ -275,18 +275,18 @@ function mockBulkQueries(options: {
   beachRows?: BeachRow[] | null;
   waterRows?: Array<{ beach_id: string; water_temp: string | null }> | null;
 } = {}) {
+  const forecastRows = options.forecastRows ?? [];
+  const beachRows =
+    options.beachRows !== undefined
+      ? options.beachRows
+      : Array.from(new Set(forecastRows?.map((row) => row.beach_id) ?? []))
+          .map((beachId) => beachRow(beachId));
   const forecastChain = queryChain({
-    data: options.forecastRows ?? [],
+    data: forecastRows,
     error: options.forecastError ?? null,
   });
-  const derivedBeachRows =
-    options.beachRows === undefined
-      ? Array.from(new Set((options.forecastRows ?? []).map((row) => row.beach_id))).map((id) =>
-          beachRow(id),
-        )
-      : options.beachRows;
   const beachChain = queryChain({
-    data: derivedBeachRows ?? [],
+    data: beachRows,
     error: null,
   });
   const waterChain = queryChain({

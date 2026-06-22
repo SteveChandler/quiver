@@ -24,6 +24,11 @@ import {
   isEmailTokenTestingAvailable,
 } from '../utils/email-token-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from '../utils/error-detection';
+import {
+  ensureLocalAuthUser,
+  getLocalBeachBySlug,
+  isLocalE2ETarget,
+} from '../utils/local-supabase-fixtures';
 
 const isRemoteEnvironment =
   process.env.BASE_URL?.includes('dev.quiversurf.app') ||
@@ -50,9 +55,9 @@ async function isSessionLogRouteAvailable(page: Page): Promise<boolean> {
 }
 
 // Must be real UUIDs from the database (FK constraints on sessions table)
-const TEST_USER_ID = '69ff3604-7378-4219-aff5-ef493b622acf'; // Ben Kowalski (big.boss@example.invalid)
-const TEST_BEACH_ID = '72726bcb-bed0-4b76-8336-f90d7fb57159'; // Huntington Beach Pier Northside
-const TEST_BEACH_NAME = 'Huntington Beach Pier Northside';
+let TEST_USER_ID = '69ff3604-7378-4219-aff5-ef493b622acf'; // Fallback for non-local seeded envs
+let TEST_BEACH_ID = '72726bcb-bed0-4b76-8336-f90d7fb57159'; // Fallback for non-local seeded envs
+let TEST_BEACH_NAME = 'Huntington Beach Pier Northside';
 const TEST_WINDOW_START = '2026-01-20T07:00:00Z';
 const TEST_SCORE = '85';
 
@@ -85,6 +90,23 @@ function buildSessionLogUrl(params: {
 test.describe('Session Logging', () => {
   let errorCapture: ErrorCapture;
   let expectedErrorStatuses: number[] = [];
+
+  test.beforeAll(async () => {
+    if (!isLocalE2ETarget() || !isEmailTokenTestingAvailable()) return;
+
+    const user = await ensureLocalAuthUser({
+      displayName: 'session-log-e2e',
+      email: 'session-log-e2e@quivertest.local',
+      fixtureName: 'session-logging',
+      fullName: 'Session Log E2E',
+      password: process.env.E2E_POOL_PASSWORD || 'testpassword123',
+    });
+    const beach = await getLocalBeachBySlug('huntington-beach-pier-northside');
+
+    TEST_USER_ID = user.id;
+    TEST_BEACH_ID = beach.id;
+    TEST_BEACH_NAME = beach.name;
+  });
 
   // All session logging tests require:
   // 1. EMAIL_TOKEN_SECRET to be configured

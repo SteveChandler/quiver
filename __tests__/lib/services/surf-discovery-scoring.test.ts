@@ -91,6 +91,7 @@ jest.mock("@/lib/supabase/server", () => {
               eq() {
                 return {
                   single: async () => ({ data: state.profileData, error: null }),
+                  maybeSingle: async () => ({ data: state.profileData, error: null }),
                 };
               },
             };
@@ -180,6 +181,7 @@ jest.mock("@/lib/supabase/server", () => {
             eq() {
               return {
                 single: async () => ({ data: null, error: null }),
+                maybeSingle: async () => ({ data: null, error: null }),
               };
             },
           };
@@ -322,7 +324,7 @@ describe("discoverSurfSpots scoring behavior", () => {
       wind_direction: "SW",
     });
     const b = mkForecast("2025-01-20T14:00:00Z", {
-      wave_height: "4",
+      wave_height: "2",
       wave_period: "12s",
       wind_speed: "6",
       confidence_score: 75,
@@ -420,7 +422,7 @@ describe("discoverSurfSpots scoring behavior", () => {
 
     // Use near-perfect conditions: light wind (<=3 mph for glassy) and good swell
     const f = mkForecast("2025-01-20T13:00:00Z", {
-      wave_height: "4",
+      wave_height: "2",
       wave_period: "14s", // 14+ seconds for max period score
       wind_speed: "2",    // Light wind (<= 3 mph) for max wind score
       wind_direction: "NW",
@@ -883,7 +885,7 @@ describe("discoverSurfSpots sunset filtering", () => {
 
     // Create forecast starting exactly at sunset time
     const sunsetForecast = mkForecast("2025-01-20T17:30:00Z", {
-      wave_height: "5",
+      wave_height: "2",
       wave_period: "14s",
       wind_speed: "4",
       wind_direction: "NW",
@@ -1084,7 +1086,7 @@ describe("discoverSurfSpots sunset filtering", () => {
 
     // Create forecast at 4pm UTC (only 30 min until sunset - less than MIN_SESSION_HOURS)
     const lateForecast = mkForecast("2025-01-20T16:00:00Z", {
-      wave_height: "4",
+      wave_height: "2",
       wave_period: "12s",
       wind_speed: "6",
       wind_direction: "NW",
@@ -1093,7 +1095,7 @@ describe("discoverSurfSpots sunset filtering", () => {
 
     // Create earlier forecast with more daylight and better conditions
     const earlierForecast = mkForecast("2025-01-20T14:00:00Z", {
-      wave_height: "5",
+      wave_height: "2",
       wave_period: "14s",
       wind_speed: "4",
       wind_direction: "NW",

@@ -25,13 +25,17 @@ function userEventsCheckMigrationEventTypes(): Set<string> {
 
     for (const arrayMatch of content.matchAll(/ARRAY\s*\[([\s\S]*?)\]/g)) {
       for (const name of arrayMatch[1].matchAll(/'([^']+)'(?:::text)?/g)) {
-        names.add(name[1]);
+        if (/^[a-z][a-z0-9_]+$/.test(name[1])) {
+          names.add(name[1]);
+        }
       }
     }
 
     for (const formatMatch of content.matchAll(/EXECUTE\s+format\(([\s\S]*?)\);/g)) {
       for (const name of formatMatch[1].matchAll(/'([a-z][a-z0-9_]+)'/g)) {
-        names.add(name[1]);
+        if (/^[a-z][a-z0-9_]+$/.test(name[1])) {
+          names.add(name[1]);
+        }
       }
     }
 

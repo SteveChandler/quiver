@@ -11,6 +11,7 @@ import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { TimeSlot } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import type { RideabilityBand } from '@/lib/domains/rideability';
+import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 
 /**
  * Options for the window selector algorithm.
@@ -25,6 +26,7 @@ export interface WindowSelectorOptions {
   now?: Date;
   maxWindows?: number;
   rideabilityBand?: RideabilityBand | null;
+  userSkillLevel?: SkillLevel | string | null;
 }
 
 /**

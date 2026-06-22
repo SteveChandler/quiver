@@ -37,7 +37,6 @@ import {
   forecastToSnapshot,
   getConditionCharacter,
 } from '@/lib/domains/scoring';
-import { waveHeightCeiling } from '@/lib/domains/scoring/wave-height-ceiling';
 import type { ConditionCharacterCategory } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
@@ -50,6 +49,10 @@ import {
   toForecastForScoring,
   type BoardForPick,
 } from '@/lib/scoring';
+import {
+  getNativeConditionMatchQuality,
+  scoreNativeForecastSlot,
+} from '@/lib/scoring/native-condition-score';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Import from other discovery modules
@@ -62,7 +65,7 @@ import {
   MIN_SESSION_HOURS,
   FORECAST_WINDOW_DURATION_MINUTES,
   PAST_WINDOW_TOLERANCE_MINUTES,
-  scoreWindowWithEngine,
+  scoreWindowConditionScore,
 } from './window-selector';
 import {
   enrichWithPhotos,
@@ -73,6 +76,13 @@ import {
 } from './response-formatter';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
 import { applySimilarityLayer } from './similarity-layer';
+import {
+  aggregateBreakBehaviorSessions,
+  applyBreakBehaviorScore,
+  calculateBreakBehaviorScore,
+  fetchBreakBehaviorSessionRows,
+  groupBreakBehaviorRowsByBeach,
+} from './break-behavior-score';
 import { assignStrategyTags } from '@/lib/services/discovery/strategy-tags';
 import { generateRegionalCall } from '@/lib/services/discovery/regional-call';
 import type { WindSnapshot } from '@/lib/services/discovery/regional-call';
@@ -779,7 +789,7 @@ async function fetchUserBoardsForPicks(
 
 /**
  * Score every hourly forecast row inside the candidate's selected window
- * using the SAME 8-scorer composite engine that produced `rec.score`.
+ * using the native-compatible condition score shown to users.
  *
  * Contract:
  *  - SpotProfile: rebuilt from `rec.beach` so it matches the profile that
@@ -790,14 +800,11 @@ async function fetchUserBoardsForPicks(
  *    keep production output deterministic vs the test harness. Personalization
  *    that already lives in `rec.score` (affinityBonus / personalizationBonus)
  *    flows through `representativeSlotScore`, not the per-slot scores.
- *  - Engine: full composite — calls `engine.score(...)` per hour. Not a
- *    reduced subset.
+ *  - Engine: retained in the signature for test/backcompat; numeric output
+ *    now comes from the native-compatible scorer.
  *  - Window bounds: filters `allHourly` to `forecast_at ∈ [start, end)`
  *    (inclusive start, exclusive end), then sorts ascending by `forecast_at`.
- *  - Missing data: rows are passed to the engine as-is. Engine handles nulls;
- *    if a scorer throws, the row's score is 0 (engine's own try/catch already
- *    suppresses individual scorer throws — we additionally catch at this layer
- *    in case `forecastToSnapshot` itself throws on a malformed row).
+ *  - Missing data: malformed rows score 0.
  *  - Empty window: returns `[]`.
  *  - Return order: ascending by `forecast_at`, one entry per hourly row.
  */
@@ -805,7 +812,8 @@ async function fetchUserBoardsForPicks(
 export function computeWindowSlotScores(
   rec: SurfDiscoveryRecommendation,
   allHourly: EnhancedForecastEntity[],
-  scoringEngine: ScoringEngine,
+  _scoringEngine: ScoringEngine,
+  userSkillLevel?: SkillLevel | string | null,
 ): number[] {
   const start = rec.window?.start;
   const end = rec.window?.end;
@@ -827,21 +835,48 @@ export function computeWindowSlotScores(
 
   if (inWindow.length === 0) return [];
 
-  const profile = beachToSpotProfile(rec.beach);
   return inWindow.map((f) => {
     try {
-      const snapshot = forecastToSnapshot(f);
-      const composite = scoringEngine.score({
-        profile,
-        snapshot,
-        window: null,
-        preferences: null,
-      });
-      return composite.total;
+      return scoreNativeForecastSlot(f, userSkillLevel);
     } catch {
       return 0;
     }
   });
+}
+
+interface DiscoveryDisplayScore {
+  displayConditionScore: number;
+  total: number;
+  matchQuality: DetailedScore['matchQuality'];
+}
+
+function clampDiscoveryScore(score: number): number {
+  return Math.max(0, Math.min(100, score));
+}
+
+function buildDiscoveryDisplayScore(args: {
+  forecast: EnhancedForecastEntity;
+  userSkillLevel: SkillLevel | null;
+  affinityBonus: number;
+  distancePenalty: number;
+  personalizationBonus: number;
+}): DiscoveryDisplayScore {
+  const displayConditionScore = scoreNativeForecastSlot(
+    args.forecast,
+    args.userSkillLevel
+  );
+  const nativeMatchQuality = getNativeConditionMatchQuality(displayConditionScore);
+
+  return {
+    displayConditionScore,
+    total: clampDiscoveryScore(
+      displayConditionScore +
+        args.affinityBonus +
+        args.distancePenalty +
+        args.personalizationBonus
+    ),
+    matchQuality: nativeMatchQuality === 'skip' ? 'minimal' : nativeMatchQuality,
+  };
 }
 
 /**
@@ -861,7 +896,8 @@ async function scoreBeachForDiscovery(args: {
 }): Promise<DetailedScore> {
   const { beach, forecast, userSkillLevel, distanceMiles } = args;
 
-  // Use the new domain-driven scoring engine
+  // Keep domain-engine details for reasons/subscores; replace the displayed
+  // total below with the native-compatible condition score.
   const engine = getDiscoveryScoringEngine();
 
   // Use affinity bonus from personalization layer if provided
@@ -881,34 +917,30 @@ async function scoreBeachForDiscovery(args: {
     }
   }
 
-  // userSkillLevel is now pre-parsed as SkillLevel | null from candidate pool builder
-  // No mapping needed - pass directly to scoring engine
-  const detailedScore = scoreBeachWithEngine(engine, beach, forecast, {
+  // userSkillLevel is pre-parsed as SkillLevel | null from candidate pool builder.
+  const explanationScore = scoreBeachWithEngine(engine, beach, forecast, {
     affinityBonus,
     distancePenalty,
     userSkillLevel,
     beachSkillLevel: beach.skill_level,
   });
 
-  // Apply personalization bonus from personalization layer
   const persBonus = args.personalizationBonus ?? 0;
-  if (persBonus !== 0) {
-    detailedScore.total = Math.max(0, Math.min(100, detailedScore.total + persBonus));
-    detailedScore.subscores.personalizationBonus = persBonus;
-  }
+  const displayScore = buildDiscoveryDisplayScore({
+    forecast,
+    userSkillLevel,
+    affinityBonus,
+    distancePenalty,
+    personalizationBonus: persBonus,
+  });
 
-  const waveCap = waveHeightCeiling(forecastToSnapshot(forecast).waveHeight);
-  if (detailedScore.total > waveCap) {
-    detailedScore.total = waveCap;
-    const waveHeight = parseFloat(String(forecast.wave_height ?? ''));
-    const heightLabel = Number.isFinite(waveHeight) ? waveHeight.toFixed(1) : 'unknown';
-    const capMessage = `Small wave (${heightLabel}ft) caps score at ${waveCap}`;
-    if (!detailedScore.warnings.includes(capMessage)) {
-      detailedScore.warnings.push(capMessage);
-    }
-    if (!detailedScore.reasons.includes(capMessage)) {
-      detailedScore.reasons.push(capMessage);
-    }
+  const detailedScore = {
+    ...explanationScore,
+    total: displayScore.total,
+    matchQuality: displayScore.matchQuality,
+  };
+  if (persBonus !== 0) {
+    detailedScore.subscores.personalizationBonus = persBonus;
   }
 
   // Merge personalization reasons
@@ -1068,7 +1100,8 @@ function selectImmediateWindow(
   forecasts: EnhancedForecastEntity[],
   beach: Beach,
   sunTimesCache: Map<string, { sunrises: Date[]; sunsets: Date[] }>,
-  now: Date
+  now: Date,
+  userSkillLevel?: SkillLevel | string | null
 ): PersonalizedForecastWindow | null {
   if (forecasts.length === 0) return null;
 
@@ -1102,7 +1135,7 @@ function selectImmediateWindow(
     confidence: bucket.forecast.confidence_score || 50,
     timezone: beachTz,
     usedTideBoundaries: false,
-    score: scoreWindowWithEngine(bucket.forecast, beach),
+    score: scoreWindowConditionScore(bucket.forecast, beach, userSkillLevel),
     peakTime: now,
     sourceForecast: bucket.forecast,
   };
@@ -1160,9 +1193,27 @@ async function discoverSurfSpotsInner(
     mergeCandidatePools(nearbyCandidates, includedCandidates),
     customNearestCandidates,
   );
+  // A custom spot is only "primary" (eligible for the Now/Best feeds) when it's
+  // as close as the nearby beaches — the same nearest-within-radius cut curated
+  // beaches pass. Without this an own custom spot surfaces in Now/Best from
+  // anywhere in radius and out-ranks the curated beach it borrows its forecast
+  // from. Gated-out OWN spots still fall through to includedRecommendations
+  // (My spots only); far public spots drop out entirely, same as a far beach.
+  // ponytail: boundary is the furthest nearby beach once the 20-spot cap bites;
+  // before that every in-radius beach is nearby, so the boundary is the radius.
+  const nearbyMaxMiles =
+    candidates.length > maxNearbyCandidates
+      ? nearbyCandidates.reduce(
+          (miles, beach) =>
+            Math.max(miles, calculateDistance(userLocation, { lat: beach.lat || 0, lon: beach.lon || 0 })),
+          0,
+        )
+      : radiusMiles;
   const primaryEligibleKeys = new Set<string>([
     ...nearbyCandidates.map((beach) => `beach:${beach.id}`),
-    ...customSpotCandidates.map((candidate) => `custom:${candidate.spot.id}`),
+    ...customSpotCandidates
+      .filter((candidate) => candidate.distanceMiles <= nearbyMaxMiles)
+      .map((candidate) => `custom:${candidate.spot.id}`),
   ]);
   const discoverableBeachIds = new Set(
     [...nearbyCandidates, ...includedCandidates].map((beach) => beach.id)
@@ -1281,8 +1332,14 @@ async function discoverSurfSpotsInner(
     return null;
   });
 
-  // Batch-fetch sun times, water quality, personalization, and Pro board context in parallel
-  const [sunTimesCache, wqResult, personalizationCtx, userBoardsForPicks] = await Promise.all([
+  // Batch-fetch sun times, water quality, personalization, behavior, and Pro board context in parallel
+  const [
+    sunTimesCache,
+    wqResult,
+    personalizationCtx,
+    userBoardsForPicks,
+    breakBehaviorRows,
+  ] = await Promise.all([
     getBatchSunTimes(Array.from(allBeachIds), uniqueDates),
     supabase
       .from('beach_water_quality')
@@ -1290,7 +1347,9 @@ async function discoverSurfSpotsInner(
       .in('beach_id', candidateBeachIds),
     fetchPersonalizationContext(userId, candidateBeachIds, userPrefs),
     fetchUserBoardsForPicks(supabase, userId, isPro),
+    fetchBreakBehaviorSessionRows(supabase, candidateBeachIds, { now }),
   ]);
+  const breakBehaviorRowsByBeach = groupBreakBehaviorRowsByBeach(breakBehaviorRows);
 
   const wqMap = new Map<string, string>();
   for (const row of wqResult.data ?? []) {
@@ -1352,9 +1411,17 @@ async function discoverSurfSpotsInner(
 
     let bestWindow =
       discoveryMode === 'now'
-        ? selectImmediateWindow(forecasts, beach, sunTimesCache, nowForFallback)
+        ? selectImmediateWindow(forecasts, beach, sunTimesCache, nowForFallback, userSkillLevel)
         : todayForecasts.length > 0
-          ? selectBestWindow(todayForecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot)
+          ? selectBestWindow({
+              forecasts: todayForecasts,
+              beach,
+              userPrefs,
+              horizonHours,
+              sunTimesCache,
+              timeSlot,
+              userSkillLevel,
+            })
           : null;
 
     if (
@@ -1362,7 +1429,15 @@ async function discoverSurfSpotsInner(
       !bestWindow &&
       (todayForecasts.length === 0 || todayIsEffectivelyOver)
     ) {
-      bestWindow = selectBestWindow(forecasts, beach, userPrefs, horizonHours, sunTimesCache, timeSlot);
+      bestWindow = selectBestWindow({
+        forecasts,
+        beach,
+        userPrefs,
+        horizonHours,
+        sunTimesCache,
+        timeSlot,
+        userSkillLevel,
+      });
       if (!bestWindow && todayForecasts.length === 0) {
         log.warn(`[discoverSurfSpots] ${beach.name}: no today forecasts (total=${forecasts.length}), tomorrow fallback returned null`);
       } else if (!bestWindow) {
@@ -1432,6 +1507,25 @@ async function discoverSurfSpotsInner(
       detailedScore.warnings = ['Water quality closure — health advisory active'];
     } else if (wqStatus === 'advisory') {
       detailedScore.warnings.push('Water quality advisory — elevated bacteria levels');
+    }
+
+    const behaviorAggregate = aggregateBreakBehaviorSessions(
+      breakBehaviorRowsByBeach.get(beach.id) ?? [],
+      bestWindowForecast,
+      { now }
+    );
+    const behaviorScore = calculateBreakBehaviorScore(behaviorAggregate);
+    const behaviorApplied = applyBreakBehaviorScore(
+      detailedScore.total,
+      behaviorScore
+    );
+    if (behaviorApplied.appliedBehaviorScore > 0) {
+      detailedScore.total = behaviorApplied.score;
+      detailedScore.subscores.behaviorBonus = behaviorApplied.appliedBehaviorScore;
+      detailedScore.reasons = [
+        ...behaviorScore.reasons,
+        ...detailedScore.reasons,
+      ].slice(0, 5);
     }
 
     // Compute condition character using the new domain-engine classifier.
@@ -1641,8 +1735,8 @@ async function discoverSurfSpotsInner(
   const allScoresSorted = [...scored].sort((a, b) => b.score - a.score);
   log.debug(`[discoverSurfSpots] All ${scored.length} scored beaches (before top-N filter):`);
   allScoresSorted.forEach((rec, idx) => {
-    const { waveHeightFit, periodEnergyScore, windAlignment, tideFit, distancePenalty, personalizationBonus, affinityBonus } = rec.subscores;
-    log.debug(`  ${idx + 1}. ${rec.beach.name}: score=${rec.score} (wave=${waveHeightFit}, period=${periodEnergyScore}, wind=${windAlignment}, tide=${tideFit}, dist=${distancePenalty}, pers=${personalizationBonus}, affinity=${affinityBonus})`);
+    const { waveHeightFit, periodEnergyScore, windAlignment, tideFit, distancePenalty, personalizationBonus, affinityBonus, behaviorBonus } = rec.subscores;
+    log.debug(`  ${idx + 1}. ${rec.beach.name}: score=${rec.score} (wave=${waveHeightFit}, period=${periodEnergyScore}, wind=${windAlignment}, tide=${tideFit}, dist=${distancePenalty}, pers=${personalizationBonus}, affinity=${affinityBonus}, behavior=${behaviorBonus ?? 0})`);
   });
 
   // 4. Fetch and merge favorites
@@ -1716,7 +1810,12 @@ async function discoverSurfSpotsInner(
   const scoringEngine = getDiscoveryScoringEngine();
   for (const rec of merged) {
     const allHourly = forecastsByBeachId.get(rec.beach.id) ?? [];
-    rec.windowSlotScores = computeWindowSlotScores(rec, allHourly, scoringEngine);
+    rec.windowSlotScores = computeWindowSlotScores(
+      rec,
+      allHourly,
+      scoringEngine,
+      userSkillLevel
+    );
   }
 
   // Run rerank ALWAYS (cheap pure compute) so diagnostics are complete.
@@ -1844,14 +1943,15 @@ async function discoverSurfSpotsInner(
       const beachForecasts_ = forecastsByBeachId.get(rec.beach.id);
       if (!beachForecasts_) continue;
 
-      const lateWindow = selectBestWindow(
-        beachForecasts_,
-        rec.beach,
+      const lateWindow = selectBestWindow({
+        forecasts: beachForecasts_,
+        beach: rec.beach,
         userPrefs,
         horizonHours,
         sunTimesCache,
-        'late-morning',
-      );
+        timeSlot: 'late-morning',
+        userSkillLevel,
+      });
       if (!lateWindow) continue;
 
       const lateForecast = lateWindow.sourceForecast

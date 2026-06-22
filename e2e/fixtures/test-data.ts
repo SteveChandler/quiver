@@ -4,7 +4,7 @@
  */
 
 export const TEST_USER = {
-  email: process.env.TEST_USER_EMAIL || 'testuser@quiver.surf',
+  email: process.env.TEST_USER_EMAIL || 'testuser@quivertest.local',
   password: process.env.TEST_USER_PASSWORD || 'testpassword123',
   name: 'Test User',
 };

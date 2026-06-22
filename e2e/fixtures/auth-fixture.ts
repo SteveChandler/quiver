@@ -101,7 +101,7 @@ export const test = base.extend<{}, { workerStorageState: string }>({
         const page = await browser.newPage({ storageState: undefined });
         await loginAs(
           page,
-          process.env.TEST_USER_EMAIL || "test@quiver.com",
+          process.env.TEST_USER_EMAIL || "testuser@quivertest.local",
           process.env.TEST_USER_PASSWORD || "testpassword123",
           baseURL
         );

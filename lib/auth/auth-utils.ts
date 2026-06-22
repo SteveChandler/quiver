@@ -150,6 +150,10 @@ export async function sendMagicLink(
   returnTo: string
 ): Promise<{ error?: string }> {
   try {
+    if (process.env.NEXT_PUBLIC_E2E_DISABLE_EMAIL_SENDS === "true") {
+      return {};
+    }
+
     const sb = createClient();
     const origin = window.location.origin; // eslint-disable-line no-restricted-properties
 

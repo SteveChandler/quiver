@@ -212,7 +212,7 @@ async function writeSharedAuthState(
   const baseUrlString =
     typeof baseURL === 'string' ? baseURL.replace(/\/$/, '') : '';
   const storageStatePath = 'e2e/.auth/state.json';
-  const testEmail = process.env.TEST_USER_EMAIL || 'test@quiver.com';
+  const testEmail = process.env.TEST_USER_EMAIL || 'testuser@quivertest.local';
   const testPassword = process.env.TEST_USER_PASSWORD || 'testpassword123';
   const testEnv = process.env.TEST_ENV || 'local';
   const isLocalhost = isLocalBaseURL(baseURL);

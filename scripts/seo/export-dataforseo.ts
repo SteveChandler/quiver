@@ -7,16 +7,19 @@ import {
   parseAsoRanking,
   parseCompetitorRankedKeywords,
   parseGoogleSerpRanking,
+  parseKeywordMetrics,
 } from "../../lib/seo/agent-workflow/dataforseo-export";
 import { currentAuditDate, resolveSeoAuditFile } from "../../lib/seo/agent-workflow/audit-paths";
 import type {
   DataForSeoAsoRanking,
   DataForSeoCompetitorKeyword,
+  DataForSeoKeywordMetric,
   DataForSeoSerpRanking,
 } from "../../lib/seo/agent-workflow/types";
 import type {
   DataForSeoAsoPlatform,
   DataForSeoAsoTaskContext,
+  DataForSeoKeywordMetricContext,
   DataForSeoTaskContext,
   DataForSeoWatchlist,
 } from "../../lib/seo/agent-workflow/dataforseo-export";
@@ -33,6 +36,7 @@ const password = process.env.DATAFORSEO_PASSWORD;
 const dataForSeoEnabled = process.env.DATAFORSEO_ENABLED?.toLowerCase() !== "false";
 const apiBase = process.env.DATAFORSEO_API_BASE ?? "https://api.dataforseo.com";
 const competitorLimit = numberFromEnv("DATAFORSEO_COMPETITOR_KEYWORD_LIMIT", 100);
+const keywordMetricBatchSize = numberFromEnv("DATAFORSEO_KEYWORD_METRIC_BATCH_SIZE", 100);
 const appBatchSize = numberFromEnv("DATAFORSEO_APP_BATCH_SIZE", 5);
 const appPollMs = numberFromEnv("DATAFORSEO_APP_POLL_MS", 60000);
 const appPollIntervalMs = numberFromEnv("DATAFORSEO_APP_POLL_INTERVAL_MS", 5000);
@@ -58,11 +62,13 @@ async function main(): Promise<void> {
   }
 
   const googleRankings = await fetchGoogleRankings(watchlist, missing);
+  const keywordMetrics = await fetchKeywordMetrics(watchlist, missing);
   const asoRankings = await fetchAsoRankings(watchlist, missing);
   const competitorKeywords = await fetchCompetitorKeywords(watchlist, missing);
 
   writeJson(buildDataForSeoExport(new Date().toISOString(), {
     googleRankings,
+    keywordMetrics,
     asoRankings,
     competitorKeywords,
     missing,
@@ -107,6 +113,42 @@ async function fetchGoogleRankings(
   }
 
   return rankings;
+}
+
+async function fetchKeywordMetrics(
+  watchlist: DataForSeoWatchlist,
+  missing: string[],
+): Promise<DataForSeoKeywordMetric[]> {
+  if (watchlist.google.keywords.length === 0 || watchlist.google.locations.length === 0) {
+    return [];
+  }
+
+  const metrics: DataForSeoKeywordMetric[] = [];
+
+  for (const location of watchlist.google.locations) {
+    const context: DataForSeoKeywordMetricContext = {
+      location: location.name,
+      locationCode: location.code,
+      languageCode: "en",
+    };
+
+    for (const keywords of chunkArray(watchlist.google.keywords, keywordMetricBatchSize)) {
+      try {
+        const raw = await postDataForSeo("/v3/dataforseo_labs/google/keyword_overview/live", [{
+          keywords,
+          language_code: context.languageCode,
+          ...(context.locationCode ? { location_code: context.locationCode } : { location_name: context.location }),
+          tag: `quiver-keyword-overview:${context.location}:${keywords.length}`,
+        }]);
+
+        metrics.push(...parseKeywordMetrics(raw, context));
+      } catch (error) {
+        missing.push(`DataForSEO keyword overview ${location.name}: ${errorMessage(error)}`);
+      }
+    }
+  }
+
+  return metrics;
 }
 
 async function fetchAsoRankings(
@@ -273,9 +315,12 @@ function hasTaskResult(raw: unknown): boolean {
 
 function estimateRunCost(watchlist: DataForSeoWatchlist): number {
   const serpTasks = watchlist.google.keywords.length * watchlist.google.locations.length;
+  const keywordMetricTasks = watchlist.google.locations.length *
+    Math.ceil(watchlist.google.keywords.length / keywordMetricBatchSize);
   const asoTasks = watchlist.aso.keywords.length * activeAsoPlatforms(watchlist).length;
   const competitorRows = watchlist.competitors.length * competitorLimit;
-  const estimate = (serpTasks * 0.00465) + (asoTasks * 0.011) + (watchlist.competitors.length * 0.01) + (competitorRows * 0.0001);
+  const estimate = (serpTasks * 0.00465) + (keywordMetricTasks * 0.01) + (asoTasks * 0.011) +
+    (watchlist.competitors.length * 0.01) + (competitorRows * 0.0001);
   return Math.round(estimate * 100) / 100;
 }
 

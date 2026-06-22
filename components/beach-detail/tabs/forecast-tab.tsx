@@ -40,6 +40,7 @@ import { DataErrorBoundary } from "@/components/error-boundaries";
 import { TideStatusStrip } from "@/components/beach-detail/tide-status-strip";
 import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
 import { useAuth } from "@/context/auth-context";
+import { useOptionalProfileContext } from "@/context/profile-context";
 import { ForecastFeedbackCapture } from "@/components/forecast/forecast-feedback-capture";
 
 const ConditionsOverview = dynamic(
@@ -77,6 +78,8 @@ export function ForecastTab({
 
   const { track: trackEvent } = useTrackEvent();
   const { user } = useAuth();
+  const profileContext = useOptionalProfileContext();
+  const profileExperienceLevel = profileContext?.profile?.experience_level ?? null;
   const [activeSubTab, setActiveSubTab] = useState<
     "today" | "tides" | "conditions"
   >(defaultSubTab || "today");
@@ -121,9 +124,10 @@ export function ForecastTab({
     return aggregateDayForecasts(forecasts, beach, {
       maxDays: 12,
       timezone: beachTimezone || undefined,
+      skillLevel: profileExperienceLevel,
       sunTimesCache: todaySunTimesCache,
     });
-  }, [forecasts, beach, beachTimezone, todaySunTimesCache]);
+  }, [forecasts, beach, beachTimezone, profileExperienceLevel, todaySunTimesCache]);
 
   // Forecasts filtered by horizon strip selection
   const selectedDateForecasts = useMemo(() => {
@@ -145,7 +149,8 @@ export function ForecastTab({
   const conditionIntel = useConditionIntelligence(
     forecasts,
     beach,
-    beachTimezone
+    beachTimezone,
+    profileExperienceLevel
   );
 
   // Dynamic tide computation (always fresh, relative to now)

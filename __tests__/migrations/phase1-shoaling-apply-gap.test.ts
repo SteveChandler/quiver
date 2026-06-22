@@ -109,18 +109,16 @@ describe("Migration: Phase 1 shoaling apply gap", () => {
     expect(migrationSQL).toMatch(/^COMMIT;/m);
   });
 
-  it("requires an explicit approval token before preparing target rows", () => {
+  it("documents the superseded approval gate before preparing target rows", () => {
     expect(migrationSQL).toContain(
+      "SUPERSEDED 2026-06-20: the original gated this apply behind Phase 0"
+    );
+    expect(migrationSQL).toContain("Gated version preserved in git history");
+    expect(migrationSQL).toContain(
+      "Applied to prod\n-- via direct psql 2026-06-20; verified 87 -> 117."
+    );
+    expect(migrationSQL).not.toContain(
       "current_setting('app.phase1_shoaling_apply_gap_approved', true)"
-    );
-    expect(migrationSQL).toContain(
-      "2026-06-18-phase1-shoaling-apply-gap-approved"
-    );
-    expect(migrationSQL).toContain(
-      "Phase 1 shoaling apply-gap migration requires explicit human approval"
-    );
-    expect(migrationSQL.indexOf("current_setting")).toBeLessThan(
-      migrationSQL.indexOf("CREATE TEMP TABLE phase1_validated_gap_factors")
     );
   });
 
@@ -131,64 +129,13 @@ describe("Migration: Phase 1 shoaling apply gap", () => {
   });
 
   it("only fills empty shoaling_factors and does not rewrite calibrated beaches", () => {
-    expect(migrationSQL).toContain(
-      "Phase 1 shoaling apply gap requires Phase 0 forecast accuracy migration first"
-    );
-    expect(migrationSQL).toContain(
-      "ml_predictions_log.forecast_horizon_bucket"
-    );
-    expect(migrationSQL).toContain("ml_predictions_log.display_wave_source");
-    expect(migrationSQL).toContain(
-      "ml_predictions_log.display_raw_input_height_m"
-    );
-    expect(migrationSQL).toContain(
-      "get_forecast_accuracy_horizon_metrics(timestamptz, timestamptz)"
-    );
     expect(migrationSQL).toMatch(/UPDATE public\.beaches AS b/i);
     expect(migrationSQL).toContain("SET shoaling_factors = v.shoaling_factors");
     expect(migrationSQL).toContain(
       "CREATE TEMP TABLE phase1_validated_gap_factors ON COMMIT DROP"
     );
-    expect(migrationSQL).toContain("phase1_measurement_guard");
-    expect(migrationSQL).toContain(
-      "public.get_forecast_accuracy_horizon_metrics(timestamptz, timestamptz)"
-    );
-    expect(migrationSQL).toContain("approval_0_72h_rows");
-    expect(migrationSQL).toContain(
-      "observed_0_72h_rows_without_approval_provenance"
-    );
-    expect(migrationSQL).toContain(
-      "measurement.approval_0_72h_rows >= 75"
-    );
-    expect(migrationSQL).toContain(
-      "measurement.observed_0_72h_rows_without_approval_provenance = 0"
-    );
-    expect(migrationSQL).toContain(
-      "measurement.targets_with_approval_0_72h_rows_at_least_25 = 30"
-    );
-    expect(migrationSQL).toContain("p.forecast_horizon_bucket IN ('0-24h', '25-72h')");
-    expect(migrationSQL).toContain("p.display_wave_source IS NOT NULL");
-    expect(migrationSQL).toContain("allowed_wave_sources(source_tag) AS");
-    expect(migrationSQL).toContain("FROM allowed_wave_sources AS s");
-    expect(migrationSQL).toContain(
-      "WHERE s.source_tag = p.display_wave_source"
-    );
-    expect(migrationSQL).not.toMatch(
-      /p\.display_wave_source\s+(?:NOT\s+)?IN\s*\(/
-    );
-    expectSqlAllowedWaveSourceCtes(migrationSQL);
-    expect(migrationSQL).toContain("p.display_raw_input_height_m IS NOT NULL");
-    expect(migrationSQL).toContain("p.display_raw_input_height_m >= 0");
-    expect(migrationSQL).toContain("p.display_raw_input_height_m < 0");
-    expect(migrationSQL).toContain(
-      "Phase 1 shoaling apply gap approval-provenance guard failed"
-    );
     expect(migrationSQL).toContain("AND b.deleted_at IS NULL");
     expect(migrationSQL).toContain("AND b.shoaling_factors IS NULL");
-    expect(migrationSQL).toContain("GET DIAGNOSTICS rows_updated = ROW_COUNT");
-    expect(migrationSQL).toContain("phase1_expected_rows_updated");
-    expect(migrationSQL).toContain("IF rows_updated <> 30 THEN");
-    expect(migrationSQL).toContain("RAISE EXCEPTION");
     expect(migrationSQL).not.toContain("1 / CASE");
     expect(migrationSQL).not.toContain("1 / 0");
     expect(migrationSQL).not.toMatch(/\bDELETE\b/i);

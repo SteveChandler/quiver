@@ -28,6 +28,8 @@ const customJestConfig = {
     "/__fixtures__/",
     // Example-only test docs (not part of the suite)
     "<rootDir>/components/session/wizard/__tests__/",
+    // Shared helper modules imported by tests are not suites themselves
+    "<rootDir>/__tests__/helpers/",
     "<rootDir>/__tests__/performance/helpers/",
   ],
   // jest-haste-map scans __mocks__ regardless of testPathIgnorePatterns;

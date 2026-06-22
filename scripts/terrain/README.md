@@ -123,26 +123,65 @@ yarn terrain:analyze
 # Analyze specific beach
 yarn terrain:analyze --beach-id=<uuid>
 
+# Analyze exact approved beach set
+yarn terrain:analyze --beach-ids=<uuid-1>,<uuid-2>,<uuid-3>
+
 # Analyze region
 yarn terrain:analyze --region=california
+
+# Analyze only active beaches missing terrain factors/status
+yarn terrain:analyze --missing-only --dry-run
+
+# Export computed factors for Phase 0 harness comparison without writing Supabase
+yarn terrain:analyze --missing-only --dry-run --output-json=/tmp/quiver-phase2-terrain-proposed.json
+
+# Apply an exact approved beach set after explicit human approval
+yarn terrain:analyze --missing-only --beach-ids=<uuid-1>,<uuid-2>,<uuid-3> --human-approval-token=2026-06-19-phase2-terrain-write-approved --approval-report-json=/tmp/quiver-phase2-terrain-auto-approval-harness.json --approval-proposed-json=/tmp/quiver-phase2-terrain-auto-approval-subset.json --min-approval-gate-samples=75 --min-approval-slice-samples=25 --max-approval-report-age-hours=24
 
 # Analyze with limits
 yarn terrain:analyze --limit=50 --offset=0
 
 # Dry run (compute without writing)
-yarn terrain:analyze:dry
 yarn terrain:analyze --dry-run
 
 # Force recomputation
-yarn terrain:analyze:force
 yarn terrain:analyze --force
 
 # Custom concurrency
 yarn terrain:analyze --concurrency=8
 
 # Combined flags
-yarn terrain:analyze --region=hawaii --limit=100 --dry-run --concurrency=8
+yarn terrain:analyze --missing-only --region=hawaii --limit=100 --dry-run --concurrency=8
 ```
+
+### Phase 0 Harness Export
+
+Use `--output-json=<path>` with dry-run terrain analysis to write the successful computed factors in the forecast accuracy harness's proposed input shape:
+
+Arrays are shortened here for readability.
+
+```json
+{
+  "beaches": [
+    {
+      "id": "<beach-id>",
+      "wind_exposure_factors": [0.9],
+      "swell_access_factors": [0.8],
+      "terrain_method": "dem_horizon_v1"
+    }
+  ]
+}
+```
+
+Then compare proposed terrain factors through the Phase 0 gate:
+
+```bash
+yarn tsx scripts/forecast-accuracy-harness.ts --days 30 --truth-source both --proposed-json /tmp/quiver-phase2-terrain-proposed.json
+```
+
+The export is file-only. It does not write Supabase; keep `--dry-run` on until a production terrain write is explicitly approved.
+
+Non-dry-run writes are guarded. The script refuses to write unless the command uses exact `--beach-id`/`--beach-ids` scope, includes `--missing-only`, avoids `--force`, includes `--human-approval-token=2026-06-19-phase2-terrain-write-approved` after explicit human approval, and provides matching `--approval-report-json` plus `--approval-proposed-json` artifacts. The harness report must pass the same approval checks: non-regressing `0-72h` proposed gate, beach-level slices, no regressed slices, no unmeasured slices, matching proposed JSON scope, stored horizon-bucket provenance, display-replay provenance, and configured sample floors. Before computation starts, the approved proposed artifact must include complete terrain configs for the exact write scope: method, params hash, status, and 72-bin wind/swell factor arrays in `[0, 1]`. Before any database update, the recomputed terrain result for each approved beach must also match those approved fields exactly.
 
 ### Environment Variables
 

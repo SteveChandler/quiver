@@ -58,7 +58,7 @@ describe("export-dataforseo script", () => {
     }
   });
 
-  it("sends one Google SERP live task per request", async () => {
+  it("sends one Google SERP live task per request plus one keyword overview batch", async () => {
     const requests: Array<{ path: string; body: unknown }> = [];
     const server = createDataForSeoServer(requests);
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -93,11 +93,23 @@ describe("export-dataforseo script", () => {
         NODE_ENV: "test",
       });
 
-      expect(requests).toHaveLength(2);
-      expect(requests.every((item) =>
-        item.path === "/v3/serp/google/organic/live/advanced"
-      )).toBe(true);
-      expect(requests.map((item) => Array.isArray(item.body) ? item.body.length : 0)).toEqual([1, 1]);
+      expect(requests.map((item) => item.path)).toEqual([
+        "/v3/serp/google/organic/live/advanced",
+        "/v3/serp/google/organic/live/advanced",
+        "/v3/dataforseo_labs/google/keyword_overview/live",
+      ]);
+      expect(requests.map((item) => Array.isArray(item.body) ? item.body.length : 0)).toEqual([1, 1, 1]);
+      expect(JSON.parse(fs.readFileSync(outputPath, "utf8"))).toMatchObject({
+        keywordMetrics: [{
+          keyword: "surf forecast app",
+          searchVolume: 720,
+          intent: { main: "commercial" },
+        }, {
+          keyword: "best surf app",
+          searchVolume: 260,
+          intent: { main: "commercial" },
+        }],
+      });
     } finally {
       await closeServer(server);
     }
@@ -185,6 +197,36 @@ function createDataForSeoServer(
       return;
     }
 
+    if (request.url === "/v3/dataforseo_labs/google/keyword_overview/live") {
+      response.end(JSON.stringify({
+        status_code: 20000,
+        status_message: "Ok.",
+        tasks: [{
+          result: [{
+            items: Array.isArray(parsedBody) && isRecord(parsedBody[0]) && Array.isArray(parsedBody[0].keywords)
+              ? parsedBody[0].keywords.map((keyword: unknown) => ({
+                keyword,
+                keyword_info: {
+                  search_volume: keyword === "surf forecast app" ? 720 : 260,
+                  competition_level: "LOW",
+                },
+                search_volume_trend: {
+                  monthly: 8,
+                  quarterly: 3,
+                  yearly: 24,
+                },
+                search_intent_info: {
+                  main_intent: "commercial",
+                  foreign_intent: ["informational"],
+                },
+              }))
+              : [],
+          }],
+        }],
+      }));
+      return;
+    }
+
     response.end(JSON.stringify({
       status_code: 20000,
       status_message: "Ok.",
@@ -238,7 +280,7 @@ async function runExporter(
         DATAFORSEO_COMPETITOR_KEYWORD_LIMIT: "10",
         ...env,
       },
-      timeout: 5000,
+      timeout: 20000,
     },
   );
 }
@@ -255,4 +297,8 @@ async function readRequestBody(request: http.IncomingMessage): Promise<string> {
     chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   }
   return Buffer.concat(chunks).toString("utf8");
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

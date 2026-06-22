@@ -119,4 +119,5 @@ describe("useCachedProfile — onboarding_completed invalidation", () => {
     addSpy.mockRestore();
     removeSpy.mockRestore();
   });
+
 });

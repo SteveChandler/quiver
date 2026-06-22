@@ -228,7 +228,7 @@ Surfers checking conditions, logging sessions, and connecting with their local c
 ### Aesthetic Direction
 - **Visual tone**: Retro 80s-90s surf culture. Deep Twilight navy (`#252D6B`) base, Charming Orange (`#F78E42`) primary accent. Always-dark theme.
 - **Typography**: Space Grotesk for personality (headings), DM Sans for data clarity (body), Space Mono for technical values.
-- **Texture**: Sticker aesthetic — rotated badges (1-3deg), asymmetric border radius, scan lines, noise overlays. Sparse accents for impact.
+- **Texture**: Sticker aesthetic — rotated badges (1-3deg), asymmetric border radius, scan lines, noise overlays. Sparse accents for impact. **Never repeat the same sticker on a single card or page** — each surface uses a given sticker (decorative zine sticker or beach badge) at most once; reusing a sticker on a *different* card/page is fine.
 - **References**: Stussy/Palace streetwear energy, Magic Seaweed-era data-first rawness, local shop zine vibes.
 - **Anti-references**: Corporate SaaS (Stripe/Linear blue-gray), generic AI slop (cyan-on-dark, purple gradients, glassmorphism), overly polished Apple-minimalism. If it looks like a template, it's wrong.
 

@@ -86,7 +86,7 @@ export function useCachedProfile() {
       setCachedData(cacheData);
       return resultData;
     } catch (error) {
-      console.error("Error fetching profile and home beach:", error);
+      console.warn("Error fetching profile and home beach:", error);
       return { profile: null, homeBeach: null } as any;
     }
   }, [user?.id]);

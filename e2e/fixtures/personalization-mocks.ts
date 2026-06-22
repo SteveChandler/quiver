@@ -257,7 +257,7 @@ export const MOCK_AUTH_SESSION_RESPONSE = {
   hasSession: true,
   sessionData: {
     userId: "test-user-uuid-0000-0000-0000-000000000001",
-    email: "testuser@quiver.surf",
+    email: "testuser@quivertest.local",
   },
 };
 

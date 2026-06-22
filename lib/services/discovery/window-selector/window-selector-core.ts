@@ -26,6 +26,7 @@ import type {
 } from '@/types/personalization';
 import type { getUserSurfPreferences } from '@/lib/services/preference-learning-service';
 import type { RideabilityBand } from '@/lib/domains/rideability';
+import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils';
 import { createContextLogger } from '@/lib/logger';
 import { resolveForecastTime, localDateTimeToUTC } from '@/lib/utils/forecast-time-resolver';
@@ -54,7 +55,7 @@ import { getLocalDateStr, getTimeSlotRange, capEndTimeToTimeSlot, getLocalHour }
 import { calculateTideDrivenBoundaries } from './tide-boundary-calculator';
 import { findPeakWithinWindow } from './peak-finder';
 import { applySubHourRefinement } from './window-refiner';
-import { scoreWindowForSelection, scoreWindowWithEngine } from './window-scorer';
+import { scoreWindowConditionScore, scoreWindowForSelection } from './window-scorer';
 
 // ============================================================================
 // Helper Functions
@@ -70,7 +71,8 @@ function prepareForecasts(
   beachTz: string,
   now: Date,
   todayDateStr: string,
-  rideabilityBand: RideabilityBand | null
+  rideabilityBand: RideabilityBand | null,
+  userSkillLevel?: SkillLevel | string | null
 ): ScoredForecast[] {
   return forecasts
     .map((forecast) => {
@@ -80,10 +82,11 @@ function prepareForecasts(
       const selectionScore = scoreWindowForSelection(
         forecast,
         beach,
-        rideabilityBand
+        rideabilityBand,
+        userSkillLevel
       );
       const score = rideabilityBand
-        ? scoreWindowWithEngine(forecast, beach)
+        ? scoreWindowConditionScore(forecast, beach, userSkillLevel)
         : selectionScore;
 
       // Check if forecast is for today (in beach timezone)
@@ -450,6 +453,7 @@ interface NormalizedWindowSelectorOptions {
   now: Date;
   maxWindows: number;
   rideabilityBand: RideabilityBand | null;
+  userSkillLevel: SkillLevel | string | null;
 }
 
 interface RankedCandidateWindow extends CandidateWindow {
@@ -485,6 +489,7 @@ function normalizeWindowSelectorOptions(
       now: now ?? new Date(),
       maxWindows: maxWindows ?? DEFAULT_MAX_WINDOWS,
       rideabilityBand: null,
+      userSkillLevel: null,
     };
   }
 
@@ -498,6 +503,7 @@ function normalizeWindowSelectorOptions(
     now: optionsOrForecasts.now ?? new Date(),
     maxWindows: optionsOrForecasts.maxWindows ?? DEFAULT_MAX_WINDOWS,
     rideabilityBand: optionsOrForecasts.rideabilityBand ?? null,
+    userSkillLevel: optionsOrForecasts.userSkillLevel ?? null,
   };
 }
 
@@ -696,6 +702,7 @@ export function selectBestWindows(
     now: actualNow,
     maxWindows: actualMaxWindows,
     rideabilityBand: actualRideabilityBand,
+    userSkillLevel: actualUserSkillLevel,
   } = normalizeWindowSelectorOptions(
     optionsOrForecasts,
     beach,
@@ -754,7 +761,8 @@ export function selectBestWindows(
     beachTz,
     actualNow,
     todayDateStr,
-    actualRideabilityBand
+    actualRideabilityBand,
+    actualUserSkillLevel
   );
   if (scoredForecasts.length === 0) {
     log.debug(`[selectBestWindows] ${actualBeach.name}: No scored forecasts after filtering past times`);

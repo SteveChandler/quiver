@@ -139,7 +139,7 @@ export default defineConfig({
   ],
   webServer: shouldStartLocalWebServer
     ? {
-        command: `env -u E2E_PROD_READ_URL -u E2E_PROD_READ_KEY PLAYWRIGHT_TEST=true NEXT_PUBLIC_PLAYWRIGHT_TEST=true NEXT_PUBLIC_E2E_DISABLE_AUTH_REFRESH=true NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN= NEXT_PUBLIC_POSTHOG_HOST= POSTHOG_HOST=${localCronSecretEnv} NEXT_FONT_GOOGLE_MOCKED_RESPONSES="${nextFontGoogleMockPath}" E2E_PORT=${localWebServerPort} yarn e2e:serve`,
+        command: `env -u E2E_PROD_READ_URL -u E2E_PROD_READ_KEY PLAYWRIGHT_TEST=true NEXT_PUBLIC_PLAYWRIGHT_TEST=true NEXT_PUBLIC_E2E_DISABLE_EMAIL_SENDS=true NEXT_PUBLIC_E2E_DISABLE_AUTH_REFRESH=true NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN= NEXT_PUBLIC_POSTHOG_HOST= POSTHOG_HOST=${localCronSecretEnv} NEXT_FONT_GOOGLE_MOCKED_RESPONSES="${nextFontGoogleMockPath}" E2E_PORT=${localWebServerPort} yarn e2e:serve`,
         // Use a deterministic health endpoint for readiness checks (homepage can legitimately error in dev)
         url: `${defaultBaseURL}/api/health`,
         reuseExistingServer: false,

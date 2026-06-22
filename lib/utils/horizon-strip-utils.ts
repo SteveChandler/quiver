@@ -293,6 +293,7 @@ export function aggregateDayForecasts(
           userPrefs: null,
           horizonHours: 24,
           sunTimesCache: options.sunTimesCache,
+          userSkillLevel: options.skillLevel,
         })
       : null;
 

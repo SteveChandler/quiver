@@ -66,8 +66,8 @@ jest.mock('@/lib/supabase/server', () => ({
 
                 if (table === 'profiles') {
                   return {
-                    single: jest.fn(() => {
-                      mockState.mockCalls.push({ table, method: 'single', args: [] });
+                    maybeSingle: jest.fn(() => {
+                      mockState.mockCalls.push({ table, method: 'maybeSingle', args: [] });
                       return Promise.resolve(mockState.profileResponse);
                     }),
                   };

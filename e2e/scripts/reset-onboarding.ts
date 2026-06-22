@@ -17,7 +17,7 @@
  *   npx tsx e2e/scripts/reset-onboarding.ts [email]
  *
  * Example:
- *   npx tsx e2e/scripts/reset-onboarding.ts testuser@quiver.surf
+ *   npx tsx e2e/scripts/reset-onboarding.ts testuser@quivertest.local
  */
 
 import { createClient } from '@supabase/supabase-js';
@@ -27,7 +27,7 @@ import * as path from 'path';
 // Load environment variables
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
-const DEFAULT_TEST_EMAIL = 'testuser@quiver.surf';
+const DEFAULT_TEST_EMAIL = 'testuser@quivertest.local';
 
 async function resetOnboarding() {
   const email = process.argv[2] || DEFAULT_TEST_EMAIL;

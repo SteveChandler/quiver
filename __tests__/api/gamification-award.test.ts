@@ -9,6 +9,7 @@ import {
   fetchUserXPStatus,
   getCurrentXP,
   getXPForAction,
+  incrementUserXP,
   initializeUserXP,
   logXPEvent,
   updateUserXP,
@@ -55,6 +56,7 @@ jest.mock("@/lib/gamification/xp-service", () => ({
   fetchUserXPStatus: jest.fn(),
   getCurrentXP: jest.fn(),
   getXPForAction: jest.fn(),
+  incrementUserXP: jest.fn(),
   initializeUserXP: jest.fn(),
   logXPEvent: jest.fn(),
   updateUserXP: jest.fn(),
@@ -160,6 +162,11 @@ beforeEach(() => {
     xp_total: 50,
     level: 1,
   });
+  (incrementUserXP as jest.Mock).mockResolvedValue({
+    xp_total: 100,
+    level: 2,
+    awarded: 50,
+  });
   (calculateLevel as jest.Mock).mockReturnValue({
     level: 2,
     title: "Grom",
@@ -209,15 +216,16 @@ describe("POST /api/gamification/award", () => {
     expect(sessionEq).toHaveBeenCalledWith("id", sessionId);
     expect(sessionEq).toHaveBeenCalledWith("user_id", userId);
     expect(getXPForAction).toHaveBeenCalledWith("log_session");
-    expect(updateUserXP).toHaveBeenCalledWith(userId, 100, 2, mockSupabase);
-    expect(logXPEvent).toHaveBeenCalledWith(
+    expect(incrementUserXP).toHaveBeenCalledWith(
       userId,
-      "log_session",
       50,
+      "log_session",
       sessionId,
-      "session",
+      `log_session:${sessionId}`,
       mockSupabase,
     );
+    expect(updateUserXP).not.toHaveBeenCalled();
+    expect(logXPEvent).not.toHaveBeenCalled();
     expect(invalidateUserCaches).toHaveBeenCalledWith(userId);
   });
 
@@ -241,8 +249,44 @@ describe("POST /api/gamification/award", () => {
     expect(xpEventEq).toHaveBeenCalledWith("action", "log_session");
     expect(xpEventEq).toHaveBeenCalledWith("related_entity_id", sessionId);
     expect(fetchUserXPStatus).toHaveBeenCalledWith(userId, mockSupabase);
+    expect(incrementUserXP).not.toHaveBeenCalled();
     expect(logXPEvent).not.toHaveBeenCalled();
     expect(updateUserXP).not.toHaveBeenCalled();
+  });
+
+  it("returns an idempotent response when the XP RPC reports a replayed award", async () => {
+    (incrementUserXP as jest.Mock).mockResolvedValue({
+      xp_total: 100,
+      level: 2,
+      awarded: 0,
+    });
+
+    const response = await POST(requestWithBody(validBody()));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(body.data).toMatchObject({
+      awarded: false,
+      reason: "already_awarded",
+      xp: {
+        xp_total: 100,
+        level: 2,
+      },
+    });
+    expect(incrementUserXP).toHaveBeenCalledWith(
+      userId,
+      50,
+      "log_session",
+      sessionId,
+      `log_session:${sessionId}`,
+      mockSupabase,
+    );
+    expect(fetchUserXPStatus).toHaveBeenCalledWith(userId, mockSupabase);
+    expect(evaluateBadgeUnlocks).not.toHaveBeenCalled();
+    expect(invalidateUserCaches).not.toHaveBeenCalled();
+    expect(updateUserXP).not.toHaveBeenCalled();
+    expect(logXPEvent).not.toHaveBeenCalled();
   });
 
   it("returns 404 and skips XP writes when the session is not owned by the user", async () => {
@@ -255,6 +299,7 @@ describe("POST /api/gamification/award", () => {
     expect(body.success).toBe(false);
     expect(body.error).toBe("Session not found");
     expect(getXPForAction).not.toHaveBeenCalled();
+    expect(incrementUserXP).not.toHaveBeenCalled();
     expect(updateUserXP).not.toHaveBeenCalled();
     expect(logXPEvent).not.toHaveBeenCalled();
   });
@@ -282,6 +327,11 @@ describe("POST /api/gamification/award", () => {
       xp_total: 50,
       level: 1,
     });
+    (incrementUserXP as jest.Mock).mockResolvedValue({
+      xp_total: 60,
+      level: 1,
+      awarded: 10,
+    });
     (calculateLevel as jest.Mock).mockReturnValue({
       level: 1,
       title: "Kook",
@@ -306,15 +356,16 @@ describe("POST /api/gamification/award", () => {
     expect(dailyCallEq).toHaveBeenCalledWith("id", dailyCallId);
     expect(dailyCallEq).toHaveBeenCalledWith("user_id", userId);
     expect(getXPForAction).toHaveBeenCalledWith("make_call");
-    expect(updateUserXP).toHaveBeenCalledWith(userId, 60, 1, mockSupabase);
-    expect(logXPEvent).toHaveBeenCalledWith(
+    expect(incrementUserXP).toHaveBeenCalledWith(
       userId,
-      "make_call",
       10,
+      "make_call",
       dailyCallId,
-      undefined,
+      `make_call:${dailyCallId}`,
       mockSupabase,
     );
+    expect(updateUserXP).not.toHaveBeenCalled();
+    expect(logXPEvent).not.toHaveBeenCalled();
     expect(invalidateUserCaches).toHaveBeenCalledWith(userId);
   });
 
@@ -338,6 +389,7 @@ describe("POST /api/gamification/award", () => {
     expect(xpEventEq).toHaveBeenCalledWith("action", "make_call");
     expect(xpEventEq).toHaveBeenCalledWith("related_entity_id", dailyCallId);
     expect(fetchUserXPStatus).toHaveBeenCalledWith(userId, mockSupabase);
+    expect(incrementUserXP).not.toHaveBeenCalled();
     expect(logXPEvent).not.toHaveBeenCalled();
     expect(updateUserXP).not.toHaveBeenCalled();
   });
@@ -352,6 +404,7 @@ describe("POST /api/gamification/award", () => {
     expect(body.success).toBe(false);
     expect(body.error).toBe("Daily call not found");
     expect(getXPForAction).not.toHaveBeenCalled();
+    expect(incrementUserXP).not.toHaveBeenCalled();
     expect(updateUserXP).not.toHaveBeenCalled();
     expect(logXPEvent).not.toHaveBeenCalled();
   });

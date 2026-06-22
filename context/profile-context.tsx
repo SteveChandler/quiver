@@ -204,7 +204,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         return result;
       } catch (err) {
         const error = err instanceof Error ? err : new Error("Unknown error");
-        console.error("Error fetching profile and home beach:", error);
+        console.warn("Error fetching profile and home beach:", error);
 
         if (mountedRef.current) {
           setError(error);
@@ -351,4 +351,8 @@ export function useProfileContext() {
   }
 
   return context;
+}
+
+export function useOptionalProfileContext() {
+  return useContext(ProfileContext);
 }

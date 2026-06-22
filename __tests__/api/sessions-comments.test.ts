@@ -378,6 +378,39 @@ describe("Session Comments API", () => {
       expect(data.error).toBeDefined();
     });
 
+    it("rejects whitespace-only content before hitting the database", async () => {
+      const mockUser = {
+        id: validUserId,
+        email: "user@example.com",
+      };
+
+      mockAuthGetUser.mockResolvedValue({
+        data: { user: mockUser },
+        error: null,
+      });
+
+      const request = new NextRequest(
+        `http://localhost:3000/api/sessions/${validSessionId}/comments`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            content: "   ",
+          }),
+        }
+      );
+
+      const response = await POST(request, { params: { id: validSessionId } });
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.success).toBe(false);
+      expect(data.error).toBeDefined();
+      expect(mockFrom).not.toHaveBeenCalled();
+    });
+
     it("rejects content exceeding max length (2000 characters)", async () => {
       const mockUser = {
         id: validUserId,

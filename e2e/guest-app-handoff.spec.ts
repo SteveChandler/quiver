@@ -23,7 +23,7 @@ async function mockTelemetry(page: Parameters<typeof setupErrorDetection>[0]) {
   });
 }
 
-test.describe("App-first landing — desktop", () => {
+test.describe("Field-guide landing — desktop", () => {
   let errorCapture: ErrorCapture;
 
   test.beforeEach(async ({ page }) => {
@@ -37,17 +37,9 @@ test.describe("App-first landing — desktop", () => {
     });
   });
 
-  test("hero shows a visible H1 and the QR + email send-to-phone module @smoke", async ({
+  test("hero shows the current H1 and download link @smoke", async ({
     page,
   }) => {
-    await page.route("**/api/app-link-email", async (route) => {
-      await route.fulfill({
-        status: 200,
-        contentType: "application/json",
-        body: JSON.stringify({ success: true }),
-      });
-    });
-
     const response = await page.goto("/", {
       timeout: 15000,
       waitUntil: "domcontentloaded",
@@ -59,21 +51,21 @@ test.describe("App-first landing — desktop", () => {
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: /know where to paddle out\. get quiver on your phone\./i,
+        name: /know where to paddle out before dawn\./i,
       }),
     ).toBeVisible({ timeout: 10000 });
-    await expect(page.getByLabel(/email/i).first()).toBeVisible();
-    await expect(page.getByTestId("app-handoff-qr").first()).toBeVisible();
-
-    await page.getByLabel(/email/i).first().fill("surfer@example.com");
-    await page.getByRole("button", { name: /send link/i }).first().click();
-    await expect(page.getByText(/check your email/i).first()).toBeVisible({
-      timeout: 10000,
-    });
+    await expect(
+      page.getByTestId("field-guide-hero").getByRole("link", {
+        name: "Get the app",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/download?source=landing_hero&placement=hero&platform=desktop",
+    );
   });
 });
 
-test.describe("App-first landing — iPhone UA", () => {
+test.describe("Field-guide landing — iPhone UA", () => {
   test.use({ userAgent: IPHONE_UA, viewport: { width: 390, height: 844 } });
 
   let errorCapture: ErrorCapture;
@@ -89,7 +81,7 @@ test.describe("App-first landing — iPhone UA", () => {
     });
   });
 
-  test("first viewport has a visible H1 and the App Store primary action @smoke", async ({
+  test("first viewport has a visible H1 and iPhone download path @smoke", async ({
     page,
   }) => {
     const response = await page.goto("/", {
@@ -103,16 +95,21 @@ test.describe("App-first landing — iPhone UA", () => {
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: /know where to paddle out\. get quiver on your phone\./i,
+        name: /know where to paddle out before dawn\./i,
       }),
     ).toBeVisible({ timeout: 10000 });
     await expect(
-      page.getByRole("link", { name: /open app store/i }).first(),
-    ).toBeVisible();
+      page.getByTestId("field-guide-hero").getByRole("link", {
+        name: "Get the app",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/download?source=landing_hero&placement=hero&platform=ios",
+    );
   });
 });
 
-test.describe("App-first landing — Android UA", () => {
+test.describe("Field-guide landing — Android UA", () => {
   test.use({ userAgent: ANDROID_UA, viewport: { width: 412, height: 915 } });
 
   let errorCapture: ErrorCapture;
@@ -128,7 +125,7 @@ test.describe("App-first landing — Android UA", () => {
     });
   });
 
-  test("first viewport shows the Android waitlist primary action @smoke", async ({
+  test("first viewport has a visible H1 and Android download path @smoke", async ({
     page,
   }) => {
     const response = await page.goto("/", {
@@ -142,12 +139,17 @@ test.describe("App-first landing — Android UA", () => {
     await expect(
       page.getByRole("heading", {
         level: 1,
-        name: /know where to paddle out\. get quiver on your phone\./i,
+        name: /know where to paddle out before dawn\./i,
       }),
     ).toBeVisible({ timeout: 10000 });
     await expect(
-      page.getByRole("button", { name: /join android waitlist/i }).first(),
-    ).toBeVisible({ timeout: 10000 });
+      page.getByTestId("field-guide-hero").getByRole("link", {
+        name: "Get the app",
+      }),
+    ).toHaveAttribute(
+      "href",
+      "/download?source=landing_hero&placement=hero&platform=android",
+    );
   });
 });
 

@@ -49,7 +49,7 @@ export function SevenDayOutlook({
     return (
       <section
         aria-labelledby="seven-day-outlook-heading"
-        className="mb-10"
+        className="mb-10 min-w-0"
         data-testid="seven-day-outlook"
       >
         <h2
@@ -78,7 +78,7 @@ export function SevenDayOutlook({
   return (
     <section
       aria-labelledby="seven-day-outlook-heading"
-      className="mb-10"
+      className="mb-10 min-w-0"
       data-testid="seven-day-outlook"
     >
       <h2

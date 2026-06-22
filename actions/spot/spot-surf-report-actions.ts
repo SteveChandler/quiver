@@ -22,6 +22,7 @@ import {
   type ForecastRecommendationContext,
 } from '@/lib/services/forecast-recommendation-context';
 import { applyV51DisplayOverrideToForecasts } from '@/lib/services/forecast/v5-display-gate';
+import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { resolveTodayHeadline } from '@/lib/services/forecast/today-headline';
 
 export interface SpotSurfReportResult {
@@ -77,21 +78,6 @@ function appendBoardNote(whySentence: string, boardNote: string): string {
 
 function clampScore(score: number): number {
   return Math.max(0, Math.min(100, score));
-}
-
-async function getProfileExperienceLevel(
-  supabase: SupabaseClient<Database>,
-  userId: string | null | undefined
-): Promise<SkillLevel | null> {
-  if (!userId) return null;
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('experience_level')
-    .eq('id', userId)
-    .single();
-  if (error) return null;
-  const level = data?.experience_level;
-  return typeof level === 'string' ? (level as SkillLevel) : null;
 }
 
 /**
@@ -413,6 +399,7 @@ const getCachedSurfReport = unstable_cache(
         horizonHours: 24,
         sunTimesCache,
         rideabilityBand,
+        userSkillLevel,
       });
 
       if (headline) {
@@ -444,6 +431,7 @@ const getCachedSurfReport = unstable_cache(
         horizonHours: 48,
         sunTimesCache,
         rideabilityBand,
+        userSkillLevel,
       });
 
       if (headline) {

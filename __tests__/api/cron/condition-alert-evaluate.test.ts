@@ -56,6 +56,9 @@ const mockGetUtcDayBounds = jest.fn<any, any[]>(() => ({
 const mockResolveEntitlement = jest.fn<any, any[]>(() => "free" as const);
 const mockSelectBestWindow = jest.fn<any, any[]>();
 const mockComputeSurfCall = jest.fn<any, any[]>();
+const mockSelectActionableAlertWindow = jest.fn<any, any[]>(
+  (windows: any[]) => windows[0] ?? null
+);
 
 jest.mock("@/lib/alerts/window-finder", () => ({
   findMatchingWindows: (...args: any[]) => mockFindMatchingWindows(...args),
@@ -73,6 +76,10 @@ jest.mock("@/lib/alerts/entitlements", () => ({
     free: { beaches: 1, rulesPerBeach: 3, totalRules: 3 },
     premium: { beaches: 10, rulesPerBeach: 5, totalRules: 50 },
   },
+}));
+jest.mock("@/lib/alerts/actionable-window-selector", () => ({
+  selectActionableAlertWindow: (...args: any[]) =>
+    mockSelectActionableAlertWindow(...args),
 }));
 jest.mock("@/lib/services/discovery", () => ({
   selectBestWindow: (...args: any[]) => mockSelectBestWindow(...args),
@@ -315,6 +322,7 @@ beforeEach(() => {
   // test (jest.clearAllMocks does NOT clear that queue, only call records).
   mockFindMatchingWindows.mockReset();
   mockFilterToDaylight.mockReset();
+  mockSelectActionableAlertWindow.mockReset();
   mockSelectBestWindow.mockReset();
   mockComputeSurfCall.mockReset();
   store.rules = [];
@@ -340,6 +348,9 @@ beforeEach(() => {
     end: "2026-04-27T00:00:00.000Z",
   });
   mockResolveEntitlement.mockReturnValue("free");
+  mockSelectActionableAlertWindow.mockImplementation(
+    (windows: any[]) => windows[0] ?? null
+  );
   mockSelectBestWindow.mockImplementation(({ forecasts }: any) => {
     const forecast = forecasts[0];
     return {

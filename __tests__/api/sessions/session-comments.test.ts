@@ -439,10 +439,9 @@ describe("Session Comments API - Access Control", () => {
       const response = await POST(request, { params: { id: validSessionId } });
       const data = await response.json();
 
-      // Content gets trimmed by the schema, so empty after trim is rejected
-      // This may return 400 (validation) or 500 (database) depending on implementation
-      expect([400, 500]).toContain(response.status);
+      expect(response.status).toBe(400);
       expect(data.success).toBe(false);
+      expect(mockFrom).not.toHaveBeenCalled();
     });
   });
 });

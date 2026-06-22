@@ -111,9 +111,7 @@ describe('calculateOptimalWindow', () => {
     expect(startHour).toBeGreaterThanOrEqual(6);
     // Since score at 6:00 is 0 (skip) and at 7:00 is ~94, threshold 40 is crossed
     // early in the interpolation, so start should be shortly after 6:00
-    if (startHour === 6) {
-      expect(startMinutes).toBeGreaterThan(0);
-    }
+    expect(startHour > 6 || startMinutes > 0).toBe(true);
   });
 });
 
@@ -180,18 +178,18 @@ describe('window calculator edge cases', () => {
 
   it('finds peak time within window', () => {
     // Use wave period to differentiate scores (14s+ gives max points, lower gives less)
-    // waveHeight=5 at idealMax gives ceiling=100 so period differences drive ranking
+    // waveHeight=2 is beginner-friendly so period differences drive ranking
     const forecasts = [
-      createForecast(6, { waveHeight: 5, wavePeriod: 10 }),  // Good but not max
-      createForecast(7, { waveHeight: 5, wavePeriod: 16 }),  // Best - max period score
-      createForecast(8, { waveHeight: 5, wavePeriod: 12 }),  // Good
-      createForecast(9, { waveHeight: 5, wavePeriod: 10 }),  // Good but not max
+      createForecast(6, { waveHeight: 2, wavePeriod: 10 }),  // Good but not max
+      createForecast(7, { waveHeight: 2, wavePeriod: 16 }),  // Best - max period score
+      createForecast(8, { waveHeight: 2, wavePeriod: 12 }),  // Good
+      createForecast(9, { waveHeight: 2, wavePeriod: 10 }),  // Good but not max
     ];
 
     const result = calculateOptimalWindow(forecasts, baseBeach);
 
     expect(result).not.toBeNull();
-    expect(result!.peakTime).toBeDefined();
+    expect(result!.peakTime).toBeInstanceOf(Date);
     expect(result!.peakTime!.getUTCHours()).toBe(7);
   });
 
@@ -225,10 +223,12 @@ describe('window calculator edge cases', () => {
     const result = calculateOptimalWindow(forecasts, baseBeach);
 
     expect(result).not.toBeNull();
-    expect(result!.startReason).toBeDefined();
-    expect(result!.endReason).toBeDefined();
-    expect(result!.startReason.factor).toBeDefined();
-    expect(result!.endReason.factor).toBeDefined();
+    expect(result!.startReason).toEqual(
+      expect.objectContaining({ factor: expect.any(String) }),
+    );
+    expect(result!.endReason).toEqual(
+      expect.objectContaining({ factor: expect.any(String) }),
+    );
   });
 
   it('generates a message for the window', () => {
@@ -242,8 +242,8 @@ describe('window calculator edge cases', () => {
     const result = calculateOptimalWindow(forecasts, baseBeach);
 
     expect(result).not.toBeNull();
-    expect(result!.message).toBeTruthy();
-    expect(typeof result!.message).toBe('string');
+    expect(result!.message).toEqual(expect.any(String));
+    expect(result!.message.length).toBeGreaterThan(0);
   });
 });
 
@@ -290,9 +290,7 @@ describe('interpolateTransition', () => {
     const startHour = result!.start.getUTCHours();
     const startMinutes = result!.start.getUTCMinutes();
     expect(startHour).toBeGreaterThanOrEqual(6);
-    if (startHour === 6) {
-      expect(startMinutes).toBeGreaterThan(0);
-    }
+    expect(startHour > 6 || startMinutes > 0).toBe(true);
   });
 
   it('interpolates end time when conditions degrade', () => {

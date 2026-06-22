@@ -18,6 +18,12 @@ import {
   CACHE_TTL,
 } from "./cache";
 
+export interface IncrementUserXPResult {
+  xp_total: number;
+  level: number;
+  awarded: number;
+}
+
 /**
  * Get XP value for an action
  *
@@ -109,6 +115,38 @@ export async function updateUserXP(
   if (error) {
     throw new Error(`Failed to update user XP: ${error.message}`);
   }
+}
+
+export async function incrementUserXP(
+  userId: string,
+  amount: number,
+  action: XPAction,
+  relatedEntityId: string | undefined,
+  idempotencyKey: string,
+  supabase: SupabaseClient
+): Promise<IncrementUserXPResult> {
+  const { data, error } = await (supabase as any).rpc("increment_user_xp", {
+    p_user_id: userId,
+    p_amount: amount,
+    p_action: action,
+    p_related_entity_id: relatedEntityId,
+    p_idempotency_key: idempotencyKey,
+  });
+
+  if (error) {
+    throw new Error(`Failed to increment user XP: ${error.message}`);
+  }
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) {
+    throw new Error("Failed to increment user XP: missing RPC result");
+  }
+
+  return {
+    xp_total: row.xp_total,
+    level: row.level,
+    awarded: row.awarded,
+  };
 }
 
 /**
