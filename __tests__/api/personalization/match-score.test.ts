@@ -101,6 +101,46 @@ describe("GET /api/personalization/match-score", () => {
     expect(json.data.reason_bullets.join(" ")).not.toMatch(/profile peak/i);
   });
 
+  it("returns starter prior scores through the authenticated route", async () => {
+    const body =
+      "A starter read from your skill and this spot's setup. It gets more personal as you rate sessions.";
+    rpc.mockResolvedValue({
+      data: {
+        state: "starter",
+        score: 7.1,
+        fit_label: "Based on your skill + this spot",
+        body,
+        session_count: 2,
+        sessions_needed: 3,
+        skill_used: "intermediate",
+        skill_source: "profile",
+        prior_dimensions: ["skill_wave", "spot_wind_direction"],
+      },
+      error: null,
+    });
+
+    const response = await GET(makeRequest());
+    const json = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(json.data).toMatchObject({
+      state: "starter",
+      score: 7.1,
+      fit_label: "Based on your skill + this spot",
+      body,
+      session_count: 2,
+      sessions_needed: 3,
+      quality_band: "starter",
+      reason_type: "starter_preferences",
+      reason_facts: expect.arrayContaining([
+        { kind: "skill_used", value: "intermediate" },
+        { kind: "skill_source", value: "profile" },
+        { kind: "prior_dimension", value: "skill_wave" },
+      ]),
+    });
+    expect(json.data.reason_bullets[0]).toBe(body);
+  });
+
   it("returns locked for free users even if raw scoring facts exist", async () => {
     entitlementRow = null;
 
