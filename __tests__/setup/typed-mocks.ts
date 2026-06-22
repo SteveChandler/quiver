@@ -246,6 +246,7 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     is_system_account: null,
     location: null,
     activity_level: null,
+    crowd_tolerance: null,
     allow_implicit_tracking: false,
     analytics_exclusion_reason: null,
     analytics_is_real_user: true,
@@ -256,14 +257,18 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     personality_type: null,
     posting_window: null,
     preferred_session_time: null,
+    preferred_wave_size: null,
     surf_styles: null,
+    tide_comfort: null,
     followers_count: 0,
     following_count: 0,
     instagram: null,
     phone_number: null,
     referral_code: null,
     onboarding_completed_at: null,
+    paywall_soft_prompt_shown: false,
     preferences_v2_shown_at: null,
+    sound_effects_enabled: true,
     // Notification settings
     notif_email_enabled: true,
     notif_inapp_enabled: true,
@@ -287,6 +292,7 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
     // Trust score for intel voting
     trust_score: 0.4,
     wants_android_access: false,
+    wind_comfort: null,
     ...restOverrides,
   };
 }
