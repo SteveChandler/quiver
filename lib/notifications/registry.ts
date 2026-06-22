@@ -69,6 +69,14 @@ const logSessionNudgeSchema = z.object({
   beach_id: z.string().nullable().optional(),
 });
 
+const dailyCallStreakReminderSchema = z.object({
+  streak: z.number().int().min(1),
+});
+
+const weeklyStreakReminderSchema = z.object({
+  streak: z.number().int().min(1),
+});
+
 const waterQualitySchema = z.object({
   beach_id: z.string().min(1),
   beach_slug: z.string().min(1),
@@ -203,6 +211,14 @@ interface LogSessionNudgePayload {
   title: string;
   body: string;
   beach_id?: string | null;
+}
+
+interface DailyCallStreakReminderPayload {
+  streak: number;
+}
+
+interface WeeklyStreakReminderPayload {
+  streak: number;
 }
 
 interface WaterQualityPayload {
@@ -530,6 +546,40 @@ export const NOTIFICATION_REGISTRY = {
       },
     }),
   } satisfies NotificationTypeDef<LogSessionNudgePayload>,
+
+  daily_call_streak_reminder: {
+    type: "daily_call_streak_reminder",
+    channels: ["push"],
+    prefs: {
+      master: { push: "notif_push_enabled" },
+      perType: { push: "notif_reminders" },
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => dailyCallStreakReminderSchema.parse(input),
+    buildPushPayload: (p) => ({
+      title: "Don't break your streak",
+      body: `You're on a ${p.streak}-day call streak. Make today's call before midnight.`,
+      data: { type: "daily_call_streak_reminder", streak: p.streak },
+    }),
+  } satisfies NotificationTypeDef<DailyCallStreakReminderPayload>,
+
+  weekly_streak_reminder: {
+    type: "weekly_streak_reminder",
+    channels: ["push"],
+    prefs: {
+      master: { push: "notif_push_enabled" },
+      perType: { push: "notif_reminders" },
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => weeklyStreakReminderSchema.parse(input),
+    buildPushPayload: (p) => ({
+      title: "Keep your streak alive",
+      body: `Your ${p.streak}-week streak ends Sunday. Log a session to keep it going.`,
+      data: { type: "weekly_streak_reminder", streak: p.streak },
+    }),
+  } satisfies NotificationTypeDef<WeeklyStreakReminderPayload>,
 
   water_quality: {
     type: "water_quality",

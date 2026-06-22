@@ -161,6 +161,14 @@
       "schedule": "0 17 * * *"
     },
     {
+      "path": "/api/cron/daily-call-streak-reminder",
+      "schedule": "0 2 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-streak-reminder",
+      "schedule": "0 17 * * 0"
+    },
+    {
       "path": "/api/cron/sitemap-health",
       "schedule": "15 6 * * *"
     }

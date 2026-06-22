@@ -1,16 +1,37 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import type React from "react";
 
+import ForecastAccuracyPage, {
+  generateMetadata,
+} from "@/app/forecast-accuracy/page";
 import { AccuracyBuildingRows } from "@/components/forecast-accuracy/accuracy-building-rows";
 import { AccuracyHero } from "@/components/forecast-accuracy/accuracy-hero";
 import { BeachAccuracyLeaderboard } from "@/components/forecast-accuracy/beach-accuracy-leaderboard";
 import { NOAAComparisonBar } from "@/components/forecast-accuracy/noaa-comparison-bar";
+import { getForecastAccuracyReport } from "@/actions/ml/forecast-accuracy-actions";
 import type {
+  ForecastAccuracyBeachRow,
   ForecastAccuracyBuildingRow,
   ForecastAccuracyConfidence,
+  ForecastAccuracyReport,
+  ForecastAccuracySummary,
 } from "@/actions/ml/forecast-accuracy-actions";
 
 const mockTrack = jest.fn();
+const mockGetForecastAccuracyReport =
+  getForecastAccuracyReport as jest.MockedFunction<
+    typeof getForecastAccuracyReport
+  >;
+
+jest.mock("@/actions/ml/forecast-accuracy-actions", () => ({
+  getForecastAccuracyReport: jest.fn(),
+}));
+
+jest.mock("@/components/ui/scroll-reveal", () => ({
+  ScrollReveal: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  ),
+}));
 
 jest.mock("@/hooks/use-track-event", () => ({
   useTrackEvent: () => ({ track: mockTrack }),
@@ -52,9 +73,122 @@ const modelOnlyConfidence: ForecastAccuracyConfidence = {
   reason: "No validated buoy matches are ready for this report yet.",
 };
 
+const buildingSummary: ForecastAccuracySummary = {
+  status: "building",
+  beachCount: 0,
+  totalPredictions: 0,
+  validatedPairCount: 0,
+  noaaBaselineMae: null,
+  quiverMae: null,
+  improvementPct: null,
+  lastUpdated: null,
+  periodStart: null,
+  periodEnd: null,
+  confidence: modelOnlyConfidence,
+  canClaimImprovement: false,
+};
+
+const liveBeachRow: ForecastAccuracyBeachRow = {
+  id: "beach-live",
+  beachId: "beach-live",
+  beachName: "Live Metrics Beach",
+  slug: "live-metrics-beach",
+  city: "San Diego",
+  state: "CA",
+  country: "USA",
+  noaaBaselineMae: 0.5,
+  quiverMae: 0.35,
+  improvementPct: 30,
+  validatedPairCount: 52,
+  lastUpdated: "2026-06-01T00:00:00.000Z",
+  confidence: highConfidence,
+  canClaimImprovement: true,
+};
+
+function makeBuildingReport(): ForecastAccuracyReport {
+  return {
+    generatedAt: "2026-06-21T12:00:00.000Z",
+    summary: buildingSummary,
+    beachRows: [],
+    buildingRows: [
+      {
+        id: "validated-pairs",
+        label: "Validated forecast-buoy pairs",
+        status: "Collecting",
+        detail: "Waiting for enough IOOS buoy matches.",
+        confidenceLabel: "Model only",
+      },
+    ],
+    dailyTimeSeries: [],
+    regionalData: [],
+  };
+}
+
+function makeLiveReport(): ForecastAccuracyReport {
+  return {
+    generatedAt: "2026-06-21T12:00:00.000Z",
+    summary: {
+      status: "live",
+      beachCount: 1,
+      totalPredictions: 52,
+      validatedPairCount: 52,
+      noaaBaselineMae: 0.5,
+      quiverMae: 0.35,
+      improvementPct: 30,
+      lastUpdated: "2026-06-01T00:00:00.000Z",
+      periodStart: "2026-05-01",
+      periodEnd: "2026-06-01",
+      confidence: highConfidence,
+      canClaimImprovement: true,
+    },
+    beachRows: [liveBeachRow],
+    buildingRows: [],
+    dailyTimeSeries: [],
+    regionalData: [],
+  };
+}
+
+function getDatasetSchemaCount(container: HTMLElement): number {
+  return Array.from(
+    container.querySelectorAll('script[type="application/ld+json"]'),
+  ).filter((script) => (script.textContent ?? "").includes('"@type":"Dataset"'))
+    .length;
+}
+
 describe("forecast accuracy page states", () => {
   beforeEach(() => {
     mockTrack.mockClear();
+    mockGetForecastAccuracyReport.mockReset();
+  });
+
+  it("noindexes the building page and omits Dataset structured data", async () => {
+    mockGetForecastAccuracyReport.mockResolvedValue(makeBuildingReport());
+
+    const metadata = await generateMetadata();
+
+    expect((metadata.robots as any).index).toBe(false);
+    expect((metadata.robots as any).follow).toBe(true);
+    expect((metadata.robots as any).googleBot?.index).toBe(false);
+    expect((metadata.robots as any).googleBot?.follow).toBe(true);
+
+    const page = await ForecastAccuracyPage();
+    const { container } = render(page);
+
+    expect(getDatasetSchemaCount(container)).toBe(0);
+  });
+
+  it("keeps the live page indexable and emits Dataset structured data", async () => {
+    mockGetForecastAccuracyReport.mockResolvedValue(makeLiveReport());
+
+    const metadata = await generateMetadata();
+
+    expect((metadata.robots as any).index).toBe(true);
+    expect((metadata.robots as any).follow).toBe(true);
+
+    const page = await ForecastAccuracyPage();
+    const { container } = render(page);
+
+    expect(getDatasetSchemaCount(container)).toBe(1);
   });
 
   it("renders live summary metrics with backed confidence language", () => {
@@ -105,7 +239,7 @@ describe("forecast accuracy page states", () => {
       {
         id: "validated-pairs",
         label: "Validated forecast-buoy pairs",
-        status: "Building",
+        status: "Collecting",
         detail: "Waiting for enough IOOS buoy matches.",
         confidenceLabel: "Low - sparse data",
       },
@@ -125,6 +259,7 @@ describe("forecast accuracy page states", () => {
     expect(screen.getByText("NOAA baseline comparison")).toBeInTheDocument();
     expect(screen.getByText("Low - sparse data")).toBeInTheDocument();
     expect(screen.getByText("Model only")).toBeInTheDocument();
+    expect(screen.getByText("Building report")).toBeInTheDocument();
   });
 
   it("renders beach rows with every required live metric", () => {

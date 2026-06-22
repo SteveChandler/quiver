@@ -131,6 +131,13 @@ describe("Sitemap Generation", () => {
       expect(route?.changeFrequency).toBe("daily");
     });
 
+    it("should exclude /forecast-accuracy while live beach rows are building", async () => {
+      const result = await sitemap();
+      const route = result.find((r) => r.url === `${baseUrl}/forecast-accuracy`);
+
+      expect(route).toBeUndefined();
+    });
+
     it("should include /beaches/usa route", async () => {
       const result = await sitemap();
       const route = result.find((r) => r.url === `${baseUrl}/beaches/usa`);

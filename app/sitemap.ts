@@ -136,7 +136,8 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
     "/for-surf-schools",
     "/for-businesses",
     "/free-surf-reports",
-    "/forecast-accuracy",
+    // Re-add "/forecast-accuracy" here when Plan 012 lands and the page renders live beach
+    // rows (it noindexes itself while building; an empty page should not be in the sitemap).
     "/vs/surfline",
   ].map((route) => ({
     url: `${baseUrl}${route}`,
@@ -145,7 +146,7 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
     priority:
       route === "/"
         ? 1
-        : route === "/free-surf-reports" || route === "/forecast-accuracy"
+        : route === "/free-surf-reports"
           ? 0.85
           : route === "/vs/surfline"
             ? 0.8
