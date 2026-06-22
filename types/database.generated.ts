@@ -561,6 +561,7 @@ export type Database = {
           alert_date: string
           beach_id: string
           best_hour: string
+          best_score: number
           conditions_snapshot: Json
           created_at: string
           id: string
@@ -575,6 +576,7 @@ export type Database = {
           alert_date: string
           beach_id: string
           best_hour: string
+          best_score?: number
           conditions_snapshot?: Json
           created_at?: string
           id?: string
@@ -589,6 +591,7 @@ export type Database = {
           alert_date?: string
           beach_id?: string
           best_hour?: string
+          best_score?: number
           conditions_snapshot?: Json
           created_at?: string
           id?: string
@@ -2881,6 +2884,90 @@ export type Database = {
           },
         ]
       }
+      daily_calls: {
+        Row: {
+          beach_id: string | null
+          call_date: string
+          created_at: string
+          id: string
+          prediction: string
+          user_id: string
+        }
+        Insert: {
+          beach_id?: string | null
+          call_date: string
+          created_at?: string
+          id?: string
+          prediction: string
+          user_id: string
+        }
+        Update: {
+          beach_id?: string | null
+          call_date?: string
+          created_at?: string
+          id?: string
+          prediction?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "daily_calls_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_calls_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "daily_calls_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "daily_calls_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "daily_calls_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "daily_calls_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "daily_calls_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "daily_calls_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       data_cleanup_audit: {
         Row: {
           backup_data: Json | null
@@ -2996,6 +3083,53 @@ export type Database = {
           status?: string
         }
         Relationships: []
+      }
+      earned_pro_grants: {
+        Row: {
+          created_at: string
+          entitlement_id: string
+          expires_at: string
+          granted_at: string
+          id: string
+          reason: string
+          revoked_at: string | null
+          streak_snapshot: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entitlement_id: string
+          expires_at: string
+          granted_at?: string
+          id?: string
+          reason: string
+          revoked_at?: string | null
+          streak_snapshot?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entitlement_id?: string
+          expires_at?: string
+          granted_at?: string
+          id?: string
+          reason?: string
+          revoked_at?: string | null
+          streak_snapshot?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "earned_pro_grants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
       }
       email_click_events: {
         Row: {
@@ -3825,6 +3959,146 @@ export type Database = {
         }
         Relationships: []
       }
+      gfs_wave_shadow_forecasts: {
+        Row: {
+          beach_id: string
+          capture_status: string
+          created_at: string
+          fetched_at: string
+          forecast_horizon_hours: number
+          id: string
+          predicted_at: string
+          secondary_swell_direction_deg: number | null
+          secondary_swell_height_m: number | null
+          secondary_swell_period_s: number | null
+          source: string
+          source_model: string
+          swell_direction_deg: number | null
+          swell_height_m: number | null
+          swell_period_s: number | null
+          swell_wave_peak_period_s: number | null
+          tertiary_swell_direction_deg: number | null
+          tertiary_swell_height_m: number | null
+          tertiary_swell_period_s: number | null
+          wave_direction_deg: number | null
+          wave_height_m: number | null
+          wave_peak_period_s: number | null
+          wave_period_s: number | null
+          wind_wave_direction_deg: number | null
+          wind_wave_height_m: number | null
+          wind_wave_peak_period_s: number | null
+          wind_wave_period_s: number | null
+        }
+        Insert: {
+          beach_id: string
+          capture_status?: string
+          created_at?: string
+          fetched_at: string
+          forecast_horizon_hours: number
+          id?: string
+          predicted_at: string
+          secondary_swell_direction_deg?: number | null
+          secondary_swell_height_m?: number | null
+          secondary_swell_period_s?: number | null
+          source?: string
+          source_model?: string
+          swell_direction_deg?: number | null
+          swell_height_m?: number | null
+          swell_period_s?: number | null
+          swell_wave_peak_period_s?: number | null
+          tertiary_swell_direction_deg?: number | null
+          tertiary_swell_height_m?: number | null
+          tertiary_swell_period_s?: number | null
+          wave_direction_deg?: number | null
+          wave_height_m?: number | null
+          wave_peak_period_s?: number | null
+          wave_period_s?: number | null
+          wind_wave_direction_deg?: number | null
+          wind_wave_height_m?: number | null
+          wind_wave_peak_period_s?: number | null
+          wind_wave_period_s?: number | null
+        }
+        Update: {
+          beach_id?: string
+          capture_status?: string
+          created_at?: string
+          fetched_at?: string
+          forecast_horizon_hours?: number
+          id?: string
+          predicted_at?: string
+          secondary_swell_direction_deg?: number | null
+          secondary_swell_height_m?: number | null
+          secondary_swell_period_s?: number | null
+          source?: string
+          source_model?: string
+          swell_direction_deg?: number | null
+          swell_height_m?: number | null
+          swell_period_s?: number | null
+          swell_wave_peak_period_s?: number | null
+          tertiary_swell_direction_deg?: number | null
+          tertiary_swell_height_m?: number | null
+          tertiary_swell_period_s?: number | null
+          wave_direction_deg?: number | null
+          wave_height_m?: number | null
+          wave_peak_period_s?: number | null
+          wave_period_s?: number | null
+          wind_wave_direction_deg?: number | null
+          wind_wave_height_m?: number | null
+          wind_wave_peak_period_s?: number | null
+          wind_wave_period_s?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "gfs_wave_shadow_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gfs_wave_shadow_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "gfs_wave_shadow_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "gfs_wave_shadow_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "gfs_wave_shadow_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "gfs_wave_shadow_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "gfs_wave_shadow_forecasts_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+        ]
+      }
       intel_post_confirmations: {
         Row: {
           created_at: string
@@ -4477,7 +4751,10 @@ export type Database = {
           corrected_forecast_m: number | null
           created_at: string | null
           direction_bucket: string | null
+          display_raw_input_height_m: number | null
           display_source: string | null
+          display_wave_source: string | null
+          forecast_horizon_bucket: string | null
           forecast_horizon_hours: number | null
           height_offset_m: number | null
           height_offset_sample_count: number | null
@@ -4542,7 +4819,10 @@ export type Database = {
           corrected_forecast_m?: number | null
           created_at?: string | null
           direction_bucket?: string | null
+          display_raw_input_height_m?: number | null
           display_source?: string | null
+          display_wave_source?: string | null
+          forecast_horizon_bucket?: string | null
           forecast_horizon_hours?: number | null
           height_offset_m?: number | null
           height_offset_sample_count?: number | null
@@ -4607,7 +4887,10 @@ export type Database = {
           corrected_forecast_m?: number | null
           created_at?: string | null
           direction_bucket?: string | null
+          display_raw_input_height_m?: number | null
           display_source?: string | null
+          display_wave_source?: string | null
+          forecast_horizon_bucket?: string | null
           forecast_horizon_hours?: number | null
           height_offset_m?: number | null
           height_offset_sample_count?: number | null
@@ -5369,6 +5652,7 @@ export type Database = {
           avatar_url: string | null
           bio: string | null
           created_at: string
+          crowd_tolerance: string | null
           deleted_at: string | null
           digest_session_invites: boolean
           display_name: string | null
@@ -5399,19 +5683,24 @@ export type Database = {
           notif_water_quality: boolean
           notif_xp_updates: boolean
           onboarding_completed_at: string | null
+          paywall_soft_prompt_shown: boolean
           personality_type: string | null
           phone_number: string | null
           posting_window: Json | null
           preferences_v2_shown_at: string | null
           preferred_session_time: string | null
+          preferred_wave_size: string | null
           referral_code: string | null
           signup_context: Json | null
           signup_location: Json | null
+          sound_effects_enabled: boolean
           surf_styles: string[] | null
+          tide_comfort: string | null
           timezone: string | null
           trust_score: number
           updated_at: string | null
           wants_android_access: boolean
+          wind_comfort: string | null
         }
         Insert: {
           activity_level?: string | null
@@ -5425,6 +5714,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          crowd_tolerance?: string | null
           deleted_at?: string | null
           digest_session_invites?: boolean
           display_name?: string | null
@@ -5455,19 +5745,24 @@ export type Database = {
           notif_water_quality?: boolean
           notif_xp_updates?: boolean
           onboarding_completed_at?: string | null
+          paywall_soft_prompt_shown?: boolean
           personality_type?: string | null
           phone_number?: string | null
           posting_window?: Json | null
           preferences_v2_shown_at?: string | null
           preferred_session_time?: string | null
+          preferred_wave_size?: string | null
           referral_code?: string | null
           signup_context?: Json | null
           signup_location?: Json | null
+          sound_effects_enabled?: boolean
           surf_styles?: string[] | null
+          tide_comfort?: string | null
           timezone?: string | null
           trust_score?: number
           updated_at?: string | null
           wants_android_access?: boolean
+          wind_comfort?: string | null
         }
         Update: {
           activity_level?: string | null
@@ -5481,6 +5776,7 @@ export type Database = {
           avatar_url?: string | null
           bio?: string | null
           created_at?: string
+          crowd_tolerance?: string | null
           deleted_at?: string | null
           digest_session_invites?: boolean
           display_name?: string | null
@@ -5511,19 +5807,24 @@ export type Database = {
           notif_water_quality?: boolean
           notif_xp_updates?: boolean
           onboarding_completed_at?: string | null
+          paywall_soft_prompt_shown?: boolean
           personality_type?: string | null
           phone_number?: string | null
           posting_window?: Json | null
           preferences_v2_shown_at?: string | null
           preferred_session_time?: string | null
+          preferred_wave_size?: string | null
           referral_code?: string | null
           signup_context?: Json | null
           signup_location?: Json | null
+          sound_effects_enabled?: boolean
           surf_styles?: string[] | null
+          tide_comfort?: string | null
           timezone?: string | null
           trust_score?: number
           updated_at?: string | null
           wants_android_access?: boolean
+          wind_comfort?: string | null
         }
         Relationships: [
           {
@@ -7313,6 +7614,35 @@ export type Database = {
           },
         ]
       }
+      streak_reminder_log: {
+        Row: {
+          period_key: string
+          reminder_type: string
+          sent_at: string
+          user_id: string
+        }
+        Insert: {
+          period_key: string
+          reminder_type: string
+          sent_at?: string
+          user_id: string
+        }
+        Update: {
+          period_key?: string
+          reminder_type?: string
+          sent_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "streak_reminder_log_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       sun_times: {
         Row: {
           beach_id: string
@@ -8240,6 +8570,87 @@ export type Database = {
           },
         ]
       }
+      user_learning_signals: {
+        Row: {
+          beach_id: string | null
+          first_fired_at: string
+          id: string
+          signal_key: string
+          user_id: string
+        }
+        Insert: {
+          beach_id?: string | null
+          first_fired_at?: string
+          id?: string
+          signal_key: string
+          user_id: string
+        }
+        Update: {
+          beach_id?: string | null
+          first_fired_at?: string
+          id?: string
+          signal_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_learning_signals_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_learning_signals_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "user_learning_signals_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_learning_signals_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "user_learning_signals_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "user_learning_signals_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "user_learning_signals_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "user_learning_signals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       user_surf_preferences: {
         Row: {
           avoidance_by_beach: Json
@@ -8513,6 +8924,7 @@ export type Database = {
           action: string
           created_at: string
           id: string
+          idempotency_key: string | null
           related_entity_id: string | null
           related_entity_type: string | null
           user_id: string
@@ -8522,6 +8934,7 @@ export type Database = {
           action: string
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           related_entity_id?: string | null
           related_entity_type?: string | null
           user_id: string
@@ -8531,6 +8944,7 @@ export type Database = {
           action?: string
           created_at?: string
           id?: string
+          idempotency_key?: string | null
           related_entity_id?: string | null
           related_entity_type?: string | null
           user_id?: string
@@ -8844,6 +9258,17 @@ export type Database = {
             referencedColumns: ["beach_id"]
           },
         ]
+      }
+      mv_nowcast_anchors: {
+        Row: {
+          beach_id: string | null
+          observed_at: string | null
+          station_id: string | null
+          wave_direction_deg: number | null
+          wave_height_m: number | null
+          wave_period_s: number | null
+        }
+        Relationships: []
       }
       observable_beaches: {
         Row: {
@@ -9348,6 +9773,7 @@ export type Database = {
           sentinel_marked: number
         }[]
       }
+      bulk_update_hrrr_wind: { Args: { payload: Json }; Returns: number }
       check_database_health: {
         Args: never
         Returns: {
@@ -9567,6 +9993,7 @@ export type Database = {
         | { Args: { schema_name: string; table_name: string }; Returns: string }
         | { Args: { table_name: string }; Returns: string }
       enablelongtransactions: { Args: never; Returns: string }
+      ensure_user_xp: { Args: { p_user_id: string }; Returns: undefined }
       equals: { Args: { geom1: unknown; geom2: unknown }; Returns: boolean }
       finalize_anon_alert_capture: {
         Args: { p_email: string; p_user_id: string }
@@ -9959,6 +10386,7 @@ export type Database = {
           conditions_score: number
           display_name: string
           email: string
+          experience_level: string
           home_beach_id: string
           recommendation: string
           surf_description: string
@@ -9993,6 +10421,16 @@ export type Database = {
           changed_by: string
           history_id: string
           snapshot: Json
+        }[]
+      }
+      get_forecast_accuracy_horizon_metrics: {
+        Args: { p_end?: string; p_start?: string }
+        Returns: {
+          baseline: string
+          bias_m: number
+          horizon_bucket: string
+          mae_m: number
+          sample_count: number
         }[]
       }
       get_forecast_vs_observation_pairs: {
@@ -10332,6 +10770,7 @@ export type Database = {
           usage_percentage: number
         }[]
       }
+      get_user_streaks: { Args: { p_user_id: string }; Returns: Json }
       get_user_viral_coefficient: {
         Args: { p_user_id: string }
         Returns: number
@@ -10380,6 +10819,20 @@ export type Database = {
       increment_station_discovery_misses: {
         Args: { seen_ids: string[] }
         Returns: undefined
+      }
+      increment_user_xp: {
+        Args: {
+          p_action: string
+          p_amount: number
+          p_idempotency_key?: string
+          p_related_entity_id?: string
+          p_user_id: string
+        }
+        Returns: {
+          awarded: number
+          level: number
+          xp_total: number
+        }[]
       }
       is_admin_user: { Args: never; Returns: boolean }
       like_session_with_notification: {

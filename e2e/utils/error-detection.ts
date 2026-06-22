@@ -421,6 +421,17 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
     return true;
   }
 
+  // Google Sign-In status/FedCM endpoints can return 403 in headless browsers
+  // without a signed-in Google account. Console GSI noise is filtered above;
+  // keep the matching network response in the same expected-noise bucket.
+  if (
+    (status === 400 || status === 403) &&
+    (url.includes('accounts.google.com/gsi') ||
+      url.includes('accounts.google.com/o/fedcm'))
+  ) {
+    return true;
+  }
+
   // 400/401 errors on graceful degradation APIs (personalization features)
   // These APIs fail gracefully when user is not authenticated or data is unavailable
   if (status === 400 || status === 401) {

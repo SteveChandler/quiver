@@ -1,6 +1,9 @@
 import { cache } from "react";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
-import { calculateDayScore } from "@/lib/utils/regional-forecast-utils";
+import {
+  parseMaxWaveHeightFt,
+  pickBestNativeForecastSlot,
+} from "@/lib/scoring/native-condition-score";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withApprovedPhotos } from "@/lib/supabase/query-builders";
 import type { Beach } from "@/types/database";
@@ -83,9 +86,9 @@ export async function enrichBeachesWithConditions(
 
     if (forecastResult?.forecasts?.length) {
       const forecasts = forecastResult.forecasts;
-      const calculatedScore = calculateDayScore(forecasts, beach);
-      score = calculatedScore > 0 ? calculatedScore : null;
-      waveHeight = parseFloat(forecasts[0]?.wave_height || "0") || null;
+      const best = pickBestNativeForecastSlot(forecasts);
+      score = best && best.score > 0 ? best.score : null;
+      waveHeight = best ? parseMaxWaveHeightFt(best.forecast.wave_height) || null : null;
     }
 
     return {

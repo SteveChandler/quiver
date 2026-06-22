@@ -30,6 +30,13 @@ export default function ForgotPasswordPage() {
     setIsLoading(true);
 
     try {
+      if (process.env.NEXT_PUBLIC_E2E_DISABLE_EMAIL_SENDS === "true") {
+        setSuccess(
+          "If that email exists, we sent a password reset link. Please check your inbox."
+        );
+        return;
+      }
+
       const supabase = createClient();
       const baseUrl =
         process.env.NEXT_PUBLIC_SITE_URL || window.location.origin; // eslint-disable-line no-restricted-properties

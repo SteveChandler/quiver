@@ -5,11 +5,10 @@ import {
   createSuccessResponse,
   createNotFoundError,
 } from "@/lib/middleware/api-wrappers";
-import {
-  createDiscoveryScoringEngine,
-  scoreBeachWithEngine,
-} from "@/lib/domains/scoring/discovery-adapter";
 import { calculateRideableWaves } from "@/lib/domains/wave-frequency/calculator";
+import { scoreNativeForecastSlot } from "@/lib/scoring/native-condition-score";
+import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
+import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
 import { parseWaveHeight } from "@/lib/utils/forecast-parsing";
 import {
   parseWindSpeed,
@@ -150,14 +149,11 @@ function parseWaveHeightRange(text: string | null | undefined): {
  */
 export function scoreForecastSlots(
   forecasts: EnhancedForecastEntity[],
-  beach: Beach
+  beach: Beach,
+  skillLevel?: SkillLevel | string | null
 ): TimeSlot[] {
-  const engine = createDiscoveryScoringEngine();
-
   return forecasts.map((forecast) => {
-    // Composite score
-    const scored = scoreBeachWithEngine(engine, beach, forecast);
-    const compositeScore = scored.total;
+    const compositeScore = scoreNativeForecastSlot(forecast, skillLevel);
 
     // Wave frequency
     const {
@@ -335,7 +331,14 @@ export const GET = withAuth(
     );
 
     // Score all slots
-    const timeSlots = scoreForecastSlots(forecastList, beach as Beach);
+    const userId = context.user?.id;
+    if (!userId) {
+      throw new Error("Authenticated user missing from scored forecast request");
+    }
+
+    const userSkillLevel = await getProfileExperienceLevel(supabase, userId);
+
+    const timeSlots = scoreForecastSlots(forecastList, beach as Beach, userSkillLevel);
 
     // Identify golden windows
     const goldenWindows = identifyGoldenWindows(timeSlots);

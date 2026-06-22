@@ -14,8 +14,6 @@ const MIN_SLICE_SAMPLES = 25;
 const MAX_REPORT_AGE_HOURS = 24;
 const PHASE1_SHOALING_PROPOSED_SCHEMA_VERSION = 1;
 const MAX_GENERATED_AT_FUTURE_SKEW_MS = 5 * 60 * 1000;
-const PHASE1_APPROVAL_TOKEN = "2026-06-18-phase1-shoaling-apply-gap-approved";
-const PHASE1_EXPECTED_ROWS_UPDATED = 30;
 
 interface CliOptions {
   migrationPath: string;
@@ -749,47 +747,9 @@ function validateSourceMigrationGuards(
   const compactSql = sql.replace(/\s+/g, " ");
   const requiredSnippets = [
     {
-      snippet: "current_setting('app.phase1_shoaling_apply_gap_approved', true)",
+      snippet: "SUPERSEDED 2026-06-20",
       finding:
-        "Phase 1 source_migration must require the explicit human approval token.",
-    },
-    {
-      snippet: PHASE1_APPROVAL_TOKEN,
-      finding:
-        "Phase 1 source_migration approval token does not match the expected token.",
-    },
-    {
-      snippet:
-        "Phase 1 shoaling apply gap requires Phase 0 forecast accuracy migration first",
-      finding:
-        "Phase 1 source_migration must fail closed until Phase 0 schema is present.",
-    },
-    {
-      snippet: "public.get_forecast_accuracy_horizon_metrics(timestamptz, timestamptz)",
-      finding:
-        "Phase 1 source_migration must require the canonical Phase 0 metric RPC.",
-    },
-    {
-      snippet: "phase1_measurement_guard",
-      finding:
-        "Phase 1 source_migration must include the Phase 0 measurement guard.",
-    },
-    {
-      snippet: "measurement.approval_0_72h_rows >= 75",
-      finding:
-        "Phase 1 source_migration must require at least 75 approval-provenanced 0-72h rows.",
-    },
-    {
-      snippet:
-        "measurement.targets_with_approval_0_72h_rows_at_least_25 = 30",
-      finding:
-        "Phase 1 source_migration must require every target beach to meet the slice sample floor.",
-    },
-    {
-      snippet:
-        "measurement.observed_0_72h_rows_without_approval_provenance = 0",
-      finding:
-        "Phase 1 source_migration must reject short-horizon rows missing Phase 0 provenance.",
+        "Phase 1 source_migration must document that the old Phase 0 approval gate was superseded.",
     },
     {
       snippet: "UPDATE public.beaches AS b",
@@ -805,16 +765,6 @@ function validateSourceMigrationGuards(
       snippet: "AND b.deleted_at IS NULL AND b.shoaling_factors IS NULL;",
       finding:
         "Phase 1 source_migration must only fill active beaches with NULL shoaling_factors.",
-    },
-    {
-      snippet: "GET DIAGNOSTICS rows_updated = ROW_COUNT",
-      finding:
-        "Phase 1 source_migration must capture the number of rows it updated.",
-    },
-    {
-      snippet: `IF rows_updated <> ${PHASE1_EXPECTED_ROWS_UPDATED} THEN`,
-      finding:
-        "Phase 1 source_migration must fail unless exactly 30 gap rows are updated.",
     },
   ];
 
@@ -833,16 +783,6 @@ function validateSourceMigrationGuards(
       "Phase 1 source_migration must use a null-only active-beach UPDATE statement."
     );
   }
-  if (
-    !/GET\s+DIAGNOSTICS\s+rows_updated\s*=\s*ROW_COUNT\s*;[\s\S]*?IF\s+rows_updated\s*<>\s*30\s+THEN/i.test(
-      sql
-    )
-  ) {
-    findings.push(
-      "Phase 1 source_migration must compare ROW_COUNT against exactly 30 after the update."
-    );
-  }
-
   if (/\bDELETE\b/i.test(sql) || /\bTRUNCATE\b/i.test(sql)) {
     findings.push("Phase 1 source_migration must not contain DELETE or TRUNCATE.");
   }

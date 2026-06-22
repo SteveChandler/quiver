@@ -22,6 +22,10 @@ jest.mock("@/lib/services/preference-learning-service", () => ({
   getUserSurfPreferences: jest.fn(),
 }));
 
+jest.mock("@/lib/profile/skill-level", () => ({
+  getProfileExperienceLevel: jest.fn(() => null),
+}));
+
 jest.mock("@/lib/domains/scoring/discovery-adapter", () => {
   const actual = jest.requireActual("@/lib/domains/scoring/discovery-adapter");
   return {
@@ -196,9 +200,9 @@ describe("spot-surf-report-actions", () => {
       );
       const { getBatchSunTimes } = await import("@/lib/services/discovery");
       const { getUserSurfPreferences } = await import("@/lib/services/preference-learning-service");
-      const { parseSkillLevel } = await import("@/lib/domains/user-preferences");
+      const { getProfileExperienceLevel } = await import("@/lib/profile/skill-level");
 
-      (parseSkillLevel as jest.Mock).mockReturnValue(profileSkill);
+      (getProfileExperienceLevel as jest.Mock).mockResolvedValue(profileSkill);
       (createSupabaseServerClient as jest.Mock).mockReturnValue({
         auth: {
           getUser: jest.fn().mockResolvedValue({ data: { user: { id: "user-board-fit" } } }),
@@ -532,7 +536,7 @@ describe("spot-surf-report-actions", () => {
       );
       const { getBatchSunTimes } = await import("@/lib/services/discovery");
       const { getUserSurfPreferences } = await import("@/lib/services/preference-learning-service");
-      const { parseSkillLevel } = await import("@/lib/domains/user-preferences");
+      const { getProfileExperienceLevel } = await import("@/lib/profile/skill-level");
 
       const mockUserId = "native-user-456";
       const profileQuery = {
@@ -569,7 +573,7 @@ describe("spot-surf-report-actions", () => {
         throw new Error("createSupabaseServerClient should not be called");
       });
       (getUserSurfPreferences as jest.Mock).mockResolvedValue(mockUserPrefs);
-      (parseSkillLevel as jest.Mock).mockReturnValue("intermediate");
+      (getProfileExperienceLevel as jest.Mock).mockResolvedValue("intermediate");
       (getBatchSunTimes as jest.Mock).mockResolvedValue(new Map([
         [
           "beach-123",
@@ -616,10 +620,7 @@ describe("spot-surf-report-actions", () => {
 
       expect(createSupabaseServerClient).not.toHaveBeenCalled();
       expect(getUserSurfPreferences).toHaveBeenCalledWith(mockUserId);
-      expect(suppliedSupabase.from).toHaveBeenCalledWith("profiles");
-      expect(profileQuery.select).toHaveBeenCalledWith("experience_level");
-      expect(profileQuery.eq).toHaveBeenCalledWith("id", mockUserId);
-      expect(profileQuery.single).toHaveBeenCalled();
+      expect(getProfileExperienceLevel).toHaveBeenCalledWith(suppliedSupabase, mockUserId);
       expect(mockCachedSurfReportCalls[0]?.[2]).toBe(mockUserId);
       expect(mockCachedSurfReportCalls[0]?.[4]).toBe("longboard");
     });

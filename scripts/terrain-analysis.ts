@@ -8,8 +8,12 @@
  * Usage:
  *   yarn terrain:analyze                                    # Analyze all beaches
  *   yarn terrain:analyze --beach-id=xyz                     # Analyze specific beach
+ *   yarn terrain:analyze --beach-ids=id1,id2,id3            # Analyze exact beaches
  *   yarn terrain:analyze --region=california --limit=50     # Analyze region subset
+ *   yarn terrain:analyze --missing-only --dry-run           # Rehearse terrain gaps only
+ *   yarn terrain:analyze --missing-only --dry-run --output-json=/tmp/terrain-proposed.json
  *   yarn terrain:analyze --dry-run                          # Compute without writing
+ *   yarn terrain:analyze --beach-ids=id1,id2,id3 --human-approval-token=<token> --approval-report-json=/tmp/harness.json --approval-proposed-json=/tmp/proposed.json
  *   yarn terrain:analyze --force                            # Recompute all
  *   yarn terrain:analyze --concurrency=8                    # Parallel processing
  *
@@ -56,6 +60,17 @@ import { loadDEMTile } from './terrain/dem-loader'
 import { loadLandmask } from './terrain/landmask-loader'
 import { computeWindExposure as computeWindExposureFromAlgorithm } from './terrain/wind-exposure'
 import { computeSwellAccess as computeSwellAccessFromAlgorithm } from './terrain/swell-access'
+import { parseTerrainAnalysisArgs } from './terrain/cli'
+import {
+  buildTerrainProposedExport,
+  loadTerrainProposedExport,
+  validateTerrainProposedExportArtifact,
+  writeTerrainProposedExport,
+} from './terrain/proposed-export'
+import {
+  assertTerrainResultsMatchApproval,
+  assertTerrainWriteApproved,
+} from './terrain/write-guard'
 
 // Load environment variables from .env.local
 config({ path: '.env.local' })
@@ -70,45 +85,7 @@ const TERRAIN_METHOD = 'dem_horizon_v1'
 /**
  * Parse command-line arguments
  */
-function parseArgs(argv: string[]): TerrainAnalysisArgs {
-  const args: TerrainAnalysisArgs = {
-    dryRun: false,
-    force: false,
-    concurrency: 4,
-  }
-
-  for (let i = 2; i < argv.length; i++) {
-    const arg = argv[i]
-
-    if (arg === '--dry-run') {
-      args.dryRun = true
-    } else if (arg === '--force') {
-      args.force = true
-    } else if (arg === '--beach-id') {
-      args.beachId = argv[++i]
-    } else if (arg.startsWith('--beach-id=')) {
-      args.beachId = arg.split('=')[1]
-    } else if (arg === '--region') {
-      args.region = argv[++i]
-    } else if (arg.startsWith('--region=')) {
-      args.region = arg.split('=')[1]
-    } else if (arg === '--limit') {
-      args.limit = parseInt(argv[++i], 10)
-    } else if (arg.startsWith('--limit=')) {
-      args.limit = parseInt(arg.split('=')[1], 10)
-    } else if (arg === '--offset') {
-      args.offset = parseInt(argv[++i], 10)
-    } else if (arg.startsWith('--offset=')) {
-      args.offset = parseInt(arg.split('=')[1], 10)
-    } else if (arg === '--concurrency') {
-      args.concurrency = parseInt(argv[++i], 10)
-    } else if (arg.startsWith('--concurrency=')) {
-      args.concurrency = parseInt(arg.split('=')[1], 10)
-    }
-  }
-
-  return args
-}
+const parseArgs = parseTerrainAnalysisArgs
 
 /**
  * Validate required environment variables
@@ -263,10 +240,25 @@ async function main() {
   // Parse arguments
   const args = parseArgs(process.argv)
 
+  if (args.validateOutputJsonPath) {
+    const proposedExport = loadTerrainProposedExport(args.validateOutputJsonPath)
+    const result = validateTerrainProposedExportArtifact(proposedExport, {
+      maxArtifactAgeHours: args.maxArtifactAgeHours ?? null,
+    })
+    if (!result.ok) {
+      throw new Error(result.findings.join('\n'))
+    }
+    console.log(`Terrain proposed artifact is valid: ${args.validateOutputJsonPath}`)
+    return
+  }
+
   // Display configuration
   console.log('Configuration:')
   if (args.beachId) {
     console.log(`  Beach ID: ${args.beachId}`)
+  }
+  if (args.beachIds && args.beachIds.length > 0) {
+    console.log(`  Beach IDs: ${args.beachIds.join(', ')}`)
   }
   if (args.region) {
     console.log(`  Region: ${args.region}`)
@@ -277,11 +269,23 @@ async function main() {
   if (args.offset !== undefined) {
     console.log(`  Offset: ${args.offset}`)
   }
+  if (args.outputJsonPath) {
+    console.log(`  Output JSON: ${args.outputJsonPath}`)
+  }
+  if (args.approvalReportJsonPath) {
+    console.log(`  Approval report JSON: ${args.approvalReportJsonPath}`)
+  }
+  if (args.approvalProposedJsonPath) {
+    console.log(`  Approval proposed JSON: ${args.approvalProposedJsonPath}`)
+  }
+  console.log(`  Missing Only: ${args.missingOnly === true}`)
   console.log(`  Concurrency: ${args.concurrency}`)
   console.log(`  Dry Run: ${args.dryRun}`)
   console.log(`  Force Recompute: ${args.force}`)
   console.log(`  Terrain Method: ${TERRAIN_METHOD}`)
   console.log('')
+
+  assertTerrainWriteApproved(args)
 
   // Validate environment
   if (!validateEnvironment()) {
@@ -296,7 +300,9 @@ async function main() {
   // Count total beaches
   const totalBeaches = await countBeaches(supabase, {
     beachId: args.beachId,
+    beachIds: args.beachIds,
     region: args.region,
+    missingOnly: args.missingOnly,
   })
 
   console.log(`📊 Found ${totalBeaches} beach(es) matching filters`)
@@ -306,10 +312,12 @@ async function main() {
   console.log('📥 Loading beaches...')
   const beaches = await loadBeaches(supabase, {
     beachId: args.beachId,
+    beachIds: args.beachIds,
     region: args.region,
     limit: args.limit,
     offset: args.offset,
     force: args.force,
+    missingOnly: args.missingOnly,
   })
 
   if (beaches.length === 0) {
@@ -355,6 +363,8 @@ async function main() {
 
   // Write results to database (unless dry-run)
   if (!args.dryRun) {
+    assertTerrainResultsMatchApproval(args, results, TERRAIN_METHOD)
+
     console.log('')
     console.log('💾 Writing results to database...')
 
@@ -398,6 +408,25 @@ async function main() {
     skipped: skippedCount,
     total_time_ms: batchTime,
     avg_time_per_beach_ms: avgTime,
+  }
+
+  if (args.outputJsonPath) {
+    const proposedExport = buildTerrainProposedExport({
+      results,
+      summary,
+      terrainMethod: TERRAIN_METHOD,
+      args,
+    })
+    const outputPath = writeTerrainProposedExport(
+      args.outputJsonPath,
+      proposedExport
+    )
+    console.log('')
+    console.log(`🧾 Wrote Phase 0 proposed terrain JSON: ${outputPath}`)
+    console.log(`   Beaches exported: ${proposedExport.beaches.length}`)
+    if (proposedExport.failures.length > 0) {
+      console.log(`   Failed beaches included: ${proposedExport.failures.length}`)
+    }
   }
 
   // Display summary

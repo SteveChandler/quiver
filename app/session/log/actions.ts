@@ -1,6 +1,6 @@
 'use server';
 
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { verifyEmailActionToken } from '@/lib/email/verify-email-action';
 
 export interface LogSessionResult {
@@ -24,7 +24,9 @@ export async function logSession(
   const userId = verification.userId;
 
   // Save to database
-  const supabase = await createSupabaseServerClient();
+  // Email links are clicked without a Supabase auth session; the signed token
+  // above is the authorization check for this write.
+  const supabase = createSupabaseServiceRoleClient();
   const { error } = await supabase.from('session_logs').insert({
     user_id: userId,
     beach_id: beachId,

@@ -563,13 +563,13 @@ describe('selectBestWindow local date boundary', () => {
       createMockForecast({
         forecast_date: '2026-01-13',
         forecast_time: '15:00:00', // 3pm PT on Jan 13 local - GOOD
-        wave_height: '4.0',
+        wave_height: '2.0',
         wind_speed: '5',
       }),
       createMockForecast({
         forecast_date: '2026-01-13',
         forecast_time: '16:00:00', // 4pm PT - still Jan 13 local - GOOD
-        wave_height: '4.0',
+        wave_height: '2.0',
         wind_speed: '5',
       }),
       createMockForecast({

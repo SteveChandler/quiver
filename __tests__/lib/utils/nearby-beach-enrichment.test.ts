@@ -21,10 +21,6 @@ jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
 }));
 
-jest.mock("@/lib/utils/regional-forecast-utils", () => ({
-  calculateDayScore: jest.fn(),
-}));
-
 jest.mock("@/lib/supabase/query-builders", () => ({
   withApprovedPhotos: jest.fn(),
 }));
@@ -32,7 +28,6 @@ jest.mock("@/lib/supabase/query-builders", () => ({
 describe("enrichBeachesWithConditions", () => {
   const { getBatchFreshForecastsFromCache } = require("@/lib/utils/forecast-service-utils");
   const { createSupabaseServiceRoleClient } = require("@/lib/supabase/server");
-  const { calculateDayScore } = require("@/lib/utils/regional-forecast-utils");
   const { withApprovedPhotos } = require("@/lib/supabase/query-builders");
 
   beforeEach(() => {
@@ -70,6 +65,18 @@ describe("enrichBeachesWithConditions", () => {
     } as Beach;
   }
 
+  function createMockForecast(waveHeight: string): Record<string, unknown> {
+    return {
+      wave_height: waveHeight,
+      wave_period: "13s",
+      swell_1_period: "13s",
+      wind_speed: "0 mph",
+      tide_height: "3 ft",
+      tide_status: "Rising",
+      forecast_at: "2024-01-01T12:00:00Z",
+    };
+  }
+
   describe("Empty Input", () => {
     it("returns empty array for empty input", async () => {
       const result = await enrichBeachesWithConditions([]);
@@ -93,7 +100,7 @@ describe("enrichBeachesWithConditions", () => {
           "beach-1",
           {
             forecasts: [
-              { wave_height: "6.5", timestamp: "2024-01-01T12:00:00Z" },
+              createMockForecast("2.0 ft"),
             ],
           },
         ],
@@ -101,16 +108,13 @@ describe("enrichBeachesWithConditions", () => {
           "beach-2",
           {
             forecasts: [
-              { wave_height: "4.2", timestamp: "2024-01-01T12:00:00Z" },
+              createMockForecast("3.0 ft"),
             ],
           },
         ],
       ]);
 
       getBatchFreshForecastsFromCache.mockResolvedValue(forecastMap);
-      calculateDayScore
-        .mockReturnValueOnce(8.5) // Beach 1 score
-        .mockReturnValueOnce(7.2); // Beach 2 score
 
       const result = await enrichBeachesWithConditions(beaches);
 
@@ -121,14 +125,14 @@ describe("enrichBeachesWithConditions", () => {
       expect(result).toHaveLength(2);
       expect(result[0]).toMatchObject({
         id: "beach-1",
-        score: 8.5,
-        waveHeight: 6.5,
+        score: 100,
+        waveHeight: 2,
         photoUrl: null,
       });
       expect(result[1]).toMatchObject({
         id: "beach-2",
-        score: 7.2,
-        waveHeight: 4.2,
+        score: 78,
+        waveHeight: 3,
         photoUrl: null,
       });
     });
@@ -145,7 +149,7 @@ describe("enrichBeachesWithConditions", () => {
       expect(result[0].waveHeight).toBeNull();
     });
 
-    it("returns null score when calculateDayScore returns 0", async () => {
+    it("returns null score when native condition score is 0", async () => {
       const beaches = [createMockBeach({ id: "beach-1" })];
 
       const forecastMap = new Map([
@@ -153,13 +157,12 @@ describe("enrichBeachesWithConditions", () => {
           "beach-1",
           {
             forecasts: [
-              { wave_height: "2.0", timestamp: "2024-01-01T12:00:00Z" },
+              createMockForecast("0.2 ft"),
             ],
           },
         ],
       ]);
       getBatchFreshForecastsFromCache.mockResolvedValue(forecastMap);
-      calculateDayScore.mockReturnValue(0);
 
       const result = await enrichBeachesWithConditions(beaches);
 
@@ -174,17 +177,16 @@ describe("enrichBeachesWithConditions", () => {
           "beach-1",
           {
             forecasts: [
-              { wave_height: "8.75", timestamp: "2024-01-01T12:00:00Z" },
+              createMockForecast("2.75 ft"),
             ],
           },
         ],
       ]);
       getBatchFreshForecastsFromCache.mockResolvedValue(forecastMap);
-      calculateDayScore.mockReturnValue(9);
 
       const result = await enrichBeachesWithConditions(beaches);
 
-      expect(result[0].waveHeight).toBe(8.75);
+      expect(result[0].waveHeight).toBe(2.75);
     });
   });
 
@@ -275,13 +277,12 @@ describe("enrichBeachesWithConditions", () => {
           "beach-1",
           {
             forecasts: [
-              { wave_height: "5.0", timestamp: "2024-01-01T12:00:00Z" },
+              createMockForecast("2.5 ft"),
             ],
           },
         ],
       ]);
       getBatchFreshForecastsFromCache.mockResolvedValue(forecastMap);
-      calculateDayScore.mockReturnValue(7.5);
 
       // Mock photo data
       const mockSupabase = {
@@ -305,8 +306,8 @@ describe("enrichBeachesWithConditions", () => {
       expect(result[0]).toMatchObject({
         id: "beach-1",
         name: "Beach One",
-        score: 7.5,
-        waveHeight: 5.0,
+        score: 89,
+        waveHeight: 2.5,
         photoUrl: "https://example.com/photo1.jpg",
       });
 

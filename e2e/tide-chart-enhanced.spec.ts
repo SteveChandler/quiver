@@ -4,9 +4,111 @@ import {
   assertNoErrors,
   ErrorCapture,
 } from "./utils/error-detection";
+import {
+  createLocalAdminClient,
+  getLocalBeachBySlug,
+  isLocalE2ETarget,
+} from "./utils/local-supabase-fixtures";
 
 // Beach page URL matching the reported tide chart issue.
 const BEACH_URL = "/ca/san-diego/ocean-beach-pier";
+const HOUR_MS = 60 * 60 * 1000;
+
+type TideScheduleEntry = {
+  height: number;
+  time: number;
+  type: "high" | "low";
+};
+
+function formatForecastTime(date: Date): string {
+  return date.toISOString().slice(11, 19);
+}
+
+function buildTideSchedule(anchor: Date): TideScheduleEntry[] {
+  return Array.from({ length: 28 }, (_, index) => {
+    const isHigh = index % 2 === 0;
+    const date = new Date(anchor.getTime() + (index * 6 - 12) * HOUR_MS);
+    const cycle = Math.floor(index / 2);
+
+    return {
+      height: isHigh ? 4.2 + (cycle % 3) * 0.3 : 0.4 + (cycle % 2) * 0.2,
+      time: Math.floor(date.getTime() / 1000),
+      type: isHigh ? "high" : "low",
+    };
+  });
+}
+
+function tideHeightForIndex(index: number): string {
+  const height = 2.4 + Math.sin(index / 2) * 1.3;
+  return `${height.toFixed(1)} ft`;
+}
+
+async function ensureLocalOceanBeachTideFixture(): Promise<void> {
+  if (!isLocalE2ETarget()) return;
+
+  const admin = createLocalAdminClient();
+  const beach = await getLocalBeachBySlug("ocean-beach-pier");
+  const { data: rows, error } = await admin
+    .from("enhanced_forecasts")
+    .select("id,raw_forecast")
+    .eq("beach_id", beach.id)
+    .order("forecast_at", { ascending: true })
+    .limit(80);
+
+  if (error) throw error;
+  if (!rows || rows.length < 24) {
+    throw new Error("Ocean Beach Pier local forecast fixture is too sparse");
+  }
+
+  const anchor = new Date();
+  anchor.setUTCMinutes(0, 0, 0);
+  const tideSchedule = buildTideSchedule(anchor);
+
+  for (let index = 0; index < rows.length; index += 1) {
+    const temporaryDate = new Date(Date.UTC(2040, 0, 1, index * 3));
+    const { error: temporaryError } = await admin
+      .from("enhanced_forecasts")
+      .update({
+        forecast_at: temporaryDate.toISOString(),
+        forecast_date: temporaryDate.toISOString().slice(0, 10),
+        forecast_time: formatForecastTime(temporaryDate),
+      })
+      .eq("id", rows[index].id);
+
+    if (temporaryError) throw temporaryError;
+  }
+
+  for (let index = 0; index < rows.length; index += 1) {
+    const row = rows[index] as {
+      id: string;
+      raw_forecast: Record<string, unknown> | null;
+    };
+    const forecastDate = new Date(anchor.getTime() + (index - 4) * 3 * HOUR_MS);
+    const nextTide =
+      tideSchedule.find((entry) => entry.time * 1000 > forecastDate.getTime()) ??
+      tideSchedule[tideSchedule.length - 1];
+    const nextTideDate = new Date(nextTide.time * 1000);
+    const { error: updateError } = await admin
+      .from("enhanced_forecasts")
+      .update({
+        forecast_at: forecastDate.toISOString(),
+        forecast_date: forecastDate.toISOString().slice(0, 10),
+        forecast_time: formatForecastTime(forecastDate),
+        next_tide_at: nextTideDate.toISOString(),
+        next_tide_height: `${nextTide.height.toFixed(1)} ft`,
+        next_tide_type: nextTide.type === "high" ? "High" : "Low",
+        raw_forecast: {
+          ...(row.raw_forecast ?? {}),
+          tide_schedule: tideSchedule,
+        },
+        tide_height: tideHeightForIndex(index),
+        tide_status: index % 4 < 2 ? "Rising" : "Falling",
+      })
+      .eq("id", row.id);
+
+    if (updateError) throw updateError;
+  }
+}
 
 /**
  * E2E tests for the tide chart on beach detail pages.
@@ -16,6 +118,10 @@ const BEACH_URL = "/ca/san-diego/ocean-beach-pier";
  */
 test.describe("Tide Chart", () => {
   let errorCapture: ErrorCapture;
+
+  test.beforeAll(async () => {
+    await ensureLocalOceanBeachTideFixture();
+  });
 
   test.beforeEach(async ({ page }) => {
     errorCapture = setupErrorDetection(page);

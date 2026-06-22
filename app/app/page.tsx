@@ -36,7 +36,7 @@ export default async function AppHandoffPage({
 
   if (platform === "ios") {
     await logAppHandoffLinkOpenedServer({
-      sessionId: `app-route-${source}`,
+      sessionId: crypto.randomUUID(),
       metadata: {
         source,
         platform: "ios",
@@ -49,7 +49,7 @@ export default async function AppHandoffPage({
 
   if (platform === "android") {
     await logAppHandoffLinkOpenedServer({
-      sessionId: `app-route-${source}`,
+      sessionId: crypto.randomUUID(),
       metadata: {
         source,
         platform: "android",

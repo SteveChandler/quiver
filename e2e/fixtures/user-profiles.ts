@@ -22,7 +22,7 @@ export const TEST_USER_PROFILES = {
   withHomeBeach: {
     id: 'test-user-with-home-beach',
     full_name: 'Test User With Home Beach',
-    email: process.env.TEST_USER_EMAIL || 'testuser@quiver.surf',
+    email: process.env.TEST_USER_EMAIL || 'testuser@quivertest.local',
     home_beach_id: null, // Will be set to actual beach ID in test setup
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -35,7 +35,7 @@ export const TEST_USER_PROFILES = {
   withoutHomeBeach: {
     id: 'test-user-without-home-beach',
     full_name: 'Test User Without Home Beach',
-    email: 'testuser-no-beach@quiver.surf',
+    email: 'testuser-no-beach@quivertest.local',
     home_beach_id: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -48,7 +48,7 @@ export const TEST_USER_PROFILES = {
   withInvalidHomeBeach: {
     id: 'test-user-invalid-home-beach',
     full_name: 'Test User Invalid Home Beach',
-    email: 'testuser-invalid-beach@quiver.surf',
+    email: 'testuser-invalid-beach@quivertest.local',
     home_beach_id: '00000000-0000-0000-0000-000000000000', // Non-existent UUID
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -60,7 +60,7 @@ export const TEST_USER_PROFILES = {
    */
   default: {
     full_name: 'Test User',
-    email: process.env.TEST_USER_EMAIL || 'testuser@quiver.surf',
+    email: process.env.TEST_USER_EMAIL || 'testuser@quivertest.local',
     home_beach_id: null, // Can be configured per test
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

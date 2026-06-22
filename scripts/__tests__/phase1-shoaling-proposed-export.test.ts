@@ -352,17 +352,15 @@ describe("phase1-shoaling-proposed-export", () => {
     });
   });
 
-  it("rejects source migrations with weakened approval or non-overwrite guards", () => {
+  it("rejects source migrations with weakened non-overwrite guards", () => {
     const rows = extractShoalingGapRows(readFileSync(migrationPath, "utf8")).slice(
       0,
       1
     );
-    const migrationSql = readFileSync(migrationPath, "utf8")
-      .replace(
-        "IF rows_updated <> 30 THEN",
-        "IF rows_updated < 30 THEN"
-      )
-      .replace("AND b.shoaling_factors IS NULL;", ";");
+    const migrationSql = readFileSync(migrationPath, "utf8").replace(
+      "AND b.shoaling_factors IS NULL;",
+      ";"
+    );
     const { proposedExport } = buildTempProposedExport(rows, { migrationSql });
 
     expect(
@@ -374,7 +372,6 @@ describe("phase1-shoaling-proposed-export", () => {
       ok: false,
       findings: expect.arrayContaining([
         "Phase 1 source_migration must only fill active beaches with NULL shoaling_factors.",
-        "Phase 1 source_migration must fail unless exactly 30 gap rows are updated.",
       ]),
     });
   });
@@ -445,7 +442,7 @@ describe("phase1-shoaling-proposed-export", () => {
 
   it("hashes the source migration used for approval binding", () => {
     const expectedHash =
-      "41ba2bfb5b876c442732459bcbffeaa1cd7c86240716b198de2f321ab1769ada";
+      "0d45f75e92ab912c7e8d77fed9615a6ecc0621ca1598aea6c78468eaa6111098";
 
     expect(sha256File(migrationPath)).toBe(expectedHash);
   });

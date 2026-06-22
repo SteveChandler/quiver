@@ -6,6 +6,7 @@ import {
   compareListingMetadata,
   parseAppStoreLookup,
 } from "../../lib/seo/agent-workflow/store-snapshot";
+import { readLatestCompetitorReportDeltas } from "../../lib/seo/agent-workflow/competitor-deltas";
 import { currentAuditDate, resolveSeoAuditFile } from "../../lib/seo/agent-workflow/audit-paths";
 import type { StoreListingSnapshot } from "../../lib/seo/agent-workflow/types";
 import { fetchJsonWithRetry } from "./resilient-fetch";
@@ -66,7 +67,7 @@ async function main(): Promise<void> {
     }
   }
 
-  const competitorDeltas = readCompetitorMemoryDeltas();
+  const competitorDeltas = readLatestCompetitorReportDeltas();
   writeJson(buildStoreSnapshot(new Date().toISOString(), listings, competitorDeltas, missing));
 }
 
@@ -97,14 +98,6 @@ async function fetchJson(url: string): Promise<unknown> {
   return fetchJsonWithRetry(url, {
     headers: { "User-Agent": "QuiverSEOAutomation/1.0" },
   });
-}
-
-function readCompetitorMemoryDeltas(): string[] {
-  const memoryPath = "/Users/stevenchandler/.codex/automations/competitor-research-refresh/memory.md";
-  if (!fs.existsSync(memoryPath)) return [];
-  const lines = fs.readFileSync(memoryPath, "utf8").trim().split(/\r?\n/);
-  const start = Math.max(lines.findLastIndex((line) => line.startsWith("Run: ")), 0);
-  return lines.slice(start).filter((line) => line.startsWith("- ")).slice(0, 12);
 }
 
 function writeJson(value: unknown): void {

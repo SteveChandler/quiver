@@ -192,6 +192,8 @@ export interface DetailedScore {
     affinityBonus: number;
     /** Bonus from personalization engine (break type, learned/implicit prefs) */
     personalizationBonus: number;
+    /** Aggregate break behavior boost from completed/repeat session history */
+    behaviorBonus?: number;
     /** Distance penalty for far beaches (0 to -20 points) */
     distancePenalty: number;
   };

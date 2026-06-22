@@ -17,11 +17,72 @@ const VIEWPORTS = [
   { name: "desktop", width: 1280, height: 900 },
 ] as const;
 
+interface HorizontalOverflowReport {
+  hasHorizontalOverflow: boolean;
+  innerWidth: number;
+  scrollWidth: number;
+  offenders: Array<{
+    className: string;
+    left: number;
+    right: number;
+    tag: string;
+    testId: string;
+    text: string;
+    width: number;
+  }>;
+}
+
+async function getHorizontalOverflowReport(
+  page: Page
+): Promise<HorizontalOverflowReport> {
+  return page.evaluate(() => {
+    const innerWidth = window.innerWidth;
+    const scrollWidth = document.documentElement.scrollWidth;
+    const offenders = Array.from(document.querySelectorAll("body *"))
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        return {
+          className:
+            typeof element.className === "string" ? element.className : "",
+          left: Math.round(rect.left),
+          right: Math.round(rect.right),
+          tag: element.tagName.toLowerCase(),
+          testId: element.getAttribute("data-testid") ?? "",
+          text: (element.textContent ?? "")
+            .trim()
+            .replace(/\s+/g, " ")
+            .slice(0, 120),
+          width: Math.round(rect.width),
+        };
+      })
+      .filter(
+        (element) =>
+          element.width > 0 &&
+          (element.right > innerWidth + 1 || element.left < -1)
+      )
+      .slice(0, 10);
+
+    return {
+      hasHorizontalOverflow: scrollWidth > innerWidth + 1,
+      innerWidth,
+      scrollWidth,
+      offenders,
+    };
+  });
+}
+
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {
-  const hasHorizontalOverflow = await page.evaluate(
-    () => document.documentElement.scrollWidth > window.innerWidth + 1
-  );
-  expect(hasHorizontalOverflow).toBe(false);
+  let report = await getHorizontalOverflowReport(page);
+
+  for (let attempt = 0; attempt < 5 && report.hasHorizontalOverflow; attempt += 1) {
+    await page.waitForLoadState("networkidle", { timeout: 500 }).catch(() => {});
+    report = await getHorizontalOverflowReport(page);
+  }
+
+  expect(
+    report.hasHorizontalOverflow,
+    `Horizontal overflow report: ${JSON.stringify(report, null, 2)}`
+  ).toBe(false);
 }
 
 async function openPage(page: Page, path: string): Promise<void> {

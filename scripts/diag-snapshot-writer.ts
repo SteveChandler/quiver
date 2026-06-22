@@ -12,10 +12,13 @@
  * line without going through prod-level filtering.
  */
 import "dotenv/config";
-import { logDisplayPredictions } from "../lib/services/forecast/log-display-prediction";
+import {
+  logDisplayPredictions,
+  type DisplayPredictionRow,
+} from "../lib/services/forecast/log-display-prediction";
 import { createServiceRoleClient } from "../lib/supabase";
 
-async function main() {
+async function main(): Promise<void> {
   console.log("[diag] env check", {
     hasUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL,
     hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
@@ -38,16 +41,60 @@ async function main() {
 
   console.log("[diag] using beach", beach);
 
-  const synthetic = [
+  const synthetic: DisplayPredictionRow[] = [
     {
       beach_id: beach.id,
       predicted_at: new Date().toISOString(),
       forecast_horizon_hours: 24,
+      forecast_horizon_bucket: "0-24h",
       raw_display_height_m: 1.234,
       offset_corrected_display_height_m: 1.234,
       height_offset_m: null,
       height_offset_sample_count: null,
       display_source: "diag-script-v1",
+      display_wave_source: "model_swell",
+      display_raw_input_height_m: 1.234,
+      model_version: "diag-script-v1",
+      wave_height_om_m: null,
+      noaa_swell_1_height_m: null,
+      noaa_swell_1_period_s: null,
+      noaa_swell_1_direction_deg: null,
+      noaa_swell_2_height_m: null,
+      noaa_swell_2_period_s: null,
+      noaa_swell_2_direction_deg: null,
+      noaa_wind_wave_height_m: null,
+      noaa_wind_wave_period_s: null,
+      noaa_wind_wave_direction_deg: null,
+      wave_period_s: null,
+      wave_direction_deg: null,
+      wave_period_om: null,
+      wave_direction_om: null,
+      wave_peak_period_om: null,
+      swell_height_om: null,
+      swell_period_om: null,
+      swell_direction_om: null,
+      swell_wave_peak_period_om: null,
+      wind_wave_height_om: null,
+      wind_wave_period_om: null,
+      wind_wave_direction_om: null,
+      wind_wave_peak_period_om: null,
+      secondary_swell_height_om: null,
+      secondary_swell_period_om: null,
+      secondary_swell_direction_om: null,
+      tertiary_swell_height_om: null,
+      tertiary_swell_period_om: null,
+      tertiary_swell_direction_om: null,
+      om_wind_wave_missing: null,
+      om_primary_swell_missing: null,
+      om_secondary_swell_missing: null,
+      om_tertiary_swell_missing: null,
+      om_partition_schema_version: null,
+      wind_speed_ms: null,
+      wind_direction_deg: null,
+      v5_shadow_height_m: null,
+      v5_model_version: null,
+      direction_bucket: null,
+      om_bucket: null,
     },
   ];
 

@@ -12,7 +12,7 @@ import {
 } from "@/lib/data/server/featured-beaches";
 import { isValidLatitude, isValidLongitude } from "@/lib/coordinate-validation";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
-import { calculateDayScore } from "@/lib/utils/regional-forecast-utils";
+import { pickBestNativeForecastSlot } from "@/lib/scoring/native-condition-score";
 import type { EnrichedBeach } from "@/lib/data/server/featured-beaches";
 
 /**
@@ -66,9 +66,8 @@ async function featuredBeachesHandler(request: NextRequest) {
 
       const forecasts = forecastResult.forecasts;
 
-      // Calculate score using the most recent forecasts
-      const minimalBeach = { id: beach.id, name: beach.name } as any;
-      const score = calculateDayScore(forecasts, minimalBeach);
+      const best = pickBestNativeForecastSlot(forecasts);
+      const score = best?.score ?? 0;
 
       // Select the forecast closest to now (not the earliest in the window)
       const now = Date.now();

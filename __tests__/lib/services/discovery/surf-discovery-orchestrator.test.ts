@@ -86,6 +86,7 @@ const mockState = {
   boardsError: null as { message: string } | null,
   userPrefs: null as any,
   affinityMap: new Map(),
+  sessionRows: [] as any[],
   sunTimesCache: new Map(),
   scoringResults: [] as { beach: Partial<Beach>; score: number; window: any; forecast: any }[],
 };
@@ -178,6 +179,45 @@ const mockSupabaseFrom = jest.fn((table: string) => {
     return makeCustomSpotsQuery();
   }
 
+  if (table === 'sessions') {
+    const filters: Array<{ op: 'in' | 'is' | 'gte'; column: string; value: unknown }> = [];
+    const query: any = {
+      select: jest.fn(() => query),
+      in: jest.fn((column: string, value: unknown) => {
+        filters.push({ op: 'in', column, value });
+        return query;
+      }),
+      is: jest.fn((column: string, value: unknown) => {
+        filters.push({ op: 'is', column, value });
+        return query;
+      }),
+      gte: jest.fn((column: string, value: unknown) => {
+        filters.push({ op: 'gte', column, value });
+        return query;
+      }),
+      order: jest.fn(() => query),
+      limit: jest.fn(async () => {
+        const rows = mockState.sessionRows.filter((row) =>
+          filters.every((filter) => {
+            const value = row[filter.column];
+            if (filter.op === 'in' && Array.isArray(filter.value)) {
+              return filter.value.includes(value);
+            }
+            if (filter.op === 'is') {
+              return value === filter.value;
+            }
+            if (filter.op === 'gte') {
+              return String(value) >= String(filter.value);
+            }
+            return true;
+          })
+        );
+        return { data: rows, error: null };
+      }),
+    };
+    return query;
+  }
+
   if (table === 'sun_times') {
     return {
       select: jest.fn(() => ({
@@ -225,7 +265,7 @@ jest.mock('@/lib/services/discovery/window-selector', () => ({
       timezone: 'America/Los_Angeles',
     };
   }),
-  scoreWindowWithEngine: jest.fn(() => 70),
+  scoreWindowConditionScore: jest.fn(() => 70),
   getLocalDateStr: jest.fn((date: Date, _tz: string) => {
     return date.toISOString().split('T')[0];
   }),
@@ -332,6 +372,21 @@ jest.mock('@/lib/domains/scoring', () => ({
     dataSource: 'NOAA_NWS',
   })),
   getConditionCharacter: jest.fn(() => ({ label: 'Clean', category: 'good-clean' })),
+}));
+
+jest.mock('@/lib/scoring/native-condition-score', () => ({
+  scoreNativeForecastSlot: jest.fn((forecast: any) => {
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    const beach = { id: forecast?.beach_id ?? 'beach-1' };
+    const detailed = scoreBeachWithEngine(null, beach, forecast);
+    const subscores = detailed.subscores ?? {};
+    return (
+      detailed.total -
+      (subscores.affinityBonus ?? 0) -
+      (subscores.distancePenalty ?? 0)
+    );
+  }),
+  getNativeConditionMatchQuality: jest.fn(() => 'excellent'),
 }));
 
 // Mock timezone utils
@@ -444,6 +499,7 @@ function customSpotRow(input: {
 afterEach(() => {
   mockState.includedBeachRows = [];
   mockState.customSpots = [];
+  mockState.sessionRows = [];
   resetDefaultDiscoveryMocks();
 });
 
@@ -1033,6 +1089,74 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(customIds).toEqual(['near-own-spot']);
   });
 
+  test('keeps an in-radius own custom spot out of Now/Best but in My spots when beyond the nearby-beach cut', async () => {
+    // 21 candidate beaches clustered on the user trips the 20-spot cap, so the
+    // nearby boundary collapses to ~1.3mi. The custom spot sits ~7.7mi out:
+    // within the 25mi radius (so it is fetched) but beyond the nearby cut.
+    const clusterCandidates: Beach[] = [
+      mockBeach1 as Beach,
+      ...Array.from({ length: 20 }, (_, i) => ({
+        id: `cluster-${i}`,
+        name: `Cluster ${i}`,
+        slug: `cluster-${i}`,
+        lat: 32.7157 + (i + 1) * 0.001,
+        lon: -117.1611,
+        city: 'San Diego',
+        state: 'CA',
+        is_private: false,
+        skill_level: 'intermediate',
+      }) as Beach),
+    ];
+    mockState.candidatePoolResponse = {
+      candidates: clusterCandidates,
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.includedBeachRows = [mockBeach4];
+    mockState.customSpots = [
+      customSpotRow({
+        id: 'beyond-cut-own-spot',
+        userId: testUserId,
+        name: 'Beyond Cut Peak',
+        visibility: 'private',
+      }),
+    ];
+    mockState.forecastBatchResponse = {
+      successful: [
+        ...clusterCandidates.map((beach) => ({
+          beach,
+          forecasts: [{ ...mockForecast, beach_id: beach.id }],
+        })),
+        { beach: mockBeach4, forecasts: [{ ...mockForecast, beach_id: 'beach-4' }] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 5,
+    });
+
+    // Gated out of the primary (Now/Best) feed...
+    expect(
+      result.recommendations.find((rec) => rec.customSpotId === 'beyond-cut-own-spot'),
+    ).toBeUndefined();
+    // ...but still reachable in My spots via includedRecommendations.
+    expect(
+      (result.includedRecommendations ?? []).find(
+        (rec) => rec.customSpotId === 'beyond-cut-own-spot',
+      ),
+    ).toEqual(
+      expect.objectContaining({
+        kind: 'custom_spot',
+        customSpotId: 'beyond-cut-own-spot',
+        isOwn: true,
+      }),
+    );
+  });
+
   test('treats custom spot 0 to 360 swell windows as full-circle exposure', async () => {
     mockState.candidatePoolResponse = {
       candidates: [mockBeach1] as Beach[],
@@ -1468,7 +1592,7 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     expect(beach1!.subscores.personalizationBonus).toBe(15);
   });
 
-  test('post-personalization score still respects small-wave cap', async () => {
+  test('post-personalization score applies bonuses after native base score', async () => {
     const { scoreBeachWithEngine, forecastToSnapshot } = require('@/lib/domains/scoring');
     const { calculatePersonalizationBonus } = require('@/lib/services/discovery/personalization-layer');
 
@@ -1521,9 +1645,77 @@ describe('discoverSurfSpots - Personalization Integration', () => {
       maxResults: 1,
     });
 
-    expect(result.recommendations[0].score).toBe(55);
+    expect(result.recommendations[0].score).toBe(67);
     expect(result.recommendations[0].subscores.affinityBonus).toBe(4);
     expect(result.recommendations[0].subscores.personalizationBonus).toBe(12);
+  });
+
+  test('aggregate break behavior can lift a repeat-completed break without replacing forecast quality', async () => {
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+
+    mockState.candidatePoolResponse = {
+      candidates: [
+        { ...mockBeach1, lat: 32.7157, lon: -117.1611 },
+        { ...mockBeach2, lat: 32.7158, lon: -117.1612 },
+      ] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: { ...mockBeach1, lat: 32.7157, lon: -117.1611 }, forecasts: [mockForecast] },
+        {
+          beach: { ...mockBeach2, lat: 32.7158, lon: -117.1612 },
+          forecasts: [{ ...mockForecast, beach_id: 'beach-2' }],
+        },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+    scoreBeachWithEngine.mockImplementation((_engine: unknown, beach: Beach) => {
+      const baseScore = beach.id === 'beach-2' ? 74 : 70;
+      return {
+        total: baseScore,
+        subscores: {
+          waveHeightFit: 20,
+          periodEnergyScore: 15,
+          windAlignment: 15,
+          tideFit: 12,
+          affinityBonus: 0,
+          personalizationBonus: 0,
+          distancePenalty: 0,
+        },
+        matchQuality: 'excellent',
+        reasons: ['Good wave size', 'Clean swell', 'Light winds'],
+        warnings: [],
+        conditionBadges: [],
+      };
+    });
+    mockState.sessionRows = Array.from({ length: 12 }, (_, index) => ({
+      beach_id: 'beach-1',
+      user_id: `user-${index % 4}`,
+      status: 'completed',
+      arrival_time: `2026-06-${String((index % 9) + 1).padStart(2, '0')}T14:00:00Z`,
+      created_at: '2026-06-01T12:00:00Z',
+      wave_height_ft: 3,
+      wind_speed_mph: 7,
+      wind_direction: 'W',
+      tide_status: 'Rising',
+      deleted_at: null,
+    }));
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 2,
+    });
+
+    expect(result.recommendations[0].beach.id).toBe('beach-1');
+    expect(result.recommendations[0].score).toBeGreaterThan(74);
+    expect(result.recommendations[0].subscores.behaviorBonus).toBeGreaterThan(0);
+    expect(result.recommendations[0].reasons).toEqual(
+      expect.arrayContaining(['Completed-session history supports this break'])
+    );
   });
 
   test('zero personalization bonus does not change scores', async () => {
@@ -1537,9 +1729,10 @@ describe('discoverSurfSpots - Personalization Integration', () => {
 
     const result = await discoverSurfSpots(testUserId, { userLocation: defaultUserLocation });
 
-    // All beaches should have the base score (75 from the engine mock)
+    // Scores should reflect the native base score plus any distance adjustment,
+    // but not personalization.
     for (const rec of result.recommendations) {
-      expect(rec.score).toBe(75);
+      expect(rec.score).toBeLessThanOrEqual(75);
       expect(rec.subscores.personalizationBonus).toBe(0);
     }
   });
@@ -2447,7 +2640,10 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     // selectBestWindow must have been called exactly ONCE (today-only).
     // A second call would mean the orchestrator reached for tomorrow's data.
     expect(mockSelectBestWindow).toHaveBeenCalledTimes(1);
-    expect(mockSelectBestWindow.mock.calls[0][0]).toEqual([todayForecast]);
+    expect(mockSelectBestWindow.mock.calls[0][0]).toMatchObject({
+      forecasts: [todayForecast],
+      userSkillLevel: null,
+    });
 
     // No recommendation should have leaked through from the tomorrow fallback.
     expect(result.recommendations).toEqual([]);

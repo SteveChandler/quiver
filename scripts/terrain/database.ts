@@ -20,10 +20,12 @@ export async function loadBeaches(
   supabase: SupabaseClient,
   filters: {
     beachId?: string
+    beachIds?: string[]
     region?: string
     limit?: number
     offset?: number
     force?: boolean
+    missingOnly?: boolean
   }
 ): Promise<BeachForAnalysis[]> {
   let query = supabase
@@ -36,12 +38,20 @@ export async function loadBeaches(
     query = query.eq('id', filters.beachId)
   }
 
+  if (filters.beachIds && filters.beachIds.length > 0) {
+    query = query.in('id', filters.beachIds)
+  }
+
   if (filters.region) {
-    // Match region or location (case-insensitive)
+    // Match region case-insensitively. Production beaches has no location column.
     const regionLower = filters.region.toLowerCase()
-    query = query.or(
-      `region.ilike.%${regionLower}%,location.ilike.%${regionLower}%`
-    )
+    query = query.ilike('region', `%${regionLower}%`)
+  }
+
+  if (filters.missingOnly) {
+    query = query
+      .is('deleted_at', null)
+      .or('terrain_status.is.null,swell_access_factors.is.null,wind_exposure_factors.is.null')
   }
 
   if (filters.limit !== undefined) {
@@ -205,7 +215,9 @@ export async function countBeaches(
   supabase: SupabaseClient,
   filters: {
     beachId?: string
+    beachIds?: string[]
     region?: string
+    missingOnly?: boolean
   }
 ): Promise<number> {
   let query = supabase
@@ -216,11 +228,19 @@ export async function countBeaches(
     query = query.eq('id', filters.beachId)
   }
 
+  if (filters.beachIds && filters.beachIds.length > 0) {
+    query = query.in('id', filters.beachIds)
+  }
+
   if (filters.region) {
     const regionLower = filters.region.toLowerCase()
-    query = query.or(
-      `region.ilike.%${regionLower}%,location.ilike.%${regionLower}%`
-    )
+    query = query.ilike('region', `%${regionLower}%`)
+  }
+
+  if (filters.missingOnly) {
+    query = query
+      .is('deleted_at', null)
+      .or('terrain_status.is.null,swell_access_factors.is.null,wind_exposure_factors.is.null')
   }
 
   const { count, error } = await query

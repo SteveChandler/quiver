@@ -785,6 +785,7 @@ function BeachDetailContent({
     return aggregateDayForecasts(forecasts, beach, {
       maxDays: 12,
       timezone: beachTimezone || undefined,
+      skillLevel: null,
     });
   }, [publicMode, forecasts, beach, beachTimezone]);
 
