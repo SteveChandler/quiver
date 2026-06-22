@@ -522,6 +522,37 @@ describe("processPendingEvents — happy path", () => {
     });
   });
 
+  it("push payload includes notification_event_id", async () => {
+    const state = emptyState();
+    state.events.push(buildEvent({ id: "evt-push-attribution" }));
+    state.profiles.set("user-recipient", buildProfile());
+    state.profiles.set(
+      "user-actor",
+      buildProfile({ id: "user-actor", display_name: "Actor User" })
+    );
+    state.devices.set("user-recipient", ["device-token-A"]);
+
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: fakeFcm as never,
+    });
+
+    const sentMessages = (fakeFcm.sendEach.mock.calls[0] as unknown[])[0] as Array<{
+      data?: Record<string, string>;
+    }>;
+    expect(sentMessages[0].data?.notification_event_id).toBe(
+      "evt-push-attribution"
+    );
+  });
+
   it("forecast_alert: worker push success reconciles alert_delivery_attempts", async () => {
     const state = emptyState();
     state.events.push(

@@ -683,6 +683,19 @@ describe("Conditions Alert Email Cron Job API", () => {
 
       await GET(request);
 
+      const templateProps = (ConditionsAlertEmail as jest.Mock).mock.calls[0][0];
+      const ctaUrl = new URL(templateProps.ctaUrl);
+
+      expect(ctaUrl.origin).toBe("https://quiversurf.app");
+      expect(ctaUrl.pathname).toBe("/app/spot/ocean-beach");
+      expect(ctaUrl.searchParams.get("utm_source")).toBe("email");
+      expect(ctaUrl.searchParams.get("utm_medium")).toBe("conditions_alert");
+      expect(ctaUrl.searchParams.get("utm_campaign")).toBe("conditions_alert");
+      expect(ctaUrl.searchParams.get("email_type")).toBe("conditions_alert");
+      expect(ctaUrl.searchParams.get("source")).toBe("conditions_alert_email");
+      expect(ctaUrl.searchParams.get("message_instance_id")).toEqual(
+        expect.any(String)
+      );
       expect(ConditionsAlertEmail).toHaveBeenCalledWith(
         expect.objectContaining({
           beachName: "Ocean Beach",
@@ -693,7 +706,7 @@ describe("Conditions Alert Email Cron Job API", () => {
             start: "8:00 AM",
             end: "10:00 AM",
           },
-          ctaUrl: "https://quiversurf.app/beach/ocean-beach",
+          ctaUrl: templateProps.ctaUrl,
           manageUrl: "https://quiversurf.app/settings",
           unsubscribeUrl: "https://quiversurf.app/settings",
         })
@@ -1339,10 +1352,15 @@ describe("Conditions Alert Email Cron Job API", () => {
         logEmailSent: jest.fn(),
         logEmailFailed: jest.fn(),
       });
+      const { ConditionsAlertEmail } = require("@/lib/mailer/templates/ConditionsAlertEmail");
 
       const request = mockRequest({ authorization: "Bearer valid" });
       await GET(request);
 
+      const ctaUrl = new URL((ConditionsAlertEmail as jest.Mock).mock.calls[0][0].ctaUrl);
+      const messageInstanceId = ctaUrl.searchParams.get("message_instance_id");
+
+      expect(messageInstanceId).toEqual(expect.any(String));
       expect(mockLogDelivery).toHaveBeenCalledWith({
         userId: "user-1",
         emailType: "conditions_alert",
@@ -1353,6 +1371,7 @@ describe("Conditions Alert Email Cron Job API", () => {
         meta: {
           beach_name: "Test Beach",
           beach_slug: "test-beach",
+          message_instance_id: messageInstanceId,
         },
       });
     });
