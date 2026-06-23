@@ -1,5 +1,30 @@
 import * as React from "react";
+
+import {
+  BeachBadge,
+  CTAButton,
+  EmailShell,
+  Eyebrow,
+  Footer,
+  PaperPanel,
+  Wordmark,
+} from "@/lib/mailer/components";
 import { getConditionLabel } from "@/lib/email/email-formatters";
+import {
+  CANVAS,
+  CARD,
+  cellBg,
+  CREAM,
+  FONT_BODY,
+  FONT_DISPLAY,
+  FONT_MONO,
+  GOLD,
+  MUTED,
+  PAPER_INK,
+  STICKER_ROTATIONS,
+  TEAL,
+  TEXT,
+} from "@/lib/mailer/theme";
 
 export interface SessionPromptEmailProps {
   displayName: string | null;
@@ -24,129 +49,130 @@ export function SessionPromptEmail({
   const { label: conditionLabel } = getConditionLabel(conditionsScore);
 
   return (
-    <div
-      style={{
-        fontFamily: "Arial, sans-serif",
-        lineHeight: 1.6,
-        maxWidth: 600,
-        margin: "0 auto",
-        backgroundColor: "#ffffff",
-      }}
-    >
-      {/* Header Section */}
-      <div
-        style={{
-          backgroundColor: "#0066cc",
-          padding: "24px 20px",
-          textAlign: "center" as const,
-        }}
-      >
-        <h1
-          style={{
-            color: "#ffffff",
-            margin: 0,
-            fontSize: 22,
-            fontWeight: "bold",
-          }}
-        >
-          How Was Your Session?
-        </h1>
-      </div>
+    <EmailShell>
+      <Wordmark dateline="Yesterday" />
 
-      {/* Content Section */}
-      <div style={{ padding: "24px 20px" }}>
-        {/* Greeting */}
-        <p style={{ fontSize: 16, margin: "0 0 16px 0" }}>
-          {greeting}
-        </p>
+      {/* Masthead — rotated editorial headline + optional beach crest */}
+      <tr>
+        <td {...cellBg(CANVAS, { padding: "26px 28px 20px" })}>
+          <table
+            role="presentation"
+            cellPadding={0}
+            cellSpacing={0}
+            width="100%"
+            style={{ borderCollapse: "collapse" }}
+          >
+            <tbody>
+              <tr>
+                <td style={{ verticalAlign: "top" }}>
+                  <Eyebrow color={GOLD}>Yesterday · {beachName}</Eyebrow>
+                  <h1
+                    style={{
+                      fontFamily: FONT_DISPLAY,
+                      fontWeight: 700,
+                      fontSize: 31,
+                      lineHeight: 1.04,
+                      color: CREAM,
+                      margin: 0,
+                      transform: `rotate(${STICKER_ROTATIONS.softNeg})`,
+                    }}
+                  >
+                    How Was Your Session?
+                  </h1>
+                </td>
+                <td
+                  align="right"
+                  width="64"
+                  style={{ verticalAlign: "top", width: 64 }}
+                >
+                  <BeachBadge beach={beachName} size={56} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </td>
+      </tr>
 
-        <p style={{ fontSize: 16, margin: "0 0 20px 0", color: "#333333" }}>
-          Conditions were looking <strong>{conditionLabel.toLowerCase()}</strong> at{" "}
-          <strong>{beachName}</strong> yesterday (scored {conditionsScore}).
-          {surfDescription && ` ${surfDescription}.`}{" "}If you got out there, we&apos;d love to hear how it was!
-        </p>
-
-        {/* Motivational Line */}
-        <div
-          style={{
-            backgroundColor: "#f5f9ff",
-            padding: "16px 20px",
-            borderLeft: "4px solid #0066cc",
-            borderRadius: "0 8px 8px 0",
-            marginBottom: 24,
-            color: "#333333",
-            fontSize: 15,
-          }}
-        >
-          Your session logs help the community and improve our forecasts.
-        </div>
-
-        {/* Two-button CTA layout: confirm session vs. skip */}
-        <div style={{ textAlign: "center" as const, marginBottom: 32 }}>
-          <a
-            href={confirmUrl}
+      {/* Body */}
+      <tr>
+        <td {...cellBg(CARD, { padding: "24px 28px" })}>
+          <p
             style={{
-              backgroundColor: "#0066cc",
-              color: "#ffffff",
-              padding: "14px 28px",
-              textDecoration: "none",
-              borderRadius: 8,
-              display: "inline-block",
-              fontSize: 16,
-              fontWeight: "bold",
-              marginBottom: 12,
+              fontFamily: FONT_DISPLAY,
+              fontWeight: 500,
+              fontSize: 18,
+              lineHeight: 1.3,
+              color: CREAM,
+              margin: "0 0 14px",
             }}
           >
-            Yes, I surfed! &rarr;
-          </a>
-          <br />
-          <a
-            href={skipUrl}
+            {greeting}
+          </p>
+
+          <p
             style={{
-              backgroundColor: "#f3f4f6",
-              color: "#374151",
-              padding: "12px 28px",
-              textDecoration: "none",
-              borderRadius: 8,
-              display: "inline-block",
-              fontSize: 14,
-              fontWeight: "500",
+              fontFamily: FONT_BODY,
+              fontSize: 15,
+              lineHeight: 1.55,
+              color: TEXT,
+              margin: "0 0 22px",
             }}
           >
-            No, I didn&apos;t surf
-          </a>
-        </div>
-      </div>
+            Conditions were looking{" "}
+            <strong style={{ color: TEAL }}>{conditionLabel.toLowerCase()}</strong> at{" "}
+            <strong style={{ color: CREAM }}>{beachName}</strong> yesterday (scored{" "}
+            {conditionsScore}).
+            {surfDescription ? ` ${surfDescription}.` : ""}{" "}
+            If you got out there, we&apos;d love to hear how it was!
+          </p>
 
-      {/* Footer */}
-      <div
-        style={{
-          borderTop: "1px solid #e5e5e5",
-          padding: "20px",
-          textAlign: "center" as const,
-        }}
-      >
+          {/* Motivational note — cream paper taped into the twilight page */}
+          <PaperPanel rotation={STICKER_ROTATIONS.softNeg}>
+            <p
+              style={{
+                fontFamily: FONT_DISPLAY,
+                fontWeight: 500,
+                fontSize: 15,
+                lineHeight: 1.4,
+                color: PAPER_INK,
+                margin: 0,
+              }}
+            >
+              Your session logs help the community and improve our forecasts.
+            </p>
+          </PaperPanel>
+
+          {/* Two stacked CTAs: confirm (orange) then skip (ghost) */}
+          <div style={{ textAlign: "center", padding: "20px 0 2px" }}>
+            <CTAButton href={confirmUrl}>Yes, I surfed!</CTAButton>
+            <div style={{ height: 12, lineHeight: 0, fontSize: 0 }}>&nbsp;</div>
+            <CTAButton href={skipUrl} variant="secondary">
+              No, I didn&apos;t surf
+            </CTAButton>
+          </div>
+        </td>
+      </tr>
+
+      <Footer>
         <p
           style={{
-            fontSize: 12,
-            color: "#666666",
-            margin: "0 0 8px 0",
+            fontFamily: FONT_MONO,
+            fontSize: 10,
+            letterSpacing: "0.5px",
+            color: "rgba(184,199,224,0.65)",
+            margin: 0,
           }}
         >
           You&apos;re receiving this because you have forecast alerts enabled for{" "}
-          {beachName}.
+          {beachName}. ·{" "}
+          <a
+            href={unsubscribeUrl}
+            style={{ color: MUTED, textDecoration: "underline" }}
+          >
+            Manage notification preferences
+          </a>
         </p>
-        <a
-          href={unsubscribeUrl}
-          style={{
-            fontSize: 12,
-            color: "#0066cc",
-            textDecoration: "underline",
-          }}
-        >
-          Manage notification preferences
-        </a>
-      </div>
-    </div>
+      </Footer>
+    </EmailShell>
   );
 }

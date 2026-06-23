@@ -22,6 +22,19 @@ import {
   ReengagementEmailProps,
 } from "@/lib/mailer/templates/ReengagementEmail";
 
+/**
+ * The zine layout wraps everything in table-based brand chrome (EmailShell,
+ * Wordmark, Stamp, PaperPanel, CTAButton, Footer), so the conditions list is
+ * no longer the only <table> in the DOM. Locate it by the row labels it owns.
+ */
+function getConditionsTable(container: HTMLElement): HTMLTableElement | null {
+  const cells = Array.from(container.querySelectorAll("td"));
+  const labelCell = cells.find((cell) =>
+    ["Waves", "Wind", "Best Window"].includes(cell.textContent?.trim() ?? "")
+  );
+  return labelCell?.closest("table") ?? null;
+}
+
 describe("ReengagementEmail", () => {
   const defaultProps: ReengagementEmailProps = {
     displayName: "John Doe",
@@ -213,8 +226,8 @@ describe("ReengagementEmail", () => {
 
       const { container } = render(<ReengagementEmail {...props} />);
 
-      // Check table rows - should only have 2 (Waves and Best Window)
-      const table = container.querySelector("table");
+      // Check conditions-table rows - should only have 2 (Waves and Best Window)
+      const table = getConditionsTable(container);
       const rows = table?.querySelectorAll("tr");
       expect(rows?.length).toBe(2); // Only Waves and Best Window
     });
@@ -240,8 +253,8 @@ describe("ReengagementEmail", () => {
     it("should render table with all conditions when all props provided", () => {
       const { container } = render(<ReengagementEmail {...defaultProps} />);
 
-      const rows = container.querySelectorAll("tbody tr");
-      expect(rows.length).toBe(3); // Waves, Wind, Best Window
+      const rows = getConditionsTable(container)?.querySelectorAll("tbody tr");
+      expect(rows?.length).toBe(3); // Waves, Wind, Best Window
     });
 
     it("should render table with no rows when all conditions are null", () => {
@@ -254,8 +267,8 @@ describe("ReengagementEmail", () => {
 
       const { container } = render(<ReengagementEmail {...props} />);
 
-      const rows = container.querySelectorAll("tbody tr");
-      expect(rows.length).toBe(0);
+      // With no conditions, the conditions table is omitted entirely.
+      expect(getConditionsTable(container)).toBeNull();
     });
   });
 
@@ -391,9 +404,12 @@ describe("ReengagementEmail", () => {
     it("should have max-width container", () => {
       const { container } = render(<ReengagementEmail {...defaultProps} />);
 
-      // React inline styles render as objects, so check via element directly
-      const mainDiv = container.firstChild as HTMLElement;
-      expect(mainDiv.style.maxWidth).toBe("600px");
+      // EmailShell caps the email card table at 600px (the outer div is the
+      // full-bleed canvas; the inner table holds the width constraint).
+      const cardTable = Array.from(container.querySelectorAll("table")).find(
+        (table) => table.style.maxWidth === "600px"
+      );
+      expect(cardTable?.style.maxWidth).toBe("600px");
     });
 
     it("should use correct brand color for header", () => {
@@ -419,11 +435,11 @@ describe("ReengagementEmail", () => {
           <ReengagementEmail {...defaultProps} conditionsScore={score} />
         );
 
-        // Find div with matching background color
-        const divs = container.querySelectorAll("div");
-        const badge = Array.from(divs).find(
-          (div) => div.style.backgroundColor === color
-        );
+        // The score badge is now a zine <Stamp> (a styled <span>) tinted with
+        // the semantic condition color from getConditionLabel.
+        const badge = Array.from(
+          container.querySelectorAll<HTMLElement>("span")
+        ).find((el) => el.style.backgroundColor === color);
         expect(badge?.style.backgroundColor).toBe(color);
       });
     });
@@ -439,15 +455,18 @@ describe("ReengagementEmail", () => {
       expect(centeredDiv?.style.textAlign).toBe("center");
     });
 
-    it("should have proper spacing in motivational copy section", () => {
+    it("should render the motivational quote on a cream paper panel", () => {
       const { container } = render(<ReengagementEmail {...defaultProps} />);
 
-      // Check for motivational copy background color
-      const divs = container.querySelectorAll("div");
-      const motivationalDiv = Array.from(divs).find(
-        (div) => div.style.backgroundColor === "rgb(53, 64, 144)"
+      // The quote now lives in a zine <PaperPanel>: a cream (PAPER #F5EEDC)
+      // cut-paper cell tilted onto the twilight page.
+      const paperCell = Array.from(
+        container.querySelectorAll<HTMLElement>("td")
+      ).find((el) => el.style.backgroundColor === "rgb(245, 238, 220)");
+      expect(paperCell?.style.backgroundColor).toBe("rgb(245, 238, 220)");
+      expect(paperCell?.textContent).toContain(
+        "This is as good as it gets. Drop what you're doing."
       );
-      expect(motivationalDiv?.style.backgroundColor).toBe("rgb(53, 64, 144)");
     });
   });
 
@@ -546,11 +565,12 @@ describe("ReengagementEmail", () => {
     it("should use proper heading hierarchy", () => {
       const { container } = render(<ReengagementEmail {...defaultProps} />);
 
+      // The zine layout has a single <h1> headline; section kickers (e.g.
+      // "Recent Community Intel") are rendered as mono <Eyebrow> labels, not
+      // <h3>s, so we assert the headline plus the section label text.
       const h1 = container.querySelector("h1");
-      const h3 = container.querySelector("h3");
-
       expect(h1).toBeInTheDocument();
-      expect(h3).toBeInTheDocument();
+      expect(container.textContent).toContain("Recent Community Intel");
     });
 
     it("should have descriptive link text", () => {

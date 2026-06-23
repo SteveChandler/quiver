@@ -1,5 +1,30 @@
 // lib/mailer/templates/ConsolidatedAlertEmail.tsx
+import * as React from "react";
+
 import type { MatchingWindow } from "@/lib/alerts/types";
+import {
+  BeachBadge,
+  CTAButton,
+  EmailShell,
+  Eyebrow,
+  Footer,
+  Wordmark,
+} from "@/lib/mailer/components";
+import { beachBadgeUrl } from "@/lib/mailer/stickers";
+import {
+  CANVAS,
+  CARD,
+  cellBg,
+  CREAM,
+  FONT_DISPLAY,
+  FONT_MONO,
+  GOLD,
+  MUTED,
+  ORANGE,
+  STICKER_ROTATIONS,
+  SURFACE,
+  TEXT,
+} from "@/lib/mailer/theme";
 import {
   formatWaveHeightRange,
   formatWindSpeed,
@@ -26,96 +51,214 @@ export function ConsolidatedAlertEmail({
   unsubscribeUrl,
   baseUrl,
 }: ConsolidatedAlertEmailProps) {
-  const greeting = displayName ? `Hey ${displayName}` : "Hey";
+  const greeting = displayName ? `Hey ${displayName},` : "Hey,";
   const headingDate = formatEmailHeadingDate(alertDate);
 
   return (
-    <div style={body}>
-      <div style={container}>
-        {/* Header */}
-        <div style={header}>
-          <p style={logoText}>Quiver</p>
-        </div>
+    <EmailShell>
+      <Wordmark dateline={headingDate} />
 
-        {/* Content */}
-        <div style={content}>
-          <p style={headingText}>
-            {greeting}, your surf report for{" "}
-            <span style={nowrapText}>{headingDate}</span>
+      {/* Masthead — gold kicker + rotated greeting */}
+      <tr>
+        <td {...cellBg(CANVAS, { padding: "26px 28px 20px" })}>
+          <Eyebrow color={GOLD}>Your surf report</Eyebrow>
+          <h1
+            style={{
+              fontFamily: FONT_DISPLAY,
+              fontWeight: 700,
+              fontSize: 30,
+              lineHeight: 1.05,
+              color: CREAM,
+              margin: "0 0 4px",
+              transform: `rotate(${STICKER_ROTATIONS.softNeg})`,
+            }}
+          >
+            {greeting}
+          </h1>
+          <p
+            style={{
+              fontFamily: FONT_MONO,
+              fontSize: 13,
+              letterSpacing: "0.5px",
+              color: MUTED,
+              margin: 0,
+            }}
+          >
+            {headingDate}
           </p>
+        </td>
+      </tr>
 
-          {matches.map((match, i) => {
-            const timeWindow = formatWindow(match);
-            const snap = match.conditions_snapshot;
-            const conditionsLine = buildConditionsLine(snap);
-            const beachUrl = buildEmailBeachUrl(baseUrl, match);
-            const ruleName = formatEmailRuleName(match.rule_name);
-            const tokenParam = match.disable_token
-              ? `?token=${match.disable_token}`
-              : "";
-            const disableUrl = `${baseUrl}/api/alerts/rules/${match.rule_id}/disable-email${tokenParam}`;
+      {/* One card per matching beach window */}
+      {matches.map((match, i) => {
+        const timeWindow = formatWindow(match);
+        const conditionsLine = buildConditionsLine(match.conditions_snapshot);
+        const beachUrl = buildEmailBeachUrl(baseUrl, match);
+        const ruleName = formatEmailRuleName(match.rule_name);
+        const tokenParam = match.disable_token
+          ? `?token=${match.disable_token}`
+          : "";
+        const disableUrl = `${baseUrl}/api/alerts/rules/${match.rule_id}/disable-email${tokenParam}`;
+        const hasBadge = beachBadgeUrl(match.beach_name) !== null;
 
-            return (
+        return (
+          <tr key={match.rule_id + i}>
+            <td
+              {...cellBg(i % 2 === 0 ? CARD : SURFACE, {
+                padding: "22px 28px",
+                borderTop: i === 0 ? undefined : `1px solid ${CANVAS}`,
+              })}
+            >
+              {/* Beach name + badge */}
+              <table
+                role="presentation"
+                cellPadding={0}
+                cellSpacing={0}
+                style={{ borderCollapse: "collapse" }}
+              >
+                <tbody>
+                  <tr>
+                    {hasBadge ? (
+                      <td
+                        style={{
+                          verticalAlign: "middle",
+                          paddingRight: 12,
+                        }}
+                      >
+                        <BeachBadge beach={match.beach_name} size={48} />
+                      </td>
+                    ) : null}
+                    <td style={{ verticalAlign: "middle" }}>
+                      <p
+                        style={{
+                          fontFamily: FONT_DISPLAY,
+                          fontWeight: 700,
+                          fontSize: 21,
+                          lineHeight: 1.1,
+                          color: CREAM,
+                          margin: 0,
+                        }}
+                      >
+                        {match.beach_name}
+                      </p>
+                      <p
+                        style={{
+                          fontFamily: FONT_MONO,
+                          fontSize: 11,
+                          letterSpacing: "0.5px",
+                          color: MUTED,
+                          margin: "4px 0 0",
+                        }}
+                      >
+                        {ruleName}
+                      </p>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* Prominent time window chip */}
               <div
-                key={match.rule_id + i}
                 style={{
-                  ...beachSection,
-                  backgroundColor: i % 2 === 0 ? "#2D357D" : "#303A85",
-                  borderRadius: "8px",
-                  padding: "20px",
-                  marginBottom: "12px",
+                  backgroundColor: SURFACE,
+                  borderRadius: 8,
+                  padding: "10px 14px",
+                  margin: "16px 0 12px",
                 }}
               >
-                <p style={beachNameStyle}>{match.beach_name}</p>
-                <p style={ruleNameStyle}>Matches: {ruleName}</p>
-
-                {/* Prominent time window */}
-                <div style={windowBox}>
-                  <p style={windowLabelStyle}>{timeWindow.label}</p>
-                  <p style={windowTimeStyle}>{timeWindow.text}</p>
+                <div
+                  style={{
+                    fontFamily: FONT_MONO,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    letterSpacing: "1px",
+                    textTransform: "uppercase",
+                    color: ORANGE,
+                    marginBottom: 4,
+                  }}
+                >
+                  {timeWindow.label}
                 </div>
-
-                <p style={conditionsTextStyle}>
-                  {conditionsLine.split(", ").map((part, j) => (
-                    <span key={j}>
-                      {j > 0 ? " \u00B7 " : ""}
-                      {part}
-                    </span>
-                  ))}
-                </p>
-
-                <div style={{ marginBottom: "8px" }}>
-                  <a href={beachUrl} style={ctaButton}>
-                    Check {match.beach_name} Forecast
-                  </a>
+                <div
+                  style={{
+                    fontFamily: FONT_DISPLAY,
+                    fontWeight: 700,
+                    fontSize: 18,
+                    lineHeight: 1.3,
+                    color: ORANGE,
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {timeWindow.text}
                 </div>
-
-                <p style={disableLinkStyle}>
-                  <a href={disableUrl} style={linkStyle}>
-                    Not relevant? Disable this rule
-                  </a>
-                </p>
               </div>
-            );
-          })}
-        </div>
 
-        {/* Footer */}
-        <div style={footer}>
-          <p style={footerText}>
-            <a href={manageAlertsUrl} style={linkStyle}>
-              Manage your alerts
-            </a>
-            {" \u00B7 "}
-            <a href={unsubscribeUrl} style={linkStyle}>
-              Unsubscribe
-            </a>
-          </p>
-        </div>
-      </div>
-    </div>
+              {/* Conditions — Space Mono labelled metrics */}
+              {conditionsLine ? (
+                <p
+                  style={{
+                    fontFamily: FONT_MONO,
+                    fontSize: 13,
+                    lineHeight: 1.6,
+                    color: TEXT,
+                    margin: "0 0 16px",
+                    wordBreak: "break-word",
+                  }}
+                >
+                  {conditionsLine}
+                </p>
+              ) : null}
+
+              {/* Primary CTA + secondary disable link */}
+              <div style={{ marginBottom: 10 }}>
+                <CTAButton href={beachUrl}>
+                  Check {match.beach_name} forecast
+                </CTAButton>
+              </div>
+              <p
+                style={{
+                  fontFamily: FONT_MONO,
+                  fontSize: 11,
+                  letterSpacing: "0.5px",
+                  margin: 0,
+                }}
+              >
+                <a href={disableUrl} style={secondaryLinkStyle}>
+                  Disable this rule
+                </a>
+              </p>
+            </td>
+          </tr>
+        );
+      })}
+
+      <Footer>
+        <p
+          style={{
+            fontFamily: FONT_MONO,
+            fontSize: 11,
+            letterSpacing: "0.5px",
+            color: MUTED,
+            margin: 0,
+          }}
+        >
+          <a href={manageAlertsUrl} style={secondaryLinkStyle}>
+            Manage your alerts
+          </a>
+          {" · "}
+          <a href={unsubscribeUrl} style={secondaryLinkStyle}>
+            Unsubscribe
+          </a>
+        </p>
+      </Footer>
+    </EmailShell>
   );
 }
+
+const secondaryLinkStyle: React.CSSProperties = {
+  color: MUTED,
+  textDecoration: "underline",
+};
 
 export interface FormattedEmailWindow {
   label: "Good Around" | "Good Window";
@@ -168,7 +311,7 @@ export function formatWindow(match: MatchingWindow): FormattedEmailWindow {
 
   return {
     label: "Good Window",
-    text: `${start} \u2013 ${end} ${tzAbbr} · peak ${best}`,
+    text: `${start} – ${end} ${tzAbbr} · peak ${best}`,
   };
 }
 
@@ -190,6 +333,10 @@ export function formatEmailRuleName(ruleName: string): string {
 // `wind_speed` is in knots per ForecastHour (lib/alerts/best-hour.ts); convert
 // to mph here to match the website. Exported for unit tests.
 //
+// Metrics use uppercase Space-Mono labels (SWELL / WIND / TIDE) separated by
+// " · " instead of emoji, so the line reads as crisp technical data and renders
+// consistently across email clients that strip or restyle emoji.
+//
 // Period and direction prefer the total-spectrum `wave_period` /
 // `wave_direction` (the same fields the web Current Conditions card reads, see
 // components/beach-detail/tabs/forecast-tab.tsx) over the primary-train
@@ -203,7 +350,7 @@ export function buildConditionsLine(snap: Record<string, unknown>): string {
     typeof snap.wave_height === "number" &&
     Number.isFinite(snap.wave_height)
   ) {
-    let swell = `\u{1F30A} ${formatWaveHeightRange(snap.wave_height)}`;
+    let swell = `SWELL ${formatWaveHeightRange(snap.wave_height)}`;
 
     const period =
       typeof snap.wave_period === "number" && Number.isFinite(snap.wave_period)
@@ -227,7 +374,7 @@ export function buildConditionsLine(snap: Record<string, unknown>): string {
   }
 
   if (typeof snap.wind_speed === "number" && Number.isFinite(snap.wind_speed)) {
-    let wind = `\u{1F4A8} ${formatWindSpeed(snap.wind_speed * KNOTS_TO_MPH)}`;
+    let wind = `WIND ${formatWindSpeed(snap.wind_speed * KNOTS_TO_MPH)}`;
     if (
       typeof snap.wind_direction_deg === "number" &&
       Number.isFinite(snap.wind_direction_deg)
@@ -238,7 +385,7 @@ export function buildConditionsLine(snap: Record<string, unknown>): string {
   }
 
   if (typeof snap.tide_status === "string" && snap.tide_status.length > 0) {
-    parts.push(`\u{1F4C9} tide ${snap.tide_status.toLowerCase()}`);
+    parts.push(`TIDE ${snap.tide_status.toLowerCase()}`);
   }
 
   if (
@@ -248,121 +395,5 @@ export function buildConditionsLine(snap: Record<string, unknown>): string {
     parts.push(`why: ${snap.beginner_window_reason}`);
   }
 
-  return parts.join(", ");
+  return parts.join(" · ");
 }
-
-// Styles -- Quiver dark navy palette
-const body: React.CSSProperties = {
-  backgroundColor: "#1a1f4e",
-  margin: "0",
-  padding: "0",
-  fontFamily: "'DM Sans', sans-serif",
-};
-const container: React.CSSProperties = {
-  width: "100%",
-  maxWidth: "600px",
-  margin: "0 auto",
-};
-const header: React.CSSProperties = {
-  backgroundColor: "#252D6B",
-  padding: "24px 32px",
-  textAlign: "center",
-};
-const logoText: React.CSSProperties = {
-  color: "#F78E42",
-  fontSize: "28px",
-  fontWeight: "700",
-  margin: "0",
-  fontFamily: "'Space Grotesk', sans-serif",
-};
-const content: React.CSSProperties = {
-  backgroundColor: "#252D6B",
-  padding: "24px",
-};
-const headingText: React.CSSProperties = {
-  color: "#ffffff",
-  fontSize: "20px",
-  fontWeight: "600",
-  lineHeight: "1.35",
-  marginBottom: "24px",
-};
-const nowrapText: React.CSSProperties = { whiteSpace: "nowrap" };
-const beachSection: React.CSSProperties = { marginBottom: "16px" };
-const beachNameStyle: React.CSSProperties = {
-  color: "#ffffff",
-  fontSize: "20px",
-  fontWeight: "700",
-  margin: "0 0 4px 0",
-  fontFamily: "'Space Grotesk', sans-serif",
-  letterSpacing: "-0.01em",
-  borderBottom: "2px solid #F78E42",
-  paddingBottom: "6px",
-  display: "inline-block",
-};
-const ruleNameStyle: React.CSSProperties = {
-  color: "#9ca3af",
-  fontSize: "13px",
-  lineHeight: "1.4",
-  margin: "8px 0 12px 0",
-};
-const windowBox: React.CSSProperties = {
-  backgroundColor: "rgba(247, 142, 66, 0.1)",
-  border: "1px solid rgba(247, 142, 66, 0.3)",
-  borderRadius: "6px",
-  padding: "10px 14px",
-  marginBottom: "12px",
-};
-const windowLabelStyle: React.CSSProperties = {
-  color: "#F78E42",
-  fontSize: "11px",
-  fontWeight: "700",
-  textTransform: "uppercase",
-  letterSpacing: "0.1em",
-  margin: "0 0 4px 0",
-};
-const windowTimeStyle: React.CSSProperties = {
-  color: "#F78E42",
-  fontSize: "18px",
-  fontWeight: "700",
-  lineHeight: "1.3",
-  margin: "0",
-  fontFamily: "'Space Grotesk', sans-serif",
-  wordBreak: "break-word",
-};
-const conditionsTextStyle: React.CSSProperties = {
-  color: "#d1d5db",
-  fontSize: "14px",
-  lineHeight: "1.6",
-  margin: "0 0 16px 0",
-  fontFamily: "'Space Mono', monospace",
-  wordBreak: "break-word",
-};
-const ctaButton: React.CSSProperties = {
-  backgroundColor: "#F78E42",
-  color: "#ffffff",
-  padding: "12px 24px",
-  borderRadius: "8px",
-  fontSize: "14px",
-  fontWeight: "600",
-  textDecoration: "none",
-  display: "inline-block",
-  maxWidth: "100%",
-  boxSizing: "border-box",
-};
-const disableLinkStyle: React.CSSProperties = {
-  fontSize: "12px",
-  lineHeight: "1.4",
-  margin: "8px 0 0 0",
-};
-const linkStyle: React.CSSProperties = {
-  color: "#9ca3af",
-  textDecoration: "underline",
-};
-const footer: React.CSSProperties = {
-  padding: "16px 32px",
-  textAlign: "center",
-};
-const footerText: React.CSSProperties = {
-  color: "#6b7280",
-  fontSize: "12px",
-};

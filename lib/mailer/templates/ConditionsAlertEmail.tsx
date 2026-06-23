@@ -1,42 +1,34 @@
 import * as React from "react";
+
 import { getConditionLabel } from "@/lib/email/email-formatters";
-
-/**
- * The `bgcolor` HTML attribute is the most reliable way to paint a solid
- * background on a table cell in Outlook (it ignores `background` on divs).
- * React's DOM typings omit `bgcolor`, so this helper applies it (plus the
- * matching inline-style background for every other client) in a typed way.
- */
-function cellBg(color: string, style: React.CSSProperties = {}): React.TdHTMLAttributes<HTMLTableCellElement> {
-  return {
-    ...({ bgcolor: color } as React.TdHTMLAttributes<HTMLTableCellElement>),
-    style: { backgroundColor: color, ...style },
-  };
-}
-
-// ============================================================================
-// Brand tokens (inline-only; email clients ignore <style> + CSS variables)
-// ============================================================================
-
-const NAVY_CANVAS = "#1E2456"; // outer canvas
-const NAVY_MAST = "#0F1330"; // masthead bar
-const NAVY_HERO = "#252D6B"; // hero / Deep Twilight
-const NAVY_PANEL = "#2D357D"; // body panel
-const NAVY_CELL = "#354090"; // signal cells / why bullets
-const NAVY_BORDER = "#404C92";
-const CREAM = "#F5EEDC";
-const CREAM_MUTED = "rgba(245,238,220,0.62)";
-const TEAL = "#00D4AA"; // YES / go-worthy
-const GOLD = "#FDB84B"; // marginal / best-of flags
-const GRAY = "#888780"; // low verdict
-const ORANGE = "#F78E42"; // CTA only
-const CORAL = "#FF6B5C"; // high rip risk
-const INK = "#0F1330"; // dark text on bright chips
-
-// Email-safe font stacks — web fonts won't load in most clients.
-const FONT_DISPLAY = "'Space Grotesk','Helvetica Neue',Arial,sans-serif";
-const FONT_MONO = "'Space Mono','Courier New',monospace";
-const FONT_BODY = "'DM Sans',Arial,sans-serif";
+import {
+  BeachBadge,
+  CTAButton,
+  EmailShell,
+  Eyebrow,
+  Footer,
+  Stamp,
+  Wordmark,
+} from "@/lib/mailer/components";
+import {
+  CARD,
+  cellBg,
+  CANVAS,
+  CORAL,
+  CREAM,
+  CREAM_MUTED,
+  FONT_BODY,
+  FONT_DISPLAY,
+  FONT_MONO,
+  GOLD,
+  GRAY,
+  INK,
+  MUTED,
+  ORANGE,
+  STICKER_ROTATIONS,
+  SURFACE,
+  TEAL,
+} from "@/lib/mailer/theme";
 
 // ============================================================================
 // Props
@@ -184,33 +176,6 @@ function getWaterQualityPresentation(
   return null;
 }
 
-// ============================================================================
-// Small presentational helpers
-// ============================================================================
-
-function Eyebrow({
-  children,
-  color = CREAM_MUTED,
-}: {
-  children: React.ReactNode;
-  color?: string;
-}) {
-  return (
-    <div
-      style={{
-        fontFamily: FONT_MONO,
-        fontSize: 11,
-        letterSpacing: "1.5px",
-        textTransform: "uppercase" as const,
-        color,
-        marginBottom: 6,
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
 /** A single signal cell: mono eyebrow + mono datum. Returns null when no datum. */
 function SignalCell({
   label,
@@ -228,7 +193,7 @@ function SignalCell({
       valign="top"
       style={{
         padding: "12px 10px",
-        backgroundColor: NAVY_CELL,
+        backgroundColor: SURFACE,
         verticalAlign: "top" as const,
       }}
     >
@@ -312,538 +277,419 @@ export function ConditionsAlertEmail({
   const hasWhy = why.whyText.length > 0;
 
   return (
-    <div
-      style={{
-        backgroundColor: NAVY_CANVAS,
-        fontFamily: FONT_BODY,
-        lineHeight: 1.5,
-        margin: 0,
-        padding: 0,
-      }}
-    >
-      <table
-        role="presentation"
-        cellPadding={0}
-        cellSpacing={0}
-        width="100%"
-        style={{ borderCollapse: "collapse" as const, maxWidth: 600, margin: "0 auto" }}
-      >
-        <tbody>
-          {/* ---------------------------------------------------------------- */}
-          {/* Masthead */}
-          {/* ---------------------------------------------------------------- */}
-          <tr>
-            <td {...cellBg(NAVY_MAST, { padding: "16px 24px" })}>
-              <table
-                role="presentation"
-                cellPadding={0}
-                cellSpacing={0}
-                width="100%"
-                style={{ borderCollapse: "collapse" as const }}
-              >
-                <tbody>
+    <EmailShell>
+      <Wordmark dateline={dateline} />
+
+      {/* Hero — kicker + condition-character headline + NOW FIRING stamp */}
+      <tr>
+        <td {...cellBg(CANVAS, { padding: "26px 24px 22px 24px" })}>
+          <Eyebrow color={GOLD}>{`TODAY'S SURF CALL · ${beachName}`}</Eyebrow>
+          <table
+            role="presentation"
+            cellPadding={0}
+            cellSpacing={0}
+            width="100%"
+            style={{ borderCollapse: "collapse" as const }}
+          >
+            <tbody>
+              <tr>
+                <td valign="top" style={{ verticalAlign: "top" as const }}>
+                  <div
+                    style={{
+                      fontFamily: FONT_DISPLAY,
+                      fontWeight: 700,
+                      fontSize: 29,
+                      lineHeight: 1.12,
+                      color: CREAM,
+                      margin: 0,
+                      transform: `rotate(${STICKER_ROTATIONS.softNeg})`,
+                    }}
+                  >
+                    {headline}
+                  </div>
+                </td>
+                {showFiringSticker && (
+                  <td
+                    valign="top"
+                    width="120"
+                    align="right"
+                    style={{ verticalAlign: "top" as const, width: 120 }}
+                  >
+                    <Stamp
+                      ink={INK}
+                      rotation={STICKER_ROTATIONS.hardNeg}
+                      fontSize={11}
+                      padding="7px 10px"
+                    >
+                      NOW FIRING
+                    </Stamp>
+                  </td>
+                )}
+              </tr>
+            </tbody>
+          </table>
+        </td>
+      </tr>
+
+      {/* Score block — verdict chip + phrase + beach badge */}
+      <tr>
+        <td {...cellBg(CARD, { padding: "24px 24px 8px 24px" })}>
+          <table
+            role="presentation"
+            cellPadding={0}
+            cellSpacing={0}
+            width="100%"
+            style={{ borderCollapse: "collapse" as const }}
+          >
+            <tbody>
+              <tr>
+                <td
+                  align="center"
+                  {...cellBg(verdict.chipColor, {
+                    padding: "14px 22px",
+                    borderRadius: "12px 4px 14px 6px",
+                  })}
+                >
+                  <div
+                    style={{
+                      fontFamily: FONT_DISPLAY,
+                      fontWeight: 700,
+                      fontSize: 50,
+                      lineHeight: 1,
+                      color: verdict.inkColor,
+                    }}
+                  >
+                    {conditionsScore}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: FONT_MONO,
+                      fontSize: 12,
+                      fontWeight: 700,
+                      letterSpacing: "1.5px",
+                      textTransform: "uppercase" as const,
+                      color: verdict.inkColor,
+                      marginTop: 4,
+                    }}
+                  >
+                    {conditionLabel}
+                  </div>
+                </td>
+                <td
+                  valign="middle"
+                  style={{
+                    paddingLeft: 18,
+                    verticalAlign: "middle" as const,
+                  }}
+                >
+                  <div
+                    style={{
+                      fontFamily: FONT_DISPLAY,
+                      fontWeight: 700,
+                      fontSize: 22,
+                      color: CREAM,
+                    }}
+                  >
+                    {verdict.phrase}
+                  </div>
+                </td>
+                <td
+                  valign="middle"
+                  align="right"
+                  style={{ verticalAlign: "middle" as const, width: 64 }}
+                >
+                  <BeachBadge beach={beachName} size={56} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </td>
+      </tr>
+
+      {/* Signal grid */}
+      {(hasPrimaryRow || hasSecondaryRow) && (
+        <tr>
+          <td {...cellBg(CARD, { padding: "16px 24px 8px 24px" })}>
+            <table
+              role="presentation"
+              cellPadding={0}
+              cellSpacing={0}
+              width="100%"
+              style={{ borderCollapse: "separate" as const, borderSpacing: "6px" }}
+            >
+              <tbody>
+                {hasPrimaryRow && (
+                  <tr>
+                    {primaryCells.map((cell) => (
+                      <SignalCell
+                        key={cell.label}
+                        label={cell.label}
+                        value={cell.value}
+                      />
+                    ))}
+                  </tr>
+                )}
+                {hasSecondaryRow && (
+                  <tr>
+                    {secondaryCells.map((cell) => (
+                      <SignalCell
+                        key={cell.label}
+                        label={cell.label}
+                        value={cell.value}
+                        valueColor={cell.color}
+                      />
+                    ))}
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      )}
+
+      {/* Safety strip (rip risk + water quality) */}
+      {(rip || water) && (
+        <tr>
+          <td {...cellBg(CARD, { padding: "4px 24px 8px 24px" })}>
+            <table
+              role="presentation"
+              cellPadding={0}
+              cellSpacing={0}
+              style={{ borderCollapse: "collapse" as const }}
+            >
+              <tbody>
+                {rip && (
                   <tr>
                     <td
-                      align="left"
-                      style={{
-                        fontFamily: FONT_DISPLAY,
-                        fontWeight: 700,
-                        fontSize: 20,
-                        letterSpacing: "3px",
-                        color: CREAM,
-                      }}
-                    >
-                      QUIVER
-                    </td>
-                    <td
-                      align="right"
+                      valign="middle"
                       style={{
                         fontFamily: FONT_MONO,
-                        fontSize: 12,
-                        letterSpacing: "1px",
+                        fontSize: 11,
+                        letterSpacing: "1.2px",
+                        textTransform: "uppercase" as const,
                         color: CREAM_MUTED,
+                        paddingRight: 10,
+                        verticalAlign: "middle" as const,
                       }}
                     >
-                      {dateline}
+                      RIP RISK
                     </td>
-                  </tr>
-                </tbody>
-              </table>
-            </td>
-          </tr>
-
-          {/* ---------------------------------------------------------------- */}
-          {/* Hero */}
-          {/* ---------------------------------------------------------------- */}
-          <tr>
-            <td {...cellBg(NAVY_HERO, { padding: "28px 24px 24px 24px" })}>
-              <Eyebrow color={GOLD}>
-                {`TODAY'S SURF CALL · ${beachName}`}
-              </Eyebrow>
-              <table
-                role="presentation"
-                cellPadding={0}
-                cellSpacing={0}
-                width="100%"
-                style={{ borderCollapse: "collapse" as const }}
-              >
-                <tbody>
-                  <tr>
-                    <td valign="top" style={{ verticalAlign: "top" as const }}>
-                      <div
-                        style={{
-                          fontFamily: FONT_DISPLAY,
-                          fontWeight: 700,
-                          fontSize: 29,
-                          lineHeight: 1.15,
-                          color: CREAM,
-                          margin: 0,
-                        }}
-                      >
-                        {headline}
-                      </div>
-                    </td>
-                    {showFiringSticker && (
-                      <td
-                        valign="top"
-                        width="120"
-                        align="right"
-                        style={{ verticalAlign: "top" as const, width: 120 }}
-                      >
-                        <span
-                          style={{
-                            display: "inline-block",
-                            backgroundColor: GOLD,
-                            color: INK,
-                            fontFamily: FONT_MONO,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            letterSpacing: "1.5px",
-                            padding: "6px 10px",
-                            borderRadius: "10px 3px 12px 4px",
-                            transform: "rotate(-3deg)",
-                          }}
-                        >
-                          NOW FIRING
-                        </span>
-                      </td>
-                    )}
-                  </tr>
-                </tbody>
-              </table>
-            </td>
-          </tr>
-
-          {/* ---------------------------------------------------------------- */}
-          {/* Score block */}
-          {/* ---------------------------------------------------------------- */}
-          <tr>
-            <td {...cellBg(NAVY_PANEL, { padding: "24px 24px 8px 24px" })}>
-              <table
-                role="presentation"
-                cellPadding={0}
-                cellSpacing={0}
-                style={{ borderCollapse: "collapse" as const }}
-              >
-                <tbody>
-                  <tr>
-                    <td
-                      align="center"
-                      {...cellBg(verdict.chipColor, {
-                        padding: "14px 22px",
-                        borderRadius: "12px 4px 14px 6px",
-                      })}
-                    >
-                      <div
-                        style={{
-                          fontFamily: FONT_DISPLAY,
-                          fontWeight: 700,
-                          fontSize: 50,
-                          lineHeight: 1,
-                          color: verdict.inkColor,
-                        }}
-                      >
-                        {conditionsScore}
-                      </div>
-                      <div
+                    <td valign="middle" style={{ verticalAlign: "middle" as const }}>
+                      <span
                         style={{
                           fontFamily: FONT_MONO,
                           fontSize: 12,
                           fontWeight: 700,
-                          letterSpacing: "1.5px",
-                          textTransform: "uppercase" as const,
-                          color: verdict.inkColor,
-                          marginTop: 4,
+                          letterSpacing: "0.5px",
+                          color: rip.color,
                         }}
                       >
-                        {conditionLabel}
-                      </div>
+                        {rip.label}
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                {water && (
+                  <tr>
+                    <td
+                      valign="middle"
+                      style={{
+                        fontFamily: FONT_MONO,
+                        fontSize: 11,
+                        letterSpacing: "1.2px",
+                        textTransform: "uppercase" as const,
+                        color: CREAM_MUTED,
+                        paddingRight: 10,
+                        paddingTop: rip ? 6 : 0,
+                        verticalAlign: "middle" as const,
+                      }}
+                    >
+                      WATER
                     </td>
                     <td
                       valign="middle"
                       style={{
-                        paddingLeft: 18,
+                        paddingTop: rip ? 6 : 0,
                         verticalAlign: "middle" as const,
                       }}
                     >
-                      <div
+                      <span
                         style={{
-                          fontFamily: FONT_DISPLAY,
+                          fontFamily: FONT_MONO,
+                          fontSize: water.urgent ? 13 : 12,
                           fontWeight: 700,
-                          fontSize: 22,
-                          color: CREAM,
+                          letterSpacing: water.urgent ? "1px" : "0.5px",
+                          textTransform: water.urgent
+                            ? ("uppercase" as const)
+                            : ("none" as const),
+                          color: water.color,
                         }}
                       >
-                        {verdict.phrase}
-                      </div>
+                        {water.label}
+                      </span>
                     </td>
                   </tr>
-                </tbody>
-              </table>
-            </td>
-          </tr>
+                )}
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      )}
 
-          {/* ---------------------------------------------------------------- */}
-          {/* Signal grid */}
-          {/* ---------------------------------------------------------------- */}
-          {(hasPrimaryRow || hasSecondaryRow) && (
-            <tr>
-              <td {...cellBg(NAVY_PANEL, { padding: "16px 24px 8px 24px" })}>
-                <table
-                  role="presentation"
-                  cellPadding={0}
-                  cellSpacing={0}
-                  width="100%"
-                  style={{ borderCollapse: "separate" as const, borderSpacing: "6px" }}
-                >
-                  <tbody>
-                    {hasPrimaryRow && (
-                      <tr>
-                        {primaryCells.map((cell) => (
-                          <SignalCell
-                            key={cell.label}
-                            label={cell.label}
-                            value={cell.value}
-                          />
-                        ))}
-                      </tr>
-                    )}
-                    {hasSecondaryRow && (
-                      <tr>
-                        {secondaryCells.map((cell) => (
-                          <SignalCell
-                            key={cell.label}
-                            label={cell.label}
-                            value={cell.value}
-                            valueColor={cell.color}
-                          />
-                        ))}
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-          )}
-
-          {/* ---------------------------------------------------------------- */}
-          {/* Safety strip (rip risk + water quality) */}
-          {/* ---------------------------------------------------------------- */}
-          {(rip || water) && (
-            <tr>
-              <td {...cellBg(NAVY_PANEL, { padding: "4px 24px 8px 24px" })}>
-                <table
-                  role="presentation"
-                  cellPadding={0}
-                  cellSpacing={0}
-                  style={{ borderCollapse: "collapse" as const }}
-                >
-                  <tbody>
-                    {rip && (
-                      <tr>
-                        <td
-                          valign="middle"
-                          style={{
-                            fontFamily: FONT_MONO,
-                            fontSize: 11,
-                            letterSpacing: "1.2px",
-                            textTransform: "uppercase" as const,
-                            color: CREAM_MUTED,
-                            paddingRight: 10,
-                            verticalAlign: "middle" as const,
-                          }}
-                        >
-                          RIP RISK
-                        </td>
-                        <td
-                          valign="middle"
-                          style={{ verticalAlign: "middle" as const }}
-                        >
-                          <span
-                            style={{
-                              fontFamily: FONT_MONO,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              letterSpacing: "0.5px",
-                              color: rip.color,
-                            }}
-                          >
-                            {rip.label}
-                          </span>
-                        </td>
-                      </tr>
-                    )}
-                    {water && (
-                      <tr>
-                        <td
-                          valign="middle"
-                          style={{
-                            fontFamily: FONT_MONO,
-                            fontSize: 11,
-                            letterSpacing: "1.2px",
-                            textTransform: "uppercase" as const,
-                            color: CREAM_MUTED,
-                            paddingRight: 10,
-                            paddingTop: rip ? 6 : 0,
-                            verticalAlign: "middle" as const,
-                          }}
-                        >
-                          WATER
-                        </td>
-                        <td
-                          valign="middle"
-                          style={{
-                            paddingTop: rip ? 6 : 0,
-                            verticalAlign: "middle" as const,
-                          }}
-                        >
-                          <span
-                            style={{
-                              fontFamily: FONT_MONO,
-                              fontSize: water.urgent ? 13 : 12,
-                              fontWeight: 700,
-                              letterSpacing: water.urgent ? "1px" : "0.5px",
-                              textTransform: water.urgent
-                                ? ("uppercase" as const)
-                                : ("none" as const),
-                              color: water.color,
-                            }}
-                          >
-                            {water.label}
-                          </span>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-          )}
-
-          {/* ---------------------------------------------------------------- */}
-          {/* Why this matches your playbook */}
-          {/* ---------------------------------------------------------------- */}
-          {hasWhy && (
-            <tr>
-              <td {...cellBg(NAVY_PANEL, { padding: "12px 24px 4px 24px" })}>
-                <Eyebrow color={ORANGE}>WHY THIS MATCHES YOUR PLAYBOOK</Eyebrow>
-                <table
-                  role="presentation"
-                  cellPadding={0}
-                  cellSpacing={0}
-                  width="100%"
-                  style={{ borderCollapse: "collapse" as const }}
-                >
-                  <tbody>
-                    {why.whyText.map((reason, index) => (
-                      <tr key={index}>
-                        <td
-                          valign="top"
-                          width="18"
-                          style={{
-                            fontFamily: FONT_MONO,
-                            fontSize: 15,
-                            color: TEAL,
-                            verticalAlign: "top" as const,
-                            paddingTop: 5,
-                            paddingBottom: 6,
-                          }}
-                        >
-                          &rsaquo;
-                        </td>
-                        <td
-                          valign="top"
-                          style={{
-                            fontFamily: FONT_BODY,
-                            fontSize: 14,
-                            lineHeight: 1.45,
-                            color: CREAM,
-                            verticalAlign: "top" as const,
-                            paddingTop: 4,
-                            paddingBottom: 6,
-                          }}
-                        >
-                          {reason}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-          )}
-
-          {/* ---------------------------------------------------------------- */}
-          {/* Crowd warning */}
-          {/* ---------------------------------------------------------------- */}
-          {why.crowdWarning && (
-            <tr>
-              <td {...cellBg(NAVY_PANEL, { padding: "8px 24px" })}>
-                <table
-                  role="presentation"
-                  cellPadding={0}
-                  cellSpacing={0}
-                  width="100%"
-                  style={{ borderCollapse: "collapse" as const }}
-                >
-                  <tbody>
-                    <tr>
-                      <td
-                        {...cellBg("#3D3A1A", {
-                          padding: "12px 16px",
-                          borderLeft: `4px solid ${GOLD}`,
-                          borderRadius: "0 8px 8px 0",
-                        })}
-                      >
-                        <span
-                          style={{
-                            fontFamily: FONT_MONO,
-                            fontSize: 11,
-                            fontWeight: 700,
-                            letterSpacing: "1px",
-                            textTransform: "uppercase" as const,
-                            color: GOLD,
-                          }}
-                        >
-                          HEADS UP{" "}
-                        </span>
-                        <span
-                          style={{
-                            fontFamily: FONT_BODY,
-                            fontSize: 14,
-                            color: CREAM,
-                          }}
-                        >
-                          {why.crowdWarning}
-                        </span>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-          )}
-
-          {/* ---------------------------------------------------------------- */}
-          {/* CTA */}
-          {/* ---------------------------------------------------------------- */}
-          <tr>
-            <td
-              align="center"
-              {...cellBg(NAVY_PANEL, { padding: "20px 24px 28px 24px" })}
+      {/* Why this matches your playbook */}
+      {hasWhy && (
+        <tr>
+          <td {...cellBg(CARD, { padding: "12px 24px 4px 24px" })}>
+            <Eyebrow color={ORANGE}>WHY THIS MATCHES YOUR PLAYBOOK</Eyebrow>
+            <table
+              role="presentation"
+              cellPadding={0}
+              cellSpacing={0}
+              width="100%"
+              style={{ borderCollapse: "collapse" as const }}
             >
-              <table
-                role="presentation"
-                cellPadding={0}
-                cellSpacing={0}
-                style={{ borderCollapse: "collapse" as const }}
-              >
-                <tbody>
-                  <tr>
+              <tbody>
+                {why.whyText.map((reason, index) => (
+                  <tr key={index}>
                     <td
-                      align="center"
-                      {...cellBg(ORANGE, { borderRadius: 8 })}
+                      valign="top"
+                      width="18"
+                      style={{
+                        fontFamily: FONT_MONO,
+                        fontSize: 15,
+                        color: TEAL,
+                        verticalAlign: "top" as const,
+                        paddingTop: 5,
+                        paddingBottom: 6,
+                      }}
                     >
-                      <a
-                        href={ctaUrl}
-                        style={{
-                          display: "inline-block",
-                          fontFamily: FONT_DISPLAY,
-                          fontWeight: 700,
-                          fontSize: 16,
-                          color: INK,
-                          textDecoration: "none",
-                          padding: "14px 30px",
-                        }}
-                      >
-                        See the full forecast &rarr;
-                      </a>
+                      &rsaquo;
+                    </td>
+                    <td
+                      valign="top"
+                      style={{
+                        fontFamily: FONT_BODY,
+                        fontSize: 14,
+                        lineHeight: 1.45,
+                        color: CREAM,
+                        verticalAlign: "top" as const,
+                        paddingTop: 4,
+                        paddingBottom: 6,
+                      }}
+                    >
+                      {reason}
                     </td>
                   </tr>
-                </tbody>
-              </table>
-            </td>
-          </tr>
+                ))}
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      )}
 
-          {/* ---------------------------------------------------------------- */}
-          {/* Footer */}
-          {/* ---------------------------------------------------------------- */}
-          <tr>
-            <td
-              align="center"
-              {...cellBg(NAVY_CANVAS, {
-                padding: "20px 24px 28px 24px",
-                borderTop: `1px solid ${NAVY_BORDER}`,
-              })}
+      {/* Crowd warning */}
+      {why.crowdWarning && (
+        <tr>
+          <td {...cellBg(CARD, { padding: "8px 24px" })}>
+            <table
+              role="presentation"
+              cellPadding={0}
+              cellSpacing={0}
+              width="100%"
+              style={{ borderCollapse: "collapse" as const }}
             >
-              <p
-                style={{
-                  fontFamily: FONT_MONO,
-                  fontSize: 11,
-                  lineHeight: 1.6,
-                  color: CREAM_MUTED,
-                  margin: "0 0 10px 0",
-                }}
-              >
-                You set a daily alert for {beachName}. One call a day, only when
-                it&apos;s worth it.
-              </p>
-              <a
-                href={manageUrl}
-                style={{
-                  fontFamily: FONT_MONO,
-                  fontSize: 11,
-                  color: CREAM_MUTED,
-                  textDecoration: "underline",
-                }}
-              >
-                Manage alerts
-              </a>
-              <span
-                style={{
-                  fontFamily: FONT_MONO,
-                  fontSize: 11,
-                  color: CREAM_MUTED,
-                  padding: "0 6px",
-                }}
-              >
-                ·
-              </span>
-              <a
-                href={unsubscribeUrl}
-                style={{
-                  fontFamily: FONT_MONO,
-                  fontSize: 11,
-                  color: CREAM_MUTED,
-                  textDecoration: "underline",
-                }}
-              >
-                Unsubscribe
-              </a>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+              <tbody>
+                <tr>
+                  <td
+                    {...cellBg("#3D3A1A", {
+                      padding: "12px 16px",
+                      borderLeft: `4px solid ${GOLD}`,
+                      borderRadius: "0 8px 8px 0",
+                    })}
+                  >
+                    <span
+                      style={{
+                        fontFamily: FONT_MONO,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: "1px",
+                        textTransform: "uppercase" as const,
+                        color: GOLD,
+                      }}
+                    >
+                      HEADS UP{" "}
+                    </span>
+                    <span
+                      style={{
+                        fontFamily: FONT_BODY,
+                        fontSize: 14,
+                        color: CREAM,
+                      }}
+                    >
+                      {why.crowdWarning}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </td>
+        </tr>
+      )}
+
+      {/* CTA */}
+      <tr>
+        <td align="center" {...cellBg(CARD, { padding: "20px 24px 28px 24px" })}>
+          <CTAButton href={ctaUrl}>See the full forecast &rarr;</CTAButton>
+        </td>
+      </tr>
+
+      {/* Footer */}
+      <Footer>
+        <p
+          style={{
+            fontFamily: FONT_MONO,
+            fontSize: 11,
+            lineHeight: 1.6,
+            color: CREAM_MUTED,
+            margin: "0 0 10px 0",
+          }}
+        >
+          You set a daily alert for {beachName}. One call a day, only when
+          it&apos;s worth it.
+        </p>
+        <a
+          href={manageUrl}
+          style={{
+            fontFamily: FONT_MONO,
+            fontSize: 11,
+            color: MUTED,
+            textDecoration: "underline",
+          }}
+        >
+          Manage alerts
+        </a>
+        <span
+          style={{
+            fontFamily: FONT_MONO,
+            fontSize: 11,
+            color: CREAM_MUTED,
+            padding: "0 6px",
+          }}
+        >
+          ·
+        </span>
+        <a
+          href={unsubscribeUrl}
+          style={{
+            fontFamily: FONT_MONO,
+            fontSize: 11,
+            color: MUTED,
+            textDecoration: "underline",
+          }}
+        >
+          Unsubscribe
+        </a>
+      </Footer>
+    </EmailShell>
   );
 }

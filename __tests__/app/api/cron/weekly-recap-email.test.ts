@@ -196,8 +196,24 @@ type ProfilesQuery = {
   not: jest.Mock<Promise<QueryResult<ProfileRow>>, [string, string, null]>;
 };
 
+type BeachSourcesRow = {
+  camera_url: string | null;
+  thumbnail_url: string | null;
+};
+
+type SingleResult<T> = {
+  data: T | null;
+  error: { message: string } | null;
+};
+
+type BeachSourcesQuery = {
+  select: jest.Mock<BeachSourcesQuery, [string]>;
+  eq: jest.Mock<BeachSourcesQuery, [string, string]>;
+  maybeSingle: jest.Mock<Promise<SingleResult<BeachSourcesRow>>, []>;
+};
+
 type SupabaseMock = {
-  from: jest.Mock<SessionsQuery | ProfilesQuery, [string]>;
+  from: jest.Mock<SessionsQuery | ProfilesQuery | BeachSourcesQuery, [string]>;
 };
 
 function createSessionsQuery(result: QueryResult<SessionRow>): SessionsQuery {
@@ -221,6 +237,18 @@ function createProfilesQuery(result: QueryResult<ProfileRow>): ProfilesQuery {
   return query;
 }
 
+function createBeachSourcesQuery(
+  result: SingleResult<BeachSourcesRow>
+): BeachSourcesQuery {
+  const query = {} as BeachSourcesQuery;
+  query.select = jest.fn<BeachSourcesQuery, [string]>(() => query);
+  query.eq = jest.fn<BeachSourcesQuery, [string, string]>(() => query);
+  query.maybeSingle = jest.fn<Promise<SingleResult<BeachSourcesRow>>, []>(() =>
+    Promise.resolve(result)
+  );
+  return query;
+}
+
 describe("weekly recap email cron route", () => {
   const routeSource = readFileSync(
     "app/api/cron/weekly-recap-email/route.ts",
@@ -229,6 +257,7 @@ describe("weekly recap email cron route", () => {
 
   let sessionsQuery: SessionsQuery;
   let profilesQuery: ProfilesQuery;
+  let beachSourcesQuery: BeachSourcesQuery;
   let supabase: SupabaseMock;
   let consoleLogSpy: jest.SpyInstance;
   let consoleErrorSpy: jest.SpyInstance;
@@ -236,20 +265,30 @@ describe("weekly recap email cron route", () => {
 
   function mockSupabaseQueries(
     sessionsResult: QueryResult<SessionRow>,
-    profilesResult: QueryResult<ProfileRow> = { data: [], error: null }
+    profilesResult: QueryResult<ProfileRow> = { data: [], error: null },
+    beachSourcesResult: SingleResult<BeachSourcesRow> = {
+      data: null,
+      error: null,
+    }
   ): void {
     sessionsQuery = createSessionsQuery(sessionsResult);
     profilesQuery = createProfilesQuery(profilesResult);
+    beachSourcesQuery = createBeachSourcesQuery(beachSourcesResult);
     supabase = {
-      from: jest.fn<SessionsQuery | ProfilesQuery, [string]>((table) => {
-        if (table === "sessions") {
-          return sessionsQuery;
+      from: jest.fn<SessionsQuery | ProfilesQuery | BeachSourcesQuery, [string]>(
+        (table) => {
+          if (table === "sessions") {
+            return sessionsQuery;
+          }
+          if (table === "profiles") {
+            return profilesQuery;
+          }
+          if (table === "beach_sources") {
+            return beachSourcesQuery;
+          }
+          throw new Error(`Unexpected table: ${table}`);
         }
-        if (table === "profiles") {
-          return profilesQuery;
-        }
-        throw new Error(`Unexpected table: ${table}`);
-      }),
+      ),
     };
     (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue(supabase);
   }
@@ -374,6 +413,13 @@ describe("weekly recap email cron route", () => {
           },
         ],
         error: null,
+      },
+      {
+        data: {
+          camera_url: "https://youtu.be/abc123",
+          thumbnail_url: null,
+        },
+        error: null,
       }
     );
 
@@ -391,6 +437,9 @@ describe("weekly recap email cron route", () => {
     expect(profilesQuery.eq).toHaveBeenCalledWith("is_mock", false);
     expect(profilesQuery.not).toHaveBeenCalledWith("email", "is", null);
     expect(computeBestDaysForUser).toHaveBeenCalledWith(supabase, "user-1");
+    // Top-spot cam thumbnail resolved from beach_sources (top spot is the
+    // beach_id shared by both sessions). Pure URL derivation — no network.
+    expect(beachSourcesQuery.eq).toHaveBeenCalledWith("beach_id", "beach-1");
     expect(mockThrottle).toHaveBeenCalledTimes(1);
     expect(WeeklyRecapEmail).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -403,6 +452,7 @@ describe("weekly recap email cron route", () => {
         ctaUrl: "https://quiver.test/profile/analytics",
         unsubscribeUrl: "https://quiver.test/settings",
         bestDays: [],
+        topSpotImageUrl: "https://img.youtube.com/vi/abc123/mqdefault.jpg",
       })
     );
     expect(resend.emails.send).toHaveBeenCalledWith(

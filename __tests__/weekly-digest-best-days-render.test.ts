@@ -112,88 +112,108 @@ describe("WeeklyRecapEmail: best-days-this-week render coverage", () => {
   // Phase 2 design-system amendment: Paradise Gold is reserved for EPIC.
   // Lower bands (GOOD / FAIR) use Pacific Teal, RIDEABLE uses muted slate.
   // Thresholds mirror the native MatchScoreBadge.colorForScore helper.
+  //
+  // The redesigned masthead also uses Paradise Gold (the kicker), so these
+  // band assertions are scoped to the best-days section to stay meaningful —
+  // a stray #FDB84B in the header must not satisfy a row-color check.
   describe("score-band label colors", () => {
+    function bestDaysSection(html: string): string {
+      const start = html.indexOf("Best days this week");
+      expect(start).toBeGreaterThan(-1);
+      return html.slice(start);
+    }
+
     it("renders EPIC (>= 8.5) with Paradise Gold", () => {
-      const html = render({
-        ...baseProps,
-        bestDays: [
-          {
-            beach_name: "Torrey Pines",
-            score: 9.0,
-            label: "EPIC",
-            weekday: "Friday",
-            time: "7am",
-          },
-        ],
-      });
-      expect(html).toMatch(/color:#FDB84B[^;"]*[";].*?EPIC/);
+      const section = bestDaysSection(
+        render({
+          ...baseProps,
+          bestDays: [
+            {
+              beach_name: "Torrey Pines",
+              score: 9.0,
+              label: "EPIC",
+              weekday: "Friday",
+              time: "7am",
+            },
+          ],
+        })
+      );
+      expect(section).toMatch(/color:#FDB84B[^;"]*[";].*?EPIC/);
     });
 
     it("renders GOOD (>= 7.0) with Pacific Teal", () => {
-      const html = render({
-        ...baseProps,
-        bestDays: [
-          {
-            beach_name: "Blacks",
-            score: 7.9,
-            label: "GOOD",
-            weekday: "Saturday",
-            time: "8am",
-          },
-        ],
-      });
-      expect(html).toMatch(/color:#00D4AA[^;"]*[";].*?GOOD/);
-      expect(html).not.toMatch(/color:#FDB84B[^;"]*[";].*?GOOD/);
+      const section = bestDaysSection(
+        render({
+          ...baseProps,
+          bestDays: [
+            {
+              beach_name: "Blacks",
+              score: 7.9,
+              label: "GOOD",
+              weekday: "Saturday",
+              time: "8am",
+            },
+          ],
+        })
+      );
+      expect(section).toMatch(/color:#00D4AA[^;"]*[";].*?GOOD/);
+      expect(section).not.toMatch(/color:#FDB84B[^;"]*[";].*?GOOD/);
     });
 
     it("renders FAIR (>= 6.0) with Pacific Teal", () => {
-      const html = render({
-        ...baseProps,
-        bestDays: [
-          {
-            beach_name: "Swamis",
-            score: 6.8,
-            label: "FAIR",
-            weekday: "Sunday",
-            time: "7am",
-          },
-        ],
-      });
-      expect(html).toMatch(/color:#00D4AA[^;"]*[";].*?FAIR/);
-      expect(html).not.toMatch(/color:#FDB84B[^;"]*[";].*?FAIR/);
+      const section = bestDaysSection(
+        render({
+          ...baseProps,
+          bestDays: [
+            {
+              beach_name: "Swamis",
+              score: 6.8,
+              label: "FAIR",
+              weekday: "Sunday",
+              time: "7am",
+            },
+          ],
+        })
+      );
+      expect(section).toMatch(/color:#00D4AA[^;"]*[";].*?FAIR/);
+      expect(section).not.toMatch(/color:#FDB84B[^;"]*[";].*?FAIR/);
     });
 
     it("renders RIDEABLE (< 6.0) with a muted color, not Paradise Gold", () => {
-      const html = render({
-        ...baseProps,
-        bestDays: [
-          {
-            beach_name: "Pacific Beach",
-            score: 4.5,
-            label: "RIDEABLE",
-            weekday: "Monday",
-            time: "7am",
-          },
-        ],
-      });
-      expect(html).toMatch(/color:#6B7280[^;"]*[";].*?RIDEABLE/);
-      expect(html).not.toMatch(/color:#FDB84B[^;"]*[";].*?RIDEABLE/);
+      const section = bestDaysSection(
+        render({
+          ...baseProps,
+          bestDays: [
+            {
+              beach_name: "Pacific Beach",
+              score: 4.5,
+              label: "RIDEABLE",
+              weekday: "Monday",
+              time: "7am",
+            },
+          ],
+        })
+      );
+      expect(section).toMatch(/color:#6B7280[^;"]*[";].*?RIDEABLE/);
+      expect(section).not.toMatch(/color:#FDB84B[^;"]*[";].*?RIDEABLE/);
     });
 
     it("renders distinct colors per band when multiple rows span bands", () => {
-      const html = render({
-        ...baseProps,
-        bestDays: [
-          { beach_name: "A", score: 9.0, label: "EPIC", weekday: "Fri", time: "7am" },
-          { beach_name: "B", score: 7.9, label: "GOOD", weekday: "Sat", time: "8am" },
-          { beach_name: "C", score: 6.8, label: "FAIR", weekday: "Sun", time: "7am" },
-          { beach_name: "D", score: 4.5, label: "RIDEABLE", weekday: "Mon", time: "7am" },
-        ],
-      });
+      const section = bestDaysSection(
+        render({
+          ...baseProps,
+          bestDays: [
+            { beach_name: "A", score: 9.0, label: "EPIC", weekday: "Fri", time: "7am" },
+            { beach_name: "B", score: 7.9, label: "GOOD", weekday: "Sat", time: "8am" },
+            { beach_name: "C", score: 6.8, label: "FAIR", weekday: "Sun", time: "7am" },
+            { beach_name: "D", score: 4.5, label: "RIDEABLE", weekday: "Mon", time: "7am" },
+          ],
+        })
+      );
       // All three band colors appear — not all Paradise Gold like the bug.
-      expect(html).toContain("#FDB84B");
-      expect(html).toContain("#00D4AA");
-      expect(html).toContain("#6B7280");
+      expect(section).toContain("#FDB84B");
+      expect(section).toContain("#00D4AA");
+      expect(section).toContain("#6B7280");
     });
   });
 });

@@ -1,5 +1,31 @@
 import * as React from "react";
+
+import {
+  BeachBadge,
+  CTAButton,
+  EmailShell,
+  Eyebrow,
+  Footer,
+  PaperPanel,
+  Stamp,
+  Wordmark,
+} from "@/lib/mailer/components";
 import { getConditionLabel } from "@/lib/email/email-formatters";
+import {
+  CANVAS,
+  CARD,
+  cellBg,
+  CREAM,
+  FONT_DISPLAY,
+  FONT_MONO,
+  GOLD,
+  MUTED,
+  PAPER_INK,
+  ROW,
+  STICKER_ROTATIONS,
+  SURFACE,
+  TEXT,
+} from "@/lib/mailer/theme";
 
 export interface PersonalizedNudgeEmailProps {
   displayName: string | null;
@@ -11,6 +37,55 @@ export interface PersonalizedNudgeEmailProps {
   ctaUrl: string;
   logSessionUrl: string;
   unsubscribeUrl: string;
+}
+
+/** One mono key/value row on a ROW surface. Skipped by the caller when null. */
+function ConditionRow({ label, value }: { label: string; value: string }) {
+  return (
+    <table
+      role="presentation"
+      cellPadding={0}
+      cellSpacing={0}
+      width="100%"
+      style={{
+        borderCollapse: "collapse",
+        width: "100%",
+        backgroundColor: ROW,
+        borderRadius: 8,
+        marginBottom: 7,
+      }}
+    >
+      <tbody>
+        <tr>
+          <td
+            style={{
+              verticalAlign: "middle",
+              width: 116,
+              padding: "11px 0 11px 14px",
+              fontFamily: FONT_MONO,
+              fontSize: 11,
+              letterSpacing: "0.5px",
+              textTransform: "uppercase",
+              color: MUTED,
+            }}
+          >
+            {label}
+          </td>
+          <td
+            style={{
+              verticalAlign: "middle",
+              padding: "11px 14px 11px 8px",
+              fontFamily: FONT_MONO,
+              fontSize: 13,
+              color: TEXT,
+            }}
+          >
+            {value}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  );
 }
 
 export function PersonalizedNudgeEmail({
@@ -28,300 +103,210 @@ export function PersonalizedNudgeEmail({
   const hasConditions = conditionsScore !== null;
 
   return (
-    <div
-      style={{
-        fontFamily: "Arial, sans-serif",
-        lineHeight: 1.6,
-        maxWidth: 600,
-        margin: "0 auto",
-        backgroundColor: "#1E2456",
-      }}
-    >
-      {/* Header Section */}
-      <div
-        style={{
-          backgroundColor: "#252D6B",
-          padding: "24px 20px",
-          textAlign: "center" as const,
-        }}
-      >
-        <h1
-          style={{
-            color: "#ffffff",
-            margin: 0,
-            fontSize: 22,
-            fontWeight: "bold",
-          }}
-        >
-          {beachName}
-        </h1>
-      </div>
+    <EmailShell>
+      <Wordmark />
 
-      {/* Content Section */}
-      <div style={{ padding: "24px 20px", backgroundColor: "#2D357D" }}>
-        {/* Greeting */}
-        <p style={{ fontSize: 16, margin: "0 0 16px 0", color: "#ffffff" }}>
-          {greeting}
-        </p>
-
-        {hasConditions ? (
-          <>
-            {/* Context line */}
-            <p
-              style={{
-                fontSize: 15,
-                margin: "0 0 24px 0",
-                color: "rgba(255,255,255,0.85)",
-              }}
-            >
-              You set {beachName} as your home break. Here&apos;s what it&apos;s
-              looking like:
-            </p>
-
-            {/* Score Badge */}
-            {(() => {
-              const { label: conditionLabel, color: conditionColor } =
-                getConditionLabel(conditionsScore);
-              return (
-                <div
-                  style={{
-                    textAlign: "center" as const,
-                    marginBottom: 24,
-                  }}
-                >
-                  <div
+      {/* Masthead — "your home break" kicker + the beach name as the headline,
+          with the curated beach badge taped into the right cell. */}
+      <tr>
+        <td {...cellBg(CANVAS, { padding: "26px 28px 20px" })}>
+          <table
+            role="presentation"
+            cellPadding={0}
+            cellSpacing={0}
+            width="100%"
+            style={{ borderCollapse: "collapse" }}
+          >
+            <tbody>
+              <tr>
+                <td style={{ verticalAlign: "top" }}>
+                  <Eyebrow color={GOLD}>Your home break</Eyebrow>
+                  <h1
                     style={{
-                      display: "inline-block",
-                      backgroundColor: conditionColor,
-                      color: "#ffffff",
-                      padding: "20px 40px",
-                      borderRadius: 12,
+                      fontFamily: FONT_DISPLAY,
+                      fontWeight: 700,
+                      fontSize: 31,
+                      lineHeight: 1.04,
+                      color: CREAM,
+                      margin: 0,
+                      transform: `rotate(${STICKER_ROTATIONS.softNeg})`,
                     }}
                   >
-                    <div
-                      style={{
-                        fontSize: 48,
-                        fontWeight: "bold",
-                        lineHeight: 1,
-                      }}
-                    >
-                      {conditionsScore}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: 14,
-                        fontWeight: "bold",
-                        textTransform: "uppercase" as const,
-                        letterSpacing: "1px",
-                        marginTop: 4,
-                      }}
-                    >
-                      {conditionLabel} Conditions
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
+                    {beachName}
+                  </h1>
+                </td>
+                <td
+                  align="right"
+                  width="68"
+                  style={{ verticalAlign: "top", width: 68 }}
+                >
+                  <BeachBadge beach={beachName} size={56} />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </td>
+      </tr>
 
-            {/* Conditions Summary Table */}
-            {(surfDescription || windDescription || bestWindow) && (
-              <table
+      {/* Body */}
+      <tr>
+        <td {...cellBg(CARD, { padding: "24px 28px" })}>
+          <p
+            style={{
+              fontFamily: FONT_DISPLAY,
+              fontWeight: 500,
+              fontSize: 18,
+              lineHeight: 1.3,
+              color: CREAM,
+              margin: "0 0 18px",
+            }}
+          >
+            {greeting}
+          </p>
+
+          {hasConditions ? (
+            <>
+              {/* Score chip — big display number + label colored by verdict */}
+              {(() => {
+                const { label, color } = getConditionLabel(conditionsScore);
+                return (
+                  <table
+                    role="presentation"
+                    cellPadding={0}
+                    cellSpacing={0}
+                    style={{
+                      borderCollapse: "collapse",
+                      marginBottom: 22,
+                    }}
+                  >
+                    <tbody>
+                      <tr>
+                        <td
+                          {...cellBg(SURFACE, {
+                            verticalAlign: "middle",
+                            padding: "14px 22px",
+                            borderRadius: 12,
+                          })}
+                        >
+                          <table
+                            role="presentation"
+                            cellPadding={0}
+                            cellSpacing={0}
+                            style={{ borderCollapse: "collapse" }}
+                          >
+                            <tbody>
+                              <tr>
+                                <td
+                                  style={{
+                                    verticalAlign: "middle",
+                                    paddingRight: 14,
+                                    fontFamily: FONT_DISPLAY,
+                                    fontWeight: 700,
+                                    fontSize: 44,
+                                    lineHeight: 0.9,
+                                    color,
+                                  }}
+                                >
+                                  {conditionsScore}
+                                </td>
+                                <td style={{ verticalAlign: "middle" }}>
+                                  <Stamp bg={color} ink={CANVAS} fontSize={11}>
+                                    {label} CONDITIONS
+                                  </Stamp>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                );
+              })()}
+
+              {/* Conditions list — mono rows, null values skipped */}
+              <div style={{ marginBottom: 22 }}>
+                {surfDescription ? (
+                  <ConditionRow label="Waves" value={surfDescription} />
+                ) : null}
+                {windDescription ? (
+                  <ConditionRow label="Wind" value={windDescription} />
+                ) : null}
+                {bestWindow ? (
+                  <ConditionRow
+                    label="Best window"
+                    value={`${bestWindow.start} - ${bestWindow.end}`}
+                  />
+                ) : null}
+              </div>
+
+              {/* CTAs — primary orange, secondary ghost */}
+              <div style={{ textAlign: "center", padding: "2px 0 10px" }}>
+                <CTAButton href={ctaUrl}>Check the full forecast</CTAButton>
+              </div>
+              <div style={{ textAlign: "center", paddingBottom: 2 }}>
+                <CTAButton href={logSessionUrl} variant="secondary">
+                  Tell us how it went
+                </CTAButton>
+              </div>
+            </>
+          ) : (
+            <>
+              {/* No-conditions fallback — cream paper note + single CTA */}
+              <PaperPanel rotation={STICKER_ROTATIONS.softNeg}>
+                <p
+                  style={{
+                    fontFamily: FONT_DISPLAY,
+                    fontWeight: 500,
+                    fontSize: 15,
+                    lineHeight: 1.4,
+                    color: PAPER_INK,
+                    margin: 0,
+                  }}
+                >
+                  Your home break forecast is live — check it before you paddle
+                  out.
+                </p>
+              </PaperPanel>
+              <div style={{ textAlign: "center", padding: "18px 0 4px" }}>
+                <CTAButton href={ctaUrl}>Check {beachName}</CTAButton>
+              </div>
+              <p
                 style={{
-                  width: "100%",
-                  borderCollapse: "collapse" as const,
-                  marginBottom: 24,
+                  fontFamily: FONT_MONO,
+                  fontSize: 11,
+                  letterSpacing: "0.5px",
+                  textAlign: "center",
+                  color: MUTED,
+                  margin: "12px 0 2px",
                 }}
               >
-                <tbody>
-                  {surfDescription && (
-                    <tr>
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          borderBottom: "1px solid #404C92",
-                          fontWeight: "bold",
-                          color: "rgba(255,255,255,0.6)",
-                          width: "35%",
-                        }}
-                      >
-                        Waves
-                      </td>
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          borderBottom: "1px solid #404C92",
-                          color: "#ffffff",
-                        }}
-                      >
-                        {surfDescription}
-                      </td>
-                    </tr>
-                  )}
-                  {windDescription && (
-                    <tr>
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          borderBottom: "1px solid #404C92",
-                          fontWeight: "bold",
-                          color: "rgba(255,255,255,0.6)",
-                        }}
-                      >
-                        Wind
-                      </td>
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          borderBottom: "1px solid #404C92",
-                          color: "#ffffff",
-                        }}
-                      >
-                        {windDescription}
-                      </td>
-                    </tr>
-                  )}
-                  {bestWindow && (
-                    <tr>
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          borderBottom: "1px solid #404C92",
-                          fontWeight: "bold",
-                          color: "rgba(255,255,255,0.6)",
-                        }}
-                      >
-                        Best Window
-                      </td>
-                      <td
-                        style={{
-                          padding: "12px 16px",
-                          borderBottom: "1px solid #404C92",
-                          color: "#ffffff",
-                        }}
-                      >
-                        {bestWindow.start} - {bestWindow.end}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            )}
+                After you surf, log it to sharpen your forecasts.
+              </p>
+            </>
+          )}
+        </td>
+      </tr>
 
-            {/* Primary CTA */}
-            <div style={{ textAlign: "center" as const, marginBottom: 16 }}>
-              <a
-                href={ctaUrl}
-                style={{
-                  backgroundColor: "#F78E42",
-                  color: "#ffffff",
-                  padding: "14px 28px",
-                  textDecoration: "none",
-                  borderRadius: 8,
-                  display: "inline-block",
-                  fontSize: 16,
-                  fontWeight: "bold",
-                }}
-              >
-                Check Full Forecast &rarr;
-              </a>
-            </div>
-
-            {/* Secondary CTA */}
-            <div style={{ textAlign: "center" as const, marginBottom: 32 }}>
-              <a
-                href={logSessionUrl}
-                style={{
-                  backgroundColor: "transparent",
-                  color: "#4A70D9",
-                  padding: "12px 24px",
-                  textDecoration: "none",
-                  borderRadius: 8,
-                  display: "inline-block",
-                  fontSize: 14,
-                  fontWeight: "bold",
-                  border: "2px solid #4A70D9",
-                }}
-              >
-                Paddle out? Tell us how it was &rarr;
-              </a>
-            </div>
-          </>
-        ) : (
-          <>
-            {/* Fallback — no conditions data */}
-            <p
-              style={{
-                fontSize: 15,
-                margin: "0 0 24px 0",
-                color: "rgba(255,255,255,0.85)",
-              }}
-            >
-              Your home beach forecast is live. Check conditions before you head
-              out.
-            </p>
-
-            {/* Primary CTA */}
-            <div style={{ textAlign: "center" as const, marginBottom: 16 }}>
-              <a
-                href={ctaUrl}
-                style={{
-                  backgroundColor: "#F78E42",
-                  color: "#ffffff",
-                  padding: "14px 28px",
-                  textDecoration: "none",
-                  borderRadius: 8,
-                  display: "inline-block",
-                  fontSize: 16,
-                  fontWeight: "bold",
-                }}
-              >
-                Check {beachName} Forecast &rarr;
-              </a>
-            </div>
-
-            {/* Secondary text */}
-            <p
-              style={{
-                fontSize: 14,
-                textAlign: "center" as const,
-                color: "rgba(255,255,255,0.6)",
-                margin: "0 0 32px 0",
-              }}
-            >
-              After you surf, log your session to make your forecasts smarter.
-            </p>
-          </>
-        )}
-      </div>
-
-      {/* Footer */}
-      <div
-        style={{
-          borderTop: "1px solid #404C92",
-          padding: "20px",
-          textAlign: "center" as const,
-        }}
-      >
+      <Footer>
         <p
           style={{
-            fontSize: 12,
-            color: "rgba(255,255,255,0.6)",
-            margin: "0 0 8px 0",
+            fontFamily: FONT_MONO,
+            fontSize: 10,
+            letterSpacing: "0.5px",
+            color: "rgba(184,199,224,0.65)",
+            margin: 0,
           }}
         >
-          You&apos;re receiving this because you recently signed up for Quiver.
+          You set {beachName} as your home break ·{" "}
+          <a
+            href={unsubscribeUrl}
+            style={{ color: MUTED, textDecoration: "underline" }}
+          >
+            Manage email preferences
+          </a>
         </p>
-        <a
-          href={unsubscribeUrl}
-          style={{
-            fontSize: 12,
-            color: "#4A70D9",
-            textDecoration: "underline",
-          }}
-        >
-          Manage notification preferences
-        </a>
-      </div>
-    </div>
+      </Footer>
+    </EmailShell>
   );
 }

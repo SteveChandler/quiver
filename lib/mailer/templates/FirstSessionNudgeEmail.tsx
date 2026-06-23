@@ -1,5 +1,29 @@
 import * as React from "react";
 
+import {
+  CTAButton,
+  EmailShell,
+  Eyebrow,
+  Footer,
+  PaperPanel,
+  Stamp,
+  Wordmark,
+} from "@/lib/mailer/components";
+import {
+  CANVAS,
+  CARD,
+  cellBg,
+  CREAM,
+  FONT_BODY,
+  FONT_DISPLAY,
+  FONT_MONO,
+  GOLD,
+  MUTED,
+  PAPER_INK,
+  STICKER_ROTATIONS,
+  TEAL,
+} from "@/lib/mailer/theme";
+
 export interface FirstSessionNudgeEmailProps {
   displayName: string | null;
   logSessionUrl: string;
@@ -14,112 +38,112 @@ export function FirstSessionNudgeEmail({
   const greeting = displayName ? `Hey ${displayName}!` : "Hey there!";
 
   return (
-    <div
-      style={{
-        fontFamily: "Arial, sans-serif",
-        lineHeight: 1.6,
-        maxWidth: 600,
-        margin: "0 auto",
-        backgroundColor: "#ffffff",
-      }}
-    >
-      {/* Header Section */}
-      <div
-        style={{
-          backgroundColor: "#0066cc",
-          padding: "24px 20px",
-          textAlign: "center" as const,
-        }}
-      >
-        <h1
-          style={{
-            color: "#ffffff",
-            margin: 0,
-            fontSize: 22,
-            fontWeight: "bold",
-          }}
-        >
-          Your First Forecast Is Waiting
-        </h1>
-      </div>
+    <EmailShell>
+      <Wordmark />
 
-      {/* Content Section */}
-      <div style={{ padding: "24px 20px" }}>
-        <p style={{ fontSize: 16, margin: "0 0 16px 0" }}>
-          {greeting}
-        </p>
+      {/* Masthead — onboarding headline + rotated DAY 1 stamp */}
+      <tr>
+        <td {...cellBg(CANVAS, { padding: "26px 28px 20px" })}>
+          <table
+            role="presentation"
+            cellPadding={0}
+            cellSpacing={0}
+            width="100%"
+            style={{ borderCollapse: "collapse" }}
+          >
+            <tbody>
+              <tr>
+                <td style={{ verticalAlign: "top" }}>
+                  <Eyebrow color={GOLD}>First session</Eyebrow>
+                  <h1
+                    style={{
+                      fontFamily: FONT_DISPLAY,
+                      fontWeight: 700,
+                      fontSize: 28,
+                      lineHeight: 1.05,
+                      color: CREAM,
+                      margin: 0,
+                      transform: `rotate(${STICKER_ROTATIONS.softNeg})`,
+                    }}
+                  >
+                    Your first forecast&apos;s up.
+                  </h1>
+                </td>
+                <td
+                  align="right"
+                  width="78"
+                  style={{ verticalAlign: "top", width: 78 }}
+                >
+                  <Stamp fontSize={12} padding="11px 13px">
+                    DAY 1
+                  </Stamp>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </td>
+      </tr>
 
-        <p style={{ fontSize: 16, margin: "0 0 20px 0", color: "#333333" }}>
-          Welcome to Quiver! The more you use it, the smarter your forecasts
-          get. Log your first session to start building a personalized
-          experience tuned to how you surf.
-        </p>
-
-        {/* Value Proposition */}
-        <div
-          style={{
-            backgroundColor: "#f5f9ff",
-            padding: "16px 20px",
-            borderLeft: "4px solid #0066cc",
-            borderRadius: "0 8px 8px 0",
-            marginBottom: 24,
-            color: "#333333",
-            fontSize: 15,
-          }}
-        >
-          After just 3 sessions, Quiver learns your ideal wave size, wind
-          tolerance, and favorite time slots — so you always know when
-          conditions match <em>your</em> style.
-        </div>
-
-        {/* Primary CTA Button */}
-        <div style={{ textAlign: "center" as const, marginBottom: 32 }}>
-          <a
-            href={logSessionUrl}
+      {/* Body */}
+      <tr>
+        <td {...cellBg(CARD, { padding: "24px 28px" })}>
+          <p
             style={{
-              backgroundColor: "#0066cc",
-              color: "#ffffff",
-              padding: "14px 28px",
-              textDecoration: "none",
-              borderRadius: 8,
-              display: "inline-block",
-              fontSize: 16,
-              fontWeight: "bold",
+              fontFamily: FONT_BODY,
+              fontSize: 15,
+              lineHeight: 1.5,
+              color: MUTED,
+              margin: "0 0 20px",
             }}
           >
-            Log Your First Session &rarr;
-          </a>
-        </div>
-      </div>
+            {greeting}
+          </p>
 
-      {/* Footer */}
-      <div
-        style={{
-          borderTop: "1px solid #e5e5e5",
-          padding: "20px",
-          textAlign: "center" as const,
-        }}
-      >
+          {/* Value prop — cream paper note */}
+          <PaperPanel rotation={STICKER_ROTATIONS.softNeg}>
+            <Eyebrow color={TEAL}>How it learns</Eyebrow>
+            <p
+              style={{
+                fontFamily: FONT_DISPLAY,
+                fontWeight: 500,
+                fontSize: 15,
+                lineHeight: 1.4,
+                color: PAPER_INK,
+                margin: 0,
+              }}
+            >
+              Three sessions in, Quiver learns your wave size, wind tolerance,
+              and best time slots — so you always know when it matches your
+              style.
+            </p>
+          </PaperPanel>
+
+          {/* CTA — rotated orange button */}
+          <div style={{ textAlign: "center", padding: "18px 0 2px" }}>
+            <CTAButton href={logSessionUrl}>Log your first session</CTAButton>
+          </div>
+        </td>
+      </tr>
+
+      <Footer>
         <p
           style={{
-            fontSize: 12,
-            color: "#666666",
-            margin: "0 0 8px 0",
+            fontFamily: FONT_MONO,
+            fontSize: 10,
+            letterSpacing: "0.5px",
+            color: "rgba(184,199,224,0.65)",
+            margin: 0,
           }}
         >
-          You&apos;re receiving this because you recently signed up for Quiver.
+          You just signed up for Quiver ·{" "}
+          <a
+            href={unsubscribeUrl}
+            style={{ color: MUTED, textDecoration: "underline" }}
+          >
+            Manage email preferences
+          </a>
         </p>
-        <a
-          href={unsubscribeUrl}
-          style={{
-            fontSize: 12,
-            color: "#0066cc",
-            textDecoration: "underline",
-          }}
-        >
-          Manage notification preferences
-        </a>
-      </div>
-    </div>
+      </Footer>
+    </EmailShell>
   );
 }
