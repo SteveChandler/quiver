@@ -73,6 +73,15 @@ test.describe("Updated SEO public surfaces", () => {
     await expect(page.locator("body")).not.toContainText(/\bfree\b/i);
   });
 
+  test("/vs/surfline/free targets the free-alternative intent", async ({ page }) => {
+    await gotoPublicPage(page, "/vs/surfline/free");
+    await expect(page).toHaveTitle(/Free Surfline Alternative/i);
+    await expect(page.locator("h1")).toContainText(/free surfline alternative/i);
+    const body = await page.locator("body").innerText();
+    expect(body).toMatch(/\bfree\b/i);
+    expect(body).toMatch(/live cams/i);
+  });
+
   test("/free-surf-reports targets free surf report intent", async ({
     page,
   }) => {
