@@ -92,6 +92,8 @@ Font families loaded via CSS variables: DM Sans (default sans), Space Grotesk (h
 | Body text         | `text-sm` or `text-base`                           |
 | Caption / Helper  | `text-xs text-muted-foreground`                    |
 
+The Space Grotesk / DM Sans / Space Mono trio above remains the core hierarchy and is still accurate. On **zine surfaces** the zine layer adds display and marker fonts for headings and hand-lettered accents — see §5 for the full list.
+
 ---
 
 ## 5. Font Family Rules
@@ -107,6 +109,18 @@ Three font families are loaded via Google Fonts and configured as CSS variables:
 **Rule:** App pages must use `font-heading` on headings. Many components default to DM Sans -- always add `font-heading` to `text-xl font-semibold`, `text-2xl font-bold`, and similar heading patterns.
 
 **Local font copies** exist in `public/fonts/` but are used exclusively by Satori for OG image rendering (see `scripts/fetch-fonts.mjs`). Web pages load fonts via Google Fonts CDN.
+
+### Zine layer display & marker fonts
+
+The trio above stays canonical. On **zine surfaces** the zine layer adds display and hand-lettered fonts for headings and marker accents (tokens defined in `app/styles/zine.css`):
+
+| Token | Fonts | Usage |
+|-------|-------|-------|
+| `--font-zine-display` | Bowlby One / Big Shoulders Stencil | Bold display headings on zine surfaces |
+| `--font-zine-marker` | Permanent Marker | Hand-lettered marker accents, stamps, callouts |
+| `--font-handwritten` | Caveat | Casual hand-lettered notes on zine surfaces |
+
+Use these only on zine content surfaces — body data and UI chrome still use the DM Sans / Space Mono pair.
 
 ---
 
@@ -209,7 +223,9 @@ Props: `icon` (Lucide), `title`, `description`, `action?`, `secondaryAction?`, `
 
 ## 10. Brand Colors
 
-The app uses a **sunset/twilight surf aesthetic**. Charming Orange is the **primary action color**; Deep Twilight is the global background. The Tailwind token `ocean-blue` still exists in `tailwind.config.ts` but now maps to `#F78E42` (Charming Orange) — do not assume it is blue or pink.
+**Direction:** Quiver is zine-first — cream paper content on a twilight stage. See `app/styles/zine.css` (canonical tokens) and the Design Context in `CLAUDE.md`. The dark card surfaces below are legacy stage-layer values.
+
+The app uses a **cream-paper-on-twilight model**: a deep twilight gradient is the page **stage** (backdrop only), and cream paper with ink text is the **default content surface** — content lives on paper, not on the dark stage. Charming Orange remains the **primary action color**. The Tailwind token `ocean-blue` still exists in `tailwind.config.ts` but now maps to `#F78E42` (Charming Orange) — do not assume it is blue or pink. Accents tuned for dark backgrounds do not survive on cream: orange on paper is for fills/marks/stamps, not small body text, and secondary text on paper uses reduced-opacity ink, never the white-on-dark tiers.
 
 | Token | Hex | Role |
 |-------|-----|------|
@@ -218,21 +234,39 @@ The app uses a **sunset/twilight surf aesthetic**. Charming Orange is the **prim
 | `sandy-beige` | `#F5F5DC` | Decorative -- beach-detail gradient background (1 usage, keep) |
 | `dark-grey` | `#333333` | High-contrast text |
 
-### Sunset/twilight palette
+### Zine palette: stage vs. paper
 
-The global background and card surfaces use the following values directly (not tokenized as Tailwind colors — apply via `bg-[#...]` or CSS custom properties):
+The page is built in two layers. The twilight stage is the backdrop only; cream paper is the default content surface. Apply these directly (not tokenized as Tailwind colors — use `bg-[#...]` or CSS custom properties), and prefer the `app/styles/zine.css` tokens.
+
+**(a) Twilight stage (backdrop only)**
+
+These are the stage, **not** content surfaces. The page backdrop is a gradient, not a flat fill.
 
 | Role | Hex | Notes |
 |------|-----|-------|
-| Background | `#252D6B` | Deep Twilight -- global page background |
-| Card surface | `#2D357D` | Slightly lighter twilight for card/panel backgrounds |
-| Elevated surface | `#354090` | Elevated cards, modals |
-| Border | `#404C92` | Subtle borders and dividers |
-| Primary accent | `#F78E42` | Charming Orange -- same value as `ocean-blue` token |
-| Twilight Blue accent | `#4A70D9` | Links, success states, secondary highlights |
-| Paradise Gold | `#FDB84B` | Badges, ratings, energy indicators |
-| Charming Orange (dark) | `#D57835` | Hover/pressed states for primary accent |
-| Valentina Pink | `#D3408B` | Tertiary pop -- decorative highlights, special badges |
+| Stage gradient stop 1 | `#252D6B` | Deep Twilight -- gradient start |
+| Stage gradient stop 2 | `#1A1535` | Mid twilight |
+| Stage gradient stop 3 | `#0D1020` | Deep twilight -- gradient end |
+
+The page stage is the `#252D6B → #1A1535 → #0D1020` gradient. Do not place body content directly on the stage — content belongs on cream paper.
+
+**(b) Cream paper (default content surface)**
+
+The default surface for cards, panels, and content blocks. Ink text on paper, not white.
+
+| Token | Hex | Role |
+|-------|-----|------|
+| `--paper` | `#F4EBD8` | Default paper content surface |
+| `--q-cream` | `#F5EEDC` | Cream paper variant |
+| paper shadow | `#E5D4B3` | Paper edge shadow / inner depth |
+| paper deep | `#D9C49C` | Deep paper tone for layered edges |
+| `--ink` | `#11100D` | Ink text on paper (primary) |
+
+**Craft accents** (on paper, sparingly): stamp red `#B91C1C`, stamp blue `#0B3A75`, tape `#C8A46B`, hi-yellow `#F2C94C`, ocean `#7FA7B8`. Primary accent Charming Orange `#F78E42` is shared across both layers.
+
+**Legacy (stage-layer only, not default content):** the old dark card surfaces `#2D357D` (card surface) and `#354090` (elevated surface) — with border `#404C92`, Twilight Blue `#4A70D9`, Paradise Gold `#FDB84B`, Charming Orange dark `#D57835`, Valentina Pink `#D3408B` — survive only as stage-layer dark values. They are **not** the default content surface; content now lives on cream paper.
+
+**Canonical token source: `app/styles/zine.css`. Do not introduce new hexes — reference these tokens.**
 
 ### Hover states
 
@@ -264,8 +298,8 @@ The landing page and authenticated app share the same visual language:
 
 - **Same font hierarchy:** Space Grotesk for headings, DM Sans for body, Space Mono for monospace
 - **Same primary color:** Charming Orange `#F78E42` (`ocean-blue` token) for all CTAs and action buttons
-- **Same dark background:** Deep Twilight `#252D6B` as the global page background
-- **Gradients encouraged** in both contexts for visual depth against the dark background
+- **Same twilight stage + cream paper content:** Deep Twilight (`#252D6B → #1A1535 → #0D1020`) as the page stage, cream paper (`#F4EBD8`) as the default content surface — shared by landing and app via the zine layer (`app/styles/zine.css`, `ZineSurface`).
+- **Gradients encouraged** in both contexts for visual depth against the twilight stage
 - **Same shadow scale** (see Shadow Scale section)
 - **Same footer component** (`SiteFooter`) with optional brand section for landing
 
@@ -288,7 +322,11 @@ Respect `prefers-reduced-motion` -- all motion is disabled globally in `globals.
 
 ## 13. Text Emphasis System
 
-On dark backgrounds (Deep Twilight `#252D6B` and related card surfaces), use the three-tier white opacity system instead of raw `text-white` or arbitrary opacity modifiers.
+There are two text systems, scoped to the two layers: **white-on-dark** for the twilight stage and masthead, and **ink-on-paper** for cream content surfaces. Pick the system that matches the surface — never use the white-on-dark tiers on cream.
+
+### White-on-dark (twilight stage & masthead only)
+
+On the twilight stage (Deep Twilight `#252D6B → #1A1535 → #0D1020`) and the masthead, use the three-tier white opacity system instead of raw `text-white` or arbitrary opacity modifiers. This system is **scoped to the stage layer** — do not apply it to cream content surfaces.
 
 | Class | Opacity | Color value | Use for |
 |-------|---------|-------------|---------|
@@ -300,6 +338,17 @@ On dark backgrounds (Deep Twilight `#252D6B` and related card surfaces), use the
 Both `text-high` and `text-medium` are CSS utility classes defined in `app/globals.css` under `@layer utilities`. They are not Tailwind theme tokens — use the class names directly.
 
 `text-muted-foreground` (`#9AABC6`) is separate from this system. It comes from the shadcn/ui theme and is intended for UI chrome (form labels, helper text inside UI components). Do not substitute it for `text-medium` on dark surfaces.
+
+### Ink-on-paper (cream content surfaces)
+
+On cream paper content surfaces (`--paper #F4EBD8` / `--q-cream #F5EEDC`), use ink, not white. The white-on-dark tiers above are illegible and wrong on cream.
+
+| Role | Color value | Use for |
+|------|-------------|---------|
+| Primary text | `--ink #11100D` (full) | Headlines, body copy, primary labels on paper |
+| Secondary text | reduced-opacity ink (e.g. `rgba(17,16,13,0.6)`) | Metadata, timestamps, helper labels on paper |
+
+**Legibility rule:** Charming Orange on cream is for fills, marks, and stamps — **not** small body text. Never use `text-white`, `text-high`, or `text-medium` on cream surfaces.
 
 ```tsx
 // Section heading on dark background
@@ -337,13 +386,28 @@ When editing a component that uses raw `text-white/{n}`, migrate to the semantic
 
 ## 14. Texture & Grain
 
-A CSS-only noise texture is available as utility classes defined in `app/globals.css`. The texture is generated via an inline SVG `feTurbulence` filter — no image files are needed.
+Texture is split across the two layers: `noise-texture*` grain on the twilight **stage**, and zine paper/halftone/torn-edge/tape texture on cream **content surfaces**.
+
+### Stage grain (`noise-texture*`)
+
+A CSS-only noise texture is available as utility classes defined in `app/globals.css`. The texture is generated via an inline SVG `feTurbulence` filter — no image files are needed. These utilities apply to the **twilight stage layer** (dark backdrop), not to cream content surfaces.
 
 | Class | Overlay opacity | Use for |
 |-------|----------------|---------|
 | `noise-texture` | 3% | Cards, section containers, elevated surfaces |
 | `noise-texture-subtle` | 2% | Page-level backgrounds (body), large surfaces |
 | `noise-texture-strong` | 5% | CTA sections, hero areas needing extra depth |
+
+### Zine content-surface texture
+
+Cream content surfaces carry their own zine texture vocabulary — implementations live in `app/styles/zine.css` (reference the tokens; do not reinvent):
+
+- **Paper grain** — subtle fibrous grain on cream paper surfaces, distinct from the stage's `feTurbulence` noise.
+- **Halftone** — dot-screen shading for retro print depth.
+- **Torn edge** — ragged paper edges on cards and cutouts.
+- **Tape** — masking-tape strips (tape `#C8A46B`) anchoring stickers and cards.
+
+Use the zine texture on cream surfaces and the `noise-texture*` grain on the stage — do not mix the two on the same surface.
 
 ### How it works
 
