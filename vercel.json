@@ -137,6 +137,14 @@
       "schedule": "0 13 * * *"
     },
     {
+      "path": "/api/cron/home-morning-call",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/weekend-window",
+      "schedule": "0 1 * * 5,6"
+    },
+    {
       "path": "/api/cron/condition-alert-deliver",
       "schedule": "0 * * * *"
     },
