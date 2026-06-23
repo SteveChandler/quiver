@@ -17,6 +17,7 @@ import {
   Camera,
   Check,
   ClipboardList,
+  Compass,
   MapPinned,
   Minus,
   Shield,
@@ -30,6 +31,7 @@ import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { SITE_URL } from "@/lib/constants/seo";
+import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
 import {
   FadeInSection,
   AnimatedStickerBadge,
@@ -232,6 +234,13 @@ const COMPARISON_FEATURES: FeatureRow[] = [
     surfline: "paid",
     surflineNote: "Varies by plan and region",
   },
+  {
+    feature: "Public roadmap",
+    description: "Vote on what gets built next and submit requests.",
+    quiver: "included",
+    quiverNote: "Vote + submit",
+    surfline: "none",
+  },
 ];
 
 const QUICK_DECISIONS = [
@@ -290,6 +299,13 @@ const PROOF_ITEMS = [
     title: "Cams included",
     description: "Live cams and regional cam pages where streams are available.",
     href: "/cams",
+  },
+  {
+    icon: <Compass className="h-5 w-5" aria-hidden />,
+    title: "Built in the open",
+    description:
+      "Vote on what we build next — the roadmap is public and yours to shape.",
+    href: "/roadmap",
   },
 ];
 
@@ -378,8 +394,10 @@ function StickerBadge({
 // Page Component
 // ---------------------------------------------------------------------------
 
-export default function VsSurflinePage() {
+export default async function VsSurflineFreePage() {
   const pageUpdatedDate = getPageUpdatedDate();
+  const camBeaches = await getBeachesWithCameras();
+  const camCount = camBeaches.length;
 
   return (
     <div className="min-h-screen overflow-hidden bg-[#F4EBD8] text-[#11100D]">
@@ -430,19 +448,16 @@ export default function VsSurflinePage() {
 
             <div>
               <p className="mb-3 font-mono text-xs font-black uppercase tracking-[0.24em] text-[#9E5010]">
-                Quiver vs Surfline
+                Quiver vs Surfline · The Free Read
               </p>
               <h1 className="max-w-5xl font-heading text-4xl font-black leading-[0.9] tracking-normal text-[#11100D] sm:text-6xl md:text-7xl lg:text-8xl">
-                Surfline Alternative: Quiver vs Surfline
+                Looking for a free Surfline alternative?
               </h1>
-              <p className="mt-5 max-w-2xl text-base font-black leading-7 text-[#252D6B] md:mt-6 md:text-2xl md:leading-9">
-                Surfline helps you read the region. Quiver helps forecast your
-                session.
-              </p>
-              <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-[#252D6B] md:mt-4 md:text-lg md:leading-7">
-                Set your home beaches, log what you actually surf, and turn each
-                rating into a sharper call for next time, without making price
-                the whole story.
+              <p className="mt-5 max-w-2xl text-sm font-semibold leading-6 text-[#252D6B] md:mt-6 md:text-lg md:leading-7">
+                Quiver lets you check 280+ breaks across the US coasts, Hawaii,
+                Puerto Rico, and Baja — free, no subscription to read
+                conditions. A Pro tier adds session-based personalization.
+                Surfline is global but paywalls its forecasts.
               </p>
             </div>
 
@@ -451,7 +466,7 @@ export default function VsSurflinePage() {
                 href="/auth/sign-up"
                 className="inline-flex items-center justify-center gap-2 rounded-sm border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-heading text-sm font-black uppercase tracking-[0.08em] text-[#11100D] shadow-[5px_5px_0_rgba(17,16,13,0.3)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D]"
               >
-                Start Your Personal Forecast
+                Start free
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
@@ -460,6 +475,26 @@ export default function VsSurflinePage() {
               >
                 Browse Forecasts
               </Link>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 mt-5">
+              {[
+                { n: "2.5M+", l: "forecasts crunched" }, // marketing constant — bump periodically
+                { n: "280+", l: "breaks dialed in" }, // marketing constant — keep in sync with coverage
+                { n: `${camCount}`, l: "live cams" }, // live: derived from getBeachesWithCameras()
+              ].map((s, i) => (
+                <div
+                  key={s.l}
+                  className={`bg-[#252D6B] text-[#F5EEDC] rounded-[12px_4px_14px_6px] shadow-[2px_3px_0_rgba(0,0,0,0.3)] px-3 py-3 ${["rotate-[-1deg]", "rotate-[1.2deg]", "rotate-[-0.6deg]"][i]}`}
+                >
+                  <div className="font-heading font-bold text-2xl leading-none">
+                    {s.n}
+                  </div>
+                  <div className="font-mono text-[10px] tracking-wider uppercase text-[#00D4AA] mt-1">
+                    {s.l}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
@@ -572,6 +607,23 @@ export default function VsSurflinePage() {
               />
             ))}
           </FadeInSection>
+
+          <div className="flex items-center gap-3 bg-[#FFFDF7] border-2 border-[#11100D] rounded-[10px] px-4 py-3 mt-6">
+            <div>
+              <div className="font-heading font-bold text-[15px]">
+                Get it on your phone
+              </div>
+              <span className="font-sans text-[11.5px] text-[#6b6557]">
+                iOS live now · Android waitlist open
+              </span>
+            </div>
+            <Link
+              href="/app"
+              className="ml-auto font-heading font-bold text-xs bg-[#11100D] text-[#F5EEDC] rounded-lg px-3 py-2"
+            >
+              Get the app
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -848,6 +900,7 @@ export default function VsSurflinePage() {
               <QuickTextLink href="/best-time-to-surf">Best surf windows</QuickTextLink>
               <QuickTextLink href="/features">Quiver features</QuickTextLink>
               <QuickTextLink href="/cams">Live cams</QuickTextLink>
+              <QuickTextLink href="/roadmap">Vote on the roadmap</QuickTextLink>
             </div>
           </div>
         </div>
