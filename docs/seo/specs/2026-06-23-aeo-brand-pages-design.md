@@ -99,7 +99,7 @@ Mandatory link graph:
 - `/vs/surfline` ⇄ `/vs/surfline/free` (reciprocal, both directions).
 - Every learn surface → `/vs/surfline` (the converting category page) and → `/forecast-accuracy`.
 - `how-to-read-surf-conditions` ⇄ `groundswell-vs-wind-swell` ⇄ `swell-period-explained` ⇄ `how-swell-direction-affects-surf` (topic cluster).
-- Each surface → 2–4 relevant **beach forecast pages** (`/forecast/<beach>`) so link equity reaches money pages.
+- Each surface → relevant money pages: regional forecast hubs (`/forecast/<region>`, e.g. `/forecast/san-diego`) and **individual beach pages** built via `buildBeachUrl({slug, city, state})` (`/<state>/<city>/<beachSlug>`) — **not** `/forecast/<beachSlug>` (that path is region-only; a beach slug there just 301-redirects).
 - `/vs/surfline/free` → a "Keep reading" rail into the learn cluster.
 - `/vs/surfline/free` → `/roadmap` (the community-voted roadmap) — links the page from a high-value surface and aids `/roadmap` indexing (its sitemap entry was deferred post-freeze).
 
