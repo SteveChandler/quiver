@@ -162,7 +162,7 @@ const FAQ_ITEMS = [
   {
     question: "Does Quiver work for East Coast and Gulf surfers?",
     answer:
-      "Yes. Quiver covers beaches across Florida, the Carolinas, New Jersey, New York, and other East Coast states, plus Gulf spots in Texas. Every beach gets the same ML-corrected forecasts, tide charts, and water temperature data as our West Coast spots.",
+      "Yes. Quiver covers beaches across Florida, the Carolinas, New Jersey, New York, and other East Coast states, plus Gulf spots in Texas. East Coast and Gulf breaks get the same per-beach forecasts, tide charts, and water temperature data as our West Coast spots, with ML correction applied where a break is calibrated.",
   },
   {
     question: "Can I use Quiver on my phone?",
