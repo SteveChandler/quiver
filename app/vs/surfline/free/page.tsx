@@ -2,8 +2,9 @@
  * Free Surfline Alternative Page
  *
  * SEO comparison page targeting "free surfline alternative" keywords.
- * Server component for full SEO indexability. Uses the retro-dark
- * design system with sticker-style badges and data-first layout.
+ * Server component for full SEO indexability. Renders the cream/light
+ * marketing comparison design (bg-[#F4EBD8]) with sticker-style badges
+ * and a data-first layout.
  *
  * URL: /vs/surfline/free
  * ISR: 24 hours (86400s), static content updated infrequently
@@ -124,6 +125,21 @@ function ComparisonStructuredData() {
 // ---------------------------------------------------------------------------
 
 const FAQ_ITEMS = [
+  {
+    question: "Is there a free alternative to Surfline?",
+    answer:
+      "Yes. With Quiver you can browse forecasts, tide charts, and live cams for 280+ breaks across the US, Hawaii, Puerto Rico, and Baja without a subscription. A Pro tier adds session-based personalization.",
+  },
+  {
+    question: "Do I need a subscription to check surf on Quiver?",
+    answer:
+      "No. Reading conditions — forecast, tide, wind, and cams — is free. The optional Pro tier adds the personalization that learns from your logged sessions.",
+  },
+  {
+    question: "What replaced Magic Seaweed?",
+    answer:
+      "Magic Seaweed was merged into Surfline. If you want a data-first replacement you can read without paying, Quiver covers US, Hawaii, Puerto Rico, and Baja breaks with forecasts, tides, and cams.",
+  },
   {
     question: "Is Quiver more personal than Surfline?",
     answer:
@@ -310,15 +326,10 @@ const PROOF_ITEMS = [
   },
 ];
 
-const DATE_FORMATTER = new Intl.DateTimeFormat("en-US", {
-  month: "long",
-  day: "numeric",
-  year: "numeric",
-});
-
-function getPageUpdatedDate(): string {
-  return DATE_FORMATTER.format(new Date());
-}
+// Hardcoded so the hero "Updated" sticker stays in sync with the
+// hardcoded "June 23, 2026" dates in the FAQ/disclosure/JSON-LD —
+// new Date() would drift on this ISR-static page.
+const PAGE_UPDATED = "Jun 2026";
 
 // ---------------------------------------------------------------------------
 // Helper Components
@@ -396,7 +407,6 @@ function StickerBadge({
 // ---------------------------------------------------------------------------
 
 export default async function VsSurflineFreePage() {
-  const pageUpdatedDate = getPageUpdatedDate();
   const camBeaches = await getBeachesWithCameras();
   const camCount = camBeaches.length;
 
@@ -444,7 +454,7 @@ export default async function VsSurflineFreePage() {
         <div className="relative mx-auto grid max-w-7xl gap-7 lg:grid-cols-[minmax(0,1.02fr)_minmax(380px,0.98fr)] lg:items-end">
           <div className="space-y-5 md:space-y-7">
             <AnimatedStickerBadge>
-              <StickerBadge>Updated {pageUpdatedDate}</StickerBadge>
+              <StickerBadge>Updated {PAGE_UPDATED}</StickerBadge>
             </AnimatedStickerBadge>
 
             <div>
@@ -567,12 +577,13 @@ export default async function VsSurflineFreePage() {
         <div className="mx-auto max-w-7xl">
           <div className="relative -rotate-[0.6deg] border-2 border-[#11100D] bg-[#11100D] p-5 text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.25)] md:p-7">
             <div className="absolute -top-4 left-7 rotate-[-2deg] border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#11100D]">
-              quick read
+              the short answer
             </div>
             <p className="font-heading text-2xl font-black leading-tight md:text-4xl">
-              If you want to scan a coastline, Surfline fits. If you want the
-              app to learn your home breaks and your taste in waves, Quiver is
-              the sharper bet.
+              Yes — Quiver is a free-to-browse Surfline alternative for the US,
+              Hawaii, Puerto Rico, and Baja. You read any beach&apos;s forecast,
+              tide, and cams without paying. The personalization that learns your
+              sessions is the optional Pro layer.
             </p>
           </div>
         </div>
@@ -625,12 +636,18 @@ export default async function VsSurflineFreePage() {
               Get the app
             </Link>
           </div>
+        </div>
+      </section>
 
-          {/* ============================================================= */}
-          {/* Live Cam Wall */}
-          {/* ============================================================= */}
-          <section aria-labelledby="cam-wall-heading" className="mt-12">
-            <div className="flex items-baseline justify-between mb-3">
+      {/* ================================================================= */}
+      {/* Live Cam Wall */}
+      {/* ================================================================= */}
+      <section
+        aria-labelledby="cam-wall-heading"
+        className="px-4 pb-10 md:pb-14"
+      >
+        <div className="mx-auto max-w-7xl">
+          <div className="flex items-baseline justify-between mb-3">
               <h2
                 id="cam-wall-heading"
                 className="font-mono text-[11px] tracking-[0.16em] font-bold uppercase text-[#252D6B]"
@@ -676,7 +693,6 @@ export default async function VsSurflineFreePage() {
             >
               See all {camCount} cams →
             </Link>
-          </section>
         </div>
       </section>
 
@@ -955,6 +971,31 @@ export default async function VsSurflineFreePage() {
               <QuickTextLink href="/cams">Live cams</QuickTextLink>
               <QuickTextLink href="/roadmap">Vote on the roadmap</QuickTextLink>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================= */}
+      {/* Keep Reading: Learn Cluster Rail */}
+      {/* ================================================================= */}
+      <section className="px-4 pb-16 md:pb-20">
+        <div className="mx-auto max-w-7xl border-2 border-[#11100D] bg-[#F8EFD8] p-5 shadow-[6px_6px_0_rgba(17,16,13,0.2)] md:p-7">
+          <p className="inline-flex border-2 border-[#11100D] bg-[#252D6B] px-2 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#F4EBD8] shadow-[2px_2px_0_rgba(17,16,13,0.22)]">
+            Keep reading
+          </p>
+          <div className="mt-5 flex flex-wrap gap-4">
+            <QuickTextLink href="/learn/how-to-read-surf-conditions">
+              How to read a surf report
+            </QuickTextLink>
+            <QuickTextLink href="/learn/groundswell-vs-wind-swell">
+              Groundswell vs wind swell
+            </QuickTextLink>
+            <QuickTextLink href="/learn/how-accurate-are-surf-forecasts">
+              How accurate are surf forecasts?
+            </QuickTextLink>
+            <QuickTextLink href="/vs/surfline">
+              The full Quiver vs Surfline breakdown
+            </QuickTextLink>
           </div>
         </div>
       </section>
