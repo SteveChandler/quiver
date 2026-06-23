@@ -16,7 +16,7 @@ interface CamGridProps {
 export function CamGrid({ beaches, groupByRegion = false }: CamGridProps) {
   if (!groupByRegion) {
     return (
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
         {beaches.map((beach) => (
           <CamCard key={beach.id} beach={beach} />
         ))}
@@ -39,19 +39,20 @@ export function CamGrid({ beaches, groupByRegion = false }: CamGridProps) {
         if (!regionBeaches || regionBeaches.length === 0) return null;
 
         return (
-          <section key={region.slug} id={region.slug}>
-            <div className="mb-4 flex items-baseline justify-between">
-              <h2 className="font-heading text-2xl font-bold text-gray-900">
+          <section key={region.slug} id={region.slug} className="scroll-mt-24">
+            <div className="mb-5 flex items-end justify-between gap-4 border-b-2 border-[#11100D] pb-3">
+              <h2 className="font-[var(--font-zine-display)] text-3xl uppercase leading-none tracking-normal text-[#11100D] sm:text-4xl">
                 {region.name}
               </h2>
               <Link
                 href={`/cams/${region.slug}`}
-                className="text-sm font-medium text-ocean-blue hover:underline"
+                className="font-mono text-xs font-black uppercase tracking-[0.12em] text-[#0B3A75] underline decoration-[#F78E42] decoration-2 underline-offset-4 transition hover:text-[#11100D]"
               >
-                View all {regionBeaches.length} cams &rarr;
+                View all {regionBeaches.length}{" "}
+                {regionBeaches.length === 1 ? "cam" : "cams"} &rarr;
               </Link>
             </div>
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
               {regionBeaches.map((beach) => (
                 <CamCard key={beach.id} beach={beach} />
               ))}

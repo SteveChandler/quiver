@@ -99,7 +99,7 @@ export function AppHeader() {
         router.push(`/map?${params.toString()}`);
       }
     },
-    [searchQuery, router, searchParams]
+    [searchQuery, router, searchParams],
   );
 
   // Handle mobile search icon click
@@ -107,28 +107,43 @@ export function AppHeader() {
     router.push("/map");
   }, [router]);
 
-  // Don't render header on landing page for unauthenticated users
-  // Landing page has its own Navbar component
+  // Don't render the app header on landing-style pages for unauthenticated users.
+  // These pages render the landing Navbar instead.
   // IMPORTANT: This conditional return MUST come AFTER all hooks are called
   // Use hasMounted guard to prevent hydration mismatch: server always returns null
   // on "/", client matches on first render, then shows header after mount if logged in
-  if (pathname === "/" && (!hasMounted || !user)) {
+  const usesLandingNav =
+    pathname === "/" || pathname === "/cams" || pathname.startsWith("/cams/");
+
+  if (usesLandingNav && (!hasMounted || !user)) {
     return null;
   }
 
   const getSignupCta = (path: string) => {
     if (isBeachContextPath(path)) return "See Your Forecast";
     if (path.startsWith("/forecast")) return "Full Forecast";
-    if (path.match(/^\/(beginner|longboard|dawn-patrol|tide|water-temp)\//)) return "Find Your Spot";
+    if (path.match(/^\/(beginner|longboard|dawn-patrol|tide|water-temp)\//))
+      return "Find Your Spot";
     return "Get Started";
   };
 
-  const getSignupContext = (path: string): { title: string; description: string } => {
+  const getSignupContext = (
+    path: string,
+  ): { title: string; description: string } => {
     if (isBeachContextPath(path))
-      return { title: "See Your Forecast", description: "Conditions explained clearly in 30 seconds" };
+      return {
+        title: "See Your Forecast",
+        description: "Conditions explained clearly in 30 seconds",
+      };
     if (path.startsWith("/forecast"))
-      return { title: "See the Full Forecast", description: "Get the complete 12-day outlook" };
-    return { title: "Get Started", description: "Conditions explained clearly in 30 seconds" };
+      return {
+        title: "See the Full Forecast",
+        description: "Get the complete 12-day outlook",
+      };
+    return {
+      title: "Get Started",
+      description: "Conditions explained clearly in 30 seconds",
+    };
   };
 
   // Check if user is admin (client-side check for UI only - server-side check in middleware)
@@ -231,7 +246,7 @@ export function AppHeader() {
                     "text-sm font-medium transition-colors duration-200 hover:text-primary focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 rounded px-1",
                     isActiveRoute(item.href)
                       ? "text-primary"
-                      : "text-muted-foreground"
+                      : "text-muted-foreground",
                   )}
                 >
                   {item.name}
@@ -336,7 +351,7 @@ export function AppHeader() {
                           "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
                           isActiveRoute(item.href)
                             ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
-                            : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                            : "text-foreground/80 hover:bg-muted hover:text-foreground",
                         )}
                         onClick={() => setMobileMenuOpen(false)}
                         data-testid={`mobile-nav-${item.name.toLowerCase()}`}
@@ -379,7 +394,7 @@ export function AppHeader() {
                         "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
                         pathname === "/"
                           ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
-                          : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                          : "text-foreground/80 hover:bg-muted hover:text-foreground",
                       )}
                       onClick={() => setMobileMenuOpen(false)}
                       data-testid="mobile-nav-home"
@@ -393,7 +408,7 @@ export function AppHeader() {
                         "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
                         pathname.startsWith("/map")
                           ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
-                          : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                          : "text-foreground/80 hover:bg-muted hover:text-foreground",
                       )}
                       onClick={() => setMobileMenuOpen(false)}
                       data-testid="mobile-nav-map"
@@ -407,7 +422,7 @@ export function AppHeader() {
                         "flex items-center gap-3 h-12 px-4 rounded-md text-base font-medium transition-all duration-200",
                         pathname.startsWith("/discover")
                           ? "bg-primary/10 text-primary font-semibold border-l-4 border-primary"
-                          : "text-foreground/80 hover:bg-muted hover:text-foreground"
+                          : "text-foreground/80 hover:bg-muted hover:text-foreground",
                       )}
                       onClick={() => setMobileMenuOpen(false)}
                       data-testid="mobile-nav-discover"
@@ -458,7 +473,7 @@ export function AppHeader() {
           </Sheet>
 
           {/* Auth Section - Far Right */}
-          {(!hasMounted || authLoading) ? (
+          {!hasMounted || authLoading ? (
             <Loader2 className="h-5 w-5 animate-spin" />
           ) : user ? (
             <DropdownMenu>
@@ -555,7 +570,9 @@ export function AppHeader() {
                   }}
                 >
                   <span className="lg:hidden">Sign Up</span>
-                  <span className="hidden lg:inline">{getSignupCta(pathname)}</span>
+                  <span className="hidden lg:inline">
+                    {getSignupCta(pathname)}
+                  </span>
                 </Button>
               </div>
 
@@ -565,7 +582,9 @@ export function AppHeader() {
                 mode={authMode}
                 source="app-header"
                 returnTo={pathname}
-                contextMessage={authMode === "signup" ? getSignupContext(pathname) : undefined}
+                contextMessage={
+                  authMode === "signup" ? getSignupContext(pathname) : undefined
+                }
               />
             </>
           )}

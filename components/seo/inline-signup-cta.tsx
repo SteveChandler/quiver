@@ -4,7 +4,10 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
-import { trackSignupCtaClick, trackSignupCtaView } from "@/lib/analytics/signup-conversion-tracking";
+import {
+  trackSignupCtaClick,
+  trackSignupCtaView,
+} from "@/lib/analytics/signup-conversion-tracking";
 import { cn } from "@/lib/utils";
 
 interface InlineSignupCtaProps {
@@ -50,7 +53,11 @@ export function InlineSignupCta({
 
   useEffect(() => {
     if (!user && !isLoading && !hasTrackedView.current) {
-      trackSignupCtaView({ source, cta_type: "inline", cta_copy_variant: ctaCopyVariant });
+      trackSignupCtaView({
+        source,
+        cta_type: "inline",
+        cta_copy_variant: ctaCopyVariant,
+      });
       hasTrackedView.current = true;
     }
   }, [user, isLoading, source, ctaCopyVariant]);
@@ -85,7 +92,7 @@ export function InlineSignupCta({
                 "border border-ocean-blue/15 shadow-sm ring-1 ring-ocean-blue/5",
                 "p-6",
               ],
-          className
+          className,
         )}
         role="region"
         aria-label={`Sign up prompt: ${title}`}
@@ -109,11 +116,14 @@ export function InlineSignupCta({
                 "mb-2 text-lg md:text-xl",
                 variant === "zine"
                   ? "font-normal uppercase tracking-[0.02em] text-[#11100D]"
-                  : "font-semibold text-gray-900"
+                  : "font-semibold text-gray-900",
               )}
               style={
                 variant === "zine"
-                  ? { fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif" }
+                  ? {
+                      fontFamily:
+                        "var(--font-zine-display), 'Bowlby One', sans-serif",
+                    }
                   : undefined
               }
             >
@@ -122,7 +132,7 @@ export function InlineSignupCta({
             <p
               className={cn(
                 "text-sm md:text-base",
-                variant === "zine" ? "text-[#11100D]/75" : "text-gray-600"
+                variant === "zine" ? "text-[#11100D]/75" : "text-gray-600",
               )}
             >
               {description}
@@ -135,7 +145,7 @@ export function InlineSignupCta({
               className={cn(
                 variant === "zine"
                   ? "rounded-full border-2 border-[#11100D] bg-[#B56A2B] px-6 text-[#F4EBD8] shadow-[2px_2px_0_rgba(17,16,13,0.35)] hover:bg-[#9A5820] hover:shadow-[3px_3px_0_rgba(17,16,13,0.35)] font-semibold"
-                  : "rounded-full bg-ocean-blue text-white px-6 shadow-sm hover:shadow-md font-semibold"
+                  : "rounded-full bg-ocean-blue text-white px-6 shadow-sm hover:shadow-md font-semibold",
               )}
               data-testid="inline-signup-primary-cta"
             >
@@ -147,7 +157,7 @@ export function InlineSignupCta({
         <p
           className={cn(
             "mt-4 text-xs",
-            variant === "zine" ? "text-[#11100D]/55" : "text-gray-500"
+            variant === "zine" ? "text-[#11100D]/55" : "text-gray-500",
           )}
         >
           Built with feedback from local surfers.

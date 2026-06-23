@@ -1,6 +1,8 @@
 import {
+  CAM_CARD_FALLBACK_IMAGE_URL,
   getCamThumbnailUrl,
   getDisplayCamThumbnailUrl,
+  getDisplayCamThumbnailUrls,
   getYouTubeVideoId,
   getYouTubeWatchUrl,
   isYouTubeCameraUrl,
@@ -23,46 +25,52 @@ describe("getCamThumbnailUrl", () => {
   // --- YouTube watch URLs ---
   it("extracts thumbnail from youtube.com/watch URL", () => {
     expect(getCamThumbnailUrl("https://www.youtube.com/watch?v=abc123")).toBe(
-      "https://img.youtube.com/vi/abc123/mqdefault.jpg"
+      "https://img.youtube.com/vi/abc123/mqdefault.jpg",
     );
+  });
+
+  it("returns null for known stale YouTube video thumbnails", () => {
+    expect(
+      getCamThumbnailUrl("https://www.youtube.com/watch?v=0bv7YxPWRdw"),
+    ).toBeNull();
   });
 
   it("extracts thumbnail from youtube.com/watch with extra params", () => {
     expect(
-      getCamThumbnailUrl("https://www.youtube.com/watch?v=xyz789&list=PLfoo")
+      getCamThumbnailUrl("https://www.youtube.com/watch?v=xyz789&list=PLfoo"),
     ).toBe("https://img.youtube.com/vi/xyz789/mqdefault.jpg");
   });
 
   // --- YouTube short URLs ---
   it("extracts thumbnail from youtu.be short URL", () => {
     expect(getCamThumbnailUrl("https://youtu.be/abc123")).toBe(
-      "https://img.youtube.com/vi/abc123/mqdefault.jpg"
+      "https://img.youtube.com/vi/abc123/mqdefault.jpg",
     );
   });
 
   it("extracts thumbnail from youtu.be short URL with query params", () => {
     expect(getCamThumbnailUrl("https://youtu.be/abc123?t=30")).toBe(
-      "https://img.youtube.com/vi/abc123/mqdefault.jpg"
+      "https://img.youtube.com/vi/abc123/mqdefault.jpg",
     );
   });
 
   // --- YouTube live URLs ---
   it("extracts thumbnail from youtube.com/live URL", () => {
     expect(getCamThumbnailUrl("https://www.youtube.com/live/def456")).toBe(
-      "https://img.youtube.com/vi/def456/mqdefault.jpg"
+      "https://img.youtube.com/vi/def456/mqdefault.jpg",
     );
   });
 
   it("extracts thumbnail from youtube.com/live URL with query params", () => {
     expect(
-      getCamThumbnailUrl("https://www.youtube.com/live/def456?feature=share")
+      getCamThumbnailUrl("https://www.youtube.com/live/def456?feature=share"),
     ).toBe("https://img.youtube.com/vi/def456/mqdefault.jpg");
   });
 
   // --- YouTube embed URLs ---
   it("extracts thumbnail from youtube.com/embed URL", () => {
     expect(getCamThumbnailUrl("https://www.youtube.com/embed/ghi789")).toBe(
-      "https://img.youtube.com/vi/ghi789/mqdefault.jpg"
+      "https://img.youtube.com/vi/ghi789/mqdefault.jpg",
     );
   });
 
@@ -73,25 +81,25 @@ describe("getCamThumbnailUrl", () => {
 
   it("returns null for hdontap URLs", () => {
     expect(
-      getCamThumbnailUrl("https://hdontap.com/stream/994481/dana-point")
+      getCamThumbnailUrl("https://hdontap.com/stream/994481/dana-point"),
     ).toBeNull();
   });
 
   it("returns null for HLS stream URLs", () => {
     expect(
       getCamThumbnailUrl(
-        "https://hls.cdn-surfline.com/oregon/wc-blacksov/playlist.m3u8"
-      )
+        "https://hls.cdn-surfline.com/oregon/wc-blacksov/playlist.m3u8",
+      ),
     ).toBeNull();
   });
 
   it("extracts thumbnails from Surfline embed URLs", () => {
     expect(
       getCamThumbnailUrl(
-        "https://embed.cdn-surfline.com/cams/5834a0733421b20545c4b584/64ba68ebf1c960a93d1faba8f86cc16a3ed05913"
-      )
+        "https://embed.cdn-surfline.com/cams/5834a0733421b20545c4b584/64ba68ebf1c960a93d1faba8f86cc16a3ed05913",
+      ),
     ).toBe(
-      "https://camstills.cdn-surfline.com/5834a0733421b20545c4b584/latest_small.jpg"
+      "https://camstills.cdn-surfline.com/5834a0733421b20545c4b584/latest_small.jpg",
     );
   });
 
@@ -112,20 +120,20 @@ describe("getCamThumbnailUrl", () => {
 describe("getYouTubeVideoId", () => {
   it("extracts IDs from supported YouTube URL formats", () => {
     expect(getYouTubeVideoId("https://www.youtube.com/watch?v=abc123")).toBe(
-      "abc123"
+      "abc123",
     );
     expect(getYouTubeVideoId("https://youtu.be/def456?t=30")).toBe("def456");
     expect(
-      getYouTubeVideoId("https://www.youtube.com/live/ghi789?feature=share")
+      getYouTubeVideoId("https://www.youtube.com/live/ghi789?feature=share"),
     ).toBe("ghi789");
     expect(getYouTubeVideoId("https://www.youtube.com/embed/jkl012")).toBe(
-      "jkl012"
+      "jkl012",
     );
   });
 
   it("returns null for non-video YouTube pages", () => {
     expect(
-      getYouTubeVideoId("https://www.youtube.com/@QuiverSurf/streams")
+      getYouTubeVideoId("https://www.youtube.com/@QuiverSurf/streams"),
     ).toBeNull();
   });
 });
@@ -133,7 +141,7 @@ describe("getYouTubeVideoId", () => {
 describe("getYouTubeWatchUrl", () => {
   it("normalizes supported YouTube URLs to watch URLs", () => {
     expect(getYouTubeWatchUrl("https://www.youtube.com/embed/abc123")).toBe(
-      "https://www.youtube.com/watch?v=abc123"
+      "https://www.youtube.com/watch?v=abc123",
     );
   });
 });
@@ -141,7 +149,7 @@ describe("getYouTubeWatchUrl", () => {
 describe("isYouTubeCameraUrl", () => {
   it("detects YouTube hosts", () => {
     expect(isYouTubeCameraUrl("https://www.youtube.com/watch?v=abc123")).toBe(
-      true
+      true,
     );
     expect(isYouTubeCameraUrl("https://youtu.be/abc123")).toBe(true);
   });
@@ -159,7 +167,7 @@ describe("getDisplayCamThumbnailUrl", () => {
         cameraUrl: "https://www.obhotel.com/Webcam-Oceanbeach.php",
         thumbnailUrl:
           "https://vawdnbbgawichorsjiwe.supabase.co/storage/v1/object/public/cam-thumbnails/65d177de-e75a-4ad8-aa0d-48a67c0851b0.jpg",
-      })
+      }),
     ).toBeNull();
   });
 
@@ -169,22 +177,42 @@ describe("getDisplayCamThumbnailUrl", () => {
         cameraUrl: "https://www.obhotel.com/Webcam-Oceanbeach.php",
         thumbnailUrl:
           "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot_obhotel.stream.jpg",
-      })
+      }),
     ).toBe(
-      "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot_obhotel.stream.jpg"
+      "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot_obhotel.stream.jpg",
     );
   });
 
   it("keeps stored thumbnails for other camera hosts", () => {
     expect(
       getDisplayCamThumbnailUrl({
-        cameraUrl: "https://streams.surfchex.com:8443/live/wb3.stream/playlist.m3u8",
+        cameraUrl:
+          "https://streams.surfchex.com:8443/live/wb3.stream/playlist.m3u8",
         thumbnailUrl:
           "https://vawdnbbgawichorsjiwe.supabase.co/storage/v1/object/public/cam-thumbnails/4b88f10a-c794-4144-b17a-133af9fee9f9.jpg",
-      })
+      }),
     ).toBe(
-      "https://vawdnbbgawichorsjiwe.supabase.co/storage/v1/object/public/cam-thumbnails/4b88f10a-c794-4144-b17a-133af9fee9f9.jpg"
+      "https://vawdnbbgawichorsjiwe.supabase.co/storage/v1/object/public/cam-thumbnails/4b88f10a-c794-4144-b17a-133af9fee9f9.jpg",
     );
+  });
+
+  it("ignores stale HDOnTap snapshot cache URLs", () => {
+    expect(
+      getDisplayCamThumbnailUrl({
+        cameraUrl: "https://hdontap.com/stream/994481/dana-point",
+        thumbnailUrl:
+          "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot_hosb1_danapoint-harbor_lgm.stream_0sJ79o0.jpg",
+      }),
+    ).toBeNull();
+  });
+
+  it("ignores stale YouTube thumbnail cache URLs", () => {
+    expect(
+      getDisplayCamThumbnailUrl({
+        cameraUrl: "https://www.youtube.com/watch?v=0bv7YxPWRdw",
+        thumbnailUrl: "https://img.youtube.com/vi/0bv7YxPWRdw/hqdefault.jpg",
+      }),
+    ).toBeNull();
   });
 
   it("derives Surfline thumbnails when no stored thumbnail is supplied", () => {
@@ -193,9 +221,70 @@ describe("getDisplayCamThumbnailUrl", () => {
         cameraUrl:
           "https://embed.cdn-surfline.com/cams/58349b9b3421b20545c4b54d/199ae31e65bf748a7c7d928332998440490cd979",
         thumbnailUrl: null,
-      })
+      }),
     ).toBe(
-      "https://camstills.cdn-surfline.com/58349b9b3421b20545c4b54d/latest_small.jpg"
+      "https://camstills.cdn-surfline.com/58349b9b3421b20545c4b54d/latest_small.jpg",
     );
+  });
+});
+
+describe("getDisplayCamThumbnailUrls", () => {
+  it("returns stored, provider-derived, and local fallback thumbnails in order", () => {
+    expect(
+      getDisplayCamThumbnailUrls({
+        cameraUrl: "https://www.youtube.com/watch?v=abc123",
+        thumbnailUrl: "https://img.youtube.com/vi/abc123/hqdefault.jpg",
+      }),
+    ).toEqual([
+      "https://img.youtube.com/vi/abc123/hqdefault.jpg",
+      "https://img.youtube.com/vi/abc123/mqdefault.jpg",
+      CAM_CARD_FALLBACK_IMAGE_URL,
+    ]);
+  });
+
+  it("falls back to the local surf image when no provider thumbnail can be derived", () => {
+    expect(
+      getDisplayCamThumbnailUrls({
+        cameraUrl: "https://example.com/some-cam",
+        thumbnailUrl: null,
+      }),
+    ).toEqual([CAM_CARD_FALLBACK_IMAGE_URL]);
+  });
+
+  it("uses a beach photo before the generic fallback when provided", () => {
+    expect(
+      getDisplayCamThumbnailUrls({
+        cameraUrl: "https://example.com/some-cam",
+        thumbnailUrl: null,
+        fallbackImageUrl: "https://photos.example/beach.jpg",
+      }),
+    ).toEqual([
+      "https://photos.example/beach.jpg",
+      CAM_CARD_FALLBACK_IMAGE_URL,
+    ]);
+  });
+
+  it("uses the local fallback after ignoring stale HDOnTap snapshots", () => {
+    expect(
+      getDisplayCamThumbnailUrls({
+        cameraUrl: "https://hdontap.com/stream/994481/dana-point",
+        thumbnailUrl:
+          "https://storage.hdontap.com/wowza_stream_thumbnails/snapshot_hosb1_danapoint-harbor_lgm.stream_0sJ79o0.jpg",
+      }),
+    ).toEqual([CAM_CARD_FALLBACK_IMAGE_URL]);
+  });
+
+  it("does not duplicate equivalent stored and derived thumbnails", () => {
+    expect(
+      getDisplayCamThumbnailUrls({
+        cameraUrl:
+          "https://embed.cdn-surfline.com/cams/58349b9b3421b20545c4b54d/199ae31e65bf748a7c7d928332998440490cd979",
+        thumbnailUrl:
+          "https://camstills.cdn-surfline.com/58349b9b3421b20545c4b54d/latest_small.jpg",
+      }),
+    ).toEqual([
+      "https://camstills.cdn-surfline.com/58349b9b3421b20545c4b54d/latest_small.jpg",
+      CAM_CARD_FALLBACK_IMAGE_URL,
+    ]);
   });
 });
