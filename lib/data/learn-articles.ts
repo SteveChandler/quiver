@@ -41,7 +41,7 @@ export const learnArticles: LearnArticle[] = [
     description: "Learn how to read a surf report or surf forecast: period, direction, wind, tide, and wave height, plus what changes at your break.",
     readingTimeMin: 6,
     datePublished: "2026-03-26",
-    dateModified: "2026-06-15",
+    dateModified: "2026-06-23",
     heroImage: "/beginnerWhiteWater.jpg",
     thumbnailImage: "/beginnerWhiteWater.jpg",
     keywords: [
@@ -115,7 +115,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "reading-order",
         heading: "A 30-Second Way to Read a Surf Report Before You Drive",
-        content: `<p>Use this order every time you open a surf report:</p><ol><li><strong>Period</strong>: is this weak windswell or ground swell?</li><li><strong>Direction</strong>: does my spot actually receive this angle?</li><li><strong>Wind</strong>: clean, cross, or blown out?</li><li><strong>Tide</strong>: is the break in its usable window?</li><li><strong>Height</strong>: now that I trust the setup, how big is it really?</li></ol><p>If you want to get good fast, log a few notes after every surf: period, direction, tide, wind, and which board felt right. After 10 to 20 sessions at the same beach, the numbers stop being abstract and start matching what you feel in the water.</p><p>The data behind those checks is public and transparent: NOAA/NWS WaveWatch-style marine forecasts, NDBC/CDIP/IOOS buoy observations where available, NOAA CO-OPS tides, and Open-Meteo for some wind and extended-horizon coverage. The hard part is not getting numbers. It's learning which numbers matter most for your break.</p>`,
+        content: `<p>Use this order every time you open a surf report:</p><ol><li><strong>Period</strong>: is this weak windswell or ground swell?</li><li><strong>Direction</strong>: does my spot actually receive this angle?</li><li><strong>Wind</strong>: clean, cross, or blown out?</li><li><strong>Tide</strong>: is the break in its usable window?</li><li><strong>Height</strong>: now that I trust the setup, how big is it really?</li></ol><p>If you want to get good fast, log a few notes after every surf: period, direction, tide, wind, and which board felt right. After 10 to 20 sessions at the same beach, the numbers stop being abstract and start matching what you feel in the water.</p><p>The data behind those checks is public and transparent: NOAA/NWS WaveWatch-style marine forecasts, NDBC/CDIP/IOOS buoy observations where available, NOAA CO-OPS tides, and Open-Meteo for some wind and extended-horizon coverage. The hard part is not getting numbers. It's learning which numbers matter most for your break.</p><p>Want the read done for you? Quiver scores 280+ breaks by tide, wind, and swell and learns the days you rate — see <a href="/vs/surfline/free">how it compares to Surfline</a> or <a href="/roadmap">vote on what we build next</a>. Runs in any browser, or <a href="/app">get the iOS app</a>.</p>`,
         keyTakeaway:
           "Read surf reports in the same order every time so you stop chasing a misleading height number.",
         image: {
@@ -158,24 +158,12 @@ export const learnArticles: LearnArticle[] = [
       },
     ],
     relatedLinks: [
-      {
-        label: "Swell Period Explained",
-        href: "/learn/swell-period-explained",
-        description:
-          "Deep dive into why swell period matters more than height for wave quality.",
-      },
-      {
-        label: "Best Surf Conditions for Beginners",
-        href: "/learn/best-surf-conditions-for-beginners",
-        description:
-          "A practical beginner setup for size, wind, tide, and crowd level.",
-      },
-      {
-        label: "What Is the Best Tide for Surfing?",
-        href: "/learn/best-tide-for-surfing",
-        description:
-          "Learn how tide windows change wave shape at beach breaks, reefs, and points.",
-      },
+      { label: "Groundswell vs Wind Swell", href: "/learn/groundswell-vs-wind-swell", description: "Why a 2-ft groundswell can out-surf a 6-ft wind swell." },
+      { label: "Swell Period Explained", href: "/learn/swell-period-explained", description: "What the seconds in a forecast actually tell you." },
+      { label: "How Accurate Are Surf Forecasts?", href: "/learn/how-accurate-are-surf-forecasts", description: "How far out to trust the numbers." },
+      { label: "Quiver vs Surfline", href: "/vs/surfline", description: "How Quiver's per-beach call compares." },
+      { label: "Best Surf Conditions for Beginners", href: "/learn/best-surf-conditions-for-beginners", description: "The friendliest windows to paddle out." },
+      { label: "What Is the Best Tide for Surfing?", href: "/learn/best-tide-for-surfing", description: "How tide reshapes the same swell." },
     ],
   },
 
@@ -454,7 +442,7 @@ export const learnArticles: LearnArticle[] = [
     description: "Groundswell comes from distant storms with 12+ second period and organized waves. Wind swell comes from local wind with 5-9 second period and choppy surf.",
     readingTimeMin: 4,
     datePublished: "2026-03-26",
-    dateModified: "2026-06-21",
+    dateModified: "2026-06-23",
     heroImage: "/offShore.jpeg",
     thumbnailImage: "/offShore.jpeg",
     keywords: [
@@ -532,7 +520,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "reading-both",
         heading: "Reading Both Swells in a Forecast",
-        content: `<p>When a forecast shows "3 feet at 14 seconds + 2 feet at 7 seconds," read it as: 3-foot groundswell (the rideable waves) plus 2-foot wind swell (local texture). If it flips to "2 feet at 7 seconds only," all you've got is chop. Always focus on the longest-period component — that's the best swell. As you build forecasting skills, you'll start tracking distant storms on charts and predicting when groundswells will arrive 5-7 days out. That forward-thinking is how locals always seem to know when the next good swell is coming.</p>`,
+        content: `<p>When a forecast shows "3 feet at 14 seconds + 2 feet at 7 seconds," read it as: 3-foot groundswell (the rideable waves) plus 2-foot wind swell (local texture). If it flips to "2 feet at 7 seconds only," all you've got is chop. Always focus on the longest-period component — that's the best swell. As you build forecasting skills, you'll start tracking distant storms on charts and predicting when groundswells will arrive 5-7 days out. That forward-thinking is how locals always seem to know when the next good swell is coming.</p><p>Skip the chart-reading? Quiver tags primary groundswell vs secondary wind swell for 280+ breaks and learns the days you rate — see <a href="/vs/surfline/free">how it compares to Surfline</a> or <a href="/roadmap">vote on what we build next</a>. Runs in any browser, or <a href="/app">get the iOS app</a>.</p>`,
         keyTakeaway:
           "In a forecast with multiple swells, the longest-period component is groundswell and produces the best waves; short-period is wind swell and local chop.",
       },
@@ -565,24 +553,11 @@ export const learnArticles: LearnArticle[] = [
       },
     ],
     relatedLinks: [
-      {
-        label: "Swell Period Explained",
-        href: "/learn/swell-period-explained",
-        description:
-          "Period is the key metric that reveals whether swell is ground or wind-generated.",
-      },
-      {
-        label: "How to Read Surf Conditions",
-        href: "/learn/how-to-read-surf-conditions",
-        description:
-          "Learn to read multiple swell components and understand what each means.",
-      },
-      {
-        label: "How Surf Forecasts Work",
-        href: "/learn/how-surf-forecasts-work",
-        description:
-          "Understand how wave models predict groundswell components.",
-      },
+      { label: "How to Read a Surf Report", href: "/learn/how-to-read-surf-conditions", description: "Period, direction, wind, tide, then height." },
+      { label: "Swell Period Explained", href: "/learn/swell-period-explained", description: "Why period separates power from mush." },
+      { label: "How Swell Direction Affects Surf", href: "/learn/how-swell-direction-affects-surf", description: "Whether your break even catches the swell." },
+      { label: "How Surf Forecasts Work", href: "/learn/how-surf-forecasts-work", description: "Where the swell data comes from." },
+      { label: "Quiver vs Surfline", href: "/vs/surfline", description: "Per-beach calls vs a regional star." },
     ],
   },
 
