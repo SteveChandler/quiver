@@ -142,7 +142,7 @@ const FAQ_ITEMS = [
   {
     question: "Is this page biased toward Quiver?",
     answer:
-      "This is Quiver's website, so yes, we have a perspective. But we've tried to be honest about where Surfline fits: broad regional reports, global coverage, and a long-established surf forecast product. We believe the best way to earn trust is transparency, not spin. Pricing and feature notes were checked against public Surfline information on May 17, 2026.",
+      "This is Quiver's website, so yes, we have a perspective. But we've tried to be honest about where Surfline fits: broad regional reports, global coverage, and a long-established surf forecast product. We believe the best way to earn trust is transparency, not spin. Pricing and feature notes were checked against public Surfline information on June 23, 2026.",
   },
   {
     question: "How accurate is Quiver compared to Surfline?",
@@ -701,7 +701,7 @@ export default async function VsSurflineFreePage() {
                   Comparison in 60 seconds.
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-[#252D6B]">
-                  Pricing checked May 17, 2026. Surfline plans and prices can
+                  Pricing checked June 23, 2026. Surfline plans and prices can
                   vary by region, plan type, promotion, and app store billing.
                 </p>
               </div>
@@ -967,7 +967,7 @@ export default async function VsSurflineFreePage() {
           <p className="text-center text-xs font-semibold leading-5 text-[#252D6B]">
             <strong>Disclosure:</strong> This page is published by Quiver. We have
             done our best to represent Surfline&apos;s features and pricing
-            accurately based on publicly available information checked on May 17, 2026.
+            accurately based on publicly available information checked on June 23, 2026.
             Surfline is a trademark of Surfline/Wavetrak, Inc. Quiver is not
             affiliated with or endorsed by Surfline. Pricing and features may have
             changed since this page was last updated.
