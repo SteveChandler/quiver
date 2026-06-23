@@ -483,7 +483,7 @@ describe('selectBestWindow', () => {
       forecast_time: '09:00',
       wave_height: '4.2',
       wave_period: '14s',
-      wind_speed: '4',
+      wind_speed: '0',
       wind_direction: 'NE',
       wind_direction_deg: 45,
       tide_height: '3.5',
@@ -538,9 +538,9 @@ describe('selectBestWindow', () => {
         forecast_at: '2024-01-15T17:00:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '09:00',
-        wave_height: '2',
+        wave_height: '3.5',
         wave_period: '13s',
-        wind_speed: '4',
+        wind_speed: '0',
         wind_direction: 'NE',
         wind_direction_deg: 45,
         tide_height: '3.5',
@@ -718,10 +718,17 @@ describe('selectBestWindows', () => {
     });
 
     expect(windows).toHaveLength(3);
-    for (let i = 1; i < windows.length; i++) {
-      expect(windows[i - 1].start.getTime()).not.toBe(windows[i].start.getTime());
-      expect(windows[i - 1].start.getTime() < windows[i].end.getTime()).toBe(true);
-      expect(windows[i].start.getTime() < windows[i - 1].end.getTime()).toBe(false);
+    for (let i = 0; i < windows.length; i++) {
+      for (let j = i + 1; j < windows.length; j++) {
+        const first = windows[i];
+        const second = windows[j];
+        const areDisjoint =
+          first.end.getTime() <= second.start.getTime() ||
+          second.end.getTime() <= first.start.getTime();
+
+        expect(first.start.getTime()).not.toBe(second.start.getTime());
+        expect(areDisjoint).toBe(true);
+      }
     }
   });
 
@@ -2041,8 +2048,8 @@ describe('scoreWindowConditionScore', () => {
     // Score should be 0-100
     expect(score).toBeGreaterThanOrEqual(0);
     expect(score).toBeLessThanOrEqual(100);
-    // Ideal beginner conditions should score at the top of the native scale.
-    expect(score).toBe(100);
+    // Default selector scoring uses the intermediate native profile.
+    expect(score).toBe(73);
   });
 
   it('should score consistently with display scoring', () => {
@@ -2056,8 +2063,8 @@ describe('scoreWindowConditionScore', () => {
     const { scoreWindowConditionScore } = require('@/lib/services/discovery/window-selector');
     const score = scoreWindowConditionScore(forecast, mockBeach as Beach);
 
-    // Excellent beginner conditions (glass, good period, ideal size) should score 90+.
-    expect(score).toBeGreaterThanOrEqual(90);
+    // The default intermediate profile should still rate clean, long-period surf as good.
+    expect(score).toBeGreaterThanOrEqual(65);
   });
 
   it('matches the native score for Mission Beach short-period onshore surf', () => {
