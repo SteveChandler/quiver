@@ -140,6 +140,8 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
     "/free-surf-reports",
     "/forecast-accuracy",
     "/vs/surfline",
+    "/vs/surfline/free",
+    "/roadmap",
   ].map((route) => ({
     url: `${baseUrl}${route}`,
     lastModified: staticPageDate,
@@ -151,7 +153,11 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
           ? 0.85
           : route === "/vs/surfline"
             ? 0.8
-            : 0.7,
+            : route === "/vs/surfline/free"
+              ? 0.78
+              : route === "/roadmap"
+                ? 0.6
+                : 0.7,
   }));
 }
 
