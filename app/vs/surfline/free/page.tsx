@@ -32,6 +32,7 @@ import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { SITE_URL } from "@/lib/constants/seo";
 import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import {
   FadeInSection,
   AnimatedStickerBadge,
@@ -624,6 +625,58 @@ export default async function VsSurflineFreePage() {
               Get the app
             </Link>
           </div>
+
+          {/* ============================================================= */}
+          {/* Live Cam Wall */}
+          {/* ============================================================= */}
+          <section aria-labelledby="cam-wall-heading" className="mt-12">
+            <div className="flex items-baseline justify-between mb-3">
+              <h2
+                id="cam-wall-heading"
+                className="font-mono text-[11px] tracking-[0.16em] font-bold uppercase text-[#252D6B]"
+              >
+                Watch any break · free
+              </h2>
+              <span className="font-mono text-[10px] text-[#6b6557]">
+                {camCount} live cams
+              </span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {camBeaches.slice(0, 12).map((b) => (
+                <Link
+                  key={b.id}
+                  href={buildBeachUrl({ slug: b.slug, city: b.city, state: b.state })}
+                  className="rounded-md overflow-hidden border border-[#11100D] block"
+                >
+                  <div className="h-12 bg-gradient-to-br from-[#3a4896] to-[#252D6B] relative">
+                    <span className="absolute top-1 left-1 flex items-center gap-1">
+                      <span
+                        className="w-1.5 h-1.5 rounded-full bg-[#00D4AA]"
+                        aria-hidden
+                      />
+                      <span className="font-mono text-[7px] tracking-wider text-white">
+                        LIVE
+                      </span>
+                    </span>
+                  </div>
+                  <div className="bg-[#FFFDF7] px-1.5 py-1">
+                    <div className="font-sans text-[10px] font-medium text-[#11100D] leading-tight truncate">
+                      {b.name}
+                    </div>
+                    <div className="font-mono text-[7px] tracking-wide text-[#6b6557] uppercase">
+                      {b.city}, {b.state}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+            <Link
+              href="/cams"
+              className="inline-flex items-center gap-1 mt-3 font-heading font-bold text-sm text-[#F78E42]"
+            >
+              See all {camCount} cams →
+            </Link>
+          </section>
         </div>
       </section>
 
