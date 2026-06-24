@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Share2, Check } from "lucide-react";
 import { track } from "@/lib/analytics";
+import { Button } from "@/components/ui/button";
 
 export function CamsShareButton() {
   const [copied, setCopied] = useState(false);
@@ -54,13 +55,16 @@ export function CamsShareButton() {
   }
 
   return (
-    <button
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
       onClick={handleShare}
-      className="inline-flex items-center gap-2 rounded-full border border-blue-200/60 bg-white/80 px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-ocean-blue hover:text-white backdrop-blur-sm"
+      className="rounded-[14px_6px_16px_6px] border-2 border-[#11100D] bg-[#F78E42] px-4 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.24)] transition-transform hover:-translate-y-0.5 hover:bg-[#FDB84B] hover:text-[#11100D]"
       aria-label="Share this page"
     >
       {copied ? <Check className="h-4 w-4" /> : <Share2 className="h-4 w-4" />}
       {copied ? "Link copied!" : "Share"}
-    </button>
+    </Button>
   );
 }

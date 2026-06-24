@@ -877,7 +877,7 @@ async function dispatchPush(
     to: d.device_token,
     title: built.title,
     body: built.body,
-    data: built.data,
+    data: { ...built.data, notification_event_id: event.id },
   }));
 
   let result;

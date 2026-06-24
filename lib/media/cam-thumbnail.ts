@@ -3,12 +3,14 @@
  * Supports providers with stable public thumbnail patterns.
  */
 export function getCamThumbnailUrl(
-  cameraUrl: string | null | undefined
+  cameraUrl: string | null | undefined,
 ): string | null {
   if (!cameraUrl) return null;
 
   const videoId = getYouTubeVideoId(cameraUrl);
   if (videoId) {
+    if (KNOWN_STALE_YOUTUBE_VIDEO_IDS.has(videoId)) return null;
+
     return `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
   }
 
@@ -38,7 +40,7 @@ function getSurflineCamId(cameraUrl: string | null | undefined): string | null {
 }
 
 export function getYouTubeVideoId(
-  cameraUrl: string | null | undefined
+  cameraUrl: string | null | undefined,
 ): string | null {
   if (!cameraUrl) return null;
 
@@ -70,14 +72,14 @@ export function getYouTubeVideoId(
 }
 
 export function getYouTubeWatchUrl(
-  cameraUrl: string | null | undefined
+  cameraUrl: string | null | undefined,
 ): string | null {
   const videoId = getYouTubeVideoId(cameraUrl);
   return videoId ? `https://www.youtube.com/watch?v=${videoId}` : null;
 }
 
 export function isYouTubeCameraUrl(
-  cameraUrl: string | null | undefined
+  cameraUrl: string | null | undefined,
 ): boolean {
   if (!cameraUrl) return false;
 
@@ -93,18 +95,55 @@ export function isYouTubeCameraUrl(
   }
 }
 
-const QUIVER_CAM_THUMBNAIL_BUCKET_PATH = "/storage/v1/object/public/cam-thumbnails/";
+export const CAM_CARD_FALLBACK_IMAGE_URL = "/images/og-location-default.jpg";
+
+const QUIVER_CAM_THUMBNAIL_BUCKET_PATH =
+  "/storage/v1/object/public/cam-thumbnails/";
+const HDONTAP_THUMBNAIL_BUCKET_PATH = "/wowza_stream_thumbnails/";
 const STORED_PAGE_CAPTURE_HOSTS = new Set(["obhotel.com", "www.obhotel.com"]);
+const KNOWN_STALE_YOUTUBE_VIDEO_IDS = new Set(["0bv7YxPWRdw"]);
+const KNOWN_STALE_THUMBNAIL_PATHS = new Set([
+  "/wowza_stream_thumbnails/snapshot_cardiffreef_hs-CUST.stream.jpg",
+]);
+
+function appendUniqueUrl(urls: string[], url: string | null | undefined): void {
+  if (!url || urls.includes(url)) return;
+  urls.push(url);
+}
 
 function isQuiverStoredCamThumbnail(thumbnailUrl: string): boolean {
   try {
-    return new URL(thumbnailUrl).pathname.includes(QUIVER_CAM_THUMBNAIL_BUCKET_PATH);
+    return new URL(thumbnailUrl).pathname.includes(
+      QUIVER_CAM_THUMBNAIL_BUCKET_PATH,
+    );
   } catch {
     return false;
   }
 }
 
-function isKnownPageCaptureCamera(cameraUrl: string | null | undefined): boolean {
+function isKnownStaleCamThumbnail(thumbnailUrl: string): boolean {
+  try {
+    const url = new URL(thumbnailUrl);
+    if (url.hostname === "img.youtube.com") {
+      const [, videoId] = url.pathname.split("/vi/");
+      return KNOWN_STALE_YOUTUBE_VIDEO_IDS.has(videoId?.split("/")[0] ?? "");
+    }
+
+    if (url.hostname !== "storage.hdontap.com") return false;
+    if (!url.pathname.startsWith(HDONTAP_THUMBNAIL_BUCKET_PATH)) return false;
+
+    return (
+      /\.stream_[^/]+\.jpg$/i.test(url.pathname) ||
+      KNOWN_STALE_THUMBNAIL_PATHS.has(url.pathname)
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isKnownPageCaptureCamera(
+  cameraUrl: string | null | undefined,
+): boolean {
   if (!cameraUrl) return false;
 
   try {
@@ -121,6 +160,10 @@ export function getDisplayCamThumbnailUrl({
   cameraUrl: string | null | undefined;
   thumbnailUrl: string | null | undefined;
 }): string | null {
+  if (thumbnailUrl && isKnownStaleCamThumbnail(thumbnailUrl)) {
+    return getCamThumbnailUrl(cameraUrl);
+  }
+
   if (
     thumbnailUrl &&
     isKnownPageCaptureCamera(cameraUrl) &&
@@ -130,4 +173,29 @@ export function getDisplayCamThumbnailUrl({
   }
 
   return thumbnailUrl || getCamThumbnailUrl(cameraUrl);
+}
+
+export function getDisplayCamThumbnailUrls({
+  cameraUrl,
+  thumbnailUrl,
+  fallbackImageUrl,
+}: {
+  cameraUrl: string | null | undefined;
+  thumbnailUrl: string | null | undefined;
+  fallbackImageUrl?: string | null | undefined;
+}): string[] {
+  const urls: string[] = [];
+
+  appendUniqueUrl(
+    urls,
+    getDisplayCamThumbnailUrl({
+      cameraUrl,
+      thumbnailUrl,
+    }),
+  );
+  appendUniqueUrl(urls, getCamThumbnailUrl(cameraUrl));
+  appendUniqueUrl(urls, fallbackImageUrl);
+  appendUniqueUrl(urls, CAM_CARD_FALLBACK_IMAGE_URL);
+
+  return urls;
 }
