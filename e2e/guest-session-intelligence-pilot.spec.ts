@@ -46,7 +46,7 @@ test.describe("Guest Session Intelligence pilot surfaces", () => {
   });
 
   for (const viewport of PILOT_VIEWPORTS) {
-    test(`spot pilot preserves beach tabs at ${viewport.name}`, async ({ page }) => {
+    test(`spot pilot preserves beach tabs at ${viewport.name} @requires-data`, async ({ page }) => {
       await page.setViewportSize({
         width: viewport.width,
         height: viewport.height,
@@ -75,7 +75,7 @@ test.describe("Guest Session Intelligence pilot surfaces", () => {
       await expectNoHorizontalOverflow(page);
     });
 
-    test(`regional pilot preserves seven-day outlook at ${viewport.name}`, async ({ page }) => {
+    test(`regional pilot preserves seven-day outlook at ${viewport.name} @requires-data`, async ({ page }) => {
       await page.setViewportSize({
         width: viewport.width,
         height: viewport.height,

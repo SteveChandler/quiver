@@ -32,7 +32,7 @@ import {
 } from "./utils/error-detection";
 import { TIMEOUTS } from "./fixtures/test-data";
 
-test.describe("calibration honesty layer", () => {
+test.describe("calibration honesty layer @requires-data", () => {
   test.describe.configure({ mode: "serial" });
 
   // Exact copy from marketing spec (docs/marketing/calibration-launch-copy.md).

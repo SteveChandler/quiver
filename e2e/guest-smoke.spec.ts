@@ -17,7 +17,10 @@ import {
 } from './utils/error-detection';
 import { TEST_BEACHES } from './fixtures/test-data';
 import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
-import { IOS_APP_STORE_URL } from '@/lib/constants/app-store';
+import {
+  APP_FIRST_CAMPAIGN,
+  iosAppStoreUrlWithCampaign,
+} from '@/lib/constants/app-store';
 import { isVisibleSafe } from './utils/strict-helpers';
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -52,7 +55,7 @@ test.describe('Guest Smoke: Critical Pages', () => {
     await expect(page.getByRole('heading', { name: /custom alerts/i })).toBeVisible();
     await expect(
       page.getByRole('link', { name: /open app store/i }).first(),
-    ).toHaveAttribute('href', IOS_APP_STORE_URL);
+    ).toHaveAttribute('href', iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN));
     await expect(
       page.getByRole('button', { name: /android waitlist/i }).first(),
     ).toBeVisible();

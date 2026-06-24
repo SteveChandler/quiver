@@ -40,7 +40,7 @@ test.describe('Spot Surf Report', () => {
     }
   });
 
-  test('SEO metadata includes surf report title format', async ({ page }) => {
+  test('SEO metadata includes surf report title format @requires-data', async ({ page }) => {
     await navigateToBeach(page, TEST_BEACHES.blacks);
 
     const title = await page.title();

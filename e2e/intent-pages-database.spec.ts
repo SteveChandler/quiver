@@ -236,7 +236,7 @@ test.describe("Dedicated intent pages - Water Temperature", () => {
     await assertNoErrors(page, errorCapture, { context: 'Water temp dedicated' });
   });
 
-  test("water-temp city page shows temperature hero", async ({ page }) => {
+  test("water-temp city page shows temperature hero @requires-data", async ({ page }) => {
     await page.goto("/water-temp/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
     const hero = page.locator('[data-testid="water-temp-hero"]');
     await expect(hero).toBeVisible();
@@ -244,12 +244,12 @@ test.describe("Dedicated intent pages - Water Temperature", () => {
     await expect(hero.getByText(/boardshorts|spring suit|fullsuit|wetsuit|mm/i).first()).toBeVisible();
   });
 
-  test("water-temp city page shows 7-day trend", async ({ page }) => {
+  test("water-temp city page shows 7-day trend @requires-data", async ({ page }) => {
     await page.goto("/water-temp/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
     await expect(page.getByRole('heading', { name: /7-Day Temperature Trend/i })).toBeVisible();
   });
 
-  test("water-temp city page has beach temperature comparison", async ({ page }) => {
+  test("water-temp city page has beach temperature comparison @requires-data", async ({ page }) => {
     await page.goto("/water-temp/san-diego", { timeout: PAGE_LOAD_TIMEOUT });
     await expect(page.getByRole('heading', { name: /Beach Water Temperatures/i })).toBeVisible();
   });

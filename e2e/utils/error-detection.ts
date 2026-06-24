@@ -406,6 +406,11 @@ function isIgnorableConsoleError(text: string): boolean {
     'coast pulse',
     'Failed to fetch coast pulse',
 
+    // Nearby-beaches fetch is a "near me" enhancement that degrades gracefully
+    // (the map still renders all beaches). A transient/aborted fetch during search
+    // navigation logs this (hooks/use-beach-search.ts); not a core-functionality failure.
+    'Error loading nearby beaches',
+
     // Mapbox CORS errors - occur in test environments, not production issues
     // These happen when Mapbox API requests are blocked by CORS policy in headless browsers
     'api.mapbox.com',

@@ -6,7 +6,10 @@
 
 import { expect, test } from '@playwright/test';
 
-import { IOS_APP_STORE_URL } from '@/lib/constants/app-store';
+import {
+  APP_FIRST_CAMPAIGN,
+  iosAppStoreUrlWithCampaign,
+} from '@/lib/constants/app-store';
 import {
   assertNoErrors,
   type ErrorCapture,
@@ -55,7 +58,7 @@ test.describe('Guest PBSC event route', () => {
       ).toBeVisible({ timeout: 10000 });
       await expect(
         page.getByRole('link', { name: /open quiver on iphone/i }).first(),
-      ).toHaveAttribute('href', IOS_APP_STORE_URL);
+      ).toHaveAttribute('href', iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN));
       await expect(
         page.getByRole('button', { name: /join android waitlist/i }),
       ).toHaveCount(0);

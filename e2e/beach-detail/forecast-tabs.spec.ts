@@ -30,7 +30,10 @@ test.describe.configure({ mode: 'serial' });
  * @project auth
  */
 
-test.describe('ForecastTab - Tabbed Interface', () => {
+// The whole forecast-tab suite renders a beach's forecast tabs/content, whose
+// presence and state depend on seeded forecast data; tag the suite @requires-data
+// so SKIP_DATA_TESTS skips it locally while it still runs against a seeded env.
+test.describe('ForecastTab - Tabbed Interface @requires-data', () => {
   let errorCapture: ErrorCapture;
 
   test.beforeEach(async ({ page }) => {

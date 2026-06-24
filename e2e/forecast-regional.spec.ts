@@ -144,7 +144,7 @@ test.describe("Regional Forecast Pages", () => {
     }
   });
 
-  test("should display Beach Conditions Grid", async ({ page }) => {
+  test("should display Beach Conditions Grid @requires-data", async ({ page }) => {
     // Check section heading
     await expect(
       page.getByRole("heading", { name: /Beach Conditions/i, level: 2 })

@@ -13,6 +13,15 @@ import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('Prod Read-Only Guest UI', () => {
+  // This suite targets the deployed production app and is run via the dedicated
+  // prod read-only command (PLAYWRIGHT_PROD_READONLY=true). Skip it in standard
+  // local/dev guest runs, where the app-first landing differs (e.g. no web
+  // signup modal) and these prod-shaped assertions don't apply.
+  test.skip(
+    process.env.PLAYWRIGHT_PROD_READONLY !== 'true',
+    'Prod read-only suite runs only against the deployed prod app (PLAYWRIGHT_PROD_READONLY=true).',
+  );
+
   let errorCapture: ErrorCapture | null;
 
   test.beforeEach(async ({ page }) => {

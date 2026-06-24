@@ -371,6 +371,15 @@ test.describe("Recommendations API", () => {
 
   // Rate limiting tests at END - they intentionally trigger 429s
   test.describe("Rate Limiting", () => {
+    // The local E2E server relaxes rate limits (lib/api/rate-limit-config.ts
+    // relaxForE2E, gated on PLAYWRIGHT_TEST), so 429s are unreachable locally.
+    // These only exercise real limits against a deployed env (e.g. TEST_ENV=dev).
+    test.skip(
+      !process.env.BASE_URL ||
+        process.env.BASE_URL.includes("localhost") ||
+        process.env.BASE_URL.includes("127.0.0.1"),
+      "Rate limits are relaxed for the local E2E server; 429 unreachable.",
+    );
     test("should rate limit after burst", async () => {
       const url = `${ENDPOINT}?lat=${TEST_COORDS.lat}&lon=${TEST_COORDS.lon}`;
 

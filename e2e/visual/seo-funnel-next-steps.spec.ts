@@ -187,7 +187,7 @@ test.describe("SEO funnel next steps visual validation", () => {
 
   for (const viewport of VIEWPORTS) {
     for (const route of SEO_FUNNEL_ROUTES) {
-      test(`${route.slug} renders scannable next steps on ${viewport.name}`, async ({
+      test(`${route.slug} renders scannable next steps on ${viewport.name} @requires-data`, async ({
         page,
       }) => {
         await page.setViewportSize({

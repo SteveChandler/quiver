@@ -72,7 +72,7 @@ test.describe('Beach Detail Page', () => {
     expect(hasPhotos || hasGallery || hasPhotoSection).toBe(true);
   });
 
-  test('should display forecast information', async ({ page }) => {
+  test('should display forecast information @requires-data', async ({ page }) => {
     // Forecast tab is active by default
     const forecastTab = page.getByRole('tab', { name: /forecast/i });
     await expect(forecastTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
@@ -154,7 +154,7 @@ test.describe('Beach Detail - Forecast Tab', () => {
     await assertNoErrors(page, errorCapture, { context: 'Beach Forecast Tab' });
   });
 
-  test('should display forecast tab content by default', async ({ page }) => {
+  test('should display forecast tab content by default @requires-data', async ({ page }) => {
     // Forecast tab is active by default
     const forecastTab = page.getByRole('tab', { name: /forecast/i });
     await expect(forecastTab).toBeVisible({ timeout: 10000 });
@@ -204,7 +204,7 @@ test.describe('Beach Detail - Forecast Tab', () => {
     await expect(overviewTab).toHaveAttribute('data-state', 'active');
   });
 
-  test('should display tides on forecast tab', async ({ page }) => {
+  test('should display tides on forecast tab @requires-data', async ({ page }) => {
     // Forecast tab is active by default
     const forecastTab = page.getByRole('tab', { name: /forecast/i });
     await expect(forecastTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
