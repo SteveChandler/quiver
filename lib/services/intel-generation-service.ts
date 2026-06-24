@@ -5,8 +5,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { addDays } from "date-fns";
-import { formatInTimeZone } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 import type { Database, Json } from "@/types/database";
 import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
 import type {
@@ -175,19 +174,17 @@ export class IntelGenerationService {
     const now = new Date();
     const tz = timezone || DEFAULT_TIMEZONE;
     const today = formatInTimeZone(now, tz, "yyyy-MM-dd");
-    const tomorrow = formatInTimeZone(addDays(now, 1), tz, "yyyy-MM-dd");
+    const morningStart = fromZonedTime(`${today}T04:00:00`, tz);
+    const morningEnd = fromZonedTime(`${today}T13:00:00`, tz);
 
-    const dayAfterTomorrow = new Date(new Date(tomorrow + 'T00:00:00Z').getTime() + 86400000).toISOString().split('T')[0];
     const { data: forecasts, error } = await this.supabase
       .from("enhanced_forecasts")
       .select(
         "forecast_at, forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction, tide_height, tide_status, next_tide_time, next_tide_type, next_tide_height, swell_1_height, swell_1_period, swell_1_direction, swell_2_height, swell_2_period, swell_2_direction, confidence_score"
       )
       .eq("beach_id", beachId)
-      .gte("forecast_at", `${today}T00:00:00Z`)
-      .lt("forecast_at", `${dayAfterTomorrow}T00:00:00Z`)
-      .gte("forecast_time", "04:00:00")
-      .lte("forecast_time", "12:00:00")
+      .gte("forecast_at", morningStart.toISOString())
+      .lt("forecast_at", morningEnd.toISOString())
       .order("forecast_at", { ascending: true });
 
     if (error) {
@@ -195,26 +192,37 @@ export class IntelGenerationService {
     }
 
     // Parse text values to numbers and map to ForecastSlice property names
-    const parsedForecasts = (forecasts || []).map((f: any) => ({
-      forecast_date: f.forecast_date,
-      forecast_time: f.forecast_time,
-      wave_height: this.parseNumericValue(f.wave_height),
-      wave_period: this.parseNumericValue(f.wave_period),
-      wave_direction: this.parseDirection(f.wave_direction),
-      // Map swell_1_* to swell_* (ForecastSlice naming)
-      swell_height: this.parseNumericValue(f.swell_1_height),
-      swell_period: this.parseNumericValue(f.swell_1_period),
-      swell_direction: this.parseDirection(f.swell_1_direction),
-      // Map swell_2_* to secondary_swell_* (ForecastSlice naming)
-      secondary_swell_height: this.parseNumericValue(f.swell_2_height),
-      secondary_swell_period: this.parseNumericValue(f.swell_2_period),
-      secondary_swell_direction: this.parseDirection(f.swell_2_direction),
-      wind_speed: this.parseNumericValue(f.wind_speed),
-      wind_direction: this.parseDirection(f.wind_direction),
-      tide_height: this.parseNumericValue(f.tide_height),
-      tide_status: f.tide_status,
-      confidence_score: f.confidence_score,
-    }));
+    const parsedForecasts = (forecasts || []).map((f: any) => {
+      const forecastAt = f.forecast_at ? new Date(f.forecast_at) : null;
+      const hasValidForecastAt =
+        forecastAt instanceof Date && !Number.isNaN(forecastAt.getTime());
+
+      return {
+        forecast_at: f.forecast_at ?? undefined,
+        forecast_date: hasValidForecastAt
+          ? formatInTimeZone(forecastAt, tz, "yyyy-MM-dd")
+          : f.forecast_date,
+        forecast_time: hasValidForecastAt
+          ? formatInTimeZone(forecastAt, tz, "HH:mm:ss")
+          : f.forecast_time,
+        wave_height: this.parseNumericValue(f.wave_height),
+        wave_period: this.parseNumericValue(f.wave_period),
+        wave_direction: this.parseDirection(f.wave_direction),
+        // Map swell_1_* to swell_* (ForecastSlice naming)
+        swell_height: this.parseNumericValue(f.swell_1_height),
+        swell_period: this.parseNumericValue(f.swell_1_period),
+        swell_direction: this.parseDirection(f.swell_1_direction),
+        // Map swell_2_* to secondary_swell_* (ForecastSlice naming)
+        secondary_swell_height: this.parseNumericValue(f.swell_2_height),
+        secondary_swell_period: this.parseNumericValue(f.swell_2_period),
+        secondary_swell_direction: this.parseDirection(f.swell_2_direction),
+        wind_speed: this.parseNumericValue(f.wind_speed),
+        wind_direction: this.parseDirection(f.wind_direction),
+        tide_height: this.parseNumericValue(f.tide_height),
+        tide_status: f.tide_status,
+        confidence_score: f.confidence_score,
+      };
+    });
 
     return {
       forecasts: parsedForecasts,

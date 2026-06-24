@@ -123,6 +123,27 @@ jest.mock("@/lib/email/email-formatters", () => ({
     const displayHour = hours > 12 ? hours - 12 : hours || 12;
     return `${displayHour}:${minutes} ${ampm}`;
   }),
+  formatActionableBestWindow: jest.fn(
+    (startTime: string | null, endTime: string | null) => {
+      if (!startTime || !endTime) return null;
+      const startParts = startTime.split(":");
+      const endParts = endTime.split(":");
+      const startHour = parseInt(startParts[0], 10);
+      const endHour = parseInt(endParts[0], 10);
+      if (startHour < 5 || startHour >= 21 || endHour <= startHour) {
+        return null;
+      }
+      const format = (time: string): string => {
+        const parts = time.split(":");
+        const hours = parseInt(parts[0], 10);
+        const minutes = parts[1];
+        const ampm = hours >= 12 ? "PM" : "AM";
+        const displayHour = hours > 12 ? hours - 12 : hours || 12;
+        return `${displayHour}:${minutes} ${ampm}`;
+      };
+      return { start: format(startTime), end: format(endTime) };
+    }
+  ),
 }));
 
 jest.mock("@/lib/services/email-logging-service", () => ({
@@ -334,8 +355,11 @@ describe("First Session Nudge Cron Job API", () => {
     createResendRateLimiter.mockReturnValue({ throttle: mockThrottle });
     mockThrottle.mockResolvedValue(undefined);
 
-    // Restore formatDatabaseTime implementation (reset by jest.resetAllMocks)
-    const { formatDatabaseTime } = require("@/lib/email/email-formatters");
+    // Restore formatter implementations (reset by jest.resetAllMocks)
+    const {
+      formatActionableBestWindow,
+      formatDatabaseTime,
+    } = require("@/lib/email/email-formatters");
     formatDatabaseTime.mockImplementation((time: string | null) => {
       if (!time) return null;
       const parts = time.split(":");
@@ -345,6 +369,27 @@ describe("First Session Nudge Cron Job API", () => {
       const displayHour = hours > 12 ? hours - 12 : hours || 12;
       return `${displayHour}:${minutes} ${ampm}`;
     });
+    formatActionableBestWindow.mockImplementation(
+      (startTime: string | null, endTime: string | null) => {
+        if (!startTime || !endTime) return null;
+        const startParts = startTime.split(":");
+        const endParts = endTime.split(":");
+        const startHour = parseInt(startParts[0], 10);
+        const endHour = parseInt(endParts[0], 10);
+        if (startHour < 5 || startHour >= 21 || endHour <= startHour) {
+          return null;
+        }
+        const format = (time: string): string => {
+          const parts = time.split(":");
+          const hours = parseInt(parts[0], 10);
+          const minutes = parts[1];
+          const ampm = hours >= 12 ? "PM" : "AM";
+          const displayHour = hours > 12 ? hours - 12 : hours || 12;
+          return `${displayHour}:${minutes} ${ampm}`;
+        };
+        return { start: format(startTime), end: format(endTime) };
+      }
+    );
   });
 
   afterEach(() => {
@@ -691,6 +736,48 @@ describe("First Session Nudge Cron Job API", () => {
         bestWindow: { start: "6:00 AM", end: "9:00 AM" },
         unsubscribeUrl: "https://quiversurf.app/settings",
       });
+    });
+
+    it("suppresses overnight stored best windows in personalized emails", async () => {
+      const { PersonalizedNudgeEmail } = require("@/lib/mailer/templates/PersonalizedNudgeEmail");
+
+      setupSupabaseChain({
+        profiles: [
+          {
+            id: "user-overnight",
+            display_name: "Night Window",
+            home_beach_id: "beach-night",
+            onboarding_completed_at: "2026-03-15T06:00:00Z",
+          },
+        ],
+        sessions: [],
+        emailLog: [],
+        authUsers: [{ user: { email: "night@example.com" } }],
+        beach: {
+          name: "Ocean Beach",
+          slug: "ocean-beach",
+          city: "San Francisco",
+          state: "CA",
+          country: "USA",
+        },
+        intel: {
+          conditions_score: 88,
+          surf_description: "Clean",
+          wind_description: "Light offshore",
+          best_window_start: "02:00:00",
+          best_window_end: "04:00:00",
+        },
+      });
+
+      await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+
+      const sentArg = mockEmailsSend.mock.calls[0][0];
+      expect(sentArg.react.type).toBe(PersonalizedNudgeEmail);
+      expect(sentArg.react.props).toEqual(
+        expect.objectContaining({
+          bestWindow: null,
+        })
+      );
     });
   });
 

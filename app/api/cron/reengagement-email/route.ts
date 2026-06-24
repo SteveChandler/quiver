@@ -26,7 +26,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { ReengagementEmail } from "@/lib/mailer/templates/ReengagementEmail";
-import { formatDatabaseTime } from "@/lib/email/email-formatters";
+import { formatActionableBestWindow } from "@/lib/email/email-formatters";
 import type { IntelPost, ReengagementCandidate } from "@/lib/email/email-types";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
@@ -159,13 +159,10 @@ async function processCandidate(
   const recentIntel = await fetchRecentIntel(supabase, candidate.home_beach_id);
 
   // 3. Format best window
-  const bestWindow =
-    candidate.best_window_start && candidate.best_window_end
-      ? {
-          start: formatDatabaseTime(candidate.best_window_start) || "",
-          end: formatDatabaseTime(candidate.best_window_end) || "",
-        }
-      : null;
+  const bestWindow = formatActionableBestWindow(
+    candidate.best_window_start,
+    candidate.best_window_end
+  );
 
   // 4. Prepare email content
   const ctaUrl = `${baseUrl}/beach/${candidate.beach_slug}`;

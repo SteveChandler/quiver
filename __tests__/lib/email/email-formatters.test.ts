@@ -8,6 +8,7 @@ import {
   getConditionLabel,
   getConditionLabelText,
   formatDatabaseTime,
+  formatActionableBestWindow,
 } from "@/lib/email/email-formatters";
 
 describe("email-formatters", () => {
@@ -350,6 +351,19 @@ describe("email-formatters", () => {
           expect(formatDatabaseTime(input)).toBe(expected);
         });
       });
+    });
+  });
+
+  describe("formatActionableBestWindow", () => {
+    it("formats normal morning best windows", () => {
+      expect(formatActionableBestWindow("06:00:00", "09:00:00")).toEqual({
+        start: "6:00 AM",
+        end: "9:00 AM",
+      });
+    });
+
+    it("suppresses overnight stored best windows", () => {
+      expect(formatActionableBestWindow("02:00:00", "04:00:00")).toBeNull();
     });
   });
 });
