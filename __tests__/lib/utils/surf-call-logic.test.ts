@@ -1619,6 +1619,97 @@ describe('computeSurfCall', () => {
       expect(result.rideableWavesPerHour).not.toBeNull();
     });
   });
+
+  describe('legibleCall', () => {
+    const previousFlag = process.env.LAST_MILE_CALL_ENABLED;
+
+    afterEach(() => {
+      if (previousFlag === undefined) {
+        delete process.env.LAST_MILE_CALL_ENABLED;
+      } else {
+        process.env.LAST_MILE_CALL_ENABLED = previousFlag;
+      }
+    });
+
+    it('leaves legibleCall null when LAST_MILE_CALL_ENABLED is off', () => {
+      delete process.env.LAST_MILE_CALL_ENABLED;
+
+      const result = computeSurfCall(
+        makeWindow({ score: 75 }),
+        [makeForecast()],
+        makeBeach(),
+        { skillBand: 'advanced' }
+      );
+
+      expect(result.legibleCall).toBeNull();
+    });
+
+    it('populates legibleCall with resolved skill and beach-local hour text when the flag is on', () => {
+      process.env.LAST_MILE_CALL_ENABLED = 'true';
+      const beach = makeBeach({
+        wind_offshore_deg: 90,
+        swell_window_min_deg: 250,
+        swell_window_max_deg: 290,
+        preferred_tide_ft_min: 1,
+        preferred_tide_ft_max: 5,
+        preferred_tide_direction: 'rising',
+      } as any);
+      const forecasts = [
+        makeForecast({
+          id: 'forecast-8am',
+          forecast_at: '2026-01-22T16:00:00Z',
+          wind_speed: '5',
+          wind_direction_deg: 90,
+          swell_1_direction: '270',
+          tide_height: '2.5',
+          tide_status: 'Rising',
+        }),
+        makeForecast({
+          id: 'forecast-9am',
+          forecast_at: '2026-01-22T17:00:00Z',
+          wind_speed: '20',
+          wind_direction_deg: 270,
+          swell_1_direction: '270',
+          tide_height: '3',
+          tide_status: 'Rising',
+        }),
+        makeForecast({
+          id: 'forecast-night',
+          forecast_at: '2026-01-23T04:00:00Z',
+          wind_speed: '4',
+          wind_direction_deg: 90,
+          swell_1_direction: '270',
+          tide_height: '2.5',
+          tide_status: 'Rising',
+        }),
+      ];
+
+      const result = computeSurfCall(
+        makeWindow({
+          start: new Date('2026-01-22T16:00:00Z'),
+          end: new Date('2026-01-22T18:00:00Z'),
+          peakTime: new Date('2026-01-22T16:00:00Z'),
+          score: 75,
+        }),
+        forecasts,
+        beach,
+        {
+          beachTimezone: 'America/Los_Angeles',
+          skillBand: 'advanced',
+          sunTimes: {
+            sunrises: [new Date('2026-01-22T15:00:00Z')],
+            sunsets: [new Date('2026-01-23T02:00:00Z')],
+          },
+        }
+      );
+
+      expect(result.userTier).toBe('advanced');
+      expect(result.legibleCall).not.toBeNull();
+      expect(result.legibleCall?.skillBand).toBe(result.userTier);
+      expect(result.legibleCall?.headline).toContain('clean till ~9am');
+      expect(result.legibleCall?.headline).not.toContain('~5pm');
+    });
+  });
 });
 
 describe('computeSurfCallTiers', () => {

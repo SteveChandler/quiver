@@ -16,6 +16,15 @@ import { parseSkillLevel, SKILL_WAVE_RANGES, type SkillLevel } from '@/lib/domai
 import type { SkillSource } from '@/lib/domains/rideability/ability';
 import { calculateRideableWaves } from '@/lib/domains/wave-frequency/calculator';
 import {
+  composeLegibleCall,
+  isLastMileCallEnabled,
+  type LegibleCall,
+  type LegibleHourInput,
+  type SkillBand,
+  type TideStatus,
+} from '@/lib/surf/legible-call';
+import { computeHourScoreBreakdown } from '@/lib/surf/scoring';
+import {
   beachToSpotProfile,
   forecastToSnapshot,
   createDiscoveryScoringEngine,
@@ -102,6 +111,7 @@ export interface SurfCallResult {
    * native consumers; absent/empty means no extra warning needs to be shown.
    */
   cautions?: string[];
+  legibleCall?: LegibleCall | null;
 }
 
 /**
@@ -209,6 +219,13 @@ interface BeachWithBreakType {
 
 interface BeachWithWindData {
   wind_offshore_deg?: number | null;
+}
+
+interface SurfCallOptions {
+  isTomorrow?: boolean;
+  beachTimezone?: string | null;
+  skillBand?: SkillBand | null;
+  sunTimes?: { sunrises: Date[]; sunsets: Date[] } | null;
 }
 
 
@@ -512,6 +529,145 @@ function extractSetupCautions(warnings: readonly string[] | undefined): string[]
   return warnings.filter((warning) => warning === LOW_TIDE_HEAVY_SWELL_WARNING);
 }
 
+function parseNumber(value: string | number | null | undefined): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (!value) return null;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function tideStatusForLegible(value: string | null | undefined): TideStatus | null {
+  if (!value) return null;
+  const lower = value.toLowerCase();
+  if (lower.includes('rising')) return 'Rising';
+  if (lower.includes('falling')) return 'Falling';
+  return null;
+}
+
+function shiftedToBeachLocalWallClockISO(tsISO: string, timezone: string | null | undefined): string {
+  if (!timezone) return tsISO;
+  const date = new Date(tsISO);
+  if (Number.isNaN(date.getTime())) return tsISO;
+
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    }).formatToParts(date);
+    const get = (type: string): number => Number(parts.find((part) => part.type === type)?.value);
+    const year = get('year');
+    const month = get('month');
+    const day = get('day');
+    const rawHour = get('hour');
+    const hour = rawHour === 24 ? 0 : rawHour;
+    const minute = get('minute');
+    const second = get('second');
+    if ([year, month, day, hour, minute, second].some((part) => !Number.isFinite(part))) {
+      return tsISO;
+    }
+    return new Date(Date.UTC(year, month - 1, day, hour, minute, second)).toISOString();
+  } catch {
+    return tsISO;
+  }
+}
+
+function isDaytimeForecast(
+  forecast: EnhancedForecastEntity,
+  options: SurfCallOptions
+): boolean {
+  const forecastTime = new Date(forecast.forecast_at);
+  if (Number.isNaN(forecastTime.getTime())) return false;
+  const timezone = options.beachTimezone;
+  const sunrises = options.sunTimes?.sunrises ?? [];
+  const sunsets = options.sunTimes?.sunsets ?? [];
+  const localDate = timezone
+    ? new Intl.DateTimeFormat('en-CA', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(forecastTime)
+    : forecastTime.toISOString().slice(0, 10);
+  const sameDaySunrise = sunrises.find((sunrise) => {
+    const sunriseDate = timezone
+      ? new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(sunrise)
+      : sunrise.toISOString().slice(0, 10);
+    return sunriseDate === localDate;
+  });
+  const sameDaySunset = sunsets.find((sunset) => {
+    const sunsetDate = timezone
+      ? new Intl.DateTimeFormat('en-CA', {
+        timeZone: timezone,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      }).format(sunset)
+      : sunset.toISOString().slice(0, 10);
+    return sunsetDate === localDate;
+  });
+  if (sameDaySunrise && forecastTime < sameDaySunrise) return false;
+  if (sameDaySunset && forecastTime > sameDaySunset) return false;
+  return true;
+}
+
+function buildLegibleHourInput(
+  forecast: EnhancedForecastEntity,
+  beach: Beach,
+  isCalibrated: boolean,
+  options: SurfCallOptions
+): LegibleHourInput | null {
+  const windMph = parseNumber(forecast.wind_speed);
+  const windKts = windMph == null ? null : windMph * 0.868976;
+  const tideFt = parseNumber(forecast.tide_height);
+  const swellDirDeg = parseNumber(forecast.swell_1_direction) ?? forecast.swell_direction_om ?? null;
+  const wavePeriodS = parseNumber(forecast.wave_period) ?? forecast.wave_period_om ?? null;
+  const beachRecord = beach as Beach & {
+    wind_cross_shore_ok_kt?: number | null;
+    terrain_enabled?: boolean | null;
+  };
+  const breakdown = computeHourScoreBreakdown({
+    waveDirectionDeg: swellDirDeg,
+    wavePeriodS,
+    windDirectionDeg: forecast.wind_direction_deg ?? null,
+    windSpeedMs: windMph == null ? null : windMph * 0.44704,
+    tideHeightM: tideFt == null ? null : tideFt / 3.280839895,
+    params: {
+      windOffshoreDeg: beachRecord.wind_offshore_deg ?? 0,
+      windCrossOkKts: beachRecord.wind_cross_shore_ok_kt ?? 15,
+      swellWindowMinDeg: beachRecord.swell_window_min_deg ?? 0,
+      swellWindowMaxDeg: beachRecord.swell_window_max_deg ?? 0,
+      tidePreferredFtMin: beachRecord.preferred_tide_ft_min ?? 0.5,
+      tidePreferredFtMax: beachRecord.preferred_tide_ft_max ?? 3.5,
+      terrainEnabled: beachRecord.terrain_enabled ?? false,
+      windExposureFactors: beachRecord.wind_exposure_factors,
+      swellAccessFactors: beachRecord.swell_access_factors,
+    },
+  });
+
+  return {
+    tsISO: shiftedToBeachLocalWallClockISO(forecast.forecast_at, options.beachTimezone),
+    faceHeightFt: parseMaxWaveHeight(forecast.wave_height),
+    isCalibrated,
+    breakdown,
+    swellDirDeg,
+    windKts,
+    windDirDeg: forecast.wind_direction_deg ?? null,
+    tideFt,
+    tideStatus: tideStatusForLegible(forecast.tide_status),
+  };
+}
+
 /**
  * Narrow a "best window" to peakTime ± 1h, clamped to the original window bounds.
  * Used when the verdict is MAYBE — a wide daylight span is useless noise, but a
@@ -683,7 +839,7 @@ export function computeSurfCall(
   window: PersonalizedForecastWindow | null,
   forecasts: EnhancedForecastEntity[],
   beach: Beach,
-  options: { isTomorrow?: boolean } = {}
+  options: SurfCallOptions = {}
 ): SurfCallResult {
   const { isTomorrow = false } = options;
   const now = new Date();
@@ -693,6 +849,24 @@ export function computeSurfCall(
   // /api/forecasts/update-enhanced and friends.
   const isCalibrated =
     (beach as Beach & { shoaling_factors?: unknown })?.shoaling_factors != null;
+  const legibleHours: LegibleHourInput[] = [];
+  let maxWave: number | null = null;
+  const shouldComposeLegibleCall = isLastMileCallEnabled();
+  if (forecasts) {
+    for (const forecast of forecasts) {
+      const height = parseMaxWaveHeight(forecast.wave_height);
+      if (height !== null) {
+        maxWave = maxWave === null ? height : Math.max(maxWave, height);
+      }
+      if (shouldComposeLegibleCall && isDaytimeForecast(forecast, options)) {
+        const hour = buildLegibleHourInput(forecast, beach, isCalibrated, options);
+        if (hour) legibleHours.push(hour);
+      }
+    }
+  }
+  const legibleCall = shouldComposeLegibleCall
+    ? composeLegibleCall({ beach, skillBand: options.skillBand ?? null, hours: legibleHours })
+    : null;
   const baseResult: SurfCallResult = {
     verdict: 'NO',
     bestWindowStart: null,
@@ -721,6 +895,8 @@ export function computeSurfCall(
     dominantBeatIntervalS: null,
     character: null,
     cautions: [],
+    legibleCall,
+    userTier: options.skillBand ?? null,
   };
 
   // Hard NO: no forecasts
@@ -736,10 +912,6 @@ export function computeSurfCall(
   // adjustments and swell quality boost), we downgrade to MAYBE instead of hard NO.
   // This prevents the surf call from contradicting the discovery system's assessment.
   const minRideable = getMinRideable(beach);
-  const parsedHeights = forecasts
-    .map((f) => parseMaxWaveHeight(f.wave_height))
-    .filter((h): h is number => h !== null);
-  const maxWave = parsedHeights.length > 0 ? Math.max(...parsedHeights) : null;
   // When wave heights are unknown (all null/Unknown), don't trigger the small-wave gate —
   // let the scoring system's verdict stand unmodified.
   const wavesBelowMin = maxWave !== null && maxWave < minRideable;
@@ -786,7 +958,6 @@ export function computeSurfCall(
     : forecasts.slice(0, 3);
 
   const trendTags = computeTrendTags(effectiveForecasts, beach);
-
   const wind = getWindowWind(effectiveForecasts, beach);
   const tide = getWindowTide(effectiveForecasts, windowStartMs, !isTomorrow);
   const waveHeight = window.waveHeight !== 'Unknown' ? window.waveHeight : null;
@@ -944,6 +1115,8 @@ export function computeSurfCall(
     dominantBeatIntervalS: freqResult?.dominantBeatIntervalS ?? null,
     character,
     cautions,
+    legibleCall,
+    userTier: options.skillBand ?? null,
   };
 }
 

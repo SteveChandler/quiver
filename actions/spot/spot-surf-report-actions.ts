@@ -39,6 +39,8 @@ export interface SpotSurfReportAuthContext {
 interface BuildReportOptions {
   isTomorrow?: boolean;
   boardNote?: string | null;
+  beachTimezone?: string | null;
+  sunTimes?: { sunrises: Date[]; sunsets: Date[] } | null;
 }
 
 /**
@@ -53,9 +55,14 @@ function buildReport(
   options: BuildReportOptions,
   resolvedSkill: ResolvedVerdictSkill | null,
 ): SurfCallResult {
-  const surfCallOptions = { isTomorrow: options.isTomorrow };
+  const surfCallOptions = {
+    isTomorrow: options.isTomorrow,
+    beachTimezone: options.beachTimezone,
+    sunTimes: options.sunTimes,
+    skillBand: resolvedSkill?.skill ?? null,
+  };
   const baseline = computeSurfCall(window, forecasts, beach, surfCallOptions);
-  const tiers = computeSurfCallTiers(window, forecasts, beach, surfCallOptions);
+  const tiers = computeSurfCallTiers(window, forecasts, beach, { isTomorrow: options.isTomorrow });
   const whySentence = options.boardNote
     ? appendBoardNote(baseline.whySentence, options.boardNote)
     : baseline.whySentence;
@@ -415,7 +422,18 @@ const getCachedSurfReport = unstable_cache(
         });
         delete adjustedWindow.sourceForecast;
         return {
-          report: buildReport(adjustedWindow, todayForecasts, beach, { isTomorrow: false, boardNote }, resolvedSkill),
+          report: buildReport(
+            adjustedWindow,
+            todayForecasts,
+            beach,
+            {
+              isTomorrow: false,
+              boardNote,
+              beachTimezone: beachTz,
+              sunTimes: sunTimesCache.get(beachId) ?? null,
+            },
+            resolvedSkill
+          ),
           isTomorrow: false,
           forecastContext,
         };
@@ -447,13 +465,34 @@ const getCachedSurfReport = unstable_cache(
         });
         delete adjustedWindow.sourceForecast;
         return {
-          report: buildReport(adjustedWindow, tomorrowForecasts, beach, { isTomorrow: true, boardNote }, resolvedSkill),
+          report: buildReport(
+            adjustedWindow,
+            tomorrowForecasts,
+            beach,
+            {
+              isTomorrow: true,
+              boardNote,
+              beachTimezone: beachTz,
+              sunTimes: sunTimesCache.get(beachId) ?? null,
+            },
+            resolvedSkill
+          ),
           isTomorrow: true,
           forecastContext,
         };
       }
       return {
-        report: buildReport(null, tomorrowForecasts, beach, { isTomorrow: true }, resolvedSkill),
+        report: buildReport(
+          null,
+          tomorrowForecasts,
+          beach,
+          {
+            isTomorrow: true,
+            beachTimezone: beachTz,
+            sunTimes: sunTimesCache.get(beachId) ?? null,
+          },
+          resolvedSkill
+        ),
         isTomorrow: true,
         forecastContext: buildForecastRecommendationContext({
           beach,
