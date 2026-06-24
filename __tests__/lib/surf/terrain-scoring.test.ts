@@ -370,6 +370,55 @@ describe('Terrain-Aware Scoring', () => {
     })
   })
 
+  describe('Swell Direction Formula (regression: computeSwellDirScore wrap-math bug)', () => {
+    // Isolate swellDirScore by disabling terrain (so swellDirScore == raw swell-window fit).
+    const swellFit = (waveDirectionDeg: number, min = 200, max = 300): number => {
+      const input: HourInputs = {
+        waveDirectionDeg,
+        wavePeriodS: 12,
+        windDirectionDeg: 270,
+        windSpeedMs: 2,
+        tideHeightM: 2.5 / 3.28084,
+        params: {
+          windOffshoreDeg: 270,
+          windCrossOkKts: 15,
+          swellWindowMinDeg: min,
+          swellWindowMaxDeg: max,
+          tidePreferredFtMin: 1,
+          tidePreferredFtMax: 4,
+          terrainEnabled: false,
+        },
+      }
+      return computeHourScoreBreakdown(input).swellDirScore
+    }
+
+    it('scores ~1.0 at the window center (was 0.0 before the fix)', () => {
+      expect(swellFit(250)).toBeGreaterThan(0.95) // center of 200-300
+    })
+
+    it('scores high anywhere inside the window', () => {
+      expect(swellFit(210)).toBeGreaterThan(0.9)
+      expect(swellFit(270)).toBeGreaterThan(0.9) // the exact case that returned 0 before
+      expect(swellFit(300)).toBeGreaterThan(0.9) // edge
+    })
+
+    it('fades to 0 across the 30° beyond the window edge', () => {
+      const fade = swellFit(180) // 20° beyond the 200 edge → ~0.33
+      expect(fade).toBeGreaterThan(0.1)
+      expect(fade).toBeLessThan(0.6)
+    })
+
+    it('scores 0 well outside the window', () => {
+      expect(swellFit(160)).toBe(0) // 40° beyond min edge
+      expect(swellFit(340)).toBe(0) // 40° beyond max edge
+    })
+
+    it('handles wrap-around windows (min > max, e.g. 340-20°)', () => {
+      expect(swellFit(0, 340, 20)).toBeGreaterThan(0.9) // dead center of a N-facing window
+      expect(swellFit(180, 340, 20)).toBe(0) // opposite side → blocked
+    })
+  })
+
   describe('Monotonicity Sanity Checks', () => {
     it('should produce same scores when terrain factors are all 1.0', () => {
       const noTerrain = computeHourScore(baseBeach, baseMarine, 2.5)
