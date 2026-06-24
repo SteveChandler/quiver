@@ -37,16 +37,21 @@ interface LearnArticle {
 export const learnArticles: LearnArticle[] = [
   {
     slug: "how-to-read-surf-conditions",
-    title: "How to Read Surf Conditions: Why the Same Size Can Surf Differently",
-    description: "Learn how to read surf conditions by checking period, direction, wind, tide, and beach shape instead of wave height alone.",
+    title: "How to Read a Surf Report: Forecast & Conditions Guide",
+    description: "Learn how to read a surf report or surf forecast: period, direction, wind, tide, and wave height, plus what changes at your break.",
     readingTimeMin: 6,
     datePublished: "2026-03-26",
-    dateModified: "2026-05-31",
+    dateModified: "2026-06-23",
     heroImage: "/beginnerWhiteWater.jpg",
     thumbnailImage: "/beginnerWhiteWater.jpg",
     keywords: [
+      "how to read a surf report",
+      "how to read surf report",
       "how to read surf conditions",
       "how to read surf forecast",
+      "how to read a surf forecast",
+      "surf report explained",
+      "surf forecast guide",
       "understanding surf reports",
       "beginner surf conditions",
       "wave height",
@@ -57,9 +62,9 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>If you only read <strong>wave height</strong>, you will misread a lot of sessions. The same reported <strong>2-4 ft</strong> can be weak and longboard-friendly one day, then steep and shortboard-only the next. Read surf conditions in this order: <strong>period</strong> for power, <strong>direction</strong> for whether your break even works, <strong>wind</strong> for surface quality, <strong>tide</strong> for shape, then <strong>height</strong> for scale. Local beach shape decides how those numbers translate once the swell hits shore.</p>`,
+        content: `<p>To read a <strong>surf report</strong> or <strong>surf forecast</strong>, do not start with wave height. Start with <strong>period</strong> for power, <strong>direction</strong> for whether your break receives the swell, <strong>wind</strong> for surface quality, <strong>tide</strong> for shape, then <strong>height</strong> for scale. The same reported <strong>2-4 ft</strong> can be weak and longboard-friendly one day, then steep and shortboard-only the next. Local beach shape decides how those numbers translate once the swell hits shore.</p>`,
         keyTakeaway:
-          "Height is the last number to trust by itself. Read period, direction, wind, tide, and local shape first.",
+          "Read a surf report in this order: period, direction, wind, tide, then height. Height is the last number to trust by itself.",
       },
       {
         id: "same-size-different-session",
@@ -109,10 +114,10 @@ export const learnArticles: LearnArticle[] = [
       },
       {
         id: "reading-order",
-        heading: "A 30-Second Way to Read Surf Conditions Before You Drive",
-        content: `<p>Use this order every time:</p><ol><li><strong>Period</strong>: is this weak windswell or ground swell?</li><li><strong>Direction</strong>: does my spot actually receive this angle?</li><li><strong>Wind</strong>: clean, cross, or blown out?</li><li><strong>Tide</strong>: is the break in its usable window?</li><li><strong>Height</strong>: now that I trust the setup, how big is it really?</li></ol><p>If you want to get good fast, log a few notes after every surf: period, direction, tide, wind, and which board felt right. After 10 to 20 sessions at the same beach, the numbers stop being abstract and start matching what you feel in the water.</p><p>The data behind those checks is public and transparent: NOAA/NWS WaveWatch-style marine forecasts, NDBC/CDIP/IOOS buoy observations where available, NOAA CO-OPS tides, and Open-Meteo for some wind and extended-horizon coverage. The hard part is not getting numbers. It's learning which numbers matter most for your break.</p>`,
+        heading: "A 30-Second Way to Read a Surf Report Before You Drive",
+        content: `<p>Use this order every time you open a surf report:</p><ol><li><strong>Period</strong>: is this weak windswell or ground swell?</li><li><strong>Direction</strong>: does my spot actually receive this angle?</li><li><strong>Wind</strong>: clean, cross, or blown out?</li><li><strong>Tide</strong>: is the break in its usable window?</li><li><strong>Height</strong>: now that I trust the setup, how big is it really?</li></ol><p>If you want to get good fast, log a few notes after every surf: period, direction, tide, wind, and which board felt right. After 10 to 20 sessions at the same beach, the numbers stop being abstract and start matching what you feel in the water.</p><p>The data behind those checks is public and transparent: NOAA/NWS WaveWatch-style marine forecasts, NDBC/CDIP/IOOS buoy observations where available, NOAA CO-OPS tides, and Open-Meteo for some wind and extended-horizon coverage. The hard part is not getting numbers. It's learning which numbers matter most for your break.</p><p>Want the read done for you? Quiver scores 280+ breaks by tide, wind, and swell and learns the days you rate — see <a href="/vs/surfline/free">how it compares to Surfline</a> or <a href="/roadmap">vote on what we build next</a>. Runs in any browser, or <a href="/app">get the iOS app</a>.</p>`,
         keyTakeaway:
-          "Read surf conditions in the same order every time so you stop chasing a misleading height number.",
+          "Read surf reports in the same order every time so you stop chasing a misleading height number.",
         image: {
           src: "/images/OceanBeachSurfers.webp",
           alt: "Surfers checking conditions from the beach before choosing boards",
@@ -121,6 +126,11 @@ export const learnArticles: LearnArticle[] = [
       },
     ],
     faqs: [
+      {
+        question: "How do you read a surf report?",
+        answer:
+          "Read the surf report in this order: period, direction, wind, tide, then height. Period tells you power, direction tells you whether your break receives the swell, wind tells you surface quality, tide tells you shape, and height tells you scale after the setup already makes sense.",
+      },
       {
         question: "Why were other surfers on shortboards when the forecast still looked small?",
         answer:
@@ -148,24 +158,12 @@ export const learnArticles: LearnArticle[] = [
       },
     ],
     relatedLinks: [
-      {
-        label: "Swell Period Explained",
-        href: "/learn/swell-period-explained",
-        description:
-          "Deep dive into why swell period matters more than height for wave quality.",
-      },
-      {
-        label: "Best Surf Conditions for Beginners",
-        href: "/learn/best-surf-conditions-for-beginners",
-        description:
-          "A practical beginner setup for size, wind, tide, and crowd level.",
-      },
-      {
-        label: "What Is the Best Tide for Surfing?",
-        href: "/learn/best-tide-for-surfing",
-        description:
-          "Learn how tide windows change wave shape at beach breaks, reefs, and points.",
-      },
+      { label: "Groundswell vs Wind Swell", href: "/learn/groundswell-vs-wind-swell", description: "Why a 2-ft groundswell can out-surf a 6-ft wind swell." },
+      { label: "Swell Period Explained", href: "/learn/swell-period-explained", description: "What the seconds in a forecast actually tell you." },
+      { label: "How Accurate Are Surf Forecasts?", href: "/learn/how-accurate-are-surf-forecasts", description: "How far out to trust the numbers." },
+      { label: "Quiver vs Surfline", href: "/vs/surfline", description: "How Quiver's per-beach call compares." },
+      { label: "Best Surf Conditions for Beginners", href: "/learn/best-surf-conditions-for-beginners", description: "The friendliest windows to paddle out." },
+      { label: "What Is the Best Tide for Surfing?", href: "/learn/best-tide-for-surfing", description: "How tide reshapes the same swell." },
     ],
   },
 
@@ -291,8 +289,8 @@ export const learnArticles: LearnArticle[] = [
           "Master all forecast metrics: height, period, direction, wind, and tide.",
       },
       {
-        label: "Wind Swell vs Ground Swell",
-        href: "/learn/wind-swell-vs-ground-swell",
+        label: "Groundswell vs Wind Swell",
+        href: "/learn/groundswell-vs-wind-swell",
         description:
           "Understand how period reveals whether swell came from local wind or a distant storm.",
       },
@@ -439,16 +437,20 @@ export const learnArticles: LearnArticle[] = [
   },
 
   {
-    slug: "wind-swell-vs-ground-swell",
-    title: "Wind Swell vs Ground Swell",
-    description: "Ground swell comes from distant storms with 12+ second period, travels thousands of miles, and produces clean organized waves. Wind swell comes from local wind with 5-9 second period, is chaotic and short-lived. A 2-foot ground swell at 14 seconds typically rides better than a 6-foot wind swell at 7 seconds.",
+    slug: "groundswell-vs-wind-swell",
+    title: "Groundswell vs Wind Swell: What Makes Better Surf?",
+    description: "Groundswell comes from distant storms with 12+ second period and organized waves. Wind swell comes from local wind with 5-9 second period and choppy surf.",
     readingTimeMin: 4,
     datePublished: "2026-03-26",
-    dateModified: "2026-03-30",
+    dateModified: "2026-06-23",
     heroImage: "/offShore.jpeg",
     thumbnailImage: "/offShore.jpeg",
     keywords: [
+      "groundswell vs wind swell",
+      "ground swell vs wind swell",
+      "wind swell vs groundswell",
       "wind swell vs ground swell",
+      "what is groundswell",
       "what is ground swell",
       "types of ocean swells",
       "wind swell",
@@ -458,23 +460,23 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p><strong>Ground swell</strong> comes from distant storms (12+ second period), travels thousands of miles across ocean basins, and produces clean, organized, powerful waves. <strong>Wind swell</strong> comes from local wind (5-9 second period), is chaotic and short-lived, and produces mushy, disorganized surf. Your forecast from NOAA's WaveWatch III shows both as separate components — always prioritize the longest-period component. A 2-foot ground swell at 14 seconds at Trestles typically rides better than a 6-foot wind swell at 7 seconds because the energy is organized and predictable.</p>`,
+        content: `<p><strong>Groundswell</strong>, also written <strong>ground swell</strong>, comes from distant storms with 12+ second period, travels thousands of miles across ocean basins, and produces clean, organized, powerful waves. <strong>Wind swell</strong> comes from local wind with 5-9 second period, is chaotic and short-lived, and produces mushy, disorganized surf. Your forecast from NOAA's WaveWatch III shows both as separate components — always prioritize the longest-period component. A 2-foot groundswell at 14 seconds at Trestles typically rides better than a 6-foot wind swell at 7 seconds because the energy is organized and predictable.</p>`,
         keyTakeaway:
-          "Ground swell (12+ sec period, distant storms) makes organized powerful waves; wind swell (5-9 sec, local wind) makes chaotic mushy surf — always ride the longer period.",
+          "Groundswell (12+ sec period, distant storms) makes organized powerful waves; wind swell (5-9 sec, local wind) makes chaotic mushy surf — always ride the longer period.",
       },
       {
         id: "definitions",
         heading: "Two Types of Ocean Swells: Definitions",
-        content: `<p><strong>Wind swell</strong> is generated by wind blowing at your coast right now — short periods (5-9 seconds), chaotic energy, disorganized. <strong>Ground swell</strong> comes from distant storms, sometimes thousands of miles away — long periods (12+ seconds), organized energy, filtered by distance. Most forecasts show both as separate components: "4 feet at 14 seconds + 2 feet at 6 seconds." The first is ground swell (the good stuff), the second is wind swell (local noise). Both can contribute, but ground swell almost always makes the better waves.</p>`,
+        content: `<p><strong>Wind swell</strong> is generated by wind blowing at your coast right now — short periods (5-9 seconds), chaotic energy, disorganized. <strong>Groundswell</strong> comes from distant storms, sometimes thousands of miles away — long periods (12+ seconds), organized energy, filtered by distance. Most forecasts show both as separate components: "4 feet at 14 seconds + 2 feet at 6 seconds." The first is groundswell (the good stuff), the second is wind swell (local noise). Both can contribute, but groundswell almost always makes the better waves.</p>`,
         keyTakeaway:
-          "Wind swell is local wind generating chaotic short-period waves; ground swell is distant storms creating organized long-period waves.",
+          "Wind swell is local wind generating chaotic short-period waves; groundswell is distant storms creating organized long-period waves.",
       },
       {
         id: "ground-swell-forms",
-        heading: "How Ground Swells Form: Storms and Fetch",
+        heading: "How Groundswells Form: Storms and Fetch",
         content: `<p>A major storm far out at sea churns the ocean with sustained wind over hundreds of miles of fetch. It generates waves across many periods, but long-period energy travels fastest and farthest. As the swell crosses ocean basins over days, short-period chop dissipates through friction, leaving behind clean, organized energy. A Southern Ocean storm takes 5-7 days to reach California as a <strong>16-second swell</strong>. An Alaskan storm takes 2-3 days. By the time it arrives, it's been filtered down to coherent, rideable energy.</p>`,
         keyTakeaway:
-          "Ground swells form from distant storms with sustained wind over huge fetch, then travel ocean basins, losing short-period energy along the way.",
+          "Groundswells form from distant storms with sustained wind over huge fetch, then travel ocean basins, losing short-period energy along the way.",
         image: {
           src: "/images/hero/hero-3-windansea.webp",
           alt: "Clean ground swell lines at Windansea",
@@ -484,24 +486,24 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "wind-swell-forms",
         heading: "How Wind Swells Form: Local Wind Right Now",
-        content: `<p>Wind swell forms when wind blows across the ocean at your coast. The energy is scattered across periods and directions because wind is chaotic — constantly shifting intensity and angle. That's why wind swell looks messy and close-together in person. The key difference: wind swell only lasts as long as the wind does. When the wind dies, the wind-swell component drops off the forecast. Ground swell persists for days because it's self-sustaining energy traveling across the ocean.</p>`,
+        content: `<p>Wind swell forms when wind blows across the ocean at your coast. The energy is scattered across periods and directions because wind is chaotic — constantly shifting intensity and angle. That's why wind swell looks messy and close-together in person. The key difference: wind swell only lasts as long as the wind does. When the wind dies, the wind-swell component drops off the forecast. Groundswell persists for days because it's self-sustaining energy traveling across the ocean.</p>`,
         keyTakeaway:
           "Wind swell forms from local wind right now and disappears when wind stops; it's chaotic and short-period because energy is scattered.",
         image: { src: "/images/learn/learn-choppy-sea.jpg", alt: "Choppy disorganized sea from local wind swell", position: "right" },
       },
       {
         id: "visual-differences",
-        heading: "What Wind and Ground Swells Look Like in the Water",
-        content: `<p>Ground swell is unmistakable: organized sets with clean spacing, long lulls between them, waves all peeling in similar directions. You can see sets coming from far away because the energy is long and coherent. Even small ground swell looks powerful. Wind swell is the opposite — waves from every direction, no clear sets, everything crammed together at 6-9 second intervals. Even big wind swell feels mushy because the energy is scattered. You can spot the difference from shore once you know what to look for.</p>`,
+        heading: "What Wind Swell and Groundswell Look Like in the Water",
+        content: `<p>Groundswell is unmistakable: organized sets with clean spacing, long lulls between them, waves all peeling in similar directions. You can see sets coming from far away because the energy is long and coherent. Even small groundswell looks powerful. Wind swell is the opposite — waves from every direction, no clear sets, everything crammed together at 6-9 second intervals. Even big wind swell feels mushy because the energy is scattered. You can spot the difference from shore once you know what to look for.</p>`,
         keyTakeaway:
-          "Ground swell has organized sets with clean spacing; wind swell is chaotic texture from many directions.",
+          "Groundswell has organized sets with clean spacing; wind swell is chaotic texture from many directions.",
       },
       {
         id: "quality-comparison",
         heading: "Which Produces Better Surf and Why",
-        content: `<p>Ground swell, almost always. Organized energy creates predictable, shapeable waves — you can set your line before the wave reaches your takeoff zone, and the ride lasts because the face is stable. Wind swell collapses fast with no clear peak, making waves harder to catch and shorter to ride. Even an 8-foot wind swell is usually inferior to a 2-foot ground swell. The swell type (period) determines rideability far more than height. That's why surfers obsess over tracking distant storms.</p>`,
+        content: `<p>Groundswell, almost always. Organized energy creates predictable, shapeable waves — you can set your line before the wave reaches your takeoff zone, and the ride lasts because the face is stable. Wind swell collapses fast with no clear peak, making waves harder to catch and shorter to ride. Even an 8-foot wind swell is usually inferior to a 2-foot groundswell. The swell type (period) determines rideability far more than height. That's why surfers obsess over tracking distant storms.</p>`,
         keyTakeaway:
-          "Ground swell produces better waves than wind swell because organized distant energy creates predictable, shapeable rides.",
+          "Groundswell produces better waves than wind swell because organized distant energy creates predictable, shapeable rides.",
         image: {
           src: "/images/activities/reef-breaks.webp",
           alt: "Well-organized ground swell hitting a reef break",
@@ -511,64 +513,51 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "when-wind-swell-is-fun",
         heading: "When Wind Swell Can Actually Be Good",
-        content: `<p>Wind swell has its place. When ground swell is 1-2 feet and the ocean looks dead, a 3-4 foot wind swell provides more waves and more action. Advanced shortboarders sometimes prefer it — more opportunities, quicker reps, playful sessions. Fast beach breaks with A-frames can turn wind swell into fun peaks even at short periods. Reef breaks struggle with it because disorganized energy doesn't focus onto the structure. If you're choosing between a 1-foot ground swell and a 4-foot wind swell at a beach break, the wind swell might actually be more rideable — just lower quality per wave.</p>`,
+        content: `<p>Wind swell has its place. When groundswell is 1-2 feet and the ocean looks dead, a 3-4 foot wind swell provides more waves and more action. Advanced shortboarders sometimes prefer it — more opportunities, quicker reps, playful sessions. Fast beach breaks with A-frames can turn wind swell into fun peaks even at short periods. Reef breaks struggle with it because disorganized energy doesn't focus onto the structure. If you're choosing between a 1-foot groundswell and a 4-foot wind swell at a beach break, the wind swell might actually be more rideable — just lower quality per wave.</p>`,
         keyTakeaway:
-          "Wind swell can be fun for advanced shortboarders on small days or at beach breaks, but ground swell is almost always better for wave quality.",
+          "Wind swell can be fun for advanced shortboarders on small days or at beach breaks, but groundswell is almost always better for wave quality.",
       },
       {
         id: "reading-both",
         heading: "Reading Both Swells in a Forecast",
-        content: `<p>When a forecast shows "3 feet at 14 seconds + 2 feet at 7 seconds," read it as: 3-foot ground swell (the rideable waves) plus 2-foot wind swell (local texture). If it flips to "2 feet at 7 seconds only," all you've got is chop. Always focus on the longest-period component — that's the best swell. As you build forecasting skills, you'll start tracking distant storms on charts and predicting when ground swells will arrive 5-7 days out. That forward-thinking is how locals always seem to know when the next good swell is coming.</p>`,
+        content: `<p>When a forecast shows "3 feet at 14 seconds + 2 feet at 7 seconds," read it as: 3-foot groundswell (the rideable waves) plus 2-foot wind swell (local texture). If it flips to "2 feet at 7 seconds only," all you've got is chop. Always focus on the longest-period component — that's the best swell. As you build forecasting skills, you'll start tracking distant storms on charts and predicting when groundswells will arrive 5-7 days out. That forward-thinking is how locals always seem to know when the next good swell is coming.</p><p>Skip the chart-reading? Quiver tags primary groundswell vs secondary wind swell for 280+ breaks and learns the days you rate — see <a href="/vs/surfline/free">how it compares to Surfline</a> or <a href="/roadmap">vote on what we build next</a>. Runs in any browser, or <a href="/app">get the iOS app</a>.</p>`,
         keyTakeaway:
-          "In a forecast with multiple swells, the longest-period component is ground swell and produces the best waves; short-period is wind swell and local chop.",
+          "In a forecast with multiple swells, the longest-period component is groundswell and produces the best waves; short-period is wind swell and local chop.",
       },
     ],
     faqs: [
       {
-        question: "Can ground swell and wind swell mix in the water?",
+        question: "Can groundswell and wind swell mix in the water?",
         answer:
-          "Yes, always. Most days you have both at the same time. The ground swell creates the main peeling waves, and the wind swell adds texture and extra sets in between. Experienced surfers learn to read which waves are which and focus on catching the ground swell.",
+          "Yes, always. Most days you have both at the same time. The groundswell creates the main peeling waves, and the wind swell adds texture and extra sets in between. Experienced surfers learn to read which waves are which and focus on catching the groundswell.",
       },
       {
         question: "How do I tell the difference in the water?",
         answer:
-          "Ground swell has consistent set patterns and long lulls between. Wind swell is constant texture with no clear sets. Ground swell waves all break similarly; wind swell waves break from many directions. After one session, you'll recognize the difference automatically.",
+          "Groundswell has consistent set patterns and long lulls between. Wind swell is constant texture with no clear sets. Groundswell waves all break similarly; wind swell waves break from many directions. After one session, you'll recognize the difference automatically.",
       },
       {
-        question: "Is a 10-foot wind swell ever better than a 2-foot ground swell?",
+        question: "Is a 10-foot wind swell ever better than a 2-foot groundswell?",
         answer:
-          "Rarely. Big wind swell is entertaining because there's volume, but the rides are lower quality. A 2-foot ground swell at your reef break will have more structured, rideable waves than 10-foot wind swell. Experienced surfers choose the smaller but longer-period option almost always.",
+          "Rarely. Big wind swell is entertaining because there's volume, but the rides are lower quality. A 2-foot groundswell at your reef break will have more structured, rideable waves than 10-foot wind swell. Experienced surfers choose the smaller but longer-period option almost always.",
       },
       {
-        question: "Where do I check for incoming ground swells?",
+        question: "Where do I check for incoming groundswells?",
         answer:
           "Surf forecast models show swell components. Quiver displays both primary (ground) and secondary (wind) swells. You can also check synoptic weather maps to see where storms are forming. Southern Hemisphere and North Pacific storms typically generate the best swells to North America.",
       },
       {
-        question: "Why do forecasters separate ground swell and wind swell?",
+        question: "Why do forecasters separate groundswell and wind swell?",
         answer:
-          "Because they behave differently and arrive at different times. Wind swell shows up immediately and disappears fast. Ground swell takes days to arrive but lasts longer. Separating them lets surfers plan ahead and understand what's really driving the session.",
+          "Because they behave differently and arrive at different times. Wind swell shows up immediately and disappears fast. Groundswell takes days to arrive but lasts longer. Separating them lets surfers plan ahead and understand what's really driving the session.",
       },
     ],
     relatedLinks: [
-      {
-        label: "Swell Period Explained",
-        href: "/learn/swell-period-explained",
-        description:
-          "Period is the key metric that reveals whether swell is ground or wind-generated.",
-      },
-      {
-        label: "How to Read Surf Conditions",
-        href: "/learn/how-to-read-surf-conditions",
-        description:
-          "Learn to read multiple swell components and understand what each means.",
-      },
-      {
-        label: "How Surf Forecasts Work",
-        href: "/learn/how-surf-forecasts-work",
-        description:
-          "Understand how wave models predict ground swell components.",
-      },
+      { label: "How to Read a Surf Report", href: "/learn/how-to-read-surf-conditions", description: "Period, direction, wind, tide, then height." },
+      { label: "Swell Period Explained", href: "/learn/swell-period-explained", description: "Why period separates power from mush." },
+      { label: "How Swell Direction Affects Surf", href: "/learn/how-swell-direction-affects-surf", description: "Whether your break even catches the swell." },
+      { label: "How Surf Forecasts Work", href: "/learn/how-surf-forecasts-work", description: "Where the swell data comes from." },
+      { label: "Quiver vs Surfline", href: "/vs/surfline", description: "Per-beach calls vs a regional star." },
     ],
   },
 
@@ -1046,8 +1035,8 @@ export const learnArticles: LearnArticle[] = [
           "Direction is one of five metrics you need to check.",
       },
       {
-        label: "Wind Swell vs Ground Swell",
-        href: "/learn/wind-swell-vs-ground-swell",
+        label: "Groundswell vs Wind Swell",
+        href: "/learn/groundswell-vs-wind-swell",
         description:
           "Ground swell travels in organized directions; wind swell is scattered.",
       },
@@ -2051,8 +2040,8 @@ export const learnArticles: LearnArticle[] = [
         description: "Period reveals how far waves traveled and their quality.",
       },
       {
-        label: "Wind Swell vs Ground Swell",
-        href: "/learn/wind-swell-vs-ground-swell",
+        label: "Groundswell vs Wind Swell",
+        href: "/learn/groundswell-vs-wind-swell",
         description: "How formation distance determines swell type.",
       },
       {

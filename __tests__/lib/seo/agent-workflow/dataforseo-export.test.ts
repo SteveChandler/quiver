@@ -3,6 +3,7 @@ import {
   parseAsoRanking,
   parseCompetitorRankedKeywords,
   parseGoogleSerpRanking,
+  parseKeywordMetrics,
 } from "@/lib/seo/agent-workflow/dataforseo-export";
 
 describe("SEO workflow DataForSEO export", () => {
@@ -34,7 +35,127 @@ describe("SEO workflow DataForSEO export", () => {
     expect(ranking.topCompetitors[0]?.domain).toBe("surfline.com");
   });
 
-  it("parses ASO rankings for iOS and Android app searches", () => {
+  it("extracts SERP features that can depress organic CTR", () => {
+    const ranking = parseGoogleSerpRanking(
+      {
+        tasks: [{
+          result: [{
+            items: [
+              { type: "ai_overview", rank_absolute: 1 },
+              { type: "people_also_ask", title: "What is the best time to surf?", rank_absolute: 2 },
+              { type: "organic", domain: "www.quiversurf.app", url: "https://www.quiversurf.app/best-time-to-surf/la-jolla", title: "Quiver", rank_absolute: 5 },
+            ],
+          }],
+        }],
+      },
+      {
+        keyword: "best time to surf",
+        location: "United States",
+        locationCode: 2840,
+        languageCode: "en",
+        device: "mobile",
+        depth: 100,
+      },
+      "quiversurf.app",
+    );
+
+    expect(ranking.serpFeatures).toEqual([
+      { type: "ai_overview", rank: 1 },
+      { type: "people_also_ask", rank: 2, title: "What is the best time to surf?" },
+    ]);
+  });
+
+  it("treats Google target ranks beyond requested depth as outside the tracked window", () => {
+    const ranking = parseGoogleSerpRanking(
+      {
+        tasks: [{
+          result: [{
+            items: [
+              { type: "organic", domain: "surfline.com", rank_absolute: 1 },
+              { type: "organic", domain: "www.quiversurf.app", url: "https://www.quiversurf.app/best-time-to-surf/rincon-pr", rank_absolute: 105 },
+            ],
+          }],
+        }],
+      },
+      {
+        keyword: "best time to surf rincon puerto rico",
+        location: "United States",
+        locationCode: 2840,
+        languageCode: "en",
+        device: "mobile",
+        depth: 100,
+      },
+      "quiversurf.app",
+    );
+
+    expect(ranking.quiverRank).toBeNull();
+    expect(ranking.quiverUrl).toBeUndefined();
+    expect(ranking.topCompetitors).toEqual([{ domain: "surfline.com", url: "", title: "", rank: 1 }]);
+  });
+
+  it("parses exact keyword overview metrics for tracked opportunities", () => {
+    const metrics = parseKeywordMetrics(
+      {
+        tasks: [{
+          result: [{
+            items: [{
+              keyword: "best time to surf",
+              keyword_info: {
+                search_volume: 590,
+                competition_level: "LOW",
+                cpc: 0.34,
+              },
+              search_volume_trend: {
+                monthly: 12,
+                quarterly: 4,
+                yearly: 38,
+              },
+              search_intent_info: {
+                main_intent: "informational",
+                foreign_intent: ["commercial"],
+              },
+              monthly_searches: [{
+                year: 2026,
+                month: 5,
+                search_volume: 590,
+              }],
+            }],
+          }],
+        }],
+      },
+      {
+        location: "United States",
+        locationCode: 2840,
+        languageCode: "en",
+      },
+    );
+
+    expect(metrics).toEqual([{
+      keyword: "best time to surf",
+      location: "United States",
+      locationCode: 2840,
+      languageCode: "en",
+      searchVolume: 590,
+      competitionLevel: "LOW",
+      cpc: 0.34,
+      trend: {
+        monthly: 12,
+        quarterly: 4,
+        yearly: 38,
+      },
+      intent: {
+        main: "informational",
+        foreign: ["commercial"],
+      },
+      monthlySearches: [{
+        year: 2026,
+        month: 5,
+        searchVolume: 590,
+      }],
+    }]);
+  });
+
+  it("parses ASO rankings for app searches", () => {
     const ranking = parseAsoRanking(
       {
         tasks: [{
@@ -104,6 +225,7 @@ describe("SEO workflow DataForSEO export", () => {
       googleRankings: [],
       asoRankings: [],
       competitorKeywords: [],
+      keywordMetrics: [],
       missing: ["DATAFORSEO_LOGIN"],
     });
   });

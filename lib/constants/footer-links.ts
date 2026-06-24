@@ -13,6 +13,7 @@ export const FOOTER_LINKS = {
     { name: "Puerto Rico Surf", href: "/forecast/puerto-rico" },
   ],
   forecasts: [
+    { name: "Free Surf Reports", href: "/free-surf-reports" },
     { name: "7-Day Forecast", href: "/forecast" },
     { name: "Live Surf Cams", href: "/cams" },
     { name: "Best Time to Surf", href: "/best-time-to-surf" },

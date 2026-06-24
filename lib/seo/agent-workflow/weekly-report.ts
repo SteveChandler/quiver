@@ -1,5 +1,6 @@
 import type {
   BacklinkProxyInput,
+  CompetitorDelta,
   DataForSeoExportInput,
   GscExportInput,
   PostHogExportInput,
@@ -8,14 +9,31 @@ import type {
   SeoRecommendation,
   StoreSnapshotInput,
   VercelExportInput,
+  WeeklyActionItem,
   WeeklySeoReportInput,
 } from "./types";
+import {
+  classifyCompetitorKeyword,
+  filterRelevantCompetitorKeywordRows,
+  isLowFitCompetitorKeyword,
+} from "./competitor-keywords";
+import { synthesizeWeeklyActionQueue } from "./weekly-actions";
 
 const PRIORITY_ORDER: Record<SeoPriority, number> = {
   critical: 0,
   high: 1,
   medium: 2,
   low: 3,
+};
+
+const PRODUCT_LED_COMPETITOR_CLUSTER_PRIORITY: Record<string, number> = {
+  "forecast-report": 60,
+  "spot-local": 50,
+  "session-memory": 45,
+  education: 40,
+  "water-temp": 20,
+  "competitor-brand": 10,
+  other: 0,
 };
 
 export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
@@ -25,7 +43,7 @@ export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
       const delta = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
       return delta === 0 ? a.canonicalPath.localeCompare(b.canonicalPath) : delta;
     });
-  const topActions = openRecommendations.slice(0, 8);
+  const actionQueue = synthesizeWeeklyActionQueue(input);
 
   return [
     `# Quiver Weekly SEO + ASO Report - ${input.generatedAt.slice(0, 10)}`,
@@ -74,11 +92,11 @@ export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
     "",
     "## Competitor Deltas",
     "",
-    renderCompetitorDeltas(input.store, input.backlink, input.dataforseo),
+    renderCompetitorDeltas(input.store, input.dataforseo),
     "",
     "## Actions This Week",
     "",
-    renderRecommendations(topActions, "No open actions from available inputs."),
+    renderWeeklyActions(actionQueue.actions, actionQueue.fallbackNote),
     "",
     "## Coverage Notes",
     "",
@@ -91,8 +109,9 @@ function renderBottomLine(
   input: WeeklySeoReportInput,
   openRecommendations: SeoRecommendation[],
 ): string {
+  const actionQueue = synthesizeWeeklyActionQueue(input);
   const parts = [
-    `${openRecommendations.length} open recommendation${openRecommendations.length === 1 ? "" : "s"} from available sources.`,
+    `${openRecommendations.length} underlying recommendation${openRecommendations.length === 1 ? "" : "s"} from available sources, synthesized into ${actionQueue.actions.length} weekly action${actionQueue.actions.length === 1 ? "" : "s"}.`,
   ];
   if (input.gsc) {
     const clicks = sum(input.gsc.last28d.map((row) => row.clicks));
@@ -140,6 +159,8 @@ function renderKeywordMovement(
   );
   const rows = [
     ...renderDataForSeoGoogleRanks(dataforseo),
+    ...renderDataForSeoSerpFeatures(dataforseo),
+    ...renderDataForSeoKeywordMetrics(dataforseo),
     ...keywordRecs.slice(0, 8).map((item) =>
       `- ${item.priority.toUpperCase()}: \`${item.canonicalPath}\`${item.targetKeyword ? ` (${item.targetKeyword})` : ""} - ${item.summary}`,
     ),
@@ -215,12 +236,10 @@ function renderNativeFunnel(posthog?: PostHogExportInput): string {
 
 function renderCompetitorDeltas(
   store?: StoreSnapshotInput,
-  backlink?: BacklinkProxyInput,
   dataforseo?: DataForSeoExportInput,
 ): string {
   const deltas = [
-    ...(store?.competitorDeltas ?? []),
-    ...(backlink?.competitorDeltas ?? []),
+    ...renderStructuredCompetitorDeltas(store?.competitorDeltas ?? []),
     ...renderCompetitorKeywordCoverage(dataforseo),
   ];
   return deltas.length ? deltas.map((delta) => `- ${delta}`).join("\n") : "- No competitor deltas in available inputs.";
@@ -234,6 +253,25 @@ function renderRecommendations(items: SeoRecommendation[], fallback: string): st
     );
     return `- ${item.priority.toUpperCase()}: \`${item.canonicalPath}\` - ${item.summary}${rawPathEvidence ? ` (${rawPathEvidence})` : ""}`;
   }).join("\n");
+}
+
+function renderWeeklyActions(
+  items: WeeklyActionItem[],
+  fallbackNote?: string,
+): string {
+  const rows = items.map((item) => {
+    const evidence = item.evidence.slice(0, 3).join("; ");
+    return [
+      `- ${item.priority.toUpperCase()} [${item.source.toUpperCase()}] ${item.title}`,
+      `  Next: ${item.nextStep} Evidence: ${evidence}. Why now: ${item.whyNow}`,
+    ].join("\n");
+  });
+
+  if (fallbackNote) rows.push(`- Note: ${fallbackNote}`);
+
+  return rows.length > 0
+    ? rows.join("\n")
+    : "- No high-confidence weekly actions from available inputs.";
 }
 
 function renderCoverageNotes(input: WeeklySeoReportInput): string {
@@ -260,6 +298,9 @@ function renderCoverageNotes(input: WeeklySeoReportInput): string {
     input.backlink
       ? `- Backlink coverage uses free/provided sources: Vercel referrers, widget embed referrers, outreach tracker rows, and ${manualExportCount} manual export file${manualExportCount === 1 ? "" : "s"} (${manualRows} rows, ${manualDomains} referring-domain observations). No paid full backlink index is configured.`
       : "- Backlink coverage uses free/provided sources when available: Vercel referrers, widget embeds, outreach rows, and manual CSV/JSON exports. No paid full backlink index is configured.",
+    input.store?.competitorDeltas.length
+      ? `- Competitor deltas use the latest structured competitor report snapshot (${input.store.competitorDeltas[0]?.runId ?? "unknown run"}), not freeform automation memory.`
+      : "- Competitor deltas are unavailable unless a structured competitor report snapshot is present.",
     manualExportCount > 0
       ? "- Manual backlink imports are included when matching Ahrefs Webmaster Tools, Moz Link Explorer, GSC links, or manual backlink CSV/JSON files are present in the audit folder or `docs/seo/backlink-reports/`."
       : "- Manual backlink imports: no matching Ahrefs Webmaster Tools, Moz Link Explorer, GSC links, or manual backlink CSV/JSON files were found in this audit folder or `docs/seo/backlink-reports/`.",
@@ -270,6 +311,17 @@ function renderCoverageNotes(input: WeeklySeoReportInput): string {
     ...[...new Set(missing)].map((item) => `- Skipped source: ${item}`),
   ];
   return rows.join("\n");
+}
+
+function renderStructuredCompetitorDeltas(deltas: CompetitorDelta[]): string[] {
+  return [...new Map(deltas.map((delta) => [
+    `${delta.runId}\u0000${delta.summary}`,
+    `Structured competitor report (${delta.runId}): ${sanitizeDeltaSummary(delta.summary)}`,
+  ])).values()];
+}
+
+function sanitizeDeltaSummary(summary: string): string {
+  return summary.replace(/^-+\s*/, "").trim();
 }
 
 function renderDataForSeoGoogleRanks(dataforseo?: DataForSeoExportInput): string[] {
@@ -290,12 +342,42 @@ function renderDataForSeoGoogleRanks(dataforseo?: DataForSeoExportInput): string
   return rows;
 }
 
+function renderDataForSeoSerpFeatures(dataforseo?: DataForSeoExportInput): string[] {
+  return (dataforseo?.googleRankings ?? [])
+    .filter((rank) => (rank.serpFeatures?.length ?? 0) > 0)
+    .slice()
+    .sort((a, b) => featurePressureScore(b) - featurePressureScore(a))
+    .slice(0, 5)
+    .map((rank) => {
+      const features = (rank.serpFeatures ?? [])
+        .slice(0, 4)
+        .map((feature) => feature.type)
+        .join(", ");
+      return `- SERP feature pressure: "${rank.keyword}" has ${features}.`;
+    });
+}
+
+function renderDataForSeoKeywordMetrics(dataforseo?: DataForSeoExportInput): string[] {
+  return (dataforseo?.keywordMetrics ?? [])
+    .slice()
+    .sort((a, b) => (b.searchVolume ?? 0) - (a.searchVolume ?? 0))
+    .slice(0, 6)
+    .map((metric) => {
+      const volume = metric.searchVolume ?? "n/a";
+      const intent = metric.intent?.main ?? "n/a";
+      const monthlyTrend = formatSignedPercent(metric.trend?.monthly);
+      return `- DataForSEO keyword metrics: "${metric.keyword}" vol ${volume}, intent ${intent}, trend monthly ${monthlyTrend}.`;
+    });
+}
+
 function renderDataForSeoAsoRanks(dataforseo?: DataForSeoExportInput): string[] {
   if (!dataforseo || dataforseo.asoRankings.length === 0) return [];
-  const found = dataforseo.asoRankings.filter((rank) => rank.quiverRank !== null);
+  const ambiguousRanks = dataforseo.asoRankings.filter((rank) => isAmbiguousAsoBrandKeyword(rank.keyword));
+  const cleanRanks = dataforseo.asoRankings.filter((rank) => !isAmbiguousAsoBrandKeyword(rank.keyword));
+  const found = cleanRanks.filter((rank) => rank.quiverRank !== null);
   return [
-    `- DataForSEO ASO rank checks: ${found.length}/${dataforseo.asoRankings.length} tracked store searches found Quiver in the top ${dataforseo.asoRankings[0]?.depth ?? 100}.`,
-    ...dataforseo.asoRankings
+    `- DataForSEO ASO rank checks: ${found.length}/${cleanRanks.length} clean tracked store searches found Quiver in the top ${cleanRanks[0]?.depth ?? dataforseo.asoRankings[0]?.depth ?? 100}.`,
+    ...cleanRanks
       .slice()
       .sort((a, b) => (a.quiverRank ?? 999) - (b.quiverRank ?? 999))
       .slice(0, 8)
@@ -304,12 +386,20 @@ function renderDataForSeoAsoRanks(dataforseo?: DataForSeoExportInput): string[] 
         const leader = rank.topCompetitors[0]?.app ? `; leader=${rank.topCompetitors[0]?.app}` : "";
         return `- DataForSEO ${rank.platform}: "${rank.keyword}" - Quiver ${quiver}${leader}.`;
       }),
+    ...ambiguousRanks.map((rank) => {
+      const leader = rank.topCompetitors[0]?.app ?? "unknown";
+      return `- Ambiguous ASO keyword excluded: "${rank.keyword}"; top result=${leader}.`;
+    }),
   ];
 }
 
 function renderCompetitorKeywordCoverage(dataforseo?: DataForSeoExportInput): string[] {
-  const rows = dataforseo?.competitorKeywords ?? [];
-  if (rows.length === 0) return [];
+  const rawRows = dataforseo?.competitorKeywords ?? [];
+  if (rawRows.length === 0) return [];
+  const rows = filterRelevantCompetitorKeywordRows(rawRows);
+  if (rows.length === 0) {
+    return [`DataForSEO Labs actionable competitor keyword rows: 0 rows from ${rawRows.length} raw rows after surf/app/forecast intent filtering.`];
+  }
 
   const byCompetitor = new Map<string, { rows: number; volume: number }>();
   const byPage = new Map<string, { rows: number; volume: number; competitors: Set<string> }>();
@@ -340,12 +430,8 @@ function renderCompetitorKeywordCoverage(dataforseo?: DataForSeoExportInput): st
     .sort((a, b) => b[1].rows - a[1].rows || b[1].volume - a[1].volume)
     .map(([competitor, value]) => `${competitor}=${value.rows}`)
     .join(", ");
-  const productFitRows = rows.filter((row) =>
-    isProductLedKeyword(row.keyword) && !isLowFitCompetitorKeyword(row.keyword)
-  );
-  const actionableRows = rows.filter((row) =>
-    isActionableCompetitorKeyword(row.keyword) && !isLowFitCompetitorKeyword(row.keyword)
-  );
+  const productFitRows = rows.filter((row) => isProductLedKeyword(row.keyword));
+  const actionableRows = rows;
   const keywordRows = productFitRows.length
     ? productFitRows
     : actionableRows.length
@@ -374,7 +460,7 @@ function renderCompetitorKeywordCoverage(dataforseo?: DataForSeoExportInput): st
     .join("; ");
 
   return [
-    `DataForSEO Labs competitor keyword rows: ${rows.length} rows across ${byCompetitor.size} competitors (${competitorSummary}).`,
+    `DataForSEO Labs actionable competitor keyword rows: ${rows.length} rows from ${rawRows.length} raw rows across ${byCompetitor.size} competitors (${competitorSummary}).`,
     topKeywords ? `${keywordLabel}: ${topKeywords}.` : "",
     clusterSummary ? `Competitor keyword clusters: ${clusterSummary}.` : "",
     topPages ? `Competitor ranking pages with the broadest keyword footprint: ${topPages}.` : "",
@@ -445,6 +531,7 @@ function productLedGscPages(gsc?: GscExportInput): GscExportInput["topPages"] {
 
 function productLedAsoKeywords(dataforseo?: DataForSeoExportInput): DataForSeoExportInput["asoRankings"] {
   return (dataforseo?.asoRankings ?? [])
+    .filter((rank) => !isAmbiguousAsoBrandKeyword(rank.keyword))
     .filter((rank) => isProductLedKeyword(rank.keyword))
     .slice()
     .sort((a, b) => {
@@ -456,15 +543,24 @@ function productLedAsoKeywords(dataforseo?: DataForSeoExportInput): DataForSeoEx
 }
 
 function productLedCompetitorKeywords(dataforseo?: DataForSeoExportInput): DataForSeoExportInput["competitorKeywords"] {
-  return (dataforseo?.competitorKeywords ?? [])
-    .filter((row) => isProductLedKeyword(row.keyword) && !isLowFitCompetitorKeyword(row.keyword))
+  return filterRelevantCompetitorKeywordRows(dataforseo?.competitorKeywords ?? [])
+    .filter((row) => isProductLedKeyword(row.keyword))
     .slice()
     .sort((a, b) => {
-      const delta = productLedScore(b.keyword) - productLedScore(a.keyword);
-      if (delta !== 0) return delta;
-      return (b.searchVolume ?? 0) - (a.searchVolume ?? 0);
+      const clusterDelta = productLedCompetitorClusterPriority(b.keyword) - productLedCompetitorClusterPriority(a.keyword);
+      if (clusterDelta !== 0) return clusterDelta;
+      const volumeDelta = (b.searchVolume ?? 0) - (a.searchVolume ?? 0);
+      if (volumeDelta !== 0) return volumeDelta;
+      const fitDelta = productLedScore(b.keyword) - productLedScore(a.keyword);
+      if (fitDelta !== 0) return fitDelta;
+      return a.keyword.localeCompare(b.keyword);
     })
     .slice(0, 6);
+}
+
+function productLedCompetitorClusterPriority(keyword: string): number {
+  const cluster = classifyCompetitorKeyword(keyword);
+  return PRODUCT_LED_COMPETITOR_CLUSTER_PRIORITY[cluster] ?? PRODUCT_LED_COMPETITOR_CLUSTER_PRIORITY.other ?? 0;
 }
 
 function productLedLabel(path: string): string {
@@ -480,15 +576,11 @@ function isProductLedSeoPath(path: string): boolean {
 }
 
 function isProductLedKeyword(keyword: string): boolean {
-  return /(best time to surf|best tide|best wind|dawn patrol|surf session|surf journal|session log|surf tracker|custom spot|custom surf forecast|how to read.*surf forecast|swell period|swell height|surf height|wind swell|ground swell|beginner surf spots|surf forecast app|surf report app|surfline alternative|personal surf forecast)/i.test(keyword);
+  return /(best time to surf|best tide|best wind|dawn patrol|surf session|surf journal|session log|surf tracker|custom spot|custom surf forecast|how to read.*surf forecast|swell period|wave period|swell height|surf height|wave height|wind swell|ground swell|beginner surf spots|surf forecast app|surf report app|surfline alternative|personal surf forecast)/i.test(keyword);
 }
 
 function isCommodityFactPhrase(value: string): boolean {
   return /(water-temp|water temp|water temperature|ocean temp|ocean temperature|tide-chart|\/tides$)/i.test(value);
-}
-
-function isLowFitCompetitorKeyword(keyword: string): boolean {
-  return /(history|origin|invented|tom blake|free surfers|freesurf|surfer best)/i.test(keyword);
 }
 
 function productLedScore(value: string): number {
@@ -498,43 +590,14 @@ function productLedScore(value: string): number {
   if (/(dawn-patrol|dawn patrol)/.test(text)) score += 5;
   if (/(session|journal|tracker|log)/.test(text)) score += 4;
   if (/(custom spot|custom surf forecast|personal surf forecast)/.test(text)) score += 4;
-  if (/(how to read|swell period|swell height|surf height|wind swell|ground swell)/.test(text)) score += 3;
+  if (/(how to read|swell period|wave period|swell height|surf height|wave height|wind swell|ground swell)/.test(text)) score += 3;
   if (/(longboard|board-fit|board)/.test(text)) score += 3;
   if (/(water temp|water-temp|ocean temp|tide-chart|\/tides$|history|origin|invented)/.test(text)) score -= 5;
   return score;
 }
 
-function classifyCompetitorKeyword(keyword: string): string {
-  const value = keyword.toLowerCase();
-  if (/(surfline|lazy surfer|swellify|swell scope|swellscope|duune|surf radar|magicseaweed|msw)/.test(value)) {
-    return "competitor-brand";
-  }
-  if (/(water temp|water temperature|ocean temp|sea temperature)/.test(value)) {
-    return "water-temp";
-  }
-  if (/(forecast|report|conditions|wave|swell|tide|wind|buoy)/.test(value)) {
-    return "forecast-report";
-  }
-  if (/(beginner|learn|how to|what is|why|when|best time|history|origin)/.test(value)) {
-    return "education";
-  }
-  if (/(session|journal|tracker|log|dawn patrol|board)/.test(value)) {
-    return "session-memory";
-  }
-  if (/(beach|pier|point|cove|break|tamarack|malibu|scripps|tourmaline|huntington|rincon|kona|santa cruz|newport|la jolla)/.test(value)) {
-    return "spot-local";
-  }
-  return "other";
-}
-
-function isActionableCompetitorKeyword(keyword: string): boolean {
-  if (/(surfline|lazy surfer|swellify|swell scope|swellscope|duune|surf radar|magicseaweed|msw)/i.test(keyword)) {
-    return false;
-  }
-  if (/^(surf|surfing|surfs)$/i.test(keyword.trim())) {
-    return false;
-  }
-  return /(surf forecast|surf report|forecast|report|conditions|swell|wave forecast|tide|wind|buoy|water temp|water temperature|ocean temp|sea temp|how to read|beginner surf|best time to surf|dawn patrol|surf session|surf journal|surf tracker|surfboard|surf board|learn surf)/i.test(keyword);
+function isAmbiguousAsoBrandKeyword(keyword: string): boolean {
+  return keyword.trim().toLowerCase() === "quiver";
 }
 
 function sum(values: number[]): number {
@@ -543,4 +606,17 @@ function sum(values: number[]): number {
 
 function formatNumber(value: number | undefined): string {
   return typeof value === "number" && Number.isFinite(value) ? value.toFixed(1) : "n/a";
+}
+
+function formatSignedPercent(value: number | undefined): string {
+  if (typeof value !== "number" || !Number.isFinite(value)) return "n/a";
+  return `${value >= 0 ? "+" : ""}${value}%`;
+}
+
+function featurePressureScore(rank: DataForSeoExportInput["googleRankings"][number]): number {
+  return (rank.serpFeatures ?? []).reduce((total, feature) => {
+    if (/ai_overview|featured_snippet/i.test(feature.type)) return total + 5;
+    if (/people_also_ask|local_pack|images|video/i.test(feature.type)) return total + 3;
+    return total + 1;
+  }, 0);
 }

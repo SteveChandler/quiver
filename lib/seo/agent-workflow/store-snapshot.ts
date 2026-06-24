@@ -1,4 +1,4 @@
-import type { StoreListingSnapshot, StoreSnapshotInput } from "./types";
+import type { CompetitorDelta, StoreListingSnapshot, StoreSnapshotInput } from "./types";
 
 export interface StoreTarget {
   app: string;
@@ -58,7 +58,7 @@ export function compareListingMetadata(
 export function buildStoreSnapshot(
   generatedAt: string,
   listings: StoreListingSnapshot[],
-  competitorDeltas: string[] = [],
+  competitorDeltas: CompetitorDelta[] = [],
   missing: string[] = [],
 ): StoreSnapshotInput {
   return { generatedAt, listings, competitorDeltas, missing };

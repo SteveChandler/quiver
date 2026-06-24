@@ -23,6 +23,7 @@ import {
   getAllBlogPosts,
   getLatestBlogModifiedDate,
 } from "@/lib/data/blog-posts";
+import { learnArticles } from "@/lib/data/learn-articles";
 
 // Mock the action modules
 jest.mock("@/actions/beach/beach-location-list-actions", () => ({
@@ -121,6 +122,23 @@ describe("Sitemap Generation", () => {
       expect(route?.priority).toBe(0.7);
     });
 
+    it("should include /free-surf-reports route with high crawl priority", async () => {
+      const result = await sitemap();
+      const route = result.find((r) => r.url === `${baseUrl}/free-surf-reports`);
+
+      expect(route).not.toBeUndefined();
+      expect(route?.priority).toBe(0.85);
+      expect(route?.changeFrequency).toBe("daily");
+    });
+
+    it("should include /forecast-accuracy (curated comparison page)", async () => {
+      const result = await sitemap();
+      const route = result.find((r) => r.url === `${baseUrl}/forecast-accuracy`);
+
+      expect(route).not.toBeUndefined();
+      expect(route?.priority).toBe(0.7);
+    });
+
     it("should include /beaches/usa route", async () => {
       const result = await sitemap();
       const route = result.find((r) => r.url === `${baseUrl}/beaches/usa`);
@@ -128,9 +146,25 @@ describe("Sitemap Generation", () => {
       expect(route).not.toBeUndefined();
     });
 
+    it("should include /beaches/mexico route", async () => {
+      const result = await sitemap();
+      const route = result.find((r) => r.url === `${baseUrl}/beaches/mexico`);
+
+      expect(route).not.toBeUndefined();
+    });
+
     it("should set changeFrequency to daily for static routes", async () => {
       const result = await sitemap();
-      const staticRoutes = ["/", "/features", "/about", "/privacy", "/plans", "/map"];
+      const staticRoutes = [
+        "/",
+        "/features",
+        "/about",
+        "/privacy",
+        "/plans",
+        "/map",
+        "/free-surf-reports",
+        "/beaches/mexico",
+      ];
 
       staticRoutes.forEach((path) => {
         const route = result.find((r) => r.url === `${baseUrl}${path}`);
@@ -173,6 +207,27 @@ describe("Sitemap Generation", () => {
           post.dateModified ?? post.datePublished,
         );
       }
+    });
+  });
+
+  describe("Learn Routes", () => {
+    it("should include every canonical learn article and exclude retired aliases", async () => {
+      const result = await sitemap();
+
+      for (const article of learnArticles) {
+        const route = result.find(
+          (r) => r.url === `${baseUrl}/learn/${article.slug}`,
+        );
+
+        expect(route).not.toBeUndefined();
+      }
+
+      expect(
+        result.find((r) => r.url === `${baseUrl}/learn/groundswell-vs-wind-swell`),
+      ).not.toBeUndefined();
+      expect(
+        result.find((r) => r.url === `${baseUrl}/learn/wind-swell-vs-ground-swell`),
+      ).toBeUndefined();
     });
   });
 
@@ -849,6 +904,16 @@ describe("Sitemap Generation", () => {
         r.url.endsWith("/mexico/baja-california/rosarito")
       );
       expect(rosaritoRoute).not.toBeUndefined();
+
+      const mexicoIndexRoute = result.find((r) =>
+        r.url.endsWith("/beaches/mexico")
+      );
+      expect(mexicoIndexRoute).not.toBeUndefined();
+
+      const bajaCaliforniaRoute = result.find((r) =>
+        r.url.endsWith("/beaches/mexico/baja-california")
+      );
+      expect(bajaCaliforniaRoute).not.toBeUndefined();
     });
 
     it("should include USA state index routes under /beaches/usa/{state}", async () => {

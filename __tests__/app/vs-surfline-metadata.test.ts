@@ -20,6 +20,8 @@ describe("Surfline comparison SEO metadata", () => {
 
     expect(source).toContain("Forecasts included");
     expect(source).toContain('text: "Included"');
-    expect(source).not.toMatch(/\bfree\b/i);
+    // The one sanctioned child-link href to the free variant is allowed;
+    // the page's own positioning copy must still never say "free".
+    expect(source.replaceAll("/vs/surfline/free", "")).not.toMatch(/\bfree\b/i);
   });
 });
