@@ -57,4 +57,30 @@ describe("TodaySurfCall", () => {
     expect(screen.getByText(/BEST AT 7:00 AM/i)).toBeInTheDocument();
     expect(screen.getByText("YES")).toHaveStyle({ color: "#006B5F" });
   });
+
+  it("shows the legible call (clause part) in place of the editorial whySentence when present", () => {
+    render(
+      <TodaySurfCall
+        beach={createMockBeach({ name: "Blacks Beach" })}
+        surfCallReport={{
+          verdict: "MAYBE",
+          bestWindowStart: null,
+          bestWindowEnd: null,
+          waveHeight: "2 ft",
+          whySentence: "Clean and playful.",
+          updatedAt: "2026-06-24T12:30:00.000Z",
+          legibleCall: {
+            verdict: "MAYBE",
+            verdictLabel: "Might work",
+            headline: "MAYBE · Might work — 1.9ft fun size for you · light wind, clean texture",
+            clauses: [],
+            skillBand: "beginner",
+          },
+        } as any}
+      />,
+    );
+
+    expect(screen.getByText("1.9ft fun size for you · light wind, clean texture")).toBeInTheDocument();
+    expect(screen.queryByText("Clean and playful.")).not.toBeInTheDocument();
+  });
 });

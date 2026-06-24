@@ -50,6 +50,12 @@ export function TodaySurfCall({ beach, surfCallReport, beachTimezone }: TodaySur
   );
   const color = VERDICT_COLOR[verdict];
 
+  // When the legible call is present (LAST_MILE_CALL_ENABLED, server-composed) it
+  // replaces the editorial why-line — it's the grounded, skill-aware version of the
+  // same sentence. Strip the "VERDICT · Label — " prefix; the stamp already shows it.
+  const whyText =
+    surfCallReport?.legibleCall?.headline.split(" — ")[1] ?? surfCallReport?.whySentence ?? null;
+
   const isAuthed = userTier != null;
   const showUpgradeCta = tiers != null && !isAuthed;
   const bestWindCardinal =
@@ -109,9 +115,7 @@ export function TodaySurfCall({ beach, surfCallReport, beachTimezone }: TodaySur
         {/* Why-callout — promoted from footer to right under the stamp.
             This is the editorial voice (the local who paddled out yesterday)
             and it deserves higher visual presence than a footnote. */}
-        {surfCallReport?.whySentence && (
-          <WhyCallout text={surfCallReport.whySentence} />
-        )}
+        {whyText && <WhyCallout text={whyText} />}
 
         {showUpgradeCta && (
           <div className="flex justify-center">
