@@ -10,6 +10,7 @@ import {
   getFreshForecastFromCache,
 } from "@/lib/utils/forecast-server-utils";
 import { createPublicReadClient } from "@/lib/supabase/server";
+import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 
 /**
  * Enhanced Forecast Update API Endpoint
@@ -131,7 +132,8 @@ export async function GET(request: NextRequest) {
         );
       }
     }
-    const forecasts = result.forecasts.map((f) => ({ ...f, isCalibrated }));
+    const stampedForecasts = result.forecasts.map((f) => ({ ...f, isCalibrated }));
+    const forecasts = await applyV51DisplayOverrideToForecasts(stampedForecasts);
     const hasData = forecasts.length > 0;
 
     // Build response with consistent shape

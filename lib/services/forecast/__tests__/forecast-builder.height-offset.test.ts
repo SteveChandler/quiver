@@ -344,6 +344,23 @@ describe("ForecastBuilder per-beach height-offset hook", () => {
     expect(capturedSnapshotRows[0].forecast_horizon_hours).toBe(0);
   });
 
+  it("forecast_horizon_bucket follows canonical Phase 0 splits", async () => {
+    const builder = newBuilder();
+    await builder.buildForecasts(buildInputs());
+
+    expect(capturedSnapshotRows.length).toBeGreaterThan(0);
+
+    for (const row of capturedSnapshotRows) {
+      const expectedBucket =
+        row.forecast_horizon_hours <= 24
+          ? "0-24h"
+          : row.forecast_horizon_hours <= 72
+            ? "25-72h"
+            : "73h+";
+      expect(row.forecast_horizon_bucket).toBe(expectedBucket);
+    }
+  });
+
   it("display_source is face-Hs-transformer-v1", async () => {
     const builder = newBuilder();
     await builder.buildForecasts(buildInputs());
@@ -351,6 +368,8 @@ describe("ForecastBuilder per-beach height-offset hook", () => {
     expect(capturedSnapshotRows.length).toBeGreaterThan(0);
     for (const r of capturedSnapshotRows) {
       expect(r.display_source).toBe("face-Hs-transformer-v1");
+      expect(r.display_wave_source).toBe("model_swell");
+      expect(r.display_raw_input_height_m).toBeCloseTo(3 / METERS_TO_FEET, 3);
     }
   });
 
@@ -362,6 +381,15 @@ describe("ForecastBuilder per-beach height-offset hook", () => {
     expect(capturedSnapshotRows[0]).toEqual(
       expect.objectContaining({
         wave_height_om_m: 1.1,
+        noaa_swell_1_height_m: 0.8,
+        noaa_swell_1_period_s: 14,
+        noaa_swell_1_direction_deg: 220,
+        noaa_swell_2_height_m: 0,
+        noaa_swell_2_period_s: 0,
+        noaa_swell_2_direction_deg: 0,
+        noaa_wind_wave_height_m: 0.3,
+        noaa_wind_wave_period_s: 6,
+        noaa_wind_wave_direction_deg: 200,
         wave_period_s: 12,
         wave_direction_deg: 220,
         wave_period_om: 11,

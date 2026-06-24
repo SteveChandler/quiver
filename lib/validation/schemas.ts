@@ -48,9 +48,9 @@ export type BoardCreateInput = z.infer<typeof BoardCreateSchema>;
 
 export const CommentSchema = z.object({
   content: z.string()
+    .trim()
     .min(1, 'Comment cannot be empty')
-    .max(2000, 'Comment cannot exceed 2000 characters')
-    .trim(),
+    .max(2000, 'Comment cannot exceed 2000 characters'),
   session_id: uuidSchema,
 });
 

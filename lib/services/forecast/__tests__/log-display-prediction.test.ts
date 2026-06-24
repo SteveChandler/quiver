@@ -12,6 +12,7 @@ import {
   logDisplayPredictions,
   type DisplayPredictionRow,
 } from "../log-display-prediction";
+import { WAVE_HEIGHT_SOURCE_TAGS } from "@/lib/utils/wave-height-source";
 
 // Capture supabase calls. We swap the service-role factory so we observe the
 // .from("ml_predictions_log").upsert(payload, opts) flow.
@@ -40,12 +41,24 @@ const sampleRow = (
   beach_id: "beach-1",
   predicted_at: "2026-05-01T00:00:00Z",
   forecast_horizon_hours: 24,
+  forecast_horizon_bucket: "0-24h",
   raw_display_height_m: 1.234,
   offset_corrected_display_height_m: 1.123,
   height_offset_m: 0.111,
   height_offset_sample_count: 42,
   display_source: "face-Hs-transformer-v1",
+  display_wave_source: "model_swell",
+  display_raw_input_height_m: 0.8,
   wave_height_om_m: null,
+  noaa_swell_1_height_m: null,
+  noaa_swell_1_period_s: null,
+  noaa_swell_1_direction_deg: null,
+  noaa_swell_2_height_m: null,
+  noaa_swell_2_period_s: null,
+  noaa_swell_2_direction_deg: null,
+  noaa_wind_wave_height_m: null,
+  noaa_wind_wave_period_s: null,
+  noaa_wind_wave_direction_deg: null,
   wave_period_s: null,
   wave_direction_deg: null,
   wave_period_om: null,
@@ -141,18 +154,185 @@ describe("logDisplayPredictions", () => {
     expect(payload).toHaveLength(5);
   });
 
-  it("upsert call uses onConflict=beach_id,predicted_at and ignoreDuplicates=true", async () => {
+  it("upsert call uses horizon-bucket conflict key and ignoreDuplicates=true", async () => {
     // Locks in the first-write-wins semantic. Changing either option silently
-    // breaks the telemetry feedback-loop invariant (raw_display_height_m must
-    // stay frozen at first issue) or restores the silent-rollback bug fixed
-    // 2026-05-04 (insert was rolling back the whole batch on every conflict).
+    // breaks the per-horizon telemetry feedback-loop invariant
+    // (raw_display_height_m must stay frozen at first issue within a bucket) or
+    // restores the silent-rollback bug fixed 2026-05-04 (insert was rolling
+    // back the whole batch on every conflict).
     await logDisplayPredictions([sampleRow()]);
 
     const opts = upsertMock.mock.calls[0][1];
     expect(opts).toEqual({
+      onConflict:
+        "beach_id,predicted_at,forecast_horizon_bucket,display_source",
+      ignoreDuplicates: true,
+    });
+  });
+
+  it("falls back to the legacy conflict key when the Phase 0 column is not live yet", async () => {
+    upsertMock
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: "PGRST204",
+          message:
+            "Could not find the 'forecast_horizon_bucket' column of 'ml_predictions_log' in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({ data: null, error: null });
+
+    await logDisplayPredictions([sampleRow()]);
+
+    expect(upsertMock).toHaveBeenCalledTimes(2);
+    expect(upsertMock.mock.calls[0][1]).toEqual({
+      onConflict:
+        "beach_id,predicted_at,forecast_horizon_bucket,display_source",
+      ignoreDuplicates: true,
+    });
+    expect(upsertMock.mock.calls[1][1]).toEqual({
       onConflict: "beach_id,predicted_at",
       ignoreDuplicates: true,
     });
+    expect(upsertMock.mock.calls[0][0][0]).toHaveProperty(
+      "forecast_horizon_bucket",
+      "0-24h"
+    );
+    expect(upsertMock.mock.calls[1][0][0]).not.toHaveProperty(
+      "forecast_horizon_bucket"
+    );
+    expect(upsertMock.mock.calls[1][0][0]).not.toHaveProperty(
+      "display_wave_source"
+    );
+    expect(upsertMock.mock.calls[1][0][0]).not.toHaveProperty(
+      "display_raw_input_height_m"
+    );
+  });
+
+  it("falls back to the legacy conflict key when the horizon-aware unique index is not live yet", async () => {
+    upsertMock
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: "42P10",
+          message:
+            "there is no unique or exclusion constraint matching the ON CONFLICT specification",
+        },
+      })
+      .mockResolvedValueOnce({ data: null, error: null });
+
+    await logDisplayPredictions([sampleRow()]);
+
+    expect(upsertMock).toHaveBeenCalledTimes(2);
+    expect(upsertMock.mock.calls[1][1]).toEqual({
+      onConflict: "beach_id,predicted_at",
+      ignoreDuplicates: true,
+    });
+  });
+
+  it("does not use the legacy conflict key for ordinary insert failures", async () => {
+    upsertMock.mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: "23502",
+        message: "null value in column model_version violates not-null constraint",
+      },
+    });
+
+    await logDisplayPredictions([sampleRow()]);
+
+    expect(upsertMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not use the legacy conflict key for Phase 0 constraint failures", async () => {
+    upsertMock.mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: "23514",
+        message:
+          'new row for relation "ml_predictions_log" violates check constraint "ml_predictions_log_display_wave_source_check"',
+      },
+    });
+
+    await logDisplayPredictions([sampleRow()]);
+
+    expect(upsertMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("drops rows missing Phase 0 replay provenance before writing", async () => {
+    await logDisplayPredictions([
+      sampleRow({
+        beach_id: "beach-valid",
+        display_wave_source: "model_swell",
+        display_raw_input_height_m: 0.8,
+      }),
+      sampleRow({
+        beach_id: "beach-missing-source",
+        display_wave_source: null,
+        display_raw_input_height_m: 0.8,
+      }),
+      sampleRow({
+        beach_id: "beach-missing-raw-input",
+        display_wave_source: "model_swell",
+        display_raw_input_height_m: null,
+      }),
+      sampleRow({
+        beach_id: "beach-negative-raw-input",
+        display_wave_source: "model_swell",
+        display_raw_input_height_m: -0.1,
+      }),
+    ]);
+
+    expect(upsertMock).toHaveBeenCalledTimes(1);
+    const payload = upsertMock.mock.calls[0][0];
+    expect(payload).toHaveLength(1);
+    expect(payload[0]).toEqual(
+      expect.objectContaining({
+        beach_id: "beach-valid",
+        display_wave_source: "model_swell",
+        display_raw_input_height_m: 0.8,
+      })
+    );
+  });
+
+  it("accepts every shared WaveHeightSourceTag for Phase 0 replay provenance", async () => {
+    await logDisplayPredictions(
+      WAVE_HEIGHT_SOURCE_TAGS.map((displayWaveSource, index) =>
+        sampleRow({
+          beach_id: `beach-${index}`,
+          display_wave_source: displayWaveSource,
+          display_raw_input_height_m: 0.8 + index / 100,
+        })
+      )
+    );
+
+    expect(upsertMock).toHaveBeenCalledTimes(1);
+    const payload = upsertMock.mock.calls[0][0];
+    expect(payload).toHaveLength(WAVE_HEIGHT_SOURCE_TAGS.length);
+    expect(
+      payload.map(
+        (row: { display_wave_source: string }) => row.display_wave_source
+      )
+    ).toEqual([...WAVE_HEIGHT_SOURCE_TAGS]);
+  });
+
+  it("skips the insert when every row is missing Phase 0 replay provenance", async () => {
+    await logDisplayPredictions([
+      sampleRow({
+        display_wave_source: null,
+        display_raw_input_height_m: 0.8,
+      }),
+      sampleRow({
+        display_wave_source: "model_swell",
+        display_raw_input_height_m: null,
+      }),
+      sampleRow({
+        display_wave_source: "model_swell",
+        display_raw_input_height_m: -0.1,
+      }),
+    ]);
+
+    expect(upsertMock).not.toHaveBeenCalled();
   });
 
   it("payload includes all required snapshot columns", async () => {
@@ -161,11 +341,14 @@ describe("logDisplayPredictions", () => {
         beach_id: "beach-99",
         predicted_at: "2026-05-01T00:00:00Z",
         forecast_horizon_hours: 48,
+        forecast_horizon_bucket: "25-72h",
         raw_display_height_m: 2.5,
         offset_corrected_display_height_m: 2.2,
         height_offset_m: 0.3,
         height_offset_sample_count: 60,
         display_source: "face-Hs-transformer-v1",
+        display_wave_source: "cdip_sig",
+        display_raw_input_height_m: 0.9,
       }),
     ]);
 
@@ -174,16 +357,28 @@ describe("logDisplayPredictions", () => {
       beach_id: "beach-99",
       predicted_at: "2026-05-01T00:00:00Z",
       forecast_horizon_hours: 48,
+      forecast_horizon_bucket: "25-72h",
       raw_display_height_m: 2.5,
       offset_corrected_display_height_m: 2.2,
       height_offset_m: 0.3,
       height_offset_sample_count: 60,
       display_source: "face-Hs-transformer-v1",
+      display_wave_source: "cdip_sig",
+      display_raw_input_height_m: 0.9,
       // model_version falls back to display_source so the NOT NULL constraint
       // on ml_predictions_log.model_version is always satisfied.
       model_version: "face-Hs-transformer-v1",
       // v5 shadow comparator columns: null when caller doesn't supply them.
       wave_height_om: null,
+      noaa_swell_1_height_m: null,
+      noaa_swell_1_period_s: null,
+      noaa_swell_1_direction_deg: null,
+      noaa_swell_2_height_m: null,
+      noaa_swell_2_period_s: null,
+      noaa_swell_2_direction_deg: null,
+      noaa_wind_wave_height_m: null,
+      noaa_wind_wave_period_s: null,
+      noaa_wind_wave_direction_deg: null,
       wave_period_s: null,
       wave_direction_deg: null,
       wave_period_om: null,
@@ -266,6 +461,37 @@ describe("logDisplayPredictions", () => {
         om_secondary_swell_missing: false,
         om_tertiary_swell_missing: false,
         om_partition_schema_version: 1,
+      })
+    );
+  });
+
+  it("maps NOAA partition inputs into the upsert payload", async () => {
+    await logDisplayPredictions([
+      sampleRow({
+        noaa_swell_1_height_m: 0.8,
+        noaa_swell_1_period_s: 14,
+        noaa_swell_1_direction_deg: 220,
+        noaa_swell_2_height_m: 0.15,
+        noaa_swell_2_period_s: 11,
+        noaa_swell_2_direction_deg: 190,
+        noaa_wind_wave_height_m: 0.3,
+        noaa_wind_wave_period_s: 6,
+        noaa_wind_wave_direction_deg: 200,
+      }),
+    ]);
+
+    const payload = upsertMock.mock.calls[0][0];
+    expect(payload[0]).toEqual(
+      expect.objectContaining({
+        noaa_swell_1_height_m: 0.8,
+        noaa_swell_1_period_s: 14,
+        noaa_swell_1_direction_deg: 220,
+        noaa_swell_2_height_m: 0.15,
+        noaa_swell_2_period_s: 11,
+        noaa_swell_2_direction_deg: 190,
+        noaa_wind_wave_height_m: 0.3,
+        noaa_wind_wave_period_s: 6,
+        noaa_wind_wave_direction_deg: 200,
       })
     );
   });
