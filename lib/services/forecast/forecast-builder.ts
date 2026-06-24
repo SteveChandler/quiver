@@ -33,6 +33,7 @@ import {
   computeV5Shadow,
   getActiveCalibration,
 } from "./calibration-v5";
+import { getForecastAccuracyHorizonBucket } from "./accuracy-metrics";
 import { createServiceRoleClient } from "@/lib/supabase";
 import type {
   ShoalingFactors,
@@ -706,10 +707,12 @@ export class ForecastBuilder {
     // preserves all in-range rows. The offset use case is 24h+ planning
     // forecasts so 168h is more than enough lead time.
     const horizonInt = Math.max(0, Math.round(forecastHorizonHours));
+    const forecastHorizonBucket = getForecastAccuracyHorizonBucket(horizonInt);
     if (
       rawDisplayHeightFt != null &&
       correctedFt != null &&
-      horizonInt <= 168
+      horizonInt <= 168 &&
+      forecastHorizonBucket
     ) {
       const rawDisplayHeightM = rawDisplayHeightFt / METERS_TO_FEET;
       const correctedDisplayM = correctedFt / METERS_TO_FEET;
@@ -743,11 +746,17 @@ export class ForecastBuilder {
         primary_swell_direction_deg: directionDegForBucket,
         calibration,
       });
+      const rawInputHeightFt = waveHeightResult.debug.rawHeightFt;
+      const displayRawInputHeightM =
+        typeof rawInputHeightFt === "number" && Number.isFinite(rawInputHeightFt)
+          ? Number((rawInputHeightFt / METERS_TO_FEET).toFixed(3))
+          : null;
 
       snapshotBuffer.push({
         beach_id: beach.id,
         predicted_at: getNormalizedForecastAt(forecastTime),
         forecast_horizon_hours: horizonInt,
+        forecast_horizon_bucket: forecastHorizonBucket,
         raw_display_height_m: Number(rawDisplayHeightM.toFixed(3)),
         offset_corrected_display_height_m: Number(correctedDisplayM.toFixed(3)),
         height_offset_m: offsetActuallyApplied
@@ -757,7 +766,18 @@ export class ForecastBuilder {
           ? heightOffset?.sample_count ?? null
           : null,
         display_source: "face-Hs-transformer-v1",
+        display_wave_source: waveHeightResult.debug.source,
+        display_raw_input_height_m: displayRawInputHeightM,
         wave_height_om_m: omHeightM,
+        noaa_swell_1_height_m: wavePoint?.swell_1_height ?? null,
+        noaa_swell_1_period_s: wavePoint?.swell_1_period ?? null,
+        noaa_swell_1_direction_deg: wavePoint?.swell_1_direction ?? null,
+        noaa_swell_2_height_m: wavePoint?.swell_2_height ?? null,
+        noaa_swell_2_period_s: wavePoint?.swell_2_period ?? null,
+        noaa_swell_2_direction_deg: wavePoint?.swell_2_direction ?? null,
+        noaa_wind_wave_height_m: wavePoint?.wind_wave_height ?? null,
+        noaa_wind_wave_period_s: wavePoint?.wind_wave_period ?? null,
+        noaa_wind_wave_direction_deg: wavePoint?.wind_wave_direction ?? null,
         wave_period_s: wavePeriodS,
         wave_direction_deg: directionDegForBucket,
         wave_period_om: omValues?.wave_period_om ?? null,

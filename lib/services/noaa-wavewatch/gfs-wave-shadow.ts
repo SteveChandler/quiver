@@ -11,6 +11,9 @@ const log = createContextLogger("GfsWaveShadow");
 export const GFS_WAVE_SHADOW_MODEL = "ncep_gfswave016";
 export const GFS_WAVE_SHADOW_SOURCE = "open_meteo";
 export const GFS_WAVE_SHADOW_TABLE = "gfs_wave_shadow_forecasts";
+// Disabled 2026-06-18 while mixed-swell promotion is paused. Re-enable only
+// with Seaside's DEFAULT_PROMOTION_ENABLED in mixed_swell_shadow.py.
+export const GFS_WAVE_SHADOW_CAPTURE_DISABLED = true;
 
 export type GfsWaveShadowCaptureStatus =
   | "ok"
@@ -105,6 +108,7 @@ function nullGfsValues(): Pick<
 }
 
 export function isGfsWaveShadowCaptureEnabled(): boolean {
+  if (GFS_WAVE_SHADOW_CAPTURE_DISABLED) return false;
   return process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED === "true";
 }
 
