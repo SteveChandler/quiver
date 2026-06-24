@@ -16,6 +16,8 @@ export interface ClusterRendererDeps {
   clusterCleanupMap: Map<string, () => void>;
   /** Returns the zoom level at which a cluster expands */
   getExpansionZoom: (clusterId: number) => number;
+  /** Current camera max-zoom cap (e.g. the swell-field coastal leash). */
+  getMaxZoom?: () => number;
   /** Fly the map to a location at a given zoom level */
   flyTo: (center: [number, number], zoom: number) => void;
   /** Display mode: wave-height (default) or water-temp */
@@ -79,6 +81,15 @@ export function createClusterMapMarker(
 
     if (cluster.clusterId !== undefined) {
       const expansionZoom = deps.getExpansionZoom(cluster.clusterId);
+      // When a camera zoom cap (e.g. the swell-field coastal leash) sits below
+      // the zoom needed to split this cluster, zooming would stall at the cap
+      // and the cluster could never break into individual, tappable spots. Fall
+      // back to the details popup so the user can still reach a beach.
+      const maxZoom = deps.getMaxZoom?.() ?? Infinity;
+      if (expansionZoom > maxZoom && deps.onClusterClick) {
+        deps.onClusterClick(cluster);
+        return;
+      }
       deps.flyTo(
         [cluster.longitude, cluster.latitude],
         Math.min(expansionZoom, 16)

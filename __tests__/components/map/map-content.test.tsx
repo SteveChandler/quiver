@@ -2,24 +2,40 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MapContent } from "@/components/map/map-content";
 import { createMockBeaches } from "@/__tests__/setup/test-utils";
 
+let mockInteractiveMapMounts = 0;
+
 // Mock the dynamic import for InteractiveMap
 jest.mock("next/dynamic", () => () => {
-  const InteractiveMapMock = ({ onLocationClick, onBeachSelect }: any) => (
-    <div data-testid="interactive-map">
-      <button
-        onClick={() => onLocationClick?.(mockBeaches[0])}
-        data-testid="mock-beach-click"
+  const InteractiveMapMock = ({
+    initialCenter,
+    onLocationClick,
+    onBeachSelect,
+  }: any) => {
+    const [mountId] = require("react").useState(
+      () => ++mockInteractiveMapMounts,
+    );
+
+    return (
+      <div
+        data-testid="interactive-map"
+        data-initial-center={initialCenter?.join(",")}
+        data-mount-id={mountId}
       >
-        Click Beach
-      </button>
-      <button
-        onClick={() => onBeachSelect?.(mockBeaches[0])}
-        data-testid="mock-beach-select"
-      >
-        Select Beach
-      </button>
-    </div>
-  );
+        <button
+          onClick={() => onLocationClick?.(mockBeaches[0])}
+          data-testid="mock-beach-click"
+        >
+          Click Beach
+        </button>
+        <button
+          onClick={() => onBeachSelect?.(mockBeaches[0])}
+          data-testid="mock-beach-select"
+        >
+          Select Beach
+        </button>
+      </div>
+    );
+  };
   InteractiveMapMock.displayName = "InteractiveMap";
   return InteractiveMapMock;
 });
@@ -52,6 +68,7 @@ describe("MapContent", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockInteractiveMapMounts = 0;
   });
 
   it("should render map skeleton when loading", () => {
@@ -88,25 +105,83 @@ describe("MapContent", () => {
     expect(screen.getByText(/Set Location to "Allow"/)).toBeInTheDocument();
   });
 
-  it("should render interactive map after interaction", async () => {
+  it("should render interactive map immediately without an idle placeholder", async () => {
     render(<MapContent {...defaultProps} />);
+
+    const mapContainer = screen.getByTestId("map-container");
+
+    expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
+    expect(mapContainer.querySelector("[aria-hidden='true']")).toBeNull();
+    expect(mapContainer).toBeInTheDocument();
+  });
+
+  it("should recenter user location changes without remounting the map", () => {
+    const { rerender } = render(
+      <MapContent
+        {...defaultProps}
+        filteredBeaches={[]}
+        selectedBeach={null}
+        userLocation={{ lat: 32.7702, lon: -117.2525 }}
+      />,
+    );
+
+    const firstMap = screen.getByTestId("interactive-map");
+    const firstMountId = firstMap.getAttribute("data-mount-id");
+    if (!firstMountId) {
+      throw new Error("Expected interactive map mount id");
+    }
+    expect(firstMap).toHaveAttribute("data-initial-center", "32.7702,-117.2525");
+
+    rerender(
+      <MapContent
+        {...defaultProps}
+        filteredBeaches={[]}
+        selectedBeach={null}
+        userLocation={{ lat: 33.63, lon: -117.95 }}
+      />,
+    );
+
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-mount-id",
+      firstMountId,
+    );
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-initial-center",
+      "33.63,-117.95",
+    );
+  });
+
+  it("should center the map on focusCenter when no beach or search result is selected", async () => {
+    render(
+      <MapContent
+        {...defaultProps}
+        focusCenter={{ lat: 33.63, lon: -117.95 }}
+        selectedBeach={null}
+        searchQuery=""
+      />,
+    );
 
     const mapContainer = screen.getByTestId("map-container");
     fireEvent.pointerDown(mapContainer);
 
     await waitFor(() => {
-      expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
+      expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+        "data-initial-center",
+        "33.63,-117.95",
+      );
     });
-    expect(mapContainer).toBeInTheDocument();
   });
 
-  it("should show beach count overlay", () => {
+  it("should not render the map status overlay", () => {
     render(<MapContent {...defaultProps} />);
 
-    expect(screen.getByText("Found 3 beaches near you")).toBeInTheDocument();
+    expect(screen.queryByTestId("map-overlay")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Showing beaches near Mission Beach"),
+    ).not.toBeInTheDocument();
   });
 
-  it("should show search results overlay", () => {
+  it("should center the map on the first search result", async () => {
     render(
       <MapContent
         {...defaultProps}
@@ -115,38 +190,18 @@ describe("MapContent", () => {
       />,
     );
 
-    expect(screen.getByText('Found 1 beach for "Ocean"')).toBeInTheDocument();
+    const mapContainer = screen.getByTestId("map-container");
+    fireEvent.pointerDown(mapContainer);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+        "data-initial-center",
+        `${mockBeaches[0].lat},${mockBeaches[0].lon}`,
+      );
+    });
   });
 
-  it("should show no results message for empty search", () => {
-    render(
-      <MapContent
-        {...defaultProps}
-        searchQuery="nonexistent"
-        filteredBeaches={[]}
-      />,
-    );
-
-    expect(
-      screen.getByText('No beaches found for "nonexistent"'),
-    ).toBeInTheDocument();
-  });
-
-  it("should treat in-coverage regions like Hawaii as normal search", () => {
-    render(
-      <MapContent
-        {...defaultProps}
-        searchQuery="Hawaii"
-        filteredBeaches={[]}
-      />,
-    );
-
-    expect(
-      screen.getByText('No beaches found for "Hawaii"'),
-    ).toBeInTheDocument();
-  });
-
-  it("should show use my location button when using default location", () => {
+  it("does not render the duplicate map location button when using default location", () => {
     render(
       <MapContent
         {...defaultProps}
@@ -155,10 +210,12 @@ describe("MapContent", () => {
       />,
     );
 
-    expect(screen.getByText("Use My Location")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Use My Location" }),
+    ).not.toBeInTheDocument();
   });
 
-  it("should show use my actual location button when location is approximate", () => {
+  it("does not render the duplicate map location button when location is approximate", () => {
     render(
       <MapContent
         {...defaultProps}
@@ -167,22 +224,9 @@ describe("MapContent", () => {
       />,
     );
 
-    expect(screen.getByText("Use My Actual Location")).toBeInTheDocument();
-  });
-
-  it("should handle location button clicks", () => {
-    render(
-      <MapContent
-        {...defaultProps}
-        usingDefaultLocation={true}
-        userLocation={null}
-      />,
-    );
-
-    const locationButton = screen.getByText("Use My Location");
-    fireEvent.click(locationButton);
-
-    expect(defaultProps.onGetUserLocation).toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: "Use My Actual Location" }),
+    ).not.toBeInTheDocument();
   });
 
   it("should handle try again button click", () => {
@@ -215,36 +259,25 @@ describe("MapContent", () => {
     expect(defaultProps.onUseDefaultLocation).toHaveBeenCalled();
   });
 
-  it("should show selected beach name in overlay", () => {
+  it("should center focus-region navigation without rendering stale status copy", async () => {
     render(
-      <MapContent {...defaultProps} selectedBeach={mockBeaches[0] as any} />,
+      <MapContent
+        {...defaultProps}
+        usingDefaultLocation={true}
+        focusCenter={{ lat: 37.76, lon: -122.51 }}
+      />,
     );
 
-    expect(
-      screen.getByText(`Showing ${mockBeaches[0].name}`),
-    ).toBeInTheDocument();
-  });
+    const mapContainer = screen.getByTestId("map-container");
+    fireEvent.pointerDown(mapContainer);
 
-  it("should handle no user location", () => {
-    render(<MapContent {...defaultProps} userLocation={null} />);
-
-    expect(screen.getByText("Loading beach locations...")).toBeInTheDocument();
-  });
-
-  it("should show default location message", () => {
-    render(<MapContent {...defaultProps} usingDefaultLocation={true} />);
-
-    expect(
-      screen.getByText("Showing beaches near Mission Beach"),
-    ).toBeInTheDocument();
-  });
-
-  it("should show no beaches message when none nearby", () => {
-    render(<MapContent {...defaultProps} filteredBeaches={[]} />);
-
-    expect(
-      screen.getByText("No beaches within 30 miles of your location"),
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+        "data-initial-center",
+        "37.76,-122.51",
+      );
+    });
+    expect(screen.queryByText("Mission Beach")).not.toBeInTheDocument();
   });
 
   // Bug 2: Map minHeight overflows mobile viewport
@@ -266,53 +299,13 @@ describe("MapContent", () => {
     });
   });
 
-  // Bug 9: Beach count overlay too wide on mobile
-  describe("Bug 9: Beach count overlay responsive width", () => {
-    it("should NOT have standalone max-w-xs class on overlay", () => {
+  describe("mobile map chrome", () => {
+    it("does not render the old bottom-sheet recovery button", () => {
       render(<MapContent {...defaultProps} />);
-      const overlay = screen.getByTestId("map-overlay");
-      // Split classes and check none is exactly "max-w-xs" (sm:max-w-xs is fine)
-      const classes = overlay.className.split(/\s+/);
-      expect(classes).not.toContain("max-w-xs");
-    });
 
-    it("should have responsive max-w-[55vw] sm:max-w-xs classes on overlay", () => {
-      render(<MapContent {...defaultProps} />);
-      const overlay = screen.getByTestId("map-overlay");
-      const classes = overlay.className.split(/\s+/);
-      expect(classes).toContain("max-w-[55vw]");
-      expect(classes).toContain("sm:max-w-xs");
-    });
-  });
-
-  // Bug 13: Recovery button for drawer dismissal
-  describe("Bug 13: Show Beaches recovery button", () => {
-    it("should render Show Beaches button when onShowBeaches is provided", () => {
-      const onShowBeaches = jest.fn();
-      render(<MapContent {...defaultProps} onShowBeaches={onShowBeaches} />);
-      const button = screen.getByRole("button", { name: "Show beach list" });
-      expect(button).toBeInTheDocument();
-    });
-
-    it("should call onShowBeaches when button is clicked", () => {
-      const onShowBeaches = jest.fn();
-      render(<MapContent {...defaultProps} onShowBeaches={onShowBeaches} />);
-      const button = screen.getByRole("button", { name: "Show beach list" });
-      fireEvent.click(button);
-      expect(onShowBeaches).toHaveBeenCalledTimes(1);
-    });
-
-    it("should NOT render Show Beaches button when onShowBeaches is not provided", () => {
-      render(<MapContent {...defaultProps} />);
-      const button = screen.queryByRole("button", { name: "Show beach list" });
-      expect(button).not.toBeInTheDocument();
-    });
-
-    it("should have md:hidden class to only show on mobile", () => {
-      const onShowBeaches = jest.fn();
-      render(<MapContent {...defaultProps} onShowBeaches={onShowBeaches} />);
-      const button = screen.getByRole("button", { name: "Show beach list" });
-      expect(button.className).toContain("md:hidden");
+      expect(
+        screen.queryByRole("button", { name: "Show beach list" }),
+      ).not.toBeInTheDocument();
     });
   });
 });

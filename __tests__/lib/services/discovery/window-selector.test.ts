@@ -54,10 +54,10 @@ function createForecast(overrides: Partial<EnhancedForecastEntity>): EnhancedFor
     forecast_at: '2024-01-15T17:00:00Z', // 9am PT = 5pm UTC
     forecast_date: '2024-01-15',
     forecast_time: '09:00',
-    wave_height: '4',
-    wave_period: '12s',
+    wave_height: '2',
+    wave_period: '13s',
     swell_1_direction: '270',
-    wind_speed: '5',
+    wind_speed: '0',
     wind_direction: 'NE',
     wind_direction_deg: 45,
     tide_height: '3.5',
@@ -91,7 +91,7 @@ import {
   capEndTimeToTimeSlot,
   scoreForecastWindow,
   scoreWindowWithComposite,
-  scoreWindowWithEngine,
+  scoreWindowConditionScore,
 } from '@/lib/services/discovery/window-selector';
 
 describe('scoreForecastWindow', () => {
@@ -203,20 +203,21 @@ describe('scoreForecastWindow', () => {
     expect(typeof score).toBe('number');
   });
 
-  it('should expose composite score while preserving numeric engine score', () => {
+  it('should expose composite reasons separately from the native condition score', () => {
     const forecast = createForecast({
-      wave_height: '4',
-      wave_period: '12s',
-      wind_speed: '5',
+      wave_height: '2',
+      wave_period: '13s',
+      wind_speed: '0',
       wind_direction: 'NE',
       wind_direction_deg: 45,
       tide_height: '3.5',
     });
 
     const composite = scoreWindowWithComposite(forecast, mockBeach as Beach);
-    const numericScore = scoreWindowWithEngine(forecast, mockBeach as Beach);
+    const numericScore = scoreWindowConditionScore(forecast, mockBeach as Beach);
 
-    expect(composite.total).toBe(numericScore);
+    expect(composite.total).toBeGreaterThan(0);
+    expect(numericScore).toBeGreaterThan(0);
     expect(composite.reasons.length).toBeGreaterThan(0);
     expect(Number.isFinite(composite.confidence)).toBe(true);
   });
@@ -442,9 +443,9 @@ describe('selectBestWindow', () => {
         forecast_at: '2024-01-15T18:00:00Z', // 10am PT (local) → 6pm UTC
         forecast_date: '2024-01-15',
         forecast_time: '10:00', // 10am PT (local) → 18:00 UTC
-        wave_height: '4',
-        wave_period: '12s',
-        wind_speed: '5',
+        wave_height: '2',
+        wave_period: '13s',
+        wind_speed: '0',
         wind_direction: 'NE',
         wind_direction_deg: 45,
         tide_height: '3.5',
@@ -470,8 +471,8 @@ describe('selectBestWindow', () => {
 
     expect(result).not.toBeNull();
     // Best conditions forecast should be selected
-    expect(result?.waveHeight).toBe('4');
-    expect(result?.wavePeriod).toBe('12s');
+    expect(result?.waveHeight).toBe('2');
+    expect(result?.wavePeriod).toBe('13s');
   });
 
   it('should prefer an in-band window over a generic-best out-of-band window when rideabilityBand is provided', () => {
@@ -480,9 +481,9 @@ describe('selectBestWindow', () => {
       forecast_at: '2024-01-15T17:00:00Z',
       forecast_date: '2024-01-15',
       forecast_time: '09:00',
-      wave_height: '4',
+      wave_height: '4.2',
       wave_period: '14s',
-      wind_speed: '4',
+      wind_speed: '0',
       wind_direction: 'NE',
       wind_direction_deg: 45,
       tide_height: '3.5',
@@ -492,26 +493,26 @@ describe('selectBestWindow', () => {
       forecast_at: '2024-01-15T18:00:00Z',
       forecast_date: '2024-01-15',
       forecast_time: '10:00',
-      wave_height: '3',
-      wave_period: '11s',
-      wind_speed: '6',
+      wave_height: '2.5',
+      wave_period: '13s',
+      wind_speed: '0',
       wind_direction: 'NE',
       wind_direction_deg: 45,
       tide_height: '3.5',
     });
     const forecasts = [outOfBandGenericBest, inBandLowerGenericScore];
     const rideabilityBand = {
-      ideal: { min: 2.5, max: 3.2 },
-      acceptable: { min: 1.5, max: 3.4 },
+      ideal: { min: 2.4, max: 2.6 },
+      acceptable: { min: 2.4, max: 2.6 },
       prefersClean: true,
       powerBias: -0.7,
     };
 
-    const outOfBandGenericScore = scoreWindowWithEngine(
+    const outOfBandGenericScore = scoreWindowConditionScore(
       outOfBandGenericBest,
       mockBeach as Beach
     );
-    const inBandGenericScore = scoreWindowWithEngine(
+    const inBandGenericScore = scoreWindowConditionScore(
       inBandLowerGenericScore,
       mockBeach as Beach
     );
@@ -537,9 +538,9 @@ describe('selectBestWindow', () => {
         forecast_at: '2024-01-15T17:00:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '09:00',
-        wave_height: '4',
-        wave_period: '14s',
-        wind_speed: '4',
+        wave_height: '3.5',
+        wave_period: '13s',
+        wind_speed: '0',
         wind_direction: 'NE',
         wind_direction_deg: 45,
         tide_height: '3.5',
@@ -549,9 +550,9 @@ describe('selectBestWindow', () => {
         forecast_at: '2024-01-15T18:00:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '10:00',
-        wave_height: '3',
-        wave_period: '11s',
-        wind_speed: '6',
+        wave_height: '2.5',
+        wave_period: '13s',
+        wind_speed: '0',
         wind_direction: 'NE',
         wind_direction_deg: 45,
         tide_height: '3.5',
@@ -664,9 +665,9 @@ describe('selectBestWindows', () => {
         forecast_at: '2024-01-15T17:00:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '09:00',
-        wave_height: '4',
-        wave_period: '12s',
-        wind_speed: '5',
+        wave_height: '2',
+        wave_period: '13s',
+        wind_speed: '0',
         wind_direction: 'NE',
         wind_direction_deg: 45,
         confidence_score: 85,
@@ -676,9 +677,9 @@ describe('selectBestWindows', () => {
         forecast_at: '2024-01-16T17:00:00Z',
         forecast_date: '2024-01-16',
         forecast_time: '09:00',
-        wave_height: '5',
+        wave_height: '2.5',
         wave_period: '14s',
-        wind_speed: '4',
+        wind_speed: '2',
         wind_direction: 'NE',
         wind_direction_deg: 45,
         confidence_score: 90,
@@ -688,9 +689,9 @@ describe('selectBestWindows', () => {
         forecast_at: '2024-01-17T17:00:00Z',
         forecast_date: '2024-01-17',
         forecast_time: '09:00',
-        wave_height: '3.5',
-        wave_period: '11s',
-        wind_speed: '6',
+        wave_height: '3',
+        wave_period: '12s',
+        wind_speed: '4',
         wind_direction: 'NE',
         wind_direction_deg: 45,
         confidence_score: 80,
@@ -700,7 +701,7 @@ describe('selectBestWindows', () => {
         forecast_at: '2024-01-18T17:00:00Z',
         forecast_date: '2024-01-18',
         forecast_time: '09:00',
-        wave_height: '3',
+        wave_height: '1.5',
         wave_period: '10s',
         wind_speed: '8',
         wind_direction: 'NE',
@@ -717,10 +718,17 @@ describe('selectBestWindows', () => {
     });
 
     expect(windows).toHaveLength(3);
-    for (let i = 1; i < windows.length; i++) {
-      expect(windows[i - 1].start.getTime()).not.toBe(windows[i].start.getTime());
-      expect(windows[i - 1].start.getTime() < windows[i].end.getTime()).toBe(true);
-      expect(windows[i].start.getTime() < windows[i - 1].end.getTime()).toBe(false);
+    for (let i = 0; i < windows.length; i++) {
+      for (let j = i + 1; j < windows.length; j++) {
+        const first = windows[i];
+        const second = windows[j];
+        const areDisjoint =
+          first.end.getTime() <= second.start.getTime() ||
+          second.end.getTime() <= first.start.getTime();
+
+        expect(first.start.getTime()).not.toBe(second.start.getTime());
+        expect(areDisjoint).toBe(true);
+      }
     }
   });
 
@@ -1078,7 +1086,7 @@ describe('selectBestWindow past window filtering with tolerance', () => {
         forecast_at: '2024-01-15T16:30Z',
         forecast_date: '2024-01-15',
         forecast_time: '16:30', // Ends at 5:00pm - included (just ended)
-        wave_height: '5', // Better conditions
+        wave_height: '3.5', // Better conditions under the native scorer
         wave_period: '14s',
         confidence_score: 90,
       }),
@@ -1109,8 +1117,8 @@ describe('selectBestWindow past window filtering with tolerance', () => {
     // while valid windows resolve to 00:xx–02:xx UTC (next calendar day in UTC).
     // Verify the selected window is not from the excluded past forecast (wave_height '4'
     // from past-excluded is same as others, so check it comes from 16:30Z+ which scores
-    // higher: wave_height '5', period '14s', confidence 90).
-    expect(result!.waveHeight).toBe('5');
+    // higher: wave_height '3.5', period '14s', confidence 90).
+    expect(result!.waveHeight).toBe('3.5');
   });
 });
 
@@ -2025,41 +2033,41 @@ describe('selectBestWindow time slot with tide boundaries', () => {
   });
 });
 
-describe('scoreWindowWithEngine', () => {
+describe('scoreWindowConditionScore', () => {
   it('should return score on 0-100 scale', () => {
     const forecast = createForecast({
-      wave_height: '4',
-      wave_period: '12s',
-      wind_speed: '5',
+      wave_height: '2',
+      wave_period: '13s',
+      wind_speed: '0',
       tide_height: '3.5',
     });
 
-    const { scoreWindowWithEngine } = require('@/lib/services/discovery/window-selector');
-    const score = scoreWindowWithEngine(forecast, mockBeach as Beach);
+    const { scoreWindowConditionScore } = require('@/lib/services/discovery/window-selector');
+    const score = scoreWindowConditionScore(forecast, mockBeach as Beach);
 
     // Score should be 0-100
     expect(score).toBeGreaterThanOrEqual(0);
     expect(score).toBeLessThanOrEqual(100);
-    // Good conditions should score above threshold
-    expect(score).toBeGreaterThan(50);
+    // Default selector scoring uses the intermediate native profile.
+    expect(score).toBe(73);
   });
 
   it('should score consistently with display scoring', () => {
     const forecast = createForecast({
-      wave_height: '4',
+      wave_height: '2',
       wave_period: '14s',
       wind_speed: '3',
       tide_height: '3.5',
     });
 
-    const { scoreWindowWithEngine } = require('@/lib/services/discovery/window-selector');
-    const score = scoreWindowWithEngine(forecast, mockBeach as Beach);
+    const { scoreWindowConditionScore } = require('@/lib/services/discovery/window-selector');
+    const score = scoreWindowConditionScore(forecast, mockBeach as Beach);
 
-    // Excellent conditions (glass, good period, good size) should score 60+
-    expect(score).toBeGreaterThanOrEqual(60);
+    // The default intermediate profile should still rate clean, long-period surf as good.
+    expect(score).toBeGreaterThanOrEqual(65);
   });
 
-  it('keeps Mission Beach short-period onshore surf below the good band', () => {
+  it('matches the native score for Mission Beach short-period onshore surf', () => {
     const missionBeach = {
       ...mockBeach,
       id: 'mission-beach',
@@ -2092,11 +2100,11 @@ describe('scoreWindowWithEngine', () => {
       tide_status: 'Rising',
     });
 
-    const { scoreWindowWithEngine } = require('@/lib/services/discovery/window-selector');
-    const score = scoreWindowWithEngine(forecast, missionBeach as Beach);
+    const { scoreWindowConditionScore } = require('@/lib/services/discovery/window-selector');
+    const score = scoreWindowConditionScore(forecast, missionBeach as Beach);
 
     expect(score).toBeGreaterThanOrEqual(50);
-    expect(score).toBeLessThan(55);
+    expect(score).toBeLessThan(60);
   });
 });
 
@@ -2194,7 +2202,7 @@ describe('selectBestWindow Mission Beach regression', () => {
 
     expect(result).not.toBeNull();
     expect(result!.score).toBeGreaterThanOrEqual(50);
-    expect(result!.score).toBeLessThan(55);
+    expect(result!.score).toBeLessThan(60);
     expect(result!.sourceForecast?.id).toBe('mission-1400');
   });
 });
@@ -2825,7 +2833,7 @@ describe('sub-hour window refinement with peak centering', () => {
         forecast_at: '2024-01-15T19:00:00Z',
         forecast_date: '2024-01-15',
         forecast_time: '11:00',
-        wave_height: '3.5',
+        wave_height: '5',
         wave_period: '12s',
         wind_speed: '2',
         tide_height: '3.5',
@@ -2850,10 +2858,12 @@ describe('sub-hour window refinement with peak centering', () => {
 
     expect(result).not.toBeNull();
     expect(result!.peakTime instanceof Date).toBe(true);
-    expect([
-      '2024-01-15T15:00:00.000Z',
-      '2024-01-15T16:00:00.000Z',
-    ]).toContain(result!.peakTime!.toISOString());
+    expect(result!.peakTime!.getTime()).toBeGreaterThanOrEqual(
+      new Date('2024-01-15T15:00:00.000Z').getTime()
+    );
+    expect(result!.peakTime!.getTime()).toBeLessThan(
+      new Date('2024-01-15T17:00:00.000Z').getTime()
+    );
     expect(result!.peakTime!.toISOString()).not.toBe('2024-01-15T19:00:00.000Z');
   });
 

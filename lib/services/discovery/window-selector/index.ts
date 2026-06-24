@@ -53,6 +53,7 @@ export { applySubHourRefinement } from './window-refiner';
 // Re-export window scorer
 export {
   scoreForecastWindow,
+  scoreWindowConditionScore,
   scoreWindowWithComposite,
   scoreWindowWithEngine,
 } from './window-scorer';

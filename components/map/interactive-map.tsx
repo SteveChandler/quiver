@@ -1,13 +1,16 @@
 "use client";
 
 import {
+  Children,
   useEffect,
   useRef,
   useCallback,
   useState,
   useMemo,
   type ReactElement,
+  type ReactNode,
 } from "react";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import mapboxgl from "mapbox-gl";
 import { debounce } from "@/lib/utils/debounce";
 import type { Beach } from "@/types/database";
@@ -39,8 +42,104 @@ import {
   getClusterPopupBeaches,
 } from "@/components/map/map-cluster-popup";
 import { useTrackEvent } from "@/hooks/use-track-event";
+import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
+import {
+  SWELL_FIELD_PARTICLE_COLOR,
+  SWELL_MAP_SURFACE,
+  SWELL_MAP_STICKER_SHADOW,
+  SWELL_MAP_STICKER_RADIUS,
+  type SwellLayerId,
+} from "@/components/map/swell-map-theme";
+import {
+  buildFlowField,
+  computeCoastalBounds,
+  detectWaterLayerIds,
+  interpolateSwellPartition,
+  maskFieldToWater,
+  partitionToPoint,
+  waterMaskableFlowComponents,
+  type BeachPartitionPoint,
+  type FlowComponentId,
+  type FlowField,
+} from "@/components/map/swell-field/field-sampler";
+import {
+  createSwellParticleLayer,
+  resolveParticleCount,
+} from "@/components/map/swell-field/swell-particle-layer";
+import { SwellLayerSelector } from "@/components/map/swell-field/swell-layer-selector";
+import { SwellForecastTimeline } from "@/components/map/swell-field/swell-forecast-timeline";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 
 // Mapbox CSS is imported globally in app/globals.css
+
+// Zoom-lock bounds for the coastal camera leash (swell field ON only): keeps the
+// user hugging the coast where we have beach data instead of pulling back to
+// open-ocean / continent scale. The pan corridor (maxBounds) is derived from the
+// loaded-beach footprint via computeCoastalBounds (an APPROXIMATE rectangular
+// coast corridor, not a pixel-perfect coastline mask).
+const SWELL_FIELD_MIN_ZOOM = 9;
+const SWELL_FIELD_MAX_ZOOM = 13.5;
+
+// Base custom-layer id for the single-layer swell field.
+const SWELL_FIELD_LAYER_ID = "quiver-swell-field";
+// Component sub-layers overlaid for the "combined" view, each its own GL layer +
+// flow field + color. Per-layer ids derive as `${SWELL_FIELD_LAYER_ID}-${id}`.
+const COMBINED_SUBLAYERS: ReadonlyArray<FlowComponentId> = [
+  "s1",
+  "s2",
+  "wind",
+];
+// Per-layer particle count for the combined view so three stacked layers keep the
+// sparse Windy-style spacing in budget (3 × 260 = 780 total).
+const COMBINED_PARTICLE_COUNT = 260;
+// Wind reads cleaner with a sparser field than swell — scale its particle count
+// down. Count drives the seed grid, so coverage stays even, just less dense.
+const WIND_PARTICLE_SCALE = 0.75;
+
+const EMPTY_FLOW_FIELD: FlowField = { cols: 0, rows: 0, cells: [] };
+
+function partitionAtTimelinePosition(
+  beachId: string,
+  position: number,
+  timelineMap: Map<string, SwellPartition[]>,
+  currentMap: Map<string, SwellPartition>
+): SwellPartition | undefined {
+  const fallback = currentMap.get(beachId);
+  const timeline = timelineMap.get(beachId);
+  if (!timeline || timeline.length === 0) return fallback;
+
+  const safePosition = Number.isFinite(position) ? position : 0;
+  const clampedPosition = Math.min(
+    Math.max(safePosition, 0),
+    timeline.length - 1
+  );
+  const leftIndex = Math.floor(clampedPosition);
+  const rightIndex = Math.ceil(clampedPosition);
+  const progress = clampedPosition - leftIndex;
+  const left = timeline[leftIndex] ?? fallback;
+  const right = timeline[rightIndex] ?? left ?? fallback;
+
+  if (left && right && progress > 0) {
+    return interpolateSwellPartition(left, right, progress);
+  }
+
+  return left ?? right ?? fallback;
+}
+
+/** Sub-layer component ids whose flow fields a given active layer needs built. */
+function componentsForLayer(
+  layerId: SwellLayerId
+): ReadonlyArray<FlowComponentId> {
+  if (layerId === "combined") return COMBINED_SUBLAYERS;
+  return [layerId];
+}
+
+/** Captured zoom limits so the free camera can be restored exactly on toggle-off. */
+interface CapturedZoomLimits {
+  minZoom: number;
+  maxZoom: number;
+}
 
 interface InteractiveMapProps {
   initialCenter?: [number, number]; // [lat, lng]
@@ -50,6 +149,7 @@ interface InteractiveMapProps {
   onLocationMove?: (latlng: mapboxgl.LngLat, beach: Beach) => void;
   onBoundsChange?: (bounds: { west: number; south: number; east: number; north: number }) => void;
   onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
+  onDisplayForecastsChange?: (map: Map<string, ForecastDisplay | undefined>) => void;
   className?: string;
   regionViewport?: {
     region: string;
@@ -62,41 +162,103 @@ interface InteractiveMapProps {
   autoNavigateOnMarkerClick?: boolean; // Whether marker clicks auto-navigate to beach page (default: true)
   displayMode?: MapDisplayMode; // What data to show in markers: 'wave-height' (default) or 'water-temp'
   clusterClickBehavior?: ClusterClickBehavior; // Whether clusters expand or show grouped spot details
+  showSwellField?: boolean;
+  swellLayerId?: SwellLayerId;
+  onSwellLayerChange?: (id: SwellLayerId) => void;
+  /** Forecast-step labels for the timeline scrubber (e.g. ["Now","+3h"]). */
+  swellTimelineSteps?: string[];
+  swellTimelineIndex?: number;
+  onSwellTimelineChange?: (index: number) => void;
 }
 
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
 
 const CONDITION_LEGEND_ITEMS: Array<{
   label: ConditionSummary;
-  caption: string;
+  display: string;
 }> = [
-  { label: "GOOD", caption: "Go" },
-  { label: "FAIR", caption: "Maybe" },
-  { label: "CHECK", caption: "Check" },
-  { label: "UNKNOWN", caption: "No read" },
+  { label: "GOOD", display: "Worth it" },
+  { label: "FAIR", display: "Maybe" },
+  { label: "CHECK", display: "Scout it" },
+  { label: "UNKNOWN", display: "No read" },
 ];
 
-function MapConditionLegend(): ReactElement {
+interface MapConditionLegendProps {
+  controls?: ReactNode;
+  timeline?: ReactNode;
+}
+
+function MapConditionLegend({
+  controls,
+  timeline,
+}: MapConditionLegendProps): ReactElement {
+  const [isMinimized, setIsMinimized] = useState(false);
+  const embeddedControls = Children.toArray(controls);
+  const hasEmbeddedControls = embeddedControls.length > 0;
+  const hasTimeline = Boolean(timeline);
+  const isWide = hasTimeline || (!isMinimized && hasEmbeddedControls);
+  const toggleLabel = isMinimized ? "Expand map legend" : "Minimize map legend";
+  const ToggleIcon = isMinimized ? ChevronUp : ChevronDown;
+  const toggleButton = (
+    <button
+      type="button"
+      aria-label={toggleLabel}
+      title={toggleLabel}
+      data-testid="map-legend-toggle"
+      onClick={() => setIsMinimized((current) => !current)}
+      className="pointer-events-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-white/10 text-white/90 transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+    >
+      <ToggleIcon className="h-4 w-4" aria-hidden="true" />
+    </button>
+  );
+
   return (
     <div
       data-testid="map-condition-legend"
-      className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-md border border-white/15 bg-slate-950/88 px-3 py-2 text-white shadow-lg backdrop-blur"
+      className={`pointer-events-none absolute bottom-3 left-3 z-10 px-3 py-2 text-white ${
+        isWide
+          ? "w-[calc(100%-1.5rem)] max-w-[27rem] sm:w-auto"
+          : ""
+      }`}
+      style={{
+        background: SWELL_MAP_SURFACE.panelDeep,
+        border: `1px solid ${SWELL_MAP_SURFACE.border}`,
+        borderRadius: SWELL_MAP_STICKER_RADIUS,
+        boxShadow: SWELL_MAP_STICKER_SHADOW,
+      }}
     >
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
-        {CONDITION_LEGEND_ITEMS.map((item) => (
-          <div key={item.label} className="flex items-center gap-1.5">
-            <span
-              aria-hidden="true"
-              className="h-2.5 w-2.5 rounded-full border border-white/35"
-              style={{ background: getConditionMarkerGradient(item.label) }}
-            />
-            <span className="text-[10px] font-semibold leading-none tracking-normal">
-              {item.label}
-            </span>
-            <span className="sr-only">{item.caption}</span>
+      {isMinimized ? (
+        <div className="flex items-center gap-2">
+          {toggleButton}
+          {hasTimeline && <div className="min-w-0 flex-1">{timeline}</div>}
+        </div>
+      ) : (
+        <>
+          <div className="flex items-start gap-2">
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
+              {CONDITION_LEGEND_ITEMS.map((item) => (
+                <div key={item.label} className="flex items-center gap-1.5">
+                  <span
+                    aria-hidden="true"
+                    className="h-2.5 w-2.5 rounded-full border border-white/35"
+                    style={{ background: getConditionMarkerGradient(item.label) }}
+                  />
+                  <span className="text-[10px] font-semibold leading-none tracking-normal">
+                    {item.display}
+                  </span>
+                </div>
+              ))}
+            </div>
+            {toggleButton}
           </div>
-        ))}
-      </div>
+          {(hasEmbeddedControls || hasTimeline) && (
+            <div className="mt-2 flex flex-col gap-2 border-t border-white/15 pt-2">
+              {embeddedControls}
+              {timeline}
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
@@ -109,12 +271,19 @@ export function InteractiveMap({
   onLocationMove,
   onBoundsChange,
   onWaveHeightsChange,
+  onDisplayForecastsChange,
   className = "h-full w-full",
   regionViewport,
   beaches,
   autoNavigateOnMarkerClick = true,
   displayMode = "wave-height",
   clusterClickBehavior = "expand",
+  showSwellField = false,
+  swellLayerId = "s1",
+  onSwellLayerChange,
+  swellTimelineSteps = [],
+  swellTimelineIndex = 0,
+  onSwellTimelineChange,
 }: InteractiveMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
@@ -140,9 +309,42 @@ export function InteractiveMap({
   } | null>(null);
   const [currentZoom, setCurrentZoom] = useState(initialZoom);
   const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
+  const [displayForecastMap, setDisplayForecastMap] = useState<Map<string, ForecastDisplay | undefined>>(new Map());
   const [waterTempMap, setWaterTempMap] = useState<Map<string, string | undefined>>(new Map());
   const [conditionScoreMap, setConditionScoreMap] = useState<Map<string, number | undefined>>(new Map());
   const [conditionSummaryMap, setConditionSummaryMap] = useState<Map<string, ConditionSummary>>(new Map());
+  const [partitionsMap, setPartitionsMap] = useState<Map<string, SwellPartition>>(new Map());
+  const [partitionsTimelineMap, setPartitionsTimelineMap] = useState<
+    Map<string, SwellPartition[]>
+  >(new Map());
+  // Loader-resolved beaches that partitionsMap is keyed by (the prop may be empty).
+  const [swellFieldBeaches, setSwellFieldBeaches] = useState<Beach[]>([]);
+  // Whether the last flow-field build resolved ANY field points. False → the
+  // field is ON but no beach partitions drew (blank water looks like a bug),
+  // so we surface a small "no swell data" sticker. Defaults true to avoid a
+  // flash before the first build.
+  const [hasSwellData, setHasSwellData] = useState(true);
+  // One-time coastal-leash hint: the camera silently loses zoom-out when the
+  // field's leash applies, so we flash a one-shot note the FIRST time it locks
+  // per mount. Ref guards "shown once"; `showLeashHint` mounts it, `leashHintFading`
+  // drives the opacity transition out (skipped under reduced motion).
+  const [showLeashHint, setShowLeashHint] = useState(false);
+  const [leashHintFading, setLeashHintFading] = useState(false);
+  const leashHintShownRef = useRef(false);
+  const reducedMotion = useReducedMotion();
+  // Live per-component flow fields read by the GL layers each frame (avoids re-adding
+  // a layer on scrub). Keyed by component id: a single active layer populates just its
+  // own key; the "combined" view populates s1/s2/wind so three layers can overlay.
+  const flowFieldsRef = useRef<Record<"s1" | "s2" | "wind", FlowField>>({
+    s1: EMPTY_FLOW_FIELD,
+    s2: EMPTY_FLOW_FIELD,
+    wind: EMPTY_FLOW_FIELD,
+  });
+  // Free-camera zoom limits captured before the swell-field leash, for exact restore.
+  // Non-null only while the leash is applied — also gates the release path so we
+  // never touch the camera constraint API when it was never set.
+  const zoomLimitsCaptureRef = useRef<CapturedZoomLimits | null>(null);
+  const swellLayerIdRef = useRef<SwellLayerId>(swellLayerId);
   const isMapReadyRef = useRef(false);
   const favoriteBeachIdsRef = useRef<Set<string>>(new Set());
   const selectedBeachIdRef = useRef<string | null>(null);
@@ -151,6 +353,7 @@ export function InteractiveMap({
   const clusterCleanupRef = useRef<Map<string, () => void>>(new Map());
   const onBoundsChangeRef = useRef(onBoundsChange);
   const onWaveHeightsChangeRef = useRef(onWaveHeightsChange);
+  const onDisplayForecastsChangeRef = useRef(onDisplayForecastsChange);
   const initialCenterRef = useRef(initialCenter);
   const onMapClickRef = useRef(onMapClick);
   // Typed broadly; handleMoveEnd & populateLocations are assigned via sync effects below
@@ -196,6 +399,10 @@ export function InteractiveMap({
   useEffect(() => {
     onWaveHeightsChangeRef.current = onWaveHeightsChange;
   }, [onWaveHeightsChange]);
+
+  useEffect(() => {
+    onDisplayForecastsChangeRef.current = onDisplayForecastsChange;
+  }, [onDisplayForecastsChange]);
 
   useEffect(() => {
     initialCenterRef.current = initialCenter;
@@ -392,6 +599,7 @@ export function InteractiveMap({
         autoNavigate: autoNavigateOnMarkerClick,
         displayMode,
         waterTemp: waterTempMap.get(location.id),
+        waveHeightLabel: displayForecastMap.get(location.id)?.label ?? null,
         conditionScore: conditionScoreMap.get(location.id),
         conditionSummary: conditionSummaryMap.get(location.id),
       };
@@ -404,6 +612,7 @@ export function InteractiveMap({
       track,
       displayMode,
       waterTempMap,
+      displayForecastMap,
       conditionScoreMap,
       conditionSummaryMap,
       getMapViewportMetadata,
@@ -423,6 +632,7 @@ export function InteractiveMap({
         cluster,
         beaches: clusterBeaches,
         waveHeightMap,
+        displayForecastMap,
         waterTempMap,
         displayMode,
       });
@@ -441,7 +651,7 @@ export function InteractiveMap({
 
       activeClusterPopupRef.current = popup;
     },
-    [displayMode, waterTempMap, waveHeightMap]
+    [displayMode, displayForecastMap, waterTempMap, waveHeightMap]
   );
 
   // Create cluster marker using extracted module with deps from refs
@@ -451,6 +661,7 @@ export function InteractiveMap({
         favoriteBeachIds: favoriteBeachIdsRef.current,
         clusterCleanupMap: clusterCleanupRef.current,
         getExpansionZoom,
+        getMaxZoom: () => mapRef.current?.getMaxZoom() ?? Infinity,
         flyTo: (center, zoom) => {
           mapRef.current?.flyTo({ center, zoom, duration: 500 });
         },
@@ -502,10 +713,15 @@ export function InteractiveMap({
 
         // Store wave heights and water temps for clustering
         setWaveHeightMap(result.waveHeightMap);
+        setDisplayForecastMap(result.displayForecastMap);
         setWaterTempMap(result.waterTempMap);
         setConditionScoreMap(result.conditionScoreMap);
         setConditionSummaryMap(result.conditionSummaryMap);
+        setPartitionsMap(result.partitionsMap);
+        setPartitionsTimelineMap(result.partitionsTimelineMap);
+        setSwellFieldBeaches(result.locations);
         onWaveHeightsChangeRef.current?.(result.waveHeightMap);
+        onDisplayForecastsChangeRef.current?.(result.displayForecastMap);
       } catch (e) {
         lastPopulateKeyRef.current = null;
         console.error("Error populating locations", e);
@@ -517,6 +733,292 @@ export function InteractiveMap({
   useEffect(() => {
     populateLocationsRef.current = populateLocations;
   }, [populateLocations]);
+
+  useEffect(() => {
+    swellLayerIdRef.current = swellLayerId;
+  }, [swellLayerId]);
+
+  // Mask the live swell flow fields to water IN PLACE. Native lets wind advect
+  // across the viewport, so only swell components are maskable. Robust against the
+  // timing pitfall that blanked an earlier attempt: only
+  // zeroes in-viewport cells that miss the basemap water layer, never touches
+  // off-screen cells, treats a throw as water, and no-ops when no water layers are
+  // detected.
+  const applyWaterMask = useCallback((map: mapboxgl.Map): void => {
+    const components = componentsForLayer(swellLayerIdRef.current);
+    const maskable = waterMaskableFlowComponents(components);
+    if (maskable.length === 0) return;
+    let waterLayerIds: string[] = [];
+    try {
+      const style = map.getStyle();
+      waterLayerIds = detectWaterLayerIds(style?.layers ?? []);
+    } catch {
+      return; // can't read the style yet → leave the field intact
+    }
+    if (waterLayerIds.length === 0) return;
+    const canvas = map.getCanvas();
+    for (const component of maskable) {
+      const field = flowFieldsRef.current[component];
+      if (field.cells.length === 0) continue;
+      maskFieldToWater(
+        field,
+        map as unknown as Parameters<typeof maskFieldToWater>[1],
+        {
+          width: canvas.clientWidth,
+          height: canvas.clientHeight,
+          waterLayerIds,
+        }
+      );
+    }
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const resetFields = (): void => {
+      flowFieldsRef.current = {
+        s1: EMPTY_FLOW_FIELD,
+        s2: EMPTY_FLOW_FIELD,
+        wind: EMPTY_FLOW_FIELD,
+      };
+    };
+    if (!map || !isMapReady || !showSwellField) {
+      resetFields();
+      // Field is off → reset to the optimistic default so the empty-state note
+      // never lingers after toggling the field back on.
+      setHasSwellData(true);
+      return;
+    }
+    const b = map.getBounds();
+    if (!b) {
+      resetFields();
+      setHasSwellData(true);
+      return;
+    }
+    const bounds = {
+      west: b.getWest(),
+      south: b.getSouth(),
+      east: b.getEast(),
+      north: b.getNorth(),
+    };
+    const beachList =
+      swellFieldBeaches.length > 0 ? swellFieldBeaches : (beaches ?? []);
+    const components = componentsForLayer(swellLayerId);
+    const timelinePosition = Math.min(
+      Math.max(Number.isFinite(swellTimelineIndex) ? swellTimelineIndex : 0, 0),
+      Math.max(0, swellTimelineSteps.length - 1)
+    );
+    // Build a flow field per active component (one for a single layer, three for
+    // combined); leave the rest empty so stale fields never render.
+    const nextFields: Record<"s1" | "s2" | "wind", FlowField> = {
+      s1: EMPTY_FLOW_FIELD,
+      s2: EMPTY_FLOW_FIELD,
+      wind: EMPTY_FLOW_FIELD,
+    };
+    let anyPoints = false;
+    for (const component of components) {
+      const points: BeachPartitionPoint[] = [];
+      for (const beach of beachList) {
+        const partition = partitionAtTimelinePosition(
+          beach.id,
+          timelinePosition,
+          partitionsTimelineMap,
+          partitionsMap
+        );
+        if (!partition || beach.lat == null || beach.lon == null) continue;
+        const point = partitionToPoint(beach.lon, beach.lat, partition, component);
+        if (point) points.push(point);
+      }
+      if (points.length > 0) anyPoints = true;
+      // A regional swell layer should move in UNISON (one direction), but per-beach
+      // readings vary ~45° (e.g. SD primary is SW/SSW/WSW), which would fan the marks
+      // out. Collapse to the circular-mean direction so every mark shares one heading;
+      // per-beach period/height still vary (so speed/density read locally).
+      if (points.length > 0) {
+        let sumX = 0;
+        let sumY = 0;
+        for (const p of points) {
+          const rad = (p.dir * Math.PI) / 180;
+          sumX += Math.cos(rad);
+          sumY += Math.sin(rad);
+        }
+        const meanDeg = ((Math.atan2(sumY, sumX) * 180) / Math.PI + 360) % 360;
+        for (const p of points) p.dir = meanDeg;
+      }
+      nextFields[component] = buildFlowField(points, bounds, 12);
+    }
+    flowFieldsRef.current = nextFields;
+    setHasSwellData(anyPoints);
+    // Best-effort mask now; the idle/moveend listener re-masks once tiles render.
+    applyWaterMask(map);
+    // Nudge a repaint so a static (reduced-motion) frame reflects the new field.
+    map.triggerRepaint();
+  }, [partitionsMap, partitionsTimelineMap, swellFieldBeaches, swellLayerId, swellTimelineIndex, swellTimelineSteps.length, isMapReady, showSwellField, beaches, mapBounds, applyWaterMask]);
+
+  // Re-mask the field to water once the map has actually rendered tiles. Running on
+  // `idle` (fired after tiles finish loading) and `moveend` is what makes the mask
+  // robust — querying rendered features before tiles paint returns nothing and would
+  // blank the field. Re-masks the existing field in place (cheap) and repaints.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isMapReady || !showSwellField) return;
+    const remask = (): void => {
+      applyWaterMask(map);
+      map.triggerRepaint();
+    };
+    map.on("idle", remask);
+    map.on("moveend", remask);
+    return () => {
+      map.off("idle", remask);
+      map.off("moveend", remask);
+    };
+  }, [isMapReady, showSwellField, applyWaterMask]);
+
+  const releaseSwellFieldLeash = useCallback((map: mapboxgl.Map): void => {
+    const captured = zoomLimitsCaptureRef.current;
+    // Nothing was ever leashed — leave the free camera untouched.
+    if (!captured) return;
+    // Runtime accepts null to clear; the public typings only expose the setter.
+    map.setMaxBounds(null as unknown as mapboxgl.LngLatBoundsLike);
+    map.setMinZoom(captured.minZoom);
+    map.setMaxZoom(captured.maxZoom);
+    zoomLimitsCaptureRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isMapReady) return;
+    if (typeof map.isStyleLoaded === "function" && !map.isStyleLoaded()) {
+      return;
+    }
+
+    // Every swell GL layer id this component can mount: the single-layer id plus the
+    // three combined sub-layer ids. Removing the full set before (re)adding the active
+    // set guarantees no layer leaks when switching between combined and a single layer.
+    const allLayerIds = [
+      SWELL_FIELD_LAYER_ID,
+      ...COMBINED_SUBLAYERS.map((c) => `${SWELL_FIELD_LAYER_ID}-${c}`),
+    ];
+    const teardown = (): void => {
+      for (const id of allLayerIds) {
+        if (map.getLayer(id)) map.removeLayer(id);
+      }
+    };
+
+    teardown();
+    if (!showSwellField) return;
+
+    const viewportWidthPx =
+      typeof window !== "undefined" ? window.innerWidth : 1024;
+    const baseParticleCount = resolveParticleCount(viewportWidthPx);
+
+    if (swellLayerId === "combined") {
+      // Overlay the three components, each its own colored layer + flow field. Cap
+      // per-layer particle count so three stacked layers stay in budget.
+      for (const component of COMBINED_SUBLAYERS) {
+        map.addLayer(
+          createSwellParticleLayer({
+            id: `${SWELL_FIELD_LAYER_ID}-${component}`,
+            getField: () => flowFieldsRef.current[component],
+            getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[component],
+            reducedMotion,
+            viewportWidthPx,
+            count:
+              component === "wind"
+                ? Math.round(COMBINED_PARTICLE_COUNT * WIND_PARTICLE_SCALE)
+                : COMBINED_PARTICLE_COUNT,
+            markStyle: component === "wind" ? "comet" : "dash",
+          })
+        );
+      }
+    } else {
+      // Single active layer. getField/getColorHex read refs each frame so a timeline
+      // scrub or layer recolor applies without re-adding the layer.
+      const activeComponent = swellLayerId;
+      map.addLayer(
+        createSwellParticleLayer({
+          id: SWELL_FIELD_LAYER_ID,
+          getField: () => flowFieldsRef.current[activeComponent],
+          getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[swellLayerIdRef.current],
+          reducedMotion,
+          viewportWidthPx,
+          count:
+            activeComponent === "wind"
+              ? Math.round(baseParticleCount * WIND_PARTICLE_SCALE)
+              : undefined,
+          markStyle: activeComponent === "wind" ? "comet" : "dash",
+        })
+      );
+    }
+
+    return teardown;
+    // Re-add when toggled, the active layer changes (the layer SET differs between
+    // combined and single), motion preference flips, or the map (re)mounts.
+  }, [showSwellField, isMapReady, reducedMotion, swellLayerId]);
+
+  // Leash the camera to the coastal data corridor while the swell field is ON.
+  // Locks zoom (so users can't pull back to open-ocean/continent scale) and pins
+  // a dynamic maxBounds to the loaded-beach footprint. Recomputes as beaches load
+  // so the reachable corridor extends along the coast (along-coast travel chains:
+  // the generous lat padding lets the next stretch enter the viewport and load,
+  // which widens the bbox on the next pass). Fully restores the free camera on OFF.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !isMapReady) return;
+
+    // Wait until beaches load before constraining; never leash an empty footprint.
+    if (!showSwellField || swellFieldBeaches.length === 0) {
+      releaseSwellFieldLeash(map);
+      return;
+    }
+
+    const bounds = computeCoastalBounds(swellFieldBeaches);
+    if (!bounds) {
+      releaseSwellFieldLeash(map);
+      return;
+    }
+
+    // Capture the free-camera zoom limits once, before the first lock. Presence of
+    // this capture also marks the leash as applied (gates the release path).
+    if (!zoomLimitsCaptureRef.current) {
+      zoomLimitsCaptureRef.current = {
+        minZoom: map.getMinZoom(),
+        maxZoom: map.getMaxZoom(),
+      };
+      // First time the leash locks this mount → flash the one-time zoom hint.
+      if (!leashHintShownRef.current) {
+        leashHintShownRef.current = true;
+        setShowLeashHint(true);
+      }
+    }
+    map.setMinZoom(SWELL_FIELD_MIN_ZOOM);
+    map.setMaxZoom(SWELL_FIELD_MAX_ZOOM);
+    map.setMaxBounds([
+      [bounds.west, bounds.south],
+      [bounds.east, bounds.north],
+    ]);
+
+    return () => releaseSwellFieldLeash(map);
+  }, [showSwellField, isMapReady, swellFieldBeaches, releaseSwellFieldLeash]);
+
+  // Auto-dismiss the one-time coastal-leash hint ~4s after it appears. With
+  // motion, kick a CSS opacity fade ~500ms before unmount; under reduced motion
+  // just remove it (no fade), honoring prefers-reduced-motion.
+  useEffect(() => {
+    if (!showLeashHint) return;
+    if (reducedMotion) {
+      const remove = setTimeout(() => setShowLeashHint(false), 4000);
+      return () => clearTimeout(remove);
+    }
+    const fade = setTimeout(() => setLeashHintFading(true), 3500);
+    const remove = setTimeout(() => {
+      setShowLeashHint(false);
+      setLeashHintFading(false);
+    }, 4000);
+    return () => {
+      clearTimeout(fade);
+      clearTimeout(remove);
+    };
+  }, [showLeashHint, reducedMotion]);
 
   // Stable ref to track so the debounced handler can always access the latest version
   const trackRef = useRef(track);
@@ -644,7 +1146,13 @@ export function InteractiveMap({
       style: "mapbox://styles/mapbox/streets-v11",
       center: [initialCenterRef.current[1], initialCenterRef.current[0]], // lng, lat
       zoom: initialZoom,
+      attributionControl: false,
+      logoPosition: "top-left",
     });
+    map.addControl(
+      new mapboxgl.AttributionControl({ compact: true }),
+      "top-right"
+    );
 
     mapRef.current = map;
 
@@ -663,8 +1171,11 @@ export function InteractiveMap({
         });
       }
       setIsMapReady(true);
-      // Expose map instance in dev/test mode for E2E tests
-      if (process.env.NODE_ENV !== 'production') {
+      // Expose map instance in dev and Playwright builds for E2E map assertions.
+      if (
+        process.env.NODE_ENV !== "production" ||
+        process.env.NEXT_PUBLIC_PLAYWRIGHT_TEST === "true"
+      ) {
         (window as any).__quiverMapInstance = mapRef.current;
       }
       // Initialize bounds for clustering
@@ -901,9 +1412,11 @@ export function InteractiveMap({
       const lngDiff = Math.abs(currentCenter.lng - newLng);
 
       if (latDiff > threshold || lngDiff > threshold) {
-        mapRef.current.flyTo({
+        const map = mapRef.current;
+        releaseSwellFieldLeash(map);
+        map.flyTo({
           center: [newLng, newLat],
-          zoom: mapRef.current.getZoom(),
+          zoom: map.getZoom(),
           duration: 1000,
         });
 
@@ -911,7 +1424,7 @@ export function InteractiveMap({
         populateLocationsRef.current?.(newLat, newLng);
       }
     }
-  }, [isMapReady, initialCenter]);
+  }, [isMapReady, initialCenter, releaseSwellFieldLeash]);
 
   // Re-populate locations when beaches prop changes (filters applied)
   useEffect(() => {
@@ -959,13 +1472,74 @@ export function InteractiveMap({
     });
   }, [clusters, isMapReady, buildClusterMarker, buildWaveHeightBadge, cleanupMarkers]);
 
+  const swellTimeline =
+    showSwellField && onSwellTimelineChange && swellTimelineSteps.length > 0 ? (
+      <SwellForecastTimeline
+        steps={swellTimelineSteps}
+        index={swellTimelineIndex}
+        onIndexChange={onSwellTimelineChange}
+        placement={displayMode === "wave-height" ? "legend" : "floating"}
+      />
+    ) : null;
+
+  const swellLayerSelector =
+    showSwellField && onSwellLayerChange ? (
+      <SwellLayerSelector
+        active={swellLayerId}
+        onChange={onSwellLayerChange}
+        placement={displayMode === "wave-height" ? "legend" : "floating"}
+      />
+    ) : null;
+
   return (
     <div
       ref={mapContainerRef}
       className={`${className} mapbox-container relative overflow-hidden`}
       style={{ width: "100%", height: "100%" }}
     >
-      {displayMode === "wave-height" && <MapConditionLegend />}
+      {displayMode === "wave-height" && (
+        <MapConditionLegend
+          controls={swellLayerSelector}
+          timeline={swellTimeline}
+        />
+      )}
+      {displayMode !== "wave-height" && swellLayerSelector}
+      {displayMode !== "wave-height" && swellTimeline}
+      {showLeashHint && (
+        // One-time, auto-dismissing hint that the field locked the camera to the
+        // coast (zoom-out is gone). Top-center, fades out under motion.
+        <div
+          data-testid="swell-field-leash-hint"
+          className={`pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 px-3 py-1.5 text-[11px] text-white/90 ${
+            reducedMotion ? "" : "transition-opacity duration-500"
+          }`}
+          style={{
+            background: SWELL_MAP_SURFACE.panel,
+            border: `1px solid ${SWELL_MAP_SURFACE.border}`,
+            borderRadius: SWELL_MAP_STICKER_RADIUS,
+            boxShadow: SWELL_MAP_STICKER_SHADOW,
+            opacity: leashHintFading ? 0 : 1,
+          }}
+        >
+          Zoomed to your coast for swell detail
+        </div>
+      )}
+      {showSwellField && !hasSwellData && (
+        // Field is ON but no beach partitions resolved into points — say so
+        // instead of leaving blank water look broken. Subtle sticker note.
+        <div
+          data-testid="swell-field-empty-note"
+          className="pointer-events-none absolute bottom-3 left-1/2 z-10 -translate-x-1/2 px-3 py-1.5 text-[11px] text-white/80"
+          style={{
+            background: SWELL_MAP_SURFACE.panel,
+            border: `1px solid ${SWELL_MAP_SURFACE.border}`,
+            borderRadius: SWELL_MAP_STICKER_RADIUS,
+            boxShadow: SWELL_MAP_STICKER_SHADOW,
+          }}
+        >
+          No swell data for this stretch
+        </div>
+      )}
     </div>
   );
 }
