@@ -1,6 +1,6 @@
 import { Metadata } from "next";
 import Link from "next/link";
-import { Video } from "lucide-react";
+import { Mail } from "lucide-react";
 
 import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
 import { CAM_REGIONS } from "@/lib/data/cam-regions";
@@ -9,11 +9,13 @@ import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { LiveCamSchema } from "@/components/seo/live-cam-schema";
 import { CamGrid } from "@/components/cams/cam-grid";
+import { CamsHeroContactSheet } from "@/components/cams/cams-hero-contact-sheet";
+import { CamsLandingNav } from "@/components/cams/cams-landing-nav";
 import { CamsShareButton } from "@/components/cams/cams-share-button";
-import { OceanBackground } from "@/components/ui/ocean-background";
-import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { Button } from "@/components/ui/button";
+import { ZineSurface } from "@/components/zine";
 import {
   Breadcrumb,
   BreadcrumbList,
@@ -63,12 +65,12 @@ export default async function CamsHubPage() {
   for (const beach of beaches) {
     regionCounts.set(
       beach.regionSlug,
-      (regionCounts.get(beach.regionSlug) ?? 0) + 1
+      (regionCounts.get(beach.regionSlug) ?? 0) + 1,
     );
   }
 
   return (
-    <OceanBackground variant="ocean" showWaves>
+    <>
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: baseUrl },
@@ -86,144 +88,174 @@ export default async function CamsHubPage() {
           key={beach.slug}
           beachName={beach.name}
           cameraUrl={beach.camera_url}
-          pageUrl={buildBeachUrl({ slug: beach.slug, city: beach.city, state: beach.state })}
+          pageUrl={buildBeachUrl({
+            slug: beach.slug,
+            city: beach.city,
+            state: beach.state,
+          })}
         />
       ))}
-      {/* Visible breadcrumbs */}
-      <div className="px-4 pt-6 md:pt-8">
-        <div className="mx-auto max-w-6xl">
-          <Breadcrumb>
-            <BreadcrumbList className="text-sm">
+
+      <CamsLandingNav />
+      <ZineSurface
+        sectionLabel="Live cams"
+        editionLabel={`${camCount} cams · ${stateCount} states`}
+        showMasthead={false}
+        data-testid="cams-zine-surface"
+      >
+        <main>
+          {/* Visible breadcrumbs */}
+          <Breadcrumb className="mb-8">
+            <BreadcrumbList className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]/55">
               <BreadcrumbItem>
-                <BreadcrumbLink asChild className="text-gray-500 hover:text-gray-700">
+                <BreadcrumbLink asChild className="hover:text-[#0B3A75]">
                   <Link href="/">Home</Link>
                 </BreadcrumbLink>
               </BreadcrumbItem>
-              <BreadcrumbSeparator className="text-gray-400" />
+              <BreadcrumbSeparator className="text-[#11100D]/35" />
               <BreadcrumbItem>
-                <BreadcrumbPage className="text-gray-700">
+                <BreadcrumbPage className="text-[#11100D]">
                   Live Surf Cams
                 </BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
-        </div>
-      </div>
 
-      {/* Hero */}
-      <div className="px-4 pb-8 pt-8 md:pt-16">
-        <ScrollReveal variant="fadeUp">
-          <div className="mx-auto max-w-4xl text-center">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-ocean-blue/10 px-4 py-1.5 text-sm font-medium text-ocean-blue">
-              <Video className="h-4 w-4" />
-              <span>{camCount} Live Cameras</span>
-            </div>
-            <h1 className="font-heading text-4xl font-bold text-gray-900 md:text-5xl lg:text-6xl">
-              Live Surf Cams
-            </h1>
-            <p className="mt-4 font-sans text-lg text-gray-600 md:text-xl">
-              Watch {camCount} live surf cams across {stateCount} states.
-              {" "}Updated 24/7.
-            </p>
-            <div className="mt-6 flex justify-center">
-              <CamsShareButton />
-            </div>
-          </div>
-        </ScrollReveal>
-      </div>
-
-      {/* Quick region navigation */}
-      <div className="px-4 pb-8">
-        <div className="mx-auto max-w-6xl">
-          <nav
-            aria-label="Cam regions"
-            className="flex flex-wrap justify-center gap-2"
-          >
-            {CAM_REGIONS.map((region) => {
-              const count = regionCounts.get(region.slug) ?? 0;
-              if (count === 0) return null;
-              return (
+          {/* Hero */}
+          <header className="grid gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(320px,0.8fr)] lg:items-start">
+            <div>
+              <p className="typewriter mb-4">
+                {camCount} live cameras · {stateCount} states
+              </p>
+              <h1 className="zine-h1 max-w-4xl font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
+                Live Surf Cams
+              </h1>
+              <p className="mt-5 max-w-2xl font-sans text-lg leading-8 text-[#11100D]/75 sm:text-xl">
+                Watch real surf cams by region, then open the beach forecast
+                when you need the full call.
+              </p>
+              <div className="mt-7 flex flex-wrap items-center gap-3">
+                <CamsShareButton />
                 <Link
-                  key={region.slug}
-                  href={`#${region.slug}`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-blue-200/60 bg-white/80 px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-ocean-blue hover:text-white"
+                  href="mailto:support@quiversurf.app?subject=Surf%20cam%20suggestion"
+                  className="inline-flex min-h-10 items-center justify-center rounded-[12px_5px_14px_5px] border-2 border-[#11100D] bg-[#F4EBD8] px-4 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.16)] transition-transform hover:-translate-y-0.5"
                 >
-                  {region.name}
-                  <span className="text-xs text-gray-400 group-hover:text-white/70">
-                    ({count})
-                  </span>
+                  Suggest a cam
                 </Link>
-              );
-            })}
-          </nav>
-        </div>
-      </div>
+              </div>
+            </div>
+            <CamsHeroContactSheet
+              beaches={beaches}
+              label="Featured live cam previews"
+            />
+          </header>
 
-      {/* Camera grid grouped by region */}
-      <div className="px-4 pb-16">
-        <div className="mx-auto max-w-6xl">
-          <CamGrid beaches={beaches} groupByRegion />
-        </div>
-      </div>
-
-      {/* Inline Signup CTA */}
-      <div className="px-4 pb-12">
-        <div className="mx-auto max-w-3xl">
-          <InlineSignupCta
-            title="Watch a cam? Track the break."
-            description="The cam tells you what's happening now. We tell you when to paddle out tomorrow — free."
-            primaryButtonText="Pick your home beach"
-            source="cams-hub-inline"
-            ctaCopyVariant="cams_hub_v1"
-          />
-        </div>
-      </div>
-
-      {/* More Surf Tools */}
-      <div className="px-4 pb-12">
-        <div className="mx-auto max-w-6xl">
-          <h2 className="mb-4 font-heading text-xl font-semibold text-gray-900">
-            More Surf Tools
-          </h2>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            {[
-              { href: "/forecast", title: "7-Day Forecast", desc: "Regional surf forecasts with swell and wind analysis" },
-              { href: "/beaches/usa", title: "Browse All Beaches", desc: "Find surf spots by state and city" },
-              { href: "/best-time-to-surf", title: "Best Time to Surf", desc: "Month-by-month surf season guides" },
-            ].map((card) => (
-              <Link key={card.href} href={card.href} className="block p-4 rounded-lg border border-gray-200 hover:border-blue-500 hover:bg-gradient-to-br hover:from-sky-50/50 hover:to-blue-50/30 transition-all duration-200 group">
-                <h3 className="font-semibold text-gray-900 mb-1 group-hover:text-blue-600 transition-colors">{card.title}</h3>
-                <p className="text-sm text-gray-600">{card.desc}</p>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Bottom CTA */}
-      <div className="px-4 pb-20">
-        <div className="mx-auto max-w-3xl text-center">
-          <div className="rounded-2xl border border-blue-200/50 bg-white/80 p-8 shadow-lg backdrop-blur-sm">
-            <h2 className="font-heading text-2xl font-bold text-gray-900">
-              Know a cam we&apos;re missing?
-            </h2>
-            <p className="mt-2 font-sans text-gray-600">
-              Help us grow the largest surf cam directory.
-            </p>
-            <a
-              href="mailto:support@quiversurf.app?subject=Surf%20cam%20suggestion"
-              className="mt-4 inline-block rounded-full bg-ocean-blue px-6 py-2.5 text-sm font-semibold text-white shadow-md transition-colors hover:bg-ocean-blue/90"
+          {/* Quick region navigation */}
+          <div className="my-10 border-y-2 border-[#11100D] py-4">
+            <nav
+              aria-label="Cam regions"
+              className="flex flex-wrap justify-start gap-2"
             >
-              Suggest a cam
-            </a>
+              {CAM_REGIONS.map((region) => {
+                const count = regionCounts.get(region.slug) ?? 0;
+                if (count === 0) return null;
+                return (
+                  <Link
+                    key={region.slug}
+                    href={`#${region.slug}`}
+                    className="group inline-flex items-center gap-1.5 rounded-[10px_4px_12px_5px] border-2 border-[#11100D] bg-[#FBF6E8] px-3 py-1.5 font-mono text-xs font-bold uppercase tracking-[0.1em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.14)] transition-transform hover:-translate-y-0.5 hover:bg-[#F0E5CC]"
+                  >
+                    {region.name}
+                    <span className="text-[#0B3A75]/70 group-hover:text-[#0B3A75]">
+                      ({count})
+                    </span>
+                  </Link>
+                );
+              })}
+            </nav>
           </div>
-        </div>
-      </div>
+
+          {/* Camera grid grouped by region */}
+          <section className="pb-16">
+            <CamGrid beaches={beaches} groupByRegion />
+          </section>
+
+          {/* Inline Signup CTA */}
+          <section className="mx-auto max-w-3xl pb-12">
+            <InlineSignupCta
+              title="Watch a cam? Track the break."
+              description="The cam tells you what's happening now. We tell you when to paddle out tomorrow — free."
+              primaryButtonText="Pick your home beach"
+              source="cams-hub-inline"
+              ctaCopyVariant="cams_hub_v1"
+              variant="zine"
+            />
+          </section>
+
+          {/* More Surf Tools */}
+          <section className="pb-12">
+            <h2 className="label-black mb-5 w-fit">More Surf Tools</h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {[
+                {
+                  href: "/forecast",
+                  title: "7-Day Forecast",
+                  desc: "Regional surf forecasts with swell and wind analysis",
+                },
+                {
+                  href: "/beaches/usa",
+                  title: "Browse All Beaches",
+                  desc: "Find surf spots by state and city",
+                },
+                {
+                  href: "/best-time-to-surf",
+                  title: "Best Time to Surf",
+                  desc: "Month-by-month surf season guides",
+                },
+              ].map((card) => (
+                <Link
+                  key={card.href}
+                  href={card.href}
+                  className="torn torn-tb group block min-h-40 border-2 border-[#11100D] bg-[#F0E5CC] p-5 text-[#11100D] transition-transform hover:-translate-y-1"
+                >
+                  <h3 className="mb-2 font-[var(--font-zine-display)] text-2xl uppercase leading-none tracking-normal text-[#11100D] transition-colors group-hover:text-[#0B3A75]">
+                    {card.title}
+                  </h3>
+                  <p className="font-sans text-sm leading-6 text-[#11100D]/70">
+                    {card.desc}
+                  </p>
+                </Link>
+              ))}
+            </div>
+          </section>
+
+          {/* Bottom CTA */}
+          <section className="pb-4">
+            <div className="mx-auto max-w-3xl border-2 border-[#11100D] bg-[#252D6B] p-8 text-center text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.28)]">
+              <h2 className="font-[var(--font-zine-display)] text-4xl uppercase leading-none tracking-normal">
+                Know a cam we&apos;re missing?
+              </h2>
+              <p className="mt-3 font-sans text-[#F4EBD8]/75">
+                Help us grow the largest surf cam directory.
+              </p>
+              <Button
+                asChild
+                className="mt-5 rounded-[14px_6px_16px_6px] bg-[#F78E42] font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.35)] hover:bg-[#FDB84B] hover:text-[#11100D]"
+              >
+                <a href="mailto:support@quiversurf.app?subject=Surf%20cam%20suggestion">
+                  Suggest a cam
+                  <Mail className="h-4 w-4" aria-hidden />
+                </a>
+              </Button>
+            </div>
+          </section>
+        </main>
+      </ZineSurface>
       <StickySignupBar
         source="cams-hub"
         ctaText="Get Cam Alerts"
         supportingText="Get notified when conditions are firing"
       />
-    </OceanBackground>
+    </>
   );
 }

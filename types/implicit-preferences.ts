@@ -91,6 +91,9 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   home_timeline_tap: 0,
   // Session logging events
   session_log_start: 0,
+  session_log_draft_opened: 0,
+  session_log_time_selected: 0,
+  session_log_draft_progress: 0,
   session_log_submit: 0,
   session_share_opened_post_save: 0,
   session_share_closed_post_save: 0,
@@ -126,6 +129,9 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   // Profile events
   surf_profile_viewed: 0,
   surf_profile_progress_shown: 0,
+  learning_signal: 0,
+  learning_progress_revealed: 0,
+  learned_me_moment_viewed: 0,
   // Discovery events
   personalized_score_shown: 0,
   favorite_shown_in_carousel: 0,
@@ -157,6 +163,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   seo_intent_page_window_clicked: 0,
   // Session log funnel
   session_log_beach_selected: 0,
+  session_log_conditions_set: 0,
   session_log_rating_set: 0,
   session_log_photo_added: 0,
   session_photo_upload_started: 0,
@@ -230,6 +237,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   paywall_restore_failed: 0,
   paywall_trial_cta_tapped: 0,
   paywall_lifetime_cta_tapped: 0,
+  paywall_soft_prompt_shown: 0,
   founder_100_popup_viewed: 0,
   founder_100_popup_cta_tapped: 0,
   founder_100_popup_dismissed: 0,

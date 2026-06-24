@@ -74,6 +74,9 @@ export const VALID_EVENTS = [
   'home_timeline_tap',
   // Session logging events
   'session_log_start',
+  'session_log_draft_opened',
+  'session_log_time_selected',
+  'session_log_draft_progress',
   'session_log_submit',
   'session_share_opened_post_save',
   'session_share_closed_post_save',
@@ -109,6 +112,9 @@ export const VALID_EVENTS = [
   // Profile events
   'surf_profile_viewed',
   'surf_profile_progress_shown',
+  'learning_signal',
+  'learning_progress_revealed',
+  'learned_me_moment_viewed',
   // Discovery events
   'personalized_score_shown',
   'favorite_shown_in_carousel',
@@ -140,6 +146,7 @@ export const VALID_EVENTS = [
   'seo_intent_page_window_clicked',
   // Session log funnel
   'session_log_beach_selected',
+  'session_log_conditions_set',
   'session_log_rating_set',
   'session_log_photo_added',
   'session_photo_upload_started',
@@ -220,6 +227,7 @@ export const VALID_EVENTS = [
   'paywall_restore_failed',
   'paywall_trial_cta_tapped',
   'paywall_lifetime_cta_tapped',
+  'paywall_soft_prompt_shown',
   'founder_100_popup_viewed',
   'founder_100_popup_cta_tapped',
   'founder_100_popup_dismissed',
