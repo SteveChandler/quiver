@@ -11,7 +11,8 @@
 //     the worker).
 //  4. Fetches the next 72h of enhanced_forecasts per candidate, filters to
 //     surfable windows (tighter 6:00-19:00 beach-local daylight + base
-//     scoreWindowWithEngine ≥ SURFABILITY_FLOOR on the 0-100 discovery
+//     scoreWindowWithComposite().total ≥ SURFABILITY_FLOOR on the 0-100
+//     beach-aware condition
 //     scale), then bulk-scores survivors via compute_user_match_score_batch
 //     (one RPC per beach, not per slot).
 //  5. Picks the highest-scoring ready slot ≥ 7.5 across all candidates,
@@ -54,7 +55,7 @@ import {
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
 import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
-import { scoreWindowWithEngine } from "@/lib/services/discovery/window-selector";
+import { scoreWindowWithComposite } from "@/lib/services/discovery/window-selector";
 import {
   pickBestSimilaritySlot,
   type ScoredSlot,
@@ -70,13 +71,12 @@ const CONTEXT_TAG = "[similarity-alerts]";
 const SCORE_THRESHOLD = 7.5;
 /**
  * Base score floor (0-100 discovery scale). A slot must clear this on
- * scoreWindowWithEngine BEFORE we run user-personal similarity scoring —
- * otherwise we send a "matches your style" alert for a flat / blown-out
- * window just because the user has logged sessions like it before.
+ * scoreWindowWithComposite().total BEFORE we run user-personal similarity
+ * scoring — otherwise we send a "matches your style" alert for a flat /
+ * blown-out window just because the user has logged sessions like it before.
  *
- * 60 ≈ "decent surfable conditions" on the discovery scoring rubric used by
- * the Surf Discovery home page. Tune downward only after observing
- * false-positive complaints.
+ * 60 ≈ "decent surfable conditions" on the beach-aware discovery condition
+ * score. Tune downward only after observing false-positive complaints.
  */
 const SURFABILITY_FLOOR = 60;
 /**
@@ -120,11 +120,7 @@ interface EligibleUserRow {
 
 /**
  * Hydrated beach row passed to the scoring/picker pipeline. Includes the
- * spot-profile-relevant fields scoreWindowWithEngine needs (swell window,
- * wind thresholds, tide preferences). We coerce to `Beach` at the call site
- * via a structural cast — `createSpotProfile` reads with `?? defaults`, so
- * any unselected nullable field falls through to a SPOT_PROFILE_DEFAULTS
- * equivalent rather than throwing.
+ * fields needed for score gating and notification context.
  */
 interface BeachRow {
   id: string;
@@ -141,9 +137,14 @@ interface BeachRow {
   swell_window_max_deg: number | null;
   wind_offshore_deg: number | null;
   wind_offshore_tol_deg: number | null;
+  wind_onshore_bad_kt: number | null;
+  wind_cross_shore_ok_kt: number | null;
+  max_wind_onshore_mph: number | null;
+  max_wind_any_mph: number | null;
   preferred_tide_direction: string | null;
   preferred_tide_ft_min: number | null;
   preferred_tide_ft_max: number | null;
+  tide_direction_sensitivity: string | null;
 }
 
 interface ForecastSlot {
@@ -360,7 +361,11 @@ async function _GET(req: Request): Promise<Response> {
           continue;
         }
 
-        const scored = await scoreCandidates(supabase, user.user_id, filtered);
+        const scored = await scoreCandidates(
+          supabase,
+          user.user_id,
+          filtered
+        );
         if (scored.length === 0) {
           noPickSkipped++;
           continue;
@@ -658,9 +663,14 @@ async function buildCandidateBeaches(
         "swell_window_max_deg",
         "wind_offshore_deg",
         "wind_offshore_tol_deg",
+        "wind_onshore_bad_kt",
+        "wind_cross_shore_ok_kt",
+        "max_wind_onshore_mph",
+        "max_wind_any_mph",
         "preferred_tide_direction",
         "preferred_tide_ft_min",
         "preferred_tide_ft_max",
+        "tide_direction_sensitivity",
       ].join(", "),
     )
     .in("id", Array.from(ids));
@@ -727,7 +737,7 @@ async function filterByWaterQuality(
 async function scoreCandidates(
   supabase: any,
   userId: string,
-  candidates: BeachRow[],
+  candidates: BeachRow[]
 ): Promise<RichScoredSlot[]> {
   const now = new Date();
   const horizon = new Date(now.getTime() + LOOKAHEAD_HOURS * 60 * 60 * 1000);
@@ -787,32 +797,29 @@ async function scoreCandidates(
     });
     if (daylight.length === 0) continue;
 
-    // Base score gate: run the discovery scoring engine on each slot and drop
-    // anything below SURFABILITY_FLOOR (60/100) BEFORE the user-personal
+    // Base score gate: run the beach-aware composite scorer on each slot and
+    // drop anything below SURFABILITY_FLOOR (60/100) BEFORE the user-personal
     // similarity scoring. Without this, a user with a "small-mush" preference
-    // pattern gets push notifications for 0.5ft 4s windows just because
+    // pattern gets push notifications for flat or onshore windows just because
     // they've logged sessions in those conditions before.
     //
     // We cast the structurally-narrow BeachRow / ForecastSlot to Beach /
-    // EnhancedForecastEntity. createSpotProfile + forecastToSnapshot read
-    // every nullable field with `?? defaults`, so any column we didn't SELECT
-    // falls through to its SPOT_PROFILE_DEFAULTS / 0 equivalent rather than
-    // throwing. See lib/domains/spot-profile/spot-profile.ts and
-    // lib/domains/scoring/discovery-adapter.ts.
+    // EnhancedForecastEntity so the shared scorer can read the forecast shape
+    // used by the rest of the app.
     const surfable: ForecastSlot[] = [];
     for (const f of daylight) {
       if (f.wave_height == null || f.wave_period == null) continue;
       let baseScore = 0;
       try {
-        baseScore = scoreWindowWithEngine(
+        baseScore = scoreWindowWithComposite(
           f as unknown as EnhancedForecastEntity,
-          beach as unknown as Beach,
-        );
+          beach as unknown as Beach
+        ).total;
       } catch (engineErr) {
         // Engine throws are unexpected — log and treat as below floor so we
         // never silently push an unscored window.
         console.warn(
-          `${CONTEXT_TAG} scoreWindowWithEngine threw beach=${beach.id} forecast_at=${f.forecast_at}`,
+          `${CONTEXT_TAG} scoreWindowWithComposite threw beach=${beach.id} forecast_at=${f.forecast_at}`,
           engineErr,
         );
         continue;

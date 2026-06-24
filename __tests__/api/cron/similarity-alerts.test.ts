@@ -35,14 +35,13 @@ jest.mock("@/lib/cron/observability", () => ({
   ),
 }));
 
-// scoreWindowWithEngine is a deterministic-on-input pure function but pulls
-// in the full discovery scorer chain. For unit tests we mock it so the
-// SURFABILITY_FLOOR pre-filter is exercised on a known score, decoupled from
-// the engine internals (covered by their own tests).
-const mockScoreWindowWithEngine = jest.fn();
+// scoreWindowWithComposite pulls in the full discovery scorer chain. For unit
+// tests we mock it so the SURFABILITY_FLOOR pre-filter is exercised on a known
+// beach-aware score, decoupled from engine internals (covered by their own tests).
+const mockScoreWindowWithComposite = jest.fn();
 jest.mock("@/lib/services/discovery/window-selector", () => ({
-  scoreWindowWithEngine: (...args: unknown[]) =>
-    mockScoreWindowWithEngine(...args),
+  scoreWindowWithComposite: (...args: unknown[]) =>
+    mockScoreWindowWithComposite(...args),
 }));
 
 const mockFrom = jest.fn();
@@ -228,7 +227,23 @@ function seedActiveProUser(opts?: {
     slug: "home-break",
     center_lat: 33.6,
     center_lng: -118.0,
+    lat: 33.6,
+    lon: -118.0,
     timezone: "America/Los_Angeles",
+    skill_level: "intermediate",
+    break_type: "beach",
+    swell_window_min_deg: 180,
+    swell_window_max_deg: 270,
+    wind_offshore_deg: 45,
+    wind_offshore_tol_deg: 60,
+    wind_onshore_bad_kt: 14,
+    wind_cross_shore_ok_kt: 10,
+    max_wind_onshore_mph: 16,
+    max_wind_any_mph: 22,
+    preferred_tide_direction: "rising",
+    preferred_tide_ft_min: 1,
+    preferred_tide_ft_max: 4,
+    tide_direction_sensitivity: "medium",
   });
 
   if (opts?.forecastsForBeach) {
@@ -237,9 +252,23 @@ function seedActiveProUser(opts?: {
       forecast_at: "2026-05-04T18:00:00Z",
       wave_height: "3.5",
       wave_period: "12",
+      wave_direction: "220",
       wind_speed: "5",
+      wind_direction: "W",
       wind_direction_deg: 270,
       tide_height: "2.0",
+      tide_status: "rising",
+      swell_1_height: "3.0",
+      swell_1_period: "12",
+      swell_1_direction: "220",
+      swell_2_height: "1.0",
+      swell_2_period: "8",
+      swell_2_direction: "260",
+      wind_wave_height: "0.5",
+      wind_wave_period: "4",
+      wind_wave_direction: "270",
+      confidence_score: 0.8,
+      data_source: "test",
     });
   }
 }
@@ -262,7 +291,7 @@ beforeEach(() => {
   // Default: every slot clears the SURFABILITY_FLOOR so the existing tests
   // exercise the similarity-scoring path. Individual tests override this to
   // test the floor itself.
-  mockScoreWindowWithEngine.mockReturnValue(75);
+  mockScoreWindowWithComposite.mockReturnValue({ total: 75 });
 });
 
 afterEach(() => {
@@ -630,7 +659,7 @@ describe("similarity-alerts cron — Plan V4", () => {
     store.forecasts = [];
     store.ruleUpdates = [];
     seedActiveProUser({ forecastsForBeach: HOME_BEACH });
-    mockScoreWindowWithEngine.mockReturnValue(75);
+    mockScoreWindowWithComposite.mockReturnValue({ total: 75 });
     mockFrom.mockImplementation(fromImpl);
     mockRpc.mockImplementation((name: string, _args: any) => {
       if (name === "compute_user_match_score_batch") {
@@ -704,7 +733,7 @@ describe("similarity-alerts cron — Plan V4", () => {
   // RPC runs, so the cron never alerts on those.
   it("7c. SURFABILITY_FLOOR: base score 59 drops slot before similarity RPC", async () => {
     seedActiveProUser({ forecastsForBeach: HOME_BEACH });
-    mockScoreWindowWithEngine.mockReturnValue(59); // below floor
+    mockScoreWindowWithComposite.mockReturnValue({ total: 59 }); // below floor
 
     let batchCalls = 0;
     mockRpc.mockImplementation((name: string, _args: any) => {
@@ -721,6 +750,73 @@ describe("similarity-alerts cron — Plan V4", () => {
     expect(batchCalls).toBe(0);
     const body = await res.json();
     expect(body.enqueued).toBe(0);
+  });
+
+  it("7c-1. hydrates beach-specific scorer columns before composite floor scoring", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+
+    const beachSelects: string[] = [];
+    mockFrom.mockImplementation((table: string) => {
+      if (table !== "beaches") return fromImpl(table);
+
+      const chain: any = {};
+      const passthrough = () => chain;
+      chain.select = (columns: string) => {
+        beachSelects.push(columns);
+        return chain;
+      };
+      chain.eq = passthrough;
+      chain.in = passthrough;
+      chain.gte = passthrough;
+      chain.lte = passthrough;
+      chain.order = passthrough;
+      chain.limit = passthrough;
+      chain.then = (resolve: any) =>
+        resolve({ data: store.beaches, error: null });
+      chain.maybeSingle = () =>
+        Promise.resolve({ data: store.beaches[0] ?? null, error: null });
+      return chain;
+    });
+
+    const res = await GET(makeReq());
+    expect(res.status).toBe(200);
+
+    const hydrateSelect = beachSelects.find((columns) =>
+      columns.includes("break_type")
+    );
+    expect(hydrateSelect).toEqual(expect.stringContaining("wind_onshore_bad_kt"));
+    expect(hydrateSelect).toEqual(expect.stringContaining("wind_cross_shore_ok_kt"));
+    expect(hydrateSelect).toEqual(expect.stringContaining("max_wind_onshore_mph"));
+    expect(hydrateSelect).toEqual(expect.stringContaining("max_wind_any_mph"));
+    expect(hydrateSelect).toEqual(
+      expect.stringContaining("tide_direction_sensitivity")
+    );
+
+    const scoredForecast = mockScoreWindowWithComposite.mock.calls[0]?.[0];
+    expect(scoredForecast).toEqual(
+      expect.objectContaining({
+        swell_1_height: "3.0",
+        swell_1_period: "12",
+        swell_1_direction: "220",
+        swell_2_height: "1.0",
+        swell_2_period: "8",
+        swell_2_direction: "260",
+        wind_wave_height: "0.5",
+        wind_wave_period: "4",
+        wind_wave_direction: "270",
+      })
+    );
+
+    const scoredBeach = mockScoreWindowWithComposite.mock.calls[0]?.[1];
+    expect(scoredBeach).toEqual(
+      expect.objectContaining({
+        wind_onshore_bad_kt: 14,
+        wind_cross_shore_ok_kt: 10,
+        max_wind_onshore_mph: 16,
+        max_wind_any_mph: 22,
+        tide_direction_sensitivity: "medium",
+      })
+    );
   });
 
   it("7c-2. onboarding batch result never enqueues, even with a high score-like payload", async () => {
