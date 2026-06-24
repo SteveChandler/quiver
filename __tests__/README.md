@@ -17,7 +17,7 @@ We've broken down large components into smaller, focused pieces and created comp
 
 #### Map Components
 
-- `map-search-header.test.tsx` - Tests the search and view toggle functionality
+- `map-toolbar.test.tsx` - Tests the map toolbar search, dropdown, view toggle, and swell toggle
 - `map-display.test.tsx` - Tests the map display with overlays
 - `map-image.test.tsx` - Tests the map image component
 

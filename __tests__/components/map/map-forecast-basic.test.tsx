@@ -1,5 +1,14 @@
 import React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+
+const mockAddControl = jest.fn();
+const mockFlyTo = jest.fn();
+const mockGetCenter = jest.fn(() => ({ lat: 32.7493, lng: -117.2511 }));
+const mockGetMaxZoom = jest.fn(() => 22);
+const mockGetMinZoom = jest.fn(() => 0);
+const mockSetMaxBounds = jest.fn();
+const mockSetMaxZoom = jest.fn();
+const mockSetMinZoom = jest.fn();
 
 // Mock all the external dependencies to isolate our test
 jest.mock("mapbox-gl", () => ({
@@ -12,10 +21,15 @@ jest.mock("mapbox-gl", () => ({
     }),
     off: jest.fn(),
     remove: jest.fn(),
-    getCenter: jest.fn(() => ({ lat: 32.7493, lng: -117.2511 })),
+    getCenter: mockGetCenter,
     getZoom: jest.fn(() => 13),
+    getMaxZoom: mockGetMaxZoom,
+    getMinZoom: mockGetMinZoom,
     setCenter: jest.fn(),
-    flyTo: jest.fn(),
+    setMaxBounds: mockSetMaxBounds,
+    setMaxZoom: mockSetMaxZoom,
+    setMinZoom: mockSetMinZoom,
+    flyTo: mockFlyTo,
     getBounds: jest.fn(() => ({
       getWest: () => -117.3,
       getSouth: () => 32.7,
@@ -23,7 +37,15 @@ jest.mock("mapbox-gl", () => ({
       getNorth: () => 32.8,
     })),
     getCanvasContainer: jest.fn(() => document.createElement("div")),
+    getLayer: jest.fn(() => undefined),
+    isStyleLoaded: jest.fn(() => true),
+    setStyle: jest.fn(),
+    addLayer: jest.fn(),
+    addControl: mockAddControl,
+    removeLayer: jest.fn(),
+    triggerRepaint: jest.fn(),
   })),
+  AttributionControl: jest.fn(() => ({ type: "attribution" })),
   Marker: jest.fn(() => ({
     setLngLat: jest.fn().mockReturnThis(),
     setPopup: jest.fn().mockReturnThis(),
@@ -48,7 +70,7 @@ jest.mock("next/navigation", () => ({
 
 jest.mock("@/context/auth-context", () => ({
   useAuth: () => ({
-    user: { id: "test-user" },
+    user: null,
   }),
 }));
 
@@ -178,16 +200,93 @@ describe("Map Forecast Basic Tests", () => {
     }).not.toThrow();
   });
 
-  it("should render the condition summary legend in wave-height mode", async () => {
+  it("should render branded condition labels in wave-height mode", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
 
     render(<InteractiveMap />);
 
     expect(screen.getByTestId("map-condition-legend")).toBeInTheDocument();
-    expect(screen.getByText("GOOD")).toBeInTheDocument();
-    expect(screen.getByText("FAIR")).toBeInTheDocument();
-    expect(screen.getByText("CHECK")).toBeInTheDocument();
-    expect(screen.getByText("UNKNOWN")).toBeInTheDocument();
+    expect(screen.getByText("Worth it")).toBeInTheDocument();
+    expect(screen.getByText("Maybe")).toBeInTheDocument();
+    expect(screen.getByText("Scout it")).toBeInTheDocument();
+    expect(screen.getByText("No read")).toBeInTheDocument();
+    expect(screen.queryByText("GOOD")).toBeNull();
+    expect(screen.queryByText("FAIR")).toBeNull();
+    expect(screen.queryByText("CHECK")).toBeNull();
+    expect(screen.queryByText("UNKNOWN")).toBeNull();
+  });
+
+  it("should embed the swell timeline inside the condition legend", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+
+    render(
+      <InteractiveMap
+        showSwellField
+        swellTimelineSteps={["Now", "+3h", "+6h"]}
+        onSwellTimelineChange={jest.fn()}
+      />,
+    );
+
+    const legend = screen.getByTestId("map-condition-legend");
+    const timeline = within(legend).getByTestId("swell-forecast-timeline");
+
+    expect(timeline).toBeInTheDocument();
+    expect(timeline.className).toContain("w-full");
+    expect(timeline.className).not.toContain("absolute");
+  });
+
+  it("should embed the swell layer selector inside the condition legend", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+
+    render(
+      <InteractiveMap
+        showSwellField
+        onSwellLayerChange={jest.fn()}
+      />,
+    );
+
+    const legend = screen.getByTestId("map-condition-legend");
+    const selector = within(legend).getByTestId("swell-layer-selector");
+
+    expect(selector).toBeInTheDocument();
+    expect(selector.className).not.toContain("absolute");
+    expect(selector.className).not.toContain("top-3");
+    expect(within(selector).getByTestId("swell-field-legend-caption")).toHaveTextContent(
+      "denser = bigger · longer marks = longer period"
+    );
+  });
+
+  it("should minimize the bottom legend while keeping the timeline available", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+
+    render(
+      <InteractiveMap
+        showSwellField
+        onSwellLayerChange={jest.fn()}
+        swellTimelineSteps={["Now", "+3h", "+6h"]}
+        onSwellTimelineChange={jest.fn()}
+      />,
+    );
+
+    const legend = screen.getByTestId("map-condition-legend");
+
+    fireEvent.click(
+      within(legend).getByRole("button", { name: "Minimize map legend" })
+    );
+
+    expect(within(legend).queryByText("Worth it")).toBeNull();
+    expect(within(legend).queryByTestId("swell-layer-selector")).toBeNull();
+    expect(within(legend).getByTestId("swell-forecast-timeline")).toBeInTheDocument();
+    expect(
+      within(legend).getByRole("button", { name: "Expand map legend" })
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      within(legend).getByRole("button", { name: "Expand map legend" })
+    );
+
+    expect(within(legend).getByText("Worth it")).toBeInTheDocument();
+    expect(within(legend).getByTestId("swell-layer-selector")).toBeInTheDocument();
   });
 
   it("should call Mapbox Map constructor with correct parameters", async () => {
@@ -201,7 +300,47 @@ describe("Map Forecast Basic Tests", () => {
         style: "mapbox://styles/mapbox/streets-v11",
         center: [-117.2511, 32.7493], // lng, lat for Mapbox
         zoom: 14,
+        attributionControl: false,
+        logoPosition: "top-left",
       })
+    );
+  });
+
+  it("keeps the original streets style when the swell field is initially visible", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+
+    render(
+      <InteractiveMap
+        initialCenter={[32.7493, -117.2511]}
+        initialZoom={14}
+        showSwellField
+      />
+    );
+
+    const MapboxMap = require("mapbox-gl").Map;
+    expect(MapboxMap).toHaveBeenCalledWith(
+      expect.objectContaining({
+        style: "mapbox://styles/mapbox/streets-v11",
+        center: [-117.2511, 32.7493],
+        zoom: 14,
+      })
+    );
+  });
+
+  it("should position Mapbox attribution away from the bottom legend", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+
+    render(<InteractiveMap />);
+
+    const mapboxgl = require("mapbox-gl");
+    const mapInstance = mapboxgl.Map.mock.results.at(-1)?.value;
+
+    expect(mapboxgl.AttributionControl).toHaveBeenCalledWith({
+      compact: true,
+    });
+    expect(mapInstance.addControl).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "attribution" }),
+      "top-right"
     );
   });
 
@@ -248,6 +387,53 @@ describe("Map Forecast Basic Tests", () => {
       const Marker = require("mapbox-gl").Marker;
       expect(Marker).toHaveBeenCalled();
     }, { timeout: 3000 });
+  });
+
+  it("should clear the swell-field leash before recentering without a remount", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const mockBeaches = [
+      { id: "test-1", name: "Test Beach", lat: 32.75, lon: -117.25 },
+    ];
+
+    const { rerender } = render(
+      <InteractiveMap
+        beaches={mockBeaches as any}
+        initialCenter={[32.7493, -117.2511]}
+        showSwellField
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockSetMaxBounds).toHaveBeenCalledWith(expect.any(Array));
+    });
+
+    mockFlyTo.mockClear();
+    mockSetMaxBounds.mockClear();
+    mockSetMaxZoom.mockClear();
+    mockSetMinZoom.mockClear();
+
+    rerender(
+      <InteractiveMap
+        beaches={mockBeaches as any}
+        initialCenter={[37.76, -122.51]}
+        showSwellField
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockFlyTo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          center: [-122.51, 37.76],
+        })
+      );
+    });
+
+    expect(mockSetMaxBounds).toHaveBeenCalledWith(null);
+    expect(mockSetMinZoom).toHaveBeenCalledWith(0);
+    expect(mockSetMaxZoom).toHaveBeenCalledWith(22);
+    expect(mockSetMaxBounds.mock.invocationCallOrder[0]).toBeLessThan(
+      mockFlyTo.mock.invocationCallOrder[0]
+    );
   });
 
   it("should handle component unmounting", async () => {

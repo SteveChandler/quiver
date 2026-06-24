@@ -1,0 +1,63 @@
+/**
+ * @jest-environment node
+ */
+import { rowToSwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
+
+describe("rowToSwellPartition", () => {
+  it("parses real-shaped live fields (ft + compass + mph) into numbers", () => {
+    // Shapes confirmed by Task 2 live DB check: heights are "<n> ft", directions
+    // are compass text, periods are "<n>s", wind_speed is "<n> mph",
+    // wind_direction_deg is a numeric string.
+    const p = rowToSwellPartition({
+      swell_1_height: "2 ft",
+      swell_1_period: "15s",
+      swell_1_direction: "SSW",
+      swell_2_height: "1 ft",
+      swell_2_period: "9s",
+      swell_2_direction: "WNW",
+      wind_speed: "7 mph",
+      wind_direction_deg: "104",
+    });
+
+    expect(p.s1Dir).toBe(202.5);
+    expect(p.s1PeriodS).toBe(15);
+    expect(p.s1HeightFt).toBe(2);
+    expect(p.s2Dir).toBe(292.5);
+    expect(p.s2PeriodS).toBe(9);
+    expect(p.s2HeightFt).toBe(1);
+    expect(p.windDir).toBe(104);
+    expect(p.windMph).toBe(7);
+    expect(p.s1HeightFt!).toBeGreaterThan(p.s2HeightFt!);
+  });
+
+  it("parses numeric direction strings as degrees", () => {
+    const p = rowToSwellPartition({
+      swell_1_direction: "270",
+      swell_2_direction: "200",
+      wind_direction_deg: 310,
+    });
+    expect(p.s1Dir).toBe(270);
+    expect(p.s2Dir).toBe(200);
+    expect(p.windDir).toBe(310);
+  });
+
+  it("returns nulls for missing/garbage fields without throwing", () => {
+    const p = rowToSwellPartition({
+      swell_1_height: null,
+      swell_1_period: null,
+      swell_1_direction: null,
+      swell_2_height: "not-a-number",
+      swell_2_period: undefined,
+      swell_2_direction: "",
+      wind_speed: null,
+      wind_direction_deg: null,
+    });
+    expect(p.s1Dir).toBeNull();
+    expect(p.s1PeriodS).toBeNull();
+    expect(p.s1HeightFt).toBeNull();
+    expect(p.s2HeightFt).toBeNull();
+    expect(p.s2Dir).toBeNull();
+    expect(p.windDir).toBeNull();
+    expect(p.windMph).toBeNull();
+  });
+});

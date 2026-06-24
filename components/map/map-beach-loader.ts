@@ -1,6 +1,8 @@
 import type { Beach } from "@/types/database";
+import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
 import { API_BATCH_CONFIG } from "@/lib/constants/ui";
 import { fetchInBatches } from "@/lib/utils/batch-fetch";
+import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 
 export type ConditionSummary = "GOOD" | "FAIR" | "CHECK" | "UNKNOWN";
 
@@ -28,12 +30,18 @@ export interface BeachLoaderResult {
   locations: Beach[];
   /** Map from beach ID to wave height (includes interpolated values) */
   waveHeightMap: Map<string, number | undefined>;
+  /** Map from beach ID to canonical forecast display label */
+  displayForecastMap: Map<string, ForecastDisplay | undefined>;
   /** Map from beach ID to water temperature string (e.g., "52") */
   waterTempMap: Map<string, string | undefined>;
   /** Map from beach ID to 0-100 condition score */
   conditionScoreMap: Map<string, number | undefined>;
   /** Map from beach ID to native-aligned condition summary */
   conditionSummaryMap: Map<string, ConditionSummary>;
+  /** Map from beach ID to parsed swell/wind partition for the flow field */
+  partitionsMap: Map<string, SwellPartition>;
+  /** Map from beach ID to parsed swell/wind partitions by forecast timeline step */
+  partitionsTimelineMap: Map<string, SwellPartition[]>;
 }
 
 /**
@@ -110,9 +118,12 @@ export async function loadBeachesAndWaveHeights(
 
   // Fetch wave heights for ALL beaches that clustering will use
   const waveHeightMap = new Map<string, number | undefined>();
+  const displayForecastMap = new Map<string, ForecastDisplay | undefined>();
   const waterTempMap = new Map<string, string | undefined>();
   const conditionScoreMap = new Map<string, number | undefined>();
   const conditionSummaryMap = new Map<string, ConditionSummary>();
+  const partitionsMap = new Map<string, SwellPartition>();
+  const partitionsTimelineMap = new Map<string, SwellPartition[]>();
   const beachesForWaveData = providedBeaches?.length
     ? providedBeaches
     : locations;
@@ -157,6 +168,14 @@ export async function loadBeachesAndWaveHeights(
           }
         });
 
+        const displayForecasts = data?.data?.displayForecasts || {};
+        Object.entries(displayForecasts).forEach(([beachId, display]) => {
+          const forecastDisplay = display as ForecastDisplay | null | undefined;
+          if (forecastDisplay?.label) {
+            displayForecastMap.set(beachId, forecastDisplay);
+          }
+        });
+
         const waterTemps = data?.data?.waterTemps || {};
         Object.entries(waterTemps).forEach(([beachId, temp]) => {
           if (temp !== null && temp !== undefined) {
@@ -179,6 +198,29 @@ export async function loadBeachesAndWaveHeights(
             conditionSummaryMap.set(beachId, summary as ConditionSummary);
           }
         });
+
+        const swellPartitions = data?.data?.swellPartitions || {};
+        Object.entries(swellPartitions).forEach(([beachId, partition]) => {
+          if (partition && typeof partition === "object") {
+            partitionsMap.set(beachId, partition as SwellPartition);
+          }
+        });
+
+        const swellPartitionTimeline =
+          data?.data?.swellPartitionTimeline || {};
+        Object.entries(swellPartitionTimeline).forEach(
+          ([beachId, partitions]) => {
+            if (Array.isArray(partitions)) {
+              partitionsTimelineMap.set(
+                beachId,
+                partitions.filter(
+                  (partition): partition is SwellPartition =>
+                    partition != null && typeof partition === "object"
+                ) as SwellPartition[]
+              );
+            }
+          }
+        );
       });
     } catch (error) {
       console.warn("Failed to fetch bulk forecasts:", error);
@@ -188,7 +230,16 @@ export async function loadBeachesAndWaveHeights(
   // Fill missing wave heights from nearest beach with data
   interpolateMissingWaveHeights(beachesForWaveData, waveHeightMap);
 
-  return { locations, waveHeightMap, waterTempMap, conditionScoreMap, conditionSummaryMap };
+  return {
+    locations,
+    waveHeightMap,
+    displayForecastMap,
+    waterTempMap,
+    conditionScoreMap,
+    conditionSummaryMap,
+    partitionsMap,
+    partitionsTimelineMap,
+  };
 }
 
 /**

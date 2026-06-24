@@ -1,5 +1,6 @@
 import type { Beach } from "@/types/database";
-import { formatWaveHeightBucket as formatWaveHeight, formatWaterTemp } from "@/lib/utils/wave-formatters";
+import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
+import { formatWaterTemp } from "@/lib/utils/wave-formatters";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
@@ -37,6 +38,14 @@ function getWaveHeightBadgeColor(summary?: ConditionSummary): string {
   return getConditionMarkerGradient(summary ?? "UNKNOWN");
 }
 
+function formatFallbackWaveHeight(waveHeight?: number | string | null): string {
+  const parsed =
+    typeof waveHeight === "number"
+      ? waveHeight
+      : Number.parseFloat(String(waveHeight ?? ""));
+  return Number.isFinite(parsed) ? formatWaveHeightRange(parsed) : "—";
+}
+
 /**
  * Dependencies injected into createWaveHeightBadge so that the function
  * remains pure and testable — no closure capture of component state.
@@ -62,6 +71,8 @@ export interface MarkerBuilderDeps {
   displayMode?: MapDisplayMode;
   /** Water temperature string for this beach (used when displayMode is water-temp) */
   waterTemp?: string | null;
+  /** Canonical API-provided wave label for wave-height mode */
+  waveHeightLabel?: string | null;
   /** Native-aligned condition summary for wave-height mode marker color */
   conditionSummary?: ConditionSummary;
   /** 0-100 condition score, reserved for tooltips/analytics */
@@ -94,7 +105,7 @@ export function createWaveHeightBadge(
     const conditionSummary = deps.conditionSummary ?? "UNKNOWN";
     const badgeText = displayMode === "water-temp"
       ? formatWaterTemp(deps.waterTemp)
-      : formatWaveHeight(waveHeight);
+      : deps.waveHeightLabel ?? formatFallbackWaveHeight(waveHeight);
     const isSelected = deps.selectedBeachId === location.id;
     const isHovered = deps.hoveredBeachId === location.id;
 
@@ -166,7 +177,7 @@ export function createWaveHeightBadge(
     if (isFavorite) {
       badge.style.borderColor = "#FDB84B";
     }
-    badge.innerHTML = badgeText;
+    badge.textContent = badgeText;
 
     // Enhanced hover effects with motion
     badge.addEventListener("mouseenter", () => {

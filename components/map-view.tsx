@@ -3,49 +3,93 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import { useGeolocation } from "@/hooks/use-geolocation";
-import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import { useBeachSearch } from "@/hooks/use-beach-search";
-import { MapSearchHeader } from "@/components/map/map-search-header";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
+import { MapToolbar } from "@/components/map/map-toolbar";
+import {
+  MAP_REGION_PILLS,
+  type MapRegionPill,
+} from "@/components/map/map-regions";
 import { MapContent } from "@/components/map/map-content";
-import { BeachList } from "@/components/map/beach-list";
-import { MapSidebar } from "@/components/map/map-sidebar";
-import { MapBottomSheet } from "@/components/map/map-bottom-sheet";
-import { calculateDistanceFormatted } from "@/lib/utils/distance-utils";
-import { filterBeachesByViewport, type ViewportBounds } from "@/lib/utils/viewport-filter";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { type SwellLayerId } from "@/components/map/swell-map-theme";
+import { useProfileContext } from "@/context/profile-context";
 import type { Beach } from "@/types/database";
 
 const MISSION_BEACH_COORDS = { lat: 32.7702, lon: -117.2525 } as const;
+
+// Shared with use-geolocation / use-nearest-beach. The two writers disagree on
+// shape ({lat,lon} vs {id,name}), so the resolver below handles both.
+const LAST_BEACH_KEY = "quiver:lastBeach";
+
+function isFiniteCoord(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+/**
+ * Resolve the last beach the user was looking at into map coordinates.
+ * Accepts both stored shapes: `{lat,lon}` (geolocation writer) directly, or
+ * `{id,name}` (session-save writer) by looking the beach up via the API.
+ */
+async function resolveLastViewedCenter(): Promise<{
+  lat: number;
+  lon: number;
+} | null> {
+  try {
+    if (typeof window === "undefined") return null;
+    const raw = window.localStorage.getItem(LAST_BEACH_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+
+    if (isFiniteCoord(parsed?.lat) && isFiniteCoord(parsed?.lon)) {
+      return { lat: parsed.lat, lon: parsed.lon };
+    }
+
+    if (parsed?.id) {
+      const res = await fetch(`/api/beaches/${parsed.id}`, {
+        headers: { Accept: "application/json" },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const beach = json?.data?.beach ?? json?.beach;
+        if (isFiniteCoord(beach?.lat) && isFiniteCoord(beach?.lon)) {
+          return { lat: beach.lat, lon: beach.lon };
+        }
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export function MapView() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const isMobile = useIsMobile();
-  const [viewMode, setViewMode] = useState<"map" | "list">("map");
-  const [showRecovery, setShowRecovery] = useState(false);
+  const [mapFocusCenter, setMapFocusCenter] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
 
-  // Use ref to track if we've already loaded beaches for a location to prevent multiple calls
-  const lastLocationRef = useRef<{ lat: number; lon: number } | null>(null);
+  // Tracks the last location we loaded beaches for, to prevent duplicate calls.
+  // Seeded with the default center so the userLocation effect below doesn't fire
+  // a redundant default-area load before the center resolver (home/last/nearest)
+  // has run; the resolver owns the initial load.
+  const lastLocationRef = useRef<{ lat: number; lon: number } | null>(
+    MISSION_BEACH_COORDS
+  );
+  const preserveSearchStateOnNextUrlClearRef = useRef(false);
 
-  type RegionViewport = {
-    region: string;
-    key: string;
-    center: [number, number];
-    bounds?: [[number, number], [number, number]];
-    zoom?: number;
-  };
-
-  const [regionViewport, setRegionViewport] = useState<RegionViewport | null>(
-    null
+  const [showSwellField, setShowSwellField] = useState(true);
+  const [swellLayerId, setSwellLayerId] = useState<SwellLayerId>("s1");
+  const [swellTimelineIndex, setSwellTimelineIndex] = useState(0);
+  const swellTimelineSteps = useMemo(
+    () => ["Now", "+3h", "+6h", "+12h", "+18h", "+24h", "+36h", "+48h"],
+    []
   );
 
-  const [viewportBounds, setViewportBounds] = useState<ViewportBounds | null>(null);
-  const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
-
   // Custom hooks for state management
+  const { homeBeach, isLoading: profileLoading } = useProfileContext();
+
   const {
     userLocation,
     locationError,
@@ -53,27 +97,25 @@ export function MapView() {
     hasTimedOut,
     loading: locationLoading,
     getUserLocation,
-    useDefaultLocation,
+    useDefaultLocation: applyDefaultLocation,
   } = useGeolocation({
     useLastBeach: false,
     defaultLocation: MISSION_BEACH_COORDS,
+    // Don't auto-prompt for GPS: a signed-in home beach or last-viewed beach
+    // should center the map first (and skip the permission prompt entirely).
+    // GPS is requested only as the final fallback, in the resolver effect below.
+    autoRequest: false,
   });
 
   const {
     filteredBeaches,
-    loading: beachLoading,
     searchQuery,
     selectedBeach,
-    beaches,
-    regions,
-    activeRegion,
     filters,
-    loadBeaches,
     loadNearbyBeaches,
     setSearchQuery,
     clearSearch,
     setSelectedBeach,
-    setActiveRegion,
     toggleBeginnerFriendly,
     toggleBreakType,
     clearAllFilters,
@@ -83,6 +125,12 @@ export function MapView() {
   // Wait for geolocation to resolve before fetching to avoid using stale fallback coords
   useEffect(() => {
     if (!userLocation || locationLoading) {
+      return;
+    }
+
+    // A home/last/region focus center owns the map and its own beach load; don't
+    // override it with the userLocation (default or GPS) load.
+    if (mapFocusCenter) {
       return;
     }
 
@@ -99,14 +147,73 @@ export function MapView() {
     // Update the last location and load nearby beaches
     lastLocationRef.current = userLocation;
     loadNearbyBeaches(userLocation.lat, userLocation.lon);
-  }, [userLocation, locationLoading, loadNearbyBeaches]);
+  }, [userLocation, locationLoading, loadNearbyBeaches, mapFocusCenter]);
 
-  // URL is the source of truth for the search query.
-  // Syncing both directions (state → URL via router.replace in clearers; URL → state here)
-  // prevents snap-back when Clear all strips ?search= while state also clears.
+  // Resolve the initial map center once, in priority order: signed-in home
+  // beach → last beach the user was looking at → nearest to their GPS location.
+  // Gated on `profileLoading` so a signed-in user's home beach wins before any
+  // fallback fires (and we never prompt for GPS when we already have a center).
+  const initialCenterResolvedRef = useRef(false);
   useEffect(() => {
-    const searchFromUrl = searchParams.get("search") ?? "";
+    if (initialCenterResolvedRef.current) return;
+    if (profileLoading) return;
+
+    let cancelled = false;
+
+    const centerOn = (lat: number, lon: number) => {
+      if (cancelled) return;
+      initialCenterResolvedRef.current = true;
+      setMapFocusCenter({ lat, lon });
+      lastLocationRef.current = { lat, lon };
+      void loadNearbyBeaches(lat, lon);
+    };
+
+    // 1. Signed-in home beach.
+    if (homeBeach && isFiniteCoord(homeBeach.lat) && isFiniteCoord(homeBeach.lon)) {
+      centerOn(homeBeach.lat, homeBeach.lon);
+      return;
+    }
+
+    // 2. Last beach the user was looking at, then 3. nearest to their location.
+    void (async () => {
+      const last = await resolveLastViewedCenter();
+      if (cancelled || initialCenterResolvedRef.current) return;
+      if (last) {
+        centerOn(last.lat, last.lon);
+        return;
+      }
+      // 3. Nearest to the user — only now do we request GPS. Load the default
+      // area first as a baseline so a denied or slow GPS still shows beaches;
+      // a granted GPS fix updates userLocation and the effect above reloads.
+      initialCenterResolvedRef.current = true;
+      lastLocationRef.current = { ...MISSION_BEACH_COORDS };
+      void loadNearbyBeaches(MISSION_BEACH_COORDS.lat, MISSION_BEACH_COORDS.lon);
+      getUserLocation();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profileLoading, homeBeach, loadNearbyBeaches, getUserLocation]);
+
+  // Hydrate deep-linked search state from the URL. Local toolbar edits may strip the
+  // stale URL param without clearing the active input state.
+  useEffect(() => {
+    const searchFromUrl = searchParams.get("search");
+    if (searchFromUrl === null) {
+      if (preserveSearchStateOnNextUrlClearRef.current) {
+        preserveSearchStateOnNextUrlClearRef.current = false;
+        return;
+      }
+      setSearchQuery("");
+      return;
+    }
+
+    preserveSearchStateOnNextUrlClearRef.current = false;
     setSearchQuery(searchFromUrl);
+    if (searchFromUrl) {
+      setMapFocusCenter(null);
+    }
   }, [searchParams, setSearchQuery]);
 
   // Apply filters from URL params on initial mount (e.g. /map?type=reef or /map?level=beginner)
@@ -130,6 +237,7 @@ export function MapView() {
 
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
+      setMapFocusCenter(null);
       setSelectedBeach(beach);
       // Smooth scroll to top to show the selected beach on map
       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -137,21 +245,11 @@ export function MapView() {
     [setSelectedBeach]
   );
 
-  const handleSidebarNavigate = useCallback(
-    (beach: Beach) => {
-      const beachUrl = getBeachHrefSafe({
-        id: beach.id,
-        slug: beach.slug,
-        city: beach.city,
-        state: beach.state,
-      });
-      if (beachUrl) router.push(beachUrl);
-    },
-    [router]
-  );
-
   const stripMapUrlParams = useCallback(
-    (keys: readonly string[]) => {
+    (
+      keys: readonly string[],
+      options?: { preserveSearchState?: boolean }
+    ) => {
       const params = new URLSearchParams(searchParams.toString());
       let mutated = false;
       for (const key of keys) {
@@ -161,6 +259,9 @@ export function MapView() {
         }
       }
       if (mutated) {
+        if (options?.preserveSearchState && keys.includes("search")) {
+          preserveSearchStateOnNextUrlClearRef.current = true;
+        }
         const qs = params.toString();
         router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
       }
@@ -173,6 +274,7 @@ export function MapView() {
   // update lands — same value, React bails — but skipping the direct hook write would
   // introduce a one-tick window where the UI still shows filtered results.
   const handleClearSearch = useCallback(() => {
+    setMapFocusCenter(null);
     clearSearch();
     stripMapUrlParams(["search"]);
     // Reset to nearby beaches when clearing search
@@ -183,260 +285,107 @@ export function MapView() {
     }
   }, [clearSearch, stripMapUrlParams, userLocation, loadNearbyBeaches, getUserLocation]);
 
+  const handleSearchChange = useCallback(
+    (query: string) => {
+      setMapFocusCenter(null);
+      setSelectedBeach(null);
+      setSearchQuery(query);
+      stripMapUrlParams(["search"], { preserveSearchState: true });
+    },
+    [setSearchQuery, setSelectedBeach, stripMapUrlParams]
+  );
+
   const handleClearAll = useCallback(() => {
+    setMapFocusCenter(null);
     clearAllFilters();
     stripMapUrlParams(["search", "type", "level"]);
   }, [clearAllFilters, stripMapUrlParams]);
 
-  // Distance calculation function using centralized utility
-  // Uses userLocation from closure - child components call with (beachLat, beachLng) only
-  const getDistanceFromUser = useCallback(
-    (beachLat: number, beachLng: number): string => {
-      if (!userLocation) return "";
-      return (
-        calculateDistanceFormatted(
-          { lat: userLocation.lat, lon: userLocation.lon },
-          { lat: beachLat, lon: beachLng },
-          "miles"
-        ) + " away"
-      );
+  const handleUseMyLocation = useCallback(() => {
+    setSelectedBeach(null);
+    clearSearch();
+    setMapFocusCenter(null);
+    lastLocationRef.current = null;
+    getUserLocation(true);
+  }, [clearSearch, getUserLocation, setSelectedBeach]);
+
+  const handleUseDefaultLocation = useCallback(() => {
+    setMapFocusCenter(null);
+    applyDefaultLocation();
+  }, [applyDefaultLocation]);
+
+  const handleRegionSelect = useCallback(
+    (region: MapRegionPill) => {
+      setSelectedBeach(null);
+      clearSearch();
+      setMapFocusCenter(region.center);
+      stripMapUrlParams(["search"]);
+      lastLocationRef.current = null;
+      void loadNearbyBeaches(region.center.lat, region.center.lon);
     },
-    [userLocation]
+    [clearSearch, loadNearbyBeaches, setSelectedBeach, stripMapUrlParams]
   );
 
   const handleMapClick = useCallback(() => {
+    setMapFocusCenter(null);
     setSelectedBeach(null);
   }, [setSelectedBeach]);
 
-  const handleShowBeaches = useCallback(() => {
-    setSelectedBeach(null);
-    setShowRecovery(false);
-  }, [setSelectedBeach]);
+  const hasActiveFilters =
+    searchQuery.trim().length > 0 ||
+    filters.beginnerFriendly ||
+    filters.breakTypes.size > 0;
 
-  const handleDismissAttempt = useCallback(() => {
-    setShowRecovery(true);
-  }, []);
-
-  const handleBoundsChange = useCallback(
-    (bounds: { west: number; south: number; east: number; north: number }) => {
-      setViewportBounds(bounds);
-    },
-    []
-  );
-
-  const handleWaveHeightsChange = useCallback(
-    (map: Map<string, number | undefined>) => {
-      setWaveHeightMap(map);
-    },
-    []
-  );
-
-  const loading = locationLoading || beachLoading;
-
-  const viewportBeaches = useMemo(
-    () => filterBeachesByViewport(filteredBeaches, viewportBounds),
-    [filteredBeaches, viewportBounds]
-  );
-
-  // Update region viewport when the active region changes
-  useEffect(() => {
-    if (!activeRegion || activeRegion === "ALL") {
-      setRegionViewport(null);
-      return;
-    }
-
-    const regionBeaches = (beaches || []).filter(
-      (beach) => (beach.region || "") === activeRegion
-    );
-
-    const coordinates = regionBeaches
-      .map((beach) => {
-        if (typeof beach.lat === "number" && typeof beach.lon === "number") {
-          return { lat: beach.lat, lon: beach.lon };
-        }
-        return null;
-      })
-      .filter(Boolean) as Array<{ lat: number; lon: number }>;
-
-    if (coordinates.length === 0) {
-      setRegionViewport(null);
-      return;
-    }
-
-    const lats = coordinates.map((coord) => coord.lat);
-    const lons = coordinates.map((coord) => coord.lon);
-
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLon = Math.min(...lons);
-    const maxLon = Math.max(...lons);
-
-    const centerLat = (minLat + maxLat) / 2;
-    const centerLon = (minLon + maxLon) / 2;
-
-    const latSpan = Math.abs(maxLat - minLat);
-    const lonSpan = Math.abs(maxLon - minLon);
-    const keyBase = `${minLat.toFixed(5)}-${minLon.toFixed(5)}-${maxLat.toFixed(
-      5
-    )}-${maxLon.toFixed(5)}`;
-
-    if (latSpan < 0.002 && lonSpan < 0.002) {
-      setRegionViewport({
-        region: activeRegion,
-        key: `${activeRegion}-center-${keyBase}`,
-        center: [centerLat, centerLon],
-        zoom: 13,
-      });
-      return;
-    }
-
-    setRegionViewport({
-      region: activeRegion,
-      key: `${activeRegion}-bounds-${keyBase}`,
-      center: [centerLat, centerLon],
-      bounds: [
-        [minLon, minLat],
-        [maxLon, maxLat],
-      ],
-    });
-  }, [activeRegion, beaches]);
+  const selectedBeachForMap = mapFocusCenter ? null : selectedBeach;
 
   return (
     <div className="flex-1 flex flex-col min-h-0" data-testid="map-view">
-      {/* Map Controls (View Mode Toggle & Near Me) */}
-      <MapSearchHeader
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        onNearMe={() => {
-          // Clear selection so map centers on user location
-          setSelectedBeach(null);
-          clearSearch();
-          lastLocationRef.current = null; // Allow reload at same location
-          getUserLocation(true); // Force fresh geolocation
-        }}
+      <MapToolbar
+        searchQuery={searchQuery}
+        onSearchChange={handleSearchChange}
+        onClearSearch={handleClearSearch}
+        suggestions={filteredBeaches.slice(0, 6)}
+        onSuggestionSelect={handleBeachSelect}
+        regions={MAP_REGION_PILLS}
+        onRegionSelect={handleRegionSelect}
+        onUseMyLocation={handleUseMyLocation}
+        filters={filters}
+        onToggleBeginner={toggleBeginnerFriendly}
+        onToggleBreakType={toggleBreakType}
+        onClearAll={handleClearAll}
+        hasActiveFilters={hasActiveFilters}
+        showSwellField={showSwellField}
+        onToggleSwellField={() => setShowSwellField((v) => !v)}
       />
 
-      {/* Region Tabs + Filter Chips */}
-      <div className="sticky top-[64px] z-10 bg-background border-b px-4 py-2">
-        {/* Regions */}
-        {regions && regions.length > 0 && (
-          <Tabs
-            defaultValue="ALL"
-            onValueChange={(v) => setActiveRegion(v as any)}
-          >
-            <TabsList className="flex flex-wrap gap-1 overflow-x-auto">
-              <TabsTrigger value="ALL">All</TabsTrigger>
-              {regions.map((r) => (
-                <TabsTrigger key={r} value={r}>
-                  {r}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        )}
-
-        {/* Filter Chips */}
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Badge
-            variant={filters.beginnerFriendly ? "default" : "outline"}
-            className="cursor-pointer"
-            onClick={() => toggleBeginnerFriendly()}
-          >
-            Beginner-friendly
-          </Badge>
-          {["beach", "point", "reef", "longboard", "bodyboard"].map((t) => (
-            <Badge
-              key={t}
-              variant={filters.breakTypes.has(t) ? "default" : "outline"}
-              className="cursor-pointer"
-              onClick={() => toggleBreakType(t)}
-            >
-              {t}
-            </Badge>
-          ))}
-          {(searchQuery || filters.beginnerFriendly || filters.breakTypes.size > 0) && (
-            <Badge
-              variant="secondary"
-              className="cursor-pointer"
-              onClick={handleClearAll}
-              data-testid="map-clear-all"
-            >
-              Clear all
-            </Badge>
-          )}
+      {/* Content */}
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="flex-1 relative min-h-0 flex flex-col">
+          <MapContent
+            loading={false}
+            locationError={locationError}
+            usingDefaultLocation={usingDefaultLocation}
+            hasTimedOut={hasTimedOut}
+            userLocation={userLocation}
+            focusCenter={mapFocusCenter}
+            selectedBeach={selectedBeachForMap}
+            filteredBeaches={filteredBeaches}
+            searchQuery={searchQuery}
+            regionViewport={null}
+            onGetUserLocation={handleUseMyLocation}
+            onUseDefaultLocation={handleUseDefaultLocation}
+            onBeachSelect={handleBeachSelect}
+            onMapClick={handleMapClick}
+            autoNavigateOnMarkerClick={true}
+            showSwellField={showSwellField}
+            swellLayerId={swellLayerId}
+            onSwellLayerChange={setSwellLayerId}
+            swellTimelineSteps={swellTimelineSteps}
+            swellTimelineIndex={swellTimelineIndex}
+            onSwellTimelineChange={setSwellTimelineIndex}
+          />
         </div>
       </div>
-
-      {/* Content */}
-      {viewMode === "map" ? (
-        <div className="flex-1 flex flex-col md:flex-row min-h-0">
-          {/* Desktop sidebar (JS-conditional: portal-based Drawer can't be hidden via CSS) */}
-          {!isMobile && (
-            <div className="flex w-[380px] shrink-0 border-r">
-              <MapSidebar
-                beaches={viewportBeaches}
-                waveHeightMap={waveHeightMap}
-                selectedBeach={selectedBeach}
-                userLocation={userLocation}
-                onBeachSelect={handleSidebarNavigate}
-              />
-            </div>
-          )}
-
-          {/* Map fills remaining space */}
-          <div className="flex-1 relative min-h-0 flex flex-col">
-            <MapContent
-              loading={loading}
-              locationError={locationError}
-              usingDefaultLocation={usingDefaultLocation}
-              hasTimedOut={hasTimedOut}
-              userLocation={userLocation}
-              selectedBeach={selectedBeach}
-              filteredBeaches={filteredBeaches}
-              searchQuery={searchQuery}
-              regionViewport={regionViewport}
-              onGetUserLocation={() => getUserLocation(true)}
-              onUseDefaultLocation={useDefaultLocation}
-              onBeachSelect={handleBeachSelect}
-              onBoundsChange={handleBoundsChange}
-              onWaveHeightsChange={handleWaveHeightsChange}
-              onMapClick={isMobile ? handleMapClick : undefined}
-              autoNavigateOnMarkerClick={!isMobile}
-              onShowBeaches={isMobile && showRecovery ? handleShowBeaches : undefined}
-              visibleBeachCount={viewportBeaches.length}
-            />
-
-          </div>
-
-          {/* Mobile bottom sheet (JS-conditional: Vaul Drawer uses portal, escapes CSS) */}
-          {isMobile && (
-            <MapBottomSheet
-              beaches={viewportBeaches}
-              waveHeightMap={waveHeightMap}
-              selectedBeach={selectedBeach}
-              userLocation={userLocation}
-              onBeachSelect={handleBeachSelect}
-              getDistanceFromUser={getDistanceFromUser}
-              onDeselectBeach={handleMapClick}
-              onDismissAttempt={handleDismissAttempt}
-            />
-          )}
-
-        </div>
-      ) : (
-        <BeachList
-          filteredBeaches={filteredBeaches}
-          searchQuery={searchQuery}
-          userLocation={userLocation}
-          usingDefaultLocation={usingDefaultLocation}
-          loading={loading}
-          onBeachSelect={handleBeachSelect}
-          onClearSearch={handleClearSearch}
-          onGetUserLocation={getUserLocation}
-          onLoadBeaches={loadBeaches}
-          getDistanceFromUser={getDistanceFromUser}
-        />
-      )}
     </div>
   );
 }

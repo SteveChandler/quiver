@@ -4,8 +4,9 @@ import type { MapDisplayMode } from "@/components/map/map-marker-builder";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import {
   formatWaterTemp,
-  formatWaveHeightBucket,
 } from "@/lib/utils/wave-formatters";
+import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
+import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 
 const DEFAULT_VISIBLE_BEACHES = 5;
 const DESCRIPTION_MAX_LENGTH = 96;
@@ -14,6 +15,7 @@ interface ClusterPopupContentOptions {
   cluster: ClusterPoint;
   beaches: Beach[];
   waveHeightMap: Map<string, number | undefined>;
+  displayForecastMap?: Map<string, ForecastDisplay | undefined>;
   waterTempMap?: Map<string, string | undefined>;
   displayMode?: MapDisplayMode;
   maxVisibleBeaches?: number;
@@ -98,16 +100,21 @@ function appendText(
 function formatBeachMeta(
   beach: Beach,
   waveHeightMap: Map<string, number | undefined>,
+  displayForecastMap: Map<string, ForecastDisplay | undefined> | undefined,
   waterTempMap: Map<string, string | undefined> | undefined,
   displayMode: MapDisplayMode
 ): string {
   const labels: string[] = [];
+  const waveHeight = waveHeightMap.get(beach.id);
   const condition =
     displayMode === "water-temp"
       ? formatWaterTemp(waterTempMap?.get(beach.id))
-      : waveHeightMap.has(beach.id)
-        ? formatWaveHeightBucket(waveHeightMap.get(beach.id))
-        : null;
+      : displayForecastMap?.get(beach.id)?.label ??
+        (waveHeightMap.has(beach.id)
+        ? waveHeight == null
+          ? null
+          : formatWaveHeightRange(waveHeight)
+        : null);
 
   if (condition && condition !== "—") labels.push(condition);
 
@@ -133,6 +140,7 @@ export function createClusterPopupContent({
   cluster,
   beaches,
   waveHeightMap,
+  displayForecastMap,
   waterTempMap,
   displayMode = "wave-height",
   maxVisibleBeaches = DEFAULT_VISIBLE_BEACHES,
@@ -176,7 +184,13 @@ export function createClusterPopupContent({
     }
     item.appendChild(title);
 
-    const meta = formatBeachMeta(beach, waveHeightMap, waterTempMap, displayMode);
+    const meta = formatBeachMeta(
+      beach,
+      waveHeightMap,
+      displayForecastMap,
+      waterTempMap,
+      displayMode
+    );
     if (meta) {
       appendText(item, "div", "quiver-cluster-popup__meta", meta);
     }

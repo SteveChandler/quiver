@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Loader2, MapPin, Waves } from "lucide-react";
+import { Loader2, Waves } from "lucide-react";
 import { MapImage } from "@/components/map-image";
 import { getStaticMapImageUrlWithWaveHeight } from "@/lib/map-utils";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
@@ -202,21 +202,6 @@ export function MapDisplay({
               </p>
             )}
         </div>
-
-        {/* Location controls */}
-        {(usingDefaultLocation || !userLocation) && (
-          <div className="absolute top-4 right-4">
-            <Button
-              onClick={onRetryLocation}
-              size="sm"
-              variant="secondary"
-              className="shadow-md"
-            >
-              <MapPin className="h-4 w-4 mr-1" />
-              {!userLocation ? "Use My Location" : "Use My Actual Location"}
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   );
