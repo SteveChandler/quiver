@@ -56,6 +56,15 @@ export function toVercelReferrers(exportInput: VercelExportInput): VercelReferre
 
 function groupedTotals(raw: unknown): Array<[string, number]> {
   const data = readObjectData(raw);
+  if (Array.isArray(data.data)) {
+    return data.data
+      .map((row) => [
+        isRecord(row) && typeof row.key === "string" ? row.key : "",
+        numberOrZero(isRecord(row) ? row.total : undefined),
+      ] as [string, number])
+      .sort((a, b) => b[1] - a[1]);
+  }
+
   const groups = data.groups;
   if (!isRecord(groups)) return [];
 

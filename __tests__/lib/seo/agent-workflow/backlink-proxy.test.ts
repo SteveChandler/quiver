@@ -39,7 +39,6 @@ describe("SEO workflow backlink proxy", () => {
         sampleReferringDomains: ["surf-school.example"],
         topTargetUrls: [{ url: "https://www.quiversurf.app/map", links: 2 }],
       }],
-      competitorDeltas: ["Swellify sitemap changed"],
     });
 
     expect(proxy.referrers).toEqual([{ referrer: "google.com", visits: 5 }]);

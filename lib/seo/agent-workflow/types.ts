@@ -252,8 +252,14 @@ export interface StoreListingSnapshot {
 export interface StoreSnapshotInput {
   generatedAt: string;
   listings: StoreListingSnapshot[];
-  competitorDeltas: string[];
+  competitorDeltas: CompetitorDelta[];
   missing?: string[];
+}
+
+export interface CompetitorDelta {
+  source: "competitor-report";
+  runId: string;
+  summary: string;
 }
 
 export interface DataForSeoSerpRanking {
@@ -265,12 +271,21 @@ export interface DataForSeoSerpRanking {
   depth: number;
   quiverRank: number | null;
   quiverUrl?: string;
+  serpFeatures?: DataForSeoSerpFeature[];
   topCompetitors: Array<{
     domain: string;
     url?: string;
     title?: string;
     rank: number;
   }>;
+}
+
+export interface DataForSeoSerpFeature {
+  type: string;
+  rank?: number;
+  title?: string;
+  url?: string;
+  domain?: string;
 }
 
 export interface DataForSeoAsoRanking {
@@ -296,11 +311,36 @@ export interface DataForSeoCompetitorKeyword {
   estimatedTraffic?: number;
 }
 
+export interface DataForSeoKeywordMetric {
+  keyword: string;
+  location: string;
+  locationCode?: number;
+  languageCode: string;
+  searchVolume?: number;
+  competitionLevel?: string;
+  cpc?: number;
+  trend?: {
+    monthly?: number;
+    quarterly?: number;
+    yearly?: number;
+  };
+  intent?: {
+    main?: string;
+    foreign: string[];
+  };
+  monthlySearches?: Array<{
+    year: number;
+    month: number;
+    searchVolume: number;
+  }>;
+}
+
 export interface DataForSeoExportInput {
   generatedAt: string;
   googleRankings: DataForSeoSerpRanking[];
   asoRankings: DataForSeoAsoRanking[];
   competitorKeywords: DataForSeoCompetitorKeyword[];
+  keywordMetrics?: DataForSeoKeywordMetric[];
   missing?: string[];
   estimatedCostUsd?: number;
 }
@@ -320,7 +360,6 @@ export interface BacklinkProxyInput {
   embedReferrers: VercelReferrerMetric[];
   outreachStatuses: Array<{ target: string; status: string }>;
   manualExports: ManualBacklinkExport[];
-  competitorDeltas: string[];
   missing?: string[];
 }
 
@@ -353,6 +392,31 @@ export interface WeeklySeoReportInput {
   technical?: SeoRecommendation[];
   metadata?: SeoMetadataAuditInput;
   missing: string[];
+}
+
+export type WeeklyActionSource = "seo" | "aso" | "competitor";
+
+export type WeeklyActionCategory =
+  | "content-refresh"
+  | "ctr-improvement"
+  | "internal-linking"
+  | "listing-copy"
+  | "pricing-verification"
+  | "competitor-monitoring"
+  | "technical-fix";
+
+export type WeeklyActionConfidence = "high" | "medium";
+
+export interface WeeklyActionItem {
+  source: WeeklyActionSource;
+  category: WeeklyActionCategory;
+  priority: Extract<SeoPriority, "critical" | "high" | "medium">;
+  title: string;
+  ownerSurface: string;
+  nextStep: string;
+  evidence: string[];
+  confidence: WeeklyActionConfidence;
+  whyNow: string;
 }
 
 export interface SeoDraftRequest {

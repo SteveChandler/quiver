@@ -22,7 +22,11 @@ interface Props {
 }
 
 const LEGACY_LEARN_SLUGS: Record<string, string> = {
+  "how-to-read-a-surf-report": "how-to-read-surf-conditions",
   "how-to-read-a-surf-forecast": "how-to-read-surf-conditions",
+  "wind-swell-vs-ground-swell": "groundswell-vs-wind-swell",
+  "wind-swell-vs-groundswell": "groundswell-vs-wind-swell",
+  "groundswell-vs-windswell": "groundswell-vs-wind-swell",
 };
 
 function resolveArticleSlug(slug: string): string {

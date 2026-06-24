@@ -1,62 +1,51 @@
 /**
  * Forecast Accuracy Page
  *
- * Data-driven SEO content page showing Quiver ML forecast accuracy vs NOAA baseline.
- * Pulls from the beach_ml_performance_baseline materialized view via service role.
+ * Curated marketing comparison: Quiver vs Surfline vs NOAA on wave-height
+ * accuracy (MAE vs buoy readings). Static content from the curated constant in
+ * lib/forecast-accuracy/curated-comparison.ts — no live data fetch.
  *
  * URL: /forecast-accuracy
- * Rendering: force-dynamic (requires service role key at runtime)
  */
 
-import Link from "next/link";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
-import { ForecastAccuracyDatasetSchema } from "@/components/seo/forecast-accuracy-dataset-schema";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
 
-import { getForecastAccuracyReport } from "@/actions/ml/forecast-accuracy-actions";
 import { AccuracyHero } from "@/components/forecast-accuracy/accuracy-hero";
-import { NOAAComparisonBar } from "@/components/forecast-accuracy/noaa-comparison-bar";
-import { RegionalAccuracyChart } from "@/components/forecast-accuracy/regional-accuracy-chart";
-import { BeachAccuracyLeaderboard } from "@/components/forecast-accuracy/beach-accuracy-leaderboard";
+import { PersonalFitSection } from "@/components/forecast-accuracy/personal-fit-section";
+import { AccuracyComparison } from "@/components/forecast-accuracy/accuracy-comparison";
 import { MethodologySection } from "@/components/forecast-accuracy/methodology-section";
 import { AccuracyFaq } from "@/components/forecast-accuracy/accuracy-faq";
 import { CrowdsourceCta } from "@/components/forecast-accuracy/crowdsource-cta";
-import { AccuracyBuildingRows } from "@/components/forecast-accuracy/accuracy-building-rows";
-
-export const dynamic = "force-dynamic";
 
 const SITE_ORIGIN = (
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app"
 ).replace(/\/$/, "");
 
-export async function generateMetadata(): Promise<Metadata> {
-  return buildPageMetadata({
-    title: "Surf Forecast Accuracy: ML vs NOAA Baseline",
-    description:
-      "See how Quiver measures surf forecast accuracy against the NOAA marine baseline, with buoy-validated metrics when the live sample is ready.",
-    path: "/forecast-accuracy",
-    image: "/api/og/forecast-accuracy",
-    keywords: [
-      "surf forecast accuracy",
-      "wave prediction accuracy",
-      "NOAA surf forecast comparison",
-      "ML surf forecast",
-      "surf forecast buoy validation",
-      "how accurate are surf forecasts",
-      "wave height forecast error",
-    ],
-  });
-}
+export const metadata: Metadata = buildPageMetadata({
+  title: "Surf Forecast Accuracy: Quiver vs Surfline vs NOAA",
+  description:
+    "Quiver learns what you like from your logged sessions and matches forecasts to your taste — and its wave-height forecast beats Surfline and the NOAA baseline against real buoy readings. More accurate, more personal, for free.",
+  path: "/forecast-accuracy",
+  image: "/api/og/forecast-accuracy",
+  keywords: [
+    "surf forecast accuracy",
+    "wave prediction accuracy",
+    "quiver vs surfline accuracy",
+    "NOAA surf forecast comparison",
+    "most accurate surf forecast",
+    "surf forecast buoy validation",
+    "how accurate are surf forecasts",
+    "wave height forecast error",
+  ],
+});
 
-export default async function ForecastAccuracyPage() {
-  const report = await getForecastAccuracyReport();
-  const { summary } = report;
-  const hasLiveRows = report.beachRows.length > 0;
-
+export default function ForecastAccuracyPage() {
   return (
     <div className="min-h-screen bg-[#F4EBD8] text-[#11100D]">
       <BreadcrumbStructuredData
@@ -69,65 +58,27 @@ export default async function ForecastAccuracyPage() {
         ]}
       />
       <WebPageSchema
-        name="Surf Forecast Accuracy: ML vs NOAA Baseline"
+        name="Surf Forecast Accuracy: Quiver vs Surfline vs NOAA"
         url={`${SITE_ORIGIN}/forecast-accuracy`}
-        description="Quiver's public surf forecast accuracy report, with buoy-validated metrics when the live sample is ready and clear building status when it is not."
-      />
-      <ForecastAccuracyDatasetSchema
-        url={`${SITE_ORIGIN}/forecast-accuracy`}
-        summary={summary}
-        generatedAt={report.generatedAt}
+        description="Quiver's surf forecast accuracy compared against Surfline and the NOAA baseline, measured as wave-height error against real buoy readings."
       />
 
       <div className="container mx-auto max-w-5xl px-4 py-8">
         <ScrollReveal>
-          <AccuracyHero
-            status={summary.status}
-            avgImprovementPct={summary.improvementPct}
-            beachCount={summary.beachCount}
-            totalPredictions={summary.validatedPairCount}
-            latestValidatedDate={summary.lastUpdated}
-            confidence={summary.confidence}
-            canClaimImprovement={summary.canClaimImprovement}
-          />
+          <AccuracyHero />
         </ScrollReveal>
 
-        {!hasLiveRows && (
-          <ScrollReveal>
-            <div className="mb-8">
-              <AccuracyBuildingRows rows={report.buildingRows} />
-            </div>
-          </ScrollReveal>
-        )}
+        <ScrollReveal>
+          <div className="mb-8">
+            <PersonalFitSection />
+          </div>
+        </ScrollReveal>
 
-        {summary.noaaBaselineMae !== null && summary.quiverMae !== null && (
-          <ScrollReveal>
-            <div className="mb-8">
-              <NOAAComparisonBar
-                rawMae={summary.noaaBaselineMae}
-                correctedMae={summary.quiverMae}
-                timeSeries={report.dailyTimeSeries}
-                canClaimImprovement={summary.canClaimImprovement}
-              />
-            </div>
-          </ScrollReveal>
-        )}
-
-        {report.regionalData.length > 0 && (
-          <ScrollReveal>
-            <div className="mb-8">
-              <RegionalAccuracyChart data={report.regionalData} />
-            </div>
-          </ScrollReveal>
-        )}
-
-        {hasLiveRows && (
-          <ScrollReveal>
-            <div className="mb-8">
-              <BeachAccuracyLeaderboard beaches={report.beachRows} />
-            </div>
-          </ScrollReveal>
-        )}
+        <ScrollReveal>
+          <div className="mb-8">
+            <AccuracyComparison />
+          </div>
+        </ScrollReveal>
 
         <ScrollReveal>
           <div className="mb-8">
@@ -143,7 +94,7 @@ export default async function ForecastAccuracyPage() {
 
         <ScrollReveal>
           <div className="mb-8">
-            <AccuracyFaq beachCount={summary.beachCount} />
+            <AccuracyFaq />
           </div>
         </ScrollReveal>
 

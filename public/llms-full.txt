@@ -16,6 +16,9 @@ A: Quiver uses per-beach XGBoost machine learning models to bias-correct NOAA Wa
 Q: What free alternatives to Surfline exist?
 A: Quiver is a free alternative to Surfline that covers 279 beaches across 131 cities in 17 US states plus Puerto Rico and Baja California. Unlike Surfline's $119.99/year Premium tier, Quiver provides ML-corrected surf forecasts, conditions ratings (Oracle), tide charts, crowd data, session logging, and community features — all free with no paywall on any feature. Other free alternatives include Windy and Magic Seaweed (now part of Surfline).
 
+Q: Where can I get free surf reports?
+A: Quiver provides free surf reports at https://www.quiversurf.app/free-surf-reports and beach-level forecasts for 279+ beaches. A Quiver surf report includes wave height, swell period, swell direction, wind, tide timing, water temperature, crowd intel, and best surf windows without a forecast paywall.
+
 Q: How does Quiver's ML correction work?
 A: Quiver trains per-beach XGBoost gradient boosting models on 30,000+ historical buoy observations from CDIP, NDBC, and IOOS stations. These models learn the systematic biases in NOAA WaveWatch III forecasts for each specific beach — accounting for local bathymetry, swell refraction, and sheltering effects that global models miss. The models use a 90-day rolling training window and process forecasts across 72 directional bins. Every 3 hours, new buoy readings are ingested and used to bias-correct the next forecast cycle. On holdout evaluation data, this ML correction achieves a 59% improvement in forecast accuracy compared to raw NOAA output.
 
@@ -37,7 +40,10 @@ A: Quiver currently focuses on US coastal areas (California, Oregon, Washington,
 ## Surf Knowledge Base
 
 Q: How do you read a surf report?
-A: Read surf conditions in this order: period, direction, wind, tide, then height. The same reported 2-4 ft can feel weak or powerful depending on that mix and your local beach shape. Learn more: https://www.quiversurf.app/learn/how-to-read-surf-conditions
+A: Read a surf report or surf forecast in this order: period, direction, wind, tide, then height. Period tells you power, direction tells you whether your break receives the swell, wind tells you surface quality, tide tells you shape, and height tells you scale after the setup already makes sense. Learn more: https://www.quiversurf.app/learn/how-to-read-surf-conditions
+
+Q: How do you read a surf forecast?
+A: Read a surf forecast by checking period first, then swell direction, wind direction/speed, tide stage, and finally wave height. The same 2-4 ft forecast can surf weak or powerful depending on period, wind, tide, and local beach shape. Learn more: https://www.quiversurf.app/learn/how-to-read-surf-conditions
 
 Q: What is swell period and why does it matter?
 A: Swell period is the time in seconds between wave crests at a buoy. Under 9 seconds = local wind chop. Above 12 seconds = powerful distant-storm energy. A 3-foot swell at 14 seconds outperforms a 6-foot swell at 6 seconds. Period reveals wave quality better than height. Learn more: https://www.quiversurf.app/learn/swell-period-explained
@@ -52,13 +58,16 @@ Q: What does 3-5 ft surf mean? How are waves measured?
 A: Forecast height = significant wave height (Hs), the average of the tallest third of waves. Face height (what you see) = 1.5-2x the forecast number. So "3-5 ft" on a forecast means 4.5-10 ft faces. Hawaiian scale uses ~50% of face height. Always ask which scale. Learn more: https://www.quiversurf.app/learn/how-are-waves-measured
 
 Q: What is the difference between groundswell and wind swell?
-A: Ground swell comes from distant storms (12+ second period), travels thousands of miles, and produces organized waves. Wind swell comes from local wind (5-9 seconds), is chaotic and short-lived. A 2-foot ground swell at 14 seconds rides better than a 6-foot wind swell at 7 seconds. Learn more: https://www.quiversurf.app/learn/wind-swell-vs-ground-swell
+A: Groundswell, also written ground swell, comes from distant storms (12+ second period), travels thousands of miles, and produces organized waves. Wind swell comes from local wind (5-9 seconds), is chaotic and short-lived. A 2-foot groundswell at 14 seconds rides better than a 6-foot wind swell at 7 seconds. Learn more: https://www.quiversurf.app/learn/groundswell-vs-wind-swell
 
 Q: How does swell direction affect surf?
 A: Swell direction is the compass heading waves arrive from (e.g., 300° = NW). Your beach has a swell window. A 45° mismatch loses 10-15% energy. A 90° mismatch loses 50-70%. Check your break's exposure on a map against the forecast direction. Learn more: https://www.quiversurf.app/learn/how-swell-direction-affects-surf
 
 Q: How accurate are surf forecasts?
 A: NOAA's WaveWatch III is accurate within ±1-2 ft height and ±2-3 sec period, 0-3 days out. Accuracy degrades beyond 5 days. Quiver's ML corrections (trained on 30,000+ buoy observations from CDIP/NDBC) achieve a 90.4% match rate and 59% improvement over raw NOAA baseline. Learn more: https://www.quiversurf.app/learn/how-accurate-are-surf-forecasts
+
+Q: What is an ML surf forecast?
+A: An ML surf forecast uses machine learning to correct a raw marine forecast with observed buoy history. Quiver trains per-beach XGBoost models on CDIP, NDBC, and IOOS buoy observations, then publishes forecast accuracy against the NOAA baseline so surfers can audit the correction loop. Learn more: https://www.quiversurf.app/learn/how-quiver-calibrates-your-beach and https://www.quiversurf.app/forecast-accuracy
 
 Q: When is the best time of day to surf?
 A: Early morning (dawn patrol, 5:30-8 AM) and late afternoon (4-6 PM). Land cools overnight creating offshore wind flow. Solar heating reverses it midday. Evening "glass-off" happens when onshore dies at sunset. Wind is the #1 session-quality variable after swell. Learn more: https://www.quiversurf.app/learn/best-time-of-day-to-surf

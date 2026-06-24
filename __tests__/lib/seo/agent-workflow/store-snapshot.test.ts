@@ -30,7 +30,17 @@ describe("SEO workflow store snapshot", () => {
       "Unexpected live title: Surf Forecast: Quiver",
       "Live price evidence not found in listing doc: $4.99",
     ]);
-    expect(buildStoreSnapshot("2026-05-20T12:00:00Z", [listing]).listings).toHaveLength(1);
+    expect(buildStoreSnapshot("2026-05-20T12:00:00Z", [listing], [{
+      source: "competitor-report",
+      runId: "20260620T202412Z",
+      summary: "Swellify App Store extraction now exposes $4.99 alongside prior prices.",
+    }])).toMatchObject({
+      listings: [expect.objectContaining({ app: "Quiver" })],
+      competitorDeltas: [expect.objectContaining({
+        source: "competitor-report",
+        runId: "20260620T202412Z",
+      })],
+    });
   });
 
   it("extracts public price evidence from store HTML", () => {

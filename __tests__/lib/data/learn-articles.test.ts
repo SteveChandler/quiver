@@ -20,6 +20,12 @@ const expectedLearnMetadata = [
       "Swell period explained for surfers: what 6, 10, 12, and 16 seconds mean, when long period helps, and how to read period in a forecast.",
   },
   {
+    slug: "groundswell-vs-wind-swell",
+    title: "Groundswell vs Wind Swell: What Makes Better Surf?",
+    description:
+      "Groundswell comes from distant storms with 12+ second period and organized waves. Wind swell comes from local wind with 5-9 second period and choppy surf.",
+  },
+  {
     slug: "why-waves-better-in-morning",
     title: "Why Waves Are Better in the Morning: Wind Explained",
     description:
@@ -51,9 +57,9 @@ const expectedLearnMetadata = [
   },
   {
     slug: "how-to-read-surf-conditions",
-    title: "How to Read Surf Conditions: Why the Same Size Can Surf Differently",
+    title: "How to Read a Surf Report: Forecast & Conditions Guide",
     description:
-      "Learn how to read surf conditions by checking period, direction, wind, tide, and beach shape instead of wave height alone.",
+      "Learn how to read a surf report or surf forecast: period, direction, wind, tide, and wave height, plus what changes at your break.",
   },
 ];
 
