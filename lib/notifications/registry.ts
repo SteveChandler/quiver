@@ -69,6 +69,31 @@ const logSessionNudgeSchema = z.object({
   beach_id: z.string().nullable().optional(),
 });
 
+const dailyCallStreakReminderSchema = z.object({
+  streak: z.number().int().min(1),
+});
+
+const homeMorningCallSchema = z.object({
+  verdict: z.enum(["YES", "MAYBE", "NO"]),
+  beach_id: z.string().min(1),
+  beach_name: z.string().optional(),
+  forecast_at: z.string().nullable().optional(),
+  title: z.string().min(1),
+  body: z.string().min(1),
+});
+
+const weekendWindowSchema = z.object({
+  beach_id: z.string().min(1),
+  forecast_at: z.string().min(1),
+  window_local: z.string().optional(),
+  title: z.string().min(1),
+  body: z.string().min(1),
+});
+
+const weeklyStreakReminderSchema = z.object({
+  streak: z.number().int().min(1),
+});
+
 const waterQualitySchema = z.object({
   beach_id: z.string().min(1),
   beach_slug: z.string().min(1),
@@ -203,6 +228,31 @@ interface LogSessionNudgePayload {
   title: string;
   body: string;
   beach_id?: string | null;
+}
+
+interface DailyCallStreakReminderPayload {
+  streak: number;
+}
+
+interface HomeMorningCallPayload {
+  verdict: "YES" | "MAYBE" | "NO";
+  beach_id: string;
+  beach_name?: string;
+  forecast_at?: string | null;
+  title: string;
+  body: string;
+}
+
+interface WeekendWindowPayload {
+  beach_id: string;
+  forecast_at: string;
+  window_local?: string;
+  title: string;
+  body: string;
+}
+
+interface WeeklyStreakReminderPayload {
+  streak: number;
 }
 
 interface WaterQualityPayload {
@@ -491,6 +541,50 @@ export const NOTIFICATION_REGISTRY = {
       }
     },
   } satisfies NotificationTypeDef<SimilarityMatchPayload>,
+
+  home_morning_call: {
+    type: "home_morning_call",
+    channels: ["push"],
+    prefs: {
+      master: { push: "notif_push_enabled" },
+      perType: { push: "notif_reminders" },
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => homeMorningCallSchema.parse(input),
+    buildPushPayload: (p) => ({
+      title: p.title,
+      body: p.body,
+      data: {
+        type: "home_morning_call",
+        beach_id: p.beach_id,
+        verdict: p.verdict,
+        ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
+      },
+    }),
+  } satisfies NotificationTypeDef<HomeMorningCallPayload>,
+
+  weekend_window: {
+    type: "weekend_window",
+    channels: ["push"],
+    prefs: {
+      master: { push: "notif_push_enabled" },
+      perType: { push: "notif_reminders" },
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => weekendWindowSchema.parse(input),
+    buildPushPayload: (p) => ({
+      title: p.title,
+      body: p.body,
+      data: {
+        type: "weekend_window",
+        beach_id: p.beach_id,
+        forecast_at: p.forecast_at,
+        ...(p.window_local ? { window_local: p.window_local } : {}),
+      },
+    }),
+  } satisfies NotificationTypeDef<WeekendWindowPayload>,
 
   trial_ending: {
     type: "trial_ending",

@@ -62,6 +62,19 @@ test.describe('Guest Landing Page', () => {
 
     // Landing page should have some content
     expect(hasHero || hasMain).toBe(true);
+
+    const spotlight = page.getByTestId('field-guide-spotlight');
+    await expect(spotlight).toBeVisible({ timeout: 5000 });
+    await expect(
+      spotlight.getByRole('heading', { name: /quiver's swell view is here/i }),
+    ).toBeVisible();
+    await expect(spotlight.getByText('FREE · NEW IN THE APP')).toBeVisible();
+    await expect(
+      spotlight.getByRole('link', { name: 'Get the app' }),
+    ).toHaveAttribute(
+      'href',
+      '/download?source=landing_swell_view&placement=spotlight&platform=desktop',
+    );
   });
 
   test('should open auth modal when clicking login', async ({ page }) => {

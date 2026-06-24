@@ -8,6 +8,18 @@
 import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
 
 describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () => {
+  it("home_morning_call and weekend_window are registered as push-only reminders", () => {
+    const registry = NOTIFICATION_REGISTRY as any;
+
+    for (const key of ["home_morning_call", "weekend_window"]) {
+      expect(registry[key].channels).toEqual(["push"]);
+      expect(registry[key].prefs.master.push).toBe("notif_push_enabled");
+      expect(registry[key].prefs.perType.push).toBe("notif_reminders");
+      expect(registry[key].quietHours.mode).toBe("defer");
+      expect(registry[key].suppressSelfNotify).toBe(false);
+    }
+  });
+
   it("forecast_alert restores push alongside in_app", () => {
     const def = NOTIFICATION_REGISTRY.forecast_alert as unknown as {
       channels: string[];
