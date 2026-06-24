@@ -10,7 +10,7 @@ interface ProofStat {
 const STATS: ProofStat[] = [
   { value: "10-day", label: "surf outlooks" },
   { value: "Every 3 hours", label: "forecast refresh" },
-  { value: "1-tap", label: "session logging" },
+  { value: "Sharper calls", label: "session logging" },
 ];
 
 export function FieldGuideProof(): ReactElement {
