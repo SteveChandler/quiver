@@ -33,6 +33,63 @@ describe('Terrain-Aware Scoring', () => {
       expect(score).toBeLessThanOrEqual(100)
     })
 
+    it('scores swell directions inside and near a non-wrapping window', () => {
+      const scoreAtCenter = computeHourScoreBreakdown({
+        waveDirectionDeg: 250,
+        wavePeriodS: 12,
+        windDirectionDeg: 270,
+        windSpeedMs: 3,
+        tideHeightM: 2.5 / 3.28084,
+        params: {
+          windOffshoreDeg: 270,
+          windCrossOkKts: 15,
+          swellWindowMinDeg: 190,
+          swellWindowMaxDeg: 310,
+          tidePreferredFtMin: 1,
+          tidePreferredFtMax: 4,
+        },
+      })
+
+      const scoreNearEdge = computeHourScoreBreakdown({
+        waveDirectionDeg: 300,
+        wavePeriodS: 12,
+        windDirectionDeg: 270,
+        windSpeedMs: 3,
+        tideHeightM: 2.5 / 3.28084,
+        params: {
+          windOffshoreDeg: 270,
+          windCrossOkKts: 15,
+          swellWindowMinDeg: 190,
+          swellWindowMaxDeg: 310,
+          tidePreferredFtMin: 1,
+          tidePreferredFtMax: 4,
+        },
+      })
+
+      expect(scoreAtCenter.swellDirScore).toBeCloseTo(1)
+      expect(scoreNearEdge.swellDirScore).toBeGreaterThan(0)
+    })
+
+    it('scores swell directions inside a wrap-around window', () => {
+      const scoreInsideWrap = computeHourScoreBreakdown({
+        waveDirectionDeg: 350,
+        wavePeriodS: 12,
+        windDirectionDeg: 270,
+        windSpeedMs: 3,
+        tideHeightM: 2.5 / 3.28084,
+        params: {
+          windOffshoreDeg: 270,
+          windCrossOkKts: 15,
+          swellWindowMinDeg: 300,
+          swellWindowMaxDeg: 60,
+          tidePreferredFtMin: 1,
+          tidePreferredFtMax: 4,
+        },
+      })
+
+      expect(scoreInsideWrap.swellDirScore).toBeGreaterThan(0)
+    })
+
     it('should handle missing terrain data gracefully', () => {
       const beachWithNullTerrain: BeachMeta = {
         ...baseBeach,
@@ -206,8 +263,6 @@ describe('Terrain-Aware Scoring', () => {
       const breakdown = computeHourScoreBreakdown(input)
 
       expect(breakdown.terrainFactorsApplied).toBe(true)
-      expect(breakdown.windExposure).toBeDefined()
-      expect(breakdown.swellAccess).toBeDefined()
       expect(breakdown.windExposure).toBe(0.5) // Partial shelter
       expect(breakdown.swellAccess).toBe(1.0) // Full access
     })

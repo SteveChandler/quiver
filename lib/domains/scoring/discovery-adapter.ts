@@ -83,7 +83,7 @@ export function beachToSpotProfile(beach: Beach): SpotProfile {
  */
 export function forecastToSnapshot(forecast: EnhancedForecastEntity): ConditionsSnapshot {
   const waveHeight = parseFloat(forecast.wave_height || '0');
-  const wavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
+  const storedWavePeriod = parseFloat(forecast.wave_period?.replace('s', '') || '0');
 
   const windSpeed = parseFloat(forecast.wind_speed || '0');
   const windDirection = getDirectionDegrees(
@@ -103,6 +103,7 @@ export function forecastToSnapshot(forecast: EnhancedForecastEntity): Conditions
 
   const dominant = pickDominantSwell(partitions);
   const primarySwell = dominant ? toSwellComponent(dominant) : null;
+  const wavePeriod = dominant ? dominant.period : storedWavePeriod;
   const waveDirection = dominant ? dominant.direction : null;
 
   // `secondarySwell` carries the next-most-energetic non-dominant *swell*
