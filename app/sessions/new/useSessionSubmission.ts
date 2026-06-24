@@ -16,11 +16,13 @@ import { saveLastBeach } from "@/hooks/use-nearest-beach";
 interface UseSessionSubmissionOptions {
   mode: SessionFormMode;
   user: { id: string } | null;
+  forecastFeedbackId?: string;
 }
 
 export function useSessionSubmission({
   mode,
   user,
+  forecastFeedbackId,
 }: UseSessionSubmissionOptions) {
   const router = useRouter();
 
@@ -124,7 +126,14 @@ export function useSessionSubmission({
         user.id
       );
 
-      const result = await createLoggedSession(loggedSessionData);
+      const result = await createLoggedSession(
+        forecastFeedbackId
+          ? {
+              ...loggedSessionData,
+              forecast_feedback_context_id: forecastFeedbackId,
+            }
+          : loggedSessionData
+      );
 
       if (!result.success) {
         throw new Error(result.error);

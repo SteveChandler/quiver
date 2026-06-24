@@ -40,6 +40,7 @@ import { DataErrorBoundary } from "@/components/error-boundaries";
 import { TideStatusStrip } from "@/components/beach-detail/tide-status-strip";
 import { TideChartSection } from "@/components/beach-detail/tide-chart-section";
 import { useAuth } from "@/context/auth-context";
+import { useOptionalProfileContext } from "@/context/profile-context";
 import { ForecastFeedbackCapture } from "@/components/forecast/forecast-feedback-capture";
 
 const ConditionsOverview = dynamic(
@@ -77,6 +78,8 @@ export function ForecastTab({
 
   const { track: trackEvent } = useTrackEvent();
   const { user } = useAuth();
+  const profileContext = useOptionalProfileContext();
+  const profileExperienceLevel = profileContext?.profile?.experience_level ?? null;
   const [activeSubTab, setActiveSubTab] = useState<
     "today" | "tides" | "conditions"
   >(defaultSubTab || "today");
@@ -96,13 +99,35 @@ export function ForecastTab({
     setActiveSubTab("conditions");
   }, [beach.id, trackEvent]); // State setters are stable refs
 
+  const todayStr = useMemo(() => {
+    return getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
+  }, [beachTimezone]);
+
+  // Fetch sunrise/sunset times for today
+  const { sunrise, sunset } = useSunTimes(beach.id, todayStr);
+
+  const todaySunTimesCache = useMemo(() => {
+    if (!sunrise && !sunset) return undefined;
+    return new Map([
+      [
+        beach.id,
+        {
+          sunrises: sunrise ? [sunrise] : [],
+          sunsets: sunset ? [sunset] : [],
+        },
+      ],
+    ]);
+  }, [beach.id, sunrise, sunset]);
+
   // Horizon Strip: aggregated day summaries (12 days, ungated for all users)
   const horizonDaySummaries = useMemo(() => {
     return aggregateDayForecasts(forecasts, beach, {
       maxDays: 12,
       timezone: beachTimezone || undefined,
+      skillLevel: profileExperienceLevel,
+      sunTimesCache: todaySunTimesCache,
     });
-  }, [forecasts, beach, beachTimezone]);
+  }, [forecasts, beach, beachTimezone, profileExperienceLevel, todaySunTimesCache]);
 
   // Forecasts filtered by horizon strip selection
   const selectedDateForecasts = useMemo(() => {
@@ -110,10 +135,6 @@ export function ForecastTab({
     const tz = resolveBeachTimezone(beachTimezone);
     return forecasts.filter((f) => extractForecastDate(f.forecast_at, tz) === horizonSelectedDate);
   }, [forecasts, horizonSelectedDate, beachTimezone]);
-
-  const todayStr = useMemo(() => {
-    return getLocalDateString(new Date(), resolveBeachTimezone(beachTimezone));
-  }, [beachTimezone]);
 
   const todaysForecasts = useMemo(
     () => {
@@ -125,13 +146,15 @@ export function ForecastTab({
 
   // Condition Intelligence: scored windows, board pick, relative context
   // Passing full forecasts so the hook can group by date and compute weekly context
-  const conditionIntel = useConditionIntelligence(forecasts, beach, beachTimezone);
+  const conditionIntel = useConditionIntelligence(
+    forecasts,
+    beach,
+    beachTimezone,
+    profileExperienceLevel
+  );
 
   // Dynamic tide computation (always fresh, relative to now)
   const dynamicTide = useDynamicTide(forecasts, beachTimezone);
-
-  // Fetch sunrise/sunset times for today
-  const { sunrise, sunset } = useSunTimes(beach.id, todayStr);
 
   // Format sun time for display
   const formatSunTime = (date: Date | null) => {

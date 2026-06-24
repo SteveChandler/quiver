@@ -9,6 +9,7 @@ type MockFn = jest.MockedFunction<(...args: any[]) => any>;
 
 const mockUser = { id: "user-123" };
 let mockSupabase: ReturnType<typeof createSupabaseMock>;
+let mockServiceRoleSupabase: ReturnType<typeof createSupabaseMock>;
 let mockComputeUserPreferences: jest.MockedFunction<(userId: string) => Promise<any>>;
 let createLoggedSession: typeof import("@/actions/session-actions").createLoggedSession;
 
@@ -17,7 +18,9 @@ function createSupabaseMock() {
     from: jest.fn().mockReturnThis() as MockFn,
     select: jest.fn().mockReturnThis() as MockFn,
     insert: jest.fn().mockReturnThis() as MockFn,
+    update: jest.fn().mockReturnThis() as MockFn,
     eq: jest.fn().mockReturnThis() as MockFn,
+    is: jest.fn().mockReturnThis() as MockFn,
     ilike: jest.fn().mockReturnThis() as MockFn,
     limit: jest.fn().mockReturnThis() as MockFn,
     single: jest.fn() as MockFn,
@@ -32,6 +35,7 @@ async function flushFireAndForget(): Promise<void> {
 async function loadAction(): Promise<void> {
   jest.resetModules();
   mockSupabase = createSupabaseMock();
+  mockServiceRoleSupabase = createSupabaseMock();
   mockComputeUserPreferences = jest.fn(async () => null);
 
   jest.doMock("next/cache", () => ({
@@ -40,7 +44,7 @@ async function loadAction(): Promise<void> {
 
   jest.doMock("@/lib/supabase/server", () => ({
     createSupabaseServerClient: jest.fn(),
-    createSupabaseServiceRoleClient: jest.fn(() => mockSupabase),
+    createSupabaseServiceRoleClient: jest.fn(() => mockServiceRoleSupabase),
   }));
 
   jest.doMock("@/lib/server-action-utils", () => ({
@@ -127,5 +131,93 @@ describe("createLoggedSession personalization recompute", () => {
 
     expect(result.success).toBe(true);
     expect(mockComputeUserPreferences).toHaveBeenCalledWith("user-123");
+  });
+
+  it("links carried forecast feedback context to the created session", async () => {
+    const result = await createLoggedSession({
+      beach_id: "beach-123",
+      beach_name: "Ocean Beach",
+      arrival_time: "2026-05-20 14:00:00+00",
+      forecast_accuracy: "inaccurate",
+      forecast_feedback_context_id: "123e4567-e89b-42d3-a456-426614174999",
+    });
+
+    expect(result.success).toBe(true);
+    expect(mockServiceRoleSupabase.from).toHaveBeenCalledWith(
+      "forecast_feedback_contexts",
+    );
+    expect(mockServiceRoleSupabase.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        session_id: "session-123",
+        updated_at: expect.any(String),
+      }),
+    );
+    expect(mockSupabase.update).not.toHaveBeenCalled();
+    expect(mockServiceRoleSupabase.eq).toHaveBeenCalledWith(
+      "id",
+      "123e4567-e89b-42d3-a456-426614174999",
+    );
+    expect(mockServiceRoleSupabase.eq).toHaveBeenCalledWith(
+      "user_id",
+      "user-123",
+    );
+    expect(mockServiceRoleSupabase.eq).toHaveBeenCalledWith(
+      "beach_id",
+      "beach-123",
+    );
+    expect(mockServiceRoleSupabase.is).toHaveBeenCalledWith("session_id", null);
+
+    const sessionsInsertCall = mockSupabase.insert.mock.calls.find(
+      ([payload]) => payload?.beach_name === "Ocean Beach",
+    );
+    expect(sessionsInsertCall?.[0]).not.toHaveProperty(
+      "forecast_feedback_context_id",
+    );
+  });
+
+  it("keeps session creation successful when feedback link update returns an error", async () => {
+    mockServiceRoleSupabase.is.mockResolvedValueOnce({
+      error: { message: "rls denied" },
+    });
+
+    const result = await createLoggedSession({
+      beach_id: "beach-123",
+      beach_name: "Ocean Beach",
+      arrival_time: "2026-05-20 14:00:00+00",
+      forecast_accuracy: "inaccurate",
+      forecast_feedback_context_id: "123e4567-e89b-42d3-a456-426614174999",
+    });
+
+    expectConsoleWarnings([/forecast feedback link failed/i]);
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual(
+      expect.objectContaining({
+        id: "session-123",
+        beach_id: "beach-123",
+      }),
+    );
+  });
+
+  it("keeps session creation successful when feedback link update throws", async () => {
+    mockServiceRoleSupabase.is.mockRejectedValueOnce(
+      new Error("network down"),
+    );
+
+    const result = await createLoggedSession({
+      beach_id: "beach-123",
+      beach_name: "Ocean Beach",
+      arrival_time: "2026-05-20 14:00:00+00",
+      forecast_accuracy: "inaccurate",
+      forecast_feedback_context_id: "123e4567-e89b-42d3-a456-426614174999",
+    });
+
+    expectConsoleWarnings([/forecast feedback link failed/i]);
+    expect(result.success).toBe(true);
+    expect(result.data).toEqual(
+      expect.objectContaining({
+        id: "session-123",
+        beach_id: "beach-123",
+      }),
+    );
   });
 });

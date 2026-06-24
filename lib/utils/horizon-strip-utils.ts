@@ -5,35 +5,25 @@
  * for the visual day selector strip.
  */
 
-import { format, parseISO, isToday, startOfDay } from 'date-fns';
+import { format, parseISO, startOfDay } from 'date-fns';
 import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { Beach } from '@/types/database';
 import {
-  type BeachWithThresholds,
   type UserScoringPreferences,
 } from '@/lib/scoring/types';
 import {
-  beachToSpotProfile,
-  createDiscoveryScoringEngine,
-  forecastToSnapshot,
-  type ScoringEngine,
-} from '@/lib/domains/scoring';
-
-// Singleton engine — created lazily on first call.
-let _engine: ScoringEngine | null = null;
-function getEngine(): ScoringEngine {
-  if (!_engine) {
-    _engine = createDiscoveryScoringEngine();
-  }
-  return _engine;
-}
+  pickBestNativeForecastSlot,
+  type NativeScoredForecast,
+} from '@/lib/scoring/native-condition-score';
+import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-utils';
+import { extractForecastDate } from '@/lib/utils/forecast-at-adapter';
 import {
   type ConditionTier,
-  CONDITION_TIER_THRESHOLDS,
   getConditionTier,
 } from '@/lib/utils/condition-tier-utils';
+import { resolveTodayHeadline } from '@/lib/services/forecast/today-headline';
 
 // Re-export for backwards compatibility
 export { type ConditionTier, getConditionTier };
@@ -64,6 +54,10 @@ export interface DaySummary {
   period: number | null;
   /** Whether scores are personalized based on user preferences */
   isPersonalized?: boolean;
+  /** Canonical label for today/default headline surfaces */
+  headlineLabel?: string;
+  /** Forecast row timestamp behind the canonical headline */
+  headlineForecastAt?: string;
 }
 
 /**
@@ -122,49 +116,17 @@ function getTierCardClassName(tier: ConditionTier, isSelected: boolean): string 
 }
 
 /**
- * Convert knots to mph
- */
-function knotsToMph(knots: number | null | undefined): number | null {
-  if (knots === null || knots === undefined) return null;
-  return knots * 1.15078;
-}
-
-/**
- * Convert Beach to BeachWithThresholds for scoring
- */
-function toBeachWithThresholds(beach: Beach): BeachWithThresholds {
-  // Convert onshore wind threshold from knots to mph
-  // Beach type uses wind_onshore_bad_kt (knots), scoring uses mph
-  const maxWindOnshoreMph = knotsToMph(beach.wind_onshore_bad_kt);
-
-  return {
-    id: beach.id,
-    name: beach.name,
-    lat: beach.lat,
-    lon: beach.lon,
-    wind_offshore_deg: beach.wind_offshore_deg,
-    wind_offshore_tol_deg: beach.wind_offshore_tol_deg,
-    preferred_tide_ft_min: beach.preferred_tide_ft_min,
-    preferred_tide_ft_max: beach.preferred_tide_ft_max,
-    max_wind_onshore_mph: maxWindOnshoreMph,
-    // max_wind_any_mph: not available on Beach type, will use default in scorer
-    max_wind_any_mph: null,
-    skill_level: beach.skill_level ?? null,
-  };
-}
-
-/**
  * Group forecasts by date
  */
 function groupForecastsByDate(
-  forecasts: EnhancedForecastEntity[]
+  forecasts: EnhancedForecastEntity[],
+  timezone: string
 ): Map<string, EnhancedForecastEntity[]> {
   const grouped = new Map<string, EnhancedForecastEntity[]>();
 
   for (const forecast of forecasts) {
-    // Prefer forecast_at (extract date part), fallback to forecast_date
     const date = forecast.forecast_at
-      ? forecast.forecast_at.split('T')[0]
+      ? extractForecastDate(forecast.forecast_at, timezone)
       : forecast.forecast_date;
     if (!date) continue;
 
@@ -190,33 +152,13 @@ function groupForecastsByDate(
  */
 function findBestForecast(
   dayForecasts: EnhancedForecastEntity[],
-  beach: BeachWithThresholds,
+  skillLevel?: SkillLevel | string | null,
   _beachTz?: string,
   _userPreferences?: UserScoringPreferences
-): { forecast: EnhancedForecastEntity; score: number } | null {
+): NativeScoredForecast | null {
   if (dayForecasts.length === 0) return null;
 
-  const profile = beachToSpotProfile(beach as unknown as Beach);
-  const engine = getEngine();
-
-  let bestForecast = dayForecasts[0];
-  let bestScore = 0;
-
-  for (const forecast of dayForecasts) {
-    const snapshot = forecastToSnapshot(forecast);
-    const composite = engine.score({
-      profile,
-      snapshot,
-      window: null,
-      preferences: null,
-    });
-    if (composite.total > bestScore) {
-      bestScore = composite.total;
-      bestForecast = forecast;
-    }
-  }
-
-  return { forecast: bestForecast, score: bestScore };
+  return pickBestNativeForecastSlot(dayForecasts, skillLevel);
 }
 
 /**
@@ -304,6 +246,8 @@ export function aggregateDayForecasts(
     maxDays?: number;
     timezone?: string;
     userPreferences?: UserScoringPreferences;
+    skillLevel?: SkillLevel | string | null;
+    sunTimesCache?: Map<string, { sunrises: Date[]; sunsets: Date[] }>;
   } = {}
 ): DaySummary[] {
   const { maxDays = 12, timezone = beach.timezone || DEFAULT_TIMEZONE } = options;
@@ -313,11 +257,8 @@ export function aggregateDayForecasts(
     return [];
   }
 
-  // Convert beach to scoring format
-  const beachWithThresholds = toBeachWithThresholds(beach);
-
   // Group forecasts by date
-  const forecastsByDate = groupForecastsByDate(forecasts);
+  const forecastsByDate = groupForecastsByDate(forecasts, timezone);
 
   // Sort dates chronologically
   const sortedDates = Array.from(forecastsByDate.keys()).sort();
@@ -337,20 +278,38 @@ export function aggregateDayForecasts(
     const dayForecasts = forecastsByDate.get(dateStr) || [];
 
     // Find best forecast for scoring
-    const bestResult = findBestForecast(dayForecasts, beachWithThresholds, timezone, userPreferences);
+    const bestResult = findBestForecast(dayForecasts, options.skillLevel, timezone, userPreferences);
 
     if (!bestResult) continue;
 
     const { forecast: bestForecast, score } = bestResult;
 
-    // Get wave height range
-    const { min: minHeight, max: maxHeight } = getWaveHeightRange(dayForecasts, bestForecast);
-
     // Format date
     const { date, dayName, isTodayFlag } = formatDateForDisplay(dateStr, timezone);
+    const todayHeadline = isTodayFlag
+      ? resolveTodayHeadline({
+          forecasts: dayForecasts,
+          beach,
+          userPrefs: null,
+          horizonHours: 24,
+          sunTimesCache: options.sunTimesCache,
+          userSkillLevel: options.skillLevel,
+        })
+      : null;
+
+    // Get wave height range. Today uses the canonical surf-call headline;
+    // days 2-12 intentionally remain outlook ranges.
+    const outlookRange = getWaveHeightRange(dayForecasts, bestForecast);
+    const minHeight = todayHeadline?.display.minFt ?? outlookRange.min;
+    const maxHeight = todayHeadline?.display.maxFt ?? outlookRange.max;
+    const headlineForecast =
+      todayHeadline?.window.sourceForecast ?? null;
 
     // Parse period from best forecast
-    const periodStr = bestForecast.wave_period?.replace('s', '') || '';
+    const periodStr =
+      headlineForecast?.wave_period?.replace('s', '') ??
+      bestForecast.wave_period?.replace('s', '') ??
+      '';
     const period = parseFloat(periodStr) || null;
 
     summaries.push({
@@ -362,9 +321,11 @@ export function aggregateDayForecasts(
       score,
       fullDate: dateStr,
       isToday: isTodayFlag,
-      bestTime: bestForecast.forecast_time || null,
+      bestTime: headlineForecast?.forecast_time || bestForecast.forecast_time || null,
       period,
       isPersonalized: !!userPreferences?.preferredWaveSize,
+      headlineLabel: todayHeadline?.display.label,
+      headlineForecastAt: todayHeadline?.display.forecastAt,
     });
   }
 

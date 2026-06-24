@@ -23,6 +23,7 @@ import {
   sanitizeSessionPayload 
 } from "@/lib/utils/session-utils";
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import type { BoardSnapshot } from "@/types/personalization";
 
 // Optional XP tracking - imported dynamically to avoid circular dependency
@@ -38,6 +39,9 @@ async function trackXPOptional(action: string, entityId?: string, entityType?: s
 // Session writes should be typed like INSERT payloads (not Row), since Row types
 // include many non-nullable database-managed fields that callers should not supply.
 type SessionInput = Partial<SessionInsert>;
+type SessionInputWithFeedbackContext = SessionInput & {
+  forecast_feedback_context_id?: string;
+};
 type BoardInput = Omit<Board, "id" | "created_at" | "updated_at" | "user_id">;
 
 /**
@@ -312,18 +316,30 @@ export async function getSessionMetadata(sessionId: string) {
  * Create a new logged (completed) surf session
  * Accepts either SessionFormState or SessionInput for backward compatibility
  */
-export async function createLoggedSession(data: SessionFormState | SessionInput) {
+export async function createLoggedSession(data: SessionFormState | SessionInputWithFeedbackContext) {
   return withAuthenticatedAction(async (user, supabase) => {
+
+    const {
+      forecast_feedback_context_id,
+      ...rest
+    } = data as SessionInputWithFeedbackContext;
+    let forecastFeedbackContextId = forecast_feedback_context_id;
+    if (
+      forecastFeedbackContextId &&
+      !z.string().uuid().safeParse(forecastFeedbackContextId).success
+    ) {
+      forecastFeedbackContextId = undefined;
+    }
 
     // Transform SessionFormState to database schema if needed
     let sessionData: Partial<Session>;
-    if ('selectedBeach' in data || 'selectedBeachId' in data || 'boardId' in data) {
+    if ('selectedBeach' in rest || 'selectedBeachId' in rest || 'boardId' in rest) {
       // This is SessionFormState, transform it
-      const formData = data as SessionFormState;
+      const formData = rest as SessionFormState;
       sessionData = transformSessionFormStateToDbSchema(formData);
     } else {
       // This is already SessionInput, use as-is
-      sessionData = data as SessionInput;
+      sessionData = rest as SessionInput;
     }
 
     // Create the session with completed status
@@ -406,6 +422,34 @@ export async function createLoggedSession(data: SessionFormState | SessionInput)
 
     if (error) {
       throw new Error(`Session creation failed: ${error.message || 'Unknown database error'}`);
+    }
+
+    if (forecastFeedbackContextId) {
+      try {
+        const { error: feedbackLinkError } = await createSupabaseServiceRoleClient()
+          .from("forecast_feedback_contexts")
+          .update({
+            session_id: session.id,
+            // No updated_at trigger exists on forecast_feedback_contexts.
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", forecastFeedbackContextId)
+          .eq("user_id", user.id)
+          .eq("beach_id", session.beach_id)
+          .is("session_id", null);
+
+        if (feedbackLinkError) {
+          console.warn(
+            "[createLoggedSession] forecast feedback link failed:",
+            feedbackLinkError,
+          );
+        }
+      } catch (error) {
+        console.warn(
+          "[createLoggedSession] forecast feedback link failed:",
+          error,
+        );
+      }
     }
 
     // Fire-and-forget: emit to user_events for retention analytics.

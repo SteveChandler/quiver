@@ -431,25 +431,39 @@ describe("ProfileContext", () => {
 
   describe("Error Handling", () => {
     it("handles network errors", async () => {
-      mockUseAuth.mockReturnValue({
-        user: mockUser,
-        isLoading: false,
-        isAuthenticated: true,
-      });
+      const errorSpy = jest.spyOn(console, "error").mockImplementation();
+      const warnSpy = jest.spyOn(console, "warn").mockImplementation();
 
-      (global.fetch as jest.Mock).mockRejectedValueOnce(
-        new Error("Network error")
-      );
+      try {
+        mockUseAuth.mockReturnValue({
+          user: mockUser,
+          isLoading: false,
+          isAuthenticated: true,
+        });
 
-      render(
-        <ProfileProvider>
-          <TestConsumer />
-        </ProfileProvider>
-      );
+        (global.fetch as jest.Mock).mockRejectedValueOnce(
+          new Error("Network error")
+        );
 
-      await waitFor(() => {
-        expect(screen.getByTestId("error").textContent).toBe("Network error");
-      }, { timeout: 3000 });
+        render(
+          <ProfileProvider>
+            <TestConsumer />
+          </ProfileProvider>
+        );
+
+        await waitFor(() => {
+          expect(screen.getByTestId("error").textContent).toBe("Network error");
+        }, { timeout: 3000 });
+
+        expect(warnSpy).toHaveBeenCalledWith(
+          "Error fetching profile and home beach:",
+          expect.any(Error)
+        );
+        expect(errorSpy).not.toHaveBeenCalled();
+      } finally {
+        errorSpy.mockRestore();
+        warnSpy.mockRestore();
+      }
     });
   });
 

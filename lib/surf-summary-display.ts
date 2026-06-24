@@ -1,13 +1,15 @@
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 
+type DisplayScalar = string | number | null | undefined;
+
 export interface CompactSurfSummaryInput {
-  waveHeight?: string | null;
-  windSpeed?: string | null;
+  waveHeight?: DisplayScalar;
+  windSpeed?: DisplayScalar;
   windDirection?: string | null;
   windSummary?: string | null;
-  swellPeriod?: string | null;
+  swellPeriod?: DisplayScalar;
   swellDirection?: string | null;
-  tideHeight?: string | null;
+  tideHeight?: DisplayScalar;
   tideStatus?: string | null;
   why?: string | null;
 }
@@ -25,8 +27,14 @@ export interface CompactSurfSummary {
 const RANGE_PATTERN =
   /^\s*(-?\d+(?:\.\d+)?)\s*(?:-|\u2013)\s*(-?\d+(?:\.\d+)?)\s*(ft|feet)?\s*$/i;
 
-function clean(value: string | null | undefined): string | null {
-  const trimmed = value?.trim();
+function clean(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? String(value) : null;
+  }
+  if (typeof value !== "string") return null;
+
+  const trimmed = value.trim();
   return trimmed && trimmed.length > 0 ? trimmed : null;
 }
 
@@ -35,7 +43,7 @@ function compactSingleFeet(value: number): string | null {
   return formatWaveHeightRange(value);
 }
 
-export function formatCompactWaveHeight(raw: string | null | undefined): string | null {
+export function formatCompactWaveHeight(raw: DisplayScalar): string | null {
   const text = clean(raw);
   if (!text) return null;
 
