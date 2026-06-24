@@ -183,6 +183,27 @@ jest.mock("@/lib/email/email-formatters", () => ({
     const displayHour = hours > 12 ? hours - 12 : hours || 12;
     return `${displayHour}:${minutes} ${ampm}`;
   }),
+  formatActionableBestWindow: jest.fn(
+    (startTime: string | null, endTime: string | null) => {
+      if (!startTime || !endTime) return null;
+      const startParts = startTime.split(":");
+      const endParts = endTime.split(":");
+      const startHour = parseInt(startParts[0], 10);
+      const endHour = parseInt(endParts[0], 10);
+      if (startHour < 5 || startHour >= 21 || endHour <= startHour) {
+        return null;
+      }
+      const format = (time: string): string => {
+        const parts = time.split(":");
+        const hours = parseInt(parts[0], 10);
+        const minutes = parts[1];
+        const ampm = hours >= 12 ? "PM" : "AM";
+        const displayHour = hours > 12 ? hours - 12 : hours || 12;
+        return `${displayHour}:${minutes} ${ampm}`;
+      };
+      return { start: format(startTime), end: format(endTime) };
+    }
+  ),
   getConditionLabel: jest.fn((score: number) => {
     if (score >= 85) return { label: "EPIC", color: "#00D4AA" };
     if (score >= 70) return { label: "GOOD", color: "#1D9E75" };
@@ -871,6 +892,42 @@ describe("Conditions Alert Email Cron Job API", () => {
       });
 
       await GET(request);
+
+      expect(ConditionsAlertEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bestWindow: null,
+        })
+      );
+    });
+
+    it("suppresses overnight stored best windows", async () => {
+      const candidates = [
+        {
+          user_id: "user-1",
+          email: "user1@example.com",
+          display_name: "User One",
+          experience_level: "intermediate",
+          home_beach_id: "beach-1",
+          beach_name: "Test Beach",
+          beach_slug: "test-beach",
+          conditions_score: 90,
+          surf_description: "Clean 3-4ft",
+          wind_description: "Light offshore",
+          best_window_start: "02:00:00",
+          best_window_end: "04:00:00",
+        },
+      ];
+
+      mockRpc
+        .mockResolvedValueOnce({
+          data: candidates,
+          error: null,
+        })
+        .mockResolvedValueOnce({ data: true, error: null });
+
+      const { ConditionsAlertEmail } = require("@/lib/mailer/templates/ConditionsAlertEmail");
+
+      await GET(mockRequest({ authorization: "Bearer valid-cron-secret" }));
 
       expect(ConditionsAlertEmail).toHaveBeenCalledWith(
         expect.objectContaining({

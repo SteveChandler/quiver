@@ -29,7 +29,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.generated";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { ConditionsAlertEmail } from "@/lib/mailer/templates/ConditionsAlertEmail";
-import { formatDatabaseTime } from "@/lib/email/email-formatters";
+import { formatActionableBestWindow } from "@/lib/email/email-formatters";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import type { ConditionsAlertCandidate } from "@/lib/email/email-types";
 import { enrichBeachSignals } from "@/lib/email/signal-enrichment";
@@ -338,13 +338,10 @@ async function processCandidate(
   const why = deriveWhyContent(beachMeta, dayForecasts);
 
   // 4. Format best window + tide summary.
-  const bestWindow =
-    candidate.best_window_start && candidate.best_window_end
-      ? {
-          start: formatDatabaseTime(candidate.best_window_start) || "",
-          end: formatDatabaseTime(candidate.best_window_end) || "",
-        }
-      : null;
+  const bestWindow = formatActionableBestWindow(
+    candidate.best_window_start,
+    candidate.best_window_end
+  );
   const tideDescription = formatTideDescription(
     selectedForecast ?? dayForecasts[0] ?? null
   );

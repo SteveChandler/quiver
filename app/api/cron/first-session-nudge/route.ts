@@ -25,7 +25,7 @@ import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/clien
 import { FirstSessionNudgeEmail } from "@/lib/mailer/templates/FirstSessionNudgeEmail";
 import { PersonalizedNudgeEmail } from "@/lib/mailer/templates/PersonalizedNudgeEmail";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
-import { formatDatabaseTime } from "@/lib/email/email-formatters";
+import { formatActionableBestWindow } from "@/lib/email/email-formatters";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
@@ -323,10 +323,10 @@ async function _GET(request: Request): Promise<Response> {
             ? `${baseUrl}${beachPath}?utm_source=quiver&utm_medium=email&utm_campaign=first_session_nudge`
             : `${baseUrl}?utm_source=quiver&utm_medium=email&utm_campaign=first_session_nudge`;
 
-          const windowStart = formatDatabaseTime(intelData?.best_window_start ?? null);
-          const windowEnd = formatDatabaseTime(intelData?.best_window_end ?? null);
-          const bestWindow =
-            windowStart && windowEnd ? { start: windowStart, end: windowEnd } : null;
+          const bestWindow = formatActionableBestWindow(
+            intelData?.best_window_start ?? null,
+            intelData?.best_window_end ?? null
+          );
 
           emailElement = React.createElement(PersonalizedNudgeEmail, {
             displayName: candidate.display_name,

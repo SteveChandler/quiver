@@ -57,6 +57,12 @@ interface ScoredForecast {
   score: number;
 }
 
+interface LocalTimeParts {
+  hour: number;
+  minute: number;
+  label: string;
+}
+
 /**
  * Minimal forecast data required for scoring
  */
@@ -69,6 +75,50 @@ export interface ForecastData {
   wave_period: number | null;
   swell_1_period: number | null;
   tide_height: number | null;
+}
+
+function padTimePart(value: number): string {
+  return value.toString().padStart(2, "0");
+}
+
+function localTimeFromForecast(
+  forecast: Pick<ForecastData, "forecast_at" | "forecast_time">,
+  timezone: string
+): LocalTimeParts | null {
+  if (forecast.forecast_at) {
+    const forecastDate = new Date(forecast.forecast_at);
+    if (!Number.isNaN(forecastDate.getTime())) {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: timezone,
+        hour: "2-digit",
+        minute: "2-digit",
+        hourCycle: "h23",
+      }).formatToParts(forecastDate);
+      const hour = Number(parts.find((part) => part.type === "hour")?.value);
+      const minute = Number(parts.find((part) => part.type === "minute")?.value);
+
+      if (Number.isFinite(hour) && Number.isFinite(minute)) {
+        return {
+          hour,
+          minute,
+          label: `${padTimePart(hour)}:${padTimePart(minute)}`,
+        };
+      }
+    }
+  }
+
+  const [hourRaw, minuteRaw = "0"] = forecast.forecast_time.split(":");
+  const hour = Number(hourRaw);
+  const minute = Number(minuteRaw);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) {
+    return null;
+  }
+
+  return {
+    hour,
+    minute,
+    label: `${padTimePart(hour)}:${padTimePart(minute)}`,
+  };
 }
 
 /**
@@ -388,11 +438,8 @@ export function bestWindowHeuristic(
   // 4. Between 06:00 and 10:00
 
   const bestForecasts = forecasts.filter((f) => {
-    const fWithAt = f as typeof f & { forecast_at?: string };
-    const time = fWithAt.forecast_at
-      ? new Date(fWithAt.forecast_at).getUTCHours()
-      : parseInt(f.forecast_time.split(":")[0]);
-    if (time < 6 || time > 10) return false;
+    const localTime = localTimeFromForecast(f, timezone);
+    if (!localTime || localTime.hour < 6 || localTime.hour > 10) return false;
 
     const windSpeed = f.wind_speed || 999;
     const period = f.wave_period || f.swell_period || 0;
@@ -409,17 +456,24 @@ export function bestWindowHeuristic(
     return "Variable conditions; check throughout the morning";
   }
 
-  const startTime = bestForecasts[0].forecast_time.substring(0, 5);
-  let endTime = bestForecasts[bestForecasts.length - 1].forecast_time.substring(0, 5);
+  const start = localTimeFromForecast(bestForecasts[0], timezone);
+  const end = localTimeFromForecast(
+    bestForecasts[bestForecasts.length - 1],
+    timezone
+  );
+  if (!start || !end) {
+    return "Variable conditions; check throughout the morning";
+  }
+
+  const startTime = start.label;
+  let endTime = end.label;
 
   // If only one forecast matches, extend window by 2 hours for a meaningful range
   if (bestForecasts.length === 1) {
-    const startHour = parseInt(startTime.split(":")[0]);
-    const startMin = parseInt(startTime.split(":")[1]);
-    const endHour = startHour + 2;
+    const endHour = start.hour + 2;
     // Cap at 10:00 to stay within morning window
     const cappedEndHour = Math.min(endHour, 10);
-    endTime = `${cappedEndHour.toString().padStart(2, "0")}:${startMin.toString().padStart(2, "0")}`;
+    endTime = `${padTimePart(cappedEndHour)}:${padTimePart(start.minute)}`;
   }
 
   // Validate that we have a meaningful window (start !== end)
@@ -511,4 +565,3 @@ export function confidenceHeuristic(
   if (completeness >= 0.6) return "Medium";
   return "Low";
 }
-
