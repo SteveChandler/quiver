@@ -29,6 +29,7 @@ import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { computeBestDaysForUser } from "@/lib/alerts/best-days";
+import { getDisplayCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
 import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
@@ -62,11 +63,16 @@ interface RunSummary {
 // ============================================================================
 
 /**
- * Calculate session statistics for a user
+ * Calculate session statistics for a user.
+ *
+ * Returns `topSpotBeachId` alongside the display fields so the caller can
+ * resolve a cam thumbnail for the top spot (the email's `stats` prop only
+ * carries the three display fields).
  */
 function calculateStats(
   sessions: Array<{
     duration_minutes: number | null;
+    beach_id: string | null;
     beach_name: string | null;
     beaches: { name: string } | { name: string }[] | null;
   }>
@@ -74,6 +80,7 @@ function calculateStats(
   totalSessions: number;
   totalHours: string;
   topSpot: string;
+  topSpotBeachId: string | null;
 } {
   const totalSessions = sessions.length;
 
@@ -84,13 +91,17 @@ function calculateStats(
   );
   const totalHours = (totalMinutes / 60).toFixed(1);
 
-  // Find top spot (most visited beach)
+  // Find top spot (most visited beach), remembering a beach_id per spot name.
   const spotCounts: Record<string, number> = {};
+  const spotBeachIds: Record<string, string> = {};
   sessions.forEach((s) => {
     // Handle beaches being either a single object or array from Supabase join
     const beach = Array.isArray(s.beaches) ? s.beaches[0] : s.beaches;
     const spotName = beach?.name || s.beach_name || "Unknown";
     spotCounts[spotName] = (spotCounts[spotName] || 0) + 1;
+    if (!spotBeachIds[spotName] && s.beach_id) {
+      spotBeachIds[spotName] = s.beach_id;
+    }
   });
 
   const topSpot =
@@ -100,7 +111,44 @@ function calculateStats(
         )
       : "Unknown";
 
-  return { totalSessions, totalHours, topSpot };
+  return {
+    totalSessions,
+    totalHours,
+    topSpot,
+    topSpotBeachId: spotBeachIds[topSpot] ?? null,
+  };
+}
+
+/**
+ * Resolve a cam thumbnail URL for the user's top spot from beach_sources.
+ * Best-effort — any failure (missing row, no cam) yields null and the email
+ * simply omits the hero strip.
+ */
+async function resolveTopSpotImageUrl(
+  supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>,
+  beachId: string | null
+): Promise<string | null> {
+  if (!beachId) return null;
+  try {
+    const { data, error } = await supabase
+      .from("beach_sources")
+      .select("camera_url, thumbnail_url")
+      .eq("beach_id", beachId)
+      .maybeSingle();
+
+    if (error || !data) return null;
+
+    return getDisplayCamThumbnailUrl({
+      cameraUrl: data.camera_url,
+      thumbnailUrl: data.thumbnail_url,
+    });
+  } catch (err) {
+    console.warn(
+      `${CONTEXT_TAG} top-spot image lookup failed for beach ${beachId}:`,
+      err
+    );
+    return null;
+  }
 }
 
 // ============================================================================
@@ -229,8 +277,14 @@ async function _GET(request: Request): Promise<Response> {
           continue;
         }
 
-        // Calculate stats
-        const stats = calculateStats(userSessions);
+        // Calculate stats (topSpotBeachId is used only to resolve the cam
+        // thumbnail; the email's `stats` prop carries the display fields).
+        const { topSpotBeachId, ...stats } = calculateStats(userSessions);
+
+        const topSpotImageUrl = await resolveTopSpotImageUrl(
+          supabase,
+          topSpotBeachId
+        );
 
         // Phase 2: compute top similarity-match slots for the next 7 days
         // across the user's subscribed beaches. Errors here must not abort
@@ -267,6 +321,7 @@ async function _GET(request: Request): Promise<Response> {
               ctaUrl,
               unsubscribeUrl,
               bestDays,
+              topSpotImageUrl,
             }),
           });
 

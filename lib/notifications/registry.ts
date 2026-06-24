@@ -625,6 +625,40 @@ export const NOTIFICATION_REGISTRY = {
     }),
   } satisfies NotificationTypeDef<LogSessionNudgePayload>,
 
+  daily_call_streak_reminder: {
+    type: "daily_call_streak_reminder",
+    channels: ["push"],
+    prefs: {
+      master: { push: "notif_push_enabled" },
+      perType: { push: "notif_reminders" },
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => dailyCallStreakReminderSchema.parse(input),
+    buildPushPayload: (p) => ({
+      title: "Don't break your streak",
+      body: `You're on a ${p.streak}-day call streak. Make today's call before midnight.`,
+      data: { type: "daily_call_streak_reminder", streak: p.streak },
+    }),
+  } satisfies NotificationTypeDef<DailyCallStreakReminderPayload>,
+
+  weekly_streak_reminder: {
+    type: "weekly_streak_reminder",
+    channels: ["push"],
+    prefs: {
+      master: { push: "notif_push_enabled" },
+      perType: { push: "notif_reminders" },
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    validatePayload: (input) => weeklyStreakReminderSchema.parse(input),
+    buildPushPayload: (p) => ({
+      title: "Keep your streak alive",
+      body: `Your ${p.streak}-week streak ends Sunday. Log a session to keep it going.`,
+      data: { type: "weekly_streak_reminder", streak: p.streak },
+    }),
+  } satisfies NotificationTypeDef<WeeklyStreakReminderPayload>,
+
   water_quality: {
     type: "water_quality",
     // Water-quality status changes (advisory / closure / all-clear) are

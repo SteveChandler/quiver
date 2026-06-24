@@ -2,7 +2,9 @@
  * GET /api/cron/conditions-alert-email
  *
  * Conditions alert cron job: sends daily alerts when a user's home beach
- * has excellent conditions (score >= 70/100).
+ * has excellent conditions (score >= 70/100). The RPC selects on a stored
+ * conditions_score; each candidate is then re-verified against fresh forecasts
+ * before sending, and a fresh score below MIN_SCORE skips the email.
  *
  * Runs daily at 14:30 UTC (6:30 AM Pacific), 30 min after daily-intel generation.
  *
@@ -27,33 +29,21 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.generated";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { ConditionsAlertEmail } from "@/lib/mailer/templates/ConditionsAlertEmail";
-import { formatDatabaseTime } from "@/lib/email/email-formatters";
+import { formatActionableBestWindow } from "@/lib/email/email-formatters";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import type { ConditionsAlertCandidate } from "@/lib/email/email-types";
 import { enrichBeachSignals } from "@/lib/email/signal-enrichment";
+import { buildBeachEmailLink } from "@/lib/mailer/email-links";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
-import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
-import {
-  beachToSpotProfile,
-  createDiscoveryScoringEngine,
-  forecastToSnapshot,
-  type ScoringEngine,
-} from "@/lib/domains/scoring";
 import { evaluateDigestMatch } from "@/lib/services/forecast-digest-service";
 import type { BeachMetadata, EnhancedForecastEntity as MagicHourForecast } from "@/lib/services/magic-hour";
-import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { withObservedCron } from "@/lib/cron/observability";
-
-// Singleton engine for the cron run — created lazily on first invocation.
-let _engine: ScoringEngine | null = null;
-function getEngine(): ScoringEngine {
-  if (!_engine) {
-    _engine = createDiscoveryScoringEngine();
-  }
-  return _engine;
-}
+import {
+  pickBestNativeForecastSlot,
+  resolveNativeSkillLevel,
+} from "@/lib/scoring/native-condition-score";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -79,11 +69,18 @@ interface RunSummary {
   durationMs: number;
   skipped: {
     claimFailed: number;
+    rescoreFailed: number;
+    scoreBelowFloor: number;
     sendFailed: number;
   };
 }
 
-type ProcessingStatus = "success" | "claim_failed" | "send_failed";
+type ProcessingStatus =
+  | "success"
+  | "claim_failed"
+  | "rescore_failed"
+  | "score_below_floor"
+  | "send_failed";
 
 interface ProcessingResult {
   status: ProcessingStatus;
@@ -209,7 +206,9 @@ async function processCandidate(
   rateLimiter: ReturnType<typeof createResendRateLimiter>,
   emailLogger: ReturnType<typeof createEmailLogger>
 ): Promise<ProcessingResult> {
-  // 1. Atomically claim the delivery slot
+  // 1. Atomically claim the delivery slot. This happens before the fresh
+  // score floor check on purpose: borderline stored-score candidates still
+  // consume the daily alert attempt so the cron does not retry them all day.
   const claimed = await claimDeliverySlot(
     supabase,
     candidate.user_id,
@@ -220,18 +219,32 @@ async function processCandidate(
     return { status: "claim_failed" };
   }
 
-  // 2. Re-score with fresh forecast data for accuracy + gather the day's
-  // forecast rows and beach metadata reused below for the why-bullets.
+  // 2. Re-verify the alert against fresh forecasts. The RPC selects on a stored
+  // conditions_score (~30 min old, from daily-intel); this re-scores today's
+  // slots so a degraded window doesn't get a stale "excellent conditions" email.
   const now = new Date();
   const todayStr = now.toISOString().split("T")[0];
   let freshScore = candidate.conditions_score;
   let dayForecasts: MagicHourForecast[] = [];
-  let beachMeta: BeachMetadata | null = null;
+  let selectedForecast: MagicHourForecast | null = null;
+  let rescoreFailed = false;
+
+  // experience_level is absent from the candidate RPC until migration
+  // 20260618133000 ships, and null for users who never set a level. Fall back
+  // to the neutral 'intermediate' (the same default deriveWhyContent relies on
+  // below) rather than the global 'beginner' safety default — beginner caps
+  // acceptable waves at 4ft, which would zero-score every chest-high-plus day
+  // and suppress alerts the daily-intel pipeline already approved.
+  const userExperienceLevel = resolveNativeSkillLevel(
+    candidate.experience_level,
+    "intermediate"
+  );
+
   try {
     const { data: forecasts } = await supabase
       .from("enhanced_forecasts")
       .select(
-        "id, beach_id, forecast_at, forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction_deg, wind_direction, tide_height, tide_status, created_at, updated_at"
+        "id, beach_id, forecast_at, forecast_date, forecast_time, wave_height, wave_period, wave_direction, wind_speed, wind_direction_deg, tide_height, tide_status, swell_1_period, created_at, updated_at"
       )
       .eq("beach_id", candidate.home_beach_id)
       .gte("forecast_at", `${todayStr}T00:00:00Z`)
@@ -239,7 +252,51 @@ async function processCandidate(
       .order("forecast_at", { ascending: true })
       .limit(12);
 
-    // Fetch beach thresholds (incl. swell window + tide prefs for the why-gates).
+    if (forecasts?.length) {
+      dayForecasts = forecasts as unknown as MagicHourForecast[];
+      const bestForecast = pickBestNativeForecastSlot(
+        forecasts as unknown as EnhancedForecastEntity[],
+        userExperienceLevel
+      );
+      if (bestForecast) {
+        freshScore = bestForecast.score;
+        selectedForecast = bestForecast.forecast as unknown as MagicHourForecast;
+      }
+    }
+    // No fresh slots (empty result, not an error): fall through on the stored
+    // score, which the RPC already gated at >= MIN_SCORE. This is the only
+    // best-effort path — an actual fetch/scoring *error* fails closed below.
+  } catch (rescoreError) {
+    // Fail closed: the stored conditions_score is always >= MIN_SCORE (the RPC
+    // gates on it), so falling back to it on an error would bypass the floor
+    // check and send an alert we could not freshly verify. Skip instead —
+    // consistent with claimDeliverySlot's fail-closed policy. The slot stays
+    // claimed (see step 1) so a transient error doesn't trigger all-day retries.
+    rescoreFailed = true;
+    console.warn(
+      `${CONTEXT_TAG} Re-score failed for ${candidate.beach_name}, failing closed:`,
+      rescoreError
+    );
+  }
+
+  if (rescoreFailed) {
+    return { status: "rescore_failed" };
+  }
+
+  if (freshScore < MIN_SCORE) {
+    console.log(
+      `${CONTEXT_TAG} Skipping ${candidate.beach_name}: fresh score ${freshScore} below ${MIN_SCORE}`
+    );
+    return { status: "score_below_floor" };
+  }
+
+  // Beach thresholds power the personalized why-bullets only. This is fetched
+  // AFTER the floor gate (so we skip the query for candidates we won't email)
+  // and is best-effort: a metadata failure must never block a send backed by a
+  // verified score, so it degrades to empty why-content (deriveWhyContent
+  // tolerates a null beach) rather than failing closed.
+  let beachMeta: BeachMetadata | null = null;
+  try {
     const { data: beach } = await supabase
       .from("beaches")
       .select(
@@ -247,10 +304,6 @@ async function processCandidate(
       )
       .eq("id", candidate.home_beach_id)
       .single();
-
-    if (forecasts?.length) {
-      dayForecasts = forecasts as unknown as MagicHourForecast[];
-    }
 
     if (beach) {
       beachMeta = {
@@ -267,23 +320,10 @@ async function processCandidate(
         timezone: beach.timezone ?? undefined,
       };
     }
-
-    if (forecasts?.length && beach) {
-      // Score the morning window (first available forecast) via the domain engine.
-      const profile = beachToSpotProfile(beach as unknown as Beach);
-      const snapshot = forecastToSnapshot(forecasts[0] as unknown as EnhancedForecastEntity);
-      const composite = getEngine().score({
-        profile,
-        snapshot,
-        window: null,
-        preferences: null,
-      });
-      freshScore = composite.total;
-    }
-  } catch (rescoreError) {
+  } catch (beachError) {
     console.warn(
-      `${CONTEXT_TAG} Re-score failed for ${candidate.beach_name}, using stored score:`,
-      rescoreError
+      `${CONTEXT_TAG} Beach metadata fetch failed for ${candidate.beach_name}, sending without why-bullets:`,
+      beachError
     );
   }
 
@@ -298,17 +338,25 @@ async function processCandidate(
   const why = deriveWhyContent(beachMeta, dayForecasts);
 
   // 4. Format best window + tide summary.
-  const bestWindow =
-    candidate.best_window_start && candidate.best_window_end
-      ? {
-          start: formatDatabaseTime(candidate.best_window_start) || "",
-          end: formatDatabaseTime(candidate.best_window_end) || "",
-        }
-      : null;
-  const tideDescription = formatTideDescription(dayForecasts[0] ?? null);
+  const bestWindow = formatActionableBestWindow(
+    candidate.best_window_start,
+    candidate.best_window_end
+  );
+  const tideDescription = formatTideDescription(
+    selectedForecast ?? dayForecasts[0] ?? null
+  );
 
   // 5. Prepare email content
-  const ctaUrl = `${baseUrl}${buildBeachUrl({ slug: candidate.beach_slug, city: candidate.beach_city, state: candidate.beach_state })}`;
+  const messageInstanceId = crypto.randomUUID();
+  const ctaUrl = buildBeachEmailLink({
+    origin: baseUrl,
+    beachSlug: candidate.beach_slug,
+    emailType: "conditions_alert",
+    utmMedium: "conditions_alert",
+    utmCampaign: "conditions_alert",
+    source: "conditions_alert_email",
+    messageInstanceId,
+  });
   const manageUrl = `${baseUrl}/settings`;
   const unsubscribeUrl = `${baseUrl}/settings`;
   const emailSubject = `${candidate.beach_name}: ${freshScore} today`;
@@ -357,6 +405,7 @@ async function processCandidate(
     meta: {
       beach_name: candidate.beach_name,
       beach_slug: candidate.beach_slug,
+      message_instance_id: messageInstanceId,
     },
   });
 
@@ -395,6 +444,8 @@ async function _GET(request: Request): Promise<Response> {
       durationMs: 0,
       skipped: {
         claimFailed: 0,
+        rescoreFailed: 0,
+        scoreBelowFloor: 0,
         sendFailed: 0,
       },
     };
@@ -448,6 +499,12 @@ async function _GET(request: Request): Promise<Response> {
             break;
           case "claim_failed":
             summary.skipped.claimFailed++;
+            break;
+          case "rescore_failed":
+            summary.skipped.rescoreFailed++;
+            break;
+          case "score_below_floor":
+            summary.skipped.scoreBelowFloor++;
             break;
           case "send_failed":
             summary.skipped.sendFailed++;

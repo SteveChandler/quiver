@@ -8,6 +8,11 @@ export interface ConditionLabelData {
   color: string;
 }
 
+export interface FormattedBestWindow {
+  start: string;
+  end: string;
+}
+
 /**
  * Get the condition label with styling data for the email template.
  * Score is on 0-100 scale from beach_daily_intel.
@@ -50,4 +55,35 @@ export function formatDatabaseTime(timeStr: string | null): string | null {
   } catch {
     return timeStr;
   }
+}
+
+function parseDatabaseHour(timeStr: string | null): number | null {
+  if (!timeStr) return null;
+
+  const hour = Number(timeStr.split(":")[0]);
+  return Number.isInteger(hour) && hour >= 0 && hour <= 23 ? hour : null;
+}
+
+/**
+ * Format a best surf window only when it is usable customer-facing copy.
+ * Stored daily intel may predate timezone fixes, so suppress night/overnight
+ * windows rather than emailing stale "firing at 2 AM" recommendations.
+ */
+export function formatActionableBestWindow(
+  startTime: string | null,
+  endTime: string | null
+): FormattedBestWindow | null {
+  const startHour = parseDatabaseHour(startTime);
+  const endHour = parseDatabaseHour(endTime);
+
+  if (startHour === null || endHour === null) return null;
+  if (startHour < 5 || startHour >= 21) return null;
+  if (endHour <= startHour) return null;
+
+  const start = formatDatabaseTime(startTime);
+  const end = formatDatabaseTime(endTime);
+
+  if (!start || !end) return null;
+
+  return { start, end };
 }
