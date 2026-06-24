@@ -142,7 +142,10 @@ function computeSwellDirScore(
   const span = ((windowMaxDeg - windowMinDeg + 360) % 360);
   const min = windowMinDeg;
   const center = min + span / 2;
-  const offFromCenter = Math.abs(((normalizeDeg(waveDirectionDeg) - (center + 540)) % 360) - 180);
+  // Circular distance from the window center (0..180). Reuse angularDistance —
+  // the previous inline `(center + 540)` wrap math was wrong and returned a
+  // value >180 for every direction, zeroing swellDirScore even at window center.
+  const offFromCenter = angularDistance(waveDirectionDeg, center);
   const inside = Math.max(0, span / 2 - offFromCenter);
   // Fade to 0 in the next 30° beyond the window
   const beyond = Math.max(0, offFromCenter - span / 2);
