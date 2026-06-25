@@ -79,6 +79,27 @@ describe("CamsSection", () => {
     expect(screen.queryByText(/refresh for the latest frame/i)).not.toBeInTheDocument();
   });
 
+  it("renders Surfline report cams as external click-out links instead of iframes", () => {
+    const sources = {
+      camera_url:
+        "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
+      embed_allowed: true,
+    } as BeachSources;
+
+    render(<CamsSection sources={sources} beachName="Inches" />);
+
+    expect(
+      screen.getByRole("link", {
+        name: /live cam of inches: open live cam on surfline/i,
+      })
+    ).toHaveAttribute(
+      "href",
+      "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67"
+    );
+    expect(screen.queryByTitle("Live Cam")).not.toBeInTheDocument();
+    expect(screen.queryByText(/refresh for the latest frame/i)).not.toBeInTheDocument();
+  });
+
   it("renders authorized OB Hotel cams as in-app HLS video", async () => {
     const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
       ok: true,

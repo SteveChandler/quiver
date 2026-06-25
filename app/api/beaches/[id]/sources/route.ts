@@ -127,8 +127,14 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     const camIntent = cameraUrl ? buildCamEmbed(cameraUrl) : { kind: "none" as const };
     if (cameraUrl) {
       // Known embeddable sources — buildCamEmbed transforms these to proper embed URLs
-      if (camIntent.kind !== "none" && camIntent.kind !== "iframe") {
-        // HLS, video — always embeddable via native players
+      if (camIntent.kind === "external") {
+        embedAllowed = false;
+      } else if (
+        camIntent.kind === "hls" ||
+        camIntent.kind === "video" ||
+        camIntent.kind === "hdontap"
+      ) {
+        // HLS, video, and resolvable player sources are embeddable via native players
         embedAllowed = true;
       } else if (
         cameraUrl.includes("hdontap.com/") ||
