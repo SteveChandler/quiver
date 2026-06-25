@@ -97,6 +97,11 @@ export function interpolateSwellPartition(
   const t = clamp01(progress);
   return {
     s1Dir: lerpDirectionNullable(from.s1Dir, to.s1Dir, t),
+    swellDirOm: lerpDirectionNullable(
+      from.swellDirOm ?? null,
+      to.swellDirOm ?? null,
+      t
+    ),
     s1PeriodS: lerpNullable(from.s1PeriodS, to.s1PeriodS, t),
     s1HeightFt: lerpNullable(from.s1HeightFt, to.s1HeightFt, t),
     s2Dir: lerpDirectionNullable(from.s2Dir, to.s2Dir, t),
@@ -321,11 +326,12 @@ export function partitionToPoint(
     };
   }
   // "s1" and "combined" both anchor on the primary swell.
-  if (partition.s1Dir == null) return null;
+  const dir = partition.swellDirOm ?? partition.s1Dir;
+  if (dir == null) return null;
   return {
     lon,
     lat,
-    dir: partition.s1Dir,
+    dir,
     periodS: partition.s1PeriodS ?? 12,
     heightFt: partition.s1HeightFt ?? 2,
   };
