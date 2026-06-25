@@ -29,6 +29,7 @@ import {
   type MarkerBuilderDeps,
   type MapDisplayMode,
 } from "@/components/map/map-marker-builder";
+import { createCustomSpotMarkerElement } from "@/components/map/custom-spot-marker-builder";
 import {
   loadBeachesAndWaveHeights,
   type ConditionSummary,
@@ -163,25 +164,6 @@ interface InteractiveMapProps {
 
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
 const EMPTY_CUSTOM_SPOTS: CustomSpot[] = [];
-
-function createCustomSpotMarkerElement(spot: CustomSpot): HTMLElement {
-  const element = document.createElement("div");
-  element.setAttribute("data-testid", "custom-spot-marker");
-  element.setAttribute("data-custom-spot-id", spot.id);
-  element.setAttribute("title", spot.name);
-  element.style.cssText = `
-    pointer-events: auto;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: #FFFFFF;
-    border: 2.5px solid #F78E42;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.28);
-    cursor: pointer;
-  `;
-
-  return element;
-}
 
 interface MapConditionLegendProps {
   controls?: ReactNode;
@@ -1453,7 +1435,15 @@ export function InteractiveMap({
       }
 
       const markerId = `custom-${spot.id}`;
-      const element = createCustomSpotMarkerElement(spot);
+      const nearestBeachId = spot.nearestBeachId;
+      const markerData = nearestBeachId
+        ? {
+            conditionSummary: conditionSummaryMap.get(nearestBeachId),
+            conditionScore: conditionScoreMap.get(nearestBeachId),
+            waveLabel: displayForecastMap.get(nearestBeachId)?.label ?? null,
+          }
+        : undefined;
+      const element = createCustomSpotMarkerElement(spot, markerData);
 
       const marker = new mapboxgl.Marker({
         element,
@@ -1470,6 +1460,9 @@ export function InteractiveMap({
     customSpots,
     isMapReady,
     waveHeightMap,
+    displayForecastMap,
+    conditionScoreMap,
+    conditionSummaryMap,
     buildWaveHeightBadge,
     cleanupMarkers,
   ]);

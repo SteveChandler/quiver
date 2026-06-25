@@ -10,6 +10,12 @@ export interface CustomSpot {
   lon: number;
   nearestBeachId: string | null;
   visibility: string;
+  breakType?: string | null;
+  facingDirectionDeg?: number | null;
+  offshoreDirectionDeg?: number | null;
+  swellWindowMinDeg?: number | null;
+  swellWindowMaxDeg?: number | null;
+  nearestBeachDistanceMi?: number | null;
 }
 
 interface CustomSpotRow {
@@ -19,6 +25,12 @@ interface CustomSpotRow {
   lon: number;
   nearest_beach_id: string | null;
   visibility: string;
+  break_type: string | null;
+  facing_direction_deg: number | null;
+  offshore_direction_deg: number | null;
+  swell_window_min_deg: number | null;
+  swell_window_max_deg: number | null;
+  nearest_beach_distance_mi: number | null;
 }
 
 export function useCustomSpots(): {
@@ -36,7 +48,9 @@ export function useCustomSpots(): {
         const supabase = createClient();
         const { data, error } = await supabase
           .from("custom_spots")
-          .select("id, name, lat, lon, nearest_beach_id, visibility")
+          .select(
+            "id, name, lat, lon, nearest_beach_id, visibility, break_type, facing_direction_deg, offshore_direction_deg, swell_window_min_deg, swell_window_max_deg, nearest_beach_distance_mi",
+          )
           .is("deleted_at", null);
 
         if (error) {
@@ -59,6 +73,12 @@ export function useCustomSpots(): {
             lon: row.lon,
             nearestBeachId: row.nearest_beach_id,
             visibility: row.visibility,
+            breakType: row.break_type,
+            facingDirectionDeg: row.facing_direction_deg,
+            offshoreDirectionDeg: row.offshore_direction_deg,
+            swellWindowMinDeg: row.swell_window_min_deg,
+            swellWindowMaxDeg: row.swell_window_max_deg,
+            nearestBeachDistanceMi: row.nearest_beach_distance_mi,
           }));
 
         if (isMounted) {

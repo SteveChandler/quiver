@@ -31,6 +31,12 @@ describe("useCustomSpots", () => {
           lon: -117.25,
           nearest_beach_id: "beach-1",
           visibility: "public",
+          break_type: "reef",
+          facing_direction_deg: 270,
+          offshore_direction_deg: 90,
+          swell_window_min_deg: 210,
+          swell_window_max_deg: 300,
+          nearest_beach_distance_mi: 1.2,
         },
         {
           id: "spot-2",
@@ -39,6 +45,12 @@ describe("useCustomSpots", () => {
           lon: -117.26,
           nearest_beach_id: null,
           visibility: "public",
+          break_type: null,
+          facing_direction_deg: null,
+          offshore_direction_deg: null,
+          swell_window_min_deg: null,
+          swell_window_max_deg: null,
+          nearest_beach_distance_mi: null,
         },
         {
           id: "spot-3",
@@ -47,6 +59,12 @@ describe("useCustomSpots", () => {
           lon: Number.POSITIVE_INFINITY,
           nearest_beach_id: null,
           visibility: "private",
+          break_type: null,
+          facing_direction_deg: null,
+          offshore_direction_deg: null,
+          swell_window_min_deg: null,
+          swell_window_max_deg: null,
+          nearest_beach_distance_mi: null,
         },
         {
           id: "spot-4",
@@ -55,6 +73,12 @@ describe("useCustomSpots", () => {
           lon: -117.27,
           nearest_beach_id: null,
           visibility: "private",
+          break_type: null,
+          facing_direction_deg: null,
+          offshore_direction_deg: null,
+          swell_window_min_deg: null,
+          swell_window_max_deg: null,
+          nearest_beach_distance_mi: null,
         },
       ],
       error: null,
@@ -76,6 +100,12 @@ describe("useCustomSpots", () => {
         lon: -117.25,
         nearestBeachId: "beach-1",
         visibility: "public",
+        breakType: "reef",
+        facingDirectionDeg: 270,
+        offshoreDirectionDeg: 90,
+        swellWindowMinDeg: 210,
+        swellWindowMaxDeg: 300,
+        nearestBeachDistanceMi: 1.2,
       },
       {
         id: "spot-4",
@@ -84,11 +114,17 @@ describe("useCustomSpots", () => {
         lon: -117.27,
         nearestBeachId: null,
         visibility: "private",
+        breakType: null,
+        facingDirectionDeg: null,
+        offshoreDirectionDeg: null,
+        swellWindowMinDeg: null,
+        swellWindowMaxDeg: null,
+        nearestBeachDistanceMi: null,
       },
     ]);
     expect(query.from).toHaveBeenCalledWith("custom_spots");
     expect(query.select).toHaveBeenCalledWith(
-      "id, name, lat, lon, nearest_beach_id, visibility",
+      "id, name, lat, lon, nearest_beach_id, visibility, break_type, facing_direction_deg, offshore_direction_deg, swell_window_min_deg, swell_window_max_deg, nearest_beach_distance_mi",
     );
     expect(query.is).toHaveBeenCalledWith("deleted_at", null);
   });
