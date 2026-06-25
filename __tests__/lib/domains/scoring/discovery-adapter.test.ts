@@ -271,6 +271,24 @@ describe('Discovery Adapter', () => {
         expect(snapshot.windWave).toBeNull();
       });
 
+      it('normalizes wavePeriod to the dominant partition when stored wave_period is stale', () => {
+        const forecast = createForecast({
+          wave_height: '2',
+          wave_period: '14s',
+          swell_1_height: '1',
+          swell_1_period: '15s',
+          swell_1_direction: '270',
+          swell_2_height: '2',
+          swell_2_period: '4s',
+          swell_2_direction: '270',
+        });
+        const snapshot = forecastToSnapshot(forecast);
+
+        expect(snapshot.primarySwell?.periodS).toBe(4);
+        expect(snapshot.wavePeriod).toBe(4);
+        expect(snapshot.primarySwell?.periodS).toBe(snapshot.wavePeriod);
+      });
+
       it('exposes wind_wave separately when swell_1 is dominant', () => {
         const forecast = createForecast({
           wave_height: '4',
