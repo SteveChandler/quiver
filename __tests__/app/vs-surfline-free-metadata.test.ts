@@ -1,4 +1,4 @@
-import { metadata } from "@/app/vs/surfline/free/page";
+import { metadata } from "@/app/seo-pages/vs-surfline-free/page";
 
 describe("/vs/surfline/free metadata", () => {
   it("targets the free-surfline-alternative query", () => {

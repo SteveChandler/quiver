@@ -97,6 +97,18 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // `/vs/surfline/free` (3 URL segments) is shadowed at runtime by the dynamic beach route
+  // app/[intent]/[city]/[beachSlug] (Next 16 static-vs-dynamic precedence) and was served
+  // the beach "Location Not Found" soft-404. A next.config `beforeFiles` rewrite does NOT
+  // preempt the dynamic route (verified against a prod build); this proxy runs ahead of
+  // route resolution, so it does. The real page lives at app/seo-pages/vs-surfline-free/;
+  // public URL + canonical stay /vs/surfline/free (rewrite, not redirect — no SEO change).
+  if (pathname === "/vs/surfline/free") {
+    return NextResponse.rewrite(
+      new URL("/seo-pages/vs-surfline-free", request.url),
+    );
+  }
+
   // Deferred rewrite target for city URLs — set below, applied in createSecureResponse()
   let rewriteTarget: URL | undefined;
 
