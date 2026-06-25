@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
-import {
-  EmbedPromoPage,
-  type BeachOption,
-} from "@/components/embed-promo/embed-promo-page";
 import { StructuredData } from "@/components/seo/structured-data";
+import { ZineSurface } from "@/components/zine";
+import {
+  BusinessesEmbedPromo,
+  type BeachOption,
+} from "./_components/businesses-embed-promo";
 
 export const revalidate = 86400;
 
@@ -40,7 +41,13 @@ export default async function ForBusinessesPage() {
   return (
     <>
       <StructuredData type="softwareApplication" />
-      <EmbedPromoPage variant="businesses" beaches={beaches} />
+      <ZineSurface
+        sectionLabel="For businesses"
+        editionLabel="Embed the surf, free"
+        data-testid="for-businesses-zine-surface"
+      >
+        <BusinessesEmbedPromo beaches={beaches} />
+      </ZineSurface>
     </>
   );
 }
