@@ -9,6 +9,35 @@ import type { ConditionSummary } from "@/components/map/map-beach-loader";
 /** Controls what data the map markers display */
 export type MapDisplayMode = "wave-height" | "water-temp";
 
+export interface ConditionMarkerCall {
+  summary: ConditionSummary;
+  label: "Worth it" | "Maybe" | "Scout it" | "No read";
+  gradient: string;
+}
+
+export interface MarkerPreviewData {
+  waveLabel?: string | null;
+  conditionSummary?: ConditionSummary;
+  conditionScore?: number;
+}
+
+export const CONDITION_MARKER_CALLS: ReadonlyArray<{
+  summary: ConditionSummary;
+  label: ConditionMarkerCall["label"];
+}> = [
+  { summary: "GOOD", label: "Worth it" },
+  { summary: "FAIR", label: "Maybe" },
+  { summary: "CHECK", label: "Scout it" },
+  { summary: "UNKNOWN", label: "No read" },
+];
+
+function conditionSummaryFromScore(score?: number): ConditionSummary {
+  if (typeof score !== "number" || !Number.isFinite(score)) return "UNKNOWN";
+  if (score >= 70) return "GOOD";
+  if (score >= 40) return "FAIR";
+  return "CHECK";
+}
+
 /**
  * Get badge background color for water temperature display.
  * Uses a warm→cold color scale.
@@ -32,6 +61,25 @@ export function getConditionMarkerGradient(
   if (summary === "FAIR") return "linear-gradient(to right, #8A4A12, #9E5010)";
   if (summary === "CHECK") return "linear-gradient(to right, #334155, #475569)";
   return "linear-gradient(to right, #5F6673, #475569)";
+}
+
+export function getConditionMarkerCall({
+  conditionSummary,
+  conditionScore,
+}: {
+  conditionSummary?: ConditionSummary;
+  conditionScore?: number;
+}): ConditionMarkerCall {
+  const summary = conditionSummary ?? conditionSummaryFromScore(conditionScore);
+  const label =
+    CONDITION_MARKER_CALLS.find((item) => item.summary === summary)?.label ??
+    "No read";
+
+  return {
+    summary,
+    label,
+    gradient: getConditionMarkerGradient(summary),
+  };
 }
 
 function getWaveHeightBadgeColor(summary?: ConditionSummary): string {
@@ -77,6 +125,18 @@ export interface MarkerBuilderDeps {
   conditionSummary?: ConditionSummary;
   /** 0-100 condition score, reserved for tooltips/analytics */
   conditionScore?: number;
+  /** Marker coordinate used to anchor the preview popup */
+  previewLngLat?: [number, number];
+  /** Opens the single-beach marker preview popup */
+  onPreviewOpen?: (
+    beach: Beach,
+    lngLat: [number, number],
+    preview: MarkerPreviewData
+  ) => void;
+  /** Cancels any delayed preview close */
+  onPreviewHold?: () => void;
+  /** Requests preview close; caller decides whether to delay */
+  onPreviewClose?: () => void;
 }
 
 /**
@@ -106,8 +166,16 @@ export function createWaveHeightBadge(
     const badgeText = displayMode === "water-temp"
       ? formatWaterTemp(deps.waterTemp)
       : deps.waveHeightLabel ?? formatFallbackWaveHeight(waveHeight);
+    const previewWaveLabel =
+      deps.waveHeightLabel ??
+      (displayMode === "wave-height" ? formatFallbackWaveHeight(waveHeight) : null);
+    const hasPreviewWaveLabel =
+      previewWaveLabel && previewWaveLabel !== "—" ? previewWaveLabel : null;
     const isSelected = deps.selectedBeachId === location.id;
     const isHovered = deps.hoveredBeachId === location.id;
+    const canHover =
+      typeof window !== "undefined" &&
+      window.matchMedia("(hover: hover)").matches;
 
     // Create wrapper element that Mapbox will position
     const wrapper = document.createElement("div");
@@ -182,10 +250,21 @@ export function createWaveHeightBadge(
     // Enhanced hover effects with motion
     badge.addEventListener("mouseenter", () => {
       deps.onHoverChange(location.id);
+      if (canHover && deps.previewLngLat && deps.onPreviewOpen) {
+        deps.onPreviewHold?.();
+        deps.onPreviewOpen(location, deps.previewLngLat, {
+          waveLabel: hasPreviewWaveLabel,
+          conditionSummary,
+          conditionScore: deps.conditionScore,
+        });
+      }
     });
 
     badge.addEventListener("mouseleave", () => {
       deps.onHoverChange(null);
+      if (canHover) {
+        deps.onPreviewClose?.();
+      }
     });
 
     // Enhanced click handler with selection animation
@@ -207,6 +286,18 @@ export function createWaveHeightBadge(
       // Trigger location click callback if provided
       if (deps.onLocationClick) {
         deps.onLocationClick(location);
+      }
+
+      if (!canHover) {
+        if (deps.previewLngLat && deps.onPreviewOpen) {
+          deps.onPreviewHold?.();
+          deps.onPreviewOpen(location, deps.previewLngLat, {
+            waveLabel: hasPreviewWaveLabel,
+            conditionSummary,
+            conditionScore: deps.conditionScore,
+          });
+        }
+        return;
       }
 
       // Animate selection and navigate after slight delay using hierarchical URL
