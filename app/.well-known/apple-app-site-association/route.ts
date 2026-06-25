@@ -45,6 +45,7 @@ const requiredApplinkPaths = [
   "/map*",
   "/invite/*",
   "/settings*",
+  "/app*",
   "/app/spot/*",
 ];
 const applinkPaths = Array.from(

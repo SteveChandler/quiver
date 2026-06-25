@@ -31,7 +31,12 @@ function firstSearchValue(value: string | string[] | undefined): string | undefi
 
 function buildAbsoluteInviteUrl(token: string): string {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-  return `${siteUrl.replace(/\/$/, "")}/invite/${token}`;
+  const search = new URLSearchParams({
+    utm_source: "qr",
+    utm_medium: "invite_qr",
+    utm_campaign: "invite_access",
+  });
+  return `${siteUrl.replace(/\/$/, "")}/invite/${token}?${search.toString()}`;
 }
 
 async function fetchInviter(

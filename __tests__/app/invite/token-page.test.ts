@@ -125,6 +125,9 @@ describe("/invite/[token]", () => {
       expect.objectContaining({
         token,
         tokenHash: hashInviteToken(token),
+        inviteUrl: expect.stringContaining(
+          `/invite/${token}?utm_source=qr&utm_medium=invite_qr&utm_campaign=invite_access`,
+        ),
         startPath: `/invite/start?token=${encodeURIComponent(token)}`,
         inviter: {
           id: "inviter-id",

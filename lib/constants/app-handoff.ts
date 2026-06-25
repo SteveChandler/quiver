@@ -12,10 +12,15 @@ export const APP_HANDOFF_PATH = "/app";
 /** Only these keys survive into the handoff URL. Anything else is dropped. */
 export const SAFE_HANDOFF_PARAM_KEYS = [
   "source",
+  "surface",
   "placement",
+  "qr_id",
+  "target",
   "utm_source",
   "utm_medium",
   "utm_campaign",
+  "utm_content",
+  "utm_term",
 ] as const;
 
 export type SafeHandoffParamKey = (typeof SAFE_HANDOFF_PARAM_KEYS)[number];
@@ -40,4 +45,20 @@ export function buildAppHandoffUrl(params: HandoffParams): string {
     DEFAULT_APP_HANDOFF_ORIGIN
   ).replace(/\/$/, "");
   return `${origin}${buildAppHandoffPath(params)}`;
+}
+
+export function buildSmartQrHandoffUrl(
+  params: HandoffParams & {
+    source: string;
+    surface: string;
+    placement: string;
+    qr_id: string;
+  },
+): string {
+  return buildAppHandoffUrl({
+    utm_source: "qr",
+    utm_medium: "smart_qr",
+    utm_campaign: APP_FIRST_CAMPAIGN,
+    ...params,
+  });
 }
