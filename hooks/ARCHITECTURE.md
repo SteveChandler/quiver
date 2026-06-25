@@ -23,6 +23,7 @@ hooks/
 ├── use-beach-card-data.ts           # Beach card display optimization
 ├── use-enhanced-beach-data.ts       # Comprehensive beach information
 ├── use-geolocation.ts                # Canonical user location services (geolocation)
+├── use-custom-spots.ts              # Public + own custom spot rows for map overlays
 │
 ├── Session Management
 ├── use-session-form.ts              # Session creation and editing
@@ -70,7 +71,8 @@ BusinessLogic
 └── Domain Logic (use-forecast-*, use-beach-*, use-intel-*)
 
 Geospatial
-└── Location (use-geolocation)
+├── Location (use-geolocation)
+└── Custom Spots (use-custom-spots)
 ```
 
 ### **Standardized Hook Interface Pattern**
@@ -172,8 +174,6 @@ export function createLocationCacheKey(
   - Beach selection state
   - Search query persistence
 
-#### **useBeachCardData** (Display Optimization)
-
 #### **useGeolocation** (Geolocation)
 
 - **Purpose**: Canonical location hook. Supports both:
@@ -189,6 +189,8 @@ const { coords, requestLocation, source } = useGeolocation({
 // Map screen (auto request on mount):
 const { userLocation, getUserLocation } = useGeolocation();
 ```
+
+#### **useBeachCardData** (Display Optimization)
 
 - **Purpose**: Optimized beach card data processing
 - **Features**:
@@ -253,6 +255,29 @@ export function useBeachCardData(
 ```
 
 **Note**: See `/docs/COORDINATE_CONVENTIONS.md` for complete coordinate naming standards. Database fields use `center_lat`/`center_lng` but must be mapped to `latitude`/`longitude` for component props.
+
+#### **useCustomSpots** (Map Custom Spots)
+
+- **Purpose**: Fetch custom surf spots for map overlays
+- **Location**: `hooks/use-custom-spots.ts`
+- **Features**:
+  - Reads `custom_spots` through the Supabase browser client
+  - Relies on RLS to return public spots plus the authenticated user's own spots
+  - Filters out rows without finite `lat`/`lon`
+  - Maps snake_case database fields to camelCase hook output
+  - Used by `components/map-view.tsx` to pass `customSpots` into the interactive map
+
+```typescript
+export function useCustomSpots(): {
+  customSpots: CustomSpot[];
+  loading: boolean;
+}
+```
+
+**Implementation Notes:**
+
+- `nearest_beach_id` becomes `nearestBeachId`; the map uses it to borrow the nearest beach forecast verdict color and wave label.
+- The hook is read-only. Custom spot click navigation, a `/custom-spots/[id]` view, and anonymous sign-up gating are not implemented yet.
 
 ### **Session Management Hooks**
 
