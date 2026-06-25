@@ -87,6 +87,7 @@ const COMBINED_SUBLAYERS: ReadonlyArray<"s1" | "s2" | "wind"> = [
 // Per-layer particle count for the combined view so three stacked layers keep the
 // sparse Windy-style spacing in budget (3 × 260 = 780 total).
 const COMBINED_PARTICLE_COUNT = 260;
+const WIND_DENSITY_FACTOR = 0.45;
 
 const EMPTY_FLOW_FIELD: FlowField = { cols: 0, rows: 0, cells: [] };
 
@@ -869,11 +870,11 @@ export function InteractiveMap({
       typeof window !== "undefined" ? window.innerWidth : 1024;
     const baseParticleCount = resolveParticleCount(viewportWidthPx);
     const windCount = resolveWindParticleCount(
-      baseParticleCount,
+      Math.round(baseParticleCount * WIND_DENSITY_FACTOR),
       flowFieldsRef.current.wind
     );
     const combinedWindCount = resolveWindParticleCount(
-      COMBINED_PARTICLE_COUNT,
+      Math.round(COMBINED_PARTICLE_COUNT * WIND_DENSITY_FACTOR),
       flowFieldsRef.current.wind
     );
 

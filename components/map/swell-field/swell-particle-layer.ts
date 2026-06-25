@@ -229,11 +229,11 @@ export function createSwellParticleLayer(
   // across GPUs, so length is the lever) — still kept clearly SHORTER than the wind
   // comet tail below so the swell crest and the wind streak stay visually distinct.
   const DASH_FRACTION = 0.016;
-  // Comet TAIL length as a fraction of the viewport span — a streak trailing BEHIND the
-  // moving dot head. Lengthened 0.02 -> 0.028 so the wind streak reads as motion on the
-  // light basemap, and stays LONGER than the crest dash so the two marks don't blur
-  // together. Decoupled from drift speed (same rationale as DASH_FRACTION).
-  const COMET_TAIL_FRACTION = 0.028;
+  // Comet TAIL length as a fraction of the viewport span — a short, quiet Windy-like
+  // directional nub trailing BEHIND the moving dot head. Decoupled from drift speed
+  // (same rationale as DASH_FRACTION).
+  const COMET_TAIL_FRACTION = 0.012;
+  const COMET_HEAD_POINT_SIZE = 2.4;
 
   function viewBoxMercator(map: mapboxgl.Map): MercatorBox {
     const b = map.getBounds();
@@ -419,13 +419,12 @@ export function createSwellParticleLayer(
       // Near-opaque so the dark dashes read crisply on the light basemap; the static
       // reduced-motion frame stays a touch dimmer.
       gl.uniform1f(uAlphaLoc, options.reducedMotion ? 0.95 : 1.0);
-      // Dot diameter in device pixels (≈3.6 CSS px scaled for retina). Ignored when
-      // drawing LINES; only the dot/comet-head layer reads gl_PointSize. Bumped 3.0 ->
-      // 3.6 so the wind comet head reads against the pale basemap (lineWidth>1 is
-      // unreliable, so head size is the lever).
+      // Dot diameter in device pixels. Ignored when drawing LINES; only the
+      // dot/comet-head layer reads gl_PointSize. Keep comet heads small so wind reads
+      // sparse and quiet on the pale basemap.
       const dpr =
         typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-      gl.uniform1f(uPointSizeLoc, 3.6 * dpr);
+      gl.uniform1f(uPointSizeLoc, COMET_HEAD_POINT_SIZE * dpr);
 
       gl.enable(gl.BLEND);
       // Normal alpha blending — dark marks paint over the light water (additive glow
