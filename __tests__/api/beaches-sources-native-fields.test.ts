@@ -101,6 +101,49 @@ describe("GET /api/beaches/[id]/sources", () => {
     });
   });
 
+  it("marks Surfline report cam pages as external link-outs, not embeddable iframes", async () => {
+    const sourceChain = makeChain({
+      data: {
+        beach_id: VALID_BEACH_UUID,
+        ndbc_buoy_ids: null,
+        forecast_source_id: null,
+        camera_url:
+          "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
+        thumbnail_url: null,
+      },
+      error: null,
+    });
+    const dioramaChain = makeChain({ data: null, error: null });
+
+    mockCreateSupabaseServerClient.mockResolvedValue({
+      from: jest.fn((table: string) => {
+        if (table === "beach_sources") return sourceChain;
+        if (table === "beach_dioramas") return dioramaChain;
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    });
+
+    const response = await GET(
+      {
+        nextUrl: new URL(`https://www.quiversurf.app/api/beaches/${VALID_BEACH_UUID}/sources`),
+      } as any,
+      {
+        params: Promise.resolve({ id: VALID_BEACH_UUID }),
+      }
+    );
+
+    const body = await response.json();
+
+    expect(body.data.sources).toMatchObject({
+      camera_url:
+        "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
+      cam_open_url:
+        "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
+      cam_kind: "external",
+      embed_allowed: false,
+    });
+  });
+
   it("resolves beach slugs before querying source and diorama rows", async () => {
     const beachLookupChain = makeChain({
       data: {
