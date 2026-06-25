@@ -20,7 +20,6 @@ import { invalidateUserCaches } from "@/lib/gamification/cache";
 
 const userId = "11111111-1111-4111-8111-111111111111";
 const sessionId = "22222222-2222-4222-8222-222222222222";
-const dailyCallId = "33333333-3333-4333-8333-333333333333";
 const bearerToken = "native-token";
 
 type MockSupabase = {
@@ -32,10 +31,8 @@ type MockSupabase = {
 
 let mockSupabase: MockSupabase;
 let sessionMaybeSingle: jest.Mock;
-let dailyCallMaybeSingle: jest.Mock;
 let xpEventMaybeSingle: jest.Mock;
 let sessionEq: jest.Mock;
-let dailyCallEq: jest.Mock;
 let xpEventEq: jest.Mock;
 
 type SelectChain = {
@@ -87,15 +84,10 @@ function makeSelectChain(maybeSingle: jest.Mock, eq: jest.Mock): SelectChain {
 
 function setupSupabase(options: {
   sessionRow?: { id: string } | null;
-  dailyCallRow?: { id: string } | null;
   existingEvent?: { id: string } | null;
 } = {}): void {
   sessionMaybeSingle = jest.fn().mockResolvedValue({
     data: "sessionRow" in options ? options.sessionRow : { id: sessionId },
-    error: null,
-  });
-  dailyCallMaybeSingle = jest.fn().mockResolvedValue({
-    data: "dailyCallRow" in options ? options.dailyCallRow : { id: dailyCallId },
     error: null,
   });
   xpEventMaybeSingle = jest.fn().mockResolvedValue({
@@ -103,11 +95,9 @@ function setupSupabase(options: {
     error: null,
   });
   sessionEq = jest.fn();
-  dailyCallEq = jest.fn();
   xpEventEq = jest.fn();
 
   const sessionChain = makeSelectChain(sessionMaybeSingle, sessionEq);
-  const dailyCallChain = makeSelectChain(dailyCallMaybeSingle, dailyCallEq);
   const xpEventChain = makeSelectChain(xpEventMaybeSingle, xpEventEq);
 
   mockSupabase = {
@@ -119,7 +109,6 @@ function setupSupabase(options: {
     },
     from: jest.fn((table: string) => {
       if (table === "sessions") return sessionChain;
-      if (table === "daily_calls") return dailyCallChain;
       if (table === "xp_events") return xpEventChain;
       throw new Error(`Unexpected table: ${table}`);
     }),
@@ -142,14 +131,6 @@ function validBody(): Record<string, string> {
     action: "log_session",
     related_entity_id: sessionId,
     related_entity_type: "session",
-  };
-}
-
-function validMakeCallBody(): Record<string, string> {
-  return {
-    action: "make_call",
-    related_entity_id: dailyCallId,
-    related_entity_type: "daily_call",
   };
 }
 
@@ -321,88 +302,20 @@ describe("POST /api/gamification/award", () => {
     expect(getXPForAction).not.toHaveBeenCalled();
   });
 
-  it("awards XP for an owned daily call without writing a related entity type", async () => {
-    (getXPForAction as jest.Mock).mockReturnValue(10);
-    (getCurrentXP as jest.Mock).mockResolvedValue({
-      xp_total: 50,
-      level: 1,
-    });
-    (incrementUserXP as jest.Mock).mockResolvedValue({
-      xp_total: 60,
-      level: 1,
-      awarded: 10,
-    });
-    (calculateLevel as jest.Mock).mockReturnValue({
-      level: 1,
-      title: "Kook",
-    });
-
-    const response = await POST(requestWithBody(validMakeCallBody()));
-    const body = await response.json();
-
-    expect(response.status).toBe(200);
-    expect(body.success).toBe(true);
-    expect(body.data).toMatchObject({
-      awarded: true,
-      result: {
-        xp_gained: 10,
-        total_xp: 60,
-        previous_level: 1,
-        new_level: 1,
-        level_up: false,
-        level_title: "Kook",
-      },
-    });
-    expect(dailyCallEq).toHaveBeenCalledWith("id", dailyCallId);
-    expect(dailyCallEq).toHaveBeenCalledWith("user_id", userId);
-    expect(getXPForAction).toHaveBeenCalledWith("make_call");
-    expect(incrementUserXP).toHaveBeenCalledWith(
-      userId,
-      10,
-      "make_call",
-      dailyCallId,
-      `make_call:${dailyCallId}`,
-      mockSupabase,
+  it("rejects retired make_call XP awards before touching tables", async () => {
+    const response = await POST(
+      requestWithBody({
+        action: "make_call",
+        related_entity_id: "33333333-3333-4333-8333-333333333333",
+        related_entity_type: "daily_call",
+      }),
     );
-    expect(updateUserXP).not.toHaveBeenCalled();
-    expect(logXPEvent).not.toHaveBeenCalled();
-    expect(invalidateUserCaches).toHaveBeenCalledWith(userId);
-  });
-
-  it("returns an idempotent response when the daily call already has an XP event", async () => {
-    setupSupabase({ existingEvent: { id: "xp-event-1" } });
-
-    const response = await POST(requestWithBody(validMakeCallBody()));
     const body = await response.json();
 
-    expect(response.status).toBe(200);
-    expect(body.success).toBe(true);
-    expect(body.data).toMatchObject({
-      awarded: false,
-      reason: "already_awarded",
-      xp: {
-        xp_total: 100,
-        level: 2,
-      },
-    });
-    expect(xpEventEq).toHaveBeenCalledWith("user_id", userId);
-    expect(xpEventEq).toHaveBeenCalledWith("action", "make_call");
-    expect(xpEventEq).toHaveBeenCalledWith("related_entity_id", dailyCallId);
-    expect(fetchUserXPStatus).toHaveBeenCalledWith(userId, mockSupabase);
-    expect(incrementUserXP).not.toHaveBeenCalled();
-    expect(logXPEvent).not.toHaveBeenCalled();
-    expect(updateUserXP).not.toHaveBeenCalled();
-  });
-
-  it("returns 404 and skips XP writes when the daily call is not owned by the user", async () => {
-    setupSupabase({ dailyCallRow: null });
-
-    const response = await POST(requestWithBody(validMakeCallBody()));
-    const body = await response.json();
-
-    expect(response.status).toBe(404);
+    expect(response.status).toBe(400);
     expect(body.success).toBe(false);
-    expect(body.error).toBe("Daily call not found");
+    expect(body.error).toBe("Invalid payload");
+    expect(mockSupabase.from).not.toHaveBeenCalled();
     expect(getXPForAction).not.toHaveBeenCalled();
     expect(incrementUserXP).not.toHaveBeenCalled();
     expect(updateUserXP).not.toHaveBeenCalled();

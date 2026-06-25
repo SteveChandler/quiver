@@ -20,50 +20,28 @@ import { invalidateUserCaches } from "@/lib/gamification/cache";
 
 export const dynamic = "force-dynamic";
 
-const AwardRequestSchema = z.discriminatedUnion("action", [
-  z.object({
-    action: z.literal("log_session"),
-    related_entity_id: z.string().uuid(),
-    related_entity_type: z.literal("session"),
-  }),
-  z.object({
-    action: z.literal("make_call"),
-    related_entity_id: z.string().uuid(),
-    related_entity_type: z.literal("daily_call"),
-  }),
-]);
+const AwardRequestSchema = z.object({
+  action: z.literal("log_session"),
+  related_entity_id: z.string().uuid(),
+  related_entity_type: z.literal("session"),
+});
 
 type AwardRequest = z.infer<typeof AwardRequestSchema>;
 
 async function verifyRelatedEntityOwnership(
-  { action, related_entity_id }: AwardRequest,
+  { related_entity_id }: AwardRequest,
   { user, supabase }: Pick<AuthenticatedContext, "user" | "supabase">,
 ): Promise<NextResponse | null> {
-  if (action === "log_session") {
-    const { data: sessionRow, error: sessionError } = await supabase
-      .from("sessions")
-      .select("id")
-      .eq("id", related_entity_id)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (sessionError) throw sessionError;
-    if (!sessionRow) {
-      return createErrorResponse("Session not found", undefined, 404);
-    }
-    return null;
-  }
-
-  const { data: dailyCallRow, error: dailyCallError } = await (supabase as any)
-    .from("daily_calls")
+  const { data: sessionRow, error: sessionError } = await supabase
+    .from("sessions")
     .select("id")
     .eq("id", related_entity_id)
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (dailyCallError) throw dailyCallError;
-  if (!dailyCallRow) {
-    return createErrorResponse("Daily call not found", undefined, 404);
+  if (sessionError) throw sessionError;
+  if (!sessionRow) {
+    return createErrorResponse("Session not found", undefined, 404);
   }
   return null;
 }

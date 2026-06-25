@@ -131,10 +131,10 @@ describe("earn-pro-evaluate cron", () => {
   it("grants only allowlisted users who satisfy the weekly-primary eligibility rule", async () => {
     process.env.EARN_PRO_ENABLED = "true";
     process.env.EARN_PRO_TEST_USER_IDS =
-      "u-eligible,u-daily-only,u-boundary,u-missing-profile";
+      "u-eligible,u-weekly-short,u-boundary,u-missing-profile";
     mockProfilesQuery([
       { id: "u-eligible" },
-      { id: "u-daily-only" },
+      { id: "u-weekly-short" },
       { id: "u-boundary" },
     ]);
     mockRpc.mockImplementation(async (_fn: string, args: { p_user_id: string }) => {
@@ -142,20 +142,14 @@ describe("earn-pro-evaluate cron", () => {
         "u-eligible": {
           weekly_session_streak_current: 3,
           weekly_session_streak_best: 3,
-          daily_call_streak_current: 2,
-          daily_call_streak_best: 2,
         },
-        "u-daily-only": {
+        "u-weekly-short": {
           weekly_session_streak_current: 1,
           weekly_session_streak_best: 1,
-          daily_call_streak_current: 7,
-          daily_call_streak_best: 7,
         },
         "u-boundary": {
           weekly_session_streak_current: 2,
           weekly_session_streak_best: 2,
-          daily_call_streak_current: 1,
-          daily_call_streak_best: 1,
         },
       };
       return { data: rows[args.p_user_id], error: null };
@@ -176,7 +170,6 @@ describe("earn-pro-evaluate cron", () => {
         userId: "u-eligible",
         streakSnapshot: expect.objectContaining({
           weeklySessionStreakCurrent: 3,
-          dailyCallStreakCurrent: 2,
         }),
       }),
     );
@@ -186,7 +179,6 @@ describe("earn-pro-evaluate cron", () => {
         userId: "u-boundary",
         streakSnapshot: expect.objectContaining({
           weeklySessionStreakCurrent: 2,
-          dailyCallStreakCurrent: 1,
         }),
       }),
     );
@@ -200,8 +192,6 @@ describe("earn-pro-evaluate cron", () => {
       data: {
         weekly_session_streak_current: 2,
         weekly_session_streak_best: 2,
-        daily_call_streak_current: 1,
-        daily_call_streak_best: 1,
       },
       error: null,
     });

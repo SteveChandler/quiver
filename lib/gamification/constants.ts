@@ -11,7 +11,6 @@ import type { UserBadgeStats, BadgeCheck } from "./types";
  */
 export const XP_ACTION_MAP = {
   log_session: 50,
-  make_call: 10,
   add_board: 30,
   tag_board_to_session: 20,
   post_beach_intel: 50,
