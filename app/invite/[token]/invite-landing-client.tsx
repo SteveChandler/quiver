@@ -15,6 +15,7 @@ import {
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_URL,
 } from "@/lib/constants/app-store";
+import { trackAppHandoffQrRendered } from "@/lib/analytics/app-handoff-tracking";
 import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 
@@ -68,6 +69,18 @@ function initialFor(name: string): string {
   return name.trim().charAt(0).toUpperCase() || "Q";
 }
 
+function sanitizedInviteDestinationUrl(inviteUrl: string): string {
+  try {
+    const url = new URL(inviteUrl);
+    url.pathname = "/invite/[token]";
+    url.search = "";
+    url.hash = "";
+    return url.toString();
+  } catch {
+    return "/invite/[token]";
+  }
+}
+
 export function InviteLandingClient({
   token,
   tokenHash,
@@ -78,8 +91,13 @@ export function InviteLandingClient({
 }: InviteLandingClientProps): ReactElement {
   const [platform, setPlatform] = useState<InviteLandingPlatform>("desktop");
   const trackedOpen = useRef(false);
+  const trackedQr = useRef(false);
   const browserSessionId = useMemo(() => getBrowserSessionId(), []);
   const appSchemeUrl = `quiver://invite/${token}`;
+  const trackedInviteDestinationUrl = useMemo(
+    () => sanitizedInviteDestinationUrl(inviteUrl),
+    [inviteUrl],
+  );
 
   const commonMetadata = useMemo(
     () => ({
@@ -132,7 +150,21 @@ export function InviteLandingClient({
     trackInviteEvent("invite_link_opened", undefined, {
       platform: detectedPlatform,
     });
-  }, [trackInviteEvent]);
+    if (detectedPlatform === "desktop" && !trackedQr.current) {
+      trackedQr.current = true;
+      trackAppHandoffQrRendered({
+        source: "invite_landing",
+        surface: "invite_landing",
+        placement: "desktop_invite_qr",
+        platform: "desktop",
+        destination_type: "invite_deep_link",
+        destination_url: trackedInviteDestinationUrl,
+        qr_id: "invite_desktop_qr",
+        target: "invite",
+        token_hash: tokenHash,
+      });
+    }
+  }, [tokenHash, trackInviteEvent, trackedInviteDestinationUrl]);
 
   const isAndroid = platform === "android";
   const leadCopy = isAndroid
@@ -237,6 +269,7 @@ export function InviteLandingClient({
             <div className="rounded-md bg-white p-4">
               <QRCodeSVG
                 value={inviteUrl}
+                data-smart-url={inviteUrl}
                 size={248}
                 level="H"
                 marginSize={4}
@@ -251,7 +284,7 @@ export function InviteLandingClient({
               />
             </div>
             <p className="mt-4 text-center text-sm font-medium text-white/72">
-              Scan with your iPhone camera to open this invite.
+              Scan with your phone camera to open this invite.
             </p>
           </div>
         </div>

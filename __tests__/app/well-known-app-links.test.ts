@@ -37,7 +37,7 @@ describe('.well-known app-link manifests', () => {
       expect.arrayContaining([
         expect.objectContaining({
           appID: 'QBA8TA48NG.app.quiversurf.mobile',
-          paths: expect.arrayContaining(['/beach/*', '/settings*', '/app/spot/*']),
+          paths: expect.arrayContaining(['/beach/*', '/settings*', '/app*', '/app/spot/*']),
         }),
       ]),
     );
@@ -51,7 +51,7 @@ describe('.well-known app-link manifests', () => {
     const body = await response.json();
     const paths = body.applinks.details[0].paths;
 
-    expect(paths).toEqual(expect.arrayContaining(['/auth/*', '/beach/*', '/settings*', '/app/spot/*']));
+    expect(paths).toEqual(expect.arrayContaining(['/auth/*', '/beach/*', '/settings*', '/app*', '/app/spot/*']));
   });
 
   it('does not emit placeholder Apple team IDs as live app-link evidence', async () => {

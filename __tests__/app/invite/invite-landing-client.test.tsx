@@ -51,6 +51,17 @@ function latestEventBody(): any {
   return JSON.parse(body);
 }
 
+function eventBody(eventType: string): any {
+  const calls = (fetch as jest.Mock).mock.calls;
+  const match = calls
+    .map((call) => JSON.parse(call[1]?.body))
+    .find((body) => body.eventType === eventType);
+  if (!match) {
+    throw new Error(`Missing event ${eventType}`);
+  }
+  return match;
+}
+
 function clickWithoutNavigation(element: HTMLElement): void {
   element.addEventListener("click", (event) => event.preventDefault(), {
     once: true,
@@ -83,8 +94,8 @@ describe("InviteLandingClient", () => {
       screen.getByRole("link", { name: /continue on web/i }),
     ).toHaveAttribute("href", "/invite/start?token=raw-token");
 
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
-    expect(latestEventBody()).toEqual(
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(eventBody("invite_link_opened")).toEqual(
       expect.objectContaining({
         eventType: "invite_link_opened",
         sessionId: "12345678-1234-1234-1234-123456789012",
@@ -98,12 +109,25 @@ describe("InviteLandingClient", () => {
         }),
       }),
     );
-    expect(JSON.stringify(latestEventBody().metadata)).not.toContain("raw-token");
+    expect(eventBody("app_handoff_qr_rendered")).toEqual(
+      expect.objectContaining({
+        eventType: "app_handoff_qr_rendered",
+        metadata: expect.objectContaining({
+          source: "invite_landing",
+          surface: "invite_landing",
+          placement: "desktop_invite_qr",
+          qr_id: "invite_desktop_qr",
+          token_hash: "hashed-token",
+        }),
+      }),
+    );
+    expect(JSON.stringify(eventBody("invite_link_opened").metadata)).not.toContain("raw-token");
+    expect(JSON.stringify(eventBody("app_handoff_qr_rendered").metadata)).not.toContain("raw-token");
   });
 
   it("tracks App Store and web fallback CTA clicks by destination type", async () => {
     render(<InviteLandingClient {...defaultProps} />);
-    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
 
     clickWithoutNavigation(screen.getByRole("link", { name: /open app store/i }));
     expect(latestEventBody()).toEqual(

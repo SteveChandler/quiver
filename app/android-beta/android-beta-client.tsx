@@ -5,8 +5,17 @@ import {
   ANDROID_BETA_CONTACT_EMAIL,
   ANDROID_BETA_CONTACT_MAILTO,
   ANDROID_BETA_GROUP_URL,
-  ANDROID_BETA_LANDING_URL,
 } from "@/lib/constants/app-store";
+import { buildSmartQrHandoffUrl } from "@/lib/constants/app-handoff";
+
+const ANDROID_BETA_SMART_QR_URL = buildSmartQrHandoffUrl({
+  source: "android_beta_page",
+  surface: "android_beta",
+  placement: "instructions_qr",
+  qr_id: "android_beta_instructions",
+  target: "android_beta",
+  utm_medium: "android_beta",
+});
 
 const STEPS = [
   {
@@ -90,7 +99,8 @@ export function AndroidBetaClient() {
           <div className="rounded-[24px] bg-white p-5">
             <QRCodeSVG
               data-testid="android-beta-qr"
-              value={ANDROID_BETA_LANDING_URL}
+              data-smart-url={ANDROID_BETA_SMART_QR_URL}
+              value={ANDROID_BETA_SMART_QR_URL}
               size={248}
               level="H"
               marginSize={4}
@@ -109,9 +119,9 @@ export function AndroidBetaClient() {
               Scan for the beta instructions
             </h2>
             <p className="text-sm leading-6 text-white/68">
-              This QR code points to the Quiver-hosted Android beta page, not a
-              direct Play install. Keep it as the source of truth until the
-              tester link is ready.
+              This QR code uses the Quiver smart handoff: Android routes to the
+              beta access path, iPhone routes to the App Store, and desktop gets
+              the phone handoff.
             </p>
           </div>
         </aside>

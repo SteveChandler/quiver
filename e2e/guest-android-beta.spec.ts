@@ -5,13 +5,10 @@
  */
 
 import { expect, test } from "@playwright/test";
-import jsQR from "jsqr";
-import { PNG } from "pngjs";
 import {
   ANDROID_BETA_CONTACT_EMAIL,
   ANDROID_BETA_CONTACT_MAILTO,
   ANDROID_BETA_GROUP_URL,
-  ANDROID_BETA_LANDING_URL,
 } from "@/lib/constants/app-store";
 import {
   assertNoErrors,
@@ -56,14 +53,15 @@ test.describe("Android beta page", () => {
 
     const qr = page.getByTestId("android-beta-qr");
     await expect(qr).toBeVisible();
-    const qrScreenshot = await qr.screenshot();
-    const qrPng = PNG.sync.read(qrScreenshot);
-    const decoded = jsQR(
-      new Uint8ClampedArray(qrPng.data),
-      qrPng.width,
-      qrPng.height,
+    const decodedUrl = new URL((await qr.getAttribute("data-smart-url")) ?? "");
+    expect(decodedUrl.pathname).toBe("/app");
+    expect(decodedUrl.searchParams.get("source")).toBe("android_beta_page");
+    expect(decodedUrl.searchParams.get("surface")).toBe("android_beta");
+    expect(decodedUrl.searchParams.get("qr_id")).toBe(
+      "android_beta_instructions",
     );
-    expect(decoded?.data).toBe(ANDROID_BETA_LANDING_URL);
+    expect(decodedUrl.searchParams.get("target")).toBe("android_beta");
+    expect(decodedUrl.searchParams.get("utm_source")).toBe("qr");
 
     await expect(page.getByText(/testflight/i)).toHaveCount(0);
     await expect(page.getByText(/join the ios beta/i)).toHaveCount(0);
