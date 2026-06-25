@@ -2,7 +2,7 @@
  * GET /api/cron/home-morning-call
  *
  * Morning home-break surf call push. Disabled by default and allowlist-gated
- * for rollout. Auth: Authorization: Bearer <CRON_SECRET> or Vercel Cron header.
+ * for rollout. Auth: Authorization: Bearer <CRON_SECRET>.
  */
 
 import type { EnhancedForecastEntity } from "@/types/forecast";
