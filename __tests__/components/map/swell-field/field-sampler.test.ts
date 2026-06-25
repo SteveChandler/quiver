@@ -6,6 +6,7 @@ import {
   interpolateSwellPartition,
   maskFieldToWater,
   waterMaskableFlowComponents,
+  partitionToPoint,
   resolveWindParticleCount,
   COASTAL_CORRIDOR_LAT_PAD,
   COASTAL_CORRIDOR_LON_PAD,
@@ -85,6 +86,63 @@ describe("interpolateSwellPartition", () => {
     expect(result.s2Dir).toBe(220);
     expect(result.s2HeightFt).toBe(2.5);
   });
+
+  it("interpolates Open-Meteo swell direction across timeline samples", () => {
+    const result = interpolateSwellPartition(
+      partition({ swellDirOm: 350 }),
+      partition({ swellDirOm: 10 }),
+      0.5
+    );
+
+    expect(result.swellDirOm).toBeCloseTo(0, 6);
+  });
+});
+
+describe("partitionToPoint", () => {
+  const partition = (overrides: Partial<SwellPartition> = {}): SwellPartition => ({
+    s1Dir: 270,
+    s1PeriodS: 12,
+    s1HeightFt: 2,
+    s2Dir: 180,
+    s2PeriodS: 8,
+    s2HeightFt: 1,
+    windDir: 300,
+    windMph: 10,
+    ...overrides,
+  });
+
+  it.each(["s1", "combined"] as const)(
+    "uses Open-Meteo swell direction before s1Dir for %s",
+    (layerId) => {
+      const point = partitionToPoint(
+        -117.2,
+        32.7,
+        partition({ swellDirOm: 215, s1Dir: 270 }),
+        layerId
+      );
+
+      expect(point?.dir).toBe(215);
+    }
+  );
+
+  it.each([
+    ["null", null],
+    ["undefined", undefined],
+  ] as const)(
+    "falls back to s1Dir for s1/combined when swellDirOm is %s",
+    (_label, swellDirOm) => {
+      for (const layerId of ["s1", "combined"] as const) {
+        const point = partitionToPoint(
+          -117.2,
+          32.7,
+          partition({ swellDirOm, s1Dir: 270 }),
+          layerId
+        );
+
+        expect(point?.dir).toBe(270);
+      }
+    }
+  );
 });
 
 describe("buildFlowField", () => {
