@@ -1,6 +1,5 @@
 import type { Beach } from "@/types/database";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
-import { formatWaterTemp } from "@/lib/utils/wave-formatters";
 import { track } from "@/lib/analytics";
 import { slugify } from "@/lib/utils/text-utils";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
@@ -143,7 +142,7 @@ export interface MarkerBuilderDeps {
  * Creates an enhanced wave height badge DOM element for a beach marker.
  *
  * The element includes:
- * - Styled pill badge with wave height text
+ * - Styled dot colored by condition or water temperature
  * - Favorite / selected / hovered visual states
  * - Selection ring animation for the selected state
  * - Click handler that navigates to the beach page
@@ -163,9 +162,6 @@ export function createWaveHeightBadge(
     const isFavorite = deps.favoriteBeachIds.has(location.id);
     const displayMode = deps.displayMode ?? "wave-height";
     const conditionSummary = deps.conditionSummary ?? "UNKNOWN";
-    const badgeText = displayMode === "water-temp"
-      ? formatWaterTemp(deps.waterTemp)
-      : deps.waveHeightLabel ?? formatFallbackWaveHeight(waveHeight);
     const previewWaveLabel =
       deps.waveHeightLabel ??
       (displayMode === "wave-height" ? formatFallbackWaveHeight(waveHeight) : null);
@@ -219,33 +215,33 @@ export function createWaveHeightBadge(
     badge.setAttribute("data-marker-badge", "true");
     badge.setAttribute("data-marker-gradient", markerGradient);
     badge.style.cssText = `
-      padding: 6px 14px;
-      border-radius: 9999px;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      padding: 0;
       color: white;
       font-size: 16px;
       font-weight: 600;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
       cursor: pointer;
-      min-width: 70px;
+      min-width: 0;
       text-align: center;
-      border: 2px solid white;
+      border: 2.5px solid #ffffff;
       user-select: none;
       transform-origin: center;
-      transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-      transform: scale(${isSelected ? "1.4" : isHovered ? "1.2" : "1"});
+      transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+      transform: scale(${isSelected ? "1.7" : isHovered ? "1.45" : "1"});
       background: ${markerGradient};
       box-shadow: ${
         isSelected
           ? "0 0 20px rgba(247, 142, 66,0.4), 0 8px 25px rgba(0, 0, 0, 0.3)"
           : isHovered
           ? "0 8px 20px rgba(0, 0, 0, 0.4)"
-          : "0 4px 12px rgba(0, 0, 0, 0.3)"
+          : "0 2px 6px rgba(0, 0, 0, 0.45)"
       };
     `;
     if (isFavorite) {
       badge.style.borderColor = "#FDB84B";
     }
-    badge.textContent = badgeText;
 
     // Enhanced hover effects with motion
     badge.addEventListener("mouseenter", () => {
