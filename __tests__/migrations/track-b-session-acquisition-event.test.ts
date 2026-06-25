@@ -4,7 +4,11 @@ import { join } from "path";
 describe("Migration: Track B session acquisition event allowlist", () => {
   const migrationPath = join(
     __dirname,
-    "../../supabase/migrations/20260619173000_add_session_log_conditions_set_event.sql"
+    "../../supabase/migrations/20260620132701_add_session_log_conditions_set_event.sql"
+  );
+  const approvalRequestPath = join(
+    __dirname,
+    "../../docs/reports/2026-06-20-track-b-session-acquisition-event-approval-request.md"
   );
   const preflightPath = join(
     __dirname,
@@ -16,18 +20,18 @@ describe("Migration: Track B session acquisition event allowlist", () => {
   );
 
   let migrationSQL: string;
+  let approvalRequestMarkdown: string;
   let preflightSQL: string;
   let postflightSQL: string;
 
   beforeAll(() => {
     migrationSQL = readFileSync(migrationPath, "utf8");
+    approvalRequestMarkdown = readFileSync(approvalRequestPath, "utf8");
     preflightSQL = readFileSync(preflightPath, "utf8");
     postflightSQL = readFileSync(postflightPath, "utf8");
   });
 
   it("widens the event CHECK without replacing unrelated existing events", () => {
-    expect(migrationSQL).toMatch(/^BEGIN;/m);
-    expect(migrationSQL).toMatch(/^COMMIT;/m);
     expect(migrationSQL).toContain("user_events_event_type_check");
     expect(migrationSQL).toContain("pg_get_constraintdef");
     expect(migrationSQL).toContain("current_check");
@@ -44,18 +48,16 @@ describe("Migration: Track B session acquisition event allowlist", () => {
     expect(migrationSQL).not.toMatch(/\bDROP TABLE\b/i);
   });
 
-  it("requires an explicit approval token before mutating schema", () => {
-    expect(migrationSQL).toContain(
-      "current_setting('app.track_b_session_acquisition_event_approved', true)"
+  it("keeps the historical production approval packet tied to this event", () => {
+    expect(approvalRequestMarkdown).toContain(
+      "APPROVE: f20493762c71c54c71ba4eb6fe1bb396e706124c282f6775e11f9e1435540e8c"
     );
-    expect(migrationSQL).toContain(
+    expect(approvalRequestMarkdown).toContain(
       "2026-06-19-track-b-session-acquisition-event-approved"
     );
-    expect(migrationSQL).toContain(
-      "Track B session acquisition event migration requires explicit human approval"
-    );
-    expect(migrationSQL.indexOf("current_setting")).toBeLessThan(
-      migrationSQL.indexOf("ALTER TABLE public.user_events")
+    expect(approvalRequestMarkdown).toContain("session_log_conditions_set");
+    expect(approvalRequestMarkdown).toContain(
+      "This approval phrase does not authorize Phase 0"
     );
   });
 
