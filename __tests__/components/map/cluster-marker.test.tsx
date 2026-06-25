@@ -1,7 +1,7 @@
 import { createClusterMarkerElement } from "@/components/map/cluster-marker";
 
 describe("createClusterMarkerElement", () => {
-  it("should create element with wave range and count", () => {
+  it("should create element with count text", () => {
     const { element } = createClusterMarkerElement({
       waveHeights: [1.5, 2.5, 3.2],
       pointCount: 5,
@@ -10,10 +10,10 @@ describe("createClusterMarkerElement", () => {
       onLeave: jest.fn(),
     });
 
-    expect(element.textContent).toBe("1-4ft - 5x");
+    expect(element.textContent).toBe("5");
   });
 
-  it("should show dash when no wave data", () => {
+  it("should show count text when no wave data", () => {
     const { element } = createClusterMarkerElement({
       waveHeights: [],
       pointCount: 3,
@@ -22,7 +22,7 @@ describe("createClusterMarkerElement", () => {
       onLeave: jest.fn(),
     });
 
-    expect(element.textContent).toBe("3x");
+    expect(element.textContent).toBe("3");
   });
 
   it("should apply blue gradient for favorites", () => {
