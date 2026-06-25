@@ -343,6 +343,7 @@ export function InteractiveMap({
   const favoriteBeachIdsRef = useRef<Set<string>>(new Set());
   const selectedBeachIdRef = useRef<string | null>(null);
   const hoveredBeachIdRef = useRef<string | null>(null);
+  const partitionsMapRef = useRef<Map<string, SwellPartition>>(new Map());
   const lastRegionViewportKeyRef = useRef<string | null>(null);
   const clusterCleanupRef = useRef<Map<string, () => void>>(new Map());
   const onBoundsChangeRef = useRef(onBoundsChange);
@@ -385,6 +386,10 @@ export function InteractiveMap({
   useEffect(() => {
     hoveredBeachIdRef.current = hoveredBeachId;
   }, [hoveredBeachId]);
+
+  useEffect(() => {
+    partitionsMapRef.current = partitionsMap;
+  }, [partitionsMap]);
 
   useEffect(() => {
     onBoundsChangeRef.current = onBoundsChange;
@@ -469,6 +474,7 @@ export function InteractiveMap({
         waveLabel: preview.waveLabel,
         conditionSummary: preview.conditionSummary,
         conditionScore: preview.conditionScore,
+        partition: partitionsMapRef.current.get(location.id),
       });
       content.addEventListener("mouseenter", clearBeachPreviewCloseTimer);
       content.addEventListener("mouseleave", scheduleBeachPreviewClose);
