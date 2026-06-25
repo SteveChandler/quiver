@@ -34,6 +34,8 @@ interface UseBeachClusteringProps {
   bounds: { west: number; south: number; east: number; north: number };
   zoom: number;
   favoriteBeachIds?: Set<string>;
+  /** Supercluster radius in px. 0 disables grouping (every spot shown as its own dot). */
+  clusterRadius?: number;
 }
 
 interface UseBeachClusteringReturn {
@@ -47,13 +49,14 @@ export function useBeachClustering({
   bounds,
   zoom,
   favoriteBeachIds = new Set(),
+  clusterRadius = 60,
 }: UseBeachClusteringProps): UseBeachClusteringReturn {
   // Create supercluster index
   const superclusterIndex = useMemo(() => {
     if (!beaches || beaches.length === 0) return null;
 
     const index = new Supercluster<ClusterProperties>({
-      radius: 60, // Cluster radius in pixels
+      radius: clusterRadius, // 0 => no grouping (all individual dots)
       maxZoom: 14, // Max zoom to cluster at
       minZoom: 0,
       // Custom reduce function to aggregate wave heights
@@ -107,7 +110,7 @@ export function useBeachClustering({
 
     index.load(points);
     return index;
-  }, [beaches, waveHeights]);
+  }, [beaches, waveHeights, clusterRadius]);
 
   // Get clusters for current viewport
   const clusters = useMemo((): ClusterPoint[] => {
