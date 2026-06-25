@@ -40,7 +40,7 @@ import {
   AnimatedStickerBadge,
   AnimatedFeatureRow,
   VsAnimationStyles,
-} from "../animations";
+} from "@/app/vs/surfline/animations";
 
 // ISR: Revalidate every 24 hours (static comparison content)
 export const revalidate = 86400;
