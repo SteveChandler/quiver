@@ -3,6 +3,7 @@
  */
 
 import type { EnhancedForecastEntity } from '@/types/forecast';
+import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
 import { resolveForecastTime } from '@/lib/utils/forecast-time-resolver';
 
 /**
@@ -142,6 +143,8 @@ export interface WindowCalculatorOptions {
   minScoreThreshold?: number;
   /** Minimum session length in hours */
   minSessionHours?: number;
+  /** Viewer skill level for native-compatible condition scoring */
+  skillLevel?: SkillLevel | string | null;
 }
 
 /**

@@ -1,5 +1,6 @@
 import { filterToDaylight } from "@/lib/alerts/sunrise";
 import { findMatchingWindows, type FoundWindow } from "@/lib/alerts/window-finder";
+import { selectActionableAlertWindow } from "@/lib/alerts/actionable-window-selector";
 import {
   parseSwellDirectionToDegrees,
   parseWindSpeedToKt,
@@ -27,12 +28,14 @@ export interface SelectFreshAlertWindowInput {
   conditions: AlertConditions;
   forecastRows: EnhancedForecastAlertRow[];
   beach: AlertRevalidationBeachMeta;
+  now?: Date;
 }
 
 export function selectFreshAlertWindow({
   conditions,
   forecastRows,
   beach,
+  now = new Date(),
 }: SelectFreshAlertWindowInput): FoundWindow | null {
   if (forecastRows.length === 0) return null;
 
@@ -50,10 +53,7 @@ export function selectFreshAlertWindow({
   );
   if (windows.length === 0) return null;
 
-  return [...windows].sort((a, b) => {
-    if (b.best_score !== a.best_score) return b.best_score - a.best_score;
-    return new Date(a.window_start).getTime() - new Date(b.window_start).getTime();
-  })[0];
+  return selectActionableAlertWindow(windows, now);
 }
 
 export function parseEnhancedForecastHour(row: EnhancedForecastAlertRow): ForecastHour {

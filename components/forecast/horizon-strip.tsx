@@ -119,7 +119,7 @@ function DayCard({
   gatedIndex?: number;
 }) {
   const colors = TIER_COLORS[day.tier];
-  const waveRange = formatWaveRange(day.minHeight, day.maxHeight);
+  const waveRange = day.headlineLabel ?? formatWaveRange(day.minHeight, day.maxHeight);
 
   const gatedRotation =
     gated && typeof gatedIndex === "number"
@@ -402,7 +402,7 @@ export function HorizonStrip({
             ? index - (publicGateFromIndex as number)
             : undefined;
           return (
-            <div key={day.fullDate} data-day-card className="flex-shrink-0 w-[88px] sm:flex-1 sm:min-w-0">
+            <div key={`${day.fullDate}-${index}`} data-day-card className="flex-shrink-0 w-[88px] sm:flex-1 sm:min-w-0">
               <DayCard
                 day={day}
                 isSelected={day.fullDate === selectedDate}

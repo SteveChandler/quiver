@@ -175,6 +175,28 @@ describe("HorizonStrip", () => {
       expect(screen.getByText("3-5ft")).toBeInTheDocument();
     });
 
+    it("renders a canonical headline label without re-bucketing it", () => {
+      const { formatWaveRange } = require("@/lib/utils/horizon-strip-utils");
+      const days = [
+        createMockDay({
+          minHeight: 1,
+          maxHeight: 9,
+          headlineLabel: "2-3ft",
+        }),
+      ];
+
+      render(
+        <HorizonStrip
+          days={days}
+          selectedDate="2026-02-10"
+          onSelectDate={mockOnSelectDate}
+        />
+      );
+
+      expect(screen.getByText("2-3ft")).toBeInTheDocument();
+      expect(formatWaveRange).not.toHaveBeenCalled();
+    });
+
     it("displays date in each card", () => {
       const days = [
         createMockDay({ date: "Feb 10" }),

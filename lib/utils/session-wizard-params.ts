@@ -99,6 +99,8 @@ export function parseSessionWizardParams(
       startTime: getParam('startTime'),
       endTime: getParam('endTime'),
       step: getParam('step'),
+      forecastFeedbackId: getParam('forecastFeedbackId'),
+      forecastFeedbackValue: getParam('forecastFeedbackValue'),
     };
 
     // Validate using Zod schema
@@ -134,6 +136,8 @@ export function parseSessionWizardParams(
       startTime: validated.startTime ? new Date(validated.startTime) : undefined,
       endTime: validated.endTime ? new Date(validated.endTime) : undefined,
       targetStep: validated.step,
+      forecastFeedbackId: validated.forecastFeedbackId,
+      forecastFeedbackValue: validated.forecastFeedbackValue,
     };
 
     return {
@@ -233,7 +237,23 @@ export function buildSessionWizardUrl(
     urlParams.set('quick', 'true');
   }
 
+  if (params.forecastFeedbackId) {
+    urlParams.set('forecastFeedbackId', params.forecastFeedbackId);
+  }
+
+  if (params.forecastFeedbackValue) {
+    urlParams.set('forecastFeedbackValue', params.forecastFeedbackValue);
+  }
+
   return `/sessions/new?${urlParams.toString()}`;
+}
+
+function mapForecastFeedbackToSessionAccuracy(
+  value: ValidatedSessionWizardParams['forecastFeedbackValue'],
+): 'accurate' | 'inaccurate' | undefined {
+  if (value === 'about_right') return 'accurate';
+  if (value === 'too_low' || value === 'too_high') return 'inaccurate';
+  return undefined;
 }
 
 /**
@@ -283,6 +303,10 @@ export function hasWizardParams(
  * ```
  */
 export function extractFormState(params: ValidatedSessionWizardParams) {
+  const forecastAccuracy = mapForecastFeedbackToSessionAccuracy(
+    params.forecastFeedbackValue,
+  );
+
   return {
     selectedBeach: params.beachName,
     selectedBeachId: params.beachId,
@@ -292,5 +316,6 @@ export function extractFormState(params: ValidatedSessionWizardParams) {
     ...(params.startTime
       ? { selectedTime: params.startTime.toTimeString().slice(0, 5) }
       : {}),
+    ...(forecastAccuracy ? { forecastAccuracy } : {}),
   };
 }

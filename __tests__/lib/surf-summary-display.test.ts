@@ -12,6 +12,10 @@ describe("surf summary display contract", () => {
     expect(formatCompactWaveHeight("3-4 ft")).toBe("3-4 ft");
   });
 
+  it("accepts numeric wave heights from untyped API payloads", () => {
+    expect(formatCompactWaveHeight(3)).toBe("3ft");
+  });
+
   it("builds a scannable wave, wind, swell, and tide summary", () => {
     const summary = buildCompactSurfSummary({
       waveHeight: "0.5-5.5 ft",
@@ -34,5 +38,21 @@ describe("surf summary display contract", () => {
     expect(summary.conditionLine).toBe(
       "3ft · Wind NW 8 mph · Swell WNW @ 14s · Tide 3.2 ft rising"
     );
+  });
+
+  it("does not throw when numeric condition fields reach the formatter", () => {
+    const summary = buildCompactSurfSummary({
+      waveHeight: 3,
+      windSpeed: 8,
+      windDirection: "NW",
+      tideHeight: 3.2,
+      tideStatus: "rising",
+    });
+
+    expect(summary).toMatchObject({
+      waveHeightHeadline: "3ft",
+      windSummary: "Wind NW 8 mph",
+      tideSummary: "Tide 3.2 rising",
+    });
   });
 });

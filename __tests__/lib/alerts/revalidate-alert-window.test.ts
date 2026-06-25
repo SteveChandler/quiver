@@ -35,6 +35,7 @@ describe("selectFreshAlertWindow", () => {
     const window = selectFreshAlertWindow({
       conditions: mellow,
       beach: missionBeach,
+      now: new Date("2026-05-13T14:00:00Z"),
       forecastRows: [
         {
           forecast_at: "2026-05-13T15:00:00Z",
@@ -75,6 +76,7 @@ describe("selectFreshAlertWindow", () => {
     const window = selectFreshAlertWindow({
       conditions: mellow,
       beach: missionBeach,
+      now: new Date("2026-05-13T14:00:00Z"),
       forecastRows: [
         {
           forecast_at: "2026-05-13T15:00:00Z",
