@@ -55,17 +55,15 @@ afterEach(() => {
 });
 
 describe("earned Pro eligibility", () => {
-  it("requires the weekly session streak as the primary gate", () => {
+  it("requires only the weekly session streak gate", () => {
     expect(
       isEarnProEligible({
         weeklySessionStreakCurrent: 2,
-        dailyCallStreakCurrent: 1,
       }),
     ).toBe(true);
     expect(
       isEarnProEligible({
         weeklySessionStreakCurrent: 1,
-        dailyCallStreakCurrent: 12,
       }),
     ).toBe(false);
   });
@@ -84,7 +82,6 @@ describe("grantPromotionalEntitlement", () => {
         userId: "user-123",
         streakSnapshot: {
           weeklySessionStreakCurrent: 2,
-          dailyCallStreakCurrent: 1,
         },
         now: new Date("2026-06-22T00:00:00.000Z"),
         fetchImpl: fetchImpl as unknown as typeof fetch,
@@ -112,8 +109,6 @@ describe("grantPromotionalEntitlement", () => {
         streakSnapshot: {
           weeklySessionStreakCurrent: 2,
           weeklySessionStreakBest: 4,
-          dailyCallStreakCurrent: 1,
-          dailyCallStreakBest: 3,
         },
         now: new Date("2026-06-22T00:00:00.000Z"),
         fetchImpl: fetchImpl as unknown as typeof fetch,
@@ -142,7 +137,6 @@ describe("grantPromotionalEntitlement", () => {
         expires_at: "2026-06-29T00:00:00.000Z",
         streak_snapshot: expect.objectContaining({
           weeklySessionStreakCurrent: 2,
-          dailyCallStreakCurrent: 1,
         }),
       }),
     );
@@ -159,7 +153,6 @@ describe("grantPromotionalEntitlement", () => {
         userId: "user-123",
         streakSnapshot: {
           weeklySessionStreakCurrent: 2,
-          dailyCallStreakCurrent: 1,
         },
         fetchImpl: fetchImpl as unknown as typeof fetch,
       }),

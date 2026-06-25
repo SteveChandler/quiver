@@ -6,9 +6,7 @@ const EARN_PRO_REASON = "weekly_session_streak";
 
 export interface EarnProStreakSnapshot {
   weeklySessionStreakCurrent: number;
-  dailyCallStreakCurrent: number;
   weeklySessionStreakBest?: number;
-  dailyCallStreakBest?: number;
 }
 
 interface GrantPromotionalEntitlementOptions {
@@ -74,7 +72,7 @@ export function parseEarnProTestUserIds(
 }
 
 export function isEarnProEligible(snapshot: EarnProStreakSnapshot): boolean {
-  return snapshot.weeklySessionStreakCurrent >= 2 && snapshot.dailyCallStreakCurrent >= 1;
+  return snapshot.weeklySessionStreakCurrent >= 2;
 }
 
 export function getEarnProEntitlementId(): string {

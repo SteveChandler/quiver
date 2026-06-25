@@ -41,8 +41,6 @@ interface ProfileRow {
 interface StreakRpcData {
   weekly_session_streak_current?: unknown;
   weekly_session_streak_best?: unknown;
-  daily_call_streak_current?: unknown;
-  daily_call_streak_best?: unknown;
 }
 
 interface StreakRpcClient {
@@ -82,8 +80,6 @@ function buildStreakSnapshot(data: StreakRpcData | null): EarnProStreakSnapshot 
       data?.weekly_session_streak_current,
     ),
     weeklySessionStreakBest: numericStreak(data?.weekly_session_streak_best),
-    dailyCallStreakCurrent: numericStreak(data?.daily_call_streak_current),
-    dailyCallStreakBest: numericStreak(data?.daily_call_streak_best),
   };
 }
 
