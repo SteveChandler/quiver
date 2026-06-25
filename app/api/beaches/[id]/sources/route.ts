@@ -13,6 +13,12 @@ interface BeachLookupRow {
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const BEACH_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+const SURFLINE_HLS_HOST = "hls.cdn-surfline.com";
+const SURFLINE_HEALTH_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+  Referer: "https://www.surfline.com/",
+};
 
 function isBeachUuid(identifier: string): boolean {
   return UUID_PATTERN.test(identifier);
@@ -20,6 +26,36 @@ function isBeachUuid(identifier: string): boolean {
 
 function isBeachSlug(identifier: string): boolean {
   return BEACH_SLUG_PATTERN.test(identifier);
+}
+
+function createTimeoutSignal(milliseconds: number): AbortSignal | undefined {
+  if (typeof AbortSignal.timeout !== "function") return undefined;
+  return AbortSignal.timeout(milliseconds);
+}
+
+function isSurflineHlsUrl(url: string | null): url is string {
+  if (!url) return false;
+
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === SURFLINE_HLS_HOST && parsed.pathname.endsWith(".m3u8");
+  } catch {
+    return false;
+  }
+}
+
+async function isSurflineHlsAvailable(url: string): Promise<boolean> {
+  try {
+    const response = await globalThis.fetch(url, {
+      method: "HEAD",
+      headers: SURFLINE_HEALTH_HEADERS,
+      signal: createTimeoutSignal(3000),
+    });
+
+    return response.status === 200;
+  } catch {
+    return false;
+  }
 }
 
 function createBeachSourcesErrorResponse(
@@ -87,6 +123,13 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     let cameraUrl: string | null = (data as any)?.camera_url || null;
     let cameraThumbnailUrl: string | null = (data as any)?.thumbnail_url || null;
 
+    if (isSurflineHlsUrl(cameraUrl)) {
+      const hlsAvailable = await isSurflineHlsAvailable(cameraUrl);
+      if (!hlsAvailable) {
+        cameraUrl = null;
+      }
+    }
+
     // Diorama: match to condition_key if provided, fallback chain: exact -> medium_day -> any
     let dioramaUrl: string | null = null;
     const conditionKey = request.nextUrl.searchParams.get("condition") ?? "medium_day";
@@ -127,8 +170,14 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
     const camIntent = cameraUrl ? buildCamEmbed(cameraUrl) : { kind: "none" as const };
     if (cameraUrl) {
       // Known embeddable sources — buildCamEmbed transforms these to proper embed URLs
-      if (camIntent.kind !== "none" && camIntent.kind !== "iframe") {
-        // HLS, video — always embeddable via native players
+      if (camIntent.kind === "external") {
+        embedAllowed = false;
+      } else if (
+        camIntent.kind === "hls" ||
+        camIntent.kind === "video" ||
+        camIntent.kind === "hdontap"
+      ) {
+        // HLS, video, and resolvable player sources are embeddable via native players
         embedAllowed = true;
       } else if (
         cameraUrl.includes("hdontap.com/") ||
@@ -143,7 +192,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
         try {
           const head = await fetch(cameraUrl, {
             method: "HEAD",
-            signal: AbortSignal.timeout(3000),
+            signal: createTimeoutSignal(3000),
           });
           const xfo = head.headers.get("x-frame-options");
           const csp = head.headers.get("content-security-policy");
