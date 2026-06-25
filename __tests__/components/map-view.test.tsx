@@ -50,6 +50,27 @@ jest.mock("@/hooks/use-beach-search", () => ({
   }),
 }));
 
+const mockTrackMapEvent = jest.fn();
+const mockTrackQrRendered = jest.fn();
+
+jest.mock("@/hooks/use-track-event", () => ({
+  useTrackEvent: () => ({ track: mockTrackMapEvent }),
+}));
+
+jest.mock("@/lib/analytics/app-handoff-tracking", () => ({
+  trackAppHandoffQrRendered: (...args: unknown[]) => mockTrackQrRendered(...args),
+}));
+
+jest.mock("qrcode.react", () => ({
+  QRCodeSVG: ({
+    value,
+    "data-testid": dataTestId,
+  }: {
+    value: string;
+    "data-testid"?: string;
+  }) => <svg data-testid={dataTestId} data-value={value} />,
+}));
+
 jest.mock("@/components/map/map-content", () => ({
   MapContent: ({
     autoNavigateOnMarkerClick,
@@ -93,6 +114,56 @@ describe("MapView", () => {
       "true",
     );
     expect(screen.queryByTestId("view-mode-list")).not.toBeInTheDocument();
+  });
+
+  it("renders the interactive buoy wind tide field guide", async () => {
+    const user = userEvent.setup();
+    render(<MapView />);
+
+    expect(screen.getByTestId("map-learning-panel")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /buoy, wind, tide/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("map-learning-mode-buoy")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    await user.click(screen.getByTestId("map-learning-mode-wind"));
+
+    expect(screen.getByTestId("map-learning-mode-wind")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByText(/wind decides whether the swell/i)).toBeInTheDocument();
+    expect(mockTrackMapEvent).toHaveBeenCalledWith("map_interaction", {
+      metadata: {
+        action: "filter_change",
+        filter: "forecast_literacy_mode:wind",
+      },
+      debounceMs: 0,
+    });
+  });
+
+  it("renders the map field-guide QR as a smart handoff URL", () => {
+    render(<MapView />);
+
+    const qr = screen.getByTestId("map-learning-smart-qr");
+    const value = qr.getAttribute("data-value") ?? "";
+    const parsed = new URL(value);
+
+    expect(parsed.pathname).toBe("/app");
+    expect(parsed.searchParams.get("source")).toBe("map_literacy_panel");
+    expect(parsed.searchParams.get("surface")).toBe("map");
+    expect(parsed.searchParams.get("qr_id")).toBe("map_literacy_field_guide");
+    expect(parsed.searchParams.get("target")).toBe("download");
+    expect(parsed.searchParams.get("utm_source")).toBe("qr");
+    expect(mockTrackQrRendered).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "map_literacy_panel",
+        qr_id: "map_literacy_field_guide",
+      }),
+    );
   });
 
   it("does not block the map behind geolocation or beach loading", () => {
