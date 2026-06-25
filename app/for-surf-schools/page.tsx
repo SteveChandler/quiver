@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
-import {
-  EmbedPromoPage,
-  type BeachOption,
-} from "@/components/embed-promo/embed-promo-page";
 import { StructuredData } from "@/components/seo/structured-data";
+import {
+  SurfSchoolsZinePage,
+  type BeachOption,
+} from "./_components/surf-schools-zine-page";
 
 export const revalidate = 86400;
 
@@ -40,7 +40,7 @@ export default async function ForSurfSchoolsPage() {
   return (
     <>
       <StructuredData type="softwareApplication" />
-      <EmbedPromoPage variant="surf-schools" beaches={beaches} />
+      <SurfSchoolsZinePage beaches={beaches} />
     </>
   );
 }

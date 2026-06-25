@@ -31,6 +31,7 @@ import {
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
+import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { SITE_URL } from "@/lib/constants/seo";
 import { getBeachesWithCameras } from "@/actions/beach/cam-actions";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
@@ -411,7 +412,7 @@ export default async function VsSurflineFreePage() {
   const camCount = camBeaches.length;
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[#F4EBD8] text-[#11100D]">
+    <>
       <VsAnimationStyles />
       <BreadcrumbStructuredData
         items={[
@@ -426,10 +427,16 @@ export default async function VsSurflineFreePage() {
       <ComparisonStructuredData />
       <FAQSchema items={FAQ_ITEMS} />
 
+      <ZineSurface
+        sectionLabel="Free Surfline alternative"
+        editionLabel="No forecast paywall"
+        data-testid="vs-surfline-free-zine-surface"
+      >
+        <main>
       {/* ================================================================= */}
       {/* Hero Section */}
       {/* ================================================================= */}
-      <section className="relative px-4 pb-8 pt-8 md:pb-16 md:pt-16">
+      <section className="relative overflow-hidden px-4 pb-8 pt-8 md:pb-16 md:pt-16">
         <div
           aria-hidden
           className="absolute inset-0 opacity-[0.22]"
@@ -452,7 +459,11 @@ export default async function VsSurflineFreePage() {
         />
 
         <div className="relative mx-auto grid max-w-7xl gap-7 lg:grid-cols-[minmax(0,1.02fr)_minmax(380px,0.98fr)] lg:items-end">
-          <div className="space-y-5 md:space-y-7">
+          <div className="relative space-y-5 md:space-y-7">
+            <QuiverSticker
+              sticker="orangeTape"
+              className="absolute -top-10 right-2 hidden w-32 rotate-[5deg] opacity-90 lg:block"
+            />
             <AnimatedStickerBadge>
               <StickerBadge>Updated {PAGE_UPDATED}</StickerBadge>
             </AnimatedStickerBadge>
@@ -461,7 +472,7 @@ export default async function VsSurflineFreePage() {
               <p className="mb-3 font-mono text-xs font-black uppercase tracking-[0.24em] text-[#9E5010]">
                 Quiver vs Surfline · The Free Read
               </p>
-              <h1 className="max-w-5xl font-heading text-4xl font-black leading-[0.9] tracking-normal text-[#11100D] sm:text-6xl md:text-7xl lg:text-8xl">
+              <h1 className="zine-h1 max-w-5xl font-heading font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
                 Looking for a free Surfline alternative?
               </h1>
               <p className="mt-5 max-w-2xl text-sm font-semibold leading-6 text-[#252D6B] md:mt-6 md:text-lg md:leading-7">
@@ -646,7 +657,11 @@ export default async function VsSurflineFreePage() {
         aria-labelledby="cam-wall-heading"
         className="px-4 pb-10 md:pb-14"
       >
-        <div className="mx-auto max-w-7xl">
+        <div className="relative mx-auto max-w-7xl">
+          <QuiverSticker
+            sticker="breakingWave"
+            className="absolute -right-2 -top-12 hidden w-28 rotate-[-4deg] opacity-90 lg:block"
+          />
           <div className="flex items-baseline justify-between mb-3">
               <h2
                 id="cam-wall-heading"
@@ -832,6 +847,10 @@ export default async function VsSurflineFreePage() {
       <section className="px-4 py-10 md:py-16">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,1.08fr)] lg:items-start">
           <div className="relative border-2 border-[#11100D] bg-[#252D6B] p-6 text-[#F4EBD8] shadow-[9px_9px_0_rgba(17,16,13,0.26)] md:p-8">
+            <QuiverSticker
+              sticker="navyLightning"
+              className="absolute -right-4 -top-6 hidden w-20 rotate-[8deg] drop-shadow-md sm:block"
+            />
             <AnimatedStickerBadge className="mb-5">
               <StickerBadge>Why personal matters</StickerBadge>
             </AnimatedStickerBadge>
@@ -1015,7 +1034,9 @@ export default async function VsSurflineFreePage() {
           </p>
         </div>
       </section>
-    </div>
+        </main>
+      </ZineSurface>
+    </>
   );
 }
 

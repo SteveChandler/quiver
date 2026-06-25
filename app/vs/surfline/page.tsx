@@ -29,6 +29,7 @@ import {
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
+import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { SITE_URL } from "@/lib/constants/seo";
 import {
   FadeInSection,
@@ -381,7 +382,7 @@ export default function VsSurflinePage() {
   const pageUpdatedDate = getPageUpdatedDate();
 
   return (
-    <div className="min-h-screen overflow-hidden bg-[#F4EBD8] text-[#11100D]">
+    <>
       <VsAnimationStyles />
       <BreadcrumbStructuredData
         items={[
@@ -393,6 +394,12 @@ export default function VsSurflinePage() {
       <ComparisonStructuredData />
       <FAQSchema items={FAQ_ITEMS} />
 
+      <ZineSurface
+        sectionLabel="Compare"
+        editionLabel="Quiver vs Surfline"
+        data-testid="vs-surfline-zine-surface"
+      >
+        <main className="overflow-hidden text-[#11100D]">
       {/* ================================================================= */}
       {/* Hero Section */}
       {/* ================================================================= */}
@@ -468,6 +475,10 @@ export default function VsSurflinePage() {
           </div>
 
           <FadeInSection delay={150} className="relative min-h-[340px] sm:min-h-[430px] lg:min-h-[560px]">
+            <QuiverSticker
+              sticker="orangeTape"
+              className="absolute -top-6 right-6 z-10 hidden w-32 rotate-6 opacity-85 sm:block"
+            />
             <div className="absolute left-1 top-4 w-[76%] -rotate-[3deg] border-2 border-[#11100D] bg-[#F8EFD8] p-3 shadow-[9px_9px_0_rgba(17,16,13,0.28)] sm:left-0 sm:top-8 sm:w-[70%] sm:p-4">
               <div className="flex items-center justify-between border-b-2 border-[#11100D] pb-2 font-mono text-[10px] font-black uppercase tracking-[0.16em] text-[#252D6B]">
                 <span>Surfline</span>
@@ -534,6 +545,10 @@ export default function VsSurflinePage() {
       <section className="relative px-4 py-8 md:py-10">
         <div className="mx-auto max-w-7xl">
           <div className="relative -rotate-[0.6deg] border-2 border-[#11100D] bg-[#11100D] p-5 text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.25)] md:p-7">
+            <QuiverSticker
+              sticker="halftoneCircle"
+              className="absolute -right-5 -top-7 z-10 hidden w-20 rotate-[8deg] opacity-90 md:block"
+            />
             <div className="absolute -top-4 left-7 rotate-[-2deg] border-2 border-[#11100D] bg-[#F78E42] px-3 py-1 font-mono text-[10px] font-black uppercase tracking-[0.18em] text-[#11100D]">
               quick read
             </div>
@@ -593,6 +608,10 @@ export default function VsSurflinePage() {
                   "radial-gradient(circle at 1px 1px, rgba(17,16,13,0.3) 1px, transparent 0)",
                 backgroundSize: "9px 9px",
               }}
+            />
+            <QuiverSticker
+              sticker="spotSwellMatch"
+              className="absolute -right-4 -top-6 z-10 hidden w-20 rotate-6 drop-shadow-md md:block"
             />
             <div className="relative flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
@@ -715,6 +734,10 @@ export default function VsSurflinePage() {
       <section className="px-4 py-10 md:py-16">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,1.08fr)] lg:items-start">
           <div className="relative border-2 border-[#11100D] bg-[#252D6B] p-6 text-[#F4EBD8] shadow-[9px_9px_0_rgba(17,16,13,0.26)] md:p-8">
+            <QuiverSticker
+              sticker="navyLightning"
+              className="absolute -right-5 -top-6 z-10 hidden w-16 rotate-[10deg] drop-shadow-md md:block"
+            />
             <AnimatedStickerBadge className="mb-5">
               <StickerBadge>Why personal matters</StickerBadge>
             </AnimatedStickerBadge>
@@ -798,7 +821,11 @@ export default function VsSurflinePage() {
       {/* ================================================================= */}
       <section className="px-4 pb-16 pt-8 md:pb-20">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,1.08fr)] lg:items-start">
-          <div className="border-2 border-[#11100D] bg-[#11100D] p-6 text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.26)] md:p-8">
+          <div className="relative border-2 border-[#11100D] bg-[#11100D] p-6 text-[#F4EBD8] shadow-[8px_8px_0_rgba(17,16,13,0.26)] md:p-8">
+            <QuiverSticker
+              sticker="creamCoastMap"
+              className="absolute -right-5 -top-7 z-10 hidden w-24 rotate-[6deg] opacity-90 md:block"
+            />
             <h2 className="font-heading text-4xl font-black leading-none md:text-6xl">
               Ready for a more personal surf call?
             </h2>
@@ -872,7 +899,9 @@ export default function VsSurflinePage() {
           </p>
         </div>
       </section>
-    </div>
+        </main>
+      </ZineSurface>
+    </>
   );
 }
 
