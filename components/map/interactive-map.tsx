@@ -62,6 +62,7 @@ import { SwellLayerSelector } from "@/components/map/swell-field/swell-layer-sel
 import { SwellForecastTimeline } from "@/components/map/swell-field/swell-forecast-timeline";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
+import type { CustomSpot } from "@/hooks/use-custom-spots";
 
 // Mapbox CSS is imported globally in app/globals.css
 
@@ -148,6 +149,7 @@ interface InteractiveMapProps {
     zoom?: number;
   } | null;
   beaches?: Beach[]; // Filtered beaches to display on map (if provided, skips API fetch)
+  customSpots?: CustomSpot[];
   autoNavigateOnMarkerClick?: boolean; // Whether marker clicks auto-navigate to beach page (default: true)
   displayMode?: MapDisplayMode; // What data to show in markers: 'wave-height' (default) or 'water-temp'
   showSwellField?: boolean;
@@ -160,6 +162,26 @@ interface InteractiveMapProps {
 }
 
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
+const EMPTY_CUSTOM_SPOTS: CustomSpot[] = [];
+
+function createCustomSpotMarkerElement(spot: CustomSpot): HTMLElement {
+  const element = document.createElement("div");
+  element.setAttribute("data-testid", "custom-spot-marker");
+  element.setAttribute("data-custom-spot-id", spot.id);
+  element.setAttribute("title", spot.name);
+  element.style.cssText = `
+    pointer-events: auto;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #FFFFFF;
+    border: 2.5px solid #F78E42;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.28);
+    cursor: pointer;
+  `;
+
+  return element;
+}
 
 interface MapConditionLegendProps {
   controls?: ReactNode;
@@ -253,6 +275,7 @@ export function InteractiveMap({
   className = "h-full w-full",
   regionViewport,
   beaches,
+  customSpots = EMPTY_CUSTOM_SPOTS,
   autoNavigateOnMarkerClick = true,
   displayMode = "wave-height",
   showSwellField = false,
@@ -1388,7 +1411,7 @@ export function InteractiveMap({
     }
   }, [isMapReady, beaches, populateLocations]);
 
-  // Render individual beach markers
+  // Render individual beach markers and custom spot markers
   useEffect(() => {
     if (!isMapReady || !mapRef.current) return;
 
@@ -1423,7 +1446,33 @@ export function InteractiveMap({
       }
       markersRef.current[markerId] = marker;
     });
-  }, [beaches, isMapReady, waveHeightMap, buildWaveHeightBadge, cleanupMarkers]);
+
+    customSpots.forEach((spot) => {
+      if (!Number.isFinite(spot.lat) || !Number.isFinite(spot.lon)) {
+        return;
+      }
+
+      const markerId = `custom-${spot.id}`;
+      const element = createCustomSpotMarkerElement(spot);
+
+      const marker = new mapboxgl.Marker({
+        element,
+        anchor: "center",
+      }).setLngLat([spot.lon, spot.lat]);
+
+      if (mapRef.current?.getCanvasContainer()) {
+        marker.addTo(mapRef.current);
+      }
+      markersRef.current[markerId] = marker;
+    });
+  }, [
+    beaches,
+    customSpots,
+    isMapReady,
+    waveHeightMap,
+    buildWaveHeightBadge,
+    cleanupMarkers,
+  ]);
 
   const swellTimeline =
     showSwellField && onSwellTimelineChange && swellTimelineSteps.length > 0 ? (
