@@ -422,6 +422,7 @@ export function InteractiveMap({
     bounds: mapBounds || { west: -118, south: 32, east: -117, north: 33 },
     zoom: currentZoom,
     favoriteBeachIds,
+    clusterRadius: 0, // show every spot as its own dot — no clustering
   });
 
   // Mirror the latest cluster output so instrumentation can read counts
