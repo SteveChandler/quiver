@@ -737,6 +737,7 @@ export function InteractiveMap({
         clusterCleanupMap: clusterCleanupRef.current,
         getExpansionZoom,
         getMaxZoom: () => mapRef.current?.getMaxZoom() ?? Infinity,
+        getCurrentZoom: () => mapRef.current?.getZoom() ?? 0,
         flyTo: (center, zoom) => {
           mapRef.current?.flyTo({ center, zoom, duration: 500 });
         },

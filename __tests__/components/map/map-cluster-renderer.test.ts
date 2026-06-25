@@ -30,6 +30,7 @@ function baseDeps(): ClusterRendererDeps {
     favoriteBeachIds: new Set(),
     clusterCleanupMap: new Map(),
     getExpansionZoom: jest.fn(() => 9),
+    getCurrentZoom: jest.fn(() => 4),
     flyTo: jest.fn(),
   };
 }
@@ -53,13 +54,14 @@ describe("createClusterMapMarker", () => {
     expect(deps.flyTo).not.toHaveBeenCalled();
   });
 
-  it("keeps the default click-to-expand behavior", () => {
+  it("zooms to expand when current zoom is below the expansion target", () => {
     const deps = baseDeps();
 
     createClusterMapMarker(cluster, deps);
     getMarkerElement().dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     expect(deps.getExpansionZoom).toHaveBeenCalledWith(12);
+    expect(deps.getCurrentZoom).toHaveBeenCalled();
     expect(deps.flyTo).toHaveBeenCalledWith([-67.26, 18.36], 9);
   });
 
@@ -68,6 +70,21 @@ describe("createClusterMapMarker", () => {
       ...baseDeps(),
       getExpansionZoom: jest.fn(() => 15),
       getMaxZoom: jest.fn(() => 13.5),
+      onClusterClick: jest.fn(),
+    } satisfies ClusterRendererDeps;
+
+    createClusterMapMarker(cluster, deps);
+    getMarkerElement().dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+    expect(deps.onClusterClick).toHaveBeenCalledWith(cluster);
+    expect(deps.flyTo).not.toHaveBeenCalled();
+  });
+
+  it("opens details instead of flying when already at the capped zoom target", () => {
+    const deps = {
+      ...baseDeps(),
+      getExpansionZoom: jest.fn(() => 22),
+      getCurrentZoom: jest.fn(() => 18),
       onClusterClick: jest.fn(),
     } satisfies ClusterRendererDeps;
 

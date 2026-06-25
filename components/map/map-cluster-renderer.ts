@@ -18,6 +18,8 @@ export interface ClusterRendererDeps {
   getExpansionZoom: (clusterId: number) => number;
   /** Current camera max-zoom cap (e.g. the swell-field coastal leash). */
   getMaxZoom?: () => number;
+  /** Returns the map's current zoom level */
+  getCurrentZoom: () => number;
   /** Fly the map to a location at a given zoom level */
   flyTo: (center: [number, number], zoom: number) => void;
   /** Display mode: wave-height (default) or water-temp */
@@ -90,10 +92,16 @@ export function createClusterMapMarker(
         deps.onClusterClick(cluster);
         return;
       }
-      deps.flyTo(
-        [cluster.longitude, cluster.latitude],
-        Math.min(expansionZoom, 16)
-      );
+      const target = Math.min(expansionZoom, maxZoom, 18);
+      const current = deps.getCurrentZoom();
+
+      if (target > current + 0.3) {
+        deps.flyTo([cluster.longitude, cluster.latitude], target);
+      } else if (deps.onClusterClick) {
+        deps.onClusterClick(cluster);
+      } else {
+        deps.flyTo([cluster.longitude, cluster.latitude], target);
+      }
     }
   });
 
