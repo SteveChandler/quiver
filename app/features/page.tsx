@@ -15,6 +15,8 @@ import {
 
 import { IosAppStoreCta } from "@/components/app-store/ios-app-store-cta";
 import { AndroidWaitlistCta } from "@/components/pricing/android-waitlist-cta";
+import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { IOS_APP_STORE_CTA } from "@/lib/constants/app-store";
 import { buildPageMetadata } from "@/lib/seo/meta";
 
@@ -128,248 +130,248 @@ const APP_SCREENS = [
   },
 ] as const;
 
-function FeatureIcon({ icon: Icon }: { icon: LucideIcon }): ReactElement {
-  return (
-    <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md border border-[#F78E42]/35 bg-[#F78E42]/12 text-[#FDB84B]">
-      <Icon className="h-5 w-5" aria-hidden="true" />
-    </span>
-  );
-}
-
 export default function FeaturesPage(): ReactElement {
   return (
-    <main className="min-h-screen bg-[#0D1020] text-white">
-      <section className="relative overflow-hidden px-4 pb-16 pt-24 sm:px-6 lg:px-8">
-        <div
-          aria-hidden="true"
-          className="absolute inset-0 opacity-[0.08]"
-          style={{
-            backgroundImage:
-              "linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(0deg, rgba(255,255,255,0.35) 1px, transparent 1px)",
-            backgroundSize: "64px 64px",
-          }}
-        />
-        <div className="relative mx-auto grid max-w-7xl gap-12 lg:grid-cols-[minmax(0,1fr)_minmax(360px,0.88fr)] lg:items-center">
-          <div className="max-w-3xl">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-md border border-[#7BDCB5]/45 bg-[#7BDCB5]/12 px-3 py-1.5 text-xs font-black uppercase tracking-[0.16em] text-[#7BDCB5]">
-              <Waves className="h-4 w-4" aria-hidden="true" />
-              Native app features
-            </div>
-            <h1 className="font-heading text-5xl font-black leading-[0.94] tracking-normal text-white sm:text-6xl md:text-7xl">
-              A surf app that gets personal.
-            </h1>
-            <p className="mt-6 max-w-2xl text-lg font-semibold leading-8 text-[#B8C7E0] md:text-xl">
-              Quiver turns forecast checks, saved spots, session logs, and
-              alerts into a surf call that is built around the way you actually
-              paddle out.
-            </p>
+    <ZineSurface
+      sectionLabel="App features"
+      editionLabel="Built for the loop"
+      data-testid="features-zine-surface"
+    >
+      <main>
+        <header className="grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
+          <ScrollReveal>
+            <div className="relative">
+              <QuiverSticker
+                sticker="orangeTape"
+                className="absolute -top-8 left-4 hidden w-36 -rotate-6 opacity-85 sm:block"
+              />
+              <p className="label-black mb-5">Native app features</p>
+              <h1 className="zine-h1 font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
+                A surf app that gets personal.
+              </h1>
+              <p className="mt-6 max-w-2xl text-xl leading-relaxed text-[#11100D]/75 sm:text-2xl">
+                Quiver turns forecast checks, saved spots, session logs, and
+                alerts into a surf call that is built around the way you actually
+                paddle out.
+              </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <IosAppStoreCta
-                source="features-hero-app-store"
-                surface="features-page"
-                placement="hero_primary"
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1020]"
-              >
-                {IOS_APP_STORE_CTA}
-                <ArrowRight className="h-5 w-5" aria-hidden="true" />
-              </IosAppStoreCta>
-              <AndroidWaitlistCta
-                source="features-hero-android-waitlist"
-                surface="features-page"
-                placement="hero_secondary"
-                className="inline-flex min-h-12 items-center justify-center rounded-md border border-white/25 px-5 py-3 text-base font-black text-white transition hover:border-[#7BDCB5] hover:text-[#7BDCB5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7BDCB5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1020]"
-              >
-                Android waitlist
-              </AndroidWaitlistCta>
-            </div>
-
-            <div className="mt-9 grid max-w-2xl gap-3">
-              {HERO_POINTS.map((point) => (
-                <div
-                  key={point}
-                  className="flex items-start gap-3 text-sm font-semibold leading-6 text-[#E6F0FF]"
+              <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+                <IosAppStoreCta
+                  source="features-hero-app-store"
+                  surface="features-page"
+                  placement="hero_primary"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
                 >
-                  <CheckCircle2
-                    className="mt-0.5 h-5 w-5 shrink-0 text-[#7BDCB5]"
-                    aria-hidden="true"
-                  />
-                  {point}
-                </div>
+                  {IOS_APP_STORE_CTA}
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </IosAppStoreCta>
+                <AndroidWaitlistCta
+                  source="features-hero-android-waitlist"
+                  surface="features-page"
+                  placement="hero_secondary"
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
+                >
+                  Android waitlist
+                </AndroidWaitlistCta>
+              </div>
+
+              <div className="mt-9 grid max-w-2xl gap-3">
+                {HERO_POINTS.map((point) => (
+                  <div
+                    key={point}
+                    className="flex items-start gap-3 text-sm leading-6 text-[#11100D]/78"
+                  >
+                    <CheckCircle2
+                      className="mt-0.5 h-5 w-5 shrink-0 text-[#B56A2B]"
+                      aria-hidden="true"
+                    />
+                    {point}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </ScrollReveal>
+
+          <ScrollReveal delay={80}>
+            <div className="mx-auto grid w-full max-w-[520px] grid-cols-3 gap-3 sm:gap-4 lg:max-w-none">
+              {APP_SCREENS.map((screen, index) => (
+                <figure key={screen.src} className="relative min-w-0">
+                  <div className="relative aspect-[9/19.5] overflow-hidden rounded-[24px] border-2 border-[#11100D] bg-[#11100D] shadow-[3px_4px_0_rgba(17,16,13,0.3)]">
+                    <Image
+                      src={screen.src}
+                      alt={screen.alt}
+                      fill
+                      priority={index === 0}
+                      loading={index === 0 ? undefined : "eager"}
+                      sizes="(min-width: 1024px) 170px, 28vw"
+                      className="object-cover"
+                    />
+                  </div>
+                  <figcaption className="pt-3 text-center font-mono text-xs uppercase tracking-[0.18em] text-[#11100D]/65">
+                    {screen.label}
+                  </figcaption>
+                </figure>
               ))}
             </div>
-          </div>
+          </ScrollReveal>
+        </header>
 
-          <div className="mx-auto grid w-full max-w-[520px] grid-cols-3 gap-3 sm:gap-4 lg:max-w-none">
-            {APP_SCREENS.map((screen, index) => (
-              <figure
-                key={screen.src}
-                className="relative min-w-0 overflow-visible bg-transparent"
+        <section className="mt-14" aria-labelledby="loop-heading">
+          <ScrollReveal>
+            <div className="relative">
+              <QuiverSticker
+                sticker="forecastWaveMark"
+                className="absolute -top-10 right-2 hidden w-20 rotate-6 drop-shadow-sm sm:block"
+              />
+              <p className="typewriter mb-2">The loop</p>
+              <h2
+                id="loop-heading"
+                className="max-w-3xl font-display text-3xl font-black uppercase leading-none text-[#11100D] sm:text-4xl"
               >
-                <div className="relative aspect-[9/19.5] overflow-hidden rounded-[30px] border border-[#7BDCB5]/55 bg-[#11100D] shadow-[0_0_0_4px_rgba(13,16,32,0.9),0_0_0_5px_rgba(123,220,181,0.2),0_28px_60px_rgba(0,0,0,0.5)]">
-                  <Image
-                    src={screen.src}
-                    alt={screen.alt}
-                    fill
-                    priority={index === 0}
-                    loading={index === 0 ? undefined : "eager"}
-                    sizes="(min-width: 1024px) 170px, 28vw"
-                    className="object-cover"
-                  />
-                </div>
-                <figcaption className="pt-3 text-center text-xs font-black uppercase tracking-[0.18em] text-[#B8C7E0]">
-                  {screen.label}
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        </div>
-      </section>
+                Every session you log dials in the next call.
+              </h2>
+              <p className="mt-4 max-w-2xl text-base leading-relaxed text-[#11100D]/74 sm:text-lg">
+                Every surf app can show the ocean model. Quiver closes the loop:
+                what you checked, where you went, and how the session actually
+                felt.
+              </p>
+            </div>
+          </ScrollReveal>
 
-      <section className="bg-[#F4EBD8] px-4 py-16 text-[#11100D] sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="max-w-3xl">
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-[#9E5010]">
-              The loop
-            </p>
-            <h2 className="mt-3 font-heading text-4xl font-black leading-tight tracking-normal md:text-5xl">
-              Every session you log dials in the next call.
-            </h2>
-            <p className="mt-4 text-lg font-semibold leading-8 text-[#34415E]">
-              Every surf app can show the ocean model. Quiver closes the loop:
-              what you checked, where you went, and how the session actually
-              felt.
-            </p>
-          </div>
-
-          <div className="mt-10 grid gap-4 md:grid-cols-4">
+          <div className="mt-9 grid gap-4 sm:grid-cols-2 md:grid-cols-4">
             {LOOP_STEPS.map((step, index) => {
               const Icon = step.icon;
               return (
-                <div
-                  key={step.title}
-                  className="rounded-md border-2 border-[#11100D] bg-[#FFF8E8] p-5 shadow-[5px_5px_0_rgba(17,16,13,0.16)]"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="flex h-10 w-10 items-center justify-center rounded-md bg-[#252D6B] text-white">
-                      <Icon className="h-5 w-5" aria-hidden="true" />
-                    </span>
-                    <span className="font-mono text-sm font-black text-[#9E5010]">
-                      0{index + 1}
-                    </span>
+                <ScrollReveal key={step.title} delay={index * 60}>
+                  <div className="torn torn-tb min-h-[12rem] border-2 border-[#11100D] bg-[#FBF6E8]">
+                    <div className="mb-4 flex items-center justify-between gap-3">
+                      <span className="circled bg-[#F78E42]/35">
+                        <Icon className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                      <span className="font-mono text-sm font-bold text-[#B56A2B]">
+                        0{index + 1}
+                      </span>
+                    </div>
+                    <h3 className="font-display text-xl font-black uppercase leading-tight text-[#11100D]">
+                      {step.title}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-[#11100D]/70">
+                      {step.body}
+                    </p>
                   </div>
-                  <h3 className="mt-5 font-heading text-2xl font-black">
-                    {step.title}
-                  </h3>
-                  <p className="mt-2 text-sm font-semibold leading-6 text-[#4B5567]">
-                    {step.body}
-                  </p>
-                </div>
+                </ScrollReveal>
               );
             })}
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="bg-[#121832] px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-10 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            <div className="max-w-3xl">
-              <p className="text-sm font-black uppercase tracking-[0.18em] text-[#7BDCB5]">
-                Built for the app
-              </p>
-              <h2 className="mt-3 font-heading text-4xl font-black leading-tight tracking-normal text-white md:text-5xl">
-                Not a report. A forecast that knows your breaks.
-              </h2>
+        <section className="mt-16" aria-labelledby="native-heading">
+          <ScrollReveal>
+            <div className="mb-8 flex items-end justify-between gap-4 border-b-2 border-dashed border-[#11100D]/35 pb-4">
+              <div className="max-w-3xl">
+                <p className="typewriter mb-2">Built for the app</p>
+                <h2
+                  id="native-heading"
+                  className="font-display text-3xl font-black uppercase leading-none text-[#11100D] sm:text-4xl"
+                >
+                  Not a report. A forecast that knows your breaks.
+                </h2>
+                <p className="mt-4 max-w-md text-sm leading-relaxed text-[#11100D]/70">
+                  This is why Quiver isn&apos;t another surf report you check and
+                  forget.
+                </p>
+              </div>
+              <QuiverSticker
+                sticker="goldRightArrow"
+                className="hidden w-20 rotate-6 drop-shadow-sm lg:block"
+              />
             </div>
-            <p className="max-w-md text-sm font-semibold leading-6 text-[#9AABC6]">
-              This is why Quiver isn&apos;t another surf report you check and
-              forget.
-            </p>
-          </div>
+          </ScrollReveal>
 
           <div className="grid gap-5 lg:grid-cols-3">
-            {NATIVE_FEATURES.map((feature) => {
+            {NATIVE_FEATURES.map((feature, index) => {
               const Icon = feature.icon;
               return (
-                <article
-                  key={feature.title}
-                  className="rounded-md border border-white/12 bg-white/[0.045] p-5 shadow-xl shadow-black/20"
-                >
-                  <div className="flex items-center gap-3">
-                    <FeatureIcon icon={Icon} />
-                    <div>
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-[#FDB84B]">
-                        {feature.eyebrow}
-                      </p>
-                      <h3 className="mt-1 font-heading text-2xl font-black text-white">
-                        {feature.title}
-                      </h3>
-                    </div>
-                  </div>
-                  <p className="mt-5 min-h-[112px] text-base font-semibold leading-7 text-[#B8C7E0]">
-                    {feature.body}
-                  </p>
-                  <div className="relative mx-auto mt-8 w-full max-w-[346px] lg:max-w-[286px]">
-                    <div
-                      aria-hidden="true"
-                      className="absolute inset-x-8 -bottom-5 h-12 rounded-full bg-black/45 blur-xl"
-                    />
-                    <div className="relative rounded-[44px] bg-[#F4EBD8] p-2 shadow-[0_0_0_2px_rgba(253,184,75,0.34),0_0_44px_rgba(253,184,75,0.32),0_34px_86px_rgba(0,0,0,0.66)]">
-                      <div className="relative aspect-[9/19.5] overflow-hidden rounded-[36px] border-2 border-[#FDB84B] bg-[#080B18] shadow-[inset_0_0_0_1px_rgba(255,255,255,0.18)]">
-                        <Image
-                          src={feature.imageSrc}
-                          alt={feature.imageAlt}
-                          fill
-                          loading="eager"
-                          sizes="(min-width: 1024px) 270px, 82vw"
-                          className="object-cover"
-                        />
+                <ScrollReveal key={feature.title} delay={index * 60}>
+                  <article className="torn flex h-full flex-col border-2 border-[#11100D] bg-[#FBF6E8] p-5 shadow-[2px_3px_0_rgba(17,16,13,0.22)]">
+                    <div className="flex items-center gap-3">
+                      <span className="circled bg-[#252D6B]/12">
+                        <Icon className="h-5 w-5" aria-hidden="true" />
+                      </span>
+                      <div>
+                        <p className="font-mono text-xs uppercase tracking-[0.14em] text-[#B56A2B]">
+                          {feature.eyebrow}
+                        </p>
+                        <h3 className="mt-1 font-display text-xl font-black uppercase leading-tight text-[#11100D]">
+                          {feature.title}
+                        </h3>
                       </div>
                     </div>
-                  </div>
-                </article>
+                    <p className="mt-5 min-h-[112px] text-sm leading-relaxed text-[#11100D]/70">
+                      {feature.body}
+                    </p>
+                    <div className="relative mx-auto mt-auto w-full max-w-[286px] pt-6">
+                      <div className="polaroid rot-2">
+                        <div className="photo aspect-[9/19.5]">
+                          <Image
+                            src={feature.imageSrc}
+                            alt={feature.imageAlt}
+                            fill
+                            loading="eager"
+                            sizes="(min-width: 1024px) 270px, 82vw"
+                            className="object-cover"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </article>
+                </ScrollReveal>
               );
             })}
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className="bg-[#0D1020] px-4 py-16 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-8 border-y border-white/12 py-12 md:grid-cols-[minmax(0,0.9fr)_minmax(320px,0.55fr)] md:items-center">
-          <div>
-            <p className="text-sm font-black uppercase tracking-[0.18em] text-[#FDB84B]">
-              Get the app
-            </p>
-            <h2 className="mt-3 font-heading text-4xl font-black leading-tight tracking-normal text-white md:text-5xl">
-              Make tomorrow&apos;s forecast about your surfing.
-            </h2>
-            <p className="mt-4 max-w-2xl text-lg font-semibold leading-8 text-[#B8C7E0]">
-              Install Quiver, save the spots you care about, set the alerts you
-              actually want, and start feeding your sessions back into the loop.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3 md:items-end">
-            <IosAppStoreCta
-              source="features-final-app-store"
-              surface="features-page"
-              placement="final_cta"
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1020]"
-            >
-              {IOS_APP_STORE_CTA}
-              <ArrowRight className="h-5 w-5" aria-hidden="true" />
-            </IosAppStoreCta>
-            <AndroidWaitlistCta
-              source="features-final-android-waitlist"
-              surface="features-page"
-              placement="final_secondary"
-              className="inline-flex min-h-12 items-center justify-center rounded-md border border-white/25 px-5 py-3 text-base font-black text-white transition hover:border-[#7BDCB5] hover:text-[#7BDCB5] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7BDCB5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1020]"
-            >
-              Join Android waitlist
-            </AndroidWaitlistCta>
-          </div>
-        </div>
-      </section>
-    </main>
+        <ScrollReveal>
+          <section className="torn torn-tb rot-neg mt-16 border-2 border-[#11100D] bg-[#F0E5CC]">
+            <div className="grid gap-6 lg:grid-cols-[0.92fr_0.55fr] lg:items-center">
+              <div>
+                <p className="label-black mb-5">Get the app</p>
+                <h2 className="font-display text-3xl font-black uppercase leading-none text-[#11100D] sm:text-4xl">
+                  Make tomorrow&apos;s forecast about your surfing.
+                </h2>
+                <p className="mt-4 max-w-2xl text-base leading-relaxed text-[#11100D]/74 sm:text-lg">
+                  Install Quiver, save the spots you care about, set the alerts
+                  you actually want, and start feeding your sessions back into
+                  the loop.
+                </p>
+              </div>
+              <div className="relative flex flex-col gap-3 lg:items-end">
+                <QuiverSticker
+                  sticker="creamTape"
+                  className="absolute -top-9 right-2 hidden w-32 rotate-6 opacity-90 lg:block"
+                />
+                <IosAppStoreCta
+                  source="features-final-app-store"
+                  surface="features-page"
+                  placement="final_cta"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
+                >
+                  {IOS_APP_STORE_CTA}
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </IosAppStoreCta>
+                <AndroidWaitlistCta
+                  source="features-final-android-waitlist"
+                  surface="features-page"
+                  placement="final_secondary"
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
+                >
+                  Join Android waitlist
+                </AndroidWaitlistCta>
+              </div>
+            </div>
+          </section>
+        </ScrollReveal>
+      </main>
+    </ZineSurface>
   );
 }

@@ -63,10 +63,10 @@ export function AboutCtaButtons({
   return (
     <>
       <SectionFadeUp delay={0.3}>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+        <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
           <Button
             size="lg"
-            className="bg-[#F78E42] text-[#252D6B] hover:bg-[#F78E42]/90 px-8 py-4 text-lg font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+            className="min-h-12 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-7 py-3 text-base font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42]"
             asChild
           >
             <Link
@@ -74,13 +74,13 @@ export function AboutCtaButtons({
               onClick={() => fireCtaClick("swell_analyzer", primaryHref)}
             >
               {primaryLabel}
-              <ArrowRight className="ml-2 h-5 w-5" />
+              <ArrowRight className="ml-2 h-5 w-5" aria-hidden />
             </Link>
           </Button>
           <Button
             size="lg"
             variant="ghost"
-            className="border border-white/30 text-white hover:bg-white/10 px-8 py-4 text-lg font-heading font-semibold rounded-full transition-all duration-300"
+            className="min-h-12 rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-7 py-3 text-base font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5 hover:bg-[#FBF6E8]"
             asChild
           >
             <Link
@@ -97,7 +97,7 @@ export function AboutCtaButtons({
           <a
             href={tertiaryHref}
             onClick={() => fireCtaClick("contact", tertiaryHref)}
-            className="text-sm text-medium hover:text-high underline underline-offset-4 transition-colors"
+            className="text-sm font-medium text-[#11100D]/65 underline underline-offset-4 transition-colors hover:text-[#B56A2B]"
           >
             {tertiaryLabel}
           </a>
