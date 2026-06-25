@@ -43,7 +43,7 @@ function appendLiveRow(
   value: string
 ): void {
   const row = document.createElement("div");
-  row.className = "quiver-cluster-popup__meta";
+  row.className = "quiver-beach-preview-popup__meta";
 
   const labelEl = document.createElement("span");
   labelEl.textContent = label;
@@ -75,26 +75,26 @@ export function createBeachPreviewPopupContent({
   partition,
 }: BeachPreviewPopupContentOptions): HTMLElement {
   const root = document.createElement("div");
-  root.className = "quiver-cluster-popup quiver-beach-preview-popup";
+  root.className = "quiver-beach-preview-popup";
   root.setAttribute("role", "dialog");
   root.setAttribute("aria-label", `${location.name} surf preview`);
   root.setAttribute("data-testid", "beach-preview-popup-content");
   root.style.width = "min(236px, calc(100vw - 48px))";
 
   const header = document.createElement("div");
-  header.className = "quiver-cluster-popup__header";
+  header.className = "quiver-beach-preview-popup__header";
   header.style.padding = "12px 34px 10px 14px";
   root.appendChild(header);
 
   appendText(
     header,
     "h3",
-    "quiver-cluster-popup__title",
+    "quiver-beach-preview-popup__title",
     location.name
   );
 
   const body = document.createElement("div");
-  body.className = "quiver-cluster-popup__item";
+  body.className = "quiver-beach-preview-popup__item";
   body.style.borderBottom = "0";
   root.appendChild(body);
 
@@ -163,7 +163,7 @@ export function createBeachPreviewPopupContent({
   const href = getBeachHrefSafe(location);
   if (href) {
     const link = document.createElement("a");
-    link.className = "quiver-cluster-popup__beach-name";
+    link.className = "quiver-beach-preview-popup__beach-name";
     link.href = href;
     link.textContent = "Full forecast →";
     link.style.marginTop = "9px";

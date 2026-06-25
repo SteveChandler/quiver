@@ -140,7 +140,7 @@ describe("map marker preview popup", () => {
     expect(content).toHaveTextContent("WAVE · Point");
     expect(content).toHaveTextContent("LEVEL · Intermediate");
     expect(
-      Array.from(content.querySelectorAll(".quiver-cluster-popup__meta")).map(
+      Array.from(content.querySelectorAll(".quiver-beach-preview-popup__meta")).map(
         (row) => row.textContent
       )
     ).toEqual([
