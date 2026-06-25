@@ -1,9 +1,7 @@
 import { Metadata } from "next";
 import Link from "next/link";
 import { Mail } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { PRIVACY_CONTENT } from "@/lib/constants/content";
 
 export const metadata: Metadata = {
@@ -39,322 +37,299 @@ export default function PrivacyPage() {
   } = PRIVACY_CONTENT;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-sandy-beige via-white to-blue-50">
-      {/* Hero Section */}
-      <section className="py-20 px-4">
-        <div className="max-w-4xl mx-auto text-center">
-          <h1 className="text-4xl md:text-6xl font-heading font-bold text-dark-grey mb-6">
+    <ZineSurface sectionLabel="Privacy" editionLabel="The fine print">
+      <main>
+        {/* Hero */}
+        <header className="relative">
+          <QuiverSticker
+            sticker="orangeTape"
+            className="absolute -top-7 right-6 hidden w-32 rotate-3 opacity-85 sm:block"
+          />
+          <p className="label-black mb-5">Privacy policy</p>
+          <h1 className="zine-h1 font-black uppercase leading-[0.9] tracking-normal text-[#11100D]">
             {hero.title}
           </h1>
-          <p className="text-xl md:text-2xl text-gray-600 mb-8 font-sans">
+          <p className="mt-6 max-w-3xl text-xl leading-relaxed text-[#11100D]/75 sm:text-2xl">
             {hero.subtitle}
           </p>
-          <div className="space-y-2">
-            <Badge variant="outline" className="text-sm font-medium">
+          <div className="mt-7 flex flex-wrap items-center gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/65">
+            <span className="inline-flex items-center border-2 border-[#11100D] bg-[#F0E5CC] px-3 py-1 font-semibold">
               Last Updated: {hero.lastUpdated}
-            </Badge>
-            <p className="text-sm text-gray-500 font-sans">
+            </span>
+            <span className="max-w-xl normal-case tracking-normal text-[#11100D]/60">
               {hero.effectiveDate}
+            </span>
+          </div>
+        </header>
+
+        {/* Overview */}
+        <section className="mt-12">
+          <div className="torn torn-tb border-2 border-[#11100D] bg-[#F0E5CC]">
+            <h2 className="font-display text-3xl font-black uppercase leading-none text-[#11100D] sm:text-4xl">
+              {overview.title}
+            </h2>
+            <p className="mt-4 text-base leading-relaxed text-[#11100D]/74 sm:text-lg">
+              {overview.description}
             </p>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Overview Section */}
-      <section className="py-12 px-4 bg-white/50">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-3xl font-heading font-bold text-dark-grey mb-6 text-center">
-            {overview.title}
-          </h2>
-          <p className="text-lg text-gray-600 font-sans leading-relaxed text-center">
-            {overview.description}
-          </p>
-        </div>
-      </section>
+        {/* Important Information */}
+        <section className="mt-14">
+          <div className="mb-5 border-b-2 border-dashed border-[#11100D]/35 pb-4">
+            <p className="typewriter mb-2">Who we are</p>
+            <h2 className="font-display text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl">
+              {importantInfo.title}
+            </h2>
+          </div>
+          <div className="space-y-6">
+            <div>
+              <h3 className="font-display text-lg font-black uppercase leading-tight text-[#11100D]">
+                Purpose of this Privacy Policy
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-[#11100D]/72 sm:text-base">
+                {importantInfo.purpose}
+              </p>
+            </div>
+            <div>
+              <h3 className="font-display text-lg font-black uppercase leading-tight text-[#11100D]">
+                Children&rsquo;s Privacy
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-[#11100D]/72 sm:text-base">
+                {importantInfo.childrenPolicy}
+              </p>
+            </div>
+            <div>
+              <h3 className="font-display text-lg font-black uppercase leading-tight text-[#11100D]">
+                Contact Details
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-[#11100D]/72 sm:text-base">
+                {importantInfo.contact}
+              </p>
+            </div>
+            <div>
+              <h3 className="font-display text-lg font-black uppercase leading-tight text-[#11100D]">
+                Changes to Privacy Policy
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-[#11100D]/72 sm:text-base">
+                {importantInfo.changes}
+              </p>
+            </div>
+            <div>
+              <h3 className="font-display text-lg font-black uppercase leading-tight text-[#11100D]">
+                Third-Party Links
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-[#11100D]/72 sm:text-base">
+                {importantInfo.thirdPartyLinks}
+              </p>
+            </div>
+          </div>
+        </section>
 
-      {/* Important Information */}
-      <section className="py-12 px-4">
-        <div className="max-w-6xl mx-auto">
-          <Card className="hover:shadow-lg transition-shadow duration-300 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <h2 className="text-3xl font-heading font-bold text-dark-grey mb-4">
-                {importantInfo.title}
-              </h2>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
-                  Purpose of this Privacy Policy
-                </h3>
-                <p className="text-gray-600 font-sans leading-relaxed">
-                  {importantInfo.purpose}
-                </p>
-              </div>
-              <div>
-                <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
-                  Children’s Privacy
-                </h3>
-                <p className="text-gray-600 font-sans leading-relaxed">
-                  {importantInfo.childrenPolicy}
-                </p>
-              </div>
-              <div>
-                <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
-                  Contact Details
-                </h3>
-                <p className="text-gray-600 font-sans leading-relaxed">
-                  {importantInfo.contact}
-                </p>
-              </div>
-              <div>
-                <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
-                  Changes to Privacy Policy
-                </h3>
-                <p className="text-gray-600 font-sans leading-relaxed">
-                  {importantInfo.changes}
-                </p>
-              </div>
-              <div>
-                <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
-                  Third-Party Links
-                </h3>
-                <p className="text-gray-600 font-sans leading-relaxed">
-                  {importantInfo.thirdPartyLinks}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      {/* Data Categories Table */}
-      <section className="py-12 px-4 bg-white/50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-heading font-bold text-dark-grey mb-6">
+        {/* Data Categories */}
+        <section className="mt-14">
+          <div className="mb-5 border-b-2 border-dashed border-[#11100D]/35 pb-4">
+            <p className="typewriter mb-2">What we collect</p>
+            <h2 className="font-display text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl">
               {dataCategories.title}
             </h2>
-            <p className="text-lg text-gray-600 max-w-4xl mx-auto font-sans">
+            <p className="mt-3 max-w-4xl text-sm leading-relaxed text-[#11100D]/72 sm:text-base">
               {dataCategories.intro}
             </p>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-5">
             {dataCategories.categories.map((category, index) => (
-              <Card
+              <div
                 key={index}
-                className="hover:shadow-lg transition-shadow duration-300 bg-white/80 backdrop-blur-sm"
+                className="torn torn-tb border-2 border-[#11100D] bg-[#FBF6E8]"
               >
-                <CardContent className="p-6">
-                  <h3 className="text-xl font-heading font-bold text-dark-grey mb-3">
-                    {category.name}
-                  </h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <p className="font-semibold text-gray-700 mb-1">
-                        Description:
-                      </p>
-                      <p className="text-gray-600 font-sans">
-                        {category.description}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-700 mb-1">
-                        Sources:
-                      </p>
-                      <p className="text-gray-600 font-sans">
-                        {category.sources}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-700 mb-1">
-                        Legal Basis:
-                      </p>
-                      <p className="text-gray-600 font-sans">
-                        {category.purpose}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-gray-700 mb-1">
-                        Third Parties Disclosed:
-                      </p>
-                      <p className="text-gray-600 font-sans">
-                        {category.disclosed}
-                      </p>
-                    </div>
+                <h3 className="font-display text-xl font-black uppercase leading-tight text-[#11100D]">
+                  {category.name}
+                </h3>
+                <div className="mt-3 grid grid-cols-1 gap-4 text-sm lg:grid-cols-2">
+                  <div>
+                    <p className="font-mono text-xs uppercase tracking-[0.12em] text-[#B56A2B]">
+                      Description
+                    </p>
+                    <p className="mt-1 leading-relaxed text-[#11100D]/72">
+                      {category.description}
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Accessibility Notice */}
-      <section className="py-8 px-4">
-        <div className="max-w-4xl mx-auto">
-          <Card className="bg-blue-50 border-blue-200">
-            <CardContent className="p-6">
-              <h3 className="text-xl font-heading font-bold text-dark-grey mb-4">
-                {accessibility.title}
-              </h3>
-              <p className="text-gray-600 font-sans leading-relaxed">
-                {accessibility.description}
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      {/* Privacy Sections */}
-      <section className="py-12 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="space-y-16">
-            {sections.map((section, sectionIndex) => (
-              <div key={section.id} id={section.id}>
-                <Card className="hover:shadow-lg transition-shadow duration-300 bg-white/80 backdrop-blur-sm">
-                  <CardHeader>
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="w-12 h-12 bg-ocean-blue/10 rounded-full flex items-center justify-center">
-                        <section.icon className="h-6 w-6 text-ocean-blue" />
-                      </div>
-                      <h2 className="text-2xl md:text-3xl font-heading font-bold text-dark-grey">
-                        {section.title}
-                      </h2>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      {section.content.map((item, itemIndex) => (
-                        <div key={itemIndex}>
-                          <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
-                            {item.subtitle}
-                          </h3>
-                          <p className="text-gray-600 font-sans leading-relaxed">
-                            {item.details}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                  <div>
+                    <p className="font-mono text-xs uppercase tracking-[0.12em] text-[#B56A2B]">
+                      Sources
+                    </p>
+                    <p className="mt-1 leading-relaxed text-[#11100D]/72">
+                      {category.sources}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-mono text-xs uppercase tracking-[0.12em] text-[#B56A2B]">
+                      Legal Basis
+                    </p>
+                    <p className="mt-1 leading-relaxed text-[#11100D]/72">
+                      {category.purpose}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-mono text-xs uppercase tracking-[0.12em] text-[#B56A2B]">
+                      Third Parties Disclosed
+                    </p>
+                    <p className="mt-1 leading-relaxed text-[#11100D]/72">
+                      {category.disclosed}
+                    </p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Quick Navigation */}
-      <section className="py-12 px-4 bg-white/50">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-heading font-bold text-dark-grey mb-8 text-center">
-            Quick Navigation
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {/* Accessibility Notice */}
+        <section className="mt-12">
+          <div className="notebook">
+            <h3 className="font-display text-xl font-black uppercase leading-tight text-[#11100D]">
+              {accessibility.title}
+            </h3>
+            <p className="mt-3 text-sm leading-relaxed text-[#11100D]/72 sm:text-base">
+              {accessibility.description}
+            </p>
+          </div>
+        </section>
+
+        {/* Privacy Sections */}
+        <section className="mt-14 space-y-12">
+          {sections.map((section) => (
+            <div key={section.id} id={section.id}>
+              <div className="mb-5 flex items-center gap-4 border-b-2 border-dashed border-[#11100D]/35 pb-4">
+                <span className="circled bg-[#F78E42]/35 shrink-0">
+                  <section.icon className="h-5 w-5" aria-hidden />
+                </span>
+                <h2 className="font-display text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl">
+                  {section.title}
+                </h2>
+              </div>
+              <div className="space-y-6">
+                {section.content.map((item, itemIndex) => (
+                  <div key={itemIndex}>
+                    <h3 className="font-display text-lg font-black uppercase leading-tight text-[#11100D]">
+                      {item.subtitle}
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-[#11100D]/72 sm:text-base">
+                      {item.details}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </section>
+
+        {/* Quick Navigation */}
+        <section className="mt-14">
+          <div className="mb-5 border-b-2 border-dashed border-[#11100D]/35 pb-4">
+            <p className="typewriter mb-2">Jump to</p>
+            <h2 className="font-display text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl">
+              Quick Navigation
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
             {sections.map((section) => (
               <Link
                 key={section.id}
                 href={`#${section.id}`}
-                className="flex items-center gap-3 p-4 bg-white/80 backdrop-blur-sm rounded-lg hover:shadow-md transition-shadow duration-300 group"
+                className="group flex items-center gap-3 border-2 border-[#11100D] bg-[#FBF6E8] p-4 shadow-[2px_3px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
               >
-                <section.icon className="h-5 w-5 text-ocean-blue group-hover:text-ocean-blue/80" />
-                <span className="text-dark-grey font-sans group-hover:text-ocean-blue transition-colors">
+                <section.icon
+                  className="h-5 w-5 text-[#11100D] transition-colors group-hover:text-[#B56A2B]"
+                  aria-hidden
+                />
+                <span className="text-sm font-bold text-[#11100D] transition-colors group-hover:text-[#B56A2B]">
                   {section.title}
                 </span>
               </Link>
             ))}
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Annexes Section */}
-      <section className="py-12 px-4 bg-white/50">
-        <div className="max-w-6xl mx-auto space-y-12">
+        {/* Annexes */}
+        <section className="mt-14 space-y-10">
           {/* US Residents Annex */}
-          <Card className="hover:shadow-lg transition-shadow duration-300 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <h2 className="text-2xl md:text-3xl font-heading font-bold text-dark-grey">
-                {annexes.usResidents.title}
-              </h2>
-              <p className="text-gray-600 font-sans">
-                {annexes.usResidents.intro}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
+          <div className="torn torn-tb border-2 border-[#11100D] bg-[#F0E5CC]">
+            <h2 className="font-display text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl">
+              {annexes.usResidents.title}
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-[#11100D]/72 sm:text-base">
+              {annexes.usResidents.intro}
+            </p>
+            <div className="mt-5 space-y-6">
               {annexes.usResidents.sections.map((section, index) => (
                 <div key={index}>
-                  <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
+                  <h3 className="font-display text-lg font-black uppercase leading-tight text-[#11100D]">
                     {section.title}
                   </h3>
-                  <p className="text-gray-600 font-sans leading-relaxed">
+                  <p className="mt-2 text-sm leading-relaxed text-[#11100D]/72 sm:text-base">
                     {section.content}
                   </p>
                 </div>
               ))}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
 
           {/* Surf Sessions Annex */}
-          <Card className="hover:shadow-lg transition-shadow duration-300 bg-white/80 backdrop-blur-sm">
-            <CardHeader>
-              <h2 className="text-2xl md:text-3xl font-heading font-bold text-dark-grey">
-                {annexes.surfSessions.title}
-              </h2>
-              <p className="text-gray-600 font-sans">
-                {annexes.surfSessions.intro}
-              </p>
-            </CardHeader>
-            <CardContent className="space-y-6">
+          <div className="torn torn-tb border-2 border-[#11100D] bg-[#F0E5CC]">
+            <h2 className="font-display text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl">
+              {annexes.surfSessions.title}
+            </h2>
+            <p className="mt-2 text-sm leading-relaxed text-[#11100D]/72 sm:text-base">
+              {annexes.surfSessions.intro}
+            </p>
+            <div className="mt-5 space-y-6">
               {annexes.surfSessions.sections.map((section, index) => (
                 <div key={index}>
-                  <h3 className="text-lg font-heading font-semibold text-dark-grey mb-3">
+                  <h3 className="font-display text-lg font-black uppercase leading-tight text-[#11100D]">
                     {section.title}
                   </h3>
-                  <p className="text-gray-600 font-sans leading-relaxed">
+                  <p className="mt-2 text-sm leading-relaxed text-[#11100D]/72 sm:text-base">
                     {section.content}
                   </p>
                 </div>
               ))}
-            </CardContent>
-          </Card>
-        </div>
-      </section>
+            </div>
+          </div>
+        </section>
 
-      {/* Contact Section */}
-      <section className="py-20 px-4 bg-gradient-to-r from-ocean-blue to-blue-600">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-heading font-bold text-white mb-6">
+        {/* Contact */}
+        <section className="mt-14 border-t-2 border-dashed border-[#11100D]/35 pt-10">
+          <p className="label-black mb-5">Get in touch</p>
+          <h2 className="font-display text-3xl font-black uppercase leading-none text-[#11100D] sm:text-4xl">
             {contact.title}
           </h2>
-          <p className="text-xl text-high mb-8 font-sans">
+          <p className="mt-4 max-w-3xl text-base leading-relaxed text-[#11100D]/74 sm:text-lg">
             {contact.description}
           </p>
 
-          <div className="space-y-4 text-high font-sans max-w-2xl mx-auto mb-8">
+          <div className="mt-6 space-y-2 text-sm leading-relaxed text-[#11100D]/74 sm:text-base">
             {contact.methods.map((method, index) => (
-              <div key={index} className="text-center">
-                <p>
-                  <strong>{method.type}:</strong> {method.value}
-                </p>
-              </div>
+              <p key={index}>
+                <strong className="text-[#11100D]">{method.type}:</strong>{" "}
+                {method.value}
+              </p>
             ))}
           </div>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button
-              size="lg"
-              className="bg-white text-ocean-blue hover:bg-gray-50 px-8 py-4 text-lg font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
-              asChild
+          <div className="mt-8">
+            <Link
+              href="mailto:privacy@quiversurf.com"
+              className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
             >
-              <Link href="mailto:privacy@quiversurf.com">
-                <Mail className="mr-2 h-5 w-5" />
-                Contact Privacy Team
-              </Link>
-            </Button>
+              <Mail className="mr-2 h-5 w-5" aria-hidden />
+              Contact Privacy Team
+            </Link>
           </div>
-        </div>
-      </section>
-
-    </div>
+        </section>
+      </main>
+    </ZineSurface>
   );
 }

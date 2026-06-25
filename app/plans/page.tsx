@@ -40,9 +40,7 @@ export default function PlansPage() {
           },
         }}
       />
-      <main>
-        <FoundingOfferSurface />
-      </main>
+      <FoundingOfferSurface />
     </>
   );
 }
