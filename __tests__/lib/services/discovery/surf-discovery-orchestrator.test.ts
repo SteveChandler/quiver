@@ -1771,7 +1771,7 @@ describe('discoverSurfSpots - Personalization Integration', () => {
     expect(result.recommendations[0].score).toBeGreaterThan(74);
     expect(result.recommendations[0].subscores.behaviorBonus).toBeGreaterThan(0);
     expect(result.recommendations[0].reasons).toEqual(
-      expect.arrayContaining(['Completed-session history supports this break'])
+      expect.arrayContaining(['Recent completed sessions back this break'])
     );
   });
 

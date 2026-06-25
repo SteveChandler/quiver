@@ -88,7 +88,45 @@ describe('break behavior score', () => {
     expect(result.components.completedSessionRate).toBeCloseTo(20 / 24, 3);
     expect(result.components.repeatUserRate).toBeCloseTo(0.5, 3);
     expect(result.components.conditionMatchHistory).toBeGreaterThan(0);
+    expect(result.reasons).toContain('Recent completed sessions back this break');
+    const standaloneRecentReason = ['Recent sessions', 'keep this signal fresh'].join(' ');
+    expect(result.reasons).not.toContain(standaloneRecentReason);
+  });
+
+  it('keeps the completed-session history reason when only history supports the break', () => {
+    const result = calculateBreakBehaviorScore({
+      plannedSessions: 8,
+      completedSessions: 6,
+      uniqueUsers: 6,
+      repeatUsers: 0,
+      repeatCompletedSessionUsers: 0,
+      recentCompletedSessions: 2,
+      conditionObservedSessions: 0,
+      conditionMatchedSessions: 0,
+    });
+
+    expect(result.score).toBeGreaterThan(0);
+    expect(result.confidenceLabel).toBe('low');
     expect(result.reasons).toContain('Completed-session history supports this break');
+    expect(result.reasons).not.toContain('Recent completed sessions back this break');
+  });
+
+  it('keeps the recent-session freshness reason when only recent sessions support the break', () => {
+    const result = calculateBreakBehaviorScore({
+      plannedSessions: 8,
+      completedSessions: 4,
+      uniqueUsers: 6,
+      repeatUsers: 0,
+      repeatCompletedSessionUsers: 0,
+      recentCompletedSessions: 4,
+      conditionObservedSessions: 0,
+      conditionMatchedSessions: 0,
+    });
+
+    expect(result.score).toBeGreaterThan(0);
+    expect(result.confidenceLabel).toBe('low');
+    expect(result.reasons).toContain('Recent sessions keep this signal fresh');
+    expect(result.reasons).not.toContain('Recent completed sessions back this break');
   });
 
   it('does not boost sparse breaks', () => {

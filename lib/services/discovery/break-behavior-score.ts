@@ -400,14 +400,18 @@ export function calculateBreakBehaviorScore(
         );
 
   const reasons: string[] = [];
-  if (aggregate.completedSessions >= 5 && components.completedSessionRate >= 0.6) {
+  const historySupports =
+    aggregate.completedSessions >= 5 && components.completedSessionRate >= 0.6;
+  const recentFresh = aggregate.recentCompletedSessions >= 3;
+  if (historySupports && recentFresh) {
+    reasons.push('Recent completed sessions back this break');
+  } else if (historySupports) {
     reasons.push('Completed-session history supports this break');
+  } else if (recentFresh) {
+    reasons.push('Recent sessions keep this signal fresh');
   }
   if (aggregate.repeatCompletedSessionUsers >= 2) {
     reasons.push('Repeat surfers come back here');
-  }
-  if (aggregate.recentCompletedSessions >= 3) {
-    reasons.push('Recent sessions keep this signal fresh');
   }
   if (
     aggregate.conditionObservedSessions >= 3 &&
