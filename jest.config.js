@@ -50,8 +50,6 @@ const customJestConfig = {
     "^@supabase/realtime-js$": "<rootDir>/__tests__/setup/mock-supabase.ts",
     // Mock canvas module that jsdom tries to require
     "^canvas$": "<rootDir>/__tests__/setup/mock-canvas.js",
-    // Mock supercluster (ESM-only module)
-    "^supercluster$": "<rootDir>/__tests__/__mocks__/supercluster.ts",
     // Mock jose (ESM-only module)
     "^jose$": "<rootDir>/__tests__/__mocks__/jose.ts",
     // Mock http-proxy-agent to avoid @tootallnate/once ESM incompatibility in jsdom
@@ -59,7 +57,7 @@ const customJestConfig = {
   },
   // Add transformIgnorePatterns to handle ESM modules
   transformIgnorePatterns: [
-    "node_modules/(?!(@supabase|@supabase/.*/?|jose|uuid|date-fns|supercluster|kdbush|@vercel/speed-insights)/)",
+    "node_modules/(?!(@supabase|@supabase/.*/?|jose|uuid|date-fns|kdbush|@vercel/speed-insights)/)",
   ],
   // Add module file extensions
   moduleFileExtensions: ["js", "jsx", "ts", "tsx", "json"],

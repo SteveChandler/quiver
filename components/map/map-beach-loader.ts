@@ -116,7 +116,7 @@ export async function loadBeachesAndWaveHeights(
     locations = locations.slice(0, 20);
   }
 
-  // Fetch wave heights for ALL beaches that clustering will use
+  // Fetch wave heights for all beaches rendered by the map markers.
   const waveHeightMap = new Map<string, number | undefined>();
   const displayForecastMap = new Map<string, ForecastDisplay | undefined>();
   const waterTempMap = new Map<string, string | undefined>();

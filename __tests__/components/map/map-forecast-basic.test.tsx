@@ -375,14 +375,14 @@ describe("Map Forecast Basic Tests", () => {
   it("should create Mapbox markers when data is loaded", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
 
-    // Pass beaches prop directly to trigger marker creation via clustering
+    // Pass beaches prop directly to trigger marker creation.
     const mockBeaches = [
       { id: "test-1", name: "Test Beach", lat: 32.75, lon: -117.25 },
     ];
 
     render(<InteractiveMap beaches={mockBeaches as any} />);
 
-    // Wait for data loading and marker creation via clustering flow
+    // Wait for data loading and marker creation.
     await waitFor(() => {
       const Marker = require("mapbox-gl").Marker;
       expect(Marker).toHaveBeenCalled();

@@ -97,10 +97,8 @@ export function StateMapView({
           initialZoom={zoom}
           beaches={beaches}
           className="h-full w-full"
-          clusterClickBehavior="details"
         />
       </Suspense>
     </div>
   );
 }
-
