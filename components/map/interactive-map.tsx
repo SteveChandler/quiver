@@ -733,6 +733,7 @@ export function InteractiveMap({
         favoriteBeachIds: favoriteBeachIdsRef.current,
         clusterCleanupMap: clusterCleanupRef.current,
         getExpansionZoom,
+        getCurrentZoom: () => mapRef.current?.getZoom() ?? 0,
         flyTo: (center, zoom) => {
           mapRef.current?.flyTo({ center, zoom, duration: 500 });
         },

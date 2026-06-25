@@ -16,6 +16,8 @@ export interface ClusterRendererDeps {
   clusterCleanupMap: Map<string, () => void>;
   /** Returns the zoom level at which a cluster expands */
   getExpansionZoom: (clusterId: number) => number;
+  /** Returns the map's current zoom level */
+  getCurrentZoom: () => number;
   /** Fly the map to a location at a given zoom level */
   flyTo: (center: [number, number], zoom: number) => void;
   /** Display mode: wave-height (default) or water-temp */
@@ -79,10 +81,16 @@ export function createClusterMapMarker(
 
     if (cluster.clusterId !== undefined) {
       const expansionZoom = deps.getExpansionZoom(cluster.clusterId);
-      deps.flyTo(
-        [cluster.longitude, cluster.latitude],
-        Math.min(expansionZoom, 16)
-      );
+      const target = Math.min(expansionZoom, 18);
+      const current = deps.getCurrentZoom();
+
+      if (target > current + 0.3) {
+        deps.flyTo([cluster.longitude, cluster.latitude], target);
+      } else if (deps.onClusterClick) {
+        deps.onClusterClick(cluster);
+      } else {
+        deps.flyTo([cluster.longitude, cluster.latitude], target);
+      }
     }
   });
 
