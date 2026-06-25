@@ -19,8 +19,9 @@ describe("La Pozita Yabucoa Puerto Rico spot migration", () => {
   it("adds La Pozita idempotently as a Yabucoa spot", () => {
     expect(normalizedSQL).toContain("'la pozita'");
     expect(normalizedSQL).toContain("'la-pozita-yabucoa-pr'");
-    expect(normalizedSQL).toContain("'la posita'");
-    expect(normalizedSQL).toContain("'la pocita'");
+    expect(normalizedSQL).toContain("la posita");
+    expect(normalizedSQL).toContain("la pocita");
+    expect(normalizedSQL).not.toContain("alt_names");
     expect(normalizedSQL).toContain("'yabucoa'");
     expect(normalizedSQL).toContain("'pr'");
     expect(normalizedSQL).toContain("where not exists");
