@@ -16,12 +16,16 @@ describe("Inches Surfline cam source migration", () => {
     expect(migrationSQL).toMatch(/^\s*COMMIT;\s*$/m);
   });
 
-  it("adds the approved Surfline cam link for Inches only", () => {
+  it("adds the approved Surfline HLS cam and still for Inches only", () => {
     expect(normalizedSQL).toContain("insert into public.beach_sources");
+    expect(normalizedSQL).toContain("thumbnail_url");
     expect(normalizedSQL).toContain("'inches-patillas-pr'");
     expect(normalizedSQL).toContain("'patillas'");
     expect(normalizedSQL).toContain(
-      "'https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67'",
+      "'https://hls.cdn-surfline.com/ohio/pr-inches/playlist.m3u8'",
+    );
+    expect(normalizedSQL).toContain(
+      "'https://camstills.cdn-surfline.com/us-east-2/pr-inches/latest_full.jpg'",
     );
     expect(normalizedSQL).not.toContain("'el-cocal-yabucoa-pr'");
     expect(normalizedSQL).not.toContain("'la-pozita-yabucoa-pr'");
@@ -38,8 +42,14 @@ describe("Inches Surfline cam source migration", () => {
     expect(normalizedSQL).toContain("beach_sources.camera_url is null");
     expect(normalizedSQL).toContain("beach_sources.camera_url = ''");
     expect(normalizedSQL).toContain("beach_sources.camera_url = excluded.camera_url");
+    expect(normalizedSQL).toContain(
+      "beach_sources.camera_url = 'https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67'",
+    );
     expect(normalizedSQL).toContain("beach_sources.camera_url ilike '%click2stream%'");
     expect(normalizedSQL).toContain("beach_sources.camera_url ilike '%comoestaeso%'");
+    expect(normalizedSQL).toContain(
+      "thumbnail_url = coalesce(nullif(public.beach_sources.thumbnail_url, ''), excluded.thumbnail_url)",
+    );
   });
 
   it("updates the Inches takeaway so it no longer says no camera exists", () => {

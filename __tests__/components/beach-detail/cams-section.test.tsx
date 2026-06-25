@@ -100,6 +100,24 @@ describe("CamsSection", () => {
     expect(screen.queryByText(/refresh for the latest frame/i)).not.toBeInTheDocument();
   });
 
+  it("renders a stored still when the live cam URL is unavailable", () => {
+    const sources = {
+      camera_url: null,
+      embed_allowed: false,
+      cam_thumbnail_url:
+        "https://camstills.cdn-surfline.com/us-east-2/pr-inches/latest_full.jpg",
+    } as BeachSources;
+
+    render(<CamsSection sources={sources} beachName="Inches" />);
+
+    expect(screen.getByAltText("Live cam of Inches still frame")).toHaveAttribute(
+      "src",
+      "https://camstills.cdn-surfline.com/us-east-2/pr-inches/latest_full.jpg",
+    );
+    expect(screen.getByText(/live stream unavailable right now/i)).toBeInTheDocument();
+    expect(screen.queryByText(/suggest a cam/i)).not.toBeInTheDocument();
+  });
+
   it("renders authorized OB Hotel cams as in-app HLS video", async () => {
     const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue({
       ok: true,

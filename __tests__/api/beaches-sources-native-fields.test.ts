@@ -49,6 +49,10 @@ describe("GET /api/beaches/[id]/sources", () => {
     jest.clearAllMocks();
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it("uses the shared API wrapper module for response helpers", () => {
     const source = readFileSync(
       join(process.cwd(), "app/api/beaches/[id]/sources/route.ts"),
@@ -141,6 +145,107 @@ describe("GET /api/beaches/[id]/sources", () => {
         "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
       cam_kind: "external",
       embed_allowed: false,
+    });
+  });
+
+  it("exposes Surfline HLS cams when the playlist health check returns 200", async () => {
+    jest.spyOn(globalThis, "fetch").mockResolvedValue({
+      status: 200,
+    } as Response);
+    const sourceChain = makeChain({
+      data: {
+        beach_id: VALID_BEACH_UUID,
+        ndbc_buoy_ids: null,
+        forecast_source_id: null,
+        camera_url: "https://hls.cdn-surfline.com/ohio/pr-inches/playlist.m3u8",
+        thumbnail_url:
+          "https://camstills.cdn-surfline.com/us-east-2/pr-inches/latest_full.jpg",
+      },
+      error: null,
+    });
+    const dioramaChain = makeChain({ data: null, error: null });
+
+    mockCreateSupabaseServerClient.mockResolvedValue({
+      from: jest.fn((table: string) => {
+        if (table === "beach_sources") return sourceChain;
+        if (table === "beach_dioramas") return dioramaChain;
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    });
+
+    const response = await GET(
+      {
+        nextUrl: new URL(`https://www.quiversurf.app/api/beaches/${VALID_BEACH_UUID}/sources`),
+      } as any,
+      {
+        params: Promise.resolve({ id: VALID_BEACH_UUID }),
+      }
+    );
+
+    const body = await response.json();
+
+    expect(body.data.sources).toMatchObject({
+      camera_url: "https://hls.cdn-surfline.com/ohio/pr-inches/playlist.m3u8",
+      cam_kind: "hls",
+      embed_allowed: true,
+      cam_open_url: null,
+      cam_thumbnail_url:
+        "https://camstills.cdn-surfline.com/us-east-2/pr-inches/latest_full.jpg",
+    });
+  });
+
+  it("hides Surfline HLS cams but keeps the still when the playlist is unavailable", async () => {
+    const fetchSpy = jest.spyOn(globalThis, "fetch").mockResolvedValue({
+      status: 404,
+    } as Response);
+    const sourceChain = makeChain({
+      data: {
+        beach_id: VALID_BEACH_UUID,
+        ndbc_buoy_ids: null,
+        forecast_source_id: null,
+        camera_url: "https://hls.cdn-surfline.com/ohio/pr-inches/playlist.m3u8",
+        thumbnail_url:
+          "https://camstills.cdn-surfline.com/us-east-2/pr-inches/latest_full.jpg",
+      },
+      error: null,
+    });
+    const dioramaChain = makeChain({ data: null, error: null });
+
+    mockCreateSupabaseServerClient.mockResolvedValue({
+      from: jest.fn((table: string) => {
+        if (table === "beach_sources") return sourceChain;
+        if (table === "beach_dioramas") return dioramaChain;
+        throw new Error(`Unexpected table ${table}`);
+      }),
+    });
+
+    const response = await GET(
+      {
+        nextUrl: new URL(`https://www.quiversurf.app/api/beaches/${VALID_BEACH_UUID}/sources`),
+      } as any,
+      {
+        params: Promise.resolve({ id: VALID_BEACH_UUID }),
+      }
+    );
+
+    const body = await response.json();
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      "https://hls.cdn-surfline.com/ohio/pr-inches/playlist.m3u8",
+      expect.objectContaining({
+        method: "HEAD",
+        headers: expect.objectContaining({
+          Referer: "https://www.surfline.com/",
+        }),
+      }),
+    );
+    expect(body.data.sources).toMatchObject({
+      camera_url: null,
+      cam_kind: "none",
+      embed_allowed: null,
+      cam_open_url: null,
+      cam_thumbnail_url:
+        "https://camstills.cdn-surfline.com/us-east-2/pr-inches/latest_full.jpg",
     });
   });
 

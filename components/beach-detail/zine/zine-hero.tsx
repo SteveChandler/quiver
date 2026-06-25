@@ -229,12 +229,18 @@ function TapedMapPhoto({
 }) {
   const hasEmbeddableCam =
     !!sources?.camera_url && buildCamEmbed(sources.camera_url).kind !== "none";
+  const hasStoredCamStill = !!sources?.cam_thumbnail_url;
+  const shouldShowCamFrame = hasEmbeddableCam || hasStoredCamStill;
 
   return (
     <div className="relative flex flex-col gap-3 md:gap-3.5">
       {/* Hero slot — live cam (when available) or halftone photo */}
-      {hasEmbeddableCam ? (
-        <TapedCamFrame sources={sources!} beachName={beachName} />
+      {shouldShowCamFrame ? (
+        <TapedCamFrame
+          sources={sources!}
+          beachName={beachName}
+          showLiveLabel={hasEmbeddableCam}
+        />
       ) : (
         <div className="relative" style={{ transform: "rotate(1.4deg)" }}>
           <span className="tape tl" aria-hidden />
@@ -306,27 +312,37 @@ function TapedMapPhoto({
   );
 }
 
-function TapedCamFrame({ sources, beachName }: { sources: BeachSources; beachName: string }) {
+function TapedCamFrame({
+  sources,
+  beachName,
+  showLiveLabel,
+}: {
+  sources: BeachSources;
+  beachName: string;
+  showLiveLabel: boolean;
+}) {
   return (
     <div className="zine-hero-cam-frame relative" style={{ transform: "rotate(1.4deg)" }}>
       <span className="tape tl" aria-hidden />
       <span className="tape tr" aria-hidden />
-      <div
-        className="absolute z-10 hidden md:block"
-        style={{
-          top: -26,
-          right: -8,
-          fontFamily: "var(--font-handwritten), cursive",
-          fontSize: 22,
-          color: "#11100D",
-          fontWeight: 700,
-          transform: "rotate(-6deg)",
-        }}
-        aria-hidden
-      >
-        Live now
-        <HandArrow dir="curve-right" length={70} style={{ position: "absolute", left: -45, top: 12 }} />
-      </div>
+      {showLiveLabel ? (
+        <div
+          className="absolute z-10 hidden md:block"
+          style={{
+            top: -26,
+            right: -8,
+            fontFamily: "var(--font-handwritten), cursive",
+            fontSize: 22,
+            color: "#11100D",
+            fontWeight: 700,
+            transform: "rotate(-6deg)",
+          }}
+          aria-hidden
+        >
+          Live now
+          <HandArrow dir="curve-right" length={70} style={{ position: "absolute", left: -45, top: 12 }} />
+        </div>
+      ) : null}
       <div
         className="overflow-hidden"
         style={{
