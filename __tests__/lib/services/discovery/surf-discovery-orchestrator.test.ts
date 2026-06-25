@@ -374,20 +374,25 @@ jest.mock('@/lib/domains/scoring', () => ({
   getConditionCharacter: jest.fn(() => ({ label: 'Clean', category: 'good-clean' })),
 }));
 
-jest.mock('@/lib/scoring/native-condition-score', () => ({
-  scoreNativeForecastSlot: jest.fn((forecast: any) => {
-    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
-    const beach = { id: forecast?.beach_id ?? 'beach-1' };
-    const detailed = scoreBeachWithEngine(null, beach, forecast);
-    const subscores = detailed.subscores ?? {};
-    return (
-      detailed.total -
-      (subscores.affinityBonus ?? 0) -
-      (subscores.distancePenalty ?? 0)
-    );
-  }),
-  getNativeConditionMatchQuality: jest.fn(() => 'excellent'),
-}));
+jest.mock('@/lib/scoring/native-condition-score', () => {
+  const actual = jest.requireActual('@/lib/scoring/native-condition-score');
+
+  return {
+    ...actual,
+    scoreNativeForecastSlot: jest.fn((forecast: any) => {
+      const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+      const beach = { id: forecast?.beach_id ?? 'beach-1' };
+      const detailed = scoreBeachWithEngine(null, beach, forecast);
+      const subscores = detailed.subscores ?? {};
+      return (
+        detailed.total -
+        (subscores.affinityBonus ?? 0) -
+        (subscores.distancePenalty ?? 0)
+      );
+    }),
+    getNativeConditionMatchQuality: jest.fn(() => 'excellent'),
+  };
+});
 
 // Mock timezone utils
 jest.mock('@/lib/utils/timezone-utils.server', () => ({

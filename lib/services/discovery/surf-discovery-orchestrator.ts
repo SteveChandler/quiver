@@ -76,6 +76,7 @@ import {
 } from './response-formatter';
 import { fetchPersonalizationContext, calculatePersonalizationBonus } from './personalization-layer';
 import { applySimilarityLayer } from './similarity-layer';
+import { computeWindowDistinctionReason } from './window-distinction';
 import {
   aggregateBreakBehaviorSessions,
   applyBreakBehaviorScore,
@@ -1528,6 +1529,22 @@ async function discoverSurfSpotsInner(
       ].slice(0, 5);
     }
 
+    const distinction = computeWindowDistinctionReason(
+      bestWindowForecast,
+      forecasts,
+      beach,
+      beachTz,
+      userSkillLevel,
+    );
+    if (distinction && !detailedScore.reasons.includes(distinction)) {
+      detailedScore.reasons = [
+        ...detailedScore.reasons.slice(0, 1),
+        distinction,
+        ...detailedScore.reasons.slice(1),
+      ];
+    }
+    detailedScore.reasons = detailedScore.reasons.slice(0, 5);
+
     // Compute condition character using the new domain-engine classifier.
     // Re-runs the engine to obtain a CompositeScore (subscores Map keyed by
     // 'windQuality' / 'tideFit' on the 0-100 scale that getConditionCharacter
@@ -1644,6 +1661,25 @@ async function discoverSurfSpotsInner(
       } else if (wqStatus === 'advisory') {
         customDetailedScore.warnings.push('Water quality advisory — elevated bacteria levels');
       }
+
+      const customDistinction = computeWindowDistinctionReason(
+        bestWindowForecast,
+        forecasts,
+        customBeach,
+        beachTz,
+        userSkillLevel,
+      );
+      if (
+        customDistinction &&
+        !customDetailedScore.reasons.includes(customDistinction)
+      ) {
+        customDetailedScore.reasons = [
+          ...customDetailedScore.reasons.slice(0, 1),
+          customDistinction,
+          ...customDetailedScore.reasons.slice(1),
+        ];
+      }
+      customDetailedScore.reasons = customDetailedScore.reasons.slice(0, 5);
 
       let customConditionCharacter: SurfDiscoveryRecommendation['character'] | undefined;
       try {
