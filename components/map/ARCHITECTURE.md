@@ -2,7 +2,7 @@
 
 ## **PURPOSE**
 
-The map components provide an interactive beach discovery system with real-time wave data, search functionality, location-based services, direct verdict-colored beach markers, custom spot overlays, WebGL swell/wind layers, and **Phase 2 enhanced motion interactions** for delightful user experiences.
+The map components provide an interactive beach discovery system with real-time wave data, search functionality, location-based services, direct verdict-colored beach markers, WebGL swell/wind layers, and **Phase 2 enhanced motion interactions** for delightful user experiences.
 
 ## **COMPONENT STRUCTURE**
 
@@ -12,7 +12,6 @@ components/map/
 ├── map-toolbar.tsx            # Single map toolbar with search, controls, and region/filter dropdown
 ├── interactive-map.tsx        # Mapbox interactive map core (~550 LOC, orchestration + lifecycle)
 ├── map-marker-builder.ts     # createWaveHeightBadge — verdict-colored beach dot DOM creation + styling
-├── custom-spot-marker-builder.ts # createCustomSpotMarkerElement — orange-ringed custom spot dots
 ├── map-favorites-loader.ts   # loadFavoriteBeaches — async fetch of user's favorite beach IDs
 ├── map-beach-loader.ts       # loadBeachesAndWaveHeights — beach resolution + wave height fetching
 ├── map-beach-preview-popup.ts # createBeachPreviewPopupContent — marker hover/tap forecast preview
@@ -30,7 +29,6 @@ The `interactive-map.tsx` component (originally 854 LOC) was split into pure, te
 |--------|---------------|-----|
 | `interactive-map.tsx` | Component lifecycle, refs, effects, rendering | ~550 |
 | `map-marker-builder.ts` | Verdict-colored beach dot DOM creation with MarkerBuilderDeps interface | ~180 |
-| `custom-spot-marker-builder.ts` | Orange-ringed custom spot marker DOM creation | ~70 |
 | `map-beach-loader.ts` | Beach resolution + wave height fetching + interpolation | ~185 |
 | `map-beach-preview-popup.ts` | Marker preview popup DOM creation | ~150 |
 | `map-favorites-loader.ts` | Favorite beach ID fetching | ~40 |
@@ -51,12 +49,6 @@ Beach markers are small verdict-colored dots created by `components/map/map-mark
 ### **Preview Popup**
 
 Hovering a beach dot on desktop, or tapping it on touch devices, opens `components/map/map-beach-preview-popup.ts`. The popup shows the call, surf height plus period, swell direction, wind direction/speed, break type, skill level, spot location, and a `Full forecast →` link when a safe beach URL is available.
-
-### **Custom Spot Markers**
-
-`hooks/use-custom-spots.ts` fetches visible `custom_spots` through the Supabase client; RLS returns public spots plus the authenticated user's own spots. `components/map/custom-spot-marker-builder.ts` renders them as distinct orange-ringed dots. When a custom spot has `nearest_beach_id`, the marker borrows that beach's forecast verdict color and display wave label; the label is passed through unchanged from the nearest beach forecast.
-
-Click/navigation, a `/custom-spots/[id]` detail view, and an anonymous sign-up gate for custom spots are not implemented yet.
 
 ### **Swell Field Layer**
 
@@ -248,12 +240,11 @@ leash assertions, and the known-flaky map e2e).
 
 ### **InteractiveMap** (Mapbox Integration)
 
-- **Purpose**: Real-time interactive map with wave data, direct beach markers, custom spots, and the swell field
+- **Purpose**: Real-time interactive map with wave data, direct beach markers, and the swell field
 - **Features**:
   - Mapbox GL JS integration
   - Direct one-marker-per-beach rendering from loaded `beaches`
   - Verdict-colored dot markers with hover/tap preview popup
-  - Orange-ringed custom spot markers from `customSpots`
   - Optional WebGL swell/wind field with layer selector and timeline controls
   - Debounced viewport change detection
   - Cached API requests for performance
@@ -790,7 +781,6 @@ const monitorPerformance = () => {
 ```typescript
 // Essential test identifiers for motion validation
 data-testid="beach-marker"        // Beach markers with hover/selection
-data-testid="custom-spot-marker"  // Custom spot markers
 data-testid="selection-ring"      // Selection animation rings
 data-testid="beach-preview-popup-content" // Marker preview popup content
 data-testid="beach-list"          // Staggered list container
@@ -825,6 +815,6 @@ const announceSelection = (beachName: string) => {
 ---
 
 **Last Updated**: February 23, 2026
-**Status**: Production-ready with direct verdict-colored beach markers, custom spot overlays, WebGL swell/wind layers, **Phase 2 motion enhancements**, real-time wave data, and comprehensive search
+**Status**: Production-ready with direct verdict-colored beach markers, WebGL swell/wind layers, **Phase 2 motion enhancements**, real-time wave data, and comprehensive search
 **Motion Features**: Beach marker interactions, preview popups, staggered animations, location selection excitement
-**Next Review**: After implementing custom spot navigation and detail surfaces
+**Next Review**: After the next map rendering or field-layer milestone
