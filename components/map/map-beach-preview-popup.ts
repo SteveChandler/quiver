@@ -30,6 +30,13 @@ function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function formatStaticDescriptor(value: string | null | undefined): string | null {
+  const normalized = value?.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!normalized) return null;
+  const lower = normalized.toLowerCase();
+  return `${lower.charAt(0).toUpperCase()}${lower.slice(1)}`;
+}
+
 function appendLiveRow(
   parent: HTMLElement,
   label: string,
@@ -135,6 +142,16 @@ export function createBeachPreviewPopupContent({
       "WIND",
       `${degreesToCompass(partition.windDir)}${speedSuffix}`
     );
+  }
+
+  const breakType = formatStaticDescriptor(location.break_type);
+  if (breakType) {
+    appendLiveRow(body, "WAVE", breakType);
+  }
+
+  const skillLevel = formatStaticDescriptor(location.skill_level);
+  if (skillLevel) {
+    appendLiveRow(body, "LEVEL", skillLevel);
   }
 
   const city = location.city?.trim();

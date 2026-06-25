@@ -114,6 +114,61 @@ describe("map marker preview popup", () => {
     expect(content).toHaveTextContent("SPOT · San Diego, CA");
   });
 
+  it("renders static break type and skill rows between wind and spot", () => {
+    const partition: SwellPartition = {
+      s1Dir: null,
+      swellDirOm: 293,
+      s1PeriodS: 14,
+      s1HeightFt: 3.5,
+      s2Dir: null,
+      s2PeriodS: null,
+      s2HeightFt: null,
+      windDir: 247,
+      windMph: 8,
+    };
+    const content = createBeachPreviewPopupContent({
+      location: {
+        ...beach,
+        break_type: "point",
+        skill_level: "intermediate",
+      } as Beach,
+      waveLabel: "3-4 ft",
+      conditionScore: 82,
+      partition,
+    });
+
+    expect(content).toHaveTextContent("WAVE · Point");
+    expect(content).toHaveTextContent("LEVEL · Intermediate");
+    expect(
+      Array.from(content.querySelectorAll(".quiver-cluster-popup__meta")).map(
+        (row) => row.textContent
+      )
+    ).toEqual([
+      "SURF · 3-4 ft · 14s",
+      "SWELL · from WNW",
+      "WIND · WSW 8 mph",
+      "WAVE · Point",
+      "LEVEL · Intermediate",
+      "SPOT · San Diego, CA",
+    ]);
+  });
+
+  it("omits static break type and skill rows when missing", () => {
+    const content = createBeachPreviewPopupContent({
+      location: {
+        ...beach,
+        break_type: null,
+        skill_level: null,
+      } as Beach,
+      waveLabel: "3-4 ft",
+      conditionScore: 82,
+    });
+
+    expect(content).not.toHaveTextContent("WAVE");
+    expect(content).not.toHaveTextContent("LEVEL");
+    expect(content).toHaveTextContent("SPOT · San Diego, CA");
+  });
+
   it("omits missing live details without null, NaN, or empty unit text", () => {
     const partition: SwellPartition = {
       s1Dir: 293,
