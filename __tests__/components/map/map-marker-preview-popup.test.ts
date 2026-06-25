@@ -4,6 +4,7 @@ import {
   type MarkerBuilderDeps,
 } from "@/components/map/map-marker-builder";
 import { createBeachPreviewPopupContent } from "@/components/map/map-beach-preview-popup";
+import type { SwellPartition } from "@/app/api/forecasts/bulk/swell-partition";
 
 jest.mock("@/lib/analytics", () => ({
   track: jest.fn(),
@@ -86,6 +87,59 @@ describe("map marker preview popup", () => {
     const link = content.querySelector("a");
     expect(link).toHaveTextContent("Full forecast →");
     expect(link?.getAttribute("href")).toBe("/ca/san-diego/windansea");
+  });
+
+  it("renders live surf, swell, wind, and spot details when partition data exists", () => {
+    const partition: SwellPartition = {
+      s1Dir: null,
+      swellDirOm: 293,
+      s1PeriodS: 14,
+      s1HeightFt: 3.5,
+      s2Dir: null,
+      s2PeriodS: null,
+      s2HeightFt: null,
+      windDir: 247,
+      windMph: 8,
+    };
+    const content = createBeachPreviewPopupContent({
+      location: beach,
+      waveLabel: "3-4 ft",
+      conditionScore: 82,
+      partition,
+    });
+
+    expect(content).toHaveTextContent("SURF · 3-4 ft · 14s");
+    expect(content).toHaveTextContent("SWELL · from WNW");
+    expect(content).toHaveTextContent("WIND · WSW 8 mph");
+    expect(content).toHaveTextContent("SPOT · San Diego, CA");
+  });
+
+  it("omits missing live details without null, NaN, or empty unit text", () => {
+    const partition: SwellPartition = {
+      s1Dir: 293,
+      swellDirOm: null,
+      s1PeriodS: null,
+      s1HeightFt: 3.5,
+      s2Dir: null,
+      s2PeriodS: null,
+      s2HeightFt: null,
+      windDir: null,
+      windMph: null,
+    };
+    const content = createBeachPreviewPopupContent({
+      location: { ...beach, city: null, state: null } as Beach,
+      waveLabel: "3-4 ft",
+      conditionScore: 82,
+      partition,
+    });
+
+    expect(content).toHaveTextContent("SURF · 3-4 ft");
+    expect(content).toHaveTextContent("SWELL · from WNW");
+    expect(content).not.toHaveTextContent("WIND");
+    expect(content).not.toHaveTextContent("SPOT");
+    expect(content).not.toHaveTextContent("NaN");
+    expect(content).not.toHaveTextContent("null");
+    expect(content.textContent).not.toMatch(/·\s*s/);
   });
 
   it("keeps desktop marker click navigation unchanged", () => {
