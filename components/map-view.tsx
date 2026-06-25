@@ -10,6 +10,7 @@ import {
   type MapRegionPill,
 } from "@/components/map/map-regions";
 import { MapContent } from "@/components/map/map-content";
+import { MapLearningPanel } from "@/components/map/map-learning-panel";
 import { type SwellLayerId } from "@/components/map/swell-map-theme";
 import { useProfileContext } from "@/context/profile-context";
 import type { Beach } from "@/types/database";
@@ -359,8 +360,8 @@ export function MapView() {
       />
 
       {/* Content */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex-1 relative min-h-0 flex flex-col">
+      <div className="grid flex-1 grid-rows-[minmax(320px,1fr)_auto] min-h-0 xl:grid-cols-[minmax(0,1fr)_380px] xl:grid-rows-1">
+        <div className="relative min-h-0 flex flex-col">
           <MapContent
             loading={false}
             locationError={locationError}
@@ -385,6 +386,7 @@ export function MapView() {
             onSwellTimelineChange={setSwellTimelineIndex}
           />
         </div>
+        <MapLearningPanel />
       </div>
     </div>
   );
