@@ -20,6 +20,10 @@ export function MapView() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  // The "READ THE CALL" field guide (with the app-handoff QR) is share-only.
+  // On the live map it just blocks the view — on mobile it crams the map to a
+  // sliver. Only mount it on a shared map link (?share=1).
+  const isShareView = searchParams.get("share") === "1";
   const [mapFocusCenter, setMapFocusCenter] = useState<{
     lat: number;
     lon: number;
@@ -250,7 +254,13 @@ export function MapView() {
       />
 
       {/* Content */}
-      <div className="grid flex-1 grid-rows-[minmax(320px,1fr)_auto] min-h-0 xl:grid-cols-[minmax(0,1fr)_380px] xl:grid-rows-1">
+      <div
+        className={
+          isShareView
+            ? "grid flex-1 grid-rows-[minmax(320px,1fr)_auto] min-h-0 xl:grid-cols-[minmax(0,1fr)_380px] xl:grid-rows-1"
+            : "grid flex-1 grid-rows-1 min-h-0"
+        }
+      >
         <div className="relative min-h-0 flex flex-col">
           <MapContent
             loading={false}
@@ -276,7 +286,7 @@ export function MapView() {
             onSwellTimelineChange={setSwellTimelineIndex}
           />
         </div>
-        <MapLearningPanel />
+        {isShareView && <MapLearningPanel />}
       </div>
     </div>
   );

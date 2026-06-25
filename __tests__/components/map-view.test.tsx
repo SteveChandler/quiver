@@ -116,7 +116,13 @@ describe("MapView", () => {
     expect(screen.queryByTestId("view-mode-list")).not.toBeInTheDocument();
   });
 
-  it("renders the interactive buoy wind tide field guide", async () => {
+  it("hides the field guide on the live map (share-only)", () => {
+    render(<MapView />);
+    expect(screen.queryByTestId("map-learning-panel")).not.toBeInTheDocument();
+  });
+
+  it("renders the interactive buoy wind tide field guide on a shared map", async () => {
+    mockSearchParams = new URLSearchParams("share=1");
     const user = userEvent.setup();
     render(<MapView />);
 
@@ -146,6 +152,7 @@ describe("MapView", () => {
   });
 
   it("renders the map field-guide QR as a smart handoff URL", () => {
+    mockSearchParams = new URLSearchParams("share=1");
     render(<MapView />);
 
     const qr = screen.getByTestId("map-learning-smart-qr");
