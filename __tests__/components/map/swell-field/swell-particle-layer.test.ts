@@ -292,17 +292,17 @@ describe("createSwellParticleLayer — particle count", () => {
     expect(vertexCount).toBe(300);
   });
 
-  it("draws a LINES tail AND a POINTS head for the comet style (wind layer)", () => {
+  it("draws a single LINES streak (no dot) for the comet/wind style (Windy-style line)", () => {
     const { draws, LINES, POINTS } = renderedDraw({
       count: 300,
       markStyle: "comet",
     });
-    // Two passes over the shared 2-vertex-per-particle buffer: LINES tail then POINTS.
-    expect(draws).toHaveLength(2);
+    // Wind is now a thin directional LINE along the flow — one LINES pass, NO POINTS dot.
+    expect(draws).toHaveLength(1);
     const lines = draws.find((d) => d.mode === LINES);
     const points = draws.find((d) => d.mode === POINTS);
     expect(lines).toEqual({ mode: LINES, vertexCount: 300 * 2 });
-    expect(points).toEqual({ mode: POINTS, vertexCount: 300 * 2 });
+    expect(points).toBeUndefined();
   });
 
   it("keeps reduced-motion particles static after the first rendered frame", () => {
