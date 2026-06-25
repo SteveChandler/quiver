@@ -2,9 +2,11 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { BookOpen, X } from "lucide-react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
 import { MapToolbar } from "@/components/map/map-toolbar";
+import { Button } from "@/components/ui/button";
 import { useCustomSpots } from "@/hooks/use-custom-spots";
 import {
   MAP_REGION_PILLS,
@@ -21,10 +23,8 @@ export function MapView() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  // The "READ THE CALL" field guide (with the app-handoff QR) is share-only.
-  // On the live map it just blocks the view — on mobile it crams the map to a
-  // sliver. Only mount it on a shared map link (?share=1).
   const isShareView = searchParams.get("share") === "1";
+  const [showFieldGuide, setShowFieldGuide] = useState(false);
   const [mapFocusCenter, setMapFocusCenter] = useState<{
     lat: number;
     lon: number;
@@ -234,6 +234,15 @@ export function MapView() {
     filters.breakTypes.size > 0;
 
   const selectedBeachForMap = mapFocusCenter ? null : selectedBeach;
+  const fieldGuideVisible = showFieldGuide || isShareView;
+
+  const handleOpenFieldGuide = useCallback((): void => {
+    setShowFieldGuide(true);
+  }, []);
+
+  const handleCloseFieldGuide = useCallback((): void => {
+    setShowFieldGuide(false);
+  }, []);
 
   return (
     <div className="flex-1 flex flex-col min-h-0" data-testid="map-view">
@@ -255,10 +264,28 @@ export function MapView() {
         onToggleSwellField={() => setShowSwellField((v) => !v)}
       />
 
+      <div className="border-b bg-background px-3 py-2 sm:px-4">
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            aria-expanded={fieldGuideVisible}
+            aria-controls="map-field-guide-panel"
+            data-testid="map-field-guide-toggle"
+            onClick={handleOpenFieldGuide}
+            className="h-10 w-full justify-center whitespace-nowrap px-3 text-xs sm:w-auto sm:text-sm"
+          >
+            <BookOpen className="h-4 w-4 shrink-0" aria-hidden="true" />
+            How to read this map
+          </Button>
+        </div>
+      </div>
+
       {/* Content */}
       <div
         className={
-          isShareView
+          fieldGuideVisible
             ? "grid flex-1 grid-rows-[minmax(320px,1fr)_auto] min-h-0 xl:grid-cols-[minmax(0,1fr)_380px] xl:grid-rows-1"
             : "grid flex-1 grid-rows-1 min-h-0"
         }
@@ -289,7 +316,21 @@ export function MapView() {
             onSwellTimelineChange={setSwellTimelineIndex}
           />
         </div>
-        {isShareView && <MapLearningPanel />}
+        {fieldGuideVisible && (
+          <div id="map-field-guide-panel" className="relative min-h-0">
+            {showFieldGuide && !isShareView && (
+              <button
+                type="button"
+                aria-label="Close map field guide"
+                onClick={handleCloseFieldGuide}
+                className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#11100D]/20 bg-[#F5EEDC] text-[#11100D] shadow-sm transition-colors hover:bg-[#F4EBD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+            <MapLearningPanel />
+          </div>
+        )}
       </div>
     </div>
   );

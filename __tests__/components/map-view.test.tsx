@@ -140,8 +140,28 @@ describe("MapView", () => {
     expect(screen.queryByTestId("view-mode-list")).not.toBeInTheDocument();
   });
 
-  it("hides the field guide on the live map (share-only)", () => {
+  it("shows the field guide trigger but keeps the panel collapsed on the live map", () => {
     render(<MapView />);
+
+    expect(screen.getByTestId("map-field-guide-toggle")).toBeInTheDocument();
+    expect(screen.queryByTestId("map-learning-panel")).not.toBeInTheDocument();
+  });
+
+  it("opens and closes the field guide from the live map trigger", async () => {
+    const user = userEvent.setup();
+    render(<MapView />);
+
+    await user.click(screen.getByTestId("map-field-guide-toggle"));
+
+    expect(screen.getByTestId("map-learning-panel")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /buoy, wind, tide/i }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Close map field guide" }),
+    );
+
     expect(screen.queryByTestId("map-learning-panel")).not.toBeInTheDocument();
   });
 
@@ -150,6 +170,7 @@ describe("MapView", () => {
     const user = userEvent.setup();
     render(<MapView />);
 
+    expect(screen.getByTestId("map-field-guide-toggle")).toBeInTheDocument();
     expect(screen.getByTestId("map-learning-panel")).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /buoy, wind, tide/i }),
