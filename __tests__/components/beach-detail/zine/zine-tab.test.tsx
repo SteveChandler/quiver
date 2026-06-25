@@ -79,6 +79,20 @@ describe("ZineTab", () => {
     expect(screen.getByTestId("zine-map-cue-reef")).toBeInTheDocument();
   });
 
+  it("does not show a calibration notice for locally researched spot data", () => {
+    const beach = createMockBeach({
+      name: "La Pozita",
+      preference_model: {
+        data_confidence: "local-research-only",
+      },
+    });
+
+    render(<ZineTab beach={beach} />);
+
+    expect(screen.queryByText(/local calibration needed/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/pin\/scoring/i)).not.toBeInTheDocument();
+  });
+
   it("retains WaterQualityBadge and AmenitiesBadges when data is present (e2e regression sentinel)", () => {
     const beach = createMockBeach({ name: "Seaside Reef", city: "Solana Beach", state: "CA" });
     const waterQuality = {
