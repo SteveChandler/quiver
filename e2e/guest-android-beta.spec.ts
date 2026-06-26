@@ -9,6 +9,7 @@ import {
   ANDROID_BETA_CONTACT_EMAIL,
   ANDROID_BETA_CONTACT_MAILTO,
   ANDROID_BETA_GROUP_URL,
+  ANDROID_BETA_PLAY_URL,
 } from "@/lib/constants/app-store";
 import {
   assertNoErrors,
@@ -39,12 +40,11 @@ test.describe("Android beta page", () => {
       page.getByRole("heading", { name: /join the quiver android beta/i }),
     ).toBeVisible();
     await expect(
-      page.getByText(/the closed-test install link is not public on this page yet/i),
-    ).toBeVisible();
-
-    await expect(
       page.getByRole("link", { name: /join the tester group/i }),
     ).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
+    await expect(
+      page.getByRole("link", { name: /opt in on google play/i }),
+    ).toHaveAttribute("href", ANDROID_BETA_PLAY_URL ?? "");
     await expect(
       page.getByRole("link", {
         name: new RegExp(`email ${ANDROID_BETA_CONTACT_EMAIL}`, "i"),

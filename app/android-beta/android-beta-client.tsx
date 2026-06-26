@@ -5,6 +5,7 @@ import {
   ANDROID_BETA_CONTACT_EMAIL,
   ANDROID_BETA_CONTACT_MAILTO,
   ANDROID_BETA_GROUP_URL,
+  ANDROID_BETA_PLAY_URL,
 } from "@/lib/constants/app-store";
 import { buildSmartQrHandoffUrl } from "@/lib/constants/app-handoff";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
@@ -21,19 +22,19 @@ const ANDROID_BETA_SMART_QR_URL = buildSmartQrHandoffUrl({
 const STEPS = [
   {
     title: "Join the tester group",
-    body: "Start by joining the Quiver Android testers Google Group.",
+    body: "Join the Quiver Android testers Google Group with the Google account you use on your phone.",
   },
   {
-    title: "Use the same Google account",
-    body: "Make sure the Google account on your Android phone matches the one you use in Google Play.",
+    title: "Opt in on Google Play",
+    body: "Open the closed-test link and tap “Become a tester” to unlock the Quiver install on Google Play.",
   },
   {
-    title: "Wait for Play access",
-    body: "The closed-test install link is not public on this page yet. Once your access is granted, install through the Play beta flow tied to that same account.",
+    title: "Install Quiver",
+    body: "Once you're opted in, install Quiver straight from Google Play on that same account.",
   },
   {
-    title: "Send feedback or access issues",
-    body: `Email ${ANDROID_BETA_CONTACT_EMAIL} if the invite does not unlock or if you hit bugs.`,
+    title: "Test for 14 days",
+    body: `Save a home beach, log a session, and stay opted in for two weeks. Email ${ANDROID_BETA_CONTACT_EMAIL} if you hit any bugs.`,
   },
 ] as const;
 
@@ -56,10 +57,10 @@ export function AndroidBetaClient() {
               Join the Quiver Android beta
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[#11100D]/75 sm:text-xl">
-              Quiver on Android is still in closed testing. This page is the
-              handoff for testers: join the group, use the right Google account,
-              and we&apos;ll route you into the Play beta flow as access opens
-              up.
+              Quiver on Android is in closed testing — and you can jump in right
+              now. Join the tester group, opt in on Google Play, and install
+              Quiver today. Test for 14 days and we&apos;ll comp you a year of
+              Quiver Pro.
             </p>
             <div className="mt-7 flex flex-wrap gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/65">
               <span>Google Group invite</span>
@@ -75,8 +76,18 @@ export function AndroidBetaClient() {
                 rel="noopener noreferrer"
                 className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
               >
-                Join the tester group
+                1 · Join the tester group
               </a>
+              {ANDROID_BETA_PLAY_URL ? (
+                <a
+                  href={ANDROID_BETA_PLAY_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#11100D] px-5 py-2 font-semibold text-[#F4EBD8] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
+                >
+                  2 · Opt in on Google Play
+                </a>
+              ) : null}
               <a
                 href={ANDROID_BETA_CONTACT_MAILTO}
                 className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"

@@ -37,4 +37,5 @@ export const ANDROID_BETA_CONTACT_EMAIL = "steven@quiversurf.app";
 export const ANDROID_BETA_CONTACT_MAILTO =
   `mailto:${ANDROID_BETA_CONTACT_EMAIL}`;
 
-export const ANDROID_BETA_PLAY_URL: string | null = null;
+export const ANDROID_BETA_PLAY_URL: string | null =
+  "https://play.google.com/apps/testing/app.quiversurf.surf";

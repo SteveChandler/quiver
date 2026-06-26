@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Android beta funnel activated** (`lib/constants/app-store.ts`, `app/android-beta/android-beta-client.tsx`, `components/download/download-view.tsx`). Set `ANDROID_BETA_PLAY_URL` to the live Google Play closed-test opt-in link, so the `/android-beta` page and the `/app` Android handoff (which already reads this constant) now route to a real self-serve install (join group → opt in on Play → install) instead of a "wait for access" dead-end. The funnel page gains a numbered "Opt in on Google Play" CTA, self-serve steps, and the "test 14 days → 1 year of Quiver Pro" offer; the Download page now links to `/android-beta` instead of showing dead "install path stays gated" copy.
+
 ### Security
 - **Dependabot advisory patches via Yarn resolutions** (`package.json`, `yarn.lock`). Pins `dompurify` → 3.4.11 (GHSA-gvmj-g25r-r7wr, low) and `esbuild` → 0.28.1 (GHSA-gv7w-rqvm-qjhr high + GHSA-g7r4-m6w7-qqqr low — dev-only build tooling reached via `tsx`). The `@opentelemetry/core` medium advisory (transitive via `posthog-js`'s telemetry exporter) is intentionally deferred to a `posthog-js` upgrade: a scoped resolution produced a skewed/inconsistent lockfile (core 2.8.0 alongside resources 2.2.0) and the correct fix is bumping the analytics SDK, not forcing the transitive pin.
 
