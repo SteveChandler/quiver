@@ -9,7 +9,8 @@
     "npm": "please-use-yarn"
   },
   "scripts": {
-    "postinstall": "patch-package",
+    "postinstall": "patch-package && (git config core.hooksPath .githooks || true)",
+    "hooks:install": "git config core.hooksPath .githooks",
     "fonts:fetch": "node scripts/fetch-fonts.mjs",
     "clean:next": "node scripts/clean-next.mjs",
     "dev": "node scripts/dev.mjs",
