@@ -9,6 +9,7 @@
  */
 
 import { createContextLogger } from "@/lib/logger";
+import { shouldForceNoDecay } from "@/lib/flags/decay-off";
 import { calculateConfidenceScore } from "./confidence-scorer";
 import {
   toFaceHeightFeetDecomposedWithDebug,
@@ -1179,7 +1180,10 @@ export class ForecastBuilder {
       shoaling_factors: (beach.shoaling_factors ?? null) as ShoalingFactors | null,
       swell_window_center_deg: beach.swell_window_center_deg ?? null,
       swell_window_halfwidth_deg: beach.swell_window_halfwidth_deg ?? null,
-      deepwater_decay_factor: beach.deepwater_decay_factor ?? null,
+      // Default-off scoped rollout: null makes the transformer use decay = 1.
+      deepwater_decay_factor: shouldForceNoDecay(beach)
+        ? null
+        : beach.deepwater_decay_factor ?? null,
     };
 
     // Build per-component inputs for the decomposed pipeline when WW3 data
