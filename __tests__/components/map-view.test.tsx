@@ -179,6 +179,12 @@ describe("MapView", () => {
       "aria-selected",
       "true",
     );
+    expect(
+      screen.getByText("Start with the buoy before trusting the spot number."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Raw energy, not always face height at the break."),
+    ).toBeInTheDocument();
 
     await user.click(screen.getByTestId("map-learning-mode-wind"));
 
@@ -187,6 +193,16 @@ describe("MapView", () => {
       "true",
     );
     expect(screen.getByText(/wind decides whether the swell/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Upgrade light offshore mornings. Downgrade afternoon onshore flow unless the spot has cliffs, kelp, or angle protection.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Use the map to compare nearby beaches. A protected cove can stay cleaner than an exposed beach on the same swell.",
+      ),
+    ).toBeInTheDocument();
     expect(mockTrackMapEvent).toHaveBeenCalledWith("map_interaction", {
       metadata: {
         action: "filter_change",

@@ -132,8 +132,8 @@ describe("SessionIntelligencePilot", () => {
     );
   });
 
-  it("does not render for a non-allowlisted spot", () => {
-    const { container } = render(
+  it("renders the generic explainer for a non-allowlisted spot", () => {
+    render(
       <SessionIntelligencePilot
         beach={makeBeach({
           name: "Ocean Beach Pier",
@@ -147,11 +147,14 @@ describe("SessionIntelligencePilot", () => {
       />
     );
 
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByTestId("session-intelligence-pilot")).toBeInTheDocument();
+    expect(screen.getByTestId("session-intelligence-empty-state")).toBeVisible();
+    expect(screen.getByRole("heading", { name: /how we make this call/i })).toBeVisible();
+    expect(screen.queryByTestId("surf-window-card")).not.toBeInTheDocument();
   });
 
-  it("does not render a visual block when recommendations are unavailable", () => {
-    const { container } = render(
+  it("renders the generic explainer when recommendations are unavailable", () => {
+    render(
       <SessionIntelligencePilot
         beach={makeBeach()}
         forecasts={[makeForecast("past", "2026-02-09T16:00:00Z")]}
@@ -159,7 +162,16 @@ describe("SessionIntelligencePilot", () => {
       />
     );
 
-    expect(container).toBeEmptyDOMElement();
+    expect(screen.getByTestId("session-intelligence-pilot")).toBeInTheDocument();
+    expect(screen.getByTestId("session-intelligence-empty-state")).toBeVisible();
+    expect(screen.getByRole("heading", { name: /how we make this call/i })).toBeVisible();
+    expect(screen.getByText("Buoy / swell")).toBeVisible();
+    expect(screen.getByText("Wind")).toBeVisible();
+    expect(screen.getByText("Tide")).toBeVisible();
+    expect(screen.getByText("Terrain")).toBeVisible();
+    expect(screen.getByText("Your skill")).toBeVisible();
+    expect(screen.getByText("The verdict")).toBeVisible();
+    expect(screen.queryByTestId("surf-window-card")).not.toBeInTheDocument();
   });
 
   it("keeps every rendered window public and explainable", () => {
@@ -173,6 +185,7 @@ describe("SessionIntelligencePilot", () => {
     );
 
     expect(screen.queryByText(/sign up/i)).not.toBeInTheDocument();
+    expect(screen.queryByTestId("session-intelligence-empty-state")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /why this call/i })).toBeVisible();
     expect(screen.getByTestId("app-deep-link-cta")).toHaveAttribute("href");
   });

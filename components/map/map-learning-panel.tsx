@@ -8,110 +8,17 @@ import { trackAppHandoffQrRendered } from "@/lib/analytics/app-handoff-tracking"
 import { buildSmartQrHandoffUrl } from "@/lib/constants/app-handoff";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import { cn } from "@/lib/utils";
+import {
+  MAP_FIELD_GUIDE_FACTORS,
+  type MapFieldGuideFactor,
+  type MapFieldGuideFactorId,
+} from "@/lib/surf/how-the-call-works";
 
-type ReadingModeId = "buoy" | "wind" | "tide";
-
-interface ReadingMetric {
-  label: string;
-  value: string;
-  helper: string;
-}
-
-interface ReadingMode {
-  id: ReadingModeId;
-  label: string;
-  shortLabel: string;
-  Icon: typeof Waves;
-  headline: string;
-  body: string;
-  call: string;
-  mapCue: string;
-  metrics: ReadingMetric[];
-}
-
-const READING_MODES: ReadingMode[] = [
-  {
-    id: "buoy",
-    label: "Buoy read",
-    shortLabel: "Buoy",
-    Icon: Waves,
-    headline: "Start with the buoy before trusting the spot number.",
-    body: "Buoys show the raw swell moving through the water. Period tells you how much push it has; direction tells you whether that energy can reach the beach.",
-    call: "Long-period swell with a direction that fits the beach gets upgraded. Short-period local wind swell gets checked against the map before you drive.",
-    mapCue: "Tap swell field on the map, then compare the bright bands to nearby beach markers.",
-    metrics: [
-      {
-        label: "Height",
-        value: "3 ft",
-        helper: "Raw energy, not always face height at the break.",
-      },
-      {
-        label: "Period",
-        value: "13 sec",
-        helper: "More seconds means more push and more refraction.",
-      },
-      {
-        label: "Direction",
-        value: "WSW",
-        helper: "Only useful if the beach is exposed to that angle.",
-      },
-    ],
-  },
-  {
-    id: "wind",
-    label: "Wind read",
-    shortLabel: "Wind",
-    Icon: Wind,
-    headline: "Wind decides whether the swell has a clean face.",
-    body: "Offshore or light side-shore wind can groom the wave. Onshore wind adds bump, crumble, and drift even when the swell number looks fine.",
-    call: "Upgrade light offshore mornings. Downgrade afternoon onshore flow unless the spot has cliffs, kelp, or angle protection.",
-    mapCue: "Use the map to compare nearby beaches. A protected cove can stay cleaner than an exposed beach on the same swell.",
-    metrics: [
-      {
-        label: "Direction",
-        value: "E",
-        helper: "Offshore at many west-facing California beaches.",
-      },
-      {
-        label: "Speed",
-        value: "6 kt",
-        helper: "Light enough to keep texture controlled.",
-      },
-      {
-        label: "Trend",
-        value: "Rising",
-        helper: "A good dawn window can close fast.",
-      },
-    ],
-  },
-  {
-    id: "tide",
-    label: "Tide read",
-    shortLabel: "Tide",
-    Icon: Clock3,
-    headline: "Tide turns a forecast into a time window.",
-    body: "The same swell can be fun, drained, or swamped depending on water level. The best call is usually a tide window, not an all-day rating.",
-    call: "Look for the spot's working range and the direction of change. Incoming tide can help soft sandbars; too much high tide can bury them.",
-    mapCue: "Search a spot, then use the field guide to compare tide timing with the closest forecast window.",
-    metrics: [
-      {
-        label: "Now",
-        value: "2.4 ft",
-        helper: "Current water level sets the baseline.",
-      },
-      {
-        label: "Next",
-        value: "Rising",
-        helper: "Direction of movement often matters more than exact height.",
-      },
-      {
-        label: "Window",
-        value: "Dawn",
-        helper: "Pair the tide change with the cleanest wind.",
-      },
-    ],
-  },
-];
+const READING_MODE_ICONS: Record<MapFieldGuideFactorId, typeof Waves> = {
+  buoy: Waves,
+  wind: Wind,
+  tide: Clock3,
+};
 
 const QR_VALUE = buildSmartQrHandoffUrl({
   source: "map_literacy_panel",
@@ -122,18 +29,25 @@ const QR_VALUE = buildSmartQrHandoffUrl({
   utm_medium: "map_field_guide",
 });
 
-function getModeById(id: ReadingModeId): ReadingMode {
-  return READING_MODES.find((mode) => mode.id === id) ?? READING_MODES[0];
+function getModeById(id: MapFieldGuideFactorId): MapFieldGuideFactor {
+  return (
+    MAP_FIELD_GUIDE_FACTORS.find((mode) => mode.id === id) ??
+    MAP_FIELD_GUIDE_FACTORS[0]
+  );
 }
 
 export function MapLearningPanel(): ReactElement {
-  const [activeModeId, setActiveModeId] = useState<ReadingModeId>("buoy");
+  const [activeModeId, setActiveModeId] = useState<MapFieldGuideFactorId>("buoy");
   const [activeMetricIndex, setActiveMetricIndex] = useState(0);
   const { track } = useTrackEvent();
   const qrTracked = useRef(false);
 
   const activeMode = useMemo(() => getModeById(activeModeId), [activeModeId]);
-  const activeMetric = activeMode.metrics[activeMetricIndex] ?? activeMode.metrics[0];
+  const activeModeContent = activeMode.mapLearning;
+  const ActiveModeIcon = READING_MODE_ICONS[activeMode.id];
+  const activeMetric =
+    activeModeContent.metrics[activeMetricIndex] ??
+    activeModeContent.metrics[0];
 
   useEffect(() => {
     if (qrTracked.current) return;
@@ -150,7 +64,7 @@ export function MapLearningPanel(): ReactElement {
     });
   }, []);
 
-  function selectMode(modeId: ReadingModeId): void {
+  function selectMode(modeId: MapFieldGuideFactorId): void {
     setActiveModeId(modeId);
     setActiveMetricIndex(0);
     void track("map_interaction", {
@@ -167,7 +81,7 @@ export function MapLearningPanel(): ReactElement {
     void track("map_interaction", {
       metadata: {
         action: "filter_change",
-        filter: `forecast_literacy_metric:${activeMode.id}:${activeMode.metrics[index]?.label ?? "unknown"}`,
+        filter: `forecast_literacy_metric:${activeMode.id}:${activeModeContent.metrics[index]?.label ?? "unknown"}`,
       },
       debounceMs: 0,
     });
@@ -198,8 +112,9 @@ export function MapLearningPanel(): ReactElement {
           role="tablist"
           aria-label="Forecast reading layers"
         >
-          {READING_MODES.map(({ id, shortLabel, Icon }) => {
+          {MAP_FIELD_GUIDE_FACTORS.map(({ id, shortLabel }) => {
             const active = id === activeMode.id;
+            const Icon = READING_MODE_ICONS[id];
             return (
               <button
                 key={id}
@@ -229,20 +144,20 @@ export function MapLearningPanel(): ReactElement {
         >
           <div className="flex items-start gap-3">
             <div className="flex h-11 w-11 shrink-0 items-center justify-center border-2 border-[#11100D] bg-[#11100D] text-[#F5EEDC]">
-              <activeMode.Icon className="h-5 w-5" aria-hidden="true" />
+              <ActiveModeIcon className="h-5 w-5" aria-hidden="true" />
             </div>
             <div className="min-w-0">
               <h3 className="font-heading text-xl font-black leading-tight">
-                {activeMode.headline}
+                {activeModeContent.headline}
               </h3>
               <p className="mt-2 font-mono text-sm leading-6 text-[#11100D]/76">
-                {activeMode.body}
+                {activeModeContent.body}
               </p>
             </div>
           </div>
 
           <div className="grid gap-2">
-            {activeMode.metrics.map((metric, index) => {
+            {activeModeContent.metrics.map((metric, index) => {
               const selected = index === activeMetricIndex;
               return (
                 <button
@@ -286,7 +201,7 @@ export function MapLearningPanel(): ReactElement {
                 Make the call
               </div>
               <p className="font-mono text-sm leading-6 text-[#11100D]/78">
-                {activeMode.call}
+                {activeModeContent.call}
               </p>
             </div>
           </div>
@@ -296,7 +211,7 @@ export function MapLearningPanel(): ReactElement {
               Map cue
             </p>
             <p className="mt-1 font-mono text-sm leading-6 text-[#F5EEDC]/82">
-              {activeMode.mapCue}
+              {activeModeContent.mapCue}
             </p>
           </div>
         </section>
