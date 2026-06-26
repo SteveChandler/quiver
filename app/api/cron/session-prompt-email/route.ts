@@ -147,7 +147,7 @@ async function processCandidate(
     origin: baseUrl,
     token,
     beachId: candidate.home_beach_id,
-    window: sessionWindow,
+    startedAt: sessionWindow,
     emailType: "session_prompt",
     messageInstanceId,
     source: "session_prompt_email",

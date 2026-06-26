@@ -25,7 +25,7 @@ export interface SessionEmailLinkParams extends EmailAttributionParams {
   origin: string;
   token?: string;
   beachId?: string;
-  window?: string;
+  startedAt?: string;
   params?: Record<string, string | undefined>;
 }
 
@@ -93,10 +93,11 @@ export function buildSessionEmailLink(params: SessionEmailLinkParams): string {
 
   appendDefinedParams(search, {
     token: params.token,
-    beach_id: params.beachId,
-    window: params.window,
+    beachId: params.beachId,
+    startedAt: params.startedAt,
     ...params.params,
   });
+  search.set("entrySource", "email");
 
   const attribution = buildEmailAttributionSearchParams(params);
   attribution.forEach((value, key) => {

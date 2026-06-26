@@ -70,6 +70,7 @@ interface BeachData {
 }
 
 interface IntelData {
+  forecast_date: string | null;
   conditions_score: number | null;
   surf_description: string | null;
   wind_description: string | null;
@@ -120,7 +121,7 @@ async function fetchIntelData(
   for (const dateStr of [tomorrowStr, todayStr]) {
     const { data, error } = await supabase
       .from("beach_daily_intel")
-      .select("conditions_score, surf_description, wind_description, best_window_start, best_window_end")
+      .select("forecast_date, conditions_score, surf_description, wind_description, best_window_start, best_window_end")
       .eq("beach_id", beachId)
       .eq("forecast_date", dateStr)
       .order("generated_at", { ascending: false })
@@ -129,6 +130,26 @@ async function fetchIntelData(
     if (!error && data) return data as IntelData;
   }
   return null;
+}
+
+function buildStartedAt(
+  forecastDate: string | null | undefined,
+  bestWindowStart: string | null | undefined
+): string | undefined {
+  if (!forecastDate || !bestWindowStart) return undefined;
+
+  const trimmedStart = bestWindowStart.trim();
+  if (trimmedStart.includes("T")) {
+    const parsed = new Date(trimmedStart);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+  }
+
+  const timeMatch = trimmedStart.match(/^(\d{2}:\d{2})(?::(\d{2}))?/);
+  if (!timeMatch) return undefined;
+
+  const seconds = timeMatch[2] ?? "00";
+  const parsed = new Date(`${forecastDate}T${timeMatch[1]}:${seconds}.000Z`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 }
 
 // ============================================================================
@@ -291,7 +312,7 @@ async function _GET(request: Request): Promise<Response> {
         await rateLimiter.throttle();
 
         const messageInstanceId = crypto.randomUUID();
-        const logSessionUrl = buildSessionEmailLink({
+        const sessionLinkParams = {
           origin: baseUrl,
           emailType: EMAIL_TYPE,
           messageInstanceId,
@@ -301,7 +322,8 @@ async function _GET(request: Request): Promise<Response> {
             mode: "log",
             quick: "true",
           },
-        });
+        };
+        let logSessionUrl = buildSessionEmailLink(sessionLinkParams);
         const unsubscribeUrl = `${baseUrl}/settings`;
 
         const isOnboarded =
@@ -320,6 +342,15 @@ async function _GET(request: Request): Promise<Response> {
 
           const beachName = beachData?.name ?? "your home beach";
           const conditionsScore = intelData?.conditions_score ?? null;
+          const startedAt = buildStartedAt(
+            intelData?.forecast_date,
+            intelData?.best_window_start
+          );
+          logSessionUrl = buildSessionEmailLink({
+            ...sessionLinkParams,
+            beachId: candidate.home_beach_id!,
+            startedAt,
+          });
 
           subject =
             conditionsScore !== null && conditionsScore >= 70

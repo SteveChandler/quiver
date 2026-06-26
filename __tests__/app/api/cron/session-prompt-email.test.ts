@@ -485,13 +485,18 @@ describe("Session Prompt Email Cron Job API", () => {
       expect(ctaUrl.origin).toBe("https://quiversurf.app");
       expect(ctaUrl.pathname).toBe("/sessions/new");
       expect(ctaUrl.searchParams.get("token")).toBe("mock-signed-token");
-      expect(ctaUrl.searchParams.get("beach_id")).toBe("beach-1");
-      expect(ctaUrl.searchParams.get("window")).toMatch(
+      expect(ctaUrl.searchParams.get("beachId")).toBe("beach-1");
+      expect(ctaUrl.searchParams.get("startedAt")).toMatch(
         /^\d{4}-\d{2}-\d{2}T12:00:00\.000Z$/
       );
+      expect(ctaUrl.searchParams.get("entrySource")).toBe("email");
+      expect(ctaUrl.searchParams.get("beach_id")).toBeNull();
+      expect(ctaUrl.searchParams.get("window")).toBeNull();
       expect(ctaUrl.searchParams.get("utm_source")).toBe("email");
       expect(ctaUrl.searchParams.get("utm_medium")).toBe("email");
+      expect(ctaUrl.searchParams.get("utm_campaign")).toBe("session_prompt");
       expect(ctaUrl.searchParams.get("email_type")).toBe("session_prompt");
+      expect(ctaUrl.searchParams.get("source")).toBe("session_prompt_email");
       expect(ctaUrl.searchParams.get("message_instance_id")).toEqual(
         expect.any(String)
       );
