@@ -265,6 +265,20 @@ describe("submitConditionsReport", () => {
       expect(supabase.insert).toHaveBeenCalledWith(
         expect.objectContaining({
           user_id: mockUser.id,
+          event_type: "session_created",
+          beach_id: "beach-1",
+          metadata: expect.objectContaining({
+            source: "web-conditions-report",
+            surface: "conditions-report",
+            spot_type: "beach",
+            user_id: mockUser.id,
+            session_id: "session-xyz",
+          }),
+        })
+      );
+      expect(supabase.insert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: mockUser.id,
           event_type: "session_log_submit",
           beach_id: "beach-1",
         })
