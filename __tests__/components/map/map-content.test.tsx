@@ -7,6 +7,7 @@ let mockInteractiveMapMounts = 0;
 // Mock the dynamic import for InteractiveMap
 jest.mock("next/dynamic", () => () => {
   const InteractiveMapMock = ({
+    customSpots,
     initialCenter,
     onLocationClick,
     onBeachSelect,
@@ -18,6 +19,7 @@ jest.mock("next/dynamic", () => () => {
     return (
       <div
         data-testid="interactive-map"
+        data-custom-spot-count={String(customSpots?.length ?? 0)}
         data-initial-center={initialCenter?.join(",")}
         data-mount-id={mountId}
       >
@@ -113,6 +115,29 @@ describe("MapContent", () => {
     expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
     expect(mapContainer.querySelector("[aria-hidden='true']")).toBeNull();
     expect(mapContainer).toBeInTheDocument();
+  });
+
+  it("should pass custom spots to the interactive map", () => {
+    render(
+      <MapContent
+        {...defaultProps}
+        customSpots={[
+          {
+            id: "spot-1",
+            name: "Public Peak",
+            lat: 32.75,
+            lon: -117.25,
+            nearestBeachId: null,
+            visibility: "public",
+          },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-custom-spot-count",
+      "1",
+    );
   });
 
   it("should recenter user location changes without remounting the map", () => {

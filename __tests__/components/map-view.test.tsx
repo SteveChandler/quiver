@@ -12,6 +12,16 @@ let mockGeolocationLoading = false;
 let mockBeachLoading = false;
 let mockHomeBeach: { lat: number; lon: number } | null = null;
 let mockProfileLoading = false;
+const mockCustomSpots = [
+  {
+    id: "spot-1",
+    name: "Public Peak",
+    lat: 32.75,
+    lon: -117.25,
+    nearestBeachId: null,
+    visibility: "public",
+  },
+];
 
 jest.mock("next/navigation", () => ({
   usePathname: () => "/map",
@@ -64,6 +74,13 @@ jest.mock("@/hooks/use-beach-search", () => ({
   }),
 }));
 
+jest.mock("@/hooks/use-custom-spots", () => ({
+  useCustomSpots: () => ({
+    customSpots: mockCustomSpots,
+    loading: false,
+  }),
+}));
+
 const mockTrackMapEvent = jest.fn();
 const mockTrackQrRendered = jest.fn();
 
@@ -88,17 +105,20 @@ jest.mock("qrcode.react", () => ({
 jest.mock("@/components/map/map-content", () => ({
   MapContent: ({
     autoNavigateOnMarkerClick,
+    customSpots,
     loading,
     showSwellField,
     swellTimelineSteps,
   }: {
     autoNavigateOnMarkerClick?: boolean;
+    customSpots?: unknown[];
     loading?: boolean;
     showSwellField?: boolean;
     swellTimelineSteps?: string[];
   }) => (
     <div
       data-auto-navigate-on-marker-click={String(autoNavigateOnMarkerClick)}
+      data-custom-spot-count={String(customSpots?.length ?? 0)}
       data-loading={String(loading)}
       data-show-swell-field={String(showSwellField)}
       data-swell-timeline-steps={swellTimelineSteps?.join(",") ?? ""}
@@ -136,6 +156,10 @@ describe("MapView", () => {
     expect(screen.getByTestId("map-content")).toHaveAttribute(
       "data-show-swell-field",
       "true",
+    );
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-custom-spot-count",
+      "1",
     );
     expect(screen.queryByTestId("view-mode-list")).not.toBeInTheDocument();
   });

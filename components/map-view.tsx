@@ -7,6 +7,7 @@ import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
 import { MapToolbar } from "@/components/map/map-toolbar";
 import { Button } from "@/components/ui/button";
+import { useCustomSpots } from "@/hooks/use-custom-spots";
 import {
   MAP_REGION_PILLS,
   type MapRegionPill,
@@ -125,6 +126,7 @@ export function MapView() {
     toggleBreakType,
     clearAllFilters,
   } = useBeachSearch();
+  const { customSpots } = useCustomSpots();
 
   // Load nearby beaches when user location is available - prevent duplicate calls
   // Wait for geolocation to resolve before fetching to avoid using stale fallback coords
@@ -408,6 +410,7 @@ export function MapView() {
             focusCenter={mapFocusCenter}
             selectedBeach={selectedBeachForMap}
             filteredBeaches={filteredBeaches}
+            customSpots={customSpots}
             searchQuery={searchQuery}
             regionViewport={null}
             onGetUserLocation={handleUseMyLocation}
