@@ -57,10 +57,19 @@ const privateSpot = {
 const nearestBeach = {
   id: "beach-1",
   name: "Ocean Beach",
+  city: "San Diego",
+  state: "CA",
+  country: "USA",
+  slug: "ocean-beach",
   lat: 32.75,
   lon: -117.25,
   timezone: "America/Los_Angeles",
   break_type: "beach",
+};
+
+const beachPhoto = {
+  image_url: "https://images.unsplash.com/photo-spot.jpg",
+  thumb_url: "https://images.unsplash.com/photo-spot-thumb.jpg",
 };
 
 const forecast = {
@@ -95,6 +104,8 @@ function createQueryChain(data: unknown): any {
     select: jest.fn(() => chain),
     eq: jest.fn(() => chain),
     is: jest.fn(() => chain),
+    order: jest.fn(() => chain),
+    limit: jest.fn(() => chain),
     maybeSingle: jest.fn(async () => ({ data, error: null })),
   };
   return chain;
@@ -121,6 +132,7 @@ describe("/custom-spots/[id] page", () => {
   it("renders a public custom spot with borrowed forecast data", async () => {
     mockTableSingle("custom_spots", publicSpot);
     mockTableSingle("beaches", nearestBeach);
+    mockTableSingle("beach_photos", beachPhoto);
 
     const page = await CustomSpotDetailPage({
       params: Promise.resolve({ id: "spot-public" }),
@@ -131,6 +143,12 @@ describe("/custom-spots/[id] page", () => {
     expect(
       screen.getByRole("heading", { name: "Public Peak" }),
     ).toBeInTheDocument();
+    expect(screen.getByTestId("custom-spot-zine-surface")).toBeInTheDocument();
+    expect(screen.getByAltText("Ocean Beach surf zone")).toHaveAttribute(
+      "src",
+      beachPhoto.thumb_url,
+    );
+    expect(screen.getByText("Borrowed from Ocean Beach")).toBeInTheDocument();
     expect(screen.getByText(/Forecast borrowed from Ocean Beach/i)).toBeInTheDocument();
     expect(screen.getByTestId("conditions-ticker")).toHaveTextContent(
       "Public Peak",
