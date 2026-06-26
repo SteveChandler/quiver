@@ -12,6 +12,16 @@ let mockGeolocationLoading = false;
 let mockBeachLoading = false;
 let mockHomeBeach: { lat: number; lon: number } | null = null;
 let mockProfileLoading = false;
+const mockCustomSpots = [
+  {
+    id: "spot-1",
+    name: "Public Peak",
+    lat: 32.75,
+    lon: -117.25,
+    nearestBeachId: null,
+    visibility: "public",
+  },
+];
 
 jest.mock("next/navigation", () => ({
   usePathname: () => "/map",
@@ -64,20 +74,51 @@ jest.mock("@/hooks/use-beach-search", () => ({
   }),
 }));
 
+jest.mock("@/hooks/use-custom-spots", () => ({
+  useCustomSpots: () => ({
+    customSpots: mockCustomSpots,
+    loading: false,
+  }),
+}));
+
+const mockTrackMapEvent = jest.fn();
+const mockTrackQrRendered = jest.fn();
+
+jest.mock("@/hooks/use-track-event", () => ({
+  useTrackEvent: () => ({ track: mockTrackMapEvent }),
+}));
+
+jest.mock("@/lib/analytics/app-handoff-tracking", () => ({
+  trackAppHandoffQrRendered: (...args: unknown[]) => mockTrackQrRendered(...args),
+}));
+
+jest.mock("qrcode.react", () => ({
+  QRCodeSVG: ({
+    value,
+    "data-testid": dataTestId,
+  }: {
+    value: string;
+    "data-testid"?: string;
+  }) => <svg data-testid={dataTestId} data-value={value} />,
+}));
+
 jest.mock("@/components/map/map-content", () => ({
   MapContent: ({
     autoNavigateOnMarkerClick,
+    customSpots,
     loading,
     showSwellField,
     swellTimelineSteps,
   }: {
     autoNavigateOnMarkerClick?: boolean;
+    customSpots?: unknown[];
     loading?: boolean;
     showSwellField?: boolean;
     swellTimelineSteps?: string[];
   }) => (
     <div
       data-auto-navigate-on-marker-click={String(autoNavigateOnMarkerClick)}
+      data-custom-spot-count={String(customSpots?.length ?? 0)}
       data-loading={String(loading)}
       data-show-swell-field={String(showSwellField)}
       data-swell-timeline-steps={swellTimelineSteps?.join(",") ?? ""}
@@ -116,6 +157,10 @@ describe("MapView", () => {
       "data-show-swell-field",
       "true",
     );
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-custom-spot-count",
+      "1",
+    );
     expect(screen.queryByTestId("view-mode-list")).not.toBeInTheDocument();
   });
 
@@ -125,6 +170,84 @@ describe("MapView", () => {
     expect(screen.getByTestId("map-content")).toHaveAttribute(
       "data-swell-timeline-steps",
       "Now,+3h,+6h,+12h,+18h,+24h,+36h,+48h",
+    );
+  });
+
+  it("shows the field guide trigger but keeps the panel collapsed on the live map", () => {
+    render(<MapView />);
+
+    expect(screen.getByTestId("map-field-guide-toggle")).toBeInTheDocument();
+    expect(screen.queryByTestId("map-learning-panel")).not.toBeInTheDocument();
+  });
+
+  it("opens and closes the field guide from the live map trigger", async () => {
+    const user = userEvent.setup();
+    render(<MapView />);
+
+    await user.click(screen.getByTestId("map-field-guide-toggle"));
+
+    expect(screen.getByTestId("map-learning-panel")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /buoy, wind, tide/i }),
+    ).toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: "Close map field guide" }),
+    );
+
+    expect(screen.queryByTestId("map-learning-panel")).not.toBeInTheDocument();
+  });
+
+  it("renders the interactive buoy wind tide field guide on a shared map", async () => {
+    mockSearchParams = new URLSearchParams("share=1");
+    const user = userEvent.setup();
+    render(<MapView />);
+
+    expect(screen.getByTestId("map-field-guide-toggle")).toBeInTheDocument();
+    expect(screen.getByTestId("map-learning-panel")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /buoy, wind, tide/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("map-learning-mode-buoy")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+
+    await user.click(screen.getByTestId("map-learning-mode-wind"));
+
+    expect(screen.getByTestId("map-learning-mode-wind")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByText(/wind decides whether the swell/i)).toBeInTheDocument();
+    expect(mockTrackMapEvent).toHaveBeenCalledWith("map_interaction", {
+      metadata: {
+        action: "filter_change",
+        filter: "forecast_literacy_mode:wind",
+      },
+      debounceMs: 0,
+    });
+  });
+
+  it("renders the map field-guide QR as a smart handoff URL", () => {
+    mockSearchParams = new URLSearchParams("share=1");
+    render(<MapView />);
+
+    const qr = screen.getByTestId("map-learning-smart-qr");
+    const value = qr.getAttribute("data-value") ?? "";
+    const parsed = new URL(value);
+
+    expect(parsed.pathname).toBe("/app");
+    expect(parsed.searchParams.get("source")).toBe("map_literacy_panel");
+    expect(parsed.searchParams.get("surface")).toBe("map");
+    expect(parsed.searchParams.get("qr_id")).toBe("map_literacy_field_guide");
+    expect(parsed.searchParams.get("target")).toBe("download");
+    expect(parsed.searchParams.get("utm_source")).toBe("qr");
+    expect(mockTrackQrRendered).toHaveBeenCalledWith(
+      expect.objectContaining({
+        source: "map_literacy_panel",
+        qr_id: "map_literacy_field_guide",
+      }),
     );
   });
 
