@@ -37,13 +37,6 @@ const OnboardingDialog = dynamic(
     })),
   { ssr: false }
 );
-const ProductTour = dynamic(
-  () =>
-    import("@/components/onboarding/product-tour").then((mod) => ({
-      default: mod.ProductTour,
-    })),
-  { ssr: false }
-);
 const PageTracker = dynamic(
   () =>
     import("@/components/page-tracker").then((mod) => ({
@@ -131,9 +124,7 @@ function AuthOverlays() {
       // eslint-disable-next-line no-restricted-properties -- Reading URL on mount, not for navigation
       const url = typeof window !== "undefined" ? new URL(window.location.href) : null;
       const params = url?.searchParams;
-      setAllowUnauthedDebug(
-        params?.get("showOnboarding") === "1" || params?.get("showTour") === "1"
-      );
+      setAllowUnauthedDebug(params?.get("showOnboarding") === "1");
     } catch {
       setAllowUnauthedDebug(false);
     }
@@ -145,9 +136,6 @@ function AuthOverlays() {
     <>
       <Suspense fallback={null}>
         <OnboardingDialog />
-      </Suspense>
-      <Suspense fallback={null}>
-        <ProductTour />
       </Suspense>
     </>
   );
