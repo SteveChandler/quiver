@@ -413,6 +413,9 @@ export async function proxy(request: NextRequest) {
     pathname,
     request.method
   );
+  const isEmailSessionFallback =
+    pathname === "/sessions/new" &&
+    request.nextUrl.searchParams?.has("token") === true;
 
   // Skip middleware for API routes, static files, etc.
   if (routeClassification.type === "skip") {
@@ -431,7 +434,7 @@ export async function proxy(request: NextRequest) {
   const supabaseClient = hasAuthCookies ? await refreshSession(request, response) : null;
 
   // Public routes don't require authentication
-  if (!routeClassification.requiresAuth) {
+  if (!routeClassification.requiresAuth || isEmailSessionFallback) {
     return response;
   }
 

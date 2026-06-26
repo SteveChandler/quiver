@@ -32,6 +32,7 @@ import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { signEmailToken, getEmailTokenSecret } from "@/lib/utils/email-token";
 import { withObservedCron } from "@/lib/cron/observability";
+import { buildSessionEmailLink } from "@/lib/mailer/email-links";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -139,15 +140,19 @@ async function processCandidate(
   const yesterday = new Date();
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
   const sessionDate = yesterday.toISOString().slice(0, 10);
+  const sessionWindow = `${sessionDate}T12:00:00.000Z`;
+  const messageInstanceId = crypto.randomUUID();
 
-  const confirmUrl =
-    `${baseUrl}/session/confirm?token=${encodeURIComponent(token)}` +
-    `&beach_id=${encodeURIComponent(candidate.home_beach_id)}` +
-    `&date=${encodeURIComponent(sessionDate)}`;
-
-  const skipUrl =
-    `${baseUrl}/session/skip?token=${encodeURIComponent(token)}` +
-    `&beach_id=${encodeURIComponent(candidate.home_beach_id)}`;
+  const sessionEmailUrl = buildSessionEmailLink({
+    origin: baseUrl,
+    token,
+    beachId: candidate.home_beach_id,
+    window: sessionWindow,
+    emailType: "session_prompt",
+    messageInstanceId,
+    source: "session_prompt_email",
+    utmCampaign: "session_prompt",
+  });
 
   // 3. Rate limit and send email
   await rateLimiter.throttle();
@@ -162,8 +167,8 @@ async function processCandidate(
       beachName: candidate.beach_name,
       conditionsScore: candidate.conditions_score,
       surfDescription: candidate.surf_description,
-      confirmUrl,
-      skipUrl,
+      confirmUrl: sessionEmailUrl,
+      skipUrl: sessionEmailUrl,
       unsubscribeUrl,
     }),
   });
@@ -187,6 +192,7 @@ async function processCandidate(
     meta: {
       beach_name: candidate.beach_name,
       beach_slug: candidate.beach_slug,
+      message_instance_id: messageInstanceId,
     },
   });
 

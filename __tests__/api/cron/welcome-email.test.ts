@@ -30,9 +30,16 @@ import { readFileSync } from "fs";
 
 // Mock the Supabase service role client
 const mockInsert = jest.fn();
-const mockFrom = jest.fn(() => ({
-  insert: mockInsert,
-}));
+const mockSelect = jest.fn();
+const mockEq = jest.fn();
+const mockMaybeSingle = jest.fn();
+const mockFrom = jest.fn((table: string) => {
+  if (table === "email_send_log") {
+    return { insert: mockInsert };
+  }
+
+  return { select: mockSelect };
+});
 
 const mockUpdateUserById = jest.fn();
 const mockRpc = jest.fn();
@@ -112,6 +119,9 @@ describe("Cron: welcome-email", () => {
     mockInsert.mockResolvedValue({ error: null });
     mockUpdateUserById.mockResolvedValue({ error: null });
     mockRpc.mockResolvedValue({ data: [], error: null });
+    mockSelect.mockReturnValue({ eq: mockEq });
+    mockEq.mockReturnValue({ maybeSingle: mockMaybeSingle });
+    mockMaybeSingle.mockResolvedValue({ data: null, error: null });
   });
 
   afterEach(() => {
@@ -251,6 +261,52 @@ describe("Cron: welcome-email", () => {
         expect.objectContaining({
           to: "nobeach@example.com",
         })
+      );
+      expect(mockGenerateWelcomeEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          baseUrl: "https://quiversurf.app",
+          homeBeachName: null,
+          homeBeachSlug: null,
+          messageInstanceId: expect.any(String),
+        }),
+        "test-secret-key"
+      );
+    });
+
+    it("passes home beach slug and message id to the welcome template", async () => {
+      const candidate = createMockEmailCandidate({
+        user_id: "user-home-beach",
+        email: "home@example.com",
+        email_confirmed_at: new Date(Date.now() - 49 * 60 * 60 * 1000).toISOString(),
+        home_beach_id: "beach-123",
+      });
+      const candidateWithCase = {
+        ...candidate,
+        case_type: "no_home_beach_48h" as const,
+      };
+
+      mockRpc.mockResolvedValue({
+        data: [candidateWithCase],
+        error: null,
+      });
+      mockMaybeSingle.mockResolvedValueOnce({
+        data: { name: "Blacks", slug: "blacks" },
+        error: null,
+      });
+
+      const request = createMockCronRequest("/api/cron/welcome-email", {
+        authMethod: "bearer-token",
+      });
+
+      await GET(request);
+
+      expect(mockGenerateWelcomeEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          homeBeachName: "Blacks",
+          homeBeachSlug: "blacks",
+          messageInstanceId: expect.any(String),
+        }),
+        "test-secret-key"
       );
     });
 
@@ -416,7 +472,10 @@ describe("Cron: welcome-email", () => {
           user_id: "user-to-log",
           email_type: "welcome",
           subject: "Welcome to Quiver!",
-          meta: { case_type: "unconfirmed_24h" },
+          meta: {
+            case_type: "unconfirmed_24h",
+            message_instance_id: expect.any(String),
+          },
         })
       );
     });

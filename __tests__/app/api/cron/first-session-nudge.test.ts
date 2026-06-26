@@ -159,24 +159,20 @@ jest.mock("@/lib/utils/email-rate-limiter", () => ({
   })),
 }));
 
-jest.mock("@/lib/utils/beach-url-utils", () => ({
-  buildBeachUrl: jest.fn(
-    ({
-      slug,
-      city,
-      state,
-    }: {
-      slug: string | null;
-      city: string | null;
-      state: string | null;
-    }) => {
-      if (!slug || !city || !state) return `/beach/${slug || "unknown"}`;
-      const citySlug = city.toLowerCase().replace(/\s+/g, "-");
-      const stateSlug = state.toLowerCase();
-      return `/${stateSlug}/${citySlug}/${slug}`;
-    }
-  ),
-}));
+function expectEmailAttribution(
+  url: URL,
+  emailType: string
+): string {
+  expect(url.searchParams.get("utm_source")).toBe("email");
+  expect(url.searchParams.get("utm_medium")).toBe("email");
+  expect(url.searchParams.get("email_type")).toBe(emailType);
+  const messageInstanceId = url.searchParams.get("message_instance_id");
+  expect(messageInstanceId).toEqual(expect.any(String));
+  if (!messageInstanceId) {
+    throw new Error("Expected message_instance_id");
+  }
+  return messageInstanceId;
+}
 
 // ============================================================================
 // Test helpers
@@ -687,6 +683,11 @@ describe("First Session Nudge Cron Job API", () => {
         displayName: "Shredder",
         unsubscribeUrl: "https://quiversurf.app/settings",
       });
+      const logSessionUrl = new URL(sentArg.react.props.logSessionUrl);
+      expect(logSessionUrl.pathname).toBe("/sessions/new");
+      expect(logSessionUrl.searchParams.get("mode")).toBe("log");
+      expect(logSessionUrl.searchParams.get("quick")).toBe("true");
+      expectEmailAttribution(logSessionUrl, "first_session_nudge");
     });
 
     it("passes correct props to PersonalizedNudgeEmail for onboarded user with intel", async () => {
@@ -736,6 +737,50 @@ describe("First Session Nudge Cron Job API", () => {
         bestWindow: { start: "6:00 AM", end: "9:00 AM" },
         unsubscribeUrl: "https://quiversurf.app/settings",
       });
+      const ctaUrl = new URL(sentArg.react.props.ctaUrl);
+      expect(ctaUrl.pathname).toBe("/app/spot/pipeline");
+      const ctaMessageId = expectEmailAttribution(ctaUrl, "first_session_nudge");
+
+      const logSessionUrl = new URL(sentArg.react.props.logSessionUrl);
+      expect(logSessionUrl.pathname).toBe("/sessions/new");
+      expectEmailAttribution(logSessionUrl, "first_session_nudge");
+      expect(logSessionUrl.searchParams.get("message_instance_id")).toBe(
+        ctaMessageId
+      );
+    });
+
+    it("uses covered /app fallback when an onboarded user's beach has no app spot slug", async () => {
+      const { PersonalizedNudgeEmail } = require("@/lib/mailer/templates/PersonalizedNudgeEmail");
+
+      setupSupabaseChain({
+        profiles: [
+          {
+            id: "user-no-slug",
+            display_name: "No Slug",
+            home_beach_id: "beach-no-slug",
+            onboarding_completed_at: "2026-03-15T06:00:00Z",
+          },
+        ],
+        sessions: [],
+        emailLog: [],
+        authUsers: [{ user: { email: "noslug@example.com" } }],
+        beach: {
+          name: "Secret Spot",
+          slug: null,
+          city: "Encinitas",
+          state: "CA",
+          country: "USA",
+        },
+        intel: null,
+      });
+
+      await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+
+      const sentArg = mockEmailsSend.mock.calls[0][0];
+      expect(sentArg.react.type).toBe(PersonalizedNudgeEmail);
+      const ctaUrl = new URL(sentArg.react.props.ctaUrl);
+      expect(ctaUrl.pathname).toBe("/app");
+      expectEmailAttribution(ctaUrl, "first_session_nudge");
     });
 
     it("suppresses overnight stored best windows in personalized emails", async () => {
