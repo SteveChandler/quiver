@@ -114,6 +114,70 @@ describe("createLoggedSession personalization recompute", () => {
     expect(mockComputeUserPreferences).toHaveBeenCalledWith("user-123");
     expect(mockSupabase.from).toHaveBeenCalledWith("sessions");
     expect(mockSupabase.from).toHaveBeenCalledWith("user_events");
+    expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: "user-123",
+        event_type: "session_created",
+        beach_id: "beach-123",
+        metadata: expect.objectContaining({
+          source: "web-session-form",
+          surface: "sessions/new",
+          is_first_session: false,
+          spot_type: "beach",
+          user_id: "user-123",
+          session_id: "session-123",
+        }),
+      })
+    );
+  });
+
+  it("does not emit session_created for mock/internal users", async () => {
+    const originalAllowE2E = process.env.ALLOW_E2E_MUTATIONS_DEV;
+    process.env.ALLOW_E2E_MUTATIONS_DEV = "0";
+    mockSupabase.single.mockReset();
+    mockSupabase.single
+      .mockResolvedValueOnce({
+        data: {
+          id: "session-123",
+          beach_id: "beach-123",
+          duration_minutes: 90,
+          rating: 4,
+        },
+        error: null,
+      })
+      .mockResolvedValueOnce({
+        data: {
+          is_mock: true,
+          is_system_account: false,
+          analytics_is_real_user: false,
+          deleted_at: null,
+        },
+        error: null,
+      });
+
+    try {
+      const result = await createLoggedSession({
+        beach_id: "beach-123",
+        beach_name: "Ocean Beach",
+        arrival_time: "2026-05-20 14:00:00+00",
+        rating: 4,
+      });
+
+      await flushFireAndForget();
+
+      expect(result.success).toBe(true);
+      const insertedEventTypes = mockSupabase.insert.mock.calls
+        .map(([payload]) => payload?.event_type)
+        .filter(Boolean);
+      expect(insertedEventTypes).not.toContain("session_created");
+      expect(insertedEventTypes).toContain("session_log_submit");
+    } finally {
+      if (originalAllowE2E === undefined) {
+        delete process.env.ALLOW_E2E_MUTATIONS_DEV;
+      } else {
+        process.env.ALLOW_E2E_MUTATIONS_DEV = originalAllowE2E;
+      }
+    }
   });
 
   it("keeps session creation successful when preference recompute fails", async () => {

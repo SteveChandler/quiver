@@ -812,6 +812,7 @@ describe('POST /api/events', () => {
         // Session logging events
         'session_log_start',
         'session_log_submit',
+        'session_created',
         'session_log_validation_failed',
         'session_spot_search_no_results',
         'session_custom_spot_cta_tapped',

@@ -78,6 +78,7 @@ export const VALID_EVENTS = [
   'session_log_time_selected',
   'session_log_draft_progress',
   'session_log_submit',
+  'session_created',
   'session_share_opened_post_save',
   'session_share_closed_post_save',
   // Onboarding/tour events
