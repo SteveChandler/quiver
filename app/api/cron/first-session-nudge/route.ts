@@ -24,12 +24,16 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { FirstSessionNudgeEmail } from "@/lib/mailer/templates/FirstSessionNudgeEmail";
 import { PersonalizedNudgeEmail } from "@/lib/mailer/templates/PersonalizedNudgeEmail";
-import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { formatActionableBestWindow } from "@/lib/email/email-formatters";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { withObservedCron } from "@/lib/cron/observability";
+import {
+  buildAppEmailLink,
+  buildBeachEmailLink,
+  buildSessionEmailLink,
+} from "@/lib/mailer/email-links";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -286,7 +290,18 @@ async function _GET(request: Request): Promise<Response> {
       try {
         await rateLimiter.throttle();
 
-        const logSessionUrl = `${baseUrl}/sessions/new?mode=log&quick=true&utm_source=quiver&utm_medium=email&utm_campaign=first_session_nudge`;
+        const messageInstanceId = crypto.randomUUID();
+        const logSessionUrl = buildSessionEmailLink({
+          origin: baseUrl,
+          emailType: EMAIL_TYPE,
+          messageInstanceId,
+          source: "first_session_nudge_email",
+          utmCampaign: EMAIL_TYPE,
+          params: {
+            mode: "log",
+            quick: "true",
+          },
+        });
         const unsubscribeUrl = `${baseUrl}/settings`;
 
         const isOnboarded =
@@ -311,17 +326,22 @@ async function _GET(request: Request): Promise<Response> {
               ? `✨ ${beachName} — conditions are looking good`
               : `${beachName} — check tomorrow's forecast`;
 
-          const beachPath = beachData
-            ? buildBeachUrl({
-                slug: beachData.slug,
-                city: beachData.city,
-                state: beachData.state,
-                country: beachData.country,
+          const ctaUrl = beachData?.slug
+            ? buildBeachEmailLink({
+                origin: baseUrl,
+                beachSlug: beachData.slug,
+                emailType: EMAIL_TYPE,
+                messageInstanceId,
+                source: "first_session_nudge_email",
+                utmCampaign: EMAIL_TYPE,
               })
-            : null;
-          const ctaUrl = beachPath
-            ? `${baseUrl}${beachPath}?utm_source=quiver&utm_medium=email&utm_campaign=first_session_nudge`
-            : `${baseUrl}?utm_source=quiver&utm_medium=email&utm_campaign=first_session_nudge`;
+            : buildAppEmailLink({
+                origin: baseUrl,
+                emailType: EMAIL_TYPE,
+                messageInstanceId,
+                source: "first_session_nudge_email",
+                utmCampaign: EMAIL_TYPE,
+              });
 
           const bestWindow = formatActionableBestWindow(
             intelData?.best_window_start ?? null,
@@ -345,6 +365,7 @@ async function _GET(request: Request): Promise<Response> {
             beach_name: beachName,
             conditions_score: conditionsScore,
             signup_window: `${SIGNUP_MIN_HOURS}-${SIGNUP_MAX_HOURS}h`,
+            message_instance_id: messageInstanceId,
           };
         } else {
           subject = "Your first forecast is waiting";
@@ -358,6 +379,7 @@ async function _GET(request: Request): Promise<Response> {
           emailMeta = {
             template: "generic",
             signup_window: `${SIGNUP_MIN_HOURS}-${SIGNUP_MAX_HOURS}h`,
+            message_instance_id: messageInstanceId,
           };
         }
 

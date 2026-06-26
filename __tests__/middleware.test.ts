@@ -115,6 +115,25 @@ describe("Middleware", () => {
     expect(mockRedirect).toHaveBeenCalled();
   });
 
+  test("allows /sessions/new email token fallback when unauthenticated", async () => {
+    const request: any = {
+      nextUrl: {
+        pathname: "/sessions/new",
+        search: "?token=signed-token",
+        searchParams: new URLSearchParams("token=signed-token"),
+      },
+      url: "http://localhost/sessions/new?token=signed-token",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+
+    await middleware(request);
+
+    expect(mockNext).toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
   test("allows unauthenticated access to beach detail page (public for SEO)", async () => {
     const request: any = { nextUrl: { pathname: "/beach/blacks-beach" }, url: "http://localhost/beach/blacks-beach", method: "GET", headers: new Headers(), cookies: { get: () => undefined, getAll: () => [] } };
     await middleware(request);

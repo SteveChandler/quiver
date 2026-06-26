@@ -2,10 +2,64 @@ export interface BeachEmailLinkParams {
   origin: string;
   beachSlug: string;
   emailType: string;
-  utmMedium: string;
+  utmMedium?: string;
   utmCampaign: string;
   source: string;
   messageInstanceId: string;
+}
+
+interface EmailAttributionParams {
+  emailType: string;
+  messageInstanceId: string;
+  source?: string;
+  utmCampaign: string;
+  utmMedium?: string;
+}
+
+export interface AppEmailLinkParams extends EmailAttributionParams {
+  origin: string;
+  params?: Record<string, string | undefined>;
+}
+
+export interface SessionEmailLinkParams extends EmailAttributionParams {
+  origin: string;
+  token?: string;
+  beachId?: string;
+  window?: string;
+  params?: Record<string, string | undefined>;
+}
+
+function normalizeOrigin(origin: string): string {
+  return origin.replace(/\/$/, "");
+}
+
+function buildEmailAttributionSearchParams(
+  params: EmailAttributionParams
+): URLSearchParams {
+  const search = new URLSearchParams({
+    utm_source: "email",
+    utm_medium: params.utmMedium ?? "email",
+    utm_campaign: params.utmCampaign,
+    email_type: params.emailType,
+    message_instance_id: params.messageInstanceId,
+  });
+
+  if (params.source) {
+    search.set("source", params.source);
+  }
+
+  return search;
+}
+
+function appendDefinedParams(
+  search: URLSearchParams,
+  params?: Record<string, string | undefined>
+): void {
+  for (const [key, value] of Object.entries(params ?? {})) {
+    if (value !== undefined) {
+      search.set(key, value);
+    }
+  }
 }
 
 /**
@@ -13,15 +67,41 @@ export interface BeachEmailLinkParams {
  * everyone else gets the web spot page with durable email attribution params.
  */
 export function buildBeachEmailLink(params: BeachEmailLinkParams): string {
-  const origin = params.origin.replace(/\/$/, "");
-  const search = new URLSearchParams({
-    utm_source: "email",
-    utm_medium: params.utmMedium,
-    utm_campaign: params.utmCampaign,
-    email_type: params.emailType,
+  const origin = normalizeOrigin(params.origin);
+  const search = buildEmailAttributionSearchParams({
+    emailType: params.emailType,
+    messageInstanceId: params.messageInstanceId,
     source: params.source,
-    message_instance_id: params.messageInstanceId,
+    utmCampaign: params.utmCampaign,
+    utmMedium: params.utmMedium,
   });
 
   return `${origin}/app/spot/${encodeURIComponent(params.beachSlug)}?${search.toString()}`;
+}
+
+export function buildAppEmailLink(params: AppEmailLinkParams): string {
+  const origin = normalizeOrigin(params.origin);
+  const search = buildEmailAttributionSearchParams(params);
+  appendDefinedParams(search, params.params);
+
+  return `${origin}/app?${search.toString()}`;
+}
+
+export function buildSessionEmailLink(params: SessionEmailLinkParams): string {
+  const origin = normalizeOrigin(params.origin);
+  const search = new URLSearchParams();
+
+  appendDefinedParams(search, {
+    token: params.token,
+    beach_id: params.beachId,
+    window: params.window,
+    ...params.params,
+  });
+
+  const attribution = buildEmailAttributionSearchParams(params);
+  attribution.forEach((value, key) => {
+    search.set(key, value);
+  });
+
+  return `${origin}/sessions/new?${search.toString()}`;
 }

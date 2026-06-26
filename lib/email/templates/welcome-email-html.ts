@@ -15,10 +15,15 @@
  * wrote to a dead table.
  *
  * The new template leads with forecast value:
- * - When home beach is set: deep-link "Check your {beach} forecast →"
- * - When home beach is unset: "Pick your home beach →" deep-links to
- *   `/?onboarding=required` (Commit B entry path).
+ * - When home beach is set: app-first "Check your {beach} forecast →"
+ * - When home beach is unset: "Pick your home beach →" uses the app-first
+ *   `/app` handoff path with onboarding intent preserved in query params.
  */
+
+import {
+  buildAppEmailLink,
+  buildBeachEmailLink,
+} from "@/lib/mailer/email-links";
 
 export interface WelcomeEmailParams {
   baseUrl: string;
@@ -26,13 +31,9 @@ export interface WelcomeEmailParams {
    *  beach detail page. When absent, the CTA nudges the user to the
    *  onboarding dialog. */
   homeBeachName?: string | null;
-  /** Pre-built canonical beach URL path (e.g. "/ca/san-diego/blacks").
-   *  Required together with homeBeachName — when either is missing we
-   *  fall back to the no-home-beach copy. Must be the hierarchical URL
-   *  (from `buildBeachUrl`), NOT the legacy `/beach/{slug}` shape, so
-   *  clicks don't take an extra 308 redirect hop that drops the UTM
-   *  query string from the URL that client-side analytics see. */
-  homeBeachUrl?: string | null;
+  /** Home beach slug for the app-first `/app/spot/{slug}` CTA. */
+  homeBeachSlug?: string | null;
+  messageInstanceId: string;
 }
 
 const COLORS = {
@@ -93,27 +94,37 @@ function renderPrimaryButton(href: string, label: string): string {
 /**
  * Generates the welcome email HTML.
  *
- * Pure function with no external dependencies — safe to port to Deno
- * Edge Functions.
+ * Pure string generator. URL construction stays in shared email-link helpers so
+ * app-first attribution remains consistent across templates.
  */
 export function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
-  const { baseUrl: rawBaseUrl, homeBeachName, homeBeachUrl } = params;
+  const { baseUrl: rawBaseUrl, homeBeachName, homeBeachSlug, messageInstanceId } = params;
   const baseUrl = rawBaseUrl.trim();
 
-  const hasHomeBeach = Boolean(homeBeachName && homeBeachUrl);
+  const hasHomeBeach = Boolean(homeBeachName && homeBeachSlug);
 
   // Variant-specific copy. Both paths lead with a single clear CTA;
   // neither asks for preferences. Variant markers flow into UTM tags so
   // the /app-stats email dashboard can attribute future clicks.
-  //
-  // `homeBeachUrl` is the canonical hierarchical URL path (e.g.
-  // "/ca/san-diego/blacks") — emitted directly instead of
-  // `/beach/{slug}` so the click doesn't bounce through a 308 redirect
-  // that drops the UTM query string from the URL that client-side
-  // analytics observe.
-  const ctaHref = hasHomeBeach
-    ? `${baseUrl}${homeBeachUrl}?utm_source=email&utm_medium=welcome&utm_campaign=home_beach_set`
-    : `${baseUrl}/?onboarding=required&utm_source=email&utm_medium=welcome&utm_campaign=no_home_beach`;
+  const ctaHref = homeBeachName && homeBeachSlug
+    ? buildBeachEmailLink({
+        origin: baseUrl,
+        beachSlug: homeBeachSlug,
+        emailType: "welcome",
+        messageInstanceId,
+        source: "welcome_email",
+        utmCampaign: "home_beach_set",
+      })
+    : buildAppEmailLink({
+        origin: baseUrl,
+        emailType: "welcome",
+        messageInstanceId,
+        source: "welcome_email",
+        utmCampaign: "no_home_beach",
+        params: {
+          onboarding: "required",
+        },
+      });
 
   const ctaLabel = hasHomeBeach
     ? `Check your ${homeBeachName} forecast →`
@@ -172,13 +183,29 @@ export function generateWelcomeEmailHtml(params: WelcomeEmailParams): string {
  * Generates the welcome email plain text version.
  */
 export function generateWelcomeEmailText(params: WelcomeEmailParams): string {
-  const { baseUrl: rawBaseUrl, homeBeachName, homeBeachUrl } = params;
+  const { baseUrl: rawBaseUrl, homeBeachName, homeBeachSlug, messageInstanceId } = params;
   const baseUrl = rawBaseUrl.trim();
-  const hasHomeBeach = Boolean(homeBeachName && homeBeachUrl);
+  const hasHomeBeach = Boolean(homeBeachName && homeBeachSlug);
 
-  const ctaHref = hasHomeBeach
-    ? `${baseUrl}${homeBeachUrl}?utm_source=email&utm_medium=welcome&utm_campaign=home_beach_set`
-    : `${baseUrl}/?onboarding=required&utm_source=email&utm_medium=welcome&utm_campaign=no_home_beach`;
+  const ctaHref = homeBeachName && homeBeachSlug
+    ? buildBeachEmailLink({
+        origin: baseUrl,
+        beachSlug: homeBeachSlug,
+        emailType: "welcome",
+        messageInstanceId,
+        source: "welcome_email",
+        utmCampaign: "home_beach_set",
+      })
+    : buildAppEmailLink({
+        origin: baseUrl,
+        emailType: "welcome",
+        messageInstanceId,
+        source: "welcome_email",
+        utmCampaign: "no_home_beach",
+        params: {
+          onboarding: "required",
+        },
+      });
 
   const headline = hasHomeBeach
     ? `Your ${homeBeachName} forecast is dialed`
