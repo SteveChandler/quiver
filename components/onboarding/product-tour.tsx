@@ -21,18 +21,6 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/context/auth-context";
-import { HOW_THE_CALL_WORKS_FACTORS } from "@/lib/surf/how-the-call-works";
-
-const HOW_THE_CALL_WORKS_FACTOR_LABELS = HOW_THE_CALL_WORKS_FACTORS.map(
-  (factor) => factor.label,
-).join(" -> ");
-const HOW_THE_CALL_WORKS_VERDICT =
-  HOW_THE_CALL_WORKS_FACTORS.find((factor) => factor.id === "verdict")
-    ?.description ?? "Quiver turns those signals into the marker call.";
-const HOW_THE_CALL_WORKS_TOUR_CONTENT = [
-  `Read the call in order: ${HOW_THE_CALL_WORKS_FACTOR_LABELS}.`,
-  HOW_THE_CALL_WORKS_VERDICT,
-].join(" ");
 
 const TOUR_STEPS: Step[] = [
   {
@@ -40,16 +28,6 @@ const TOUR_STEPS: Step[] = [
     title: "Interactive Forecast Map",
     content:
       "Explore surf conditions at beaches near you. Tap any marker to see detailed forecasts.",
-    selector: "#forecast-map",
-    side: "bottom",
-    showControls: true,
-    pointerPadding: 10,
-    pointerRadius: 8,
-  },
-  {
-    icon: "📍",
-    title: "How Quiver makes the call",
-    content: HOW_THE_CALL_WORKS_TOUR_CONTENT,
     selector: "#forecast-map",
     side: "bottom",
     showControls: true,
