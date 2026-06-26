@@ -1,11 +1,14 @@
 import React from "react";
-import { render, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const mockMarkerInstances: Array<{
   addTo: jest.Mock;
   remove: jest.Mock;
   setLngLat: jest.Mock;
 }> = [];
+const mockRouterPush = jest.fn();
+const mockTrackSignupCtaClick = jest.fn();
+let mockUser: { id: string } | null = null;
 
 jest.mock("mapbox-gl", () => ({
   Map: jest.fn(() => ({
@@ -61,11 +64,22 @@ jest.mock("mapbox-gl", () => ({
 }));
 
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }),
+  usePathname: () => "/map",
+  useRouter: () => ({ push: mockRouterPush, refresh: jest.fn() }),
 }));
 
 jest.mock("@/context/auth-context", () => ({
-  useAuth: () => ({ user: null }),
+  useAuth: () => ({ user: mockUser }),
+}));
+
+jest.mock("@/components/auth/unified-auth-modal", () => ({
+  UnifiedAuthModal: ({ isOpen }: { isOpen: boolean }) =>
+    isOpen ? <div data-testid="auth-modal" /> : null,
+}));
+
+jest.mock("@/lib/analytics/signup-conversion-tracking", () => ({
+  trackSignupCtaClick: (...args: unknown[]) =>
+    mockTrackSignupCtaClick(...args),
 }));
 
 jest.mock("@/hooks/use-track-event", () => ({
@@ -93,7 +107,18 @@ describe("InteractiveMap", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockMarkerInstances.length = 0;
+    mockUser = null;
   });
+
+  function getLastCustomSpotMarkerElement(id: string): HTMLElement {
+    const Marker = require("mapbox-gl").Marker;
+    const matchingCalls = Marker.mock.calls.filter(
+      ([options]: [{ element?: HTMLElement }]) =>
+        options.element?.getAttribute("data-custom-spot-id") === id,
+    );
+
+    return matchingCalls[matchingCalls.length - 1][0].element;
+  }
 
   it("creates distinct custom spot markers and filters invalid coordinates", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
@@ -164,5 +189,116 @@ describe("InteractiveMap", () => {
     expect(markerOptions.element?.style.borderColor).toBe("#f78e42");
     expect(markerOptions.element?.style.cursor).toBe("pointer");
     expect(marker.setLngLat).toHaveBeenCalledWith([-117.25, 32.75]);
+  });
+
+  it("opens the auth modal instead of navigating when an anonymous user clicks a custom spot", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const customSpots = [
+      {
+        id: "spot-1",
+        name: "Public Peak",
+        lat: 32.75,
+        lon: -117.25,
+        nearestBeachId: null,
+        visibility: "public",
+      },
+    ];
+
+    render(<InteractiveMap beaches={[]} customSpots={customSpots} />);
+
+    await waitFor(() => {
+      expect(getLastCustomSpotMarkerElement("spot-1")).toHaveAttribute(
+        "data-testid",
+        "custom-spot-marker",
+      );
+    });
+
+    const markerElement = getLastCustomSpotMarkerElement("spot-1");
+    const event = new MouseEvent("click", {
+      bubbles: true,
+      cancelable: true,
+    });
+    const stopPropagationSpy = jest.spyOn(event, "stopPropagation");
+
+    fireEvent(markerElement, event);
+
+    expect(stopPropagationSpy).toHaveBeenCalled();
+    expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(mockTrackSignupCtaClick).toHaveBeenCalledWith({
+      source: "custom-spot-spot-1",
+      cta_type: "custom_spot_marker",
+    });
+    expect(await screen.findByTestId("auth-modal")).toBeInTheDocument();
+  });
+
+  it("navigates to the custom spot detail route when an authenticated user clicks a custom spot", async () => {
+    mockUser = { id: "user-1" };
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const customSpots = [
+      {
+        id: "spot-1",
+        name: "Public Peak",
+        lat: 32.75,
+        lon: -117.25,
+        nearestBeachId: null,
+        visibility: "public",
+      },
+    ];
+
+    render(<InteractiveMap beaches={[]} customSpots={customSpots} />);
+
+    await waitFor(() => {
+      expect(getLastCustomSpotMarkerElement("spot-1")).toHaveAttribute(
+        "data-testid",
+        "custom-spot-marker",
+      );
+    });
+
+    fireEvent.click(getLastCustomSpotMarkerElement("spot-1"));
+
+    expect(mockRouterPush).toHaveBeenCalledWith("/custom-spots/spot-1");
+    expect(mockTrackSignupCtaClick).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument();
+  });
+
+  it("uses the current user after auth state changes before a custom spot click", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const customSpots = [
+      {
+        id: "spot-1",
+        name: "Public Peak",
+        lat: 32.75,
+        lon: -117.25,
+        nearestBeachId: null,
+        visibility: "public",
+      },
+    ];
+    const { rerender } = render(
+      <InteractiveMap beaches={[]} customSpots={customSpots} />,
+    );
+
+    await waitFor(() => {
+      expect(getLastCustomSpotMarkerElement("spot-1")).toHaveAttribute(
+        "data-testid",
+        "custom-spot-marker",
+      );
+    });
+
+    mockUser = { id: "user-1" };
+    rerender(<InteractiveMap beaches={[]} customSpots={customSpots} />);
+
+    await waitFor(() => {
+      const Marker = require("mapbox-gl").Marker;
+      const matchingCalls = Marker.mock.calls.filter(
+        ([options]: [{ element?: HTMLElement }]) =>
+          options.element?.getAttribute("data-custom-spot-id") === "spot-1",
+      );
+      expect(matchingCalls.length).toBeGreaterThan(1);
+    });
+
+    fireEvent.click(getLastCustomSpotMarkerElement("spot-1"));
+
+    expect(mockRouterPush).toHaveBeenCalledWith("/custom-spots/spot-1");
+    expect(mockTrackSignupCtaClick).not.toHaveBeenCalled();
   });
 });
