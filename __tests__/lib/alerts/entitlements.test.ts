@@ -1,3 +1,5 @@
+jest.mock("server-only", () => ({}));
+
 import {
   getUserEntitlement,
   canCreateRule,
@@ -178,6 +180,20 @@ describe("entitlementFromRow (pure)", () => {
 });
 
 describe("canCreateRule", () => {
+  const originalFreeGrowthPhase = process.env.FREE_GROWTH_PHASE;
+
+  beforeEach(() => {
+    delete process.env.FREE_GROWTH_PHASE;
+  });
+
+  afterEach(() => {
+    if (originalFreeGrowthPhase === undefined) {
+      delete process.env.FREE_GROWTH_PHASE;
+    } else {
+      process.env.FREE_GROWTH_PHASE = originalFreeGrowthPhase;
+    }
+  });
+
   it("allows free user on home beach within cap", () => {
     const result = canCreateRule({ tier: "free", homeBeachId: "beach-1", targetBeachId: "beach-1", existingRuleCount: 2, existingBeachCount: 1, isExistingBeach: true, presetType: "mellow_session" });
     expect(result.allowed).toBe(true);
@@ -187,6 +203,23 @@ describe("canCreateRule", () => {
     const result = canCreateRule({ tier: "free", homeBeachId: "beach-1", targetBeachId: "beach-2", existingRuleCount: 0, existingBeachCount: 1, isExistingBeach: false, presetType: null });
     expect(result.allowed).toBe(false);
     expect(result.reason).toContain("home beach");
+  });
+
+  it("allows free-growth free user on non-home beach within the 3-rule cap", () => {
+    process.env.FREE_GROWTH_PHASE = "true";
+
+    const result = canCreateRule({ tier: "free", homeBeachId: "beach-1", targetBeachId: "beach-2", existingRuleCount: 2, existingBeachCount: 2, isExistingBeach: false, presetType: null });
+
+    expect(result.allowed).toBe(true);
+  });
+
+  it("blocks free-growth free user's fourth rule", () => {
+    process.env.FREE_GROWTH_PHASE = "true";
+
+    const result = canCreateRule({ tier: "free", homeBeachId: "beach-1", targetBeachId: "beach-3", existingRuleCount: 3, existingBeachCount: 3, isExistingBeach: false, presetType: null });
+
+    expect(result.allowed).toBe(false);
+    expect(result.reason).toBe("Maximum 3 alert rules reached.");
   });
 
   it("rejects free user exceeding rule cap", () => {

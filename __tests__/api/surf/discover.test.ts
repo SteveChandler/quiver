@@ -13,6 +13,7 @@
  * synthesized AuthenticatedContext (matches the me-profile.route.test pattern).
  */
 
+jest.mock("server-only", () => ({}));
 jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 
 // Strip the auth + rate-limit wrappers so the inner handler is reachable.
@@ -252,10 +253,12 @@ async function callDiscoverRoute(entitlementRow: Record<string, unknown> | null)
 
 describe("/api/surf/discover entitlement resolution", () => {
   const originalBestSpotGate = process.env.SURF_DISCOVERY_BEST_SPOT_GATE;
+  const originalFreeGrowthPhase = process.env.FREE_GROWTH_PHASE;
 
   beforeEach(() => {
     jest.clearAllMocks();
     delete process.env.SURF_DISCOVERY_BEST_SPOT_GATE;
+    delete process.env.FREE_GROWTH_PHASE;
     // Default discovery response: empty but well-formed.
     mockDiscoverSurfSpots.mockResolvedValue({
       recommendations: [],
@@ -277,6 +280,11 @@ describe("/api/surf/discover entitlement resolution", () => {
       delete process.env.SURF_DISCOVERY_BEST_SPOT_GATE;
     } else {
       process.env.SURF_DISCOVERY_BEST_SPOT_GATE = originalBestSpotGate;
+    }
+    if (originalFreeGrowthPhase === undefined) {
+      delete process.env.FREE_GROWTH_PHASE;
+    } else {
+      process.env.FREE_GROWTH_PHASE = originalFreeGrowthPhase;
     }
   });
 
@@ -551,6 +559,30 @@ describe("/api/surf/discover entitlement resolution", () => {
     expect(responseText).not.toContain("included-secret-id");
     expect(responseText).not.toContain("Saved Secret Beach");
     expect(responseText).not.toContain("https://cdn.quiver.test/saved.jpg");
+  });
+
+  it("free-growth phase bypasses the best-spot hard gate for free users", async () => {
+    process.env.SURF_DISCOVERY_BEST_SPOT_GATE = "1";
+    process.env.FREE_GROWTH_PHASE = "true";
+    mockDiscoverSurfSpots.mockResolvedValue(makeDiscoveryResponse());
+
+    const response = await callDiscoverRoute(null);
+    const body = await response.json();
+
+    expect(body.data.entitlement).toMatchObject({
+      tier: "free",
+      hasPaidAccess: false,
+      canSeeBestSpot: false,
+    });
+    expect(body.data.lockedBestSpotTeaser).toBeNull();
+    expect(body.data.recommendations).toHaveLength(1);
+    expect(body.data.includedRecommendations).toHaveLength(1);
+    expect(body.data.recommendations[0].beach).toMatchObject({
+      id: "beach-secret-id",
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+    });
+    expect(body.data.recommendations[0].personalExplanation).toBeUndefined();
   });
 
   it("generates ETag from the opt-in gated free response rather than the ungated discovery object", async () => {
