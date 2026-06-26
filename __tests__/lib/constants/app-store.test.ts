@@ -36,6 +36,8 @@ describe("app-store constants", () => {
     );
     expect(ANDROID_BETA_CONTACT_EMAIL).toBe("steven@quiversurf.app");
     expect(ANDROID_BETA_CONTACT_MAILTO).toBe("mailto:steven@quiversurf.app");
-    expect(ANDROID_BETA_PLAY_URL).toBeNull();
+    expect(ANDROID_BETA_PLAY_URL).toBe(
+      "https://play.google.com/apps/testing/app.quiversurf.surf",
+    );
   });
 });

@@ -5,7 +5,7 @@ import {
   ANDROID_BETA_CONTACT_EMAIL,
   ANDROID_BETA_CONTACT_MAILTO,
   ANDROID_BETA_GROUP_URL,
-  ANDROID_BETA_LANDING_URL,
+  ANDROID_BETA_PLAY_URL,
 } from "@/lib/constants/app-store";
 
 jest.mock("qrcode.react", () => ({
@@ -33,14 +33,15 @@ describe("AndroidBetaPage", () => {
     expect(
       screen.getByRole("heading", { name: /join the quiver android beta/i }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByText(/the closed-test install link is not public on this page yet/i),
-    ).toBeInTheDocument();
-
     const groupLink = screen.getByRole("link", {
       name: /join the tester group/i,
     });
     expect(groupLink).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
+
+    const playLink = screen.getByRole("link", {
+      name: /opt in on google play/i,
+    });
+    expect(playLink).toHaveAttribute("href", ANDROID_BETA_PLAY_URL ?? "");
 
     const emailLink = screen.getByRole("link", {
       name: new RegExp(`email ${ANDROID_BETA_CONTACT_EMAIL}`, "i"),
@@ -50,7 +51,17 @@ describe("AndroidBetaPage", () => {
     const qr = screen.getByTestId("android-beta-qr");
     expect(qr).toHaveAttribute("height", "248");
     expect(qr).toHaveAttribute("width", "248");
-    expect(qr).toHaveAttribute("data-value", ANDROID_BETA_LANDING_URL);
+    const qrValue = qr.getAttribute("data-value") ?? "";
+    const parsedQr = new URL(qrValue);
+    expect(parsedQr.pathname).toBe("/app");
+    expect(parsedQr.searchParams.get("source")).toBe("android_beta_page");
+    expect(parsedQr.searchParams.get("surface")).toBe("android_beta");
+    expect(parsedQr.searchParams.get("placement")).toBe("instructions_qr");
+    expect(parsedQr.searchParams.get("qr_id")).toBe(
+      "android_beta_instructions",
+    );
+    expect(parsedQr.searchParams.get("target")).toBe("android_beta");
+    expect(parsedQr.searchParams.get("utm_source")).toBe("qr");
 
     expect(screen.queryByText(/testflight/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/join the ios beta/i)).not.toBeInTheDocument();
