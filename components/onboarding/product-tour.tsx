@@ -22,6 +22,14 @@ import { X } from "lucide-react";
 import { track } from "@/lib/analytics";
 import { useAuth } from "@/context/auth-context";
 
+// ⚠️ STALE / NON-FUNCTIONAL (verified 2026-06-26): every `selector` below points at an
+// element id that no longer exists anywhere in the app (`#forecast-map`, `#home-beach-widget`,
+// `#gamification-widget`, `#session-feed`, `#create-session-button` — all 0 matches). Page
+// redesigns (Oracle home, etc.) dropped those ids and the tour was never re-anchored, so onborda
+// has no targets and the tour does not display. Do NOT add steps here expecting them to show.
+// The live education surfaces are the Oracle home, the /map field guide (MapLearningPanel), and the
+// beach-detail day-0 explainer (SessionIntelligencePilot). Re-anchor every step or delete the tour
+// before relying on it again. See plans/036 (parked) + plans/README.
 const TOUR_STEPS: Step[] = [
   {
     icon: "🗺️",
