@@ -94,9 +94,9 @@ export function parseSessionWizardParams(
       // expects undefined, so we normalize null → undefined here.
       mode: getParam('mode'),
       quick: getParam('quick'),
-      beach: getParam('beach'),
+      beach: getParam('beach') ?? getParam('beachId'),
       beachName: getParam('beachName'),
-      startTime: getParam('startTime'),
+      startTime: getParam('startTime') ?? getParam('startedAt'),
       endTime: getParam('endTime'),
       step: getParam('step'),
       forecastFeedbackId: getParam('forecastFeedbackId'),
@@ -279,8 +279,10 @@ export function hasWizardParams(
   // Check for at least one required parameter (beach or mode or quick)
   return (
     searchParams.has('beach') ||
+    searchParams.has('beachId') ||
     searchParams.has('mode') ||
     searchParams.has('startTime') ||
+    searchParams.has('startedAt') ||
     searchParams.has('quick')
   );
 }

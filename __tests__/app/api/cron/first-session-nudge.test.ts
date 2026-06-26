@@ -165,6 +165,7 @@ function expectEmailAttribution(
 ): string {
   expect(url.searchParams.get("utm_source")).toBe("email");
   expect(url.searchParams.get("utm_medium")).toBe("email");
+  expect(url.searchParams.get("utm_campaign")).toBe(emailType);
   expect(url.searchParams.get("email_type")).toBe(emailType);
   const messageInstanceId = url.searchParams.get("message_instance_id");
   expect(messageInstanceId).toEqual(expect.any(String));
@@ -687,6 +688,10 @@ describe("First Session Nudge Cron Job API", () => {
       expect(logSessionUrl.pathname).toBe("/sessions/new");
       expect(logSessionUrl.searchParams.get("mode")).toBe("log");
       expect(logSessionUrl.searchParams.get("quick")).toBe("true");
+      expect(logSessionUrl.searchParams.get("entrySource")).toBe("email");
+      expect(logSessionUrl.searchParams.get("source")).toBe(
+        "first_session_nudge_email"
+      );
       expectEmailAttribution(logSessionUrl, "first_session_nudge");
     });
 
@@ -713,6 +718,7 @@ describe("First Session Nudge Cron Job API", () => {
           country: "USA",
         },
         intel: {
+          forecast_date: "2026-06-27",
           conditions_score: 88,
           surf_description: "Overhead+ barrels",
           wind_description: "Trade winds offshore",
@@ -743,6 +749,16 @@ describe("First Session Nudge Cron Job API", () => {
 
       const logSessionUrl = new URL(sentArg.react.props.logSessionUrl);
       expect(logSessionUrl.pathname).toBe("/sessions/new");
+      expect(logSessionUrl.searchParams.get("beachId")).toBe("beach-55");
+      expect(logSessionUrl.searchParams.get("startedAt")).toBe(
+        "2026-06-27T06:00:00.000Z"
+      );
+      expect(logSessionUrl.searchParams.get("entrySource")).toBe("email");
+      expect(logSessionUrl.searchParams.get("source")).toBe(
+        "first_session_nudge_email"
+      );
+      expect(logSessionUrl.searchParams.get("beach_id")).toBeNull();
+      expect(logSessionUrl.searchParams.get("window")).toBeNull();
       expectEmailAttribution(logSessionUrl, "first_session_nudge");
       expect(logSessionUrl.searchParams.get("message_instance_id")).toBe(
         ctaMessageId

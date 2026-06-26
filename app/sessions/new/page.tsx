@@ -64,11 +64,13 @@ export default async function NewSessionPage({
     <SessionEmailLogFallback
       token={token}
       beachId={
+        firstParam(resolvedSearchParams, "beachId") ??
         firstParam(resolvedSearchParams, "beach_id") ??
         firstParam(resolvedSearchParams, "beach") ??
         null
       }
       windowStart={
+        firstParam(resolvedSearchParams, "startedAt") ??
         firstParam(resolvedSearchParams, "window") ??
         firstParam(resolvedSearchParams, "window_start") ??
         firstParam(resolvedSearchParams, "startTime") ??

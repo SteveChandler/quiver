@@ -34,8 +34,9 @@ describe("/sessions/new email token fallback", () => {
     const element = await NewSessionPage({
       searchParams: Promise.resolve({
         token: "signed-token",
-        beach_id: "beach-123",
-        window: "2026-06-25T12:00:00.000Z",
+        beachId: "beach-123",
+        startedAt: "2026-06-25T12:00:00.000Z",
+        entrySource: "email",
         beach_name: "Blacks",
         score: "82",
         email_type: "session_prompt",
@@ -78,8 +79,8 @@ describe("/sessions/new email token fallback", () => {
     const element = await NewSessionPage({
       searchParams: Promise.resolve({
         token: "bad-token",
-        beach_id: "beach-123",
-        window: "2026-06-25T12:00:00.000Z",
+        beachId: "beach-123",
+        startedAt: "2026-06-25T12:00:00.000Z",
       }),
     });
 

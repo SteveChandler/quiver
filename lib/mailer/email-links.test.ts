@@ -83,7 +83,7 @@ describe("buildSessionEmailLink", () => {
         origin: "https://quiversurf.app/",
         token: "token-123",
         beachId: "beach-123",
-        window: "2026-06-25T12:00:00.000Z",
+        startedAt: "2026-06-25T12:00:00.000Z",
         emailType: "session_prompt",
         messageInstanceId: "msg-789",
         source: "session_prompt_email",
@@ -94,11 +94,16 @@ describe("buildSessionEmailLink", () => {
     expect(url.origin).toBe("https://quiversurf.app");
     expect(url.pathname).toBe("/sessions/new");
     expect(url.searchParams.get("token")).toBe("token-123");
-    expect(url.searchParams.get("beach_id")).toBe("beach-123");
-    expect(url.searchParams.get("window")).toBe("2026-06-25T12:00:00.000Z");
+    expect(url.searchParams.get("beachId")).toBe("beach-123");
+    expect(url.searchParams.get("startedAt")).toBe("2026-06-25T12:00:00.000Z");
+    expect(url.searchParams.get("entrySource")).toBe("email");
+    expect(url.searchParams.get("beach_id")).toBeNull();
+    expect(url.searchParams.get("window")).toBeNull();
     expect(url.searchParams.get("utm_source")).toBe("email");
     expect(url.searchParams.get("utm_medium")).toBe("email");
+    expect(url.searchParams.get("utm_campaign")).toBe("session_prompt");
     expect(url.searchParams.get("email_type")).toBe("session_prompt");
+    expect(url.searchParams.get("source")).toBe("session_prompt_email");
     expect(url.searchParams.get("message_instance_id")).toBe("msg-789");
   });
 });
