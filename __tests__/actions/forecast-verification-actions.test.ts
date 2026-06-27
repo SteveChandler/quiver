@@ -268,17 +268,15 @@ describe('Forecast Verification Actions', () => {
         },
       };
 
-      const mockVote = {
-        id: 'vote-123',
-        user_id: 'test-user-id',
-        ...voteWithConditions,
-        created_at: new Date().toISOString(),
-      };
-
       const result = await voteForecastAccuracy(voteWithConditions);
 
-      // Even if it fails due to mocking, verify input structure is correct
-      expect(voteWithConditions.actualConditions).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
+      expect(voteWithConditions.actualConditions).toEqual({
+        wave_height: 5.5,
+        wave_period: 12,
+        wind_speed: 8,
+        wind_direction: 'NW',
+      });
     });
 
     it('should include optional photo URL', async () => {
@@ -289,7 +287,8 @@ describe('Forecast Verification Actions', () => {
 
       const result = await voteForecastAccuracy(voteWithPhoto);
 
-      expect(voteWithPhoto.photoUrl).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
+      expect(voteWithPhoto.photoUrl).toBe('https://example.com/session-photo.jpg');
     });
   });
 
@@ -316,7 +315,7 @@ describe('Forecast Verification Actions', () => {
       const result = await getBeachAccuracyStats(beachId);
 
       // Verify function can be called with just beachId
-      expect(result).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
     });
 
     it('should require beachId', async () => {
@@ -334,7 +333,7 @@ describe('Forecast Verification Actions', () => {
       const expectedDate = new Date();
       expectedDate.setDate(expectedDate.getDate() - daysBack);
 
-      expect(result).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
     });
 
     it('should round accuracy percentage to 1 decimal place', async () => {
@@ -404,14 +403,14 @@ describe('Forecast Verification Actions', () => {
       // Unlike getBeachAccuracyStats, this should return all votes
       const result = await getForecastAccuracyStats(forecastId);
 
-      expect(result).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
     });
 
     it('should order votes by created_at descending', async () => {
       const result = await getForecastAccuracyStats(forecastId);
 
       // Action should order by created_at DESC
-      expect(result).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
     });
   });
 
@@ -420,7 +419,7 @@ describe('Forecast Verification Actions', () => {
       const result = await getUserVerificationStreak();
 
       // When no votes, should return all zeros
-      expect(result).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
     });
 
     it('should calculate current streak correctly', async () => {
@@ -474,7 +473,7 @@ describe('Forecast Verification Actions', () => {
       const result = await getUserVerificationStreak();
 
       // Should return total count
-      expect(result).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
     });
 
     it('should handle multiple votes on same day (count as one day)', async () => {
@@ -504,14 +503,14 @@ describe('Forecast Verification Actions', () => {
       const result = await getUserForecastVote(forecastId);
 
       // maybeSingle() should return null when no vote exists
-      expect(result).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
     });
 
     it('should return user vote when it exists', async () => {
       const result = await getUserForecastVote(forecastId);
 
       // Should query with user_id and forecast_id
-      expect(result).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
     });
 
     it('should use maybeSingle to handle zero or one result', async () => {
@@ -519,7 +518,7 @@ describe('Forecast Verification Actions', () => {
       // maybeSingle() returns null for zero results and the row for one result
       const result = await getUserForecastVote(forecastId);
 
-      expect(result).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
     });
   });
 
@@ -537,7 +536,7 @@ describe('Forecast Verification Actions', () => {
       const result = await deleteForecastVote(forecastId);
 
       // Should return success true when delete succeeds
-      expect(result).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
     });
 
     it('should only delete current user vote', async () => {
@@ -545,7 +544,7 @@ describe('Forecast Verification Actions', () => {
       // to ensure users can only delete their own votes
       const result = await deleteForecastVote(forecastId);
 
-      expect(result).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
     });
 
     it('should handle case where no vote exists to delete', async () => {
@@ -553,7 +552,7 @@ describe('Forecast Verification Actions', () => {
       // (idempotent operation)
       const result = await deleteForecastVote(forecastId);
 
-      expect(result).toBeDefined();
+      expect(typeof result.success).toBe('boolean');
     });
   });
 
