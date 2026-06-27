@@ -26,6 +26,7 @@ interface AlertCreationPopoverProps {
   onRuleCreated?: () => void;
   /** When provided, auto-select this preset instead of showing the presets grid */
   initialPreset?: string;
+  freeGrowthPhaseEnabled?: boolean;
 }
 
 type Stage =
@@ -49,6 +50,7 @@ export function AlertCreationPopover({
   onOpenChange,
   onRuleCreated,
   initialPreset,
+  freeGrowthPhaseEnabled = false,
 }: AlertCreationPopoverProps) {
   const [stage, setStage] = useState<Stage>({ step: "presets" });
   const initialPresetApplied = useRef(false);
@@ -257,6 +259,11 @@ export function AlertCreationPopover({
             Create a surf condition alert by choosing a preset or custom wave,
             wind, tide, and notification settings.
           </DialogDescription>
+          {freeGrowthPhaseEnabled ? (
+            <p className="mt-2 text-sm font-semibold leading-5 text-[#403A2E]">
+              Watch this spot, free. Track up to 3 breaks and we&apos;ll call the window.
+            </p>
+          ) : null}
         </DialogHeader>
 
         <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">

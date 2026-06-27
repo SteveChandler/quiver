@@ -6,6 +6,7 @@ import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spot
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
+import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
 import type { Metadata } from "next";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
@@ -315,6 +316,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           amenities={amenitiesResult}
           waterQuality={waterQualityResult}
           beachPhoto={beachPhoto}
+          freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
           beforeTabsContent={
             <div className="hidden md:block">
               <InlineSignupCta
