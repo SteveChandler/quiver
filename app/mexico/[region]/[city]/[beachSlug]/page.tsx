@@ -17,6 +17,7 @@ import { regionToSlug, cityToSlug } from "@/lib/utils/beach-url-utils";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import type { Beach } from "@/types/database";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -165,6 +166,7 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
           beachTimezone={beachTimezone}
           surfCallReport={surfCallReport}
           surfCallIsTomorrow={surfCallIsTomorrow}
+          freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
         />
 
         {/* SSR sections below tabs for SEO crawlability */}

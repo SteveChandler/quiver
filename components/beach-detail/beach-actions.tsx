@@ -19,6 +19,7 @@ interface BeachActionsProps {
   canGetDirections?: boolean;
   publicMode?: boolean;
   onAuthRequired?: () => void;
+  freeGrowthPhaseEnabled?: boolean;
   /** Called after a successful conditions report so parent can refresh RecentReports */
   onConditionsReportSuccess?: () => void;
   /** Called when user clicks the alert bell to open the alert creation/management flow */
@@ -32,6 +33,7 @@ export function BeachActions({
   canGetDirections,
   publicMode,
   onAuthRequired,
+  freeGrowthPhaseEnabled = false,
   onConditionsReportSuccess,
   onOpenAlerts,
 }: BeachActionsProps) {
@@ -124,6 +126,7 @@ export function BeachActions({
           beachId={beach.id}
           beachName={beach.name}
           onOpenAlerts={onOpenAlerts}
+          freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
         />
       </div>
 

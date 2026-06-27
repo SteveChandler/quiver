@@ -89,6 +89,30 @@ describe("BeachAlertCta", () => {
       ).toBeInTheDocument();
     });
 
+    it("does not show free-growth copy when the phase flag prop is off", () => {
+      render(<BeachAlertCta {...defaultProps} />);
+
+      expect(
+        screen.queryByText(/track up to 3 breaks/i)
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/notify me when conditions are ideal/i)
+      ).toBeInTheDocument();
+    });
+
+    it("shows locked free-growth copy when the phase flag prop is on", () => {
+      render(<BeachAlertCta {...defaultProps} freeGrowthPhaseEnabled />);
+
+      expect(
+        screen.getByRole("button", { name: /watch this spot, free/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Watch this spot, free. Track up to 3 breaks and we'll call the window.",
+        )
+      ).toBeInTheDocument();
+    });
+
     it("renders a Waves icon inside the button", () => {
       const { container } = render(<BeachAlertCta {...defaultProps} />);
       const icon = container.querySelector(".lucide-waves");
