@@ -76,6 +76,11 @@ const upsertSpy = jest.fn();
 // ---- Mocks ----
 
 jest.mock("@/lib/alerts/entitlements", () => ({
+  CAPS: {
+    free: { beaches: 1, rulesPerBeach: 3, totalRules: 3 },
+    premium: { beaches: 10, rulesPerBeach: 5, totalRules: 50 },
+  },
+  FREE_GROWTH_WATCHED_LIMIT: 3,
   getUserEntitlement: jest.fn(async () => mockUserEntitlementTier),
   // Always allow — we test the new guards here, not entitlement gating.
   canCreateRule: jest.fn(() => ({ allowed: true })),
@@ -132,14 +137,15 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
                 eq(col: string, val: string) {
                   // For POST: .eq("user_id", user.id) returns an awaitable list
                   if (col === "user_id") {
+                    const result = {
+                      data: mockExistingRules.filter(
+                        (r) => r.user_id === val
+                      ),
+                      error: null,
+                    };
                     return {
-                      then: (resolve: any) =>
-                        resolve({
-                          data: mockExistingRules.filter(
-                            (r) => r.user_id === val
-                          ),
-                          error: null,
-                        }),
+                      then: (resolve: any) => resolve(result),
+                      order: () => Promise.resolve(result),
                     };
                   }
                   // For DELETE/PATCH: .eq("id", ruleId).single()
@@ -265,7 +271,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
 });
 
 // ---- Imports must follow mocks ----
-import { POST } from "@/app/api/alerts/rules/route";
+import { GET, POST } from "@/app/api/alerts/rules/route";
 import { DELETE, PATCH } from "@/app/api/alerts/rules/[ruleId]/route";
 
 function makeReq(body?: unknown): any {
@@ -329,6 +335,56 @@ beforeEach(() => {
   updateSpy.mockReset();
   deleteSpy.mockReset();
   upsertSpy.mockReset();
+});
+
+// ============================================================================
+// GET /api/alerts/rules
+// ============================================================================
+
+describe("GET /api/alerts/rules — free-growth entitlement signal", () => {
+  const originalFreeGrowthPhase = process.env.FREE_GROWTH_PHASE;
+
+  afterEach(() => {
+    if (originalFreeGrowthPhase === undefined) {
+      delete process.env.FREE_GROWTH_PHASE;
+    } else {
+      process.env.FREE_GROWTH_PHASE = originalFreeGrowthPhase;
+    }
+  });
+
+  it("returns rules as data and phase-on free watch metadata as sidecar entitlement", async () => {
+    process.env.FREE_GROWTH_PHASE = "true";
+    mockUserEntitlementTier = "free";
+    mockExistingRules = [userRule()];
+
+    const res = await GET(makeReq());
+    const json = await res.json();
+
+    expect(json.data).toHaveLength(1);
+    expect(json.entitlement).toEqual({
+      tier: "free",
+      freeGrowthPhase: true,
+      freeWatchLimit: 3,
+      freeRuleLimit: 3,
+      premiumRuleLimit: 50,
+    });
+  });
+
+  it("keeps the current one-beach free limit when the phase flag is off", async () => {
+    delete process.env.FREE_GROWTH_PHASE;
+    mockUserEntitlementTier = "premium";
+
+    const res = await GET(makeReq());
+    const json = await res.json();
+
+    expect(json.data).toEqual([]);
+    expect(json.entitlement).toMatchObject({
+      tier: "premium",
+      freeGrowthPhase: false,
+      freeWatchLimit: 1,
+      freeRuleLimit: 3,
+    });
+  });
 });
 
 // ============================================================================
