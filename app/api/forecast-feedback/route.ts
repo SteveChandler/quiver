@@ -10,7 +10,9 @@ import {
 import {
   ForecastFeedbackClientPayloadSchema,
   buildSeasideForecastFeedbackPayload,
+  type ForecastFeedbackClientPayload,
 } from "@/lib/services/forecast/forecast-feedback";
+import type { Json } from "@/types/database.generated";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,12 @@ type SeasideFeedbackResponse = {
   id?: string | null;
   contract_version?: string;
   correlation_id?: string | null;
+};
+
+const FORECAST_ACCURACY_VOTE_VALUES: Record<string, boolean> = {
+  about_right: true,
+  too_low: false,
+  too_high: false,
 };
 
 function normalizedEnv(name: string): string | null {
@@ -48,9 +56,67 @@ async function parseJsonResponse(
   }
 }
 
+function forecastAccuracyVoteValue(
+  input: ForecastFeedbackClientPayload,
+): boolean | null {
+  if (input.feedbackKind !== "forecast_accuracy") return null;
+  return FORECAST_ACCURACY_VOTE_VALUES[input.feedbackValue] ?? null;
+}
+
+function nonEmptyJsonRecordOrNull(
+  value: Record<string, unknown> | undefined,
+): Json | null {
+  if (!value || Object.keys(value).length === 0) return null;
+  return value as Json;
+}
+
+async function persistForecastAccuracyVote(
+  { user, supabase }: AuthenticatedContext,
+  input: ForecastFeedbackClientPayload,
+): Promise<void> {
+  const wasAccurate = forecastAccuracyVoteValue(input);
+  if (wasAccurate == null) return;
+
+  const { data: forecast, error: forecastError } = await supabase
+    .from("enhanced_forecasts")
+    .select("id")
+    .eq("beach_id", input.beachId)
+    .eq("forecast_at", input.forecastAt)
+    .maybeSingle();
+
+  if (forecastError) {
+    throw new Error("Forecast vote target lookup failed");
+  }
+
+  if (!forecast?.id) {
+    throw new Error("Forecast vote target not found");
+  }
+
+  const { error } = await supabase
+    .from("forecast_accuracy_votes")
+    .upsert(
+      {
+        user_id: user.id,
+        forecast_id: forecast.id,
+        beach_id: input.beachId,
+        was_accurate: wasAccurate,
+        actual_conditions: nonEmptyJsonRecordOrNull(input.displayedContext),
+        notes: input.feedbackNote?.trim() || null,
+        photo_url: null,
+      },
+      { onConflict: "user_id,forecast_id" },
+    )
+    .select("id")
+    .single();
+
+  if (error) {
+    throw new Error("Forecast vote storage failed");
+  }
+}
+
 async function forecastFeedbackHandler(
   request: NextRequest,
-  { user }: AuthenticatedContext,
+  context: AuthenticatedContext,
 ): Promise<NextResponse> {
   const secret = readMlInternalSecret();
   if (!secret) {
@@ -76,8 +142,19 @@ async function forecastFeedbackHandler(
 
   const correlationId = validation.data.correlationId ?? randomUUID();
   const requestId = validation.data.requestId ?? randomUUID();
+
+  try {
+    await persistForecastAccuracyVote(context, validation.data);
+  } catch {
+    return createErrorResponse(
+      "Forecast vote storage failed",
+      { correlationId },
+      500,
+    );
+  }
+
   const payload = buildSeasideForecastFeedbackPayload(validation.data, {
-    userId: user.id,
+    userId: context.user.id,
     ingestPath: "quiver-api/forecast-feedback",
     requestId,
     correlationId,

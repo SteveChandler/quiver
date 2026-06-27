@@ -259,7 +259,7 @@ describe("logDisplayPredictions", () => {
     expect(upsertMock).toHaveBeenCalledTimes(1);
   });
 
-  it("drops rows missing Phase 0 replay provenance before writing", async () => {
+  it("fills missing raw-input provenance from the displayed value before writing", async () => {
     await logDisplayPredictions([
       sampleRow({
         beach_id: "beach-valid",
@@ -275,6 +275,7 @@ describe("logDisplayPredictions", () => {
         beach_id: "beach-missing-raw-input",
         display_wave_source: "model_swell",
         display_raw_input_height_m: null,
+        raw_display_height_m: 1.234,
       }),
       sampleRow({
         beach_id: "beach-negative-raw-input",
@@ -285,13 +286,21 @@ describe("logDisplayPredictions", () => {
 
     expect(upsertMock).toHaveBeenCalledTimes(1);
     const payload = upsertMock.mock.calls[0][0];
-    expect(payload).toHaveLength(1);
-    expect(payload[0]).toEqual(
-      expect.objectContaining({
-        beach_id: "beach-valid",
-        display_wave_source: "model_swell",
-        display_raw_input_height_m: 0.8,
-      })
+    expect(payload).toHaveLength(2);
+    expect(payload).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          beach_id: "beach-valid",
+          display_wave_source: "model_swell",
+          display_raw_input_height_m: 0.8,
+        }),
+        expect.objectContaining({
+          beach_id: "beach-missing-raw-input",
+          raw_display_height_m: 1.234,
+          display_wave_source: "model_swell",
+          display_raw_input_height_m: 1.234,
+        }),
+      ])
     );
   });
 
@@ -325,10 +334,12 @@ describe("logDisplayPredictions", () => {
       sampleRow({
         display_wave_source: "model_swell",
         display_raw_input_height_m: null,
+        raw_display_height_m: Number.NaN,
       }),
       sampleRow({
         display_wave_source: "model_swell",
         display_raw_input_height_m: -0.1,
+        raw_display_height_m: -0.1,
       }),
     ]);
 

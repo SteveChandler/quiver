@@ -56,7 +56,7 @@ describe('Forecast Verification Actions', () => {
 
   describe('voteForecastAccuracy', () => {
     const voteInput: ForecastVoteInput = {
-      forecastId: 'forecast-123',
+      forecastId: '11111111-1111-4111-8111-111111111111',
       beachId: 'beach-456',
       wasAccurate: true,
       notes: 'Great forecast accuracy',
@@ -66,7 +66,7 @@ describe('Forecast Verification Actions', () => {
       const mockVote = {
         id: 'vote-123',
         user_id: 'test-user-id',
-        forecast_id: 'forecast-123',
+        forecast_id: '11111111-1111-4111-8111-111111111111',
         beach_id: 'beach-456',
         was_accurate: true,
         notes: 'Great forecast accuracy',
@@ -104,11 +104,78 @@ describe('Forecast Verification Actions', () => {
       expect(result.data?.isUpdate).toBe(false);
     });
 
+    it('resolves generated forecast ids to enhanced_forecasts rows before voting', async () => {
+      const realForecastId = '22222222-2222-4222-8222-222222222222';
+      const mockVote = {
+        id: 'vote-123',
+        user_id: 'test-user-id',
+        forecast_id: realForecastId,
+        beach_id: 'beach-456',
+        was_accurate: true,
+        notes: 'Great forecast accuracy',
+        created_at: new Date().toISOString(),
+      };
+
+      const forecastTable = {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({
+                data: { id: realForecastId },
+                error: null,
+              }),
+            }),
+          }),
+        }),
+      };
+      const votesTable = {
+        select: jest.fn().mockReturnValue({
+          eq: jest.fn().mockReturnValue({
+            eq: jest.fn().mockReturnValue({
+              maybeSingle: jest.fn().mockResolvedValue({
+                data: null,
+                error: null,
+              }),
+            }),
+          }),
+        }),
+        insert: jest.fn().mockReturnValue({
+          select: jest.fn().mockReturnValue({
+            single: jest.fn().mockResolvedValue({
+              data: mockVote,
+              error: null,
+            }),
+          }),
+        }),
+      };
+
+      const mockSupabase = createMockSupabase();
+      (mockSupabase.from as jest.Mock).mockImplementation((table: string) => {
+        if (table === 'enhanced_forecasts') return forecastTable;
+        if (table === 'forecast_accuracy_votes') return votesTable;
+        throw new Error(`Unexpected table: ${table}`);
+      });
+      useMockSupabase(mockSupabase);
+
+      const result = await voteForecastAccuracy({
+        ...voteInput,
+        forecastId: 'forecast-beach-456-1779621600000',
+        forecastAt: '2026-05-24T14:00:00.000Z',
+      } as ForecastVoteInput & { forecastAt: string });
+
+      expect(result.success).toBe(true);
+      expect(forecastTable.select).toHaveBeenCalledWith('id');
+      expect(votesTable.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ forecast_id: realForecastId }),
+      );
+      expect(result.data?.vote).toEqual(mockVote);
+    });
+
     it('should update an existing vote successfully', async () => {
       const existingVote = {
         id: 'vote-123',
         user_id: 'test-user-id',
-        forecast_id: 'forecast-123',
+        forecast_id: '11111111-1111-4111-8111-111111111111',
         beach_id: 'beach-456',
         was_accurate: false,
         notes: 'Old notes',

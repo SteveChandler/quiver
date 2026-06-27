@@ -185,7 +185,8 @@ export async function logDisplayPredictions(
   try {
     const supabase = createServiceRoleClient();
 
-    const validRows = rows.filter(hasPhase0ReplayProvenance);
+    const normalizedRows = rows.map(fillDisplayRawInputHeight);
+    const validRows = normalizedRows.filter(hasPhase0ReplayProvenance);
     const skippedRows = rows.length - validRows.length;
     if (skippedRows > 0) {
       log.warn("logDisplayPredictions: skipped rows missing replay provenance", {
@@ -314,6 +315,22 @@ export async function logDisplayPredictions(
   }
 }
 
+function nonNegativeFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+function fillDisplayRawInputHeight(
+  row: DisplayPredictionRow
+): DisplayPredictionRow {
+  if (nonNegativeFiniteNumber(row.display_raw_input_height_m)) return row;
+  if (row.display_raw_input_height_m != null) return row;
+  if (!nonNegativeFiniteNumber(row.raw_display_height_m)) return row;
+  return {
+    ...row,
+    display_raw_input_height_m: row.raw_display_height_m,
+  };
+}
+
 function shouldFallbackToLegacyConflictTarget(error: {
   code?: string;
   message?: string;
@@ -341,8 +358,6 @@ function hasPhase0ReplayProvenance(row: DisplayPredictionRow): boolean {
   return (
     row.display_wave_source != null &&
     WAVE_HEIGHT_SOURCE_TAG_SET.has(row.display_wave_source) &&
-    typeof row.display_raw_input_height_m === "number" &&
-    Number.isFinite(row.display_raw_input_height_m) &&
-    row.display_raw_input_height_m >= 0
+    nonNegativeFiniteNumber(row.display_raw_input_height_m)
   );
 }
