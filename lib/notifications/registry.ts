@@ -382,6 +382,10 @@ export const NOTIFICATION_REGISTRY = {
       body: p.body,
       data: {
         type: "forecast_alert",
+        utm_source: "quiver",
+        utm_medium: "push",
+        utm_campaign: "conditions_alert",
+        email_type: "conditions_alert",
         alert_date: p.alert_date,
         ...(p.beach_id ? { beach_id: p.beach_id } : {}),
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),

@@ -145,6 +145,11 @@ export const VALID_EVENTS = [
   'forecast_accuracy_table_viewed',
   'save_alert_clicked',
   'seo_intent_page_window_clicked',
+  // Free growth education + watched spot funnel
+  'free_growth_education_impression',
+  'free_growth_education_cta_tapped',
+  'watch_spot_tapped',
+  'alert_rule_created',
   // Session log funnel
   'session_log_beach_selected',
   'session_log_conditions_set',
@@ -343,6 +348,8 @@ export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   'forecast_accuracy_table_viewed',
   'save_alert_clicked',
   'seo_intent_page_window_clicked',
+  'free_growth_education_impression',
+  'free_growth_education_cta_tapped',
   // Empty states + CTA impressions
   'empty_state_shown', 'cta_impression',
   // Client error capture

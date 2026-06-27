@@ -1,7 +1,13 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import "@testing-library/jest-dom";
 import { AlertCreationPopover } from "@/components/alerts/alert-creation-popover";
+
+const mockTrack = jest.fn();
+
+jest.mock("@/hooks/use-track-event", () => ({
+  useTrackEvent: () => ({ track: mockTrack }),
+}));
 
 jest.mock("sonner", () => ({
   toast: {
@@ -47,6 +53,15 @@ function renderPopover(freeGrowthPhaseEnabled: boolean) {
 }
 
 describe("AlertCreationPopover", () => {
+  beforeEach(() => {
+    mockTrack.mockClear();
+    global.fetch = jest.fn();
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   it("shows free-growth copy only when the phase flag prop is on", () => {
     const { rerender } = renderPopover(false);
 
@@ -72,5 +87,50 @@ describe("AlertCreationPopover", () => {
         "Watch this spot, free. Track up to 3 breaks and we'll call the window.",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("tracks alert creation and watched spot creation after preset save", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: { id: "rule-1" } }),
+    });
+    const onRuleCreated = jest.fn();
+
+    render(
+      <AlertCreationPopover
+        beachId="beach-1"
+        beachName="Swamis"
+        beach={beach}
+        open
+        onOpenChange={jest.fn()}
+        onRuleCreated={onRuleCreated}
+        freeGrowthPhaseEnabled
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Glassy: Light wind and clean waves. Smooth as glass.",
+      }),
+    );
+
+    await waitFor(() => expect(onRuleCreated).toHaveBeenCalledTimes(1));
+    expect(mockTrack).toHaveBeenCalledWith("alert_rule_created", {
+      beachId: "beach-1",
+      metadata: {
+        surface: "alert_creation_popover",
+        creation_flow: "preset",
+        preset_type: "glass_off",
+      },
+    });
+    expect(mockTrack).toHaveBeenCalledWith("watch_spot_tapped", {
+      beachId: "beach-1",
+      metadata: {
+        surface: "alert_creation_popover",
+        outcome: "created",
+        creation_flow: "preset",
+        preset_type: "glass_off",
+      },
+    });
   });
 });

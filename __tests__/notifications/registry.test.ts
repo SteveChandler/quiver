@@ -40,6 +40,10 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     });
     expect(out.data).toMatchObject({
       type: "forecast_alert",
+      utm_source: "quiver",
+      utm_medium: "push",
+      utm_campaign: "conditions_alert",
+      email_type: "conditions_alert",
       beach_id: "beach-1",
       forecast_at: "2026-05-10T14:30:00.000Z",
     });
