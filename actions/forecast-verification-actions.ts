@@ -1,12 +1,13 @@
 "use server";
 
 import { makeAuthenticatedAction } from "@/lib/server-action-utils";
-import type { Database } from "@/types/supabase";
+import type { Database, SupabaseServerClient } from "@/types/supabase";
 
 // Types
 export interface ForecastVoteInput {
   forecastId: string;
   beachId: string;
+  forecastAt?: string;
   wasAccurate: boolean;
   actualConditions?: {
     wave_height?: number;
@@ -41,6 +42,37 @@ export interface BeachAccuracyStats {
   recent_votes: ForecastVote[];
 }
 
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function resolveForecastId(
+  supabase: SupabaseServerClient,
+  input: ForecastVoteInput,
+): Promise<string> {
+  if (UUID_PATTERN.test(input.forecastId)) return input.forecastId;
+
+  if (!input.forecastAt) {
+    throw new Error("Forecast time is required for generated forecast IDs");
+  }
+
+  const { data, error } = await supabase
+    .from("enhanced_forecasts")
+    .select("id")
+    .eq("beach_id", input.beachId)
+    .eq("forecast_at", input.forecastAt)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to resolve forecast: ${error.message}`);
+  }
+
+  if (!data?.id) {
+    throw new Error("Forecast row not found");
+  }
+
+  return data.id;
+}
+
 /**
  * Submit or update a forecast accuracy vote
  * Users can vote once per forecast, subsequent calls update their vote
@@ -55,12 +87,14 @@ export const voteForecastAccuracy = makeAuthenticatedAction(
       throw new Error("wasAccurate must be a boolean value");
     }
 
+    const forecastId = await resolveForecastId(supabase, input);
+
     // Check if user has already voted on this forecast
     const { data: existingVote, error: fetchError } = await supabase
       .from("forecast_accuracy_votes")
       .select("*")
       .eq("user_id", user.id)
-      .eq("forecast_id", input.forecastId)
+      .eq("forecast_id", forecastId)
       .maybeSingle();
 
     if (fetchError) {
@@ -69,7 +103,7 @@ export const voteForecastAccuracy = makeAuthenticatedAction(
 
     const voteData = {
       user_id: user.id,
-      forecast_id: input.forecastId,
+      forecast_id: forecastId,
       beach_id: input.beachId,
       was_accurate: input.wasAccurate,
       actual_conditions: input.actualConditions || null,

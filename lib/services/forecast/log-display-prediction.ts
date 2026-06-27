@@ -185,13 +185,16 @@ export async function logDisplayPredictions(
   try {
     const supabase = createServiceRoleClient();
 
-    const validRows = rows.filter(hasPhase0ReplayProvenance);
+    const validRows = rows.filter(hasValidSidecarProvenanceValues);
     const skippedRows = rows.length - validRows.length;
     if (skippedRows > 0) {
-      log.warn("logDisplayPredictions: skipped rows missing replay provenance", {
-        rowCount: rows.length,
-        skippedRows,
-      });
+      log.warn(
+        "logDisplayPredictions: skipped rows with invalid sidecar provenance",
+        {
+          rowCount: rows.length,
+          skippedRows,
+        }
+      );
     }
     if (validRows.length === 0) {
       return;
@@ -314,6 +317,10 @@ export async function logDisplayPredictions(
   }
 }
 
+function nonNegativeFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
 function shouldFallbackToLegacyConflictTarget(error: {
   code?: string;
   message?: string;
@@ -337,12 +344,13 @@ function shouldFallbackToLegacyConflictTarget(error: {
   );
 }
 
-function hasPhase0ReplayProvenance(row: DisplayPredictionRow): boolean {
-  return (
-    row.display_wave_source != null &&
-    WAVE_HEIGHT_SOURCE_TAG_SET.has(row.display_wave_source) &&
-    typeof row.display_raw_input_height_m === "number" &&
-    Number.isFinite(row.display_raw_input_height_m) &&
-    row.display_raw_input_height_m >= 0
-  );
+function hasValidSidecarProvenanceValues(row: DisplayPredictionRow): boolean {
+  const hasValidWaveSource =
+    row.display_wave_source == null ||
+    WAVE_HEIGHT_SOURCE_TAG_SET.has(row.display_wave_source);
+  const hasValidRawInput =
+    row.display_raw_input_height_m == null ||
+    nonNegativeFiniteNumber(row.display_raw_input_height_m);
+
+  return hasValidWaveSource && hasValidRawInput;
 }
