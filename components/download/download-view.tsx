@@ -1,10 +1,12 @@
 import Image from "next/image";
+import Link from "next/link";
 import type { ReactElement } from "react";
 
 import { SaltyEyebrow, TornDivider } from "@/components/beach-detail/zine/atoms";
 import { StoreDownloadButtons } from "@/components/landing-page/store-download-buttons";
 import { QuiverSticker, ZineSurface, type QuiverStickerProps } from "@/components/zine";
 import type { FirstTouchPlatform } from "@/lib/analytics/web-context";
+import { ANDROID_BETA_LANDING_PATH } from "@/lib/constants/app-store";
 
 interface DownloadViewProps {
   platform: FirstTouchPlatform;
@@ -90,8 +92,8 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
               Get Quiver for your phone.
             </h1>
             <p className="mt-4 max-w-2xl font-mono text-sm leading-relaxed text-[#11100D]/80 sm:text-base">
-              Free to start. On iPhone now, with the Android beta open for
-              testers.
+              Free to start. Live on iPhone now — and the Android beta is open
+              through Google Play closed testing.
             </p>
             <div className="mt-6 max-w-xl">
               <StoreDownloadButtons
@@ -176,9 +178,17 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
               Android
             </h2>
             <p className="mt-2 font-mono text-sm leading-relaxed text-[#11100D]/80">
-              Beta access runs through the tester group while the public install
-              path stays gated.
+              The Android beta is open through Google Play closed testing. Join
+              the tester group, opt in, then install — test 14 days for a year
+              of Quiver Pro.
             </p>
+            <Link
+              href={ANDROID_BETA_LANDING_PATH}
+              data-testid="download-android-beta-link"
+              className="mt-4 inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
+            >
+              Join the Android beta
+            </Link>
           </div>
         </div>
         <TornDivider />

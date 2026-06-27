@@ -5,117 +5,176 @@ import {
   ANDROID_BETA_CONTACT_EMAIL,
   ANDROID_BETA_CONTACT_MAILTO,
   ANDROID_BETA_GROUP_URL,
-  ANDROID_BETA_LANDING_URL,
+  ANDROID_BETA_PLAY_URL,
 } from "@/lib/constants/app-store";
+import { buildSmartQrHandoffUrl } from "@/lib/constants/app-handoff";
+import { QuiverSticker, ZineSurface } from "@/components/zine";
+
+const ANDROID_BETA_SMART_QR_URL = buildSmartQrHandoffUrl({
+  source: "android_beta_page",
+  surface: "android_beta",
+  placement: "instructions_qr",
+  qr_id: "android_beta_instructions",
+  target: "android_beta",
+  utm_medium: "android_beta",
+});
 
 const STEPS = [
   {
     title: "Join the tester group",
-    body: "Start by joining the Quiver Android testers Google Group.",
+    body: "Join the Quiver Android testers Google Group with the Google account you use on your phone.",
   },
   {
-    title: "Use the same Google account",
-    body: "Make sure the Google account on your Android phone matches the one you use in Google Play.",
+    title: "Opt in on Google Play",
+    body: "Open the closed-test link and tap “Become a tester” to unlock the Quiver install on Google Play.",
   },
   {
-    title: "Wait for Play access",
-    body: "The closed-test install link is not public on this page yet. Once your access is granted, install through the Play beta flow tied to that same account.",
+    title: "Install Quiver",
+    body: "Once you're opted in, install Quiver straight from Google Play on that same account.",
   },
   {
-    title: "Send feedback or access issues",
-    body: `Email ${ANDROID_BETA_CONTACT_EMAIL} if the invite does not unlock or if you hit bugs.`,
+    title: "Test for 14 days",
+    body: `Save a home beach, log a session, and stay opted in for two weeks. Email ${ANDROID_BETA_CONTACT_EMAIL} if you hit any bugs.`,
   },
 ] as const;
 
 export function AndroidBetaClient() {
   return (
-    <main className="min-h-screen bg-[#07133A] px-4 py-16 text-white">
-      <section className="mx-auto grid max-w-6xl gap-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
-        <div className="space-y-8">
-          <div className="space-y-4">
-            <span className="inline-flex rounded-full border border-[#F78E42]/40 bg-[#F78E42]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#F7B27C]">
-              Android Closed Beta
-            </span>
-            <div className="space-y-3">
-              <h1 className="font-heading text-4xl font-semibold tracking-tight text-white sm:text-5xl">
-                Join the Quiver Android beta
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-white/72 sm:text-lg">
-                Quiver on Android is still in closed testing. This page is the
-                handoff for testers: join the group, use the right Google
-                account, and we&apos;ll route you into the Play beta flow as
-                access opens up.
-              </p>
+    <ZineSurface
+      sectionLabel="Android beta"
+      editionLabel="Closed test handoff"
+      data-testid="android-beta-zine-surface"
+    >
+      <main>
+        <header className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-start">
+          <div className="relative">
+            <QuiverSticker
+              sticker="orangeTape"
+              className="absolute -top-8 right-6 hidden w-36 rotate-6 opacity-85 sm:block"
+            />
+            <p className="label-black mb-5">Android closed beta</p>
+            <h1 className="zine-h1 font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
+              Join the Quiver Android beta
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[#11100D]/75 sm:text-xl">
+              Quiver on Android is in closed testing — and you can jump in right
+              now. Join the tester group, opt in on Google Play, and install
+              Quiver today. Test for 14 days and we&apos;ll comp you a year of
+              Quiver Pro.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/65">
+              <span>Google Group invite</span>
+              <span aria-hidden>/</span>
+              <span>Play closed test</span>
+              <span aria-hidden>/</span>
+              <span>Same Google account</span>
+            </div>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <a
+                href={ANDROID_BETA_GROUP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
+              >
+                1 · Join the tester group
+              </a>
+              {ANDROID_BETA_PLAY_URL ? (
+                <a
+                  href={ANDROID_BETA_PLAY_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#11100D] px-5 py-2 font-semibold text-[#F4EBD8] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
+                >
+                  2 · Opt in on Google Play
+                </a>
+              ) : null}
+              <a
+                href={ANDROID_BETA_CONTACT_MAILTO}
+                className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
+              >
+                Email {ANDROID_BETA_CONTACT_EMAIL}
+              </a>
             </div>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <a
-              href={ANDROID_BETA_GROUP_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#F78E42] px-5 py-3 text-center font-semibold text-[#252D6B] transition hover:bg-[#FFAA63]"
-            >
-              Join the tester group
-            </a>
-            <a
-              href={ANDROID_BETA_CONTACT_MAILTO}
-              className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/16 px-5 py-3 text-center font-semibold text-white transition hover:bg-white/8"
-            >
-              Email {ANDROID_BETA_CONTACT_EMAIL}
-            </a>
+          <aside className="relative">
+            <QuiverSticker
+              sticker="creamTape"
+              className="absolute -top-6 left-8 z-10 w-28 -rotate-6 opacity-90"
+            />
+            <div className="torn torn-tb rot-2 border-2 border-[#11100D] bg-[#FBF6E8]">
+              <div className="mx-auto w-fit border-2 border-[#11100D] bg-white p-4 shadow-[3px_3px_0_rgba(17,16,13,0.25)]">
+                <QRCodeSVG
+                  data-testid="android-beta-qr"
+                  data-smart-url={ANDROID_BETA_SMART_QR_URL}
+                  value={ANDROID_BETA_SMART_QR_URL}
+                  size={248}
+                  level="H"
+                  marginSize={4}
+                  bgColor="#FFFFFF"
+                  fgColor="#252D6B"
+                  imageSettings={{
+                    src: "/quiver-app-icon-128.png",
+                    width: 34,
+                    height: 34,
+                    excavate: true,
+                  }}
+                />
+              </div>
+              <div className="mt-5 space-y-2 text-center">
+                <p className="typewriter mb-1">Scan to start</p>
+                <h2 className="font-display text-lg font-black uppercase leading-tight text-[#11100D]">
+                  Scan for the beta instructions
+                </h2>
+                <p className="text-sm leading-relaxed text-[#11100D]/70">
+                  This QR code uses the Quiver smart handoff: Android routes to
+                  the beta access path, iPhone routes to the App Store, and
+                  desktop gets the phone handoff.
+                </p>
+              </div>
+            </div>
+          </aside>
+        </header>
+
+        <section className="mt-14" aria-labelledby="android-beta-steps-heading">
+          <div className="mb-5 flex items-end justify-between gap-4 border-b-2 border-dashed border-[#11100D]/35 pb-4">
+            <div>
+              <p className="typewriter mb-2">How to get in</p>
+              <h2
+                id="android-beta-steps-heading"
+                className="font-display text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl"
+              >
+                Four steps into the closed test
+              </h2>
+            </div>
+            <QuiverSticker
+              sticker="orangeMap"
+              className="hidden w-14 rotate-6 drop-shadow-sm sm:block"
+            />
           </div>
 
-          <ol className="grid gap-4">
+          <ol className="grid gap-5 sm:grid-cols-2">
             {STEPS.map((step, index) => (
               <li
                 key={step.title}
-                className="rounded-[28px] border border-white/10 bg-white/6 p-5"
+                className="notebook grid gap-3 sm:grid-cols-[3rem_1fr]"
               >
-                <div className="mb-2 flex items-center gap-3">
-                  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#F78E42] text-sm font-semibold text-[#252D6B]">
-                    {index + 1}
-                  </span>
-                  <h2 className="font-heading text-lg font-semibold text-white">
+                <span className="font-mono text-sm font-bold text-[#B56A2B]">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <div>
+                  <h3 className="font-display text-xl font-black uppercase leading-tight text-[#11100D]">
                     {step.title}
-                  </h2>
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-[#11100D]/70">
+                    {step.body}
+                  </p>
                 </div>
-                <p className="text-sm leading-6 text-white/72">{step.body}</p>
               </li>
             ))}
           </ol>
-        </div>
-
-        <aside className="rounded-[32px] border border-white/10 bg-[#111B46] p-6 shadow-[0_18px_60px_rgba(0,0,0,0.28)]">
-          <div className="rounded-[24px] bg-white p-5">
-            <QRCodeSVG
-              data-testid="android-beta-qr"
-              value={ANDROID_BETA_LANDING_URL}
-              size={248}
-              level="H"
-              marginSize={4}
-              bgColor="#FFFFFF"
-              fgColor="#252D6B"
-              imageSettings={{
-                src: "/quiver-app-icon-128.png",
-                width: 34,
-                height: 34,
-                excavate: true,
-              }}
-            />
-          </div>
-          <div className="mt-5 space-y-2 text-center">
-            <h2 className="font-heading text-lg font-semibold text-white">
-              Scan for the beta instructions
-            </h2>
-            <p className="text-sm leading-6 text-white/68">
-              This QR code points to the Quiver-hosted Android beta page, not a
-              direct Play install. Keep it as the source of truth until the
-              tester link is ready.
-            </p>
-          </div>
-        </aside>
-      </section>
-    </main>
+        </section>
+      </main>
+    </ZineSurface>
   );
 }
