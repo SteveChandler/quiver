@@ -8,6 +8,7 @@ import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { usePendingAction } from "@/hooks/use-pending-action";
 import { usePathname } from "next/navigation";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 import { cn } from "@/lib/utils";
 
@@ -36,10 +37,12 @@ export function BeachAlertCta({
   onOpenAlerts,
 }: BeachAlertCtaProps) {
   const { user } = useAuth();
+  const { track } = useTrackEvent();
   const { pendingAction, setPendingAction, clearPendingAction } = usePendingAction();
   const pathname = usePathname();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const previousRefreshKey = useRef(refreshKey);
+  const freeGrowthImpressionKey = useRef<string | null>(null);
 
   // Fetch alert rules only for authenticated users — filter by beach_id client-side
   const fetchRules = useCallback(async (): Promise<AlertRule[]> => {
@@ -97,7 +100,41 @@ export function BeachAlertCta({
     void refetch();
   }, [user, refreshKey, invalidateCache, refetch]);
 
+  useEffect(() => {
+    if (!freeGrowthPhaseEnabled || hasAlerts) return;
+    if (user && !showAlertCount) return;
+
+    const impressionKey = `${user?.id ?? "anon"}:${beachId}`;
+    if (freeGrowthImpressionKey.current === impressionKey) return;
+    freeGrowthImpressionKey.current = impressionKey;
+
+    void track("free_growth_education_impression", {
+      beachId,
+      metadata: {
+        surface: "beach_detail_alert_cta",
+        audience: user ? "authenticated" : "anonymous",
+      },
+    });
+  }, [
+    beachId,
+    freeGrowthPhaseEnabled,
+    hasAlerts,
+    showAlertCount,
+    track,
+    user,
+  ]);
+
   function handleClick() {
+    if (freeGrowthPhaseEnabled && !hasAlerts) {
+      void track("free_growth_education_cta_tapped", {
+        beachId,
+        metadata: {
+          surface: "beach_detail_alert_cta",
+          audience: user ? "authenticated" : "anonymous",
+        },
+      });
+    }
+
     if (!user) {
       trackSignupCtaClick({
         source: "beach-alert-cta",
@@ -109,6 +146,17 @@ export function BeachAlertCta({
       setAuthModalOpen(true);
       return;
     }
+
+    if (hasAlerts) {
+      void track("watch_spot_tapped", {
+        beachId,
+        metadata: {
+          surface: "beach_detail_alert_cta",
+          outcome: "tune",
+        },
+      });
+    }
+
     onOpenAlerts?.();
   }
 

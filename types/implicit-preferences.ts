@@ -162,6 +162,10 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   forecast_accuracy_table_viewed: 0,
   save_alert_clicked: 0,
   seo_intent_page_window_clicked: 0,
+  free_growth_education_impression: 0,
+  free_growth_education_cta_tapped: 0,
+  watch_spot_tapped: 0,
+  alert_rule_created: 0,
   // Session log funnel
   session_log_beach_selected: 0,
   session_log_conditions_set: 0,
@@ -846,6 +850,28 @@ export interface SeoIntentPageWindowClickedMetadata {
   link_index: number;
 }
 
+/** Metadata for free-growth education events. */
+export interface FreeGrowthEducationMetadata {
+  surface: string;
+  audience: "anonymous" | "authenticated" | "free";
+}
+
+/** Metadata for the watched-spot action funnel. */
+export interface WatchSpotTappedMetadata {
+  surface: string;
+  outcome: "created" | "tune" | "upsell";
+  preset_type?: string | null;
+  creation_flow?: "preset" | "customize" | "custom";
+  error_status?: number;
+}
+
+/** Metadata for condition alert creation events. */
+export interface AlertRuleCreatedMetadata {
+  surface: string;
+  preset_type?: string | null;
+  creation_flow?: "preset" | "customize" | "custom";
+}
+
 /** Metadata for empty_state_shown events */
 export interface EmptyStateShownMetadata {
   /** Identifier for which empty state surface rendered (e.g., 'beach_reviews', 'map_no_beaches_in_viewport', 'intel_feed', 'session_list') */
@@ -937,6 +963,9 @@ export type EventMetadata =
   | ForecastAccuracyTableViewedMetadata
   | SaveAlertClickedMetadata
   | SeoIntentPageWindowClickedMetadata
+  | FreeGrowthEducationMetadata
+  | WatchSpotTappedMetadata
+  | AlertRuleCreatedMetadata
   | EmptyStateShownMetadata
   | CtaImpressionMetadata
   | ClientErrorMetadata

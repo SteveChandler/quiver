@@ -551,6 +551,9 @@ describe("processPendingEvents — happy path", () => {
     expect(sentMessages[0].data?.notification_event_id).toBe(
       "evt-push-attribution"
     );
+    expect(sentMessages[0].data?.message_instance_id).toBe(
+      "evt-push-attribution"
+    );
   });
 
   it("forecast_alert: worker push success reconciles alert_delivery_attempts", async () => {
