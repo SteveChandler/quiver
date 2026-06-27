@@ -57,6 +57,29 @@ async function cleanupCreatedBoardRows(
 
   const supabase = createServiceClient();
   for (const pattern of BOARD_TEST_NAME_PATTERNS) {
+    const { data: boards, error: selectError } = await supabase
+      .from('boards')
+      .select('id')
+      .eq('user_id', userId)
+      .like('name', pattern);
+
+    if (selectError) {
+      throw new Error(`Board cleanup lookup failed for ${pattern}: ${selectError.message}`);
+    }
+
+    const boardIds = (boards ?? []).map((board) => board.id);
+    if (boardIds.length > 0) {
+      const { error: sessionsError } = await supabase
+        .from('sessions')
+        .delete()
+        .eq('user_id', userId)
+        .in('board_id', boardIds);
+
+      if (sessionsError) {
+        throw new Error(`Board session cleanup failed for ${pattern}: ${sessionsError.message}`);
+      }
+    }
+
     const { error } = await supabase
       .from('boards')
       .delete()

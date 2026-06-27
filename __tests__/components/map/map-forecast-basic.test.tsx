@@ -66,6 +66,7 @@ jest.mock("next/navigation", () => ({
     push: jest.fn(),
     refresh: jest.fn(),
   }),
+  usePathname: () => "/map",
 }));
 
 jest.mock("@/context/auth-context", () => ({
