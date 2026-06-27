@@ -259,48 +259,90 @@ describe("logDisplayPredictions", () => {
     expect(upsertMock).toHaveBeenCalledTimes(1);
   });
 
-  it("fills missing raw-input provenance from the displayed value before writing", async () => {
+  it("logs no-source Flat rows with null raw input instead of fabricating output as input", async () => {
+    await logDisplayPredictions([
+      sampleRow({
+        beach_id: "beach-flat",
+        display_wave_source: null,
+        display_raw_input_height_m: null,
+        raw_display_height_m: 0,
+        offset_corrected_display_height_m: 0,
+      }),
+    ]);
+
+    expect(upsertMock).toHaveBeenCalledTimes(1);
+    const payload = upsertMock.mock.calls[0][0];
+    expect(payload).toHaveLength(1);
+    expect(payload[0]).toEqual(
+      expect.objectContaining({
+        beach_id: "beach-flat",
+        display_wave_source: null,
+        display_raw_input_height_m: null,
+        raw_display_height_m: 0,
+        offset_corrected_display_height_m: 0,
+      })
+    );
+  });
+
+  it("preserves the builder's true raw transform input for valid-source rows", async () => {
     await logDisplayPredictions([
       sampleRow({
         beach_id: "beach-valid",
         display_wave_source: "model_swell",
         display_raw_input_height_m: 0.8,
+        raw_display_height_m: 1.234,
       }),
-      sampleRow({
-        beach_id: "beach-missing-source",
-        display_wave_source: null,
+    ]);
+
+    expect(upsertMock).toHaveBeenCalledTimes(1);
+    const payload = upsertMock.mock.calls[0][0];
+    expect(payload[0]).toEqual(
+      expect.objectContaining({
+        beach_id: "beach-valid",
+        display_wave_source: "model_swell",
         display_raw_input_height_m: 0.8,
-      }),
+        raw_display_height_m: 1.234,
+      })
+    );
+  });
+
+  it("does not fabricate a missing raw transform input from the displayed output", async () => {
+    await logDisplayPredictions([
       sampleRow({
         beach_id: "beach-missing-raw-input",
         display_wave_source: "model_swell",
         display_raw_input_height_m: null,
         raw_display_height_m: 1.234,
       }),
-      sampleRow({
-        beach_id: "beach-negative-raw-input",
-        display_wave_source: "model_swell",
-        display_raw_input_height_m: -0.1,
-      }),
     ]);
 
     expect(upsertMock).toHaveBeenCalledTimes(1);
     const payload = upsertMock.mock.calls[0][0];
-    expect(payload).toHaveLength(2);
-    expect(payload).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          beach_id: "beach-valid",
-          display_wave_source: "model_swell",
-          display_raw_input_height_m: 0.8,
-        }),
-        expect.objectContaining({
-          beach_id: "beach-missing-raw-input",
-          raw_display_height_m: 1.234,
-          display_wave_source: "model_swell",
-          display_raw_input_height_m: 1.234,
-        }),
-      ])
+    expect(payload).toHaveLength(1);
+    expect(payload[0]).toEqual(
+      expect.objectContaining({
+        beach_id: "beach-missing-raw-input",
+        raw_display_height_m: 1.234,
+        display_wave_source: "model_swell",
+        display_raw_input_height_m: null,
+      })
+    );
+  });
+
+  it("writes the caller's EF display value into the sidecar displayed-value column", async () => {
+    const efDisplayHeightM = 1.456;
+
+    await logDisplayPredictions([
+      sampleRow({
+        raw_display_height_m: 1.789,
+        offset_corrected_display_height_m: efDisplayHeightM,
+        display_raw_input_height_m: 0.91,
+      }),
+    ]);
+
+    const payload = upsertMock.mock.calls[0][0];
+    expect(payload[0].offset_corrected_display_height_m).toBe(
+      efDisplayHeightM
     );
   });
 
@@ -325,21 +367,19 @@ describe("logDisplayPredictions", () => {
     ).toEqual([...WAVE_HEIGHT_SOURCE_TAGS]);
   });
 
-  it("skips the insert when every row is missing Phase 0 replay provenance", async () => {
+  it("skips the insert when every row has invalid sidecar provenance values", async () => {
     await logDisplayPredictions([
       sampleRow({
-        display_wave_source: null,
-        display_raw_input_height_m: 0.8,
+        display_wave_source: "unknown-source" as never,
+        display_raw_input_height_m: null,
       }),
       sampleRow({
         display_wave_source: "model_swell",
-        display_raw_input_height_m: null,
-        raw_display_height_m: Number.NaN,
+        display_raw_input_height_m: Number.NaN,
       }),
       sampleRow({
         display_wave_source: "model_swell",
         display_raw_input_height_m: -0.1,
-        raw_display_height_m: -0.1,
       }),
     ]);
 
