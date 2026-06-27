@@ -6,6 +6,8 @@ import { NextRequest } from "next/server";
 import { POST } from "@/app/api/forecast-feedback/route";
 
 const mockUser = { id: "user-1" };
+const mockSupabase = { from: jest.fn() };
+const MOCK_FORECAST_ID = "22222222-2222-4222-8222-222222222222";
 
 jest.mock("@/lib/middleware/api-wrappers", () => {
   const actual = jest.requireActual("@/lib/api-utils");
@@ -14,11 +16,11 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
       (
         handler: (
           request: NextRequest,
-          context: { user: typeof mockUser; supabase: Record<string, never> },
+          context: { user: typeof mockUser; supabase: typeof mockSupabase },
         ) => Promise<Response>,
       ) =>
       (request: NextRequest) =>
-        handler(request, { user: mockUser, supabase: {} }),
+        handler(request, { user: mockUser, supabase: mockSupabase }),
     createErrorResponse: actual.createErrorResponse,
     createSuccessResponse: actual.createSuccessResponse,
     createValidationError: actual.createValidationError,
@@ -26,6 +28,45 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
 });
 
 const originalEnv = process.env;
+
+function mockForecastAccuracyVotePersistence() {
+  const enhancedMaybeSingle = jest.fn().mockResolvedValue({
+    data: { id: MOCK_FORECAST_ID },
+    error: null,
+  });
+  const enhancedForecastsTable = {
+    select: jest.fn().mockReturnValue({
+      eq: jest.fn().mockReturnValue({
+        eq: jest.fn().mockReturnValue({
+          maybeSingle: enhancedMaybeSingle,
+        }),
+      }),
+    }),
+  };
+
+  const voteSingle = jest.fn().mockResolvedValue({
+    data: { id: "vote-row-1" },
+    error: null,
+  });
+  const forecastVotesTable = {
+    upsert: jest.fn().mockReturnValue({
+      select: jest.fn().mockReturnValue({
+        single: voteSingle,
+      }),
+    }),
+  };
+
+  mockSupabase.from.mockImplementation((table: string) => {
+    if (table === "enhanced_forecasts") return enhancedForecastsTable;
+    if (table === "forecast_accuracy_votes") return forecastVotesTable;
+    throw new Error(`Unexpected table: ${table}`);
+  });
+
+  return {
+    enhancedForecastsTable,
+    forecastVotesTable,
+  };
+}
 
 function basePayload(overrides: Record<string, unknown> = {}) {
   return {
@@ -63,6 +104,8 @@ function requestWithBody(body: unknown): NextRequest {
 describe("POST /api/forecast-feedback", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSupabase.from.mockReset();
+    mockForecastAccuracyVotePersistence();
     process.env = {
       ...originalEnv,
       ML_INTERNAL_SECRET: "test-secret",
@@ -128,6 +171,30 @@ describe("POST /api/forecast-feedback", () => {
     });
     expect(forwarded.displayed_context.wave_height_ft).toBe("2-3 ft");
     expect(forwarded.source_model_context.data_source).toBe("NOAA_NWS");
+  });
+
+  it("persists forecast-accuracy feedback into forecast_accuracy_votes", async () => {
+    const { forecastVotesTable } = mockForecastAccuracyVotePersistence();
+
+    const response = await POST(requestWithBody(basePayload()));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.success).toBe(true);
+    expect(mockSupabase.from).toHaveBeenCalledWith("enhanced_forecasts");
+    expect(mockSupabase.from).toHaveBeenCalledWith("forecast_accuracy_votes");
+    expect(forecastVotesTable.upsert).toHaveBeenCalledWith(
+      {
+        user_id: "user-1",
+        forecast_id: MOCK_FORECAST_ID,
+        beach_id: "11111111-1111-4111-8111-111111111111",
+        was_accurate: false,
+        actual_conditions: { wave_height_ft: "2-3 ft" },
+        notes: "Saw waist-high waves.",
+        photo_url: null,
+      },
+      { onConflict: "user_id,forecast_id" },
+    );
   });
 
   it("adds explicit missing flags for empty context groups before calling Seaside", async () => {
