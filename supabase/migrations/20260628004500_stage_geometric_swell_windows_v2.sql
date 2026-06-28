@@ -15,6 +15,8 @@ COMMENT ON COLUMN public.beaches.swell_window_v2_analyzed_at IS 'Timestamp when 
 
 DO $$
 DECLARE
+  listed_count integer;
+  expected_count integer;
   updated_count integer;
 BEGIN
 WITH candidate(id, min_deg, center_deg, max_deg, halfwidth_deg) AS (
@@ -339,21 +341,43 @@ WITH candidate(id, min_deg, center_deg, max_deg, halfwidth_deg) AS (
   ('6f42d47d-215b-47cb-ac14-b83bf8c2a797'::uuid, 180, 260, 335, 78),
   ('4b88f10a-c794-4144-b17a-133af9fee9f9'::uuid, 45, 120, 200, 78),
   ('836f218a-9471-46c9-b201-24da1dfe0f3a'::uuid, 95, 185, 275, 90)
+),
+matching_candidate AS (
+  SELECT c.*
+  FROM candidate AS c
+  INNER JOIN public.beaches AS b ON b.id = c.id
+),
+updated AS (
+  UPDATE public.beaches AS b
+  SET swell_window_min_deg_v2 = c.min_deg,
+      swell_window_center_deg_v2 = c.center_deg,
+      swell_window_max_deg_v2 = c.max_deg,
+      swell_window_halfwidth_deg_v2 = c.halfwidth_deg,
+      swell_window_v2_method = 'gshhg_f_interval_ray_cast_250km_5deg_v4',
+      swell_window_v2_analyzed_at = '2026-06-27T23:12:33.793586+00:00'::timestamptz
+  FROM matching_candidate AS c
+  WHERE b.id = c.id
+  RETURNING b.id
 )
-UPDATE public.beaches AS b
-SET swell_window_min_deg_v2 = c.min_deg,
-    swell_window_center_deg_v2 = c.center_deg,
-    swell_window_max_deg_v2 = c.max_deg,
-    swell_window_halfwidth_deg_v2 = c.halfwidth_deg,
-    swell_window_v2_method = 'gshhg_f_interval_ray_cast_250km_5deg_v4',
-    swell_window_v2_analyzed_at = '2026-06-27T23:12:33.793586+00:00'::timestamptz
-FROM candidate AS c
-WHERE b.id = c.id;
+SELECT
+  (SELECT count(*) FROM candidate),
+  (SELECT count(*) FROM matching_candidate),
+  (SELECT count(*) FROM updated)
+INTO listed_count, expected_count, updated_count;
 
-GET DIAGNOSTICS updated_count = ROW_COUNT;
-IF updated_count <> 320 THEN
-  RAISE EXCEPTION 'Expected to stage 320 geometric swell-window candidates, staged %', updated_count;
+IF listed_count <> 320 THEN
+  RAISE EXCEPTION 'Expected migration to list 320 geometric swell-window candidates, listed %', listed_count;
 END IF;
+
+IF expected_count = 0 THEN
+  RAISE EXCEPTION 'Expected at least one geometric swell-window candidate to exist in public.beaches';
+END IF;
+
+IF updated_count <> expected_count THEN
+  RAISE EXCEPTION 'Expected to stage % geometric swell-window candidates present in public.beaches, staged %', expected_count, updated_count;
+END IF;
+
+RAISE NOTICE 'Staged % geometric swell-window candidates present in this database from % listed candidates', updated_count, listed_count;
 END $$;
 
 -- Pensacola Pier's stored coordinate points at the NOAA station header on the mainland/bay side.
