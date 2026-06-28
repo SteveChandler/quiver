@@ -12,15 +12,17 @@ import {
 } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import mapboxgl from "mapbox-gl";
+import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { debounce } from "@/lib/utils/debounce";
 import type { Beach } from "@/types/database";
 import * as AuthContext from "@/context/auth-context";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { createCachedMapFetch } from "@/lib/utils/request-cache";
 import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
 import { CACHE_TTL } from "@/lib/constants/ui";
 import { useBeachClustering, type ClusterPoint } from "@/hooks/use-beach-clustering";
 import { loadFavoriteBeaches } from "@/components/map/map-favorites-loader";
+import { createCustomSpotMarkerElement } from "@/components/map/custom-spot-marker-builder";
 import {
   createWaveHeightBadge,
   getConditionMarkerGradient,
@@ -69,6 +71,8 @@ import {
 import { SwellLayerSelector } from "@/components/map/swell-field/swell-layer-selector";
 import { SwellForecastTimeline } from "@/components/map/swell-field/swell-forecast-timeline";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
+import type { CustomSpot } from "@/hooks/use-custom-spots";
+import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 
 // Mapbox CSS is imported globally in app/globals.css
@@ -159,6 +163,7 @@ interface InteractiveMapProps {
     zoom?: number;
   } | null;
   beaches?: Beach[]; // Filtered beaches to display on map (if provided, skips API fetch)
+  customSpots?: CustomSpot[];
   autoNavigateOnMarkerClick?: boolean; // Whether marker clicks auto-navigate to beach page (default: true)
   displayMode?: MapDisplayMode; // What data to show in markers: 'wave-height' (default) or 'water-temp'
   clusterClickBehavior?: ClusterClickBehavior; // Whether clusters expand or show grouped spot details
@@ -177,6 +182,7 @@ interface InteractiveMapProps {
 }
 
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
+const EMPTY_CUSTOM_SPOTS: CustomSpot[] = [];
 
 const CONDITION_LEGEND_ITEMS: Array<{
   label: ConditionSummary;
@@ -280,6 +286,7 @@ export function InteractiveMap({
   className = "h-full w-full",
   regionViewport,
   beaches,
+  customSpots = EMPTY_CUSTOM_SPOTS,
   autoNavigateOnMarkerClick = true,
   displayMode = "wave-height",
   clusterClickBehavior = "expand",
@@ -335,6 +342,7 @@ export function InteractiveMap({
   // so we surface a small "no swell data" sticker. Defaults true to avoid a
   // flash before the first build.
   const [hasSwellData, setHasSwellData] = useState(true);
+  const [showAuth, setShowAuth] = useState(false);
   // One-time coastal-leash hint: the camera silently loses zoom-out when the
   // field's leash applies, so we flash a one-shot note the FIRST time it locks
   // per mount. Ref guards "shown once"; `showLeashHint` mounts it, `leashHintFading`
@@ -387,9 +395,11 @@ export function InteractiveMap({
 
   const useAuthForMap = AuthContext.useOptionalAuth ?? AuthContext.useAuth;
   const auth = useAuthForMap();
-  const userId = showMapChrome ? auth?.user?.id : undefined;
+  const user = auth?.user ?? null;
+  const userId = showMapChrome ? user?.id : undefined;
   const { track } = useTrackEvent();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     isMapReadyRef.current = isMapReady;
@@ -1553,7 +1563,61 @@ export function InteractiveMap({
         markersRef.current[markerId] = marker;
       }
     });
-  }, [clusters, isMapReady, buildClusterMarker, buildWaveHeightBadge, cleanupMarkers]);
+
+    customSpots.forEach((spot) => {
+      if (!Number.isFinite(spot.lat) || !Number.isFinite(spot.lon)) {
+        return;
+      }
+
+      const markerId = `custom-${spot.id}`;
+      const nearestBeachId = spot.nearestBeachId;
+      const markerData = nearestBeachId
+        ? {
+            conditionSummary: conditionSummaryMap.get(nearestBeachId),
+            conditionScore: conditionScoreMap.get(nearestBeachId),
+            waveLabel: displayForecastMap.get(nearestBeachId)?.label ?? null,
+          }
+        : undefined;
+      const element = createCustomSpotMarkerElement(spot, markerData);
+      element.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+
+        if (!user) {
+          trackSignupCtaClick({
+            source: `custom-spot-${spot.id}`,
+            cta_type: "custom_spot_marker",
+          });
+          setShowAuth(true);
+          return;
+        }
+
+        router.push(`/custom-spots/${spot.id}`);
+      });
+
+      const marker = new mapboxgl.Marker({
+        element,
+        anchor: "center",
+      }).setLngLat([spot.lon, spot.lat]);
+
+      if (mapRef.current?.getCanvasContainer()) {
+        marker.addTo(mapRef.current);
+      }
+      markersRef.current[markerId] = marker;
+    });
+  }, [
+    clusters,
+    customSpots,
+    isMapReady,
+    conditionScoreMap,
+    conditionSummaryMap,
+    displayForecastMap,
+    buildClusterMarker,
+    buildWaveHeightBadge,
+    cleanupMarkers,
+    router,
+    user,
+  ]);
 
   const swellTimeline =
     showMapChrome &&
@@ -1625,6 +1689,19 @@ export function InteractiveMap({
         >
           No swell data for this stretch
         </div>
+      )}
+      {showAuth && (
+        <UnifiedAuthModal
+          isOpen={showAuth}
+          onClose={() => setShowAuth(false)}
+          mode="signup"
+          contextMessage={{
+            title: "Save Custom Spots",
+            description: "Create an account to open and save custom surf spots.",
+          }}
+          source="custom-spot-marker"
+          returnTo={pathname ?? undefined}
+        />
       )}
     </div>
   );

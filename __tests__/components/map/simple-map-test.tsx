@@ -63,6 +63,7 @@ jest.mock("mapbox-gl", () => ({
 
 // Mock other dependencies
 jest.mock("next/navigation", () => ({
+  usePathname: () => "/map",
   useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }),
 }));
 
