@@ -445,7 +445,7 @@ describe("Session Prompt Email Cron Job API", () => {
       });
     });
 
-    it("should include correct template props with confirmUrl and skipUrl", async () => {
+    it("should include correct template props with appSessionUrl, confirmUrl, and skipUrl", async () => {
       const candidates = [
         {
           user_id: "user-1",
@@ -480,6 +480,19 @@ describe("Session Prompt Email Cron Job API", () => {
       expect(callArgs.conditionsScore).toBe(90);
       expect(callArgs.surfDescription).toBe("Clean 3-4ft");
       expect(callArgs.unsubscribeUrl).toBe("https://quiversurf.app/settings");
+      const appSessionUrl = new URL(callArgs.appSessionUrl);
+      expect(appSessionUrl.origin).toBe("https://www.quiversurf.app");
+      expect(appSessionUrl.pathname).toBe("/sessions/new");
+      expect(appSessionUrl.searchParams.get("entrySource")).toBe("email");
+      expect(appSessionUrl.searchParams.get("beachId")).toBe("beach-1");
+      expect(appSessionUrl.searchParams.get("beachName")).toBe("Ocean Beach");
+      expect(appSessionUrl.searchParams.get("utm_source")).toBe("quiver");
+      expect(appSessionUrl.searchParams.get("utm_medium")).toBe("email");
+      expect(appSessionUrl.searchParams.get("utm_campaign")).toBe("session_prompt");
+      expect(appSessionUrl.searchParams.get("email_type")).toBe("session_prompt");
+      expect(appSessionUrl.searchParams.get("message_instance_id")).toEqual(
+        expect.any(String)
+      );
       // confirmUrl and skipUrl are signed tokens — verify structure only
       expect(callArgs.confirmUrl).toContain("https://quiversurf.app/session/confirm");
       expect(callArgs.confirmUrl).toContain("beach_id=beach-1");
@@ -675,6 +688,7 @@ describe("Session Prompt Email Cron Job API", () => {
         meta: {
           beach_name: "Test Beach",
           beach_slug: "test-beach",
+          message_instance_id: expect.any(String),
         },
       });
     });

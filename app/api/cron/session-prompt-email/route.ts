@@ -25,6 +25,7 @@ import {
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
+import { buildSessionPromptAppLink } from "@/lib/mailer/email-links";
 import { SessionPromptEmail } from "@/lib/mailer/templates/SessionPromptEmail";
 import type { SessionPromptCandidate } from "@/lib/email/email-types";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
@@ -127,6 +128,7 @@ async function processCandidate(
   // 2. Prepare email content
   const unsubscribeUrl = `${baseUrl}/settings`;
   const emailSubject = `How was your session at ${candidate.beach_name}?`;
+  const messageInstanceId = crypto.randomUUID();
 
   // Generate a signed token for the one-tap email actions
   const tokenSecret = getEmailTokenSecret();
@@ -139,6 +141,7 @@ async function processCandidate(
   const yesterday = new Date();
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
   const sessionDate = yesterday.toISOString().slice(0, 10);
+  const startedAt = `${sessionDate}T12:00:00.000Z`;
 
   const confirmUrl =
     `${baseUrl}/session/confirm?token=${encodeURIComponent(token)}` +
@@ -148,6 +151,14 @@ async function processCandidate(
   const skipUrl =
     `${baseUrl}/session/skip?token=${encodeURIComponent(token)}` +
     `&beach_id=${encodeURIComponent(candidate.home_beach_id)}`;
+
+  const appSessionUrl = buildSessionPromptAppLink({
+    origin: baseUrl,
+    beachId: candidate.home_beach_id,
+    beachName: candidate.beach_name,
+    startedAt,
+    messageInstanceId,
+  });
 
   // 3. Rate limit and send email
   await rateLimiter.throttle();
@@ -162,6 +173,7 @@ async function processCandidate(
       beachName: candidate.beach_name,
       conditionsScore: candidate.conditions_score,
       surfDescription: candidate.surf_description,
+      appSessionUrl,
       confirmUrl,
       skipUrl,
       unsubscribeUrl,
@@ -187,6 +199,7 @@ async function processCandidate(
     meta: {
       beach_name: candidate.beach_name,
       beach_slug: candidate.beach_slug,
+      message_instance_id: messageInstanceId,
     },
   });
 

@@ -31,6 +31,7 @@ export interface SessionPromptEmailProps {
   beachName: string;
   conditionsScore: number; // 0-100 scale, yesterday's score
   surfDescription: string | null;
+  appSessionUrl: string;
   confirmUrl: string;
   skipUrl: string;
   unsubscribeUrl: string;
@@ -41,6 +42,7 @@ export function SessionPromptEmail({
   beachName,
   conditionsScore,
   surfDescription,
+  appSessionUrl,
   confirmUrl,
   skipUrl,
   unsubscribeUrl,
@@ -142,10 +144,14 @@ export function SessionPromptEmail({
             </p>
           </PaperPanel>
 
-          {/* Two stacked CTAs: confirm (orange) then skip (ghost) */}
+          {/* App CTA first; one-tap web actions stay available as fallbacks. */}
           <div style={{ textAlign: "center", padding: "20px 0 2px" }}>
-            <CTAButton href={confirmUrl}>Yes, I surfed!</CTAButton>
+            <CTAButton href={appSessionUrl}>Open in Quiver</CTAButton>
             <div style={{ height: 12, lineHeight: 0, fontSize: 0 }}>&nbsp;</div>
+            <CTAButton href={confirmUrl} variant="secondary">
+              Yes, I surfed!
+            </CTAButton>
+            <div style={{ height: 10, lineHeight: 0, fontSize: 0 }}>&nbsp;</div>
             <CTAButton href={skipUrl} variant="secondary">
               No, I didn&apos;t surf
             </CTAButton>
