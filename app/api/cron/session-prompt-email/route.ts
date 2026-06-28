@@ -25,6 +25,7 @@ import {
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
+import { buildSessionEmailLink } from "@/lib/mailer/email-links";
 import { SessionPromptEmail } from "@/lib/mailer/templates/SessionPromptEmail";
 import type { SessionPromptCandidate } from "@/lib/email/email-types";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
@@ -32,7 +33,6 @@ import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { signEmailToken, getEmailTokenSecret } from "@/lib/utils/email-token";
 import { withObservedCron } from "@/lib/cron/observability";
-import { buildSessionEmailLink } from "@/lib/mailer/email-links";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -128,6 +128,7 @@ async function processCandidate(
   // 2. Prepare email content
   const unsubscribeUrl = `${baseUrl}/settings`;
   const emailSubject = `How was your session at ${candidate.beach_name}?`;
+  const messageInstanceId = crypto.randomUUID();
 
   // Generate a signed token for the one-tap email actions
   const tokenSecret = getEmailTokenSecret();
@@ -141,13 +142,15 @@ async function processCandidate(
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
   const sessionDate = yesterday.toISOString().slice(0, 10);
   const sessionWindow = `${sessionDate}T12:00:00.000Z`;
-  const messageInstanceId = crypto.randomUUID();
 
   const sessionEmailUrl = buildSessionEmailLink({
     origin: baseUrl,
     token,
     beachId: candidate.home_beach_id,
     startedAt: sessionWindow,
+    params: {
+      beachName: candidate.beach_name,
+    },
     emailType: "session_prompt",
     messageInstanceId,
     source: "session_prompt_email",
@@ -167,6 +170,7 @@ async function processCandidate(
       beachName: candidate.beach_name,
       conditionsScore: candidate.conditions_score,
       surfDescription: candidate.surf_description,
+      appSessionUrl: sessionEmailUrl,
       confirmUrl: sessionEmailUrl,
       skipUrl: sessionEmailUrl,
       unsubscribeUrl,

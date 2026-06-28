@@ -707,7 +707,7 @@ describe("Conditions Alert Email Cron Job API", () => {
       const templateProps = (ConditionsAlertEmail as jest.Mock).mock.calls[0][0];
       const ctaUrl = new URL(templateProps.ctaUrl);
 
-      expect(ctaUrl.origin).toBe("https://quiversurf.app");
+      expect(ctaUrl.origin).toBe("https://www.quiversurf.app");
       expect(ctaUrl.pathname).toBe("/app/spot/ocean-beach");
       expect(ctaUrl.searchParams.get("utm_source")).toBe("email");
       expect(ctaUrl.searchParams.get("utm_medium")).toBe("conditions_alert");

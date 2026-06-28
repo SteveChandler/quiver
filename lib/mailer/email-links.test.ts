@@ -18,7 +18,7 @@ describe("buildBeachEmailLink", () => {
   it("builds a native-claimed spot link with email attribution params", () => {
     const url = new URL(buildBeachEmailLink(baseParams));
 
-    expect(url.origin).toBe("https://quiversurf.app");
+    expect(url.origin).toBe("https://www.quiversurf.app");
     expect(url.pathname).toBe("/app/spot/ocean-beach");
     expect(url.searchParams.get("utm_source")).toBe("email");
     expect(url.searchParams.get("utm_medium")).toBe("conditions_alert");
@@ -66,7 +66,7 @@ describe("buildAppEmailLink", () => {
       })
     );
 
-    expect(url.origin).toBe("https://quiversurf.app");
+    expect(url.origin).toBe("https://www.quiversurf.app");
     expect(url.pathname).toBe("/app");
     expect(url.searchParams.get("onboarding")).toBe("required");
     expect(url.searchParams.get("utm_source")).toBe("email");
@@ -88,13 +88,17 @@ describe("buildSessionEmailLink", () => {
         messageInstanceId: "msg-789",
         source: "session_prompt_email",
         utmCampaign: "session_prompt",
+        params: {
+          beachName: "Ocean Beach",
+        },
       })
     );
 
-    expect(url.origin).toBe("https://quiversurf.app");
+    expect(url.origin).toBe("https://www.quiversurf.app");
     expect(url.pathname).toBe("/sessions/new");
     expect(url.searchParams.get("token")).toBe("token-123");
     expect(url.searchParams.get("beachId")).toBe("beach-123");
+    expect(url.searchParams.get("beachName")).toBe("Ocean Beach");
     expect(url.searchParams.get("startedAt")).toBe("2026-06-25T12:00:00.000Z");
     expect(url.searchParams.get("entrySource")).toBe("email");
     expect(url.searchParams.get("beach_id")).toBeNull();
