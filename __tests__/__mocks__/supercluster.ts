@@ -135,7 +135,7 @@ class MockSupercluster<P extends ClusterProperties = ClusterProperties> {
 
         if (this.options.reduce) {
           const firstMapped = nearbyPoints[0].properties as P;
-          aggregatedProps = { ...aggregatedProps, ...firstMapped };
+          aggregatedProps = { ...firstMapped, ...aggregatedProps };
           for (let k = 1; k < nearbyPoints.length; k++) {
             this.options.reduce(
               aggregatedProps as P,

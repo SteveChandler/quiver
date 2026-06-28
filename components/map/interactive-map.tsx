@@ -27,6 +27,7 @@ import {
   createWaveHeightBadge,
   getConditionMarkerGradient,
   getWaterTempBadgeColor,
+  type MarkerPreviewData,
   type MarkerBuilderDeps,
   type MapDisplayMode,
 } from "@/components/map/map-marker-builder";
@@ -34,6 +35,7 @@ import {
   loadBeachesAndWaveHeights,
   type ConditionSummary,
 } from "@/components/map/map-beach-loader";
+import { createBeachPreviewPopupContent } from "@/components/map/map-beach-preview-popup";
 import {
   createClusterMapMarker,
   type ClusterClickBehavior,
@@ -307,6 +309,10 @@ export function InteractiveMap({
   const markersRef = useRef<Record<string, mapboxgl.Marker>>({});
   const placementMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const activeClusterPopupRef = useRef<mapboxgl.Popup | null>(null);
+  const activeBeachPreviewPopupRef = useRef<mapboxgl.Popup | null>(null);
+  const beachPreviewCloseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  );
   const lastPopulateKeyRef = useRef<string | null>(null);
   const lastViewportRef = useRef<{
     lat: number;
@@ -368,6 +374,7 @@ export function InteractiveMap({
   const favoriteBeachIdsRef = useRef<Set<string>>(new Set());
   const selectedBeachIdRef = useRef<string | null>(null);
   const hoveredBeachIdRef = useRef<string | null>(null);
+  const partitionsMapRef = useRef<Map<string, SwellPartition>>(new Map());
   const lastRegionViewportKeyRef = useRef<string | null>(null);
   const clusterCleanupRef = useRef<Map<string, () => void>>(new Map());
   const onBoundsChangeRef = useRef(onBoundsChange);
@@ -400,6 +407,7 @@ export function InteractiveMap({
   const { track } = useTrackEvent();
   const router = useRouter();
   const pathname = usePathname();
+  const markerBeaches = beaches ?? swellFieldBeaches;
 
   useEffect(() => {
     isMapReadyRef.current = isMapReady;
@@ -416,6 +424,10 @@ export function InteractiveMap({
   useEffect(() => {
     hoveredBeachIdRef.current = hoveredBeachId;
   }, [hoveredBeachId]);
+
+  useEffect(() => {
+    partitionsMapRef.current = partitionsMap;
+  }, [partitionsMap]);
 
   useEffect(() => {
     onBoundsChangeRef.current = onBoundsChange;
@@ -446,12 +458,12 @@ export function InteractiveMap({
   }, [onMapClick]);
 
   useEffect(() => {
-    beachesRef.current = beaches;
-  }, [beaches]);
+    beachesRef.current = markerBeaches;
+  }, [markerBeaches]);
 
   // Use clustering hook
   const { clusters, getExpansionZoom } = useBeachClustering({
-    beaches: beaches || [],
+    beaches: markerBeaches,
     waveHeights: waveHeightMap,
     bounds: mapBounds || { west: -118, south: 32, east: -117, north: 33 },
     zoom: currentZoom,
@@ -472,8 +484,71 @@ export function InteractiveMap({
     )
   );
 
+  const clearBeachPreviewCloseTimer = useCallback((): void => {
+    if (!beachPreviewCloseTimerRef.current) return;
+    clearTimeout(beachPreviewCloseTimerRef.current);
+    beachPreviewCloseTimerRef.current = null;
+  }, []);
+
+  const closeBeachPreviewPopup = useCallback((): void => {
+    clearBeachPreviewCloseTimer();
+    activeBeachPreviewPopupRef.current?.remove();
+    activeBeachPreviewPopupRef.current = null;
+  }, [clearBeachPreviewCloseTimer]);
+
+  const scheduleBeachPreviewClose = useCallback((): void => {
+    clearBeachPreviewCloseTimer();
+    beachPreviewCloseTimerRef.current = setTimeout(() => {
+      closeBeachPreviewPopup();
+    }, 120);
+  }, [clearBeachPreviewCloseTimer, closeBeachPreviewPopup]);
+
+  const openBeachPreviewPopup = useCallback(
+    (
+      location: Beach,
+      lngLat: [number, number],
+      preview: MarkerPreviewData
+    ): void => {
+      const map = mapRef.current;
+      if (!map) return;
+
+      clearBeachPreviewCloseTimer();
+      activeBeachPreviewPopupRef.current?.remove();
+
+      const content = createBeachPreviewPopupContent({
+        location,
+        waveLabel: preview.waveLabel,
+        conditionSummary: preview.conditionSummary,
+        conditionScore: preview.conditionScore,
+        partition: partitionsMapRef.current.get(location.id),
+      });
+      content.addEventListener("mouseenter", clearBeachPreviewCloseTimer);
+      content.addEventListener("mouseleave", scheduleBeachPreviewClose);
+
+      const canHover =
+        typeof window !== "undefined" &&
+        window.matchMedia("(hover: hover)").matches;
+      const popup = new mapboxgl.Popup({
+        closeButton: !canHover,
+        closeOnClick: true,
+        closeOnMove: false,
+        className: "quiver-map-beach-preview-popup",
+        maxWidth: "240px",
+        offset: 18,
+      })
+        .setLngLat(lngLat)
+        .setDOMContent(content)
+        .addTo(map);
+
+      activeBeachPreviewPopupRef.current = popup;
+    },
+    [clearBeachPreviewCloseTimer, scheduleBeachPreviewClose]
+  );
+
   // Helper: remove all markers
   const cleanupMarkers = useCallback(() => {
+    closeBeachPreviewPopup();
+
     // Clean up cluster event listeners
     clusterCleanupRef.current.forEach((cleanup) => cleanup());
     clusterCleanupRef.current.clear();
@@ -483,7 +558,7 @@ export function InteractiveMap({
     // Remove all markers
     Object.values(markersRef.current).forEach((marker) => marker.remove());
     markersRef.current = {};
-  }, []);
+  }, [closeBeachPreviewPopup]);
 
   // Helper: full cleanup
   const cleanupMap = useCallback(() => {
@@ -610,7 +685,11 @@ export function InteractiveMap({
 
   // Create wave height badge using extracted module with deps from refs
   const buildWaveHeightBadge = useCallback(
-    (location: Beach, waveHeight?: number | string): HTMLElement => {
+    (
+      location: Beach,
+      waveHeight: number | string | undefined,
+      previewLngLat: [number, number]
+    ): HTMLElement => {
       const deps: MarkerBuilderDeps = {
         favoriteBeachIds: favoriteBeachIdsRef.current,
         selectedBeachId: selectedBeachIdRef.current,
@@ -635,6 +714,10 @@ export function InteractiveMap({
         waveHeightLabel: displayForecastMap.get(location.id)?.label ?? null,
         conditionScore: conditionScoreMap.get(location.id),
         conditionSummary: conditionSummaryMap.get(location.id),
+        previewLngLat,
+        onPreviewOpen: openBeachPreviewPopup,
+        onPreviewHold: clearBeachPreviewCloseTimer,
+        onPreviewClose: scheduleBeachPreviewClose,
       };
       return createWaveHeightBadge(location, waveHeight, deps);
     },
@@ -649,6 +732,9 @@ export function InteractiveMap({
       conditionScoreMap,
       conditionSummaryMap,
       getMapViewportMetadata,
+      openBeachPreviewPopup,
+      clearBeachPreviewCloseTimer,
+      scheduleBeachPreviewClose,
     ]
   );
 
@@ -1549,7 +1635,10 @@ export function InteractiveMap({
         const markerId = `location-${location.id}`;
         const waveHeight = cluster.waveHeight;
 
-        const badgeElement = buildWaveHeightBadge(location, waveHeight);
+        const badgeElement = buildWaveHeightBadge(location, waveHeight, [
+          cluster.longitude,
+          cluster.latitude,
+        ]);
 
         const marker = new mapboxgl.Marker({
           element: badgeElement,

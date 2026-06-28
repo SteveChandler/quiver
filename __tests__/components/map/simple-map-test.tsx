@@ -218,6 +218,16 @@ describe("Simple Map Test", () => {
       const forecastCalls = apiCalls.filter(call => call.includes("forecasts"));
       expect(forecastCalls.length).toBeGreaterThan(0);
     }, { timeout: 3000 });
+
+    await waitFor(() => {
+      const Marker = require("mapbox-gl").Marker;
+      expect(
+        Marker.mock.calls.some(
+          ([options]: [{ element?: HTMLElement }]) =>
+            options.element?.getAttribute("data-testid") === "beach-marker"
+        )
+      ).toBe(true);
+    }, { timeout: 3000 });
     
     console.log("All API calls made:", apiCalls);
   });
