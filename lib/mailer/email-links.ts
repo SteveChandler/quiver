@@ -30,7 +30,11 @@ export interface SessionEmailLinkParams extends EmailAttributionParams {
 }
 
 function normalizeOrigin(origin: string): string {
-  return origin.replace(/\/$/, "");
+  const normalized = origin.trim().replace(/\/+$/, "");
+  if (normalized === "https://quiversurf.app") {
+    return "https://www.quiversurf.app";
+  }
+  return normalized;
 }
 
 function buildEmailAttributionSearchParams(
