@@ -1,7 +1,5 @@
--- Widen user_events.event_type CHECK for free-growth education analytics.
---
--- Preserve the live CHECK expression dynamically so this stays additive after
--- parallel event additions and no-ops when the events are already present.
+-- Widen user_events.event_type CHECK for free-growth education analytics (plan 048).
+-- Idempotent; dynamically preserves the live CHECK so it stays additive after parallel additions.
 
 BEGIN;
 
