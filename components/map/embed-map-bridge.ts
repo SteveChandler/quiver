@@ -1,0 +1,177 @@
+export type EmbedMapSwellLayerId = "combined" | "s1" | "s2" | "wind";
+
+export interface EmbedMapCoordinate {
+  lat: number;
+  lon: number;
+}
+
+export interface EmbedMapBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+export interface EmbedMapViewport {
+  center: EmbedMapCoordinate;
+  zoom?: number;
+  bounds?: EmbedMapBounds;
+}
+
+export type EmbedMapCommand =
+  | { type: "setViewport"; payload: EmbedMapViewport }
+  | { type: "setLayer"; payload: { layerId: EmbedMapSwellLayerId } }
+  | { type: "setForecastTime"; payload: { index: number } }
+  | { type: "setSelectedSpot"; payload: { beachId: string; lat?: number; lon?: number } }
+  | { type: "startPlacement"; payload?: EmbedMapCoordinate }
+  | { type: "cancelPlacement"; payload?: Record<string, never> }
+  | { type: "confirmPlacement"; payload?: Record<string, never> }
+  | { type: "setTheme"; payload: { mode: "explore" | "hero" } }
+  | { type: "setReducedMotion"; payload: { enabled: boolean } };
+
+export type EmbedMapEvent =
+  | { type: "ready"; payload: { viewport: EmbedMapViewport } }
+  | { type: "loadFailed"; payload: { reason: string } }
+  | { type: "viewportChanged"; payload: EmbedMapViewport }
+  | {
+      type: "spotSelected";
+      payload: {
+        beachId: string;
+        name: string;
+        lat: number;
+        lon: number;
+        slug?: string | null;
+        conditionSummary?: string | null;
+      };
+    }
+  | { type: "clusterSelected"; payload: { clusterId: number; lat: number; lon: number } }
+  | { type: "mapTapped"; payload: EmbedMapCoordinate }
+  | { type: "placementStarted"; payload: EmbedMapCoordinate }
+  | { type: "placementChanged"; payload: EmbedMapCoordinate }
+  | { type: "placementConfirmed"; payload: EmbedMapCoordinate }
+  | { type: "placementCancelled"; payload: Record<string, never> }
+  | { type: "renderHealth"; payload: { fps?: number; status: "ok" | "degraded" } };
+
+const SWELL_LAYER_IDS = new Set<EmbedMapSwellLayerId>([
+  "combined",
+  "s1",
+  "s2",
+  "wind",
+]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function finiteNumber(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return value;
+}
+
+function coordinateFromPayload(payload: unknown): EmbedMapCoordinate | null {
+  if (!isRecord(payload)) return null;
+  const lat = finiteNumber(payload.lat);
+  const lon = finiteNumber(payload.lon);
+  if (lat === null || lon === null) return null;
+  return { lat, lon };
+}
+
+function boundsFromPayload(payload: unknown): EmbedMapBounds | undefined {
+  if (!isRecord(payload)) return undefined;
+  const west = finiteNumber(payload.west);
+  const south = finiteNumber(payload.south);
+  const east = finiteNumber(payload.east);
+  const north = finiteNumber(payload.north);
+  if (west === null || south === null || east === null || north === null) {
+    return undefined;
+  }
+  return { west, south, east, north };
+}
+
+function viewportFromPayload(payload: unknown): EmbedMapViewport | null {
+  if (!isRecord(payload)) return null;
+  const center = coordinateFromPayload(payload.center);
+  if (!center) return null;
+  const zoom = finiteNumber(payload.zoom) ?? undefined;
+  return {
+    center,
+    ...(zoom !== undefined ? { zoom } : {}),
+    bounds: boundsFromPayload(payload.bounds),
+  };
+}
+
+export function parseEmbedMapCommand(data: unknown): EmbedMapCommand | null {
+  let parsed = data;
+  if (typeof data === "string") {
+    try {
+      parsed = JSON.parse(data);
+    } catch {
+      return null;
+    }
+  }
+
+  if (!isRecord(parsed) || typeof parsed.type !== "string") return null;
+  const payload = parsed.payload;
+
+  switch (parsed.type) {
+    case "setViewport": {
+      const viewport = viewportFromPayload(payload);
+      return viewport ? { type: "setViewport", payload: viewport } : null;
+    }
+    case "setLayer": {
+      if (!isRecord(payload) || !SWELL_LAYER_IDS.has(payload.layerId as EmbedMapSwellLayerId)) {
+        return null;
+      }
+      return {
+        type: "setLayer",
+        payload: { layerId: payload.layerId as EmbedMapSwellLayerId },
+      };
+    }
+    case "setForecastTime": {
+      if (!isRecord(payload)) return null;
+      const index = finiteNumber(payload.index);
+      return index === null
+        ? null
+        : { type: "setForecastTime", payload: { index: Math.max(0, Math.round(index)) } };
+    }
+    case "setSelectedSpot": {
+      if (!isRecord(payload) || typeof payload.beachId !== "string") return null;
+      const lat = finiteNumber(payload.lat);
+      const lon = finiteNumber(payload.lon);
+      return {
+        type: "setSelectedSpot",
+        payload: {
+          beachId: payload.beachId,
+          ...(lat !== null ? { lat } : {}),
+          ...(lon !== null ? { lon } : {}),
+        },
+      };
+    }
+    case "startPlacement": {
+      const point = coordinateFromPayload(payload);
+      return {
+        type: "startPlacement",
+        ...(point ? { payload: point } : {}),
+      };
+    }
+    case "cancelPlacement":
+      return { type: "cancelPlacement", payload: {} };
+    case "confirmPlacement":
+      return { type: "confirmPlacement", payload: {} };
+    case "setTheme": {
+      if (!isRecord(payload)) return null;
+      if (payload.mode !== "explore" && payload.mode !== "hero") return null;
+      return { type: "setTheme", payload: { mode: payload.mode } };
+    }
+    case "setReducedMotion": {
+      if (!isRecord(payload) || typeof payload.enabled !== "boolean") return null;
+      return { type: "setReducedMotion", payload: { enabled: payload.enabled } };
+    }
+    default:
+      return null;
+  }
+}
+
+export function serializeEmbedMapEvent(event: EmbedMapEvent): string {
+  return JSON.stringify(event);
+}

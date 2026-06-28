@@ -68,10 +68,9 @@ describe("SessionPromptEmail", () => {
 
       // Beach name appears in <strong> tag
       expect(screen.getByText("Swami's")).toBeInTheDocument();
-      // "yesterday" appears in the masthead, dateline, and body — scope to body
-      expect(
-        screen.getByText(/Conditions were looking/i).textContent
-      ).toMatch(/yesterday/i);
+      expect(screen.getByText(/Conditions were looking/i).textContent).toContain(
+        "yesterday (scored 70).",
+      );
     });
 
     it("displays beach name in footer text", () => {
@@ -89,10 +88,9 @@ describe("SessionPromptEmail", () => {
 
       // Beach name appears in <strong> tag
       expect(screen.getByText("La Jolla Shores")).toBeInTheDocument();
-      // "yesterday" appears in the masthead, dateline, and body — scope to body
-      expect(
-        screen.getByText(/Conditions were looking/i).textContent
-      ).toMatch(/yesterday/i);
+      expect(screen.getByText(/Conditions were looking/i).textContent).toContain(
+        "yesterday (scored 70).",
+      );
     });
   });
 

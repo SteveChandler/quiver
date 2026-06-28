@@ -107,7 +107,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
     stationName: "Torrey Pines Outer",
     data: [
       {
-        timestamp: "2024-01-15T11:00:00Z",
+        timestamp: "2024-01-15T12:00:00Z",
         significantWaveHeight: 1.8, // meters
         peakWavePeriod: 12.5,
         peakWaveDirection: 270,
@@ -119,7 +119,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
         windWaveDirection: 225,
       },
       {
-        timestamp: "2024-01-15T10:00:00Z",
+        timestamp: "2024-01-15T13:00:00Z",
         significantWaveHeight: 2.1,
         peakWavePeriod: 13.1,
         peakWaveDirection: 272,
@@ -132,7 +132,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       },
     ],
     dataSource: "CDIP",
-    lastUpdated: "2024-01-15T11:30:00Z",
+    lastUpdated: "2024-01-15T21:30:00Z",
   };
 
   beforeEach(() => {
@@ -211,8 +211,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       const firstForecast = forecasts[0];
       expect(firstForecast.data_source).toBe("CDIP");
       // CDIP-scalar branch: CDIP `significantWaveHeight` (1.8) drives output
-      // through the scalar/legacy path with `components: [null, null, null]`
-      // so the display transformer sees CDIP Hs as `rawHeightFt`.
+      // through the scalar/legacy path with `components: [null, null, null]`.
       // Previously, populated NOAA components silently overrode CDIP Hs in
       // the decomposed branch — the old "4.3 ft" pinned that bug.
       expect(firstForecast.wave_height).toBe("2 ft");
@@ -427,7 +426,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
       const forecasts = await service.generateComprehensiveForecast(mockBeach);
 
-      // Malformed CDIP points are ignored by timestamp validation, then NOAA fills in.
+      // Invalid/future-unusable CDIP rows are ignored by the nowcast resolver.
       expect(forecasts[0].data_source).toBe("NOAA_NWS");
       expect(forecasts).toHaveLength(96);
     });

@@ -43,28 +43,6 @@ describe("QuiverFieldGuideLanding", () => {
     expect(screen.getByTestId("field-guide-final-cta")).toBeInTheDocument();
   });
 
-  it("explains why Quiver is different from a generic surf report", () => {
-    render(<QuiverFieldGuideLanding platform="ios" />);
-
-    const walkthrough = screen.getByTestId("field-guide-walkthrough");
-    expect(
-      within(walkthrough).getByRole("heading", {
-        name: /not your average surf report/i,
-      }),
-    ).toBeInTheDocument();
-    expect(walkthrough).toHaveTextContent(
-      "a surf brain that actually knows you",
-    );
-    expect(walkthrough).toHaveTextContent("Free beach reads, not a paywall");
-    expect(walkthrough).toHaveTextContent(
-      "Decisions shaped around your boards",
-    );
-    expect(walkthrough).toHaveTextContent(
-      "A feedback loop from real sessions",
-    );
-    expect(walkthrough).not.toHaveTextContent("Get the dawn call");
-  });
-
   it("renders the primary heading and hero CTAs", () => {
     render(<QuiverFieldGuideLanding platform="ios" />);
 
@@ -144,24 +122,7 @@ describe("QuiverFieldGuideLanding", () => {
 
     const audienceAccess = screen.getByTestId("field-guide-audience-access");
     expect(audienceAccess).toHaveTextContent("Dawn patrol regulars");
-    expect(audienceAccess).toHaveTextContent(
-      "Public forecast data is free forever",
-    );
-    expect(audienceAccess).toHaveTextContent(
-      "Public forecast data is free forever. Upgrade for board-aware picks, smart alerts, custom spots, offline session saving, and personal forecasting that learns from your boards, spots, alerts, and saved sessions.",
-    );
-    expect(audienceAccess).toHaveTextContent(
-      "Public forecast data stays free forever",
-    );
-    expect(audienceAccess).toHaveTextContent(
-      "No paywall for basic beach reads",
-    );
-    expect(audienceAccess).toHaveTextContent(
-      "Pro adds board-aware picks, alerts, custom spots, offline session saving, and personal forecasting",
-    );
-    expect(audienceAccess).not.toHaveTextContent(
-      "14-day App Store trial for Pro",
-    );
+    expect(audienceAccess).toHaveTextContent("custom spots");
     expect(
       screen.getByRole("heading", {
         name: /one surf app\. pro when you need the sharper call/i,

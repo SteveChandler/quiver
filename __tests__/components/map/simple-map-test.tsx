@@ -64,11 +64,11 @@ jest.mock("mapbox-gl", () => ({
 // Mock other dependencies
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }),
-  usePathname: () => "/map",
 }));
 
 jest.mock("@/context/auth-context", () => ({
   useAuth: () => ({ user: { id: "test-user" } }),
+  useOptionalAuth: () => ({ user: { id: "test-user" } }),
 }));
 
 jest.mock("@/lib/utils/current-forecast-utils", () => ({

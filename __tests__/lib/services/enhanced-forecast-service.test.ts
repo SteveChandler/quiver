@@ -1,8 +1,5 @@
 import { EnhancedForecastService } from "@/lib/services/enhanced-forecast-service";
-import {
-  fetchGfsWaveShadowForecast,
-  isGfsWaveShadowCaptureEnabled,
-} from "@/lib/services/noaa-wavewatch/gfs-wave-shadow";
+import { fetchGfsWaveShadowForecast } from "@/lib/services/noaa-wavewatch/gfs-wave-shadow";
 
 // Mock external services and supabase client used internally
 const upsertMock: jest.Mock<any, any> = jest.fn(async () => ({
@@ -40,9 +37,6 @@ jest.mock("@/lib/services/noaa-wavewatch/gfs-wave-shadow", () => {
   return {
     ...actual,
     fetchGfsWaveShadowForecast: jest.fn(),
-    isGfsWaveShadowCaptureEnabled: jest.fn(
-      () => process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED === "true",
-    ),
   };
 });
 
@@ -143,8 +137,6 @@ describe("EnhancedForecastService", () => {
     mockObservableBeachSelect.mockResolvedValue({ data: [], error: null });
     (fetchGfsWaveShadowForecast as jest.Mock).mockReset();
     (fetchGfsWaveShadowForecast as jest.Mock).mockResolvedValue(null);
-    (isGfsWaveShadowCaptureEnabled as jest.Mock).mockReset();
-    (isGfsWaveShadowCaptureEnabled as jest.Mock).mockReturnValue(false);
   });
 
   afterEach(() => {
@@ -268,8 +260,8 @@ describe("EnhancedForecastService", () => {
     expect(mockObservableBeachSelect).not.toHaveBeenCalled();
   });
 
-  test("GFS-Wave shadow scope failures are negative-cached", async () => {
-    (isGfsWaveShadowCaptureEnabled as jest.Mock).mockReturnValue(true);
+  test("GFS-Wave shadow global kill switch bypasses scope loading", async () => {
+    process.env.GFS_WAVE_SHADOW_CAPTURE_ENABLED = "true";
     mockObservableBeachSelect.mockResolvedValue({
       data: null,
       error: { message: "temporary db failure" },
@@ -279,7 +271,7 @@ describe("EnhancedForecastService", () => {
     await service.fetchGfsWaveShadowIfEligible(beach);
     await service.fetchGfsWaveShadowIfEligible(beach);
 
-    expect(mockObservableBeachSelect).toHaveBeenCalledTimes(1);
+    expect(mockObservableBeachSelect).not.toHaveBeenCalled();
   });
 
   test("GFS-Wave shadow fetch uses a single best-effort attempt", async () => {

@@ -181,14 +181,14 @@ describe("surf report email copy", () => {
     expect(formatEmailHeadingDate("Wednesday, May 6")).toBe("Wed, May 6");
   });
 
-  it("renders a one-hour match as a good-around time instead of a short window", () => {
+  it("renders a one-hour match as a best-around time instead of a short window", () => {
     expect(formatWindow(makeMatch())).toEqual({
       label: "Good Around",
       text: "8:00 AM PDT",
     });
   });
 
-  it("renders longer surf-call matches as a good window with a compact peak note", () => {
+  it("renders longer surf-call matches as a best window with a compact peak note", () => {
     expect(
       formatWindow(
         makeMatch({
