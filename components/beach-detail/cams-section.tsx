@@ -58,6 +58,7 @@ export function CamsSection({
     return getYouTubeWatchUrl(cameraUrl) ?? viewableUrl;
   }, [cameraUrl, viewableUrl]);
   const externalClickoutIntent = intent?.kind === "external" ? intent : null;
+  const storedThumbnailUrl = sources?.cam_thumbnail_url ?? null;
   const allowIframe =
     intent &&
     intent.kind === "iframe" &&
@@ -145,6 +146,13 @@ export function CamsSection({
   // so screen readers hear the spot name instead of a generic "Live Cam" for
   // every beach.
   const camLabel = beachName ? `Live cam of ${beachName}` : "Live Cam";
+  const storedStillVisual = storedThumbnailUrl ? (
+    <StaticCamStill
+      thumbnailUrl={storedThumbnailUrl}
+      camLabel={camLabel}
+      eager={variant === "hero"}
+    />
+  ) : null;
 
   if (youtubeClickoutUrl) {
     visual = (
@@ -159,7 +167,7 @@ export function CamsSection({
       <ExternalCamClickout
         href={externalClickoutIntent.pageUrl}
         provider={externalClickoutIntent.provider}
-        thumbnailUrl={sources?.cam_thumbnail_url ?? null}
+        thumbnailUrl={storedThumbnailUrl}
         camLabel={camLabel}
       />
     );
@@ -179,7 +187,7 @@ export function CamsSection({
     );
   } else if (intent?.kind === "hdontap") {
     visual = hlsError ? (
-      dioramaVisual ?? streamUnavailableVisual
+      storedStillVisual ?? dioramaVisual ?? streamUnavailableVisual
     ) : resolvedHlsUrl ? (
       <HLSVideoPlayer key={playerKey} src={resolvedHlsUrl} title={camLabel} onError={() => setHlsError(true)} />
     ) : (
@@ -190,7 +198,7 @@ export function CamsSection({
     );
   } else if (intent?.kind === "hls") {
     visual = hlsError
-      ? (dioramaVisual ?? streamUnavailableVisual)
+      ? (storedStillVisual ?? dioramaVisual ?? streamUnavailableVisual)
       : <HLSVideoPlayer key={playerKey} src={intent.src} title={camLabel} onError={() => setHlsError(true)} />;
   } else if (intent?.kind === "video") {
     visual = (
@@ -206,6 +214,8 @@ export function CamsSection({
         />
       </div>
     );
+  } else if (storedStillVisual) {
+    visual = storedStillVisual;
   } else if (dioramaVisual) {
     // No embeddable camera (either no camera_url, or intent.kind === "none") — fall back to diorama
     visual = dioramaVisual;
@@ -256,6 +266,37 @@ export function CamsSection({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function StaticCamStill({
+  thumbnailUrl,
+  camLabel,
+  eager = false,
+}: {
+  thumbnailUrl: string;
+  camLabel: string;
+  eager?: boolean;
+}) {
+  return (
+    <div className="relative aspect-video w-full overflow-hidden bg-[#11100D]">
+      <Image
+        src={thumbnailUrl}
+        alt={`${camLabel} still frame`}
+        width={640}
+        height={360}
+        sizes="(min-width: 768px) 40vw, 100vw"
+        loading={eager ? "eager" : "lazy"}
+        className="h-full w-full object-cover opacity-80 saturate-[0.95]"
+      />
+      <div className="absolute inset-0 bg-black/35" aria-hidden />
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-5 text-center">
+        <CameraOff className="h-10 w-10 text-white drop-shadow" aria-hidden />
+        <p className="rounded-full bg-black/55 px-4 py-2 text-sm font-medium text-white">
+          Live stream unavailable right now
+        </p>
+      </div>
     </div>
   );
 }

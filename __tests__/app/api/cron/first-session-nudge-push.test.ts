@@ -405,10 +405,19 @@ describe("First-Session-Nudge Push Cron", () => {
         home_beach_id?: string | null;
         entitlement?: { is_pro: boolean; is_trialing: boolean } | null;
         beachName?: string;
+        beachTimezone?: string | null;
         firingScore?: number | null;
+        firingForecastAt?: string | null;
       } = {}
     ) => {
-      const { home_beach_id = null, entitlement = null, beachName, firingScore } = overrides;
+      const {
+        home_beach_id = null,
+        entitlement = null,
+        beachName,
+        beachTimezone = "America/Los_Angeles",
+        firingScore,
+        firingForecastAt = "2026-06-20T16:00:00.000Z",
+      } = overrides;
       seedWindow("profiles", [
         { id: userId, first_name: "Steve", home_beach_id },
       ]);
@@ -419,12 +428,16 @@ describe("First-Session-Nudge Push Cron", () => {
       seedIn("user_devices", [{ user_id: userId, device_token: "tok-1" }]);
       seedIn("user_entitlements", entitlement ? [{ user_id: userId, ...entitlement }] : []);
       if (home_beach_id && beachName) {
-        seedIn("beaches", [{ id: home_beach_id, name: beachName }]);
+        seedIn("beaches", [
+          { id: home_beach_id, name: beachName, timezone: beachTimezone },
+        ]);
       }
       if (firingScore !== undefined) {
         seedMaybeSingle(
           "enhanced_forecasts",
-          firingScore === null ? null : { confidence_score: firingScore }
+          firingScore === null
+            ? null
+            : { confidence_score: firingScore, forecast_at: firingForecastAt }
         );
       }
     };
@@ -493,6 +506,28 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(call.payload.title).toBe("✨ Blacks is looking good");
       expect(call.payload.body).toBe(
         "Check today's forecast and log your session to start building your score"
+      );
+    });
+
+    it("free_home ignores high-confidence overnight local forecasts", async () => {
+      setupBase("u-overnight", {
+        home_beach_id: "beach-overnight",
+        entitlement: { is_pro: false, is_trialing: false },
+        beachName: "Blacks",
+        beachTimezone: "America/Los_Angeles",
+        firingScore: 82,
+        firingForecastAt: "2026-06-20T09:00:00.000Z",
+      });
+
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const data = await response.json();
+
+      expect(data.data.summary.cohorts.free_home_firing).toBe(0);
+      expect(data.data.summary.cohorts.free_home).toBe(1);
+      const call = mockEnqueueNotification.mock.calls[0][0];
+      expect(call.payload.title).toBe("How was this week?");
+      expect(call.payload.body).toBe(
+        "Log a session at Blacks to start building your personalized forecast"
       );
     });
 

@@ -69,8 +69,10 @@ const logSessionNudgeSchema = z.object({
   beach_id: z.string().nullable().optional(),
 });
 
-const dailyCallStreakReminderSchema = z.object({
-  streak: z.number().int().min(1),
+const forecastFeedbackNudgeSchema = z.object({
+  beach_id: z.string().min(1),
+  beach_slug: z.string().optional(),
+  forecast_at: z.string().optional(),
 });
 
 const homeMorningCallSchema = z.object({
@@ -230,8 +232,10 @@ interface LogSessionNudgePayload {
   beach_id?: string | null;
 }
 
-interface DailyCallStreakReminderPayload {
-  streak: number;
+interface ForecastFeedbackNudgePayload {
+  beach_id: string;
+  beach_slug?: string;
+  forecast_at?: string;
 }
 
 interface HomeMorningCallPayload {
@@ -378,6 +382,10 @@ export const NOTIFICATION_REGISTRY = {
       body: p.body,
       data: {
         type: "forecast_alert",
+        utm_source: "quiver",
+        utm_medium: "push",
+        utm_campaign: "conditions_alert",
+        email_type: "conditions_alert",
         alert_date: p.alert_date,
         ...(p.beach_id ? { beach_id: p.beach_id } : {}),
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
@@ -625,8 +633,8 @@ export const NOTIFICATION_REGISTRY = {
     }),
   } satisfies NotificationTypeDef<LogSessionNudgePayload>,
 
-  daily_call_streak_reminder: {
-    type: "daily_call_streak_reminder",
+  forecast_feedback_nudge: {
+    type: "forecast_feedback_nudge",
     channels: ["push"],
     prefs: {
       master: { push: "notif_push_enabled" },
@@ -634,13 +642,18 @@ export const NOTIFICATION_REGISTRY = {
     },
     suppressSelfNotify: false,
     quietHours: DEFAULT_QUIET,
-    validatePayload: (input) => dailyCallStreakReminderSchema.parse(input),
+    validatePayload: (input) => forecastFeedbackNudgeSchema.parse(input),
     buildPushPayload: (p) => ({
-      title: "Don't break your streak",
-      body: `You're on a ${p.streak}-day call streak. Make today's call before midnight.`,
-      data: { type: "daily_call_streak_reminder", streak: p.streak },
+      title: "How was the forecast?",
+      body: "Did the call hold up? A quick note tunes your next one.",
+      data: {
+        type: "forecast_feedback_nudge",
+        beach_id: p.beach_id,
+        ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
+        ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
+      },
     }),
-  } satisfies NotificationTypeDef<DailyCallStreakReminderPayload>,
+  } satisfies NotificationTypeDef<ForecastFeedbackNudgePayload>,
 
   weekly_streak_reminder: {
     type: "weekly_streak_reminder",

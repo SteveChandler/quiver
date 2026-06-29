@@ -87,11 +87,11 @@ function createMockForecast(
     forecast_at: `${date}T${time}Z`,
     forecast_date: date,
     forecast_time: time,
-    wave_height: "4.0",
-    wave_period: "12",
+    wave_height: "2.0",
+    wave_period: "13",
     wave_direction: "W",
-    swell_1_height: "4.0",
-    swell_1_period: "12",
+    swell_1_height: "2.0",
+    swell_1_period: "13",
     swell_1_direction: "W",
     swell_2_height: null,
     swell_2_period: null,
@@ -101,7 +101,7 @@ function createMockForecast(
     wind_wave_direction: null,
     water_temp: "65",
     air_temperature: "70",
-    wind_speed: "5",
+    wind_speed: "0",
     wind_direction: "E (offshore)",
     wind_direction_deg: 90,
     tide_status: "Rising",
@@ -249,10 +249,10 @@ describe("getBeachesForRegion", () => {
 });
 
 describe("calculateDayScore", () => {
-  it("should score ideal wave height (3-6ft) highly", () => {
+  it("should score ideal beginner wave height (1-3ft) highly", () => {
     const forecasts = [
       createMockForecast("beach-1", "2024-01-15", "12:00", {
-        wave_height: "4.5",
+        wave_height: "2.0",
       }),
     ];
     const score = calculateDayScore(forecasts, mockBeaches[0]);
@@ -262,7 +262,7 @@ describe("calculateDayScore", () => {
   it("should score offshore winds highly", () => {
     const forecasts = [
       createMockForecast("beach-1", "2024-01-15", "12:00", {
-        wave_height: "4.0",
+        wave_height: "2.0",
         wind_direction: "E (offshore)",
       }),
     ];
@@ -273,13 +273,13 @@ describe("calculateDayScore", () => {
   it("should score longer swell periods higher", () => {
     const shortPeriod = [
       createMockForecast("beach-1", "2024-01-15", "12:00", {
-        wave_height: "4.0",
+        wave_height: "2.0",
         swell_1_period: "8",
       }),
     ];
     const longPeriod = [
       createMockForecast("beach-1", "2024-01-15", "12:00", {
-        wave_height: "4.0",
+        wave_height: "2.0",
         swell_1_period: "15",
       }),
     ];
@@ -308,23 +308,23 @@ describe("calculateDayScore", () => {
     expect(score).toBeLessThanOrEqual(100);
   });
 
-  it("should average scores across multiple forecasts", () => {
+  it("should use the best score across multiple forecasts", () => {
     const forecasts = [
       createMockForecast("beach-1", "2024-01-15", "06:00", {
-        wave_height: "5.0",
+        wave_height: "0.3",
         wind_direction: "E (offshore)",
       }),
       createMockForecast("beach-1", "2024-01-15", "09:00", {
-        wave_height: "4.5",
+        wave_height: "2.0",
         wind_direction: "E (offshore)",
       }),
       createMockForecast("beach-1", "2024-01-15", "12:00", {
-        wave_height: "4.0",
+        wave_height: "3.0",
         wind_direction: "W (onshore)",
       }),
     ];
     const score = calculateDayScore(forecasts, mockBeaches[0]);
-    expect(score).toBeGreaterThanOrEqual(50);
+    expect(score).toBeGreaterThanOrEqual(90);
     expect(score).toBeLessThanOrEqual(100);
   });
 });
@@ -365,10 +365,9 @@ describe("detectSwellEvents", () => {
     const events = detectSwellEvents(forecastMap);
 
     expect(events.length).toBeGreaterThanOrEqual(1);
-    if (events.length > 0) {
-      expect(events[0].heightRange[0]).toBeGreaterThan(3);
-      expect(events[0].direction).toBeTruthy();
-    }
+    const firstEvent = events[0];
+    expect(firstEvent.heightRange[0]).toBeGreaterThan(3);
+    expect(firstEvent.direction).toEqual(expect.any(String));
   });
 
   it("should not detect events for flat conditions", () => {
@@ -441,7 +440,7 @@ describe("aggregateRegionalForecast", () => {
     );
 
     expect(summary.days).toHaveLength(7);
-    expect(summary.bestDay).toBeDefined();
+    expect(summary.bestDay).toEqual(expect.objectContaining({ date: expect.any(Date) }));
     expect(summary.beachConditions).toHaveLength(2);
     expect(summary.stats.totalBeaches).toBe(2);
     expect(summary.stats.beachesWithData).toBe(2);
@@ -455,7 +454,7 @@ describe("aggregateRegionalForecast", () => {
     // Day 1 (today): Poor conditions
     forecastMap.set("beach-1", [
       createMockForecast("beach-1", today, "12:00", {
-        wave_height: "1.0",
+        wave_height: "0.3",
         wind_direction: "W (onshore)",
       }),
     ]);
@@ -464,7 +463,7 @@ describe("aggregateRegionalForecast", () => {
     forecastMap.set("beach-1", [
       ...forecastMap.get("beach-1")!,
       createMockForecast("beach-1", tomorrow, "12:00", {
-        wave_height: "5.0",
+        wave_height: "2.0",
         wind_direction: "E (offshore)",
         swell_1_period: "14",
       }),
@@ -505,7 +504,7 @@ describe("aggregateRegionalForecast", () => {
     // Beach 1: Excellent conditions
     forecastMap.set("beach-1", [
       createMockForecast("beach-1", today, "12:00", {
-        wave_height: "5.0",
+        wave_height: "2.0",
         wind_direction: "E (offshore)",
         swell_1_period: "14",
       }),
@@ -514,7 +513,7 @@ describe("aggregateRegionalForecast", () => {
     // Beach 2: Poor conditions
     forecastMap.set("beach-2", [
       createMockForecast("beach-2", today, "12:00", {
-        wave_height: "1.0",
+        wave_height: "0.3",
         wind_direction: "W (onshore)",
         swell_1_period: "6",
       }),
@@ -540,21 +539,21 @@ describe("aggregateRegionalForecast", () => {
     // Create 3 beaches with varying conditions
     forecastMap.set("beach-1", [
       createMockForecast("beach-1", today, "12:00", {
-        wave_height: "5.0",
+        wave_height: "2.0",
         wind_direction: "E (offshore)",
       }),
     ]);
 
     forecastMap.set("beach-2", [
       createMockForecast("beach-2", today, "12:00", {
-        wave_height: "4.0",
+        wave_height: "3.0",
         wind_direction: "E (offshore)",
       }),
     ]);
 
     forecastMap.set("beach-3", [
       createMockForecast("beach-3", today, "12:00", {
-        wave_height: "1.0",
+        wave_height: "0.3",
         wind_direction: "W (onshore)",
       }),
     ]);
@@ -580,19 +579,19 @@ describe("aggregateRegionalForecast", () => {
     // First forecast: poor conditions (low score)
     forecasts.push(
       createMockForecast("beach-1", today, "06:00", {
-        wave_height: "1.5",
+        wave_height: "0.5",
         wind_direction: "W (onshore)",
         swell_1_period: "6",
       })
     );
 
-    // Next forecasts: improving conditions (higher scores)
+    // Next forecasts: first stay weak, then improve into the beginner ideal.
     for (let i = 1; i < 8; i++) {
       forecasts.push(
         createMockForecast("beach-1", today, `${6 + i * 3}:00`, {
-          wave_height: `${4 + i * 0.3}`, // Building to ideal range
+          wave_height: i < 3 ? `${0.5 + i * 0.1}` : "2.0",
           wind_direction: "E (offshore)",
-          swell_1_period: `${12 + i}`, // Improving period
+          swell_1_period: i < 3 ? "7" : "14",
         })
       );
     }
@@ -617,7 +616,7 @@ describe("aggregateRegionalForecast", () => {
     // Beach 1: poor conditions
     forecastMap.set("beach-1", [
       createMockForecast("beach-1", today, "12:00", {
-        wave_height: "1.0",
+        wave_height: "0.3",
         wind_direction: "W (onshore)",
         swell_1_period: "6",
       }),
@@ -626,7 +625,7 @@ describe("aggregateRegionalForecast", () => {
     // Beach 2: excellent conditions
     forecastMap.set("beach-2", [
       createMockForecast("beach-2", today, "12:00", {
-        wave_height: "5.0",
+        wave_height: "2.0",
         wind_direction: "E (offshore)",
         swell_1_period: "14",
       }),

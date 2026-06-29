@@ -181,9 +181,10 @@ describe("SEO beach photo candidate pipeline", () => {
       JSON.parse(readFileSync(manifestPath, "utf8")),
     );
 
-    expect(photos).toHaveLength(12);
+    expect(photos).toHaveLength(13);
     expect(photos.map((photo) => photo.slug)).toEqual(
       expect.arrayContaining([
+        "blackies",
         "bolsa-chica",
         "huntington-state-beach",
         "doheny-beach",

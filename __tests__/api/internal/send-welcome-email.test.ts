@@ -263,6 +263,34 @@ describe("POST /api/internal/send-welcome-email", () => {
           subject: "You're in",
         })
       );
+      expect(mockGenerateWelcomeEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          baseUrl: "https://quiversurf.app",
+          homeBeachName: null,
+          homeBeachSlug: null,
+          messageInstanceId: expect.any(String),
+        }),
+        "test-secret-key"
+      );
+    });
+
+    it("passes home beach slug and message id to the welcome template", async () => {
+      mockMaybeSingle
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({ data: { home_beach_id: "beach-123" }, error: null })
+        .mockResolvedValueOnce({ data: { name: "Blacks", slug: "blacks" }, error: null });
+
+      const request = createMockRequest();
+      await POST(request);
+
+      expect(mockGenerateWelcomeEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          homeBeachName: "Blacks",
+          homeBeachSlug: "blacks",
+          messageInstanceId: expect.any(String),
+        }),
+        "test-secret-key"
+      );
     });
 
     it("returns 400 when user has no email", async () => {
@@ -304,7 +332,10 @@ describe("POST /api/internal/send-welcome-email", () => {
           user_id: "user-123",
           email_type: "welcome",
           subject: "You're in",
-          meta: { trigger: "immediate_signup" },
+          meta: {
+            trigger: "immediate_signup",
+            message_instance_id: expect.any(String),
+          },
         })
       );
     });

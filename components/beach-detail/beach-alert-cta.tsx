@@ -8,6 +8,7 @@ import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { usePendingAction } from "@/hooks/use-pending-action";
 import { usePathname } from "next/navigation";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 import { cn } from "@/lib/utils";
 
@@ -23,6 +24,7 @@ interface BeachAlertCtaProps {
   compact?: boolean;
   className?: string;
   refreshKey?: number;
+  freeGrowthPhaseEnabled?: boolean;
   /** Called when the user clicks to open the alert creation/management flow */
   onOpenAlerts?: () => void;
 }
@@ -33,13 +35,16 @@ export function BeachAlertCta({
   compact,
   className,
   refreshKey,
+  freeGrowthPhaseEnabled = false,
   onOpenAlerts,
 }: BeachAlertCtaProps) {
   const { user } = useAuth();
+  const { track } = useTrackEvent();
   const { pendingAction, setPendingAction, clearPendingAction } = usePendingAction();
   const pathname = usePathname();
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const previousRefreshKey = useRef(refreshKey);
+  const freeGrowthImpressionKey = useRef<string | null>(null);
 
   // Fetch alert rules only for authenticated users — filter by beach_id client-side
   const fetchRules = useCallback(async (): Promise<AlertRule[]> => {
@@ -75,6 +80,9 @@ export function BeachAlertCta({
   const hasAlerts = ruleCount != null && ruleCount > 0;
   // Don't flash "no alerts" while rules are still loading
   const showAlertCount = !rulesLoading && ruleCount != null;
+  const inactiveHelperCopy = freeGrowthPhaseEnabled
+    ? "Watch this spot, free. Track up to 3 breaks and we'll call the window."
+    : "Notify me when conditions are ideal";
 
   // Deferred action: after sign-in, open alert flow if pending action matches
   useEffect(() => {
@@ -97,7 +105,41 @@ export function BeachAlertCta({
     void refetch();
   }, [user, refreshKey, invalidateCache, refetch]);
 
+  useEffect(() => {
+    if (!freeGrowthPhaseEnabled || hasAlerts) return;
+    if (user && !showAlertCount) return;
+
+    const impressionKey = `${user?.id ?? "anon"}:${beachId}`;
+    if (freeGrowthImpressionKey.current === impressionKey) return;
+    freeGrowthImpressionKey.current = impressionKey;
+
+    void track("free_growth_education_impression", {
+      beachId,
+      metadata: {
+        surface: "beach_detail_alert_cta",
+        audience: user ? "authenticated" : "anonymous",
+      },
+    });
+  }, [
+    beachId,
+    freeGrowthPhaseEnabled,
+    hasAlerts,
+    showAlertCount,
+    track,
+    user,
+  ]);
+
   function handleClick() {
+    if (freeGrowthPhaseEnabled && !hasAlerts) {
+      void track("free_growth_education_cta_tapped", {
+        beachId,
+        metadata: {
+          surface: "beach_detail_alert_cta",
+          audience: user ? "authenticated" : "anonymous",
+        },
+      });
+    }
+
     if (!user) {
       trackSignupCtaClick({
         source: "beach-alert-cta",
@@ -109,6 +151,17 @@ export function BeachAlertCta({
       setAuthModalOpen(true);
       return;
     }
+
+    if (hasAlerts) {
+      void track("watch_spot_tapped", {
+        beachId,
+        metadata: {
+          surface: "beach_detail_alert_cta",
+          outcome: "tune",
+        },
+      });
+    }
+
     onOpenAlerts?.();
   }
 
@@ -121,7 +174,13 @@ export function BeachAlertCta({
           variant="ghost"
           size="sm"
           onClick={handleClick}
-          aria-label={hasAlerts ? `Alerts active (${ruleCount})` : "Set up alerts"}
+          aria-label={
+            hasAlerts
+              ? `Alerts active (${ruleCount})`
+              : freeGrowthPhaseEnabled
+                ? "Watch this spot, free"
+                : "Set up alerts"
+          }
           className={cn(
             "group relative h-9 w-[96px] shrink-0 overflow-visible rounded-none border-0 bg-transparent px-0 text-[#11100D] shadow-none hover:bg-transparent focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-white active:scale-[0.98] min-[1100px]:h-10 min-[1100px]:w-[132px]",
             className
@@ -167,7 +226,13 @@ export function BeachAlertCta({
         <Button
           variant="outline"
           onClick={handleClick}
-          aria-label={hasAlerts ? `Manage alerts (${ruleCount} active)` : "Get alerts"}
+          aria-label={
+            hasAlerts
+              ? `Manage alerts (${ruleCount} active)`
+              : freeGrowthPhaseEnabled
+                ? "Watch this spot, free"
+                : "Get alerts"
+          }
           className={`h-12 w-full px-6 text-base font-semibold rounded-md active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 transition-all border-2 ${
             showAlertCount && hasAlerts
               ? "bg-[#F78E42] border-[#F78E42] text-white hover:bg-[#F78E42]/90 motion-safe:animate-[alertBreath_3s_ease-in-out_infinite] alert-breath"
@@ -189,11 +254,11 @@ export function BeachAlertCta({
               </span>
             </span>
           ) : (
-            "Get alerts"
+            freeGrowthPhaseEnabled ? "Watch this spot" : "Get alerts"
           )}
         </Button>
         <p className="text-xs text-gray-400 text-center">
-          {showAlertCount && hasAlerts ? "Tap to manage your alerts" : "Notify me when conditions are ideal"}
+          {showAlertCount && hasAlerts ? "Tap to manage your alerts" : inactiveHelperCopy}
         </p>
       </div>
 

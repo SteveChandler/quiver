@@ -8,6 +8,7 @@ import { DataErrorBoundary } from "@/components/error-boundaries";
 import type { Beach } from "@/types/database";
 import { LocationTimeoutBanner } from "@/components/map/location-timeout-banner";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
+import type { CustomSpot } from "@/hooks/use-custom-spots";
 
 const DEFAULT_MAP_CENTER = { lat: 32.7702, lon: -117.2525 } as const;
 
@@ -29,6 +30,7 @@ interface MapContentProps {
   focusCenter?: { lat: number; lon: number } | null;
   selectedBeach: Beach | null;
   filteredBeaches: Beach[];
+  customSpots?: CustomSpot[];
   searchQuery: string;
   regionViewport: {
     region: string;
@@ -77,6 +79,7 @@ export function MapContent({
   focusCenter,
   selectedBeach,
   filteredBeaches,
+  customSpots,
   searchQuery,
   regionViewport,
   onGetUserLocation,
@@ -213,6 +216,7 @@ export function MapContent({
             onMapClick={onMapClick ? () => onMapClick() : undefined}
             regionViewport={regionViewport}
             beaches={filteredBeaches}
+            customSpots={customSpots}
             onBoundsChange={onBoundsChange}
             onWaveHeightsChange={onWaveHeightsChange}
             onDisplayForecastsChange={onDisplayForecastsChange}

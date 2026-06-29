@@ -94,6 +94,13 @@ export function buildCamEmbed(url: string | null | undefined): CamEmbedIntent {
       };
     }
 
+    if (
+      (u.hostname === "surfline.com" || u.hostname === "www.surfline.com") &&
+      u.pathname.startsWith("/surf-report/")
+    ) {
+      return { kind: "external", pageUrl: href, provider: "Surfline" };
+    }
+
     // HDOnTap - resolve to HLS stream server-side (iframe embedding blocked)
     if (
       (u.hostname === "hdontap.com" || u.hostname === "www.hdontap.com") &&

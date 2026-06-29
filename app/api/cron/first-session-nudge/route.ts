@@ -24,12 +24,16 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { FirstSessionNudgeEmail } from "@/lib/mailer/templates/FirstSessionNudgeEmail";
 import { PersonalizedNudgeEmail } from "@/lib/mailer/templates/PersonalizedNudgeEmail";
-import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
-import { formatDatabaseTime } from "@/lib/email/email-formatters";
+import { formatActionableBestWindow } from "@/lib/email/email-formatters";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { withObservedCron } from "@/lib/cron/observability";
+import {
+  buildAppEmailLink,
+  buildBeachEmailLink,
+  buildSessionEmailLink,
+} from "@/lib/mailer/email-links";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -66,6 +70,7 @@ interface BeachData {
 }
 
 interface IntelData {
+  forecast_date: string | null;
   conditions_score: number | null;
   surf_description: string | null;
   wind_description: string | null;
@@ -116,7 +121,7 @@ async function fetchIntelData(
   for (const dateStr of [tomorrowStr, todayStr]) {
     const { data, error } = await supabase
       .from("beach_daily_intel")
-      .select("conditions_score, surf_description, wind_description, best_window_start, best_window_end")
+      .select("forecast_date, conditions_score, surf_description, wind_description, best_window_start, best_window_end")
       .eq("beach_id", beachId)
       .eq("forecast_date", dateStr)
       .order("generated_at", { ascending: false })
@@ -125,6 +130,26 @@ async function fetchIntelData(
     if (!error && data) return data as IntelData;
   }
   return null;
+}
+
+function buildStartedAt(
+  forecastDate: string | null | undefined,
+  bestWindowStart: string | null | undefined
+): string | undefined {
+  if (!forecastDate || !bestWindowStart) return undefined;
+
+  const trimmedStart = bestWindowStart.trim();
+  if (trimmedStart.includes("T")) {
+    const parsed = new Date(trimmedStart);
+    return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+  }
+
+  const timeMatch = trimmedStart.match(/^(\d{2}:\d{2})(?::(\d{2}))?/);
+  if (!timeMatch) return undefined;
+
+  const seconds = timeMatch[2] ?? "00";
+  const parsed = new Date(`${forecastDate}T${timeMatch[1]}:${seconds}.000Z`);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 }
 
 // ============================================================================
@@ -286,7 +311,19 @@ async function _GET(request: Request): Promise<Response> {
       try {
         await rateLimiter.throttle();
 
-        const logSessionUrl = `${baseUrl}/sessions/new?mode=log&quick=true&utm_source=quiver&utm_medium=email&utm_campaign=first_session_nudge`;
+        const messageInstanceId = crypto.randomUUID();
+        const sessionLinkParams = {
+          origin: baseUrl,
+          emailType: EMAIL_TYPE,
+          messageInstanceId,
+          source: "first_session_nudge_email",
+          utmCampaign: EMAIL_TYPE,
+          params: {
+            mode: "log",
+            quick: "true",
+          },
+        };
+        let logSessionUrl = buildSessionEmailLink(sessionLinkParams);
         const unsubscribeUrl = `${baseUrl}/settings`;
 
         const isOnboarded =
@@ -305,28 +342,42 @@ async function _GET(request: Request): Promise<Response> {
 
           const beachName = beachData?.name ?? "your home beach";
           const conditionsScore = intelData?.conditions_score ?? null;
+          const startedAt = buildStartedAt(
+            intelData?.forecast_date,
+            intelData?.best_window_start
+          );
+          logSessionUrl = buildSessionEmailLink({
+            ...sessionLinkParams,
+            beachId: candidate.home_beach_id!,
+            startedAt,
+          });
 
           subject =
             conditionsScore !== null && conditionsScore >= 70
               ? `✨ ${beachName} — conditions are looking good`
               : `${beachName} — check tomorrow's forecast`;
 
-          const beachPath = beachData
-            ? buildBeachUrl({
-                slug: beachData.slug,
-                city: beachData.city,
-                state: beachData.state,
-                country: beachData.country,
+          const ctaUrl = beachData?.slug
+            ? buildBeachEmailLink({
+                origin: baseUrl,
+                beachSlug: beachData.slug,
+                emailType: EMAIL_TYPE,
+                messageInstanceId,
+                source: "first_session_nudge_email",
+                utmCampaign: EMAIL_TYPE,
               })
-            : null;
-          const ctaUrl = beachPath
-            ? `${baseUrl}${beachPath}?utm_source=quiver&utm_medium=email&utm_campaign=first_session_nudge`
-            : `${baseUrl}?utm_source=quiver&utm_medium=email&utm_campaign=first_session_nudge`;
+            : buildAppEmailLink({
+                origin: baseUrl,
+                emailType: EMAIL_TYPE,
+                messageInstanceId,
+                source: "first_session_nudge_email",
+                utmCampaign: EMAIL_TYPE,
+              });
 
-          const windowStart = formatDatabaseTime(intelData?.best_window_start ?? null);
-          const windowEnd = formatDatabaseTime(intelData?.best_window_end ?? null);
-          const bestWindow =
-            windowStart && windowEnd ? { start: windowStart, end: windowEnd } : null;
+          const bestWindow = formatActionableBestWindow(
+            intelData?.best_window_start ?? null,
+            intelData?.best_window_end ?? null
+          );
 
           emailElement = React.createElement(PersonalizedNudgeEmail, {
             displayName: candidate.display_name,
@@ -345,6 +396,7 @@ async function _GET(request: Request): Promise<Response> {
             beach_name: beachName,
             conditions_score: conditionsScore,
             signup_window: `${SIGNUP_MIN_HOURS}-${SIGNUP_MAX_HOURS}h`,
+            message_instance_id: messageInstanceId,
           };
         } else {
           subject = "Your first forecast is waiting";
@@ -358,6 +410,7 @@ async function _GET(request: Request): Promise<Response> {
           emailMeta = {
             template: "generic",
             signup_window: `${SIGNUP_MIN_HOURS}-${SIGNUP_MAX_HOURS}h`,
+            message_instance_id: messageInstanceId,
           };
         }
 

@@ -123,6 +123,27 @@ jest.mock("@/lib/email/email-formatters", () => ({
     const displayHour = hours > 12 ? hours - 12 : hours || 12;
     return `${displayHour}:${minutes} ${ampm}`;
   }),
+  formatActionableBestWindow: jest.fn(
+    (startTime: string | null, endTime: string | null) => {
+      if (!startTime || !endTime) return null;
+      const startParts = startTime.split(":");
+      const endParts = endTime.split(":");
+      const startHour = parseInt(startParts[0], 10);
+      const endHour = parseInt(endParts[0], 10);
+      if (startHour < 5 || startHour >= 21 || endHour <= startHour) {
+        return null;
+      }
+      const format = (time: string): string => {
+        const parts = time.split(":");
+        const hours = parseInt(parts[0], 10);
+        const minutes = parts[1];
+        const ampm = hours >= 12 ? "PM" : "AM";
+        const displayHour = hours > 12 ? hours - 12 : hours || 12;
+        return `${displayHour}:${minutes} ${ampm}`;
+      };
+      return { start: format(startTime), end: format(endTime) };
+    }
+  ),
 }));
 
 jest.mock("@/lib/services/email-logging-service", () => ({
@@ -138,24 +159,21 @@ jest.mock("@/lib/utils/email-rate-limiter", () => ({
   })),
 }));
 
-jest.mock("@/lib/utils/beach-url-utils", () => ({
-  buildBeachUrl: jest.fn(
-    ({
-      slug,
-      city,
-      state,
-    }: {
-      slug: string | null;
-      city: string | null;
-      state: string | null;
-    }) => {
-      if (!slug || !city || !state) return `/beach/${slug || "unknown"}`;
-      const citySlug = city.toLowerCase().replace(/\s+/g, "-");
-      const stateSlug = state.toLowerCase();
-      return `/${stateSlug}/${citySlug}/${slug}`;
-    }
-  ),
-}));
+function expectEmailAttribution(
+  url: URL,
+  emailType: string
+): string {
+  expect(url.searchParams.get("utm_source")).toBe("email");
+  expect(url.searchParams.get("utm_medium")).toBe("email");
+  expect(url.searchParams.get("utm_campaign")).toBe(emailType);
+  expect(url.searchParams.get("email_type")).toBe(emailType);
+  const messageInstanceId = url.searchParams.get("message_instance_id");
+  expect(messageInstanceId).toEqual(expect.any(String));
+  if (!messageInstanceId) {
+    throw new Error("Expected message_instance_id");
+  }
+  return messageInstanceId;
+}
 
 // ============================================================================
 // Test helpers
@@ -334,8 +352,11 @@ describe("First Session Nudge Cron Job API", () => {
     createResendRateLimiter.mockReturnValue({ throttle: mockThrottle });
     mockThrottle.mockResolvedValue(undefined);
 
-    // Restore formatDatabaseTime implementation (reset by jest.resetAllMocks)
-    const { formatDatabaseTime } = require("@/lib/email/email-formatters");
+    // Restore formatter implementations (reset by jest.resetAllMocks)
+    const {
+      formatActionableBestWindow,
+      formatDatabaseTime,
+    } = require("@/lib/email/email-formatters");
     formatDatabaseTime.mockImplementation((time: string | null) => {
       if (!time) return null;
       const parts = time.split(":");
@@ -345,6 +366,27 @@ describe("First Session Nudge Cron Job API", () => {
       const displayHour = hours > 12 ? hours - 12 : hours || 12;
       return `${displayHour}:${minutes} ${ampm}`;
     });
+    formatActionableBestWindow.mockImplementation(
+      (startTime: string | null, endTime: string | null) => {
+        if (!startTime || !endTime) return null;
+        const startParts = startTime.split(":");
+        const endParts = endTime.split(":");
+        const startHour = parseInt(startParts[0], 10);
+        const endHour = parseInt(endParts[0], 10);
+        if (startHour < 5 || startHour >= 21 || endHour <= startHour) {
+          return null;
+        }
+        const format = (time: string): string => {
+          const parts = time.split(":");
+          const hours = parseInt(parts[0], 10);
+          const minutes = parts[1];
+          const ampm = hours >= 12 ? "PM" : "AM";
+          const displayHour = hours > 12 ? hours - 12 : hours || 12;
+          return `${displayHour}:${minutes} ${ampm}`;
+        };
+        return { start: format(startTime), end: format(endTime) };
+      }
+    );
   });
 
   afterEach(() => {
@@ -642,6 +684,15 @@ describe("First Session Nudge Cron Job API", () => {
         displayName: "Shredder",
         unsubscribeUrl: "https://quiversurf.app/settings",
       });
+      const logSessionUrl = new URL(sentArg.react.props.logSessionUrl);
+      expect(logSessionUrl.pathname).toBe("/sessions/new");
+      expect(logSessionUrl.searchParams.get("mode")).toBe("log");
+      expect(logSessionUrl.searchParams.get("quick")).toBe("true");
+      expect(logSessionUrl.searchParams.get("entrySource")).toBe("email");
+      expect(logSessionUrl.searchParams.get("source")).toBe(
+        "first_session_nudge_email"
+      );
+      expectEmailAttribution(logSessionUrl, "first_session_nudge");
     });
 
     it("passes correct props to PersonalizedNudgeEmail for onboarded user with intel", async () => {
@@ -667,6 +718,7 @@ describe("First Session Nudge Cron Job API", () => {
           country: "USA",
         },
         intel: {
+          forecast_date: "2026-06-27",
           conditions_score: 88,
           surf_description: "Overhead+ barrels",
           wind_description: "Trade winds offshore",
@@ -691,6 +743,102 @@ describe("First Session Nudge Cron Job API", () => {
         bestWindow: { start: "6:00 AM", end: "9:00 AM" },
         unsubscribeUrl: "https://quiversurf.app/settings",
       });
+      const ctaUrl = new URL(sentArg.react.props.ctaUrl);
+      expect(ctaUrl.pathname).toBe("/app/spot/pipeline");
+      const ctaMessageId = expectEmailAttribution(ctaUrl, "first_session_nudge");
+
+      const logSessionUrl = new URL(sentArg.react.props.logSessionUrl);
+      expect(logSessionUrl.pathname).toBe("/sessions/new");
+      expect(logSessionUrl.searchParams.get("beachId")).toBe("beach-55");
+      expect(logSessionUrl.searchParams.get("startedAt")).toBe(
+        "2026-06-27T06:00:00.000Z"
+      );
+      expect(logSessionUrl.searchParams.get("entrySource")).toBe("email");
+      expect(logSessionUrl.searchParams.get("source")).toBe(
+        "first_session_nudge_email"
+      );
+      expect(logSessionUrl.searchParams.get("beach_id")).toBeNull();
+      expect(logSessionUrl.searchParams.get("window")).toBeNull();
+      expectEmailAttribution(logSessionUrl, "first_session_nudge");
+      expect(logSessionUrl.searchParams.get("message_instance_id")).toBe(
+        ctaMessageId
+      );
+    });
+
+    it("uses covered /app fallback when an onboarded user's beach has no app spot slug", async () => {
+      const { PersonalizedNudgeEmail } = require("@/lib/mailer/templates/PersonalizedNudgeEmail");
+
+      setupSupabaseChain({
+        profiles: [
+          {
+            id: "user-no-slug",
+            display_name: "No Slug",
+            home_beach_id: "beach-no-slug",
+            onboarding_completed_at: "2026-03-15T06:00:00Z",
+          },
+        ],
+        sessions: [],
+        emailLog: [],
+        authUsers: [{ user: { email: "noslug@example.com" } }],
+        beach: {
+          name: "Secret Spot",
+          slug: null,
+          city: "Encinitas",
+          state: "CA",
+          country: "USA",
+        },
+        intel: null,
+      });
+
+      await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+
+      const sentArg = mockEmailsSend.mock.calls[0][0];
+      expect(sentArg.react.type).toBe(PersonalizedNudgeEmail);
+      const ctaUrl = new URL(sentArg.react.props.ctaUrl);
+      expect(ctaUrl.pathname).toBe("/app");
+      expectEmailAttribution(ctaUrl, "first_session_nudge");
+    });
+
+    it("suppresses overnight stored best windows in personalized emails", async () => {
+      const { PersonalizedNudgeEmail } = require("@/lib/mailer/templates/PersonalizedNudgeEmail");
+
+      setupSupabaseChain({
+        profiles: [
+          {
+            id: "user-overnight",
+            display_name: "Night Window",
+            home_beach_id: "beach-night",
+            onboarding_completed_at: "2026-03-15T06:00:00Z",
+          },
+        ],
+        sessions: [],
+        emailLog: [],
+        authUsers: [{ user: { email: "night@example.com" } }],
+        beach: {
+          name: "Ocean Beach",
+          slug: "ocean-beach",
+          city: "San Francisco",
+          state: "CA",
+          country: "USA",
+        },
+        intel: {
+          conditions_score: 88,
+          surf_description: "Clean",
+          wind_description: "Light offshore",
+          best_window_start: "02:00:00",
+          best_window_end: "04:00:00",
+        },
+      });
+
+      await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+
+      const sentArg = mockEmailsSend.mock.calls[0][0];
+      expect(sentArg.react.type).toBe(PersonalizedNudgeEmail);
+      expect(sentArg.react.props).toEqual(
+        expect.objectContaining({
+          bestWindow: null,
+        })
+      );
     });
   });
 

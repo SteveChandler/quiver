@@ -107,7 +107,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
     stationName: "Torrey Pines Outer",
     data: [
       {
-        timestamp: "2024-01-15T20:00:00Z",
+        timestamp: "2024-01-15T12:00:00Z",
         significantWaveHeight: 1.8, // meters
         peakWavePeriod: 12.5,
         peakWaveDirection: 270,
@@ -119,7 +119,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
         windWaveDirection: 225,
       },
       {
-        timestamp: "2024-01-15T21:00:00Z",
+        timestamp: "2024-01-15T13:00:00Z",
         significantWaveHeight: 2.1,
         peakWavePeriod: 13.1,
         peakWaveDirection: 272,
@@ -211,12 +211,10 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       const firstForecast = forecasts[0];
       expect(firstForecast.data_source).toBe("CDIP");
       // CDIP-scalar branch: CDIP `significantWaveHeight` (1.8) drives output
-      // through the scalar/legacy path with `components: [null, null, null]`
-      // so the per-beach calibration (or generic period × direction transform
-      // when no shoaling_factors are set) sees CDIP Hs as `rawHeightFt`.
+      // through the scalar/legacy path with `components: [null, null, null]`.
       // Previously, populated NOAA components silently overrode CDIP Hs in
       // the decomposed branch — the old "4.3 ft" pinned that bug.
-      expect(firstForecast.wave_height).toBe("2.4 ft");
+      expect(firstForecast.wave_height).toBe("2 ft");
       expect(firstForecast.wave_period).toBe("13s");
       // Provenance must record CDIP-driven scalar path, not decomposed.
       const prov = firstForecast.raw_forecast?.wave_height_provenance;
@@ -253,7 +251,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
       expect(forecasts[0].data_source).toBe("CDIP");
       // CDIP-scalar branch: CDIP Hs drives wave_height; NOAA weather still
       // populates weather_condition.
-      expect(forecasts[0].wave_height).toBe("2.4 ft");
+      expect(forecasts[0].wave_height).toBe("2 ft");
       expect(forecasts[0].weather_condition).toBe("Partly Cloudy"); // From NOAA
     });
 
@@ -428,9 +426,8 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
 
       const forecasts = await service.generateComprehensiveForecast(mockBeach);
 
-      // Currently uses CDIP data even if invalid - validation could be added as enhancement
-      expect(forecasts[0].data_source).toBe("CDIP");
-      // TODO: Implement CDIP data validation to fall back to NOAA when data is invalid
+      // Invalid/future-unusable CDIP rows are ignored by the nowcast resolver.
+      expect(forecasts[0].data_source).toBe("NOAA_NWS");
       expect(forecasts).toHaveLength(96);
     });
   });

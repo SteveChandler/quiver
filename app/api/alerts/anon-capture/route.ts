@@ -82,10 +82,15 @@ export const POST = withErrorHandler(
       const redirectUrl = `${origin}/auth/callback?redirect=${encodeURIComponent(
         return_path
       )}`;
-      const { error: otpError } = await supabase.auth.signInWithOtp({
-        email,
-        options: { shouldCreateUser: true, emailRedirectTo: redirectUrl },
-      });
+      const shouldSendOtp =
+        process.env.E2E_ALLOW_EMAIL_SENDS === "true" ||
+        process.env.PLAYWRIGHT_TEST !== "true";
+      const { error: otpError } = shouldSendOtp
+        ? await supabase.auth.signInWithOtp({
+            email,
+            options: { shouldCreateUser: true, emailRedirectTo: redirectUrl },
+          })
+        : { error: null };
 
       if (otpError) {
         // Only delete if WE inserted it (not if we reused an existing row).

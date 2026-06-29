@@ -33,6 +33,10 @@ jest.mock("@/lib/services/preference-learning-service", () => ({
   getUserSurfPreferences: jest.fn(),
 }));
 
+jest.mock("@/lib/profile/skill-level", () => ({
+  getProfileExperienceLevel: jest.fn(() => null),
+}));
+
 jest.mock("@/lib/domains/scoring/discovery-adapter", () => {
   const actual = jest.requireActual("@/lib/domains/scoring/discovery-adapter");
   return {

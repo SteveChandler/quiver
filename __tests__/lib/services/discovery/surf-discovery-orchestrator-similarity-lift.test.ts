@@ -28,7 +28,7 @@ const candidateBeaches: Partial<Beach>[] = [
 // Per-beach base score table the scoring engine mock will return.
 // beach-6 is rank #6 by base score and the only one with a similarity bonus.
 // With bonus +20, 60 → 80 lifts it to the top of the post-similarity ordering.
-const baseScores: Record<string, number> = {
+const mockBaseScores: Record<string, number> = {
   'beach-1': 75,
   'beach-2': 74,
   'beach-3': 73,
@@ -159,7 +159,7 @@ jest.mock('@/lib/domains/scoring', () => ({
     })),
   })),
   scoreBeachWithEngine: jest.fn((_engine: any, beach: Beach) => ({
-    total: baseScores[beach.id] ?? 70,
+    total: mockBaseScores[beach.id] ?? 70,
     subscores: {
       waveHeightFit: 20,
       periodEnergyScore: 15,
@@ -196,6 +196,13 @@ jest.mock('@/lib/domains/scoring', () => ({
     dataSource: 'NOAA_NWS',
   })),
   getConditionCharacter: jest.fn(() => ({ label: 'Clean', category: 'good-clean' })),
+}));
+
+jest.mock('@/lib/scoring/native-condition-score', () => ({
+  scoreNativeForecastSlot: jest.fn((forecast: EnhancedForecastEntity) => (
+    mockBaseScores[forecast.beach_id] ?? 70
+  )),
+  getNativeConditionMatchQuality: jest.fn(() => 'good'),
 }));
 
 jest.mock('@/lib/utils/timezone-utils.server', () => ({

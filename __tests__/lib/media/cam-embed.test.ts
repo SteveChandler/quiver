@@ -77,6 +77,19 @@ describe("buildCamEmbed", () => {
     });
   });
 
+  it("returns external kind for Surfline surf-report cam pages", () => {
+    const result = buildCamEmbed(
+      "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67"
+    );
+
+    expect(result).toEqual({
+      kind: "external",
+      pageUrl:
+        "https://www.surfline.com/surf-report/inches/5842041f4e65fad6a7708c67",
+      provider: "Surfline",
+    });
+  });
+
   // --- HDOnTap ---
   it("returns hdontap kind with pageUrl for HDOnTap stream URLs", () => {
     const result = buildCamEmbed(

@@ -81,6 +81,14 @@ interface WeeklyMetricsRow {
   pct_improved: number;
 }
 
+interface ForecastAccuracyMetricRow {
+  horizon_bucket: string;
+  baseline: string;
+  sample_count: number;
+  mae_m: number | null;
+  bias_m: number | null;
+}
+
 interface CorrectionStats {
   latest_corrected_at: string | null;
   count_24h: number;
@@ -285,6 +293,23 @@ async function fetchWeeklyMetrics(
     const { data, error } = await supabase.rpc("get_ml_weekly_metrics");
     if (error) return { data: null, error: error.message };
     return { data: data ?? [], error: null };
+  } catch (e: unknown) {
+    return {
+      data: null,
+      error: e instanceof Error ? e.message : "Unknown error",
+    };
+  }
+}
+
+async function fetchForecastAccuracyMetrics(
+  supabase: SupabaseClient
+): Promise<{ data: ForecastAccuracyMetricRow[] | null; error: string | null }> {
+  try {
+    const { data, error } = await supabase.rpc(
+      "get_forecast_accuracy_horizon_metrics"
+    );
+    if (error) return { data: null, error: error.message };
+    return { data: (data as ForecastAccuracyMetricRow[]) ?? [], error: null };
   } catch (e: unknown) {
     return {
       data: null,
@@ -698,10 +723,37 @@ function formatPipelineHealth(
     `| Observable Beaches | ${formatMaybeNumber(data.observable_beaches_count)} |`,
     `| Matched / Observable | ${formatMaybeNumber(data.matched_last_24h)} / ${formatMaybeNumber(data.total_observable_24h)} |`,
     `| Match Rate | ${formatMaybeNumber(matchRate, 1, "%")}${matchNote} |`,
-    `| MAE (Raw) | ${formatMaybeNumber(data.avg_raw_error_24h, 3, "m")} |`,
-    `| MAE (Corrected) | ${formatMaybeNumber(data.avg_corrected_error_24h, 3, "m")} |`,
-    `| Improvement | ${formatMaybeNumber(data.improvement_pct_24h, 1, "%")} |`,
+    `| MAE (Raw Display) | ${formatMaybeNumber(data.avg_raw_error_24h, 3, "m")} |`,
+    `| MAE (Current Display) | ${formatMaybeNumber(data.avg_corrected_error_24h, 3, "m")} |`,
+    `| Offset Improvement | ${formatMaybeNumber(data.improvement_pct_24h, 1, "%")} |`,
   ];
+  return lines.join("\n");
+}
+
+function formatForecastAccuracyMetrics(
+  data: ForecastAccuracyMetricRow[] | null,
+  error: string | null
+): string {
+  if (error || !data) {
+    return `### Canonical Forecast Accuracy\n\nWarning: ${error ?? "No data"}\n`;
+  }
+  if (data.length === 0) {
+    return "### Canonical Forecast Accuracy\n\nNo matched face-height observations in the selected window.\n";
+  }
+
+  const lines = [
+    "### Canonical Forecast Accuracy (7d)",
+    "",
+    "Face-height MAE vs `observed_m`, split by horizon and baseline. Do not compare changes from an aggregate across horizons.",
+    "",
+    "| Horizon | Baseline | N | MAE | Bias |",
+    "|---------|----------|---|-----|------|",
+  ];
+  for (const row of data) {
+    lines.push(
+      `| ${row.horizon_bucket} | ${formatBaseline(row.baseline)} | ${formatMaybeNumber(row.sample_count)} | ${formatMaybeNumber(row.mae_m, 3, "m")} | ${formatMaybeNumber(row.bias_m, 3, "m")} |`
+    );
+  }
   return lines.join("\n");
 }
 
@@ -717,9 +769,9 @@ function formatWeeklyMetrics(
   }
 
   const lines = [
-    "### Model Performance by Version",
+    "### Weekly Display Performance by Version",
     "",
-    "| Model | Predictions | Ground Truth | Raw MAE | Corrected MAE | Improvement |",
+    "| Model | Predictions | Ground Truth | Raw Display MAE | Current Display MAE | Offset Improved |",
     "|-------|-------------|--------------|---------|---------------|-------------|",
   ];
   for (const row of data) {
@@ -728,6 +780,21 @@ function formatWeeklyMetrics(
     );
   }
   return lines.join("\n");
+}
+
+function formatBaseline(baseline: string): string {
+  switch (baseline) {
+    case "current_display":
+      return "Current display";
+    case "raw_display":
+      return "Raw display";
+    case "raw_om":
+      return "Raw OM";
+    case "v5_shadow":
+      return "v5 shadow";
+    default:
+      return baseline;
+  }
 }
 
 function formatModelRegistry(
@@ -930,6 +997,7 @@ async function main(): Promise<void> {
     healthResult,
     cronResult,
     pipelineResult,
+    forecastAccuracyResult,
     weeklyResult,
     registryResult,
     correctionResult,
@@ -939,6 +1007,7 @@ async function main(): Promise<void> {
     fetchHealthEndpoint(),
     fetchCronStatus(),
     fetchPipelineHealth(supabase),
+    fetchForecastAccuracyMetrics(supabase),
     fetchWeeklyMetrics(supabase),
     fetchModelRegistry(supabase),
     fetchCorrectionStats(supabase),
@@ -966,6 +1035,11 @@ async function main(): Promise<void> {
     formatCronSection(cronResult.data, cronResult.error),
     "",
     formatPipelineHealth(pipelineResult.data, pipelineResult.error),
+    "",
+    formatForecastAccuracyMetrics(
+      forecastAccuracyResult.data,
+      forecastAccuracyResult.error
+    ),
     "",
     formatWeeklyMetrics(weeklyResult.data, weeklyResult.error),
     "",

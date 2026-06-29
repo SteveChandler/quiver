@@ -445,7 +445,7 @@ describe("Session Prompt Email Cron Job API", () => {
       });
     });
 
-    it("should include correct template props with confirmUrl and skipUrl", async () => {
+    it("should include app-first session links with email attribution", async () => {
       const candidates = [
         {
           user_id: "user-1",
@@ -480,11 +480,30 @@ describe("Session Prompt Email Cron Job API", () => {
       expect(callArgs.conditionsScore).toBe(90);
       expect(callArgs.surfDescription).toBe("Clean 3-4ft");
       expect(callArgs.unsubscribeUrl).toBe("https://quiversurf.app/settings");
-      // confirmUrl and skipUrl are signed tokens — verify structure only
-      expect(callArgs.confirmUrl).toContain("https://quiversurf.app/session/confirm");
-      expect(callArgs.confirmUrl).toContain("beach_id=beach-1");
-      expect(callArgs.skipUrl).toContain("https://quiversurf.app/session/skip");
-      expect(callArgs.skipUrl).toContain("beach_id=beach-1");
+      expect(callArgs.appSessionUrl).toBe(callArgs.confirmUrl);
+      expect(callArgs.confirmUrl).toBe(callArgs.skipUrl);
+      const ctaUrl = new URL(callArgs.appSessionUrl);
+      expect(ctaUrl.origin).toBe("https://www.quiversurf.app");
+      expect(ctaUrl.pathname).toBe("/sessions/new");
+      expect(ctaUrl.searchParams.get("token")).toBe("mock-signed-token");
+      expect(ctaUrl.searchParams.get("beachId")).toBe("beach-1");
+      expect(ctaUrl.searchParams.get("beachName")).toBe("Ocean Beach");
+      expect(ctaUrl.searchParams.get("startedAt")).toMatch(
+        /^\d{4}-\d{2}-\d{2}T12:00:00\.000Z$/
+      );
+      expect(ctaUrl.searchParams.get("entrySource")).toBe("email");
+      expect(ctaUrl.searchParams.get("beach_id")).toBeNull();
+      expect(ctaUrl.searchParams.get("window")).toBeNull();
+      expect(ctaUrl.searchParams.get("utm_source")).toBe("email");
+      expect(ctaUrl.searchParams.get("utm_medium")).toBe("email");
+      expect(ctaUrl.searchParams.get("utm_campaign")).toBe("session_prompt");
+      expect(ctaUrl.searchParams.get("email_type")).toBe("session_prompt");
+      expect(ctaUrl.searchParams.get("source")).toBe("session_prompt_email");
+      expect(ctaUrl.searchParams.get("message_instance_id")).toEqual(
+        expect.any(String)
+      );
+      expect(callArgs.confirmUrl).not.toContain("/session/confirm");
+      expect(callArgs.skipUrl).not.toContain("/session/skip");
     });
 
     it("should not include logSessionUrl in template props", async () => {
@@ -675,6 +694,7 @@ describe("Session Prompt Email Cron Job API", () => {
         meta: {
           beach_name: "Test Beach",
           beach_slug: "test-beach",
+          message_instance_id: expect.any(String),
         },
       });
     });

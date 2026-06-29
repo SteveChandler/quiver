@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { PresetCard } from "./preset-card";
 import { ConditionBuilder } from "./condition-builder";
 import { getPresetsForGroup, getPreset } from "@/lib/alerts/presets";
+import { useTrackEvent } from "@/hooks/use-track-event";
 import type { AlertConditions, BeachAlertMeta, PresetDefinition } from "@/lib/alerts/types";
 
 interface AlertCreationPopoverProps {
@@ -25,6 +26,7 @@ interface AlertCreationPopoverProps {
   onRuleCreated?: () => void;
   /** When provided, auto-select this preset instead of showing the presets grid */
   initialPreset?: string;
+  freeGrowthPhaseEnabled?: boolean;
 }
 
 type Stage =
@@ -48,6 +50,7 @@ export function AlertCreationPopover({
   onOpenChange,
   onRuleCreated,
   initialPreset,
+  freeGrowthPhaseEnabled = false,
 }: AlertCreationPopoverProps) {
   const [stage, setStage] = useState<Stage>({ step: "presets" });
   const initialPresetApplied = useRef(false);
@@ -55,6 +58,7 @@ export function AlertCreationPopover({
   const [notifyEmail, setNotifyEmail] = useState(true);
   const [notifyPush, setNotifyPush] = useState(true);
   const [saving, setSaving] = useState(false);
+  const { track } = useTrackEvent();
 
   // Auto-select initialPreset when popover opens
   useEffect(() => {
@@ -83,6 +87,42 @@ export function AlertCreationPopover({
     }, 200);
   }
 
+  function trackAlertCreated(
+    creationFlow: "preset" | "customize" | "custom",
+    presetType: string | null,
+  ) {
+    void track("alert_rule_created", {
+      beachId,
+      metadata: {
+        surface: "alert_creation_popover",
+        creation_flow: creationFlow,
+        preset_type: presetType,
+      },
+    });
+    void track("watch_spot_tapped", {
+      beachId,
+      metadata: {
+        surface: "alert_creation_popover",
+        outcome: "created",
+        creation_flow: creationFlow,
+        preset_type: presetType,
+      },
+    });
+  }
+
+  function trackLockedCreateFailure(status: number) {
+    if (status !== 403) return;
+
+    void track("watch_spot_tapped", {
+      beachId,
+      metadata: {
+        surface: "alert_creation_popover",
+        outcome: "upsell",
+        error_status: status,
+      },
+    });
+  }
+
   async function handlePresetSelect(preset: PresetDefinition) {
     // Quick-create: POST immediately with preset defaults
     const conditions = preset.buildConditions(beach);
@@ -102,9 +142,11 @@ export function AlertCreationPopover({
       });
       const json = await res.json();
       if (!res.ok) {
+        trackLockedCreateFailure(res.status);
         toast.error(json.message ?? json.error ?? "Couldn't create alert");
         return;
       }
+      trackAlertCreated("preset", preset.type);
       toast.success(`Alert created: ${preset.name}`);
       onRuleCreated?.();
       handleClose();
@@ -151,9 +193,14 @@ export function AlertCreationPopover({
       });
       const json = await res.json();
       if (!res.ok) {
+        trackLockedCreateFailure(res.status);
         toast.error(json.message ?? json.error ?? "Couldn't create alert");
         return;
       }
+      trackAlertCreated(
+        currentStage.step === "customize" ? "customize" : "custom",
+        currentStage.step === "customize" ? currentStage.preset.type : null,
+      );
       toast.success("Alert created");
       onRuleCreated?.();
       handleClose();
@@ -212,6 +259,11 @@ export function AlertCreationPopover({
             Create a surf condition alert by choosing a preset or custom wave,
             wind, tide, and notification settings.
           </DialogDescription>
+          {freeGrowthPhaseEnabled ? (
+            <p className="mt-2 text-sm font-semibold leading-5 text-[#403A2E]">
+              Watch this spot, free. Track up to 3 breaks and we&apos;ll call the window.
+            </p>
+          ) : null}
         </DialogHeader>
 
         <div className="px-5 py-4 space-y-4 max-h-[70vh] overflow-y-auto">

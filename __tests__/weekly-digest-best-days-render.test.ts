@@ -21,6 +21,12 @@ function render(props: Parameters<typeof WeeklyRecapEmail>[0]): string {
   return renderToStaticMarkup(WeeklyRecapEmail(props) as any);
 }
 
+function labelHtml(html: string, label: string): string {
+  const labelIndex = html.indexOf(`>${label}</span>`);
+  expect(labelIndex).toBeGreaterThan(-1);
+  return html.slice(Math.max(0, labelIndex - 220), labelIndex + label.length + 20);
+}
+
 const baseProps = {
   userName: "Steven",
   startDate: "Apr 14",
@@ -126,7 +132,7 @@ describe("WeeklyRecapEmail: best-days-this-week render coverage", () => {
           },
         ],
       });
-      expect(html).toMatch(/color:#FDB84B[^;"]*[";].*?EPIC/);
+      expect(labelHtml(html, "EPIC")).toContain("color:#FDB84B");
     });
 
     it("renders GOOD (>= 7.0) with Pacific Teal", () => {
@@ -142,8 +148,9 @@ describe("WeeklyRecapEmail: best-days-this-week render coverage", () => {
           },
         ],
       });
-      expect(html).toMatch(/color:#00D4AA[^;"]*[";].*?GOOD/);
-      expect(html).not.toMatch(/color:#FDB84B[^;"]*[";].*?GOOD/);
+      const label = labelHtml(html, "GOOD");
+      expect(label).toContain("color:#00D4AA");
+      expect(label).not.toContain("color:#FDB84B");
     });
 
     it("renders FAIR (>= 6.0) with Pacific Teal", () => {
@@ -159,8 +166,9 @@ describe("WeeklyRecapEmail: best-days-this-week render coverage", () => {
           },
         ],
       });
-      expect(html).toMatch(/color:#00D4AA[^;"]*[";].*?FAIR/);
-      expect(html).not.toMatch(/color:#FDB84B[^;"]*[";].*?FAIR/);
+      const label = labelHtml(html, "FAIR");
+      expect(label).toContain("color:#00D4AA");
+      expect(label).not.toContain("color:#FDB84B");
     });
 
     it("renders RIDEABLE (< 6.0) with a muted color, not Paradise Gold", () => {
@@ -176,8 +184,9 @@ describe("WeeklyRecapEmail: best-days-this-week render coverage", () => {
           },
         ],
       });
-      expect(html).toMatch(/color:#6B7280[^;"]*[";].*?RIDEABLE/);
-      expect(html).not.toMatch(/color:#FDB84B[^;"]*[";].*?RIDEABLE/);
+      const label = labelHtml(html, "RIDEABLE");
+      expect(label).toContain("color:#6B7280");
+      expect(label).not.toContain("color:#FDB84B");
     });
 
     it("renders distinct colors per band when multiple rows span bands", () => {

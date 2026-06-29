@@ -239,6 +239,7 @@ interface BeachDetailProps {
   heroHeadingLevel?: ZineHeroHeadingLevel;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
+  freeGrowthPhaseEnabled?: boolean;
   personalizationData?: {
     score:
       | import("@/lib/services/personalized-scoring-service").PersonalizedScore
@@ -268,6 +269,7 @@ function BeachDetailContent({
   heroHeadingLevel,
   beforeTabsContent,
   afterTabsContent,
+  freeGrowthPhaseEnabled = false,
   personalizationData,
   onPersonalizationRequest,
 }: BeachDetailProps) {
@@ -785,6 +787,7 @@ function BeachDetailContent({
     return aggregateDayForecasts(forecasts, beach, {
       maxDays: 12,
       timezone: beachTimezone || undefined,
+      skillLevel: null,
     });
   }, [publicMode, forecasts, beach, beachTimezone]);
 
@@ -884,6 +887,7 @@ function BeachDetailContent({
         refreshKey={alertRulesRefreshKey}
         onOpenAlerts={handleOpenAlerts}
         className="shrink-0"
+        freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
       />
       <Button
         variant="ghost"
@@ -950,6 +954,7 @@ function BeachDetailContent({
             refreshKey={alertRulesRefreshKey}
             onOpenAlerts={handleOpenAlerts}
             className="bg-[#F78E42] text-white hover:bg-[#F78E42]/90"
+            freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
           />
         </div>
         <SessionIntelligencePilot
@@ -1108,6 +1113,7 @@ function BeachDetailContent({
           open={alertCreationOpen}
           onOpenChange={setAlertCreationOpen}
           onRuleCreated={() => setAlertRulesRefreshKey((key) => key + 1)}
+          freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
         />
       )}
 

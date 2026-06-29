@@ -15,6 +15,7 @@ import {
 import { notFound } from "next/navigation";
 import type { Beach } from "@/types/database";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
+import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
 // Force dynamic rendering - this page accesses cookies via Supabase client
 export const dynamic = "force-dynamic";
@@ -203,6 +204,7 @@ export default async function InternationalBeachDetailPage(props: PageProps) {
           beach={beach}
           slug={intlBeachSlug}
           beachTimezone={beachTimezone}
+          freeGrowthPhaseEnabled={isFreeGrowthPhaseEnabled()}
         />
       </>
     );

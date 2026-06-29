@@ -30,6 +30,7 @@ interface BeachDetailClientProps {
   heroHeadingLevel?: ZineHeroHeadingLevel;
   beforeTabsContent?: ReactNode;
   afterTabsContent?: ReactNode;
+  freeGrowthPhaseEnabled?: boolean;
 }
 
 export function BeachDetailClient({
@@ -46,6 +47,7 @@ export function BeachDetailClient({
   heroHeadingLevel,
   beforeTabsContent,
   afterTabsContent,
+  freeGrowthPhaseEnabled,
 }: BeachDetailClientProps) {
   const { user } = useAuth();
   const { track } = useTrackEvent();
@@ -178,6 +180,7 @@ export function BeachDetailClient({
         heroHeadingLevel={heroHeadingLevel}
         beforeTabsContent={beforeTabsContent}
         afterTabsContent={afterTabsContent}
+        freeGrowthPhaseEnabled={freeGrowthPhaseEnabled}
         personalizationData={personalizationData}
         onPersonalizationRequest={(forecast, baseScore) => {
           // BeachDetail will call this when it has forecast data and wants personalization

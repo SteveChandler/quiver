@@ -5,6 +5,17 @@ import { cookies } from "next/headers";
 export async function POST(request: Request) {
   try {
     const { email } = await request.json();
+
+    if (
+      process.env.E2E_ALLOW_EMAIL_SENDS !== "true" &&
+      process.env.PLAYWRIGHT_TEST === "true"
+    ) {
+      return NextResponse.json(
+        { message: "Confirmation email sent successfully" },
+        { status: 200 }
+      );
+    }
+
     const cookieStore = await cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -3,6 +3,7 @@ import { TEST_USER } from './fixtures/test-data';
 import { waitForPageLoad } from './utils/test-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 import { isVisibleSafe } from './utils/strict-helpers';
+import { ensureLocalAuthUser, isLocalE2ETarget } from './utils/local-supabase-fixtures';
 
 /**
  * Guest Authentication Tests
@@ -13,6 +14,18 @@ import { isVisibleSafe } from './utils/strict-helpers';
 
 test.describe('Authentication Flow', () => {
   let errorCapture: ErrorCapture;
+
+  test.beforeAll(async () => {
+    if (!isLocalE2ETarget()) return;
+
+    await ensureLocalAuthUser({
+      displayName: 'testuser',
+      email: TEST_USER.email,
+      fixtureName: 'guest-auth',
+      fullName: TEST_USER.name,
+      password: TEST_USER.password,
+    });
+  });
 
   test.beforeEach(async ({ page }) => {
     errorCapture = setupErrorDetection(page);

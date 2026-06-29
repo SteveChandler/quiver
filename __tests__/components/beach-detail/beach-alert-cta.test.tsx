@@ -40,6 +40,11 @@ jest.mock("@/hooks/use-data-fetcher", () => ({
 }));
 
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
+const mockTrack = jest.fn();
+
+jest.mock("@/hooks/use-track-event", () => ({
+  useTrackEvent: () => ({ track: mockTrack }),
+}));
 
 const defaultProps = {
   beachId: "beach-123",
@@ -73,6 +78,7 @@ describe("BeachAlertCta", () => {
     jest.clearAllMocks();
     mockRefetch.mockClear();
     mockInvalidateCache.mockClear();
+    mockTrack.mockClear();
     mockPendingAction = null;
     mockRules = [];
   });
@@ -87,6 +93,47 @@ describe("BeachAlertCta", () => {
       expect(
         screen.getByRole("button", { name: /get alerts/i })
       ).toBeInTheDocument();
+    });
+
+    it("does not show free-growth copy when the phase flag prop is off", () => {
+      render(<BeachAlertCta {...defaultProps} />);
+
+      expect(
+        screen.queryByText(/track up to 3 breaks/i)
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText(/notify me when conditions are ideal/i)
+      ).toBeInTheDocument();
+    });
+
+    it("shows locked free-growth copy when the phase flag prop is on", () => {
+      render(<BeachAlertCta {...defaultProps} freeGrowthPhaseEnabled />);
+
+      expect(
+        screen.getByRole("button", { name: /watch this spot, free/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText(
+          "Watch this spot, free. Track up to 3 breaks and we'll call the window.",
+        )
+      ).toBeInTheDocument();
+    });
+
+    it("tracks a free-growth education impression for anonymous viewers", async () => {
+      render(<BeachAlertCta {...defaultProps} freeGrowthPhaseEnabled />);
+
+      await waitFor(() => {
+        expect(mockTrack).toHaveBeenCalledWith(
+          "free_growth_education_impression",
+          {
+            beachId: defaultProps.beachId,
+            metadata: {
+              surface: "beach_detail_alert_cta",
+              audience: "anonymous",
+            },
+          },
+        );
+      });
     });
 
     it("renders a Waves icon inside the button", () => {
@@ -114,6 +161,25 @@ describe("BeachAlertCta", () => {
       expect(screen.getByTestId("auth-modal")).toHaveAttribute(
         "data-source",
         "beach-alert-cta"
+      );
+    });
+
+    it("tracks free-growth education CTA taps before opening auth", () => {
+      render(<BeachAlertCta {...defaultProps} freeGrowthPhaseEnabled />);
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /watch this spot, free/i }),
+      );
+
+      expect(mockTrack).toHaveBeenCalledWith(
+        "free_growth_education_cta_tapped",
+        {
+          beachId: defaultProps.beachId,
+          metadata: {
+            surface: "beach_detail_alert_cta",
+            audience: "anonymous",
+          },
+        },
       );
     });
   });
@@ -146,6 +212,22 @@ describe("BeachAlertCta", () => {
       const btn = screen.getByRole("button", { name: /get alerts/i });
       fireEvent.click(btn);
       expect(onOpenAlerts).toHaveBeenCalledTimes(1);
+    });
+
+    it("tracks tune outcome when an authenticated user manages existing alerts", () => {
+      mockRules = [{ id: "r1", beach_id: defaultProps.beachId }];
+      const onOpenAlerts = jest.fn();
+      render(<BeachAlertCta {...defaultProps} onOpenAlerts={onOpenAlerts} />);
+
+      fireEvent.click(screen.getByRole("button", { name: /manage alerts/i }));
+
+      expect(mockTrack).toHaveBeenCalledWith("watch_spot_tapped", {
+        beachId: defaultProps.beachId,
+        metadata: {
+          surface: "beach_detail_alert_cta",
+          outcome: "tune",
+        },
+      });
     });
 
     it("does not open auth modal for authenticated users", () => {

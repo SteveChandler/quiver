@@ -9,6 +9,20 @@ import { Resend } from 'resend';
 let resendClient: Resend | null = null;
 
 export function getResendClient(): Resend {
+  if (
+    process.env.E2E_ALLOW_EMAIL_SENDS !== 'true' &&
+    (process.env.PLAYWRIGHT_TEST === 'true' ||
+      process.env.NEXT_PUBLIC_E2E_DISABLE_EMAIL_SENDS === 'true')
+  ) {
+    return {
+      emails: {
+        async send() {
+          return { data: { id: `e2e-email-${crypto.randomUUID()}` }, error: null };
+        },
+      },
+    } as unknown as Resend;
+  }
+
   if (!resendClient) {
     const apiKey = process.env.RESEND_API_KEY;
     if (!apiKey) {

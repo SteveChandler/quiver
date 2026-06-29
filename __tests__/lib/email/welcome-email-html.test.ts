@@ -6,20 +6,25 @@ import {
 } from "@/lib/email/templates/welcome-email-html";
 
 const BASE_URL = "https://quiversurf.app";
+const CANONICAL_EMAIL_BASE_URL = "https://www.quiversurf.app";
+const MESSAGE_ID = "welcome-msg-123";
 
 describe("welcome-email-html — activation CTA", () => {
   describe("onboarded user (has home beach)", () => {
     const html = generateWelcomeEmailHtml({
       baseUrl: BASE_URL,
       homeBeachName: "Blacks",
-      homeBeachUrl: "/ca/san-diego/blacks",
+      homeBeachSlug: "blacks",
+      messageInstanceId: MESSAGE_ID,
     });
 
-    it("renders a single primary CTA pointing at the beach forecast page", () => {
+    it("renders a single primary CTA pointing at the app-first beach forecast path", () => {
       expect(html).toContain("Check your Blacks forecast");
-      expect(html).toContain(
-        `${BASE_URL}/ca/san-diego/blacks?utm_source=email&utm_medium=welcome&utm_campaign=home_beach_set`
-      );
+      expect(html).toContain(`${CANONICAL_EMAIL_BASE_URL}/app/spot/blacks?`);
+      expect(html).toContain("utm_source=email");
+      expect(html).toContain("utm_medium=email");
+      expect(html).toContain("email_type=welcome");
+      expect(html).toContain(`message_instance_id=${MESSAGE_ID}`);
       // Exactly one primary button (not duplicated).
       const buttonCount = (html.match(/Check your Blacks forecast/g) ?? []).length;
       expect(buttonCount).toBe(1);
@@ -28,6 +33,7 @@ describe("welcome-email-html — activation CTA", () => {
     it("does NOT route to onboarding for an onboarded user", () => {
       expect(html).not.toContain("onboarding=required");
       expect(html).not.toContain("Pick your home beach");
+      expect(html).not.toContain(`${BASE_URL}/ca/san-diego/blacks`);
     });
 
     it("is email-client-safe: table + bgcolor button on brand orange with dark text", () => {
@@ -48,14 +54,18 @@ describe("welcome-email-html — activation CTA", () => {
     const html = generateWelcomeEmailHtml({
       baseUrl: BASE_URL,
       homeBeachName: null,
-      homeBeachUrl: null,
+      homeBeachSlug: null,
+      messageInstanceId: MESSAGE_ID,
     });
 
-    it("renders a single primary CTA pointing at onboarding", () => {
+    it("renders a single primary CTA pointing at covered app onboarding", () => {
       expect(html).toContain("Pick your home beach");
-      expect(html).toContain(
-        `${BASE_URL}/?onboarding=required&utm_source=email&utm_medium=welcome&utm_campaign=no_home_beach`
-      );
+      expect(html).toContain(`${CANONICAL_EMAIL_BASE_URL}/app?`);
+      expect(html).toContain("onboarding=required");
+      expect(html).toContain("utm_source=email");
+      expect(html).toContain("utm_medium=email");
+      expect(html).toContain("email_type=welcome");
+      expect(html).toContain(`message_instance_id=${MESSAGE_ID}`);
       const buttonCount = (html.match(/Pick your home beach/g) ?? []).length;
       expect(buttonCount).toBe(1);
     });
@@ -75,10 +85,12 @@ describe("welcome-email-html — activation CTA", () => {
     const html = generateWelcomeEmailHtml({
       baseUrl: BASE_URL,
       homeBeachName: "Blacks",
-      homeBeachUrl: null,
+      homeBeachSlug: null,
+      messageInstanceId: MESSAGE_ID,
     });
     expect(html).toContain("Pick your home beach");
     expect(html).toContain("onboarding=required");
+    expect(html).toContain(`${CANONICAL_EMAIL_BASE_URL}/app?`);
   });
 
   describe("plain-text variant keeps a matching CTA href", () => {
@@ -86,20 +98,27 @@ describe("welcome-email-html — activation CTA", () => {
       const text = generateWelcomeEmailText({
         baseUrl: BASE_URL,
         homeBeachName: "Blacks",
-        homeBeachUrl: "/ca/san-diego/blacks",
+        homeBeachSlug: "blacks",
+        messageInstanceId: MESSAGE_ID,
       });
       expect(text).toContain("Check your Blacks forecast:");
-      expect(text).toContain(`${BASE_URL}/ca/san-diego/blacks?`);
+      expect(text).toContain(`${CANONICAL_EMAIL_BASE_URL}/app/spot/blacks?`);
+      expect(text).toContain("email_type=welcome");
+      expect(text).toContain(`message_instance_id=${MESSAGE_ID}`);
     });
 
     it("non-onboarded text links to onboarding", () => {
       const text = generateWelcomeEmailText({
         baseUrl: BASE_URL,
         homeBeachName: null,
-        homeBeachUrl: null,
+        homeBeachSlug: null,
+        messageInstanceId: MESSAGE_ID,
       });
       expect(text).toContain("Pick your home beach:");
       expect(text).toContain("onboarding=required");
+      expect(text).toContain(`${CANONICAL_EMAIL_BASE_URL}/app?`);
+      expect(text).toContain("email_type=welcome");
+      expect(text).toContain(`message_instance_id=${MESSAGE_ID}`);
     });
   });
 });

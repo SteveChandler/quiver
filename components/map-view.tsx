@@ -2,14 +2,18 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { BookOpen, X } from "lucide-react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
 import { MapToolbar } from "@/components/map/map-toolbar";
+import { Button } from "@/components/ui/button";
+import { useCustomSpots } from "@/hooks/use-custom-spots";
 import {
   MAP_REGION_PILLS,
   type MapRegionPill,
 } from "@/components/map/map-regions";
 import { MapContent } from "@/components/map/map-content";
+import { MapLearningPanel } from "@/components/map/map-learning-panel";
 import { type SwellLayerId } from "@/components/map/swell-map-theme";
 import { useProfileContext } from "@/context/profile-context";
 import type { Beach } from "@/types/database";
@@ -65,6 +69,8 @@ export function MapView() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
+  const isShareView = searchParams.get("share") === "1";
+  const [showFieldGuide, setShowFieldGuide] = useState(false);
   const [mapFocusCenter, setMapFocusCenter] = useState<{
     lat: number;
     lon: number;
@@ -120,6 +126,7 @@ export function MapView() {
     toggleBreakType,
     clearAllFilters,
   } = useBeachSearch();
+  const { customSpots } = useCustomSpots();
 
   // Load nearby beaches when user location is available - prevent duplicate calls
   // Wait for geolocation to resolve before fetching to avoid using stale fallback coords
@@ -337,6 +344,15 @@ export function MapView() {
     filters.breakTypes.size > 0;
 
   const selectedBeachForMap = mapFocusCenter ? null : selectedBeach;
+  const fieldGuideVisible = showFieldGuide || isShareView;
+
+  const handleOpenFieldGuide = useCallback((): void => {
+    setShowFieldGuide(true);
+  }, []);
+
+  const handleCloseFieldGuide = useCallback((): void => {
+    setShowFieldGuide(false);
+  }, []);
 
   return (
     <div className="flex-1 flex flex-col min-h-0" data-testid="map-view">
@@ -358,9 +374,33 @@ export function MapView() {
         onToggleSwellField={() => setShowSwellField((v) => !v)}
       />
 
+      <div className="border-b bg-background px-3 py-2 sm:px-4">
+        <div className="flex justify-end">
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            aria-expanded={fieldGuideVisible}
+            aria-controls="map-field-guide-panel"
+            data-testid="map-field-guide-toggle"
+            onClick={handleOpenFieldGuide}
+            className="h-10 w-full justify-center whitespace-nowrap px-3 text-xs sm:w-auto sm:text-sm"
+          >
+            <BookOpen className="h-4 w-4 shrink-0" aria-hidden="true" />
+            How to read this map
+          </Button>
+        </div>
+      </div>
+
       {/* Content */}
-      <div className="flex-1 flex flex-col min-h-0">
-        <div className="flex-1 relative min-h-0 flex flex-col">
+      <div
+        className={
+          fieldGuideVisible
+            ? "grid flex-1 grid-rows-[minmax(320px,1fr)_auto] min-h-0 xl:grid-cols-[minmax(0,1fr)_380px] xl:grid-rows-1"
+            : "grid flex-1 grid-rows-1 min-h-0"
+        }
+      >
+        <div className="relative min-h-0 flex flex-col">
           <MapContent
             loading={false}
             locationError={locationError}
@@ -370,6 +410,7 @@ export function MapView() {
             focusCenter={mapFocusCenter}
             selectedBeach={selectedBeachForMap}
             filteredBeaches={filteredBeaches}
+            customSpots={customSpots}
             searchQuery={searchQuery}
             regionViewport={null}
             onGetUserLocation={handleUseMyLocation}
@@ -385,6 +426,21 @@ export function MapView() {
             onSwellTimelineChange={setSwellTimelineIndex}
           />
         </div>
+        {fieldGuideVisible && (
+          <div id="map-field-guide-panel" className="relative min-h-0">
+            {showFieldGuide && !isShareView && (
+              <button
+                type="button"
+                aria-label="Close map field guide"
+                onClick={handleCloseFieldGuide}
+                className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-md border border-[#11100D]/20 bg-[#F5EEDC] text-[#11100D] shadow-sm transition-colors hover:bg-[#F4EBD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
+            <MapLearningPanel />
+          </div>
+        )}
       </div>
     </div>
   );

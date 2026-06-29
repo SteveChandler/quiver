@@ -14,7 +14,8 @@
 import { createSupabaseServiceRoleClient } from '@/lib/supabase/server';
 import { createContextLogger } from '@/lib/logger';
 import type { Beach } from '@/types/database';
-import { parseSkillLevel, type SkillLevel } from '@/lib/domains/user-preferences';
+import type { SkillLevel } from '@/lib/domains/user-preferences';
+import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 
 const log = createContextLogger('CandidatePoolBuilder');
 
@@ -71,18 +72,7 @@ export async function buildCandidatePool(
   const cappedRadius = Math.min(Math.max(radiusMiles, 0), 100);
 
   try {
-    // Fetch user's experience level (used for scoring)
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('experience_level')
-      .eq('id', userId)
-      .single();
-
-    const profileData = profile as unknown as {
-      experience_level?: string | null;
-    };
-    // Parse and validate skill level - returns null for invalid values
-    userSkillLevel = parseSkillLevel(profileData?.experience_level);
+    userSkillLevel = await getProfileExperienceLevel(supabase, userId);
 
     // Fetch nearby beaches via PostGIS RPC (ordered by distance)
     const max_distance_meters = Math.round(cappedRadius * 1609.34);

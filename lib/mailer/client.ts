@@ -2,11 +2,32 @@ import { Resend } from "resend";
 
 let resendInstance: Resend | null = null;
 
+function shouldSuppressE2EEmailSends(): boolean {
+  return (
+    process.env.E2E_ALLOW_EMAIL_SENDS !== "true" &&
+    (process.env.PLAYWRIGHT_TEST === "true" ||
+      process.env.NEXT_PUBLIC_E2E_DISABLE_EMAIL_SENDS === "true")
+  );
+}
+
+const e2eResendStub = {
+  emails: {
+    async send() {
+      return { data: { id: `e2e-email-${crypto.randomUUID()}` }, error: null };
+    },
+  },
+};
+
 // Lazy, safe access to the Resend client to avoid build-time instantiation
 export const resend: any = new Proxy(
   {},
   {
     get(_target, prop) {
+      if (shouldSuppressE2EEmailSends()) {
+        // Playwright must not consume real provider quota from local .env files.
+        return e2eResendStub[prop as keyof typeof e2eResendStub];
+      }
+
       if (!resendInstance) {
         const apiKey = process.env.RESEND_API_KEY;
         if (!apiKey) {

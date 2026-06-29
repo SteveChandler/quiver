@@ -16,7 +16,7 @@ import * as path from 'path';
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
 
 const TEST_USER = {
-  email: 'testuser@quiver.surf',
+  email: 'testuser@quivertest.local',
   password: 'testpassword123',
   name: 'Test User',
   displayName: 'testuser',

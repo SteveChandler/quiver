@@ -6,6 +6,7 @@ import {
   withServerAction,
 } from "@/lib/server-action-utils";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
+import { emitSessionCreatedEvent } from "@/lib/analytics/session-created";
 import { computeUserPreferences } from "@/lib/services/preference-learning-service";
 import type {
   Session,
@@ -423,6 +424,13 @@ export async function createLoggedSession(data: SessionFormState | SessionInputW
     if (error) {
       throw new Error(`Session creation failed: ${error.message || 'Unknown database error'}`);
     }
+
+    await emitSessionCreatedEvent(writeClient, {
+      userId: user.id,
+      session,
+      source: "web-session-form",
+      surface: "sessions/new",
+    });
 
     if (forecastFeedbackContextId) {
       try {

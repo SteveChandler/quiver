@@ -56,6 +56,24 @@ describe('parseSessionWizardParams', () => {
     expect(data.targetStep).toBe(3);
   });
 
+  it('should parse native email handoff parameter aliases', () => {
+    const params = new URLSearchParams({
+      mode: 'log',
+      quick: 'true',
+      beachId: '123e4567-e89b-12d3-a456-426614174000',
+      beachName: 'Pacific Beach',
+      startedAt: '2025-11-22T06:00:00.000Z',
+      entrySource: 'email',
+    });
+
+    const result = parseSessionWizardParams(params);
+    const data = expectSuccessfulParse(result);
+
+    expect(data.quick).toBe(true);
+    expect(data.beachId).toBe('123e4567-e89b-12d3-a456-426614174000');
+    expect(data.startTime?.toISOString()).toBe('2025-11-22T06:00:00.000Z');
+  });
+
   it('should handle missing optional parameters with defaults', () => {
     const params = new URLSearchParams({
       mode: 'log',
@@ -303,6 +321,15 @@ describe('hasWizardParams', () => {
   it('should return true when startTime parameter is present', () => {
     const params = new URLSearchParams({
       startTime: '2025-11-22T06:00:00.000Z',
+    });
+
+    expect(hasWizardParams(params)).toBe(true);
+  });
+
+  it('should return true when native email handoff parameters are present', () => {
+    const params = new URLSearchParams({
+      beachId: '123e4567-e89b-12d3-a456-426614174000',
+      startedAt: '2025-11-22T06:00:00.000Z',
     });
 
     expect(hasWizardParams(params)).toBe(true);

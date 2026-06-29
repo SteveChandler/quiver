@@ -109,6 +109,27 @@ jest.mock("@/lib/email/email-formatters", () => ({
     const displayHour = hours > 12 ? hours - 12 : hours || 12;
     return `${displayHour}:${minutes} ${ampm}`;
   }),
+  formatActionableBestWindow: jest.fn(
+    (startTime: string | null, endTime: string | null) => {
+      if (!startTime || !endTime) return null;
+      const startParts = startTime.split(":");
+      const endParts = endTime.split(":");
+      const startHour = parseInt(startParts[0], 10);
+      const endHour = parseInt(endParts[0], 10);
+      if (startHour < 5 || startHour >= 21 || endHour <= startHour) {
+        return null;
+      }
+      const format = (time: string): string => {
+        const parts = time.split(":");
+        const hours = parseInt(parts[0], 10);
+        const minutes = parts[1];
+        const ampm = hours >= 12 ? "PM" : "AM";
+        const displayHour = hours > 12 ? hours - 12 : hours || 12;
+        return `${displayHour}:${minutes} ${ampm}`;
+      };
+      return { start: format(startTime), end: format(endTime) };
+    }
+  ),
   getConditionLabelText: jest.fn((score: number) => {
     if (score >= 85) return "Perfect";
     if (score >= 70) return "Excellent";
@@ -935,6 +956,41 @@ describe("Re-engagement Email Cron Job API", () => {
 
       const request = mockRequest({ authorization: "Bearer valid" });
       await GET(request);
+
+      expect(ReengagementEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bestWindow: null,
+        })
+      );
+    });
+
+    it("suppresses overnight stored best windows", async () => {
+      const candidates = [
+        {
+          user_id: "user-1",
+          email: "user1@example.com",
+          display_name: "User One",
+          home_beach_id: "beach-1",
+          beach_name: "Test Beach",
+          beach_slug: "test-beach",
+          conditions_score: 90,
+          surf_description: "Test",
+          wind_description: "Test",
+          best_window_start: "02:00:00",
+          best_window_end: "04:00:00",
+          recommendation: null,
+        },
+      ];
+
+      mockRpc
+        .mockResolvedValueOnce({ data: candidates, error: null })
+        .mockResolvedValueOnce({ data: true, error: null });
+
+      mockLimit.mockResolvedValueOnce({ data: [], error: null });
+
+      const { ReengagementEmail } = require("@/lib/mailer/templates/ReengagementEmail");
+
+      await GET(mockRequest({ authorization: "Bearer valid" }));
 
       expect(ReengagementEmail).toHaveBeenCalledWith(
         expect.objectContaining({

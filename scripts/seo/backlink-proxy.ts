@@ -60,7 +60,6 @@ async function main(): Promise<void> {
     embedReferrers,
     outreachMarkdown,
     manualExports,
-    competitorDeltas: readCompetitorDeltas(),
     missing,
   }));
 }
@@ -109,15 +108,6 @@ function resolveSupabaseUrl(): string | undefined {
 
 function isLocalhostUrl(value: string): boolean {
   return value.includes("127.0.0.1") || value.includes("localhost");
-}
-
-function readCompetitorDeltas(): string[] {
-  const memoryPath = "/Users/stevenchandler/.codex/automations/competitor-research-refresh/memory.md";
-  if (!fs.existsSync(memoryPath)) return [];
-  return fs.readFileSync(memoryPath, "utf8")
-    .split(/\r?\n/)
-    .filter((line) => line.startsWith("- "))
-    .slice(-12);
 }
 
 function readJsonIfExists<T>(filePath: string): T | null {

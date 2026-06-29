@@ -8,6 +8,7 @@ import { compassToDegrees } from "@/components/map/swell-map-theme";
  */
 export interface SwellPartition {
   s1Dir: number | null; // degrees
+  swellDirOm?: number | null; // Open-Meteo swell direction (deg), with wave_direction_om fallback — matches native's field-direction source
   s1PeriodS: number | null;
   s1HeightFt: number | null;
   s2Dir: number | null; // degrees
@@ -52,6 +53,8 @@ type SwellPartitionRow = Pick<
   | "swell_1_height"
   | "swell_1_period"
   | "swell_1_direction"
+  | "swell_direction_om"
+  | "wave_direction_om"
   | "swell_2_height"
   | "swell_2_period"
   | "swell_2_direction"
@@ -65,6 +68,7 @@ type SwellPartitionRow = Pick<
 export function rowToSwellPartition(row: SwellPartitionRow): SwellPartition {
   return {
     s1Dir: parseDirection(row.swell_1_direction),
+    swellDirOm: parseDirection(row.swell_direction_om ?? row.wave_direction_om),
     s1PeriodS: parseFiniteFloat(row.swell_1_period),
     s1HeightFt: parseSwellHeightFt(row.swell_1_height),
     s2Dir: parseDirection(row.swell_2_direction),

@@ -32,6 +32,7 @@ function makeProps(
     beachName: "Black's Beach",
     conditionsScore: 70,
     surfDescription: "Clean 4-6ft sets",
+    appSessionUrl: "https://www.quiversurf.app/sessions/new?entrySource=email",
     confirmUrl: "https://quiversurf.app/sessions/new?beach=blacks&action=confirm",
     skipUrl: "https://quiversurf.app/sessions/new?beach=blacks&action=skip",
     unsubscribeUrl: "https://quiversurf.app/profile/notifications",
@@ -67,7 +68,9 @@ describe("SessionPromptEmail", () => {
 
       // Beach name appears in <strong> tag
       expect(screen.getByText("Swami's")).toBeInTheDocument();
-      expect(screen.getByText(/yesterday/i)).toBeInTheDocument();
+      expect(screen.getByText(/Conditions were looking/i).textContent).toContain(
+        "yesterday (scored 70).",
+      );
     });
 
     it("displays beach name in footer text", () => {
@@ -85,7 +88,9 @@ describe("SessionPromptEmail", () => {
 
       // Beach name appears in <strong> tag
       expect(screen.getByText("La Jolla Shores")).toBeInTheDocument();
-      expect(screen.getByText(/yesterday/i)).toBeInTheDocument();
+      expect(screen.getByText(/Conditions were looking/i).textContent).toContain(
+        "yesterday (scored 70).",
+      );
     });
   });
 
@@ -197,6 +202,17 @@ describe("SessionPromptEmail", () => {
   });
 
   describe("CTA Link", () => {
+    it("renders primary app CTA link with correct URL", () => {
+      const appSessionUrl =
+        "https://www.quiversurf.app/sessions/new?entrySource=email&beachId=beach-1";
+      const props = makeProps({ appSessionUrl });
+      render(<SessionPromptEmail {...props} />);
+
+      const link = screen.getByText(/Open in Quiver/i);
+      expect(link).toBeInTheDocument();
+      expect(link.closest("a")).toHaveAttribute("href", appSessionUrl);
+    });
+
     it("renders confirm CTA link with correct URL", () => {
       const confirmUrl = "https://quiversurf.app/sessions/new?beach=blacks&action=confirm";
       const props = makeProps({ confirmUrl });

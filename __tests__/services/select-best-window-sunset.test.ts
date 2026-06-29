@@ -249,10 +249,8 @@ describe('selectBestWindow with sunset', () => {
 
     // Multiple good forecasts followed by a poor one.
     // The window should end when conditions degrade.
-    // Note: wind_speed=30 produces score=0 under the unified scoring engine
-    // (wind > 25 mph cliffs the wind component), guaranteeing the 3pm score
-    // drops below both thresholds (standard 50 and morning 40) regardless
-    // of which is active.
+    // The 3pm forecast uses tiny, short-period surf plus high wind so it falls
+    // below both thresholds regardless of which threshold is active.
     const forecasts = [
       createMockForecast({
         forecast_date: '2026-01-13',
@@ -272,7 +270,9 @@ describe('selectBestWindow with sunset', () => {
       createMockForecast({
         forecast_date: '2026-01-13',
         forecast_time: '15:00:00', // 3pm PT
-        wind_speed: '30', // Above-25 wind cliffs score to 0
+        wave_height: '0.2',
+        wave_period: '0s',
+        wind_speed: '30',
       }),
     ];
 
@@ -557,7 +557,8 @@ describe('selectBestWindow local date boundary', () => {
     //
     // The bug is masked when conditions degrade (interpolation doesn't cross boundary)
     // so we test with GOOD conditions at 4pm PT (after UTC boundary) and
-    // BAD conditions at 5pm PT. The window should extend to ~4:30pm (interpolated)
+    // BAD conditions at 5pm PT. The window should extend past 4pm and end before
+    // 5pm when the sub-hour refinement finds the degradation point.
     // but the UTC date boundary bug causes it to stop at 3pm PT.
     const forecasts = [
       createMockForecast({
@@ -575,8 +576,9 @@ describe('selectBestWindow local date boundary', () => {
       createMockForecast({
         forecast_date: '2026-01-13',
         forecast_time: '17:00:00', // 5pm PT - still Jan 13 local - BAD (triggers interpolation)
-        wave_height: '4.0',
-        wind_speed: '30', // Above-25 wind cliffs score to 0 (below both standard and morning thresholds)
+        wave_height: '0.2',
+        wave_period: '0s',
+        wind_speed: '30',
       }),
     ];
 
@@ -599,8 +601,8 @@ describe('selectBestWindow local date boundary', () => {
     //
     // EXPECTED: Window should continue into 4pm PT forecast (still good conditions),
     // then interpolate between 4pm and 5pm when conditions degrade.
-    // With good conditions at 3pm (score ~63) and 4pm (score ~63), and bad at 5pm (score ~48),
-    // interpolation should set window end around 4:30pm PT (between 4pm and 5pm).
+    // With good conditions at 3pm and 4pm, then clearly bad conditions at 5pm,
+    // interpolation should set window end between 4pm and 5pm.
     const fourPmPT = new Date('2026-01-14T00:00:00Z').getTime();
     const fivePmPT = new Date('2026-01-14T01:00:00Z').getTime();
     const sixPmPT = new Date('2026-01-14T02:00:00Z').getTime(); // sunset

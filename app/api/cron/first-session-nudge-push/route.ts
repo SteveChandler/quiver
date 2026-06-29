@@ -44,6 +44,13 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
+import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
+import {
+  getLocalDateString,
+  getLocalHour,
+  isNightHour,
+  resolveBeachTimezone,
+} from "@/lib/utils/timezone-utils";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -97,6 +104,7 @@ interface Candidate {
 interface BeachRow {
   id: string;
   name: string | null;
+  timezone: string | null;
 }
 
 interface ResolvedCohort {
@@ -132,25 +140,22 @@ interface RunSummary {
 
 async function fetchFiringConfidence(
   supabase: ReturnType<typeof createSupabaseServiceRoleClient>,
-  beachId: string
+  beachId: string,
+  timezone?: string | null
 ): Promise<number | null> {
+  const beachTimezone = resolveBeachTimezone(timezone);
+
   try {
-    // Today's date boundary in UTC — enhanced_forecasts is hourly, so "today"
-    // = any row with forecast_at >= start-of-UTC-day for this beach.
     const now = new Date();
-    const startOfDay = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())
-    ).toISOString();
-    const endOfDay = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1)
-    ).toISOString();
+    const localDate = getLocalDateString(now, beachTimezone);
+    const { start, end } = getUtcDayBounds(localDate, beachTimezone);
 
     const { data, error } = await supabase
       .from("enhanced_forecasts")
       .select("confidence_score, forecast_at")
       .eq("beach_id", beachId)
-      .gte("forecast_at", startOfDay)
-      .lt("forecast_at", endOfDay)
+      .gte("forecast_at", start)
+      .lt("forecast_at", end)
       .gte("confidence_score", CONDITIONS_FIRING_THRESHOLD)
       .order("forecast_at", { ascending: true })
       .limit(1)
@@ -164,6 +169,11 @@ async function fetchFiringConfidence(
       return null;
     }
     if (!data || typeof data.confidence_score !== "number") return null;
+
+    const forecastAt = data.forecast_at ? new Date(data.forecast_at) : null;
+    if (!forecastAt || Number.isNaN(forecastAt.getTime())) return null;
+    if (isNightHour(getLocalHour(forecastAt, beachTimezone))) return null;
+
     return data.confidence_score;
   } catch (err) {
     console.warn(`${CONTEXT_TAG} confidence lookup threw for beach ${beachId}:`, err);
@@ -203,7 +213,7 @@ async function resolveCohort(
   }
 
   // Free tier (no entitlement row OR is_pro=false AND is_trialing=false).
-  if (!candidate.home_beach_id || !beachName) {
+  if (!candidate.home_beach_id || !beach) {
     return {
       cohort: "free_no_home",
       title: "Been out this week?",
@@ -214,7 +224,11 @@ async function resolveCohort(
     };
   }
 
-  const confidence = await fetchFiringConfidence(supabase, candidate.home_beach_id);
+  const confidence = await fetchFiringConfidence(
+    supabase,
+    candidate.home_beach_id,
+    beach.timezone
+  );
   if (confidence !== null && confidence >= CONDITIONS_FIRING_THRESHOLD) {
     return {
       cohort: "free_home_firing",
@@ -504,7 +518,7 @@ async function _GET(request: Request): Promise<Response> {
     if (neededBeachIds.length > 0) {
       const { data: beaches, error: beachesError } = await supabase
         .from("beaches")
-        .select("id, name")
+        .select("id, name, timezone")
         .in("id", neededBeachIds);
       if (beachesError) {
         console.warn(
@@ -513,7 +527,11 @@ async function _GET(request: Request): Promise<Response> {
         );
       } else {
         for (const b of beaches ?? []) {
-          beachById.set(b.id, { id: b.id, name: b.name });
+          beachById.set(b.id, {
+            id: b.id,
+            name: b.name,
+            timezone: b.timezone ?? null,
+          });
         }
       }
     }

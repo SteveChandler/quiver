@@ -13,7 +13,8 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
 import { getWaveSizeDescription } from "@/lib/utils/wave-formatters";
-import { classifyWindDirection, getWindScore } from "@/lib/utils/wind-classification";
+import { classifyWindDirection } from "@/lib/utils/wind-classification";
+import { scoreNativeForecastDay } from "@/lib/scoring/native-condition-score";
 
 /**
  * Summary of forecast conditions for a single day across a region
@@ -187,11 +188,7 @@ export function getBeachesForRegion(
 /**
  * Calculate aggregate score for a day based on forecast conditions
  *
- * Scoring factors:
- * - Wave height: Ideal range 3-6ft scores highest
- * - Wind direction: Offshore +25, light +15, onshore 0
- * - Swell period: Longer period = better quality (+2 per second over 10s)
- * - Consistency: Lower variance across day = higher score
+ * Scores the best native-compatible slot in the provided forecast group.
  *
  * @param forecasts - Array of forecasts for a single day
  * @param beach - The beach being scored
@@ -205,56 +202,9 @@ export function getBeachesForRegion(
  */
 export function calculateDayScore(
   forecasts: EnhancedForecastEntity[],
-  beach: Beach
+  _beach: Beach
 ): number {
-  if (forecasts.length === 0) return 0;
-
-  let totalScore = 0;
-  let count = 0;
-
-  for (const forecast of forecasts) {
-    let score = 0;
-
-    // Wave height scoring (0-40 points)
-    const waveHeight = parseFloat(forecast.wave_height || "0");
-    if (waveHeight >= 3 && waveHeight <= 6) {
-      score += 40; // Ideal range
-    } else if (waveHeight >= 2 && waveHeight < 3) {
-      score += 30; // Small but surfable
-    } else if (waveHeight > 6 && waveHeight <= 8) {
-      score += 35; // Larger but still manageable
-    } else if (waveHeight > 8 && waveHeight <= 12) {
-      score += 25; // Big waves (advanced only)
-    } else if (waveHeight >= 1 && waveHeight < 2) {
-      score += 15; // Minimal but rideable
-    } else if (waveHeight < 1) {
-      score += 5; // Too small
-    } else {
-      score += 10; // Too big or extreme
-    }
-
-    // Wind scoring (0-25 points) — exact compass/keyword matching
-    const windDirection = forecast.wind_direction || "";
-    score += getWindScore(classifyWindDirection(windDirection));
-
-    // Swell period scoring (0-20 points)
-    const swellPeriod = parseFloat(forecast.swell_1_period || forecast.wave_period || "0");
-    if (swellPeriod > 10) {
-      const periodBonus = Math.min(20, (swellPeriod - 10) * 2);
-      score += periodBonus;
-    }
-
-    // Confidence bonus (0-15 points)
-    const confidence = forecast.confidence_score || 0;
-    score += Math.min(15, confidence * 0.15);
-
-    totalScore += score;
-    count++;
-  }
-
-  // Calculate average and normalize to 0-100
-  const avgScore = count > 0 ? totalScore / count : 0;
-  return Math.round(Math.min(100, Math.max(0, avgScore)));
+  return scoreNativeForecastDay(forecasts);
 }
 
 /**

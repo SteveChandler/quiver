@@ -15,6 +15,14 @@ const beach = (id: string): Beach =>
     region: "San Diego",
   }) as Beach;
 
+function getBadge(marker: HTMLElement): HTMLElement {
+  const badge = marker.querySelector("[data-marker-badge='true']");
+  if (!(badge instanceof HTMLElement)) {
+    throw new Error("Marker badge was not rendered");
+  }
+  return badge;
+}
+
 describe("map condition summaries", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -57,7 +65,7 @@ describe("map condition summaries", () => {
   });
 
   it("renders wave-height markers with condition semantics and gradients", () => {
-    const marker = createWaveHeightBadge(beach("beach-fair"), 2.8, {
+    const marker = createWaveHeightBadge(beach("beach-fair"), 2.0, {
       favoriteBeachIds: new Set(),
       selectedBeachId: null,
       hoveredBeachId: null,
@@ -68,13 +76,19 @@ describe("map condition summaries", () => {
       displayMode: "wave-height",
       conditionSummary: "FAIR",
     });
-    const badge = marker.querySelector("[data-marker-badge='true']");
+    const badge = getBadge(marker);
+    const markerGradient = getConditionMarkerGradient("FAIR");
 
     expect(marker).toHaveAttribute("data-condition-summary", "FAIR");
-    expect(badge).toHaveAttribute(
-      "data-marker-gradient",
-      getConditionMarkerGradient("FAIR")
-    );
+    expect(badge.textContent).toBe("");
+    expect(badge).toHaveAttribute("data-marker-gradient", markerGradient);
+    expect(markerGradient).toContain("linear-gradient");
+    expect(badge).toHaveStyle({
+      width: "15px",
+      height: "15px",
+      borderRadius: "50%",
+      minWidth: "0",
+    });
   });
 
   it("keeps water-temp marker colors in water-temp mode", () => {
@@ -90,12 +104,17 @@ describe("map condition summaries", () => {
       waterTemp: "76",
       conditionSummary: "GOOD",
     });
-    const badge = marker.querySelector("[data-marker-badge='true']");
+    const badge = getBadge(marker);
+    const markerGradient = getWaterTempBadgeColor("76");
 
     expect(marker).toHaveAttribute("data-condition-summary", "GOOD");
-    expect(badge).toHaveAttribute(
-      "data-marker-gradient",
-      getWaterTempBadgeColor("76")
-    );
+    expect(badge.textContent).toBe("");
+    expect(badge).toHaveAttribute("data-marker-gradient", markerGradient);
+    expect(markerGradient).toContain("linear-gradient");
+    expect(badge).toHaveStyle({
+      width: "15px",
+      height: "15px",
+      borderRadius: "50%",
+    });
   });
 });

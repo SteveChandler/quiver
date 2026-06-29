@@ -18,6 +18,7 @@ import {
   WAVE_SIZE_OPTIONS,
   VIBE_OPTIONS,
 } from "@/types/conditions-report";
+import { emitSessionCreatedEvent } from "@/lib/analytics/session-created";
 
 // ---------------------------------------------------------------------------
 // Validation helpers
@@ -186,6 +187,17 @@ export const submitConditionsReport = makeAuthenticatedAction(
       console.warn("[submitConditionsReport] Session insert failed (non-fatal):", sessionError);
     } else {
       sessionId = session?.id ?? null;
+      if (sessionId) {
+        await emitSessionCreatedEvent(supabase, {
+          userId: user.id,
+          session: {
+            id: sessionId,
+            beach_id: beachId,
+          },
+          source: "web-conditions-report",
+          surface: "conditions-report",
+        });
+      }
       void (async () => {
         const { error: evtErr } = await supabase.from("user_events").insert({
           user_id: user.id,
