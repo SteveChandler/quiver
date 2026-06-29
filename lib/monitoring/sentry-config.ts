@@ -89,7 +89,7 @@ export function getSentryRuntimeEnvironment(
 ): QuiverSentryEnvironment {
   const vercelEnv = env.NEXT_PUBLIC_VERCEL_ENV || env.VERCEL_ENV;
 
-  if (vercelEnv === "production") return "production";
+  if (vercelEnv === "production") return "vercel-production";
   if (vercelEnv === "preview") return "preview";
   if (vercelEnv) return "development";
 
