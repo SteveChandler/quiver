@@ -132,8 +132,8 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     alt: "Blacks Beach surf lineup",
   },
   blackies: {
-    src: "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
-    alt: "North Orange County sandy beachbreak context near Blackies",
+    src: "/images/seo-dioramas/beginner/socal/blackies-photo.webp",
+    alt: "Newport Beach surf near Blackies",
   },
   "newport-56th-st": {
     src: "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
@@ -396,8 +396,8 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     alt: "Malibu point-wave surf report context",
   },
   "/surf-report/newport-beach-today": {
-    src: "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
-    alt: "North Orange County beachbreak context near Newport Beach",
+    src: "/images/seo-dioramas/beginner/socal/blackies-photo.webp",
+    alt: "Newport Beach surf report context near Blackies",
   },
   "/surf-report/scripps-pier-today": {
     src: "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
@@ -1522,11 +1522,11 @@ const BEGINNER_PAGES = [
         "Huntington State Beach - photo by FASTILY, CC BY-SA 4.0",
       ),
       makeExistingPhotoImage(
-        "huntington-beginner-doheny-photo",
-        "/images/seo-dioramas/beginner/socal/doheny-beach-photo.webp",
-        "Doheny State Beach soft learner-wave context for Orange County fallback planning",
-        "Doheny State Beach shoreline for Orange County beginner fallback planning",
-        "Doheny - photo by Orange County Archives, CC BY 2.0",
+        "huntington-beginner-blackies-photo",
+        "/images/seo-dioramas/beginner/socal/blackies-photo.webp",
+        "Blackies and Newport Beach surf photo for Huntington beginner alternate planning",
+        "Newport Beach surf context near Blackies for North Orange County backups",
+        "Blackies/Newport - photo by Travis, CC BY 2.0",
       ),
     ],
   }),
@@ -2447,11 +2447,11 @@ const TODAY_PAGES = [
     images: [],
     existingImages: [
       makeExistingPhotoImage(
-        "newport-beach-report-huntington-state-photo",
-        "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
-        "North Orange County beachbreak photo for Newport Beach surf report planning",
-        "North Orange County sandy beachbreak context near Newport Beach",
-        "Nearby North OC beachbreak - photo by FASTILY, CC BY-SA 4.0",
+        "newport-beach-report-blackies-photo",
+        "/images/seo-dioramas/beginner/socal/blackies-photo.webp",
+        "Newport Beach surf photo for Blackies surf report planning",
+        "Newport Beach surf context near Blackies",
+        "Blackies/Newport - photo by Travis, CC BY 2.0",
       ),
       makeExistingPhotoImage(
         "newport-beach-report-bolsa-chica-photo",

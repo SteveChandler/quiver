@@ -6,7 +6,25 @@
     "state": "CA",
     "country": "USA",
     "query": "Newport Beach Pier surf",
-    "notes": "North Orange County beginner anchor; review results for Newport Pier/28th Street context."
+    "notes": "North Orange County beginner anchor; review results for Newport Pier/28th Street context.",
+    "manualSources": [
+      {
+        "source": "wikimedia",
+        "sourceId": "Surfer Newport Beach California.jpg",
+        "imageUrl": "https://upload.wikimedia.org/wikipedia/commons/2/2c/Surfer_Newport_Beach_California.jpg",
+        "thumbUrl": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2c/Surfer_Newport_Beach_California.jpg/1280px-Surfer_Newport_Beach_California.jpg",
+        "sourceUrl": "https://commons.wikimedia.org/wiki/File:Surfer_Newport_Beach_California.jpg",
+        "title": "Surfer Newport Beach California.jpg",
+        "creator": "Travis",
+        "creatorUrl": "https://www.flickr.com/photos/34989068@N00",
+        "licenseCode": "CC BY 2.0",
+        "licenseUrl": "https://creativecommons.org/licenses/by/2.0/",
+        "licenseStatus": "defensible",
+        "usageNotes": "Wikimedia Commons CC BY 2.0 photo; Commons description identifies surfers at Newport Beach during the December 2005 storm and records FlickreviewR license confirmation.",
+        "confidence": 90,
+        "runtimeAssetPath": "public/images/seo-dioramas/beginner/socal/blackies-photo.webp"
+      }
+    ]
   },
   {
     "slug": "bolsa-chica",

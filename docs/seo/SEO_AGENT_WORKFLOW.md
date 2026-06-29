@@ -81,7 +81,7 @@ Do not use the following generated or geographically-mismatched SEO assets in ac
 - `public/images/seo-dioramas/surf-report/scripps-pier-today/scripps-board-choice-diorama.webp`
 - `public/images/seo-dioramas/surf-report/scripps-pier-today/scripps-pier-surf-check-diorama.webp`
 
-`__tests__/lib/seo/funnel-pages.test.ts` enforces this list against active page images and nearby-spot card backgrounds. If an approved Newport Beach or Blackies photo is added later, document the source and license in `docs/seo/photo-candidates/` before wiring it into runtime SEO config.
+`__tests__/lib/seo/funnel-pages.test.ts` enforces this list against active page images and nearby-spot card backgrounds. The approved Blackies/Newport runtime photo is documented in `docs/seo/photo-candidates/` and `scripts/data/socal-beginner-approved-photos.json`; add future source and license records there before wiring new runtime SEO images.
 
 ## Draft Queue
 

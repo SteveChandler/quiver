@@ -228,7 +228,7 @@ describe("SEO funnel pages", () => {
       "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
     );
     expect(newport?.images.map((image) => image.src)).toEqual([
-      "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
+      "/images/seo-dioramas/beginner/socal/blackies-photo.webp",
       "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
       "/images/seo-dioramas/beginner/socal/doheny-beach-photo.webp",
     ]);
