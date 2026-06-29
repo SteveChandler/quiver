@@ -132,19 +132,19 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     alt: "Blacks Beach surf lineup",
   },
   blackies: {
-    src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp",
-    alt: "Newport and North Orange County sandy beachbreak context near Blackies",
+    src: "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
+    alt: "North Orange County sandy beachbreak context near Blackies",
   },
   "newport-56th-st": {
-    src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-aerial-shore-photo.webp",
-    alt: "Newport Beach jetty and sandbar surf context near 56th Street",
+    src: "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
+    alt: "North Orange County sandy beachbreak context near Newport 56th Street",
   },
   "bolsa-chica": {
     src: "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
     alt: "Bolsa Chica State Beach sandy shoreline and beginner surf context",
   },
   goldenwest: {
-    src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-aerial-shore-photo.webp",
+    src: "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
     alt: "Goldenwest and North Huntington sandy beachbreak context",
   },
   "capitola-beach": {
@@ -172,8 +172,8 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     alt: "Domes surf context in Rincon Puerto Rico",
   },
   "72nd-place-long-beach-ca": {
-    src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp",
-    alt: "Small clean Southern California beachbreak context near 72nd Place",
+    src: "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
+    alt: "North Orange County sandy beachbreak context near 72nd Place",
   },
   "el-porto-manhattan": {
     src: "/images/seo-dioramas/surf-report/malibu-today/malibu-crowd-awareness-diorama.webp",
@@ -396,8 +396,8 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     alt: "Malibu point-wave surf report context",
   },
   "/surf-report/newport-beach-today": {
-    src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp",
-    alt: "Newport Beach surf report context near Blackies and the jetties",
+    src: "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
+    alt: "North Orange County beachbreak context near Newport Beach",
   },
   "/surf-report/scripps-pier-today": {
     src: "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
@@ -893,25 +893,29 @@ const LONGBOARD_PAGES = [
       },
       { label: "Scripps", href: "/ca/la-jolla/scripps", beachSlug: "scripps" },
     ],
-    images: [
-      [
-        "tourmaline-lineup-diorama",
-        "Tourmaline longboard lineup with soft rolling waves",
-        "Miniature Tourmaline longboard lineup with soft rolling waves",
-        "Tourmaline soft runners",
-      ],
-      [
-        "la-jolla-cove-cliffs-diorama",
-        "La Jolla cove cliffs with tiny surfboards and ocean texture",
-        "Quiver diorama of La Jolla cliffs with tiny surfboards and textured ocean",
-        "La Jolla cliff texture",
-      ],
-      [
-        "windansea-mellow-reef-diorama",
-        "Windansea-inspired reef scene, mellow not heavy",
-        "Mellow Windansea-inspired reef diorama with longboards and no heavy surf",
-        "Mellow reef read",
-      ],
+    images: [],
+    existingImages: [
+      makeExistingPhotoImage(
+        "la-jolla-longboard-tourmaline-photo",
+        "/images/seo-dioramas/spot-backgrounds/tourmaline-photo.webp",
+        "Tourmaline real photo for La Jolla longboard planning",
+        "Tourmaline shoreline and longboard surf context near La Jolla",
+        "Tourmaline photo",
+      ),
+      makeExistingPhotoImage(
+        "la-jolla-longboard-shores-photo",
+        "/images/seo-dioramas/spot-backgrounds/la-jolla-shores-photo.webp",
+        "La Jolla Shores real photo for longboard backup planning",
+        "La Jolla Shores shoreline and surf context for longboard backups",
+        "La Jolla Shores photo",
+      ),
+      makeExistingPhotoImage(
+        "la-jolla-longboard-scripps-photo",
+        "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
+        "Scripps Pier real photo for La Jolla longboard backup planning",
+        "Scripps Pier surf lineup photo for nearby La Jolla planning",
+        "Scripps Pier photo",
+      ),
     ],
   }),
   buildLocationPage({
@@ -1518,11 +1522,11 @@ const BEGINNER_PAGES = [
         "Huntington State Beach - photo by FASTILY, CC BY-SA 4.0",
       ),
       makeExistingPhotoImage(
-        "huntington-beginner-open-wave-photo",
-        "/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp",
-        "Small clean North Orange County beachbreak for Blackies and Goldenwest planning when no approved spot photo exists",
-        "Small clean North Orange County beachbreak context for Blackies and Goldenwest planning",
-        "Representative Blackies/Goldenwest context",
+        "huntington-beginner-doheny-photo",
+        "/images/seo-dioramas/beginner/socal/doheny-beach-photo.webp",
+        "Doheny State Beach soft learner-wave context for Orange County fallback planning",
+        "Doheny State Beach shoreline for Orange County beginner fallback planning",
+        "Doheny - photo by Orange County Archives, CC BY 2.0",
       ),
     ],
   }),
@@ -2189,26 +2193,29 @@ const TODAY_PAGES = [
         beachSlug: "blacks-beach",
       },
     ],
-    images: [
-      [
-        "scripps-pier-surf-check-diorama",
-        "Scripps Pier miniature surf-check diorama",
-        "Miniature Scripps Pier surf-check diorama with pier pilings and surfers",
-        "Pier surf check",
-      ],
-      [
-        "scripps-board-choice-diorama",
-        "Board choice scene with shortboard, fish, and log",
-        "Quiver diorama showing shortboard, fish, and log board choice near Scripps",
-        "Board choice table",
-      ],
-      [
+    images: [],
+    existingImages: [
+      makeExistingPhotoImage(
+        "scripps-report-pier-photo",
+        "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
+        "Scripps Pier real photo for surf report planning",
+        "Scripps Pier surf lineup photo for today's surf report",
+        "Scripps Pier photo",
+      ),
+      makeExistingPhotoImage(
         "scripps-clean-set-photo",
+        "/images/seo-dioramas/surf-report/scripps-pier-today/scripps-clean-set-photo.webp",
         "Clean San Diego wave photo for Scripps surf report context",
         "Clean San Diego wave with surfers used for Scripps surf report context",
         "Clean San Diego wave",
-        "photo",
-      ],
+      ),
+      makeExistingPhotoImage(
+        "scripps-report-la-jolla-shores-photo",
+        "/images/seo-dioramas/surf-cams/san-diego/san-diego-la-jolla-shores-photo.webp",
+        "La Jolla Shores photo for nearby Scripps backup planning",
+        "La Jolla Shores shoreline and surf context near Scripps Pier",
+        "Nearby La Jolla backup",
+      ),
     ],
   }),
   buildTodayPage({
@@ -2440,25 +2447,25 @@ const TODAY_PAGES = [
     images: [],
     existingImages: [
       makeExistingPhotoImage(
-        "newport-beach-report-open-wave-photo",
-        "/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp",
-        "Open Southern California wave photo for Newport Beach surf report planning",
-        "Clean Newport Beach-style wave context near Blackies and North Orange County",
-        "Open wave check",
+        "newport-beach-report-huntington-state-photo",
+        "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
+        "North Orange County beachbreak photo for Newport Beach surf report planning",
+        "North Orange County sandy beachbreak context near Newport Beach",
+        "Nearby North OC beachbreak - photo by FASTILY, CC BY-SA 4.0",
       ),
       makeExistingPhotoImage(
-        "newport-beach-report-aerial-shore-photo",
-        "/images/seo-dioramas/surf-cams/orange-county/orange-county-aerial-shore-photo.webp",
-        "Aerial shoreline photo for Newport Beach jetty and sandbar planning",
-        "Aerial Newport Beach-style shoreline and sandbar context",
-        "Aerial shoreline",
+        "newport-beach-report-bolsa-chica-photo",
+        "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
+        "Bolsa Chica shoreline photo for North Orange County fallback planning",
+        "Bolsa Chica shoreline context for North Orange County surf planning",
+        "Bolsa Chica - photo by Jeff Turner, CC BY 2.0",
       ),
       makeExistingPhotoImage(
-        "newport-beach-report-sunset-beach-photo",
-        "/images/seo-dioramas/surf-cams/orange-county/orange-county-sunset-beach-photo.webp",
-        "Southern California beach sunset photo for Newport Beach fallback planning",
-        "Golden beach context for Newport Beach and North Orange County backups",
-        "Sunset beach read",
+        "newport-beach-report-doheny-photo",
+        "/images/seo-dioramas/beginner/socal/doheny-beach-photo.webp",
+        "Doheny State Beach photo for Orange County backup planning",
+        "Doheny shoreline context for Orange County surf-report backups",
+        "Doheny - photo by Orange County Archives, CC BY 2.0",
       ),
     ],
   }),
@@ -2555,10 +2562,12 @@ interface CamSeed {
   links: SeoInternalLink[];
   spots: SeoSpotLink[];
   images: SeoImageSeedEntry[];
+  existingImages?: SeoImage[];
 }
 
 function buildCamPage(seed: CamSeed): SeoPageConfig {
-  const images = makePhotoImages("surf-cams", seed.slug, seed.images);
+  const images =
+    seed.existingImages ?? makePhotoImages("surf-cams", seed.slug, seed.images);
 
   return {
     type: "surf-cams",
@@ -2736,25 +2745,29 @@ const CAM_PAGES = [
       },
       { label: "Open OC map", href: "/map?search=Orange%20County" },
     ],
-    images: [
-      [
-        "orange-county-open-wave-photo",
-        "Open Southern California wave photo for Orange County cam context",
-        "Clean blue wave used as broad Orange County cam context",
-        "Open wave check",
-      ],
-      [
-        "orange-county-sunset-beach-photo",
-        "Southern California beach sunset photo for Orange County planning",
-        "Golden beach sunset used for Orange County surf-cam planning",
-        "Sunset beach read",
-      ],
-      [
-        "orange-county-aerial-shore-photo",
-        "Aerial shoreline photo for Orange County camera planning",
-        "Aerial shoreline and beachbreak sandbars from the coast",
-        "Aerial shoreline",
-      ],
+    images: [],
+    existingImages: [
+      makeExistingPhotoImage(
+        "orange-county-cams-bolsa-chica-photo",
+        "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
+        "Bolsa Chica shoreline photo for Orange County surf-cam planning",
+        "Bolsa Chica shoreline and North Orange County surf context",
+        "Bolsa Chica - photo by Jeff Turner, CC BY 2.0",
+      ),
+      makeExistingPhotoImage(
+        "orange-county-cams-huntington-state-photo",
+        "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
+        "Huntington State Beach photo for Orange County surf-cam planning",
+        "Huntington State Beach sandy surf zone context",
+        "Huntington State Beach - photo by FASTILY, CC BY-SA 4.0",
+      ),
+      makeExistingPhotoImage(
+        "orange-county-cams-doheny-photo",
+        "/images/seo-dioramas/beginner/socal/doheny-beach-photo.webp",
+        "Doheny State Beach photo for Orange County backup cam planning",
+        "Doheny State Beach shoreline for Orange County surf-cam planning",
+        "Doheny - photo by Orange County Archives, CC BY 2.0",
+      ),
     ],
   }),
   buildCamPage({
