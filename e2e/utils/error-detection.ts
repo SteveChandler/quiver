@@ -311,6 +311,8 @@ function isIgnorableConsoleError(text: string): boolean {
     'Failed to load resource: net::ERR_FAILED', // Generic network failures (CORS, blocked, etc.)
     'googletagmanager',
     'analytics',
+    '_vercel/insights',
+    '_vercel/speed-insights',
     'facebook',
 
     // Hot reload in dev
@@ -463,6 +465,8 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
       '/robots.txt',
       '.map', // Source maps
       'analytics',
+      '_vercel/insights',
+      '_vercel/speed-insights',
       'gtm',
       'facebook',
       '/sw.js', // Service worker is optional
