@@ -19,7 +19,7 @@ import {
   MessageSquare,
   User,
 } from "lucide-react";
-import { FullPageLoader, AuthLoader } from "@/components/ui/loading-states";
+import { AuthLoader } from "@/components/ui/loading-states";
 import { SessionCardWrapper } from "@/components/session-card-wrapper";
 import { BoardCard } from "@/components/board-card";
 import { UserStats } from "@/components/user-stats";
@@ -40,14 +40,32 @@ import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import type { Board, SessionWithDetails, Profile } from "@/types/database";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent } from "@/components/ui/card";
 import { ShareSheet } from "@/components/share";
 import { ANIMATION_VARIANTS } from "@/lib/constants/animations";
 import { track } from "@/lib/analytics";
 import { buildSessionShareSheetData } from "@/lib/share/session-share";
+import { QuiverSticker, ZineSurface } from "@/components/zine";
+import { cn } from "@/lib/utils";
 
 import { FeedHighlight } from "@/components/profile/FeedHighlight";
 import { SetHomeBreakCta } from "@/components/profile/set-home-break-cta";
+
+const PROFILE_TAB_BASE_CLASS =
+  "profile-zine-tab-trigger min-h-12 rounded-sm border font-heading text-xs font-bold uppercase transition-colors sm:text-sm";
+
+function getProfileTabClassName(
+  activeTab: string,
+  tab: string,
+  extraClassName?: string
+): string {
+  return cn(
+    PROFILE_TAB_BASE_CLASS,
+    activeTab === tab
+      ? "border-[#11100D] bg-[#11100D] text-[#F4EBD8] shadow-[2px_2px_0_rgba(17,16,13,0.25)]"
+      : "border-[#11100D]/30 bg-[#F4EBD8] text-[#11100D] hover:bg-[#F78E42]/20",
+    extraClassName
+  );
+}
 
 // Lazy load the referral leaderboard
 const ReferralLeaderboard = lazy(() =>
@@ -90,7 +108,7 @@ function SessionsLoadingSkeleton() {
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="h-32 bg-gray-100 rounded-lg animate-pulse"
+          className="h-32 border-2 border-[#11100D]/25 bg-[#FBF6E8] animate-pulse"
         ></div>
       ))}
     </div>
@@ -102,13 +120,18 @@ function TabLoadingSkeleton({ type }: { type: string }) {
     <div className="space-y-4 animate-pulse">
       <div className="flex items-center justify-center py-8">
         <div className="text-center space-y-2">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
-          <p className="text-sm text-gray-600">Loading {type}...</p>
+          <div className="w-8 h-8 border-2 border-[#11100D] border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <p className="font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/70">
+            Loading {type}...
+          </p>
         </div>
       </div>
       <div className="grid gap-4">
         {[1, 2].map((i) => (
-          <div key={i} className="h-24 bg-gray-100 rounded-lg"></div>
+          <div
+            key={i}
+            className="h-24 border-2 border-[#11100D]/25 bg-[#FBF6E8]"
+          ></div>
         ))}
       </div>
     </div>
@@ -248,7 +271,25 @@ function ProfileViewContent() {
 
   // Show loading state while checking authentication
   if (authLoading || (dataLoading && !error && !fetchError)) {
-    return <FullPageLoader text="Loading profile..." />;
+    return (
+      <ZineSurface
+        sectionLabel="Profile"
+        editionLabel="Private logbook"
+        paperClassName="min-h-[calc(100vh-9rem)]"
+        data-testid="profile-loading-zine-surface"
+      >
+        <div className="flex min-h-[52vh] items-center justify-center">
+          <div
+            className="inline-flex items-center gap-3 border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)]"
+            role="status"
+            aria-label="Loading profile"
+          >
+            <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+            <span>Loading profile...</span>
+          </div>
+        </div>
+      </ZineSurface>
+    );
   }
 
   // If not authenticated, show loading spinner (middleware should handle redirect)
@@ -257,15 +298,21 @@ function ProfileViewContent() {
   }
 
   return (
-    <div className="flex-1 flex flex-col bg-gradient-to-br from-background via-background to-ocean-blue/5">
-      {/* Modern Header */}
+    <ZineSurface
+      sectionLabel="Profile"
+      editionLabel="Private logbook"
+      paperClassName="min-h-[calc(100vh-9rem)] px-4 py-5 sm:px-6 lg:px-8"
+      data-testid="profile-zine-surface"
+    >
+      <div className="flex flex-col">
+      {/* Profile masthead */}
       <motion.header
         {...ANIMATION_VARIANTS.fadeInView}
-        className="sticky top-0 z-10 bg-white/90 backdrop-blur-sm border-b border-white/20 shadow-sm"
+        className="sticky top-0 z-10 -mx-4 border-b-2 border-[#11100D] bg-[#F4EBD8]/95 px-4 py-3 shadow-[0_4px_0_rgba(17,16,13,0.12)] sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8"
       >
-        <div className="container flex items-center h-16 px-2 sm:px-4">
-          <h1 className="text-xl font-heading font-bold text-dark-grey flex items-center gap-2">
-            <User className="h-5 w-5 text-ocean-blue" />
+        <div className="flex min-h-12 items-center">
+          <h1 className="flex items-center gap-2 font-heading text-xl font-black uppercase tracking-normal text-[#11100D]">
+            <User className="h-5 w-5 text-[#F78E42]" />
             {profile?.full_name
               ? `${profile.full_name}'s Profile`
               : "Your Profile"}
@@ -274,15 +321,15 @@ function ProfileViewContent() {
       </motion.header>
 
       {/* Main Content */}
-      <main className="flex-1 py-6 sm:py-8 lg:py-10 space-y-8 sm:space-y-10 lg:space-y-12 overflow-auto pb-20">
+      <main className="flex-1 space-y-8 py-6 pb-20 sm:space-y-10 sm:py-8 lg:space-y-12 lg:py-10">
         {error ? (
           <motion.div
             {...ANIMATION_VARIANTS.fadeInView}
-            className="max-w-4xl mx-auto px-2 sm:px-4 space-y-4"
+            className="mx-auto max-w-4xl space-y-4"
           >
             <Alert
               variant="destructive"
-              className="bg-red-50/80 backdrop-blur-sm border-red-200"
+              className="border-2 border-[#11100D] bg-[#FBF6E8] text-[#11100D]"
             >
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>Error</AlertTitle>
@@ -292,7 +339,7 @@ function ProfileViewContent() {
               <Button
                 onClick={handleRetry}
                 variant="outline"
-                className="hover:bg-ocean-blue hover:text-white transition-colors duration-300"
+                className="border-2 border-[#11100D] bg-[#FBF6E8] font-heading font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42]"
               >
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Retry
@@ -306,12 +353,12 @@ function ProfileViewContent() {
               {...ANIMATION_VARIANTS.fadeUpWithDelay(0.1)}
               className="relative py-3 sm:py-4 lg:py-5"
             >
-              {/* Gradient Background */}
-              <div className="absolute inset-0 bg-gradient-to-r from-ocean-blue/10 via-transparent to-sunset-orange/10" />
-
-              <div className="relative max-w-3xl mx-auto px-2 sm:px-4">
-                <Card className="overflow-hidden bg-white/80 backdrop-blur-sm hover:shadow-xl transition-shadow duration-300 border-white/50">
-                  <CardContent className="p-3 sm:p-4 lg:p-5">
+              <div className="relative mx-auto max-w-3xl">
+                <QuiverSticker
+                  sticker="orangeTape"
+                  className="absolute -top-8 right-6 hidden w-32 rotate-6 opacity-90 sm:block"
+                />
+                <div className="torn torn-tb overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] p-3 shadow-[4px_5px_0_rgba(17,16,13,0.22)] sm:p-4 lg:p-5">
                     <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-4">
                       <motion.div
                         {...ANIMATION_VARIANTS.staggerItem(0)}
@@ -323,7 +370,7 @@ function ProfileViewContent() {
                           name={profile?.full_name}
                           email={user?.email}
                           size="md"
-                          className="ring-1 ring-ocean-blue/20 shadow"
+                          className="border-2 border-[#11100D] ring-2 ring-[#F78E42]/45 shadow-[2px_3px_0_rgba(17,16,13,0.22)]"
                         />
                       </motion.div>
 
@@ -331,39 +378,39 @@ function ProfileViewContent() {
                         {...ANIMATION_VARIANTS.staggerItem(1)}
                         className="flex-1 text-center sm:text-left space-y-1"
                       >
-                        <h2 className="text-lg sm:text-xl font-heading font-bold text-dark-grey">
+                        <h2 className="font-heading text-lg font-bold text-[#11100D] sm:text-xl">
                           {profile?.full_name || "Surfer"}
                         </h2>
-                        <p className="text-sm text-muted-foreground font-sans">
+                        <p className="break-all font-mono text-xs uppercase tracking-[0.08em] text-[#11100D]/60 sm:break-normal">
                           {user?.email}
                         </p>
 
                         {/* Bio */}
                         {profile?.bio && (
-                          <p className="text-xs sm:text-sm font-sans text-gray-600 max-w-md">
+                          <p className="max-w-md font-sans text-xs leading-relaxed text-[#11100D]/70 sm:text-sm">
                             {profile.bio}
                           </p>
                         )}
 
                         {/* Profile Details */}
-                        <div className="flex flex-wrap justify-center sm:justify-start gap-2 pt-1 text-xs font-sans text-muted-foreground">
+                        <div className="flex flex-wrap justify-center gap-2 pt-1 font-mono text-[11px] uppercase tracking-[0.08em] text-[#11100D]/70 sm:justify-start">
                           {profile?.location && (
-                            <div className="flex items-center bg-ocean-blue/10 px-2 py-0.5 rounded-full">
-                              <MapPin className="h-3 w-3 mr-1 text-ocean-blue" />
+                            <div className="flex items-center rounded-full border border-[#11100D]/35 bg-[#F4EBD8] px-2 py-0.5">
+                              <MapPin className="h-3 w-3 mr-1 text-[#11100D]" />
                               <span>{profile.location}</span>
                             </div>
                           )}
 
                           {profile?.experience_level && (
-                            <div className="flex items-center bg-sunset-orange/10 px-2 py-0.5 rounded-full">
-                              <Surfboard className="h-3 w-3 mr-1 text-sunset-orange" />
+                            <div className="flex items-center rounded-full border border-[#11100D]/35 bg-[#F4EBD8] px-2 py-0.5">
+                              <Surfboard className="h-3 w-3 mr-1 text-[#F78E42]" />
                               <span>{profile.experience_level}</span>
                             </div>
                           )}
 
                           {profile?.instagram && (
-                            <div className="flex items-center bg-gradient-to-r from-purple-500/10 to-pink-500/10 px-2 py-0.5 rounded-full">
-                              <Instagram className="h-3 w-3 mr-1 text-purple-600" />
+                            <div className="flex items-center rounded-full border border-[#11100D]/35 bg-[#F4EBD8] px-2 py-0.5">
+                              <Instagram className="h-3 w-3 mr-1 text-[#11100D]" />
                               <span>{profile.instagram}</span>
                             </div>
                           )}
@@ -371,11 +418,11 @@ function ProfileViewContent() {
 
                         {/* Home Break */}
                         {profile?.home_beach_id && (
-                          <div className="text-xs font-sans pt-0.5">
-                            <span className="text-muted-foreground">
+                          <div className="pt-0.5 font-mono text-xs uppercase tracking-[0.08em]">
+                            <span className="text-[#11100D]/60">
                               Home Break:{" "}
                             </span>
-                            <span className="font-medium text-ocean-blue">
+                            <span className="font-bold text-[#11100D]">
                               {(typeof (profile as any)?.homeBeachName ===
                                 "string" &&
                                 (profile as any).homeBeachName) ||
@@ -389,30 +436,30 @@ function ProfileViewContent() {
 
                         {/* Surf Style Card */}
                         {preferences && (
-                          <div className="mt-4 bg-white/10 rounded-lg p-3 backdrop-blur">
-                            <p className="text-high text-xs uppercase tracking-wide font-medium">
+                          <div className="mt-4 border-2 border-[#11100D] bg-[#F4EBD8] p-3 shadow-[2px_3px_0_rgba(17,16,13,0.18)]">
+                            <p className="font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D]">
                               Your Surf Style
                             </p>
                             {preferences.confidence > 0.5 ? (
                               <>
-                                <p className="text-white text-sm mt-1">
+                                <p className="mt-1 font-heading text-sm font-bold text-[#11100D]">
                                   {preferences.wave_min_ft && preferences.wave_max_ft
                                     ? `${preferences.wave_min_ft}-${preferences.wave_max_ft}ft waves`
                                     : "Learning your preferences..."}
                                 </p>
-                                <p className="text-medium text-xs mt-1">
+                                <p className="mt-1 font-mono text-xs uppercase tracking-[0.08em] text-[#11100D]/60">
                                   Based on {preferences.sample_size} sessions
                                 </p>
                               </>
                             ) : (
                               <>
-                                <p className="text-white text-sm mt-1">
+                                <p className="mt-1 font-heading text-sm font-bold text-[#11100D]">
                                   Log {Math.max(0, 5 - (preferences.sample_size || 0))} more sessions
                                   to unlock personalized recommendations
                                 </p>
-                                <div className="mt-2 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                                <div className="mt-2 h-2 overflow-hidden rounded-full border border-[#11100D] bg-[#11100D]/10">
                                   <div
-                                    className="h-full bg-white rounded-full transition-all"
+                                    className="h-full rounded-full bg-[#F78E42] transition-all"
                                     style={{
                                       width: `${Math.min(100, ((preferences.sample_size || 0) / 5) * 100)}%`,
                                     }}
@@ -431,15 +478,14 @@ function ProfileViewContent() {
                         <Button
                           size="sm"
                           onClick={() => setEditModalOpen(true)}
-                          className="bg-gradient-to-r from-ocean-blue to-blue-600 hover:from-blue-600 hover:to-ocean-blue text-white px-3 py-1.5 text-xs font-heading font-semibold rounded-full shadow-lg hover:shadow-xl transition-all duration-300"
+                          className="rounded-full border-2 border-[#11100D] bg-[#F78E42] px-3 py-1.5 font-heading text-xs font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42]"
                         >
                           <Edit className="h-3 w-3 mr-1" />
                           Edit
                         </Button>
                       </motion.div>
                     </div>
-                  </CardContent>
-                </Card>
+                </div>
               </div>
             </motion.section>
 
@@ -450,7 +496,7 @@ function ProfileViewContent() {
             {profile && !profile.home_beach_id && (
               <motion.section
                 {...ANIMATION_VARIANTS.fadeUpWithDelay(0.15)}
-                className="max-w-6xl mx-auto px-2 sm:px-4"
+                className="mx-auto max-w-6xl"
               >
                 <SetHomeBreakCta />
               </motion.section>
@@ -459,9 +505,9 @@ function ProfileViewContent() {
             {/* Enhanced User Stats */}
             <motion.section
               {...ANIMATION_VARIANTS.fadeUpWithDelay(0.2)}
-              className="max-w-6xl mx-auto px-2 sm:px-4"
+              className="mx-auto max-w-6xl"
             >
-              <div className="bg-gradient-to-r from-white/80 to-white/60 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-lg border border-white/50">
+              <div className="border-2 border-[#11100D] bg-[#FBF6E8] p-4 shadow-[3px_4px_0_rgba(17,16,13,0.18)] sm:p-6">
                 {user && (
                   <UserStats
                     userId={user.id}
@@ -474,7 +520,7 @@ function ProfileViewContent() {
             {/* Referral Leaderboard */}
             <motion.section
               {...ANIMATION_VARIANTS.fadeUpWithDelay(0.25)}
-              className="max-w-6xl mx-auto px-2 sm:px-4"
+              className="mx-auto max-w-6xl"
             >
               <Suspense fallback={null}>
                 <ReferralLeaderboard />
@@ -484,7 +530,7 @@ function ProfileViewContent() {
             {/* Modern Tabs Section */}
             <motion.section
               {...ANIMATION_VARIANTS.fadeUpWithDelay(0.3)}
-              className="max-w-6xl mx-auto px-2 sm:px-4"
+              className="mx-auto max-w-6xl"
             >
               <Tabs
                 value={activeTab}
@@ -500,45 +546,49 @@ function ProfileViewContent() {
                 }}
                 className="space-y-8"
               >
-                <TabsList className="grid grid-cols-5 w-full h-14 lg:h-16 bg-white/80 backdrop-blur-sm rounded-xl border border-white/50 shadow-lg">
+                <TabsList className="grid h-auto w-full grid-cols-2 gap-2 border-2 border-[#11100D] bg-[#FBF6E8] p-2 shadow-[3px_4px_0_rgba(17,16,13,0.18)] sm:grid-cols-5">
                   <TabsTrigger
                     value="sessions"
-                    className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-ocean-blue data-[state=active]:to-blue-600 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                    className={getProfileTabClassName(activeTab, "sessions")}
                   >
-                    <CalendarDays className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
+                    <CalendarDays className="h-4 w-4 mr-2" />
                     Journal+
                   </TabsTrigger>
                   <TabsTrigger
                     value="quiver"
-                    className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-sunset-orange data-[state=active]:to-orange-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                    className={getProfileTabClassName(activeTab, "quiver")}
                   >
-                    <Surfboard className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
+                    <Surfboard className="h-4 w-4 mr-2" />
                     Quiver
                   </TabsTrigger>
                   <TabsTrigger
                     value="beaches"
-                    className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                    className={getProfileTabClassName(activeTab, "beaches")}
                   >
-                    <Heart className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
+                    <Heart className="h-4 w-4 mr-2" />
                     Beaches
                   </TabsTrigger>
                   <TabsTrigger
                     value="comments"
-                    className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-indigo-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                    className={getProfileTabClassName(activeTab, "comments")}
                   >
-                    <MessageSquare className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
+                    <MessageSquare className="h-4 w-4 mr-2" />
                     Comments
                   </TabsTrigger>
                   <TabsTrigger
                     value="surf-profile"
-                    className="text-sm lg:text-base font-heading data-[state=active]:bg-gradient-to-r data-[state=active]:from-teal-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white transition-all duration-300 rounded-lg"
+                    className={getProfileTabClassName(
+                      activeTab,
+                      "surf-profile",
+                      "col-span-2 sm:col-span-1"
+                    )}
                   >
-                    <User className="h-4 w-4 lg:h-5 lg:w-5 mr-2" />
+                    <User className="h-4 w-4 mr-2" />
                     Profile
                   </TabsTrigger>
                 </TabsList>
 
-                <div className="bg-white/80 backdrop-blur-sm rounded-2xl border border-white/50 shadow-lg overflow-hidden">
+                <div className="profile-zine-tabs overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] shadow-[4px_5px_0_rgba(17,16,13,0.2)]">
                   <TabsContent
                     value="sessions"
                     className="p-4 sm:p-6 space-y-4 m-0"
@@ -581,7 +631,7 @@ function ProfileViewContent() {
                     className="p-4 sm:p-6 space-y-4 m-0"
                   >
                     <div className="flex justify-between items-center mb-6">
-                      <h3 className="text-xl font-heading font-semibold text-dark-grey">
+                      <h3 className="font-heading text-xl font-semibold text-[#11100D]">
                         Favorite Beaches
                       </h3>
                       <Button
@@ -590,7 +640,7 @@ function ProfileViewContent() {
                         onClick={() => {
                           router.push("/map");
                         }}
-                        className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-emerald-500 hover:to-green-600 text-white font-heading font-medium rounded-full transition-all duration-300"
+                        className="rounded-full border-2 border-[#11100D] bg-[#F78E42] font-heading font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42]"
                       >
                         <Plus className="h-4 w-4 mr-1" />
                         Add Beach
@@ -661,14 +711,35 @@ function ProfileViewContent() {
           />
         </Suspense>
       )}
-    </div>
+      </div>
+    </ZineSurface>
   );
 }
 
 // Wrapper component with Suspense boundary for useSearchParams
 export function ProfileView() {
   return (
-    <Suspense fallback={<FullPageLoader text="Loading profile..." />}>
+    <Suspense
+      fallback={
+        <ZineSurface
+          sectionLabel="Profile"
+          editionLabel="Private logbook"
+          paperClassName="min-h-[calc(100vh-9rem)]"
+          data-testid="profile-suspense-zine-surface"
+        >
+          <div className="flex min-h-[52vh] items-center justify-center">
+            <div
+              className="inline-flex items-center gap-3 border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)]"
+              role="status"
+              aria-label="Loading profile"
+            >
+              <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+              <span>Loading profile...</span>
+            </div>
+          </div>
+        </ZineSurface>
+      }
+    >
       <ProfileViewContent />
     </Suspense>
   );

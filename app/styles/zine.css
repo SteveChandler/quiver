@@ -234,6 +234,12 @@
   color: var(--ink);
 }
 
+.theme-retro-dark .zine-tab input[data-zine-input="true"] {
+  background-color: #F4EBD8 !important;
+  border-color: #11100D !important;
+  color: #11100D !important;
+}
+
 /* circled number / initial */
 .zine-tab .circled {
   display: inline-flex; align-items: center; justify-content: center;
@@ -926,6 +932,61 @@ body:has(.zine-page) {
 .zine-page .zine-tabs-slot .bg-twilight {
   background-color: #F4EBD8 !important;
   color: #11100D !important;
+}
+
+.profile-zine-tabs .text-muted-foreground {
+  color: rgb(17 16 13 / 0.68) !important;
+}
+
+.profile-zine-tabs svg.text-muted-foreground {
+  color: rgb(17 16 13 / 0.48) !important;
+}
+
+.profile-zine-tabs .text-foreground {
+  color: #11100D !important;
+}
+
+.profile-zine-tabs .bg-info\/10 {
+  background-color: rgb(244 235 216 / 0.86) !important;
+}
+
+.profile-zine-tabs .border-info\/20 {
+  border-color: rgb(17 16 13 / 0.32) !important;
+}
+
+.profile-zine-tabs .text-info {
+  color: #0B3A75 !important;
+}
+
+.theme-retro-dark [role="tablist"] .profile-zine-tab-trigger[data-state="active"] {
+  background-color: #11100D !important;
+  border-color: #11100D !important;
+  color: #F4EBD8 !important;
+  box-shadow: 2px 2px 0 rgba(17, 16, 13, 0.25) !important;
+}
+
+.theme-retro-dark .profile-zine-tabs .text-muted-foreground {
+  color: rgb(17 16 13 / 0.68) !important;
+}
+
+.theme-retro-dark .profile-zine-tabs svg.text-muted-foreground {
+  color: rgb(17 16 13 / 0.48) !important;
+}
+
+.theme-retro-dark .profile-zine-tabs .text-foreground {
+  color: #11100D !important;
+}
+
+.theme-retro-dark .profile-zine-tabs .bg-info\/10 {
+  background-color: rgb(244 235 216 / 0.86) !important;
+}
+
+.theme-retro-dark .profile-zine-tabs .border-info\/20 {
+  border-color: rgb(17 16 13 / 0.32) !important;
+}
+
+.theme-retro-dark .profile-zine-tabs .text-info {
+  color: #0B3A75 !important;
 }
 
 /* Cam frame inside the zine hero — let CamsSection's inner

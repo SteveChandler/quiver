@@ -25,11 +25,10 @@ const customJestConfig = {
     "<rootDir>/__tests__/setup/",
     // Fixture modules are imported by tests but are not test suites
     "<rootDir>/__tests__/fixtures/",
+    "<rootDir>/__tests__/helpers/",
     "/__fixtures__/",
     // Example-only test docs (not part of the suite)
     "<rootDir>/components/session/wizard/__tests__/",
-    // Shared helper modules imported by tests are not suites themselves
-    "<rootDir>/__tests__/helpers/",
     "<rootDir>/__tests__/performance/helpers/",
   ],
   // jest-haste-map scans __mocks__ regardless of testPathIgnorePatterns;
@@ -50,6 +49,8 @@ const customJestConfig = {
     "^@supabase/realtime-js$": "<rootDir>/__tests__/setup/mock-supabase.ts",
     // Mock canvas module that jsdom tries to require
     "^canvas$": "<rootDir>/__tests__/setup/mock-canvas.js",
+    // Mock supercluster (ESM-only module)
+    "^supercluster$": "<rootDir>/__tests__/__mocks__/supercluster.ts",
     // Mock jose (ESM-only module)
     "^jose$": "<rootDir>/__tests__/__mocks__/jose.ts",
     // Mock http-proxy-agent to avoid @tootallnate/once ESM incompatibility in jsdom
@@ -57,7 +58,7 @@ const customJestConfig = {
   },
   // Add transformIgnorePatterns to handle ESM modules
   transformIgnorePatterns: [
-    "node_modules/(?!(@supabase|@supabase/.*/?|jose|uuid|date-fns|kdbush|@vercel/speed-insights)/)",
+    "node_modules/(?!(@supabase|@supabase/.*/?|jose|uuid|date-fns|supercluster|kdbush|@vercel/speed-insights)/)",
   ],
   // Add module file extensions
   moduleFileExtensions: ["js", "jsx", "ts", "tsx", "json"],

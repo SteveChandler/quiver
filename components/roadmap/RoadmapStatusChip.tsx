@@ -8,10 +8,10 @@ const LABELS: Record<RoadmapStatus, string> = {
 };
 
 const COLORS: Record<RoadmapStatus, string> = {
-  under_consideration: "text-white/60 bg-[#2D357D]/40 border-[#2D357D]/60",
-  in_progress: "text-[#F78E42] bg-[#F78E42]/10 border-[#F78E42]/50",
-  shipped: "text-[#00D4AA] bg-[#00D4AA]/10 border-[#00D4AA]/40",
-  declined: "text-[#F87171] bg-[#F87171]/10 border-[#F87171]/30",
+  under_consideration: "text-[#11100D]/70 bg-[#FBF6E8] border-[#11100D]/35",
+  in_progress: "text-[#11100D] bg-[#F78E42]/30 border-[#F78E42]",
+  shipped: "text-[#00D4AA] bg-[#11100D] border-[#11100D]",
+  declined: "text-[#B91C1C] bg-[#B91C1C]/10 border-[#B91C1C]/35",
 };
 
 interface Props {
@@ -21,7 +21,7 @@ interface Props {
 export function RoadmapStatusChip({ status }: Props) {
   return (
     <span
-      className={`inline-flex items-center rounded-[8px_3px_10px_3px] border px-2 py-0.5 font-[var(--font-mono)] text-[10px] uppercase tracking-widest ${COLORS[status]}`}
+      className={`inline-flex items-center whitespace-nowrap rounded-[8px_3px_10px_3px] border px-2 py-0.5 font-[var(--font-mono)] text-[10px] uppercase tracking-widest ${COLORS[status]}`}
     >
       {LABELS[status]}
     </span>

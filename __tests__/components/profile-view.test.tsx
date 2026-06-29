@@ -188,7 +188,7 @@ describe("ProfileView - Surf Style Card", () => {
       expect(screen.getByText("Based on 12 sessions")).toBeInTheDocument();
     });
 
-    it("should apply glass morphism styling to surf style card", async () => {
+    it("should apply zine paper styling to surf style card", async () => {
       (useUserPreferences as jest.Mock).mockReturnValue({
         data: mockHighConfidencePreferences,
         loading: false,
@@ -203,9 +203,9 @@ describe("ProfileView - Surf Style Card", () => {
       });
 
       const surfStyleCard = screen.getByText("Your Surf Style").closest("div");
-      expect(surfStyleCard).toHaveClass("bg-white/10");
-      expect(surfStyleCard).toHaveClass("backdrop-blur");
-      expect(surfStyleCard).toHaveClass("rounded-lg");
+      expect(surfStyleCard).toHaveClass("border-2");
+      expect(surfStyleCard).toHaveClass("border-[#11100D]");
+      expect(surfStyleCard).toHaveClass("bg-[#F4EBD8]");
     });
   });
 
@@ -243,7 +243,7 @@ describe("ProfileView - Surf Style Card", () => {
       });
 
       // 2 sessions out of 5 = 40%
-      const progressBar = container.querySelector(".bg-white.rounded-full.transition-all");
+      const progressBar = container.querySelector('[class*="bg-[#F78E42]"].rounded-full.transition-all');
       expect(progressBar).toHaveStyle({ width: "40%" });
     });
 
@@ -289,7 +289,7 @@ describe("ProfileView - Surf Style Card", () => {
         expect(screen.getByText("Your Surf Style")).toBeInTheDocument();
       });
 
-      const progressBar = container.querySelector(".bg-white.rounded-full.transition-all");
+      const progressBar = container.querySelector('[class*="bg-[#F78E42]"].rounded-full.transition-all');
       expect(progressBar).toHaveStyle({ width: "100%" });
     });
   });
