@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -87,6 +87,26 @@ function nativeBuildMetadata(): Record<string, string> {
   };
 }
 
+function resolveNativeRepoPath(...segments: string[]): string {
+  const candidates = [
+    join(process.cwd(), "..", "quiver-native"),
+    join(process.cwd(), "..", "..", "..", "quiver-native"),
+    join(__dirname, "..", "..", "..", "quiver-native"),
+    join(__dirname, "..", "..", "..", "..", "..", "quiver-native"),
+  ];
+  const nativeRoot = candidates.find((candidate) =>
+    existsSync(join(candidate, "package.json"))
+  );
+
+  if (!nativeRoot) {
+    throw new Error(
+      `Unable to find quiver-native repo. Checked: ${candidates.join(", ")}`
+    );
+  }
+
+  return join(nativeRoot, ...segments);
+}
+
 describe("session acquisition funnel report", () => {
   it("parses a default 30-day window from the provided clock", () => {
     const options = parseCliArgs([], new Date("2026-06-19T12:00:00.000Z"));
@@ -142,12 +162,7 @@ describe("session acquisition funnel report", () => {
 
   it("keeps Track B event coverage aligned with web and native analytics allowlists", () => {
     const nativeAnalytics = readFileSync(
-      join(
-        __dirname,
-        "..",
-        "..",
-        "..",
-        "quiver-native",
+      resolveNativeRepoPath(
         "src",
         "lib",
         "analytics.ts"
@@ -170,12 +185,7 @@ describe("session acquisition funnel report", () => {
 
   it("keeps validation-failure codes aligned with the native session form", () => {
     const nativeSessionFormUtils = readFileSync(
-      join(
-        __dirname,
-        "..",
-        "..",
-        "..",
-        "quiver-native",
+      resolveNativeRepoPath(
         "src",
         "lib",
         "session-form-utils.ts"

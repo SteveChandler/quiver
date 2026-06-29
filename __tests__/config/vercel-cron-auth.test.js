@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const SHARED_AUTH_RUNNERS = [
+  "runHomeBeachPushCron",
   "runEnhancedForecastSync",
   "runEnhancedForecastSyncCdip",
   "runEnhancedForecastSyncCdipHead",

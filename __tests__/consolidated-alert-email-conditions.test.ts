@@ -36,9 +36,7 @@ describe("buildConditionsLine", () => {
 
     const line = buildConditionsLine(snap);
 
-    expect(line).toBe(
-      "\u{1F30A} 1-2ft @ 5s W, \u{1F4A8} 5 mph NW, \u{1F4C9} tide rising",
-    );
+    expect(line).toBe("SWELL 1-2ft @ 5s W · WIND 5 mph NW · TIDE rising");
   });
 
   it("prefers wave_period + wave_direction over swell_1_* (matches the web Current Conditions card)", () => {
@@ -79,9 +77,9 @@ describe("buildConditionsLine", () => {
     };
     const line = buildConditionsLine(snap);
 
-    expect(line).toContain("\u{1F4A8} 12 mph"); // 10kt → 11.5mph → rounds to 12
+    expect(line).toContain("WIND 12 mph"); // 10kt → 11.5mph → rounds to 12
     expect(line).not.toMatch(/mph\s+(N|S|E|W)/);
-    expect(line).toContain("tide falling");
+    expect(line).toContain("TIDE falling");
   });
 
   it("omits the swell cardinal when neither wave_direction nor swell_1_direction is present", () => {
@@ -114,15 +112,15 @@ describe("buildConditionsLine", () => {
     const line = buildConditionsLine(snap);
     expect(line).not.toContain("NaN");
     expect(line).not.toContain("mph");
-    expect(line).toContain("tide rising");
+    expect(line).toContain("TIDE rising");
   });
 
   it("lowercases tide_status regardless of input casing", () => {
     expect(buildConditionsLine({ tide_status: "RISING" })).toContain(
-      "tide rising",
+      "TIDE rising",
     );
     expect(buildConditionsLine({ tide_status: "rising" })).toContain(
-      "tide rising",
+      "TIDE rising",
     );
   });
 
@@ -185,7 +183,7 @@ describe("surf report email copy", () => {
 
   it("renders a one-hour match as a best-around time instead of a short window", () => {
     expect(formatWindow(makeMatch())).toEqual({
-      label: "Best Around",
+      label: "Good Around",
       text: "8:00 AM PDT",
     });
   });
@@ -199,7 +197,7 @@ describe("surf report email copy", () => {
         }),
       ),
     ).toEqual({
-      label: "Best Window",
+      label: "Good Window",
       text: "8:00 AM – 11:00 AM PDT · peak 9:00 AM",
     });
   });
