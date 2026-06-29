@@ -6,6 +6,7 @@ import {
 } from "@/lib/email/templates/welcome-email-html";
 
 const BASE_URL = "https://quiversurf.app";
+const CANONICAL_EMAIL_BASE_URL = "https://www.quiversurf.app";
 const MESSAGE_ID = "welcome-msg-123";
 
 describe("welcome-email-html — activation CTA", () => {
@@ -19,7 +20,7 @@ describe("welcome-email-html — activation CTA", () => {
 
     it("renders a single primary CTA pointing at the app-first beach forecast path", () => {
       expect(html).toContain("Check your Blacks forecast");
-      expect(html).toContain(`${BASE_URL}/app/spot/blacks?`);
+      expect(html).toContain(`${CANONICAL_EMAIL_BASE_URL}/app/spot/blacks?`);
       expect(html).toContain("utm_source=email");
       expect(html).toContain("utm_medium=email");
       expect(html).toContain("email_type=welcome");
@@ -59,7 +60,7 @@ describe("welcome-email-html — activation CTA", () => {
 
     it("renders a single primary CTA pointing at covered app onboarding", () => {
       expect(html).toContain("Pick your home beach");
-      expect(html).toContain(`${BASE_URL}/app?`);
+      expect(html).toContain(`${CANONICAL_EMAIL_BASE_URL}/app?`);
       expect(html).toContain("onboarding=required");
       expect(html).toContain("utm_source=email");
       expect(html).toContain("utm_medium=email");
@@ -89,7 +90,7 @@ describe("welcome-email-html — activation CTA", () => {
     });
     expect(html).toContain("Pick your home beach");
     expect(html).toContain("onboarding=required");
-    expect(html).toContain(`${BASE_URL}/app?`);
+    expect(html).toContain(`${CANONICAL_EMAIL_BASE_URL}/app?`);
   });
 
   describe("plain-text variant keeps a matching CTA href", () => {
@@ -101,7 +102,7 @@ describe("welcome-email-html — activation CTA", () => {
         messageInstanceId: MESSAGE_ID,
       });
       expect(text).toContain("Check your Blacks forecast:");
-      expect(text).toContain(`${BASE_URL}/app/spot/blacks?`);
+      expect(text).toContain(`${CANONICAL_EMAIL_BASE_URL}/app/spot/blacks?`);
       expect(text).toContain("email_type=welcome");
       expect(text).toContain(`message_instance_id=${MESSAGE_ID}`);
     });
@@ -115,7 +116,7 @@ describe("welcome-email-html — activation CTA", () => {
       });
       expect(text).toContain("Pick your home beach:");
       expect(text).toContain("onboarding=required");
-      expect(text).toContain(`${BASE_URL}/app?`);
+      expect(text).toContain(`${CANONICAL_EMAIL_BASE_URL}/app?`);
       expect(text).toContain("email_type=welcome");
       expect(text).toContain(`message_instance_id=${MESSAGE_ID}`);
     });
