@@ -34,6 +34,7 @@ const REQUIRED_ROUTES = [
   "/surf-report/scripps-pier-today",
   "/surf-report/belmar-today",
   "/surf-report/tourmaline-today",
+  "/surf-report/newport-beach-today",
   "/surf-report/malibu-today",
   "/surf-cams/san-diego",
   "/surf-cams/orange-county",
@@ -45,7 +46,7 @@ describe("SEO funnel pages", () => {
   it("defines the requested indexable routes and excludes Santa Cruz cams", () => {
     const routes = getIndexableSeoFunnelRoutes();
 
-    expect(routes).toHaveLength(26);
+    expect(routes).toHaveLength(27);
     expect(routes).toEqual(expect.arrayContaining(REQUIRED_ROUTES));
     expect(routes).not.toContain("/surf-cams/santa-cruz");
   });
@@ -155,7 +156,7 @@ describe("SEO funnel pages", () => {
   it("resolves every configured SEO image file", () => {
     const prompts = getSeoFunnelImagePrompts();
 
-    expect(prompts).toHaveLength(78);
+    expect(prompts).toHaveLength(81);
     for (const { image } of prompts) {
       expect(
         existsSync(join(process.cwd(), "public", image.src.slice(1))),
@@ -271,7 +272,7 @@ describe("SEO funnel pages", () => {
       ({ image }) => image.assetType === "diorama",
     );
 
-    expect(prompts).toHaveLength(78);
+    expect(prompts).toHaveLength(81);
     for (const { image } of prompts) {
       expect(image.prompt).toContain("Use case: ads-marketing");
       expect(image.prompt).toContain("no text");
@@ -500,6 +501,10 @@ describe("SEO funnel pages", () => {
         "tourmaline-today",
         "Tourmaline Surf Report Today: Longboard Window & Wind",
       ],
+      [
+        "newport-beach-today",
+        "Newport Beach Surf Report Today: Waves & Wind",
+      ],
       ["malibu-today", "Malibu Surf Report Today: Waves, Tide & Wind"],
     ]);
     const todayPages = Array.from(expectedTitles.keys()).map((slug) => ({
@@ -533,6 +538,27 @@ describe("SEO funnel pages", () => {
     const malibu = getSeoFunnelPageByTypeAndSlug(
       "surf-report-today",
       "malibu-today",
+    );
+    const newport = getSeoFunnelPageByTypeAndSlug(
+      "surf-report-today",
+      "newport-beach-today",
+    );
+
+    expect(newport?.h1).toBe("Newport Beach Surf Report Today");
+    expect(newport?.decision?.primarySpotSlug).toBe("blackies");
+    expect(newport?.internalLinks.map((link) => link.href)).toEqual(
+      expect.arrayContaining([
+        "/best-time-to-surf/newport-beach",
+        "/surf-cams/orange-county",
+        "/beginner/orange-county",
+      ]),
+    );
+    expect(newport?.nearbySpots.map((spot) => spot.href)).toEqual(
+      expect.arrayContaining([
+        "/ca/newport-beach/blackies",
+        "/ca/newport-beach/newport-56th-st",
+        "/ca/huntington-beach/bolsa-chica",
+      ]),
     );
     expect(malibu?.h1).toBe("Malibu Surf Report Today");
     expect(malibu?.metaDescription).toBe(

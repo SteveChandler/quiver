@@ -127,7 +127,7 @@ Three font families are loaded via Google Fonts and configured as CSS variables:
 | Copyright / Marketing | Quiver Surf |
 | Legal entity | Quiver Surf Technologies |
 | SEO alternate name | Quiver Surf App |
-| App Store | Quiver: Surf Forecast & Crew |
+| App Store | Surf Forecast: Quiver |
 
 ---
 

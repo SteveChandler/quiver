@@ -30,7 +30,32 @@ const UPDATED_SURF_REPORT_SLUGS = [
   "scripps-pier-today",
   "belmar-today",
   "tourmaline-today",
+  "newport-beach-today",
   "malibu-today",
+] as const;
+
+const UPDATED_BEST_TIME_PAGES = [
+  {
+    path: "/best-time-to-surf/la-jolla",
+    title: "Best Time to Surf La Jolla: Shores, Scripps & Wind",
+    h1: "Best Time to Surf La Jolla Today",
+    surfReportLabel: "Open today's Scripps Pier surf report",
+    surfReportHref: "/surf-report/scripps-pier-today",
+  },
+  {
+    path: "/best-time-to-surf/newport-beach",
+    title: "Best Time to Surf Newport Beach: Season & Today",
+    h1: "Best Time to Surf Newport Beach Today",
+    surfReportLabel: "Open today's Newport Beach surf report",
+    surfReportHref: "/surf-report/newport-beach-today",
+  },
+  {
+    path: "/best-time-to-surf/malibu",
+    title: "Best Time to Surf Malibu: Tide, Season & Crowd",
+    h1: "Best Time to Surf Malibu Today",
+    surfReportLabel: "Open today's Malibu surf report",
+    surfReportHref: "/surf-report/malibu-today",
+  },
 ] as const;
 
 async function gotoPublicPage(page: Page, path: string): Promise<void> {
@@ -101,6 +126,22 @@ test.describe("Updated SEO public surfaces", () => {
       await expect(
         page.getByRole("heading", { name: "When this spot is worth it", level: 2 }),
       ).toBeVisible();
+    });
+  }
+
+  for (const bestTimePage of UPDATED_BEST_TIME_PAGES) {
+    test(`${bestTimePage.path} renders refreshed CTR framing and surf-report owner link`, async ({
+      page,
+    }) => {
+      await gotoPublicPage(page, bestTimePage.path);
+
+      await expect(page).toHaveTitle(new RegExp(escapeRegExp(bestTimePage.title)));
+      await expect(
+        page.getByRole("heading", { name: bestTimePage.h1, level: 1 }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("link", { name: bestTimePage.surfReportLabel }).first(),
+      ).toHaveAttribute("href", bestTimePage.surfReportHref);
     });
   }
 
