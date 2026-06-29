@@ -35,13 +35,13 @@ describe("sentry-config", () => {
       ).toBe("preview");
     });
 
-    it("uses the production Sentry environment for the Vercel production runtime", () => {
+    it("uses the Vercel production Sentry environment for the Vercel production runtime", () => {
       expect(
         getSentryRuntimeEnvironment({
           NODE_ENV: "production",
           VERCEL_ENV: "production",
         })
-      ).toBe("production");
+      ).toBe("vercel-production");
       expect(
         isSentryRuntimeEnabled({
           NODE_ENV: "production",
