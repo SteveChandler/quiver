@@ -63,6 +63,84 @@ const MONTH_ABBREVS = [
 const YEAR_ROUND_THRESHOLD = 10;
 const SOLID_SEASON_THRESHOLD = 6;
 
+interface BestTimeCtrOverride {
+  metadataTitle: string;
+  metadataDescription: string;
+  h1: string;
+  heroDek: string;
+  answerPrefix: string;
+  weekSuffix: string;
+  surfReportCue: string;
+  surfReportStep: SeoFunnelNextStep;
+}
+
+const BEST_TIME_CTR_OVERRIDES: Record<string, BestTimeCtrOverride> = {
+  "la-jolla": {
+    metadataTitle: "Best Time to Surf La Jolla: Shores, Scripps & Wind",
+    metadataDescription:
+      "Find the best time to surf La Jolla today with Scripps Pier, Shores, Tourmaline, wind, tide, and seasonal windows before you drive.",
+    h1: "Best Time to Surf La Jolla Today",
+    heroDek:
+      "Shores, Scripps, Tourmaline, today's live report, and the seasonal pattern",
+    answerPrefix:
+      "For La Jolla, use Scripps Pier, Shores, and Tourmaline as the live proof points before trusting the seasonal pattern.",
+    weekSuffix:
+      "If the seasonal guide says yes but Scripps or Shores shows tide or wind trouble, let the live report win.",
+    surfReportCue:
+      "Open the Scripps Pier or Tourmaline surf report first, then use this page to decide whether the current setup matches La Jolla's stronger seasonal windows.",
+    surfReportStep: {
+      label: "Open today's Scripps Pier surf report",
+      href: "/surf-report/scripps-pier-today",
+      description:
+        "Use the spot-specific wave height, wind, tide, and backup notes before applying the La Jolla season guide.",
+    },
+  },
+  "newport-beach": {
+    metadataTitle: "Best Time to Surf Newport Beach: Season & Today",
+    metadataDescription:
+      "Find the best time to surf Newport Beach today with Blackies, tide, morning wind, crowd context, and the live Newport Beach surf report.",
+    h1: "Best Time to Surf Newport Beach Today",
+    heroDek:
+      "Blackies, Newport jetties, morning wind, today's live report, and the seasonal pattern",
+    answerPrefix:
+      "For Newport Beach, separate the seasonal calendar from the live Blackies and jetty read before you commit.",
+    weekSuffix:
+      "Use this page for seasonality, but let the Newport Beach surf report own today's tide, wind, and board call.",
+    surfReportCue:
+      "Start with the Newport Beach surf report for live tide, wind, Blackies context, and North Orange County backups before using this seasonal guide.",
+    surfReportStep: {
+      label: "Open today's Newport Beach surf report",
+      href: "/surf-report/newport-beach-today",
+      description:
+        "Use the live Newport Beach owner page for Blackies, wind, tide, crowd, and backup checks.",
+    },
+  },
+  malibu: {
+    metadataTitle: "Best Time to Surf Malibu: Tide, Season & Crowd",
+    metadataDescription:
+      "Find the best time to surf Malibu today with First Point, tide, morning wind, crowd context, and the live Malibu surf report.",
+    h1: "Best Time to Surf Malibu Today",
+    heroDek:
+      "First Point, tide, crowd, today's live report, and the seasonal pattern",
+    answerPrefix:
+      "For Malibu, treat crowd and tide as part of the forecast before the seasonal score makes the call.",
+    weekSuffix:
+      "The seasonal window matters most when the live Malibu surf report still shows room, clean wind, and the right tide.",
+    surfReportCue:
+      "Open the Malibu surf report for today's First Point wave height, tide, wind, crowd note, and backup plan before using this seasonal guide.",
+    surfReportStep: {
+      label: "Open today's Malibu surf report",
+      href: "/surf-report/malibu-today",
+      description:
+        "Use the live Malibu report for First Point tide, wind, crowd, and backup context.",
+    },
+  },
+};
+
+function getBestTimeCtrOverride(citySlug: string): BestTimeCtrOverride | null {
+  return BEST_TIME_CTR_OVERRIDES[citySlug] ?? null;
+}
+
 /**
  * Helper function to generate year-round surfing answer based on how many months
  * score above 50 (average).
@@ -106,9 +184,10 @@ export function buildBestTimeLiveHandoffSteps({
     ? buildBeachUrl(primarySpot)
     : `/${stateSlug}/${citySlug}`;
   const primarySpotName = primarySpot?.name ?? cityName;
+  const ctrOverride = getBestTimeCtrOverride(citySlug);
 
   if (path && isPhase18BestTimePath(path)) {
-    return [
+    const steps = [
       {
         label: `Open live ${primarySpotName} conditions`,
         href: primarySpotHref,
@@ -128,9 +207,16 @@ export function buildBestTimeLiveHandoffSteps({
           "Use the forecast hub to confirm whether this seasonal setup is building or fading.",
       },
     ];
+
+    if (!ctrOverride) return steps;
+
+    return [
+      ctrOverride.surfReportStep,
+      ...steps.filter((step) => step.href !== ctrOverride.surfReportStep.href),
+    ];
   }
 
-  return [
+  const steps = [
     {
       label: `Check today's ${primarySpotName} surf report`,
       href: primarySpotHref,
@@ -150,9 +236,17 @@ export function buildBestTimeLiveHandoffSteps({
         "Use the map to switch beaches when crowd, wind, or tide changes the call.",
     },
   ];
+
+  if (!ctrOverride) return steps;
+
+  return [
+    ctrOverride.surfReportStep,
+    ...steps.filter((step) => step.href !== ctrOverride.surfReportStep.href),
+  ];
 }
 
 interface BestTimeTodayAnswerCopyArgs {
+  citySlug?: string;
   cityName: string;
   currentMonthName: string;
   currentMonthScore: number;
@@ -165,6 +259,7 @@ interface BestTimeTodayAnswerCopyArgs {
 }
 
 export function buildBestTimeTodayAnswerCopy({
+  citySlug,
   cityName,
   currentMonthName,
   currentMonthScore,
@@ -201,16 +296,24 @@ export function buildBestTimeTodayAnswerCopy({
   const liveSurfReportCue = forecastSummary
     ? `${forecastSummary.conditions.tide} tide, ${forecastSummary.conditions.wind} wind, and ${forecastSummary.conditions.swell} swell are the live surf report cues to confirm first.`
     : null;
+  const ctrOverride = citySlug ? getBestTimeCtrOverride(citySlug) : null;
+  const baseTodayAnswer =
+    liveTodayAnswer ??
+    `${cityName}'s best surf window today starts with the live report: check tide, wind, and swell before you drive${waveText}${waterText}.`;
+  const baseThisWeekAnswer = `${currentMonthName} rates ${currentMonthScore}/100 for ${cityName}. ${seasonStrength}; ${peakMonthName} is the historical peak if this week's surf report looks marginal.`;
 
   return {
     eyebrow: "Live surf planning",
     heading: `Best time to surf ${cityName} today`,
     weekHeading: `Best time to surf ${cityName} this week`,
-    todayAnswer:
-      liveTodayAnswer ??
-      `${cityName}'s best surf window today starts with the live report: check tide, wind, and swell before you drive${waveText}${waterText}.`,
-    thisWeekAnswer: `${currentMonthName} rates ${currentMonthScore}/100 for ${cityName}. ${seasonStrength}; ${peakMonthName} is the historical peak if this week's surf report looks marginal.`,
+    todayAnswer: ctrOverride
+      ? `${ctrOverride.answerPrefix} ${baseTodayAnswer}`
+      : baseTodayAnswer,
+    thisWeekAnswer: ctrOverride
+      ? `${baseThisWeekAnswer} ${ctrOverride.weekSuffix}`
+      : baseThisWeekAnswer,
     surfReportCue:
+      ctrOverride?.surfReportCue ??
       liveSurfReportCue ??
       `Use the surf report first, then treat this seasonal guide as the tiebreaker for which ${cityName} spot and window to choose.`,
   };
@@ -227,10 +330,15 @@ export async function generateMetadata(props: PageParams): Promise<Metadata> {
   }
 
   const { cityName, stateName } = cityResult.data;
+  const ctrOverride = getBestTimeCtrOverride(citySlug);
 
   return buildPageMetadata({
-    title: `Best Time to Surf ${cityName} Today & This Week`,
-    description: `Best time to surf ${cityName} today and this week. Start with the live surf report, then use seasonal windows, tides, wind, and nearby spots.`,
+    title:
+      ctrOverride?.metadataTitle ??
+      `Best Time to Surf ${cityName} Today & This Week`,
+    description:
+      ctrOverride?.metadataDescription ??
+      `Best time to surf ${cityName} today and this week. Start with the live surf report, then use seasonal windows, tides, wind, and nearby spots.`,
     path: `/best-time-to-surf/${citySlug}`,
     keywords: [
       `best time to surf ${cityName}`,
@@ -256,6 +364,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
   const stateSlug = state.toLowerCase();
   const heroScene = getBestTimeSeoScene(citySlug);
   const sessionScene = getBestTimeSessionSeoScene(citySlug);
+  const ctrOverride = getBestTimeCtrOverride(citySlug);
 
   const [dataResult, excludeIntents, forecastBeachesResult] = await Promise.all([
     getBestTimeToSurfData(cityName, state),
@@ -301,6 +410,7 @@ export default async function BestTimeToSurfPage(props: PageParams) {
   const currentMonthData = data.monthly[currentMonthIndex];
   const currentStateMonth = stateProfile?.monthly[currentMonthIndex];
   const liveAnswerCopy = buildBestTimeTodayAnswerCopy({
+    citySlug,
     cityName,
     currentMonthName: currentMonthData.monthName,
     currentMonthScore: currentMonthData.score,
@@ -409,10 +519,11 @@ export default async function BestTimeToSurfPage(props: PageParams) {
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(360px,460px)] lg:items-stretch">
               <div>
                 <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
-                  Best Time to Surf {cityName} Today
+                  {ctrOverride?.h1 ?? `Best Time to Surf ${cityName} Today`}
                 </h1>
                 <p className="text-lg text-gray-600 mb-6">
-                  {cityName}, {stateName} &mdash; today, this week, and the seasonal pattern
+                  {ctrOverride?.heroDek ??
+                    `${cityName}, ${stateName} - today, this week, and the seasonal pattern`}
                 </p>
 
                 <div className="mb-5 rounded-lg border border-[#11100D]/15 bg-white p-5 text-[#11100D] shadow-sm">

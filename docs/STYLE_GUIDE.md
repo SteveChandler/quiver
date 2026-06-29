@@ -141,7 +141,7 @@ Use these only on zine content surfaces — body data and UI chrome still use th
 | Copyright / Marketing | Quiver Surf |
 | Legal entity | Quiver Surf Technologies |
 | SEO alternate name | Quiver Surf App |
-| App Store | Quiver: Surf Forecast & Crew |
+| App Store | Surf Forecast: Quiver |
 
 ---
 

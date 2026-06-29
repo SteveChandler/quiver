@@ -46,6 +46,46 @@ describe("best-time city SEO page", () => {
     expect(metadata.description).toContain("nearby spots");
   });
 
+  it.each([
+    {
+      citySlug: "la-jolla",
+      cityName: "La Jolla",
+      title: "Best Time to Surf La Jolla: Shores, Scripps & Wind",
+      descriptionNeedle: "Scripps Pier, Shores, Tourmaline",
+    },
+    {
+      citySlug: "newport-beach",
+      cityName: "Newport Beach",
+      title: "Best Time to Surf Newport Beach: Season & Today",
+      descriptionNeedle: "live Newport Beach surf report",
+    },
+    {
+      citySlug: "malibu",
+      cityName: "Malibu",
+      title: "Best Time to Surf Malibu: Tide, Season & Crowd",
+      descriptionNeedle: "live Malibu surf report",
+    },
+  ])(
+    "uses scoped CTR metadata for $cityName without changing the generic template",
+    async ({ citySlug, cityName, title, descriptionNeedle }) => {
+      (findCityBySlug as jest.Mock).mockResolvedValue({
+        success: true,
+        data: {
+          cityName,
+          state: "CA",
+          stateName: "California",
+        },
+      });
+
+      const metadata = await generateMetadata({
+        params: Promise.resolve({ city: citySlug }),
+      });
+
+      expect(metadata.title).toContain(title);
+      expect(metadata.description).toContain(descriptionNeedle);
+    },
+  );
+
   it("builds live surf report handoff steps from the city's top spots", () => {
     const steps = buildBestTimeLiveHandoffSteps({
       cityName: "San Diego",
@@ -91,16 +131,38 @@ describe("best-time city SEO page", () => {
     ]);
   });
 
-  it.each([
-    {
+  it("prefixes the La Jolla Phase 18 handoff with the Scripps surf-report owner", () => {
+    const steps = buildBestTimeLiveHandoffSteps({
       cityName: "La Jolla",
       citySlug: "la-jolla",
+      path: "/best-time-to-surf/la-jolla",
       stateSlug: "ca",
-      spotName: "La Jolla Shores",
-      spotSlug: "la-jolla-shores",
-      spotHref: "/ca/la-jolla/la-jolla-shores",
-      state: "CA",
-    },
+      topBeaches: [
+        {
+          name: "La Jolla Shores",
+          slug: "la-jolla-shores",
+          city: "La Jolla",
+          state: "CA",
+          country: "USA",
+        },
+      ],
+    });
+
+    expect(steps[0]).toEqual({
+      label: "Open today's Scripps Pier surf report",
+      href: "/surf-report/scripps-pier-today",
+      description:
+        "Use the spot-specific wave height, wind, tide, and backup notes before applying the La Jolla season guide.",
+    });
+    expect(steps[1]).toEqual({
+      label: "Open live La Jolla Shores conditions",
+      href: "/ca/la-jolla/la-jolla-shores",
+      description:
+        "Use the current wave height, wind, tide, and local call before applying the seasonal pattern.",
+    });
+  });
+
+  it.each([
     {
       cityName: "Westport",
       citySlug: "westport",
@@ -161,13 +223,72 @@ describe("best-time city SEO page", () => {
     }
   );
 
+  it.each([
+    {
+      cityName: "Newport Beach",
+      citySlug: "newport-beach",
+      stateSlug: "ca",
+      spotName: "Blackies",
+      spotSlug: "blackies",
+      state: "CA",
+      ownerHref: "/surf-report/newport-beach-today",
+      ownerLabel: "Open today's Newport Beach surf report",
+    },
+    {
+      cityName: "Malibu",
+      citySlug: "malibu",
+      stateSlug: "ca",
+      spotName: "Malibu First Point",
+      spotSlug: "malibu-first-point-surfrider",
+      state: "CA",
+      ownerHref: "/surf-report/malibu-today",
+      ownerLabel: "Open today's Malibu surf report",
+    },
+  ])(
+    "prefixes $cityName best-time handoff with its surf-report owner",
+    ({
+      cityName,
+      citySlug,
+      stateSlug,
+      spotName,
+      spotSlug,
+      state,
+      ownerHref,
+      ownerLabel,
+    }) => {
+      const steps = buildBestTimeLiveHandoffSteps({
+        cityName,
+        citySlug,
+        path: `/best-time-to-surf/${citySlug}`,
+        stateSlug,
+        topBeaches: [
+          {
+            name: spotName,
+            slug: spotSlug,
+            city: cityName,
+            state,
+            country: "USA",
+          },
+        ],
+      });
+
+      expect(steps[0]).toMatchObject({
+        label: ownerLabel,
+        href: ownerHref,
+      });
+      expect(steps.map((step) => step.href)).toContain(
+        `/${stateSlug}/${citySlug}/${spotSlug}`,
+      );
+    },
+  );
+
   it("keeps the best-time page source anchored to seasonal intent", () => {
     const source = readFileSync(
       join(process.cwd(), "app/best-time-to-surf/[city]/page.tsx"),
       "utf8"
     );
 
-    expect(source).toContain("Best Time to Surf {cityName}");
+    expect(source).toContain("Best Time to Surf ${cityName} Today");
     expect(source).toContain("Surf Score by Month");
     expect(source).toContain("Monthly Breakdown");
     expect(source).toContain("path: `/best-time-to-surf/${citySlug}`");

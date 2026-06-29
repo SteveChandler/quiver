@@ -135,6 +135,10 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
     src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp",
     alt: "Newport and North Orange County sandy beachbreak context near Blackies",
   },
+  "newport-56th-st": {
+    src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-aerial-shore-photo.webp",
+    alt: "Newport Beach jetty and sandbar surf context near 56th Street",
+  },
   "bolsa-chica": {
     src: "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
     alt: "Bolsa Chica State Beach sandy shoreline and beginner surf context",
@@ -390,6 +394,10 @@ const SPOT_IMAGE_BY_KEY: Record<string, SpotImageConfig> = {
   "/surf-report/malibu-today": {
     src: "/images/seo-dioramas/surf-report/malibu-today/malibu-point-wave-diorama.webp",
     alt: "Malibu point-wave surf report context",
+  },
+  "/surf-report/newport-beach-today": {
+    src: "/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp",
+    alt: "Newport Beach surf report context near Blackies and the jetties",
   },
   "/surf-report/scripps-pier-today": {
     src: "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
@@ -2041,10 +2049,13 @@ interface TodaySeed {
   links: SeoInternalLink[];
   spots: SeoSpotLink[];
   images: SeoImageSeedEntry[];
+  existingImages?: SeoImage[];
 }
 
 function buildTodayPage(seed: TodaySeed): SeoPageConfig {
-  const images = makeImages("surf-report-today", seed.slug, seed.images);
+  const images =
+    seed.existingImages ??
+    makeImages("surf-report-today", seed.slug, seed.images);
   const conditionSections = [
     {
       ...seed.sections[0],
@@ -2360,6 +2371,95 @@ const TODAY_PAGES = [
         "Quiver diorama of wind and tide decision-making at Tourmaline",
         "Wind and tide call",
       ],
+    ],
+  }),
+  buildTodayPage({
+    slug: "newport-beach-today",
+    locationName: "Newport Beach",
+    title: "Newport Beach Surf Report Today: Waves & Wind",
+    metaDescription:
+      "Newport Beach surf report today with live wave height, tide, wind, best window, board call, Blackies notes, and jetty backups before you drive.",
+    h1: "Newport Beach Surf Report Today",
+    intro:
+      "Newport can look simple from the sand, but Blackies, the jetties, tide, and morning wind decide whether the beachbreak is worth the paddle.",
+    primarySpotSlug: "blackies",
+    fallbackSpotName: "Newport Beach",
+    nearbySpotSlugs: ["newport-56th-st", "bolsa-chica", "goldenwest"],
+    boardCall:
+      "Start with a fish or shortboard when the jetties have shape. Bring a log only when Blackies is small, soft, and uncrowded enough for trim.",
+    wetsuitCall:
+      "Plan for Southern California water swings, especially at dawn. Check Quiver's current water-temperature context before leaving.",
+    tideRisk:
+      "Newport beachbreak can shift quickly with tide; too much water can soften Blackies and too little can make the inside dumpy.",
+    windRisk:
+      "The cleanest Newport read is usually early. Once the onshore wind fills in, compare Bolsa Chica or Goldenwest before forcing it.",
+    crowdParkingNote:
+      "Parking and lineup space matter at Blackies. If the close spots are stacked, use the jetties or North OC backups instead of forcing the peak.",
+    sections: [
+      {
+        heading: "How to read Newport Beach today",
+        body: "Use the live verdict as the first filter, then check tide, wind, crowd, and whether Blackies or the jetties have the cleaner bank.",
+      },
+      {
+        heading: "When Newport Beach is worth it",
+        body: "Clean knee-to-shoulder-high surf with light wind and a tide that leaves shape on the sandbars is the useful window.",
+      },
+      {
+        heading: "Backup plan",
+        body: "If Blackies is crowded or too soft, compare Newport jetties, Bolsa Chica, Goldenwest, and the broader Orange County cam read before driving south.",
+      },
+    ],
+    links: [
+      { label: "Best time to surf Newport Beach", href: "/best-time-to-surf/newport-beach" },
+      { label: "Orange County surf cams", href: "/surf-cams/orange-county" },
+      { label: "Beginner surf in Orange County", href: "/beginner/orange-county" },
+      { label: "Blackies forecast", href: "/ca/newport-beach/blackies" },
+    ],
+    spots: [
+      {
+        label: "Blackies",
+        href: "/ca/newport-beach/blackies",
+        beachSlug: "blackies",
+      },
+      {
+        label: "Newport 56th Street",
+        href: "/ca/newport-beach/newport-56th-st",
+        beachSlug: "newport-56th-st",
+      },
+      {
+        label: "Bolsa Chica",
+        href: "/ca/huntington-beach/bolsa-chica",
+        beachSlug: "bolsa-chica",
+      },
+      {
+        label: "Goldenwest",
+        href: "/ca/huntington-beach/goldenwest",
+        beachSlug: "goldenwest",
+      },
+    ],
+    images: [],
+    existingImages: [
+      makeExistingPhotoImage(
+        "newport-beach-report-open-wave-photo",
+        "/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp",
+        "Open Southern California wave photo for Newport Beach surf report planning",
+        "Clean Newport Beach-style wave context near Blackies and North Orange County",
+        "Open wave check",
+      ),
+      makeExistingPhotoImage(
+        "newport-beach-report-aerial-shore-photo",
+        "/images/seo-dioramas/surf-cams/orange-county/orange-county-aerial-shore-photo.webp",
+        "Aerial shoreline photo for Newport Beach jetty and sandbar planning",
+        "Aerial Newport Beach-style shoreline and sandbar context",
+        "Aerial shoreline",
+      ),
+      makeExistingPhotoImage(
+        "newport-beach-report-sunset-beach-photo",
+        "/images/seo-dioramas/surf-cams/orange-county/orange-county-sunset-beach-photo.webp",
+        "Southern California beach sunset photo for Newport Beach fallback planning",
+        "Golden beach context for Newport Beach and North Orange County backups",
+        "Sunset beach read",
+      ),
     ],
   }),
   buildTodayPage({

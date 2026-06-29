@@ -16,6 +16,8 @@ yarn seo:keyword-bank
 yarn seo:export:vercel
 yarn seo:export:posthog
 yarn seo:export:dataforseo
+yarn seo:export:competitors
+yarn seo:export:aeo
 yarn seo:store-snapshot
 yarn seo:backlink-proxy
 yarn seo:gsc-refresh --input path/to/gsc-export.json
@@ -50,6 +52,21 @@ The weekly report must explicitly label its coverage boundaries without treating
 - DataForSEO Labs covers only the configured competitor set and provider index.
 - DataForSEO ASO currently tracks iOS only. Re-add `android` to `docs/seo/dataforseo-watchlist.json` `aso.platforms` and restore `aso.quiver.androidAppId` once the Google Play listing is live.
 - No automated Google SERP scraping is performed.
+- Competitor export coverage comes from store snapshots and explicitly configured comparison pages only. If a competitor claim is not visible at the checked live URL, document it as monitor-only until the exact live URL or captured HTML is available.
+- AEO export coverage is a citation-tracking input, not proof that a page won organic clicks. Pair it with GSC page/query data before prioritizing content changes.
+
+## Dashboard Runtime Reconciliation
+
+Before marking an SEO dashboard proposal as covered, verify the runtime surface exists in code, not only in `docs/seo/seo-dashboard.json`.
+
+Required checks:
+
+1. The canonical route is present in the relevant runtime source, such as `lib/seo/funnel-pages.ts` or an app route.
+2. Unit tests name the route and assert the metadata, title, and internal-link behavior that make it the owner.
+3. E2E coverage includes the route when the page belongs to an existing public SEO surface family.
+4. The weekly report records the GSC baseline and the intended rerun window.
+
+Track repeated low-CTR work in `docs/seo/CTR_HISTORY.md` so refreshes do not repeat old assumptions.
 
 ## Draft Queue
 
