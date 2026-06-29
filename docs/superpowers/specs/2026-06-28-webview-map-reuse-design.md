@@ -183,6 +183,29 @@ All messages are JSON objects with a top-level `type` string and `payload` objec
 
 Ship behind a native feature flag.
 
+### iOS rollout policy (2026-06-28)
+
+iOS is the rollout target for the next validation pass. Android hardware QA remains useful
+for broad confidence, but it is not a blocker for an iOS-only staged rollout decision.
+
+Because `react-native-webview` is a native module, the WebView Explore map must not ship as a
+same-runtime OTA update to an older production binary. The feature must remain disabled for the
+current production runtime unless the installed iOS binary/runtime already includes
+`react-native-webview` and the WebView map code. Otherwise ship a new iOS binary/runtime first,
+then enable `EXPO_PUBLIC_WEBVIEW_EXPLORE_MAP_ENABLED=true` only for that runtime.
+
+Required iOS checks before enabling the flag for a staged cohort:
+
+- Flag off: Explore renders the existing native map path.
+- Flag on: Explore renders `/embed/map` inside the native WebView with native layer/time controls.
+- WebView failure fallback: web server down, WebView error, HTTP error, bridge `loadFailed`, or
+  ready timeout demotes to the existing native map instead of leaving users on "Loading map."
+- Bridge trust: messages and top-frame navigation are accepted only from the configured Quiver
+  origin and `/embed/map` path.
+- UX path: Wind layer, `+3h`, spot selection, and custom spot placement hand off to native UI.
+
+Native runbook: `quiver-native/docs/testing/webview-map-ios-rollout.md`.
+
 Phase 1:
 
 - `/embed/map` route.
