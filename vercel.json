@@ -1,4 +1,12 @@
 {
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true,
+      "prod": true,
+      "preview/**": true
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/enhanced-forecast-sync-cdip",

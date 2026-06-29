@@ -25,6 +25,18 @@ feature/* ──squash merge──> main ──regular merge──> prod
 4. Squash-merge the PR (keeps `main` history clean)
 5. Delete the feature branch after merge
 
+## Preview Deployments
+
+Vercel automatic Git deployments are intentionally limited in `vercel.json`:
+
+- `main` deploys to the Preview environment (`dev.quiversurf.app`)
+- `prod` deploys to Production
+- `preview/**` branches deploy when a PR explicitly needs a branch preview
+- Routine `feat/**`, `fix/**`, `chore/**`, and `codex/**` branches do not deploy
+
+If a PR needs its own Vercel preview, create it from a `preview/<description>`
+branch. Otherwise, rely on local verification and the `main` preview after merge.
+
 ## Promoting to Production
 
 Use a regular merge (not squash) from `main` to `prod` to preserve the audit trail:
@@ -74,3 +86,4 @@ All checks must pass before merging to `prod`.
 | Bug fix | `fix/<description>` | `fix/oauth-redirect` |
 | Chore | `chore/<description>` | `chore/update-deps` |
 | Codex/AI | `codex/<description>` | `codex/fix-backup-error` |
+| Preview opt-in | `preview/<description>` | `preview/social-share-og` |
