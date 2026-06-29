@@ -42,6 +42,17 @@ const REQUIRED_ROUTES = [
   "/surf-cams/florida",
 ];
 
+const REJECTED_SEO_IMAGE_SRCS = [
+  "/images/seo-dioramas/longboard/la-jolla/la-jolla-cove-cliffs-diorama.webp",
+  "/images/seo-dioramas/longboard/la-jolla/tourmaline-lineup-diorama.webp",
+  "/images/seo-dioramas/longboard/la-jolla/windansea-mellow-reef-diorama.webp",
+  "/images/seo-dioramas/surf-cams/orange-county/orange-county-aerial-shore-photo.webp",
+  "/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp",
+  "/images/seo-dioramas/surf-cams/orange-county/orange-county-sunset-beach-photo.webp",
+  "/images/seo-dioramas/surf-report/scripps-pier-today/scripps-board-choice-diorama.webp",
+  "/images/seo-dioramas/surf-report/scripps-pier-today/scripps-pier-surf-check-diorama.webp",
+];
+
 describe("SEO funnel pages", () => {
   it("defines the requested indexable routes and excludes Santa Cruz cams", () => {
     const routes = getIndexableSeoFunnelRoutes();
@@ -186,6 +197,46 @@ describe("SEO funnel pages", () => {
       ).toBe(true);
       expect(page.path).toMatch(/^\//);
     }
+  });
+
+  it("keeps rejected SEO assets out of active page and nearby spot images", () => {
+    const activeImageSrcs = SEO_FUNNEL_PAGES.flatMap((page) => [
+      page.heroImage.src,
+      ...page.images.map((image) => image.src),
+      ...page.nearbySpots
+        .map((spot) => spot.imageSrc)
+        .filter((src): src is string => Boolean(src)),
+    ]);
+    const scripps = getSeoFunnelPageByTypeAndSlug(
+      "surf-report-today",
+      "scripps-pier-today",
+    );
+    const newport = getSeoFunnelPageByTypeAndSlug(
+      "surf-report-today",
+      "newport-beach-today",
+    );
+    const laJollaLongboard = getSeoFunnelPageByTypeAndSlug(
+      "longboard",
+      "la-jolla",
+    );
+
+    for (const rejectedSrc of REJECTED_SEO_IMAGE_SRCS) {
+      expect(activeImageSrcs).not.toContain(rejectedSrc);
+    }
+
+    expect(scripps?.heroImage.src).toBe(
+      "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
+    );
+    expect(newport?.images.map((image) => image.src)).toEqual([
+      "/images/seo-dioramas/beginner/socal/huntington-state-beach-photo.webp",
+      "/images/seo-dioramas/beginner/socal/bolsa-chica-photo.webp",
+      "/images/seo-dioramas/beginner/socal/doheny-beach-photo.webp",
+    ]);
+    expect(laJollaLongboard?.images.map((image) => image.src)).toEqual([
+      "/images/seo-dioramas/spot-backgrounds/tourmaline-photo.webp",
+      "/images/seo-dioramas/spot-backgrounds/la-jolla-shores-photo.webp",
+      "/images/seo-dioramas/spot-backgrounds/scripps-pier-photo.webp",
+    ]);
   });
 
   it("uses approved beach-specific photos on SoCal beginner pages where available", () => {

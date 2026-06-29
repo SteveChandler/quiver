@@ -68,6 +68,21 @@ Required checks:
 
 Track repeated low-CTR work in `docs/seo/CTR_HISTORY.md` so refreshes do not repeat old assumptions.
 
+## Image Asset Guardrails
+
+Do not use the following generated or geographically-mismatched SEO assets in active funnel pages, hero images, Open Graph images, or nearby-spot cards:
+
+- `public/images/seo-dioramas/longboard/la-jolla/la-jolla-cove-cliffs-diorama.webp`
+- `public/images/seo-dioramas/longboard/la-jolla/tourmaline-lineup-diorama.webp`
+- `public/images/seo-dioramas/longboard/la-jolla/windansea-mellow-reef-diorama.webp`
+- `public/images/seo-dioramas/surf-cams/orange-county/orange-county-aerial-shore-photo.webp`
+- `public/images/seo-dioramas/surf-cams/orange-county/orange-county-open-wave-photo.webp`
+- `public/images/seo-dioramas/surf-cams/orange-county/orange-county-sunset-beach-photo.webp`
+- `public/images/seo-dioramas/surf-report/scripps-pier-today/scripps-board-choice-diorama.webp`
+- `public/images/seo-dioramas/surf-report/scripps-pier-today/scripps-pier-surf-check-diorama.webp`
+
+`__tests__/lib/seo/funnel-pages.test.ts` enforces this list against active page images and nearby-spot card backgrounds. If an approved Newport Beach or Blackies photo is added later, document the source and license in `docs/seo/photo-candidates/` before wiring it into runtime SEO config.
+
 ## Draft Queue
 
 Drafts belong under `tools/content-pipeline/output/seo-drafts/` and must stay in `status: review-queue` until manually approved. Use `.claude/product-marketing-context.md` for Quiver voice and positioning, and cite factual surf/ocean claims with trusted sources such as NOAA, NDBC, CDIP, NWS, `.gov`, or `.edu`.
