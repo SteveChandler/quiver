@@ -250,7 +250,7 @@ npx cap open android     # Open in Android Studio
 
 6. **Create Pull Request**
    - PR will trigger automated checks (lint, type-check, tests)
-   - Preview deployment created automatically
+   - Branch previews are opt-in via `preview/<description>` branches
 
 ---
 
@@ -296,8 +296,9 @@ npx playwright test --grep auth   # E2E tests matching "auth"
 
 **Web Application:**
 
-- Automatic deployment to Vercel on merge to `main`
-- Preview deployments for all pull requests
+- Automatic Preview deployment to Vercel on merge to `main`
+- Automatic Production deployment from `prod`
+- PR branch previews are opt-in via `preview/<description>` branches
 - URL: [www.quiversurf.app](https://www.quiversurf.app)
 
 **Mobile Apps:**
@@ -311,10 +312,11 @@ npx playwright test --grep auth   # E2E tests matching "auth"
 ```mermaid
 graph LR
     Dev[Developer] -->|Push| PR[Pull Request]
-    PR -->|Auto Deploy| Preview[Vercel Preview]
+    PR -.->|Optional preview/** branch| Preview[Vercel Preview]
     PR -->|Tests Pass| Review[Code Review]
     Review -->|Approved| Main[Merge to Main]
-    Main -->|Auto Deploy| Prod[Production]
+    Main -->|Auto Deploy| DevPreview[dev.quiversurf.app]
+    DevPreview -->|Promote via prod| Prod[Production]
     Main -.->|Manual| Mobile[Mobile Build]
     Mobile -.->|Submit| Stores[App Stores]
 ```

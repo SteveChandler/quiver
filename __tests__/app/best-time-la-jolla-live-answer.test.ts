@@ -3,6 +3,7 @@ import { buildBestTimeTodayAnswerCopy } from "@/app/best-time-to-surf/[city]/pag
 describe("best-time La Jolla live answer copy", () => {
   it("frames the page around today's and this week's surf-report intent", () => {
     const copy = buildBestTimeTodayAnswerCopy({
+      citySlug: "la-jolla",
       cityName: "La Jolla",
       currentMonthName: "June",
       currentMonthScore: 72,
@@ -21,11 +22,14 @@ describe("best-time La Jolla live answer copy", () => {
       surfReportCue: expect.stringContaining("surf report"),
     });
     expect(copy.todayAnswer).toContain("La Jolla");
+    expect(copy.todayAnswer).toContain("Scripps Pier");
     expect(copy.todayAnswer).toContain("2-4 ft");
+    expect(copy.surfReportCue).toContain("Scripps Pier");
   });
 
   it("uses forecast-summary data for today's direct answer when available", () => {
     const copy = buildBestTimeTodayAnswerCopy({
+      citySlug: "la-jolla",
       cityName: "La Jolla",
       currentMonthName: "June",
       currentMonthScore: 72,
@@ -60,7 +64,7 @@ describe("best-time La Jolla live answer copy", () => {
     expect(copy.todayAnswer).toContain("incoming tide, light winds");
     expect(copy.todayAnswer).toContain("La Jolla Shores");
     expect(copy.todayAnswer).toContain("2-3 ft");
-    expect(copy.surfReportCue).toContain("Rising tide");
-    expect(copy.surfReportCue).toContain("light W wind");
+    expect(copy.surfReportCue).toContain("Scripps Pier");
+    expect(copy.surfReportCue).toContain("Tourmaline");
   });
 });

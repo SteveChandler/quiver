@@ -11,14 +11,24 @@ Copy-paste-ready content for App Store Connect. Referenced by `IOS_RELEASE_GUIDE
 | **Live Name** | `Surf Forecast: Quiver` |
 | **Bundle ID** | `app.quiversurf.mobile` |
 | **Apple App ID** | `6759300320` |
-| **Current Version** | `1.0` |
-| **Current Version Release Date** | `2026-05-25` |
+| **Current Version** | `1.0.1` |
+| **Current Version Release Date** | `2026-06-13` |
 | **Price** | Free download |
 | **Pro Pricing** | `$4.99/month` or `$39.99/year` with a 14-day free trial |
 | **SKU** | `quiver-surf-v1` |
 | **Primary Category** | Sports |
 | **Secondary Category** | Weather |
 | **Age Rating** | 4+ |
+
+---
+
+## Listing Drift Resolution - 2026-06-29
+
+The 2026-06-28 SEO weekly report flagged iOS listing drift. The source of truth is now explicit: keep the live App Store name `Surf Forecast: Quiver` as the canonical iOS title for the current listing.
+
+`Quiver: Personal Surf Forecast` remains an archived Brand Vault ASO proposal, not the active title. Do not reopen or publish a title change without explicit approval.
+
+Do not publish App Store Connect metadata changes without credentials and explicit approval.
 
 ---
 

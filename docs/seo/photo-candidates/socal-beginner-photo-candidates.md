@@ -12,7 +12,9 @@ Slug: `blackies`
 Query: `Newport Beach Pier surf`
 Notes: North Orange County beginner anchor; review results for Newport Pier/28th Street context.
 
-No license-safe candidates returned.
+| Score | Confidence | License status | Candidate | Creator | License | Provider | Runtime path | Usage notes | Source | Image |
+| ---: | ---: | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 90 | 90 | defensible | Surfer Newport Beach California.jpg | [Travis](https://www.flickr.com/photos/34989068@N00) | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0/) | wikimedia | public/images/seo-dioramas/beginner/socal/blackies-photo.webp | Wikimedia Commons CC BY 2.0 photo; Commons description identifies surfers at Newport Beach during the December 2005 storm and records FlickreviewR license confirmation. | [source](https://commons.wikimedia.org/wiki/File:Surfer_Newport_Beach_California.jpg) | [image](https://upload.wikimedia.org/wikipedia/commons/2/2c/Surfer_Newport_Beach_California.jpg) |
 
 ## Bolsa Chica
 

@@ -12,10 +12,11 @@
 
 ## Current Status Check
 
-Last checked: 2026-06-03 UTC.
+Last checked: 2026-06-29 UTC from the 2026-06-28 SEO weekly report and live App Store URL spot-check.
 
 - App Store page: HTTP 200 at `https://apps.apple.com/us/app/surf-forecast-quiver/id6759300320`.
-- iTunes lookup: `trackName` is `Surf Forecast: Quiver`, `version` is `1.0`, and `releaseDate` / `currentVersionReleaseDate` are `2026-05-25T07:00:00Z`.
+- SEO report snapshot: live title is `Surf Forecast: Quiver`, current iOS version is `1.0.1`, and the listing is live.
+- Brand Vault now treats `Surf Forecast: Quiver` as the canonical iOS title. `Quiver: Personal Surf Forecast` is archived as a future ASO test candidate, not active listing copy.
 - App Store page metadata serves live app state (`offerType=app`, `isPreorder=false`, button title `Get`), so public web CTAs use `Open App Store` with `app_store_live` analytics status.
 - iOS is no longer routed through TestFlight prompts in web UX.
 - Android closed testing now routes through `/android-beta`, which points testers to the Google Group gate and `steven@quiversurf.app` contact path until a public tester install URL exists.
