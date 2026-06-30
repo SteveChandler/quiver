@@ -32,7 +32,7 @@ describe("FieldGuideSpotlight", () => {
     );
     expect(screen.getByRole("img", { name: /swell view/i })).toHaveAttribute(
       "src",
-      "/images/landing/swell-view-preview.png",
+      "/images/landing/swell-view-preview-v2.png",
     );
   });
 });

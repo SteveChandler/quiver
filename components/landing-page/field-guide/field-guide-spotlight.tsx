@@ -13,6 +13,7 @@ interface FieldGuideSpotlightProps {
 // 318 active breaks, 73 with cams, 245 wave-map-only.
 const SWELL_VIEW_STAT_LINE =
   "318 breaks · 73 cams · wave maps for the other 245";
+const SWELL_VIEW_PREVIEW_SRC = "/images/landing/swell-view-preview-v2.png";
 
 export function FieldGuideSpotlight({
   platform,
@@ -64,7 +65,7 @@ export function FieldGuideSpotlight({
           />
           <div className="halftone-photo relative aspect-[4/3] w-full overflow-hidden border-2 border-[#11100D] bg-[#0D1020] shadow-[3px_5px_0_rgba(0,0,0,0.2)]">
             <Image
-              src="/images/landing/swell-view-preview.png"
+              src={SWELL_VIEW_PREVIEW_SRC}
               alt="Quiver Swell View — live swell field over a stretch of coast"
               fill
               sizes="(max-width: 768px) 100vw, 470px"
