@@ -1,0 +1,50 @@
+import {
+  resolveCalloutComponents,
+  type CalloutComponent,
+} from "@/components/map/conditions-callout-data";
+import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
+
+const EMPTY: SwellPartition = {
+  s1Dir: null, swellDirOm: null, s1PeriodS: null, s1HeightFt: null,
+  s2Dir: null, s2PeriodS: null, s2HeightFt: null, windDir: null, windMph: null,
+};
+
+describe("resolveCalloutComponents", () => {
+  it("returns s1, s2, wind in order when all are real", () => {
+    const parts: SwellPartition = {
+      ...EMPTY,
+      s1Dir: 290, s1PeriodS: 8, s1HeightFt: 2.6,
+      s2Dir: 200, s2PeriodS: 13, s2HeightFt: 1.6,
+      windDir: 230, windMph: 8,
+    };
+    const out = resolveCalloutComponents(parts);
+    expect(out.map((c) => c.kind)).toEqual(["s1", "s2", "wind"]);
+    expect(out[0]).toMatchObject({ name: "SWELL", bearingDeg: 290, label: "2.6ft, 8s", color: "#F2A24C" });
+    expect(out[1]).toMatchObject({ name: "S2", bearingDeg: 200, label: "1.6ft, 13s", color: "#7AC74F" });
+    expect(out[2]).toMatchObject({ name: "WIND", bearingDeg: 230, label: "8 mph", color: "#74C7E3" });
+  });
+
+  it("prefers swellDirOm over s1Dir for the primary swell bearing", () => {
+    const out = resolveCalloutComponents({ ...EMPTY, swellDirOm: 305, s1Dir: 290, s1PeriodS: 9, s1HeightFt: 3 });
+    expect(out[0].bearingDeg).toBe(305);
+  });
+
+  it("omits a component with null direction", () => {
+    const out = resolveCalloutComponents({ ...EMPTY, s1Dir: null, s1HeightFt: 3, s1PeriodS: 9, windDir: 230, windMph: 8 });
+    expect(out.map((c) => c.kind)).toEqual(["wind"]);
+  });
+
+  it("omits a component with zero or null magnitude", () => {
+    const out = resolveCalloutComponents({ ...EMPTY, s1Dir: 290, s1HeightFt: 0, s1PeriodS: 9, windDir: 230, windMph: 0 });
+    expect(out).toEqual([]);
+  });
+
+  it("drops the period from the label when period is null", () => {
+    const out = resolveCalloutComponents({ ...EMPTY, s1Dir: 290, s1HeightFt: 2.6, s1PeriodS: null });
+    expect(out[0].label).toBe("2.6ft");
+  });
+
+  it("returns [] for an empty partition", () => {
+    expect(resolveCalloutComponents(EMPTY)).toEqual([]);
+  });
+});
