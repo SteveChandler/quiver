@@ -509,7 +509,7 @@ async function _GET(request: Request): Promise<Response> {
     }
 
     // Tides from NOAA T&C hourly (station-grouped; with CO-OPS hilo fallback -> interpolated hourly)
-    // Tides are deterministic astronomical predictions - fetch 30 days and refresh weekly
+    // Tides are deterministic astronomical predictions - fetch 30 days and refresh twice weekly
     try {
       const tideStartIso = new Date().toISOString();
       const tideEndDate = new Date();
