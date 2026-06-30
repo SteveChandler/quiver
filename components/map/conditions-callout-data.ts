@@ -61,7 +61,7 @@ export function nearestBeachInBounds(
   let best: Beach | null = null;
   let bestD = Infinity;
   for (const beach of beaches) {
-    if (!Number.isFinite(beach.lat) || !Number.isFinite(beach.lon)) continue;
+    if (!isReal(beach.lat) || !isReal(beach.lon)) continue;
     const dLon = beach.lon - lon;
     const dLat = beach.lat - lat;
     const d = dLon * dLon + dLat * dLat;
@@ -70,7 +70,7 @@ export function nearestBeachInBounds(
       best = beach;
     }
   }
-  if (!best || !inBounds(best.lon, best.lat, bounds)) return null;
+  if (!best || !isReal(best.lon) || !isReal(best.lat) || !inBounds(best.lon, best.lat, bounds)) return null;
   return best;
 }
 
