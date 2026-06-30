@@ -19,8 +19,8 @@ export interface ParticleSeed {
 
 // Windy-like spacing: sparse + evenly distributed (jittered grid) so water shows
 // between dashes. Lower than the earlier dense random blanket (4000/1400).
-export const PARTICLE_COUNT_DESKTOP = 450;
-export const PARTICLE_COUNT_MOBILE = 200;
+export const PARTICLE_COUNT_DESKTOP = 650;
+export const PARTICLE_COUNT_MOBILE = 300;
 
 /** Below this CSS width we treat the device as small and cut particle count. */
 const SMALL_SCREEN_PX = 640;
@@ -275,6 +275,16 @@ export interface SwellParticleLayerOptions {
   velocitySmoothing?: number;
   /** Layer-specific scale for wave-crest dash length. */
   dashLengthScale?: number;
+  /**
+   * Read motion params each frame so a single persistent layer can retarget to a
+   * new swell component (e.g. Swell -> Swell 2) without being torn down and
+   * re-seeded — which is what causes the visible jitter on layer switch.
+   */
+  getDynamics?: () => {
+    motionScale?: number;
+    velocitySmoothing?: number;
+    dashLengthScale?: number;
+  };
 }
 
 /**
@@ -289,19 +299,20 @@ export function createSwellParticleLayer(
       ? Math.floor(options.count)
       : resolveParticleCount(options.viewportWidthPx);
   const markStyle = options.markStyle ?? "dash";
-  const verticesPerParticle = markStyle === "dot" ? 1 : 2;
-  const motionScale =
-    options.motionScale != null && Number.isFinite(options.motionScale)
-      ? Math.max(0, options.motionScale)
-      : 1;
-  const velocitySmoothing =
-    options.velocitySmoothing != null && Number.isFinite(options.velocitySmoothing)
-      ? Math.min(1, Math.max(0.01, options.velocitySmoothing))
-      : 0.16;
-  const dashLengthScale =
-    options.dashLengthScale != null && Number.isFinite(options.dashLengthScale)
-      ? Math.max(0.1, options.dashLengthScale)
-      : 1;
+  // Wind renders as a wiggling "worm": a short sinuous polyline. Each segment is a
+  // GL LINES pair, so a worm of N segments needs N*2 vertices.
+  const STREAK_SEGMENTS = 10;
+  const verticesPerParticle =
+    markStyle === "dot" ? 1 : markStyle === "streak" ? STREAK_SEGMENTS * 2 : 2;
+  const clampMotion = (v: number | undefined, fallback: number): number =>
+    v != null && Number.isFinite(v) ? Math.max(0, v) : fallback;
+  const clampSmoothing = (v: number | undefined, fallback: number): number =>
+    v != null && Number.isFinite(v) ? Math.min(1, Math.max(0.01, v)) : fallback;
+  const clampDashScale = (v: number | undefined, fallback: number): number =>
+    v != null && Number.isFinite(v) ? Math.max(0.1, v) : fallback;
+  const staticMotionScale = clampMotion(options.motionScale, 1);
+  const staticVelocitySmoothing = clampSmoothing(options.velocitySmoothing, 0.16);
+  const staticDashLengthScale = clampDashScale(options.dashLengthScale, 1);
   let program: WebGLProgram | null = null;
   let posBuffer: WebGLBuffer | null = null;
   let alphaBuffer: WebGLBuffer | null = null;
@@ -343,9 +354,13 @@ export function createSwellParticleLayer(
   // per-frame step made slow dashes sub-pixel and invisible. Line width >1 is
   // unreliable across GPUs, so length is the lever.
   const DASH_FRACTION = 0.032;
-  // Wind gets a shorter line along the vector and no point pass. That removes the
-  // dot-head look while still showing direction and drift.
-  const WIND_STREAK_FRACTION = 0.026;
+  // Wind worm geometry: a short sinuous line that undulates as it drifts.
+  const WIND_STREAK_FRACTION = 0.034; // worm length as a fraction of the viewport span
+  const WIND_WIGGLE_AMP = 0.0035; // gentle sideways wiggle (fraction of span)
+  const WIND_WIGGLE_WAVES = 1; // one smooth undulation along the body
+  const WIND_WIGGLE_SPEED = 0.05; // slow phase advance per frame (calm wriggle)
+  // How aggressively weak cells thin out their particles (higher = sparser weak).
+  const STRENGTH_DENSITY_CULL = 0.8;
 
   function randomLifeFrames(): number {
     return MIN_LIFE_FRAMES + rng() * LIFE_JITTER_FRAMES;
@@ -406,6 +421,12 @@ export function createSwellParticleLayer(
     const box = viewBoxMercator(map);
     const span = Math.max(box.maxX - box.minX, 1e-6);
     const deltaFrames = frameStep();
+    // Read dynamics each frame so the active single layer can retarget without a
+    // teardown (falls back to the values fixed at creation, e.g. combined sub-layers).
+    const dyn = options.getDynamics?.();
+    const motionScale = clampMotion(dyn?.motionScale, staticMotionScale);
+    const velocitySmoothing = clampSmoothing(dyn?.velocitySmoothing, staticVelocitySmoothing);
+    const dashLengthScale = clampDashScale(dyn?.dashLengthScale, staticDashLengthScale);
     for (let i = 0; i < count; i += 1) {
       // Convert this particle's Mercator pos back to lng/lat to sample the geo field.
       const merc = new mapboxgl.MercatorCoordinate(px[i], py[i]);
@@ -457,7 +478,13 @@ export function createSwellParticleLayer(
         py[i] = s.y;
         vxState[i] = 0;
         vyState[i] = 0;
-        life[i] = randomLifeFrames();
+        // Stronger swell at the spawn point -> a longer-lasting particle.
+        const seedLngLat = new mapboxgl.MercatorCoordinate(px[i], py[i]).toLngLat();
+        const seedStrength = Math.min(
+          1,
+          Math.max(0, sampleFlowField(field, seedLngLat.lng, seedLngLat.lat).alpha)
+        );
+        life[i] = randomLifeFrames() * (0.55 + seedStrength * 0.9);
         page[i] = 0;
         const baseVertex = i * verticesPerParticle;
         for (let vertex = 0; vertex < verticesPerParticle; vertex += 1) {
@@ -476,12 +503,20 @@ export function createSwellParticleLayer(
       const birthFade = Math.min(1, ageRatio / BIRTH_FADE_PORTION);
       const deathFade = Math.min(1, (1 - ageRatio) / DEATH_FADE_PORTION);
       const lifeFade = Math.min(birthFade, deathFade);
+      // Wave strength (energy ~ height^2, normalized 0..1) drives the whole look:
+      // stronger swell reads bolder, denser, longer; weaker reads faint and sparse.
+      const strength = Math.min(1, Math.max(0, cell.alpha));
+      // Stable per-particle cull threshold (golden-ratio sequence, no per-frame
+      // flicker): weak cells reveal only the low-threshold particles -> sparser;
+      // strong cells clear nearly everyone -> denser.
+      const cullThreshold = (i * 0.6180339887498949) % 1;
+      // Floor at 0.55 so even weak cells stay reasonably dense (the field never
+      // looks empty); strong cells still read noticeably denser.
+      const visible = 0.55 + strength * 0.45 >= cullThreshold * STRENGTH_DENSITY_CULL;
       const baseAlpha =
-        markStyle === "streak"
-          ? Math.min(1, 0.72 + cell.alpha * 0.45)
-          : Math.min(1, 0.72 + cell.alpha);
+        markStyle === "streak" ? 0.22 + strength * 0.6 : 0.3 + strength * 0.7;
       const fade =
-        cell.speed > 0 ? baseAlpha * lifeFade : 0;
+        cell.speed > 0 && visible ? Math.min(1, baseAlpha) * lifeFade : 0;
 
       if (markStyle === "dot") {
         // One GL point per particle, centered on the particle position.
@@ -492,21 +527,40 @@ export function createSwellParticleLayer(
       }
 
       if (markStyle === "streak") {
-        // A single thin line along the velocity-smoothed travel vector — the easing
-        // keeps the motion wavy. One stroke reads far cleaner than the old triple
-        // line, which was too noisy. No POINTS pass, so there is no dot head.
+        // A wiggling "worm": a sinuous polyline along the travel vector whose body
+        // undulates via a traveling sine wave (phase driven by particle age, so each
+        // worm wriggles independently). No POINTS pass, so there is no dot head.
         const vlen = Math.hypot(flowVx, flowVy) || 1;
-        const halfLen = span * WIND_STREAK_FRACTION * 0.5;
-        const dx = (flowVx / vlen) * halfLen;
-        const dy = (flowVy / vlen) * halfLen;
+        const dirX = flowVx / vlen;
+        const dirY = flowVy / vlen;
+        const normalX = -dirY;
+        const normalY = dirX;
+        // Stronger wind -> longer worm.
+        const len = span * WIND_STREAK_FRACTION * (0.55 + strength * 0.8);
+        const amp = span * WIND_WIGGLE_AMP;
+        const phase = page[i] * WIND_WIGGLE_SPEED;
         const baseVertex = i * verticesPerParticle;
-        const vertexOffset = baseVertex * 2;
-        vertexPos[vertexOffset + 0] = px[i] - dx;
-        vertexPos[vertexOffset + 1] = py[i] - dy;
-        vertexPos[vertexOffset + 2] = px[i] + dx;
-        vertexPos[vertexOffset + 3] = py[i] + dy;
-        vertexAlpha[baseVertex + 0] = fade;
-        vertexAlpha[baseVertex + 1] = fade;
+        let prevX = 0;
+        let prevY = 0;
+        for (let s = 0; s <= STREAK_SEGMENTS; s += 1) {
+          const t = s / STREAK_SEGMENTS;
+          const along = (t - 0.5) * len;
+          const wiggle =
+            Math.sin(t * Math.PI * 2 * WIND_WIGGLE_WAVES + phase) * amp;
+          const x = px[i] + dirX * along + normalX * wiggle;
+          const y = py[i] + dirY * along + normalY * wiggle;
+          if (s > 0) {
+            const vertexOffset = (baseVertex + (s - 1) * 2) * 2;
+            vertexPos[vertexOffset + 0] = prevX;
+            vertexPos[vertexOffset + 1] = prevY;
+            vertexPos[vertexOffset + 2] = x;
+            vertexPos[vertexOffset + 3] = y;
+            vertexAlpha[baseVertex + (s - 1) * 2 + 0] = fade;
+            vertexAlpha[baseVertex + (s - 1) * 2 + 1] = fade;
+          }
+          prevX = x;
+          prevY = y;
+        }
         continue;
       }
 
@@ -514,7 +568,9 @@ export function createSwellParticleLayer(
       // the particle, so the visible mark reads like a wave crest.
       // Visible length is independent of drift speed.
       const vlen = Math.hypot(flowVx, flowVy) || 1;
-      const dashHalf = span * DASH_FRACTION * dashLengthScale * 0.5;
+      // Stronger swell -> longer crest dash.
+      const dashHalf =
+        span * DASH_FRACTION * dashLengthScale * (0.45 + strength) * 0.5;
       const dx = (-flowVy / vlen) * dashHalf;
       const dy = (flowVx / vlen) * dashHalf;
       const baseVertex = i * verticesPerParticle;

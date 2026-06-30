@@ -107,19 +107,19 @@ const COMBINED_SUBLAYERS: ReadonlyArray<FlowComponentId> = [
 ];
 // Per-layer particle count for the combined view so three stacked layers keep the
 // sparse Windy-style spacing in budget (3 × 260 = 780 total).
-const COMBINED_PARTICLE_COUNT = 260;
+const COMBINED_PARTICLE_COUNT = 340;
 // Wind reads cleaner with a sparser field than swell - scale its particle count
 // down, but keep enough strokes visible on the light-blue basemap.
-const WIND_PARTICLE_SCALE = 0.8;
+const WIND_PARTICLE_SCALE = 0.4; // keep wind sparser than swell even at the higher base count
 const PARTICLE_MOTION_SCALE: Record<FlowComponentId, number> = {
   s1: 0.42,
   s2: 1,
-  wind: 1,
+  wind: 0.25, // calm, slow wind drift (-75% movement)
 };
 const PARTICLE_VELOCITY_SMOOTHING: Record<FlowComponentId, number> = {
   s1: 0.04,
   s2: 0.16,
-  wind: 0.12,
+  wind: 0.06, // heavier easing -> smoother wind direction changes
 };
 const PARTICLE_DASH_LENGTH_SCALE: Record<FlowComponentId, number> = {
   s1: 0.75,
@@ -411,7 +411,15 @@ export function InteractiveMap({
   // Non-null only while the leash is applied — also gates the release path so we
   // never touch the camera constraint API when it was never set.
   const zoomLimitsCaptureRef = useRef<CapturedZoomLimits | null>(null);
+  // The leash bounds currently applied (rounded key). Lets the leash skip a
+  // release+re-apply when the corridor hasn't meaningfully changed — re-applying on
+  // every beach-list update is what made the camera bounce inland and back on load.
+  const appliedLeashKeyRef = useRef<string | null>(null);
   const swellLayerIdRef = useRef<SwellLayerId>(swellLayerId);
+  // The shape of the mounted particle layer(s). Only a shape change forces a
+  // teardown+re-add (which re-seeds and looks like a jitter); same-shape switches
+  // (Swell <-> Swell 2) keep the layer and retarget it via refs.
+  const swellLayerKeyRef = useRef<string>("none");
   const isMapReadyRef = useRef(false);
   const favoriteBeachIdsRef = useRef<Set<string>>(new Set());
   const selectedBeachIdRef = useRef<string | null>(null);
@@ -1171,7 +1179,32 @@ export function InteractiveMap({
       }
     };
 
+    // Only a SHAPE change (combined vs single, swell vs wind, or reduced-motion)
+    // forces a teardown+re-add, which re-seeds particles and reads as a jitter.
+    // Swell <-> Swell 2 share a shape, so we keep the layer and let its
+    // getField/getColorHex/getDynamics retarget it via refs (a smooth transition).
+    const shapeKey = !showSwellField
+      ? "none"
+      : `${
+          swellLayerId === "combined"
+            ? "combined"
+            : swellLayerId === "wind"
+              ? "wind"
+              : "swell"
+        }|${reducedMotion ? "rm" : "mo"}`;
+    // Skip the teardown only when the shape is unchanged AND the layer is genuinely
+    // still mounted (a style reload can wipe layers while the ref says otherwise).
+    const mountedProbeId =
+      swellLayerId === "combined"
+        ? `${SWELL_FIELD_LAYER_ID}-${COMBINED_SUBLAYERS[0]}`
+        : SWELL_FIELD_LAYER_ID;
+    const alreadyCorrect =
+      swellLayerKeyRef.current === shapeKey &&
+      (shapeKey === "none" || !!map.getLayer(mountedProbeId));
+    if (alreadyCorrect) return;
+
     teardown();
+    swellLayerKeyRef.current = "none";
     if (!showSwellField) return;
 
     const viewportWidthPx =
@@ -1201,31 +1234,37 @@ export function InteractiveMap({
         );
       }
     } else {
-      // Single active layer. getField/getColorHex read refs each frame so a timeline
-      // scrub or layer recolor applies without re-adding the layer.
-      const activeComponent = swellLayerId;
+      // Single active layer. getField/getColorHex/getDynamics read the active
+      // component via refs each frame, so Swell <-> Swell 2 retargets this same
+      // layer without a teardown (no reseed jitter).
       map.addLayer(
         createSwellParticleLayer({
           id: SWELL_FIELD_LAYER_ID,
-          getField: () => flowFieldsRef.current[activeComponent],
+          getField: () =>
+            flowFieldsRef.current[swellLayerIdRef.current as FlowComponentId],
           getColorHex: () => SWELL_FIELD_PARTICLE_COLOR[swellLayerIdRef.current],
           reducedMotion,
           viewportWidthPx,
           count:
-            activeComponent === "wind"
+            swellLayerId === "wind"
               ? Math.round(baseParticleCount * WIND_PARTICLE_SCALE)
               : undefined,
-          markStyle: activeComponent === "wind" ? "streak" : "dash",
-          motionScale: PARTICLE_MOTION_SCALE[activeComponent],
-          velocitySmoothing: PARTICLE_VELOCITY_SMOOTHING[activeComponent],
-          dashLengthScale: PARTICLE_DASH_LENGTH_SCALE[activeComponent],
+          markStyle: swellLayerId === "wind" ? "streak" : "dash",
+          getDynamics: () => {
+            const active = swellLayerIdRef.current as FlowComponentId;
+            return {
+              motionScale: PARTICLE_MOTION_SCALE[active],
+              velocitySmoothing: PARTICLE_VELOCITY_SMOOTHING[active],
+              dashLengthScale: PARTICLE_DASH_LENGTH_SCALE[active],
+            };
+          },
         })
       );
     }
 
-    return teardown;
-    // Re-add when toggled, the active layer changes (the layer SET differs between
-    // combined and single), motion preference flips, or the map (re)mounts.
+    swellLayerKeyRef.current = shapeKey;
+    // No cleanup teardown: the layer persists across same-shape switches and is
+    // removed on the next shape change (or with the map on unmount).
   }, [showSwellField, isMapReady, reducedMotion, swellLayerId]);
 
   // Leash the camera to the coastal data corridor while the swell field is ON.
@@ -1241,14 +1280,23 @@ export function InteractiveMap({
     // Wait until beaches load before constraining; never leash an empty footprint.
     if (!showSwellField || swellFieldBeaches.length === 0) {
       releaseSwellFieldLeash(map);
+      appliedLeashKeyRef.current = null;
       return;
     }
 
     const bounds = computeCoastalBounds(swellFieldBeaches);
     if (!bounds) {
       releaseSwellFieldLeash(map);
+      appliedLeashKeyRef.current = null;
       return;
     }
+
+    // Re-applying setMaxBounds on every beach-list update (a new array reference
+    // each load) is what bounced the camera inland and back: setMaxBounds(null) on
+    // cleanup freed the camera, then the re-apply yanked it back to the corridor.
+    // Skip when the corridor is materially unchanged so the leash applies once.
+    const leashKey = `${bounds.west.toFixed(3)},${bounds.south.toFixed(3)},${bounds.east.toFixed(3)},${bounds.north.toFixed(3)}`;
+    if (appliedLeashKeyRef.current === leashKey) return;
 
     // Capture the free-camera zoom limits once, before the first lock. Presence of
     // this capture also marks the leash as applied (gates the release path).
@@ -1269,8 +1317,11 @@ export function InteractiveMap({
       [bounds.west, bounds.south],
       [bounds.east, bounds.north],
     ]);
+    appliedLeashKeyRef.current = leashKey;
 
-    return () => releaseSwellFieldLeash(map);
+    // No cleanup-release: the leash is released explicitly when the field turns off
+    // (handled above) and torn down with the map on unmount. Releasing on every
+    // re-run is what produced the inland/back bounce.
   }, [showSwellField, isMapReady, swellFieldBeaches, releaseSwellFieldLeash]);
 
   // Auto-dismiss the one-time coastal-leash hint ~4s after it appears. With
