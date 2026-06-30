@@ -846,7 +846,10 @@ export function InteractiveMap({
         conditionScore: conditionScoreMap.get(location.id),
         conditionSummary: conditionSummaryMap.get(location.id),
         previewLngLat,
-        onPreviewOpen: openBeachPreviewPopup,
+        // In the embed, tapping a pin opens the conditions callout (arrows + name +
+        // temp + Full forecast). The marker preview popup would show the SAME numbers
+        // on top of it, so suppress it there — one read per tap, not two.
+        onPreviewOpen: showConditionsOnTap ? undefined : openBeachPreviewPopup,
         onPreviewHold: clearBeachPreviewCloseTimer,
         onPreviewClose: scheduleBeachPreviewClose,
       };
