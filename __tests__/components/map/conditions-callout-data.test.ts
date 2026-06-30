@@ -1,5 +1,6 @@
 import {
   resolveCalloutComponents,
+  formatTempLabel,
   type CalloutComponent,
 } from "@/components/map/conditions-callout-data";
 import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
@@ -88,5 +89,19 @@ describe("decideCalloutAction", () => {
   });
   it("shows when tapping a different beach", () => {
     expect(decideCalloutAction("a", "b")).toBe("show");
+  });
+});
+
+describe("formatTempLabel", () => {
+  it("rounds and appends a degree sign", () => {
+    expect(formatTempLabel("68")).toBe("68°");
+    expect(formatTempLabel("68.4")).toBe("68°");
+    expect(formatTempLabel("68.6")).toBe("69°");
+  });
+  it("returns null for absent or non-numeric input", () => {
+    expect(formatTempLabel(null)).toBeNull();
+    expect(formatTempLabel(undefined)).toBeNull();
+    expect(formatTempLabel("")).toBeNull();
+    expect(formatTempLabel("n/a")).toBeNull();
   });
 });

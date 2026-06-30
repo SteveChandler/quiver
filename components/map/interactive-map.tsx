@@ -51,6 +51,7 @@ import {
   nearestBeachInBounds,
   resolveCalloutComponents,
   decideCalloutAction,
+  formatTempLabel,
 } from "@/components/map/conditions-callout-data";
 import { createConditionsCalloutElement } from "@/components/map/conditions-callout";
 import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
@@ -566,7 +567,7 @@ export function InteractiveMap({
     const clampedIndex = Math.min(Math.max(ctx.timelineIndex, 0), Math.max(0, ctx.stepsLen - 1));
     const partition = partitionAtTimelinePosition(beach.id, clampedIndex, ctx.partitionsTimelineMap, ctx.partitionsMap);
     const components = partition ? resolveCalloutComponents(partition) : [];
-    const tempLabel = ctx.waterTempMap.get(beach.id) ?? null;
+    const tempLabel = formatTempLabel(ctx.waterTempMap.get(beach.id));
     const { element } = createConditionsCalloutElement({ beachName: beach.name, tempLabel, components });
     element.addEventListener("click", () => removeActiveCallout());
     removeActiveCallout();
