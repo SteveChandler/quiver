@@ -80,3 +80,10 @@ export function decideCalloutAction(
 ): "toggle-off" | "show" {
   return currentBeachId === nextBeachId ? "toggle-off" : "show";
 }
+
+/** Formats a raw water_temp DB string (e.g. "68", "68.4") to a center-label like "68°". Null when absent/non-numeric. */
+export function formatTempLabel(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const parsed = parseFloat(raw);
+  return Number.isFinite(parsed) ? `${Math.round(parsed)}°` : null;
+}
