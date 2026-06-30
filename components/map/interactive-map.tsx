@@ -54,6 +54,7 @@ import {
   formatTempLabel,
 } from "@/components/map/conditions-callout-data";
 import { createConditionsCalloutElement } from "@/components/map/conditions-callout";
+import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
 import {
   SWELL_FIELD_PARTICLE_COLOR,
@@ -568,10 +569,24 @@ export function InteractiveMap({
     const partition = partitionAtTimelinePosition(beach.id, clampedIndex, ctx.partitionsTimelineMap, ctx.partitionsMap);
     const components = partition ? resolveCalloutComponents(partition) : [];
     const tempLabel = formatTempLabel(ctx.waterTempMap.get(beach.id));
-    const { element } = createConditionsCalloutElement({ beachName: beach.name, tempLabel, components });
+    const beachHref = getBeachHrefSafe(beach) ?? undefined;
+    const { element } = createConditionsCalloutElement({
+      beachName: beach.name,
+      tempLabel,
+      components,
+      beachHref,
+    });
     element.addEventListener("click", () => removeActiveCallout());
     removeActiveCallout();
     const marker = new mapboxgl.Marker({ element, anchor: "center" }).setLngLat([beach.lon!, beach.lat!]).addTo(map);
+    // Mapbox stamps a generic "Map marker" aria-label; replace it with the real
+    // conditions so screen readers get the same info the arrows convey visually.
+    const conditionsRead =
+      components.map((c) => `${c.name} ${c.label}`).join("; ") || "no current reading";
+    element.setAttribute(
+      "aria-label",
+      `${beach.name}${tempLabel ? `, ${tempLabel}` : ""} surf conditions: ${conditionsRead}`
+    );
     activeCalloutRef.current = { marker, beachId: beach.id };
   }, [removeActiveCallout]);
 
@@ -791,7 +806,6 @@ export function InteractiveMap({
         onHoverChange: setHoveredBeachId,
         onSelectChange: setSelectedBeachId,
         onLocationClick: (beach: Beach) => {
-          removeActiveCallout();
           track('map_interaction', {
             beachId: beach.id,
             metadata: {
@@ -800,6 +814,19 @@ export function InteractiveMap({
             },
             debounceMs: 500,
           });
+          // When the conditions callout is enabled (embed), tapping a pin opens
+          // the merged arrows + info view for that beach instead of navigating —
+          // same toggle behavior as a water tap. The callout's "Full forecast"
+          // link is the path to the full page.
+          if (showConditionsOnTap) {
+            if (decideCalloutAction(activeCalloutRef.current?.beachId ?? null, beach.id) === "toggle-off") {
+              removeActiveCallout();
+              return;
+            }
+            showCalloutForBeach(beach);
+            return;
+          }
+          removeActiveCallout();
           onLocationClick?.(beach);
         },
         router,
@@ -820,6 +847,8 @@ export function InteractiveMap({
     [
       onLocationClick,
       removeActiveCallout,
+      showConditionsOnTap,
+      showCalloutForBeach,
       router,
       autoNavigateOnMarkerClick,
       track,

@@ -20,9 +20,9 @@ describe("resolveCalloutComponents", () => {
     };
     const out = resolveCalloutComponents(parts);
     expect(out.map((c) => c.kind)).toEqual(["s1", "s2", "wind"]);
-    expect(out[0]).toMatchObject({ name: "SWELL", bearingDeg: 290, label: "2.6ft, 8s", color: "#F2A24C" });
-    expect(out[1]).toMatchObject({ name: "S2", bearingDeg: 200, label: "1.6ft, 13s", color: "#7AC74F" });
-    expect(out[2]).toMatchObject({ name: "WIND", bearingDeg: 230, label: "8 mph", color: "#74C7E3" });
+    expect(out[0]).toMatchObject({ name: "SWELL", bearingDeg: 290, label: "2.6ft, 8s", color: "#F78E42" });
+    expect(out[1]).toMatchObject({ name: "SWELL 2", bearingDeg: 200, label: "1.6ft, 13s", color: "#7AC74F" });
+    expect(out[2]).toMatchObject({ name: "WIND", bearingDeg: 230, label: "8 mph", color: "#00D4AA" });
   });
 
   it("prefers swellDirOm over s1Dir for the primary swell bearing", () => {
