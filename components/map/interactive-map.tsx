@@ -569,11 +569,18 @@ export function InteractiveMap({
     const components = partition ? resolveCalloutComponents(partition) : [];
     const tempLabel = formatTempLabel(ctx.waterTempMap.get(beach.id));
     const beachHref = getBeachHrefSafe(beach) ?? undefined;
+    // Shrink the callout to fit narrow viewports: at full size the arrows run off a
+    // phone screen and the ring looks oversized. Sized so the ~428px-wide arrow span
+    // stays within ~78% of the viewport, capped at 1 for desktop.
+    const viewportWidthPx =
+      typeof window !== "undefined" ? window.innerWidth : 1024;
+    const calloutScale = Math.max(0.55, Math.min(1, (viewportWidthPx * 0.78) / 428));
     const { element } = createConditionsCalloutElement({
       beachName: beach.name,
       tempLabel,
       components,
       beachHref,
+      scale: calloutScale,
     });
     element.addEventListener("click", () => removeActiveCallout());
     removeActiveCallout();
