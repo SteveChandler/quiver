@@ -873,7 +873,7 @@ import {
      - Fallback: CDIP nearest station (≤80km) → last 24h observations (feet→meters) upserted, `is_observed=true`
      - Persistence projection: carry-forward latest observed values hourly for the next 12h with source suffix `ndbc_persistence`/`cdip_persistence`, `is_observed=false`
   3. Tides:
-     - Primary: NOAA Tides & Currents hourly predictions (start → +5 days) into `tide_forecasts`
+     - Primary: NOAA Tides & Currents hourly predictions (start → +30 days) into `tide_forecasts`; refreshed twice weekly and read from cache by public tide tools
      - Fallback: If hourly empty, fetch CO-OPS hilo extremes and interpolate to hourly heights; source `noaa_hilo_interpolated`
   4. Sun:
      - Compute sunrise/sunset for the next 5 days using `SunCalc` and upsert into `sun_times` with `source='computed'`
