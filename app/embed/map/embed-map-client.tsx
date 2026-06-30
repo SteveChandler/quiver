@@ -509,6 +509,7 @@ export function EmbedMapClient() {
             </div>
           )}
 
+          {showWebChrome && (
           <div
             aria-label="Conditions legend"
             style={{
@@ -558,6 +559,7 @@ export function EmbedMapClient() {
               </div>
             ))}
           </div>
+          )}
         </div>
       )}
       {showWebChrome && !isPlacementActive && !fieldHidden && (
