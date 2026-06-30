@@ -24,7 +24,7 @@ const LAYERS: Array<{ id: SwellLayerId; label: string }> = [
 const COMBINED_SWATCH_SEGMENTS: SwellLayerId[] = ["s1", "s2", "wind"];
 
 function captionForLayer(activeLayer: SwellLayerId): string {
-  if (activeLayer === "wind") return "dots + tails = wind speed & direction";
+  if (activeLayer === "wind") return "flow streaks = wind speed & direction";
   return "denser = bigger · longer marks = longer period";
 }
 
