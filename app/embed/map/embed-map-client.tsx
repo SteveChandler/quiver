@@ -169,6 +169,17 @@ export function EmbedMapClient() {
     return true;
   }, []);
 
+  // Keep the native chrome's time label in sync while the field plays/scrubs: emit
+  // the rounded forecast step whenever it changes. The play loop advances a
+  // fractional index; native renders integer steps. No-op in the browser.
+  const roundedStep = Math.max(0, Math.round(timelineIndex));
+  const lastEmittedStepRef = useRef(-1);
+  useEffect(() => {
+    if (lastEmittedStepRef.current === roundedStep) return;
+    lastEmittedStepRef.current = roundedStep;
+    postEvent({ type: "forecastTimeChanged", payload: { index: roundedStep } });
+  }, [roundedStep, postEvent]);
+
   const postReady = useCallback(
     (viewport: EmbedMapViewport): boolean => {
       if (sentReadyRef.current) return true;
@@ -280,6 +291,12 @@ export function EmbedMapClient() {
           postEvent({ type: "placementConfirmed", payload: point });
           return;
         }
+        case "setFieldVisible":
+          setFieldHidden(!command.payload.visible);
+          return;
+        case "setForecastPlaying":
+          setIsPlaying(command.payload.playing);
+          return;
         case "setTheme":
         case "setReducedMotion":
           return;
