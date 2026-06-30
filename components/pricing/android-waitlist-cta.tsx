@@ -1,16 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import type { ReactElement, ReactNode } from "react";
 
 import { joinAndroidWaitlist } from "@/actions/android-waitlist-actions";
-import { UnifiedAuthModal } from "@/components/auth/unified-auth-modal";
 import { useAuth } from "@/context/auth-context";
 import {
   trackAndroidWaitlistCtaClick,
   trackAndroidWaitlistCtaView,
 } from "@/lib/analytics/android-waitlist-tracking";
+import { ANDROID_BETA_GROUP_URL } from "@/lib/constants/app-store";
 import {
   ANDROID_WAITLIST_CTA,
   ANDROID_WAITLIST_STORAGE_KEY,
@@ -79,6 +85,10 @@ function storePendingIntent(intent: AndroidWaitlistIntent): void {
   );
 }
 
+function openAndroidTesterGroup(): void {
+  window.open(ANDROID_BETA_GROUP_URL, "_self");
+}
+
 export function AndroidWaitlistCta({
   source,
   surface,
@@ -90,11 +100,12 @@ export function AndroidWaitlistCta({
   onClickTrack,
 }: AndroidWaitlistCtaProps): ReactElement {
   const { user, isLoading } = useAuth();
-  const pathname = usePathname();
+  const emailInputId = useId();
   const buttonRef = useRef<HTMLButtonElement>(null);
   const hasTrackedView = useRef(false);
   const hasConfirmedIntent = useRef(false);
-  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [email, setEmail] = useState("");
+  const [inlineError, setInlineError] = useState<string | null>(null);
   const [status, setStatus] = useState<"idle" | "saving" | "saved" | "error">(
     "idle",
   );
@@ -189,20 +200,120 @@ export function AndroidWaitlistCta({
     });
 
     if (!user) {
-      storePendingIntent(intent);
-      setAuthModalOpen(true);
+      openAndroidTesterGroup();
       return;
     }
 
     await confirmIntent(intent);
+    openAndroidTesterGroup();
+  };
+
+  const handleAnonymousSubmit = async (
+    event: FormEvent<HTMLFormElement>,
+  ): Promise<void> => {
+    event.preventDefault();
+    if (isLoading || status === "saving") return;
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const intent = { source, surface, placement };
+
+    setInlineError(null);
+    setStatus("saving");
+    onClickTrack?.();
+
+    trackAndroidWaitlistCtaClick({
+      ...intent,
+      auth_state: "anonymous",
+      destination_type: "lead_capture",
+      destination_status: "email_captured",
+      profile_flag_requested: false,
+    });
+
+    try {
+      const response = await fetch("/api/android-beta/leads", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: normalizedEmail,
+          ...intent,
+        }),
+      });
+      const result = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        error?: string;
+      } | null;
+
+      if (!response.ok || !result?.success) {
+        setInlineError(
+          result?.error === "invalid_email"
+            ? "Enter a valid email address."
+            : "Could not save your email. Try again.",
+        );
+        setStatus("error");
+        return;
+      }
+
+      openAndroidTesterGroup();
+    } catch {
+      setInlineError("Could not save your email. Try again.");
+      setStatus("error");
+    }
   };
 
   const label =
     status === "saving"
-      ? "Saving..."
+      ? "Opening..."
       : status === "saved"
         ? successLabel
         : children ?? ANDROID_WAITLIST_CTA;
+
+  if (!isLoading && !user) {
+    return (
+      <form
+        onSubmit={handleAnonymousSubmit}
+        className="flex w-full min-w-0 flex-col gap-2 sm:max-w-xl sm:flex-row"
+        data-testid="android-waitlist-email-form"
+        noValidate
+      >
+        <label className="sr-only" htmlFor={emailInputId}>
+          Email for Android beta access
+        </label>
+        <input
+          id={emailInputId}
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          value={email}
+          onChange={(event) => {
+            setEmail(event.target.value);
+            if (inlineError) setInlineError(null);
+            if (status === "error") setStatus("idle");
+          }}
+          placeholder="you@email.com"
+          className="min-h-12 min-w-0 flex-1 rounded-md border border-white/25 bg-white px-3 font-sans text-base font-semibold text-[#11100D] placeholder:text-[#11100D]/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7BDCB5] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1020]"
+          aria-describedby={inlineError ? `${emailInputId}-error` : undefined}
+        />
+        <button
+          ref={buttonRef}
+          type="submit"
+          className={cn(className, status === "error" && "border-red-300")}
+          disabled={status === "saving"}
+          data-testid="android-waitlist-cta"
+        >
+          {status === "saving" ? "Saving..." : "Get Android beta"}
+        </button>
+        {inlineError ? (
+          <p
+            id={`${emailInputId}-error`}
+            className="text-sm font-semibold text-[#F78E42] sm:basis-full"
+            role="alert"
+          >
+            {inlineError}
+          </p>
+        ) : null}
+      </form>
+    );
+  }
 
   return (
     <>
@@ -221,18 +332,6 @@ export function AndroidWaitlistCta({
           Could not save Android waitlist intent. Try again.
         </span>
       ) : null}
-      <UnifiedAuthModal
-        isOpen={authModalOpen}
-        onClose={() => setAuthModalOpen(false)}
-        mode="signup"
-        source={source}
-        returnTo={pathname || "/plans"}
-        contextMessage={{
-          title: "Join Android waitlist",
-          description:
-            "Create a free Quiver account so we can let you know when Android opens.",
-        }}
-      />
     </>
   );
 }

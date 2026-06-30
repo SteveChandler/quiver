@@ -252,6 +252,19 @@ export const RATE_LIMITS = {
     requestsPerHour: 5,
     burstLimit: 2,
   }),
+
+  /**
+   * Android Beta Lead - anonymous email capture
+   *
+   * Endpoint: POST /api/android-beta/leads
+   * Risk: Email-list abuse / database spam
+   * Cost: Single service-role upsert per request
+   */
+  "android-beta-lead": relaxForE2E({
+    requestsPerMinute: 4,
+    requestsPerHour: 12,
+    burstLimit: 3,
+  }),
 } as const;
 
 /**
@@ -288,6 +301,8 @@ const RATE_LIMIT_MESSAGES = {
     "Camera stream resolution rate limit exceeded. Please wait before retrying.",
   "anon-alert-capture":
     "Too many alert sign-up attempts. Please wait before retrying.",
+  "android-beta-lead":
+    "Too many Android beta sign-up attempts. Please wait before retrying.",
 } as const;
 
 /**

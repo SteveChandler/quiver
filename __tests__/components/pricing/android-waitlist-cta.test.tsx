@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { joinAndroidWaitlist } from "@/actions/android-waitlist-actions";
@@ -8,13 +8,8 @@ import {
   trackAndroidWaitlistCtaClick,
   trackAndroidWaitlistCtaView,
 } from "@/lib/analytics/android-waitlist-tracking";
+import { ANDROID_BETA_GROUP_URL } from "@/lib/constants/app-store";
 import { ANDROID_WAITLIST_STORAGE_KEY } from "@/lib/constants/android-waitlist";
-
-let mockPathname = "/features";
-
-jest.mock("next/navigation", () => ({
-  usePathname: () => mockPathname,
-}));
 
 jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(),
@@ -29,31 +24,13 @@ jest.mock("@/lib/analytics/android-waitlist-tracking", () => ({
   trackAndroidWaitlistCtaView: jest.fn(),
 }));
 
-jest.mock("@/components/auth/unified-auth-modal", () => ({
-  UnifiedAuthModal: ({
-    isOpen,
-    source,
-    returnTo,
-  }: {
-    isOpen: boolean;
-    source: string;
-    returnTo: string;
-  }) =>
-    isOpen ? (
-      <div
-        data-testid="auth-modal"
-        data-source={source}
-        data-return-to={returnTo}
-      />
-    ) : null,
-}));
-
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const mockJoinAndroidWaitlist = joinAndroidWaitlist as jest.Mock;
 const mockTrackAndroidWaitlistCtaClick =
   trackAndroidWaitlistCtaClick as jest.Mock;
 const mockTrackAndroidWaitlistCtaView =
   trackAndroidWaitlistCtaView as jest.Mock;
+const mockWindowOpen = jest.fn();
 
 function mockAnonymousUser() {
   mockUseAuth.mockReturnValue({
@@ -99,7 +76,12 @@ describe("AndroidWaitlistCta", () => {
     jest.clearAllMocks();
     localStorage.clear();
     mockAnonymousUser();
-    mockPathname = "/features";
+    global.window.open = mockWindowOpen;
+    (global as any).fetch = jest.fn(() =>
+      Promise.resolve(
+        new Response(JSON.stringify({ success: true }), { status: 200 }),
+      ),
+    );
     mockJoinAndroidWaitlist.mockResolvedValue({
       success: true,
       data: { wants_android_access: true },
@@ -136,12 +118,58 @@ describe("AndroidWaitlistCta", () => {
     });
   });
 
-  it("stores anonymous waitlist intent and opens signup", async () => {
+  it("renders one-field Android beta lead capture for anonymous users", () => {
+    renderWaitlistCta();
+
+    expect(
+      screen.getByLabelText(/email for android beta access/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /get android beta/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^android waitlist$/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("surfaces invalid anonymous email responses without handoff", async () => {
+    const user = userEvent.setup();
+    (global as any).fetch = jest.fn(() =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify({ success: false, error: "invalid_email" }),
+          { status: 200 },
+        ),
+      ),
+    );
+    renderWaitlistCta();
+
+    await user.type(
+      screen.getByLabelText(/email for android beta access/i),
+      "not-an-email",
+    );
+    await user.click(screen.getByRole("button", { name: /get android beta/i }));
+
+    expect(
+      await screen.findByText(/enter a valid email address/i),
+    ).toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/android-beta/leads",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(mockWindowOpen).not.toHaveBeenCalled();
+  });
+
+  it("captures anonymous beta leads before opening the tester group", async () => {
     const user = userEvent.setup();
     renderWaitlistCta();
 
+    await user.type(
+      screen.getByLabelText(/email for android beta access/i),
+      "SURFER@example.com",
+    );
     await user.click(
-      screen.getByRole("button", { name: /android waitlist/i }),
+      screen.getByRole("button", { name: /get android beta/i }),
     );
 
     expect(mockTrackAndroidWaitlistCtaClick).toHaveBeenCalledWith({
@@ -149,29 +177,34 @@ describe("AndroidWaitlistCta", () => {
       surface: "features-page",
       placement: "hero_secondary",
       auth_state: "anonymous",
-      profile_flag_requested: true,
+      destination_type: "lead_capture",
+      destination_status: "email_captured",
+      profile_flag_requested: false,
     });
-    expect(
-      JSON.parse(localStorage.getItem(ANDROID_WAITLIST_STORAGE_KEY) || "{}"),
-    ).toMatchObject({
-      source: "features-hero-android-waitlist",
-      surface: "features-page",
-      placement: "hero_secondary",
-    });
-    expect(screen.getByTestId("auth-modal")).toHaveAttribute(
-      "data-source",
-      "features-hero-android-waitlist",
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/android-beta/leads",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: "surfer@example.com",
+          source: "features-hero-android-waitlist",
+          surface: "features-page",
+          placement: "hero_secondary",
+        }),
+      }),
     );
-    expect(screen.getByTestId("auth-modal")).toHaveAttribute(
-      "data-return-to",
-      "/features",
+    expect(localStorage.getItem(ANDROID_WAITLIST_STORAGE_KEY)).toBeNull();
+    expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument();
+    expect(mockWindowOpen).toHaveBeenCalledWith(
+      ANDROID_BETA_GROUP_URL,
+      "_self",
     );
     expect(mockJoinAndroidWaitlist).not.toHaveBeenCalled();
   });
 
-  it("returns anonymous PBSC waitlist clicks to the event route", async () => {
+  it("captures anonymous PBSC beta leads before opening the tester group", async () => {
     const user = userEvent.setup();
-    mockPathname = "/pbsc";
 
     render(
       <AndroidWaitlistCta
@@ -184,20 +217,29 @@ describe("AndroidWaitlistCta", () => {
       </AndroidWaitlistCta>,
     );
 
+    fireEvent.change(screen.getByLabelText(/email for android beta access/i), {
+      target: { value: "pbsc@example.com" },
+    });
     await user.click(
-      screen.getByRole("button", { name: /join android waitlist/i }),
+      screen.getByRole("button", { name: /get android beta/i }),
     );
 
-    expect(
-      JSON.parse(localStorage.getItem(ANDROID_WAITLIST_STORAGE_KEY) || "{}"),
-    ).toMatchObject({
-      source: "pbsc-event-android-waitlist",
-      surface: "pbsc-page",
-      placement: "hero_primary",
-    });
-    expect(screen.getByTestId("auth-modal")).toHaveAttribute(
-      "data-return-to",
-      "/pbsc",
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/android-beta/leads",
+      expect.objectContaining({
+        body: JSON.stringify({
+          email: "pbsc@example.com",
+          source: "pbsc-event-android-waitlist",
+          surface: "pbsc-page",
+          placement: "hero_primary",
+        }),
+      }),
+    );
+    expect(localStorage.getItem(ANDROID_WAITLIST_STORAGE_KEY)).toBeNull();
+    expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument();
+    expect(mockWindowOpen).toHaveBeenCalledWith(
+      ANDROID_BETA_GROUP_URL,
+      "_self",
     );
     expect(mockJoinAndroidWaitlist).not.toHaveBeenCalled();
   });
@@ -221,6 +263,10 @@ describe("AndroidWaitlistCta", () => {
         name: /android updates are set/i,
       }),
     ).toBeInTheDocument();
+    expect(mockWindowOpen).toHaveBeenCalledWith(
+      ANDROID_BETA_GROUP_URL,
+      "_self",
+    );
   });
 
   it("applies a pending anonymous intent after auth resolves", async () => {

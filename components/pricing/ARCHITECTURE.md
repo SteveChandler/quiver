@@ -25,5 +25,5 @@ Pricing components render the public `/plans` native-app availability surface. T
 
 - `founding-offer-surface.tsx` renders the `/plans` page content.
 - `founding-access-cta.tsx` chooses the signed-in vs anonymous Android waitlist wrapper.
-- `android-waitlist-cta.tsx` stores anonymous Android intent through signup, then confirms the profile flag after auth.
+- `android-waitlist-cta.tsx` renders a one-field Android beta email capture for anonymous users, then hands off to the tester Google Group in the same tab. Authenticated users first confirm the Quiver profile flag, then get the same group handoff; legacy pending intents still resolve after auth.
 - `landing-pricing-teaser.tsx` adds a restrained landing-page link to `/plans`.
