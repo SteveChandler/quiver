@@ -1,5 +1,8 @@
 import mapboxgl from "mapbox-gl";
-import type { FlowField } from "@/components/map/swell-field/field-sampler";
+import type {
+  FlowCell,
+  FlowField,
+} from "@/components/map/swell-field/field-sampler";
 
 export interface MercatorBox {
   minX: number;
@@ -38,8 +41,8 @@ export const SHADER_UNIFORM_NAMES = [
 
 // Vertex shader: positions arrive as line endpoints already in Mercator [0..1]
 // unit space; the passed mapbox projection matrix (u_matrix) maps them to clip
-// space. a_alpha carries per-vertex trail fade. gl_PointSize is honored only in
-// POINTS draw mode (the wind dot layer) and ignored when drawing LINES.
+// space. a_alpha carries per-vertex fade. gl_PointSize is honored only in
+// POINTS draw mode and ignored when drawing LINES.
 export const PARTICLE_VERTEX_SHADER = `
 precision highp float;
 attribute vec2 a_pos;
@@ -140,9 +143,13 @@ function hexToRgb(hex: string): [number, number, number] {
   return [r, g, b];
 }
 
-/** Sample the flow field for the cell nearest a lng/lat. Returns travel vec + speed. */
-function sampleField(field: FlowField, lon: number, lat: number) {
-  if (field.cells.length === 0) return { vx: 0, vy: 0, speed: 0, alpha: 0 };
+const clamp01 = (value: number): number =>
+  Math.min(1, Math.max(0, Number.isFinite(value) ? value : 0));
+
+function nearestFlowCell(field: FlowField, lon: number, lat: number): FlowCell {
+  if (field.cells.length === 0) {
+    return { lon, lat, vx: 0, vy: 0, speed: 0, alpha: 0 };
+  }
   let best = field.cells[0];
   let bestD = Infinity;
   for (const cell of field.cells) {
@@ -153,6 +160,87 @@ function sampleField(field: FlowField, lon: number, lat: number) {
     }
   }
   return best;
+}
+
+function blendFlowCells(
+  c00: FlowCell,
+  c10: FlowCell,
+  c01: FlowCell,
+  c11: FlowCell,
+  tx: number,
+  ty: number,
+  lon: number,
+  lat: number
+): FlowCell {
+  const topWeight = 1 - ty;
+  const bottomWeight = ty;
+  const leftWeight = 1 - tx;
+  const rightWeight = tx;
+  const w00 = leftWeight * topWeight;
+  const w10 = rightWeight * topWeight;
+  const w01 = leftWeight * bottomWeight;
+  const w11 = rightWeight * bottomWeight;
+  const rawVx = c00.vx * w00 + c10.vx * w10 + c01.vx * w01 + c11.vx * w11;
+  const rawVy = c00.vy * w00 + c10.vy * w10 + c01.vy * w01 + c11.vy * w11;
+  const vlen = Math.hypot(rawVx, rawVy);
+  const vx = vlen > 1e-6 ? rawVx / vlen : 0;
+  const vy = vlen > 1e-6 ? rawVy / vlen : 0;
+
+  return {
+    lon,
+    lat,
+    vx,
+    vy,
+    speed: c00.speed * w00 + c10.speed * w10 + c01.speed * w01 + c11.speed * w11,
+    alpha: c00.alpha * w00 + c10.alpha * w10 + c01.alpha * w01 + c11.alpha * w11,
+  };
+}
+
+export function sampleFlowField(
+  field: FlowField,
+  lon: number,
+  lat: number
+): FlowCell {
+  if (field.cells.length === 0) {
+    return { lon, lat, vx: 0, vy: 0, speed: 0, alpha: 0 };
+  }
+  if (
+    field.cols < 2 ||
+    field.rows < 2 ||
+    field.cells.length < field.cols * field.rows
+  ) {
+    return nearestFlowCell(field, lon, lat);
+  }
+
+  const west = field.cells[0].lon;
+  const east = field.cells[field.cols - 1].lon;
+  const south = field.cells[0].lat;
+  const north = field.cells[(field.rows - 1) * field.cols].lat;
+  const lonSpan = east - west;
+  const latSpan = north - south;
+  if (
+    !Number.isFinite(lonSpan) ||
+    !Number.isFinite(latSpan) ||
+    Math.abs(lonSpan) < 1e-9 ||
+    Math.abs(latSpan) < 1e-9
+  ) {
+    return nearestFlowCell(field, lon, lat);
+  }
+
+  const colF = clamp01((lon - west) / lonSpan) * (field.cols - 1);
+  const rowF = clamp01((lat - south) / latSpan) * (field.rows - 1);
+  const col0 = Math.min(field.cols - 2, Math.max(0, Math.floor(colF)));
+  const row0 = Math.min(field.rows - 2, Math.max(0, Math.floor(rowF)));
+  const col1 = col0 + 1;
+  const row1 = row0 + 1;
+  const tx = colF - col0;
+  const ty = rowF - row0;
+  const c00 = field.cells[row0 * field.cols + col0];
+  const c10 = field.cells[row0 * field.cols + col1];
+  const c01 = field.cells[row1 * field.cols + col0];
+  const c11 = field.cells[row1 * field.cols + col1];
+
+  return blendFlowCells(c00, c10, c01, c11, tx, ty, lon, lat);
 }
 
 export interface SwellParticleLayerOptions {
@@ -174,11 +262,19 @@ export interface SwellParticleLayerOptions {
   /**
    * Mark style for the drawn particle. "dash" (default) renders a crest line
    * (two vertices per particle, GL LINES). "dot" renders a single GL point per
-   * particle — used by the wind layer to read as a stippled dot field. "comet"
-   * renders a dot head with a short fading trail (two vertices per particle,
-   * drawn as LINES then POINTS) trailing OPPOSITE the wind's travel direction.
+   * particle. "streak" renders a short line along the travel direction with no
+   * dot head, used by wind so it reads as flow instead of stippled dots.
    */
-  markStyle?: "dash" | "dot" | "comet";
+  markStyle?: "dash" | "dot" | "streak";
+  /** Layer-specific advection scale. Lower values make motion read smoother. */
+  motionScale?: number;
+  /**
+   * Per-frame velocity easing responsiveness, 0..1. Smaller values smooth jitter
+   * across grid-cell boundaries; 1 follows the sampled vector immediately.
+   */
+  velocitySmoothing?: number;
+  /** Layer-specific scale for wave-crest dash length. */
+  dashLengthScale?: number;
 }
 
 /**
@@ -193,6 +289,19 @@ export function createSwellParticleLayer(
       ? Math.floor(options.count)
       : resolveParticleCount(options.viewportWidthPx);
   const markStyle = options.markStyle ?? "dash";
+  const verticesPerParticle = markStyle === "dot" ? 1 : 2;
+  const motionScale =
+    options.motionScale != null && Number.isFinite(options.motionScale)
+      ? Math.max(0, options.motionScale)
+      : 1;
+  const velocitySmoothing =
+    options.velocitySmoothing != null && Number.isFinite(options.velocitySmoothing)
+      ? Math.min(1, Math.max(0.01, options.velocitySmoothing))
+      : 0.16;
+  const dashLengthScale =
+    options.dashLengthScale != null && Number.isFinite(options.dashLengthScale)
+      ? Math.max(0.1, options.dashLengthScale)
+      : 1;
   let program: WebGLProgram | null = null;
   let posBuffer: WebGLBuffer | null = null;
   let alphaBuffer: WebGLBuffer | null = null;
@@ -210,30 +319,52 @@ export function createSwellParticleLayer(
   const py = new Float32Array(count);
   const page = new Float32Array(count);
   const life = new Float32Array(count);
-  // Two vertices per particle (trail segment); 2 floats pos + 1 float alpha each.
-  const vertexPos = new Float32Array(count * 2 * 2);
-  const vertexAlpha = new Float32Array(count * 2);
+  const vxState = new Float32Array(count);
+  const vyState = new Float32Array(count);
+  // 2 floats per vertex plus one alpha. Dash and streak are both single segments.
+  const vertexPos = new Float32Array(count * verticesPerParticle * 2);
+  const vertexAlpha = new Float32Array(count * verticesPerParticle);
 
   const rng = Math.random;
-  // Fraction of the current viewport a speed=1 particle ADVANCES per frame, scaled to
-  // the live Mercator span so motion reads the same at any zoom. Very gentle so the
-  // crawl matches Windy's pace; dash LENGTH is decoupled via DASH_FRACTION, so slowing
-  // the step does not shrink the marks. Per-frame step = span * STEP_FRACTION *
-  // cell.speed, and cell.speed is the swell's deep-water celerity (∝ period) — so
-  // longer-period swells visibly drift faster, short-period swells slower.
-  const STEP_FRACTION = 0.00012;
+  let lastFrameMs: number | null = null;
+  // Fraction of the current viewport a speed=1 particle advances per 60Hz frame,
+  // scaled to the live Mercator span so motion reads the same at any zoom. This is
+  // intentionally time-based: reference wind maps keep particles alive and advect
+  // them through the field instead of respawning whole cohorts that appear to blink.
+  const STEP_FRACTION = 0.00055;
+  const FRAME_MS = 1000 / 60;
+  const MAX_FRAME_STEP = 1.6;
+  const MIN_LIFE_FRAMES = 300;
+  const LIFE_JITTER_FRAMES = 360;
+  const BIRTH_FADE_PORTION = 0.08;
+  const DEATH_FADE_PORTION = 0.16;
   // Fixed dash LENGTH as a fraction of the viewport span, DECOUPLED from drift speed
-  // so dashes stay visible (~14px) no matter how slow they move. Tying length to the
-  // per-frame step made slow dashes sub-pixel and invisible. Bumped 0.011 -> 0.016 so
-  // the dark crest "|" marks read on the pale Mapbox water (lineWidth>1 is unreliable
-  // across GPUs, so length is the lever) — still kept clearly SHORTER than the wind
-  // comet tail below so the swell crest and the wind streak stay visually distinct.
-  const DASH_FRACTION = 0.016;
-  // Comet TAIL length as a fraction of the viewport span — a streak trailing BEHIND the
-  // moving dot head. Lengthened 0.02 -> 0.028 so the wind streak reads as motion on the
-  // light basemap, and stays LONGER than the crest dash so the two marks don't blur
-  // together. Decoupled from drift speed (same rationale as DASH_FRACTION).
-  const COMET_TAIL_FRACTION = 0.028;
+  // so dashes stay visible no matter how slow they move. Tying length to the
+  // per-frame step made slow dashes sub-pixel and invisible. Line width >1 is
+  // unreliable across GPUs, so length is the lever.
+  const DASH_FRACTION = 0.032;
+  // Wind gets a shorter line along the vector and no point pass. That removes the
+  // dot-head look while still showing direction and drift.
+  const WIND_STREAK_FRACTION = 0.026;
+
+  function randomLifeFrames(): number {
+    return MIN_LIFE_FRAMES + rng() * LIFE_JITTER_FRAMES;
+  }
+
+  function frameStep(): number {
+    const now =
+      typeof performance !== "undefined" && typeof performance.now === "function"
+        ? performance.now()
+        : Date.now();
+    if (lastFrameMs == null) {
+      lastFrameMs = now;
+      return 1;
+    }
+    const deltaFrames = (now - lastFrameMs) / FRAME_MS;
+    lastFrameMs = now;
+    if (!Number.isFinite(deltaFrames) || deltaFrames <= 0) return 1;
+    return Math.min(MAX_FRAME_STEP, deltaFrames);
+  }
 
   function viewBoxMercator(map: mapboxgl.Map): MercatorBox {
     const b = map.getBounds();
@@ -263,26 +394,54 @@ export function createSwellParticleLayer(
       const s = gridSeedParticle(i, count, box, rng);
       px[i] = s.x;
       py[i] = s.y;
-      page[i] = Math.floor(rng() * 60);
-      life[i] = 40 + Math.floor(rng() * 60);
+      vxState[i] = 0;
+      vyState[i] = 0;
+      life[i] = randomLifeFrames();
+      page[i] = rng() * life[i];
     }
+    lastFrameMs = null;
   }
 
   function advanceAndFill(map: mapboxgl.Map, field: FlowField): void {
     const box = viewBoxMercator(map);
     const span = Math.max(box.maxX - box.minX, 1e-6);
+    const deltaFrames = frameStep();
     for (let i = 0; i < count; i += 1) {
       // Convert this particle's Mercator pos back to lng/lat to sample the geo field.
       const merc = new mapboxgl.MercatorCoordinate(px[i], py[i]);
       const ll = merc.toLngLat();
-      const cell = sampleField(field, ll.lng, ll.lat);
-      // Drift rate is driven by the swell's celerity (cell.speed ∝ period) — no flat
+      const cell = sampleFlowField(field, ll.lng, ll.lat);
+      const rawLen = Math.hypot(cell.vx, cell.vy);
+      let flowVx = rawLen > 1e-6 ? cell.vx / rawLen : 0;
+      let flowVy = rawLen > 1e-6 ? cell.vy / rawLen : 0;
+      if (cell.speed > 0 && rawLen > 1e-6) {
+        const previousLen = Math.hypot(vxState[i], vyState[i]);
+        if (previousLen <= 1e-6) {
+          vxState[i] = flowVx;
+          vyState[i] = flowVy;
+        } else {
+          const blend = 1 - Math.pow(1 - velocitySmoothing, deltaFrames);
+          vxState[i] += (flowVx - vxState[i]) * blend;
+          vyState[i] += (flowVy - vyState[i]) * blend;
+          const easedLen = Math.hypot(vxState[i], vyState[i]);
+          if (easedLen > 1e-6) {
+            vxState[i] /= easedLen;
+            vyState[i] /= easedLen;
+          }
+        }
+        flowVx = vxState[i];
+        flowVy = vyState[i];
+      } else {
+        vxState[i] = 0;
+        vyState[i] = 0;
+      }
+      // Drift rate is driven by the swell's celerity (cell.speed by period) - no flat
       // floor, so the motion genuinely reflects how fast each swell is moving.
-      const step = span * STEP_FRACTION * cell.speed;
+      const step = span * STEP_FRACTION * cell.speed * deltaFrames * motionScale;
       // Screen-y down maps to +Mercator-y down, so vy sign is consistent.
-      px[i] += cell.vx * step;
-      py[i] += cell.vy * step;
-      page[i] += 1;
+      px[i] += flowVx * step;
+      py[i] += flowVy * step;
+      page[i] += deltaFrames;
 
       const out =
         px[i] < box.minX ||
@@ -296,21 +455,16 @@ export function createSwellParticleLayer(
         const s = gridSeedParticle(i, count, box, rng);
         px[i] = s.x;
         py[i] = s.y;
+        vxState[i] = 0;
+        vyState[i] = 0;
+        life[i] = randomLifeFrames();
         page[i] = 0;
-        if (markStyle === "dot") {
-          // One vertex per particle; invisible on respawn so we don't flash a dot.
-          vertexPos[i * 2 + 0] = px[i];
-          vertexPos[i * 2 + 1] = py[i];
-          vertexAlpha[i] = 0;
-        } else {
-          // Dash and comet share the 2-vertex layout: collapse both verts onto the new
-          // position with alpha 0 so respawn draws no jump streak.
-          vertexPos[i * 4 + 0] = px[i];
-          vertexPos[i * 4 + 1] = py[i];
-          vertexPos[i * 4 + 2] = px[i];
-          vertexPos[i * 4 + 3] = py[i];
-          vertexAlpha[i * 2 + 0] = 0;
-          vertexAlpha[i * 2 + 1] = 0;
+        const baseVertex = i * verticesPerParticle;
+        for (let vertex = 0; vertex < verticesPerParticle; vertex += 1) {
+          const offset = (baseVertex + vertex) * 2;
+          vertexPos[offset + 0] = px[i];
+          vertexPos[offset + 1] = py[i];
+          vertexAlpha[baseVertex + vertex] = 0;
         }
         continue;
       }
@@ -318,15 +472,16 @@ export function createSwellParticleLayer(
       // Push populated cells toward opaque so the dark marks read solidly on the
       // light basemap; keep DEAD cells (no nearby beach data, speed === 0) fully
       // invisible so open water / land stays clean.
-      const trail = 1 - page[i] / life[i];
-      // Lifetime fade tightened for LEGIBILITY: a live mark holds full alpha for most of
-      // its life and only eases out over the final ~15% (trail < 0.15) instead of the
-      // old quarter-life (trail < 0.25) fade that left aging marks washed out on the
-      // pale water. The respawn frame still zeroes alpha explicitly above, so there is
-      // no spawn pop.
-      const lifeFade = Math.min(1, trail * 6.7);
+      const ageRatio = Math.min(1, Math.max(0, page[i] / Math.max(life[i], 1)));
+      const birthFade = Math.min(1, ageRatio / BIRTH_FADE_PORTION);
+      const deathFade = Math.min(1, (1 - ageRatio) / DEATH_FADE_PORTION);
+      const lifeFade = Math.min(birthFade, deathFade);
+      const baseAlpha =
+        markStyle === "streak"
+          ? Math.min(1, 0.72 + cell.alpha * 0.45)
+          : Math.min(1, 0.72 + cell.alpha);
       const fade =
-        cell.speed > 0 ? Math.min(1, 0.85 + cell.alpha) * lifeFade : 0;
+        cell.speed > 0 ? baseAlpha * lifeFade : 0;
 
       if (markStyle === "dot") {
         // One GL point per particle, centered on the particle position.
@@ -336,37 +491,40 @@ export function createSwellParticleLayer(
         continue;
       }
 
-      if (markStyle === "comet") {
-        // A small comet: a solid dot HEAD at the leading particle position (vert 1) with
-        // a fading streak TRAILING BEHIND it (vert 0, transparent), i.e. OPPOSITE the
-        // travel direction (vx,vy). The particle advances along +(vx,vy), so the head
-        // leads and the wisp streams out behind — the comet reads as moving head-first,
-        // tail chasing, matching the dot's motion. Drawn as a LINES segment (the fading
-        // streak) plus a POINTS pass (the head) sharing this buffer.
-        const vlen = Math.hypot(cell.vx, cell.vy) || 1;
-        const tailLen = span * COMET_TAIL_FRACTION;
-        vertexPos[i * 4 + 0] = px[i] - (cell.vx / vlen) * tailLen;
-        vertexPos[i * 4 + 1] = py[i] - (cell.vy / vlen) * tailLen;
-        vertexPos[i * 4 + 2] = px[i];
-        vertexPos[i * 4 + 3] = py[i];
-        vertexAlpha[i * 2 + 0] = 0;
-        vertexAlpha[i * 2 + 1] = fade;
+      if (markStyle === "streak") {
+        // A single thin line along the velocity-smoothed travel vector — the easing
+        // keeps the motion wavy. One stroke reads far cleaner than the old triple
+        // line, which was too noisy. No POINTS pass, so there is no dot head.
+        const vlen = Math.hypot(flowVx, flowVy) || 1;
+        const halfLen = span * WIND_STREAK_FRACTION * 0.5;
+        const dx = (flowVx / vlen) * halfLen;
+        const dy = (flowVy / vlen) * halfLen;
+        const baseVertex = i * verticesPerParticle;
+        const vertexOffset = baseVertex * 2;
+        vertexPos[vertexOffset + 0] = px[i] - dx;
+        vertexPos[vertexOffset + 1] = py[i] - dy;
+        vertexPos[vertexOffset + 2] = px[i] + dx;
+        vertexPos[vertexOffset + 3] = py[i] + dy;
+        vertexAlpha[baseVertex + 0] = fade;
+        vertexAlpha[baseVertex + 1] = fade;
         continue;
       }
 
       // Draw a small fixed-length dash PERPENDICULAR to the flow vector, centered on
       // the particle, so the visible mark reads like a wave crest.
       // Visible length is independent of drift speed.
-      const vlen = Math.hypot(cell.vx, cell.vy) || 1;
-      const dashHalf = span * DASH_FRACTION * 0.5;
-      const dx = (-cell.vy / vlen) * dashHalf;
-      const dy = (cell.vx / vlen) * dashHalf;
-      vertexPos[i * 4 + 0] = px[i] - dx;
-      vertexPos[i * 4 + 1] = py[i] - dy;
-      vertexPos[i * 4 + 2] = px[i] + dx;
-      vertexPos[i * 4 + 3] = py[i] + dy;
-      vertexAlpha[i * 2 + 0] = fade;
-      vertexAlpha[i * 2 + 1] = fade;
+      const vlen = Math.hypot(flowVx, flowVy) || 1;
+      const dashHalf = span * DASH_FRACTION * dashLengthScale * 0.5;
+      const dx = (-flowVy / vlen) * dashHalf;
+      const dy = (flowVx / vlen) * dashHalf;
+      const baseVertex = i * verticesPerParticle;
+      const vertexOffset = baseVertex * 2;
+      vertexPos[vertexOffset + 0] = px[i] - dx;
+      vertexPos[vertexOffset + 1] = py[i] - dy;
+      vertexPos[vertexOffset + 2] = px[i] + dx;
+      vertexPos[vertexOffset + 3] = py[i] + dy;
+      vertexAlpha[baseVertex + 0] = fade;
+      vertexAlpha[baseVertex + 1] = fade;
     }
   }
 
@@ -419,13 +577,10 @@ export function createSwellParticleLayer(
       // Near-opaque so the dark dashes read crisply on the light basemap; the static
       // reduced-motion frame stays a touch dimmer.
       gl.uniform1f(uAlphaLoc, options.reducedMotion ? 0.95 : 1.0);
-      // Dot diameter in device pixels (≈3.6 CSS px scaled for retina). Ignored when
-      // drawing LINES; only the dot/comet-head layer reads gl_PointSize. Bumped 3.0 ->
-      // 3.6 so the wind comet head reads against the pale basemap (lineWidth>1 is
-      // unreliable, so head size is the lever).
+      // Dot diameter in device pixels. Ignored when drawing LINES.
       const dpr =
         typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
-      gl.uniform1f(uPointSizeLoc, 3.6 * dpr);
+      gl.uniform1f(uPointSizeLoc, 5 * dpr);
 
       gl.enable(gl.BLEND);
       // Normal alpha blending — dark marks paint over the light water (additive glow
@@ -445,17 +600,9 @@ export function createSwellParticleLayer(
       if (markStyle === "dot") {
         // One vertex per particle drawn as a GL point.
         gl.drawArrays(gl.POINTS, 0, count);
-      } else if (markStyle === "comet") {
-        // Two passes over the SAME 2-vertex-per-particle buffer:
-        // 1. LINES — the fading tail (tail vert alpha 0 → head vert alpha fade).
-        // 2. POINTS — a point at every vertex; tail ends are alpha 0 (invisible),
-        //    heads carry alpha fade and read as the dot (u_pointSize set above).
-        gl.lineWidth(1);
-        gl.drawArrays(gl.LINES, 0, count * 2);
-        gl.drawArrays(gl.POINTS, 0, count * 2);
       } else {
         gl.lineWidth(1);
-        gl.drawArrays(gl.LINES, 0, count * 2);
+        gl.drawArrays(gl.LINES, 0, count * verticesPerParticle);
       }
 
       // Animate only when motion is allowed. Under reduced motion we draw a

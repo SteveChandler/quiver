@@ -27,6 +27,7 @@ import {
   PARTICLE_COUNT_DESKTOP,
   PARTICLE_COUNT_MOBILE,
   resolveParticleCount,
+  sampleFlowField,
   createSwellParticleLayer,
 } from "@/components/map/swell-field/swell-particle-layer";
 import type {
@@ -66,6 +67,26 @@ describe("swell particle layer — pure exports", () => {
     expect(PARTICLE_COUNT_MOBILE).toBe(200);
     // Sparse, evenly spaced field — well below the earlier dense 4000 blanket.
     expect(PARTICLE_COUNT_DESKTOP).toBeLessThanOrEqual(450);
+  });
+
+  it("bilinearly samples the flow grid instead of snapping to the nearest cell", () => {
+    const field: FlowField = {
+      cols: 2,
+      rows: 2,
+      cells: [
+        { lon: 0, lat: 0, vx: 1, vy: 0, speed: 0.2, alpha: 0.2 },
+        { lon: 10, lat: 0, vx: 1, vy: 0, speed: 0.4, alpha: 0.4 },
+        { lon: 0, lat: 10, vx: 0, vy: 1, speed: 0.6, alpha: 0.6 },
+        { lon: 10, lat: 10, vx: 0, vy: 1, speed: 0.8, alpha: 0.8 },
+      ],
+    };
+
+    const sample = sampleFlowField(field, 5, 5);
+
+    expect(sample.vx).toBeCloseTo(Math.SQRT1_2, 6);
+    expect(sample.vy).toBeCloseTo(Math.SQRT1_2, 6);
+    expect(sample.speed).toBeCloseTo(0.5, 6);
+    expect(sample.alpha).toBeCloseTo(0.5, 6);
   });
 });
 
@@ -124,12 +145,13 @@ describe("createSwellParticleLayer — particle count", () => {
   const FIELD: FlowField = { cols: 0, rows: 0, cells: [] };
 
   /**
-   * Drive onAdd + a single render and capture EVERY draw call (comet issues two:
-   * a LINES tail then a POINTS head). `draws[0]` is the first call for back-compat.
+   * Drive onAdd + a single render and capture EVERY draw call. `draws[0]` is the
+   * first call for back-compat.
    */
   function renderedDraw(opts?: {
     count?: number;
-    markStyle?: "dash" | "dot" | "comet";
+    markStyle?: "dash" | "dot" | "streak";
+    dashLengthScale?: number;
     reducedMotion?: boolean;
     renders?: number;
     field?: FlowField;
@@ -212,13 +234,14 @@ describe("createSwellParticleLayer — particle count", () => {
       viewportWidthPx: 1440,
       count: opts?.count,
       markStyle: opts?.markStyle,
+      dashLengthScale: opts?.dashLengthScale,
     });
 
     layer.onAdd?.(map, gl);
     for (let i = 0; i < (opts?.renders ?? 1); i += 1) {
       layer.render(gl, new Array(16).fill(0));
     }
-    // drawArrays(mode, 0, vertexCount) — capture all calls (comet draws twice).
+    // drawArrays(mode, 0, vertexCount) - capture all calls.
     const draws = (gl.drawArrays as jest.Mock).mock.calls.map((c) => ({
       mode: c[0] as number,
       vertexCount: c[2] as number,
@@ -283,6 +306,42 @@ describe("createSwellParticleLayer — particle count", () => {
     }
   });
 
+  it("can shorten crest dashes without changing S2 defaults", () => {
+    const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.25);
+    const eastField: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha: 1 }],
+    };
+
+    try {
+      const defaultDraw = renderedDraw({
+        count: 1,
+        field: eastField,
+        captureUploads: true,
+      });
+      const scaledDraw = renderedDraw({
+        count: 1,
+        field: eastField,
+        dashLengthScale: 0.75,
+        captureUploads: true,
+      });
+      const defaultPosition = defaultDraw.uploads.find((upload) => upload.length === 4);
+      const scaledPosition = scaledDraw.uploads.find((upload) => upload.length === 4);
+
+      if (!defaultPosition || !scaledPosition) {
+        throw new Error("Expected particle position uploads");
+      }
+
+      const defaultHeight = Math.abs(defaultPosition[3] - defaultPosition[1]);
+      const scaledHeight = Math.abs(scaledPosition[3] - scaledPosition[1]);
+      expect(scaledHeight).toBeLessThan(defaultHeight);
+      expect(scaledHeight / defaultHeight).toBeCloseTo(0.75, 2);
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
   it("draws POINTS with one vertex per particle for the dot style (wind layer)", () => {
     const { mode, vertexCount, POINTS } = renderedDraw({
       count: 300,
@@ -292,17 +351,47 @@ describe("createSwellParticleLayer — particle count", () => {
     expect(vertexCount).toBe(300);
   });
 
-  it("draws a LINES tail AND a POINTS head for the comet style (wind layer)", () => {
-    const { draws, LINES, POINTS } = renderedDraw({
+  it("draws wind streaks as one line pass with no dot-head pass", () => {
+    const { draws, LINES } = renderedDraw({
       count: 300,
-      markStyle: "comet",
+      markStyle: "streak",
     });
-    // Two passes over the shared 2-vertex-per-particle buffer: LINES tail then POINTS.
-    expect(draws).toHaveLength(2);
-    const lines = draws.find((d) => d.mode === LINES);
-    const points = draws.find((d) => d.mode === POINTS);
-    expect(lines).toEqual({ mode: LINES, vertexCount: 300 * 2 });
-    expect(points).toEqual({ mode: POINTS, vertexCount: 300 * 2 });
+    expect(draws).toEqual([{ mode: LINES, vertexCount: 300 * 2 }]);
+  });
+
+  it("orients the wind streak along particle travel as a single line", () => {
+    const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.25);
+    const eastField: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha: 1 }],
+    };
+
+    try {
+      const { uploads } = renderedDraw({
+        count: 1,
+        field: eastField,
+        markStyle: "streak",
+        captureUploads: true,
+      });
+      const positionUpload = uploads.find((upload) => upload.length === 4);
+
+      if (!positionUpload) {
+        throw new Error("Expected particle position upload");
+      }
+      const [x1, y1, x2, y2] = positionUpload;
+      // East flow -> a single horizontal segment along travel, no vertical spread.
+      expect(Math.abs(x2 - x1)).toBeGreaterThan(0.02);
+      expect(Math.abs(y2 - y1)).toBeLessThan(1e-9);
+
+      const alphaUpload = uploads.find((upload) => upload.length === 2);
+      if (!alphaUpload) {
+        throw new Error("Expected wind alpha upload");
+      }
+      expect(Math.min(...alphaUpload)).toBeGreaterThanOrEqual(0.99);
+    } finally {
+      randomSpy.mockRestore();
+    }
   });
 
   it("keeps reduced-motion particles static after the first rendered frame", () => {
