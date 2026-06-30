@@ -47,6 +47,24 @@ describe("embed map bridge", () => {
     });
   });
 
+  it("parses field-visibility commands", () => {
+    expect(
+      parseEmbedMapCommand({ type: "setFieldVisible", payload: { visible: false } }),
+    ).toEqual({ type: "setFieldVisible", payload: { visible: false } });
+    expect(
+      parseEmbedMapCommand({ type: "setFieldVisible", payload: { visible: "no" } }),
+    ).toBeNull();
+  });
+
+  it("parses forecast playback commands", () => {
+    expect(
+      parseEmbedMapCommand({ type: "setForecastPlaying", payload: { playing: true } }),
+    ).toEqual({ type: "setForecastPlaying", payload: { playing: true } });
+    expect(
+      parseEmbedMapCommand({ type: "setForecastPlaying", payload: {} }),
+    ).toBeNull();
+  });
+
   it("serializes events for React Native WebView", () => {
     expect(
       serializeEmbedMapEvent({
@@ -54,5 +72,8 @@ describe("embed map bridge", () => {
         payload: { lat: 32.87, lon: -117.25 },
       }),
     ).toBe('{"type":"placementChanged","payload":{"lat":32.87,"lon":-117.25}}');
+    expect(
+      serializeEmbedMapEvent({ type: "forecastTimeChanged", payload: { index: 2 } }),
+    ).toBe('{"type":"forecastTimeChanged","payload":{"index":2}}');
   });
 });
