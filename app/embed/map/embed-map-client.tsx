@@ -52,7 +52,7 @@ function layerParam(value: string | null): EmbedMapSwellLayerId {
   if (value === "combined" || value === "s1" || value === "s2" || value === "wind") {
     return value;
   }
-  return "combined";
+  return "s1";
 }
 
 function viewportFromBounds(bounds: {
@@ -129,10 +129,30 @@ export function EmbedMapClient() {
     zoom: initialZoom,
   });
   const sentReadyRef = useRef(false);
+  const pendingReadyViewportRef = useRef<EmbedMapViewport | null>(null);
 
-  const postEvent = useCallback((event: EmbedMapEvent): void => {
-    window.ReactNativeWebView?.postMessage(serializeEmbedMapEvent(event));
+  const postEvent = useCallback((event: EmbedMapEvent): boolean => {
+    if (!window.ReactNativeWebView) return false;
+    window.ReactNativeWebView.postMessage(serializeEmbedMapEvent(event));
+    return true;
   }, []);
+
+  const postReady = useCallback(
+    (viewport: EmbedMapViewport): boolean => {
+      if (sentReadyRef.current) return true;
+      const didPost = postEvent({ type: "ready", payload: { viewport } });
+      if (!didPost) {
+        pendingReadyViewportRef.current = viewport;
+        return false;
+      }
+
+      sentReadyRef.current = true;
+      pendingReadyViewportRef.current = null;
+      postEvent({ type: "renderHealth", payload: { status: "ok" } });
+      return true;
+    },
+    [postEvent],
+  );
 
   const handleBoundsChange = useCallback(
     (bounds: { west: number; south: number; east: number; north: number }): void => {
@@ -143,16 +163,30 @@ export function EmbedMapClient() {
       };
 
       if (!sentReadyRef.current) {
-        sentReadyRef.current = true;
-        postEvent({ type: "ready", payload: { viewport: currentViewportRef.current } });
-        postEvent({ type: "renderHealth", payload: { status: "ok" } });
+        postReady(currentViewportRef.current);
         return;
       }
 
       postEvent({ type: "viewportChanged", payload: currentViewportRef.current });
     },
-    [postEvent],
+    [postEvent, postReady],
   );
+
+  const handleMapReady = useCallback((): void => {
+    postReady(currentViewportRef.current);
+  }, [postReady]);
+
+  useEffect(() => {
+    if (sentReadyRef.current) return;
+
+    const intervalId = window.setInterval(() => {
+      const pendingViewport = pendingReadyViewportRef.current;
+      if (!pendingViewport) return;
+      postReady(pendingViewport);
+    }, 100);
+
+    return () => window.clearInterval(intervalId);
+  }, [postReady]);
 
   const updatePlacement = useCallback(
     (coordinate: EmbedMapCoordinate): void => {
@@ -333,14 +367,18 @@ export function EmbedMapClient() {
         autoNavigateOnMarkerClick={false}
         className="absolute inset-0 h-full w-full"
         clusterClickBehavior="expand"
+        disableBeachClustering
+        markerDisplay="points"
         onBoundsChange={handleBoundsChange}
         onLocationClick={handleBeachSelect}
         onMapLoadFailure={handleMapLoadFailure}
+        onMapReady={handleMapReady}
         onMapClick={handleMapClick}
         onPlacementPinChange={handlePlacementPinChange}
         placementPin={isPlacementActive ? placementPoint : null}
         placementPinDraggable
         regionViewport={regionViewport}
+        showConditionsOnTap={!isPlacementActive}
         showMapChrome={false}
         showSwellField
         swellLayerId={layerId as SwellLayerId}
