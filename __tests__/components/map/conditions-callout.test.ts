@@ -19,6 +19,8 @@ describe("travelScreenAngleDeg / textNeedsFlip", () => {
     expect(textNeedsFlip(269)).toBe(true);
     expect(textNeedsFlip(10)).toBe(false);
     expect(textNeedsFlip(300)).toBe(false);
+    expect(textNeedsFlip(90)).toBe(false);
+    expect(textNeedsFlip(270)).toBe(false);
   });
 });
 
