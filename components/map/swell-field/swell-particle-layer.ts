@@ -20,7 +20,11 @@ export interface ParticleSeed {
 // Windy-like spacing: sparse + evenly distributed (jittered grid) so water shows
 // between dashes. Lower than the earlier dense random blanket (4000/1400).
 export const PARTICLE_COUNT_DESKTOP = 650;
-export const PARTICLE_COUNT_MOBILE = 300;
+// Mobile (incl. the native iOS WebView) reads at a narrow viewport. 300 looked far
+// too sparse on an actual phone — most of the field is open water + land, so the
+// coastal band ends up nearly empty. 520 restores a clearly-alive density while
+// staying well under the old dense-blanket counts.
+export const PARTICLE_COUNT_MOBILE = 520;
 
 /** Below this CSS width we treat the device as small and cut particle count. */
 const SMALL_SCREEN_PX = 640;
@@ -302,8 +306,11 @@ export function createSwellParticleLayer(
   // Wind renders as a wiggling "worm": a short sinuous polyline. Each segment is a
   // GL LINES pair, so a worm of N segments needs N*2 vertices.
   const STREAK_SEGMENTS = 10;
+  // A dash is drawn as a width-controllable quad (two triangles = 6 verts) instead
+  // of a 1px GL line, because gl.lineWidth is pinned to 1px on most drivers and the
+  // hairline crest washed out on the bright basemap. Streak stays a polyline; dot a point.
   const verticesPerParticle =
-    markStyle === "dot" ? 1 : markStyle === "streak" ? STREAK_SEGMENTS * 2 : 2;
+    markStyle === "dot" ? 1 : markStyle === "streak" ? STREAK_SEGMENTS * 2 : 6;
   const clampMotion = (v: number | undefined, fallback: number): number =>
     v != null && Number.isFinite(v) ? Math.max(0, v) : fallback;
   const clampSmoothing = (v: number | undefined, fallback: number): number =>
@@ -351,9 +358,12 @@ export function createSwellParticleLayer(
   const DEATH_FADE_PORTION = 0.16;
   // Fixed dash LENGTH as a fraction of the viewport span, DECOUPLED from drift speed
   // so dashes stay visible no matter how slow they move. Tying length to the
-  // per-frame step made slow dashes sub-pixel and invisible. Line width >1 is
-  // unreliable across GPUs, so length is the lever.
+  // per-frame step made slow dashes sub-pixel and invisible.
   const DASH_FRACTION = 0.032;
+  // Dash thickness in device pixels (a quad, so width is real — gl.lineWidth is not).
+  // Weak swell ~2.6px, strong swell ~2.6+4.4 ≈ 7px, so strength reads as weight.
+  const DASH_WIDTH_PX_BASE = 2.6;
+  const DASH_WIDTH_PX_GAIN = 4.4;
   // Wind worm geometry: a short sinuous line that undulates as it drifts.
   const WIND_STREAK_FRACTION = 0.034; // worm length as a fraction of the viewport span
   const WIND_WIGGLE_AMP = 0.0035; // gentle sideways wiggle (fraction of span)
@@ -427,6 +437,10 @@ export function createSwellParticleLayer(
     const motionScale = clampMotion(dyn?.motionScale, staticMotionScale);
     const velocitySmoothing = clampSmoothing(dyn?.velocitySmoothing, staticVelocitySmoothing);
     const dashLengthScale = clampDashScale(dyn?.dashLengthScale, staticDashLengthScale);
+    // Mercator units per device pixel, so dash thickness can be set in pixels for a
+    // consistent on-screen weight regardless of zoom or DPR.
+    const canvasWidthPx = map.getCanvas().width || 1;
+    const mercPerPx = span / canvasWidthPx;
     for (let i = 0; i < count; i += 1) {
       // Convert this particle's Mercator pos back to lng/lat to sample the geo field.
       const merc = new mapboxgl.MercatorCoordinate(px[i], py[i]);
@@ -564,23 +578,34 @@ export function createSwellParticleLayer(
         continue;
       }
 
-      // Draw a small fixed-length dash PERPENDICULAR to the flow vector, centered on
-      // the particle, so the visible mark reads like a wave crest.
-      // Visible length is independent of drift speed.
+      // Draw a fixed-length crest mark PERPENDICULAR to the flow vector, centered on
+      // the particle (visible length is independent of drift speed). It is a quad
+      // (two triangles), not a 1px line, so it has real width and reads on the light
+      // basemap; stronger swell -> longer and thicker.
       const vlen = Math.hypot(flowVx, flowVy) || 1;
-      // Stronger swell -> longer crest dash.
       const dashHalf =
         span * DASH_FRACTION * dashLengthScale * (0.45 + strength) * 0.5;
-      const dx = (-flowVy / vlen) * dashHalf;
-      const dy = (flowVx / vlen) * dashHalf;
+      // Crest direction (perpendicular to flow) gives the dash its length...
+      const cx = (-flowVy / vlen) * dashHalf;
+      const cy = (flowVx / vlen) * dashHalf;
+      // ...flow direction gives the dash its thickness, in pixels for crisp weight.
+      const halfWidth = (DASH_WIDTH_PX_BASE + strength * DASH_WIDTH_PX_GAIN) * 0.5 * mercPerPx;
+      const wx = (flowVx / vlen) * halfWidth;
+      const wy = (flowVy / vlen) * halfWidth;
+      const ax = px[i] - cx;
+      const ay = py[i] - cy;
+      const bx = px[i] + cx;
+      const by = py[i] + cy;
       const baseVertex = i * verticesPerParticle;
-      const vertexOffset = baseVertex * 2;
-      vertexPos[vertexOffset + 0] = px[i] - dx;
-      vertexPos[vertexOffset + 1] = py[i] - dy;
-      vertexPos[vertexOffset + 2] = px[i] + dx;
-      vertexPos[vertexOffset + 3] = py[i] + dy;
-      vertexAlpha[baseVertex + 0] = fade;
-      vertexAlpha[baseVertex + 1] = fade;
+      let o = baseVertex * 2;
+      // Triangle 1: A-side near, A-side far, B-side far. Triangle 2: A near, B far, B near.
+      vertexPos[o + 0] = ax - wx; vertexPos[o + 1] = ay - wy;
+      vertexPos[o + 2] = ax + wx; vertexPos[o + 3] = ay + wy;
+      vertexPos[o + 4] = bx + wx; vertexPos[o + 5] = by + wy;
+      vertexPos[o + 6] = ax - wx; vertexPos[o + 7] = ay - wy;
+      vertexPos[o + 8] = bx + wx; vertexPos[o + 9] = by + wy;
+      vertexPos[o + 10] = bx - wx; vertexPos[o + 11] = by - wy;
+      for (let v = 0; v < 6; v += 1) vertexAlpha[baseVertex + v] = fade;
     }
   }
 
@@ -656,9 +681,13 @@ export function createSwellParticleLayer(
       if (markStyle === "dot") {
         // One vertex per particle drawn as a GL point.
         gl.drawArrays(gl.POINTS, 0, count);
-      } else {
+      } else if (markStyle === "streak") {
+        // Worm: polyline pairs.
         gl.lineWidth(1);
         gl.drawArrays(gl.LINES, 0, count * verticesPerParticle);
+      } else {
+        // Dash: quads (two triangles per particle) for real, controllable width.
+        gl.drawArrays(gl.TRIANGLES, 0, count * verticesPerParticle);
       }
 
       // Animate only when motion is allowed. Under reduced motion we draw a
