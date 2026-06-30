@@ -1,4 +1,5 @@
 import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
+import type { Beach } from "@/types/database";
 
 export const CONDITIONS_CALLOUT_COLORS = {
   s1: "#F2A24C",
@@ -37,4 +38,38 @@ export function resolveCalloutComponents(p: SwellPartition): CalloutComponent[] 
     out.push({ kind: "wind", name: "WIND", bearingDeg: p.windDir, label: `${Math.round(p.windMph)} mph`, color: CONDITIONS_CALLOUT_COLORS.wind });
   }
   return out;
+}
+
+export interface CalloutBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
+function inBounds(lon: number, lat: number, b: CalloutBounds): boolean {
+  const lonOk = b.west <= b.east ? lon >= b.west && lon <= b.east : lon >= b.west || lon <= b.east;
+  return lat >= b.south && lat <= b.north && lonOk;
+}
+
+export function nearestBeachInBounds(
+  lon: number,
+  lat: number,
+  beaches: Beach[],
+  bounds: CalloutBounds
+): Beach | null {
+  let best: Beach | null = null;
+  let bestD = Infinity;
+  for (const beach of beaches) {
+    if (!Number.isFinite(beach.lat) || !Number.isFinite(beach.lon)) continue;
+    const dLon = beach.lon - lon;
+    const dLat = beach.lat - lat;
+    const d = dLon * dLon + dLat * dLat;
+    if (d < bestD) {
+      bestD = d;
+      best = beach;
+    }
+  }
+  if (!best || !inBounds(best.lon, best.lat, bounds)) return null;
+  return best;
 }
