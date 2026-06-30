@@ -138,6 +138,8 @@ export function EmbedMapClient() {
   // Forecast playback: smoothly sweep the (fractional) timeline so the field
   // morphs through the day. The map interpolates between hourly steps.
   const [isPlaying, setIsPlaying] = useState(false);
+  // "None" hides the swell field so users can read just the map + spots.
+  const [fieldHidden, setFieldHidden] = useState(false);
   const timelineIndexRef = useRef(timelineIndex);
   useEffect(() => {
     timelineIndexRef.current = timelineIndex;
@@ -410,7 +412,7 @@ export function EmbedMapClient() {
         regionViewport={regionViewport}
         showConditionsOnTap={!isPlacementActive}
         showMapChrome={false}
-        showSwellField
+        showSwellField={!fieldHidden}
         swellLayerId={layerId as SwellLayerId}
         swellTimelineIndex={timelineIndex}
         swellTimelineSteps={DEFAULT_TIMELINE_STEPS}
@@ -438,14 +440,17 @@ export function EmbedMapClient() {
               }}
             >
               {LAYER_SWITCHER.map((opt) => {
-                const active = layerId === opt.id;
+                const active = !fieldHidden && layerId === opt.id;
                 return (
                   <button
                     key={opt.id}
                     type="button"
                     className="embed-layer-pill"
                     aria-pressed={active}
-                    onClick={() => setLayerId(opt.id)}
+                    onClick={() => {
+                      setFieldHidden(false);
+                      setLayerId(opt.id);
+                    }}
                     style={{
                       border: "none",
                       cursor: "pointer",
@@ -462,6 +467,28 @@ export function EmbedMapClient() {
                   </button>
                 );
               })}
+              <button
+                type="button"
+                className="embed-layer-pill"
+                aria-pressed={fieldHidden}
+                onClick={() => {
+                  setFieldHidden(true);
+                  setIsPlaying(false);
+                }}
+                style={{
+                  border: "none",
+                  cursor: "pointer",
+                  borderRadius: "9px",
+                  padding: "6px 10px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                  background: fieldHidden ? "#F4EBD8" : "transparent",
+                  color: fieldHidden ? "#0D1020" : "rgba(244, 235, 216, 0.7)",
+                }}
+              >
+                None
+              </button>
             </div>
           )}
 
@@ -516,7 +543,7 @@ export function EmbedMapClient() {
           </div>
         </div>
       )}
-      {showWebChrome && !isPlacementActive && (
+      {showWebChrome && !isPlacementActive && !fieldHidden && (
         <>
           <style>{`
             .embed-time-slider { -webkit-appearance:none; appearance:none; height:6px; border-radius:9999px; outline:none; cursor:pointer; }
