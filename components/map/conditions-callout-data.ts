@@ -2,9 +2,9 @@ import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
 import type { Beach } from "@/types/database";
 
 export const CONDITIONS_CALLOUT_COLORS = {
-  s1: "#F2A24C",
-  s2: "#7AC74F",
-  wind: "#74C7E3",
+  s1: "#F78E42", // Charming Orange (brand)
+  s2: "#7AC74F", // green — kept for clear hue separation from S1
+  wind: "#00D4AA", // Pacific Teal (brand-sanctioned; never cyan)
 } as const;
 
 export interface CalloutComponent {
@@ -32,7 +32,7 @@ export function resolveCalloutComponents(p: SwellPartition): CalloutComponent[] 
     out.push({ kind: "s1", name: "SWELL", bearingDeg: s1Dir, label: swellLabel(p.s1HeightFt, p.s1PeriodS), color: CONDITIONS_CALLOUT_COLORS.s1 });
   }
   if (isReal(p.s2Dir) && isReal(p.s2HeightFt) && p.s2HeightFt > 0) {
-    out.push({ kind: "s2", name: "S2", bearingDeg: p.s2Dir, label: swellLabel(p.s2HeightFt, p.s2PeriodS), color: CONDITIONS_CALLOUT_COLORS.s2 });
+    out.push({ kind: "s2", name: "SWELL 2", bearingDeg: p.s2Dir, label: swellLabel(p.s2HeightFt, p.s2PeriodS), color: CONDITIONS_CALLOUT_COLORS.s2 });
   }
   if (isReal(p.windDir) && isReal(p.windMph) && p.windMph > 0) {
     out.push({ kind: "wind", name: "WIND", bearingDeg: p.windDir, label: `${Math.round(p.windMph)} mph`, color: CONDITIONS_CALLOUT_COLORS.wind });

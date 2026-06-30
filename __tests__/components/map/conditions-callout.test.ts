@@ -60,4 +60,19 @@ describe("createConditionsCalloutElement", () => {
     const { element } = createConditionsCalloutElement({ beachName: "X", tempLabel: null, components: [south] });
     expect(element.querySelector('[data-callout-banner="s1"]')?.getAttribute("data-callout-flipped")).toBe("true");
   });
+
+  it("renders a Full forecast link when beachHref is provided, omits it otherwise", () => {
+    const withHref = createConditionsCalloutElement({ beachName: "Del Mar", tempLabel: "68°", components: [S1], beachHref: "/ca/san-diego/del-mar" });
+    const link = withHref.element.querySelector("[data-callout-link]");
+    expect(link?.getAttribute("href")).toBe("/ca/san-diego/del-mar");
+    expect(link?.textContent).toBe("Full forecast →");
+
+    const noHref = createConditionsCalloutElement({ beachName: "Del Mar", tempLabel: "68°", components: [S1] });
+    expect(noHref.element.querySelector("[data-callout-link]")).toBeNull();
+  });
+
+  it("always renders the pulsing location dot", () => {
+    const { element } = createConditionsCalloutElement({ beachName: "Del Mar", tempLabel: "68°", components: [] });
+    expect(element.querySelector("[data-callout-pulse]")).not.toBeNull();
+  });
 });
