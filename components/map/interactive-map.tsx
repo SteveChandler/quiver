@@ -54,7 +54,7 @@ import {
   decideCalloutAction,
   formatTempLabel,
 } from "@/components/map/conditions-callout-data";
-import { createConditionsCalloutElement } from "@/components/map/conditions-callout";
+import { createConditionsCalloutElement, CALLOUT_FULL_WIDTH } from "@/components/map/conditions-callout";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
 import {
@@ -570,11 +570,14 @@ export function InteractiveMap({
     const tempLabel = formatTempLabel(ctx.waterTempMap.get(beach.id));
     const beachHref = getBeachHrefSafe(beach) ?? undefined;
     // Shrink the callout to fit narrow viewports: at full size the arrows run off a
-    // phone screen and the ring looks oversized. Sized so the ~428px-wide arrow span
-    // stays within ~78% of the viewport, capped at 1 for desktop.
+    // phone screen and the ring looks oversized. Sized so the arrow span stays within
+    // ~78% of the viewport, capped at 1 for desktop.
     const viewportWidthPx =
       typeof window !== "undefined" ? window.innerWidth : 1024;
-    const calloutScale = Math.max(0.55, Math.min(1, (viewportWidthPx * 0.78) / 428));
+    const calloutScale = Math.max(
+      0.55,
+      Math.min(1, (viewportWidthPx * 0.78) / CALLOUT_FULL_WIDTH)
+    );
     const { element } = createConditionsCalloutElement({
       beachName: beach.name,
       tempLabel,

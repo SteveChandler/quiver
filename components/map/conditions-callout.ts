@@ -21,8 +21,11 @@ const CY = 240;
 const RING_R = 150;
 const BANNER_LEN = 190; // local x of the arrowhead tip
 const BODY_END = 165; // local x where the taper begins
-const GAP = 24; // px the arrowhead sits out from the beach center (breathing room)
+const GAP = 42; // px the arrowhead sits out from the beach center (breathing room around the label)
 const MIN_ARROW_SEP_DEG = 36; // fan clustered same-bearing arrows apart so they don't stack
+
+/** Full callout width in viewBox px (arrow span) — used to scale it to the viewport. */
+export const CALLOUT_FULL_WIDTH = 2 * (BANNER_LEN + GAP);
 
 /**
  * Screen angles for each banner, fanned apart so swells sharing a bearing don't
@@ -153,12 +156,12 @@ export function createConditionsCalloutElement(
     "paint-order": "stroke",
     "stroke-linejoin": "round",
   } as const;
-  const name = svgEl("text", { ...haloText, x: String(CX), y: String(CY - 8), "font-size": "24", "font-weight": "800", "stroke-width": "4" });
+  const name = svgEl("text", { ...haloText, x: String(CX), y: String(CY - 6), "font-size": "20", "font-weight": "800", "stroke-width": "3.5" });
   name.setAttribute("data-callout-name", "true");
   name.textContent = opts.beachName;
   svg.appendChild(name);
   if (opts.tempLabel) {
-    const temp = svgEl("text", { ...haloText, x: String(CX), y: String(CY + 18), "font-size": "20", "font-weight": "700", "stroke-width": "3.5" });
+    const temp = svgEl("text", { ...haloText, x: String(CX), y: String(CY + 16), "font-size": "16", "font-weight": "700", "stroke-width": "3" });
     temp.setAttribute("data-callout-temp", "true");
     temp.textContent = opts.tempLabel;
     svg.appendChild(temp);
