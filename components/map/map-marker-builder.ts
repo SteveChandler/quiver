@@ -7,6 +7,7 @@ import type { ConditionSummary } from "@/components/map/map-beach-loader";
 
 /** Controls what data the map markers display */
 export type MapDisplayMode = "wave-height" | "water-temp";
+export type MapMarkerDisplay = "forecast" | "points";
 
 export interface ConditionMarkerCall {
   summary: ConditionSummary;
@@ -124,6 +125,8 @@ export interface MarkerBuilderDeps {
   conditionSummary?: ConditionSummary;
   /** 0-100 condition score, reserved for tooltips/analytics */
   conditionScore?: number;
+  /** Marker shape mode: forecast keeps the default map; points keeps embed markers compact. */
+  markerDisplay?: MapMarkerDisplay;
   /** Marker coordinate used to anchor the preview popup */
   previewLngLat?: [number, number];
   /** Opens the single-beach marker preview popup */
@@ -161,6 +164,7 @@ export function createWaveHeightBadge(
   try {
     const isFavorite = deps.favoriteBeachIds.has(location.id);
     const displayMode = deps.displayMode ?? "wave-height";
+    const markerDisplay = deps.markerDisplay ?? "forecast";
     const conditionSummary = deps.conditionSummary ?? "UNKNOWN";
     const previewWaveLabel =
       deps.waveHeightLabel ??
@@ -215,8 +219,8 @@ export function createWaveHeightBadge(
     badge.setAttribute("data-marker-badge", "true");
     badge.setAttribute("data-marker-gradient", markerGradient);
     badge.style.cssText = `
-      width: 15px;
-      height: 15px;
+      width: ${markerDisplay === "points" ? "18px" : "15px"};
+      height: ${markerDisplay === "points" ? "18px" : "15px"};
       border-radius: 50%;
       padding: 0;
       color: white;
