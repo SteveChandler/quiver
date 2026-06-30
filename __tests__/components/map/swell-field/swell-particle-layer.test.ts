@@ -64,7 +64,7 @@ describe("swell particle layer — pure exports", () => {
 
   it("keeps the desktop count populated but well below a dense blanket", () => {
     expect(PARTICLE_COUNT_DESKTOP).toBe(650);
-    expect(PARTICLE_COUNT_MOBILE).toBe(300);
+    expect(PARTICLE_COUNT_MOBILE).toBe(520);
     // Denser than the first pass (which read too sparse) but still far below the
     // earlier 4000 blanket.
     expect(PARTICLE_COUNT_DESKTOP).toBeLessThanOrEqual(800);
@@ -165,9 +165,11 @@ describe("createSwellParticleLayer — particle count", () => {
     uploads: number[][];
     LINES: number;
     POINTS: number;
+    TRIANGLES: number;
   } {
     const LINES = 11;
     const POINTS = 12;
+    const TRIANGLES = 13;
     const uploads: number[][] = [];
     const gl = {
       VERTEX_SHADER: 1,
@@ -182,6 +184,7 @@ describe("createSwellParticleLayer — particle count", () => {
       ONE_MINUS_SRC_ALPHA: 10,
       LINES,
       POINTS,
+      TRIANGLES,
       createShader: jest.fn(() => ({})),
       shaderSource: jest.fn(),
       compileShader: jest.fn(),
@@ -216,6 +219,7 @@ describe("createSwellParticleLayer — particle count", () => {
 
     const map = {
       getBounds: () => null,
+      getCanvas: () => ({ width: 1440 }),
       triggerRepaint: jest.fn(),
     } as unknown as import("mapbox-gl").Map;
 
@@ -254,6 +258,7 @@ describe("createSwellParticleLayer — particle count", () => {
       uploads,
       LINES,
       POINTS,
+      TRIANGLES,
     };
   }
 
@@ -263,21 +268,21 @@ describe("createSwellParticleLayer — particle count", () => {
   }
 
   it("defaults to the viewport-derived count when no override is given", () => {
-    expect(renderedVertexCount()).toBe(PARTICLE_COUNT_DESKTOP * 2);
+    expect(renderedVertexCount()).toBe(PARTICLE_COUNT_DESKTOP * 6);
   });
 
   it("honors an explicit count override (combined-view per-layer budget)", () => {
-    expect(renderedVertexCount(500)).toBe(500 * 2);
+    expect(renderedVertexCount(500)).toBe(500 * 6);
   });
 
   it("ignores a non-positive override and falls back to the default", () => {
-    expect(renderedVertexCount(0)).toBe(PARTICLE_COUNT_DESKTOP * 2);
+    expect(renderedVertexCount(0)).toBe(PARTICLE_COUNT_DESKTOP * 6);
   });
 
-  it("draws LINES with two vertices per particle for the default dash style", () => {
-    const { mode, vertexCount, LINES } = renderedDraw({ count: 300 });
-    expect(mode).toBe(LINES);
-    expect(vertexCount).toBe(300 * 2);
+  it("draws TRIANGLES with six vertices (a quad) per particle for the default dash style", () => {
+    const { mode, vertexCount, TRIANGLES } = renderedDraw({ count: 300 });
+    expect(mode).toBe(TRIANGLES);
+    expect(vertexCount).toBe(300 * 6);
   });
 
   it("orients the default dash perpendicular to particle travel like a wave crest", () => {
@@ -294,14 +299,20 @@ describe("createSwellParticleLayer — particle count", () => {
         field: eastField,
         captureUploads: true,
       });
-      const positionUpload = uploads.find((upload) => upload.length === 4);
+      const positionUpload = uploads.find((upload) => upload.length === 12);
 
       if (!positionUpload) {
-        throw new Error("Expected particle position upload");
+        throw new Error("Expected particle quad position upload");
       }
-      const [x1, y1, x2, y2] = positionUpload;
-      expect(Math.abs(x2 - x1)).toBeLessThan(1e-9);
-      expect(Math.abs(y2 - y1)).toBeGreaterThan(0);
+      const xs = positionUpload.filter((_, i) => i % 2 === 0);
+      const ys = positionUpload.filter((_, i) => i % 2 === 1);
+      const xExtent = Math.max(...xs) - Math.min(...xs);
+      const yExtent = Math.max(...ys) - Math.min(...ys);
+      // East travel -> the crest (length) runs perpendicular, along y; the thickness
+      // (along travel) is x. So the mark is longer than it is wide, and — unlike the
+      // old 1px line — it now has real width.
+      expect(yExtent).toBeGreaterThan(xExtent);
+      expect(xExtent).toBeGreaterThan(0);
     } finally {
       randomSpy.mockRestore();
     }
@@ -327,15 +338,21 @@ describe("createSwellParticleLayer — particle count", () => {
         dashLengthScale: 0.75,
         captureUploads: true,
       });
-      const defaultPosition = defaultDraw.uploads.find((upload) => upload.length === 4);
-      const scaledPosition = scaledDraw.uploads.find((upload) => upload.length === 4);
+      const defaultPosition = defaultDraw.uploads.find((upload) => upload.length === 12);
+      const scaledPosition = scaledDraw.uploads.find((upload) => upload.length === 12);
 
       if (!defaultPosition || !scaledPosition) {
-        throw new Error("Expected particle position uploads");
+        throw new Error("Expected particle quad position uploads");
       }
 
-      const defaultHeight = Math.abs(defaultPosition[3] - defaultPosition[1]);
-      const scaledHeight = Math.abs(scaledPosition[3] - scaledPosition[1]);
+      // Crest length is the y-extent of the quad (east field). dashLengthScale only
+      // shortens length, not thickness.
+      const lengthOf = (p: number[]): number => {
+        const ys = p.filter((_, i) => i % 2 === 1);
+        return Math.max(...ys) - Math.min(...ys);
+      };
+      const defaultHeight = lengthOf(defaultPosition);
+      const scaledHeight = lengthOf(scaledPosition);
       expect(scaledHeight).toBeLessThan(defaultHeight);
       expect(scaledHeight / defaultHeight).toBeCloseTo(0.75, 2);
     } finally {
@@ -409,13 +426,20 @@ describe("createSwellParticleLayer — particle count", () => {
       rows: 1,
       cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha }],
     });
+    // Overall mark size (bbox diagonal of the quad) — strength grows both length
+    // and thickness, so a stronger cell draws a bigger mark.
     const dashLength = (uploads: number[][]): number => {
-      const pos = uploads.find((upload) => upload.length === 4);
-      if (!pos) throw new Error("Expected dash position upload");
-      return Math.hypot(pos[2] - pos[0], pos[3] - pos[1]);
+      const pos = uploads.find((upload) => upload.length === 12);
+      if (!pos) throw new Error("Expected dash quad position upload");
+      const xs = pos.filter((_, i) => i % 2 === 0);
+      const ys = pos.filter((_, i) => i % 2 === 1);
+      return Math.hypot(
+        Math.max(...xs) - Math.min(...xs),
+        Math.max(...ys) - Math.min(...ys),
+      );
     };
     const dashAlpha = (uploads: number[][]): number => {
-      const alpha = uploads.find((upload) => upload.length === 2);
+      const alpha = uploads.find((upload) => upload.length === 6);
       if (!alpha) throw new Error("Expected dash alpha upload");
       return alpha[0];
     };
@@ -455,7 +479,7 @@ describe("createSwellParticleLayer — particle count", () => {
       renders: 2,
       captureUploads: true,
     });
-    const positionUploads = uploads.filter((upload) => upload.length === 8);
+    const positionUploads = uploads.filter((upload) => upload.length === 24);
 
     expect(positionUploads).toHaveLength(2);
     expect(positionUploads[1]).toEqual(positionUploads[0]);
@@ -480,7 +504,7 @@ describe("createSwellParticleLayer — particle count", () => {
       renders: 2,
       captureUploads: true,
     });
-    const alphaUploads = uploads.filter((upload) => upload.length === 4);
+    const alphaUploads = uploads.filter((upload) => upload.length === 12);
 
     expect(alphaUploads).toHaveLength(2);
     expect(alphaUploads[0].every((alpha) => alpha === 0)).toBe(true);
