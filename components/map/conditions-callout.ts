@@ -6,6 +6,12 @@ export interface ConditionsCalloutOptions {
   components: CalloutComponent[];
   /** When set, renders a tappable "Full forecast →" link to the beach page. */
   beachHref?: string;
+  /**
+   * Uniform render scale (default 1). Below 1 shrinks the whole callout — ring,
+   * scrim, arrows, and labels together — so it fits narrow mobile viewports where
+   * the full-size arrows would run off-screen and the ring looks oversized.
+   */
+  scale?: number;
 }
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -102,11 +108,18 @@ function buildBanner(c: CalloutComponent, gamma: number): SVGElement {
 export function createConditionsCalloutElement(
   opts: ConditionsCalloutOptions
 ): { element: HTMLElement } {
+  // Scale the rendered pixel size only; the SVG geometry keeps the SIZE viewBox so
+  // everything (ring, arrows, text) shrinks uniformly. Absolutely-positioned DOM bits
+  // (pulse, link) are placed in this scaled px space below.
+  const scale = opts.scale && opts.scale > 0 ? opts.scale : 1;
+  const RENDER = Math.round(SIZE * scale);
+  const center = RENDER / 2;
+
   const wrapper = document.createElement("div");
   wrapper.setAttribute("data-conditions-callout", "true");
-  wrapper.style.cssText = `position:relative;width:${SIZE}px;height:${SIZE}px;pointer-events:auto;cursor:pointer;`;
+  wrapper.style.cssText = `position:relative;width:${RENDER}px;height:${RENDER}px;pointer-events:auto;cursor:pointer;`;
 
-  const svg = svgEl("svg", { viewBox: `0 0 ${SIZE} ${SIZE}`, width: String(SIZE), height: String(SIZE) });
+  const svg = svgEl("svg", { viewBox: `0 0 ${SIZE} ${SIZE}`, width: String(RENDER), height: String(RENDER) });
 
   // Dark twilight scrim behind the callout so arrows + label read over busy map
   // tiles/labels instead of fighting them (Windy's arrows sit on muted water).
@@ -160,11 +173,11 @@ export function createConditionsCalloutElement(
   pulse.setAttribute("data-callout-pulse", "true");
   pulse.style.cssText = [
     "position:absolute",
-    `top:${CY}px`,
-    `left:${CX}px`,
-    "width:16px",
-    "height:16px",
-    "margin:-8px 0 0 -8px",
+    `top:${center}px`,
+    `left:${center}px`,
+    `width:${16 * scale}px`,
+    `height:${16 * scale}px`,
+    `margin:${-8 * scale}px 0 0 ${-8 * scale}px`,
     "border-radius:9999px",
     "background:rgba(255,255,255,0.5)",
     "pointer-events:none",
@@ -195,7 +208,8 @@ export function createConditionsCalloutElement(
     link.textContent = "Full forecast →";
     link.style.cssText = [
       "position:absolute",
-      `top:${CY + 122}px`,
+      // Position scales with the callout; the pill's own size stays for tappability.
+      `top:${(CY + 122) * scale}px`,
       "left:50%",
       "transform:translateX(-50%)",
       "white-space:nowrap",
