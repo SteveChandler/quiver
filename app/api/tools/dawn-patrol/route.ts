@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicReadClient } from "@/lib/supabase/server";
 import {
+  fetchCachedHourlyTidePredictions,
   fetchHourlyTidePredictions,
   getNearestTideStation,
+  hasSufficientCachedTideCoverage,
+  type CachedTidePredictionsResult,
+  type TidePrediction,
 } from "@/lib/services/noaa-tide-service";
 import { COOPS_STATIONS } from "@/lib/services/noaa-coops/constants/station-mappings";
 import { withRateLimit } from "@/lib/middleware/api-wrappers";
 import SunCalc from "suncalc";
 
 export const dynamic = "force-dynamic";
+
+type TideToolDataSource = "cache" | "noaa_live" | null;
 
 /**
  * Compute civil twilight, sunrise, golden hour, and sunset for a location and date.
@@ -38,6 +44,26 @@ function computeSunTimes(
     sunset: toISO(times.sunset),
     goldenHour: toISO(times.goldenHour),
   };
+}
+
+async function resolveStationId(params: {
+  slug: string;
+  lat: number;
+  lon: number;
+}): Promise<string | null> {
+  const mappedStationId = COOPS_STATIONS[params.slug];
+  if (mappedStationId) return mappedStationId;
+
+  try {
+    const nearest = await getNearestTideStation(params.lat, params.lon);
+    return nearest?.id ?? null;
+  } catch (error) {
+    console.warn("[dawn-patrol] Failed to resolve nearest tide station", {
+      beachSlug: params.slug,
+      error,
+    });
+    return null;
+  }
 }
 
 /**
@@ -91,14 +117,6 @@ async function dawnPatrolHandler(request: NextRequest) {
       );
     }
 
-    // Resolve tide station
-    const slug = beach.slug as string;
-    let stationId: string | null = COOPS_STATIONS[slug] ?? null;
-    if (!stationId) {
-      const nearest = await getNearestTideStation(lat, lon);
-      stationId = nearest?.id ?? null;
-    }
-
     // Build 7-day array
     const now = new Date();
     const days: Array<{
@@ -121,19 +139,57 @@ async function dawnPatrolHandler(request: NextRequest) {
       });
     }
 
-    // Fetch 7 days of hourly tide predictions if station is known
-    let tidePredictions: Array<{ ts: string; tide_height_m: number; tide_phase: string | null }> = [];
-    if (stationId) {
-      const endDate = new Date(now);
-      endDate.setDate(now.getDate() + 7);
+    const endDate = new Date(now);
+    endDate.setDate(now.getDate() + 7);
+    const startIso = now.toISOString();
+    const endIso = endDate.toISOString();
+
+    let cachedTides: CachedTidePredictionsResult = {
+      predictions: [],
+      latestCreatedAt: null,
+    };
+    try {
+      cachedTides = await fetchCachedHourlyTidePredictions(
+        supabase,
+        beach.id,
+        startIso,
+        endIso
+      );
+    } catch (cacheError) {
+      console.warn("[dawn-patrol] Cached tide lookup failed; using NOAA fallback", {
+        beachId: beach.id,
+        cacheError,
+      });
+    }
+
+    const cacheHasCoverage = hasSufficientCachedTideCoverage(
+      cachedTides.predictions,
+      startIso,
+      endIso
+    );
+    let tidePredictions: TidePrediction[] = cachedTides.predictions;
+    let dataSource: TideToolDataSource = cacheHasCoverage ? "cache" : null;
+    let predictionsUpdatedAt: string | null = cacheHasCoverage
+      ? cachedTides.latestCreatedAt
+      : null;
+
+    const slug = beach.slug as string;
+    const mappedStationId = COOPS_STATIONS[slug] ?? null;
+    let stationId: string | null = mappedStationId;
+    if (!cacheHasCoverage && !stationId) {
+      stationId = await resolveStationId({ slug, lat, lon });
+    }
+
+    if (!cacheHasCoverage && stationId) {
       try {
-        tidePredictions = await fetchHourlyTidePredictions(
-          stationId,
-          now.toISOString(),
-          endDate.toISOString()
-        );
+        tidePredictions = await fetchHourlyTidePredictions(stationId, startIso, endIso);
+        dataSource = "noaa_live";
+        predictionsUpdatedAt = null;
       } catch {
         // Tide data is optional — continue without it
+        tidePredictions = [];
+        dataSource = null;
+        predictionsUpdatedAt = null;
       }
     }
 
@@ -149,6 +205,8 @@ async function dawnPatrolHandler(request: NextRequest) {
       stationId,
       days,
       tidePredictions,
+      dataSource,
+      predictionsUpdatedAt,
     });
   } catch (err) {
     console.error("[dawn-patrol] Error:", err);

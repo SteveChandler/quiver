@@ -1,4 +1,7 @@
 import type {
+  AeoCitationInput,
+  CompetitorComparisonSignal,
+  CompetitorIntelligenceInput,
   CompetitorDelta,
   SeoPriority,
   SeoRecommendation,
@@ -27,11 +30,14 @@ export function synthesizeWeeklyActionQueue(input: WeeklySeoReportInput): Weekly
   const openRecommendations = input.recommendations.filter((item) => item.status === "open");
   const seoCandidates = buildSeoActionCandidates(openRecommendations);
   const asoCandidates = buildAsoActionCandidates(input.store);
-  const competitorCandidates = buildCompetitorActionCandidates(input.store?.competitorDeltas ?? []);
+  const competitorCandidates = buildCompetitorActionCandidates(
+    input.store?.competitorDeltas ?? [],
+    input.competitor,
+  );
+  const aeoCandidates = buildAeoActionCandidates(input.aeo);
 
-  const nonSeoCandidates = [...asoCandidates, ...competitorCandidates];
+  const nonSeoCandidates = [...asoCandidates, ...competitorCandidates, ...aeoCandidates];
   const rankedSeoCandidates = rankCandidates(seoCandidates);
-  const rankedNonSeoCandidates = rankCandidates(nonSeoCandidates);
   const rankedMixedCandidates = rankCandidates([...seoCandidates, ...nonSeoCandidates]);
 
   let actions = rankedMixedCandidates.slice(0, 5).map(stripCandidate);
@@ -44,8 +50,12 @@ export function synthesizeWeeklyActionQueue(input: WeeklySeoReportInput): Weekly
   }
 
   const hasMixedAction = actions.some((item) => item.source !== "seo");
-  const fallbackNote = !hasMixedAction && (asoCandidates.length === 0 && competitorCandidates.length === 0)
-    ? "ASO and competitor inputs did not meet the confidence gate this week, so the action queue falls back to SEO-only items."
+  const fallbackNote = !hasMixedAction && (
+    asoCandidates.length === 0 &&
+    competitorCandidates.length === 0 &&
+    aeoCandidates.length === 0
+  )
+    ? "ASO, competitor, and AEO inputs did not meet the confidence gate this week, so the action queue falls back to SEO-only items."
     : undefined;
 
   return {
@@ -150,9 +160,14 @@ function buildAsoActionCandidates(store?: StoreSnapshotInput): ActionCandidate[]
     });
 }
 
-function buildCompetitorActionCandidates(deltas: CompetitorDelta[]): ActionCandidate[] {
-  return deltas
-    .map((delta) => buildCompetitorActionCandidate(delta))
+function buildCompetitorActionCandidates(
+  deltas: CompetitorDelta[],
+  competitor?: CompetitorIntelligenceInput,
+): ActionCandidate[] {
+  return [
+    ...deltas.map((delta) => buildCompetitorActionCandidate(delta)),
+    ...buildComparisonSignalCandidates(competitor?.comparisonSignals ?? []),
+  ]
     .filter(isDefined);
 }
 
@@ -196,6 +211,72 @@ function buildCompetitorActionCandidate(delta: CompetitorDelta): ActionCandidate
   }
 
   return null;
+}
+
+function buildComparisonSignalCandidates(signals: CompetitorComparisonSignal[]): ActionCandidate[] {
+  return signals
+    .map((signal) => {
+      if (!/comparison page|compare\/quiver\.html|attacks on/i.test(signal.summary)) return null;
+
+      return {
+        source: "competitor" as const,
+        category: "comparison-response" as const,
+        priority: "high" as const,
+        title: `Respond to ${signal.competitor} comparison-page claims`,
+        ownerSurface: `Competitor watch: ${signal.competitor} comparison page`,
+        nextStep: `Review the current ${signal.competitor} comparison-page copy and decide whether Quiver needs a factual response page, proof update, or pricing/platform clarification.`,
+        evidence: [signal.summary],
+        confidence: "high" as const,
+        whyNow: "A competitor is publishing direct Quiver comparison messaging that can shape branded, alternative, and AI-citation queries.",
+        score: PRIORITY_SCORE.high + 45,
+      };
+    })
+    .filter(isDefined);
+}
+
+function buildAeoActionCandidates(aeo?: AeoCitationInput): ActionCandidate[] {
+  if (!aeo) return [];
+
+  const missingLlms = aeo.llmsFiles.filter((file) => !file.exists);
+  if (missingLlms.length > 0) {
+    return [{
+      source: "aeo",
+      category: "citation-readiness",
+      priority: "high",
+      title: "Restore Quiver llms citation surfaces",
+      ownerSurface: "AEO / llms surfaces",
+      nextStep: "Restore the missing llms inventory files and verify they reflect Quiver’s current forecast, comparison, and proof pages.",
+      evidence: missingLlms.map((file) => `${file.path} missing`),
+      confidence: "high",
+      whyNow: "The report can see missing llms inventory files directly, so citation readiness is partially degraded until they return.",
+      score: PRIORITY_SCORE.high + 35,
+    }];
+  }
+
+  const engineMap = new Map(aeo.engines.map((engine) => [engine.engine.toLowerCase(), engine]));
+  const searchVisible = (engineMap.get("chatgpt")?.citations ?? 0) + (engineMap.get("perplexity")?.citations ?? 0);
+  const searchAbsent = (engineMap.get("googleaioverviews")?.citations ?? 0) + (engineMap.get("gemini")?.citations ?? 0);
+  const citationDomains = aeo.citationDomains.map((domain) => domain.domain);
+
+  if (searchVisible > 0 && searchAbsent === 0) {
+    return [{
+      source: "aeo",
+      category: "citation-readiness",
+      priority: "medium",
+      title: "Build citation coverage beyond ChatGPT and Perplexity",
+      ownerSurface: "AEO / citation footprint",
+      nextStep: "Use Quiver’s best proof pages and comparison pages to target Google AI Overviews and Gemini, not just existing ChatGPT/Perplexity citation surfaces.",
+      evidence: [
+        ...aeo.engines.slice(0, 4).map((engine) => `${engine.engine}=${engine.citations}/${engine.pages}`),
+        citationDomains.length > 0 ? `citationDomains=${citationDomains.join(",")}` : "citationDomains=none",
+      ],
+      confidence: "medium",
+      whyNow: "Citation visibility exists on some engines, but the current footprint is still thin or absent on Google AI and Gemini surfaces.",
+      score: PRIORITY_SCORE.medium + 25,
+    }];
+  }
+
+  return [];
 }
 
 function rankCandidates(candidates: ActionCandidate[]): ActionCandidate[] {

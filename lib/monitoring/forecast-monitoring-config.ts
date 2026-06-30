@@ -41,8 +41,9 @@ export const MONITORING_CONFIG = {
     return envNumber("MONITORING_MARINE_CRITICAL_HOURS", 6);
   },
   get TIDE_WARNING_HOURS() {
-    // Tide cron runs weekly (Sun 4 AM UTC) fetching 30 days of deterministic predictions.
-    // Warning after 8 days = one missed weekly run.
+    // Tide cron runs twice weekly (Sun/Wed 4 AM UTC) fetching 30 days of
+    // deterministic predictions. Warning after 8 days leaves room for one
+    // missed run plus the bounded per-run beach batch.
     return envNumber("MONITORING_TIDE_WARNING_HOURS", 192);
   },
   get TIDE_CRITICAL_HOURS() {
