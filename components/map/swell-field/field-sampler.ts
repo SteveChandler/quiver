@@ -228,7 +228,10 @@ export interface LatLonPoint {
 // corridor edge, so the bbox chains up/down coast on the next recompute; smaller
 // cross-shore (lon) margin keeps the field near the coast, not out in open sea.
 export const COASTAL_CORRIDOR_LAT_PAD = 0.35;
-export const COASTAL_CORRIDOR_LON_PAD = 0.12;
+// Cross-shore (lon) margin. Wide enough that the default ~zoom-11 embed view (which
+// shows open ocean west of the coast) already fits inside the leash bounds, so
+// applying setMaxBounds never yanks the camera inland on load.
+export const COASTAL_CORRIDOR_LON_PAD = 0.3;
 // Floor span for a degenerate (single-beach) footprint so it's still navigable.
 export const COASTAL_CORRIDOR_MIN_SPAN = 0.1;
 

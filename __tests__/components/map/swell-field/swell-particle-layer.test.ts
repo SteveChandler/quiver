@@ -62,11 +62,12 @@ describe("swell particle layer — pure exports", () => {
     expect(PARTICLE_COUNT_MOBILE).toBeLessThan(PARTICLE_COUNT_DESKTOP);
   });
 
-  it("keeps the desktop count sparse (Windy-style spacing) but populated", () => {
-    expect(PARTICLE_COUNT_DESKTOP).toBe(450);
-    expect(PARTICLE_COUNT_MOBILE).toBe(200);
-    // Sparse, evenly spaced field — well below the earlier dense 4000 blanket.
-    expect(PARTICLE_COUNT_DESKTOP).toBeLessThanOrEqual(450);
+  it("keeps the desktop count populated but well below a dense blanket", () => {
+    expect(PARTICLE_COUNT_DESKTOP).toBe(650);
+    expect(PARTICLE_COUNT_MOBILE).toBe(300);
+    // Denser than the first pass (which read too sparse) but still far below the
+    // earlier 4000 blanket.
+    expect(PARTICLE_COUNT_DESKTOP).toBeLessThanOrEqual(800);
   });
 
   it("bilinearly samples the flow grid instead of snapping to the nearest cell", () => {
@@ -351,15 +352,16 @@ describe("createSwellParticleLayer — particle count", () => {
     expect(vertexCount).toBe(300);
   });
 
-  it("draws wind streaks as one line pass with no dot-head pass", () => {
+  it("draws the wind worm as a single multi-segment line pass, no dot-head pass", () => {
     const { draws, LINES } = renderedDraw({
       count: 300,
       markStyle: "streak",
     });
-    expect(draws).toEqual([{ mode: LINES, vertexCount: 300 * 2 }]);
+    // 10 segments per worm -> 20 vertices per particle, one LINES pass.
+    expect(draws).toEqual([{ mode: LINES, vertexCount: 300 * 20 }]);
   });
 
-  it("orients the wind streak along particle travel as a single line", () => {
+  it("builds the wind worm along travel with a sideways wiggle", () => {
     const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.25);
     const eastField: FlowField = {
       cols: 1,
@@ -374,21 +376,66 @@ describe("createSwellParticleLayer — particle count", () => {
         markStyle: "streak",
         captureUploads: true,
       });
-      const positionUpload = uploads.find((upload) => upload.length === 4);
+      const positionUpload = uploads.find((upload) => upload.length === 40);
 
       if (!positionUpload) {
         throw new Error("Expected particle position upload");
       }
-      const [x1, y1, x2, y2] = positionUpload;
-      // East flow -> a single horizontal segment along travel, no vertical spread.
-      expect(Math.abs(x2 - x1)).toBeGreaterThan(0.02);
-      expect(Math.abs(y2 - y1)).toBeLessThan(1e-9);
+      const xs = Array.from(positionUpload).filter((_, idx) => idx % 2 === 0);
+      const ys = Array.from(positionUpload).filter((_, idx) => idx % 2 === 1);
+      const xRange = Math.max(...xs) - Math.min(...xs);
+      const yRange = Math.max(...ys) - Math.min(...ys);
+      // East flow: body extends along x (travel) and wiggles sideways in y,
+      // but the travel extent dominates the wiggle.
+      expect(xRange).toBeGreaterThan(0.02);
+      expect(yRange).toBeGreaterThan(1e-6);
+      expect(xRange).toBeGreaterThan(yRange);
 
-      const alphaUpload = uploads.find((upload) => upload.length === 2);
+      const alphaUpload = uploads.find((upload) => upload.length === 20);
       if (!alphaUpload) {
         throw new Error("Expected wind alpha upload");
       }
-      expect(Math.min(...alphaUpload)).toBeGreaterThanOrEqual(0.99);
+      // Full-strength wind (cell.alpha = 1) reads boldly; weaker would be fainter.
+      expect(Math.min(...alphaUpload)).toBeGreaterThan(0.7);
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
+  it("encodes wave strength: a strong cell draws a longer, more opaque dash than a weak one", () => {
+    const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.25);
+    const fieldFor = (alpha: number): FlowField => ({
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha }],
+    });
+    const dashLength = (uploads: number[][]): number => {
+      const pos = uploads.find((upload) => upload.length === 4);
+      if (!pos) throw new Error("Expected dash position upload");
+      return Math.hypot(pos[2] - pos[0], pos[3] - pos[1]);
+    };
+    const dashAlpha = (uploads: number[][]): number => {
+      const alpha = uploads.find((upload) => upload.length === 2);
+      if (!alpha) throw new Error("Expected dash alpha upload");
+      return alpha[0];
+    };
+
+    try {
+      const strong = renderedDraw({
+        count: 1,
+        field: fieldFor(1),
+        markStyle: "dash",
+        captureUploads: true,
+      });
+      const weak = renderedDraw({
+        count: 1,
+        field: fieldFor(0.2),
+        markStyle: "dash",
+        captureUploads: true,
+      });
+
+      expect(dashLength(strong.uploads)).toBeGreaterThan(dashLength(weak.uploads));
+      expect(dashAlpha(strong.uploads)).toBeGreaterThan(dashAlpha(weak.uploads));
     } finally {
       randomSpy.mockRestore();
     }
