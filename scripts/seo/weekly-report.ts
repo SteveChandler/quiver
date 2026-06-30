@@ -4,7 +4,9 @@ import path from "node:path";
 import { currentAuditDate, resolveSeoAuditDir } from "../../lib/seo/agent-workflow/audit-paths";
 import { renderWeeklySeoReport } from "../../lib/seo/agent-workflow/weekly-report";
 import type {
+  AeoCitationInput,
   BacklinkProxyInput,
+  CompetitorIntelligenceInput,
   DataForSeoExportInput,
   GscExportInput,
   PostHogExportInput,
@@ -52,6 +54,8 @@ const input: WeeklySeoReportInput = {
   store: readJsonIfExists<StoreSnapshotInput>(path.join(auditDir, "STORE-SNAPSHOT.json"), missing) ?? undefined,
   dataforseo: readJsonIfExists<DataForSeoExportInput>(path.join(auditDir, "DATAFORSEO-EXPORT.json")) ?? undefined,
   backlink: readJsonIfExists<BacklinkProxyInput>(path.join(auditDir, "BACKLINK-PROXY.json"), missing) ?? undefined,
+  competitor: readJsonIfExists<CompetitorIntelligenceInput>(path.join(auditDir, "COMPETITOR-EXPORT.json"), missing) ?? undefined,
+  aeo: readJsonIfExists<AeoCitationInput>(path.join(auditDir, "AEO-EXPORT.json"), missing) ?? undefined,
   metadata,
   missing,
 };

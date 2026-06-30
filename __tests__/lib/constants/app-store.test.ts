@@ -52,7 +52,7 @@ describe("app-store constants", () => {
     );
   });
 
-  it("builds campaign URLs without the legacy mt=8 redirect parameter", () => {
+  it("builds campaign URLs with App Store app-link attribution", () => {
     delete process.env.IOS_APP_STORE_PROVIDER_TOKEN;
 
     const url = iosAppStoreUrlWithCampaign("app_first_v1");
@@ -60,7 +60,7 @@ describe("app-store constants", () => {
 
     expect(parsed.origin + parsed.pathname).toBe(IOS_APP_STORE_URL);
     expect(parsed.searchParams.get("ct")).toBe("app_first_v1");
-    expect(parsed.searchParams.has("mt")).toBe(false);
+    expect(parsed.searchParams.get("mt")).toBe("8");
   });
 
   it("preserves the optional App Store provider token", () => {
@@ -71,6 +71,6 @@ describe("app-store constants", () => {
 
     expect(parsed.searchParams.get("pt")).toBe("123456");
     expect(parsed.searchParams.get("ct")).toBe("app_first_v1");
-    expect(parsed.searchParams.has("mt")).toBe(false);
+    expect(parsed.searchParams.get("mt")).toBe("8");
   });
 });

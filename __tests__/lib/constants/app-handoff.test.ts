@@ -80,6 +80,6 @@ describe("app-handoff constants", () => {
     const url = iosAppStoreUrlWithCampaign("app_first_v1");
     expect(url.startsWith(IOS_APP_STORE_URL)).toBe(true);
     expect(url).toContain("ct=app_first_v1");
-    expect(url).not.toContain("mt=8");
+    expect(url).toContain("mt=8");
   });
 });

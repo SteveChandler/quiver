@@ -27,7 +27,10 @@ describe("SEO workflow weekly report", () => {
 
     expect(report).toContain("## Bottom Line");
     expect(report).toContain("## Web SEO");
+    expect(report).toContain("## AI Citation / AEO Signals");
+    expect(report).toContain("## Competitor Technical Surfaces");
     expect(report).toContain("## Native ASO");
+    expect(report).toContain("## Execution Plan This Week");
     expect(report).toContain("## Coverage Notes");
     expect(report).toContain("DataForSEO is not configured");
     expect(report).toContain("no automated Google SERP scraping is performed");
@@ -140,6 +143,99 @@ describe("SEO workflow weekly report", () => {
     expect(report).toContain("DataForSEO Labs actionable competitor keyword rows: 1 rows from 1 raw rows across 1 competitors");
     expect(report).toContain("Product-fit competitor keyword opportunities by volume");
     expect(report).not.toContain("DataForSEO is not configured");
+  });
+
+  it("renders AEO and competitor technical sections when structured inputs are available", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-06-28T12:00:00Z",
+      recommendations: [],
+      missing: [],
+      aeo: {
+        generatedAt: "2026-06-28T12:00:00Z",
+        aiReferrers: [{ referrer: "perplexity.ai", visits: 3 }],
+        engines: [
+          { engine: "chatgpt", citations: 53, pages: 26 },
+          { engine: "perplexity", citations: 7, pages: 3 },
+        ],
+        citationDomains: [{ domain: "grokipedia.com", links: 1, domainRating: 77 }],
+        llmsFiles: [
+          { path: "/repo/public/llms.txt", exists: true, lines: 10, bytes: 100 },
+          { path: "/repo/public/llms-full.txt", exists: true, lines: 40, bytes: 400 },
+        ],
+      },
+      competitor: {
+        generatedAt: "2026-06-28T12:00:00Z",
+        runId: "20260628T235143Z",
+        technicalSurfaces: [{
+          competitor: "Swellify",
+          robotsStatus: 200,
+          sitemapStatus: 200,
+          sitemapCount: 507,
+          schemaSupport: "missing",
+          notes: ["SEO footprint unchanged: robots `200`, sitemap `200`, `507` URLs, no raw-HTML schema markers."],
+        }],
+        comparisonSignals: [{
+          competitor: "Lazy Surfer",
+          summary: "Comparison page is live.",
+          url: "https://lazysurfer.app/compare/quiver.html",
+        }],
+        materialDeltas: ["Lazy Surfer comparison page confirmed."],
+      },
+    });
+
+    expect(report).toContain("llms inventory:");
+    expect(report).toContain("AI referrers seen in Vercel: perplexity.ai=3");
+    expect(report).toContain("Ahrefs AI citation snapshot: chatgpt=53 citations/26 pages, perplexity=7 citations/3 pages");
+    expect(report).toContain("Swellify: robots 200; sitemap 200; 507 sitemap URLs; no raw HTML schema markers.");
+    expect(report).toContain("Structured competitor report (20260628T235143Z): Lazy Surfer comparison page confirmed.");
+    expect(report).toContain("AEO coverage combines llms inventory, AI referrer traffic, and Ahrefs AI citation snapshots when present.");
+  });
+
+  it("turns weekly actions into an ordered execution plan", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-06-29T12:00:00Z",
+      recommendations: [{
+        id: "gsc-best-time-la-jolla",
+        createdAt: "2026-06-29T12:00:00Z",
+        source: "gsc-decay",
+        priority: "high",
+        canonicalPath: "/best-time-to-surf/la-jolla",
+        summary: "CTR candidate: page has meaningful impressions but weak clicks.",
+        evidence: ["28d=2 clicks/5857 impressions", "ctr=0.03%"],
+        status: "open",
+      }],
+      missing: [],
+      store: {
+        generatedAt: "2026-06-29T12:00:00Z",
+        listings: [{
+          app: "Quiver",
+          platform: "ios",
+          url: "https://apps.apple.com/us/app/quiver/id6759300320",
+          title: "Surf Forecast: Quiver",
+          version: "1.0.1",
+          priceEvidence: [],
+          metadataDrift: ["Unexpected live title: Surf Forecast: Quiver"],
+        }],
+        competitorDeltas: [],
+      },
+      competitor: {
+        generatedAt: "2026-06-29T12:00:00Z",
+        runId: "20260628T235143Z",
+        technicalSurfaces: [],
+        comparisonSignals: [{
+          competitor: "Lazy Surfer",
+          summary: "Comparison page is live at compare/quiver.html and attacks on platform coverage.",
+        }],
+        materialDeltas: [],
+        missing: [],
+      },
+    });
+
+    expect(report).toContain("## Execution Plan This Week");
+    expect(report).toContain("1. Day 1:");
+    expect(report).toContain("2. Day 2: [COMPETITOR] Respond to Lazy Surfer comparison-page claims.");
+    expect(report).toContain("3. Day 2: [ASO] Resolve Quiver App Store listing drift.");
+    expect(report).toContain("End of week: rerun the weekly SEO + ASO report");
   });
 
   it("prioritizes product-led opportunities over commodity fact queries", () => {
@@ -521,7 +617,7 @@ describe("SEO workflow weekly report", () => {
       },
     });
 
-    expect(report).toContain("Note: ASO and competitor inputs did not meet the confidence gate this week, so the action queue falls back to SEO-only items.");
+    expect(report).toContain("Note: ASO, competitor, and AEO inputs did not meet the confidence gate this week, so the action queue falls back to SEO-only items.");
   });
 
   it("renders canonical action paths while retaining legacy raw-path evidence", () => {

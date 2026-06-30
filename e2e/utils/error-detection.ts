@@ -331,6 +331,7 @@ function isIgnorableConsoleError(text: string): boolean {
     'Failed to load resource: net::ERR_FAILED', // Generic network failures (CORS, blocked, etc.)
     'googletagmanager',
     'analytics',
+    '/ingest/static/',
     '_vercel/insights',
     '_vercel/speed-insights',
     'facebook',

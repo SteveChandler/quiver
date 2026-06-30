@@ -24,6 +24,7 @@ import { useBeachClustering, type ClusterPoint } from "@/hooks/use-beach-cluster
 import { loadFavoriteBeaches } from "@/components/map/map-favorites-loader";
 import { createCustomSpotMarkerElement } from "@/components/map/custom-spot-marker-builder";
 import {
+  CONDITION_MARKER_CALLS,
   createWaveHeightBadge,
   getConditionMarkerGradient,
   getWaterTempBadgeColor,
@@ -186,16 +187,6 @@ interface InteractiveMapProps {
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
 const EMPTY_CUSTOM_SPOTS: CustomSpot[] = [];
 
-const CONDITION_LEGEND_ITEMS: Array<{
-  label: ConditionSummary;
-  display: string;
-}> = [
-  { label: "GOOD", display: "Worth it" },
-  { label: "FAIR", display: "Maybe" },
-  { label: "CHECK", display: "Scout it" },
-  { label: "UNKNOWN", display: "No read" },
-];
-
 interface MapConditionLegendProps {
   controls?: ReactNode;
   timeline?: ReactNode;
@@ -249,15 +240,15 @@ function MapConditionLegend({
         <>
           <div className="flex items-start gap-2">
             <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
-              {CONDITION_LEGEND_ITEMS.map((item) => (
-                <div key={item.label} className="flex items-center gap-1.5">
+              {CONDITION_MARKER_CALLS.map((item) => (
+                <div key={item.summary} className="flex items-center gap-1.5">
                   <span
                     aria-hidden="true"
                     className="h-2.5 w-2.5 rounded-full border border-white/35"
-                    style={{ background: getConditionMarkerGradient(item.label) }}
+                    style={{ background: getConditionMarkerGradient(item.summary) }}
                   />
                   <span className="text-[10px] font-semibold leading-none tracking-normal">
-                    {item.display}
+                    {item.label}
                   </span>
                 </div>
               ))}

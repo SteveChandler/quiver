@@ -87,23 +87,24 @@ function nativeBuildMetadata(): Record<string, string> {
   };
 }
 
-function readNativeRepoFile(...segments: string[]): string {
+function resolveNativeRepoPath(...segments: string[]): string {
   const candidates = [
-    join(process.cwd(), "..", "quiver-native", ...segments),
-    join(process.cwd(), "..", "..", "..", "quiver-native", ...segments),
-    join(__dirname, "..", "..", "..", "quiver-native", ...segments),
+    join(process.cwd(), "..", "quiver-native"),
+    join(process.cwd(), "..", "..", "..", "quiver-native"),
+    join(__dirname, "..", "..", "..", "quiver-native"),
+    join(__dirname, "..", "..", "..", "..", "..", "quiver-native"),
   ];
-  const filePath = candidates.find((candidate) => existsSync(candidate));
+  const nativeRoot = candidates.find((candidate) =>
+    existsSync(join(candidate, "package.json"))
+  );
 
-  if (!filePath) {
+  if (!nativeRoot) {
     throw new Error(
-      `Unable to find quiver-native/${join(...segments)}. Checked: ${candidates.join(
-        ", "
-      )}`
+      `Unable to find quiver-native repo. Checked: ${candidates.join(", ")}`
     );
   }
 
-  return readFileSync(filePath, "utf8");
+  return join(nativeRoot, ...segments);
 }
 
 describe("session acquisition funnel report", () => {
@@ -160,7 +161,14 @@ describe("session acquisition funnel report", () => {
   });
 
   it("keeps Track B event coverage aligned with web and native analytics allowlists", () => {
-    const nativeAnalytics = readNativeRepoFile("src", "lib", "analytics.ts");
+    const nativeAnalytics = readFileSync(
+      resolveNativeRepoPath(
+        "src",
+        "lib",
+        "analytics.ts"
+      ),
+      "utf8"
+    );
     const nativeEventTypes = extractQuotedValuesBetween(
       nativeAnalytics,
       "export const NATIVE_ANALYTICS_EVENT_TYPES = [",
@@ -176,10 +184,13 @@ describe("session acquisition funnel report", () => {
   });
 
   it("keeps validation-failure codes aligned with the native session form", () => {
-    const nativeSessionFormUtils = readNativeRepoFile(
-      "src",
-      "lib",
-      "session-form-utils.ts"
+    const nativeSessionFormUtils = readFileSync(
+      resolveNativeRepoPath(
+        "src",
+        "lib",
+        "session-form-utils.ts"
+      ),
+      "utf8"
     );
     const nativeErrorCodes = extractQuotedValuesBetween(
       nativeSessionFormUtils,

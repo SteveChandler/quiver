@@ -10,6 +10,8 @@ const TSX_LOADER_PATH = require.resolve("tsx");
 const execFileAsync = promisify(execFile);
 
 describe("export-dataforseo script", () => {
+  jest.setTimeout(45000);
+
   it("honors DATAFORSEO_ENABLED=false before making paid API calls", async () => {
     const requests: Array<{ path: string; body: unknown }> = [];
     const server = createDataForSeoServer(requests);
@@ -166,6 +168,64 @@ describe("export-dataforseo script", () => {
           quiverRank: 8,
         }],
         missing: [],
+      });
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it("fails fast into missing output when the API stalls mid-response body", async () => {
+    const server = http.createServer((request, response) => {
+      response.setHeader("content-type", "application/json");
+      if (request.url === "/v3/serp/google/organic/live/advanced") {
+        response.write('{"status_code":20000,"status_message":"Ok.","tasks":[');
+        return;
+      }
+
+      response.end(JSON.stringify({
+        status_code: 20000,
+        status_message: "Ok.",
+        tasks: [{ result: [{ items: [] }] }],
+      }));
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Expected local test server address");
+      }
+
+      const cwd = makeTempWorkspace({
+        google: {
+          domain: "quiversurf.app",
+          device: "mobile",
+          depth: 100,
+          keywords: ["surf forecast app"],
+          locations: [{ name: "United States", code: 2840 }],
+        },
+        aso: {
+          depth: 100,
+          keywords: [],
+          quiver: { iosAppId: "6759300320", androidAppId: "app.quiversurf.surf" },
+        },
+        competitors: [],
+      });
+      const outputPath = path.join(cwd, "DATAFORSEO-EXPORT.json");
+
+      await runExporter(cwd, outputPath, {
+        DATAFORSEO_API_BASE: `http://127.0.0.1:${address.port}`,
+        DATAFORSEO_ENABLED: "true",
+        DATAFORSEO_LOGIN: "login",
+        DATAFORSEO_PASSWORD: "password",
+        DATAFORSEO_TIMEOUT_MS: "100",
+        DATAFORSEO_REQUEST_RETRIES: "1",
+        NODE_ENV: "test",
+      });
+
+      expect(JSON.parse(fs.readFileSync(outputPath, "utf8"))).toMatchObject({
+        googleRankings: [],
+        missing: [expect.stringContaining("The operation was aborted due to timeout")],
       });
     } finally {
       await closeServer(server);

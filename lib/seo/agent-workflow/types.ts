@@ -352,6 +352,11 @@ export interface ManualBacklinkExport {
   uniqueReferringDomains: number;
   sampleReferringDomains: string[];
   topTargetUrls: Array<{ url: string; links: number }>;
+  spamRows?: number;
+  nonSpamRows?: number;
+  dofollowLinks?: number;
+  topNonSpamDomains?: Array<{ domain: string; links: number; domainRating?: number }>;
+  topCitationDomains?: Array<{ domain: string; links: number; domainRating?: number }>;
 }
 
 export interface BacklinkProxyInput {
@@ -360,6 +365,58 @@ export interface BacklinkProxyInput {
   embedReferrers: VercelReferrerMetric[];
   outreachStatuses: Array<{ target: string; status: string }>;
   manualExports: ManualBacklinkExport[];
+  missing?: string[];
+}
+
+export interface AeoCitationEngineSnapshot {
+  engine: string;
+  citations: number;
+  pages: number;
+}
+
+export interface AeoCitationDomainSnapshot {
+  domain: string;
+  links: number;
+  domainRating?: number;
+}
+
+export interface AeoLlmsFileSnapshot {
+  path: string;
+  exists: boolean;
+  lines: number;
+  bytes: number;
+}
+
+export interface AeoCitationInput {
+  generatedAt: string;
+  aiReferrers: VercelReferrerMetric[];
+  engines: AeoCitationEngineSnapshot[];
+  citationDomains: AeoCitationDomainSnapshot[];
+  llmsFiles: AeoLlmsFileSnapshot[];
+  missing?: string[];
+}
+
+export interface CompetitorTechnicalSurface {
+  competitor: string;
+  robotsStatus?: number;
+  sitemapStatus?: number;
+  sitemapCount?: number;
+  schemaSupport?: "present" | "missing" | "unknown";
+  notes: string[];
+}
+
+export interface CompetitorComparisonSignal {
+  competitor: string;
+  summary: string;
+  url?: string;
+}
+
+export interface CompetitorIntelligenceInput {
+  generatedAt: string;
+  runId?: string;
+  technicalSurfaces: CompetitorTechnicalSurface[];
+  comparisonSignals: CompetitorComparisonSignal[];
+  materialDeltas: string[];
   missing?: string[];
 }
 
@@ -389,12 +446,14 @@ export interface WeeklySeoReportInput {
   store?: StoreSnapshotInput;
   dataforseo?: DataForSeoExportInput;
   backlink?: BacklinkProxyInput;
+  competitor?: CompetitorIntelligenceInput;
+  aeo?: AeoCitationInput;
   technical?: SeoRecommendation[];
   metadata?: SeoMetadataAuditInput;
   missing: string[];
 }
 
-export type WeeklyActionSource = "seo" | "aso" | "competitor";
+export type WeeklyActionSource = "seo" | "aso" | "competitor" | "aeo";
 
 export type WeeklyActionCategory =
   | "content-refresh"
@@ -403,6 +462,8 @@ export type WeeklyActionCategory =
   | "listing-copy"
   | "pricing-verification"
   | "competitor-monitoring"
+  | "comparison-response"
+  | "citation-readiness"
   | "technical-fix";
 
 export type WeeklyActionConfidence = "high" | "medium";

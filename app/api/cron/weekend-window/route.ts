@@ -2,7 +2,7 @@
  * GET /api/cron/weekend-window
  *
  * Weekend home-break planning push. Disabled by default and allowlist-gated
- * for rollout. Auth: Authorization: Bearer <CRON_SECRET>.
+ * for rollout. Auth: Authorization: Bearer <CRON_SECRET> or Vercel Cron header.
  */
 
 import type { Beach } from "@/types/database";

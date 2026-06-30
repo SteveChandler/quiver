@@ -19,4 +19,18 @@ describe("vercel.json", () => {
       ]),
     );
   });
+
+  it("refreshes tide predictions twice weekly to stay inside warning freshness", () => {
+    const configPath = path.join(process.cwd(), "vercel.json");
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+
+    expect(config.crons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          path: "/api/cron/forecasts/refresh?source=tide&maxBeaches=261",
+          schedule: "0 4 * * 0,3",
+        }),
+      ]),
+    );
+  });
 });

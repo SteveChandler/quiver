@@ -56,6 +56,48 @@ describe("SEO workflow weekly action queue", () => {
     expect(queue.fallbackNote).toBeUndefined();
   });
 
+  it("promotes competitor comparison pages and AEO gaps into non-SEO actions", () => {
+    const queue = synthesizeWeeklyActionQueue(makeInput({
+      competitor: {
+        generatedAt: "2026-06-20T12:00:00Z",
+        runId: "20260628T235143Z",
+        technicalSurfaces: [],
+        materialDeltas: [],
+        comparisonSignals: [{
+          competitor: "Lazy Surfer",
+          summary: "The Quiver comparison page is live in captured HTML and includes structured comparison copy around Android support and data-source transparency.",
+          url: "https://lazysurfer.app/compare/quiver.html",
+        }],
+      },
+      aeo: {
+        generatedAt: "2026-06-20T12:00:00Z",
+        aiReferrers: [{ referrer: "perplexity.ai", visits: 3 }],
+        engines: [
+          { engine: "chatgpt", citations: 53, pages: 26 },
+          { engine: "perplexity", citations: 7, pages: 3 },
+          { engine: "googleAiOverviews", citations: 0, pages: 0 },
+          { engine: "gemini", citations: 0, pages: 0 },
+        ],
+        citationDomains: [{ domain: "grokipedia.com", links: 1, domainRating: 77 }],
+        llmsFiles: [
+          { path: "public/llms.txt", exists: true, lines: 10, bytes: 100 },
+          { path: "public/llms-full.txt", exists: true, lines: 40, bytes: 400 },
+        ],
+      },
+    }));
+
+    expect(queue.actions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        source: "competitor",
+        category: "comparison-response",
+      }),
+      expect.objectContaining({
+        source: "aeo",
+        category: "citation-readiness",
+      }),
+    ]));
+  });
+
   it("excludes low-signal competitor deltas that only say nothing changed", () => {
     const queue = synthesizeWeeklyActionQueue(makeInput({
       store: {
@@ -157,6 +199,6 @@ describe("SEO workflow weekly action queue", () => {
         ownerSurface: "/best-time-to-surf/la-jolla",
       }),
     ]);
-    expect(queue.fallbackNote).toBe("ASO and competitor inputs did not meet the confidence gate this week, so the action queue falls back to SEO-only items.");
+    expect(queue.fallbackNote).toBe("ASO, competitor, and AEO inputs did not meet the confidence gate this week, so the action queue falls back to SEO-only items.");
   });
 });

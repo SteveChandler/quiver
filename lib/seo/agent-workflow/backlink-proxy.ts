@@ -98,6 +98,18 @@ function parseManualBacklinkExport(filePath: string): ManualBacklinkExport {
   const rows = records.map(normalizeManualBacklinkRecord);
   const referringDomainCounts = countValues(rows.map((row) => row.sourceDomain).filter(Boolean));
   const targetUrlCounts = countValues(rows.map((row) => row.targetUrl).filter(Boolean));
+  const nonSpamCounts = countValues(rows.filter((row) => !row.spam).map((row) => row.sourceDomain).filter(Boolean));
+  const citationCounts = countValues(rows
+    .filter((row) => !row.spam && row.dofollowLinks > 0)
+    .map((row) => row.sourceDomain)
+    .filter(Boolean));
+  const ratingByDomain = new Map<string, number>();
+
+  for (const row of rows) {
+    if (!row.sourceDomain || typeof row.domainRating !== "number") continue;
+    const current = ratingByDomain.get(row.sourceDomain) ?? 0;
+    ratingByDomain.set(row.sourceDomain, Math.max(current, row.domainRating));
+  }
 
   return {
     path: filePath,
@@ -108,6 +120,19 @@ function parseManualBacklinkExport(filePath: string): ManualBacklinkExport {
     topTargetUrls: topCounts(targetUrlCounts, 8).map((row) => ({
       url: row.value,
       links: row.count,
+    })),
+    spamRows: rows.filter((row) => row.spam).length,
+    nonSpamRows: rows.filter((row) => !row.spam).length,
+    dofollowLinks: rows.reduce((total, row) => total + row.dofollowLinks, 0),
+    topNonSpamDomains: topCounts(nonSpamCounts, 8).map((row) => ({
+      domain: row.value,
+      links: row.count,
+      domainRating: ratingByDomain.get(row.value),
+    })),
+    topCitationDomains: topCounts(citationCounts, 8).map((row) => ({
+      domain: row.value,
+      links: row.count,
+      domainRating: ratingByDomain.get(row.value),
     })),
   };
 }
@@ -136,6 +161,9 @@ function normalizeManualBacklinkRecord(record: Record<string, unknown>): {
   sourceDomain: string;
   sourceUrl: string;
   targetUrl: string;
+  spam: boolean;
+  dofollowLinks: number;
+  domainRating?: number;
 } {
   const sourceUrl = fieldValue(record, [
     "referring page url",
@@ -171,6 +199,21 @@ function normalizeManualBacklinkRecord(record: Record<string, unknown>): {
     sourceDomain: normalizeDomain(explicitDomain) || normalizeDomain(sourceUrl),
     sourceUrl,
     targetUrl,
+    spam: booleanValue(record, [
+      "spam",
+      "is spam",
+      "spam labeled",
+    ]),
+    dofollowLinks: numericFieldValue(record, [
+      "dofollow links",
+      "dofollow",
+      "follow links",
+    ]) ?? 0,
+    domainRating: numericFieldValue(record, [
+      "domain rating",
+      "dr",
+      "domain authority",
+    ]),
   };
 }
 
@@ -211,6 +254,28 @@ function fieldValue(record: Record<string, unknown>, keys: string[]): string {
     if (value) return value;
   }
   return "";
+}
+
+function numericFieldValue(record: Record<string, unknown>, keys: string[]): number | undefined {
+  const normalized = new Map(
+    Object.entries(record).map(([key, value]) => [normalizeHeader(key), numberValue(value)]),
+  );
+  for (const key of keys) {
+    const value = normalized.get(normalizeHeader(key));
+    if (typeof value === "number") return value;
+  }
+  return undefined;
+}
+
+function booleanValue(record: Record<string, unknown>, keys: string[]): boolean {
+  const normalized = new Map(
+    Object.entries(record).map(([key, value]) => [normalizeHeader(key), booleanFieldValue(value)]),
+  );
+  for (const key of keys) {
+    const value = normalized.get(normalizeHeader(key));
+    if (typeof value === "boolean") return value;
+  }
+  return false;
 }
 
 function normalizeHeader(value: string): string {
@@ -254,6 +319,24 @@ function firstArrayValue(record: Record<string, unknown>, keys: string[]): unkno
 
 function stringValue(value: unknown): string {
   return typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
+}
+
+function numberValue(value: unknown): number | undefined {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string") return undefined;
+  const normalized = value.replace(/,/g, "").trim();
+  if (!normalized) return undefined;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+function booleanFieldValue(value: unknown): boolean | undefined {
+  if (typeof value === "boolean") return value;
+  if (typeof value !== "string") return undefined;
+  const normalized = value.trim().toLowerCase();
+  if (normalized === "true" || normalized === "yes") return true;
+  if (normalized === "false" || normalized === "no") return false;
+  return undefined;
 }
 
 function errorMessage(error: unknown): string {
