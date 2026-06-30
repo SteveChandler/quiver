@@ -76,3 +76,17 @@ describe("nearestBeachInBounds", () => {
     expect(nearestBeachInBounds(-117.27, 32.98, [], BOUNDS)).toBeNull();
   });
 });
+
+import { decideCalloutAction } from "@/components/map/conditions-callout-data";
+
+describe("decideCalloutAction", () => {
+  it("toggles off when tapping the already-open beach", () => {
+    expect(decideCalloutAction("b", "b")).toBe("toggle-off");
+  });
+  it("shows when no callout is open", () => {
+    expect(decideCalloutAction(null, "b")).toBe("show");
+  });
+  it("shows when tapping a different beach", () => {
+    expect(decideCalloutAction("a", "b")).toBe("show");
+  });
+});
