@@ -73,3 +73,10 @@ export function nearestBeachInBounds(
   if (!best || !inBounds(best.lon, best.lat, bounds)) return null;
   return best;
 }
+
+export function decideCalloutAction(
+  currentBeachId: string | null,
+  nextBeachId: string
+): "toggle-off" | "show" {
+  return currentBeachId === nextBeachId ? "toggle-off" : "show";
+}
