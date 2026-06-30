@@ -48,3 +48,31 @@ describe("resolveCalloutComponents", () => {
     expect(resolveCalloutComponents(EMPTY)).toEqual([]);
   });
 });
+
+import { nearestBeachInBounds } from "@/components/map/conditions-callout-data";
+import type { Beach } from "@/types/database";
+
+const BOUNDS = { west: -118, south: 32, east: -117, north: 33 };
+const mk = (id: string, lon: number, lat: number): Beach => ({ id, lon, lat } as Beach);
+
+describe("nearestBeachInBounds", () => {
+  const beaches = [mk("a", -117.3, 32.9), mk("b", -117.26, 32.99), mk("c", -117.9, 32.1)];
+
+  it("returns the closest beach to the tap", () => {
+    expect(nearestBeachInBounds(-117.27, 32.98, beaches, BOUNDS)?.id).toBe("b");
+  });
+
+  it("skips beaches without finite coordinates", () => {
+    const withBad = [...beaches, mk("d", NaN, 32.98)];
+    expect(nearestBeachInBounds(-117.27, 32.98, withBad, BOUNDS)?.id).toBe("b");
+  });
+
+  it("returns null when the nearest beach is outside the current viewport", () => {
+    const offscreen = [mk("z", -119.5, 34.5)];
+    expect(nearestBeachInBounds(-119.5, 34.5, offscreen, BOUNDS)).toBeNull();
+  });
+
+  it("returns null for an empty list", () => {
+    expect(nearestBeachInBounds(-117.27, 32.98, [], BOUNDS)).toBeNull();
+  });
+});
