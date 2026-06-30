@@ -51,7 +51,7 @@ function buildBanner(c: CalloutComponent, indexGap: number): SVGElement {
     svgEl("path", { d: `M17,0 H${pillW} V34 H17 A17,17 0 0 1 17,0 Z`, fill: "#2E2A26" })
   );
 
-  const textGroup = svgEl("g", flip ? { transform: `rotate(180 ${BANNER_LEN / 2} 17)` } : {});
+  const textGroup = svgEl("g", flip ? { transform: `rotate(180 ${(17 + BANNER_LEN) / 2} 17)` } : {});
   const name = svgEl("text", {
     x: String(pillW / 2 + 8), y: "23", "text-anchor": "middle",
     "font-family": "system-ui, sans-serif", "font-size": "14", "font-weight": "800", fill: "#fff",
