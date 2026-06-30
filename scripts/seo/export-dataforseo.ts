@@ -24,6 +24,7 @@ import type {
   DataForSeoWatchlist,
 } from "../../lib/seo/agent-workflow/dataforseo-export";
 import { loadSeoEnv } from "./load-env";
+import { fetchWithRetry } from "./resilient-fetch";
 
 loadSeoEnv();
 
@@ -37,9 +38,12 @@ const dataForSeoEnabled = process.env.DATAFORSEO_ENABLED?.toLowerCase() !== "fal
 const apiBase = process.env.DATAFORSEO_API_BASE ?? "https://api.dataforseo.com";
 const competitorLimit = numberFromEnv("DATAFORSEO_COMPETITOR_KEYWORD_LIMIT", 100);
 const keywordMetricBatchSize = numberFromEnv("DATAFORSEO_KEYWORD_METRIC_BATCH_SIZE", 100);
-const appBatchSize = numberFromEnv("DATAFORSEO_APP_BATCH_SIZE", 5);
-const appPollMs = numberFromEnv("DATAFORSEO_APP_POLL_MS", 60000);
+const appBatchSize = numberFromEnv("DATAFORSEO_APP_BATCH_SIZE", 10);
+const appPollMs = numberFromEnv("DATAFORSEO_APP_POLL_MS", 120000);
 const appPollIntervalMs = numberFromEnv("DATAFORSEO_APP_POLL_INTERVAL_MS", 5000);
+const requestTimeoutMs = numberFromEnv("DATAFORSEO_TIMEOUT_MS", 15000);
+const requestRetries = numberFromEnv("DATAFORSEO_REQUEST_RETRIES", 3);
+const requestRetryDelayMs = numberFromEnv("DATAFORSEO_REQUEST_RETRY_DELAY_MS", 500);
 
 void main();
 
@@ -267,30 +271,50 @@ async function pollTaskGet(endpoint: string): Promise<unknown | null> {
     if (hasTaskResult(raw)) return raw;
     await new Promise((resolve) => setTimeout(resolve, appPollIntervalMs));
   }
-  return null;
+
+  const finalRaw = await getDataForSeo(endpoint).catch(() => null);
+  return finalRaw && hasTaskResult(finalRaw) ? finalRaw : null;
 }
 
 async function postDataForSeo(endpoint: string, body: unknown): Promise<unknown> {
-  const response = await fetch(`${apiBase}${endpoint}`, {
-    method: "POST",
-    headers: {
-      Authorization: authHeader(),
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
+  return requestDataForSeo(() => {
+    const controller = new AbortController();
+    return fetchWithRetry(`${apiBase}${endpoint}`, {
+      method: "POST",
+      headers: {
+        Authorization: authHeader(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    }, {
+      timeoutMs: requestTimeoutMs,
+      retries: 1,
+      retryDelayMs: requestRetryDelayMs,
+    }).then((response) => parseDataForSeoResponse(response, controller, requestTimeoutMs));
   });
-  return parseDataForSeoResponse(response);
 }
 
 async function getDataForSeo(endpoint: string): Promise<unknown> {
-  const response = await fetch(`${apiBase}${endpoint}`, {
-    headers: { Authorization: authHeader() },
+  return requestDataForSeo(() => {
+    const controller = new AbortController();
+    return fetchWithRetry(`${apiBase}${endpoint}`, {
+      headers: { Authorization: authHeader() },
+      signal: controller.signal,
+    }, {
+      timeoutMs: requestTimeoutMs,
+      retries: 1,
+      retryDelayMs: requestRetryDelayMs,
+    }).then((response) => parseDataForSeoResponse(response, controller, requestTimeoutMs));
   });
-  return parseDataForSeoResponse(response);
 }
 
-async function parseDataForSeoResponse(response: Response): Promise<unknown> {
-  const raw = await response.json() as unknown;
+async function parseDataForSeoResponse(
+  response: Response,
+  controller: AbortController,
+  timeoutMs: number,
+): Promise<unknown> {
+  const raw = JSON.parse(await readResponseTextWithTimeout(response, controller, timeoutMs)) as unknown;
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}${dataForSeoMessage(raw)}`);
   }
@@ -299,6 +323,55 @@ async function parseDataForSeoResponse(response: Response): Promise<unknown> {
     throw new Error(`status ${statusCode}${dataForSeoMessage(raw)}`);
   }
   return raw;
+}
+
+async function readResponseTextWithTimeout(
+  response: Response,
+  controller: AbortController,
+  timeoutMs: number,
+): Promise<string> {
+  if (!response.body) {
+    return response.text();
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let text = "";
+
+  try {
+    while (true) {
+      const chunk = await readChunkWithTimeout(reader, controller, timeoutMs);
+      if (chunk.done) break;
+      text += decoder.decode(chunk.value, { stream: true });
+    }
+    text += decoder.decode();
+    return text;
+  } catch (error) {
+    controller.abort(error instanceof Error ? error : undefined);
+    await reader.cancel(error instanceof Error ? error : undefined).catch(() => undefined);
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function readChunkWithTimeout(
+  reader: ReadableStreamDefaultReader<Uint8Array>,
+  controller: AbortController,
+  timeoutMs: number,
+): Promise<ReadableStreamReadResult<Uint8Array>> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<ReadableStreamReadResult<Uint8Array>>((_, reject) => {
+    timeout = setTimeout(() => {
+      const error = new Error(`Timed out reading DataForSEO response body after ${timeoutMs}ms`);
+      controller.abort(error);
+      reject(error);
+    }, timeoutMs);
+  });
+
+  return Promise.race([reader.read(), timeoutPromise]).finally(() => {
+    if (timeout) clearTimeout(timeout);
+  });
 }
 
 function extractTaskIds(raw: unknown): string[] {
@@ -373,12 +446,43 @@ function chunkArray<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
+async function requestDataForSeo(load: () => Promise<unknown>): Promise<unknown> {
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= requestRetries; attempt += 1) {
+    try {
+      return await load();
+    } catch (error) {
+      lastError = error;
+      if (!shouldRetryDataForSeoError(error) || attempt >= requestRetries) {
+        throw error;
+      }
+      await sleep(requestRetryDelayMs * attempt);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("DataForSEO request failed");
+}
+
 function isDefined<T>(value: T | null | undefined): value is T {
   return value !== null && value !== undefined;
 }
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function shouldRetryDataForSeoError(error: unknown): boolean {
+  const message = errorMessage(error).toLowerCase();
+  return message.includes("timed out") ||
+    message.includes("timeout") ||
+    message.includes("aborted") ||
+    message.includes("fetch failed") ||
+    message.includes("network");
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function dataForSeoMessage(raw: unknown): string {

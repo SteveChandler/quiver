@@ -36,6 +36,8 @@ The commands generate dashboard updates or review reports only. They do not publ
 - Vercel: traffic and Speed Insights. Use it to prioritize pages with real visits plus poor LCP, INP, or CLS.
 - PostHog: behavior after landing. Use it to prioritize weak click-around, underused related paths, and high-converting SEO pages that deserve more internal links.
 - DataForSEO: paid API source for Google SERP rank tracking, App Store ASO rank snapshots, and competitor keyword rows. Google Play ASO checks are disabled until the Android store listing is live. Backlinks API is intentionally not used.
+- Competitor export: structured weekly competitor technical-surface and comparison-page inputs sourced from the latest archived competitor deep-dive run.
+- AEO export: structured llms inventory, AI referrer traffic, and Ahrefs AI citation snapshot inputs for weekly citation-readiness reporting.
 - Ahrefs: external SEO. Use it for crawl issues, backlink/ranking context, and keyword opportunities that should enter the review queue. The manual snapshot file is `AHREFS-SCREENSHOT-INPUT.json`; do not use the same path for `--input` and `--output`, because that overwrites the source export and can silently produce an empty enrichment. Ahrefs keyword priorities are cross-checked against same-folder `GSC-EXPORT.json`, `VERCEL-EXPORT.json`, and `POSTHOG-EXPORT.json`; Ahrefs-only keyword rows stay low priority until one of those sources corroborates demand.
 - GSC remains the indexing/query source of truth when available.
 - Store snapshots: App Store / Play listing metadata, sampled App Store keyword position checks, competitor version/rating/IAP deltas, and listing drift against Brand Vault copy. Current iOS competitor targets are Lazy Surfer, Swellify, Swell Scope, Duune, and Surf Radar.
@@ -51,6 +53,9 @@ The weekly report must explicitly label its coverage boundaries without treating
 - Manual Ahrefs screenshot inputs should include `issues` and `keywordOpportunities` arrays. Utility tide/water-temp keyword opportunities stay dismissed by strategy unless the work is technical crawl hygiene; non-utility surf-report, forecast, best-time, beginner, learn, longboard, and local-spot opportunities should remain open for review.
 - DataForSEO Labs covers only the configured competitor set and provider index.
 - DataForSEO ASO currently tracks iOS only. Re-add `android` to `docs/seo/dataforseo-watchlist.json` `aso.platforms` and restore `aso.quiver.androidAppId` once the Google Play listing is live.
+- Competitor technical-page reporting should cover robots/sitemap availability, sitemap count, raw-HTML schema visibility, and direct comparison-page signals when the latest competitor report is present.
+- For active, smaller competitors such as Lazy Surfer, do not default to direct branded `/vs/<competitor>` pages or named rebuttal pages. Prefer capability-led or job-to-be-done pages that capture the same intent without expanding the competitor's branded footprint.
+- AEO reporting should cover `llms.txt` / `llms-full.txt`, AI referrer traffic, Ahrefs AI citation snapshots, and notable citation domains from manual Ahrefs inputs when available.
 - No automated Google SERP scraping is performed.
 - Competitor export coverage comes from store snapshots and explicitly configured comparison pages only. If a competitor claim is not visible at the checked live URL, document it as monitor-only until the exact live URL or captured HTML is available.
 - AEO export coverage is a citation-tracking input, not proof that a page won organic clicks. Pair it with GSC page/query data before prioritizing content changes.

@@ -1,6 +1,8 @@
 import type {
+  AeoCitationInput,
   BacklinkProxyInput,
   CompetitorDelta,
+  CompetitorIntelligenceInput,
   DataForSeoExportInput,
   GscExportInput,
   PostHogExportInput,
@@ -82,6 +84,14 @@ export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
     "",
     renderBacklink(input.backlink),
     "",
+    "## AI Citation / AEO Signals",
+    "",
+    renderAeo(input.aeo),
+    "",
+    "## Competitor Technical Surfaces",
+    "",
+    renderCompetitorTechnicalSurfaces(input.competitor),
+    "",
     "## Native ASO",
     "",
     renderStore(input.store, input.dataforseo),
@@ -92,11 +102,15 @@ export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
     "",
     "## Competitor Deltas",
     "",
-    renderCompetitorDeltas(input.store, input.dataforseo),
+    renderCompetitorDeltas(input.store, input.competitor, input.dataforseo),
     "",
     "## Actions This Week",
     "",
     renderWeeklyActions(actionQueue.actions, actionQueue.fallbackNote),
+    "",
+    "## Execution Plan This Week",
+    "",
+    renderExecutionPlan(actionQueue.actions),
     "",
     "## Coverage Notes",
     "",
@@ -124,8 +138,14 @@ function renderBottomLine(
   if (input.store) {
     parts.push(`${input.store.listings.length} store listing snapshot${input.store.listings.length === 1 ? "" : "s"} checked.`);
   }
+  if (input.competitor?.technicalSurfaces.length) {
+    parts.push(`${input.competitor.technicalSurfaces.length} competitor technical surface${input.competitor.technicalSurfaces.length === 1 ? "" : "s"} reviewed.`);
+  }
   if (input.dataforseo && input.dataforseo.missing?.length === 0) {
     parts.push(`DataForSEO: ${input.dataforseo.googleRankings.length} Google rank checks, ${input.dataforseo.asoRankings.length} ASO rank checks, ${input.dataforseo.competitorKeywords.length} competitor keyword rows.`);
+  }
+  if (input.aeo?.engines.length) {
+    parts.push(`AEO engines tracked: ${input.aeo.engines.map((engine) => `${engine.engine}=${engine.citations}`).join(", ")}.`);
   }
   return `- ${parts.join(" ")}`;
 }
@@ -190,17 +210,59 @@ function renderBacklink(backlink?: BacklinkProxyInput): string {
   if (!backlink) return "- Backlink proxy export unavailable.";
   const manualRows = sum(backlink.manualExports.map((item) => item.rows));
   const manualDomains = sum(backlink.manualExports.map((item) => item.uniqueReferringDomains ?? 0));
+  const spamRows = sum(backlink.manualExports.map((item) => item.spamRows ?? 0));
+  const nonSpamRows = sum(backlink.manualExports.map((item) => item.nonSpamRows ?? 0));
+  const dofollowLinks = sum(backlink.manualExports.map((item) => item.dofollowLinks ?? 0));
   const sampleDomains = backlink.manualExports.flatMap((item) => item.sampleReferringDomains ?? []);
+  const citationDomains = backlink.manualExports.flatMap((item) => item.topCitationDomains ?? []);
   const topManualDomains = [...new Set(sampleDomains)].slice(0, 8);
+  const topCitationDomains = [...new Map(citationDomains.map((row) => [row.domain, row])).values()]
+    .sort((a, b) => b.links - a.links || (b.domainRating ?? 0) - (a.domainRating ?? 0))
+    .slice(0, 6);
   return [
     `- Vercel referrer domains/labels: ${backlink.referrers.length}.`,
     `- Embed referrer domains: ${backlink.embedReferrers.length}.`,
     `- Outreach rows parsed: ${backlink.outreachStatuses.length}.`,
     `- Manual backlink exports imported: ${backlink.manualExports.length} file${backlink.manualExports.length === 1 ? "" : "s"} / ${manualRows} row${manualRows === 1 ? "" : "s"} / ${manualDomains} referring-domain observations.`,
+    manualRows > 0
+      ? `- Manual backlink quality mix: ${nonSpamRows} non-spam rows, ${spamRows} spam-labeled rows, ${dofollowLinks} dofollow links.`
+      : "- Manual backlink quality mix: no imported manual backlink rows.",
+    topCitationDomains.length
+      ? `- Top likely citation/backlink domains: ${topCitationDomains.map((row) => `${row.domain}${row.domainRating ? ` (DR ${row.domainRating})` : ""}`).join(", ")}.`
+      : "- Top likely citation/backlink domains: none surfaced from manual exports.",
     topManualDomains.length
       ? `- Manual backlink sample domains: ${topManualDomains.join(", ")}.`
       : "- Manual backlink sample domains: none imported.",
   ].join("\n");
+}
+
+function renderAeo(aeo?: AeoCitationInput): string {
+  if (!aeo) return "- AEO / citation export unavailable.";
+
+  const rows: string[] = [];
+  const aiReferrers = aeo.aiReferrers
+    .slice()
+    .sort((a, b) => b.visits - a.visits)
+    .slice(0, 6);
+  const engines = aeo.engines
+    .slice()
+    .sort((a, b) => b.citations - a.citations)
+    .slice(0, 8);
+  const llmsFiles = aeo.llmsFiles.map((file) =>
+    `${file.path.replace(/^.*\/public\//, "")}: ${file.exists ? `${file.lines} lines` : "missing"}`);
+
+  rows.push(`- llms inventory: ${llmsFiles.join(", ")}.`);
+  rows.push(aiReferrers.length
+    ? `- AI referrers seen in Vercel: ${aiReferrers.map((row) => `${row.referrer}=${row.visits}`).join(", ")}.`
+    : "- AI referrers seen in Vercel: none in the current export.");
+  rows.push(engines.length
+    ? `- Ahrefs AI citation snapshot: ${engines.map((engine) => `${engine.engine}=${engine.citations} citations/${engine.pages} pages`).join(", ")}.`
+    : "- Ahrefs AI citation snapshot unavailable.");
+  rows.push(aeo.citationDomains.length
+    ? `- Likely citation domains: ${aeo.citationDomains.map((row) => `${row.domain}${row.domainRating ? ` (DR ${row.domainRating})` : ""}`).join(", ")}.`
+    : "- Likely citation domains: none identified from the available Ahrefs snapshot.");
+
+  return rows.join("\n");
 }
 
 function renderStore(store?: StoreSnapshotInput, dataforseo?: DataForSeoExportInput): string {
@@ -236,13 +298,39 @@ function renderNativeFunnel(posthog?: PostHogExportInput): string {
 
 function renderCompetitorDeltas(
   store?: StoreSnapshotInput,
+  competitor?: CompetitorIntelligenceInput,
   dataforseo?: DataForSeoExportInput,
 ): string {
   const deltas = [
+    ...renderStructuredCompetitorMaterialDeltas(competitor?.materialDeltas ?? [], competitor?.runId),
     ...renderStructuredCompetitorDeltas(store?.competitorDeltas ?? []),
     ...renderCompetitorKeywordCoverage(dataforseo),
   ];
-  return deltas.length ? deltas.map((delta) => `- ${delta}`).join("\n") : "- No competitor deltas in available inputs.";
+  const deduped = [...new Set(deltas)];
+  return deduped.length ? deduped.map((delta) => `- ${delta}`).join("\n") : "- No competitor deltas in available inputs.";
+}
+
+function renderCompetitorTechnicalSurfaces(competitor?: CompetitorIntelligenceInput): string {
+  if (!competitor || competitor.technicalSurfaces.length === 0) {
+    return "- Competitor technical-surface export unavailable.";
+  }
+
+  return competitor.technicalSurfaces.map((surface) => {
+    const statusParts = [
+      typeof surface.robotsStatus === "number" ? `robots ${surface.robotsStatus}` : null,
+      typeof surface.sitemapStatus === "number" ? `sitemap ${surface.sitemapStatus}` : null,
+      typeof surface.sitemapCount === "number" ? `${surface.sitemapCount.toLocaleString()} sitemap URLs` : null,
+      surface.schemaSupport === "present"
+        ? "raw HTML schema markers present"
+        : surface.schemaSupport === "missing"
+          ? "no raw HTML schema markers"
+          : null,
+    ].filter(Boolean);
+    const note = surface.notes[0] ? ` ${surface.notes[0]}` : "";
+    return `- ${surface.competitor}: ${statusParts.join("; ") || "no structured technical summary"}.${
+      note ? ` Note: ${note}` : ""
+    }`;
+  }).join("\n");
 }
 
 function renderRecommendations(items: SeoRecommendation[], fallback: string): string {
@@ -274,6 +362,27 @@ function renderWeeklyActions(
     : "- No high-confidence weekly actions from available inputs.";
 }
 
+function renderExecutionPlan(items: WeeklyActionItem[]): string {
+  if (items.length === 0) {
+    return "- No execution plan generated because there are no weekly actions.";
+  }
+
+  const rows = items.slice(0, 5).map((item, index) =>
+    `${index + 1}. ${executionPhaseLabel(index, item.source)}: [${item.source.toUpperCase()}] ${item.title}. Deliverable: ${item.nextStep}`,
+  );
+
+  rows.push(`${rows.length + 1}. End of week: rerun the weekly SEO + ASO report and compare CTR, rank, competitor, and ASO deltas against this baseline.`);
+  return rows.join("\n");
+}
+
+function executionPhaseLabel(index: number, source: WeeklyActionItem["source"]): string {
+  if (index === 0) return "Day 1";
+  if (source === "competitor" || source === "aeo" || source === "aso") return "Day 2";
+  if (index <= 2) return "Day 3";
+  if (index === 3) return "Day 4";
+  return "Day 5";
+}
+
 function renderCoverageNotes(input: WeeklySeoReportInput): string {
   const missing = [
     ...input.missing,
@@ -282,6 +391,8 @@ function renderCoverageNotes(input: WeeklySeoReportInput): string {
     ...(input.store?.missing ?? []),
     ...(input.dataforseo?.missing ?? []),
     ...(input.backlink?.missing ?? []),
+    ...(input.competitor?.missing ?? []),
+    ...(input.aeo?.missing ?? []),
   ];
   const hasDataForSeo = !!input.dataforseo &&
     (input.dataforseo.googleRankings.length > 0 ||
@@ -301,6 +412,12 @@ function renderCoverageNotes(input: WeeklySeoReportInput): string {
     input.store?.competitorDeltas.length
       ? `- Competitor deltas use the latest structured competitor report snapshot (${input.store.competitorDeltas[0]?.runId ?? "unknown run"}), not freeform automation memory.`
       : "- Competitor deltas are unavailable unless a structured competitor report snapshot is present.",
+    input.competitor?.technicalSurfaces.length
+      ? `- Competitor technical surfaces are parsed from the latest competitor deep-dive run (${input.competitor.runId ?? "unknown run"}), then summarized into this weekly report.`
+      : "- Competitor technical surfaces are unavailable unless the latest competitor deep-dive report is present.",
+    input.aeo?.engines.length || input.aeo?.aiReferrers.length || input.aeo?.llmsFiles.length
+      ? "- AEO coverage combines llms inventory, AI referrer traffic, and Ahrefs AI citation snapshots when present."
+      : "- AEO coverage is unavailable unless llms files, AI referrers, or Ahrefs citation snapshots are present.",
     manualExportCount > 0
       ? "- Manual backlink imports are included when matching Ahrefs Webmaster Tools, Moz Link Explorer, GSC links, or manual backlink CSV/JSON files are present in the audit folder or `docs/seo/backlink-reports/`."
       : "- Manual backlink imports: no matching Ahrefs Webmaster Tools, Moz Link Explorer, GSC links, or manual backlink CSV/JSON files were found in this audit folder or `docs/seo/backlink-reports/`.",
@@ -318,6 +435,14 @@ function renderStructuredCompetitorDeltas(deltas: CompetitorDelta[]): string[] {
     `${delta.runId}\u0000${delta.summary}`,
     `Structured competitor report (${delta.runId}): ${sanitizeDeltaSummary(delta.summary)}`,
   ])).values()];
+}
+
+function renderStructuredCompetitorMaterialDeltas(
+  deltas: string[],
+  runId?: string,
+): string[] {
+  return deltas.map((summary) =>
+    `Structured competitor report (${runId ?? "unknown run"}): ${sanitizeDeltaSummary(summary)}`);
 }
 
 function sanitizeDeltaSummary(summary: string): string {

@@ -38,6 +38,10 @@ describe("SEO workflow backlink proxy", () => {
         uniqueReferringDomains: 2,
         sampleReferringDomains: ["surf-school.example"],
         topTargetUrls: [{ url: "https://www.quiversurf.app/map", links: 2 }],
+        spamRows: 1,
+        nonSpamRows: 2,
+        dofollowLinks: 2,
+        topCitationDomains: [{ domain: "surf-school.example", links: 1, domainRating: 72 }],
       }],
     });
 
@@ -62,10 +66,10 @@ describe("SEO workflow backlink proxy", () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), "quiver-backlinks-"));
     const csvPath = path.join(directory, "AHREFS-WEBMASTER-TOOLS.csv");
     fs.writeFileSync(csvPath, [
-      "Referring page URL,Target URL,Anchor",
-      "https://surf-school.example/blog,https://www.quiversurf.app/map,Quiver",
-      "https://surf-school.example/resources,https://www.quiversurf.app/map,Quiver",
-      "https://tourism.example/surf,https://www.quiversurf.app/best-time-to-surf,forecast",
+      "Referring page URL,Target URL,Anchor,Spam,Dofollow Links,Domain Rating",
+      "https://surf-school.example/blog,https://www.quiversurf.app/map,Quiver,false,1,68",
+      "https://surf-school.example/resources,https://www.quiversurf.app/map,Quiver,true,0,15",
+      "https://tourism.example/surf,https://www.quiversurf.app/best-time-to-surf,forecast,false,2,72",
     ].join("\n"));
 
     const files = discoverManualBacklinkExportFiles([directory]);
@@ -78,9 +82,16 @@ describe("SEO workflow backlink proxy", () => {
       rows: 3,
       uniqueReferringDomains: 2,
       sampleReferringDomains: ["surf-school.example", "tourism.example"],
+      spamRows: 1,
+      nonSpamRows: 2,
+      dofollowLinks: 3,
     });
     expect(exports[0]?.topTargetUrls).toEqual(expect.arrayContaining([
       { url: "https://www.quiversurf.app/map", links: 2 },
     ]));
+    expect(exports[0]?.topCitationDomains).toEqual([
+      { domain: "surf-school.example", links: 1, domainRating: 68 },
+      { domain: "tourism.example", links: 1, domainRating: 72 },
+    ]);
   });
 });

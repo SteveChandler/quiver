@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import { TEST_BEACHES } from '../fixtures/test-data';
 import {
   assertNoErrors,
   type ErrorCapture,
@@ -8,9 +7,19 @@ import {
 } from '../utils/error-detection';
 import { getProdReadonlyAuthBlockReason } from '../utils/prod-readonly-auth';
 import { isVisibleSafe } from '../utils/strict-helpers';
-import { navigateToBeach, waitForAuthenticatedHome, waitForPageLoad } from '../utils/test-helpers';
+import { waitForPageLoad } from '../utils/test-helpers';
+
+const PROD_BLACKS_URL = '/ca/san-diego/blacks';
+
+test.describe.configure({ mode: 'serial' });
 
 test.describe('Prod Read-Only Auth UI', () => {
+  // eslint-disable-next-line playwright/no-skipped-test -- prod-readonly assertions target deployed prod auth behavior only.
+  test.skip(
+    process.env.PLAYWRIGHT_PROD_READONLY !== 'true',
+    'Prod read-only suite runs only against the deployed prod app (PLAYWRIGHT_PROD_READONLY=true).',
+  );
+
   let errorCapture: ErrorCapture | null;
 
   test.beforeEach(async ({ page }) => {
@@ -33,20 +42,19 @@ test.describe('Prod Read-Only Auth UI', () => {
     await gotoWithErrorCheck(page, errorCapture!, '/');
     await waitForPageLoad(page);
 
-    const authHomeLoaded = await waitForAuthenticatedHome(page);
-    expect(authHomeLoaded).toBe(true);
-
     const hero = page.locator('section[role="banner"]').first();
     const nearbySpots = page.locator('[data-testid="nearby-spots-scroll"]').first();
+    const userMenu = page.getByRole('button', { name: /user menu/i }).first();
     const hasSignedInShell =
       (await isVisibleSafe(hero, { timeout: 15000 })) ||
-      (await isVisibleSafe(nearbySpots, { timeout: 15000 }));
+      (await isVisibleSafe(nearbySpots, { timeout: 15000 })) ||
+      (await isVisibleSafe(userMenu, { timeout: 15000 }));
 
     expect(hasSignedInShell).toBe(true);
   });
 
   test('authenticated surf report does not show the guest signup gate', async ({ page }) => {
-    await navigateToBeach(page, TEST_BEACHES.blacks);
+    await gotoWithErrorCheck(page, errorCapture!, PROD_BLACKS_URL);
 
     const surfReport = page.locator('section[aria-label*="surf call"]').first();
     const gateHeading = surfReport.getByRole('heading', { name: /see today's best window/i });

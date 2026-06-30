@@ -1,5 +1,4 @@
 import { expect, test } from '@playwright/test';
-import { TEST_BEACHES } from '../fixtures/test-data';
 import {
   assertNoErrors,
   type ErrorCapture,
@@ -8,11 +7,22 @@ import {
 } from '../utils/error-detection';
 import { dismissMapEntryOverlay } from '../utils/map-helpers';
 import { isVisibleSafe } from '../utils/strict-helpers';
-import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
+
+const PROD_BLACKS_URL = '/ca/san-diego/blacks';
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
 test.describe('Prod Read-Only Guest UI', () => {
+  // This suite targets the deployed production app and is run via the dedicated
+  // prod read-only command (PLAYWRIGHT_PROD_READONLY=true). Skip it in standard
+  // local/dev guest runs, where the app-first landing differs (e.g. no web
+  // signup modal) and these prod-shaped assertions don't apply.
+  // eslint-disable-next-line playwright/no-skipped-test -- prod-readonly assertions target deployed prod copy/routes only.
+  test.skip(
+    process.env.PLAYWRIGHT_PROD_READONLY !== 'true',
+    'Prod read-only suite runs only against the deployed prod app (PLAYWRIGHT_PROD_READONLY=true).',
+  );
+
   let errorCapture: ErrorCapture | null;
 
   test.beforeEach(async ({ page }) => {
@@ -64,22 +74,16 @@ test.describe('Prod Read-Only Guest UI', () => {
     await expect(dialog.getByRole('button', { name: /continue with google/i })).toBeVisible();
   });
 
-  test('signup modal opens from the landing page without submitting credentials', async ({
+  test('app CTA opens the download handoff without submitting credentials', async ({
     page,
   }) => {
     await gotoWithErrorCheck(page, errorCapture!, '/');
 
-    const signupButton = page
-      .getByRole('button', {
-        name: /sign up|get started|start surfing smarter|check your forecast|get free alerts|get scores for every beach near you/i,
-      })
-      .first();
-    await expect(signupButton).toBeVisible();
-    await signupButton.click();
+    const appCta = page.getByRole('link', { name: /get the app/i }).first();
+    await expect(appCta).toBeVisible();
+    await appCta.click();
 
-    const dialog = page.locator('[role="dialog"]').first();
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByText(/join quiver|sign up/i).first()).toBeVisible();
+    await expect(page).toHaveURL(/\/download|apps\.apple\.com/);
   });
 
   test('features page renders meaningful content', async ({ page }) => {
@@ -100,8 +104,7 @@ test.describe('Prod Read-Only Guest UI', () => {
   });
 
   test('public beach detail route renders stable guest content', async ({ page }) => {
-    const beachUrl = buildBeachUrl(TEST_BEACHES.blacks);
-    await page.goto(beachUrl, { timeout: 15000, waitUntil: 'domcontentloaded' });
+    await page.goto(PROD_BLACKS_URL, { timeout: 15000, waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('load', { timeout: 15000 });
 
     await expect(page.getByRole('heading', { name: /blacks/i, level: 1 })).toBeVisible({
