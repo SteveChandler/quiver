@@ -27,7 +27,9 @@ export type EmbedMapCommand =
   | { type: "cancelPlacement"; payload?: Record<string, never> }
   | { type: "confirmPlacement"; payload?: Record<string, never> }
   | { type: "setTheme"; payload: { mode: "explore" | "hero" } }
-  | { type: "setReducedMotion"; payload: { enabled: boolean } };
+  | { type: "setReducedMotion"; payload: { enabled: boolean } }
+  | { type: "setFieldVisible"; payload: { visible: boolean } }
+  | { type: "setForecastPlaying"; payload: { playing: boolean } };
 
 export type EmbedMapEvent =
   | { type: "ready"; payload: { viewport: EmbedMapViewport } }
@@ -50,6 +52,7 @@ export type EmbedMapEvent =
   | { type: "placementChanged"; payload: EmbedMapCoordinate }
   | { type: "placementConfirmed"; payload: EmbedMapCoordinate }
   | { type: "placementCancelled"; payload: Record<string, never> }
+  | { type: "forecastTimeChanged"; payload: { index: number } }
   | { type: "renderHealth"; payload: { fps?: number; status: "ok" | "degraded" } };
 
 const SWELL_LAYER_IDS = new Set<EmbedMapSwellLayerId>([
@@ -166,6 +169,14 @@ export function parseEmbedMapCommand(data: unknown): EmbedMapCommand | null {
     case "setReducedMotion": {
       if (!isRecord(payload) || typeof payload.enabled !== "boolean") return null;
       return { type: "setReducedMotion", payload: { enabled: payload.enabled } };
+    }
+    case "setFieldVisible": {
+      if (!isRecord(payload) || typeof payload.visible !== "boolean") return null;
+      return { type: "setFieldVisible", payload: { visible: payload.visible } };
+    }
+    case "setForecastPlaying": {
+      if (!isRecord(payload) || typeof payload.playing !== "boolean") return null;
+      return { type: "setForecastPlaying", payload: { playing: payload.playing } };
     }
     default:
       return null;
