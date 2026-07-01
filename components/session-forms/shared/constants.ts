@@ -62,6 +62,9 @@ export const WAVE_CHARACTERISTICS = [
   { value: "barreling", label: "Barreling" },
   { value: "reform", label: "Reform" },
   { value: "walled", label: "Walled" },
+  { value: "rights", label: "Rights" },
+  { value: "lefts", label: "Lefts" },
+  { value: "steep", label: "Steep" },
 ] as const;
 
 export const RIP_CURRENT_OBSERVED_OPTIONS = [

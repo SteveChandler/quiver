@@ -18,9 +18,9 @@ describe("WaveTypeSelector", () => {
     expect(screen.getByText("Wave characteristics:")).toBeInTheDocument();
   });
 
-  it("renders all 12 canonical wave characteristic options", () => {
+  it("renders all 15 canonical wave characteristic options", () => {
     render(<WaveTypeSelector {...defaultProps} />);
-    
+
     // Check that all wave types are rendered
     WAVE_TYPES.forEach((waveType) => {
       expect(screen.getByText(waveType.label)).toBeInTheDocument();
@@ -40,6 +40,9 @@ describe("WaveTypeSelector", () => {
       "barreling",
       "reform",
       "walled",
+      "rights",
+      "lefts",
+      "steep",
     ]);
     
     // Check grid layout - should have 2 columns
