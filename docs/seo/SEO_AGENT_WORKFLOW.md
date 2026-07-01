@@ -21,6 +21,7 @@ yarn seo:export:aeo
 yarn seo:store-snapshot
 yarn seo:backlink-proxy
 yarn seo:gsc-refresh --input path/to/gsc-export.json
+yarn seo:trend-radar --gsc path/to/gsc-export.json --prior-gsc path/to/prior-gsc-export.json --manual-trends path/to/google-trends.csv
 yarn seo:technical-audit
 yarn seo:enrich --source vercel --input path/to/vercel-export.json
 yarn seo:enrich --source posthog --input path/to/posthog-export.json

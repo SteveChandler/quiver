@@ -119,6 +119,7 @@
     "perf:test": "node scripts/performance-test.mjs",
     "seo:keyword-bank": "node --import tsx scripts/seo/keyword-bank.ts",
     "seo:gsc-refresh": "node --import tsx scripts/seo/gsc-refresh.ts",
+    "seo:trend-radar": "node --import tsx scripts/seo/trend-radar.ts",
     "seo:technical-audit": "node --import tsx scripts/seo/technical-audit.ts",
     "seo:metadata-audit": "node --import tsx scripts/seo/metadata-audit.ts",
     "seo:enrich": "node --import tsx scripts/seo/enrich.ts",
