@@ -62,7 +62,7 @@ describe("QuiverFieldGuideLanding", () => {
     expect(screen.getByTestId("funnel-cta")).toBeInTheDocument();
   });
 
-  it("renders the Swell View spotlight CTA", () => {
+  it("renders the Swell View spotlight without a duplicate CTA", () => {
     render(<QuiverFieldGuideLanding platform="ios" />);
 
     const spotlight = screen.getByTestId("field-guide-spotlight");
@@ -74,12 +74,22 @@ describe("QuiverFieldGuideLanding", () => {
     expect(
       within(spotlight).getByText("FREE · NEW IN THE APP"),
     ).toBeInTheDocument();
+    // The spotlight no longer repeats the hero's "Get the app" CTA.
     expect(
-      within(spotlight).getByRole("link", { name: "Get the app" }),
-    ).toHaveAttribute(
-      "href",
-      "/download?source=landing_swell_view&placement=spotlight&platform=ios",
-    );
+      within(spotlight).queryByRole("link", { name: "Get the app" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("renders community testimonials from real surfer feedback", () => {
+    render(<QuiverFieldGuideLanding platform="ios" />);
+
+    const community = screen.getByTestId("field-guide-community");
+    expect(
+      within(community).getByRole("heading", {
+        name: /recent check-ins from the community/i,
+      }),
+    ).toBeInTheDocument();
+    expect(community).toHaveTextContent(/swell direction, interval, and wind/i);
   });
 
   it("uses defensible proof claims", () => {

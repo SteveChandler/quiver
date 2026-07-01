@@ -15,8 +15,8 @@ jest.mock("next/image", () => ({
 }));
 
 describe("FieldGuideSpotlight", () => {
-  it("renders the Swell View launch copy, free chip, CTA, and image", () => {
-    render(<FieldGuideSpotlight platform="ios" />);
+  it("renders the Swell View launch copy, free chip, and image", () => {
+    render(<FieldGuideSpotlight />);
 
     expect(
       screen.getByRole("heading", { name: /swell view is here/i }),
@@ -25,11 +25,11 @@ describe("FieldGuideSpotlight", () => {
     expect(screen.getByText(/free, in the app/i)).toBeInTheDocument();
     expect(screen.getByText(/318 breaks · 73 cams/i)).toBeInTheDocument();
 
-    const cta = screen.getByRole("link", { name: /get the app/i });
-    expect(cta).toHaveAttribute(
-      "href",
-      "/download?source=landing_swell_view&placement=spotlight&platform=ios",
-    );
+    // The spotlight no longer carries its own CTA — a single hero "Get the app"
+    // primary avoids the double-CTA "desperate" read.
+    expect(
+      screen.queryByRole("link", { name: /get the app/i }),
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("img", { name: /swell view/i })).toHaveAttribute(
       "src",
       "/images/landing/swell-view-preview-v2.png",
