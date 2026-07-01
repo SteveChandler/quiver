@@ -19,8 +19,18 @@ const viewports = [
 test.describe("Guest Session Intelligence component preview", () => {
   let errorCapture: ErrorCapture;
 
-  test.beforeEach(async ({ page }) => {
+  test.beforeEach(async ({ page, request }) => {
     errorCapture = setupErrorDetection(page);
+    // /dev/session-intelligence-preview is gated off (notFound → 404) when
+    // VERCEL_ENV="production", which the production-mode e2e:serve build sets via
+    // .env.production.local. Probe via the request fixture (not the page, so the
+    // 404 isn't recorded by error detection) and skip when unavailable; the suite
+    // exercises this preview against a dev-mode server where the route is served.
+    const probe = await request.get("/dev/session-intelligence-preview");
+    test.skip(
+      probe.status() === 404,
+      "Dev preview route disabled (VERCEL_ENV=production / e2e:serve build).",
+    );
   });
 
   test.afterEach(async ({ page }) => {

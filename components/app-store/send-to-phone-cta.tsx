@@ -18,7 +18,7 @@ import {
 } from "@/lib/analytics/app-handoff-tracking";
 import {
   APP_FIRST_CAMPAIGN,
-  buildAppHandoffUrl,
+  buildSmartQrHandoffUrl,
   iosAppStoreUrlWithCampaign,
 } from "@/lib/constants/app-handoff";
 import { cn } from "@/lib/utils";
@@ -29,6 +29,8 @@ interface SendToPhoneCtaProps {
   placement: string;
   variant?: string;
   cohort?: string;
+  qrId?: string;
+  target?: string;
   className?: string;
   showEmailForm?: boolean;
 }
@@ -43,6 +45,8 @@ export function SendToPhoneCta({
   placement,
   variant,
   cohort,
+  qrId,
+  target,
   className,
   showEmailForm = true,
 }: SendToPhoneCtaProps): ReactElement {
@@ -53,14 +57,15 @@ export function SendToPhoneCta({
 
   const qrValue = useMemo(
     () =>
-      buildAppHandoffUrl({
+      buildSmartQrHandoffUrl({
         source,
+        surface,
         placement,
-        utm_source: "qr",
+        qr_id: qrId ?? `${surface}_${placement}_qr`,
+        target: target ?? "download",
         utm_medium: "desktop_handoff",
-        utm_campaign: APP_FIRST_CAMPAIGN,
       }),
-    [placement, source],
+    [placement, qrId, source, surface, target],
   );
 
   useEffect(() => {
@@ -74,8 +79,10 @@ export function SendToPhoneCta({
       cohort,
       platform: "desktop",
       destination_type: "app_handoff",
+      qr_id: qrId ?? `${surface}_${placement}_qr`,
+      target: target ?? "download",
     });
-  }, [cohort, placement, source, surface, variant]);
+  }, [cohort, placement, qrId, source, surface, target, variant]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -165,6 +172,7 @@ export function SendToPhoneCta({
           <QRCodeSVG
             aria-label="Scan to open Quiver on your phone"
             data-testid="app-handoff-qr"
+            data-smart-url={qrValue}
             value={qrValue}
             size={150}
             level="H"

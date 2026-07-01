@@ -70,7 +70,7 @@ test.describe("Phase 18 guest SEO-safe Session Intelligence rollout", () => {
   });
 
   for (const viewport of VIEWPORTS) {
-    test(`sampled routes stay public and crawlable on ${viewport.name}`, async ({
+    test(`sampled routes stay public and crawlable on ${viewport.name} @requires-data`, async ({
       page,
     }) => {
       await page.setViewportSize({

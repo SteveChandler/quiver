@@ -126,8 +126,6 @@ interface BeachRow {
   id: string;
   name: string;
   slug: string | null;
-  center_lat: number | null;
-  center_lng: number | null;
   lat: number | null;
   lon: number | null;
   timezone: string | null;
@@ -139,8 +137,6 @@ interface BeachRow {
   wind_offshore_tol_deg: number | null;
   wind_onshore_bad_kt: number | null;
   wind_cross_shore_ok_kt: number | null;
-  max_wind_onshore_mph: number | null;
-  max_wind_any_mph: number | null;
   preferred_tide_direction: string | null;
   preferred_tide_ft_min: number | null;
   preferred_tide_ft_max: number | null;
@@ -622,19 +618,19 @@ async function buildCandidateBeaches(
   // Nearby: need home beach coords first.
   const { data: home } = await supabase
     .from("beaches")
-    .select("id, center_lat, center_lng")
+    .select("id, lat, lon")
     .eq("id", user.home_beach_id)
     .maybeSingle();
 
   const homeRow = home as
-    | { id: string; center_lat: number | null; center_lng: number | null }
+    | { id: string; lat: number | null; lon: number | null }
     | null;
 
-  if (homeRow?.center_lat != null && homeRow?.center_lng != null) {
+  if (homeRow?.lat != null && homeRow?.lon != null) {
     const meters = Math.round(NEARBY_RADIUS_MILES * 1609.34);
     const { data: nearby } = await supabase.rpc("get_nearby_beaches", {
-      input_lat: homeRow.center_lat,
-      input_lng: homeRow.center_lng,
+      input_lat: homeRow.lat,
+      input_lng: homeRow.lon,
       max_distance_meters: meters,
       limit_count: NEARBY_LIMIT,
     });
@@ -652,8 +648,6 @@ async function buildCandidateBeaches(
         "id",
         "name",
         "slug",
-        "center_lat",
-        "center_lng",
         "lat",
         "lon",
         "timezone",
@@ -665,8 +659,6 @@ async function buildCandidateBeaches(
         "wind_offshore_tol_deg",
         "wind_onshore_bad_kt",
         "wind_cross_shore_ok_kt",
-        "max_wind_onshore_mph",
-        "max_wind_any_mph",
         "preferred_tide_direction",
         "preferred_tide_ft_min",
         "preferred_tide_ft_max",

@@ -28,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AuthLoader } from "@/components/ui/loading-states";
+import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { useAuth } from "@/context/auth-context";
 import { ConditionBuilder } from "@/components/alerts/condition-builder";
 import type { AlertConditions, BeachAlertMeta } from "@/lib/alerts/types";
@@ -437,39 +438,64 @@ export function AlertsManagementPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0D1020] px-4 py-8 text-white sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-6xl space-y-6">
-        <section className="flex flex-col gap-4 border-b border-[#404C92]/60 pb-6 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h1 className="font-[family-name:var(--font-space-grotesk)] text-3xl font-bold tracking-tight sm:text-4xl">
-              Condition alerts
-            </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-[#B8C7E0]">
-              Manage the surf windows you care about. These rules use wave
-              height, wind, tide, and beach-specific forecast data.
-            </p>
+    <ZineSurface
+      sectionLabel="Condition alerts"
+      editionLabel="Saved surf windows"
+      data-testid="alerts-zine-surface"
+      paperClassName="overflow-hidden"
+    >
+      <style>
+        {`
+          .theme-retro-dark .zine-alert-input {
+            background-color: var(--paper) !important;
+            color: var(--ink) !important;
+          }
+
+          .theme-retro-dark .zine-alert-control {
+            background-color: var(--paper) !important;
+            color: var(--ink) !important;
+          }
+        `}
+      </style>
+      <main className="space-y-7">
+        <section className="relative border-b-2 border-[#11100D] pb-7">
+          <QuiverSticker
+            sticker="orangeTape"
+            className="absolute -right-6 -top-8 hidden w-32 rotate-6 opacity-85 sm:block"
+          />
+          <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+            <div>
+              <p className="label-black mb-4">Surf watch desk</p>
+              <h1 className="zine-h1 font-black uppercase leading-[0.9] tracking-normal text-[#11100D]">
+                Condition alerts
+              </h1>
+              <p className="mt-4 max-w-2xl text-base leading-7 text-[#11100D]/75 sm:text-lg">
+                Manage the surf windows you care about. These rules use wave
+                height, wind, tide, and beach-specific forecast data.
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={() =>
+                document.getElementById("alert-beach-search")?.focus()
+              }
+              className="h-11 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] hover:bg-[#F78E42]/90"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Create alert
+            </Button>
           </div>
-          <Button
-            type="button"
-            onClick={() =>
-              document.getElementById("alert-beach-search")?.focus()
-            }
-            className="h-11 rounded-md bg-[#F78E42] px-4 font-semibold text-white hover:bg-[#F78E42]/90"
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Create alert
-          </Button>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[360px_1fr]">
-          <div className="rounded-lg border border-[#404C92] bg-[#252D6B] p-4">
+          <div className="torn torn-tb rotate-[-0.35deg] border-2 border-[#11100D] bg-[#FBF6E8] p-5 shadow-[5px_6px_0_rgba(17,16,13,0.22)]">
             <div className="flex items-center gap-2">
               <Search className="h-4 w-4 text-[#F78E42]" />
-              <h2 className="font-[family-name:var(--font-space-grotesk)] text-base font-semibold">
+              <h2 className="font-[family-name:var(--font-space-grotesk)] text-base font-black uppercase tracking-[0.03em] text-[#11100D]">
                 Create for a beach
               </h2>
             </div>
-            <p className="mt-2 text-xs leading-5 text-[#B8C7E0]">
+            <p className="mt-2 text-sm leading-6 text-[#403A2E]">
               Start with the small clean longboard setup, then adjust the
               conditions before saving.
             </p>
@@ -482,14 +508,14 @@ export function AlertsManagementPage() {
                 value={searchQuery}
                 onChange={(event) => setSearchQuery(event.target.value)}
                 placeholder="Search Bolsa, Huntington..."
-                className="h-11 w-full rounded-md border border-[#404C92] bg-[#1E2660] px-3 text-sm text-white outline-none placeholder:text-[#B8C7E0]/55 focus:border-[#F78E42] focus:ring-2 focus:ring-[#F78E42]/30"
+                className="zine-alert-input h-11 w-full rounded-sm border-2 border-[#11100D] bg-[#F4EBD8] px-3 text-sm text-[#11100D] outline-none placeholder:text-[#403A2E]/55 focus:border-[#F78E42] focus:ring-2 focus:ring-[#F78E42]/30"
               />
             </div>
 
             <div className="mt-3 space-y-2" data-testid="alert-beach-results">
               {searchLoading || editorLoading ? (
-                <div className="flex items-center gap-2 rounded-md border border-[#404C92]/60 bg-[#1E2660]/70 px-3 py-3 text-sm text-[#B8C7E0]">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                <div className="flex items-center gap-2 rounded-sm border-2 border-[#11100D]/45 bg-[#F4EBD8] px-3 py-3 text-sm text-[#403A2E]">
+                  <Loader2 className="h-4 w-4 animate-spin text-[#F78E42]" />
                   Loading beach metadata
                 </div>
               ) : null}
@@ -497,7 +523,7 @@ export function AlertsManagementPage() {
               {!searchLoading &&
               searchQuery.trim().length >= 2 &&
               beachResults.length === 0 ? (
-                <div className="rounded-md border border-[#404C92]/60 bg-[#1E2660]/70 px-3 py-3 text-sm text-[#B8C7E0]">
+                <div className="rounded-sm border-2 border-dashed border-[#11100D]/45 bg-[#F4EBD8] px-3 py-3 text-sm text-[#403A2E]">
                   No beaches found
                 </div>
               ) : null}
@@ -507,17 +533,17 @@ export function AlertsManagementPage() {
                   key={beach.id}
                   type="button"
                   onClick={() => openCreateEditor(beach.id)}
-                  className="flex w-full items-center justify-between rounded-md border border-[#404C92]/70 bg-[#1E2660] px-3 py-3 text-left transition hover:border-[#F78E42]/70 hover:bg-[#354090]"
+                  className="flex w-full items-center justify-between gap-3 rounded-sm border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-3 text-left text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.18)] transition hover:-translate-y-0.5 hover:bg-[#FFF9EA] hover:shadow-[3px_3px_0_rgba(17,16,13,0.24)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70"
                 >
-                  <span>
-                    <span className="block text-sm font-semibold text-white">
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-black">
                       {beach.name}
                     </span>
-                    <span className="block text-xs text-[#B8C7E0]">
+                    <span className="block truncate text-xs text-[#403A2E]">
                       {[beach.city, beach.state].filter(Boolean).join(", ")}
                     </span>
                   </span>
-                  <Plus className="h-4 w-4 text-[#F78E42]" />
+                  <Plus className="h-4 w-4 shrink-0 text-[#F78E42]" />
                 </button>
               ))}
             </div>
@@ -525,13 +551,13 @@ export function AlertsManagementPage() {
 
           <div className="space-y-4">
             {rulesError ? (
-              <Alert className="border-red-400/40 bg-red-500/10 text-red-100">
+              <Alert className="border-2 border-red-700 bg-red-50 text-red-900">
                 <AlertDescription className="flex items-center justify-between gap-3">
                   <span>{rulesError}</span>
                   <button
                     type="button"
                     onClick={loadRules}
-                    className="inline-flex items-center gap-1 text-sm font-semibold text-white"
+                    className="inline-flex items-center gap-1 text-sm font-black text-red-900"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                     Retry
@@ -541,19 +567,19 @@ export function AlertsManagementPage() {
             ) : null}
 
             {rulesLoading ? (
-              <div className="rounded-lg border border-[#404C92] bg-[#252D6B] p-8 text-center text-[#B8C7E0]">
+              <div className="rounded-sm border-2 border-[#11100D] bg-[#FBF6E8] p-8 text-center text-[#403A2E] shadow-[4px_5px_0_rgba(17,16,13,0.18)]">
                 <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-[#F78E42]" />
                 Loading alerts
               </div>
             ) : null}
 
             {!rulesLoading && groupedRules.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-[#404C92] bg-[#252D6B]/70 p-8 text-center">
+              <div className="rounded-sm border-2 border-dashed border-[#11100D] bg-[#FBF6E8] p-8 text-center text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.14)]">
                 <Waves className="mx-auto h-8 w-8 text-[#F78E42]" />
-                <h2 className="mt-3 font-[family-name:var(--font-space-grotesk)] text-xl font-semibold">
+                <h2 className="mt-3 font-[family-name:var(--font-space-grotesk)] text-xl font-black uppercase">
                   No condition alerts yet
                 </h2>
-                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#B8C7E0]">
+                <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-[#403A2E]">
                   Search for a beach and create a rule for small clean waves,
                   glassy mornings, tide windows, or your own setup.
                 </p>
@@ -563,14 +589,14 @@ export function AlertsManagementPage() {
             {groupedRules.map((group) => (
               <section
                 key={group.beachId}
-                className="rounded-lg border border-[#404C92] bg-[#252D6B] p-4"
+                className="rounded-sm border-2 border-[#11100D] bg-[#FBF6E8] p-4 text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.18)]"
               >
-                <div className="flex flex-col gap-1 border-b border-[#404C92]/60 pb-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex flex-col gap-2 border-b-2 border-[#11100D] pb-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <h2 className="font-[family-name:var(--font-space-grotesk)] text-lg font-semibold">
+                    <h2 className="font-[family-name:var(--font-space-grotesk)] text-lg font-black uppercase tracking-[0.03em]">
                       {group.beachName}
                     </h2>
-                    <p className="text-xs text-[#B8C7E0]">
+                    <p className="font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#403A2E]">
                       {group.rules.length} alert
                       {group.rules.length === 1 ? "" : "s"}
                     </p>
@@ -578,14 +604,14 @@ export function AlertsManagementPage() {
                   <button
                     type="button"
                     onClick={() => openCreateEditor(group.beachId)}
-                    className="inline-flex min-h-10 items-center gap-2 rounded-md px-3 text-sm font-semibold text-[#F78E42] transition hover:bg-[#F78E42]/10"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F4EBD8] px-3 text-sm font-black text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.18)] transition hover:-translate-y-0.5 hover:bg-[#F78E42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70"
                   >
                     <Plus className="h-4 w-4" />
                     Add rule
                   </button>
                 </div>
 
-                <div className="divide-y divide-[#404C92]/55">
+                <div className="divide-y-2 divide-[#11100D]/20">
                   {group.rules.map((rule) => (
                     <AlertRuleRow
                       key={rule.id}
@@ -600,7 +626,7 @@ export function AlertsManagementPage() {
             ))}
           </div>
         </section>
-      </div>
+      </main>
 
       <AlertRuleEditorDialog
         editor={editor}
@@ -610,7 +636,7 @@ export function AlertsManagementPage() {
           await loadRules();
         }}
       />
-    </main>
+    </ZineSurface>
   );
 }
 
@@ -634,14 +660,14 @@ function AlertRuleRow({
     >
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="truncate text-sm font-semibold text-white">
+          <h3 className="truncate text-sm font-black text-[#11100D]">
             {rule.name}
           </h3>
           <span
-            className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+            className={`rounded-sm border px-2 py-0.5 font-mono text-[10px] font-black uppercase tracking-[0.08em] ${
               rule.enabled
-                ? "bg-[#00D4AA]/15 text-[#00D4AA]"
-                : "bg-[#B8C7E0]/10 text-[#B8C7E0]"
+                ? "border-[#11100D] bg-[#F78E42] text-[#11100D]"
+                : "border-[#11100D]/35 bg-[#E6E0D1] text-[#403A2E]"
             }`}
           >
             {rule.enabled ? "Active" : "Paused"}
@@ -651,19 +677,19 @@ function AlertRuleRow({
           {chips.map((chip) => (
             <span
               key={chip}
-              className="rounded-full border border-[#404C92] bg-[#1E2660] px-2.5 py-1 text-xs text-[#F0F0F0]"
+              className="rounded-sm border border-[#11100D]/35 bg-[#FFF9EA] px-2.5 py-1 font-mono text-[11px] font-bold text-[#252D6B]"
             >
               {chip}
             </span>
           ))}
           {rule.notify_push ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[#F78E42]/45 bg-[#F78E42]/10 px-2.5 py-1 text-xs text-[#F78E42]">
+            <span className="inline-flex items-center gap-1 rounded-sm border border-[#11100D]/45 bg-[#F78E42]/20 px-2.5 py-1 font-mono text-[11px] font-bold text-[#11100D]">
               <Radio className="h-3 w-3" />
               Push on
             </span>
           ) : null}
           {rule.notify_email ? (
-            <span className="inline-flex items-center gap-1 rounded-full border border-[#FDB84B]/45 bg-[#FDB84B]/10 px-2.5 py-1 text-xs text-[#FDB84B]">
+            <span className="inline-flex items-center gap-1 rounded-sm border border-[#11100D]/35 bg-[#F4EBD8] px-2.5 py-1 font-mono text-[11px] font-bold text-[#403A2E]">
               <Mail className="h-3 w-3" />
               Email on
             </span>
@@ -676,7 +702,7 @@ function AlertRuleRow({
           type="button"
           onClick={onToggle}
           aria-label={rule.enabled ? "Pause alert" : "Enable alert"}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[#B8C7E0] transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-sm text-[#403A2E] transition hover:bg-[#F78E42]/20 hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70"
         >
           {rule.enabled ? (
             <Pause className="h-4 w-4" />
@@ -688,7 +714,7 @@ function AlertRuleRow({
           type="button"
           onClick={onEdit}
           aria-label="Edit alert"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[#B8C7E0] transition hover:bg-white/5 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-sm text-[#403A2E] transition hover:bg-[#F78E42]/20 hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70"
         >
           <Edit3 className="h-4 w-4" />
         </button>
@@ -696,7 +722,7 @@ function AlertRuleRow({
           type="button"
           onClick={onDelete}
           aria-label="Delete alert"
-          className="inline-flex h-10 w-10 items-center justify-center rounded-md text-[#B8C7E0] transition hover:bg-red-500/10 hover:text-red-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-sm text-[#403A2E] transition hover:bg-red-100 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60"
         >
           <Trash2 className="h-4 w-4" />
         </button>
@@ -811,26 +837,26 @@ function AlertRuleEditorDialog({
     <Dialog open={!!editor} onOpenChange={(open) => (!open ? onClose() : null)}>
       <DialogContent
         data-testid="alert-editor-dialog"
-        className="max-w-lg border border-[#404C92] bg-[#1E2660] p-0 text-white"
+        className="max-w-lg overflow-hidden rounded-sm border-2 border-[#11100D] bg-[#F4EBD8] p-0 text-[#11100D] shadow-[8px_8px_0_rgba(17,16,13,0.55)] [&>button]:text-[#11100D] [&>button]:opacity-100 [&>button]:ring-offset-[#F4EBD8]"
       >
         {editor ? (
           <>
-            <DialogHeader className="border-b border-[#404C92]/70 px-5 py-4">
-              <DialogTitle className="font-[family-name:var(--font-space-grotesk)] text-lg font-semibold">
+            <DialogHeader className="border-b-2 border-[#11100D] bg-[#FBF6E8] px-5 py-4">
+              <DialogTitle className="font-[family-name:var(--font-space-grotesk)] text-lg font-black uppercase tracking-[0.03em]">
                 {editor.mode === "edit" ? "Edit alert" : "Create alert"}
               </DialogTitle>
-              <DialogDescription className="mt-1 text-xs text-[#B8C7E0]">
+              <DialogDescription className="mt-1 font-mono text-[11px] font-bold uppercase tracking-[0.12em] text-[#403A2E]">
                 {editor.beach.name}
               </DialogDescription>
             </DialogHeader>
 
             <div className="max-h-[74vh] space-y-4 overflow-y-auto px-5 py-5">
-              <div className="rounded-md border border-[#F78E42]/35 bg-[#F78E42]/10 p-3">
-                <div className="flex items-center gap-2 text-sm font-semibold text-[#F78E42]">
+              <div className="rounded-sm border-2 border-[#11100D] bg-[#FFF9EA] p-3 shadow-[2px_2px_0_rgba(17,16,13,0.18)]">
+                <div className="flex items-center gap-2 text-sm font-black text-[#11100D]">
                   <Waves className="h-4 w-4" />
                   Small clean longboard default
                 </div>
-                <p className="mt-1 text-xs leading-5 text-[#F0F0F0]">
+                <p className="mt-1 text-xs leading-5 text-[#403A2E]">
                   Starts at 1-3 ft and light wind. Adjust anything before
                   saving.
                 </p>
@@ -839,7 +865,7 @@ function AlertRuleEditorDialog({
               <div className="space-y-1.5">
                 <label
                   htmlFor="alert-name"
-                  className="text-[11px] font-bold uppercase tracking-widest text-[#B8C7E0]"
+                  className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#403A2E]"
                 >
                   Alert name
                 </label>
@@ -848,12 +874,12 @@ function AlertRuleEditorDialog({
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   maxLength={100}
-                  className="h-10 w-full rounded-md border border-[#404C92] bg-[#252D6B] px-3 text-sm text-white outline-none focus:border-[#F78E42] focus:ring-2 focus:ring-[#F78E42]/30"
+                  className="zine-alert-control h-10 w-full rounded-sm border-2 border-[#11100D] bg-[#FBF6E8] px-3 text-sm text-[#11100D] outline-none focus:border-[#F78E42] focus:ring-2 focus:ring-[#F78E42]/30"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[11px] font-bold uppercase tracking-widest text-[#B8C7E0]">
+                <label className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#403A2E]">
                   Conditions
                 </label>
                 <ConditionBuilder
@@ -863,7 +889,7 @@ function AlertRuleEditorDialog({
               </div>
 
               <div className="space-y-2">
-                <label className="text-[11px] font-bold uppercase tracking-widest text-[#B8C7E0]">
+                <label className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#403A2E]">
                   Notify via
                 </label>
                 <div className="flex flex-wrap gap-2">
@@ -883,7 +909,7 @@ function AlertRuleEditorDialog({
               </div>
 
               {error ? (
-                <Alert className="border-red-400/40 bg-red-500/10 text-red-100">
+                <Alert className="border-2 border-red-700 bg-red-50 text-red-900">
                   <AlertDescription>{error}</AlertDescription>
                 </Alert>
               ) : null}
@@ -893,7 +919,7 @@ function AlertRuleEditorDialog({
                 onClick={handleSave}
                 disabled={saving}
                 data-testid="alert-editor-save"
-                className="h-11 w-full rounded-md bg-[#F78E42] font-semibold text-white hover:bg-[#F78E42]/90 disabled:opacity-60"
+                className="h-11 w-full rounded-full border-2 border-[#11100D] bg-[#F78E42] font-black text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] hover:bg-[#F78E42]/90 disabled:opacity-60"
               >
                 {saving ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -926,10 +952,10 @@ function ChannelButton({
       type="button"
       onClick={onClick}
       aria-pressed={active}
-      className={`inline-flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition ${
+      className={`inline-flex h-9 items-center gap-1.5 rounded-full border-2 px-3 text-xs font-black transition ${
         active
-          ? "border-[#F78E42] bg-[#F78E42]/15 text-[#F78E42]"
-          : "border-[#404C92] bg-transparent text-[#B8C7E0] hover:border-[#B8C7E0]"
+          ? "border-[#11100D] bg-[#F78E42] text-[#11100D]"
+          : "border-[#11100D]/45 bg-[#FBF6E8] text-[#403A2E] hover:border-[#11100D]"
       }`}
     >
       {icon}

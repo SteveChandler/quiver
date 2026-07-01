@@ -24,7 +24,7 @@ test.describe('Service Health: Data Pipeline @smoke', () => {
     await assertNoErrors(page, errorCapture, { context: 'Service Health: Data Pipeline @smoke' });
   });
 
-  test('Deep health check reports non-critical status @smoke', async ({ request }) => {
+  test('Deep health check reports non-critical status @smoke @requires-data', async ({ request }) => {
     const response = await request.get(`${BASE_URL}/api/health?deep=true`);
 
     expect(response.ok()).toBe(true);
@@ -50,7 +50,7 @@ test.describe('Service Health: Data Pipeline @smoke', () => {
     });
   });
 
-  test('Deep health check responds within 5 seconds @smoke', async ({ request }) => {
+  test('Deep health check responds within 5 seconds @smoke @requires-data', async ({ request }) => {
     const startTime = Date.now();
     const response = await request.get(`${BASE_URL}/api/health?deep=true`);
     const duration = Date.now() - startTime;

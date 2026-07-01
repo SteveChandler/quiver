@@ -146,7 +146,7 @@ export default async function MexicoStatePage(
             {cities.map((c) => (
               <li key={c.citySlug}>
                 <Link
-                  href={`/beaches/mexico/${stateSlug}/${c.citySlug}`}
+                  href={`/mexico/${stateSlug}/${c.citySlug}`}
                   className="block rounded-lg px-3 py-2 text-slate-800 hover:bg-slate-50 hover:text-ocean-blue transition-colors"
                 >
                   {c.cityName}

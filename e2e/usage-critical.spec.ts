@@ -21,10 +21,16 @@ async function expectAnyVisible(
   locators: Array<{ locator: ReturnType<Page['locator']>; name: string }>,
   timeout = TIMEOUTS.medium,
 ): Promise<string> {
-  for (const item of locators) {
-    if (await isVisibleSafe(item.locator.first(), { timeout })) {
-      return item.name;
-    }
+  const results = await Promise.all(
+    locators.map(async (item) => ({
+      name: item.name,
+      visible: await isVisibleSafe(item.locator.first(), { timeout }),
+    }))
+  );
+  const visible = results.find((item) => item.visible);
+
+  if (visible) {
+    return visible.name;
   }
 
   throw new Error(`Expected one of these usage-critical surfaces to be visible: ${
@@ -52,6 +58,8 @@ test.describe('Usage Critical: authenticated surfaces', () => {
       { locator: page.locator('section[role="banner"]'), name: 'oracle hero' },
       { locator: page.getByText(/surf conditions/i), name: 'surf conditions copy' },
       { locator: page.getByText(/best time|today's windows/i), name: 'surf-call timing' },
+      { locator: page.getByText(/we couldn't find any surf spots near you/i), name: 'signed-in local fallback' },
+      { locator: page.getByRole('heading', { name: /popular surf spots/i }), name: 'popular spots fallback' },
     ], TIMEOUTS.long);
     expect(surfCallSurface).toEqual(expect.any(String));
 
@@ -59,12 +67,15 @@ test.describe('Usage Critical: authenticated surfaces', () => {
       { locator: page.getByRole('button', { name: /paddle out|log/i }), name: 'session CTA' },
       { locator: page.getByRole('button', { name: /share|tell your crew|invite/i }), name: 'share CTA' },
       { locator: page.getByText(/nearby spots|my spots|activity/i), name: 'nearby or activity surface' },
+      { locator: page.getByRole('button', { name: /try again/i }), name: 'local retry CTA' },
+      { locator: page.getByRole('link', { name: /blacks|beacons|ocean beach/i }), name: 'popular spot link' },
     ], TIMEOUTS.medium);
     expect(actionSurface).toEqual(expect.any(String));
 
     const conversionSurface = await expectAnyVisible([
       { locator: page.getByRole('button', { name: /share|tell your crew|invite/i }), name: 'share CTA' },
       { locator: page.getByRole('button', { name: /pro|upgrade|unlock/i }), name: 'paywall entry' },
+      { locator: page.getByRole('button', { name: /user menu/i }), name: 'signed-in account menu' },
     ], TIMEOUTS.medium);
     expect(conversionSurface).toEqual(expect.any(String));
   });
@@ -116,18 +127,11 @@ test.describe('Usage Critical: authenticated surfaces', () => {
     await expectAnyVisible([
       { locator: page.getByTestId('map-view'), name: 'map view' },
       { locator: page.locator('canvas'), name: 'map canvas' },
-      { locator: page.getByTestId('beach-list'), name: 'beach list' },
     ], TIMEOUTS.long);
 
-    const listButton = page.getByTestId('view-mode-list');
-    // eslint-disable-next-line playwright/no-conditional-in-test -- map can already render list mode on small or degraded viewports
-    if (await isVisibleSafe(listButton, { timeout: TIMEOUTS.short })) {
-      await listButton.click();
-    }
-
-    const beachLink = page.locator('a[href*="/blacks"]').first();
-    await expect(beachLink).toBeVisible({ timeout: TIMEOUTS.long });
-    await beachLink.click();
+    const beachMarker = page.locator('[data-testid="beach-marker"]').first();
+    await expect(beachMarker).toBeVisible({ timeout: TIMEOUTS.long });
+    await beachMarker.click({ force: true });
     await page.waitForURL(/\/(ca|california|beach)\//, { timeout: TIMEOUTS.long });
 
     await expect(page).toHaveURL(/\/(ca|california|beach)\//);

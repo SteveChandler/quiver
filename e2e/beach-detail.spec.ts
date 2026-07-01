@@ -1,8 +1,18 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "./fixtures/auth-fixture";
+import type { Locator, Page } from '@playwright/test';
 import { TEST_BEACHES, VIEWPORTS } from './fixtures/test-data';
 import { waitForPageLoad, navigateToBeach } from './utils/test-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 import { isVisibleSafe } from './utils/strict-helpers';
+
+const FORECAST_CONDITIONS_HEADING = /^(Current|Forecasted) Conditions$/i;
+
+function forecastConditionsHeading(page: Page): Locator {
+  return page.getByRole('heading', {
+    name: FORECAST_CONDITIONS_HEADING,
+    level: 2,
+  });
+}
 
 /**
  * Beach Detail Page Tests
@@ -62,13 +72,14 @@ test.describe('Beach Detail Page', () => {
     expect(hasPhotos || hasGallery || hasPhotoSection).toBe(true);
   });
 
-  test('should display forecast information', async ({ page }) => {
+  test('should display forecast information @requires-data', async ({ page }) => {
     // Forecast tab is active by default
     const forecastTab = page.getByRole('tab', { name: /forecast/i });
     await expect(forecastTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });
 
-    // Today sub-tab is active by default - shows "Current Conditions" heading
-    const currentConditions = page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 });
+    // Cached model data renders as "Forecasted Conditions"; live current data
+    // renders as "Current Conditions".
+    const currentConditions = forecastConditionsHeading(page);
     await expect(currentConditions).toBeVisible({ timeout: 15000 });
   });
 
@@ -143,7 +154,7 @@ test.describe('Beach Detail - Forecast Tab', () => {
     await assertNoErrors(page, errorCapture, { context: 'Beach Forecast Tab' });
   });
 
-  test('should display forecast tab content by default', async ({ page }) => {
+  test('should display forecast tab content by default @requires-data', async ({ page }) => {
     // Forecast tab is active by default
     const forecastTab = page.getByRole('tab', { name: /forecast/i });
     await expect(forecastTab).toBeVisible({ timeout: 10000 });
@@ -153,8 +164,9 @@ test.describe('Beach Detail - Forecast Tab', () => {
     const overviewTab = page.getByRole('tab', { name: /overview/i });
     await expect(overviewTab).toHaveAttribute('data-state', 'inactive');
 
-    // Today sub-tab should be active by default with "Current Conditions" heading
-    const currentConditions = page.getByRole('heading', { name: 'Current Conditions', exact: true, level: 2 });
+    // Cached model data renders as "Forecasted Conditions"; live current data
+    // renders as "Current Conditions".
+    const currentConditions = forecastConditionsHeading(page);
     await expect(currentConditions).toBeVisible({ timeout: 15000 });
   });
 
@@ -192,7 +204,7 @@ test.describe('Beach Detail - Forecast Tab', () => {
     await expect(overviewTab).toHaveAttribute('data-state', 'active');
   });
 
-  test('should display tides on forecast tab', async ({ page }) => {
+  test('should display tides on forecast tab @requires-data', async ({ page }) => {
     // Forecast tab is active by default
     const forecastTab = page.getByRole('tab', { name: /forecast/i });
     await expect(forecastTab).toHaveAttribute('data-state', 'active', { timeout: 5000 });

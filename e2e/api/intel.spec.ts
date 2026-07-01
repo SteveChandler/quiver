@@ -11,7 +11,7 @@
  * @project mixed (GET public with optional auth, POST requires auth)
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../fixtures/auth-fixture';
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 

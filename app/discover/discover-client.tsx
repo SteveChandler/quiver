@@ -1,19 +1,33 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useState, type ReactElement } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Users, TrendingUp } from "lucide-react";
-import { useDataFetcher } from "@/hooks/use-data-fetcher";
 // import { getSuggestedUsers } from "@/actions/social-actions";
 import { FollowButton } from "@/components/social/follow-button";
 import { useAuth } from "@/context/auth-context";
 import { UserProfileModal } from "@/components/social/user-profile-modal";
+import { QuiverSticker, ZineSurface } from "@/components/zine";
 
-export default function DiscoverPageClient() {
+interface DiscoverUser {
+  id: string;
+  full_name?: string | null;
+  avatar_url?: string | null;
+  followers_count?: number | null;
+}
+
+interface UserSearchResponse {
+  success?: boolean;
+  data?: {
+    users?: DiscoverUser[];
+  };
+  error?: string;
+}
+
+export default function DiscoverPageClient(): ReactElement {
   const router = useRouter();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
@@ -21,17 +35,12 @@ export default function DiscoverPageClient() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   // Temporarily disabled - will implement suggested users later
-  const suggestedUsers: Array<{
-    id: string;
-    full_name?: string | null;
-    avatar_url?: string | null;
-    followers_count?: number | null;
-  }> = [];
-  const loading = false;
-  const error = null;
+  const suggestedUsers: DiscoverUser[] = [];
+  const loading: boolean = false;
+  const error: string | null = null;
 
   // User search functionality
-  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchResults, setSearchResults] = useState<DiscoverUser[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
   // Update follower count for a specific user in search results
@@ -46,7 +55,7 @@ export default function DiscoverPageClient() {
     []
   );
 
-  const handleSearch = async () => {
+  const handleSearch = async (): Promise<void> => {
     if (!searchQuery.trim() || searchQuery.length < 2) return;
 
     setSearchLoading(true);
@@ -54,10 +63,10 @@ export default function DiscoverPageClient() {
       const response = await fetch(
         `/api/users/search?q=${encodeURIComponent(searchQuery)}&limit=20`
       );
-      const data = await response.json();
+      const data = (await response.json()) as UserSearchResponse;
 
       if (data.success) {
-        setSearchResults(data.data.users || []);
+        setSearchResults(data.data?.users || []);
       } else {
         console.error("Search error:", data.error);
         setSearchResults([]);
@@ -72,21 +81,35 @@ export default function DiscoverPageClient() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-        <div className="container py-16">
-          <div className="max-w-2xl mx-auto text-center">
-            <Users className="h-20 w-20 text-ocean-blue mx-auto mb-6" />
-            <h1 className="text-4xl font-bold mb-4">Discover Surfers</h1>
-            <p className="text-muted-foreground text-lg mb-8">
+      <ZineSurface
+        sectionLabel="Discover"
+        editionLabel="Crew finder"
+        data-testid="discover-zine-surface"
+      >
+        <main className="relative">
+          <QuiverSticker
+            sticker="orangeTape"
+            className="absolute -top-8 right-4 hidden w-36 rotate-6 opacity-85 sm:block"
+          />
+          <section className="mx-auto max-w-3xl py-8 text-center sm:py-12">
+            <div className="stamp-circle mx-auto mb-6">
+              <Users className="h-9 w-9" aria-hidden />
+              <span className="mt-1 text-[10px] leading-none">Crew</span>
+            </div>
+            <p className="label-black mb-5">Discover surfers</p>
+            <h1 className="zine-h1 font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
+              Discover Surfers
+            </h1>
+            <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-[#11100D]/75 sm:text-xl">
               Sign in to discover and follow other surfers in your community. Connect with local surfers, coordinate sessions, and build your surf network.
             </p>
-            <div className="flex gap-4 justify-center">
+            <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
               <Button
                 size="lg"
                 onClick={() => {
                   router.push("/auth/sign-in");
                 }}
-                className="bg-ocean-blue hover:bg-ocean-blue/90"
+                className="min-h-11 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42]"
               >
                 Sign In
               </Button>
@@ -96,92 +119,129 @@ export default function DiscoverPageClient() {
                 onClick={() => {
                   router.push("/auth/sign-up");
                 }}
+                className="min-h-11 rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5 hover:bg-[#FBF6E8]"
               >
                 Sign Up
               </Button>
             </div>
-          </div>
-        </div>
-      </div>
+          </section>
+        </main>
+      </ZineSurface>
     );
   }
 
   return (
-    <div className="container py-8 max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold mb-2 flex items-center gap-2">
-          <Users className="h-8 w-8 text-primary" />
-          Discover Surfers
-        </h1>
-        <p className="text-muted-foreground">
-          Find and follow other surfers to coordinate sessions and build your
-          surf community.
-        </p>
-      </div>
+    <ZineSurface
+      sectionLabel="Discover"
+      editionLabel="Crew finder"
+      data-testid="discover-zine-surface"
+    >
+      <main>
+        <header className="relative mb-10 grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
+          <QuiverSticker
+            sticker="orangeTape"
+            className="absolute -top-8 right-8 hidden w-36 rotate-6 opacity-85 sm:block"
+          />
+          <div>
+            <p className="label-black mb-5">Discover surfers</p>
+            <h1 className="zine-h1 font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
+              Discover Surfers
+            </h1>
+            <p className="mt-6 max-w-2xl text-xl leading-relaxed text-[#11100D]/75 sm:text-2xl">
+              Find and follow other surfers to coordinate sessions and build your
+              surf community.
+            </p>
+          </div>
+          <div className="torn torn-tb rot-2 border-2 border-[#11100D] bg-[#F0E5CC]">
+            <p className="typewriter mb-3">Community search</p>
+            <div className="grid gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/68">
+              <span>Search by name or email</span>
+              <span>View surfer profiles</span>
+              <span>Follow the crew you paddle with</span>
+            </div>
+            <QuiverSticker
+              sticker="spotLocation"
+              className="absolute -bottom-8 right-4 hidden w-20 rotate-6 drop-shadow-sm sm:block"
+            />
+          </div>
+        </header>
 
-      {/* Search Section */}
-      <Card className="mb-8">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Search className="h-5 w-5" />
-            Search Users
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
+        {/* Search Section */}
+        <section
+          className="torn torn-tb mb-8 border-2 border-[#11100D] bg-[#FBF6E8]"
+          aria-labelledby="discover-search-heading"
+        >
+          <div className="mb-5 flex flex-wrap items-center gap-3 border-b-2 border-dashed border-[#11100D]/35 pb-4">
+            <span className="circled bg-[#F78E42]/35">
+              <Search className="h-5 w-5" aria-hidden />
+            </span>
+            <h2
+              id="discover-search-heading"
+              className="font-display text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl"
+            >
+              Search Users
+            </h2>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
             <Input
               placeholder="Search by name or email..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="flex-1"
+              data-zine-input="true"
+              className="min-h-11 flex-1 rounded-none border-2 border-[#11100D] bg-[#F4EBD8] font-sans text-[#11100D] placeholder:text-[#11100D]/45 focus-visible:ring-[#F78E42]"
             />
             <Button
               onClick={handleSearch}
               disabled={!searchQuery.trim() || searchLoading}
+              className="min-h-11 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 hover:bg-[#F78E42] disabled:translate-y-0 disabled:opacity-60"
             >
-              <Search className="h-4 w-4 mr-2" />
+              <Search className="mr-2 h-4 w-4" />
               {searchLoading ? "Searching..." : "Search"}
             </Button>
           </div>
-          <p className="text-sm text-muted-foreground mt-2">
+          <p className="mt-3 text-sm leading-relaxed text-[#11100D]/68">
             Search for surfers by name or email to send them a follow request.
           </p>
-        </CardContent>
-      </Card>
+        </section>
 
-      {/* Search Results Section */}
-      {searchResults.length > 0 && (
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Search className="h-5 w-5" />
-              Search Results ({searchResults.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        {/* Search Results Section */}
+        {searchResults.length > 0 && (
+          <section
+            className="mb-8"
+            aria-labelledby="discover-results-heading"
+          >
+            <div className="mb-5 border-b-2 border-dashed border-[#11100D]/35 pb-4">
+              <p className="typewriter mb-2">Matched surfers</p>
+              <h2
+                id="discover-results-heading"
+                className="font-display text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl"
+              >
+                Search Results ({searchResults.length})
+              </h2>
+            </div>
             <div className="grid gap-4">
-              {searchResults.map((searchUser: any) => (
+              {searchResults.map((searchUser) => (
                 <div
                   key={searchUser.id}
-                  className="flex items-center gap-4 p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                  className="torn flex flex-col gap-4 border-2 border-[#11100D] bg-[#FBF6E8] p-4 text-[#11100D] transition-transform hover:-translate-y-0.5 sm:flex-row sm:items-center"
                 >
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={searchUser.avatar_url} />
-                    <AvatarFallback>
+                  <Avatar className="h-12 w-12 border-2 border-[#11100D]">
+                    <AvatarImage src={searchUser.avatar_url ?? undefined} />
+                    <AvatarFallback className="bg-[#F0E5CC] font-display font-black uppercase text-[#11100D]">
                       {searchUser.full_name?.charAt(0) || "?"}
                     </AvatarFallback>
                   </Avatar>
 
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium truncate">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate font-display text-lg font-black uppercase leading-tight text-[#11100D]">
                       {searchUser.full_name || "Anonymous User"}
                     </h3>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="mt-1 font-mono text-xs uppercase tracking-[0.12em] text-[#11100D]/62">
                       {searchUser.followers_count || 0} followers
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -189,6 +249,7 @@ export default function DiscoverPageClient() {
                         setSelectedUserId(searchUser.id);
                         setIsProfileModalOpen(true);
                       }}
+                      className="rounded-full border-2 border-[#11100D] bg-[#FBF6E8] font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.2)] hover:bg-[#F0E5CC]"
                     >
                       View Profile
                     </Button>
@@ -201,79 +262,93 @@ export default function DiscoverPageClient() {
                       onFollowersCountChange={(newCount) =>
                         updateUserFollowerCount(searchUser.id, newCount)
                       }
+                      className="[&_button]:rounded-full [&_button]:border-2 [&_button]:border-[#11100D] [&_button]:bg-[#FBF6E8] [&_button]:font-semibold [&_button]:text-[#11100D] [&_button]:shadow-[2px_2px_0_rgba(17,16,13,0.2)] [&_button:hover]:bg-[#F0E5CC] [&_svg]:text-[#11100D]"
                     />
                   </div>
                 </div>
               ))}
             </div>
-          </CardContent>
-        </Card>
-      )}
+          </section>
+        )}
 
-      {/* Suggested Users Section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5" />
-            Suggested Surfers
-          </CardTitle>
-          <p className="text-sm text-muted-foreground">
+        {/* Suggested Users Section */}
+        <section
+          className="torn torn-tb border-2 border-[#11100D] bg-[#F0E5CC]"
+          style={{ paddingTop: 56 }}
+          aria-labelledby="suggested-surfers-heading"
+        >
+          <div className="mb-5 flex flex-wrap items-start justify-between gap-4 border-b-2 border-dashed border-[#11100D]/35 pb-4">
+            <div>
+              <h2
+                id="suggested-surfers-heading"
+                className="flex items-center gap-2 font-display text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl"
+              >
+                <TrendingUp className="h-6 w-6" aria-hidden />
+                Suggested Surfers
+              </h2>
+            </div>
+            <QuiverSticker
+              sticker="creamCoastMap"
+              className="hidden w-20 rotate-6 drop-shadow-sm sm:block"
+            />
+          </div>
+          <p className="mb-5 max-w-2xl text-sm leading-relaxed text-[#11100D]/68">
             Popular surfers and active community members you might want to
             follow.
           </p>
-        </CardHeader>
-        <CardContent>
           {loading ? (
             <div className="grid gap-4">
               {Array.from({ length: 6 }).map((_, i) => (
                 <div
                   key={i}
-                  className="flex items-center gap-4 p-4 rounded-lg border animate-pulse"
+                  className="flex animate-pulse items-center gap-4 border-2 border-[#11100D]/35 bg-[#FBF6E8] p-4"
                 >
-                  <div className="w-12 h-12 bg-muted rounded-full"></div>
+                  <div className="h-12 w-12 rounded-full bg-[#D9C49C]"></div>
                   <div className="flex-1">
-                    <div className="w-32 h-4 bg-muted rounded mb-2"></div>
-                    <div className="w-24 h-3 bg-muted rounded"></div>
+                    <div className="mb-2 h-4 w-32 rounded bg-[#D9C49C]"></div>
+                    <div className="h-3 w-24 rounded bg-[#D9C49C]"></div>
                   </div>
-                  <div className="w-20 h-8 bg-muted rounded"></div>
+                  <div className="h-8 w-20 rounded bg-[#D9C49C]"></div>
                 </div>
               ))}
             </div>
           ) : error ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <p>Unable to load suggested users</p>
-              <p className="text-sm">{error}</p>
+            <div className="py-8 text-center text-[#11100D]/70">
+              <p className="font-display text-lg font-black uppercase text-[#11100D]">
+                Unable to load suggested users
+              </p>
+              <p className="mt-2 text-sm">{error}</p>
             </div>
           ) : !suggestedUsers || suggestedUsers.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
-              <p className="text-lg font-medium mb-2">
+            <div className="py-8 text-center text-[#11100D]/70">
+              <Users className="mx-auto mb-4 h-12 w-12 text-[#11100D]/45" />
+              <p className="mb-2 font-display text-xl font-black uppercase text-[#11100D]">
                 No suggested users right now
               </p>
-              <p className="text-sm">
+              <p className="mx-auto max-w-xl text-sm leading-relaxed">
                 As more people join Quiver, you&apos;ll see suggested surfers to
                 follow here. Invite friends to join the community!
               </p>
             </div>
           ) : (
             <div className="grid gap-4">
-              {suggestedUsers.map((suggestedUser: any) => (
+              {suggestedUsers.map((suggestedUser) => (
                 <div
                   key={suggestedUser.id}
-                  className="flex items-center gap-4 p-4 rounded-lg border hover:bg-muted/50 transition-colors"
+                  className="torn flex flex-col gap-4 border-2 border-[#11100D] bg-[#FBF6E8] p-4 text-[#11100D] transition-transform hover:-translate-y-0.5 sm:flex-row sm:items-center"
                 >
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={suggestedUser.avatar_url} />
-                    <AvatarFallback>
+                  <Avatar className="h-12 w-12 border-2 border-[#11100D]">
+                    <AvatarImage src={suggestedUser.avatar_url ?? undefined} />
+                    <AvatarFallback className="bg-[#F0E5CC] font-display font-black uppercase text-[#11100D]">
                       {suggestedUser.full_name?.charAt(0) || "?"}
                     </AvatarFallback>
                   </Avatar>
 
-                  <div className="flex-1 min-w-0">
-                    <h3 className="font-medium truncate">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate font-display text-lg font-black uppercase leading-tight text-[#11100D]">
                       {suggestedUser.full_name || "Anonymous User"}
                     </h3>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="mt-1 font-mono text-xs uppercase tracking-[0.12em] text-[#11100D]/62">
                       {suggestedUser.followers_count || 0} followers
                     </p>
                   </div>
@@ -287,47 +362,55 @@ export default function DiscoverPageClient() {
                     onFollowersCountChange={(newCount) =>
                       updateUserFollowerCount(suggestedUser.id, newCount)
                     }
+                    className="[&_button]:rounded-full [&_button]:border-2 [&_button]:border-[#11100D] [&_button]:bg-[#FBF6E8] [&_button]:font-semibold [&_button]:text-[#11100D] [&_button]:shadow-[2px_2px_0_rgba(17,16,13,0.2)] [&_button:hover]:bg-[#F0E5CC] [&_svg]:text-[#11100D]"
                   />
                 </div>
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </section>
 
-      {/* How Following Works */}
-      <Card className="mt-8 bg-blue-50 border-blue-200">
-        <CardContent className="p-6">
-          <div className="flex items-start gap-3">
-            <Users className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+        {/* How Following Works */}
+        <section
+          className="hazards-panel mt-8"
+          aria-labelledby="following-works-heading"
+        >
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+            <Users
+              className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#F2C94C]"
+              aria-hidden
+            />
             <div>
-              <h3 className="font-medium text-blue-800 mb-2">
+              <h2
+                id="following-works-heading"
+                className="mb-3 font-display text-2xl font-black uppercase leading-tight text-[#F4EBD8]"
+              >
                 How Following Works
-              </h3>
-              <ul className="text-sm text-blue-700 space-y-1">
-                <li>• Follow other surfers to see their session activities</li>
-                <li>• Invite followers to join your planned surf sessions</li>
+              </h2>
+              <ul className="space-y-2 text-sm leading-relaxed text-[#F4EBD8]/82">
+                <li>Follow other surfers to see their session activities</li>
+                <li>Invite followers to join your planned surf sessions</li>
                 <li>
-                  • Get notifications when people you follow plan epic sessions
+                  Get notifications when people you follow plan epic sessions
                 </li>
                 <li>
-                  • Build your local surf community and coordinate better
+                  Build your local surf community and coordinate better
                   sessions
                 </li>
               </ul>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </section>
 
-      {/* User Profile Modal */}
-      {selectedUserId && (
-        <UserProfileModal
-          userId={selectedUserId}
-          isOpen={isProfileModalOpen}
-          onClose={() => setIsProfileModalOpen(false)}
-        />
-      )}
-    </div>
+        {/* User Profile Modal */}
+        {selectedUserId && (
+          <UserProfileModal
+            userId={selectedUserId}
+            isOpen={isProfileModalOpen}
+            onClose={() => setIsProfileModalOpen(false)}
+          />
+        )}
+      </main>
+    </ZineSurface>
   );
 }

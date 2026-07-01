@@ -78,14 +78,6 @@ describe("GET /api/gamification/xp-status", () => {
         }),
       };
 
-      // Insert chain for creating the row
-      const insertChain: any = {
-        insert: jest.fn().mockResolvedValue({
-          data: { user_id: userId, xp_total: 0, level: 1 },
-          error: null,
-        }),
-      };
-
       // Final select to get the data
       const selectChain: any = {
         select: jest.fn().mockReturnThis(),
@@ -105,8 +97,11 @@ describe("GET /api/gamification/xp-status", () => {
       mockSupabaseClient.from.mockImplementation(() => {
         callCount++;
         if (callCount === 1) return checkChain; // Check if exists
-        if (callCount === 2) return insertChain; // Insert new row
         return selectChain; // Get the data
+      });
+      mockSupabaseClient.rpc.mockResolvedValue({
+        data: { user_id: userId, xp_total: 0, level: 1 },
+        error: null,
       });
 
       const req = createMockRequest(
@@ -121,10 +116,8 @@ describe("GET /api/gamification/xp-status", () => {
       expect(xp.xp_total).toBe(0);
       expect(xp.level).toBe(1);
       expect(xp.level_title).toBe("Kook");
-      expect(insertChain.insert).toHaveBeenCalledWith({
-        user_id: userId,
-        xp_total: 0,
-        level: 1,
+      expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("ensure_user_xp", {
+        p_user_id: userId,
       });
     });
 

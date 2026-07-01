@@ -67,6 +67,20 @@ function isMissingPostgisGeographyError(error: unknown): boolean {
   );
 }
 
+function isTransientSupabaseUpstreamError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const maybeError = error as { message?: unknown };
+  return (
+    typeof maybeError.message === "string" &&
+    maybeError.message.includes(
+      "An invalid response was received from the upstream server"
+    )
+  );
+}
+
 function createEmptyIntelPostsResponse(params: GetIntelPostsParams): NextResponse {
   return createSuccessResponse({
     posts: [],
@@ -151,7 +165,10 @@ const intelGetHandler = withAuth(
     );
 
     if (intelError) {
-      if (isMissingPostgisGeographyError(intelError)) {
+      if (
+        isMissingPostgisGeographyError(intelError) ||
+        isTransientSupabaseUpstreamError(intelError)
+      ) {
         console.warn(
           "Intel geospatial lookup unavailable; returning empty posts",
           intelError

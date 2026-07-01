@@ -89,9 +89,6 @@ test.describe('Authentication Flow', () => {
     // Submit
     await page.getByRole('button', { name: /log in|sign in/i }).last().click();
 
-    // After invalid login, dialog should still be open with an error message
-    await page.waitForLoadState('networkidle');
-
     // Look for error indicators inside the dialog
     const dialog = page.locator('[role="dialog"]');
     await expect(dialog).toBeVisible({ timeout: 5_000 });
@@ -108,6 +105,7 @@ test.describe('Authentication Flow', () => {
     await expect(dialog).toBeHidden({ timeout: 5_000 });
     errorCapture.consoleErrors = [];
     errorCapture.networkErrors = [];
+    errorCapture.visibleErrors = [];
   });
 
   test('should NOT create login loop after successful login', async ({ page }) => {
@@ -190,8 +188,13 @@ test.describe('Authentication Flow', () => {
       // It's OK if clicks fail because button is disabled or page navigated
     }
 
-    // Wait for auth to complete or page to navigate
-    await page.waitForLoadState('networkidle').catch(() => {});
+    // Wait for auth to complete or for the submit button to move into a
+    // transient disabled/submitting state. `networkidle` is intentionally not
+    // used here because analytics beacons can keep remote runs non-idle.
+    await Promise.race([
+      expect(page.locator('[role="dialog"]')).toBeHidden({ timeout: 10_000 }).catch(() => undefined),
+      expect(submitButton).toBeDisabled({ timeout: 2_000 }).catch(() => undefined),
+    ]);
 
     // Test passes if: 1) Button was disabled preventing clicks, or 2) No duplicate errors logged
     // We can't reliably check the button state because successful login navigates the page

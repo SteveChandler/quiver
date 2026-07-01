@@ -34,6 +34,8 @@ describe("rowToSwellPartition", () => {
     const p = rowToSwellPartition({
       swell_1_direction: "270",
       swell_2_direction: "200",
+      swell_direction_om: null,
+      wave_direction_om: null,
       wind_direction_deg: 310,
     });
     expect(p.s1Dir).toBe(270);
@@ -41,11 +43,46 @@ describe("rowToSwellPartition", () => {
     expect(p.windDir).toBe(310);
   });
 
+  it("sets Open-Meteo swell direction from swell_direction_om without changing s1Dir", () => {
+    const p = rowToSwellPartition({
+      swell_1_direction: "270",
+      swell_direction_om: 215,
+      wave_direction_om: 245,
+    });
+
+    expect(p.s1Dir).toBe(270);
+    expect(p.swellDirOm).toBe(215);
+  });
+
+  it("falls back to wave_direction_om for Open-Meteo swell direction", () => {
+    const p = rowToSwellPartition({
+      swell_1_direction: "270",
+      swell_direction_om: null,
+      wave_direction_om: 245,
+    });
+
+    expect(p.s1Dir).toBe(270);
+    expect(p.swellDirOm).toBe(245);
+  });
+
+  it("sets Open-Meteo swell direction to null when both OM fields are absent", () => {
+    const p = rowToSwellPartition({
+      swell_1_direction: "270",
+      swell_direction_om: null,
+      wave_direction_om: null,
+    });
+
+    expect(p.s1Dir).toBe(270);
+    expect(p.swellDirOm).toBeNull();
+  });
+
   it("returns nulls for missing/garbage fields without throwing", () => {
     const p = rowToSwellPartition({
       swell_1_height: null,
       swell_1_period: null,
       swell_1_direction: null,
+      swell_direction_om: null,
+      wave_direction_om: null,
       swell_2_height: "not-a-number",
       swell_2_period: undefined,
       swell_2_direction: "",

@@ -18,7 +18,7 @@
  * @project auth
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/auth-fixture";
 import { waitForPageLoad, ensureAuthenticated } from "./utils/test-helpers";
 import { VIEWPORTS, TIMEOUTS, isDevEnvironment } from "./fixtures/test-data";
 import { setupPersonalizationMocks } from "./fixtures/personalization-mocks";

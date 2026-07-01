@@ -16,8 +16,8 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 import { FoundingAccessCta } from "@/components/pricing/founding-access-cta";
-import { Button } from "@/components/ui/button";
-import { QuiverSticker, type QuiverStickerProps } from "@/components/zine";
+import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { QuiverSticker, type QuiverStickerProps, ZineSurface } from "@/components/zine";
 import {
   IOS_APP_STORE_CTA,
   IOS_APP_STORE_URL,
@@ -97,81 +97,88 @@ const PRO_FEATURES = [
 
 export function FoundingOfferSurface() {
   return (
-    <div
-      className="zine-tab bg-[#0D1020] text-white"
+    <ZineSurface
+      sectionLabel="Get the app"
+      editionLabel="14 days free on iPhone"
       data-testid="founding-offer-zine-surface"
     >
-      <section className="relative overflow-hidden px-4 pb-16 pt-20 sm:px-6 sm:pt-24 lg:px-8">
-        <div
-          aria-hidden
-          className="absolute inset-0 bg-[linear-gradient(180deg,rgba(37,45,107,0.92),rgba(13,16,32,0.98)_62%)]"
-        />
-        <div
-          aria-hidden
-          className="noise-texture-subtle absolute inset-0 opacity-45"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 overflow-hidden"
-        >
-          <QuiverSticker
-            sticker="halftoneCircle"
-            className="absolute -left-10 top-24 w-40 -rotate-12 opacity-45 mix-blend-screen sm:left-8 sm:w-52"
-            sizes="13rem"
-          />
-          <QuiverSticker
-            sticker="breakingWave"
-            className="absolute -right-24 top-20 hidden w-80 rotate-6 opacity-35 mix-blend-screen md:block"
-            sizes="20rem"
-          />
-          <QuiverSticker
-            sticker="blackBrushScrap"
-            className="absolute bottom-4 left-[48%] hidden w-28 -rotate-6 opacity-30 mix-blend-multiply md:block"
-            sizes="7rem"
-          />
-        </div>
-
-        <div className="relative mx-auto max-w-6xl">
-          <div className="max-w-4xl">
-            <div className="relative mb-5 inline-flex items-center gap-2 border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-1 text-xs font-bold uppercase tracking-widest text-[#11100D] shadow-[3px_4px_0_rgba(247,142,66,0.55)]">
-              <QuiverSticker
-                sticker="orangeTape"
-                className="absolute -left-8 -top-5 w-24 -rotate-12 opacity-85"
-                sizes="6rem"
-              />
-              <Waves className="h-4 w-4" />
-              App Store live
-            </div>
-            <h1 className="max-w-4xl font-heading text-3xl font-bold leading-tight tracking-normal text-white sm:text-5xl md:text-6xl">
-              Get Quiver
-            </h1>
-            <p className="mt-4 max-w-2xl text-base leading-7 text-[#B8C7E0] sm:mt-6 sm:text-lg sm:leading-8">
-              Start the iPhone app with 14 days free. Android is coming soon,
-              and the waitlist is open.
-            </p>
+      <main>
+        <header className="relative">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 overflow-hidden"
+          >
+            <QuiverSticker
+              sticker="halftoneCircle"
+              className="absolute -left-10 -top-6 w-36 -rotate-12 opacity-40 sm:left-2 sm:w-44"
+              sizes="11rem"
+            />
+            <QuiverSticker
+              sticker="breakingWave"
+              className="absolute -right-16 top-2 hidden w-72 rotate-6 opacity-30 md:block"
+              sizes="18rem"
+            />
           </div>
 
-          <div className="mt-8 grid overflow-hidden rounded-[24px] border-2 border-[#11100D] bg-[#F4EBD8] text-[#11100D] shadow-[8px_10px_0_rgba(247,142,66,0.32)] sm:mt-10 lg:grid-cols-[minmax(0,0.88fr)_minmax(0,1.12fr)]">
-            <div className="relative overflow-hidden p-6 sm:p-8 lg:p-10">
+          <ScrollReveal>
+            <div className="relative max-w-3xl">
+              <div className="relative mb-5 inline-flex items-center gap-2">
+                <QuiverSticker
+                  sticker="orangeTape"
+                  className="absolute -left-7 -top-5 w-24 -rotate-12 opacity-85"
+                  sizes="6rem"
+                />
+                <span className="label-black inline-flex items-center gap-2">
+                  <Waves className="h-4 w-4" aria-hidden />
+                  App Store live
+                </span>
+              </div>
+              <h1 className="zine-h1 font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
+                Get Quiver
+              </h1>
+              <p className="mt-6 max-w-2xl text-xl leading-relaxed text-[#11100D]/75 sm:text-2xl">
+                Start the iPhone app with 14 days free. Android is coming soon,
+                and the waitlist is open.
+              </p>
+              <div className="mt-7 flex flex-wrap gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/65">
+                <span>14 days free</span>
+                <span aria-hidden>/</span>
+                <span>App Store live</span>
+                <span aria-hidden>/</span>
+                <span>Cancel anytime</span>
+              </div>
+            </div>
+          </ScrollReveal>
+        </header>
+
+        <div className="mt-12 grid gap-8 lg:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)] lg:items-start">
+          <ScrollReveal>
+            <section
+              className="torn torn-tb rot-neg relative border-2 border-[#11100D] bg-[#FBF6E8]"
+              aria-labelledby="plans-trial-heading"
+            >
               <QuiverSticker
-                sticker="orangeTape"
-                className="pointer-events-none absolute right-6 top-5 w-24 rotate-12 opacity-70"
-                sizes="6rem"
+                sticker="creamTornStrip"
+                className="pointer-events-none absolute -right-4 -top-6 w-28 rotate-6 opacity-90"
+                sizes="7rem"
               />
-              <div className="mb-5 flex items-center gap-2 font-heading text-lg font-bold">
-                <Sparkles className="h-5 w-5 text-[#F78E42]" />
+              <div className="mb-4 flex items-center gap-2 font-display text-lg font-black uppercase text-[#11100D]">
+                <Sparkles className="h-5 w-5 text-[#F78E42]" aria-hidden />
                 Pro
               </div>
-              <h2 className="max-w-xl font-heading text-2xl font-bold leading-tight tracking-normal text-[#11100D] sm:text-4xl">
+              <h2
+                id="plans-trial-heading"
+                className="max-w-xl font-display text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl"
+              >
                 Get surf essentials that keep learning from your sessions
               </h2>
-              <p className="mt-4 text-base leading-7 text-[#4B4030]">
+              <p className="mt-4 text-base leading-relaxed text-[#11100D]/74">
                 14 days free. After that, the App Store shows the current plan
                 before you subscribe.
               </p>
 
               <div
-                className="mt-5 space-y-3 sm:mt-6 sm:space-y-4"
+                className="mt-6 space-y-3 sm:space-y-4"
                 aria-label="Quiver Pro trial timeline"
               >
                 {TRIAL_STEPS.map((step) => {
@@ -179,14 +186,14 @@ export function FoundingOfferSurface() {
                   return (
                     <div key={step.label} className="flex gap-3">
                       <div className="flex flex-col items-center">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#DFE9FF] text-[#252D6B] sm:h-9 sm:w-9">
-                          <Icon className="h-4 w-4" />
-                        </div>
+                        <span className="circled bg-[#F78E42]/35">
+                          <Icon className="h-4 w-4" aria-hidden />
+                        </span>
                         {step.label !== "Day 14" ? (
-                          <div className="h-4 w-1 bg-[#DFE9FF] sm:h-5" />
+                          <div className="mt-1 h-4 w-[2px] bg-[#11100D]/25 sm:h-5" />
                         ) : null}
                       </div>
-                      <p className="pt-1 text-sm leading-6 text-[#4B4030]">
+                      <p className="pt-1.5 text-sm leading-6 text-[#11100D]/74">
                         <span className="font-semibold text-[#11100D]">
                           {step.label}:
                         </span>{" "}
@@ -197,34 +204,31 @@ export function FoundingOfferSurface() {
                 })}
               </div>
 
-              <Button
-                asChild
-                size="lg"
-                className="mt-7 min-h-14 w-full rounded-full bg-[#11100D] px-6 font-semibold text-[#F4EBD8] hover:bg-[#252D6B] focus-visible:ring-[#F78E42] focus-visible:ring-offset-[#F4EBD8] sm:max-w-sm"
+              <Link
+                href={IOS_APP_STORE_URL}
+                className="mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 font-semibold text-[#11100D] shadow-[3px_3px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#11100D] sm:max-w-sm"
               >
-                <Link href={IOS_APP_STORE_URL}>
-                  {IOS_APP_STORE_CTA}
-                  <ArrowRight className="h-4 w-4" />
-                </Link>
-              </Button>
-              <p className="mt-4 text-center text-xs font-medium text-[#4B4030] sm:max-w-sm">
+                {IOS_APP_STORE_CTA}
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </Link>
+              <p className="mt-3 text-center text-xs font-medium text-[#11100D]/64 sm:max-w-sm">
                 Cancel anytime in Apple subscriptions.
               </p>
 
-              <div className="mt-6 border-t-2 border-[#11100D]/15 pt-5 sm:max-w-sm">
+              <div className="mt-6 border-t-2 border-dashed border-[#11100D]/30 pt-5 sm:max-w-sm">
                 <div className="flex flex-wrap gap-2">
-                  <div className="rounded-full border border-[#11100D]/20 bg-[#FFF7E6] px-3 py-2">
-                    <div className="flex items-center gap-2 text-sm font-semibold">
-                      <Apple className="h-4 w-4 text-[#F78E42]" />
+                  <div className="rounded-full border-2 border-[#11100D] bg-[#FFF7E6] px-3 py-2 shadow-[2px_2px_0_rgba(17,16,13,0.18)]">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[#11100D]">
+                      <Apple className="h-4 w-4 text-[#F78E42]" aria-hidden />
                       iPhone
                     </div>
                     <p className="mt-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-[#252D6B]">
                       App Store live
                     </p>
                   </div>
-                  <div className="rounded-full border border-[#11100D]/20 bg-[#FFF7E6] px-3 py-2">
-                    <div className="flex items-center gap-2 text-sm font-semibold">
-                      <Smartphone className="h-4 w-4 text-[#7BDCB5]" />
+                  <div className="rounded-full border-2 border-[#11100D] bg-[#FFF7E6] px-3 py-2 shadow-[2px_2px_0_rgba(17,16,13,0.18)]">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-[#11100D]">
+                      <Smartphone className="h-4 w-4 text-[#252D6B]" aria-hidden />
                       Android
                     </div>
                     <p className="mt-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-[#252D6B]">
@@ -234,18 +238,26 @@ export function FoundingOfferSurface() {
                 </div>
                 <FoundingAccessCta className="mt-3" variant="compact" />
               </div>
-            </div>
+            </section>
+          </ScrollReveal>
 
-            <div className="relative border-t-2 border-[#11100D] bg-[#FFF9EA] p-6 sm:p-8 lg:border-l-2 lg:border-t-0 lg:p-10">
+          <ScrollReveal delay={80}>
+            <section
+              className="relative border-2 border-[#11100D] bg-[#F0E5CC] p-6 shadow-[3px_4px_0_rgba(17,16,13,0.18)] sm:p-8"
+              aria-labelledby="plans-included-heading"
+            >
               <QuiverSticker
                 sticker="navyLightning"
-                className="pointer-events-none absolute right-5 top-5 w-20 rotate-12 opacity-35"
+                className="pointer-events-none absolute -right-3 -top-4 w-20 rotate-12 opacity-40"
                 sizes="5rem"
               />
-              <p className="text-sm font-medium uppercase tracking-widest text-[#6B6256]">
+              <p
+                id="plans-included-heading"
+                className="typewriter mb-1"
+              >
                 Pro membership includes
               </p>
-              <div className="mt-5 divide-y divide-[#11100D]/12">
+              <div className="mt-5 divide-y-2 divide-dashed divide-[#11100D]/20">
                 {PRO_FEATURES.map((feature) => {
                   const Icon = feature.icon;
                   return (
@@ -260,13 +272,13 @@ export function FoundingOfferSurface() {
                           className="absolute -right-6 -top-4 w-20 rotate-12 opacity-55"
                           sizes="5rem"
                         />
-                        <Icon className="relative z-10 h-6 w-6 text-[#252D6B]" />
+                        <Icon className="relative z-10 h-6 w-6 text-[#252D6B]" aria-hidden />
                       </div>
                       <div>
-                        <h3 className="font-heading text-base font-bold tracking-normal text-[#11100D] sm:text-lg">
+                        <h3 className="font-display text-base font-black uppercase leading-tight text-[#11100D] sm:text-lg">
                           {feature.title}
                         </h3>
-                        <p className="mt-1 text-sm leading-6 text-[#4B4030]">
+                        <p className="mt-1 text-sm leading-6 text-[#11100D]/70">
                           {feature.body}
                         </p>
                       </div>
@@ -274,10 +286,10 @@ export function FoundingOfferSurface() {
                   );
                 })}
               </div>
-            </div>
-          </div>
+            </section>
+          </ScrollReveal>
         </div>
-      </section>
-    </div>
+      </main>
+    </ZineSurface>
   );
 }

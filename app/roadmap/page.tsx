@@ -4,6 +4,7 @@ import { RoadmapSection } from "@/components/roadmap/RoadmapSection";
 import { RoadmapClientControls } from "@/components/roadmap/RoadmapClientControls";
 import { RoadmapFeaturedCard } from "@/components/roadmap/RoadmapFeaturedCard";
 import { RoadmapHeroVideo } from "@/components/roadmap/RoadmapHeroVideo";
+import { QuiverSticker, ZineSurface } from "@/components/zine";
 
 export const dynamic = "force-dynamic";
 
@@ -100,12 +101,12 @@ function RoadmapDivider({ label }: { label: string }) {
   return (
     <div
       aria-hidden="true"
-      className="my-2 flex items-center gap-2 overflow-hidden font-[var(--font-mono)] text-[10px] uppercase tracking-[0.4em] text-white/20"
+      className="my-8 flex items-center gap-2 overflow-hidden font-[var(--font-mono)] text-[10px] uppercase tracking-[0.4em] text-[#11100D]/45"
     >
-      <span className="shrink-0 text-[#F78E42]/40">{"//"}</span>
+      <span className="shrink-0 text-[#F78E42]">{"//"}</span>
       <span className="shrink-0">{label}</span>
-      <span className="h-px flex-1 bg-[#2D357D]/40" />
-      <span className="shrink-0 text-[#F78E42]/40">{"//"}</span>
+      <span className="h-px flex-1 border-t-2 border-dashed border-[#11100D]/25" />
+      <span className="shrink-0 text-[#F78E42]">{"//"}</span>
     </div>
   );
 }
@@ -139,132 +140,125 @@ export default async function RoadmapPage() {
       : grouped.under_consideration;
 
   return (
-    <main>
-      {/* Full-bleed, full-viewport hero. Breaks out of the max-w-3xl content
-          column below so the diorama gets edge-to-edge and a real cinematic
-          height. Uses 100svh so mobile browser chrome doesn't crop the bottom. */}
-      <header className="relative h-[100svh] min-h-[640px] w-full overflow-hidden bg-[#1A1F4A]">
-        {/* Rotating diorama backdrop — 4 videos, 7s each, 600ms crossfade.
-            startIndex is picked here on the server so SSR + client hydrate
-            agree (Math.random in useState would mismatch). */}
-        <div aria-hidden="true" className="absolute inset-0">
-          <RoadmapHeroVideo startIndex={Math.floor(Math.random() * 4)} />
-        </div>
-
-        {/* Layered overlays for legibility:
-            1. Bottom-up twilight wash so the headline + stats sit in solid color
-            2. Soft radial vignette pulling focus toward the lower-left content
-            3. Top dark band so the global nav reads against the video */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#1A1F4A] via-[#1A1F4A]/70 via-35% to-transparent"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_25%_75%,rgba(37,45,107,0)_0%,rgba(26,31,74,0.55)_70%)]"
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-x-0 top-0 h-40 bg-gradient-to-b from-[#1A1F4A]/80 to-transparent"
-        />
-
-        {/* Sticker-style dot pattern, top-right corner */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute right-0 top-0 z-10 h-40 w-64 opacity-30"
-          style={{
-            backgroundImage:
-              "radial-gradient(circle at center, #F78E42 1px, transparent 1.5px)",
-            backgroundSize: "8px 8px",
-            maskImage: "linear-gradient(225deg, black 0%, transparent 70%)",
-            WebkitMaskImage: "linear-gradient(225deg, black 0%, transparent 70%)",
-          }}
-        />
-
-        {/* Content sits in a centered column, anchored to the bottom of the hero */}
-        <div className="scan-lines relative z-10 mx-auto flex h-full max-w-6xl flex-col justify-end px-6 pb-16 md:px-10 md:pb-20">
-          <div className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
-            <div className="max-w-3xl">
-              <div className="mb-3 font-[var(--font-mono)] text-[11px] uppercase tracking-[0.3em] text-[#F78E42] [text-shadow:_0_1px_2px_rgba(0,0,0,0.6)]">
-                {`// Quiver roadmap // ${nowLabel}`}
-              </div>
-              <h1 className="font-[var(--font-heading)] text-[clamp(3.5rem,12vw,9rem)] font-bold leading-[0.88] tracking-tight text-white [text-shadow:_0_2px_12px_rgba(0,0,0,0.55)]">
-                WHAT&apos;S
-                <br />
-                <span className="text-[#F78E42]">NEXT.</span>
-              </h1>
-              <p className="mt-6 max-w-xl text-base text-white/85 [text-shadow:_0_1px_4px_rgba(0,0,0,0.6)] md:text-lg">
-                Building in the open. Vote on what ships next — or drop a request if you&apos;ve got one we haven&apos;t thought of.
-              </p>
-            </div>
-            <RoadmapClientControls authed={authed} />
-          </div>
-
-          <div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-2 font-[var(--font-mono)] text-[11px] uppercase tracking-widest text-white/70 [text-shadow:_0_1px_2px_rgba(0,0,0,0.6)]">
-            <span>{items.length} ideas</span>
-            <span className="text-white/40">/</span>
-            <span>{grouped.shipped.length} shipped</span>
-            <span className="text-white/40">/</span>
-            <span>{grouped.in_progress.length} building now</span>
-            <span className="text-white/40">/</span>
-            <span>{totalVotes} votes cast</span>
-          </div>
-        </div>
-
-        {/* Scroll affordance — a hint that there's content below the fold */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute bottom-4 left-1/2 z-10 -translate-x-1/2 font-[var(--font-mono)] text-[10px] uppercase tracking-[0.4em] text-white/40"
-        >
-          scroll ↓
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-3xl px-4 py-12">
-      {featured && (
-        <>
-          <RoadmapFeaturedCard item={featured} authed={authed} />
-          <RoadmapDivider label="PIPELINE" />
-        </>
-      )}
-
-      <RoadmapSection
-        title="Building Now"
-        status="in_progress"
-        items={inProgressList}
-        authed={authed}
-      />
-      <RoadmapDivider label="WHAT'S NEXT" />
-      <RoadmapSection
-        title="Under Consideration"
-        status="under_consideration"
-        items={underConsiderationList}
-        authed={authed}
-      />
-      <RoadmapDivider label="ALREADY OUT" />
-      <RoadmapSection
-        title="Shipped"
-        status="shipped"
-        items={grouped.shipped}
-        authed={authed}
-      />
-      {grouped.declined.length > 0 && (
-        <details className="mt-10">
-          <summary className="cursor-pointer font-[var(--font-mono)] text-xs uppercase tracking-widest text-white/50 hover:text-white/80">
-            {grouped.declined.length} passed — see why
-          </summary>
-          <div className="mt-4">
-            <RoadmapDivider label="PASSED ON" />
-            <RoadmapSection
-              title="Passed"
-              status="declined"
-              items={grouped.declined}
-              authed={authed}
+    <ZineSurface
+      sectionLabel="Roadmap"
+      editionLabel="Vote what ships next"
+      data-testid="roadmap-zine-surface"
+      paperClassName="overflow-hidden"
+    >
+      <main>
+        <header className="grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-end">
+          <div className="relative">
+            <QuiverSticker
+              sticker="orangeTape"
+              className="absolute -top-8 right-4 hidden w-36 rotate-6 opacity-85 sm:block"
             />
+            <p className="label-black mb-5">Public roadmap</p>
+            <p className="mb-3 font-[var(--font-mono)] text-[11px] uppercase tracking-[0.24em] text-[#B56A2B]">
+              {`// Quiver roadmap // ${nowLabel}`}
+            </p>
+            <h1 className="zine-h1 font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
+              What&apos;s
+              <br />
+              next.
+            </h1>
+            <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[#11100D]/75 sm:text-xl">
+              Building in the open. Vote on what ships next, or drop a request
+              if you&apos;ve got one we haven&apos;t thought of.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-x-5 gap-y-2 font-[var(--font-mono)] text-[11px] uppercase tracking-[0.14em] text-[#11100D]/65">
+              <span>{items.length} ideas</span>
+              <span aria-hidden>/</span>
+              <span>{grouped.shipped.length} shipped</span>
+              <span aria-hidden>/</span>
+              <span>{grouped.in_progress.length} building now</span>
+              <span aria-hidden>/</span>
+              <span>{totalVotes} votes cast</span>
+            </div>
+            <div className="mt-8">
+              <RoadmapClientControls authed={authed} />
+            </div>
           </div>
-        </details>
-      )}
-      </div>
-    </main>
+
+          <div className="relative">
+            <QuiverSticker
+              sticker="creamCoastMap"
+              className="absolute -right-5 -top-7 z-10 hidden w-28 rotate-6 drop-shadow-md md:block"
+            />
+            <div className="polaroid rot-2">
+              <div className="photo" style={{ aspectRatio: "16 / 10" }}>
+                <RoadmapHeroVideo startIndex={Math.floor(Math.random() * 4)} />
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-0 bg-[#F4EBD8]/10 mix-blend-screen"
+                />
+              </div>
+              <p className="cap">field notes from the build queue</p>
+            </div>
+          </div>
+        </header>
+
+        <section className="torn torn-tb rot-neg mt-12 border-2 border-[#11100D] bg-[#F0E5CC]">
+          <div className="grid gap-5 md:grid-cols-[0.9fr_1.1fr] md:items-center">
+            <div>
+              <p className="typewriter mb-2">How this works</p>
+              <h2 className="font-[var(--font-zine-display)] text-3xl font-black uppercase leading-none text-[#11100D] sm:text-4xl">
+                The surf app gets shaped in public.
+              </h2>
+            </div>
+            <p className="text-base leading-relaxed text-[#11100D]/74 sm:text-lg">
+              Vote for the ideas you want next. If something is missing, send a
+              request and we&apos;ll review it against the same queue.
+            </p>
+          </div>
+        </section>
+
+        <div className="mt-12">
+          {featured && (
+            <>
+              <RoadmapFeaturedCard item={featured} authed={authed} />
+              <RoadmapDivider label="Pipeline" />
+            </>
+          )}
+
+          <RoadmapSection
+            title="Building Now"
+            status="in_progress"
+            items={inProgressList}
+            authed={authed}
+          />
+          <RoadmapDivider label="What's next" />
+          <RoadmapSection
+            title="Under Consideration"
+            status="under_consideration"
+            items={underConsiderationList}
+            authed={authed}
+          />
+          <RoadmapDivider label="Already out" />
+          <RoadmapSection
+            title="Shipped"
+            status="shipped"
+            items={grouped.shipped}
+            authed={authed}
+          />
+          {grouped.declined.length > 0 && (
+            <details className="mt-10">
+              <summary className="cursor-pointer font-[var(--font-mono)] text-xs uppercase tracking-widest text-[#11100D]/55 hover:text-[#11100D]">
+                {grouped.declined.length} passed, see why
+              </summary>
+              <div className="mt-4">
+                <RoadmapDivider label="Passed on" />
+                <RoadmapSection
+                  title="Passed"
+                  status="declined"
+                  items={grouped.declined}
+                  authed={authed}
+                />
+              </div>
+            </details>
+          )}
+        </div>
+      </main>
+    </ZineSurface>
   );
 }

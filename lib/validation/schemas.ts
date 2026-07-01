@@ -140,6 +140,26 @@ export const AppLinkEmailSchema = z.object({
 
 export type AppLinkEmailInput = z.infer<typeof AppLinkEmailSchema>;
 
+const normalizedEmailSchema = z
+  .string()
+  .trim()
+  .max(254)
+  .transform((value) => value.toLowerCase())
+  .refine((value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value), {
+    message: "invalid_email",
+  });
+
+const waitlistMetadataSchema = z.string().trim().min(1).max(80);
+
+export const AndroidBetaLeadSchema = z.object({
+  email: normalizedEmailSchema,
+  source: waitlistMetadataSchema,
+  surface: waitlistMetadataSchema,
+  placement: waitlistMetadataSchema,
+});
+
+export type AndroidBetaLeadInput = z.infer<typeof AndroidBetaLeadSchema>;
+
 export const IntelReportSchema = z.object({
   reason: z.string()
     .max(500, 'Reason cannot exceed 500 characters')

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { ProfileView } from "@/components/profile-view";
+import { ZineSurface } from "@/components/zine";
 
 // Force dynamic rendering for this page since it uses useSearchParams
 export const dynamic = "force-dynamic";
@@ -23,46 +24,60 @@ export const metadata: Metadata = buildPageMetadata({
 // Loading skeleton for profile
 function ProfileSkeleton() {
   return (
-    <div className="flex-1 bg-background">
-      {/* Header skeleton */}
-      <div className="bg-gradient-to-r from-blue-500 to-purple-600 p-6 animate-pulse">
-        <div className="flex items-center space-x-4">
-          <div className="w-20 h-20 bg-white/20 rounded-full"></div>
-          <div className="flex-1 space-y-2">
-            <div className="h-6 bg-white/20 rounded w-48"></div>
-            <div className="h-4 bg-white/20 rounded w-32"></div>
+    <ZineSurface
+      sectionLabel="Profile"
+      editionLabel="Private logbook"
+      paperClassName="min-h-[calc(100vh-9rem)]"
+      data-testid="profile-skeleton-zine-surface"
+    >
+      <div
+        className="space-y-6 animate-pulse"
+        role="status"
+        aria-label="Loading profile"
+      >
+        <span className="sr-only">Loading profile...</span>
+
+        {/* Header skeleton */}
+        <div className="torn torn-tb border-2 border-[#11100D] bg-[#FBF6E8] p-5">
+          <div className="flex items-center space-x-4">
+            <div className="h-20 w-20 rounded-full border-2 border-[#11100D] bg-[#D9C49C]"></div>
+            <div className="flex-1 space-y-3">
+              <div className="h-6 w-48 rounded bg-[#11100D]/20"></div>
+              <div className="h-4 w-32 rounded bg-[#11100D]/15"></div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Tab skeleton */}
-      <div className="border-b bg-white animate-pulse">
-        <div className="flex space-x-8 px-6">
+        {/* Tab skeleton */}
+        <div className="border-y-2 border-[#11100D] bg-[#FBF6E8] px-4 py-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-11 rounded border-2 border-[#11100D]/40 bg-[#11100D]/10"></div>
+            ))}
+          </div>
+        </div>
+
+        {/* Content skeleton */}
+        <div className="grid gap-4">
           {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="h-12 w-20 bg-gray-200 rounded-t"></div>
+            <div
+              key={i}
+              className="h-28 rounded-sm border-2 border-[#11100D]/30 bg-[#FBF6E8]"
+            ></div>
           ))}
         </div>
-      </div>
 
-      {/* Content skeleton */}
-      <div className="p-6 space-y-4 animate-pulse">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-32 bg-gray-100 rounded-lg"></div>
-        ))}
-      </div>
-
-      {/* Loading indicator */}
-      <div className="fixed inset-0 bg-black/5 flex items-center justify-center pointer-events-none">
-        <div className="bg-white rounded-lg p-6 shadow-lg">
-          <div className="flex items-center space-x-3">
-            <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <span className="text-gray-700 font-medium">
+        {/* Loading indicator */}
+        <div className="flex justify-center">
+          <div className="inline-flex items-center gap-3 border-2 border-[#11100D] bg-[#F78E42] px-5 py-3 font-mono text-xs font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)]">
+            <div className="h-5 w-5 rounded-full border-2 border-[#11100D] border-t-transparent animate-spin"></div>
+            <span>
               Loading Profile...
             </span>
           </div>
         </div>
       </div>
-    </div>
+    </ZineSurface>
   );
 }
 

@@ -20,6 +20,30 @@ interface Feature {
 
 const FEATURES: Feature[] = [
   {
+    sticker: "blogSessionLog",
+    title: "Personal forecasting",
+    body: "Saved beaches and session feedback help Quiver tune the call around how you surf.",
+    tier: "pro",
+  },
+  {
+    sticker: "spotSwellMatch",
+    title: "Board-aware picks",
+    body: "Tell Quiver what's in your quiver. It matches the swell to the board that should actually go.",
+    tier: "pro",
+  },
+  {
+    sticker: "tealCurvedArrow",
+    title: "Best spot + paddle window",
+    body: "See the nearby move and the timing that looks most worth chasing.",
+    tier: "pro",
+  },
+  {
+    sticker: "orangeMap",
+    title: "Custom spots",
+    body: "Drop your own breaks and get the same honest read anywhere.",
+    tier: "pro",
+  },
+  {
     sticker: "forecastWaveMark",
     title: "Honest forecasts",
     body: "Per-break wave heights and confidence without making every morning sound epic.",
@@ -30,30 +54,6 @@ const FEATURES: Feature[] = [
     title: "Wind & tide reads",
     body: "Plain-language calls on the wind, tide window, and hour worth protecting.",
     tier: "free",
-  },
-  {
-    sticker: "blogSessionLog",
-    title: "Session log + crew",
-    body: "Save what happened, remember the board, and share the call with the people you surf with.",
-    tier: "free",
-  },
-  {
-    sticker: "spotSwellMatch",
-    title: "Board-aware picks",
-    body: "Tell Quiver what's in your quiver. It matches the swell to the board that should actually go.",
-    tier: "pro",
-  },
-  {
-    sticker: "tealCurvedArrow",
-    title: "Smart alerts",
-    body: "Get pinged when your spots line up for the boards you own.",
-    tier: "pro",
-  },
-  {
-    sticker: "orangeMap",
-    title: "Custom spots",
-    body: "Drop your own breaks and get the same honest read anywhere.",
-    tier: "pro",
   },
 ];
 

@@ -33,6 +33,28 @@ describe("Session Comments API", () => {
   const validSessionId = "123e4567-e89b-12d3-a456-426614174000";
   const validUserId = "987fcdeb-51a2-43c1-a123-456789abcdef";
 
+  function mockExistingSessionThenInsert(
+    mockInsert: jest.Mock,
+    sessionId: string = validSessionId
+  ): void {
+    const mockMaybeSingle = jest.fn().mockResolvedValue({
+      data: { id: sessionId },
+      error: null,
+    });
+    const mockEq = jest.fn().mockReturnValue({ maybeSingle: mockMaybeSingle });
+    const mockSelect = jest.fn().mockReturnValue({ eq: mockEq });
+
+    mockFrom.mockImplementation((tableName: string) => {
+      if (tableName === "sessions") {
+        return { select: mockSelect };
+      }
+      if (tableName === "comments") {
+        return { insert: mockInsert };
+      }
+      return {};
+    });
+  }
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
@@ -265,9 +287,7 @@ describe("Session Comments API", () => {
         error: null,
       });
 
-      mockFrom.mockReturnValue({
-        insert: mockInsert,
-      });
+      mockExistingSessionThenInsert(mockInsert);
 
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${validSessionId}/comments`,
@@ -441,9 +461,7 @@ describe("Session Comments API", () => {
         error: null,
       });
 
-      mockFrom.mockReturnValue({
-        insert: mockInsert,
-      });
+      mockExistingSessionThenInsert(mockInsert);
 
       const maxContent = "a".repeat(2000); // Exactly 2000 characters
 
@@ -577,9 +595,7 @@ describe("Session Comments API", () => {
         error: new Error("Foreign key constraint violation"),
       });
 
-      mockFrom.mockReturnValue({
-        insert: mockInsert,
-      });
+      mockExistingSessionThenInsert(mockInsert);
 
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${validSessionId}/comments`,
@@ -618,9 +634,7 @@ describe("Session Comments API", () => {
         error: null,
       });
 
-      mockFrom.mockReturnValue({
-        insert: mockInsert,
-      });
+      mockExistingSessionThenInsert(mockInsert);
 
       const request = new NextRequest(
         `http://localhost:3000/api/sessions/${validSessionId}/comments`,

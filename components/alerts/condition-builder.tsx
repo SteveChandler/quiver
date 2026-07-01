@@ -68,10 +68,10 @@ function degreesToCompass(minDeg?: number, maxDeg?: number): string {
 }
 
 const inputClasses =
-  "bg-[#252D6B] text-white text-xs rounded-lg px-2.5 py-1.5 border border-[#404C92] focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50 focus:border-[#F78E42] transition-colors font-mono";
+  "zine-alert-control bg-[#FBF6E8] text-[#11100D] text-xs rounded-sm px-2.5 py-1.5 border-2 border-[#11100D] focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50 focus:border-[#F78E42] transition-colors font-mono";
 
 const selectClasses =
-  "bg-[#252D6B] text-white text-xs rounded-lg px-2.5 py-1.5 border border-[#404C92] focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50 focus:border-[#F78E42] transition-colors";
+  "zine-alert-control bg-[#FBF6E8] text-[#11100D] text-xs rounded-sm px-2.5 py-1.5 border-2 border-[#11100D] focus:outline-none focus:ring-2 focus:ring-[#F78E42]/50 focus:border-[#F78E42] transition-colors";
 
 interface ConditionBuilderProps {
   conditions: AlertConditions;
@@ -168,7 +168,7 @@ export function ConditionBuilder({ conditions, onChange }: ConditionBuilderProps
             onClick={() => setShowPicker(!showPicker)}
             aria-expanded={showPicker}
             aria-haspopup="listbox"
-            className="text-sm text-[#F78E42] hover:text-[#F78E42]/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 focus-visible:rounded-md font-semibold font-[family-name:var(--font-space-grotesk)] py-1"
+            className="py-1 font-[family-name:var(--font-space-grotesk)] text-sm font-black text-[#11100D] underline decoration-[#F78E42] decoration-2 underline-offset-4 hover:text-[#F78E42] focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/60"
           >
             + Add condition
           </button>
@@ -176,7 +176,7 @@ export function ConditionBuilder({ conditions, onChange }: ConditionBuilderProps
             <div
               role="listbox"
               aria-label="Available conditions"
-              className="absolute z-10 mt-1 w-52 bg-[#2D357D] border border-[#404C92] rounded-lg shadow-xl p-1.5"
+              className="absolute z-10 mt-1 w-52 rounded-sm border-2 border-[#11100D] bg-[#FBF6E8] p-1.5 shadow-[4px_4px_0_rgba(17,16,13,0.28)]"
             >
               {availableConditions.map((ct) => (
                 <button
@@ -184,7 +184,7 @@ export function ConditionBuilder({ conditions, onChange }: ConditionBuilderProps
                   role="option"
                   aria-selected={false}
                   onClick={() => addCondition(ct.key)}
-                  className="w-full text-left px-3 py-2 text-sm text-white hover:bg-[#354090] focus-visible:bg-[#354090] focus-visible:outline-none rounded-md font-medium transition-colors"
+                  className="w-full rounded-sm px-3 py-2 text-left text-sm font-bold text-[#11100D] transition-colors hover:bg-[#F78E42]/20 focus-visible:bg-[#F78E42]/20 focus-visible:outline-none"
                 >
                   {ct.label}
                 </button>
@@ -215,11 +215,11 @@ function ConditionRow({
   };
 
   return (
-    <div className="flex items-center gap-2 bg-[#354090]/30 border border-[#404C92]/60 rounded-lg px-3 py-2">
-      <span className="text-xs text-gray-300 font-semibold font-[family-name:var(--font-space-grotesk)] min-w-[80px]">
+    <div className="flex flex-col gap-2 rounded-sm border-2 border-[#11100D]/50 bg-[#FFF9EA] px-3 py-2 sm:flex-row sm:items-center">
+      <span className="min-w-[92px] font-[family-name:var(--font-space-grotesk)] text-xs font-black uppercase tracking-[0.03em] text-[#11100D]">
         {ct.label}
       </span>
-      <div className="flex-1 flex items-center gap-2">
+      <div className="flex flex-1 flex-wrap items-center gap-2">
         {conditionKey === "swell_height" && (
           <>
             <input
@@ -236,7 +236,7 @@ function ConditionRow({
               step="0.5"
               min="0"
             />
-            <span className="text-gray-400 text-xs">to</span>
+            <span className="text-xs font-bold text-[#403A2E]">to</span>
             <input
               type="number"
               value={conditions.swell_height_max ?? ""}
@@ -336,7 +336,7 @@ function ConditionRow({
               step="0.5"
               min="0"
             />
-            <span className="text-gray-400 text-xs">to</span>
+            <span className="text-xs font-bold text-[#403A2E]">to</span>
             <input
               type="number"
               value={conditions.tide_height_max_ft ?? ""}
@@ -376,7 +376,7 @@ function ConditionRow({
       </div>
       <button
         onClick={onRemove}
-        className="text-gray-500 hover:text-red-400 focus-visible:text-red-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400/50 focus-visible:rounded active:scale-95 transition-all min-w-[44px] min-h-[44px] flex items-center justify-center shrink-0 -mr-2"
+        className="-mr-2 flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-sm text-[#403A2E] transition-all hover:bg-red-100 hover:text-red-700 focus-visible:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500/60 active:scale-95"
         aria-label={`Remove ${ct.label} condition`}
       >
         <X className="w-3.5 h-3.5" />
@@ -393,17 +393,17 @@ function CompassSelector({
   onChange: (dir: string) => void;
 }) {
   return (
-    <div className="flex gap-1 flex-wrap" role="group" aria-label="Compass direction">
+    <div className="flex flex-wrap gap-1" role="group" aria-label="Compass direction">
       {COMPASS_DIRECTIONS.map((dir) => (
         <button
           key={dir.label}
           onClick={() => onChange(dir.label)}
           aria-label={`${dir.label} direction`}
           aria-pressed={value === dir.label}
-          className={`w-9 h-9 rounded-md text-[11px] font-mono font-semibold transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/50 active:scale-95 touch-action-manipulation ${
+          className={`h-9 w-9 touch-action-manipulation rounded-sm border-2 font-mono text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/60 active:scale-95 ${
             value === dir.label
-              ? "bg-[#F78E42]/20 border border-[#F78E42] text-[#F78E42]"
-              : "bg-[#252D6B] border border-[#404C92] text-gray-400 hover:border-gray-300 hover:text-white"
+              ? "border-[#11100D] bg-[#F78E42] text-[#11100D]"
+              : "border-[#11100D]/45 bg-[#FBF6E8] text-[#403A2E] hover:border-[#11100D]"
           }`}
         >
           {dir.label}

@@ -177,6 +177,36 @@ const nextConfig = {
         destination: "/profile?openSettings=true",
         permanent: false, // 302 for flexibility
       },
+      {
+        source: "/surfline-alternative",
+        destination: "/vs/surfline",
+        permanent: true,
+      },
+      {
+        source: "/free-surfline-alternative",
+        destination: "/vs/surfline/free",
+        permanent: true,
+      },
+      {
+        source: "/seo-pages/vs-surfline-free",
+        destination: "/vs/surfline/free",
+        permanent: true,
+      },
+      {
+        source: "/magicseaweed-alternative",
+        destination: "/vs/surfline/free",
+        permanent: true,
+      },
+      {
+        source: "/free-surf-forecast",
+        destination: "/free-surf-reports",
+        permanent: true,
+      },
+      {
+        source: "/learn/ml-surf-forecast",
+        destination: "/learn/how-quiver-calibrates-your-beach",
+        permanent: true,
+      },
     ];
   },
 

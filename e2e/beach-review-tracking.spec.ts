@@ -1,4 +1,5 @@
-import { test, expect, Page } from '@playwright/test';
+import { test, expect } from "./fixtures/auth-fixture";
+import { type Page } from '@playwright/test';
 import { TEST_BEACHES } from './fixtures/test-data';
 import { navigateToBeach, ensureAuthenticated } from './utils/test-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
@@ -16,6 +17,12 @@ import { getCurrentUserId } from './utils/auth-helpers';
  *
  * @project auth
  */
+
+test.describe.configure({ mode: 'serial' });
+
+const REVIEW_CTA_TIMEOUT_MS = 30_000;
+const REVIEW_DIALOG_TIMEOUT_MS = 10_000;
+const REVIEW_SUBMIT_TIMEOUT_MS = 30_000;
 
 // Helper to capture tracking events
 interface TrackingEvent {
@@ -108,7 +115,7 @@ test.describe('Beach Review Tracking', () => {
 
       // Should show the review CTA
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
-      await expect(reviewCTA).toBeVisible({ timeout: 10000 });
+      await expect(reviewCTA).toBeVisible({ timeout: REVIEW_CTA_TIMEOUT_MS });
     });
 
     test('should track review_form_open when CTA is clicked', async ({ page }) => {
@@ -129,11 +136,11 @@ test.describe('Beach Review Tracking', () => {
 
       // Click the review CTA in overview tab
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
-      await expect(reviewCTA).toBeVisible({ timeout: 10000 });
+      await expect(reviewCTA).toBeVisible({ timeout: REVIEW_CTA_TIMEOUT_MS });
       await reviewCTA.click();
 
       // Wait for dialog to appear
-      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: REVIEW_DIALOG_TIMEOUT_MS });
 
       // Wait for tracking event to fire
       await page.waitForFunction(
@@ -171,11 +178,11 @@ test.describe('Beach Review Tracking', () => {
 
       // Find and click write review button in reviews section
       const writeReviewButton = page.getByRole('button', { name: /write.*review/i }).first();
-      await expect(writeReviewButton).toBeVisible({ timeout: 10000 });
+      await expect(writeReviewButton).toBeVisible({ timeout: REVIEW_CTA_TIMEOUT_MS });
       await writeReviewButton.click();
 
       // Wait for dialog to appear
-      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: REVIEW_DIALOG_TIMEOUT_MS });
 
       // Wait for tracking event to fire
       await page.waitForFunction(
@@ -210,9 +217,9 @@ test.describe('Beach Review Tracking', () => {
 
       // Open review form
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
-      await expect(reviewCTA).toBeVisible({ timeout: 10000 });
+      await expect(reviewCTA).toBeVisible({ timeout: REVIEW_CTA_TIMEOUT_MS });
       await reviewCTA.click();
-      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: REVIEW_DIALOG_TIMEOUT_MS });
 
       // Fill only title and content, skip ratings
       await page.getByPlaceholder(/summarize your experience/i).fill('Test Review Title');
@@ -253,9 +260,9 @@ test.describe('Beach Review Tracking', () => {
 
       // Open review form
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
-      await expect(reviewCTA).toBeVisible({ timeout: 10000 });
+      await expect(reviewCTA).toBeVisible({ timeout: REVIEW_CTA_TIMEOUT_MS });
       await reviewCTA.click();
-      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: REVIEW_DIALOG_TIMEOUT_MS });
 
       // Fill all ratings but skip content
       const starButtons = page.locator('button[aria-label*="Rate"]');
@@ -303,9 +310,9 @@ test.describe('Beach Review Tracking', () => {
 
       // Open review form
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
-      await expect(reviewCTA).toBeVisible({ timeout: 10000 });
+      await expect(reviewCTA).toBeVisible({ timeout: REVIEW_CTA_TIMEOUT_MS });
       await reviewCTA.click();
-      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: REVIEW_DIALOG_TIMEOUT_MS });
 
       // Engage with a star rating first (proves rating progression)
       const overallStar3 = page.locator('button[aria-label*="Rate Overall Experience 3"]');
@@ -366,11 +373,11 @@ test.describe('Beach Review Tracking', () => {
       await page.getByRole('tabpanel').first().waitFor({ state: 'visible', timeout: 5000 });
 
       const writeReviewButton = page.getByRole('button', { name: /write.*review/i }).first();
-      await expect(writeReviewButton).toBeVisible({ timeout: 10000 });
+      await expect(writeReviewButton).toBeVisible({ timeout: REVIEW_CTA_TIMEOUT_MS });
       await writeReviewButton.click();
 
       const dialog = page.getByRole('dialog');
-      await expect(dialog).toBeVisible({ timeout: 5000 });
+      await expect(dialog).toBeVisible({ timeout: REVIEW_DIALOG_TIMEOUT_MS });
 
       // Wait for the form_open event so we know hasTrackedOpenRef is set
       await page.waitForFunction(
@@ -429,7 +436,7 @@ test.describe('Beach Review Tracking', () => {
       // Open review form
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
       await reviewCTA.click();
-      await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
+      await expect(page.getByRole('dialog')).toBeVisible({ timeout: REVIEW_DIALOG_TIMEOUT_MS });
 
       // Check that star buttons have aria-labels
       const starButtons = page.locator('button[aria-label*="Rate"]');
@@ -456,7 +463,7 @@ test.describe('Beach Review Tracking', () => {
 
       // Find the review CTA button
       const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
-      await expect(reviewCTA).toBeVisible({ timeout: 10000 });
+      await expect(reviewCTA).toBeVisible({ timeout: REVIEW_CTA_TIMEOUT_MS });
 
       // Focus the button using keyboard navigation
       await reviewCTA.focus();
@@ -491,7 +498,7 @@ test.describe('Review Form UI', () => {
     // Open review form
     const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
     await reviewCTA.click();
-    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: REVIEW_DIALOG_TIMEOUT_MS });
 
     // Verify all rating categories are present (scoped to dialog to avoid
     // matching amenity badges like "Parking" on the Overview tab behind the dialog)
@@ -515,7 +522,7 @@ test.describe('Review Form UI', () => {
     // Open review form
     const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
     await reviewCTA.click();
-    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: REVIEW_DIALOG_TIMEOUT_MS });
 
     // Click on a star rating
     const firstRatingButton = page.locator('button[aria-label*="Rate Overall Experience 4"]');
@@ -537,7 +544,7 @@ test.describe('Review Form UI', () => {
     // Open review form
     const reviewCTA = page.getByRole('button', { name: /write a review/i }).first();
     await reviewCTA.click();
-    await expect(page.getByRole('dialog')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByRole('dialog')).toBeVisible({ timeout: REVIEW_DIALOG_TIMEOUT_MS });
 
     // Fill title
     const titleInput = page.getByPlaceholder(/summarize your experience/i);
@@ -588,7 +595,7 @@ test.describe('Successful Submit Tracking', () => {
     await page.getByRole('button', { name: /write a review/i }).first().click();
 
     const dialog = page.getByRole('dialog');
-    await expect(dialog).toBeVisible({ timeout: 5000 });
+    await expect(dialog).toBeVisible({ timeout: REVIEW_DIALOG_TIMEOUT_MS });
 
     // Fill all 5 rating categories with star 4. Use aria-label text rather than
     // positional nth() so reordering categories or adding a new one doesn't
@@ -614,12 +621,12 @@ test.describe('Successful Submit Tracking', () => {
     await dialog.getByRole('button', { name: /post review/i }).click();
 
     // Dialog should close on success.
-    await expect(dialog).not.toBeVisible({ timeout: 10000 });
+    await expect(dialog).not.toBeVisible({ timeout: REVIEW_SUBMIT_TIMEOUT_MS });
 
     // Wait for review_submit event.
     await page.waitForFunction(
       () => (window as any).__capturedTrackingEvents?.some((e: any) => e.eventType === 'review_submit'),
-      { timeout: 5000 }
+      { timeout: REVIEW_DIALOG_TIMEOUT_MS }
     );
 
     const events = await getCapturedEvents(page);

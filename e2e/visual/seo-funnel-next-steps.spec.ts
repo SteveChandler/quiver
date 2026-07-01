@@ -110,7 +110,7 @@ function getNextStepsSection(page: Page, route: SeoFunnelRoute): Locator {
     return page.getByRole("region", { name: route.sectionName });
   }
 
-  return page.getByTestId("seo-funnel-next-steps");
+  return page.getByTestId("seo-funnel-next-steps").first();
 }
 
 async function expectRouteTheme(
@@ -187,7 +187,7 @@ test.describe("SEO funnel next steps visual validation", () => {
 
   for (const viewport of VIEWPORTS) {
     for (const route of SEO_FUNNEL_ROUTES) {
-      test(`${route.slug} renders scannable next steps on ${viewport.name}`, async ({
+      test(`${route.slug} renders scannable next steps on ${viewport.name} @requires-data`, async ({
         page,
       }) => {
         await page.setViewportSize({

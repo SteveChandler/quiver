@@ -286,11 +286,9 @@ export function PayoffStep() {
       setIsSaving(false);
     }
 
-    // Close the dialog and signal completion. The OnboardingDialog's stale-close
-    // effect is guarded to not fire on PayoffStep, so we drive the close explicitly
-    // via completeOnboarding() here.
+    // Close the dialog. The OnboardingDialog's stale-close effect is guarded to not
+    // fire on PayoffStep, so we drive the close explicitly via completeOnboarding() here.
     completeOnboarding();
-    window.dispatchEvent(new CustomEvent('onboarding_completed'));
 
     // Refresh cached forecasts so they pick up the new profile context, but DO NOT
     // navigate away from the page the user signed up on. Product intent: keep the

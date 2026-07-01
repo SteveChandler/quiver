@@ -53,13 +53,11 @@ export async function initializeUserXP(
     .from("user_xp")
     .select("id")
     .eq("user_id", userId)
-    .single();
+    .maybeSingle();
 
   if (!existingXP) {
-    const { error } = await supabase.from("user_xp").insert({
-      user_id: userId,
-      xp_total: 0,
-      level: 1,
+    const { error } = await (supabase as any).rpc("ensure_user_xp", {
+      p_user_id: userId,
     });
 
     if (error) {

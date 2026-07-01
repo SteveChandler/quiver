@@ -128,23 +128,33 @@ export function BeachPageStructuredData({
     }
   }
 
-  const beachData = {
+  const geo = {
+    "@type": "GeoCoordinates",
+    latitude: latitude,
+    longitude: longitude,
+  };
+
+  const placeData = {
     "@context": "https://schema.org",
-    "@type": ["Place", "SportsActivityLocation"],
+    "@type": "Place",
     name: beachName,
     description: description,
-    sport: "Surfing",
-    geo: {
-      "@type": "GeoCoordinates",
-      latitude: latitude,
-      longitude: longitude,
-    },
+    geo,
     address: {
       "@type": "PostalAddress",
       addressLocality: city || undefined,
       addressRegion: state || undefined,
       addressCountry: country || "US",
     },
+  };
+
+  const sportsActivityLocationData = {
+    "@context": "https://schema.org",
+    "@type": "SportsActivityLocation",
+    name: beachName,
+    description: description,
+    sport: "Surfing",
+    geo,
     // Do NOT emit AggregateRating here. Google review snippets require eligible
     // types (LocalBusiness, Product, etc.) — Place is not eligible. Even if we
     // used SportsActivityLocation (a LocalBusiness subtype), Google's self-serving
@@ -154,14 +164,19 @@ export function BeachPageStructuredData({
     amenityFeature: amenityFeatures,
   };
 
-  // Only emit the beach Place data — Organization is already in the root layout
-  // via buildRootStructuredDataGraph() in app/layout.tsx.
+  // Organization is already in the root layout via buildRootStructuredDataGraph()
+  // in app/layout.tsx.
   return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(beachData),
-      }}
-    />
+    <>
+      {[placeData, sportsActivityLocationData].map((schema, index) => (
+        <script
+          key={index}
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(schema),
+          }}
+        />
+      ))}
+    </>
   );
 }

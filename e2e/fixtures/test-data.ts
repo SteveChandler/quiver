@@ -24,7 +24,7 @@ export const TEST_BEACH_IDS = isDevEnvironment ? {
 } : {
   // Local environment: using slugs from local database
   blacks: 'blacks',
-  birdrock: 'birdrock',
+  birdrock: 'bird-rock',
   beacons: 'beacons',
 };
 
@@ -59,16 +59,16 @@ export const TEST_BEACHES = isDevEnvironment ? {
   blacks: {
     id: 'blacks',
     slug: 'blacks',
-    city: 'San Diego',
+    city: 'La Jolla',
     state: 'CA',
     name: 'Blacks'
   },
   birdrock: {
-    id: 'birdrock',
-    slug: 'birdrock',
+    id: 'bird-rock',
+    slug: 'bird-rock',
     city: 'La Jolla',
     state: 'CA',
-    name: 'Birdrock'
+    name: 'Bird Rock'
   },
   beacons: {
     id: 'beacons',

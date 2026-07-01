@@ -11,6 +11,8 @@ import type { Metadata } from "next";
 import { HUB_REGION_SLUGS, getHubRegion } from "@/lib/data/hub-regions";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
+import { ScrollReveal } from "@/components/ui/scroll-reveal";
+import { QuiverSticker, ZineSurface } from "@/components/zine";
 
 export const revalidate = 86400;
 
@@ -40,7 +42,7 @@ export default function GuidesIndexPage() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <>
       <BreadcrumbStructuredData
         items={[
           { name: "Quiver", url: `${SITE_ORIGIN}/` },
@@ -48,34 +50,75 @@ export default function GuidesIndexPage() {
         ]}
       />
 
-      <div className="mx-auto max-w-4xl px-4 py-12 md:py-16">
-        <header className="mb-10">
-          <h1 className="font-heading text-3xl font-bold md:text-4xl">
-            Surf Guides
-          </h1>
-          <p className="mt-3 text-muted-foreground">
-            Regional breakdowns covering wave types, seasonal windows, water
-            temps, wetsuit needs, and the best breaks in each area.
-          </p>
-        </header>
-
-        <div className="grid gap-4 sm:grid-cols-2">
-          {regions.map((region) => (
-            <Link
-              key={region.slug}
-              href={`/guides/surfing-${region.slug}`}
-              className="group rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/50 hover:bg-card/80"
-            >
-              <h2 className="font-heading text-lg font-semibold text-foreground group-hover:text-primary">
-                {region.name}
-              </h2>
-              <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                {region.description.split("\n")[0]}
+      <ZineSurface
+        sectionLabel="Surf guides"
+        editionLabel="Regional field notes"
+        data-testid="guides-zine-surface"
+      >
+        <main>
+          <ScrollReveal>
+            <header className="relative">
+              <QuiverSticker
+                sticker="orangeMap"
+                className="absolute -top-6 right-2 hidden w-20 rotate-6 opacity-90 sm:block"
+              />
+              <p className="label-black mb-5">Surf guides</p>
+              <h1 className="zine-h1 font-heading font-black uppercase leading-[0.9] tracking-normal text-[#11100D]">
+                Surf Guides
+              </h1>
+              <p className="mt-6 max-w-3xl text-lg leading-relaxed text-[#11100D]/75 sm:text-xl">
+                Regional breakdowns covering wave types, seasonal windows, water
+                temps, wetsuit needs, and the best breaks in each area.
               </p>
-            </Link>
-          ))}
-        </div>
-      </div>
-    </div>
+              <div className="mt-7 flex flex-wrap gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/65">
+                <span>{regions.length} regions</span>
+                <span aria-hidden>/</span>
+                <span>wave types</span>
+                <span aria-hidden>/</span>
+                <span>seasonal windows</span>
+              </div>
+            </header>
+          </ScrollReveal>
+
+          <section className="mt-12" aria-labelledby="regions-heading">
+            <ScrollReveal>
+              <div className="mb-5 flex items-end justify-between gap-4 border-b-2 border-dashed border-[#11100D]/35 pb-4">
+                <div>
+                  <p className="typewriter mb-2">Pick a coast</p>
+                  <h2
+                    id="regions-heading"
+                    className="font-heading text-2xl font-black uppercase leading-tight text-[#11100D] sm:text-3xl"
+                  >
+                    Regions covered
+                  </h2>
+                </div>
+                <QuiverSticker
+                  sticker="creamCoastMap"
+                  className="hidden w-16 -rotate-3 drop-shadow-sm sm:block"
+                />
+              </div>
+            </ScrollReveal>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              {regions.map((region, index) => (
+                <ScrollReveal key={region.slug} delay={index * 50}>
+                  <Link
+                    href={`/guides/surfing-${region.slug}`}
+                    className="group block min-h-28 border-2 border-[#11100D] bg-[#FBF6E8] p-5 shadow-[2px_3px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
+                  >
+                    <h2 className="font-heading text-xl font-black uppercase leading-tight text-[#11100D] transition-colors group-hover:text-[#B56A2B]">
+                      {region.name}
+                    </h2>
+                    <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[#11100D]/70">
+                      {region.description.split("\n")[0]}
+                    </p>
+                  </Link>
+                </ScrollReveal>
+              ))}
+            </div>
+          </section>
+        </main>
+      </ZineSurface>
+    </>
   );
 }

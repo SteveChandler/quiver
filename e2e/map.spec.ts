@@ -1,67 +1,23 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures/auth-fixture';
+import type { Page } from '@playwright/test';
 import { VIEWPORTS, TIMEOUTS } from './fixtures/test-data';
 import { waitForPageLoad } from './utils/test-helpers';
 import { isVisibleSafe } from './utils/strict-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 import { dismissMapEntryOverlay } from './utils/map-helpers';
 
-type WaveHeightRange = {
-  min: number;
-  max: number;
-};
-
-const normalizeWaveHeightValue = (value: number): string => {
-  const rounded = Math.round(value * 10) / 10;
-  return Number.isInteger(rounded) ? `${rounded}` : `${rounded}`;
-};
-
-const parseWaveHeightRange = (text: string): WaveHeightRange | null => {
-  const normalizedText = text.replace(/\u2013/g, '-').toLowerCase();
-  const wavePattern = /~?\s*(\d+(?:\.\d+)?)(?:\s*-\s*(\d+(?:\.\d+)?)\s*)?ft/g;
-  const matches = [...normalizedText.matchAll(wavePattern)];
-
-  for (const match of matches) {
-    const min = Number.parseFloat(match[1]);
-    const max = match[2] ? Number.parseFloat(match[2]) : min;
-
-    if (!Number.isFinite(min) || !Number.isFinite(max)) {
-      continue;
-    }
-
-    return {
-      min,
-      max,
-    };
-  }
-
-  return null;
-};
-
-const formatWaveHeightRange = (range: WaveHeightRange): string => {
-  if (range.min === range.max) {
-    return `${normalizeWaveHeightValue(range.min)}ft`;
-  }
-
-  return `${normalizeWaveHeightValue(range.min)}-${normalizeWaveHeightValue(range.max)}ft`;
-};
-
-const waveHeightRangesOverlap = (
-  left: WaveHeightRange | null,
-  right: WaveHeightRange | null
-): boolean => {
-  if (!left || !right) {
-    return false;
-  }
-
-  return Math.max(left.min, right.min) <= Math.min(left.max, right.max);
-};
+async function openRegionsAndFilters(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Regions and filters' }).click();
+}
 
 /**
  * Map Page Tests
- * Tests the interactive map functionality including view modes, filters, search, and geolocation
+ * Tests the interactive map functionality including filters, search, and geolocation
  *
  * @project auth
  */
+
+test.describe.configure({ mode: 'serial' });
 
 test.describe('Map Page - Core Functionality', () => {
   let errorCapture: ErrorCapture;
@@ -126,141 +82,32 @@ test.describe('Map Page - Core Functionality', () => {
 
 });
 
-test.describe('Map Page - View Mode Toggle', () => {
+test.describe('Map Page - Toolbar Controls', () => {
   let errorCapture: ErrorCapture;
 
   test.beforeEach(async ({ page }) => {
     errorCapture = setupErrorDetection(page);
     await page.goto('/map');
     await waitForPageLoad(page);
-  await dismissMapEntryOverlay(page);
+    await dismissMapEntryOverlay(page);
   });
 
   test.afterEach(async ({ page }) => {
-    await assertNoErrors(page, errorCapture, { context: 'Map View Mode' });
+    await assertNoErrors(page, errorCapture, { context: 'Map Toolbar Controls' });
   });
 
-  test('should toggle between map and list view', async ({ page }) => {
-    // Start in map view (default)
-    const mapButton = page.getByTestId('view-mode-map');
-    const listButton = page.getByTestId('view-mode-list');
+  test('should not render the removed map/list view toggle', async ({ page }) => {
+    await expect(page.getByTestId('view-mode-map')).toHaveCount(0);
+    await expect(page.getByTestId('view-mode-list')).toHaveCount(0);
+    await expect(
+      page.getByRole('combobox', { name: 'Search beaches, spots, or cities' })
+    ).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(
+      page.getByRole('button', { name: 'Regions and filters' })
+    ).toBeVisible();
 
-    await expect(mapButton).toBeVisible();
-    await expect(listButton).toBeVisible();
-
-    // Switch to list view
-    await listButton.click();
-    await page.waitForLoadState('load');
-
-    // List view should now be active (button has 'default' variant)
-    // In list mode, canvas should not be visible
     const mapCanvas = page.locator('canvas').first();
-    const canvasVisible = await isVisibleSafe(mapCanvas, { timeout: 2000 });
-
-    // Canvas might be hidden or removed in list view
-    expect(canvasVisible).toBe(false);
-
-    // Switch back to map view
-    await mapButton.click();
-    await page.waitForLoadState('load');
-
-    // Canvas should be visible again
     await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.medium });
-  });
-
-  test('should display beaches in list view', async ({ page }) => {
-    const listButton = page.getByTestId('view-mode-list');
-    await listButton.click();
-    await page.waitForLoadState('load');
-
-    // In list view, beaches appear with data-testid="beach-item"
-    const beachList = page.getByTestId('beach-list');
-    const beachItems = page.locator('[data-testid="beach-item"]');
-
-    // Wait for list to render
-    const hasList = await isVisibleSafe(beachList, { timeout: TIMEOUTS.medium });
-    const hasItems = await isVisibleSafe(beachItems.first(), { timeout: TIMEOUTS.medium });
-
-    expect(hasList || hasItems).toBe(true);
-
-    if (hasItems) {
-      const count = await beachItems.count();
-      expect(count).toBeGreaterThan(0);
-    }
-  });
-
-  test('should preserve forecast height from list card into beach detail', async ({ page }) => {
-    try {
-      const listButton = page.getByTestId('view-mode-list');
-      await listButton.click();
-      await page.waitForLoadState('load');
-
-      const beachList = page.getByTestId('beach-list');
-      const hasList = await isVisibleSafe(beachList, { timeout: TIMEOUTS.medium });
-      const firstListCard = page.locator('[data-testid="beach-item"]').first();
-
-      if (!hasList) {
-        const hasCards = await isVisibleSafe(firstListCard, { timeout: TIMEOUTS.medium });
-        expect(hasCards).toBe(true);
-      }
-
-      await expect(firstListCard).toBeVisible({ timeout: TIMEOUTS.medium });
-
-      const listBeachName = (await firstListCard.locator('h3').first().textContent())?.trim();
-      expect(listBeachName).toBeTruthy();
-
-      const expandButton = firstListCard.getByRole('button', {
-        name: /expand details|collapse details/i,
-      });
-
-      if (await isVisibleSafe(expandButton, { timeout: TIMEOUTS.short })) {
-        await expandButton.click();
-      }
-
-      const listForecastDisplay = firstListCard.locator('[data-testid="primary-wave-height"]').first();
-      await expect(listForecastDisplay).toBeVisible({ timeout: TIMEOUTS.medium });
-
-      const listForecastHeight = parseWaveHeightRange(await listForecastDisplay.textContent() ?? '');
-      expect(listForecastHeight).toBeTruthy();
-
-    const detailLink = firstListCard.getByRole('link', { name: /view details/i }).first();
-    await expect(detailLink).toBeVisible({ timeout: TIMEOUTS.short });
-    await detailLink.click();
-
-    await page.waitForURL(/\/(?:surf-forecast\/[^/?#]+|[a-z]{2}\/[^/?#]+\/[^/?#]+)/i, {
-      timeout: TIMEOUTS.short,
-    });
-
-    const detailCurrentSection = page
-      .locator('section')
-      .filter({ has: page.getByRole('heading', { name: 'Current Conditions', level: 2, exact: true }) });
-
-      await expect(detailCurrentSection).toBeVisible({ timeout: TIMEOUTS.long });
-
-      const detailForecastHeight = parseWaveHeightRange(await detailCurrentSection.textContent() ?? '');
-      expect(detailForecastHeight).toBeTruthy();
-
-      const listForecastLabel = formatWaveHeightRange(listForecastHeight as WaveHeightRange);
-      const detailForecastLabel = formatWaveHeightRange(detailForecastHeight as WaveHeightRange);
-
-    expect(
-      waveHeightRangesOverlap(listForecastHeight, detailForecastHeight),
-      `Expected overlapping wave-height ranges between map list (${listForecastLabel}) and detail (${detailForecastLabel})`
-    ).toBe(true);
-    } finally {
-      errorCapture.networkErrors = errorCapture.networkErrors.filter(
-        (entry) => !(entry.status === 500 && entry.url.includes('/api/intel'))
-      );
-      errorCapture.consoleErrors = errorCapture.consoleErrors.filter(
-        (msg) => !(
-          msg.includes('500 Internal Server Error') &&
-          msg.includes('/api/intel')
-        )
-      );
-      errorCapture.consoleErrors = errorCapture.consoleErrors.filter(
-        (msg) => !msg.includes('Encountered a script tag while rendering React component')
-      );
-    }
   });
 });
 
@@ -279,11 +126,12 @@ test.describe('Map Page - Filter Functionality', () => {
   });
 
   test('should display filter badges', async ({ page }) => {
-    // Filter section should have filter chips
-    const beginnerBadge = page.getByText('Beginner-friendly').first();
-    const beachBadge = page.getByText('beach', { exact: true }).first();
-    const pointBadge = page.getByText('point', { exact: true }).first();
-    const reefBadge = page.getByText('reef', { exact: true }).first();
+    await openRegionsAndFilters(page);
+
+    const beginnerBadge = page.getByRole('button', { name: 'Beginner-friendly' });
+    const beachBadge = page.getByRole('button', { name: 'beach', exact: true });
+    const pointBadge = page.getByRole('button', { name: 'point', exact: true });
+    const reefBadge = page.getByRole('button', { name: 'reef', exact: true });
 
     await expect(beginnerBadge).toBeVisible({ timeout: TIMEOUTS.short });
     await expect(beachBadge).toBeVisible();
@@ -292,7 +140,9 @@ test.describe('Map Page - Filter Functionality', () => {
   });
 
   test('should toggle beginner-friendly filter', async ({ page }) => {
-    const beginnerBadge = page.getByText('Beginner-friendly').first();
+    await openRegionsAndFilters(page);
+
+    const beginnerBadge = page.getByRole('button', { name: 'Beginner-friendly' });
 
     // Click to activate filter
     await beginnerBadge.click();
@@ -314,7 +164,9 @@ test.describe('Map Page - Filter Functionality', () => {
   });
 
   test('should toggle break type filters', async ({ page }) => {
-    const beachBadge = page.getByText('beach', { exact: true }).first();
+    await openRegionsAndFilters(page);
+
+    const beachBadge = page.getByRole('button', { name: 'beach', exact: true });
 
     // Click to activate beach break filter
     await beachBadge.click();
@@ -546,11 +398,11 @@ test.describe('Map Page - Responsive Design', () => {
     const mapControls = page.getByTestId('map-controls');
     await expect(mapControls).toBeVisible();
 
-    // View mode buttons should be visible
-    const mapButton = page.getByTestId('view-mode-map');
-    const listButton = page.getByTestId('view-mode-list');
-    await expect(mapButton).toBeVisible();
-    await expect(listButton).toBeVisible();
+    await expect(page.getByTestId('view-mode-map')).toHaveCount(0);
+    await expect(page.getByTestId('view-mode-list')).toHaveCount(0);
+    await expect(
+      page.getByRole('combobox', { name: 'Search beaches, spots, or cities' })
+    ).toBeVisible();
   });
 
   test('should be responsive on tablet', async ({ page }) => {
@@ -585,7 +437,7 @@ test.describe('Map Page - Responsive Design', () => {
     await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.medium });
   });
 
-  test('mobile: map controls do not overflow and view toggle works', async ({ page }) => {
+  test('mobile: map controls do not overflow', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
 
     const consoleErrors: string[] = [];
@@ -616,14 +468,11 @@ test.describe('Map Page - Responsive Design', () => {
     const mapCanvas = page.locator('canvas').first();
     await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.long });
 
-    // Toggle to list view and back without errors
-    const listButton = page.getByTestId('view-mode-list');
-    await listButton.click();
-    await page.waitForLoadState('load');
-
-    const mapButton = page.getByTestId('view-mode-map');
-    await mapButton.click();
-    await page.waitForLoadState('load');
+    await expect(page.getByTestId('view-mode-map')).toHaveCount(0);
+    await expect(page.getByTestId('view-mode-list')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Use My Actual Location' })
+    ).toHaveCount(0);
 
     // No critical console errors (filter benign ones)
     const criticalErrors = consoleErrors.filter(err =>
@@ -670,17 +519,8 @@ test.describe('Map Page - Stability and Performance', () => {
 
     const initialCount = mapInitCount;
 
-    // Interact with the map (which might trigger state updates)
-    // Toggle view mode
-    const listButton = page.getByTestId('view-mode-list');
-    if (await isVisibleSafe(listButton, { timeout: 2000 })) {
-      await listButton.click();
-      await page.waitForLoadState('load');
-
-      const mapButton = page.getByTestId('view-mode-map');
-      await mapButton.click();
-      await page.waitForLoadState('load');
-    }
+    await openRegionsAndFilters(page);
+    await page.keyboard.press('Escape');
 
     // The map should not reinitialize during normal interactions
     // Allow for initial map creation but no subsequent recreations
@@ -829,7 +669,7 @@ test.describe('Map Page - Marker Interactions', () => {
   });
 });
 
-test.describe('Map Page - Beach Card Navigation', () => {
+test.describe('Map Page - Beach Detail Navigation', () => {
   let errorCapture: ErrorCapture;
 
   test.beforeEach(async ({ page }) => {
@@ -840,43 +680,7 @@ test.describe('Map Page - Beach Card Navigation', () => {
     await assertNoErrors(page, errorCapture, { context: 'Map Beach Card Nav' });
   });
 
-  test('desktop: clicking sidebar beach card navigates to beach detail page', async ({ page, context }) => {
-    await page.setViewportSize(VIEWPORTS.desktop);
-
-    await context.grantPermissions(['geolocation']);
-    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
-
-    // Use search to ensure predictable sidebar content
-    await page.goto('/map?search=Blacks');
-    await waitForPageLoad(page);
-
-    await dismissMapEntryOverlay(page);
-
-    // Desktop sidebar renders SidebarBeachCard as <button> elements (not links).
-    // The sidebar uses handleSidebarNavigate which calls router.push() directly on click —
-    // so clicking the button navigates immediately to the beach detail page.
-    const sidebarButton = page.getByRole('button', { name: /Blacks/i }).first();
-    const hasSidebarButton = await isVisibleSafe(sidebarButton, { timeout: TIMEOUTS.long });
-
-    if (!hasSidebarButton) {
-      // Fallback: find the first sidebar button that looks like a beach card (has beach/location text)
-      const firstSidebarButton = page.locator('button[type="button"]').filter({ hasText: /\bCA\b|\bOR\b|\bWA\b|\bHI\b/ }).first();
-      const hasFirstButton = await isVisibleSafe(firstSidebarButton, { timeout: TIMEOUTS.medium });
-
-      if (!hasFirstButton) {
-        throw new Error('No sidebar beach buttons found on desktop map page');
-      }
-
-      await firstSidebarButton.click();
-    } else {
-      await sidebarButton.click();
-    }
-
-    // Desktop sidebar navigates directly on click (handleSidebarNavigate → router.push)
-    await page.waitForURL(/\/(ca|or|wa|hi|beach)\//, { timeout: TIMEOUTS.medium });
-  });
-
-  test('mobile: clicking selected beach card navigates to beach detail page', async ({ page, context }) => {
+  test('mobile: tapping a marker navigates directly to the beach detail page', async ({ page, context }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
 
     await context.grantPermissions(['geolocation']);
@@ -893,21 +697,13 @@ test.describe('Map Page - Beach Card Navigation', () => {
 
     // Wait for beach markers to load
     const beachMarkers = page.locator('[data-testid="beach-marker"]');
-    const hasMarkers = await isVisibleSafe(beachMarkers.first(), { timeout: TIMEOUTS.long });
+    await expect(beachMarkers.first()).toBeVisible({ timeout: TIMEOUTS.long });
 
-    if (!hasMarkers) {
-      throw new Error('No beach markers found on mobile map page');
-    }
+    await expect(page.getByTestId('bottom-sheet')).toHaveCount(0);
 
-    // Click a marker to select a beach (triggers SelectedBeachCard in bottom sheet)
+    // Click a marker. Mobile now matches desktop: the marker selection animation
+    // runs, then the marker navigates directly to the beach detail page.
     await beachMarkers.first().click({ force: true });
-
-    // Wait for the selected beach card link to appear
-    const selectedCardLink = page.locator('a[aria-label*="View details for"]');
-    await expect(selectedCardLink).toBeVisible({ timeout: TIMEOUTS.medium });
-
-    // Click the selected beach card link
-    await selectedCardLink.click();
 
     // Should have navigated away from /map
     await page.waitForURL(/\/(ca|or|wa|hi|beach)\//, { timeout: TIMEOUTS.medium });
@@ -925,75 +721,20 @@ test.describe('Map Page - Mobile Bug Fix Regression', () => {
     await assertNoErrors(page, errorCapture, { context: 'Map Mobile Regression' });
   });
 
-  test('mobile: bottom sheet stays visible after aggressive downward swipe', async ({ page }) => {
+  test('mobile: bottom sheet is removed from the map', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/map');
     await waitForPageLoad(page);
 
     await dismissMapEntryOverlay(page);
 
-    const handleArea = page.getByTestId('drawer-handle-area');
-    await expect(handleArea).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(page.locator('canvas').first()).toBeVisible({ timeout: TIMEOUTS.long });
 
-    const box = await handleArea.boundingBox();
-    if (!box) throw new Error('Drawer handle area not found');
-
-    // Drag handle aggressively downward (attempting to dismiss)
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.mouse.move(box.x + box.width / 2, box.y + 400, { steps: 10 });
-    await page.mouse.up();
-
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- snap animation settling time
-    await page.waitForTimeout(500);
-
-    // Drawer should still be visible (snapped to peek, not dismissed)
-    await expect(handleArea).toBeVisible();
+    await expect(page.getByTestId('bottom-sheet')).toHaveCount(0);
+    await expect(page.getByTestId('drawer-handle-area')).toHaveCount(0);
   });
 
-  test('mobile: close button on selected beach card meets 44px touch target', async ({ page, context }) => {
-    await page.setViewportSize({ width: 375, height: 667 });
-    await context.grantPermissions(['geolocation']);
-    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
-
-    await page.goto('/map');
-    await waitForPageLoad(page);
-
-    await dismissMapEntryOverlay(page);
-
-    // Wait for markers then click one to select a beach
-    const markers = page.locator('[data-testid="beach-marker"]');
-    const hasMarkers = await isVisibleSafe(markers.first(), { timeout: TIMEOUTS.long });
-    if (!hasMarkers) throw new Error('No beach markers found for touch target test');
-
-    await markers.first().click({ force: true });
-
-    const closeButton = page.getByLabel('Deselect beach');
-    await expect(closeButton).toBeVisible({ timeout: TIMEOUTS.medium });
-
-    const box = await closeButton.boundingBox();
-    if (!box) throw new Error('Close button bounding box not found');
-    expect(box.width).toBeGreaterThanOrEqual(44);
-    expect(box.height).toBeGreaterThanOrEqual(44);
-  });
-
-  test('mobile: drawer handle area has adequate touch target', async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('/map');
-    await waitForPageLoad(page);
-
-    await dismissMapEntryOverlay(page);
-
-    const handleArea = page.getByTestId('drawer-handle-area');
-    await expect(handleArea).toBeVisible({ timeout: TIMEOUTS.medium });
-
-    const box = await handleArea.boundingBox();
-    if (!box) throw new Error('Drawer handle area bounding box not found');
-    // py-4 = 16px top + 16px bottom + handle height should give adequate target
-    expect(box.height).toBeGreaterThanOrEqual(32);
-  });
-
-  test('mobile: beach count overlay does not exceed 60% of viewport width', async ({ page }) => {
+  test('mobile: map status overlay is removed', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/map');
     await waitForPageLoad(page);
@@ -1003,67 +744,6 @@ test.describe('Map Page - Mobile Bug Fix Regression', () => {
     // Wait for map to load
     await expect(page.locator('canvas').first()).toBeVisible({ timeout: TIMEOUTS.long });
 
-    // The overlay is inside map-container
-    const overlay = page.getByTestId('map-overlay');
-    await expect(overlay).toBeVisible({ timeout: TIMEOUTS.medium });
-
-    const box = await overlay.boundingBox();
-    if (!box) throw new Error('Map overlay bounding box not found');
-    expect(box.width).toBeLessThanOrEqual(375 * 0.6);
-    expect(box.x + box.width).toBeLessThanOrEqual(375);
-  });
-
-  test('mobile: selected beach card icon is hidden on small screens', async ({ page, context }) => {
-    await page.setViewportSize({ width: 375, height: 667 });
-    await context.grantPermissions(['geolocation']);
-    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
-
-    await page.goto('/map');
-    await waitForPageLoad(page);
-
-    await dismissMapEntryOverlay(page);
-
-    const markers = page.locator('[data-testid="beach-marker"]');
-    const hasMarkers = await isVisibleSafe(markers.first(), { timeout: TIMEOUTS.long });
-    if (!hasMarkers) throw new Error('No beach markers found for icon visibility test');
-
-    await markers.first().click({ force: true });
-
-    const iconContainer = page.locator('[data-testid="beach-icon-container"]');
-    const exists = await iconContainer.count() > 0;
-    if (exists) {
-      await expect(iconContainer).not.toBeVisible();
-    }
-  });
-
-  test('mobile: beach card in list view responds to tap', async ({ page }) => {
-    await page.setViewportSize({ width: 375, height: 667 });
-    await page.goto('/map');
-    await waitForPageLoad(page);
-
-    await dismissMapEntryOverlay(page);
-
-    // Switch to list view
-    const listButton = page.getByTestId('view-mode-list');
-    await listButton.click();
-    await page.waitForLoadState('load');
-
-    // Find a beach item and click it
-    const beachItems = page.locator('[data-testid="beach-item"]');
-    const hasItems = await isVisibleSafe(beachItems.first(), { timeout: TIMEOUTS.medium });
-    if (!hasItems) throw new Error('No beach items found in list view for tap test');
-
-    // Click should navigate or trigger selection (proving whileTap didn't break interaction)
-    const urlBefore = page.url();
-    await beachItems.first().click();
-    await page.waitForLoadState('load');
-
-    // Should have either navigated or changed state
-    const urlAfter = page.url();
-    const navigated = urlAfter !== urlBefore;
-    // If didn't navigate, check that we're at least still on map page (no crash)
-    if (!navigated) {
-      expect(urlAfter).toContain('/map');
-    }
+    await expect(page.getByTestId('map-overlay')).toHaveCount(0);
   });
 });

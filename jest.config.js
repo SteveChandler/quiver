@@ -25,6 +25,7 @@ const customJestConfig = {
     "<rootDir>/__tests__/setup/",
     // Fixture modules are imported by tests but are not test suites
     "<rootDir>/__tests__/fixtures/",
+    "<rootDir>/__tests__/helpers/",
     "/__fixtures__/",
     // Example-only test docs (not part of the suite)
     "<rootDir>/components/session/wizard/__tests__/",

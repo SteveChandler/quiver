@@ -226,7 +226,7 @@ Surfers checking conditions, logging sessions, and connecting with their local c
 **Chill, Reliable, Smart.** Quiet confidence — not trying to impress, just knows its stuff. Like the local who always knows when the swell is hitting. No hype, no corporate polish, just trustworthy data wrapped in surf culture.
 
 ### Aesthetic Direction
-- **Visual tone**: Retro 80s-90s surf culture. Deep Twilight navy (`#252D6B`) base, Charming Orange (`#F78E42`) primary accent. Always-dark theme.
+- **Visual tone**: Retro 80s-90s surf-zine culture. Cream paper (`#F4EBD8`) content surfaces with ink (`#11100D`) text, set on a Deep Twilight (`#252D6B → #1A1535 → #0D1020`) stage. Charming Orange (`#F78E42`) is the single primary accent. The twilight stage is the backdrop only — content lives on cream paper, not on dark cards. Canonical token source: `app/styles/zine.css`; canonical page shell: `ZineSurface` (`components/zine/`).
 - **Typography**: Space Grotesk for personality (headings), DM Sans for data clarity (body), Space Mono for technical values.
 - **Texture**: Sticker aesthetic — rotated badges (1-3deg), asymmetric border radius, scan lines, noise overlays. Sparse accents for impact. **Never repeat the same sticker on a single card or page** — each surface uses a given sticker (decorative zine sticker or beach badge) at most once; reusing a sticker on a *different* card/page is fine.
 - **References**: Stussy/Palace streetwear energy, Magic Seaweed-era data-first rawness, local shop zine vibes.

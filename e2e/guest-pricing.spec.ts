@@ -58,9 +58,10 @@ test.describe('Guest Plans Page', () => {
   test('links to app options from the landing page', async ({ page }) => {
     await gotoWithErrorCheck(page, errorCapture, '/');
 
-    await expect(page.getByTestId('landing-pricing-teaser')).toBeVisible();
+    const audienceAccess = page.getByTestId('field-guide-audience-access');
+    await expect(audienceAccess).toBeVisible();
     await expect(
-      page.getByRole('link', { name: /see app options/i }),
+      audienceAccess.getByRole('link', { name: /see plans/i }),
     ).toHaveAttribute('href', '/plans');
   });
 });

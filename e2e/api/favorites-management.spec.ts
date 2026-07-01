@@ -10,7 +10,8 @@
  * @project auth (requires authentication)
  */
 
-import { test, expect, type APIRequestContext } from '@playwright/test';
+import { test, expect } from '../fixtures/auth-fixture';
+import type { APIRequestContext } from '@playwright/test';
 import { TEST_BEACHES } from '../fixtures/test-data';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';

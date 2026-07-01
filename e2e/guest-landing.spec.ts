@@ -244,101 +244,108 @@ test.describe('Guest Landing Page', () => {
   });
 });
 
-test.describe('Guest Landing - ML Pipeline Showcase', () => {
-  // Previously: 'Guest Landing - Personalization Showcase' — replaced by MLPipelineShowcase
-  // in the March 2026 cyberpunk redesign. The PersonalizationShowcase is no longer rendered
-  // on the landing page. Tests below validate the replacement MLPipelineShowcase section.
+test.describe('Guest Landing - Zine Field Guide', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/');
     await waitForPageLoad(page);
   });
 
-  test('displays ML pipeline showcase section', async ({ page }) => {
-    const showcaseSection = page.getByTestId('ml-pipeline-showcase');
-    await expect(showcaseSection).toBeVisible({ timeout: 5000 });
-
-    // Section should have a heading
-    const sectionHeading = showcaseSection.locator('h2');
-    await expect(sectionHeading).toBeVisible();
+  test('renders the zine field-guide landing for guests', async ({ page }) => {
+    await expect(page.getByTestId('quiver-field-guide-landing')).toBeVisible();
+    await expect(page.getByTestId('field-guide-hero')).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: /know where to paddle out/i }),
+    ).toBeVisible();
+    const hero = page.getByTestId('field-guide-hero');
+    await expect(hero.getByRole('link', { name: 'Get the app' })).toBeVisible();
+    await expect(hero.getByRole('link', { name: 'Watch demo' })).toBeVisible();
   });
 
-  test('ML pipeline showcase has conversion CTA for guests', async ({ page }) => {
-    const showcaseSection = page.getByTestId('ml-pipeline-showcase');
-    await expect(showcaseSection).toBeVisible({ timeout: 5000 });
-
-    // Guest users should see a CTA button
-    const ctaButton = showcaseSection.locator('button, a').filter({ hasText: /get|match|scores|sign/i }).first();
-    const isVisible = await isVisibleSafe(ctaButton, { timeout: 3000 });
-    // CTA presence is environment-dependent (auth state may vary)
-    if (isVisible) {
-      await expect(ctaButton).toBeVisible();
-    }
+  test('shows defensible proof stats', async ({ page }) => {
+    const proofSection = page.getByTestId('field-guide-proof');
+    await expect(proofSection).toBeVisible({ timeout: 5000 });
+    await expect(proofSection.getByText('10-day')).toBeVisible();
+    await expect(proofSection.getByText('Every 3 hours')).toBeVisible();
+    await expect(proofSection.getByText('Sharper calls')).toBeVisible();
   });
 
-  test('ML pipeline showcase renders on mobile', async ({ page }) => {
+  test('shows coverage and comparison context', async ({ page }) => {
+    const coverageSection = page.getByTestId('field-guide-coverage');
+    await expect(coverageSection).toBeVisible({ timeout: 5000 });
+    await expect(coverageSection.getByText('279+')).toBeVisible();
+    await expect(coverageSection.getByText(/US coasts, Hawaii/i)).toBeVisible();
+    await expect(
+      coverageSection.getByRole('link', { name: /vs surfline/i }),
+    ).toHaveAttribute('href', '/vs/surfline');
+  });
+
+  test('shows inside-the-app product context', async ({ page }) => {
+    const insideAppSection = page.getByTestId('field-guide-inside-app');
+    await expect(insideAppSection).toBeVisible({ timeout: 5000 });
+    await expect(
+      insideAppSection.getByRole('heading', {
+        name: /built for the board you paddle out on/i,
+      }),
+    ).toBeVisible();
+    await expect(
+      insideAppSection.getByAltText(/nearby surf spots and local intel/i),
+    ).toBeVisible();
+  });
+
+  test('shows audience and access context', async ({ page }) => {
+    const audienceAccessSection = page.getByTestId('field-guide-audience-access');
+    await expect(audienceAccessSection).toBeVisible({ timeout: 5000 });
+    await expect(
+      audienceAccessSection.getByText('Dawn patrol regulars'),
+    ).toBeVisible();
+    await expect(audienceAccessSection).toContainText(
+      'Public forecast data is free forever',
+    );
+    await expect(
+      audienceAccessSection.getByText(/no paywall for basic beach reads/i),
+    ).toBeVisible();
+    await expect(
+      audienceAccessSection.getByText(/14-day App Store trial for Pro/i),
+    ).toHaveCount(0);
+    await expect(
+      audienceAccessSection.getByRole('link', { name: /see plans/i }),
+    ).toHaveAttribute('href', '/plans');
+  });
+
+  test('field guide renders on mobile', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.mobile);
     await page.goto('/');
     await waitForPageLoad(page);
 
-    const showcaseSection = page.getByTestId('ml-pipeline-showcase');
-    await expect(showcaseSection).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('quiver-field-guide-landing')).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.getByTestId('field-guide-final-cta')).toBeVisible();
   });
 
-  test('ML pipeline showcase renders on desktop', async ({ page }) => {
+  test('field guide renders on desktop', async ({ page }) => {
     await page.setViewportSize(VIEWPORTS.desktop);
     await page.goto('/');
     await waitForPageLoad(page);
 
-    const showcaseSection = page.getByTestId('ml-pipeline-showcase');
-    await expect(showcaseSection).toBeVisible({ timeout: 5000 });
+    await expect(page.getByTestId('quiver-field-guide-landing')).toBeVisible({
+      timeout: 5000,
+    });
+    await expect(page.getByTestId('field-guide-features')).toBeVisible();
   });
 });
 
-test.describe('Guest Landing - Search', () => {
-  test('allows disambiguation for Ocean Beach and avoids 500s', async ({
+test.describe('Guest Landing - Header', () => {
+  test('shows the simplified app-first header without beach search', async ({
     page,
   }) => {
     await page.goto('/');
     await waitForPageLoad(page);
 
-    // Use placeholder text to find the search input (works with both simple and cmdk inputs)
-    const searchInput = page.getByPlaceholder('Search by beach');
-
-    await searchInput.fill('ocean beach');
-    await searchInput.press('Enter');
-
-    // Expect we either land on the map search or a beach detail page – but not a 500.
-    await expect(page).not.toHaveURL(/500/);
-  });
-
-  test('Tourmaline search still works without error', async ({ page }) => {
-    await page.goto('/');
-    await waitForPageLoad(page);
-
-    // Use placeholder text to find the search input (works with both simple and cmdk inputs)
-    const searchInput = page.getByPlaceholder('Search by beach');
-
-    await searchInput.fill('tourmaline');
-    await searchInput.press('Enter');
-
-    await expect(page).not.toHaveURL(/500/);
-  });
-
-  test('should handle search input on landing page', async ({ page }) => {
-    await page.goto('/');
-    await waitForPageLoad(page);
-
-    const searchInput = page.getByPlaceholder(/search/i).first();
-    const isVisible = await isVisibleSafe(searchInput, { timeout: 5000 });
-
-    if (isVisible) {
-      await searchInput.fill('Ocean Beach');
-      await expect(searchInput).toHaveValue('Ocean Beach');
-    } else {
-      // Search input not visible — landing page structure may differ in this environment
-      test.skip(true, 'Search input not visible on landing page — page structure may differ in this environment');
-      return;
-    }
+    const header = page.locator('nav');
+    await expect(header.getByRole('link', { name: 'Features' })).toBeVisible();
+    await expect(header.getByRole('link', { name: 'Get the app' })).toBeVisible();
+    await expect(page.getByPlaceholder('Search by beach')).toHaveCount(0);
   });
 });
 

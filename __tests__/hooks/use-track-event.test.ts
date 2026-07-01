@@ -4,7 +4,7 @@ import { useTrackEvent } from "@/hooks/use-track-event";
 
 // Mock auth context
 jest.mock("@/context/auth-context", () => ({
-  useAuth: jest.fn(),
+  useOptionalAuth: jest.fn(),
 }));
 
 // Mock visitor-id module
@@ -21,7 +21,7 @@ jest.mock("@/lib/posthog-client", () => ({
 // Mock fetch
 global.fetch = jest.fn();
 
-import { useAuth } from "@/context/auth-context";
+import { useOptionalAuth } from "@/context/auth-context";
 
 describe("useTrackEvent", () => {
   beforeEach(() => {
@@ -37,7 +37,7 @@ describe("useTrackEvent", () => {
 
   describe("basic tracking", () => {
     it("calls /api/events with correct payload for authenticated user", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ ok: true }),
@@ -75,7 +75,7 @@ describe("useTrackEvent", () => {
     });
 
     it("includes keepalive: true in fetch options", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ ok: true }),
@@ -97,7 +97,7 @@ describe("useTrackEvent", () => {
     });
 
     it("tracks event without beachId", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ ok: true }),
@@ -119,7 +119,7 @@ describe("useTrackEvent", () => {
     });
 
     it("tracks event with empty metadata", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ ok: true }),
@@ -144,7 +144,7 @@ describe("useTrackEvent", () => {
 
   describe("guest users", () => {
     it("tracks anonymously for guests with sessionId", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: null });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: null });
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ ok: true }),
@@ -168,7 +168,7 @@ describe("useTrackEvent", () => {
     });
 
     it("tracks with sessionId when user is undefined", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: undefined });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: undefined });
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ ok: true }),
@@ -191,7 +191,7 @@ describe("useTrackEvent", () => {
     });
 
     it("tracks with sessionId when user.id is missing", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: {} });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: {} });
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({ ok: true }),
@@ -216,7 +216,7 @@ describe("useTrackEvent", () => {
 
   describe("debouncing", () => {
     it("debounces duplicate events (same event+beach within debounceMs)", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
         json: async () => ({ ok: true }),
@@ -244,7 +244,7 @@ describe("useTrackEvent", () => {
     });
 
     it("does not debounce after debounceMs has passed", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
         json: async () => ({ ok: true }),
@@ -280,7 +280,7 @@ describe("useTrackEvent", () => {
     });
 
     it("does not debounce different event types", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
         json: async () => ({ ok: true }),
@@ -305,7 +305,7 @@ describe("useTrackEvent", () => {
     });
 
     it("does not debounce different beaches", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
         json: async () => ({ ok: true }),
@@ -330,7 +330,7 @@ describe("useTrackEvent", () => {
     });
 
     it("respects custom debounceMs value", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       (global.fetch as jest.Mock).mockResolvedValue({
         ok: true,
         json: async () => ({ ok: true }),
@@ -382,7 +382,7 @@ describe("useTrackEvent", () => {
 
   describe("error handling", () => {
     it("swallows fetch errors (tracking should never break the app)", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       (global.fetch as jest.Mock).mockRejectedValueOnce(
         new Error("Network error")
       );
@@ -400,7 +400,7 @@ describe("useTrackEvent", () => {
     });
 
     it("swallows JSON parsing errors", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => {
@@ -421,7 +421,7 @@ describe("useTrackEvent", () => {
     });
 
     it("swallows HTTP errors", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,
         status: 500,
@@ -443,7 +443,7 @@ describe("useTrackEvent", () => {
 
   describe("fire and forget behavior", () => {
     it("does not wait for fetch to complete", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
 
       // Create a promise that resolves after a delay
       let resolveFetch: (value: any) => void;
@@ -478,7 +478,7 @@ describe("useTrackEvent", () => {
 
   describe("hook stability", () => {
     it("track function reference is stable across re-renders", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
 
       const { result, rerender } = renderHook(() => useTrackEvent());
 
@@ -492,14 +492,14 @@ describe("useTrackEvent", () => {
     });
 
     it("track function updates when user changes", async () => {
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
 
       const { result, rerender } = renderHook(() => useTrackEvent());
 
       const firstTrack = result.current.track;
 
       // Change user
-      (useAuth as jest.Mock).mockReturnValue({ user: { id: "user-456" } });
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-456" } });
 
       rerender();
 

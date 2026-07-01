@@ -1,5 +1,5 @@
 /* eslint-disable playwright/no-conditional-in-test -- session form E2E handles auth, geolocation, and quick-log variants in one spec. */
-import { test, expect } from '@playwright/test';
+import { test, expect } from "./fixtures/auth-fixture";
 import { waitForPageLoad } from './utils/test-helpers';
 import { isVisibleSafe } from './utils/strict-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
@@ -16,6 +16,8 @@ import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error
  *
  * @project auth
  */
+
+test.describe.configure({ mode: 'serial' });
 
 test.describe('Session Form - Log Mode', () => {
   let errorCapture: ErrorCapture;
@@ -254,12 +256,19 @@ test.describe('Session Form - Complete Flow', () => {
     const hasCancelButton = await isVisibleSafe(cancelButton);
     expect(hasCancelButton).toBe(true);
 
-    await cancelButton.click();
+    // In full-suite runs the first click can land before the client handler
+    // hydrates. Retry the same user action, but keep the proof as the /profile
+    // client-side navigation from onCancel.
+    await expect(async () => {
+      if (!/\/profile(?:[/?#]|$)/.test(page.url())) {
+        await page.getByRole('button', { name: /cancel/i }).first().click();
+        await expect(page).toHaveURL(/\/profile(?:[/?#]|$)/, {
+          timeout: 5000,
+        });
+      }
 
-    // After clicking Cancel, onCancel calls router.push("/profile")
-    // Use waitForURL instead of waitForPageLoad — client-side navigation
-    // may not trigger a full page load event.
-    await page.waitForURL(/\/profile/, { timeout: 10000 });
+      expect(page.url()).toMatch(/\/profile(?:[/?#]|$)/);
+    }).toPass({ timeout: 20000 });
   });
 });
 

@@ -42,7 +42,7 @@ describe('Gamification Actions', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    tracker = { selects: [], inserts: [], updates: [] };
+    tracker = { selects: [], inserts: [], updates: [], rpcs: [] };
     __resetGamificationCacheForTests();
   });
 
@@ -146,7 +146,7 @@ describe('Gamification Actions', () => {
 
       for (const { action, expectedXP } of testCases) {
         // Reset tracker for each test
-        tracker = { selects: [], inserts: [], updates: [] };
+        tracker = { selects: [], inserts: [], updates: [], rpcs: [] };
 
         const mockState = mockStates.existingUser(0, 1);
         (withAuthenticatedAction as jest.Mock).mockImplementation(
@@ -191,9 +191,10 @@ describe('Gamification Actions', () => {
       const result = await getUserXPStatus();
 
       expect(result.success).toBe(true);
-      // Should have initialized the user
-      const initInserts = tracker.inserts.filter(i => i.table === 'user_xp');
-      expect(initInserts.length).toBe(1);
+      expect(tracker.rpcs).toContainEqual({
+        fn: 'ensure_user_xp',
+        args: { p_user_id: 'test-user-123' },
+      });
     });
   });
 

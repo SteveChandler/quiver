@@ -77,6 +77,18 @@ References: `components/forecast/ARCHITECTURE.md`, `docs/ARCHITECTURE.md`, `ARCH
 
 ---
 
+## Visual Language
+
+Quiver is **zine-first**: cream paper content on a twilight stage. The dark twilight gradient (`#252D6B → #1A1535 → #0D1020`) is the page backdrop only; content sits on cream paper (`#F4EBD8`) with ink (`#11100D`) text, Charming Orange (`#F78E42`) as the single primary accent, and craft accents (stamps, tape, halftone) for character.
+
+- **Canonical tokens:** `app/styles/zine.css` — do not introduce competing hexes.
+- **Canonical page shell:** `ZineSurface` (`components/zine/`) / the `.zine-tab` namespace. New surfaces adopt it.
+- **Legibility first:** accents tuned for dark do not survive on cream; orange on paper is for fills/marks, not small text.
+
+References: `docs/STYLE_GUIDE.md`, `docs/BRAND_GUIDE.md`, `CLAUDE.md` (Design Context)
+
+---
+
 ## Personalization & Learning from Behavior
 
 **Status**: Planning Phase - See [docs/PERSONALIZATION_STRATEGY.md](./PERSONALIZATION_STRATEGY.md)

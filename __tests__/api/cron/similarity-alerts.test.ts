@@ -225,8 +225,6 @@ function seedActiveProUser(opts?: {
     id: HOME_BEACH,
     name: "Home Break",
     slug: "home-break",
-    center_lat: 33.6,
-    center_lng: -118.0,
     lat: 33.6,
     lon: -118.0,
     timezone: "America/Los_Angeles",
@@ -238,8 +236,6 @@ function seedActiveProUser(opts?: {
     wind_offshore_tol_deg: 60,
     wind_onshore_bad_kt: 14,
     wind_cross_shore_ok_kt: 10,
-    max_wind_onshore_mph: 16,
-    max_wind_any_mph: 22,
     preferred_tide_direction: "rising",
     preferred_tide_ft_min: 1,
     preferred_tide_ft_max: 4,
@@ -443,8 +439,8 @@ describe("similarity-alerts cron — Plan V4", () => {
       id: HOME_BEACH,
       name: "Home Break",
       slug: "home-break",
-      center_lat: 33.6,
-      center_lng: -118.0,
+      lat: 33.6,
+      lon: -118.0,
       timezone: "America/Los_Angeles",
     });
     store.forecasts.push({
@@ -520,8 +516,8 @@ describe("similarity-alerts cron — Plan V4", () => {
       id: HOME_BEACH,
       name: "Home Break",
       slug: "home-break",
-      center_lat: 33.6,
-      center_lng: -118.0,
+      lat: 33.6,
+      lon: -118.0,
       timezone: "America/Los_Angeles",
     });
     store.forecasts.push({
@@ -752,7 +748,7 @@ describe("similarity-alerts cron — Plan V4", () => {
     expect(body.enqueued).toBe(0);
   });
 
-  it("7c-1. hydrates beach-specific scorer columns before composite floor scoring", async () => {
+  it("7c-1. hydrates prod-safe beach-specific scorer columns before composite floor scoring", async () => {
     seedActiveProUser({ forecastsForBeach: HOME_BEACH });
 
     const beachSelects: string[] = [];
@@ -784,13 +780,18 @@ describe("similarity-alerts cron — Plan V4", () => {
     const hydrateSelect = beachSelects.find((columns) =>
       columns.includes("break_type")
     );
+    expect(beachSelects).toEqual(expect.arrayContaining(["id, lat, lon"]));
+    expect(hydrateSelect).toEqual(expect.stringContaining("lat"));
+    expect(hydrateSelect).toEqual(expect.stringContaining("lon"));
     expect(hydrateSelect).toEqual(expect.stringContaining("wind_onshore_bad_kt"));
     expect(hydrateSelect).toEqual(expect.stringContaining("wind_cross_shore_ok_kt"));
-    expect(hydrateSelect).toEqual(expect.stringContaining("max_wind_onshore_mph"));
-    expect(hydrateSelect).toEqual(expect.stringContaining("max_wind_any_mph"));
     expect(hydrateSelect).toEqual(
       expect.stringContaining("tide_direction_sensitivity")
     );
+    expect(hydrateSelect).not.toEqual(expect.stringContaining("center_lat"));
+    expect(hydrateSelect).not.toEqual(expect.stringContaining("center_lng"));
+    expect(hydrateSelect).not.toEqual(expect.stringContaining("max_wind_onshore_mph"));
+    expect(hydrateSelect).not.toEqual(expect.stringContaining("max_wind_any_mph"));
 
     const scoredForecast = mockScoreWindowWithComposite.mock.calls[0]?.[0];
     expect(scoredForecast).toEqual(
@@ -810,10 +811,10 @@ describe("similarity-alerts cron — Plan V4", () => {
     const scoredBeach = mockScoreWindowWithComposite.mock.calls[0]?.[1];
     expect(scoredBeach).toEqual(
       expect.objectContaining({
+        lat: 33.6,
+        lon: -118.0,
         wind_onshore_bad_kt: 14,
         wind_cross_shore_ok_kt: 10,
-        max_wind_onshore_mph: 16,
-        max_wind_any_mph: 22,
         tide_direction_sensitivity: "medium",
       })
     );

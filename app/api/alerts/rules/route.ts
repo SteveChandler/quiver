@@ -7,7 +7,13 @@ import {
   DEFAULT_SECURITY_HEADERS,
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
-import { canCreateRule, getUserEntitlement } from "@/lib/alerts/entitlements";
+import {
+  CAPS,
+  FREE_GROWTH_WATCHED_LIMIT,
+  canCreateRule,
+  getUserEntitlement,
+  type Tier,
+} from "@/lib/alerts/entitlements";
 import { validateConditionAlertInput } from "@/lib/alerts/condition-validation";
 import {
   PERSONALIZATION_LOCKED,
@@ -15,6 +21,53 @@ import {
   type PersonalizationEligibilityResult,
   type PersonalizationResultCode,
 } from "@/lib/personalization/eligibility";
+import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
+
+interface AlertRulesEntitlementSignal {
+  tier: Tier;
+  freeGrowthPhase: boolean;
+  freeWatchLimit: number;
+  freeRuleLimit: number;
+  premiumRuleLimit: number;
+}
+
+function buildAlertRulesEntitlementSignal(
+  tier: Tier,
+): AlertRulesEntitlementSignal {
+  const freeGrowthPhase = isFreeGrowthPhaseEnabled();
+  const freeWatchLimit = freeGrowthPhase
+    ? FREE_GROWTH_WATCHED_LIMIT
+    : CAPS.free.beaches;
+  const freeRuleLimit = freeGrowthPhase
+    ? FREE_GROWTH_WATCHED_LIMIT
+    : CAPS.free.totalRules;
+
+  return {
+    tier,
+    freeGrowthPhase,
+    freeWatchLimit,
+    freeRuleLimit,
+    premiumRuleLimit: CAPS.premium.totalRules,
+  };
+}
+
+function createAlertRulesListResponse<T>(
+  data: T,
+  entitlement: AlertRulesEntitlementSignal,
+) {
+  return NextResponse.json(
+    {
+      success: true,
+      data,
+      entitlement,
+      timestamp: new Date().toISOString(),
+    },
+    {
+      status: 200,
+      headers: DEFAULT_SECURITY_HEADERS,
+    },
+  );
+}
 
 function isPersonalAlertPreset(presetType: unknown): boolean {
   return presetType === "similarity_match";
@@ -63,6 +116,7 @@ function createPersonalizationDenialResponse(
  */
 export const GET = withAuth(
   async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
+    const tier = await getUserEntitlement(user.id, supabase);
     const { data, error } = await (supabase as any)
       .from("alert_rules")
       .select("*, beaches(name, slug, timezone)")
@@ -71,7 +125,10 @@ export const GET = withAuth(
 
     if (error) throw error;
 
-    return createSuccessResponse(data);
+    return createAlertRulesListResponse(
+      data ?? [],
+      buildAlertRulesEntitlementSignal(tier),
+    );
   },
   { errorMessage: "Failed to fetch alert rules" }
 );

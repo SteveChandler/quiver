@@ -56,7 +56,7 @@ export async function GET(request: Request) {
           .from("alert_rules")
           .select("id, user_id, beach_id, name, conditions, notify_email, notify_push, preset_type, created_at")
           .eq("enabled", true)
-          .neq("preset_type", "similarity_match");
+          .or("preset_type.is.null,preset_type.neq.similarity_match");
 
         if (rulesError) throw rulesError;
         if (!rules || rules.length === 0) {

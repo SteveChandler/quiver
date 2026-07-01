@@ -63,12 +63,13 @@ jest.mock("mapbox-gl", () => ({
 
 // Mock other dependencies
 jest.mock("next/navigation", () => ({
-  useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }),
   usePathname: () => "/map",
+  useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }),
 }));
 
 jest.mock("@/context/auth-context", () => ({
   useAuth: () => ({ user: { id: "test-user" } }),
+  useOptionalAuth: () => ({ user: { id: "test-user" } }),
 }));
 
 jest.mock("@/lib/utils/current-forecast-utils", () => ({
@@ -216,6 +217,16 @@ describe("Simple Map Test", () => {
     await waitFor(() => {
       const forecastCalls = apiCalls.filter(call => call.includes("forecasts"));
       expect(forecastCalls.length).toBeGreaterThan(0);
+    }, { timeout: 3000 });
+
+    await waitFor(() => {
+      const Marker = require("mapbox-gl").Marker;
+      expect(
+        Marker.mock.calls.some(
+          ([options]: [{ element?: HTMLElement }]) =>
+            options.element?.getAttribute("data-testid") === "beach-marker"
+        )
+      ).toBe(true);
     }, { timeout: 3000 });
     
     console.log("All API calls made:", apiCalls);

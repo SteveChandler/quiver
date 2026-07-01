@@ -12,7 +12,7 @@
  * @project auth
  */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/auth-fixture";
 import { createClient } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import { ensureAuthenticated } from "./utils/test-helpers";

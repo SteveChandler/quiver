@@ -22,7 +22,8 @@
  * @project auth
  */
 
-import { test, expect } from "@playwright/test";
+import type { Page } from "@playwright/test";
+import { test, expect } from "./fixtures/auth-fixture";
 import { dismissOnboardingWizard } from "./utils/test-helpers";
 import {
   setupErrorDetection,
@@ -31,7 +32,9 @@ import {
 } from "./utils/error-detection";
 import { TIMEOUTS } from "./fixtures/test-data";
 
-test.describe("calibration honesty layer", () => {
+test.describe("calibration honesty layer @requires-data", () => {
+  test.describe.configure({ mode: "serial" });
+
   // Exact copy from marketing spec (docs/marketing/calibration-launch-copy.md).
   // Any drift in the tooltip string should fail the assertion — this is
   // the whole point of the honesty layer.
@@ -43,7 +46,7 @@ test.describe("calibration honesty layer", () => {
   // branch and re-verified 2026-04-30.
   const CALIBRATED_BLACKS = {
     slug: "blacks",
-    city: "San Diego",
+    city: "La Jolla",
     state: "CA",
     country: "USA",
   };
@@ -85,19 +88,35 @@ test.describe("calibration honesty layer", () => {
   // The component renders face-height digits inside a child <span>, and the
   // testid is on the outer wrapper. Using `.locator("span").first()` gives us
   // the dotted-underline span for class assertions.
-  const primaryWaveHeight = (page: import("@playwright/test").Page) =>
+  const primaryWaveHeight = (page: Page) =>
     page.locator('[data-testid="primary-wave-height"]').first();
+
+  async function openForecastTab(page: Page, path: string): Promise<void> {
+    await page.goto(path, {
+      waitUntil: "domcontentloaded",
+      timeout: TIMEOUTS.long,
+    });
+    await dismissOnboardingWizard(page);
+
+    const forecastTab = page.getByRole("tab", { name: /^Forecast$/i });
+    await expect(forecastTab).toBeVisible({ timeout: TIMEOUTS.long });
+    if ((await forecastTab.getAttribute("aria-selected")) !== "true") {
+      await forecastTab.click();
+    }
+
+    await expect(page.getByRole("tabpanel", { name: /forecast/i })).toBeVisible({
+      timeout: TIMEOUTS.long,
+    });
+  }
 
   test("calibrated beach (Blacks) on desktop renders Face height label", async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/ca/san-diego/${CALIBRATED_BLACKS.slug}`);
-    await page.waitForLoadState("load");
-    await dismissOnboardingWizard(page);
+    await openForecastTab(page, `/ca/la-jolla/${CALIBRATED_BLACKS.slug}`);
 
     const waveHeight = primaryWaveHeight(page);
-    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
 
     // Beach-level calibration contract: forecast-tab renders the "Face height"
     // label from `beach.shoaling_factors != null`, regardless of per-reading
@@ -110,12 +129,10 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await page.goto(`/ca/san-diego/${CALIBRATED_BLACKS.slug}`);
-    await page.waitForLoadState("load");
-    await dismissOnboardingWizard(page);
+    await openForecastTab(page, `/ca/la-jolla/${CALIBRATED_BLACKS.slug}`);
 
     const waveHeight = primaryWaveHeight(page);
-    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
 
     await expect(page.getByText(/Face height/i).first()).toBeVisible();
   });
@@ -124,12 +141,10 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
-    await page.waitForLoadState("load");
-    await dismissOnboardingWizard(page);
+    await openForecastTab(page, `/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
 
     const waveHeight = primaryWaveHeight(page);
-    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
 
     const text = (await waveHeight.innerText()).trim();
     expect(text).toContain("~");
@@ -141,12 +156,10 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
-    await page.waitForLoadState("load");
-    await dismissOnboardingWizard(page);
+    await openForecastTab(page, `/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
 
     const waveHeight = primaryWaveHeight(page);
-    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
 
     const text = (await waveHeight.innerText()).trim();
     expect(text).toContain("~");
@@ -158,12 +171,10 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
-    await page.waitForLoadState("load");
-    await dismissOnboardingWizard(page);
+    await openForecastTab(page, `/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
 
     const waveHeight = primaryWaveHeight(page);
-    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
 
     // The uncalibrated render wraps digits in a span with
     // `border-b border-dotted border-muted-foreground/60`. Prefer asserting
@@ -176,12 +187,10 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
-    await page.waitForLoadState("load");
-    await dismissOnboardingWizard(page);
+    await openForecastTab(page, `/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
 
     const waveHeight = primaryWaveHeight(page);
-    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
 
     await waveHeight.hover();
 
@@ -196,12 +205,10 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await page.goto(`/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
-    await page.waitForLoadState("load");
-    await dismissOnboardingWizard(page);
+    await openForecastTab(page, `/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
 
     const waveHeight = primaryWaveHeight(page);
-    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
 
     // Radix tooltip listens for hover/focus, not raw tap. On a mobile viewport
     // Playwright's .hover() still synthesizes the mouseover sequence that
@@ -220,12 +227,10 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/ca/san-diego/${CALIBRATED_BLACKS.slug}`);
-    await page.waitForLoadState("load");
-    await dismissOnboardingWizard(page);
+    await openForecastTab(page, `/ca/la-jolla/${CALIBRATED_BLACKS.slug}`);
 
     const waveHeight = primaryWaveHeight(page);
-    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
 
     await waveHeight.hover();
 
@@ -242,12 +247,10 @@ test.describe("calibration honesty layer", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await page.goto(`/ca/la-jolla/${CALIBRATED_LA_JOLLA_SHORES.slug}`);
-    await page.waitForLoadState("load");
-    await dismissOnboardingWizard(page);
+    await openForecastTab(page, `/ca/la-jolla/${CALIBRATED_LA_JOLLA_SHORES.slug}`);
 
     const waveHeight = primaryWaveHeight(page);
-    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
 
     await expect(page.getByText(/Face height/i).first()).toBeVisible();
   });

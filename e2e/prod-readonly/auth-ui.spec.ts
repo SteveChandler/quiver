@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { TEST_BEACHES } from '../fixtures/test-data';
 import {
   assertNoErrors,
   type ErrorCapture,
@@ -7,19 +8,11 @@ import {
 } from '../utils/error-detection';
 import { getProdReadonlyAuthBlockReason } from '../utils/prod-readonly-auth';
 import { isVisibleSafe } from '../utils/strict-helpers';
-import { waitForPageLoad } from '../utils/test-helpers';
-
-const PROD_BLACKS_URL = '/ca/san-diego/blacks';
+import { navigateToBeach, waitForPageLoad } from '../utils/test-helpers';
 
 test.describe.configure({ mode: 'serial' });
 
 test.describe('Prod Read-Only Auth UI', () => {
-  // eslint-disable-next-line playwright/no-skipped-test -- prod-readonly assertions target deployed prod auth behavior only.
-  test.skip(
-    process.env.PLAYWRIGHT_PROD_READONLY !== 'true',
-    'Prod read-only suite runs only against the deployed prod app (PLAYWRIGHT_PROD_READONLY=true).',
-  );
-
   let errorCapture: ErrorCapture | null;
 
   test.beforeEach(async ({ page }) => {
@@ -54,7 +47,7 @@ test.describe('Prod Read-Only Auth UI', () => {
   });
 
   test('authenticated surf report does not show the guest signup gate', async ({ page }) => {
-    await gotoWithErrorCheck(page, errorCapture!, PROD_BLACKS_URL);
+    await navigateToBeach(page, TEST_BEACHES.blacks);
 
     const surfReport = page.locator('section[aria-label*="surf call"]').first();
     const gateHeading = surfReport.getByRole('heading', { name: /see today's best window/i });
@@ -77,8 +70,8 @@ test.describe('Prod Read-Only Auth UI', () => {
     const sessionCards = page.locator('a[href^="/sessions/"]:not([href*="/sessions/new"])');
     const emptyState = page.getByText(/no.*sessions|get started|log your first/i).first();
     const hasRenderableState =
-      (await isVisibleSafe(sessionCards.first(), { timeout: 3000 })) ||
-      (await isVisibleSafe(emptyState, { timeout: 3000 }));
+      (await isVisibleSafe(sessionCards.first(), { timeout: 10000 })) ||
+      (await isVisibleSafe(emptyState, { timeout: 10000 }));
 
     expect(hasRenderableState).toBe(true);
   });

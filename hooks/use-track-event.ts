@@ -25,7 +25,7 @@
 "use client";
 
 import { useCallback, useRef } from "react";
-import { useAuth } from "@/context/auth-context";
+import * as AuthContext from "@/context/auth-context";
 import type { ImplicitEventType, EventMetadata } from "@/types/implicit-preferences";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 import { captureClientPostHogEvent } from "@/lib/posthog-client";
@@ -50,7 +50,10 @@ interface TrackEventOptions {
  * - Graceful error handling (tracking failures never break the app)
  */
 export function useTrackEvent() {
-  const { user } = useAuth();
+  const useAuthForTracking =
+    AuthContext.useOptionalAuth ?? AuthContext.useAuth;
+  const auth = useAuthForTracking();
+  const user = auth?.user;
   const lastFired = useRef<Map<string, number>>(new Map());
 
   const track = useCallback(

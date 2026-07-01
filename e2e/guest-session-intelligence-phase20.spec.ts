@@ -167,7 +167,7 @@ test.describe("Phase 20 guest Session Intelligence app links and QA", () => {
       await expectNoHorizontalOverflow(page);
     });
 
-    test(`validates forecast accuracy schema at ${viewport.name}`, async ({
+    test(`validates forecast accuracy schema at ${viewport.name} @requires-data`, async ({
       page,
     }) => {
       await page.setViewportSize({

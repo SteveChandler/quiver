@@ -10,12 +10,11 @@
  */
 
 import {
-  test,
-  expect,
   type APIRequestContext,
   type BrowserContext,
   type Page,
 } from '@playwright/test';
+import { test, expect } from './fixtures/auth-fixture';
 import {
   setupErrorDetection,
   assertNoErrors,

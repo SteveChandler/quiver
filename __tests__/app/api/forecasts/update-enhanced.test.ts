@@ -17,11 +17,19 @@ jest.mock("next/server", () => require("@/__tests__/setup/mock-next-server"));
 import { describe, it, expect, jest, beforeEach } from "@jest/globals";
 
 const mockGetFreshForecastFromCache = jest.fn() as jest.MockedFunction<(...args: any[]) => Promise<any>>;
+const mockApplyV51DisplayOverrideToForecasts = jest.fn(
+  async (forecasts: any[]) => forecasts
+) as jest.MockedFunction<(forecasts: any[]) => Promise<any[]>>;
 
 jest.mock("@/lib/utils/forecast-server-utils", () => ({
   updateBeachForecast: jest.fn(),
   updateAllBeachForecasts: jest.fn(),
   getFreshForecastFromCache: (...args: any[]) => mockGetFreshForecastFromCache(...args),
+}));
+
+jest.mock("@/lib/services/forecast/v5-display-gate", () => ({
+  applyV51DisplayOverrideToForecasts: (forecasts: any[]) =>
+    mockApplyV51DisplayOverrideToForecasts(forecasts),
 }));
 
 jest.mock("@/lib/auth/admin", () => ({
@@ -63,6 +71,9 @@ describe("GET /api/forecasts/update-enhanced", () => {
     jest.clearAllMocks();
     jest.resetModules();
     mockBeachShoalingFactors = null;
+    mockApplyV51DisplayOverrideToForecasts.mockImplementation(
+      async (forecasts: any[]) => forecasts
+    );
   });
 
   it("uses the shared API wrapper module for response helpers", () => {
@@ -166,6 +177,13 @@ describe("GET /api/forecasts/update-enhanced", () => {
         },
       },
     });
+    mockApplyV51DisplayOverrideToForecasts.mockImplementationOnce(
+      async (forecasts: any[]) =>
+        forecasts.map((forecast) => ({
+          ...forecast,
+          wave_height: "2-3ft",
+        }))
+    );
 
     const { GET } = await import("@/app/api/forecasts/update-enhanced/route");
     const res = await GET(
@@ -177,6 +195,13 @@ describe("GET /api/forecasts/update-enhanced", () => {
     expect(res.status).toBe(200);
     expect(json.success).toBe(true);
     expect(json.data.forecasts).toHaveLength(1);
+    expect(json.data.forecasts[0].wave_height).toBe("2-3ft");
+    expect(mockApplyV51DisplayOverrideToForecasts).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: "1",
+        isCalibrated: false,
+      }),
+    ]);
     expect(json.data.metadata.stale).toBe(false);
     expect(json.data.metadata.cached).toBe(true);
 

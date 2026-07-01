@@ -35,7 +35,7 @@ test.describe("Guest forecast accuracy trust page", () => {
   });
 
   for (const viewport of VIEWPORTS) {
-    test(`renders a non-empty trust page on ${viewport.name}`, async ({
+    test(`renders a non-empty trust page on ${viewport.name} @requires-data`, async ({
       page,
     }) => {
       await page.setViewportSize({
@@ -51,7 +51,9 @@ test.describe("Guest forecast accuracy trust page", () => {
       expect(response).not.toBeNull();
       expect(response!.status()).toBe(200);
       await expect(
-        page.getByRole("heading", { name: "Forecast accuracy receipts." })
+        page.getByRole("heading", {
+          name: "The forecast that learns what you like.",
+        })
       ).toBeVisible();
       await expect(page.getByText(/NOAA baseline/i).first()).toBeVisible();
       await expect(

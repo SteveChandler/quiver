@@ -19,6 +19,7 @@ interface MockQueryChain {
   like: jest.Mock<MockQueryChain>;
   in: jest.Mock<MockQueryChain>;
   is: jest.Mock<MockQueryChain>;
+  or: jest.Mock<MockQueryChain>;
   limit: jest.Mock<MockQueryChain>;
   range: jest.Mock<MockQueryChain>;
   order: jest.Mock<MockQueryChain>;
@@ -99,6 +100,7 @@ interface MockSupabaseClientType {
   createSupabaseServerClient?: typeof createSupabaseServerClient;
   createBrowserClient?: typeof createBrowserClient;
   createSupabaseServiceRoleClient?: typeof createSupabaseServiceRoleClient;
+  createPublicReadClient?: typeof createPublicReadClient;
   createServerClient?: typeof createServerClient;
   createMiddlewareClient?: typeof createMiddlewareClient;
   RealtimeClient?: typeof RealtimeClient;
@@ -120,6 +122,7 @@ function createMockQueryChain(): MockQueryChain {
     like: jest.fn(() => chain),
     in: jest.fn(() => chain),
     is: jest.fn(() => chain),
+    or: jest.fn(() => chain),
     limit: jest.fn(() => chain),
     range: jest.fn(() => chain),
     order: jest.fn(() => chain),
@@ -211,6 +214,7 @@ const createBrowserClient = jest.fn(() => mockSupabaseClient);
 const createSupabaseServiceRoleClient = jest.fn(() =>
   Promise.resolve(mockSupabaseClient)
 );
+const createPublicReadClient = jest.fn(() => mockSupabaseClient);
 
 const createServerClient = jest.fn(() => mockSupabaseClient);
 const createMiddlewareClient = jest.fn(() => mockSupabaseClient);
@@ -232,6 +236,7 @@ mockSupabaseClient.createSupabaseServerClient = createSupabaseServerClient;
 mockSupabaseClient.createBrowserClient = createBrowserClient;
 mockSupabaseClient.createSupabaseServiceRoleClient =
   createSupabaseServiceRoleClient;
+mockSupabaseClient.createPublicReadClient = createPublicReadClient;
 mockSupabaseClient.createServerClient = createServerClient;
 mockSupabaseClient.createMiddlewareClient = createMiddlewareClient;
 mockSupabaseClient.RealtimeClient = RealtimeClient;
@@ -247,6 +252,7 @@ const exportsForModule = {
   createSupabaseServerClient,
   createBrowserClient,
   createSupabaseServiceRoleClient,
+  createPublicReadClient,
   createServerClient,
   createMiddlewareClient,
   RealtimeClient,
@@ -262,6 +268,7 @@ export {
   createSupabaseServerClient,
   createBrowserClient,
   createSupabaseServiceRoleClient,
+  createPublicReadClient,
   createServerClient,
   createMiddlewareClient,
   RealtimeClient,

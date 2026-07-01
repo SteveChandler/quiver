@@ -17,6 +17,10 @@ import {
 } from './utils/error-detection';
 import { TEST_BEACHES } from './fixtures/test-data';
 import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
+import {
+  APP_FIRST_CAMPAIGN,
+  iosAppStoreUrlWithCampaign,
+} from '@/lib/constants/app-store';
 import { isVisibleSafe } from './utils/strict-helpers';
 
 test.use({ storageState: { cookies: [], origins: [] } });
@@ -51,12 +55,9 @@ test.describe('Guest Smoke: Critical Pages', () => {
     await expect(page.getByRole('heading', { name: /custom alerts/i })).toBeVisible();
     await expect(
       page.getByRole('link', { name: /open app store/i }).first(),
-    ).toHaveAttribute(
-      'href',
-      /apps\.apple\.com\/us\/app\/surf-forecast-quiver\/id6759300320/,
-    );
+    ).toHaveAttribute('href', iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN));
     await expect(
-      page.getByRole('button', { name: /android waitlist/i }).first(),
+      page.getByRole('button', { name: /get android beta|android waitlist/i }).first(),
     ).toBeVisible();
     await expect(page.getByText(/home-break finder/i)).toHaveCount(0);
 
@@ -90,37 +91,12 @@ test.describe('Guest Smoke: Critical Pages', () => {
     const heading = page.getByRole('heading', { name: /blacks/i, level: 1 });
     await expect(heading).toBeVisible({ timeout: 10000 });
 
-    // At least one of these beach-page content elements should render.
-    //
-    // Reliability ranking for guest/unauthenticated users:
-    //
-    // beach-stats-grid: MOST reliable — renders unconditionally once beach data loads.
-    //   Accepts currentForecast as optional; shows static beach stats even without it.
-    //   No auth dependency, no extra API gate. Primary check with generous CI timeout.
-    //
-    // beach-actions: RELIABLE — the Report Conditions / Get Directions row. Renders
-    //   unconditionally once beach data is available. No auth or forecast dependency.
-    //
-    // inline-signup-cta: RELIABLE for guests — shown in publicMode for unauthenticated
-    //   users, but the component reads useAuth() and returns null while isLoading=true.
-    //   Auth context resolves quickly, so a 15s timeout is more than sufficient in CI.
-    //
-    // ticker-content: LEAST reliable — only renders when currentForecast is non-null
-    //   (requires the forecast API call to complete) AND buildConditionsCards returns
-    //   at least one card. Falls back to skeleton or nothing if forecast is unavailable.
-    const statsGrid = page.locator('[data-testid="beach-stats-grid"]');
-    const beachActions = page.locator('[data-testid="beach-actions"]');
-    const signupCta = page.locator('[data-testid="inline-signup-cta"]');
-    const ticker = page.locator('[data-testid="ticker-content"]');
+    const zinePage = page.locator('.zine-page').first();
+    const zinePaper = page.locator('.zine-paper').first();
+    const hasZinePage = await isVisibleSafe(zinePage, { timeout: 15000 });
+    const hasZinePaper = await isVisibleSafe(zinePaper, { timeout: 15000 });
 
-    // Primary check: beach-stats-grid is the most reliable server-data-driven element.
-    // Give it a generous timeout so slow CI environments don't produce flaky failures.
-    const hasStats = await isVisibleSafe(statsGrid, { timeout: 20000 });
-    const hasBeachActions = await isVisibleSafe(beachActions, { timeout: 15000 });
-    const hasSignupCta = await isVisibleSafe(signupCta, { timeout: 15000 });
-    const hasTicker = await isVisibleSafe(ticker, { timeout: 10000 });
-
-    expect(hasStats || hasBeachActions || hasSignupCta || hasTicker).toBe(true);
+    expect(hasZinePage || hasZinePaper).toBe(true);
 
     // Skip console checks — guest visitors trigger expected 401s from auth-dependent APIs
     await assertNoErrors(page, errorCapture, {

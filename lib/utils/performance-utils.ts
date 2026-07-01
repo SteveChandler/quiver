@@ -28,55 +28,8 @@ function preloadCriticalResources() {
 // Optional debug flag for performance logging
 const DEBUG_PERF = process.env.NEXT_PUBLIC_DEBUG_PERF === "true";
 
-// Track if vitals have been initialized to prevent duplicates
-let vitalsInitialized = false;
-
-// Core Web Vitals tracking
 function trackWebVitals() {
-  if (typeof window === "undefined") return () => {};
-  if (vitalsInitialized) return () => {};
-
-  vitalsInitialized = true;
-
-  import("web-vitals")
-    .then(({ onCLS, onFID, onFCP, onLCP, onTTFB }) => {
-      const vitalsHandler = (metric: any) => {
-        // Optional: log if debug flag is set
-        if (DEBUG_PERF) {
-          console.log(`📊 ${metric.name}:`, metric.value);
-        }
-
-        // Send to analytics in production
-        if (
-          process.env.NODE_ENV === "production" &&
-          typeof window !== "undefined" &&
-          typeof (window as any).gtag === "function"
-        ) {
-          (window as any).gtag("event", metric.name, {
-            event_category: "Web Vitals",
-            event_label: metric.id,
-            value: Math.round(
-              metric.name === "CLS" ? metric.value * 1000 : metric.value
-            ),
-            non_interaction: true,
-          });
-        }
-      };
-
-      onCLS(vitalsHandler);
-      onFID(vitalsHandler);
-      onFCP(vitalsHandler);
-      onLCP(vitalsHandler);
-      onTTFB(vitalsHandler);
-    })
-    .catch((error) => {
-      console.warn("Web Vitals tracking failed:", error);
-    });
-
-  return () => {
-    // Cleanup: reset flag if needed for re-initialization
-    vitalsInitialized = false;
-  };
+  return () => {};
 }
 
 // Memory usage monitoring

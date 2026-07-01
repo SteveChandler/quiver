@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import { existsSync, readFileSync } from 'fs';
+import { parse as parseEnv } from 'dotenv';
 
 /**
  * CCC Sync API Tests
@@ -11,8 +12,7 @@ import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error
  * they do not require browser navigation or an authenticated user session.
  *
  * Auth model for cron routes:
- *   - `x-vercel-cron: 1` header (set by Vercel Cron infrastructure)
- *   - OR `Authorization: Bearer <CRON_SECRET>` (for manual invocations)
+ *   - `Authorization: Bearer <CRON_SECRET>`
  *
  * We only test the rejection cases here because triggering the import/match
  * phases against the real CCC or WQP APIs would be destructive in a test run.
@@ -21,6 +21,31 @@ import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error
  *
  * @project guest
  */
+
+function readEnvValue(filePath: string, key: string): string | undefined {
+  if (!existsSync(filePath)) return undefined;
+
+  const parsed = parseEnv(readFileSync(filePath));
+  const value = parsed[key];
+  return value && value.length > 0 ? value : undefined;
+}
+
+const targetBaseUrl = process.env.BASE_URL ?? 'http://localhost:3100';
+const isLocalTarget =
+  targetBaseUrl.includes('localhost') || targetBaseUrl.includes('127.0.0.1');
+
+// Read the cron secret without mutating process.env; shared Playwright workers
+// reuse the same process for later specs.
+const cronSecret =
+  process.env.CRON_SECRET ??
+  (isLocalTarget
+    ? readEnvValue('.env.local', 'CRON_SECRET') ??
+      readEnvValue('.env.production.local', 'CRON_SECRET')
+    : readEnvValue('.env.production.local', 'CRON_SECRET') ??
+      readEnvValue('.env.local', 'CRON_SECRET'));
+const cronAuthHeaders = cronSecret
+  ? { Authorization: `Bearer ${cronSecret}` }
+  : undefined;
 
 // ---------------------------------------------------------------------------
 // Suite 1: CCC sync endpoint – authentication
@@ -63,15 +88,17 @@ test.describe('CCC Sync API - authentication', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('CCC Sync API - parameter validation', () => {
+  test.skip(!cronAuthHeaders, 'Requires CRON_SECRET for authenticated cron parameter validation');
+
   /**
-   * Phase validation tests send the x-vercel-cron header so they exercise
+   * Phase validation tests send Bearer CRON_SECRET so they exercise
    * parameter handling after cron auth passes.
    * Missing phase and malformed explicit phase values should skip safely.
    */
 
-  test('returns safe skip for missing phase param when cron header is present', async ({ request }) => {
+  test('returns safe skip for missing phase param when cron auth is present', async ({ request }) => {
     const response = await request.get('/api/cron/ccc-sync', {
-      headers: { 'x-vercel-cron': '1' },
+      headers: cronAuthHeaders,
     });
     expect(response.status()).toBe(200);
 
@@ -81,7 +108,7 @@ test.describe('CCC Sync API - parameter validation', () => {
 
   test('returns safe skip for invalid phase value', async ({ request }) => {
     const response = await request.get('/api/cron/ccc-sync?phase=bogus', {
-      headers: { 'x-vercel-cron': '1' },
+      headers: cronAuthHeaders,
     });
     expect(response.status()).toBe(200);
 
@@ -92,7 +119,7 @@ test.describe('CCC Sync API - parameter validation', () => {
 
   test('returns safe skip for phase=DELETE (injection attempt)', async ({ request }) => {
     const response = await request.get('/api/cron/ccc-sync?phase=DELETE', {
-      headers: { 'x-vercel-cron': '1' },
+      headers: cronAuthHeaders,
     });
     expect(response.status()).toBe(200);
 
@@ -101,9 +128,9 @@ test.describe('CCC Sync API - parameter validation', () => {
     expect(body?.data?.reason).toContain('raw phase="DELETE"');
   });
 
-  test('returns safe skip for blank explicit phase when cron header is present', async ({ request }) => {
+  test('returns safe skip for blank explicit phase when cron auth is present', async ({ request }) => {
     const response = await request.get('/api/cron/ccc-sync?phase=%20%20', {
-      headers: { 'x-vercel-cron': '1' },
+      headers: cronAuthHeaders,
     });
     expect(response.status()).toBe(200);
 
@@ -151,18 +178,20 @@ test.describe('Water Quality Sync API - authentication', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('Water Quality Sync API - parameter validation', () => {
-  test('returns 400 or 401 for missing phase param when cron header is present', async ({ request }) => {
+  test.skip(!cronAuthHeaders, 'Requires CRON_SECRET for authenticated cron parameter validation');
+
+  test('returns 400 for missing phase param when cron auth is present', async ({ request }) => {
     const response = await request.get('/api/cron/water-quality-sync', {
-      headers: { 'x-vercel-cron': '1' },
+      headers: cronAuthHeaders,
     });
-    expect([400, 401]).toContain(response.status());
+    expect(response.status()).toBe(400);
   });
 
-  test('returns 400 or 401 for invalid phase value', async ({ request }) => {
+  test('returns 400 for invalid phase value', async ({ request }) => {
     const response = await request.get('/api/cron/water-quality-sync?phase=unknown', {
-      headers: { 'x-vercel-cron': '1' },
+      headers: cronAuthHeaders,
     });
-    expect([400, 401]).toContain(response.status());
+    expect(response.status()).toBe(400);
   });
 
   test('valid phase values are "stations", "samples", "evaluate" only', async ({ request }) => {
@@ -172,9 +201,9 @@ test.describe('Water Quality Sync API - parameter validation', () => {
     for (const phase of invalidPhases) {
       const response = await request.get(
         `/api/cron/water-quality-sync?phase=${encodeURIComponent(phase)}`,
-        { headers: { 'x-vercel-cron': '1' } }
+        { headers: cronAuthHeaders }
       );
-      expect([400, 401]).toContain(response.status());
+      expect(response.status()).toBe(400);
     }
   });
 });

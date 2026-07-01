@@ -1,7 +1,6 @@
 import type { NextRequest } from "next/server";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@/types/supabase";
 import { withAuth, createSuccessResponse, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
+import { initializeUserXP } from "@/lib/gamification/xp-service";
 
 const LEVEL_THRESHOLDS = [
   { level: 1, title: "Kook", xp_required: 0 },
@@ -23,27 +22,12 @@ function calculateLevel(xpTotal: number) {
   return LEVEL_THRESHOLDS[0];
 }
 
-async function ensureUserXpRow(
-  userId: string,
-  supabase: SupabaseClient<Database>
-) {
-  const { data: existing } = await supabase
-    .from("user_xp")
-    .select("id")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (!existing) {
-    await supabase.from("user_xp").insert({ user_id: userId, xp_total: 0, level: 1 });
-  }
-}
-
 /**
  * GET /api/gamification/xp-status - Get current user's XP and level status
  */
 export const GET = withAuth(
   async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
-    await ensureUserXpRow(user.id, supabase);
+    await initializeUserXP(user.id, supabase);
 
     const { data, error } = await supabase
       .from("user_xp")
@@ -80,7 +64,6 @@ export const GET = withAuth(
   },
   { errorMessage: "Failed to load XP status" }
 );
-
 
 
 

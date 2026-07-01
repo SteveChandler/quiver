@@ -102,19 +102,21 @@ Every screen should feel considered. Not A/B tested into blandness, not followin
 
 ## Visual identity
 
-The visual direction draws from analog surf culture — VHS-era footage, hand-drawn sticker sheets, late-80s print ads from local shops. This applies to everything, eventually. Not just marketing materials, but the product itself.
+The visual direction draws from analog surf culture — VHS-era footage, hand-drawn sticker sheets, late-80s print ads from local shops. This applies to everything, eventually. Not just marketing materials, but the product itself. This is implemented today by the zine layer — `app/styles/zine.css` and `ZineSurface` (`components/zine/`) — which is Quiver's canonical app-wide visual system.
 
-### Color palette — Dawn Patrol
+### Color palette
 
-The emotional core of the surfer fantasy. Pre-dawn, salt air, quiet water. These colors feel earned — you have to set an alarm to see them.
+Dawn Patrol is the originating mood board (pre-dawn, salt air, quiet water). Its intent is now implemented by the zine layer's canonical tokens in `app/styles/zine.css` — use those, not the mood-board hexes:
 
-| Name | Hex | Usage |
-|------|-----|-------|
-| Midnight navy | `#182540` | Primary backgrounds, dark surfaces |
-| Deep ocean | `#2A4A6B` | Secondary backgrounds, cards |
-| Amber dawn | `#C07840` | Primary accent, CTAs, highlights |
-| Warm sand | `#C4A97D` | Secondary accent, muted highlights |
-| Sun-bleached | `#F0ECE3` | Light backgrounds, text on dark |
+| Mood (Dawn Patrol) | Canonical zine token | Hex | Role |
+|---|---|---|---|
+| Midnight navy / Deep ocean | twilight stage | `#252D6B → #1A1535 → #0D1020` | Page backdrop (stage only) |
+| Sun-bleached | cream paper | `#F4EBD8` / `#F5EEDC` | Default content surface |
+| (ink) | ink | `#11100D` | Text on paper |
+| Amber dawn | Charming Orange | `#F78E42` | Primary accent |
+| Warm sand | tape / paper-deep | `#C8A46B` / `#D9C49C` | Craft accents |
+
+The Dawn Patrol hexes (`#182540`, `#2A4A6B`, `#C07840`, `#C4A97D`, `#F0ECE3`) are superseded mood references — do not use them as implementation values.
 
 ### Colors to avoid
 

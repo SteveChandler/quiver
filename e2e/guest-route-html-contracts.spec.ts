@@ -200,6 +200,26 @@ test.describe('Route HTML Contracts', () => {
   });
 
   test.describe('Redirect and status contracts', () => {
+    test('keyword alias redirects land on the canonical SEO pages', async ({
+      request,
+    }) => {
+      const cases = [
+        ['/surfline-alternative', '/vs/surfline'],
+        ['/free-surfline-alternative', '/vs/surfline/free'],
+        ['/seo-pages/vs-surfline-free', '/vs/surfline/free'],
+        ['/magicseaweed-alternative', '/vs/surfline/free'],
+        ['/free-surf-forecast', '/free-surf-reports'],
+        ['/learn/ml-surf-forecast', '/learn/how-quiver-calibrates-your-beach'],
+      ] as const;
+
+      for (const [source, destination] of cases) {
+        const response = await getResponse(request, source, { maxRedirects: 0 });
+
+        expect([301, 308]).toContain(response.status());
+        expect(response.headers().location).toBe(destination);
+      }
+    });
+
     test('supported state root renders surf-beach content', async ({ request }) => {
       const html = await getHtml(request, '/ca');
 

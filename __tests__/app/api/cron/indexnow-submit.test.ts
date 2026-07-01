@@ -6,6 +6,11 @@ import { readFileSync } from "fs";
 import { NextRequest } from "next/server";
 import { GET } from "@/app/api/cron/indexnow-submit/route";
 import { submitUrlsInBatches } from "@/lib/services/indexnow-service";
+import { SITE_URL } from "@/lib/constants/seo";
+import {
+  collectIndexNowUrlGroups,
+  flattenIndexNowUrlGroups,
+} from "@/lib/seo/indexnow-url-collectors";
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
@@ -42,6 +47,11 @@ jest.mock("@/lib/cron/observability", () => ({
 
 jest.mock("@/lib/services/indexnow-service", () => ({
   submitUrlsInBatches: jest.fn(),
+}));
+
+jest.mock("@/lib/seo/indexnow-url-collectors", () => ({
+  collectIndexNowUrlGroups: jest.fn(),
+  flattenIndexNowUrlGroups: jest.fn(),
 }));
 
 describe("IndexNow submit cron route", () => {
@@ -99,5 +109,64 @@ describe("IndexNow submit cron route", () => {
       timestamp: "2026-05-26T00:00:00.000Z",
     });
     expect(submitUrlsInBatches).not.toHaveBeenCalled();
+  });
+
+  it("collects, flattens, submits, and returns the IndexNow breakdown", async () => {
+    process.env.INDEXNOW_KEY = "test-indexnow-key";
+
+    const urlGroups = {
+      intentUrls: [`${SITE_URL}/beginner/san-diego`],
+      locationUrls: [
+        `${SITE_URL}/ca/san-diego`,
+        `${SITE_URL}/beaches/mexico/baja-california`,
+      ],
+      staticSeoUrls: [`${SITE_URL}/features`],
+      beachDetailUrls: [
+        `${SITE_URL}/ca/san-diego/blacks`,
+        `${SITE_URL}/ca/san-diego/blacks/tides`,
+      ],
+      bestTimeCityUrls: [`${SITE_URL}/best-time-to-surf/san-diego`],
+    };
+    const flattenedUrls = [
+      `${SITE_URL}/beginner/san-diego`,
+      `${SITE_URL}/ca/san-diego`,
+      `${SITE_URL}/features`,
+    ];
+
+    (collectIndexNowUrlGroups as jest.Mock).mockResolvedValue(urlGroups);
+    (flattenIndexNowUrlGroups as jest.Mock).mockReturnValue(flattenedUrls);
+    (submitUrlsInBatches as jest.Mock).mockResolvedValue({
+      totalSubmitted: 3,
+      batches: [{ urls: flattenedUrls }],
+      errors: [],
+    });
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/cron/indexnow-submit"),
+    );
+    const data = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(collectIndexNowUrlGroups).toHaveBeenCalledTimes(1);
+    expect(flattenIndexNowUrlGroups).toHaveBeenCalledWith(urlGroups);
+    expect(submitUrlsInBatches).toHaveBeenCalledWith(flattenedUrls);
+    expect(data).toEqual({
+      success: true,
+      data: {
+        submitted: 3,
+        totalUrls: 3,
+        breakdown: {
+          intent: 1,
+          location: 2,
+          staticSeo: 1,
+          beachDetail: 2,
+          bestTimeCity: 1,
+        },
+        batches: 1,
+        errors: [],
+        durationMs: expect.any(Number),
+      },
+      timestamp: "2026-05-26T00:00:00.000Z",
+    });
   });
 });

@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import { expect, test, type APIRequestContext } from '@playwright/test';
+import { test, expect } from "./fixtures/auth-fixture";
+import { type APIRequestContext } from '@playwright/test';
 import { TEST_BEACHES } from './fixtures/test-data';
 import { createServiceClient } from './utils/test-data-cleanup';
 
@@ -33,6 +34,7 @@ type SessionCheckResponse = {
 
 const SHARE_FORECAST_AT = '2026-06-01T14:00:00.000Z';
 const createdSessionIds: string[] = [];
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 test.describe('productized distribution E2E', () => {
   test.describe.configure({ mode: 'serial' });
@@ -219,6 +221,24 @@ async function cleanupSeededSessions(): Promise<void> {
 
 async function resolveBeachId(request: APIRequestContext): Promise<string> {
   const beach = TEST_BEACHES.blacks;
+
+  if (canSeedSessions()) {
+    const supabase = createServiceClient();
+    const { data, error } = await supabase
+      .from('beaches')
+      .select('id')
+      .eq('slug', beach.slug)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error(`Could not resolve beach id from database: ${error.message}`);
+    }
+
+    if (data?.id && UUID_REGEX.test(data.id)) {
+      return data.id;
+    }
+  }
+
   const response = await request.get(
     `/api/beaches/search?query=${encodeURIComponent(beach.name)}&limit=5`,
   );
@@ -230,6 +250,10 @@ async function resolveBeachId(request: APIRequestContext): Promise<string> {
   );
   if (!match?.id) {
     throw new Error(`Could not resolve beach id for ${beach.name}`);
+  }
+
+  if (!UUID_REGEX.test(match.id)) {
+    throw new Error(`Resolved beach id for ${beach.name} is not a UUID: ${match.id}`);
   }
 
   return match.id;

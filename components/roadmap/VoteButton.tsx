@@ -63,25 +63,25 @@ export function VoteButton({
       <button
         type="button"
         onClick={handleClick}
-        aria-label={`Sign in to vote — ${localCount} ${localCount === 1 ? "vote" : "votes"}`}
+        aria-label={`Sign in to vote, ${localCount} ${localCount === 1 ? "vote" : "votes"}`}
         className={cn(
-          "group inline-flex items-center gap-2 rounded-[12px_3px_14px_3px] border px-3 py-1 transition",
-          "border-[#2D357D]/60 bg-[#1E2558]/60 text-white/70",
-          "hover:-rotate-[0.5deg] hover:border-[#F78E42]/60 hover:bg-[#252D6B] hover:text-[#F78E42]",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B]",
+          "group inline-flex items-center gap-2 rounded-[12px_3px_14px_3px] border-2 px-3 py-1 transition",
+          "border-[#11100D]/45 bg-[#F0E5CC] text-[#11100D]/70 shadow-[1px_2px_0_rgba(17,16,13,0.12)]",
+          "hover:-rotate-[0.5deg] hover:border-[#F78E42] hover:text-[#11100D]",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]/70 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]",
         )}
       >
         <Lock
           size={12}
           aria-hidden="true"
-          className="text-white/50 transition group-hover:text-[#F78E42]"
+          className="text-[#11100D]/45 transition group-hover:text-[#B56A2B]"
         />
         <span className="font-[var(--font-mono)] text-[11px] font-bold uppercase tracking-[0.15em]">
           Sign in to vote
         </span>
         <span
           aria-hidden="true"
-          className="ml-1 border-l border-[#2D357D]/60 pl-2 font-[var(--font-mono)] text-sm font-bold tabular-nums text-white/80 group-hover:border-[#F78E42]/40"
+          className="ml-1 border-l border-[#11100D]/25 pl-2 font-[var(--font-mono)] text-sm font-bold tabular-nums text-[#11100D] group-hover:border-[#F78E42]/60"
         >
           {localCount}
         </span>
@@ -96,10 +96,10 @@ export function VoteButton({
       aria-pressed={localVoted}
       disabled={pending}
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-[12px_3px_14px_3px] border px-3 py-1 transition disabled:cursor-not-allowed",
+        "inline-flex items-center gap-1.5 rounded-[12px_3px_14px_3px] border-2 px-3 py-1 transition disabled:cursor-not-allowed",
         localVoted
-          ? "border-[#F78E42] bg-[#F78E42]/10 text-[#F78E42]"
-          : "border-[#2D357D]/60 bg-[#1E2558]/60 text-white/70 hover:border-[#F78E42]/60 hover:text-[#F78E42]",
+          ? "border-[#11100D] bg-[#F78E42] text-[#11100D] shadow-[1px_2px_0_rgba(17,16,13,0.2)]"
+          : "border-[#11100D]/45 bg-[#F0E5CC] text-[#11100D]/70 hover:border-[#F78E42] hover:text-[#11100D]",
       )}
     >
       <ThumbsUp size={14} aria-hidden="true" />

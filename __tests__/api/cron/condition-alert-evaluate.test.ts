@@ -131,12 +131,24 @@ const store: Store = {
  * Resolves via `rowsResolver()` so seeding after chain creation is fine.
  */
 function makeChain(rowsResolver: () => any[], onUpsert?: (row: any) => void) {
+  const matchesOrFilter = (row: any, filter: string): boolean => {
+    if (filter === "preset_type.is.null,preset_type.neq.similarity_match") {
+      return (
+        row?.preset_type == null ||
+        (row?.preset_type != null && row.preset_type !== "similarity_match")
+      );
+    }
+    return true;
+  };
+
   const chain: any = {
     _filters: {} as Record<string, any>,
     _neqFilters: {} as Record<string, any>,
+    _orFilters: [] as string[],
     select: jest.fn(() => chain),
     eq: jest.fn((_col: string, val: any) => { chain._filters[_col] = val; return chain; }),
     neq: jest.fn((_col: string, val: any) => { chain._neqFilters[_col] = val; return chain; }),
+    or: jest.fn((filter: string) => { chain._orFilters.push(filter); return chain; }),
     in: jest.fn((_col: string, vals: any[]) => { chain._filters[`${_col}__in`] = vals; return chain; }),
     gte: jest.fn(() => chain),
     lt: jest.fn(() => chain),
@@ -159,7 +171,10 @@ function makeChain(rowsResolver: () => any[], onUpsert?: (row: any) => void) {
     then: jest.fn((resolve: any) =>
       resolve({
         data: rowsResolver().filter((row) =>
-          Object.entries(chain._neqFilters).every(([col, val]) => row?.[col] !== val)
+          Object.entries(chain._neqFilters).every(
+            ([col, val]) => row?.[col] != null && row[col] !== val
+          ) &&
+          chain._orFilters.every((filter: string) => matchesOrFilter(row, filter))
         ),
         error: null,
       })
@@ -466,6 +481,28 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     expect(mockFindMatchingWindows).not.toHaveBeenCalled();
     expect(store.queueUpserts).toHaveLength(0);
     expect(store.ruleUpdates).toHaveLength(0);
+  });
+
+  it("2c. includes custom condition rules with null preset_type", async () => {
+    seedRule({
+      name: "Watch custom conditions",
+      preset_type: null,
+    });
+    seedProfile();
+    seedBeach();
+    seedForecast();
+    seedMatchingWindow();
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    const body = await res.json();
+    expect(body.evaluated).toBe(1);
+    expect(body.matched).toBe(1);
+    expect(body.queued).toBe(1);
+    expect(mockFindMatchingWindows).toHaveBeenCalledTimes(1);
+    expect(store.queueUpserts).toHaveLength(1);
+    expect(store.ruleUpdates).toHaveLength(1);
   });
 
   it("3. missing profile: rule exists but profile lookup returns empty => errors++ and route does not crash", async () => {

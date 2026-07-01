@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Block commits that introduce secrets (API keys, tokens, private keys).
+# Scans ONLY the staged diff via gitleaks. Escape hatch: SKIP_SECRET_SCAN=1.
+set -euo pipefail
+
+if [[ "${SKIP_SECRET_SCAN:-0}" == "1" ]]; then
+  echo "WARNING: SKIP_SECRET_SCAN=1 set; skipping gitleaks secret scan."
+  echo "WARNING: Do not bypass on shared branches."
+  exit 0
+fi
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "ERROR: gitleaks not found — the secret-scan pre-commit hook cannot run."
+  echo "Install it:  brew install gitleaks"
+  echo "Bypass once (NOT for shared branches):  SKIP_SECRET_SCAN=1 git commit ..."
+  exit 1
+fi
+
+# protect --staged scans the staged diff only; --redact hides matches from output.
+if ! gitleaks protect --staged --redact --no-banner; then
+  echo ""
+  echo "ERROR: gitleaks flagged a potential secret in your staged changes (redacted above)."
+  echo "Move it to an env var / secrets manager and re-stage."
+  echo "False positive? Add a .gitleaks.toml allowlist entry or an inline '# gitleaks:allow' comment."
+  exit 1
+fi

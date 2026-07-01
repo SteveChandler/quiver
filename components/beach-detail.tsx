@@ -650,12 +650,20 @@ function BeachDetailContent({
       typeof (beach as { review_count?: number }).review_count === "number"
         ? ((beach as { review_count?: number }).review_count ?? null)
         : null;
+    const hasBeachCoordinates =
+      typeof beach.lat === "number" &&
+      Number.isFinite(beach.lat) &&
+      typeof beach.lon === "number" &&
+      Number.isFinite(beach.lon);
+    const intelCountPromise = hasBeachCoordinates
+      ? safeFetchJson(
+          `/api/intel?lat=${beach.lat}&lon=${beach.lon}&radius=2&limit=1`,
+        )
+      : Promise.resolve(null);
 
     Promise.all([
       Promise.resolve(reviewCountFromBeach),
-      safeFetchJson(
-        `/api/intel?lat=${beach.lat}&lon=${beach.lon}&radius=2&limit=1`,
-      ),
+      intelCountPromise,
       safeFetchJson(`/api/beaches/${beach.id}/sessions?limit=1`),
     ]).then(([reviews, intelJson, sessionsJson]) => {
       if (cancelled) return;

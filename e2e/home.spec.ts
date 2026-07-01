@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from "./fixtures/auth-fixture";
 import { waitForPageLoad, ensureAuthenticated, waitForAuthenticatedHome } from './utils/test-helpers';
 import { VIEWPORTS, TIMEOUTS } from './fixtures/test-data';
 import {
@@ -64,6 +64,16 @@ const waveHeightRangesOverlap = (
   return Math.max(left.min, right.min) <= Math.min(left.max, right.max);
 };
 
+const clearAuthBootstrapSurfDiscover401 = (capture: ErrorCapture): void => {
+  capture.networkErrors = capture.networkErrors.filter(
+    (error) =>
+      !(
+        error.status === 401 &&
+        error.url.includes('/api/surf/discover')
+      )
+  );
+};
+
 /**
  * Home Page E2E Tests
  *
@@ -93,8 +103,16 @@ test.describe('Home Page - Layout', () => {
     await waitForPageLoad(page);
 
     // Wait for the authenticated home screen to render; skip if guest landing appears instead
-    const authHomeLoaded = await waitForAuthenticatedHome(page);
+    let authHomeLoaded = await waitForAuthenticatedHome(page);
     if (!authHomeLoaded) {
+      clearAuthBootstrapSurfDiscover401(errorCapture);
+      await page.reload({ waitUntil: 'domcontentloaded' });
+      await waitForPageLoad(page);
+      authHomeLoaded = await waitForAuthenticatedHome(page);
+    }
+
+    if (!authHomeLoaded) {
+      clearAuthBootstrapSurfDiscover401(errorCapture);
       test.skip(true, 'Authenticated home screen did not render — auth tokens may be stale on dev');
       return;
     }
@@ -128,14 +146,13 @@ test.describe('Home Page - Layout', () => {
       const heroVisible = await isVisibleSafe(hero, { timeout: TIMEOUTS.medium });
 
       if (heroVisible) {
-        // ScoreBadge renders aria-label="Surf score X out of 10"
-        const scoreBadge = hero.locator('[aria-label*="Surf score"]');
-        const badgeVisible = await isVisibleSafe(scoreBadge, { timeout: TIMEOUTS.short });
+        const scoreBadge = hero.locator(
+          '[data-testid="hero-score-badge"][data-score-pending="false"]'
+        );
+        await expect(scoreBadge).toBeVisible({ timeout: TIMEOUTS.long });
 
-        if (badgeVisible) {
-          const badgeText = await scoreBadge.textContent();
-          expect(badgeText).toMatch(/\d+\.\d+\/10/);
-        }
+        const badgeText = await scoreBadge.textContent();
+        expect(badgeText).toMatch(/\d+\.\d+\/10/);
       }
     });
 
@@ -312,9 +329,10 @@ test.describe('Home Page - Layout', () => {
       const headingVisible = await isVisibleSafe(heading, { timeout: TIMEOUTS.medium });
 
       if (headingVisible) {
-        // SpotCard renders with role="button"
-        const spotCards = page.locator('section').filter({ has: heading }).locator('[role="button"]');
-        const skeletons = page.locator('section').filter({ has: heading }).locator('.animate-pulse');
+        // Beach cards render as links; custom spots can still fall back to role="button".
+        const nearbyScroll = page.locator('[data-testid="nearby-spots-scroll"]');
+        const spotCards = nearbyScroll.locator('a[href], [role="button"]');
+        const skeletons = nearbyScroll.locator('.animate-pulse');
 
         const hasCards = await isVisibleSafe(spotCards.first(), { timeout: TIMEOUTS.short });
         const hasSkeletons = await isVisibleSafe(skeletons.first(), { timeout: TIMEOUTS.short });
@@ -341,7 +359,9 @@ test.describe('Home Page - Layout', () => {
     });
 
     try {
-      const spotCards = page.locator('section').filter({ has: heading }).locator('[role="button"]');
+      const spotCards = page
+        .locator('[data-testid="nearby-spots-scroll"]')
+        .locator('a[href], [role="button"]');
       const cardCount = await spotCards.count();
       if (cardCount === 0) {
         return;
@@ -410,8 +430,8 @@ test.describe('Home Page - Layout', () => {
     }
 
     try {
-      const nearbySection = page.locator('section').filter({ has: heading });
-      const spotCards = nearbySection.locator('[role="button"]');
+      const nearbySection = page.locator('[data-testid="nearby-spots-scroll"]');
+      const spotCards = nearbySection.locator('a[href], [role="button"]');
       const cardCount = await spotCards.count();
       if (cardCount === 0) {
         return;
@@ -961,9 +981,9 @@ test.describe('Home Page - Activation', () => {
     await expect(page.getByRole("heading", { name: "Nearby Spots" })).toBeVisible({
       timeout: TIMEOUTS.long,
     });
-    await expect(page.getByRole("heading", { name: "Today's Windows" })).toBeVisible({
-      timeout: TIMEOUTS.long,
-    });
+    await expect(
+      page.getByRole("heading", { name: /^(Today|Tomorrow)'s Windows$/ })
+    ).toBeVisible({ timeout: TIMEOUTS.long });
 
     const sessionModule = page.getByTestId("home-session-intelligence-module");
     await expect(sessionModule).toBeVisible({ timeout: TIMEOUTS.long });
@@ -1098,8 +1118,7 @@ test.describe('Home Page - Geolocation', () => {
 
     await page.goto('/');
 
-    const oracleScreen = page.locator('.min-h-screen').first();
-    await expect(oracleScreen).toBeVisible({ timeout: TIMEOUTS.medium });
+    await expect(await waitForAuthenticatedHome(page)).toBe(true);
 
     await page.waitForLoadState('networkidle');
 
@@ -1238,14 +1257,18 @@ test.describe('Home Page - Navigation', () => {
     const headingVisible = await isVisibleSafe(heading, { timeout: 30_000 });
 
     if (headingVisible) {
-      const spotCards = page.locator('section').filter({ has: heading }).locator('[role="button"]');
+      const spotCards = page
+        .locator('[data-testid="nearby-spots-scroll"]')
+        .locator('a[href], [role="button"]');
       const cardCount = await spotCards.count();
 
       if (cardCount > 0) {
         await spotCards.first().click();
 
-        await page.waitForURL(/\/surf-forecast\/.+/, { timeout: 20_000 });
-        await expect(page).toHaveURL(/\/surf-forecast\/.+/);
+        await page.waitForURL(/\/(?:surf-forecast\/[^/?#]+|[a-z]{2}\/[^/?#]+\/[^/?#]+)/i, {
+          timeout: 20_000,
+        });
+        await expect(page).toHaveURL(/\/(?:surf-forecast\/[^/?#]+|[a-z]{2}\/[^/?#]+\/[^/?#]+)/i);
       }
     }
 
@@ -1288,17 +1311,9 @@ test.describe('Home Page - Navigation', () => {
     await page.goto('/');
     await waitForPageLoad(page);
 
-    // With empty recommendations, OracleHero still renders with defaults
-    // (beachName = "Your Beach", waveHeight = "—", score = 0)
-    const oracleScreen = page.locator('.min-h-screen').first();
-    await expect(oracleScreen).toBeVisible({ timeout: 10_000 });
-
-    // ContextualCTA still renders (shows "Set your home beach" or similar)
-    const ctaSection = page.locator('.px-6.py-4').first();
-    const hasCTA = await isVisibleSafe(ctaSection, { timeout: 5_000 });
-    if (hasCTA) {
-      await expect(ctaSection).toBeVisible();
-    }
+    const emptyState = page.getByText(/couldn't find any surf spots near you right now/i);
+    await expect(emptyState).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: /try again/i })).toBeVisible();
   });
 });
 

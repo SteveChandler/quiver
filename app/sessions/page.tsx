@@ -1,16 +1,27 @@
 "use client";
 
+import type { ReactElement } from "react";
 import { useCallback, useEffect, useMemo } from "react";
 import { useAuth } from "@/context/auth-context";
 import Image from "next/image";
 import Link from "next/link";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Waves, Sparkles, Plus } from "lucide-react";
+import {
+  ArrowRight,
+  CalendarDays,
+  Heart,
+  Plus,
+  RefreshCw,
+  Sparkles,
+  Star,
+  UserRound,
+  Waves,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { trackPublicPageView } from "@/lib/analytics";
 import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { QuiverSticker, ZineSurface } from "@/components/zine";
 
 type SessionFeedItem = {
   id: string;
@@ -28,7 +39,28 @@ type SessionFeedItem = {
   authorAvatar?: string | null;
 };
 
-export default function SessionsPage() {
+function getSessionCreatedDateLabel(session: SessionFeedItem): string | null {
+  if (!session.createdAt) {
+    return null;
+  }
+
+  const date = new Date(session.createdAt);
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return date.toLocaleDateString();
+}
+
+function formatSessionValue(value: number | string): string {
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return value;
+}
+
+export default function SessionsPage(): ReactElement {
   const { user, isLoading } = useAuth();
   const router = useRouter();
 
@@ -114,198 +146,289 @@ export default function SessionsPage() {
   const gatedContent = useMemo(() => {
     if (sessionsLoading && sessions.length === 0) {
       return (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <div className="loading-spinner" />
-          <span>Loading sessions…</span>
+        <div className="torn torn-tb flex min-h-40 items-center gap-4 border-2 border-[#11100D] bg-[#FBF6E8] text-[#11100D]">
+          <div
+            className="h-5 w-5 animate-spin rounded-full border-2 border-[#11100D]/25 border-t-[#11100D]"
+            aria-hidden
+          />
+          <div>
+            <p className="typewriter mb-1">Fetching logbook</p>
+            <p className="text-sm leading-relaxed text-[#11100D]/70">
+              Loading sessions...
+            </p>
+          </div>
         </div>
       );
     }
 
     if (sessionsError) {
       return (
-        <Card>
-          <CardContent className="p-6 space-y-4">
-            <p className="text-sm text-red-600">{sessionsError}</p>
-            <Button onClick={retrySessions} variant="outline">
-              Try again
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="torn torn-tb space-y-4 border-2 border-[#11100D] bg-[#FBF6E8] text-[#11100D]">
+          <div>
+            <p className="typewriter mb-2">Signal dropped</p>
+            <p className="text-sm leading-relaxed text-[#B91C1C]">
+              {sessionsError}
+            </p>
+          </div>
+          <Button
+            onClick={retrySessions}
+            variant="outline"
+            className="border-2 border-[#11100D] bg-[#F4EBD8] font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] hover:bg-[#F0E5CC]"
+          >
+            <RefreshCw className="mr-2 h-4 w-4" aria-hidden />
+            Try again
+          </Button>
+        </div>
       );
     }
 
     if (!sessionsLoading && sessions.length === 0) {
       return (
-        <Card>
-          <CardContent className="p-6 space-y-2">
-            <p className="text-sm text-muted-foreground">
-              No public sessions yet.
-            </p>
+        <div className="torn torn-tb border-2 border-[#11100D] bg-[#FBF6E8] text-[#11100D]">
+          <p className="typewriter mb-2">No entries yet</p>
+          <p className="font-heading text-2xl font-black uppercase leading-tight text-[#11100D]">
+            No public sessions yet.
+          </p>
+          <div className="mt-3 space-y-2 text-sm leading-relaxed text-[#11100D]/70">
             {!showIdentity ? (
-              <p className="text-sm text-muted-foreground">
-                Be the first—sign up and log a session.
+              <p>
+                Be the first - sign up and log a session.
               </p>
             ) : null}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       );
     }
 
     return (
-      <div className="space-y-4">
-        {sessions.map((session) => (
-          <Link
-            key={session.id}
-            href={`/sessions/${session.id}`}
-            className="block hover:opacity-90 transition-opacity"
-          >
-            <Card className="overflow-hidden cursor-pointer hover:shadow-lg transition-shadow">
-              <CardHeader className="bg-gradient-to-r from-ocean-blue/10 to-blue-100/50">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {showIdentity && session.authorAvatar ? (
-                      <Image
-                        src={session.authorAvatar}
-                        alt={session.authorName || "Surfer avatar"}
-                        width={48}
-                        height={48}
-                        className="w-12 h-12 rounded-full object-cover"
-                      />
-                    ) : (
-                      <div className="w-12 h-12 rounded-full bg-ocean-blue/20" />
-                    )}
-                    <div>
-                      <CardTitle className="text-lg">
-                        {showIdentity ? session.authorName || "Surfer" : "Surfer"}
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground">
-                        {session.beachName}
-                        {session.createdAt ? (
-                          <>
-                            {" "}
-                            • {new Date(session.createdAt).toLocaleDateString()}
-                          </>
-                        ) : null}
-                      </p>
+      <div className="space-y-5" data-testid="session-feed-list">
+        {sessions.map((session, index) => {
+          const authorLabel = showIdentity
+            ? session.authorName || "Surfer"
+            : "Surfer";
+          const createdDateLabel = getSessionCreatedDateLabel(session);
+
+          return (
+            <Link
+              key={session.id}
+              href={`/sessions/${session.id}`}
+              className="group block text-[#11100D] transition-transform hover:-translate-y-1"
+            >
+              <article
+                className={`torn torn-tb overflow-hidden border-2 border-[#11100D] ${
+                  index % 2 === 0 ? "bg-[#FBF6E8]" : "bg-[#F0E5CC]"
+                }`}
+                data-testid="session-card"
+              >
+                <div className="flex flex-col gap-5">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex min-w-0 items-center gap-3">
+                      {showIdentity && session.authorAvatar ? (
+                        <Image
+                          src={session.authorAvatar}
+                          alt={session.authorName || "Surfer avatar"}
+                          width={48}
+                          height={48}
+                          className="h-12 w-12 rounded-full border-2 border-[#11100D] object-cover"
+                        />
+                      ) : (
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42]/30">
+                          <UserRound className="h-6 w-6" aria-hidden />
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <h2 className="font-heading text-xl font-black uppercase leading-tight text-[#11100D]">
+                          {authorLabel}
+                        </h2>
+                        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs uppercase tracking-[0.12em] text-[#11100D]/62">
+                          <span>{session.beachName}</span>
+                          {createdDateLabel ? (
+                            <>
+                              <span aria-hidden>/</span>
+                              <span className="inline-flex items-center gap-1">
+                                <CalendarDays
+                                  className="h-3.5 w-3.5"
+                                  aria-hidden
+                                />
+                                {createdDateLabel}
+                              </span>
+                            </>
+                          ) : null}
+                        </p>
+                      </div>
                     </div>
+
+                    {/* Rating is intentionally hidden for logged-out visitors */}
+                    {showIdentity && typeof session.rating === "number" ? (
+                      <div className="flex shrink-0 items-center gap-1">
+                        {[...Array(Math.round(session.rating))].map((_, idx) => (
+                          <Sparkles
+                            key={idx}
+                            className="h-4 w-4 fill-[#FDB84B] text-[#11100D]"
+                            aria-hidden
+                          />
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
 
-                  {/* Rating is intentionally hidden for logged-out visitors */}
-                  {showIdentity && typeof session.rating === "number" ? (
-                    <div className="flex items-center gap-1">
-                      {[...Array(Math.round(session.rating))].map((_, idx) => (
-                        <Sparkles
-                          key={idx}
-                          className="h-4 w-4 text-yellow-500 fill-yellow-500"
+                  {session.imageUrl ? (
+                    <div className="polaroid rot-1">
+                      <div className="photo" style={{ aspectRatio: "16 / 9" }}>
+                        <Image
+                          src={session.imageUrl}
+                          alt={`Session at ${session.beachName}`}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 768px"
+                          className="object-cover object-center saturate-[0.9]"
                         />
-                      ))}
+                      </div>
+                      <p className="cap">{session.beachName}</p>
                     </div>
                   ) : null}
-                </div>
-              </CardHeader>
 
-              <CardContent className="p-6">
-                {session.imageUrl ? (
-                  <Image
-                    src={session.imageUrl}
-                    alt={`Session at ${session.beachName}`}
-                    width={1200}
-                    height={900}
-                    sizes="(max-width: 768px) 100vw, 768px"
-                    className="w-full rounded-lg mb-4 max-h-96 object-cover"
-                  />
-                ) : null}
+                  <p className="text-base leading-relaxed text-[#11100D]/74">
+                    {session.description ||
+                      session.notes ||
+                      `Great session at ${session.beachName}!`}
+                  </p>
 
-                <p className="text-muted-foreground mb-4">
-                  {session.description ||
-                    session.notes ||
-                    `Great session at ${session.beachName}!`}
-                </p>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span>❤️ {session.likesCount || 0} likes</span>
-                  {session.waveHeight ? <span>🌊 {session.waveHeight}</span> : null}
-                  {session.waveQuality ? (
-                    <span>⭐ {session.waveQuality}</span>
-                  ) : null}
+                  <div className="flex flex-wrap items-center gap-2 font-mono text-xs uppercase tracking-[0.1em] text-[#11100D]/70">
+                    <span className="inline-flex items-center gap-1 border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-1">
+                      <Heart className="h-3.5 w-3.5" aria-hidden />
+                      {session.likesCount || 0} likes
+                    </span>
+                    {session.waveHeight ? (
+                      <span className="inline-flex items-center gap-1 border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-1">
+                        <Waves className="h-3.5 w-3.5" aria-hidden />
+                        {formatSessionValue(session.waveHeight)}
+                      </span>
+                    ) : null}
+                    {session.waveQuality ? (
+                      <span className="inline-flex items-center gap-1 border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-1">
+                        <Star className="h-3.5 w-3.5" aria-hidden />
+                        {formatSessionValue(session.waveQuality)}
+                      </span>
+                    ) : null}
+                    <span className="ml-auto inline-flex items-center gap-1 text-[#B56A2B] transition-colors group-hover:text-[#11100D]">
+                      Open log
+                      <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                    </span>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          </Link>
-        ))}
+              </article>
+            </Link>
+          );
+        })}
       </div>
     );
   }, [sessionsLoading, sessionsError, retrySessions, sessions, showIdentity]);
 
   // Public users see session feed preview
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white">
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold mb-2 flex items-center gap-2">
-            <Waves className="h-10 w-10 text-ocean-blue" />
-            Community Sessions
-          </h1>
-          <p className="text-muted-foreground text-lg">
-            See what surfers are logging in your area
-          </p>
-        </div>
+    <ZineSurface
+      sectionLabel="Sessions"
+      editionLabel={showIdentity ? "Your logbook" : "Public feed preview"}
+      data-testid="sessions-zine-surface"
+    >
+      <main>
+        <header className="grid gap-8 lg:grid-cols-[1.06fr_0.94fr] lg:items-end">
+          <div className="relative">
+            <QuiverSticker
+              sticker="blogSessionLog"
+              className="absolute -top-10 right-2 hidden w-28 rotate-6 drop-shadow-md sm:block"
+            />
+            <p className="label-black mb-5">Surf logbook</p>
+            <h1 className="zine-h1 font-heading font-black uppercase leading-[0.88] tracking-normal text-[#11100D]">
+              Community Sessions
+            </h1>
+            <p className="mt-6 max-w-3xl text-xl leading-relaxed text-[#11100D]/75 sm:text-2xl">
+              See what surfers are logging in your area.
+            </p>
+            <div className="mt-7 flex flex-wrap gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/65">
+              <span>{showIdentity ? "Your feed" : "Public preview"}</span>
+              <span aria-hidden>/</span>
+              <span>Session notes</span>
+              <span aria-hidden>/</span>
+              <span>Local breaks</span>
+            </div>
+          </div>
+
+          <div className="torn torn-tb rot-2 relative border-2 border-[#11100D] bg-[#F0E5CC]">
+            <QuiverSticker
+              sticker="creamTape"
+              className="absolute -top-7 left-8 w-28 -rotate-6 opacity-90"
+            />
+            <p className="typewriter mb-3">Field notes</p>
+            <h2 className="font-heading text-2xl font-black uppercase leading-tight text-[#11100D]">
+              Paddle-outs, conditions, and the local story.
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed text-[#11100D]/70">
+              Guests get a blurred public feed preview. Signed-in surfers keep
+              the full logbook, ratings, and quick session links.
+            </p>
+          </div>
+        </header>
 
         {/* Public content gate for session feed */}
-        <PublicContentGate
-          ctaTitle="See what your crew has been surfing"
-          ctaDescription="Sign up to view session logs and connect with local surfers"
-          blurLevel="lg"
-          source="sessions-feed"
-          className="min-h-[600px]"
-        >
-          {gatedContent}
-        </PublicContentGate>
+        <section className="mt-10" aria-label="Session feed">
+          <PublicContentGate
+            ctaTitle="See what your crew has been surfing"
+            ctaDescription="Sign up to view session logs and connect with local surfers"
+            blurLevel="lg"
+            source="sessions-feed"
+            className="min-h-[600px] overflow-hidden border-2 border-[#11100D] bg-[#F0E5CC] p-4 shadow-[2px_3px_0_rgba(17,16,13,0.22)] sm:p-5"
+          >
+            {gatedContent}
+          </PublicContentGate>
+        </section>
 
         {/* Floating Log Session button for authenticated users */}
         {user && !isLoading && (
           <Link href="/sessions/new?mode=log">
             <Button
               size="lg"
-              className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-50 shadow-lg bg-ocean-blue hover:bg-ocean-blue/90 h-14 px-6 rounded-full"
+              className="fixed bottom-24 right-4 z-50 h-14 rounded-full border-2 border-[#11100D] bg-[#F78E42] px-6 font-heading font-bold text-[#11100D] shadow-[3px_4px_0_rgba(17,16,13,0.35)] hover:bg-[#F78E42]/90 md:bottom-8 md:right-8"
               data-testid="log-session-btn"
             >
-              <Plus className="h-5 w-5 mr-2" />
+              <Plus className="mr-2 h-5 w-5" aria-hidden />
               Log Session
             </Button>
           </Link>
         )}
 
         {/* Call to action */}
-        <Card className="mt-8 border-2 border-ocean-blue/20 bg-gradient-to-br from-ocean-blue/5 to-blue-50/50">
-          <CardContent className="p-8 text-center">
-            <Waves className="h-16 w-16 text-ocean-blue mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-2">
-              Ready to join the community?
-            </h2>
-            <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-              Log your sessions, get forecasts, find surf buddies, and build
-              your surf journal
-            </p>
-            <div className="flex gap-4 justify-center">
-              <Button
-                size="lg"
-                onClick={() => router.push("/auth/sign-up")}
-                className="bg-ocean-blue hover:bg-ocean-blue/90"
-              >
-                <Sparkles className="h-4 w-4 mr-2" />
-                Sign Up
-              </Button>
-              <Button
-                size="lg"
-                variant="outline"
-                onClick={() => router.push("/auth/sign-in")}
-              >
-                Sign In
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+        <section className="torn torn-tb rot-neg mt-10 border-2 border-[#11100D] bg-[#FBF6E8] px-6 pb-12 pt-10 text-center text-[#11100D] sm:px-8">
+          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42]/35">
+            <Waves className="h-9 w-9" aria-hidden />
+          </div>
+          <h2 className="font-heading text-2xl font-black uppercase leading-tight">
+            Ready to join the community?
+          </h2>
+          <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[#11100D]/70">
+            Log your sessions, get forecasts, find surf buddies, and build your
+            surf journal.
+          </p>
+          <div className="mt-6 flex flex-wrap justify-center gap-3">
+            <Button
+              size="lg"
+              onClick={() => router.push("/auth/sign-up")}
+              className="border-2 border-[#11100D] bg-[#F78E42] font-heading font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.28)] hover:bg-[#F78E42]/90"
+            >
+              <Sparkles className="mr-2 h-4 w-4" aria-hidden />
+              Sign Up
+            </Button>
+            <Button
+              size="lg"
+              variant="outline"
+              onClick={() => router.push("/auth/sign-in")}
+              className="border-2 border-[#11100D] bg-[#F4EBD8] font-heading font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.18)] hover:bg-[#F0E5CC]"
+            >
+              Sign In
+            </Button>
+          </div>
+        </section>
+      </main>
+    </ZineSurface>
   );
 }

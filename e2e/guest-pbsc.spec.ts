@@ -7,6 +7,10 @@
 import { expect, test } from '@playwright/test';
 
 import {
+  APP_FIRST_CAMPAIGN,
+  iosAppStoreUrlWithCampaign,
+} from '@/lib/constants/app-store';
+import {
   assertNoErrors,
   type ErrorCapture,
   setupErrorDetection,
@@ -54,10 +58,7 @@ test.describe('Guest PBSC event route', () => {
       ).toBeVisible({ timeout: 10000 });
       await expect(
         page.getByRole('link', { name: /open quiver on iphone/i }).first(),
-      ).toHaveAttribute(
-        'href',
-        /apps\.apple\.com\/us\/app\/surf-forecast-quiver\/id6759300320/,
-      );
+      ).toHaveAttribute('href', iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN));
       await expect(
         page.getByRole('button', { name: /join android waitlist/i }),
       ).toHaveCount(0);

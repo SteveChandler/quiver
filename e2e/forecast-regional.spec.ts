@@ -9,7 +9,7 @@
 
 /* eslint-disable playwright/no-conditional-in-test -- Existing regional forecast checks branch around data-dependent sections that may or may not render. */
 
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures/auth-fixture";
 import { waitForPageLoad, dismissOnboardingWizard } from "./utils/test-helpers";
 import {
   setupErrorDetection,
@@ -144,7 +144,7 @@ test.describe("Regional Forecast Pages", () => {
     }
   });
 
-  test("should display Beach Conditions Grid", async ({ page }) => {
+  test("should display Beach Conditions Grid @requires-data", async ({ page }) => {
     // Check section heading
     await expect(
       page.getByRole("heading", { name: /Beach Conditions/i, level: 2 })
