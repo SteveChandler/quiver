@@ -118,6 +118,7 @@ export default defineConfig({
         'e2e/guest-*.spec.ts',
         'e2e/prod-readonly/guest-*.spec.ts',
         'e2e/invite-flow.spec.ts',
+        'e2e/partner-qr-flow.spec.ts',
         'e2e/email-core-loop/**/*.spec.ts',
       ],
       use: {
