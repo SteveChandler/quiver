@@ -18,6 +18,7 @@ import {
 } from './utils/error-detection';
 
 const PARTNER_CODE = 'SURF12';
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 
 test.describe('Partner QR landing flow', () => {
   let errorCapture: ErrorCapture;
@@ -65,7 +66,7 @@ test.describe('Partner QR landing flow', () => {
     // Desktop viewport shows the scannable QR carrying the attributed URL.
     await expect(page.locator('svg[data-smart-url]')).toHaveAttribute(
       'data-smart-url',
-      new RegExp(`/p/${PARTNER_CODE}\\?.*utm_content=${PARTNER_CODE}`),
+      new RegExp(`/p/${PARTNER_CODE}\\?.*ref=${PARTNER_CODE}.*utm_content=${PARTNER_CODE}`),
     );
 
     const request = await handoffEvent;
@@ -87,6 +88,37 @@ test.describe('Partner QR landing flow', () => {
 
     const finalUrl = new URL(page.url());
     expect(finalUrl.pathname).toBe('/');
+  });
+
+  test('guest partner ref sets the referral cookie for signup credit', async ({
+    page,
+    context,
+  }, testInfo) => {
+    skipWhen(testInfo.project.name !== 'guest', 'Guest project only');
+
+    await context.addCookies([
+      {
+        name: 'qvr_referral_code',
+        value: 'OLD999',
+        url: BASE_URL,
+        sameSite: 'Lax',
+        expires: Math.floor(Date.now() / 1000) + 60 * 60,
+      },
+    ]);
+
+    await page.goto(`/p/${PARTNER_CODE}?ref=${PARTNER_CODE}`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    // Referral code cookies are intentionally last-touch: a fresh valid ?ref=
+    // overwrites an existing qvr_referral_code, while UTM cookies stay first-touch.
+    const cookies = await context.cookies(BASE_URL);
+    expect(cookies).toContainEqual(
+      expect.objectContaining({
+        name: 'qvr_referral_code',
+        value: PARTNER_CODE,
+      }),
+    );
   });
 });
 

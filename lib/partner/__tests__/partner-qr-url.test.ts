@@ -30,7 +30,7 @@ describe("buildPartnerQrUrl", () => {
         siteUrl: "https://www.quiversurf.app",
       }),
     ).toBe(
-      "https://www.quiversurf.app/p/SURF12?utm_source=partner_qr&utm_medium=partner_qr&utm_campaign=partner_access&utm_content=SURF12",
+      "https://www.quiversurf.app/p/SURF12?ref=SURF12&utm_source=partner_qr&utm_medium=partner_qr&utm_campaign=partner_access&utm_content=SURF12",
     );
   });
 
@@ -41,8 +41,21 @@ describe("buildPartnerQrUrl", () => {
         siteUrl: "https://www.quiversurf.app/",
       }),
     ).toBe(
-      "https://www.quiversurf.app/p/SURF12?utm_source=partner_qr&utm_medium=partner_qr&utm_campaign=partner_access&utm_content=SURF12",
+      "https://www.quiversurf.app/p/SURF12?ref=SURF12&utm_source=partner_qr&utm_medium=partner_qr&utm_campaign=partner_access&utm_content=SURF12",
     );
+  });
+
+  it("includes ref for the referral cookie while UTM params remain first-touch attribution", () => {
+    const url = new URL(
+      buildPartnerQrUrl({
+        partnerCode: "surf12",
+        siteUrl: "https://www.quiversurf.app",
+      }),
+    );
+
+    expect(url.searchParams.get("ref")).toBe("SURF12");
+    expect(url.searchParams.get("utm_source")).toBe("partner_qr");
+    expect(url.searchParams.get("utm_content")).toBe("SURF12");
   });
 });
 
