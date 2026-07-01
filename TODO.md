@@ -36,6 +36,36 @@
   - Cover swell height, period, direction, tide height, tide direction, wind, spot sensitivity, and red flags like heavy/closed-out low-tide beach breaks.
   - Do not write the article until the product trust language and setup-risk regression have shipped.
 
+## Product Roadmap Candidate Follow-Ups
+
+- [ ] Add user-facing beach photo submissions, voting, and selection.
+  - Customer signal: San Clemente feedback called out generic/non-wave beach photos and asked for surfer-submitted photos plus a way to choose the best one.
+  - Current state: beach hero/gallery photos are curated/admin-backed and session photos exist, but there is no shipped beach-level flow where users submit candidate spot photos, vote/select, or report stale/wrong photos.
+  - Scope the moderation, licensing, attribution, stale-photo reporting, ranking, featured-photo selection rules, abuse controls, and web/native entry points before calling this shipped.
+
+- [ ] Finish session wave-tag coverage for rights, lefts, and steep waves.
+  - Customer signal: Zeeshan asked for one-tap wave selectors such as closeouts, rights, lefts, and steep.
+  - Current state: partially addressed; native wave tags include closeouts, walled, fat, mushy, peaky, powerful, barreling, and reform, but not rights, lefts, or steep.
+  - Align native/web constants, session rendering, analytics, any DB validation constraints, and backward compatibility for existing `wave_characteristics` values.
+
+## Landing Page Social Proof Follow-Ups
+
+- [ ] Add anonymized user-feedback carousel to the landing page.
+  - Use saved source copy from `../Brand-Vault/marketing/landing-page-user-feedback.md`.
+  - Start with the strongest themes: forecast trust, session memory, beginner confidence, local responsiveness, and referral signal.
+  - Keep attribution generic unless a user explicitly opts into name/location.
+  - Get permission before publishing any direct quote publicly.
+
+## Swell Opportunity Alert Follow-Ups
+
+- [ ] Implement server-owned 60-minute drive-area approximation for swell opportunity recommendations.
+  - Treat `drive_minutes_limit = 60` as a product default, not a precision promise.
+  - Keep drive-time logic server-side; clients should only receive the chosen outcome and optional `estimated_drive_minutes`.
+  - Do not model traffic in v1.
+  - Use a generous candidate pool so the picker does not miss a clear winner just outside the estimate.
+  - Avoid precise copy such as "exactly 60 minutes away"; use "nearby," "worth the drive," or "in your area."
+  - Source spec: `docs/superpowers/specs/2026-06-30-swell-opportunity-hype-train-design.md`.
+
 ## Web Custom Spots Follow-Ups
 
 - [ ] Decide and implement web custom spot parity.
