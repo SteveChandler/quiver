@@ -90,6 +90,23 @@ test.describe('Partner QR landing flow', () => {
     expect(finalUrl.pathname).toBe('/');
   });
 
+  test('guest valid partner code renders the printable flyer route', async ({
+    page,
+  }, testInfo) => {
+    skipWhen(testInfo.project.name !== 'guest', 'Guest project only');
+
+    const response = await page.goto(`/p/${PARTNER_CODE}/flyer`, {
+      waitUntil: 'domcontentloaded',
+    });
+
+    expect(response?.status()).toBe(200);
+    await expect(
+      page.getByRole('heading', { name: /scan for\s+the surf call/i }),
+    ).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByTestId('partner-flyer-qr')).toBeVisible();
+    await expect(page.getByText(PARTNER_CODE, { exact: true })).toBeVisible();
+  });
+
   test('guest partner ref sets the referral cookie for signup credit', async ({
     page,
     context,
