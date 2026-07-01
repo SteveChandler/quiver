@@ -1,5 +1,6 @@
 import type { ReactElement } from "react";
 
+import { FieldGuideCommunity } from "@/components/landing-page/field-guide/field-guide-community";
 import { FieldGuideFeatures } from "@/components/landing-page/field-guide/field-guide-features";
 import { FieldGuideFinalCta } from "@/components/landing-page/field-guide/field-guide-final-cta";
 import { FieldGuideHero } from "@/components/landing-page/field-guide/field-guide-hero";
@@ -24,9 +25,10 @@ export function QuiverFieldGuideLanding({
       className="bg-[#0D1020]"
     >
       <FieldGuideHero platform={platform} />
-      <FieldGuideSpotlight platform={platform} />
+      <FieldGuideSpotlight />
       <FieldGuideFeatures />
       <FieldGuideWalkthrough />
+      <FieldGuideCommunity />
       <FieldGuideFinalCta platform={platform} />
     </div>
   );

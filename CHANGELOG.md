@@ -7,7 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Landing "Recent check-ins from the community" testimonials** (`components/landing-page/field-guide/field-guide-community.tsx`, wired into `quiver-field-guide-landing.tsx`). New zine-styled social-proof section between the walkthrough and final CTA, mirroring Dispersed's community-checkins layout: a 3-column grid of cream cards with category tags, real (positive, non-identifying) surfer quotes sourced from user email replies, and generic bylines.
+
 ### Changed
+- **Landing field-guide width alignment** (`field-guide-hero.tsx`, `field-guide-spotlight.tsx`, `field-guide-features.tsx`). Normalized the hero, spotlight, and features sections from `max-w-6xl` to `max-w-5xl` so all six field-guide sections share one 1024px column and every section edge lines up.
+- **Removed duplicate landing CTA** (`field-guide-spotlight.tsx`). Dropped the Swell View spotlight's "Get the app" button so the hero's primary CTA stands alone (the repeated button read as desperate).
 - **`/sessions` zine reskin** (`app/sessions/page.tsx`). Reframes the community session feed with shared zine surfaces, torn-paper empty and error states, session cards, and preserved guest anonymization, `PublicContentGate`, and floating log-session behavior.
 - **`/discover` zine reskin** (`app/discover/discover-client.tsx`, `app/styles/zine.css`). Reframes the protected surfer discovery surface with shared zine panels, zine search and follow sections, and a scoped zine input override while preserving noindex metadata, auth gating, search, follow, and profile-modal behavior.
 - **`/tools` zine reskin** (`app/tools/page.tsx`). Reframes the tools index with shared zine surfaces, issue-style utility cards, and magazine copy while keeping every tool destination and public route behavior unchanged.

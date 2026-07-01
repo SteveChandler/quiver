@@ -45,7 +45,7 @@ export function FieldGuideHero({ platform }: FieldGuideHeroProps): ReactElement 
       sectionLabel="Cover"
       data-testid="field-guide-hero"
       className="bg-[#0D1020] px-3 pb-0 pt-4 sm:px-6 sm:pb-0 sm:pt-5"
-      stageClassName="mx-auto max-w-6xl !py-0"
+      stageClassName="mx-auto max-w-5xl !py-0"
       paperClassName="relative overflow-hidden !px-5 !py-7 sm:!px-8 sm:!py-8 md:!px-10 md:!py-8"
       showMasthead={false}
     >

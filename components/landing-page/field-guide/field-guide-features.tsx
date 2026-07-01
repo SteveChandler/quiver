@@ -64,7 +64,7 @@ export function FieldGuideFeatures(): ReactElement {
       sectionLabel="What's inside"
       data-testid="field-guide-features"
       className="bg-[#0D1020] px-3 py-0 sm:px-6 sm:py-0"
-      stageClassName="mx-auto max-w-6xl !py-0"
+      stageClassName="mx-auto max-w-5xl !py-0"
       paperClassName="space-y-8"
       showMasthead={false}
     >

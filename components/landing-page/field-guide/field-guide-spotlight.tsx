@@ -1,13 +1,7 @@
 import type { ReactElement } from "react";
 import Image from "next/image";
-import Link from "next/link";
 
 import { QuiverSticker, ZineSurface } from "@/components/zine";
-import type { FirstTouchPlatform } from "@/lib/analytics/web-context";
-
-interface FieldGuideSpotlightProps {
-  platform: FirstTouchPlatform;
-}
 
 // 2026-06-20 beach/cam inventory query snapshot:
 // 318 active breaks, 73 with cams, 245 wave-map-only.
@@ -15,17 +9,13 @@ const SWELL_VIEW_STAT_LINE =
   "318 breaks · 73 cams · wave maps for the other 245";
 const SWELL_VIEW_PREVIEW_SRC = "/images/landing/swell-view-preview-v2.png";
 
-export function FieldGuideSpotlight({
-  platform,
-}: FieldGuideSpotlightProps): ReactElement {
-  const downloadHref = `/download?source=landing_swell_view&placement=spotlight&platform=${platform}`;
-
+export function FieldGuideSpotlight(): ReactElement {
   return (
     <ZineSurface
       sectionLabel="Now free"
       data-testid="field-guide-spotlight"
       className="bg-[#0D1020] px-3 py-0 sm:px-6 sm:py-0"
-      stageClassName="mx-auto max-w-6xl !py-0"
+      stageClassName="mx-auto max-w-5xl !py-0"
       paperClassName="relative overflow-hidden !px-5 !py-7 sm:!px-8 sm:!py-8"
       showMasthead={false}
     >
@@ -47,14 +37,6 @@ export function FieldGuideSpotlight({
           <p className="mt-2 max-w-xl font-mono text-sm font-bold leading-relaxed text-[#11100D]">
             Today we&apos;re releasing it — free, in the app.
           </p>
-          <div className="mt-4">
-            <Link
-              href={downloadHref}
-              className="inline-flex min-h-12 items-center justify-center rounded-[14px_6px_16px_6px] bg-[#F78E42] px-6 py-3 font-mono text-sm font-bold uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_4px_0_rgba(0,0,0,0.18)] transition-transform hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
-            >
-              Get the app
-            </Link>
-          </div>
         </div>
 
         <div className="relative mx-auto w-full max-w-md">
