@@ -13,7 +13,7 @@ import { ArrowRight, ExternalLink, Smartphone } from "lucide-react";
 import { AndroidWaitlistCta } from "@/components/pricing/android-waitlist-cta";
 import {
   IOS_APP_STORE_CTA,
-  IOS_APP_STORE_URL,
+  iosAppStoreUrlWithCampaign,
 } from "@/lib/constants/app-store";
 import { trackAppHandoffQrRendered } from "@/lib/analytics/app-handoff-tracking";
 import { getBrowserSessionId } from "@/lib/utils/browser-session-id";
@@ -148,6 +148,9 @@ export function PartnerQrLandingClient({
 
   const isAndroid = platform === "android";
   const partnerLabel = partnerName?.trim() || "A Quiver partner";
+  const appStoreUrl = iosAppStoreUrlWithCampaign(
+    `partner_${partnerCode.toUpperCase()}`,
+  );
   const leadCopy = isAndroid
     ? "Android access is waitlist-first for now. Join the Android waitlist or continue on web to start with Quiver."
     : platform === "desktop"
@@ -190,7 +193,7 @@ export function PartnerQrLandingClient({
                 </AndroidWaitlistCta>
               ) : (
                 <a
-                  href={IOS_APP_STORE_URL}
+                  href={appStoreUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={() =>

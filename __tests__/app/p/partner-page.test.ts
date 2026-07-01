@@ -92,8 +92,9 @@ describe("/p/[partnerCode]", () => {
       expect.objectContaining({
         partnerCode: "SURF12",
         partnerName: "Pacific Surf Co",
-        qrUrl: `${SITE_URL}/p/SURF12?utm_source=partner_qr&utm_medium=partner_qr&utm_campaign=partner_access&utm_content=SURF12`,
+        qrUrl: `${SITE_URL}/p/SURF12?ref=SURF12&utm_source=partner_qr&utm_medium=partner_qr&utm_campaign=partner_access&utm_content=SURF12`,
         appSchemeUrl: "quiver://p/SURF12",
+        startPath: "/?ref=SURF12&utm_source=partner_qr&utm_content=SURF12",
       }),
     );
   });
@@ -109,8 +110,9 @@ describe("/p/[partnerCode]", () => {
       expect.objectContaining({
         partnerCode: "SURF12",
         partnerName: null,
-        qrUrl: `${SITE_URL}/p/SURF12?utm_source=partner_qr&utm_medium=partner_qr&utm_campaign=partner_access&utm_content=SURF12`,
+        qrUrl: `${SITE_URL}/p/SURF12?ref=SURF12&utm_source=partner_qr&utm_medium=partner_qr&utm_campaign=partner_access&utm_content=SURF12`,
         appSchemeUrl: "quiver://p/SURF12",
+        startPath: "/?ref=SURF12&utm_source=partner_qr&utm_content=SURF12",
       }),
     );
   });

@@ -25,9 +25,9 @@ const defaultProps = {
   partnerCode: "SURF12",
   partnerName: "Pacific Surf Co",
   qrUrl:
-    "https://www.quiversurf.app/p/SURF12?utm_source=partner_qr&utm_medium=partner_qr&utm_campaign=partner_access&utm_content=SURF12",
+    "https://www.quiversurf.app/p/SURF12?ref=SURF12&utm_source=partner_qr&utm_medium=partner_qr&utm_campaign=partner_access&utm_content=SURF12",
   appSchemeUrl: "quiver://p/SURF12",
-  startPath: "/?utm_source=partner_qr&utm_content=SURF12",
+  startPath: "/?ref=SURF12&utm_source=partner_qr&utm_content=SURF12",
   utm: {
     utm_source: "partner_qr",
     utm_medium: "partner_qr",
@@ -79,6 +79,18 @@ describe("PartnerQrLandingClient", () => {
     const svg = container.querySelector("svg[data-smart-url]");
     expect(svg).not.toBeNull();
     expect(svg).toHaveAttribute("data-smart-url", defaultProps.qrUrl);
+  });
+
+  it("links App Store clicks with a per-partner campaign token", () => {
+    render(<PartnerQrLandingClient {...defaultProps} />);
+
+    const appStoreUrl = new URL(
+      screen.getByRole("link", { name: /open app store/i }).getAttribute("href") ??
+        "",
+    );
+
+    expect(appStoreUrl.searchParams.get("ct")).toBe("partner_SURF12");
+    expect(appStoreUrl.searchParams.get("mt")).toBe("8");
   });
 
   it("fires app_handoff_qr_rendered and invite_link_opened on mount with partner metadata", async () => {

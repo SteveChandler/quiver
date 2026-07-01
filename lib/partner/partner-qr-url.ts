@@ -34,6 +34,7 @@ export function buildPartnerQrUrl({
 }: BuildPartnerQrUrlArgs): string {
   const code = partnerCode.toUpperCase();
   const search = new URLSearchParams({
+    ref: code,
     utm_source: "partner_qr",
     utm_medium: "partner_qr",
     utm_campaign: "partner_access",
