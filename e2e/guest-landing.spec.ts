@@ -71,10 +71,7 @@ test.describe('Guest Landing Page', () => {
     await expect(spotlight.getByText('FREE · NEW IN THE APP')).toBeVisible();
     await expect(
       spotlight.getByRole('link', { name: 'Get the app' }),
-    ).toHaveAttribute(
-      'href',
-      '/download?source=landing_swell_view&placement=spotlight&platform=desktop',
-    );
+    ).toHaveCount(0);
   });
 
   test('should open auth modal when clicking login', async ({ page }) => {

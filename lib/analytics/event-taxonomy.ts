@@ -142,6 +142,11 @@ export const VALID_EVENTS = [
   'surf_window_click',
   'why_this_call_opened',
   'app_deeplink_clicked',
+  // Native deeplink/session handoff events
+  'deeplink_received',
+  'spot_resolve',
+  'session_prefill_shown',
+  'session_silent_submit',
   'forecast_accuracy_table_viewed',
   'save_alert_clicked',
   'seo_intent_page_window_clicked',
