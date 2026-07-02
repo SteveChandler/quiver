@@ -201,17 +201,22 @@ describe("streak reminder registry entries", () => {
     const payload = NOTIFICATION_REGISTRY.forecast_feedback_nudge.buildPushPayload!({
       beach_id: "beach-1",
       beach_slug: "ocean-beach",
+      beach_name: "Ocean Beach",
       forecast_at: "2026-06-22T18:00:00.000Z",
+      deeplink:
+        "quiver://sessions/new?mode=log&quick=true&beach=beach-1&beachName=Ocean+Beach&startTime=2026-06-22T18%3A00%3A00.000Z&endTime=2026-06-22T18%3A30%3A00.000Z&utm_source=push_log_nudge",
     });
 
     expect(payload).toMatchObject({
-      title: "How was the forecast?",
-      body: "Did the call hold up? A quick note tunes your next one.",
+      title: "Surfed Ocean Beach today?",
+      body: "Log it in one tap.",
       data: {
         type: "forecast_feedback_nudge",
         beach_id: "beach-1",
         beach_slug: "ocean-beach",
         forecast_at: "2026-06-22T18:00:00.000Z",
+        deeplink:
+          "quiver://sessions/new?mode=log&quick=true&beach=beach-1&beachName=Ocean+Beach&startTime=2026-06-22T18%3A00%3A00.000Z&endTime=2026-06-22T18%3A30%3A00.000Z&utm_source=push_log_nudge",
       },
     });
   });
@@ -323,7 +328,10 @@ describe("forecast-feedback-nudge cron", () => {
       payload: {
         beach_id: "b-home",
         beach_slug: "home-break",
+        beach_name: "Home Break",
         forecast_at: "2026-06-22T18:00:00.000Z",
+        deeplink:
+          "quiver://sessions/new?mode=log&quick=true&beach=b-home&beachName=Home+Break&startTime=2026-06-22T18%3A00%3A00.000Z&endTime=2026-06-22T18%3A30%3A00.000Z&utm_source=push_log_nudge",
       },
       dedupeKey: "forecast_feedback_nudge:u-active:2026-06-22",
     });
@@ -335,7 +343,10 @@ describe("forecast-feedback-nudge cron", () => {
       payload: {
         beach_id: "b-fav",
         beach_slug: "saved-break",
+        beach_name: "Saved Break",
         forecast_at: "2026-06-22T17:00:00.000Z",
+        deeplink:
+          "quiver://sessions/new?mode=log&quick=true&beach=b-fav&beachName=Saved+Break&startTime=2026-06-22T17%3A00%3A00.000Z&endTime=2026-06-22T17%3A30%3A00.000Z&utm_source=push_log_nudge",
       },
       dedupeKey: "forecast_feedback_nudge:u-fav:2026-06-22",
     });
