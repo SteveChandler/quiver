@@ -72,7 +72,9 @@ const logSessionNudgeSchema = z.object({
 const forecastFeedbackNudgeSchema = z.object({
   beach_id: z.string().min(1),
   beach_slug: z.string().optional(),
+  beach_name: z.string().optional(),
   forecast_at: z.string().optional(),
+  deeplink: z.string().optional(),
 });
 
 const homeMorningCallSchema = z.object({
@@ -235,7 +237,9 @@ interface LogSessionNudgePayload {
 interface ForecastFeedbackNudgePayload {
   beach_id: string;
   beach_slug?: string;
+  beach_name?: string;
   forecast_at?: string;
+  deeplink?: string;
 }
 
 interface HomeMorningCallPayload {
@@ -644,13 +648,14 @@ export const NOTIFICATION_REGISTRY = {
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) => forecastFeedbackNudgeSchema.parse(input),
     buildPushPayload: (p) => ({
-      title: "How was the forecast?",
-      body: "Did the call hold up? A quick note tunes your next one.",
+      title: p.beach_name ? `Surfed ${p.beach_name} today?` : "Surfed today?",
+      body: "Log it in one tap.",
       data: {
         type: "forecast_feedback_nudge",
         beach_id: p.beach_id,
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
         ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
+        ...(p.deeplink ? { deeplink: p.deeplink } : {}),
       },
     }),
   } satisfies NotificationTypeDef<ForecastFeedbackNudgePayload>,

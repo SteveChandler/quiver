@@ -223,6 +223,17 @@ function hasSessionForCandidate(
   });
 }
 
+function buildLogSessionDeeplink(candidate: Candidate): string {
+  const beachRef = candidate.beachSlug ?? candidate.beachId;
+  const params = new URLSearchParams({
+    beach: beachRef,
+    at: candidate.windowStart,
+    utm_source: "push_log_nudge",
+  });
+
+  return `quiver://sessions/new?${params.toString()}`;
+}
+
 async function _GET(request: Request): Promise<Response> {
   const startedAt = Date.now();
 
@@ -523,7 +534,9 @@ async function _GET(request: Request): Promise<Response> {
           payload: {
             beach_id: candidate.beachId,
             ...(candidate.beachSlug ? { beach_slug: candidate.beachSlug } : {}),
+            beach_name: candidate.beachName,
             forecast_at: candidate.forecastAt,
+            deeplink: buildLogSessionDeeplink(candidate),
           },
           dedupeKey: `${REMINDER_TYPE}:${candidate.userId}:${periodKey}`,
         });
