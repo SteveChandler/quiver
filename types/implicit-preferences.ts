@@ -271,6 +271,16 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   app_handoff_email_sent: 0,
   app_handoff_email_failed: 0,
   app_handoff_link_opened: 0,
+  // Surf Drops V1 — link-share drop pin funnel; tracking-only weights
+  surf_drop_created: 0,
+  surf_drop_share_opened: 0,
+  surf_drop_link_view: 0,
+  surf_drop_link_view_authenticated: 0,
+  surf_drop_claimed: 0,
+  surf_drop_joined: 0,
+  surf_drop_left: 0,
+  surf_drop_cancelled: 0,
+  surf_drop_map_toggle_layer: 0,
 } as const;
 
 // -----------------------------------------------------------------------------
@@ -976,7 +986,22 @@ export type EventMetadata =
   | ScrollDepthMetadata
   | TimeOnPageMetadata
   | FirstBeachViewPostSignupMetadata
-  | AppleBetaPromptMetadata;
+  | AppleBetaPromptMetadata
+  | SurfDropEventMetadata;
+
+/**
+ * Surf Drops V1 — link-share drop pin funnel. Loose fields keep the
+ * schema flexible while we iterate on the funnel; anything user-provided
+ * (drop_id, slug) must stay opaque strings.
+ */
+export interface SurfDropEventMetadata {
+  drop_id?: string;
+  slug?: string;
+  status?: string;
+  is_known_spot?: boolean;
+  via_share_slug?: boolean;
+  layer?: string;
+}
 
 /**
  * Full user event record as stored in the database

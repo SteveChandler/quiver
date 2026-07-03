@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import dynamic from "next/dynamic";
 import { MapSkeleton } from "@/components/skeletons/map-skeleton";
@@ -9,6 +9,7 @@ import type { Beach } from "@/types/database";
 import { LocationTimeoutBanner } from "@/components/map/location-timeout-banner";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import type { CustomSpot } from "@/hooks/use-custom-spots";
+import type mapboxgl from "mapbox-gl";
 
 const DEFAULT_MAP_CENTER = { lat: 32.7702, lon: -117.2525 } as const;
 
@@ -50,7 +51,7 @@ interface MapContentProps {
   }) => void;
   onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
   onDisplayForecastsChange?: (map: Map<string, ForecastDisplay | undefined>) => void;
-  onMapClick?: () => void;
+  onMapClick?: (latlng: mapboxgl.LngLat) => void;
   autoNavigateOnMarkerClick?: boolean;
   showSwellField?: boolean;
   swellLayerId?: import("@/components/map/swell-map-theme").SwellLayerId;
@@ -60,6 +61,11 @@ interface MapContentProps {
   swellTimelineSteps?: string[];
   swellTimelineIndex?: number;
   onSwellTimelineChange?: (index: number) => void;
+  layerControls?: ReactNode;
+  placementActive?: boolean;
+  placementPin?: { lat: number; lon: number } | null;
+  placementPinDraggable?: boolean;
+  onPlacementPinChange?: (latlng: mapboxgl.LngLat) => void;
 }
 
 const InteractiveMap = dynamic(
@@ -96,6 +102,11 @@ export function MapContent({
   swellTimelineSteps,
   swellTimelineIndex,
   onSwellTimelineChange,
+  layerControls,
+  placementActive = false,
+  placementPin = null,
+  placementPinDraggable = true,
+  onPlacementPinChange,
 }: MapContentProps) {
   const mapCenterState = useMemo(() => {
     if (
@@ -211,9 +222,9 @@ export function MapContent({
           <InteractiveMap
             key={mapCenterState.instanceKey}
             initialCenter={initialCenterArray}
-            initialZoom={12}
+            initialZoom={placementActive ? 14 : 12}
             onLocationClick={onBeachSelect}
-            onMapClick={onMapClick ? () => onMapClick() : undefined}
+            onMapClick={onMapClick}
             regionViewport={regionViewport}
             beaches={filteredBeaches}
             customSpots={customSpots}
@@ -227,6 +238,10 @@ export function MapContent({
             swellTimelineSteps={swellTimelineSteps}
             swellTimelineIndex={swellTimelineIndex}
             onSwellTimelineChange={onSwellTimelineChange}
+            layerControls={layerControls}
+            placementPin={placementActive ? placementPin : null}
+            placementPinDraggable={placementPinDraggable}
+            onPlacementPinChange={onPlacementPinChange}
             className="absolute inset-0 z-0 w-full h-full"
           />
         </DataErrorBoundary>

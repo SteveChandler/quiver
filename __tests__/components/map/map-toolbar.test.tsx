@@ -128,6 +128,25 @@ describe("MapToolbar", () => {
     expect(actions.className).not.toContain("grid-cols-1");
   });
 
+  it("can include the field guide trigger in the same toolbar action row", async () => {
+    const user = userEvent.setup();
+    const onOpenFieldGuide = jest.fn();
+    render(
+      <MapToolbar
+        {...defaultProps}
+        fieldGuideVisible={false}
+        onOpenFieldGuide={onOpenFieldGuide}
+      />,
+    );
+
+    const actions = screen.getByTestId("map-toolbar-actions");
+    expect(actions.className).toContain("grid-cols-4");
+
+    await user.click(screen.getByTestId("map-field-guide-toggle"));
+
+    expect(onOpenFieldGuide).toHaveBeenCalledTimes(1);
+  });
+
   it("only shows Clear all when active filters exist", async () => {
     const user = userEvent.setup();
     const { rerender } = render(<MapToolbar {...defaultProps} />);

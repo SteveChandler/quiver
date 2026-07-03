@@ -997,3 +997,618 @@ body:has(.zine-page) {
   height: 100%;
   display: block;
 }
+
+/* ============================================================
+   Surf Drops V1 — sonar animations + drop card styles.
+   Additive; no existing selectors touched.
+   ============================================================ */
+
+/* Surf Drops leans on tokens outside the .zine-tab scope
+   (bottom action bar, share sheet portal). Publish the same
+   ink/paper/accent palette at :root as fallbacks. */
+:root {
+  --q-teal: #00D4AA;
+  --q-gold: #FDB84B;
+  --twilight: #252D6B;
+  --ink: #11100D;
+  --paper: #F4EBD8;
+  --paper-shadow: #E5D4B3;
+  --q-orange: #F78E42;
+  --q-cream: #F5EEDC;
+  --stamp-red: #B91C1C;
+  --tape: #C8A46B;
+  --ocean: #7FA7B8;
+  --f-rough: var(--font-zine-display), 'Bowlby One', var(--font-heading), 'Space Grotesk', sans-serif;
+  --f-marker: var(--font-zine-marker), 'Permanent Marker', 'Caveat', cursive;
+  --f-body: var(--font-sans), 'DM Sans', system-ui, sans-serif;
+  --f-mono: var(--font-mono), 'Space Mono', ui-monospace, monospace;
+}
+
+/* ─── Keyframes ────────────────────────────────────────────── */
+@keyframes sonar-pulse {
+  0% {
+    transform: scale(0.35);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+@keyframes beacon-heartbeat {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 0.85;
+  }
+}
+
+@keyframes pin-drop-thump {
+  0% {
+    transform: translateY(-32px) scale(1.15);
+    opacity: 0;
+  }
+  70% {
+    transform: translateY(2px) scale(0.95);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes stamp-in {
+  0% {
+    transform: scale(0.4) rotate(-18deg);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.08) rotate(-4deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) rotate(-6deg);
+    opacity: 1;
+  }
+}
+
+/* ─── SonarPing ────────────────────────────────────────────── */
+.sonar-ping {
+  display: inline-block;
+}
+
+.sonar-ping__ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2.5px solid var(--sonar-color, #F78E42);
+  background: transparent;
+  animation: sonar-pulse 2.4s ease-out infinite;
+  transform-origin: center;
+  opacity: 0;
+}
+
+.sonar-ping--reduced .sonar-ping__ring {
+  animation: none;
+  opacity: 0.6;
+}
+
+.sonar-ping--reduced .sonar-ping__ring + .sonar-ping__ring,
+.sonar-ping--reduced .sonar-ping__ring + .sonar-ping__ring + .sonar-ping__ring {
+  display: none;
+}
+
+/* ─── Unavailable state ────────────────────────────────────── */
+.surf-drop-unavailable {
+  padding: 32px 24px 40px;
+  text-align: center;
+  font-family: var(--f-body);
+  color: var(--ink);
+}
+.surf-drop-unavailable__eyebrow {
+  font-family: var(--f-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 12px;
+  color: var(--ink);
+  opacity: 0.6;
+  margin-bottom: 12px;
+}
+.surf-drop-unavailable__title {
+  font-family: var(--f-rough);
+  font-size: 34px;
+  line-height: 1.05;
+  color: var(--ink);
+  margin: 0 0 16px;
+}
+.surf-drop-unavailable__body {
+  font-size: 16px;
+  color: var(--ink);
+  opacity: 0.75;
+  margin: 0 auto 12px;
+  max-width: 32ch;
+}
+.surf-drop-unavailable__meta {
+  font-family: var(--f-marker);
+  font-size: 14px;
+  color: var(--ink);
+  opacity: 0.7;
+  margin: 0 0 24px;
+}
+.surf-drop-unavailable__cta {
+  display: inline-block;
+  padding: 12px 20px;
+  border: 2.5px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--f-rough);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  box-shadow: 4px 4px 0 var(--ink);
+  transform: rotate(-1deg);
+}
+
+/* ─── Teaser card (anon /go) ───────────────────────────────── */
+.surf-drop-teaser {
+  padding: 28px 24px 32px;
+  text-align: center;
+  color: var(--ink);
+  font-family: var(--f-body);
+  position: relative;
+}
+.surf-drop-teaser__sonar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 8px;
+  min-height: 140px;
+}
+.surf-drop-teaser__eyebrow {
+  font-family: var(--f-marker);
+  font-size: 15px;
+  color: var(--ink);
+  opacity: 0.8;
+  margin: 0 0 6px;
+}
+.surf-drop-teaser__area {
+  font-family: var(--f-rough);
+  font-size: 40px;
+  line-height: 1;
+  margin: 0 0 12px;
+  color: var(--ink);
+  animation: pin-drop-thump 0.5s ease-out both;
+}
+.surf-drop-teaser__window {
+  font-family: var(--f-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  opacity: 0.7;
+  margin: 0 0 12px;
+}
+.surf-drop-teaser__meta {
+  min-height: 20px;
+  margin-bottom: 18px;
+}
+.surf-drop-teaser__crew {
+  display: inline-block;
+  padding: 4px 10px;
+  background: var(--q-orange);
+  color: var(--ink);
+  font-family: var(--f-rough);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border: 2px solid var(--ink);
+  transform: rotate(-2deg);
+}
+.surf-drop-teaser__gate {
+  border-top: 2.5px dashed rgba(17, 16, 13, 0.35);
+  padding-top: 20px;
+  margin-top: 8px;
+}
+.surf-drop-teaser__gate-copy {
+  font-size: 15px;
+  color: var(--ink);
+  opacity: 0.8;
+  margin: 0 0 14px;
+}
+.surf-drop-teaser__gate-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.surf-drop-teaser__cta-primary,
+.surf-drop-teaser__cta-secondary {
+  padding: 12px 24px;
+  border: 2.5px solid var(--ink);
+  font-family: var(--f-rough);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+.surf-drop-teaser__cta-primary {
+  background: var(--q-orange);
+  box-shadow: 5px 5px 0 var(--ink);
+  transform: rotate(-1deg);
+}
+.surf-drop-teaser__cta-secondary {
+  background: var(--paper);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+
+/* ─── Drop detail (authed /drops/[id]) ─────────────────────── */
+.drop-detail {
+  padding: 26px 24px 32px;
+  color: var(--ink);
+  font-family: var(--f-body);
+}
+.drop-detail__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.drop-detail__creator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.drop-detail__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 9999px;
+  border: 2px solid var(--ink);
+  background: var(--paper-shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--f-rough);
+  font-size: 15px;
+  color: var(--ink);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.drop-detail__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.drop-detail__avatar--sm {
+  width: 32px;
+  height: 32px;
+  font-size: 12px;
+  margin-left: -8px;
+}
+.drop-detail__avatar--sm:first-child {
+  margin-left: 0;
+}
+.drop-detail__avatar--more {
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--f-mono);
+}
+.drop-detail__creator-name {
+  font-family: var(--f-rough);
+  font-size: 17px;
+  margin: 0;
+  line-height: 1.1;
+}
+.drop-detail__creator-meta {
+  font-family: var(--f-marker);
+  font-size: 13px;
+  color: var(--ink);
+  opacity: 0.7;
+  margin: 2px 0 0;
+}
+.drop-detail__badge {
+  padding: 4px 8px;
+  border: 2px solid var(--ink);
+  background: var(--q-gold);
+  font-family: var(--f-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  transform: rotate(2deg);
+}
+.drop-detail__headline {
+  font-family: var(--f-rough);
+  font-size: 42px;
+  line-height: 1;
+  margin: 0 0 6px;
+  color: var(--ink);
+  animation: pin-drop-thump 0.55s ease-out both;
+}
+.drop-detail__subarea {
+  font-family: var(--f-marker);
+  font-size: 14px;
+  color: var(--ink);
+  opacity: 0.7;
+  margin: 0 0 12px;
+}
+.drop-detail__window {
+  font-family: var(--f-mono);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  color: var(--ink);
+  opacity: 0.85;
+  margin: 0 0 18px;
+}
+.drop-detail__forecast {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin: 0 0 18px;
+  flex-wrap: wrap;
+}
+.drop-detail__forecast-wave,
+.drop-detail__forecast-rating {
+  padding: 6px 12px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  font-family: var(--f-rough);
+  font-size: 14px;
+  text-transform: uppercase;
+}
+.drop-detail__forecast-rating {
+  background: var(--q-teal);
+  transform: rotate(-2deg);
+}
+.drop-detail__note {
+  padding: 12px 14px;
+  margin: 0 0 20px;
+  border-left: 4px solid var(--q-orange);
+  background: rgba(247, 142, 66, 0.12);
+  font-family: var(--f-marker);
+  font-size: 16px;
+  color: var(--ink);
+}
+.drop-detail__participants {
+  border-top: 2px dashed rgba(17, 16, 13, 0.3);
+  padding-top: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.drop-detail__avatars {
+  display: flex;
+  align-items: center;
+}
+.drop-detail__participants-label {
+  font-family: var(--f-rough);
+  font-size: 14px;
+  color: var(--ink);
+  margin: 0;
+}
+
+/* ─── Bottom action bar ────────────────────────────────────── */
+.drop-detail__action-bar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 16px 20px calc(16px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(13, 16, 32, 0), rgba(13, 16, 32, 0.85));
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.drop-detail__action-bar--disabled {
+  opacity: 0.7;
+}
+.drop-detail__secondary {
+  display: flex;
+  gap: 10px;
+}
+.drop-detail__secondary-button {
+  padding: 10px 16px;
+  border: 2px solid var(--paper);
+  background: transparent;
+  color: var(--paper);
+  font-family: var(--f-rough);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+/* ─── I'm in button ────────────────────────────────────────── */
+.im-in-button__wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.im-in-button__sonar {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.im-in-button {
+  position: relative;
+  padding: 14px 32px;
+  border: 3px solid var(--ink);
+  background: var(--q-orange);
+  color: var(--ink);
+  font-family: var(--f-rough);
+  font-size: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  box-shadow: 6px 6px 0 var(--ink);
+  transform: rotate(-1.5deg);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  animation: beacon-heartbeat 2.6s ease-in-out infinite;
+}
+.im-in-button:hover:not(.im-in-button--busy):not(.im-in-button--joined) {
+  transform: rotate(-1deg) translate(-1px, -1px);
+  box-shadow: 7px 7px 0 var(--ink);
+}
+.im-in-button:active {
+  transform: rotate(-1deg) translate(2px, 2px);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.im-in-button--joined {
+  background: var(--paper);
+  color: var(--ink);
+  animation: none;
+}
+.im-in-button--busy {
+  opacity: 0.7;
+  cursor: not-allowed;
+  animation: none;
+}
+.im-in-button__stamp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform-origin: center;
+  padding: 12px 18px;
+  border: 3px solid var(--stamp-red);
+  color: var(--stamp-red);
+  background: transparent;
+  font-family: var(--f-rough);
+  font-size: 32px;
+  letter-spacing: 0.1em;
+  pointer-events: none;
+  animation: stamp-in 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* ─── Share sheet ──────────────────────────────────────────── */
+.share-drop-sheet__scrim {
+  position: fixed;
+  inset: 0;
+  background: rgba(13, 16, 32, 0.72);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 9000;
+  padding: 16px;
+}
+.share-drop-sheet {
+  width: 100%;
+  max-width: 420px;
+  background: var(--paper);
+  border: 3px solid var(--ink);
+  box-shadow: 8px 8px 0 rgba(13, 16, 32, 0.8);
+  padding: 20px;
+  color: var(--ink);
+  font-family: var(--f-body);
+}
+@media (min-width: 640px) {
+  .share-drop-sheet__scrim {
+    align-items: center;
+  }
+}
+.share-drop-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.share-drop-sheet__eyebrow {
+  font-family: var(--f-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 12px;
+  opacity: 0.7;
+}
+.share-drop-sheet__close {
+  background: transparent;
+  border: none;
+  font-family: var(--f-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 12px;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 4px 6px;
+}
+.share-drop-sheet__preview {
+  border: 2px solid var(--ink);
+  background: var(--paper-shadow);
+  aspect-ratio: 1200 / 630;
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.share-drop-sheet__preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.share-drop-sheet__link {
+  font-family: var(--f-mono);
+  font-size: 13px;
+  padding: 8px 10px;
+  border: 2px dashed rgba(17, 16, 13, 0.4);
+  background: rgba(17, 16, 13, 0.05);
+  word-break: break-all;
+  margin-bottom: 16px;
+}
+.share-drop-sheet__actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.share-drop-sheet__action {
+  flex: 1 1 140px;
+  padding: 12px 16px;
+  border: 2.5px solid var(--ink);
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--f-rough);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  font-size: 14px;
+}
+.share-drop-sheet__action--primary {
+  background: var(--q-orange);
+  box-shadow: 4px 4px 0 var(--ink);
+}
+.share-drop-sheet__action--success {
+  background: var(--q-teal);
+}
+
+/* ─── Loading state (go redirector) ────────────────────────── */
+.surf-drop-loading {
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--paper);
+  font-family: var(--f-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 12px;
+}
+
+/* ─── Reduced motion — kill decorative motion but keep
+       essential UI transitions (button press/hover). ───────── */
+@media (prefers-reduced-motion: reduce) {
+  .sonar-ping__ring,
+  .surf-drop-teaser__area,
+  .drop-detail__headline,
+  .im-in-button,
+  .im-in-button__stamp {
+    animation: none !important;
+  }
+  .im-in-button {
+    transition: none !important;
+  }
+}

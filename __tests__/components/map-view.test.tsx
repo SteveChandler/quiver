@@ -5,13 +5,23 @@ import { MapView } from "@/components/map-view";
 const mockLoadNearbyBeaches = jest.fn();
 const mockRouterReplace = jest.fn();
 const mockSetSearchQuery = jest.fn();
+const mockSetSelectedBeach = jest.fn();
 const mockGetUserLocation = jest.fn();
 let mockIsMobile = false;
 let mockSearchParams = new URLSearchParams();
+let mockSearchQuery = "";
 let mockGeolocationLoading = false;
 let mockBeachLoading = false;
 let mockHomeBeach: { lat: number; lon: number } | null = null;
 let mockProfileLoading = false;
+let mockFilteredBeaches: Array<{
+  id: string;
+  name: string;
+  city?: string | null;
+  state?: string | null;
+  lat: number;
+  lon: number;
+}> = [];
 const mockCustomSpots = [
   {
     id: "spot-1",
@@ -58,16 +68,16 @@ jest.mock("@/hooks/use-geolocation", () => ({
 
 jest.mock("@/hooks/use-beach-search", () => ({
   useBeachSearch: () => ({
-    filteredBeaches: [],
+    filteredBeaches: mockFilteredBeaches,
     loading: mockBeachLoading,
-    searchQuery: "",
+    searchQuery: mockSearchQuery,
     selectedBeach: null,
     filters: { beginnerFriendly: false, breakTypes: new Set<string>() },
     loadBeaches: jest.fn(),
     loadNearbyBeaches: mockLoadNearbyBeaches,
     setSearchQuery: mockSetSearchQuery,
     clearSearch: jest.fn(),
-    setSelectedBeach: jest.fn(),
+    setSelectedBeach: mockSetSelectedBeach,
     toggleBeginnerFriendly: jest.fn(),
     toggleBreakType: jest.fn(),
     clearAllFilters: jest.fn(),
@@ -106,13 +116,23 @@ jest.mock("@/components/map/map-content", () => ({
   MapContent: ({
     autoNavigateOnMarkerClick,
     customSpots,
+    layerControls,
     loading,
+    onMapClick,
+    onPlacementPinChange,
+    placementActive,
+    placementPin,
     showSwellField,
     swellTimelineSteps,
   }: {
     autoNavigateOnMarkerClick?: boolean;
     customSpots?: unknown[];
+    layerControls?: React.ReactNode;
     loading?: boolean;
+    onMapClick?: (latlng: { lat: number; lng: number }) => void;
+    onPlacementPinChange?: (latlng: { lat: number; lng: number }) => void;
+    placementActive?: boolean;
+    placementPin?: { lat: number; lon: number } | null;
     showSwellField?: boolean;
     swellTimelineSteps?: string[];
   }) => (
@@ -120,10 +140,28 @@ jest.mock("@/components/map/map-content", () => ({
       data-auto-navigate-on-marker-click={String(autoNavigateOnMarkerClick)}
       data-custom-spot-count={String(customSpots?.length ?? 0)}
       data-loading={String(loading)}
+      data-placement-active={String(placementActive)}
+      data-placement-pin={placementPin ? `${placementPin.lat},${placementPin.lon}` : ""}
       data-show-swell-field={String(showSwellField)}
       data-swell-timeline-steps={swellTimelineSteps?.join(",") ?? ""}
       data-testid="map-content"
-    />
+    >
+      {layerControls}
+      <button
+        type="button"
+        data-testid="mock-map-content-click"
+        onClick={() => onMapClick?.({ lat: 32.82, lng: -117.28 })}
+      >
+        map click
+      </button>
+      <button
+        type="button"
+        data-testid="mock-placement-drag"
+        onClick={() => onPlacementPinChange?.({ lat: 32.83, lng: -117.29 })}
+      >
+        drag pin
+      </button>
+    </div>
   ),
 }));
 
@@ -132,10 +170,12 @@ describe("MapView", () => {
     jest.clearAllMocks();
     mockIsMobile = false;
     mockSearchParams = new URLSearchParams();
+    mockSearchQuery = "";
     mockGeolocationLoading = false;
     mockBeachLoading = false;
     mockHomeBeach = null;
     mockProfileLoading = false;
+    mockFilteredBeaches = [];
     try {
       window.localStorage.clear();
     } catch {
@@ -283,6 +323,55 @@ describe("MapView", () => {
     rerender(<MapView />);
 
     expect(mockSetSearchQuery).not.toHaveBeenCalledWith("");
+  });
+
+  it("does not clear search state when the map canvas is clicked", async () => {
+    const user = userEvent.setup();
+    mockSearchQuery = "Blacks";
+    mockFilteredBeaches = [
+      {
+        id: "blacks",
+        name: "Blacks",
+        city: "San Diego",
+        state: "CA",
+        lat: 32.891,
+        lon: -117.253,
+      },
+    ];
+
+    render(<MapView />);
+    mockSetSelectedBeach.mockClear();
+    mockSetSearchQuery.mockClear();
+
+    await user.click(screen.getByTestId("mock-map-content-click"));
+
+    expect(mockSetSelectedBeach).not.toHaveBeenCalledWith(null);
+    expect(mockSetSearchQuery).not.toHaveBeenCalledWith("");
+  });
+
+  it("uses map clicks and marker drags to update the active placement pin", async () => {
+    const user = userEvent.setup();
+    const onPlacementPinChange = jest.fn();
+
+    render(
+      <MapView
+        placementActive
+        placementPin={{ lat: 32.77, lon: -117.25 }}
+        onPlacementPinChange={onPlacementPinChange}
+      />,
+    );
+
+    await user.click(screen.getByTestId("mock-map-content-click"));
+    await user.click(screen.getByTestId("mock-placement-drag"));
+
+    expect(onPlacementPinChange).toHaveBeenCalledWith({
+      lat: 32.82,
+      lon: -117.28,
+    });
+    expect(onPlacementPinChange).toHaveBeenCalledWith({
+      lat: 32.83,
+      lon: -117.29,
+    });
   });
 
   it("strips stale search URL params when a region is selected", async () => {

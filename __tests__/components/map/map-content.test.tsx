@@ -9,7 +9,11 @@ jest.mock("next/dynamic", () => () => {
   const InteractiveMapMock = ({
     customSpots,
     initialCenter,
+    initialZoom,
     onLocationClick,
+    onMapClick,
+    layerControls,
+    placementPin,
     onBeachSelect,
   }: any) => {
     const [mountId] = require("react").useState(
@@ -21,8 +25,11 @@ jest.mock("next/dynamic", () => () => {
         data-testid="interactive-map"
         data-custom-spot-count={String(customSpots?.length ?? 0)}
         data-initial-center={initialCenter?.join(",")}
+        data-initial-zoom={String(initialZoom)}
         data-mount-id={mountId}
+        data-placement-pin={placementPin ? `${placementPin.lat},${placementPin.lon}` : ""}
       >
+        {layerControls}
         <button
           onClick={() => onLocationClick?.(mockBeaches[0])}
           data-testid="mock-beach-click"
@@ -34,6 +41,12 @@ jest.mock("next/dynamic", () => () => {
           data-testid="mock-beach-select"
         >
           Select Beach
+        </button>
+        <button
+          onClick={() => onMapClick?.({ lat: 32.81, lng: -117.28 })}
+          data-testid="mock-map-click"
+        >
+          Click Map
         </button>
       </div>
     );
@@ -115,6 +128,34 @@ describe("MapContent", () => {
     expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
     expect(mapContainer.querySelector("[aria-hidden='true']")).toBeNull();
     expect(mapContainer).toBeInTheDocument();
+  });
+
+  it("passes map click coordinates through to the parent", () => {
+    const onMapClick = jest.fn();
+    render(<MapContent {...defaultProps} onMapClick={onMapClick} />);
+
+    fireEvent.click(screen.getByTestId("mock-map-click"));
+
+    expect(onMapClick).toHaveBeenCalledWith({ lat: 32.81, lng: -117.28 });
+  });
+
+  it("raises initial zoom while placement mode is active", () => {
+    render(
+      <MapContent
+        {...defaultProps}
+        placementActive
+        placementPin={{ lat: 32.77, lon: -117.25 }}
+      />,
+    );
+
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-initial-zoom",
+      "14",
+    );
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-placement-pin",
+      "32.77,-117.25",
+    );
   });
 
   it("should pass custom spots to the interactive map", () => {

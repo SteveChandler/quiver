@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import {
+  useState,
+  useCallback,
+  useEffect,
+  useRef,
+  useMemo,
+  type ReactNode,
+} from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { BookOpen, X } from "lucide-react";
+import type mapboxgl from "mapbox-gl";
+import { X } from "lucide-react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
 import { MapToolbar } from "@/components/map/map-toolbar";
-import { Button } from "@/components/ui/button";
 import { useCustomSpots } from "@/hooks/use-custom-spots";
 import {
   MAP_REGION_PILLS,
@@ -19,6 +26,18 @@ import { useProfileContext } from "@/context/profile-context";
 import type { Beach } from "@/types/database";
 
 const MISSION_BEACH_COORDS = { lat: 32.7702, lon: -117.2525 } as const;
+
+interface MapPlacementPin {
+  lat: number;
+  lon: number;
+}
+
+interface MapViewProps {
+  layerControls?: ReactNode;
+  placementActive?: boolean;
+  placementPin?: MapPlacementPin | null;
+  onPlacementPinChange?: (pin: MapPlacementPin) => void;
+}
 
 // Shared with use-geolocation / use-nearest-beach. The two writers disagree on
 // shape ({lat,lon} vs {id,name}), so the resolver below handles both.
@@ -65,7 +84,12 @@ async function resolveLastViewedCenter(): Promise<{
   }
 }
 
-export function MapView() {
+export function MapView({
+  layerControls,
+  placementActive = false,
+  placementPin = null,
+  onPlacementPinChange,
+}: MapViewProps = {}) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
@@ -333,10 +357,15 @@ export function MapView() {
     [clearSearch, loadNearbyBeaches, setSelectedBeach, stripMapUrlParams]
   );
 
-  const handleMapClick = useCallback(() => {
-    setMapFocusCenter(null);
-    setSelectedBeach(null);
-  }, [setSelectedBeach]);
+  const handleMapClick = useCallback(
+    (latlng: mapboxgl.LngLat) => {
+      if (!placementActive) {
+        return;
+      }
+      onPlacementPinChange?.({ lat: latlng.lat, lon: latlng.lng });
+    },
+    [onPlacementPinChange, placementActive],
+  );
 
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||
@@ -353,6 +382,32 @@ export function MapView() {
   const handleCloseFieldGuide = useCallback((): void => {
     setShowFieldGuide(false);
   }, []);
+
+  const seedPlacementPin = useCallback((): MapPlacementPin => {
+    if (selectedBeach && isFiniteCoord(selectedBeach.lat) && isFiniteCoord(selectedBeach.lon)) {
+      return { lat: selectedBeach.lat, lon: selectedBeach.lon };
+    }
+    if (searchQuery.trim() && filteredBeaches.length > 0) {
+      const firstBeach = filteredBeaches[0];
+      if (isFiniteCoord(firstBeach?.lat) && isFiniteCoord(firstBeach?.lon)) {
+        return { lat: firstBeach.lat, lon: firstBeach.lon };
+      }
+    }
+    if (mapFocusCenter) {
+      return mapFocusCenter;
+    }
+    if (userLocation) {
+      return userLocation;
+    }
+    return MISSION_BEACH_COORDS;
+  }, [filteredBeaches, mapFocusCenter, searchQuery, selectedBeach, userLocation]);
+
+  useEffect(() => {
+    if (!placementActive || placementPin || !onPlacementPinChange) {
+      return;
+    }
+    onPlacementPinChange(seedPlacementPin());
+  }, [onPlacementPinChange, placementActive, placementPin, seedPlacementPin]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0" data-testid="map-view">
@@ -372,25 +427,9 @@ export function MapView() {
         hasActiveFilters={hasActiveFilters}
         showSwellField={showSwellField}
         onToggleSwellField={() => setShowSwellField((v) => !v)}
+        fieldGuideVisible={fieldGuideVisible}
+        onOpenFieldGuide={handleOpenFieldGuide}
       />
-
-      <div className="border-b bg-background px-3 py-2 sm:px-4">
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            aria-expanded={fieldGuideVisible}
-            aria-controls="map-field-guide-panel"
-            data-testid="map-field-guide-toggle"
-            onClick={handleOpenFieldGuide}
-            className="h-10 w-full justify-center whitespace-nowrap px-3 text-xs sm:w-auto sm:text-sm"
-          >
-            <BookOpen className="h-4 w-4 shrink-0" aria-hidden="true" />
-            How to read this map
-          </Button>
-        </div>
-      </div>
 
       {/* Content */}
       <div
@@ -424,6 +463,13 @@ export function MapView() {
             swellTimelineSteps={swellTimelineSteps}
             swellTimelineIndex={swellTimelineIndex}
             onSwellTimelineChange={setSwellTimelineIndex}
+            layerControls={layerControls}
+            placementActive={placementActive}
+            placementPin={placementPin}
+            placementPinDraggable
+            onPlacementPinChange={(latlng) =>
+              onPlacementPinChange?.({ lat: latlng.lat, lon: latlng.lng })
+            }
           />
         </div>
         {fieldGuideVisible && (

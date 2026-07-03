@@ -265,6 +265,16 @@ export const VALID_EVENTS = [
   'app_handoff_email_sent',
   'app_handoff_email_failed',
   'app_handoff_link_opened',
+  // Surf Drops V1 (link-share drop pin funnel; web + native)
+  'surf_drop_created',
+  'surf_drop_share_opened',
+  'surf_drop_link_view',
+  'surf_drop_link_view_authenticated',
+  'surf_drop_claimed',
+  'surf_drop_joined',
+  'surf_drop_left',
+  'surf_drop_cancelled',
+  'surf_drop_map_toggle_layer',
 ] as const;
 
 export type EventType = (typeof VALID_EVENTS)[number];
@@ -371,6 +381,9 @@ export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   // App-first landing handoff funnel - fire for signed-out landing visitors.
   'app_handoff_view', 'app_handoff_qr_rendered', 'app_handoff_email_submit',
   'app_handoff_email_sent', 'app_handoff_email_failed', 'app_handoff_link_opened',
+  // Surf Drops V1 — the /go/[slug] teaser view fires for anonymous
+  // visitors too so we can measure link-open → signup conversion.
+  'surf_drop_link_view',
 ] as const;
 
 /**

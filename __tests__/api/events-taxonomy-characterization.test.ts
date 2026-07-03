@@ -21,9 +21,14 @@ import {
 import { EVENT_WEIGHTS } from "@/types/implicit-preferences";
 
 const CURRENT_EVENT_SET_HASHES = {
-  valid: "496ba61c73eb09ecc6d7f50ecc2283d818fee1e507275ddb289985646ca2a739",
+  // Updated 2026-07-02 for Surf Drops V1 additions
+  // (surf_drop_created / _share_opened / _link_view /
+  //  _link_view_authenticated / _claimed / _joined / _left /
+  //  _cancelled / _map_toggle_layer). ANONYMOUS_ALLOWED_EVENTS also
+  //  gained surf_drop_link_view. PRE_AUTH_ONLY_EVENTS unchanged.
+  valid: "384aa09e14980314a6496ee22b0d1eea5349cf67a45c2ef89267791c1eed4fb7",
   anonymousAllowed:
-    "acc55a7c668c7dfcd8d2517f9e51bed1eae0a509f5811ac31a1e477d4ca4b76a",
+    "3a7ea5ec8f6fbc231c5ee987aa70cd3f4de54a1a04a46d953eb67da6385d585e",
   preAuthOnly:
     "3a16cb4ecd871469db54bad8b25b440242a07c04e21f66bc69a70abfe5ae6e08",
 } as const;

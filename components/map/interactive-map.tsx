@@ -204,6 +204,7 @@ interface InteractiveMapProps {
   swellTimelineSteps?: string[];
   swellTimelineIndex?: number;
   onSwellTimelineChange?: (index: number) => void;
+  layerControls?: ReactNode;
   showMapChrome?: boolean;
   placementPin?: { lat: number; lon: number } | null;
   placementPinDraggable?: boolean;
@@ -330,6 +331,7 @@ export function InteractiveMap({
   swellTimelineSteps = [],
   swellTimelineIndex = 0,
   onSwellTimelineChange,
+  layerControls,
   showMapChrome = true,
   placementPin = null,
   placementPinDraggable = true,
@@ -1382,6 +1384,11 @@ export function InteractiveMap({
           };
           setMapBounds(boundsObj);
           onBoundsChangeRef.current?.(boundsObj);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(
+              new CustomEvent("quiver:map-bounds-change", { detail: boundsObj }),
+            );
+          }
         }
         setCurrentZoom(zoom);
 
@@ -1516,6 +1523,17 @@ export function InteractiveMap({
       ) {
         (window as any).__quiverMapInstance = mapRef.current;
       }
+      // Surf Drops overlay bridge: publish the map instance so sibling overlay
+      // components (surf-drops-layer, amenities-layer) mounted by MapPageClient
+      // can attach markers without invasive prop threading through MapView /
+      // MapContent. Emits an initial `quiver:map-ready` and periodic
+      // `quiver:map-bounds-change` events with the bounding box on moveend.
+      if (typeof window !== "undefined") {
+        (window as any).__quiverMap = mapRef.current;
+        window.dispatchEvent(
+          new CustomEvent("quiver:map-ready", { detail: { map: mapRef.current } }),
+        );
+      }
       // Initialize bounds for clustering
       const bounds = map.getBounds();
       if (bounds) {
@@ -1527,6 +1545,11 @@ export function InteractiveMap({
         };
         setMapBounds(boundsObj);
         onBoundsChangeRef.current?.(boundsObj);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(
+            new CustomEvent("quiver:map-bounds-change", { detail: boundsObj }),
+          );
+        }
       }
       setCurrentZoom(map.getZoom());
     });
@@ -1949,6 +1972,15 @@ export function InteractiveMap({
       />
     ) : null;
 
+  const conditionLegendControls = layerControls ? (
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+      {swellLayerSelector}
+      {layerControls}
+    </div>
+  ) : (
+    swellLayerSelector
+  );
+
   return (
     <div
       ref={mapContainerRef}
@@ -1957,7 +1989,7 @@ export function InteractiveMap({
     >
       {showMapChrome && displayMode === "wave-height" && (
         <MapConditionLegend
-          controls={swellLayerSelector}
+          controls={conditionLegendControls}
           timeline={swellTimeline}
         />
       )}
