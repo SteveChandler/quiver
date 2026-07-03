@@ -6,6 +6,8 @@ import {
   type ErrorCapture,
 } from "./utils/error-detection";
 
+test.describe.configure({ mode: "serial" });
+
 async function waitForMapInstance(page: Page): Promise<void> {
   await page.waitForFunction(
     () =>
