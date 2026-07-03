@@ -25,6 +25,21 @@ describe("createClusterMarkerElement", () => {
     expect(element.textContent).toBe("3x");
   });
 
+  it("renders compact count-only clusters in points mode", () => {
+    const { element } = createClusterMarkerElement({
+      waveHeights: [3, 4],
+      pointCount: 2,
+      hasFavorite: false,
+      onHover: jest.fn(),
+      onLeave: jest.fn(),
+      markerDisplay: "points",
+    });
+
+    const badge = element.querySelector("[data-cluster-badge]");
+    expect(element.textContent).toBe("2");
+    expect(badge?.getAttribute("data-marker-display")).toBe("points");
+  });
+
   it("should apply blue gradient for favorites", () => {
     const { element } = createClusterMarkerElement({
       waveHeights: [2.0],

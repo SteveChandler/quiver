@@ -228,7 +228,10 @@ export interface LatLonPoint {
 // corridor edge, so the bbox chains up/down coast on the next recompute; smaller
 // cross-shore (lon) margin keeps the field near the coast, not out in open sea.
 export const COASTAL_CORRIDOR_LAT_PAD = 0.35;
-export const COASTAL_CORRIDOR_LON_PAD = 0.12;
+// Cross-shore (lon) margin. Wide enough that the default ~zoom-11 embed view (which
+// shows open ocean west of the coast) already fits inside the leash bounds, so
+// applying setMaxBounds never yanks the camera inland on load.
+export const COASTAL_CORRIDOR_LON_PAD = 0.3;
 // Floor span for a degenerate (single-beach) footprint so it's still navigable.
 export const COASTAL_CORRIDOR_MIN_SPAN = 0.1;
 
@@ -295,11 +298,16 @@ function speedFromPeriod(periodS: number): number {
   return Math.min(1.2, celerity / 26); // ~14s -> 0.84, ~20s -> 1.2 (clamped)
 }
 
-/** Energy ~ H^2. Normalize against a 10ft ceiling, clamp to [0.08, 1]. */
+/**
+ * Strength 0..1 driving particle density/length/opacity. Energy ~ H^2 normalized
+ * against a ~6ft ceiling so TYPICAL surf reads as a clearly-alive field (a 10ft
+ * ceiling pinned everyday 3-5ft swells near zero, leaving the map looking dead);
+ * truly tiny surf still subdues toward the floor and 6ft+ saturates boldest.
+ */
 function alphaFromHeight(heightFt: number): number {
   if (!Number.isFinite(heightFt) || heightFt <= 0) return 0;
-  const energy = (heightFt * heightFt) / 100; // 10ft -> 1.0
-  return Math.max(0.08, Math.min(1, energy));
+  const energy = (heightFt * heightFt) / 36; // 6ft -> 1.0 (3ft~0.25, 4ft~0.44, 5ft~0.69)
+  return Math.max(0.18, Math.min(1, energy));
 }
 
 /**

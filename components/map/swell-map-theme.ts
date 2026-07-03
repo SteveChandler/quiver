@@ -32,15 +32,14 @@ export const SWELL_LAYER_COLOR: Record<SwellLayerId, string> = {
 };
 
 // Particle-trail colors for the Windy-style swell flow field. The field rides the
-// LIGHT Windy-style basemap (no recolor, see interactive-map.tsx), so the dashes are
-// DARKENED versions of the SAME native brand hues — recognizably the brand colors,
-// just dark enough to read against the light-blue water (the bright chip palette
-// washes out there). The bright chip colors stay in SWELL_LAYER_COLOR.
+// LIGHT Windy-style basemap (no recolor, see interactive-map.tsx), so these are
+// darker, high-contrast brand colors. S1/S2/Wind intentionally use different hue
+// families so the Combined/All view remains legible.
 export const SWELL_FIELD_PARTICLE_COLOR: Record<SwellLayerId, string> = {
-  s1: "#7A2C06",   // primary swell — deep Charming Orange (deepened for light-water contrast)
-  s2: "#5C3A00",   // secondary swell — deep Paradise Gold
-  wind: "#053C36", // wind — deep Pacific Teal (still teal, NOT cyan)
-  combined: "#7A2C06",
+  s1: "#8A3B0A",   // primary swell - deep Charming Orange
+  s2: "#252D6B",   // secondary swell - Deep Twilight navy for hue separation
+  wind: "#004C40", // wind - dark Pacific Teal, distinct from S2 navy
+  combined: "#8A3B0A",
 };
 
 // CTA tokens (Tailwind classes). Interactive buttons w/ white text MUST use ocean-blue
