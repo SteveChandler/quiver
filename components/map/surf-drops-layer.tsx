@@ -9,9 +9,8 @@
  * fetch is fired. When re-enabled, the current viewport bbox is used to
  * hydrate.
  *
- * Sonar-pulse keyframes are declared inline via styled-jsx global so the
- * marker DOM (attached outside React's tree) can animate without depending on
- * `app/styles/zine.css`.
+ * Sonar-pulse keyframes live in `app/styles/zine.css`, which is imported by
+ * `app/globals.css` so the marker DOM can animate outside React's tree.
  */
 "use client";
 
@@ -33,6 +32,8 @@ interface SurfDropsLayerProps {
   enabled: boolean;
   /** External refetch trigger — increment to force a re-fetch. */
   refetchToken?: number;
+  /** Locally-created drop shown immediately while the map endpoint catches up. */
+  optimisticDrop?: SurfDropInView | null;
   /** Optional callback for when a drop marker is clicked (before router push). */
   onDropClick?: (drop: SurfDropInView) => void;
 }
@@ -63,6 +64,7 @@ function boundsFromMap(map: mapboxgl.Map | null): MapBounds | null {
 export function SurfDropsLayer({
   enabled,
   refetchToken,
+  optimisticDrop = null,
   onDropClick,
 }: SurfDropsLayerProps) {
   const router = useRouter();
@@ -136,13 +138,17 @@ export function SurfDropsLayer({
   const dedupedDrops = useMemo(() => {
     const seen = new Set<string>();
     const out: SurfDropInView[] = [];
+    if (optimisticDrop) {
+      seen.add(optimisticDrop.id);
+      out.push(optimisticDrop);
+    }
     for (const drop of drops) {
       if (seen.has(drop.id)) continue;
       seen.add(drop.id);
       out.push(drop);
     }
     return out;
-  }, [drops]);
+  }, [drops, optimisticDrop]);
 
   // Sync markers to (map, drops, enabled) — remove missing, add new, leave the rest.
   useEffect(() => {

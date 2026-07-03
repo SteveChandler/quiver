@@ -33,15 +33,26 @@ describe("buildSurfDropMarkerElement", () => {
     expect(img?.getAttribute("src")).toBe("https://example.com/a.png");
   });
 
-  it("renders two sonar rings by default and one when reduced-motion is on", () => {
+  it("renders a visible sonar ping by default and one static ring when reduced-motion is on", () => {
     const el = buildSurfDropMarkerElement(BASE_DROP);
+    expect(el).toHaveClass("quiver-surf-drop-marker--sonar");
+    expect(el.style.width).toBe("72px");
+    expect(el.style.height).toBe("72px");
     expect(
       el.querySelectorAll('[data-testid="surf-drop-sonar-ring"]').length,
-    ).toBe(2);
+    ).toBe(3);
+    const firstRing = el.querySelector<HTMLElement>(
+      '[data-testid="surf-drop-sonar-ring"]',
+    );
+    expect(firstRing?.style.border).toContain("rgba(247, 142, 66");
+    expect(firstRing?.style.animation).toContain("sonar-pulse");
+
     const reduced = buildSurfDropMarkerElement(BASE_DROP, { reducedMotion: true });
-    expect(
-      reduced.querySelectorAll('[data-testid="surf-drop-sonar-ring"]').length,
-    ).toBe(1);
+    const reducedRings = reduced.querySelectorAll(
+      '[data-testid="surf-drop-sonar-ring"]',
+    );
+    expect(reducedRings.length).toBe(1);
+    expect((reducedRings[0] as HTMLElement).style.animation).toBe("");
   });
 
   it("fires the onClick handler with the drop payload", () => {

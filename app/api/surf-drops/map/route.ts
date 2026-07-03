@@ -8,8 +8,7 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSurfDropsRepository } from "@/lib/surf-drops/repository";
 import {
-  filterRowsByBbox,
-  toMapDropPayload,
+  buildAccessibleMapDropPayloads,
 } from "@/lib/surf-drops/service";
 import { parseBboxParam } from "@/lib/surf-drops/validation";
 
@@ -19,13 +18,18 @@ export const GET = withRateLimit(
   withAuth(
     async (
       request: NextRequest,
-      { supabase }: AuthenticatedContext,
+      { supabase, user }: AuthenticatedContext,
     ): Promise<NextResponse> => {
       try {
         const bbox = parseBboxParam(request.nextUrl.searchParams.get("bbox"));
         const repository = createSurfDropsRepository(supabase);
         const rows = await repository.listVisibleDrops?.(new Date().toISOString());
-        const drops = filterRowsByBbox(rows ?? [], bbox).map(toMapDropPayload);
+        const drops = await buildAccessibleMapDropPayloads(
+          repository,
+          rows ?? [],
+          bbox,
+          user.id,
+        );
         const response = createSuccessResponse({ drops });
         response.headers.set("Cache-Control", "private, no-store, no-cache, must-revalidate");
         return response;

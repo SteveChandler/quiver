@@ -8,9 +8,9 @@
  * so we can ship the V1 without asset pipeline changes. The chip letter is
  * derived from `amenity_type`; unknown types fall back to a dot.
  *
- * Provenance chip on click reads `source · confidence · imported_at`. The
- * `source` label stays neutral (`SEED · verified …` vs `OSM · verified …`) so
- * the UI stays honest before the OSM importer lands.
+ * Amenity chips open a compact zine-style popup. Provenance stays out of the
+ * marker popup; the import/source metadata is retained in the API payload for
+ * internal QA but not exposed in the map callout.
  */
 "use client";
 
@@ -69,13 +69,40 @@ function bboxParam(b: MapBounds): string {
   return [b.west, b.south, b.east, b.north].join(",");
 }
 
-function formatProvenance(row: AmenityRow): string {
-  const src = (row.source || "unknown").toUpperCase();
-  const conf = Math.max(0, Math.min(100, Math.round(row.confidence ?? 0)));
-  const imported = row.imported_at
-    ? new Date(row.imported_at).toISOString().slice(0, 10)
-    : "unknown";
-  return `${src} · ${conf}% confidence · imported ${imported}`;
+function amenityTypeLabel(type: string): string {
+  return type.replace(/_/g, " ");
+}
+
+function boundsFromMap(map: mapboxgl.Map | null): MapBounds | null {
+  if (!map) return null;
+  try {
+    const bounds = map.getBounds?.();
+    if (!bounds) return null;
+    const west = bounds.getWest();
+    const south = bounds.getSouth();
+    const east = bounds.getEast();
+    const north = bounds.getNorth();
+    if (
+      !Number.isFinite(west) ||
+      !Number.isFinite(south) ||
+      !Number.isFinite(east) ||
+      !Number.isFinite(north)
+    ) {
+      return null;
+    }
+    return { west, south, east, north };
+  } catch {
+    return null;
+  }
+}
+
+function hasMarkerContainer(map: mapboxgl.Map | null): boolean {
+  if (!map) return false;
+  try {
+    return Boolean(map.getCanvasContainer?.());
+  } catch {
+    return false;
+  }
 }
 
 export function AmenitiesLayer({ enabled, types }: AmenitiesLayerProps) {
@@ -102,16 +129,35 @@ export function AmenitiesLayer({ enabled, types }: AmenitiesLayerProps) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const w = window as QuiverMapWindow;
-    if (w.__quiverMap) setMap(w.__quiverMap);
+    if (hasMarkerContainer(w.__quiverMap ?? null)) {
+      setMap(w.__quiverMap ?? null);
+      const currentBounds = boundsFromMap(w.__quiverMap ?? null);
+      if (currentBounds) setBounds(currentBounds);
+    }
     const onReady = (event: Event) => {
       const detail = (event as CustomEvent).detail as {
         map: mapboxgl.Map | null;
       };
-      setMap(detail?.map ?? null);
+      const nextMap = detail?.map ?? null;
+      if (!hasMarkerContainer(nextMap)) {
+        setMap(null);
+        return;
+      }
+      setMap(nextMap);
+      const currentBounds = boundsFromMap(nextMap);
+      if (currentBounds) setBounds(currentBounds);
     };
     const onBounds = (event: Event) => {
       const detail = (event as CustomEvent).detail as MapBounds | undefined;
-      if (detail) setBounds(detail);
+      if (
+        detail &&
+        Number.isFinite(detail.west) &&
+        Number.isFinite(detail.south) &&
+        Number.isFinite(detail.east) &&
+        Number.isFinite(detail.north)
+      ) {
+        setBounds(detail);
+      }
     };
     window.addEventListener("quiver:map-ready", onReady);
     window.addEventListener("quiver:map-bounds-change", onBounds);
@@ -154,7 +200,8 @@ export function AmenitiesLayer({ enabled, types }: AmenitiesLayerProps) {
 
   // Sync markers.
   useEffect(() => {
-    if (!map || !mapboxRef.current) {
+    const activeMap = map;
+    if (!activeMap || !hasMarkerContainer(activeMap) || !mapboxRef.current) {
       markerRefs.current.forEach((m) => m.remove());
       markerRefs.current.clear();
       return;
@@ -186,17 +233,18 @@ export function AmenitiesLayer({ enabled, types }: AmenitiesLayerProps) {
         event.stopPropagation();
         popupRef.current?.remove();
         popupRef.current = new mapboxLib.Popup({
+          className: "quiver-amenity-popup",
           closeButton: true,
           closeOnClick: true,
           offset: 12,
         })
           .setLngLat([row.lon, row.lat])
-          .setDOMContent(buildProvenancePopupContent(row))
-          .addTo(map);
+          .setDOMContent(buildAmenityPopupContent(row))
+          .addTo(activeMap);
       });
       const marker = new mapboxLib.Marker({ element: el, anchor: "center" })
         .setLngLat([row.lon, row.lat])
-        .addTo(map);
+        .addTo(activeMap);
       markerRefs.current.set(row.id, marker);
     }
   }, [map, enabled, amenities]);
@@ -245,17 +293,53 @@ function buildAmenityChip(
   return el;
 }
 
-function buildProvenancePopupContent(row: AmenityRow): HTMLElement {
+export function buildAmenityPopupContent(row: AmenityRow): HTMLElement {
   const wrap = document.createElement("div");
-  wrap.setAttribute("data-testid", "amenity-provenance");
-  wrap.style.cssText =
-    "font-family: 'DM Sans', system-ui, sans-serif; color: #11100D; padding: 4px 6px; max-width: 220px;";
+  wrap.setAttribute("data-testid", "amenity-popup");
+  wrap.style.cssText = `
+    width: min(252px, calc(100vw - 56px));
+    color: #11100D;
+    padding: 12px 14px 14px;
+    background:
+      radial-gradient(circle at 18% 20%, rgba(247, 142, 66, 0.16), transparent 42%),
+      #F5EEDC;
+    font-family: 'DM Sans', system-ui, sans-serif;
+  `;
+  const eyebrow = document.createElement("div");
+  eyebrow.style.cssText = `
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    padding: 3px 7px;
+    background: #11100D;
+    color: #F5EEDC;
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  `;
+  eyebrow.textContent = "Map note";
   const title = document.createElement("div");
-  title.style.cssText = "font-weight: 700; font-size: 12px; margin-bottom: 2px;";
+  title.style.cssText = `
+    font-size: 15px;
+    font-weight: 900;
+    line-height: 1.15;
+    margin-bottom: 8px;
+  `;
   title.textContent = row.label || row.type.replace(/_/g, " ");
   const meta = document.createElement("div");
-  meta.style.cssText = "font-size: 11px; color: #4A4A4A;";
-  meta.textContent = formatProvenance(row);
-  wrap.append(title, meta);
+  meta.style.cssText = `
+    display: inline-flex;
+    border: 1px solid rgba(17, 16, 13, 0.28);
+    background: rgba(11, 58, 117, 0.08);
+    padding: 4px 7px;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1.2;
+    text-transform: capitalize;
+  `;
+  meta.textContent = amenityTypeLabel(row.type);
+  wrap.append(eyebrow, title, meta);
   return wrap;
 }

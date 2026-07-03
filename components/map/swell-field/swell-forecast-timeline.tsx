@@ -11,7 +11,7 @@ import {
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 
 interface SwellForecastTimelineProps {
-  /** Discrete forecast-hour labels, e.g. ["Now", "+3h", "+6h", ...]. */
+  /** Discrete forecast-time labels, e.g. ["Now", "11 PM", "Fri 2 AM"]. */
   steps: string[];
   index: number;
   onIndexChange: (index: number) => void;
@@ -111,7 +111,7 @@ export function SwellForecastTimeline({
           isLegendPlacement ? "min-w-0 flex-1" : "w-40"
         }`}
       />
-      <span className="min-w-8 text-right font-mono text-xs tabular-nums text-white">
+      <span className="min-w-[4.5rem] whitespace-nowrap text-right font-mono text-xs tabular-nums text-white">
         {steps[nearestStep]}
       </span>
       <button

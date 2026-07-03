@@ -46,7 +46,6 @@ export type EmbedMapEvent =
         conditionSummary?: string | null;
       };
     }
-  | { type: "clusterSelected"; payload: { clusterId: number; lat: number; lon: number } }
   | { type: "mapTapped"; payload: EmbedMapCoordinate }
   | { type: "placementStarted"; payload: EmbedMapCoordinate }
   | { type: "placementChanged"; payload: EmbedMapCoordinate }

@@ -9,9 +9,8 @@
  * disabled we surface a "QR-activated only" tooltip so users know why the row
  * is greyed out rather than assuming a bug.
  *
- * Note: `swell` and `spots` toggles here are display-only for V1 — the real
- * swell field / beach markers are still driven by MapView state. The legend
- * publishes its toggle state via `onChange` so a parent may hoist that later.
+ * `swell` and `spots` are real map controls: owners pass the persisted state
+ * down to MapView so the swell field and spot markers actually mount/unmount.
  */
 "use client";
 
@@ -73,6 +72,7 @@ interface LayerLegendProps {
   businessesCount?: number;
   className?: string;
   embedded?: boolean;
+  showDrops?: boolean;
 }
 
 export function LayerLegend({
@@ -81,8 +81,10 @@ export function LayerLegend({
   businessesCount = 0,
   className,
   embedded = false,
+  showDrops = true,
 }: LayerLegendProps): ReactElement {
   const businessesEnabled = businessesCount > 0;
+  const rows = showDrops ? ROWS : ROWS.filter((row) => row.id !== "drops");
   return (
     <div
       data-testid="layer-legend"
@@ -104,7 +106,7 @@ export function LayerLegend({
       >
         Layers
       </div>
-      {ROWS.map((row) => {
+      {rows.map((row) => {
         const isBusiness = row.id === "businesses";
         const disabled = isBusiness && !businessesEnabled;
         const checked = value[row.id];

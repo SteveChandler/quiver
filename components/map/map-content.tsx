@@ -53,6 +53,7 @@ interface MapContentProps {
   onDisplayForecastsChange?: (map: Map<string, ForecastDisplay | undefined>) => void;
   onMapClick?: (latlng: mapboxgl.LngLat) => void;
   autoNavigateOnMarkerClick?: boolean;
+  showSurfSpots?: boolean;
   showSwellField?: boolean;
   swellLayerId?: import("@/components/map/swell-map-theme").SwellLayerId;
   onSwellLayerChange?: (
@@ -96,6 +97,7 @@ export function MapContent({
   onDisplayForecastsChange,
   onMapClick,
   autoNavigateOnMarkerClick,
+  showSurfSpots = true,
   showSwellField,
   swellLayerId,
   onSwellLayerChange,
@@ -215,7 +217,7 @@ export function MapContent({
 
       {/* Interactive Map */}
       <div
-        className="flex-1 relative overflow-hidden min-h-[200px] sm:min-h-[400px] bg-gray-200 map-container"
+        className="zine-map-frame flex-1 relative overflow-hidden min-h-[200px] sm:min-h-[400px] bg-gray-200 map-container"
         data-testid="map-container"
       >
         <DataErrorBoundary dataType="map data" componentName="InteractiveMap">
@@ -232,6 +234,7 @@ export function MapContent({
             onWaveHeightsChange={onWaveHeightsChange}
             onDisplayForecastsChange={onDisplayForecastsChange}
             autoNavigateOnMarkerClick={autoNavigateOnMarkerClick}
+            showSurfSpots={showSurfSpots}
             showSwellField={showSwellField}
             swellLayerId={swellLayerId}
             onSwellLayerChange={onSwellLayerChange}
@@ -245,6 +248,11 @@ export function MapContent({
             className="absolute inset-0 z-0 w-full h-full"
           />
         </DataErrorBoundary>
+        <div
+          aria-hidden="true"
+          data-testid="map-zine-overlay"
+          className="pointer-events-none absolute inset-0 z-[1]"
+        />
       </div>
     </>
   );

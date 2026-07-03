@@ -1,11 +1,12 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MapFirstPaintShell } from "./map-first-paint-shell";
 import { LayerLegend, usePersistedLayerState } from "@/components/map/layer-legend";
 import { SurfDropsLayer } from "@/components/map/surf-drops-layer";
 import { AmenitiesLayer } from "@/components/map/amenities-layer";
+import type { SurfDropInView } from "@/hooks/use-surf-drops-in-view";
 import {
   CreateDropSheet,
   type CreateDropSheetSuccess,
@@ -43,6 +44,37 @@ export function MapPageClient() {
   const [refetchToken, setRefetchToken] = useState(0);
   const [lastCreatedDrop, setLastCreatedDrop] =
     useState<CreateDropSheetSuccess | null>(null);
+  const showPlacementPin = isPlacingDrop || (createOpen && Boolean(dropPin));
+  const optimisticDrop = useMemo<SurfDropInView | null>(() => {
+    if (
+      !lastCreatedDrop ||
+      !user ||
+      !Number.isFinite(lastCreatedDrop.lat) ||
+      !Number.isFinite(lastCreatedDrop.lon)
+    ) {
+      return null;
+    }
+    return {
+      id: lastCreatedDrop.id,
+      share_slug: lastCreatedDrop.share_slug,
+      location_type: lastCreatedDrop.location_type,
+      lat: lastCreatedDrop.lat as number,
+      lon: lastCreatedDrop.lon as number,
+      beach_id: lastCreatedDrop.beach_id,
+      spot_name: lastCreatedDrop.spot_name,
+      general_area: lastCreatedDrop.general_area,
+      exact_label: lastCreatedDrop.exact_label,
+      starts_at: lastCreatedDrop.starts_at,
+      ends_at: lastCreatedDrop.ends_at,
+      audience: lastCreatedDrop.audience,
+      creator: {
+        id: user.id,
+        display_name: "You",
+        avatar_url: null,
+      },
+      participants_count: 0,
+    };
+  }, [lastCreatedDrop, user]);
   // businessesCount stays at 0 until a /api/qr-venues/map response with any
   // activated venues lands. V1 shipped without a public directory, so the
   // legend row is dormant by default.
@@ -114,25 +146,34 @@ export function MapPageClient() {
   }, []);
 
   return (
-    <div className="relative flex flex-1 flex-col">
+    <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       <MapView
-        layerControls={
+        toolbarLayerControls={
           <LayerLegend
             value={layers}
             onChange={setLayers}
             businessesCount={businessesCount}
-            className="pointer-events-auto flex min-w-[11rem] flex-col gap-1 rounded-sm border border-white/15 bg-transparent p-0 text-[#F4EBD8] shadow-none"
+            className="pointer-events-auto flex min-w-[12rem] flex-col gap-1 rounded-sm bg-transparent p-0 text-[#F4EBD8] shadow-none"
             embedded
+            showDrops={Boolean(user)}
           />
         }
-        placementActive={isPlacingDrop}
+        showSwellField={layers.swell}
+        onShowSwellFieldChange={(next) => setLayers({ ...layers, swell: next })}
+        showSurfSpots={layers.spots}
+        placementActive={showPlacementPin}
         placementPin={dropPin}
+        placementPinDraggable={isPlacingDrop}
         onPlacementPinChange={setDropPin}
       />
 
       {/* Surf Drop markers on the map. */}
-      {layers.drops && (
-        <SurfDropsLayer enabled={layers.drops} refetchToken={refetchToken} />
+      {user && layers.drops && (
+        <SurfDropsLayer
+          enabled={layers.drops}
+          refetchToken={refetchToken}
+          optimisticDrop={optimisticDrop}
+        />
       )}
       {layers.amenities && <AmenitiesLayer enabled={layers.amenities} />}
 
@@ -157,16 +198,18 @@ export function MapPageClient() {
       {user && isPlacingDrop && (
         <div
           data-testid="drop-placement-panel"
-          className="pointer-events-auto absolute bottom-20 right-4 z-30 w-[min(22rem,calc(100vw-2rem))] rounded-md border p-3 shadow-xl"
+          className="pointer-events-auto absolute bottom-20 right-4 z-30 w-[min(22rem,calc(100vw-2rem))] rounded-sm border-2 p-3 shadow-[4px_4px_0_rgba(17,16,13,0.35)]"
           style={{
-            background: "rgba(37, 45, 107, 0.94)",
-            borderColor: "rgba(255, 255, 255, 0.18)",
-            color: "#F4EBD8",
+            background: "#F4EBD8",
+            borderColor: "#11100D",
+            color: "#11100D",
             fontFamily: "'DM Sans', system-ui, sans-serif",
           }}
         >
-          <div className="text-sm font-semibold">Place your drop</div>
-          <div className="mt-1 text-xs text-[#C8D0FF]">
+          <div className="font-heading text-base font-black uppercase leading-tight">
+            Place your drop
+          </div>
+          <div className="mt-1 text-xs font-semibold text-[#11100D]/70">
             Move the pin to the shore, then add details.
           </div>
           <div className="mt-3 flex justify-end gap-2">
@@ -175,17 +218,18 @@ export function MapPageClient() {
               variant="ghost"
               size="sm"
               onClick={handleCancelDropPlacement}
-              className="text-[#F4EBD8] hover:bg-white/10 hover:text-[#F4EBD8]"
+              className="rounded-sm border-2 border-[#11100D] bg-[#F4EBD8] font-heading font-black uppercase text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] hover:bg-[#F0E5CC] hover:text-[#11100D]"
             >
               Cancel
             </Button>
             <Button
               type="button"
+              variant="ghost"
               size="sm"
               data-testid="drop-placement-confirm"
               disabled={!dropPin}
               onClick={handleConfirmDropPlacement}
-              className="font-semibold"
+              className="rounded-sm border-2 border-[#11100D] !bg-[#F78E42] !text-[#11100D] font-heading font-black uppercase shadow-[2px_2px_0_rgba(17,16,13,0.28)] hover:!bg-[#F78E42] disabled:!bg-[#F78E42] disabled:opacity-55"
               style={{ background: "#F78E42", color: "#11100D" }}
             >
               Add details
@@ -210,12 +254,13 @@ export function MapPageClient() {
       {lastCreatedDrop && (
         <div
           data-testid="drop-created-toast"
-          className="pointer-events-auto absolute bottom-20 right-4 z-30 rounded px-3 py-2 text-sm shadow-lg"
-          style={{ background: "#00D4AA", color: "#11100D" }}
+          className="zine-tab pointer-events-auto absolute bottom-20 right-4 z-30 flex max-w-[min(22rem,calc(100vw-2rem))] items-center gap-3 rounded-sm border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-2 text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.28)]"
         >
-          Dropped!{" "}
+          <span className="font-heading text-sm font-black uppercase tracking-wide">
+            Dropped
+          </span>
           <a
-            className="underline"
+            className="rounded-sm border-2 border-[#11100D] bg-[#F78E42] px-2 py-1 font-heading text-xs font-black uppercase text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.18)] transition hover:-translate-y-0.5"
             href={`/drops/${lastCreatedDrop.id}`}
             onClick={() => setLastCreatedDrop(null)}
           >

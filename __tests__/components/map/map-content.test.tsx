@@ -14,6 +14,7 @@ jest.mock("next/dynamic", () => () => {
     onMapClick,
     layerControls,
     placementPin,
+    showSurfSpots,
     onBeachSelect,
   }: any) => {
     const [mountId] = require("react").useState(
@@ -28,6 +29,7 @@ jest.mock("next/dynamic", () => () => {
         data-initial-zoom={String(initialZoom)}
         data-mount-id={mountId}
         data-placement-pin={placementPin ? `${placementPin.lat},${placementPin.lon}` : ""}
+        data-show-surf-spots={String(showSurfSpots)}
       >
         {layerControls}
         <button
@@ -126,7 +128,9 @@ describe("MapContent", () => {
     const mapContainer = screen.getByTestId("map-container");
 
     expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
-    expect(mapContainer.querySelector("[aria-hidden='true']")).toBeNull();
+    expect(screen.getByTestId("map-zine-overlay")).toBeInTheDocument();
+    expect(mapContainer).toHaveClass("zine-map-frame");
+    expect(screen.queryByTestId("map-skeleton")).not.toBeInTheDocument();
     expect(mapContainer).toBeInTheDocument();
   });
 
@@ -238,6 +242,15 @@ describe("MapContent", () => {
     });
   });
 
+  it("passes the Surf Spots layer visibility to the interactive map", () => {
+    render(<MapContent {...defaultProps} showSurfSpots={false} />);
+
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-show-surf-spots",
+      "false",
+    );
+  });
+
   it("should not render the map status overlay", () => {
     render(<MapContent {...defaultProps} />);
 
@@ -263,6 +276,27 @@ describe("MapContent", () => {
       expect(screen.getByTestId("interactive-map")).toHaveAttribute(
         "data-initial-center",
         `${mockBeaches[0].lat},${mockBeaches[0].lon}`,
+      );
+    });
+  });
+
+  it("should prioritize a selected beach over the current search result list", async () => {
+    render(
+      <MapContent
+        {...defaultProps}
+        searchQuery="Ocean"
+        filteredBeaches={[mockBeaches[0]] as any}
+        selectedBeach={mockBeaches[1] as any}
+      />,
+    );
+
+    const mapContainer = screen.getByTestId("map-container");
+    fireEvent.pointerDown(mapContainer);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+        "data-initial-center",
+        `${mockBeaches[1].lat},${mockBeaches[1].lon}`,
       );
     });
   });

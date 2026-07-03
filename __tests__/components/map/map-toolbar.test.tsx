@@ -46,6 +46,7 @@ describe("MapToolbar", () => {
   it("renders an always-visible beach search input", () => {
     render(<MapToolbar {...defaultProps} />);
 
+    expect(screen.getByTestId("map-controls")).toHaveClass("zine-tab");
     expect(
       screen.getByRole("combobox", {
         name: "Search beaches, spots, or cities",
@@ -74,6 +75,7 @@ describe("MapToolbar", () => {
     await user.click(screen.getByRole("option", { name: /Blacks San Diego, CA/i }));
 
     expect(defaultProps.onSuggestionSelect).toHaveBeenCalledWith(suggestions[0]);
+    expect(screen.queryByRole("option")).not.toBeInTheDocument();
   });
 
   it("supports keyboard selection from the suggestions combobox", async () => {
@@ -118,6 +120,22 @@ describe("MapToolbar", () => {
       "aria-pressed",
       "true",
     );
+  });
+
+  it("uses a header layers menu instead of the standalone swell toggle", async () => {
+    const user = userEvent.setup();
+    render(
+      <MapToolbar
+        {...defaultProps}
+        layerControls={<div data-testid="mock-layer-menu">Layer toggles</div>}
+      />,
+    );
+
+    expect(screen.queryByTestId("swell-field-toggle")).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId("map-layers-toggle"));
+
+    expect(screen.getByTestId("mock-layer-menu")).toBeInTheDocument();
   });
 
   it("keeps the three toolbar actions in one compact mobile row", () => {

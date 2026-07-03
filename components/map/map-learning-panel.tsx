@@ -35,7 +35,7 @@ const READING_MODES: ReadingMode[] = [
     label: "Buoy read",
     shortLabel: "Buoy",
     Icon: Waves,
-    headline: "Start with the buoy before trusting the spot number.",
+    headline: "Start with the buoy.",
     body: "Buoys show the raw swell moving through the water. Period tells you how much push it has; direction tells you whether that energy can reach the beach.",
     call: "Long-period swell with a direction that fits the beach gets upgraded. Short-period local wind swell gets checked against the map before you drive.",
     mapCue: "Tap swell field on the map, then compare the bright bands to nearby beach markers.",
@@ -176,20 +176,20 @@ export function MapLearningPanel(): ReactElement {
   return (
     <aside
       data-testid="map-learning-panel"
-      className="zine-tab h-full min-h-0 overflow-y-auto border-t border-[#11100D]/10 bg-[#F4EBD8] text-[#11100D] shadow-[0_-10px_28px_rgba(0,0,0,0.18)] xl:border-l xl:border-t-0"
+      className="zine-tab flex h-full min-h-0 flex-col overflow-hidden border-t-2 border-[#11100D] bg-[#F4EBD8] text-[#11100D] shadow-[0_-10px_28px_rgba(0,0,0,0.18)] lg:border-l-2 lg:border-t-0"
       aria-label="How to read buoy wind and tide"
     >
-      <div className="space-y-5 p-4 sm:p-5">
+      <div
+        data-testid="map-learning-panel-scroll"
+        className="min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain p-4 pb-8 sm:p-5 sm:pb-10"
+      >
         <div className="space-y-2">
-          <p className="font-mono text-[11px] font-bold uppercase tracking-[0.22em] text-[#0B3A75]">
-            Read the call
-          </p>
           <h2 className="font-heading text-2xl font-black leading-none text-[#11100D] sm:text-3xl">
             Buoy, wind, tide.
           </h2>
           <p className="font-mono text-sm leading-6 text-[#11100D]/78">
-            Use this map like a field guide. Switch layers, read the cue, then
-            decide whether the marker deserves a YES, MAYBE, or NO.
+            Use this map like a field guide. Switch layers to see how swell
+            energy, wind, and tide shape the surf window at nearby beaches.
           </p>
         </div>
 

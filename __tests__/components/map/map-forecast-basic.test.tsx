@@ -201,16 +201,16 @@ describe("Map Forecast Basic Tests", () => {
     }).not.toThrow();
   });
 
-  it("should render branded condition labels in wave-height mode", async () => {
+  it("should not render the condition verdict strip in wave-height mode", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
 
     render(<InteractiveMap />);
 
-    expect(screen.getByTestId("map-condition-legend")).toBeInTheDocument();
-    expect(screen.getByText("Worth it")).toBeInTheDocument();
-    expect(screen.getByText("Maybe")).toBeInTheDocument();
-    expect(screen.getByText("Scout it")).toBeInTheDocument();
-    expect(screen.getByText("No read")).toBeInTheDocument();
+    expect(screen.queryByTestId("map-condition-legend")).toBeNull();
+    expect(screen.queryByText("Worth it")).toBeNull();
+    expect(screen.queryByText("Maybe")).toBeNull();
+    expect(screen.queryByText("Scout it")).toBeNull();
+    expect(screen.queryByText("No read")).toBeNull();
     expect(screen.queryByText("GOOD")).toBeNull();
     expect(screen.queryByText("FAIR")).toBeNull();
     expect(screen.queryByText("CHECK")).toBeNull();
@@ -253,7 +253,32 @@ describe("Map Forecast Basic Tests", () => {
     expect(selector.className).not.toContain("absolute");
     expect(selector.className).not.toContain("top-3");
     expect(within(selector).getByTestId("swell-field-legend-caption")).toHaveTextContent(
-      "denser = bigger · longer marks = longer period"
+      "more orange = bigger swell · longer dashes = more push"
+    );
+  });
+
+  it("keeps embedded swell controls balanced beside map layer controls", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+
+    render(
+      <InteractiveMap
+        showSwellField
+        onSwellLayerChange={jest.fn()}
+        layerControls={<div data-testid="mock-layer-controls">Layers</div>}
+      />,
+    );
+
+    const legend = screen.getByTestId("map-condition-legend");
+    const selector = within(legend).getByTestId("swell-layer-selector");
+
+    expect(legend).toHaveClass("max-w-[31rem]");
+    expect(selector).toHaveClass("min-w-[16rem]", "sm:min-w-[18rem]");
+    expect(within(selector).getByRole("radiogroup")).toHaveClass(
+      "grid",
+      "grid-cols-2",
+    );
+    expect(screen.getByTestId("mock-layer-controls").parentElement).toHaveClass(
+      "shrink-0",
     );
   });
 
@@ -286,8 +311,8 @@ describe("Map Forecast Basic Tests", () => {
       within(legend).getByRole("button", { name: "Expand map legend" })
     );
 
-    expect(within(legend).getByText("Worth it")).toBeInTheDocument();
     expect(within(legend).getByTestId("swell-layer-selector")).toBeInTheDocument();
+    expect(within(legend).queryByText("Worth it")).toBeNull();
   });
 
   it("should call Mapbox Map constructor with correct parameters", async () => {
@@ -388,6 +413,36 @@ describe("Map Forecast Basic Tests", () => {
       const Marker = require("mapbox-gl").Marker;
       expect(Marker).toHaveBeenCalled();
     }, { timeout: 3000 });
+  });
+
+  it("should remove spot markers when the Surf Spots layer is off", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const Marker = require("mapbox-gl").Marker;
+    const mockBeaches = [
+      { id: "test-1", name: "Test Beach", lat: 32.75, lon: -117.25 },
+    ];
+
+    const { rerender } = render(<InteractiveMap beaches={mockBeaches as any} />);
+
+    await waitFor(() => {
+      expect(Marker).toHaveBeenCalled();
+    }, { timeout: 3000 });
+
+    const marker = Marker.mock.results.at(-1)?.value;
+    if (!marker) {
+      throw new Error("Expected a beach marker instance");
+    }
+
+    rerender(
+      <InteractiveMap
+        beaches={mockBeaches as any}
+        showSurfSpots={false}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(marker.remove).toHaveBeenCalled();
+    });
   });
 
   it("should clear the swell-field leash before recentering without a remount", async () => {

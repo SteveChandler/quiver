@@ -1,5 +1,6 @@
 import {
   SurfDropServiceError,
+  buildAccessibleMapDropPayloads,
   claimSurfDropLink,
   computeQrVenueScanUpdate,
   filterRowsByBbox,
@@ -159,6 +160,81 @@ describe("filterRowsByBbox", () => {
     expect(filterRowsByBbox(rows, bbox).map((row) => row.id)).toEqual([
       "550e8400-e29b-41d4-a716-446655440001",
     ]);
+  });
+});
+
+describe("buildAccessibleMapDropPayloads", () => {
+  const bbox: Bbox = { minLon: -118, minLat: 32, maxLon: -117, maxLat: 33 };
+  const viewerId = "550e8400-e29b-41d4-a716-446655440099";
+
+  it("returns only in-bounds drops the viewer owns or can access through friends", async () => {
+    const ownedDrop = activeDrop({
+      id: "550e8400-e29b-41d4-a716-446655440101",
+      user_id: viewerId,
+      audience: "private",
+    });
+    const friendDrop = activeDrop({
+      id: "550e8400-e29b-41d4-a716-446655440102",
+      user_id: "550e8400-e29b-41d4-a716-446655440202",
+      location_type: "custom_pin",
+      beach_id: null,
+      custom_lat: 32.749,
+      custom_lon: -117.253,
+      beach: null,
+      audience: "mutuals",
+    });
+    const privateDrop = activeDrop({
+      id: "550e8400-e29b-41d4-a716-446655440103",
+      user_id: "550e8400-e29b-41d4-a716-446655440203",
+      audience: "private",
+    });
+    const blockedDrop = activeDrop({
+      id: "550e8400-e29b-41d4-a716-446655440104",
+      user_id: "550e8400-e29b-41d4-a716-446655440204",
+      audience: "friends",
+    });
+    const outOfBoundsDrop = activeDrop({
+      id: "550e8400-e29b-41d4-a716-446655440105",
+      user_id: "550e8400-e29b-41d4-a716-446655440205",
+      location_type: "custom_pin",
+      beach_id: null,
+      custom_lat: 34,
+      custom_lon: -117.5,
+      beach: null,
+      audience: "mutuals",
+    });
+    const repository = createRepository({
+      hasBlockBetween: jest.fn(async (_viewerId, ownerId) =>
+        ownerId === blockedDrop.user_id
+      ),
+      viewerHasLinkGrant: jest.fn(async () => false),
+      viewerIsParticipant: jest.fn(async () => false),
+      viewerIsMutual: jest.fn(async (_viewerId, ownerId) =>
+        ownerId === friendDrop.user_id || ownerId === outOfBoundsDrop.user_id
+      ),
+    });
+
+    const payloads = await buildAccessibleMapDropPayloads(
+      repository,
+      [ownedDrop, friendDrop, privateDrop, blockedDrop, outOfBoundsDrop],
+      bbox,
+      viewerId,
+    );
+
+    expect(payloads.map((payload) => payload.id)).toEqual([
+      ownedDrop.id,
+      friendDrop.id,
+    ]);
+    expect(payloads[1]).toMatchObject({
+      id: friendDrop.id,
+      lat: 32.749,
+      lon: -117.253,
+      creator: { id: friendDrop.user_id },
+    });
+    expect(repository.viewerIsMutual).not.toHaveBeenCalledWith(
+      viewerId,
+      outOfBoundsDrop.user_id,
+    );
   });
 });
 

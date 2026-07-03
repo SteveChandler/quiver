@@ -24,8 +24,8 @@ const LAYERS: Array<{ id: SwellLayerId; label: string }> = [
 const COMBINED_SWATCH_SEGMENTS: SwellLayerId[] = ["s1", "s2", "wind"];
 
 function captionForLayer(activeLayer: SwellLayerId): string {
-  if (activeLayer === "wind") return "flow streaks = wind speed & direction";
-  return "denser = bigger · longer marks = longer period";
+  if (activeLayer === "wind") return "lines point with the wind · longer = stronger";
+  return "more orange = bigger swell · longer dashes = more push";
 }
 
 interface SwellLayerSelectorProps {
@@ -41,7 +41,7 @@ export function SwellLayerSelector({
 }: SwellLayerSelectorProps): ReactElement {
   const isLegendPlacement = placement === "legend";
   const containerClassName = isLegendPlacement
-    ? "pointer-events-auto flex w-full flex-col gap-1"
+    ? "pointer-events-auto flex w-full min-w-[16rem] flex-1 flex-col gap-1 sm:min-w-[18rem]"
     : "pointer-events-auto absolute right-3 top-3 z-10 flex w-44 flex-col gap-1 p-1.5 sm:top-4 sm:w-52 sm:gap-1.5 sm:p-2";
   const containerStyle = isLegendPlacement
     ? undefined
@@ -52,10 +52,10 @@ export function SwellLayerSelector({
         boxShadow: SWELL_MAP_STICKER_SHADOW,
       };
   const groupClassName = isLegendPlacement
-    ? "grid grid-cols-4 gap-1"
+    ? "grid grid-cols-2 gap-1.5"
     : "grid grid-cols-2 gap-1 sm:gap-1.5";
   const optionClassName = isLegendPlacement
-    ? "flex items-center gap-1 rounded-sm px-1 py-0.5 text-[9px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] sm:gap-1.5 sm:px-2 sm:text-[10px]"
+    ? "inline-flex w-full items-center justify-center gap-1 rounded-sm px-1 py-0.5 text-[9px] whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] sm:gap-1.5 sm:px-2 sm:text-[10px]"
     : "flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] sm:gap-1.5 sm:px-2 sm:py-1 sm:text-[11px]";
   const legendClassName = isLegendPlacement
     ? "mt-1 border-t border-white/15 pt-1"
@@ -78,6 +78,11 @@ export function SwellLayerSelector({
         {LAYERS.map((layer) => {
           const isActive = layer.id === active;
           const isCombined = layer.id === "combined";
+          const showSwatch = layer.id !== "wind";
+          const layerClassName =
+            layer.id === "wind" && isLegendPlacement
+              ? `${optionClassName} pl-2`
+              : optionClassName;
           return (
             <button
               key={layer.id}
@@ -86,7 +91,7 @@ export function SwellLayerSelector({
               aria-checked={isActive}
               data-testid={`swell-layer-${layer.id}`}
               onClick={() => onChange(layer.id)}
-              className={optionClassName}
+              className={layerClassName}
               style={{
                 // Active chip: solid fill in its layer color + dark bold text, so the
                 // selected field is unmistakable at a glance. Inactive: transparent.
@@ -113,7 +118,7 @@ export function SwellLayerSelector({
                     />
                   ))}
                 </span>
-              ) : (
+              ) : showSwatch ? (
                 <span
                   aria-hidden="true"
                   data-testid={`swell-layer-${layer.id}-swatch`}
@@ -122,7 +127,7 @@ export function SwellLayerSelector({
                     background: isActive ? "#161A40" : SWELL_LAYER_COLOR[layer.id],
                   }}
                 />
-              )}
+              ) : null}
               {layer.label}
             </button>
           );
@@ -130,7 +135,7 @@ export function SwellLayerSelector({
       </div>
       <div data-testid="swell-field-legend" className={legendClassName}>
         <span className="font-heading text-[10px] uppercase tracking-wide text-white/70">
-          Swell size
+          Field key
         </span>
         <div className="mt-1 flex items-center gap-1.5">
           <span className="font-mono text-[9px] text-white/70">small</span>

@@ -406,6 +406,24 @@ export function toMapDropPayload(drop: SurfDropRecord): Record<string, unknown> 
   };
 }
 
+export async function buildAccessibleMapDropPayloads(
+  repository: SurfDropsRepository,
+  rows: SurfDropRecord[],
+  bbox: Bbox,
+  viewerId: string | null,
+): Promise<Record<string, unknown>[]> {
+  const payloads: Record<string, unknown>[] = [];
+  const inBoundsRows = filterRowsByBbox(rows, bbox);
+
+  for (const row of inBoundsRows) {
+    if (await viewerCanAccessDrop(repository, row, viewerId)) {
+      payloads.push(toMapDropPayload(row));
+    }
+  }
+
+  return payloads;
+}
+
 export function toDropDetailPayload(
   drop: SurfDropRecord,
   input: {

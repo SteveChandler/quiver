@@ -122,6 +122,8 @@ jest.mock("@/components/map/map-content", () => ({
     onPlacementPinChange,
     placementActive,
     placementPin,
+    placementPinDraggable,
+    showSurfSpots,
     showSwellField,
     swellTimelineSteps,
   }: {
@@ -133,6 +135,8 @@ jest.mock("@/components/map/map-content", () => ({
     onPlacementPinChange?: (latlng: { lat: number; lng: number }) => void;
     placementActive?: boolean;
     placementPin?: { lat: number; lon: number } | null;
+    placementPinDraggable?: boolean;
+    showSurfSpots?: boolean;
     showSwellField?: boolean;
     swellTimelineSteps?: string[];
   }) => (
@@ -141,8 +145,10 @@ jest.mock("@/components/map/map-content", () => ({
       data-custom-spot-count={String(customSpots?.length ?? 0)}
       data-loading={String(loading)}
       data-placement-active={String(placementActive)}
+      data-placement-draggable={String(placementPinDraggable)}
       data-placement-pin={placementPin ? `${placementPin.lat},${placementPin.lon}` : ""}
       data-show-swell-field={String(showSwellField)}
+      data-show-surf-spots={String(showSurfSpots)}
       data-swell-timeline-steps={swellTimelineSteps?.join(",") ?? ""}
       data-testid="map-content"
     >
@@ -157,7 +163,11 @@ jest.mock("@/components/map/map-content", () => ({
       <button
         type="button"
         data-testid="mock-placement-drag"
-        onClick={() => onPlacementPinChange?.({ lat: 32.83, lng: -117.29 })}
+        onClick={() =>
+          placementPinDraggable
+            ? onPlacementPinChange?.({ lat: 32.83, lng: -117.29 })
+            : undefined
+        }
       >
         drag pin
       </button>
@@ -198,19 +208,30 @@ describe("MapView", () => {
       "true",
     );
     expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-show-surf-spots",
+      "true",
+    );
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
       "data-custom-spot-count",
       "1",
     );
     expect(screen.queryByTestId("view-mode-list")).not.toBeInTheDocument();
   });
 
-  it("passes a 48-hour swell timeline to the map", () => {
-    render(<MapView />);
+  it("passes readable clock-time swell timeline labels to the map", () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date(2026, 6, 2, 20, 6));
 
-    expect(screen.getByTestId("map-content")).toHaveAttribute(
-      "data-swell-timeline-steps",
-      "Now,+3h,+6h,+12h,+18h,+24h,+36h,+48h",
-    );
+    try {
+      render(<MapView />);
+
+      expect(screen.getByTestId("map-content")).toHaveAttribute(
+        "data-swell-timeline-steps",
+        "Now,11 PM,Fri 2 AM,Fri 8 AM,Fri 2 PM,Fri 8 PM,Sat 8 AM,Sat 8 PM",
+      );
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("shows the field guide trigger but keeps the panel collapsed on the live map", () => {
@@ -220,6 +241,33 @@ describe("MapView", () => {
     expect(screen.queryByTestId("map-learning-panel")).not.toBeInTheDocument();
   });
 
+  it("passes controlled layer state to the map and toolbar", async () => {
+    const user = userEvent.setup();
+    const onShowSwellFieldChange = jest.fn();
+    render(
+      <MapView
+        toolbarLayerControls={<div data-testid="mock-toolbar-layers">Layer menu</div>}
+        showSwellField={false}
+        onShowSwellFieldChange={onShowSwellFieldChange}
+        showSurfSpots={false}
+      />,
+    );
+
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-show-swell-field",
+      "false",
+    );
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-show-surf-spots",
+      "false",
+    );
+    expect(screen.queryByTestId("swell-field-toggle")).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId("map-layers-toggle"));
+
+    expect(screen.getByTestId("mock-toolbar-layers")).toBeInTheDocument();
+  });
+
   it("opens and closes the field guide from the live map trigger", async () => {
     const user = userEvent.setup();
     render(<MapView />);
@@ -227,9 +275,34 @@ describe("MapView", () => {
     await user.click(screen.getByTestId("map-field-guide-toggle"));
 
     expect(screen.getByTestId("map-learning-panel")).toBeInTheDocument();
+    expect(screen.queryByText("Read the call")).not.toBeInTheDocument();
+    expect(screen.queryByText(/YES, MAYBE, or NO/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Switch layers to see how swell energy, wind, and tide/i),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("map-learning-panel")).toHaveClass(
+      "flex",
+      "overflow-hidden",
+    );
+    expect(screen.getByTestId("map-learning-panel-scroll")).toHaveClass(
+      "min-h-0",
+      "flex-1",
+      "overflow-y-auto",
+      "overscroll-contain",
+    );
+    expect(document.getElementById("map-field-guide-panel")).toHaveClass(
+      "overflow-hidden",
+    );
+    expect(
+      document.getElementById("map-field-guide-panel")?.parentElement,
+    ).toHaveClass("lg:grid-cols-[minmax(0,1fr)_360px]");
     expect(
       screen.getByRole("heading", { name: /buoy, wind, tide/i }),
     ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Start with the buoy." })).toBeInTheDocument();
+    expect(
+      screen.queryByText(/before trusting the spot number/i),
+    ).not.toBeInTheDocument();
 
     await user.click(
       screen.getByRole("button", { name: "Close map field guide" }),
@@ -349,6 +422,38 @@ describe("MapView", () => {
     expect(mockSetSearchQuery).not.toHaveBeenCalledWith("");
   });
 
+  it("commits a selected search suggestion to the map state", async () => {
+    const user = userEvent.setup();
+    mockSearchQuery = "isl";
+    mockFilteredBeaches = [
+      {
+        id: "isle-of-palms",
+        name: "Isle of Palms",
+        city: "Isle of Palms",
+        state: "SC",
+        lat: 32.7868,
+        lon: -79.7948,
+      },
+      {
+        id: "pawleys-island-pier",
+        name: "Pawleys Island Pier",
+        city: "Pawleys Island",
+        state: "SC",
+        lat: 33.4294,
+        lon: -79.1215,
+      },
+    ];
+
+    render(<MapView />);
+
+    await user.click(
+      screen.getByRole("option", { name: /Isle of Palms Isle of Palms, SC/i }),
+    );
+
+    expect(mockSetSearchQuery).toHaveBeenCalledWith("Isle of Palms");
+    expect(mockSetSelectedBeach).toHaveBeenCalledWith(mockFilteredBeaches[0]);
+  });
+
   it("uses map clicks and marker drags to update the active placement pin", async () => {
     const user = userEvent.setup();
     const onPlacementPinChange = jest.fn();
@@ -372,6 +477,38 @@ describe("MapView", () => {
       lat: 32.83,
       lon: -117.29,
     });
+  });
+
+  it("keeps a frozen placement pin visible without allowing map updates", async () => {
+    const user = userEvent.setup();
+    const onPlacementPinChange = jest.fn();
+
+    render(
+      <MapView
+        placementActive
+        placementPin={{ lat: 32.77, lon: -117.25 }}
+        placementPinDraggable={false}
+        onPlacementPinChange={onPlacementPinChange}
+      />,
+    );
+
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-placement-active",
+      "true",
+    );
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-placement-draggable",
+      "false",
+    );
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-placement-pin",
+      "32.77,-117.25",
+    );
+
+    await user.click(screen.getByTestId("mock-map-content-click"));
+    await user.click(screen.getByTestId("mock-placement-drag"));
+
+    expect(onPlacementPinChange).not.toHaveBeenCalled();
   });
 
   it("strips stale search URL params when a region is selected", async () => {

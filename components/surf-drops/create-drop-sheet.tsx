@@ -1,15 +1,13 @@
 /**
- * CreateDropSheet — modal drawer with the two-mode ("known spot" vs
- * "custom pin") drop-creation UI. Overlays the map, closes on submit +
- * hands the freshly-created share_slug back to the parent (the map page
- * client uses that to open the sibling agent's ShareDropSheet).
+ * CreateDropSheet — side panel with the two-mode ("known spot" vs "custom pin")
+ * drop-creation UI. It stays off the map's center so the placed pin remains
+ * visible while the user adds timing and audience details.
  *
  * Client-side clamps mirror lib/surf-drops/validation.ts so we don't waste a
  * round-trip on bad input:
  *   - starts_at ≤ now + 4 days
  *   - ends_at   > starts_at
  *   - ends_at - starts_at ≥ 15 min
- *   - note ≤ 240 chars
  *
  * The Known-Spot mode uses `/api/beaches/search` when available; if search
  * returns nothing (or the parent passes a `selectedBeach` from the map), we
@@ -24,13 +22,7 @@ import {
   useState,
   type FormEvent,
 } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export type CreateDropMode = "known_spot" | "custom_pin";
@@ -45,6 +37,16 @@ export interface CreateDropSheetBeach {
 export interface CreateDropSheetSuccess {
   id: string;
   share_slug: string;
+  location_type: CreateDropMode;
+  beach_id: string | null;
+  lat: number | null;
+  lon: number | null;
+  spot_name: string | null;
+  general_area: string | null;
+  exact_label: string | null;
+  starts_at: string;
+  ends_at: string;
+  audience: "mutuals" | "friends" | "link" | "private";
 }
 
 interface CreateDropSheetProps {
@@ -59,9 +61,20 @@ interface CreateDropSheetProps {
   onCreated: (result: CreateDropSheetSuccess) => void;
 }
 
-const NOTE_MAX = 240;
 const FOUR_DAYS_MS = 4 * 24 * 60 * 60 * 1000;
 const MIN_DURATION_MS = 15 * 60 * 1000;
+const DEFAULT_DURATION_MINUTES = 60;
+const DURATION_OPTIONS = [
+  { label: "45m", minutes: 45 },
+  { label: "1h", minutes: 60 },
+  { label: "2h", minutes: 120 },
+  { label: "3h", minutes: 180 },
+] as const;
+const START_PRESETS = [
+  { label: "Now", offsetMinutes: 0 },
+  { label: "+30m", offsetMinutes: 30 },
+  { label: "+1h", offsetMinutes: 60 },
+] as const;
 
 function roundUpTo15Min(date: Date): Date {
   const ms = 15 * 60 * 1000;
@@ -84,6 +97,53 @@ function fromLocalInputValue(value: string): Date | null {
   if (!value) return null;
   const parsed = new Date(value);
   return Number.isFinite(parsed.getTime()) ? parsed : null;
+}
+
+function addMinutes(date: Date, minutes: number): Date {
+  return new Date(date.getTime() + minutes * 60 * 1000);
+}
+
+function createDefaultWindow(): { startsAt: Date; endsAt: Date } {
+  const startsAt = roundUpTo15Min(new Date(Date.now() + 15 * 60 * 1000));
+  const endsAt = addMinutes(startsAt, DEFAULT_DURATION_MINUTES);
+  return { startsAt, endsAt };
+}
+
+function createDefaultWindowInputs(): {
+  startsAtInput: string;
+  endsAtInput: string;
+} {
+  const { startsAt, endsAt } = createDefaultWindow();
+  return {
+    startsAtInput: toLocalInputValue(startsAt),
+    endsAtInput: toLocalInputValue(endsAt),
+  };
+}
+
+function formatWindowTime(value: string): string {
+  const date = fromLocalInputValue(value);
+  if (!date) return "Choose a time";
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatForecastSummary(args: {
+  mode: CreateDropMode;
+  pickedBeach: CreateDropSheetBeach | null;
+  customPin: { lat: number; lon: number; label?: string | null } | null | undefined;
+  startsAtInput: string;
+  endsAtInput: string;
+}): string {
+  const location =
+    args.mode === "known_spot"
+      ? args.pickedBeach?.name ?? "selected spot"
+      : args.customPin?.label ?? "custom pin";
+  const startLabel = formatWindowTime(args.startsAtInput);
+  const endLabel = formatWindowTime(args.endsAtInput);
+  return `Quiver forecast attached for ${location}: ${startLabel} to ${endLabel}.`;
 }
 
 interface ClampResult {
@@ -145,20 +205,34 @@ export function CreateDropSheet({
   const [audience, setAudience] = useState<
     "mutuals" | "friends" | "link" | "private"
   >("mutuals");
-  const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const defaults = useMemo(() => {
-    const startsAt = roundUpTo15Min(new Date(Date.now() + 15 * 60 * 1000));
-    const endsAt = new Date(startsAt.getTime() + 60 * 60 * 1000);
-    return { startsAt, endsAt };
-  }, []);
-  const [startsAtInput, setStartsAtInput] = useState<string>(
-    toLocalInputValue(defaults.startsAt),
+  const [durationMinutes, setDurationMinutes] = useState<number>(
+    DEFAULT_DURATION_MINUTES,
   );
-  const [endsAtInput, setEndsAtInput] = useState<string>(
-    toLocalInputValue(defaults.endsAt),
+  const [windowInputs, setWindowInputs] = useState(
+    () => createDefaultWindowInputs(),
+  );
+  const { startsAtInput, endsAtInput } = windowInputs;
+
+  const setStartsAtInput = useCallback((value: string) => {
+    setWindowInputs((current) => ({ ...current, startsAtInput: value }));
+  }, []);
+
+  const setEndsAtInput = useCallback((value: string) => {
+    setWindowInputs((current) => ({ ...current, endsAtInput: value }));
+  }, []);
+
+  const forecastSummary = useMemo(
+    () =>
+      formatForecastSummary({
+        mode,
+        pickedBeach,
+        customPin,
+        startsAtInput,
+        endsAtInput,
+      }),
+    [mode, pickedBeach, customPin, startsAtInput, endsAtInput],
   );
 
   // Sync pre-selected beach when the parent updates it while the sheet is open.
@@ -172,6 +246,8 @@ export function CreateDropSheet({
     }
     setMode(defaultMode);
     setError(null);
+    setDurationMinutes(DEFAULT_DURATION_MINUTES);
+    setWindowInputs(createDefaultWindowInputs());
     if (selectedBeach) {
       setPickedBeach(selectedBeach);
       return;
@@ -180,12 +256,22 @@ export function CreateDropSheet({
       setPickedBeach(null);
       setBeachSearch("");
       setBeachResults([]);
+      setGeneralArea(customPin?.label ?? "Custom pin");
     }
-  }, [defaultMode, open, selectedBeach]);
+  }, [customPin?.label, defaultMode, open, selectedBeach]);
 
   useEffect(() => {
-    if (customPin?.label && !generalArea) setGeneralArea(customPin.label);
-  }, [customPin, generalArea]);
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose, open]);
+
+  useEffect(() => {
+    if (open && customPin?.label) setGeneralArea(customPin.label);
+  }, [customPin?.label, open]);
 
   // Beach search — hit /api/beaches/search if it exists; ignore errors so the
   // fallback (parent-passed beach) still works.
@@ -223,6 +309,38 @@ export function CreateDropSheet({
     };
   }, [mode, beachSearch]);
 
+  const updateStartsAtInput = useCallback(
+    (value: string) => {
+      setStartsAtInput(value);
+      const startsAt = fromLocalInputValue(value);
+      if (!startsAt) return;
+      setEndsAtInput(toLocalInputValue(addMinutes(startsAt, durationMinutes)));
+    },
+    [durationMinutes, setEndsAtInput, setStartsAtInput],
+  );
+
+  const applyStartPreset = useCallback(
+    (offsetMinutes: number) => {
+      const startsAt =
+        offsetMinutes === 0
+          ? roundUpTo15Min(new Date())
+          : roundUpTo15Min(addMinutes(new Date(), offsetMinutes));
+      setStartsAtInput(toLocalInputValue(startsAt));
+      setEndsAtInput(toLocalInputValue(addMinutes(startsAt, durationMinutes)));
+    },
+    [durationMinutes, setEndsAtInput, setStartsAtInput],
+  );
+
+  const applyDuration = useCallback(
+    (minutes: number) => {
+      setDurationMinutes(minutes);
+      const startsAt =
+        fromLocalInputValue(startsAtInput) ?? createDefaultWindow().startsAt;
+      setEndsAtInput(toLocalInputValue(addMinutes(startsAt, minutes)));
+    },
+    [setEndsAtInput, startsAtInput],
+  );
+
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -239,17 +357,19 @@ export function CreateDropSheet({
         setError(clamped.message);
         return;
       }
-      if (note.length > NOTE_MAX) {
-        setError(`Note must be ${NOTE_MAX} characters or fewer`);
-        return;
-      }
 
       const body: Record<string, unknown> = {
         location_type: mode,
         starts_at: clamped.starts_at,
         ends_at: clamped.ends_at,
         audience,
-        note: note.trim() || null,
+        note: forecastSummary,
+        forecast_snapshot: {
+          source: "quiver_map",
+          summary: forecastSummary,
+          location_type: mode,
+          captured_at: new Date().toISOString(),
+        },
       };
       if (mode === "known_spot") {
         if (!pickedBeach) {
@@ -295,7 +415,27 @@ export function CreateDropSheet({
           setError("Surf Drop was created but the server returned no slug");
           return;
         }
-        onCreated({ id: data.id, share_slug: data.share_slug });
+        onCreated({
+          id: data.id,
+          share_slug: data.share_slug,
+          location_type: mode,
+          beach_id: mode === "known_spot" ? pickedBeach?.id ?? null : null,
+          lat:
+            mode === "known_spot"
+              ? pickedBeach?.lat ?? null
+              : customPin?.lat ?? null,
+          lon:
+            mode === "known_spot"
+              ? pickedBeach?.lon ?? null
+              : customPin?.lon ?? null,
+          spot_name: mode === "known_spot" ? pickedBeach?.name ?? null : null,
+          general_area:
+            mode === "custom_pin" ? generalArea.trim() || null : null,
+          exact_label: mode === "custom_pin" ? customPin?.label ?? null : null,
+          starts_at: clamped.starts_at,
+          ends_at: clamped.ends_at,
+          audience,
+        });
         onClose();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Network error");
@@ -309,7 +449,7 @@ export function CreateDropSheet({
       customPin,
       generalArea,
       audience,
-      note,
+      forecastSummary,
       startsAtInput,
       endsAtInput,
       onClose,
@@ -317,35 +457,48 @@ export function CreateDropSheet({
     ],
   );
 
-  return (
-    <Dialog open={open} onOpenChange={(next) => (next ? undefined : onClose())}>
-      <DialogContent
-        data-testid="create-drop-sheet"
-        className="max-w-md"
-        style={{ background: "#F4EBD8", color: "#11100D" }}
-      >
-        <DialogHeader>
-          <DialogTitle
-            style={{
-              fontFamily: "'Bowlby One', 'Space Grotesk', system-ui",
-              letterSpacing: "-0.01em",
-            }}
-          >
-            Drop a spot
-          </DialogTitle>
-          <DialogDescription className="sr-only">
-            Share a heads-up that you&apos;re surfing at a known spot or a
-            custom pin.
-          </DialogDescription>
-        </DialogHeader>
+  if (!open) return null;
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+  return (
+    <div className="pointer-events-none absolute inset-x-0 bottom-0 top-32 z-40 flex items-end justify-end p-3 sm:p-4 lg:items-stretch lg:p-0">
+      <aside
+        role="dialog"
+        aria-modal="false"
+        aria-labelledby="create-drop-sheet-title"
+        data-testid="create-drop-sheet"
+        className="zine-tab pointer-events-auto flex max-h-[calc(100%-1.5rem)] w-full max-w-[26rem] flex-col overflow-hidden rounded-sm border-2 border-[#11100D] bg-[#F4EBD8] text-[#11100D] shadow-[6px_8px_0_rgba(17,16,13,0.28)] lg:h-full lg:max-h-none lg:rounded-none lg:border-y-0 lg:border-r-0"
+      >
+        <div className="flex items-start justify-between gap-3 border-b-2 border-[#11100D] bg-[#F5EEDC] p-4">
+          <div className="min-w-0">
+            <h2
+              id="create-drop-sheet-title"
+              className="font-heading text-2xl font-black leading-none"
+            >
+              Drop a spot
+            </h2>
+            <p className="mt-2 font-mono text-sm leading-5 text-[#11100D]/72">
+              Confirm the pin, pick a window, and Quiver attaches the forecast.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close drop details"
+            onClick={onClose}
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-sm border-2 border-[#11100D] bg-[#F4EBD8] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.2)] transition hover:bg-[#F78E42]"
+          >
+            <X className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain p-4 pb-5"
+        >
           {/* Mode toggle */}
           <div
             role="tablist"
             aria-label="Drop location mode"
-            className="flex gap-1 rounded-md border p-1"
-            style={{ borderColor: "rgba(17, 16, 13, 0.2)" }}
+            className="grid grid-cols-2 gap-2"
           >
             {(
               [
@@ -360,11 +513,11 @@ export function CreateDropSheet({
                 aria-selected={mode === opt.id}
                 data-testid={`create-drop-mode-${opt.id}`}
                 onClick={() => setMode(opt.id)}
-                className="flex-1 rounded px-3 py-1.5 text-sm font-semibold transition"
-                style={{
-                  background: mode === opt.id ? "#F78E42" : "transparent",
-                  color: mode === opt.id ? "#F4EBD8" : "#11100D",
-                }}
+                className={
+                  mode === opt.id
+                    ? "min-h-11 border-2 border-[#11100D] bg-[#F78E42] px-3 py-2 font-heading text-sm font-black text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.18)]"
+                    : "min-h-11 border-2 border-[#11100D] bg-[#F5EEDC] px-3 py-2 font-heading text-sm font-black text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.12)] transition hover:-translate-y-0.5"
+                }
               >
                 {opt.label}
               </button>
@@ -419,8 +572,7 @@ export function CreateDropSheet({
               {pickedBeach && (
                 <div
                   data-testid="create-drop-picked-beach"
-                  className="rounded px-2 py-1 text-sm"
-                  style={{ background: "#F78E42", color: "#F4EBD8" }}
+                  className="border-2 border-[#11100D] bg-[#F78E42] px-3 py-2 font-heading text-sm font-black text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.18)]"
                 >
                   {pickedBeach.name}
                 </div>
@@ -441,8 +593,7 @@ export function CreateDropSheet({
               {customPin ? (
                 <div
                   data-testid="create-drop-custom-pin"
-                  className="rounded px-2 py-1 text-sm"
-                  style={{ background: "#F5EEDC" }}
+                  className="border-2 border-[#11100D] bg-[#F5EEDC] px-3 py-2 font-mono text-sm shadow-[2px_3px_0_rgba(17,16,13,0.12)]"
                 >
                   {customPin.lat.toFixed(4)}, {customPin.lon.toFixed(4)}
                 </div>
@@ -454,22 +605,32 @@ export function CreateDropSheet({
               <label className="mt-2 text-xs font-semibold uppercase tracking-wide">
                 General area
               </label>
-              <input
-                type="text"
+              <div
                 data-testid="create-drop-general-area"
-                placeholder="e.g. North County SD"
-                value={generalArea}
-                onChange={(e) => setGeneralArea(e.target.value)}
-                className="rounded border px-2 py-1.5 text-sm"
-                style={{
-                  borderColor: "rgba(17, 16, 13, 0.25)",
-                  background: "#F5EEDC",
-                }}
-              />
+                className="border border-[#11100D]/25 bg-[#F5EEDC] px-3 py-2 font-mono text-sm text-[#11100D]/78"
+              >
+                {generalArea.trim() || "Custom pin"}
+              </div>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-3 border-2 border-[#11100D] bg-[#F5EEDC] p-3 shadow-[3px_4px_0_rgba(17,16,13,0.14)]">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#0B3A75]">
+                  Surf window
+                </p>
+                <p className="mt-1 text-xs font-semibold text-[#11100D]/68">
+                  Start now or schedule a quick heads-up.
+                </p>
+              </div>
+              <div
+                data-testid="create-drop-end-summary"
+                className="shrink-0 border border-[#11100D]/25 bg-[#F4EBD8] px-2 py-1 text-right font-mono text-xs font-bold"
+              >
+                Ends {formatWindowTime(endsAtInput)}
+              </div>
+            </div>
             <div className="flex flex-col gap-1">
               <label className="text-xs font-semibold uppercase tracking-wide">
                 Starts
@@ -478,7 +639,7 @@ export function CreateDropSheet({
                 type="datetime-local"
                 data-testid="create-drop-starts-at"
                 value={startsAtInput}
-                onChange={(e) => setStartsAtInput(e.target.value)}
+                onChange={(e) => updateStartsAtInput(e.target.value)}
                 className="rounded border px-2 py-1.5 text-sm"
                 style={{
                   borderColor: "rgba(17, 16, 13, 0.25)",
@@ -486,48 +647,53 @@ export function CreateDropSheet({
                 }}
               />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="grid grid-cols-3 gap-2">
+              {START_PRESETS.map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => applyStartPreset(preset.offsetMinutes)}
+                  className="min-h-9 border-2 border-[#11100D] bg-[#F4EBD8] px-2 font-mono text-xs font-black uppercase shadow-[2px_2px_0_rgba(17,16,13,0.12)] transition hover:-translate-y-0.5 hover:bg-[#F78E42]"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+            <div>
               <label className="text-xs font-semibold uppercase tracking-wide">
-                Ends
+                Duration
               </label>
-              <input
-                type="datetime-local"
-                data-testid="create-drop-ends-at"
-                value={endsAtInput}
-                onChange={(e) => setEndsAtInput(e.target.value)}
-                className="rounded border px-2 py-1.5 text-sm"
-                style={{
-                  borderColor: "rgba(17, 16, 13, 0.25)",
-                  background: "#F5EEDC",
-                }}
-              />
+              <div className="mt-1 grid grid-cols-4 gap-2">
+                {DURATION_OPTIONS.map((option) => (
+                  <button
+                    key={option.minutes}
+                    type="button"
+                    data-testid={`create-drop-duration-${option.minutes}`}
+                    aria-pressed={durationMinutes === option.minutes}
+                    onClick={() => applyDuration(option.minutes)}
+                    className={
+                      durationMinutes === option.minutes
+                        ? "min-h-9 border-2 border-[#11100D] bg-[#F78E42] px-2 font-mono text-xs font-black uppercase text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.18)]"
+                        : "min-h-9 border-2 border-[#11100D] bg-[#F4EBD8] px-2 font-mono text-xs font-black uppercase text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.12)] transition hover:-translate-y-0.5"
+                    }
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-semibold uppercase tracking-wide">
-              Note
-            </label>
-            <textarea
-              data-testid="create-drop-note"
-              value={note}
-              onChange={(e) => setNote(e.target.value.slice(0, NOTE_MAX))}
-              rows={3}
-              maxLength={NOTE_MAX}
-              placeholder="Optional — tide, wax, meet at the stairs…"
-              className="rounded border px-2 py-1.5 text-sm"
-              style={{
-                borderColor: "rgba(17, 16, 13, 0.25)",
-                background: "#F5EEDC",
-              }}
-            />
-            <div
-              data-testid="create-drop-note-count"
-              className="text-right text-[10px]"
-              style={{ color: "rgba(17,16,13,0.6)" }}
+          <div className="border-2 border-[#11100D] bg-[#11100D] p-3 text-[#F5EEDC] shadow-[3px_4px_0_rgba(247,142,66,0.28)]">
+            <p className="font-mono text-[11px] font-black uppercase tracking-[0.14em] text-[#FDB84B]">
+              Forecast attached
+            </p>
+            <p
+              data-testid="create-drop-forecast-summary"
+              className="mt-2 font-mono text-sm leading-6 text-[#F5EEDC]/82"
             >
-              {note.length}/{NOTE_MAX}
-            </div>
+              {forecastSummary}
+            </p>
           </div>
 
           <div className="flex flex-col gap-1">
@@ -565,26 +731,28 @@ export function CreateDropSheet({
             </p>
           )}
 
-          <div className="mt-1 flex justify-end gap-2">
+          <div className="mt-1 flex justify-end gap-2 border-t-2 border-[#11100D]/15 pt-3">
             <Button
               type="button"
               variant="ghost"
               onClick={onClose}
               disabled={submitting}
+              className="rounded-sm border-2 border-[#11100D] bg-[#F4EBD8] font-heading font-black uppercase text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.18)] hover:bg-[#F0E5CC] hover:text-[#11100D]"
             >
               Cancel
             </Button>
             <Button
               type="submit"
+              variant="ghost"
               data-testid="create-drop-submit"
               disabled={submitting}
-              style={{ background: "#F78E42", color: "#F4EBD8" }}
+              className="rounded-sm border-2 border-[#11100D] !bg-[#F78E42] font-heading font-black uppercase !text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.28)] hover:!bg-[#F78E42] disabled:opacity-60"
             >
               {submitting ? "Dropping…" : "Drop it"}
             </Button>
           </div>
         </form>
-      </DialogContent>
-    </Dialog>
+      </aside>
+    </div>
   );
 }

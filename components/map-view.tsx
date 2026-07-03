@@ -22,6 +22,7 @@ import {
 import { MapContent } from "@/components/map/map-content";
 import { MapLearningPanel } from "@/components/map/map-learning-panel";
 import { type SwellLayerId } from "@/components/map/swell-map-theme";
+import { buildSwellTimelineSteps } from "@/components/map/swell-field/swell-timeline-labels";
 import { useProfileContext } from "@/context/profile-context";
 import type { Beach } from "@/types/database";
 
@@ -33,9 +34,13 @@ interface MapPlacementPin {
 }
 
 interface MapViewProps {
-  layerControls?: ReactNode;
+  toolbarLayerControls?: ReactNode;
+  showSwellField?: boolean;
+  onShowSwellFieldChange?: (next: boolean) => void;
+  showSurfSpots?: boolean;
   placementActive?: boolean;
   placementPin?: MapPlacementPin | null;
+  placementPinDraggable?: boolean;
   onPlacementPinChange?: (pin: MapPlacementPin) => void;
 }
 
@@ -85,9 +90,13 @@ async function resolveLastViewedCenter(): Promise<{
 }
 
 export function MapView({
-  layerControls,
+  toolbarLayerControls,
+  showSwellField: controlledShowSwellField,
+  onShowSwellFieldChange,
+  showSurfSpots = true,
   placementActive = false,
   placementPin = null,
+  placementPinDraggable = true,
   onPlacementPinChange,
 }: MapViewProps = {}) {
   const searchParams = useSearchParams();
@@ -109,13 +118,11 @@ export function MapView({
   );
   const preserveSearchStateOnNextUrlClearRef = useRef(false);
 
-  const [showSwellField, setShowSwellField] = useState(true);
+  const [localShowSwellField, setLocalShowSwellField] = useState(true);
+  const showSwellField = controlledShowSwellField ?? localShowSwellField;
   const [swellLayerId, setSwellLayerId] = useState<SwellLayerId>("s1");
   const [swellTimelineIndex, setSwellTimelineIndex] = useState(0);
-  const swellTimelineSteps = useMemo(
-    () => ["Now", "+3h", "+6h", "+12h", "+18h", "+24h", "+36h", "+48h"],
-    []
-  );
+  const swellTimelineSteps = useMemo(() => buildSwellTimelineSteps(), []);
 
   // Custom hooks for state management
   const { homeBeach, isLoading: profileLoading } = useProfileContext();
@@ -266,16 +273,6 @@ export function MapView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleBeachSelect = useCallback(
-    (beach: Beach) => {
-      setMapFocusCenter(null);
-      setSelectedBeach(beach);
-      // Smooth scroll to top to show the selected beach on map
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    },
-    [setSelectedBeach]
-  );
-
   const stripMapUrlParams = useCallback(
     (
       keys: readonly string[],
@@ -298,6 +295,18 @@ export function MapView({
       }
     },
     [pathname, router, searchParams]
+  );
+
+  const handleBeachSelect = useCallback(
+    (beach: Beach) => {
+      setMapFocusCenter(null);
+      setSearchQuery(beach.name);
+      setSelectedBeach(beach);
+      stripMapUrlParams(["search"], { preserveSearchState: true });
+      // Smooth scroll to top to show the selected beach on map
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    },
+    [setSearchQuery, setSelectedBeach, stripMapUrlParams]
   );
 
   // Both clearers write state directly (immediate visual reset) AND strip the URL param.
@@ -359,12 +368,12 @@ export function MapView({
 
   const handleMapClick = useCallback(
     (latlng: mapboxgl.LngLat) => {
-      if (!placementActive) {
+      if (!placementActive || !placementPinDraggable) {
         return;
       }
       onPlacementPinChange?.({ lat: latlng.lat, lon: latlng.lng });
     },
-    [onPlacementPinChange, placementActive],
+    [onPlacementPinChange, placementActive, placementPinDraggable],
   );
 
   const hasActiveFilters =
@@ -382,6 +391,15 @@ export function MapView({
   const handleCloseFieldGuide = useCallback((): void => {
     setShowFieldGuide(false);
   }, []);
+
+  const handleToggleSwellField = useCallback((): void => {
+    const next = !showSwellField;
+    if (onShowSwellFieldChange) {
+      onShowSwellFieldChange(next);
+      return;
+    }
+    setLocalShowSwellField(next);
+  }, [onShowSwellFieldChange, showSwellField]);
 
   const seedPlacementPin = useCallback((): MapPlacementPin => {
     if (selectedBeach && isFiniteCoord(selectedBeach.lat) && isFiniteCoord(selectedBeach.lon)) {
@@ -426,7 +444,8 @@ export function MapView({
         onClearAll={handleClearAll}
         hasActiveFilters={hasActiveFilters}
         showSwellField={showSwellField}
-        onToggleSwellField={() => setShowSwellField((v) => !v)}
+        onToggleSwellField={handleToggleSwellField}
+        layerControls={toolbarLayerControls}
         fieldGuideVisible={fieldGuideVisible}
         onOpenFieldGuide={handleOpenFieldGuide}
       />
@@ -435,7 +454,7 @@ export function MapView({
       <div
         className={
           fieldGuideVisible
-            ? "grid flex-1 grid-rows-[minmax(320px,1fr)_auto] min-h-0 xl:grid-cols-[minmax(0,1fr)_380px] xl:grid-rows-1"
+            ? "grid flex-1 grid-rows-[minmax(260px,52vh)_minmax(0,1fr)] min-h-0 lg:grid-cols-[minmax(0,1fr)_360px] lg:grid-rows-1 xl:grid-cols-[minmax(0,1fr)_380px]"
             : "grid flex-1 grid-rows-1 min-h-0"
         }
       >
@@ -457,23 +476,26 @@ export function MapView({
             onBeachSelect={handleBeachSelect}
             onMapClick={handleMapClick}
             autoNavigateOnMarkerClick={true}
+            showSurfSpots={showSurfSpots}
             showSwellField={showSwellField}
             swellLayerId={swellLayerId}
             onSwellLayerChange={setSwellLayerId}
             swellTimelineSteps={swellTimelineSteps}
             swellTimelineIndex={swellTimelineIndex}
             onSwellTimelineChange={setSwellTimelineIndex}
-            layerControls={layerControls}
             placementActive={placementActive}
             placementPin={placementPin}
-            placementPinDraggable
-            onPlacementPinChange={(latlng) =>
-              onPlacementPinChange?.({ lat: latlng.lat, lon: latlng.lng })
+            placementPinDraggable={placementPinDraggable}
+            onPlacementPinChange={
+              placementPinDraggable
+                ? (latlng) =>
+                    onPlacementPinChange?.({ lat: latlng.lat, lon: latlng.lng })
+                : undefined
             }
           />
         </div>
         {fieldGuideVisible && (
-          <div id="map-field-guide-panel" className="relative min-h-0">
+          <div id="map-field-guide-panel" className="relative min-h-0 overflow-hidden">
             {showFieldGuide && !isShareView && (
               <button
                 type="button"

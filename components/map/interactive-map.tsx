@@ -20,7 +20,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { createCachedMapFetch } from "@/lib/utils/request-cache";
 import { hasViewportChanged as checkViewportChanged } from "@/lib/utils/map-utilities";
 import { CACHE_TTL } from "@/lib/constants/ui";
-import { useBeachClustering, type ClusterPoint } from "@/hooks/use-beach-clustering";
 import { loadFavoriteBeaches } from "@/components/map/map-favorites-loader";
 import { createCustomSpotMarkerElement } from "@/components/map/custom-spot-marker-builder";
 import {
@@ -37,15 +36,6 @@ import {
   type ConditionSummary,
 } from "@/components/map/map-beach-loader";
 import { createBeachPreviewPopupContent } from "@/components/map/map-beach-preview-popup";
-import {
-  createClusterMapMarker,
-  type ClusterClickBehavior,
-  type ClusterRendererDeps,
-} from "@/components/map/map-cluster-renderer";
-import {
-  createClusterPopupContent,
-  getClusterPopupBeaches,
-} from "@/components/map/map-cluster-popup";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import {
   nearestBeachInBounds,
@@ -194,8 +184,7 @@ interface InteractiveMapProps {
   autoNavigateOnMarkerClick?: boolean; // Whether marker clicks auto-navigate to beach page (default: true)
   displayMode?: MapDisplayMode; // What data to show in markers: 'wave-height' (default) or 'water-temp'
   markerDisplay?: MapMarkerDisplay; // Full forecast markers (default) or compact point markers.
-  disableBeachClustering?: boolean; // Render beach points directly instead of clustered count markers.
-  clusterClickBehavior?: ClusterClickBehavior; // Whether clusters expand or show grouped spot details
+  showSurfSpots?: boolean;
   showSwellField?: boolean;
   showConditionsOnTap?: boolean; // Embed-only: tap open water shows a nearest-beach conditions callout.
   swellLayerId?: SwellLayerId;
@@ -215,16 +204,6 @@ interface InteractiveMapProps {
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
 const EMPTY_CUSTOM_SPOTS: CustomSpot[] = [];
 
-const CONDITION_LEGEND_ITEMS: Array<{
-  label: ConditionSummary;
-  display: string;
-}> = [
-  { label: "GOOD", display: "Worth it" },
-  { label: "FAIR", display: "Maybe" },
-  { label: "CHECK", display: "Scout it" },
-  { label: "UNKNOWN", display: "No read" },
-];
-
 interface MapConditionLegendProps {
   controls?: ReactNode;
   timeline?: ReactNode;
@@ -233,11 +212,16 @@ interface MapConditionLegendProps {
 function MapConditionLegend({
   controls,
   timeline,
-}: MapConditionLegendProps): ReactElement {
+}: MapConditionLegendProps): ReactElement | null {
   const [isMinimized, setIsMinimized] = useState(false);
   const embeddedControls = Children.toArray(controls);
   const hasEmbeddedControls = embeddedControls.length > 0;
   const hasTimeline = Boolean(timeline);
+
+  if (!hasEmbeddedControls && !hasTimeline) {
+    return null;
+  }
+
   const isWide = hasTimeline || (!isMinimized && hasEmbeddedControls);
   const toggleLabel = isMinimized ? "Expand map legend" : "Minimize map legend";
   const ToggleIcon = isMinimized ? ChevronUp : ChevronDown;
@@ -259,7 +243,7 @@ function MapConditionLegend({
       data-testid="map-condition-legend"
       className={`pointer-events-none absolute bottom-3 left-3 z-10 px-3 py-2 text-white ${
         isWide
-          ? "w-[calc(100%-1.5rem)] max-w-[27rem] sm:w-auto"
+          ? "w-[calc(100%-1.5rem)] max-w-[31rem] sm:w-auto"
           : ""
       }`}
       style={{
@@ -275,31 +259,13 @@ function MapConditionLegend({
           {hasTimeline && <div className="min-w-0 flex-1">{timeline}</div>}
         </div>
       ) : (
-        <>
-          <div className="flex items-start gap-2">
-            <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
-              {CONDITION_LEGEND_ITEMS.map((item) => (
-                <div key={item.label} className="flex items-center gap-1.5">
-                  <span
-                    aria-hidden="true"
-                    className="h-2.5 w-2.5 rounded-full border border-white/35"
-                    style={{ background: getConditionMarkerGradient(item.label) }}
-                  />
-                  <span className="text-[10px] font-semibold leading-none tracking-normal">
-                    {item.display}
-                  </span>
-                </div>
-              ))}
-            </div>
-            {toggleButton}
+        <div className="flex items-start gap-2">
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            {embeddedControls}
+            {timeline}
           </div>
-          {(hasEmbeddedControls || hasTimeline) && (
-            <div className="mt-2 flex flex-col gap-2 border-t border-white/15 pt-2">
-              {embeddedControls}
-              {timeline}
-            </div>
-          )}
-        </>
+          {toggleButton}
+        </div>
       )}
     </div>
   );
@@ -322,8 +288,7 @@ export function InteractiveMap({
   autoNavigateOnMarkerClick = true,
   displayMode = "wave-height",
   markerDisplay = "forecast",
-  disableBeachClustering = false,
-  clusterClickBehavior = "expand",
+  showSurfSpots = true,
   showSwellField = false,
   showConditionsOnTap = false,
   swellLayerId = "s1",
@@ -342,7 +307,6 @@ export function InteractiveMap({
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Record<string, mapboxgl.Marker>>({});
   const placementMarkerRef = useRef<mapboxgl.Marker | null>(null);
-  const activeClusterPopupRef = useRef<mapboxgl.Popup | null>(null);
   const activeBeachPreviewPopupRef = useRef<mapboxgl.Popup | null>(null);
   const activeCalloutRef = useRef<{ marker: mapboxgl.Marker; beachId: string } | null>(null);
   const conditionsCtxRef = useRef({
@@ -375,7 +339,6 @@ export function InteractiveMap({
     east: number;
     north: number;
   } | null>(null);
-  const [currentZoom, setCurrentZoom] = useState(initialZoom);
   const [waveHeightMap, setWaveHeightMap] = useState<Map<string, number | undefined>>(new Map());
   const [displayForecastMap, setDisplayForecastMap] = useState<Map<string, ForecastDisplay | undefined>>(new Map());
   const [waterTempMap, setWaterTempMap] = useState<Map<string, string | undefined>>(new Map());
@@ -428,7 +391,6 @@ export function InteractiveMap({
   const hoveredBeachIdRef = useRef<string | null>(null);
   const partitionsMapRef = useRef<Map<string, SwellPartition>>(new Map());
   const lastRegionViewportKeyRef = useRef<string | null>(null);
-  const clusterCleanupRef = useRef<Map<string, () => void>>(new Map());
   const onBoundsChangeRef = useRef(onBoundsChange);
   const onWaveHeightsChangeRef = useRef(onWaveHeightsChange);
   const onDisplayForecastsChangeRef = useRef(onDisplayForecastsChange);
@@ -449,8 +411,6 @@ export function InteractiveMap({
   const hasEmittedReadyRef = useRef(false);
   const emittedFailureTypesRef = useRef<Set<string>>(new Set());
   const lastEmptyStateKeyRef = useRef<string | null>(null);
-  // Mirror latest clusters/beaches so emission helpers can read them synchronously
-  const clustersRef = useRef<ClusterPoint[]>([]);
   const beachesRef = useRef<Beach[] | undefined>(beaches);
 
   const useAuthForMap = AuthContext.useOptionalAuth ?? AuthContext.useAuth;
@@ -529,22 +489,6 @@ export function InteractiveMap({
   useEffect(() => {
     beachesRef.current = markerBeaches;
   }, [markerBeaches]);
-
-  // Use clustering hook
-  const { clusters, getExpansionZoom } = useBeachClustering({
-    beaches: markerBeaches,
-    waveHeights: waveHeightMap,
-    bounds: mapBounds || { west: -118, south: 32, east: -117, north: 33 },
-    zoom: currentZoom,
-    favoriteBeachIds,
-    disableClustering: disableBeachClustering,
-  });
-
-  // Mirror the latest cluster output so instrumentation can read counts
-  // synchronously inside debounced handlers and marker callbacks.
-  useEffect(() => {
-    clustersRef.current = clusters;
-  }, [clusters]);
 
   // Create cached fetch functions for map APIs
   const fetchNearbyBeaches = useRef(
@@ -678,12 +622,6 @@ export function InteractiveMap({
   const cleanupMarkers = useCallback(() => {
     closeBeachPreviewPopup();
 
-    // Clean up cluster event listeners
-    clusterCleanupRef.current.forEach((cleanup) => cleanup());
-    clusterCleanupRef.current.clear();
-    activeClusterPopupRef.current?.remove();
-    activeClusterPopupRef.current = null;
-
     // Remove all markers
     Object.values(markersRef.current).forEach((marker) => marker.remove());
     markersRef.current = {};
@@ -743,7 +681,6 @@ export function InteractiveMap({
     bounds_east?: number;
     bounds_north?: number;
     beaches_in_viewport?: number;
-    visible_cluster_count?: number;
   } | Record<string, never> => {
     const map = mapRef.current;
     if (!map) return {};
@@ -757,7 +694,6 @@ export function InteractiveMap({
       bounds_east?: number;
       bounds_north?: number;
       beaches_in_viewport?: number;
-      visible_cluster_count?: number;
     } = {
       // 2 decimals (~1.1km) deliberately defeats home-address inference from
       // accumulated center points. Bounds retain 4-decimal precision below
@@ -772,27 +708,7 @@ export function InteractiveMap({
       meta.bounds_east = Number(bounds.getEast().toFixed(4));
       meta.bounds_north = Number(bounds.getNorth().toFixed(4));
     }
-    // Derive visible counts from the latest clustering output. `clusters`
-    // already reflects current bounds + zoom, so individual-beach entries
-    // are the in-viewport beaches and cluster entries contribute both to
-    // the visible cluster count and (via point_count) to beaches_in_viewport.
-    const currentClusters = clustersRef.current;
-    if (currentClusters && currentClusters.length > 0) {
-      let clusterCount = 0;
-      let beachCount = 0;
-      for (const c of currentClusters) {
-        if (c.isCluster) {
-          clusterCount += 1;
-          beachCount += c.pointCount ?? 0;
-        } else {
-          beachCount += 1;
-        }
-      }
-      meta.visible_cluster_count = clusterCount;
-      meta.beaches_in_viewport = beachCount;
-    } else if (bounds && beachesRef.current) {
-      // Fallback: clustering hasn't run yet (e.g., first pin_click before
-      // the first moveend) — filter beaches by bounds directly.
+    if (bounds && beachesRef.current) {
       const west = bounds.getWest();
       const east = bounds.getEast();
       const south = bounds.getSouth();
@@ -807,7 +723,6 @@ export function InteractiveMap({
         }
       }
       meta.beaches_in_viewport = beachCount;
-      meta.visible_cluster_count = 0;
     }
     return meta;
   }, []);
@@ -888,70 +803,6 @@ export function InteractiveMap({
     ]
   );
 
-  const openClusterDetailsPopup = useCallback(
-    (cluster: ClusterPoint): void => {
-      const map = mapRef.current;
-      const allBeaches = beachesRef.current ?? [];
-      const clusterBeaches = getClusterPopupBeaches(cluster, allBeaches);
-      if (!map || !clusterBeaches.length) return;
-
-      activeClusterPopupRef.current?.remove();
-
-      const content = createClusterPopupContent({
-        cluster,
-        beaches: clusterBeaches,
-        waveHeightMap,
-        displayForecastMap,
-        waterTempMap,
-        displayMode,
-      });
-
-      const popup = new mapboxgl.Popup({
-        closeButton: true,
-        closeOnClick: true,
-        closeOnMove: false,
-        className: "quiver-map-cluster-popup",
-        maxWidth: "320px",
-        offset: 18,
-      })
-        .setLngLat([cluster.longitude, cluster.latitude])
-        .setDOMContent(content)
-        .addTo(map);
-
-      activeClusterPopupRef.current = popup;
-    },
-    [displayMode, displayForecastMap, waterTempMap, waveHeightMap]
-  );
-
-  // Create cluster marker using extracted module with deps from refs
-  const buildClusterMarker = useCallback(
-    (cluster: ClusterPoint): mapboxgl.Marker => {
-      const deps: ClusterRendererDeps = {
-        favoriteBeachIds: favoriteBeachIdsRef.current,
-        clusterCleanupMap: clusterCleanupRef.current,
-        getExpansionZoom,
-        getMaxZoom: () => mapRef.current?.getMaxZoom() ?? Infinity,
-        flyTo: (center, zoom) => {
-          mapRef.current?.flyTo({ center, zoom, duration: 500 });
-        },
-        displayMode,
-        waterTempMap,
-        markerDisplay,
-        clusterClickBehavior,
-        onClusterClick: openClusterDetailsPopup,
-      };
-      return createClusterMapMarker(cluster, deps);
-    },
-    [
-      getExpansionZoom,
-      displayMode,
-      waterTempMap,
-      markerDisplay,
-      clusterClickBehavior,
-      openClusterDetailsPopup,
-    ]
-  );
-
   /** Populate beach markers with enhanced forecast data */
   const populateLocations = useCallback(
     async (latitude: number, longitude: number) => {
@@ -982,7 +833,7 @@ export function InteractiveMap({
           { fetchNearbyBeaches: fetchNearbyBeaches.current }
         );
 
-        // Store wave heights and water temps for clustering
+        // Store wave heights and water temps for marker rendering
         setWaveHeightMap(result.waveHeightMap);
         setDisplayForecastMap(result.displayForecastMap);
         setWaterTempMap(result.waterTempMap);
@@ -1374,7 +1225,7 @@ export function InteractiveMap({
         const zoom = mapRef.current.getZoom();
         const bounds = mapRef.current.getBounds();
 
-        // Update bounds and zoom for clustering
+        // Update bounds for overlay layers and interaction metadata.
         if (bounds) {
           const boundsObj = {
             west: bounds.getWest(),
@@ -1390,7 +1241,6 @@ export function InteractiveMap({
             );
           }
         }
-        setCurrentZoom(zoom);
 
         // Classify interaction: compare against previously tracked center/zoom.
         // Zoom dominates — pinch-zoom can also pan, but we only want to count
@@ -1534,7 +1384,7 @@ export function InteractiveMap({
           new CustomEvent("quiver:map-ready", { detail: { map: mapRef.current } }),
         );
       }
-      // Initialize bounds for clustering
+      // Initialize bounds for overlay layers and interaction metadata.
       const bounds = map.getBounds();
       if (bounds) {
         const boundsObj = {
@@ -1551,7 +1401,6 @@ export function InteractiveMap({
           );
         }
       }
-      setCurrentZoom(map.getZoom());
     });
 
     map.on("error", (e) => {
@@ -1855,95 +1704,93 @@ export function InteractiveMap({
     };
   }, [isMapReady, placementPin, placementPinDraggable]);
 
-  // Render clusters and individual markers
+  // Render one marker per beach.
   useEffect(() => {
     if (!isMapReady || !mapRef.current) return;
 
     // Clean up existing markers
     cleanupMarkers();
 
-    clusters.forEach((cluster) => {
-      if (cluster.isCluster && cluster.clusterId !== undefined) {
-        // Render cluster marker
-        const marker = buildClusterMarker(cluster);
-        const markerId = `cluster-${cluster.clusterId}`;
-        if (mapRef.current?.getCanvasContainer()) {
-          marker.addTo(mapRef.current);
+    if (showSurfSpots) {
+      markerBeaches.forEach((location) => {
+        if (
+          typeof location.lat !== "number" ||
+          typeof location.lon !== "number" ||
+          !Number.isFinite(location.lat) ||
+          !Number.isFinite(location.lon)
+        ) {
+          return;
         }
-        markersRef.current[markerId] = marker;
-      } else if (!cluster.isCluster && cluster.beach) {
-        // Render individual beach marker
-        const location = cluster.beach;
-        const markerId = `location-${location.id}`;
-        const waveHeight = cluster.waveHeight;
 
-        const badgeElement = buildWaveHeightBadge(location, waveHeight, [
-          cluster.longitude,
-          cluster.latitude,
+        const markerId = `location-${location.id}`;
+        const badgeElement = buildWaveHeightBadge(location, waveHeightMap.get(location.id), [
+          location.lon,
+          location.lat,
         ]);
 
         const marker = new mapboxgl.Marker({
           element: badgeElement,
           draggable: false,
           anchor: "center",
-        }).setLngLat([cluster.longitude, cluster.latitude]);
+        }).setLngLat([location.lon, location.lat]);
 
         if (mapRef.current?.getCanvasContainer()) {
           marker.addTo(mapRef.current);
         }
         markersRef.current[markerId] = marker;
-      }
-    });
+      });
 
-    customSpots.forEach((spot) => {
-      if (!Number.isFinite(spot.lat) || !Number.isFinite(spot.lon)) {
-        return;
-      }
-
-      const markerId = `custom-${spot.id}`;
-      const nearestBeachId = spot.nearestBeachId;
-      const markerData = nearestBeachId
-        ? {
-            conditionSummary: conditionSummaryMap.get(nearestBeachId),
-            conditionScore: conditionScoreMap.get(nearestBeachId),
-            waveLabel: displayForecastMap.get(nearestBeachId)?.label ?? null,
-          }
-        : undefined;
-      const element = createCustomSpotMarkerElement(spot, markerData);
-      element.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
-
-        if (!user) {
-          trackSignupCtaClick({
-            source: `custom-spot-${spot.id}`,
-            cta_type: "custom_spot_marker",
-          });
-          setShowAuth(true);
+      customSpots.forEach((spot) => {
+        if (!Number.isFinite(spot.lat) || !Number.isFinite(spot.lon)) {
           return;
         }
 
-        router.push(`/custom-spots/${spot.id}`);
+        const markerId = `custom-${spot.id}`;
+        const nearestBeachId = spot.nearestBeachId;
+        const markerData = nearestBeachId
+          ? {
+              conditionSummary: conditionSummaryMap.get(nearestBeachId),
+              conditionScore: conditionScoreMap.get(nearestBeachId),
+              waveLabel: displayForecastMap.get(nearestBeachId)?.label ?? null,
+            }
+          : undefined;
+        const element = createCustomSpotMarkerElement(spot, markerData);
+        element.addEventListener("click", (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (!user) {
+            trackSignupCtaClick({
+              source: `custom-spot-${spot.id}`,
+              cta_type: "custom_spot_marker",
+            });
+            setShowAuth(true);
+            return;
+          }
+
+          router.push(`/custom-spots/${spot.id}`);
+        });
+
+        const marker = new mapboxgl.Marker({
+          element,
+          anchor: "center",
+        }).setLngLat([spot.lon, spot.lat]);
+
+        if (mapRef.current?.getCanvasContainer()) {
+          marker.addTo(mapRef.current);
+        }
+        markersRef.current[markerId] = marker;
       });
-
-      const marker = new mapboxgl.Marker({
-        element,
-        anchor: "center",
-      }).setLngLat([spot.lon, spot.lat]);
-
-      if (mapRef.current?.getCanvasContainer()) {
-        marker.addTo(mapRef.current);
-      }
-      markersRef.current[markerId] = marker;
-    });
+    }
   }, [
-    clusters,
+    markerBeaches,
     customSpots,
     isMapReady,
+    showSurfSpots,
+    waveHeightMap,
     conditionScoreMap,
     conditionSummaryMap,
     displayForecastMap,
-    buildClusterMarker,
     buildWaveHeightBadge,
     cleanupMarkers,
     router,
@@ -1973,9 +1820,9 @@ export function InteractiveMap({
     ) : null;
 
   const conditionLegendControls = layerControls ? (
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:gap-4">
       {swellLayerSelector}
-      {layerControls}
+      <div className="shrink-0">{layerControls}</div>
     </div>
   ) : (
     swellLayerSelector

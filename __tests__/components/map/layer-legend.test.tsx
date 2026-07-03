@@ -11,9 +11,11 @@ import {
 function Harness({
   initial,
   businessesCount,
+  showDrops,
 }: {
   initial?: LayerState;
   businessesCount?: number;
+  showDrops?: boolean;
 }) {
   const [layers, setLayers] = useState<LayerState>(initial ?? { ...DEFAULT_LAYERS });
   return (
@@ -24,6 +26,7 @@ function Harness({
         persistLayers(next);
       }}
       businessesCount={businessesCount ?? 0}
+      showDrops={showDrops}
     />
   );
 }
@@ -55,6 +58,14 @@ describe("LayerLegend", () => {
       "layer-legend-toggle-businesses",
     ) as HTMLInputElement;
     expect(toggle.disabled).toBe(false);
+  });
+
+  it("hides Surf Drops when drops are not available", () => {
+    render(<Harness showDrops={false} />);
+
+    expect(screen.queryByTestId("layer-legend-row-drops")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("layer-legend-toggle-drops")).not.toBeInTheDocument();
+    expect(screen.getByTestId("layer-legend-row-amenities")).toBeInTheDocument();
   });
 
   it("toggles a row and persists the state to localStorage", () => {

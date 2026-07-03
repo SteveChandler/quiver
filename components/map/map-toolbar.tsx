@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -13,6 +13,7 @@ import {
 } from "@/components/map/swell-map-theme";
 import {
   BookOpen,
+  Layers,
   MapPin,
   Search,
   SlidersHorizontal,
@@ -38,6 +39,7 @@ interface MapToolbarProps {
   hasActiveFilters: boolean;
   showSwellField: boolean;
   onToggleSwellField: () => void;
+  layerControls?: ReactNode;
   fieldGuideVisible?: boolean;
   onOpenFieldGuide?: () => void;
 }
@@ -60,7 +62,7 @@ const filterChipClass = (active: boolean): string =>
   ].join(" ");
 
 const toolbarActionClass =
-  "h-10 w-full min-w-0 justify-center whitespace-nowrap px-2 text-xs sm:px-3 sm:text-sm lg:w-auto";
+  "h-10 w-full min-w-0 justify-center whitespace-nowrap rounded-sm border-2 border-[#11100D] bg-[#F5EEDC] px-2 py-1.5 font-mono text-[10px] font-black uppercase tracking-[0.08em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.28)] transition hover:-translate-y-0.5 hover:bg-[#F4EBD8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] sm:px-3 sm:text-xs lg:w-auto";
 
 export function MapToolbar({
   searchQuery,
@@ -78,10 +80,13 @@ export function MapToolbar({
   hasActiveFilters,
   showSwellField,
   onToggleSwellField,
+  layerControls,
   fieldGuideVisible = false,
   onOpenFieldGuide,
 }: MapToolbarProps) {
-  const showSuggestions = searchQuery.trim().length > 0 && suggestions.length > 0;
+  const [suggestionsOpen, setSuggestionsOpen] = useState(true);
+  const showSuggestions =
+    suggestionsOpen && searchQuery.trim().length > 0 && suggestions.length > 0;
   const suggestionsListId = useId();
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const activeSuggestion =
@@ -95,13 +100,15 @@ export function MapToolbar({
     const suggestion = suggestions[index];
     if (!suggestion) return;
 
+    setSuggestionsOpen(false);
+    setActiveSuggestionIndex(-1);
     onSuggestionSelect(suggestion);
   };
 
   return (
     <div
       data-testid="map-controls"
-      className="sticky top-0 z-20 border-b bg-background px-3 py-3 sm:px-4"
+      className="zine-tab sticky top-0 z-20 border-b-2 border-[#11100D] bg-[#252D6B] px-3 py-3 shadow-[0_3px_0_rgba(17,16,13,0.35)] sm:px-4"
     >
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
@@ -112,6 +119,7 @@ export function MapToolbar({
             />
             <input
               data-testid="map-toolbar-search"
+              data-zine-input="true"
               role="combobox"
               aria-label="Search beaches, spots, or cities"
               aria-autocomplete="list"
@@ -123,7 +131,10 @@ export function MapToolbar({
                   : undefined
               }
               value={searchQuery}
-              onChange={(event) => onSearchChange(event.target.value)}
+              onChange={(event) => {
+                setSuggestionsOpen(true);
+                onSearchChange(event.target.value);
+              }}
               onKeyDown={(event) => {
                 if (event.key === "ArrowDown" && showSuggestions) {
                   event.preventDefault();
@@ -149,19 +160,23 @@ export function MapToolbar({
                   return;
                 }
                 if (event.key === "Escape" && searchQuery) {
+                  setSuggestionsOpen(false);
                   setActiveSuggestionIndex(-1);
                   onClearSearch();
                 }
               }}
               placeholder="Search beaches, spots, or cities"
-              className="h-10 w-full rounded-md border border-input bg-background py-2 pl-9 pr-10 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+              className="h-10 w-full rounded-sm border-2 border-[#11100D] bg-[#F5EEDC] py-2 pl-9 pr-10 font-mono text-sm text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.28)] outline-none transition-colors placeholder:text-[#11100D]/55 focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
             />
             {searchQuery && (
               <button
                 type="button"
                 aria-label="Clear map search"
-                onClick={onClearSearch}
-                className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+                onClick={() => {
+                  setSuggestionsOpen(false);
+                  onClearSearch();
+                }}
+                className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-sm text-[#11100D]/65 hover:bg-[#11100D]/10 hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -171,7 +186,7 @@ export function MapToolbar({
                 id={suggestionsListId}
                 role="listbox"
                 data-testid="map-search-suggestions"
-                className="absolute left-0 right-0 top-11 z-30 overflow-hidden rounded-md border bg-background shadow-lg"
+                className="absolute left-0 right-0 top-12 z-30 overflow-hidden rounded-sm border-2 border-[#11100D] bg-[#F5EEDC] text-[#11100D] shadow-[4px_6px_0_rgba(17,16,13,0.28)]"
               >
                 {suggestions.map((beach, index) => {
                   const location = [beach.city, beach.state]
@@ -186,7 +201,7 @@ export function MapToolbar({
                       type="button"
                       onMouseEnter={() => setActiveSuggestionIndex(index)}
                       onClick={() => selectSuggestion(index)}
-                      className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none aria-selected:bg-muted"
+                      className="flex w-full flex-col border-b border-[#11100D]/15 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-[#F78E42]/20 focus-visible:bg-[#F78E42]/20 focus-visible:outline-none aria-selected:bg-[#F78E42]/25"
                     >
                       <span className="font-medium">{beach.name}</span>
                       {location && (
@@ -316,31 +331,55 @@ export function MapToolbar({
               <span className="hidden sm:inline">Use Near Me</span>
             </Button>
 
-            <button
-              type="button"
-              aria-label={showSwellField ? "Hide swell field" : "Show swell field"}
-              aria-pressed={showSwellField}
-              data-testid="swell-field-toggle"
-              onClick={onToggleSwellField}
-              className={`${toolbarActionClass} inline-flex items-center gap-2 rounded-md py-1.5 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${
-                showSwellField
-                  ? "text-[#161A40] shadow-inner ring-1 ring-black/20"
-                  : SWELL_MAP_CTA_CLASS
-              }`}
-              style={
-                showSwellField
-                  ? { background: SWELL_LAYER_COLOR.s1 }
-                  : undefined
-              }
-            >
-              <Waves className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span className="sm:hidden">
-                {showSwellField ? "Swell on" : "Swell off"}
-              </span>
-              <span className="hidden sm:inline">
-                {showSwellField ? "Hide swell field" : "Show swell field"}
-              </span>
-            </button>
+            {layerControls ? (
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    aria-label="Map layers"
+                    variant="secondary"
+                    size="sm"
+                    data-testid="map-layers-toggle"
+                    className={toolbarActionClass}
+                  >
+                    <Layers className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span>Layers</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  className="w-[min(18rem,calc(100vw-2rem))] border-white/15 bg-[#252D70] p-3 text-white shadow-2xl"
+                >
+                  {layerControls}
+                </PopoverContent>
+              </Popover>
+            ) : (
+              <button
+                type="button"
+                aria-label={showSwellField ? "Hide swell field" : "Show swell field"}
+                aria-pressed={showSwellField}
+                data-testid="swell-field-toggle"
+                onClick={onToggleSwellField}
+                className={`${toolbarActionClass} inline-flex items-center gap-2 rounded-md py-1.5 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${
+                  showSwellField
+                    ? "text-[#161A40] shadow-inner ring-1 ring-black/20"
+                    : SWELL_MAP_CTA_CLASS
+                }`}
+                style={
+                  showSwellField
+                    ? { background: SWELL_LAYER_COLOR.s1 }
+                    : undefined
+                }
+              >
+                <Waves className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="sm:hidden">
+                  {showSwellField ? "Swell on" : "Swell off"}
+                </span>
+                <span className="hidden sm:inline">
+                  {showSwellField ? "Hide swell field" : "Show swell field"}
+                </span>
+              </button>
+            )}
 
             {onOpenFieldGuide && (
               <Button

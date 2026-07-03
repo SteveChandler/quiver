@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type mapboxgl from "mapbox-gl";
 import type { Beach } from "@/types/database";
 import type { SwellLayerId } from "@/components/map/swell-map-theme";
+import { buildSwellTimelineSteps } from "@/components/map/swell-field/swell-timeline-labels";
 import {
   parseEmbedMapCommand,
   serializeEmbedMapEvent,
@@ -29,7 +30,7 @@ const InteractiveMap = dynamic(
 
 const DEFAULT_CENTER: EmbedMapCoordinate = { lat: 32.8667, lon: -117.2544 };
 const DEFAULT_ZOOM = 11.5;
-const DEFAULT_TIMELINE_STEPS = ["Now", "+3h", "+6h", "+9h", "+12h", "+15h", "+18h", "+21h"];
+const EMBED_TIMELINE_STEP_HOURS = [0, 3, 6, 9, 12, 15, 18, 21] as const;
 const LAYER_SWITCHER: ReadonlyArray<{ id: EmbedMapSwellLayerId; label: string }> = [
   { id: "s1", label: "Swell" },
   { id: "s2", label: "Swell 2" },
@@ -111,6 +112,10 @@ function renderHealthStatus(fps: number): "ok" | "degraded" {
 
 export function EmbedMapClient() {
   const searchParams = useSearchParams();
+  const timelineSteps = useMemo(
+    () => buildSwellTimelineSteps(EMBED_TIMELINE_STEP_HOURS),
+    [],
+  );
   const initialCenter = useMemo<EmbedMapCoordinate>(() => {
     const lat = finiteParam(searchParams.get("lat"));
     const lon = finiteParam(searchParams.get("lon"));
@@ -146,7 +151,7 @@ export function EmbedMapClient() {
   }, [timelineIndex]);
   useEffect(() => {
     if (!isPlaying) return;
-    const maxIndex = DEFAULT_TIMELINE_STEPS.length - 1;
+    const maxIndex = timelineSteps.length - 1;
     const id = window.setInterval(() => {
       let next = timelineIndexRef.current + 0.06;
       if (next >= maxIndex) next = 0;
@@ -154,7 +159,7 @@ export function EmbedMapClient() {
       setTimelineIndex(next);
     }, 80);
     return () => window.clearInterval(id);
-  }, [isPlaying]);
+  }, [isPlaying, timelineSteps.length]);
   const nativeCommandKeyRef = useRef(0);
   const currentViewportRef = useRef<EmbedMapViewport>({
     center: initialCenter,
@@ -415,8 +420,6 @@ export function EmbedMapClient() {
         initialZoom={initialZoom}
         autoNavigateOnMarkerClick={false}
         className="absolute inset-0 h-full w-full"
-        clusterClickBehavior="expand"
-        disableBeachClustering
         markerDisplay="points"
         onBoundsChange={handleBoundsChange}
         onLocationClick={handleBeachSelect}
@@ -432,7 +435,7 @@ export function EmbedMapClient() {
         showSwellField={!fieldHidden}
         swellLayerId={layerId as SwellLayerId}
         swellTimelineIndex={timelineIndex}
-        swellTimelineSteps={DEFAULT_TIMELINE_STEPS}
+        swellTimelineSteps={timelineSteps}
       />
       {!isPlacementActive && (
         <div
@@ -603,7 +606,11 @@ export function EmbedMapClient() {
                 Forecast
               </span>
               <span style={{ color: "#F4EBD8", fontSize: "14px", fontWeight: 700 }}>
-                {DEFAULT_TIMELINE_STEPS[Math.round(timelineIndex)]}
+                {
+                  timelineSteps[
+                    Math.min(timelineSteps.length - 1, Math.round(timelineIndex))
+                  ]
+                }
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -635,7 +642,7 @@ export function EmbedMapClient() {
                 className="embed-time-slider"
                 aria-label="Forecast time"
                 min={0}
-                max={DEFAULT_TIMELINE_STEPS.length - 1}
+                max={timelineSteps.length - 1}
                 step={0.01}
                 value={timelineIndex}
                 onChange={(event) => {
@@ -644,7 +651,11 @@ export function EmbedMapClient() {
                 }}
                 style={{
                   flex: 1,
-                  background: `linear-gradient(to right, #F78E42 0%, #F78E42 ${(timelineIndex / (DEFAULT_TIMELINE_STEPS.length - 1)) * 100}%, rgba(244,235,216,0.22) ${(timelineIndex / (DEFAULT_TIMELINE_STEPS.length - 1)) * 100}%, rgba(244,235,216,0.22) 100%)`,
+                  background: `linear-gradient(to right, #F78E42 0%, #F78E42 ${
+                    (timelineIndex / (timelineSteps.length - 1)) * 100
+                  }%, rgba(244,235,216,0.22) ${
+                    (timelineIndex / (timelineSteps.length - 1)) * 100
+                  }%, rgba(244,235,216,0.22) 100%)`,
                   borderRadius: "9999px",
                 }}
               />

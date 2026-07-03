@@ -85,14 +85,15 @@ export function buildSurfDropMarkerElement(
   wrapper.setAttribute("data-testid", "surf-drop-marker");
   wrapper.setAttribute("data-drop-id", drop.id);
   wrapper.setAttribute("data-share-slug", drop.share_slug);
-  wrapper.className = "quiver-surf-drop-marker";
+  wrapper.className = "quiver-surf-drop-marker quiver-surf-drop-marker--sonar";
   wrapper.style.cssText = `
     position: relative;
-    width: 44px;
-    height: 44px;
+    width: 72px;
+    height: 72px;
     display: flex;
     align-items: center;
     justify-content: center;
+    overflow: visible;
     pointer-events: auto;
     cursor: pointer;
     transform: rotate(${tiltDeg(drop.id)}deg);
@@ -100,21 +101,27 @@ export function buildSurfDropMarkerElement(
   `;
 
   const reduced = Boolean(opts.reducedMotion);
-  const ringCount = reduced ? 1 : 2;
+  const ringCount = reduced ? 1 : 3;
   for (let i = 0; i < ringCount; i += 1) {
     const ring = document.createElement("span");
     ring.setAttribute("aria-hidden", "true");
     ring.setAttribute("data-testid", "surf-drop-sonar-ring");
     ring.style.cssText = `
       position: absolute;
-      inset: -6px;
+      inset: ${8 - i * 4}px;
+      z-index: 1;
       border-radius: 999px;
-      border: 2px solid rgba(247, 142, 66, 0.55);
+      border: 2.5px solid rgba(247, 142, 66, 0.88);
+      background: rgba(247, 142, 66, 0.10);
+      box-shadow:
+        0 0 0 1px rgba(17, 16, 13, 0.16),
+        0 0 18px rgba(247, 142, 66, 0.45);
       pointer-events: none;
+      transform-origin: center;
       ${
         reduced
-          ? "opacity: 0.55;"
-          : `animation: sonar-pulse 2.4s ease-out ${i * 0.8}s infinite;`
+          ? "opacity: 0.72;"
+          : `animation: sonar-pulse 2.6s ease-out ${i * 0.65}s infinite;`
       }
     `;
     wrapper.appendChild(ring);

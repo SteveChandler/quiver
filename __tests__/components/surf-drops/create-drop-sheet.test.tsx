@@ -44,6 +44,25 @@ describe("CreateDropSheet UI", () => {
   const originalFetch = global.fetch;
   const onClose = jest.fn();
   const onCreated = jest.fn();
+  const beach = {
+    id: "11111111-1111-4111-8111-111111111111",
+    name: "Fake Beach",
+  };
+
+  function localInputValue(date: Date): string {
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return [
+      date.getFullYear(),
+      "-",
+      pad(date.getMonth() + 1),
+      "-",
+      pad(date.getDate()),
+      "T",
+      pad(date.getHours()),
+      ":",
+      pad(date.getMinutes()),
+    ].join("");
+  }
 
   beforeEach(() => {
     onClose.mockClear();
@@ -60,37 +79,70 @@ describe("CreateDropSheet UI", () => {
     global.fetch = originalFetch;
   });
 
-  it("clips the note textarea at 240 chars", () => {
+  it("renders as a non-modal side panel with an automatic forecast summary", () => {
     render(
       <CreateDropSheet
         open
         onClose={onClose}
         onCreated={onCreated}
-        selectedBeach={{ id: "b1", name: "Fake Beach" }}
+        selectedBeach={beach}
       />,
     );
-    const note = screen.getByTestId("create-drop-note") as HTMLTextAreaElement;
-    const long = "x".repeat(300);
-    fireEvent.change(note, { target: { value: long } });
-    expect(note.value.length).toBe(240);
-    expect(screen.getByTestId("create-drop-note-count").textContent).toBe(
-      "240/240",
+
+    expect(screen.getByRole("dialog", { name: "Drop a spot" })).toHaveAttribute(
+      "aria-modal",
+      "false",
+    );
+    expect(screen.queryByTestId("create-drop-note")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("create-drop-note-count")).not.toBeInTheDocument();
+    expect(screen.getByTestId("create-drop-forecast-summary")).toHaveTextContent(
+      /Quiver forecast attached for Fake Beach/i,
     );
   });
 
-  it("blocks submit when start/end are inverted", async () => {
+  it("updates the end time from duration presets", async () => {
     render(
       <CreateDropSheet
         open
         onClose={onClose}
         onCreated={onCreated}
-        selectedBeach={{ id: "b1", name: "Fake Beach" }}
+        selectedBeach={beach}
+      />,
+    );
+
+    const starts = screen.getByTestId("create-drop-starts-at") as HTMLInputElement;
+    const startDate = new Date(Date.now() + 60 * 60 * 1000);
+    fireEvent.change(starts, { target: { value: localInputValue(startDate) } });
+    fireEvent.click(screen.getByTestId("create-drop-duration-120"));
+    fireEvent.click(screen.getByTestId("create-drop-submit"));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/surf-drops",
+        expect.objectContaining({ method: "POST" }),
+      );
+    });
+
+    const request = (global.fetch as jest.Mock).mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(String(request.body));
+    const startsAt = new Date(body.starts_at);
+    const endsAt = new Date(body.ends_at);
+    expect(endsAt.getTime() - startsAt.getTime()).toBe(120 * 60 * 1000);
+  });
+
+  it("blocks submit when the start is more than four days out", async () => {
+    render(
+      <CreateDropSheet
+        open
+        onClose={onClose}
+        onCreated={onCreated}
+        selectedBeach={beach}
       />,
     );
     const starts = screen.getByTestId("create-drop-starts-at") as HTMLInputElement;
-    const ends = screen.getByTestId("create-drop-ends-at") as HTMLInputElement;
-    fireEvent.change(starts, { target: { value: "2027-01-01T10:00" } });
-    fireEvent.change(ends, { target: { value: "2027-01-01T09:00" } });
+    fireEvent.change(starts, {
+      target: { value: localInputValue(new Date(Date.now() + 5 * 24 * 60 * 60 * 1000)) },
+    });
 
     const submit = screen.getByTestId("create-drop-submit");
     fireEvent.click(submit);
@@ -106,12 +158,30 @@ describe("CreateDropSheet UI", () => {
         open
         onClose={onClose}
         onCreated={onCreated}
-        selectedBeach={{ id: "11111111-1111-1111-1111-111111111111", name: "Fake Beach" }}
+        selectedBeach={beach}
       />,
     );
     fireEvent.click(screen.getByTestId("create-drop-submit"));
     await waitFor(() => {
-      expect(onCreated).toHaveBeenCalledWith({ id: "d1", share_slug: "abc" });
+      expect(onCreated).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: "d1",
+          share_slug: "abc",
+          location_type: "known_spot",
+          beach_id: beach.id,
+          spot_name: "Fake Beach",
+          lat: null,
+          lon: null,
+          audience: "mutuals",
+        }),
+      );
+    });
+    const request = (global.fetch as jest.Mock).mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(String(request.body));
+    expect(body.note).toMatch(/Quiver forecast attached for Fake Beach/i);
+    expect(body.forecast_snapshot).toMatchObject({
+      source: "quiver_map",
+      location_type: "known_spot",
     });
     expect(onClose).toHaveBeenCalled();
   });

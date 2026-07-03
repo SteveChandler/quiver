@@ -87,7 +87,7 @@ describe("SwellLayerSelector — integrated legend", () => {
 
     expect(panel).toContainElement(legend);
     expect(screen.getByTestId("swell-field-legend-caption")).toHaveTextContent(
-      "flow streaks = wind speed & direction"
+      "lines point with the wind · longer = stronger"
     );
   });
 
@@ -117,9 +117,32 @@ describe("SwellLayerSelector — integrated legend", () => {
     expect(panel.className).not.toContain("absolute");
     expect(panel.className).not.toContain("top-3");
     expect(panel).toHaveClass("w-full");
+    expect(panel).toHaveClass("min-w-[16rem]");
+    expect(screen.getByRole("radiogroup", { name: "Swell field layer" })).toHaveClass(
+      "grid",
+      "grid-cols-2",
+      "gap-1.5",
+    );
+    expect(screen.getByTestId("swell-layer-combined")).toHaveClass(
+      "w-full",
+      "whitespace-nowrap",
+    );
     expect(panel).toContainElement(screen.getByTestId("swell-field-legend"));
     expect(screen.getByTestId("swell-field-legend-caption")).toHaveTextContent(
-      "denser = bigger · longer marks = longer period"
+      "more orange = bigger swell · longer dashes = more push"
     );
+  });
+
+  it("keeps Wind text-only with extra left spacing in the embedded legend", () => {
+    render(
+      <SwellLayerSelector
+        active="wind"
+        onChange={jest.fn()}
+        placement="legend"
+      />,
+    );
+
+    expect(screen.queryByTestId("swell-layer-wind-swatch")).toBeNull();
+    expect(screen.getByTestId("swell-layer-wind")).toHaveClass("pl-2");
   });
 });
