@@ -3,7 +3,10 @@ import {
   formatClusterWaterTempRange,
   getClusterColor,
 } from "@/lib/utils/cluster-formatter";
-import type { MapDisplayMode } from "@/components/map/map-marker-builder";
+import type {
+  MapDisplayMode,
+  MapMarkerDisplay,
+} from "@/components/map/map-marker-builder";
 
 interface ClusterMarkerOptions {
   waveHeights: (number | undefined)[];
@@ -15,6 +18,8 @@ interface ClusterMarkerOptions {
   displayMode?: MapDisplayMode;
   /** Water temperature strings for beaches in this cluster */
   waterTemps?: (string | undefined | null)[];
+  /** Marker shape mode: forecast keeps range pills; points keeps embed clusters compact. */
+  markerDisplay?: MapMarkerDisplay;
 }
 
 interface ClusterMarkerResult {
@@ -34,6 +39,7 @@ export function createClusterMarkerElement({
   onLeave,
   displayMode = "wave-height",
   waterTemps,
+  markerDisplay = "forecast",
 }: ClusterMarkerOptions): ClusterMarkerResult {
   const waveRange = displayMode === "water-temp"
     ? formatClusterWaterTempRange(waterTemps || [])
@@ -53,17 +59,18 @@ export function createClusterMarkerElement({
   // Create badge
   const badge = document.createElement("div");
   badge.setAttribute("data-cluster-badge", "true");
+  badge.setAttribute("data-marker-display", markerDisplay);
   // Store the color for testing (jsdom doesn't support linear-gradient)
   badge.setAttribute("data-cluster-color", bgColor);
   badge.style.cssText = `
-    padding: 8px 16px;
+    ${markerDisplay === "points" ? "width: 34px; height: 34px; padding: 0;" : "padding: 8px 16px;"}
     border-radius: 9999px;
     color: white;
-    font-size: 14px;
+    font-size: ${markerDisplay === "points" ? "13px" : "14px"};
     font-weight: 600;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
     cursor: pointer;
-    min-width: 90px;
+    min-width: ${markerDisplay === "points" ? "34px" : "90px"};
     text-align: center;
     border: 2px solid white;
     user-select: none;
@@ -76,10 +83,12 @@ export function createClusterMarkerElement({
     background: ${bgColor};
   `;
 
-  // Combined label: "1-2ft - 2x" or just "2x" if no wave data
+  // Forecast mode: "1-2ft - 2x". Points mode: compact count-only cluster.
   const label = document.createElement("span");
   label.style.fontWeight = "700";
-  if (waveRange !== "—") {
+  if (markerDisplay === "points") {
+    label.textContent = String(pointCount);
+  } else if (waveRange !== "—") {
     label.textContent = `${waveRange} - ${pointCount}x`;
   } else {
     label.textContent = `${pointCount}x`;

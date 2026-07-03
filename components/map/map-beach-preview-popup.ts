@@ -102,21 +102,25 @@ export function createBeachPreviewPopupContent({
     conditionSummary,
     conditionScore,
   });
-  const verdict = document.createElement("span");
-  verdict.className = "quiver-beach-preview-popup__verdict";
-  verdict.textContent = call.label;
-  verdict.style.cssText = `
-    display: inline-flex;
-    align-items: center;
-    border-radius: 9999px;
-    padding: 3px 8px;
-    color: white;
-    font-size: 11px;
-    font-weight: 800;
-    line-height: 1;
-    background: ${call.gradient};
-  `;
-  body.appendChild(verdict);
+  // No quality read -> hide the verdict entirely. Showing "No read" next to real
+  // swell/wind reads as broken; absence is cleaner than a negative badge.
+  if (call.label !== "No read") {
+    const verdict = document.createElement("span");
+    verdict.className = "quiver-beach-preview-popup__verdict";
+    verdict.textContent = call.label;
+    verdict.style.cssText = `
+      display: inline-flex;
+      align-items: center;
+      border-radius: 9999px;
+      padding: 3px 8px;
+      color: white;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1;
+      background: ${call.gradient};
+    `;
+    body.appendChild(verdict);
+  }
 
   const cleanWaveLabel = waveLabel?.trim();
   if (cleanWaveLabel) {
@@ -130,7 +134,18 @@ export function createBeachPreviewPopupContent({
     ? partition.swellDirOm ?? partition.s1Dir
     : null;
   if (isFiniteNumber(swellDirection)) {
-    appendLiveRow(body, "SWELL", `from ${degreesToCompass(swellDirection)}`);
+    // Show swell height alongside direction so a beach with real swell never reads
+    // as "no data" next to a "No read" quality verdict (verdict != swell presence).
+    const swellHeightFt = partition?.s1HeightFt;
+    const swellHeightPrefix =
+      isFiniteNumber(swellHeightFt) && swellHeightFt > 0
+        ? `${Math.round(swellHeightFt * 10) / 10}ft · `
+        : "";
+    appendLiveRow(
+      body,
+      "SWELL",
+      `${swellHeightPrefix}from ${degreesToCompass(swellDirection)}`
+    );
   }
 
   if (isFiniteNumber(partition?.windDir)) {

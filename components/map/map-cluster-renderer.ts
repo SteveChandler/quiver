@@ -1,7 +1,10 @@
 import mapboxgl from "mapbox-gl";
 import { createClusterMarkerElement } from "@/components/map/cluster-marker";
 import type { ClusterPoint } from "@/hooks/use-beach-clustering";
-import type { MapDisplayMode } from "@/components/map/map-marker-builder";
+import type {
+  MapDisplayMode,
+  MapMarkerDisplay,
+} from "@/components/map/map-marker-builder";
 
 export type ClusterClickBehavior = "expand" | "details";
 
@@ -24,6 +27,8 @@ export interface ClusterRendererDeps {
   displayMode?: MapDisplayMode;
   /** Map from beach ID to water temperature string */
   waterTempMap?: Map<string, string | undefined>;
+  /** Marker shape mode: forecast keeps range pills; points keeps embed clusters compact. */
+  markerDisplay?: MapMarkerDisplay;
   /** How cluster marker clicks should behave */
   clusterClickBehavior?: ClusterClickBehavior;
   /** Optional handler for non-zoom cluster click behavior */
@@ -63,6 +68,7 @@ export function createClusterMapMarker(
     onLeave: () => {},
     displayMode: deps.displayMode,
     waterTemps,
+    markerDisplay: deps.markerDisplay,
   });
 
   // Store cleanup function
