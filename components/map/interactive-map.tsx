@@ -585,7 +585,12 @@ export function InteractiveMap({
       beachHref,
       scale: calloutScale,
     });
-    element.addEventListener("click", () => removeActiveCallout());
+    // Stop the tap from bubbling to map.on("click"), which would treat the
+    // dismiss as a fresh water tap and instantly re-open the callout.
+    element.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      removeActiveCallout();
+    });
     removeActiveCallout();
     const marker = new mapboxgl.Marker({ element, anchor: "center" }).setLngLat([beach.lon!, beach.lat!]).addTo(map);
     // Mapbox stamps a generic "Map marker" aria-label; replace it with the real
