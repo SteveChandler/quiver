@@ -730,8 +730,9 @@ test.describe('Map Page - Beach Detail Navigation', () => {
     });
 
     if (!markerPoint) {
-      test.skip(true, 'No unobscured beach marker badge found in the mobile viewport');
-      return;
+      throw new Error(
+        'No unobscured beach marker badge in the mobile viewport — every badge is covered by other UI, which is the regression this tap test guards against',
+      );
     }
 
     await page.mouse.click(markerPoint.x, markerPoint.y);
