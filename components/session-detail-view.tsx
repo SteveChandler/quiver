@@ -23,7 +23,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/auth-context";
 import type { SessionWithDetails } from "@/types/database";
-import { PublicContentGate } from "@/components/ui/public-content-gate";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   AlertDialog,
@@ -48,6 +47,7 @@ import { ShareSheet } from "@/components/share";
 import { buildSessionShareSheetData } from "@/lib/share/session-share";
 import { getWaveTypeLabel } from "@/components/ui/wave-type-selector";
 import { formatSessionTideSnapshot } from "@/lib/services/session-tide-snapshot";
+import { IosAppStoreCta } from "@/components/app-store/ios-app-store-cta";
 
 const RIP_CURRENT_LABELS: Record<string, string> = {
   none: "None",
@@ -74,11 +74,23 @@ const SessionPhotoGallery = dynamic(
   }
 );
 
-interface SessionDetailViewProps {
-  id: string;
+interface SharedSessionPreview {
+  beachName: string;
+  userName: string;
+  rating: number | null;
+  dateText: string | null;
+  title: string;
+  subtitle: string;
+  imageUrl: string | null;
+  shareImageUrl: string;
 }
 
-export function SessionDetailView({ id }: SessionDetailViewProps) {
+interface SessionDetailViewProps {
+  id: string;
+  sharedPreview?: SharedSessionPreview | null;
+}
+
+export function SessionDetailView({ id, sharedPreview = null }: SessionDetailViewProps) {
   const router = useRouter();
   const { user, isLoading } = useAuth();
   const [session, setSession] = useState<SessionWithDetails | null>(null);
@@ -88,6 +100,10 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
   const [shareOpen, setShareOpen] = useState(false);
   const [sessionPhotos, setSessionPhotos] = useState<SessionPhoto[]>([]);
   const [photosLoading, setPhotosLoading] = useState(false);
+  const sharedPreviewStars =
+    sharedPreview?.rating != null
+      ? Math.max(0, Math.min(5, Math.round(sharedPreview.rating)))
+      : null;
 
   useEffect(() => {
     async function loadSession() {
@@ -144,40 +160,74 @@ export function SessionDetailView({ id }: SessionDetailViewProps) {
   // Gate the detail page for logged-out users (avoid infinite loading state).
   if (!user && !isLoading) {
     return (
-      <PublicContentGate
-        ctaTitle="Log in to view session details"
-        ctaDescription="See the full session breakdown, photos, and comments."
-        blurLevel="lg"
-        source="session-detail"
-        className="flex-1"
-      >
-        <div className="flex-1 flex flex-col">
-          <header className="sticky top-0 z-10 bg-background border-b">
-            <div className="container flex items-center h-16 px-4">
-              <Link href="/sessions" className="mr-2">
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-              <h1 className="text-xl font-bold">Session Details</h1>
-            </div>
-          </header>
-          <main className="flex-1 container px-4 py-6 space-y-4">
-            <Card>
-              <CardContent className="p-6 space-y-2">
-                <div className="h-4 w-2/3 bg-muted rounded" />
-                <div className="h-4 w-1/2 bg-muted rounded" />
-                <div className="h-40 w-full bg-muted rounded" />
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-6 space-y-2">
-                <div className="h-4 w-3/4 bg-muted rounded" />
-                <div className="h-4 w-full bg-muted rounded" />
-                <div className="h-4 w-5/6 bg-muted rounded" />
-              </CardContent>
-            </Card>
-          </main>
-        </div>
-      </PublicContentGate>
+      <div className="flex-1 flex flex-col bg-[#F4EBD8] text-[#11100D]">
+        <header className="sticky top-0 z-10 border-b border-[#E5D4B3] bg-[#F4EBD8]/95 backdrop-blur">
+          <div className="container flex items-center h-16 px-4">
+            <Link href="/sessions" className="mr-2" aria-label="Back to sessions">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+            <h1 className="text-xl font-bold">Session Details</h1>
+          </div>
+        </header>
+        <main className="flex-1 container px-4 py-6">
+          <Card className="mx-auto max-w-md overflow-hidden border-[#E5D4B3] bg-white shadow-sm">
+            {sharedPreview?.imageUrl ? (
+              <div className="aspect-[4/5] w-full overflow-hidden bg-[#252D6B]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={sharedPreview.imageUrl}
+                  alt=""
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            ) : null}
+            <CardContent className="space-y-5 p-6">
+              <div className="space-y-2">
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#8A5E00]">
+                  Shared session
+                </p>
+                <h2 className="text-2xl font-black leading-tight">
+                  {sharedPreview?.title ?? "Open this session in Quiver"}
+                </h2>
+                <p className="text-sm font-semibold text-[#4A463C]">
+                  {sharedPreview?.subtitle ??
+                    "See the beach, conditions, photos, and session notes in the app."}
+                </p>
+              </div>
+
+              {sharedPreviewStars != null ? (
+                <div
+                  aria-label={`${sharedPreviewStars} out of 5 stars`}
+                  className="text-2xl text-[#F78E42]"
+                >
+                  {"★".repeat(sharedPreviewStars)}
+                  {"☆".repeat(5 - sharedPreviewStars)}
+                </div>
+              ) : null}
+
+              <div className="rounded-2xl border border-[#E5D4B3] bg-[#F4EBD8] p-4 text-sm font-semibold text-[#4A463C]">
+                Quiver opens shared session links directly in the app when it is installed.
+                If it is not installed, download it and return to this link.
+              </div>
+
+              <div className="space-y-3">
+                <Button asChild className="w-full bg-[#F78E42] text-[#252D6B] hover:bg-[#D06C2E]">
+                  <IosAppStoreCta
+                    source="session_share"
+                    surface="session_detail_fallback"
+                    placement="primary_app_store"
+                  >
+                    Open App Store
+                  </IosAppStoreCta>
+                </Button>
+                <Button asChild variant="outline" className="w-full border-[#E5D4B3]">
+                  <Link href="/download">Download options</Link>
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
     );
   }
 
