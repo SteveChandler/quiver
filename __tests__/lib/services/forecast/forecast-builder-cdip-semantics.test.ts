@@ -23,6 +23,7 @@ import {
 } from "@/lib/services/forecast/forecast-builder";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import { CDIP_NOWCAST_HORIZON_HOURS } from "@/lib/config/forecast-staleness";
+import { FORECAST_HANDOFF_BLEND_ENABLED_FLAG } from "@/lib/flags/forecast-handoff-blend";
 import type { Beach } from "@/types/database";
 
 const FROZEN_NOW_ISO = "2026-04-19T15:00:00Z";
@@ -113,6 +114,34 @@ function makeWaveData(nowIso: string, hsM = 2.8) {
   };
 }
 
+function makeTrestlesHandoffWaveData(nowIso: string) {
+  const firstModelIso = new Date(Date.parse(nowIso) + 6 * 3_600_000).toISOString();
+  return {
+    lat: 33.381,
+    lng: -117.593,
+    data_source: "NOAA_NWS" as const,
+    forecast: [
+      {
+        timestamp: firstModelIso,
+        forecast_at: firstModelIso,
+        significant_wave_height: 0.61,
+        peak_wave_period: 15,
+        peak_wave_direction: 220,
+        swell_1_height: 0.61, // ~2.0 ft deep-water model swell
+        swell_1_period: 15,
+        swell_1_direction: 220,
+        swell_2_height: 0,
+        swell_2_period: 0,
+        swell_2_direction: 0,
+        wind_wave_height: 0,
+        wind_wave_period: 0,
+        wind_wave_direction: 0,
+        data_source: "NOAA_NWS" as const,
+      },
+    ],
+  };
+}
+
 function makeBlacksSpikeWaveData(nowIso: string) {
   return {
     lat: 32.887,
@@ -181,13 +210,19 @@ function extractFt(waveHeight: string | null | undefined): number {
   return parseFloat(match[1]);
 }
 
+function findHandoffMetricLog(calls: unknown[][]): unknown[] | undefined {
+  return calls.find(([, eventName]) => eventName === "handoff_discontinuity_ft");
+}
+
 beforeEach(() => {
   jest.useFakeTimers();
   jest.setSystemTime(new Date(FROZEN_NOW_ISO));
+  delete process.env[FORECAST_HANDOFF_BLEND_ENABLED_FLAG];
 });
 
 afterEach(() => {
   jest.useRealTimers();
+  delete process.env[FORECAST_HANDOFF_BLEND_ENABLED_FLAG];
 });
 
 describe("hasCalibrationLoss", () => {
@@ -644,5 +679,133 @@ describe("ForecastBuilder CDIP height semantics", () => {
     expect(payload.lostSlots).toBe(
       payload.nowcastEligibleSlots - payload.calibratedSlots,
     );
+  });
+
+  test("default-off Trestles handoff records the seam metric without changing model height", async () => {
+    const builder = makeBuilder();
+    const consoleInfoSpy = jest
+      .spyOn(console, "info")
+      .mockImplementation(() => undefined);
+    const consoleLogSpy = jest
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+
+    try {
+      const forecasts = await builder.buildForecasts({
+        beach: makeBeach({
+          id: "lower-trestles",
+          name: "Lower Trestles",
+          swell_window_center_deg: 220,
+          swell_window_halfwidth_deg: 105,
+          deepwater_decay_factor: 0.6,
+          shoaling_factors: {
+            version: 1,
+            type: "period_lookup",
+            buckets: [{ tp_min_s: 16, tp_max_s: 999, factor: 1.62 }],
+          } as unknown as Beach["shoaling_factors"],
+        }),
+        waveData: makeTrestlesHandoffWaveData(FROZEN_NOW_ISO),
+        tideData: null,
+        weatherData: [],
+        buoyData: null,
+        cdipData: makeCdipBuoyData(FROZEN_NOW_ISO, 3.27, 17) as never,
+        ioosWaterTempC: null,
+        coopsWaterTempC: null,
+      });
+
+      expect(forecasts[0].data_source).toBe("CDIP");
+      expect(forecasts[1].data_source).toBe("CDIP");
+      expect(forecasts[2].data_source).toBe("NOAA_NWS");
+      expect(extractFt(forecasts[1].wave_height)).toBeCloseTo(5.3, 1);
+      expect(extractFt(forecasts[2].wave_height)).toBeCloseTo(1.4, 1);
+
+      const provenance = forecasts[2].raw_forecast?.wave_height_provenance;
+      expect(provenance).toEqual(
+        expect.objectContaining({
+          source: "model_swell",
+          transform_path: "decomposed",
+          components_used: true,
+          handoff_discontinuity_ft: 3.9,
+        }),
+      );
+      expect(provenance?.handoff_blend).toBeUndefined();
+      expect(findHandoffMetricLog(consoleInfoSpy.mock.calls)).toBeUndefined();
+      expect(findHandoffMetricLog(consoleLogSpy.mock.calls)?.[2]).toEqual(
+        expect.objectContaining({
+          blendEnabled: false,
+          blendApplied: false,
+          handoff_discontinuity_ft: 3.9,
+        }),
+      );
+    } finally {
+      consoleInfoSpy.mockRestore();
+      consoleLogSpy.mockRestore();
+    }
+  });
+
+  test("enabled Trestles handoff blend improves the first model slot without changing CDIP slots or source provenance", async () => {
+    process.env[FORECAST_HANDOFF_BLEND_ENABLED_FLAG] = "true";
+    const builder = makeBuilder();
+    const consoleInfoSpy = jest
+      .spyOn(console, "info")
+      .mockImplementation(() => undefined);
+    const consoleLogSpy = jest
+      .spyOn(console, "log")
+      .mockImplementation(() => undefined);
+
+    try {
+      const forecasts = await builder.buildForecasts({
+        beach: makeBeach({
+          id: "lower-trestles",
+          name: "Lower Trestles",
+          swell_window_center_deg: 220,
+          swell_window_halfwidth_deg: 105,
+          deepwater_decay_factor: 0.6,
+          shoaling_factors: {
+            version: 1,
+            type: "period_lookup",
+            buckets: [{ tp_min_s: 16, tp_max_s: 999, factor: 1.62 }],
+          } as unknown as Beach["shoaling_factors"],
+        }),
+        waveData: makeTrestlesHandoffWaveData(FROZEN_NOW_ISO),
+        tideData: null,
+        weatherData: [],
+        buoyData: null,
+        cdipData: makeCdipBuoyData(FROZEN_NOW_ISO, 3.27, 17) as never,
+        ioosWaterTempC: null,
+        coopsWaterTempC: null,
+      });
+
+      expect(extractFt(forecasts[0].wave_height)).toBeCloseTo(5.3, 1);
+      expect(extractFt(forecasts[1].wave_height)).toBeCloseTo(5.3, 1);
+      expect(extractFt(forecasts[2].wave_height)).toBeCloseTo(2.8, 1);
+
+      const provenance = forecasts[2].raw_forecast?.wave_height_provenance;
+      expect(provenance).toEqual(
+        expect.objectContaining({
+          source: "model_swell",
+          transform_path: "decomposed",
+          components_used: true,
+          handoff_discontinuity_ft: 3.9,
+          handoff_blend: expect.objectContaining({
+            original_face_ft: 1.4,
+            blended_face_ft: 2.8,
+            clamped_ratio: 2,
+            taper_factor: 2,
+          }),
+        }),
+      );
+      expect(findHandoffMetricLog(consoleInfoSpy.mock.calls)?.[2]).toEqual(
+        expect.objectContaining({
+          blendEnabled: true,
+          blendApplied: true,
+          handoff_discontinuity_ft: 3.9,
+        }),
+      );
+      expect(findHandoffMetricLog(consoleLogSpy.mock.calls)).toBeUndefined();
+    } finally {
+      consoleInfoSpy.mockRestore();
+      consoleLogSpy.mockRestore();
+    }
   });
 });
