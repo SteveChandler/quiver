@@ -1,7 +1,7 @@
 # Shoaling Regression Suite (Workstream D)
 
 Validates the 2026-04-09 shoaling decomposition + small-wave ceiling fix.
-Five gates (A–E) with A–D blocking CI and E advisory-only.
+Six gates (A–F) with A–D/F blocking CI and E advisory-only.
 
 ## How to run
 
@@ -22,7 +22,7 @@ Exit codes:
 
 | Code | Meaning |
 |-----:|---------|
-|    0 | All blocking gates (A–D) passed |
+|    0 | All blocking gates (A–D/F) passed |
 |    1 | One or more blocking gates failed |
 |    2 | Fatal error (fixtures missing, syntax error, etc.) |
 
@@ -86,6 +86,15 @@ GET https://services.surfline.com/kbyg/spots/forecasts/wave
 
 No token is used. If the endpoint is ever gated behind auth, Gate E will
 degrade gracefully — it is deliberately best-effort.
+
+### Gate F — CDIP→model handoff boundary default-off invariant + enabled blend
+
+**Set:** Lower Trestles CDIP→NOAA_NWS handoff fixture
+**Check:** with the blend flag off, the first model slot remains byte-identical;
+with the blend flag on, the first model slot moves toward the last CDIP face
+height through the bounded 48h taper.
+**Failure signal:** the handoff instrumentation changed default behavior, or the
+enabled blend no longer improves the discontinuity at the CDIP/model seam.
 
 ## Fixtures
 

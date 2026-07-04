@@ -27,6 +27,7 @@ import {
   CDIP_OUTLIER_THRESHOLD,
   MAX_TRUSTED_CDIP_FT,
 } from '@/lib/config/forecast-staleness';
+import type { ForecastHandoffBlendMetadata } from './forecast-handoff-blend';
 
 // Re-export for backward compatibility (consumers may import from here)
 export { METERS_TO_FEET };
@@ -651,6 +652,8 @@ export interface WaveHeightDebugInfo {
   transformPath: 'scalar_calibrated' | 'scalar_generic' | 'decomposed' | null;
   componentsUsed: boolean;
   calibratedShoalingFired: boolean;
+  handoffDiscontinuityFt?: number;
+  handoffBlend?: ForecastHandoffBlendMetadata;
   cdipRejection?: {
     reason: 'cdip_too_large' | 'cdip_outlier_vs_model';
     rawCdipHs: number;
