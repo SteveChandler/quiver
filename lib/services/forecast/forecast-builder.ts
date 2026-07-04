@@ -10,6 +10,7 @@
 
 import { createContextLogger } from "@/lib/logger";
 import { shouldForceNoDecay } from "@/lib/flags/decay-off";
+import { isForecastHandoffBlendEnabled } from "@/lib/flags/forecast-handoff-blend";
 import { calculateConfidenceScore } from "./confidence-scorer";
 import {
   toFaceHeightFeetDecomposedWithDebug,
@@ -59,6 +60,11 @@ import {
   CDIP_NOWCAST_HORIZON_HOURS,
   STALENESS_THRESHOLDS,
 } from "@/lib/config/forecast-staleness";
+import {
+  createForecastHandoffBlendState,
+  processForecastHandoffBlendSlot,
+  type ForecastHandoffBlendState,
+} from "@/lib/utils/forecast-handoff-blend";
 import { pickDominantSwell } from "@/lib/domains/conditions";
 import {
   resolveSouthOcSanoShadowGuardrail,
@@ -355,6 +361,8 @@ export class ForecastBuilder {
     // the row loop completes.
     const snapshotBuffer: DisplayPredictionRow[] = [];
     const gfsWaveForecastTimes: Date[] = [];
+    const handoffBlendEnabled = isForecastHandoffBlendEnabled();
+    const handoffBlendState = createForecastHandoffBlendState();
     const calibrationCoverage: CalibrationCoverage = {
       beachId: beach.id,
       calibrated: beach.shoaling_factors != null,
@@ -463,6 +471,8 @@ export class ForecastBuilder {
         heightOffset: resolvedOffset ?? null,
         snapshotBuffer,
         calibrationCoverage,
+        handoffBlendState,
+        handoffBlendEnabled,
       });
 
       forecasts.push(forecast);
@@ -570,6 +580,8 @@ export class ForecastBuilder {
     heightOffset: BeachHeightOffsetRow | null;
     snapshotBuffer: DisplayPredictionRow[];
     calibrationCoverage: CalibrationCoverage;
+    handoffBlendState: ForecastHandoffBlendState;
+    handoffBlendEnabled: boolean;
     calibration: Awaited<ReturnType<typeof getActiveCalibration>>;
   }): EnhancedForecastWithRawData {
     const {
@@ -596,6 +608,8 @@ export class ForecastBuilder {
       heightOffset,
       snapshotBuffer,
       calibrationCoverage,
+      handoffBlendState,
+      handoffBlendEnabled,
       calibration,
     } = params;
 
@@ -634,6 +648,55 @@ export class ForecastBuilder {
     // (only 24h+ horizons in initial rollout), and the snapshot row.
     const forecastHorizonHours =
       (forecastTime.getTime() - now.getTime()) / (60 * 60 * 1000);
+    const forecastAt = getNormalizedForecastAt(forecastTime);
+
+    const handoffStep = processForecastHandoffBlendSlot({
+      state: handoffBlendState,
+      enabled: handoffBlendEnabled,
+      slot: {
+        forecastAt,
+        waveHeight: waveHeightResult.value,
+        dataSource: timepointDataSource,
+        waveHeightSource: waveHeightResult.debug.source,
+      },
+    });
+    if (handoffStep.metric) {
+      waveHeightResult = {
+        ...waveHeightResult,
+        debug: {
+          ...waveHeightResult.debug,
+          handoffDiscontinuityFt:
+            handoffStep.metric.handoffDiscontinuityFt,
+        },
+      };
+      // Metric is stored in existing raw_forecast JSON/debug logs; no schema
+      // migration is needed for this generation-time seam instrumentation.
+      const logHandoffMetric =
+        handoffBlendEnabled && handoffStep.adjustment ? log.info : log.debug;
+      logHandoffMetric("handoff_discontinuity_ft", {
+        beachId: beach.id,
+        beachName: beach.name,
+        cdipForecastAt: handoffStep.metric.cdipForecastAt,
+        modelForecastAt: handoffStep.metric.modelForecastAt,
+        cdipFaceFt: handoffStep.metric.cdipFaceFt,
+        modelFaceFt: handoffStep.metric.modelFaceFt,
+        handoff_discontinuity_ft:
+          handoffStep.metric.handoffDiscontinuityFt,
+        rawRatio: handoffStep.metric.rawRatio,
+        clampedRatio: handoffStep.metric.clampedRatio,
+        blendEnabled: handoffBlendEnabled,
+        blendApplied: handoffStep.adjustment != null,
+      });
+    }
+    if (handoffStep.adjustment) {
+      waveHeightResult = {
+        value: handoffStep.adjustment.waveHeight,
+        debug: {
+          ...waveHeightResult.debug,
+          handoffBlend: handoffStep.adjustment.metadata,
+        },
+      };
+    }
 
     const isCdipNowcastEligibleSlot =
       forecastHorizonHours >= 0 &&
@@ -755,7 +818,7 @@ export class ForecastBuilder {
 
       snapshotBuffer.push({
         beach_id: beach.id,
-        predicted_at: getNormalizedForecastAt(forecastTime),
+        predicted_at: forecastAt,
         forecast_horizon_hours: horizonInt,
         forecast_horizon_bucket: forecastHorizonBucket,
         raw_display_height_m: Number(rawDisplayHeightM.toFixed(3)),
@@ -828,7 +891,7 @@ export class ForecastBuilder {
       id: `forecast-${beach.id}-${forecastTime.getTime()}`,
       forecast_date: dateString,
       forecast_time: getNormalizedTimeString(forecastTime),
-      forecast_at: getNormalizedForecastAt(forecastTime),
+      forecast_at: forecastAt,
 
       // Honest face-height from the per-component transformer. The raw OM Hs is
       // still co-located on this row in `wave_height_om` for the Seaside ML
@@ -996,6 +1059,32 @@ export class ForecastBuilder {
                 reason: waveHeightDebug.cdipRejection.reason,
                 raw_cdip_hs: waveHeightDebug.cdipRejection.rawCdipHs,
                 raw_model_hs: waveHeightDebug.cdipRejection.rawModelHs,
+              },
+            }
+          : {}),
+        ...(waveHeightDebug.handoffDiscontinuityFt != null
+          ? {
+              handoff_discontinuity_ft:
+                waveHeightDebug.handoffDiscontinuityFt,
+            }
+          : {}),
+        ...(waveHeightDebug.handoffBlend
+          ? {
+              handoff_blend: {
+                cdip_forecast_at: waveHeightDebug.handoffBlend.cdipForecastAt,
+                model_forecast_at:
+                  waveHeightDebug.handoffBlend.modelForecastAt,
+                cdip_face_ft: waveHeightDebug.handoffBlend.cdipFaceFt,
+                model_face_ft: waveHeightDebug.handoffBlend.modelFaceFt,
+                handoff_discontinuity_ft:
+                  waveHeightDebug.handoffBlend.handoffDiscontinuityFt,
+                raw_ratio: waveHeightDebug.handoffBlend.rawRatio,
+                clamped_ratio: waveHeightDebug.handoffBlend.clampedRatio,
+                taper_hours: waveHeightDebug.handoffBlend.taperHours,
+                hours_after_seam: waveHeightDebug.handoffBlend.hoursAfterSeam,
+                taper_factor: waveHeightDebug.handoffBlend.taperFactor,
+                original_face_ft: waveHeightDebug.handoffBlend.originalFaceFt,
+                blended_face_ft: waveHeightDebug.handoffBlend.blendedFaceFt,
               },
             }
           : {}),
