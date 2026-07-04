@@ -1,12 +1,12 @@
-import { seedDefaultRuleForUser } from "@/lib/alerts/seed-default-rule";
+import { seedDefaultRulesForUser } from "@/lib/alerts/seed-default-rule";
 import type { SupabaseServerClient } from "@/types/supabase";
 
 type BeachRow = {
   id: string;
   name: string;
   slug: string | null;
-  lat: number;
-  lon: number;
+  lat: number | null;
+  lon: number | null;
   timezone: string | null;
   wind_offshore_deg: number | null;
   wind_offshore_tol_deg: number | null;
@@ -16,6 +16,11 @@ type BeachRow = {
   preferred_tide_direction: string | null;
   swell_window_center_deg: number | null;
   swell_window_halfwidth_deg: number | null;
+  break_type: string | null;
+  skill_level: string | null;
+  features: unknown;
+  preference_model: unknown;
+  wind_onshore_bad_kt: number | null;
 };
 
 interface MockState {
@@ -24,8 +29,7 @@ interface MockState {
   beachRow: BeachRow | null;
   beachError: { message: string } | null;
   insertError: { message: string } | null;
-  insertedId: string;
-  insertPayload: Record<string, unknown> | null;
+  insertPayload: Array<Record<string, unknown>> | null;
   selectedBeachColumns: string | null;
 }
 
@@ -45,25 +49,22 @@ function makeMockSupabase(state: MockState): SupabaseServerClient {
                   }),
               };
             }
-            // Insert path uses .select("id").single()
-            return {
-              single: () =>
-                Promise.resolve({
-                  data: state.insertError ? null : { id: state.insertedId },
-                  error: state.insertError,
-                }),
-            };
+
+            return {};
           },
-          insert: (payload: Record<string, unknown>) => {
+          insert: (payload: Array<Record<string, unknown>>) => {
             state.insertPayload = payload;
             return {
-              select: (_cols: string) => ({
-                single: () =>
-                  Promise.resolve({
-                    data: state.insertError ? null : { id: state.insertedId },
-                    error: state.insertError,
-                  }),
-              }),
+              select: (_cols: string) =>
+                Promise.resolve({
+                  data: state.insertError
+                    ? null
+                    : payload.map((row, index) => ({
+                        id: `rule-${index + 1}`,
+                        preset_type: row.preset_type as string,
+                      })),
+                  error: state.insertError,
+                }),
             };
           },
         };
@@ -112,160 +113,146 @@ function baseState(overrides: Partial<MockState> = {}): MockState {
       preferred_tide_direction: "rising",
       swell_window_center_deg: 270,
       swell_window_halfwidth_deg: 60,
+      break_type: null,
+      skill_level: null,
+      features: null,
+      preference_model: null,
+      wind_onshore_bad_kt: null,
     },
     beachError: null,
     insertError: null,
-    insertedId: "rule-abc",
     insertPayload: null,
     selectedBeachColumns: null,
     ...overrides,
   };
 }
 
-describe("seedDefaultRuleForUser", () => {
-  it("seeds mellow_session when level is null", async () => {
+describe("seedDefaultRulesForUser", () => {
+  it("seeds mellow_session plus dawn_patrol for beginner dawn users", async () => {
     const state = baseState();
     const supabase = makeMockSupabase(state);
 
-    const result = await seedDefaultRuleForUser({
-      supabase,
-      userId: "user-1",
-      beachId: "beach-123",
-      experienceLevel: null,
-      notifyEmail: true,
-      notifyPush: false,
-    });
-
-    expect(result).toEqual({
-      seeded: true,
-      ruleId: "rule-abc",
-      presetType: "mellow_session",
-    });
-    expect(state.insertPayload).toMatchObject({
-      preset_type: "mellow_session",
-      name: "Mellow session at your home break",
-    });
-  });
-
-  it("seeds mellow_session when level is undefined", async () => {
-    const state = baseState();
-    const supabase = makeMockSupabase(state);
-
-    const result = await seedDefaultRuleForUser({
-      supabase,
-      userId: "user-1",
-      beachId: "beach-123",
-      experienceLevel: undefined,
-      notifyEmail: true,
-      notifyPush: false,
-    });
-
-    expect(result).toMatchObject({
-      seeded: true,
-      presetType: "mellow_session",
-    });
-    expect(state.insertPayload?.preset_type).toBe("mellow_session");
-  });
-
-  it("inserts mellow_session for beginner", async () => {
-    const state = baseState();
-    const supabase = makeMockSupabase(state);
-
-    const result = await seedDefaultRuleForUser({
+    const result = await seedDefaultRulesForUser({
       supabase,
       userId: "user-1",
       beachId: "beach-123",
       experienceLevel: "beginner",
+      preferredTimeBucket: "dawn",
       notifyEmail: true,
       notifyPush: false,
     });
 
     expect(result).toEqual({
       seeded: true,
-      ruleId: "rule-abc",
-      presetType: "mellow_session",
+      rules: [
+        { ruleId: "rule-1", presetType: "mellow_session" },
+        { ruleId: "rule-2", presetType: "dawn_patrol" },
+      ],
     });
-    expect(state.insertPayload).toMatchObject({
-      user_id: "user-1",
-      beach_id: "beach-123",
-      preset_type: "mellow_session",
-      name: "Mellow session at your home break",
-      enabled: true,
-    });
+    expect(state.insertPayload?.map((row) => row.preset_type)).toEqual([
+      "mellow_session",
+      "dawn_patrol",
+    ]);
+    expect(state.insertPayload?.map((row) => row.name)).toEqual([
+      "Mellow session at your home break",
+      "Dawn patrol at your home break",
+    ]);
   });
 
-  it("inserts mellow_session for intermediate", async () => {
+  it("seeds clean_groundswell plus after_work for advanced evening users", async () => {
     const state = baseState();
     const supabase = makeMockSupabase(state);
 
-    const result = await seedDefaultRuleForUser({
-      supabase,
-      userId: "user-1",
-      beachId: "beach-123",
-      experienceLevel: "intermediate",
-      notifyEmail: true,
-      notifyPush: false,
-    });
-
-    expect(result).toMatchObject({
-      seeded: true,
-      presetType: "mellow_session",
-    });
-    expect(state.insertPayload?.preset_type).toBe("mellow_session");
-  });
-
-  it("inserts clean_groundswell for advanced", async () => {
-    const state = baseState();
-    const supabase = makeMockSupabase(state);
-
-    const result = await seedDefaultRuleForUser({
+    const result = await seedDefaultRulesForUser({
       supabase,
       userId: "user-1",
       beachId: "beach-123",
       experienceLevel: "advanced",
+      preferredTimeBucket: "evening",
       notifyEmail: true,
       notifyPush: false,
     });
 
-    expect(result).toMatchObject({
+    expect(result).toEqual({
       seeded: true,
-      presetType: "clean_groundswell",
+      rules: [
+        { ruleId: "rule-1", presetType: "clean_groundswell" },
+        { ruleId: "rule-2", presetType: "after_work" },
+      ],
     });
-    expect(state.insertPayload).toMatchObject({
-      preset_type: "clean_groundswell",
-      name: "Clean groundswell at your home break",
-    });
+    expect(state.insertPayload?.map((row) => row.preset_type)).toEqual([
+      "clean_groundswell",
+      "after_work",
+    ]);
   });
 
-  it("inserts clean_groundswell for expert", async () => {
+  it("seeds mellow_session plus weekend_warrior for intermediate users with no bucket", async () => {
     const state = baseState();
     const supabase = makeMockSupabase(state);
 
-    const result = await seedDefaultRuleForUser({
+    const result = await seedDefaultRulesForUser({
       supabase,
       userId: "user-1",
       beachId: "beach-123",
-      experienceLevel: "expert",
+      experienceLevel: "intermediate",
+      preferredTimeBucket: null,
       notifyEmail: true,
       notifyPush: false,
     });
 
-    expect(result).toMatchObject({
+    expect(result).toEqual({
       seeded: true,
-      presetType: "clean_groundswell",
+      rules: [
+        { ruleId: "rule-1", presetType: "mellow_session" },
+        { ruleId: "rule-2", presetType: "weekend_warrior" },
+      ],
     });
-    expect(state.insertPayload?.preset_type).toBe("clean_groundswell");
+    expect(state.insertPayload?.map((row) => row.name)).toContain(
+      "Weekend windows at your home break",
+    );
+  });
+
+  it("recognizes native preferredTime literals", async () => {
+    const dawnState = baseState();
+    await seedDefaultRulesForUser({
+      supabase: makeMockSupabase(dawnState),
+      userId: "user-1",
+      beachId: "beach-123",
+      experienceLevel: "beginner",
+      preferredTimeBucket: "dawn_patrol",
+      notifyEmail: true,
+      notifyPush: false,
+    });
+
+    const middayState = baseState();
+    await seedDefaultRulesForUser({
+      supabase: makeMockSupabase(middayState),
+      userId: "user-1",
+      beachId: "beach-123",
+      experienceLevel: "beginner",
+      preferredTimeBucket: "midday",
+      notifyEmail: true,
+      notifyPush: false,
+    });
+
+    expect(dawnState.insertPayload?.map((row) => row.preset_type)).toContain(
+      "dawn_patrol",
+    );
+    expect(middayState.insertPayload?.map((row) => row.preset_type)).toContain(
+      "weekend_warrior",
+    );
   });
 
   it("returns already_has_rules when user has any existing rule", async () => {
     const state = baseState({ existingRuleCount: 1 });
     const supabase = makeMockSupabase(state);
 
-    const result = await seedDefaultRuleForUser({
+    const result = await seedDefaultRulesForUser({
       supabase,
       userId: "user-1",
       beachId: "beach-123",
       experienceLevel: "beginner",
+      preferredTimeBucket: "dawn",
       notifyEmail: true,
       notifyPush: false,
     });
@@ -278,11 +265,12 @@ describe("seedDefaultRuleForUser", () => {
     const state = baseState({ beachRow: null });
     const supabase = makeMockSupabase(state);
 
-    const result = await seedDefaultRuleForUser({
+    const result = await seedDefaultRulesForUser({
       supabase,
       userId: "user-1",
       beachId: "beach-missing",
       experienceLevel: "beginner",
+      preferredTimeBucket: "dawn",
       notifyEmail: true,
       notifyPush: false,
     });
@@ -291,23 +279,26 @@ describe("seedDefaultRuleForUser", () => {
     expect(state.insertPayload).toBeNull();
   });
 
-  it("passes notify_email and notify_push through to the insert payload", async () => {
+  it("passes notify_email and notify_push through to both insert rows", async () => {
     const state = baseState();
     const supabase = makeMockSupabase(state);
 
-    await seedDefaultRuleForUser({
+    await seedDefaultRulesForUser({
       supabase,
       userId: "user-1",
       beachId: "beach-123",
       experienceLevel: "beginner",
+      preferredTimeBucket: "dawn",
       notifyEmail: false,
       notifyPush: true,
     });
 
-    expect(state.insertPayload).toMatchObject({
-      notify_email: false,
-      notify_push: true,
-    });
+    expect(state.insertPayload).toHaveLength(2);
+    expect(
+      state.insertPayload?.every(
+        (row) => row.notify_email === false && row.notify_push === true,
+      ),
+    ).toBe(true);
   });
 
   it("returns error reason with message on insert failure", async () => {
@@ -316,11 +307,12 @@ describe("seedDefaultRuleForUser", () => {
     });
     const supabase = makeMockSupabase(state);
 
-    const result = await seedDefaultRuleForUser({
+    const result = await seedDefaultRulesForUser({
       supabase,
       userId: "user-1",
       beachId: "beach-123",
       experienceLevel: "beginner",
+      preferredTimeBucket: "dawn",
       notifyEmail: true,
       notifyPush: false,
     });
@@ -336,16 +328,20 @@ describe("seedDefaultRuleForUser", () => {
     const state = baseState();
     const supabase = makeMockSupabase(state);
 
-    await seedDefaultRuleForUser({
+    await seedDefaultRulesForUser({
       supabase,
       userId: "user-1",
       beachId: "beach-123",
       experienceLevel: "beginner",
+      preferredTimeBucket: "dawn",
       notifyEmail: true,
       notifyPush: false,
     });
 
-    const conditions = state.insertPayload?.conditions as Record<string, number>;
+    const mellowRule = state.insertPayload?.find(
+      (row) => row.preset_type === "mellow_session",
+    );
+    const conditions = mellowRule?.conditions as Record<string, number>;
     expect(conditions.tide_height_min_ft).toBe(2);
     expect(conditions.tide_height_max_ft).toBe(5);
     expect(conditions.swell_height_min).toBe(1.5);
