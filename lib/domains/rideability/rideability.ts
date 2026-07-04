@@ -59,6 +59,10 @@ export function getRideabilityBand(
   };
 }
 
+export function getBoardPowerBias(board: BoardClass): number {
+  return BOARD_SHAPE[board].powerBias;
+}
+
 function shapeBand(
   band: { readonly min: number; readonly max: number },
   shape: BoardShape

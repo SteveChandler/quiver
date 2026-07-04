@@ -40,6 +40,7 @@ import {
 import type { ConditionCharacterCategory } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
+import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
@@ -98,6 +99,7 @@ import {
 import { buildRecommendationEvidence } from '@/lib/services/discovery/recommendation-evidence';
 import { FEATURE_HERO_WINDOW_SCORE } from '@/lib/constants/feature-flags';
 import type { ScoringEngine } from '@/lib/domains/scoring';
+import { boardStyleFit } from './board-style-fit';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -106,6 +108,19 @@ type BoardPickRow = {
   name: unknown;
   board_type: unknown;
   volume?: unknown;
+};
+
+type UserBoardContextRow = BoardPickRow & {
+  session_count?: unknown;
+};
+
+interface UserBoardContext {
+  dominantBoardClass: BoardClass | null;
+  boardsForPicks: BoardForPick[];
+}
+
+type BeachWithWavePunchiness = Beach & {
+  wave_punchiness?: unknown;
 };
 
 // ============================================================================
@@ -580,6 +595,36 @@ function normalizeBoardForPick(row: BoardPickRow): BoardForPick | null {
   };
 }
 
+function resolveDominantBoardClass(rows: UserBoardContextRow[]): BoardClass | null {
+  const candidates = rows
+    .map((row) => {
+      const boardClass =
+        (typeof row.board_type === 'string' ? normalizeBoardClass(row.board_type) : null) ??
+        (typeof row.name === 'string' ? normalizeBoardClass(row.name) : null);
+      const sessionCount =
+        typeof row.session_count === 'number' && Number.isFinite(row.session_count)
+          ? row.session_count
+          : 0;
+
+      return { boardClass, sessionCount };
+    })
+    .filter(
+      (c): c is { boardClass: BoardClass; sessionCount: number } => c.boardClass !== null
+    );
+
+  if (candidates.length === 0) return null;
+
+  // Dominant board = most sessions; ties don't matter for a ±5 signal.
+  candidates.sort((a, b) => b.sessionCount - a.sessionCount);
+  return candidates[0].boardClass;
+}
+
+function getWavePunchiness(beach: Beach): number | null {
+  const value = (beach as BeachWithWavePunchiness).wave_punchiness;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  return null;
+}
+
 async function fetchIncludedBeachCandidates(includeBeachIds: string[] | undefined): Promise<Beach[]> {
   const uniqueIds = Array.from(new Set(includeBeachIds ?? [])).slice(0, MAX_INCLUDED_BEACH_IDS);
   if (uniqueIds.length === 0) return [];
@@ -764,28 +809,41 @@ function recommendationKey(rec: Pick<SurfDiscoveryRecommendation, 'kind' | 'cust
     : `beach:${rec.beach.id}`;
 }
 
-async function fetchUserBoardsForPicks(
+async function fetchUserBoardContext(
   supabase: Pick<SupabaseClient, 'from'>,
   userId: string,
   isPro: boolean
-): Promise<BoardForPick[]> {
-  if (!isPro) return [];
-
+): Promise<UserBoardContext> {
   const { data, error } = await supabase
     .from('boards')
-    .select('id, name, board_type, volume')
+    .select('id, name, board_type, volume, session_count')
     .eq('user_id', userId);
 
   if (error) {
-    log.warn(`Failed to fetch boards for board picks: ${error.message}`);
-    return [];
+    log.warn(`Failed to fetch boards for discovery board context: ${error.message}`);
+    return {
+      dominantBoardClass: null,
+      boardsForPicks: [],
+    };
   }
 
-  if (!Array.isArray(data)) return [];
+  if (!Array.isArray(data)) {
+    return {
+      dominantBoardClass: null,
+      boardsForPicks: [],
+    };
+  }
 
-  return data
-    .map((row) => normalizeBoardForPick(row as BoardPickRow))
-    .filter((board): board is BoardForPick => board !== null);
+  const rows = data as UserBoardContextRow[];
+
+  return {
+    dominantBoardClass: resolveDominantBoardClass(rows),
+    boardsForPicks: isPro
+      ? rows
+          .map((row) => normalizeBoardForPick(row))
+          .filter((board): board is BoardForPick => board !== null)
+      : [],
+  };
 }
 
 /**
@@ -861,6 +919,7 @@ function buildDiscoveryDisplayScore(args: {
   affinityBonus: number;
   distancePenalty: number;
   personalizationBonus: number;
+  boardStyleFitPoints: number;
 }): DiscoveryDisplayScore {
   const displayConditionScore = scoreNativeForecastSlot(
     args.forecast,
@@ -874,7 +933,8 @@ function buildDiscoveryDisplayScore(args: {
       displayConditionScore +
         args.affinityBonus +
         args.distancePenalty +
-        args.personalizationBonus
+        args.personalizationBonus +
+        args.boardStyleFitPoints
     ),
     matchQuality: nativeMatchQuality === 'skip' ? 'minimal' : nativeMatchQuality,
   };
@@ -894,6 +954,7 @@ async function scoreBeachForDiscovery(args: {
   affinityBonus?: number;
   personalizationBonus?: number;
   personalizationReasons?: string[];
+  dominantBoardClass?: BoardClass | null;
 }): Promise<DetailedScore> {
   const { beach, forecast, userSkillLevel, distanceMiles } = args;
 
@@ -927,12 +988,17 @@ async function scoreBeachForDiscovery(args: {
   });
 
   const persBonus = args.personalizationBonus ?? 0;
+  const boardStyle = boardStyleFit(
+    getWavePunchiness(beach),
+    args.dominantBoardClass ?? null
+  );
   const displayScore = buildDiscoveryDisplayScore({
     forecast,
     userSkillLevel,
     affinityBonus,
     distancePenalty,
     personalizationBonus: persBonus,
+    boardStyleFitPoints: boardStyle.points,
   });
 
   const detailedScore = {
@@ -947,6 +1013,13 @@ async function scoreBeachForDiscovery(args: {
   // Merge personalization reasons
   if (args.personalizationReasons && args.personalizationReasons.length > 0) {
     detailedScore.reasons = [...args.personalizationReasons, ...detailedScore.reasons];
+  }
+
+  if (boardStyle.reason) {
+    detailedScore.reasons = [boardStyle.reason, ...detailedScore.reasons];
+  }
+  if (boardStyle.warning) {
+    detailedScore.warnings.push(boardStyle.warning);
   }
 
   // Add distance warning if far
@@ -1338,7 +1411,7 @@ async function discoverSurfSpotsInner(
     sunTimesCache,
     wqResult,
     personalizationCtx,
-    userBoardsForPicks,
+    userBoardContext,
     breakBehaviorRows,
   ] = await Promise.all([
     getBatchSunTimes(Array.from(allBeachIds), uniqueDates),
@@ -1347,9 +1420,10 @@ async function discoverSurfSpotsInner(
       .select('beach_id, status')
       .in('beach_id', candidateBeachIds),
     fetchPersonalizationContext(userId, candidateBeachIds, userPrefs),
-    fetchUserBoardsForPicks(supabase, userId, isPro),
+    fetchUserBoardContext(supabase, userId, isPro),
     fetchBreakBehaviorSessionRows(supabase, candidateBeachIds, { now }),
   ]);
+  const { dominantBoardClass, boardsForPicks: userBoardsForPicks } = userBoardContext;
   const breakBehaviorRowsByBeach = groupBreakBehaviorRowsByBeach(breakBehaviorRows);
 
   const wqMap = new Map<string, string>();
@@ -1496,6 +1570,7 @@ async function discoverSurfSpotsInner(
       affinityBonus: persResult.affinityBonus,
       personalizationBonus: persResult.personalizationBonus,
       personalizationReasons: persResult.reasons,
+      dominantBoardClass,
     });
 
     // Apply water quality override after scoring
@@ -1652,6 +1727,7 @@ async function discoverSurfSpotsInner(
         affinityBonus: customPersResult.affinityBonus,
         personalizationBonus: customPersResult.personalizationBonus,
         personalizationReasons: customPersResult.reasons,
+        dominantBoardClass,
       });
 
       if (wqStatus === 'closure') {
@@ -2005,6 +2081,7 @@ async function discoverSurfSpotsInner(
         userPrefs,
         userSkillLevel,
         distanceMiles: distMiles,
+        dominantBoardClass,
       });
       sleepInScores.set(rec.beach.id, lateScore.total);
     }
