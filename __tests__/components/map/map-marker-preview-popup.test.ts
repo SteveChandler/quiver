@@ -89,6 +89,19 @@ describe("map marker preview popup", () => {
     expect(link?.getAttribute("href")).toBe("/ca/san-diego/windansea");
   });
 
+  it("hides the verdict entirely when there is no quality read", () => {
+    const content = createBeachPreviewPopupContent({
+      location: beach,
+      waveLabel: "",
+      conditionSummary: "UNKNOWN",
+    });
+
+    expect(
+      content.querySelector(".quiver-beach-preview-popup__verdict")
+    ).toBeNull();
+    expect(content).not.toHaveTextContent("No read");
+  });
+
   it("renders live surf, swell, wind, and spot details when partition data exists", () => {
     const partition: SwellPartition = {
       s1Dir: null,
@@ -109,7 +122,7 @@ describe("map marker preview popup", () => {
     });
 
     expect(content).toHaveTextContent("SURF · 3-4 ft · 14s");
-    expect(content).toHaveTextContent("SWELL · from WNW");
+    expect(content).toHaveTextContent("SWELL · 3.5ft · from WNW");
     expect(content).toHaveTextContent("WIND · WSW 8 mph");
     expect(content).toHaveTextContent("SPOT · San Diego, CA");
   });
@@ -145,7 +158,7 @@ describe("map marker preview popup", () => {
       )
     ).toEqual([
       "SURF · 3-4 ft · 14s",
-      "SWELL · from WNW",
+      "SWELL · 3.5ft · from WNW",
       "WIND · WSW 8 mph",
       "WAVE · Point",
       "LEVEL · Intermediate",
@@ -189,7 +202,7 @@ describe("map marker preview popup", () => {
     });
 
     expect(content).toHaveTextContent("SURF · 3-4 ft");
-    expect(content).toHaveTextContent("SWELL · from WNW");
+    expect(content).toHaveTextContent("SWELL · 3.5ft · from WNW");
     expect(content).not.toHaveTextContent("WIND");
     expect(content).not.toHaveTextContent("SPOT");
     expect(content).not.toHaveTextContent("NaN");

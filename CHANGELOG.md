@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Performance
+- **Embed forecast playback: stop rebuilding the open conditions callout every tick** (`components/map/interactive-map.tsx`). Playback advances a fractional timeline index every 80ms, and the callout-refresh effect tore down and rebuilt the callout marker (full SVG + fresh animation) ~12.5×/sec, flickering and churning GC on low-end phones. The callout now refreshes only when the displayed step (`Math.round(index)`) or the underlying partition data actually changes.
+
 ### Added
 - **Partner QR landing (`/p/[partnerCode]`)** (`lib/partner/partner-qr-url.ts`, `app/p/[partnerCode]/page.tsx`, `app/p/[partnerCode]/partner-qr-landing-client.tsx`). Generates an attributed install QR a partner (surf shop / instructor / business) can print: a surfer scans it and lands on an anonymous install page with a QR carrying the attributed URL plus App Store / open-app (`quiver://p/<code>`) / continue-on-web CTAs. Attribution model (Slice 0 decision): a "partner" is a user whose `referral_code` is on the QR, with the human-readable label riding on `utm_source=partner_qr` / `utm_content=<partnerCode>` — reuses the existing referrals + invite attribution spine, so **no schema/migration**. Reuses the already-registered, anonymous-allowed invite/app-handoff event family (no new event literals). A first-class partner entity (per-shop payouts) is a separate future lane.
 - **Landing "Recent check-ins from the community" testimonials** (`components/landing-page/field-guide/field-guide-community.tsx`, wired into `quiver-field-guide-landing.tsx`). New zine-styled social-proof section between the walkthrough and final CTA, mirroring Dispersed's community-checkins layout: a 3-column grid of cream cards with category tags, real (positive, non-identifying) surfer quotes sourced from user email replies, and generic bylines.

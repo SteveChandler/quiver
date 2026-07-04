@@ -75,6 +75,7 @@ export function MapView() {
     lat: number;
     lon: number;
   } | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // Tracks the last location we loaded beaches for, to prevent duplicate calls.
   // Seeded with the default center so the userLocation effect below doesn't fire
@@ -354,11 +355,16 @@ export function MapView() {
     setShowFieldGuide(false);
   }, []);
 
+  const handleSearchPromptClick = useCallback((): void => {
+    searchInputRef.current?.focus();
+  }, []);
+
   return (
     <div className="flex-1 flex flex-col min-h-0" data-testid="map-view">
       <MapToolbar
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
+        searchInputRef={searchInputRef}
         onClearSearch={handleClearSearch}
         suggestions={filteredBeaches.slice(0, 6)}
         onSuggestionSelect={handleBeachSelect}
@@ -415,6 +421,7 @@ export function MapView() {
             regionViewport={null}
             onGetUserLocation={handleUseMyLocation}
             onUseDefaultLocation={handleUseDefaultLocation}
+            onSearchPromptClick={handleSearchPromptClick}
             onBeachSelect={handleBeachSelect}
             onMapClick={handleMapClick}
             autoNavigateOnMarkerClick={true}
