@@ -92,6 +92,19 @@ const weekendWindowSchema = z.object({
   body: z.string().min(1),
 });
 
+const swellWatchSchema = z.object({
+  beach_id: z.string().min(1),
+  beach_slug: z.string().optional(),
+  beach_name: z.string().min(1),
+  event_start_date: z.string().min(1),
+  peak_date: z.string().min(1),
+  peak_height_ft: z.number(),
+  peak_period_s: z.number(),
+  forecast_at: z.string().min(1),
+  title: z.string().min(1),
+  body: z.string().min(1),
+});
+
 const weeklyStreakReminderSchema = z.object({
   streak: z.number().int().min(1),
 });
@@ -251,6 +264,19 @@ interface WeekendWindowPayload {
   beach_id: string;
   forecast_at: string;
   window_local?: string;
+  title: string;
+  body: string;
+}
+
+interface SwellWatchPayload {
+  beach_id: string;
+  beach_slug?: string;
+  beach_name: string;
+  event_start_date: string;
+  peak_date: string;
+  peak_height_ft: number;
+  peak_period_s: number;
+  forecast_at: string;
   title: string;
   body: string;
 }
@@ -593,6 +619,47 @@ export const NOTIFICATION_REGISTRY = {
       },
     }),
   } satisfies NotificationTypeDef<WeekendWindowPayload>,
+
+  swell_watch: {
+    type: "swell_watch",
+    channels: ["push", "in_app"],
+    prefs: {
+      master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
+      perType: {
+        push: "notif_forecast_alerts",
+        in_app: "notif_forecast_alerts",
+      },
+    },
+    suppressSelfNotify: false,
+    quietHours: DEFAULT_QUIET,
+    cooldownMs: 96 * 60 * 60 * 1000,
+    validatePayload: (input) => swellWatchSchema.parse(input),
+    buildPushPayload: (p) => ({
+      title: p.title,
+      body: p.body,
+      data: {
+        type: "swell_watch",
+        beach_id: p.beach_id,
+        ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
+        forecast_at: p.forecast_at,
+      },
+    }),
+    buildInAppPayload: (p) => ({
+      type: "swell_watch",
+      data: {
+        beach_id: p.beach_id,
+        ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
+        beach_name: p.beach_name,
+        event_start_date: p.event_start_date,
+        peak_date: p.peak_date,
+        peak_height_ft: p.peak_height_ft,
+        peak_period_s: p.peak_period_s,
+        forecast_at: p.forecast_at,
+        title: p.title,
+        body: p.body,
+      },
+    }),
+  } satisfies NotificationTypeDef<SwellWatchPayload>,
 
   trial_ending: {
     type: "trial_ending",
