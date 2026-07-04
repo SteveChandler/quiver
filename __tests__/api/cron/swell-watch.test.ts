@@ -14,6 +14,9 @@ if (typeof (globalThis as any).Response?.json !== "function") {
 }
 
 const mockEnqueueNotification = jest.fn();
+const mockResendSend = jest.fn();
+const mockThrottle = jest.fn();
+const mockLogDelivery = jest.fn();
 
 jest.mock("@/lib/cron/observability", () => ({
   withObservedCron: (_route: string, handler: any) => handler,
@@ -23,16 +26,37 @@ jest.mock("@/lib/notifications/enqueue", () => ({
   enqueueNotification: (...args: any[]) => mockEnqueueNotification(...args),
 }));
 
+jest.mock("@/lib/mailer/client", () => ({
+  MAIL_FROM: "Quiver <alerts@example.com>",
+  MAIL_REPLY_TO: "reply@example.com",
+  getBaseUrl: () => "https://www.quiversurf.app",
+  resend: {
+    emails: {
+      send: (...args: any[]) => mockResendSend(...args),
+    },
+  },
+}));
+
+jest.mock("@/lib/utils/email-rate-limiter", () => ({
+  createResendRateLimiter: () => ({ throttle: mockThrottle }),
+}));
+
+jest.mock("@/lib/services/email-logging-service", () => ({
+  createEmailLogger: () => ({ logDelivery: mockLogDelivery }),
+}));
+
 type Store = {
   profiles: any[];
   beaches: any[];
   forecastsByBeachId: Record<string, any[]>;
+  claimResult: boolean;
 };
 
 const store: Store = {
   profiles: [],
   beaches: [],
   forecastsByBeachId: {},
+  claimResult: true,
 };
 
 function makeChain(rowsResolver: (chain: any) => any[]) {
@@ -64,6 +88,9 @@ function makeChain(rowsResolver: (chain: any) => any[]) {
 }
 
 const mockSupabase = {
+  rpc: jest.fn((_name: string, _args: Record<string, unknown>) =>
+    Promise.resolve({ data: store.claimResult, error: null })
+  ),
   from: jest.fn((table: string) => {
     if (table === "profiles") return makeChain(() => store.profiles);
     if (table === "beaches") {
@@ -170,6 +197,10 @@ describe("GET /api/cron/swell-watch", () => {
       enqueued: true,
       eventId: "notification-event-1",
     });
+    mockResendSend.mockResolvedValue({ data: { id: "email-1" }, error: null });
+    mockThrottle.mockResolvedValue(undefined);
+    mockLogDelivery.mockResolvedValue({ success: true });
+    store.claimResult = true;
   });
 
   afterEach(() => {
@@ -191,6 +222,7 @@ describe("GET /api/cron/swell-watch", () => {
       sent: 0,
     });
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockResendSend).not.toHaveBeenCalled();
   });
 
   it("skips users when no swell event is detected", async () => {
@@ -208,6 +240,7 @@ describe("GET /api/cron/swell-watch", () => {
     expect(body.data.sent).toBe(0);
     expect(body.data.skippedCounts.no_event).toBe(1);
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockResendSend).not.toHaveBeenCalled();
   });
 
   it("enqueues one swell_watch event with the pinned payload shape", async () => {
@@ -252,5 +285,78 @@ describe("GET /api/cron/swell-watch", () => {
     expect(body.data.sent).toBe(0);
     expect(body.data.duplicates).toBe(1);
     expect(body.data.errors).toBe(0);
+  });
+
+  it("sends a swell_watch email when the profile is eligible", async () => {
+    store.profiles[0] = {
+      ...store.profiles[0],
+      email: "surfer@example.com",
+      notif_email_enabled: true,
+      notif_forecast_alerts: true,
+    };
+
+    const response = await GET(request());
+    const body = await json(response);
+
+    expect(response.status).toBe(200);
+    expect(body.data.emailSent).toBe(1);
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      "claim_forecast_delivery_slot",
+      expect.objectContaining({
+        p_user_id: "user-1",
+        p_beach_id: "beach-1",
+        p_alert_type: "swell_watch_email",
+        p_dedupe_hours: 96,
+      })
+    );
+    expect(mockResendSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        to: "surfer@example.com",
+        subject: "Swell incoming Sunday — Lower Trestles: 6 ft @ 14s",
+      })
+    );
+    expect(mockLogDelivery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "user-1",
+        emailType: "swell_watch",
+        bestBeachId: "beach-1",
+        resendMessageId: "email-1",
+      })
+    );
+  });
+
+  it("skips swell_watch email when email notifications are disabled", async () => {
+    store.profiles[0] = {
+      ...store.profiles[0],
+      email: "surfer@example.com",
+      notif_email_enabled: false,
+      notif_forecast_alerts: true,
+    };
+
+    const response = await GET(request());
+    const body = await json(response);
+
+    expect(response.status).toBe(200);
+    expect(body.data.emailSent).toBe(0);
+    expect(body.data.emailSkippedCounts.disabledPrefs).toBe(1);
+    expect(mockResendSend).not.toHaveBeenCalled();
+  });
+
+  it("skips swell_watch email when the email slot is already claimed", async () => {
+    store.profiles[0] = {
+      ...store.profiles[0],
+      email: "surfer@example.com",
+      notif_email_enabled: true,
+      notif_forecast_alerts: true,
+    };
+    store.claimResult = false;
+
+    const response = await GET(request());
+    const body = await json(response);
+
+    expect(response.status).toBe(200);
+    expect(body.data.emailSent).toBe(0);
+    expect(body.data.emailSkippedCounts.claimFailed).toBe(1);
+    expect(mockResendSend).not.toHaveBeenCalled();
   });
 });
