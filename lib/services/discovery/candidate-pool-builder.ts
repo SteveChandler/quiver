@@ -19,13 +19,20 @@ import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 
 const log = createContextLogger('CandidatePoolBuilder');
 
+export const CANDIDATE_POOL_RADIUS_TIERS_MILES = [25, 60, 100] as const;
+export const CANDIDATE_POOL_LIMIT = 60;
+export const MIN_CANDIDATES = 8;
+export const MAX_CANDIDATE_RADIUS_MILES = 100;
+
+const MILES_TO_METERS = 1609.34;
+
 /**
  * Options for building the candidate pool
  */
 export interface CandidatePoolOptions {
   /** User's current GPS location for nearby beach discovery (required) */
   userLocation: { lat: number; lon: number };
-  /** Radius in miles for nearby beach search (default: 25, max: 100) */
+  /** Optional hard outer radius in miles for nearby beach search (max: 100) */
   radiusMiles?: number;
 }
 
@@ -48,6 +55,83 @@ interface NearbyBeachRow {
   distance_meters: number | null;
 }
 
+function getCappedOuterRadius(radiusMiles?: number): number {
+  if (!Number.isFinite(radiusMiles)) {
+    return MAX_CANDIDATE_RADIUS_MILES;
+  }
+
+  return Math.min(
+    Math.max(radiusMiles as number, 0),
+    MAX_CANDIDATE_RADIUS_MILES
+  );
+}
+
+function getRadiusTiers(outerRadiusMiles: number): number[] {
+  const tiers: number[] = CANDIDATE_POOL_RADIUS_TIERS_MILES.filter(
+    (tier) => tier <= outerRadiusMiles
+  );
+
+  if (!tiers.includes(outerRadiusMiles)) {
+    tiers.push(outerRadiusMiles);
+  }
+
+  return Array.from(new Set(tiers)).sort((a, b) => a - b);
+}
+
+async function fetchCandidatesForRadius(args: {
+  supabase: ReturnType<typeof createSupabaseServiceRoleClient>;
+  userLocation: CandidatePoolOptions['userLocation'];
+  radiusMiles: number;
+}): Promise<Beach[] | null> {
+  const max_distance_meters = Math.round(args.radiusMiles * MILES_TO_METERS);
+  const limit_count = CANDIDATE_POOL_LIMIT;
+
+  const { data: nearbyRaw, error: nearbyError } = await args.supabase.rpc(
+    'get_nearby_beaches',
+    {
+      input_lat: args.userLocation.lat,
+      input_lng: args.userLocation.lon,
+      max_distance_meters,
+      limit_count,
+    }
+  );
+
+  if (nearbyError) {
+    log.warn('[buildCandidatePool] Nearby RPC failed:', nearbyError);
+    return null;
+  }
+
+  const nearby = (nearbyRaw || []) as NearbyBeachRow[];
+  const orderedIds = nearby
+    .filter((r) => !r.is_private)
+    .map((r) => r.id)
+    .slice(0, CANDIDATE_POOL_LIMIT);
+
+  if (orderedIds.length === 0) {
+    return [];
+  }
+
+  const { data: beachRows, error: beachError } = await args.supabase
+    .from('beaches')
+    .select('*')
+    .in('id', orderedIds)
+    .eq('is_private', false)
+    .limit(limit_count);
+
+  if (beachError) {
+    log.warn('[buildCandidatePool] Beach fetch failed:', beachError);
+    return null;
+  }
+
+  const byId = new Map<string, Beach>(
+    ((beachRows ?? []) as unknown as Beach[]).map((beach) => [beach.id, beach])
+  );
+
+  return orderedIds
+    .map((id) => byId.get(id))
+    .filter((beach): beach is Beach => Boolean(beach));
+}
+
 /**
  * Builds the candidate pool of beaches for surf discovery.
  *
@@ -67,66 +151,33 @@ export async function buildCandidatePool(
   const candidates: Beach[] = [];
   let userSkillLevel: SkillLevel | null = null;
 
-  // Compute proximity radius
-  const radiusMiles = Number.isFinite(options.radiusMiles) ? (options.radiusMiles as number) : 25;
-  const cappedRadius = Math.min(Math.max(radiusMiles, 0), 100);
+  const outerRadiusMiles = getCappedOuterRadius(options.radiusMiles);
+  const radiusTiers = getRadiusTiers(outerRadiusMiles);
 
   try {
     userSkillLevel = await getProfileExperienceLevel(supabase, userId);
 
-    // Fetch nearby beaches via PostGIS RPC (ordered by distance)
-    const max_distance_meters = Math.round(cappedRadius * 1609.34);
-    const limit_count = 40;
+    for (const radiusMiles of radiusTiers) {
+      const tierCandidates = await fetchCandidatesForRadius({
+        supabase,
+        userLocation: options.userLocation,
+        radiusMiles,
+      });
 
-    const { data: nearbyRaw, error: nearbyError } = await supabase.rpc(
-      'get_nearby_beaches',
-      {
-        input_lat: options.userLocation.lat,
-        input_lng: options.userLocation.lon,
-        max_distance_meters,
-        limit_count,
+      if (tierCandidates === null) {
+        return { candidates: [], userSkillLevel };
       }
-    );
 
-    if (nearbyError) {
-      log.warn('[buildCandidatePool] Nearby RPC failed:', nearbyError);
-      return { candidates: [], userSkillLevel };
+      candidates.splice(0, candidates.length, ...tierCandidates);
+      log.info(`[buildCandidatePool] Tier ${radiusMiles}mi: ${candidates.length} candidates`);
+
+      if (candidates.length >= MIN_CANDIDATES) {
+        break;
+      }
     }
 
-    const nearby = (nearbyRaw || []) as NearbyBeachRow[];
-    const orderedIds = nearby
-      .filter((r) => !r.is_private)
-      .map((r) => r.id);
-
-    if (orderedIds.length === 0) {
+    if (candidates.length === 0) {
       log.info('[buildCandidatePool] No nearby beaches found within radius');
-      return { candidates: [], userSkillLevel };
-    }
-
-    // Fetch full beach details
-    const { data: beachRows, error: beachError } = await supabase
-      .from('beaches')
-      .select('*')
-      .in('id', orderedIds)
-      .eq('is_private', false)
-      .limit(limit_count);
-
-    if (beachError) {
-      log.warn('[buildCandidatePool] Beach fetch failed:', beachError);
-      return { candidates: [], userSkillLevel };
-    }
-
-    if (beachRows && beachRows.length > 0) {
-      // Maintain distance-based ordering from RPC
-      const byId = new Map<string, Beach>(
-        (beachRows as unknown as Beach[]).map((b) => [b.id, b])
-      );
-      const orderedBeaches = orderedIds
-        .map((id) => byId.get(id))
-        .filter((b): b is Beach => !!b);
-
-      candidates.push(...orderedBeaches);
-      log.info(`[buildCandidatePool] Found ${candidates.length} nearby beaches (GPS, sorted by distance)`);
     }
 
     return { candidates, userSkillLevel };

@@ -56,8 +56,18 @@ import {
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Import from other discovery modules
-import { buildCandidatePool } from './candidate-pool-builder';
+import {
+  buildCandidatePool,
+  CANDIDATE_POOL_LIMIT,
+  MAX_CANDIDATE_RADIUS_MILES,
+} from './candidate-pool-builder';
 import { batchFetchForecasts } from './forecast-batch-fetcher';
+import {
+  calculateDistancePenalty,
+  compareDiscoveryRecommendations,
+  WORTH_THE_DRIVE_DISTANCE_MILES,
+  WORTH_THE_DRIVE_REASON,
+} from './distance-friction';
 import {
   selectBestWindow,
   getLocalDateStr,
@@ -764,6 +774,37 @@ function recommendationKey(rec: Pick<SurfDiscoveryRecommendation, 'kind' | 'cust
     : `beach:${rec.beach.id}`;
 }
 
+function applyWorthTheDriveReasons(
+  recommendations: SurfDiscoveryRecommendation[]
+): SurfDiscoveryRecommendation[] {
+  return recommendations.map((rec, index) => {
+    if (
+      index > 1 ||
+      rec.distanceMiles === undefined ||
+      rec.distanceMiles <= WORTH_THE_DRIVE_DISTANCE_MILES ||
+      rec.reasons.includes(WORTH_THE_DRIVE_REASON)
+    ) {
+      return rec;
+    }
+
+    const reasons = [
+      WORTH_THE_DRIVE_REASON,
+      ...rec.reasons.filter((reason) => reason !== WORTH_THE_DRIVE_REASON),
+    ].slice(0, 5);
+
+    return {
+      ...rec,
+      reasons,
+      message: buildDiscoveryMessage(
+        rec.score,
+        reasons,
+        rec.warnings,
+        rec.recommendationLabel
+      ),
+    };
+  });
+}
+
 async function fetchUserBoardsForPicks(
   supabase: Pick<SupabaseClient, 'from'>,
   userId: string,
@@ -904,19 +945,7 @@ async function scoreBeachForDiscovery(args: {
   // Use affinity bonus from personalization layer if provided
   const affinityBonus = args.affinityBonus ?? 0;
 
-  // Calculate distance penalty (0 to -20 points)
-  let distancePenalty = 0;
-  if (distanceMiles !== undefined) {
-    if (distanceMiles <= 5) {
-      distancePenalty = 0;
-    } else if (distanceMiles <= 15) {
-      distancePenalty = -5;
-    } else if (distanceMiles <= 30) {
-      distancePenalty = -10;
-    } else {
-      distancePenalty = -20;
-    }
-  }
+  const distancePenalty = calculateDistancePenalty(distanceMiles);
 
   // userSkillLevel is pre-parsed as SkillLevel | null from candidate pool builder.
   const explanationScore = scoreBeachWithEngine(engine, beach, forecast, {
@@ -1157,7 +1186,7 @@ async function discoverSurfSpotsInner(
   startTime: number
 ): Promise<SurfDiscoveryResponse> {
   const {
-    radiusMiles = 25,
+    radiusMiles: requestedRadiusMiles,
     horizonHours,
     maxResults = DEFAULT_MAX_RESULTS,
     maxConcurrent = DEFAULT_MAX_CONCURRENT,
@@ -1168,6 +1197,10 @@ async function discoverSurfSpotsInner(
     isPro = false,
     includeBeachIds,
   } = options;
+  const radiusMiles =
+    requestedRadiusMiles === undefined
+      ? MAX_CANDIDATE_RADIUS_MILES
+      : Math.min(Math.max(requestedRadiusMiles, 0), MAX_CANDIDATE_RADIUS_MILES);
   const requestedIncludeBeachIds = Array.from(new Set(includeBeachIds ?? []))
     .slice(0, MAX_INCLUDED_BEACH_IDS);
   const requestedIncludeBeachIdSet = new Set(requestedIncludeBeachIds);
@@ -1178,7 +1211,7 @@ async function discoverSurfSpotsInner(
   const [{ candidates, userSkillLevel }, includedCandidates, customSpotCandidates] = await Promise.all([
     buildCandidatePool(userId, {
       userLocation,
-      radiusMiles,
+      radiusMiles: requestedRadiusMiles,
     }),
     fetchIncludedBeachCandidates(requestedIncludeBeachIds),
     buildCustomSpotCandidates(userId, userLocation, radiusMiles),
@@ -1187,13 +1220,19 @@ async function discoverSurfSpotsInner(
   // Limit nearby candidates to prevent excessive forecast work, then append
   // explicit include targets. Included beaches are capped separately at the
   // route boundary so saved/home targets can be scored without N native calls.
-  const maxNearbyCandidates = Math.min(candidates.length, 20);
-  const nearbyCandidates = candidates.slice(0, maxNearbyCandidates);
   const customNearestCandidates = customSpotCandidates.map((candidate) => candidate.nearestBeach);
+  const maxNearbyCandidates = Math.min(
+    candidates.length,
+    Math.max(
+      0,
+      CANDIDATE_POOL_LIMIT - includedCandidates.length - customNearestCandidates.length
+    )
+  );
+  const nearbyCandidates = candidates.slice(0, maxNearbyCandidates);
   const finalCandidates = mergeCandidatePools(
     mergeCandidatePools(nearbyCandidates, includedCandidates),
     customNearestCandidates,
-  );
+  ).slice(0, CANDIDATE_POOL_LIMIT);
   // A custom spot is only "primary" (eligible for the Now/Best feeds) when it's
   // as close as the nearby beaches — the same nearest-within-radius cut curated
   // beaches pass. Without this an own custom spot surfaces in Now/Best from
@@ -1768,7 +1807,7 @@ async function discoverSurfSpotsInner(
   }
 
   // Log all beach scores before ranking (for debugging)
-  const allScoresSorted = [...scored].sort((a, b) => b.score - a.score);
+  const allScoresSorted = [...scored].sort(compareDiscoveryRecommendations);
   log.debug(`[discoverSurfSpots] All ${scored.length} scored beaches (before top-N filter):`);
   allScoresSorted.forEach((rec, idx) => {
     const { waveHeightFit, periodEnergyScore, windAlignment, tideFit, distancePenalty, personalizationBonus, affinityBonus, behaviorBonus } = rec.subscores;
@@ -1807,7 +1846,7 @@ async function discoverSurfSpotsInner(
   }
 
   // Sort ALL recommendations by score descending (pure score ranking)
-  allRecs.sort((a, b) => b.score - a.score);
+  allRecs.sort(compareDiscoveryRecommendations);
 
   // Pass 2 (Plan V4 — Fix Agent F1): inject similarity scoring for Pro/trial
   // users BEFORE truncating to maxResults. Running similarity after slice
@@ -1833,7 +1872,7 @@ async function discoverSurfSpotsInner(
     supabase,
   });
   const allRecsScored = [...similarityResult.recommendations];
-  allRecsScored.sort((a, b) => b.score - a.score);
+  allRecsScored.sort(compareDiscoveryRecommendations);
 
   // Take top results AFTER similarity bonus is applied.
   const merged = allRecsScored
@@ -1864,7 +1903,8 @@ async function discoverSurfSpotsInner(
   // Flag-gated behavior: when off (default), return the engine-sorted slice
   // verbatim. When on, return the hero-lifted slice (only [0] moves;
   // remaining order is preserved).
-  const finalSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
+  const rankedSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
+  const finalSlice = applyWorthTheDriveReasons(rankedSlice);
   const finalSliceKeys = new Set(finalSlice.map((rec) => recommendationKey(rec)));
   const includedSlice = allRecsScored.filter((rec) => {
     if ((rec.kind ?? 'beach') === 'beach') {

@@ -15,9 +15,25 @@ export {
 // Candidate Pool Builder
 export {
   buildCandidatePool,
+  CANDIDATE_POOL_LIMIT,
+  CANDIDATE_POOL_RADIUS_TIERS_MILES,
+  MAX_CANDIDATE_RADIUS_MILES,
+  MIN_CANDIDATES,
   type CandidatePoolOptions,
   type CandidatePoolResult,
 } from './candidate-pool-builder';
+
+// Distance friction
+export {
+  calculateDistancePenalty,
+  compareDiscoveryRecommendations,
+  DISTANCE_FRICTION_HOME_ZONE_MILES,
+  DISTANCE_FRICTION_MAX_PENALTY,
+  DISTANCE_FRICTION_PENALTY_PER_MILE,
+  DISTANCE_TIE_BREAKER_POINTS,
+  WORTH_THE_DRIVE_DISTANCE_MILES,
+  WORTH_THE_DRIVE_REASON,
+} from './distance-friction';
 
 // Forecast Batch Fetcher
 export {
