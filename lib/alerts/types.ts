@@ -29,7 +29,9 @@ export type PresetType =
   | "tide_window"
   | "dawn_patrol"
   | "epic_conditions"
-  | "daily_check_in";
+  | "daily_check_in"
+  | "weekend_warrior"
+  | "after_work";
 
 export interface PresetDefinition {
   type: PresetType;
