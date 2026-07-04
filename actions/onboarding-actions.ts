@@ -275,16 +275,28 @@ export async function saveOnboardingData(data: OnboardingData) {
       // first days. Falls back to mellow_session when experience_level is
       // null so every new user is reachable. Non-blocking.
       try {
-        const { seedDefaultRuleForUser } =
+        const { seedDefaultRulesForUser } =
           await import("@/lib/alerts/seed-default-rule");
-        const seedResult = await seedDefaultRuleForUser({
+        const seedResult = await seedDefaultRulesForUser({
           supabase,
           userId: user.id,
           beachId: data.homeBeachId,
           experienceLevel: data.experienceLevel ?? null,
+          preferredTimeBucket: data.preferredTime ?? null,
           notifyEmail: updatedProfile.notif_email_enabled ?? true,
           notifyPush: updatedProfile.notif_push_enabled ?? false,
         });
+        const seedMetadata = seedResult.seeded
+          ? {
+              seeded: true,
+              rules_seeded: seedResult.rules.length,
+              preset_types: seedResult.rules.map((rule) => rule.presetType),
+            }
+          : {
+              seeded: false,
+              reason: seedResult.reason,
+              ...(seedResult.error ? { error: seedResult.error } : {}),
+            };
 
         await supabase.from("user_events").insert({
           user_id: user.id,
@@ -293,7 +305,7 @@ export async function saveOnboardingData(data: OnboardingData) {
             step: "alert_rule_seeded",
             step_name: "alert_rule_seeded",
             source: "server",
-            ...seedResult,
+            ...seedMetadata,
           },
         });
       } catch (seedErr) {

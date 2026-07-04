@@ -11,9 +11,20 @@ export type ExperienceLevel =
   | undefined;
 
 export type SeedPresetType = "mellow_session" | "clean_groundswell";
+export type SeedSchedulePresetType =
+  | "dawn_patrol"
+  | "after_work"
+  | "weekend_warrior";
+
+type SeedRulePresetType = SeedPresetType | SeedSchedulePresetType;
+
+type SeededRule = {
+  ruleId: string;
+  presetType: string;
+};
 
 export type SeedResult =
-  | { seeded: true; ruleId: string; presetType: SeedPresetType }
+  | { seeded: true; rules: SeededRule[] }
   | {
       seeded: false;
       reason:
@@ -29,6 +40,7 @@ export interface SeedDefaultRuleParams {
   userId: string;
   beachId: string;
   experienceLevel: ExperienceLevel;
+  preferredTimeBucket: string | null;
   notifyEmail: boolean;
   notifyPush: boolean;
 }
@@ -46,22 +58,45 @@ function pickPreset(level: ExperienceLevel): SeedPresetType {
   return "mellow_session";
 }
 
-function nameForPreset(preset: SeedPresetType): string {
-  return preset === "clean_groundswell"
-    ? "Clean groundswell at your home break"
-    : "Mellow session at your home break";
+function pickSchedulePreset(
+  bucket: string | null | undefined,
+): SeedSchedulePresetType {
+  const normalized = (bucket ?? "").toLowerCase();
+  if (normalized.includes("dawn") || normalized.includes("morning")) {
+    return "dawn_patrol";
+  }
+  if (normalized.includes("even") || normalized.includes("after")) {
+    return "after_work";
+  }
+  return "weekend_warrior";
+}
+
+function nameForPreset(preset: SeedRulePresetType): string {
+  switch (preset) {
+    case "clean_groundswell":
+      return "Clean groundswell at your home break";
+    case "dawn_patrol":
+      return "Dawn patrol at your home break";
+    case "after_work":
+      return "After-work windows at your home break";
+    case "weekend_warrior":
+      return "Weekend windows at your home break";
+    case "mellow_session":
+      return "Mellow session at your home break";
+  }
 }
 
 /**
- * Seeds a single default alert rule on a user's home beach, tuned to their
- * experience level. Non-throwing: returns a structured result the caller logs.
+ * Seeds default alert rules on a user's home beach, tuned to their experience
+ * level and schedule preference. Non-throwing: returns a structured result the
+ * caller logs.
  *
  * Idempotent — bails if the user already has any rule. Falls back to
  * mellow_session when experience_level is null/undefined so every new user
  * is reachable. Called from saveOnboardingData (web) and
  * /api/alerts/seed-default (native) after the profile update commits.
  */
-export async function seedDefaultRuleForUser(
+export async function seedDefaultRulesForUser(
   params: SeedDefaultRuleParams,
 ): Promise<SeedResult> {
   const {
@@ -69,11 +104,10 @@ export async function seedDefaultRuleForUser(
     userId,
     beachId,
     experienceLevel,
+    preferredTimeBucket,
     notifyEmail,
     notifyPush,
   } = params;
-
-  const presetType = pickPreset(experienceLevel);
 
   const { count, error: countError } = await supabase
     .from("alert_rules")
@@ -130,27 +164,47 @@ export async function seedDefaultRuleForUser(
         : Math.round(beachRow.wind_onshore_bad_kt / 0.868976),
   };
 
-  const preset = getPreset(presetType);
-  const conditions = (preset ? preset.buildConditions(beachMeta) : {}) as Json;
+  const seedSpecs = [
+    { presetType: pickPreset(experienceLevel) },
+    { presetType: pickSchedulePreset(preferredTimeBucket) },
+  ].filter(
+    (spec, index, specs) =>
+      specs.findIndex((candidate) => candidate.presetType === spec.presetType) ===
+      index,
+  );
 
   const { data: inserted, error: insertError } = await supabase
     .from("alert_rules")
-    .insert({
-      user_id: userId,
-      beach_id: beachId,
-      name: nameForPreset(presetType),
-      preset_type: presetType,
-      conditions,
-      notify_email: notifyEmail,
-      notify_push: notifyPush,
-      enabled: true,
-    })
-    .select("id")
-    .single();
+    .insert(
+      seedSpecs.map(({ presetType }) => {
+        const preset = getPreset(presetType);
+        const conditions = (
+          preset ? preset.buildConditions(beachMeta) : {}
+        ) as Json;
+
+        return {
+          user_id: userId,
+          beach_id: beachId,
+          name: nameForPreset(presetType),
+          preset_type: presetType,
+          conditions,
+          notify_email: notifyEmail,
+          notify_push: notifyPush,
+          enabled: true,
+        };
+      }),
+    )
+    .select("id, preset_type");
 
   if (insertError) {
     return { seeded: false, reason: "error", error: insertError.message };
   }
 
-  return { seeded: true, ruleId: inserted.id, presetType };
+  return {
+    seeded: true,
+    rules: (inserted ?? []).map((rule) => ({
+      ruleId: rule.id,
+      presetType: rule.preset_type as string,
+    })),
+  };
 }

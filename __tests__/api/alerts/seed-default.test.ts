@@ -16,8 +16,8 @@ if (typeof (globalThis as any).Response?.json !== "function") {
  * Unit tests for POST /api/alerts/seed-default.
  *
  * The route is thin: profile lookup → optional 400 → delegate to
- * seedDefaultRuleForUser. We mock `withAuth` to inject a fake user/supabase
- * and mock `seedDefaultRuleForUser` to verify the route forwards the right
+ * seedDefaultRulesForUser. We mock `withAuth` to inject a fake user/supabase
+ * and mock `seedDefaultRulesForUser` to verify the route forwards the right
  * args and surfaces the right responses.
  */
 
@@ -43,6 +43,14 @@ let mockProfileResult: {
   error: null,
 };
 
+let mockPrefsResult: {
+  data: { pref_time_bucket: string | null } | null;
+  error: { message: string } | null;
+} = {
+  data: { pref_time_bucket: "dawn_patrol" },
+  error: null,
+};
+
 const seedSpy = jest.fn();
 
 jest.mock("@/lib/middleware/api-wrappers", () => {
@@ -51,10 +59,16 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
     ...actual,
     withAuth: (handler: any) => (request: any) => {
       const supabase = {
-        from: (_table: string) => ({
+        from: (table: string) => ({
           select: (_cols: string) => ({
             eq: (_col: string, _val: string) => ({
               single: () => Promise.resolve(mockProfileResult),
+              maybeSingle: () =>
+                Promise.resolve(
+                  table === "user_email_prefs"
+                    ? mockPrefsResult
+                    : mockProfileResult
+                ),
             }),
           }),
         }),
@@ -65,7 +79,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
 });
 
 jest.mock("@/lib/alerts/seed-default-rule", () => ({
-  seedDefaultRuleForUser: (...args: unknown[]) => seedSpy(...args),
+  seedDefaultRulesForUser: (...args: unknown[]) => seedSpy(...args),
 }));
 
 import { POST } from "@/app/api/alerts/seed-default/route";
@@ -83,6 +97,10 @@ beforeEach(() => {
       notif_email_enabled: true,
       notif_push_enabled: false,
     },
+    error: null,
+  };
+  mockPrefsResult = {
+    data: { pref_time_bucket: "dawn_patrol" },
     error: null,
   };
 });
@@ -109,11 +127,13 @@ describe("POST /api/alerts/seed-default", () => {
     expect(seedSpy).not.toHaveBeenCalled();
   });
 
-  it("forwards beach + experience to seedDefaultRuleForUser and returns 200 on success", async () => {
+  it("forwards beach, experience, and preferred time to seedDefaultRulesForUser", async () => {
     seedSpy.mockResolvedValueOnce({
       seeded: true,
-      ruleId: "rule-abc",
-      presetType: "mellow_session",
+      rules: [
+        { ruleId: "rule-abc", presetType: "mellow_session" },
+        { ruleId: "rule-def", presetType: "dawn_patrol" },
+      ],
     });
 
     const res = await POST(makeReq());
@@ -123,8 +143,10 @@ describe("POST /api/alerts/seed-default", () => {
       success: true,
       data: {
         seeded: true,
-        ruleId: "rule-abc",
-        presetType: "mellow_session",
+        rules: [
+          { ruleId: "rule-abc", presetType: "mellow_session" },
+          { ruleId: "rule-def", presetType: "dawn_patrol" },
+        ],
       },
     });
 
@@ -134,13 +156,14 @@ describe("POST /api/alerts/seed-default", () => {
         userId: "user-1",
         beachId: "beach-123",
         experienceLevel: "beginner",
+        preferredTimeBucket: "dawn_patrol",
         notifyEmail: true,
         notifyPush: false,
       })
     );
   });
 
-  it("forwards profile notif flags to seedDefaultRuleForUser (push opted in)", async () => {
+  it("forwards profile notif flags to seedDefaultRulesForUser (push opted in)", async () => {
     mockProfileResult = {
       data: {
         home_beach_id: "beach-123",
@@ -152,8 +175,7 @@ describe("POST /api/alerts/seed-default", () => {
     };
     seedSpy.mockResolvedValueOnce({
       seeded: true,
-      ruleId: "rule-abc",
-      presetType: "mellow_session",
+      rules: [{ ruleId: "rule-abc", presetType: "mellow_session" }],
     });
 
     await POST(makeReq());
@@ -175,8 +197,7 @@ describe("POST /api/alerts/seed-default", () => {
     };
     seedSpy.mockResolvedValueOnce({
       seeded: true,
-      ruleId: "rule-abc",
-      presetType: "mellow_session",
+      rules: [{ ruleId: "rule-abc", presetType: "mellow_session" }],
     });
 
     await POST(makeReq());
@@ -186,7 +207,7 @@ describe("POST /api/alerts/seed-default", () => {
     );
   });
 
-  it("passes null experience_level through (mellow_session fallback lives in seedDefaultRuleForUser)", async () => {
+  it("passes null experience_level through (mellow_session fallback lives in seedDefaultRulesForUser)", async () => {
     mockProfileResult = {
       data: {
         home_beach_id: "beach-123",
@@ -198,14 +219,27 @@ describe("POST /api/alerts/seed-default", () => {
     };
     seedSpy.mockResolvedValueOnce({
       seeded: true,
-      ruleId: "rule-xyz",
-      presetType: "mellow_session",
+      rules: [{ ruleId: "rule-xyz", presetType: "mellow_session" }],
     });
 
     await POST(makeReq());
 
     expect(seedSpy).toHaveBeenCalledWith(
       expect.objectContaining({ experienceLevel: null })
+    );
+  });
+
+  it("passes null preferredTimeBucket when user_email_prefs is absent", async () => {
+    mockPrefsResult = { data: null, error: null };
+    seedSpy.mockResolvedValueOnce({
+      seeded: true,
+      rules: [{ ruleId: "rule-abc", presetType: "mellow_session" }],
+    });
+
+    await POST(makeReq());
+
+    expect(seedSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ preferredTimeBucket: null })
     );
   });
 
