@@ -476,6 +476,37 @@
       }
     }
   },
+  "handoffBoundary": {
+    "lower-trestles-cdip-nws-handoff": {
+      "name": "Lower Trestles CDIP→NOAA_NWS handoff",
+      "slots": [
+        {
+          "forecast_at": "2026-07-04T00:00:00Z",
+          "wave_height": "5.3 ft",
+          "data_source": "CDIP",
+          "wave_height_source": "cdip_sig"
+        },
+        {
+          "forecast_at": "2026-07-04T03:00:00Z",
+          "wave_height": "1.2 ft",
+          "data_source": "NOAA_NWS",
+          "wave_height_source": "model_swell"
+        },
+        {
+          "forecast_at": "2026-07-05T03:00:00Z",
+          "wave_height": "1.4 ft",
+          "data_source": "NOAA_NWS",
+          "wave_height_source": "model_swell"
+        },
+        {
+          "forecast_at": "2026-07-06T03:00:00Z",
+          "wave_height": "1.6 ft",
+          "data_source": "NOAA_NWS",
+          "wave_height_source": "model_swell"
+        }
+      ]
+    }
+  },
   "gates": {
     "A": ["lower-trestles", "blacks", "rincon", "malibu-first-point"],
     "B": ["tourmaline-beach", "tourmaline-surf-park", "windansea"],
