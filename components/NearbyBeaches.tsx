@@ -76,7 +76,7 @@ export function NearbyBeaches({ limit = 4 }: NearbyBeachesProps) {
   const headerLabel = `${Math.min(
     limit,
     Math.max(0, otherBeaches.length)
-  )} other nearby beaches`;
+  )} closest nearby beaches`;
 
   return (
     <section className="space-y-4">

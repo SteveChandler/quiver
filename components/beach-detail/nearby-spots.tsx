@@ -85,7 +85,7 @@ export function NearbySpots({
     return (
       <section className={cn("py-6", className)}>
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
-          Nearby Surf Spots
+          Closest Surf Spots
         </h2>
         <div className="flex items-center justify-center py-8">
           <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -102,7 +102,7 @@ export function NearbySpots({
   return (
     <section className={cn("py-6", className)}>
       <h2 className="text-xl font-semibold text-gray-900 mb-4">
-        Nearby Surf Spots
+        Closest Surf Spots
       </h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {nearbyBeaches.map((nearbyBeach) => {
@@ -140,7 +140,6 @@ export function NearbySpots({
     </section>
   );
 }
-
 
 
 
