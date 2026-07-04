@@ -2,22 +2,22 @@
  * GET /api/cron/swell-watch
  *
  * Forward-looking home-break incoming-swell push + email. Disabled by default
- * and allowlist-gated for rollout. Auth: Authorization: Bearer <CRON_SECRET>.
+ * and allowlist-gated for rollout. Auth: Authorization: Bearer ***
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { Beach } from "@/types/database";
-import type { EnhancedForecastEntity } from "@/types/forecast";
-import { detectSwellWatch, type SwellWatchEvent } from "@/lib/alerts/swell-watch-detector";
-import { generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 import {
-  createErrorResponse,
-  createSuccessResponse,
-  handleApiError,
-  validateCronRequest,
-} from "@/lib/middleware/api-wrappers";
+  runHomeBeachPushCron,
+  type HomeBeachPushProfileRow,
+  type HomeBeachPushSelectArgs,
+  type HomeBeachPushSelection,
+  type HomeBeachPushRunSummary,
+} from "@/lib/cron/home-beach-push-runner";
 import { withObservedCron } from "@/lib/cron/observability";
+import { detectSwellWatch } from "@/lib/alerts/swell-watch-detector";
+import { generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 import { buildBeachEmailLink } from "@/lib/mailer/email-links";
 import {
   getBaseUrl,
@@ -26,11 +26,8 @@ import {
   resend,
 } from "@/lib/mailer/client";
 import { SwellWatchEmail } from "@/lib/mailer/templates/SwellWatchEmail";
-import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
-import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
-import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -49,17 +46,12 @@ const SENTRY_MONITOR = {
   maxRuntimeMinutes: 5,
 };
 
-interface SwellWatchProfileRow {
-  id: string;
-  email: string | null;
-  display_name: string | null;
-  home_beach_id: string | null;
-  timezone?: string | null;
-  notif_push_enabled?: boolean | null;
-  notif_reminders?: boolean | null;
+type SwellWatchEmailProfile = HomeBeachPushProfileRow & {
+  email?: string | null;
+  display_name?: string | null;
   notif_email_enabled?: boolean | null;
   notif_forecast_alerts?: boolean | null;
-}
+};
 
 interface SwellWatchPayload {
   beach_id: string;
@@ -74,25 +66,15 @@ interface SwellWatchPayload {
   body: string;
 }
 
-interface SwellWatchSelection {
-  event: SwellWatchEvent;
-  payload: SwellWatchPayload;
-  dedupeKey: string;
-}
+type SwellWatchEmailSkipReason =
+  | "disabledPrefs"
+  | "noEmail"
+  | "claimFailed"
+  | "sendFailed";
 
-interface SwellWatchRunSummary {
-  skipped: boolean;
-  reason?: string;
-  evaluated: number;
-  candidates: number;
-  sent: number;
-  duplicates: number;
+interface SwellWatchEmailSummary extends HomeBeachPushRunSummary {
   emailSent: number;
-  testAllowlistActive: boolean;
-  skippedCounts: Record<string, number>;
-  emailSkippedCounts: Record<string, number>;
-  errors: number;
-  durationMs: number;
+  emailSkippedCounts: Record<SwellWatchEmailSkipReason, number>;
 }
 
 function formatNumber(value: number): string {
@@ -110,18 +92,7 @@ function weekdayName(dateKey: string, timezone: string): string {
   }
 }
 
-function createSkippedCounts(): Record<string, number> {
-  return {
-    disabledPrefs: 0,
-    noHomeBeach: 0,
-    notInAllowlist: 0,
-    noBeach: 0,
-    noForecast: 0,
-    enqueueFailed: 0,
-  };
-}
-
-function createEmailSkippedCounts(): Record<string, number> {
+function createEmailSkippedCounts(): Record<SwellWatchEmailSkipReason, number> {
   return {
     disabledPrefs: 0,
     noEmail: 0,
@@ -130,75 +101,11 @@ function createEmailSkippedCounts(): Record<string, number> {
   };
 }
 
-function increment(counts: Record<string, number>, key: string): void {
+function incrementEmailSkip(
+  counts: Record<SwellWatchEmailSkipReason, number>,
+  key: SwellWatchEmailSkipReason
+): void {
   counts[key] = (counts[key] ?? 0) + 1;
-}
-
-function parseAllowlist(envName: string): Set<string> {
-  const raw = process.env[envName] ?? "";
-  return new Set(
-    raw
-      .split(",")
-      .map((id) => id.trim())
-      .filter(Boolean)
-  );
-}
-
-async function loadProfiles(supabase: any): Promise<SwellWatchProfileRow[]> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(
-      "id, email, display_name, home_beach_id, timezone, notif_push_enabled, notif_reminders, notif_email_enabled, notif_forecast_alerts"
-    )
-    .not("home_beach_id", "is", null);
-
-  if (error) {
-    throw new Error(`Failed to query profiles: ${error.message}`);
-  }
-  return (data ?? []) as SwellWatchProfileRow[];
-}
-
-async function loadBeaches(
-  supabase: any,
-  beachIds: string[]
-): Promise<Map<string, Beach>> {
-  if (beachIds.length === 0) return new Map();
-
-  const { data, error } = await supabase
-    .from("beaches")
-    .select("*")
-    .in("id", beachIds)
-    .is("deleted_at", null);
-
-  if (error) {
-    throw new Error(`Failed to query beaches: ${error.message}`);
-  }
-
-  const byId = new Map<string, Beach>();
-  for (const row of (data ?? []) as Beach[]) {
-    byId.set(row.id, row);
-  }
-  return byId;
-}
-
-async function loadForecasts(
-  supabase: any,
-  beachId: string,
-  now: Date
-): Promise<EnhancedForecastEntity[]> {
-  const horizon = new Date(now.getTime() + LOOKAHEAD_HOURS * 60 * 60 * 1000);
-  const { data, error } = await supabase
-    .from("enhanced_forecasts")
-    .select("*")
-    .eq("beach_id", beachId)
-    .gte("forecast_at", now.toISOString())
-    .lt("forecast_at", horizon.toISOString())
-    .order("forecast_at", { ascending: true });
-
-  if (error) {
-    throw new Error(`Failed to query forecasts for ${beachId}: ${error.message}`);
-  }
-  return (data ?? []) as EnhancedForecastEntity[];
 }
 
 export function buildSwellWatchCopy(input: {
@@ -228,37 +135,32 @@ function buildSwellWatchEmailSubject(input: {
   return `Swell incoming ${startDay} — ${input.beachName}: ${formatNumber(input.peakHeightFt)} ft @ ${formatNumber(input.peakPeriodS)}s`;
 }
 
-function selectAndBuildSwellWatch(input: {
-  profile: SwellWatchProfileRow;
-  beach: Beach;
-  forecasts: EnhancedForecastEntity[];
-  timezone: string;
-  now: Date;
-}): SwellWatchSelection | { skipReason: string } {
-  const event = detectSwellWatch({
-    forecasts: input.forecasts,
-    timezone: input.timezone,
-    now: input.now,
-  });
+function selectAndBuildSwellWatch({
+  profile,
+  beach,
+  forecasts,
+  timezone,
+  now,
+}: HomeBeachPushSelectArgs): HomeBeachPushSelection<SwellWatchPayload> {
+  const event = detectSwellWatch({ forecasts, timezone, now });
   if (!event) {
     return { skipReason: "no_event" };
   }
 
   const copy = buildSwellWatchCopy({
-    beachName: input.beach.name,
+    beachName: beach.name,
     eventStartDate: event.eventStartDate,
     peakDate: event.peakDate,
     peakHeightFt: event.peakHeightFt,
     peakPeriodS: event.peakPeriodS,
-    timezone: input.timezone,
+    timezone,
   });
 
   return {
-    event,
     payload: {
-      beach_id: input.beach.id,
-      ...(input.beach.slug ? { beach_slug: input.beach.slug } : {}),
-      beach_name: input.beach.name,
+      beach_id: beach.id,
+      ...(beach.slug ? { beach_slug: beach.slug } : {}),
+      beach_name: beach.name,
       event_start_date: event.eventStartDate,
       peak_date: event.peakDate,
       peak_height_ft: event.peakHeightFt,
@@ -267,7 +169,7 @@ function selectAndBuildSwellWatch(input: {
       title: copy.title,
       body: copy.body,
     },
-    dedupeKey: `${NOTIFICATION_TYPE}:${input.profile.id}:${input.beach.id}:${event.eventStartDate}`,
+    dedupeKey: `${NOTIFICATION_TYPE}:${profile.id}:${beach.id}:${event.eventStartDate}`,
   };
 }
 
@@ -296,14 +198,14 @@ async function claimSwellWatchEmailSlot(
 
 async function sendSwellWatchEmail(input: {
   supabase: SupabaseClient;
-  profile: SwellWatchProfileRow;
+  profile: SwellWatchEmailProfile;
   beach: Beach;
   timezone: string;
-  event: SwellWatchEvent;
+  payload: SwellWatchPayload;
   rateLimiter: ReturnType<typeof createResendRateLimiter>;
   emailLogger: ReturnType<typeof createEmailLogger>;
   baseUrl: string;
-}): Promise<"sent" | "disabledPrefs" | "noEmail" | "claimFailed" | "sendFailed"> {
+}): Promise<"sent" | SwellWatchEmailSkipReason> {
   if (
     input.profile.notif_email_enabled === false ||
     input.profile.notif_forecast_alerts === false
@@ -323,9 +225,9 @@ async function sendSwellWatchEmail(input: {
 
   const subject = buildSwellWatchEmailSubject({
     beachName: input.beach.name,
-    eventStartDate: input.event.eventStartDate,
-    peakHeightFt: input.event.peakHeightFt,
-    peakPeriodS: input.event.peakPeriodS,
+    eventStartDate: input.payload.event_start_date,
+    peakHeightFt: input.payload.peak_height_ft,
+    peakPeriodS: input.payload.peak_period_s,
     timezone: input.timezone,
   });
   const messageInstanceId = crypto.randomUUID();
@@ -353,11 +255,11 @@ async function sendSwellWatchEmail(input: {
     subject,
     react: SwellWatchEmail({
       beachName: input.beach.name,
-      eventStartDate: input.event.eventStartDate,
-      peakDate: input.event.peakDate,
-      peakHeightFt: input.event.peakHeightFt,
-      peakPeriodS: input.event.peakPeriodS,
-      forecastAt: input.event.peakForecastAt,
+      eventStartDate: input.payload.event_start_date,
+      peakDate: input.payload.peak_date,
+      peakHeightFt: input.payload.peak_height_ft,
+      peakPeriodS: input.payload.peak_period_s,
+      forecastAt: input.payload.forecast_at,
       timezone: input.timezone,
       ctaUrl,
       manageUrl,
@@ -379,11 +281,11 @@ async function sendSwellWatchEmail(input: {
     meta: {
       beach_name: input.beach.name,
       beach_slug: input.beach.slug,
-      event_start_date: input.event.eventStartDate,
-      peak_date: input.event.peakDate,
-      peak_height_ft: input.event.peakHeightFt,
-      peak_period_s: input.event.peakPeriodS,
-      forecast_at: input.event.peakForecastAt,
+      event_start_date: input.payload.event_start_date,
+      peak_date: input.payload.peak_date,
+      peak_height_ft: input.payload.peak_height_ft,
+      peak_period_s: input.payload.peak_period_s,
+      forecast_at: input.payload.forecast_at,
       message_instance_id: messageInstanceId,
     },
   });
@@ -392,151 +294,52 @@ async function sendSwellWatchEmail(input: {
 }
 
 async function _GET(request: Request): Promise<Response> {
-  const startedAt = Date.now();
+  const rateLimiter = createResendRateLimiter();
+  let emailLogger: ReturnType<typeof createEmailLogger> | null = null;
+  const baseUrl = getBaseUrl();
 
-  try {
-    if (!validateCronRequest(request)) {
-      return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
-    }
-
-    const summary: SwellWatchRunSummary = {
-      skipped: false,
-      evaluated: 0,
-      candidates: 0,
-      sent: 0,
-      duplicates: 0,
+  return runHomeBeachPushCron<SwellWatchPayload>(request, {
+    contextTag: CONTEXT_TAG,
+    enabledEnv: "SWELL_WATCH_ENABLED",
+    allowlistEnv: "SWELL_WATCH_USER_ALLOWLIST",
+    type: NOTIFICATION_TYPE,
+    lookaheadHours: LOOKAHEAD_HOURS,
+    profileSelectExtraFields: [
+      "email",
+      "display_name",
+      "notif_email_enabled",
+      "notif_forecast_alerts",
+    ],
+    createAdditionalSummary: () => ({
       emailSent: 0,
-      testAllowlistActive: false,
-      skippedCounts: createSkippedCounts(),
       emailSkippedCounts: createEmailSkippedCounts(),
-      errors: 0,
-      durationMs: 0,
-    };
+    }),
+    selectAndBuild: selectAndBuildSwellWatch,
+    afterEnqueue: async ({ supabase, profile, beach, timezone, selection, summary }) => {
+      emailLogger ??= createEmailLogger(supabase, CONTEXT_TAG);
+      const emailSummary = summary as SwellWatchEmailSummary;
+      const emailResult = await sendSwellWatchEmail({
+        supabase,
+        profile: profile as SwellWatchEmailProfile,
+        beach,
+        timezone,
+        payload: selection.payload,
+        rateLimiter,
+        emailLogger,
+        baseUrl,
+      });
 
-    if (process.env.SWELL_WATCH_ENABLED !== "true") {
-      summary.skipped = true;
-      summary.reason = "disabled";
-      summary.durationMs = Date.now() - startedAt;
-      return createSuccessResponse(summary);
-    }
-
-    const allowlist = parseAllowlist("SWELL_WATCH_USER_ALLOWLIST");
-    summary.testAllowlistActive = allowlist.size > 0;
-    const supabase = createSupabaseServiceRoleClient();
-    const rateLimiter = createResendRateLimiter();
-    const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
-    const baseUrl = getBaseUrl();
-    const profiles = await loadProfiles(supabase);
-    const eligibleProfiles: SwellWatchProfileRow[] = [];
-
-    for (const profile of profiles) {
-      summary.evaluated++;
-      if (!profile.home_beach_id) {
-        increment(summary.skippedCounts, "noHomeBeach");
-        continue;
+      if (emailResult === "sent") {
+        emailSummary.emailSent++;
+        return;
       }
-      if (
-        profile.notif_push_enabled === false ||
-        profile.notif_reminders === false
-      ) {
-        increment(summary.skippedCounts, "disabledPrefs");
-        continue;
+
+      incrementEmailSkip(emailSummary.emailSkippedCounts, emailResult);
+      if (emailResult === "sendFailed") {
+        emailSummary.errors++;
       }
-      if (allowlist.size > 0 && !allowlist.has(profile.id)) {
-        increment(summary.skippedCounts, "notInAllowlist");
-        continue;
-      }
-      eligibleProfiles.push(profile);
-    }
-
-    summary.candidates = eligibleProfiles.length;
-    const beachIds = Array.from(
-      new Set(
-        eligibleProfiles
-          .map((profile) => profile.home_beach_id)
-          .filter((id): id is string => Boolean(id))
-      )
-    );
-    const beachesById = await loadBeaches(supabase, beachIds);
-    const now = new Date();
-
-    for (const profile of eligibleProfiles) {
-      try {
-        const beachId = profile.home_beach_id;
-        if (!beachId) continue;
-        const beach = beachesById.get(beachId);
-        if (!beach) {
-          increment(summary.skippedCounts, "noBeach");
-          continue;
-        }
-
-        const timezone = resolveBeachTimezone(profile.timezone ?? beach.timezone);
-        const forecasts = await loadForecasts(supabase, beachId, now);
-        if (forecasts.length === 0) {
-          increment(summary.skippedCounts, "noForecast");
-          continue;
-        }
-
-        const selection = selectAndBuildSwellWatch({
-          profile,
-          beach,
-          forecasts,
-          timezone,
-          now,
-        });
-        if ("skipReason" in selection) {
-          increment(summary.skippedCounts, selection.skipReason);
-          continue;
-        }
-
-        const enqueueResult = await enqueueNotification(
-          {
-            type: NOTIFICATION_TYPE,
-            recipientUserId: profile.id,
-            payload: selection.payload as unknown as Record<string, unknown>,
-            dedupeKey: selection.dedupeKey,
-          },
-          supabase
-        );
-
-        if (enqueueResult.enqueued) {
-          summary.sent++;
-        } else if (enqueueResult.reason === "duplicate") {
-          summary.duplicates++;
-        } else {
-          increment(summary.skippedCounts, "enqueueFailed");
-          summary.errors++;
-          continue;
-        }
-
-        const emailResult = await sendSwellWatchEmail({
-          supabase,
-          profile,
-          beach,
-          timezone,
-          event: selection.event,
-          rateLimiter,
-          emailLogger,
-          baseUrl,
-        });
-
-        if (emailResult === "sent") {
-          summary.emailSent++;
-        } else {
-          increment(summary.emailSkippedCounts, emailResult);
-          if (emailResult === "sendFailed") summary.errors++;
-        }
-      } catch (profileError) {
-        console.error(`${CONTEXT_TAG} Error processing ${profile.id}:`, profileError);
-        summary.errors++;
-      }
-    }
-
-    summary.durationMs = Date.now() - startedAt;
-    return createSuccessResponse(summary);
-  } catch (error) {
-    return handleApiError(error);
-  }
+    },
+  });
 }
 
 export const GET = withObservedCron(

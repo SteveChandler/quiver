@@ -14,11 +14,12 @@ ALTER TABLE public.email_send_log
     'weekly_recap',
     'conditions_alert',
     'session_prompt',
+    'first_session_nudge',
     'swell_watch'
   ));
 
 COMMENT ON CONSTRAINT email_send_log_email_type_check ON public.email_send_log IS
-  'Allowed email types: welcome, forecast_digest, reengagement, weekly_recap, conditions_alert, session_prompt, swell_watch';
+  'Allowed email types: welcome, forecast_digest, reengagement, weekly_recap, conditions_alert, session_prompt, first_session_nudge, swell_watch';
 
 ALTER TABLE public.forecast_alert_deliveries
   DROP CONSTRAINT IF EXISTS forecast_alert_deliveries_alert_type_check;
