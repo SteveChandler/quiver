@@ -115,6 +115,7 @@ describe("GET /api/alerts/activity", () => {
     expect(mockIn).toHaveBeenCalledWith("type", [
       "forecast_alert",
       "similarity_match",
+      "swell_watch",
     ]);
     expect(mockGte).toHaveBeenCalledWith(
       "created_at",
