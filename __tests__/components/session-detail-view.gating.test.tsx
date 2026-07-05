@@ -15,18 +15,17 @@ jest.mock("@/context/auth-context", () => ({
   })),
 }));
 
-jest.mock("@/components/ui/public-content-gate", () => ({
-  PublicContentGate: ({
-    ctaTitle,
+jest.mock("@/components/app-store/ios-app-store-cta", () => ({
+  IosAppStoreCta: ({
     children,
+    className,
   }: {
-    ctaTitle: string;
     children: React.ReactNode;
+    className?: string;
   }) => (
-    <div>
-      <div>{ctaTitle}</div>
-      <div>{children}</div>
-    </div>
+    <a href="https://apps.apple.com/us/app/surf-forecast-quiver/id6759300320" className={className}>
+      {children}
+    </a>
   ),
 }));
 
@@ -45,12 +44,33 @@ jest.mock("next/link", () => {
 });
 
 describe("SessionDetailView (gating)", () => {
-  it("shows an auth gate when logged out (instead of spinning forever)", () => {
-    render(<SessionDetailView id="session-1" />);
-    expect(
-      screen.getByText("Log in to view session details")
-    ).toBeInTheDocument();
+  it("shows a shared-session app fallback when logged out", () => {
+    render(
+      <SessionDetailView
+        id="session-1"
+        sharedPreview={{
+          beachName: "Ocean Beach",
+          userName: "Sam",
+          rating: 4,
+          dateText: "Jul 3, 2026",
+          title: "Sam's session at Ocean Beach",
+          subtitle: "4/5 stars · Jul 3, 2026 · Logged session",
+          imageUrl: "https://cdn.quiversurf.app/session.jpg",
+          shareImageUrl: "https://www.quiversurf.app/api/og/session?beach=Ocean+Beach",
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Shared session")).toBeInTheDocument();
+    expect(screen.getByText("Sam's session at Ocean Beach")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open App Store" })).toHaveAttribute(
+      "href",
+      expect.stringContaining("apps.apple.com"),
+    );
+    expect(screen.getByRole("link", { name: "Download options" })).toHaveAttribute(
+      "href",
+      "/download",
+    );
   });
 });
-
 

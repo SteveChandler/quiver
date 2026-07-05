@@ -153,6 +153,10 @@
       "schedule": "0 1 * * 5,6"
     },
     {
+      "path": "/api/cron/swell-watch",
+      "schedule": "0 15 * * *"
+    },
+    {
       "path": "/api/cron/condition-alert-deliver",
       "schedule": "0 * * * *"
     },

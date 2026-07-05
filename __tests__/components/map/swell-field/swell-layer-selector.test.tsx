@@ -87,7 +87,7 @@ describe("SwellLayerSelector — integrated legend", () => {
 
     expect(panel).toContainElement(legend);
     expect(screen.getByTestId("swell-field-legend-caption")).toHaveTextContent(
-      "dots + tails = wind speed & direction"
+      "flow streaks = wind speed & direction"
     );
   });
 

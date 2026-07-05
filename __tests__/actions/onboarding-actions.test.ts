@@ -12,10 +12,10 @@ jest.mock("@/lib/gamification", () => ({
 
 // Mock the seed helper so we can assert it's invoked with the right params.
 // Defaults to a no-op success; individual tests can override to simulate errors.
-const mockSeedDefaultRuleForUser = jest.fn();
+const mockSeedDefaultRulesForUser = jest.fn();
 jest.mock("@/lib/alerts/seed-default-rule", () => ({
-  seedDefaultRuleForUser: (...args: unknown[]) =>
-    mockSeedDefaultRuleForUser(...args),
+  seedDefaultRulesForUser: (...args: unknown[]) =>
+    mockSeedDefaultRulesForUser(...args),
 }));
 
 // Track last operations for assertions
@@ -160,11 +160,13 @@ describe("saveOnboardingData", () => {
     allUserEventInserts = [];
     beachTimezone = "America/Los_Angeles";
     beachLookupIds = [];
-    mockSeedDefaultRuleForUser.mockReset();
-    mockSeedDefaultRuleForUser.mockResolvedValue({
+    mockSeedDefaultRulesForUser.mockReset();
+    mockSeedDefaultRulesForUser.mockResolvedValue({
       seeded: true,
-      ruleId: "rule-1",
-      presetType: "mellow_session",
+      rules: [
+        { ruleId: "rule-1", presetType: "mellow_session" },
+        { ruleId: "rule-2", presetType: "weekend_warrior" },
+      ],
     });
   });
 
@@ -422,21 +424,23 @@ describe("saveOnboardingData", () => {
   });
 
   describe("Default Alert Rule Seeding", () => {
-    it("invokes seedDefaultRuleForUser with experienceLevel and beach from onboarding data", async () => {
+    it("invokes seedDefaultRulesForUser with experienceLevel, preferredTime, and beach from onboarding data", async () => {
       await saveOnboardingData({
         fullName: "Test User",
         displayName: "test_user",
         homeBeachId: "beach-123",
         experienceLevel: "beginner" as const,
+        preferredTime: "dawn" as const,
         emailEnabled: true,
         pushEnabled: false,
       });
 
-      expect(mockSeedDefaultRuleForUser).toHaveBeenCalledTimes(1);
-      const call = mockSeedDefaultRuleForUser.mock.calls[0][0];
+      expect(mockSeedDefaultRulesForUser).toHaveBeenCalledTimes(1);
+      const call = mockSeedDefaultRulesForUser.mock.calls[0][0];
       expect(call.userId).toBe("user-123");
       expect(call.beachId).toBe("beach-123");
       expect(call.experienceLevel).toBe("beginner");
+      expect(call.preferredTimeBucket).toBe("dawn");
       expect(call.notifyEmail).toBe(true);
       expect(call.notifyPush).toBe(false);
     });
@@ -446,17 +450,22 @@ describe("saveOnboardingData", () => {
         homeBeachId: "beach-123",
       });
 
-      expect(mockSeedDefaultRuleForUser).toHaveBeenCalledTimes(1);
+      expect(mockSeedDefaultRulesForUser).toHaveBeenCalledTimes(1);
       expect(
-        mockSeedDefaultRuleForUser.mock.calls[0][0].experienceLevel,
+        mockSeedDefaultRulesForUser.mock.calls[0][0].experienceLevel,
+      ).toBeNull();
+      expect(
+        mockSeedDefaultRulesForUser.mock.calls[0][0].preferredTimeBucket,
       ).toBeNull();
     });
 
     it("logs an alert_rule_seeded user_events row with the seed result", async () => {
-      mockSeedDefaultRuleForUser.mockResolvedValueOnce({
+      mockSeedDefaultRulesForUser.mockResolvedValueOnce({
         seeded: true,
-        ruleId: "rule-xyz",
-        presetType: "clean_groundswell",
+        rules: [
+          { ruleId: "rule-xyz", presetType: "clean_groundswell" },
+          { ruleId: "rule-abc", presetType: "after_work" },
+        ],
       });
 
       await saveOnboardingData({
@@ -474,14 +483,14 @@ describe("saveOnboardingData", () => {
           step_name: "alert_rule_seeded",
           source: "server",
           seeded: true,
-          ruleId: "rule-xyz",
-          presetType: "clean_groundswell",
+          rules_seeded: 2,
+          preset_types: ["clean_groundswell", "after_work"],
         },
       });
     });
 
     it("does not fail onboarding when the seed helper throws", async () => {
-      mockSeedDefaultRuleForUser.mockRejectedValueOnce(new Error("boom"));
+      mockSeedDefaultRulesForUser.mockRejectedValueOnce(new Error("boom"));
 
       const result = await saveOnboardingData({
         homeBeachId: "beach-123",
@@ -492,7 +501,7 @@ describe("saveOnboardingData", () => {
     });
 
     it("does not fail onboarding when the seed helper returns an error result", async () => {
-      mockSeedDefaultRuleForUser.mockResolvedValueOnce({
+      mockSeedDefaultRulesForUser.mockResolvedValueOnce({
         seeded: false,
         reason: "error",
         error: "db down",

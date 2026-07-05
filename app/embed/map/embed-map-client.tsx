@@ -30,6 +30,12 @@ const InteractiveMap = dynamic(
 const DEFAULT_CENTER: EmbedMapCoordinate = { lat: 32.8667, lon: -117.2544 };
 const DEFAULT_ZOOM = 11.5;
 const DEFAULT_TIMELINE_STEPS = ["Now", "+3h", "+6h", "+9h", "+12h", "+15h", "+18h", "+21h"];
+const LAYER_SWITCHER: ReadonlyArray<{ id: EmbedMapSwellLayerId; label: string }> = [
+  { id: "s1", label: "Swell" },
+  { id: "s2", label: "Swell 2" },
+  { id: "wind", label: "Wind" },
+  { id: "combined", label: "All" },
+];
 const FATAL_MAP_FAILURE_REASONS = new Set(["token_invalid", "webgl_unsupported"]);
 const RENDER_HEALTH_SAMPLE_MS = 3_000;
 const DEGRADED_FPS_THRESHOLD = 28;
@@ -52,7 +58,7 @@ function layerParam(value: string | null): EmbedMapSwellLayerId {
   if (value === "combined" || value === "s1" || value === "s2" || value === "wind") {
     return value;
   }
-  return "combined";
+  return "s1";
 }
 
 function viewportFromBounds(bounds: {
@@ -123,16 +129,73 @@ export function EmbedMapClient() {
   > | null>(null);
   const [placementPoint, setPlacementPoint] = useState<EmbedMapCoordinate | null>(null);
   const [isPlacementActive, setIsPlacementActive] = useState(false);
+  // The native app renders its own layer/time chrome over the WebView, so we only
+  // show the web chrome when running standalone (browser) to avoid duplication.
+  const [showWebChrome, setShowWebChrome] = useState(false);
+  useEffect(() => {
+    setShowWebChrome(typeof window !== "undefined" && !window.ReactNativeWebView);
+  }, []);
+  // Forecast playback: smoothly sweep the (fractional) timeline so the field
+  // morphs through the day. The map interpolates between hourly steps.
+  const [isPlaying, setIsPlaying] = useState(false);
+  // "None" hides the swell field so users can read just the map + spots.
+  const [fieldHidden, setFieldHidden] = useState(false);
+  const timelineIndexRef = useRef(timelineIndex);
+  useEffect(() => {
+    timelineIndexRef.current = timelineIndex;
+  }, [timelineIndex]);
+  useEffect(() => {
+    if (!isPlaying) return;
+    const maxIndex = DEFAULT_TIMELINE_STEPS.length - 1;
+    const id = window.setInterval(() => {
+      let next = timelineIndexRef.current + 0.06;
+      if (next >= maxIndex) next = 0;
+      timelineIndexRef.current = next;
+      setTimelineIndex(next);
+    }, 80);
+    return () => window.clearInterval(id);
+  }, [isPlaying]);
   const nativeCommandKeyRef = useRef(0);
   const currentViewportRef = useRef<EmbedMapViewport>({
     center: initialCenter,
     zoom: initialZoom,
   });
   const sentReadyRef = useRef(false);
+  const pendingReadyViewportRef = useRef<EmbedMapViewport | null>(null);
 
-  const postEvent = useCallback((event: EmbedMapEvent): void => {
-    window.ReactNativeWebView?.postMessage(serializeEmbedMapEvent(event));
+  const postEvent = useCallback((event: EmbedMapEvent): boolean => {
+    if (!window.ReactNativeWebView) return false;
+    window.ReactNativeWebView.postMessage(serializeEmbedMapEvent(event));
+    return true;
   }, []);
+
+  // Keep the native chrome's time label in sync while the field plays/scrubs: emit
+  // the rounded forecast step whenever it changes. The play loop advances a
+  // fractional index; native renders integer steps. No-op in the browser.
+  const roundedStep = Math.max(0, Math.round(timelineIndex));
+  const lastEmittedStepRef = useRef(-1);
+  useEffect(() => {
+    if (lastEmittedStepRef.current === roundedStep) return;
+    lastEmittedStepRef.current = roundedStep;
+    postEvent({ type: "forecastTimeChanged", payload: { index: roundedStep } });
+  }, [roundedStep, postEvent]);
+
+  const postReady = useCallback(
+    (viewport: EmbedMapViewport): boolean => {
+      if (sentReadyRef.current) return true;
+      const didPost = postEvent({ type: "ready", payload: { viewport } });
+      if (!didPost) {
+        pendingReadyViewportRef.current = viewport;
+        return false;
+      }
+
+      sentReadyRef.current = true;
+      pendingReadyViewportRef.current = null;
+      postEvent({ type: "renderHealth", payload: { status: "ok" } });
+      return true;
+    },
+    [postEvent],
+  );
 
   const handleBoundsChange = useCallback(
     (bounds: { west: number; south: number; east: number; north: number }): void => {
@@ -143,16 +206,30 @@ export function EmbedMapClient() {
       };
 
       if (!sentReadyRef.current) {
-        sentReadyRef.current = true;
-        postEvent({ type: "ready", payload: { viewport: currentViewportRef.current } });
-        postEvent({ type: "renderHealth", payload: { status: "ok" } });
+        postReady(currentViewportRef.current);
         return;
       }
 
       postEvent({ type: "viewportChanged", payload: currentViewportRef.current });
     },
-    [postEvent],
+    [postEvent, postReady],
   );
+
+  const handleMapReady = useCallback((): void => {
+    postReady(currentViewportRef.current);
+  }, [postReady]);
+
+  useEffect(() => {
+    if (sentReadyRef.current) return;
+
+    const intervalId = window.setInterval(() => {
+      const pendingViewport = pendingReadyViewportRef.current;
+      if (!pendingViewport) return;
+      postReady(pendingViewport);
+    }, 100);
+
+    return () => window.clearInterval(intervalId);
+  }, [postReady]);
 
   const updatePlacement = useCallback(
     (coordinate: EmbedMapCoordinate): void => {
@@ -214,6 +291,12 @@ export function EmbedMapClient() {
           postEvent({ type: "placementConfirmed", payload: point });
           return;
         }
+        case "setFieldVisible":
+          setFieldHidden(!command.payload.visible);
+          return;
+        case "setForecastPlaying":
+          setIsPlaying(command.payload.playing);
+          return;
         case "setTheme":
         case "setReducedMotion":
           return;
@@ -333,20 +416,242 @@ export function EmbedMapClient() {
         autoNavigateOnMarkerClick={false}
         className="absolute inset-0 h-full w-full"
         clusterClickBehavior="expand"
+        disableBeachClustering
+        markerDisplay="points"
         onBoundsChange={handleBoundsChange}
         onLocationClick={handleBeachSelect}
         onMapLoadFailure={handleMapLoadFailure}
+        onMapReady={handleMapReady}
         onMapClick={handleMapClick}
         onPlacementPinChange={handlePlacementPinChange}
         placementPin={isPlacementActive ? placementPoint : null}
         placementPinDraggable
         regionViewport={regionViewport}
+        showConditionsOnTap={!isPlacementActive}
         showMapChrome={false}
-        showSwellField
+        showSwellField={!fieldHidden}
         swellLayerId={layerId as SwellLayerId}
         swellTimelineIndex={timelineIndex}
         swellTimelineSteps={DEFAULT_TIMELINE_STEPS}
       />
+      {!isPlacementActive && (
+        <div
+          className="pointer-events-none absolute z-10 flex select-none flex-col items-start gap-2"
+          style={{
+            bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+            left: "calc(env(safe-area-inset-left, 0px) + 16px)",
+          }}
+        >
+          {showWebChrome && (
+            <div
+              className="pointer-events-auto flex"
+              style={{
+                gap: 3,
+                padding: 5,
+                background: "rgba(13, 16, 32, 0.78)",
+                backdropFilter: "blur(12px)",
+                WebkitBackdropFilter: "blur(12px)",
+                border: "1px solid rgba(244, 235, 216, 0.18)",
+                borderRadius: "13px",
+                boxShadow: "0 10px 30px rgba(0, 0, 0, 0.38)",
+              }}
+            >
+              {LAYER_SWITCHER.map((opt) => {
+                const active = !fieldHidden && layerId === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    className="embed-layer-pill"
+                    aria-pressed={active}
+                    onClick={() => {
+                      setFieldHidden(false);
+                      setLayerId(opt.id);
+                    }}
+                    style={{
+                      border: "none",
+                      cursor: "pointer",
+                      borderRadius: "9px",
+                      padding: "6px 10px",
+                      fontSize: "12px",
+                      fontWeight: 700,
+                      whiteSpace: "nowrap",
+                      background: active ? "#F4EBD8" : "transparent",
+                      color: active ? "#0D1020" : "rgba(244, 235, 216, 0.7)",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                className="embed-layer-pill"
+                aria-pressed={fieldHidden}
+                onClick={() => {
+                  setFieldHidden(true);
+                  setIsPlaying(false);
+                }}
+                style={{
+                  border: "none",
+                  cursor: "pointer",
+                  borderRadius: "9px",
+                  padding: "6px 10px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                  background: fieldHidden ? "#F4EBD8" : "transparent",
+                  color: fieldHidden ? "#0D1020" : "rgba(244, 235, 216, 0.7)",
+                }}
+              >
+                None
+              </button>
+            </div>
+          )}
+
+          {showWebChrome && (
+          <div
+            aria-label="Conditions legend"
+            style={{
+              background: "rgba(13, 16, 32, 0.78)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              border: "1px solid rgba(244, 235, 216, 0.18)",
+              borderRadius: "14px",
+              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.38)",
+              padding: "11px 13px 9px",
+            }}
+          >
+            <div
+              style={{
+                color: "rgba(244, 235, 216, 0.6)",
+                fontSize: "10px",
+                fontWeight: 700,
+                letterSpacing: "0.09em",
+                textTransform: "uppercase",
+                marginBottom: "8px",
+              }}
+            >
+              Conditions
+            </div>
+            {[
+              { label: "Swell", color: "#F78E42" },
+              { label: "Swell 2", color: "#7AC74F" },
+              { label: "Wind", color: "#00D4AA" },
+            ].map((item) => (
+              <div
+                key={item.label}
+                style={{ display: "flex", alignItems: "center", gap: "9px", padding: "3px 0" }}
+              >
+                <span
+                  aria-hidden
+                  style={{
+                    width: "11px",
+                    height: "11px",
+                    borderRadius: "9999px",
+                    background: item.color,
+                    boxShadow: `0 0 0 2px rgba(244, 235, 216, 0.14), 0 0 9px ${item.color}66`,
+                  }}
+                />
+                <span style={{ color: "#F4EBD8", fontSize: "12.5px", fontWeight: 600, lineHeight: 1 }}>
+                  {item.label}
+                </span>
+              </div>
+            ))}
+          </div>
+          )}
+        </div>
+      )}
+      {showWebChrome && !isPlacementActive && !fieldHidden && (
+        <>
+          <style>{`
+            .embed-time-slider { -webkit-appearance:none; appearance:none; height:6px; border-radius:9999px; outline:none; cursor:pointer; }
+            .embed-time-slider::-webkit-slider-runnable-track { height:6px; border-radius:9999px; background:transparent; }
+            .embed-time-slider::-moz-range-track { height:6px; border-radius:9999px; background:transparent; }
+            .embed-time-slider::-webkit-slider-thumb { -webkit-appearance:none; appearance:none; width:18px; height:18px; margin-top:-6px; border-radius:9999px; background:#F4EBD8; border:2px solid rgba(13,16,32,0.45); box-shadow:0 2px 6px rgba(0,0,0,0.45); cursor:pointer; }
+            .embed-time-slider::-moz-range-thumb { width:16px; height:16px; border-radius:9999px; background:#F4EBD8; border:2px solid rgba(13,16,32,0.45); box-shadow:0 2px 6px rgba(0,0,0,0.45); cursor:pointer; }
+            .embed-layer-pill { transition: background 120ms ease, color 120ms ease; }
+          `}</style>
+
+          {/* Timeline scrubber with play */}
+          <div
+            className="pointer-events-auto absolute z-10 select-none"
+            style={{
+              bottom: "calc(env(safe-area-inset-bottom, 0px) + 16px)",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "min(440px, calc(100vw - 32px))",
+              background: "rgba(13, 16, 32, 0.78)",
+              backdropFilter: "blur(12px)",
+              WebkitBackdropFilter: "blur(12px)",
+              border: "1px solid rgba(244, 235, 216, 0.18)",
+              borderRadius: "16px",
+              boxShadow: "0 10px 30px rgba(0, 0, 0, 0.38)",
+              padding: "10px 16px 13px",
+            }}
+          >
+            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 9 }}>
+              <span
+                style={{
+                  color: "rgba(244, 235, 216, 0.6)",
+                  fontSize: "10px",
+                  fontWeight: 700,
+                  letterSpacing: "0.09em",
+                  textTransform: "uppercase",
+                }}
+              >
+                Forecast
+              </span>
+              <span style={{ color: "#F4EBD8", fontSize: "14px", fontWeight: 700 }}>
+                {DEFAULT_TIMELINE_STEPS[Math.round(timelineIndex)]}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <button
+                type="button"
+                aria-label={isPlaying ? "Pause forecast playback" : "Play forecast playback"}
+                onClick={() => setIsPlaying((playing) => !playing)}
+                style={{
+                  flex: "0 0 auto",
+                  width: 32,
+                  height: 32,
+                  borderRadius: "9999px",
+                  border: "none",
+                  cursor: "pointer",
+                  background: "#F4EBD8",
+                  color: "#0D1020",
+                  fontSize: 12,
+                  lineHeight: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  boxShadow: "0 2px 6px rgba(0, 0, 0, 0.4)",
+                }}
+              >
+                {isPlaying ? "⏸" : "▶"}
+              </button>
+              <input
+                type="range"
+                className="embed-time-slider"
+                aria-label="Forecast time"
+                min={0}
+                max={DEFAULT_TIMELINE_STEPS.length - 1}
+                step={0.01}
+                value={timelineIndex}
+                onChange={(event) => {
+                  setIsPlaying(false);
+                  setTimelineIndex(Number(event.target.value));
+                }}
+                style={{
+                  flex: 1,
+                  background: `linear-gradient(to right, #F78E42 0%, #F78E42 ${(timelineIndex / (DEFAULT_TIMELINE_STEPS.length - 1)) * 100}%, rgba(244,235,216,0.22) ${(timelineIndex / (DEFAULT_TIMELINE_STEPS.length - 1)) * 100}%, rgba(244,235,216,0.22) 100%)`,
+                  borderRadius: "9999px",
+                }}
+              />
+            </div>
+          </div>
+        </>
+      )}
     </main>
   );
 }

@@ -8,10 +8,13 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
+import { TEST_BEACHES } from './fixtures/test-data';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 import { isVisibleSafe } from './utils/strict-helpers';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+const BLACKS_BEACH_URL = buildBeachUrl(TEST_BEACHES.blacks);
 
 test.describe('Service Health: Data Pipeline @smoke', () => {
   let errorCapture: ErrorCapture;
@@ -87,7 +90,7 @@ test.describe('Service Health: Data Pipeline @smoke', () => {
 
 test.describe('Service Health: Beach Data Rendering @smoke', () => {
   test('Beach page renders wave data @smoke @requires-data', async ({ page }) => {
-    await page.goto('/ca/san-diego/blacks', {
+    await page.goto(BLACKS_BEACH_URL, {
       waitUntil: 'domcontentloaded',
       timeout: 15000,
     });
@@ -115,7 +118,7 @@ test.describe('Service Health: Beach Data Rendering @smoke', () => {
   });
 
   test('Beach page title contains wave info @smoke @requires-data', async ({ page }) => {
-    await page.goto('/ca/san-diego/blacks', {
+    await page.goto(BLACKS_BEACH_URL, {
       waitUntil: 'domcontentloaded',
       timeout: 15000,
     });

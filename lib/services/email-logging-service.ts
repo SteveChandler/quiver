@@ -26,7 +26,8 @@ export type EmailType =
   | "weekly_recap"
   | "conditions_alert"
   | "session_prompt"
-  | "first_session_nudge";
+  | "first_session_nudge"
+  | "swell_watch";
 
 /**
  * Email log entry with all optional fields for flexibility

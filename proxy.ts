@@ -50,6 +50,7 @@ const INTERNATIONAL_RESERVED_SEGMENTS = new Set([
   "sessions",
   "share",
   "spots",
+  "p",
   "s",
   "user",
   "error",

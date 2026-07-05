@@ -18,6 +18,29 @@ export function parseWindSpeedToKt(raw: string | null | undefined): number | nul
   return num * 0.868976;
 }
 
+export function parseWaveHeightRangeFt(
+  raw: string | null | undefined
+): { min: number; max: number } | null {
+  if (typeof raw !== "string") return null;
+  const matches = raw.match(/[\d.]+/g);
+  if (!matches) return null;
+
+  const values = matches.map(Number).filter((value) => Number.isFinite(value));
+  if (values.length === 0) return null;
+
+  return {
+    min: Math.min(...values),
+    max: Math.max(...values),
+  };
+}
+
+export function parsePeriodSeconds(raw: string | null | undefined): number | null {
+  if (typeof raw !== "string") return null;
+  const parsed = parseFloat(raw.trim().replace(/s$/i, ""));
+  // A zero or negative period is not a real reading; treat it as absent.
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
 /**
  * Parse a swell direction value to degrees. Accepts:
  * - 16-point cardinal text: "N", "NNE", "NE", "ENE", "E", … "NNW"
