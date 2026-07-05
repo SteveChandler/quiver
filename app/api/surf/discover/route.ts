@@ -75,7 +75,7 @@ const QuerySchema = z.object({
  * Query Parameters:
  * - lat (required): User's latitude for GPS discovery
  * - lon (required): User's longitude for GPS discovery
- * - radius (optional): Search radius in miles (default: 25, max: 100)
+ * - radius (optional): Search radius in miles (starts at 25, expands to 100 as needed)
  * - maxResults (optional): Maximum recommendations (default: 5, max: 10)
  * - mode (optional): Discovery mode ('best-window' default, 'now' for immediate current-condition ranking)
  * - timeSlot (optional): Time slot preference ('any', 'lunch-session', 'afternoon', 'dawn-patrol', default: 'any')

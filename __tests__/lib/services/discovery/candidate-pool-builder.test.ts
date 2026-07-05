@@ -44,7 +44,9 @@ const mockNearbyBeach3: Partial<Beach> = {
 // Shared mock state that can be updated between tests
 const mockState = {
   profileResponse: { data: null as unknown, error: null as unknown },
-  nearbyRpcResponse: { data: [] as unknown, error: null as unknown },
+  nearbyRpcResponse: { data: [] as unknown, error: null as unknown } as
+    | { data: unknown; error: unknown }
+    | ((params: Record<string, unknown>) => { data: unknown; error: unknown }),
   beachesInResponse: { data: [] as unknown, error: null as unknown },
   mockCalls: [] as Array<{ table: string; method: string; args: unknown[] }>,
 };
@@ -75,8 +77,8 @@ jest.mock('@/lib/supabase/server', () => ({
 
                 // For beaches table
                 return {
-                  limit: jest.fn(() => {
-                    mockState.mockCalls.push({ table, method: 'limit', args: [] });
+                  limit: jest.fn((limit: number) => {
+                    mockState.mockCalls.push({ table, method: 'limit', args: [limit] });
                     return Promise.resolve(mockState.beachesInResponse);
                   }),
                 };
@@ -89,8 +91,8 @@ jest.mock('@/lib/supabase/server', () => ({
                     mockState.mockCalls.push({ table, method: 'eq', args: [_eqField, _eqValue] });
 
                     return {
-                      limit: jest.fn(() => {
-                        mockState.mockCalls.push({ table, method: 'limit', args: [] });
+                      limit: jest.fn((limit: number) => {
+                        mockState.mockCalls.push({ table, method: 'limit', args: [limit] });
                         return Promise.resolve(mockState.beachesInResponse);
                       }),
                     };
@@ -103,7 +105,11 @@ jest.mock('@/lib/supabase/server', () => ({
       }),
       rpc: jest.fn((funcName: string, params: unknown) => {
         mockState.mockCalls.push({ table: 'rpc', method: funcName, args: [params] });
-        return Promise.resolve(mockState.nearbyRpcResponse);
+        const response =
+          typeof mockState.nearbyRpcResponse === 'function'
+            ? mockState.nearbyRpcResponse(params as Record<string, unknown>)
+            : mockState.nearbyRpcResponse;
+        return Promise.resolve(response);
       }),
     };
   }),
@@ -119,7 +125,10 @@ jest.mock('@/lib/logger', () => ({
 }));
 
 // Import module under test after mocks are setup
-import { buildCandidatePool } from '@/lib/services/discovery/candidate-pool-builder';
+import {
+  buildCandidatePool,
+  CANDIDATE_POOL_LIMIT,
+} from '@/lib/services/discovery/candidate-pool-builder';
 
 describe('buildCandidatePool', () => {
   const testUserId = 'test-user-123';
@@ -220,16 +229,15 @@ describe('buildCandidatePool', () => {
         radiusMiles: 50,
       });
 
-      // Check that RPC was called with correct max_distance_meters
-      // 50 miles * 1609.34 = 80467 meters
       const rpcCalls = mockState.mockCalls.filter(
         (call) => call.method === 'get_nearby_beaches'
       );
-      expect(rpcCalls).toHaveLength(1);
-      expect((rpcCalls[0].args[0] as Record<string, unknown>).max_distance_meters).toBe(80467);
+      expect(
+        rpcCalls.map((call) => (call.args[0] as Record<string, unknown>).max_distance_meters)
+      ).toEqual([40234, 80467]);
     });
 
-    it('should use default radius of 25 miles when not specified', async () => {
+    it('should expand to 100 miles when radius is not specified', async () => {
       mockState.profileResponse = {
         data: { experience_level: null },
         error: null,
@@ -244,8 +252,9 @@ describe('buildCandidatePool', () => {
       const rpcCalls = mockState.mockCalls.filter(
         (call) => call.method === 'get_nearby_beaches'
       );
-      expect(rpcCalls).toHaveLength(1);
-      expect((rpcCalls[0].args[0] as Record<string, unknown>).max_distance_meters).toBe(40234);
+      expect(
+        rpcCalls.map((call) => (call.args[0] as Record<string, unknown>).max_distance_meters)
+      ).toEqual([40234, 96560, 160934]);
     });
 
     it('should cap radiusMiles at 100 miles', async () => {
@@ -264,8 +273,9 @@ describe('buildCandidatePool', () => {
       const rpcCalls = mockState.mockCalls.filter(
         (call) => call.method === 'get_nearby_beaches'
       );
-      expect(rpcCalls).toHaveLength(1);
-      expect((rpcCalls[0].args[0] as Record<string, unknown>).max_distance_meters).toBe(160934);
+      expect(
+        rpcCalls.map((call) => (call.args[0] as Record<string, unknown>).max_distance_meters)
+      ).toEqual([40234, 96560, 160934]);
     });
 
     it('should handle negative radius by treating as 0', async () => {
@@ -286,6 +296,62 @@ describe('buildCandidatePool', () => {
       );
       expect(rpcCalls).toHaveLength(1);
       expect((rpcCalls[0].args[0] as Record<string, unknown>).max_distance_meters).toBe(0);
+    });
+
+    it('expands to the 60-mile tier when the 25-mile tier has fewer than 8 candidates', async () => {
+      const oceansideBeach: Partial<Beach> = {
+        id: 'oceanside-beach',
+        name: 'Oceanside',
+        slug: 'oceanside',
+        lat: 33.1959,
+        lon: -117.3795,
+        city: 'Oceanside',
+        state: 'CA',
+        is_private: false,
+      };
+
+      mockState.profileResponse = {
+        data: { experience_level: null },
+        error: null,
+      };
+      mockState.nearbyRpcResponse = (params) => {
+        const maxDistanceMeters = params.max_distance_meters;
+        if (maxDistanceMeters === 40234) {
+          return {
+            data: [
+              { id: mockNearbyBeach1.id, is_private: false, distance_meters: 1000 },
+              { id: mockNearbyBeach2.id, is_private: false, distance_meters: 5000 },
+            ],
+            error: null,
+          };
+        }
+
+        return {
+          data: [
+            { id: mockNearbyBeach1.id, is_private: false, distance_meters: 1000 },
+            { id: mockNearbyBeach2.id, is_private: false, distance_meters: 5000 },
+            { id: oceansideBeach.id, is_private: false, distance_meters: 56327 },
+          ],
+          error: null,
+        };
+      };
+      mockState.beachesInResponse = {
+        data: [mockNearbyBeach1, mockNearbyBeach2, oceansideBeach],
+        error: null,
+      };
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+        radiusMiles: 60,
+      });
+
+      const rpcCalls = mockState.mockCalls.filter(
+        (call) => call.method === 'get_nearby_beaches'
+      );
+      expect(
+        rpcCalls.map((call) => (call.args[0] as Record<string, unknown>).max_distance_meters)
+      ).toEqual([40234, 96560]);
+      expect(result.candidates.map((beach) => beach.id)).toContain(oceansideBeach.id);
     });
   });
 

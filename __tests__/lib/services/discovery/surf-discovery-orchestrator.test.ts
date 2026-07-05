@@ -239,6 +239,8 @@ const mockSupabaseFrom = jest.fn((table: string) => {
 
 // Setup mocks
 jest.mock('@/lib/services/discovery/candidate-pool-builder', () => ({
+  CANDIDATE_POOL_LIMIT: 60,
+  MAX_CANDIDATE_RADIUS_MILES: 100,
   buildCandidatePool: jest.fn(async () => mockState.candidatePoolResponse),
 }));
 
@@ -417,6 +419,7 @@ jest.mock('@/lib/services/discovery/personalization-layer', () => ({
 
 // Import after mocks
 import { discoverSurfSpots } from '@/lib/services/discovery/surf-discovery-orchestrator';
+import { WORTH_THE_DRIVE_REASON } from '@/lib/services/discovery/distance-friction';
 
 function resetDefaultDiscoveryMocks(): void {
   const { scoreBeachWithEngine, forecastToSnapshot } = require('@/lib/domains/scoring');
@@ -498,6 +501,13 @@ function customSpotRow(input: {
     deleted_at: null,
     created_at: '2024-01-01T00:00:00.000Z',
     updated_at: '2024-01-01T00:00:00.000Z',
+  };
+}
+
+function makeForecastForBeach(beachId: string): Partial<EnhancedForecastEntity> {
+  return {
+    ...mockForecast,
+    beach_id: beachId,
   };
 }
 
@@ -674,7 +684,8 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     // Verify beach-2 IS in results (no longer excluded based on score)
     const beach2Rec = result.recommendations.find(r => r.beach.id === 'beach-2');
-    expect(beach2Rec).toMatchObject({ isFavorite: true, score: 45 });
+    expect(beach2Rec?.isFavorite).toBe(true);
+    expect(beach2Rec?.score).toBeLessThan(50);
 
     // Verify it's sorted to the end due to low score
     const lastRec = result.recommendations[result.recommendations.length - 1];
@@ -743,6 +754,149 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(result.recommendations[2].isFavorite).toBe(true);
     expect(result.recommendations[3].beach.id).toBe('beach-4'); // 70
     expect(result.recommendations[3].isFavorite).toBe(false); // Non-favorite has isFavorite: false
+  });
+
+  test('ranks firing Oceanside above a weak close spot and marks it worth the drive', async () => {
+    const closeBeach: Partial<Beach> = {
+      ...mockBeach1,
+      id: 'close-weak-spot',
+      name: 'Close Weak Spot',
+      lat: 32.7589,
+      lon: -117.1611,
+    };
+    const oceansideBeach: Partial<Beach> = {
+      ...mockBeach2,
+      id: 'oceanside-firing',
+      name: 'Oceanside',
+      slug: 'oceanside',
+      city: 'Oceanside',
+      lat: 33.1959,
+      lon: -117.3795,
+    };
+
+    mockState.candidatePoolResponse = {
+      candidates: [closeBeach, oceansideBeach] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: closeBeach, forecasts: [makeForecastForBeach('close-weak-spot')] },
+        { beach: oceansideBeach, forecasts: [makeForecastForBeach('oceanside-firing')] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    const rawConditionScores: Record<string, number> = {
+      'close-weak-spot': 55,
+      'oceanside-firing': 80,
+    };
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    scoreBeachWithEngine.mockImplementation((_engine: any, beach: Beach, forecast: EnhancedForecastEntity) => {
+      const beachId = forecast?.beach_id ?? beach.id;
+      const total = rawConditionScores[beachId] ?? 70;
+      return {
+        total,
+        subscores: {
+          waveHeightFit: total,
+          periodEnergyScore: 0,
+          windAlignment: 0,
+          tideFit: 0,
+          affinityBonus: 0,
+          personalizationBonus: 0,
+          distancePenalty: 0,
+        },
+        matchQuality: 'excellent',
+        reasons: [`${beach.name} condition score ${total}`],
+        warnings: [],
+        conditionBadges: [],
+      };
+    });
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 2,
+    });
+
+    expect(result.recommendations.map((rec) => rec.beach.id)).toEqual([
+      'oceanside-firing',
+      'close-weak-spot',
+    ]);
+    expect(result.recommendations[0].score).toBeGreaterThanOrEqual(70);
+    expect(result.recommendations[0].reasons[0]).toBe(WORTH_THE_DRIVE_REASON);
+  });
+
+  test('uses nearer distance as the final tie-breaker within 3 score points', async () => {
+    const closeBeach: Partial<Beach> = {
+      ...mockBeach1,
+      id: 'close-tiebreaker',
+      name: 'Close Tie Breaker',
+      lat: 32.7589,
+      lon: -117.1611,
+    };
+    const farBeach: Partial<Beach> = {
+      ...mockBeach2,
+      id: 'far-tiebreaker',
+      name: 'Far Tie Breaker',
+      lat: 33.1959,
+      lon: -117.3795,
+    };
+
+    mockState.candidatePoolResponse = {
+      candidates: [farBeach, closeBeach] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: farBeach, forecasts: [makeForecastForBeach('far-tiebreaker')] },
+        { beach: closeBeach, forecasts: [makeForecastForBeach('close-tiebreaker')] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    const rawConditionScores: Record<string, number> = {
+      'close-tiebreaker': 73,
+      'far-tiebreaker': 80,
+    };
+    const { scoreBeachWithEngine } = require('@/lib/domains/scoring');
+    scoreBeachWithEngine.mockImplementation((_engine: any, beach: Beach, forecast: EnhancedForecastEntity) => {
+      const beachId = forecast?.beach_id ?? beach.id;
+      const total = rawConditionScores[beachId] ?? 70;
+      return {
+        total,
+        subscores: {
+          waveHeightFit: total,
+          periodEnergyScore: 0,
+          windAlignment: 0,
+          tideFit: 0,
+          affinityBonus: 0,
+          personalizationBonus: 0,
+          distancePenalty: 0,
+        },
+        matchQuality: 'excellent',
+        reasons: [`${beach.name} condition score ${total}`],
+        warnings: [],
+        conditionBadges: [],
+      };
+    });
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 2,
+    });
+
+    expect(result.recommendations.map((rec) => rec.beach.id)).toEqual([
+      'close-tiebreaker',
+      'far-tiebreaker',
+    ]);
+    expect(result.recommendations[0].score).toBeLessThan(
+      result.recommendations[1].score
+    );
   });
 
   test('respects maxResults limit with pure score ranking', async () => {
@@ -2408,6 +2562,8 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       getLocalHour: jest.fn((date: Date, _tz: string) => date.getUTCHours()),
     }));
     jest.doMock('@/lib/services/discovery/candidate-pool-builder', () => ({
+      CANDIDATE_POOL_LIMIT: 60,
+      MAX_CANDIDATE_RADIUS_MILES: 100,
       buildCandidatePool: jest.fn(async () => mockState.candidatePoolResponse),
     }));
     jest.doMock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
@@ -2610,6 +2766,8 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       getLocalHour: jest.fn((date: Date, _tz: string) => date.getUTCHours()),
     }));
     jest.doMock('@/lib/services/discovery/candidate-pool-builder', () => ({
+      CANDIDATE_POOL_LIMIT: 60,
+      MAX_CANDIDATE_RADIUS_MILES: 100,
       buildCandidatePool: jest.fn(async () => mockState.candidatePoolResponse),
     }));
     jest.doMock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
@@ -2801,6 +2959,8 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       MIN_SESSION_HOURS: 1.0,
     }));
     jest.doMock('@/lib/services/discovery/candidate-pool-builder', () => ({
+      CANDIDATE_POOL_LIMIT: 60,
+      MAX_CANDIDATE_RADIUS_MILES: 100,
       buildCandidatePool: jest.fn(async () => mockState.candidatePoolResponse),
     }));
     jest.doMock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
@@ -2988,6 +3148,8 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       MIN_SESSION_HOURS: 1.0,
     }));
     jest.doMock('@/lib/services/discovery/candidate-pool-builder', () => ({
+      CANDIDATE_POOL_LIMIT: 60,
+      MAX_CANDIDATE_RADIUS_MILES: 100,
       buildCandidatePool: jest.fn(async () => mockState.candidatePoolResponse),
     }));
     jest.doMock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
@@ -3168,6 +3330,8 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
       PAST_WINDOW_TOLERANCE_MINUTES: 15,
     }));
     jest.doMock('@/lib/services/discovery/candidate-pool-builder', () => ({
+      CANDIDATE_POOL_LIMIT: 60,
+      MAX_CANDIDATE_RADIUS_MILES: 100,
       buildCandidatePool: jest.fn(async () => mockState.candidatePoolResponse),
     }));
     jest.doMock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
