@@ -66,6 +66,8 @@ const mockForecast: Partial<EnhancedForecastEntity> = {
 // ============================================================================
 
 jest.mock('@/lib/services/discovery/candidate-pool-builder', () => ({
+  CANDIDATE_POOL_LIMIT: 20,
+  MAX_CANDIDATE_RADIUS_MILES: 100,
   buildCandidatePool: jest.fn(async () => ({
     candidates: candidateBeaches as Beach[],
     preferredWaveSize: null,
