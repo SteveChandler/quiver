@@ -19,3 +19,6 @@ export {
   isDirectionInWindow,
   calculateWindowAlignment,
 } from './spot-profile';
+
+export { deriveWavePunchiness } from './wave-punchiness';
+export type { WavePunchinessInputs } from './wave-punchiness';

@@ -109,6 +109,7 @@ import {
 import { buildRecommendationEvidence } from '@/lib/services/discovery/recommendation-evidence';
 import { FEATURE_HERO_WINDOW_SCORE } from '@/lib/constants/feature-flags';
 import type { ScoringEngine } from '@/lib/domains/scoring';
+import { deriveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
 import { boardStyleFit } from './board-style-fit';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
@@ -632,7 +633,11 @@ function resolveDominantBoardClass(rows: UserBoardContextRow[]): BoardClass | nu
 function getWavePunchiness(beach: Beach): number | null {
   const value = (beach as BeachWithWavePunchiness).wave_punchiness;
   if (typeof value === 'number' && Number.isFinite(value)) return value;
-  return null;
+  return deriveWavePunchiness({
+    persona: beach.persona,
+    break_type: beach.break_type,
+    skill_level: beach.skill_level,
+  });
 }
 
 async function fetchIncludedBeachCandidates(includeBeachIds: string[] | undefined): Promise<Beach[]> {
