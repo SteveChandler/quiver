@@ -109,7 +109,7 @@ import {
 import { buildRecommendationEvidence } from '@/lib/services/discovery/recommendation-evidence';
 import { FEATURE_HERO_WINDOW_SCORE } from '@/lib/constants/feature-flags';
 import type { ScoringEngine } from '@/lib/domains/scoring';
-import { deriveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
+import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
 import { boardStyleFit } from './board-style-fit';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
@@ -132,6 +132,8 @@ interface UserBoardContext {
 
 type BeachWithWavePunchiness = Beach & {
   wave_punchiness?: unknown;
+  wave_punchiness_ai?: unknown;
+  wave_punchiness_ai_confidence?: unknown;
 };
 
 // ============================================================================
@@ -631,9 +633,14 @@ function resolveDominantBoardClass(rows: UserBoardContextRow[]): BoardClass | nu
 }
 
 function getWavePunchiness(beach: Beach): number | null {
-  const value = (beach as BeachWithWavePunchiness).wave_punchiness;
-  if (typeof value === 'number' && Number.isFinite(value)) return value;
-  return deriveWavePunchiness({
+  const b = beach as BeachWithWavePunchiness;
+  return resolveWavePunchiness({
+    override: typeof b.wave_punchiness === 'number' ? b.wave_punchiness : null,
+    ai: typeof b.wave_punchiness_ai === 'number' ? b.wave_punchiness_ai : null,
+    aiConfidence:
+      typeof b.wave_punchiness_ai_confidence === 'number'
+        ? b.wave_punchiness_ai_confidence
+        : null,
     persona: beach.persona,
     break_type: beach.break_type,
     skill_level: beach.skill_level,

@@ -1,4 +1,52 @@
-import { deriveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
+import {
+  deriveWavePunchiness,
+  resolveWavePunchiness,
+} from '@/lib/domains/spot-profile/wave-punchiness';
+
+describe('resolveWavePunchiness', () => {
+  it('prefers the manual override over everything', () => {
+    expect(
+      resolveWavePunchiness({
+        override: 0.9,
+        ai: -0.5,
+        aiConfidence: 0.95,
+        break_type: 'beach',
+        skill_level: 'beginner',
+      })
+    ).toBe(0.9);
+  });
+
+  it('uses a confident AI score over the structural derivation', () => {
+    expect(
+      resolveWavePunchiness({
+        ai: 0.8,
+        aiConfidence: 0.7,
+        break_type: 'beach', // derivation would say ~0
+      })
+    ).toBe(0.8);
+  });
+
+  it('ignores a low-confidence AI score and falls back to derivation', () => {
+    expect(
+      resolveWavePunchiness({
+        ai: 0.8,
+        aiConfidence: 0.3, // below threshold
+        break_type: 'beach',
+        skill_level: 'beginner',
+      })
+    ).toBeCloseTo(-0.3); // beach + beginner derivation
+  });
+
+  it('falls back to derivation when there is no override or AI', () => {
+    expect(
+      resolveWavePunchiness({ break_type: 'reef', skill_level: 'expert' })
+    ).toBeCloseTo(0.7);
+  });
+
+  it('returns null when nothing resolves', () => {
+    expect(resolveWavePunchiness({})).toBeNull();
+  });
+});
 
 describe('deriveWavePunchiness', () => {
   it('derives canyon-amplified expert waves near the punchy end', () => {

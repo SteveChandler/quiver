@@ -70,3 +70,47 @@ export function deriveWavePunchiness(
 
   return clampUnit((base ?? 0) + (shift ?? 0));
 }
+
+/**
+ * Confidence floor below which an LLM-derived punchiness is treated as too weak
+ * to trust — the resolver falls back to the structural derivation instead. This
+ * keeps the aggressive board-fit mismatch penalty off low-signal spots.
+ */
+export const AI_PUNCHINESS_CONFIDENCE_THRESHOLD = 0.55;
+
+export interface WavePunchinessResolution {
+  /** Hand-tuned manual override (beaches.wave_punchiness). */
+  override?: number | null;
+  /** LLM score distilled from the spot's freetext (beaches.wave_punchiness_ai). */
+  ai?: number | null;
+  aiConfidence?: number | null;
+  persona?: string | null;
+  break_type?: string | null;
+  skill_level?: string | null;
+}
+
+/**
+ * Resolve a spot's punchiness by precedence: manual override > confident AI
+ * score > structural derivation. Low-confidence AI is ignored in favor of the
+ * derivation floor.
+ */
+export function resolveWavePunchiness(
+  input: WavePunchinessResolution
+): number | null {
+  if (typeof input.override === 'number' && Number.isFinite(input.override)) {
+    return input.override;
+  }
+  if (
+    typeof input.ai === 'number' &&
+    Number.isFinite(input.ai) &&
+    typeof input.aiConfidence === 'number' &&
+    input.aiConfidence >= AI_PUNCHINESS_CONFIDENCE_THRESHOLD
+  ) {
+    return input.ai;
+  }
+  return deriveWavePunchiness({
+    persona: input.persona,
+    break_type: input.break_type,
+    skill_level: input.skill_level,
+  });
+}
