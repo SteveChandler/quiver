@@ -82,7 +82,15 @@ const mockState = {
   includedBeachRows: [] as Partial<Beach>[],
   customSpots: [] as any[],
   favoritesError: null as Error | null,
-  boards: [] as Array<{ id: string; name: string; board_type: string; volume?: number | null }>,
+  boards: [] as Array<{
+    id: string;
+    name: string;
+    board_type: string;
+    volume?: number | null;
+    session_count?: number | null;
+    updated_at?: string | null;
+    created_at?: string | null;
+  }>,
   boardsError: null as { message: string } | null,
   userPrefs: null as any,
   affinityMap: new Map(),
@@ -974,9 +982,9 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
   });
 
-  test('does not fetch or leak board picks for free users', async () => {
+  test('fetches board context for free users without leaking Pro board picks', async () => {
     mockState.boards = [
-      { id: 'sb-1', name: "5'10 Lost Driver", board_type: 'shortboard', volume: 28 },
+      { id: 'sb-1', name: "5'10 Lost Driver", board_type: 'shortboard', volume: 28, session_count: 3 },
     ];
 
     const result = await discoverSurfSpots(testUserId, {
@@ -985,7 +993,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
       isPro: false,
     });
 
-    expect(mockSupabaseFrom).not.toHaveBeenCalledWith('boards');
+    expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
     expect(result.recommendations.every(r => r.boardPick == null)).toBe(true);
   });
 
@@ -1000,6 +1008,92 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     expect(mockSupabaseFrom).toHaveBeenCalledWith('boards');
     expect(result.recommendations.every(r => r.boardPick == null)).toBe(true);
+  });
+
+  test("uses one dominant board class to rank Old Man's above Blacks for logs and Blacks above Old Man's for shortboards", async () => {
+    const oldMans = {
+      ...mockBeach1,
+      id: 'old-mans',
+      name: "Old Man's (SanO)",
+      slug: 'old-mans-sano',
+      lat: 32.7157,
+      lon: -117.1611,
+      skill_level: 'expert',
+      wave_punchiness: -0.8,
+    } as Beach & { wave_punchiness: number };
+    const blacks = {
+      ...mockBeach3,
+      id: 'blacks',
+      name: 'Blacks',
+      slug: 'blacks',
+      lat: 32.7157,
+      lon: -117.1611,
+      skill_level: 'expert',
+      wave_punchiness: 0.9,
+    } as Beach & { wave_punchiness: number };
+
+    mockState.candidatePoolResponse = {
+      candidates: [oldMans, blacks],
+      preferredWaveSize: null,
+      userSkillLevel: 'expert',
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: [
+        { beach: oldMans, forecasts: [{ ...mockForecast, beach_id: oldMans.id }] },
+        { beach: blacks, forecasts: [{ ...mockForecast, beach_id: blacks.id }] },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    mockState.boards = [
+      {
+        id: 'log-1',
+        name: "9'6 Log",
+        board_type: 'longboard',
+        session_count: 12,
+      },
+    ];
+    const longboardResult = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 2,
+    });
+
+    expect(longboardResult.recommendations.map((rec) => rec.beach.id)).toEqual([
+      'old-mans',
+      'blacks',
+    ]);
+    expect(longboardResult.recommendations[0].reasons).toContain(
+      'Classic longboard wave'
+    );
+    expect(longboardResult.recommendations[1].warnings).toContain(
+      'Punchy, steep wave - rough on a log'
+    );
+
+    mockState.boards = [
+      {
+        id: 'shortboard-1',
+        name: "5'10 Driver",
+        board_type: 'shortboard',
+        session_count: 12,
+      },
+    ];
+    const shortboardResult = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 2,
+    });
+
+    expect(shortboardResult.recommendations.map((rec) => rec.beach.id)).toEqual([
+      'blacks',
+      'old-mans',
+    ]);
+    expect(shortboardResult.recommendations[0].reasons).toContain(
+      'Classic shortboard wave'
+    );
+    expect(shortboardResult.recommendations[1].warnings).toContain(
+      'Soft, rolling wave - not much push for a shortboard'
+    );
   });
 
   test('scores includeBeachIds outside the nearby candidate pool and returns low-ranked included recs separately', async () => {
