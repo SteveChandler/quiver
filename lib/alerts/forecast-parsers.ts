@@ -37,7 +37,8 @@ export function parseWaveHeightRangeFt(
 export function parsePeriodSeconds(raw: string | null | undefined): number | null {
   if (typeof raw !== "string") return null;
   const parsed = parseFloat(raw.trim().replace(/s$/i, ""));
-  return Number.isFinite(parsed) ? parsed : null;
+  // A zero or negative period is not a real reading; treat it as absent.
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
 /**
