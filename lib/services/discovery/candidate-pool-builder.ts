@@ -157,6 +157,7 @@ export async function buildCandidatePool(
   try {
     userSkillLevel = await getProfileExperienceLevel(supabase, userId);
 
+    const seen = new Set<string>();
     for (const radiusMiles of radiusTiers) {
       const tierCandidates = await fetchCandidatesForRadius({
         supabase,
@@ -168,7 +169,15 @@ export async function buildCandidatePool(
         return { candidates: [], userSkillLevel };
       }
 
-      candidates.splice(0, candidates.length, ...tierCandidates);
+      // Merge each widening tier into the pool (a wider tier is a superset in
+      // radius but the RPC row-cap + private filter can make its usable set
+      // smaller, so replacing would shrink the pool). Dedupe by id.
+      for (const beach of tierCandidates) {
+        if (!seen.has(beach.id)) {
+          seen.add(beach.id);
+          candidates.push(beach);
+        }
+      }
       log.info(`[buildCandidatePool] Tier ${radiusMiles}mi: ${candidates.length} candidates`);
 
       if (candidates.length >= MIN_CANDIDATES) {

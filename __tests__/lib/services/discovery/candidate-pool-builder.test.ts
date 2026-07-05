@@ -93,7 +93,18 @@ jest.mock('@/lib/supabase/server', () => ({
                     return {
                       limit: jest.fn((limit: number) => {
                         mockState.mockCalls.push({ table, method: 'limit', args: [limit] });
-                        return Promise.resolve(mockState.beachesInResponse);
+                        const data = Array.isArray(mockState.beachesInResponse.data)
+                          ? mockState.beachesInResponse.data.filter(
+                              (row) =>
+                                typeof row === 'object' &&
+                                row !== null &&
+                                values.includes((row as { id?: unknown }).id)
+                            )
+                          : mockState.beachesInResponse.data;
+                        return Promise.resolve({
+                          ...mockState.beachesInResponse,
+                          data,
+                        });
                       }),
                     };
                   }),
@@ -352,6 +363,48 @@ describe('buildCandidatePool', () => {
         rpcCalls.map((call) => (call.args[0] as Record<string, unknown>).max_distance_meters)
       ).toEqual([40234, 96560]);
       expect(result.candidates.map((beach) => beach.id)).toContain(oceansideBeach.id);
+    });
+
+    it('keeps narrower-tier candidates when a wider tier returns fewer usable rows', async () => {
+      mockState.profileResponse = {
+        data: { experience_level: null },
+        error: null,
+      };
+      mockState.nearbyRpcResponse = (params) => {
+        const maxDistanceMeters = params.max_distance_meters;
+        if (maxDistanceMeters === 40234) {
+          return {
+            data: [
+              { id: mockNearbyBeach1.id, is_private: false, distance_meters: 1000 },
+              { id: mockNearbyBeach2.id, is_private: false, distance_meters: 5000 },
+              { id: mockNearbyBeach3.id, is_private: false, distance_meters: 10000 },
+            ],
+            error: null,
+          };
+        }
+
+        return {
+          data: [
+            { id: mockNearbyBeach2.id, is_private: false, distance_meters: 5000 },
+          ],
+          error: null,
+        };
+      };
+      mockState.beachesInResponse = {
+        data: [mockNearbyBeach1, mockNearbyBeach2, mockNearbyBeach3],
+        error: null,
+      };
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+        radiusMiles: 60,
+      });
+
+      expect(result.candidates.map((beach) => beach.id)).toEqual([
+        mockNearbyBeach1.id,
+        mockNearbyBeach2.id,
+        mockNearbyBeach3.id,
+      ]);
     });
   });
 
