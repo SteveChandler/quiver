@@ -105,6 +105,24 @@ describe("detectSwellWatch", () => {
     ).toBeNull();
   });
 
+  it("falls back to wave_period when swell_1_period is zero", () => {
+    const result = run([
+      row(0, "2 ft", "8s"),
+      row(1, "2 ft", "8s"),
+      row(2, "2 ft", "8s"),
+      row(3, "2 ft", "8s"),
+      row(4, "5 ft", "14s", { swell_1_period: "0" }),
+    ]);
+
+    expect(result).toMatchObject({
+      eventStartDate: dateKey(4),
+      peakDate: dateKey(4),
+      peakHeightFt: 5,
+      peakPeriodS: 14,
+      peakForecastAt: forecastAt(4),
+    });
+  });
+
   it("returns null when day-0 or day-1 rows are missing", () => {
     expect(
       run([row(1, "2 ft", "8s"), row(2, "5 ft", "15s"), row(3, "5 ft", "15s")])
@@ -160,6 +178,8 @@ describe("Swell Watch forecast parser helpers", () => {
   it("parses period strings", () => {
     expect(parsePeriodSeconds("15s")).toBe(15);
     expect(parsePeriodSeconds("8")).toBe(8);
+    expect(parsePeriodSeconds("0")).toBeNull();
+    expect(parsePeriodSeconds("-2s")).toBeNull();
     expect(parsePeriodSeconds("garbage")).toBeNull();
   });
 });
