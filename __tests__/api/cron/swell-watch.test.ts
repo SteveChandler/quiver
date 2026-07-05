@@ -2,6 +2,8 @@
  * @jest-environment node
  */
 
+import { renderToStaticMarkup } from "react-dom/server";
+
 if (typeof (globalThis as any).Response?.json !== "function") {
   (globalThis as any).Response.json = (data: any, init?: ResponseInit) =>
     new Response(JSON.stringify(data), {
@@ -315,6 +317,10 @@ describe("GET /api/cron/swell-watch", () => {
         subject: "Swell incoming Sunday — Lower Trestles: 6 ft @ 14s",
       })
     );
+    const emailHtml = renderToStaticMarkup(mockResendSend.mock.calls[0][0].react);
+    expect(emailHtml).toContain("WED · JUL 1");
+    expect(emailHtml).not.toContain("MON · JUL 6");
+    expect(emailHtml).toContain("Sunday arrival · Monday peak");
     expect(mockLogDelivery).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "user-1",

@@ -248,6 +248,7 @@ async function sendSwellWatchEmail(input: {
 
   await input.rateLimiter.throttle();
 
+  const issuedAt = new Date().toISOString();
   const { data: sendData, error: sendError } = await resend.emails.send({
     from: MAIL_FROM,
     replyTo: MAIL_REPLY_TO,
@@ -260,6 +261,7 @@ async function sendSwellWatchEmail(input: {
       peakHeightFt: input.payload.peak_height_ft,
       peakPeriodS: input.payload.peak_period_s,
       forecastAt: input.payload.forecast_at,
+      issuedAt,
       timezone: input.timezone,
       ctaUrl,
       manageUrl,

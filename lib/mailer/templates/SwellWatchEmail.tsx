@@ -32,6 +32,7 @@ export interface SwellWatchEmailProps {
   peakHeightFt: number;
   peakPeriodS: number;
   forecastAt: string;
+  issuedAt: string;
   timezone: string;
   ctaUrl: string;
   manageUrl: string;
@@ -90,7 +91,7 @@ export function SwellWatchEmail({
   peakDate,
   peakHeightFt,
   peakPeriodS,
-  forecastAt,
+  issuedAt,
   timezone,
   ctaUrl,
   manageUrl,
@@ -103,7 +104,7 @@ export function SwellWatchEmail({
 
   return (
     <EmailShell>
-      <Wordmark dateline={dateline(forecastAt, timezone)} />
+      <Wordmark dateline={dateline(issuedAt, timezone)} />
 
       <tr>
         <td {...cellBg(CANVAS, { padding: "26px 28px 22px" })}>
