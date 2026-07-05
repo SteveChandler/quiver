@@ -68,7 +68,16 @@ describe("nearestBeachInBounds", () => {
     expect(nearestBeachInBounds(-117.27, 32.98, withBad, BOUNDS)?.id).toBe("b");
   });
 
-  it("returns null when the nearest beach is outside the current viewport", () => {
+  it("returns the nearest in-bounds beach when the global nearest is outside the viewport", () => {
+    const edgeBeaches = [
+      mk("offscreen", -118.01, 32.5),
+      mk("visible", -117.9, 32.5),
+    ];
+
+    expect(nearestBeachInBounds(-117.99, 32.5, edgeBeaches, BOUNDS)?.id).toBe("visible");
+  });
+
+  it("returns null when no beach is inside the current viewport", () => {
     const offscreen = [mk("z", -119.5, 34.5)];
     expect(nearestBeachInBounds(-119.5, 34.5, offscreen, BOUNDS)).toBeNull();
   });

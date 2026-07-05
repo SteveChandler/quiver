@@ -60,9 +60,11 @@ export function nearestBeachInBounds(
 ): Beach | null {
   let best: Beach | null = null;
   let bestD = Infinity;
+  const cosLat = Math.cos((lat * Math.PI) / 180);
   for (const beach of beaches) {
     if (!isReal(beach.lat) || !isReal(beach.lon)) continue;
-    const dLon = beach.lon - lon;
+    if (!inBounds(beach.lon, beach.lat, bounds)) continue; // choose among visible beaches only
+    const dLon = (beach.lon - lon) * cosLat; // correct for longitude convergence away from equator
     const dLat = beach.lat - lat;
     const d = dLon * dLon + dLat * dLat;
     if (d < bestD) {
@@ -70,7 +72,6 @@ export function nearestBeachInBounds(
       best = beach;
     }
   }
-  if (!best || !isReal(best.lon) || !isReal(best.lat) || !inBounds(best.lon, best.lat, bounds)) return null;
   return best;
 }
 
