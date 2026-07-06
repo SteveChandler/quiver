@@ -56,12 +56,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const article = getArticle(resolvedSlug);
   if (!article) return {};
 
+  const ogImage =
+    article.slug === "groundswell-vs-wind-swell"
+      ? `/api/og/learn?slug=${article.slug}`
+      : `/api/og/guide?title=${encodeURIComponent(article.title)}&region=Learn`;
+
   return buildPageMetadata({
     title: article.title,
     description: article.description,
     path: `/learn/${article.slug}`,
     keywords: article.keywords,
-    image: `/api/og/guide?title=${encodeURIComponent(article.title)}&region=Learn`,
+    image: ogImage,
   });
 }
 
