@@ -5,7 +5,7 @@
  * No auth required — embed visitors are anonymous.
  * Uses service role client to bypass RLS for writes.
  *
- * Request body: { widgetType: 'tides' | 'conditions' | 'surf-terminal' | 'ticker', beachSlug: string }
+ * Request body: { widgetType: 'tides' | 'conditions' | 'surf-terminal' | 'ticker' | 'learn-figure', beachSlug: string }
  * Response: 204 No Content
  */
 
@@ -61,7 +61,8 @@ function checkRateLimit(ip: string): boolean {
 // Validation
 // =============================================================================
 
-const VALID_WIDGET_TYPES = ['tides', 'conditions', 'surf-terminal', 'ticker'] as const;
+// 'learn-figure' rows store the figureKey in beach_slug (both match ^[a-z0-9-]+$).
+const VALID_WIDGET_TYPES = ['tides', 'conditions', 'surf-terminal', 'ticker', 'learn-figure'] as const;
 const SLUG_PATTERN = /^[a-z0-9-]+$/;
 const MAX_SLUG_LENGTH = 200;
 
