@@ -7,6 +7,7 @@ import { ArticleSchema } from "@/components/seo/article-schema";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { FAQSchema } from "@/components/seo/faq-schema";
 import { LearnFigure } from "@/components/learn/figures/learn-figure";
+import { EmbedFigureSnippet } from "@/components/learn/figures/embed-figure-snippet";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { ScrollReveal } from "@/components/ui/scroll-reveal";
@@ -222,6 +223,7 @@ export default async function LearnArticlePage({ params }: Props) {
                     {section.figureKey ? (
                       <div className="mb-6">
                         <LearnFigure figureKey={section.figureKey} />
+                        <EmbedFigureSnippet figureKey={section.figureKey} />
                       </div>
                     ) : null}
 
