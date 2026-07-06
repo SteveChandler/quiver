@@ -8,11 +8,14 @@ export default function SwellOriginFetch() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [reduced, setReduced] = useState(true); // static until we confirm motion is allowed (SSR-safe default)
 
+  // Detect reduced-motion once on mount. Kept separate from the animation effect
+  // so the animation effect re-runs after `reduced` flips and the <canvas> mounts.
   useEffect(() => {
-    const prefersReduced =
-      !window.matchMedia || window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    setReduced(prefersReduced);
-    if (prefersReduced) return;
+    setReduced(!window.matchMedia || window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }, []);
+
+  useEffect(() => {
+    if (reduced) return; // canvas is not mounted while reduced; poster is shown instead
 
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
@@ -71,7 +74,7 @@ export default function SwellOriginFetch() {
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
     };
-  }, []);
+  }, [reduced]);
 
   return (
     <FigureFrame
