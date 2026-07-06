@@ -22,3 +22,11 @@ describe("figure keys", () => {
     }
   });
 });
+
+it("groundswell article wires both v1 figures and a bumped dateModified", () => {
+  const article = learnArticles.find((a) => a.slug === "groundswell-vs-wind-swell");
+  expect(article).toBeDefined();
+  const keys = article!.sections.map((s) => s.figureKey).filter(Boolean);
+  expect(keys).toEqual(expect.arrayContaining(["swell-period-morph", "swell-origin-fetch"]));
+  expect(article!.dateModified).toBe("2026-07-06");
+});
