@@ -1,3 +1,5 @@
+import type { FigureKey } from "@/components/learn/figures/figure-keys";
+
 interface LearnArticle {
   slug: string;
   title: string;
@@ -22,6 +24,8 @@ interface LearnArticle {
       /** "left" or "right" — side the image appears on in split layout */
       position: "left" | "right";
     };
+    /** Optional interactive figure rendered above this section's prose */
+    figureKey?: FigureKey;
   }[];
   faqs: {
     question: string;
