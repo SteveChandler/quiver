@@ -162,7 +162,7 @@ describe("PATCH /api/sessions/[id]", () => {
 
       expect(response.status).toBe(400);
       expect(data.success).toBe(false);
-      expect(data.error).toBeDefined();
+      expect(typeof data.error).toBe("string");
     });
 
     it("accepts notes at max length boundary (5000 characters)", async () => {
@@ -477,7 +477,10 @@ describe("PATCH /api/sessions/[id]", () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.data.session).toBeDefined();
+      expect(data.data.session).toMatchObject({
+        id: validSessionId,
+        notes: "Updated notes",
+      });
       expect(data.data.session.notes).toBe("Updated notes");
       expect(mockUpdate).toHaveBeenCalled();
     });
@@ -740,7 +743,10 @@ describe("PATCH /api/sessions/[id]", () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(data.data.session.updated_at).toBeDefined();
+      expect(typeof data.data.session.updated_at).toBe("string");
+      expect(mockUpdateSelect).toHaveBeenCalledWith(
+        expect.stringContaining("updated_at"),
+      );
     });
   });
 

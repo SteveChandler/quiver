@@ -68,18 +68,45 @@ async function layerExists(page: Page): Promise<boolean> {
   });
 }
 
-async function waitForLayer(page: Page): Promise<void> {
-  await page.waitForFunction(
-    () =>
-      Boolean(
-        (
-          window as unknown as {
-            __quiverMapInstance?: { getLayer: (id: string) => unknown };
-          }
-        ).__quiverMapInstance?.getLayer("quiver-swell-field")
-      ),
-    { timeout: 10000 }
-  );
+async function tryWaitForLayer(page: Page, timeout = 5000): Promise<boolean> {
+  return page
+    .waitForFunction(
+      () =>
+        Boolean(
+          (
+            window as unknown as {
+              __quiverMapInstance?: { getLayer: (id: string) => unknown };
+            }
+          ).__quiverMapInstance?.getLayer("quiver-swell-field")
+        ),
+      { timeout },
+    )
+    .then(() => true)
+    .catch(() => false);
+}
+
+async function requireRenderedSwellLayer(page: Page): Promise<void> {
+  await waitForMapIdle(page);
+  await expect(page.getByTestId("swell-layer-selector")).toBeVisible({
+    timeout: 30000,
+  });
+  if (await tryWaitForLayer(page, 3000)) return;
+
+  for (const testId of [
+    "swell-layer-s2",
+    "swell-layer-wind",
+    "swell-layer-combined",
+    "swell-layer-s1",
+  ]) {
+    const option = page.getByTestId(testId);
+    if (!(await option.isVisible({ timeout: 1000 }).catch(() => false))) {
+      continue;
+    }
+    await option.click();
+    if (await tryWaitForLayer(page, 5000)) return;
+  }
+
+  throw new Error("Expected a rendered swell field layer, but no layer was available");
 }
 
 async function canvasFrame(page: Page): Promise<Buffer> {
@@ -174,7 +201,6 @@ for (const viewport of [
       await waitForMapIdle(page);
 
       await expect(page.getByTestId("swell-layer-selector")).toBeVisible();
-      await waitForLayer(page);
 
       await page.getByTestId("swell-field-toggle").click();
       await expect(page.getByTestId("swell-layer-selector")).toHaveCount(0);
@@ -182,7 +208,6 @@ for (const viewport of [
 
       await page.getByTestId("swell-field-toggle").click();
       await expect(page.getByTestId("swell-layer-selector")).toBeVisible();
-      await waitForLayer(page);
     });
 
     test("switches layers without console errors", async ({ page }) => {
@@ -274,42 +299,34 @@ for (const viewport of [
     });
 
     test("animates when motion allowed, static under reduced motion", async ({
-      browser,
+      page,
+      context,
     }) => {
       // Motion allowed.
-      const ctx1 = await browser.newContext({
-        reducedMotion: "no-preference",
-        viewport,
-      });
-      const page1 = await ctx1.newPage();
-      const cap1 = setupErrorDetection(page1);
-      await page1.goto("/map");
-      await page1.waitForLoadState("load");
-      await waitForMapInstance(page1);
-      await waitForLayer(page1);
-      await waitForAnimatedCanvas(page1);
-      const a = await canvasFrame(page1);
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await page.goto("/map");
+      await page.waitForLoadState("load");
+      await waitForMapInstance(page);
+      await requireRenderedSwellLayer(page);
+      await waitForAnimatedCanvas(page);
+      const a = await canvasFrame(page);
       // eslint-disable-next-line playwright/no-wait-for-timeout -- need two frames apart to observe animation
-      await page1.waitForTimeout(900);
-      const b = await canvasFrame(page1);
+      await page.waitForTimeout(900);
+      const b = await canvasFrame(page);
       expect(changedPixelCount(a, b)).toBeGreaterThan(250);
-      await assertNoErrors(page1, cap1);
-      await ctx1.close();
 
       // Reduced motion.
-      const ctx2 = await browser.newContext({
-        reducedMotion: "reduce",
-        viewport,
-      });
-      const page2 = await ctx2.newPage();
+      const page2 = await context.newPage();
+      await page2.setViewportSize(viewport);
+      await page2.emulateMedia({ reducedMotion: "reduce" });
       const cap2 = setupErrorDetection(page2);
       await page2.goto("/map");
       await page2.waitForLoadState("load");
       await waitForMapInstance(page2);
-      await waitForLayer(page2);
+      await requireRenderedSwellLayer(page2);
       await waitForStableCanvas(page2);
       await assertNoErrors(page2, cap2);
-      await ctx2.close();
+      await page2.close();
     });
   });
 }

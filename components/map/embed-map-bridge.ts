@@ -1,4 +1,5 @@
 export type EmbedMapSwellLayerId = "combined" | "s1" | "s2" | "wind";
+export const EMBED_MAP_MAX_FORECAST_TIME_INDEX = 7;
 
 export interface EmbedMapCoordinate {
   lat: number;
@@ -71,6 +72,13 @@ function finiteNumber(value: unknown): number | null {
   return value;
 }
 
+function clampForecastTimeIndex(index: number): number {
+  return Math.max(
+    0,
+    Math.min(EMBED_MAP_MAX_FORECAST_TIME_INDEX, Math.round(index)),
+  );
+}
+
 function coordinateFromPayload(payload: unknown): EmbedMapCoordinate | null {
   if (!isRecord(payload)) return null;
   const lat = finiteNumber(payload.lat);
@@ -135,7 +143,7 @@ export function parseEmbedMapCommand(data: unknown): EmbedMapCommand | null {
       const index = finiteNumber(payload.index);
       return index === null
         ? null
-        : { type: "setForecastTime", payload: { index: Math.max(0, Math.round(index)) } };
+        : { type: "setForecastTime", payload: { index: clampForecastTimeIndex(index) } };
     }
     case "setSelectedSpot": {
       if (!isRecord(payload) || typeof payload.beachId !== "string") return null;

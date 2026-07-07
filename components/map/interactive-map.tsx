@@ -1530,6 +1530,9 @@ export function InteractiveMap({
 
     let readyMarked = false;
     const markMapReady = () => {
+      if (typeof map.isStyleLoaded === "function" && !map.isStyleLoaded()) {
+        return;
+      }
       if (readyMarked) return;
       readyMarked = true;
 

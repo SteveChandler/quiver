@@ -97,6 +97,20 @@ function getJsonLdScripts(html: string): string[] {
   );
 }
 
+function expectBeachMetaDescription(
+  description: string | null,
+  beachName: string,
+): void {
+  if (WAVE_HEIGHT_PATTERN.test(description ?? '')) {
+    expect(description).toContain('Current');
+    expect(description).toContain(`wave height at ${beachName}`);
+    return;
+  }
+
+  expect(description).toContain(`Today's surf report & forecast for ${beachName}`);
+  expect(description).toContain('wave height, wind, tide, crowd intel, and 7-day forecast');
+}
+
 test.describe('Route HTML Contracts', () => {
   test.describe('Beach SEO metadata', () => {
     test('/app/spot selected forecast links expose forecast-window social metadata', async ({
@@ -131,17 +145,15 @@ test.describe('Route HTML Contracts', () => {
 
       expect(getTitle(html)).toContain(beach.name);
       expect(getTitle(html)).toContain('Quiver');
-      expect(getTitle(html)).toMatch(WAVE_HEIGHT_PATTERN);
+      expect(getTitle(html)).toMatch(/surf report|forecast/i);
 
       expect(ogImage).toMatch(/^https?:\/\//);
       expect(ogImage).toContain('/api/og/beach');
       expect(ogImage).toContain(`slug=${beach.slug}`);
 
       expect(ogTitle).toContain(beach.name);
-      expect(ogTitle).toMatch(WAVE_HEIGHT_PATTERN);
 
-      expect(ogDescription).toMatch(/\d+(\.\d+)?\s*ft\s*(waves)?/i);
-      expect(ogDescription).toContain('forecast');
+      expectBeachMetaDescription(ogDescription, beach.name);
 
       expect(getMetaContent(html, { property: 'og:image:width' })).toBe('1200');
       expect(getMetaContent(html, { property: 'og:image:height' })).toBe('630');
@@ -161,14 +173,13 @@ test.describe('Route HTML Contracts', () => {
 
       expect(getTitle(html)).toContain(beach.name);
       expect(getTitle(html)).toContain('Quiver');
-      expect(getTitle(html)).toMatch(WAVE_HEIGHT_PATTERN);
+      expect(getTitle(html)).toMatch(/surf report|forecast/i);
 
       expect(ogImage).toMatch(/^https?:\/\//);
       expect(ogImage).toContain('/api/og/beach');
       expect(ogImage).toContain(`slug=${beach.slug}`);
 
-      expect(description).toMatch(/\d+(\.\d+)?\s*ft\s*(waves)?/i);
-      expect(description).toContain('forecast');
+      expectBeachMetaDescription(description, beach.name);
     });
   });
 

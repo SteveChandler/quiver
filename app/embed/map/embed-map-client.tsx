@@ -30,6 +30,7 @@ const InteractiveMap = dynamic(
 const DEFAULT_CENTER: EmbedMapCoordinate = { lat: 32.8667, lon: -117.2544 };
 const DEFAULT_ZOOM = 11.5;
 const DEFAULT_TIMELINE_STEPS = ["Now", "+3h", "+6h", "+9h", "+12h", "+15h", "+18h", "+21h"];
+const MAX_TIMELINE_INDEX = DEFAULT_TIMELINE_STEPS.length - 1;
 const LAYER_SWITCHER: ReadonlyArray<{ id: EmbedMapSwellLayerId; label: string }> = [
   { id: "s1", label: "Swell" },
   { id: "s2", label: "Swell 2" },
@@ -52,6 +53,14 @@ function finiteParam(value: string | null): number | null {
   if (value == null) return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
+}
+
+function clampTimelineIndex(index: number): number {
+  return Math.max(0, Math.min(MAX_TIMELINE_INDEX, index));
+}
+
+function clampTimelineStep(index: number): number {
+  return Math.round(clampTimelineIndex(index));
 }
 
 function layerParam(value: string | null): EmbedMapSwellLayerId {
@@ -122,7 +131,7 @@ export function EmbedMapClient() {
     layerParam(searchParams.get("layer")),
   );
   const [timelineIndex, setTimelineIndex] = useState(
-    Math.max(0, Math.round(finiteParam(searchParams.get("timeIndex")) ?? 0)),
+    clampTimelineStep(finiteParam(searchParams.get("timeIndex")) ?? 0),
   );
   const [regionViewport, setRegionViewport] = useState<ReturnType<
     typeof regionViewportFromCommand
@@ -146,10 +155,10 @@ export function EmbedMapClient() {
   }, [timelineIndex]);
   useEffect(() => {
     if (!isPlaying) return;
-    const maxIndex = DEFAULT_TIMELINE_STEPS.length - 1;
     const id = window.setInterval(() => {
       let next = timelineIndexRef.current + 0.06;
-      if (next >= maxIndex) next = 0;
+      if (next >= MAX_TIMELINE_INDEX) next = 0;
+      next = clampTimelineIndex(next);
       timelineIndexRef.current = next;
       setTimelineIndex(next);
     }, 80);
@@ -172,7 +181,7 @@ export function EmbedMapClient() {
   // Keep the native chrome's time label in sync while the field plays/scrubs: emit
   // the rounded forecast step whenever it changes. The play loop advances a
   // fractional index; native renders integer steps. No-op in the browser.
-  const roundedStep = Math.max(0, Math.round(timelineIndex));
+  const roundedStep = clampTimelineStep(timelineIndex);
   const lastEmittedStepRef = useRef(-1);
   useEffect(() => {
     if (lastEmittedStepRef.current === roundedStep) return;
@@ -252,7 +261,7 @@ export function EmbedMapClient() {
           setLayerId(command.payload.layerId);
           return;
         case "setForecastTime":
-          setTimelineIndex(command.payload.index);
+          setTimelineIndex(clampTimelineStep(command.payload.index));
           return;
         case "setSelectedSpot": {
           const { lat, lon } = command.payload;
@@ -603,7 +612,7 @@ export function EmbedMapClient() {
                 Forecast
               </span>
               <span style={{ color: "#F4EBD8", fontSize: "14px", fontWeight: 700 }}>
-                {DEFAULT_TIMELINE_STEPS[Math.round(timelineIndex)]}
+                {DEFAULT_TIMELINE_STEPS[roundedStep]}
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -635,16 +644,16 @@ export function EmbedMapClient() {
                 className="embed-time-slider"
                 aria-label="Forecast time"
                 min={0}
-                max={DEFAULT_TIMELINE_STEPS.length - 1}
+                max={MAX_TIMELINE_INDEX}
                 step={0.01}
-                value={timelineIndex}
+                value={clampTimelineIndex(timelineIndex)}
                 onChange={(event) => {
                   setIsPlaying(false);
-                  setTimelineIndex(Number(event.target.value));
+                  setTimelineIndex(clampTimelineIndex(Number(event.target.value)));
                 }}
                 style={{
                   flex: 1,
-                  background: `linear-gradient(to right, #F78E42 0%, #F78E42 ${(timelineIndex / (DEFAULT_TIMELINE_STEPS.length - 1)) * 100}%, rgba(244,235,216,0.22) ${(timelineIndex / (DEFAULT_TIMELINE_STEPS.length - 1)) * 100}%, rgba(244,235,216,0.22) 100%)`,
+                  background: `linear-gradient(to right, #F78E42 0%, #F78E42 ${(clampTimelineIndex(timelineIndex) / MAX_TIMELINE_INDEX) * 100}%, rgba(244,235,216,0.22) ${(clampTimelineIndex(timelineIndex) / MAX_TIMELINE_INDEX) * 100}%, rgba(244,235,216,0.22) 100%)`,
                   borderRadius: "9999px",
                 }}
               />

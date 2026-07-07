@@ -29,6 +29,7 @@ import {
   resolveParticleCount,
   sampleFlowField,
   createSwellParticleLayer,
+  shouldAnimateSwellParticles,
 } from "@/components/map/swell-field/swell-particle-layer";
 import type {
   FlowField,
@@ -163,6 +164,7 @@ describe("createSwellParticleLayer — particle count", () => {
     vertexCount: number;
     draws: { mode: number; vertexCount: number }[];
     uploads: number[][];
+    repaintCalls: number;
     LINES: number;
     POINTS: number;
     TRIANGLES: number;
@@ -217,10 +219,21 @@ describe("createSwellParticleLayer — particle count", () => {
       drawArrays: jest.fn(),
     } as unknown as WebGL2RenderingContext;
 
+    const triggerRepaint = jest.fn();
     const map = {
       getBounds: () => null,
-      getCanvas: () => ({ width: 1440 }),
-      triggerRepaint: jest.fn(),
+      getCanvas: () => ({
+        width: 1440,
+        getBoundingClientRect: () => ({
+          width: 1440,
+          height: 720,
+          top: 0,
+          left: 0,
+          right: 1440,
+          bottom: 720,
+        }),
+      }),
+      triggerRepaint,
     } as unknown as import("mapbox-gl").Map;
 
     let fieldIndex = 0;
@@ -256,6 +269,7 @@ describe("createSwellParticleLayer — particle count", () => {
       vertexCount: draws[0].vertexCount,
       draws,
       uploads,
+      repaintCalls: triggerRepaint.mock.calls.length,
       LINES,
       POINTS,
       TRIANGLES,
@@ -483,6 +497,179 @@ describe("createSwellParticleLayer — particle count", () => {
 
     expect(positionUploads).toHaveLength(2);
     expect(positionUploads[1]).toEqual(positionUploads[0]);
+  });
+
+  it("schedules repaints only while animation is allowed", () => {
+    const movingField: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha: 1 }],
+    };
+
+    expect(
+      renderedDraw({
+        count: 2,
+        field: movingField,
+        reducedMotion: false,
+      }).repaintCalls,
+    ).toBe(1);
+    expect(
+      renderedDraw({
+        count: 2,
+        field: movingField,
+        reducedMotion: true,
+      }).repaintCalls,
+    ).toBe(0);
+  });
+
+  it("does not schedule hidden-tab animation frames", () => {
+    const hiddenDescriptor = Object.getOwnPropertyDescriptor(
+      Document.prototype,
+      "hidden",
+    );
+    const visibilityDescriptor = Object.getOwnPropertyDescriptor(
+      Document.prototype,
+      "visibilityState",
+    );
+    const movingField: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha: 1 }],
+    };
+
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+
+    try {
+      expect(
+        renderedDraw({
+          count: 2,
+          field: movingField,
+          reducedMotion: false,
+        }).repaintCalls,
+      ).toBe(0);
+    } finally {
+      if (hiddenDescriptor) {
+        Object.defineProperty(Document.prototype, "hidden", hiddenDescriptor);
+      } else {
+        delete (document as unknown as Record<string, unknown>).hidden;
+      }
+      if (visibilityDescriptor) {
+        Object.defineProperty(
+          Document.prototype,
+          "visibilityState",
+          visibilityDescriptor,
+        );
+      } else {
+        delete (document as unknown as Record<string, unknown>).visibilityState;
+      }
+    }
+  });
+
+  it("renders one static frame when animation is suppressed outside reduced motion", () => {
+    const hiddenDescriptor = Object.getOwnPropertyDescriptor(
+      Document.prototype,
+      "hidden",
+    );
+    const visibilityDescriptor = Object.getOwnPropertyDescriptor(
+      Document.prototype,
+      "visibilityState",
+    );
+    const movingField: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha: 1 }],
+    };
+
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+
+    try {
+      const { uploads, repaintCalls } = renderedDraw({
+        count: 2,
+        field: movingField,
+        reducedMotion: false,
+        captureUploads: true,
+      });
+      const alphaUpload = uploads.find((upload) => upload.length === 12);
+
+      expect(repaintCalls).toBe(0);
+      expect(alphaUpload?.some((alpha) => alpha > 0)).toBe(true);
+    } finally {
+      if (hiddenDescriptor) {
+        Object.defineProperty(Document.prototype, "hidden", hiddenDescriptor);
+      } else {
+        delete (document as unknown as Record<string, unknown>).hidden;
+      }
+      if (visibilityDescriptor) {
+        Object.defineProperty(
+          Document.prototype,
+          "visibilityState",
+          visibilityDescriptor,
+        );
+      } else {
+        delete (document as unknown as Record<string, unknown>).visibilityState;
+      }
+    }
+  });
+
+  it("pauses the animation loop for data saver and offscreen canvases", () => {
+    const connectionDescriptor = Object.getOwnPropertyDescriptor(
+      Navigator.prototype,
+      "connection",
+    );
+    const offscreenMap = {
+      getCanvas: () => ({
+        getBoundingClientRect: () => ({
+          width: 1440,
+          height: 720,
+          top: 1200,
+          left: 0,
+          right: 1440,
+          bottom: 1920,
+        }),
+      }),
+    } as unknown as import("mapbox-gl").Map;
+
+    try {
+      Object.defineProperty(navigator, "connection", {
+        configurable: true,
+        value: { saveData: true, effectiveType: "4g" },
+      });
+      expect(shouldAnimateSwellParticles(offscreenMap)).toBe(false);
+
+      Object.defineProperty(navigator, "connection", {
+        configurable: true,
+        value: { saveData: false, effectiveType: "4g" },
+      });
+      expect(shouldAnimateSwellParticles(offscreenMap)).toBe(false);
+    } finally {
+      if (connectionDescriptor) {
+        Object.defineProperty(
+          Navigator.prototype,
+          "connection",
+          connectionDescriptor,
+        );
+      } else {
+        delete (
+          navigator as Navigator & {
+            connection?: { saveData?: boolean; effectiveType?: string };
+          }
+        ).connection;
+      }
+    }
   });
 
   it("refreshes the reduced-motion static frame when the flow field changes", () => {

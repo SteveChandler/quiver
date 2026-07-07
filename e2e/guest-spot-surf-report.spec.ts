@@ -3,6 +3,7 @@ import { TEST_BEACHES } from './fixtures/test-data';
 import { navigateToBeach } from './utils/test-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 import { isVisibleSafe } from './utils/strict-helpers';
+import { buildBeachUrl } from '@/lib/utils/beach-url-utils';
 
 /**
  * Spot Surf Report Card Tests
@@ -211,38 +212,52 @@ test.describe('Spot Surf Report', () => {
     expect(hasBestTimeGate || hasOutlookGate).toBe(true);
   });
 
-  test('community tabs show content gates for anonymous users', async ({ page }) => {
-    await navigateToBeach(page, TEST_BEACHES.blacks);
+  test('community tabs show public states for anonymous users', async ({ page }) => {
+    const beachUrl = buildBeachUrl(TEST_BEACHES.blacks);
 
-    // Test Reviews tab — PartialContentGate renders "Sign up to see N more reviews"
-    const reviewsTab = page.getByRole('tab', { name: /reviews/i });
-    await reviewsTab.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab transition animation
-    await page.waitForTimeout(500);
+    await page.goto(`${beachUrl}?tab=reviews`);
+    await page.waitForLoadState('load');
+    await expect(page.getByRole('tab', { name: /reviews/i })).toHaveAttribute(
+      'data-state',
+      'active',
+      { timeout: 10000 },
+    );
+    await expect(page.locator('[role="tabpanel"][data-state="active"]')).toHaveCount(1);
+    await expect(
+      page.getByText(/surfed here\? share your experience|no reviews yet/i).first(),
+    ).toBeVisible({ timeout: 10000 });
 
-    const reviewsCTA = page.getByText(/sign up to see \d+ more reviews/i);
-    const hasReviewsGate = await isVisibleSafe(reviewsCTA);
+    await page.goto(`${beachUrl}?tab=intel`);
+    await page.waitForLoadState('load');
+    await expect(page.getByRole('tab', { name: /local intel/i })).toHaveAttribute(
+      'data-state',
+      'active',
+      { timeout: 10000 },
+    );
+    await expect(page.locator('[role="tabpanel"][data-state="active"]')).toHaveCount(1);
+    await expect(
+      page
+        .locator('[role="tabpanel"][data-state="active"]')
+        .getByText(/local intel|no local intel yet|unable to load intel posts/i)
+        .first(),
+    ).toBeVisible({ timeout: 10000 });
 
-    // Test Local Intel tab — PartialContentGate renders "Sign up to see N more intel posts"
-    const localIntelTab = page.getByRole('tab', { name: /local intel/i });
-    await localIntelTab.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab transition animation
-    await page.waitForTimeout(500);
+    await page.goto(`${beachUrl}?tab=sessions`);
+    await page.waitForLoadState('load');
+    await expect(page.getByRole('tab', { name: /sessions/i })).toHaveAttribute(
+      'data-state',
+      'active',
+      { timeout: 10000 },
+    );
+    await expect(page.locator('[role="tabpanel"][data-state="active"]')).toHaveCount(1);
+    await expect(
+      page
+        .locator('[role="tabpanel"][data-state="active"]')
+        .getByText(/recent sessions|loading sessions/i)
+        .first(),
+    ).toBeVisible({ timeout: 10000 });
 
-    const intelCTA = page.getByText(/sign up to see \d+ more intel/i);
-    const hasIntelGate = await isVisibleSafe(intelCTA);
-
-    // Test Sessions tab — PartialContentGate renders "Sign up to see N more sessions"
-    const sessionsTab = page.getByRole('tab', { name: /sessions/i });
-    await sessionsTab.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout -- waiting for tab transition animation
-    await page.waitForTimeout(500);
-
-    const sessionsCTA = page.getByText(/sign up to see \d+ more sessions/i);
-    const hasSessionsGate = await isVisibleSafe(sessionsCTA);
-
-    // At least one community tab should show a content gate
-    expect(hasReviewsGate || hasIntelGate || hasSessionsGate).toBe(true);
+    await expect(page.getByRole('dialog')).not.toBeVisible({ timeout: 1000 });
   });
 
   test('hero forecast teaser CTA shows for anonymous users (sole CTA after Phase 1A)', async ({ page }) => {

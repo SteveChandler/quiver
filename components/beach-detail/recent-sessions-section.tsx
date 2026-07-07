@@ -36,9 +36,22 @@ export function RecentSessionsSection({
   const previewSessions = publicMode ? sessions.slice(0, previewCount) : sessions;
   const hasMore = publicMode && sessions.length > previewCount;
 
-  // Hide entire section when empty — showing "No sessions logged yet" to new
-  // users signals an inactive community and increases churn.
   if (!loading && sessions.length === 0) {
+    if (publicMode) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Sessions</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              No public sessions yet.
+            </p>
+          </CardContent>
+        </Card>
+      );
+    }
+
     return null;
   }
 
@@ -92,5 +105,4 @@ export function RecentSessionsSection({
     </Card>
   );
 }
-
 
