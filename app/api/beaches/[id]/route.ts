@@ -1,10 +1,76 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
+  createErrorResponse,
   createSuccessResponse,
   handleApiError,
   withBotBlockingAndRateLimit,
 } from "@/lib/middleware/api-wrappers";
+
+const BEACH_DETAIL_SELECT = `
+  access_tips,
+  aspect_deg,
+  average_rating,
+  best_conditions_prose,
+  best_months,
+  break_type,
+  cdip_eligible,
+  cdip_station,
+  city,
+  country,
+  created_at,
+  crowd_level,
+  crowd_tips,
+  deepwater_decay_factor,
+  description,
+  features,
+  hazards,
+  height_offset_enabled,
+  height_offset_max_age_days,
+  height_offset_min_sample_count,
+  id,
+  lat,
+  local_etiquette,
+  lon,
+  name,
+  nws_forecast_zone,
+  nws_office,
+  parking_tips,
+  persona,
+  preference_model,
+  preferred_tide_direction,
+  preferred_tide_ft_max,
+  preferred_tide_ft_min,
+  real_takeaways,
+  region,
+  review_count,
+  shoaling_factors,
+  skill_level,
+  slug,
+  state,
+  swell_access_factors,
+  swell_analyzed_at,
+  swell_window_center_deg,
+  swell_window_halfwidth_deg,
+  swell_window_max_deg,
+  swell_window_min_deg,
+  terrain_analyzed_at,
+  terrain_enabled,
+  terrain_method,
+  terrain_params,
+  terrain_params_hash,
+  terrain_status,
+  tide_direction_sensitivity,
+  timezone,
+  warnings,
+  wave_tips,
+  wind_analyzed_at,
+  wind_cross_shore_ok_kt,
+  wind_exposure_factors,
+  wind_offshore_deg,
+  wind_offshore_tol_deg,
+  wind_onshore_bad_kt
+`;
 
 // Core handler logic for fetching a single beach
 async function fetchBeachById(beachId: string): Promise<NextResponse> {
@@ -12,16 +78,18 @@ async function fetchBeachById(beachId: string): Promise<NextResponse> {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("beaches")
-      .select("*")
+      .select(BEACH_DETAIL_SELECT)
       .eq("id", beachId)
-      .single();
+      .or("is_private.is.null,is_private.eq.false")
+      .is("deleted_at", null)
+      .maybeSingle();
 
     if (error) {
       return handleApiError(error, "Failed to fetch beach");
     }
 
     if (!data) {
-      return handleApiError(new Error("Beach not found"), "Beach not found");
+      return createErrorResponse("Beach not found", undefined, 404);
     }
 
     // Ensure review_count is always populated. The denormalized

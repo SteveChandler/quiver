@@ -13,6 +13,8 @@
  * - Accessibility
  */
 
+/* eslint-disable playwright/no-conditional-in-test -- Location pages intentionally support standard, editorial, empty, and not-found layouts in one dev-facing suite. */
+
 import { test, expect } from "@playwright/test";
 import {
   navigateToLocation,
@@ -157,28 +159,46 @@ test.describe("Location Pages - Beach Rankings and Cards", () => {
     await navigateToLocation(page, "La Jolla", "CA", "USA");
     await waitForLocationPageLoad(page);
 
-    await verifySequentialRanking(page);
+    const surfReport = page.getByRole("region", {
+      name: /surf report today/i,
+    });
+    await expect(surfReport).toBeVisible();
+
+    const bestRightNowBeach = surfReport.getByRole("heading", { level: 3 });
+    await expect(bestRightNowBeach).toBeVisible();
+    const bestRightNowName = (await bestRightNowBeach.textContent())?.trim();
+    expect(bestRightNowName).toBeTruthy();
+
+    const conditionsTable = surfReport.getByRole("table", {
+      name: /la jolla surf conditions/i,
+    });
+    await expect(conditionsTable).toBeVisible();
+
+    const firstTableBeach = conditionsTable
+      .locator("tbody tr")
+      .first()
+      .getByRole("link")
+      .first();
+    await expect(firstTableBeach).toBeVisible();
+    await expect(firstTableBeach).toHaveText(bestRightNowName ?? "");
   });
 
-  test("should display rank numbers prominently", async ({ page }) => {
+  test("should display the surf conditions table fields", async ({ page }) => {
     await navigateToLocation(page, "La Jolla", "CA", "USA");
     await waitForLocationPageLoad(page);
 
-    // Standard layout uses data-testid="beach-rank"; editorial layout shows ranks inline.
-    // Check for either layout: beach-rank elements OR beach names/headings in the list.
-    const standardRank = page.locator('[data-testid="beach-rank"]').first();
-    const editorialSpot = page.locator('h3').filter({ hasText: /.+/ }).first();
+    const table = page.getByRole("table", {
+      name: /la jolla surf conditions/i,
+    });
+    await expect(table).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Beach" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Height" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Wind" })).toBeVisible();
+    await expect(table.getByRole("columnheader", { name: "Verdict" })).toBeVisible();
 
-    const hasStandardRank = await standardRank.isVisible().catch(() => false);
-    const hasEditorialSpot = await editorialSpot.isVisible().catch(() => false);
-
-    if (hasStandardRank) {
-      const rankText = await standardRank.textContent();
-      expect(rankText).toMatch(/[#]?1/);
-    } else {
-      // Editorial layout - verify that beach spots are listed (names visible)
-      expect(hasEditorialSpot).toBe(true);
-    }
+    const rows = table.locator("tbody tr");
+    await expect(rows.first()).toBeVisible();
+    expect(await rows.count()).toBeGreaterThan(0);
   });
 
   test("should display beach card information", async ({ page }) => {
@@ -532,8 +552,6 @@ test.describe("HI island-specific city pages (Waimea)", () => {
   });
 
   test("shows only Kauai Waimea beaches on /hi/waimea-kauai", async ({ page }) => {
-    // eslint-disable-next-line playwright/no-skipped-test -- intentional bug quarantine from dev E2E triage
-    test.skip(true, "BUG: /hi/waimea-kauai leaks Big Island/Kohala beach data; tracked in TODO.md.");
     await page.goto("/hi/waimea-kauai");
 
     // Wait for the page to load (h1 is always present on location pages)

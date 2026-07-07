@@ -27,9 +27,9 @@ async function beachesHandler(request: NextRequest) {
     // Some environments still use legacy columns (location/region) and may not have slug/city/state.
     // Also, `updated_at` is not guaranteed on `public.beaches` (we do not select it here).
     const preferredSelect =
-      "id, name, slug, city, lat, lon, state, country, created_at, is_private";
+      "id, name, slug, city, lat, lon, state, country, created_at";
     const legacySelect =
-      "id, name, location, region, lat, lon, country, created_at, is_private";
+      "id, name, location, region, lat, lon, country, created_at";
 
     let data: any[] | null = null;
     let error: any = null;
@@ -39,6 +39,8 @@ async function beachesHandler(request: NextRequest) {
       const res = await supabase
         .from("beaches")
         .select(preferredSelect)
+        .or("is_private.is.null,is_private.eq.false")
+        .is("deleted_at", null)
         .order("name");
       data = res.data as any[] | null;
       error = res.error;
@@ -49,6 +51,8 @@ async function beachesHandler(request: NextRequest) {
       const res = await supabase
         .from("beaches")
         .select(legacySelect)
+        .or("is_private.is.null,is_private.eq.false")
+        .is("deleted_at", null)
         .order("name");
       data = res.data as any[] | null;
       error = res.error;
@@ -62,14 +66,22 @@ async function beachesHandler(request: NextRequest) {
     // Normalize legacy schema fields to the preferred shape for consumers.
     // - city/state from location/region
     // - slug: keep DB slug when present, else omit (null)
-    const normalized = (data || []).map((b: any) => ({
-      ...b,
-      city: b.city ?? b.location ?? null,
-      state: b.state ?? b.region ?? null,
-      slug: b.slug ?? null,
-      // Never promise updated_at here; keep null for backward compatibility
-      updated_at: b.updated_at ?? null,
-    }));
+    const normalized = (data || [])
+      .filter(
+        (b: any) =>
+          typeof b.lat === "number" &&
+          Number.isFinite(b.lat) &&
+          typeof b.lon === "number" &&
+          Number.isFinite(b.lon)
+      )
+      .map((b: any) => ({
+        ...b,
+        city: b.city ?? b.location ?? null,
+        state: b.state ?? b.region ?? null,
+        slug: b.slug ?? null,
+        // Never promise updated_at here; keep null for backward compatibility
+        updated_at: b.updated_at ?? null,
+      }));
 
     const responseData = {
       beaches: normalized,

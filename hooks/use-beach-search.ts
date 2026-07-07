@@ -226,11 +226,11 @@ export function useBeachSearch() {
       setHasLoadedAllBeaches(true);
     } catch (err) {
       console.error("Error loading beaches:", err);
-      setBeachesState({
-        beaches: [],
+      setBeachesState((prev) => ({
+        ...prev,
         loading: false,
         error: err instanceof Error ? err.message : "Failed to load beaches",
-      });
+      }));
       setHasLoadedAllBeaches(false);
     } finally {
       allBeachesLoadingRef.current = false;
@@ -301,6 +301,7 @@ export function useBeachSearch() {
             loading: false,
             error: null,
           });
+          setHasLoadedAllBeaches(false);
 
           setState((prev) => ({
             ...prev,
@@ -314,6 +315,7 @@ export function useBeachSearch() {
             loading: false,
             error: null,
           });
+          setHasLoadedAllBeaches(false);
 
           setState((prev) => ({
             ...prev,

@@ -156,6 +156,27 @@ describe("useBeachSearch", () => {
       expect(result.current.error).toBe("API Error");
     });
 
+    it("preserves nearby results when all-beaches loading fails", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadNearbyBeaches(32.7, -117.2);
+      });
+
+      expect(result.current.beaches).toHaveLength(5);
+
+      mockGetBeaches.mockRejectedValue(new Error("API Error"));
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      expect(result.current.beaches).toHaveLength(5);
+      expect(result.current.filteredBeaches).toHaveLength(5);
+      expect(result.current.loading).toBe(false);
+      expect(result.current.error).toBe("API Error");
+    });
+
     it("should load nearby beaches", async () => {
       const { result } = renderHook(() => useBeachSearch());
 

@@ -224,7 +224,7 @@ export function CityConditionsHero({
       )}
 
       {/* All beaches table */}
-      {report.beaches.length > 1 && (
+      {report.beaches.length > 0 && (
         <div className="mb-6">
           <p className="text-sm font-medium text-gray-500 mb-2">All Beaches</p>
           <div className="overflow-x-auto -mx-2">

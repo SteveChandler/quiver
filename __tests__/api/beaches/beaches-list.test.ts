@@ -25,7 +25,6 @@ interface BeachesResponse {
     slug: string | null;
     country: string | null;
     created_at: string;
-    is_private?: boolean;
     updated_at: string | null;
   }>;
   count: number;
@@ -70,16 +69,18 @@ function mockBeachesQuery(
   beachesData: any,
   error: any = null
 ) {
-  mockClient.from.mockReturnValue({
-    select: jest.fn(() => ({
-      order: jest.fn(() =>
-        Promise.resolve({
-          data: beachesData,
-          error: error,
-        })
-      ),
-    })),
-  });
+  const chain: any = {};
+  chain.select = jest.fn(() => chain);
+  chain.or = jest.fn(() => chain);
+  chain.is = jest.fn(() => chain);
+  chain.order = jest.fn(() =>
+    Promise.resolve({
+      data: beachesData,
+      error,
+    })
+  );
+  mockClient.from.mockReturnValue(chain);
+  return chain;
 }
 
 // Helper to mock schema fallback (first call fails with 42703, second succeeds)
@@ -88,25 +89,25 @@ function mockBeachesQueryWithFallback(
   legacyData: any
 ) {
   let callCount = 0;
-  mockClient.from.mockReturnValue({
-    select: jest.fn((selectStr: string) => ({
-      order: jest.fn(() => {
-        callCount++;
-        if (callCount === 1) {
-          // First call with preferred schema fails
-          return Promise.resolve({
-            data: null,
-            error: { code: "42703", message: "column does not exist" },
-          });
-        }
-        // Second call with legacy schema succeeds
-        return Promise.resolve({
-          data: legacyData,
-          error: null,
-        });
-      }),
-    })),
+  const chain: any = {};
+  chain.select = jest.fn((_selectStr: string) => chain);
+  chain.or = jest.fn(() => chain);
+  chain.is = jest.fn(() => chain);
+  chain.order = jest.fn(() => {
+    callCount++;
+    if (callCount === 1) {
+      return Promise.resolve({
+        data: null,
+        error: { code: "42703", message: "column does not exist" },
+      });
+    }
+    return Promise.resolve({
+      data: legacyData,
+      error: null,
+    });
   });
+  mockClient.from.mockReturnValue(chain);
+  return chain;
 }
 
 describe("GET /api/beaches", () => {
@@ -259,6 +260,49 @@ describe("GET /api/beaches", () => {
       expect(data.data.beaches).toHaveLength(25);
     });
 
+    it("excludes rows without finite coordinates from the public beach list", async () => {
+      const mockBeaches = [
+        {
+          id: "beach-1",
+          name: "Blacks",
+          lat: 32.8912,
+          lon: -117.2531,
+          city: "La Jolla",
+          state: "California",
+          slug: "blacks",
+          country: "USA",
+          created_at: "2024-01-01T00:00:00Z",
+          is_private: false,
+        },
+        {
+          id: "beach-2",
+          name: "204s",
+          lat: null,
+          lon: null,
+          city: null,
+          state: null,
+          slug: "204s",
+          country: "USA",
+          created_at: "2024-01-01T00:00:00Z",
+          is_private: false,
+        },
+      ];
+
+      mockBeachesQuery(mockSupabaseClient, mockBeaches);
+
+      const request = createMockRequest(
+        "GET",
+        "http://localhost:3000/api/beaches"
+      );
+
+      const response = await GET(request);
+      const data = await expectSuccessResponse<BeachesResponse>(response, 200);
+
+      expect(data.data.beaches).toHaveLength(1);
+      expect(data.data.count).toBe(1);
+      expect(data.data.beaches[0].name).toBe("Blacks");
+    });
+
     it("sorts by specified field (name by default)", async () => {
       const mockBeaches = [
         {
@@ -288,18 +332,18 @@ describe("GET /api/beaches", () => {
       ];
 
       // Mock to verify order is called
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue({
-        select: jest.fn(() => ({
-          order: jest.fn((field: string) => {
-            // Verify order is called with 'name'
-            expect(field).toBe("name");
-            return Promise.resolve({
-              data: mockBeaches,
-              error: null,
-            });
-          }),
-        })),
+      const chain: any = {};
+      chain.select = jest.fn(() => chain);
+      chain.or = jest.fn(() => chain);
+      chain.is = jest.fn(() => chain);
+      chain.order = jest.fn((field: string) => {
+        expect(field).toBe("name");
+        return Promise.resolve({
+          data: mockBeaches,
+          error: null,
+        });
       });
+      (mockSupabaseClient.from as jest.Mock).mockReturnValue(chain);
 
       const request = createMockRequest(
         "GET",
@@ -329,9 +373,7 @@ describe("GET /api/beaches", () => {
   });
 
   describe("Security", () => {
-    it("includes private beaches in results (RLS handles filtering)", async () => {
-      // Note: The GET endpoint returns all beaches including private ones.
-      // RLS policies on the database handle actual access control.
+    it("filters private and deleted beaches at the public query layer", async () => {
       const mockBeaches = [
         {
           id: "beach-1",
@@ -343,23 +385,21 @@ describe("GET /api/beaches", () => {
           slug: "public-beach",
           country: "USA",
           created_at: "2024-01-01T00:00:00Z",
-          is_private: false,
         },
         {
           id: "beach-2",
-          name: "Private Beach",
+          name: "Second Public Beach",
           lat: 34.0195,
           lon: -118.8225,
-          city: "Secret City",
-          state: "Secret State",
-          slug: "private-beach",
+          city: "Second City",
+          state: "Second State",
+          slug: "second-public-beach",
           country: "USA",
           created_at: "2024-01-01T00:00:00Z",
-          is_private: true,
         },
       ];
 
-      mockBeachesQuery(mockSupabaseClient, mockBeaches);
+      const chain = mockBeachesQuery(mockSupabaseClient, mockBeaches);
 
       const request = createMockRequest(
         "GET",
@@ -369,10 +409,13 @@ describe("GET /api/beaches", () => {
       const response = await GET(request);
       const data = await expectSuccessResponse<BeachesResponse>(response, 200);
 
-      // The endpoint returns what the database returns - RLS handles filtering
+      expect(chain.or).toHaveBeenCalledWith("is_private.is.null,is_private.eq.false");
+      expect(chain.is).toHaveBeenCalledWith("deleted_at", null);
+      const selectArg = chain.select.mock.calls[0][0] as string;
+      expect(selectArg).not.toContain("is_private");
+      expect(selectArg).not.toContain("deleted_at");
+      expect(selectArg).not.toContain("owner_id");
       expect(data.data.beaches).toHaveLength(2);
-      expect(data.data.beaches.some((b) => b.is_private === true)).toBe(true);
-      expect(data.data.beaches.some((b) => b.is_private === false)).toBe(true);
     });
 
     it("is accessible without authentication (public endpoint)", async () => {
@@ -494,16 +537,17 @@ describe("GET /api/beaches", () => {
     it("handles legacy schema fallback failure", async () => {
       const schemaError = { code: "42703", message: "column does not exist" };
       // Both preferred and legacy schema queries fail
-      (mockSupabaseClient.from as jest.Mock).mockReturnValue({
-        select: jest.fn(() => ({
-          order: jest.fn(() =>
-            Promise.resolve({
-              data: null,
-              error: schemaError,
-            })
-          ),
-        })),
-      });
+      const chain: any = {};
+      chain.select = jest.fn(() => chain);
+      chain.or = jest.fn(() => chain);
+      chain.is = jest.fn(() => chain);
+      chain.order = jest.fn(() =>
+        Promise.resolve({
+          data: null,
+          error: schemaError,
+        })
+      );
+      (mockSupabaseClient.from as jest.Mock).mockReturnValue(chain);
 
       const request = createMockRequest(
         "GET",

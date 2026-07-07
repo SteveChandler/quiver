@@ -156,6 +156,7 @@ export const AndroidBetaLeadSchema = z.object({
   source: waitlistMetadataSchema,
   surface: waitlistMetadataSchema,
   placement: waitlistMetadataSchema,
+  sessionId: z.string().uuid().optional(),
 });
 
 export type AndroidBetaLeadInput = z.infer<typeof AndroidBetaLeadSchema>;

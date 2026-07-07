@@ -47,7 +47,11 @@ import { ShareSheet } from "@/components/share";
 import { buildSessionShareSheetData } from "@/lib/share/session-share";
 import { getWaveTypeLabel } from "@/components/ui/wave-type-selector";
 import { formatSessionTideSnapshot } from "@/lib/services/session-tide-snapshot";
-import { IosAppStoreCta } from "@/components/app-store/ios-app-store-cta";
+import { NativeAppFunnelCta } from "@/components/app-store/native-app-funnel-cta";
+import {
+  getFirstTouchPlatform,
+  type FirstTouchPlatform,
+} from "@/lib/analytics/web-context";
 
 const RIP_CURRENT_LABELS: Record<string, string> = {
   none: "None",
@@ -75,14 +79,10 @@ const SessionPhotoGallery = dynamic(
 );
 
 interface SharedSessionPreview {
-  beachName: string;
-  userName: string;
   rating: number | null;
-  dateText: string | null;
   title: string;
   subtitle: string;
   imageUrl: string | null;
-  shareImageUrl: string;
 }
 
 interface SessionDetailViewProps {
@@ -98,12 +98,19 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [nativeCtaPlatform, setNativeCtaPlatform] =
+    useState<FirstTouchPlatform>("desktop");
   const [sessionPhotos, setSessionPhotos] = useState<SessionPhoto[]>([]);
   const [photosLoading, setPhotosLoading] = useState(false);
+
+  useEffect(() => {
+    setNativeCtaPlatform(getFirstTouchPlatform());
+  }, []);
   const sharedPreviewStars =
     sharedPreview?.rating != null
       ? Math.max(0, Math.min(5, Math.round(sharedPreview.rating)))
       : null;
+  const signInHref = `/auth/sign-in?redirectTo=${encodeURIComponent(`/sessions/${id}`)}`;
 
   useEffect(() => {
     async function loadSession() {
@@ -207,19 +214,24 @@ export function SessionDetailView({ id, sharedPreview = null }: SessionDetailVie
 
               <div className="rounded-2xl border border-[#E5D4B3] bg-[#F4EBD8] p-4 text-sm font-semibold text-[#4A463C]">
                 Quiver opens shared session links directly in the app when it is installed.
-                If it is not installed, download it and return to this link.
+                If it is not installed, get Quiver and reopen this link.
               </div>
 
               <div className="space-y-3">
-                <Button asChild className="w-full bg-[#F78E42] text-[#252D6B] hover:bg-[#D06C2E]">
-                  <IosAppStoreCta
-                    source="session_share"
-                    surface="session_detail_fallback"
-                    placement="primary_app_store"
-                  >
-                    Open App Store
-                  </IosAppStoreCta>
+                <Button asChild className="w-full">
+                  <Link href={signInHref}>Sign in to view on web</Link>
                 </Button>
+                <NativeAppFunnelCta
+                  platform={nativeCtaPlatform}
+                  source="session_share"
+                  surface="session_detail_fallback"
+                  placement="primary_app_store"
+                  className="inline-flex h-10 w-full items-center justify-center rounded-md bg-[#F78E42] px-4 py-2 text-sm font-medium text-[#252D6B] transition-colors hover:bg-[#D06C2E] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+                  desktopClassName="w-full"
+                  desktopShowEmailForm
+                  iosLabel="Get Quiver"
+                  androidLabel="Get the Android beta"
+                />
                 <Button asChild variant="outline" className="w-full border-[#E5D4B3]">
                   <Link href="/download">Download options</Link>
                 </Button>

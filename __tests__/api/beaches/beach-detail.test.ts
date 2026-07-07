@@ -52,6 +52,7 @@ describe("GET /api/beaches/[id]", () => {
       delete: jest.fn().mockReturnThis(),
       upsert: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
+      or: jest.fn().mockReturnThis(),
       neq: jest.fn().mockReturnThis(),
       gt: jest.fn().mockReturnThis(),
       gte: jest.fn().mockReturnThis(),
@@ -63,7 +64,6 @@ describe("GET /api/beaches/[id]", () => {
       is: jest.fn().mockReturnThis(),
       order: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
-      single: jest.fn(() => Promise.resolve({ data: null, error: null })),
       maybeSingle: jest.fn(() => Promise.resolve({ data: null, error: null })),
       range: jest.fn().mockReturnThis(),
       textSearch: jest.fn().mockReturnThis(),
@@ -88,7 +88,7 @@ describe("GET /api/beaches/[id]", () => {
 
   it("returns beach with all fields", async () => {
     const beachId = "beach-123";
-    const mockBeach = createMockBeach({
+    const mockBeach = {
       id: beachId,
       name: "Pipeline",
       slug: "pipeline",
@@ -105,19 +105,22 @@ describe("GET /api/beaches/[id]", () => {
       best_months: [11, 12, 1, 2],
       average_rating: 4.8,
       review_count: 250,
-    });
+    };
 
     // Mock successful beach query
-    (mockSupabaseClient.from as jest.Mock).mockImplementation(() => ({
+    const query = {
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
-      single: jest.fn(() =>
+      or: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() =>
         Promise.resolve({
           data: mockBeach,
           error: null,
         })
       ),
-    }));
+    };
+    (mockSupabaseClient.from as jest.Mock).mockImplementation(() => query);
 
     const request = createMockRequest("GET");
     const response = await GET(request, { params: Promise.resolve({ id: beachId }) });
@@ -137,24 +140,30 @@ describe("GET /api/beaches/[id]", () => {
       average_rating: 4.8,
       review_count: 250,
     });
+    const selectArg = query.select.mock.calls[0][0] as string;
+    expect(selectArg).not.toContain("is_private");
+    expect(selectArg).not.toContain("deleted_at");
+    expect(selectArg).not.toContain("owner_id");
+    expect(selectArg).not.toContain("terrain_analysis_debug");
   });
 
   it("returns error for invalid beach ID", async () => {
     const invalidBeachId = "non-existent-beach-id";
-    const dbError = { message: "Row not found", code: "PGRST116" };
     const consoleErrorSpy = jest
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
 
     // Mock query returning null data (no beach found)
-    // Supabase .single() returns error when no row is found
+    // Supabase .maybeSingle() returns null data when no row is found
     (mockSupabaseClient.from as jest.Mock).mockImplementation(() => ({
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
-      single: jest.fn(() =>
+      or: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() =>
         Promise.resolve({
           data: null,
-          error: dbError,
+          error: null,
         })
       ),
     }));
@@ -165,13 +174,11 @@ describe("GET /api/beaches/[id]", () => {
         params: Promise.resolve({ id: invalidBeachId }),
       });
 
-      // Row not found errors should return 404, but handleApiError currently returns 500
-      // TODO: Update handleApiError to return 404 for "Row not found" errors
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(404);
       const json = await response.json();
       expect(json.success).toBe(false);
-      expect(json.error).toContain("Failed to fetch beach");
-      expect(consoleErrorSpy).toHaveBeenCalledWith("API Error:", "Unknown error");
+      expect(json.error).toContain("Beach not found");
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
     }
@@ -179,7 +186,6 @@ describe("GET /api/beaches/[id]", () => {
 
   it("returns error for deleted beach", async () => {
     const deletedBeachId = "deleted-beach-123";
-    const dbError = { message: "No rows returned", code: "PGRST116" };
     const consoleErrorSpy = jest
       .spyOn(console, "error")
       .mockImplementation(() => undefined);
@@ -188,10 +194,12 @@ describe("GET /api/beaches/[id]", () => {
     (mockSupabaseClient.from as jest.Mock).mockImplementation(() => ({
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
-      single: jest.fn(() =>
+      or: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() =>
         Promise.resolve({
           data: null,
-          error: dbError,
+          error: null,
         })
       ),
     }));
@@ -202,11 +210,11 @@ describe("GET /api/beaches/[id]", () => {
         params: Promise.resolve({ id: deletedBeachId }),
       });
 
-      expect(response.status).toBe(500);
+      expect(response.status).toBe(404);
       const json = await response.json();
       expect(json.success).toBe(false);
-      expect(json.error).toContain("Failed to fetch beach");
-      expect(consoleErrorSpy).toHaveBeenCalledWith("API Error:", "Unknown error");
+      expect(json.error).toContain("Beach not found");
+      expect(consoleErrorSpy).not.toHaveBeenCalled();
     } finally {
       consoleErrorSpy.mockRestore();
     }
@@ -223,7 +231,9 @@ describe("GET /api/beaches/[id]", () => {
     (mockSupabaseClient.from as jest.Mock).mockImplementation(() => ({
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
-      single: jest.fn(() =>
+      or: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() =>
         Promise.resolve({
           data: mockBeach,
           error: null,
@@ -249,7 +259,9 @@ describe("GET /api/beaches/[id]", () => {
     (mockSupabaseClient.from as jest.Mock).mockImplementation(() => ({
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
-      single: jest.fn(() =>
+      or: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() =>
         Promise.resolve({
           data: mockBeach,
           error: null,
@@ -278,7 +290,9 @@ describe("GET /api/beaches/[id]", () => {
     (mockSupabaseClient.from as jest.Mock).mockImplementation(() => ({
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
-      single: jest.fn(() =>
+      or: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() =>
         Promise.resolve({
           data: null,
           error: dbError,
@@ -312,7 +326,9 @@ describe("GET /api/beaches/[id]", () => {
     (mockSupabaseClient.from as jest.Mock).mockImplementation(() => ({
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
-      single: jest.fn(() =>
+      or: jest.fn().mockReturnThis(),
+      is: jest.fn().mockReturnThis(),
+      maybeSingle: jest.fn(() =>
         Promise.resolve({
           data: mockBeach,
           error: null,

@@ -4,6 +4,7 @@ import {
   withBotBlockingAndRateLimit,
   withErrorHandler,
 } from "@/lib/middleware/api-wrappers";
+import { sendAndroidBetaInstructionsEmail } from "@/lib/mailer/android-beta";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { AndroidBetaLeadSchema } from "@/lib/validation/schemas";
 
@@ -23,7 +24,7 @@ export const POST = withErrorHandler(
         });
       }
 
-      const { email, source, surface, placement } = parsed.data;
+      const { email, source, surface, placement, sessionId } = parsed.data;
 
       const supabase = await createSupabaseServiceRoleClient();
       const { error } = await (supabase as any)
@@ -42,7 +43,75 @@ export const POST = withErrorHandler(
         return NextResponse.json({ success: false, error: "save_failed" });
       }
 
-      return NextResponse.json({ success: true });
+      if (sessionId) {
+        const emailDomain = email.split("@")[1] ?? "unknown";
+        const { error: eventError } = await (supabase as any)
+          .from("user_events")
+          .insert({
+            session_id: sessionId,
+            event_type: "android_lead_captured",
+            metadata: {
+              cta_family: "android_waitlist",
+              platform: "android",
+              destination_type: "lead_capture",
+              destination_status: "email_captured",
+              email_domain: emailDomain,
+              source,
+              surface,
+              placement,
+            },
+          });
+
+        if (eventError) {
+          console.warn(
+            "android-beta/leads: failed to record android_lead_captured event:",
+            eventError,
+          );
+        }
+      }
+
+      let emailSent = false;
+      const claimedAt = new Date().toISOString();
+      const { data: emailClaim, error: claimError } = await (supabase as any)
+        .from("android_beta_leads")
+        .update({ instructions_sent_at: claimedAt })
+        .eq("email", email)
+        .is("instructions_sent_at", null)
+        .select("email")
+        .maybeSingle();
+
+      if (claimError) {
+        return NextResponse.json({ success: false, error: "save_failed" });
+      }
+
+      if (emailClaim) {
+        const emailResult = await sendAndroidBetaInstructionsEmail(email);
+        emailSent = emailResult.success;
+        if (!emailResult.success) {
+          const { error: resetError } = await (supabase as any)
+            .from("android_beta_leads")
+            .update({ instructions_sent_at: null })
+            .eq("email", email)
+            .eq("instructions_sent_at", claimedAt);
+
+          if (resetError) {
+            console.warn(
+              "android-beta/leads: failed to reset instructions email claim:",
+              resetError,
+            );
+          }
+
+          console.warn(
+            "android-beta/leads: failed to send beta instructions email:",
+            emailResult.error,
+          );
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        emailSent,
+      });
     },
     { key: "android-beta-lead" },
   ),
