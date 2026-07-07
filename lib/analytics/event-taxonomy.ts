@@ -265,6 +265,8 @@ export const VALID_EVENTS = [
   'app_handoff_email_sent',
   'app_handoff_email_failed',
   'app_handoff_link_opened',
+  // Android beta lead capture (public waitlist form with anonymous session id)
+  'android_lead_captured',
 ] as const;
 
 export type EventType = (typeof VALID_EVENTS)[number];
@@ -371,6 +373,8 @@ export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   // App-first landing handoff funnel - fire for signed-out landing visitors.
   'app_handoff_view', 'app_handoff_qr_rendered', 'app_handoff_email_submit',
   'app_handoff_email_sent', 'app_handoff_email_failed', 'app_handoff_link_opened',
+  // Android beta lead capture can be submitted before authentication.
+  'android_lead_captured',
 ] as const;
 
 /**

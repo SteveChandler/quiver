@@ -460,7 +460,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(mockLogDelivery).toHaveBeenCalledWith(expect.objectContaining({
       userId: USER_A,
       emailType: "conditions_alert",
-      subject: expect.stringMatching(/^Your surf report for /),
+      subject: expect.stringMatching(/^Test Beach: surf window /),
       meta: expect.objectContaining({
         match_count: expect.any(Number),
         beaches: expect.any(Array),
