@@ -204,7 +204,7 @@ describe("streak reminder registry entries", () => {
       beach_name: "Ocean Beach",
       forecast_at: "2026-06-22T18:00:00.000Z",
       deeplink:
-        "quiver://sessions/new?mode=log&quick=true&beach=beach-1&beachName=Ocean+Beach&startTime=2026-06-22T18%3A00%3A00.000Z&endTime=2026-06-22T18%3A30%3A00.000Z&utm_source=push_log_nudge",
+        "quiver://sessions/new?beach=ocean-beach&at=2026-06-22T18%3A00%3A00.000Z&utm_source=push_log_nudge",
     });
 
     expect(payload).toMatchObject({
@@ -216,7 +216,7 @@ describe("streak reminder registry entries", () => {
         beach_slug: "ocean-beach",
         forecast_at: "2026-06-22T18:00:00.000Z",
         deeplink:
-          "quiver://sessions/new?mode=log&quick=true&beach=beach-1&beachName=Ocean+Beach&startTime=2026-06-22T18%3A00%3A00.000Z&endTime=2026-06-22T18%3A30%3A00.000Z&utm_source=push_log_nudge",
+          "quiver://sessions/new?beach=ocean-beach&at=2026-06-22T18%3A00%3A00.000Z&utm_source=push_log_nudge",
       },
     });
   });
@@ -331,7 +331,7 @@ describe("forecast-feedback-nudge cron", () => {
         beach_name: "Home Break",
         forecast_at: "2026-06-22T18:00:00.000Z",
         deeplink:
-          "quiver://sessions/new?mode=log&quick=true&beach=b-home&beachName=Home+Break&startTime=2026-06-22T18%3A00%3A00.000Z&endTime=2026-06-22T18%3A30%3A00.000Z&utm_source=push_log_nudge",
+          "quiver://sessions/new?beach=home-break&at=2026-06-22T18%3A00%3A00.000Z&utm_source=push_log_nudge",
       },
       dedupeKey: "forecast_feedback_nudge:u-active:2026-06-22",
     });
@@ -346,7 +346,7 @@ describe("forecast-feedback-nudge cron", () => {
         beach_name: "Saved Break",
         forecast_at: "2026-06-22T17:00:00.000Z",
         deeplink:
-          "quiver://sessions/new?mode=log&quick=true&beach=b-fav&beachName=Saved+Break&startTime=2026-06-22T17%3A00%3A00.000Z&endTime=2026-06-22T17%3A30%3A00.000Z&utm_source=push_log_nudge",
+          "quiver://sessions/new?beach=saved-break&at=2026-06-22T17%3A00%3A00.000Z&utm_source=push_log_nudge",
       },
       dedupeKey: "forecast_feedback_nudge:u-fav:2026-06-22",
     });
@@ -354,6 +354,50 @@ describe("forecast-feedback-nudge cron", () => {
       user_id: "u-active",
       reminder_type: "forecast_feedback_nudge",
       period_key: "2026-06-22",
+    });
+  });
+
+  it("falls back to beach id in native deeplinks when the beach has no slug", async () => {
+    jest.setSystemTime(new Date("2026-06-22T20:00:00.000Z"));
+    seed("profiles", [
+      { id: "u-active", home_beach_id: "b-home", notif_reminders: true },
+    ]);
+    seed("favorite_beaches", []);
+    seed("streak_reminder_log", []);
+    seed("beaches", [
+      {
+        id: "b-home",
+        name: "Home Break",
+        slug: null,
+        timezone: "America/Los_Angeles",
+        deleted_at: null,
+      },
+    ]);
+    seed("enhanced_forecasts", [
+      { id: "f-home", beach_id: "b-home", forecast_at: "2026-06-22T18:00:00.000Z" },
+    ]);
+    seed("forecast_feedback_contexts", []);
+    seed("sessions", []);
+
+    const response = await dailyGet(mockRequest());
+    const body = await response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.data.summary.sent).toBe(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledWith({
+      type: "forecast_feedback_nudge",
+      recipientUserId: "u-active",
+      entityType: "beach",
+      entityId: "b-home",
+      payload: {
+        beach_id: "b-home",
+        beach_slug: undefined,
+        beach_name: "Home Break",
+        forecast_at: "2026-06-22T18:00:00.000Z",
+        deeplink:
+          "quiver://sessions/new?beach=b-home&at=2026-06-22T18%3A00%3A00.000Z&utm_source=push_log_nudge",
+      },
+      dedupeKey: "forecast_feedback_nudge:u-active:2026-06-22",
     });
   });
 
