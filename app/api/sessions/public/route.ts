@@ -143,7 +143,7 @@ async function publicSessionsHandler(
   // Build count query with filters
   let countQuery = supabase
     .from("sessions")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("status", "completed")
     .eq("is_public", true);
 

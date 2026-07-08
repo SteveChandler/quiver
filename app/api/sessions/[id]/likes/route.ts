@@ -27,7 +27,7 @@ export const GET = withAuth(
     // Get total likes count
     const { count: likesCount, error: countError } = await supabase
       .from("session_likes")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("session_id", sessionId);
 
     if (countError) {
@@ -42,5 +42,4 @@ export const GET = withAuth(
 export function POST() {
   return methodNotAllowed(["GET"]);
 }
-
 

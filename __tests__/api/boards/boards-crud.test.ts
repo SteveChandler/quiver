@@ -138,6 +138,9 @@ describe("Boards CRUD API", () => {
         expect(data.data.boards[0].name).toBe("My Shortboard");
         expect(data.data.boards[1].name).toBe("Longboard");
 
+        expect(mockSelect).toHaveBeenCalledWith(
+          "id, user_id, name, board_type, dimensions, description, image_url, size, volume, session_count, created_at, updated_at"
+        );
         // Verify RLS filtering by user_id
         expect(mockEq).toHaveBeenCalledWith("user_id", validUserId);
         expect(mockOrder).toHaveBeenCalledWith("updated_at", { ascending: false });
@@ -386,7 +389,7 @@ describe("Boards CRUD API", () => {
 
         expect(response.status).toBe(400);
         expect(data.success).toBe(false);
-        expect(data.error).toBeTruthy();
+        expect(data.error).toEqual(expect.any(String));
       });
 
       it("rejects empty board name", async () => {
@@ -413,7 +416,7 @@ describe("Boards CRUD API", () => {
 
         expect(response.status).toBe(400);
         expect(data.success).toBe(false);
-        expect(data.error).toBeTruthy();
+        expect(data.error).toEqual(expect.any(String));
       });
 
       it("rejects whitespace-only board name", async () => {
@@ -440,7 +443,7 @@ describe("Boards CRUD API", () => {
 
         expect(response.status).toBe(400);
         expect(data.success).toBe(false);
-        expect(data.error).toBeTruthy();
+        expect(data.error).toEqual(expect.any(String));
       });
 
       it("rejects board name exceeding max length", async () => {
@@ -467,7 +470,7 @@ describe("Boards CRUD API", () => {
 
         expect(response.status).toBe(400);
         expect(data.success).toBe(false);
-        expect(data.error).toBeTruthy();
+        expect(data.error).toEqual(expect.any(String));
       });
 
       it("rejects empty board_type", async () => {
@@ -494,7 +497,7 @@ describe("Boards CRUD API", () => {
 
         expect(response.status).toBe(400);
         expect(data.success).toBe(false);
-        expect(data.error).toBeTruthy();
+        expect(data.error).toEqual(expect.any(String));
       });
 
       it("rejects board_type exceeding max length", async () => {
@@ -521,7 +524,7 @@ describe("Boards CRUD API", () => {
 
         expect(response.status).toBe(400);
         expect(data.success).toBe(false);
-        expect(data.error).toBeTruthy();
+        expect(data.error).toEqual(expect.any(String));
       });
 
       it("rejects empty dimensions", async () => {
@@ -548,7 +551,7 @@ describe("Boards CRUD API", () => {
 
         expect(response.status).toBe(400);
         expect(data.success).toBe(false);
-        expect(data.error).toBeTruthy();
+        expect(data.error).toEqual(expect.any(String));
       });
 
       it("rejects dimensions exceeding max length", async () => {
@@ -575,7 +578,7 @@ describe("Boards CRUD API", () => {
 
         expect(response.status).toBe(400);
         expect(data.success).toBe(false);
-        expect(data.error).toBeTruthy();
+        expect(data.error).toEqual(expect.any(String));
       });
 
       it("rejects description exceeding max length", async () => {
@@ -602,7 +605,7 @@ describe("Boards CRUD API", () => {
 
         expect(response.status).toBe(400);
         expect(data.success).toBe(false);
-        expect(data.error).toBeTruthy();
+        expect(data.error).toEqual(expect.any(String));
       });
 
       it("rejects invalid image_url", async () => {
@@ -629,7 +632,7 @@ describe("Boards CRUD API", () => {
 
         expect(response.status).toBe(400);
         expect(data.success).toBe(false);
-        expect(data.error).toBeTruthy();
+        expect(data.error).toEqual(expect.any(String));
       });
 
       it("rejects negative volume", async () => {
@@ -656,7 +659,7 @@ describe("Boards CRUD API", () => {
 
         expect(response.status).toBe(400);
         expect(data.success).toBe(false);
-        expect(data.error).toBeTruthy();
+        expect(data.error).toEqual(expect.any(String));
       });
 
       it("rejects unrealistic volume (>500)", async () => {
@@ -683,7 +686,7 @@ describe("Boards CRUD API", () => {
 
         expect(response.status).toBe(400);
         expect(data.success).toBe(false);
-        expect(data.error).toBeTruthy();
+        expect(data.error).toEqual(expect.any(String));
       });
 
       it("trims whitespace from string fields", async () => {
