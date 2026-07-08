@@ -14,6 +14,18 @@ interface LocalBeachFixture {
   slug: string | null;
 }
 
+interface EnsureLocalBeachForecastFixtureOptions {
+  dataSource?: string;
+  forceUncalibrated?: boolean;
+  minRows?: number;
+  slug: string;
+  waveHeight?: string;
+}
+
+type LocalFixtureCleanup = () => Promise<void>;
+
+const THREE_HOURS_MS = 3 * 60 * 60 * 1000;
+
 function localProfileDisplayName(base: string, userId: string): string {
   return `${base}-${userId.slice(0, 8)}`;
 }
@@ -135,4 +147,108 @@ export async function getLocalBeachBySlug(
   }
 
   return data as LocalBeachFixture;
+}
+
+function formatForecastTime(date: Date): string {
+  return date.toISOString().slice(11, 19);
+}
+
+export async function ensureLocalBeachForecastFixture({
+  dataSource = "e2e_forecast_fixture",
+  forceUncalibrated = false,
+  minRows = 8,
+  slug,
+  waveHeight = "3-4 ft",
+}: EnsureLocalBeachForecastFixtureOptions): Promise<LocalFixtureCleanup> {
+  if (!isLocalE2ETarget()) return async () => undefined;
+
+  const admin = createLocalAdminClient();
+  const beach = await getLocalBeachBySlug(slug);
+  const { data: beachSnapshot, error: beachSnapshotError } = await admin
+    .from("beaches")
+    .select("shoaling_factors")
+    .eq("id", beach.id)
+    .maybeSingle();
+
+  if (beachSnapshotError) throw beachSnapshotError;
+
+  if (forceUncalibrated) {
+    const { error: beachError } = await admin
+      .from("beaches")
+      .update({ shoaling_factors: null })
+      .eq("id", beach.id);
+
+    if (beachError) throw beachError;
+  }
+
+  const anchor = new Date();
+  const minuteOffset = Array.from(dataSource).reduce(
+    (sum, char) => sum + char.charCodeAt(0),
+    0
+  ) % 45;
+  anchor.setUTCMinutes(Math.max(0, anchor.getUTCMinutes() - minuteOffset), 0, 0);
+  const rows = Array.from({ length: minRows }, (_, index) => {
+    const forecastDate = new Date(
+      anchor.getTime() - (minRows - 1 - index) * THREE_HOURS_MS
+    );
+
+    return {
+      air_temperature: "68F",
+      beach_id: beach.id,
+      confidence_score: 82,
+      data_source: dataSource,
+      forecast_at: forecastDate.toISOString(),
+      forecast_date: forecastDate.toISOString().slice(0, 10),
+      forecast_time: formatForecastTime(forecastDate),
+      swell_1_direction: "W",
+      swell_1_height: "3 ft",
+      swell_1_period: "12s",
+      tide_height: "2.1 ft",
+      tide_status: "Rising",
+      water_temp: "64F",
+      wave_direction: "W",
+      wave_height: waveHeight,
+      wave_period: "12s",
+      weather_condition: "Clear",
+      wind_direction: "Offshore",
+      wind_direction_deg: 80,
+      wind_speed: "4 mph",
+      wind_wave_height: "1 ft",
+    };
+  });
+  const earliestForecastAt = rows[0]?.forecast_at;
+  const latestForecastAt = rows[rows.length - 1]?.forecast_at;
+
+  const { error: upsertError } = await admin
+    .from("enhanced_forecasts")
+    .upsert(rows, { onConflict: "beach_id,forecast_date,forecast_time" });
+
+  if (upsertError) throw upsertError;
+
+  return async () => {
+    if (earliestForecastAt && latestForecastAt) {
+      const { error: cleanupError } = await admin
+        .from("enhanced_forecasts")
+        .delete()
+        .eq("beach_id", beach.id)
+        .eq("data_source", dataSource)
+        .gte("forecast_at", earliestForecastAt)
+        .lte("forecast_at", latestForecastAt);
+
+      if (cleanupError) throw cleanupError;
+    }
+
+    if (forceUncalibrated && beachSnapshot) {
+      const { error: restoreError } = await admin
+        .from("beaches")
+        .update({
+          shoaling_factors:
+            (beachSnapshot as { shoaling_factors?: unknown }).shoaling_factors ??
+            null,
+        })
+        .eq("id", beach.id);
+
+      if (restoreError) throw restoreError;
+    }
+  };
 }
