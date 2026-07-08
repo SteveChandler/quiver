@@ -206,7 +206,13 @@ describe("AlertsManagementPage", () => {
 
     render(<AlertsManagementPage />);
 
-    expect(await screen.findByText("No condition alerts yet")).toBeInTheDocument();
+    expect(
+      await screen.findByRole(
+        "heading",
+        { name: "No condition alerts yet" },
+        { timeout: 5000 },
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search Bolsa, Huntington...")).toBeInTheDocument();
   });
 
