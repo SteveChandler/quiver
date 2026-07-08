@@ -168,7 +168,7 @@ export function InviteLandingClient({
 
   const isAndroid = platform === "android";
   const leadCopy = isAndroid
-    ? "Android access is waitlist-first for now. Join the Android waitlist or continue on web to use this invite."
+    ? "Android beta access is open through Google Play closed testing. Get the beta or continue on web to use this invite."
     : platform === "desktop"
       ? "Open this invite on your iPhone to install Quiver, or scan the code below. If Quiver is already installed, open it from this page to accept the invite."
       : "Install Quiver from the App Store. If Quiver is already installed, open it from this page to accept the invite and connect automatically.";
@@ -219,7 +219,7 @@ export function InviteLandingClient({
                   }
                   className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#F78E42] px-5 py-3 text-center font-semibold text-[#252D6B] transition hover:bg-[#FFAA63] disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Join Android waitlist
+                  Get the Android beta
                 </AndroidWaitlistCta>
               ) : (
                 <a

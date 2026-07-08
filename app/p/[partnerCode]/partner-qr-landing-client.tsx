@@ -152,7 +152,7 @@ export function PartnerQrLandingClient({
     `partner_${partnerCode.toUpperCase()}`,
   );
   const leadCopy = isAndroid
-    ? "Android access is waitlist-first for now. Join the Android waitlist or continue on web to start with Quiver."
+    ? "Android beta access is open through Google Play closed testing. Get the beta or continue on web to start with Quiver."
     : platform === "desktop"
       ? "Scan the code with your phone camera, or open this page on your iPhone to install Quiver. Already have the app? Open it from here."
       : "Install Quiver from the App Store to check the surf and log your sessions. If Quiver is already installed, open it from this page.";
@@ -189,7 +189,7 @@ export function PartnerQrLandingClient({
                   }
                   className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#F78E42] px-5 py-3 text-center font-semibold text-[#252D6B] transition hover:bg-[#FFAA63] disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Join Android waitlist
+                  Get the Android beta
                 </AndroidWaitlistCta>
               ) : (
                 <a

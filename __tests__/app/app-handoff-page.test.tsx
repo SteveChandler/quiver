@@ -83,7 +83,7 @@ describe("/app handoff page", () => {
     );
   });
 
-  it("logs and redirects Android visitors to the configured Android access destination", async () => {
+  it("logs and redirects Android visitors to the guided Android beta page", async () => {
     mockHeadersGet.mockReturnValue(ANDROID_UA);
 
     await expect(
@@ -108,17 +108,13 @@ describe("/app handoff page", () => {
           qr_id: "android_beta_instructions",
           target: "android_beta",
           platform: "android",
-          destination_type: "play_store",
-          destination_url: expect.stringContaining(
-            "https://play.google.com/apps/testing/app.quiversurf.surf",
-          ),
+          destination_type: "android_beta",
+          destination_url: "/android-beta",
           handoff_channel: "qr",
         }),
       }),
     );
-    expect(mockRedirect).toHaveBeenCalledWith(
-      expect.stringContaining("https://play.google.com/apps/testing/app.quiversurf.surf"),
-    );
+    expect(mockRedirect).toHaveBeenCalledWith("/android-beta");
   });
 
   it("renders the desktop handoff module for desktop visitors", async () => {

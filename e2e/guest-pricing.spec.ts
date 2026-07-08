@@ -21,7 +21,7 @@ test.describe('Guest Plans Page', () => {
     await assertNoErrors(page, errorCapture, { context: 'Plans page cleanup' });
   });
 
-  test('renders the App Store trial and Android waitlist without web checkout', async ({ page }) => {
+  test('renders the App Store trial and Android beta without web checkout', async ({ page }) => {
     await expect(
       page.getByRole('heading', {
         name: /get quiver/i,
@@ -45,12 +45,13 @@ test.describe('Guest Plans Page', () => {
     ).toHaveAttribute('href', /apps\.apple\.com\/us\/app\/surf-forecast-quiver\/id6759300320/);
     await expect(
       page.getByRole('button', {
-        name: /join android waitlist/i,
+        name: /get the android beta/i,
       }),
     ).toBeVisible();
-    await expect(page.getByText(/android is coming soon/i).first()).toBeVisible();
+    await expect(page.getByText(/android beta is open/i).first()).toBeVisible();
 
     const bodyText = await page.locator('body').innerText();
+    expect(bodyText).not.toMatch(/android is coming soon|android waitlist/i);
     expect(bodyText).not.toMatch(/monthly|annual|checkout|buy now|lifetime pro|\$\d+/i);
     await expect(page.locator('a[href*="checkout"], a[href*="stripe"]')).toHaveCount(0);
   });
