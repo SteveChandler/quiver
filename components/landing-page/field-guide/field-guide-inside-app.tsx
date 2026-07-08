@@ -56,7 +56,7 @@ export function FieldGuideInsideApp(): ReactElement {
             <div className="relative mx-auto w-full max-w-[320px] md:max-w-[360px]">
               <div className="relative aspect-[9/13] overflow-hidden rounded-[16px_6px_18px_8px] border-2 border-[#11100D] bg-[#0D1020] shadow-[5px_6px_0_rgba(17,16,13,0.18)]">
                 <Image
-                  src="/images/app-screenshots/local-intel.png"
+                  src="/images/app-screenshots/local-intel-720.webp"
                   alt="Quiver app showing nearby surf spots and local intel"
                   fill
                   sizes="(min-width: 1024px) 360px, 80vw"

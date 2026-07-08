@@ -7,34 +7,10 @@ import {
 } from "@/components/beach-detail/zine/atoms";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
 import type { FirstTouchPlatform } from "@/lib/analytics/web-context";
+import { FieldGuideHeroVideo } from "./field-guide-hero-video";
 
 interface FieldGuideHeroProps {
   platform: FirstTouchPlatform;
-}
-
-function FieldGuideHeroVideo(): ReactElement {
-  return (
-    <div
-      id="demo"
-      className="halftone-photo relative aspect-video w-full overflow-hidden bg-[#C8C2B0]"
-      data-testid="field-guide-hero-video"
-    >
-      <video
-        src="/videos/quiver-landing-hero-720.mp4"
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        poster="/images/hero/quiver-landing-hero-poster.jpg"
-        aria-label="Quiver app launch video preview"
-        className="absolute inset-0 h-full w-full object-cover"
-      />
-      <div className="absolute bottom-1.5 right-1.5 z-10 border border-[#11100D] bg-[#F4EBD8]/85 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[#11100D]">
-        Live now
-      </div>
-    </div>
-  );
 }
 
 export function FieldGuideHero({ platform }: FieldGuideHeroProps): ReactElement {

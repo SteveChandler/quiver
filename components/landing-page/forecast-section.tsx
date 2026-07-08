@@ -34,7 +34,7 @@ const FEATURES: Feature[] = [
     railLabel: "Forecast",
     headline: CONTENT.sections.forecast.title,
     body: CONTENT.sections.forecast.subtitle,
-    imageSrc: "/images/app-screenshots/surf-call.png",
+    imageSrc: "/images/app-screenshots/surf-call-720.webp",
     imageAlt: "Quiver app showing a La Jolla Shores surf call with best-window, swell, wind, tide, and session guidance.",
   },
   {
@@ -42,7 +42,7 @@ const FEATURES: Feature[] = [
     railLabel: "Log",
     headline: "Log what actually happened",
     body: "After your session, save the beach, board, rating, notes, and wave check so Quiver has real surf signal to learn from.",
-    imageSrc: "/images/app-screenshots/session-log.png",
+    imageSrc: "/images/app-screenshots/session-log-720.webp",
     imageAlt: "Quiver Log Session screen with beach search, board picker, duration, rating, and wave conditions.",
   },
   {
@@ -50,7 +50,7 @@ const FEATURES: Feature[] = [
     railLabel: "Check",
     headline: "Check the beach before you commit",
     body: "Use local reports, photos, and spot context to ground-truth the call before you drive or paddle out.",
-    imageSrc: "/images/app-screenshots/local-intel.png",
+    imageSrc: "/images/app-screenshots/local-intel-720.webp",
     imageAlt: "Quiver beach finder screen showing nearby surf spots, skill filters, and trending local breaks.",
   },
 ];
