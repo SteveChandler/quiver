@@ -138,6 +138,7 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
     "/for-surf-schools",
     "/for-businesses",
     "/free-surf-reports",
+    "/best-surf-forecast-app",
     "/best-free-surf-forecast-app",
     "/forecast-accuracy",
     "/vs/surfline",
@@ -147,11 +148,15 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
     url: `${baseUrl}${route}`,
     lastModified: staticPageDate,
     changeFrequency:
-      route === "/best-free-surf-forecast-app" ? "monthly" : "daily",
+      route === "/best-free-surf-forecast-app" ||
+      route === "/best-surf-forecast-app"
+        ? "monthly"
+        : "daily",
     priority:
       route === "/"
         ? 1
         : route === "/free-surf-reports" ||
+            route === "/best-surf-forecast-app" ||
             route === "/best-free-surf-forecast-app"
           ? 0.85
           : route === "/vs/surfline"

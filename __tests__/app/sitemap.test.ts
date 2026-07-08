@@ -131,6 +131,17 @@ describe("Sitemap Generation", () => {
       expect(route?.changeFrequency).toBe("daily");
     });
 
+    it("should include /best-surf-forecast-app route with monthly freshness", async () => {
+      const result = await sitemap();
+      const route = result.find(
+        (r) => r.url === `${baseUrl}/best-surf-forecast-app`,
+      );
+
+      expect(route).not.toBeUndefined();
+      expect(route?.priority).toBe(0.85);
+      expect(route?.changeFrequency).toBe("monthly");
+    });
+
     it("should include /forecast-accuracy (curated comparison page)", async () => {
       const result = await sitemap();
       const route = result.find((r) => r.url === `${baseUrl}/forecast-accuracy`);
