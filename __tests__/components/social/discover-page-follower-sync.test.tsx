@@ -9,9 +9,9 @@ jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(),
 }));
 
-// Mock the FollowButton component to simulate the current behavior (without callback)
+// Mock the FollowButton component to exercise the parent count callback.
 jest.mock("@/components/social/follow-button", () => ({
-  FollowButton: ({ userId, initialFollowersCount }: any) => {
+  FollowButton: ({ userId, initialFollowersCount, onFollowersCountChange }: any) => {
     const [following, setFollowing] = React.useState(false);
     const [count, setCount] = React.useState(initialFollowersCount);
 
@@ -21,8 +21,7 @@ jest.mock("@/components/social/follow-button", () => ({
 
       setFollowing(newFollowing);
       setCount(newCount);
-
-      // Note: No callback implementation yet - this represents the current bug
+      onFollowersCountChange?.(newCount);
     };
 
     return (
@@ -52,14 +51,8 @@ describe("DiscoverPage Follower Count Synchronization", () => {
     mockUseAuth.mockReturnValue({ user: mockUser } as any);
   });
 
-  describe("Luna follower count bug reproduction", () => {
-    it("should demonstrate the current Luna follower count sync issue", async () => {
-      // This test reproduces the exact scenario described by the user:
-      // 1. Search for Luna shows 0 followers
-      // 2. Follow Luna
-      // 3. Follower count DOESN'T update on discover page (this is the bug)
-      // 4. But the FollowButton's internal count does update
-
+  describe("Follower count synchronization", () => {
+    it("should synchronize Luna follower count after follow", async () => {
       const mockLunaSearchResult = [
         {
           id: "luna-user-id",
@@ -102,12 +95,12 @@ describe("DiscoverPage Follower Count Synchronization", () => {
       const followButton = screen.getByTestId("follow-button-luna-user-id");
       await user.click(followButton);
 
-      // Step 4: The BUG - discover page still shows "0 followers"
-      // but the button's internal count updated to 1
-      expect(screen.getByText("0 followers")).toBeInTheDocument(); // Page count doesn't update
-      expect(screen.getByTestId("button-count-luna-user-id")).toHaveTextContent(
-        "1"
-      ); // Button count does update
+      await waitFor(() => {
+        expect(screen.getByText("1 followers")).toBeInTheDocument();
+        expect(
+          screen.getByTestId("button-count-luna-user-id")
+        ).toHaveTextContent("1");
+      });
 
       // Verify the follow button shows "Unfollow" state
       expect(followButton).toHaveTextContent("Unfollow");
@@ -149,37 +142,34 @@ describe("DiscoverPage Follower Count Synchronization", () => {
 
       const followButton = screen.getByTestId("follow-button-test-user-id");
 
-      // Follow (button internal count: 5 -> 6, but page still shows 5)
       await user.click(followButton);
       await waitFor(() => {
-        expect(screen.getByText("5 followers")).toBeInTheDocument(); // Page count doesn't update
+        expect(screen.getByText("6 followers")).toBeInTheDocument();
         expect(
           screen.getByTestId("button-count-test-user-id")
-        ).toHaveTextContent("6"); // Button count does
+        ).toHaveTextContent("6");
       });
 
-      // Unfollow (button internal count: 6 -> 5, page still shows 5)
       await user.click(followButton);
       await waitFor(() => {
-        expect(screen.getByText("5 followers")).toBeInTheDocument(); // Page count doesn't update
+        expect(screen.getByText("5 followers")).toBeInTheDocument();
         expect(
           screen.getByTestId("button-count-test-user-id")
-        ).toHaveTextContent("5"); // Button count does
+        ).toHaveTextContent("5");
       });
 
-      // Follow again (button internal count: 5 -> 6, page still shows 5)
       await user.click(followButton);
       await waitFor(() => {
-        expect(screen.getByText("5 followers")).toBeInTheDocument(); // Page count doesn't update
+        expect(screen.getByText("6 followers")).toBeInTheDocument();
         expect(
           screen.getByTestId("button-count-test-user-id")
-        ).toHaveTextContent("6"); // Button count does
+        ).toHaveTextContent("6");
       });
     });
   });
 
   describe("Search result state management", () => {
-    it("should demonstrate the current bug where search results don't update", async () => {
+    it("should update the matching search result when follow counts change", async () => {
       const mockSearchResults = [
         {
           id: "user-2",
@@ -223,12 +213,10 @@ describe("DiscoverPage Follower Count Synchronization", () => {
       await user.click(followButton1);
 
       await waitFor(() => {
-        // BUG: Page count doesn't update, but button count does
-        expect(screen.getByText("3 followers")).toBeInTheDocument(); // Page still shows original
+        expect(screen.getByText("4 followers")).toBeInTheDocument();
         expect(screen.getByTestId("button-count-user-2")).toHaveTextContent(
           "4"
-        ); // Button updated
-        // Second user's count should remain unchanged
+        );
         expect(screen.getByText("7 followers")).toBeInTheDocument();
       });
 
@@ -237,15 +225,14 @@ describe("DiscoverPage Follower Count Synchronization", () => {
       await user.click(followButton2);
 
       await waitFor(() => {
-        // BUG: Page counts don't update, but button counts do
-        expect(screen.getByText("3 followers")).toBeInTheDocument(); // Original page count
-        expect(screen.getByText("7 followers")).toBeInTheDocument(); // Original page count
+        expect(screen.getByText("4 followers")).toBeInTheDocument();
+        expect(screen.getByText("8 followers")).toBeInTheDocument();
         expect(screen.getByTestId("button-count-user-2")).toHaveTextContent(
           "4"
-        ); // Button updated
+        );
         expect(screen.getByTestId("button-count-user-3")).toHaveTextContent(
           "8"
-        ); // Button updated
+        );
       });
     });
 
@@ -287,11 +274,10 @@ describe("DiscoverPage Follower Count Synchronization", () => {
       await user.click(followButton);
 
       await waitFor(() => {
-        // BUG: Page still shows 0 followers, but button count updates to 1
-        expect(screen.getByText("0 followers")).toBeInTheDocument(); // Page doesn't update
+        expect(screen.getByText("1 followers")).toBeInTheDocument();
         expect(screen.getByTestId("button-count-user-2")).toHaveTextContent(
           "1"
-        ); // Button does update
+        );
       });
     });
   });
@@ -337,15 +323,39 @@ describe("DiscoverPage Follower Count Synchronization", () => {
     it("should clear search results on failed search", async () => {
       const consoleSpy = jest.spyOn(console, "error").mockImplementation();
 
-      // First successful search
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: {
-              users: [{ id: "user-2", full_name: "Luna", followers_count: 0 }],
-            },
-          }),
+      let searchCalls = 0;
+      (global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+
+        if (!url.includes("/api/users/search")) {
+          return Promise.resolve({
+            json: () =>
+              Promise.resolve({ success: true, data: { users: [] } }),
+          });
+        }
+
+        searchCalls += 1;
+        if (searchCalls === 1) {
+          return Promise.resolve({
+            json: () =>
+              Promise.resolve({
+                success: true,
+                data: {
+                  users: [
+                    { id: "user-2", full_name: "Luna", followers_count: 0 },
+                  ],
+                },
+              }),
+          });
+        }
+
+        return Promise.resolve({
+          json: () =>
+            Promise.resolve({
+              success: false,
+              error: "Search failed",
+            }),
+        });
       });
 
       const user = userEvent.setup();
@@ -362,15 +372,6 @@ describe("DiscoverPage Follower Count Synchronization", () => {
 
       await waitFor(() => {
         expect(screen.getByText("Search Results (1)")).toBeInTheDocument();
-      });
-
-      // Now mock failed search
-      (global.fetch as jest.Mock).mockResolvedValueOnce({
-        json: () =>
-          Promise.resolve({
-            success: false,
-            error: "Search failed",
-          }),
       });
 
       // Clear and search again
