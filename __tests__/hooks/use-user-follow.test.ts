@@ -153,7 +153,10 @@ describe("useUserFollow", () => {
         followingCount: 5,
         following: false,
       });
-      mockToggleFollowGateway.mockResolvedValue({ success: true, data: { followId: "follow-1" } });
+      mockToggleFollowGateway.mockResolvedValue({
+        success: true,
+        data: { following: true, followersCount: 11, followingCount: 5 },
+      });
 
       const { result } = renderHook(() => useUserFollow("user-2", 10, 5));
 
@@ -173,7 +176,10 @@ describe("useUserFollow", () => {
         followingCount: 5,
         following: true,
       });
-      mockToggleFollowGateway.mockResolvedValue({ success: true, data: {} });
+      mockToggleFollowGateway.mockResolvedValue({
+        success: true,
+        data: { following: false, followersCount: 9, followingCount: 5 },
+      });
 
       const { result } = renderHook(() => useUserFollow("user-2", 10, 5));
 
@@ -416,7 +422,10 @@ describe("useUserFollow", () => {
     it("should call onFollowersCountChange during optimistic updates", async () => {
       const mockCallback = jest.fn();
       mockGetStatusAndCounts.mockResolvedValue({ followersCount: 10, followingCount: 5, following: false });
-      mockToggleFollowGateway.mockResolvedValue({ success: true, data: { followId: "follow-1" } });
+      mockToggleFollowGateway.mockResolvedValue({
+        success: true,
+        data: { following: true, followersCount: 11, followingCount: 5 },
+      });
 
       const { result } = renderHook(() =>
         useUserFollow("user-2", 10, 5, mockCallback)
