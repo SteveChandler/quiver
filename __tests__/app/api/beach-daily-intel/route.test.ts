@@ -340,7 +340,7 @@ describe("/api/beach-daily-intel", () => {
 
       // Verify query chain
       expect(mockSupabase.from).toHaveBeenCalledWith("beach_daily_intel");
-      expect(chain.select).toHaveBeenCalledWith("*");
+      expect(chain.select).toHaveBeenCalledWith(expect.stringContaining("best_window_start"));
       expect(chain.eq).toHaveBeenCalledWith("beach_id", beachId);
       expect(chain.eq).toHaveBeenCalledWith("forecast_date", forecastDate);
       expect(chain.order).toHaveBeenCalledWith("generated_at", { ascending: false });
