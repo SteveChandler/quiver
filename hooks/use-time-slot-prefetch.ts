@@ -16,6 +16,30 @@ import type { SurfDiscoveryResponse, TimeSlot } from "@/types/personalization";
  */
 const ALL_TIME_SLOTS: TimeSlot[] = ["any", "dawn-patrol", "lunch-session", "afternoon"];
 
+type NavigatorConnection = {
+  saveData?: boolean;
+  effectiveType?: string;
+};
+
+function isPrefetchEnvironmentReady(): boolean {
+  if (typeof document !== "undefined" && document.visibilityState !== "visible") {
+    return false;
+  }
+
+  if (typeof navigator === "undefined") return true;
+
+  const connection = (navigator as Navigator & {
+    connection?: NavigatorConnection;
+  }).connection;
+
+  if (connection?.saveData) return false;
+  if (connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") {
+    return false;
+  }
+
+  return true;
+}
+
 /**
  * Options for useTimeSlotPrefetch hook
  */
@@ -44,7 +68,8 @@ interface UseTimeSlotPrefetchOptions {
  * Strategy:
  * - Waits 500ms after initial render to not block main content
  * - Uses requestIdleCallback (with setTimeout fallback for Safari)
- * - Fetches remaining 3 time slots in parallel
+ * - Skips hidden tabs, data-saver mode, and constrained connections
+ * - Fetches remaining time slots sequentially to avoid competing with active UI requests
  * - Skips slots that already have valid cache
  * - Silent failure - errors don't affect user experience
  * - Re-prefetches when user location changes significantly
@@ -90,8 +115,10 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
   }, [locationKey]);
 
   useEffect(() => {
-    // Skip if not enabled, no user, or already prefetched
+    // Skip if not enabled, no user, already prefetched, or the browser is in a
+    // context where background network work is likely to hurt the session.
     if (!enabled || !user?.id || prefetchedRef.current) return;
+    if (!isPrefetchEnvironmentReady()) return;
 
     // Get slots to prefetch (exclude current slot)
     const slotsToFetch = ALL_TIME_SLOTS.filter((slot) => slot !== currentSlot);
@@ -141,15 +168,16 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
         // Clear the ref since we're now executing
         idleCallbackIdRef.current = null;
 
+        if (!isPrefetchEnvironmentReady()) return;
+
         // Create abort controller for cleanup
         abortControllerRef.current = new AbortController();
         const signal = abortControllerRef.current.signal;
 
-        // Fetch all slots in parallel
-        const fetchPromises = slotsNeedingFetch.map(async (slot) => {
+        for (const slot of slotsNeedingFetch) {
           try {
             // Check abort signal before fetch
-            if (signal.aborted) return;
+            if (signal.aborted) break;
 
             const cacheOptions: DiscoveryCacheOptions = {
               userLocation,
@@ -192,17 +220,17 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
             });
 
             // Check abort signal after fetch
-            if (signal.aborted) return;
+            if (signal.aborted) break;
 
             if (!response.ok) {
               // Silent failure - just skip this slot
-              return;
+              continue;
             }
 
             const result = await response.json();
 
             // Check abort signal after parsing
-            if (signal.aborted) return;
+            if (signal.aborted) break;
 
             // Transform date strings to Date objects
             if (result.data?.recommendations) {
@@ -231,9 +259,8 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
               console.debug(`Prefetch for ${slot} failed:`, error.message);
             }
           }
-        });
+        }
 
-        await Promise.allSettled(fetchPromises);
         prefetchedRef.current = true;
       });
     }, 500);
