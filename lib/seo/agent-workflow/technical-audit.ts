@@ -26,6 +26,34 @@ export function extractSitemapPaths(xml: string): string[] {
   return matches.map((match) => normalizeSeoPath(decodeXml(match[1] ?? "")));
 }
 
+export function extractInternalLinks(html: string, baseUrl: string): string[] {
+  let origin: string;
+  try {
+    origin = new URL(baseUrl).origin;
+  } catch {
+    return [];
+  }
+
+  const found = new Set<string>();
+  for (const match of html.matchAll(/<a\b[^>]*\bhref=["']([^"']+)["']/gi)) {
+    const raw = (match[1] ?? "").trim();
+    if (!raw || raw.startsWith("#") || /^(mailto:|tel:|javascript:|data:)/i.test(raw)) {
+      continue;
+    }
+    let resolved: URL;
+    try {
+      resolved = new URL(raw, baseUrl);
+    } catch {
+      continue;
+    }
+    if (resolved.origin !== origin || !/^https?:$/.test(resolved.protocol)) continue;
+    resolved.hash = "";
+    found.add(resolved.toString());
+  }
+
+  return [...found];
+}
+
 function analyzeRobots(robotsTxt: string, now: string): SeoRecommendation[] {
   const recommendations: SeoRecommendation[] = [];
   const blocksNext = /^disallow:\s*\/_next\/?\s*$/gim.test(robotsTxt);

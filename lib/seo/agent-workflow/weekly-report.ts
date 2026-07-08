@@ -147,8 +147,12 @@ function renderBottomLine(
   if (input.competitor?.technicalSurfaces.length) {
     parts.push(`${input.competitor.technicalSurfaces.length} competitor technical surface${input.competitor.technicalSurfaces.length === 1 ? "" : "s"} reviewed.`);
   }
-  if (input.dataforseo && input.dataforseo.missing?.length === 0) {
-    parts.push(`DataForSEO: ${input.dataforseo.googleRankings.length} Google rank checks, ${input.dataforseo.asoRankings.length} ASO rank checks, ${input.dataforseo.competitorKeywords.length} competitor keyword rows.`);
+  if (input.dataforseo && isConfiguredDataForSeo(input.dataforseo)) {
+    const dataForSeoStatus = input.dataforseo.status ?? "complete";
+    const descriptor = dataForSeoStatus === "complete"
+      ? "DataForSEO"
+      : `DataForSEO ${dataForSeoStatus}`;
+    parts.push(`${descriptor}: ${input.dataforseo.googleRankings.length} Google rank checks, ${input.dataforseo.asoRankings.length} ASO rank checks, ${input.dataforseo.competitorKeywords.length} competitor keyword rows.`);
   }
   if (input.aeo?.engines.length) {
     parts.push(`AEO engines tracked: ${input.aeo.engines.map((engine) => `${engine.engine}=${engine.citations}`).join(", ")}.`);
@@ -225,7 +229,7 @@ function renderBacklink(backlink?: BacklinkProxyInput): string {
   const topCitationDomains = [...new Map(citationDomains.map((row) => [row.domain, row])).values()]
     .sort((a, b) => b.links - a.links || (b.domainRating ?? 0) - (a.domainRating ?? 0))
     .slice(0, 6);
-  return [
+  const rows = [
     `- Vercel referrer domains/labels: ${backlink.referrers.length}.`,
     `- Embed referrer domains: ${backlink.embedReferrers.length}.`,
     `- Outreach rows parsed: ${backlink.outreachStatuses.length}.`,
@@ -239,7 +243,18 @@ function renderBacklink(backlink?: BacklinkProxyInput): string {
     topManualDomains.length
       ? `- Manual backlink sample domains: ${topManualDomains.join(", ")}.`
       : "- Manual backlink sample domains: none imported.",
-  ].join("\n");
+  ];
+
+  const narrative = backlink.narrativeTargets;
+  if (narrative) {
+    rows.push(`- Backlink target report (${narrative.reportDate || "date n/a"}): ${narrative.confirmed.length} confirmed, ${narrative.unverified.length} unverified target${narrative.confirmed.length + narrative.unverified.length === 1 ? "" : "s"}.`);
+    const topTargets = narrative.confirmed.slice(0, 5).map((target) => target.target);
+    if (topTargets.length) {
+      rows.push(`- Confirmed replacement-link targets: ${topTargets.join(", ")}.`);
+    }
+  }
+
+  return rows.join("\n");
 }
 
 function renderAeo(aeo?: AeoCitationInput): string {
@@ -256,6 +271,19 @@ function renderAeo(aeo?: AeoCitationInput): string {
     .slice(0, 8);
   const llmsFiles = aeo.llmsFiles.map((file) =>
     `${file.path.replace(/^.*\/public\//, "")}: ${file.exists ? `${file.lines} lines` : "missing"}`);
+
+  const baseline = aeo.narrativeBaseline;
+  if (baseline) {
+    const overall = baseline.overall
+      ? `${(baseline.overall.rate * 100).toFixed(1)}% (${baseline.overall.cited}/${baseline.overall.total})`
+      : "n/a";
+    rows.push(`- Citation baseline (${baseline.reportDate || "date n/a"}): ${overall} of tracked AEO queries cite Quiver${baseline.status ? ` [${baseline.status}]` : ""}.`);
+    if (baseline.segments.length) {
+      rows.push(`- Baseline by segment: ${baseline.segments.map((segment) => `${segment.segment} ${(segment.rate * 100).toFixed(0)}% (${segment.cited}/${segment.total})`).join("; ")}.`);
+    }
+  } else {
+    rows.push("- Citation baseline: no aeo-citation-tracking report found; run a live 30-query audit to establish one.");
+  }
 
   rows.push(`- llms inventory: ${llmsFiles.join(", ")}.`);
   rows.push(aiReferrers.length
@@ -442,18 +470,22 @@ function renderCoverageNotes(input: WeeklySeoReportInput): string {
     ...(input.aeo?.missing ?? []),
     ...(input.outreach?.missing ?? []),
   ];
-  const hasDataForSeo = !!input.dataforseo &&
-    (input.dataforseo.googleRankings.length > 0 ||
-      input.dataforseo.asoRankings.length > 0 ||
-      input.dataforseo.competitorKeywords.length > 0);
+  const hasDataForSeo = isConfiguredDataForSeo(input.dataforseo) &&
+    ((input.dataforseo?.googleRankings.length ?? 0) > 0 ||
+      (input.dataforseo?.asoRankings.length ?? 0) > 0 ||
+      (input.dataforseo?.competitorKeywords.length ?? 0) > 0);
   const manualExportCount = input.backlink?.manualExports.length ?? 0;
   const manualRows = sum(input.backlink?.manualExports.map((item) => item.rows) ?? []);
   const manualDomains = sum(input.backlink?.manualExports.map((item) => item.uniqueReferringDomains ?? 0) ?? []);
   const competitorCount = new Set(input.dataforseo?.competitorKeywords.map((row) => row.competitor) ?? []).size;
   const rows = [
-    hasDataForSeo
-      ? "- DataForSEO is enabled for tracked Google SERP, ASO, and competitor keyword snapshots. Backlinks API is intentionally disabled."
-      : "- DataForSEO is not configured, so rank tracking is limited to GSC average position and public store/search snapshots.",
+    !input.dataforseo || isMissingDataForSeoConfig(input.dataforseo)
+      ? "- DataForSEO is not configured, so rank tracking is limited to GSC average position and public store/search snapshots."
+      : isConfiguredDataForSeo(input.dataforseo) && (input.dataforseo?.status ?? "complete") !== "complete"
+        ? `- DataForSEO is configured but ${input.dataforseo?.status ?? "partial"}; completed phases: ${(input.dataforseo?.completedPhases ?? []).join(", ") || "none"}; failed phases: ${(input.dataforseo?.failedPhases ?? []).join(", ") || "none"}.`
+        : hasDataForSeo
+          ? "- DataForSEO is enabled for tracked Google SERP, ASO, and competitor keyword snapshots. Backlinks API is intentionally disabled."
+          : "- DataForSEO is configured but returned no completed ranking, ASO, or competitor rows in this run.",
     input.backlink
       ? `- Backlink coverage uses free/provided sources: Vercel referrers, widget embed referrers, outreach tracker rows, and ${manualExportCount} manual export file${manualExportCount === 1 ? "" : "s"} (${manualRows} rows, ${manualDomains} referring-domain observations). No paid full backlink index is configured.`
       : "- Backlink coverage uses free/provided sources when available: Vercel referrers, widget embeds, outreach rows, and manual CSV/JSON exports. No paid full backlink index is configured.",
@@ -464,7 +496,7 @@ function renderCoverageNotes(input: WeeklySeoReportInput): string {
       ? `- Competitor technical surfaces are parsed from the latest competitor deep-dive run (${input.competitor.runId ?? "unknown run"}), then summarized into this weekly report.`
       : "- Competitor technical surfaces are unavailable unless the latest competitor deep-dive report is present.",
     input.aeo?.engines.length || input.aeo?.aiReferrers.length || input.aeo?.llmsFiles.length
-      ? "- AEO coverage combines llms inventory, AI referrer traffic, and Ahrefs AI citation snapshots when present."
+      ? "- AEO coverage combines llms inventory, AI referrer traffic, Ahrefs AI citation snapshots, and the latest citation-tracking baseline when present. Live proxy audits are fallback only; they are not a true multi-engine AI-answer citation measurement."
       : "- AEO coverage is unavailable unless llms files, AI referrers, or Ahrefs citation snapshots are present.",
     input.outreach
       ? `- Outreach coverage reads docs/seo/outreach-tracker.md: week-${input.outreach.rotationWeek} rotation, ${input.outreach.candidates.length} draft candidate${input.outreach.candidates.length === 1 ? "" : "s"} proposed. Gmail drafting runs only in live mode and never sends.`
@@ -479,6 +511,17 @@ function renderCoverageNotes(input: WeeklySeoReportInput): string {
     ...[...new Set(missing)].map((item) => `- Skipped source: ${item}`),
   ];
   return rows.join("\n");
+}
+
+function isMissingDataForSeoConfig(dataforseo?: DataForSeoExportInput): boolean {
+  const missing = dataforseo?.missing ?? [];
+  return missing.includes("DATAFORSEO_DISABLED_BY_CONFIG") ||
+    missing.includes("DATAFORSEO_LOGIN") ||
+    missing.includes("DATAFORSEO_PASSWORD");
+}
+
+function isConfiguredDataForSeo(dataforseo?: DataForSeoExportInput): boolean {
+  return !!dataforseo && !isMissingDataForSeoConfig(dataforseo);
 }
 
 function renderStructuredCompetitorDeltas(deltas: CompetitorDelta[]): string[] {

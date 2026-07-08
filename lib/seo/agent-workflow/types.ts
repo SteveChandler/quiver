@@ -335,12 +335,29 @@ export interface DataForSeoKeywordMetric {
   }>;
 }
 
+export const DATAFORSEO_EXPORT_PHASE_VALUES = [
+  "googleRankings",
+  "keywordMetrics",
+  "asoRankings",
+  "competitorKeywords",
+] as const;
+
+export type DataForSeoExportPhase =
+  (typeof DATAFORSEO_EXPORT_PHASE_VALUES)[number];
+
+export type DataForSeoExportStatus = "complete" | "partial" | "timed_out";
+
 export interface DataForSeoExportInput {
   generatedAt: string;
   googleRankings: DataForSeoSerpRanking[];
   asoRankings: DataForSeoAsoRanking[];
   competitorKeywords: DataForSeoCompetitorKeyword[];
   keywordMetrics?: DataForSeoKeywordMetric[];
+  status?: DataForSeoExportStatus;
+  completedPhases?: DataForSeoExportPhase[];
+  failedPhases?: DataForSeoExportPhase[];
+  deadlineReached?: boolean;
+  watchlistMode?: "live" | "full";
   missing?: string[];
   estimatedCostUsd?: number;
 }
@@ -359,12 +376,27 @@ export interface ManualBacklinkExport {
   topCitationDomains?: Array<{ domain: string; links: number; domainRating?: number }>;
 }
 
+export interface BacklinkNarrativeTarget {
+  target: string;
+  sourceUrl?: string;
+  status: string;
+  nextAction?: string;
+}
+
+export interface BacklinkNarrativeReport {
+  reportDate: string;
+  reportPath: string;
+  confirmed: BacklinkNarrativeTarget[];
+  unverified: BacklinkNarrativeTarget[];
+}
+
 export interface BacklinkProxyInput {
   generatedAt: string;
   referrers: VercelReferrerMetric[];
   embedReferrers: VercelReferrerMetric[];
   outreachStatuses: Array<{ target: string; status: string }>;
   manualExports: ManualBacklinkExport[];
+  narrativeTargets?: BacklinkNarrativeReport;
   missing?: string[];
 }
 
@@ -387,12 +419,28 @@ export interface AeoLlmsFileSnapshot {
   bytes: number;
 }
 
+export interface AeoCitationBaselineSegment {
+  segment: string;
+  cited: number;
+  total: number;
+  rate: number;
+}
+
+export interface AeoCitationNarrativeBaseline {
+  reportDate: string;
+  reportPath: string;
+  status?: string;
+  overall?: AeoCitationBaselineSegment;
+  segments: AeoCitationBaselineSegment[];
+}
+
 export interface AeoCitationInput {
   generatedAt: string;
   aiReferrers: VercelReferrerMetric[];
   engines: AeoCitationEngineSnapshot[];
   citationDomains: AeoCitationDomainSnapshot[];
   llmsFiles: AeoLlmsFileSnapshot[];
+  narrativeBaseline?: AeoCitationNarrativeBaseline;
   missing?: string[];
 }
 
