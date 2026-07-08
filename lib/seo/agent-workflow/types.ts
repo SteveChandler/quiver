@@ -437,6 +437,39 @@ export interface SeoMetadataAuditInput {
   recommendations: SeoRecommendation[];
 }
 
+export const OUTREACH_ROTATION_CATEGORY_VALUES = [
+  "surf-schools",
+  "surf-bloggers",
+  "coastal-businesses",
+  "publications",
+] as const;
+
+export type OutreachRotationCategory =
+  (typeof OUTREACH_ROTATION_CATEGORY_VALUES)[number];
+
+export interface OutreachDraftCandidate {
+  target: string;
+  category: OutreachRotationCategory;
+  website?: string;
+  contact?: string;
+  nearestBeach?: string;
+  angle?: string;
+  notes?: string;
+  subject: string;
+  body: string;
+}
+
+export interface OutreachDigestInput {
+  generatedAt: string;
+  reportDate: string;
+  rotationWeek: number;
+  rotationCategory: OutreachRotationCategory;
+  statusCounts: Record<string, number>;
+  totalRows: number;
+  candidates: OutreachDraftCandidate[];
+  missing?: string[];
+}
+
 export interface WeeklySeoReportInput {
   generatedAt: string;
   recommendations: SeoRecommendation[];
@@ -448,6 +481,7 @@ export interface WeeklySeoReportInput {
   backlink?: BacklinkProxyInput;
   competitor?: CompetitorIntelligenceInput;
   aeo?: AeoCitationInput;
+  outreach?: OutreachDigestInput;
   technical?: SeoRecommendation[];
   metadata?: SeoMetadataAuditInput;
   missing: string[];

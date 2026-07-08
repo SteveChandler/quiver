@@ -28,6 +28,7 @@ describe("SEO workflow weekly report", () => {
     expect(report).toContain("## Bottom Line");
     expect(report).toContain("## Web SEO");
     expect(report).toContain("## AI Citation / AEO Signals");
+    expect(report).toContain("## Outreach Queue");
     expect(report).toContain("## Competitor Technical Surfaces");
     expect(report).toContain("## Native ASO");
     expect(report).toContain("## Execution Plan This Week");
@@ -189,6 +190,36 @@ describe("SEO workflow weekly report", () => {
     expect(report).toContain("Swellify: robots 200; sitemap 200; 507 sitemap URLs; no raw HTML schema markers.");
     expect(report).toContain("Structured competitor report (20260628T235143Z): Lazy Surfer comparison page confirmed.");
     expect(report).toContain("AEO coverage combines llms inventory, AI referrer traffic, and Ahrefs AI citation snapshots when present.");
+  });
+
+  it("renders the outreach queue digest", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-07-06T12:00:00Z",
+      recommendations: [],
+      missing: [],
+      outreach: {
+        generatedAt: "2026-07-06T12:00:00Z",
+        reportDate: "2026-07-06",
+        rotationWeek: 1,
+        rotationCategory: "surf-schools",
+        statusCounts: { queued: 4, sent: 1 },
+        totalRows: 5,
+        candidates: [{
+          target: "Surf Diva",
+          category: "surf-schools",
+          website: "surfdiva.com",
+          nearestBeach: "La Jolla",
+          subject: "Free ML surf forecasts for your La Jolla crew",
+          body: "Hi Surf Diva team,",
+        }],
+      },
+    });
+
+    expect(report).toContain("## Outreach Queue");
+    expect(report).toContain("Rotation week 1: surf schools.");
+    expect(report).toContain('Surf Diva (surfdiva.com) - subject: "Free ML surf forecasts for your La Jolla crew"');
+    expect(report).toContain("Live action: create these as Gmail drafts");
+    expect(report).toContain("Outreach coverage reads docs/seo/outreach-tracker.md: week-1 rotation, 1 draft candidate proposed.");
   });
 
   it("turns weekly actions into an ordered execution plan", () => {

@@ -9,6 +9,7 @@ import type {
   CompetitorIntelligenceInput,
   DataForSeoExportInput,
   GscExportInput,
+  OutreachDigestInput,
   PostHogExportInput,
   SeoMetadataAuditInput,
   SeoRecommendation,
@@ -56,6 +57,7 @@ const input: WeeklySeoReportInput = {
   backlink: readJsonIfExists<BacklinkProxyInput>(path.join(auditDir, "BACKLINK-PROXY.json"), missing) ?? undefined,
   competitor: readJsonIfExists<CompetitorIntelligenceInput>(path.join(auditDir, "COMPETITOR-EXPORT.json"), missing) ?? undefined,
   aeo: readJsonIfExists<AeoCitationInput>(path.join(auditDir, "AEO-EXPORT.json"), missing) ?? undefined,
+  outreach: readJsonIfExists<OutreachDigestInput>(path.join(auditDir, "OUTREACH-DIGEST.json"), missing) ?? undefined,
   metadata,
   missing,
 };

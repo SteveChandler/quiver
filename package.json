@@ -130,6 +130,7 @@
     "seo:export:aeo": "node --import tsx scripts/seo/export-aeo.ts",
     "seo:store-snapshot": "node --import tsx scripts/seo/store-snapshot.ts",
     "seo:backlink-proxy": "node --import tsx scripts/seo/backlink-proxy.ts",
+    "seo:outreach-digest": "node --import tsx scripts/seo/outreach-digest.ts",
     "seo:weekly-report": "node --import tsx scripts/seo/weekly-report.ts",
     "seo:recommend": "node --import tsx scripts/seo/recommend.ts",
     "codex:triage-tests": "codex exec \"Analyze failing Playwright tests in @tests and propose a minimal diff; respect existing helpers and fixtures.\"",

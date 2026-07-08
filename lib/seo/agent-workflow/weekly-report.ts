@@ -5,6 +5,8 @@ import type {
   CompetitorIntelligenceInput,
   DataForSeoExportInput,
   GscExportInput,
+  OutreachDigestInput,
+  OutreachRotationCategory,
   PostHogExportInput,
   SeoMetadataAuditInput,
   SeoPriority,
@@ -87,6 +89,10 @@ export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
     "## AI Citation / AEO Signals",
     "",
     renderAeo(input.aeo),
+    "",
+    "## Outreach Queue",
+    "",
+    renderOutreach(input.outreach),
     "",
     "## Competitor Technical Surfaces",
     "",
@@ -265,6 +271,47 @@ function renderAeo(aeo?: AeoCitationInput): string {
   return rows.join("\n");
 }
 
+function renderOutreach(outreach?: OutreachDigestInput): string {
+  if (!outreach) return "- Outreach digest unavailable.";
+
+  const counts = Object.entries(outreach.statusCounts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([status, count]) => `${status}=${count}`)
+    .join(", ");
+  const rows = [
+    `- Rotation week ${outreach.rotationWeek}: ${rotationLabel(outreach.rotationCategory)}.`,
+    `- Tracker queue (${outreach.totalRows} target row${outreach.totalRows === 1 ? "" : "s"}): ${counts || "no status rows parsed"}.`,
+  ];
+
+  if (outreach.candidates.length === 0) {
+    rows.push("- No queued targets in this week's rotation category; nothing to draft.");
+  } else {
+    rows.push(`- Draft candidates ready for review (${outreach.candidates.length}):`);
+    for (const candidate of outreach.candidates) {
+      const contact = candidate.website ?? candidate.contact ?? "contact via web search";
+      rows.push(`  - ${candidate.target} (${contact}) - subject: "${candidate.subject}"`);
+    }
+    rows.push("- Live action: create these as Gmail drafts and set the matching tracker rows to `drafted` (live runs only; never sent).");
+  }
+
+  return rows.join("\n");
+}
+
+function rotationLabel(category: OutreachRotationCategory): string {
+  switch (category) {
+    case "surf-schools":
+      return "surf schools";
+    case "surf-bloggers":
+      return "surf bloggers & micro-influencers";
+    case "coastal-businesses":
+      return "coastal businesses (hotels, tourism, shops)";
+    case "publications":
+      return "publication / data-story pitches";
+    default:
+      return category;
+  }
+}
+
 function renderStore(store?: StoreSnapshotInput, dataforseo?: DataForSeoExportInput): string {
   const rows: string[] = [];
   if (!store) {
@@ -393,6 +440,7 @@ function renderCoverageNotes(input: WeeklySeoReportInput): string {
     ...(input.backlink?.missing ?? []),
     ...(input.competitor?.missing ?? []),
     ...(input.aeo?.missing ?? []),
+    ...(input.outreach?.missing ?? []),
   ];
   const hasDataForSeo = !!input.dataforseo &&
     (input.dataforseo.googleRankings.length > 0 ||
@@ -418,6 +466,9 @@ function renderCoverageNotes(input: WeeklySeoReportInput): string {
     input.aeo?.engines.length || input.aeo?.aiReferrers.length || input.aeo?.llmsFiles.length
       ? "- AEO coverage combines llms inventory, AI referrer traffic, and Ahrefs AI citation snapshots when present."
       : "- AEO coverage is unavailable unless llms files, AI referrers, or Ahrefs citation snapshots are present.",
+    input.outreach
+      ? `- Outreach coverage reads docs/seo/outreach-tracker.md: week-${input.outreach.rotationWeek} rotation, ${input.outreach.candidates.length} draft candidate${input.outreach.candidates.length === 1 ? "" : "s"} proposed. Gmail drafting runs only in live mode and never sends.`
+      : "- Outreach coverage is unavailable unless docs/seo/outreach-tracker.md is present.",
     manualExportCount > 0
       ? "- Manual backlink imports are included when matching Ahrefs Webmaster Tools, Moz Link Explorer, GSC links, or manual backlink CSV/JSON files are present in the audit folder or `docs/seo/backlink-reports/`."
       : "- Manual backlink imports: no matching Ahrefs Webmaster Tools, Moz Link Explorer, GSC links, or manual backlink CSV/JSON files were found in this audit folder or `docs/seo/backlink-reports/`.",
