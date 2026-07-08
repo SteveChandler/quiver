@@ -75,7 +75,11 @@ export const MONITORING_CONFIG = {
   RATE_LIMIT_ALERT_THRESHOLD: 3,     // Alert after 3 rate limit hits
   
   // Coverage
-  MIN_FORECAST_COVERAGE: 0.9,        // Alert if <90% of beaches have forecasts
+  get MIN_FORECAST_COVERAGE() {
+    // Alert if <90% of beaches have forecasts. Local E2E snapshots can override
+    // this to validate route behavior without requiring a production-sized cache.
+    return envNumber("MONITORING_MIN_FORECAST_COVERAGE", 0.9);
+  },
   MIN_FORECAST_DAYS: 7,              // Each beach should have at least 7 days of forecasts
   
   // Performance
