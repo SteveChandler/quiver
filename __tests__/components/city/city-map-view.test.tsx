@@ -7,7 +7,7 @@
  */
 
 import React from "react";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { CityMapView } from "@/components/city/city-map-view";
 import type { SurfSpot } from "@/lib/data/surf-spots";
 
@@ -212,6 +212,41 @@ describe("CityMapView Component", () => {
       expect(
         screen.getAllByText(/Wide sandy beach with gentle waves/).length
       ).toBeGreaterThan(0);
+    });
+
+    it("should render ranked surf conditions when forecast top picks are provided", () => {
+      render(
+        <CityMapView
+          spots={mockSpots}
+          cityName="La Jolla"
+          citySlug="la-jolla"
+          forecastTopPicks={[
+            {
+              name: "Blacks Beach",
+              slug: "blacks",
+              waveHeight: "4-5 ft",
+              windDirection: "6 mph W",
+              score: 86,
+            },
+          ]}
+        />
+      );
+
+      const table = screen.getByRole("table", {
+        name: /la jolla surf conditions/i,
+      });
+      expect(table).toBeInTheDocument();
+      expect(screen.getByRole("columnheader", { name: "Beach" })).toBeInTheDocument();
+      expect(screen.getByRole("columnheader", { name: "Height" })).toBeInTheDocument();
+      expect(screen.getByRole("columnheader", { name: "Wind" })).toBeInTheDocument();
+      expect(screen.getByRole("columnheader", { name: "Verdict" })).toBeInTheDocument();
+      expect(within(table).getByRole("link", { name: "Blacks Beach" })).toHaveAttribute(
+        "href",
+        "/ca/la-jolla/blacks"
+      );
+      expect(screen.getByText("4-5 ft")).toBeInTheDocument();
+      expect(screen.getByText("6 mph W")).toBeInTheDocument();
+      expect(screen.getByText("86/100")).toBeInTheDocument();
     });
   });
 

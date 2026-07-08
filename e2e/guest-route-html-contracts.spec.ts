@@ -249,7 +249,10 @@ test.describe('Route HTML Contracts', () => {
     });
 
     test('legacy beach-compatible route loads without browser navigation', async ({ request }) => {
-      const html = await getHtml(request, '/ca/san-diego/blacks');
+      const beach = TEST_BEACHES.blacks;
+      const state = beach.state.toLowerCase();
+      const city = beach.city.toLowerCase().replace(/\s+/g, '-');
+      const html = await getHtml(request, `/${state}/${city}/${beach.slug}`);
 
       expect(html.toLowerCase()).toContain('blacks');
     });

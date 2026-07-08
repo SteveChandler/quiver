@@ -1188,6 +1188,7 @@ export default async function IntentPage(props: IntentPageParams) {
               citySlug={params.city}
               stateSlug={cityMetadata.state.toLowerCase()}
               countrySlug="usa"
+              forecastTopPicks={forecastSummary?.topPicks}
             />
           </section>
 

@@ -4,8 +4,10 @@
 
 import GenericBeachDetailPage from "@/app/[intent]/[city]/[beachSlug]/page";
 import { getBeachesBySlug } from "@/actions/beach/beach-query-actions";
+import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
+import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 // Mock React's cache function for server components
 jest.mock("react", () => ({
@@ -21,6 +23,11 @@ jest.mock("next/navigation", () => ({
   notFound: jest.fn(() => {
     const err = new Error("NEXT_NOT_FOUND");
     (err as any).digest = "NEXT_NOT_FOUND";
+    throw err;
+  }),
+  redirect: jest.fn((url: string) => {
+    const err = new Error("NEXT_REDIRECT");
+    (err as any).digest = `NEXT_REDIRECT;replace;${url};307;`;
     throw err;
   }),
 }));
@@ -215,7 +222,37 @@ describe("GenericBeachDetailPage slug resolution", () => {
     ).resolves.toBeTruthy();
 
     expect(notFound).not.toHaveBeenCalled();
+    expect(getNearbyBeaches).not.toHaveBeenCalled();
+  });
+
+  it("redirects stale city slugs to the canonical beach URL", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [
+        makeBeach({
+          id: "right-state-wrong-city-url",
+          state: "CA",
+          city: "Dana Point",
+          created_at: "2026-01-03T00:00:00Z",
+        }),
+      ],
+    });
+
+    await expect(
+      GenericBeachDetailPage({
+        params: Promise.resolve({
+          intent: "ca",
+          city: "orange-county",
+          beachSlug: "lower-trestles",
+        }),
+      })
+    ).rejects.toMatchObject({
+      digest: expect.stringContaining("NEXT_REDIRECT"),
+    });
+
+    expectConsoleWarnings([/\[GenericBeachDetailPage\] City slug mismatch/]);
+    expect(redirect).toHaveBeenCalledWith("/ca/dana-point/lower-trestles");
+    expect(notFound).not.toHaveBeenCalled();
+    expect(getNearbyBeaches).not.toHaveBeenCalled();
   });
 });
-
-
