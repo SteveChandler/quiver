@@ -16,7 +16,8 @@ const MIN_CONFIRMED_PERIOD_S = 15;
 const MIN_SOUTH_DIRECTION_DEG = 175;
 const MAX_SOUTH_DIRECTION_DEG = 220;
 const MAX_NEARSHORE_TO_OFFSHORE_RATIO = 1.8;
-const NOWCAST_WINDOW_MS = 1.5 * 60 * 60 * 1000;
+const WINDOW_PAST_MS = 30 * 60 * 1000;
+const WINDOW_FUTURE_MS = 6 * 60 * 60 * 1000;
 
 export const SOUTH_OC_SANO_SHADOW_STATION_IDS = [
   GREEN_BEACH_OFFSHORE,
@@ -303,7 +304,10 @@ export function resolveSouthOcSanoShadowGuardrail(args: {
   if (!slug || !ZONE_SLUGS.has(slug)) {
     return { kind: "noop", reason: "out_of_zone", snapshot: args.snapshot };
   }
-  if (Math.abs(args.forecastAtMs - args.nowMs) > NOWCAST_WINDOW_MS) {
+  if (
+    args.forecastAtMs < args.nowMs - WINDOW_PAST_MS ||
+    args.forecastAtMs > args.nowMs + WINDOW_FUTURE_MS
+  ) {
     return { kind: "noop", reason: "outside_nowcast_window", snapshot: args.snapshot };
   }
 

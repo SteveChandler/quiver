@@ -363,6 +363,7 @@ export function transformToFaceHeight(params: TransformParams): number {
 export interface FaceHeightWithMetadata {
   faceHeightFt: number;
   isCalibrated: boolean;
+  calibrationBucketQuarantined?: boolean;
 }
 
 /**
@@ -413,6 +414,8 @@ export function transformToFaceHeightWithMetadata(
     return { faceHeightFt: 0, isCalibrated: false };
   }
 
+  let calibrationBucketQuarantined = false;
+
   // Short-circuit: empirically calibrated per-beach shoaling lookup.
   // GATED on source === 'cdip_sig' because the bucket factor is measured as
   // `surfline_face_ft / cdip_hs_ft` — applying it to a model-derived height
@@ -422,11 +425,15 @@ export function transformToFaceHeightWithMetadata(
   if (canUseCalibratedShoaling(source, allowCalibratedShoaling)) {
     const bucketFactor = lookupShoalingBucket(periodS, beach?.shoaling_factors);
     if (bucketFactor != null) {
-      const shadow = calibratedShadowFactor(swellDirectionDeg, beach);
-      return {
-        faceHeightFt: Math.round(rawHeightFt * bucketFactor * shadow * 10) / 10,
-        isCalibrated: true,
-      };
+      if (shouldQuarantineCalibratedShoalingBucket(source, periodS, bucketFactor)) {
+        calibrationBucketQuarantined = true;
+      } else {
+        const shadow = calibratedShadowFactor(swellDirectionDeg, beach);
+        return {
+          faceHeightFt: Math.round(rawHeightFt * bucketFactor * shadow * 10) / 10,
+          isCalibrated: true,
+        };
+      }
     }
   }
 
@@ -448,6 +455,7 @@ export function transformToFaceHeightWithMetadata(
   return {
     faceHeightFt: Math.round(faceHeight * 10) / 10,
     isCalibrated: false,
+    ...(calibrationBucketQuarantined ? { calibrationBucketQuarantined } : {}),
   };
 }
 
@@ -520,6 +528,8 @@ export const SHORT_PERIOD_CUTOFF_S = 8;
 export const WIND_WAVE_FACE_HEIGHT_CUTOFF_S = 9;
 
 const LONG_PERIOD_SOUTH_SWELL_FLOOR_MIN_PERIOD_S = 15;
+export const CALIBRATION_BUCKET_QUARANTINE_MIN_PERIOD_S = 15;
+export const CALIBRATION_BUCKET_QUARANTINE_MAX_FACTOR = 0.8;
 const LONG_PERIOD_SOUTH_SWELL_FLOOR_MIN_ACCESS = 0.02;
 const SOUTH_SWELL_FLOOR_MIN_DIRECTION_DEG = 160;
 const SOUTH_SWELL_FLOOR_MAX_DIRECTION_DEG = 230;
@@ -700,6 +710,18 @@ function canUseCalibratedShoaling(
     (source === 'nowcast_anchor' && allowCalibratedShoaling === true);
 }
 
+function shouldQuarantineCalibratedShoalingBucket(
+  source: WaveHeightSourceTag | undefined,
+  periodS: number | null | undefined,
+  bucketFactor: number,
+): boolean {
+  return source === 'cdip_sig' &&
+    periodS != null &&
+    Number.isFinite(periodS) &&
+    periodS >= CALIBRATION_BUCKET_QUARANTINE_MIN_PERIOD_S &&
+    bucketFactor < CALIBRATION_BUCKET_QUARANTINE_MAX_FACTOR;
+}
+
 function shouldApplyDeepwaterDecay(
   source: WaveHeightSourceTag | undefined,
 ): boolean {
@@ -795,15 +817,15 @@ export interface SwellComponentInput {
  *   to what the existing transform would return — this path exists so
  *   callers can log/telemetry which rows decomposed vs which didn't.
  *
- * `isCalibrated` is `true` only when both conditions hold: `source ===
- * 'cdip_sig'` and `beach.shoaling_factors` is populated. Mirrors the
- * semantics of `transformToFaceHeightWithMetadata` so downstream consumers
- * can treat the two metadata flags identically.
+ * `isCalibrated` is `true` only when at least one empirical bucket factor was
+ * actually applied. Mirrors `transformToFaceHeightWithMetadata` so downstream
+ * consumers can treat the two metadata flags identically.
  */
 export interface DecomposedFaceHeightResult {
   faceHeightFt: number;
   isCalibrated: boolean;
   path: 'decomposed' | 'legacy';
+  calibrationBucketQuarantined?: boolean;
 }
 
 /**
@@ -846,10 +868,10 @@ export interface DecomposedFaceHeightResult {
  *   every component, so decomposition becomes "bucket factor × raw height"
  *   RMS-summed. Model sources still use terrain access when available.
  *
- * `isCalibrated` is returned on the `'decomposed'` path iff
- * `source === 'cdip_sig'` AND `beach.shoaling_factors` is populated. On the
- * `'legacy'` path it mirrors whatever `transformToFaceHeightWithMetadata`
- * would have returned for the raw Hs input.
+ * `isCalibrated` is returned on the `'decomposed'` path iff at least one
+ * empirical bucket factor was actually applied. On the `'legacy'` path it
+ * mirrors whatever `transformToFaceHeightWithMetadata` would have returned
+ * for the raw Hs input.
  */
 export function transformToFaceHeightDecomposed(params: {
   components: Array<SwellComponentInput | null>;
@@ -897,6 +919,9 @@ export function transformToFaceHeightDecomposed(params: {
       faceHeightFt: legacy.faceHeightFt,
       isCalibrated: legacy.isCalibrated,
       path: 'legacy',
+      ...(legacy.calibrationBucketQuarantined
+        ? { calibrationBucketQuarantined: true }
+        : {}),
     };
   }
 
@@ -910,6 +935,8 @@ export function transformToFaceHeightDecomposed(params: {
     : 1.0;
 
   let sumOfSquares = 0;
+  let calibrationBucketQuarantined = false;
+  let calibratedBucketUsed = false;
   for (const component of populated) {
     if (
       component.partition === 'wind_wave' &&
@@ -932,9 +959,24 @@ export function transformToFaceHeightDecomposed(params: {
 
     // Only use calibrated bucket factors for CDIP sources — the buckets are
     // measured as surfline_face / cdip_hs and produce overshoot on model data.
-    const bucketFactor = canUseCalibratedShoaling(source, allowCalibratedShoaling)
+    const rawBucketFactor = canUseCalibratedShoaling(source, allowCalibratedShoaling)
       ? lookupShoalingBucket(component.periodS, shoalingFactors)
       : null;
+    const bucketFactor =
+      rawBucketFactor != null &&
+      shouldQuarantineCalibratedShoalingBucket(
+        source,
+        component.periodS,
+        rawBucketFactor,
+      )
+        ? null
+        : rawBucketFactor;
+    if (rawBucketFactor != null && bucketFactor == null) {
+      calibrationBucketQuarantined = true;
+    }
+    if (bucketFactor != null) {
+      calibratedBucketUsed = true;
+    }
     const periodFactor = calculatePeriodFactor(component.periodS);
     // Terrain-access canyon paths should treat 12s+ model swell as organized
     // groundswell; otherwise the generic 12s=1.1 ramp still undercalls LJS.
@@ -963,6 +1005,9 @@ export function transformToFaceHeightDecomposed(params: {
       faceHeightFt: legacy.faceHeightFt,
       isCalibrated: legacy.isCalibrated,
       path: 'legacy',
+      ...(legacy.calibrationBucketQuarantined
+        ? { calibrationBucketQuarantined: true }
+        : {}),
     };
   }
 
@@ -971,11 +1016,8 @@ export function transformToFaceHeightDecomposed(params: {
 
   return {
     faceHeightFt: rounded,
-    // Calibrated iff the short-circuit would have fired for the combined
-    // reading: source is CDIP sig AND the beach has a lookup table. Per-
-    // component bucket misses don't invalidate the beach-level claim.
-    isCalibrated: canUseCalibratedShoaling(source, allowCalibratedShoaling) &&
-      shoalingFactors != null,
+    isCalibrated: calibratedBucketUsed,
     path: 'decomposed',
+    ...(calibrationBucketQuarantined ? { calibrationBucketQuarantined } : {}),
   };
 }

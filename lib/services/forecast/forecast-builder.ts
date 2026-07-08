@@ -1053,6 +1053,9 @@ export class ForecastBuilder {
         transform_path: waveHeightDebug.transformPath,
         components_used: waveHeightDebug.componentsUsed,
         calibrated_shoaling_fired: waveHeightDebug.calibratedShoalingFired,
+        ...(waveHeightDebug.calibrationBucketQuarantined
+          ? { calibration_bucket_quarantined: true }
+          : {}),
         ...(waveHeightDebug.cdipRejection
           ? {
               cdip_rejection: {
@@ -1113,6 +1116,13 @@ export class ForecastBuilder {
             }
           : {}),
       },
+      ...(waveHeightDebug.calibrationBucketQuarantined
+        ? {
+            wave_height_debug: {
+              calibrationBucketQuarantined: true,
+            },
+          }
+        : {}),
       ...(isFirstOfDay && tideData && tideData.tides && tideData.tides.length > 0
         ? {
             tide_schedule: tideData.tides
