@@ -1,5 +1,5 @@
 // __tests__/hooks/use-user-preferences.test.ts
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { useUserPreferences } from "@/hooks/use-user-preferences";
 
 // Mock auth context
@@ -42,10 +42,13 @@ describe("useUserPreferences", () => {
 
     const { result } = renderHook(() => useUserPreferences());
 
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    });
-
+    await waitFor(
+      () => {
+        expect(result.current.data).toEqual(mockPrefs);
+      },
+      { timeout: 5000 },
+    );
+    expect(result.current.loading).toBe(false);
     expect(result.current.data).toEqual(mockPrefs);
     expect(global.fetch).toHaveBeenCalledWith("/api/user/preferences");
   });
@@ -59,10 +62,13 @@ describe("useUserPreferences", () => {
 
     const { result } = renderHook(() => useUserPreferences());
 
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    });
-
+    await waitFor(
+      () => {
+        expect(result.current.error?.message).toContain("500");
+      },
+      { timeout: 5000 },
+    );
+    expect(result.current.loading).toBe(false);
     expect(result.current.data).toBeNull();
   });
 
@@ -74,10 +80,13 @@ describe("useUserPreferences", () => {
 
     const { result } = renderHook(() => useUserPreferences());
 
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    });
-
+    await waitFor(
+      () => {
+        expect(result.current.error?.message).toBe("Network timeout");
+      },
+      { timeout: 5000 },
+    );
+    expect(result.current.loading).toBe(false);
     expect(result.current.error?.message).toBe("Network timeout");
     expect(result.current.data).toBeNull();
   });
@@ -91,10 +100,13 @@ describe("useUserPreferences", () => {
 
     const { result } = renderHook(() => useUserPreferences());
 
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    });
-
+    await waitFor(
+      () => {
+        expect(result.current.error?.message).toContain("500");
+      },
+      { timeout: 5000 },
+    );
+    expect(result.current.loading).toBe(false);
     expect(result.current.error?.message).toContain("500");
     expect(result.current.data).toBeNull();
   });
@@ -127,18 +139,26 @@ describe("useUserPreferences", () => {
 
     const { result } = renderHook(() => useUserPreferences());
 
-    await waitFor(() => {
-      expect(result.current.loading).toBe(false);
-    });
-
+    await waitFor(
+      () => {
+        expect(result.current.data).toEqual(mockPrefs1);
+      },
+      { timeout: 5000 },
+    );
+    expect(result.current.loading).toBe(false);
     expect(result.current.data).toEqual(mockPrefs1);
 
     // Trigger refetch
-    result.current.refetch();
-
-    await waitFor(() => {
-      expect(result.current.data).toEqual(mockPrefs2);
+    await act(async () => {
+      await result.current.refetch();
     });
+
+    await waitFor(
+      () => {
+        expect(result.current.data).toEqual(mockPrefs2);
+      },
+      { timeout: 5000 },
+    );
 
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
