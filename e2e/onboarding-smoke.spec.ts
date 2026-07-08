@@ -101,7 +101,6 @@ test.describe('Onboarding Smoke: entry paths', () => {
   test('Oracle "Set your home beach" CTA opens the dialog in place @smoke', async ({
     page,
   }) => {
-    test.fixme(true, 'Ephemeral profile cleanup lacks dev privileges; repair fresh-user fixture setup before asserting the Oracle CTA.');
     await page.goto('/');
     await page.waitForLoadState('load');
 
@@ -113,13 +112,10 @@ test.describe('Onboarding Smoke: entry paths', () => {
     });
     const hasCta = await isVisibleSafe(setHomeBtn, { timeout: TIMEOUTS.long });
 
-    if (!hasCta) {
-      throw new Error(
-        'Not implemented: Oracle "Set your home beach" CTA did not render for a ' +
-          'fresh ephemeral signup. This is a regression in the Oracle CTA wiring ' +
-          'or the home-screen render — see plan abstract-exploring-phoenix.'
-      );
-    }
+    expect(
+      hasCta,
+      'Oracle "Set your home beach" CTA should render for a fresh ephemeral signup'
+    ).toBe(true);
 
     await setHomeBtn.scrollIntoViewIfNeeded();
     await setHomeBtn.click({ force: true });
@@ -186,6 +182,10 @@ test.describe('Onboarding Smoke: full flow + navigation stability', () => {
     await page.waitForLoadState('load');
 
     await completeOnboarding(page);
+
+    await expect(page.getByRole('dialog')).toBeHidden({
+      timeout: TIMEOUTS.long,
+    });
   });
 
   test('post-Finish home renders without remounting mid-transition @smoke', async ({
