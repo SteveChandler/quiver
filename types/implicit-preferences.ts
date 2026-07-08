@@ -69,6 +69,8 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   signup_started: 0,
   signup_success: 0,
   login_success: 0,
+  login_failed: 0,
+  signup_failed: 0,
   signup_form_submitted: 0,
   login_form_submitted: 0,
   native_app_first_open: 0,

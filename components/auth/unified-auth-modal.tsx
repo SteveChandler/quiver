@@ -331,7 +331,7 @@ export function UnifiedAuthModal({
 
     if (result.error) {
       setError(result.error);
-      trackLoginFailed({ method: "apple", error_type: "oauth_failed" });
+      trackLoginFailed({ method: "apple", error_type: "oauth_failed", source });
       setLoading(false);
       return;
     }
@@ -349,7 +349,7 @@ export function UnifiedAuthModal({
         landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
       });
     } else {
-      trackLoginSuccess({ method: "apple", duration_ms: duration });
+      trackLoginSuccess({ method: "apple", duration_ms: duration, source });
     }
     setLoading(false);
     onClose();
@@ -384,7 +384,7 @@ export function UnifiedAuthModal({
 
     if (result.error) {
       setError(result.error);
-      trackLoginFailed({ method: "google", error_type: "oauth_failed" });
+      trackLoginFailed({ method: "google", error_type: "oauth_failed", source });
       setLoading(false);
       return;
     }
@@ -403,7 +403,7 @@ export function UnifiedAuthModal({
         landing_page: typeof window !== "undefined" ? window.location.pathname : undefined,
       });
     } else {
-      trackLoginSuccess({ method: "google", duration_ms: duration });
+      trackLoginSuccess({ method: "google", duration_ms: duration, source });
     }
     setLoading(false);
     onClose();
@@ -430,7 +430,7 @@ export function UnifiedAuthModal({
 
     if (result.error) {
       setError(result.error);
-      trackLoginFailed({ method: "magic_link", error_type: "send_failed" });
+      trackLoginFailed({ method: "magic_link", error_type: "send_failed", source });
       setLoading(false);
     } else {
       trackMagicLinkSent(extractEmailDomain(email));
@@ -527,7 +527,7 @@ export function UnifiedAuthModal({
         await signIn(email, password);
 
         const duration = Date.now() - start;
-        trackLoginSuccess({ method: "password", duration_ms: duration });
+        trackLoginSuccess({ method: "password", duration_ms: duration, source });
 
         setLoading(false);
 
@@ -540,9 +540,9 @@ export function UnifiedAuthModal({
         err instanceof Error ? err.message : "Authentication failed";
 
       if (activeMode === "signup") {
-        trackSignupFailed({ method: "password", error_type: errorType });
+        trackSignupFailed({ method: "password", error_type: errorType, source });
       } else {
-        trackLoginFailed({ method: "password", error_type: errorType });
+        trackLoginFailed({ method: "password", error_type: errorType, source });
       }
 
       setError(errorMessage);

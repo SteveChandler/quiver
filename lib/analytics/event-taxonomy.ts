@@ -52,6 +52,8 @@ export const VALID_EVENTS = [
   'signup_started',
   'signup_success',
   'login_success',
+  'login_failed',
+  'signup_failed',
   'signup_form_submitted',
   'login_form_submitted',
   'native_app_first_open',
@@ -288,7 +290,6 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
   'ios_app_cta_view',
   'iphone_app_banner_click',
   'iphone_app_banner_dismiss',
-  'login_failed',
   'login_started',
   'magic_link_clicked',
   'magic_link_sent',
@@ -302,7 +303,6 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
   'set_alarm_clicked',
   'share_session_clicked',
   'share_sheet_opened',
-  'signup_failed',
   'user_signed_in',
   'web_push_opt_in_attempt',
   'web_push_opt_in_denied',
@@ -332,7 +332,7 @@ export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   // Form-submitted events — pre-auth only; the form can only be submitted by
   // an anonymous user. Authed fires are ghost-triggers and dropped server-side
   // via PRE_AUTH_ONLY_EVENTS.
-  'signup_form_submitted', 'login_form_submitted',
+  'signup_form_submitted', 'login_form_submitted', 'login_failed', 'signup_failed',
   // Native signed-out onboarding intro CTA.
   'onboarding_intro_get_started',
   // Engagement signals from anonymous visitors
@@ -388,6 +388,8 @@ export const PRE_AUTH_ONLY_EVENTS: readonly EventType[] = [
   'signin_cta_click',
   'signup_form_submitted',
   'login_form_submitted',
+  'login_failed',
+  'signup_failed',
   'auth_modal_opened',
   'auth_modal_closed_without_action',
   'auth_failed',
