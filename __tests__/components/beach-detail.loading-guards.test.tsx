@@ -53,6 +53,8 @@ jest.mock("@/components/beach-detail/tabs/forecast-tab", () => {
 });
 
 import React from "react";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { useBeachDetailData } from "@/hooks/use-beach-detail-data";
 import { useForecastCalibration } from "@/hooks/use-forecast-calibration";
@@ -160,6 +162,28 @@ describe("BeachDetail loading and error guards", () => {
     });
     expect(getYesterdayAccuracy).not.toHaveBeenCalled();
     await screen.findByTestId("forecast-tab");
+  });
+
+  it("keeps below-fold beach detail work behind streaming or idle gates", () => {
+    const pageSource = readFileSync(
+      join(process.cwd(), "app/beach/[slug]/page.tsx"),
+      "utf8",
+    );
+    const clientSource = readFileSync(
+      join(process.cwd(), "app/beach/[slug]/beach-detail-client.tsx"),
+      "utf8",
+    );
+    const detailSource = readFileSync(
+      join(process.cwd(), "components/beach-detail.tsx"),
+      "utf8",
+    );
+
+    expect(pageSource).toContain("<Suspense fallback={null}>");
+    expect(pageSource).toContain("<DeferredNearbyBeaches beach={beach} />");
+    expect(clientSource).toContain("requestIdleCallback(run");
+    expect(detailSource).toContain("secondaryDataReady && activeTab === \"sessions\"");
+    expect(detailSource).toContain("secondaryDataReady && activeTab === \"forecast\"");
+    expect(detailSource).toContain("if (!beach || !secondaryDataReady) return;");
   });
 
   it("keeps the condition alert CTA visible on beach detail", async () => {
