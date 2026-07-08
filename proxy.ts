@@ -413,9 +413,17 @@ export async function proxy(request: NextRequest) {
     pathname,
     request.method
   );
+  const sessionSearchParams = request.nextUrl.searchParams;
   const isEmailSessionFallback =
     pathname === "/sessions/new" &&
-    request.nextUrl.searchParams?.has("token") === true;
+    (
+      sessionSearchParams?.has("token") === true ||
+      sessionSearchParams?.get("entrySource") === "email" ||
+      sessionSearchParams?.get("utm_source") === "email" ||
+      sessionSearchParams?.get("utm_medium") === "email" ||
+      sessionSearchParams?.has("email_type") === true ||
+      sessionSearchParams?.has("message_instance_id") === true
+    );
 
   // Skip middleware for API routes, static files, etc.
   if (routeClassification.type === "skip") {
