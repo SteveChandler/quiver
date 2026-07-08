@@ -81,6 +81,7 @@ type BeachRow = {
 };
 
 const mockSupabaseClient = createMockSupabaseClient();
+const STABLE_TEST_NOW = new Date("2026-07-07T18:00:00.000Z");
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data: unknown) => {
@@ -313,11 +314,13 @@ describe("GET /api/forecasts/bulk", () => {
   beforeEach(() => {
     const testEnv = setupApiTestEnvironment();
     cleanup = testEnv.cleanup;
+    jest.useFakeTimers({ now: STABLE_TEST_NOW });
     jest.clearAllMocks();
     mockSupabaseClient.from = jest.fn(() => queryChain({ data: null, error: null })) as any;
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     cleanup?.();
   });
 
