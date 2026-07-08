@@ -38,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **"Best Free Surf Forecast App" comparison answer page** (`app/best-free-surf-forecast-app/page.tsx`, `app/sitemap.ts`). Adds `/best-free-surf-forecast-app` as a one-segment, source-backed GEO comparison page with Quiver, Surfline, Surf-Forecast.com, Surf Captain, LazySurfer, Windy, and NDBC rows; visible checked dates and affiliation disclosure; WebPage, BreadcrumbList, SoftwareApplication, and ItemList schema; and a static sitemap entry.
 
 ### Fixed
+- **Beach list queries now drop invalid coordinates at the source** (`lib/services/beach-query-service.ts`). Public beach lists filter out rows without finite `lat`/`lon` values before search, forecast hub, sitemap, or map consumers can use them.
 - **Session-intelligence rollout includes the La Jolla Blacks route variant** (`lib/recommendations/session-intelligence-rollout.ts`). The spot allowlist now accepts `/ca/la-jolla/blacks` alongside the existing Blacks pilot path.
 - **iOS smart-banner handoff now routes through the app landing path** (`lib/constants/app-store.ts`). The Apple smart-banner app argument now uses `/app` with app-first attribution instead of the generic homepage URL.
 - **Header auth analytics now use one source group** (`lib/analytics/web-context.ts`). `app-header` and `app-header-*` CTA sources now normalize to the shared `app-header` source group instead of fragmenting by page or exact source suffix.
