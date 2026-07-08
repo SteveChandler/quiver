@@ -1,4 +1,4 @@
-
+import { Suspense } from "react";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachFAQSchema } from "@/components/seo/faq-schema";
@@ -62,20 +62,6 @@ export default async function BeachDetailBySlugPage(
         permanentRedirect(withSearchParams(hierarchicalUrl, searchParams));
       }
     }
-
-    // Fetch nearby beaches for SSR SEO section
-    let nearbyBeachesRaw: Beach[] = [];
-    if (beach.lat && beach.lon) {
-      const nearbyResult = await getNearbyBeaches(beach.lat, beach.lon, 25);
-      if (nearbyResult.success && nearbyResult.data) {
-        nearbyBeachesRaw = nearbyResult.data
-          .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
-          .slice(0, 4);
-      }
-    }
-
-    // Enrich nearby beaches with live conditions and photos
-    const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
 
     // Fetch amenity and water quality data (gracefully degrade when tables don't exist yet)
     let amenities: BeachAmenities | null = null;
@@ -141,12 +127,9 @@ export default async function BeachDetailBySlugPage(
 
         {/* SSR sections below tabs for SEO crawlability */}
         <div className="container mx-auto px-4 pb-8 space-y-8">
-          <NearbyBeachesEnriched
-              beaches={nearbyBeaches}
-              sourceBeachName={beach.name}
-              sourceBeachLat={beach.lat}
-              sourceBeachLon={beach.lon}
-            />
+          <Suspense fallback={null}>
+            <DeferredNearbyBeaches beach={beach} />
+          </Suspense>
           <RelatedGuidesSection beach={beach} />
         </div>
       </>
@@ -178,6 +161,29 @@ export default async function BeachDetailBySlugPage(
       </div>
     );
   }
+}
+
+async function DeferredNearbyBeaches({ beach }: { beach: Beach }) {
+  let nearbyBeachesRaw: Beach[] = [];
+  if (beach.lat && beach.lon) {
+    const nearbyResult = await getNearbyBeaches(beach.lat, beach.lon, 25);
+    if (nearbyResult.success && nearbyResult.data) {
+      nearbyBeachesRaw = nearbyResult.data
+        .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
+        .slice(0, 4);
+    }
+  }
+
+  const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
+
+  return (
+    <NearbyBeachesEnriched
+      beaches={nearbyBeaches}
+      sourceBeachName={beach.name}
+      sourceBeachLat={beach.lat}
+      sourceBeachLon={beach.lon}
+    />
+  );
 }
 
 function withSearchParams(
