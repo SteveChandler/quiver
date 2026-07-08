@@ -241,6 +241,9 @@ export function deriveSourceGroup(source?: unknown, pathname?: string | null): s
   }
   if (sourceText.startsWith("state-hub-")) return "state-hub";
   if (sourceText.startsWith("landing-") || sourceText === "landing") return "landing";
+  if (sourceText === "app-header" || sourceText.startsWith("app-header-")) {
+    return "app-header";
+  }
   if (
     sourceText.includes("beach") ||
     sourceText.includes("forecast-teaser") ||
@@ -248,7 +251,6 @@ export function deriveSourceGroup(source?: unknown, pathname?: string | null): s
   ) {
     return "beach-detail";
   }
-  if (sourceText.startsWith("app-header-")) return sourceText.replace("app-header-", "app-header-");
 
   if (pathSurface === "landing-page") return "landing";
   return pathSurface;
