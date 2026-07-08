@@ -1,5 +1,6 @@
 import {
   buildMissingDataForSeoExport,
+  normalizeWatchlistKeywords,
   parseAsoRanking,
   parseCompetitorRankedKeywords,
   parseGoogleSerpRanking,
@@ -7,6 +8,24 @@ import {
 } from "@/lib/seo/agent-workflow/dataforseo-export";
 
 describe("SEO workflow DataForSEO export", () => {
+  it("normalizes watchlist keyword tiers and trims values", () => {
+    expect(normalizeWatchlistKeywords([
+      " surf forecast app ",
+      { keyword: " best surf app ", tier: "extended" },
+      { keyword: "quiver surf", tier: "critical" },
+      " ",
+    ], "live")).toEqual([
+      { keyword: "surf forecast app", tier: "critical" },
+      { keyword: "quiver surf", tier: "critical" },
+    ]);
+
+    expect(normalizeWatchlistKeywords([
+      { keyword: " best surf app ", tier: "extended" },
+    ], "full")).toEqual([
+      { keyword: "best surf app", tier: "extended" },
+    ]);
+  });
+
   it("parses Google SERP rankings for Quiver and competitors", () => {
     const ranking = parseGoogleSerpRanking(
       {
@@ -222,6 +241,10 @@ describe("SEO workflow DataForSEO export", () => {
   it("builds a missing-credentials export", () => {
     expect(buildMissingDataForSeoExport("2026-05-20T12:00:00Z", ["DATAFORSEO_LOGIN"])).toEqual({
       generatedAt: "2026-05-20T12:00:00Z",
+      status: "complete",
+      completedPhases: [],
+      failedPhases: [],
+      deadlineReached: false,
       googleRankings: [],
       asoRankings: [],
       competitorKeywords: [],
