@@ -71,6 +71,7 @@ export function BeachDetailClient({
   const [effectiveSurfCallIsTomorrow, setEffectiveSurfCallIsTomorrow] = useState<boolean>(
     surfCallIsTomorrow ?? false,
   );
+  const [personalizationReady, setPersonalizationReady] = useState(false);
 
   useEffect(() => {
     setEffectiveSurfCallReport(surfCallReport ?? null);
@@ -79,6 +80,27 @@ export function BeachDetailClient({
   useEffect(() => {
     setEffectiveSurfCallIsTomorrow(surfCallIsTomorrow ?? false);
   }, [surfCallIsTomorrow]);
+
+  useEffect(() => {
+    setPersonalizationReady(false);
+    const run = (): void => setPersonalizationReady(true);
+
+    if (
+      typeof window !== "undefined" &&
+      "requestIdleCallback" in window &&
+      typeof window.requestIdleCallback === "function"
+    ) {
+      const handle = window.requestIdleCallback(run, { timeout: 1800 });
+      return () => {
+        if (typeof window.cancelIdleCallback === "function") {
+          window.cancelIdleCallback(handle);
+        }
+      };
+    }
+
+    const timeout = window.setTimeout(run, 600);
+    return () => window.clearTimeout(timeout);
+  }, [beach?.id]);
 
   // Keep refs in sync with beach data
   useEffect(() => {
@@ -135,7 +157,7 @@ export function BeachDetailClient({
   }, [slug, user, track]);
 
   useEffect(() => {
-    if (!user || !beach?.id) return;
+    if (!user || !beach?.id || !personalizationReady) return;
 
     const controller = new AbortController();
 
@@ -161,7 +183,7 @@ export function BeachDetailClient({
     void fetchPersonalizedSurfCall();
 
     return () => controller.abort();
-  }, [user, beach?.id]);
+  }, [user, beach?.id, personalizationReady]);
 
   return (
     <>
@@ -184,7 +206,9 @@ export function BeachDetailClient({
         personalizationData={personalizationData}
         onPersonalizationRequest={(forecast, baseScore) => {
           // BeachDetail will call this when it has forecast data and wants personalization
-          if (!user || personalizationData.isLoading) return;
+          if (!user || !personalizationReady || personalizationData.isLoading) {
+            return;
+          }
 
           setPersonalizationData(prev => ({ ...prev, isLoading: true, error: false }));
 
