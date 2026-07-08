@@ -140,6 +140,10 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   favorite_shown_in_carousel: 0,
   mini_log_teaser_click: 0,
   plan_unlock_click: 0,
+  discover_page_view: 0,
+  discover_suggested_users_impression: 0,
+  discover_profile_open: 0,
+  discover_follow_attempt: 0,
   // Social events
   social_follow: 0,
   social_like: 0,

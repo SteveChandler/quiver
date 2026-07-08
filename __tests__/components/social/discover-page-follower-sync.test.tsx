@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import DiscoverPage from "@/app/discover/page";
 import { useAuth } from "@/context/auth-context";
@@ -11,7 +11,12 @@ jest.mock("@/context/auth-context", () => ({
 
 // Mock the FollowButton component to exercise the parent count callback.
 jest.mock("@/components/social/follow-button", () => ({
-  FollowButton: ({ userId, initialFollowersCount, onFollowersCountChange }: any) => {
+  FollowButton: ({
+    userId,
+    initialFollowersCount,
+    onFollowAttempt,
+    onFollowersCountChange,
+  }: any) => {
     const [following, setFollowing] = React.useState(false);
     const [count, setCount] = React.useState(initialFollowersCount);
 
@@ -19,6 +24,7 @@ jest.mock("@/components/social/follow-button", () => ({
       const newFollowing = !following;
       const newCount = newFollowing ? count + 1 : count - 1;
 
+      onFollowAttempt?.();
       setFollowing(newFollowing);
       setCount(newCount);
       onFollowersCountChange?.(newCount);
@@ -45,6 +51,40 @@ const mockUser = {
 // Mock fetch for user search
 global.fetch = jest.fn();
 
+type MockFetchResponse = {
+  ok: boolean;
+  json: () => Promise<unknown>;
+};
+
+function jsonResponse(body: unknown): Promise<MockFetchResponse> {
+  return Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve(body),
+  });
+}
+
+function mockDiscoverFetch(searchResponse: unknown): void {
+  (global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes("/api/events")) {
+      return jsonResponse({ success: true });
+    }
+
+    if (url.includes("/api/users/suggested")) {
+      return jsonResponse({
+        success: true,
+        data: { users: [], source: "popular_profiles" },
+      });
+    }
+
+    if (url.includes("/api/users/search")) {
+      return jsonResponse(searchResponse);
+    }
+
+    return jsonResponse({ success: true, data: { users: [] } });
+  });
+}
+
 describe("DiscoverPage Follower Count Synchronization", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -62,12 +102,9 @@ describe("DiscoverPage Follower Count Synchronization", () => {
         },
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: { users: mockLunaSearchResult },
-          }),
+      mockDiscoverFetch({
+        success: true,
+        data: { users: mockLunaSearchResult },
       });
 
       const user = userEvent.setup();
@@ -75,7 +112,7 @@ describe("DiscoverPage Follower Count Synchronization", () => {
 
       // Step 1: Search for Luna
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "Luna");
 
@@ -116,12 +153,9 @@ describe("DiscoverPage Follower Count Synchronization", () => {
         },
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: { users: mockUserSearchResult },
-          }),
+      mockDiscoverFetch({
+        success: true,
+        data: { users: mockUserSearchResult },
       });
 
       const user = userEvent.setup();
@@ -129,7 +163,7 @@ describe("DiscoverPage Follower Count Synchronization", () => {
 
       // Search for user
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "Test User");
 
@@ -183,12 +217,9 @@ describe("DiscoverPage Follower Count Synchronization", () => {
         },
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: { users: mockSearchResults },
-          }),
+      mockDiscoverFetch({
+        success: true,
+        data: { users: mockSearchResults },
       });
 
       const user = userEvent.setup();
@@ -196,7 +227,7 @@ describe("DiscoverPage Follower Count Synchronization", () => {
 
       // Perform search
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "User");
 
@@ -245,19 +276,16 @@ describe("DiscoverPage Follower Count Synchronization", () => {
         },
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: { users: mockSearchResults },
-          }),
+      mockDiscoverFetch({
+        success: true,
+        data: { users: mockSearchResults },
       });
 
       const user = userEvent.setup();
       render(<DiscoverPage />);
 
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "New");
 
@@ -284,26 +312,33 @@ describe("DiscoverPage Follower Count Synchronization", () => {
 
   describe("Search loading and error states", () => {
     it("should show loading state during search", async () => {
-      // Mock delayed response
-      (global.fetch as jest.Mock).mockImplementation(
-        () =>
-          new Promise((resolve) =>
-            setTimeout(
-              () =>
-                resolve({
-                  json: () =>
-                    Promise.resolve({ success: true, data: { users: [] } }),
-                }),
-              100
-            )
+      (global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (!url.includes("/api/users/search")) {
+          return jsonResponse({
+            success: true,
+            data: { users: [], source: "popular_profiles" },
+          });
+        }
+
+        return new Promise((resolve) =>
+          setTimeout(
+            () =>
+              resolve({
+                ok: true,
+                json: () =>
+                  Promise.resolve({ success: true, data: { users: [] } }),
+              }),
+            100
           )
-      );
+        );
+      });
 
       const user = userEvent.setup();
       render(<DiscoverPage />);
 
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "Luna");
 
@@ -363,7 +398,7 @@ describe("DiscoverPage Follower Count Synchronization", () => {
 
       // Successful search
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "Luna");
 

@@ -1,16 +1,16 @@
 "use client";
 
-import { useCallback, useState, type ReactElement } from "react";
+import { useCallback, useEffect, useState, type ReactElement } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Users, TrendingUp } from "lucide-react";
-// import { getSuggestedUsers } from "@/actions/social-actions";
 import { FollowButton } from "@/components/social/follow-button";
 import { useAuth } from "@/context/auth-context";
 import { UserProfileModal } from "@/components/social/user-profile-modal";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
+import { track } from "@/lib/analytics";
 
 interface DiscoverUser {
   id: string;
@@ -27,17 +27,33 @@ interface UserSearchResponse {
   error?: string;
 }
 
+type DiscoverSurface = "search" | "suggested";
+type DiscoverEventType =
+  | "discover_page_view"
+  | "discover_suggested_users_impression"
+  | "discover_profile_open"
+  | "discover_follow_attempt";
+
+interface SuggestedUsersResponse {
+  success?: boolean;
+  data?: {
+    users?: DiscoverUser[];
+    source?: string;
+  };
+  error?: string;
+}
+
 export default function DiscoverPageClient(): ReactElement {
   const router = useRouter();
   const { user } = useAuth();
+  const userId = user?.id;
   const [searchQuery, setSearchQuery] = useState("");
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
-  // Temporarily disabled - will implement suggested users later
-  const suggestedUsers: DiscoverUser[] = [];
-  const loading: boolean = false;
-  const error: string | null = null;
+  const [suggestedUsers, setSuggestedUsers] = useState<DiscoverUser[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // User search functionality
   const [searchResults, setSearchResults] = useState<DiscoverUser[]>([]);
@@ -51,8 +67,95 @@ export default function DiscoverPageClient(): ReactElement {
           user.id === userId ? { ...user, followers_count: newCount } : user
         )
       );
+      setSuggestedUsers((prev) =>
+        prev.map((user) =>
+          user.id === userId ? { ...user, followers_count: newCount } : user
+        )
+      );
     },
     []
+  );
+
+  const postDiscoverEvent = useCallback(
+    (eventType: DiscoverEventType, metadata: Record<string, unknown> = {}) => {
+      track(eventType, metadata);
+      fetch("/api/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventType, metadata }),
+        keepalive: true,
+      }).catch(() => {});
+    },
+    []
+  );
+
+  useEffect(() => {
+    if (!userId) return;
+
+    postDiscoverEvent("discover_page_view", { surface: "discover" });
+
+    let cancelled = false;
+
+    const loadSuggestedUsers = async (): Promise<void> => {
+      setLoading(true);
+      setError(null);
+
+      try {
+        const response = await fetch("/api/users/suggested?limit=8", {
+          cache: "no-store",
+        });
+        const data = (await response.json()) as SuggestedUsersResponse;
+
+        if (cancelled) return;
+
+        if (data.success) {
+          const users = data.data?.users ?? [];
+          setSuggestedUsers(users);
+          postDiscoverEvent("discover_suggested_users_impression", {
+            count: users.length,
+            source: data.data?.source ?? "popular_profiles",
+          });
+        } else {
+          setSuggestedUsers([]);
+          setError(data.error ?? "Suggested surfers are unavailable.");
+        }
+      } catch (loadError) {
+        if (cancelled) return;
+        console.error("Suggested users failed:", loadError);
+        setSuggestedUsers([]);
+        setError("Suggested surfers are unavailable.");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadSuggestedUsers();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [postDiscoverEvent, userId]);
+
+  const handleProfileOpen = useCallback(
+    (targetUserId: string, surface: DiscoverSurface) => {
+      postDiscoverEvent("discover_profile_open", {
+        target_user_id: targetUserId,
+        surface,
+      });
+      setSelectedUserId(targetUserId);
+      setIsProfileModalOpen(true);
+    },
+    [postDiscoverEvent]
+  );
+
+  const handleFollowAttempt = useCallback(
+    (targetUserId: string, surface: DiscoverSurface) => {
+      postDiscoverEvent("discover_follow_attempt", {
+        target_user_id: targetUserId,
+        surface,
+      });
+    },
+    [postDiscoverEvent]
   );
 
   const handleSearch = async (): Promise<void> => {
@@ -155,7 +258,7 @@ export default function DiscoverPageClient(): ReactElement {
           <div className="torn torn-tb rot-2 border-2 border-[#11100D] bg-[#F0E5CC]">
             <p className="typewriter mb-3">Community search</p>
             <div className="grid gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/68">
-              <span>Search by name or email</span>
+              <span>Search by surfer name</span>
               <span>View surfer profiles</span>
               <span>Follow the crew you paddle with</span>
             </div>
@@ -184,7 +287,7 @@ export default function DiscoverPageClient(): ReactElement {
           </div>
           <div className="flex flex-col gap-3 sm:flex-row">
             <Input
-              placeholder="Search by name or email..."
+              placeholder="Search by surfer name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               data-zine-input="true"
@@ -200,7 +303,7 @@ export default function DiscoverPageClient(): ReactElement {
             </Button>
           </div>
           <p className="mt-3 text-sm leading-relaxed text-[#11100D]/68">
-            Search for surfers by name or email to send them a follow request.
+            Search for surfers by name to send them a follow request.
           </p>
         </section>
 
@@ -246,8 +349,7 @@ export default function DiscoverPageClient(): ReactElement {
                       variant="outline"
                       size="sm"
                       onClick={() => {
-                        setSelectedUserId(searchUser.id);
-                        setIsProfileModalOpen(true);
+                        handleProfileOpen(searchUser.id, "search");
                       }}
                       className="rounded-full border-2 border-[#11100D] bg-[#FBF6E8] font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.2)] hover:bg-[#F0E5CC]"
                     >
@@ -261,6 +363,9 @@ export default function DiscoverPageClient(): ReactElement {
                       followingLabel="Following"
                       onFollowersCountChange={(newCount) =>
                         updateUserFollowerCount(searchUser.id, newCount)
+                      }
+                      onFollowAttempt={() =>
+                        handleFollowAttempt(searchUser.id, "search")
                       }
                       className="[&_button]:rounded-full [&_button]:border-2 [&_button]:border-[#11100D] [&_button]:bg-[#FBF6E8] [&_button]:font-semibold [&_button]:text-[#11100D] [&_button]:shadow-[2px_2px_0_rgba(17,16,13,0.2)] [&_button:hover]:bg-[#F0E5CC] [&_svg]:text-[#11100D]"
                     />
@@ -326,8 +431,9 @@ export default function DiscoverPageClient(): ReactElement {
                 No suggested users right now
               </p>
               <p className="mx-auto max-w-xl text-sm leading-relaxed">
-                As more people join Quiver, you&apos;ll see suggested surfers to
-                follow here. Invite friends to join the community!
+                Search by surfer name or invite the people you paddle with.
+                Suggested surfers will appear here as local community activity
+                grows.
               </p>
             </div>
           ) : (
@@ -353,17 +459,32 @@ export default function DiscoverPageClient(): ReactElement {
                     </p>
                   </div>
 
-                  <FollowButton
-                    userId={suggestedUser.id}
-                    initialFollowersCount={suggestedUser.followers_count || 0}
-                    variant="default"
-                    size="sm"
-                    followingLabel="Following"
-                    onFollowersCountChange={(newCount) =>
-                      updateUserFollowerCount(suggestedUser.id, newCount)
-                    }
-                    className="[&_button]:rounded-full [&_button]:border-2 [&_button]:border-[#11100D] [&_button]:bg-[#FBF6E8] [&_button]:font-semibold [&_button]:text-[#11100D] [&_button]:shadow-[2px_2px_0_rgba(17,16,13,0.2)] [&_button:hover]:bg-[#F0E5CC] [&_svg]:text-[#11100D]"
-                  />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        handleProfileOpen(suggestedUser.id, "suggested");
+                      }}
+                      className="rounded-full border-2 border-[#11100D] bg-[#FBF6E8] font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.2)] hover:bg-[#F0E5CC]"
+                    >
+                      View Profile
+                    </Button>
+                    <FollowButton
+                      userId={suggestedUser.id}
+                      initialFollowersCount={suggestedUser.followers_count || 0}
+                      variant="default"
+                      size="sm"
+                      followingLabel="Following"
+                      onFollowersCountChange={(newCount) =>
+                        updateUserFollowerCount(suggestedUser.id, newCount)
+                      }
+                      onFollowAttempt={() =>
+                        handleFollowAttempt(suggestedUser.id, "suggested")
+                      }
+                      className="[&_button]:rounded-full [&_button]:border-2 [&_button]:border-[#11100D] [&_button]:bg-[#FBF6E8] [&_button]:font-semibold [&_button]:text-[#11100D] [&_button]:shadow-[2px_2px_0_rgba(17,16,13,0.2)] [&_button:hover]:bg-[#F0E5CC] [&_svg]:text-[#11100D]"
+                    />
+                  </div>
                 </div>
               ))}
             </div>

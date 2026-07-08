@@ -21,7 +21,7 @@ import {
 import { EVENT_WEIGHTS } from "@/types/implicit-preferences";
 
 const CURRENT_EVENT_SET_HASHES = {
-  valid: "955db7aedbe03914050973abeec7a297102a360514603f871a094f5dc1ac9b06",
+  valid: "01e7906a7a874e30039f3b2e2fe58303cec2c9de6dd5cf8fdf3493df44b0f774",
   anonymousAllowed:
     "f251e55a9cf646afcaf8ec59e1e872531fb08d6b15f9ae7efeb233c084fe9b05",
   preAuthOnly:
@@ -42,6 +42,13 @@ const SESSION_CUSTOM_SPOT_EVENTS = [
   "session_spot_search_no_results",
   "session_custom_spot_cta_tapped",
   "session_custom_spot_returned",
+] as const;
+
+const DISCOVER_USER_EVENTS = [
+  "discover_page_view",
+  "discover_suggested_users_impression",
+  "discover_profile_open",
+  "discover_follow_attempt",
 ] as const;
 
 function sortedEventSetHash(eventTypes: readonly string[]): string {
@@ -130,6 +137,20 @@ describe("events taxonomy characterization", () => {
     );
 
     for (const eventType of SESSION_CUSTOM_SPOT_EVENTS) {
+      expect(EVENT_WEIGHTS[eventType]).toBe(0);
+    }
+  });
+
+  it("accepts authenticated discover user events without anonymous or preference scoring", () => {
+    expect(VALID_EVENTS).toEqual(expect.arrayContaining([...DISCOVER_USER_EVENTS]));
+    expect(ANONYMOUS_ALLOWED_EVENTS).toEqual(
+      expect.not.arrayContaining([...DISCOVER_USER_EVENTS])
+    );
+    expect(PRE_AUTH_ONLY_EVENTS).toEqual(
+      expect.not.arrayContaining([...DISCOVER_USER_EVENTS])
+    );
+
+    for (const eventType of DISCOVER_USER_EVENTS) {
       expect(EVENT_WEIGHTS[eventType]).toBe(0);
     }
   });

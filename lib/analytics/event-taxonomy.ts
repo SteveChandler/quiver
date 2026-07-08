@@ -123,6 +123,10 @@ export const VALID_EVENTS = [
   'favorite_shown_in_carousel',
   'mini_log_teaser_click',
   'plan_unlock_click',
+  'discover_page_view',
+  'discover_suggested_users_impression',
+  'discover_profile_open',
+  'discover_follow_attempt',
   // Social events
   'social_follow',
   'social_like',
