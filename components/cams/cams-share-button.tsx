@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Share2, Check } from "lucide-react";
 import { track } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
+import { getVisitorId } from "@/lib/utils/visitor-id";
 
 export function CamsShareButton() {
   const [copied, setCopied] = useState(false);
@@ -43,11 +44,13 @@ export function CamsShareButton() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          eventType: "social_share",
+          eventType: "cam_share",
           metadata: {
             content_type: "cam",
             method,
           },
+          sessionId: getVisitorId(),
+          viewportWidth: window.innerWidth,
         }),
         keepalive: true,
       }).catch(() => {});

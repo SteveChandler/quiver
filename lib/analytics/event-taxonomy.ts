@@ -340,6 +340,7 @@ export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   'forecast_interaction', 'forecast_tab_click', 'horizon_strip_day_selected',
   'beach_search', 'beach_search_result_click', 'map_interaction', 'map_marker_click',
   'share_started', 'share_completed', 'share_link_opened', 'share_link_copied',
+  'cam_share',
   'invite_link_opened', 'invite_open_app_clicked', 'invite_app_store_clicked',
   'invite_continue_web_clicked',
   'match_score_teaser_view', 'match_score_teaser_click',
