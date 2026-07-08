@@ -11,6 +11,12 @@
 import { readFileSync } from "fs";
 import path from "path";
 
+function rejectProfilePageBeachTableQuery(table: string): void {
+  if (table === "beaches") {
+    throw new Error("profile-page should not fetch all beaches");
+  }
+}
+
 describe("GET /api/me/profile-page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -101,31 +107,35 @@ describe("GET /api/me/profile-page", () => {
         auth: {
           getUser: async () => ({ data: { user: { id: "user-123" } }, error: null }),
         },
-        from: (table: string) => ({
-          select: () => ({
-            eq: () => ({
-              single: async () => {
-                if (table === "profiles") return { data: mockProfile, error: null };
-                if (table === "user_surf_preferences") return { data: mockPreferences, error: null };
-                return { data: null, error: null };
-              },
-              order: () => ({
-                limit: async () => {
-                  if (table === "sessions") return { data: [], error: null };
-                  if (table === "boards") return { data: [], error: null };
-                  return { data: [], error: null };
+        from: (table: string) => {
+          rejectProfilePageBeachTableQuery(table);
+
+          return {
+            select: () => ({
+              eq: () => ({
+                single: async () => {
+                  if (table === "profiles") return { data: mockProfile, error: null };
+                  if (table === "user_surf_preferences") return { data: mockPreferences, error: null };
+                  return { data: null, error: null };
                 },
+                order: () => ({
+                  limit: async () => {
+                    if (table === "sessions") return { data: [], error: null };
+                    if (table === "boards") return { data: [], error: null };
+                    return { data: [], error: null };
+                  },
+                }),
               }),
-            }),
-            or: () => ({
-              order: () => ({
-                limit: async () => ({ data: [], error: null }),
+              or: () => ({
+                order: () => ({
+                  limit: async () => ({ data: [], error: null }),
+                }),
               }),
+              count: "exact",
+              head: true,
             }),
-            count: "exact",
-            head: true,
-          }),
-        }),
+          };
+        },
         rpc: async () => ({ data: [], error: null }),
       }),
     }));
@@ -218,30 +228,34 @@ describe("GET /api/me/profile-page", () => {
         auth: {
           getUser: async () => ({ data: { user: { id: "user-123" } }, error: null }),
         },
-        from: (table: string) => ({
-          select: () => ({
-            eq: () => ({
-              single: async () => {
-                if (table === "profiles") return { data: mockProfile, error: null };
-                // PGRST116 = row not found (expected for new users)
-                if (table === "user_surf_preferences") {
-                  return { data: null, error: { code: "PGRST116", message: "Row not found" } };
-                }
-                return { data: null, error: null };
-              },
-              order: () => ({
-                limit: async () => ({ data: [], error: null }),
+        from: (table: string) => {
+          rejectProfilePageBeachTableQuery(table);
+
+          return {
+            select: () => ({
+              eq: () => ({
+                single: async () => {
+                  if (table === "profiles") return { data: mockProfile, error: null };
+                  // PGRST116 = row not found (expected for new users)
+                  if (table === "user_surf_preferences") {
+                    return { data: null, error: { code: "PGRST116", message: "Row not found" } };
+                  }
+                  return { data: null, error: null };
+                },
+                order: () => ({
+                  limit: async () => ({ data: [], error: null }),
+                }),
               }),
-            }),
-            or: () => ({
-              order: () => ({
-                limit: async () => ({ data: [], error: null }),
+              or: () => ({
+                order: () => ({
+                  limit: async () => ({ data: [], error: null }),
+                }),
               }),
+              count: "exact",
+              head: true,
             }),
-            count: "exact",
-            head: true,
-          }),
-        }),
+          };
+        },
         rpc: async () => ({ data: [], error: null }),
       }),
     }));
@@ -265,7 +279,7 @@ describe("GET /api/me/profile-page", () => {
     expect(json.data.preferences.onboarding.experience_level).toBeUndefined();
   });
 
-  it("keeps profile-page data selects scoped without dropping beaches", () => {
+  it("keeps initial profile payload data selects scoped", () => {
     const routeSource = readFileSync(
       path.join(process.cwd(), "app/api/me/profile-page/route.ts"),
       "utf8"
@@ -283,9 +297,8 @@ describe("GET /api/me/profile-page", () => {
     expect(routeSource).toContain(
       "id, user_id, name, board_type, dimensions, description, image_url, size, volume, session_count, created_at, updated_at"
     );
-    expect(routeSource).toContain('.from("beaches")');
-    expect(routeSource).toContain(
-      '.select("id, name, city, state, lat, lon, slug")'
+    expect(routeSource).not.toMatch(
+      /\.from\("beaches"\)[\s\S]*?\.limit\(500\)/
     );
   });
 });

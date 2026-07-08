@@ -12,7 +12,7 @@ import type {
   ProfilePagePreferences,
   ProfilePageProfile,
 } from "@/types/profile-page";
-import type { Board, Beach, SessionWithDetails } from "@/types/database";
+import type { Board, SessionWithDetails } from "@/types/database";
 
 const PROFILE_PAGE_LEARNED_PREFERENCES_SELECT = `
   wave_min_ft,
@@ -89,7 +89,6 @@ const PROFILE_PAGE_BOARD_SELECT =
  * - preferences: Learned preferences from sessions + onboarding preferences
  * - recentSessions: Last 5 sessions
  * - boards: User's board quiver
- * - beaches: All beaches (for SurfProfileSection editing)
  *
  * Performance optimization: Uses Promise.all for parallel DB queries
  */
@@ -106,7 +105,6 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
     learnedPrefsResult,
     recentSessionsResult,
     boardsResult,
-    beachesResult,
   ] = await Promise.all([
     // 1. Full profile with home beach join (all fields needed for profile page UI)
     supabase
@@ -180,14 +178,6 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
       .select(PROFILE_PAGE_BOARD_SELECT)
       .eq("user_id", userId)
       .order("created_at", { ascending: false }),
-
-    // 9. All beaches (for editing preferences)
-    supabase
-      .from("beaches")
-      .select("id, name, city, state, lat, lon, slug")
-      .or("is_private.is.null,is_private.eq.false")
-      .order("name")
-      .limit(500),
   ]);
 
   if (profileResult.error || !profileResult.data) {
@@ -298,7 +288,7 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
     preferences,
     recentSessions,
     boards: (boardsResult.data || []) as Board[],
-    beaches: (beachesResult.data || []) as Beach[],
+    beaches: [],
   };
 
   return createSuccessResponse(responseData);
