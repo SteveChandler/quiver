@@ -338,6 +338,7 @@ function makeRequest(): Request {
 const ORIGINAL_ENV = { ...process.env };
 
 beforeEach(() => {
+  jest.useFakeTimers().setSystemTime(new Date("2026-04-26T17:00:00Z"));
   jest.clearAllMocks();
   consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
   store.alertQueueRows = [];
@@ -370,6 +371,7 @@ afterAll(() => {
 
 afterEach(() => {
   consoleLogSpy.mockRestore();
+  jest.useRealTimers();
 });
 
 describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows", () => {
