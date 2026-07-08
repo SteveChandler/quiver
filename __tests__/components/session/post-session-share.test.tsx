@@ -35,6 +35,47 @@ jest.mock("framer-motion", () => {
 // Mock canvas-confetti so it doesn't blow up in jsdom
 jest.mock("canvas-confetti", () => jest.fn());
 
+jest.mock("@/components/app-store/native-app-funnel-cta", () => ({
+  NativeAppFunnelCta: ({
+    androidLabel,
+    iosLabel,
+    platform,
+    placement,
+    source,
+    surface,
+  }: {
+    androidLabel?: string;
+    iosLabel?: string;
+    platform: "ios" | "android" | "desktop";
+    placement?: string;
+    source: string;
+    surface: string;
+  }) => {
+    const label =
+      platform === "android"
+        ? androidLabel
+        : platform === "ios"
+          ? iosLabel
+          : "Get Quiver";
+
+    return (
+      <a
+        data-placement={placement}
+        data-platform={platform}
+        data-source={source}
+        data-surface={surface}
+        href={platform === "android" ? "/android-beta" : "/download"}
+      >
+        {label}
+      </a>
+    );
+  },
+}));
+
+jest.mock("@/lib/analytics/web-context", () => ({
+  getFirstTouchPlatform: jest.fn(() => "android"),
+}));
+
 const defaultProps = {
   beachName: "Ocean Beach",
   overallRating: 4,
@@ -92,6 +133,26 @@ describe("PostSessionShare", () => {
     it("renders 'Skip' secondary button", () => {
       render(<PostSessionShare {...defaultProps} />);
       expect(screen.getByRole("button", { name: /skip/i })).toBeInTheDocument();
+    });
+
+    it("renders a post-log native app CTA with session attribution", async () => {
+      render(<PostSessionShare {...defaultProps} />);
+
+      const nativeAppCta = await screen.findByRole("link", {
+        name: "Get the Android beta",
+      });
+
+      expect(nativeAppCta).toHaveAttribute("href", "/android-beta");
+      expect(nativeAppCta).toHaveAttribute("data-platform", "android");
+      expect(nativeAppCta).toHaveAttribute("data-source", "post_session_log");
+      expect(nativeAppCta).toHaveAttribute(
+        "data-surface",
+        "session_log_success"
+      );
+      expect(nativeAppCta).toHaveAttribute(
+        "data-placement",
+        "native_app_nudge"
+      );
     });
 
     it("does not render wave size element when waveSize is empty", () => {
@@ -154,10 +215,10 @@ describe("PostSessionShare", () => {
         name: /share your session/i,
       });
       // The share button should appear after (below) the image in the DOM
-      expect(
+      const shareButtonPosition =
         img.compareDocumentPosition(shareBtn) &
-          Node.DOCUMENT_POSITION_FOLLOWING
-      ).toBeTruthy();
+        Node.DOCUMENT_POSITION_FOLLOWING;
+      expect(shareButtonPosition).not.toBe(0);
     });
 
     it("renders 'Your session card is ready' microcopy when shareCardUrl provided", () => {
@@ -270,7 +331,7 @@ describe("PostSessionShare", () => {
       render(<PostSessionShare {...defaultProps} />);
       const dialog = screen.getByRole("dialog");
       expect(dialog).toHaveAttribute("aria-label");
-      expect(dialog.getAttribute("aria-label")).toBeTruthy();
+      expect(dialog.getAttribute("aria-label")).toContain("Session logged");
     });
 
     it("star rating container has descriptive aria-label", () => {
