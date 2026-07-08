@@ -224,13 +224,10 @@ function hasSessionForCandidate(
 }
 
 function buildLogSessionDeeplink(candidate: Candidate): string {
+  const beachRef = candidate.beachSlug ?? candidate.beachId;
   const params = new URLSearchParams({
-    mode: "log",
-    quick: "true",
-    beach: candidate.beachId,
-    beachName: candidate.beachName,
-    startTime: candidate.windowStart,
-    endTime: candidate.windowEnd,
+    beach: beachRef,
+    at: candidate.windowStart,
     utm_source: "push_log_nudge",
   });
 
