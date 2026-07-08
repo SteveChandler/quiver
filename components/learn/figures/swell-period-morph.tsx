@@ -108,6 +108,7 @@ export default function SwellPeriodMorph() {
       title={<>Groundswell <span className="font-serif italic text-[#F78E42]">vs</span> Wind Swell</>}
       summary="Interactive: dragging the swell-period dial morphs the ocean view from short choppy wind-swell lines into long clean groundswell lines, with live readouts for storm distance, wave quality, and classification."
       caption="Period is the number that separates weak surf from the good stuff."
+      downloadTitle="Groundswell vs Wind Swell"
     >
       <div className="relative overflow-hidden rounded-lg border-[1.5px] border-[#11100D] bg-[#e2e9e8]">
         <canvas ref={canvasRef} className="block h-[230px] w-full" />
