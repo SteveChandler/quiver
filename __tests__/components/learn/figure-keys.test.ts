@@ -40,3 +40,31 @@ it("groundswell article wires both v1 figures and a bumped dateModified", () => 
   expect(keys).toEqual(expect.arrayContaining(["swell-period-morph", "swell-origin-fetch"]));
   expect(article.dateModified).toBe("2026-07-06");
 });
+
+it("reuses registered figures across the swell education cluster", () => {
+  const expectedFigures = [
+    {
+      slug: "swell-period-explained",
+      figureKey: "swell-period-morph",
+    },
+    {
+      slug: "how-swell-direction-affects-surf",
+      figureKey: "swell-origin-fetch",
+    },
+    {
+      slug: "how-swell-wraps-around-points",
+      figureKey: "swell-period-morph",
+    },
+  ] as const;
+
+  for (const { slug, figureKey } of expectedFigures) {
+    const article = learnArticles.find((a) => a.slug === slug);
+
+    if (!article) {
+      throw new Error(`Expected ${slug} article to exist`);
+    }
+
+    expect(article.sections.map((section) => section.figureKey)).toContain(figureKey);
+    expect(article.dateModified).toBe("2026-07-06");
+  }
+});
