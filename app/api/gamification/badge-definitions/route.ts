@@ -10,7 +10,7 @@ export const GET = withAuth(
   async (_request: NextRequest, { supabase }: { supabase: SupabaseClient<Database> }) => {
     const { data, error } = await supabase
       .from("badge_definitions")
-      .select("*")
+      .select("badge_slug, category, created_at, description, icon, name, xp_reward")
       .order("category", { ascending: true })
       .order("badge_slug", { ascending: true });
 
@@ -20,8 +20,6 @@ export const GET = withAuth(
   },
   { errorMessage: "Failed to load badge definitions" }
 );
-
-
 
 
 
