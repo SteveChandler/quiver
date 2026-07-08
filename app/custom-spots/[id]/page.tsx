@@ -332,7 +332,10 @@ export default async function CustomSpotDetailPage(
                 </Link>
               ) : null}
             </div>
-            <div className="overflow-x-auto border-2 border-[#11100D] bg-[#F4EBD8] p-3 font-mono shadow-[2px_3px_0_rgba(17,16,13,0.18)] [&_.bg-blue-100]:!bg-[#F78E42]/25 [&_.bg-card]:!bg-[#FBF6E8] [&_.bg-muted\\/30]:!bg-[#F0E5CC] [&_.bg-muted\\/50]:!bg-[#F0E5CC] [&_.border-border]:!border-[#11100D]/20 [&_.rounded-lg]:!rounded-none [&_.text-foreground]:!text-[#11100D] [&_.text-muted-foreground]:!text-[#11100D]/58 [&_.text-sky-500]:!text-[#11100D]">
+            <div
+              className="zine-forecast-table overflow-x-auto border-2 border-[#11100D] bg-[#F4EBD8] p-3 font-mono shadow-[2px_3px_0_rgba(17,16,13,0.18)]"
+              data-testid="custom-spot-forecast-table"
+            >
               <MultiDayForecastTable
                 forecasts={forecasts}
                 beachTimezone={beachTimezone}
