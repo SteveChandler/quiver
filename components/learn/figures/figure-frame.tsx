@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { DownloadFigureButton } from "./download-figure-button";
 
 interface FigureFrameProps {
   kicker?: string;
@@ -7,10 +8,18 @@ interface FigureFrameProps {
   summary: string;
   children: ReactNode;
   caption?: string;
+  downloadTitle?: string;
 }
 
 /** Shared zine chrome for learn figures. Presentational only (SSR-safe, no hooks). */
-export function FigureFrame({ kicker, title, summary, children, caption }: FigureFrameProps) {
+export function FigureFrame({
+  kicker,
+  title,
+  summary,
+  children,
+  caption,
+  downloadTitle = "Quiver surf science figure",
+}: FigureFrameProps) {
   return (
     <figure className="my-8 rounded-[14px_12px_15px_11px] border-[1.5px] border-[#11100D] bg-[#F4EBD8] p-4 shadow-[3px_4px_0_rgba(17,16,13,0.18)]">
       <span className="sr-only">{summary}</span>
@@ -26,6 +35,7 @@ export function FigureFrame({ kicker, title, summary, children, caption }: Figur
         {title}
       </div>
       {children}
+      <DownloadFigureButton title={downloadTitle} summary={summary} />
       {caption ? <figcaption className="mt-3 font-mono text-[10px] uppercase tracking-[0.1em] text-[#6b6455]">{caption}</figcaption> : null}
     </figure>
   );

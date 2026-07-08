@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Visual-first Groundswell vs Wind Swell explainer** (`/learn/groundswell-vs-wind-swell`). Adds a reusable learn-article interactive-figure system (`components/learn/figures/`): an interactive period-morph hero figure and a "storm → shore" origin figure, both with static/reduced-motion fallbacks. Ships an embeddable version (`/embed/learn/[figureKey]`, `noindex`, backlink + impression logging via `learn-figure` widget type) and a dedicated OG card (`/api/og/learn`). Existing article URL and pinned title/description unchanged; `dateModified` bumped.
+- **Downloadable learn figures** (`components/learn/figures/download-figure-button.tsx`). Adds a branded PNG export button to the reusable learn-figure frame, including fallback rendering for reduced-motion/static poster states.
 - **Landing "Recent check-ins from the community" testimonials** (`components/landing-page/field-guide/field-guide-community.tsx`, wired into `quiver-field-guide-landing.tsx`). New zine-styled social-proof section between the walkthrough and final CTA, mirroring Dispersed's community-checkins layout: a 3-column grid of cream cards with category tags, real (positive, non-identifying) surfer quotes sourced from user email replies, and generic bylines.
 
 ### Changed
