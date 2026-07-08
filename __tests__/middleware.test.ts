@@ -134,6 +134,27 @@ describe("Middleware", () => {
     expect(mockRedirect).not.toHaveBeenCalled();
   });
 
+  test("allows /sessions/new email attribution bridge when unauthenticated", async () => {
+    const search =
+      "?entrySource=email&utm_medium=email&email_type=manual_attribution_test&message_instance_id=manual-email-attribution-20260708-1015";
+    const request: any = {
+      nextUrl: {
+        pathname: "/sessions/new",
+        search,
+        searchParams: new URLSearchParams(search.slice(1)),
+      },
+      url: `http://localhost/sessions/new${search}`,
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+
+    await middleware(request);
+
+    expect(mockNext).toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
   test("allows unauthenticated access to beach detail page (public for SEO)", async () => {
     const request: any = { nextUrl: { pathname: "/beach/blacks-beach" }, url: "http://localhost/beach/blacks-beach", method: "GET", headers: new Headers(), cookies: { get: () => undefined, getAll: () => [] } };
     await middleware(request);

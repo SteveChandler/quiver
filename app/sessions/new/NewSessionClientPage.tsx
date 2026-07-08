@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { SessionScrollForm } from "@/components/session-forms/SessionScrollForm";
@@ -14,6 +14,12 @@ import { FormErrorBoundary } from "@/components/error-boundaries";
 import { PostSessionShare } from "@/components/session/post-session-share";
 import { ShareSheet } from "@/components/share/share-sheet";
 import { useNearestBeach } from "@/hooks/use-nearest-beach";
+import {
+  buildSessionEmailWebSignInUrl,
+  buildSessionNativeAppUrl,
+  EmailSessionAppBridge,
+  isSessionEmailAppBridgeRequest,
+} from "./email-app-bridge";
 import { useSessionSubmission } from "./useSessionSubmission";
 
 interface NewSessionPageContentProps {
@@ -133,7 +139,12 @@ function NewSessionPageContent({
 
 function NewSessionPageWrapper() {
   const searchParams = useSearchParams();
+  const { isAuthenticated } = useAuth();
+  const [continueOnWeb, setContinueOnWeb] = useState(false);
   const parseResult = parseSessionWizardParams(searchParams);
+  const emailBridgeSearchParams = new URLSearchParams(searchParams.toString());
+  const shouldShowEmailBridge =
+    !continueOnWeb && isSessionEmailAppBridgeRequest(emailBridgeSearchParams);
 
   const mode: SessionFormMode = "log";
   let initialFormState: Partial<SessionFormState> | undefined;
@@ -168,6 +179,17 @@ function NewSessionPageWrapper() {
     }
 
     initialFormState = parseResult.defaults as Partial<SessionFormState>;
+  }
+
+  if (shouldShowEmailBridge) {
+    return (
+      <EmailSessionAppBridge
+        appUrl={buildSessionNativeAppUrl(emailBridgeSearchParams)}
+        signInUrl={buildSessionEmailWebSignInUrl(emailBridgeSearchParams)}
+        isAuthenticated={isAuthenticated}
+        onContinueWeb={() => setContinueOnWeb(true)}
+      />
+    );
   }
 
   return (
