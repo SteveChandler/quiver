@@ -1,0 +1,42 @@
+{
+  "version": 1,
+  "description": "Canonical AEO citation audit query set (30 queries: 20 informational + 10 product/brand). Used by the live 30-query AEO audit. Keep stable so citation rate is comparable week over week; append new queries rather than replacing existing ones.",
+  "site": "quiversurf.app",
+  "brandDomains": ["quiversurf.app", "quiver"],
+  "segments": {
+    "informational": [
+      "best tide for surfing",
+      "best wind for surfing",
+      "how to read a surf forecast",
+      "how to read a surf report",
+      "what is swell period",
+      "wind swell vs ground swell",
+      "is it safe to surf after rain",
+      "best time to surf",
+      "what wetsuit thickness do i need for surfing",
+      "how accurate are surf forecasts",
+      "beginner surf spots san diego",
+      "beginner surf spots santa cruz",
+      "beginner surf spots orange county",
+      "best surf conditions for beginners",
+      "what does swell direction mean for surfing",
+      "how far in advance are surf forecasts accurate",
+      "how to tell if the surf will be good",
+      "what tide is best for beach breaks",
+      "how does water temperature affect surfing",
+      "how do machine learning surf forecasts work"
+    ],
+    "product-brand": [
+      "best surf forecast app",
+      "best free surf forecast app",
+      "surfline alternative",
+      "free surfline alternative",
+      "best surf report app",
+      "personal surf forecast app",
+      "best app for surf session logging",
+      "surf tracker app",
+      "most accurate surf forecast app",
+      "best ai surf forecast app"
+    ]
+  }
+}
