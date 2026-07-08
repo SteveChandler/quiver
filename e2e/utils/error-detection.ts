@@ -504,7 +504,8 @@ function isIgnorableNetworkError(url: string, status: number): boolean {
   if (
     url.includes('/api/events') ||
     url.includes('/api/embed-impressions') ||
-    url.includes('/ingest/array')
+    url.includes('/ingest/array') ||
+    url.includes('/ingest/static/')
   ) {
     return true;
   }
