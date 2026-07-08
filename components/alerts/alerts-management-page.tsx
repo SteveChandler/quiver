@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
@@ -434,7 +435,45 @@ export function AlertsManagementPage() {
   }
 
   if (!user) {
-    return <AuthLoader />;
+    return (
+      <ZineSurface
+        sectionLabel="Condition alerts"
+        editionLabel="Account required"
+        data-testid="alerts-auth-required"
+        paperClassName="overflow-hidden"
+      >
+        <main className="mx-auto max-w-2xl space-y-6 py-10 text-center">
+          <div className="mx-auto flex h-14 w-14 items-center justify-center border-2 border-[#11100D] bg-[#F78E42] shadow-[4px_4px_0_#11100D]">
+            <Radio className="h-7 w-7 text-[#11100D]" aria-hidden="true" />
+          </div>
+          <div className="space-y-3">
+            <p className="label-black">Surf watch desk</p>
+            <h1 className="zine-h1 font-black uppercase leading-[0.9] tracking-normal text-[#11100D]">
+              Sign in for condition alerts
+            </h1>
+            <p className="mx-auto max-w-xl text-base leading-7 text-[#3B352C]">
+              Condition alerts need an account so Quiver can save your surf
+              windows and send the right notifications.
+            </p>
+          </div>
+          <div className="flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <Button
+              asChild
+              className="border-2 border-[#11100D] bg-[#F78E42] font-black uppercase text-[#11100D] shadow-[4px_4px_0_#11100D] hover:bg-[#F78E42]/90"
+            >
+              <Link href="/auth/sign-in?redirectTo=/alerts">Sign in</Link>
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="border-2 border-[#11100D] bg-[#F4E7D1] font-black uppercase text-[#11100D] shadow-[4px_4px_0_#11100D] hover:bg-[#F4E7D1]/90"
+            >
+              <Link href="/auth/sign-up?redirectTo=/alerts">Create account</Link>
+            </Button>
+          </div>
+        </main>
+      </ZineSurface>
+    );
   }
 
   return (

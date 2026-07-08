@@ -5,6 +5,14 @@ import { AlertsManagementPage } from "@/components/alerts/alerts-management-page
 import { useAuth } from "@/context/auth-context";
 
 jest.mock("@/context/auth-context");
+jest.mock("next/link", () => ({
+  __esModule: true,
+  default: ({ href, children, ...props }: any) => (
+    <a href={href} {...props}>
+      {children}
+    </a>
+  ),
+}));
 jest.mock("sonner", () => ({
   toast: {
     error: jest.fn(),
@@ -141,6 +149,36 @@ describe("AlertsManagementPage", () => {
       signOut: jest.fn(),
       refreshSession: jest.fn(),
     } as any);
+  });
+
+  it("shows a sign-in path instead of the loader when signed out", () => {
+    mockUseAuth.mockReturnValue({
+      user: null,
+      session: null as any,
+      isLoading: false,
+      isAuthenticated: false,
+      signUp: jest.fn(),
+      signIn: jest.fn(),
+      signOut: jest.fn(),
+      refreshSession: jest.fn(),
+    } as any);
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock as jest.MockedFunction<typeof fetch>;
+
+    render(<AlertsManagementPage />);
+
+    expect(screen.getByTestId("alerts-auth-required")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: /sign in for condition alerts/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^sign in$/i })).toHaveAttribute(
+      "href",
+      "/auth/sign-in?redirectTo=/alerts",
+    );
+    expect(
+      screen.getByRole("link", { name: /create account/i }),
+    ).toHaveAttribute("href", "/auth/sign-up?redirectTo=/alerts");
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("groups condition rules by beach and keeps similarity alerts out of the list", async () => {
