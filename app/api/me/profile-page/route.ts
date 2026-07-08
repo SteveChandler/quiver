@@ -14,6 +14,72 @@ import type {
 } from "@/types/profile-page";
 import type { Board, Beach, SessionWithDetails } from "@/types/database";
 
+const PROFILE_PAGE_LEARNED_PREFERENCES_SELECT = `
+  wave_min_ft,
+  wave_max_ft,
+  wave_period_min_s,
+  wave_period_max_s,
+  max_wind_mph,
+  preferred_wind_directions,
+  preferred_tide_statuses,
+  confidence,
+  sample_size,
+  eligible_session_count,
+  avoidance_by_beach,
+  validated_at,
+  manual_override
+`;
+
+const PROFILE_PAGE_RECENT_SESSION_SELECT = `
+  id,
+  user_id,
+  beach_id,
+  beach_name,
+  board_id,
+  board_snapshot,
+  arrival_time,
+  created_at,
+  duration_minutes,
+  status,
+  is_public,
+  rating,
+  wave_quality,
+  crowd_level,
+  parking_ease,
+  description,
+  notes,
+  image_url,
+  water_temp,
+  wave_height_ft,
+  wind_speed_mph,
+  wind_direction,
+  tide_status,
+  tide_height_ft,
+  tide_rate_ft_per_hr,
+  tide_data_source,
+  forecast_accuracy,
+  goals,
+  invitee_ids,
+  comments_count,
+  likes_count,
+  share_count,
+  muted,
+  rip_current_observed,
+  rip_current_risk,
+  session_board_fit,
+  session_decomposition,
+  session_skill_fit,
+  skill_ratings,
+  source,
+  wave_characteristics,
+  custom_spot_id,
+  beach:beaches(id, name, lat, lon),
+  user:profiles(id, full_name, avatar_url)
+`;
+
+const PROFILE_PAGE_BOARD_SELECT =
+  "id, user_id, name, board_type, dimensions, description, image_url, size, volume, session_count, created_at, updated_at";
+
 /**
  * GET /api/me/profile-page - Aggregated profile page data endpoint
  *
@@ -68,13 +134,13 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
     // 2. Session count
     supabase
       .from("sessions")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("user_id", userId),
 
     // 3. Board count
     supabase
       .from("boards")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("user_id", userId),
 
     // 4. Average wave quality (for rating)
@@ -96,20 +162,14 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
     // 6. Learned preferences
     supabase
       .from("user_surf_preferences")
-      .select("*")
+      .select(PROFILE_PAGE_LEARNED_PREFERENCES_SELECT)
       .eq("user_id", userId)
       .single(),
 
     // 7. Recent sessions (last 5)
     supabase
       .from("sessions")
-      .select(
-        `
-        *,
-        beach:beaches(id, name, lat, lon),
-        user:profiles(id, full_name, avatar_url)
-      `
-      )
+      .select(PROFILE_PAGE_RECENT_SESSION_SELECT)
       .eq("user_id", userId)
       .order("arrival_time", { ascending: false })
       .limit(5),
@@ -117,7 +177,7 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
     // 8. User's boards
     supabase
       .from("boards")
-      .select("*")
+      .select(PROFILE_PAGE_BOARD_SELECT)
       .eq("user_id", userId)
       .order("created_at", { ascending: false }),
 
