@@ -444,7 +444,11 @@ export function selectWaveHeightSource(
   // Prefer CDIP significant height when available and within reasonable range
   if (cdipSig !== undefined && cdipSig <= MAX_TRUSTED_CDIP_FT) {
     // If we also have model swell and CDIP is a large outlier, defer to model
-    if (modelSwell !== undefined && cdipSig > modelSwell * CDIP_OUTLIER_THRESHOLD) {
+    if (
+      modelSwell !== undefined &&
+      cdipSig > modelSwell * CDIP_OUTLIER_THRESHOLD &&
+      !isCdipCorroboratedByModelHs(cdipSig, modelHs)
+    ) {
       return {
         heightFt: modelSwell,
         source: 'model_swell',
@@ -506,6 +510,14 @@ export function selectWaveHeightSource(
   }
 
   return null;
+}
+
+function isCdipCorroboratedByModelHs(
+  cdipSigFt: number,
+  modelHsFt: number | undefined,
+): boolean {
+  return modelHsFt !== undefined &&
+    cdipSigFt <= modelHsFt * CDIP_OUTLIER_THRESHOLD;
 }
 
 // ============================================================================
@@ -643,6 +655,8 @@ export function toFaceHeightFeetDecomposed(
  * - `componentsUsed`: true when the decomposed branch RMS-summed components.
  * - `calibratedShoalingFired`: true when the empirical bucket lookup hit
  *   (only possible when source is `cdip_sig` and the beach has factors).
+ * - `calibrationBucketQuarantined`: true when a low long-period CDIP bucket
+ *   was skipped and the generic transformer path rendered the row instead.
  * - `cdipRejection`: present when `selectWaveHeightSource` rejected CDIP as
  *   an outlier and fell back to model/NDBC. Records the why for traceability.
  */
@@ -652,6 +666,7 @@ export interface WaveHeightDebugInfo {
   transformPath: 'scalar_calibrated' | 'scalar_generic' | 'decomposed' | null;
   componentsUsed: boolean;
   calibratedShoalingFired: boolean;
+  calibrationBucketQuarantined?: boolean;
   handoffDiscontinuityFt?: number;
   handoffBlend?: ForecastHandoffBlendMetadata;
   cdipRejection?: {
@@ -715,6 +730,9 @@ export function toFaceHeightFeetDecomposedWithDebug(
       transformPath,
       componentsUsed: result.path === 'decomposed',
       calibratedShoalingFired: result.isCalibrated,
+      ...(result.calibrationBucketQuarantined
+        ? { calibrationBucketQuarantined: true }
+        : {}),
       ...(source.cdipRejection ? { cdipRejection: source.cdipRejection } : {}),
     },
   };
