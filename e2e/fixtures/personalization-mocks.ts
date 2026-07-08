@@ -18,7 +18,9 @@
  *   POST /api/beach/personalized-score
  *   GET  /api/surf/insights
  *   GET  /api/surf/discover
+ *   GET  /api/surf/call
  *   GET  /api/beaches/favorites
+ *   POST /api/events
  *   GET  /api/auth/check-session
  */
 
@@ -230,6 +232,33 @@ export const MOCK_DISCOVER_RESPONSE = {
 };
 
 // ---------------------------------------------------------------------------
+// GET /api/surf/call mock response
+// ---------------------------------------------------------------------------
+// Matches the response shape from app/api/surf/call/route.ts.
+
+export const MOCK_SURF_CALL_RESPONSE = {
+  report: {
+    verdict: "MAYBE" as const,
+    score: 85,
+    whySentence: "Solid window with clean wind and rideable peaks.",
+    updatedAt: GENERATED_AT,
+    bestWindowStart: new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString(),
+    bestWindowEnd: new Date(Date.now() + 5 * 60 * 60 * 1000).toISOString(),
+    peakTime: new Date(Date.now() + 3 * 60 * 60 * 1000).toISOString(),
+    waveHeight: "3-5ft",
+    windDescription: "8 mph SW",
+    tidePhase: "rising",
+    isCalibrated: true,
+    trendTags: [],
+    shortWindow: false,
+    windowMinutes: 180,
+    lowForecastConfidence: false,
+    rideableWavesPerHour: 12,
+  },
+  isTomorrow: false,
+};
+
+// ---------------------------------------------------------------------------
 // GET /api/beaches/favorites mock response
 // ---------------------------------------------------------------------------
 // Matches the shape from app/api/beaches/favorites/route.ts:
@@ -265,7 +294,7 @@ export const MOCK_AUTH_SESSION_RESPONSE = {
 // Helper: wrap a data payload in the standard success envelope
 // ---------------------------------------------------------------------------
 
-function successEnvelope(data: unknown) {
+function successEnvelope(data: unknown): { success: true; data: unknown } {
   return {
     success: true,
     data,
@@ -286,7 +315,9 @@ function successEnvelope(data: unknown) {
  *   POST  /api/beach/personalized-score  (glob: ** prefix)
  *   GET   /api/surf/insights             (glob: ** prefix, ** suffix)
  *   GET   /api/surf/discover             (glob: ** prefix, ** suffix)
+ *   GET   /api/surf/call                 (glob: ** prefix, ** suffix)
  *   GET   /api/beaches/favorites         (glob: ** prefix, ** suffix)
+ *   POST  /api/events                    (glob: ** prefix)
  *   GET   /api/auth/check-session        (glob: ** prefix, ** suffix)
  */
 export async function setupPersonalizationMocks(page: Page): Promise<void> {
@@ -330,6 +361,19 @@ export async function setupPersonalizationMocks(page: Page): Promise<void> {
     }
   });
 
+  // GET /api/surf/call (with any query params)
+  await page.route("**/api/surf/call**", async (route) => {
+    if (route.request().method() === "GET") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(successEnvelope(MOCK_SURF_CALL_RESPONSE)),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+
   // GET /api/beaches/favorites
   await page.route("**/api/beaches/favorites**", async (route) => {
     if (route.request().method() === "GET") {
@@ -337,6 +381,21 @@ export async function setupPersonalizationMocks(page: Page): Promise<void> {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify(successEnvelope(MOCK_FAVORITES_RESPONSE)),
+      });
+    } else {
+      await route.continue();
+    }
+  });
+
+  // POST /api/events
+  // Personalization fixtures use synthetic beach IDs, so analytics writes
+  // would violate local DB foreign keys without adding value to these tests.
+  await page.route("**/api/events", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(successEnvelope({ ok: true, status: "mocked" })),
       });
     } else {
       await route.continue();
