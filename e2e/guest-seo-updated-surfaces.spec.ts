@@ -147,6 +147,9 @@ test.describe("Updated SEO public surfaces", () => {
     await expect(
       page.getByRole("link", { name: /Compare Quiver vs Surfline/i }),
     ).toHaveAttribute("href", "/vs/surfline");
+    await expect(
+      page.getByRole("link", { name: /Check public forecast accuracy/i }),
+    ).toHaveAttribute("href", "/forecast-accuracy");
   });
 
   for (const slug of UPDATED_SURF_REPORT_SLUGS) {
