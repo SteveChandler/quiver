@@ -316,7 +316,6 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
  * either migrate these callers to existing event names or explicitly add them.
  */
 export const KNOWN_REJECTED_USER_EVENT_EMITTERS = [
-  'social_share',
 ] as const;
 
 export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
