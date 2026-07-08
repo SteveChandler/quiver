@@ -98,6 +98,7 @@ describe("GET /api/beaches/[id]", () => {
       state: "HI",
       country: "USA",
       region: "North Shore",
+      region_id: "region-north-shore",
       description: "World-famous reef break",
       skill_level: "Expert",
       crowd_level: "High",
@@ -105,6 +106,8 @@ describe("GET /api/beaches/[id]", () => {
       best_months: [11, 12, 1, 2],
       average_rating: 4.8,
       review_count: 250,
+      max_wind_any_mph: 22,
+      max_wind_onshore_mph: 12,
     };
 
     // Mock successful beach query
@@ -135,12 +138,18 @@ describe("GET /api/beaches/[id]", () => {
       state: "HI",
       country: "USA",
       region: "North Shore",
+      region_id: "region-north-shore",
       skill_level: "Expert",
       break_type: "Reef Break",
       average_rating: 4.8,
       review_count: 250,
+      max_wind_any_mph: 22,
+      max_wind_onshore_mph: 12,
     });
     const selectArg = query.select.mock.calls[0][0] as string;
+    expect(selectArg).toContain("max_wind_any_mph");
+    expect(selectArg).toContain("max_wind_onshore_mph");
+    expect(selectArg).toContain("region_id");
     expect(selectArg).not.toContain("is_private");
     expect(selectArg).not.toContain("deleted_at");
     expect(selectArg).not.toContain("owner_id");
