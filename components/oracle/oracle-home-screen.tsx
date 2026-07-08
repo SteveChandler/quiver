@@ -438,10 +438,12 @@ function LoadingSkeleton() {
 function OracleHeroEmpty({
   beachName,
   reason,
+  onSetHomeBeach,
   onRetry,
 }: {
   beachName: string;
   reason: string;
+  onSetHomeBeach?: () => void;
   onRetry: () => void;
 }) {
   return (
@@ -452,10 +454,19 @@ function OracleHeroEmpty({
             {beachName}
           </h1>
           <p className="text-white/60 text-sm mb-6">{reason}</p>
+          {onSetHomeBeach && (
+            <button
+              type="button"
+              onClick={onSetHomeBeach}
+              className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#F78E42] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#D57835] sm:w-auto"
+            >
+              Set your home beach
+            </button>
+          )}
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex items-center gap-2 rounded-full border border-[#F78E42] bg-[#F78E42]/10 px-5 py-2 text-sm font-semibold text-[#F78E42] hover:bg-[#F78E42]/20 transition-colors"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#F78E42] bg-[#F78E42]/10 px-5 py-2 text-sm font-semibold text-[#F78E42] transition-colors hover:bg-[#F78E42]/20 sm:w-auto"
           >
             Try again
           </button>
@@ -853,6 +864,7 @@ export function OracleHomeScreen() {
       <OracleHeroEmpty
         beachName={homeBeach?.name ?? "Your Surf"}
         reason={reason}
+        onSetHomeBeach={homeBeach ? undefined : handleSetHomeBeach}
         onRetry={() => globalThis.location.reload()}
       />
     );
