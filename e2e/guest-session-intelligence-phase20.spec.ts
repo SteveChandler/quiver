@@ -179,9 +179,12 @@ test.describe("Phase 20 guest Session Intelligence app links and QA", () => {
       await expectCanonicalPath(page, "/forecast-accuracy");
       await expectJsonLd(page);
       await expect(
-        page.getByRole("heading", { name: "Forecast accuracy receipts." })
+        page.getByRole("heading", {
+          name: "More accurate than Surfline. Twice as sharp as NOAA.",
+        })
       ).toBeVisible();
       await expect(page.getByText(/NOAA baseline/i).first()).toBeVisible();
+      await expect(page.getByText("WINNER")).toBeVisible();
       await expectNoHorizontalOverflow(page);
     });
 
