@@ -5,6 +5,24 @@ import {
   type ErrorCapture,
 } from "./utils/error-detection";
 
+const REUSED_FIGURE_PAGES = [
+  {
+    path: "/learn/swell-period-explained",
+    figureText: /Groundswell\s*vs\s*Wind Swell/i,
+    expectedText: /Swell period/i,
+  },
+  {
+    path: "/learn/how-swell-direction-affects-surf",
+    figureText: /Storm.*Shore/i,
+    expectedText: /Distant storm energy/i,
+  },
+  {
+    path: "/learn/how-swell-wraps-around-points",
+    figureText: /Groundswell\s*vs\s*Wind Swell/i,
+    expectedText: /Swell period/i,
+  },
+] as const;
+
 test.describe("groundswell visual explainer", () => {
   let errors: ErrorCapture;
 
@@ -47,5 +65,19 @@ test.describe("groundswell visual explainer", () => {
     await page.waitForLoadState("load");
     await expect(page.getByRole("slider", { name: /swell period/i })).toBeVisible();
     await expect(page.getByRole("link", { name: /check your beach/i })).toBeVisible();
+  });
+
+  test("reused figures render in swell education pages", async ({ page }) => {
+    for (const { path, figureText, expectedText } of REUSED_FIGURE_PAGES) {
+      await page.goto(path);
+      await page.waitForLoadState("load");
+
+      const figure = page.locator("figure").filter({ hasText: figureText }).first();
+      await expect(figure, `${path} should render the reused figure`).toBeVisible();
+      await expect(
+        page.locator("details").filter({ hasText: "Embed this figure" }).first(),
+      ).toBeVisible();
+      await expect(figure.getByText(expectedText)).toBeVisible();
+    }
   });
 });

@@ -176,7 +176,7 @@ export const learnArticles: LearnArticle[] = [
     title: "Swell Period Explained: What Seconds Mean for Surf",
     description: "Swell period explained for surfers: what 6, 10, 12, and 16 seconds mean, when long period helps, and how to read period in a forecast.",
     datePublished: "2026-03-26",
-    dateModified: "2026-03-30",
+    dateModified: "2026-07-06",
     readingTimeMin: 4,
     heroImage: "/point-break.webp",
     thumbnailImage: "/point-break.webp",
@@ -192,6 +192,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
+        figureKey: "swell-period-morph",
         content: `<p>Swell period is the time in seconds between consecutive wave crests passing a fixed point, typically measured by NDBC and CDIP buoys. It's the single best indicator of wave quality on any forecast. Waves with periods <strong>under 9 seconds</strong> come from local wind and break mushy and chaotic. Waves with periods <strong>above 12 seconds</strong> come from distant storms — like North Pacific or Southern Ocean systems — and break clean, powerful, and organized. A 3-foot swell at 14 seconds at Rincon will always outperform a 6-foot swell at 6 seconds. Check period on every forecast.</p>`,
         keyTakeaway:
           "Swell period (seconds between waves) is the best wave quality indicator: under 9 seconds means local chop, over 12 seconds means powerful distant-storm energy.",
@@ -973,6 +974,7 @@ export const learnArticles: LearnArticle[] = [
       "Swell direction is the compass heading waves arrive from — 300 degrees means northwest. Every beach has a swell window determined by its coastline orientation and exposure. A 45-degree mismatch between swell direction and beach facing loses 10-15% wave energy. A 90-degree mismatch loses 50-70%.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
+    dateModified: "2026-07-06",
     heroImage: "/images/learn/learn-aerial-shore.jpg",
     thumbnailImage: "/images/learn/learn-aerial-shore.jpg",
     keywords: [
@@ -999,6 +1001,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "detail",
         heading: "Swell Windows and Coastal Geometry",
+        figureKey: "swell-origin-fetch",
         content: `<p>Every beach has a <strong>swell window</strong> — the range of compass degrees that deliver waves. A west-facing beach (facing 270°) receives swells from roughly 240-300°, depending on how much headland protection exists on either side. Islands, headlands, and underwater canyons all modify which swell angles reach the lineup. Scripps Canyon in La Jolla <strong>focuses southwest swells</strong>, amplifying them at nearby breaks like Windansea. Point Conception in Santa Barbara <strong>blocks northwest swells</strong> from reaching most of Southern California, which is why SoCal needs south or southwest swells while NorCal fires on northwest.</p><p>WaveWatch III forecasts report swell direction as the bearing the swell travels <strong>from</strong> — a "300° swell" comes from the northwest heading southeast. Quiver displays this for every forecast period so you can match direction to your break's window.</p>`,
         keyTakeaway:
           "Headlands, islands, and canyons shape which swell angles reach your break. NorCal catches NW swells; SoCal needs S or SW swells because Point Conception blocks NW energy.",
@@ -2375,6 +2378,7 @@ export const learnArticles: LearnArticle[] = [
       "Swell bends as it enters shallower water near a headland. That bending — refraction — is why points like Rincon and Trestles can magnify a small swell from the right direction and ignore a bigger one from the wrong angle. Direction matters more than height at a point.",
     readingTimeMin: 7,
     datePublished: "2026-04-30",
+    dateModified: "2026-07-06",
     heroImage: "/point-break.webp",
     thumbnailImage: "/point-break.webp",
     keywords: [
@@ -2398,6 +2402,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "what-refraction-is",
         heading: "What Refraction Actually Is",
+        figureKey: "swell-period-morph",
         content: `<p>Refraction is wave bending. When a swell line enters shallower water, the part of the wave touching the shallow side slows down. The part still in deep water keeps moving at full speed. The whole line pivots toward the slow side, like a marching band turning around a corner where the inside row takes shorter steps.</p><p>This isn't a metaphor. Wave speed in shallow water depends on depth — once depth drops below roughly half the wavelength, the bottom starts dragging on the wave. A 14-second swell has a wavelength of about 1,000 feet in deep water, so it starts feeling the bottom at around 500 feet of depth. A 7-second swell only has a wavelength of about 250 feet, so it doesn't start bending until it's much closer to shore. <strong>Longer-period swells refract more.</strong> That single fact controls almost everything about how a point fires.</p><p>At a headland — a chunk of land that sticks out into the ocean — the swell line hits the shallow shelf around the point first. That part slows. The rest of the line keeps charging. The result is a wave that bends inward and peels along the point's contour instead of just slamming straight into the cliff.</p>`,
         keyTakeaway:
           "Waves slow down in shallow water. The part of the swell line that hits shallow first lags, the line bends toward it, and longer-period swells bend more.",
