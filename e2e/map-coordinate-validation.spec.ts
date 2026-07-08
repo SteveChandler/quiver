@@ -83,12 +83,16 @@ test.describe('Map coordinate browser smoke', () => {
   test('map renders canvas and visible markers without invalid marker styles', async ({
     page,
   }) => {
-    await page.goto('/map?search=blacks', { waitUntil: 'domcontentloaded' });
+    await page.goto('/map?search=bird%20rock', { waitUntil: 'domcontentloaded' });
     await page.waitForLoadState('load');
     await dismissMapEntryOverlay(page);
 
     await expect(page.getByTestId('map-view')).toBeVisible();
     await expect(page.locator('.mapboxgl-canvas, canvas').first()).toBeVisible({
+      timeout: 15000,
+    });
+
+    await expect(page.getByRole('option', { name: /bird rock/i }).first()).toBeVisible({
       timeout: 15000,
     });
 
