@@ -42,6 +42,16 @@ async function trackXPOptional(action: string, entityId?: string, entityType?: s
 type SessionInput = Partial<SessionInsert>;
 type SessionInputWithFeedbackContext = SessionInput & {
   forecast_feedback_context_id?: string;
+  recommendation_context?: {
+    recommendationId: string;
+    surface?: string;
+    rank?: number;
+    score?: number;
+    windowStart?: string;
+    windowEnd?: string;
+    mode?: string;
+    timeSlot?: string;
+  };
 };
 type BoardInput = Omit<Board, "id" | "created_at" | "updated_at" | "user_id">;
 
@@ -322,6 +332,7 @@ export async function createLoggedSession(data: SessionFormState | SessionInputW
 
     const {
       forecast_feedback_context_id,
+      recommendation_context,
       ...rest
     } = data as SessionInputWithFeedbackContext;
     let forecastFeedbackContextId = forecast_feedback_context_id;
@@ -460,6 +471,58 @@ export async function createLoggedSession(data: SessionFormState | SessionInputW
       }
     }
 
+    if (recommendation_context?.recommendationId) {
+      try {
+        const contextScore = Number.isFinite(recommendation_context.score)
+          ? Number(recommendation_context.score)
+          : 0;
+        const windowStart =
+          recommendation_context.windowStart ?? session.arrival_time;
+        const windowEnd =
+          recommendation_context.windowEnd ??
+          recommendation_context.windowStart ??
+          session.arrival_time;
+
+        const { error: recommendationContextError } =
+          await createSupabaseServiceRoleClient()
+            .from("recommendation_session_contexts")
+            .upsert(
+              {
+                user_id: user.id,
+                session_id: session.id,
+                recommendation_id: recommendation_context.recommendationId,
+                source_surface:
+                  recommendation_context.surface ?? "discover_list",
+                beach_id: session.beach_id,
+                beach_name: session.beach_name ?? cleaned.beach_name ?? null,
+                window_start: windowStart,
+                window_end: windowEnd,
+                forecast_at: windowStart,
+                condition_score: contextScore,
+                personal_match_score: Math.min(contextScore / 10, 10),
+                overall_score: contextScore,
+                reason_type: "session_log",
+                recommendation_state: "ready_today",
+                ranking_position: recommendation_context.rank ?? 1,
+                fallback_horizon_hours: null,
+              },
+              { onConflict: "user_id,session_id,recommendation_id" }
+            );
+
+        if (recommendationContextError) {
+          console.warn(
+            "[createLoggedSession] recommendation context link failed:",
+            recommendationContextError,
+          );
+        }
+      } catch (error) {
+        console.warn(
+          "[createLoggedSession] recommendation context link failed:",
+          error,
+        );
+      }
+    }
+
     // Fire-and-forget: emit to user_events for retention analytics.
     void (async () => {
       const { error: evtErr } = await writeClient.from("user_events").insert({
@@ -471,6 +534,10 @@ export async function createLoggedSession(data: SessionFormState | SessionInputW
           session_id: session.id,
           duration_minutes: session.duration_minutes ?? null,
           rating: session.rating ?? null,
+          recommendation_id:
+            (session as any).recommendation_id ??
+            (cleaned as any).recommendation_id ??
+            null,
         },
       });
       if (evtErr) console.warn("[createLoggedSession] user_events insert failed:", evtErr);

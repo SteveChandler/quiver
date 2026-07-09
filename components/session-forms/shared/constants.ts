@@ -49,6 +49,29 @@ export const FORECAST_ACCURACY_OPTIONS = [
   },
 ] as const;
 
+export const RECOMMENDATION_CALL_ACCURACY_OPTIONS = [
+  {
+    value: "right",
+    label: "Right",
+    description: "The call matched the waves",
+  },
+  {
+    value: "partly",
+    label: "Partly",
+    description: "Some of it was right",
+  },
+  {
+    value: "wrong",
+    label: "Wrong",
+    description: "The call missed",
+  },
+  {
+    value: "not_sure",
+    label: "Not sure",
+    description: "Hard to tell",
+  },
+] as const;
+
 export const WAVE_CHARACTERISTICS = [
   { value: "clean", label: "Clean" },
   { value: "glassy", label: "Glassy" },

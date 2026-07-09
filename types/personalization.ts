@@ -265,6 +265,8 @@ export interface SurfDiscoveryBoardPick {
  * match quality indicators, and distance information for GPS phase.
  */
 export interface SurfDiscoveryRecommendation {
+  /** Deterministic recommendation id shared by web attribution and Recommendations V2. */
+  recommendationId?: string;
   /** Recommendation source discriminator. Missing values should be treated as "beach" by older clients. */
   kind?: 'beach' | 'custom_spot';
   /** Custom spot id when kind="custom_spot"; null/undefined for curated beach recommendations. */

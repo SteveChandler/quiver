@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Search, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { SurfDiscoveryRecommendation, SurfDiscoveryResponse } from "@/types/personalization";
+import { buildRecommendationLogUrl } from "@/lib/recommendations/attribution";
 
 interface BeachDiscoveryListProps {
   /** Maximum results to fetch (only used when discoveryData is not provided) */
@@ -66,24 +67,17 @@ export function BeachDiscoveryList({
   const error = discoveryData !== undefined ? externalError : fetchError;
   const hasRecommendations = discovery ? discovery.recommendations.length > 0 : fetchHasRecommendations;
 
-  const handleLogSession = (beachId: string) => {
-    // Find the recommendation to get complete data including time window
-    const recommendation = discovery?.recommendations.find(r => r.beach.id === beachId);
-
-    if (!recommendation) {
-      console.warn(`Beach ${beachId} not found in recommendations`);
-      // Fallback to basic route
-      router.push(`/sessions/new?beach=${beachId}`);
-      return;
-    }
-
-    // Build URL with prefill parameters
-    const params = new URLSearchParams({
-      beach: recommendation.beach.id,
-      beachName: recommendation.beach.name,
-    });
-
-    router.push(`/sessions/new?${params.toString()}`);
+  const handleLogSession = (
+    recommendation: SurfDiscoveryRecommendation,
+    rank: number
+  ) => {
+    router.push(
+      buildRecommendationLogUrl({
+        recommendation,
+        rank,
+        surface: "discover_list",
+      })
+    );
   };
 
   // Loading state

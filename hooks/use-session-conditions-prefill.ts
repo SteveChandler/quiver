@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useSessionForecast } from "./use-session-forecast";
+import { useSessionTideSnapshot } from "./use-session-tide-snapshot";
 import type { SessionFormState, SessionFormMode } from "./use-session-form";
 
 type FieldKey =
@@ -66,6 +67,11 @@ export function useSessionConditionsPrefill(
     formState.selectedDate ?? null,
     formState.selectedTime ?? null
   );
+  const { tideSnapshot } = useSessionTideSnapshot(
+    formState.selectedBeachId ?? null,
+    formState.selectedDate ?? null,
+    formState.selectedTime ?? null
+  );
 
   useEffect(() => {
     if (mode !== "log") return;
@@ -98,6 +104,14 @@ export function useSessionConditionsPrefill(
     };
 
     tryPrefill("waveHeight", "waveHeight", forecastData.wave_height);
+    if (
+      formState.recommendationId &&
+      formState.forecastWaveHeightFt === undefined &&
+      forecastData.wave_height !== undefined &&
+      forecastData.wave_height !== null
+    ) {
+      updateField("forecastWaveHeightFt", forecastData.wave_height);
+    }
     tryPrefill("windSpeed", "windSpeed", forecastData.wind_speed);
     tryPrefill("windDirection", "windDirection", forecastData.wind_direction);
     tryPrefill(
@@ -107,8 +121,21 @@ export function useSessionConditionsPrefill(
         ? String(forecastData.water_temp)
         : undefined
     );
+
+    if (formState.recommendationId) {
+      const tideStatus =
+        tideSnapshot?.tideStatus?.toLowerCase() ??
+        forecastData.tide_status?.toLowerCase();
+      if (!formState.forecastTideStatus && tideStatus) {
+        updateField("forecastTideStatus", tideStatus);
+      }
+      if (!formState.tideStatus && tideStatus) {
+        updateField("tideStatus", tideStatus);
+      }
+    }
   }, [
     forecastData,
+    tideSnapshot,
     loading,
     mode,
     formState.selectedBeachId,
