@@ -277,6 +277,45 @@ describe("Sitemap Generation", () => {
       });
     });
 
+    it("should exclude confirmed missing tide and water-temp city intent routes", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            city: "Dry Harbor",
+            state: "CA",
+            country: "USA",
+            beachCount: 5,
+            hasBeginnerBeaches: true,
+            hasAdvancedBeaches: true,
+            hasLeastCrowdedBeaches: true,
+            hasEditorialContent: true,
+            hasTideData: false,
+            hasWaterTempData: false,
+          },
+          {
+            city: "Live Harbor",
+            state: "CA",
+            country: "USA",
+            beachCount: 5,
+            hasBeginnerBeaches: true,
+            hasAdvancedBeaches: true,
+            hasLeastCrowdedBeaches: true,
+            hasEditorialContent: true,
+            hasTideData: true,
+            hasWaterTempData: true,
+          },
+        ],
+      });
+
+      const result = await sitemap();
+
+      expect(result.find((r) => r.url === `${baseUrl}/tide/dry-harbor`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/water-temp/dry-harbor`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/live-harbor`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/water-temp/live-harbor`)).not.toBeUndefined();
+    });
+
     it("should handle getAllCitiesWithBeachSkills failure gracefully", async () => {
       const consoleSpy = jest.spyOn(console, "error").mockImplementation();
       (getAllCitiesWithBeachSkills as jest.Mock).mockRejectedValue(

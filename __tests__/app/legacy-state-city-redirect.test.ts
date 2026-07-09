@@ -13,6 +13,7 @@ jest.mock("@/actions/city/city-metadata-actions", () => ({
 jest.mock("@/actions/forecast/intent-forecast-actions", () => ({
   getCityTideData: jest.fn().mockResolvedValue(null),
   getCityTideDataExpanded: jest.fn().mockResolvedValue(null),
+  getCityIntentDataAvailability: jest.fn().mockResolvedValue("unknown"),
   getCityWaterTempHistory: jest.fn().mockResolvedValue(null),
   getIntentForecastSummary: jest.fn().mockResolvedValue(null),
   getCityWaterTempExpanded: jest.fn().mockResolvedValue(null),
@@ -25,6 +26,11 @@ import {
   findCityBySlug,
   getCityExcludeIntents,
 } from "@/actions/city/city-metadata-actions";
+import {
+  getCityIntentDataAvailability,
+  getCityTideData,
+  getCityWaterTempHistory,
+} from "@/actions/forecast/intent-forecast-actions";
 
 jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
@@ -56,6 +62,9 @@ describe("legacy state/city URLs", () => {
       data: [],
     });
     (getCityExcludeIntents as jest.Mock).mockResolvedValue([]);
+    (getCityIntentDataAvailability as jest.Mock).mockResolvedValue("unknown");
+    (getCityTideData as jest.Mock).mockResolvedValue(null);
+    (getCityWaterTempHistory as jest.Mock).mockResolvedValue(null);
   });
 
   test("redirects /ca/:city to map with search filter", async () => {
@@ -149,6 +158,60 @@ describe("legacy state/city URLs", () => {
 
       expect((metadata.robots as any)?.index).not.toBe(false);
       expect(getCityExcludeIntents).not.toHaveBeenCalled();
+    }
+  );
+
+  test.each([
+    ["tide", getCityTideData],
+    ["water-temp", getCityWaterTempHistory],
+  ])(
+    "noindexes %s city pages only when live data is confirmed missing",
+    async (intent, dataLoader) => {
+      (findCityBySlug as jest.Mock).mockResolvedValue({
+        success: true,
+        data: cityMetadata,
+      });
+      (dataLoader as jest.Mock).mockResolvedValue(null);
+      (getCityIntentDataAvailability as jest.Mock).mockResolvedValue("missing");
+
+      const metadata = await generateMetadata({
+        params: Promise.resolve({
+          intent,
+          city: `${intent}-test-harbor`,
+        }),
+      });
+
+      expect((metadata.robots as any)?.index).toBe(false);
+      expect((metadata.robots as any)?.follow).toBe(true);
+      expect(getCityIntentDataAvailability).toHaveBeenCalledWith(
+        intent,
+        "Test Harbor",
+        "CA",
+      );
+    }
+  );
+
+  test.each([
+    ["tide", getCityTideData],
+    ["water-temp", getCityWaterTempHistory],
+  ])(
+    "keeps %s city pages indexable when data availability is unknown",
+    async (intent, dataLoader) => {
+      (findCityBySlug as jest.Mock).mockResolvedValue({
+        success: true,
+        data: cityMetadata,
+      });
+      (dataLoader as jest.Mock).mockResolvedValue(null);
+      (getCityIntentDataAvailability as jest.Mock).mockResolvedValue("unknown");
+
+      const metadata = await generateMetadata({
+        params: Promise.resolve({
+          intent,
+          city: `${intent}-test-harbor`,
+        }),
+      });
+
+      expect((metadata.robots as any)?.index).not.toBe(false);
     }
   );
 });

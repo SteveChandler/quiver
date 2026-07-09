@@ -105,6 +105,8 @@ export interface CityWaterTempData {
   beachName: string;
 }
 
+export type CityIntentDataAvailability = "available" | "missing" | "unknown";
+
 /**
  * Per-beach water temperature for comparison table
  */
@@ -273,10 +275,10 @@ export async function getCityTideData(
         return null;
       }
 
-      return processTideData(altBeach, state);
+      return hasUsableTideForecastRow(altBeach) ? processTideData(altBeach, state) : null;
     }
 
-    return processTideData(beachWithForecast, state);
+    return hasUsableTideForecastRow(beachWithForecast) ? processTideData(beachWithForecast, state) : null;
   } catch (error) {
     console.error("Error in getCityTideData:", error);
     return null;
@@ -347,6 +349,23 @@ function processTideData(forecastData: any, state: string): CityTideData | null 
   };
 }
 
+function hasUsableTideForecastRow(forecastData: any): boolean {
+  const rawForecast = forecastData.raw_forecast as {
+    tide_schedule?: TideScheduleEntry[];
+  } | null;
+
+  return (
+    (Array.isArray(rawForecast?.tide_schedule) && rawForecast.tide_schedule.length >= 2) ||
+    Boolean(
+      forecastData.tide_status ||
+      forecastData.tide_height ||
+      forecastData.next_tide_time ||
+      forecastData.next_tide_type ||
+      forecastData.next_tide_height
+    )
+  );
+}
+
 /**
  * Format a date for day labels: "Today", "Tomorrow", or "Wed, Feb 12"
  * Uses explicit timezone to ensure deterministic server-side output.
@@ -399,6 +418,151 @@ async function findRepresentativeBeach(
     .single();
 
   return alt ?? null;
+}
+
+async function findRepresentativeBeachStrict(
+  supabase: SupabaseClient,
+  cityName: string,
+  state: string,
+): Promise<{ id: string; name: string; timezone: string | null } | null> {
+  const { data, error } = await supabase
+    .from("beaches")
+    .select("id, name, timezone")
+    .ilike("city", cityName)
+    .ilike("state", state)
+    .order("name", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  if (data) return data;
+
+  const { data: alt, error: altError } = await supabase
+    .from("beaches")
+    .select("id, name, timezone")
+    .ilike("city", cityName)
+    .order("name", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+
+  if (altError) throw altError;
+  return alt ?? null;
+}
+
+async function fetchCityTideRowsForAvailability(
+  supabase: SupabaseClient,
+  cityName: string,
+  state?: string,
+): Promise<any[]> {
+  const today = new Date().toISOString().split("T")[0];
+  const nextDay = new Date(new Date(`${today}T00:00:00Z`).getTime() + 86400000)
+    .toISOString()
+    .split("T")[0];
+
+  let query = supabase
+    .from("enhanced_forecasts")
+    .select(
+      `
+      beach_id,
+      forecast_at,
+      tide_status,
+      tide_height,
+      next_tide_time,
+      next_tide_type,
+      next_tide_height,
+      raw_forecast,
+      beaches!inner (
+        id,
+        name,
+        city,
+        state
+      )
+    `
+    )
+    .gte("forecast_at", `${today}T00:00:00Z`)
+    .lt("forecast_at", `${nextDay}T00:00:00Z`)
+    .ilike("beaches.city", cityName)
+    .order("forecast_at", { ascending: true })
+    .limit(5);
+
+  if (state) {
+    query = query.ilike("beaches.state", state);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
+async function getCityTideDataAvailability(
+  supabase: SupabaseClient,
+  cityName: string,
+  state: string,
+): Promise<CityIntentDataAvailability> {
+  const rowsWithState = await fetchCityTideRowsForAvailability(supabase, cityName, state);
+  const rows = rowsWithState.length > 0
+    ? rowsWithState
+    : await fetchCityTideRowsForAvailability(supabase, cityName);
+
+  if (rows.length === 0) return "missing";
+
+  return rows.some(hasUsableTideForecastRow)
+    ? "available"
+    : "missing";
+}
+
+async function getCityWaterTempDataAvailability(
+  supabase: SupabaseClient,
+  cityName: string,
+  state: string,
+): Promise<CityIntentDataAvailability> {
+  const today = new Date();
+  const sevenDaysAgo = new Date(today);
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+
+  const todayStr = today.toISOString().split("T")[0];
+  const startDateStr = sevenDaysAgo.toISOString().split("T")[0];
+  const endNextDay = new Date(new Date(`${todayStr}T00:00:00Z`).getTime() + 86400000)
+    .toISOString()
+    .split("T")[0];
+
+  const beach = await findRepresentativeBeachStrict(supabase, cityName, state);
+  if (!beach) return "missing";
+
+  const { data, error } = await supabase
+    .from("enhanced_forecasts")
+    .select("forecast_date, forecast_at, water_temp")
+    .eq("beach_id", beach.id)
+    .gte("forecast_at", `${startDateStr}T00:00:00Z`)
+    .lt("forecast_at", `${endNextDay}T00:00:00Z`)
+    .not("water_temp", "is", null)
+    .order("forecast_at", { ascending: true });
+
+  if (error) throw error;
+  if (!data || data.length === 0) return "missing";
+
+  return data.some((forecast) => parseWaterTempF(forecast.water_temp) !== null)
+    ? "available"
+    : "missing";
+}
+
+export async function getCityIntentDataAvailability(
+  intent: "tide" | "water-temp",
+  cityName: string,
+  state: string,
+): Promise<CityIntentDataAvailability> {
+  try {
+    const supabase = await createSupabaseServiceRoleClient();
+
+    if (intent === "tide") {
+      return getCityTideDataAvailability(supabase, cityName, state);
+    }
+
+    return getCityWaterTempDataAvailability(supabase, cityName, state);
+  } catch (error) {
+    console.error("Error in getCityIntentDataAvailability:", error);
+    return "unknown";
+  }
 }
 
 /**

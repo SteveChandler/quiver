@@ -59,10 +59,12 @@ import { ZeroState } from "@/components/ui/zero-state";
 import {
   getCityTideData,
   getCityTideDataExpanded,
+  getCityIntentDataAvailability,
   getCityWaterTempHistory,
   getIntentForecastSummary,
   getCityWaterTempExpanded,
   getCitySunTimesData,
+  type CityIntentDataAvailability,
   type CityTideData,
   type CityTideDataExpanded,
   type CityWaterTempData,
@@ -303,10 +305,17 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
   // For tide/water-temp intents, fetch live data to inject into meta description
   let tideDataForMeta: CityTideData | null = null;
   let waterTempDataForMeta: CityWaterTempData | null = null;
+  let intentDataAvailability: CityIntentDataAvailability = "available";
   if (params.intent === "tide") {
     tideDataForMeta = await getCityTideData(cityMetadata.cityName, cityMetadata.state);
+    intentDataAvailability = tideDataForMeta
+      ? "available"
+      : await getCityIntentDataAvailability("tide", cityMetadata.cityName, cityMetadata.state);
   } else if (params.intent === "water-temp") {
     waterTempDataForMeta = await getCityWaterTempHistory(cityMetadata.cityName, cityMetadata.state);
+    intentDataAvailability = waterTempDataForMeta
+      ? "available"
+      : await getCityIntentDataAvailability("water-temp", cityMetadata.cityName, cityMetadata.state);
   }
 
   const pageContent = buildIntentPageContent(
@@ -354,7 +363,11 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
   });
 
   // Prevent indexing of filtered empty-state pages (thin content)
-  if (!hasMatchingBeaches || excludedCityIntents.includes(params.intent as IntentKey)) {
+  if (
+    !hasMatchingBeaches ||
+    intentDataAvailability === "missing" ||
+    excludedCityIntents.includes(params.intent as IntentKey)
+  ) {
     return { ...metadata, robots: { index: false, follow: true } };
   }
 

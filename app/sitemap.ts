@@ -437,6 +437,8 @@ async function getIntentRoutes(): Promise<MetadataRoute.Sitemap> {
             if (BEGINNER_INTENTS.has(intent) && !cityRecord.hasBeginnerBeaches) continue;
             if (intent === "least-crowded" && !cityRecord.hasLeastCrowdedBeaches) continue;
           }
+          if (intent === "tide" && cityRecord.hasTideData === false) continue;
+          if (intent === "water-temp" && cityRecord.hasWaterTempData === false) continue;
 
           // Dynamic priority based on beach count
           const priority = cityRecord.beachCount >= 10 ? 0.8 : 0.7;
