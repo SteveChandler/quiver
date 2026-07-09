@@ -64,14 +64,19 @@ export function getBadgeChecks(stats: UserBadgeStats): BadgeCheck[] {
     { slug: "sunrise_chaser", condition: stats.early_sessions >= 1 },
     { slug: "dawn_patrol_legend", condition: stats.early_sessions >= 5 },
     { slug: "storm_chaser", condition: stats.swell_sessions >= 1 },
+    { slug: "new_break_logged", condition: stats.distinct_beaches >= 2 },
+    { slug: "home_break_regular", condition: stats.home_beach_sessions >= 10 },
+    { slug: "clean_conditions", condition: stats.clean_condition_sessions >= 5 },
 
     // Journal badges
     { slug: "first_entry", condition: stats.reflection_count >= 1 },
+    { slug: "three_day_streak", condition: stats.consecutive_days >= 3 },
     { slug: "consistency_king_queen", condition: stats.consecutive_days >= 7 },
     { slug: "board_logger", condition: stats.board_tags >= 10 },
     { slug: "water_watcher", condition: stats.temp_records >= 20 },
     { slug: "wave_rater", condition: stats.wave_ratings >= 15 },
     { slug: "seasoned_tracker", condition: stats.complete_entries >= 50 },
+    { slug: "best_session", condition: stats.five_star_sessions >= 1 },
 
     // Quiver badges
     { slug: "quiver_starter", condition: stats.board_count >= 1 },
