@@ -94,6 +94,10 @@ export interface UserBadgeStats {
   sweet_spot_confidence: number;
   /** Number of times user has shared a progression milestone */
   progression_shares: number;
+  distinct_beaches: number;
+  home_beach_sessions: number;
+  clean_condition_sessions: number;
+  five_star_sessions: number;
 }
 
 /**

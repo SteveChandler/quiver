@@ -48,6 +48,10 @@ const BULK_BEACH_SELECT =
   "id, name, slug, lat, lon, city, state, country, region, timezone, break_type, skill_level, cdip_station, cdip_eligible, wind_offshore_deg, wind_offshore_tol_deg, wind_cross_shore_ok_kt, wind_onshore_bad_kt, swell_window_center_deg, swell_window_halfwidth_deg, swell_access_factors, wind_exposure_factors, preferred_tide_direction, preferred_tide_ft_min, preferred_tide_ft_max, tide_direction_sensitivity, preference_model, features, hazards, average_rating, review_count, shoaling_factors" as const;
 
 const SWELL_TIMELINE_HOUR_OFFSETS = [0, 3, 6, 9, 12] as const;
+const HOURLY_SWELL_TIMELINE_HOUR_OFFSETS = Array.from(
+  { length: 43 },
+  (_, hourOffset) => hourOffset,
+);
 
 /**
  * GET /api/forecasts/bulk
@@ -160,7 +164,8 @@ function nearestForecastRow(
 
 function buildSwellPartitionTimeline(
   rows: EnhancedForecastEntity[],
-  now: Date
+  now: Date,
+  hourOffsets: readonly number[] = SWELL_TIMELINE_HOUR_OFFSETS,
 ): Record<string, SwellPartition[]> {
   const rowsByBeach = new Map<string, EnhancedForecastEntity[]>();
 
@@ -174,7 +179,7 @@ function buildSwellPartitionTimeline(
   const nowMs = now.getTime();
 
   rowsByBeach.forEach((beachRows, beachId) => {
-    const partitions = SWELL_TIMELINE_HOUR_OFFSETS.map((offsetHours) => {
+    const partitions = hourOffsets.map((offsetHours) => {
       const targetMs = nowMs + offsetHours * 60 * 60 * 1000;
       const row = nearestForecastRow(beachRows, targetMs);
       return row ? rowToSwellPartition(row) : null;
@@ -270,6 +275,7 @@ async function bulkForecastHandler(
     const searchParams = request.nextUrl.searchParams;
     const beachIdsParam = searchParams.get("beachIds");
     const forecastAtParam = searchParams.get("forecastAt");
+    const isHourlyTimeline = searchParams.get("timeline") === "hourly";
 
     // Return empty forecasts for missing/empty beachIds (not an error)
     if (!beachIdsParam || !beachIdsParam.trim()) {
@@ -326,7 +332,10 @@ async function bulkForecastHandler(
     }
     const swellPartitionTimeline = buildSwellPartitionTimeline(
       timelineRows,
-      new Date()
+      new Date(),
+      isHourlyTimeline
+        ? HOURLY_SWELL_TIMELINE_HOUR_OFFSETS
+        : SWELL_TIMELINE_HOUR_OFFSETS,
     );
     const conditionScoreMap: Record<string, number | undefined> = {};
     const conditionSummaryMap: Record<string, ConditionSummary> =

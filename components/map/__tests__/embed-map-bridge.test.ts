@@ -68,6 +68,18 @@ describe("embed map bridge", () => {
     });
   });
 
+  it("accepts hourly forecast indexes when the embed exposes an hourly range", () => {
+    expect(
+      parseEmbedMapCommand(
+        { type: "setForecastTime", payload: { index: 42 } },
+        42,
+      ),
+    ).toEqual({
+      type: "setForecastTime",
+      payload: { index: 42 },
+    });
+  });
+
   it("parses field-visibility commands", () => {
     expect(
       parseEmbedMapCommand({ type: "setFieldVisible", payload: { visible: false } }),

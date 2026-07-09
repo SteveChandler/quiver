@@ -247,6 +247,14 @@ function forecastRow(
   };
 }
 
+function hourlyTimelineRows(): ForecastRow[] {
+  return Array.from({ length: 43 }, (_, offsetHours) => ({
+    ...forecastRow("beach-1", String(offsetHours), offsetHours),
+    swell_1_direction: "W",
+    swell_1_period: "10s",
+  }));
+}
+
 function beachRow(id: string, overrides: Partial<BeachRow> = {}): BeachRow {
   return {
     id,
@@ -599,26 +607,7 @@ describe("/api/forecasts/bulk", () => {
 
   it("returns a five-step swell partition timeline from nearest forecast rows", async () => {
     mockBulkQueries({
-      forecastRows: [
-        {
-          ...forecastRow("beach-1", "2.0", 1),
-          swell_1_direction: "W",
-          swell_1_period: "10s",
-          wind_direction_deg: 80,
-        },
-        {
-          ...forecastRow("beach-1", "4.0", 4),
-          swell_1_direction: "WNW",
-          swell_1_period: "14s",
-          wind_direction_deg: 120,
-        },
-        {
-          ...forecastRow("beach-1", "5.0", 7),
-          swell_1_direction: "NW",
-          swell_1_period: "16s",
-          wind_direction_deg: 160,
-        },
-      ],
+      forecastRows: hourlyTimelineRows(),
     });
 
     const response = await GET(
@@ -630,20 +619,43 @@ describe("/api/forecasts/bulk", () => {
     expect(data.data.swellPartitionTimeline["beach-1"][0]).toMatchObject({
       s1Dir: 270,
       s1PeriodS: 10,
-      s1HeightFt: 2,
-      windDir: 80,
+      s1HeightFt: 0,
+      windDir: 90,
     });
     expect(data.data.swellPartitionTimeline["beach-1"][1]).toMatchObject({
-      s1Dir: 292.5,
-      s1PeriodS: 14,
-      s1HeightFt: 4,
-      windDir: 120,
+      s1Dir: 270,
+      s1PeriodS: 10,
+      s1HeightFt: 3,
+      windDir: 90,
     });
     expect(data.data.swellPartitionTimeline["beach-1"][2]).toMatchObject({
-      s1Dir: 315,
-      s1PeriodS: 16,
-      s1HeightFt: 5,
-      windDir: 160,
+      s1Dir: 270,
+      s1PeriodS: 10,
+      s1HeightFt: 6,
+      windDir: 90,
+    });
+    expect(data.data.swellPartitionTimeline["beach-1"][4]).toMatchObject({
+      s1HeightFt: 12,
+    });
+  });
+
+  it("returns hourly swell partition frames only when timeline=hourly", async () => {
+    mockBulkQueries({ forecastRows: hourlyTimelineRows() });
+
+    const hourlyResponse = await GET(
+      createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly",
+      ),
+    );
+    const hourlyData = await expectSuccessResponse<BulkForecastResponse>(hourlyResponse, 200);
+
+    expect(hourlyData.data.swellPartitionTimeline["beach-1"]).toHaveLength(43);
+    expect(hourlyData.data.swellPartitionTimeline["beach-1"][0]).toMatchObject({
+      s1HeightFt: 0,
+    });
+    expect(hourlyData.data.swellPartitionTimeline["beach-1"][42]).toMatchObject({
+      s1HeightFt: 42,
     });
   });
 

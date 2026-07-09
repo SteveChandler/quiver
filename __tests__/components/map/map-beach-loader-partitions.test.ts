@@ -124,6 +124,26 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
     ]);
   });
 
+  it("requests the hourly timeline only when explicitly enabled", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { forecasts: {} } }),
+    }) as unknown as typeof fetch;
+
+    await loadBeachesAndWaveHeights(
+      32.7,
+      -117.2,
+      [beach("a", 32.71, -117.21)],
+      { fetchNearbyBeaches: async () => ({ data: [] }) },
+      { timeline: "hourly" },
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/forecasts/bulk?beachIds=a&timeline=hourly",
+    );
+  });
+
   it("returns an empty partitionsMap when the field is absent", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
