@@ -5,7 +5,10 @@ import { DEFAULT_SECURITY_HEADERS } from "@/lib/middleware/api-wrappers";
 import { AuthValidator } from "@/lib/middleware/auth-validator";
 import { RouteGuard } from "@/lib/middleware/route-guard";
 import { AdminChecker } from "@/lib/middleware/admin-checker";
-import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
+import {
+  buildBeachUrl,
+  isValidStateSlug,
+} from "@/lib/utils/beach-url-utils";
 import {
   handleSeoRedirect,
 } from "@/lib/middleware/seo-redirect-handler";
@@ -66,10 +69,24 @@ const INTERNATIONAL_RESERVED_SEGMENTS = new Set([
 ]);
 
 // Legacy slug variants that Google indexed but don't match the DB slug.
-// These were used by the middleware /spots/{slug} DB lookup (now removed to reduce TTFB).
-// Kept as reference; re-introduce if a static /spots redirect is added back.
-// "blacks-beach": "blacks"         — 271 impressions at 0 clicks (Mar 2026)
-// "lowers-trestles": "lower-trestles" — plural variant linked from OC surf spots page
+const LEGACY_SPOT_SLUG_ALIASES: Record<string, string> = {
+  "blacks-beach": "blacks",
+  "lowers-trestles": "lower-trestles",
+};
+
+const LEGACY_CANONICAL_BEACH_PATHS_BY_SLUG: Record<string, string> = {
+  "bolsa-chica": "/ca/huntington-beach/bolsa-chica",
+  "lower-trestles": "/ca/san-onofre/lower-trestles",
+  "seal-beach": "/ca/seal-beach/seal-beach-pier-seal-beach-ca",
+  "seal-beach-pier-seal-beach-ca": "/ca/seal-beach/seal-beach-pier-seal-beach-ca",
+};
+
+interface CanonicalBeachRow {
+  slug: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+}
 
 function log(message: string, data?: any) {
   if (isDev && isVerbose) {
@@ -114,23 +131,12 @@ export async function proxy(request: NextRequest) {
   let rewriteTarget: URL | undefined;
 
   /**
-   * Legacy /spots/{slug} → canonical URL redirect
-   *
-   * The spots/[slug]/page.tsx page component uses permanentRedirect() to redirect
-   * to the canonical /{state}/{city}/{slug} URL. The middleware DB lookup that
-   * previously intercepted these requests has been removed to eliminate DB latency
-   * for anonymous users. The page route handles the redirect internally.
-   *
-   * LEGACY_SPOT_SLUG_ALIASES is retained in case it is needed again in the future,
-   * but is no longer used in the middleware redirect flow.
-   */
-
-  /**
    * Handle 4-segment state URLs that would incorrectly match the international route
    *
    * URLs like /hi/koloa-hi/waikoloa-village-lagoon/extra would match the 4-segment
    * international route (/[country]/[region]/[city]/[beach]) but with "hi" as the
-   * country. Since "hi" is a valid state slug, redirect to /spots/{beach} instead.
+   * country. Since "hi" is a valid state slug, redirect to the canonical beach URL
+   * shape without sending crawlers through /spots first.
    *
    * This prevents 404s caused by the international route's state slug validation.
    */
@@ -139,9 +145,8 @@ export async function proxy(request: NextRequest) {
     const fourthSegment = fourSegmentMatch[4].toLowerCase();
     // Known beach sub-pages with dedicated routes — let these pass through
     if (!BEACH_SUBPATHS.has(fourthSegment)) {
-      const beachSlug = fourSegmentMatch[3]; // Use the 3rd segment as beach slug
       const redirectUrl = request.nextUrl.clone();
-      redirectUrl.pathname = `/spots/${beachSlug}`;
+      redirectUrl.pathname = `/${fourSegmentMatch[1].toLowerCase()}/${fourSegmentMatch[2].toLowerCase()}/${fourSegmentMatch[3].toLowerCase()}`;
       return NextResponse.redirect(redirectUrl, { status: 301 });
     }
   }
@@ -154,12 +159,6 @@ export async function proxy(request: NextRequest) {
   if (pathname === "/hi/waimea") {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/hi/waimea-kauai";
-    return NextResponse.redirect(redirectUrl, { status: 301 });
-  }
-
-  if (pathname === "/spots/lowers-trestles") {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = "/spots/lower-trestles";
     return NextResponse.redirect(redirectUrl, { status: 301 });
   }
 
@@ -212,13 +211,16 @@ export async function proxy(request: NextRequest) {
    *
    * Historical URLs used "orange-county" as the city segment, but beaches
    * are actually in specific cities. These were crawled by Google and now 404.
-   * Redirect to /spots/{beach} which is the universal beach detail route.
+   * Resolve by beach slug so crawlers land directly on the canonical route.
    */
   const ocMatch = pathname.toLowerCase().match(/^\/ca\/orange-county\/([^/]+)$/);
   if (ocMatch && ocMatch[1]) {
-    const redirectUrl = request.nextUrl.clone();
-    redirectUrl.pathname = `/spots/${ocMatch[1]}`;
-    return NextResponse.redirect(redirectUrl, { status: 301 });
+    const canonicalPath = await getCanonicalBeachPathForSpotSlug(request, ocMatch[1]);
+    if (canonicalPath) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = canonicalPath;
+      return NextResponse.redirect(redirectUrl, { status: 301 });
+    }
   }
 
   const northHbStreetsMatch = pathname
@@ -254,6 +256,26 @@ export async function proxy(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/ca/santa-cruz/the-hook-santa-cruz-ca";
     return NextResponse.redirect(redirectUrl, { status: 301 });
+  }
+
+  /**
+   * Legacy /spots/{slug} → canonical beach URL.
+   *
+   * Next permanentRedirect() emits 308, so proxy resolves known public beach slugs
+   * first and emits a literal 301 for crawlers. Unknown slugs fall through to the
+   * page route, which returns 404/noindex.
+   */
+  const spotsSlugMatch = pathname.toLowerCase().match(/^\/spots\/([^/]+?)\/?$/);
+  if (spotsSlugMatch && spotsSlugMatch[1]) {
+    const canonicalPath = await getCanonicalBeachPathForSpotSlug(
+      request,
+      spotsSlugMatch[1]
+    );
+    if (canonicalPath) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = canonicalPath;
+      return NextResponse.redirect(redirectUrl, { status: 301 });
+    }
   }
 
   /**
@@ -508,6 +530,55 @@ function createSecureResponse(request: NextRequest, rewriteUrl?: URL): NextRespo
   captureIPLocation(request, response);
 
   return response;
+}
+
+async function getCanonicalBeachPathForSpotSlug(
+  request: NextRequest,
+  rawSlug: string
+): Promise<string | null> {
+  let decodedSlug: string;
+  try {
+    decodedSlug = decodeURIComponent(rawSlug).toLowerCase();
+  } catch {
+    decodedSlug = rawSlug.toLowerCase();
+  }
+
+  const canonicalSlug = LEGACY_SPOT_SLUG_ALIASES[decodedSlug] ?? decodedSlug;
+  const staticCanonicalPath = LEGACY_CANONICAL_BEACH_PATHS_BY_SLUG[canonicalSlug];
+  if (staticCanonicalPath) return staticCanonicalPath;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+  if (!supabaseUrl || !supabaseAnonKey) return null;
+
+  try {
+    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll() {
+          // This read-only lookup should not mutate auth cookies.
+        },
+      },
+    });
+
+    const { data, error } = await supabase
+      .from("beaches")
+      .select("slug, city, state, country")
+      .eq("slug", canonicalSlug)
+      .or("is_private.is.null,is_private.eq.false")
+      .limit(1);
+
+    if (error || !data || data.length === 0) return null;
+
+    const beach = data[0] as CanonicalBeachRow;
+    const canonicalPath = buildBeachUrl(beach);
+    return canonicalPath.startsWith("/beach/") ? null : canonicalPath;
+  } catch (error) {
+    log("[Middleware] Legacy spot canonical lookup failed", error);
+    return null;
+  }
 }
 
 /**

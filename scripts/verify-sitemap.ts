@@ -2,7 +2,8 @@
 /**
  * Walks https://www.quiversurf.app/sitemap.xml and probes every <loc> URL.
  * Records 200 / redirect / 4xx / 5xx, groups by URL pattern, and exits 1 if
- * any non-2xx remain (writing the offenders to /tmp/sitemap-verify-<ts>.json).
+ * any URL is not a 200 indexable self-canonical page (writing offenders to
+ * /tmp/sitemap-verify-<ts>.json).
  *
  * Usage:
  *   npx tsx scripts/verify-sitemap.ts                 # walk prod
@@ -22,13 +23,16 @@ type ProbeResult = {
   url: string;
   status: number;
   pattern: string;
+  canonical?: string;
+  indexable?: boolean;
+  selfCanonical?: boolean;
   redirectTo?: string;
   finalStatus?: number;
   error?: string;
   durationMs: number;
 };
 
-function classifyPattern(url: string): string {
+export function classifyPattern(url: string): string {
   try {
     const path = new URL(url).pathname;
     const seg = path.split("/").filter(Boolean);
@@ -62,7 +66,7 @@ function classifyPattern(url: string): string {
   }
 }
 
-function decodeXml(s: string): string {
+export function decodeXml(s: string): string {
   return s
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
@@ -123,22 +127,16 @@ async function probe(url: string): Promise<ProbeResult> {
       const loc = res.headers.get("location");
       if (loc) {
         result.redirectTo = loc;
-        try {
-          const followUrl = loc.startsWith("http") ? loc : new URL(loc, url).toString();
-          const followCtrl = new AbortController();
-          const followTimer = setTimeout(() => followCtrl.abort(), TIMEOUT_MS);
-          const followed = await fetch(followUrl, {
-            method: "GET",
-            redirect: "follow",
-            headers: { "User-Agent": USER_AGENT, Accept: "text/html,*/*" },
-            signal: followCtrl.signal,
-          });
-          clearTimeout(followTimer);
-          result.finalStatus = followed.status;
-        } catch {
-          result.finalStatus = -1;
-        }
       }
+    }
+    if (res.status >= 200 && res.status < 300) {
+      const html = await res.text();
+      result.canonical = extractCanonicalHref(html, url);
+      result.indexable = isIndexableResponse(
+        html,
+        res.headers.get("x-robots-tag"),
+      );
+      result.selfCanonical = isSelfCanonical(url, result.canonical);
     }
     return result;
   } catch (err) {
@@ -152,6 +150,91 @@ async function probe(url: string): Promise<ProbeResult> {
   } finally {
     clearTimeout(timer);
   }
+}
+
+export function extractCanonicalHref(html: string, baseUrl: string): string | undefined {
+  const linkTags = html.match(/<link\b[^>]*>/gi) ?? [];
+  for (const tag of linkTags) {
+    const attrs = readHtmlAttributes(tag);
+    const rel = attrs.get("rel")?.toLowerCase();
+    const href = attrs.get("href");
+    if (!rel?.split(/\s+/).includes("canonical") || !href) {
+      continue;
+    }
+
+    try {
+      return new URL(href, baseUrl).toString();
+    } catch {
+      return href;
+    }
+  }
+
+  return undefined;
+}
+
+export function isIndexableResponse(
+  html: string,
+  xRobotsTag: string | null = null,
+): boolean {
+  if (hasNoindexToken(xRobotsTag)) {
+    return false;
+  }
+
+  const metaTags = html.match(/<meta\b[^>]*>/gi) ?? [];
+  for (const tag of metaTags) {
+    const attrs = readHtmlAttributes(tag);
+    const name = attrs.get("name")?.toLowerCase();
+    if (name !== "robots" && name !== "googlebot") {
+      continue;
+    }
+
+    const content = attrs.get("content")?.toLowerCase() ?? "";
+    if (hasNoindexToken(content)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function hasNoindexToken(value: string | null | undefined): boolean {
+  if (!value) {
+    return false;
+  }
+
+  return value
+    .toLowerCase()
+    .split(/[,\s]+/)
+    .map((part) => part.trim())
+    .includes("noindex");
+}
+
+export function isSelfCanonical(url: string, canonical: string | undefined): boolean {
+  if (!canonical) {
+    return false;
+  }
+
+  try {
+    return normalizeComparableUrl(url) === normalizeComparableUrl(canonical);
+  } catch {
+    return url === canonical;
+  }
+}
+
+function readHtmlAttributes(tag: string): Map<string, string> {
+  const attrs = new Map<string, string>();
+  const attrPattern = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)\s*=\s*(["'])(.*?)\2/g;
+  for (const match of tag.matchAll(attrPattern)) {
+    attrs.set(match[1].toLowerCase(), match[3]);
+  }
+  return attrs;
+}
+
+function normalizeComparableUrl(value: string): string {
+  const url = new URL(value);
+  const pathname =
+    url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") : url.pathname;
+  return `${url.origin}${pathname}`;
 }
 
 async function runPool<T>(items: T[], worker: (item: T) => Promise<ProbeResult>) {
@@ -174,12 +257,10 @@ async function runPool<T>(items: T[], worker: (item: T) => Promise<ProbeResult>)
   return results;
 }
 
-function isOk(r: ProbeResult): boolean {
-  if (r.status >= 200 && r.status < 300) return true;
-  if (r.status >= 300 && r.status < 400) {
-    return r.finalStatus !== undefined && r.finalStatus >= 200 && r.finalStatus < 300;
-  }
-  return false;
+export function isOk(r: ProbeResult): boolean {
+  return r.status >= 200 && r.status < 300 &&
+    r.indexable === true &&
+    r.selfCanonical === true;
 }
 
 function main() {
@@ -209,7 +290,7 @@ function main() {
       console.log(`  [${flag}] ${pattern.padEnd(32)} ok=${stats.ok}  bad=${stats.bad}`);
     }
 
-    console.log(`\nTotal: ${totalOk} OK / ${totalBad} non-2xx out of ${results.length}`);
+    console.log(`\nTotal: ${totalOk} OK / ${totalBad} unhealthy out of ${results.length}`);
 
     if (totalBad > 0) {
       const offenders = results.filter((r) => !isOk(r));
@@ -222,7 +303,9 @@ function main() {
   });
 }
 
-main().catch((err) => {
-  console.error("Fatal:", err);
-  process.exit(2);
-});
+if (!process.env.JEST_WORKER_ID) {
+  main().catch((err) => {
+    console.error("Fatal:", err);
+    process.exit(2);
+  });
+}

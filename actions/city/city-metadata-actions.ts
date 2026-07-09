@@ -327,22 +327,44 @@ export async function getCityBeachEditorialData(
 }
 
 /**
- * Check if a city has beaches eligible for the least-crowded intent.
- * Returns intent keys that should be excluded from cross-linking.
+ * Check if a city has beaches eligible for filtered intent pages.
+ * Returns intent keys that should be excluded from cross-linking or noindexed.
  *
- * Mirrors the filtering in getBeachesByIntentAndCity (is_private + crowd_level)
- * to prevent linking to /least-crowded/{city} pages that would 404.
+ * Mirrors the filtered city-intent sitemap rules. Non-filtered intents keep their
+ * index eligibility until GSC reason-bucket data justifies a separate change.
  */
 export async function getCityExcludeIntents(cityName: string, state: string): Promise<IntentKey[]> {
   const supabase = createPublicReadClient();
-  const { data } = await supabase
+  const baseCityQuery = () => supabase
     .from("beaches")
     .select("id")
     .ilike("city", cityName)
     .ilike("state", state)
-    .or("is_private.is.null,is_private.eq.false")
-    .or("crowd_level.ilike.light,crowd_level.ilike.moderate")
-    .limit(1);
+    .or("is_private.is.null,is_private.eq.false");
 
-  return !data || data.length === 0 ? ["least-crowded"] : [];
+  const [beginnerResult, leastCrowdedResult] = await Promise.all([
+    baseCityQuery()
+      .or("skill_level.ilike.%beginner%,skill_level.ilike.%longboard%")
+      .limit(1),
+    baseCityQuery()
+      .or("crowd_level.ilike.light,crowd_level.ilike.moderate")
+      .limit(1),
+  ]);
+
+  if (beginnerResult.error || leastCrowdedResult.error) {
+    return [];
+  }
+
+  const hasBeginnerOrLongboardBeach = (beginnerResult.data ?? []).length > 0;
+  const hasLeastCrowdedBeach = (leastCrowdedResult.data ?? []).length > 0;
+  const excludedIntents: IntentKey[] = [];
+
+  if (!hasBeginnerOrLongboardBeach) {
+    excludedIntents.push("beginner", "longboard");
+  }
+  if (!hasLeastCrowdedBeach) {
+    excludedIntents.push("least-crowded");
+  }
+
+  return excludedIntents;
 }

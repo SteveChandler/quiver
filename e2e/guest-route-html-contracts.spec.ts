@@ -101,14 +101,16 @@ function expectBeachMetaDescription(
   description: string | null,
   beachName: string,
 ): void {
-  if (WAVE_HEIGHT_PATTERN.test(description ?? '')) {
-    expect(description).toContain('Current');
-    expect(description).toContain(`wave height at ${beachName}`);
+  const normalizedDescription = (description ?? '').replace(/&#x27;/g, "'");
+
+  if (WAVE_HEIGHT_PATTERN.test(normalizedDescription)) {
+    expect(normalizedDescription).toContain('Current');
+    expect(normalizedDescription).toContain(`wave height at ${beachName}`);
     return;
   }
 
-  expect(description).toContain(`Today's surf report & forecast for ${beachName}`);
-  expect(description).toContain('wave height, wind, tide, crowd intel, and 7-day forecast');
+  expect(normalizedDescription).toContain(`Today's surf report & forecast for ${beachName}`);
+  expect(normalizedDescription).toContain('wave height, wind, tide, crowd intel, and 7-day forecast');
 }
 
 test.describe('Route HTML Contracts', () => {
@@ -306,6 +308,37 @@ test.describe('Route HTML Contracts', () => {
 
         expect(response.status()).toBe(301);
         expect(response.headers().location).toBe(redirect.destination);
+      });
+    }
+
+    const legacyCanonicalRedirects = [
+      {
+        source: '/spots/ocean-beach',
+        destination: '/ca/san-diego/ocean-beach',
+      },
+      {
+        source: '/spots/lowers-trestles',
+        destination: '/ca/san-onofre/lower-trestles',
+      },
+      {
+        source: '/ca/orange-county/bolsa-chica',
+        destination: '/ca/huntington-beach/bolsa-chica',
+      },
+      {
+        source: '/hi/koloa-hi/waikoloa-village-lagoon/extra',
+        destination: '/hi/koloa-hi/waikoloa-village-lagoon',
+      },
+    ] as const;
+
+    for (const redirect of legacyCanonicalRedirects) {
+      test(`301 redirects ${redirect.source} directly to canonical URL`, async ({
+        request,
+      }) => {
+        const response = await getResponse(request, redirect.source, { maxRedirects: 0 });
+
+        expect(response.status()).toBe(301);
+        expect(response.headers().location).toBe(redirect.destination);
+        expect(response.headers().location).not.toContain('/spots/');
       });
     }
   });

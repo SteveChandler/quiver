@@ -13,6 +13,7 @@ import {
   extractDescriptionSnippet,
   formatCrowdSignal,
   shortenBeachNameForSerpTitle,
+  titleContainsQuiver,
 } from "@/lib/seo/meta";
 import { SEO_CONFIG } from "@/lib/constants/seo";
 
@@ -31,6 +32,34 @@ describe("SEO Meta Builder", () => {
       it("should generate correct title", () => {
         const result = buildPageMetadata(mockParams);
         expect(result.title).toBe("Test Page Title");
+      });
+
+      it("should use an absolute title when the title is already Quiver-branded", () => {
+        const result = buildPageMetadata({
+          ...mockParams,
+          title: "Surf Guides | Quiver",
+        });
+
+        expect(result.title).toEqual({ absolute: "Surf Guides | Quiver" });
+      });
+
+      it("should use an absolute title for dashed Quiver-branded titles", () => {
+        const result = buildPageMetadata({
+          ...mockParams,
+          title: "Condition Alerts - Quiver",
+        });
+
+        expect(result.title).toEqual({ absolute: "Condition Alerts - Quiver" });
+      });
+
+      it("should keep social titles unchanged for already branded titles", () => {
+        const result = buildPageMetadata({
+          ...mockParams,
+          title: "Surf Guides | Quiver",
+        });
+
+        expect(result.openGraph?.title).toBe("Surf Guides | Quiver");
+        expect(result.twitter?.title).toBe("Surf Guides | Quiver");
       });
 
       it("should generate correct description", () => {
@@ -318,6 +347,14 @@ describe("SEO Meta Builder", () => {
         expect(result.twitter?.site).toBe(SEO_CONFIG.twitter.site);
         expect(result.twitter?.creator).toBe(SEO_CONFIG.twitter.creator);
       });
+    });
+  });
+
+  describe("titleContainsQuiver", () => {
+    it("matches Quiver as a whole word", () => {
+      expect(titleContainsQuiver("Surf Guides | Quiver")).toBe(true);
+      expect(titleContainsQuiver("quiver surf reports")).toBe(true);
+      expect(titleContainsQuiver("Quiverish Surf Reports")).toBe(false);
     });
   });
 

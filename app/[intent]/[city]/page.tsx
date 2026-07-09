@@ -287,6 +287,19 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
       robots: { index: false, follow: true },
     };
   }
+
+  let excludedCityIntents: IntentKey[] = [];
+  if (NOINDEX_WHEN_EMPTY_INTENTS.has(params.intent)) {
+    try {
+      excludedCityIntents = await getCityExcludeIntents(
+        cityMetadata.cityName,
+        cityMetadata.state
+      );
+    } catch {
+      // Fail-open: allow indexing if the eligibility lookup is unavailable.
+    }
+  }
+
   // For tide/water-temp intents, fetch live data to inject into meta description
   let tideDataForMeta: CityTideData | null = null;
   let waterTempDataForMeta: CityWaterTempData | null = null;
@@ -340,8 +353,8 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     image: `/api/og/intent?intent=${params.intent}&city=${encodeURIComponent(cityMetadata.cityName)}`,
   });
 
-  // Prevent indexing of empty-state pages (thin content)
-  if (!hasMatchingBeaches) {
+  // Prevent indexing of filtered empty-state pages (thin content)
+  if (!hasMatchingBeaches || excludedCityIntents.includes(params.intent as IntentKey)) {
     return { ...metadata, robots: { index: false, follow: true } };
   }
 

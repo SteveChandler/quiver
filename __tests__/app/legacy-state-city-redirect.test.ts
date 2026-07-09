@@ -10,10 +10,20 @@ jest.mock("@/actions/city/city-metadata-actions", () => ({
   getCityExcludeIntents: jest.fn(),
 }));
 
+jest.mock("@/actions/forecast/intent-forecast-actions", () => ({
+  getCityTideData: jest.fn().mockResolvedValue(null),
+  getCityTideDataExpanded: jest.fn().mockResolvedValue(null),
+  getCityWaterTempHistory: jest.fn().mockResolvedValue(null),
+  getIntentForecastSummary: jest.fn().mockResolvedValue(null),
+  getCityWaterTempExpanded: jest.fn().mockResolvedValue(null),
+  getCitySunTimesData: jest.fn().mockResolvedValue(null),
+}));
+
 import IntentPage, { generateMetadata } from "@/app/[intent]/[city]/page";
 import {
   findCitiesMatchingPattern,
   findCityBySlug,
+  getCityExcludeIntents,
 } from "@/actions/city/city-metadata-actions";
 
 jest.mock("next/navigation", () => ({
@@ -22,6 +32,19 @@ jest.mock("next/navigation", () => ({
 }));
 
 describe("legacy state/city URLs", () => {
+  const cityMetadata = {
+    cityName: "Test Harbor",
+    state: "CA",
+    stateName: "California",
+    totalBeaches: 2,
+    beginnerCount: 0,
+    intermediateCount: 2,
+    advancedCount: 0,
+    beaches: [],
+    centerLat: 33.6,
+    centerLon: -117.9,
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     (findCityBySlug as jest.Mock).mockResolvedValue({
@@ -32,6 +55,7 @@ describe("legacy state/city URLs", () => {
       success: true,
       data: [],
     });
+    (getCityExcludeIntents as jest.Mock).mockResolvedValue([]);
   });
 
   test("redirects /ca/:city to map with search filter", async () => {
@@ -80,4 +104,51 @@ describe("legacy state/city URLs", () => {
     expect((metadata.robots as any)?.index).toBe(false);
     expect((metadata.robots as any)?.follow).toBe(true);
   });
+
+  test("noindexes filtered city intent pages when shared eligibility excludes them", async () => {
+    (findCityBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: cityMetadata,
+    });
+    (getCityExcludeIntents as jest.Mock).mockResolvedValue([
+      "beginner",
+      "longboard",
+      "least-crowded",
+    ]);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        intent: "beginner",
+        city: "test-harbor",
+      }),
+    });
+
+    expect((metadata.robots as any)?.index).toBe(false);
+    expect((metadata.robots as any)?.follow).toBe(true);
+  });
+
+  test.each(["tide", "water-temp", "dawn-patrol", "sunset"])(
+    "does not noindex %s city pages from filtered-intent exclusions",
+    async (intent) => {
+      (findCityBySlug as jest.Mock).mockResolvedValue({
+        success: true,
+        data: cityMetadata,
+      });
+      (getCityExcludeIntents as jest.Mock).mockResolvedValue([
+        "beginner",
+        "longboard",
+        "least-crowded",
+      ]);
+
+      const metadata = await generateMetadata({
+        params: Promise.resolve({
+          intent,
+          city: `${intent}-test-harbor`,
+        }),
+      });
+
+      expect((metadata.robots as any)?.index).not.toBe(false);
+      expect(getCityExcludeIntents).not.toHaveBeenCalled();
+    }
+  );
 });

@@ -6,6 +6,7 @@
  */
 
 import {
+  getCityExcludeIntents,
   getCityMetadata,
   findCityBySlug,
 } from "@/actions/city/city-metadata-actions";
@@ -24,6 +25,7 @@ const makeChain = () => {
   obj.ilike = jest.fn(() => obj);
   obj.eq = jest.fn(() => obj);
   obj.or = jest.fn(() => obj);
+  obj.limit = jest.fn(() => Promise.resolve({ data: [], error: null }));
   obj.order = jest.fn(() => Promise.resolve({ data: [], error: null }));
   return obj;
 };
@@ -134,9 +136,10 @@ describe("City Metadata Actions", () => {
       const result = await getCityMetadata("Santa Cruz", "CA");
 
       expect(result.success).toBe(true);
-      expect(result.data).toBeDefined();
-      expect(result.data?.cityName).toBe("Santa Cruz");
-      expect(result.data?.state).toBe("CA");
+      expect(result.data).toMatchObject({
+        cityName: "Santa Cruz",
+        state: "CA",
+      });
       expect(result.data?.totalBeaches).toBeGreaterThanOrEqual(3);
       expect(Array.isArray(result.data?.beaches)).toBe(true);
     });
@@ -290,7 +293,7 @@ describe("City Metadata Actions", () => {
         const result = await getCityMetadata("Santa Cruz", "CA");
 
         expect(result.success).toBe(false);
-        expect(result.error).toBeDefined();
+        expect(result.error).toContain("Database connection failed");
       });
 
       it("handles null coordinates gracefully", async () => {
@@ -344,6 +347,58 @@ describe("City Metadata Actions", () => {
       await getCityMetadata("Santa Cruz", "CA");
 
       expect(createPublicReadClient).toHaveBeenCalled();
+    });
+  });
+
+  describe("getCityExcludeIntents", () => {
+    it("excludes filtered intents when city has no matching skill or crowd data", async () => {
+      tableChain.limit
+        .mockResolvedValueOnce({ data: [], error: null })
+        .mockResolvedValueOnce({ data: [], error: null });
+
+      const result = await getCityExcludeIntents("San Diego", "CA");
+
+      expect(result).toEqual(["beginner", "longboard", "least-crowded"]);
+      expect(tableChain.select).toHaveBeenCalledWith("id");
+      expect(tableChain.or).toHaveBeenCalledWith(
+        "skill_level.ilike.%beginner%,skill_level.ilike.%longboard%"
+      );
+      expect(tableChain.or).toHaveBeenCalledWith(
+        "crowd_level.ilike.light,crowd_level.ilike.moderate"
+      );
+    });
+
+    it("keeps beginner and longboard eligible when any city beach matches either skill filter", async () => {
+      tableChain.limit
+        .mockResolvedValueOnce({ data: [{ id: "longboard-beach" }], error: null })
+        .mockResolvedValueOnce({ data: [], error: null });
+
+      const result = await getCityExcludeIntents("San Diego", "CA");
+
+      expect(result).toEqual(["least-crowded"]);
+    });
+
+    it("keeps least-crowded eligible when any city beach has light or moderate crowd level", async () => {
+      tableChain.limit
+        .mockResolvedValueOnce({ data: [], error: null })
+        .mockResolvedValueOnce({ data: [{ id: "moderate-crowd-beach" }], error: null });
+
+      const result = await getCityExcludeIntents("San Diego", "CA");
+
+      expect(result).toEqual(["beginner", "longboard"]);
+    });
+
+    it("fails open when an eligibility query errors", async () => {
+      tableChain.limit
+        .mockResolvedValueOnce({
+          data: null,
+          error: { message: "Database connection failed" },
+        })
+        .mockResolvedValueOnce({ data: [], error: null });
+
+      const result = await getCityExcludeIntents("San Diego", "CA");
+
+      expect(result).toEqual([]);
     });
   });
 
@@ -495,7 +550,7 @@ describe("City Metadata Actions", () => {
       const result = await findCityBySlug("santa-cruz");
 
       expect(result.success).toBe(false);
-      expect(result.error).toBeDefined();
+      expect(result.error).toContain("Database connection failed");
     });
 
     it("calls RPC with correct pattern for case-insensitive matching", async () => {

@@ -588,7 +588,7 @@ describe("Sitemap Generation", () => {
       });
 
       const result = await sitemap();
-      // Incomplete data is excluded entirely — /spots/ URLs are blocked by robots.txt
+      // Incomplete data is excluded entirely — /spots/ is a retired legacy route.
       const spotsRoute = result.find((r) =>
         r.url.includes("/spots/mystery-break")
       );

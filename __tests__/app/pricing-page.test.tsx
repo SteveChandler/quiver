@@ -14,9 +14,9 @@ jest.mock("@/components/pricing/founding-offer-surface", () => ({
 
 describe("PlansPage", () => {
   it("exports App Store trial metadata without web prices", () => {
-    expect(metadata.title).toBe(
-      "Quiver Pro Plans | 14 Days Free on iPhone",
-    );
+    expect(metadata.title).toEqual({
+      absolute: "Quiver Pro Plans | 14 Days Free on iPhone",
+    });
     expect(metadata.description).toMatch(/14 days free/i);
     expect(metadata.description).toMatch(/personal forecasting/i);
     expect(metadata.description).toMatch(/board-aware picks/i);

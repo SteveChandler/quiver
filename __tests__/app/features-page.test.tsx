@@ -50,9 +50,9 @@ jest.mock("@/components/pricing/android-waitlist-cta", () => ({
 
 describe("FeaturesPage", () => {
   it("exports native app conversion metadata", () => {
-    expect(metadata.title).toBe(
-      "Quiver App Features | Personal Surf Forecasts",
-    );
+    expect(metadata.title).toEqual({
+      absolute: "Quiver App Features | Personal Surf Forecasts",
+    });
     expect(metadata.description).toMatch(/personal forecasts/i);
     expect(metadata.description).toMatch(/custom spots/i);
     expect(metadata.description).toMatch(/custom surf alerts/i);
