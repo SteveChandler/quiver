@@ -92,6 +92,12 @@ async function getUserStatsForBadges(
   const wave_ratings = await safeCount(supabase, "sessions", (q) =>
     q.eq("user_id", userId).or("wave_quality.not.is.null,rating.not.is.null")
   );
+  const clean_condition_sessions = await safeCount(supabase, "sessions", (q) =>
+    q.eq("user_id", userId).overlaps("wave_characteristics", ["clean", "glassy"])
+  );
+  const five_star_sessions = await safeCount(supabase, "sessions", (q) =>
+    q.eq("user_id", userId).eq("rating", 5)
+  );
 
   // Reflection count: consider notes/rating/wave_quality as reflection markers
   let reflection_count = 0;
@@ -264,6 +270,41 @@ async function getUserStatsForBadges(
     users_tagged = 0;
   }
 
+  // Distinct breaks logged across sessions
+  let distinct_beaches = 0;
+  try {
+    const { data: beachSessions } = await supabase
+      .from("sessions")
+      .select("beach_id")
+      .eq("user_id", userId)
+      .limit(1000);
+    const uniqueBeaches = new Set<string>();
+    for (const session of beachSessions || []) {
+      if (session?.beach_id) uniqueBeaches.add(session.beach_id);
+    }
+    distinct_beaches = uniqueBeaches.size;
+  } catch {
+    distinct_beaches = 0;
+  }
+
+  // Sessions logged at a selected home break
+  let home_beach_sessions = 0;
+  try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("home_beach_id")
+      .eq("id", userId)
+      .maybeSingle();
+    const homeBeachIds = profile?.home_beach_id ? [profile.home_beach_id] : [];
+    if (homeBeachIds.length > 0) {
+      home_beach_sessions = await safeCount(supabase, "sessions", (q) =>
+        q.eq("user_id", userId).in("beach_id", homeBeachIds)
+      );
+    }
+  } catch {
+    home_beach_sessions = 0;
+  }
+
   // Sessions with skill ratings (non-empty skill_ratings JSON object)
   let skill_rated_sessions = 0;
   try {
@@ -323,6 +364,10 @@ async function getUserStatsForBadges(
     skill_rated_sessions,
     sweet_spot_confidence,
     progression_shares,
+    distinct_beaches,
+    home_beach_sessions,
+    clean_condition_sessions,
+    five_star_sessions,
   };
 }
 
