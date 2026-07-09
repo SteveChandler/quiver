@@ -289,6 +289,21 @@ export function lookupShoalingBucket(
   return null;
 }
 
+const QUARANTINED_BUCKET_MIN_PERIOD_S = 15;
+const QUARANTINED_BUCKET_MAX_FACTOR = 1;
+
+function isQuarantinedShoalingBucket(
+  periodS: number | null | undefined,
+  bucketFactor: number,
+): boolean {
+  return (
+    periodS != null &&
+    Number.isFinite(periodS) &&
+    periodS >= QUARANTINED_BUCKET_MIN_PERIOD_S &&
+    bucketFactor < QUARANTINED_BUCKET_MAX_FACTOR
+  );
+}
+
 /**
  * Transform raw buoy significant wave height to estimated face height
  *
@@ -363,6 +378,7 @@ export function transformToFaceHeight(params: TransformParams): number {
 export interface FaceHeightWithMetadata {
   faceHeightFt: number;
   isCalibrated: boolean;
+  calibrationBucketQuarantined?: boolean;
 }
 
 /**
@@ -422,6 +438,21 @@ export function transformToFaceHeightWithMetadata(
   if (canUseCalibratedShoaling(source, allowCalibratedShoaling)) {
     const bucketFactor = lookupShoalingBucket(periodS, beach?.shoaling_factors);
     if (bucketFactor != null) {
+      if (isQuarantinedShoalingBucket(periodS, bucketFactor)) {
+        const periodFactor = calculatePeriodFactor(periodS);
+        const dirFactor = calculateDirectionFactor(swellDirectionDeg, beach);
+        const decay = (shouldApplyDeepwaterDecay(source) && beach?.deepwater_decay_factor != null)
+          ? beach.deepwater_decay_factor
+          : 1.0;
+        const faceHeight = rawHeightFt * decay * BASE_SHOALING * periodFactor * dirFactor;
+
+        return {
+          faceHeightFt: Math.round(faceHeight * 10) / 10,
+          isCalibrated: false,
+          calibrationBucketQuarantined: true,
+        };
+      }
+
       const shadow = calibratedShadowFactor(swellDirectionDeg, beach);
       return {
         faceHeightFt: Math.round(rawHeightFt * bucketFactor * shadow * 10) / 10,
@@ -803,6 +834,7 @@ export interface SwellComponentInput {
 export interface DecomposedFaceHeightResult {
   faceHeightFt: number;
   isCalibrated: boolean;
+  calibrationBucketQuarantined?: boolean;
   path: 'decomposed' | 'legacy';
 }
 
@@ -896,11 +928,34 @@ export function transformToFaceHeightDecomposed(params: {
     return {
       faceHeightFt: legacy.faceHeightFt,
       isCalibrated: legacy.isCalibrated,
+      ...(legacy.calibrationBucketQuarantined
+        ? { calibrationBucketQuarantined: true }
+        : {}),
       path: 'legacy',
     };
   }
 
   const shoalingFactors = beach.shoaling_factors ?? null;
+
+  if (canUseCalibratedShoaling(source, allowCalibratedShoaling)) {
+    const bucketFactor = lookupShoalingBucket(periodS, shoalingFactors);
+    if (bucketFactor != null && isQuarantinedShoalingBucket(periodS, bucketFactor)) {
+      const legacy = transformToFaceHeightWithMetadata({
+        rawHeightFt,
+        periodS,
+        swellDirectionDeg,
+        beach,
+        source,
+        allowCalibratedShoaling,
+      });
+      return {
+        faceHeightFt: legacy.faceHeightFt,
+        isCalibrated: false,
+        calibrationBucketQuarantined: true,
+        path: 'legacy',
+      };
+    }
+  }
 
   // Apply deepwater decay for model data sources.
   // CDIP buoy data already reflects nearshore conditions — decay would double-correct.
@@ -935,6 +990,26 @@ export function transformToFaceHeightDecomposed(params: {
     const bucketFactor = canUseCalibratedShoaling(source, allowCalibratedShoaling)
       ? lookupShoalingBucket(component.periodS, shoalingFactors)
       : null;
+    if (
+      bucketFactor != null &&
+      isQuarantinedShoalingBucket(component.periodS, bucketFactor)
+    ) {
+      const legacy = transformToFaceHeightWithMetadata({
+        rawHeightFt,
+        periodS,
+        swellDirectionDeg,
+        beach,
+        source,
+        allowCalibratedShoaling,
+      });
+      return {
+        faceHeightFt: legacy.faceHeightFt,
+        isCalibrated: false,
+        calibrationBucketQuarantined: true,
+        path: 'legacy',
+      };
+    }
+
     const periodFactor = calculatePeriodFactor(component.periodS);
     // Terrain-access canyon paths should treat 12s+ model swell as organized
     // groundswell; otherwise the generic 12s=1.1 ramp still undercalls LJS.
@@ -962,6 +1037,9 @@ export function transformToFaceHeightDecomposed(params: {
     return {
       faceHeightFt: legacy.faceHeightFt,
       isCalibrated: legacy.isCalibrated,
+      ...(legacy.calibrationBucketQuarantined
+        ? { calibrationBucketQuarantined: true }
+        : {}),
       path: 'legacy',
     };
   }

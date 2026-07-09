@@ -1053,6 +1053,9 @@ export class ForecastBuilder {
         transform_path: waveHeightDebug.transformPath,
         components_used: waveHeightDebug.componentsUsed,
         calibrated_shoaling_fired: waveHeightDebug.calibratedShoalingFired,
+        ...(waveHeightDebug.calibrationBucketQuarantined
+          ? { calibration_bucket_quarantined: true }
+          : {}),
         ...(waveHeightDebug.cdipRejection
           ? {
               cdip_rejection: {
