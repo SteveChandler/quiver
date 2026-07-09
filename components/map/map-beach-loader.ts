@@ -44,6 +44,10 @@ export interface BeachLoaderResult {
   partitionsTimelineMap: Map<string, SwellPartition[]>;
 }
 
+export interface BeachLoaderOptions {
+  timeline?: "hourly";
+}
+
 /**
  * Resolve which beaches to display and fetch their wave heights.
  *
@@ -67,7 +71,8 @@ export async function loadBeachesAndWaveHeights(
   latitude: number,
   longitude: number,
   providedBeaches: Beach[] | undefined,
-  deps: BeachLoaderDeps
+  deps: BeachLoaderDeps,
+  options: BeachLoaderOptions = {},
 ): Promise<BeachLoaderResult> {
   let locations: Beach[] = [];
 
@@ -138,8 +143,9 @@ export async function loadBeachesAndWaveHeights(
         items: allBeachIds,
         batchSize: API_BATCH_CONFIG.BEACH_ID_BATCH_SIZE,
         fetchBatch: async (batchIds) => {
+          const timelineParam = options.timeline === "hourly" ? "&timeline=hourly" : "";
           const response = await fetch(
-            `/api/forecasts/bulk?beachIds=${batchIds.join(",")}`
+            `/api/forecasts/bulk?beachIds=${batchIds.join(",")}${timelineParam}`
           );
           if (!response.ok) {
             if (response.status !== 400) {
