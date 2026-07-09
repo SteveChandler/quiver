@@ -1116,6 +1116,13 @@ export class ForecastBuilder {
             }
           : {}),
       },
+      ...(waveHeightDebug.calibrationBucketQuarantined
+        ? {
+            wave_height_debug: {
+              calibrationBucketQuarantined: true,
+            },
+          }
+        : {}),
       ...(isFirstOfDay && tideData && tideData.tides && tideData.tides.length > 0
         ? {
             tide_schedule: tideData.tides

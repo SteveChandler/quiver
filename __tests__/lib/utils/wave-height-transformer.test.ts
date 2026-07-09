@@ -972,6 +972,67 @@ describe('Wave Height Transformer', () => {
       expect(result.isCalibrated).toBe(false);
     });
 
+    it('quarantines low long-period CDIP buckets and uses the generic path', () => {
+      const rinconStyleFactors: ShoalingFactors = {
+        version: 1,
+        type: 'period_lookup',
+        buckets: [{ tp_min_s: 15, tp_max_s: 999, factor: 0.36 }],
+      };
+
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 4.2,
+        periodS: 18,
+        swellDirectionDeg: 205,
+        beach: { shoaling_factors: rinconStyleFactors },
+        source: 'cdip_sig',
+      });
+
+      expect(result.faceHeightFt).toBe(5.0);
+      expect(result.faceHeightFt).toBeGreaterThan(4.2 * 0.36);
+      expect(result.isCalibrated).toBe(false);
+      expect(result.calibrationBucketQuarantined).toBe(true);
+    });
+
+    it('keeps normal calibrated behavior for long-period CDIP buckets at or above threshold', () => {
+      const trustedFactors: ShoalingFactors = {
+        version: 1,
+        type: 'period_lookup',
+        buckets: [{ tp_min_s: 15, tp_max_s: 999, factor: 1.2 }],
+      };
+
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 4.2,
+        periodS: 18,
+        swellDirectionDeg: 205,
+        beach: { shoaling_factors: trustedFactors },
+        source: 'cdip_sig',
+      });
+
+      expect(result.faceHeightFt).toBe(5.0);
+      expect(result.isCalibrated).toBe(true);
+      expect(result.calibrationBucketQuarantined).toBeUndefined();
+    });
+
+    it('does not quarantine model sources even when a matching bucket is low', () => {
+      const lowFactors: ShoalingFactors = {
+        version: 1,
+        type: 'period_lookup',
+        buckets: [{ tp_min_s: 15, tp_max_s: 999, factor: 0.36 }],
+      };
+
+      const result = transformToFaceHeightWithMetadata({
+        rawHeightFt: 4.2,
+        periodS: 18,
+        swellDirectionDeg: 205,
+        beach: { shoaling_factors: lowFactors },
+        source: 'model_swell',
+      });
+
+      expect(result.faceHeightFt).toBe(5.0);
+      expect(result.isCalibrated).toBe(false);
+      expect(result.calibrationBucketQuarantined).toBeUndefined();
+    });
+
     it('returns isCalibrated false for cdip_swell with factors', () => {
       const result = transformToFaceHeightWithMetadata({
         rawHeightFt: 1.7,
