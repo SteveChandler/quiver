@@ -6,6 +6,7 @@
  */
 
 import { enqueueNotification } from "@/lib/notifications/enqueue";
+import { buildNotificationRelevanceMetadata } from "@/lib/notifications/relevance";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -238,7 +239,16 @@ async function _GET(request: Request): Promise<Response> {
         const enqueueResult = await enqueueNotification({
           type: NOTIFICATION_TYPE,
           recipientUserId: candidate.userId,
-          payload: { streak: candidate.streak },
+          payload: {
+            streak: candidate.streak,
+            period_key: periodKey,
+            ...buildNotificationRelevanceMetadata({
+              category: "session_growth",
+              triggerSource: "weekly_streak_reminder",
+              relevanceConfidence: "medium",
+              beachConfidence: "low",
+            }),
+          },
           dedupeKey: `${REMINDER_TYPE}:${candidate.userId}:${periodKey}`,
         });
 
