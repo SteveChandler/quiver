@@ -43,6 +43,18 @@ export interface SessionPayloadInput {
   tideHeight?: number;
   tideStatus?: string;
   forecastAccuracy?: "accurate" | "somewhat" | "inaccurate" | string;
+  recommendationId?: string;
+  recommendationSurface?: string;
+  recommendationRank?: number;
+  recommendationScore?: number;
+  recommendationWindowStart?: string;
+  recommendationWindowEnd?: string;
+  recommendationTimeSlot?: string;
+  recommendationCallAccuracy?: "right" | "partly" | "wrong" | "not_sure";
+  forecastWaveHeightFt?: number;
+  forecastTideStatus?: string;
+  waveHeightEdited?: boolean;
+  tideStatusEdited?: boolean;
   waveCharacteristics?: string[];
   waveTypes?: string[];
   ripCurrentObserved?: "none" | "light" | "strong" | string;
@@ -84,6 +96,12 @@ export interface SessionPayload {
   tide_height_ft?: number;
   tide_status?: string;
   forecast_accuracy?: string;
+  recommendation_id?: string;
+  recommendation_call_accuracy?: string;
+  forecast_wave_height_ft?: number;
+  forecast_tide_status?: string;
+  wave_height_correct?: boolean;
+  tide_status_correct?: boolean;
   wave_characteristics: string[] | null;
   rip_current_observed: string | null;
 
@@ -95,6 +113,16 @@ export interface SessionPayload {
   // Visibility and feed controls
   is_public?: boolean;
   muted?: boolean;
+  recommendation_context?: {
+    recommendationId: string;
+    surface?: string;
+    rank?: number;
+    score?: number;
+    windowStart?: string;
+    windowEnd?: string;
+    mode?: string;
+    timeSlot?: string;
+  };
 }
 
 /**
@@ -143,6 +171,18 @@ function parseWaterTemp(raw?: string): number | null {
   if (!raw || raw.trim().length === 0) return null;
   const parsed = Number.parseFloat(raw);
   return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : null;
+}
+
+function shouldMarkCorrectForRecommendation(
+  recommendationId: string | undefined,
+  forecastValue: unknown,
+  edited: boolean | undefined
+): boolean | undefined {
+  if (!recommendationId || forecastValue === undefined || forecastValue === null || forecastValue === "") {
+    return undefined;
+  }
+
+  return edited === true ? false : true;
 }
 
 /**
@@ -217,7 +257,7 @@ export function buildSessionPayload(
     ...(input.windDirection && {
       wind_direction: input.windDirection,
     }),
-    ...(input.tideHeight !== undefined && {
+    ...(!input.recommendationId && input.tideHeight !== undefined && {
       tide_height_ft: input.tideHeight,
     }),
     ...(input.tideStatus && {
@@ -226,12 +266,58 @@ export function buildSessionPayload(
     ...(input.forecastAccuracy && {
       forecast_accuracy: input.forecastAccuracy,
     }),
+    ...(input.recommendationId && {
+      recommendation_id: input.recommendationId,
+    }),
+    ...(input.recommendationCallAccuracy && {
+      recommendation_call_accuracy: input.recommendationCallAccuracy,
+    }),
+    ...(input.forecastWaveHeightFt !== undefined && {
+      forecast_wave_height_ft: input.forecastWaveHeightFt,
+    }),
+    ...(input.forecastTideStatus && {
+      forecast_tide_status: input.forecastTideStatus,
+    }),
+    ...(shouldMarkCorrectForRecommendation(
+      input.recommendationId,
+      input.forecastWaveHeightFt,
+      input.waveHeightEdited
+    ) !== undefined && {
+      wave_height_correct: shouldMarkCorrectForRecommendation(
+        input.recommendationId,
+        input.forecastWaveHeightFt,
+        input.waveHeightEdited
+      ),
+    }),
+    ...(shouldMarkCorrectForRecommendation(
+      input.recommendationId,
+      input.forecastTideStatus,
+      input.tideStatusEdited
+    ) !== undefined && {
+      tide_status_correct: shouldMarkCorrectForRecommendation(
+        input.recommendationId,
+        input.forecastTideStatus,
+        input.tideStatusEdited
+      ),
+    }),
     // Goals and skill ratings
     ...(input.selectedGoals && input.selectedGoals.length > 0 && {
       goals: input.selectedGoals,
     }),
     ...(input.skillRatings && Object.keys(input.skillRatings).length > 0 && {
       skill_ratings: input.skillRatings,
+    }),
+    ...(input.recommendationId && {
+      recommendation_context: {
+        recommendationId: input.recommendationId,
+        surface: input.recommendationSurface,
+        rank: input.recommendationRank,
+        score: input.recommendationScore,
+        windowStart: input.recommendationWindowStart,
+        windowEnd: input.recommendationWindowEnd,
+        mode: "log",
+        timeSlot: input.recommendationTimeSlot,
+      },
     }),
   };
 }

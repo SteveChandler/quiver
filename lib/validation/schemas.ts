@@ -360,6 +360,46 @@ export const SessionWizardPrefillSchema = z.object({
   forecastFeedbackValue: z.enum(['too_low', 'about_right', 'too_high'])
     .optional()
     .describe('One-tap forecast feedback value used to prefill session accuracy'),
+
+  recommendationId: z.string()
+    .min(1)
+    .max(200)
+    .optional()
+    .describe('Deterministic recommendation id used to attribute the logged session'),
+
+  recommendationSurface: z.enum([
+    'home_hero',
+    'home_top_spots',
+    'home_nearby_spots',
+    'discover_list',
+    'explore_for_you',
+    'session_intelligence',
+  ])
+    .optional()
+    .describe('Recommendation surface used for attribution'),
+
+  recommendationRank: z.string()
+    .regex(/^\d+$/, 'Recommendation rank must be a number')
+    .transform((val) => parseInt(val, 10))
+    .refine((num) => num >= 1 && num <= 100, 'Recommendation rank must be between 1 and 100')
+    .optional(),
+
+  recommendationScore: z.string()
+    .regex(/^\d+(?:\.\d+)?$/, 'Recommendation score must be numeric')
+    .transform((val) => Number.parseFloat(val))
+    .refine((num) => Number.isFinite(num) && num >= 0 && num <= 100, 'Recommendation score must be between 0 and 100')
+    .optional(),
+
+  recommendationTimeSlot: z.enum(['dawn-patrol', 'morning', 'late-morning', 'lunch-session', 'afternoon', 'evening', 'any'])
+    .optional(),
+
+  recommendationWindowStart: z.string()
+    .datetime({ message: 'Invalid recommendation window start format' })
+    .optional(),
+
+  recommendationWindowEnd: z.string()
+    .datetime({ message: 'Invalid recommendation window end format' })
+    .optional(),
 })
   // Cross-field validation: end time must be after start time
   .refine(

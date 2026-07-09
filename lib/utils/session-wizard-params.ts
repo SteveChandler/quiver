@@ -101,6 +101,22 @@ export function parseSessionWizardParams(
       step: getParam('step'),
       forecastFeedbackId: getParam('forecastFeedbackId'),
       forecastFeedbackValue: getParam('forecastFeedbackValue'),
+      recommendationId:
+        getParam('recommendation_id') ?? getParam('recommendationId'),
+      recommendationSurface:
+        getParam('recommendation_surface') ?? getParam('recommendationSurface'),
+      recommendationRank:
+        getParam('recommendation_rank') ?? getParam('recommendationRank'),
+      recommendationScore:
+        getParam('recommendation_score') ?? getParam('recommendationScore'),
+      recommendationTimeSlot:
+        getParam('recommendation_time_slot') ?? getParam('recommendationTimeSlot'),
+      recommendationWindowStart:
+        getParam('recommendation_window_start') ??
+        getParam('recommendationWindowStart'),
+      recommendationWindowEnd:
+        getParam('recommendation_window_end') ??
+        getParam('recommendationWindowEnd'),
     };
 
     // Validate using Zod schema
@@ -138,6 +154,17 @@ export function parseSessionWizardParams(
       targetStep: validated.step,
       forecastFeedbackId: validated.forecastFeedbackId,
       forecastFeedbackValue: validated.forecastFeedbackValue,
+      recommendationId: validated.recommendationId,
+      recommendationSurface: validated.recommendationSurface,
+      recommendationRank: validated.recommendationRank,
+      recommendationScore: validated.recommendationScore,
+      recommendationTimeSlot: validated.recommendationTimeSlot,
+      recommendationWindowStart: validated.recommendationWindowStart
+        ? new Date(validated.recommendationWindowStart)
+        : undefined,
+      recommendationWindowEnd: validated.recommendationWindowEnd
+        ? new Date(validated.recommendationWindowEnd)
+        : undefined,
     };
 
     return {
@@ -245,6 +272,40 @@ export function buildSessionWizardUrl(
     urlParams.set('forecastFeedbackValue', params.forecastFeedbackValue);
   }
 
+  if (params.recommendationId) {
+    urlParams.set('recommendation_id', params.recommendationId);
+  }
+
+  if (params.recommendationSurface) {
+    urlParams.set('recommendation_surface', params.recommendationSurface);
+  }
+
+  if (params.recommendationRank !== undefined) {
+    urlParams.set('recommendation_rank', params.recommendationRank.toString());
+  }
+
+  if (params.recommendationScore !== undefined) {
+    urlParams.set('recommendation_score', params.recommendationScore.toString());
+  }
+
+  if (params.recommendationTimeSlot) {
+    urlParams.set('recommendation_time_slot', params.recommendationTimeSlot);
+  }
+
+  if (params.recommendationWindowStart) {
+    urlParams.set(
+      'recommendation_window_start',
+      params.recommendationWindowStart.toISOString()
+    );
+  }
+
+  if (params.recommendationWindowEnd) {
+    urlParams.set(
+      'recommendation_window_end',
+      params.recommendationWindowEnd.toISOString()
+    );
+  }
+
   return `/sessions/new?${urlParams.toString()}`;
 }
 
@@ -283,7 +344,9 @@ export function hasWizardParams(
     searchParams.has('mode') ||
     searchParams.has('startTime') ||
     searchParams.has('startedAt') ||
-    searchParams.has('quick')
+    searchParams.has('quick') ||
+    searchParams.has('recommendation_id') ||
+    searchParams.has('recommendationId')
   );
 }
 
@@ -319,5 +382,16 @@ export function extractFormState(params: ValidatedSessionWizardParams) {
       ? { selectedTime: params.startTime.toTimeString().slice(0, 5) }
       : {}),
     ...(forecastAccuracy ? { forecastAccuracy } : {}),
+    ...(params.recommendationId ? { recommendationId: params.recommendationId } : {}),
+    ...(params.recommendationSurface ? { recommendationSurface: params.recommendationSurface } : {}),
+    ...(params.recommendationRank !== undefined ? { recommendationRank: params.recommendationRank } : {}),
+    ...(params.recommendationScore !== undefined ? { recommendationScore: params.recommendationScore } : {}),
+    ...(params.recommendationTimeSlot ? { recommendationTimeSlot: params.recommendationTimeSlot } : {}),
+    ...(params.recommendationWindowStart
+      ? { recommendationWindowStart: params.recommendationWindowStart.toISOString() }
+      : {}),
+    ...(params.recommendationWindowEnd
+      ? { recommendationWindowEnd: params.recommendationWindowEnd.toISOString() }
+      : {}),
   };
 }

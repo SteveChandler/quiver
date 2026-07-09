@@ -291,6 +291,38 @@ describe('buildSessionWizardUrl', () => {
     expect(data.forecastFeedbackValue).toBe('too_high');
   });
 
+  it('should round-trip recommendation attribution params', () => {
+    const url = buildSessionWizardUrl({
+      ...validParams,
+      recommendationId: 'beach:123e4567-e89b-12d3-a456-426614174000:2026-07-09T14:00:00.000Z',
+      recommendationSurface: 'home_hero',
+      recommendationRank: 1,
+      recommendationScore: 87.5,
+      recommendationTimeSlot: 'dawn-patrol',
+      recommendationWindowStart: new Date('2026-07-09T14:00:00.000Z'),
+      recommendationWindowEnd: new Date('2026-07-09T17:00:00.000Z'),
+    });
+
+    const result = parseSessionWizardParams(
+      new URLSearchParams(url.split('?')[1]),
+    );
+    const data = expectSuccessfulParse(result);
+
+    expect(data.recommendationId).toBe(
+      'beach:123e4567-e89b-12d3-a456-426614174000:2026-07-09T14:00:00.000Z',
+    );
+    expect(data.recommendationSurface).toBe('home_hero');
+    expect(data.recommendationRank).toBe(1);
+    expect(data.recommendationScore).toBe(87.5);
+    expect(data.recommendationTimeSlot).toBe('dawn-patrol');
+    expect(data.recommendationWindowStart?.toISOString()).toBe(
+      '2026-07-09T14:00:00.000Z',
+    );
+    expect(data.recommendationWindowEnd?.toISOString()).toBe(
+      '2026-07-09T17:00:00.000Z',
+    );
+  });
+
   it('should throw when asked to serialize an invalid start time', () => {
     expect(() =>
       buildSessionWizardUrl({
@@ -405,6 +437,29 @@ describe('extractFormState', () => {
         forecastFeedbackValue: 'too_high',
       }).forecastAccuracy,
     ).toBe('inaccurate');
+  });
+
+  it('should carry recommendation attribution into form state', () => {
+    const formState = extractFormState({
+      ...validParams,
+      recommendationId: 'beach:abc:2026-07-09T14:00:00.000Z',
+      recommendationSurface: 'discover_list',
+      recommendationRank: 2,
+      recommendationScore: 76,
+      recommendationTimeSlot: 'afternoon',
+      recommendationWindowStart: new Date('2026-07-09T14:00:00.000Z'),
+      recommendationWindowEnd: new Date('2026-07-09T17:00:00.000Z'),
+    });
+
+    expect(formState).toMatchObject({
+      recommendationId: 'beach:abc:2026-07-09T14:00:00.000Z',
+      recommendationSurface: 'discover_list',
+      recommendationRank: 2,
+      recommendationScore: 76,
+      recommendationTimeSlot: 'afternoon',
+      recommendationWindowStart: '2026-07-09T14:00:00.000Z',
+      recommendationWindowEnd: '2026-07-09T17:00:00.000Z',
+    });
   });
 });
 

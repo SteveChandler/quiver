@@ -301,6 +301,16 @@ export function createMockProfile(overrides: Partial<Profile> = {}): Profile {
  * Creates a mock Session with required fields
  */
 export function createMockSession(overrides: Partial<Session> = {}): Session {
+  const {
+    forecast_tide_status = null,
+    forecast_wave_height_ft = null,
+    recommendation_call_accuracy = null,
+    recommendation_id = null,
+    tide_status_correct = null,
+    wave_height_correct = null,
+    ...restOverrides
+  } = overrides;
+
   return {
     id: `session-${Date.now()}`,
     user_id: "test-user-123",
@@ -328,6 +338,8 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
     wind_speed_mph: null,
     parking_ease: null,
     forecast_accuracy: null,
+    forecast_tide_status,
+    forecast_wave_height_ft,
     goals: [],
     invitee_ids: [],
     image_url: null,
@@ -342,10 +354,14 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
     wave_characteristics: null,
     source: null,
     custom_spot_id: null,
+    recommendation_call_accuracy,
+    recommendation_id,
     session_decomposition: null,
     session_board_fit: null,
     session_skill_fit: null,
-    ...overrides,
+    tide_status_correct,
+    wave_height_correct,
+    ...restOverrides,
   };
 }
 
