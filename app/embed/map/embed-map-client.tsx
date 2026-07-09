@@ -15,6 +15,10 @@ import {
   type EmbedMapSwellLayerId,
   type EmbedMapViewport,
 } from "@/components/map/embed-map-bridge";
+import {
+  LEGACY_EMBED_TIMELINE_STEPS,
+  hourlyEmbedTimelineLabels,
+} from "@/components/map/embed-map-timeline";
 
 const InteractiveMap = dynamic(
   () =>
@@ -29,8 +33,6 @@ const InteractiveMap = dynamic(
 
 const DEFAULT_CENTER: EmbedMapCoordinate = { lat: 32.8667, lon: -117.2544 };
 const DEFAULT_ZOOM = 11.5;
-const DEFAULT_TIMELINE_STEPS = ["Now", "+3h", "+6h", "+9h", "+12h", "+15h", "+18h", "+21h"];
-const MAX_TIMELINE_INDEX = DEFAULT_TIMELINE_STEPS.length - 1;
 const LAYER_SWITCHER: ReadonlyArray<{ id: EmbedMapSwellLayerId; label: string }> = [
   { id: "s1", label: "Swell" },
   { id: "s2", label: "Swell 2" },
@@ -55,12 +57,12 @@ function finiteParam(value: string | null): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function clampTimelineIndex(index: number): number {
-  return Math.max(0, Math.min(MAX_TIMELINE_INDEX, index));
+function clampTimelineIndex(index: number, maxTimelineIndex: number): number {
+  return Math.max(0, Math.min(maxTimelineIndex, index));
 }
 
-function clampTimelineStep(index: number): number {
-  return Math.round(clampTimelineIndex(index));
+function clampTimelineStep(index: number, maxTimelineIndex: number): number {
+  return Math.round(clampTimelineIndex(index, maxTimelineIndex));
 }
 
 function layerParam(value: string | null): EmbedMapSwellLayerId {
@@ -120,6 +122,15 @@ function renderHealthStatus(fps: number): "ok" | "degraded" {
 
 export function EmbedMapClient() {
   const searchParams = useSearchParams();
+  const isHourlyTimeline = searchParams.get("timeline") === "hourly";
+  const timelineNow = useMemo(() => new Date(), []);
+  const timelineSteps = useMemo(
+    () => isHourlyTimeline
+      ? hourlyEmbedTimelineLabels(timelineNow)
+      : Array.from(LEGACY_EMBED_TIMELINE_STEPS),
+    [isHourlyTimeline, timelineNow],
+  );
+  const maxTimelineIndex = timelineSteps.length - 1;
   const initialCenter = useMemo<EmbedMapCoordinate>(() => {
     const lat = finiteParam(searchParams.get("lat"));
     const lon = finiteParam(searchParams.get("lon"));
@@ -131,7 +142,10 @@ export function EmbedMapClient() {
     layerParam(searchParams.get("layer")),
   );
   const [timelineIndex, setTimelineIndex] = useState(
-    clampTimelineStep(finiteParam(searchParams.get("timeIndex")) ?? 0),
+    clampTimelineStep(
+      finiteParam(searchParams.get("timeIndex")) ?? 0,
+      maxTimelineIndex,
+    ),
   );
   const [regionViewport, setRegionViewport] = useState<ReturnType<
     typeof regionViewportFromCommand
@@ -153,17 +167,20 @@ export function EmbedMapClient() {
   useEffect(() => {
     timelineIndexRef.current = timelineIndex;
   }, [timelineIndex]);
+  // Sweep at the same forecast-hours-per-second in both modes: legacy indexes
+  // are 3h apart, hourly indexes 1h apart, so hourly advances 3x per tick.
+  const playbackIncrement = isHourlyTimeline ? 0.18 : 0.06;
   useEffect(() => {
     if (!isPlaying) return;
     const id = window.setInterval(() => {
-      let next = timelineIndexRef.current + 0.06;
-      if (next >= MAX_TIMELINE_INDEX) next = 0;
-      next = clampTimelineIndex(next);
+      let next = timelineIndexRef.current + playbackIncrement;
+      if (next >= maxTimelineIndex) next = 0;
+      next = clampTimelineIndex(next, maxTimelineIndex);
       timelineIndexRef.current = next;
       setTimelineIndex(next);
     }, 80);
     return () => window.clearInterval(id);
-  }, [isPlaying]);
+  }, [isPlaying, maxTimelineIndex, playbackIncrement]);
   const nativeCommandKeyRef = useRef(0);
   const currentViewportRef = useRef<EmbedMapViewport>({
     center: initialCenter,
@@ -181,7 +198,7 @@ export function EmbedMapClient() {
   // Keep the native chrome's time label in sync while the field plays/scrubs: emit
   // the rounded forecast step whenever it changes. The play loop advances a
   // fractional index; native renders integer steps. No-op in the browser.
-  const roundedStep = clampTimelineStep(timelineIndex);
+  const roundedStep = clampTimelineStep(timelineIndex, maxTimelineIndex);
   const lastEmittedStepRef = useRef(-1);
   useEffect(() => {
     if (lastEmittedStepRef.current === roundedStep) return;
@@ -261,7 +278,7 @@ export function EmbedMapClient() {
           setLayerId(command.payload.layerId);
           return;
         case "setForecastTime":
-          setTimelineIndex(clampTimelineStep(command.payload.index));
+          setTimelineIndex(clampTimelineStep(command.payload.index, maxTimelineIndex));
           return;
         case "setSelectedSpot": {
           const { lat, lon } = command.payload;
@@ -313,12 +330,15 @@ export function EmbedMapClient() {
           return;
       }
     },
-    [placementPoint, postEvent],
+    [maxTimelineIndex, placementPoint, postEvent],
   );
 
   useEffect(() => {
     const receiveMessage = (event: Event): void => {
-      const command = parseEmbedMapCommand((event as MessageEvent).data);
+      const command = parseEmbedMapCommand(
+        (event as MessageEvent).data,
+        maxTimelineIndex,
+      );
       if (!command) return;
       handleCommand(command);
     };
@@ -330,7 +350,7 @@ export function EmbedMapClient() {
       window.removeEventListener("message", receiveMessage);
       document.removeEventListener("message", receiveMessage);
     };
-  }, [handleCommand]);
+  }, [handleCommand, maxTimelineIndex]);
 
   useEffect(() => {
     if (!window.ReactNativeWebView || typeof window.requestAnimationFrame !== "function") return;
@@ -441,7 +461,8 @@ export function EmbedMapClient() {
         showSwellField={!fieldHidden}
         swellLayerId={layerId as SwellLayerId}
         swellTimelineIndex={timelineIndex}
-        swellTimelineSteps={DEFAULT_TIMELINE_STEPS}
+        swellTimelineMode={isHourlyTimeline ? "hourly" : undefined}
+        swellTimelineSteps={timelineSteps}
       />
       {!isPlacementActive && (
         <div
@@ -612,7 +633,7 @@ export function EmbedMapClient() {
                 Forecast
               </span>
               <span style={{ color: "#F4EBD8", fontSize: "14px", fontWeight: 700 }}>
-                {DEFAULT_TIMELINE_STEPS[roundedStep]}
+                {timelineSteps[roundedStep]}
               </span>
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -644,16 +665,18 @@ export function EmbedMapClient() {
                 className="embed-time-slider"
                 aria-label="Forecast time"
                 min={0}
-                max={MAX_TIMELINE_INDEX}
+                max={maxTimelineIndex}
                 step={0.01}
-                value={clampTimelineIndex(timelineIndex)}
+                value={clampTimelineIndex(timelineIndex, maxTimelineIndex)}
                 onChange={(event) => {
                   setIsPlaying(false);
-                  setTimelineIndex(clampTimelineIndex(Number(event.target.value)));
+                  setTimelineIndex(
+                    clampTimelineIndex(Number(event.target.value), maxTimelineIndex),
+                  );
                 }}
                 style={{
                   flex: 1,
-                  background: `linear-gradient(to right, #F78E42 0%, #F78E42 ${(clampTimelineIndex(timelineIndex) / MAX_TIMELINE_INDEX) * 100}%, rgba(244,235,216,0.22) ${(clampTimelineIndex(timelineIndex) / MAX_TIMELINE_INDEX) * 100}%, rgba(244,235,216,0.22) 100%)`,
+                  background: `linear-gradient(to right, #F78E42 0%, #F78E42 ${(clampTimelineIndex(timelineIndex, maxTimelineIndex) / maxTimelineIndex) * 100}%, rgba(244,235,216,0.22) ${(clampTimelineIndex(timelineIndex, maxTimelineIndex) / maxTimelineIndex) * 100}%, rgba(244,235,216,0.22) 100%)`,
                   borderRadius: "9999px",
                 }}
               />

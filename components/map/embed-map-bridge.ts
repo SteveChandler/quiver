@@ -72,10 +72,10 @@ function finiteNumber(value: unknown): number | null {
   return value;
 }
 
-function clampForecastTimeIndex(index: number): number {
+function clampForecastTimeIndex(index: number, maxIndex: number): number {
   return Math.max(
     0,
-    Math.min(EMBED_MAP_MAX_FORECAST_TIME_INDEX, Math.round(index)),
+    Math.min(maxIndex, Math.round(index)),
   );
 }
 
@@ -111,7 +111,10 @@ function viewportFromPayload(payload: unknown): EmbedMapViewport | null {
   };
 }
 
-export function parseEmbedMapCommand(data: unknown): EmbedMapCommand | null {
+export function parseEmbedMapCommand(
+  data: unknown,
+  maxForecastTimeIndex = EMBED_MAP_MAX_FORECAST_TIME_INDEX,
+): EmbedMapCommand | null {
   let parsed = data;
   if (typeof data === "string") {
     try {
@@ -143,7 +146,10 @@ export function parseEmbedMapCommand(data: unknown): EmbedMapCommand | null {
       const index = finiteNumber(payload.index);
       return index === null
         ? null
-        : { type: "setForecastTime", payload: { index: clampForecastTimeIndex(index) } };
+        : {
+            type: "setForecastTime",
+            payload: { index: clampForecastTimeIndex(index, maxForecastTimeIndex) },
+          };
     }
     case "setSelectedSpot": {
       if (!isRecord(payload) || typeof payload.beachId !== "string") return null;

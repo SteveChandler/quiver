@@ -204,6 +204,7 @@ interface InteractiveMapProps {
   swellTimelineSteps?: string[];
   swellTimelineIndex?: number;
   onSwellTimelineChange?: (index: number) => void;
+  swellTimelineMode?: "hourly";
   showMapChrome?: boolean;
   placementPin?: { lat: number; lon: number } | null;
   placementPinDraggable?: boolean;
@@ -330,6 +331,7 @@ export function InteractiveMap({
   swellTimelineSteps = [],
   swellTimelineIndex = 0,
   onSwellTimelineChange,
+  swellTimelineMode,
   showMapChrome = true,
   placementPin = null,
   placementPinDraggable = true,
@@ -986,7 +988,7 @@ export function InteractiveMap({
       const beachesKey = beaches === undefined ? "none" : `${beaches.length}`;
       const populateKey = `${latitude.toFixed(4)}-${longitude.toFixed(
         4
-      )}-${zoom.toFixed(2)}-${beachesKey}`;
+      )}-${zoom.toFixed(2)}-${beachesKey}-${swellTimelineMode ?? "legacy"}`;
 
       if (lastPopulateKeyRef.current === populateKey) {
         return;
@@ -1003,7 +1005,8 @@ export function InteractiveMap({
           latitude,
           longitude,
           beaches,
-          { fetchNearbyBeaches: fetchNearbyBeaches.current }
+          { fetchNearbyBeaches: fetchNearbyBeaches.current },
+          { timeline: swellTimelineMode },
         );
 
         // Store wave heights and water temps for clustering
@@ -1022,7 +1025,7 @@ export function InteractiveMap({
         console.error("Error populating locations", e);
       }
     },
-    [beaches, cleanupMarkers]
+    [beaches, cleanupMarkers, swellTimelineMode]
   );
 
   useEffect(() => {
