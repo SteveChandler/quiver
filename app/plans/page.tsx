@@ -17,7 +17,7 @@ export const metadata: Metadata = buildPageMetadata({
     "Quiver Pro",
     "Quiver free trial",
     "Quiver App Store",
-    "Quiver Android waitlist",
+    "Quiver Android beta",
     "similarity surf alerts",
     "surf board recommendations",
     "custom surf spots",

@@ -34,6 +34,14 @@ describe("useTimeSlotPrefetch", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     localStorage.clear();
+    Object.defineProperty(document, "visibilityState", {
+      value: "visible",
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "connection", {
+      value: undefined,
+      configurable: true,
+    });
 
     // Setup fetch mock
     global.fetch = mockFetch;
@@ -99,6 +107,63 @@ describe("useTimeSlotPrefetch", () => {
       );
 
       await new Promise((resolve) => setTimeout(resolve, 100));
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("should not prefetch while the document is hidden", async () => {
+      Object.defineProperty(document, "visibilityState", {
+        value: "hidden",
+        configurable: true,
+      });
+
+      renderHook(() =>
+        useTimeSlotPrefetch({
+          userLocation: mockLocation,
+          currentSlot: "any",
+          enabled: true,
+        })
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 700));
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("should not prefetch when data saver is enabled", async () => {
+      Object.defineProperty(navigator, "connection", {
+        value: { saveData: true, effectiveType: "4g" },
+        configurable: true,
+      });
+
+      renderHook(() =>
+        useTimeSlotPrefetch({
+          userLocation: mockLocation,
+          currentSlot: "any",
+          enabled: true,
+        })
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 700));
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("should not prefetch on constrained effective connections", async () => {
+      Object.defineProperty(navigator, "connection", {
+        value: { saveData: false, effectiveType: "2g" },
+        configurable: true,
+      });
+
+      renderHook(() =>
+        useTimeSlotPrefetch({
+          userLocation: mockLocation,
+          currentSlot: "any",
+          enabled: true,
+        })
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 700));
 
       expect(mockFetch).not.toHaveBeenCalled();
     });

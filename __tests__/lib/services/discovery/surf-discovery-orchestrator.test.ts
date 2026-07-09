@@ -1096,6 +1096,92 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     );
   });
 
+  test('derives board-style fit from beach attributes when no wave punchiness override exists', async () => {
+    const punchyReef = {
+      ...mockBeach3,
+      id: 'derived-reef',
+      name: 'Derived Reef',
+      slug: 'derived-reef',
+      lat: 32.7157,
+      lon: -117.1611,
+      break_type: 'reef',
+      skill_level: 'expert',
+      wave_punchiness: null,
+    } as Beach & { wave_punchiness: null };
+    const softBeachBreak = {
+      ...mockBeach1,
+      id: 'derived-soft-beach',
+      name: 'Derived Soft Beach',
+      slug: 'derived-soft-beach',
+      lat: 32.7157,
+      lon: -117.1611,
+      break_type: 'beach',
+      skill_level: 'beginner',
+      wave_punchiness: null,
+    } as Beach & { wave_punchiness: null };
+
+    mockState.candidatePoolResponse = {
+      candidates: [punchyReef, softBeachBreak],
+      preferredWaveSize: null,
+      userSkillLevel: 'expert',
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: [
+        {
+          beach: punchyReef,
+          forecasts: [{ ...mockForecast, beach_id: punchyReef.id }],
+        },
+        {
+          beach: softBeachBreak,
+          forecasts: [{ ...mockForecast, beach_id: softBeachBreak.id }],
+        },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+
+    mockState.boards = [
+      {
+        id: 'shortboard-1',
+        name: "5'10 Driver",
+        board_type: 'shortboard',
+        session_count: 12,
+      },
+    ];
+
+    const shortboardResult = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 2,
+    });
+    const reefForShortboard = shortboardResult.recommendations.find(
+      (rec) => rec.beach.id === 'derived-reef'
+    );
+    expect(reefForShortboard?.score).toBe(80);
+    expect(reefForShortboard?.reasons).toContain('Classic shortboard wave');
+
+    mockState.boards = [
+      {
+        id: 'gun-1',
+        name: "7'2 Gun",
+        board_type: 'gun',
+        session_count: 12,
+      },
+    ];
+
+    const gunResult = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 2,
+    });
+    const softBeachForGun = gunResult.recommendations.find(
+      (rec) => rec.beach.id === 'derived-soft-beach'
+    );
+    expect(softBeachForGun?.score).toBe(65);
+    expect(softBeachForGun?.warnings).toContain(
+      'Soft, rolling wave - not much push for a gun'
+    );
+  });
+
   test('scores includeBeachIds outside the nearby candidate pool and returns low-ranked included recs separately', async () => {
     mockState.candidatePoolResponse = {
       candidates: [mockBeach1] as Beach[],

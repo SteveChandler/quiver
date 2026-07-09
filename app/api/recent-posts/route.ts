@@ -36,7 +36,7 @@ async function recentPostsHandler(request: NextRequest): Promise<NextResponse> {
     // First, get total count of matching sessions
     let countQuery = supabase
       .from("sessions")
-      .select("*", { count: "exact", head: true })
+      .select("id", { count: "exact", head: true })
       .eq("status", "completed")
       .not("image_url", "is", null);
     if (blockedAuthorIds.length > 0) {

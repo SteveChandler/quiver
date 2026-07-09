@@ -167,6 +167,16 @@ test.describe("/app handoff route", () => {
     expect(response.headers()["location"] ?? "").toContain("ct=app_first_v1");
   });
 
+  test("Android UA redirects to the guided beta page", async ({ page }) => {
+    const response = await page.request.get("/app?source=qr", {
+      headers: { "user-agent": ANDROID_UA },
+      maxRedirects: 0,
+    });
+
+    expect([301, 302, 307, 308]).toContain(response.status());
+    expect(response.headers()["location"] ?? "").toBe("/android-beta");
+  });
+
   test("desktop renders the handoff module @smoke", async ({ page }) => {
     const errorCapture = setupErrorDetection(page);
     await mockTelemetry(page);

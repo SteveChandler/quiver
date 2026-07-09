@@ -47,6 +47,27 @@ describe("embed map bridge", () => {
     });
   });
 
+  it("clamps forecast time indexes to the exposed timeline range", () => {
+    expect(
+      parseEmbedMapCommand({
+        type: "setForecastTime",
+        payload: { index: 99 },
+      }),
+    ).toEqual({
+      type: "setForecastTime",
+      payload: { index: 7 },
+    });
+    expect(
+      parseEmbedMapCommand({
+        type: "setForecastTime",
+        payload: { index: -1 },
+      }),
+    ).toEqual({
+      type: "setForecastTime",
+      payload: { index: 0 },
+    });
+  });
+
   it("parses field-visibility commands", () => {
     expect(
       parseEmbedMapCommand({ type: "setFieldVisible", payload: { visible: false } }),

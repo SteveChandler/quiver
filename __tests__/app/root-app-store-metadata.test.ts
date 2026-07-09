@@ -5,10 +5,16 @@
 import { metadata } from "@/app/layout";
 
 describe("root App Store metadata", () => {
-  it("emits the Apple Smart App Banner app id", () => {
-    expect(metadata.itunes).toEqual({
-      appId: "6759300320",
-      appArgument: "https://www.quiversurf.app",
-    });
+  it("emits the Apple Smart App Banner app id and attributed app argument", () => {
+    const appArgument = new URL(String(metadata.itunes?.appArgument));
+
+    expect(metadata.itunes?.appId).toBe("6759300320");
+    expect(appArgument.origin + appArgument.pathname).toBe(
+      "https://www.quiversurf.app/app",
+    );
+    expect(appArgument.searchParams.get("source")).toBe(
+      "ios_smart_app_banner",
+    );
+    expect(appArgument.searchParams.get("utm_campaign")).toBe("app_first_v1");
   });
 });

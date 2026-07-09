@@ -114,6 +114,23 @@ const REPORT_STEPS: ReportStep[] = [
 
 const INTERNAL_LINKS: ReportLink[] = [
   {
+    href: "/best-free-surf-forecast-app",
+    title: "Best free surf forecast app",
+    description:
+      "Compare Quiver, Surfline, Surf-Forecast.com, Surf Captain, LazySurfer, Windy, and NDBC.",
+  },
+  {
+    href: "/vs/surfline/free",
+    title: "Surfline free alternative",
+    description:
+      "See how Quiver's free surf reports compare with Surfline's free tier.",
+  },
+  {
+    href: "/features",
+    title: "Quiver features",
+    description: "Review the free and signup-powered tools across Quiver.",
+  },
+  {
     href: "/forecast",
     title: "Regional surf forecast",
     description: "Check the 7-day call for California, Hawaii, Florida, Puerto Rico, and more.",

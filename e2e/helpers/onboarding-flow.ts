@@ -27,6 +27,11 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
 import { TIMEOUTS, TEST_BEACHES } from '../fixtures/test-data';
 import { waitForAuthCompletion } from '../utils/auth-helpers';
+import {
+  getLocalBeachBySlug,
+  isLocalE2ETarget,
+} from '../utils/local-supabase-fixtures';
+import { cleanupOrphanSmokeProfiles } from '../utils/test-data-cleanup';
 
 // ---------------------------------------------------------------------------
 // Admin client (service role) — for ephemeral test user provisioning.
@@ -67,6 +72,10 @@ export interface EphemeralCredentials {
   userId: string;
 }
 
+async function wait(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 /**
  * Create an email-confirmed test user via Supabase admin API.
  *
@@ -102,28 +111,62 @@ export async function signUpEphemeral(
 
   const userId = data.user.id;
 
-  // Give the handle_new_user trigger a tick to land, then mark is_mock so
-  // global-teardown's cleanup knows to sweep this user.
-  // eslint-disable-next-line no-await-in-loop
-  await new Promise((resolve) => setTimeout(resolve, 200));
-  const { error: profileError } = await (admin.from('profiles') as any)
-    .update({ is_mock: true, full_name: 'Smoke Test User' })
-    .eq('id', userId);
+  // Ensure the profile row exists and starts in the fresh-signup state that the
+  // onboarding entry-path tests exercise. A plain update can affect zero rows if
+  // the auth trigger has not materialized the profile yet, so use upsert and
+  // verify the row before returning credentials.
+  let lastProfileError: string | null = null;
+  for (let attempt = 0; attempt < 5; attempt += 1) {
+    const { error: upsertError } = await (admin.from('profiles') as any).upsert(
+      {
+        id: userId,
+        email,
+        full_name: 'Smoke Test User',
+        is_mock: true,
+        home_beach_id: null,
+        onboarding_completed_at: null,
+      },
+      { onConflict: 'id' }
+    );
 
-  if (profileError) {
-    // Fallback insert — rare but tolerable if the trigger hasn't fired yet.
-    const { error: insertError } = await (admin.from('profiles') as any).insert({
-      id: userId,
-      email,
-      full_name: 'Smoke Test User',
-      is_mock: true,
-    });
-    if (insertError) {
-      await admin.auth.admin.deleteUser(userId).catch(() => {});
-      throw new Error(
-        `Not implemented: profile row never materialized for ephemeral user ${userId}: ${insertError.message}`
-      );
+    if (upsertError) {
+      lastProfileError = upsertError.message;
+      await wait(200);
+      continue;
     }
+
+    const { data: profile, error: selectError } = await (admin
+      .from('profiles') as any)
+      .select('id, home_beach_id, onboarding_completed_at')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (!selectError && profile?.id === userId) {
+      return { email, password, userId };
+    }
+
+    lastProfileError = selectError?.message ?? 'profile row not returned';
+    await wait(200);
+  }
+
+  // Fallback insert — rare but tolerable if upsert is unavailable in an older
+  // local schema/client combination.
+  const { error: insertError } = await (admin.from('profiles') as any).insert({
+    id: userId,
+    email,
+    full_name: 'Smoke Test User',
+    is_mock: true,
+    home_beach_id: null,
+    onboarding_completed_at: null,
+  });
+
+  if (insertError) {
+    await admin.auth.admin.deleteUser(userId).catch(() => {});
+    throw new Error(
+      `Not implemented: profile row never materialized for ephemeral user ${userId}: ${
+        insertError.message || lastProfileError
+      }`
+    );
   }
 
   return { email, password, userId };
@@ -132,10 +175,8 @@ export async function signUpEphemeral(
 /**
  * Delete an ephemeral test user. Safe to call in afterEach — never throws.
  *
- * Deletes auth.users first, then the orphan profile row (no FK cascade exists
- * in this schema — see migration 20260430170000). If the profile delete fails,
- * the global-teardown orphan-profile sweep (cleanup_orphan_smoke_profiles RPC)
- * picks it up on the next run.
+ * Deletes auth.users first, then delegates orphan profile cleanup to the shared
+ * cleanup helper. If inline cleanup fails, global-teardown runs the same sweep.
  */
 export async function cleanupEphemeralUser(userId: string): Promise<void> {
   try {
@@ -145,11 +186,9 @@ export async function cleanupEphemeralUser(userId: string): Promise<void> {
       console.warn('[onboarding-flow] auth.admin.deleteUser failed:', authErr.message);
       return;
     }
-    const { error: profileErr } = await (admin.from('profiles') as any)
-      .delete()
-      .eq('id', userId);
-    if (profileErr) {
-      console.warn('[onboarding-flow] profile cleanup failed:', profileErr.message);
+    const orphanResult = await cleanupOrphanSmokeProfiles(admin, false);
+    if (orphanResult.error) {
+      console.warn('[onboarding-flow] profile cleanup failed:', orphanResult.error);
     }
   } catch (err) {
     console.warn('[onboarding-flow] ephemeral cleanup failed:', err);
@@ -224,10 +263,37 @@ export async function signOut(page: Page): Promise<void> {
 // ---------------------------------------------------------------------------
 
 export interface CompleteOnboardingOptions {
-  /** Query to type into the home-beach search. Defaults to "Blacks". */
+  /** Query to type into the home-beach search. Defaults to "Mission Beach". */
   beachSearch?: string;
   /** If true, navigate to `/?showOnboarding=1&debugOnboarding=1` before walking. */
   openViaDebugParam?: boolean;
+}
+
+export async function mockOnboardingBeachSearch(page: Page): Promise<void> {
+  const beach = isLocalE2ETarget()
+    ? await getLocalBeachBySlug('mission-beach')
+    : TEST_BEACHES.blacks;
+
+  await page.route('**/api/beaches/search?**', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        success: true,
+        data: [
+          {
+            id: beach.id,
+            name: beach.name,
+            slug: beach.slug,
+            city: 'San Diego',
+            state: 'CA',
+            country: 'USA',
+            region: 'San Diego, CA',
+          },
+        ],
+      }),
+    });
+  });
 }
 
 /**
@@ -245,7 +311,9 @@ export async function completeOnboarding(
   page: Page,
   opts: CompleteOnboardingOptions = {}
 ): Promise<void> {
-  const { beachSearch = TEST_BEACHES.blacks.name, openViaDebugParam = false } = opts;
+  const { beachSearch = 'Mission Beach', openViaDebugParam = false } = opts;
+
+  await mockOnboardingBeachSearch(page);
 
   if (openViaDebugParam) {
     await page.goto('/?showOnboarding=1&debugOnboarding=1');

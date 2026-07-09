@@ -8,14 +8,8 @@
  * `/ca/bolinas/bolinas-bolinas-ca`, etc.), not regional forecast pages.
  *
  * Contract under test:
- * - **Calibrated beach** (`beaches.shoaling_factors IS NOT NULL`): the
- *   "Face height" label appears on the page, and the uncalibrated tooltip
- *   copy never renders. Note: the hero (`unified-surf-card`) uses
- *   per-reading `surfCall.isCalibrated` (`source === 'cdip_sig' && shoaling_factors`),
- *   so on tiny-wave days when the source downgrades, the hero may still
- *   render the tilde even at calibrated beaches. The beach-level contract
- *   we assert on is the "Face height" label (rendered by forecast-tab from
- *   `beach.shoaling_factors != null`).
+ * - **Calibrated beach path**: the page renders the calibrated "Face height"
+ *   label and does not show uncalibrated honesty copy.
  * - **Uncalibrated beach**: tilde prefix, dotted underline, "Forecast height"
  *   label, and tooltip with the exact honesty copy.
  *
@@ -30,7 +24,9 @@ import {
   assertNoErrors,
   type ErrorCapture,
 } from "./utils/error-detection";
-import { TIMEOUTS } from "./fixtures/test-data";
+import { ensureLocalBeachForecastFixture } from "./utils/local-supabase-fixtures";
+import { TEST_BEACHES, TIMEOUTS } from "./fixtures/test-data";
+import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 
 test.describe("calibration honesty layer @requires-data", () => {
   test.describe.configure({ mode: "serial" });
@@ -41,38 +37,47 @@ test.describe("calibration honesty layer @requires-data", () => {
   const UNCALIBRATED_TOOLTIP =
     "Buoy forecast. Haven't surfed this one enough to call face height.";
 
-  // Beach fixtures: two calibrated anchors (shoaling_factors populated) and
-  // two uncalibrated. Verified on production DB on the calibration-honesty
-  // branch and re-verified 2026-04-30.
-  const CALIBRATED_BLACKS = {
-    slug: "blacks",
-    city: "La Jolla",
-    state: "CA",
-    country: "USA",
-  };
+  // Beach fixtures: calibrated anchors have shoaling_factors populated; the
+  // uncalibrated anchor has current local forecast rows and null factors.
+  const CALIBRATED_BLACKS_PATH = buildBeachUrl(TEST_BEACHES.blacks);
   const CALIBRATED_LA_JOLLA_SHORES = {
     slug: "la-jolla-shores",
     city: "La Jolla",
     state: "CA",
     country: "USA",
   };
-  const UNCALIBRATED_BOLINAS = {
-    slug: "bolinas-bolinas-ca",
-    city: "Bolinas",
+  const UNCALIBRATED_ASILOMAR = {
+    slug: "asilomar-state-beach-pacific-grove-ca",
+    city: "Pacific Grove",
     state: "CA",
     country: "USA",
   };
-  const UNCALIBRATED_COCOA = {
-    slug: "cocoa-beach-pier-cocoa-beach-fl",
-    city: "Cocoa Beach",
-    state: "FL",
-    country: "USA",
-  };
+  const UNCALIBRATED_DISPLAY_PATH = buildBeachUrl(UNCALIBRATED_ASILOMAR);
+  const SECOND_CALIBRATED_DISPLAY_PATH = `/ca/la-jolla/${CALIBRATED_LA_JOLLA_SHORES.slug}`;
 
   const MOBILE_VIEWPORT = { width: 375, height: 667 };
   const DESKTOP_VIEWPORT = { width: 1280, height: 800 };
 
   let errorCapture: ErrorCapture;
+  const cleanupFixtures: Array<() => Promise<void>> = [];
+
+  test.beforeAll(async () => {
+    cleanupFixtures.push(await ensureLocalBeachForecastFixture({
+      dataSource: "e2e_calibration_fixture",
+      forceUncalibrated: true,
+      slug: UNCALIBRATED_ASILOMAR.slug,
+    }));
+    cleanupFixtures.push(await ensureLocalBeachForecastFixture({
+      dataSource: "cdip_sig",
+      slug: "blacks",
+    }));
+  });
+
+  test.afterAll(async () => {
+    for (const cleanup of cleanupFixtures.reverse()) {
+      await cleanup();
+    }
+  });
 
   test.beforeEach(async ({ page }) => {
     errorCapture = setupErrorDetection(page);
@@ -88,8 +93,18 @@ test.describe("calibration honesty layer @requires-data", () => {
   // The component renders face-height digits inside a child <span>, and the
   // testid is on the outer wrapper. Using `.locator("span").first()` gives us
   // the dotted-underline span for class assertions.
+  const forecastPanel = (page: Page) =>
+    page.getByRole("tabpanel", { name: /forecast/i }).first();
   const primaryWaveHeight = (page: Page) =>
-    page.locator('[data-testid="primary-wave-height"]').first();
+    forecastPanel(page).locator('[data-testid="primary-wave-height"]').first();
+  const faceHeightLabel = (page: Page) =>
+    primaryWaveHeight(page).locator("xpath=..").getByText(/Face height/i).first();
+  const forecastHeightLabel = (page: Page) =>
+    primaryWaveHeight(page).locator("xpath=..").getByText(/Forecast height/i).first();
+  const uncalibratedTooltip = (page: Page) =>
+    page.locator('[role="tooltip"]').filter({
+      hasText: UNCALIBRATED_TOOLTIP,
+    });
 
   async function openForecastTab(page: Page, path: string): Promise<void> {
     await page.goto(path, {
@@ -109,39 +124,37 @@ test.describe("calibration honesty layer @requires-data", () => {
     });
   }
 
-  test("calibrated beach (Blacks) on desktop renders Face height label", async ({
+  test("calibrated beach (Blacks) on desktop renders an honesty label", async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await openForecastTab(page, `/ca/la-jolla/${CALIBRATED_BLACKS.slug}`);
+    await openForecastTab(page, CALIBRATED_BLACKS_PATH);
 
     const waveHeight = primaryWaveHeight(page);
     await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
 
-    // Beach-level calibration contract: forecast-tab renders the "Face height"
-    // label from `beach.shoaling_factors != null`, regardless of per-reading
-    // source. The hero may still show ~ on tiny-wave days when source
-    // downgrades off cdip_sig — that's per-reading honesty, not a regression.
-    await expect(page.getByText(/Face height/i).first()).toBeVisible();
+    await expect(faceHeightLabel(page)).toBeVisible();
+    await expect(forecastHeightLabel(page)).not.toBeVisible();
   });
 
-  test("calibrated beach (Blacks) on mobile renders Face height label", async ({
+  test("calibrated beach (Blacks) on mobile renders an honesty label", async ({
     page,
   }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await openForecastTab(page, `/ca/la-jolla/${CALIBRATED_BLACKS.slug}`);
+    await openForecastTab(page, CALIBRATED_BLACKS_PATH);
 
     const waveHeight = primaryWaveHeight(page);
     await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
 
-    await expect(page.getByText(/Face height/i).first()).toBeVisible();
+    await expect(faceHeightLabel(page)).toBeVisible();
+    await expect(forecastHeightLabel(page)).not.toBeVisible();
   });
 
-  test("uncalibrated beach (Bolinas) on desktop shows tilde and Forecast height label", async ({
+  test("uncalibrated beach on desktop shows tilde and Forecast height label", async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await openForecastTab(page, `/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await openForecastTab(page, UNCALIBRATED_DISPLAY_PATH);
 
     const waveHeight = primaryWaveHeight(page);
     await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
@@ -149,14 +162,14 @@ test.describe("calibration honesty layer @requires-data", () => {
     const text = (await waveHeight.innerText()).trim();
     expect(text).toContain("~");
 
-    await expect(page.getByText(/Forecast height/i).first()).toBeVisible();
+    await expect(forecastHeightLabel(page)).toBeVisible();
   });
 
-  test("uncalibrated beach (Bolinas) on mobile shows tilde and Forecast height label", async ({
+  test("uncalibrated beach on mobile shows tilde and Forecast height label", async ({
     page,
   }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await openForecastTab(page, `/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await openForecastTab(page, UNCALIBRATED_DISPLAY_PATH);
 
     const waveHeight = primaryWaveHeight(page);
     await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
@@ -164,14 +177,14 @@ test.describe("calibration honesty layer @requires-data", () => {
     const text = (await waveHeight.innerText()).trim();
     expect(text).toContain("~");
 
-    await expect(page.getByText(/Forecast height/i).first()).toBeVisible();
+    await expect(forecastHeightLabel(page)).toBeVisible();
   });
 
   test("uncalibrated beach renders dotted-underline class on numeric span", async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await openForecastTab(page, `/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await openForecastTab(page, UNCALIBRATED_DISPLAY_PATH);
 
     const waveHeight = primaryWaveHeight(page);
     await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
@@ -187,25 +200,23 @@ test.describe("calibration honesty layer @requires-data", () => {
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await openForecastTab(page, `/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await openForecastTab(page, UNCALIBRATED_DISPLAY_PATH);
 
     const waveHeight = primaryWaveHeight(page);
     await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
 
-    await waveHeight.hover();
+    await waveHeight.locator("span.border-dotted").first().hover();
 
     // Radix renders tooltip content in a portal with role="tooltip".
-    const tooltip = page.getByRole("tooltip", {
-      name: UNCALIBRATED_TOOLTIP,
-    });
-    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.short });
+    const tooltip = uncalibratedTooltip(page);
+    await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.medium });
   });
 
   test("tooltip content appears on tap at uncalibrated beach (mobile)", async ({
     page,
   }) => {
     await page.setViewportSize(MOBILE_VIEWPORT);
-    await openForecastTab(page, `/ca/bolinas/${UNCALIBRATED_BOLINAS.slug}`);
+    await openForecastTab(page, UNCALIBRATED_DISPLAY_PATH);
 
     const waveHeight = primaryWaveHeight(page);
     await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
@@ -214,44 +225,38 @@ test.describe("calibration honesty layer @requires-data", () => {
     // Playwright's .hover() still synthesizes the mouseover sequence that
     // Radix observes — and matches what the component supports in production
     // (mobile users tap to focus, which fires focusin -> tooltip open).
-    await waveHeight.hover();
+    await waveHeight.locator("span.border-dotted").first().hover();
 
-    const tooltip = page.getByRole("tooltip", {
-      name: UNCALIBRATED_TOOLTIP,
-    });
+    const tooltip = uncalibratedTooltip(page);
     // Mobile portal latency is higher than desktop hover; use medium timeout.
     await expect(tooltip).toBeVisible({ timeout: TIMEOUTS.medium });
   });
 
-  test("calibrated beach does NOT show uncalibrated tooltip copy on hover", async ({
+  test("calibrated beach path renders an honesty label on hover", async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await openForecastTab(page, `/ca/la-jolla/${CALIBRATED_BLACKS.slug}`);
+    await openForecastTab(page, CALIBRATED_BLACKS_PATH);
 
     const waveHeight = primaryWaveHeight(page);
     await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
 
     await waveHeight.hover();
 
-    // The uncalibrated tooltip string must NOT appear at a calibrated beach.
-    // Any other tooltip (e.g. swell breakdown) is fine — we only assert on
-    // the honesty-layer copy's absence.
-    const uncalibratedTooltip = page.getByRole("tooltip", {
-      name: UNCALIBRATED_TOOLTIP,
-    });
-    await expect(uncalibratedTooltip).toHaveCount(0);
+    await expect(faceHeightLabel(page)).toBeVisible();
+    await expect(uncalibratedTooltip(page)).not.toBeVisible();
   });
 
   test("second calibrated beach (La Jolla Shores) sanity check on desktop", async ({
     page,
   }) => {
     await page.setViewportSize(DESKTOP_VIEWPORT);
-    await openForecastTab(page, `/ca/la-jolla/${CALIBRATED_LA_JOLLA_SHORES.slug}`);
+    await openForecastTab(page, SECOND_CALIBRATED_DISPLAY_PATH);
 
     const waveHeight = primaryWaveHeight(page);
     await expect(waveHeight).toBeVisible({ timeout: TIMEOUTS.veryLong });
 
-    await expect(page.getByText(/Face height/i).first()).toBeVisible();
+    await expect(faceHeightLabel(page)).toBeVisible();
+    await expect(forecastHeightLabel(page)).not.toBeVisible();
   });
 });

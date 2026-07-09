@@ -15,18 +15,31 @@ jest.mock("@/context/auth-context", () => ({
   })),
 }));
 
-jest.mock("@/components/app-store/ios-app-store-cta", () => ({
-  IosAppStoreCta: ({
-    children,
-    className,
+jest.mock("@/components/app-store/native-app-funnel-cta", () => ({
+  NativeAppFunnelCta: ({
+    androidLabel,
+    platform,
+    source,
+    surface,
   }: {
-    children: React.ReactNode;
-    className?: string;
+    androidLabel?: React.ReactNode;
+    platform: string;
+    source: string;
+    surface: string;
   }) => (
-    <a href="https://apps.apple.com/us/app/surf-forecast-quiver/id6759300320" className={className}>
-      {children}
+    <a
+      data-platform={platform}
+      data-source={source}
+      data-surface={surface}
+      href={platform === "android" ? "/android-beta" : "/download"}
+    >
+      {platform === "android" ? androidLabel : "Get Quiver"}
     </a>
   ),
+}));
+
+jest.mock("@/lib/analytics/web-context", () => ({
+  getFirstTouchPlatform: jest.fn(() => "android"),
 }));
 
 jest.mock("next/navigation", () => ({
@@ -44,33 +57,33 @@ jest.mock("next/link", () => {
 });
 
 describe("SessionDetailView (gating)", () => {
-  it("shows a shared-session app fallback when logged out", () => {
+  it("shows a shared-session app fallback when logged out", async () => {
     render(
       <SessionDetailView
         id="session-1"
         sharedPreview={{
-          beachName: "Ocean Beach",
-          userName: "Sam",
           rating: 4,
-          dateText: "Jul 3, 2026",
           title: "Sam's session at Ocean Beach",
           subtitle: "4/5 stars · Jul 3, 2026 · Logged session",
           imageUrl: "https://cdn.quiversurf.app/session.jpg",
-          shareImageUrl: "https://www.quiversurf.app/api/og/session?beach=Ocean+Beach",
         }}
       />,
     );
 
     expect(screen.getByText("Shared session")).toBeInTheDocument();
     expect(screen.getByText("Sam's session at Ocean Beach")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open App Store" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Sign in to view on web" })).toHaveAttribute(
       "href",
-      expect.stringContaining("apps.apple.com"),
+      "/auth/sign-in?redirectTo=%2Fsessions%2Fsession-1",
     );
+    const appCta = await screen.findByRole("link", { name: "Get the Android beta" });
+    expect(appCta).toHaveAttribute("href", "/android-beta");
+    expect(appCta).toHaveAttribute("data-platform", "android");
+    expect(appCta).toHaveAttribute("data-source", "session_share");
+    expect(appCta).toHaveAttribute("data-surface", "session_detail_fallback");
     expect(screen.getByRole("link", { name: "Download options" })).toHaveAttribute(
       "href",
       "/download",
     );
   });
 });
-

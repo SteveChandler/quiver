@@ -121,7 +121,7 @@ export const QUIVER_FAQ_ITEMS: FAQItem[] = [
   {
     question: "Is Quiver free to use?",
     answer:
-      "Quiver's iPhone app is live on the App Store, and Android is coming soon through the Android waitlist. Open the App Store listing for the current iPhone app flow.",
+      "Quiver's iPhone app is live on the App Store, and the Android beta is open through Google Play closed testing. Open the App Store listing for the current iPhone app flow, or get Android beta access from the app handoff page.",
   },
   {
     question: "How accurate are the surf forecasts?",

@@ -39,7 +39,7 @@ describe("blog pages", () => {
       params: Promise.resolve({ slug: post.slug }),
     });
 
-    expect(metadata.title).toBe(post.seoTitle);
+    expect(metadata.title).toEqual({ absolute: post.seoTitle });
     expect(metadata.description).toBe(post.seoDescription);
     expect(metadata.openGraph).toMatchObject({
       type: "article",

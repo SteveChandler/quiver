@@ -69,6 +69,8 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   signup_started: 0,
   signup_success: 0,
   login_success: 0,
+  login_failed: 0,
+  signup_failed: 0,
   signup_form_submitted: 0,
   login_form_submitted: 0,
   native_app_first_open: 0,
@@ -139,6 +141,10 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   favorite_shown_in_carousel: 0,
   mini_log_teaser_click: 0,
   plan_unlock_click: 0,
+  discover_page_view: 0,
+  discover_suggested_users_impression: 0,
+  discover_profile_open: 0,
+  discover_follow_attempt: 0,
   // Social events
   social_follow: 0,
   social_like: 0,
@@ -272,6 +278,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   app_handoff_email_sent: 0,
   app_handoff_email_failed: 0,
   app_handoff_link_opened: 0,
+  android_lead_captured: 0,
 } as const;
 
 // -----------------------------------------------------------------------------

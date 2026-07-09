@@ -168,12 +168,11 @@ export function useUserFollow(
         return;
       }
 
-      // Optimistically update the UI
-      // The real-time subscription will also update these values,
-      // but optimistic updates provide better UX
-      // Check if the action was a follow (result contains followId) or unfollow
-      const isFollowAction = result.success && result.data && 'followId' in result.data;
-      
+      const isFollowAction =
+        typeof result.data?.following === "boolean"
+          ? result.data.following
+          : Boolean(result.data && "followId" in result.data);
+
       if (isFollowAction) {
         setFollowing(true);
         setFollowersCount((prev) => {

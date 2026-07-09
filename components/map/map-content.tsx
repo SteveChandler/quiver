@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import dynamic from "next/dynamic";
+import { Search } from "lucide-react";
 import { MapSkeleton } from "@/components/skeletons/map-skeleton";
 import { DataErrorBoundary } from "@/components/error-boundaries";
 import type { Beach } from "@/types/database";
@@ -41,6 +42,7 @@ interface MapContentProps {
   } | null;
   onGetUserLocation: () => void;
   onUseDefaultLocation: () => void;
+  onSearchPromptClick?: () => void;
   onBeachSelect: (beach: Beach) => void;
   onBoundsChange?: (bounds: {
     west: number;
@@ -84,6 +86,7 @@ export function MapContent({
   regionViewport,
   onGetUserLocation,
   onUseDefaultLocation,
+  onSearchPromptClick,
   onBeachSelect,
   onBoundsChange,
   onWaveHeightsChange,
@@ -147,6 +150,11 @@ export function MapContent({
     };
   }, [selectedBeach, searchQuery, filteredBeaches, focusCenter, userLocation]);
   const mapCenter = mapCenterState.center;
+  const showLocationDeniedPrompt =
+    usingDefaultLocation &&
+    !hasTimedOut &&
+    typeof locationError === "string" &&
+    locationError.toLowerCase().includes("denied");
 
   // Stable array reference — only changes when lat/lon values actually change
   const initialCenterArray = useMemo(
@@ -199,6 +207,35 @@ export function MapContent({
       {hasTimedOut && usingDefaultLocation && (
         <div className="px-4 py-3">
           <LocationTimeoutBanner onGrantLocation={onGetUserLocation} />
+        </div>
+      )}
+
+      {showLocationDeniedPrompt && (
+        <div
+          className="border-b bg-background px-4 py-3"
+          data-testid="map-location-denied-prompt"
+          role="status"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                Location is off. Search your break.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                We are showing Mission Beach until you pick a spot.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onSearchPromptClick}
+              className="h-9 w-full justify-center sm:w-auto"
+            >
+              <Search className="h-4 w-4" aria-hidden="true" />
+              Search spots
+            </Button>
+          </div>
         </div>
       )}
 

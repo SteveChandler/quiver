@@ -3,38 +3,28 @@ import type { Metadata } from "next";
 
 import {
   type SurfSpotSlug,
-  type SurfCitySlug,
 } from "@/lib/data/surf-spots";
 import { buildPageMetadata, buildDynamicBeachMetadata } from "@/lib/seo/meta";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getBeachForecastPreview } from "@/actions/forecast-actions";
-import { SpotStructuredData } from "@/components/seo/spot-structured-data";
-import {
-  getSpotDataBySlug,
-  getSpotFeaturedPhoto,
-} from "@/actions/spot/spot-data-actions";
-import { SpotPageContent } from "@/components/spots";
+import { getSpotDataBySlug } from "@/actions/spot/spot-data-actions";
 
 export const revalidate = 3600;
 
-function formatPacificDateTime(date: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/Los_Angeles",
-    dateStyle: "long",
-    timeStyle: "short",
-  }).format(date);
-}
-
 interface SpotPageParams {
   params: Promise<{ slug: SurfSpotSlug }>;
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }
 
 export async function generateMetadata(props: SpotPageParams): Promise<Metadata> {
   const params = await props.params;
   const { data: spot, dbHasLocation } = await getSpotDataBySlug(params.slug);
   if (!spot) {
-    return {};
+    return buildNoindexSpotMetadata(params.slug);
+  }
+
+  const canonicalPath = getCanonicalSpotPath(spot, dbHasLocation);
+  if (!canonicalPath) {
+    return buildNoindexSpotMetadata(params.slug);
   }
 
   const cityName = spot.city || spot.region?.split(",")[0] || "Southern California";
@@ -70,15 +60,7 @@ export async function generateMetadata(props: SpotPageParams): Promise<Metadata>
     forecast: forecastData,
   });
 
-  // Canonical path matches sitemap logic:
-  // - Use hierarchical URL when DB has complete location data
-  // - Fall back to /spots/{slug} when location data is incomplete
-  // Note: dbHasLocation guarantees non-empty city and state in the DB record
-  const canonicalPath = dbHasLocation && spot.slug
-    ? buildBeachUrl({ slug: spot.slug, city: spot.city!, state: spot.state! })
-    : `/spots/${spot.slug}`;
-
-  return buildPageMetadata({
+  const metadata = buildPageMetadata({
     title,
     description,
     path: canonicalPath,
@@ -98,105 +80,63 @@ export async function generateMetadata(props: SpotPageParams): Promise<Metadata>
       "wave height today",
     ].filter(Boolean),
   });
+
+  return {
+    ...metadata,
+    robots: {
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true,
+      },
+    },
+  };
 }
 
-export default async function SpotPage(props: SpotPageParams) {
-  const params = await props.params;
-  const { data: spot } = await getSpotDataBySlug(params.slug);
-  if (!spot) {
-    return notFound();
+export default function SpotPage() {
+  return notFound();
+}
+
+function getCanonicalSpotPath(
+  spot: {
+    slug?: string | null;
+    city?: string | null;
+    state?: string | null;
+    country?: string | null;
+  },
+  dbHasLocation: boolean,
+): string | null {
+  if (!dbHasLocation || !spot.slug || !spot.city || !spot.state) {
+    return null;
   }
 
-  // This page renders at /spots/{slug} — the generateMetadata canonical points to
-  // the hierarchical URL, so crawlers receive the correct canonical signal.
+  const canonicalPath = buildBeachUrl({
+    slug: spot.slug,
+    city: spot.city,
+    state: spot.state,
+    country: spot.country,
+  });
 
-  // Get city name from spot data (database-driven)
-  const cityName = spot.city || spot.region?.split(",")[0] || "Southern California";
+  return canonicalPath.startsWith("/beach/") ? null : canonicalPath;
+}
 
-  const featuredPhotoPromise = spot.id ? getSpotFeaturedPhoto(spot.id) : Promise.resolve(null);
+function buildNoindexSpotMetadata(slug: string): Metadata {
+  const metadata = buildPageMetadata({
+    title: "Spot Not Found",
+    description: "This surf spot page could not be found.",
+    path: `/spots/${slug}`,
+  });
 
-  const now = new Date();
-  const updatedAt = formatPacificDateTime(now);
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-
-  const nearbySpotDataPromise = spot.nearby
-    ? Promise.all(
-        spot.nearby.map(async (nearbySlug) => {
-          const { data: nearbySpot } = await getSpotDataBySlug(nearbySlug);
-          if (!nearbySpot) {
-            return null;
-          }
-
-          const nearbyPhoto = nearbySpot.id
-            ? await getSpotFeaturedPhoto(nearbySpot.id)
-            : null;
-
-          return {
-            slug: nearbySpot.slug,
-            name: nearbySpot.name,
-            city: nearbySpot.city,
-            state: nearbySpot.state,
-            region: nearbySpot.region,
-            overview: nearbySpot.overview,
-            breakType: nearbySpot.breakType,
-            skillLevel: nearbySpot.skillLevel,
-            tideAdvice: nearbySpot.tideAdvice,
-            swellAdvice: nearbySpot.swellAdvice,
-            windAdvice: nearbySpot.windAdvice,
-            photoUrl: nearbyPhoto?.imageUrl ?? null,
-          };
-        })
-      )
-    : Promise.resolve([]);
-
-  const [featuredPhoto, nearbySpotData] = await Promise.all([
-    featuredPhotoPromise,
-    nearbySpotDataPromise,
-  ]);
-  const validNearbySpots = nearbySpotData.filter((nearbySpot) => nearbySpot !== null);
-
-  return (
-    <div className="bg-white">
-      <SpotStructuredData
-        spot={{
-          slug: spot.slug,
-          name: spot.name,
-          coordinates: {
-            lat: spot.latitude || 0,
-            lon: spot.longitude || 0,
-          },
-          speakableSummary: spot.speakableSummary || spot.overview || "",
-          faq: spot.faq || [],
-          citySlug: spot.citySlug || ("san-diego" as SurfCitySlug),
-          region: spot.region || "",
-          overview: spot.overview || "",
-          history: spot.history || "",
-          conditions: spot.conditions || "",
-          tideAdvice: spot.tideAdvice || "",
-          swellAdvice: spot.swellAdvice || "",
-          windAdvice: spot.windAdvice || "",
-          waterTemp: spot.waterTemp || "",
-          hazards: spot.hazards || [],
-          skillLevel: (spot.skillLevel as any) || "Intermediate",
-          bestSeason: spot.bestSeason || "",
-          crowdFactor: spot.crowdFactor || "Moderate",
-          parking: spot.parking || "",
-          amenities: spot.amenities || [],
-          nearby: spot.nearby || [],
-          intentTags: (spot.intentTags as any) || [],
-        }}
-        cityName={cityName}
-        citySlug={spot.citySlug || undefined}
-        baseUrl={baseUrl}
-      />
-      <SpotPageContent
-        spot={spot}
-        cityName={cityName}
-        updatedAt={updatedAt}
-        featuredPhotoUrl={featuredPhoto?.imageUrl || null}
-        featuredPhotoAttribution={featuredPhoto?.attributionHtml}
-        nearbySpots={validNearbySpots}
-      />
-    </div>
-  );
+  return {
+    ...metadata,
+    robots: {
+      index: false,
+      follow: false,
+      googleBot: {
+        index: false,
+        follow: false,
+      },
+    },
+  };
 }

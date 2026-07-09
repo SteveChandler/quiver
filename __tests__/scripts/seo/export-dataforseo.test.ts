@@ -60,7 +60,7 @@ describe("export-dataforseo script", () => {
     }
   });
 
-  it("sends one Google SERP live task per request plus one keyword overview batch", async () => {
+  it("batches Google SERP live tasks and preserves keyword overview output", async () => {
     const requests: Array<{ path: string; body: unknown }> = [];
     const server = createDataForSeoServer(requests);
     await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -92,16 +92,18 @@ describe("export-dataforseo script", () => {
         DATAFORSEO_ENABLED: "true",
         DATAFORSEO_LOGIN: "login",
         DATAFORSEO_PASSWORD: "password",
+        DATAFORSEO_GOOGLE_BATCH_SIZE: "5",
         NODE_ENV: "test",
       });
 
       expect(requests.map((item) => item.path)).toEqual([
         "/v3/serp/google/organic/live/advanced",
-        "/v3/serp/google/organic/live/advanced",
         "/v3/dataforseo_labs/google/keyword_overview/live",
       ]);
-      expect(requests.map((item) => Array.isArray(item.body) ? item.body.length : 0)).toEqual([1, 1, 1]);
+      expect(requests.map((item) => Array.isArray(item.body) ? item.body.length : 0)).toEqual([2, 1]);
       expect(JSON.parse(fs.readFileSync(outputPath, "utf8"))).toMatchObject({
+        status: "complete",
+        completedPhases: ["googleRankings", "keywordMetrics", "asoRankings", "competitorKeywords"],
         keywordMetrics: [{
           keyword: "surf forecast app",
           searchVolume: 720,
@@ -174,6 +176,63 @@ describe("export-dataforseo script", () => {
     }
   });
 
+  it("merges Apple Search Ads campaign keywords into the ASO watchlist", async () => {
+    const requests: Array<{ path: string; body: unknown }> = [];
+    const server = createDataForSeoServer(requests);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Expected local test server address");
+      }
+      const cwd = makeTempWorkspace({
+        google: {
+          domain: "quiversurf.app",
+          device: "mobile",
+          depth: 100,
+          keywords: [],
+          locations: [{ name: "United States", code: 2840 }],
+        },
+        aso: {
+          depth: 100,
+          platforms: ["ios"],
+          keywords: ["surf forecast"],
+          quiver: { iosAppId: "6759300320" },
+        },
+        competitors: [],
+      }, {
+        keywords: [
+          { keyword: "surf tracker", status: "enabled" },
+          { keyword: "wave forecast", status: "paused" },
+          { keyword: "quiver surf app", enabled: true },
+        ],
+      });
+      const outputPath = path.join(cwd, "DATAFORSEO-EXPORT.json");
+
+      await runExporter(cwd, outputPath, {
+        DATAFORSEO_API_BASE: `http://127.0.0.1:${address.port}`,
+        DATAFORSEO_ENABLED: "true",
+        DATAFORSEO_LOGIN: "login",
+        DATAFORSEO_PASSWORD: "password",
+        NODE_ENV: "test",
+      });
+
+      const appSearchPost = requests.find((item) => item.path === "/v3/app_data/apple/app_searches/task_post");
+      expect(appSearchPost).toMatchObject({ path: "/v3/app_data/apple/app_searches/task_post" });
+      expect(appSearchPost?.body).toEqual(expect.arrayContaining([
+        expect.objectContaining({ keyword: "surf forecast" }),
+        expect.objectContaining({ keyword: "surf tracker" }),
+        expect.objectContaining({ keyword: "quiver surf app" }),
+      ]));
+      expect(appSearchPost?.body).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ keyword: "wave forecast" }),
+      ]));
+    } finally {
+      await closeServer(server);
+    }
+  });
+
   it("fails fast into missing output when the API stalls mid-response body", async () => {
     const server = http.createServer((request, response) => {
       response.setHeader("content-type", "application/json");
@@ -224,8 +283,57 @@ describe("export-dataforseo script", () => {
       });
 
       expect(JSON.parse(fs.readFileSync(outputPath, "utf8"))).toMatchObject({
+        status: "partial",
         googleRankings: [],
         missing: [expect.stringContaining("The operation was aborted due to timeout")],
+      });
+    } finally {
+      await closeServer(server);
+    }
+  });
+
+  it("writes partial output when the global deadline is reached", async () => {
+    const requests: Array<{ path: string; body: unknown }> = [];
+    const server = createDataForSeoServer(requests);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Expected local test server address");
+      }
+      const cwd = makeTempWorkspace({
+        google: {
+          domain: "quiversurf.app",
+          device: "mobile",
+          depth: 100,
+          keywords: ["surf forecast app"],
+          locations: [{ name: "United States", code: 2840 }],
+        },
+        aso: {
+          depth: 100,
+          keywords: ["surf forecast"],
+          quiver: { iosAppId: "6759300320" },
+          platforms: ["ios"],
+        },
+        competitors: [{ name: "Lazy Surfer", domain: "lazysurfer.app" }],
+      });
+      const outputPath = path.join(cwd, "DATAFORSEO-EXPORT.json");
+
+      await runExporter(cwd, outputPath, {
+        DATAFORSEO_API_BASE: `http://127.0.0.1:${address.port}`,
+        DATAFORSEO_ENABLED: "true",
+        DATAFORSEO_LOGIN: "login",
+        DATAFORSEO_PASSWORD: "password",
+        DATAFORSEO_DEADLINE_MS: "1",
+        NODE_ENV: "test",
+      });
+
+      expect(JSON.parse(fs.readFileSync(outputPath, "utf8"))).toMatchObject({
+        status: "timed_out",
+        deadlineReached: true,
+        completedPhases: [],
+        failedPhases: ["googleRankings"],
       });
     } finally {
       await closeServer(server);
@@ -245,14 +353,19 @@ function createDataForSeoServer(
     });
     response.setHeader("content-type", "application/json");
     if (request.url?.includes("task_post")) {
+      const tasks = Array.isArray(parsedBody) ? parsedBody.map((_, index) => ({
+        id: `task-${index + 1}`,
+        status_code: 20000,
+        status_message: "Ok.",
+      })) : [{
+        id: "task-1",
+        status_code: 20000,
+        status_message: "Ok.",
+      }];
       response.end(JSON.stringify({
         status_code: 20000,
         status_message: "Ok.",
-        tasks: [{
-          id: "task-1",
-          status_code: 20000,
-          status_message: "Ok.",
-        }],
+        tasks,
       }));
       return;
     }
@@ -287,10 +400,11 @@ function createDataForSeoServer(
       return;
     }
 
+    const bodyArray = Array.isArray(parsedBody) ? parsedBody : [parsedBody];
     response.end(JSON.stringify({
       status_code: 20000,
       status_message: "Ok.",
-      tasks: [{
+      tasks: bodyArray.map(() => ({
         result: [{
           items: request.url?.includes("app_searches")
             ? [
@@ -307,12 +421,12 @@ function createDataForSeoServer(
               },
             ],
         }],
-      }],
+      })),
     }));
   });
 }
 
-function makeTempWorkspace(watchlist: unknown): string {
+function makeTempWorkspace(watchlist: unknown, appleSearchAdsKeywords?: unknown): string {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "quiver-dataforseo-"));
   const seoDocsPath = path.join(cwd, "docs", "seo");
   fs.mkdirSync(seoDocsPath, { recursive: true });
@@ -320,6 +434,12 @@ function makeTempWorkspace(watchlist: unknown): string {
     path.join(seoDocsPath, "dataforseo-watchlist.json"),
     `${JSON.stringify(watchlist, null, 2)}\n`,
   );
+  if (appleSearchAdsKeywords !== undefined) {
+    fs.writeFileSync(
+      path.join(seoDocsPath, "apple-search-ads-keywords.json"),
+      `${JSON.stringify(appleSearchAdsKeywords, null, 2)}\n`,
+    );
+  }
   return cwd;
 }
 

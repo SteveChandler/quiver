@@ -54,6 +54,40 @@ describe("install-style OG share cards", () => {
     );
   });
 
+  it("drops untrusted session background image URLs", async () => {
+    const { GET } = await import("@/app/api/og/session/route");
+
+    const response = await GET(
+      new Request(
+        "http://localhost:3000/api/og/session?beach=Ocean+Beach&rating=Epic&stars=5&size=Chest-Head&board=Fish&bg=http%3A%2F%2F127.0.0.1%3A54321%2Fprivate.png",
+      ) as never,
+    );
+
+    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(capturedProps()).toEqual(
+      expect.objectContaining({
+        bg: "",
+      }),
+    );
+  });
+
+  it("drops same-site app URLs from session background images", async () => {
+    const { GET } = await import("@/app/api/og/session/route");
+
+    const response = await GET(
+      new Request(
+        "http://localhost:3000/api/og/session?beach=Ocean+Beach&rating=Epic&bg=https%3A%2F%2Fwww.quiversurf.app%2Fapi%2Fprivate",
+      ) as never,
+    );
+
+    expect(response.headers.get("content-type")).toBe("image/png");
+    expect(capturedProps()).toEqual(
+      expect.objectContaining({
+        bg: "",
+      }),
+    );
+  });
+
   it("renders surf-call share cards with the install-card anatomy and QR attribution", async () => {
     const { GET } = await import("@/app/api/og/surf-call/route");
 

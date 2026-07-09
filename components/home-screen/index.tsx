@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useMemo } from "react";
+import { useCallback, useState, useMemo, useRef } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
@@ -89,6 +89,7 @@ export function HomeScreen() {
   const { timeOfDay } = useTimeOfDay();
   const reducedMotion = useReducedMotion();
   const { track: trackEvent } = useTrackEvent();
+  const discoveryRequestCountRef = useRef(0);
 
   // Time slot filter state (initialized from URL param for persistence)
   const validTimeSlots: TimeSlot[] = ['any', 'dawn-patrol', 'lunch-session', 'afternoon'];
@@ -225,6 +226,29 @@ export function HomeScreen() {
     [geoSource, usingDefaultLocation, geoCoords?.lat, geoCoords?.lon, homeBeach?.lat, homeBeach?.lon, ipCoords?.lat, ipCoords?.lon]
   );
 
+  const recordHomeDiscoveryRequest = useCallback((status: "success" | "error") => {
+    discoveryRequestCountRef.current += 1;
+    const count = discoveryRequestCountRef.current;
+
+    if (typeof window !== "undefined") {
+      (
+        window as Window & { __quiverHomeDiscoveryRequestCount?: number }
+      ).__quiverHomeDiscoveryRequestCount = count;
+    }
+
+    if (typeof performance !== "undefined" && typeof performance.mark === "function") {
+      try {
+        performance.mark(`quiver:home:discovery-request:${count}:${status}`);
+      } catch {
+        // Ignore browsers or test environments that reject custom marks.
+      }
+    }
+
+    if (process.env.NODE_ENV === "development") {
+      console.debug("[HomeScreen] discovery request count", { count, status });
+    }
+  }, []);
+
   // Fetch surf discovery (top recommendation + top spots)
   const {
     discovery,
@@ -237,6 +261,8 @@ export function HomeScreen() {
     enabled: !!profile && !geoLoading,
     immediate: true,
     userLocation: seedDiscoveryLocation,
+    onSuccess: () => recordHomeDiscoveryRequest("success"),
+    onError: () => recordHomeDiscoveryRequest("error"),
   });
 
   // Pre-fetch other time slots for instant filter switching

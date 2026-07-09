@@ -18,6 +18,52 @@ const SessionUpdateSchema = z.object({
   rating: z.number().int().min(0).max(5).optional(),
 });
 
+const SESSION_ROW_SELECT = `
+  id,
+  user_id,
+  beach_id,
+  beach_name,
+  board_id,
+  board_snapshot,
+  arrival_time,
+  created_at,
+  updated_at,
+  duration_minutes,
+  status,
+  is_public,
+  rating,
+  wave_quality,
+  crowd_level,
+  parking_ease,
+  description,
+  notes,
+  image_url,
+  water_temp,
+  wave_height_ft,
+  wind_speed_mph,
+  wind_direction,
+  tide_status,
+  tide_height_ft,
+  tide_rate_ft_per_hr,
+  tide_data_source,
+  forecast_accuracy,
+  goals,
+  invitee_ids,
+  comments_count,
+  likes_count,
+  share_count,
+  muted,
+  rip_current_observed,
+  rip_current_risk,
+  session_board_fit,
+  session_decomposition,
+  session_skill_fit,
+  skill_ratings,
+  source,
+  wave_characteristics,
+  custom_spot_id
+`;
+
 /**
  * PATCH /api/sessions/[id] - Update a session
  */
@@ -47,12 +93,12 @@ export const PATCH = withAuth(
     if (validation.data.is_public !== undefined) updatePayload.is_public = validation.data.is_public;
     if (validation.data.rating !== undefined) updatePayload.rating = validation.data.rating;
 
-    const { data: updated, error: updateError } = await supabase
+    const { data: updated, error: updateError } = await (supabase as any)
       .from("sessions")
       .update(updatePayload)
       .eq("id", sessionId)
       .eq("user_id", user.id)
-      .select("*")
+      .select(SESSION_ROW_SELECT)
       .single();
 
     if (updateError) throw updateError;
@@ -76,15 +122,15 @@ export const GET = withAuth(
     const ownership = await requireOwnership(supabase, "sessions", sessionId, user.id, "Session");
     if ("error" in ownership) return ownership.error;
 
-    const { data, error } = await supabase
+    const { data, error } = await (supabase as any)
       .from("sessions")
       .select(
         `
-        *,
+        ${SESSION_ROW_SELECT},
         session_date:arrival_time,
-        beach:beaches(*),
-        board:boards(*),
-        user:profiles(*),
+        beach:beaches(id, name, lat, lon),
+        board:boards(id, name, board_type, dimensions, description, image_url, size, volume),
+        user:profiles(id, full_name, avatar_url),
         forecast_snapshot:session_forecast_snapshots(
           forecast_snapshot,
           actual_conditions,
@@ -148,5 +194,3 @@ export const DELETE = withAuth(
   },
   { errorMessage: "Failed to delete session" }
 );
-
-

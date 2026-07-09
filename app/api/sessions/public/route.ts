@@ -32,6 +32,8 @@ export const dynamic = "force-dynamic";
  * - feed_type: "global" (default) | "friends" — friends restricts to sessions
  *              from users the caller follows (requires auth; returns empty if
  *              unauthenticated or not following anyone)
+ * - quality: "informative" (default) | "strong" | "all". Informative rows
+ *            have useful context/media; strong rows are positive, useful rows.
  *
  * Returns:
  * - Paginated list of public sessions with beach info, ratings, and author details
@@ -79,6 +81,14 @@ async function publicSessionsHandler(
   const dateFrom = searchParams.get("date_from");
   const dateTo = searchParams.get("date_to");
   const feedType = searchParams.get("feed_type");
+  const quality = (searchParams.get("quality") ?? "informative").toLowerCase();
+
+  if (!["informative", "strong", "all"].includes(quality)) {
+    return NextResponse.json(
+      { error: "quality must be one of informative, strong, or all" },
+      { status: 400 },
+    );
+  }
 
   // `user` is resolved by withAuth({ optional: true }) — non-null when the
   // caller provided a valid Bearer token (native) or cookie session (web).
@@ -140,36 +150,88 @@ async function publicSessionsHandler(
     }
   }
 
-  // Build count query with filters
-  let countQuery = supabase
-    .from("sessions")
-    .select("*", { count: "exact", head: true })
-    .eq("status", "completed")
-    .eq("is_public", true);
+  const applyFeedFilters = (query: any): any => {
+    let filteredQuery = query;
 
-  if (nearbyBeachIds) {
-    countQuery = countQuery.in("beach_id", nearbyBeachIds);
-  }
-  if (beachId) {
-    countQuery = countQuery.eq("beach_id", beachId);
-  }
-  if (dateFrom) {
-    countQuery = countQuery.gte("arrival_time", dateFrom);
-  }
-  if (dateTo) {
-    countQuery = countQuery.lt("arrival_time", dateTo);
-  }
-  if (friendIds) {
-    countQuery = countQuery.in("user_id", friendIds);
-  }
-  if (blockedAuthorIds.length > 0) {
-    countQuery = countQuery.not("user_id", "in", `(${blockedAuthorIds.join(",")})`);
-  }
+    if (nearbyBeachIds) {
+      filteredQuery = filteredQuery.in("beach_id", nearbyBeachIds);
+    }
+    if (beachId) {
+      filteredQuery = filteredQuery.eq("beach_id", beachId);
+    }
+    if (dateFrom) {
+      filteredQuery = filteredQuery.gte("arrival_time", dateFrom);
+    }
+    if (dateTo) {
+      filteredQuery = filteredQuery.lt("arrival_time", dateTo);
+    }
+    if (friendIds) {
+      filteredQuery = filteredQuery.in("user_id", friendIds);
+    }
+    if (blockedAuthorIds.length > 0) {
+      filteredQuery = filteredQuery.not(
+        "user_id",
+        "in",
+        `(${blockedAuthorIds.join(",")})`,
+      );
+    }
+    if (quality === "informative") {
+      filteredQuery = filteredQuery.eq("informative", true);
+    }
+    if (quality === "strong") {
+      filteredQuery = filteredQuery.eq("strong", true);
+    }
+
+    return filteredQuery;
+  };
+
+  let countQuery = (supabase as any)
+    .from("public_session_feed_eligibility")
+    .select("session_id", { count: "exact", head: true });
+  countQuery = applyFeedFilters(countQuery);
 
   const { count } = await countQuery;
 
-  // Fetch public sessions with profile data
-  let dataQuery = (supabase as any)
+  let eligibilityQuery = (supabase as any)
+    .from("public_session_feed_eligibility")
+    .select(
+      `
+        session_id,
+        user_id,
+        beach_id,
+        arrival_time,
+        created_at,
+        has_context,
+        has_media,
+        thin,
+        warning,
+        informative,
+        strong
+      `,
+    );
+  eligibilityQuery = applyFeedFilters(eligibilityQuery);
+
+  const { data: eligibilityRows, error: eligibilityError } = await eligibilityQuery
+    .order("created_at", { ascending: false })
+    .order("session_id", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (eligibilityError) {
+    console.error("Error fetching public session eligibility:", eligibilityError);
+    throw eligibilityError;
+  }
+
+  const eligibilityBySessionId = new Map(
+    ((eligibilityRows as any[]) ?? []).map((row) => [row.session_id, row]),
+  );
+  const sessionIds = Array.from(eligibilityBySessionId.keys());
+
+  if (sessionIds.length === 0) {
+    const meta = createPaginationMeta(page, limit, count || 0);
+    return finalize(await createPaginatedResponse([], meta, CacheDuration.SHORT));
+  }
+
+  const { data: sessions, error } = await (supabase as any)
     .from("sessions")
     .select(
       `
@@ -212,31 +274,10 @@ async function publicSessionsHandler(
         )
       `
     )
+    .in("id", sessionIds)
     .eq("status", "completed")
-    .eq("is_public", true);
-
-  if (nearbyBeachIds) {
-    dataQuery = dataQuery.in("beach_id", nearbyBeachIds);
-  }
-  if (beachId) {
-    dataQuery = dataQuery.eq("beach_id", beachId);
-  }
-  if (dateFrom) {
-    dataQuery = dataQuery.gte("arrival_time", dateFrom);
-  }
-  if (dateTo) {
-    dataQuery = dataQuery.lt("arrival_time", dateTo);
-  }
-  if (friendIds) {
-    dataQuery = dataQuery.in("user_id", friendIds);
-  }
-  if (blockedAuthorIds.length > 0) {
-    dataQuery = dataQuery.not("user_id", "in", `(${blockedAuthorIds.join(",")})`);
-  }
-
-  const { data: sessions, error } = await dataQuery
-    .order("created_at", { ascending: false })
-    .range(offset, offset + limit - 1);
+    .eq("is_public", true)
+    .is("deleted_at", null);
 
   if (error) {
     console.error("Error fetching public sessions:", error);
@@ -245,8 +286,12 @@ async function publicSessionsHandler(
 
   // Batch-fetch like status for the authenticated user
   let likedSessionIds = new Set<string>();
-  if (user && sessions?.length) {
-    const sessionIds = sessions.map((s: any) => s.id);
+  const orderedSessions =
+    sessions?.slice().sort((a: any, b: any) => {
+      return sessionIds.indexOf(a.id) - sessionIds.indexOf(b.id);
+    }) ?? [];
+
+  if (user && orderedSessions.length) {
     const { data: likes } = await supabase
       .from("session_likes")
       .select("session_id")
@@ -260,45 +305,57 @@ async function publicSessionsHandler(
 
   // Transform the data for frontend consumption
   const publicSessions =
-    sessions?.map((session: any) => ({
-      id: session.id,
-      userId: session.user_id,
-      beachName: session.beach_name || (session.beaches as any)?.name || null,
-      beachId: session.beach_id,
-      arrivalTime: session.arrival_time,
-      waveQuality: session.wave_quality,
-      waveHeight: session.wave_height_ft,
-      waveCharacteristics: session.wave_characteristics ?? null,
-      tideHeightFt: session.tide_height_ft ?? null,
-      tideStatus: session.tide_status ?? null,
-      tideRateFtPerHr: session.tide_rate_ft_per_hr ?? null,
-      ripCurrentObserved: session.rip_current_observed ?? null,
-      ripCurrentRisk: session.rip_current_risk ?? null,
-      notes: session.notes,
-      description: session.description,
-      title: session.description || session.notes || null,
-      imageUrl: session.image_url,
-      likesCount: session.likes_count || 0,
-      likedByMe: likedSessionIds.has(session.id),
-      createdAt: session.created_at,
-      durationMinutes: session.duration_minutes,
-      crowdLevel: session.crowd_level,
-      waterTemp: session.water_temp,
-      rating: session.rating ?? null,
-      displayName: (session.profiles as any)?.full_name || "Surfer",
-      avatarUrl: (session.profiles as any)?.avatar_url || null,
-      author: {
-        id: (session.profiles as any)?.id || null,
-      },
-      media: ((session.session_media as any[]) || [])
-        .filter((m) => !m.deleted_at)
-        .map((m) => ({
-          id: m.id,
-          url: m.public_url,
-          type: m.media_type,
-          caption: m.caption,
-        })),
-    })) || [];
+    orderedSessions.map((session: any) => {
+      const eligibility = eligibilityBySessionId.get(session.id) as any;
+
+      return {
+        id: session.id,
+        userId: session.user_id,
+        beachName: session.beach_name || (session.beaches as any)?.name || null,
+        beachId: session.beach_id,
+        arrivalTime: session.arrival_time,
+        waveQuality: session.wave_quality,
+        waveHeight: session.wave_height_ft,
+        waveCharacteristics: session.wave_characteristics ?? null,
+        tideHeightFt: session.tide_height_ft ?? null,
+        tideStatus: session.tide_status ?? null,
+        tideRateFtPerHr: session.tide_rate_ft_per_hr ?? null,
+        ripCurrentObserved: session.rip_current_observed ?? null,
+        ripCurrentRisk: session.rip_current_risk ?? null,
+        notes: session.notes,
+        description: session.description,
+        title: session.description || session.notes || null,
+        imageUrl: session.image_url,
+        likesCount: session.likes_count || 0,
+        likedByMe: likedSessionIds.has(session.id),
+        createdAt: session.created_at,
+        durationMinutes: session.duration_minutes,
+        crowdLevel: session.crowd_level,
+        waterTemp: session.water_temp,
+        rating: session.rating ?? null,
+        displayName: (session.profiles as any)?.full_name || "Surfer",
+        avatarUrl: (session.profiles as any)?.avatar_url || null,
+        author: {
+          id: (session.profiles as any)?.id || null,
+        },
+        quality: {
+          hasContext: Boolean(eligibility?.has_context),
+          hasMedia: Boolean(eligibility?.has_media),
+          thin: Boolean(eligibility?.thin),
+          warning: Boolean(eligibility?.warning),
+          informative: Boolean(eligibility?.informative),
+          strong: Boolean(eligibility?.strong),
+        },
+        media: ((session.session_media as any[]) || [])
+          .filter((m) => !m.deleted_at)
+          .map((m) => ({
+            id: m.id,
+            url: m.public_url,
+            type: m.media_type,
+            caption: m.caption,
+          })),
+      };
+    }) || [];
 
   const meta = createPaginationMeta(page, limit, count || 0);
 

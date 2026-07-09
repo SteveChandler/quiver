@@ -248,8 +248,6 @@ export interface EnhancedForecastEntity {
     tide_station?: TideStationInfo;
     /** Per-row wave_height provenance (source, transform path, etc.). */
     wave_height_provenance?: WaveHeightProvenance;
-    /** Optional internal wave-height debug metadata. */
-    wave_height_debug?: WaveHeightDebugMetadata;
   } | null;
 }
 
@@ -543,7 +541,7 @@ export interface WaveHeightProvenance {
   components_used: boolean;
   /** True when the per-beach `shoaling_factors` lookup actually fired. */
   calibrated_shoaling_fired: boolean;
-  /** True when a low long-period CDIP bucket was skipped for this row. */
+  /** True when a low long-period CDIP bucket was skipped by quarantine rules. */
   calibration_bucket_quarantined?: boolean;
   /** Last CDIP face height minus first following model face height at the source handoff. */
   handoff_discontinuity_ft?: number;
@@ -585,10 +583,6 @@ export interface WaveHeightProvenance {
   };
 }
 
-export interface WaveHeightDebugMetadata {
-  calibrationBucketQuarantined?: boolean;
-}
-
 // Enhanced Forecast with Raw Data
 export interface EnhancedForecastWithRawData extends EnhancedForecastEntity {
   raw_forecast?: {
@@ -610,7 +604,5 @@ export interface EnhancedForecastWithRawData extends EnhancedForecastEntity {
     tide_station?: TideStationInfo;
     /** Per-row wave_height provenance metadata (source, transform path, etc.). */
     wave_height_provenance?: WaveHeightProvenance;
-    /** Optional internal wave-height debug metadata. */
-    wave_height_debug?: WaveHeightDebugMetadata;
   };
 }

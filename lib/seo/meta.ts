@@ -28,13 +28,14 @@ export function buildPageMetadata({
   image?: string;
   keywords?: string[];
 }): Metadata {
+  const metadataTitle = titleContainsQuiver(title) ? { absolute: title } : title;
   const canonical = absoluteUrl(path);
   const ogImage = image
     ? absoluteUrl(image)
     : (SEO_CONFIG.openGraph.images?.[0]?.url || "/images/buoy.png");
 
   return {
-    title,
+    title: metadataTitle,
     description,
     keywords: keywords || [...SEO_CONFIG.keywords],
     alternates: { canonical },
@@ -71,6 +72,10 @@ export function buildPageMetadata({
       },
     },
   } satisfies Metadata;
+}
+
+export function titleContainsQuiver(title: string): boolean {
+  return /\bQuiver\b/i.test(title);
 }
 
 export function formatMetaDate(date = new Date()): string {

@@ -107,7 +107,8 @@ export function GoogleOneTap() {
           console.error("[google-one-tap] signInWithIdToken error:", error);
           trackLoginFailed({
             method: "google_one_tap",
-            error_type: error.message || "token_exchange_failed",
+            error_type: "token_exchange_failed",
+            source: "google_one_tap",
           });
           return;
         }
@@ -126,6 +127,7 @@ export function GoogleOneTap() {
           trackLoginSuccess({
             method: "google_one_tap",
             duration_ms: duration,
+            source: "google_one_tap",
           });
         }
 
@@ -137,6 +139,7 @@ export function GoogleOneTap() {
         trackLoginFailed({
           method: "google_one_tap",
           error_type: "unexpected_error",
+          source: "google_one_tap",
         });
       }
     },

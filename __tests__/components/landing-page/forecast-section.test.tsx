@@ -68,6 +68,10 @@ describe("ForecastSection", () => {
     expect(
       screen.getByText(/swell, wind, tide, and beach context/i),
     ).toBeInTheDocument();
+    expect(screen.getByAltText(/La Jolla Shores surf call/i)).toHaveAttribute(
+      "src",
+      expect.stringContaining("surf-call-720.webp"),
+    );
   });
 
   it("uses forecast, log, and check as the product loop tabs", async () => {
@@ -84,6 +88,10 @@ describe("ForecastSection", () => {
       screen.getByRole("heading", { name: /log what actually happened/i }),
     ).toBeInTheDocument();
     expect(screen.getByText(/real surf signal/i)).toBeInTheDocument();
+    expect(screen.getByAltText(/Log Session screen/i)).toHaveAttribute(
+      "src",
+      expect.stringContaining("session-log-720.webp"),
+    );
 
     await user.click(screen.getAllByRole("tab", { name: /check/i })[0]);
 

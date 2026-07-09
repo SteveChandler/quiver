@@ -93,6 +93,32 @@ describe("MapContent", () => {
     expect(screen.getByText("Use San Diego Location")).toBeInTheDocument();
   });
 
+  it("should prompt users to search when location permission is denied and fallback map is shown", () => {
+    const onSearchPromptClick = jest.fn();
+
+    render(
+      <MapContent
+        {...defaultProps}
+        locationError="Location access denied - using default location"
+        usingDefaultLocation={true}
+        onSearchPromptClick={onSearchPromptClick}
+      />,
+    );
+
+    expect(screen.getByTestId("map-location-denied-prompt")).toBeInTheDocument();
+    expect(
+      screen.getByText("Location is off. Search your break."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("We are showing Mission Beach until you pick a spot."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /search spots/i }));
+
+    expect(onSearchPromptClick).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
+  });
+
   it("should show location permission instructions when blocked", () => {
     render(
       <MapContent

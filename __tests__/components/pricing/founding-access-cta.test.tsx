@@ -91,12 +91,12 @@ describe("FoundingAccessCta", () => {
     mockProfileContext();
   });
 
-  it("renders an action-backed Android waitlist CTA for anonymous users", () => {
+  it("renders an action-backed Android beta CTA for anonymous users", () => {
     render(<FoundingAccessCta source="plans-test" surface="plans" />);
 
     expect(
       screen.getByRole("button", {
-        name: /join android waitlist/i,
+        name: /get the android beta/i,
       }),
     ).toHaveAttribute("data-placement", "plans_primary");
     expect(screen.getByTestId("android-waitlist-cta")).toHaveAttribute(
@@ -108,22 +108,22 @@ describe("FoundingAccessCta", () => {
       "plans",
     );
     expect(
-      screen.getByText(/we'll send android launch updates/i),
+      screen.getByText(/test for 14 days to earn a free year of pro/i),
     ).toBeInTheDocument();
   });
 
-  it("asks signed-in users to confirm Android waitlist intent", () => {
+  it("asks signed-in users to confirm Android beta intent", () => {
     mockSignedInUser();
 
     render(<FoundingAccessCta source="plans-test" surface="plans" />);
 
     expect(screen.getByTestId("founding-access-signed-in-state")).toBeVisible();
     expect(
-      screen.getByText(/confirm this account for android launch updates/i),
+      screen.getByText(/confirm this account for android beta access/i),
     ).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: /join android waitlist/i,
+        name: /get the android beta/i,
       }),
     ).toHaveAttribute("data-placement", "plans_signed_in");
     expect(
@@ -142,7 +142,7 @@ describe("FoundingAccessCta", () => {
     expect(screen.getByText(/you're signed in/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", {
-        name: /join android waitlist/i,
+        name: /get the android beta/i,
       }),
     ).toHaveAttribute("data-placement", "plans_compact_signed_in");
     expect(
@@ -152,7 +152,7 @@ describe("FoundingAccessCta", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows persisted Android waitlist status for signed-in users who already joined", () => {
+  it("shows persisted Android beta status for signed-in users who already joined", () => {
     mockSignedInUser();
     mockProfileContext({
       id: "user-1",
@@ -163,10 +163,10 @@ describe("FoundingAccessCta", () => {
     render(<FoundingAccessCta source="plans-test" surface="plans" />);
 
     expect(screen.getByTestId("founding-access-signed-in-state")).toBeVisible();
-    expect(screen.getByText(/android updates are set/i)).toBeInTheDocument();
+    expect(screen.getByText(/android beta access is set/i)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", {
-        name: /join android waitlist/i,
+        name: /get the android beta/i,
       }),
     ).not.toBeInTheDocument();
     expect(
@@ -185,7 +185,7 @@ describe("FoundingAccessCta", () => {
 
     await user.click(
       screen.getByRole("button", {
-        name: /join android waitlist/i,
+        name: /get the android beta/i,
       }),
     );
 

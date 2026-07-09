@@ -13,7 +13,7 @@ Defines thresholds and settings:
 - `STALE_DATA_THRESHOLD_BEACHES`: Alert if >35 beaches have stale data
 - `CRITICAL_STALE_HOURS`: Critical alert if data >24h old
 - `WARNING_STALE_HOURS`: Warning alert if data >16h old
-- `MIN_FORECAST_COVERAGE`: Alert if <90% coverage
+- `MIN_FORECAST_COVERAGE`: Alert if <90% coverage by default; override with `MONITORING_MIN_FORECAST_COVERAGE` for fixture-sized local environments
 - `EXPECTED_CRON_INTERVAL_HOURS`: Expected cron frequency (2 hours)
 
 ### 2. Structured Logger (`lib/monitoring/forecast-logger.ts`)

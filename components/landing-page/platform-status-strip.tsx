@@ -20,12 +20,14 @@ export function PlatformStatusStrip({
       <div className="mx-auto grid max-w-7xl gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
         <div>
           <p className="font-heading text-lg font-bold">
-            iPhone is live. Android is next.
+            iPhone is live. Android beta is open.
           </p>
           <p className="mt-1 max-w-2xl font-sans text-sm leading-6 text-muted-foreground">
             {platform === "desktop"
               ? "Scan the QR or send the link above when you are ready to move Quiver to your phone."
-              : "You are on the right path for this device. Keep the surf call close before you paddle out."}
+              : platform === "android"
+                ? "Install today and test for 14 days to earn a free year of Pro."
+                : "You are on the right path for this device. Keep the surf call close before you paddle out."}
           </p>
         </div>
 

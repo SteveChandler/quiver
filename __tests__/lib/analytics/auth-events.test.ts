@@ -71,6 +71,7 @@ describe("auth-events", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     (getBrowserSessionId as jest.Mock).mockReturnValue("test-browser-session-id");
+    (getVisitorId as jest.Mock).mockReturnValue("test-visitor-id");
     process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = "phc_test";
     global.fetch = mockFetch;
     mockFetch.mockReset();
@@ -224,10 +225,19 @@ describe("auth-events", () => {
       it("should track form submission with hardcoded login mode and source", () => {
         trackLoginFormSubmitted({ source: "landing-navbar" });
 
-        expect(track).toHaveBeenCalledWith("login_form_submitted", {
-          mode: "login",
-          source: "landing-navbar",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "login_form_submitted",
+          expect.objectContaining({
+            mode: "login",
+            source: "landing-navbar",
+            pathname: "/",
+            page: "landing",
+            surface: "landing-page",
+            source_group: "landing",
+            browser_session_id: "test-browser-session-id",
+            platform: "web",
+          }),
+        );
       });
 
       it("should dual-fire to /api/events", () => {
@@ -403,16 +413,25 @@ describe("auth-events", () => {
       it("should track successful login with duration", () => {
         trackLoginSuccess({ method: "password", duration_ms: 1234 });
 
-        expect(track).toHaveBeenCalledWith("login_success", {
-          method: "password",
-          duration_ms: 1234,
-          browser_session_id: "test-browser-session-id",
-        });
-        expect(captureClientPostHogEvent).toHaveBeenCalledWith("user_signed_in", {
-          method: "password",
-          duration_ms: 1234,
-          browser_session_id: "test-browser-session-id",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "login_success",
+          expect.objectContaining({
+            method: "password",
+            duration_ms: 1234,
+            browser_session_id: "test-browser-session-id",
+            source_group: "landing",
+            platform: "web",
+          }),
+        );
+        expect(captureClientPostHogEvent).toHaveBeenCalledWith(
+          "user_signed_in",
+          expect.objectContaining({
+            method: "password",
+            duration_ms: 1234,
+            browser_session_id: "test-browser-session-id",
+            source_group: "landing",
+          }),
+        );
       });
     });
 
@@ -423,10 +442,16 @@ describe("auth-events", () => {
           error_type: "oauth_failed",
         });
 
-        expect(track).toHaveBeenCalledWith("login_failed", {
-          method: "google",
-          error_type: "oauth_failed",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "login_failed",
+          expect.objectContaining({
+            method: "google",
+            error_type: "oauth_failed",
+            browser_session_id: "test-browser-session-id",
+            source_group: "landing",
+            platform: "web",
+          }),
+        );
       });
     });
   });
@@ -562,10 +587,18 @@ describe("auth-events", () => {
           error_type: "email_exists",
         });
 
-        expect(track).toHaveBeenCalledWith("signup_failed", {
-          method: "password",
-          error_type: "email_exists",
-        });
+        expect(track).toHaveBeenCalledWith(
+          "signup_failed",
+          expect.objectContaining({
+            method: "password",
+            error_type: "email_exists",
+            browser_session_id: "test-browser-session-id",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+            source_group: "landing",
+            platform: "web",
+          }),
+        );
       });
     });
   });
@@ -841,25 +874,40 @@ describe("auth-events", () => {
       it("calls both track() and fetch('/api/events')", () => {
         trackLoginSuccess({ method: "apple", duration_ms: 800 });
 
-        expect(track).toHaveBeenCalledWith("login_success", {
-          method: "apple",
-          duration_ms: 800,
-          browser_session_id: "test-browser-session-id",
-        });
-        expect(mockFetch).toHaveBeenCalledWith("/api/events", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            eventType: "login_success",
-            metadata: {
-              method: "apple",
-              duration_ms: 800,
-              browser_session_id: "test-browser-session-id",
-            },
-            sessionId: "test-visitor-id",
-            viewportWidth: 375,
+        expect(track).toHaveBeenCalledWith(
+          "login_success",
+          expect.objectContaining({
+            method: "apple",
+            duration_ms: 800,
+            browser_session_id: "test-browser-session-id",
+            source_group: "landing",
           }),
-          keepalive: true,
+        );
+        expect(mockFetch).toHaveBeenCalledWith(
+          "/api/events",
+          expect.objectContaining({
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: expect.any(String),
+            keepalive: true,
+          }),
+        );
+        const callArgs = mockFetch.mock.calls[0] as unknown as [
+          string,
+          RequestInit,
+        ];
+        const body = JSON.parse(callArgs[1].body as string);
+        expect(body).toMatchObject({
+          eventType: "login_success",
+          metadata: {
+            method: "apple",
+            duration_ms: 800,
+            browser_session_id: "test-browser-session-id",
+            source_group: "landing",
+            platform: "web",
+          },
+          sessionId: "test-visitor-id",
+          viewportWidth: 375,
         });
       });
     });
@@ -906,23 +954,70 @@ describe("auth-events", () => {
       });
     });
 
-    describe("GA4-only events do NOT dual-fire", () => {
+    describe("analytics-only events do NOT dual-fire", () => {
       it("trackLoginStarted does not call fetch", () => {
         trackLoginStarted("password");
         expect(track).toHaveBeenCalled();
         expect(mockFetch).not.toHaveBeenCalled();
       });
+    });
 
-      it("trackLoginFailed does not call fetch", () => {
-        trackLoginFailed({ method: "password", error_type: "invalid_credentials" });
-        expect(track).toHaveBeenCalled();
-        expect(mockFetch).not.toHaveBeenCalled();
+    describe("auth failure events dual-fire", () => {
+      it("trackLoginFailed posts normalized web context without raw error text", () => {
+        trackLoginFailed({
+          method: "password",
+          error_type: "invalid_credentials",
+          source: "app-header",
+        });
+
+        const callArgs = mockFetch.mock.calls[0] as unknown as [
+          string,
+          RequestInit,
+        ];
+        const body = JSON.parse(callArgs[1].body as string);
+        expect(body).toMatchObject({
+          eventType: "login_failed",
+          metadata: {
+            method: "password",
+            error_type: "invalid_credentials",
+            source: "app-header",
+            source_group: "app-header",
+            browser_session_id: "test-browser-session-id",
+            platform: "web",
+          },
+          sessionId: "test-visitor-id",
+          viewportWidth: 375,
+        });
+        expect(JSON.stringify(body)).not.toContain("@");
       });
 
-      it("trackSignupFailed does not call fetch", () => {
-        trackSignupFailed({ method: "password", error_type: "email_exists" });
-        expect(track).toHaveBeenCalled();
-        expect(mockFetch).not.toHaveBeenCalled();
+      it("trackSignupFailed posts signup channel context", () => {
+        trackSignupFailed({
+          method: "password",
+          error_type: "email_exists",
+          source: "landing-cta",
+        });
+
+        const callArgs = mockFetch.mock.calls[0] as unknown as [
+          string,
+          RequestInit,
+        ];
+        const body = JSON.parse(callArgs[1].body as string);
+        expect(body).toMatchObject({
+          eventType: "signup_failed",
+          metadata: {
+            method: "password",
+            error_type: "email_exists",
+            source: "landing-cta",
+            source_group: "landing",
+            browser_session_id: "test-browser-session-id",
+            signup_channel: "web_app",
+            signup_channel_source: "web_auth",
+            platform: "web",
+          },
+          sessionId: "test-visitor-id",
+          viewportWidth: 375,
+        });
       });
     });
   });

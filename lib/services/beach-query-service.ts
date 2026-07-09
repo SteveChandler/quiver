@@ -80,7 +80,13 @@ export async function getBeachesFromDb(): Promise<ServerActionResponse<Beach[]>>
         throw new Error(result.error.message || "Database operation failed");
       }
 
-      return (result.data ?? []) as Beach[];
+      return ((result.data ?? []) as Beach[]).filter(
+        (beach) =>
+          typeof beach.lat === "number" &&
+          Number.isFinite(beach.lat) &&
+          typeof beach.lon === "number" &&
+          Number.isFinite(beach.lon)
+      );
     })
   );
 }

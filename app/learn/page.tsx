@@ -126,7 +126,9 @@ export default function LearnHubPage() {
     { name: "Learn", url: "/learn" },
   ];
 
-  const featuredArticle = learnArticles[0];
+  const featuredArticle =
+    learnArticles.find((article) => article.slug === "groundswell-vs-wind-swell") ??
+    learnArticles[0];
   const categorized = CATEGORIES.map((cat) => ({
     ...cat,
     articles: cat.slugs

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { type RefObject, useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -24,6 +24,7 @@ import type { MapRegionPill } from "@/components/map/map-regions";
 interface MapToolbarProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  searchInputRef?: RefObject<HTMLInputElement | null>;
   onClearSearch: () => void;
   suggestions: Beach[];
   onSuggestionSelect: (beach: Beach) => void;
@@ -62,6 +63,7 @@ const toolbarActionClass =
 export function MapToolbar({
   searchQuery,
   onSearchChange,
+  searchInputRef,
   onClearSearch,
   suggestions,
   onSuggestionSelect,
@@ -106,6 +108,7 @@ export function MapToolbar({
               aria-hidden="true"
             />
             <input
+              ref={searchInputRef}
               data-testid="map-toolbar-search"
               role="combobox"
               aria-label="Search beaches, spots, or cities"

@@ -17,6 +17,7 @@ import { MapLearningPanel } from "@/components/map/map-learning-panel";
 import { type SwellLayerId } from "@/components/map/swell-map-theme";
 import { useProfileContext } from "@/context/profile-context";
 import type { Beach } from "@/types/database";
+import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
 const MISSION_BEACH_COORDS = { lat: 32.7702, lon: -117.2525 } as const;
 
@@ -75,6 +76,7 @@ export function MapView() {
     lat: number;
     lon: number;
   } | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   // Tracks the last location we loaded beaches for, to prevent duplicate calls.
   // Seeded with the default center so the userLocation effect below doesn't fire
@@ -252,6 +254,17 @@ export function MapView() {
     [setSelectedBeach]
   );
 
+  const handleSuggestionSelect = useCallback(
+    (beach: Beach) => {
+      handleBeachSelect(beach);
+      const href = getBeachUrlSafe(beach);
+      if (href) {
+        router.push(href);
+      }
+    },
+    [handleBeachSelect, router]
+  );
+
   const stripMapUrlParams = useCallback(
     (
       keys: readonly string[],
@@ -354,14 +367,19 @@ export function MapView() {
     setShowFieldGuide(false);
   }, []);
 
+  const handleSearchPromptClick = useCallback((): void => {
+    searchInputRef.current?.focus();
+  }, []);
+
   return (
     <div className="flex-1 flex flex-col min-h-0" data-testid="map-view">
       <MapToolbar
         searchQuery={searchQuery}
         onSearchChange={handleSearchChange}
+        searchInputRef={searchInputRef}
         onClearSearch={handleClearSearch}
         suggestions={filteredBeaches.slice(0, 6)}
-        onSuggestionSelect={handleBeachSelect}
+        onSuggestionSelect={handleSuggestionSelect}
         regions={MAP_REGION_PILLS}
         onRegionSelect={handleRegionSelect}
         onUseMyLocation={handleUseMyLocation}
@@ -415,6 +433,7 @@ export function MapView() {
             regionViewport={null}
             onGetUserLocation={handleUseMyLocation}
             onUseDefaultLocation={handleUseDefaultLocation}
+            onSearchPromptClick={handleSearchPromptClick}
             onBeachSelect={handleBeachSelect}
             onMapClick={handleMapClick}
             autoNavigateOnMarkerClick={true}

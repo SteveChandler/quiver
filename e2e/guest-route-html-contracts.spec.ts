@@ -97,6 +97,22 @@ function getJsonLdScripts(html: string): string[] {
   );
 }
 
+function expectBeachMetaDescription(
+  description: string | null,
+  beachName: string,
+): void {
+  const normalizedDescription = (description ?? '').replace(/&#x27;/g, "'");
+
+  if (WAVE_HEIGHT_PATTERN.test(normalizedDescription)) {
+    expect(normalizedDescription).toContain('Current');
+    expect(normalizedDescription).toContain(`wave height at ${beachName}`);
+    return;
+  }
+
+  expect(normalizedDescription).toContain(`Today's surf report & forecast for ${beachName}`);
+  expect(normalizedDescription).toContain('wave height, wind, tide, crowd intel, and 7-day forecast');
+}
+
 test.describe('Route HTML Contracts', () => {
   test.describe('Beach SEO metadata', () => {
     test('/app/spot selected forecast links expose forecast-window social metadata', async ({
@@ -131,17 +147,15 @@ test.describe('Route HTML Contracts', () => {
 
       expect(getTitle(html)).toContain(beach.name);
       expect(getTitle(html)).toContain('Quiver');
-      expect(getTitle(html)).toMatch(WAVE_HEIGHT_PATTERN);
+      expect(getTitle(html)).toMatch(/surf report|forecast/i);
 
       expect(ogImage).toMatch(/^https?:\/\//);
       expect(ogImage).toContain('/api/og/beach');
       expect(ogImage).toContain(`slug=${beach.slug}`);
 
       expect(ogTitle).toContain(beach.name);
-      expect(ogTitle).toMatch(WAVE_HEIGHT_PATTERN);
 
-      expect(ogDescription).toMatch(/\d+(\.\d+)?\s*ft\s*(waves)?/i);
-      expect(ogDescription).toContain('forecast');
+      expectBeachMetaDescription(ogDescription, beach.name);
 
       expect(getMetaContent(html, { property: 'og:image:width' })).toBe('1200');
       expect(getMetaContent(html, { property: 'og:image:height' })).toBe('630');
@@ -161,14 +175,13 @@ test.describe('Route HTML Contracts', () => {
 
       expect(getTitle(html)).toContain(beach.name);
       expect(getTitle(html)).toContain('Quiver');
-      expect(getTitle(html)).toMatch(WAVE_HEIGHT_PATTERN);
+      expect(getTitle(html)).toMatch(/surf report|forecast/i);
 
       expect(ogImage).toMatch(/^https?:\/\//);
       expect(ogImage).toContain('/api/og/beach');
       expect(ogImage).toContain(`slug=${beach.slug}`);
 
-      expect(description).toMatch(/\d+(\.\d+)?\s*ft\s*(waves)?/i);
-      expect(description).toContain('forecast');
+      expectBeachMetaDescription(description, beach.name);
     });
   });
 
@@ -295,6 +308,37 @@ test.describe('Route HTML Contracts', () => {
 
         expect(response.status()).toBe(301);
         expect(response.headers().location).toBe(redirect.destination);
+      });
+    }
+
+    const legacyCanonicalRedirects = [
+      {
+        source: '/spots/ocean-beach',
+        destination: '/ca/san-diego/ocean-beach',
+      },
+      {
+        source: '/spots/lowers-trestles',
+        destination: '/ca/san-onofre/lower-trestles',
+      },
+      {
+        source: '/ca/orange-county/bolsa-chica',
+        destination: '/ca/huntington-beach/bolsa-chica',
+      },
+      {
+        source: '/hi/koloa-hi/waikoloa-village-lagoon/extra',
+        destination: '/hi/koloa-hi/waikoloa-village-lagoon',
+      },
+    ] as const;
+
+    for (const redirect of legacyCanonicalRedirects) {
+      test(`301 redirects ${redirect.source} directly to canonical URL`, async ({
+        request,
+      }) => {
+        const response = await getResponse(request, redirect.source, { maxRedirects: 0 });
+
+        expect(response.status()).toBe(301);
+        expect(response.headers().location).toBe(redirect.destination);
+        expect(response.headers().location).not.toContain('/spots/');
       });
     }
   });

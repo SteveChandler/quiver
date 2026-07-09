@@ -108,6 +108,18 @@ describe('POST /api/embed-impressions', () => {
     });
   });
 
+  it('returns 204 for a learn-figure impression and stores the figureKey in beach_slug', async () => {
+    const request = makeRequest({ widgetType: 'learn-figure', beachSlug: 'swell-period-morph' });
+    const response = await POST(request);
+
+    expect(response.status).toBe(204);
+    expect(mockInsert).toHaveBeenCalledWith({
+      widget_type: 'learn-figure',
+      beach_slug: 'swell-period-morph',
+      referrer_domain: null,
+    });
+  });
+
   it('includes security headers on 204 response', async () => {
     const request = makeRequest({ widgetType: 'tides', beachSlug: 'swamis' });
     const response = await POST(request);

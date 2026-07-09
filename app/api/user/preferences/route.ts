@@ -22,7 +22,23 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
   // Query user_surf_preferences table
   const { data: preferences, error: prefsError } = await supabase
     .from("user_surf_preferences")
-    .select("*")
+    .select(
+      `
+      wave_min_ft,
+      wave_max_ft,
+      wave_period_min_s,
+      wave_period_max_s,
+      max_wind_mph,
+      preferred_wind_directions,
+      preferred_tide_statuses,
+      confidence,
+      sample_size,
+      eligible_session_count,
+      avoidance_by_beach,
+      validated_at,
+      manual_override
+    `
+    )
     .eq("user_id", user.id)
     .maybeSingle();
 

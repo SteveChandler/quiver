@@ -20,6 +20,7 @@ yarn seo:export:competitors
 yarn seo:export:aeo
 yarn seo:store-snapshot
 yarn seo:backlink-proxy
+yarn seo:outreach-digest
 yarn seo:gsc-refresh --input path/to/gsc-export.json
 yarn seo:technical-audit
 yarn seo:enrich --source vercel --input path/to/vercel-export.json
@@ -43,11 +44,22 @@ The commands generate dashboard updates or review reports only. They do not publ
 - Store snapshots: App Store / Play listing metadata, sampled App Store keyword position checks, competitor version/rating/IAP deltas, and listing drift against Brand Vault copy. Current iOS competitor targets are Lazy Surfer, Swellify, Swell Scope, Duune, and Surf Radar.
 - Backlink proxy: Vercel referrers, widget embed referrers, outreach tracker rows, and optional manual Ahrefs Webmaster Tools, Moz Link Explorer, GSC links, or generic backlink CSV/JSON exports.
 
+## Merged Capabilities And Live Actions
+
+The weekly report is the single home for the SEO workflow's deterministic report inputs. Live actions remain opt-in through explicit interactive runs, not report-only runs.
+
+- **Broken-link scanner (deterministic):** `seo:technical-audit` extracts same-origin `<a href>` links from the pages it already crawls and HEAD-checks a bounded sample (cap 40, 8s timeout). Broken links (status >= 400) surface under Technical Crawl Health.
+- **AEO citation monitor:** the report folds the latest `docs/seo/reports/aeo-citation-tracking/*.md` baseline into the AI Citation / AEO Signals section. The audit is a search-presence proxy, not a true multi-engine AI-answer citation measurement. Keep queries stable and append rather than replace so the citation rate stays comparable.
+- **Backlink scanner:** the report folds the latest `docs/seo/backlink-reports/*.md` confirmed/unverified target list into the Backlink / Referrer Signals section, alongside referrer/embed/manual-export signals.
+- **Outreach drafter:** `seo:outreach-digest` reads `docs/seo/outreach-tracker.md`, picks this week's rotation category (Week 1 schools, Week 2 bloggers, Week 3 coastal businesses, Week 4 publications, by week-of-month), and emits draft candidates into the Outreach Queue section. In live mode, the agent may create those as Gmail drafts, never sent, and mark the tracker rows `drafted` after verifying the drafts exist. Review drafts in Gmail before sending.
+
 ## Weekly Coverage Notes
 
 The weekly report must explicitly label its coverage boundaries without treating expected coverage limits as failures:
 
 - DataForSEO is the paid SERP/API source when `DATAFORSEO_LOGIN` and `DATAFORSEO_PASSWORD` are configured; otherwise no paid SERP API is configured.
+- DataForSEO weekly live runs default to `watchlistMode=live`, which executes only `critical` watchlist keywords. Use `--watchlist-mode full` or `DATAFORSEO_WATCHLIST_MODE=full` for the larger manual run.
+- ASO checks can optionally overlay Apple Search Ads campaign keywords from `docs/seo/apple-search-ads-keywords.json` or `APPLE_SEARCH_ADS_KEYWORDS_PATH`. When present, those keywords are treated as `critical` weekly iOS checks.
 - No paid full backlink index is configured unless explicitly enabled. The report uses free/provided backlink sources: referrers, embeds, outreach tracker rows, and manual CSV/JSON imports.
 - Manual backlink imports are auto-discovered from the audit folder and `docs/seo/backlink-reports/` when filenames match Ahrefs Webmaster Tools, Moz Link Explorer, GSC links, manual backlinks, backlinks, or referring domains.
 - Manual Ahrefs screenshot inputs should include `issues` and `keywordOpportunities` arrays. Utility tide/water-temp keyword opportunities stay dismissed by strategy unless the work is technical crawl hygiene; non-utility surf-report, forecast, best-time, beginner, learn, longboard, and local-spot opportunities should remain open for review.
@@ -55,7 +67,7 @@ The weekly report must explicitly label its coverage boundaries without treating
 - DataForSEO ASO currently tracks iOS only. Re-add `android` to `docs/seo/dataforseo-watchlist.json` `aso.platforms` and restore `aso.quiver.androidAppId` once the Google Play listing is live.
 - Competitor technical-page reporting should cover robots/sitemap availability, sitemap count, raw-HTML schema visibility, and direct comparison-page signals when the latest competitor report is present.
 - For active, smaller competitors such as Lazy Surfer, do not default to direct branded `/vs/<competitor>` pages or named rebuttal pages. Prefer capability-led or job-to-be-done pages that capture the same intent without expanding the competitor's branded footprint.
-- AEO reporting should cover `llms.txt` / `llms-full.txt`, AI referrer traffic, Ahrefs AI citation snapshots, and notable citation domains from manual Ahrefs inputs when available.
+- AEO reporting should cover `llms.txt` / `llms-full.txt`, AI referrer traffic, Ahrefs AI citation snapshots, the latest citation-tracking baseline, and notable citation domains from manual Ahrefs inputs when available.
 - No automated Google SERP scraping is performed.
 - Competitor export coverage comes from store snapshots and explicitly configured comparison pages only. If a competitor claim is not visible at the checked live URL, document it as monitor-only until the exact live URL or captured HTML is available.
 - AEO export coverage is a citation-tracking input, not proof that a page won organic clicks. Pair it with GSC page/query data before prioritizing content changes.

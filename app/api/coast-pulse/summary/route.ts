@@ -96,7 +96,9 @@ async function summaryHandler(request: NextRequest) {
         const now = new Date();
         const { data: forecast } = await supabase
           .from("enhanced_forecasts")
-          .select("*")
+          .select(
+            "wave_height, wave_period, wave_direction, swell_1_direction, wind_speed, wind_direction, tide_status, updated_at"
+          )
           .eq("beach_id", closestBeach.id)
           .gte("forecast_at", `${now.toISOString().split("T")[0]}T00:00:00Z`)
           .order("forecast_at", { ascending: true })

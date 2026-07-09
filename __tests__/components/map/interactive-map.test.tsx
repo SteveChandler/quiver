@@ -1,18 +1,20 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 const mockMarkerInstances: Array<{
   addTo: jest.Mock;
   remove: jest.Mock;
   setLngLat: jest.Mock;
 }> = [];
+const mockMapHandlers: Record<string, Array<(...args: unknown[]) => void>> = {};
 const mockRouterPush = jest.fn();
 const mockTrackSignupCtaClick = jest.fn();
 let mockUser: { id: string } | null = null;
 
 jest.mock("mapbox-gl", () => ({
   Map: jest.fn(() => ({
-    on: jest.fn((event: string, callback: () => void) => {
+    on: jest.fn((event: string, callback: (...args: unknown[]) => void) => {
+      (mockMapHandlers[event] ??= []).push(callback);
       if (event === "load") {
         setTimeout(callback, 10);
       }
@@ -107,6 +109,7 @@ describe("InteractiveMap", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockMarkerInstances.length = 0;
+    for (const key of Object.keys(mockMapHandlers)) delete mockMapHandlers[key];
     mockUser = null;
   });
 
@@ -261,7 +264,7 @@ describe("InteractiveMap", () => {
     expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument();
   });
 
-  it("uses the current user after auth state changes before a custom spot click", async () => {
+  it("uses the current user after auth state changes without rebuilding the custom spot marker", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     const customSpots = [
       {
@@ -287,18 +290,145 @@ describe("InteractiveMap", () => {
     mockUser = { id: "user-1" };
     rerender(<InteractiveMap beaches={[]} customSpots={customSpots} />);
 
-    await waitFor(() => {
-      const Marker = require("mapbox-gl").Marker;
-      const matchingCalls = Marker.mock.calls.filter(
-        ([options]: [{ element?: HTMLElement }]) =>
-          options.element?.getAttribute("data-custom-spot-id") === "spot-1",
-      );
-      expect(matchingCalls.length).toBeGreaterThan(1);
-    });
+    const Marker = require("mapbox-gl").Marker;
+    const matchingCalls = Marker.mock.calls.filter(
+      ([options]: [{ element?: HTMLElement }]) =>
+        options.element?.getAttribute("data-custom-spot-id") === "spot-1",
+    );
+    expect(matchingCalls).toHaveLength(1);
 
     fireEvent.click(getLastCustomSpotMarkerElement("spot-1"));
 
     expect(mockRouterPush).toHaveBeenCalledWith("/custom-spots/spot-1");
     expect(mockTrackSignupCtaClick).not.toHaveBeenCalled();
+  });
+
+  it("reuses stable custom spot markers and removes only missing ids", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const spotOne = {
+      id: "spot-1",
+      name: "Public Peak",
+      lat: 32.75,
+      lon: -117.25,
+      nearestBeachId: null,
+      visibility: "public",
+    };
+    const spotTwo = {
+      id: "spot-2",
+      name: "Inside Bowl",
+      lat: 32.76,
+      lon: -117.26,
+      nearestBeachId: null,
+      visibility: "public",
+    };
+
+    const { rerender } = render(
+      <InteractiveMap beaches={[]} customSpots={[spotOne, spotTwo]} />,
+    );
+
+    await waitFor(() => {
+      expect(getLastCustomSpotMarkerElement("spot-1")).toHaveAttribute(
+        "data-testid",
+        "custom-spot-marker",
+      );
+      expect(getLastCustomSpotMarkerElement("spot-2")).toHaveAttribute(
+        "data-testid",
+        "custom-spot-marker",
+      );
+    });
+
+    const firstMarker = mockMarkerInstances.find((marker, index) => {
+      const Marker = require("mapbox-gl").Marker;
+      const options = Marker.mock.calls[index]?.[0] as { element?: HTMLElement };
+      return options.element?.getAttribute("data-custom-spot-id") === "spot-1";
+    });
+    const secondMarker = mockMarkerInstances.find((marker, index) => {
+      const Marker = require("mapbox-gl").Marker;
+      const options = Marker.mock.calls[index]?.[0] as { element?: HTMLElement };
+      return options.element?.getAttribute("data-custom-spot-id") === "spot-2";
+    });
+    if (!firstMarker || !secondMarker) {
+      throw new Error("Expected both custom spot markers to be created");
+    }
+
+    rerender(<InteractiveMap beaches={[]} customSpots={[spotOne]} />);
+
+    expect(firstMarker.remove).not.toHaveBeenCalled();
+    expect(secondMarker.remove).toHaveBeenCalledTimes(1);
+    expect(
+      (window as typeof window & { __quiverMapVisibleMarkerCount?: number })
+        .__quiverMapVisibleMarkerCount,
+    ).toBe(1);
+  });
+
+  describe("conditions callout during forecast playback", () => {
+    const beach = {
+      id: "beach-1",
+      name: "Test Beach",
+      lat: 32.75,
+      lon: -117.25,
+    } as unknown as import("@/types/database").Beach;
+
+    function calloutMarkerCallCount(): number {
+      const Marker = require("mapbox-gl").Marker;
+      return Marker.mock.calls.filter(
+        ([options]: [{ element?: HTMLElement }]) =>
+          options.element?.getAttribute("data-conditions-callout") === "true",
+      ).length;
+    }
+
+    function fireMapClick(lng: number, lat: number): void {
+      for (const handler of mockMapHandlers["click"] ?? []) {
+        handler({ lngLat: { lng, lat } });
+      }
+    }
+
+    it("does not rebuild the open callout for fractional index ticks within the same step", async () => {
+      const { InteractiveMap } = await import(
+        "@/components/map/interactive-map"
+      );
+      const onWaveHeightsChange = jest.fn();
+      const renderProps = (index: number) => ({
+        beaches: [beach],
+        showConditionsOnTap: true,
+        swellTimelineSteps: ["Now", "+3h", "+6h"],
+        swellTimelineIndex: index,
+        onWaveHeightsChange,
+      });
+      const { rerender } = render(<InteractiveMap {...renderProps(0)} />);
+
+      // Both click handlers (generic map click + conditions tap) register once
+      // the map reports ready; the conditions one is the second. Also wait for
+      // the beach loader to settle — it swaps the partitions map identity, which
+      // legitimately refreshes an open callout and would skew the counts below.
+      await waitFor(() => {
+        expect(mockMapHandlers["click"]?.length ?? 0).toBeGreaterThanOrEqual(2);
+        expect(onWaveHeightsChange).toHaveBeenCalled();
+      });
+      // The loader's state commit lands via a scheduler macrotask; yield one so
+      // the partitions-map identity is settled before the callout opens.
+      await act(async () => {
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+
+      fireMapClick(-117.25, 32.75);
+      expect(calloutMarkerCallCount()).toBe(1);
+
+      // Playback advances a fractional index every 80ms; ticks that round to the
+      // same displayed step must not tear down and rebuild the callout marker.
+      rerender(<InteractiveMap {...renderProps(0.08)} />);
+      rerender(<InteractiveMap {...renderProps(0.16)} />);
+      rerender(<InteractiveMap {...renderProps(0.24)} />);
+      expect(calloutMarkerCallCount()).toBe(1);
+
+      // Crossing the rounding boundary into the next step refreshes exactly once.
+      rerender(<InteractiveMap {...renderProps(0.56)} />);
+      expect(calloutMarkerCallCount()).toBe(2);
+
+      // Further ticks within the new step stay put again.
+      rerender(<InteractiveMap {...renderProps(0.64)} />);
+      rerender(<InteractiveMap {...renderProps(0.72)} />);
+      expect(calloutMarkerCallCount()).toBe(2);
+    });
   });
 });

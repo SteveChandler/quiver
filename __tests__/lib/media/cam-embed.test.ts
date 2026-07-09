@@ -55,6 +55,13 @@ describe("buildCamEmbed", () => {
     expect(result).toEqual({ kind: "hls", src: "https://example.com/stream.m3u8" });
   });
 
+  it("uses Brownrice HLS cam URLs directly", () => {
+    const src =
+      "https://live5.brownrice.com:444/pawleys1/pawleys1.stream/playlist.m3u8";
+
+    expect(buildCamEmbed(src)).toEqual({ kind: "hls", src });
+  });
+
   it("rewrites Surfline HLS URLs through the proxy", () => {
     const result = buildCamEmbed(
       "https://hls.cdn-surfline.com/oregon/wc-blacksov/playlist.m3u8"
@@ -176,6 +183,18 @@ describe("buildCamEmbed", () => {
     expect(result).toEqual({
       kind: "iframe",
       src: "https://example.com/some-cam",
+      title: "Live Cam",
+      allow: "autoplay",
+    });
+  });
+
+  it("renders IPCamLive player URLs as iframe cams", () => {
+    const src =
+      "https://g1.ipcamlive.com/player/player.php?alias=southbeachcam&skin=white&autoplay=1";
+
+    expect(buildCamEmbed(src)).toEqual({
+      kind: "iframe",
+      src,
       title: "Live Cam",
       allow: "autoplay",
     });

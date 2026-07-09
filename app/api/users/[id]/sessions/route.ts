@@ -19,6 +19,51 @@ function isUuidLike(id: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 }
 
+const USER_SESSION_ROW_SELECT = `
+  id,
+  user_id,
+  beach_id,
+  beach_name,
+  board_id,
+  board_snapshot,
+  arrival_time,
+  created_at,
+  duration_minutes,
+  status,
+  is_public,
+  rating,
+  wave_quality,
+  crowd_level,
+  parking_ease,
+  description,
+  notes,
+  image_url,
+  water_temp,
+  wave_height_ft,
+  wind_speed_mph,
+  wind_direction,
+  tide_status,
+  tide_height_ft,
+  tide_rate_ft_per_hr,
+  tide_data_source,
+  forecast_accuracy,
+  goals,
+  invitee_ids,
+  comments_count,
+  likes_count,
+  share_count,
+  muted,
+  rip_current_observed,
+  rip_current_risk,
+  session_board_fit,
+  session_decomposition,
+  session_skill_fit,
+  skill_ratings,
+  source,
+  wave_characteristics,
+  custom_spot_id
+`;
+
 export const dynamic = "force-dynamic";
 
 /**
@@ -66,7 +111,7 @@ async function handler(
     .from("sessions")
     .select(
       `
-      *,
+      ${USER_SESSION_ROW_SELECT},
       beach:beaches(id, name, lat, lon),
       user:profiles(id, full_name, avatar_url)
     `,
@@ -90,7 +135,7 @@ async function handler(
 
     let basicQuery = supabase
       .from("sessions")
-      .select("*")
+      .select(USER_SESSION_ROW_SELECT)
       .eq("user_id", targetUserId)
       .order("arrival_time", { ascending: false })
       .limit(limit);

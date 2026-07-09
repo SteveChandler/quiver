@@ -18,7 +18,9 @@ export async function GET(req: Request): Promise<Response> {
   const service = createSupabaseServiceRoleClient();
   let query = service
     .from("roadmap_items_with_vote_count")
-    .select("*")
+    .select(
+      "id, title, description, category, status, eta_label, founder_reply, shipped_at, created_at, updated_at, vote_count"
+    )
     .order("vote_count", { ascending: false })
     .order("shipped_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false });

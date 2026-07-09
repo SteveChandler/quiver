@@ -44,6 +44,7 @@ describe("GET /api/gamification/badge-definitions", () => {
       );
 
       const res = await getBadgeDefinitions(req as any);
+      expect(res.status).toBe(401);
       await expectErrorResponse(res, 401);
     });
 
@@ -59,6 +60,7 @@ describe("GET /api/gamification/badge-definitions", () => {
       );
 
       const res = await getBadgeDefinitions(req as any);
+      expect(res.status).toBe(401);
       await expectErrorResponse(res, 401);
     });
   });
@@ -124,7 +126,9 @@ describe("GET /api/gamification/badge-definitions", () => {
 
       expect((body.data as any).badges).toEqual(mockBadges);
       expect(mockSupabaseClient.from).toHaveBeenCalledWith("badge_definitions");
-      expect(chain.select).toHaveBeenCalledWith("*");
+      expect(chain.select).toHaveBeenCalledWith(
+        "badge_slug, category, created_at, description, icon, name, xp_reward"
+      );
     });
 
     it("returns empty array when no badges exist", async () => {
@@ -215,6 +219,7 @@ describe("GET /api/gamification/badge-definitions", () => {
       );
 
       const res = await getBadgeDefinitions(req as any);
+      expect(res.status).toBe(500);
       await expectErrorResponse(res, 500, "Failed to load badge definitions");
     });
   });
@@ -239,6 +244,7 @@ describe("GET /api/gamification/user-badges", () => {
       );
 
       const res = await getUserBadges(req as any);
+      expect(res.status).toBe(401);
       await expectErrorResponse(res, 401);
     });
 
@@ -254,6 +260,7 @@ describe("GET /api/gamification/user-badges", () => {
       );
 
       const res = await getUserBadges(req as any);
+      expect(res.status).toBe(401);
       await expectErrorResponse(res, 401);
     });
   });
@@ -433,6 +440,7 @@ describe("GET /api/gamification/user-badges", () => {
       );
 
       const res = await getUserBadges(req as any);
+      expect(res.status).toBe(500);
       await expectErrorResponse(res, 500, "Failed to load user badges");
     });
   });

@@ -37,10 +37,7 @@ async function getSharedSessionPreview(id: string) {
   );
 
   return {
-    beachName,
-    userName,
     rating: safeRating,
-    dateText,
     title: `${userName}'s session at ${beachName}`,
     subtitle: [
       safeRating ? `${safeRating}/5 stars` : null,
@@ -50,7 +47,6 @@ async function getSharedSessionPreview(id: string) {
       .filter(Boolean)
       .join(" · "),
     imageUrl: photoUrl ?? shareImageUrl,
-    shareImageUrl,
   };
 }
 

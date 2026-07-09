@@ -121,7 +121,7 @@ export const blogPosts: BlogPost[] = [
         label: "Get Quiver",
         href: "/plans",
         description:
-          "Open the iPhone app or join the Android waitlist.",
+          "Open the iPhone app or get Android beta access.",
       },
       {
         label: "Forecast Accuracy",

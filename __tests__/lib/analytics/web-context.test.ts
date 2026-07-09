@@ -46,6 +46,9 @@ describe("web analytics context", () => {
     ["state-hub-ca", "/", "state-hub"],
     ["landing-final", "/map", "landing"],
     ["beach-alert-cta", "/", "beach-detail"],
+    ["app-header", "/map", "app-header"],
+    ["app-header-mobile", "/features", "app-header"],
+    ["app-header-beach", "/ca/san-diego/blacks", "app-header"],
     ["unknown", "/surf-cams/san-diego", "surf-cams-seo"],
   ])("derives source group for %s on %s", (source, pathname, expected) => {
     expect(deriveSourceGroup(source, pathname)).toBe(expected);

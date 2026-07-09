@@ -103,6 +103,7 @@ type BeachRow = {
 };
 
 const mockSupabaseClient = createMockSupabaseClient();
+const STABLE_TEST_NOW = new Date("2026-07-07T18:00:00.000Z");
 
 jest.mock("@/lib/supabase/api-server-client", () => ({
   createAPIServerClient: jest.fn(() => mockSupabaseClient),
@@ -354,6 +355,7 @@ describe("/api/forecasts/bulk", () => {
   beforeEach(() => {
     const testEnv = setupApiTestEnvironment();
     cleanup = testEnv.cleanup;
+    jest.useFakeTimers({ now: STABLE_TEST_NOW });
     jest.clearAllMocks();
     (scoreWindowConditionScore as jest.Mock).mockReturnValue(72);
     (resolveTodayHeadline as jest.Mock).mockClear();
@@ -361,6 +363,7 @@ describe("/api/forecasts/bulk", () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     cleanup?.();
   });
 

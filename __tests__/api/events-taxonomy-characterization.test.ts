@@ -21,11 +21,11 @@ import {
 import { EVENT_WEIGHTS } from "@/types/implicit-preferences";
 
 const CURRENT_EVENT_SET_HASHES = {
-  valid: "3f97c917c24b7e06ef49c65ddaf4f0ce85fb274ea57167108f7e0875a61ffe95",
+  valid: "982fd37dd5142c051d89fcc1fa411e339f7aa87de963ddbd74ce9778b9d5632e",
   anonymousAllowed:
-    "acc55a7c668c7dfcd8d2517f9e51bed1eae0a509f5811ac31a1e477d4ca4b76a",
+    "f251e55a9cf646afcaf8ec59e1e872531fb08d6b15f9ae7efeb233c084fe9b05",
   preAuthOnly:
-    "3a16cb4ecd871469db54bad8b25b440242a07c04e21f66bc69a70abfe5ae6e08",
+    "24692fa72aeb260c9a7919258f77624d35a5508481e8bac97177ef12d19ba623",
 } as const;
 
 const PHASE_20_MEASUREMENT_EVENTS = [
@@ -42,6 +42,13 @@ const SESSION_CUSTOM_SPOT_EVENTS = [
   "session_spot_search_no_results",
   "session_custom_spot_cta_tapped",
   "session_custom_spot_returned",
+] as const;
+
+const DISCOVER_USER_EVENTS = [
+  "discover_page_view",
+  "discover_suggested_users_impression",
+  "discover_profile_open",
+  "discover_follow_attempt",
 ] as const;
 
 function sortedEventSetHash(eventTypes: readonly string[]): string {
@@ -130,6 +137,20 @@ describe("events taxonomy characterization", () => {
     );
 
     for (const eventType of SESSION_CUSTOM_SPOT_EVENTS) {
+      expect(EVENT_WEIGHTS[eventType]).toBe(0);
+    }
+  });
+
+  it("accepts authenticated discover user events without anonymous or preference scoring", () => {
+    expect(VALID_EVENTS).toEqual(expect.arrayContaining([...DISCOVER_USER_EVENTS]));
+    expect(ANONYMOUS_ALLOWED_EVENTS).toEqual(
+      expect.not.arrayContaining([...DISCOVER_USER_EVENTS])
+    );
+    expect(PRE_AUTH_ONLY_EVENTS).toEqual(
+      expect.not.arrayContaining([...DISCOVER_USER_EVENTS])
+    );
+
+    for (const eventType of DISCOVER_USER_EVENTS) {
       expect(EVENT_WEIGHTS[eventType]).toBe(0);
     }
   });

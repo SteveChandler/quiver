@@ -62,7 +62,9 @@ describe("PbscPage", () => {
   });
 
   it("exports evergreen metadata for the stable /pbsc path", () => {
-    expect(metadata.title).toBe("Get the Quiver Surf App | Welcome");
+    expect(metadata.title).toEqual({
+      absolute: "Get the Quiver Surf App | Welcome",
+    });
     expect(metadata.description).toBe(
       "You found the flyer. Get the surf app that matches today's forecast against the sessions you loved.",
     );

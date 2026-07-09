@@ -203,6 +203,14 @@ describe("GET /api/users/[id]/stats", () => {
         sessionCount: 5,
         boardCount: 3,
       });
+      expect(sessionCountChain.select).toHaveBeenCalledWith("id", {
+        count: "exact",
+        head: true,
+      });
+      expect(boardCountChain.select).toHaveBeenCalledWith("id", {
+        count: "exact",
+        head: true,
+      });
     });
   });
 

@@ -969,11 +969,11 @@ describe("AppHeader", () => {
         expect(sessionsLink).toHaveAttribute("href", "/profile?tab=sessions");
       });
 
-      it("Community link points to /?tab=community route", () => {
+      it("Community link points to /discover route", () => {
         render(<AppHeader />);
 
         const communityLink = screen.getByRole("link", { name: /community/i });
-        expect(communityLink).toHaveAttribute("href", "/?tab=community");
+        expect(communityLink).toHaveAttribute("href", "/discover");
       });
 
       it("applies active state to current route", () => {
@@ -1100,10 +1100,8 @@ describe("AppHeader", () => {
         expect(sessionsLink.className).toMatch(/text-primary/);
       });
 
-      it("highlights Community when on home with tab=community", () => {
-        (usePathname as jest.Mock).mockReturnValue("/");
-        const mockSearchParamsWithTab = new URLSearchParams("?tab=community");
-        (useSearchParams as jest.Mock).mockReturnValue(mockSearchParamsWithTab);
+      it("highlights Community when on /discover", () => {
+        (usePathname as jest.Mock).mockReturnValue("/discover");
         render(<AppHeader />);
 
         const communityLink = screen.getByRole("link", { name: /community/i });

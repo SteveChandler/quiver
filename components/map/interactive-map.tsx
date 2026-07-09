@@ -24,7 +24,6 @@ import { useBeachClustering, type ClusterPoint } from "@/hooks/use-beach-cluster
 import { loadFavoriteBeaches } from "@/components/map/map-favorites-loader";
 import { createCustomSpotMarkerElement } from "@/components/map/custom-spot-marker-builder";
 import {
-  CONDITION_MARKER_CALLS,
   createWaveHeightBadge,
   getConditionMarkerGradient,
   getWaterTempBadgeColor,
@@ -215,6 +214,16 @@ interface InteractiveMapProps {
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
 const EMPTY_CUSTOM_SPOTS: CustomSpot[] = [];
 
+const CONDITION_LEGEND_ITEMS: Array<{
+  label: ConditionSummary;
+  display: string;
+}> = [
+  { label: "GOOD", display: "Worth it" },
+  { label: "FAIR", display: "Maybe" },
+  { label: "CHECK", display: "Scout it" },
+  { label: "UNKNOWN", display: "No read" },
+];
+
 interface MapConditionLegendProps {
   controls?: ReactNode;
   timeline?: ReactNode;
@@ -268,15 +277,15 @@ function MapConditionLegend({
         <>
           <div className="flex items-start gap-2">
             <div className="grid min-w-0 flex-1 grid-cols-2 gap-x-3 gap-y-1.5 sm:grid-cols-4">
-              {CONDITION_MARKER_CALLS.map((item) => (
-                <div key={item.summary} className="flex items-center gap-1.5">
+              {CONDITION_LEGEND_ITEMS.map((item) => (
+                <div key={item.label} className="flex items-center gap-1.5">
                   <span
                     aria-hidden="true"
                     className="h-2.5 w-2.5 rounded-full border border-white/35"
-                    style={{ background: getConditionMarkerGradient(item.summary) }}
+                    style={{ background: getConditionMarkerGradient(item.label) }}
                   />
                   <span className="text-[10px] font-semibold leading-none tracking-normal">
-                    {item.label}
+                    {item.display}
                   </span>
                 </div>
               ))}
@@ -330,10 +339,17 @@ export function InteractiveMap({
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const markersRef = useRef<Record<string, mapboxgl.Marker>>({});
+  const markerSignatureRef = useRef<Record<string, string>>({});
   const placementMarkerRef = useRef<mapboxgl.Marker | null>(null);
   const activeClusterPopupRef = useRef<mapboxgl.Popup | null>(null);
   const activeBeachPreviewPopupRef = useRef<mapboxgl.Popup | null>(null);
   const activeCalloutRef = useRef<{ marker: mapboxgl.Marker; beachId: string } | null>(null);
+  // Last playback refresh of the open callout — used to skip fractional timeline
+  // ticks that land on the same displayed step (see the refresh effect below).
+  const lastCalloutRefreshRef = useRef<{
+    step: number;
+    partitions: Map<string, SwellPartition>;
+  } | null>(null);
   const conditionsCtxRef = useRef({
     beaches: [] as Beach[],
     partitionsMap: new Map<string, SwellPartition>(),
@@ -445,6 +461,7 @@ export function InteractiveMap({
   const useAuthForMap = AuthContext.useOptionalAuth ?? AuthContext.useAuth;
   const auth = useAuthForMap();
   const user = auth?.user ?? null;
+  const userRef = useRef(user);
   const userId = showMapChrome ? user?.id : undefined;
   const { track } = useTrackEvent();
   const router = useRouter();
@@ -454,6 +471,10 @@ export function InteractiveMap({
   useEffect(() => {
     isMapReadyRef.current = isMapReady;
   }, [isMapReady]);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   useEffect(() => {
     favoriteBeachIdsRef.current = new Set(favoriteBeachIds);
@@ -602,6 +623,12 @@ export function InteractiveMap({
       `${beach.name}${tempLabel ? `, ${tempLabel}` : ""} surf conditions: ${conditionsRead}`
     );
     activeCalloutRef.current = { marker, beachId: beach.id };
+    // Record what this build rendered so playback ticks that land on the same
+    // displayed step can skip the rebuild (see the timeline refresh effect).
+    lastCalloutRefreshRef.current = {
+      step: Math.round(Number.isFinite(ctx.timelineIndex) ? ctx.timelineIndex : 0),
+      partitions: ctx.partitionsMap,
+    };
   }, [removeActiveCallout]);
 
   const handleConditionsTap = useCallback((lngLat: mapboxgl.LngLat): void => {
@@ -681,6 +708,7 @@ export function InteractiveMap({
     // Remove all markers
     Object.values(markersRef.current).forEach((marker) => marker.remove());
     markersRef.current = {};
+    markerSignatureRef.current = {};
   }, [closeBeachPreviewPopup]);
 
   // Helper: full cleanup
@@ -835,9 +863,11 @@ export function InteractiveMap({
           if (showConditionsOnTap) {
             if (decideCalloutAction(activeCalloutRef.current?.beachId ?? null, beach.id) === "toggle-off") {
               removeActiveCallout();
+              onLocationClick?.(beach);
               return;
             }
             showCalloutForBeach(beach);
+            onLocationClick?.(beach);
             return;
           }
           removeActiveCallout();
@@ -1152,6 +1182,15 @@ export function InteractiveMap({
   useEffect(() => {
     const open = activeCalloutRef.current;
     if (!open) return;
+    // Playback advances a fractional index every tick (~12.5×/sec); rebuilding the
+    // callout (SVG teardown + new marker + fresh animation) at that rate flickers
+    // and churns GC on low-end phones. Only refresh when the displayed step
+    // (rounded index) or the underlying partition data actually changes.
+    const step = Math.round(
+      Number.isFinite(swellTimelineIndex) ? swellTimelineIndex : 0
+    );
+    const last = lastCalloutRefreshRef.current;
+    if (last && last.step === step && last.partitions === partitionsMap) return;
     const ctx = conditionsCtxRef.current;
     const beach = ctx.beaches.find((b) => b.id === open.beachId);
     if (beach) showCalloutForBeach(beach);
@@ -1489,7 +1528,14 @@ export function InteractiveMap({
 
     mapRef.current = map;
 
-    map.on("load", async () => {
+    let readyMarked = false;
+    const markMapReady = () => {
+      if (typeof map.isStyleLoaded === "function" && !map.isStyleLoaded()) {
+        return;
+      }
+      if (readyMarked) return;
+      readyMarked = true;
+
       // Emit map_ready exactly once per mount.
       if (!hasEmittedReadyRef.current) {
         hasEmittedReadyRef.current = true;
@@ -1525,7 +1571,11 @@ export function InteractiveMap({
         onBoundsChangeRef.current?.(boundsObj);
       }
       setCurrentZoom(map.getZoom());
-    });
+    };
+
+    map.on("load", markMapReady);
+    map.on("styledata", markMapReady);
+    map.on("idle", markMapReady);
 
     map.on("error", (e) => {
       console.error("Map error:", e);
@@ -1608,6 +1658,9 @@ export function InteractiveMap({
     });
 
     return () => {
+      map.off("load", markMapReady);
+      map.off("styledata", markMapReady);
+      map.off("idle", markMapReady);
       map.off("moveend", moveEndHandler);
       (handleMoveEndRef.current as any)?.cancel?.();
       cleanupMap();
@@ -1830,41 +1883,101 @@ export function InteractiveMap({
 
   // Render clusters and individual markers
   useEffect(() => {
-    if (!isMapReady || !mapRef.current) return;
+    const map = mapRef.current;
+    if (!isMapReady || !map) return;
 
-    // Clean up existing markers
-    cleanupMarkers();
+    const activeMarkerIds = new Set<string>();
+    const registerVisibleMarker = (markerId: string): void => {
+      activeMarkerIds.add(markerId);
+    };
+    const removeMarker = (markerId: string): void => {
+      clusterCleanupRef.current.get(markerId)?.();
+      clusterCleanupRef.current.delete(markerId);
+      markersRef.current[markerId]?.remove();
+      delete markersRef.current[markerId];
+      delete markerSignatureRef.current[markerId];
+    };
+    const upsertMarker = (
+      markerId: string,
+      signature: string,
+      lngLat: [number, number],
+      createMarker: () => mapboxgl.Marker
+    ): void => {
+      registerVisibleMarker(markerId);
+      const existingMarker = markersRef.current[markerId];
+      if (existingMarker && markerSignatureRef.current[markerId] === signature) {
+        existingMarker.setLngLat(lngLat);
+        return;
+      }
+
+      removeMarker(markerId);
+      const marker = createMarker().setLngLat(lngLat);
+      if (map.getCanvasContainer()) {
+        marker.addTo(map);
+      }
+      markersRef.current[markerId] = marker;
+      markerSignatureRef.current[markerId] = signature;
+
+      if (typeof window !== "undefined") {
+        const instrumentationWindow = window as typeof window & {
+          __quiverMapMarkerRebuildCount?: number;
+          __quiverMapVisibleMarkerCount?: number;
+        };
+        instrumentationWindow.__quiverMapMarkerRebuildCount =
+          (instrumentationWindow.__quiverMapMarkerRebuildCount ?? 0) + 1;
+      }
+    };
 
     clusters.forEach((cluster) => {
       if (cluster.isCluster && cluster.clusterId !== undefined) {
-        // Render cluster marker
-        const marker = buildClusterMarker(cluster);
         const markerId = `cluster-${cluster.clusterId}`;
-        if (mapRef.current?.getCanvasContainer()) {
-          marker.addTo(mapRef.current);
-        }
-        markersRef.current[markerId] = marker;
+        const lngLat: [number, number] = [cluster.longitude, cluster.latitude];
+        upsertMarker(
+          markerId,
+          JSON.stringify({
+            type: "cluster",
+            clusterId: cluster.clusterId,
+            pointCount: cluster.pointCount,
+            beachIds: cluster.beachIds,
+            waveHeights: cluster.waveHeights,
+            lngLat,
+            displayMode,
+            markerDisplay,
+            clusterClickBehavior,
+          }),
+          lngLat,
+          () => buildClusterMarker(cluster)
+        );
       } else if (!cluster.isCluster && cluster.beach) {
-        // Render individual beach marker
         const location = cluster.beach;
         const markerId = `location-${location.id}`;
         const waveHeight = cluster.waveHeight;
+        const lngLat: [number, number] = [cluster.longitude, cluster.latitude];
 
-        const badgeElement = buildWaveHeightBadge(location, waveHeight, [
-          cluster.longitude,
-          cluster.latitude,
-        ]);
-
-        const marker = new mapboxgl.Marker({
-          element: badgeElement,
-          draggable: false,
-          anchor: "center",
-        }).setLngLat([cluster.longitude, cluster.latitude]);
-
-        if (mapRef.current?.getCanvasContainer()) {
-          marker.addTo(mapRef.current);
-        }
-        markersRef.current[markerId] = marker;
+        upsertMarker(
+          markerId,
+          JSON.stringify({
+            type: "location",
+            id: location.id,
+            waveHeight,
+            waveLabel: displayForecastMap.get(location.id)?.label ?? null,
+            conditionScore: conditionScoreMap.get(location.id),
+            conditionSummary: conditionSummaryMap.get(location.id),
+            waterTemp: waterTempMap.get(location.id),
+            lngLat,
+            displayMode,
+            markerDisplay,
+          }),
+          lngLat,
+          () => {
+            const badgeElement = buildWaveHeightBadge(location, waveHeight, lngLat);
+            return new mapboxgl.Marker({
+              element: badgeElement,
+              draggable: false,
+              anchor: "center",
+            });
+          }
+        );
       }
     });
 
@@ -1882,33 +1995,59 @@ export function InteractiveMap({
             waveLabel: displayForecastMap.get(nearestBeachId)?.label ?? null,
           }
         : undefined;
-      const element = createCustomSpotMarkerElement(spot, markerData);
-      element.addEventListener("click", (event) => {
-        event.preventDefault();
-        event.stopPropagation();
+      const lngLat: [number, number] = [spot.lon, spot.lat];
 
-        if (!user) {
-          trackSignupCtaClick({
-            source: `custom-spot-${spot.id}`,
-            cta_type: "custom_spot_marker",
+      upsertMarker(
+        markerId,
+        JSON.stringify({
+          type: "custom",
+          id: spot.id,
+          name: spot.name,
+          visibility: spot.visibility,
+          markerData,
+          lngLat,
+        }),
+        lngLat,
+        () => {
+          const element = createCustomSpotMarkerElement(spot, markerData);
+          element.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (!userRef.current) {
+              trackSignupCtaClick({
+                source: `custom-spot-${spot.id}`,
+                cta_type: "custom_spot_marker",
+              });
+              setShowAuth(true);
+              return;
+            }
+
+            router.push(`/custom-spots/${spot.id}`);
           });
-          setShowAuth(true);
-          return;
+
+          return new mapboxgl.Marker({
+            element,
+            anchor: "center",
+          });
         }
-
-        router.push(`/custom-spots/${spot.id}`);
-      });
-
-      const marker = new mapboxgl.Marker({
-        element,
-        anchor: "center",
-      }).setLngLat([spot.lon, spot.lat]);
-
-      if (mapRef.current?.getCanvasContainer()) {
-        marker.addTo(mapRef.current);
-      }
-      markersRef.current[markerId] = marker;
+      );
     });
+
+    Object.keys(markersRef.current).forEach((markerId) => {
+      if (markerId.startsWith("cluster-") || markerId.startsWith("location-") || markerId.startsWith("custom-")) {
+        if (!activeMarkerIds.has(markerId)) {
+          removeMarker(markerId);
+        }
+      }
+    });
+
+    if (typeof window !== "undefined") {
+      const instrumentationWindow = window as typeof window & {
+        __quiverMapVisibleMarkerCount?: number;
+      };
+      instrumentationWindow.__quiverMapVisibleMarkerCount = activeMarkerIds.size;
+    }
   }, [
     clusters,
     customSpots,
@@ -1916,11 +2055,13 @@ export function InteractiveMap({
     conditionScoreMap,
     conditionSummaryMap,
     displayForecastMap,
+    waterTempMap,
     buildClusterMarker,
     buildWaveHeightBadge,
-    cleanupMarkers,
+    displayMode,
+    markerDisplay,
+    clusterClickBehavior,
     router,
-    user,
   ]);
 
   const swellTimeline =

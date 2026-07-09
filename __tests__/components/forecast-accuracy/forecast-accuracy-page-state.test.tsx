@@ -37,8 +37,12 @@ jest.mock("@/components/seo/faq-section", () => ({
 describe("forecast accuracy page (curated marketing)", () => {
   it("is indexable — no noindex robots directive", () => {
     expect((metadata.robots as any)?.index).not.toBe(false);
-    expect(String(metadata.title)).toMatch(/Surfline/i);
-    expect(String(metadata.title)).toMatch(/NOAA/i);
+    expect(metadata.title).toMatchObject({
+      absolute: expect.stringMatching(/Surfline/i),
+    });
+    expect(metadata.title).toMatchObject({
+      absolute: expect.stringMatching(/NOAA/i),
+    });
   });
 
   it("renders the curated page with the 3-way comparison and the claim", () => {

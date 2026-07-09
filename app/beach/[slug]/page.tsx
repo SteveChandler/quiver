@@ -148,18 +148,7 @@ export default async function BeachDetailBySlugPage(
     }
 
     console.error("Error fetching beach:", error);
-    return (
-      <div className="flex flex-col min-h-screen">
-        <main className="flex-1 container mx-auto px-4 py-6">
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-bold mb-2">Error Loading Beach</h2>
-            <p className="text-muted-foreground">
-              There was an error loading this beach. Please try again.
-            </p>
-          </div>
-        </main>
-      </div>
-    );
+    notFound();
   }
 }
 
@@ -217,7 +206,13 @@ export async function generateMetadata(
   const params = await props.params;
   // Keep metadata generation side-effect free; don't depend on auth/session
   // Uses cached function - deduped with page component in same render pass
-  const beach = await getBeachBySlugOrId(params.slug);
+  let beach: Awaited<ReturnType<typeof getBeachBySlugOrId>>;
+  try {
+    beach = await getBeachBySlugOrId(params.slug);
+  } catch (error) {
+    console.error("Error generating beach metadata:", error);
+    return buildNoindexBeachMetadata(params.slug);
+  }
 
   if (beach) {
     // Compute canonical path: prefer hierarchical URL, fallback to UUID path
@@ -289,9 +284,25 @@ export async function generateMetadata(
     });
   }
 
-  return buildPageMetadata({
-    title: `Beach`,
-    description: `Conditions, intel, photos, and community tips for this beach.`,
-    path: `/beach/${params.slug}`,
+  return buildNoindexBeachMetadata(params.slug);
+}
+
+function buildNoindexBeachMetadata(slug: string): Metadata {
+  const metadata = buildPageMetadata({
+    title: "Beach Not Found",
+    description: "This beach page could not be found.",
+    path: `/beach/${slug}`,
   });
+
+  return {
+    ...metadata,
+    robots: {
+      index: false,
+      follow: false,
+      googleBot: {
+        index: false,
+        follow: false,
+      },
+    },
+  };
 }

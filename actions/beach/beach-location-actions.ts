@@ -176,6 +176,8 @@ export interface CityWithSkillCategories {
   hasBeginnerBeaches: boolean;
   hasAdvancedBeaches: boolean;
   hasLeastCrowdedBeaches: boolean;
+  hasTideData?: boolean;
+  hasWaterTempData?: boolean;
   /** TRUE when enough beaches have description + at least one of crowd_tips/wave_tips/best_conditions_prose (1 for single-beach cities, 2 for multi-beach) */
   hasEditorialContent: boolean;
 }
@@ -247,6 +249,8 @@ export async function getAllCitiesWithBeachSkills(minBeaches: number = 1) {
       has_advanced: boolean;
       has_editorial: boolean;
       has_least_crowded?: boolean;
+      has_tide_data?: boolean;
+      has_water_temp_data?: boolean;
     };
     const cities: CityWithSkillCategories[] = ((data || []) as unknown as RpcRow[]).map((row) => ({
       city: row.city,
@@ -256,6 +260,8 @@ export async function getAllCitiesWithBeachSkills(minBeaches: number = 1) {
       hasBeginnerBeaches: row.has_beginner,
       hasAdvancedBeaches: row.has_advanced,
       hasLeastCrowdedBeaches: row.has_least_crowded ?? false,
+      hasTideData: row.has_tide_data,
+      hasWaterTempData: row.has_water_temp_data,
       hasEditorialContent: row.has_editorial ?? false,
     }));
 

@@ -610,6 +610,38 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByText(/We couldn't find any surf spots/i)).toBeInTheDocument();
   });
 
+  it("shows the Set Home Beach CTA from the empty state when the user has no home beach", async () => {
+    mockOracleData = {
+      ...mockOracleData,
+      profile: { ...mockOracleData.profile, home_beach_id: null } as any,
+      homeBeach: null,
+      profileLoading: false,
+      discoveryLoading: false,
+      discovery: {
+        recommendations: [],
+        searchCriteria: { maxResults: 6 },
+        metadata: {
+          totalBeachesConsidered: 0,
+          successfulForecasts: 0,
+          partialSuccess: false,
+          failedBeaches: 0,
+          staleBeaches: 0,
+          generated_at: new Date().toISOString(),
+        },
+      },
+      discoveryError: null,
+      topRecommendation: null,
+    } as unknown as OracleData;
+    render(<OracleHomeScreen />);
+
+    const setHomeBeachBtn = screen.getByRole("button", {
+      name: /set your home beach/i,
+    });
+    await userEvent.click(setHomeBeachBtn);
+    expect(mockOnboardingReset).toHaveBeenCalled();
+    expect(mockOnboardingOpenDialog).toHaveBeenCalled();
+  });
+
   it("shows empty card with 'load failure' reason when discoveryError is set", () => {
     mockOracleData = {
       ...mockOracleData,
