@@ -54,6 +54,7 @@ export function ConditionsSection({
   const windDirectionLabelId = useId();
   const tideHeightInputId = useId();
   const tideStatusLabelId = useId();
+  const isRecommendationLog = Boolean(formState.recommendationId);
 
   // Helper to convert number|undefined to string for input display
   const numberToString = (value: number | undefined): string =>
@@ -232,9 +233,12 @@ export function ConditionsSection({
                     : "3.5"
                 }
                 value={numberToString(formState.waveHeight)}
-                onChange={(e) =>
-                  updateField("waveHeight", stringToNumber(e.target.value))
-                }
+                onChange={(e) => {
+                  updateField("waveHeight", stringToNumber(e.target.value));
+                  if (isRecommendationLog) {
+                    updateField("waveHeightEdited", true);
+                  }
+                }}
               />
             </div>
 
@@ -316,37 +320,38 @@ export function ConditionsSection({
               </Select>
             </div>
 
-            {/* Tide Height */}
-            <div>
-              <label
-                className="mb-2 flex items-center gap-2 text-sm font-medium"
-                htmlFor={tideHeightInputId}
-              >
-                <TrendingUp className="h-4 w-4" />
-                Tide Height (ft)
-              </label>
-              <Input
-                id={tideHeightInputId}
-                type="number"
-                step="0.1"
-                min="-5"
-                max="15"
-                placeholder={
-                  !forecastData && formState.selectedBeachId
-                    ? "e.g., 2.1"
-                    : "2.5"
-                }
-                value={numberToString(formState.tideHeight)}
-                onChange={(e) =>
-                  updateField("tideHeight", stringToNumber(e.target.value))
-                }
-              />
-              {tidePreviewText && (
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Forecast: {tidePreviewText}
-                </p>
-              )}
-            </div>
+            {!isRecommendationLog && (
+              <div>
+                <label
+                  className="mb-2 flex items-center gap-2 text-sm font-medium"
+                  htmlFor={tideHeightInputId}
+                >
+                  <TrendingUp className="h-4 w-4" />
+                  Tide Height (ft)
+                </label>
+                <Input
+                  id={tideHeightInputId}
+                  type="number"
+                  step="0.1"
+                  min="-5"
+                  max="15"
+                  placeholder={
+                    !forecastData && formState.selectedBeachId
+                      ? "e.g., 2.1"
+                      : "2.5"
+                  }
+                  value={numberToString(formState.tideHeight)}
+                  onChange={(e) =>
+                    updateField("tideHeight", stringToNumber(e.target.value))
+                  }
+                />
+                {tidePreviewText && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Forecast: {tidePreviewText}
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Tide Status */}
             <div>
@@ -358,9 +363,12 @@ export function ConditionsSection({
               </span>
               <Select
                 value={formState.tideStatus ?? ""}
-                onValueChange={(value) =>
-                  updateField("tideStatus", value)
-                }
+                onValueChange={(value) => {
+                  updateField("tideStatus", value);
+                  if (isRecommendationLog) {
+                    updateField("tideStatusEdited", true);
+                  }
+                }}
               >
                 <SelectTrigger aria-labelledby={tideStatusLabelId}>
                   <SelectValue placeholder="Select tide status" />

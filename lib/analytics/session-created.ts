@@ -56,7 +56,9 @@ interface QueryResult<T> {
 }
 
 interface EmitSessionCreatedEventInput {
-  session: Pick<Session, "id" | "beach_id">;
+  session: Pick<Session, "id" | "beach_id"> & {
+    recommendation_id?: string | null;
+  };
   source: SessionCreatedSource;
   surface: SessionCreatedSurface;
   userId: string;
@@ -148,6 +150,7 @@ export async function emitSessionCreatedEvent(
         spot_type: beachId ? "beach" : "custom",
         user_id: userId,
         session_id: session.id,
+        recommendation_id: session.recommendation_id ?? undefined,
       },
     })) ?? {}) as QueryResult<never>;
 

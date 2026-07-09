@@ -201,6 +201,9 @@ export const TopSpotsCarousel = React.memo(function TopSpotsCarousel({
               recommendation={spot}
               onTap={onViewSpot}
               featured={index === 0}
+              impressionRank={index + 1}
+              impressionSurface="home_top_spots"
+              timeSlot={timeSlot}
             />
           ))}
           {/* Spacer for right padding on scroll */}

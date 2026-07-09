@@ -5,9 +5,13 @@ export const RecommendationSessionContextSchema = z.object({
   recommendationId: z.string().min(1).max(160),
   sourceSurface: z.enum([
     'home_hero',
+    'home_top_spots',
+    'home_nearby_spots',
     'home_also_worth_it',
+    'discover_list',
     'explore_for_you',
     'beach_detail',
+    'session_intelligence',
     'surf_window_adjacent',
   ]),
   beachId: z.string().uuid(),

@@ -26,12 +26,14 @@ import { track } from "@/lib/analytics";
 import { useTrackEvent } from "@/hooks/use-track-event";
 import { FavoriteButton } from "@/components/favorite-button";
 import { useAuth } from "@/context/auth-context";
+import { buildRecommendationImpressionInput } from "@/lib/recommendations/attribution";
+import { useRecommendationImpression } from "@/hooks/use-recommendation-impression";
 
 
 interface BeachDiscoveryCardProps {
   recommendation: SurfDiscoveryRecommendation;
   rank: number;
-  onLogSession: (beachId: string) => void;
+  onLogSession: (recommendation: SurfDiscoveryRecommendation, rank: number) => void;
   /** Optional personalized board-wave matching feedback from matchBoardToWaves() */
   boardReasoning?: string;
 }
@@ -63,6 +65,13 @@ export function BeachDiscoveryCard({
 
   const { user } = useAuth();
   const { track: trackEvent } = useTrackEvent();
+  const impressionRef = useRecommendationImpression<HTMLDivElement>(
+    buildRecommendationImpressionInput({
+      recommendation,
+      rank,
+      surface: "discover_list",
+    })
+  );
 
   // Fetch personalized score for this beach
   const personalization = useBeachPersonalization({
@@ -113,6 +122,7 @@ export function BeachDiscoveryCard({
 
   return (
     <Card
+      ref={impressionRef}
       className={cn(
         "w-full hover:shadow-lg transition-shadow",
         rank === 1 && "border-2 border-blue-500"
@@ -263,7 +273,7 @@ export function BeachDiscoveryCard({
                   match_quality: matchQuality,
                 },
               });
-              onLogSession(beach.id);
+              onLogSession(recommendation, rank);
             }}
           >
             Log Session

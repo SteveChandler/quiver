@@ -117,6 +117,7 @@ export const VALID_EVENTS = [
   'learning_progress_revealed',
   'learned_me_moment_viewed',
   // Discovery events
+  'recommendation_impression',
   'personalized_score_shown',
   'favorite_shown_in_carousel',
   'mini_log_teaser_click',

@@ -30,6 +30,7 @@ import { useTimeOfDay } from "./use-time-of-day";
 import { HeroRecommendation } from "./hero-recommendation";
 import { PrimaryActions } from "./primary-actions";
 import { buildSurfCallShareData } from "@/lib/share/share-data-builder";
+import { buildRecommendationLogUrl } from "@/lib/recommendations/attribution";
 import { buildBeachUrlWithTab } from "@/lib/utils/beach-url-utils";
 import { getForecastRegionForCity } from "@/lib/data/forecast-regions";
 import { TopSpotsCarousel } from "./top-spots-carousel";
@@ -276,14 +277,17 @@ export function HomeScreen() {
 
   // Handler for "I'm at the beach" button
   const handleAtBeach = useCallback(() => {
-    // Navigate to session creation with mode=log
-    const params = new URLSearchParams({ mode: "log" });
-
-    // Pre-fill with top recommendation if available
     if (topRecommendation) {
-      params.set("beach", topRecommendation.beach.id);
-      params.set("beachName", topRecommendation.beach.name);
-      params.set("startTime", topRecommendation.window.start.toISOString());
+      router.push(
+        buildRecommendationLogUrl({
+          recommendation: topRecommendation,
+          rank: 1,
+          surface: "home_hero",
+          timeSlot,
+        })
+      );
+    } else {
+      router.push("/sessions/new?mode=log");
     }
 
     // Track for analytics
@@ -301,8 +305,7 @@ export function HomeScreen() {
       },
     });
 
-    router.push(`/sessions/new?${params.toString()}`);
-  }, [topRecommendation, router, trackEvent]);
+  }, [topRecommendation, router, trackEvent, timeSlot]);
 
   // Handler for quick-log CTA (zero-session users)
   const handleQuickLog = useCallback(() => {

@@ -28,6 +28,7 @@ import type { ActivityItem } from "@/components/oracle/activity-feed";
 import type { TimeWindow } from "@/components/oracle/todays-windows";
 import type { NearbySpot } from "@/components/oracle/nearby-spots";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
+import { buildRecommendationLogUrl } from "@/lib/recommendations/attribution";
 import type { LocalActivityItem } from "@/actions/oracle-actions";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { isFutureDayInTimezone } from "@/lib/utils/condition-tier-utils";
@@ -550,8 +551,21 @@ export function OracleHomeScreen() {
   }, [resetOnboarding, openOnboardingDialog]);
 
   const handleLogSession = useCallback(
-    () => router.push("/sessions/new?mode=log"),
-    [router]
+    () => {
+      if (!heroRec) {
+        router.push("/sessions/new?mode=log");
+        return;
+      }
+
+      router.push(
+        buildRecommendationLogUrl({
+          recommendation: heroRec,
+          rank: 1,
+          surface: "home_hero",
+        })
+      );
+    },
+    [heroRec, router]
   );
 
   const fetchHeroSurfCall = useCallback(async (): Promise<OracleSurfCallPayload | null> => {

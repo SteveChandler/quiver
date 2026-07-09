@@ -22,7 +22,10 @@ import {
   type SessionFitSelection,
 } from "./SessionFitPicker";
 import { WaveTypeSelector } from "@/components/ui/wave-type-selector";
-import { FORECAST_ACCURACY_OPTIONS } from "./shared/constants";
+import {
+  FORECAST_ACCURACY_OPTIONS,
+  RECOMMENDATION_CALL_ACCURACY_OPTIONS,
+} from "./shared/constants";
 import { SessionCelebration } from "@/components/session/session-celebration";
 import { QuickLogView } from "./QuickLogView";
 import type { BeachSource } from "@/hooks/use-nearest-beach";
@@ -94,6 +97,7 @@ export function SessionScrollForm({
   const isLog = true;
   const useQuickMode = quickMode;
   const title = useQuickMode ? "How was it?" : "Log Session";
+  const isRecommendationLog = Boolean(formState.recommendationId);
 
   // Prefill wave/wind/tide from forecast at the form level so it runs even when
   // the conditions UI is collapsed behind QuickLog's details accordion.
@@ -505,15 +509,49 @@ export function SessionScrollForm({
 
                 <hr className="border-[#404C92]" />
                 <section className="space-y-4">
-                  <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">Was the forecast accurate?</h2>
-                  <div className="grid grid-cols-3 gap-3">
-                    {FORECAST_ACCURACY_OPTIONS.map((option) => {
-                      const IconComponent = option.icon;
-                      const isSelected = formState.forecastAccuracy === option.value;
+                  <h2 className="text-sm font-bold text-[#F0F0F0] uppercase tracking-wide">
+                    {isRecommendationLog ? "Was this call right?" : "Was the forecast accurate?"}
+                  </h2>
+                  <div className={cn("grid gap-3", isRecommendationLog ? "grid-cols-2" : "grid-cols-3")}>
+                    {(isRecommendationLog
+                      ? RECOMMENDATION_CALL_ACCURACY_OPTIONS
+                      : FORECAST_ACCURACY_OPTIONS
+                    ).map((option) => {
+                      const IconComponent = "icon" in option ? option.icon : null;
+                      const iconColor = "color" in option ? option.color : "text-[#9AABC6]";
+                      const isSelected = isRecommendationLog
+                        ? formState.recommendationCallAccuracy === option.value
+                        : formState.forecastAccuracy === option.value;
                       return (
-                        <button key={option.value} type="button" onClick={() => updateField("forecastAccuracy", option.value as "accurate" | "somewhat" | "inaccurate")} className={cn("p-4 rounded-lg border-2 transition-all", isSelected ? "border-[#F78E42] bg-[#F78E42]/10" : "border-[#404C92] bg-[#354090] hover:bg-[#404C92]")} aria-label={`${option.label}: ${option.description}`}>
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            if (isRecommendationLog) {
+                              updateField(
+                                "recommendationCallAccuracy",
+                                option.value as "right" | "partly" | "wrong" | "not_sure"
+                              );
+                              return;
+                            }
+
+                            updateField(
+                              "forecastAccuracy",
+                              option.value as "accurate" | "somewhat" | "inaccurate"
+                            );
+                          }}
+                          className={cn(
+                            "p-4 rounded-lg border-2 transition-all",
+                            isSelected
+                              ? "border-[#F78E42] bg-[#F78E42]/10"
+                              : "border-[#404C92] bg-[#354090] hover:bg-[#404C92]"
+                          )}
+                          aria-label={`${option.label}: ${option.description}`}
+                        >
                           <div className="flex flex-col items-center gap-2">
-                            <IconComponent className={cn("h-6 w-6", isSelected ? "text-[#F78E42]" : option.color)} />
+                            {IconComponent && (
+                              <IconComponent className={cn("h-6 w-6", isSelected ? "text-[#F78E42]" : iconColor)} />
+                            )}
                             <span className={cn("font-medium", isSelected ? "text-[#F78E42]" : "text-[#F0F0F0]")}>{option.label}</span>
                             <span className="text-xs text-[#9AABC6] text-center">{option.description}</span>
                           </div>

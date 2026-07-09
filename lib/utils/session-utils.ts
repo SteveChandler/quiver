@@ -133,7 +133,7 @@ export const getSessionMapImageUrl = (session: SessionWithDetails) => {
 export function transformSessionFormStateToDbSchema(
   formState: SessionFormState
 ): Partial<Session> {
-  const dbData: SessionWithWaveCharacteristics = {};
+  const dbData: SessionWithWaveCharacteristics & Record<string, unknown> = {};
 
   // Map camelCase form fields to snake_case database columns
   if (formState.selectedBeachId) {
@@ -239,8 +239,26 @@ export function transformSessionFormStateToDbSchema(
     dbData.forecast_accuracy = formState.forecastAccuracy;
   }
 
+  if (formState.recommendationId) {
+    dbData.recommendation_id = formState.recommendationId;
+  }
+
+  if (formState.recommendationCallAccuracy) {
+    dbData.recommendation_call_accuracy = formState.recommendationCallAccuracy;
+  }
+
+  if (formState.recommendationId && formState.forecastWaveHeightFt !== undefined) {
+    dbData.forecast_wave_height_ft = formState.forecastWaveHeightFt;
+    dbData.wave_height_correct = formState.waveHeightEdited === true ? false : true;
+  }
+
+  if (formState.recommendationId && formState.forecastTideStatus) {
+    dbData.forecast_tide_status = formState.forecastTideStatus;
+    dbData.tide_status_correct = formState.tideStatusEdited === true ? false : true;
+  }
+
   // NEW FIELDS: Handle tide data
-  if (formState.tideHeight !== undefined) {
+  if (!formState.recommendationId && formState.tideHeight !== undefined) {
     dbData.tide_height_ft = formState.tideHeight;
   }
 
