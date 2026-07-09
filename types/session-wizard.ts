@@ -48,6 +48,27 @@ export interface SessionWizardPrefillParams {
 
   /** One-tap forecast verification value captured before session logging */
   forecastFeedbackValue?: 'too_low' | 'about_right' | 'too_high';
+
+  /** Recommendation attribution id from surf discovery/home surfaces */
+  recommendation_id?: string;
+
+  /** Recommendation surface name used for attribution */
+  recommendation_surface?: string;
+
+  /** Recommendation rank on the source surface */
+  recommendation_rank?: string;
+
+  /** Recommendation score shown on the source surface */
+  recommendation_score?: string;
+
+  /** Recommendation source time slot */
+  recommendation_time_slot?: string;
+
+  /** Recommendation window start ISO timestamp */
+  recommendation_window_start?: string;
+
+  /** Recommendation window end ISO timestamp */
+  recommendation_window_end?: string;
 }
 
 /**
@@ -81,4 +102,12 @@ export interface ValidatedSessionWizardParams {
 
   /** One-tap forecast verification value captured before session logging */
   forecastFeedbackValue?: 'too_low' | 'about_right' | 'too_high';
+
+  recommendationId?: string;
+  recommendationSurface?: string;
+  recommendationRank?: number;
+  recommendationScore?: number;
+  recommendationTimeSlot?: string;
+  recommendationWindowStart?: Date;
+  recommendationWindowEnd?: Date;
 }

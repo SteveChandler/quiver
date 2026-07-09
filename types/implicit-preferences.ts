@@ -136,6 +136,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   learning_progress_revealed: 0,
   learned_me_moment_viewed: 0,
   // Discovery events
+  recommendation_impression: 0,
   personalized_score_shown: 0,
   favorite_shown_in_carousel: 0,
   mini_log_teaser_click: 0,

@@ -18,6 +18,7 @@ function createSupabaseMock() {
     from: jest.fn().mockReturnThis() as MockFn,
     select: jest.fn().mockReturnThis() as MockFn,
     insert: jest.fn().mockReturnThis() as MockFn,
+    upsert: jest.fn().mockReturnThis() as MockFn,
     update: jest.fn().mockReturnThis() as MockFn,
     eq: jest.fn().mockReturnThis() as MockFn,
     is: jest.fn().mockReturnThis() as MockFn,
@@ -178,6 +179,88 @@ describe("createLoggedSession personalization recompute", () => {
         process.env.ALLOW_E2E_MUTATIONS_DEV = originalAllowE2E;
       }
     }
+  });
+
+  it("persists recommendation attribution and emits session_created metadata", async () => {
+    mockSupabase.single.mockReset();
+    mockSupabase.single.mockResolvedValue({
+      data: {
+        id: "session-123",
+        beach_id: "beach-123",
+        beach_name: "HB Cliffs",
+        duration_minutes: 90,
+        rating: 2,
+        recommendation_id: "beach:beach-123:2026-07-09T14:00:00.000Z",
+        arrival_time: "2026-07-09 14:00:00+00",
+      },
+      error: null,
+    });
+    mockServiceRoleSupabase.upsert.mockResolvedValue({ error: null });
+
+    const result = await createLoggedSession({
+      beach_id: "beach-123",
+      beach_name: "HB Cliffs",
+      arrival_time: "2026-07-09 14:00:00+00",
+      rating: 2,
+      recommendation_id: "beach:beach-123:2026-07-09T14:00:00.000Z",
+      recommendation_call_accuracy: "wrong",
+      forecast_wave_height_ft: 4,
+      forecast_tide_status: "rising",
+      wave_height_correct: false,
+      tide_status_correct: true,
+      recommendation_context: {
+        recommendationId: "beach:beach-123:2026-07-09T14:00:00.000Z",
+        surface: "home_hero",
+        rank: 1,
+        score: 88,
+        windowStart: "2026-07-09T14:00:00.000Z",
+        windowEnd: "2026-07-09T17:00:00.000Z",
+        mode: "log",
+        timeSlot: "dawn-patrol",
+      },
+    } as any);
+
+    await flushFireAndForget();
+
+    expect(result.success).toBe(true);
+    expect(mockSupabase.from).toHaveBeenCalledWith("sessions");
+    expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recommendation_id: "beach:beach-123:2026-07-09T14:00:00.000Z",
+        recommendation_call_accuracy: "wrong",
+        forecast_wave_height_ft: 4,
+        forecast_tide_status: "rising",
+        wave_height_correct: false,
+        tide_status_correct: true,
+      })
+    );
+    expect(mockSupabase.insert).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        recommendation_context: expect.any(Object),
+      })
+    );
+    expect(mockSupabase.insert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        event_type: "session_created",
+        metadata: expect.objectContaining({
+          session_id: "session-123",
+          recommendation_id: "beach:beach-123:2026-07-09T14:00:00.000Z",
+        }),
+      })
+    );
+    expect(mockServiceRoleSupabase.from).toHaveBeenCalledWith(
+      "recommendation_session_contexts"
+    );
+    expect(mockServiceRoleSupabase.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        user_id: "user-123",
+        session_id: "session-123",
+        recommendation_id: "beach:beach-123:2026-07-09T14:00:00.000Z",
+        source_surface: "home_hero",
+        ranking_position: 1,
+      }),
+      { onConflict: "user_id,session_id,recommendation_id" }
+    );
   });
 
   it("keeps session creation successful when preference recompute fails", async () => {

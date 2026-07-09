@@ -18,6 +18,14 @@ jest.mock("@/hooks/use-session-forecast", () => ({
   })),
 }));
 
+jest.mock("@/hooks/use-session-tide-snapshot", () => ({
+  useSessionTideSnapshot: jest.fn(() => ({
+    tideSnapshot: {
+      tideStatus: "rising",
+    },
+  })),
+}));
+
 function makeFormState(overrides: Partial<SessionFormState> = {}): SessionFormState {
   return {
     selectedBeach: "Ocean Beach",
@@ -65,5 +73,27 @@ describe("useSessionConditionsPrefill", () => {
 
     expect(updateField).not.toHaveBeenCalledWith("tideHeight", expect.anything());
     expect(updateField).not.toHaveBeenCalledWith("tideStatus", expect.anything());
+  });
+
+  it("stores forecast prefill values for recommendation-attributed logs", async () => {
+    const updateField = jest.fn();
+
+    renderHook(() =>
+      useSessionConditionsPrefill(
+        "log",
+        makeFormState({
+          recommendationId: "beach:beach-1:2026-06-10T14:00:00.000Z",
+        }),
+        updateField
+      )
+    );
+
+    await waitFor(() => {
+      expect(updateField).toHaveBeenCalledWith("forecastWaveHeightFt", 3.5);
+      expect(updateField).toHaveBeenCalledWith("forecastTideStatus", "rising");
+      expect(updateField).toHaveBeenCalledWith("tideStatus", "rising");
+    });
+
+    expect(updateField).not.toHaveBeenCalledWith("tideHeight", expect.anything());
   });
 });

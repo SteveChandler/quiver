@@ -19,6 +19,8 @@ import {
 import { HOME_HEADER_MOTION } from "@/lib/constants/animations";
 import { BoardRecommendationBadge } from "@/components/recommendations/board-recommendation-badge";
 import { useBoardRecommendation } from "@/hooks/use-board-recommendation";
+import { useRecommendationImpression } from "@/hooks/use-recommendation-impression";
+import { buildRecommendationImpressionInput } from "@/lib/recommendations/attribution";
 import type {
   SurfDiscoveryRecommendation,
   PersonalizedInsights,
@@ -188,6 +190,16 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
     beachId: recommendation?.beach?.id ?? null,
     enabled: !!recommendation?.forecast,
   });
+  const impressionRef = useRecommendationImpression<HTMLDivElement>(
+    recommendation
+      ? buildRecommendationImpressionInput({
+          recommendation,
+          rank: 1,
+          surface: "home_hero",
+          timeSlot,
+        })
+      : null
+  );
 
   // Handle loading state
   if (loading) {
@@ -246,7 +258,11 @@ export const HeroRecommendation = React.memo(function HeroRecommendation({
   }
 
   return (
-    <div className="space-y-4 px-4 sm:px-1" data-testid="hero-recommendation">
+    <div
+      ref={impressionRef}
+      className="space-y-4 px-4 sm:px-1"
+      data-testid="hero-recommendation"
+    >
       {/* Main headline */}
       <h1 className="text-2xl xs:text-3xl sm:text-4xl font-heading font-bold tracking-tight text-white leading-tight">
         {headline.prefix}

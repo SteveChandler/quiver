@@ -124,4 +124,46 @@ describe("session-utils", () => {
     expect((result as any).rip_current_observed).toBe("light");
     expect(result.goals).toBeUndefined();
   });
+
+  test("transformSessionFormStateToDbSchema omits tide height for recommendation logs", () => {
+    const result = transformSessionFormStateToDbSchema({
+      selectedBeach: "HB Cliffs",
+      selectedBeachId: "beach-1",
+      selectedDate: "2026-07-09",
+      selectedTime: "07:00",
+      selectedBoard: "",
+      duration: "60m",
+      waveQuality: "",
+      waterTemp: "",
+      crowdLevel: "",
+      parkingEase: "",
+      overallRating: "",
+      notes: "",
+      photos: [],
+      waveCharacteristics: [],
+      waveTypes: [],
+      waveHeight: 4,
+      windSpeed: undefined,
+      windDirection: undefined,
+      forecastAccuracy: undefined,
+      recommendationId: "beach:beach-1:2026-07-09T14:00:00.000Z",
+      forecastWaveHeightFt: 4,
+      forecastTideStatus: "rising",
+      waveHeightEdited: false,
+      tideStatusEdited: false,
+      tideHeight: 2.4,
+      tideStatus: "rising",
+      ripCurrentObserved: undefined,
+      isPublic: true,
+      isMuted: false,
+      selectedGoals: [],
+      skillRatings: {},
+      sessionDecomposition: null,
+    } as any);
+
+    expect((result as any).tide_height_ft).toBeUndefined();
+    expect((result as any).tide_status).toBe("rising");
+    expect((result as any).wave_height_correct).toBe(true);
+    expect((result as any).tide_status_correct).toBe(true);
+  });
 });

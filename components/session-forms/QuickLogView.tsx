@@ -6,7 +6,10 @@ import { SessionSlider } from "./SessionSlider";
 import { LocationStep } from "./LocationStep";
 import { BeachChip } from "./BeachChip";
 import { DetailsExpander } from "./DetailsExpander";
-import { FORECAST_ACCURACY_OPTIONS } from "./shared/constants";
+import {
+  FORECAST_ACCURACY_OPTIONS,
+  RECOMMENDATION_CALL_ACCURACY_OPTIONS,
+} from "./shared/constants";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { cn } from "@/lib/utils";
 import type { SessionFormState } from "@/hooks/use-session-form";
@@ -199,24 +202,42 @@ export function QuickLogView({
 
       <hr className="border-[#404C92]/60" />
 
-      {/* 4. Forecast check — core ML signal */}
+      {/* 4. Forecast/call check — core ML signal */}
       <motion.section className="space-y-2" variants={sectionVariants}>
         <h2 className="text-xs font-bold text-[#9AABC6] uppercase tracking-wider">
-          Was our forecast right?
+          {formState.recommendationId ? "Was this call right?" : "Was our forecast right?"}
         </h2>
-        <div className="grid grid-cols-3 gap-2">
-          {FORECAST_ACCURACY_OPTIONS.map((option) => {
-            const isSelected = formState.forecastAccuracy === option.value;
+        <div
+          className={cn(
+            "grid gap-2",
+            formState.recommendationId ? "grid-cols-2" : "grid-cols-3"
+          )}
+        >
+          {(formState.recommendationId
+            ? RECOMMENDATION_CALL_ACCURACY_OPTIONS
+            : FORECAST_ACCURACY_OPTIONS
+          ).map((option) => {
+            const isSelected = formState.recommendationId
+              ? formState.recommendationCallAccuracy === option.value
+              : formState.forecastAccuracy === option.value;
             return (
               <button
                 key={option.value}
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  if (formState.recommendationId) {
+                    updateField(
+                      "recommendationCallAccuracy",
+                      option.value as "right" | "partly" | "wrong" | "not_sure"
+                    );
+                    return;
+                  }
+
                   updateField(
                     "forecastAccuracy",
                     option.value as "accurate" | "somewhat" | "inaccurate"
-                  )
-                }
+                  );
+                }}
                 className={cn(
                   "py-3 rounded-lg border text-center transition-all duration-150",
                   "active:scale-[0.96]",
