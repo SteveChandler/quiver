@@ -10,6 +10,85 @@ async function openRegionsAndFilters(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Regions and filters' }).click();
 }
 
+async function findUnobscuredBeachMarkerPoint(
+  page: Page,
+  minimumY: number,
+): Promise<{ x: number; y: number }> {
+  const markerPoint = await page.evaluate((minY): { x: number; y: number } | null => {
+    const badges = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid="beach-marker"] [data-marker-badge="true"]',
+      ),
+    );
+
+    for (const badge of badges) {
+      const rect = badge.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+
+      if (
+        rect.width <= 0 ||
+        rect.height <= 0 ||
+        x < 0 ||
+        y < minY ||
+        x > window.innerWidth ||
+        y > window.innerHeight
+      ) {
+        continue;
+      }
+
+      if (document.elementsFromPoint(x, y).includes(badge)) {
+        return { x, y };
+      }
+    }
+
+    return null;
+  }, minimumY);
+
+  if (!markerPoint) {
+    throw new Error(
+      'No unobscured beach marker badge is available in the viewport',
+    );
+  }
+
+  return markerPoint;
+}
+
+async function findUnobscuredBeachMarkerId(
+  page: Page,
+  minimumY: number,
+): Promise<string> {
+  const markerId = await page.evaluate((minY): string | null => {
+    const badges = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid="beach-marker"] [data-marker-badge="true"]',
+      ),
+    );
+
+    for (const badge of badges) {
+      const rect = badge.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      if (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        y >= minY &&
+        document.elementsFromPoint(x, y).includes(badge)
+      ) {
+        return badge.closest<HTMLElement>('[data-beach-id]')?.dataset.beachId ?? null;
+      }
+    }
+
+    return null;
+  }, minimumY);
+
+  if (!markerId) {
+    throw new Error('No unobscured beach marker badge is available in the viewport');
+  }
+
+  return markerId;
+}
+
 /**
  * Map Page Tests
  * Tests the interactive map functionality including filters, search, and geolocation
@@ -80,6 +159,14 @@ test.describe('Map Page - Core Functionality', () => {
     }
   });
 
+  test('should render individual beach points without averaged cluster pills', async ({ page }) => {
+    const beachMarkers = page.locator('[data-testid="beach-marker"]');
+
+    await expect(beachMarkers.first()).toBeVisible({ timeout: TIMEOUTS.long });
+    expect(await beachMarkers.count()).toBeGreaterThan(1);
+    await expect(page.locator('[data-testid="cluster-marker"]')).toHaveCount(0);
+  });
+
 });
 
 test.describe('Map Page - Toolbar Controls', () => {
@@ -105,6 +192,14 @@ test.describe('Map Page - Toolbar Controls', () => {
     await expect(
       page.getByRole('button', { name: 'Regions and filters' })
     ).toBeVisible();
+
+    const toolbarActions = page.getByTestId('map-toolbar-actions');
+    const fieldGuideToggle = page.getByTestId('map-field-guide-toggle');
+    await expect(toolbarActions).toContainText('How to read this map');
+    await expect(fieldGuideToggle).toBeVisible();
+    expect(await fieldGuideToggle.evaluate((node) => node.parentElement?.dataset.testid)).toBe(
+      'map-toolbar-actions'
+    );
 
     const mapCanvas = page.locator('canvas').first();
     await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.medium });
@@ -601,39 +696,16 @@ test.describe('Map Page - Marker Interactions', () => {
     await assertNoErrors(page, errorCapture, { context: 'Map Markers' });
   });
 
-  test('should show beach details on marker interaction', async ({ page }) => {
-    // Wait for beaches to load using data-testid
+  test('should open one conditions callout from a point marker', async ({ page }) => {
     const beachMarkers = page.locator('[data-testid="beach-marker"]');
-    const beachItems = page.locator('[data-testid="beach-item"]');
+    await expect(beachMarkers.first()).toBeVisible({ timeout: TIMEOUTS.long });
 
-    const hasMarkers = await isVisibleSafe(beachMarkers.first(), { timeout: TIMEOUTS.long });
-    const hasItems = !hasMarkers && await isVisibleSafe(beachItems.first(), { timeout: TIMEOUTS.medium });
+    const markerPoint = await findUnobscuredBeachMarkerPoint(page, 170);
+    await page.mouse.click(markerPoint.x, markerPoint.y);
 
-    if (!hasMarkers && !hasItems) {
-      // No markers visible yet — map may still be loading or beach density is low in viewport
-      test.skip(true, 'No beach markers or items found — map may still be loading or viewport has low beach density');
-      return;
-    }
-
-    // Click should either navigate to beach detail page OR show selected beach card
-    // Use force:true to avoid header interception issues with map markers
-    const beachElement = hasMarkers ? beachMarkers.first() : beachItems.first();
-    await beachElement.click({ force: true });
-
-    await page.waitForLoadState('load');
-
-    // Check if we navigated or if a selected beach card appeared
-    const url = page.url();
-    const navigated = url.includes('/beach/') ||
-                     (url.split('/').length >= 5 && !url.includes('/map'));
-
-    if (navigated) {
-      // Successfully navigated to beach detail
-      expect(navigated).toBe(true);
-    } else {
-      // Should be on map page with potentially selected beach state
-      expect(url).toContain('/map');
-    }
+    await expect(page.locator('[data-conditions-callout="true"]')).toHaveCount(1);
+    await expect(page.getByRole('link', { name: 'Full forecast' })).toBeVisible();
+    expect(page.url()).toContain('/map');
   });
 
   test('should display multiple beach markers', async ({ page }) => {
@@ -677,68 +749,61 @@ test.describe('Map Page - Beach Detail Navigation', () => {
     await assertNoErrors(page, errorCapture, { context: 'Map Beach Card Nav' });
   });
 
-  test('mobile: tapping a marker navigates directly to the beach detail page', async ({ page, context }) => {
-    await page.setViewportSize(VIEWPORTS.mobile);
-
-    await context.grantPermissions(['geolocation']);
-    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
-
-    await page.goto('/map');
-    await waitForPageLoad(page);
-
-    await dismissMapEntryOverlay(page);
-
-    // Wait for map canvas to fully load
-    const mapCanvas = page.locator('canvas').first();
-    await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.long });
-
-    // Wait for beach markers to load
-    const beachMarkers = page.locator('[data-testid="beach-marker"]');
-    await expect(beachMarkers.first()).toBeVisible({ timeout: TIMEOUTS.long });
-
-    await expect(page.getByTestId('bottom-sheet')).toHaveCount(0);
-
-    const markerPoint = await page.evaluate((): { x: number; y: number } | null => {
-      const badges = Array.from(
-        document.querySelectorAll<HTMLElement>(
-          '[data-testid="beach-marker"] [data-marker-badge="true"]',
-        ),
-      );
-
-      for (const badge of badges) {
-        const rect = badge.getBoundingClientRect();
-        const x = rect.left + rect.width / 2;
-        const y = rect.top + rect.height / 2;
-
-        if (
-          rect.width <= 0 ||
-          rect.height <= 0 ||
-          x < 0 ||
-          y < 160 ||
-          x > window.innerWidth ||
-          y > window.innerHeight
-        ) {
-          continue;
-        }
-
-        if (document.elementsFromPoint(x, y).includes(badge)) {
-          return { x, y };
-        }
-      }
-
-      return null;
+  test('mobile: tapping a marker opens conditions before full forecast navigation', async ({ browser, context }) => {
+    const touchContext = await browser.newContext({
+      storageState: await context.storageState(),
+      viewport: VIEWPORTS.mobile,
+      hasTouch: true,
+      isMobile: true,
+      geolocation: { latitude: 32.8473, longitude: -117.2750 },
+      permissions: ['geolocation'],
     });
+    const touchPage = await touchContext.newPage();
+    const touchErrors = setupErrorDetection(touchPage);
 
-    if (!markerPoint) {
-      throw new Error(
-        'No unobscured beach marker badge in the mobile viewport — every badge is covered by other UI, which is the regression this tap test guards against',
+    try {
+      const forecastsLoaded = touchPage.waitForResponse((response) =>
+        response.url().includes('/api/forecasts/bulk'),
       );
+      await touchPage.goto('/map');
+      await waitForPageLoad(touchPage);
+      await dismissMapEntryOverlay(touchPage);
+
+      await expect(touchPage.locator('canvas').first()).toBeVisible({
+        timeout: TIMEOUTS.long,
+      });
+      await expect(
+        touchPage.locator('[data-testid="beach-marker"]').first(),
+      ).toBeVisible({ timeout: TIMEOUTS.long });
+      await forecastsLoaded;
+      await expect(touchPage.getByTestId('bottom-sheet')).toHaveCount(0);
+
+      const markerId = await findUnobscuredBeachMarkerId(touchPage, 160);
+      await touchPage
+        .locator(`[data-beach-id="${markerId}"] [data-marker-badge="true"]`)
+        .dispatchEvent('touchend', {
+          touches: [],
+          targetTouches: [],
+          changedTouches: [],
+        });
+
+      await expect(
+        touchPage.locator('[data-conditions-callout="true"]'),
+      ).toHaveCount(1);
+      const fullForecast = touchPage.getByRole('link', { name: 'Full forecast' });
+      await expect(fullForecast).toBeVisible();
+      expect(touchPage.url()).toContain('/map');
+
+      await fullForecast.click();
+      await touchPage.waitForURL(/\/(ca|or|wa|hi|beach)\//, {
+        timeout: TIMEOUTS.medium,
+      });
+      await assertNoErrors(touchPage, touchErrors, {
+        context: 'Map Beach Card Nav touch context',
+      });
+    } finally {
+      await touchContext.close();
     }
-
-    await page.mouse.click(markerPoint.x, markerPoint.y);
-
-    // Should have navigated away from /map
-    await page.waitForURL(/\/(ca|or|wa|hi|beach)\//, { timeout: TIMEOUTS.medium });
   });
 });
 

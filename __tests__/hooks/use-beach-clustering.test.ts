@@ -69,6 +69,29 @@ describe("useBeachClustering", () => {
     );
   });
 
+  it("caps direct point rendering for unusually large in-bounds result sets", () => {
+    const manyBeaches = Array.from({ length: 175 }, (_, index) => ({
+      id: `beach-${index}`,
+      name: `Beach ${index}`,
+      lat: 32.75,
+      lon: -117.25,
+    })) as Beach[];
+    const { result } = renderHook(() =>
+      useBeachClustering({
+        beaches: manyBeaches,
+        waveHeights: new Map(),
+        bounds: { west: -118, south: 32, east: -117, north: 33 },
+        zoom: 10,
+        disableClustering: true,
+      })
+    );
+
+    expect(result.current.clusters).toHaveLength(150);
+    expect(result.current.clusters.every((cluster) => !cluster.isCluster)).toBe(
+      true
+    );
+  });
+
   it("should return empty array for empty beaches", () => {
     const { result } = renderHook(() =>
       useBeachClustering({

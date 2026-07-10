@@ -1,8 +1,8 @@
 /**
  * Shared brand tokens + pure helpers for the Quiver swell map (prototype + prod).
- * Brand law (DESIGN_SYSTEM.md): always-dark Deep Twilight navy canvas, NO glass
- * (backdrop-blur), NO cyan/purple, sticker texture (hard offset shadow, no blur,
- * asymmetric radius). Sanctioned accents only.
+ * Brand law (DESIGN_SYSTEM.md): Deep Twilight is the map stage, cream paper is
+ * the control surface, and sticker texture uses hard offset shadows with no
+ * glass, cyan/purple gradients, or decorative glow.
  *
  * Plan B imports these EXACT names/values — do not rename or recolor without
  * updating both plans and components/map/__tests__/swell-map-theme.test.ts.
@@ -16,6 +16,15 @@ export const SWELL_MAP_SURFACE = {
   panel: "#1E2558",     // opaque card (header.start)
   panelDeep: "#161A40", // darker card / drawer
   border: "rgba(255,255,255,0.12)",
+} as const;
+
+export const SWELL_MAP_LEGEND_SURFACE = {
+  paper: "#F4EBD8",
+  paperRaised: "#F5EEDC",
+  ink: "#11100D",
+  mutedInk: "rgba(17,16,13,0.68)",
+  border: "rgba(17,16,13,0.88)",
+  divider: "rgba(17,16,13,0.16)",
 } as const;
 
 // Hard offset sticker shadow (no blur) — use as boxShadow.

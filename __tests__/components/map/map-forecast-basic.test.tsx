@@ -206,7 +206,12 @@ describe("Map Forecast Basic Tests", () => {
 
     render(<InteractiveMap />);
 
-    expect(screen.getByTestId("map-condition-legend")).toBeInTheDocument();
+    const legend = screen.getByTestId("map-condition-legend");
+    expect(legend).toBeInTheDocument();
+    expect(legend).toHaveStyle({
+      background: "#F4EBD8",
+      color: "#11100D",
+    });
     expect(screen.getByText("Worth it")).toBeInTheDocument();
     expect(screen.getByText("Maybe")).toBeInTheDocument();
     expect(screen.getByText("Scout it")).toBeInTheDocument();

@@ -258,6 +258,9 @@ export function MapContent({
             onWaveHeightsChange={onWaveHeightsChange}
             onDisplayForecastsChange={onDisplayForecastsChange}
             autoNavigateOnMarkerClick={autoNavigateOnMarkerClick}
+            markerDisplay="points"
+            disableBeachClustering
+            showConditionsOnTap
             showSwellField={showSwellField}
             swellLayerId={swellLayerId}
             onSwellLayerChange={onSwellLayerChange}

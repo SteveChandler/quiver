@@ -54,6 +54,8 @@ type BeachWithCoordinates = Beach & {
   lon: number;
 };
 
+const MAX_DIRECT_POINT_MARKERS = 150;
+
 function hasValidCoordinates(beach: Beach): beach is BeachWithCoordinates {
   return (
     typeof beach.lat === "number" &&
@@ -166,6 +168,7 @@ export function useBeachClustering({
     if (disableClustering) {
       return beaches
         .filter((beach) => isBeachInBounds(beach, bounds))
+        .slice(0, MAX_DIRECT_POINT_MARKERS)
         .map((beach) => beachToPoint(beach, waveHeights));
     }
 

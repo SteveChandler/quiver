@@ -2,11 +2,10 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
-import { BookOpen, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
 import { MapToolbar } from "@/components/map/map-toolbar";
-import { Button } from "@/components/ui/button";
 import { useCustomSpots } from "@/hooks/use-custom-spots";
 import {
   MAP_REGION_PILLS,
@@ -390,25 +389,9 @@ export function MapView() {
         hasActiveFilters={hasActiveFilters}
         showSwellField={showSwellField}
         onToggleSwellField={() => setShowSwellField((v) => !v)}
+        fieldGuideVisible={fieldGuideVisible}
+        onOpenFieldGuide={handleOpenFieldGuide}
       />
-
-      <div className="border-b bg-background px-3 py-2 sm:px-4">
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            aria-expanded={fieldGuideVisible}
-            aria-controls="map-field-guide-panel"
-            data-testid="map-field-guide-toggle"
-            onClick={handleOpenFieldGuide}
-            className="h-10 w-full justify-center whitespace-nowrap px-3 text-xs sm:w-auto sm:text-sm"
-          >
-            <BookOpen className="h-4 w-4 shrink-0" aria-hidden="true" />
-            How to read this map
-          </Button>
-        </div>
-      </div>
 
       {/* Content */}
       <div

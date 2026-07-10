@@ -8,9 +8,12 @@ let mockInteractiveMapMounts = 0;
 jest.mock("next/dynamic", () => () => {
   const InteractiveMapMock = ({
     customSpots,
+    disableBeachClustering,
     initialCenter,
+    markerDisplay,
     onLocationClick,
     onBeachSelect,
+    showConditionsOnTap,
   }: any) => {
     const [mountId] = require("react").useState(
       () => ++mockInteractiveMapMounts,
@@ -20,8 +23,11 @@ jest.mock("next/dynamic", () => () => {
       <div
         data-testid="interactive-map"
         data-custom-spot-count={String(customSpots?.length ?? 0)}
+        data-disable-beach-clustering={String(disableBeachClustering)}
         data-initial-center={initialCenter?.join(",")}
+        data-marker-display={String(markerDisplay)}
         data-mount-id={mountId}
+        data-show-conditions-on-tap={String(showConditionsOnTap)}
       >
         <button
           onClick={() => onLocationClick?.(mockBeaches[0])}
@@ -163,6 +169,23 @@ describe("MapContent", () => {
     expect(screen.getByTestId("interactive-map")).toHaveAttribute(
       "data-custom-spot-count",
       "1",
+    );
+  });
+
+  it("configures the public map for unclustered conditions points", () => {
+    render(<MapContent {...defaultProps} />);
+
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-marker-display",
+      "points",
+    );
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-disable-beach-clustering",
+      "true",
+    );
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-show-conditions-on-tap",
+      "true",
     );
   });
 

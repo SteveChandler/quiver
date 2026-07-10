@@ -129,9 +129,7 @@ export async function loadBeachesAndWaveHeights(
   const conditionSummaryMap = new Map<string, ConditionSummary>();
   const partitionsMap = new Map<string, SwellPartition>();
   const partitionsTimelineMap = new Map<string, SwellPartition[]>();
-  const beachesForWaveData = providedBeaches?.length
-    ? providedBeaches
-    : locations;
+  const beachesForWaveData = locations;
 
   if (beachesForWaveData.length > 0) {
     try {

@@ -58,6 +58,7 @@ import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
 import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
 import {
   SWELL_FIELD_PARTICLE_COLOR,
+  SWELL_MAP_LEGEND_SURFACE,
   SWELL_MAP_SURFACE,
   SWELL_MAP_STICKER_SHADOW,
   SWELL_MAP_STICKER_RADIUS,
@@ -248,7 +249,11 @@ function MapConditionLegend({
       title={toggleLabel}
       data-testid="map-legend-toggle"
       onClick={() => setIsMinimized((current) => !current)}
-      className="pointer-events-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm bg-white/10 text-white/90 transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+      className="pointer-events-auto inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-sm transition-colors hover:bg-black/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]"
+      style={{
+        background: "rgba(17,16,13,0.08)",
+        color: SWELL_MAP_LEGEND_SURFACE.ink,
+      }}
     >
       <ToggleIcon className="h-4 w-4" aria-hidden="true" />
     </button>
@@ -257,16 +262,17 @@ function MapConditionLegend({
   return (
     <div
       data-testid="map-condition-legend"
-      className={`pointer-events-none absolute bottom-3 left-3 z-10 px-3 py-2 text-white ${
+      className={`pointer-events-none absolute bottom-3 left-3 z-10 px-3 py-2 ${
         isWide
           ? "w-[calc(100%-1.5rem)] max-w-[27rem] sm:w-auto"
           : ""
       }`}
       style={{
-        background: SWELL_MAP_SURFACE.panelDeep,
-        border: `1px solid ${SWELL_MAP_SURFACE.border}`,
+        background: SWELL_MAP_LEGEND_SURFACE.paper,
+        border: `2px solid ${SWELL_MAP_LEGEND_SURFACE.border}`,
         borderRadius: SWELL_MAP_STICKER_RADIUS,
         boxShadow: SWELL_MAP_STICKER_SHADOW,
+        color: SWELL_MAP_LEGEND_SURFACE.ink,
       }}
     >
       {isMinimized ? (
@@ -282,7 +288,7 @@ function MapConditionLegend({
                 <div key={item.label} className="flex items-center gap-1.5">
                   <span
                     aria-hidden="true"
-                    className="h-2.5 w-2.5 rounded-full border border-white/35"
+                    className="h-2.5 w-2.5 rounded-full border border-black/30"
                     style={{ background: getConditionMarkerGradient(item.label) }}
                   />
                   <span className="text-[10px] font-semibold leading-none tracking-normal">
@@ -294,7 +300,10 @@ function MapConditionLegend({
             {toggleButton}
           </div>
           {(hasEmbeddedControls || hasTimeline) && (
-            <div className="mt-2 flex flex-col gap-2 border-t border-white/15 pt-2">
+            <div
+              className="mt-2 flex flex-col gap-2 border-t pt-2"
+              style={{ borderColor: SWELL_MAP_LEGEND_SURFACE.divider }}
+            >
               {embeddedControls}
               {timeline}
             </div>
@@ -608,6 +617,9 @@ export function InteractiveMap({
       beachHref,
       scale: calloutScale,
     });
+    // An active callout is the immediate interaction target. Keep it above the
+    // persistent legend so its forecast link remains tappable on narrow screens.
+    element.style.zIndex = "30";
     // Stop the tap from bubbling to map.on("click"), which would treat the
     // dismiss as a fresh water tap and instantly re-open the callout.
     element.addEventListener("click", (ev) => {
@@ -700,6 +712,7 @@ export function InteractiveMap({
   // Helper: remove all markers
   const cleanupMarkers = useCallback(() => {
     closeBeachPreviewPopup();
+    removeActiveCallout();
 
     // Clean up cluster event listeners
     clusterCleanupRef.current.forEach((cleanup) => cleanup());
@@ -711,7 +724,7 @@ export function InteractiveMap({
     Object.values(markersRef.current).forEach((marker) => marker.remove());
     markersRef.current = {};
     markerSignatureRef.current = {};
-  }, [closeBeachPreviewPopup]);
+  }, [closeBeachPreviewPopup, removeActiveCallout]);
 
   // Helper: full cleanup
   const cleanupMap = useCallback(() => {
@@ -876,7 +889,7 @@ export function InteractiveMap({
           onLocationClick?.(beach);
         },
         router,
-        autoNavigate: autoNavigateOnMarkerClick,
+        autoNavigate: showConditionsOnTap ? false : autoNavigateOnMarkerClick,
         displayMode,
         markerDisplay,
         waterTemp: waterTempMap.get(location.id),
@@ -1174,7 +1187,16 @@ export function InteractiveMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !isMapReady || !showConditionsOnTap) return;
-    const onTap = (e: mapboxgl.MapMouseEvent) => handleConditionsTapRef.current(e.lngLat);
+    const onTap = (e: mapboxgl.MapMouseEvent) => {
+      const target = e.originalEvent?.target;
+      if (
+        target instanceof Element &&
+        target.closest('[data-testid="beach-marker"]')
+      ) {
+        return;
+      }
+      handleConditionsTapRef.current(e.lngLat);
+    };
     map.on("click", onTap);
     return () => {
       map.off("click", onTap);

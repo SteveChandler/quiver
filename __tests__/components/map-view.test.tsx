@@ -176,7 +176,9 @@ describe("MapView", () => {
   it("shows the field guide trigger but keeps the panel collapsed on the live map", () => {
     render(<MapView />);
 
-    expect(screen.getByTestId("map-field-guide-toggle")).toBeInTheDocument();
+    const fieldGuideToggle = screen.getByTestId("map-field-guide-toggle");
+    expect(fieldGuideToggle).toBeInTheDocument();
+    expect(fieldGuideToggle.closest('[data-testid="map-toolbar-actions"]')).not.toBeNull();
     expect(screen.queryByTestId("map-learning-panel")).not.toBeInTheDocument();
   });
 

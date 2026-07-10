@@ -144,6 +144,29 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
     );
   });
 
+  it("requests forecast data only for the capped rendered beach set", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { forecasts: {} } }),
+    }) as unknown as typeof fetch;
+    const beaches = Array.from({ length: 25 }, (_, index) =>
+      beach(`beach-${index}`, 32.71, -117.21)
+    );
+
+    const result = await loadBeachesAndWaveHeights(32.7, -117.2, beaches, {
+      fetchNearbyBeaches: async () => ({ data: [] }),
+    });
+
+    expect(result.locations).toHaveLength(20);
+    const requestedUrl = (global.fetch as jest.Mock).mock.calls[0][0] as string;
+    const requestedIds = new URL(requestedUrl, "https://example.test").searchParams
+      .get("beachIds")
+      ?.split(",");
+    expect(requestedIds).toHaveLength(20);
+    expect(requestedIds).not.toContain("beach-20");
+  });
+
   it("returns an empty partitionsMap when the field is absent", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,

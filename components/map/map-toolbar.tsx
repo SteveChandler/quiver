@@ -12,6 +12,7 @@ import {
   SWELL_MAP_CTA_CLASS,
 } from "@/components/map/swell-map-theme";
 import {
+  BookOpen,
   MapPin,
   Search,
   SlidersHorizontal,
@@ -38,6 +39,8 @@ interface MapToolbarProps {
   hasActiveFilters: boolean;
   showSwellField: boolean;
   onToggleSwellField: () => void;
+  fieldGuideVisible?: boolean;
+  onOpenFieldGuide?: () => void;
 }
 
 const BREAK_TYPE_FILTERS = [
@@ -77,6 +80,8 @@ export function MapToolbar({
   hasActiveFilters,
   showSwellField,
   onToggleSwellField,
+  fieldGuideVisible = false,
+  onOpenFieldGuide,
 }: MapToolbarProps) {
   const showSuggestions = searchQuery.trim().length > 0 && suggestions.length > 0;
   const suggestionsListId = useId();
@@ -201,7 +206,9 @@ export function MapToolbar({
 
           <div
             data-testid="map-toolbar-actions"
-            className="grid w-full grid-cols-3 gap-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end"
+            className={`grid w-full gap-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end ${
+              onOpenFieldGuide ? "grid-cols-4" : "grid-cols-3"
+            }`}
           >
             <Popover>
               <PopoverTrigger asChild>
@@ -337,6 +344,23 @@ export function MapToolbar({
                 {showSwellField ? "Hide swell field" : "Show swell field"}
               </span>
             </button>
+
+            {onOpenFieldGuide && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                aria-expanded={fieldGuideVisible}
+                aria-controls="map-field-guide-panel"
+                data-testid="map-field-guide-toggle"
+                onClick={onOpenFieldGuide}
+                className={toolbarActionClass}
+              >
+                <BookOpen className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="sm:hidden">Guide</span>
+                <span className="hidden sm:inline">How to read this map</span>
+              </Button>
+            )}
           </div>
         </div>
       </div>

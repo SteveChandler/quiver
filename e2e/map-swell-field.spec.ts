@@ -243,6 +243,9 @@ for (const viewport of [
       await expect(legend).toBeVisible();
       await expect(selector).toBeVisible();
       await expect(timeline).toBeVisible();
+      await expect(legend).toHaveCSS("background-color", "rgb(244, 235, 216)");
+      await expect(legend).toHaveCSS("color", "rgb(17, 16, 13)");
+      await expect(legend).toHaveCSS("border-top-width", "2px");
       await expect(legend.getByText("Worth it")).toBeVisible();
       await expect(legend.getByText("Scout it")).toBeVisible();
       await expect(legend.getByText("GOOD")).toHaveCount(0);
