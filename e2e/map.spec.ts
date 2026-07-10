@@ -667,8 +667,16 @@ test.describe('Map Page - Camera Ownership', () => {
       .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
       .toBe('hawaii');
 
+    await page
+      .getByRole('combobox', { name: 'Search beaches, spots, or cities' })
+      .fill('Ala Moana Bowls');
+    await expect(
+      page.getByRole('button', { name: 'View Ala Moana Bowls conditions' }),
+    ).toBeVisible({ timeout: TIMEOUTS.long });
     await tapBeachMarker(page, 'Ala Moana Bowls');
-    await expect(page.getByText('Ala Moana Bowls')).toBeVisible();
+    await expect(
+      page.locator('[data-conditions-callout="true"]'),
+    ).toContainText('Ala Moana Bowls');
     await expect
       .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
       .toBe('hawaii');

@@ -47,6 +47,8 @@ export function useBeachSearch() {
   // Nearby lookups can overlap when the user chooses a region while the initial
   // location request is still resolving. Only the latest intent may update state.
   const nearbyRequestIdRef = useRef(0);
+  const nearbyPresentationSnapshotRef = useRef<Beach[] | null>(null);
+  const filteredBeachesRef = useRef<Beach[]>([]);
   const allBeachesLoadingRef = useRef(false);
 
   // Memoize fetch function to prevent infinite loops - only create once
@@ -75,6 +77,10 @@ export function useBeachSearch() {
   }, [beachesData]);
 
   const { beaches, loading, error } = beachesState;
+
+  useEffect(() => {
+    filteredBeachesRef.current = state.filteredBeaches;
+  }, [state.filteredBeaches]);
 
   // Compute distinct regions from loaded beaches
   const regions = useMemo(() => {
@@ -264,6 +270,10 @@ export function useBeachSearch() {
       // Do not keep rendering the previous region while the latest explicit
       // location loads. The map will otherwise rebuild its camera leash from
       // stale beaches and clamp the new command back to the old coast.
+      if (nearbyPresentationSnapshotRef.current === null) {
+        nearbyPresentationSnapshotRef.current = filteredBeachesRef.current;
+      }
+      filteredBeachesRef.current = [];
       setState((prev) => ({
         ...prev,
         filteredBeaches: [],
@@ -296,11 +306,13 @@ export function useBeachSearch() {
           });
           setHasLoadedAllBeaches(false);
 
+          filteredBeachesRef.current = sortedBeaches;
           setState((prev) => ({
             ...prev,
             filteredBeaches: sortedBeaches,
             selectedBeach: prev.selectedBeach,
           }));
+          nearbyPresentationSnapshotRef.current = null;
         } else {
           // Handle empty result
           setBeachesState({
@@ -310,11 +322,13 @@ export function useBeachSearch() {
           });
           setHasLoadedAllBeaches(false);
 
+          filteredBeachesRef.current = [];
           setState((prev) => ({
             ...prev,
             filteredBeaches: [],
             selectedBeach: null,
           }));
+          nearbyPresentationSnapshotRef.current = null;
         }
       } catch (error) {
         if (requestId !== nearbyRequestIdRef.current) return;
@@ -327,6 +341,15 @@ export function useBeachSearch() {
               ? error.message
               : "Failed to load nearby beaches",
         }));
+        const previousPresentation = nearbyPresentationSnapshotRef.current;
+        nearbyPresentationSnapshotRef.current = null;
+        if (previousPresentation) {
+          filteredBeachesRef.current = previousPresentation;
+          setState((prev) => ({
+            ...prev,
+            filteredBeaches: previousPresentation,
+          }));
+        }
       }
     },
     [] // No dependencies to prevent recreation and infinite loops

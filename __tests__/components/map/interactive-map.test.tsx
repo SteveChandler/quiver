@@ -215,6 +215,30 @@ describe("InteractiveMap", () => {
     expect(mapWindow.__quiverMapDebugCenter).toBeUndefined();
   });
 
+  it("only settles leash suspension at the latest command target", async () => {
+    const { cameraCommandContainsCenter } = await import(
+      "@/components/map/interactive-map"
+    );
+    const latestCommand = {
+      id: 2,
+      source: "gps" as const,
+      center: { lat: 32.7702, lon: -117.2525 },
+    };
+
+    expect(
+      cameraCommandContainsCenter(latestCommand, {
+        lat: 20.6106,
+        lng: -157.5,
+      }),
+    ).toBe(false);
+    expect(
+      cameraCommandContainsCenter(latestCommand, {
+        lat: 32.7702,
+        lng: -117.2525,
+      }),
+    ).toBe(true);
+  });
+
   it("does not delegate map clicks from markers or conditions callouts", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     const onMapClick = jest.fn();

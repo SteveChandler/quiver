@@ -134,8 +134,7 @@ const EMPTY_FLOW_FIELD: FlowField = { cols: 0, rows: 0, cells: [] };
 function clearMapDebugCenter(): void {
   if (
     typeof window !== "undefined" &&
-    (process.env.NODE_ENV !== "production" ||
-      process.env.NEXT_PUBLIC_PLAYWRIGHT_TEST === "true")
+    process.env.NODE_ENV !== "production"
   ) {
     (
       window as Window & {
@@ -143,6 +142,27 @@ function clearMapDebugCenter(): void {
       }
     ).__quiverMapDebugCenter = undefined;
   }
+}
+
+export function cameraCommandContainsCenter(
+  command: MapCameraCommand,
+  center: { lat: number; lng: number },
+): boolean {
+  if (command.bounds) {
+    const [[west, south], [east, north]] = command.bounds;
+    return (
+      center.lng >= west &&
+      center.lng <= east &&
+      center.lat >= south &&
+      center.lat <= north
+    );
+  }
+
+  if (!command.center) return true;
+  return (
+    Math.abs(center.lat - command.center.lat) <= 0.05 &&
+    Math.abs(center.lng - command.center.lon) <= 0.05
+  );
 }
 
 function partitionAtTimelinePosition(
@@ -403,6 +423,9 @@ export function InteractiveMap({
     zoom: number;
   } | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [leashSuspendedCommandId, setLeashSuspendedCommandId] = useState<
+    number | null
+  >(null);
   const [favoriteBeachIds, setFavoriteBeachIds] = useState<Set<string>>(
     new Set()
   );
@@ -456,7 +479,7 @@ export function InteractiveMap({
   // release+re-apply when the corridor hasn't meaningfully changed — re-applying on
   // every beach-list update is what made the camera bounce inland and back on load.
   const appliedLeashKeyRef = useRef<string | null>(null);
-  const cameraCommandLeashSuspendedRef = useRef(false);
+  const pendingLeashCommandRef = useRef<MapCameraCommand | null>(null);
   const swellLayerIdRef = useRef<SwellLayerId>(swellLayerId);
   // The shape of the mounted particle layer(s). Only a shape change forces a
   // teardown+re-add (which re-seeds and looks like a jitter); same-shape switches
@@ -1383,7 +1406,7 @@ export function InteractiveMap({
     const map = mapRef.current;
     if (!map || !isMapReady) return;
 
-    if (cameraCommandLeashSuspendedRef.current) {
+    if (leashSuspendedCommandId !== null) {
       releaseSwellFieldLeash(map);
       appliedLeashKeyRef.current = null;
       return;
@@ -1434,7 +1457,13 @@ export function InteractiveMap({
     // No cleanup-release: the leash is released explicitly when the field turns off
     // (handled above) and torn down with the map on unmount. Releasing on every
     // re-run is what produced the inland/back bounce.
-  }, [showSwellField, isMapReady, swellFieldBeaches, releaseSwellFieldLeash]);
+  }, [
+    showSwellField,
+    isMapReady,
+    swellFieldBeaches,
+    leashSuspendedCommandId,
+    releaseSwellFieldLeash,
+  ]);
 
   // Auto-dismiss the one-time coastal-leash hint ~4s after it appears. With
   // motion, kick a CSS opacity fade ~500ms before unmount; under reduced motion
@@ -1618,10 +1647,7 @@ export function InteractiveMap({
       setIsMapReady(true);
       onMapReadyRef.current?.();
       // Expose map instance in dev and Playwright builds for E2E map assertions.
-      if (
-        process.env.NODE_ENV !== "production" ||
-        process.env.NEXT_PUBLIC_PLAYWRIGHT_TEST === "true"
-      ) {
+      if (process.env.NODE_ENV !== "production") {
         (window as any).__quiverMapInstance = mapRef.current;
       }
       // Initialize bounds for clustering
@@ -1727,9 +1753,16 @@ export function InteractiveMap({
           }
         ).__quiverMapDebugCenter = { lat: center.lat, lon: center.lng };
       }
-      if (cameraCommandLeashSuspendedRef.current) {
-        cameraCommandLeashSuspendedRef.current = false;
+      const pendingLeashCommand = pendingLeashCommandRef.current;
+      if (
+        pendingLeashCommand &&
+        cameraCommandContainsCenter(pendingLeashCommand, map.getCenter())
+      ) {
+        pendingLeashCommandRef.current = null;
         appliedLeashKeyRef.current = null;
+        setLeashSuspendedCommandId((current) =>
+          current === pendingLeashCommand.id ? null : current,
+        );
       }
       handleMoveEndRef.current?.();
     };
@@ -1916,7 +1949,8 @@ export function InteractiveMap({
     // camera back to the previous region when that request resolves.
     populateRequestIdRef.current += 1;
     lastPopulateKeyRef.current = null;
-    cameraCommandLeashSuspendedRef.current = true;
+    pendingLeashCommandRef.current = cameraCommand;
+    setLeashSuspendedCommandId(cameraCommand.id);
     setSwellFieldBeaches([]);
     releaseSwellFieldLeash(map);
     if (cameraCommand.bounds) {
