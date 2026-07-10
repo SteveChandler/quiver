@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-10
 
-**Status:** Awaiting written-spec review
+**Status:** Approved
 
 **Surfaces:** Public `/map`, shared `InteractiveMap`, `/embed/map`, bulk forecast API
 
