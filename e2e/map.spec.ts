@@ -10,6 +10,54 @@ async function openRegionsAndFilters(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Regions and filters' }).click();
 }
 
+type MapRegion = 'hawaii' | 'san-diego' | 'unknown';
+
+interface MapDebugCenter {
+  lat: number;
+  lon: number;
+}
+
+function regionForCenter(center: MapDebugCenter): MapRegion {
+  if (
+    center.lat >= 18.8 &&
+    center.lat <= 22.4 &&
+    center.lon >= -160.3 &&
+    center.lon <= -154.7
+  ) {
+    return 'hawaii';
+  }
+
+  if (
+    center.lat >= 32.4 &&
+    center.lat <= 33.2 &&
+    center.lon >= -117.7 &&
+    center.lon <= -116.8
+  ) {
+    return 'san-diego';
+  }
+
+  return 'unknown';
+}
+
+async function readMapCenter(
+  page: Page,
+): Promise<(MapDebugCenter & { region: MapRegion }) | null> {
+  const center = await page.evaluate(() => {
+    const mapWindow = window as Window & {
+      __quiverMapDebugCenter?: MapDebugCenter;
+    };
+    return mapWindow.__quiverMapDebugCenter ?? null;
+  });
+
+  return center ? { ...center, region: regionForCenter(center) } : null;
+}
+
+async function tapBeachMarker(page: Page, beachName: string): Promise<void> {
+  await page
+    .getByRole('button', { name: `View ${beachName} conditions` })
+    .click();
+}
+
 async function findUnobscuredBeachMarkerPoint(
   page: Page,
   minimumY: number,
@@ -460,6 +508,36 @@ test.describe('Map Page - Geolocation', () => {
     const hasMap = !hasMarkers && !hasItems && await isVisibleSafe(mapContainer, { timeout: TIMEOUTS.short });
 
     expect(hasMarkers || hasItems || hasMap).toBe(true);
+  });
+});
+
+test.describe('Map Page - Camera Ownership', () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map Camera Ownership' });
+  });
+
+  test('Hawaii exploration is not reclaimed by San Diego GPS', async ({ page, context }) => {
+    await context.grantPermissions(['geolocation']);
+    await context.setGeolocation({ latitude: 32.7702, longitude: -117.2525 });
+    await page.goto('/map');
+    await dismissMapEntryOverlay(page);
+
+    await page.getByRole('button', { name: 'Regions and filters' }).click();
+    await page.getByRole('button', { name: 'Hawaii' }).click();
+    await expect.poll(() => readMapCenter(page)).toMatchObject({ region: 'hawaii' });
+
+    await tapBeachMarker(page, 'Ala Moana Bowls');
+    await expect(page.getByText('Ala Moana Bowls')).toBeVisible();
+    await expect.poll(() => readMapCenter(page)).toMatchObject({ region: 'hawaii' });
+
+    await page.getByRole('button', { name: 'Use Near Me' }).click();
+    await expect.poll(() => readMapCenter(page)).toMatchObject({ region: 'san-diego' });
   });
 });
 

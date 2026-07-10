@@ -1684,7 +1684,20 @@ export function InteractiveMap({
     });
 
     // Stable wrapper — delegates to the latest debounced handler via ref
-    const moveEndHandler = () => handleMoveEndRef.current?.();
+    const moveEndHandler = () => {
+      if (
+        process.env.NODE_ENV !== "production" ||
+        process.env.NEXT_PUBLIC_PLAYWRIGHT_TEST === "true"
+      ) {
+        const center = map.getCenter();
+        (
+          window as Window & {
+            __quiverMapDebugCenter?: { lat: number; lon: number };
+          }
+        ).__quiverMapDebugCenter = { lat: center.lat, lon: center.lng };
+      }
+      handleMoveEndRef.current?.();
+    };
     map.on("moveend", moveEndHandler);
 
     const handleMapClick = (e: mapboxgl.MapMouseEvent): void => {
