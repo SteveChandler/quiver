@@ -235,6 +235,38 @@ describe("useBeachSearch", () => {
       expect(result.current.error).toBe("Hawaii unavailable");
     });
 
+    it("preserves a newer search presentation when a nearby request fails", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+      await act(async () => {
+        await result.current.loadNearbyBeaches(32.7, -117.2);
+      });
+      let rejectHawaii!: (reason: Error) => void;
+      mockGetNearbyBeaches.mockReturnValueOnce(
+        new Promise((_resolve, reject) => {
+          rejectHawaii = reject;
+        }) as ReturnType<typeof getNearbyBeaches>,
+      );
+
+      let hawaiiRequest!: Promise<void>;
+      act(() => {
+        hawaiiRequest = result.current.loadNearbyBeaches(21.66, -158.06);
+      });
+      act(() => {
+        result.current.setSearchQuery("Ocean");
+      });
+      await waitFor(() => {
+        expect(result.current.filteredBeaches).toHaveLength(1);
+      });
+
+      await act(async () => {
+        rejectHawaii(new Error("Hawaii unavailable"));
+        await hawaiiRequest;
+      });
+
+      expect(result.current.filteredBeaches).toHaveLength(1);
+      expect(result.current.filteredBeaches[0]?.name).toBe("Ocean Beach");
+    });
+
     it("keeps the latest nearby request when an older request resolves last", async () => {
       const sanDiegoBeaches = createMockBeaches(2) as any[];
       const hawaiiBeaches = createMockBeaches(3).map((beach, index) => ({

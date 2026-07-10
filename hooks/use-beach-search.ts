@@ -47,8 +47,12 @@ export function useBeachSearch() {
   // Nearby lookups can overlap when the user chooses a region while the initial
   // location request is still resolving. Only the latest intent may update state.
   const nearbyRequestIdRef = useRef(0);
-  const nearbyPresentationSnapshotRef = useRef<Beach[] | null>(null);
+  const nearbyPresentationSnapshotRef = useRef<{
+    beaches: Beach[];
+    generation: number;
+  } | null>(null);
   const filteredBeachesRef = useRef<Beach[]>([]);
+  const presentationGenerationRef = useRef(0);
   const allBeachesLoadingRef = useRef(false);
 
   // Memoize fetch function to prevent infinite loops - only create once
@@ -189,6 +193,8 @@ export function useBeachSearch() {
     );
 
     const hasSearchQuery = state.searchQuery.trim().length > 0;
+    presentationGenerationRef.current += 1;
+    filteredBeachesRef.current = filtered;
 
     setState((prev) => {
       const prevSelection = prev.selectedBeach;
@@ -271,7 +277,10 @@ export function useBeachSearch() {
       // location loads. The map will otherwise rebuild its camera leash from
       // stale beaches and clamp the new command back to the old coast.
       if (nearbyPresentationSnapshotRef.current === null) {
-        nearbyPresentationSnapshotRef.current = filteredBeachesRef.current;
+        nearbyPresentationSnapshotRef.current = {
+          beaches: filteredBeachesRef.current,
+          generation: presentationGenerationRef.current,
+        };
       }
       filteredBeachesRef.current = [];
       setState((prev) => ({
@@ -343,11 +352,14 @@ export function useBeachSearch() {
         }));
         const previousPresentation = nearbyPresentationSnapshotRef.current;
         nearbyPresentationSnapshotRef.current = null;
-        if (previousPresentation) {
-          filteredBeachesRef.current = previousPresentation;
+        if (
+          previousPresentation &&
+          previousPresentation.generation === presentationGenerationRef.current
+        ) {
+          filteredBeachesRef.current = previousPresentation.beaches;
           setState((prev) => ({
             ...prev,
-            filteredBeaches: previousPresentation,
+            filteredBeaches: previousPresentation.beaches,
           }));
         }
       }

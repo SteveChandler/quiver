@@ -131,6 +131,7 @@ describe("InteractiveMap", () => {
   function getMapInstance(): {
     flyTo: jest.Mock;
     getCenter: jest.Mock;
+    setMaxBounds: jest.Mock;
   } {
     const Map = require("mapbox-gl").Map;
     return Map.mock.results[Map.mock.results.length - 1].value;
@@ -169,12 +170,19 @@ describe("InteractiveMap", () => {
     );
     expect(getMapInstance().flyTo).toHaveBeenCalledTimes(1);
 
+    const maxBoundsCallsBeforeInterruption =
+      getMapInstance().setMaxBounds.mock.calls.length;
     act(() => {
       mockMapHandlers.dragstart[0]({ originalEvent: new MouseEvent("mousedown") });
     });
     expect(onUserCameraInteraction).toHaveBeenCalledWith({
       action: "pan",
       center: { lat: 32.7493, lon: -117.2511 },
+    });
+    await waitFor(() => {
+      expect(getMapInstance().setMaxBounds.mock.calls.length).toBeGreaterThan(
+        maxBoundsCallsBeforeInterruption,
+      );
     });
 
     act(() => {

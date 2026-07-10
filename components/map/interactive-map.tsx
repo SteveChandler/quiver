@@ -1742,10 +1742,7 @@ export function InteractiveMap({
 
     // Stable wrapper — delegates to the latest debounced handler via ref
     const moveEndHandler = () => {
-      if (
-        process.env.NODE_ENV !== "production" ||
-        process.env.NEXT_PUBLIC_PLAYWRIGHT_TEST === "true"
-      ) {
+      if (process.env.NODE_ENV !== "production") {
         const center = map.getCenter();
         (
           window as Window & {
@@ -1789,6 +1786,14 @@ export function InteractiveMap({
           ? (event as { originalEvent?: unknown }).originalEvent
           : undefined;
       if (!originalEvent) return;
+      const pendingLeashCommand = pendingLeashCommandRef.current;
+      if (pendingLeashCommand) {
+        pendingLeashCommandRef.current = null;
+        appliedLeashKeyRef.current = null;
+        setLeashSuspendedCommandId((current) =>
+          current === pendingLeashCommand.id ? null : current,
+        );
+      }
       const center = map.getCenter();
       onUserCameraInteractionRef.current?.({
         action,
