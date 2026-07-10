@@ -377,6 +377,21 @@ describe("InteractiveMap", () => {
       ).length;
     }
 
+    function getBeachMarkerBadge(beachId: string): HTMLElement {
+      const Marker = require("mapbox-gl").Marker;
+      const matchingCalls = Marker.mock.calls.filter(
+        ([options]: [{ element?: HTMLElement }]) =>
+          options?.element?.getAttribute("data-beach-id") === beachId
+      );
+      const wrapper = matchingCalls[matchingCalls.length - 1]?.[0]
+        ?.element as HTMLElement | undefined;
+      const badge = wrapper?.querySelector<HTMLElement>(
+        '[data-marker-badge="true"]'
+      );
+      if (!badge) throw new Error(`No tappable badge for beach ${beachId}`);
+      return badge;
+    }
+
     function fireMapClick(lng: number, lat: number): void {
       for (const handler of mockMapHandlers["click"] ?? []) {
         handler({ lngLat: { lng, lat } });
@@ -429,6 +444,41 @@ describe("InteractiveMap", () => {
       rerender(<InteractiveMap {...renderProps(0.64)} />);
       rerender(<InteractiveMap {...renderProps(0.72)} />);
       expect(calloutMarkerCallCount()).toBe(2);
+    });
+
+    it("notifies the embed host when a pin opens, but not when it toggles off", async () => {
+      const { InteractiveMap } = await import(
+        "@/components/map/interactive-map"
+      );
+      const onLocationClick = jest.fn();
+
+      render(
+        <InteractiveMap
+          beaches={[beach]}
+          autoNavigateOnMarkerClick={false}
+          disableBeachClustering
+          markerDisplay="points"
+          showConditionsOnTap
+          onLocationClick={onLocationClick}
+        />
+      );
+
+      await waitFor(() => {
+        expect(getBeachMarkerBadge(beach.id)).toHaveAttribute(
+          "data-marker-badge",
+          "true"
+        );
+      });
+
+      fireEvent.click(getBeachMarkerBadge(beach.id));
+      expect(onLocationClick).toHaveBeenCalledTimes(1);
+      expect(onLocationClick).toHaveBeenCalledWith(
+        expect.objectContaining({ id: beach.id })
+      );
+      expect(calloutMarkerCallCount()).toBe(1);
+
+      fireEvent.click(getBeachMarkerBadge(beach.id));
+      expect(onLocationClick).toHaveBeenCalledTimes(1);
     });
   });
 });

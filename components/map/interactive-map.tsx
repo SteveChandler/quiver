@@ -878,7 +878,6 @@ export function InteractiveMap({
           if (showConditionsOnTap) {
             if (decideCalloutAction(activeCalloutRef.current?.beachId ?? null, beach.id) === "toggle-off") {
               removeActiveCallout();
-              onLocationClick?.(beach);
               return;
             }
             showCalloutForBeach(beach);
