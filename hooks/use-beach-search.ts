@@ -44,9 +44,9 @@ export function useBeachSearch() {
   // State for beaches near the selected beach (not user location)
   const [selectedBeachNearby, setSelectedBeachNearby] = useState<Beach[]>([]);
 
-  // Track in-flight requests to prevent duplicates
-  const nearbyRequestInFlightRef = useRef(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
+  // Nearby lookups can overlap when the user chooses a region while the initial
+  // location request is still resolving. Only the latest intent may update state.
+  const nearbyRequestIdRef = useRef(0);
   const allBeachesLoadingRef = useRef(false);
 
   // Memoize fetch function to prevent infinite loops - only create once
@@ -253,24 +253,20 @@ export function useBeachSearch() {
 
   const loadNearbyBeaches = useCallback(
     async (latitude: number, longitude: number) => {
-      // Prevent duplicate requests - check ref first (more reliable than state)
-      if (nearbyRequestInFlightRef.current) {
-        return;
-      }
-
-      // Cancel any previous request
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-
-      // Mark request as in-flight
-      nearbyRequestInFlightRef.current = true;
-      abortControllerRef.current = new AbortController();
+      const requestId = nearbyRequestIdRef.current + 1;
+      nearbyRequestIdRef.current = requestId;
 
       setBeachesState((prev) => ({
         ...prev,
         loading: true,
         error: null,
+      }));
+      // Do not keep rendering the previous region while the latest explicit
+      // location loads. The map will otherwise rebuild its camera leash from
+      // stale beaches and clamp the new command back to the old coast.
+      setState((prev) => ({
+        ...prev,
+        filteredBeaches: [],
       }));
  
       try {
@@ -280,10 +276,7 @@ export function useBeachSearch() {
           MAX_DISTANCE_MILES
         );
 
-        // Check if request was cancelled
-        if (abortControllerRef.current?.signal.aborted) {
-          return;
-        }
+        if (requestId !== nearbyRequestIdRef.current) return;
 
         if (result.success && result.data && result.data.length > 0) {
           if ((result as any).fallbackUsed) {
@@ -324,6 +317,7 @@ export function useBeachSearch() {
           }));
         }
       } catch (error) {
+        if (requestId !== nearbyRequestIdRef.current) return;
         console.error("Error loading nearby beaches:", error);
         setBeachesState((prev) => ({
           ...prev,
@@ -333,9 +327,6 @@ export function useBeachSearch() {
               ? error.message
               : "Failed to load nearby beaches",
         }));
-      } finally {
-        // Clear in-flight flag
-        nearbyRequestInFlightRef.current = false;
       }
     },
     [] // No dependencies to prevent recreation and infinite loops

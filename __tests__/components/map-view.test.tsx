@@ -341,13 +341,21 @@ describe("MapView", () => {
       lat: 21.28,
       lon: -157.85,
     } as Beach;
-    render(<MapView />);
+    const { rerender } = render(<MapView />);
 
     fireEvent.click(screen.getByRole("button", { name: "Regions and filters" }));
     fireEvent.click(screen.getByRole("button", { name: "Hawaii" }));
     expect(
       (lastMapContentProps.cameraCommand as { source: string }).source,
     ).toBe("region");
+
+    mockLoadNearbyBeaches.mockClear();
+    mockUserLocation = { lat: 32.7702, lon: -117.2525 };
+    rerender(<MapView />);
+    expect(mockLoadNearbyBeaches).not.toHaveBeenCalledWith(
+      32.7702,
+      -117.2525,
+    );
 
     act(() => {
       (lastMapContentProps.onBeachSelect as (beach: Beach) => void)(alaMoana);

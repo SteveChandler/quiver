@@ -111,6 +111,11 @@ describe("InteractiveMap", () => {
     mockMarkerInstances.length = 0;
     for (const key of Object.keys(mockMapHandlers)) delete mockMapHandlers[key];
     mockUser = null;
+    delete (
+      window as typeof window & {
+        __quiverMapDebugCenter?: { lat: number; lon: number };
+      }
+    ).__quiverMapDebugCenter;
   });
 
   function getLastCustomSpotMarkerElement(id: string): HTMLElement {
@@ -171,6 +176,43 @@ describe("InteractiveMap", () => {
       action: "pan",
       center: { lat: 32.7493, lon: -117.2511 },
     });
+
+    act(() => {
+      mockMapHandlers.zoomstart[0]({ type: "zoomstart" });
+    });
+    expect(onUserCameraInteraction).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      mockMapHandlers.zoomstart[0]({
+        originalEvent: new WheelEvent("wheel"),
+      });
+    });
+    expect(onUserCameraInteraction).toHaveBeenLastCalledWith({
+      action: "zoom",
+      center: { lat: 32.7493, lon: -117.2511 },
+    });
+  });
+
+  it("clears the debug center during map setup and cleanup", async () => {
+    const mapWindow = window as typeof window & {
+      __quiverMapDebugCenter?: { lat: number; lon: number };
+    };
+    mapWindow.__quiverMapDebugCenter = { lat: 1, lon: 2 };
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+
+    const { unmount } = render(<InteractiveMap beaches={[]} />);
+
+    expect(mapWindow.__quiverMapDebugCenter).toBeUndefined();
+    act(() => {
+      mockMapHandlers.moveend[0]();
+    });
+    expect(mapWindow.__quiverMapDebugCenter).toEqual({
+      lat: 32.7493,
+      lon: -117.2511,
+    });
+
+    unmount();
+    expect(mapWindow.__quiverMapDebugCenter).toBeUndefined();
   });
 
   it("does not delegate map clicks from markers or conditions callouts", async () => {

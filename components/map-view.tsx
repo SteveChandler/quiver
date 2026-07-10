@@ -158,6 +158,14 @@ export function MapView() {
       return;
     }
 
+    const locationOwnsBeachLoading =
+      cameraOwner === "initial" ||
+      cameraCommand?.source === "gps" ||
+      cameraCommand?.source === "fallback";
+    if (!locationOwnsBeachLoading) {
+      return;
+    }
+
     if (
       cameraOwner === "initial" &&
       (cameraCommand?.source === "home" ||

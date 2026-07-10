@@ -17,6 +17,127 @@ interface MapDebugCenter {
   lon: number;
 }
 
+interface DelayedGeolocationController {
+  pendingCount: number;
+  resolve: () => void;
+}
+
+async function installDelayedSanDiegoGeolocation(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const mapWindow = window as Window & {
+      __quiverDelayedGeolocation?: DelayedGeolocationController;
+      __quiverMapDebugCenter?: MapDebugCenter;
+    };
+    const pendingCallbacks: PositionCallback[] = [];
+    let released = false;
+
+    const createCoordinates = (): GeolocationCoordinates => ({
+      accuracy: 5,
+      altitude: null,
+      altitudeAccuracy: null,
+      heading: null,
+      latitude: 32.7702,
+      longitude: -117.2525,
+      speed: null,
+      toJSON: () => ({
+        accuracy: 5,
+        altitude: null,
+        altitudeAccuracy: null,
+        heading: null,
+        latitude: 32.7702,
+        longitude: -117.2525,
+        speed: null,
+      }),
+    });
+    const createPosition = (): GeolocationPosition => {
+      const coords = createCoordinates();
+      const timestamp = Date.now();
+      return {
+        coords,
+        timestamp,
+        toJSON: () => ({ coords: coords.toJSON(), timestamp }),
+      };
+    };
+    const deliver = (callback: PositionCallback): void => {
+      callback(createPosition());
+    };
+
+    const geolocation: Geolocation = {
+      clearWatch: () => undefined,
+      getCurrentPosition: (success) => {
+        if (released) {
+          window.setTimeout(() => deliver(success), 0);
+          return;
+        }
+        pendingCallbacks.push(success);
+        if (mapWindow.__quiverDelayedGeolocation) {
+          mapWindow.__quiverDelayedGeolocation.pendingCount =
+            pendingCallbacks.length;
+        }
+      },
+      watchPosition: (success) => {
+        if (released) {
+          window.setTimeout(() => deliver(success), 0);
+        } else {
+          pendingCallbacks.push(success);
+        }
+        return 1;
+      },
+    };
+
+    Object.defineProperty(window.navigator, 'geolocation', {
+      configurable: true,
+      value: geolocation,
+    });
+
+    const originalMatchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query: string): MediaQueryList => {
+      if (query !== '(hover: hover)') return originalMatchMedia(query);
+      return {
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        dispatchEvent: () => true,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+      };
+    };
+
+    mapWindow.__quiverMapDebugCenter = undefined;
+    mapWindow.__quiverDelayedGeolocation = {
+      pendingCount: 0,
+      resolve: () => {
+        released = true;
+        const callbacks = pendingCallbacks.splice(0);
+        mapWindow.__quiverDelayedGeolocation!.pendingCount = 0;
+        callbacks.forEach(deliver);
+      },
+    };
+  });
+}
+
+async function readPendingGeolocationCount(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const mapWindow = window as Window & {
+      __quiverDelayedGeolocation?: DelayedGeolocationController;
+    };
+    return mapWindow.__quiverDelayedGeolocation?.pendingCount ?? 0;
+  });
+}
+
+async function resolveDelayedGeolocation(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const mapWindow = window as Window & {
+      __quiverDelayedGeolocation?: DelayedGeolocationController;
+    };
+    mapWindow.__quiverDelayedGeolocation?.resolve();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  });
+}
+
 function regionForCenter(center: MapDebugCenter): MapRegion {
   if (
     center.lat >= 18.8 &&
@@ -50,6 +171,10 @@ async function readMapCenter(
   });
 
   return center ? { ...center, region: regionForCenter(center) } : null;
+}
+
+async function readMapRegion(page: Page): Promise<MapRegion> {
+  return (await readMapCenter(page))?.region ?? 'unknown';
 }
 
 async function tapBeachMarker(page: Page, beachName: string): Promise<void> {
@@ -514,6 +639,8 @@ test.describe('Map Page - Geolocation', () => {
 test.describe('Map Page - Camera Ownership', () => {
   let errorCapture: ErrorCapture;
 
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test.beforeEach(async ({ page }) => {
     errorCapture = setupErrorDetection(page);
   });
@@ -524,20 +651,40 @@ test.describe('Map Page - Camera Ownership', () => {
 
   test('Hawaii exploration is not reclaimed by San Diego GPS', async ({ page, context }) => {
     await context.grantPermissions(['geolocation']);
-    await context.setGeolocation({ latitude: 32.7702, longitude: -117.2525 });
+    await installDelayedSanDiegoGeolocation(page);
     await page.goto('/map');
     await dismissMapEntryOverlay(page);
+    await expect
+      .poll(() => readPendingGeolocationCount(page), { timeout: TIMEOUTS.long })
+      .toBeGreaterThan(0);
+    await expect
+      .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
+      .toBe('san-diego');
 
     await page.getByRole('button', { name: 'Regions and filters' }).click();
     await page.getByRole('button', { name: 'Hawaii' }).click();
-    await expect.poll(() => readMapCenter(page)).toMatchObject({ region: 'hawaii' });
+    await expect
+      .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
+      .toBe('hawaii');
 
     await tapBeachMarker(page, 'Ala Moana Bowls');
     await expect(page.getByText('Ala Moana Bowls')).toBeVisible();
-    await expect.poll(() => readMapCenter(page)).toMatchObject({ region: 'hawaii' });
+    await expect
+      .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
+      .toBe('hawaii');
+    await expect(page).toHaveURL(/\/map(?:\?.*)?$/);
+
+    await resolveDelayedGeolocation(page);
+    await expect(page).toHaveURL(/\/map(?:\?.*)?$/);
+    await expect
+      .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
+      .toBe('hawaii');
 
     await page.getByRole('button', { name: 'Use Near Me' }).click();
-    await expect.poll(() => readMapCenter(page)).toMatchObject({ region: 'san-diego' });
+    await expect
+      .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
+      .toBe('san-diego');
+    await expect(page).toHaveURL(/\/map(?:\?.*)?$/);
   });
 });
 

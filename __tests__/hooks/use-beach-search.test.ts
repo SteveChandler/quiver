@@ -217,6 +217,58 @@ describe("useBeachSearch", () => {
       expect(result.current.beaches).toHaveLength(0);
       expect(result.current.error).toBe("Location Error");
     });
+
+    it("keeps the latest nearby request when an older request resolves last", async () => {
+      const sanDiegoBeaches = createMockBeaches(2) as any[];
+      const hawaiiBeaches = createMockBeaches(3).map((beach, index) => ({
+        ...beach,
+        id: `hawaii-${index}`,
+        name: `Hawaii Beach ${index}`,
+      })) as any[];
+      type NearbyResult = Awaited<ReturnType<typeof getNearbyBeaches>>;
+      let resolveSanDiego!: (value: NearbyResult) => void;
+      let resolveHawaii!: (value: NearbyResult) => void;
+      mockGetNearbyBeaches
+        .mockReturnValueOnce(
+          new Promise((resolve) => {
+            resolveSanDiego = resolve;
+          }) as ReturnType<typeof getNearbyBeaches>,
+        )
+        .mockReturnValueOnce(
+          new Promise((resolve) => {
+            resolveHawaii = resolve;
+          }) as ReturnType<typeof getNearbyBeaches>,
+        );
+      const { result } = renderHook(() => useBeachSearch());
+
+      let sanDiegoRequest!: Promise<void>;
+      let hawaiiRequest!: Promise<void>;
+      act(() => {
+        sanDiegoRequest = result.current.loadNearbyBeaches(32.7, -117.2);
+        hawaiiRequest = result.current.loadNearbyBeaches(21.66, -158.06);
+      });
+
+      await act(async () => {
+        resolveHawaii({
+          success: true,
+          data: hawaiiBeaches,
+          fallbackUsed: false,
+        });
+        await hawaiiRequest;
+      });
+      expect(result.current.beaches).toEqual(hawaiiBeaches);
+
+      await act(async () => {
+        resolveSanDiego({
+          success: true,
+          data: sanDiegoBeaches,
+          fallbackUsed: false,
+        });
+        await sanDiegoRequest;
+      });
+      expect(result.current.beaches).toEqual(hawaiiBeaches);
+      expect(mockGetNearbyBeaches).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe("beach selection", () => {

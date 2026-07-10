@@ -131,6 +131,20 @@ const PARTICLE_DASH_LENGTH_SCALE: Record<FlowComponentId, number> = {
 
 const EMPTY_FLOW_FIELD: FlowField = { cols: 0, rows: 0, cells: [] };
 
+function clearMapDebugCenter(): void {
+  if (
+    typeof window !== "undefined" &&
+    (process.env.NODE_ENV !== "production" ||
+      process.env.NEXT_PUBLIC_PLAYWRIGHT_TEST === "true")
+  ) {
+    (
+      window as Window & {
+        __quiverMapDebugCenter?: { lat: number; lon: number };
+      }
+    ).__quiverMapDebugCenter = undefined;
+  }
+}
+
 function partitionAtTimelinePosition(
   beachId: string,
   position: number,
@@ -382,6 +396,7 @@ export function InteractiveMap({
     null
   );
   const lastPopulateKeyRef = useRef<string | null>(null);
+  const populateRequestIdRef = useRef(0);
   const lastViewportRef = useRef<{
     lat: number;
     lng: number;
@@ -441,6 +456,7 @@ export function InteractiveMap({
   // release+re-apply when the corridor hasn't meaningfully changed — re-applying on
   // every beach-list update is what made the camera bounce inland and back on load.
   const appliedLeashKeyRef = useRef<string | null>(null);
+  const cameraCommandLeashSuspendedRef = useRef(false);
   const swellLayerIdRef = useRef<SwellLayerId>(swellLayerId);
   // The shape of the mounted particle layer(s). Only a shape change forces a
   // teardown+re-add (which re-seeds and looks like a jitter); same-shape switches
@@ -739,11 +755,13 @@ export function InteractiveMap({
   // Helper: full cleanup
   const cleanupMap = useCallback(() => {
     cleanupMarkers();
+    clearMapDebugCenter();
     if (mapRef.current) {
       mapRef.current.remove();
       mapRef.current = null;
     }
     lastPopulateKeyRef.current = null;
+    populateRequestIdRef.current += 1;
     selectedBeachIdRef.current = null;
     hoveredBeachIdRef.current = null;
     favoriteBeachIdsRef.current = new Set();
@@ -1017,6 +1035,8 @@ export function InteractiveMap({
       }
 
       lastPopulateKeyRef.current = populateKey;
+      const requestId = populateRequestIdRef.current + 1;
+      populateRequestIdRef.current = requestId;
       try {
         // Clean up existing markers when provided beaches change
         if (beaches && beaches.length > 0) {
@@ -1030,6 +1050,7 @@ export function InteractiveMap({
           { fetchNearbyBeaches: fetchNearbyBeaches.current },
           { timeline: swellTimelineMode },
         );
+        if (requestId !== populateRequestIdRef.current) return;
 
         // Store wave heights and water temps for clustering
         setWaveHeightMap(result.waveHeightMap);
@@ -1043,6 +1064,7 @@ export function InteractiveMap({
         onWaveHeightsChangeRef.current?.(result.waveHeightMap);
         onDisplayForecastsChangeRef.current?.(result.displayForecastMap);
       } catch (e) {
+        if (requestId !== populateRequestIdRef.current) return;
         lastPopulateKeyRef.current = null;
         console.error("Error populating locations", e);
       }
@@ -1233,10 +1255,11 @@ export function InteractiveMap({
 
   const releaseSwellFieldLeash = useCallback((map: mapboxgl.Map): void => {
     const captured = zoomLimitsCaptureRef.current;
-    // Nothing was ever leashed — leave the free camera untouched.
-    if (!captured) return;
-    // Runtime accepts null to clear; the public typings only expose the setter.
+    // Clear first even if the capture was already consumed. Async swell loads can
+    // apply bounds between camera commands, and a stale bound must never clamp a
+    // new explicit region or pin command back to the prior coast.
     map.setMaxBounds(null as unknown as mapboxgl.LngLatBoundsLike);
+    if (!captured) return;
     map.setMinZoom(captured.minZoom);
     map.setMaxZoom(captured.maxZoom);
     zoomLimitsCaptureRef.current = null;
@@ -1359,6 +1382,12 @@ export function InteractiveMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !isMapReady) return;
+
+    if (cameraCommandLeashSuspendedRef.current) {
+      releaseSwellFieldLeash(map);
+      appliedLeashKeyRef.current = null;
+      return;
+    }
 
     // Wait until beaches load before constraining; never leash an empty footprint.
     if (!showSwellField || swellFieldBeaches.length === 0) {
@@ -1542,6 +1571,8 @@ export function InteractiveMap({
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;
 
+    clearMapDebugCenter();
+
     // Capture mount timestamp for load_time_ms / time_to_failure_ms metadata.
     mountedAtRef.current =
       typeof performance !== "undefined" ? performance.now() : 0;
@@ -1696,6 +1727,10 @@ export function InteractiveMap({
           }
         ).__quiverMapDebugCenter = { lat: center.lat, lon: center.lng };
       }
+      if (cameraCommandLeashSuspendedRef.current) {
+        cameraCommandLeashSuspendedRef.current = false;
+        appliedLeashKeyRef.current = null;
+      }
       handleMoveEndRef.current?.();
     };
     map.on("moveend", moveEndHandler);
@@ -1715,8 +1750,12 @@ export function InteractiveMap({
 
     const reportUserCameraInteraction = (
       action: "pan" | "zoom" | "rotate",
-    ) => (event: { originalEvent?: Event }): void => {
-      if (!event.originalEvent) return;
+    ) => (event: unknown): void => {
+      const originalEvent =
+        typeof event === "object" && event !== null && "originalEvent" in event
+          ? (event as { originalEvent?: unknown }).originalEvent
+          : undefined;
+      if (!originalEvent) return;
       const center = map.getCenter();
       onUserCameraInteractionRef.current?.({
         action,
@@ -1872,6 +1911,13 @@ export function InteractiveMap({
     if (!isMapReady || !map || !cameraCommand) return;
     if (appliedCameraCommandIdRef.current === cameraCommand.id) return;
 
+    // A command represents a new location intent. Invalidate any prior viewport
+    // load before releasing its coastal leash so stale data cannot constrain the
+    // camera back to the previous region when that request resolves.
+    populateRequestIdRef.current += 1;
+    lastPopulateKeyRef.current = null;
+    cameraCommandLeashSuspendedRef.current = true;
+    setSwellFieldBeaches([]);
     releaseSwellFieldLeash(map);
     if (cameraCommand.bounds) {
       map.fitBounds(cameraCommand.bounds, {
