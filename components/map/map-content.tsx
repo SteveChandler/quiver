@@ -10,6 +10,10 @@ import type { Beach } from "@/types/database";
 import { LocationTimeoutBanner } from "@/components/map/location-timeout-banner";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import type { CustomSpot } from "@/hooks/use-custom-spots";
+import type {
+  MapCameraCommand,
+  MapCameraOwner,
+} from "@/components/map/map-camera-command";
 
 const DEFAULT_MAP_CENTER = { lat: 32.7702, lon: -117.2525 } as const;
 
@@ -40,6 +44,8 @@ interface MapContentProps {
     bounds?: [[number, number], [number, number]];
     zoom?: number;
   } | null;
+  cameraOwner?: MapCameraOwner;
+  cameraCommand?: MapCameraCommand | null;
   onGetUserLocation: () => void;
   onUseDefaultLocation: () => void;
   onSearchPromptClick?: () => void;
@@ -53,6 +59,10 @@ interface MapContentProps {
   onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
   onDisplayForecastsChange?: (map: Map<string, ForecastDisplay | undefined>) => void;
   onMapClick?: () => void;
+  onUserCameraInteraction?: (interaction: {
+    action: "pan" | "zoom" | "rotate";
+    center: { lat: number; lon: number };
+  }) => void;
   autoNavigateOnMarkerClick?: boolean;
   showSwellField?: boolean;
   swellLayerId?: import("@/components/map/swell-map-theme").SwellLayerId;
@@ -84,6 +94,8 @@ export function MapContent({
   customSpots,
   searchQuery,
   regionViewport,
+  cameraOwner,
+  cameraCommand,
   onGetUserLocation,
   onUseDefaultLocation,
   onSearchPromptClick,
@@ -92,6 +104,7 @@ export function MapContent({
   onWaveHeightsChange,
   onDisplayForecastsChange,
   onMapClick,
+  onUserCameraInteraction,
   autoNavigateOnMarkerClick,
   showSwellField,
   swellLayerId,
@@ -101,6 +114,15 @@ export function MapContent({
   onSwellTimelineChange,
 }: MapContentProps) {
   const mapCenterState = useMemo(() => {
+    if (
+      cameraCommand?.center &&
+      hasValidCoordinates(cameraCommand.center.lat, cameraCommand.center.lon)
+    ) {
+      return {
+        center: cameraCommand.center,
+        instanceKey: "camera-command",
+      };
+    }
     if (
       selectedBeach &&
       hasValidCoordinates(selectedBeach.lat, selectedBeach.lon)
@@ -148,7 +170,14 @@ export function MapContent({
       center: DEFAULT_MAP_CENTER,
       instanceKey: "nearby",
     };
-  }, [selectedBeach, searchQuery, filteredBeaches, focusCenter, userLocation]);
+  }, [
+    cameraCommand,
+    selectedBeach,
+    searchQuery,
+    filteredBeaches,
+    focusCenter,
+    userLocation,
+  ]);
   const mapCenter = mapCenterState.center;
   const showLocationDeniedPrompt =
     usingDefaultLocation &&
@@ -246,11 +275,13 @@ export function MapContent({
       >
         <DataErrorBoundary dataType="map data" componentName="InteractiveMap">
           <InteractiveMap
-            key={mapCenterState.instanceKey}
             initialCenter={initialCenterArray}
             initialZoom={12}
             onLocationClick={onBeachSelect}
             onMapClick={onMapClick ? () => onMapClick() : undefined}
+            cameraOwner={cameraOwner}
+            cameraCommand={cameraCommand}
+            onUserCameraInteraction={onUserCameraInteraction}
             regionViewport={regionViewport}
             beaches={filteredBeaches}
             customSpots={customSpots}

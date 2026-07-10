@@ -86,6 +86,7 @@ import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { CustomSpot } from "@/hooks/use-custom-spots";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
+import type { MapCameraCommand, MapCameraOwner } from "@/components/map/map-camera-command";
 
 // Mapbox CSS is imported globally in app/globals.css
 
@@ -177,6 +178,12 @@ interface InteractiveMapProps {
   initialZoom?: number;
   onLocationClick?: (beach: Beach) => void;
   onMapClick?: (latlng: mapboxgl.LngLat) => void;
+  cameraOwner?: MapCameraOwner;
+  cameraCommand?: MapCameraCommand | null;
+  onUserCameraInteraction?: (interaction: {
+    action: "pan" | "zoom" | "rotate";
+    center: { lat: number; lon: number };
+  }) => void;
   onLocationMove?: (latlng: mapboxgl.LngLat, beach: Beach) => void;
   onBoundsChange?: (bounds: { west: number; south: number; east: number; north: number }) => void;
   onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
@@ -319,6 +326,8 @@ export function InteractiveMap({
   initialZoom = 13,
   onLocationClick,
   onMapClick,
+  cameraCommand,
+  onUserCameraInteraction,
   onLocationMove,
   onBoundsChange,
   onWaveHeightsChange,
@@ -444,6 +453,7 @@ export function InteractiveMap({
   const hoveredBeachIdRef = useRef<string | null>(null);
   const partitionsMapRef = useRef<Map<string, SwellPartition>>(new Map());
   const lastRegionViewportKeyRef = useRef<string | null>(null);
+  const appliedCameraCommandIdRef = useRef<number | null>(null);
   const clusterCleanupRef = useRef<Map<string, () => void>>(new Map());
   const onBoundsChangeRef = useRef(onBoundsChange);
   const onWaveHeightsChangeRef = useRef(onWaveHeightsChange);
@@ -453,6 +463,7 @@ export function InteractiveMap({
   const onMapLoadFailureRef = useRef(onMapLoadFailure);
   const initialCenterRef = useRef(initialCenter);
   const onMapClickRef = useRef(onMapClick);
+  const onUserCameraInteractionRef = useRef(onUserCameraInteraction);
   // Typed broadly; handleMoveEnd & populateLocations are assigned via sync effects below
   const handleMoveEndRef = useRef<((...args: any[]) => any) | null>(null);
   const populateLocationsRef = useRef<((lat: number, lng: number) => Promise<void>) | null>(null);
@@ -528,12 +539,12 @@ export function InteractiveMap({
   }, [onMapLoadFailure]);
 
   useEffect(() => {
-    initialCenterRef.current = initialCenter;
-  }, [initialCenter]);
-
-  useEffect(() => {
     onMapClickRef.current = onMapClick;
   }, [onMapClick]);
+
+  useEffect(() => {
+    onUserCameraInteractionRef.current = onUserCameraInteraction;
+  }, [onUserCameraInteraction]);
 
   useEffect(() => {
     conditionsCtxRef.current = {
@@ -1190,7 +1201,8 @@ export function InteractiveMap({
       const target = e.originalEvent?.target;
       if (
         target instanceof Element &&
-        target.closest('[data-testid="beach-marker"]')
+        (target.closest('[data-testid="beach-marker"]') ||
+          target.closest('[data-conditions-callout="true"]'))
       ) {
         return;
       }
@@ -1676,16 +1688,45 @@ export function InteractiveMap({
     const moveEndHandler = () => handleMoveEndRef.current?.();
     map.on("moveend", moveEndHandler);
 
-    // Map click — delegates to the latest onMapClick via ref
-    map.on("click", (e) => {
+    const handleMapClick = (e: mapboxgl.MapMouseEvent): void => {
+      const target = e.originalEvent?.target;
+      if (
+        target instanceof Element &&
+        (target.closest('[data-testid="beach-marker"]') ||
+          target.closest('[data-conditions-callout="true"]'))
+      ) {
+        return;
+      }
       onMapClickRef.current?.(e.lngLat);
-    });
+    };
+    map.on("click", handleMapClick);
+
+    const reportUserCameraInteraction = (
+      action: "pan" | "zoom" | "rotate",
+    ) => (event: { originalEvent?: Event }): void => {
+      if (!event.originalEvent) return;
+      const center = map.getCenter();
+      onUserCameraInteractionRef.current?.({
+        action,
+        center: { lat: center.lat, lon: center.lng },
+      });
+    };
+    const dragStartHandler = reportUserCameraInteraction("pan");
+    const zoomStartHandler = reportUserCameraInteraction("zoom");
+    const rotateStartHandler = reportUserCameraInteraction("rotate");
+    map.on("dragstart", dragStartHandler);
+    map.on("zoomstart", zoomStartHandler);
+    map.on("rotatestart", rotateStartHandler);
 
     return () => {
       map.off("load", markMapReady);
       map.off("styledata", markMapReady);
       map.off("idle", markMapReady);
       map.off("moveend", moveEndHandler);
+      map.off("click", handleMapClick);
+      map.off("dragstart", dragStartHandler);
+      map.off("zoomstart", zoomStartHandler);
+      map.off("rotatestart", rotateStartHandler);
       (handleMoveEndRef.current as any)?.cancel?.();
       cleanupMap();
     };
@@ -1812,31 +1853,28 @@ export function InteractiveMap({
     conditionSummaryMap,
   ]);
 
-  // Update map center when initialCenter prop changes
+  // Camera commands are monotonic. A command is applied once, after the map is
+  // ready, and user gestures never create a replacement command.
   useEffect(() => {
-    if (isMapReady && mapRef.current && initialCenter) {
-      const currentCenter = mapRef.current.getCenter();
-      const [newLat, newLng] = initialCenter;
+    const map = mapRef.current;
+    if (!isMapReady || !map || !cameraCommand) return;
+    if (appliedCameraCommandIdRef.current === cameraCommand.id) return;
 
-      // Only update if the center has actually changed significantly (avoid unnecessary updates)
-      const threshold = 0.001; // ~100 meters
-      const latDiff = Math.abs(currentCenter.lat - newLat);
-      const lngDiff = Math.abs(currentCenter.lng - newLng);
-
-      if (latDiff > threshold || lngDiff > threshold) {
-        const map = mapRef.current;
-        releaseSwellFieldLeash(map);
-        map.flyTo({
-          center: [newLng, newLat],
-          zoom: map.getZoom(),
-          duration: 1000,
-        });
-
-        // Also populate locations for the new center
-        populateLocationsRef.current?.(newLat, newLng);
-      }
+    releaseSwellFieldLeash(map);
+    if (cameraCommand.bounds) {
+      map.fitBounds(cameraCommand.bounds, {
+        padding: 48,
+        maxZoom: cameraCommand.zoom ?? 13,
+      });
+    } else if (cameraCommand.center) {
+      map.flyTo({
+        center: [cameraCommand.center.lon, cameraCommand.center.lat],
+        zoom: cameraCommand.zoom ?? map.getZoom(),
+        duration: 800,
+      });
     }
-  }, [isMapReady, initialCenter, releaseSwellFieldLeash]);
+    appliedCameraCommandIdRef.current = cameraCommand.id;
+  }, [cameraCommand, isMapReady, releaseSwellFieldLeash]);
 
   // Re-populate locations when beaches prop changes (filters applied)
   useEffect(() => {

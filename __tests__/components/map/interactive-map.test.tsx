@@ -123,6 +123,79 @@ describe("InteractiveMap", () => {
     return matchingCalls[matchingCalls.length - 1][0].element;
   }
 
+  function getMapInstance(): {
+    flyTo: jest.Mock;
+    getCenter: jest.Mock;
+  } {
+    const Map = require("mapbox-gl").Map;
+    return Map.mock.results[Map.mock.results.length - 1].value;
+  }
+
+  it("applies each camera command once and reports real camera gestures", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onUserCameraInteraction = jest.fn();
+    const command = {
+      id: 1,
+      source: "region" as const,
+      center: { lat: 21.28, lon: -157.85 },
+    };
+    const { rerender } = render(
+      <InteractiveMap
+        beaches={[]}
+        cameraCommand={command}
+        onUserCameraInteraction={onUserCameraInteraction}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getMapInstance().flyTo).toHaveBeenCalledWith({
+        center: [-157.85, 21.28],
+        zoom: 13,
+        duration: 800,
+      });
+    });
+
+    rerender(
+      <InteractiveMap
+        beaches={[]}
+        cameraCommand={command}
+        onUserCameraInteraction={onUserCameraInteraction}
+      />,
+    );
+    expect(getMapInstance().flyTo).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      mockMapHandlers.dragstart[0]({ originalEvent: new MouseEvent("mousedown") });
+    });
+    expect(onUserCameraInteraction).toHaveBeenCalledWith({
+      action: "pan",
+      center: { lat: 32.7493, lon: -117.2511 },
+    });
+  });
+
+  it("does not delegate map clicks from markers or conditions callouts", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onMapClick = jest.fn();
+    render(<InteractiveMap beaches={[]} onMapClick={onMapClick} />);
+
+    const marker = document.createElement("div");
+    marker.dataset.testid = "beach-marker";
+    const callout = document.createElement("div");
+    callout.dataset.conditionsCallout = "true";
+
+    act(() => {
+      mockMapHandlers.click[0]({
+        lngLat: { lat: 32.75, lng: -117.25 },
+        originalEvent: { target: marker },
+      });
+      mockMapHandlers.click[0]({
+        lngLat: { lat: 32.75, lng: -117.25 },
+        originalEvent: { target: callout },
+      });
+    });
+    expect(onMapClick).not.toHaveBeenCalled();
+  });
+
   it("creates distinct custom spot markers and filters invalid coordinates", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     const customSpots = [

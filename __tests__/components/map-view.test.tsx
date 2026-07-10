@@ -1,6 +1,7 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MapView } from "@/components/map-view";
+import type { Beach } from "@/types/database";
 
 const mockLoadNearbyBeaches = jest.fn();
 const mockRouterReplace = jest.fn();
@@ -83,6 +84,7 @@ jest.mock("@/hooks/use-custom-spots", () => ({
 
 const mockTrackMapEvent = jest.fn();
 const mockTrackQrRendered = jest.fn();
+let lastMapContentProps: Record<string, unknown> = {};
 
 jest.mock("@/hooks/use-track-event", () => ({
   useTrackEvent: () => ({ track: mockTrackMapEvent }),
@@ -103,28 +105,26 @@ jest.mock("qrcode.react", () => ({
 }));
 
 jest.mock("@/components/map/map-content", () => ({
-  MapContent: ({
-    autoNavigateOnMarkerClick,
-    customSpots,
-    loading,
-    showSwellField,
-    swellTimelineSteps,
-  }: {
-    autoNavigateOnMarkerClick?: boolean;
-    customSpots?: unknown[];
-    loading?: boolean;
-    showSwellField?: boolean;
-    swellTimelineSteps?: string[];
-  }) => (
+  MapContent: (props: Record<string, unknown>) => {
+    const {
+      autoNavigateOnMarkerClick,
+      customSpots,
+      loading,
+      showSwellField,
+      swellTimelineSteps,
+    } = props;
+    lastMapContentProps = props;
+    return (
     <div
       data-auto-navigate-on-marker-click={String(autoNavigateOnMarkerClick)}
-      data-custom-spot-count={String(customSpots?.length ?? 0)}
+      data-custom-spot-count={String((customSpots as unknown[] | undefined)?.length ?? 0)}
       data-loading={String(loading)}
       data-show-swell-field={String(showSwellField)}
-      data-swell-timeline-steps={swellTimelineSteps?.join(",") ?? ""}
+      data-swell-timeline-steps={(swellTimelineSteps as string[] | undefined)?.join(",") ?? ""}
       data-testid="map-content"
     />
-  ),
+    );
+  },
 }));
 
 describe("MapView", () => {
@@ -136,6 +136,7 @@ describe("MapView", () => {
     mockBeachLoading = false;
     mockHomeBeach = null;
     mockProfileLoading = false;
+    lastMapContentProps = {};
     try {
       window.localStorage.clear();
     } catch {
@@ -307,7 +308,9 @@ describe("MapView", () => {
 
     render(<MapView />);
 
-    await screen.findByTestId("map-content");
+    await waitFor(() => {
+      expect(lastMapContentProps.cameraCommand).not.toBeNull();
+    });
 
     expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(36.9512, -122.0258);
     expect(mockLoadNearbyBeaches).not.toHaveBeenCalledWith(32.7702, -117.2525);
@@ -323,6 +326,76 @@ describe("MapView", () => {
 
     expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(32.7702, -117.2525);
     expect(mockGetUserLocation).toHaveBeenCalled();
+  });
+
+  it("does not restore GPS ownership after region, pin, or map interaction", async () => {
+    const alaMoana = {
+      id: "ala-moana",
+      lat: 21.28,
+      lon: -157.85,
+    } as Beach;
+    render(<MapView />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Regions and filters" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hawaii" }));
+    expect(
+      (lastMapContentProps.cameraCommand as { source: string }).source,
+    ).toBe("region");
+
+    act(() => {
+      (lastMapContentProps.onBeachSelect as (beach: Beach) => void)(alaMoana);
+    });
+    expect(
+      (lastMapContentProps.cameraCommand as { source: string }).source,
+    ).toBe("pin");
+
+    act(() => {
+      (lastMapContentProps.onUserCameraInteraction as (interaction: {
+        action: "pan" | "zoom" | "rotate";
+        center: { lat: number; lon: number };
+      }) => void)({
+        action: "pan",
+        center: { lat: 21.28, lon: -157.85 },
+      });
+      (lastMapContentProps.onMapClick as () => void)();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(lastMapContentProps.cameraOwner).toBe("user");
+    expect(
+      (lastMapContentProps.cameraCommand as { source: string }).source,
+    ).toBe("pin");
+  });
+
+  it("issues a newer GPS command after user camera ownership", async () => {
+    render(<MapView />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await screen.findByTestId("map-content");
+
+    act(() => {
+      (lastMapContentProps.onUserCameraInteraction as (interaction: {
+        action: "pan" | "zoom" | "rotate";
+        center: { lat: number; lon: number };
+      }) => void)({
+        action: "pan",
+        center: { lat: 21.28, lon: -157.85 },
+      });
+    });
+    const previousId = (lastMapContentProps.cameraCommand as { id: number }).id;
+
+    act(() => {
+      (lastMapContentProps.onGetUserLocation as () => void)();
+    });
+
+    expect(lastMapContentProps.cameraOwner).toBe("explicit-command");
+    expect(lastMapContentProps.cameraCommand).toMatchObject({
+      id: previousId + 1,
+      source: "gps",
+    });
   });
 
   it("does not render the mobile bottom sheet and keeps marker navigation enabled on mobile", () => {

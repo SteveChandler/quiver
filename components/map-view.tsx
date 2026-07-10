@@ -13,6 +13,11 @@ import {
 } from "@/components/map/map-regions";
 import { MapContent } from "@/components/map/map-content";
 import { MapLearningPanel } from "@/components/map/map-learning-panel";
+import {
+  createCameraCommand,
+  type MapCameraCommand,
+  type MapCameraOwner,
+} from "@/components/map/map-camera-command";
 import { type SwellLayerId } from "@/components/map/swell-map-theme";
 import { useProfileContext } from "@/context/profile-context";
 import type { Beach } from "@/types/database";
@@ -71,11 +76,20 @@ export function MapView() {
   const pathname = usePathname();
   const isShareView = searchParams.get("share") === "1";
   const [showFieldGuide, setShowFieldGuide] = useState(false);
-  const [mapFocusCenter, setMapFocusCenter] = useState<{
-    lat: number;
-    lon: number;
-  } | null>(null);
+  const [cameraOwner, setCameraOwner] = useState<MapCameraOwner>("initial");
+  const [cameraCommand, setCameraCommand] = useState<MapCameraCommand | null>(null);
+  const cameraOwnerRef = useRef<MapCameraOwner>("initial");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const exploredCenterRef = useRef<{ lat: number; lon: number } | null>(null);
+
+  const issueCameraCommand = useCallback(
+    (input: Omit<MapCameraCommand, "id">, owner: MapCameraOwner) => {
+      setCameraCommand((previous) => createCameraCommand(previous, input));
+      cameraOwnerRef.current = owner;
+      setCameraOwner(owner);
+    },
+    [],
+  );
 
   // Tracks the last location we loaded beaches for, to prevent duplicate calls.
   // Seeded with the default center so the userLocation effect below doesn't fire
@@ -84,6 +98,7 @@ export function MapView() {
   const lastLocationRef = useRef<{ lat: number; lon: number } | null>(
     MISSION_BEACH_COORDS
   );
+  const initialCenterResolvedRef = useRef(false);
   const preserveSearchStateOnNextUrlClearRef = useRef(false);
 
   const [showSwellField, setShowSwellField] = useState(true);
@@ -136,9 +151,20 @@ export function MapView() {
       return;
     }
 
-    // A home/last/region focus center owns the map and its own beach load; don't
-    // override it with the userLocation (default or GPS) load.
-    if (mapFocusCenter) {
+    if (
+      cameraOwner === "initial" &&
+      (cameraCommand?.source === "home" ||
+        cameraCommand?.source === "last-viewed")
+    ) {
+      return;
+    }
+
+    if (
+      !initialCenterResolvedRef.current &&
+      homeBeach &&
+      isFiniteCoord(homeBeach.lat) &&
+      isFiniteCoord(homeBeach.lon)
+    ) {
       return;
     }
 
@@ -155,30 +181,42 @@ export function MapView() {
     // Update the last location and load nearby beaches
     lastLocationRef.current = userLocation;
     loadNearbyBeaches(userLocation.lat, userLocation.lon);
-  }, [userLocation, locationLoading, loadNearbyBeaches, mapFocusCenter]);
+  }, [
+    cameraCommand?.source,
+    cameraOwner,
+    homeBeach,
+    userLocation,
+    locationLoading,
+    loadNearbyBeaches,
+  ]);
 
   // Resolve the initial map center once, in priority order: signed-in home
   // beach → last beach the user was looking at → nearest to their GPS location.
   // Gated on `profileLoading` so a signed-in user's home beach wins before any
   // fallback fires (and we never prompt for GPS when we already have a center).
-  const initialCenterResolvedRef = useRef(false);
   useEffect(() => {
     if (initialCenterResolvedRef.current) return;
     if (profileLoading) return;
+    if (cameraOwner !== "initial") return;
 
     let cancelled = false;
 
-    const centerOn = (lat: number, lon: number) => {
+    const centerOn = (
+      lat: number,
+      lon: number,
+      source: "home" | "last-viewed",
+    ) => {
       if (cancelled) return;
+      if (cameraOwnerRef.current !== "initial") return;
       initialCenterResolvedRef.current = true;
-      setMapFocusCenter({ lat, lon });
+      issueCameraCommand({ source, center: { lat, lon } }, "initial");
       lastLocationRef.current = { lat, lon };
       void loadNearbyBeaches(lat, lon);
     };
 
     // 1. Signed-in home beach.
     if (homeBeach && isFiniteCoord(homeBeach.lat) && isFiniteCoord(homeBeach.lon)) {
-      centerOn(homeBeach.lat, homeBeach.lon);
+      centerOn(homeBeach.lat, homeBeach.lon, "home");
       return;
     }
 
@@ -186,14 +224,19 @@ export function MapView() {
     void (async () => {
       const last = await resolveLastViewedCenter();
       if (cancelled || initialCenterResolvedRef.current) return;
+      if (cameraOwnerRef.current !== "initial") return;
       if (last) {
-        centerOn(last.lat, last.lon);
+        centerOn(last.lat, last.lon, "last-viewed");
         return;
       }
       // 3. Nearest to the user — only now do we request GPS. Load the default
       // area first as a baseline so a denied or slow GPS still shows beaches;
       // a granted GPS fix updates userLocation and the effect above reloads.
       initialCenterResolvedRef.current = true;
+      issueCameraCommand(
+        { source: "fallback", center: MISSION_BEACH_COORDS },
+        "initial",
+      );
       lastLocationRef.current = { ...MISSION_BEACH_COORDS };
       void loadNearbyBeaches(MISSION_BEACH_COORDS.lat, MISSION_BEACH_COORDS.lon);
       getUserLocation();
@@ -202,7 +245,30 @@ export function MapView() {
     return () => {
       cancelled = true;
     };
-  }, [profileLoading, homeBeach, loadNearbyBeaches, getUserLocation]);
+  }, [
+    cameraOwner,
+    getUserLocation,
+    homeBeach,
+    issueCameraCommand,
+    loadNearbyBeaches,
+    profileLoading,
+  ]);
+
+  const initialGpsCommandIssuedRef = useRef(false);
+  useEffect(() => {
+    if (
+      cameraOwner !== "initial" ||
+      usingDefaultLocation ||
+      !initialCenterResolvedRef.current ||
+      initialGpsCommandIssuedRef.current ||
+      !userLocation
+    ) {
+      return;
+    }
+
+    initialGpsCommandIssuedRef.current = true;
+    issueCameraCommand({ source: "gps", center: userLocation }, "initial");
+  }, [cameraOwner, issueCameraCommand, userLocation, usingDefaultLocation]);
 
   // Hydrate deep-linked search state from the URL. Local toolbar edits may strip the
   // stale URL param without clearing the active input state.
@@ -219,10 +285,28 @@ export function MapView() {
 
     preserveSearchStateOnNextUrlClearRef.current = false;
     setSearchQuery(searchFromUrl);
-    if (searchFromUrl) {
-      setMapFocusCenter(null);
-    }
   }, [searchParams, setSearchQuery]);
+
+  const searchCommandKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const firstBeach = filteredBeaches[0];
+    if (
+      !searchQuery ||
+      !firstBeach ||
+      !isFiniteCoord(firstBeach.lat) ||
+      !isFiniteCoord(firstBeach.lon)
+    ) {
+      return;
+    }
+
+    const key = `${searchQuery}:${firstBeach.id}`;
+    if (searchCommandKeyRef.current === key) return;
+    searchCommandKeyRef.current = key;
+    issueCameraCommand(
+      { source: "search", center: { lat: firstBeach.lat, lon: firstBeach.lon } },
+      "explicit-command",
+    );
+  }, [filteredBeaches, issueCameraCommand, searchQuery]);
 
   // Apply filters from URL params on initial mount (e.g. /map?type=reef or /map?level=beginner)
   const VALID_BREAK_TYPES = new Set(["beach", "point", "reef", "longboard", "bodyboard"]);
@@ -245,12 +329,17 @@ export function MapView() {
 
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
-      setMapFocusCenter(null);
       setSelectedBeach(beach);
+      if (isFiniteCoord(beach.lat) && isFiniteCoord(beach.lon)) {
+        issueCameraCommand(
+          { source: "pin", center: { lat: beach.lat, lon: beach.lon } },
+          "explicit-command",
+        );
+      }
       // Smooth scroll to top to show the selected beach on map
       window.scrollTo({ top: 0, behavior: "smooth" });
     },
-    [setSelectedBeach]
+    [issueCameraCommand, setSelectedBeach]
   );
 
   const handleSuggestionSelect = useCallback(
@@ -293,7 +382,6 @@ export function MapView() {
   // update lands — same value, React bails — but skipping the direct hook write would
   // introduce a one-tick window where the UI still shows filtered results.
   const handleClearSearch = useCallback(() => {
-    setMapFocusCenter(null);
     clearSearch();
     stripMapUrlParams(["search"]);
     // Reset to nearby beaches when clearing search
@@ -306,7 +394,6 @@ export function MapView() {
 
   const handleSearchChange = useCallback(
     (query: string) => {
-      setMapFocusCenter(null);
       setSelectedBeach(null);
       setSearchQuery(query);
       stripMapUrlParams(["search"], { preserveSearchState: true });
@@ -315,7 +402,6 @@ export function MapView() {
   );
 
   const handleClearAll = useCallback(() => {
-    setMapFocusCenter(null);
     clearAllFilters();
     stripMapUrlParams(["search", "type", "level"]);
   }, [clearAllFilters, stripMapUrlParams]);
@@ -323,39 +409,65 @@ export function MapView() {
   const handleUseMyLocation = useCallback(() => {
     setSelectedBeach(null);
     clearSearch();
-    setMapFocusCenter(null);
+    if (userLocation) {
+      issueCameraCommand(
+        { source: "gps", center: userLocation },
+        "explicit-command",
+      );
+    }
     lastLocationRef.current = null;
     getUserLocation(true);
-  }, [clearSearch, getUserLocation, setSelectedBeach]);
+  }, [clearSearch, getUserLocation, issueCameraCommand, setSelectedBeach, userLocation]);
 
   const handleUseDefaultLocation = useCallback(() => {
-    setMapFocusCenter(null);
+    issueCameraCommand(
+      { source: "fallback", center: MISSION_BEACH_COORDS },
+      "explicit-command",
+    );
     applyDefaultLocation();
-  }, [applyDefaultLocation]);
+  }, [applyDefaultLocation, issueCameraCommand]);
 
   const handleRegionSelect = useCallback(
     (region: MapRegionPill) => {
       setSelectedBeach(null);
       clearSearch();
-      setMapFocusCenter(region.center);
+      issueCameraCommand(
+        region.bounds
+          ? { source: "region", bounds: region.bounds }
+          : { source: "region", center: region.center },
+        "explicit-command",
+      );
       stripMapUrlParams(["search"]);
       lastLocationRef.current = null;
       void loadNearbyBeaches(region.center.lat, region.center.lon);
     },
-    [clearSearch, loadNearbyBeaches, setSelectedBeach, stripMapUrlParams]
+    [
+      clearSearch,
+      issueCameraCommand,
+      loadNearbyBeaches,
+      setSelectedBeach,
+      stripMapUrlParams,
+    ]
   );
 
   const handleMapClick = useCallback(() => {
-    setMapFocusCenter(null);
     setSelectedBeach(null);
   }, [setSelectedBeach]);
+
+  const handleUserCameraInteraction = useCallback((interaction: {
+    action: "pan" | "zoom" | "rotate";
+    center: { lat: number; lon: number };
+  }) => {
+    exploredCenterRef.current = interaction.center;
+    cameraOwnerRef.current = "user";
+    setCameraOwner("user");
+  }, []);
 
   const hasActiveFilters =
     searchQuery.trim().length > 0 ||
     filters.beginnerFriendly ||
     filters.breakTypes.size > 0;
 
-  const selectedBeachForMap = mapFocusCenter ? null : selectedBeach;
   const fieldGuideVisible = showFieldGuide || isShareView;
 
   const handleOpenFieldGuide = useCallback((): void => {
@@ -408,17 +520,19 @@ export function MapView() {
             usingDefaultLocation={usingDefaultLocation}
             hasTimedOut={hasTimedOut}
             userLocation={userLocation}
-            focusCenter={mapFocusCenter}
-            selectedBeach={selectedBeachForMap}
+            selectedBeach={selectedBeach}
             filteredBeaches={filteredBeaches}
             customSpots={customSpots}
             searchQuery={searchQuery}
             regionViewport={null}
+            cameraOwner={cameraOwner}
+            cameraCommand={cameraCommand}
             onGetUserLocation={handleUseMyLocation}
             onUseDefaultLocation={handleUseDefaultLocation}
             onSearchPromptClick={handleSearchPromptClick}
             onBeachSelect={handleBeachSelect}
             onMapClick={handleMapClick}
+            onUserCameraInteraction={handleUserCameraInteraction}
             autoNavigateOnMarkerClick={true}
             showSwellField={showSwellField}
             swellLayerId={swellLayerId}
