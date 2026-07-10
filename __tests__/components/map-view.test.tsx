@@ -10,6 +10,11 @@ const mockGetUserLocation = jest.fn();
 let mockIsMobile = false;
 let mockSearchParams = new URLSearchParams();
 let mockGeolocationLoading = false;
+let mockUserLocation: { lat: number; lon: number } | null = {
+  lat: 32.7702,
+  lon: -117.2525,
+};
+let mockUsingDefaultLocation = true;
 let mockBeachLoading = false;
 let mockHomeBeach: { lat: number; lon: number } | null = null;
 let mockProfileLoading = false;
@@ -47,9 +52,9 @@ jest.mock("@/context/profile-context", () => ({
 
 jest.mock("@/hooks/use-geolocation", () => ({
   useGeolocation: () => ({
-    userLocation: { lat: 32.7702, lon: -117.2525 },
+    userLocation: mockUserLocation,
     locationError: null,
-    usingDefaultLocation: true,
+    usingDefaultLocation: mockUsingDefaultLocation,
     hasTimedOut: false,
     loading: mockGeolocationLoading,
     getUserLocation: mockGetUserLocation,
@@ -133,6 +138,8 @@ describe("MapView", () => {
     mockIsMobile = false;
     mockSearchParams = new URLSearchParams();
     mockGeolocationLoading = false;
+    mockUserLocation = { lat: 32.7702, lon: -117.2525 };
+    mockUsingDefaultLocation = true;
     mockBeachLoading = false;
     mockHomeBeach = null;
     mockProfileLoading = false;
@@ -368,8 +375,8 @@ describe("MapView", () => {
     ).toBe("pin");
   });
 
-  it("issues a newer GPS command after user camera ownership", async () => {
-    render(<MapView />);
+  it("applies the fresh GPS result from an explicit location request", async () => {
+    const { rerender } = render(<MapView />);
 
     await act(async () => {
       await Promise.resolve();
@@ -386,15 +393,32 @@ describe("MapView", () => {
       });
     });
     const previousId = (lastMapContentProps.cameraCommand as { id: number }).id;
+    const previousCommand = lastMapContentProps.cameraCommand;
 
     act(() => {
       (lastMapContentProps.onGetUserLocation as () => void)();
     });
 
-    expect(lastMapContentProps.cameraOwner).toBe("explicit-command");
+    expect(mockGetUserLocation).toHaveBeenCalledWith(true);
+    expect(lastMapContentProps.cameraOwner).toBe("user");
+    expect(lastMapContentProps.cameraCommand).toBe(previousCommand);
+
+    mockGeolocationLoading = true;
+    rerender(<MapView />);
+    expect(lastMapContentProps.cameraCommand).toBe(previousCommand);
+
+    mockUserLocation = { lat: 34.0195, lon: -118.4912 };
+    mockUsingDefaultLocation = false;
+    mockGeolocationLoading = false;
+    rerender(<MapView />);
+
+    await waitFor(() => {
+      expect(lastMapContentProps.cameraOwner).toBe("explicit-command");
+    });
     expect(lastMapContentProps.cameraCommand).toMatchObject({
       id: previousId + 1,
       source: "gps",
+      center: { lat: 34.0195, lon: -118.4912 },
     });
   });
 

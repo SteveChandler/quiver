@@ -79,11 +79,18 @@ export function MapView() {
   const [cameraOwner, setCameraOwner] = useState<MapCameraOwner>("initial");
   const [cameraCommand, setCameraCommand] = useState<MapCameraCommand | null>(null);
   const cameraOwnerRef = useRef<MapCameraOwner>("initial");
+  const explicitGpsRequestRef = useRef<{
+    baseline: { lat: number; lon: number } | null;
+    sawLoading: boolean;
+  } | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const exploredCenterRef = useRef<{ lat: number; lon: number } | null>(null);
 
   const issueCameraCommand = useCallback(
     (input: Omit<MapCameraCommand, "id">, owner: MapCameraOwner) => {
+      if (input.source !== "gps") {
+        explicitGpsRequestRef.current = null;
+      }
       setCameraCommand((previous) => createCameraCommand(previous, input));
       cameraOwnerRef.current = owner;
       setCameraOwner(owner);
@@ -270,6 +277,29 @@ export function MapView() {
     issueCameraCommand({ source: "gps", center: userLocation }, "initial");
   }, [cameraOwner, issueCameraCommand, userLocation, usingDefaultLocation]);
 
+  useEffect(() => {
+    const request = explicitGpsRequestRef.current;
+    if (!request) return;
+
+    if (locationLoading) {
+      request.sawLoading = true;
+      return;
+    }
+    if (usingDefaultLocation || !userLocation) return;
+
+    const locationChanged =
+      !request.baseline ||
+      Math.abs(request.baseline.lat - userLocation.lat) >= 0.000001 ||
+      Math.abs(request.baseline.lon - userLocation.lon) >= 0.000001;
+    if (!request.sawLoading && !locationChanged) return;
+
+    explicitGpsRequestRef.current = null;
+    issueCameraCommand(
+      { source: "gps", center: userLocation },
+      "explicit-command",
+    );
+  }, [issueCameraCommand, locationLoading, userLocation, usingDefaultLocation]);
+
   // Hydrate deep-linked search state from the URL. Local toolbar edits may strip the
   // stale URL param without clearing the active input state.
   useEffect(() => {
@@ -409,15 +439,13 @@ export function MapView() {
   const handleUseMyLocation = useCallback(() => {
     setSelectedBeach(null);
     clearSearch();
-    if (userLocation) {
-      issueCameraCommand(
-        { source: "gps", center: userLocation },
-        "explicit-command",
-      );
-    }
+    explicitGpsRequestRef.current = {
+      baseline: userLocation,
+      sawLoading: false,
+    };
     lastLocationRef.current = null;
     getUserLocation(true);
-  }, [clearSearch, getUserLocation, issueCameraCommand, setSelectedBeach, userLocation]);
+  }, [clearSearch, getUserLocation, setSelectedBeach, userLocation]);
 
   const handleUseDefaultLocation = useCallback(() => {
     issueCameraCommand(

@@ -86,7 +86,7 @@ import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { CustomSpot } from "@/hooks/use-custom-spots";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
-import type { MapCameraCommand, MapCameraOwner } from "@/components/map/map-camera-command";
+import type { MapCameraCommand } from "@/components/map/map-camera-command";
 
 // Mapbox CSS is imported globally in app/globals.css
 
@@ -178,7 +178,6 @@ interface InteractiveMapProps {
   initialZoom?: number;
   onLocationClick?: (beach: Beach) => void;
   onMapClick?: (latlng: mapboxgl.LngLat) => void;
-  cameraOwner?: MapCameraOwner;
   cameraCommand?: MapCameraCommand | null;
   onUserCameraInteraction?: (interaction: {
     action: "pan" | "zoom" | "rotate";

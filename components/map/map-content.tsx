@@ -94,7 +94,6 @@ export function MapContent({
   customSpots,
   searchQuery,
   regionViewport,
-  cameraOwner,
   cameraCommand,
   onGetUserLocation,
   onUseDefaultLocation,
@@ -279,7 +278,6 @@ export function MapContent({
             initialZoom={12}
             onLocationClick={onBeachSelect}
             onMapClick={onMapClick ? () => onMapClick() : undefined}
-            cameraOwner={cameraOwner}
             cameraCommand={cameraCommand}
             onUserCameraInteraction={onUserCameraInteraction}
             regionViewport={regionViewport}
