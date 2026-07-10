@@ -29,6 +29,12 @@ interface BulkForecastResponse {
   conditionSummaries: Record<string, "GOOD" | "FAIR" | "CHECK" | "UNKNOWN">;
   swellPartitions: Record<string, unknown>;
   swellPartitionTimeline: Record<string, unknown[]>;
+  hourlySwellTimeline?: {
+    timestamps: string[];
+    partitionsByBeach: Record<string, Array<unknown | null>>;
+    hasMore: boolean;
+    nextStart: string | null;
+  };
 }
 
 type QueryResult<T> = {
@@ -255,6 +261,27 @@ function hourlyTimelineRows(): ForecastRow[] {
   }));
 }
 
+function hourlyTimelineRow(
+  beachId: string,
+  waveHeight: string,
+  forecastAt: string,
+): ForecastRow {
+  return {
+    ...forecastRow(beachId, waveHeight, 0),
+    forecast_at: forecastAt,
+    forecast_date: forecastAt.slice(0, 10),
+    forecast_time: forecastAt.slice(11, 19),
+    swell_1_direction: "W",
+    swell_1_period: "10s",
+  };
+}
+
+function createHourlyTimelineRequest(url: string) {
+  return createMockRequest("GET", url, {
+    headers: { "x-forwarded-for": "203.0.113.99" },
+  });
+}
+
 function beachRow(id: string, overrides: Partial<BeachRow> = {}): BeachRow {
   return {
     id,
@@ -320,6 +347,7 @@ function queryChain<T>(result: QueryResult<T>) {
 
 function mockBulkQueries(options: {
   forecastRows?: ForecastRow[] | null;
+  hourlyTimelineRows?: ForecastRow[] | null;
   forecastError?: { message: string } | null;
   beachRows?: BeachRow[] | null;
   beachError?: { message: string } | null;
@@ -328,6 +356,10 @@ function mockBulkQueries(options: {
   const forecastChain = queryChain({
     data: options.forecastRows ?? [],
     error: options.forecastError ?? null,
+  });
+  const hourlyTimelineChain = queryChain({
+    data: options.hourlyTimelineRows ?? [],
+    error: null,
   });
   const derivedBeachRows =
     options.beachRows === undefined
@@ -348,13 +380,16 @@ function mockBulkQueries(options: {
   mockSupabaseClient.from = jest.fn((table: string) => {
     if (table === "enhanced_forecasts") {
       enhancedForecastCalls += 1;
+      if (enhancedForecastCalls === 2 && options.hourlyTimelineRows !== undefined) {
+        return hourlyTimelineChain;
+      }
       return enhancedForecastCalls === 1 ? forecastChain : waterChain;
     }
     if (table === "beaches") return beachChain;
     return queryChain({ data: null, error: null });
   }) as any;
 
-  return { forecastChain, beachChain, waterChain };
+  return { forecastChain, hourlyTimelineChain, beachChain, waterChain };
 }
 
 describe("/api/forecasts/bulk", () => {
@@ -639,24 +674,139 @@ describe("/api/forecasts/bulk", () => {
     });
   });
 
-  it("returns hourly swell partition frames only when timeline=hourly", async () => {
-    mockBulkQueries({ forecastRows: hourlyTimelineRows() });
+  it("returns a default 48-hour hourly timeline using actual forecast hours", async () => {
+    const rows = [
+      hourlyTimelineRow("beach-1", "2", "2026-07-07T20:15:00.000Z"),
+      hourlyTimelineRow("beach-1", "3", "2026-07-07T21:00:00.000Z"),
+    ];
+    const { hourlyTimelineChain } = mockBulkQueries({
+      forecastRows: rows,
+      hourlyTimelineRows: rows,
+    });
 
     const hourlyResponse = await GET(
-      createMockRequest(
-        "GET",
+      createHourlyTimelineRequest(
         "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly",
       ),
     );
     const hourlyData = await expectSuccessResponse<BulkForecastResponse>(hourlyResponse, 200);
 
+    expect(hourlyTimelineChain.gte).toHaveBeenCalledWith(
+      "forecast_at",
+      "2026-07-07T18:00:00.000Z",
+    );
+    expect(hourlyTimelineChain.lt).toHaveBeenCalledWith(
+      "forecast_at",
+      "2026-07-09T19:00:00.000Z",
+    );
+    expect(hourlyTimelineChain.order).toHaveBeenCalledWith("forecast_at", { ascending: true });
+    expect(hourlyData.data.hourlySwellTimeline).toEqual({
+      timestamps: ["2026-07-07T20:00:00.000Z", "2026-07-07T21:00:00.000Z"],
+      partitionsByBeach: {
+        "beach-1": [
+          expect.objectContaining({ s1HeightFt: 2 }),
+          expect.objectContaining({ s1HeightFt: 3 }),
+        ],
+      },
+      hasMore: false,
+      nextStart: null,
+    });
     expect(hourlyData.data.swellPartitionTimeline["beach-1"]).toHaveLength(43);
-    expect(hourlyData.data.swellPartitionTimeline["beach-1"][0]).toMatchObject({
-      s1HeightFt: 0,
+  });
+
+  it("aligns requested beaches, clamps the window, and probes one additional hour", async () => {
+    const rows = [
+      hourlyTimelineRow("beach-1", "2", "2026-07-10T20:00:00.000Z"),
+      hourlyTimelineRow("beach-2", "3", "2026-07-10T21:00:00.000Z"),
+      hourlyTimelineRow("beach-1", "4", "2026-07-12T20:00:00.000Z"),
+    ];
+    const { hourlyTimelineChain } = mockBulkQueries({
+      forecastRows: rows,
+      hourlyTimelineRows: rows,
     });
-    expect(hourlyData.data.swellPartitionTimeline["beach-1"][42]).toMatchObject({
-      s1HeightFt: 42,
+
+    const hourlyResponse = await GET(
+      createHourlyTimelineRequest(
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1,beach-2&timeline=hourly&timelineStart=2026-07-10T20:00:00.000Z&timelineHours=99",
+      ),
+    );
+    const hourlyData = await expectSuccessResponse<BulkForecastResponse>(hourlyResponse, 200);
+
+    expect(hourlyTimelineChain.gte).toHaveBeenCalledWith(
+      "forecast_at",
+      "2026-07-10T20:00:00.000Z",
+    );
+    expect(hourlyTimelineChain.lt).toHaveBeenCalledWith(
+      "forecast_at",
+      "2026-07-12T21:00:00.000Z",
+    );
+    expect(hourlyData.data.hourlySwellTimeline).toEqual({
+      timestamps: ["2026-07-10T20:00:00.000Z", "2026-07-10T21:00:00.000Z"],
+      partitionsByBeach: {
+        "beach-1": [expect.objectContaining({ s1HeightFt: 2 }), null],
+        "beach-2": [null, expect.objectContaining({ s1HeightFt: 3 })],
+      },
+      hasMore: true,
+      nextStart: "2026-07-12T20:00:00.000Z",
     });
+  });
+
+  it("uses an explicit hourly start and respects the requested timeline window", async () => {
+    const rows = [
+      hourlyTimelineRow("beach-1", "2", "2026-07-10T20:00:00.000Z"),
+      hourlyTimelineRow("beach-1", "3", "2026-07-10T21:00:00.000Z"),
+      hourlyTimelineRow("beach-1", "4", "2026-07-10T22:00:00.000Z"),
+    ];
+    const { hourlyTimelineChain } = mockBulkQueries({
+      forecastRows: rows,
+      hourlyTimelineRows: rows,
+    });
+
+    const response = await GET(
+      createHourlyTimelineRequest(
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly&timelineStart=2026-07-10T20:00:00.000Z&timelineHours=2",
+      ),
+    );
+    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+
+    expect(hourlyTimelineChain.lt).toHaveBeenCalledWith(
+      "forecast_at",
+      "2026-07-10T23:00:00.000Z",
+    );
+    expect(data.data.hourlySwellTimeline?.nextStart).toBe("2026-07-10T22:00:00.000Z");
+  });
+
+  it("clamps hourly windows below one hour", async () => {
+    const { hourlyTimelineChain } = mockBulkQueries({
+      hourlyTimelineRows: [
+        hourlyTimelineRow("beach-1", "2", "2026-07-10T20:00:00.000Z"),
+      ],
+    });
+
+    await GET(
+      createHourlyTimelineRequest(
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly&timelineStart=2026-07-10T20:00:00.000Z&timelineHours=0",
+      ),
+    );
+
+    expect(hourlyTimelineChain.lt).toHaveBeenCalledWith(
+      "forecast_at",
+      "2026-07-10T22:00:00.000Z",
+    );
+  });
+
+  it("rejects an explicit malformed hourly timeline start", async () => {
+    const response = await GET(
+      createHourlyTimelineRequest(
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly&timelineStart=not-an-iso-date",
+      ),
+    );
+
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual(
+      expect.objectContaining({ success: false, error: "timelineStart must be a valid ISO timestamp" }),
+    );
+    expect(mockSupabaseClient.from).not.toHaveBeenCalled();
   });
 
   it("preserves flat v5.1 display as zero", async () => {

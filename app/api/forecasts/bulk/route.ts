@@ -1,5 +1,6 @@
 import type { NextRequest, NextResponse } from "next/server";
 import {
+  createValidationError,
   createSuccessResponse,
   handleApiError,
   withAuth,
@@ -28,6 +29,13 @@ export const dynamic = 'force-dynamic';
 
 export type { SwellPartition };
 
+export interface HourlySwellTimeline {
+  timestamps: string[];
+  partitionsByBeach: Record<string, Array<SwellPartition | null>>;
+  hasMore: boolean;
+  nextStart: string | null;
+}
+
 type ConditionSummary = "GOOD" | "FAIR" | "CHECK" | "UNKNOWN";
 
 const emptyBulkForecastResponse = {
@@ -52,6 +60,9 @@ const HOURLY_SWELL_TIMELINE_HOUR_OFFSETS = Array.from(
   { length: 43 },
   (_, hourOffset) => hourOffset,
 );
+const DEFAULT_TIMELINE_HOURS = 48;
+const MAX_TIMELINE_HOURS = 48;
+const HOUR_MS = 60 * 60 * 1000;
 
 /**
  * GET /api/forecasts/bulk
@@ -123,6 +134,27 @@ function resolveForecastFetchWindow(forecastAt: string | null): {
   };
 }
 
+function parseHourlyTimelineWindow(searchParams: URLSearchParams, now: Date): {
+  start: Date;
+  end: Date;
+  probeEnd: Date;
+  hours: number;
+} {
+  const requestedStart = Date.parse(searchParams.get("timelineStart") ?? "");
+  const rawHours = Number.parseInt(searchParams.get("timelineHours") ?? "", 10);
+  const hours = Number.isFinite(rawHours)
+    ? Math.min(MAX_TIMELINE_HOURS, Math.max(1, rawHours))
+    : DEFAULT_TIMELINE_HOURS;
+  const startMs = Number.isFinite(requestedStart)
+    ? requestedStart
+    : Math.floor(now.getTime() / HOUR_MS) * HOUR_MS;
+  const start = new Date(startMs);
+  const end = new Date(startMs + hours * HOUR_MS);
+  const probeEnd = new Date(end.getTime() + HOUR_MS);
+
+  return { start, end, probeEnd, hours };
+}
+
 function forecastTimeMs(
   row: Pick<EnhancedForecastEntity, "forecast_at" | "forecast_date" | "forecast_time">
 ): number | null {
@@ -191,6 +223,84 @@ function buildSwellPartitionTimeline(
   });
 
   return timeline;
+}
+
+function forecastAtMs(row: Pick<EnhancedForecastEntity, "forecast_at">): number | null {
+  const value = Date.parse(String(row.forecast_at ?? ""));
+  return Number.isFinite(value) ? value : null;
+}
+
+function buildHourlySwellTimeline(
+  rows: EnhancedForecastEntity[],
+  beachIds: string[],
+  window: ReturnType<typeof parseHourlyTimelineWindow>,
+): HourlySwellTimeline {
+  const requestedBeachIds = new Set(beachIds);
+  const rowsByHour = new Map<number, Map<string, EnhancedForecastEntity>>();
+  let hasMore = false;
+
+  for (const row of rows) {
+    if (!requestedBeachIds.has(row.beach_id)) continue;
+
+    const rowMs = forecastAtMs(row);
+    if (rowMs == null) continue;
+
+    if (rowMs >= window.end.getTime() && rowMs < window.probeEnd.getTime()) {
+      hasMore = true;
+      continue;
+    }
+
+    if (rowMs < window.start.getTime() || rowMs >= window.end.getTime()) continue;
+
+    const hourMs = Math.floor(rowMs / HOUR_MS) * HOUR_MS;
+    const rowsByBeach = rowsByHour.get(hourMs) ?? new Map<string, EnhancedForecastEntity>();
+    if (!rowsByBeach.has(row.beach_id)) {
+      rowsByBeach.set(row.beach_id, row);
+    }
+    rowsByHour.set(hourMs, rowsByBeach);
+  }
+
+  const hourKeys = Array.from(rowsByHour.keys()).sort((left, right) => left - right);
+  const timestamps = hourKeys.map((hourMs) => new Date(hourMs).toISOString());
+  const partitionsByBeach = Object.fromEntries(
+    beachIds.map((beachId) => [
+      beachId,
+      hourKeys.map((hourMs) => {
+        const row = rowsByHour.get(hourMs)?.get(beachId);
+        return row ? rowToSwellPartition(row) : null;
+      }),
+    ]),
+  ) as Record<string, Array<SwellPartition | null>>;
+
+  return {
+    timestamps,
+    partitionsByBeach,
+    hasMore,
+    nextStart: hasMore ? window.end.toISOString() : null,
+  };
+}
+
+async function fetchHourlySwellTimelineRows(
+  supabase: SupabaseClient<Database>,
+  beachIds: string[],
+  start: Date,
+  probeEnd: Date,
+): Promise<{
+  data: EnhancedForecastEntity[] | null;
+  error: { message: string } | null;
+}> {
+  const { data, error } = await supabase
+    .from("enhanced_forecasts")
+    .select(BULK_FORECAST_SELECT)
+    .in("beach_id", beachIds)
+    .gte("forecast_at", start.toISOString())
+    .lt("forecast_at", probeEnd.toISOString())
+    .order("forecast_at", { ascending: true });
+
+  return {
+    data: data as unknown as EnhancedForecastEntity[] | null,
+    error: error ? { message: error.message } : null,
+  };
 }
 
 async function fetchBulkForecastRowsWithV51Display(
@@ -276,6 +386,18 @@ async function bulkForecastHandler(
     const beachIdsParam = searchParams.get("beachIds");
     const forecastAtParam = searchParams.get("forecastAt");
     const isHourlyTimeline = searchParams.get("timeline") === "hourly";
+    const timelineStartParam = searchParams.get("timelineStart");
+
+    if (
+      isHourlyTimeline &&
+      timelineStartParam !== null &&
+      !Number.isFinite(Date.parse(timelineStartParam))
+    ) {
+      return createValidationError("timelineStart must be a valid ISO timestamp");
+    }
+    const hourlyTimelineWindow = isHourlyTimeline
+      ? parseHourlyTimelineWindow(searchParams, new Date())
+      : null;
 
     // Return empty forecasts for missing/empty beachIds (not an error)
     if (!beachIdsParam || !beachIdsParam.trim()) {
@@ -314,6 +436,31 @@ async function bulkForecastHandler(
     if (error) {
       console.error("Error fetching bulk forecasts:", error);
       return handleApiError(new Error(error.message), "Failed to fetch bulk forecasts");
+    }
+
+    let hourlySwellTimeline: HourlySwellTimeline | undefined;
+    if (hourlyTimelineWindow) {
+      const { data: hourlyTimelineRows, error: hourlyTimelineError } =
+        await fetchHourlySwellTimelineRows(
+          supabase,
+          limitedBeachIds,
+          hourlyTimelineWindow.start,
+          hourlyTimelineWindow.probeEnd,
+        );
+
+      if (hourlyTimelineError || !hourlyTimelineRows) {
+        console.error("Error fetching hourly swell timeline:", hourlyTimelineError);
+        return handleApiError(
+          new Error(hourlyTimelineError?.message ?? "No hourly timeline rows returned"),
+          "Failed to fetch hourly swell timeline",
+        );
+      }
+
+      hourlySwellTimeline = buildHourlySwellTimeline(
+        hourlyTimelineRows,
+        limitedBeachIds,
+        hourlyTimelineWindow,
+      );
     }
 
     const forecastsByBeach = groupForecastsByBeach(data);
@@ -473,6 +620,7 @@ async function bulkForecastHandler(
       conditionSummaries: conditionSummaryMap,
       swellPartitions: swellPartitionMap,
       swellPartitionTimeline,
+      ...(hourlySwellTimeline ? { hourlySwellTimeline } : {}),
     });
   } catch (error) {
     console.error("Unexpected error in bulk forecast API:", error);
