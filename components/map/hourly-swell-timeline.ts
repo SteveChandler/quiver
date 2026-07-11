@@ -11,6 +11,8 @@ function dateTimeParts(timestamp: string, timezone: string): Intl.DateTimeFormat
   const date = new Date(timestamp);
   const options: Intl.DateTimeFormatOptions = {
     weekday: "short",
+    year: "numeric",
+    month: "2-digit",
     day: "numeric",
     hour: "numeric",
     hour12: true,
@@ -46,16 +48,19 @@ export function segmentTimelineDays(
     const parts = dateTimeParts(timestamp, timezone);
     const weekday = part(parts, "weekday");
     const day = part(parts, "day");
+    const year = part(parts, "year");
+    const month = part(parts, "month");
+    const key = `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
     const label = `${weekday} ${day}`;
     const previous = segments.at(-1);
 
-    if (previous?.key === `${weekday}-${day}`) {
+    if (previous?.key === key) {
       previous.endIndex = index;
       return;
     }
 
     segments.push({
-      key: `${weekday}-${day}`,
+      key,
       label,
       startIndex: index,
       endIndex: index,
@@ -66,6 +71,12 @@ export function segmentTimelineDays(
 }
 
 type PartitionsByTimestamp = Map<string, Map<string, SwellPartition | null>>;
+
+function furthestCursor(left: string | null, right: string | null): string | null {
+  if (!left) return right;
+  if (!right) return left;
+  return Date.parse(right) > Date.parse(left) ? right : left;
+}
 
 function addTimelineToTimestampMap(
   target: PartitionsByTimestamp,
@@ -114,11 +125,12 @@ export function mergeHourlyTimeline(
       timestamps.map((timestamp) => partitionsByTimestamp.get(timestamp)?.get(beachId) ?? null),
     ]),
   ) as Record<string, Array<SwellPartition | null>>;
+  const hasMore = current.hasMore && incoming.hasMore;
 
   return {
     timestamps,
     partitionsByBeach,
-    hasMore: incoming.hasMore,
-    nextStart: incoming.nextStart,
+    hasMore,
+    nextStart: hasMore ? furthestCursor(current.nextStart, incoming.nextStart) : null,
   };
 }

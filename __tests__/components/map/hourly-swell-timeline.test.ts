@@ -37,7 +37,19 @@ describe("hourly swell timeline utilities", () => {
       "2026-11-01T08:00:00.000Z",
       "2026-11-01T09:00:00.000Z",
     ], "America/Los_Angeles")).toEqual([
-      { key: "Sun-1", label: "Sun 1", startIndex: 0, endIndex: 1 },
+      { key: "2026-11-01", label: "Sun 1", startIndex: 0, endIndex: 1 },
+    ]);
+  });
+
+  it("uses unique local calendar-date keys across month and year boundaries", () => {
+    const segments = segmentTimelineDays([
+      "2026-12-31T20:00:00.000Z",
+      "2027-01-01T20:00:00.000Z",
+    ], "Pacific/Honolulu");
+
+    expect(segments.map(({ key, label }) => ({ key, label }))).toEqual([
+      { key: "2026-12-31", label: "Thu 31" },
+      { key: "2027-01-01", label: "Fri 1" },
     ]);
   });
 
@@ -116,5 +128,64 @@ describe("hourly swell timeline utilities", () => {
       hasMore: false,
       nextStart: null,
     }));
+  });
+
+  it("keeps the furthest pagination state when chunks arrive in reverse order", () => {
+    const initial = timeline({
+      timestamps: ["2026-07-10T10:00:00.000Z"],
+      partitionsByBeach: { a: [partition(1)] },
+      hasMore: true,
+      nextStart: "2026-07-10T11:00:00.000Z",
+    });
+    const later = timeline({
+      timestamps: ["2026-07-10T12:00:00.000Z"],
+      partitionsByBeach: { a: [partition(3)] },
+      hasMore: false,
+      nextStart: null,
+    });
+    const earlier = timeline({
+      timestamps: ["2026-07-10T11:00:00.000Z"],
+      partitionsByBeach: { a: [partition(2)] },
+      hasMore: true,
+      nextStart: "2026-07-10T12:00:00.000Z",
+    });
+
+    const merged = mergeHourlyTimeline(
+      mergeHourlyTimeline(initial, later),
+      earlier,
+    );
+
+    expect(merged.timestamps).toEqual([
+      "2026-07-10T10:00:00.000Z",
+      "2026-07-10T11:00:00.000Z",
+      "2026-07-10T12:00:00.000Z",
+    ]);
+    expect(merged.partitionsByBeach.a).toEqual([
+      partition(1),
+      partition(2),
+      partition(3),
+    ]);
+    expect(merged.hasMore).toBe(false);
+    expect(merged.nextStart).toBeNull();
+  });
+
+  it("keeps the furthest non-exhausted cursor when an earlier chunk arrives last", () => {
+    const later = timeline({
+      timestamps: ["2026-07-10T12:00:00.000Z"],
+      partitionsByBeach: { a: [partition(3)] },
+      hasMore: true,
+      nextStart: "2026-07-10T13:00:00.000Z",
+    });
+    const earlier = timeline({
+      timestamps: ["2026-07-10T11:00:00.000Z"],
+      partitionsByBeach: { a: [partition(2)] },
+      hasMore: true,
+      nextStart: "2026-07-10T12:00:00.000Z",
+    });
+
+    const merged = mergeHourlyTimeline(later, earlier);
+
+    expect(merged.hasMore).toBe(true);
+    expect(merged.nextStart).toBe("2026-07-10T13:00:00.000Z");
   });
 });

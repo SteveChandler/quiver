@@ -75,6 +75,73 @@ describe("useExpandableSwellTimeline", () => {
     expect(result.current.timestamps).toEqual(hydrated.timestamps);
   });
 
+  it("hydrates corrected partitions when initial pagination metadata is unchanged", () => {
+    const initial = makeTimeline(0, 2, { hasMore: false, nextStart: null });
+    const corrected = {
+      ...initial,
+      partitionsByBeach: { a: [partition(99), partition(100)] },
+    };
+    const loadChunk = jest.fn();
+    const { result, rerender } = renderHook(
+      ({ timeline }) => useExpandableSwellTimeline({
+        scopeKey: "a",
+        initial: timeline,
+        timezone: "Pacific/Honolulu",
+        loadChunk,
+        reducedMotion: false,
+      }),
+      { initialProps: { timeline: initial } },
+    );
+
+    rerender({ timeline: corrected });
+
+    expect(result.current.partitionsByBeach.a).toEqual([
+      partition(99),
+      partition(100),
+    ]);
+  });
+
+  it("aborts and ignores an in-flight extension when corrected initial data arrives", async () => {
+    const initial = makeTimeline(0, 8);
+    const corrected = {
+      ...initial,
+      partitionsByBeach: {
+        a: initial.timestamps.map(() => partition(99)),
+      },
+    };
+    const staleChunk = deferred<HourlySwellTimeline>();
+    const freshChunk = deferred<HourlySwellTimeline>();
+    const loadChunk = jest.fn<Promise<HourlySwellTimeline>, [string, number, AbortSignal]>(
+      () => staleChunk.promise,
+    ).mockReturnValueOnce(staleChunk.promise).mockReturnValueOnce(freshChunk.promise);
+    const { result, rerender } = renderHook(
+      ({ timeline }) => useExpandableSwellTimeline({
+        scopeKey: "a",
+        initial: timeline,
+        timezone: "Pacific/Honolulu",
+        loadChunk,
+        reducedMotion: false,
+      }),
+      { initialProps: { timeline: initial } },
+    );
+
+    act(() => {
+      result.current.setIndex(2);
+    });
+    const staleSignal = loadChunk.mock.calls[0][2];
+
+    rerender({ timeline: corrected });
+
+    await act(async () => {
+      staleChunk.resolve(makeTimeline(8, 2, { hasMore: false, nextStart: null }));
+      await staleChunk.promise;
+    });
+
+    expect(staleSignal.aborted).toBe(true);
+    expect(result.current.timestamps).toEqual(corrected.timestamps);
+    expect(result.current.partitionsByBeach.a).toEqual(corrected.partitionsByBeach.a);
+  });
+
   it("prefetches exactly once when the index enters the final six loaded frames", async () => {
     const nextChunk = deferred<HourlySwellTimeline>();
     const loadChunk = jest.fn<Promise<HourlySwellTimeline>, [string, number, AbortSignal]>(
@@ -194,9 +261,10 @@ describe("useExpandableSwellTimeline", () => {
   it("retries a failed extension from the same next start", async () => {
     const initial = makeTimeline(0, 8);
     const firstChunk = deferred<HourlySwellTimeline>();
+    const recoveryChunk = deferred<HourlySwellTimeline>();
     const loadChunk = jest.fn()
       .mockReturnValueOnce(firstChunk.promise)
-      .mockResolvedValueOnce(makeTimeline(8, 2, { hasMore: false, nextStart: null }));
+      .mockReturnValueOnce(recoveryChunk.promise);
     const { result } = renderHook(() => useExpandableSwellTimeline({
       scopeKey: "a",
       initial,
@@ -217,13 +285,25 @@ describe("useExpandableSwellTimeline", () => {
       }
     });
 
-    await act(async () => {
+    act(() => {
       result.current.retry();
-      await Promise.resolve();
     });
 
     expect(loadChunk).toHaveBeenCalledTimes(2);
     expect(loadChunk.mock.calls[1][0]).toBe(initial.nextStart);
+    expect(result.current.error).toBeNull();
+    expect(result.current.isLoadingMore).toBe(true);
+
+    await act(async () => {
+      recoveryChunk.resolve(makeTimeline(8, 2, { hasMore: false, nextStart: null }));
+      await recoveryChunk.promise;
+    });
+
+    expect(result.current.timestamps).toHaveLength(10);
+    expect(result.current.partitionsByBeach.a.at(-1)).toEqual(partition(10));
+    expect(result.current.error).toBeNull();
+    expect(result.current.isLoadingMore).toBe(false);
+    expect(result.current.isExhausted).toBe(true);
   });
 
   it("advances reduced-motion playback by one real hour per tick", () => {
@@ -247,7 +327,7 @@ describe("useExpandableSwellTimeline", () => {
     expect(result.current.timestamps[result.current.index]).toBe("2026-07-10T01:00:00.000Z");
   });
 
-  it("skips null-only timestamps during playback instead of retaining stale partitions", () => {
+  it("uses two normal-mode forecast-hour ticks before crossing a null-only two-hour gap", () => {
     const initial = makeTimeline(0, 4, {
       hasMore: false,
       nextStart: null,
@@ -268,6 +348,48 @@ describe("useExpandableSwellTimeline", () => {
       jest.advanceTimersByTime(500);
     });
 
+    expect(result.current.index).toBe(0);
+    expect(result.current.partitionsByBeach.a[result.current.index]).toEqual(partition(1));
+
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
     expect(result.current.index).toBe(2);
+    expect(result.current.partitionsByBeach.a[result.current.index]).toEqual(partition(3));
+  });
+
+  it("uses two reduced-motion forecast-hour ticks before crossing a missing timestamp gap", () => {
+    const initial = makeTimeline(0, 2, {
+      timestamps: [
+        "2026-07-10T00:00:00.000Z",
+        "2026-07-10T02:00:00.000Z",
+      ],
+      partitionsByBeach: { a: [partition(1), partition(3)] },
+      hasMore: false,
+      nextStart: null,
+    });
+    const { result } = renderHook(() => useExpandableSwellTimeline({
+      scopeKey: "a",
+      initial,
+      timezone: "Pacific/Honolulu",
+      loadChunk: jest.fn(),
+      reducedMotion: true,
+    }));
+
+    act(() => {
+      result.current.setPlaying(true);
+    });
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(result.current.index).toBe(0);
+
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(result.current.index).toBe(1);
   });
 });

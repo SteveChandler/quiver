@@ -13,6 +13,7 @@ const CHUNK_HOURS = 48;
 const PREFETCH_REMAINING_FRAMES = 6;
 const PLAYBACK_TICK_MS = 500;
 const REDUCED_MOTION_PLAYBACK_TICK_MS = 1000;
+const HOUR_MS = 60 * 60 * 1000;
 
 export interface ExpandableTimelineState {
   timestamps: string[];
@@ -68,6 +69,26 @@ function frameHasPartitions(timeline: HourlySwellTimeline, index: number): boole
   );
 }
 
+function parseTimestamp(timestamp: string | undefined): number | null {
+  const value = Date.parse(timestamp ?? "");
+  return Number.isFinite(value) ? value : null;
+}
+
+function timelineResetIdentity(timeline: HourlySwellTimeline | null): string {
+  if (!timeline) return "empty";
+
+  const partitionsByBeach = Object.keys(timeline.partitionsByBeach)
+    .sort()
+    .map((beachId) => [beachId, timeline.partitionsByBeach[beachId]]);
+
+  return JSON.stringify([
+    timeline.timestamps,
+    partitionsByBeach,
+    timeline.hasMore,
+    timeline.nextStart,
+  ]);
+}
+
 export function useExpandableSwellTimeline({
   scopeKey,
   initial,
@@ -90,17 +111,20 @@ export function useExpandableSwellTimeline({
   const abortControllerRef = useRef<AbortController | null>(null);
   const requestGenerationRef = useRef(0);
   const isLoadingRef = useRef(false);
-  const initialTimelineKey = initial
-    ? `${initial.timestamps.join("|")}:${initial.hasMore}:${initial.nextStart ?? ""}`
-    : "empty";
+  const playbackForecastTimeRef = useRef<number | null>(null);
+  const initialTimelineKey = timelineResetIdentity(initial);
 
-  initialRef.current = initial;
-  scopeKeyRef.current = scopeKey;
-  loadChunkRef.current = loadChunk;
+  useEffect(() => {
+    initialRef.current = initial;
+    scopeKeyRef.current = scopeKey;
+    loadChunkRef.current = loadChunk;
+  }, [initial, loadChunk, scopeKey]);
 
   const setIndex = useCallback((nextIndex: number) => {
-    const next = clampIndex(nextIndex, timelineRef.current?.timestamps ?? []);
+    const timestamps = timelineRef.current?.timestamps ?? [];
+    const next = clampIndex(nextIndex, timestamps);
     indexRef.current = next;
+    playbackForecastTimeRef.current = parseTimestamp(timestamps[next]);
     setIndexState(next);
   }, []);
 
@@ -116,6 +140,7 @@ export function useExpandableSwellTimeline({
     isLoadingRef.current = false;
     timelineRef.current = nextTimeline;
     indexRef.current = nextIndex;
+    playbackForecastTimeRef.current = parseTimestamp(nextTimeline?.timestamps[nextIndex]);
 
     setTimeline(nextTimeline);
     setIndexState(nextIndex);
@@ -210,6 +235,15 @@ export function useExpandableSwellTimeline({
     // The controller always commits whole real frames. Presentation code may animate
     // between commits when motion is allowed; reduced motion advances one hour per second.
     const tickMs = reducedMotion ? REDUCED_MOTION_PLAYBACK_TICK_MS : PLAYBACK_TICK_MS;
+    const activeTimestampMs = parseTimestamp(
+      timelineRef.current?.timestamps[indexRef.current],
+    );
+    if (activeTimestampMs == null) {
+      setPlayingState(false);
+      return;
+    }
+    playbackForecastTimeRef.current = activeTimestampMs;
+
     const interval = window.setInterval(() => {
       const current = timelineRef.current;
       if (!current) {
@@ -217,18 +251,33 @@ export function useExpandableSwellTimeline({
         return;
       }
 
-      let nextIndex = indexRef.current + 1;
-      while (nextIndex < current.timestamps.length && !frameHasPartitions(current, nextIndex)) {
-        nextIndex += 1;
-      }
-
-      if (nextIndex >= current.timestamps.length) {
+      const playbackTime = playbackForecastTimeRef.current;
+      if (playbackTime == null) {
         setPlayingState(false);
         return;
       }
 
-      indexRef.current = nextIndex;
-      setIndexState(nextIndex);
+      const nextForecastTime = playbackTime + HOUR_MS;
+      playbackForecastTimeRef.current = nextForecastTime;
+      let selectedIndex = indexRef.current;
+
+      for (let candidateIndex = indexRef.current + 1; candidateIndex < current.timestamps.length; candidateIndex += 1) {
+        const candidateTime = parseTimestamp(current.timestamps[candidateIndex]);
+        if (candidateTime == null || candidateTime > nextForecastTime) break;
+        if (frameHasPartitions(current, candidateIndex)) {
+          selectedIndex = candidateIndex;
+        }
+      }
+
+      if (selectedIndex !== indexRef.current) {
+        indexRef.current = selectedIndex;
+        setIndexState(selectedIndex);
+      }
+
+      const loadedEndTime = parseTimestamp(current.timestamps.at(-1));
+      if (!current.hasMore && loadedEndTime != null && nextForecastTime >= loadedEndTime) {
+        setPlayingState(false);
+      }
     }, tickMs);
 
     return () => window.clearInterval(interval);
