@@ -227,7 +227,7 @@ export function useExpandableSwellTimeline({
     if (index < Math.max(0, current.timestamps.length - PREFETCH_REMAINING_FRAMES)) return;
 
     void requestMore();
-  }, [index, requestMore, scopeKey]);
+  }, [index, initialTimelineKey, requestMore, scopeKey]);
 
   useEffect(() => {
     if (!isPlaying) return;

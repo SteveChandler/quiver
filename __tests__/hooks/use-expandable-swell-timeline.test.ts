@@ -75,6 +75,32 @@ describe("useExpandableSwellTimeline", () => {
     expect(result.current.timestamps).toEqual(hydrated.timestamps);
   });
 
+  it("prefetches once when a hydrated timeline starts inside the final six frames", () => {
+    const hydrated = makeTimeline(0, 4);
+    const nextChunk = deferred<HourlySwellTimeline>();
+    const loadChunk = jest.fn<Promise<HourlySwellTimeline>, [string, number, AbortSignal]>(
+      () => nextChunk.promise,
+    );
+    const { rerender } = renderHook(
+      ({ timeline }) => useExpandableSwellTimeline({
+        scopeKey: "a",
+        initial: timeline,
+        timezone: "Pacific/Honolulu",
+        loadChunk,
+        reducedMotion: false,
+      }),
+      { initialProps: { timeline: null as HourlySwellTimeline | null } },
+    );
+
+    expect(loadChunk).not.toHaveBeenCalled();
+
+    rerender({ timeline: hydrated });
+    rerender({ timeline: { ...hydrated } });
+
+    expect(loadChunk).toHaveBeenCalledTimes(1);
+    expect(loadChunk).toHaveBeenCalledWith(hydrated.nextStart, 48, expect.any(AbortSignal));
+  });
+
   it("hydrates corrected partitions when initial pagination metadata is unchanged", () => {
     const initial = makeTimeline(0, 2, { hasMore: false, nextStart: null });
     const corrected = {
@@ -101,13 +127,14 @@ describe("useExpandableSwellTimeline", () => {
     ]);
   });
 
-  it("aborts and ignores an in-flight extension when corrected initial data arrives", async () => {
+  it("restarts prefetch from corrected initial data after aborting an in-flight extension", async () => {
     const initial = makeTimeline(0, 8);
     const corrected = {
       ...initial,
       partitionsByBeach: {
         a: initial.timestamps.map(() => partition(99)),
       },
+      nextStart: makeTimeline(16, 1).timestamps[0],
     };
     const staleChunk = deferred<HourlySwellTimeline>();
     const freshChunk = deferred<HourlySwellTimeline>();
@@ -132,14 +159,38 @@ describe("useExpandableSwellTimeline", () => {
 
     rerender({ timeline: corrected });
 
+    expect(staleSignal.aborted).toBe(true);
+    expect(loadChunk).toHaveBeenCalledTimes(2);
+    expect(loadChunk).toHaveBeenLastCalledWith(
+      corrected.nextStart,
+      48,
+      expect.any(AbortSignal),
+    );
+
     await act(async () => {
       staleChunk.resolve(makeTimeline(8, 2, { hasMore: false, nextStart: null }));
       await staleChunk.promise;
     });
 
-    expect(staleSignal.aborted).toBe(true);
     expect(result.current.timestamps).toEqual(corrected.timestamps);
     expect(result.current.partitionsByBeach.a).toEqual(corrected.partitionsByBeach.a);
+
+    const replacement = makeTimeline(16, 2, { hasMore: false, nextStart: null });
+    await act(async () => {
+      freshChunk.resolve(replacement);
+      await freshChunk.promise;
+    });
+
+    expect(result.current.timestamps).toEqual([
+      ...corrected.timestamps,
+      ...replacement.timestamps,
+    ]);
+    expect(result.current.partitionsByBeach.a).toEqual([
+      ...corrected.partitionsByBeach.a,
+      ...replacement.partitionsByBeach.a,
+    ]);
+    expect(result.current.isExhausted).toBe(true);
+    expect(loadChunk).toHaveBeenCalledTimes(2);
   });
 
   it("prefetches exactly once when the index enters the final six loaded frames", async () => {
