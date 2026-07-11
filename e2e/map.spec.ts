@@ -177,6 +177,22 @@ async function readMapRegion(page: Page): Promise<MapRegion> {
   return (await readMapCenter(page))?.region ?? 'unknown';
 }
 
+async function dragMapCanvas(page: Page): Promise<void> {
+  const canvas = page.locator('.mapboxgl-canvas');
+  await expect(canvas).toBeVisible({ timeout: TIMEOUTS.long });
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Mapbox canvas has no measurable bounds');
+
+  const start = {
+    x: box.x + box.width * 0.5,
+    y: box.y + box.height * 0.45,
+  };
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + 90, start.y + 35, { steps: 8 });
+  await page.mouse.up();
+}
+
 async function tapBeachMarker(page: Page, beachName: string): Promise<void> {
   await page
     .getByRole('button', { name: `View ${beachName} conditions` })
@@ -663,6 +679,23 @@ test.describe('Map Page - Camera Ownership', () => {
 
     await page.getByRole('button', { name: 'Regions and filters' }).click();
     await page.getByRole('button', { name: 'Hawaii' }).click();
+    await expect
+      .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
+      .toBe('hawaii');
+
+    const beforeDrag = await readMapCenter(page);
+    expect(beforeDrag).not.toBeNull();
+    await dragMapCanvas(page);
+    await expect
+      .poll(async () => {
+        const center = await readMapCenter(page);
+        if (!center || !beforeDrag) return false;
+        return (
+          Math.abs(center.lat - beforeDrag.lat) > 0.00001 ||
+          Math.abs(center.lon - beforeDrag.lon) > 0.00001
+        );
+      }, { timeout: TIMEOUTS.long })
+      .toBe(true);
     await expect
       .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
       .toBe('hawaii');
