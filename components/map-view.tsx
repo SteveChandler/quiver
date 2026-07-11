@@ -33,6 +33,52 @@ function isFiniteCoord(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function isTimeZone(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0) return false;
+  try {
+    Intl.DateTimeFormat("en-US", { timeZone: value });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function deviceTimezone(): string {
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  return isTimeZone(timezone) ? timezone : "UTC";
+}
+
+export function resolveViewedMapTimezone({
+  selectedBeach,
+  loadedBeaches,
+  exploredCenter,
+  activeRegion,
+}: {
+  selectedBeach: Beach | null;
+  loadedBeaches: Beach[];
+  exploredCenter: { lat: number; lon: number } | null;
+  activeRegion: MapRegionPill | null;
+}): string {
+  const selectedTimezone = selectedBeach?.timezone;
+  if (isTimeZone(selectedTimezone)) return selectedTimezone;
+
+  if (exploredCenter) {
+    const nearestBeach = loadedBeaches.reduce<Beach | null>((nearest, beach) => {
+      if (!isFiniteCoord(beach.lat) || !isFiniteCoord(beach.lon) || !isTimeZone(beach.timezone)) {
+        return nearest;
+      }
+      if (!nearest || !isFiniteCoord(nearest.lat) || !isFiniteCoord(nearest.lon)) return beach;
+      const currentDistance = (beach.lat - exploredCenter.lat) ** 2 + (beach.lon - exploredCenter.lon) ** 2;
+      const nearestDistance = (nearest.lat - exploredCenter.lat) ** 2 + (nearest.lon - exploredCenter.lon) ** 2;
+      return currentDistance < nearestDistance ? beach : nearest;
+    }, null);
+    if (isTimeZone(nearestBeach?.timezone)) return nearestBeach.timezone;
+  }
+
+  if (isTimeZone(activeRegion?.timezone)) return activeRegion.timezone;
+  return deviceTimezone();
+}
+
 /**
  * Resolve the last beach the user was looking at into map coordinates.
  * Accepts both stored shapes: `{lat,lon}` (geolocation writer) directly, or
@@ -85,6 +131,11 @@ export function MapView() {
   } | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const exploredCenterRef = useRef<{ lat: number; lon: number } | null>(null);
+  const [exploredCenter, setExploredCenter] = useState<{
+    lat: number;
+    lon: number;
+  } | null>(null);
+  const [activeRegion, setActiveRegion] = useState<MapRegionPill | null>(null);
 
   const issueCameraCommand = useCallback(
     (input: Omit<MapCameraCommand, "id">, owner: MapCameraOwner) => {
@@ -110,12 +161,6 @@ export function MapView() {
 
   const [showSwellField, setShowSwellField] = useState(true);
   const [swellLayerId, setSwellLayerId] = useState<SwellLayerId>("s1");
-  const [swellTimelineIndex, setSwellTimelineIndex] = useState(0);
-  const swellTimelineSteps = useMemo(
-    () => ["Now", "+3h", "+6h", "+12h", "+18h", "+24h", "+36h", "+48h"],
-    []
-  );
-
   // Custom hooks for state management
   const { homeBeach, isLoading: profileLoading } = useProfileContext();
 
@@ -150,6 +195,16 @@ export function MapView() {
     clearAllFilters,
   } = useBeachSearch();
   const { customSpots } = useCustomSpots();
+  const viewTimezone = useMemo(
+    () =>
+      resolveViewedMapTimezone({
+        selectedBeach,
+        loadedBeaches: filteredBeaches,
+        exploredCenter,
+        activeRegion,
+      }),
+    [activeRegion, exploredCenter, filteredBeaches, selectedBeach],
+  );
 
   // Load nearby beaches when user location is available - prevent duplicate calls
   // Wait for geolocation to resolve before fetching to avoid using stale fallback coords
@@ -368,6 +423,7 @@ export function MapView() {
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
       setSelectedBeach(beach);
+      setActiveRegion(null);
       if (isFiniteCoord(beach.lat) && isFiniteCoord(beach.lon)) {
         issueCameraCommand(
           { source: "pin", center: { lat: beach.lat, lon: beach.lon } },
@@ -466,6 +522,7 @@ export function MapView() {
   const handleRegionSelect = useCallback(
     (region: MapRegionPill) => {
       setSelectedBeach(null);
+      setActiveRegion(region);
       clearSearch();
       issueCameraCommand(
         region.bounds
@@ -495,6 +552,7 @@ export function MapView() {
     center: { lat: number; lon: number };
   }) => {
     exploredCenterRef.current = interaction.center;
+    setExploredCenter(interaction.center);
     cameraOwnerRef.current = "user";
     setCameraOwner("user");
   }, []);
@@ -573,9 +631,8 @@ export function MapView() {
             showSwellField={showSwellField}
             swellLayerId={swellLayerId}
             onSwellLayerChange={setSwellLayerId}
-            swellTimelineSteps={swellTimelineSteps}
-            swellTimelineIndex={swellTimelineIndex}
-            onSwellTimelineChange={setSwellTimelineIndex}
+            swellTimelineMode="expandable-hourly"
+            viewTimezone={viewTimezone}
           />
         </div>
         {fieldGuideVisible && (

@@ -34,6 +34,7 @@ import {
 } from "@/components/map/map-marker-builder";
 import {
   loadBeachesAndWaveHeights,
+  parseHourlySwellTimeline,
   type ConditionSummary,
 } from "@/components/map/map-beach-loader";
 import { createBeachPreviewPopupContent } from "@/components/map/map-beach-preview-popup";
@@ -55,7 +56,10 @@ import {
 } from "@/components/map/conditions-callout-data";
 import { createConditionsCalloutElement, CALLOUT_FULL_WIDTH } from "@/components/map/conditions-callout";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
-import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
+import type {
+  HourlySwellTimeline,
+  SwellPartition,
+} from "@/app/api/forecasts/bulk/route";
 import {
   SWELL_FIELD_PARTICLE_COLOR,
   SWELL_MAP_LEGEND_SURFACE,
@@ -82,6 +86,8 @@ import {
 } from "@/components/map/swell-field/swell-particle-layer";
 import { SwellLayerSelector } from "@/components/map/swell-field/swell-layer-selector";
 import { SwellForecastTimeline } from "@/components/map/swell-field/swell-forecast-timeline";
+import { SwellDayTimeline } from "@/components/map/swell-field/swell-day-timeline";
+import { useExpandableSwellTimeline } from "@/hooks/use-expandable-swell-timeline";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import type { CustomSpot } from "@/hooks/use-custom-spots";
 import { trackSignupCtaClick } from "@/lib/analytics/signup-conversion-tracking";
@@ -134,7 +140,8 @@ const EMPTY_FLOW_FIELD: FlowField = { cols: 0, rows: 0, cells: [] };
 function clearMapDebugCenter(): void {
   if (
     typeof window !== "undefined" &&
-    process.env.NODE_ENV !== "production"
+    (process.env.NODE_ENV !== "production" ||
+      process.env.NEXT_PUBLIC_PLAYWRIGHT_TEST === "true")
   ) {
     (
       window as Window & {
@@ -245,7 +252,8 @@ interface InteractiveMapProps {
   swellTimelineSteps?: string[];
   swellTimelineIndex?: number;
   onSwellTimelineChange?: (index: number) => void;
-  swellTimelineMode?: "hourly";
+  swellTimelineMode?: "legacy" | "hourly" | "expandable-hourly";
+  viewTimezone?: string;
   showMapChrome?: boolean;
   placementPin?: { lat: number; lon: number } | null;
   placementPinDraggable?: boolean;
@@ -382,7 +390,8 @@ export function InteractiveMap({
   swellTimelineSteps = [],
   swellTimelineIndex = 0,
   onSwellTimelineChange,
-  swellTimelineMode,
+  swellTimelineMode = "legacy",
+  viewTimezone,
   showMapChrome = true,
   placementPin = null,
   placementPinDraggable = true,
@@ -447,6 +456,8 @@ export function InteractiveMap({
   const [partitionsTimelineMap, setPartitionsTimelineMap] = useState<
     Map<string, SwellPartition[]>
   >(new Map());
+  const [hourlyTimelineSeed, setHourlyTimelineSeed] = useState<HourlySwellTimeline | null>(null);
+  const [hourlyTimelineBeachIds, setHourlyTimelineBeachIds] = useState<string[]>([]);
   // Loader-resolved beaches that partitionsMap is keyed by (the prop may be empty).
   const [swellFieldBeaches, setSwellFieldBeaches] = useState<Beach[]>([]);
   // Whether the last flow-field build resolved ANY field points. False → the
@@ -490,6 +501,7 @@ export function InteractiveMap({
   const selectedBeachIdRef = useRef<string | null>(null);
   const hoveredBeachIdRef = useRef<string | null>(null);
   const partitionsMapRef = useRef<Map<string, SwellPartition>>(new Map());
+  const hourlyTimelineBeachIdsRef = useRef<string[]>([]);
   const lastRegionViewportKeyRef = useRef<string | null>(null);
   const appliedCameraCommandIdRef = useRef<number | null>(null);
   const clusterCleanupRef = useRef<Map<string, () => void>>(new Map());
@@ -622,6 +634,125 @@ export function InteractiveMap({
       "/api/beaches/nearby",
       CACHE_TTL.MAP_NEARBY_BEACHES
     )
+  );
+
+  const timelineTimezone = viewTimezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone ?? "UTC";
+  const hourlyTimelineScopeKey = `${[...hourlyTimelineBeachIds].sort().join(",")}|${timelineTimezone}`;
+  const loadHourlyChunk = useCallback(
+    async (start: string, hours: number, signal: AbortSignal): Promise<HourlySwellTimeline> => {
+      const beachIds = hourlyTimelineBeachIdsRef.current.slice(0, 20);
+      if (beachIds.length === 0) throw new Error("No beaches are available for the forecast timeline");
+
+      const searchParams = new URLSearchParams({
+        beachIds: beachIds.join(","),
+        timeline: "hourly",
+        timelineStart: start,
+        timelineHours: String(hours),
+      });
+      const response = await fetch(`/api/forecasts/bulk?${searchParams.toString()}`, { signal });
+      if (!response.ok) throw new Error(`Bulk forecast API returned ${response.status}`);
+
+      const body = await response.json();
+      const timeline = parseHourlySwellTimeline(body?.data?.hourlySwellTimeline);
+      if (!timeline) throw new Error("Bulk forecast API returned an invalid hourly timeline");
+      return timeline;
+    },
+    [],
+  );
+  const expandableTimeline = useExpandableSwellTimeline({
+    scopeKey: hourlyTimelineScopeKey,
+    initial: hourlyTimelineSeed,
+    timezone: timelineTimezone,
+    loadChunk: loadHourlyChunk,
+    reducedMotion,
+  });
+  const isExpandableTimeline = swellTimelineMode === "expandable-hourly";
+  const activeHourlyPartitionsMap = useMemo(() => {
+    const active = new Map<string, SwellPartition>();
+    for (const [beachId, partitions] of Object.entries(expandableTimeline.partitionsByBeach)) {
+      const partition = partitions[expandableTimeline.index];
+      if (partition) active.set(beachId, partition);
+    }
+    return active;
+  }, [expandableTimeline.index, expandableTimeline.partitionsByBeach]);
+
+  useEffect(() => {
+    if (!isExpandableTimeline) return;
+    conditionsCtxRef.current = {
+      beaches: beaches ?? swellFieldBeaches,
+      partitionsMap: activeHourlyPartitionsMap,
+      partitionsTimelineMap: new Map(),
+      timelineIndex: 0,
+      stepsLen: 1,
+      bounds: mapBounds || { west: -118, south: 32, east: -117, north: 33 },
+      waterTempMap,
+    };
+  }, [
+    activeHourlyPartitionsMap,
+    beaches,
+    isExpandableTimeline,
+    mapBounds,
+    swellFieldBeaches,
+    waterTempMap,
+  ]);
+
+  const trackTimelineAction = useCallback(
+    (
+      action: "timeline_scrub" | "timeline_play" | "timeline_pause" | "timeline_extend",
+      timestamp: string | undefined,
+      debounceMs: number,
+      extensionResult?: string,
+    ): void => {
+      if (!timestamp) return;
+      track("map_interaction", {
+        metadata: {
+          action,
+          active_timestamp_utc: timestamp,
+          timezone: timelineTimezone,
+          loaded_horizon_hours: expandableTimeline.timestamps.length,
+          ...(extensionResult ? { extension_result: extensionResult } : {}),
+        } as never,
+        debounceMs,
+      });
+    },
+    [expandableTimeline.timestamps.length, timelineTimezone, track],
+  );
+  const lastTimelineLoadingRef = useRef(false);
+  useEffect(() => {
+    const startedLoading = expandableTimeline.isLoadingMore && !lastTimelineLoadingRef.current;
+    lastTimelineLoadingRef.current = expandableTimeline.isLoadingMore;
+    if (!isExpandableTimeline || !startedLoading) return;
+    trackTimelineAction(
+      "timeline_extend",
+      expandableTimeline.timestamps[expandableTimeline.index],
+      0,
+      "requested",
+    );
+  }, [
+    expandableTimeline.index,
+    expandableTimeline.isLoadingMore,
+    expandableTimeline.timestamps,
+    isExpandableTimeline,
+    trackTimelineAction,
+  ]);
+
+  const handleExpandableTimelineIndexChange = useCallback(
+    (index: number): void => {
+      expandableTimeline.setIndex(index);
+      trackTimelineAction("timeline_scrub", expandableTimeline.timestamps[index], 250);
+    },
+    [expandableTimeline, trackTimelineAction],
+  );
+  const handleExpandableTimelinePlayingChange = useCallback(
+    (playing: boolean): void => {
+      expandableTimeline.setPlaying(playing);
+      trackTimelineAction(
+        playing ? "timeline_play" : "timeline_pause",
+        expandableTimeline.timestamps[expandableTimeline.index],
+        0,
+      );
+    },
+    [expandableTimeline, trackTimelineAction],
   );
 
   const clearBeachPreviewCloseTimer = useCallback((): void => {
@@ -1071,7 +1202,9 @@ export function InteractiveMap({
           longitude,
           beaches,
           { fetchNearbyBeaches: fetchNearbyBeaches.current },
-          { timeline: swellTimelineMode },
+          swellTimelineMode === "legacy"
+            ? {}
+            : { timeline: "hourly", timelineHours: 48 },
         );
         if (requestId !== populateRequestIdRef.current) return;
 
@@ -1084,6 +1217,15 @@ export function InteractiveMap({
         setPartitionsMap(result.partitionsMap);
         setPartitionsTimelineMap(result.partitionsTimelineMap);
         setSwellFieldBeaches(result.locations);
+        if (swellTimelineMode === "expandable-hourly") {
+          const beachIds = result.locations
+            .map((beach) => beach.id)
+            .filter((beachId): beachId is string => Boolean(beachId))
+            .sort();
+          hourlyTimelineBeachIdsRef.current = beachIds;
+          setHourlyTimelineBeachIds(beachIds);
+          setHourlyTimelineSeed(result.hourlySwellTimeline);
+        }
         onWaveHeightsChangeRef.current?.(result.waveHeightMap);
         onDisplayForecastsChangeRef.current?.(result.displayForecastMap);
       } catch (e) {
@@ -1183,12 +1325,14 @@ export function InteractiveMap({
     for (const component of components) {
       const points: BeachPartitionPoint[] = [];
       for (const beach of beachList) {
-        const partition = partitionAtTimelinePosition(
-          beach.id,
-          timelinePosition,
-          partitionsTimelineMap,
-          partitionsMap
-        );
+        const partition = isExpandableTimeline
+          ? expandableTimeline.partitionsByBeach[beach.id]?.[expandableTimeline.index] ?? null
+          : partitionAtTimelinePosition(
+              beach.id,
+              timelinePosition,
+              partitionsTimelineMap,
+              partitionsMap,
+            );
         if (!partition || beach.lat == null || beach.lon == null) continue;
         const point = partitionToPoint(beach.lon, beach.lat, partition, component);
         if (point) points.push(point);
@@ -1217,7 +1361,22 @@ export function InteractiveMap({
     applyWaterMask(map);
     // Nudge a repaint so a static (reduced-motion) frame reflects the new field.
     map.triggerRepaint();
-  }, [partitionsMap, partitionsTimelineMap, swellFieldBeaches, swellLayerId, swellTimelineIndex, swellTimelineSteps.length, isMapReady, showSwellField, beaches, mapBounds, applyWaterMask]);
+  }, [
+    applyWaterMask,
+    beaches,
+    expandableTimeline.index,
+    expandableTimeline.partitionsByBeach,
+    isExpandableTimeline,
+    isMapReady,
+    mapBounds,
+    partitionsMap,
+    partitionsTimelineMap,
+    showSwellField,
+    swellFieldBeaches,
+    swellLayerId,
+    swellTimelineIndex,
+    swellTimelineSteps.length,
+  ]);
 
   // Re-mask the field to water once the map has actually rendered tiles. Running on
   // `idle` (fired after tiles finish loading) and `moveend` is what makes the mask
@@ -1647,7 +1806,10 @@ export function InteractiveMap({
       setIsMapReady(true);
       onMapReadyRef.current?.();
       // Expose map instance in dev and Playwright builds for E2E map assertions.
-      if (process.env.NODE_ENV !== "production") {
+      if (
+        process.env.NODE_ENV !== "production" ||
+        process.env.NEXT_PUBLIC_PLAYWRIGHT_TEST === "true"
+      ) {
         (window as any).__quiverMapInstance = mapRef.current;
       }
       // Initialize bounds for clustering
@@ -1742,7 +1904,10 @@ export function InteractiveMap({
 
     // Stable wrapper — delegates to the latest debounced handler via ref
     const moveEndHandler = () => {
-      if (process.env.NODE_ENV !== "production") {
+      if (
+        process.env.NODE_ENV !== "production" ||
+        process.env.NEXT_PUBLIC_PLAYWRIGHT_TEST === "true"
+      ) {
         const center = map.getCenter();
         (
           window as Window & {
@@ -2226,6 +2391,7 @@ export function InteractiveMap({
   const swellTimeline =
     showMapChrome &&
     showSwellField &&
+    !isExpandableTimeline &&
     onSwellTimelineChange &&
     swellTimelineSteps.length > 0 ? (
       <SwellForecastTimeline
@@ -2233,6 +2399,27 @@ export function InteractiveMap({
         index={swellTimelineIndex}
         onIndexChange={onSwellTimelineChange}
         placement={displayMode === "wave-height" ? "legend" : "floating"}
+      />
+    ) : null;
+
+  const expandableSwellTimeline =
+    showMapChrome &&
+    showSwellField &&
+    isExpandableTimeline &&
+    hourlyTimelineSeed ? (
+      <SwellDayTimeline
+        timestamps={expandableTimeline.timestamps}
+        index={expandableTimeline.index}
+        timezone={expandableTimeline.timezone}
+        bubbleLabel={expandableTimeline.bubbleLabel}
+        daySegments={expandableTimeline.daySegments}
+        isPlaying={expandableTimeline.isPlaying}
+        isLoadingMore={expandableTimeline.isLoadingMore}
+        isExhausted={expandableTimeline.isExhausted}
+        error={expandableTimeline.error}
+        onIndexChange={handleExpandableTimelineIndexChange}
+        onPlayingChange={handleExpandableTimelinePlayingChange}
+        onRetry={expandableTimeline.retry}
       />
     ) : null;
 
@@ -2259,6 +2446,7 @@ export function InteractiveMap({
       )}
       {showMapChrome && displayMode !== "wave-height" && swellLayerSelector}
       {showMapChrome && displayMode !== "wave-height" && swellTimeline}
+      {expandableSwellTimeline}
       {showMapChrome && showLeashHint && (
         // One-time, auto-dismissing hint that the field locked the camera to the
         // coast (zoom-out is gone). Top-center, fades out under motion.

@@ -1,5 +1,8 @@
 import type { Beach } from "@/types/database";
-import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
+import type {
+  HourlySwellTimeline,
+  SwellPartition,
+} from "@/app/api/forecasts/bulk/route";
 import { API_BATCH_CONFIG } from "@/lib/constants/ui";
 import { fetchInBatches } from "@/lib/utils/batch-fetch";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
@@ -42,10 +45,74 @@ export interface BeachLoaderResult {
   partitionsMap: Map<string, SwellPartition>;
   /** Map from beach ID to parsed swell/wind partitions by forecast timeline step */
   partitionsTimelineMap: Map<string, SwellPartition[]>;
+  /** Shared absolute-time envelope for the expandable public timeline. */
+  hourlySwellTimeline: HourlySwellTimeline | null;
 }
 
 export interface BeachLoaderOptions {
   timeline?: "hourly";
+  timelineStart?: string;
+  timelineHours?: number;
+}
+
+function isSwellPartition(value: unknown): value is SwellPartition {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+export function parseHourlySwellTimeline(value: unknown): HourlySwellTimeline | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const envelope = value as Record<string, unknown>;
+  if (!Array.isArray(envelope.timestamps) || typeof envelope.hasMore !== "boolean") {
+    return null;
+  }
+  if (
+    envelope.nextStart !== null &&
+    (typeof envelope.nextStart !== "string" || !Number.isFinite(Date.parse(envelope.nextStart)))
+  ) {
+    return null;
+  }
+  if (!envelope.partitionsByBeach || typeof envelope.partitionsByBeach !== "object") {
+    return null;
+  }
+
+  const timestamps = envelope.timestamps;
+  if (
+    timestamps.some((timestamp) => typeof timestamp !== "string" || !Number.isFinite(Date.parse(timestamp))) ||
+    timestamps.some((timestamp, index) => index > 0 && timestamp <= timestamps[index - 1])
+  ) {
+    return null;
+  }
+
+  const parsedPartitions = Object.entries(
+    envelope.partitionsByBeach as Record<string, unknown>,
+  ).reduce<Record<string, Array<SwellPartition | null>> | null>((result, [beachId, partitions]) => {
+    if (!result || !Array.isArray(partitions) || partitions.length !== timestamps.length) {
+      return null;
+    }
+    if (partitions.some((partition) => partition !== null && !isSwellPartition(partition))) {
+      return null;
+    }
+    result[beachId] = partitions as Array<SwellPartition | null>;
+    return result;
+  }, {});
+  if (!parsedPartitions) return null;
+
+  const nextStart = envelope.nextStart as string | null;
+  if (
+    nextStart &&
+    timestamps.length > 0 &&
+    Date.parse(nextStart) <= Date.parse(timestamps[timestamps.length - 1])
+  ) {
+    return null;
+  }
+
+  return {
+    timestamps: [...timestamps] as string[],
+    partitionsByBeach: parsedPartitions,
+    hasMore: envelope.hasMore,
+    nextStart,
+  };
 }
 
 /**
@@ -129,6 +196,7 @@ export async function loadBeachesAndWaveHeights(
   const conditionSummaryMap = new Map<string, ConditionSummary>();
   const partitionsMap = new Map<string, SwellPartition>();
   const partitionsTimelineMap = new Map<string, SwellPartition[]>();
+  let hourlySwellTimeline: HourlySwellTimeline | null = null;
   const beachesForWaveData = locations;
 
   if (beachesForWaveData.length > 0) {
@@ -141,9 +209,16 @@ export async function loadBeachesAndWaveHeights(
         items: allBeachIds,
         batchSize: API_BATCH_CONFIG.BEACH_ID_BATCH_SIZE,
         fetchBatch: async (batchIds) => {
-          const timelineParam = options.timeline === "hourly" ? "&timeline=hourly" : "";
+          const searchParams = new URLSearchParams({ beachIds: batchIds.join(",") });
+          if (options.timeline === "hourly") {
+            searchParams.set("timeline", "hourly");
+            if (options.timelineStart) searchParams.set("timelineStart", options.timelineStart);
+            if (options.timelineHours !== undefined) {
+              searchParams.set("timelineHours", String(options.timelineHours));
+            }
+          }
           const response = await fetch(
-            `/api/forecasts/bulk?beachIds=${batchIds.join(",")}${timelineParam}`
+            `/api/forecasts/bulk?${searchParams.toString()}`
           );
           if (!response.ok) {
             if (response.status !== 400) {
@@ -225,6 +300,11 @@ export async function loadBeachesAndWaveHeights(
             }
           }
         );
+
+        const parsedHourlyTimeline = parseHourlySwellTimeline(
+          data?.data?.hourlySwellTimeline,
+        );
+        if (parsedHourlyTimeline) hourlySwellTimeline = parsedHourlyTimeline;
       });
     } catch (error) {
       console.warn("Failed to fetch bulk forecasts:", error);
@@ -243,6 +323,7 @@ export async function loadBeachesAndWaveHeights(
     conditionSummaryMap,
     partitionsMap,
     partitionsTimelineMap,
+    hourlySwellTimeline,
   };
 }
 

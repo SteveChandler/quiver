@@ -72,6 +72,8 @@ interface MapContentProps {
   swellTimelineSteps?: string[];
   swellTimelineIndex?: number;
   onSwellTimelineChange?: (index: number) => void;
+  swellTimelineMode?: "legacy" | "hourly" | "expandable-hourly";
+  viewTimezone?: string;
 }
 
 const InteractiveMap = dynamic(
@@ -111,6 +113,8 @@ export function MapContent({
   swellTimelineSteps,
   swellTimelineIndex,
   onSwellTimelineChange,
+  swellTimelineMode = "legacy",
+  viewTimezone,
 }: MapContentProps) {
   const mapCenterState = useMemo(() => {
     if (
@@ -296,6 +300,8 @@ export function MapContent({
             swellTimelineSteps={swellTimelineSteps}
             swellTimelineIndex={swellTimelineIndex}
             onSwellTimelineChange={onSwellTimelineChange}
+            swellTimelineMode={swellTimelineMode}
+            viewTimezone={viewTimezone}
             className="absolute inset-0 z-0 w-full h-full"
           />
         </DataErrorBoundary>

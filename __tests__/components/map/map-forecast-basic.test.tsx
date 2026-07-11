@@ -241,6 +241,62 @@ describe("Map Forecast Basic Tests", () => {
     expect(timeline.className).not.toContain("absolute");
   });
 
+  it("renders the public day timeline with absolute local time instead of relative offsets", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    mockFetch.mockImplementation((input: string | URL | Request) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.includes("/api/forecasts/bulk")) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({
+            data: {
+              forecasts: { "d030911e-71ba-4678-8bbb-cd06a30f8c42": "2.6 ft" },
+              hourlySwellTimeline: {
+                timestamps: [
+                  "2026-07-10T20:00:00.000Z",
+                  "2026-07-10T21:00:00.000Z",
+                ],
+                partitionsByBeach: {
+                  "d030911e-71ba-4678-8bbb-cd06a30f8c42": [
+                    { s1Dir: 270, s1PeriodS: 14, s1HeightFt: 3.9 },
+                    { s1Dir: 280, s1PeriodS: 15, s1HeightFt: 4.2 },
+                  ],
+                },
+                hasMore: false,
+                nextStart: null,
+              },
+            },
+          }),
+        } as Response);
+      }
+      return Promise.reject(new Error("Unhandled fetch"));
+    });
+
+    render(
+      <InteractiveMap
+        {...({
+          showSwellField: true,
+          swellTimelineMode: "expandable-hourly",
+          viewTimezone: "Pacific/Honolulu",
+          swellTimelineSteps: ["Now", "+3h", "+6h"],
+          beaches: [
+            {
+              id: "d030911e-71ba-4678-8bbb-cd06a30f8c42",
+              name: "Ocean Beach",
+              lat: 32.7493,
+              lon: -117.2511,
+            },
+          ],
+        } as any)}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId("swell-day-timeline")).toBeInTheDocument();
+    });
+    expect(screen.queryByText(/\+\d+h/)).not.toBeInTheDocument();
+  });
+
   it("should embed the swell layer selector inside the condition legend", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
 
@@ -395,7 +451,7 @@ describe("Map Forecast Basic Tests", () => {
     }, { timeout: 3000 });
   });
 
-  it("should clear the swell-field leash before recentering without a remount", async () => {
+  it("should clear the swell-field leash before an explicit camera command without a remount", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     const mockBeaches = [
       { id: "test-1", name: "Test Beach", lat: 32.75, lon: -117.25 },
@@ -423,6 +479,11 @@ describe("Map Forecast Basic Tests", () => {
         beaches={mockBeaches as any}
         initialCenter={[37.76, -122.51]}
         showSwellField
+        cameraCommand={{
+          id: 1,
+          source: "search",
+          center: { lat: 37.76, lon: -122.51 },
+        }}
       />
     );
 

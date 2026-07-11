@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MapView } from "@/components/map-view";
+import { MapView, resolveViewedMapTimezone } from "@/components/map-view";
 import type { Beach } from "@/types/database";
 
 const mockLoadNearbyBeaches = jest.fn();
@@ -117,6 +117,8 @@ jest.mock("@/components/map/map-content", () => ({
       loading,
       showSwellField,
       swellTimelineSteps,
+      swellTimelineMode,
+      viewTimezone,
     } = props;
     lastMapContentProps = props;
     return (
@@ -126,6 +128,8 @@ jest.mock("@/components/map/map-content", () => ({
       data-loading={String(loading)}
       data-show-swell-field={String(showSwellField)}
       data-swell-timeline-steps={(swellTimelineSteps as string[] | undefined)?.join(",") ?? ""}
+      data-swell-timeline-mode={String(swellTimelineMode)}
+      data-view-timezone={String(viewTimezone)}
       data-testid="map-content"
     />
     );
@@ -172,13 +176,60 @@ describe("MapView", () => {
     expect(screen.queryByTestId("view-mode-list")).not.toBeInTheDocument();
   });
 
-  it("passes a 48-hour swell timeline to the map", () => {
+  it("resolves viewed timezone from selected beach, explored beaches, then region", () => {
+    const honolulu = {
+      id: "honolulu",
+      lat: 21.28,
+      lon: -157.85,
+      timezone: "Pacific/Honolulu",
+    } as Beach;
+    const sanDiego = {
+      id: "san-diego",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+    } as Beach;
+    const hawaii = {
+      id: "hawaii",
+      label: "Hawaii",
+      center: { lat: 21.66, lon: -158.06 },
+      timezone: "Pacific/Honolulu",
+    };
+
+    expect(
+      resolveViewedMapTimezone({
+        selectedBeach: sanDiego,
+        loadedBeaches: [honolulu, sanDiego],
+        exploredCenter: { lat: 21.29, lon: -157.86 },
+        activeRegion: hawaii,
+      }),
+    ).toBe("America/Los_Angeles");
+    expect(
+      resolveViewedMapTimezone({
+        selectedBeach: null,
+        loadedBeaches: [honolulu, sanDiego],
+        exploredCenter: { lat: 21.29, lon: -157.86 },
+        activeRegion: null,
+      }),
+    ).toBe("Pacific/Honolulu");
+    expect(
+      resolveViewedMapTimezone({
+        selectedBeach: null,
+        loadedBeaches: [],
+        exploredCenter: null,
+        activeRegion: hawaii,
+      }),
+    ).toBe("Pacific/Honolulu");
+  });
+
+  it("enables the expandable local-time timeline for the public map", () => {
     render(<MapView />);
 
     expect(screen.getByTestId("map-content")).toHaveAttribute(
-      "data-swell-timeline-steps",
-      "Now,+3h,+6h,+12h,+18h,+24h,+36h,+48h",
+      "data-swell-timeline-mode",
+      "expandable-hourly",
     );
+    expect(screen.getByTestId("map-content")).toHaveAttribute("data-swell-timeline-steps", "");
   });
 
   it("shows the field guide trigger but keeps the panel collapsed on the live map", () => {
