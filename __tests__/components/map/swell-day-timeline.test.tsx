@@ -192,7 +192,7 @@ describe("SwellDayTimeline", () => {
 
     rerender(<SwellDayTimeline {...createProps({ isExhausted: true })} />);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "All available forecast hours loaded",
+      "Forecast ends Sat 11 — 1 PM HST",
     );
   });
 
@@ -287,7 +287,7 @@ describe("SwellDayTimeline", () => {
     );
     expect(screen.getByTestId("swell-day-timeline")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent(
-      "All available forecast hours loaded",
+      "No forecast hours available",
     );
   });
 });

@@ -380,11 +380,17 @@ export function MapView() {
     setSearchQuery(searchFromUrl);
   }, [searchParams, setSearchQuery]);
 
-  const searchCommandKeyRef = useRef<string | null>(null);
+  const searchCommandQueryRef = useRef<string | null>(null);
   useEffect(() => {
+    const normalizedQuery = searchQuery.trim();
+    if (!normalizedQuery) {
+      searchCommandQueryRef.current = null;
+      return;
+    }
+    if (searchCommandQueryRef.current === normalizedQuery) return;
+
     const firstBeach = filteredBeaches[0];
     if (
-      !searchQuery ||
       !firstBeach ||
       !isFiniteCoord(firstBeach.lat) ||
       !isFiniteCoord(firstBeach.lon)
@@ -392,9 +398,7 @@ export function MapView() {
       return;
     }
 
-    const key = `${searchQuery}:${firstBeach.id}`;
-    if (searchCommandKeyRef.current === key) return;
-    searchCommandKeyRef.current = key;
+    searchCommandQueryRef.current = normalizedQuery;
     issueCameraCommand(
       { source: "search", center: { lat: firstBeach.lat, lon: firstBeach.lon } },
       "explicit-command",

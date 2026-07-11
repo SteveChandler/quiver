@@ -1696,6 +1696,17 @@ export function InteractiveMap({
       appliedLeashKeyRef.current = null;
       return;
     }
+    const center = map.getCenter();
+    if (
+      center.lng < bounds.west ||
+      center.lng > bounds.east ||
+      center.lat < bounds.south ||
+      center.lat > bounds.north
+    ) {
+      releaseSwellFieldLeash(map);
+      appliedLeashKeyRef.current = null;
+      return;
+    }
 
     // Re-applying setMaxBounds on every beach-list update (a new array reference
     // each load) is what bounced the camera inland and back: setMaxBounds(null) on

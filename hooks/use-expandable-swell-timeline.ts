@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HourlySwellTimeline, SwellPartition } from "@/app/api/forecasts/bulk/route";
 import {
   formatTimelineBubble,
@@ -112,7 +112,10 @@ export function useExpandableSwellTimeline({
   const requestGenerationRef = useRef(0);
   const isLoadingRef = useRef(false);
   const playbackForecastTimeRef = useRef<number | null>(null);
-  const initialTimelineKey = timelineResetIdentity(initial);
+  const initialTimelineKey = useMemo(
+    () => timelineResetIdentity(initial),
+    [initial],
+  );
 
   useEffect(() => {
     initialRef.current = initial;
@@ -257,7 +260,15 @@ export function useExpandableSwellTimeline({
         return;
       }
 
-      const nextForecastTime = playbackTime + HOUR_MS;
+      const loadedEndTime = parseTimestamp(current.timestamps.at(-1));
+      if (current.hasMore && loadedEndTime != null && playbackTime >= loadedEndTime) {
+        playbackForecastTimeRef.current = loadedEndTime;
+        return;
+      }
+
+      const nextForecastTime = current.hasMore && loadedEndTime != null
+        ? Math.min(playbackTime + HOUR_MS, loadedEndTime)
+        : playbackTime + HOUR_MS;
       playbackForecastTimeRef.current = nextForecastTime;
       let selectedIndex = indexRef.current;
 
@@ -274,7 +285,6 @@ export function useExpandableSwellTimeline({
         setIndexState(selectedIndex);
       }
 
-      const loadedEndTime = parseTimestamp(current.timestamps.at(-1));
       if (!current.hasMore && loadedEndTime != null && nextForecastTime >= loadedEndTime) {
         setPlayingState(false);
       }
@@ -287,9 +297,20 @@ export function useExpandableSwellTimeline({
     void requestMore();
   }, [requestMore]);
 
-  const timestamps = timeline?.timestamps ?? [];
-  const partitionsByBeach = timeline?.partitionsByBeach ?? {};
+  const timestamps = useMemo(() => timeline?.timestamps ?? [], [timeline]);
+  const partitionsByBeach = useMemo(
+    () => timeline?.partitionsByBeach ?? {},
+    [timeline],
+  );
   const activeTimestamp = timestamps[index];
+  const bubbleLabel = useMemo(
+    () => activeTimestamp ? formatTimelineBubble(activeTimestamp, timezone) : "",
+    [activeTimestamp, timezone],
+  );
+  const daySegments = useMemo(
+    () => segmentTimelineDays(timestamps, timezone),
+    [timestamps, timezone],
+  );
 
   return {
     timestamps,
@@ -300,8 +321,8 @@ export function useExpandableSwellTimeline({
     isExhausted,
     error,
     timezone,
-    bubbleLabel: activeTimestamp ? formatTimelineBubble(activeTimestamp, timezone) : "",
-    daySegments: segmentTimelineDays(timestamps, timezone),
+    bubbleLabel,
+    daySegments,
     setIndex,
     setPlaying: setPlayingState,
     retry,

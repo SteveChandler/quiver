@@ -3,6 +3,7 @@
 import { Pause, Play } from "lucide-react";
 import type { CSSProperties, KeyboardEvent, ReactElement, ReactNode } from "react";
 import type { TimelineDaySegment } from "@/components/map/hourly-swell-timeline";
+import { formatTimelineBubble } from "@/components/map/hourly-swell-timeline";
 import {
   SWELL_MAP_CTA_CLASS,
   SWELL_MAP_LEGEND_SURFACE,
@@ -123,10 +124,11 @@ function TimelineStatus({
   isLoadingMore,
   isExhausted,
   onRetry,
+  exhaustionLabel,
 }: Pick<
   SwellDayTimelineProps,
   "error" | "isLoadingMore" | "isExhausted" | "onRetry"
->): ReactElement | null {
+> & { exhaustionLabel: string }): ReactElement | null {
   if (error) {
     return (
       <div role="status" aria-live="polite" aria-atomic="true" className="flex items-center gap-2 text-xs font-semibold">
@@ -154,7 +156,7 @@ function TimelineStatus({
   if (isExhausted) {
     return (
       <div role="status" aria-live="polite" aria-atomic="true" className="text-xs font-semibold">
-        All available forecast hours loaded
+        {exhaustionLabel}
       </div>
     );
   }
@@ -207,6 +209,10 @@ export function SwellDayTimeline({
   onPlayingChange,
   onRetry,
 }: SwellDayTimelineProps): ReactElement | null {
+  const finalTimestamp = timestamps.at(-1);
+  const exhaustionLabel = finalTimestamp
+    ? `Forecast ends ${formatTimelineBubble(finalTimestamp, timezone)}`
+    : "No forecast hours available";
   if (timestamps.length === 0) {
     if (!error && !isLoadingMore && !isExhausted) return null;
 
@@ -217,6 +223,7 @@ export function SwellDayTimeline({
           isLoadingMore={isLoadingMore}
           isExhausted={isExhausted}
           onRetry={onRetry}
+          exhaustionLabel={exhaustionLabel}
         />
       </TimelineShell>
     );
@@ -337,6 +344,7 @@ export function SwellDayTimeline({
           isLoadingMore={isLoadingMore}
           isExhausted={isExhausted}
           onRetry={onRetry}
+          exhaustionLabel={exhaustionLabel}
         />
       </div>
     </TimelineShell>

@@ -19,6 +19,7 @@ let mockBeachLoading = false;
 let mockHomeBeach: { lat: number; lon: number } | null = null;
 let mockProfileLoading = false;
 let mockFilteredBeaches: Beach[] = [];
+let mockSearchQuery = "";
 const mockCustomSpots = [
   {
     id: "spot-1",
@@ -67,7 +68,7 @@ jest.mock("@/hooks/use-beach-search", () => ({
   useBeachSearch: () => ({
     filteredBeaches: mockFilteredBeaches,
     loading: mockBeachLoading,
-    searchQuery: "",
+    searchQuery: mockSearchQuery,
     selectedBeach: null,
     filters: { beginnerFriendly: false, breakTypes: new Set<string>() },
     loadBeaches: jest.fn(),
@@ -149,6 +150,7 @@ describe("MapView", () => {
     mockHomeBeach = null;
     mockProfileLoading = false;
     mockFilteredBeaches = [];
+    mockSearchQuery = "";
     lastMapContentProps = {};
     try {
       window.localStorage.clear();
@@ -232,6 +234,52 @@ describe("MapView", () => {
       "expandable-hourly",
     );
     expect(screen.getByTestId("map-content")).toHaveAttribute("data-swell-timeline-steps", "");
+  });
+
+  it("commands once per search query while result reorders remain presentation-only", async () => {
+    const alaMoana = {
+      id: "ala-moana",
+      name: "Ala Moana Bowls",
+      lat: 21.28,
+      lon: -157.85,
+    } as Beach;
+    const queens = {
+      id: "queens",
+      name: "Queens",
+      lat: 21.27,
+      lon: -157.83,
+    } as Beach;
+    mockSearchQuery = "south shore";
+    mockFilteredBeaches = [alaMoana];
+    const { rerender } = render(<MapView />);
+
+    await waitFor(() => {
+      expect((lastMapContentProps.cameraCommand as { source: string }).source)
+        .toBe("search");
+    });
+    const firstSearchCommand = lastMapContentProps.cameraCommand as {
+      id: number;
+      source: string;
+    };
+
+    mockFilteredBeaches = [queens];
+    rerender(<MapView />);
+    expect(lastMapContentProps.cameraCommand).toBe(firstSearchCommand);
+
+    mockSearchQuery = "waikiki";
+    rerender(<MapView />);
+    await waitFor(() => {
+      expect((lastMapContentProps.cameraCommand as { id: number }).id)
+        .toBeGreaterThan(firstSearchCommand.id);
+    });
+    expect((lastMapContentProps.cameraCommand as { source: string }).source)
+      .toBe("search");
+
+    act(() => {
+      (lastMapContentProps.onBeachSelect as (beach: Beach) => void)(queens);
+    });
+    expect((lastMapContentProps.cameraCommand as { source: string }).source)
+      .toBe("pin");
   });
 
   it("uses the final user move center for timezone without issuing camera or beach loads", () => {

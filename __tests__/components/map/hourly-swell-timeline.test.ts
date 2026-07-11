@@ -32,6 +32,22 @@ describe("hourly swell timeline utilities", () => {
       .toBe("Fri 10 — 1 PM HST");
   });
 
+  it("reuses one formatter for repeated work in the same timezone", () => {
+    const formatterSpy = jest.spyOn(Intl, "DateTimeFormat");
+    try {
+      formatTimelineBubble("2026-07-10T23:00:00.000Z", "Pacific/Pago_Pago");
+      formatTimelineBubble("2026-07-11T00:00:00.000Z", "Pacific/Pago_Pago");
+      segmentTimelineDays([
+        "2026-07-10T23:00:00.000Z",
+        "2026-07-11T00:00:00.000Z",
+      ], "Pacific/Pago_Pago");
+
+      expect(formatterSpy).toHaveBeenCalledTimes(1);
+    } finally {
+      formatterSpy.mockRestore();
+    }
+  });
+
   it("segments DST fallback instants under one local day", () => {
     expect(segmentTimelineDays([
       "2026-11-01T08:00:00.000Z",

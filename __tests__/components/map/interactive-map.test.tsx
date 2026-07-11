@@ -237,6 +237,37 @@ describe("InteractiveMap", () => {
     });
   });
 
+  it("does not reapply stale beach bounds after a cross-region command and drag", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    render(
+      <InteractiveMap
+        beaches={[{
+          id: "san-diego",
+          name: "San Diego",
+          lat: 32.75,
+          lon: -117.25,
+        } as import("@/types/database").Beach]}
+        showSwellField
+        cameraCommand={{
+          id: 1,
+          source: "region",
+          center: { lat: 21.28, lon: -157.85 },
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(getMapInstance().flyTo).toHaveBeenCalled());
+    mockMapCenter = { lat: 21.28, lng: -157.85 };
+    act(() => {
+      mockMapHandlers.dragstart[0]({ originalEvent: new MouseEvent("mousedown") });
+      mockMapHandlers.moveend[0]();
+    });
+
+    await waitFor(() => {
+      expect(getMapInstance().setMaxBounds.mock.calls.at(-1)?.[0]).toBeNull();
+    });
+  });
+
   it("exposes the first validated absolute hourly envelope for an embed", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
     const onHourlyTimelineLoaded = jest.fn();

@@ -7,9 +7,13 @@ export interface TimelineDaySegment {
   endIndex: number;
 }
 
-function dateTimeParts(timestamp: string, timezone: string): Intl.DateTimeFormatPart[] {
-  const date = new Date(timestamp);
-  const options: Intl.DateTimeFormatOptions = {
+const dateTimeFormatterByTimezone = new Map<string, Intl.DateTimeFormat>();
+
+function getDateTimeFormatter(timezone: string): Intl.DateTimeFormat {
+  const cached = dateTimeFormatterByTimezone.get(timezone);
+  if (cached) return cached;
+
+  const formatter = new Intl.DateTimeFormat("en-US", {
     weekday: "short",
     year: "numeric",
     month: "2-digit",
@@ -18,9 +22,14 @@ function dateTimeParts(timestamp: string, timezone: string): Intl.DateTimeFormat
     hour12: true,
     timeZoneName: "short",
     timeZone: timezone,
-  };
+  });
+  dateTimeFormatterByTimezone.set(timezone, formatter);
+  return formatter;
+}
 
-  return new Intl.DateTimeFormat("en-US", options).formatToParts(date);
+function dateTimeParts(timestamp: string, timezone: string): Intl.DateTimeFormatPart[] {
+  const date = new Date(timestamp);
+  return getDateTimeFormatter(timezone).formatToParts(date);
 }
 
 function part(parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes): string {

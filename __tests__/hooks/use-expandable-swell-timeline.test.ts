@@ -309,6 +309,81 @@ describe("useExpandableSwellTimeline", () => {
     expect(result.current.error).toBe("Extension unavailable");
   });
 
+  it("freezes at the loaded boundary until a deferred gapped extension merges", async () => {
+    const nextChunk = deferred<HourlySwellTimeline>();
+    const loadChunk = jest.fn(() => nextChunk.promise);
+    const initial = makeTimeline(0, 8);
+    const { result } = renderHook(() => useExpandableSwellTimeline({
+      scopeKey: "a",
+      initial,
+      timezone: "Pacific/Honolulu",
+      loadChunk,
+      reducedMotion: false,
+    }));
+
+    act(() => {
+      result.current.setIndex(7);
+      result.current.setPlaying(true);
+    });
+    expect(result.current.isLoadingMore).toBe(true);
+
+    act(() => {
+      jest.advanceTimersByTime(10_000);
+    });
+    expect(result.current.index).toBe(7);
+    expect(result.current.timestamps[result.current.index]).toBe(
+      "2026-07-10T07:00:00.000Z",
+    );
+
+    const gapped = makeTimeline(12, 2, { hasMore: false, nextStart: null });
+    await act(async () => {
+      nextChunk.resolve(gapped);
+      await nextChunk.promise;
+    });
+
+    act(() => {
+      jest.advanceTimersByTime(4 * 500);
+    });
+    expect(result.current.index).toBe(7);
+
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+    expect(result.current.timestamps[result.current.index]).toBe(
+      "2026-07-10T12:00:00.000Z",
+    );
+  });
+
+  it("does not rebuild reset identity or day segments for index-only renders", () => {
+    const stringifySpy = jest.spyOn(JSON, "stringify");
+    const timelineUtils = jest.requireMock(
+      "@/components/map/hourly-swell-timeline",
+    ) as typeof import("@/components/map/hourly-swell-timeline");
+    const segmentSpy = jest.spyOn(timelineUtils, "segmentTimelineDays");
+    try {
+      const initial = makeTimeline(0, 8, { hasMore: false, nextStart: null });
+      const { result } = renderHook(() => useExpandableSwellTimeline({
+        scopeKey: "a",
+        initial,
+        timezone: "Pacific/Honolulu",
+        loadChunk: jest.fn(),
+        reducedMotion: false,
+      }));
+      const stringifyCalls = stringifySpy.mock.calls.length;
+      const segmentCalls = segmentSpy.mock.calls.length;
+
+      act(() => {
+        result.current.setIndex(1);
+      });
+
+      expect(stringifySpy).toHaveBeenCalledTimes(stringifyCalls);
+      expect(segmentSpy).toHaveBeenCalledTimes(segmentCalls);
+    } finally {
+      stringifySpy.mockRestore();
+      segmentSpy.mockRestore();
+    }
+  });
+
   it("retries a failed extension from the same next start", async () => {
     const initial = makeTimeline(0, 8);
     const firstChunk = deferred<HourlySwellTimeline>();
