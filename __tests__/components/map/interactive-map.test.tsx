@@ -237,6 +237,96 @@ describe("InteractiveMap", () => {
     });
   });
 
+  it("exposes the first validated absolute hourly envelope for an embed", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onHourlyTimelineLoaded = jest.fn();
+    const timeline = {
+      timestamps: [
+        "2026-07-10T20:00:00.000Z",
+        "2026-07-10T21:00:00.000Z",
+      ],
+      partitionsByBeach: { "beach-1": [null, null] },
+      hasMore: false,
+      nextStart: null,
+    };
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { forecasts: {}, hourlySwellTimeline: timeline } }),
+    })) as jest.Mock;
+
+    render(
+      <InteractiveMap
+        beaches={[{ id: "beach-1", name: "Beach", lat: 32.75, lon: -117.25 } as import("@/types/database").Beach]}
+        onHourlyTimelineLoaded={onHourlyTimelineLoaded}
+        swellTimelineMode="hourly"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onHourlyTimelineLoaded).toHaveBeenCalledWith(timeline);
+    });
+  });
+
+  it("does not carry a prior hourly frame into a missing absolute timestamp", async () => {
+    const interactiveMapModule = await import("@/components/map/interactive-map");
+    const resolve = (interactiveMapModule as Record<string, unknown>).partitionAtAbsoluteTimelineIndex;
+    const firstFrame = { swell1Height: 2 };
+    const timeline = {
+      timestamps: [
+        "2026-07-10T20:00:00.000Z",
+        "2026-07-10T21:00:00.000Z",
+        "2026-07-10T22:00:00.000Z",
+      ],
+      partitionsByBeach: { "beach-1": [firstFrame, null, { swell1Height: 4 }] },
+      hasMore: false,
+      nextStart: null,
+    };
+    const partition = typeof resolve === "function"
+      ? resolve(timeline, "beach-1", 1)
+      : firstFrame;
+
+    expect(partition).toBeUndefined();
+
+    const malformedTimestampPartition = typeof resolve === "function"
+      ? resolve(
+        {
+          ...timeline,
+          timestamps: ["not-a-timestamp"],
+          partitionsByBeach: { "beach-1": [firstFrame] },
+        },
+        "beach-1",
+        0,
+      )
+      : firstFrame;
+    expect(malformedTimestampPartition).toBeUndefined();
+
+    const nonHourlyTimestampPartition = typeof resolve === "function"
+      ? resolve(
+        {
+          ...timeline,
+          timestamps: ["2026-07-10T20:30:00.000Z"],
+          partitionsByBeach: { "beach-1": [firstFrame] },
+        },
+        "beach-1",
+        0,
+      )
+      : firstFrame;
+    expect(nonHourlyTimestampPartition).toBeUndefined();
+
+    const mismatchedPartition = typeof resolve === "function"
+      ? resolve(
+        {
+          ...timeline,
+          partitionsByBeach: { "beach-1": [firstFrame] },
+        },
+        "beach-1",
+        0,
+      )
+      : firstFrame;
+    expect(mismatchedPartition).toBeUndefined();
+  });
+
   it("clears the debug center during map setup and cleanup", async () => {
     const mapWindow = window as typeof window & {
       __quiverMapDebugCenter?: { lat: number; lon: number };

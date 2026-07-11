@@ -134,6 +134,7 @@ const PARTICLE_DASH_LENGTH_SCALE: Record<FlowComponentId, number> = {
   s2: 1,
   wind: 1,
 };
+const HOUR_MS = 60 * 60 * 1000;
 
 const EMPTY_FLOW_FIELD: FlowField = { cols: 0, rows: 0, cells: [] };
 
@@ -200,6 +201,33 @@ function partitionAtTimelinePosition(
   return left ?? right ?? fallback;
 }
 
+export function partitionAtAbsoluteTimelineIndex(
+  timeline: HourlySwellTimeline | null,
+  beachId: string,
+  index: number,
+): SwellPartition | undefined {
+  if (!timeline || !Number.isFinite(index)) return undefined;
+
+  const frameIndex = Math.round(index);
+  if (frameIndex < 0 || frameIndex >= timeline.timestamps.length) return undefined;
+  const timestamp = timeline.timestamps[frameIndex];
+  const timestampEpoch = typeof timestamp === "string" ? Date.parse(timestamp) : NaN;
+  if (
+    !Number.isFinite(timestampEpoch) ||
+    timestampEpoch % HOUR_MS !== 0 ||
+    new Date(timestampEpoch).toISOString() !== timestamp
+  ) {
+    return undefined;
+  }
+
+  const partitions = timeline.partitionsByBeach[beachId];
+  if (!Array.isArray(partitions) || partitions.length !== timeline.timestamps.length) {
+    return undefined;
+  }
+
+  return partitions[frameIndex] ?? undefined;
+}
+
 /** Sub-layer component ids whose flow fields a given active layer needs built. */
 function componentsForLayer(
   layerId: SwellLayerId
@@ -254,6 +282,7 @@ interface InteractiveMapProps {
   swellTimelineIndex?: number;
   onSwellTimelineChange?: (index: number) => void;
   swellTimelineMode?: "legacy" | "hourly" | "expandable-hourly";
+  onHourlyTimelineLoaded?: (timeline: HourlySwellTimeline | null) => void;
   viewTimezone?: string;
   showMapChrome?: boolean;
   placementPin?: { lat: number; lon: number } | null;
@@ -392,6 +421,7 @@ export function InteractiveMap({
   swellTimelineIndex = 0,
   onSwellTimelineChange,
   swellTimelineMode = "legacy",
+  onHourlyTimelineLoaded,
   viewTimezone,
   showMapChrome = true,
   placementPin = null,
@@ -512,6 +542,7 @@ export function InteractiveMap({
   const onMapReadyRef = useRef(onMapReady);
   const onPlacementPinChangeRef = useRef(onPlacementPinChange);
   const onMapLoadFailureRef = useRef(onMapLoadFailure);
+  const onHourlyTimelineLoadedRef = useRef(onHourlyTimelineLoaded);
   const initialCenterRef = useRef(initialCenter);
   const onMapClickRef = useRef(onMapClick);
   const onUserCameraInteractionRef = useRef(onUserCameraInteraction);
@@ -591,24 +622,16 @@ export function InteractiveMap({
   }, [onMapLoadFailure]);
 
   useEffect(() => {
+    onHourlyTimelineLoadedRef.current = onHourlyTimelineLoaded;
+  }, [onHourlyTimelineLoaded]);
+
+  useEffect(() => {
     onMapClickRef.current = onMapClick;
   }, [onMapClick]);
 
   useEffect(() => {
     onUserCameraInteractionRef.current = onUserCameraInteraction;
   }, [onUserCameraInteraction]);
-
-  useEffect(() => {
-    conditionsCtxRef.current = {
-      beaches: beaches ?? swellFieldBeaches,
-      partitionsMap,
-      partitionsTimelineMap,
-      timelineIndex: swellTimelineIndex,
-      stepsLen: swellTimelineSteps.length,
-      bounds: mapBounds || { west: -118, south: 32, east: -117, north: 33 },
-      waterTempMap,
-    };
-  }, [beaches, swellFieldBeaches, partitionsMap, partitionsTimelineMap, swellTimelineIndex, swellTimelineSteps.length, mapBounds, waterTempMap]);
 
   useEffect(() => {
     beachesRef.current = markerBeaches;
@@ -669,6 +692,7 @@ export function InteractiveMap({
     reducedMotion,
   });
   const isExpandableTimeline = swellTimelineMode === "expandable-hourly";
+  const isEmbedHourlyTimeline = swellTimelineMode === "hourly";
   const activeHourlyPartitionsMap = useMemo(() => {
     const active = new Map<string, SwellPartition>();
     for (const [beachId, partitions] of Object.entries(expandableTimeline.partitionsByBeach)) {
@@ -677,24 +701,49 @@ export function InteractiveMap({
     }
     return active;
   }, [expandableTimeline.index, expandableTimeline.partitionsByBeach]);
+  const activeEmbedHourlyPartitionsMap = useMemo(() => {
+    const active = new Map<string, SwellPartition>();
+    if (!hourlyTimelineSeed) return active;
+
+    for (const beachId of Object.keys(hourlyTimelineSeed.partitionsByBeach)) {
+      const partition = partitionAtAbsoluteTimelineIndex(
+        hourlyTimelineSeed,
+        beachId,
+        swellTimelineIndex,
+      );
+      if (partition) active.set(beachId, partition);
+    }
+    return active;
+  }, [hourlyTimelineSeed, swellTimelineIndex]);
 
   useEffect(() => {
-    if (!isExpandableTimeline) return;
+    const activePartitions = isExpandableTimeline
+      ? activeHourlyPartitionsMap
+      : isEmbedHourlyTimeline
+        ? activeEmbedHourlyPartitionsMap
+        : partitionsMap;
+    const usesAbsoluteTimeline = isExpandableTimeline || isEmbedHourlyTimeline;
     conditionsCtxRef.current = {
       beaches: beaches ?? swellFieldBeaches,
-      partitionsMap: activeHourlyPartitionsMap,
-      partitionsTimelineMap: new Map(),
-      timelineIndex: 0,
-      stepsLen: 1,
+      partitionsMap: activePartitions,
+      partitionsTimelineMap: usesAbsoluteTimeline ? new Map() : partitionsTimelineMap,
+      timelineIndex: usesAbsoluteTimeline ? 0 : swellTimelineIndex,
+      stepsLen: usesAbsoluteTimeline ? 1 : swellTimelineSteps.length,
       bounds: mapBounds || { west: -118, south: 32, east: -117, north: 33 },
       waterTempMap,
     };
   }, [
     activeHourlyPartitionsMap,
+    activeEmbedHourlyPartitionsMap,
     beaches,
+    isEmbedHourlyTimeline,
     isExpandableTimeline,
     mapBounds,
+    partitionsMap,
+    partitionsTimelineMap,
     swellFieldBeaches,
+    swellTimelineIndex,
+    swellTimelineSteps.length,
     waterTempMap,
   ]);
 
@@ -1271,6 +1320,10 @@ export function InteractiveMap({
         setPartitionsMap(result.partitionsMap);
         setPartitionsTimelineMap(result.partitionsTimelineMap);
         setSwellFieldBeaches(result.locations);
+        if (swellTimelineMode === "hourly") {
+          setHourlyTimelineSeed(result.hourlySwellTimeline);
+          onHourlyTimelineLoadedRef.current?.(result.hourlySwellTimeline);
+        }
         if (swellTimelineMode === "expandable-hourly") {
           const beachIds = result.locations
             .map((beach) => beach.id)
@@ -1382,6 +1435,8 @@ export function InteractiveMap({
       for (const beach of beachList) {
         const partition = isExpandableTimeline
           ? expandableTimeline.partitionsByBeach[beach.id]?.[expandableTimeline.index] ?? null
+          : isEmbedHourlyTimeline
+            ? partitionAtAbsoluteTimelineIndex(hourlyTimelineSeed, beach.id, swellTimelineIndex)
           : partitionAtTimelinePosition(
               beach.id,
               timelinePosition,
@@ -1421,6 +1476,8 @@ export function InteractiveMap({
     beaches,
     expandableTimeline.index,
     expandableTimeline.partitionsByBeach,
+    hourlyTimelineSeed,
+    isEmbedHourlyTimeline,
     isExpandableTimeline,
     isMapReady,
     mapBounds,

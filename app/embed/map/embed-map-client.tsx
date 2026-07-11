@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type mapboxgl from "mapbox-gl";
 import type { Beach } from "@/types/database";
+import type { HourlySwellTimeline } from "@/app/api/forecasts/bulk/route";
 import type { SwellLayerId } from "@/components/map/swell-map-theme";
 import {
   parseEmbedMapCommand,
@@ -16,8 +17,11 @@ import {
   type EmbedMapViewport,
 } from "@/components/map/embed-map-bridge";
 import {
+  embedMapTimelineTimezone,
+  forecastAtForEmbedTimelineIndex,
   LEGACY_EMBED_TIMELINE_STEPS,
   hourlyEmbedTimelineLabels,
+  hourlyEmbedTimelineTimestamps,
 } from "@/components/map/embed-map-timeline";
 
 const InteractiveMap = dynamic(
@@ -123,12 +127,21 @@ function renderHealthStatus(fps: number): "ok" | "degraded" {
 export function EmbedMapClient() {
   const searchParams = useSearchParams();
   const isHourlyTimeline = searchParams.get("timeline") === "hourly";
+  const timelineTimezone = useMemo(
+    () => embedMapTimelineTimezone(searchParams.get("timezone") ?? searchParams.get("timeZone")),
+    [searchParams],
+  );
   const timelineNow = useMemo(() => new Date(), []);
+  const [hourlyTimeline, setHourlyTimeline] = useState<HourlySwellTimeline | null>(null);
+  const hourlyTimestamps = useMemo(
+    () => hourlyEmbedTimelineTimestamps(hourlyTimeline),
+    [hourlyTimeline],
+  );
   const timelineSteps = useMemo(
     () => isHourlyTimeline
-      ? hourlyEmbedTimelineLabels(timelineNow)
+      ? hourlyEmbedTimelineLabels(timelineNow, hourlyTimestamps, timelineTimezone)
       : Array.from(LEGACY_EMBED_TIMELINE_STEPS),
-    [isHourlyTimeline, timelineNow],
+    [hourlyTimestamps, isHourlyTimeline, timelineNow, timelineTimezone],
   );
   const maxTimelineIndex = timelineSteps.length - 1;
   const initialCenter = useMemo<EmbedMapCoordinate>(() => {
@@ -199,12 +212,23 @@ export function EmbedMapClient() {
   // the rounded forecast step whenever it changes. The play loop advances a
   // fractional index; native renders integer steps. No-op in the browser.
   const roundedStep = clampTimelineStep(timelineIndex, maxTimelineIndex);
-  const lastEmittedStepRef = useRef(-1);
+  const lastEmittedForecastTimeRef = useRef<string | null>(null);
   useEffect(() => {
-    if (lastEmittedStepRef.current === roundedStep) return;
-    lastEmittedStepRef.current = roundedStep;
-    postEvent({ type: "forecastTimeChanged", payload: { index: roundedStep } });
-  }, [roundedStep, postEvent]);
+    const forecastAt = isHourlyTimeline
+      ? forecastAtForEmbedTimelineIndex(hourlyTimestamps, roundedStep)
+      : undefined;
+    const identity = `${roundedStep}|${forecastAt ?? ""}`;
+    if (lastEmittedForecastTimeRef.current === identity) return;
+    lastEmittedForecastTimeRef.current = identity;
+    postEvent({
+      type: "forecastTimeChanged",
+      payload: { index: roundedStep, ...(forecastAt ? { forecastAt } : {}) },
+    });
+  }, [hourlyTimestamps, isHourlyTimeline, postEvent, roundedStep]);
+
+  const handleHourlyTimelineLoaded = useCallback((timeline: HourlySwellTimeline | null): void => {
+    setHourlyTimeline(timeline);
+  }, []);
 
   const postReady = useCallback(
     (viewport: EmbedMapViewport): boolean => {
@@ -452,6 +476,7 @@ export function EmbedMapClient() {
         onMapLoadFailure={handleMapLoadFailure}
         onMapReady={handleMapReady}
         onMapClick={handleMapClick}
+        onHourlyTimelineLoaded={isHourlyTimeline ? handleHourlyTimelineLoaded : undefined}
         onPlacementPinChange={handlePlacementPinChange}
         placementPin={isPlacementActive ? placementPoint : null}
         placementPinDraggable
