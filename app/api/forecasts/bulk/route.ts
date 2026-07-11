@@ -63,6 +63,19 @@ const HOURLY_SWELL_TIMELINE_HOUR_OFFSETS = Array.from(
 const DEFAULT_TIMELINE_HOURS = 48;
 const MAX_TIMELINE_HOURS = 48;
 const HOUR_MS = 60 * 60 * 1000;
+const ISO_TIMESTAMP_WITH_TIMEZONE =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})$/;
+
+interface HourlyTimelineWindow {
+  start: Date;
+  end: Date;
+  probeEnd: Date;
+  hours: number;
+}
+
+type HourlyTimelineWindowParseResult =
+  | { window: HourlyTimelineWindow; error: null }
+  | { window: null; error: string };
 
 /**
  * GET /api/forecasts/bulk
@@ -134,25 +147,78 @@ function resolveForecastFetchWindow(forecastAt: string | null): {
   };
 }
 
-function parseHourlyTimelineWindow(searchParams: URLSearchParams, now: Date): {
-  start: Date;
-  end: Date;
-  probeEnd: Date;
-  hours: number;
-} {
-  const requestedStart = Date.parse(searchParams.get("timelineStart") ?? "");
-  const rawHours = Number.parseInt(searchParams.get("timelineHours") ?? "", 10);
-  const hours = Number.isFinite(rawHours)
-    ? Math.min(MAX_TIMELINE_HOURS, Math.max(1, rawHours))
-    : DEFAULT_TIMELINE_HOURS;
-  const startMs = Number.isFinite(requestedStart)
-    ? requestedStart
-    : Math.floor(now.getTime() / HOUR_MS) * HOUR_MS;
+function parseIsoTimestampWithTimezone(value: string): number | null {
+  const match = ISO_TIMESTAMP_WITH_TIMEZONE.exec(value);
+  if (!match) return null;
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, fraction, zone] =
+    match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const millisecond = Number((fraction ?? "").padEnd(3, "0").slice(0, 3));
+  const localDate = new Date(0);
+  localDate.setUTCFullYear(year, month - 1, day);
+  localDate.setUTCHours(hour, minute, second, millisecond);
+
+  if (
+    localDate.getUTCFullYear() !== year ||
+    localDate.getUTCMonth() !== month - 1 ||
+    localDate.getUTCDate() !== day ||
+    localDate.getUTCHours() !== hour ||
+    localDate.getUTCMinutes() !== minute ||
+    localDate.getUTCSeconds() !== second
+  ) {
+    return null;
+  }
+
+  if (zone !== "Z") {
+    const offsetHours = Number(zone.slice(1, 3));
+    const offsetMinutes = Number(zone.slice(4, 6));
+    if (offsetHours > 14 || offsetMinutes > 59 || (offsetHours === 14 && offsetMinutes > 0)) {
+      return null;
+    }
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseHourlyTimelineWindow(
+  searchParams: URLSearchParams,
+  now: Date,
+): HourlyTimelineWindowParseResult {
+  const timelineHours = searchParams.get("timelineHours");
+  if (timelineHours !== null && !/^\d+$/.test(timelineHours)) {
+    return { window: null, error: "timelineHours must be a whole integer" };
+  }
+  const hours = timelineHours === null
+    ? DEFAULT_TIMELINE_HOURS
+    : Math.min(MAX_TIMELINE_HOURS, Math.max(1, Number(timelineHours)));
+
+  const timelineStart = searchParams.get("timelineStart");
+  const explicitStartMs = timelineStart === null
+    ? null
+    : parseIsoTimestampWithTimezone(timelineStart);
+  if (timelineStart !== null && explicitStartMs === null) {
+    return {
+      window: null,
+      error: "timelineStart must be an ISO-8601 timestamp with timezone",
+    };
+  }
+
+  const startMs = explicitStartMs ?? Math.floor(now.getTime() / HOUR_MS) * HOUR_MS;
+  if (startMs % HOUR_MS !== 0) {
+    return { window: null, error: "timelineStart must be aligned to an hour" };
+  }
   const start = new Date(startMs);
   const end = new Date(startMs + hours * HOUR_MS);
   const probeEnd = new Date(end.getTime() + HOUR_MS);
 
-  return { start, end, probeEnd, hours };
+  return { window: { start, end, probeEnd, hours }, error: null };
 }
 
 function forecastTimeMs(
@@ -233,7 +299,7 @@ function forecastAtMs(row: Pick<EnhancedForecastEntity, "forecast_at">): number 
 function buildHourlySwellTimeline(
   rows: EnhancedForecastEntity[],
   beachIds: string[],
-  window: ReturnType<typeof parseHourlyTimelineWindow>,
+  window: HourlyTimelineWindow,
 ): HourlySwellTimeline {
   const requestedBeachIds = new Set(beachIds);
   const rowsByHour = new Map<number, Map<string, EnhancedForecastEntity>>();
@@ -386,18 +452,13 @@ async function bulkForecastHandler(
     const beachIdsParam = searchParams.get("beachIds");
     const forecastAtParam = searchParams.get("forecastAt");
     const isHourlyTimeline = searchParams.get("timeline") === "hourly";
-    const timelineStartParam = searchParams.get("timelineStart");
-
-    if (
-      isHourlyTimeline &&
-      timelineStartParam !== null &&
-      !Number.isFinite(Date.parse(timelineStartParam))
-    ) {
-      return createValidationError("timelineStart must be a valid ISO timestamp");
-    }
-    const hourlyTimelineWindow = isHourlyTimeline
+    const hourlyTimelineParseResult = isHourlyTimeline
       ? parseHourlyTimelineWindow(searchParams, new Date())
       : null;
+    if (hourlyTimelineParseResult?.error) {
+      return createValidationError(hourlyTimelineParseResult.error);
+    }
+    const hourlyTimelineWindow = hourlyTimelineParseResult?.window ?? null;
 
     // Return empty forecasts for missing/empty beachIds (not an error)
     if (!beachIdsParam || !beachIdsParam.trim()) {
