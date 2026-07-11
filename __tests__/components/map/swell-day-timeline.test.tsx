@@ -4,6 +4,12 @@ import {
   SwellDayTimeline,
   type SwellDayTimelineProps,
 } from "@/components/map/swell-field/swell-day-timeline";
+import {
+  SWELL_LAYER_COLOR,
+  SWELL_MAP_LEGEND_SURFACE,
+  SWELL_MAP_STICKER_SHADOW,
+  SWELL_MAP_TIMELINE,
+} from "@/components/map/swell-map-theme";
 
 const timestamps = Array.from({ length: 48 }, (_, index) =>
   new Date(Date.UTC(2026, 6, 10, index)).toISOString(),
@@ -146,7 +152,9 @@ describe("SwellDayTimeline", () => {
     );
 
     expect(screen.getByRole("status")).toHaveTextContent("Extension unavailable");
-    fireEvent.click(screen.getByRole("button", { name: "Retry loading forecast hours" }));
+    const retryButton = screen.getByRole("button", { name: "Retry loading forecast hours" });
+    expect(retryButton).toHaveClass("h-11", "min-h-11");
+    fireEvent.click(retryButton);
     expect(onRetry).toHaveBeenCalledTimes(1);
 
     rerender(<SwellDayTimeline {...createProps({ isLoadingMore: true, isExhausted: true })} />);
@@ -154,7 +162,7 @@ describe("SwellDayTimeline", () => {
 
     rerender(<SwellDayTimeline {...createProps({ isExhausted: true })} />);
     expect(screen.getByRole("status")).toHaveTextContent(
-      "Forecast ends Fri 10 — 2 PM HST",
+      "All available forecast hours loaded",
     );
   });
 
@@ -174,8 +182,43 @@ describe("SwellDayTimeline", () => {
     expect(playButton).toHaveClass("h-11", "w-11", "rounded-full");
     expect(playButton).toBeDisabled();
     expect(screen.getByRole("slider", { name: "Forecast time" })).toBeDisabled();
+  });
+
+  it("passes pointer events through the fixed shell outside the visible panel", () => {
+    render(<SwellDayTimeline {...createProps()} />);
+
+    expect(screen.getByTestId("swell-day-timeline")).toHaveClass("pointer-events-none");
+    expect(screen.getByTestId("timeline-panel")).toHaveClass("pointer-events-auto");
+  });
+
+  it("sources repeated timeline brand values from shared theme tokens", () => {
+    render(<SwellDayTimeline {...createProps()} />);
+
+    expect(SWELL_MAP_TIMELINE).toEqual(expect.objectContaining({
+      active: SWELL_LAYER_COLOR.s1,
+      focus: SWELL_LAYER_COLOR.s2,
+      ink: SWELL_MAP_LEGEND_SURFACE.ink,
+      stickerShadow: SWELL_MAP_STICKER_SHADOW,
+    }));
+
+    const panel = screen.getByTestId("timeline-panel");
+    expect(panel.style.getPropertyValue("--swell-timeline-ink"))
+      .toBe(SWELL_MAP_LEGEND_SURFACE.ink);
+    expect(panel.style.getPropertyValue("--swell-timeline-focus"))
+      .toBe(SWELL_LAYER_COLOR.s2);
+    expect(panel.style.getPropertyValue("--swell-timeline-active"))
+      .toBe(SWELL_LAYER_COLOR.s1);
+    expect(panel.style.getPropertyValue("--swell-timeline-sticker-shadow"))
+      .toBe(SWELL_MAP_STICKER_SHADOW);
+
+    expect(screen.getByRole("button", { name: "Play forecast timeline" })).toHaveClass(
+      "border-[var(--swell-timeline-ink)]",
+      "shadow-[var(--swell-timeline-sticker-shadow)]",
+      "focus-visible:ring-[var(--swell-timeline-focus)]",
+    );
     expect(screen.getByRole("slider", { name: "Forecast time" })).toHaveClass(
-      "focus-visible:ring-[#FDB84B]",
+      "accent-[var(--swell-timeline-active)]",
+      "focus-visible:ring-[var(--swell-timeline-focus)]",
     );
   });
 
@@ -200,5 +243,20 @@ describe("SwellDayTimeline", () => {
     );
     expect(screen.getByTestId("swell-day-timeline")).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Loading more forecast hours");
+
+    rerender(
+      <SwellDayTimeline
+        {...createProps({
+          timestamps: [],
+          daySegments: [],
+          bubbleLabel: "",
+          isExhausted: true,
+        })}
+      />,
+    );
+    expect(screen.getByTestId("swell-day-timeline")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "All available forecast hours loaded",
+    );
   });
 });

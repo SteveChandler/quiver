@@ -43,11 +43,20 @@ export const SWELL_LAYER_COLOR: Record<SwellLayerId, string> = {
 // Timeline materials use the same cream-paper instrument language as the legend.
 // Orange marks committed forecast progress; gold remains reserved for focus.
 export const SWELL_MAP_TIMELINE = {
-  active: "#F78E42",
+  active: SWELL_LAYER_COLOR.s1,
   dayBand: "#E9DEC7",
   dayBandAlternate: "#F0E5D0",
   track: "#CDBD9C",
-  focus: "#FDB84B",
+  focus: SWELL_LAYER_COLOR.s2,
+  ink: SWELL_MAP_LEGEND_SURFACE.ink,
+  stickerShadow: SWELL_MAP_STICKER_SHADOW,
+} as const;
+
+export const SWELL_MAP_TIMELINE_CSS_VARIABLES = {
+  "--swell-timeline-active": SWELL_MAP_TIMELINE.active,
+  "--swell-timeline-focus": SWELL_MAP_TIMELINE.focus,
+  "--swell-timeline-ink": SWELL_MAP_TIMELINE.ink,
+  "--swell-timeline-sticker-shadow": SWELL_MAP_TIMELINE.stickerShadow,
 } as const;
 
 // Particle-trail colors for the Windy-style swell flow field. The field rides the

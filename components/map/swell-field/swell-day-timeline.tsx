@@ -1,14 +1,14 @@
 "use client";
 
 import { Pause, Play } from "lucide-react";
-import type { KeyboardEvent, ReactElement, ReactNode } from "react";
+import type { CSSProperties, KeyboardEvent, ReactElement, ReactNode } from "react";
 import type { TimelineDaySegment } from "@/components/map/hourly-swell-timeline";
 import {
   SWELL_MAP_CTA_CLASS,
   SWELL_MAP_LEGEND_SURFACE,
   SWELL_MAP_STICKER_RADIUS,
-  SWELL_MAP_STICKER_SHADOW,
   SWELL_MAP_TIMELINE,
+  SWELL_MAP_TIMELINE_CSS_VARIABLES,
 } from "@/components/map/swell-map-theme";
 import { Button } from "@/components/ui/button";
 
@@ -46,14 +46,13 @@ function dayTestId(label: string): string {
 }
 
 function TimelineStatus({
-  bubbleLabel,
   error,
   isLoadingMore,
   isExhausted,
   onRetry,
 }: Pick<
   SwellDayTimelineProps,
-  "bubbleLabel" | "error" | "isLoadingMore" | "isExhausted" | "onRetry"
+  "error" | "isLoadingMore" | "isExhausted" | "onRetry"
 >): ReactElement | null {
   if (error) {
     return (
@@ -63,7 +62,7 @@ function TimelineStatus({
           type="button"
           onClick={onRetry}
           aria-label="Retry loading forecast hours"
-          className="border-b border-current font-bold uppercase tracking-[0.08em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2"
+          className="inline-flex h-11 min-h-11 min-w-11 items-center justify-center border-b border-current font-bold uppercase tracking-[0.08em] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--swell-timeline-focus)] focus-visible:ring-offset-2"
         >
           Retry
         </button>
@@ -82,7 +81,7 @@ function TimelineStatus({
   if (isExhausted) {
     return (
       <div role="status" aria-live="polite" aria-atomic="true" className="text-xs font-semibold">
-        Forecast ends {bubbleLabel}
+        All available forecast hours loaded
       </div>
     );
   }
@@ -101,17 +100,19 @@ function TimelineShell({
     <aside
       data-testid="swell-day-timeline"
       data-timezone={timezone}
-      className="pointer-events-auto fixed inset-x-0 bottom-0 z-20 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 sm:px-5"
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-20 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 sm:px-5"
     >
       <div
-        className="mx-auto max-w-5xl border px-3 py-2 sm:px-4"
+        data-testid="timeline-panel"
+        className="pointer-events-auto mx-auto max-w-5xl border px-3 py-2 sm:px-4"
         style={{
+          ...SWELL_MAP_TIMELINE_CSS_VARIABLES,
           background: SWELL_MAP_LEGEND_SURFACE.paper,
           borderColor: SWELL_MAP_LEGEND_SURFACE.border,
           borderRadius: SWELL_MAP_STICKER_RADIUS,
-          boxShadow: SWELL_MAP_STICKER_SHADOW,
-          color: SWELL_MAP_LEGEND_SURFACE.ink,
-        }}
+          boxShadow: SWELL_MAP_TIMELINE.stickerShadow,
+          color: SWELL_MAP_TIMELINE.ink,
+        } as CSSProperties}
       >
         {children}
       </div>
@@ -134,12 +135,11 @@ export function SwellDayTimeline({
   onRetry,
 }: SwellDayTimelineProps): ReactElement | null {
   if (timestamps.length === 0) {
-    if (!error && !isLoadingMore) return null;
+    if (!error && !isLoadingMore && !isExhausted) return null;
 
     return (
       <TimelineShell timezone={timezone}>
         <TimelineStatus
-          bubbleLabel={bubbleLabel}
           error={error}
           isLoadingMore={isLoadingMore}
           isExhausted={isExhausted}
@@ -179,7 +179,7 @@ export function SwellDayTimeline({
           aria-label={isPlaying ? "Pause forecast timeline" : "Play forecast timeline"}
           disabled={!canPlay}
           onClick={() => onPlayingChange(!isPlaying)}
-          className={`shrink-0 rounded-full border border-[#11100D] shadow-[2px_3px_0_0_rgba(0,0,0,0.35)] focus-visible:ring-[#FDB84B] ${SWELL_MAP_CTA_CLASS}`}
+          className={`shrink-0 rounded-full border border-[var(--swell-timeline-ink)] shadow-[var(--swell-timeline-sticker-shadow)] focus-visible:ring-[var(--swell-timeline-focus)] ${SWELL_MAP_CTA_CLASS}`}
         >
           {isPlaying ? (
             <Pause className="h-4 w-4" aria-hidden="true" />
@@ -191,13 +191,13 @@ export function SwellDayTimeline({
         <div data-testid="timeline-track" className="relative min-w-0 flex-1 pt-9">
           <div
             data-testid="timeline-bubble"
-            className="absolute z-10 -translate-x-1/2 border border-[#11100D] px-2 py-1 text-xs font-bold tabular-nums shadow-[2px_3px_0_0_rgba(0,0,0,0.35)]"
+            className="absolute z-10 -translate-x-1/2 border border-[var(--swell-timeline-ink)] px-2 py-1 text-xs font-bold tabular-nums shadow-[var(--swell-timeline-sticker-shadow)]"
             style={{
               left: bubbleLeft,
               top: "0.35rem",
-              background: SWELL_MAP_TIMELINE.active,
+              background: "var(--swell-timeline-active)",
               borderRadius: "7px 3px 8px 4px",
-              color: SWELL_MAP_LEGEND_SURFACE.ink,
+              color: "var(--swell-timeline-ink)",
             }}
           >
             {bubbleLabel}
@@ -207,7 +207,7 @@ export function SwellDayTimeline({
             <div
               data-testid="timeline-day-layer"
               aria-hidden="true"
-              className="pointer-events-none absolute inset-x-0 bottom-0 h-7 overflow-hidden border border-[#11100D]"
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-7 overflow-hidden border border-[var(--swell-timeline-ink)]"
               style={{ borderRadius: "5px 2px 6px 3px", background: SWELL_MAP_TIMELINE.track }}
             >
               {daySegments.map((segment, segmentIndex) => {
@@ -223,7 +223,7 @@ export function SwellDayTimeline({
                   <div
                     key={segment.key}
                     data-testid={dayTestId(segment.label)}
-                    className="absolute bottom-0 top-0 flex min-w-0 items-center border-r border-[#11100D] px-2 text-[10px] font-bold uppercase tracking-[0.08em] last:border-r-0"
+                    className="absolute bottom-0 top-0 flex min-w-0 items-center border-r border-[var(--swell-timeline-ink)] px-2 text-[10px] font-bold uppercase tracking-[0.08em] last:border-r-0"
                     style={{
                       left: `${left}%`,
                       width: `${width}%`,
@@ -248,7 +248,7 @@ export function SwellDayTimeline({
               aria-valuetext={bubbleLabel}
               onChange={(event) => onIndexChange(clampIndex(Number(event.target.value), timestamps.length))}
               onKeyDown={handleKeyDown}
-              className="absolute inset-x-0 bottom-0 z-10 h-11 w-full cursor-pointer accent-[#F78E42] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+              className="absolute inset-x-0 bottom-0 z-10 h-11 w-full cursor-pointer accent-[var(--swell-timeline-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--swell-timeline-focus)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
             />
           </div>
         </div>
@@ -256,7 +256,6 @@ export function SwellDayTimeline({
 
       <div className="mt-1 min-h-4 pl-14">
         <TimelineStatus
-          bubbleLabel={bubbleLabel}
           error={error}
           isLoadingMore={isLoadingMore}
           isExhausted={isExhausted}
