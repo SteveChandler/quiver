@@ -467,6 +467,7 @@ for (const viewport of [
     }) => {
       // Motion allowed.
       await page.emulateMedia({ reducedMotion: "no-preference" });
+      await routeExpandableTimeline(page);
       await page.goto("/map");
       await page.waitForLoadState("load");
       await waitForMapInstance(page);
@@ -482,6 +483,7 @@ for (const viewport of [
       const page2 = await context.newPage();
       await page2.setViewportSize(viewport);
       await page2.emulateMedia({ reducedMotion: "reduce" });
+      await routeExpandableTimeline(page2);
       const cap2 = setupErrorDetection(page2);
       await page2.goto("/map");
       await page2.waitForLoadState("load");
