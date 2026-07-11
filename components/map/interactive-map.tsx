@@ -223,6 +223,7 @@ interface InteractiveMapProps {
   onUserCameraInteraction?: (interaction: {
     action: "pan" | "zoom" | "rotate";
     center: { lat: number; lon: number };
+    phase: "start" | "end";
   }) => void;
   onLocationMove?: (latlng: mapboxgl.LngLat, beach: Beach) => void;
   onBoundsChange?: (bounds: { west: number; south: number; east: number; north: number }) => void;
@@ -514,6 +515,7 @@ export function InteractiveMap({
   const initialCenterRef = useRef(initialCenter);
   const onMapClickRef = useRef(onMapClick);
   const onUserCameraInteractionRef = useRef(onUserCameraInteraction);
+  const activeUserCameraGestureRef = useRef<"pan" | "zoom" | "rotate" | null>(null);
   // Typed broadly; handleMoveEnd & populateLocations are assigned via sync effects below
   const handleMoveEndRef = useRef<((...args: any[]) => any) | null>(null);
   const populateLocationsRef = useRef<((lat: number, lng: number) => Promise<void>) | null>(null);
@@ -653,7 +655,7 @@ export function InteractiveMap({
       if (!response.ok) throw new Error(`Bulk forecast API returned ${response.status}`);
 
       const body = await response.json();
-      const timeline = parseHourlySwellTimeline(body?.data?.hourlySwellTimeline);
+      const timeline = parseHourlySwellTimeline(body?.data?.hourlySwellTimeline, beachIds);
       if (!timeline) throw new Error("Bulk forecast API returned an invalid hourly timeline");
       return timeline;
     },
@@ -704,32 +706,77 @@ export function InteractiveMap({
       extensionResult?: string,
     ): void => {
       if (!timestamp) return;
+      const firstTimestamp = expandableTimeline.timestamps[0];
+      const lastTimestamp = expandableTimeline.timestamps.at(-1);
+      const firstEpoch = Date.parse(firstTimestamp ?? "");
+      const lastEpoch = Date.parse(lastTimestamp ?? "");
+      const loadedHorizonHours = Number.isFinite(firstEpoch) && Number.isFinite(lastEpoch)
+        ? Math.max(0, (lastEpoch - firstEpoch) / (60 * 60 * 1000) + 1)
+        : 0;
+      const localParts = new Intl.DateTimeFormat("en-CA", {
+        timeZone: timelineTimezone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        hourCycle: "h23",
+      }).formatToParts(new Date(timestamp));
+      const localPart = (type: Intl.DateTimeFormatPartTypes): string =>
+        localParts.find((part) => part.type === type)?.value ?? "";
       track("map_interaction", {
         metadata: {
           action,
           active_timestamp_utc: timestamp,
           timezone: timelineTimezone,
-          loaded_horizon_hours: expandableTimeline.timestamps.length,
+          active_local_hour: `${localPart("year")}-${localPart("month")}-${localPart("day")}T${localPart("hour")}:00`,
+          loaded_horizon_hours: loadedHorizonHours,
           ...(extensionResult ? { extension_result: extensionResult } : {}),
         } as never,
         debounceMs,
       });
     },
-    [expandableTimeline.timestamps.length, timelineTimezone, track],
+    [expandableTimeline.timestamps, timelineTimezone, track],
   );
   const lastTimelineLoadingRef = useRef(false);
+  const pendingTimelineExtensionRef = useRef(false);
+  useEffect(() => {
+    pendingTimelineExtensionRef.current = false;
+    lastTimelineLoadingRef.current = false;
+  }, [hourlyTimelineScopeKey]);
   useEffect(() => {
     const startedLoading = expandableTimeline.isLoadingMore && !lastTimelineLoadingRef.current;
+    const finishedLoading = !expandableTimeline.isLoadingMore && lastTimelineLoadingRef.current;
     lastTimelineLoadingRef.current = expandableTimeline.isLoadingMore;
-    if (!isExpandableTimeline || !startedLoading) return;
+    if (!isExpandableTimeline) {
+      pendingTimelineExtensionRef.current = false;
+      return;
+    }
+    if (startedLoading) {
+      pendingTimelineExtensionRef.current = true;
+      trackTimelineAction(
+        "timeline_extend",
+        expandableTimeline.timestamps[expandableTimeline.index],
+        0,
+        "requested",
+      );
+      return;
+    }
+    if (!finishedLoading || !pendingTimelineExtensionRef.current) return;
+    pendingTimelineExtensionRef.current = false;
     trackTimelineAction(
       "timeline_extend",
       expandableTimeline.timestamps[expandableTimeline.index],
       0,
-      "requested",
+      expandableTimeline.error
+        ? "failure"
+        : expandableTimeline.isExhausted
+          ? "exhausted"
+          : "success",
     );
   }, [
+    expandableTimeline.error,
     expandableTimeline.index,
+    expandableTimeline.isExhausted,
     expandableTimeline.isLoadingMore,
     expandableTimeline.timestamps,
     isExpandableTimeline,
@@ -1179,7 +1226,14 @@ export function InteractiveMap({
       if (!map || !isMapReadyRef.current) return;
       const zoom = map.getZoom();
       // Include beaches state in cache key: undefined vs empty array vs populated array
-      const beachesKey = beaches === undefined ? "none" : `${beaches.length}`;
+      const beachesKey = beaches === undefined
+        ? "none"
+        : beaches
+          .slice(0, 20)
+          .map((beach) => beach.id)
+          .filter((beachId): beachId is string => Boolean(beachId))
+          .sort()
+          .join(",");
       const populateKey = `${latitude.toFixed(4)}-${longitude.toFixed(
         4
       )}-${zoom.toFixed(2)}-${beachesKey}-${swellTimelineMode ?? "legacy"}`;
@@ -1221,7 +1275,8 @@ export function InteractiveMap({
           const beachIds = result.locations
             .map((beach) => beach.id)
             .filter((beachId): beachId is string => Boolean(beachId))
-            .sort();
+            .sort()
+            .slice(0, 20);
           hourlyTimelineBeachIdsRef.current = beachIds;
           setHourlyTimelineBeachIds(beachIds);
           setHourlyTimelineSeed(result.hourlySwellTimeline);
@@ -1927,6 +1982,16 @@ export function InteractiveMap({
         );
       }
       handleMoveEndRef.current?.();
+      const activeUserGesture = activeUserCameraGestureRef.current;
+      if (activeUserGesture) {
+        activeUserCameraGestureRef.current = null;
+        const center = map.getCenter();
+        onUserCameraInteractionRef.current?.({
+          action: activeUserGesture,
+          center: { lat: center.lat, lon: center.lng },
+          phase: "end",
+        });
+      }
     };
     map.on("moveend", moveEndHandler);
 
@@ -1960,9 +2025,11 @@ export function InteractiveMap({
         );
       }
       const center = map.getCenter();
+      activeUserCameraGestureRef.current = action;
       onUserCameraInteractionRef.current?.({
         action,
         center: { lat: center.lat, lon: center.lng },
+        phase: "start",
       });
     };
     const dragStartHandler = reportUserCameraInteraction("pan");

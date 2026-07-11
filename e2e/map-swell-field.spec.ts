@@ -212,7 +212,7 @@ async function firstMarkerAboveTimeline(page: Page, timelineTop: number): Promis
     const box = await marker.boundingBox();
     if (box && box.y + box.height < timelineTop) return marker;
   }
-  throw new Error("No visible beach marker is above the fixed forecast timeline");
+  throw new Error("No visible beach marker is above the forecast timeline");
 }
 
 test.describe("expandable local forecast timeline", () => {
@@ -251,7 +251,7 @@ test.describe("expandable local forecast timeline", () => {
     await expect(page.getByTestId("timeline-day-Sun-12")).toBeVisible();
   });
 
-  test("keeps the mobile bubble, controls, and conditions callout above the fixed timeline", async ({ page }) => {
+  test("keeps the mobile bubble, controls, and conditions callout inside the map timeline", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await routeExpandableTimeline(page);
     await page.goto("/map");
@@ -272,6 +272,9 @@ test.describe("expandable local forecast timeline", () => {
     expect(bubbleBox).not.toBeNull();
     expect(playBox).not.toBeNull();
     expect(mapBox).not.toBeNull();
+    expect(panelBox!.x).toBeGreaterThanOrEqual(mapBox!.x);
+    expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(mapBox!.x + mapBox!.width);
+    expect(panelBox!.y + panelBox!.height).toBeLessThanOrEqual(mapBox!.y + mapBox!.height);
     expect(bubbleBox!.x).toBeGreaterThanOrEqual(mapBox!.x);
     expect(bubbleBox!.x + bubbleBox!.width).toBeLessThanOrEqual(mapBox!.x + mapBox!.width);
     expect(playBox!.x).toBeGreaterThanOrEqual(mapBox!.x);
@@ -379,8 +382,8 @@ for (const viewport of [
       expect(await layerExists(page)).toBe(true);
     });
 
-    test("keeps layer controls in the legend while the public forecast timeline stays fixed", async ({ page }) => {
-      await page.goto("/map");
+    test("keeps layer controls in the legend while the public forecast timeline stays map-contained", async ({ page }) => {
+      await page.goto("/map?share=1");
       await page.waitForLoadState("load");
       await waitForMapInstance(page);
       await waitForMapIdle(page);
@@ -388,6 +391,7 @@ for (const viewport of [
       const legend = page.getByTestId("map-condition-legend");
       const selector = page.getByTestId("swell-layer-selector");
       const timeline = page.getByTestId("swell-day-timeline");
+      const mapContainer = page.getByTestId("map-container");
 
       await expect(legend).toBeVisible();
       await expect(selector).toBeVisible();
@@ -404,9 +408,27 @@ for (const viewport of [
 
       const legendBox = await legend.boundingBox();
       const selectorBox = await selector.boundingBox();
+      const timelineBox = await timeline.boundingBox();
+      const mapContainerBox = await mapContainer.boundingBox();
 
       expect(legendBox).not.toBeNull();
       expect(selectorBox).not.toBeNull();
+      expect(timelineBox).not.toBeNull();
+      expect(mapContainerBox).not.toBeNull();
+
+      expect(timelineBox!.x).toBeGreaterThanOrEqual(mapContainerBox!.x);
+      expect(timelineBox!.x + timelineBox!.width).toBeLessThanOrEqual(
+        mapContainerBox!.x + mapContainerBox!.width,
+      );
+      const fieldGuideBox = await page.locator("#map-field-guide-panel").boundingBox();
+      expect(fieldGuideBox).not.toBeNull();
+      const timelineOverlapsFieldGuide = !(
+        timelineBox!.x + timelineBox!.width <= fieldGuideBox!.x
+        || timelineBox!.x >= fieldGuideBox!.x + fieldGuideBox!.width
+        || timelineBox!.y + timelineBox!.height <= fieldGuideBox!.y
+        || timelineBox!.y >= fieldGuideBox!.y + fieldGuideBox!.height
+      );
+      expect(timelineOverlapsFieldGuide).toBe(false);
 
       const visibleLegendBox = legendBox!;
       const visibleSelectorBox = selectorBox!;

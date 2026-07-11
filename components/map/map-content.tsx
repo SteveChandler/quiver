@@ -62,6 +62,7 @@ interface MapContentProps {
   onUserCameraInteraction?: (interaction: {
     action: "pan" | "zoom" | "rotate";
     center: { lat: number; lon: number };
+    phase: "start" | "end";
   }) => void;
   autoNavigateOnMarkerClick?: boolean;
   showSwellField?: boolean;

@@ -59,7 +59,19 @@ function isSwellPartition(value: unknown): value is SwellPartition {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-export function parseHourlySwellTimeline(value: unknown): HourlySwellTimeline | null {
+const HOUR_MS = 60 * 60 * 1000;
+
+function parseCanonicalUtcHour(value: unknown): number | null {
+  if (typeof value !== "string") return null;
+  const epoch = Date.parse(value);
+  if (!Number.isFinite(epoch) || epoch % HOUR_MS !== 0) return null;
+  return new Date(epoch).toISOString() === value ? epoch : null;
+}
+
+export function parseHourlySwellTimeline(
+  value: unknown,
+  expectedBeachIds: readonly string[] = [],
+): HourlySwellTimeline | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
 
   const envelope = value as Record<string, unknown>;
@@ -68,7 +80,7 @@ export function parseHourlySwellTimeline(value: unknown): HourlySwellTimeline | 
   }
   if (
     envelope.nextStart !== null &&
-    (typeof envelope.nextStart !== "string" || !Number.isFinite(Date.parse(envelope.nextStart)))
+    parseCanonicalUtcHour(envelope.nextStart) === null
   ) {
     return null;
   }
@@ -77,10 +89,9 @@ export function parseHourlySwellTimeline(value: unknown): HourlySwellTimeline | 
   }
 
   const timestamps = envelope.timestamps;
-  if (
-    timestamps.some((timestamp) => typeof timestamp !== "string" || !Number.isFinite(Date.parse(timestamp))) ||
-    timestamps.some((timestamp, index) => index > 0 && timestamp <= timestamps[index - 1])
-  ) {
+  const timestampEpochs = timestamps.map(parseCanonicalUtcHour);
+  if (timestampEpochs.some((epoch) => epoch === null)) return null;
+  if (timestampEpochs.some((epoch, index) => index > 0 && epoch! <= timestampEpochs[index - 1]!)) {
     return null;
   }
 
@@ -97,12 +108,13 @@ export function parseHourlySwellTimeline(value: unknown): HourlySwellTimeline | 
     return result;
   }, {});
   if (!parsedPartitions) return null;
+  if (expectedBeachIds.some((beachId) => !(beachId in parsedPartitions))) return null;
 
   const nextStart = envelope.nextStart as string | null;
   if (
     nextStart &&
     timestamps.length > 0 &&
-    Date.parse(nextStart) <= Date.parse(timestamps[timestamps.length - 1])
+    parseCanonicalUtcHour(nextStart)! <= timestampEpochs[timestampEpochs.length - 1]!
   ) {
     return null;
   }
@@ -226,16 +238,19 @@ export async function loadBeachesAndWaveHeights(
                 `Bulk forecast API returned ${response.status}`
               );
             }
-            return null;
+            return { data: null, expectedBeachIds: batchIds };
           }
-          return response.json();
+          return {
+            data: await response.json(),
+            expectedBeachIds: batchIds,
+          };
         },
         onBatchError: (error, batchIndex) => {
           console.warn(`Wave height batch ${batchIndex} failed:`, error);
         },
       });
 
-      results.forEach((data) => {
+      results.forEach(({ data, expectedBeachIds }) => {
         const forecasts = data?.data?.forecasts || {};
         Object.entries(forecasts).forEach(([beachId, waveHeight]) => {
           const parsed =
@@ -303,6 +318,7 @@ export async function loadBeachesAndWaveHeights(
 
         const parsedHourlyTimeline = parseHourlySwellTimeline(
           data?.data?.hourlySwellTimeline,
+          expectedBeachIds,
         );
         if (parsedHourlyTimeline) hourlySwellTimeline = parsedHourlyTimeline;
       });

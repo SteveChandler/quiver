@@ -32,9 +32,82 @@ const deltaByKey: Record<string, number> = {
   ArrowDown: -1,
   ArrowRight: 1,
   ArrowUp: 1,
-  PageUp: -24,
-  PageDown: 24,
 };
+
+interface LocalTimestampParts {
+  dateOrdinal: number;
+  wallMinutes: number;
+}
+
+function localTimestampParts(timestamp: string, timezone: string): LocalTimestampParts {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(timestamp));
+  const value = (type: Intl.DateTimeFormatPartTypes): number =>
+    Number(parts.find((part) => part.type === type)?.value ?? 0);
+  const year = value("year");
+  const month = value("month");
+  const day = value("day");
+  const hour = value("hour");
+  const minute = value("minute");
+  return {
+    dateOrdinal: Date.UTC(year, month - 1, day) / (24 * 60 * 60 * 1000),
+    wallMinutes: hour * 60 + minute,
+  };
+}
+
+export function findAdjacentLocalDayIndex(
+  timestamps: readonly string[],
+  index: number,
+  timezone: string,
+  direction: -1 | 1,
+): number {
+  const safeIndex = clampIndex(index, timestamps.length);
+  if (timestamps.length <= 1) return safeIndex;
+  const active = localTimestampParts(timestamps[safeIndex], timezone);
+  const targetOrdinal = active.dateOrdinal + direction;
+  const candidates = timestamps.map((timestamp, candidateIndex) => ({
+    index: candidateIndex,
+    ...localTimestampParts(timestamp, timezone),
+  })).filter((candidate) => direction > 0
+    ? candidate.index > safeIndex
+    : candidate.index < safeIndex);
+  const targetDateCandidates = candidates.filter(
+    (candidate) => candidate.dateOrdinal === targetOrdinal,
+  );
+  const exact = targetDateCandidates.filter(
+    (candidate) => candidate.wallMinutes === active.wallMinutes,
+  );
+  if (exact.length > 0) return direction > 0 ? exact[0].index : exact[exact.length - 1].index;
+
+  const pool = targetDateCandidates.length > 0
+    ? targetDateCandidates
+    : candidates.filter((candidate) => direction > 0
+      ? candidate.dateOrdinal >= targetOrdinal
+      : candidate.dateOrdinal <= targetOrdinal);
+  if (pool.length === 0) return direction > 0 ? timestamps.length - 1 : 0;
+  return pool.reduce((best, candidate) => {
+    const bestDateDistance = Math.abs(best.dateOrdinal - targetOrdinal);
+    const candidateDateDistance = Math.abs(candidate.dateOrdinal - targetOrdinal);
+    if (candidateDateDistance !== bestDateDistance) {
+      return candidateDateDistance < bestDateDistance ? candidate : best;
+    }
+    const bestWallDistance = Math.abs(best.wallMinutes - active.wallMinutes);
+    const candidateWallDistance = Math.abs(candidate.wallMinutes - active.wallMinutes);
+    if (candidateWallDistance !== bestWallDistance) {
+      return candidateWallDistance < bestWallDistance ? candidate : best;
+    }
+    return direction > 0
+      ? (candidate.index < best.index ? candidate : best)
+      : (candidate.index > best.index ? candidate : best);
+  }).index;
+}
 
 function clampIndex(index: number, length: number): number {
   if (!Number.isFinite(index) || length <= 1) return 0;
@@ -100,7 +173,7 @@ function TimelineShell({
     <aside
       data-testid="swell-day-timeline"
       data-timezone={timezone}
-      className="pointer-events-none fixed inset-x-0 bottom-0 z-20 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 sm:px-5"
+      className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 sm:px-5"
     >
       <div
         data-testid="timeline-panel"
@@ -160,6 +233,10 @@ export function SwellDayTimeline({
       ? 0
       : event.key === "End"
         ? timestamps.length - 1
+        : event.key === "PageUp"
+          ? findAdjacentLocalDayIndex(timestamps, safeIndex, timezone, -1)
+          : event.key === "PageDown"
+            ? findAdjacentLocalDayIndex(timestamps, safeIndex, timezone, 1)
         : delta === undefined
           ? null
           : safeIndex + delta;

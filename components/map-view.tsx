@@ -550,9 +550,13 @@ export function MapView() {
   const handleUserCameraInteraction = useCallback((interaction: {
     action: "pan" | "zoom" | "rotate";
     center: { lat: number; lon: number };
+    phase: "start" | "end";
   }) => {
-    exploredCenterRef.current = interaction.center;
-    setExploredCenter(interaction.center);
+    if (interaction.phase === "end") {
+      exploredCenterRef.current = interaction.center;
+      setExploredCenter(interaction.center);
+      return;
+    }
     cameraOwnerRef.current = "user";
     setCameraOwner("user");
   }, []);

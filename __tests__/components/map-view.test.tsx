@@ -18,6 +18,7 @@ let mockUsingDefaultLocation = true;
 let mockBeachLoading = false;
 let mockHomeBeach: { lat: number; lon: number } | null = null;
 let mockProfileLoading = false;
+let mockFilteredBeaches: Beach[] = [];
 const mockCustomSpots = [
   {
     id: "spot-1",
@@ -64,7 +65,7 @@ jest.mock("@/hooks/use-geolocation", () => ({
 
 jest.mock("@/hooks/use-beach-search", () => ({
   useBeachSearch: () => ({
-    filteredBeaches: [],
+    filteredBeaches: mockFilteredBeaches,
     loading: mockBeachLoading,
     searchQuery: "",
     selectedBeach: null,
@@ -147,6 +148,7 @@ describe("MapView", () => {
     mockBeachLoading = false;
     mockHomeBeach = null;
     mockProfileLoading = false;
+    mockFilteredBeaches = [];
     lastMapContentProps = {};
     try {
       window.localStorage.clear();
@@ -230,6 +232,44 @@ describe("MapView", () => {
       "expandable-hourly",
     );
     expect(screen.getByTestId("map-content")).toHaveAttribute("data-swell-timeline-steps", "");
+  });
+
+  it("uses the final user move center for timezone without issuing camera or beach loads", () => {
+    mockFilteredBeaches = [
+      { id: "sd", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles" } as Beach,
+      { id: "hi", lat: 21.28, lon: -157.85, timezone: "Pacific/Honolulu" } as Beach,
+    ];
+    render(<MapView />);
+    const initialCommand = lastMapContentProps.cameraCommand;
+    mockLoadNearbyBeaches.mockClear();
+
+    const report = lastMapContentProps.onUserCameraInteraction as (interaction: {
+      action: "pan";
+      center: { lat: number; lon: number };
+      phase: "start" | "end";
+    }) => void;
+    act(() => report({
+      action: "pan",
+      center: { lat: 32.75, lon: -117.25 },
+      phase: "start",
+    }));
+    expect(lastMapContentProps.cameraOwner).toBe("user");
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-view-timezone",
+      "UTC",
+    );
+
+    act(() => report({
+      action: "pan",
+      center: { lat: 21.29, lon: -157.86 },
+      phase: "end",
+    }));
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-view-timezone",
+      "Pacific/Honolulu",
+    );
+    expect(lastMapContentProps.cameraCommand).toBe(initialCommand);
+    expect(mockLoadNearbyBeaches).not.toHaveBeenCalled();
   });
 
   it("shows the field guide trigger but keeps the panel collapsed on the live map", () => {
@@ -419,9 +459,11 @@ describe("MapView", () => {
       (lastMapContentProps.onUserCameraInteraction as (interaction: {
         action: "pan" | "zoom" | "rotate";
         center: { lat: number; lon: number };
+        phase: "start" | "end";
       }) => void)({
         action: "pan",
         center: { lat: 21.28, lon: -157.85 },
+        phase: "start",
       });
       (lastMapContentProps.onMapClick as () => void)();
     });
@@ -446,9 +488,11 @@ describe("MapView", () => {
       (lastMapContentProps.onUserCameraInteraction as (interaction: {
         action: "pan" | "zoom" | "rotate";
         center: { lat: number; lon: number };
+        phase: "start" | "end";
       }) => void)({
         action: "pan",
         center: { lat: 21.28, lon: -157.85 },
+        phase: "start",
       });
     });
     const previousId = (lastMapContentProps.cameraCommand as { id: number }).id;

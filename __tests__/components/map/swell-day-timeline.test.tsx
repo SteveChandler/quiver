@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { TimelineDaySegment } from "@/components/map/hourly-swell-timeline";
 import {
+  findAdjacentLocalDayIndex,
   SwellDayTimeline,
   type SwellDayTimelineProps,
 } from "@/components/map/swell-field/swell-day-timeline";
@@ -98,6 +99,35 @@ describe("SwellDayTimeline", () => {
     expect(onIndexChange).toHaveBeenLastCalledWith(0);
   });
 
+  it("moves PageUp and PageDown by local calendar date across DST and missing frames", () => {
+    const spring = [
+      "2026-03-07T10:00:00.000Z", // 2 AM PST
+      "2026-03-08T09:00:00.000Z", // 1 AM PST; 2 AM does not exist
+      "2026-03-08T10:00:00.000Z", // 3 AM PDT
+      "2026-03-09T09:00:00.000Z", // 2 AM PDT
+    ];
+    expect(findAdjacentLocalDayIndex(spring, 0, "America/Los_Angeles", 1)).toBe(1);
+    expect(findAdjacentLocalDayIndex(spring, 3, "America/Los_Angeles", -1)).toBe(2);
+
+    const fall = [
+      "2026-10-31T08:00:00.000Z", // 1 AM PDT
+      "2026-11-01T08:00:00.000Z", // first 1 AM PDT
+      "2026-11-01T09:00:00.000Z", // second 1 AM PST
+      "2026-11-02T09:00:00.000Z", // 1 AM PST
+    ];
+    expect(findAdjacentLocalDayIndex(fall, 0, "America/Los_Angeles", 1)).toBe(1);
+    expect(findAdjacentLocalDayIndex(fall, 3, "America/Los_Angeles", -1)).toBe(2);
+
+    const gap = [
+      "2026-07-10T15:00:00.000Z", // 8 AM
+      "2026-07-11T14:00:00.000Z", // 7 AM, 8 AM missing
+      "2026-07-11T16:00:00.000Z", // 9 AM
+      "2026-07-12T15:00:00.000Z", // 8 AM
+    ];
+    expect(findAdjacentLocalDayIndex(gap, 0, "America/Los_Angeles", 1)).toBe(1);
+    expect(findAdjacentLocalDayIndex(gap, 3, "America/Los_Angeles", -1)).toBe(2);
+  });
+
   it("keeps the bubble inside the track and makes inclusive day bands visual only", () => {
     const { rerender } = render(
       <SwellDayTimeline {...createProps({ index: 0 })} />,
@@ -177,14 +207,15 @@ describe("SwellDayTimeline", () => {
     );
 
     const timeline = screen.getByTestId("swell-day-timeline");
-    expect(timeline).toHaveClass("fixed", "pb-[max(0.75rem,env(safe-area-inset-bottom))]");
+    expect(timeline).toHaveClass("absolute", "pb-[max(0.75rem,env(safe-area-inset-bottom))]");
+    expect(timeline).not.toHaveClass("fixed");
     const playButton = screen.getByRole("button", { name: "Play forecast timeline" });
     expect(playButton).toHaveClass("h-11", "w-11", "rounded-full");
     expect(playButton).toBeDisabled();
     expect(screen.getByRole("slider", { name: "Forecast time" })).toBeDisabled();
   });
 
-  it("passes pointer events through the fixed shell outside the visible panel", () => {
+  it("passes pointer events through the map-owned shell outside the visible panel", () => {
     render(<SwellDayTimeline {...createProps()} />);
 
     expect(screen.getByTestId("swell-day-timeline")).toHaveClass("pointer-events-none");
