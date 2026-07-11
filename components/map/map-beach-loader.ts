@@ -94,6 +94,18 @@ export function parseHourlySwellTimeline(
   if (timestampEpochs.some((epoch, index) => index > 0 && epoch! <= timestampEpochs[index - 1]!)) {
     return null;
   }
+  const nextStart = envelope.nextStart as string | null;
+  if (!envelope.hasMore && nextStart !== null) return null;
+  if (
+    envelope.hasMore &&
+    (
+      nextStart === null ||
+      timestampEpochs.length === 0 ||
+      parseCanonicalUtcHour(nextStart)! <= timestampEpochs[timestampEpochs.length - 1]!
+    )
+  ) {
+    return null;
+  }
 
   const parsedPartitions = Object.entries(
     envelope.partitionsByBeach as Record<string, unknown>,
@@ -109,15 +121,6 @@ export function parseHourlySwellTimeline(
   }, {});
   if (!parsedPartitions) return null;
   if (expectedBeachIds.some((beachId) => !(beachId in parsedPartitions))) return null;
-
-  const nextStart = envelope.nextStart as string | null;
-  if (
-    nextStart &&
-    timestamps.length > 0 &&
-    parseCanonicalUtcHour(nextStart)! <= timestampEpochs[timestampEpochs.length - 1]!
-  ) {
-    return null;
-  }
 
   return {
     timestamps: [...timestamps] as string[],

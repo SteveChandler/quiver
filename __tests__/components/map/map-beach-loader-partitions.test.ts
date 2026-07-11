@@ -290,6 +290,43 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
     expect(result.hourlySwellTimeline).toBeNull();
   });
 
+  it.each([
+    { label: "more pages without a next start", hasMore: true, nextStart: null },
+    {
+      label: "a terminal page with a next start",
+      hasMore: false,
+      nextStart: "2026-07-10T21:00:00.000Z",
+    },
+  ])("rejects $label without losing current marker data", async ({ hasMore, nextStart }) => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          forecasts: { a: 3.5 },
+          swellPartitions: { a: { s1HeightFt: 3.9 } },
+          hourlySwellTimeline: {
+            timestamps: ["2026-07-10T20:00:00.000Z"],
+            partitionsByBeach: { a: [null] },
+            hasMore,
+            nextStart,
+          },
+        },
+      }),
+    }) as unknown as typeof fetch;
+
+    const result = await loadBeachesAndWaveHeights(
+      32.7,
+      -117.2,
+      [beach("a", 32.71, -117.21)],
+      { fetchNearbyBeaches: async () => ({ data: [] }) },
+      { timeline: "hourly" },
+    );
+
+    expect(result.partitionsMap.get("a")).toEqual({ s1HeightFt: 3.9 });
+    expect(result.hourlySwellTimeline).toBeNull();
+  });
+
   it("requests forecast data only for the capped rendered beach set", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: true,
