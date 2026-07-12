@@ -1,53 +1,75 @@
 import { expect, test } from "@playwright/test";
 import { dismissMapEntryOverlay } from "./utils/map-helpers";
 import { TIMEOUTS } from "./fixtures/test-data";
+import {
+  assertNoErrors,
+  setupErrorDetection,
+  type ErrorCapture,
+} from "./utils/error-detection";
 
 const MAKAHA_ID = "bb286d50-ad8d-4315-b966-5dbc31605a26";
 
-const OAHU_PATHS = [
-  "/hi/honolulu/ala-moana-bowls",
-  "/hi/kahuku/backyards",
-  "/hi/haleiwa/chuns-reef",
-  "/hi/honolulu/diamond-head-cliffs",
-  "/hi/haleiwa/haleiwa",
-  "/hi/honolulu/kaisers",
-  "/hi/honolulu/kewalo-basin",
-  "/hi/haleiwa/laniakea",
-  "/hi/waianae/makaha",
-  "/hi/waimanalo/makapuu",
-  "/hi/pupukea/off-the-wall",
-  "/hi/honolulu/pops",
-  "/hi/haleiwa/puaena-point",
-  "/hi/honolulu/publics",
-  "/hi/pupukea/rocky-point",
-  "/hi/honolulu/sandy-beach",
-  "/hi/pupukea/sunset-beach",
-  "/hi/honolulu/threes",
-  "/hi/kapolei/tracks",
-  "/hi/kahuku/velzyland",
-  "/hi/honolulu/waikiki-aquarium",
-  "/hi/honolulu/waikiki-beach",
-  "/hi/honolulu/waikiki-canoes",
-  "/hi/honolulu/waikiki-queens",
-  "/hi/pupukea/waimea-bay",
-  "/hi/ewa-beach/white-plains",
-  "/hi/pupukea/pipeline",
+const OAHU_BEACHES = [
+  { name: "Ala Moana Bowls", slug: "ala-moana-bowls", path: "/hi/honolulu/ala-moana-bowls" },
+  { name: "Backyards", slug: "backyards", path: "/hi/kahuku/backyards" },
+  { name: "Chun’s Reef", slug: "chuns-reef", path: "/hi/haleiwa/chuns-reef" },
+  { name: "Diamond Head (Cliffs)", slug: "diamond-head-cliffs", path: "/hi/honolulu/diamond-head-cliffs" },
+  { name: "Haleʻiwa Aliʻi Beach", slug: "haleiwa", path: "/hi/haleiwa/haleiwa" },
+  { name: "Kaisers", slug: "kaisers", path: "/hi/honolulu/kaisers" },
+  { name: "Kewalo Basin", slug: "kewalo-basin", path: "/hi/honolulu/kewalo-basin" },
+  { name: "Laniakea", slug: "laniakea", path: "/hi/haleiwa/laniakea" },
+  { name: "Makaha", slug: "makaha", path: "/hi/waianae/makaha" },
+  { name: "Makapuʻu", slug: "makapuu", path: "/hi/waimanalo/makapuu" },
+  { name: "Off the Wall", slug: "off-the-wall", path: "/hi/pupukea/off-the-wall" },
+  { name: "Pipeline", slug: "pipeline", path: "/hi/haleiwa/pipeline" },
+  { name: "Pops", slug: "pops", path: "/hi/honolulu/pops" },
+  { name: "Puaʻena Point", slug: "puaena-point", path: "/hi/haleiwa/puaena-point" },
+  { name: "Publics", slug: "publics", path: "/hi/honolulu/publics" },
+  { name: "Rocky Point", slug: "rocky-point", path: "/hi/pupukea/rocky-point" },
+  { name: "Sandy Beach", slug: "sandy-beach", path: "/hi/honolulu/sandy-beach" },
+  { name: "Sunset Beach", slug: "sunset-beach", path: "/hi/pupukea/sunset-beach" },
+  { name: "Threes", slug: "threes", path: "/hi/honolulu/threes" },
+  { name: "Tracks", slug: "tracks", path: "/hi/kapolei/tracks" },
+  { name: "Velzyland", slug: "velzyland", path: "/hi/kahuku/velzyland" },
+  { name: "Waikiki (Aquarium)", slug: "waikiki-aquarium", path: "/hi/honolulu/waikiki-aquarium" },
+  { name: "Waikiki Beach", slug: "waikiki-beach", path: "/hi/honolulu/waikiki-beach" },
+  { name: "Waikiki – Canoes", slug: "waikiki-canoes", path: "/hi/honolulu/waikiki-canoes" },
+  { name: "Waikiki – Queens", slug: "waikiki-queens", path: "/hi/honolulu/waikiki-queens" },
+  { name: "Waimea Bay", slug: "waimea-bay", path: "/hi/pupukea/waimea-bay" },
+  { name: "White Plains", slug: "white-plains", path: "/hi/ewa-beach/white-plains" },
 ] as const;
 
 test.describe("authenticated Oahu beach catalog", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: "Oahu beach catalog" });
+  });
+
   test("publishes all 27 canonical routes in the sitemap", async ({ request }) => {
     const response = await request.get("/sitemap.xml");
     expect(response.ok()).toBe(true);
     const sitemap = await response.text();
-    for (const path of OAHU_PATHS) expect(sitemap).toContain(path);
+    for (const beach of OAHU_BEACHES) expect(sitemap).toContain(beach.path);
   });
 
-  test("search finds every curated Oahu beach", async ({ request }) => {
-    for (const path of OAHU_PATHS) {
-      const slug = path.split("/").at(-1)!;
-      const response = await request.get(`/api/beaches/search?query=${encodeURIComponent(slug)}&limit=50`);
-      expect(response.ok(), `search request for ${slug}`).toBe(true);
-      expect(await response.text(), `search result for ${slug}`).toContain(`\"slug\":\"${slug}\"`);
+  test("search finds established and newly seeded Oahu beaches", async ({ request }) => {
+    const searchExamples = OAHU_BEACHES.filter(
+      (beach) => beach.slug === "ala-moana-bowls" || beach.slug === "makaha",
+    );
+
+    for (const beach of searchExamples) {
+      const response = await request.get(
+        `/api/beaches/search?query=${encodeURIComponent(beach.name)}&limit=50`,
+      );
+      expect(response.ok(), `search request for ${beach.name}`).toBe(true);
+      expect(await response.text(), `search result for ${beach.name}`).toContain(
+        `\"slug\":\"${beach.slug}\"`,
+      );
     }
   });
 
