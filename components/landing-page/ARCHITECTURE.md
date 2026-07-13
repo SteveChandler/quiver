@@ -109,13 +109,13 @@ The unauthenticated `/` route renders the landing navbar in normal document flow
 
 **Directory:** `public/images/app-screenshots/`
 
-The active `ForecastSection` renders Brand-Vault-backed app screenshots (1320×2868 PNGs with phone chrome and headline poster text baked in) instead of code-based mockups. Source assets are mirrored from `Brand-Vault/marketing/app-store-promo/dist/images/quiver/`.
+The active `ForecastSection` renders lightweight WebP derivatives of Brand-Vault-backed app screenshots instead of code-based mockups. The legacy PNGs remain available for non-landing references, but landing surfaces should use the `*-720.webp` files.
 
-- `surf-call.png` — Forecast tab: La Jolla Shores surf call with swell, wind, water, tide, and recommendation card. Exact source match: `Brand-Vault/marketing/app-store-promo/dist/images/quiver/forecast.png`.
-- `session-log.png` — Log tab: Log Session form with beach, board, duration, rating, and wave conditions. Exact source match: `Brand-Vault/marketing/app-store-promo/dist/images/quiver/session-log.png`.
-- `local-intel.png` — Check tab: Beach finder/local intel surface for nearby surf spots, skill filters, and trending breaks. Exact source match: `Brand-Vault/marketing/app-store-promo/dist/images/quiver/beach-finder.png`.
+- `surf-call-720.webp` — Forecast tab: La Jolla Shores surf call with swell, wind, water, tide, and recommendation card. Derived from `surf-call.png`.
+- `session-log-720.webp` — Log tab: Log Session form with beach, board, duration, rating, and wave conditions. Derived from `session-log.png`.
+- `local-intel-720.webp` — Check tab: Beach finder/local intel surface for nearby surf spots, skill filters, and trending breaks. Derived from `local-intel.png`.
 
-`ForecastSection` lazy-loads each via `next/image` with `fill` + `object-cover` inside an `aspect-[9/19.5]` `rounded-[32px]` container; `AnimatePresence` cross-fades on tab switch. Re-render new App Store screenshots in the native worktree (`npm run screenshots` inside `quiver-native`) and copy the three files back into `public/images/app-screenshots/` when the app UI changes.
+`ForecastSection` lazy-loads each via `next/image` with `fill` + `object-cover` inside an `aspect-[9/19.5]` `rounded-[32px]` container; `AnimatePresence` cross-fades on tab switch. Re-render new App Store screenshots in the native worktree (`npm run screenshots` inside `quiver-native`), copy the PNGs back into `public/images/app-screenshots/`, and regenerate the `*-720.webp` derivatives when the app UI changes.
 
 ## Landing Hero Media
 

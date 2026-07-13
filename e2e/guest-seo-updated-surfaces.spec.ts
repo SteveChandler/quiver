@@ -123,6 +123,35 @@ test.describe("Updated SEO public surfaces", () => {
     ).toHaveAttribute("href", "/forecast");
   });
 
+  test("/best-surf-forecast-app renders the source-backed comparison", async ({
+    page,
+  }) => {
+    await gotoPublicPage(page, "/best-surf-forecast-app");
+
+    await expect(page).toHaveTitle(/Best Surf Forecast App by Surf Job in 2026/);
+    await expect(
+      page.getByRole("heading", {
+        name: "Best Surf Forecast App by Surf Job in 2026",
+        level: 1,
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByTestId("best-surf-forecast-app-zine-surface"),
+    ).toBeVisible();
+    await expect(
+      page.getByText("Affiliation disclosure: Quiver is our app."),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Surf Captain FAQ" }),
+    ).toHaveAttribute("href", "https://surfcaptain.com/faq");
+    await expect(
+      page.getByRole("link", { name: /Compare Quiver vs Surfline/i }),
+    ).toHaveAttribute("href", "/vs/surfline");
+    await expect(
+      page.getByRole("link", { name: /Check public forecast accuracy/i }),
+    ).toHaveAttribute("href", "/forecast-accuracy");
+  });
+
   for (const slug of UPDATED_SURF_REPORT_SLUGS) {
     const seoPage = getSeoFunnelPageByTypeAndSlug("surf-report-today", slug);
 

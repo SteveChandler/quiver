@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { type RefObject, useEffect, useId, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -9,9 +9,12 @@ import {
 } from "@/components/ui/popover";
 import {
   SWELL_LAYER_COLOR,
-  SWELL_MAP_CTA_CLASS,
+  SWELL_MAP_LEGEND_SURFACE,
+  SWELL_MAP_STICKER_RADIUS,
+  SWELL_MAP_STICKER_SHADOW,
 } from "@/components/map/swell-map-theme";
 import {
+  BookOpen,
   MapPin,
   Search,
   SlidersHorizontal,
@@ -19,16 +22,14 @@ import {
   X,
 } from "lucide-react";
 import type { Beach } from "@/types/database";
-import type { MapRegionPill } from "@/components/map/map-regions";
 
 interface MapToolbarProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
+  searchInputRef?: RefObject<HTMLInputElement | null>;
   onClearSearch: () => void;
   suggestions: Beach[];
   onSuggestionSelect: (beach: Beach) => void;
-  regions: MapRegionPill[];
-  onRegionSelect: (region: MapRegionPill) => void;
   onUseMyLocation: () => void;
   filters: { beginnerFriendly: boolean; breakTypes: Set<string> };
   onToggleBeginner: () => void;
@@ -37,6 +38,8 @@ interface MapToolbarProps {
   hasActiveFilters: boolean;
   showSwellField: boolean;
   onToggleSwellField: () => void;
+  fieldGuideVisible?: boolean;
+  onOpenFieldGuide?: () => void;
 }
 
 const BREAK_TYPE_FILTERS = [
@@ -49,24 +52,23 @@ const BREAK_TYPE_FILTERS = [
 
 const filterChipClass = (active: boolean): string =>
   [
-    "rounded-full border px-3 py-1.5 text-xs font-medium transition-colors",
+    "rounded-full border-2 border-[#11100D] px-3 py-1.5 text-xs font-bold uppercase tracking-[0.04em] transition-colors",
     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]",
     active
-      ? "border-primary bg-primary text-primary-foreground"
-      : "border-white/15 bg-white/5 text-white hover:bg-white/10",
+      ? "bg-[#F78E42] text-[#11100D]"
+      : "bg-[#F5EEDC] text-[#11100D] hover:bg-[#E9DEC7]",
   ].join(" ");
 
 const toolbarActionClass =
-  "h-10 w-full min-w-0 justify-center whitespace-nowrap px-2 text-xs sm:px-3 sm:text-sm lg:w-auto";
+  "h-10 w-full min-w-0 justify-center whitespace-nowrap rounded-[8px_3px_9px_4px] border-2 border-[#11100D] bg-[#F5EEDC] px-2 text-xs font-bold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] hover:bg-[#E9DEC7] sm:px-3 sm:text-sm lg:w-auto";
 
 export function MapToolbar({
   searchQuery,
   onSearchChange,
+  searchInputRef,
   onClearSearch,
   suggestions,
   onSuggestionSelect,
-  regions,
-  onRegionSelect,
   onUseMyLocation,
   filters,
   onToggleBeginner,
@@ -75,10 +77,16 @@ export function MapToolbar({
   hasActiveFilters,
   showSwellField,
   onToggleSwellField,
+  fieldGuideVisible = false,
+  onOpenFieldGuide,
 }: MapToolbarProps) {
-  const showSuggestions = searchQuery.trim().length > 0 && suggestions.length > 0;
   const suggestionsListId = useId();
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
+  const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const showSuggestions =
+    !suggestionsDismissed &&
+    searchQuery.trim().length > 0 &&
+    suggestions.length > 0;
   const activeSuggestion =
     activeSuggestionIndex >= 0 ? suggestions[activeSuggestionIndex] : undefined;
 
@@ -86,26 +94,39 @@ export function MapToolbar({
     setActiveSuggestionIndex(-1);
   }, [searchQuery, suggestions.length]);
 
+  useEffect(() => {
+    setSuggestionsDismissed(false);
+  }, [searchQuery]);
+
   const selectSuggestion = (index: number): void => {
     const suggestion = suggestions[index];
     if (!suggestion) return;
 
+    setSuggestionsDismissed(true);
+    setActiveSuggestionIndex(-1);
     onSuggestionSelect(suggestion);
   };
 
   return (
     <div
       data-testid="map-controls"
-      className="sticky top-0 z-20 border-b bg-background px-3 py-3 sm:px-4"
+      className="sticky top-0 z-20 border-b-2 border-[#11100D] px-3 py-3 sm:px-4"
+      style={{
+        background: SWELL_MAP_LEGEND_SURFACE.paper,
+        boxShadow: SWELL_MAP_STICKER_SHADOW,
+        color: SWELL_MAP_LEGEND_SURFACE.ink,
+      }}
     >
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-md">
             <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#11100D]/65"
               aria-hidden="true"
             />
             <input
+              ref={searchInputRef}
+              data-zine-input="true"
               data-testid="map-toolbar-search"
               role="combobox"
               aria-label="Search beaches, spots, or cities"
@@ -149,14 +170,20 @@ export function MapToolbar({
                 }
               }}
               placeholder="Search beaches, spots, or cities"
-              className="h-10 w-full rounded-md border border-input bg-background py-2 pl-9 pr-10 text-sm outline-none transition-colors placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+              className="h-10 w-full rounded-[9px_4px_10px_5px] border-2 !border-[#11100D] border-[#11100D] !bg-[#F5EEDC] bg-[#F5EEDC] py-2 pl-9 pr-10 text-sm font-medium !text-[#11100D] text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.2)] outline-none transition-colors placeholder:!text-[#11100D]/55 focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+              style={{
+                background: SWELL_MAP_LEGEND_SURFACE.paperRaised,
+                borderColor: SWELL_MAP_LEGEND_SURFACE.border,
+                boxShadow: "2px 2px 0 rgba(17,16,13,0.2)",
+                color: SWELL_MAP_LEGEND_SURFACE.ink,
+              }}
             />
             {searchQuery && (
               <button
                 type="button"
                 aria-label="Clear map search"
                 onClick={onClearSearch}
-                className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+                className="absolute right-2 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-md text-[#11100D]/65 hover:bg-[#E9DEC7] hover:text-[#11100D] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
               >
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
@@ -166,7 +193,7 @@ export function MapToolbar({
                 id={suggestionsListId}
                 role="listbox"
                 data-testid="map-search-suggestions"
-                className="absolute left-0 right-0 top-11 z-30 overflow-hidden rounded-md border bg-background shadow-lg"
+                className="absolute left-0 right-0 top-11 z-30 overflow-hidden rounded-[9px_4px_10px_5px] border-2 border-[#11100D] bg-[#F5EEDC] text-[#11100D] shadow-[3px_4px_0_rgba(17,16,13,0.28)]"
               >
                 {suggestions.map((beach, index) => {
                   const location = [beach.city, beach.state]
@@ -181,11 +208,11 @@ export function MapToolbar({
                       type="button"
                       onMouseEnter={() => setActiveSuggestionIndex(index)}
                       onClick={() => selectSuggestion(index)}
-                      className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-muted focus-visible:bg-muted focus-visible:outline-none aria-selected:bg-muted"
+                      className="flex w-full flex-col px-3 py-2 text-left text-sm hover:bg-[#E9DEC7] focus-visible:bg-[#E9DEC7] focus-visible:outline-none aria-selected:bg-[#E9DEC7]"
                     >
                       <span className="font-medium">{beach.name}</span>
                       {location && (
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-xs text-[#11100D]/65">
                           {location}
                         </span>
                       )}
@@ -198,13 +225,15 @@ export function MapToolbar({
 
           <div
             data-testid="map-toolbar-actions"
-            className="grid w-full grid-cols-3 gap-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end"
+            className={`grid w-full gap-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:justify-end ${
+              onOpenFieldGuide ? "grid-cols-4" : "grid-cols-3"
+            }`}
           >
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
-                  aria-label="Regions and filters"
+                  aria-label="Filters"
                   variant="secondary"
                   size="sm"
                   className={toolbarActionClass}
@@ -213,8 +242,7 @@ export function MapToolbar({
                     className="h-4 w-4 shrink-0"
                     aria-hidden="true"
                   />
-                  <span className="sm:hidden">Filters</span>
-                  <span className="hidden sm:inline">Regions and filters</span>
+                  <span>Filters</span>
                   {hasActiveFilters && (
                     <span
                       className="ml-1 h-2 w-2 rounded-full bg-[#F78E42]"
@@ -225,42 +253,16 @@ export function MapToolbar({
               </PopoverTrigger>
               <PopoverContent
                 align="end"
-                className="w-[calc(100vw-2rem)] max-w-md space-y-4 border-white/15 bg-[#252D70] p-4 text-white shadow-2xl sm:w-[28rem]"
+                className="w-[calc(100vw-2rem)] max-w-md space-y-4 border-2 border-[#11100D] bg-[#F4EBD8] p-4 text-[#11100D] shadow-[4px_5px_0_rgba(17,16,13,0.32)] sm:w-[28rem]"
+                style={{ borderRadius: SWELL_MAP_STICKER_RADIUS }}
               >
-                <section
-                  className="space-y-2"
-                  aria-labelledby="map-regions-label"
-                >
-                  <div
-                    id="map-regions-label"
-                    className="text-xs font-semibold uppercase tracking-[0.08em] text-[#C8D0FF]"
-                  >
-                    Regions
-                  </div>
-                  <nav aria-label="Map regions">
-                    <div className="flex flex-wrap gap-2">
-                      {regions.map((region) => (
-                        <button
-                          key={region.id}
-                          type="button"
-                          data-testid={`map-region-pill-${region.id}`}
-                          onClick={() => onRegionSelect(region)}
-                          className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
-                        >
-                          {region.label}
-                        </button>
-                      ))}
-                    </div>
-                  </nav>
-                </section>
-
                 <section
                   className="space-y-2"
                   aria-labelledby="map-filters-label"
                 >
                   <div
                     id="map-filters-label"
-                    className="text-xs font-semibold uppercase tracking-[0.08em] text-[#C8D0FF]"
+                    className="text-xs font-bold uppercase tracking-[0.08em] text-[#11100D]/70"
                   >
                     Filters
                   </div>
@@ -287,7 +289,7 @@ export function MapToolbar({
                         type="button"
                         onClick={onClearAll}
                         data-testid="map-clear-all"
-                        className="rounded-full bg-white/10 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
+                        className="rounded-full border-2 border-[#11100D] bg-[#E9DEC7] px-3 py-1.5 text-xs font-bold text-[#11100D] transition-colors hover:bg-[#D9C49C] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B]"
                       >
                         Clear all
                       </button>
@@ -315,10 +317,8 @@ export function MapToolbar({
               aria-pressed={showSwellField}
               data-testid="swell-field-toggle"
               onClick={onToggleSwellField}
-              className={`${toolbarActionClass} inline-flex items-center gap-2 rounded-md py-1.5 font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${
-                showSwellField
-                  ? "text-[#161A40] shadow-inner ring-1 ring-black/20"
-                  : SWELL_MAP_CTA_CLASS
+              className={`${toolbarActionClass} inline-flex items-center gap-2 py-1.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${
+                showSwellField ? "bg-[#F78E42]" : ""
               }`}
               style={
                 showSwellField
@@ -334,6 +334,23 @@ export function MapToolbar({
                 {showSwellField ? "Hide swell field" : "Show swell field"}
               </span>
             </button>
+
+            {onOpenFieldGuide && (
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                aria-expanded={fieldGuideVisible}
+                aria-controls="map-field-guide-panel"
+                data-testid="map-field-guide-toggle"
+                onClick={onOpenFieldGuide}
+                className={toolbarActionClass}
+              >
+                <BookOpen className="h-4 w-4 shrink-0" aria-hidden="true" />
+                <span className="sm:hidden">Guide</span>
+                <span className="hidden sm:inline">How to read this map</span>
+              </Button>
+            )}
           </div>
         </div>
       </div>

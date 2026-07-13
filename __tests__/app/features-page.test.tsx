@@ -50,9 +50,9 @@ jest.mock("@/components/pricing/android-waitlist-cta", () => ({
 
 describe("FeaturesPage", () => {
   it("exports native app conversion metadata", () => {
-    expect(metadata.title).toBe(
-      "Quiver App Features | Personal Surf Forecasts",
-    );
+    expect(metadata.title).toEqual({
+      absolute: "Quiver App Features | Personal Surf Forecasts",
+    });
     expect(metadata.description).toMatch(/personal forecasts/i);
     expect(metadata.description).toMatch(/custom spots/i);
     expect(metadata.description).toMatch(/custom surf alerts/i);
@@ -106,6 +106,10 @@ describe("FeaturesPage", () => {
       "android-waitlist-cta",
     );
     expect(androidWaitlistButtons).toHaveLength(2);
+    androidWaitlistButtons.forEach((button) => {
+      expect(button).toHaveTextContent(/get the android beta/i);
+      expect(button).not.toHaveTextContent(/waitlist/i);
+    });
     expect(androidWaitlistButtons[0]).toHaveAttribute(
       "data-source",
       "features-hero-android-waitlist",
@@ -124,6 +128,9 @@ describe("FeaturesPage", () => {
     expect(
       screen.getAllByAltText(/alerts screen/i).length,
     ).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getByRole("link", { name: /read how free surf reports work/i }),
+    ).toHaveAttribute("href", "/free-surf-reports");
   });
 
   it("removes the old beach-directory experience from the features route", () => {

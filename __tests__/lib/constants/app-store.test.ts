@@ -35,8 +35,26 @@ describe("app-store constants", () => {
   });
 
   it("keeps smart banner and Android beta destinations separate", () => {
-    expect(IOS_APP_STORE_SMART_BANNER_ARGUMENT).toBe(
-      "https://www.quiversurf.app",
+    const smartBannerArgument = new URL(IOS_APP_STORE_SMART_BANNER_ARGUMENT);
+
+    expect(smartBannerArgument.origin + smartBannerArgument.pathname).toBe(
+      "https://www.quiversurf.app/app",
+    );
+    expect(smartBannerArgument.searchParams.get("source")).toBe(
+      "ios_smart_app_banner",
+    );
+    expect(smartBannerArgument.searchParams.get("surface")).toBe("web");
+    expect(smartBannerArgument.searchParams.get("placement")).toBe(
+      "apple_smart_banner",
+    );
+    expect(smartBannerArgument.searchParams.get("utm_source")).toBe(
+      "ios_safari",
+    );
+    expect(smartBannerArgument.searchParams.get("utm_medium")).toBe(
+      "smart_banner",
+    );
+    expect(smartBannerArgument.searchParams.get("utm_campaign")).toBe(
+      "app_first_v1",
     );
     expect(ANDROID_BETA_LANDING_PATH).toBe("/android-beta");
     expect(ANDROID_BETA_LANDING_URL).toBe(

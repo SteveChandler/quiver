@@ -57,7 +57,7 @@ test.describe('Guest Smoke: Critical Pages', () => {
       page.getByRole('link', { name: /open app store/i }).first(),
     ).toHaveAttribute('href', iosAppStoreUrlWithCampaign(APP_FIRST_CAMPAIGN));
     await expect(
-      page.getByRole('button', { name: /get android beta|android waitlist/i }).first(),
+      page.getByRole('button', { name: /get the android beta/i }).first(),
     ).toBeVisible();
     await expect(page.getByText(/home-break finder/i)).toHaveCount(0);
 

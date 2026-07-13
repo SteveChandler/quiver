@@ -13,7 +13,6 @@ const crawlDisallowRules = [
   "/session/", // Email action routes (confirm/skip) — transactional pages, not for indexing
   "/auth/*", // Auth pages
   "/embed/", // Embeddable widgets (prevent duplicate content)
-  "/spots/", // Legacy URL pattern — canonical URLs are hierarchical (state/city/beach); 301 redirects handle traffic but disallowing stops Google from re-indexing old slugs
   "/welcome", // Native app only — not a public web page
 ];
 

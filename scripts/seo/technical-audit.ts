@@ -4,6 +4,7 @@ import path from "node:path";
 import { readSeoDashboard } from "../../lib/seo/agent-workflow/dashboard";
 import {
   analyzeTechnicalAudit,
+  extractInternalLinks,
 } from "../../lib/seo/agent-workflow/technical-audit";
 import { currentAuditDate, resolveSeoAuditFile } from "../../lib/seo/agent-workflow/audit-paths";
 import type { TechnicalAuditInput } from "../../lib/seo/agent-workflow/types";
@@ -19,6 +20,8 @@ const outputPath = getFlag("--output") ??
   resolveSeoAuditFile("TECHNICAL-AUDIT.json", currentAuditDate());
 const now = getFlag("--now") ?? new Date().toISOString();
 const fixturePath = getFlag("--input");
+const MAX_LINK_CHECKS = 40;
+const LINK_CHECK_TIMEOUT_MS = 8_000;
 
 void main();
 
@@ -64,11 +67,41 @@ async function fetchLiveInput(dashboardFilePath?: string): Promise<TechnicalAudi
     }),
   ]);
 
+  const linksByPage = pageResponses.map((page) => ({
+    page,
+    links: extractInternalLinks(page.html, page.url),
+  }));
+  const uniqueLinks = [...new Set(linksByPage.flatMap((entry) => entry.links))]
+    .slice(0, MAX_LINK_CHECKS);
+  const linkStatuses = await checkLinkStatuses(uniqueLinks);
+
   return {
     robotsTxt,
     sitemapXml,
-    pages: pageResponses,
+    pages: linksByPage.map(({ page, links }) => ({
+      ...page,
+      outgoingLinks: links
+        .filter((href) => linkStatuses.has(href))
+        .map((href) => ({ href, status: linkStatuses.get(href) })),
+    })),
   };
+}
+
+async function checkLinkStatuses(urls: string[]): Promise<Map<string, number>> {
+  const statuses = new Map<string, number>();
+  await Promise.all(urls.map(async (url) => {
+    try {
+      const response = await fetchWithRetry(
+        url,
+        { method: "HEAD", redirect: "follow" },
+        { timeoutMs: LINK_CHECK_TIMEOUT_MS, retries: 1 },
+      );
+      statuses.set(url, response.status);
+    } catch {
+      // Network or timeout errors are inconclusive; skip to avoid false flags.
+    }
+  }));
+  return statuses;
 }
 
 function buildFetchFailureRecommendation(error: unknown) {

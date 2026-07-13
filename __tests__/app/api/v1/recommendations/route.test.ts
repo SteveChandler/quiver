@@ -15,6 +15,10 @@ import {
 
 const mockSupabaseClient = createMockSupabaseClient();
 
+function normalizeSelect(select: string): string {
+  return select.replace(/\s+/g, " ").replace(/\s*,\s*/g, ", ").trim();
+}
+
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   ...jest.requireActual("@/lib/api-utils"),
   withRateLimit: (handler: any) => handler,
@@ -161,6 +165,9 @@ describe("GET /api/v1/recommendations", () => {
           postgis_unavailable: true,
           fallback_to_simple_query: true,
         });
+        expect(normalizeSelect(beachesChain.select.mock.calls[0][0])).toBe(
+          "id, name, is_private, skill_level, preferred_tide_ft_min, preferred_tide_ft_max, swell_window_min_deg, swell_window_max_deg, wind_offshore_deg, wind_offshore_tol_deg, wind_cross_shore_ok_kt, wind_onshore_bad_kt"
+        );
         expect(consoleWarnSpy).toHaveBeenCalledWith(
           "[DEGRADED] PostGIS RPC unavailable, using fallback query:",
           { message: "RPC not found" }
@@ -171,7 +178,6 @@ describe("GET /api/v1/recommendations", () => {
     });
   });
 });
-
 
 
 

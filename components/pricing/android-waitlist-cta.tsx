@@ -16,7 +16,10 @@ import {
   trackAndroidWaitlistCtaClick,
   trackAndroidWaitlistCtaView,
 } from "@/lib/analytics/android-waitlist-tracking";
-import { ANDROID_BETA_GROUP_URL } from "@/lib/constants/app-store";
+import {
+  ANDROID_BETA_GROUP_URL,
+  ANDROID_BETA_PLAY_URL,
+} from "@/lib/constants/app-store";
 import {
   ANDROID_WAITLIST_CTA,
   ANDROID_WAITLIST_STORAGE_KEY,
@@ -27,6 +30,7 @@ import {
   safeRemoveItem,
   safeSetItem,
 } from "@/lib/utils/safe-storage";
+import { getVisitorId } from "@/lib/utils/visitor-id";
 
 interface AndroidWaitlistIntent {
   source: string;
@@ -85,8 +89,42 @@ function storePendingIntent(intent: AndroidWaitlistIntent): void {
   );
 }
 
-function openAndroidTesterGroup(): void {
-  window.open(ANDROID_BETA_GROUP_URL, "_self");
+function AndroidBetaSuccessPanel(): ReactElement {
+  return (
+    <div
+      className="rounded-md border border-[#11100D]/20 bg-[#FBF6E8] p-3 font-sans text-sm text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.16)] sm:basis-full"
+      role="status"
+    >
+      <p className="font-heading text-base font-bold text-[#252D6B]">
+        You are in. Keep this page open for the steps.
+      </p>
+      <ol className="mt-2 list-decimal space-y-1 pl-5 text-[#11100D]/75">
+        <li>Join the Quiver Android tester group with your Google Play account.</li>
+        <li>Opt in on Google Play after the group accepts your account.</li>
+        <li>Install Quiver and test for 14 days to earn a free year of Pro.</li>
+      </ol>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <a
+          href={ANDROID_BETA_GROUP_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex min-h-10 items-center justify-center rounded-md bg-[#F78E42] px-4 py-2 font-heading text-sm font-bold text-[#11100D] transition hover:bg-[#ff9f55] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF6E8]"
+        >
+          Join tester group
+        </a>
+        {ANDROID_BETA_PLAY_URL ? (
+          <a
+            href={ANDROID_BETA_PLAY_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex min-h-10 items-center justify-center rounded-md border border-[#11100D]/25 px-4 py-2 font-heading text-sm font-bold text-[#11100D] transition hover:bg-[#11100D]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#252D6B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#FBF6E8]"
+          >
+            Opt in on Play
+          </a>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 export function AndroidWaitlistCta({
@@ -95,7 +133,7 @@ export function AndroidWaitlistCta({
   placement,
   className,
   children,
-  successLabel = "Android waitlist joined",
+  successLabel = "Android beta access set",
   onConfirmed,
   onClickTrack,
 }: AndroidWaitlistCtaProps): ReactElement {
@@ -200,12 +238,10 @@ export function AndroidWaitlistCta({
     });
 
     if (!user) {
-      openAndroidTesterGroup();
       return;
     }
 
     await confirmIntent(intent);
-    openAndroidTesterGroup();
   };
 
   const handleAnonymousSubmit = async (
@@ -235,6 +271,7 @@ export function AndroidWaitlistCta({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: normalizedEmail,
+          sessionId: getVisitorId(),
           ...intent,
         }),
       });
@@ -253,7 +290,7 @@ export function AndroidWaitlistCta({
         return;
       }
 
-      openAndroidTesterGroup();
+      setStatus("saved");
     } catch {
       setInlineError("Could not save your email. Try again.");
       setStatus("error");
@@ -262,12 +299,20 @@ export function AndroidWaitlistCta({
 
   const label =
     status === "saving"
-      ? "Opening..."
+      ? "Saving..."
       : status === "saved"
         ? successLabel
         : children ?? ANDROID_WAITLIST_CTA;
 
   if (!isLoading && !user) {
+    if (status === "saved") {
+      return (
+        <div className="flex w-full min-w-0 flex-col gap-3 sm:max-w-xl">
+          <AndroidBetaSuccessPanel />
+        </div>
+      );
+    }
+
     return (
       <form
         onSubmit={handleAnonymousSubmit}
@@ -300,8 +345,12 @@ export function AndroidWaitlistCta({
           disabled={status === "saving"}
           data-testid="android-waitlist-cta"
         >
-          {status === "saving" ? "Saving..." : "Get Android beta"}
+          {status === "saving" ? "Saving..." : ANDROID_WAITLIST_CTA}
         </button>
+        <p className="rounded-md bg-[#FBF6E8]/95 px-3 py-2 text-xs font-semibold text-[#11100D]/70 sm:basis-full">
+          Getting in takes 3 quick steps: join the tester group, opt in on
+          Play, then install.
+        </p>
         {inlineError ? (
           <p
             id={`${emailInputId}-error`}
@@ -329,9 +378,10 @@ export function AndroidWaitlistCta({
       </button>
       {status === "error" ? (
         <span className="sr-only" role="status">
-          Could not save Android waitlist intent. Try again.
+          Could not save Android beta intent. Try again.
         </span>
       ) : null}
+      {status === "saved" ? <AndroidBetaSuccessPanel /> : null}
     </>
   );
 }

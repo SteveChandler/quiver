@@ -637,7 +637,7 @@ export default async function VsSurflineFreePage() {
                 Get it on your phone
               </div>
               <span className="font-sans text-[11.5px] text-[#6b6557]">
-                iOS live now · Android waitlist open
+                iOS live now · Android beta open
               </span>
             </div>
             <Link

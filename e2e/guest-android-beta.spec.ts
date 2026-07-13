@@ -4,7 +4,7 @@
  * @project guest
  */
 
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import {
   ANDROID_BETA_CONTACT_EMAIL,
   ANDROID_BETA_CONTACT_MAILTO,
@@ -19,6 +19,16 @@ import {
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
+async function clickOutboundLinkAndClosePopup(
+  page: Page,
+  name: RegExp,
+): Promise<void> {
+  const popupPromise = page.waitForEvent("popup");
+  await page.getByRole("link", { name }).click();
+  const popup = await popupPromise;
+  await popup.close();
+}
+
 test.describe("Android beta page", () => {
   let errorCapture: ErrorCapture;
 
@@ -32,13 +42,87 @@ test.describe("Android beta page", () => {
     });
   });
 
-  test("renders the group-gated beta instructions and QR", async ({ page }) => {
+  test("captures an email before showing the group-gated beta instructions and QR", async ({
+    page,
+  }) => {
+    const capturedLeadEmails: string[] = [];
+    let groupClickTracked = false;
+    let playClickTracked = false;
+
+    await page.route("**/api/android-beta/leads", async (route) => {
+      const body = route.request().postDataJSON() as {
+        email?: string;
+        source?: string;
+        surface?: string;
+        placement?: string;
+      };
+      expect(body.email).toMatch(/^(surfer|corrected)@example\.com$/);
+      expect(body.source).toBe("android_beta_page");
+      expect(body.surface).toBe("android_beta");
+      expect(body.placement).toBe("hero_email_capture");
+      capturedLeadEmails.push(body.email ?? "");
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true, emailSent: true }),
+      });
+    });
+    await page.route("**/api/events", async (route) => {
+      const body = route.request().postDataJSON() as {
+        eventType?: string;
+        metadata?: {
+          cta_family?: string;
+          destination_type?: string;
+          source?: string;
+        };
+      };
+      if (
+        body.eventType === "cta_click" &&
+        body.metadata?.cta_family === "android_waitlist" &&
+        body.metadata.source === "android_beta_page"
+      ) {
+        if (body.metadata.destination_type === "google_group") {
+          groupClickTracked = true;
+        }
+        if (body.metadata.destination_type === "google_play") {
+          playClickTracked = true;
+        }
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true }),
+      });
+    });
+
     await page.goto("/android-beta");
     await page.waitForLoadState("load");
 
     await expect(
       page.getByRole("heading", { name: /join the quiver android beta/i }),
     ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /join the tester group/i }),
+    ).toHaveCount(0);
+    await page
+      .getByLabel(/google play email for android beta access/i)
+      .fill("SURFER@example.com");
+    await page.getByRole("button", { name: /get beta steps/i }).click();
+
+    await expect(page.getByRole("status")).toContainText(
+      /saved surfer@example\.com/i,
+    );
+    await page.getByRole("button", { name: /use a different email/i }).click();
+    await expect(
+      page.getByRole("link", { name: /join the tester group/i }),
+    ).toHaveCount(0);
+    await page
+      .getByLabel(/google play email for android beta access/i)
+      .fill("corrected@example.com");
+    await page.getByRole("button", { name: /get beta steps/i }).click();
+    await expect(page.getByRole("status")).toContainText(
+      /saved corrected@example\.com/i,
+    );
     await expect(
       page.getByRole("link", { name: /join the tester group/i }),
     ).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
@@ -50,6 +134,8 @@ test.describe("Android beta page", () => {
         name: new RegExp(`email ${ANDROID_BETA_CONTACT_EMAIL}`, "i"),
       }),
     ).toHaveAttribute("href", ANDROID_BETA_CONTACT_MAILTO);
+    await clickOutboundLinkAndClosePopup(page, /join the tester group/i);
+    await clickOutboundLinkAndClosePopup(page, /opt in on google play/i);
 
     const qr = page.getByTestId("android-beta-qr");
     await expect(qr).toBeVisible();
@@ -65,5 +151,11 @@ test.describe("Android beta page", () => {
 
     await expect(page.getByText(/testflight/i)).toHaveCount(0);
     await expect(page.getByText(/join the ios beta/i)).toHaveCount(0);
+    expect(capturedLeadEmails).toEqual([
+      "surfer@example.com",
+      "corrected@example.com",
+    ]);
+    await expect.poll(() => groupClickTracked).toBe(true);
+    await expect.poll(() => playClickTracked).toBe(true);
   });
 });

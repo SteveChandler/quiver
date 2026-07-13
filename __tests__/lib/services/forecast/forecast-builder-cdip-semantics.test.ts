@@ -76,6 +76,12 @@ const CALIBRATED_SHOALING = {
   ],
 };
 
+const LOW_LONG_PERIOD_SHOALING = {
+  version: 1 as const,
+  type: "period_lookup" as const,
+  buckets: [{ tp_min_s: 15, tp_max_s: 999, factor: 0.36 }],
+};
+
 const BLACKS_SHOALING = {
   version: 1 as const,
   type: "period_lookup" as const,
@@ -169,7 +175,12 @@ function makeBlacksSpikeWaveData(nowIso: string) {
   };
 }
 
-function makeCdipBuoyData(nowIso: string, sigHeightFt: number, periodS = 14) {
+function makeCdipBuoyData(
+  nowIso: string,
+  sigHeightFt: number,
+  periodS = 14,
+  directionDeg = 270,
+) {
   return {
     stationId: "220",
     stationName: "Mission Bay West",
@@ -180,7 +191,7 @@ function makeCdipBuoyData(nowIso: string, sigHeightFt: number, periodS = 14) {
         timestamp: nowIso,
         significantWaveHeight: sigHeightFt,
         peakWavePeriod: periodS,
-        peakWaveDirection: 270,
+        peakWaveDirection: directionDeg,
       },
     ],
   };
@@ -426,6 +437,38 @@ describe("ForecastBuilder CDIP height semantics", () => {
     expect(prov?.raw_value_ft).toBeCloseTo(cdipHsFt, 2);
   });
 
+  test("Rincon-style low long-period CDIP bucket renders from generic path with quarantine debug", async () => {
+    const builder = makeBuilder();
+
+    const forecasts = await builder.buildForecasts({
+      beach: makeBeach({
+        name: "Rincon",
+        shoaling_factors: LOW_LONG_PERIOD_SHOALING as unknown as Beach["shoaling_factors"],
+      }),
+      waveData: makeWaveData(FROZEN_NOW_ISO),
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: makeCdipBuoyData(FROZEN_NOW_ISO, 4.2, 18, 205) as never,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    const prov = forecasts[0].raw_forecast?.wave_height_provenance;
+    expect(extractFt(forecasts[0].wave_height)).toBeGreaterThan(4.5);
+    expect(prov).toEqual(
+      expect.objectContaining({
+        source: "cdip_sig",
+        transform_path: "scalar_generic",
+        components_used: false,
+        calibrated_shoaling_fired: false,
+        calibration_bucket_quarantined: true,
+      }),
+    );
+    expect(prov?.calibration_bucket_quarantined).toBe(true);
+  });
+
   test("NOAA-only (no CDIP): wave_height uses decomposed component path", async () => {
     const builder = makeBuilder();
 
@@ -570,6 +613,37 @@ describe("ForecastBuilder CDIP height semantics", () => {
     );
     expect(prov?.cdip_rejection?.raw_cdip_hs).toBeCloseTo(8.0, 2);
     expect(prov?.cdip_rejection?.raw_model_hs).toBeCloseTo(3.28, 1);
+  });
+
+  test("CDIP is retained when model total Hs corroborates a low primary partition", async () => {
+    const builder = makeBuilder();
+    const wave = makeWaveData(FROZEN_NOW_ISO);
+    wave.forecast[0].swell_1_height = 1.0; // ≈3.28 ft primary partition
+    wave.forecast[0].significant_wave_height = 2.6; // ≈8.53 ft total sea state
+
+    const forecasts = await builder.buildForecasts({
+      beach: makeBeach({
+        shoaling_factors: CALIBRATED_SHOALING as unknown as Beach["shoaling_factors"],
+      }),
+      waveData: wave,
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: makeCdipBuoyData(FROZEN_NOW_ISO, 8.0) as never,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+    });
+
+    const prov = forecasts[0].raw_forecast?.wave_height_provenance;
+    expect(prov).toEqual(
+      expect.objectContaining({
+        source: "cdip_sig",
+        transform_path: "scalar_calibrated",
+        calibrated_shoaling_fired: true,
+      }),
+    );
+    expect(prov?.cdip_rejection).toBeUndefined();
+    expect(extractFt(forecasts[0].wave_height)).toBe(15);
   });
 
   test("fresh CDIP drives now and +3h slots, while +6h remains model-backed", async () => {

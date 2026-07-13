@@ -52,6 +52,8 @@ export const VALID_EVENTS = [
   'signup_started',
   'signup_success',
   'login_success',
+  'login_failed',
+  'signup_failed',
   'signup_form_submitted',
   'login_form_submitted',
   'native_app_first_open',
@@ -117,10 +119,15 @@ export const VALID_EVENTS = [
   'learning_progress_revealed',
   'learned_me_moment_viewed',
   // Discovery events
+  'recommendation_impression',
   'personalized_score_shown',
   'favorite_shown_in_carousel',
   'mini_log_teaser_click',
   'plan_unlock_click',
+  'discover_page_view',
+  'discover_suggested_users_impression',
+  'discover_profile_open',
+  'discover_follow_attempt',
   // Social events
   'social_follow',
   'social_like',
@@ -265,6 +272,8 @@ export const VALID_EVENTS = [
   'app_handoff_email_sent',
   'app_handoff_email_failed',
   'app_handoff_link_opened',
+  // Android beta lead capture (public waitlist form with anonymous session id)
+  'android_lead_captured',
 ] as const;
 
 export type EventType = (typeof VALID_EVENTS)[number];
@@ -286,7 +295,6 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
   'ios_app_cta_view',
   'iphone_app_banner_click',
   'iphone_app_banner_dismiss',
-  'login_failed',
   'login_started',
   'magic_link_clicked',
   'magic_link_sent',
@@ -300,7 +308,6 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
   'set_alarm_clicked',
   'share_session_clicked',
   'share_sheet_opened',
-  'signup_failed',
   'user_signed_in',
   'web_push_opt_in_attempt',
   'web_push_opt_in_denied',
@@ -314,7 +321,6 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
  * either migrate these callers to existing event names or explicitly add them.
  */
 export const KNOWN_REJECTED_USER_EVENT_EMITTERS = [
-  'social_share',
 ] as const;
 
 export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
@@ -331,13 +337,14 @@ export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   // Form-submitted events — pre-auth only; the form can only be submitted by
   // an anonymous user. Authed fires are ghost-triggers and dropped server-side
   // via PRE_AUTH_ONLY_EVENTS.
-  'signup_form_submitted', 'login_form_submitted',
+  'signup_form_submitted', 'login_form_submitted', 'login_failed', 'signup_failed',
   // Native signed-out onboarding intro CTA.
   'onboarding_intro_get_started',
   // Engagement signals from anonymous visitors
   'forecast_interaction', 'forecast_tab_click', 'horizon_strip_day_selected',
   'beach_search', 'beach_search_result_click', 'map_interaction', 'map_marker_click',
   'share_started', 'share_completed', 'share_link_opened', 'share_link_copied',
+  'cam_share',
   'invite_link_opened', 'invite_open_app_clicked', 'invite_app_store_clicked',
   'invite_continue_web_clicked',
   'match_score_teaser_view', 'match_score_teaser_click',
@@ -371,6 +378,8 @@ export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   // App-first landing handoff funnel - fire for signed-out landing visitors.
   'app_handoff_view', 'app_handoff_qr_rendered', 'app_handoff_email_submit',
   'app_handoff_email_sent', 'app_handoff_email_failed', 'app_handoff_link_opened',
+  // Android beta lead capture can be submitted before authentication.
+  'android_lead_captured',
 ] as const;
 
 /**
@@ -384,6 +393,8 @@ export const PRE_AUTH_ONLY_EVENTS: readonly EventType[] = [
   'signin_cta_click',
   'signup_form_submitted',
   'login_form_submitted',
+  'login_failed',
+  'signup_failed',
   'auth_modal_opened',
   'auth_modal_closed_without_action',
   'auth_failed',

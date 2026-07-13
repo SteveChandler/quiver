@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ImgHTMLAttributes } from "react";
 
 import { QuiverFieldGuideLanding } from "@/components/landing-page/field-guide/quiver-field-guide-landing";
@@ -124,7 +124,7 @@ describe("QuiverFieldGuideLanding", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByAltText(/nearby surf spots and local intel/i),
-    ).toHaveAttribute("src", expect.stringContaining("local-intel"));
+    ).toHaveAttribute("src", expect.stringContaining("local-intel-720.webp"));
   });
 
   it("renders audience and access context", () => {
@@ -150,18 +150,45 @@ describe("QuiverFieldGuideLanding", () => {
     expect(container.querySelector("[data-zine-sticker]")).not.toBeNull();
   });
 
-  it("uses the launch video in the hero media slot", () => {
-    const { container } = render(<QuiverFieldGuideLanding platform="ios" />);
-    const video = container.querySelector(
-      '[data-testid="field-guide-hero-video"] video',
-    );
+  it("starts the hero media slot on the poster and plays video only after request", () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = jest.fn().mockReturnValue({
+      matches: true,
+      addEventListener: jest.fn(),
+      removeEventListener: jest.fn(),
+    });
 
-    expect(video).not.toBeNull();
-    expect(video).toHaveAttribute("src", "/videos/quiver-landing-hero-720.mp4");
-    expect(video).toHaveAttribute(
-      "poster",
-      "/images/hero/quiver-landing-hero-poster.jpg",
-    );
+    try {
+      const { container } = render(<QuiverFieldGuideLanding platform="ios" />);
+      const media = screen.getByTestId("field-guide-hero-video");
+
+      expect(
+        within(media).getByAltText("Quiver app launch video preview"),
+      ).toHaveAttribute(
+        "src",
+        expect.stringContaining("/images/hero/quiver-landing-hero-poster.jpg"),
+      );
+      expect(
+        container.querySelector('[data-testid="field-guide-hero-video"] video'),
+      ).toBeNull();
+
+      fireEvent.click(within(media).getByRole("button", { name: "Play demo" }));
+
+      const video = container.querySelector(
+        '[data-testid="field-guide-hero-video"] video',
+      );
+      expect(video).not.toBeNull();
+      expect(video).toHaveAttribute(
+        "src",
+        "/videos/quiver-landing-hero-720.mp4",
+      );
+      expect(video).toHaveAttribute(
+        "poster",
+        "/images/hero/quiver-landing-hero-poster.jpg",
+      );
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
   });
 
   it("does not render repeated zine masthead rows", () => {

@@ -11,15 +11,36 @@ let mockRewrite: any;
 const mockURL = jest.fn(() => ({}));
 let mockUser: any = null;
 let mockSession: any = null;
+let mockBeachRowsBySlug: Record<string, any> = {};
 
 // Mock modules before importing middleware
 jest.mock("@supabase/ssr", () => ({
-  createServerClient: jest.fn(() => ({
-    auth: {
-      getSession: () => Promise.resolve({ data: { session: mockSession }, error: null }),
-      getUser: () => Promise.resolve({ data: { user: mockUser }, error: null }),
-    },
-  })),
+  createServerClient: jest.fn(() => {
+    let selectedSlug = "";
+    const query: Record<string, jest.Mock> = {};
+    query.select = jest.fn(() => query);
+    query.eq = jest.fn((_column: string, value: string) => {
+      selectedSlug = value;
+      return query;
+    });
+    query.or = jest.fn(() => query);
+    query.limit = jest.fn(() =>
+      Promise.resolve({
+        data: mockBeachRowsBySlug[selectedSlug]
+          ? [mockBeachRowsBySlug[selectedSlug]]
+          : [],
+        error: null,
+      })
+    );
+
+    return {
+      auth: {
+        getSession: () => Promise.resolve({ data: { session: mockSession }, error: null }),
+        getUser: () => Promise.resolve({ data: { user: mockUser }, error: null }),
+      },
+      from: jest.fn(() => query),
+    };
+  }),
 }));
 
 jest.mock("next/server", () => ({
@@ -52,6 +73,9 @@ describe("Middleware", () => {
     }));
     mockUser = null;
     mockSession = null;
+    mockBeachRowsBySlug = {};
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
   });
 
   test("passes through for API routes", async () => {
@@ -123,6 +147,27 @@ describe("Middleware", () => {
         searchParams: new URLSearchParams("token=signed-token"),
       },
       url: "http://localhost/sessions/new?token=signed-token",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+
+    await middleware(request);
+
+    expect(mockNext).toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  test("allows /sessions/new email attribution bridge when unauthenticated", async () => {
+    const search =
+      "?entrySource=email&utm_medium=email&email_type=manual_attribution_test&message_instance_id=manual-email-attribution-20260708-1015";
+    const request: any = {
+      nextUrl: {
+        pathname: "/sessions/new",
+        search,
+        searchParams: new URLSearchParams(search.slice(1)),
+      },
+      url: `http://localhost/sessions/new${search}`,
       method: "GET",
       headers: new Headers(),
       cookies: { get: () => undefined, getAll: () => [] },
@@ -206,7 +251,13 @@ describe("Middleware", () => {
     expect(clonedUrl.pathname).toBe("/pr/rincon");
   });
 
-  test("redirects /ca/orange-county/{beach} to /spots/{beach} (legacy OC URLs)", async () => {
+  test("redirects /ca/orange-county/{beach} directly to canonical beach URL", async () => {
+    mockBeachRowsBySlug["seal-beach"] = {
+      slug: "seal-beach",
+      city: "Seal Beach",
+      state: "CA",
+      country: "USA",
+    };
     const clonedUrl = { pathname: "/ca/orange-county/seal-beach" };
     const request: any = {
       nextUrl: {
@@ -219,11 +270,17 @@ describe("Middleware", () => {
       cookies: { get: () => undefined, getAll: () => [] },
     };
     await middleware(request);
-    expect(mockRedirect).toHaveBeenCalled();
-    expect(clonedUrl.pathname).toBe("/spots/seal-beach");
+    expect(mockRedirect).toHaveBeenCalledWith(clonedUrl, { status: 301 });
+    expect(clonedUrl.pathname).toBe("/ca/seal-beach/seal-beach-pier-seal-beach-ca");
   });
 
-  test("redirects /CA/Orange-County/{beach} case-insensitively", async () => {
+  test("redirects /CA/Orange-County/{beach} case-insensitively to canonical beach URL", async () => {
+    mockBeachRowsBySlug["bolsa-chica"] = {
+      slug: "bolsa-chica",
+      city: "Huntington Beach",
+      state: "CA",
+      country: "USA",
+    };
     const clonedUrl = { pathname: "/CA/Orange-County/Bolsa-Chica" };
     const request: any = {
       nextUrl: {
@@ -236,8 +293,79 @@ describe("Middleware", () => {
       cookies: { get: () => undefined, getAll: () => [] },
     };
     await middleware(request);
-    expect(mockRedirect).toHaveBeenCalled();
-    expect(clonedUrl.pathname).toBe("/spots/bolsa-chica");
+    expect(mockRedirect).toHaveBeenCalledWith(clonedUrl, { status: 301 });
+    expect(clonedUrl.pathname).toBe("/ca/huntington-beach/bolsa-chica");
+  });
+
+  test("redirects /spots/{known} directly with a literal 301", async () => {
+    mockBeachRowsBySlug["ocean-beach"] = {
+      slug: "ocean-beach",
+      city: "San Diego",
+      state: "CA",
+      country: "USA",
+    };
+    const clonedUrl = { pathname: "/spots/ocean-beach" };
+    const request: any = {
+      nextUrl: {
+        pathname: "/spots/ocean-beach",
+        clone: () => clonedUrl,
+      },
+      url: "http://localhost/spots/ocean-beach",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+
+    await middleware(request);
+
+    expect(mockRedirect).toHaveBeenCalledWith(clonedUrl, { status: 301 });
+    expect(clonedUrl.pathname).toBe("/ca/san-diego/ocean-beach");
+  });
+
+  test("redirects legacy /spots slug aliases directly to canonical beach URL", async () => {
+    mockBeachRowsBySlug["lower-trestles"] = {
+      slug: "lower-trestles",
+      city: "San Onofre",
+      state: "CA",
+      country: "USA",
+    };
+    const clonedUrl = { pathname: "/spots/lowers-trestles" };
+    const request: any = {
+      nextUrl: {
+        pathname: "/spots/lowers-trestles",
+        clone: () => clonedUrl,
+      },
+      url: "http://localhost/spots/lowers-trestles",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+
+    await middleware(request);
+
+    expect(mockRedirect).toHaveBeenCalledWith(clonedUrl, { status: 301 });
+    expect(clonedUrl.pathname).toBe("/ca/san-onofre/lower-trestles");
+  });
+
+  test("redirects extra-segment state beach URLs without routing through /spots", async () => {
+    const clonedUrl = {
+      pathname: "/hi/koloa-hi/waikoloa-village-lagoon/extra",
+    };
+    const request: any = {
+      nextUrl: {
+        pathname: "/hi/koloa-hi/waikoloa-village-lagoon/extra",
+        clone: () => clonedUrl,
+      },
+      url: "http://localhost/hi/koloa-hi/waikoloa-village-lagoon/extra",
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+
+    await middleware(request);
+
+    expect(mockRedirect).toHaveBeenCalledWith(clonedUrl, { status: 301 });
+    expect(clonedUrl.pathname).toBe("/hi/koloa-hi/waikoloa-village-lagoon");
   });
 
   test("redirects legacy North HB Streets slug to Goldenwest", async () => {

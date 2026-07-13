@@ -1,3 +1,5 @@
+/* eslint-disable playwright/no-conditional-in-test -- Session data may be empty or populated depending on the authenticated fixture state. */
+
 import { test, expect } from "./fixtures/auth-fixture";
 import { waitForPageLoad } from './utils/test-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
@@ -47,10 +49,7 @@ test.describe('Sessions Page', () => {
       const emptyState = page.getByText(/no.*sessions|get started|log your first/i);
       const hasEmpty = await isVisibleSafe(emptyState);
 
-      if (!hasEmpty) {
-        test.skip(true, 'No sessions found and no empty state UI displayed');
-        return;
-      }
+      expect(hasEmpty).toBe(true);
     } else {
       // Has sessions - should be visible
       await expect(sessionCards.first()).toBeVisible();
@@ -71,23 +70,18 @@ test.describe('Sessions Page', () => {
   test('should allow clicking on session to view details', async ({ page }) => {
     // Find session detail links (exclude /sessions/new links)
     const sessionLinks = page.locator('a[href^="/sessions/"]:not([href*="/sessions/new"])');
-    const count = await sessionLinks.count();
+    await expect(sessionLinks.first()).toBeVisible({ timeout: 10000 });
 
-    if (count > 0) {
-      const href = await sessionLinks.first().getAttribute('href');
-      await sessionLinks.first().click();
+    const href = await sessionLinks.first().getAttribute('href');
+    await sessionLinks.first().click();
 
-      // Wait for navigation to the session detail page
-      if (href) {
-        await page.waitForURL(new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), { timeout: 15000 });
-      }
-      await waitForPageLoad(page);
-
-      // URL should contain /sessions/ followed by an ID (not just /sessions)
-      expect(page.url()).toMatch(/\/sessions\/[^/]+/);
-    } else {
-      test.skip(true, 'No sessions available to test navigation');
-      return;
+    // Wait for navigation to the session detail page
+    if (href) {
+      await page.waitForURL(new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')), { timeout: 15000 });
     }
+    await waitForPageLoad(page);
+
+    // URL should contain /sessions/ followed by an ID (not just /sessions)
+    expect(page.url()).toMatch(/\/sessions\/[^/]+/);
   });
 });

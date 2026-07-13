@@ -174,7 +174,7 @@ export function CTASection({
         >
           {isAppStoreCta
             ? "Opens the current iPhone App Store listing."
-            : "iPhone app is live. Android is coming soon."}
+            : "iPhone app is live. Android beta is open."}
         </motion.p>
       </div>
       <UnifiedAuthModal

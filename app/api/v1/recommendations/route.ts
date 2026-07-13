@@ -34,6 +34,21 @@ type ScoredRecommendation = Recommendation & {
   tide_created_at: string | null;
 };
 
+const RECOMMENDATION_BEACH_SELECT = `
+  id,
+  name,
+  is_private,
+  skill_level,
+  preferred_tide_ft_min,
+  preferred_tide_ft_max,
+  swell_window_min_deg,
+  swell_window_max_deg,
+  wind_offshore_deg,
+  wind_offshore_tol_deg,
+  wind_cross_shore_ok_kt,
+  wind_onshore_bad_kt
+`;
+
 function hasDegradation(degradation: DegradationInfo): boolean {
   return Object.keys(degradation).length > 0;
 }
@@ -145,7 +160,7 @@ async function recommendationsHandler(request: NextRequest): Promise<NextRespons
       if (orderedIds.length > 0) {
         const beachResult = await supabase
           .from("beaches")
-          .select("*")
+          .select(RECOMMENDATION_BEACH_SELECT)
           .in("id", orderedIds)
           .eq("is_private", false)
           .limit(25);
@@ -180,7 +195,7 @@ async function recommendationsHandler(request: NextRequest): Promise<NextRespons
 
       const raw = await supabase
         .from("beaches")
-        .select("*")
+        .select(RECOMMENDATION_BEACH_SELECT)
         .eq("is_private", false)
         .limit(25);
 

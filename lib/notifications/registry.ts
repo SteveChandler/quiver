@@ -26,6 +26,7 @@
 import { z } from "zod";
 
 import type { NotificationDeliveryStatus, NotificationTypeDef } from "./types";
+import { isHighConfidenceNotification } from "./relevance";
 import {
   similarityMatchSchema,
   type SimilarityMatchPayload,
@@ -67,12 +68,31 @@ const logSessionNudgeSchema = z.object({
   title: z.string().min(1),
   body: z.string().min(1),
   beach_id: z.string().nullable().optional(),
+  beach_name: z.string().nullable().optional(),
+  notification_category: z.string().optional(),
+  trigger_source: z.string().optional(),
+  relevance_confidence: z.enum(["high", "medium", "low", "unknown"]).optional(),
+  beach_confidence: z.enum(["high", "medium", "low", "unknown"]).optional(),
+  assumed_attendance: z.literal(false).optional(),
+  attendance_confidence_score: z.number().finite().optional(),
+  beach_confidence_score: z.number().finite().optional(),
+  relevance_score: z.number().finite().optional(),
 });
 
 const forecastFeedbackNudgeSchema = z.object({
   beach_id: z.string().min(1),
   beach_slug: z.string().optional(),
+  beach_name: z.string().optional(),
   forecast_at: z.string().optional(),
+  deeplink: z.string().optional(),
+  notification_category: z.string().optional(),
+  trigger_source: z.string().optional(),
+  relevance_confidence: z.enum(["high", "medium", "low", "unknown"]).optional(),
+  beach_confidence: z.enum(["high", "medium", "low", "unknown"]).optional(),
+  assumed_attendance: z.literal(false).optional(),
+  attendance_confidence_score: z.number().finite().optional(),
+  beach_confidence_score: z.number().finite().optional(),
+  relevance_score: z.number().finite().optional(),
 });
 
 const homeMorningCallSchema = z.object({
@@ -107,6 +127,12 @@ const swellWatchSchema = z.object({
 
 const weeklyStreakReminderSchema = z.object({
   streak: z.number().int().min(1),
+  period_key: z.string().optional(),
+  notification_category: z.string().optional(),
+  trigger_source: z.string().optional(),
+  relevance_confidence: z.enum(["high", "medium", "low", "unknown"]).optional(),
+  beach_confidence: z.enum(["high", "medium", "low", "unknown"]).optional(),
+  assumed_attendance: z.literal(false).optional(),
 });
 
 const waterQualitySchema = z.object({
@@ -243,12 +269,31 @@ interface LogSessionNudgePayload {
   title: string;
   body: string;
   beach_id?: string | null;
+  beach_name?: string | null;
+  notification_category?: string;
+  trigger_source?: string;
+  relevance_confidence?: "high" | "medium" | "low" | "unknown";
+  beach_confidence?: "high" | "medium" | "low" | "unknown";
+  assumed_attendance?: false;
+  attendance_confidence_score?: number;
+  beach_confidence_score?: number;
+  relevance_score?: number;
 }
 
 interface ForecastFeedbackNudgePayload {
   beach_id: string;
   beach_slug?: string;
+  beach_name?: string;
   forecast_at?: string;
+  deeplink?: string;
+  notification_category?: string;
+  trigger_source?: string;
+  relevance_confidence?: "high" | "medium" | "low" | "unknown";
+  beach_confidence?: "high" | "medium" | "low" | "unknown";
+  assumed_attendance?: false;
+  attendance_confidence_score?: number;
+  beach_confidence_score?: number;
+  relevance_score?: number;
 }
 
 interface HomeMorningCallPayload {
@@ -283,6 +328,12 @@ interface SwellWatchPayload {
 
 interface WeeklyStreakReminderPayload {
   streak: number;
+  period_key?: string;
+  notification_category?: string;
+  trigger_source?: string;
+  relevance_confidence?: "high" | "medium" | "low" | "unknown";
+  beach_confidence?: "high" | "medium" | "low" | "unknown";
+  assumed_attendance?: false;
 }
 
 interface WaterQualityPayload {
@@ -696,6 +747,19 @@ export const NOTIFICATION_REGISTRY = {
         type: "log_session_nudge",
         cohort: p.cohort,
         ...(p.beach_id ? { beach_id: p.beach_id } : {}),
+        ...(p.beach_name ? { beach_name: p.beach_name } : {}),
+        ...(p.notification_category ? { notification_category: p.notification_category } : {}),
+        ...(p.trigger_source ? { trigger_source: p.trigger_source } : {}),
+        ...(p.relevance_confidence ? { relevance_confidence: p.relevance_confidence } : {}),
+        ...(p.beach_confidence ? { beach_confidence: p.beach_confidence } : {}),
+        ...(p.assumed_attendance === false ? { assumed_attendance: false } : {}),
+        ...(p.attendance_confidence_score == null
+          ? {}
+          : { attendance_confidence_score: p.attendance_confidence_score }),
+        ...(p.beach_confidence_score == null
+          ? {}
+          : { beach_confidence_score: p.beach_confidence_score }),
+        ...(p.relevance_score == null ? {} : { relevance_score: p.relevance_score }),
       },
     }),
   } satisfies NotificationTypeDef<LogSessionNudgePayload>,
@@ -710,16 +774,38 @@ export const NOTIFICATION_REGISTRY = {
     suppressSelfNotify: false,
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) => forecastFeedbackNudgeSchema.parse(input),
-    buildPushPayload: (p) => ({
-      title: "How was the forecast?",
-      body: "Did the call hold up? A quick note tunes your next one.",
-      data: {
-        type: "forecast_feedback_nudge",
-        beach_id: p.beach_id,
-        ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
-        ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
-      },
-    }),
+    buildPushPayload: (p) => {
+      const highConfidence = isHighConfidenceNotification(p.relevance_confidence);
+
+      return {
+        title:
+          highConfidence && p.beach_name
+            ? `Surfed ${p.beach_name} today?`
+            : "Catch a session today?",
+        body: highConfidence
+          ? "Log it in one tap."
+          : "If you paddle out, log it when you are done.",
+        data: {
+          type: "forecast_feedback_nudge",
+          beach_id: p.beach_id,
+          ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
+          ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
+          ...(p.deeplink ? { deeplink: p.deeplink } : {}),
+          ...(p.notification_category ? { notification_category: p.notification_category } : {}),
+          ...(p.trigger_source ? { trigger_source: p.trigger_source } : {}),
+          ...(p.relevance_confidence ? { relevance_confidence: p.relevance_confidence } : {}),
+          ...(p.beach_confidence ? { beach_confidence: p.beach_confidence } : {}),
+          ...(p.assumed_attendance === false ? { assumed_attendance: false } : {}),
+          ...(p.attendance_confidence_score == null
+            ? {}
+            : { attendance_confidence_score: p.attendance_confidence_score }),
+          ...(p.beach_confidence_score == null
+            ? {}
+            : { beach_confidence_score: p.beach_confidence_score }),
+          ...(p.relevance_score == null ? {} : { relevance_score: p.relevance_score }),
+        },
+      };
+    },
   } satisfies NotificationTypeDef<ForecastFeedbackNudgePayload>,
 
   weekly_streak_reminder: {
@@ -735,7 +821,16 @@ export const NOTIFICATION_REGISTRY = {
     buildPushPayload: (p) => ({
       title: "Keep your streak alive",
       body: `Your ${p.streak}-week streak ends Sunday. Log a session to keep it going.`,
-      data: { type: "weekly_streak_reminder", streak: p.streak },
+      data: {
+        type: "weekly_streak_reminder",
+        streak: p.streak,
+        ...(p.period_key ? { period_key: p.period_key } : {}),
+        ...(p.notification_category ? { notification_category: p.notification_category } : {}),
+        ...(p.trigger_source ? { trigger_source: p.trigger_source } : {}),
+        ...(p.relevance_confidence ? { relevance_confidence: p.relevance_confidence } : {}),
+        ...(p.beach_confidence ? { beach_confidence: p.beach_confidence } : {}),
+        ...(p.assumed_attendance === false ? { assumed_attendance: false } : {}),
+      },
     }),
   } satisfies NotificationTypeDef<WeeklyStreakReminderPayload>,
 

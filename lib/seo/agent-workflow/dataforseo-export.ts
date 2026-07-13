@@ -1,6 +1,7 @@
 import type {
   DataForSeoAsoRanking,
   DataForSeoCompetitorKeyword,
+  DataForSeoExportPhase,
   DataForSeoExportInput,
   DataForSeoKeywordMetric,
   DataForSeoSerpFeature,
@@ -8,6 +9,13 @@ import type {
 } from "./types";
 
 export type DataForSeoAsoPlatform = "ios" | "android";
+export type DataForSeoWatchlistMode = "live" | "full";
+export type DataForSeoWatchlistTier = "critical" | "extended";
+
+export interface DataForSeoWatchlistKeyword {
+  keyword: string;
+  tier?: DataForSeoWatchlistTier;
+}
 
 export interface DataForSeoWatchlist {
   google: {
@@ -15,7 +23,7 @@ export interface DataForSeoWatchlist {
     depth: number;
     device: "desktop" | "mobile";
     locations: Array<{ name: string; code?: number }>;
-    keywords: string[];
+    keywords: Array<string | DataForSeoWatchlistKeyword>;
   };
   aso: {
     quiver: {
@@ -28,7 +36,7 @@ export interface DataForSeoWatchlist {
       platform: DataForSeoAsoPlatform;
       reason: string;
     }>;
-    keywords: string[];
+    keywords: Array<string | DataForSeoWatchlistKeyword>;
   };
   competitors: Array<{ name: string; domain: string }>;
 }
@@ -61,6 +69,10 @@ export function buildMissingDataForSeoExport(
 ): DataForSeoExportInput {
   return {
     generatedAt,
+    status: "complete",
+    completedPhases: [],
+    failedPhases: [],
+    deadlineReached: false,
     googleRankings: [],
     asoRankings: [],
     competitorKeywords: [],
@@ -76,12 +88,22 @@ export function buildDataForSeoExport(
     asoRankings?: DataForSeoAsoRanking[];
     competitorKeywords?: DataForSeoCompetitorKeyword[];
     keywordMetrics?: DataForSeoKeywordMetric[];
+    status?: DataForSeoExportInput["status"];
+    completedPhases?: DataForSeoExportPhase[];
+    failedPhases?: DataForSeoExportPhase[];
+    deadlineReached?: boolean;
+    watchlistMode?: DataForSeoWatchlistMode;
     missing?: string[];
     estimatedCostUsd?: number;
   },
 ): DataForSeoExportInput {
   return {
     generatedAt,
+    status: input.status ?? "complete",
+    completedPhases: input.completedPhases ?? [],
+    failedPhases: input.failedPhases ?? [],
+    deadlineReached: input.deadlineReached ?? false,
+    watchlistMode: input.watchlistMode,
     googleRankings: input.googleRankings ?? [],
     asoRankings: input.asoRankings ?? [],
     competitorKeywords: input.competitorKeywords ?? [],
@@ -214,6 +236,18 @@ export function parseKeywordMetrics(
       };
     })
     .filter((item) => item.keyword.length > 0);
+}
+
+export function normalizeWatchlistKeywords(
+  keywords: Array<string | DataForSeoWatchlistKeyword>,
+  mode: DataForSeoWatchlistMode,
+): DataForSeoWatchlistKeyword[] {
+  return keywords
+    .map((item) => typeof item === "string"
+      ? { keyword: item.trim(), tier: "critical" as const }
+      : { keyword: item.keyword.trim(), tier: item.tier ?? "critical" })
+    .filter((item) => item.keyword.length > 0)
+    .filter((item) => mode === "full" || item.tier !== "extended");
 }
 
 function extractResultItems(raw: unknown): Record<string, unknown>[] {

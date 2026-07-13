@@ -291,6 +291,39 @@ export interface SwellParticleLayerOptions {
   };
 }
 
+export function shouldAnimateSwellParticles(map: mapboxgl.Map): boolean {
+  if (typeof document !== "undefined") {
+    if (document.hidden || document.visibilityState === "hidden") return false;
+  }
+
+  if (typeof navigator !== "undefined") {
+    const connection = (
+      navigator as Navigator & {
+        connection?: { saveData?: boolean; effectiveType?: string };
+      }
+    ).connection;
+    if (connection?.saveData) return false;
+    if (connection?.effectiveType === "slow-2g" || connection?.effectiveType === "2g") {
+      return false;
+    }
+  }
+
+  if (typeof window === "undefined") return true;
+  const canvas = map.getCanvas();
+  const rect = canvas.getBoundingClientRect?.();
+  if (!rect) return true;
+  if (rect.width <= 0 || rect.height <= 0) return false;
+
+  const viewportWidth = window.innerWidth || document.documentElement.clientWidth;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+  return (
+    rect.right > 0 &&
+    rect.bottom > 0 &&
+    rect.left < viewportWidth &&
+    rect.top < viewportHeight
+  );
+}
+
 /**
  * Build a Mapbox CustomLayerInterface that advects additive particle trails
  * through the swell flow field, locked to geography via Mercator coordinates.
@@ -329,7 +362,7 @@ export function createSwellParticleLayer(
   let uColorLoc: WebGLUniformLocation | null = null;
   let uAlphaLoc: WebGLUniformLocation | null = null;
   let uPointSizeLoc: WebGLUniformLocation | null = null;
-  let reducedMotionRenderedField: FlowField | null = null;
+  let staticRenderedField: FlowField | null = null;
   let mapRef: mapboxgl.Map | null = null;
 
   // Particle state in Mercator unit space [0..1].
@@ -646,9 +679,12 @@ export function createSwellParticleLayer(
     render(gl: WebGL2RenderingContext, matrix: number[]) {
       if (!program || !mapRef) return;
       const field = options.getField();
-      if (!options.reducedMotion || reducedMotionRenderedField !== field) {
+      const shouldAnimate =
+        !options.reducedMotion && shouldAnimateSwellParticles(mapRef);
+      const shouldRenderStaticFrame = !shouldAnimate && staticRenderedField !== field;
+      if (shouldAnimate || shouldRenderStaticFrame) {
         advanceAndFill(mapRef, field);
-        reducedMotionRenderedField = options.reducedMotion ? field : null;
+        staticRenderedField = shouldAnimate ? null : field;
       }
 
       gl.useProgram(program);
@@ -690,9 +726,9 @@ export function createSwellParticleLayer(
         gl.drawArrays(gl.TRIANGLES, 0, count * verticesPerParticle);
       }
 
-      // Animate only when motion is allowed. Under reduced motion we draw a
-      // single static frame and never request another.
-      if (!options.reducedMotion) {
+      // Animate only when motion is allowed. When animation is suppressed, draw
+      // one static frame for each field and never request a repaint loop.
+      if (shouldAnimate) {
         mapRef.triggerRepaint();
       }
     },

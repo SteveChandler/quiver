@@ -9,6 +9,47 @@ import {
 
 export const runtime = "nodejs";
 
+const TRUSTED_IMAGE_HOSTS = new Set(["cdn.quiversurf.app"]);
+
+function configuredSupabaseStorageHost(): string | null {
+  const value = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!value) return null;
+
+  try {
+    return new URL(value).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+function isTrustedSupabaseStorageUrl(url: URL): boolean {
+  const hostname = url.hostname.toLowerCase();
+  const configuredHost = configuredSupabaseStorageHost();
+
+  return (
+    configuredHost !== null &&
+    hostname === configuredHost &&
+    url.pathname.startsWith("/storage/v1/object/public/")
+  );
+}
+
+function trustedBackgroundUrl(value: string | null): string {
+  if (!value) return "";
+
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+    if (url.protocol !== "https:") return "";
+    if (TRUSTED_IMAGE_HOSTS.has(hostname) || isTrustedSupabaseStorageUrl(url)) {
+      return url.toString();
+    }
+  } catch {
+    return "";
+  }
+
+  return "";
+}
+
 function renderFallback(): ImageResponse {
   return new ImageResponse(
     (
@@ -412,7 +453,7 @@ export async function GET(request: NextRequest): Promise<ImageResponse> {
     const windSpeed = truncate(searchParams.get("windSpeed") || "", 18);
     const tagline = truncate(searchParams.get("tagline") || "", 64);
     const date = truncate(searchParams.get("date") || "", 32);
-    const bg = searchParams.get("bg") || "";
+    const bg = trustedBackgroundUrl(searchParams.get("bg"));
     const stars = Number(searchParams.get("stars") || 4);
     const footer = truncate(
       searchParams.get("shareUrl")

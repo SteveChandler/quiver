@@ -1,8 +1,7 @@
 import React from "react";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import DiscoverPage from "@/app/discover/page";
-import { UserProfileModal } from "@/components/social/user-profile-modal";
 import { useAuth } from "@/context/auth-context";
 import { FollowButton } from "@/components/social/follow-button";
 
@@ -27,18 +26,98 @@ const mockUser = {
 // Mock fetch for user search
 global.fetch = jest.fn();
 
+type MockFetchOptions = {
+  searchResponse?: unknown;
+  suggestedResponse?: unknown;
+  searchError?: Error;
+  searchDelayMs?: number;
+};
+type MockFetchResponse = {
+  ok: boolean;
+  json: () => Promise<unknown>;
+};
+
+const emptyUsersResponse = {
+  success: true,
+  data: { users: [], source: "popular_profiles" },
+};
+
+function makeJsonResponse(body: unknown): MockFetchResponse {
+  return {
+    ok: true,
+    json: () => Promise.resolve(body),
+  };
+}
+
+function jsonResponse(body: unknown): Promise<MockFetchResponse> {
+  return Promise.resolve({
+    ok: true,
+    json: () => Promise.resolve(body),
+  });
+}
+
+function mockDiscoverFetch({
+  searchResponse = { success: true, data: { users: [] } },
+  suggestedResponse = emptyUsersResponse,
+  searchError,
+  searchDelayMs = 0,
+}: MockFetchOptions = {}): void {
+  (global.fetch as jest.Mock).mockImplementation((input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes("/api/events")) {
+      return jsonResponse({ success: true });
+    }
+
+    if (url.includes("/api/users/suggested")) {
+      return jsonResponse(suggestedResponse);
+    }
+
+    if (url.includes("/api/users/search")) {
+      if (searchError) return Promise.reject(searchError);
+      if (searchDelayMs > 0) {
+        return new Promise((resolve) =>
+          setTimeout(
+            () => resolve(makeJsonResponse(searchResponse)),
+            searchDelayMs
+          )
+        );
+      }
+
+      return jsonResponse(searchResponse);
+    }
+
+    return jsonResponse({ success: true, data: { users: [] } });
+  });
+}
+
+async function renderDiscoverWithEmptySuggestions(): Promise<void> {
+  render(<DiscoverPage />);
+  await screen.findByText("No suggested users right now");
+}
+
 describe("DiscoverPage", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockUseAuth.mockReturnValue({ user: mockUser } as any);
-    MockFollowButton.mockImplementation(({ userId, initialFollowersCount }) => (
-      <button data-testid={`follow-button-${userId}`}>
-        Follow (Initial: {initialFollowersCount})
-      </button>
-    ));
-    (global.fetch as jest.Mock).mockResolvedValue({
-      json: () => Promise.resolve({ success: true, data: { users: [] } }),
-    });
+    MockFollowButton.mockImplementation(
+      ({
+        userId,
+        initialFollowersCount,
+        onFollowAttempt,
+        onFollowersCountChange,
+      }) => (
+        <button
+          data-testid={`follow-button-${userId}`}
+          onClick={() => {
+            onFollowAttempt?.();
+            onFollowersCountChange?.((initialFollowersCount ?? 0) + 1);
+          }}
+        >
+          Follow (Initial: {initialFollowersCount})
+        </button>
+      ),
+    );
+    mockDiscoverFetch();
   });
 
   describe("Authentication", () => {
@@ -55,12 +134,12 @@ describe("DiscoverPage", () => {
       ).toBeInTheDocument();
     });
 
-    it("should show full interface for authenticated users", () => {
-      render(<DiscoverPage />);
+    it("should show full interface for authenticated users", async () => {
+      await renderDiscoverWithEmptySuggestions();
 
       expect(screen.getByText("Discover Surfers")).toBeInTheDocument();
       expect(
-        screen.getByPlaceholderText("Search by name or email...")
+        screen.getByPlaceholderText("Search by surfer name...")
       ).toBeInTheDocument();
       expect(screen.getByText("Suggested Surfers")).toBeInTheDocument();
     });
@@ -69,27 +148,31 @@ describe("DiscoverPage", () => {
   describe("User search functionality", () => {
     it("should handle empty search query", async () => {
       const user = userEvent.setup();
-      render(<DiscoverPage />);
+      await renderDiscoverWithEmptySuggestions();
 
       const searchButton = screen.getByRole("button", { name: /search/i });
       await user.click(searchButton);
 
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(global.fetch).not.toHaveBeenCalledWith(
+        expect.stringContaining("/api/users/search")
+      );
     });
 
     it("should handle short search query", async () => {
       const user = userEvent.setup();
-      render(<DiscoverPage />);
+      await renderDiscoverWithEmptySuggestions();
 
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "a"); // Less than 2 characters
 
       const searchButton = screen.getByRole("button", { name: /search/i });
       await user.click(searchButton);
 
-      expect(global.fetch).not.toHaveBeenCalled();
+      expect(global.fetch).not.toHaveBeenCalledWith(
+        expect.stringContaining("/api/users/search")
+      );
     });
 
     it("should perform search with valid query", async () => {
@@ -103,18 +186,17 @@ describe("DiscoverPage", () => {
         },
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: { users: mockSearchResults },
-          }),
+      mockDiscoverFetch({
+        searchResponse: {
+          success: true,
+          data: { users: mockSearchResults },
+        },
       });
 
-      render(<DiscoverPage />);
+      await renderDiscoverWithEmptySuggestions();
 
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "Luna");
 
@@ -145,18 +227,17 @@ describe("DiscoverPage", () => {
         },
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: { users: mockSearchResults },
-          }),
+      mockDiscoverFetch({
+        searchResponse: {
+          success: true,
+          data: { users: mockSearchResults },
+        },
       });
 
-      render(<DiscoverPage />);
+      await renderDiscoverWithEmptySuggestions();
 
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "Luna");
 
@@ -176,18 +257,17 @@ describe("DiscoverPage", () => {
       const consoleSpy = jest.spyOn(console, "error").mockImplementation();
       const user = userEvent.setup();
 
-      (global.fetch as jest.Mock).mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            success: false,
-            error: "Search failed",
-          }),
+      mockDiscoverFetch({
+        searchResponse: {
+          success: false,
+          error: "Search failed",
+        },
       });
 
-      render(<DiscoverPage />);
+      await renderDiscoverWithEmptySuggestions();
 
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "Luna");
 
@@ -208,12 +288,12 @@ describe("DiscoverPage", () => {
       const consoleSpy = jest.spyOn(console, "error").mockImplementation();
       const user = userEvent.setup();
 
-      (global.fetch as jest.Mock).mockRejectedValue(new Error("Network error"));
+      mockDiscoverFetch({ searchError: new Error("Network error") });
 
-      render(<DiscoverPage />);
+      await renderDiscoverWithEmptySuggestions();
 
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "Luna");
 
@@ -243,18 +323,17 @@ describe("DiscoverPage", () => {
         },
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: { users: mockSearchResults },
-          }),
+      mockDiscoverFetch({
+        searchResponse: {
+          success: true,
+          data: { users: mockSearchResults },
+        },
       });
 
-      render(<DiscoverPage />);
+      await renderDiscoverWithEmptySuggestions();
 
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "Luna");
 
@@ -285,18 +364,17 @@ describe("DiscoverPage", () => {
         },
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: { users: mockSearchResults },
-          }),
+      mockDiscoverFetch({
+        searchResponse: {
+          success: true,
+          data: { users: mockSearchResults },
+        },
       });
 
-      render(<DiscoverPage />);
+      await renderDiscoverWithEmptySuggestions();
 
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "New");
 
@@ -325,18 +403,17 @@ describe("DiscoverPage", () => {
         },
       ];
 
-      (global.fetch as jest.Mock).mockResolvedValue({
-        json: () =>
-          Promise.resolve({
-            success: true,
-            data: { users: mockSearchResults },
-          }),
+      mockDiscoverFetch({
+        searchResponse: {
+          success: true,
+          data: { users: mockSearchResults },
+        },
       });
 
-      render(<DiscoverPage />);
+      await renderDiscoverWithEmptySuggestions();
 
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "Luna");
 
@@ -354,17 +431,55 @@ describe("DiscoverPage", () => {
   });
 
   describe("Suggested users section", () => {
-    it("should show empty state when no suggested users", () => {
-      render(<DiscoverPage />);
+    it("should show empty state when no suggested users", async () => {
+      await renderDiscoverWithEmptySuggestions();
 
       expect(
-        screen.getByText("No suggested users right now")
+        await screen.findByText("No suggested users right now")
       ).toBeInTheDocument();
       expect(
         screen.getByText(
-          /As more people join Quiver[\s\S]*you'll see suggested surfers/
+          /Search by surfer name or invite the people you paddle with/
         )
       ).toBeInTheDocument();
+    });
+
+    it("loads suggested users and tracks their impression", async () => {
+      mockDiscoverFetch({
+        suggestedResponse: {
+          success: true,
+          data: {
+            source: "popular_profiles",
+            users: [
+              {
+                id: "suggested-1",
+                full_name: "Suggested Surfer",
+                followers_count: 9,
+                avatar_url: null,
+              },
+            ],
+          },
+        },
+      });
+
+      render(<DiscoverPage />);
+
+      expect(await screen.findByText("Suggested Surfer")).toBeInTheDocument();
+      expect(screen.getByText("9 followers")).toBeInTheDocument();
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/users/suggested?limit=8",
+        { cache: "no-store" },
+      );
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/events",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            eventType: "discover_suggested_users_impression",
+            metadata: { count: 1, source: "popular_profiles" },
+          }),
+        }),
+      );
     });
   });
 
@@ -372,25 +487,15 @@ describe("DiscoverPage", () => {
     it("should show search loading state", async () => {
       const user = userEvent.setup();
 
-      // Mock a delayed response
-      (global.fetch as jest.Mock).mockImplementation(
-        () =>
-          new Promise((resolve) =>
-            setTimeout(
-              () =>
-                resolve({
-                  json: () =>
-                    Promise.resolve({ success: true, data: { users: [] } }),
-                }),
-              100
-            )
-          )
-      );
+      mockDiscoverFetch({
+        searchResponse: { success: true, data: { users: [] } },
+        searchDelayMs: 100,
+      });
 
-      render(<DiscoverPage />);
+      await renderDiscoverWithEmptySuggestions();
 
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "Luna");
 
@@ -406,8 +511,8 @@ describe("DiscoverPage", () => {
   });
 
   describe("Input validation", () => {
-    it("should disable search button for empty input", () => {
-      render(<DiscoverPage />);
+    it("should disable search button for empty input", async () => {
+      await renderDiscoverWithEmptySuggestions();
 
       const searchButton = screen.getByRole("button", { name: /search/i });
       expect(searchButton).toBeDisabled();
@@ -415,10 +520,10 @@ describe("DiscoverPage", () => {
 
     it("should enable search button for valid input", async () => {
       const user = userEvent.setup();
-      render(<DiscoverPage />);
+      await renderDiscoverWithEmptySuggestions();
 
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       );
       await user.type(searchInput, "Luna");
 
@@ -428,10 +533,10 @@ describe("DiscoverPage", () => {
 
     it("should update search input value correctly", async () => {
       const user = userEvent.setup();
-      render(<DiscoverPage />);
+      await renderDiscoverWithEmptySuggestions();
 
       const searchInput = screen.getByPlaceholderText(
-        "Search by name or email..."
+        "Search by surfer name..."
       ) as HTMLInputElement;
       await user.type(searchInput, "Luna Surfer");
 
@@ -440,8 +545,8 @@ describe("DiscoverPage", () => {
   });
 
   describe("How Following Works section", () => {
-    it("should display information about following features", () => {
-      render(<DiscoverPage />);
+    it("should display information about following features", async () => {
+      await renderDiscoverWithEmptySuggestions();
 
       expect(screen.getByText("How Following Works")).toBeInTheDocument();
       expect(

@@ -9,9 +9,7 @@ import {
   iosAppStoreUrlWithCampaign,
 } from "@/lib/constants/app-handoff";
 import {
-  ANDROID_BETA_GROUP_URL,
   ANDROID_BETA_LANDING_PATH,
-  ANDROID_BETA_PLAY_URL,
   IOS_APP_STORE_URL,
 } from "@/lib/constants/app-store";
 import { DesktopHandoff } from "./desktop-handoff";
@@ -74,10 +72,6 @@ function campaignFromParams(searchParams: Awaited<SearchParams>): string {
 }
 
 function androidDestination(): { type: string; url: string } {
-  if (ANDROID_BETA_PLAY_URL) {
-    return { type: "play_store", url: ANDROID_BETA_PLAY_URL };
-  }
-
   return { type: "android_beta", url: ANDROID_BETA_LANDING_PATH };
 }
 
@@ -124,7 +118,7 @@ export default async function AppHandoffPage({
         <p>
           <a href={IOS_APP_STORE_URL}>Download Quiver on the App Store</a>
           {" · "}
-          <a href={ANDROID_BETA_GROUP_URL}>Join the Android waitlist</a>
+          <a href={ANDROID_BETA_LANDING_PATH}>Get the Android beta</a>
         </p>
       </noscript>
     </>

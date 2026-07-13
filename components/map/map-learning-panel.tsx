@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { Activity, Clock3, Gauge, Smartphone, Waves, Wind } from "lucide-react";
+import { Activity, Clock3, Gauge, Waves, Wind } from "lucide-react";
 
 import { trackAppHandoffQrRendered } from "@/lib/analytics/app-handoff-tracking";
 import { buildSmartQrHandoffUrl } from "@/lib/constants/app-handoff";
@@ -322,19 +322,15 @@ export function MapLearningPanel(): ReactElement {
             />
           </div>
           <div className="min-w-0">
-            <div className="mb-2 flex items-center gap-2 font-mono text-[11px] font-black uppercase tracking-[0.16em] text-[#FDB84B]">
-              <Smartphone className="h-4 w-4" aria-hidden="true" />
-              Smart QR
-            </div>
             <p className="font-mono text-sm leading-6 text-[#F5EEDC]/78">
-              Scan once. iPhone goes to the App Store, Android goes to the
-              Android access path, desktop lands back on the phone handoff.
+              Take the map with you. Scan the code to get Quiver on your phone
+              and check conditions wherever you surf.
             </p>
             <a
               href={QR_VALUE}
               className="mt-3 inline-flex min-h-10 items-center justify-center bg-[#F78E42] px-4 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(245,238,220,0.2)] transition hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#FDB84B]"
             >
-              Open smart link
+              Get the app
             </a>
           </div>
         </section>

@@ -2,7 +2,7 @@ import { metadata } from "@/app/vs/surfline/free/page";
 
 describe("/vs/surfline/free metadata", () => {
   it("targets the free-surfline-alternative query", () => {
-    expect(metadata.title).toBe("Free Surfline Alternative: Quiver");
+    expect(metadata.title).toEqual({ absolute: "Free Surfline Alternative: Quiver" });
     expect(String(metadata.description)).toMatch(/free/i);
     expect(String(metadata.description)).toMatch(/no subscription/i);
   });

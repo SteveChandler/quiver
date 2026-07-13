@@ -2,6 +2,7 @@ import {
   extractAhrefsAeoSummary,
   extractAiReferrers,
   inspectLlmsFiles,
+  parseAeoCitationReport,
 } from "@/lib/seo/agent-workflow/aeo-export";
 import fs from "node:fs";
 import os from "node:os";
@@ -63,5 +64,37 @@ describe("SEO workflow AEO export", () => {
       expect.objectContaining({ path: llmsPath, exists: true, lines: 2 }),
       expect.objectContaining({ exists: false, lines: 0, bytes: 0 }),
     ]);
+  });
+
+  it("parses the citation baseline table from an aeo-citation-tracking report", () => {
+    const markdown = [
+      "# AEO Citation Tracking - 2026-06-15",
+      "Status: user-provided pending validation",
+      "",
+      "## User-Provided Citation Baseline",
+      "",
+      "| Segment | Cited | Total | Rate | Notes |",
+      "| --- | ---: | ---: | ---: | --- |",
+      "| All queries | 5 | 30 | 16.7% | needs re-run |",
+      "| Informational queries | 2 | 20 | 10.0% | reported |",
+      "| Product/brand queries | 3 | 10 | 30.0% | reported |",
+    ].join("\n");
+
+    const baseline = parseAeoCitationReport(
+      markdown,
+      "docs/seo/reports/aeo-citation-tracking/2026-06-15.md",
+    );
+
+    expect(baseline.reportDate).toBe("2026-06-15");
+    expect(baseline.status).toBe("user-provided pending validation");
+    expect(baseline.overall?.cited).toBe(5);
+    expect(baseline.overall?.total).toBe(30);
+    expect(baseline.overall?.rate).toBeCloseTo(0.167, 3);
+    expect(baseline.segments).toHaveLength(2);
+    expect(baseline.segments[0]).toMatchObject({
+      segment: "Informational queries",
+      cited: 2,
+      total: 20,
+    });
   });
 });

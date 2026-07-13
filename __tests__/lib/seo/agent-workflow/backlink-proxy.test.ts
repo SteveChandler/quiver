@@ -6,6 +6,7 @@ import {
   buildBacklinkProxy,
   discoverManualBacklinkExportFiles,
   discoverManualBacklinkExports,
+  parseBacklinkReport,
   parseOutreachStatuses,
 } from "@/lib/seo/agent-workflow/backlink-proxy";
 
@@ -56,6 +57,43 @@ describe("SEO workflow backlink proxy", () => {
     expect(parseOutreachStatuses("| Target | Status |\n| --- | --- |\n| A | sent |")).toEqual([
       { target: "A", status: "sent" },
     ]);
+  });
+
+  it("parses confirmed and unverified targets from a weekly backlink report", () => {
+    const markdown = [
+      "# Weekly Backlink Scan - 2026-06-15",
+      "",
+      "## Confirmed Targets",
+      "",
+      "| Target | Source URL | Status | Opportunity | Replacement angle | Next action |",
+      "| --- | --- | --- | --- | --- | --- |",
+      "| UMass Lowell | https://uml.edu/surfing | confirmed | links MSW | pitch Quiver | Verify URL |",
+      "",
+      "## Unverified Targets",
+      "",
+      "| Target | Status | Reason | Next action |",
+      "| --- | --- | --- | --- |",
+      "| Surfrider Central Texas | unverified | No live source URL | Do not outreach |",
+    ].join("\n");
+
+    const report = parseBacklinkReport(
+      markdown,
+      "docs/seo/backlink-reports/2026-06-15.md",
+    );
+
+    expect(report.reportDate).toBe("2026-06-15");
+    expect(report.confirmed).toEqual([{
+      target: "UMass Lowell",
+      sourceUrl: "https://uml.edu/surfing",
+      status: "confirmed",
+      nextAction: "Verify URL",
+    }]);
+    expect(report.unverified).toEqual([{
+      target: "Surfrider Central Texas",
+      sourceUrl: undefined,
+      status: "unverified",
+      nextAction: "Do not outreach",
+    }]);
   });
 
   it("ignores outreach status legend rows", () => {

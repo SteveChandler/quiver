@@ -8,7 +8,6 @@ import {
   trackAndroidWaitlistCtaClick,
   trackAndroidWaitlistCtaView,
 } from "@/lib/analytics/android-waitlist-tracking";
-import { ANDROID_BETA_GROUP_URL } from "@/lib/constants/app-store";
 import { ANDROID_WAITLIST_STORAGE_KEY } from "@/lib/constants/android-waitlist";
 
 jest.mock("@/context/auth-context", () => ({
@@ -22,6 +21,10 @@ jest.mock("@/actions/android-waitlist-actions", () => ({
 jest.mock("@/lib/analytics/android-waitlist-tracking", () => ({
   trackAndroidWaitlistCtaClick: jest.fn(),
   trackAndroidWaitlistCtaView: jest.fn(),
+}));
+
+jest.mock("@/lib/utils/visitor-id", () => ({
+  getVisitorId: jest.fn(() => "00000000-0000-4000-8000-000000000001"),
 }));
 
 const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
@@ -66,7 +69,7 @@ function renderWaitlistCta() {
       placement="hero_secondary"
       successLabel="Android updates are set."
     >
-      Android waitlist
+      Get the Android beta
     </AndroidWaitlistCta>,
   );
 }
@@ -125,7 +128,7 @@ describe("AndroidWaitlistCta", () => {
       screen.getByLabelText(/email for android beta access/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", { name: /get android beta/i }),
+      screen.getByRole("button", { name: /get the android beta/i }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /^android waitlist$/i }),
@@ -148,7 +151,9 @@ describe("AndroidWaitlistCta", () => {
       screen.getByLabelText(/email for android beta access/i),
       "not-an-email",
     );
-    await user.click(screen.getByRole("button", { name: /get android beta/i }));
+    await user.click(
+      screen.getByRole("button", { name: /get the android beta/i }),
+    );
 
     expect(
       await screen.findByText(/enter a valid email address/i),
@@ -160,7 +165,7 @@ describe("AndroidWaitlistCta", () => {
     expect(mockWindowOpen).not.toHaveBeenCalled();
   });
 
-  it("captures anonymous beta leads before opening the tester group", async () => {
+  it("captures anonymous beta leads before showing the tester steps", async () => {
     const user = userEvent.setup();
     renderWaitlistCta();
 
@@ -169,7 +174,7 @@ describe("AndroidWaitlistCta", () => {
       "SURFER@example.com",
     );
     await user.click(
-      screen.getByRole("button", { name: /get android beta/i }),
+      screen.getByRole("button", { name: /get the android beta/i }),
     );
 
     expect(mockTrackAndroidWaitlistCtaClick).toHaveBeenCalledWith({
@@ -188,6 +193,7 @@ describe("AndroidWaitlistCta", () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: "surfer@example.com",
+          sessionId: "00000000-0000-4000-8000-000000000001",
           source: "features-hero-android-waitlist",
           surface: "features-page",
           placement: "hero_secondary",
@@ -196,14 +202,18 @@ describe("AndroidWaitlistCta", () => {
     );
     expect(localStorage.getItem(ANDROID_WAITLIST_STORAGE_KEY)).toBeNull();
     expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument();
-    expect(mockWindowOpen).toHaveBeenCalledWith(
-      ANDROID_BETA_GROUP_URL,
-      "_self",
+    expect(mockWindowOpen).not.toHaveBeenCalled();
+    expect(
+      await screen.findByRole("link", { name: /join tester group/i }),
+    ).toHaveAttribute(
+      "href",
+      "https://groups.google.com/g/quiver-android-testers",
     );
+    expect(screen.getByText(/test for 14 days/i)).toBeInTheDocument();
     expect(mockJoinAndroidWaitlist).not.toHaveBeenCalled();
   });
 
-  it("captures anonymous PBSC beta leads before opening the tester group", async () => {
+  it("captures anonymous PBSC beta leads before showing tester steps", async () => {
     const user = userEvent.setup();
 
     render(
@@ -213,7 +223,7 @@ describe("AndroidWaitlistCta", () => {
         placement="hero_primary"
         successLabel="Android updates are set"
       >
-        Join Android waitlist
+        Get the Android beta
       </AndroidWaitlistCta>,
     );
 
@@ -221,7 +231,7 @@ describe("AndroidWaitlistCta", () => {
       target: { value: "pbsc@example.com" },
     });
     await user.click(
-      screen.getByRole("button", { name: /get android beta/i }),
+      screen.getByRole("button", { name: /get the android beta/i }),
     );
 
     expect(global.fetch).toHaveBeenCalledWith(
@@ -229,6 +239,7 @@ describe("AndroidWaitlistCta", () => {
       expect.objectContaining({
         body: JSON.stringify({
           email: "pbsc@example.com",
+          sessionId: "00000000-0000-4000-8000-000000000001",
           source: "pbsc-event-android-waitlist",
           surface: "pbsc-page",
           placement: "hero_primary",
@@ -237,9 +248,12 @@ describe("AndroidWaitlistCta", () => {
     );
     expect(localStorage.getItem(ANDROID_WAITLIST_STORAGE_KEY)).toBeNull();
     expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument();
-    expect(mockWindowOpen).toHaveBeenCalledWith(
-      ANDROID_BETA_GROUP_URL,
-      "_self",
+    expect(mockWindowOpen).not.toHaveBeenCalled();
+    expect(
+      await screen.findByRole("link", { name: /join tester group/i }),
+    ).toHaveAttribute(
+      "href",
+      "https://groups.google.com/g/quiver-android-testers",
     );
     expect(mockJoinAndroidWaitlist).not.toHaveBeenCalled();
   });
@@ -250,7 +264,7 @@ describe("AndroidWaitlistCta", () => {
     renderWaitlistCta();
 
     await user.click(
-      screen.getByRole("button", { name: /android waitlist/i }),
+      screen.getByRole("button", { name: /get the android beta/i }),
     );
 
     expect(mockJoinAndroidWaitlist).toHaveBeenCalledWith({
@@ -263,9 +277,12 @@ describe("AndroidWaitlistCta", () => {
         name: /android updates are set/i,
       }),
     ).toBeInTheDocument();
-    expect(mockWindowOpen).toHaveBeenCalledWith(
-      ANDROID_BETA_GROUP_URL,
-      "_self",
+    expect(mockWindowOpen).not.toHaveBeenCalled();
+    expect(
+      await screen.findByRole("link", { name: /join tester group/i }),
+    ).toHaveAttribute(
+      "href",
+      "https://groups.google.com/g/quiver-android-testers",
     );
   });
 
@@ -337,7 +354,9 @@ describe("AndroidWaitlistCta", () => {
     mockSignedInUser();
     renderWaitlistCta();
 
-    const button = screen.getByRole("button", { name: /android waitlist/i });
+    const button = screen.getByRole("button", {
+      name: /get the android beta/i,
+    });
     await user.click(button);
     await screen.findByRole("button", {
       name: /android updates are set/i,
@@ -371,12 +390,12 @@ describe("AndroidWaitlistCta", () => {
         placement="hero_secondary"
         onConfirmed={onConfirmed}
       >
-        Android waitlist
+        Get the Android beta
       </AndroidWaitlistCta>,
     );
 
     await user.click(
-      screen.getByRole("button", { name: /android waitlist/i }),
+      screen.getByRole("button", { name: /get the android beta/i }),
     );
 
     await waitFor(() => {

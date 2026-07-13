@@ -64,7 +64,7 @@ export interface ProfilePageProfile {
  * - learnedPreferences: Preferences learned from session analysis
  * - recentSessions: Last 5 sessions for quick display
  * - boards: User's board quiver
- * - beaches: All beaches (for SurfProfileSection editing)
+ * - beaches: Kept for response compatibility; editor surfaces fetch beaches lazily
  */
 export interface ProfilePageData {
   profile: ProfilePageProfile;

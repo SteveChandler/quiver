@@ -182,6 +182,83 @@ describe("session-data-builder", () => {
       expect(payload.rip_current_observed).toBe("strong");
     });
 
+    it("maps recommendation attribution and call feedback fields", () => {
+      const payload = buildSessionPayload(
+        {
+          selectedBeach: "HB Cliffs",
+          selectedBeachId: "beach-hb",
+          recommendationId: "beach:beach-hb:2026-07-09T14:00:00.000Z",
+          recommendationCallAccuracy: "wrong",
+          recommendationSurface: "home_hero",
+          recommendationRank: 1,
+          recommendationScore: 91,
+          recommendationWindowStart: "2026-07-09T14:00:00.000Z",
+          recommendationWindowEnd: "2026-07-09T17:00:00.000Z",
+          recommendationTimeSlot: "dawn-patrol",
+          forecastWaveHeightFt: 4,
+          forecastTideStatus: "rising",
+          waveHeight: 3,
+          tideStatus: "falling",
+          waveHeightEdited: true,
+          tideStatusEdited: true,
+        },
+        userId
+      );
+
+      expect(payload.recommendation_id).toBe(
+        "beach:beach-hb:2026-07-09T14:00:00.000Z"
+      );
+      expect(payload.recommendation_call_accuracy).toBe("wrong");
+      expect(payload.forecast_wave_height_ft).toBe(4);
+      expect(payload.forecast_tide_status).toBe("rising");
+      expect(payload.wave_height_correct).toBe(false);
+      expect(payload.tide_status_correct).toBe(false);
+      expect(payload.recommendation_context).toEqual({
+        recommendationId: "beach:beach-hb:2026-07-09T14:00:00.000Z",
+        surface: "home_hero",
+        rank: 1,
+        score: 91,
+        windowStart: "2026-07-09T14:00:00.000Z",
+        windowEnd: "2026-07-09T17:00:00.000Z",
+        mode: "log",
+        timeSlot: "dawn-patrol",
+      });
+    });
+
+    it("marks unchanged recommendation prefill fields as correct", () => {
+      const payload = buildSessionPayload(
+        {
+          selectedBeach: "HB Cliffs",
+          recommendationId: "beach:hb:2026-07-09T14:00:00.000Z",
+          forecastWaveHeightFt: 4,
+          forecastTideStatus: "rising",
+          waveHeight: 4,
+          tideStatus: "rising",
+        },
+        userId
+      );
+
+      expect(payload.wave_height_correct).toBe(true);
+      expect(payload.tide_status_correct).toBe(true);
+    });
+
+    it("omits tide height for recommendation-attributed logs", () => {
+      const payload = buildSessionPayload(
+        {
+          selectedBeach: "HB Cliffs",
+          recommendationId: "beach:hb:2026-07-09T14:00:00.000Z",
+          tideHeight: 2.6,
+          tideStatus: "rising",
+          forecastTideStatus: "rising",
+        },
+        userId
+      );
+
+      expect(payload.tide_height_ft).toBeUndefined();
+      expect(payload.tide_status).toBe("rising");
+      expect(payload.tide_status_correct).toBe(true);
+    });
+
     it("normalizes omitted observed rip current value to null", () => {
       const payload = buildSessionPayload({ selectedBeach: "Trestles" }, userId);
 

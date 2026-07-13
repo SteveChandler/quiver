@@ -201,6 +201,7 @@ export function calculatePersonalizationBonus(
   let personalizationBonus = 0;
   let affinityBonus = 0;
   let avoidancePenalty = 0;
+  let suppressAffinity = false;
   const reasons: string[] = [];
 
   // ── 1–3. Learned preferences (session history) ────────────────────────────
@@ -268,6 +269,7 @@ export function calculatePersonalizationBonus(
       avoidanceMatch * MAX_AVOIDANCE_PERSONALIZATION_PENALTY,
       MAX_AVOIDANCE_PERSONALIZATION_PENALTY
     );
+    suppressAffinity = (avoidancePattern?.negative_sample_size ?? 0) >= 2;
   }
 
   personalizationBonus = Math.max(
@@ -279,7 +281,7 @@ export function calculatePersonalizationBonus(
   // Small tie-breaker for beaches the user frequents.
   // Threshold at 10 matches the same guard in personalized-scoring-service.ts.
   const affinityScore = context.affinityMap.get(beach.id) ?? 0;
-  if (affinityScore > 10) {
+  if (affinityScore > 10 && !suppressAffinity) {
     affinityBonus = Math.min(affinityScore * AFFINITY_BONUS_SCALE, MAX_AFFINITY_BONUS);
     reasons.push("One of your go-to spots");
   }

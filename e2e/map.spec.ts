@@ -6,8 +6,276 @@ import { isVisibleSafe } from './utils/strict-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 import { dismissMapEntryOverlay } from './utils/map-helpers';
 
-async function openRegionsAndFilters(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Regions and filters' }).click();
+async function openFilters(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Filters' }).click();
+}
+
+type MapRegion = 'hawaii' | 'san-diego' | 'unknown';
+
+interface MapDebugCenter {
+  lat: number;
+  lon: number;
+}
+
+interface DelayedGeolocationController {
+  pendingCount: number;
+  resolve: () => void;
+}
+
+async function installDelayedSanDiegoGeolocation(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const mapWindow = window as Window & {
+      __quiverDelayedGeolocation?: DelayedGeolocationController;
+      __quiverMapDebugCenter?: MapDebugCenter;
+    };
+    const pendingCallbacks: PositionCallback[] = [];
+    let released = false;
+
+    const createCoordinates = (): GeolocationCoordinates => ({
+      accuracy: 5,
+      altitude: null,
+      altitudeAccuracy: null,
+      heading: null,
+      latitude: 32.7702,
+      longitude: -117.2525,
+      speed: null,
+      toJSON: () => ({
+        accuracy: 5,
+        altitude: null,
+        altitudeAccuracy: null,
+        heading: null,
+        latitude: 32.7702,
+        longitude: -117.2525,
+        speed: null,
+      }),
+    });
+    const createPosition = (): GeolocationPosition => {
+      const coords = createCoordinates();
+      const timestamp = Date.now();
+      return {
+        coords,
+        timestamp,
+        toJSON: () => ({ coords: coords.toJSON(), timestamp }),
+      };
+    };
+    const deliver = (callback: PositionCallback): void => {
+      callback(createPosition());
+    };
+
+    const geolocation: Geolocation = {
+      clearWatch: () => undefined,
+      getCurrentPosition: (success) => {
+        if (released) {
+          window.setTimeout(() => deliver(success), 0);
+          return;
+        }
+        pendingCallbacks.push(success);
+        if (mapWindow.__quiverDelayedGeolocation) {
+          mapWindow.__quiverDelayedGeolocation.pendingCount =
+            pendingCallbacks.length;
+        }
+      },
+      watchPosition: (success) => {
+        if (released) {
+          window.setTimeout(() => deliver(success), 0);
+        } else {
+          pendingCallbacks.push(success);
+        }
+        return 1;
+      },
+    };
+
+    Object.defineProperty(window.navigator, 'geolocation', {
+      configurable: true,
+      value: geolocation,
+    });
+
+    const originalMatchMedia = window.matchMedia.bind(window);
+    window.matchMedia = (query: string): MediaQueryList => {
+      if (query !== '(hover: hover)') return originalMatchMedia(query);
+      return {
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: () => undefined,
+        removeEventListener: () => undefined,
+        dispatchEvent: () => true,
+        addListener: () => undefined,
+        removeListener: () => undefined,
+      };
+    };
+
+    mapWindow.__quiverMapDebugCenter = undefined;
+    mapWindow.__quiverDelayedGeolocation = {
+      pendingCount: 0,
+      resolve: () => {
+        released = true;
+        const callbacks = pendingCallbacks.splice(0);
+        mapWindow.__quiverDelayedGeolocation!.pendingCount = 0;
+        callbacks.forEach(deliver);
+      },
+    };
+  });
+}
+
+async function readPendingGeolocationCount(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const mapWindow = window as Window & {
+      __quiverDelayedGeolocation?: DelayedGeolocationController;
+    };
+    return mapWindow.__quiverDelayedGeolocation?.pendingCount ?? 0;
+  });
+}
+
+async function resolveDelayedGeolocation(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    const mapWindow = window as Window & {
+      __quiverDelayedGeolocation?: DelayedGeolocationController;
+    };
+    mapWindow.__quiverDelayedGeolocation?.resolve();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  });
+}
+
+function regionForCenter(center: MapDebugCenter): MapRegion {
+  if (
+    center.lat >= 18.8 &&
+    center.lat <= 22.4 &&
+    center.lon >= -160.3 &&
+    center.lon <= -154.7
+  ) {
+    return 'hawaii';
+  }
+
+  if (
+    center.lat >= 32.4 &&
+    center.lat <= 33.2 &&
+    center.lon >= -117.7 &&
+    center.lon <= -116.8
+  ) {
+    return 'san-diego';
+  }
+
+  return 'unknown';
+}
+
+async function readMapCenter(
+  page: Page,
+): Promise<(MapDebugCenter & { region: MapRegion }) | null> {
+  const center = await page.evaluate(() => {
+    const mapWindow = window as Window & {
+      __quiverMapDebugCenter?: MapDebugCenter;
+    };
+    return mapWindow.__quiverMapDebugCenter ?? null;
+  });
+
+  return center ? { ...center, region: regionForCenter(center) } : null;
+}
+
+async function readMapRegion(page: Page): Promise<MapRegion> {
+  return (await readMapCenter(page))?.region ?? 'unknown';
+}
+
+async function dragMapCanvas(page: Page): Promise<void> {
+  const canvas = page.locator('.mapboxgl-canvas');
+  await expect(canvas).toBeVisible({ timeout: TIMEOUTS.long });
+  const box = await canvas.boundingBox();
+  if (!box) throw new Error('Mapbox canvas has no measurable bounds');
+
+  const start = {
+    x: box.x + box.width * 0.5,
+    y: box.y + box.height * 0.45,
+  };
+  await page.mouse.move(start.x, start.y);
+  await page.mouse.down();
+  await page.mouse.move(start.x + 90, start.y + 35, { steps: 8 });
+  await page.mouse.up();
+}
+
+async function tapBeachMarker(page: Page, beachName: string): Promise<void> {
+  await page
+    .getByRole('button', { name: `View ${beachName} conditions` })
+    .click();
+}
+
+async function findUnobscuredBeachMarkerPoint(
+  page: Page,
+  minimumY: number,
+): Promise<{ x: number; y: number }> {
+  const markerPoint = await page.evaluate((minY): { x: number; y: number } | null => {
+    const badges = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid="beach-marker"] [data-marker-badge="true"]',
+      ),
+    );
+
+    for (const badge of badges) {
+      const rect = badge.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+
+      if (
+        rect.width <= 0 ||
+        rect.height <= 0 ||
+        x < 0 ||
+        y < minY ||
+        x > window.innerWidth ||
+        y > window.innerHeight
+      ) {
+        continue;
+      }
+
+      if (document.elementsFromPoint(x, y).includes(badge)) {
+        return { x, y };
+      }
+    }
+
+    return null;
+  }, minimumY);
+
+  if (!markerPoint) {
+    throw new Error(
+      'No unobscured beach marker badge is available in the viewport',
+    );
+  }
+
+  return markerPoint;
+}
+
+async function findUnobscuredBeachMarkerId(
+  page: Page,
+  minimumY: number,
+): Promise<string> {
+  const markerId = await page.evaluate((minY): string | null => {
+    const badges = Array.from(
+      document.querySelectorAll<HTMLElement>(
+        '[data-testid="beach-marker"] [data-marker-badge="true"]',
+      ),
+    );
+
+    for (const badge of badges) {
+      const rect = badge.getBoundingClientRect();
+      const x = rect.left + rect.width / 2;
+      const y = rect.top + rect.height / 2;
+      if (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        y >= minY &&
+        document.elementsFromPoint(x, y).includes(badge)
+      ) {
+        return badge.closest<HTMLElement>('[data-beach-id]')?.dataset.beachId ?? null;
+      }
+    }
+
+    return null;
+  }, minimumY);
+
+  if (!markerId) {
+    throw new Error('No unobscured beach marker badge is available in the viewport');
+  }
+
+  return markerId;
 }
 
 /**
@@ -80,6 +348,14 @@ test.describe('Map Page - Core Functionality', () => {
     }
   });
 
+  test('should render individual beach points without averaged cluster pills', async ({ page }) => {
+    const beachMarkers = page.locator('[data-testid="beach-marker"]');
+
+    await expect(beachMarkers.first()).toBeVisible({ timeout: TIMEOUTS.long });
+    expect(await beachMarkers.count()).toBeGreaterThan(1);
+    await expect(page.locator('[data-testid="cluster-marker"]')).toHaveCount(0);
+  });
+
 });
 
 test.describe('Map Page - Toolbar Controls', () => {
@@ -103,8 +379,16 @@ test.describe('Map Page - Toolbar Controls', () => {
       page.getByRole('combobox', { name: 'Search beaches, spots, or cities' })
     ).toBeVisible({ timeout: TIMEOUTS.medium });
     await expect(
-      page.getByRole('button', { name: 'Regions and filters' })
+      page.getByRole('button', { name: 'Filters' })
     ).toBeVisible();
+
+    const toolbarActions = page.getByTestId('map-toolbar-actions');
+    const fieldGuideToggle = page.getByTestId('map-field-guide-toggle');
+    await expect(toolbarActions).toContainText('How to read this map');
+    await expect(fieldGuideToggle).toBeVisible();
+    expect(await fieldGuideToggle.evaluate((node) => node.parentElement?.dataset.testid)).toBe(
+      'map-toolbar-actions'
+    );
 
     const mapCanvas = page.locator('canvas').first();
     await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.medium });
@@ -126,7 +410,7 @@ test.describe('Map Page - Filter Functionality', () => {
   });
 
   test('should display filter badges', async ({ page }) => {
-    await openRegionsAndFilters(page);
+    await openFilters(page);
 
     const beginnerBadge = page.getByRole('button', { name: 'Beginner-friendly' });
     const beachBadge = page.getByRole('button', { name: 'beach', exact: true });
@@ -140,7 +424,7 @@ test.describe('Map Page - Filter Functionality', () => {
   });
 
   test('should toggle beginner-friendly filter', async ({ page }) => {
-    await openRegionsAndFilters(page);
+    await openFilters(page);
 
     const beginnerBadge = page.getByRole('button', { name: 'Beginner-friendly' });
 
@@ -164,7 +448,7 @@ test.describe('Map Page - Filter Functionality', () => {
   });
 
   test('should toggle break type filters', async ({ page }) => {
-    await openRegionsAndFilters(page);
+    await openFilters(page);
 
     const beachBadge = page.getByRole('button', { name: 'beach', exact: true });
 
@@ -230,6 +514,38 @@ test.describe('Map Page - Search Integration', () => {
     const count = await beachLinks.count();
 
     expect(count).toBeGreaterThanOrEqual(0);
+  });
+
+  test('should select a beach suggestion without leaving the map', async ({ page }) => {
+    await page.goto('/map');
+    await waitForPageLoad(page);
+    await dismissMapEntryOverlay(page);
+
+    const search = page.getByRole('combobox', {
+      name: 'Search beaches, spots, or cities',
+    });
+    await search.fill('Waikiki');
+    await expect(page.getByRole('option', { name: /Waikiki/i }).first()).toBeVisible({
+      timeout: TIMEOUTS.long,
+    });
+    await search.press('ArrowDown');
+    await search.press('Enter');
+
+    await expect(page).toHaveURL(/\/map(?:\?.*)?$/);
+    await expect(page.getByTestId('map-search-suggestions')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'View Waikiki conditions' }),
+    ).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect
+      .poll(async () => {
+        const center = await readMapCenter(page);
+        if (!center) return false;
+        return (
+          Math.abs(center.lat - 21.2767) < 0.05 &&
+          Math.abs(center.lon - -157.8263) < 0.05
+        );
+      }, { timeout: TIMEOUTS.long })
+      .toBe(true);
   });
 });
 
@@ -365,6 +681,86 @@ test.describe('Map Page - Geolocation', () => {
     const hasMap = !hasMarkers && !hasItems && await isVisibleSafe(mapContainer, { timeout: TIMEOUTS.short });
 
     expect(hasMarkers || hasItems || hasMap).toBe(true);
+  });
+});
+
+test.describe('Map Page - Camera Ownership', () => {
+  let errorCapture: ErrorCapture;
+
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: 'Map Camera Ownership' });
+  });
+
+  test('Hawaii exploration is not reclaimed by San Diego GPS', async ({ page, context }) => {
+    await context.grantPermissions(['geolocation']);
+    await installDelayedSanDiegoGeolocation(page);
+    await page.goto('/map');
+    await dismissMapEntryOverlay(page);
+    await expect
+      .poll(() => readPendingGeolocationCount(page), { timeout: TIMEOUTS.long })
+      .toBeGreaterThan(0);
+    await expect
+      .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
+      .toBe('san-diego');
+
+    const search = page.getByRole('combobox', {
+      name: 'Search beaches, spots, or cities',
+    });
+    await search.fill('Waikiki');
+    await page.getByRole('option').first().click();
+    await expect
+      .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
+      .toBe('hawaii');
+
+    const beforeDrag = await readMapCenter(page);
+    expect(beforeDrag).not.toBeNull();
+    await dragMapCanvas(page);
+    await expect
+      .poll(async () => {
+        const center = await readMapCenter(page);
+        if (!center || !beforeDrag) return false;
+        return (
+          Math.abs(center.lat - beforeDrag.lat) > 0.00001 ||
+          Math.abs(center.lon - beforeDrag.lon) > 0.00001
+        );
+      }, { timeout: TIMEOUTS.long })
+      .toBe(true);
+    await expect
+      .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
+      .toBe('hawaii');
+
+    await page
+      .getByRole('combobox', { name: 'Search beaches, spots, or cities' })
+      .fill('Ala Moana Bowls');
+    await expect(
+      page.getByRole('button', { name: 'View Ala Moana Bowls conditions' }),
+    ).toBeVisible({ timeout: TIMEOUTS.long });
+    await tapBeachMarker(page, 'Ala Moana Bowls');
+    await expect(
+      page.locator('[data-conditions-callout="true"]'),
+    ).toContainText('Ala Moana Bowls');
+    await expect
+      .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
+      .toBe('hawaii');
+    await expect(page).toHaveURL(/\/map(?:\?.*)?$/);
+
+    await resolveDelayedGeolocation(page);
+    await expect(page).toHaveURL(/\/map(?:\?.*)?$/);
+    await expect
+      .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
+      .toBe('hawaii');
+
+    await page.getByRole('button', { name: 'Use Near Me' }).click();
+    await expect
+      .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
+      .toBe('san-diego');
+    await expect(page).toHaveURL(/\/map(?:\?.*)?$/);
   });
 });
 
@@ -516,7 +912,7 @@ test.describe('Map Page - Stability and Performance', () => {
 
     const initialCount = mapInitCount;
 
-    await openRegionsAndFilters(page);
+    await openFilters(page);
     await page.keyboard.press('Escape');
 
     // The map should not reinitialize during normal interactions
@@ -601,39 +997,16 @@ test.describe('Map Page - Marker Interactions', () => {
     await assertNoErrors(page, errorCapture, { context: 'Map Markers' });
   });
 
-  test('should show beach details on marker interaction', async ({ page }) => {
-    // Wait for beaches to load using data-testid
+  test('should open one conditions callout from a point marker', async ({ page }) => {
     const beachMarkers = page.locator('[data-testid="beach-marker"]');
-    const beachItems = page.locator('[data-testid="beach-item"]');
+    await expect(beachMarkers.first()).toBeVisible({ timeout: TIMEOUTS.long });
 
-    const hasMarkers = await isVisibleSafe(beachMarkers.first(), { timeout: TIMEOUTS.long });
-    const hasItems = !hasMarkers && await isVisibleSafe(beachItems.first(), { timeout: TIMEOUTS.medium });
+    const markerPoint = await findUnobscuredBeachMarkerPoint(page, 170);
+    await page.mouse.click(markerPoint.x, markerPoint.y);
 
-    if (!hasMarkers && !hasItems) {
-      // No markers visible yet — map may still be loading or beach density is low in viewport
-      test.skip(true, 'No beach markers or items found — map may still be loading or viewport has low beach density');
-      return;
-    }
-
-    // Click should either navigate to beach detail page OR show selected beach card
-    // Use force:true to avoid header interception issues with map markers
-    const beachElement = hasMarkers ? beachMarkers.first() : beachItems.first();
-    await beachElement.click({ force: true });
-
-    await page.waitForLoadState('load');
-
-    // Check if we navigated or if a selected beach card appeared
-    const url = page.url();
-    const navigated = url.includes('/beach/') ||
-                     (url.split('/').length >= 5 && !url.includes('/map'));
-
-    if (navigated) {
-      // Successfully navigated to beach detail
-      expect(navigated).toBe(true);
-    } else {
-      // Should be on map page with potentially selected beach state
-      expect(url).toContain('/map');
-    }
+    await expect(page.locator('[data-conditions-callout="true"]')).toHaveCount(1);
+    await expect(page.getByRole('link', { name: 'Full forecast' })).toBeVisible();
+    expect(page.url()).toContain('/map');
   });
 
   test('should display multiple beach markers', async ({ page }) => {
@@ -677,68 +1050,61 @@ test.describe('Map Page - Beach Detail Navigation', () => {
     await assertNoErrors(page, errorCapture, { context: 'Map Beach Card Nav' });
   });
 
-  test('mobile: tapping a marker navigates directly to the beach detail page', async ({ page, context }) => {
-    await page.setViewportSize(VIEWPORTS.mobile);
-
-    await context.grantPermissions(['geolocation']);
-    await context.setGeolocation({ latitude: 32.8473, longitude: -117.2750 });
-
-    await page.goto('/map');
-    await waitForPageLoad(page);
-
-    await dismissMapEntryOverlay(page);
-
-    // Wait for map canvas to fully load
-    const mapCanvas = page.locator('canvas').first();
-    await expect(mapCanvas).toBeVisible({ timeout: TIMEOUTS.long });
-
-    // Wait for beach markers to load
-    const beachMarkers = page.locator('[data-testid="beach-marker"]');
-    await expect(beachMarkers.first()).toBeVisible({ timeout: TIMEOUTS.long });
-
-    await expect(page.getByTestId('bottom-sheet')).toHaveCount(0);
-
-    const markerPoint = await page.evaluate((): { x: number; y: number } | null => {
-      const badges = Array.from(
-        document.querySelectorAll<HTMLElement>(
-          '[data-testid="beach-marker"] [data-marker-badge="true"]',
-        ),
-      );
-
-      for (const badge of badges) {
-        const rect = badge.getBoundingClientRect();
-        const x = rect.left + rect.width / 2;
-        const y = rect.top + rect.height / 2;
-
-        if (
-          rect.width <= 0 ||
-          rect.height <= 0 ||
-          x < 0 ||
-          y < 160 ||
-          x > window.innerWidth ||
-          y > window.innerHeight
-        ) {
-          continue;
-        }
-
-        if (document.elementsFromPoint(x, y).includes(badge)) {
-          return { x, y };
-        }
-      }
-
-      return null;
+  test('mobile: tapping a marker opens conditions before full forecast navigation', async ({ browser, context }) => {
+    const touchContext = await browser.newContext({
+      storageState: await context.storageState(),
+      viewport: VIEWPORTS.mobile,
+      hasTouch: true,
+      isMobile: true,
+      geolocation: { latitude: 32.8473, longitude: -117.2750 },
+      permissions: ['geolocation'],
     });
+    const touchPage = await touchContext.newPage();
+    const touchErrors = setupErrorDetection(touchPage);
 
-    if (!markerPoint) {
-      throw new Error(
-        'No unobscured beach marker badge in the mobile viewport — every badge is covered by other UI, which is the regression this tap test guards against',
+    try {
+      const forecastsLoaded = touchPage.waitForResponse((response) =>
+        response.url().includes('/api/forecasts/bulk'),
       );
+      await touchPage.goto('/map');
+      await waitForPageLoad(touchPage);
+      await dismissMapEntryOverlay(touchPage);
+
+      await expect(touchPage.locator('canvas').first()).toBeVisible({
+        timeout: TIMEOUTS.long,
+      });
+      await expect(
+        touchPage.locator('[data-testid="beach-marker"]').first(),
+      ).toBeVisible({ timeout: TIMEOUTS.long });
+      await forecastsLoaded;
+      await expect(touchPage.getByTestId('bottom-sheet')).toHaveCount(0);
+
+      const markerId = await findUnobscuredBeachMarkerId(touchPage, 160);
+      await touchPage
+        .locator(`[data-beach-id="${markerId}"] [data-marker-badge="true"]`)
+        .dispatchEvent('touchend', {
+          touches: [],
+          targetTouches: [],
+          changedTouches: [],
+        });
+
+      await expect(
+        touchPage.locator('[data-conditions-callout="true"]'),
+      ).toHaveCount(1);
+      const fullForecast = touchPage.getByRole('link', { name: 'Full forecast' });
+      await expect(fullForecast).toBeVisible();
+      expect(touchPage.url()).toContain('/map');
+
+      await fullForecast.click();
+      await touchPage.waitForURL(/\/(ca|or|wa|hi|beach)\//, {
+        timeout: TIMEOUTS.medium,
+      });
+      await assertNoErrors(touchPage, touchErrors, {
+        context: 'Map Beach Card Nav touch context',
+      });
+    } finally {
+      await touchContext.close();
     }
-
-    await page.mouse.click(markerPoint.x, markerPoint.y);
-
-    // Should have navigated away from /map
-    await page.waitForURL(/\/(ca|or|wa|hi|beach)\//, { timeout: TIMEOUTS.medium });
   });
 });
 

@@ -226,6 +226,67 @@ describe('Forecast Health Check', () => {
     expect(metrics.healthStatus).toBe('degraded');
   });
 
+  it('honors MONITORING_MIN_FORECAST_COVERAGE for fixture-sized environments', async () => {
+    const originalMinForecastCoverage = process.env.MONITORING_MIN_FORECAST_COVERAGE;
+    process.env.MONITORING_MIN_FORECAST_COVERAGE = '0.3';
+
+    try {
+      const nowIso = new Date('2025-12-12T12:00:00Z').toISOString();
+
+      enhancedLatestMock.mockResolvedValueOnce({
+        data: [
+          { beach_id: 'beach-1', updated_at: nowIso, data_source: 'NOAA_NWS' },
+        ],
+        error: null,
+      });
+
+      marineLatestMock.mockResolvedValueOnce({
+        data: [
+          { beach_id: 'beach-1', created_at: nowIso, ts: nowIso, source: 'ndbc', is_observed: true },
+          { beach_id: 'beach-2', created_at: nowIso, ts: nowIso, source: 'cdip', is_observed: true },
+          { beach_id: 'beach-3', created_at: nowIso, ts: nowIso, source: 'cdip_persistence', is_observed: false },
+        ],
+        error: null,
+      });
+
+      tideLatestMock.mockResolvedValueOnce({
+        data: [
+          { beach_id: 'beach-1', created_at: nowIso, ts: nowIso, source: 'noaa' },
+          { beach_id: 'beach-2', created_at: nowIso, ts: nowIso, source: 'noaa' },
+          { beach_id: 'beach-3', created_at: nowIso, ts: nowIso, source: 'noaa' },
+        ],
+        error: null,
+      });
+
+      sunLatestMock.mockResolvedValueOnce({
+        data: [
+          { beach_id: 'beach-1', created_at: nowIso, date: '2025-12-12', source: 'computed' },
+          { beach_id: 'beach-2', created_at: nowIso, date: '2025-12-12', source: 'computed' },
+          { beach_id: 'beach-3', created_at: nowIso, date: '2025-12-12', source: 'computed' },
+        ],
+        error: null,
+      });
+
+      ioosStationsMock.mockResolvedValueOnce({
+        data: [
+          { station_id: 'station-1', source_network: 'cdip', last_seen_at: nowIso, active: true, nearest_beach_id: 'beach-1' },
+        ],
+        error: null,
+      });
+
+      const metrics = await checkForecastHealth();
+
+      expect(metrics.coveragePercentage).toBeCloseTo(1 / 3);
+      expect(metrics.healthStatus).toBe('healthy');
+    } finally {
+      if (originalMinForecastCoverage === undefined) {
+        delete process.env.MONITORING_MIN_FORECAST_COVERAGE;
+      } else {
+        process.env.MONITORING_MIN_FORECAST_COVERAGE = originalMinForecastCoverage;
+      }
+    }
+  });
+
   it('preserves beach count and reports enhanced as unavailable when latest enhanced view query fails', async () => {
     const nowIso = new Date('2025-12-12T12:00:00Z').toISOString();
 

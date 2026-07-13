@@ -912,6 +912,8 @@ describe('POST /api/events', () => {
       'signin_cta_click',
       'signup_form_submitted',
       'login_form_submitted',
+      'login_failed',
+      'signup_failed',
       'auth_modal_opened',
       'auth_modal_closed_without_action',
     ];
@@ -1206,6 +1208,48 @@ describe('POST /api/events', () => {
           user_id: null,
           session_id: '12345678-1234-1234-1234-123456789012',
           event_type: 'page_view',
+        })
+      );
+    });
+
+    it('accepts anonymous cam share events with visitor context', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: null },
+        error: { message: 'Not authenticated' },
+      });
+
+      const mockServiceInsert = jest.fn().mockResolvedValue({ error: null });
+      (createServiceRoleClient as jest.Mock).mockReturnValue({
+        from: jest.fn(() => ({ insert: mockServiceInsert })),
+      });
+
+      const request = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({
+          eventType: 'cam_share',
+          sessionId: '12345678-1234-1234-1234-123456789012',
+          viewportWidth: 390,
+          metadata: {
+            content_type: 'cam',
+            method: 'native_share',
+          },
+        }),
+      });
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockServiceInsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_id: null,
+          session_id: '12345678-1234-1234-1234-123456789012',
+          event_type: 'cam_share',
+          metadata: expect.objectContaining({
+            content_type: 'cam',
+            method: 'native_share',
+            _viewport_width: 390,
+          }),
         })
       );
     });

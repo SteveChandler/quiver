@@ -25,7 +25,7 @@ jest.mock("@/components/app-store/native-app-funnel-cta", () => ({
       data-placement={placement}
       data-cohort={cohort}
     >
-      {platform === "android" ? "Join Android waitlist" : "Open App Store"}
+      {platform === "android" ? "Get the Android beta" : "Open App Store"}
     </button>
   ),
 }));
@@ -35,7 +35,7 @@ describe("PlatformStatusStrip", () => {
     render(<PlatformStatusStrip platform="android" />);
 
     expect(
-      screen.getByText(/iphone is live\. android is next\./i),
+      screen.getByText(/iphone is live\. android beta is open\./i),
     ).toBeInTheDocument();
 
     const cta = screen.getByTestId("native-app-funnel-cta");

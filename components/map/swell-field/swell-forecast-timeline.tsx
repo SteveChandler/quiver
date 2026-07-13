@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { Pause, Play } from "lucide-react";
 import {
+  SWELL_MAP_LEGEND_SURFACE,
   SWELL_MAP_SURFACE,
   SWELL_MAP_STICKER_SHADOW,
   SWELL_MAP_STICKER_RADIUS,
@@ -111,7 +112,14 @@ export function SwellForecastTimeline({
           isLegendPlacement ? "min-w-0 flex-1" : "w-40"
         }`}
       />
-      <span className="min-w-8 text-right font-mono text-xs tabular-nums text-white">
+      <span
+        className="min-w-8 text-right font-mono text-xs tabular-nums"
+        style={{
+          color: isLegendPlacement
+            ? SWELL_MAP_LEGEND_SURFACE.ink
+            : "#F4EBD8",
+        }}
+      >
         {steps[nearestStep]}
       </span>
       <button

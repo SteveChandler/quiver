@@ -178,19 +178,20 @@ describe("/api/admin/delivery-stats", () => {
         { platform: "ios" },
         { platform: "android" },
       ];
+      const digestSelect = jest.fn().mockReturnValue({
+        gte: jest.fn().mockReturnValue({
+          order: jest.fn().mockReturnValue({
+            limit: jest
+              .fn()
+              .mockResolvedValue({ data: digestRunsData, error: null }),
+          }),
+        }),
+      });
 
       // Mock the parallel queries
       mockSupabaseClient.from
         .mockReturnValueOnce({
-          select: jest.fn().mockReturnValue({
-            gte: jest.fn().mockReturnValue({
-              order: jest.fn().mockReturnValue({
-                limit: jest
-                  .fn()
-                  .mockResolvedValue({ data: digestRunsData, error: null }),
-              }),
-            }),
-          }),
+          select: digestSelect,
         })
         .mockReturnValueOnce({
           select: jest.fn().mockReturnValue({
@@ -229,27 +230,39 @@ describe("/api/admin/delivery-stats", () => {
 
       // Verify period
       expect(data.data.period.days).toBe(7); // Default days
-      expect(data.data.period.since).toBeTruthy();
+      expect(data.data.period.since).toEqual(expect.any(String));
 
       // Verify digest runs
       expect(data.data.digestRuns.total).toBe(2);
       expect(data.data.digestRuns.recent).toHaveLength(2);
       expect(data.data.digestRuns.totals).toHaveProperty("emailsSent");
       expect(data.data.digestRuns.totals).toHaveProperty("pushSent");
+      expect(digestSelect).toHaveBeenCalledWith(
+        "id, run_started_at, run_completed_at, status, duration_ms, eligible_users, emails_sent, emails_sent_quick, push_sent, push_failed, push_no_tokens"
+      );
 
       // Verify emails
       expect(data.data.emails.total).toBe(3);
-      expect(data.data.emails.byType).toBeTruthy();
-      expect(data.data.emails.byDate).toBeTruthy();
+      expect(data.data.emails.byType).toEqual({ digest: 2, invite: 1 });
+      expect(data.data.emails.byDate).toEqual({
+        "2024-01-01": 2,
+        "2024-01-02": 1,
+      });
 
       // Verify push notifications
       expect(data.data.pushNotifications.total).toBe(3);
-      expect(data.data.pushNotifications.byStatus).toBeTruthy();
-      expect(data.data.pushNotifications.byType).toBeTruthy();
+      expect(data.data.pushNotifications.byStatus).toEqual({
+        failed: 1,
+        sent: 2,
+      });
+      expect(data.data.pushNotifications.byType).toEqual({
+        digest: 2,
+        invite: 1,
+      });
 
       // Verify devices
       expect(data.data.devices.total).toBe(3);
-      expect(data.data.devices.byPlatform).toBeTruthy();
+      expect(data.data.devices.byPlatform).toEqual({ android: 1, ios: 2 });
     });
 
     it("accepts custom days parameter", async () => {
@@ -415,7 +428,7 @@ describe("/api/admin/delivery-stats", () => {
       const data = await response.json();
 
       expect(response.status).toBe(500);
-      expect(data.error).toBeTruthy();
+      expect(data.error).toEqual(expect.any(String));
     });
 
     it("returns empty stats when no data is available", async () => {
@@ -506,7 +519,7 @@ describe("/api/admin/delivery-stats", () => {
 
       expect(response.status).toBe(200);
       expect(data.data.emails.total).toBe(5);
-      expect(data.data.emails.byType).toBeTruthy();
+      expect(data.data.emails.byType).toEqual({ digest: 2, invite: 3 });
     });
 
     it("correctly sums digest run totals", async () => {

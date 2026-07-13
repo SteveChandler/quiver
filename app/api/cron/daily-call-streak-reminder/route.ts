@@ -9,6 +9,7 @@
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
+import { buildNotificationRelevanceMetadata } from "@/lib/notifications/relevance";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -84,6 +85,7 @@ interface Candidate {
   windowStart: string;
   windowEnd: string;
   score: number;
+  confidenceScore: number | null;
 }
 
 interface RunSummary {
@@ -131,6 +133,10 @@ function parseTestUserAllowlist(): Set<string> {
       .map((id) => id.trim())
       .filter(Boolean)
   );
+}
+
+function isForecastFeedbackNudgeEnabled(): boolean {
+  return process.env.FORECAST_FEEDBACK_NUDGE_ENABLED?.toLowerCase() === "true";
 }
 
 function targetKey(userId: string, beachId: string): string {
@@ -223,6 +229,17 @@ function hasSessionForCandidate(
   });
 }
 
+function buildLogSessionDeeplink(candidate: Candidate): string {
+  const beachRef = candidate.beachSlug ?? candidate.beachId;
+  const params = new URLSearchParams({
+    beach: beachRef,
+    at: candidate.windowStart,
+    utm_source: "push_log_nudge",
+  });
+
+  return `quiver://sessions/new?${params.toString()}`;
+}
+
 async function _GET(request: Request): Promise<Response> {
   const startedAt = Date.now();
 
@@ -231,12 +248,8 @@ async function _GET(request: Request): Promise<Response> {
       return createErrorResponse("Unauthorized", "Invalid cron authentication", 401);
     }
 
-    const supabase = createSupabaseServiceRoleClient();
     const now = new Date();
     const periodKey = dateKey(now);
-    const forecastLookupStart = new Date(
-      now.getTime() - FORECAST_LOOKBACK_HOURS * 60 * 60 * 1000
-    ).toISOString();
     const allowlist = parseTestUserAllowlist();
     const summary: RunSummary = {
       periodKey,
@@ -258,6 +271,22 @@ async function _GET(request: Request): Promise<Response> {
       errors: 0,
       durationMs: 0,
     };
+
+    if (!isForecastFeedbackNudgeEnabled()) {
+      summary.durationMs = Date.now() - startedAt;
+      return createSuccessResponse({
+        enabled: false,
+        candidates: 0,
+        sent: 0,
+        skipped: summary.skipped,
+        summary,
+      });
+    }
+
+    const supabase = createSupabaseServiceRoleClient();
+    const forecastLookupStart = new Date(
+      now.getTime() - FORECAST_LOOKBACK_HOURS * 60 * 60 * 1000
+    ).toISOString();
 
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
@@ -421,6 +450,10 @@ async function _GET(request: Request): Promise<Response> {
           windowStart: forecast.forecast_at,
           windowEnd: windowEndIso(forecast.forecast_at),
           score,
+          confidenceScore:
+            typeof forecast.confidence_score === "number"
+              ? forecast.confidence_score
+              : null,
         };
 
         if (isBetterCandidate(candidate, best)) {
@@ -523,7 +556,17 @@ async function _GET(request: Request): Promise<Response> {
           payload: {
             beach_id: candidate.beachId,
             ...(candidate.beachSlug ? { beach_slug: candidate.beachSlug } : {}),
+            beach_name: candidate.beachName,
             forecast_at: candidate.forecastAt,
+            deeplink: buildLogSessionDeeplink(candidate),
+            ...buildNotificationRelevanceMetadata({
+              category: "session_growth",
+              triggerSource: "forecast_feedback_nudge",
+              relevanceConfidence: "low",
+              beachConfidence: "low",
+              beachConfidenceScore: candidate.confidenceScore,
+              relevanceScore: candidate.score,
+            }),
           },
           dedupeKey: `${REMINDER_TYPE}:${candidate.userId}:${periodKey}`,
         });

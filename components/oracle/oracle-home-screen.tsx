@@ -28,6 +28,7 @@ import type { ActivityItem } from "@/components/oracle/activity-feed";
 import type { TimeWindow } from "@/components/oracle/todays-windows";
 import type { NearbySpot } from "@/components/oracle/nearby-spots";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
+import { buildRecommendationLogUrl } from "@/lib/recommendations/attribution";
 import type { LocalActivityItem } from "@/actions/oracle-actions";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
 import { isFutureDayInTimezone } from "@/lib/utils/condition-tier-utils";
@@ -438,10 +439,12 @@ function LoadingSkeleton() {
 function OracleHeroEmpty({
   beachName,
   reason,
+  onSetHomeBeach,
   onRetry,
 }: {
   beachName: string;
   reason: string;
+  onSetHomeBeach?: () => void;
   onRetry: () => void;
 }) {
   return (
@@ -452,10 +455,19 @@ function OracleHeroEmpty({
             {beachName}
           </h1>
           <p className="text-white/60 text-sm mb-6">{reason}</p>
+          {onSetHomeBeach && (
+            <button
+              type="button"
+              onClick={onSetHomeBeach}
+              className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#F78E42] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#D57835] sm:w-auto"
+            >
+              Set your home beach
+            </button>
+          )}
           <button
             type="button"
             onClick={onRetry}
-            className="inline-flex items-center gap-2 rounded-full border border-[#F78E42] bg-[#F78E42]/10 px-5 py-2 text-sm font-semibold text-[#F78E42] hover:bg-[#F78E42]/20 transition-colors"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#F78E42] bg-[#F78E42]/10 px-5 py-2 text-sm font-semibold text-[#F78E42] transition-colors hover:bg-[#F78E42]/20 sm:w-auto"
           >
             Try again
           </button>
@@ -550,8 +562,21 @@ export function OracleHomeScreen() {
   }, [resetOnboarding, openOnboardingDialog]);
 
   const handleLogSession = useCallback(
-    () => router.push("/sessions/new?mode=log"),
-    [router]
+    () => {
+      if (!heroRec) {
+        router.push("/sessions/new?mode=log");
+        return;
+      }
+
+      router.push(
+        buildRecommendationLogUrl({
+          recommendation: heroRec,
+          rank: 1,
+          surface: "home_hero",
+        })
+      );
+    },
+    [heroRec, router]
   );
 
   const fetchHeroSurfCall = useCallback(async (): Promise<OracleSurfCallPayload | null> => {
@@ -853,6 +878,7 @@ export function OracleHomeScreen() {
       <OracleHeroEmpty
         beachName={homeBeach?.name ?? "Your Surf"}
         reason={reason}
+        onSetHomeBeach={homeBeach ? undefined : handleSetHomeBeach}
         onRetry={() => globalThis.location.reload()}
       />
     );

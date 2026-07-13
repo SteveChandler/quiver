@@ -34,13 +34,13 @@ export const GET = withAuth(async (_request, { user, supabase, params }) => {
 
   const { count: sessionCount, error: sessionError } = await supabase
     .from("sessions")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("user_id", targetUserId);
   if (sessionError) throw sessionError;
 
   const { count: boardCount, error: boardError } = await supabase
     .from("boards")
-    .select("*", { count: "exact", head: true })
+    .select("id", { count: "exact", head: true })
     .eq("user_id", targetUserId);
   if (boardError) throw boardError;
 

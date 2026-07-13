@@ -103,10 +103,11 @@ test.describe('Dev deployed data probes @infra @dev', () => {
     const text = visibleText(html);
 
     expect(response.status()).toBe(200);
-    expect(text).toContain('Forecast accuracy receipts.');
-    expect(text).toContain('Validated pairs');
-    expect(text).toContain('Quiver MAE');
-    expect(text).toContain('Top Beaches by Accuracy Improvement');
+    expect(text).toContain('The forecast that learns what you like.');
+    expect(text).toContain('More accurate than Surfline. Twice as sharp as NOAA.');
+    expect(text).toContain('0.30m');
+    expect(text).toContain('0.35m');
+    expect(text).toContain('0.67m');
     expect(text).not.toContain('Accuracy rows are being verified.');
     expect(text).not.toContain('Forecast accuracy metrics building');
     expect(text).not.toContain('Accuracy rows are building; Quiver is not claiming lift yet.');

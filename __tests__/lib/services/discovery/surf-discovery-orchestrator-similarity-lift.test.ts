@@ -50,8 +50,8 @@ const simByBeach: Record<string, SimConfig> = {
 
 const mockForecast: Partial<EnhancedForecastEntity> = {
   beach_id: 'beach-1',
-  forecast_at: '2026-05-04T15:00:00Z',
-  forecast_date: '2026-05-04',
+  forecast_at: '2026-07-08T15:00:00Z',
+  forecast_date: '2026-07-08',
   forecast_time: '15:00:00',
   wave_height: '3.5',
   wave_period: '12s',
@@ -89,8 +89,8 @@ jest.mock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
 
 jest.mock('@/lib/services/discovery/window-selector', () => ({
   selectBestWindow: jest.fn(() => ({
-    start: new Date('2026-05-04T15:00:00Z'),
-    end: new Date('2026-05-04T18:00:00Z'),
+    start: new Date('2026-07-08T15:00:00Z'),
+    end: new Date('2026-07-08T18:00:00Z'),
     tide: 'Rising',
     wind: '8 mph W',
     waveHeight: '3-4 ft',

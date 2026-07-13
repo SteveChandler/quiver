@@ -14,10 +14,10 @@ export function LandingPricingTeaser() {
             Native app status
           </div>
           <h2 className="font-heading text-2xl font-bold tracking-normal text-white sm:text-3xl">
-            iPhone is live. Android is next.
+            iPhone is live. Android beta is open.
           </h2>
           <p className="mt-3 text-base leading-7 text-white/62">
-            Open Quiver on the App Store or join the Android waitlist.
+            Open Quiver on the App Store or install the Android beta today.
           </p>
         </div>
         <Link

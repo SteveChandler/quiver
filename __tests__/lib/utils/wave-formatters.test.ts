@@ -560,6 +560,21 @@ describe("wave-formatters", () => {
         expect(numeric).toBeLessThan(5); // not 3.28 * 2.1 = 6.9
       });
 
+      it("keeps CDIP when model total Hs corroborates a low primary swell outlier", () => {
+        // Exposed-coast mixed swell can have a low model primary partition
+        // while model total Hs agrees with CDIP. In that case CDIP is not the
+        // bad input; rejecting it collapses the forecast to the wrong partition.
+        const result = toFaceHeightFeet({
+          cdipSigFt: 8.0,
+          modelSwellM: 1.0, // 3.28 ft, would reject CDIP by itself
+          modelHsM: 2.6, // 8.53 ft, corroborates CDIP
+          periodS: 14,
+          beach: blacksBeach,
+        });
+
+        expect(result).toBe("15 ft");
+      });
+
       it("SKIPS short-circuit when cdipSigFt is null (model_swell takes over)", () => {
         // CDIP data gap at a calibrated beach. Must fall back cleanly to
         // the model pipeline without applying the CDIP-only bucket factor.
@@ -784,6 +799,15 @@ describe("wave-formatters", () => {
         modelSwellM: 1.0,
       });
       expect(result?.source).toBe("model_swell");
+    });
+
+    it("should keep CDIP when model Hs corroborates a low primary model swell", () => {
+      const result = selectWaveHeightSource({
+        cdipSigFt: 8.0,
+        modelSwellM: 1.0, // 3.28 ft: primary partition alone would reject CDIP
+        modelHsM: 2.6, // 8.53 ft: total model sea state agrees with CDIP
+      });
+      expect(result).toEqual({ heightFt: 8.0, source: "cdip_sig" });
     });
 
     it("should reject untrusted high CDIP values", () => {

@@ -35,6 +35,7 @@ describe("Phase 18 Session Intelligence rollout policy", () => {
   it("allowlists Malibu and the Phase 17 pilot spot without making all spots eligible", () => {
     expect(isPhase18SpotPath("/ca/malibu/malibu-surfrider-first-point-malibu-ca")).toBe(true);
     expect(isPhase18SpotPath("/ca/san-diego/blacks")).toBe(true);
+    expect(isPhase18SpotPath("/ca/la-jolla/blacks")).toBe(true);
     expect(isPhase18SpotPath("/ca/random/not-allowlisted")).toBe(false);
     expect(canRenderBestSurfWindowsForSurface("spot", "/ca/random/not-allowlisted")).toBe(false);
     expect(canRenderBestSurfWindowsForSurface("spot", "/ca/malibu/malibu-surfrider-first-point-malibu-ca")).toBe(true);

@@ -175,6 +175,52 @@ describe("resolveSouthOcSanoShadowGuardrail", () => {
     expect(result.metadata.branch).toBe("trestles_calibrated_anchor");
   });
 
+  test("applies to active confirmed nearshore south swell through now plus six hours", () => {
+    const snapshot = buildSouthOcSanoShadowZoneSnapshot(
+      [
+        makeObservation({ stationId: "46277", heightM: 1.0 }),
+        makeObservation({ stationId: "46275", heightM: 0.96 }),
+      ],
+      NOW_MS,
+    );
+
+    const result = resolveSouthOcSanoShadowGuardrail({
+      beach: makeBeach("lower-trestles"),
+      snapshot,
+      forecastAtMs: NOW_MS + 6 * 60 * 60 * 1000,
+      nowMs: NOW_MS,
+    });
+
+    expect(result.kind).toBe("trestles_calibrated_anchor");
+  });
+
+  test("does not apply before now minus thirty minutes or after now plus six hours", () => {
+    const snapshot = buildSouthOcSanoShadowZoneSnapshot(
+      [
+        makeObservation({ stationId: "46277", heightM: 1.0 }),
+        makeObservation({ stationId: "46275", heightM: 0.96 }),
+      ],
+      NOW_MS,
+    );
+
+    expect(
+      resolveSouthOcSanoShadowGuardrail({
+        beach: makeBeach("lower-trestles"),
+        snapshot,
+        forecastAtMs: NOW_MS - 31 * 60 * 1000,
+        nowMs: NOW_MS,
+      }),
+    ).toMatchObject({ kind: "noop", reason: "outside_nowcast_window" });
+    expect(
+      resolveSouthOcSanoShadowGuardrail({
+        beach: makeBeach("lower-trestles"),
+        snapshot,
+        forecastAtMs: NOW_MS + 6 * 60 * 60 * 1000 + 1,
+        nowMs: NOW_MS,
+      }),
+    ).toMatchObject({ kind: "noop", reason: "outside_nowcast_window" });
+  });
+
   test("returns a non-cluster anchor floor for flagged South OC beaches outside Trestles cluster", () => {
     const snapshot = buildSouthOcSanoShadowZoneSnapshot(
       [
@@ -227,7 +273,7 @@ describe("resolveSouthOcSanoShadowGuardrail", () => {
       resolveSouthOcSanoShadowGuardrail({
         beach: makeBeach("lower-trestles"),
         snapshot: confirmed,
-        forecastAtMs: NOW_MS + 2 * 60 * 60 * 1000,
+        forecastAtMs: NOW_MS + 7 * 60 * 60 * 1000,
         nowMs: NOW_MS,
       }).kind,
     ).toBe("noop");

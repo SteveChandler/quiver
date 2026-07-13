@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, type Page, type Route } from "@playwright/test";
 import { PNG } from "pngjs";
 import {
   setupErrorDetection,
@@ -68,18 +68,45 @@ async function layerExists(page: Page): Promise<boolean> {
   });
 }
 
-async function waitForLayer(page: Page): Promise<void> {
-  await page.waitForFunction(
-    () =>
-      Boolean(
-        (
-          window as unknown as {
-            __quiverMapInstance?: { getLayer: (id: string) => unknown };
-          }
-        ).__quiverMapInstance?.getLayer("quiver-swell-field")
-      ),
-    { timeout: 10000 }
-  );
+async function tryWaitForLayer(page: Page, timeout = 5000): Promise<boolean> {
+  return page
+    .waitForFunction(
+      () =>
+        Boolean(
+          (
+            window as unknown as {
+              __quiverMapInstance?: { getLayer: (id: string) => unknown };
+            }
+          ).__quiverMapInstance?.getLayer("quiver-swell-field")
+        ),
+      { timeout },
+    )
+    .then(() => true)
+    .catch(() => false);
+}
+
+async function requireRenderedSwellLayer(page: Page): Promise<void> {
+  await waitForMapIdle(page);
+  await expect(page.getByTestId("swell-layer-selector")).toBeVisible({
+    timeout: 30000,
+  });
+  if (await tryWaitForLayer(page, 3000)) return;
+
+  for (const testId of [
+    "swell-layer-s2",
+    "swell-layer-wind",
+    "swell-layer-combined",
+    "swell-layer-s1",
+  ]) {
+    const option = page.getByTestId(testId);
+    if (!(await option.isVisible({ timeout: 1000 }).catch(() => false))) {
+      continue;
+    }
+    await option.click();
+    if (await tryWaitForLayer(page, 5000)) return;
+  }
+
+  throw new Error("Expected a rendered swell field layer, but no layer was available");
 }
 
 async function canvasFrame(page: Page): Promise<Buffer> {
@@ -111,6 +138,179 @@ function changedPixelCount(left: Buffer, right: Buffer): number {
 
   return changed;
 }
+
+function hourlyTimelineChunk(
+  beachIds: string[],
+  start: string,
+  hours: number,
+  hasMore: boolean,
+): Record<string, unknown> {
+  const startMs = Date.parse(start);
+  const timestamps = Array.from({ length: hours }, (_, index) =>
+    new Date(startMs + index * 60 * 60 * 1000).toISOString(),
+  );
+
+  return {
+    success: true,
+    data: {
+      forecasts: Object.fromEntries(beachIds.map((beachId) => [beachId, "3.5 ft"])),
+      swellPartitions: Object.fromEntries(
+        beachIds.map((beachId) => [beachId, { s1Dir: 270, s1PeriodS: 14, s1HeightFt: 3.5 }]),
+      ),
+      hourlySwellTimeline: {
+        timestamps,
+        partitionsByBeach: Object.fromEntries(
+          beachIds.map((beachId) => [
+            beachId,
+            timestamps.map((_, index) =>
+              index === 7
+                ? null
+                : { s1Dir: 270, s1PeriodS: 14, s1HeightFt: 3.5 + index / 10 },
+            ),
+          ]),
+        ),
+        hasMore,
+        nextStart: hasMore
+          ? new Date(startMs + hours * 60 * 60 * 1000).toISOString()
+          : null,
+      },
+    },
+  };
+}
+
+async function routeExpandableTimeline(page: Page): Promise<{ requests: string[] }> {
+  const requests: string[] = [];
+  const initialStart = "2026-07-10T20:00:00.000Z";
+  const secondStart = "2026-07-12T02:00:00.000Z";
+
+  await page.route("**/api/forecasts/bulk?*", async (route: Route) => {
+    const url = new URL(route.request().url());
+    if (url.searchParams.get("timeline") !== "hourly") {
+      await route.continue();
+      return;
+    }
+
+    const start = url.searchParams.get("timelineStart") ?? initialStart;
+    requests.push(start);
+    const beachIds = (url.searchParams.get("beachIds") ?? "")
+      .split(",")
+      .filter(Boolean);
+    const body = start === secondStart
+      ? hourlyTimelineChunk(beachIds, secondStart, 24, false)
+      : hourlyTimelineChunk(beachIds, initialStart, 30, true);
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
+  });
+
+  return { requests };
+}
+
+async function firstMarkerAboveTimeline(page: Page, timelineTop: number): Promise<ReturnType<Page["getByTestId"]>> {
+  const markers = page.getByTestId("beach-marker");
+  const count = await markers.count();
+  for (let index = 0; index < count; index += 1) {
+    const marker = markers.nth(index);
+    const box = await marker.boundingBox();
+    if (box && box.y + box.height < timelineTop) return marker;
+  }
+  throw new Error("No visible beach marker is above the forecast timeline");
+}
+
+test.describe("expandable local forecast timeline", () => {
+  let errorCapture: ErrorCapture;
+
+  test.beforeEach(async ({ page }) => {
+    errorCapture = setupErrorDetection(page);
+  });
+
+  test.afterEach(async ({ page }) => {
+    await assertNoErrors(page, errorCapture, { context: "Expandable map forecast timeline" });
+  });
+
+  test("uses absolute Hawaii time, keyboard hours, and a second forecast chunk", async ({ page }) => {
+    const timeline = await routeExpandableTimeline(page);
+    await page.goto("/map?search=Waikiki");
+    await page.waitForLoadState("load");
+
+    const dayTimeline = page.getByTestId("swell-day-timeline");
+    await expect(dayTimeline).toBeVisible({ timeout: 30000 });
+    await expect(dayTimeline).toHaveAttribute("data-timezone", "Pacific/Honolulu");
+    await expect(page.getByText(/\+\d+h/)).toHaveCount(0);
+
+    const bubble = page.getByTestId("timeline-bubble");
+    await expect(bubble).toHaveText(/Fri 10 — 10 AM HST/);
+    const slider = page.getByRole("slider", { name: "Forecast time" });
+    await slider.press("ArrowRight");
+    await expect(bubble).toHaveText(/Fri 10 — 11 AM HST/);
+    await slider.press("PageDown");
+    await expect(bubble).toHaveText(/Sat 11 — 11 AM HST/);
+
+    await expect.poll(() => timeline.requests.filter((start) => start === "2026-07-12T02:00:00.000Z").length).toBe(1);
+    await expect(page.getByTestId("timeline-day-Sun-12")).toBeVisible();
+  });
+
+  test("keeps the mobile bubble, controls, and conditions callout inside the map timeline", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await routeExpandableTimeline(page);
+    await page.goto("/map");
+    await page.waitForLoadState("load");
+
+    const panel = page.getByTestId("timeline-panel");
+    const bubble = page.getByTestId("timeline-bubble");
+    await expect(panel).toBeVisible({ timeout: 30000 });
+    await expect(bubble).toBeVisible();
+
+    const [panelBox, bubbleBox, playBox, mapBox] = await Promise.all([
+      panel.boundingBox(),
+      bubble.boundingBox(),
+      page.getByRole("button", { name: "Play forecast timeline" }).boundingBox(),
+      page.getByTestId("map-container").boundingBox(),
+    ]);
+    expect(panelBox).not.toBeNull();
+    expect(bubbleBox).not.toBeNull();
+    expect(playBox).not.toBeNull();
+    expect(mapBox).not.toBeNull();
+    expect(panelBox!.x).toBeGreaterThanOrEqual(mapBox!.x);
+    expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(mapBox!.x + mapBox!.width);
+    expect(panelBox!.y + panelBox!.height).toBeLessThanOrEqual(mapBox!.y + mapBox!.height);
+    expect(bubbleBox!.x).toBeGreaterThanOrEqual(mapBox!.x);
+    expect(bubbleBox!.x + bubbleBox!.width).toBeLessThanOrEqual(mapBox!.x + mapBox!.width);
+    expect(playBox!.x).toBeGreaterThanOrEqual(mapBox!.x);
+    expect(playBox!.x + playBox!.width).toBeLessThanOrEqual(mapBox!.x + mapBox!.width);
+
+    await expect(page.getByTestId("beach-marker").first()).toBeVisible({ timeout: 30000 });
+    const marker = await firstMarkerAboveTimeline(page, panelBox!.y);
+    await marker.click();
+    const callout = page.locator('[data-conditions-callout="true"]');
+    await expect(callout).toBeVisible();
+    const calloutBox = await callout.boundingBox();
+    expect(calloutBox).not.toBeNull();
+    expect(calloutBox!.y + calloutBox!.height).toBeLessThanOrEqual(panelBox!.y);
+  });
+
+  test("keeps Hawaii pins and the swell field visible while playback skips a missing frame", async ({ page }) => {
+    await routeExpandableTimeline(page);
+    await page.goto("/map?search=Waikiki");
+    await page.waitForLoadState("load");
+    await waitForMapInstance(page);
+    await requireRenderedSwellLayer(page);
+
+    const markers = page.getByTestId("beach-marker");
+    await expect(markers.first()).toBeVisible({ timeout: 30000 });
+    const initialMarkerCount = await markers.count();
+    expect(initialMarkerCount).toBeGreaterThan(0);
+
+    await page.getByRole("button", { name: "Play forecast timeline" }).click();
+    await expect.poll(
+      async () => Number(await page.getByRole("slider", { name: "Forecast time" }).inputValue()),
+      { timeout: 10000 },
+    ).toBeGreaterThan(7);
+
+    expect(await markers.count()).toBe(initialMarkerCount);
+    await expect(markers.first()).toBeVisible();
+    await expect(page.getByTestId("swell-field-empty-note")).toHaveCount(0);
+    expect(await layerExists(page)).toBe(true);
+  });
+});
 
 async function waitForAnimatedCanvas(page: Page): Promise<void> {
   await expect
@@ -174,7 +374,7 @@ for (const viewport of [
       await waitForMapIdle(page);
 
       await expect(page.getByTestId("swell-layer-selector")).toBeVisible();
-      await waitForLayer(page);
+      expect(await layerExists(page)).toBe(true);
 
       await page.getByTestId("swell-field-toggle").click();
       await expect(page.getByTestId("swell-layer-selector")).toHaveCount(0);
@@ -182,7 +382,6 @@ for (const viewport of [
 
       await page.getByTestId("swell-field-toggle").click();
       await expect(page.getByTestId("swell-layer-selector")).toBeVisible();
-      await waitForLayer(page);
     });
 
     test("switches layers without console errors", async ({ page }) => {
@@ -205,19 +404,25 @@ for (const viewport of [
       expect(await layerExists(page)).toBe(true);
     });
 
-    test("keeps the forecast timeline inside the map legend", async ({ page }) => {
-      await page.goto("/map");
+    test("keeps layer controls in the legend while the public forecast timeline stays map-contained", async ({ page }) => {
+      await page.goto("/map?share=1");
       await page.waitForLoadState("load");
       await waitForMapInstance(page);
       await waitForMapIdle(page);
 
       const legend = page.getByTestId("map-condition-legend");
       const selector = page.getByTestId("swell-layer-selector");
-      const timeline = page.getByTestId("swell-forecast-timeline");
+      const timeline = page.getByTestId("swell-day-timeline");
+      const mapContainer = page.getByTestId("map-container");
 
       await expect(legend).toBeVisible();
       await expect(selector).toBeVisible();
       await expect(timeline).toBeVisible();
+      await expect(legend.getByTestId("swell-forecast-timeline")).toHaveCount(0);
+      await expect(legend.getByTestId("swell-day-timeline")).toHaveCount(0);
+      await expect(legend).toHaveCSS("background-color", "rgb(244, 235, 216)");
+      await expect(legend).toHaveCSS("color", "rgb(17, 16, 13)");
+      await expect(legend).toHaveCSS("border-top-width", "2px");
       await expect(legend.getByText("Worth it")).toBeVisible();
       await expect(legend.getByText("Scout it")).toBeVisible();
       await expect(legend.getByText("GOOD")).toHaveCount(0);
@@ -226,14 +431,36 @@ for (const viewport of [
       const legendBox = await legend.boundingBox();
       const selectorBox = await selector.boundingBox();
       const timelineBox = await timeline.boundingBox();
+      const mapContainerBox = await mapContainer.boundingBox();
 
       expect(legendBox).not.toBeNull();
       expect(selectorBox).not.toBeNull();
       expect(timelineBox).not.toBeNull();
+      expect(mapContainerBox).not.toBeNull();
+
+      expect(timelineBox!.x).toBeGreaterThanOrEqual(mapContainerBox!.x);
+      expect(timelineBox!.x + timelineBox!.width).toBeLessThanOrEqual(
+        mapContainerBox!.x + mapContainerBox!.width,
+      );
+      const fieldGuideBox = await page.locator("#map-field-guide-panel").boundingBox();
+      expect(fieldGuideBox).not.toBeNull();
+      const timelineOverlapsFieldGuide = !(
+        timelineBox!.x + timelineBox!.width <= fieldGuideBox!.x
+        || timelineBox!.x >= fieldGuideBox!.x + fieldGuideBox!.width
+        || timelineBox!.y + timelineBox!.height <= fieldGuideBox!.y
+        || timelineBox!.y >= fieldGuideBox!.y + fieldGuideBox!.height
+      );
+      expect(timelineOverlapsFieldGuide).toBe(false);
+      const timelineOverlapsLegend = !(
+        timelineBox!.x + timelineBox!.width <= legendBox!.x
+        || timelineBox!.x >= legendBox!.x + legendBox!.width
+        || timelineBox!.y + timelineBox!.height <= legendBox!.y
+        || timelineBox!.y >= legendBox!.y + legendBox!.height
+      );
+      expect(timelineOverlapsLegend).toBe(false);
 
       const visibleLegendBox = legendBox!;
       const visibleSelectorBox = selectorBox!;
-      const visibleTimelineBox = timelineBox!;
 
       expect(visibleSelectorBox.x).toBeGreaterThanOrEqual(visibleLegendBox.x);
       expect(visibleSelectorBox.y).toBeGreaterThanOrEqual(visibleLegendBox.y);
@@ -243,16 +470,6 @@ for (const viewport of [
       expect(
         visibleSelectorBox.y + visibleSelectorBox.height
       ).toBeLessThanOrEqual(visibleLegendBox.y + visibleLegendBox.height);
-      expect(visibleTimelineBox.x).toBeGreaterThanOrEqual(visibleLegendBox.x);
-      expect(visibleTimelineBox.y).toBeGreaterThanOrEqual(visibleLegendBox.y);
-      expect(
-        visibleTimelineBox.x + visibleTimelineBox.width
-      ).toBeLessThanOrEqual(visibleLegendBox.x + visibleLegendBox.width);
-      expect(
-        visibleTimelineBox.y + visibleTimelineBox.height
-      ).toBeLessThanOrEqual(
-        visibleLegendBox.y + visibleLegendBox.height
-      );
       expect(visibleLegendBox.width).toBeLessThanOrEqual(viewport.width - 12);
 
       await legend
@@ -274,42 +491,36 @@ for (const viewport of [
     });
 
     test("animates when motion allowed, static under reduced motion", async ({
-      browser,
+      page,
+      context,
     }) => {
       // Motion allowed.
-      const ctx1 = await browser.newContext({
-        reducedMotion: "no-preference",
-        viewport,
-      });
-      const page1 = await ctx1.newPage();
-      const cap1 = setupErrorDetection(page1);
-      await page1.goto("/map");
-      await page1.waitForLoadState("load");
-      await waitForMapInstance(page1);
-      await waitForLayer(page1);
-      await waitForAnimatedCanvas(page1);
-      const a = await canvasFrame(page1);
+      await page.emulateMedia({ reducedMotion: "no-preference" });
+      await routeExpandableTimeline(page);
+      await page.goto("/map");
+      await page.waitForLoadState("load");
+      await waitForMapInstance(page);
+      await requireRenderedSwellLayer(page);
+      await waitForAnimatedCanvas(page);
+      const a = await canvasFrame(page);
       // eslint-disable-next-line playwright/no-wait-for-timeout -- need two frames apart to observe animation
-      await page1.waitForTimeout(900);
-      const b = await canvasFrame(page1);
+      await page.waitForTimeout(900);
+      const b = await canvasFrame(page);
       expect(changedPixelCount(a, b)).toBeGreaterThan(250);
-      await assertNoErrors(page1, cap1);
-      await ctx1.close();
 
       // Reduced motion.
-      const ctx2 = await browser.newContext({
-        reducedMotion: "reduce",
-        viewport,
-      });
-      const page2 = await ctx2.newPage();
+      const page2 = await context.newPage();
+      await page2.setViewportSize(viewport);
+      await page2.emulateMedia({ reducedMotion: "reduce" });
+      await routeExpandableTimeline(page2);
       const cap2 = setupErrorDetection(page2);
       await page2.goto("/map");
       await page2.waitForLoadState("load");
       await waitForMapInstance(page2);
-      await waitForLayer(page2);
+      await requireRenderedSwellLayer(page2);
       await waitForStableCanvas(page2);
       await assertNoErrors(page2, cap2);
-      await ctx2.close();
+      await page2.close();
     });
   });
 }

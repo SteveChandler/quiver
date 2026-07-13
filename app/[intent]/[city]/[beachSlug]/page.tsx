@@ -1,4 +1,4 @@
-import { cache } from "react";
+import { cache, Suspense } from "react";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -19,7 +19,7 @@ import {
   cityToSlug,
   isValidStateSlug,
 } from "@/lib/utils/beach-url-utils";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { Beach } from "@/types/database";
 import type { BeachAmenities } from "@/types/amenities";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
@@ -114,10 +114,10 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         ? getTimezoneFromCoords(beach.lat, beach.lon)
         : null;
 
-    // Fetch surf report, nearby beaches, reviews, best time to surf URL, amenities, and water quality in parallel
+    // Fetch above-fold and structured-data essentials in parallel. Nearby spot
+    // enrichment streams below the tabs so it does not block the page shell.
     const [
       surfReportResult,
-      nearbyResult,
       reviewsResult,
       bestTimeToSurfUrl,
       amenitiesResult,
@@ -126,9 +126,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
       beachPhoto,
     ] = await Promise.all([
       getSpotSurfReportPublic(beach),
-      beach.lat && beach.lon
-        ? getNearbyBeaches(beach.lat, beach.lon, 25)
-        : Promise.resolve(null),
       getBeachReviews(beach.id),
       beach.city && beach.state
         ? getBestTimeToSurfUrl(cityToSlug(beach.city), beach.city, beach.state)
@@ -187,16 +184,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
     const reviews = reviewsResult.success ? (reviewsResult.data ?? []) : [];
 
-    let nearbyBeachesRaw: Beach[] = [];
-    if (nearbyResult?.success && nearbyResult.data) {
-      nearbyBeachesRaw = nearbyResult.data
-        .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
-        .slice(0, 4);
-    }
-
-    // Enrich nearby beaches with live conditions and photos
-    const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
-
     // Validate that the beach's state matches the URL state parameter
     const expectedStateSlug = stateToSlug(beach.state);
     if (stateParam.toLowerCase() !== expectedStateSlug) {
@@ -217,7 +204,7 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           expectedCity: expectedCitySlug,
           providedCity: city,
         });
-        notFound();
+        redirect(buildBeachUrl(beach));
       }
     } else {
       // Beach has no city data - this is an incomplete record
@@ -331,12 +318,9 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           }
           afterTabsContent={
             <div className="pt-2">
-              <ZineNearbySpots
-                beaches={nearbyBeaches}
-                sourceBeachName={beach.name}
-                sourceBeachLat={beach.lat}
-                sourceBeachLon={beach.lon}
-              />
+              <Suspense fallback={null}>
+                <DeferredZineNearbySpots beach={beach} />
+              </Suspense>
             </div>
           }
         />
@@ -365,6 +349,29 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     });
     notFound();
   }
+}
+
+async function DeferredZineNearbySpots({ beach }: { beach: Beach }) {
+  let nearbyBeachesRaw: Beach[] = [];
+  if (beach.lat && beach.lon) {
+    const nearbyResult = await getNearbyBeaches(beach.lat, beach.lon, 25);
+    if (nearbyResult.success && nearbyResult.data) {
+      nearbyBeachesRaw = nearbyResult.data
+        .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
+        .slice(0, 4);
+    }
+  }
+
+  const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
+
+  return (
+    <ZineNearbySpots
+      beaches={nearbyBeaches}
+      sourceBeachName={beach.name}
+      sourceBeachLat={beach.lat}
+      sourceBeachLon={beach.lon}
+    />
+  );
 }
 
 export async function generateMetadata(props: PageProps): Promise<Metadata> {

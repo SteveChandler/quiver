@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import type { Beach } from "@/types/database";
 import { validateCoordinates } from "@/lib/coordinate-validation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const BeachIntelSection = dynamic(
   () =>
@@ -39,7 +40,20 @@ export function IntelTab({
   }, [beach.lat, beach.lon, beach.name, beach.id]);
 
   if (beach.lat == null || beach.lon == null) {
-    return null;
+    return (
+      <div className="py-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Local Intel</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground">
+              Local intel is unavailable for this spot right now.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (

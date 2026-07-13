@@ -176,12 +176,12 @@ describe("PartnerQrLandingClient", () => {
     );
   });
 
-  it("shows Android waitlist CTA and tracks it as a partner destination", async () => {
+  it("shows Android beta CTA and tracks it as a partner destination", async () => {
     setUserAgent("Mozilla/5.0 (Linux; Android 14)");
     render(<PartnerQrLandingClient {...defaultProps} />);
 
     const androidCta = await screen.findByRole("button", {
-      name: /join android waitlist/i,
+      name: /get the android beta/i,
     });
     fireEvent.click(androidCta);
 

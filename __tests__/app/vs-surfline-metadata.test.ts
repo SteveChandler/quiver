@@ -5,11 +5,20 @@ import { metadata } from "@/app/vs/surfline/page";
 
 describe("Surfline comparison SEO metadata", () => {
   it("targets Surfline alternative intent without free positioning", () => {
-    expect(metadata.title).toBe("Surfline Alternative: Quiver vs Surfline");
+    const title =
+      typeof metadata.title === "object" && metadata.title !== null
+        ? metadata.title
+        : {};
+
+    expect(metadata.title).toEqual({
+      absolute: "Surfline Alternative: Quiver vs Surfline",
+    });
     expect(metadata.description).toBe(
       "Compare Quiver and Surfline on surf forecasts, cams, tide charts, session logs, accuracy transparency, and when each app fits.",
     );
-    expect(`${metadata.title} ${metadata.description}`).not.toMatch(/\bfree\b/i);
+    expect(
+      `${"absolute" in title ? title.absolute : ""} ${metadata.description}`,
+    ).not.toMatch(/\bfree\b/i);
   });
 
   it("keeps comparison copy out of free positioning", () => {

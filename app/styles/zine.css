@@ -234,7 +234,7 @@
   color: var(--ink);
 }
 
-.theme-retro-dark .zine-tab input[data-zine-input="true"] {
+.theme-retro-dark input[data-zine-input="true"] {
   background-color: #F4EBD8 !important;
   border-color: #11100D !important;
   color: #11100D !important;
@@ -585,6 +585,116 @@ body:has(.zine-page) {
   letter-spacing: 0.06em !important;
   text-transform: uppercase;
   font-size: 11px !important;
+}
+
+/* ─── Custom spot borrowed forecast table ───────────────────
+   The shared forecast table is built for the dark app palette. On
+   zine paper, pin the custom spot instance to ink-on-cream so rows
+   and muted helper text remain readable under the paper grain.
+   ─────────────────────────────────────────────────────────── */
+.zine-page .zine-forecast-table {
+  color: #11100D;
+}
+
+.zine-page .zine-forecast-table table {
+  background: #FFF8E8 !important;
+  border-color: rgba(17, 16, 13, 0.42) !important;
+  border-radius: 0 !important;
+}
+
+.zine-page .zine-forecast-table thead tr,
+.zine-page .zine-forecast-table button {
+  background: #D8C094 !important;
+  color: #11100D !important;
+  border-color: rgba(17, 16, 13, 0.5) !important;
+  border-radius: 0 !important;
+}
+
+.zine-page .zine-forecast-table button:hover,
+.zine-page .zine-forecast-table tbody tr:hover {
+  background: #CDAF79 !important;
+}
+
+.zine-page .zine-forecast-table th,
+.zine-page .zine-forecast-table td {
+  color: #11100D !important;
+  border-color: rgba(17, 16, 13, 0.3) !important;
+}
+
+.zine-page .zine-forecast-table th {
+  font-weight: 900 !important;
+  letter-spacing: 0.04em;
+}
+
+.zine-page .zine-forecast-table tbody tr {
+  border-color: rgba(17, 16, 13, 0.28) !important;
+}
+
+.zine-page .zine-forecast-table tbody tr:nth-child(odd) {
+  background: #FFF8E8 !important;
+}
+
+.zine-page .zine-forecast-table tbody tr:nth-child(even) {
+  background: #E5D2A9 !important;
+}
+
+.zine-page .zine-forecast-table .text-foreground,
+.zine-page .zine-forecast-table .text-muted-foreground,
+.zine-page .zine-forecast-table .text-sky-500,
+.zine-page .zine-forecast-table .text-blue-800 {
+  color: #11100D !important;
+  opacity: 1 !important;
+}
+
+.zine-page .zine-forecast-table .text-green-600,
+.zine-page .zine-forecast-table .text-green-700 {
+  color: #136E35 !important;
+}
+
+.zine-page .zine-forecast-table .text-yellow-600,
+.zine-page .zine-forecast-table .text-yellow-700 {
+  color: #7A4B00 !important;
+}
+
+.zine-page .zine-forecast-table .text-red-600,
+.zine-page .zine-forecast-table .text-red-700 {
+  color: #8F1D1D !important;
+}
+
+.zine-page .zine-forecast-table .bg-blue-100 {
+  background-color: #F1B273 !important;
+  box-shadow: inset 0 0 0 1.5px rgba(17, 16, 13, 0.28);
+}
+
+.zine-page .zine-forecast-table .bg-blue-500 {
+  background-color: #11100D !important;
+}
+
+.zine-page .zine-forecast-table .bg-green-500 {
+  background-color: #136E35 !important;
+}
+
+.zine-page .zine-forecast-table .bg-yellow-500 {
+  background-color: #A06000 !important;
+}
+
+.zine-page .zine-forecast-table .bg-red-500 {
+  background-color: #8F1D1D !important;
+}
+
+.zine-page .zine-forecast-table .rounded-lg,
+.zine-page .zine-forecast-table .rounded-md {
+  border-radius: 0 !important;
+}
+
+.zine-page .zine-forecast-table [data-testid="primary-wave-height"],
+.zine-page .zine-forecast-table [data-testid="primary-wave-height"] * {
+  color: #11100D !important;
+}
+
+.zine-page .zine-forecast-table [role="tooltip"],
+.zine-page .zine-forecast-table [role="tooltip"] * {
+  color: inherit;
 }
 
 /* ─── Horizon strip day cards on cream paper ─────────────────

@@ -3,10 +3,12 @@ import path from "node:path";
 
 import {
   buildAeoCitationExport,
+  discoverLatestAeoCitationReport,
   discoverLatestAhrefsSnapshot,
   extractAhrefsAeoSummary,
   extractAiReferrers,
   inspectLlmsFiles,
+  parseAeoCitationReport,
 } from "../../lib/seo/agent-workflow/aeo-export";
 import { currentAuditDate, resolveSeoAuditDir, resolveSeoAuditFile } from "../../lib/seo/agent-workflow/audit-paths";
 import type { VercelExportInput } from "../../lib/seo/agent-workflow/types";
@@ -36,11 +38,24 @@ async function main(): Promise<void> {
     path.join(process.cwd(), "public", "llms-full.txt"),
   ]);
 
+  const citationReportPath = getFlag("--citation-report") ??
+    discoverLatestAeoCitationReport(
+      path.join(process.cwd(), "docs", "seo", "reports", "aeo-citation-tracking"),
+    );
+  const citationMarkdown = citationReportPath && fs.existsSync(citationReportPath)
+    ? fs.readFileSync(citationReportPath, "utf8")
+    : "";
+  const narrativeBaseline = citationMarkdown
+    ? parseAeoCitationReport(citationMarkdown, citationReportPath ?? "")
+    : undefined;
+  if (!narrativeBaseline) missing.push("docs/seo/reports/aeo-citation-tracking/*.md");
+
   const result = buildAeoCitationExport(new Date().toISOString(), {
     aiReferrers: extractAiReferrers(vercel ?? undefined),
     engines: ahrefsSummary.engines,
     citationDomains: ahrefsSummary.citationDomains,
     llmsFiles,
+    narrativeBaseline,
     missing,
   });
 

@@ -11,6 +11,12 @@ import { formatDistanceDisplay } from "@/lib/utils/distance-utils";
 import { formatTimeWindowCompact, formatTimeCasual } from "@/lib/utils/date-time";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 import { track } from "@/lib/analytics";
+import type {
+  RecommendationImpressionInput,
+  RecommendationImpressionSurface,
+} from "@/lib/recommendations/impressions";
+import { buildRecommendationImpressionInput } from "@/lib/recommendations/attribution";
+import { useRecommendationImpression } from "@/hooks/use-recommendation-impression";
 
 /**
  * Short variants for condition badge labels on mobile
@@ -39,6 +45,9 @@ export interface CompactSpotCardProps {
   onTap: (beachId: string) => void;
   /** Whether this is a featured/first card */
   featured?: boolean;
+  impressionRank?: number;
+  impressionSurface?: RecommendationImpressionSurface;
+  timeSlot?: RecommendationImpressionInput["timeSlot"];
 }
 
 /**
@@ -70,6 +79,9 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
   recommendation,
   onTap,
   featured = false,
+  impressionRank,
+  impressionSurface,
+  timeSlot,
 }: CompactSpotCardProps) {
   const { beach, score, window, distanceMiles, conditionBadges } = recommendation;
   const formattedScore = formatDiscoveryScore(score);
@@ -84,6 +96,16 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
   const windowMinutes = (window.end.getTime() - window.start.getTime()) / (1000 * 60);
   const peakTimeCasual = window.peakTime ? formatTimeCasual(window.peakTime, window.timezone) : null;
   const showBestAtTag = windowMinutes > 180 && peakTimeCasual;
+  const impressionRef = useRecommendationImpression<HTMLDivElement>(
+    impressionSurface && impressionRank
+      ? buildRecommendationImpressionInput({
+          recommendation,
+          rank: impressionRank,
+          surface: impressionSurface,
+          timeSlot: timeSlot ?? undefined,
+        })
+      : null
+  );
 
   // Track when favorite is shown in carousel
   useEffect(() => {
@@ -97,6 +119,7 @@ export const CompactSpotCard = React.memo(function CompactSpotCard({
 
   return (
     <Card
+      ref={impressionRef}
       className={cn(
         "w-[140px] xs:w-[160px] sm:w-[180px] h-[160px] xs:h-[180px] sm:h-[200px]",
         "shrink-0 snap-start cursor-pointer",

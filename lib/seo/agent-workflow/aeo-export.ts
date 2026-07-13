@@ -2,9 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 import type {
+  AeoCitationBaselineSegment,
   AeoCitationDomainSnapshot,
   AeoCitationEngineSnapshot,
   AeoCitationInput,
+  AeoCitationNarrativeBaseline,
   VercelExportInput,
 } from "./types";
 
@@ -27,6 +29,7 @@ export function buildAeoCitationExport(
     engines: input.engines ?? [],
     citationDomains: input.citationDomains ?? [],
     llmsFiles: input.llmsFiles ?? [],
+    narrativeBaseline: input.narrativeBaseline,
     missing: input.missing ?? [],
   };
 }
@@ -96,6 +99,56 @@ export function inspectLlmsFiles(paths: string[]): AeoCitationInput["llmsFiles"]
   });
 }
 
+export function discoverLatestAeoCitationReport(dir: string): string | null {
+  if (!fs.existsSync(dir)) return null;
+  const files = fs.readdirSync(dir)
+    .filter((name) => /^\d{4}-\d{2}-\d{2}\.md$/.test(name))
+    .sort();
+  const last = files.at(-1);
+  return last ? path.join(dir, last) : null;
+}
+
+export function parseAeoCitationReport(
+  markdown: string,
+  reportPath = "",
+): AeoCitationNarrativeBaseline {
+  const dateFromHeading = markdown
+    .match(/#\s*AEO Citation Tracking\s*-\s*(\d{4}-\d{2}-\d{2})/i)?.[1];
+  const dateFromPath = path.basename(reportPath).match(/(\d{4}-\d{2}-\d{2})/)?.[1];
+  const reportDate = dateFromHeading ?? dateFromPath ?? "";
+  const status = markdown.match(/^Status:\s*(.+)$/im)?.[1]?.trim();
+
+  const segments: AeoCitationBaselineSegment[] = [];
+  let overall: AeoCitationBaselineSegment | undefined;
+
+  for (const line of markdown.split(/\r?\n/)) {
+    if (!line.trim().startsWith("|")) continue;
+    const cells = line.trim().replace(/^\|/, "").replace(/\|$/, "")
+      .split("|")
+      .map((cell) => cell.trim());
+    if (cells.length < 4) continue;
+    const segment = cells[0] ?? "";
+    if (!segment || /^segment$/i.test(segment) || /^:?-{2,}:?$/.test(segment)) {
+      continue;
+    }
+
+    const cited = parseIntCell(cells[1]);
+    const total = parseIntCell(cells[2]);
+    if (cited === null || total === null || total <= 0) continue;
+    const rate = parseRateCell(cells[3]) ?? cited / total;
+    const row: AeoCitationBaselineSegment = {
+      segment,
+      cited,
+      total,
+      rate,
+    };
+    if (/^all( queries)?$/i.test(segment)) overall = row;
+    else segments.push(row);
+  }
+
+  return { reportDate, reportPath, status, overall, segments };
+}
+
 export function discoverLatestAhrefsSnapshot(auditDir: string): string | null {
   const explicit = path.join(auditDir, "AHREFS-SCREENSHOT-INPUT.json");
   if (fs.existsSync(explicit)) return explicit;
@@ -128,4 +181,18 @@ function numberValue(value: unknown): number | undefined {
 
 function isDefined<T>(value: T | null): value is T {
   return value !== null;
+}
+
+function parseIntCell(value: string | undefined): number | null {
+  if (typeof value !== "string") return null;
+  const match = value.replace(/,/g, "").match(/-?\d+/);
+  return match ? Number(match[0]) : null;
+}
+
+function parseRateCell(value: string | undefined): number | null {
+  if (typeof value !== "string") return null;
+  const match = value.match(/([\d.]+)\s*%/);
+  if (!match) return null;
+  const parsed = Number(match[1]);
+  return Number.isFinite(parsed) ? parsed / 100 : null;
 }

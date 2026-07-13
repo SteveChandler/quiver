@@ -232,7 +232,8 @@ describe("Sitemap URLs are Canonical", () => {
     /**
      * Beach routes should use hierarchical URLs when data is complete:
      * /{state}/{city}/{beach-slug} for US beaches
-     * /spots/{beach-slug} for incomplete or international beaches
+     * Legacy /spots/{beach-slug} requests are retired at the App Router page
+     * layer; sitemap URLs should still be final hierarchical destinations.
      */
     it("hierarchical beach URLs do not redirect", async () => {
       const beachPaths = [
@@ -240,6 +241,10 @@ describe("Sitemap URLs are Canonical", () => {
         "/ca/malibu/surfrider",
         "/hi/oahu/pipeline",
       ];
+      const unexpectedRedirects: Array<{
+        path: string;
+        target: string;
+      }> = [];
 
       for (const path of beachPaths) {
         // Note: These may trigger a DB lookup to verify beach exists,
@@ -253,12 +258,16 @@ describe("Sitemap URLs are Canonical", () => {
           // NOT to a different URL structure
           const originalSegments = path.split("/").filter(Boolean);
           const targetSegments = result.url.split("/").filter(Boolean);
-          expect(targetSegments.length).toBe(originalSegments.length);
+          if (targetSegments.length !== originalSegments.length) {
+            unexpectedRedirects.push({ path, target: result.url });
+          }
         }
       }
+
+      expect(unexpectedRedirects).toEqual([]);
     });
 
-    it("/spots/{slug} URLs do not redirect", async () => {
+    it("/spots/{slug} URLs are not middleware redirects", async () => {
       const spotsPaths = [
         "/spots/sunset-cliffs",
         "/spots/mystery-break",

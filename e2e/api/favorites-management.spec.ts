@@ -13,6 +13,10 @@
 import { test, expect } from '../fixtures/auth-fixture';
 import type { APIRequestContext } from '@playwright/test';
 import { TEST_BEACHES } from '../fixtures/test-data';
+import {
+  getLocalBeachBySlug,
+  isLocalE2ETarget,
+} from '../utils/local-supabase-fixtures';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
 const FAVORITES_ENDPOINT = `${BASE_URL}/api/beaches/favorites`;
@@ -27,6 +31,11 @@ async function resolveBeachUuid(
 ): Promise<string> {
   // Dev fixtures already provide UUIDs.
   if (UUID_REGEX.test(beach.id)) return beach.id;
+
+  if (isLocalE2ETarget()) {
+    const localBeach = await getLocalBeachBySlug(beach.slug ?? beach.id);
+    if (UUID_REGEX.test(localBeach.id)) return localBeach.id;
+  }
 
   // Local fixtures use slugs as "id". Resolve to a UUID by listing beaches.
   const response = await request.get(`${BASE_URL}/api/beaches`);
@@ -273,12 +282,12 @@ test.describe('Favorites Management API', () => {
         const testBeachId = validBeachId;
 
         const beforeResponse = await request.get(FAVORITES_ENDPOINT);
-        // Skip if favorites endpoint is rate-limited or unavailable
-        if (beforeResponse.status() === 429 || !beforeResponse.ok()) {
-          test.skip(true, `Favorites API returned ${beforeResponse.status()} — rate limited or unavailable`);
-          return;
-        }
-        const beforeJson = await beforeResponse.json();
+        const beforeText = await beforeResponse.text();
+        expect(
+          beforeResponse.ok(),
+          `Favorites API returned ${beforeResponse.status()}: ${beforeText}`,
+        ).toBeTruthy();
+        const beforeJson = JSON.parse(beforeText);
         const wasFavorited = (beforeJson.data?.beaches || []).some((b: any) => b.id === testBeachId);
 
         // First toggle (flip state)

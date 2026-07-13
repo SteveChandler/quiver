@@ -472,6 +472,13 @@ export default function VsSurflinePage() {
               On a budget? See the no-subscription rundown
               <ArrowRight className="h-4 w-4" />
             </Link>
+            <Link
+              href="/best-surf-forecast-app"
+              className="mt-2 inline-flex items-center gap-1.5 text-sm font-semibold text-[#252D6B] underline-offset-4 transition-colors hover:text-[#F78E42] hover:underline"
+            >
+              Choosing tools? Compare surf forecast apps by job
+              <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
 
           <FadeInSection delay={150} className="relative min-h-[340px] sm:min-h-[430px] lg:min-h-[560px]">

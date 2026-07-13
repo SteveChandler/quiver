@@ -3,6 +3,8 @@ import path from "node:path";
 import { parse as parseCsv } from "csv-parse/sync";
 
 import type {
+  BacklinkNarrativeReport,
+  BacklinkNarrativeTarget,
   BacklinkProxyInput,
   ManualBacklinkExport,
   VercelExportInput,
@@ -27,6 +29,7 @@ export function buildBacklinkProxy(
     embedReferrers?: VercelReferrerMetric[];
     outreachMarkdown?: string;
     manualExports?: ManualBacklinkExport[];
+    narrativeTargets?: BacklinkNarrativeReport;
     missing?: string[];
   },
 ): BacklinkProxyInput {
@@ -36,6 +39,7 @@ export function buildBacklinkProxy(
     embedReferrers: options.embedReferrers ?? [],
     outreachStatuses: parseOutreachStatuses(options.outreachMarkdown ?? ""),
     manualExports: options.manualExports ?? [],
+    narrativeTargets: options.narrativeTargets,
     missing: options.missing ?? [],
   };
 }
@@ -90,6 +94,78 @@ export function parseOutreachStatuses(markdown: string): Array<{ target: string;
       return { target: cells[0] ?? "", status: status ?? "" };
     })
     .filter((row) => row.target.length > 0 && row.status.length > 0);
+}
+
+export function discoverLatestBacklinkReport(dir: string): string | null {
+  if (!fs.existsSync(dir)) return null;
+  const files = fs.readdirSync(dir)
+    .filter((name) => /^\d{4}-\d{2}-\d{2}\.md$/.test(name))
+    .sort();
+  const last = files.at(-1);
+  return last ? path.join(dir, last) : null;
+}
+
+export function parseBacklinkReport(
+  markdown: string,
+  reportPath = "",
+): BacklinkNarrativeReport {
+  const dateFromHeading = markdown
+    .match(/#\s*Weekly Backlink Scan\s*-\s*(\d{4}-\d{2}-\d{2})/i)?.[1];
+  const dateFromPath = path.basename(reportPath).match(/(\d{4}-\d{2}-\d{2})/)?.[1];
+  const reportDate = dateFromHeading ?? dateFromPath ?? "";
+
+  const confirmed: BacklinkNarrativeTarget[] = [];
+  const unverified: BacklinkNarrativeTarget[] = [];
+  let section: "confirmed" | "unverified" | null = null;
+  let header: string[] | null = null;
+
+  for (const line of markdown.split(/\r?\n/)) {
+    const heading = line.match(/^#{2,3}\s+(.*)$/);
+    if (heading) {
+      const text = (heading[1] ?? "").toLowerCase();
+      section = /confirmed target/.test(text)
+        ? "confirmed"
+        : /unverified target/.test(text)
+          ? "unverified"
+          : null;
+      header = null;
+      continue;
+    }
+
+    if (!line.trim().startsWith("|")) {
+      header = null;
+      continue;
+    }
+    if (!section) continue;
+
+    const cells = line.trim().replace(/^\|/, "").replace(/\|$/, "")
+      .split("|")
+      .map((cell) => cell.trim());
+    if (cells.every((cell) => /^:?-{2,}:?$/.test(cell) || cell === "")) {
+      continue;
+    }
+    if (!header) {
+      header = cells.map(normalizeHeader);
+      continue;
+    }
+
+    const cols = header;
+    const target = cells[0] ?? "";
+    if (!target || /^target$/i.test(target)) continue;
+    const get = (name: string): string => {
+      const index = cols.indexOf(name);
+      return index >= 0 ? (cells[index] ?? "").trim() : "";
+    };
+    const row: BacklinkNarrativeTarget = {
+      target,
+      sourceUrl: get("sourceurl") || undefined,
+      status: get("status") || section,
+      nextAction: get("nextaction") || undefined,
+    };
+    (section === "confirmed" ? confirmed : unverified).push(row);
+  }
+
+  return { reportDate, reportPath, confirmed, unverified };
 }
 
 function parseManualBacklinkExport(filePath: string): ManualBacklinkExport {

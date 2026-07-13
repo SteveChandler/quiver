@@ -15,6 +15,7 @@ import { TIMEOUTS } from "./fixtures/test-data";
 import { ensureAuthenticated, waitForPageLoad } from "./utils/test-helpers";
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 import { isVisibleSafe } from './utils/strict-helpers';
+import { mockOnboardingBeachSearch } from './helpers/onboarding-flow';
 
 test.describe("Onboarding - close + view full forecast", () => {
   let errorCapture: ErrorCapture;
@@ -31,6 +32,8 @@ test.describe("Onboarding - close + view full forecast", () => {
   test("close button dismisses, and completion CTA routes to forecast tab", async ({
     page,
   }) => {
+    await mockOnboardingBeachSearch(page);
+
     // Force onboarding to show in a predictable way.
     await page.goto("/?showOnboarding=1&debugOnboarding=1");
     await waitForPageLoad(page);
@@ -47,7 +50,7 @@ test.describe("Onboarding - close + view full forecast", () => {
     });
 
     // Step 1: Home beach — label is now uppercase tracking text
-    await page.locator('#beachSearch').fill("Blacks");
+    await page.locator('#beachSearch').fill("Mission Beach");
 
     // Home beach results are rendered as buttons in a dark dropdown beneath the input.
     // Click the first result row (most relevant match).
@@ -88,19 +91,10 @@ test.describe("Onboarding - close + view full forecast", () => {
     // The home page now uses a time slot filter instead of tabs
     const timeSlotFilter = page.getByRole('radiogroup', { name: /time slot filter/i });
     const hasTimeSlotFilter = await isVisibleSafe(timeSlotFilter, { timeout: TIMEOUTS.long });
+    const greeting = page.getByRole('heading', { level: 1 }).first();
+    const hasGreeting = await isVisibleSafe(greeting, { timeout: TIMEOUTS.medium });
 
-    if (hasTimeSlotFilter) {
-      // New UI with time slot filter
-      await expect(timeSlotFilter).toBeVisible();
-    } else {
-      // Fallback: check for any home page content (greeting, recommendation, or error state)
-      const greeting = page.getByRole('heading', { level: 1 }).first();
-      const hasGreeting = await isVisibleSafe(greeting, { timeout: TIMEOUTS.medium });
-
-      // At minimum, the home page should have loaded with some content
-      expect(hasGreeting).toBe(true);
-    }
+    expect(hasTimeSlotFilter || hasGreeting).toBe(true);
   });
 });
-
 

@@ -150,6 +150,9 @@ describe("/custom-spots/[id] page", () => {
     );
     expect(screen.getByText("Borrowed from Ocean Beach")).toBeInTheDocument();
     expect(screen.getByText(/Forecast borrowed from Ocean Beach/i)).toBeInTheDocument();
+    expect(screen.getByTestId("custom-spot-forecast-table")).toHaveClass(
+      "zine-forecast-table",
+    );
     expect(screen.getByTestId("conditions-ticker")).toHaveTextContent(
       "Public Peak",
     );
