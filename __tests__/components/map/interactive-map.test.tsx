@@ -9,7 +9,9 @@ const mockMarkerInstances: Array<{
 const mockMapHandlers: Record<string, Array<(...args: unknown[]) => void>> = {};
 const mockRouterPush = jest.fn();
 const mockTrackSignupCtaClick = jest.fn();
+const mockTrackEvent = jest.fn();
 let mockUser: { id: string } | null = null;
+let mockMapCenter = { lat: 32.7493, lng: -117.2511 };
 
 jest.mock("mapbox-gl", () => ({
   Map: jest.fn(() => ({
@@ -21,7 +23,7 @@ jest.mock("mapbox-gl", () => ({
     }),
     off: jest.fn(),
     remove: jest.fn(),
-    getCenter: jest.fn(() => ({ lat: 32.7493, lng: -117.2511 })),
+    getCenter: jest.fn(() => mockMapCenter),
     getZoom: jest.fn(() => 13),
     getMaxZoom: jest.fn(() => 22),
     getMinZoom: jest.fn(() => 0),
@@ -85,7 +87,7 @@ jest.mock("@/lib/analytics/signup-conversion-tracking", () => ({
 }));
 
 jest.mock("@/hooks/use-track-event", () => ({
-  useTrackEvent: () => ({ track: jest.fn() }),
+  useTrackEvent: () => ({ track: mockTrackEvent }),
 }));
 
 jest.mock("@/lib/utils/request-cache", () => ({
@@ -111,6 +113,12 @@ describe("InteractiveMap", () => {
     mockMarkerInstances.length = 0;
     for (const key of Object.keys(mockMapHandlers)) delete mockMapHandlers[key];
     mockUser = null;
+    mockMapCenter = { lat: 32.7493, lng: -117.2511 };
+    delete (
+      window as typeof window & {
+        __quiverMapDebugCenter?: { lat: number; lon: number };
+      }
+    ).__quiverMapDebugCenter;
   });
 
   function getLastCustomSpotMarkerElement(id: string): HTMLElement {
@@ -122,6 +130,302 @@ describe("InteractiveMap", () => {
 
     return matchingCalls[matchingCalls.length - 1][0].element;
   }
+
+  function getMapInstance(): {
+    flyTo: jest.Mock;
+    getCenter: jest.Mock;
+    setMaxBounds: jest.Mock;
+  } {
+    const Map = require("mapbox-gl").Map;
+    return Map.mock.results[Map.mock.results.length - 1].value;
+  }
+
+  it("applies each camera command once and reports real camera gestures", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onUserCameraInteraction = jest.fn();
+    const command = {
+      id: 1,
+      source: "region" as const,
+      center: { lat: 21.28, lon: -157.85 },
+    };
+    const { rerender } = render(
+      <InteractiveMap
+        beaches={[]}
+        cameraCommand={command}
+        onUserCameraInteraction={onUserCameraInteraction}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(getMapInstance().flyTo).toHaveBeenCalledWith({
+        center: [-157.85, 21.28],
+        zoom: 13,
+        duration: 800,
+      });
+    });
+
+    rerender(
+      <InteractiveMap
+        beaches={[]}
+        cameraCommand={command}
+        onUserCameraInteraction={onUserCameraInteraction}
+      />,
+    );
+    expect(getMapInstance().flyTo).toHaveBeenCalledTimes(1);
+
+    const maxBoundsCallsBeforeInterruption =
+      getMapInstance().setMaxBounds.mock.calls.length;
+    act(() => {
+      mockMapHandlers.dragstart[0]({ originalEvent: new MouseEvent("mousedown") });
+    });
+    expect(onUserCameraInteraction).toHaveBeenCalledWith({
+      action: "pan",
+      center: { lat: 32.7493, lon: -117.2511 },
+      phase: "start",
+    });
+    await waitFor(() => {
+      expect(getMapInstance().setMaxBounds.mock.calls.length).toBeGreaterThan(
+        maxBoundsCallsBeforeInterruption,
+      );
+    });
+
+    act(() => {
+      mockMapHandlers.zoomstart[0]({ type: "zoomstart" });
+    });
+    expect(onUserCameraInteraction).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      mockMapHandlers.zoomstart[0]({
+        originalEvent: new WheelEvent("wheel"),
+      });
+    });
+    expect(onUserCameraInteraction).toHaveBeenLastCalledWith({
+      action: "zoom",
+      center: { lat: 32.7493, lon: -117.2511 },
+      phase: "start",
+    });
+  });
+
+  it("reports only a user gesture's final moveend center", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onUserCameraInteraction = jest.fn();
+    render(
+      <InteractiveMap beaches={[]} onUserCameraInteraction={onUserCameraInteraction} />,
+    );
+
+    await waitFor(() => expect(mockMapHandlers.moveend).toHaveLength(1));
+    mockMapCenter = { lat: 21.28, lng: -157.85 };
+    act(() => mockMapHandlers.moveend[0]());
+    expect(onUserCameraInteraction).not.toHaveBeenCalled();
+
+    mockMapCenter = { lat: 32.75, lng: -117.25 };
+    act(() => {
+      mockMapHandlers.dragstart[0]({ originalEvent: new MouseEvent("mousedown") });
+    });
+    mockMapCenter = { lat: 21.29, lng: -157.86 };
+    act(() => mockMapHandlers.moveend[0]());
+
+    expect(onUserCameraInteraction).toHaveBeenNthCalledWith(1, {
+      action: "pan",
+      center: { lat: 32.75, lon: -117.25 },
+      phase: "start",
+    });
+    expect(onUserCameraInteraction).toHaveBeenNthCalledWith(2, {
+      action: "pan",
+      center: { lat: 21.29, lon: -157.86 },
+      phase: "end",
+    });
+  });
+
+  it("does not reapply stale beach bounds after a cross-region command and drag", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    render(
+      <InteractiveMap
+        beaches={[{
+          id: "san-diego",
+          name: "San Diego",
+          lat: 32.75,
+          lon: -117.25,
+        } as import("@/types/database").Beach]}
+        showSwellField
+        cameraCommand={{
+          id: 1,
+          source: "region",
+          center: { lat: 21.28, lon: -157.85 },
+        }}
+      />,
+    );
+
+    await waitFor(() => expect(getMapInstance().flyTo).toHaveBeenCalled());
+    mockMapCenter = { lat: 21.28, lng: -157.85 };
+    act(() => {
+      mockMapHandlers.dragstart[0]({ originalEvent: new MouseEvent("mousedown") });
+      mockMapHandlers.moveend[0]();
+    });
+
+    await waitFor(() => {
+      expect(getMapInstance().setMaxBounds.mock.calls.at(-1)?.[0]).toBeNull();
+    });
+  });
+
+  it("exposes the first validated absolute hourly envelope for an embed", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onHourlyTimelineLoaded = jest.fn();
+    const timeline = {
+      timestamps: [
+        "2026-07-10T20:00:00.000Z",
+        "2026-07-10T21:00:00.000Z",
+      ],
+      partitionsByBeach: { "beach-1": [null, null] },
+      hasMore: false,
+      nextStart: null,
+    };
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { forecasts: {}, hourlySwellTimeline: timeline } }),
+    })) as jest.Mock;
+
+    render(
+      <InteractiveMap
+        beaches={[{ id: "beach-1", name: "Beach", lat: 32.75, lon: -117.25 } as import("@/types/database").Beach]}
+        onHourlyTimelineLoaded={onHourlyTimelineLoaded}
+        swellTimelineMode="hourly"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(onHourlyTimelineLoaded).toHaveBeenCalledWith(timeline);
+    });
+  });
+
+  it("does not carry a prior hourly frame into a missing absolute timestamp", async () => {
+    const interactiveMapModule = await import("@/components/map/interactive-map");
+    const resolve = (interactiveMapModule as Record<string, unknown>).partitionAtAbsoluteTimelineIndex;
+    const firstFrame = { swell1Height: 2 };
+    const timeline = {
+      timestamps: [
+        "2026-07-10T20:00:00.000Z",
+        "2026-07-10T21:00:00.000Z",
+        "2026-07-10T22:00:00.000Z",
+      ],
+      partitionsByBeach: { "beach-1": [firstFrame, null, { swell1Height: 4 }] },
+      hasMore: false,
+      nextStart: null,
+    };
+    const partition = typeof resolve === "function"
+      ? resolve(timeline, "beach-1", 1)
+      : firstFrame;
+
+    expect(partition).toBeUndefined();
+
+    const malformedTimestampPartition = typeof resolve === "function"
+      ? resolve(
+        {
+          ...timeline,
+          timestamps: ["not-a-timestamp"],
+          partitionsByBeach: { "beach-1": [firstFrame] },
+        },
+        "beach-1",
+        0,
+      )
+      : firstFrame;
+    expect(malformedTimestampPartition).toBeUndefined();
+
+    const nonHourlyTimestampPartition = typeof resolve === "function"
+      ? resolve(
+        {
+          ...timeline,
+          timestamps: ["2026-07-10T20:30:00.000Z"],
+          partitionsByBeach: { "beach-1": [firstFrame] },
+        },
+        "beach-1",
+        0,
+      )
+      : firstFrame;
+    expect(nonHourlyTimestampPartition).toBeUndefined();
+
+    const mismatchedPartition = typeof resolve === "function"
+      ? resolve(
+        {
+          ...timeline,
+          partitionsByBeach: { "beach-1": [firstFrame] },
+        },
+        "beach-1",
+        0,
+      )
+      : firstFrame;
+    expect(mismatchedPartition).toBeUndefined();
+  });
+
+  it("clears the debug center during map setup and cleanup", async () => {
+    const mapWindow = window as typeof window & {
+      __quiverMapDebugCenter?: { lat: number; lon: number };
+    };
+    mapWindow.__quiverMapDebugCenter = { lat: 1, lon: 2 };
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+
+    const { unmount } = render(<InteractiveMap beaches={[]} />);
+
+    expect(mapWindow.__quiverMapDebugCenter).toBeUndefined();
+    act(() => {
+      mockMapHandlers.moveend[0]();
+    });
+    expect(mapWindow.__quiverMapDebugCenter).toEqual({
+      lat: 32.7493,
+      lon: -117.2511,
+    });
+
+    unmount();
+    expect(mapWindow.__quiverMapDebugCenter).toBeUndefined();
+  });
+
+  it("only settles leash suspension at the latest command target", async () => {
+    const { cameraCommandContainsCenter } = await import(
+      "@/components/map/interactive-map"
+    );
+    const latestCommand = {
+      id: 2,
+      source: "gps" as const,
+      center: { lat: 32.7702, lon: -117.2525 },
+    };
+
+    expect(
+      cameraCommandContainsCenter(latestCommand, {
+        lat: 20.6106,
+        lng: -157.5,
+      }),
+    ).toBe(false);
+    expect(
+      cameraCommandContainsCenter(latestCommand, {
+        lat: 32.7702,
+        lng: -117.2525,
+      }),
+    ).toBe(true);
+  });
+
+  it("does not delegate map clicks from markers or conditions callouts", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const onMapClick = jest.fn();
+    render(<InteractiveMap beaches={[]} onMapClick={onMapClick} />);
+
+    const marker = document.createElement("div");
+    marker.dataset.testid = "beach-marker";
+    const callout = document.createElement("div");
+    callout.dataset.conditionsCallout = "true";
+
+    act(() => {
+      mockMapHandlers.click[0]({
+        lngLat: { lat: 32.75, lng: -117.25 },
+        originalEvent: { target: marker },
+      });
+      mockMapHandlers.click[0]({
+        lngLat: { lat: 32.75, lng: -117.25 },
+        originalEvent: { target: callout },
+      });
+    });
+    expect(onMapClick).not.toHaveBeenCalled();
+  });
 
   it("creates distinct custom spot markers and filters invalid coordinates", async () => {
     const { InteractiveMap } = await import("@/components/map/interactive-map");
@@ -377,6 +681,21 @@ describe("InteractiveMap", () => {
       ).length;
     }
 
+    function getBeachMarkerBadge(beachId: string): HTMLElement {
+      const Marker = require("mapbox-gl").Marker;
+      const matchingCalls = Marker.mock.calls.filter(
+        ([options]: [{ element?: HTMLElement }]) =>
+          options?.element?.getAttribute("data-beach-id") === beachId
+      );
+      const wrapper = matchingCalls[matchingCalls.length - 1]?.[0]
+        ?.element as HTMLElement | undefined;
+      const badge = wrapper?.querySelector<HTMLElement>(
+        '[data-marker-badge="true"]'
+      );
+      if (!badge) throw new Error(`No tappable badge for beach ${beachId}`);
+      return badge;
+    }
+
     function fireMapClick(lng: number, lat: number): void {
       for (const handler of mockMapHandlers["click"] ?? []) {
         handler({ lngLat: { lng, lat } });
@@ -429,6 +748,193 @@ describe("InteractiveMap", () => {
       rerender(<InteractiveMap {...renderProps(0.64)} />);
       rerender(<InteractiveMap {...renderProps(0.72)} />);
       expect(calloutMarkerCallCount()).toBe(2);
+    });
+
+    it("notifies the embed host when a pin opens, but not when it toggles off", async () => {
+      const { InteractiveMap } = await import(
+        "@/components/map/interactive-map"
+      );
+      const onLocationClick = jest.fn();
+
+      render(
+        <InteractiveMap
+          beaches={[beach]}
+          autoNavigateOnMarkerClick={false}
+          disableBeachClustering
+          markerDisplay="points"
+          showConditionsOnTap
+          onLocationClick={onLocationClick}
+        />
+      );
+
+      await waitFor(() => {
+        expect(getBeachMarkerBadge(beach.id)).toHaveAttribute(
+          "data-marker-badge",
+          "true"
+        );
+      });
+
+      fireEvent.click(getBeachMarkerBadge(beach.id));
+      expect(onLocationClick).toHaveBeenCalledTimes(1);
+      expect(onLocationClick).toHaveBeenCalledWith(
+        expect.objectContaining({ id: beach.id })
+      );
+      expect(calloutMarkerCallCount()).toBe(1);
+
+      fireEvent.click(getBeachMarkerBadge(beach.id));
+      expect(onLocationClick).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  function timelineResponse(
+    beachIds: string[],
+    start: string,
+    hours: number,
+    hasMore: boolean,
+  ): Record<string, unknown> {
+    const startEpoch = Date.parse(start);
+    const timestamps = Array.from({ length: hours }, (_, index) =>
+      new Date(startEpoch + index * 60 * 60 * 1000).toISOString());
+    return {
+      data: {
+        forecasts: {},
+        hourlySwellTimeline: {
+          timestamps,
+          partitionsByBeach: Object.fromEntries(
+            beachIds.map((id) => [id, timestamps.map(() => null)]),
+          ),
+          hasMore,
+          nextStart: hasMore
+            ? new Date(startEpoch + hours * 60 * 60 * 1000).toISOString()
+            : null,
+        },
+      },
+    };
+  }
+
+  it("reloads a same-count beach replacement but not stable equivalent ordering", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), "https://example.test");
+      const ids = (url.searchParams.get("beachIds") ?? "").split(",").filter(Boolean);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => timelineResponse(ids, "2026-07-10T20:00:00.000Z", 8, false),
+      } as Response;
+    });
+    const beach = (id: string) => ({
+      id,
+      name: id,
+      lat: 32.75,
+      lon: -117.25,
+    } as import("@/types/database").Beach);
+    const { rerender } = render(
+      <InteractiveMap beaches={[beach("a"), beach("b")]} swellTimelineMode="expandable-hourly" />,
+    );
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(1));
+
+    rerender(
+      <InteractiveMap beaches={[beach("b"), beach("a")]} swellTimelineMode="expandable-hourly" />,
+    );
+    await act(async () => Promise.resolve());
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <InteractiveMap beaches={[beach("a"), beach("c")]} swellTimelineMode="expandable-hourly" />,
+    );
+    await waitFor(() => expect(global.fetch).toHaveBeenCalledTimes(2));
+    expect(String((global.fetch as jest.Mock).mock.calls[1][0])).toContain("beachIds=a%2Cc");
+  });
+
+  it("tracks bounded scrub, play, and pause actions with local-time horizon metadata and no tick spam", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), "https://example.test");
+      const ids = (url.searchParams.get("beachIds") ?? "").split(",").filter(Boolean);
+      return {
+        ok: true,
+        status: 200,
+        json: async () => timelineResponse(ids, "2026-07-10T20:00:00.000Z", 10, false),
+      } as Response;
+    });
+    render(
+      <InteractiveMap
+        beaches={[{ id: "a", name: "A", lat: 21.28, lon: -157.85 } as import("@/types/database").Beach]}
+        showSwellField
+        swellTimelineMode="expandable-hourly"
+        viewTimezone="Pacific/Honolulu"
+      />,
+    );
+    const slider = await screen.findByRole("slider", { name: "Forecast time" });
+    fireEvent.change(slider, { target: { value: "1" } });
+    fireEvent.click(screen.getByRole("button", { name: "Play forecast timeline" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pause forecast timeline" }));
+
+    const timelineCalls = () => mockTrackEvent.mock.calls.filter(
+      ([event, options]) => event === "map_interaction"
+        && String(options?.metadata?.action).startsWith("timeline_"),
+    );
+    expect(timelineCalls().map(([, options]) => options.metadata.action)).toEqual([
+      "timeline_scrub",
+      "timeline_play",
+      "timeline_pause",
+    ]);
+    expect(timelineCalls()[0][1]).toMatchObject({
+      debounceMs: 250,
+      metadata: {
+        active_timestamp_utc: "2026-07-10T21:00:00.000Z",
+        timezone: "Pacific/Honolulu",
+        active_local_hour: "2026-07-10T11:00",
+        loaded_horizon_hours: 10,
+      },
+    });
+    const callCount = timelineCalls().length;
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+    });
+    expect(timelineCalls()).toHaveLength(callCount);
+    expect(mockUser).toBeNull();
+  });
+
+  it.each([
+    ["success", true],
+    ["exhausted", false],
+    ["failure", true],
+  ] as const)("emits one requested and one %s extension result", async (result, hasMore) => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    global.fetch = jest.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input), "https://example.test");
+      const ids = (url.searchParams.get("beachIds") ?? "").split(",").filter(Boolean);
+      const isExtension = url.searchParams.has("timelineStart");
+      return {
+        ok: true,
+        status: 200,
+        json: async () => isExtension
+          ? timelineResponse(
+            result === "failure" ? ["unexpected-beach"] : ids,
+            "2026-07-11T04:00:00.000Z",
+            4,
+            hasMore,
+          )
+          : timelineResponse(ids, "2026-07-10T20:00:00.000Z", 8, true),
+      } as Response;
+    });
+    render(
+      <InteractiveMap
+        beaches={[{ id: "a", name: "A", lat: 21.28, lon: -157.85 } as import("@/types/database").Beach]}
+        showSwellField
+        swellTimelineMode="expandable-hourly"
+        viewTimezone="Pacific/Honolulu"
+      />,
+    );
+    const slider = await screen.findByRole("slider", { name: "Forecast time" });
+    fireEvent.change(slider, { target: { value: "3" } });
+    await waitFor(() => {
+      const extensionResults = mockTrackEvent.mock.calls
+        .filter(([, options]) => options?.metadata?.action === "timeline_extend")
+        .map(([, options]) => options.metadata.extension_result);
+      expect(extensionResults).toEqual(["requested", result]);
     });
   });
 });

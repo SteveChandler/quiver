@@ -1,5 +1,6 @@
 import type { NextRequest, NextResponse } from "next/server";
 import {
+  createValidationError,
   createSuccessResponse,
   handleApiError,
   withAuth,
@@ -28,6 +29,13 @@ export const dynamic = 'force-dynamic';
 
 export type { SwellPartition };
 
+export interface HourlySwellTimeline {
+  timestamps: string[];
+  partitionsByBeach: Record<string, Array<SwellPartition | null>>;
+  hasMore: boolean;
+  nextStart: string | null;
+}
+
 type ConditionSummary = "GOOD" | "FAIR" | "CHECK" | "UNKNOWN";
 
 const emptyBulkForecastResponse = {
@@ -52,6 +60,20 @@ const HOURLY_SWELL_TIMELINE_HOUR_OFFSETS = Array.from(
   { length: 43 },
   (_, hourOffset) => hourOffset,
 );
+const DEFAULT_TIMELINE_HOURS = 48;
+const MAX_TIMELINE_HOURS = 48;
+const HOUR_MS = 60 * 60 * 1000;
+const ISO_TIMESTAMP_WITH_TIMEZONE =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})$/;
+
+interface HourlyTimelineWindow {
+  start: Date;
+  end: Date;
+}
+
+type HourlyTimelineWindowParseResult =
+  | { window: HourlyTimelineWindow; error: null }
+  | { window: null; error: string };
 
 /**
  * GET /api/forecasts/bulk
@@ -123,6 +145,78 @@ function resolveForecastFetchWindow(forecastAt: string | null): {
   };
 }
 
+function parseIsoTimestampWithTimezone(value: string): number | null {
+  const match = ISO_TIMESTAMP_WITH_TIMEZONE.exec(value);
+  if (!match) return null;
+
+  const [, yearText, monthText, dayText, hourText, minuteText, secondText, fraction, zone] =
+    match;
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  const second = Number(secondText);
+  const millisecond = Number((fraction ?? "").padEnd(3, "0").slice(0, 3));
+  const localDate = new Date(0);
+  localDate.setUTCFullYear(year, month - 1, day);
+  localDate.setUTCHours(hour, minute, second, millisecond);
+
+  if (
+    localDate.getUTCFullYear() !== year ||
+    localDate.getUTCMonth() !== month - 1 ||
+    localDate.getUTCDate() !== day ||
+    localDate.getUTCHours() !== hour ||
+    localDate.getUTCMinutes() !== minute ||
+    localDate.getUTCSeconds() !== second
+  ) {
+    return null;
+  }
+
+  if (zone !== "Z") {
+    const offsetHours = Number(zone.slice(1, 3));
+    const offsetMinutes = Number(zone.slice(4, 6));
+    if (offsetHours > 14 || offsetMinutes > 59 || (offsetHours === 14 && offsetMinutes > 0)) {
+      return null;
+    }
+  }
+
+  const parsed = Date.parse(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function parseHourlyTimelineWindow(
+  searchParams: URLSearchParams,
+  now: Date,
+): HourlyTimelineWindowParseResult {
+  const timelineHours = searchParams.get("timelineHours");
+  if (timelineHours !== null && !/^\d+$/.test(timelineHours)) {
+    return { window: null, error: "timelineHours must be a whole integer" };
+  }
+  const hours = timelineHours === null
+    ? DEFAULT_TIMELINE_HOURS
+    : Math.min(MAX_TIMELINE_HOURS, Math.max(1, Number(timelineHours)));
+
+  const timelineStart = searchParams.get("timelineStart");
+  const explicitStartMs = timelineStart === null
+    ? null
+    : parseIsoTimestampWithTimezone(timelineStart);
+  if (timelineStart !== null && explicitStartMs === null) {
+    return {
+      window: null,
+      error: "timelineStart must be an ISO-8601 timestamp with timezone",
+    };
+  }
+
+  const startMs = explicitStartMs ?? Math.floor(now.getTime() / HOUR_MS) * HOUR_MS;
+  if (startMs % HOUR_MS !== 0) {
+    return { window: null, error: "timelineStart must be aligned to an hour" };
+  }
+  const start = new Date(startMs);
+  const end = new Date(startMs + hours * HOUR_MS);
+  return { window: { start, end }, error: null };
+}
+
 function forecastTimeMs(
   row: Pick<EnhancedForecastEntity, "forecast_at" | "forecast_date" | "forecast_time">
 ): number | null {
@@ -191,6 +285,137 @@ function buildSwellPartitionTimeline(
   });
 
   return timeline;
+}
+
+function forecastAtMs(row: Pick<EnhancedForecastEntity, "forecast_at">): number | null {
+  const value = Date.parse(String(row.forecast_at ?? ""));
+  return Number.isFinite(value) ? value : null;
+}
+
+function buildHourlySwellTimeline(
+  rows: EnhancedForecastEntity[],
+  beachIds: string[],
+  window: HourlyTimelineWindow,
+  nextStart: string | null,
+): HourlySwellTimeline {
+  const requestedBeachIds = new Set(beachIds);
+  const rowsByHour = new Map<number, Map<string, EnhancedForecastEntity>>();
+
+  for (const row of rows) {
+    if (!requestedBeachIds.has(row.beach_id)) continue;
+
+    const rowMs = forecastAtMs(row);
+    if (rowMs == null) continue;
+
+    if (rowMs < window.start.getTime() || rowMs >= window.end.getTime()) continue;
+    if (rowMs % HOUR_MS !== 0) continue;
+
+    const hourMs = rowMs;
+    const rowsByBeach = rowsByHour.get(hourMs) ?? new Map<string, EnhancedForecastEntity>();
+    if (!rowsByBeach.has(row.beach_id)) {
+      rowsByBeach.set(row.beach_id, row);
+    }
+    rowsByHour.set(hourMs, rowsByBeach);
+  }
+
+  const hourKeys = Array.from(rowsByHour.keys()).sort((left, right) => left - right);
+  const timestamps = hourKeys.map((hourMs) => new Date(hourMs).toISOString());
+  const partitionsByBeach = Object.fromEntries(
+    beachIds.map((beachId) => [
+      beachId,
+      hourKeys.map((hourMs) => {
+        const row = rowsByHour.get(hourMs)?.get(beachId);
+        return row ? rowToSwellPartition(row) : null;
+      }),
+    ]),
+  ) as Record<string, Array<SwellPartition | null>>;
+
+  return {
+    timestamps,
+    partitionsByBeach,
+    hasMore: nextStart !== null,
+    nextStart,
+  };
+}
+
+async function fetchHourlySwellTimelineRows(
+  supabase: SupabaseClient<Database>,
+  beachIds: string[],
+  start: Date,
+  end: Date,
+): Promise<{
+  data: EnhancedForecastEntity[] | null;
+  error: { message: string } | null;
+}> {
+  const { data, error } = await supabase
+    .from("enhanced_forecasts")
+    .select(BULK_FORECAST_SELECT)
+    .in("beach_id", beachIds)
+    .gte("forecast_at", start.toISOString())
+    .lt("forecast_at", end.toISOString())
+    .order("forecast_at", { ascending: true });
+
+  return {
+    data: data as unknown as EnhancedForecastEntity[] | null,
+    error: error ? { message: error.message } : null,
+  };
+}
+
+async function fetchNextHourlySwellTimelineStart(
+  supabase: SupabaseClient<Database>,
+  beachIds: string[],
+  end: Date,
+): Promise<{
+  nextStart: string | null;
+  error: { message: string } | null;
+}> {
+  const { data, error } = await supabase
+    .from("enhanced_forecasts")
+    .select("forecast_at")
+    .in("beach_id", beachIds)
+    .gte("forecast_at", end.toISOString())
+    .order("forecast_at", { ascending: true })
+    .limit(1);
+
+  if (error) return { nextStart: null, error: { message: error.message } };
+
+  const nextEpoch = Date.parse(String(data?.[0]?.forecast_at ?? ""));
+  if (!Number.isFinite(nextEpoch) || nextEpoch % HOUR_MS !== 0) {
+    return { nextStart: null, error: null };
+  }
+
+  return { nextStart: new Date(nextEpoch).toISOString(), error: null };
+}
+
+async function fetchHourlySwellTimeline(
+  supabase: SupabaseClient<Database>,
+  beachIds: string[],
+  window: HourlyTimelineWindow,
+): Promise<{
+  timeline: HourlySwellTimeline | null;
+  error: { message: string } | null;
+}> {
+  const { data: rows, error: rowsError } = await fetchHourlySwellTimelineRows(
+    supabase,
+    beachIds,
+    window.start,
+    window.end,
+  );
+  if (rowsError || !rows) {
+    return {
+      timeline: null,
+      error: rowsError ?? { message: "No hourly timeline rows returned" },
+    };
+  }
+
+  const { nextStart, error: nextStartError } =
+    await fetchNextHourlySwellTimelineStart(supabase, beachIds, window.end);
+  if (nextStartError) return { timeline: null, error: nextStartError };
+
+  return {
+    timeline: buildHourlySwellTimeline(rows, beachIds, window, nextStart),
+    error: null,
+  };
 }
 
 async function fetchBulkForecastRowsWithV51Display(
@@ -276,6 +501,15 @@ async function bulkForecastHandler(
     const beachIdsParam = searchParams.get("beachIds");
     const forecastAtParam = searchParams.get("forecastAt");
     const isHourlyTimeline = searchParams.get("timeline") === "hourly";
+    const isHourlyTimelineExtension =
+      isHourlyTimeline && searchParams.has("timelineStart");
+    const hourlyTimelineParseResult = isHourlyTimeline
+      ? parseHourlyTimelineWindow(searchParams, new Date())
+      : null;
+    if (hourlyTimelineParseResult?.error) {
+      return createValidationError(hourlyTimelineParseResult.error);
+    }
+    const hourlyTimelineWindow = hourlyTimelineParseResult?.window ?? null;
 
     // Return empty forecasts for missing/empty beachIds (not an error)
     if (!beachIdsParam || !beachIdsParam.trim()) {
@@ -297,6 +531,23 @@ async function bulkForecastHandler(
     const limitedBeachIds = beachIds.slice(0, maxBeaches);
     const { supabase, user } = context;
 
+    if (isHourlyTimelineExtension && hourlyTimelineWindow) {
+      const { timeline, error } = await fetchHourlySwellTimeline(
+        supabase,
+        limitedBeachIds,
+        hourlyTimelineWindow,
+      );
+      if (error || !timeline) {
+        console.error("Error fetching hourly swell timeline:", error);
+        return handleApiError(
+          new Error(error?.message ?? "No hourly timeline returned"),
+          "Failed to fetch hourly swell timeline",
+        );
+      }
+
+      return createSuccessResponse({ hourlySwellTimeline: timeline });
+    }
+
     const userSkillLevel = await getProfileExperienceLevel(supabase, user?.id);
     const fetchWindow = resolveForecastFetchWindow(forecastAtParam);
 
@@ -314,6 +565,22 @@ async function bulkForecastHandler(
     if (error) {
       console.error("Error fetching bulk forecasts:", error);
       return handleApiError(new Error(error.message), "Failed to fetch bulk forecasts");
+    }
+
+    let hourlySwellTimeline: HourlySwellTimeline | undefined;
+    if (hourlyTimelineWindow) {
+      const { timeline, error: hourlyTimelineError } =
+        await fetchHourlySwellTimeline(supabase, limitedBeachIds, hourlyTimelineWindow);
+
+      if (hourlyTimelineError || !timeline) {
+        console.error("Error fetching hourly swell timeline:", hourlyTimelineError);
+        return handleApiError(
+          new Error(hourlyTimelineError?.message ?? "No hourly timeline returned"),
+          "Failed to fetch hourly swell timeline",
+        );
+      }
+
+      hourlySwellTimeline = timeline;
     }
 
     const forecastsByBeach = groupForecastsByBeach(data);
@@ -473,6 +740,7 @@ async function bulkForecastHandler(
       conditionSummaries: conditionSummaryMap,
       swellPartitions: swellPartitionMap,
       swellPartitionTimeline,
+      ...(hourlySwellTimeline ? { hourlySwellTimeline } : {}),
     });
   } catch (error) {
     console.error("Unexpected error in bulk forecast API:", error);

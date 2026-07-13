@@ -4,6 +4,7 @@ import type { ReactElement } from "react";
 import {
   buildLegendRampCss,
   SWELL_LAYER_COLOR,
+  SWELL_MAP_LEGEND_SURFACE,
   SWELL_MAP_SURFACE,
   SWELL_MAP_STICKER_SHADOW,
   SWELL_MAP_STICKER_RADIUS,
@@ -58,8 +59,11 @@ export function SwellLayerSelector({
     ? "flex items-center gap-1 rounded-sm px-1 py-0.5 text-[9px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] sm:gap-1.5 sm:px-2 sm:text-[10px]"
     : "flex items-center gap-1 rounded-sm px-1.5 py-0.5 text-[10px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] sm:gap-1.5 sm:px-2 sm:py-1 sm:text-[11px]";
   const legendClassName = isLegendPlacement
-    ? "mt-1 border-t border-white/15 pt-1"
+    ? "mt-1 border-t pt-1"
     : "mt-1.5 hidden border-t border-white/15 pt-2 sm:block";
+  const secondaryTextColor = isLegendPlacement
+    ? SWELL_MAP_LEGEND_SURFACE.mutedInk
+    : "rgba(255,255,255,0.7)";
 
   return (
     <div
@@ -67,7 +71,10 @@ export function SwellLayerSelector({
       className={containerClassName}
       style={containerStyle}
     >
-      <span className="font-heading text-[9px] uppercase tracking-wide text-white/70 sm:text-[10px]">
+      <span
+        className="font-heading text-[9px] uppercase tracking-wide sm:text-[10px]"
+        style={{ color: secondaryTextColor }}
+      >
         Swell field
       </span>
       <div
@@ -91,7 +98,11 @@ export function SwellLayerSelector({
                 // Active chip: solid fill in its layer color + dark bold text, so the
                 // selected field is unmistakable at a glance. Inactive: transparent.
                 background: isActive ? SWELL_LAYER_COLOR[layer.id] : "transparent",
-                color: isActive ? "#161A40" : "rgba(255,255,255,0.85)",
+                color: isActive
+                  ? "#161A40"
+                  : isLegendPlacement
+                    ? SWELL_MAP_LEGEND_SURFACE.ink
+                    : "rgba(255,255,255,0.85)",
                 fontWeight: isActive ? 800 : 600,
               }}
             >
@@ -128,23 +139,39 @@ export function SwellLayerSelector({
           );
         })}
       </div>
-      <div data-testid="swell-field-legend" className={legendClassName}>
-        <span className="font-heading text-[10px] uppercase tracking-wide text-white/70">
+      <div
+        data-testid="swell-field-legend"
+        className={legendClassName}
+        style={
+          isLegendPlacement
+            ? { borderColor: SWELL_MAP_LEGEND_SURFACE.divider }
+            : undefined
+        }
+      >
+        <span
+          className="font-heading text-[10px] uppercase tracking-wide"
+          style={{ color: secondaryTextColor }}
+        >
           Swell size
         </span>
         <div className="mt-1 flex items-center gap-1.5">
-          <span className="font-mono text-[9px] text-white/70">small</span>
+          <span className="font-mono text-[9px]" style={{ color: secondaryTextColor }}>
+            small
+          </span>
           <span
             aria-hidden="true"
             data-testid="swell-field-legend-ramp"
             className="h-2 flex-1 rounded"
             style={{ background: buildLegendRampCss() }}
           />
-          <span className="font-mono text-[9px] text-white/70">big</span>
+          <span className="font-mono text-[9px]" style={{ color: secondaryTextColor }}>
+            big
+          </span>
         </div>
         <p
           data-testid="swell-field-legend-caption"
-          className="mt-1 text-[9px] leading-tight text-white/70 sm:text-[10px]"
+          className="mt-1 text-[9px] leading-tight sm:text-[10px]"
+          style={{ color: secondaryTextColor }}
         >
           {captionForLayer(active)}
         </p>

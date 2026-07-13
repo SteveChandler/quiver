@@ -10,6 +10,10 @@ import type { Beach } from "@/types/database";
 import { LocationTimeoutBanner } from "@/components/map/location-timeout-banner";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import type { CustomSpot } from "@/hooks/use-custom-spots";
+import type {
+  MapCameraCommand,
+  MapCameraOwner,
+} from "@/components/map/map-camera-command";
 
 const DEFAULT_MAP_CENTER = { lat: 32.7702, lon: -117.2525 } as const;
 
@@ -40,6 +44,8 @@ interface MapContentProps {
     bounds?: [[number, number], [number, number]];
     zoom?: number;
   } | null;
+  cameraOwner?: MapCameraOwner;
+  cameraCommand?: MapCameraCommand | null;
   onGetUserLocation: () => void;
   onUseDefaultLocation: () => void;
   onSearchPromptClick?: () => void;
@@ -53,6 +59,11 @@ interface MapContentProps {
   onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
   onDisplayForecastsChange?: (map: Map<string, ForecastDisplay | undefined>) => void;
   onMapClick?: () => void;
+  onUserCameraInteraction?: (interaction: {
+    action: "pan" | "zoom" | "rotate";
+    center: { lat: number; lon: number };
+    phase: "start" | "end";
+  }) => void;
   autoNavigateOnMarkerClick?: boolean;
   showSwellField?: boolean;
   swellLayerId?: import("@/components/map/swell-map-theme").SwellLayerId;
@@ -62,6 +73,8 @@ interface MapContentProps {
   swellTimelineSteps?: string[];
   swellTimelineIndex?: number;
   onSwellTimelineChange?: (index: number) => void;
+  swellTimelineMode?: "legacy" | "hourly" | "expandable-hourly";
+  viewTimezone?: string;
 }
 
 const InteractiveMap = dynamic(
@@ -84,6 +97,7 @@ export function MapContent({
   customSpots,
   searchQuery,
   regionViewport,
+  cameraCommand,
   onGetUserLocation,
   onUseDefaultLocation,
   onSearchPromptClick,
@@ -92,6 +106,7 @@ export function MapContent({
   onWaveHeightsChange,
   onDisplayForecastsChange,
   onMapClick,
+  onUserCameraInteraction,
   autoNavigateOnMarkerClick,
   showSwellField,
   swellLayerId,
@@ -99,8 +114,19 @@ export function MapContent({
   swellTimelineSteps,
   swellTimelineIndex,
   onSwellTimelineChange,
+  swellTimelineMode = "legacy",
+  viewTimezone,
 }: MapContentProps) {
   const mapCenterState = useMemo(() => {
+    if (
+      cameraCommand?.center &&
+      hasValidCoordinates(cameraCommand.center.lat, cameraCommand.center.lon)
+    ) {
+      return {
+        center: cameraCommand.center,
+        instanceKey: "camera-command",
+      };
+    }
     if (
       selectedBeach &&
       hasValidCoordinates(selectedBeach.lat, selectedBeach.lon)
@@ -148,7 +174,14 @@ export function MapContent({
       center: DEFAULT_MAP_CENTER,
       instanceKey: "nearby",
     };
-  }, [selectedBeach, searchQuery, filteredBeaches, focusCenter, userLocation]);
+  }, [
+    cameraCommand,
+    selectedBeach,
+    searchQuery,
+    filteredBeaches,
+    focusCenter,
+    userLocation,
+  ]);
   const mapCenter = mapCenterState.center;
   const showLocationDeniedPrompt =
     usingDefaultLocation &&
@@ -246,11 +279,12 @@ export function MapContent({
       >
         <DataErrorBoundary dataType="map data" componentName="InteractiveMap">
           <InteractiveMap
-            key={mapCenterState.instanceKey}
             initialCenter={initialCenterArray}
             initialZoom={12}
             onLocationClick={onBeachSelect}
             onMapClick={onMapClick ? () => onMapClick() : undefined}
+            cameraCommand={cameraCommand}
+            onUserCameraInteraction={onUserCameraInteraction}
             regionViewport={regionViewport}
             beaches={filteredBeaches}
             customSpots={customSpots}
@@ -258,12 +292,17 @@ export function MapContent({
             onWaveHeightsChange={onWaveHeightsChange}
             onDisplayForecastsChange={onDisplayForecastsChange}
             autoNavigateOnMarkerClick={autoNavigateOnMarkerClick}
+            markerDisplay="points"
+            disableBeachClustering
+            showConditionsOnTap
             showSwellField={showSwellField}
             swellLayerId={swellLayerId}
             onSwellLayerChange={onSwellLayerChange}
             swellTimelineSteps={swellTimelineSteps}
             swellTimelineIndex={swellTimelineIndex}
             onSwellTimelineChange={onSwellTimelineChange}
+            swellTimelineMode={swellTimelineMode}
+            viewTimezone={viewTimezone}
             className="absolute inset-0 z-0 w-full h-full"
           />
         </DataErrorBoundary>

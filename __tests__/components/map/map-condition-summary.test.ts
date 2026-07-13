@@ -23,6 +23,14 @@ function getBadge(marker: HTMLElement): HTMLElement {
   return badge;
 }
 
+function getMarkerVisual(marker: HTMLElement): HTMLElement {
+  const visual = marker.querySelector("[data-marker-visual='true']");
+  if (!(visual instanceof HTMLElement)) {
+    throw new Error("Marker visual was not rendered");
+  }
+  return visual;
+}
+
 describe("map condition summaries", () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -77,17 +85,24 @@ describe("map condition summaries", () => {
       conditionSummary: "FAIR",
     });
     const badge = getBadge(marker);
+    const visual = getMarkerVisual(marker);
     const markerGradient = getConditionMarkerGradient("FAIR");
 
+    expect(badge).toBeInstanceOf(HTMLButtonElement);
+    expect(badge).toHaveAttribute("type", "button");
+    expect(badge).toHaveAttribute(
+      "aria-label",
+      "View Beach beach-fair conditions"
+    );
     expect(marker).toHaveAttribute("data-condition-summary", "FAIR");
     expect(badge.textContent).toBe("");
     expect(badge).toHaveAttribute("data-marker-gradient", markerGradient);
     expect(markerGradient).toContain("linear-gradient");
-    expect(badge).toHaveStyle({
+    expect(badge).toHaveStyle({ width: "40px", height: "40px" });
+    expect(visual).toHaveStyle({
       width: "15px",
       height: "15px",
       borderRadius: "50%",
-      minWidth: "0",
     });
   });
 
@@ -105,13 +120,15 @@ describe("map condition summaries", () => {
       conditionSummary: "GOOD",
     });
     const badge = getBadge(marker);
+    const visual = getMarkerVisual(marker);
     const markerGradient = getWaterTempBadgeColor("76");
 
     expect(marker).toHaveAttribute("data-condition-summary", "GOOD");
     expect(badge.textContent).toBe("");
     expect(badge).toHaveAttribute("data-marker-gradient", markerGradient);
     expect(markerGradient).toContain("linear-gradient");
-    expect(badge).toHaveStyle({
+    expect(badge).toHaveStyle({ width: "40px", height: "40px" });
+    expect(visual).toHaveStyle({
       width: "15px",
       height: "15px",
       borderRadius: "50%",

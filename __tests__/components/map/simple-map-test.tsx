@@ -26,6 +26,12 @@ jest.mock("mapbox-gl", () => ({
     remove: jest.fn(),
     getCenter: jest.fn(() => ({ lat: 32.7493, lng: -117.2511 })),
     getZoom: jest.fn(() => 13),
+    getMinZoom: jest.fn(() => 0),
+    getMaxZoom: jest.fn(() => 22),
+    getMaxBounds: jest.fn(() => null),
+    setMinZoom: jest.fn(),
+    setMaxZoom: jest.fn(),
+    setMaxBounds: jest.fn(),
     setCenter: jest.fn(),
     flyTo: jest.fn(),
     getBounds: jest.fn(() => ({
@@ -176,23 +182,19 @@ describe("Simple Map Test", () => {
         } as Response);
       }
       
-      if (url.includes("/api/forecasts/update-enhanced")) {
+      if (url.includes("/api/forecasts/bulk")) {
         console.log('RETURNING FORECAST MOCK');
         return Promise.resolve({
           ok: true,
           json: () => Promise.resolve({
             success: true,
             data: {
-              forecasts: [
-                {
-                  id: "test-forecast",
-                  beach_id: "test-beach-1",
-                  wave_height: "2.5 ft",
-                  forecast_at: "2025-08-16T12:00:00Z",
-                  forecast_date: "2025-08-16",
-                  forecast_time: "12:00:00",
-                },
-              ],
+              forecasts: {
+                "test-beach-1": "2.5 ft",
+                "test-beach-2": "3 ft",
+              },
+              swellPartitions: {},
+              swellPartitionTimeline: {},
             },
           }),
         } as Response);

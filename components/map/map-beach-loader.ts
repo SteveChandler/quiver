@@ -1,5 +1,8 @@
 import type { Beach } from "@/types/database";
-import type { SwellPartition } from "@/app/api/forecasts/bulk/route";
+import type {
+  HourlySwellTimeline,
+  SwellPartition,
+} from "@/app/api/forecasts/bulk/route";
 import { API_BATCH_CONFIG } from "@/lib/constants/ui";
 import { fetchInBatches } from "@/lib/utils/batch-fetch";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
@@ -42,10 +45,89 @@ export interface BeachLoaderResult {
   partitionsMap: Map<string, SwellPartition>;
   /** Map from beach ID to parsed swell/wind partitions by forecast timeline step */
   partitionsTimelineMap: Map<string, SwellPartition[]>;
+  /** Shared absolute-time envelope for the expandable public timeline. */
+  hourlySwellTimeline: HourlySwellTimeline | null;
 }
 
 export interface BeachLoaderOptions {
   timeline?: "hourly";
+  timelineStart?: string;
+  timelineHours?: number;
+}
+
+function isSwellPartition(value: unknown): value is SwellPartition {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+
+function parseCanonicalUtcHour(value: unknown): number | null {
+  if (typeof value !== "string") return null;
+  const epoch = Date.parse(value);
+  if (!Number.isFinite(epoch) || epoch % HOUR_MS !== 0) return null;
+  return new Date(epoch).toISOString() === value ? epoch : null;
+}
+
+export function parseHourlySwellTimeline(
+  value: unknown,
+  expectedBeachIds: readonly string[] = [],
+): HourlySwellTimeline | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+
+  const envelope = value as Record<string, unknown>;
+  if (!Array.isArray(envelope.timestamps) || typeof envelope.hasMore !== "boolean") {
+    return null;
+  }
+  if (
+    envelope.nextStart !== null &&
+    parseCanonicalUtcHour(envelope.nextStart) === null
+  ) {
+    return null;
+  }
+  if (!envelope.partitionsByBeach || typeof envelope.partitionsByBeach !== "object") {
+    return null;
+  }
+
+  const timestamps = envelope.timestamps;
+  const timestampEpochs = timestamps.map(parseCanonicalUtcHour);
+  if (timestampEpochs.some((epoch) => epoch === null)) return null;
+  if (timestampEpochs.some((epoch, index) => index > 0 && epoch! <= timestampEpochs[index - 1]!)) {
+    return null;
+  }
+  const nextStart = envelope.nextStart as string | null;
+  if (!envelope.hasMore && nextStart !== null) return null;
+  if (
+    envelope.hasMore &&
+    (
+      nextStart === null ||
+      timestampEpochs.length === 0 ||
+      parseCanonicalUtcHour(nextStart)! <= timestampEpochs[timestampEpochs.length - 1]!
+    )
+  ) {
+    return null;
+  }
+
+  const parsedPartitions = Object.entries(
+    envelope.partitionsByBeach as Record<string, unknown>,
+  ).reduce<Record<string, Array<SwellPartition | null>> | null>((result, [beachId, partitions]) => {
+    if (!result || !Array.isArray(partitions) || partitions.length !== timestamps.length) {
+      return null;
+    }
+    if (partitions.some((partition) => partition !== null && !isSwellPartition(partition))) {
+      return null;
+    }
+    result[beachId] = partitions as Array<SwellPartition | null>;
+    return result;
+  }, {});
+  if (!parsedPartitions) return null;
+  if (expectedBeachIds.some((beachId) => !(beachId in parsedPartitions))) return null;
+
+  return {
+    timestamps: [...timestamps] as string[],
+    partitionsByBeach: parsedPartitions,
+    hasMore: envelope.hasMore,
+    nextStart,
+  };
 }
 
 /**
@@ -129,9 +211,8 @@ export async function loadBeachesAndWaveHeights(
   const conditionSummaryMap = new Map<string, ConditionSummary>();
   const partitionsMap = new Map<string, SwellPartition>();
   const partitionsTimelineMap = new Map<string, SwellPartition[]>();
-  const beachesForWaveData = providedBeaches?.length
-    ? providedBeaches
-    : locations;
+  let hourlySwellTimeline: HourlySwellTimeline | null = null;
+  const beachesForWaveData = locations;
 
   if (beachesForWaveData.length > 0) {
     try {
@@ -143,9 +224,16 @@ export async function loadBeachesAndWaveHeights(
         items: allBeachIds,
         batchSize: API_BATCH_CONFIG.BEACH_ID_BATCH_SIZE,
         fetchBatch: async (batchIds) => {
-          const timelineParam = options.timeline === "hourly" ? "&timeline=hourly" : "";
+          const searchParams = new URLSearchParams({ beachIds: batchIds.join(",") });
+          if (options.timeline === "hourly") {
+            searchParams.set("timeline", "hourly");
+            if (options.timelineStart) searchParams.set("timelineStart", options.timelineStart);
+            if (options.timelineHours !== undefined) {
+              searchParams.set("timelineHours", String(options.timelineHours));
+            }
+          }
           const response = await fetch(
-            `/api/forecasts/bulk?beachIds=${batchIds.join(",")}${timelineParam}`
+            `/api/forecasts/bulk?${searchParams.toString()}`
           );
           if (!response.ok) {
             if (response.status !== 400) {
@@ -153,16 +241,19 @@ export async function loadBeachesAndWaveHeights(
                 `Bulk forecast API returned ${response.status}`
               );
             }
-            return null;
+            return { data: null, expectedBeachIds: batchIds };
           }
-          return response.json();
+          return {
+            data: await response.json(),
+            expectedBeachIds: batchIds,
+          };
         },
         onBatchError: (error, batchIndex) => {
           console.warn(`Wave height batch ${batchIndex} failed:`, error);
         },
       });
 
-      results.forEach((data) => {
+      results.forEach(({ data, expectedBeachIds }) => {
         const forecasts = data?.data?.forecasts || {};
         Object.entries(forecasts).forEach(([beachId, waveHeight]) => {
           const parsed =
@@ -227,6 +318,12 @@ export async function loadBeachesAndWaveHeights(
             }
           }
         );
+
+        const parsedHourlyTimeline = parseHourlySwellTimeline(
+          data?.data?.hourlySwellTimeline,
+          expectedBeachIds,
+        );
+        if (parsedHourlyTimeline) hourlySwellTimeline = parsedHourlyTimeline;
       });
     } catch (error) {
       console.warn("Failed to fetch bulk forecasts:", error);
@@ -245,6 +342,7 @@ export async function loadBeachesAndWaveHeights(
     conditionSummaryMap,
     partitionsMap,
     partitionsTimelineMap,
+    hourlySwellTimeline,
   };
 }
 

@@ -1,8 +1,8 @@
 /**
  * Shared brand tokens + pure helpers for the Quiver swell map (prototype + prod).
- * Brand law (DESIGN_SYSTEM.md): always-dark Deep Twilight navy canvas, NO glass
- * (backdrop-blur), NO cyan/purple, sticker texture (hard offset shadow, no blur,
- * asymmetric radius). Sanctioned accents only.
+ * Brand law (DESIGN_SYSTEM.md): Deep Twilight is the map stage, cream paper is
+ * the control surface, and sticker texture uses hard offset shadows with no
+ * glass, cyan/purple gradients, or decorative glow.
  *
  * Plan B imports these EXACT names/values — do not rename or recolor without
  * updating both plans and components/map/__tests__/swell-map-theme.test.ts.
@@ -18,6 +18,15 @@ export const SWELL_MAP_SURFACE = {
   border: "rgba(255,255,255,0.12)",
 } as const;
 
+export const SWELL_MAP_LEGEND_SURFACE = {
+  paper: "#F4EBD8",
+  paperRaised: "#F5EEDC",
+  ink: "#11100D",
+  mutedInk: "rgba(17,16,13,0.68)",
+  border: "rgba(17,16,13,0.88)",
+  divider: "rgba(17,16,13,0.16)",
+} as const;
+
 // Hard offset sticker shadow (no blur) — use as boxShadow.
 export const SWELL_MAP_STICKER_SHADOW = "2px 3px 0 0 rgba(0,0,0,0.35)";
 export const SWELL_MAP_STICKER_RADIUS = "12px 4px 14px 6px"; // asymmetric
@@ -30,6 +39,25 @@ export const SWELL_LAYER_COLOR: Record<SwellLayerId, string> = {
   wind: "#00D4AA", // wind — Pacific Teal (the ONE sanctioned teal; NOT #38bdf8 cyan)
   combined: "#F78E42",
 };
+
+// Timeline materials use the same cream-paper instrument language as the legend.
+// Orange marks committed forecast progress; gold remains reserved for focus.
+export const SWELL_MAP_TIMELINE = {
+  active: SWELL_LAYER_COLOR.s1,
+  dayBand: "#E9DEC7",
+  dayBandAlternate: "#F0E5D0",
+  track: "#CDBD9C",
+  focus: SWELL_LAYER_COLOR.s2,
+  ink: SWELL_MAP_LEGEND_SURFACE.ink,
+  stickerShadow: SWELL_MAP_STICKER_SHADOW,
+} as const;
+
+export const SWELL_MAP_TIMELINE_CSS_VARIABLES = {
+  "--swell-timeline-active": SWELL_MAP_TIMELINE.active,
+  "--swell-timeline-focus": SWELL_MAP_TIMELINE.focus,
+  "--swell-timeline-ink": SWELL_MAP_TIMELINE.ink,
+  "--swell-timeline-sticker-shadow": SWELL_MAP_TIMELINE.stickerShadow,
+} as const;
 
 // Particle-trail colors for the Windy-style swell flow field. The field rides the
 // LIGHT Windy-style basemap (no recolor, see interactive-map.tsx), so these are

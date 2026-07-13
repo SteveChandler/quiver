@@ -53,7 +53,7 @@ export type EmbedMapEvent =
   | { type: "placementChanged"; payload: EmbedMapCoordinate }
   | { type: "placementConfirmed"; payload: EmbedMapCoordinate }
   | { type: "placementCancelled"; payload: Record<string, never> }
-  | { type: "forecastTimeChanged"; payload: { index: number } }
+  | { type: "forecastTimeChanged"; payload: { index: number; forecastAt?: string } }
   | { type: "renderHealth"; payload: { fps?: number; status: "ok" | "degraded" } };
 
 const SWELL_LAYER_IDS = new Set<EmbedMapSwellLayerId>([

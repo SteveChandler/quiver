@@ -1,4 +1,7 @@
-import { loadBeachesAndWaveHeights } from "@/components/map/map-beach-loader";
+import {
+  loadBeachesAndWaveHeights,
+  parseHourlySwellTimeline,
+} from "@/components/map/map-beach-loader";
 import type { Beach } from "@/types/database";
 
 const beach = (id: string, lat: number, lon: number): Beach =>
@@ -136,12 +139,215 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
       -117.2,
       [beach("a", 32.71, -117.21)],
       { fetchNearbyBeaches: async () => ({ data: [] }) },
-      { timeline: "hourly" },
+      {
+        timeline: "hourly",
+        timelineStart: "2026-07-10T20:00:00.000Z",
+        timelineHours: 48,
+      },
     );
 
     expect(global.fetch).toHaveBeenCalledWith(
-      "/api/forecasts/bulk?beachIds=a&timeline=hourly",
+      "/api/forecasts/bulk?beachIds=a&timeline=hourly&timelineStart=2026-07-10T20%3A00%3A00.000Z&timelineHours=48",
     );
+  });
+
+  it("returns a defensively parsed hourly envelope without losing current marker data", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          forecasts: { a: 3.5 },
+          swellPartitions: {
+            a: { s1Dir: 270, s1PeriodS: 14, s1HeightFt: 3.9 },
+          },
+          hourlySwellTimeline: {
+            timestamps: ["2026-07-10T20:00:00.000Z"],
+            partitionsByBeach: {
+              a: [{ s1Dir: 270, s1PeriodS: 14, s1HeightFt: 3.9 }],
+            },
+            hasMore: true,
+            nextStart: "2026-07-12T20:00:00.000Z",
+          },
+        },
+      }),
+    }) as unknown as typeof fetch;
+
+    const result = await loadBeachesAndWaveHeights(
+      32.7,
+      -117.2,
+      [beach("a", 32.71, -117.21)],
+      { fetchNearbyBeaches: async () => ({ data: [] }) },
+      { timeline: "hourly" },
+    );
+
+    expect(result.partitionsMap.get("a")).toMatchObject({ s1HeightFt: 3.9 });
+    expect((result as typeof result & { hourlySwellTimeline?: unknown }).hourlySwellTimeline).toEqual({
+      timestamps: ["2026-07-10T20:00:00.000Z"],
+      partitionsByBeach: {
+        a: [{ s1Dir: 270, s1PeriodS: 14, s1HeightFt: 3.9 }],
+      },
+      hasMore: true,
+      nextStart: "2026-07-12T20:00:00.000Z",
+    });
+  });
+
+  it("treats malformed hourly envelopes as unavailable without losing marker data", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          forecasts: { a: 3.5 },
+          swellPartitions: {
+            a: { s1Dir: 270, s1PeriodS: 14, s1HeightFt: 3.9 },
+          },
+          hourlySwellTimeline: {
+            timestamps: ["not-a-timestamp"],
+            partitionsByBeach: { a: [] },
+            hasMore: "yes",
+            nextStart: null,
+          },
+        },
+      }),
+    }) as unknown as typeof fetch;
+
+    const result = await loadBeachesAndWaveHeights(
+      32.7,
+      -117.2,
+      [beach("a", 32.71, -117.21)],
+      { fetchNearbyBeaches: async () => ({ data: [] }) },
+      { timeline: "hourly" },
+    );
+
+    expect(result.partitionsMap.get("a")).toMatchObject({ s1HeightFt: 3.9 });
+    expect((result as typeof result & { hourlySwellTimeline?: unknown }).hourlySwellTimeline).toBeNull();
+  });
+
+  it("requires canonical unique ascending UTC hours and every requested beach", () => {
+    const valid = {
+      timestamps: ["2026-07-10T20:00:00.000Z", "2026-07-10T21:00:00.000Z"],
+      partitionsByBeach: { a: [null, null], b: [null, null] },
+      hasMore: false,
+      nextStart: null,
+    };
+
+    expect(parseHourlySwellTimeline(valid, ["a", "b"])).toEqual(valid);
+    expect(parseHourlySwellTimeline(valid, ["a"])).toEqual(valid);
+    expect(parseHourlySwellTimeline({ ...valid, timestamps: [
+      "2026-07-10T20:30:00.000Z",
+      "2026-07-10T21:30:00.000Z",
+    ] }, ["a", "b"])).toBeNull();
+    expect(parseHourlySwellTimeline({ ...valid, timestamps: [
+      "2026-07-10T20:00:00Z",
+      "2026-07-10T21:00:00Z",
+    ] }, ["a", "b"])).toBeNull();
+    expect(parseHourlySwellTimeline({ ...valid, timestamps: [
+      "2026-07-10T20:00:00.000+00:00",
+      "2026-07-10T21:00:00.000+00:00",
+    ] }, ["a", "b"])).toBeNull();
+    expect(parseHourlySwellTimeline({ ...valid, timestamps: [
+      "2026-07-10T20:00:00.000Z",
+      "2026-07-10T20:00:00.000Z",
+    ] }, ["a", "b"])).toBeNull();
+    expect(parseHourlySwellTimeline({
+      ...valid,
+      partitionsByBeach: { a: [null, null] },
+    }, ["a", "b"])).toBeNull();
+    expect(parseHourlySwellTimeline({
+      ...valid,
+      partitionsByBeach: { ...valid.partitionsByBeach, extra: [null] },
+    }, ["a", "b"])).toBeNull();
+  });
+
+  it("rejects an aligned envelope missing a requested beach without losing current data", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          forecasts: { a: 3.5 },
+          swellPartitions: { a: { s1HeightFt: 3.9 } },
+          hourlySwellTimeline: {
+            timestamps: ["2026-07-10T20:00:00.000Z"],
+            partitionsByBeach: { extra: [null] },
+            hasMore: false,
+            nextStart: null,
+          },
+        },
+      }),
+    }) as unknown as typeof fetch;
+
+    const result = await loadBeachesAndWaveHeights(
+      32.7,
+      -117.2,
+      [beach("a", 32.71, -117.21)],
+      { fetchNearbyBeaches: async () => ({ data: [] }) },
+      { timeline: "hourly" },
+    );
+
+    expect(result.partitionsMap.get("a")).toEqual({ s1HeightFt: 3.9 });
+    expect(result.hourlySwellTimeline).toBeNull();
+  });
+
+  it.each([
+    { label: "more pages without a next start", hasMore: true, nextStart: null },
+    {
+      label: "a terminal page with a next start",
+      hasMore: false,
+      nextStart: "2026-07-10T21:00:00.000Z",
+    },
+  ])("rejects $label without losing current marker data", async ({ hasMore, nextStart }) => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        data: {
+          forecasts: { a: 3.5 },
+          swellPartitions: { a: { s1HeightFt: 3.9 } },
+          hourlySwellTimeline: {
+            timestamps: ["2026-07-10T20:00:00.000Z"],
+            partitionsByBeach: { a: [null] },
+            hasMore,
+            nextStart,
+          },
+        },
+      }),
+    }) as unknown as typeof fetch;
+
+    const result = await loadBeachesAndWaveHeights(
+      32.7,
+      -117.2,
+      [beach("a", 32.71, -117.21)],
+      { fetchNearbyBeaches: async () => ({ data: [] }) },
+      { timeline: "hourly" },
+    );
+
+    expect(result.partitionsMap.get("a")).toEqual({ s1HeightFt: 3.9 });
+    expect(result.hourlySwellTimeline).toBeNull();
+  });
+
+  it("requests forecast data only for the capped rendered beach set", async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ data: { forecasts: {} } }),
+    }) as unknown as typeof fetch;
+    const beaches = Array.from({ length: 25 }, (_, index) =>
+      beach(`beach-${index}`, 32.71, -117.21)
+    );
+
+    const result = await loadBeachesAndWaveHeights(32.7, -117.2, beaches, {
+      fetchNearbyBeaches: async () => ({ data: [] }),
+    });
+
+    expect(result.locations).toHaveLength(20);
+    const requestedUrl = (global.fetch as jest.Mock).mock.calls[0][0] as string;
+    const requestedIds = new URL(requestedUrl, "https://example.test").searchParams
+      .get("beachIds")
+      ?.split(",");
+    expect(requestedIds).toHaveLength(20);
+    expect(requestedIds).not.toContain("beach-20");
   });
 
   it("returns an empty partitionsMap when the field is absent", async () => {
