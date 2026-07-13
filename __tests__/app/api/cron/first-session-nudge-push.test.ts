@@ -460,13 +460,18 @@ describe("First-Session-Nudge Push Cron", () => {
         expect.objectContaining({
           type: "log_session_nudge",
           recipientUserId: "u-th",
-          entityType: "beach",
-          entityId: "beach-1",
+          entityType: null,
+          entityId: null,
           payload: expect.objectContaining({
             cohort: "trialing_home",
             title: "Unlock your Quiver",
-            body: "Log today's session at Swami's — 7 days left in your trial",
-            beach_id: "beach-1",
+            body: "Add your first session when you paddle out — 7 days left in your trial",
+            beach_id: null,
+            notification_category: "session_growth",
+            trigger_source: "first_session_day7",
+            relevance_confidence: "medium",
+            beach_confidence: "low",
+            assumed_attendance: false,
           }),
         })
       );
@@ -485,7 +490,7 @@ describe("First-Session-Nudge Push Cron", () => {
       const call = mockEnqueueNotification.mock.calls[0][0];
       expect(call.payload.title).toBe("Set your home break");
       expect(call.payload.body).toBe(
-        "Pick a spot and log a session — 7 days left in your trial"
+        "Pick a home break, then add your first session when you paddle out."
       );
       expect(call.payload.beach_id).toBeNull();
     });
@@ -503,10 +508,11 @@ describe("First-Session-Nudge Push Cron", () => {
 
       expect(data.data.summary.cohorts.free_home_firing).toBe(1);
       const call = mockEnqueueNotification.mock.calls[0][0];
-      expect(call.payload.title).toBe("✨ Blacks is looking good");
+      expect(call.payload.title).toBe("Good window at your home break");
       expect(call.payload.body).toBe(
-        "Check today's forecast and log your session to start building your score"
+        "Check today's forecast, and log a session if you paddle out."
       );
+      expect(call.payload.beach_id).toBeNull();
     });
 
     it("free_home ignores high-confidence overnight local forecasts", async () => {
@@ -525,10 +531,8 @@ describe("First-Session-Nudge Push Cron", () => {
       expect(data.data.summary.cohorts.free_home_firing).toBe(0);
       expect(data.data.summary.cohorts.free_home).toBe(1);
       const call = mockEnqueueNotification.mock.calls[0][0];
-      expect(call.payload.title).toBe("How was this week?");
-      expect(call.payload.body).toBe(
-        "Log a session at Blacks to start building your personalized forecast"
-      );
+      expect(call.payload.title).toBe("Start your surf log");
+      expect(call.payload.body).toBe("Add your first session when you paddle out.");
     });
 
     it("free_home (no-ent) → 'How was this week?' when no entitlement row exists", async () => {
@@ -544,10 +548,8 @@ describe("First-Session-Nudge Push Cron", () => {
 
       expect(data.data.summary.cohorts.free_home).toBe(1);
       const call = mockEnqueueNotification.mock.calls[0][0];
-      expect(call.payload.title).toBe("How was this week?");
-      expect(call.payload.body).toBe(
-        "Log a session at Trestles to start building your personalized forecast"
-      );
+      expect(call.payload.title).toBe("Start your surf log");
+      expect(call.payload.body).toBe("Add your first session when you paddle out.");
     });
 
     it("free_no_home → 'Been out this week?'", async () => {

@@ -148,7 +148,7 @@ describe("NearbySpots", () => {
 
       render(<NearbySpots beach={mockBeach} />);
 
-      expect(screen.getByText("Nearby Surf Spots")).toBeInTheDocument();
+      expect(screen.getByText("Closest Surf Spots")).toBeInTheDocument();
       expect(screen.getByTestId("loader-icon")).toBeInTheDocument();
     });
 
@@ -624,7 +624,7 @@ describe("NearbySpots", () => {
       await waitFor(() => {
         const heading = screen.getByRole("heading", {
           level: 2,
-          name: "Nearby Surf Spots",
+          name: "Closest Surf Spots",
         });
         expect(heading).toBeInTheDocument();
       });

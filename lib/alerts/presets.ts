@@ -61,11 +61,39 @@ export const PRESETS: PresetDefinition[] = [
     type: "dawn_patrol",
     name: "Dawn Patrol",
     description: "Rideable surf at first light for the daily surfer.",
-    conditionsSummary: "1.5 ft plus swell, under 15 kt wind, first 2 hours",
+    conditionsSummary:
+      "1.5 ft plus swell, under 8 kt wind, first light (5-9 AM)",
     group: "popular",
     buildConditions: (): AlertConditions => ({
       swell_height_min: 1.5,
-      wind_speed_max_kt: 15,
+      wind_speed_max_kt: 8,
+      local_time_start: "05:00",
+      local_time_end: "09:00",
+    }),
+  },
+  {
+    type: "weekend_warrior",
+    name: "Weekend Warrior",
+    description: "Saturday and Sunday only. For the surfer on a work schedule.",
+    conditionsSummary: "2 ft plus swell, under 12 kt wind, weekends only",
+    group: "popular",
+    buildConditions: (): AlertConditions => ({
+      swell_height_min: 2,
+      wind_speed_max_kt: 12,
+      days_of_week: [0, 6],
+    }),
+  },
+  {
+    type: "after_work",
+    name: "After Work",
+    description: "Evening glass-off sessions when the day cooperates.",
+    conditionsSummary: "2 ft plus swell, under 10 kt wind, 4-8 PM",
+    group: "popular",
+    buildConditions: (): AlertConditions => ({
+      swell_height_min: 2,
+      wind_speed_max_kt: 10,
+      local_time_start: "16:00",
+      local_time_end: "20:00",
     }),
   },
   {

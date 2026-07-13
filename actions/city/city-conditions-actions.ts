@@ -129,11 +129,14 @@ async function fetchCitySurfReport(
   try {
     const supabase = createPublicReadClient();
 
-    // Build today's date range in UTC
+    // Prefer today's rows, but allow recent cached rows so city pages still
+    // expose real conditions when a local/dev fixture is slightly stale.
     const now = new Date();
+    const recentStart = new Date(now);
+    recentStart.setUTCDate(recentStart.getUTCDate() - 3);
+
     const todayStart = new Date(now);
     todayStart.setUTCHours(0, 0, 0, 0);
-
     const tomorrowStart = new Date(todayStart);
     tomorrowStart.setUTCDate(tomorrowStart.getUTCDate() + 1);
 
@@ -159,7 +162,7 @@ async function fetchCitySurfReport(
       `,
       )
       .ilike("beaches.state", stateSlug)
-      .gte("forecast_at", todayStart.toISOString())
+      .gte("forecast_at", recentStart.toISOString())
       .lt("forecast_at", tomorrowStart.toISOString())
       .order("forecast_at", { ascending: false })
       .limit(200);
@@ -269,7 +272,7 @@ async function fetchCitySurfReport(
 // ---------------------------------------------------------------------------
 
 /**
- * Get today's surf report summary for a city.
+ * Get a recent surf report summary for a city.
  *
  * Cached for 15 minutes via unstable_cache. Server-only (ISR-safe).
  * Returns null when no forecast data is available so the UI degrades gracefully.
@@ -282,7 +285,7 @@ export async function getCitySurfReport(
 
   const cached = unstable_cache(
     () => fetchCitySurfReport(cityName, stateSlug),
-    [`city-surf-report`, cityKey, stateSlug],
+    [`city-surf-report`, "recent-v2", cityKey, stateSlug],
     { revalidate: 900, tags: [`city-surf-report-${cityKey}`] },
   );
 

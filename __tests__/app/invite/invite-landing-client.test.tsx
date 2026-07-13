@@ -154,19 +154,19 @@ describe("InviteLandingClient", () => {
     );
   });
 
-  it("shows Android waitlist CTA and tracks it as an invite destination", async () => {
+  it("shows Android beta CTA and tracks it as an invite destination", async () => {
     setUserAgent("Mozilla/5.0 (Linux; Android 14)");
     render(<InviteLandingClient {...defaultProps} />);
 
     expect(
-      await screen.findByText(/Android access is waitlist-first/i),
+      await screen.findByText(/Android beta access is open/i),
     ).toBeInTheDocument();
     expect(
       screen.queryByText(/Open the iPhone app/i),
     ).not.toBeInTheDocument();
 
     const androidCta = await screen.findByRole("button", {
-      name: /join android waitlist/i,
+      name: /get the android beta/i,
     });
     fireEvent.click(androidCta);
 

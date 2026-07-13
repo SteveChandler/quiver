@@ -13,6 +13,7 @@ jest.mock("react", () => {
 
 import BeachDetailBySlugPage, { generateMetadata } from "@/app/beach/[slug]/page";
 import { notFound } from "next/navigation";
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 jest.mock("@/lib/services/beach-query-service", () => ({
   getBeachesBySlugFromDb: jest.fn(),
@@ -99,6 +100,47 @@ describe("legacy /beach/[slug] route", () => {
     expect(notFound).toHaveBeenCalled();
   });
 
+  it("returns a true 404 (NEXT_NOT_FOUND) when beach lookup errors", async () => {
+    (getBeachesBySlugFromDb as jest.Mock).mockRejectedValue(
+      new Error("lookup failed"),
+    );
+
+    await expect(
+      BeachDetailBySlugPage({ params: Promise.resolve({ slug: "lookup-error" }) })
+    ).rejects.toMatchObject({ digest: "NEXT_NOT_FOUND" });
+
+    expectConsoleErrors([/Error fetching beach:/]);
+    expect(notFound).toHaveBeenCalled();
+  });
+
+  it("generateMetadata noindexes unknown legacy beach URLs", async () => {
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: "does-not-exist" }),
+    });
+
+    expect(metadata.title).toBe("Beach Not Found");
+    expect(metadata.alternates?.canonical).toContain("/beach/does-not-exist");
+    expect((metadata.robots as any)?.index).toBe(false);
+    expect((metadata.robots as any)?.follow).toBe(false);
+    expect((metadata.robots as any)?.googleBot?.index).toBe(false);
+    expect((metadata.robots as any)?.googleBot?.follow).toBe(false);
+  });
+
+  it("generateMetadata noindexes lookup-error legacy beach URLs", async () => {
+    (getBeachesBySlugFromDb as jest.Mock).mockRejectedValue(
+      new Error("lookup failed"),
+    );
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: "lookup-error" }),
+    });
+
+    expectConsoleErrors([/Error generating beach metadata:/]);
+    expect(metadata.title).toBe("Beach Not Found");
+    expect((metadata.robots as any)?.index).toBe(false);
+    expect((metadata.robots as any)?.follow).toBe(false);
+  });
+
   it("generateMetadata skips forecast-preview and noindexes redirecting legacy URLs", async () => {
     // Resolved beach has city + state + slug, so canonical = /ca/san-diego/ocean-beach
     // and request slug "ocean-beach" -> /beach/ocean-beach != canonical -> redirects.
@@ -134,4 +176,3 @@ describe("legacy /beach/[slug] route", () => {
     expect((metadata.robots as any)?.googleBot?.follow).toBe(true);
   });
 });
-

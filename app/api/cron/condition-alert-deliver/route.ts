@@ -33,6 +33,7 @@ import {
   type AlertRevalidationBeachMeta,
   type QueueItemWithMeta,
 } from "@/lib/alerts/payload-builder";
+import { buildConsolidatedSubject } from "@/lib/alerts/consolidated-subject";
 import { formatPushNotification } from "@/lib/alerts/push-formatter";
 import { enqueueNotification } from "@/lib/notifications/enqueue";
 import { generateDisableToken, generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
@@ -757,6 +758,10 @@ export async function GET(request: Request): Promise<NextResponse> {
                       month: "long",
                       day: "numeric",
                     });
+                    const emailSubject = buildConsolidatedSubject(
+                      emailMatches,
+                      alertDate
+                    );
 
                     await rateLimiter.throttle();
 
@@ -764,7 +769,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                       from: MAIL_FROM,
                       replyTo: MAIL_REPLY_TO,
                       to: profile.email,
-                      subject: `Your surf report for ${alertDate}`,
+                      subject: emailSubject,
                       react: ConsolidatedAlertEmail({
                         displayName: profile.display_name,
                         alertDate,
@@ -821,7 +826,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                         await emailLogger.logDelivery({
                           userId: payload.user_id,
                           emailType: "conditions_alert",
-                          subject: `Your surf report for ${alertDate}`,
+                          subject: emailSubject,
                           meta: {
                             match_count: emailMatches.length,
                             beaches: emailMatches.map((m) => m.beach_name),

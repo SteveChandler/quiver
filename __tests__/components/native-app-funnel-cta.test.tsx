@@ -29,7 +29,7 @@ describe("NativeAppFunnelCta", () => {
     expect(screen.getByTestId("ios-cta")).toBeInTheDocument();
   });
 
-  it("renders the Android waitlist on Android", () => {
+  it("renders the Android beta CTA on Android", () => {
     render(<NativeAppFunnelCta platform="android" {...base} />);
     expect(screen.getByTestId("android-cta")).toBeInTheDocument();
   });

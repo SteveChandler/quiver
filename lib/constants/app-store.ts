@@ -23,7 +23,7 @@ export const IOS_APP_STORE_CTA = "Open App Store";
 export const IOS_APP_STORE_DESTINATION_STATUS = "app_store_live";
 
 export const IOS_APP_STORE_SMART_BANNER_ARGUMENT =
-  "https://www.quiversurf.app";
+  `https://www.quiversurf.app/app?source=ios_smart_app_banner&surface=web&placement=apple_smart_banner&utm_source=ios_safari&utm_medium=smart_banner&utm_campaign=${APP_FIRST_CAMPAIGN}`;
 
 export const ANDROID_BETA_LANDING_PATH = "/android-beta";
 

@@ -1,5 +1,6 @@
 import {
   analyzeTechnicalAudit,
+  extractInternalLinks,
   extractSitemapPaths,
 } from "@/lib/seo/agent-workflow/technical-audit";
 
@@ -13,6 +14,22 @@ describe("SEO workflow technical audit", () => {
         <url><loc>https://www.quiversurf.app/map?x=1</loc></url>
       </urlset>
     `)).toEqual(["/learn/foo", "/map"]);
+  });
+
+  it("extracts unique same-origin links and skips off-origin and non-page hrefs", () => {
+    const html = [
+      '<a href="/learn/foo">a</a>',
+      '<a href="https://www.quiversurf.app/map">b</a>',
+      '<a href="/learn/foo#section">dup</a>',
+      '<a href="https://external.com/x">ext</a>',
+      '<a href="#top">anchor</a>',
+      '<a href="mailto:hi@quiversurf.app">mail</a>',
+    ].join("");
+
+    expect(extractInternalLinks(html, "https://www.quiversurf.app/")).toEqual([
+      "https://www.quiversurf.app/learn/foo",
+      "https://www.quiversurf.app/map",
+    ]);
   });
 
   it("flags robots, canonical, metadata, and broken-link issues", () => {

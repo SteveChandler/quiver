@@ -3,6 +3,7 @@ import type { Locator, Page } from '@playwright/test';
 import { TEST_BEACHES, VIEWPORTS } from './fixtures/test-data';
 import { waitForPageLoad, navigateToBeach } from './utils/test-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
+import { ensureLocalBeachForecastFixture } from './utils/local-supabase-fixtures';
 import { isVisibleSafe } from './utils/strict-helpers';
 
 const FORECAST_CONDITIONS_HEADING = /^(Current|Forecasted) Conditions$/i;
@@ -13,6 +14,19 @@ function forecastConditionsHeading(page: Page): Locator {
     level: 2,
   });
 }
+
+let cleanupForecastFixture: (() => Promise<void>) | undefined;
+
+test.beforeAll(async () => {
+  cleanupForecastFixture = await ensureLocalBeachForecastFixture({
+    dataSource: 'e2e_beach_detail_fixture',
+    slug: 'blacks',
+  });
+});
+
+test.afterAll(async () => {
+  await cleanupForecastFixture?.();
+});
 
 /**
  * Beach Detail Page Tests
@@ -38,24 +52,16 @@ test.describe('Beach Detail Page', () => {
     const beachName = page.getByRole('heading', { name: /blacks/i, level: 1 });
     await expect(beachName).toBeVisible({ timeout: 10000 });
 
-    // Should show location (California) - use .first() to avoid strict mode violation
-    const location = page.getByText(/california/i).first();
+    // Should show location in the redesigned field-guide hero.
+    const location = page.getByText(/la jolla,\s*ca/i).first();
     await expect(location).toBeVisible();
   });
 
   test('should display beach statistics', async ({ page }) => {
-    // QuickStats renders break type as "Beach Break", "Reef Break", etc.
-    const breakType = page.getByText(/beach break|reef break|point break/i).first();
-    await expect(breakType).toBeVisible({ timeout: 10000 });
-
-    // Should show rating or reviews
-    const rating = page.locator('[class*="rating"], [data-testid="rating"]').first();
-    const ratingText = page.getByText(/reviews?|rating/i).first();
-
-    const hasRating = await isVisibleSafe(rating);
-    const hasRatingText = await isVisibleSafe(ratingText);
-
-    expect(hasRating || hasRatingText).toBe(true);
+    await expect(page.getByText(/spot/i).first()).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/break/i).first()).toBeVisible();
+    await expect(page.getByText(/^rating$/i).first()).toBeVisible();
+    await expect(page.getByText(/^reviews$/i).first()).toBeVisible();
   });
 
   test('should display beach photos or gallery', async ({ page }) => {
@@ -134,9 +140,8 @@ test.describe('Beach Detail Page', () => {
     const beachName = page.getByRole('heading', { name: /blacks/i, level: 1 });
     await expect(beachName).toBeVisible();
 
-    // Content should be readable
-    const breakType = page.getByText(/beach break|reef break|point break/i).first();
-    await expect(breakType).toBeVisible({ timeout: 10000 });
+    await expect(page.getByText(/la jolla,\s*ca/i).first()).toBeVisible();
+    await expect(page.getByText(/^rating$/i).first()).toBeVisible({ timeout: 10000 });
   });
 
 });
@@ -171,37 +176,42 @@ test.describe('Beach Detail - Forecast Tab', () => {
   });
 
   test('should switch between all tabs correctly', async ({ page }) => {
-    // Get all tab elements
-    const overviewTab = page.getByRole('tab', { name: /overview/i });
-    const forecastTab = page.getByRole('tab', { name: /forecast/i });
-    const reviewsTab = page.getByRole('tab', { name: /reviews/i });
-    const intelTab = page.getByRole('tab', { name: /local intel/i });
-    const sessionsTab = page.getByRole('tab', { name: /sessions/i });
-
-    // Test switching to each tab in sequence
     const tabs = [
-      { element: forecastTab, name: 'Forecast' },
-      { element: reviewsTab, name: 'Reviews' },
-      { element: intelTab, name: 'Intel' },
-      { element: sessionsTab, name: 'Sessions' },
-      { element: overviewTab, name: 'Overview' }
+      {
+        label: /forecast/i,
+        panel: /forecast/i,
+        content: /Current Conditions|Forecasted Conditions/i,
+      },
+      { label: /reviews/i, panel: /reviews/i, content: /review/i },
+      { label: /local intel/i, panel: /local intel/i },
+      { label: /sessions/i, panel: /sessions/i },
+      { label: /overview/i, panel: /overview/i, content: /spot|break|rating|reviews/i },
     ];
 
     for (const tab of tabs) {
-      // Click the tab
-      await tab.element.click();
-
-      // Verify it becomes active
-      await expect(tab.element).toHaveAttribute('data-state', 'active', { timeout: 5000 });
-
-      // Verify content panel is visible (use .first() — nested tab panels may exist)
-      const tabpanel = page.getByRole('tabpanel').first();
-      await expect(tabpanel).toBeVisible();
-
+      const tabControl = page.getByRole('tab', { name: tab.label });
+      await expect(tabControl).toBeVisible({ timeout: 10000 });
+      await tabControl.focus();
+      await page.keyboard.press('Enter');
+      await expect(tabControl).toHaveAttribute(
+        'data-state',
+        'active',
+        { timeout: 10000 },
+      );
+      const activePanel = page.getByRole('tabpanel', { name: tab.panel }).first();
+      // eslint-disable-next-line playwright/no-conditional-in-test -- some local fixture tabs intentionally have empty panels
+      if (tab.content) {
+        await expect(activePanel).toBeVisible({ timeout: 10000 });
+        await expect(activePanel).toContainText(tab.content, { timeout: 10000 });
+      } else {
+        await expect(activePanel).toHaveAttribute('data-state', 'active', { timeout: 10000 });
+      }
     }
 
-    // Verify final state - Overview should be active again
-    await expect(overviewTab).toHaveAttribute('data-state', 'active');
+    await expect(page.getByRole('tab', { name: /overview/i })).toHaveAttribute(
+      'data-state',
+      'active',
+    );
   });
 
   test('should display tides on forecast tab @requires-data', async ({ page }) => {

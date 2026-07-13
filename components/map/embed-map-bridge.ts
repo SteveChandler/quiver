@@ -1,4 +1,5 @@
 export type EmbedMapSwellLayerId = "combined" | "s1" | "s2" | "wind";
+export const EMBED_MAP_MAX_FORECAST_TIME_INDEX = 7;
 
 export interface EmbedMapCoordinate {
   lat: number;
@@ -27,7 +28,9 @@ export type EmbedMapCommand =
   | { type: "cancelPlacement"; payload?: Record<string, never> }
   | { type: "confirmPlacement"; payload?: Record<string, never> }
   | { type: "setTheme"; payload: { mode: "explore" | "hero" } }
-  | { type: "setReducedMotion"; payload: { enabled: boolean } };
+  | { type: "setReducedMotion"; payload: { enabled: boolean } }
+  | { type: "setFieldVisible"; payload: { visible: boolean } }
+  | { type: "setForecastPlaying"; payload: { playing: boolean } };
 
 export type EmbedMapEvent =
   | { type: "ready"; payload: { viewport: EmbedMapViewport } }
@@ -50,6 +53,7 @@ export type EmbedMapEvent =
   | { type: "placementChanged"; payload: EmbedMapCoordinate }
   | { type: "placementConfirmed"; payload: EmbedMapCoordinate }
   | { type: "placementCancelled"; payload: Record<string, never> }
+  | { type: "forecastTimeChanged"; payload: { index: number; forecastAt?: string } }
   | { type: "renderHealth"; payload: { fps?: number; status: "ok" | "degraded" } };
 
 const SWELL_LAYER_IDS = new Set<EmbedMapSwellLayerId>([
@@ -66,6 +70,13 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function finiteNumber(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
   return value;
+}
+
+function clampForecastTimeIndex(index: number, maxIndex: number): number {
+  return Math.max(
+    0,
+    Math.min(maxIndex, Math.round(index)),
+  );
 }
 
 function coordinateFromPayload(payload: unknown): EmbedMapCoordinate | null {
@@ -100,7 +111,10 @@ function viewportFromPayload(payload: unknown): EmbedMapViewport | null {
   };
 }
 
-export function parseEmbedMapCommand(data: unknown): EmbedMapCommand | null {
+export function parseEmbedMapCommand(
+  data: unknown,
+  maxForecastTimeIndex = EMBED_MAP_MAX_FORECAST_TIME_INDEX,
+): EmbedMapCommand | null {
   let parsed = data;
   if (typeof data === "string") {
     try {
@@ -132,7 +146,10 @@ export function parseEmbedMapCommand(data: unknown): EmbedMapCommand | null {
       const index = finiteNumber(payload.index);
       return index === null
         ? null
-        : { type: "setForecastTime", payload: { index: Math.max(0, Math.round(index)) } };
+        : {
+            type: "setForecastTime",
+            payload: { index: clampForecastTimeIndex(index, maxForecastTimeIndex) },
+          };
     }
     case "setSelectedSpot": {
       if (!isRecord(payload) || typeof payload.beachId !== "string") return null;
@@ -166,6 +183,14 @@ export function parseEmbedMapCommand(data: unknown): EmbedMapCommand | null {
     case "setReducedMotion": {
       if (!isRecord(payload) || typeof payload.enabled !== "boolean") return null;
       return { type: "setReducedMotion", payload: { enabled: payload.enabled } };
+    }
+    case "setFieldVisible": {
+      if (!isRecord(payload) || typeof payload.visible !== "boolean") return null;
+      return { type: "setFieldVisible", payload: { visible: payload.visible } };
+    }
+    case "setForecastPlaying": {
+      if (!isRecord(payload) || typeof payload.playing !== "boolean") return null;
+      return { type: "setForecastPlaying", payload: { playing: payload.playing } };
     }
     default:
       return null;

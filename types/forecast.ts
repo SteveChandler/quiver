@@ -541,6 +541,25 @@ export interface WaveHeightProvenance {
   components_used: boolean;
   /** True when the per-beach `shoaling_factors` lookup actually fired. */
   calibrated_shoaling_fired: boolean;
+  /** True when a low long-period CDIP bucket was skipped by quarantine rules. */
+  calibration_bucket_quarantined?: boolean;
+  /** Last CDIP face height minus first following model face height at the source handoff. */
+  handoff_discontinuity_ft?: number;
+  /** Optional default-off boundary blend applied to model rows after a CDIP handoff. */
+  handoff_blend?: {
+    cdip_forecast_at: string;
+    model_forecast_at: string;
+    cdip_face_ft: number;
+    model_face_ft: number;
+    handoff_discontinuity_ft: number;
+    raw_ratio: number;
+    clamped_ratio: number;
+    taper_hours: number;
+    hours_after_seam: number;
+    taper_factor: number;
+    original_face_ft: number;
+    blended_face_ft: number;
+  };
   /** Set when CDIP was rejected as an outlier and a fallback source was used. */
   cdip_rejection?: {
     reason: 'cdip_too_large' | 'cdip_outlier_vs_model';

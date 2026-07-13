@@ -49,15 +49,15 @@ export function FoundingAccessCta({
             </p>
             <p className="mt-1 text-xs leading-5 text-[#4B4030]">
               {hasJoinedAndroidWaitlist
-                ? "Android updates are set for this account."
-                : "Confirm this account for launch updates."}
+                ? "Android beta access is set for this account."
+                : "Confirm this account for Android beta access."}
             </p>
             {hasJoinedAndroidWaitlist ? null : (
               <AndroidWaitlistCta
                 source={source}
                 surface={surface}
                 placement="plans_compact_signed_in"
-                successLabel="Android updates are set."
+                successLabel="Android beta access set."
                 onConfirmed={refreshAndroidWaitlistStatus}
                 className="mt-3 inline-flex min-h-10 items-center justify-center rounded-full bg-[#F78E42] px-4 text-sm font-semibold text-[#11100D] hover:bg-[#ff9f55] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
               >
@@ -83,8 +83,8 @@ export function FoundingAccessCta({
             <p className="font-semibold text-white">You&apos;re signed in.</p>
             <p className="mt-1 text-sm leading-6 text-white/65">
               {hasJoinedAndroidWaitlist
-                ? "Android updates are set for this account."
-                : "Confirm this account for Android launch updates."}
+                ? "Android beta access is set for this account."
+                : "Confirm this account for Android beta access."}
             </p>
           </div>
         </div>
@@ -93,7 +93,7 @@ export function FoundingAccessCta({
             source={source}
             surface={surface}
             placement="plans_signed_in"
-            successLabel="Android updates are set."
+            successLabel="Android beta access set."
             onConfirmed={refreshAndroidWaitlistStatus}
             className="inline-flex min-h-10 self-start items-center justify-center rounded-full bg-[#F78E42] px-5 text-sm font-semibold text-[#11100D] hover:bg-[#ff9f55] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#0D1020]"
           >
@@ -123,7 +123,7 @@ export function FoundingAccessCta({
         source={source}
         surface={surface}
         placement={isCompact ? "plans_compact" : "plans_primary"}
-        successLabel="Android updates are set."
+        successLabel="Android beta access set."
         onConfirmed={refreshAndroidWaitlistStatus}
         className={cn(
           "inline-flex items-center justify-center gap-2 rounded-full bg-[#F78E42] font-semibold text-[#11100D] hover:bg-[#ff9f55] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42]",
@@ -141,7 +141,7 @@ export function FoundingAccessCta({
           isCompact ? "text-xs text-[#4B4030]" : "text-sm text-white/55",
         )}
       >
-        We&apos;ll send Android launch updates.
+        Install today. Test for 14 days to earn a free year of Pro.
       </p>
     </div>
   );

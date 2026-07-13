@@ -5,7 +5,6 @@ import {
   setupErrorDetection,
   type ErrorCapture,
 } from "./utils/error-detection";
-import { isVisibleSafe } from "./utils/strict-helpers";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -59,6 +58,15 @@ test.describe("Guest forecast accuracy trust page", () => {
       await expect(
         page.getByRole("heading", { name: "Three checks, then a plain score." })
       ).toBeVisible();
+      await expect(
+        page.getByRole("heading", {
+          name: "More accurate than Surfline. Twice as sharp as NOAA.",
+        })
+      ).toBeVisible();
+      await expect(page.getByText("WINNER")).toBeVisible();
+      await expect(page.getByText("0.30m")).toBeVisible();
+      await expect(page.getByText("0.35m")).toBeVisible();
+      await expect(page.getByText("0.67m")).toBeVisible();
       await expectNoHorizontalOverflow(page);
 
       const jsonLdCount = await page
@@ -66,42 +74,13 @@ test.describe("Guest forecast accuracy trust page", () => {
         .count();
       expect(jsonLdCount).toBeGreaterThan(0);
 
-      const buildingPanel = page.getByRole("region", {
-        name: "Forecast accuracy metrics building",
-      });
-      const hasBuildingPanel = await isVisibleSafe(buildingPanel, {
-        timeout: 2_000,
-      });
-
-      // eslint-disable-next-line playwright/no-conditional-in-test -- Live accuracy data can legitimately be present or building depending on local/prod metric freshness.
-      if (hasBuildingPanel) {
-        await expect(
-          page.getByRole("heading", {
-            name: "Accuracy rows are being verified.",
-          })
-        ).toBeVisible();
-        await expect(
-          page.getByRole("heading", { name: "Accuracy lift claim" })
-        ).toBeVisible();
-        await expect(
-          page.getByText(/better in the latest buoy check/i)
-        ).toHaveCount(0);
-      } else {
-        await expect(page.getByText(/Validated pairs/i).first()).toBeVisible();
-        await expect(
-          page.getByRole("heading", {
-            name: "Top Beaches by Accuracy Improvement",
-          })
-        ).toBeVisible();
-        await expect(page.getByText(/Quiver MAE/i).first()).toBeVisible();
-        await expect(
-          page
-            .getByText(
-              /High - buoy \+ model|Medium - buoy \+ model|Low - sparse data|Model only/i
-            )
-            .first()
-        ).toBeVisible();
-      }
+      await expect(
+        page.getByRole("region", {
+          name: "Forecast accuracy metrics building",
+        })
+      ).toHaveCount(0);
+      await expect(page.getByText(/Validated pairs/i)).toHaveCount(0);
+      await expect(page.getByText(/Quiver MAE/i)).toHaveCount(0);
     });
   }
 });

@@ -1,5 +1,6 @@
 import { PRESETS, getPreset, getPresetsForGroup } from "@/lib/alerts/presets";
-import type { BeachAlertMeta } from "@/lib/alerts/types";
+import { evaluateConditions } from "@/lib/alerts/condition-evaluator";
+import type { BeachAlertMeta, ForecastHour } from "@/lib/alerts/types";
 
 const mockBeach: BeachAlertMeta = {
   id: "beach-1",
@@ -18,13 +19,27 @@ const mockBeach: BeachAlertMeta = {
   swell_window_halfwidth_deg: 60,
 };
 
+const baseForecast: ForecastHour = {
+  forecast_at: "2026-04-04T15:00:00Z",
+  wave_height: 3,
+  wave_period: 12,
+  wave_direction: "W",
+  swell_1_height: 3,
+  swell_1_period: 12,
+  swell_1_direction: 250,
+  wind_speed: 5,
+  wind_direction_deg: 45,
+  tide_height: 3.5,
+  tide_status: "rising",
+};
+
 describe("presets", () => {
-  it("defines exactly 8 presets", () => {
-    expect(PRESETS).toHaveLength(8);
+  it("defines exactly 10 presets", () => {
+    expect(PRESETS).toHaveLength(10);
   });
 
-  it("has 3 popular, 4 specific, and 1 internal preset", () => {
-    expect(getPresetsForGroup("popular")).toHaveLength(3);
+  it("has 5 popular, 4 specific, and 1 internal preset", () => {
+    expect(getPresetsForGroup("popular")).toHaveLength(5);
     expect(getPresetsForGroup("specific")).toHaveLength(4);
     expect(PRESETS.filter((preset) => preset.group === "internal")).toHaveLength(
       1,
@@ -158,6 +173,81 @@ describe("presets", () => {
     expect(conditions.swell_height_min).toBe(2);
     expect(conditions.swell_period_min).toBe(12);
     expect(conditions.wind_speed_max_kt).toBe(10);
+  });
+
+  it("dawn_patrol is time-bound to first light with calmer wind", () => {
+    const preset = getPreset("dawn_patrol")!;
+    const conditions = preset.buildConditions(mockBeach);
+
+    expect(conditions).toMatchObject({
+      swell_height_min: 1.5,
+      wind_speed_max_kt: 8,
+      local_time_start: "05:00",
+      local_time_end: "09:00",
+    });
+    expect(
+      evaluateConditions(
+        conditions,
+        { ...baseForecast, forecast_at: "2026-04-04T13:00:00Z" },
+        mockBeach,
+      ),
+    ).toBe(true);
+    expect(
+      evaluateConditions(
+        conditions,
+        {
+          ...baseForecast,
+          forecast_at: "2026-04-04T13:00:00Z",
+          wind_speed: 15,
+        },
+        mockBeach,
+      ),
+    ).toBe(false);
+  });
+
+  it("weekend_warrior is limited to Saturday and Sunday", () => {
+    const preset = getPreset("weekend_warrior")!;
+    const conditions = preset.buildConditions(mockBeach);
+
+    expect(conditions).toMatchObject({
+      swell_height_min: 2,
+      wind_speed_max_kt: 12,
+      days_of_week: [0, 6],
+    });
+    expect(evaluateConditions(conditions, baseForecast, mockBeach)).toBe(true);
+    expect(
+      evaluateConditions(
+        conditions,
+        { ...baseForecast, forecast_at: "2026-04-01T15:00:00Z" },
+        mockBeach,
+      ),
+    ).toBe(false);
+  });
+
+  it("after_work is limited to the 4-8 PM local window", () => {
+    const preset = getPreset("after_work")!;
+    const conditions = preset.buildConditions(mockBeach);
+
+    expect(conditions).toMatchObject({
+      swell_height_min: 2,
+      wind_speed_max_kt: 10,
+      local_time_start: "16:00",
+      local_time_end: "20:00",
+    });
+    expect(
+      evaluateConditions(
+        conditions,
+        { ...baseForecast, forecast_at: "2026-04-04T00:00:00Z" },
+        mockBeach,
+      ),
+    ).toBe(true);
+    expect(
+      evaluateConditions(
+        conditions,
+        { ...baseForecast, forecast_at: "2026-04-04T04:00:00Z" },
+        mockBeach,
+      ),
+    ).toBe(false);
   });
 
   it("tide_window uses beach preferred tide range and direction", () => {

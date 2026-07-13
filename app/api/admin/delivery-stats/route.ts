@@ -37,7 +37,9 @@ export const GET = withAdminAuth(async (request: NextRequest, { supabase }) => {
     // Recent digest runs
     supabase
       .from("digest_run_stats")
-      .select("*")
+      .select(
+        "id, run_started_at, run_completed_at, status, duration_ms, eligible_users, emails_sent, emails_sent_quick, push_sent, push_failed, push_no_tokens"
+      )
       .gte("run_started_at", since)
       .order("run_started_at", { ascending: false })
       .limit(MAX_DIGEST_RUNS_QUERY),

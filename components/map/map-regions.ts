@@ -1,7 +1,11 @@
+import type { MapBoundsTuple } from "@/components/map/map-camera-command";
+
 export interface MapRegionPill {
   id: string;
   label: string;
   center: { lat: number; lon: number };
+  bounds?: MapBoundsTuple;
+  timezone?: string;
 }
 
 export const MAP_REGION_PILLS: MapRegionPill[] = [
@@ -39,5 +43,7 @@ export const MAP_REGION_PILLS: MapRegionPill[] = [
     id: "hawaii",
     label: "Hawaii",
     center: { lat: 21.66, lon: -158.06 },
+    bounds: [[-160.3, 18.8], [-154.7, 22.4]],
+    timezone: "Pacific/Honolulu",
   },
 ];

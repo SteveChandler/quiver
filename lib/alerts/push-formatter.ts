@@ -19,7 +19,7 @@ interface PushContent {
  * brand-consistent word. NOT the 0-100 composite — do not route through
  * getConditionLabel. Never implies ML correction.
  */
-function qualityWord(score: number): string {
+export function qualityWord(score: number): string {
   if (!Number.isFinite(score)) return "Looking good";
   if (score >= 0.85) return "Pumping";
   if (score >= 0.7) return "Firing";

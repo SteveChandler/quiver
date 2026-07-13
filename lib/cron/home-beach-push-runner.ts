@@ -1,6 +1,7 @@
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { NotificationType } from "@/lib/notifications/registry";
+import type { EnqueueResult } from "@/lib/notifications/types";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -37,12 +38,25 @@ interface HomeBeachPushRunnerOptions<P extends object> {
   allowlistEnv: string;
   type: NotificationType;
   lookaheadHours: number;
+  profileSelectExtraFields?: string[];
+  createAdditionalSummary?: () => Record<string, unknown>;
   selectAndBuild: (
     args: HomeBeachPushSelectArgs
   ) => HomeBeachPushSelection<P> | Promise<HomeBeachPushSelection<P>>;
+  afterEnqueue?: (args: {
+    supabase: ReturnType<typeof createSupabaseServiceRoleClient>;
+    profile: HomeBeachPushProfileRow;
+    beach: Beach;
+    forecasts: EnhancedForecastEntity[];
+    timezone: string;
+    now: Date;
+    selection: { payload: P; dedupeKey: string };
+    enqueueResult: EnqueueResult;
+    summary: HomeBeachPushRunSummary;
+  }) => Promise<void>;
 }
 
-interface HomeBeachPushRunSummary {
+export interface HomeBeachPushRunSummary {
   skipped: boolean;
   reason?: string;
   evaluated: number;
@@ -53,6 +67,7 @@ interface HomeBeachPushRunSummary {
   skippedCounts: Record<string, number>;
   errors: number;
   durationMs: number;
+  [key: string]: unknown;
 }
 
 function createSkippedCounts(): Record<string, number> {
@@ -91,10 +106,22 @@ export function isEligibleHomeBeachPushProfile(
   return true;
 }
 
-async function loadProfiles(supabase: any): Promise<HomeBeachPushProfileRow[]> {
+async function loadProfiles(
+  supabase: any,
+  extraFields: string[] = []
+): Promise<HomeBeachPushProfileRow[]> {
+  const selectFields = [
+    "id",
+    "home_beach_id",
+    "timezone",
+    "notif_push_enabled",
+    "notif_reminders",
+    ...extraFields,
+  ].join(", ");
+
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, home_beach_id, timezone, notif_push_enabled, notif_reminders")
+    .select(selectFields)
     .not("home_beach_id", "is", null);
 
   if (error) {
@@ -168,6 +195,7 @@ export async function runHomeBeachPushCron<P extends object>(
       skippedCounts: createSkippedCounts(),
       errors: 0,
       durationMs: 0,
+      ...(options.createAdditionalSummary?.() ?? {}),
     };
 
     if (process.env[options.enabledEnv] !== "true") {
@@ -180,7 +208,7 @@ export async function runHomeBeachPushCron<P extends object>(
     const allowlist = parseHomeBeachPushAllowlist(options.allowlistEnv);
     summary.testAllowlistActive = allowlist.size > 0;
     const supabase = createSupabaseServiceRoleClient();
-    const profiles = await loadProfiles(supabase);
+    const profiles = await loadProfiles(supabase, options.profileSelectExtraFields);
     const eligibleProfiles: HomeBeachPushProfileRow[] = [];
 
     for (const profile of profiles) {
@@ -260,10 +288,32 @@ export async function runHomeBeachPushCron<P extends object>(
 
         if (enqueueResult.enqueued) {
           summary.sent++;
+          await options.afterEnqueue?.({
+            supabase,
+            profile,
+            beach,
+            forecasts,
+            timezone,
+            now,
+            selection,
+            enqueueResult,
+            summary,
+          });
           continue;
         }
         if (enqueueResult.reason === "duplicate") {
           summary.duplicates++;
+          await options.afterEnqueue?.({
+            supabase,
+            profile,
+            beach,
+            forecasts,
+            timezone,
+            now,
+            selection,
+            enqueueResult,
+            summary,
+          });
           continue;
         }
 

@@ -169,7 +169,7 @@ describe("GET /api/recent-posts", () => {
     expect(response.status).toBe(200);
     expect(response.headers.get("Cache-Control")).toContain("max-age");
     expect(mockBlocksSelect).toHaveBeenCalledWith("blocked_id");
-    expect(mockCountSelect).toHaveBeenCalledWith("*", {
+    expect(mockCountSelect).toHaveBeenCalledWith("id", {
       count: "exact",
       head: true,
     });

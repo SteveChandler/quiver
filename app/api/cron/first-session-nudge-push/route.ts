@@ -36,6 +36,7 @@
  */
 
 import { enqueueNotification } from "@/lib/notifications/enqueue";
+import { buildNotificationRelevanceMetadata } from "@/lib/notifications/relevance";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -196,8 +197,8 @@ async function resolveCohort(
       return {
         cohort: "trialing_home",
         title: "Unlock your Quiver",
-        body: `Log today's session at ${beachName} — 7 days left in your trial`,
-        beach_id: candidate.home_beach_id,
+        body: "Add your first session when you paddle out — 7 days left in your trial",
+        beach_id: null,
         beach_name: beachName,
         confidence_score: null,
       };
@@ -205,7 +206,7 @@ async function resolveCohort(
     return {
       cohort: "trialing_no_home",
       title: "Set your home break",
-      body: "Pick a spot and log a session — 7 days left in your trial",
+      body: "Pick a home break, then add your first session when you paddle out.",
       beach_id: null,
       beach_name: null,
       confidence_score: null,
@@ -232,9 +233,9 @@ async function resolveCohort(
   if (confidence !== null && confidence >= CONDITIONS_FIRING_THRESHOLD) {
     return {
       cohort: "free_home_firing",
-      title: `✨ ${beachName} is looking good`,
-      body: "Check today's forecast and log your session to start building your score",
-      beach_id: candidate.home_beach_id,
+      title: "Good window at your home break",
+      body: "Check today's forecast, and log a session if you paddle out.",
+      beach_id: null,
       beach_name: beachName,
       confidence_score: confidence,
     };
@@ -242,9 +243,9 @@ async function resolveCohort(
 
   return {
     cohort: "free_home",
-    title: "How was this week?",
-    body: `Log a session at ${beachName} to start building your personalized forecast`,
-    beach_id: candidate.home_beach_id,
+    title: "Start your surf log",
+    body: "Add your first session when you paddle out.",
+    beach_id: null,
     beach_name: beachName,
     confidence_score: null,
   };
@@ -545,13 +546,20 @@ async function _GET(request: Request): Promise<Response> {
         const enqueueResult = await enqueueNotification({
           type: "log_session_nudge",
           recipientUserId: candidate.user_id,
-          entityType: resolved.beach_id ? "beach" : null,
-          entityId: resolved.beach_id ?? null,
+          entityType: null,
+          entityId: null,
           payload: {
             cohort: resolved.cohort,
             title: resolved.title,
             body: resolved.body,
-            beach_id: resolved.beach_id ?? null,
+            beach_id: null,
+            ...buildNotificationRelevanceMetadata({
+              category: "session_growth",
+              triggerSource: "first_session_day7",
+              relevanceConfidence: "medium",
+              beachConfidence: "low",
+              beachConfidenceScore: resolved.confidence_score,
+            }),
           },
           dedupeKey: `log_session_nudge:${candidate.user_id}:${NUDGE_TYPE}`,
         });

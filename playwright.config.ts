@@ -118,6 +118,7 @@ export default defineConfig({
         'e2e/guest-*.spec.ts',
         'e2e/prod-readonly/guest-*.spec.ts',
         'e2e/invite-flow.spec.ts',
+        'e2e/partner-qr-flow.spec.ts',
         'e2e/email-core-loop/**/*.spec.ts',
       ],
       use: {
@@ -139,7 +140,7 @@ export default defineConfig({
   ],
   webServer: shouldStartLocalWebServer
     ? {
-        command: `env -u E2E_PROD_READ_URL -u E2E_PROD_READ_KEY PLAYWRIGHT_TEST=true NEXT_PUBLIC_PLAYWRIGHT_TEST=true NEXT_PUBLIC_E2E_DISABLE_EMAIL_SENDS=true NEXT_PUBLIC_E2E_DISABLE_AUTH_REFRESH=true NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN= NEXT_PUBLIC_POSTHOG_HOST= POSTHOG_HOST=${localCronSecretEnv} NEXT_FONT_GOOGLE_MOCKED_RESPONSES="${nextFontGoogleMockPath}" E2E_PORT=${localWebServerPort} yarn e2e:serve`,
+        command: `env -u E2E_PROD_READ_URL -u E2E_PROD_READ_KEY PLAYWRIGHT_TEST=true NEXT_PUBLIC_PLAYWRIGHT_TEST=true NEXT_PUBLIC_E2E_DISABLE_EMAIL_SENDS=true NEXT_PUBLIC_E2E_DISABLE_AUTH_REFRESH=true NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN= NEXT_PUBLIC_POSTHOG_HOST= POSTHOG_HOST=${localCronSecretEnv} MONITORING_MIN_FORECAST_COVERAGE=0.2 NEXT_FONT_GOOGLE_MOCKED_RESPONSES="${nextFontGoogleMockPath}" E2E_PORT=${localWebServerPort} yarn e2e:serve`,
         // Use a deterministic health endpoint for readiness checks (homepage can legitimately error in dev)
         url: `${defaultBaseURL}/api/health`,
         reuseExistingServer: false,

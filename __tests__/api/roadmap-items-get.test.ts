@@ -93,6 +93,9 @@ describe("GET /api/roadmap/items", () => {
     expect(body.items).toHaveLength(2);
     expect(body.items[0].viewer_has_voted).toBe(false);
     expect(body.items[1].viewer_has_voted).toBe(false);
+    expect(viewBuilder.select).toHaveBeenCalledWith(
+      "id, title, description, category, status, eta_label, founder_reply, shipped_at, created_at, updated_at, vote_count"
+    );
   });
 
   it("authed user sees their votes", async () => {

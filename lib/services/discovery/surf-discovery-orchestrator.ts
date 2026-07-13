@@ -40,6 +40,7 @@ import {
 import type { ConditionCharacterCategory } from '@/lib/domains/scoring';
 import type { SkillLevel } from '@/lib/domains/user-preferences';
 import { parseSkillLevel, getSkillLevelOrDefault, SKILL_WAVE_RANGES } from '@/lib/domains/user-preferences';
+import { normalizeBoardClass, type BoardClass } from '@/lib/domains/rideability';
 import { formatWaveHeightRangeString } from '@/lib/utils/wave-formatters';
 import { getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
 import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
@@ -56,8 +57,18 @@ import {
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Import from other discovery modules
-import { buildCandidatePool } from './candidate-pool-builder';
+import {
+  buildCandidatePool,
+  CANDIDATE_POOL_LIMIT,
+  MAX_CANDIDATE_RADIUS_MILES,
+} from './candidate-pool-builder';
 import { batchFetchForecasts } from './forecast-batch-fetcher';
+import {
+  calculateDistancePenalty,
+  compareDiscoveryRecommendations,
+  WORTH_THE_DRIVE_DISTANCE_MILES,
+  WORTH_THE_DRIVE_REASON,
+} from './distance-friction';
 import {
   selectBestWindow,
   getLocalDateStr,
@@ -98,6 +109,8 @@ import {
 import { buildRecommendationEvidence } from '@/lib/services/discovery/recommendation-evidence';
 import { FEATURE_HERO_WINDOW_SCORE } from '@/lib/constants/feature-flags';
 import type { ScoringEngine } from '@/lib/domains/scoring';
+import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
+import { boardStyleFit } from './board-style-fit';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -106,6 +119,21 @@ type BoardPickRow = {
   name: unknown;
   board_type: unknown;
   volume?: unknown;
+};
+
+type UserBoardContextRow = BoardPickRow & {
+  session_count?: unknown;
+};
+
+interface UserBoardContext {
+  dominantBoardClass: BoardClass | null;
+  boardsForPicks: BoardForPick[];
+}
+
+type BeachWithWavePunchiness = Beach & {
+  wave_punchiness?: unknown;
+  wave_punchiness_ai?: unknown;
+  wave_punchiness_ai_confidence?: unknown;
 };
 
 // ============================================================================
@@ -580,6 +608,45 @@ function normalizeBoardForPick(row: BoardPickRow): BoardForPick | null {
   };
 }
 
+function resolveDominantBoardClass(rows: UserBoardContextRow[]): BoardClass | null {
+  const candidates = rows
+    .map((row) => {
+      const boardClass =
+        (typeof row.board_type === 'string' ? normalizeBoardClass(row.board_type) : null) ??
+        (typeof row.name === 'string' ? normalizeBoardClass(row.name) : null);
+      const sessionCount =
+        typeof row.session_count === 'number' && Number.isFinite(row.session_count)
+          ? row.session_count
+          : 0;
+
+      return { boardClass, sessionCount };
+    })
+    .filter(
+      (c): c is { boardClass: BoardClass; sessionCount: number } => c.boardClass !== null
+    );
+
+  if (candidates.length === 0) return null;
+
+  // Dominant board = most sessions; ties don't matter for a ±5 signal.
+  candidates.sort((a, b) => b.sessionCount - a.sessionCount);
+  return candidates[0].boardClass;
+}
+
+function getWavePunchiness(beach: Beach): number | null {
+  const b = beach as BeachWithWavePunchiness;
+  return resolveWavePunchiness({
+    override: typeof b.wave_punchiness === 'number' ? b.wave_punchiness : null,
+    ai: typeof b.wave_punchiness_ai === 'number' ? b.wave_punchiness_ai : null,
+    aiConfidence:
+      typeof b.wave_punchiness_ai_confidence === 'number'
+        ? b.wave_punchiness_ai_confidence
+        : null,
+    persona: beach.persona,
+    break_type: beach.break_type,
+    skill_level: beach.skill_level,
+  });
+}
+
 async function fetchIncludedBeachCandidates(includeBeachIds: string[] | undefined): Promise<Beach[]> {
   const uniqueIds = Array.from(new Set(includeBeachIds ?? [])).slice(0, MAX_INCLUDED_BEACH_IDS);
   if (uniqueIds.length === 0) return [];
@@ -764,28 +831,72 @@ function recommendationKey(rec: Pick<SurfDiscoveryRecommendation, 'kind' | 'cust
     : `beach:${rec.beach.id}`;
 }
 
-async function fetchUserBoardsForPicks(
+function applyWorthTheDriveReasons(
+  recommendations: SurfDiscoveryRecommendation[]
+): SurfDiscoveryRecommendation[] {
+  return recommendations.map((rec, index) => {
+    if (
+      index > 1 ||
+      rec.distanceMiles === undefined ||
+      rec.distanceMiles <= WORTH_THE_DRIVE_DISTANCE_MILES ||
+      rec.reasons.includes(WORTH_THE_DRIVE_REASON)
+    ) {
+      return rec;
+    }
+
+    const reasons = [
+      WORTH_THE_DRIVE_REASON,
+      ...rec.reasons.filter((reason) => reason !== WORTH_THE_DRIVE_REASON),
+    ].slice(0, 5);
+
+    return {
+      ...rec,
+      reasons,
+      message: buildDiscoveryMessage(
+        rec.score,
+        reasons,
+        rec.warnings,
+        rec.recommendationLabel
+      ),
+    };
+  });
+}
+
+async function fetchUserBoardContext(
   supabase: Pick<SupabaseClient, 'from'>,
   userId: string,
   isPro: boolean
-): Promise<BoardForPick[]> {
-  if (!isPro) return [];
-
+): Promise<UserBoardContext> {
   const { data, error } = await supabase
     .from('boards')
-    .select('id, name, board_type, volume')
+    .select('id, name, board_type, volume, session_count')
     .eq('user_id', userId);
 
   if (error) {
-    log.warn(`Failed to fetch boards for board picks: ${error.message}`);
-    return [];
+    log.warn(`Failed to fetch boards for discovery board context: ${error.message}`);
+    return {
+      dominantBoardClass: null,
+      boardsForPicks: [],
+    };
   }
 
-  if (!Array.isArray(data)) return [];
+  if (!Array.isArray(data)) {
+    return {
+      dominantBoardClass: null,
+      boardsForPicks: [],
+    };
+  }
 
-  return data
-    .map((row) => normalizeBoardForPick(row as BoardPickRow))
-    .filter((board): board is BoardForPick => board !== null);
+  const rows = data as UserBoardContextRow[];
+
+  return {
+    dominantBoardClass: resolveDominantBoardClass(rows),
+    boardsForPicks: isPro
+      ? rows
+          .map((row) => normalizeBoardForPick(row))
+          .filter((board): board is BoardForPick => board !== null)
+      : [],
+  };
 }
 
 /**
@@ -861,6 +972,7 @@ function buildDiscoveryDisplayScore(args: {
   affinityBonus: number;
   distancePenalty: number;
   personalizationBonus: number;
+  boardStyleFitPoints: number;
 }): DiscoveryDisplayScore {
   const displayConditionScore = scoreNativeForecastSlot(
     args.forecast,
@@ -874,7 +986,8 @@ function buildDiscoveryDisplayScore(args: {
       displayConditionScore +
         args.affinityBonus +
         args.distancePenalty +
-        args.personalizationBonus
+        args.personalizationBonus +
+        args.boardStyleFitPoints
     ),
     matchQuality: nativeMatchQuality === 'skip' ? 'minimal' : nativeMatchQuality,
   };
@@ -894,6 +1007,7 @@ async function scoreBeachForDiscovery(args: {
   affinityBonus?: number;
   personalizationBonus?: number;
   personalizationReasons?: string[];
+  dominantBoardClass?: BoardClass | null;
 }): Promise<DetailedScore> {
   const { beach, forecast, userSkillLevel, distanceMiles } = args;
 
@@ -904,19 +1018,7 @@ async function scoreBeachForDiscovery(args: {
   // Use affinity bonus from personalization layer if provided
   const affinityBonus = args.affinityBonus ?? 0;
 
-  // Calculate distance penalty (0 to -20 points)
-  let distancePenalty = 0;
-  if (distanceMiles !== undefined) {
-    if (distanceMiles <= 5) {
-      distancePenalty = 0;
-    } else if (distanceMiles <= 15) {
-      distancePenalty = -5;
-    } else if (distanceMiles <= 30) {
-      distancePenalty = -10;
-    } else {
-      distancePenalty = -20;
-    }
-  }
+  const distancePenalty = calculateDistancePenalty(distanceMiles);
 
   // userSkillLevel is pre-parsed as SkillLevel | null from candidate pool builder.
   const explanationScore = scoreBeachWithEngine(engine, beach, forecast, {
@@ -927,12 +1029,17 @@ async function scoreBeachForDiscovery(args: {
   });
 
   const persBonus = args.personalizationBonus ?? 0;
+  const boardStyle = boardStyleFit(
+    getWavePunchiness(beach),
+    args.dominantBoardClass ?? null
+  );
   const displayScore = buildDiscoveryDisplayScore({
     forecast,
     userSkillLevel,
     affinityBonus,
     distancePenalty,
     personalizationBonus: persBonus,
+    boardStyleFitPoints: boardStyle.points,
   });
 
   const detailedScore = {
@@ -947,6 +1054,13 @@ async function scoreBeachForDiscovery(args: {
   // Merge personalization reasons
   if (args.personalizationReasons && args.personalizationReasons.length > 0) {
     detailedScore.reasons = [...args.personalizationReasons, ...detailedScore.reasons];
+  }
+
+  if (boardStyle.reason) {
+    detailedScore.reasons = [boardStyle.reason, ...detailedScore.reasons];
+  }
+  if (boardStyle.warning) {
+    detailedScore.warnings.push(boardStyle.warning);
   }
 
   // Add distance warning if far
@@ -1157,7 +1271,7 @@ async function discoverSurfSpotsInner(
   startTime: number
 ): Promise<SurfDiscoveryResponse> {
   const {
-    radiusMiles = 25,
+    radiusMiles: requestedRadiusMiles,
     horizonHours,
     maxResults = DEFAULT_MAX_RESULTS,
     maxConcurrent = DEFAULT_MAX_CONCURRENT,
@@ -1168,6 +1282,10 @@ async function discoverSurfSpotsInner(
     isPro = false,
     includeBeachIds,
   } = options;
+  const radiusMiles =
+    requestedRadiusMiles === undefined
+      ? MAX_CANDIDATE_RADIUS_MILES
+      : Math.min(Math.max(requestedRadiusMiles, 0), MAX_CANDIDATE_RADIUS_MILES);
   const requestedIncludeBeachIds = Array.from(new Set(includeBeachIds ?? []))
     .slice(0, MAX_INCLUDED_BEACH_IDS);
   const requestedIncludeBeachIdSet = new Set(requestedIncludeBeachIds);
@@ -1178,7 +1296,7 @@ async function discoverSurfSpotsInner(
   const [{ candidates, userSkillLevel }, includedCandidates, customSpotCandidates] = await Promise.all([
     buildCandidatePool(userId, {
       userLocation,
-      radiusMiles,
+      radiusMiles: requestedRadiusMiles,
     }),
     fetchIncludedBeachCandidates(requestedIncludeBeachIds),
     buildCustomSpotCandidates(userId, userLocation, radiusMiles),
@@ -1187,13 +1305,19 @@ async function discoverSurfSpotsInner(
   // Limit nearby candidates to prevent excessive forecast work, then append
   // explicit include targets. Included beaches are capped separately at the
   // route boundary so saved/home targets can be scored without N native calls.
-  const maxNearbyCandidates = Math.min(candidates.length, 20);
-  const nearbyCandidates = candidates.slice(0, maxNearbyCandidates);
   const customNearestCandidates = customSpotCandidates.map((candidate) => candidate.nearestBeach);
+  const maxNearbyCandidates = Math.min(
+    candidates.length,
+    Math.max(
+      0,
+      CANDIDATE_POOL_LIMIT - includedCandidates.length - customNearestCandidates.length
+    )
+  );
+  const nearbyCandidates = candidates.slice(0, maxNearbyCandidates);
   const finalCandidates = mergeCandidatePools(
     mergeCandidatePools(nearbyCandidates, includedCandidates),
     customNearestCandidates,
-  );
+  ).slice(0, CANDIDATE_POOL_LIMIT);
   // A custom spot is only "primary" (eligible for the Now/Best feeds) when it's
   // as close as the nearby beaches — the same nearest-within-radius cut curated
   // beaches pass. Without this an own custom spot surfaces in Now/Best from
@@ -1338,7 +1462,7 @@ async function discoverSurfSpotsInner(
     sunTimesCache,
     wqResult,
     personalizationCtx,
-    userBoardsForPicks,
+    userBoardContext,
     breakBehaviorRows,
   ] = await Promise.all([
     getBatchSunTimes(Array.from(allBeachIds), uniqueDates),
@@ -1347,9 +1471,10 @@ async function discoverSurfSpotsInner(
       .select('beach_id, status')
       .in('beach_id', candidateBeachIds),
     fetchPersonalizationContext(userId, candidateBeachIds, userPrefs),
-    fetchUserBoardsForPicks(supabase, userId, isPro),
+    fetchUserBoardContext(supabase, userId, isPro),
     fetchBreakBehaviorSessionRows(supabase, candidateBeachIds, { now }),
   ]);
+  const { dominantBoardClass, boardsForPicks: userBoardsForPicks } = userBoardContext;
   const breakBehaviorRowsByBeach = groupBreakBehaviorRowsByBeach(breakBehaviorRows);
 
   const wqMap = new Map<string, string>();
@@ -1496,6 +1621,7 @@ async function discoverSurfSpotsInner(
       affinityBonus: persResult.affinityBonus,
       personalizationBonus: persResult.personalizationBonus,
       personalizationReasons: persResult.reasons,
+      dominantBoardClass,
     });
 
     // Apply water quality override after scoring
@@ -1652,6 +1778,7 @@ async function discoverSurfSpotsInner(
         affinityBonus: customPersResult.affinityBonus,
         personalizationBonus: customPersResult.personalizationBonus,
         personalizationReasons: customPersResult.reasons,
+        dominantBoardClass,
       });
 
       if (wqStatus === 'closure') {
@@ -1768,7 +1895,7 @@ async function discoverSurfSpotsInner(
   }
 
   // Log all beach scores before ranking (for debugging)
-  const allScoresSorted = [...scored].sort((a, b) => b.score - a.score);
+  const allScoresSorted = [...scored].sort(compareDiscoveryRecommendations);
   log.debug(`[discoverSurfSpots] All ${scored.length} scored beaches (before top-N filter):`);
   allScoresSorted.forEach((rec, idx) => {
     const { waveHeightFit, periodEnergyScore, windAlignment, tideFit, distancePenalty, personalizationBonus, affinityBonus, behaviorBonus } = rec.subscores;
@@ -1807,7 +1934,7 @@ async function discoverSurfSpotsInner(
   }
 
   // Sort ALL recommendations by score descending (pure score ranking)
-  allRecs.sort((a, b) => b.score - a.score);
+  allRecs.sort(compareDiscoveryRecommendations);
 
   // Pass 2 (Plan V4 — Fix Agent F1): inject similarity scoring for Pro/trial
   // users BEFORE truncating to maxResults. Running similarity after slice
@@ -1833,7 +1960,7 @@ async function discoverSurfSpotsInner(
     supabase,
   });
   const allRecsScored = [...similarityResult.recommendations];
-  allRecsScored.sort((a, b) => b.score - a.score);
+  allRecsScored.sort(compareDiscoveryRecommendations);
 
   // Take top results AFTER similarity bonus is applied.
   const merged = allRecsScored
@@ -1864,7 +1991,8 @@ async function discoverSurfSpotsInner(
   // Flag-gated behavior: when off (default), return the engine-sorted slice
   // verbatim. When on, return the hero-lifted slice (only [0] moves;
   // remaining order is preserved).
-  const finalSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
+  const rankedSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
+  const finalSlice = applyWorthTheDriveReasons(rankedSlice);
   const finalSliceKeys = new Set(finalSlice.map((rec) => recommendationKey(rec)));
   const includedSlice = allRecsScored.filter((rec) => {
     if ((rec.kind ?? 'beach') === 'beach') {
@@ -2005,6 +2133,7 @@ async function discoverSurfSpotsInner(
         userPrefs,
         userSkillLevel,
         distanceMiles: distMiles,
+        dominantBoardClass,
       });
       sleepInScores.set(rec.beach.id, lateScore.total);
     }

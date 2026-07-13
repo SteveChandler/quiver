@@ -3,12 +3,17 @@
 import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import dynamic from "next/dynamic";
+import { Search } from "lucide-react";
 import { MapSkeleton } from "@/components/skeletons/map-skeleton";
 import { DataErrorBoundary } from "@/components/error-boundaries";
 import type { Beach } from "@/types/database";
 import { LocationTimeoutBanner } from "@/components/map/location-timeout-banner";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 import type { CustomSpot } from "@/hooks/use-custom-spots";
+import type {
+  MapCameraCommand,
+  MapCameraOwner,
+} from "@/components/map/map-camera-command";
 
 const DEFAULT_MAP_CENTER = { lat: 32.7702, lon: -117.2525 } as const;
 
@@ -39,8 +44,11 @@ interface MapContentProps {
     bounds?: [[number, number], [number, number]];
     zoom?: number;
   } | null;
+  cameraOwner?: MapCameraOwner;
+  cameraCommand?: MapCameraCommand | null;
   onGetUserLocation: () => void;
   onUseDefaultLocation: () => void;
+  onSearchPromptClick?: () => void;
   onBeachSelect: (beach: Beach) => void;
   onBoundsChange?: (bounds: {
     west: number;
@@ -51,6 +59,11 @@ interface MapContentProps {
   onWaveHeightsChange?: (map: Map<string, number | undefined>) => void;
   onDisplayForecastsChange?: (map: Map<string, ForecastDisplay | undefined>) => void;
   onMapClick?: () => void;
+  onUserCameraInteraction?: (interaction: {
+    action: "pan" | "zoom" | "rotate";
+    center: { lat: number; lon: number };
+    phase: "start" | "end";
+  }) => void;
   autoNavigateOnMarkerClick?: boolean;
   showSwellField?: boolean;
   swellLayerId?: import("@/components/map/swell-map-theme").SwellLayerId;
@@ -60,6 +73,8 @@ interface MapContentProps {
   swellTimelineSteps?: string[];
   swellTimelineIndex?: number;
   onSwellTimelineChange?: (index: number) => void;
+  swellTimelineMode?: "legacy" | "hourly" | "expandable-hourly";
+  viewTimezone?: string;
 }
 
 const InteractiveMap = dynamic(
@@ -82,13 +97,16 @@ export function MapContent({
   customSpots,
   searchQuery,
   regionViewport,
+  cameraCommand,
   onGetUserLocation,
   onUseDefaultLocation,
+  onSearchPromptClick,
   onBeachSelect,
   onBoundsChange,
   onWaveHeightsChange,
   onDisplayForecastsChange,
   onMapClick,
+  onUserCameraInteraction,
   autoNavigateOnMarkerClick,
   showSwellField,
   swellLayerId,
@@ -96,8 +114,19 @@ export function MapContent({
   swellTimelineSteps,
   swellTimelineIndex,
   onSwellTimelineChange,
+  swellTimelineMode = "legacy",
+  viewTimezone,
 }: MapContentProps) {
   const mapCenterState = useMemo(() => {
+    if (
+      cameraCommand?.center &&
+      hasValidCoordinates(cameraCommand.center.lat, cameraCommand.center.lon)
+    ) {
+      return {
+        center: cameraCommand.center,
+        instanceKey: "camera-command",
+      };
+    }
     if (
       selectedBeach &&
       hasValidCoordinates(selectedBeach.lat, selectedBeach.lon)
@@ -145,8 +174,20 @@ export function MapContent({
       center: DEFAULT_MAP_CENTER,
       instanceKey: "nearby",
     };
-  }, [selectedBeach, searchQuery, filteredBeaches, focusCenter, userLocation]);
+  }, [
+    cameraCommand,
+    selectedBeach,
+    searchQuery,
+    filteredBeaches,
+    focusCenter,
+    userLocation,
+  ]);
   const mapCenter = mapCenterState.center;
+  const showLocationDeniedPrompt =
+    usingDefaultLocation &&
+    !hasTimedOut &&
+    typeof locationError === "string" &&
+    locationError.toLowerCase().includes("denied");
 
   // Stable array reference — only changes when lat/lon values actually change
   const initialCenterArray = useMemo(
@@ -202,6 +243,35 @@ export function MapContent({
         </div>
       )}
 
+      {showLocationDeniedPrompt && (
+        <div
+          className="border-b bg-background px-4 py-3"
+          data-testid="map-location-denied-prompt"
+          role="status"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">
+                Location is off. Search your break.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                We are showing Mission Beach until you pick a spot.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onSearchPromptClick}
+              className="h-9 w-full justify-center sm:w-auto"
+            >
+              <Search className="h-4 w-4" aria-hidden="true" />
+              Search spots
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Interactive Map */}
       <div
         className="flex-1 relative overflow-hidden min-h-[200px] sm:min-h-[400px] bg-gray-200 map-container"
@@ -209,11 +279,12 @@ export function MapContent({
       >
         <DataErrorBoundary dataType="map data" componentName="InteractiveMap">
           <InteractiveMap
-            key={mapCenterState.instanceKey}
             initialCenter={initialCenterArray}
             initialZoom={12}
             onLocationClick={onBeachSelect}
             onMapClick={onMapClick ? () => onMapClick() : undefined}
+            cameraCommand={cameraCommand}
+            onUserCameraInteraction={onUserCameraInteraction}
             regionViewport={regionViewport}
             beaches={filteredBeaches}
             customSpots={customSpots}
@@ -221,12 +292,17 @@ export function MapContent({
             onWaveHeightsChange={onWaveHeightsChange}
             onDisplayForecastsChange={onDisplayForecastsChange}
             autoNavigateOnMarkerClick={autoNavigateOnMarkerClick}
+            markerDisplay="points"
+            disableBeachClustering
+            showConditionsOnTap
             showSwellField={showSwellField}
             swellLayerId={swellLayerId}
             onSwellLayerChange={onSwellLayerChange}
             swellTimelineSteps={swellTimelineSteps}
             swellTimelineIndex={swellTimelineIndex}
             onSwellTimelineChange={onSwellTimelineChange}
+            swellTimelineMode={swellTimelineMode}
+            viewTimezone={viewTimezone}
             className="absolute inset-0 z-0 w-full h-full"
           />
         </DataErrorBoundary>

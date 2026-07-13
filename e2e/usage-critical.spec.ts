@@ -38,6 +38,20 @@ async function expectAnyVisible(
   }`);
 }
 
+async function openFirstMapSearchResult(page: Page): Promise<void> {
+  const mapSearch = page.getByRole('combobox', {
+    name: /search beaches, spots, or cities/i,
+  });
+  await expect(mapSearch).toBeVisible({ timeout: TIMEOUTS.medium });
+  await mapSearch.click();
+  await mapSearch.fill('Black');
+
+  const firstOption = page.getByRole('option').first();
+  await expect(firstOption).toBeVisible({ timeout: TIMEOUTS.long });
+  await expect(firstOption).toContainText(/black/i);
+  await firstOption.click();
+}
+
 test.describe('Usage Critical: authenticated surfaces', () => {
   let errorCapture: ErrorCapture;
 
@@ -129,13 +143,11 @@ test.describe('Usage Critical: authenticated surfaces', () => {
       { locator: page.locator('canvas'), name: 'map canvas' },
     ], TIMEOUTS.long);
 
-    const beachMarker = page.locator('[data-testid="beach-marker"]').first();
-    await expect(beachMarker).toBeVisible({ timeout: TIMEOUTS.long });
-    await beachMarker.click({ force: true });
-    await page.waitForURL(/\/(ca|california|beach)\//, { timeout: TIMEOUTS.long });
+    await openFirstMapSearchResult(page);
+    await page.waitForURL(/\/(ca|california|beach)\/.*black/i, { timeout: TIMEOUTS.long });
 
-    await expect(page).toHaveURL(/\/(ca|california|beach)\//);
-    await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible({
+    await expect(page).toHaveURL(/\/(ca|california|beach)\/.*black/i);
+    await expect(page.getByRole('heading', { name: /black/i, level: 1 })).toBeVisible({
       timeout: TIMEOUTS.long,
     });
     await expect(page.getByRole('tab', { name: /forecast/i })).toBeVisible({

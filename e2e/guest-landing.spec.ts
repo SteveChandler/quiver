@@ -1,3 +1,4 @@
+/* eslint-disable playwright/no-conditional-in-test, playwright/no-skipped-test -- Landing media/photo checks branch around seeded public-content availability and skip fixture-dependent assertions when required test data is absent. */
 import { test, expect } from '@playwright/test';
 import { TIMEOUTS, VIEWPORTS } from './fixtures/test-data';
 import { waitForPageLoad } from './utils/test-helpers';
@@ -71,10 +72,7 @@ test.describe('Guest Landing Page', () => {
     await expect(spotlight.getByText('FREE · NEW IN THE APP')).toBeVisible();
     await expect(
       spotlight.getByRole('link', { name: 'Get the app' }),
-    ).toHaveAttribute(
-      'href',
-      '/download?source=landing_swell_view&placement=spotlight&platform=desktop',
-    );
+    ).toHaveCount(0);
   });
 
   test('should open auth modal when clicking login', async ({ page }) => {
@@ -251,7 +249,10 @@ test.describe('Guest Landing - Zine Field Guide', () => {
   });
 
   test('renders the zine field-guide landing for guests', async ({ page }) => {
-    await expect(page.getByTestId('quiver-field-guide-landing')).toBeVisible();
+    const mainContent = page.locator('#main-content');
+    await expect(
+      mainContent.getByTestId('quiver-field-guide-landing'),
+    ).toBeVisible();
     await expect(page.getByTestId('field-guide-hero')).toBeVisible();
     await expect(
       page.getByRole('heading', { name: /know where to paddle out/i }),
@@ -317,10 +318,11 @@ test.describe('Guest Landing - Zine Field Guide', () => {
     await page.goto('/');
     await waitForPageLoad(page);
 
-    await expect(page.getByTestId('quiver-field-guide-landing')).toBeVisible({
-      timeout: 5000,
-    });
-    await expect(page.getByTestId('field-guide-final-cta')).toBeVisible();
+    const mainContent = page.locator('#main-content');
+    await expect(
+      mainContent.getByTestId('quiver-field-guide-landing'),
+    ).toBeVisible({ timeout: 5000 });
+    await expect(mainContent.getByTestId('field-guide-final-cta')).toBeVisible();
   });
 
   test('field guide renders on desktop', async ({ page }) => {
@@ -328,10 +330,11 @@ test.describe('Guest Landing - Zine Field Guide', () => {
     await page.goto('/');
     await waitForPageLoad(page);
 
-    await expect(page.getByTestId('quiver-field-guide-landing')).toBeVisible({
-      timeout: 5000,
-    });
-    await expect(page.getByTestId('field-guide-features')).toBeVisible();
+    const mainContent = page.locator('#main-content');
+    await expect(
+      mainContent.getByTestId('quiver-field-guide-landing'),
+    ).toBeVisible({ timeout: 5000 });
+    await expect(mainContent.getByTestId('field-guide-features')).toBeVisible();
   });
 });
 

@@ -20,6 +20,11 @@ type TideScheduleEntry = {
   type: "high" | "low";
 };
 
+type LocalForecastRow = {
+  id: string;
+  raw_forecast: Record<string, unknown> | null;
+};
+
 function formatForecastTime(date: Date): string {
   return date.toISOString().slice(11, 19);
 }
@@ -43,12 +48,38 @@ function tideHeightForIndex(index: number): string {
   return `${height.toFixed(1)} ft`;
 }
 
+async function ensureLocalForecastRows(
+  beachId: string,
+  existingCount: number
+): Promise<void> {
+  if (existingCount >= 24) return;
+
+  const admin = createLocalAdminClient();
+  const missingCount = 24 - existingCount;
+  const seedAnchor = new Date(Date.UTC(2040, 0, 1, existingCount * 3));
+  const rows = Array.from({ length: missingCount }, (_, index) => {
+    const forecastDate = new Date(seedAnchor.getTime() + index * 3 * HOUR_MS);
+    return {
+      beach_id: beachId,
+      confidence_score: 75,
+      data_source: "e2e_tide_fixture",
+      forecast_at: forecastDate.toISOString(),
+      forecast_date: forecastDate.toISOString().slice(0, 10),
+      forecast_time: formatForecastTime(forecastDate),
+      raw_forecast: {},
+    };
+  });
+
+  const { error } = await admin.from("enhanced_forecasts").insert(rows);
+  if (error) throw error;
+}
+
 async function ensureLocalOceanBeachTideFixture(): Promise<void> {
   if (!isLocalE2ETarget()) return;
 
   const admin = createLocalAdminClient();
   const beach = await getLocalBeachBySlug("ocean-beach-pier");
-  const { data: rows, error } = await admin
+  const { data: existingRows, error } = await admin
     .from("enhanced_forecasts")
     .select("id,raw_forecast")
     .eq("beach_id", beach.id)
@@ -56,8 +87,18 @@ async function ensureLocalOceanBeachTideFixture(): Promise<void> {
     .limit(80);
 
   if (error) throw error;
+  await ensureLocalForecastRows(beach.id, existingRows?.length ?? 0);
+
+  const { data: rows, error: refetchError } = await admin
+    .from("enhanced_forecasts")
+    .select("id,raw_forecast")
+    .eq("beach_id", beach.id)
+    .order("forecast_at", { ascending: true })
+    .limit(80);
+
+  if (refetchError) throw refetchError;
   if (!rows || rows.length < 24) {
-    throw new Error("Ocean Beach Pier local forecast fixture is too sparse");
+    throw new Error("Ocean Beach Pier local tide fixture setup failed");
   }
 
   const anchor = new Date();
@@ -79,10 +120,7 @@ async function ensureLocalOceanBeachTideFixture(): Promise<void> {
   }
 
   for (let index = 0; index < rows.length; index += 1) {
-    const row = rows[index] as {
-      id: string;
-      raw_forecast: Record<string, unknown> | null;
-    };
+    const row = rows[index] as LocalForecastRow;
     const forecastDate = new Date(anchor.getTime() + (index - 4) * 3 * HOUR_MS);
     const nextTide =
       tideSchedule.find((entry) => entry.time * 1000 > forecastDate.getTime()) ??

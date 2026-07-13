@@ -10,12 +10,53 @@ import { format } from "date-fns";
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
+async function getSharedSessionPreview(id: string) {
+  const result = await getSessionMetadata(id);
+  if (!result.success || !result.data) return null;
+
+  const session = result.data;
+  const beach = session.beach as unknown as { name: string } | null;
+  const user = session.user as unknown as {
+    full_name: string;
+    username: string;
+  } | null;
+  const beachName = beach?.name || session.beach_name || "Unknown Beach";
+  const userName = user?.full_name || user?.username || "A surfer";
+  const rating =
+    typeof session.rating === "number" ? session.rating : Number(session.rating);
+  const safeRating = Number.isFinite(rating) ? rating : null;
+  const dateText = session.arrival_time
+    ? format(new Date(session.arrival_time), "MMM d, yyyy")
+    : null;
+  const photoUrl =
+    (session as { featured_photo_url?: string | null }).featured_photo_url ||
+    session.image_url ||
+    null;
+  const shareImageUrl = buildSessionShareImageUrl(
+    session as unknown as SessionWithDetails,
+  );
+
+  return {
+    rating: safeRating,
+    title: `${userName}'s session at ${beachName}`,
+    subtitle: [
+      safeRating ? `${safeRating}/5 stars` : null,
+      dateText,
+      session.status === "planned" ? "Planned session" : "Logged session",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    imageUrl: photoUrl ?? shareImageUrl,
+  };
+}
+
 export default async function SessionDetailPage(
   props: {
     params: Promise<{ id: string }>;
   }
 ) {
   const params = await props.params;
+  const sharedPreview = await getSharedSessionPreview(params.id);
   return (
     <div className="flex flex-col min-h-screen">
       {/* Breadcrumb Structured Data for SEO */}
@@ -27,7 +68,7 @@ export default async function SessionDetailPage(
         ]}
       />
 
-      <SessionDetailView id={params.id} />
+      <SessionDetailView id={params.id} sharedPreview={sharedPreview} />
     </div>
   );
 }

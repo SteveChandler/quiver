@@ -28,6 +28,7 @@ describe("SEO workflow weekly report", () => {
     expect(report).toContain("## Bottom Line");
     expect(report).toContain("## Web SEO");
     expect(report).toContain("## AI Citation / AEO Signals");
+    expect(report).toContain("## Outreach Queue");
     expect(report).toContain("## Competitor Technical Surfaces");
     expect(report).toContain("## Native ASO");
     expect(report).toContain("## Execution Plan This Week");
@@ -188,7 +189,111 @@ describe("SEO workflow weekly report", () => {
     expect(report).toContain("Ahrefs AI citation snapshot: chatgpt=53 citations/26 pages, perplexity=7 citations/3 pages");
     expect(report).toContain("Swellify: robots 200; sitemap 200; 507 sitemap URLs; no raw HTML schema markers.");
     expect(report).toContain("Structured competitor report (20260628T235143Z): Lazy Surfer comparison page confirmed.");
-    expect(report).toContain("AEO coverage combines llms inventory, AI referrer traffic, and Ahrefs AI citation snapshots when present.");
+    expect(report).toContain("AEO coverage combines llms inventory, AI referrer traffic, Ahrefs AI citation snapshots, and the latest citation-tracking baseline when present.");
+  });
+
+  it("renders partial DataForSEO coverage distinctly from missing config", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-07-08T12:00:00Z",
+      recommendations: [],
+      missing: [],
+      dataforseo: {
+        generatedAt: "2026-07-08T12:00:00Z",
+        status: "timed_out",
+        completedPhases: ["googleRankings"],
+        failedPhases: ["asoRankings"],
+        deadlineReached: true,
+        watchlistMode: "live",
+        googleRankings: [{
+          keyword: "surf forecast app",
+          location: "United States",
+          locationCode: 2840,
+          languageCode: "en",
+          device: "mobile",
+          depth: 100,
+          quiverRank: 7,
+          topCompetitors: [],
+        }],
+        asoRankings: [],
+        competitorKeywords: [],
+        keywordMetrics: [],
+        missing: ["DataForSEO deadline reached during asoRankings"],
+      },
+    });
+
+    expect(report).toContain("DataForSEO timed_out: 1 Google rank checks, 0 ASO rank checks, 0 competitor keyword rows.");
+    expect(report).toContain("DataForSEO is configured but timed_out; completed phases: googleRankings; failed phases: asoRankings.");
+    expect(report).not.toContain("DataForSEO is not configured");
+  });
+
+  it("renders AEO citation baseline and backlink target reports", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-07-06T12:00:00Z",
+      recommendations: [],
+      missing: [],
+      aeo: {
+        generatedAt: "2026-07-06T12:00:00Z",
+        aiReferrers: [],
+        engines: [],
+        citationDomains: [],
+        llmsFiles: [{ path: "/repo/public/llms.txt", exists: true, lines: 79, bytes: 100 }],
+        narrativeBaseline: {
+          reportDate: "2026-06-15",
+          reportPath: "docs/seo/reports/aeo-citation-tracking/2026-06-15.md",
+          status: "user-provided pending validation",
+          overall: { segment: "All queries", cited: 5, total: 30, rate: 0.167 },
+          segments: [{ segment: "Informational queries", cited: 2, total: 20, rate: 0.1 }],
+        },
+      },
+      backlink: {
+        generatedAt: "2026-07-06T12:00:00Z",
+        referrers: [],
+        embedReferrers: [],
+        outreachStatuses: [],
+        manualExports: [],
+        narrativeTargets: {
+          reportDate: "2026-06-15",
+          reportPath: "docs/seo/backlink-reports/2026-06-15.md",
+          confirmed: [{ target: "UMass Lowell", status: "confirmed" }],
+          unverified: [{ target: "Surfrider Central Texas", status: "unverified" }],
+        },
+      },
+    });
+
+    expect(report).toContain("Citation baseline (2026-06-15): 16.7% (5/30) of tracked AEO queries cite Quiver [user-provided pending validation].");
+    expect(report).toContain("Baseline by segment: Informational queries 10% (2/20).");
+    expect(report).toContain("Backlink target report (2026-06-15): 1 confirmed, 1 unverified targets.");
+    expect(report).toContain("Confirmed replacement-link targets: UMass Lowell.");
+  });
+
+  it("renders the outreach queue digest", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-07-06T12:00:00Z",
+      recommendations: [],
+      missing: [],
+      outreach: {
+        generatedAt: "2026-07-06T12:00:00Z",
+        reportDate: "2026-07-06",
+        rotationWeek: 1,
+        rotationCategory: "surf-schools",
+        statusCounts: { queued: 4, sent: 1 },
+        totalRows: 5,
+        candidates: [{
+          target: "Surf Diva",
+          category: "surf-schools",
+          website: "surfdiva.com",
+          nearestBeach: "La Jolla",
+          subject: "Free ML surf forecasts for your La Jolla crew",
+          body: "Hi Surf Diva team,",
+        }],
+      },
+    });
+
+    expect(report).toContain("## Outreach Queue");
+    expect(report).toContain("Rotation week 1: surf schools.");
+    expect(report).toContain('Surf Diva (surfdiva.com) - subject: "Free ML surf forecasts for your La Jolla crew"');
+    expect(report).toContain("Live action: create these as Gmail drafts");
+    expect(report).toContain("Outreach coverage reads docs/seo/outreach-tracker.md: week-1 rotation, 1 draft candidate proposed.");
   });
 
   it("turns weekly actions into an ordered execution plan", () => {

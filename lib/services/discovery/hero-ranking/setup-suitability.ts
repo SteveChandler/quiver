@@ -50,7 +50,7 @@ const BONUS_RANGE = 40;
 const NARROW_CUTOFF_DEG = 35;
 const WIDE_PEAK_DEG = 75;
 const ABSURDLY_WIDE_DEG = 110;
-const ABSURDLY_WIDE_PENALTY = 25;
+const ABSURDLY_WIDE_PENALTY = 36;
 
 /**
  * Returns the short-period exposure adjustment for a window of the given

@@ -2,6 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { NativeAppFunnelCta } from "@/components/app-store/native-app-funnel-cta";
+import {
+  getFirstTouchPlatform,
+  type FirstTouchPlatform,
+} from "@/lib/analytics/web-context";
 
 export interface PostSessionShareProps {
   /** Beach name to display */
@@ -38,6 +43,12 @@ export function PostSessionShare({
 }: PostSessionShareProps) {
   const clampedRating = Math.max(0, Math.min(5, Math.round(overallRating)));
   const [cardImageLoaded, setCardImageLoaded] = useState(false);
+  const [nativeCtaPlatform, setNativeCtaPlatform] =
+    useState<FirstTouchPlatform>("desktop");
+
+  useEffect(() => {
+    setNativeCtaPlatform(getFirstTouchPlatform());
+  }, []);
 
   useEffect(() => {
     const prefersReduced =
@@ -155,6 +166,25 @@ export function PostSessionShare({
           >
             Share Your Session
           </button>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.07] p-4 text-left">
+            <p className="text-sm font-semibold text-white">
+              Log the next one at the beach.
+            </p>
+            <p className="mt-1 text-xs leading-5 text-white/65">
+              Get Quiver on your phone for faster session logging after you paddle in.
+            </p>
+            <NativeAppFunnelCta
+              platform={nativeCtaPlatform}
+              source="post_session_log"
+              surface="session_log_success"
+              placement="native_app_nudge"
+              className="mt-3 inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-bold text-[#252D6B] transition-colors hover:bg-white/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/80"
+              desktopClassName="mt-3"
+              desktopShowEmailForm={false}
+              iosLabel="Get Quiver on iPhone"
+              androidLabel="Get the Android beta"
+            />
+          </div>
           <button
             onClick={onSkip}
             className="w-full rounded-2xl bg-white/10 hover:bg-white/20 active:bg-white/25 text-white/70 font-medium text-base py-3.5 transition-colors"

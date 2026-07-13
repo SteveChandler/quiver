@@ -131,6 +131,17 @@ describe("Sitemap Generation", () => {
       expect(route?.changeFrequency).toBe("daily");
     });
 
+    it("should include /best-surf-forecast-app route with monthly freshness", async () => {
+      const result = await sitemap();
+      const route = result.find(
+        (r) => r.url === `${baseUrl}/best-surf-forecast-app`,
+      );
+
+      expect(route).not.toBeUndefined();
+      expect(route?.priority).toBe(0.85);
+      expect(route?.changeFrequency).toBe("monthly");
+    });
+
     it("should include /forecast-accuracy (curated comparison page)", async () => {
       const result = await sitemap();
       const route = result.find((r) => r.url === `${baseUrl}/forecast-accuracy`);
@@ -264,6 +275,45 @@ describe("Sitemap Generation", () => {
         );
         expect(route).not.toBeUndefined();
       });
+    });
+
+    it("should exclude confirmed missing tide and water-temp city intent routes", async () => {
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            city: "Dry Harbor",
+            state: "CA",
+            country: "USA",
+            beachCount: 5,
+            hasBeginnerBeaches: true,
+            hasAdvancedBeaches: true,
+            hasLeastCrowdedBeaches: true,
+            hasEditorialContent: true,
+            hasTideData: false,
+            hasWaterTempData: false,
+          },
+          {
+            city: "Live Harbor",
+            state: "CA",
+            country: "USA",
+            beachCount: 5,
+            hasBeginnerBeaches: true,
+            hasAdvancedBeaches: true,
+            hasLeastCrowdedBeaches: true,
+            hasEditorialContent: true,
+            hasTideData: true,
+            hasWaterTempData: true,
+          },
+        ],
+      });
+
+      const result = await sitemap();
+
+      expect(result.find((r) => r.url === `${baseUrl}/tide/dry-harbor`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/water-temp/dry-harbor`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/tide/live-harbor`)).not.toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/water-temp/live-harbor`)).not.toBeUndefined();
     });
 
     it("should handle getAllCitiesWithBeachSkills failure gracefully", async () => {
@@ -577,7 +627,7 @@ describe("Sitemap Generation", () => {
       });
 
       const result = await sitemap();
-      // Incomplete data is excluded entirely — /spots/ URLs are blocked by robots.txt
+      // Incomplete data is excluded entirely — /spots/ is a retired legacy route.
       const spotsRoute = result.find((r) =>
         r.url.includes("/spots/mystery-break")
       );

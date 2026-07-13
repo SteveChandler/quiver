@@ -86,6 +86,37 @@ describe("PageTracker", () => {
         });
       });
     });
+
+    it("uses page_view as the canonical PostHog traffic event with dashboard path properties", async () => {
+      mockUsePathname.mockReturnValue("/map");
+
+      render(<PageTracker />);
+
+      await waitFor(() => {
+        expect(mockTrack).toHaveBeenCalledTimes(1);
+      });
+
+      expect(mockTrack).toHaveBeenCalledWith("page_view", {
+        metadata: expect.objectContaining({
+          page: "map",
+          pathname: "/map",
+          previous_pathname: "",
+          browser_session_id: expect.any(String),
+          platform: "web",
+          surface: "map",
+          source_group: "map",
+        }),
+        debounceMs: 500,
+      });
+      expect(mockTrack).not.toHaveBeenCalledWith(
+        "$pageview",
+        expect.any(Object),
+      );
+      expect(mockTrack).not.toHaveBeenCalledWith(
+        "public_page_view",
+        expect.any(Object),
+      );
+    });
   });
 
   describe("page navigation", () => {

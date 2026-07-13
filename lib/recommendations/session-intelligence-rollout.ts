@@ -32,6 +32,7 @@ export const PHASE_18_SESSION_INTELLIGENCE_ALLOWLIST = {
   spotPaths: [
     "/ca/malibu/malibu-surfrider-first-point-malibu-ca",
     "/ca/san-diego/blacks",
+    "/ca/la-jolla/blacks",
   ],
   bestTimeCityPaths: [
     "/best-time-to-surf/la-jolla",

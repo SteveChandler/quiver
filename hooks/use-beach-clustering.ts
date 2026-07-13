@@ -2,6 +2,13 @@ import { useMemo } from "react";
 import Supercluster from "supercluster";
 import type { Beach } from "@/types/database";
 
+interface ClusterBounds {
+  west: number;
+  south: number;
+  east: number;
+  north: number;
+}
+
 interface ClusterProperties {
   cluster: boolean;
   cluster_id?: number;
@@ -31,14 +38,65 @@ export interface ClusterPoint {
 interface UseBeachClusteringProps {
   beaches: Beach[];
   waveHeights: Map<string, number | undefined>;
-  bounds: { west: number; south: number; east: number; north: number };
+  bounds: ClusterBounds;
   zoom: number;
   favoriteBeachIds?: Set<string>;
+  disableClustering?: boolean;
 }
 
 interface UseBeachClusteringReturn {
   clusters: ClusterPoint[];
   getExpansionZoom: (clusterId: number) => number;
+}
+
+type BeachWithCoordinates = Beach & {
+  lat: number;
+  lon: number;
+};
+
+const MAX_DIRECT_POINT_MARKERS = 150;
+
+function hasValidCoordinates(beach: Beach): beach is BeachWithCoordinates {
+  return (
+    typeof beach.lat === "number" &&
+    typeof beach.lon === "number" &&
+    Number.isFinite(beach.lat) &&
+    Number.isFinite(beach.lon)
+  );
+}
+
+function isLongitudeInBounds(lon: number, bounds: ClusterBounds): boolean {
+  if (bounds.west <= bounds.east) {
+    return lon >= bounds.west && lon <= bounds.east;
+  }
+
+  return lon >= bounds.west || lon <= bounds.east;
+}
+
+function isBeachInBounds(
+  beach: Beach,
+  bounds: ClusterBounds
+): beach is BeachWithCoordinates {
+  if (!hasValidCoordinates(beach)) return false;
+
+  return (
+    beach.lat >= bounds.south &&
+    beach.lat <= bounds.north &&
+    isLongitudeInBounds(beach.lon, bounds)
+  );
+}
+
+function beachToPoint(
+  beach: BeachWithCoordinates,
+  waveHeights: Map<string, number | undefined>
+): ClusterPoint {
+  return {
+    isCluster: false,
+    latitude: beach.lat,
+    longitude: beach.lon,
+    beach,
+    waveHeight: waveHeights.get(beach.id),
+  };
 }
 
 export function useBeachClustering({
@@ -47,9 +105,11 @@ export function useBeachClustering({
   bounds,
   zoom,
   favoriteBeachIds = new Set(),
+  disableClustering = false,
 }: UseBeachClusteringProps): UseBeachClusteringReturn {
   // Create supercluster index
   const superclusterIndex = useMemo(() => {
+    if (disableClustering) return null;
     if (!beaches || beaches.length === 0) return null;
 
     const index = new Supercluster<ClusterProperties>({
@@ -84,13 +144,7 @@ export function useBeachClustering({
 
     // Convert beaches to GeoJSON features
     const points: GeoJSON.Feature<GeoJSON.Point, ClusterProperties>[] = beaches
-      .filter(
-        (beach) =>
-          typeof beach.lat === "number" &&
-          typeof beach.lon === "number" &&
-          isFinite(beach.lat) &&
-          isFinite(beach.lon)
-      )
+      .filter(hasValidCoordinates)
       .map((beach) => ({
         type: "Feature",
         properties: {
@@ -101,16 +155,23 @@ export function useBeachClustering({
         },
         geometry: {
           type: "Point",
-          coordinates: [beach.lon!, beach.lat!],
+          coordinates: [beach.lon, beach.lat],
         },
       }));
 
     index.load(points);
     return index;
-  }, [beaches, waveHeights]);
+  }, [beaches, waveHeights, disableClustering]);
 
   // Get clusters for current viewport
   const clusters = useMemo((): ClusterPoint[] => {
+    if (disableClustering) {
+      return beaches
+        .filter((beach) => isBeachInBounds(beach, bounds))
+        .slice(0, MAX_DIRECT_POINT_MARKERS)
+        .map((beach) => beachToPoint(beach, waveHeights));
+    }
+
     if (!superclusterIndex) return [];
 
     const rawClusters = superclusterIndex.getClusters(
@@ -145,7 +206,7 @@ export function useBeachClustering({
         };
       }
     });
-  }, [superclusterIndex, bounds, zoom, beaches]);
+  }, [disableClustering, beaches, bounds, waveHeights, superclusterIndex, zoom]);
 
   // Get expansion zoom for a cluster
   const getExpansionZoom = useMemo(() => {

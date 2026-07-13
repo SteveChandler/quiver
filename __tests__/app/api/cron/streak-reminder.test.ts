@@ -73,6 +73,7 @@ const tableState: Record<string, TableState> = {};
 const originalAllowlist = process.env.STREAK_REMINDER_TEST_USER_IDS;
 const originalFeedbackAllowlist =
   process.env.FORECAST_FEEDBACK_NUDGE_TEST_USER_IDS;
+const originalFeedbackEnabled = process.env.FORECAST_FEEDBACK_NUDGE_ENABLED;
 
 function applyFilters(
   rows: Array<Record<string, unknown>>,
@@ -155,6 +156,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   for (const key of Object.keys(tableState)) delete tableState[key];
   delete process.env.STREAK_REMINDER_TEST_USER_IDS;
+  process.env.FORECAST_FEEDBACK_NUDGE_ENABLED = "true";
   jest.useFakeTimers().setSystemTime(new Date("2026-06-22T12:00:00.000Z"));
   jest.spyOn(console, "log").mockImplementation(() => {});
   jest.spyOn(console, "warn").mockImplementation(() => {});
@@ -179,6 +181,11 @@ afterEach(() => {
   } else {
     process.env.FORECAST_FEEDBACK_NUDGE_TEST_USER_IDS = originalFeedbackAllowlist;
   }
+  if (originalFeedbackEnabled === undefined) {
+    delete process.env.FORECAST_FEEDBACK_NUDGE_ENABLED;
+  } else {
+    process.env.FORECAST_FEEDBACK_NUDGE_ENABLED = originalFeedbackEnabled;
+  }
 });
 
 describe("streak reminder registry entries", () => {
@@ -201,17 +208,42 @@ describe("streak reminder registry entries", () => {
     const payload = NOTIFICATION_REGISTRY.forecast_feedback_nudge.buildPushPayload!({
       beach_id: "beach-1",
       beach_slug: "ocean-beach",
+      beach_name: "Ocean Beach",
       forecast_at: "2026-06-22T18:00:00.000Z",
+      deeplink:
+        "quiver://sessions/new?beach=ocean-beach&at=2026-06-22T18%3A00%3A00.000Z&utm_source=push_log_nudge",
     });
 
     expect(payload).toMatchObject({
-      title: "How was the forecast?",
-      body: "Did the call hold up? A quick note tunes your next one.",
+      title: "Catch a session today?",
+      body: "If you paddle out, log it when you are done.",
       data: {
         type: "forecast_feedback_nudge",
         beach_id: "beach-1",
         beach_slug: "ocean-beach",
         forecast_at: "2026-06-22T18:00:00.000Z",
+        deeplink:
+          "quiver://sessions/new?beach=ocean-beach&at=2026-06-22T18%3A00%3A00.000Z&utm_source=push_log_nudge",
+      },
+    });
+  });
+
+  it("allows beach-specific forecast feedback copy only at high confidence", () => {
+    const payload = NOTIFICATION_REGISTRY.forecast_feedback_nudge.buildPushPayload!({
+      beach_id: "beach-1",
+      beach_name: "Ocean Beach",
+      relevance_confidence: "high",
+      assumed_attendance: false,
+    });
+
+    expect(payload).toMatchObject({
+      title: "Surfed Ocean Beach today?",
+      body: "Log it in one tap.",
+      data: {
+        type: "forecast_feedback_nudge",
+        beach_id: "beach-1",
+        relevance_confidence: "high",
+        assumed_attendance: false,
       },
     });
   });
@@ -230,6 +262,19 @@ describe("streak reminder registry entries", () => {
 });
 
 describe("forecast-feedback-nudge cron", () => {
+  it("is disabled by default and performs no DB fanout", async () => {
+    delete process.env.FORECAST_FEEDBACK_NUDGE_ENABLED;
+
+    const response = await dailyGet(mockRequest());
+    const body = await response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.data.enabled).toBe(false);
+    expect(body.data.summary.sent).toBe(0);
+    expect(mockFrom).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+  });
+
   it("selects enabled users with a passed worth-it home or saved beach window and no feedback/session", async () => {
     jest.setSystemTime(new Date("2026-06-22T20:00:00.000Z"));
     (scoreWindowWithComposite as jest.Mock).mockImplementation((forecast) => ({
@@ -323,7 +368,16 @@ describe("forecast-feedback-nudge cron", () => {
       payload: {
         beach_id: "b-home",
         beach_slug: "home-break",
+        beach_name: "Home Break",
         forecast_at: "2026-06-22T18:00:00.000Z",
+        deeplink:
+          "quiver://sessions/new?beach=home-break&at=2026-06-22T18%3A00%3A00.000Z&utm_source=push_log_nudge",
+        notification_category: "session_growth",
+        trigger_source: "forecast_feedback_nudge",
+        relevance_confidence: "low",
+        beach_confidence: "low",
+        assumed_attendance: false,
+        relevance_score: 72,
       },
       dedupeKey: "forecast_feedback_nudge:u-active:2026-06-22",
     });
@@ -335,7 +389,16 @@ describe("forecast-feedback-nudge cron", () => {
       payload: {
         beach_id: "b-fav",
         beach_slug: "saved-break",
+        beach_name: "Saved Break",
         forecast_at: "2026-06-22T17:00:00.000Z",
+        deeplink:
+          "quiver://sessions/new?beach=saved-break&at=2026-06-22T17%3A00%3A00.000Z&utm_source=push_log_nudge",
+        notification_category: "session_growth",
+        trigger_source: "forecast_feedback_nudge",
+        relevance_confidence: "low",
+        beach_confidence: "low",
+        assumed_attendance: false,
+        relevance_score: 72,
       },
       dedupeKey: "forecast_feedback_nudge:u-fav:2026-06-22",
     });
@@ -343,6 +406,56 @@ describe("forecast-feedback-nudge cron", () => {
       user_id: "u-active",
       reminder_type: "forecast_feedback_nudge",
       period_key: "2026-06-22",
+    });
+  });
+
+  it("falls back to beach id in native deeplinks when the beach has no slug", async () => {
+    jest.setSystemTime(new Date("2026-06-22T20:00:00.000Z"));
+    seed("profiles", [
+      { id: "u-active", home_beach_id: "b-home", notif_reminders: true },
+    ]);
+    seed("favorite_beaches", []);
+    seed("streak_reminder_log", []);
+    seed("beaches", [
+      {
+        id: "b-home",
+        name: "Home Break",
+        slug: null,
+        timezone: "America/Los_Angeles",
+        deleted_at: null,
+      },
+    ]);
+    seed("enhanced_forecasts", [
+      { id: "f-home", beach_id: "b-home", forecast_at: "2026-06-22T18:00:00.000Z" },
+    ]);
+    seed("forecast_feedback_contexts", []);
+    seed("sessions", []);
+
+    const response = await dailyGet(mockRequest());
+    const body = await response.json();
+
+    expect(body.success).toBe(true);
+    expect(body.data.summary.sent).toBe(1);
+    expect(mockEnqueueNotification).toHaveBeenCalledWith({
+      type: "forecast_feedback_nudge",
+      recipientUserId: "u-active",
+      entityType: "beach",
+      entityId: "b-home",
+      payload: {
+        beach_id: "b-home",
+        beach_slug: undefined,
+        beach_name: "Home Break",
+        forecast_at: "2026-06-22T18:00:00.000Z",
+        deeplink:
+          "quiver://sessions/new?beach=b-home&at=2026-06-22T18%3A00%3A00.000Z&utm_source=push_log_nudge",
+        notification_category: "session_growth",
+        trigger_source: "forecast_feedback_nudge",
+        relevance_confidence: "low",
+        beach_confidence: "low",
+        assumed_attendance: false,
+        relevance_score: 72,
+      },
+      dedupeKey: "forecast_feedback_nudge:u-active:2026-06-22",
     });
   });
 
@@ -426,7 +539,15 @@ describe("weekly-streak-reminder cron", () => {
     expect(mockEnqueueNotification).toHaveBeenCalledWith({
       type: "weekly_streak_reminder",
       recipientUserId: "u-active",
-      payload: { streak: 2 },
+      payload: {
+        streak: 2,
+        period_key: "2026-25",
+        notification_category: "session_growth",
+        trigger_source: "weekly_streak_reminder",
+        relevance_confidence: "medium",
+        beach_confidence: "low",
+        assumed_attendance: false,
+      },
       dedupeKey: "weekly_streak:u-active:2026-25",
     });
     expect(mockInsert).toHaveBeenCalledWith("streak_reminder_log", {

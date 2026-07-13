@@ -1,4 +1,4 @@
-
+import { Suspense } from "react";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachFAQSchema } from "@/components/seo/faq-schema";
@@ -62,20 +62,6 @@ export default async function BeachDetailBySlugPage(
         permanentRedirect(withSearchParams(hierarchicalUrl, searchParams));
       }
     }
-
-    // Fetch nearby beaches for SSR SEO section
-    let nearbyBeachesRaw: Beach[] = [];
-    if (beach.lat && beach.lon) {
-      const nearbyResult = await getNearbyBeaches(beach.lat, beach.lon, 25);
-      if (nearbyResult.success && nearbyResult.data) {
-        nearbyBeachesRaw = nearbyResult.data
-          .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
-          .slice(0, 4);
-      }
-    }
-
-    // Enrich nearby beaches with live conditions and photos
-    const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
 
     // Fetch amenity and water quality data (gracefully degrade when tables don't exist yet)
     let amenities: BeachAmenities | null = null;
@@ -141,12 +127,9 @@ export default async function BeachDetailBySlugPage(
 
         {/* SSR sections below tabs for SEO crawlability */}
         <div className="container mx-auto px-4 pb-8 space-y-8">
-          <NearbyBeachesEnriched
-              beaches={nearbyBeaches}
-              sourceBeachName={beach.name}
-              sourceBeachLat={beach.lat}
-              sourceBeachLon={beach.lon}
-            />
+          <Suspense fallback={null}>
+            <DeferredNearbyBeaches beach={beach} />
+          </Suspense>
           <RelatedGuidesSection beach={beach} />
         </div>
       </>
@@ -165,19 +148,31 @@ export default async function BeachDetailBySlugPage(
     }
 
     console.error("Error fetching beach:", error);
-    return (
-      <div className="flex flex-col min-h-screen">
-        <main className="flex-1 container mx-auto px-4 py-6">
-          <div className="text-center py-12">
-            <h2 className="text-2xl font-bold mb-2">Error Loading Beach</h2>
-            <p className="text-muted-foreground">
-              There was an error loading this beach. Please try again.
-            </p>
-          </div>
-        </main>
-      </div>
-    );
+    notFound();
   }
+}
+
+async function DeferredNearbyBeaches({ beach }: { beach: Beach }) {
+  let nearbyBeachesRaw: Beach[] = [];
+  if (beach.lat && beach.lon) {
+    const nearbyResult = await getNearbyBeaches(beach.lat, beach.lon, 25);
+    if (nearbyResult.success && nearbyResult.data) {
+      nearbyBeachesRaw = nearbyResult.data
+        .filter((b) => b.id !== beach.id && b.slug !== beach.slug)
+        .slice(0, 4);
+    }
+  }
+
+  const nearbyBeaches = await enrichBeachesWithConditions(nearbyBeachesRaw);
+
+  return (
+    <NearbyBeachesEnriched
+      beaches={nearbyBeaches}
+      sourceBeachName={beach.name}
+      sourceBeachLat={beach.lat}
+      sourceBeachLon={beach.lon}
+    />
+  );
 }
 
 function withSearchParams(
@@ -211,7 +206,13 @@ export async function generateMetadata(
   const params = await props.params;
   // Keep metadata generation side-effect free; don't depend on auth/session
   // Uses cached function - deduped with page component in same render pass
-  const beach = await getBeachBySlugOrId(params.slug);
+  let beach: Awaited<ReturnType<typeof getBeachBySlugOrId>>;
+  try {
+    beach = await getBeachBySlugOrId(params.slug);
+  } catch (error) {
+    console.error("Error generating beach metadata:", error);
+    return buildNoindexBeachMetadata(params.slug);
+  }
 
   if (beach) {
     // Compute canonical path: prefer hierarchical URL, fallback to UUID path
@@ -283,9 +284,25 @@ export async function generateMetadata(
     });
   }
 
-  return buildPageMetadata({
-    title: `Beach`,
-    description: `Conditions, intel, photos, and community tips for this beach.`,
-    path: `/beach/${params.slug}`,
+  return buildNoindexBeachMetadata(params.slug);
+}
+
+function buildNoindexBeachMetadata(slug: string): Metadata {
+  const metadata = buildPageMetadata({
+    title: "Beach Not Found",
+    description: "This beach page could not be found.",
+    path: `/beach/${slug}`,
   });
+
+  return {
+    ...metadata,
+    robots: {
+      index: false,
+      follow: false,
+      googleBot: {
+        index: false,
+        follow: false,
+      },
+    },
+  };
 }

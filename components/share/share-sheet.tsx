@@ -19,6 +19,7 @@ import {
 } from "@/lib/share/share-image";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
+import { getVisitorId } from "@/lib/utils/visitor-id";
 
 export interface ShareSheetProps {
   /** Whether the sheet is open */
@@ -201,8 +202,10 @@ export function ShareSheet({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          eventType: "social_share",
+          eventType: "share_completed",
           metadata: { content_type: type, method: "native_share" },
+          sessionId: getVisitorId(),
+          viewportWidth: window.innerWidth,
         }),
         keepalive: true,
       }).catch(() => {});

@@ -4,8 +4,10 @@ import { createClient } from "@supabase/supabase-js";
 
 import {
   buildBacklinkProxy,
+  discoverLatestBacklinkReport,
   discoverManualBacklinkExportFiles,
   discoverManualBacklinkExports,
+  parseBacklinkReport,
 } from "../../lib/seo/agent-workflow/backlink-proxy";
 import { currentAuditDate, resolveSeoAuditFile } from "../../lib/seo/agent-workflow/audit-paths";
 import type { VercelExportInput, VercelReferrerMetric } from "../../lib/seo/agent-workflow/types";
@@ -55,11 +57,24 @@ async function main(): Promise<void> {
   );
   const manualExports = discoverManualBacklinkExports(manualExportFiles, missing);
 
+  const backlinkReportPath = getFlag("--backlink-report") ??
+    discoverLatestBacklinkReport(
+      path.join(process.cwd(), "docs", "seo", "backlink-reports"),
+    );
+  const backlinkReportMarkdown = backlinkReportPath && fs.existsSync(backlinkReportPath)
+    ? fs.readFileSync(backlinkReportPath, "utf8")
+    : "";
+  const narrativeTargets = backlinkReportMarkdown
+    ? parseBacklinkReport(backlinkReportMarkdown, backlinkReportPath ?? "")
+    : undefined;
+  if (!narrativeTargets) missing.push("docs/seo/backlink-reports/*.md");
+
   writeJson(buildBacklinkProxy(new Date().toISOString(), {
     vercel: vercel ?? undefined,
     embedReferrers,
     outreachMarkdown,
     manualExports,
+    narrativeTargets,
     missing,
   }));
 }

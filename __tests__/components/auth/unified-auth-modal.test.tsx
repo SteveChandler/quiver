@@ -435,6 +435,7 @@ describe("UnifiedAuthModal", () => {
       expect(authEvents.trackLoginFailed).toHaveBeenCalledWith({
         method: "apple",
         error_type: "oauth_failed",
+        source: "unknown",
       });
     });
 
@@ -566,6 +567,7 @@ describe("UnifiedAuthModal", () => {
       expect(authEvents.trackLoginFailed).toHaveBeenCalledWith({
         method: "google",
         error_type: "oauth_failed",
+        source: "unknown",
       });
     });
   });
@@ -638,6 +640,7 @@ describe("UnifiedAuthModal", () => {
       expect(authEvents.trackLoginSuccess).toHaveBeenCalledWith({
         method: "password",
         duration_ms: expect.any(Number),
+        source: "unknown",
       });
       expect(mockOnClose).toHaveBeenCalled();
     });
@@ -853,6 +856,7 @@ describe("UnifiedAuthModal", () => {
       expect(authEvents.trackLoginFailed).toHaveBeenCalledWith({
         method: "magic_link",
         error_type: "send_failed",
+        source: "unknown",
       });
     });
   });

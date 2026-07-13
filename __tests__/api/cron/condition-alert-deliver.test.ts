@@ -338,6 +338,7 @@ function makeRequest(): Request {
 const ORIGINAL_ENV = { ...process.env };
 
 beforeEach(() => {
+  jest.useFakeTimers().setSystemTime(new Date("2026-04-26T17:00:00Z"));
   jest.clearAllMocks();
   consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
   store.alertQueueRows = [];
@@ -370,6 +371,7 @@ afterAll(() => {
 
 afterEach(() => {
   consoleLogSpy.mockRestore();
+  jest.useRealTimers();
 });
 
 describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows", () => {
@@ -460,7 +462,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(mockLogDelivery).toHaveBeenCalledWith(expect.objectContaining({
       userId: USER_A,
       emailType: "conditions_alert",
-      subject: expect.stringMatching(/^Your surf report for /),
+      subject: expect.stringMatching(/^Test Beach: surf window /),
       meta: expect.objectContaining({
         match_count: expect.any(Number),
         beaches: expect.any(Array),

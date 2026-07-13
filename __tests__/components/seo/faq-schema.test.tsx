@@ -26,7 +26,7 @@ describe("QuiverFAQSchema", () => {
         items={[{
           question: "Is Quiver free to use?",
           answer:
-            "Quiver's iPhone app is live on the App Store, and Android is coming soon through the Android waitlist.",
+            "Quiver's iPhone app is live on the App Store, and the Android beta is open through Google Play closed testing.",
         }]}
       />,
     );
@@ -41,7 +41,9 @@ describe("QuiverFAQSchema", () => {
     const faqCopy = freeUseQuestion?.answer ?? "";
 
     expect(faqCopy).toContain("iPhone app is live on the App Store");
-    expect(faqCopy).toContain("Android is coming soon");
+    expect(faqCopy).toContain("Android beta is open");
+    expect(faqCopy).not.toContain("Android is coming soon");
+    expect(faqCopy).not.toContain("Android waitlist");
     expect(faqCopy).not.toContain("$4.99");
     expect(faqCopy).not.toContain("$39.99");
     expect(faqCopy).not.toMatch(/14-day free trial/i);

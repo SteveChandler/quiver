@@ -137,8 +137,8 @@ export function FoundingOfferSurface() {
                 Get Quiver
               </h1>
               <p className="mt-6 max-w-2xl text-xl leading-relaxed text-[#11100D]/75 sm:text-2xl">
-                Start the iPhone app with 14 days free. Android is coming soon,
-                and the waitlist is open.
+                Start the iPhone app with 14 days free. Android beta is open
+                through Google Play closed testing.
               </p>
               <div className="mt-7 flex flex-wrap gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/65">
                 <span>14 days free</span>
@@ -232,7 +232,7 @@ export function FoundingOfferSurface() {
                       Android
                     </div>
                     <p className="mt-1 font-mono text-[10px] font-semibold uppercase tracking-widest text-[#252D6B]">
-                      Coming soon
+                      Beta open
                     </p>
                   </div>
                 </div>

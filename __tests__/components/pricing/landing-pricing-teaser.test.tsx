@@ -20,10 +20,10 @@ describe("LandingPricingTeaser", () => {
 
     expect(link).toHaveAttribute("href", "/plans");
     expect(
-      screen.getByText(/iPhone is live\. Android is next\./i),
+      screen.getByText(/iPhone is live\. Android beta is open\./i),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/open quiver on the app store or join the android waitlist/i),
+      screen.getByText(/open quiver on the app store or install the android beta today/i),
     ).toBeInTheDocument();
 
     const pageText = container.textContent ?? "";

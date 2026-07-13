@@ -16,6 +16,7 @@ interface FollowButtonProps {
   onFollowersCountChange?: (newCount: number) => void;
   followingLabel?: string;
   notFollowingLabel?: string;
+  onFollowAttempt?: () => void;
 }
 
 export function FollowButton({
@@ -29,6 +30,7 @@ export function FollowButton({
   onFollowersCountChange,
   followingLabel = "Unfollow",
   notFollowingLabel = "Follow",
+  onFollowAttempt,
 }: FollowButtonProps) {
   const { user } = useAuth();
   const {
@@ -58,7 +60,10 @@ export function FollowButton({
       <Button
         variant={following ? "outline" : variant}
         size={buttonSize}
-        onClick={toggleFollow}
+        onClick={() => {
+          onFollowAttempt?.();
+          toggleFollow();
+        }}
         disabled={isLoading || isToggling}
         className={`flex items-center gap-2 motion-optimized like-button-spring ripple-effect transition-all ${
           following

@@ -30,6 +30,18 @@ export type SessionFormState = {
   windSpeed?: number; // Wind speed in mph
   windDirection?: string; // Wind direction (N, NE, E, etc.)
   forecastAccuracy?: "accurate" | "somewhat" | "inaccurate"; // User-reported forecast accuracy
+  recommendationId?: string;
+  recommendationSurface?: string;
+  recommendationRank?: number;
+  recommendationScore?: number;
+  recommendationWindowStart?: string;
+  recommendationWindowEnd?: string;
+  recommendationTimeSlot?: string;
+  recommendationCallAccuracy?: "right" | "partly" | "wrong" | "not_sure";
+  forecastWaveHeightFt?: number;
+  forecastTideStatus?: string;
+  waveHeightEdited?: boolean;
+  tideStatusEdited?: boolean;
   // Tide fields for session conditions:
   tideHeight?: number; // User-reported tide height in feet
   tideStatus?: string; // User-reported tide status (rising, falling, high, low)
@@ -104,6 +116,18 @@ function getDefaultFormState(mode: SessionFormMode): SessionFormState {
     windSpeed: undefined,
     windDirection: undefined,
     forecastAccuracy: undefined,
+    recommendationId: undefined,
+    recommendationSurface: undefined,
+    recommendationRank: undefined,
+    recommendationScore: undefined,
+    recommendationWindowStart: undefined,
+    recommendationWindowEnd: undefined,
+    recommendationTimeSlot: undefined,
+    recommendationCallAccuracy: undefined,
+    forecastWaveHeightFt: undefined,
+    forecastTideStatus: undefined,
+    waveHeightEdited: false,
+    tideStatusEdited: false,
     // Tide fields (initialize to undefined)
     tideHeight: undefined,
     tideStatus: undefined,

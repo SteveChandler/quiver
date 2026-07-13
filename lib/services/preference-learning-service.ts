@@ -103,6 +103,18 @@ interface SessionWithConditions {
     goals?: string[] | null;
     notes?: string | null;
     source?: string | null;
+    rating?: number | string | null;
+    wave_quality?: number | string | null;
+    wave_height_ft?: number | string | null;
+    wind_speed_mph?: number | string | null;
+    wind_direction?: string | null;
+    tide_status?: string | null;
+    recommendation_id?: string | null;
+    recommendation_call_accuracy?: string | null;
+    forecast_wave_height_ft?: number | string | null;
+    forecast_tide_status?: string | null;
+    wave_height_correct?: boolean | null;
+    tide_status_correct?: boolean | null;
   } | Array<{
     id?: string | null;
     beach_id?: string | null;
@@ -113,6 +125,18 @@ interface SessionWithConditions {
     goals?: string[] | null;
     notes?: string | null;
     source?: string | null;
+    rating?: number | string | null;
+    wave_quality?: number | string | null;
+    wave_height_ft?: number | string | null;
+    wind_speed_mph?: number | string | null;
+    wind_direction?: string | null;
+    tide_status?: string | null;
+    recommendation_id?: string | null;
+    recommendation_call_accuracy?: string | null;
+    forecast_wave_height_ft?: number | string | null;
+    forecast_tide_status?: string | null;
+    wave_height_correct?: boolean | null;
+    tide_status_correct?: boolean | null;
   }> | null;
   sessions?: {
     id?: string | null;
@@ -321,6 +345,11 @@ function getSessionNumber(
     return actual;
   }
 
+  const session = parseForecastNumber(firstPresentValue(getSessionRelation(snapshot), actualKeys));
+  if (session !== null) {
+    return session;
+  }
+
   return parseForecastNumber(firstPresentValue(getForecastSnapshot(snapshot), forecastKeys));
 }
 
@@ -330,6 +359,13 @@ function getSessionWindDirection(snapshot: SessionWithConditions): number | null
   );
   if (actual !== null) {
     return actual;
+  }
+
+  const session = parseWindDirection(
+    firstPresentValue(getSessionRelation(snapshot), ['wind_direction'])
+  );
+  if (session !== null) {
+    return session;
   }
 
   return parseWindDirection(
@@ -345,17 +381,41 @@ function getSessionTideStatus(snapshot: SessionWithConditions): string | null {
     return actual;
   }
 
+  const session = normalizeTideStatus(
+    firstPresentValue(getSessionRelation(snapshot), ['tide_status'])
+  );
+  if (session) {
+    return session;
+  }
+
   return normalizeTideStatus(
     firstPresentValue(getForecastSnapshot(snapshot), ['tide_status'])
   );
 }
 
 function getRating(snapshot: SessionWithConditions): number | null {
-  return parseForecastNumber(firstPresentValue(getActualConditions(snapshot), ['rating']));
+  const actual = parseForecastNumber(firstPresentValue(getActualConditions(snapshot), ['rating']));
+  if (actual !== null) {
+    return actual;
+  }
+
+  return parseForecastNumber(firstPresentValue(getSessionRelation(snapshot), ['rating']));
 }
 
 function getWaveQuality(snapshot: SessionWithConditions): number | null {
-  return parseForecastNumber(firstPresentValue(getActualConditions(snapshot), ['wave_quality']));
+  const actual = parseForecastNumber(firstPresentValue(getActualConditions(snapshot), ['wave_quality']));
+  if (actual !== null) {
+    return actual;
+  }
+
+  return parseForecastNumber(firstPresentValue(getSessionRelation(snapshot), ['wave_quality']));
+}
+
+function getRecommendationCallAccuracy(snapshot: SessionWithConditions): string | null {
+  const relation = getSessionRelation(snapshot);
+  return typeof relation.recommendation_call_accuracy === 'string'
+    ? relation.recommendation_call_accuracy
+    : null;
 }
 
 function isSeededOrTestSession(snapshot: SessionWithConditions): boolean {
@@ -453,6 +513,10 @@ function hasNegativeWaveQuality(snapshot: SessionWithConditions): boolean {
 function hasNegativeSignal(snapshot: SessionWithConditions): boolean {
   const rating = getRating(snapshot);
   if (rating !== null && rating <= 2) {
+    return true;
+  }
+
+  if (getRecommendationCallAccuracy(snapshot) === 'wrong') {
     return true;
   }
 
@@ -605,7 +669,19 @@ export async function computeUserPreferences(
               board_snapshot,
               goals,
               notes,
-              source
+              source,
+              rating,
+              wave_quality,
+              wave_height_ft,
+              wind_speed_mph,
+              wind_direction,
+              tide_status,
+              recommendation_id,
+              recommendation_call_accuracy,
+              forecast_wave_height_ft,
+              forecast_tide_status,
+              wave_height_correct,
+              tide_status_correct
             )
           `)
           .eq('user_id', userId)
@@ -627,16 +703,24 @@ export async function computeUserPreferences(
       .filter((session) => !isSeededOrTestCompletedSession(session))
       .length;
 
-    if (eligibleSessionCount < MIN_SIGNAL_SAMPLE_SIZE) {
+    const cleanSessions = ((snapshots ?? []) as unknown as SessionWithConditions[]).filter(
+      (snapshot) => !isSeededOrTestSession(snapshot)
+    );
+
+    const negativePreferenceSessions = cleanSessions.filter((snapshot) =>
+      hasNegativeSignal(snapshot)
+    );
+    const avoidanceByBeach = buildAvoidanceByBeach(negativePreferenceSessions);
+    const hasActionableAvoidance = Object.values(avoidanceByBeach).some(
+      (pattern) => pattern.negative_sample_size >= 2
+    );
+
+    if (eligibleSessionCount < MIN_SIGNAL_SAMPLE_SIZE && !hasActionableAvoidance) {
       console.log(
         `Not enough completed sessions for user ${userId}: ${eligibleSessionCount} eligible sessions (need 5+)`
       );
       return null;
     }
-
-    const cleanSessions = ((snapshots ?? []) as unknown as SessionWithConditions[]).filter(
-      (snapshot) => !isSeededOrTestSession(snapshot)
-    );
 
     const waveQualitySessions = cleanSessions
       .filter((snapshot) => hasPositiveWaveQuality(snapshot))
@@ -667,11 +751,6 @@ export async function computeUserPreferences(
       wavePreferenceSessions.length,
       conditionPreferenceSessions.length
     );
-    const negativePreferenceSessions = cleanSessions.filter((snapshot) =>
-      hasNegativeSignal(snapshot)
-    );
-    const avoidanceByBeach = buildAvoidanceByBeach(negativePreferenceSessions);
-
     // 3. Extract arrays of values
     const waveHeights = wavePreferenceSessions
       .map((s) => getSessionNumber(s, ['wave_height_ft'], ['wave_height', 'wave_height_ft']))
@@ -835,11 +914,23 @@ export function getAvoidancePatternForBeach(
   preferences: Pick<UserSurfPreferences, 'eligible_session_count' | 'avoidance_by_beach'> | null,
   beachId: string
 ): AvoidancePattern | null {
-  if (!preferences || (preferences.eligible_session_count ?? 0) < MIN_SIGNAL_SAMPLE_SIZE) {
+  if (!preferences) {
     return null;
   }
 
-  return preferences.avoidance_by_beach?.[beachId] ?? null;
+  const pattern = preferences.avoidance_by_beach?.[beachId] ?? null;
+  if (!pattern) {
+    return null;
+  }
+
+  if (
+    (preferences.eligible_session_count ?? 0) >= MIN_SIGNAL_SAMPLE_SIZE ||
+    pattern.negative_sample_size >= 2
+  ) {
+    return pattern;
+  }
+
+  return null;
 }
 
 function isInRangeWithTolerance(

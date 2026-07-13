@@ -78,6 +78,21 @@ const WAVE_TYPE_DETAILS: Record<
     description: "Long sections with little shoulder",
     color: "bg-stone-100 text-stone-800 hover:bg-stone-200",
   },
+  rights: {
+    emoji: "➡️",
+    description: "Waves peeling to the right",
+    color: "bg-emerald-100 text-emerald-800 hover:bg-emerald-200",
+  },
+  lefts: {
+    emoji: "⬅️",
+    description: "Waves peeling to the left",
+    color: "bg-indigo-100 text-indigo-800 hover:bg-indigo-200",
+  },
+  steep: {
+    emoji: "📐",
+    description: "Steep, fast-dropping faces",
+    color: "bg-rose-100 text-rose-800 hover:bg-rose-200",
+  },
 };
 
 export const WAVE_TYPES: WaveType[] = WAVE_CHARACTERISTICS.map(

@@ -295,6 +295,7 @@ function BeachDetailContent({
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [alertCreationOpen, setAlertCreationOpen] = useState(false);
   const [alertRulesRefreshKey, setAlertRulesRefreshKey] = useState(0);
+  const [secondaryDataReady, setSecondaryDataReady] = useState(false);
   const [activeTab, setActiveTab] = useState<BeachTabValue>(
     defaultTab || "forecast",
   );
@@ -402,8 +403,8 @@ function BeachDetailContent({
     }
   }, [searchParams, tabSynced, pathname, router]);
 
-  // PERFORMANCE OPTIMIZATION: Fetch all data in parallel (beach, forecasts, sources)
-  // This eliminates the waterfall pattern and dramatically improves load time
+  // Above-fold essentials only: beach, forecasts, and hero sources.
+  // Secondary tab metrics/calibration load after first paint and active-tab intent.
   const {
     beach,
     forecasts = EMPTY_FORECASTS,
@@ -420,14 +421,39 @@ function BeachDetailContent({
     forecastDays: 10,
   });
 
-  // Fetch forecast calibration data
-  const { sessionSnapshots } = useForecastCalibration({ beachId: id });
+  useEffect(() => {
+    setSecondaryDataReady(false);
+    const run = (): void => setSecondaryDataReady(true);
+
+    if (
+      typeof window !== "undefined" &&
+      "requestIdleCallback" in window &&
+      typeof window.requestIdleCallback === "function"
+    ) {
+      const handle = window.requestIdleCallback(run, { timeout: 1800 });
+      return () => window.cancelIdleCallback(handle);
+    }
+
+    const timeout = window.setTimeout(run, 600);
+    return () => window.clearTimeout(timeout);
+  }, [id]);
+
+  const calibrationBeachId =
+    secondaryDataReady && activeTab === "sessions" ? id : undefined;
+  const { sessionSnapshots } = useForecastCalibration({
+    beachId: calibrationBeachId,
+  });
 
   // Fetch yesterday's accuracy data
+  const shouldFetchYesterdayAccuracy =
+    secondaryDataReady && activeTab === "forecast";
   const fetchAccuracy = useCallback(async () => {
+    if (!shouldFetchYesterdayAccuracy) return null;
     return await getYesterdayAccuracy(id);
-  }, [id]);
-  const { data: yesterdayAccuracy } = useDataFetcher(fetchAccuracy);
+  }, [id, shouldFetchYesterdayAccuracy]);
+  const { data: yesterdayAccuracy } = useDataFetcher(fetchAccuracy, {
+    skip: !shouldFetchYesterdayAccuracy,
+  });
 
   // Review handlers
   const handleWriteReview = useCallback(
@@ -613,27 +639,32 @@ function BeachDetailContent({
     intel: number | null;
     sessions: number | null;
   }>({ reviews: null, intel: null, sessions: null });
+  const [tabCountsLoaded, setTabCountsLoaded] = useState({
+    reviews: false,
+    intel: false,
+    sessions: false,
+  });
 
   useEffect(() => {
-    if (!beach) return;
-    let cancelled = false;
     emptyStateFiredRef.current = new Set();
     setTabCounts({ reviews: null, intel: null, sessions: null });
+    setTabCountsLoaded({ reviews: false, intel: false, sessions: false });
+  }, [beach?.id]);
 
+  useEffect(() => {
+    if (!beach || !secondaryDataReady) return;
+    if (activeTab !== "reviews" && activeTab !== "intel" && activeTab !== "sessions") {
+      return;
+    }
+    if (tabCountsLoaded[activeTab]) return;
+
+    let cancelled = false;
     const controller =
       typeof AbortController !== "undefined" ? new AbortController() : null;
     const signal = controller?.signal;
 
-    // Reviews — use /api/beaches/{id} summary if it ever exposes a count,
-    // otherwise fall back to the summary server action via a light endpoint.
-    // We don't want to import server actions client-side here, so we hit the
-    // sessions endpoint and an intel listing endpoint directly.
     const safeFetchJson = async (url: string) => {
       try {
-        // Default cache behavior is fine — a stale "is this empty?" count
-        // is acceptable because the worst case is a dropped telemetry signal,
-        // not wrong data. cache: "no-store" forced 2 uncached HTTP requests
-        // per beach detail mount for every visitor.
         const res = await fetch(url, { signal });
         if (!res.ok) return null;
         return await res.json();
@@ -642,50 +673,55 @@ function BeachDetailContent({
       }
     };
 
-    // Reviews count: reuse the public beach stats endpoint if present, else
-    // just read the aggregate review_count already on the beach row when
-    // available. If neither is available, leave as null (which disables the
-    // empty-state event for reviews — acceptable fallback).
-    const reviewCountFromBeach =
-      typeof (beach as { review_count?: number }).review_count === "number"
-        ? ((beach as { review_count?: number }).review_count ?? null)
-        : null;
-    const hasBeachCoordinates =
-      typeof beach.lat === "number" &&
-      Number.isFinite(beach.lat) &&
-      typeof beach.lon === "number" &&
-      Number.isFinite(beach.lon);
-    const intelCountPromise = hasBeachCoordinates
-      ? safeFetchJson(
-          `/api/intel?lat=${beach.lat}&lon=${beach.lon}&radius=2&limit=1`,
-        )
-      : Promise.resolve(null);
+    const loadCount = async (): Promise<number | null> => {
+      if (activeTab === "reviews") {
+        return typeof (beach as { review_count?: number }).review_count ===
+          "number"
+          ? ((beach as { review_count?: number }).review_count ?? null)
+          : null;
+      }
 
-    Promise.all([
-      Promise.resolve(reviewCountFromBeach),
-      intelCountPromise,
-      safeFetchJson(`/api/beaches/${beach.id}/sessions?limit=1`),
-    ]).then(([reviews, intelJson, sessionsJson]) => {
-      if (cancelled) return;
-      const intelPosts =
-        intelJson?.data?.posts ?? intelJson?.posts ?? intelJson?.data ?? null;
+      if (activeTab === "intel") {
+        const hasBeachCoordinates =
+          typeof beach.lat === "number" &&
+          Number.isFinite(beach.lat) &&
+          typeof beach.lon === "number" &&
+          Number.isFinite(beach.lon);
+        if (!hasBeachCoordinates) return null;
+        const intelJson = await safeFetchJson(
+          `/api/intel?lat=${beach.lat}&lon=${beach.lon}&radius=2&limit=1`,
+        );
+        const intelPosts =
+          intelJson?.data?.posts ?? intelJson?.posts ?? intelJson?.data ?? null;
+        return Array.isArray(intelPosts) ? intelPosts.length : null;
+      }
+
+      const sessionsJson = await safeFetchJson(
+        `/api/beaches/${beach.id}/sessions?limit=1`,
+      );
       const sessionsList =
         sessionsJson?.data?.sessions ??
         sessionsJson?.sessions ??
         sessionsJson?.data ??
         null;
-      setTabCounts({
-        reviews: typeof reviews === "number" ? reviews : null,
-        intel: Array.isArray(intelPosts) ? intelPosts.length : null,
-        sessions: Array.isArray(sessionsList) ? sessionsList.length : null,
-      });
+      return Array.isArray(sessionsList) ? sessionsList.length : null;
+    };
+
+    void loadCount().then((count) => {
+      if (cancelled) return;
+      setTabCounts((prev) =>
+        prev[activeTab] === count ? prev : { ...prev, [activeTab]: count },
+      );
+      setTabCountsLoaded((prev) =>
+        prev[activeTab] ? prev : { ...prev, [activeTab]: true },
+      );
     });
 
     return () => {
       cancelled = true;
       controller?.abort();
     };
-  }, [beach]);
+  }, [activeTab, beach, secondaryDataReady, tabCountsLoaded]);
 
   // Fire empty_state_shown when the active tab is confirmed-empty.
   // One event per tab per beach mount (Set ref).

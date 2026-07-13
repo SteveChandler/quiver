@@ -210,10 +210,12 @@ export function trackSignupFormSubmitted(params: {
 export function trackLoginFormSubmitted(params: {
   source: string;
 }) {
-  const payload = {
-    mode: "login" as const,
-    source: params.source,
-  };
+  const payload = enrichWithWebAnalyticsContext(
+    withBrowserSessionId({
+      mode: "login" as const,
+      source: params.source,
+    }),
+  );
   track("login_form_submitted", payload);
   fireToUserEvents("login_form_submitted", payload);
 }
@@ -237,11 +239,18 @@ export function trackLoginStarted(method: string) {
 export function trackLoginSuccess(params: {
   method: string;
   duration_ms: number;
+  source?: string;
+  landing_page?: string;
 }) {
-  const eventParams = withBrowserSessionId({
-    method: params.method,
-    duration_ms: params.duration_ms,
-  });
+  const eventParams = enrichWithWebAnalyticsContext(
+    withBrowserSessionId({
+      method: params.method,
+      duration_ms: params.duration_ms,
+      ...(params.source && { source: params.source }),
+      ...(params.landing_page && { landing_page: params.landing_page }),
+    }),
+    { pathname: params.landing_page },
+  );
   track("login_success", eventParams);
   fireToUserEvents("login_success", eventParams);
   fireToPostHog("user_signed_in", eventParams);
@@ -255,11 +264,20 @@ export function trackLoginSuccess(params: {
 export function trackLoginFailed(params: {
   method: string;
   error_type: string;
+  source?: string;
+  landing_page?: string;
 }) {
-  track("login_failed", {
-    method: params.method,
-    error_type: params.error_type,
-  });
+  const eventParams = enrichWithWebAnalyticsContext(
+    withBrowserSessionId({
+      method: params.method,
+      error_type: params.error_type,
+      ...(params.source && { source: params.source }),
+      ...(params.landing_page && { landing_page: params.landing_page }),
+    }),
+    { pathname: params.landing_page },
+  );
+  track("login_failed", eventParams);
+  fireToUserEvents("login_failed", eventParams);
 }
 
 /**
@@ -319,11 +337,20 @@ export function trackSignupSuccess(params: {
 export function trackSignupFailed(params: {
   method: string;
   error_type: string;
+  source?: string;
+  landing_page?: string;
 }) {
-  track("signup_failed", {
-    method: params.method,
-    error_type: params.error_type,
-  });
+  const eventParams = enrichWithWebAnalyticsContext(
+    withBrowserSessionId({
+      method: params.method,
+      error_type: params.error_type,
+      ...(params.source && { source: params.source }),
+      ...(params.landing_page && { landing_page: params.landing_page }),
+    }),
+    { includeSignupChannel: true, pathname: params.landing_page },
+  );
+  track("signup_failed", eventParams);
+  fireToUserEvents("signup_failed", eventParams);
 }
 
 /**

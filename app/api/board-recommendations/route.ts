@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
     // Get user's boards
     const { data: boards, error: boardsError } = await supabase
       .from("boards")
-      .select("*")
+      .select("id, name, board_type, dimensions, description, image_url")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false });
 
@@ -113,8 +113,15 @@ export async function GET(request: NextRequest) {
       .from("sessions")
       .select(
         `
-        *,
-        boards(*)
+        id,
+        board_id,
+        rating,
+        wave_quality,
+        wave_height_ft,
+        wind_speed_mph,
+        beach_id,
+        created_at,
+        boards(id, name, board_type, dimensions, description, image_url)
       `
       )
       .eq("user_id", user.id)

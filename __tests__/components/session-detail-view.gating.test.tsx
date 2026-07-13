@@ -15,19 +15,31 @@ jest.mock("@/context/auth-context", () => ({
   })),
 }));
 
-jest.mock("@/components/ui/public-content-gate", () => ({
-  PublicContentGate: ({
-    ctaTitle,
-    children,
+jest.mock("@/components/app-store/native-app-funnel-cta", () => ({
+  NativeAppFunnelCta: ({
+    androidLabel,
+    platform,
+    source,
+    surface,
   }: {
-    ctaTitle: string;
-    children: React.ReactNode;
+    androidLabel?: React.ReactNode;
+    platform: string;
+    source: string;
+    surface: string;
   }) => (
-    <div>
-      <div>{ctaTitle}</div>
-      <div>{children}</div>
-    </div>
+    <a
+      data-platform={platform}
+      data-source={source}
+      data-surface={surface}
+      href={platform === "android" ? "/android-beta" : "/download"}
+    >
+      {platform === "android" ? androidLabel : "Get Quiver"}
+    </a>
   ),
+}));
+
+jest.mock("@/lib/analytics/web-context", () => ({
+  getFirstTouchPlatform: jest.fn(() => "android"),
 }));
 
 jest.mock("next/navigation", () => ({
@@ -45,12 +57,33 @@ jest.mock("next/link", () => {
 });
 
 describe("SessionDetailView (gating)", () => {
-  it("shows an auth gate when logged out (instead of spinning forever)", () => {
-    render(<SessionDetailView id="session-1" />);
-    expect(
-      screen.getByText("Log in to view session details")
-    ).toBeInTheDocument();
+  it("shows a shared-session app fallback when logged out", async () => {
+    render(
+      <SessionDetailView
+        id="session-1"
+        sharedPreview={{
+          rating: 4,
+          title: "Sam's session at Ocean Beach",
+          subtitle: "4/5 stars · Jul 3, 2026 · Logged session",
+          imageUrl: "https://cdn.quiversurf.app/session.jpg",
+        }}
+      />,
+    );
+
+    expect(screen.getByText("Shared session")).toBeInTheDocument();
+    expect(screen.getByText("Sam's session at Ocean Beach")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Sign in to view on web" })).toHaveAttribute(
+      "href",
+      "/auth/sign-in?redirectTo=%2Fsessions%2Fsession-1",
+    );
+    const appCta = await screen.findByRole("link", { name: "Get the Android beta" });
+    expect(appCta).toHaveAttribute("href", "/android-beta");
+    expect(appCta).toHaveAttribute("data-platform", "android");
+    expect(appCta).toHaveAttribute("data-source", "session_share");
+    expect(appCta).toHaveAttribute("data-surface", "session_detail_fallback");
+    expect(screen.getByRole("link", { name: "Download options" })).toHaveAttribute(
+      "href",
+      "/download",
+    );
   });
 });
-
-

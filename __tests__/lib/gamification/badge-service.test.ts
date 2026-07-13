@@ -7,6 +7,7 @@
  */
 
 import { getBadgeChecks } from "@/lib/gamification/constants";
+import { evaluateBadgeUnlocks } from "@/lib/gamification/badge-service";
 import type { UserBadgeStats } from "@/lib/gamification/types";
 
 function makeStats(overrides: Partial<UserBadgeStats> = {}): UserBadgeStats {
@@ -33,6 +34,10 @@ function makeStats(overrides: Partial<UserBadgeStats> = {}): UserBadgeStats {
     skill_rated_sessions: 0,
     sweet_spot_confidence: 0,
     progression_shares: 0,
+    distinct_beaches: 0,
+    home_beach_sessions: 0,
+    clean_condition_sessions: 0,
+    five_star_sessions: 0,
     ...overrides,
   };
 }
@@ -113,5 +118,115 @@ describe("progression_sharer badge", () => {
 
   it("unlocks with multiple progression shares", () => {
     expect(getBadgeCondition("progression_sharer", makeStats({ progression_shares: 5 }))).toBe(true);
+  });
+});
+
+describe("artwork badge set", () => {
+  it.each([
+    ["three_day_streak", { consecutive_days: 2 }, { consecutive_days: 3 }],
+    ["new_break_logged", { distinct_beaches: 1 }, { distinct_beaches: 2 }],
+    ["home_break_regular", { home_beach_sessions: 9 }, { home_beach_sessions: 10 }],
+    ["clean_conditions", { clean_condition_sessions: 4 }, { clean_condition_sessions: 5 }],
+    ["best_session", { five_star_sessions: 0 }, { five_star_sessions: 1 }],
+  ] as const)("unlocks %s at its threshold", (slug, belowThreshold, atThreshold) => {
+    expect(getBadgeCondition(slug, makeStats(belowThreshold))).toBe(false);
+    expect(getBadgeCondition(slug, makeStats(atThreshold))).toBe(true);
+  });
+});
+
+describe("artwork badge stat gathering", () => {
+  it("awards every artwork badge when the corresponding session stats reach their thresholds", async () => {
+    const userId = "user-123";
+    const today = new Date();
+    const arrivalTimes = [0, 1, 2].map((daysAgo) => {
+      const date = new Date(today);
+      date.setUTCDate(date.getUTCDate() - daysAgo);
+      return { arrival_time: date.toISOString(), status: "completed" };
+    });
+    const definitions = [
+      "three_day_streak",
+      "new_break_logged",
+      "home_break_regular",
+      "clean_conditions",
+      "best_session",
+    ].map((badge_slug) => ({ badge_slug, name: badge_slug, icon: "Icon", xp_reward: 0 }));
+    const sessionFilters: Array<{ method: string; column: string; value: unknown }> = [];
+
+    const supabase = {
+      from: jest.fn((table: string) => {
+        const filters: Array<{ method: string; column: string; value: unknown }> = [];
+        let columns = "";
+        const result = (): { data: unknown[]; count?: number; error: null } => {
+          if (table === "profiles") {
+            return {
+              data: [{ home_beach_id: "home-beach" }],
+              error: null,
+            };
+          }
+          if (table === "badge_definitions") return { data: definitions, error: null };
+          if (table === "sessions" && columns === "beach_id") {
+            return { data: [{ beach_id: "home-beach" }, { beach_id: "new-beach" }], error: null };
+          }
+          if (table === "sessions" && columns === "arrival_time,status") {
+            return { data: arrivalTimes, error: null };
+          }
+          if (table === "sessions" && columns.includes("notes")) return { data: [], error: null };
+          if (table === "sessions") {
+            const count = filters.some((filter) => filter.method === "overlaps")
+              ? 5
+              : filters.some((filter) => filter.column === "rating" && filter.value === 5)
+                ? 1
+                : filters.some((filter) => filter.method === "in" && filter.column === "beach_id")
+                  ? 10
+                  : 0;
+            return { data: [], count, error: null };
+          }
+          return { data: [], count: 0, error: null };
+        };
+        const query: any = {
+          select: jest.fn((selectedColumns: string) => {
+            columns = selectedColumns;
+            return query;
+          }),
+          eq: jest.fn((column: string, value: unknown) => {
+            filters.push({ method: "eq", column, value });
+            if (table === "sessions") sessionFilters.push({ method: "eq", column, value });
+            return query;
+          }),
+          not: jest.fn(() => query),
+          or: jest.fn(() => query),
+          overlaps: jest.fn((column: string, value: unknown) => {
+            filters.push({ method: "overlaps", column, value });
+            if (table === "sessions") sessionFilters.push({ method: "overlaps", column, value });
+            return query;
+          }),
+          in: jest.fn((column: string, value: unknown) => {
+            filters.push({ method: "in", column, value });
+            if (table === "sessions") sessionFilters.push({ method: "in", column, value });
+            return query;
+          }),
+          ilike: jest.fn(() => query),
+          order: jest.fn(() => query),
+          limit: jest.fn(() => query),
+          maybeSingle: jest.fn(async () => {
+            const value = result();
+            return { data: value.data[0] ?? null, error: value.error };
+          }),
+          insert: jest.fn(async () => ({ data: null, error: null })),
+          then: (onResolve: (value: { data: unknown[]; count?: number; error: null }) => unknown) =>
+            Promise.resolve(onResolve(result())),
+        };
+        return query;
+      }),
+    };
+
+    const badges = await evaluateBadgeUnlocks(userId, supabase as never);
+
+    expect(badges.map((badge) => badge.badge_slug)).toEqual(expect.arrayContaining(definitions.map((badge) => badge.badge_slug)));
+    expect(sessionFilters).toEqual(expect.arrayContaining([
+      { method: "overlaps", column: "wave_characteristics", value: ["clean", "glassy"] },
+      { method: "in", column: "beach_id", value: ["home-beach"] },
+      { method: "eq", column: "rating", value: 5 },
+    ]));
   });
 });

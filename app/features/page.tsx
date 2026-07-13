@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import Link from "next/link";
 import type { ReactElement } from "react";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -171,7 +172,7 @@ export default function FeaturesPage(): ReactElement {
                   placement="hero_secondary"
                   className="inline-flex min-h-11 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
                 >
-                  Android waitlist
+                  Get the Android beta
                 </AndroidWaitlistCta>
               </div>
 
@@ -344,6 +345,13 @@ export default function FeaturesPage(): ReactElement {
                   you actually want, and start feeding your sessions back into
                   the loop.
                 </p>
+                <Link
+                  href="/free-surf-reports"
+                  className="mt-4 inline-flex items-center gap-2 font-bold text-[#252D6B] underline-offset-4 hover:text-[#9E5010] hover:underline"
+                >
+                  Read how free surf reports work
+                  <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
               </div>
               <div className="relative flex flex-col gap-3 lg:items-end">
                 <QuiverSticker
@@ -365,7 +373,7 @@ export default function FeaturesPage(): ReactElement {
                   placement="final_secondary"
                   className="inline-flex min-h-11 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
                 >
-                  Join Android waitlist
+                  Get the Android beta
                 </AndroidWaitlistCta>
               </div>
             </div>

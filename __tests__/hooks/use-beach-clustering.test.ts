@@ -46,6 +46,52 @@ describe("useBeachClustering", () => {
     expect(individualMarkers.length).toBeGreaterThan(0);
   });
 
+  it("returns only individual beach points when clustering is disabled", () => {
+    const { result } = renderHook(() =>
+      useBeachClustering({
+        beaches: mockBeaches as Beach[],
+        waveHeights: mockWaveHeights,
+        bounds: { west: -118, south: 32, east: -117, north: 33 },
+        zoom: 10,
+        disableClustering: true,
+      })
+    );
+
+    expect(result.current.clusters).toHaveLength(mockBeaches.length);
+    expect(result.current.clusters.every((cluster) => !cluster.isCluster)).toBe(
+      true
+    );
+    expect(result.current.clusters.map((cluster) => cluster.beach?.id)).toEqual(
+      ["1", "2", "3"]
+    );
+    expect(result.current.clusters.map((cluster) => cluster.waveHeight)).toEqual(
+      [2.5, 3.2, 1.5]
+    );
+  });
+
+  it("caps direct point rendering for unusually large in-bounds result sets", () => {
+    const manyBeaches = Array.from({ length: 175 }, (_, index) => ({
+      id: `beach-${index}`,
+      name: `Beach ${index}`,
+      lat: 32.75,
+      lon: -117.25,
+    })) as Beach[];
+    const { result } = renderHook(() =>
+      useBeachClustering({
+        beaches: manyBeaches,
+        waveHeights: new Map(),
+        bounds: { west: -118, south: 32, east: -117, north: 33 },
+        zoom: 10,
+        disableClustering: true,
+      })
+    );
+
+    expect(result.current.clusters).toHaveLength(150);
+    expect(result.current.clusters.every((cluster) => !cluster.isCluster)).toBe(
+      true
+    );
+  });
+
   it("should return empty array for empty beaches", () => {
     const { result } = renderHook(() =>
       useBeachClustering({
@@ -70,10 +116,13 @@ describe("useBeachClustering", () => {
     );
 
     const cluster = result.current.clusters.find((c) => c.isCluster);
-    if (cluster) {
-      const expansionZoom = result.current.getExpansionZoom(cluster.clusterId!);
-      expect(typeof expansionZoom).toBe("number");
-      expect(expansionZoom).toBeGreaterThan(10);
+    expect(cluster).toMatchObject({ isCluster: true });
+    if (typeof cluster?.clusterId !== "number") {
+      throw new Error("Expected clustered marker to include a cluster id");
     }
+
+    const expansionZoom = result.current.getExpansionZoom(cluster.clusterId);
+    expect(typeof expansionZoom).toBe("number");
+    expect(expansionZoom).toBeGreaterThan(10);
   });
 });

@@ -171,7 +171,9 @@ describe("GET /api/board-recommendations", () => {
 
     expect(response.status).toBe(200);
     expect(mockFrom).toHaveBeenCalledWith("boards");
-    expect(mockBoardsSelect).toHaveBeenCalledWith("*");
+    expect(mockBoardsSelect).toHaveBeenCalledWith(
+      "id, name, board_type, dimensions, description, image_url",
+    );
     expect(mockBoardsEq).toHaveBeenCalledWith("user_id", "user-1");
     expect(mockBoardsOrder).toHaveBeenCalledWith("created_at", {
       ascending: false,

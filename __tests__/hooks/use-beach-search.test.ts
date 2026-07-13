@@ -156,6 +156,27 @@ describe("useBeachSearch", () => {
       expect(result.current.error).toBe("API Error");
     });
 
+    it("preserves nearby results when all-beaches loading fails", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadNearbyBeaches(32.7, -117.2);
+      });
+
+      expect(result.current.beaches).toHaveLength(5);
+
+      mockGetBeaches.mockRejectedValue(new Error("API Error"));
+
+      await act(async () => {
+        await result.current.loadBeaches();
+      });
+
+      expect(result.current.beaches).toHaveLength(5);
+      expect(result.current.filteredBeaches).toHaveLength(5);
+      expect(result.current.loading).toBe(false);
+      expect(result.current.error).toBe("API Error");
+    });
+
     it("should load nearby beaches", async () => {
       const { result } = renderHook(() => useBeachSearch());
 
@@ -195,6 +216,107 @@ describe("useBeachSearch", () => {
 
       expect(result.current.beaches).toHaveLength(0);
       expect(result.current.error).toBe("Location Error");
+    });
+
+    it("restores the previous beach presentation when the latest request fails", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+
+      await act(async () => {
+        await result.current.loadNearbyBeaches(32.7, -117.2);
+      });
+      const previousPresentation = result.current.filteredBeaches;
+      mockGetNearbyBeaches.mockRejectedValueOnce(new Error("Hawaii unavailable"));
+
+      await act(async () => {
+        await result.current.loadNearbyBeaches(21.66, -158.06);
+      });
+
+      expect(result.current.filteredBeaches).toEqual(previousPresentation);
+      expect(result.current.error).toBe("Hawaii unavailable");
+    });
+
+    it("preserves a newer search presentation when a nearby request fails", async () => {
+      const { result } = renderHook(() => useBeachSearch());
+      await act(async () => {
+        await result.current.loadNearbyBeaches(32.7, -117.2);
+      });
+      let rejectHawaii!: (reason: Error) => void;
+      mockGetNearbyBeaches.mockReturnValueOnce(
+        new Promise((_resolve, reject) => {
+          rejectHawaii = reject;
+        }) as ReturnType<typeof getNearbyBeaches>,
+      );
+
+      let hawaiiRequest!: Promise<void>;
+      act(() => {
+        hawaiiRequest = result.current.loadNearbyBeaches(21.66, -158.06);
+      });
+      act(() => {
+        result.current.setSearchQuery("Ocean");
+      });
+      await waitFor(() => {
+        expect(result.current.filteredBeaches).toHaveLength(1);
+      });
+
+      await act(async () => {
+        rejectHawaii(new Error("Hawaii unavailable"));
+        await hawaiiRequest;
+      });
+
+      expect(result.current.filteredBeaches).toHaveLength(1);
+      expect(result.current.filteredBeaches[0]?.name).toBe("Ocean Beach");
+    });
+
+    it("keeps the latest nearby request when an older request resolves last", async () => {
+      const sanDiegoBeaches = createMockBeaches(2) as any[];
+      const hawaiiBeaches = createMockBeaches(3).map((beach, index) => ({
+        ...beach,
+        id: `hawaii-${index}`,
+        name: `Hawaii Beach ${index}`,
+      })) as any[];
+      type NearbyResult = Awaited<ReturnType<typeof getNearbyBeaches>>;
+      let resolveSanDiego!: (value: NearbyResult) => void;
+      let resolveHawaii!: (value: NearbyResult) => void;
+      mockGetNearbyBeaches
+        .mockReturnValueOnce(
+          new Promise((resolve) => {
+            resolveSanDiego = resolve;
+          }) as ReturnType<typeof getNearbyBeaches>,
+        )
+        .mockReturnValueOnce(
+          new Promise((resolve) => {
+            resolveHawaii = resolve;
+          }) as ReturnType<typeof getNearbyBeaches>,
+        );
+      const { result } = renderHook(() => useBeachSearch());
+
+      let sanDiegoRequest!: Promise<void>;
+      let hawaiiRequest!: Promise<void>;
+      act(() => {
+        sanDiegoRequest = result.current.loadNearbyBeaches(32.7, -117.2);
+        hawaiiRequest = result.current.loadNearbyBeaches(21.66, -158.06);
+      });
+
+      await act(async () => {
+        resolveHawaii({
+          success: true,
+          data: hawaiiBeaches,
+          fallbackUsed: false,
+        });
+        await hawaiiRequest;
+      });
+      expect(result.current.beaches).toEqual(hawaiiBeaches);
+
+      await act(async () => {
+        resolveSanDiego({
+          success: true,
+          data: sanDiegoBeaches,
+          fallbackUsed: false,
+        });
+        await sanDiegoRequest;
+      });
+      expect(result.current.beaches).toEqual(hawaiiBeaches);
+      expect(mockGetNearbyBeaches).toHaveBeenCalledTimes(2);
     });
   });
 

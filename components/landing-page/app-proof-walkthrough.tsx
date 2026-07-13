@@ -6,7 +6,7 @@ const STEPS = [
     eyebrow: "01 / the call",
     title: "Get the call",
     body: "See whether the window is worth it before the coffee cools.",
-    imageSrc: "/images/app-screenshots/surf-call.png",
+    imageSrc: "/images/app-screenshots/surf-call-720.webp",
     imageAlt:
       "Quiver app surf call with swell, wind, tide, and best-window guidance.",
     className: "md:col-span-5 md:rotate-[-1deg]",
@@ -16,7 +16,7 @@ const STEPS = [
     eyebrow: "02 / local check",
     title: "Check the beach",
     body: "Ground-truth the forecast with nearby spots, skill fit, and local context.",
-    imageSrc: "/images/app-screenshots/local-intel.png",
+    imageSrc: "/images/app-screenshots/local-intel-720.webp",
     imageAlt:
       "Quiver app local beach finder with nearby surf spots and skill filters.",
     className: "md:col-span-4 md:translate-y-10 md:rotate-[1.5deg]",
@@ -26,7 +26,7 @@ const STEPS = [
     eyebrow: "03 / log it",
     title: "Log the session",
     body: "Save what happened so your next call gets smarter.",
-    imageSrc: "/images/app-screenshots/session-log.png",
+    imageSrc: "/images/app-screenshots/session-log-720.webp",
     imageAlt:
       "Quiver app session log with beach, board, duration, rating, and wave conditions.",
     className: "md:col-span-3 md:rotate-[-2deg]",

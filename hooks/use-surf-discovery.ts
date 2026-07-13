@@ -18,7 +18,7 @@ import type { SurfDiscoveryResponse, TimeSlot } from "@/types/personalization";
 interface UseSurfDiscoveryOptions {
   /** User's GPS location (required for discovery) */
   userLocation?: { lat: number; lon: number };
-  /** Search radius in miles (default: 25) */
+  /** Search radius in miles; omitted lets discovery expand from 25 to 100 as needed */
   radiusMiles?: number;
   /** Hard cap for window start time in hours (e.g. 24 for next-day UX) */
   horizonHours?: number;

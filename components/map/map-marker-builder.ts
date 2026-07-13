@@ -7,6 +7,7 @@ import type { ConditionSummary } from "@/components/map/map-beach-loader";
 
 /** Controls what data the map markers display */
 export type MapDisplayMode = "wave-height" | "water-temp";
+export type MapMarkerDisplay = "forecast" | "points";
 
 export interface ConditionMarkerCall {
   summary: ConditionSummary;
@@ -124,6 +125,8 @@ export interface MarkerBuilderDeps {
   conditionSummary?: ConditionSummary;
   /** 0-100 condition score, reserved for tooltips/analytics */
   conditionScore?: number;
+  /** Marker shape mode: forecast keeps the default map; points keeps embed markers compact. */
+  markerDisplay?: MapMarkerDisplay;
   /** Marker coordinate used to anchor the preview popup */
   previewLngLat?: [number, number];
   /** Opens the single-beach marker preview popup */
@@ -161,6 +164,7 @@ export function createWaveHeightBadge(
   try {
     const isFavorite = deps.favoriteBeachIds.has(location.id);
     const displayMode = deps.displayMode ?? "wave-height";
+    const markerDisplay = deps.markerDisplay ?? "forecast";
     const conditionSummary = deps.conditionSummary ?? "UNKNOWN";
     const previewWaveLabel =
       deps.waveHeightLabel ??
@@ -207,7 +211,9 @@ export function createWaveHeightBadge(
     }
 
     // Create the actual badge element as a child
-    const badge = document.createElement("div");
+    const badge = document.createElement("button");
+    badge.type = "button";
+    badge.setAttribute("aria-label", `View ${location.name} conditions`);
     const markerGradient =
       displayMode === "water-temp"
         ? getWaterTempBadgeColor(deps.waterTemp)
@@ -215,22 +221,34 @@ export function createWaveHeightBadge(
     badge.setAttribute("data-marker-badge", "true");
     badge.setAttribute("data-marker-gradient", markerGradient);
     badge.style.cssText = `
-      width: 15px;
-      height: 15px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
       padding: 0;
-      color: white;
-      font-size: 16px;
-      font-weight: 600;
       cursor: pointer;
       min-width: 0;
-      text-align: center;
-      border: 2.5px solid #ffffff;
+      border: 0;
+      appearance: none;
+      background: transparent;
       user-select: none;
+      touch-action: manipulation;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+    const visual = document.createElement("span");
+    visual.setAttribute("data-marker-visual", "true");
+    visual.style.cssText = `
+      display: block;
+      width: ${markerDisplay === "points" ? "18px" : "15px"};
+      height: ${markerDisplay === "points" ? "18px" : "15px"};
+      border-radius: 50%;
+      border: 2.5px solid #ffffff;
+      background: ${markerGradient};
+      pointer-events: none;
       transform-origin: center;
       transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
       transform: scale(${isSelected ? "1.7" : isHovered ? "1.45" : "1"});
-      background: ${markerGradient};
       box-shadow: ${
         isSelected
           ? "0 0 20px rgba(247, 142, 66,0.4), 0 8px 25px rgba(0, 0, 0, 0.3)"
@@ -240,8 +258,9 @@ export function createWaveHeightBadge(
       };
     `;
     if (isFavorite) {
-      badge.style.borderColor = "#FDB84B";
+      visual.style.borderColor = "#FDB84B";
     }
+    badge.appendChild(visual);
 
     // Enhanced hover effects with motion
     badge.addEventListener("mouseenter", () => {
@@ -263,8 +282,8 @@ export function createWaveHeightBadge(
       }
     });
 
-    // Enhanced click handler with selection animation
-    badge.addEventListener("click", async (e) => {
+    let suppressSyntheticClick = false;
+    const activateMarker = (e: Event): void => {
       e.stopPropagation();
       e.preventDefault();
 
@@ -303,6 +322,25 @@ export function createWaveHeightBadge(
           if (beachUrl) deps.router.push(beachUrl);
         }, 400);
       }
+    };
+
+    badge.addEventListener("click", (e) => {
+      if (suppressSyntheticClick) {
+        e.stopPropagation();
+        e.preventDefault();
+        return;
+      }
+      activateMarker(e);
+    });
+    badge.addEventListener("touchstart", (e) => {
+      e.stopPropagation();
+    });
+    badge.addEventListener("touchend", (e) => {
+      suppressSyntheticClick = true;
+      activateMarker(e);
+      window.setTimeout(() => {
+        suppressSyntheticClick = false;
+      }, 500);
     });
 
     // Prevent any dragging or selection on the badge
@@ -312,12 +350,6 @@ export function createWaveHeightBadge(
     badge.addEventListener("dragstart", (e) => {
       e.preventDefault();
     });
-    // Prevent touchend from bubbling to Mapbox map container,
-    // which would fire map.on("click") and deselect the beach
-    badge.addEventListener("touchend", (e) => {
-      e.stopPropagation();
-    });
-
     // Append badge to wrapper
     wrapper.appendChild(badge);
 

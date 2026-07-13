@@ -502,6 +502,13 @@ export default function BestFreeSurfForecastAppPage(): ReactElement {
               </h2>
               <div className="mt-6 grid gap-3">
                 <Link
+                  href="/best-surf-forecast-app"
+                  className="inline-flex items-center gap-2 font-bold text-[#252D6B] underline-offset-4 hover:text-[#9E5010] hover:underline"
+                >
+                  Compare the best surf forecast apps by surf job
+                  <ArrowRight className="h-4 w-4" aria-hidden />
+                </Link>
+                <Link
                   href="/free-surf-reports"
                   className="inline-flex items-center gap-2 font-bold text-[#252D6B] underline-offset-4 hover:text-[#9E5010] hover:underline"
                 >

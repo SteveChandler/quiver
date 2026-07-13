@@ -256,6 +256,37 @@ describe("ForecastBuilder nowcast anchor output", () => {
     };
   }
 
+  function makeSouthOcNearTermSawtoothWaveData(nowIso: string) {
+    const base = Date.parse(nowIso);
+    const makePoint = (hoursAhead: number) => {
+      const forecastAt = new Date(base + hoursAhead * 60 * 60 * 1000).toISOString();
+      return {
+        timestamp: forecastAt,
+        forecast_at: forecastAt,
+        significant_wave_height: 0.65,
+        peak_wave_period: 16,
+        peak_wave_direction: 203,
+        swell_1_height: 0.62,
+        swell_1_period: 16,
+        swell_1_direction: 203,
+        swell_2_height: 0.2,
+        swell_2_period: 11,
+        swell_2_direction: 250,
+        wind_wave_height: 0.2,
+        wind_wave_period: 6,
+        wind_wave_direction: 270,
+        data_source: "NOAA_NWS" as const,
+      };
+    };
+
+    return {
+      lat: 33.38,
+      lng: -117.59,
+      data_source: "NOAA_NWS" as const,
+      forecast: [makePoint(0), makePoint(3), makePoint(6)],
+    };
+  }
+
   function makeSouthOcAlreadyHigherWaveData(nowIso: string) {
     return {
       lat: 33.38,
@@ -478,6 +509,52 @@ describe("ForecastBuilder nowcast anchor output", () => {
     expect(result[0].raw_forecast?.wave_height_provenance?.south_oc_sano_guardrail?.branch).toBe(
       "trestles_calibrated_anchor",
     );
+  });
+
+  test("South OC guardrail prevents Lower Trestles near-term sawtooth rows", async () => {
+    const nowIso = new Date().toISOString();
+    const builder = makeBuilder();
+
+    const result = await builder.buildForecasts({
+      beach: makeTestBeach([SOUTH_OC_SANO_SHADOW_GUARDRAIL_FEATURE_FLAG], {
+        slug: "lower-trestles",
+        name: "Lower Trestles",
+        lat: 33.3844,
+        lon: -117.5934,
+        center_lat: 33.3844,
+        center_lng: -117.5934,
+        swell_window_center_deg: 220,
+        swell_window_halfwidth_deg: 105,
+        deepwater_decay_factor: 0.6,
+        shoaling_factors: {
+          version: 1,
+          type: "period_lookup",
+          buckets: [{ tp_min_s: 16, tp_max_s: 999, factor: 1.62 }],
+        },
+      }),
+      waveData: makeSouthOcNearTermSawtoothWaveData(nowIso),
+      tideData: null,
+      weatherData: [],
+      buoyData: null,
+      cdipData: null,
+      ioosWaterTempC: null,
+      coopsWaterTempC: null,
+      southOcSanoShadowZoneSnapshot: makeSouthOcSnapshot(nowIso),
+    });
+    expectConsoleWarnings([CALIBRATION_COVERAGE_WARNING]);
+
+    const nearTerm = result.slice(0, 3);
+    const heights = nearTerm.map((forecast) => extractFt(forecast.wave_height));
+    expect(heights).toHaveLength(3);
+    expect(Math.min(...heights)).toBeGreaterThan(4.5);
+    expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(1);
+    expect(
+      nearTerm.every(
+        (forecast) =>
+          forecast.raw_forecast?.wave_height_provenance?.south_oc_sano_guardrail
+            ?.branch === "trestles_calibrated_anchor",
+      ),
+    ).toBe(true);
   });
 
   test("South OC guardrail lifts Church via calibrated Trestles anchor provenance", async () => {

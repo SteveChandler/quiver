@@ -27,7 +27,9 @@ import {
   PARTICLE_COUNT_DESKTOP,
   PARTICLE_COUNT_MOBILE,
   resolveParticleCount,
+  sampleFlowField,
   createSwellParticleLayer,
+  shouldAnimateSwellParticles,
 } from "@/components/map/swell-field/swell-particle-layer";
 import type {
   FlowField,
@@ -61,11 +63,32 @@ describe("swell particle layer — pure exports", () => {
     expect(PARTICLE_COUNT_MOBILE).toBeLessThan(PARTICLE_COUNT_DESKTOP);
   });
 
-  it("keeps the desktop count sparse (Windy-style spacing) but populated", () => {
-    expect(PARTICLE_COUNT_DESKTOP).toBe(450);
-    expect(PARTICLE_COUNT_MOBILE).toBe(200);
-    // Sparse, evenly spaced field — well below the earlier dense 4000 blanket.
-    expect(PARTICLE_COUNT_DESKTOP).toBeLessThanOrEqual(450);
+  it("keeps the desktop count populated but well below a dense blanket", () => {
+    expect(PARTICLE_COUNT_DESKTOP).toBe(650);
+    expect(PARTICLE_COUNT_MOBILE).toBe(520);
+    // Denser than the first pass (which read too sparse) but still far below the
+    // earlier 4000 blanket.
+    expect(PARTICLE_COUNT_DESKTOP).toBeLessThanOrEqual(800);
+  });
+
+  it("bilinearly samples the flow grid instead of snapping to the nearest cell", () => {
+    const field: FlowField = {
+      cols: 2,
+      rows: 2,
+      cells: [
+        { lon: 0, lat: 0, vx: 1, vy: 0, speed: 0.2, alpha: 0.2 },
+        { lon: 10, lat: 0, vx: 1, vy: 0, speed: 0.4, alpha: 0.4 },
+        { lon: 0, lat: 10, vx: 0, vy: 1, speed: 0.6, alpha: 0.6 },
+        { lon: 10, lat: 10, vx: 0, vy: 1, speed: 0.8, alpha: 0.8 },
+      ],
+    };
+
+    const sample = sampleFlowField(field, 5, 5);
+
+    expect(sample.vx).toBeCloseTo(Math.SQRT1_2, 6);
+    expect(sample.vy).toBeCloseTo(Math.SQRT1_2, 6);
+    expect(sample.speed).toBeCloseTo(0.5, 6);
+    expect(sample.alpha).toBeCloseTo(0.5, 6);
   });
 });
 
@@ -124,12 +147,13 @@ describe("createSwellParticleLayer — particle count", () => {
   const FIELD: FlowField = { cols: 0, rows: 0, cells: [] };
 
   /**
-   * Drive onAdd + a single render and capture EVERY draw call (comet issues two:
-   * a LINES tail then a POINTS head). `draws[0]` is the first call for back-compat.
+   * Drive onAdd + a single render and capture EVERY draw call. `draws[0]` is the
+   * first call for back-compat.
    */
   function renderedDraw(opts?: {
     count?: number;
-    markStyle?: "dash" | "dot" | "comet";
+    markStyle?: "dash" | "dot" | "streak";
+    dashLengthScale?: number;
     reducedMotion?: boolean;
     renders?: number;
     field?: FlowField;
@@ -140,11 +164,14 @@ describe("createSwellParticleLayer — particle count", () => {
     vertexCount: number;
     draws: { mode: number; vertexCount: number }[];
     uploads: number[][];
+    repaintCalls: number;
     LINES: number;
     POINTS: number;
+    TRIANGLES: number;
   } {
     const LINES = 11;
     const POINTS = 12;
+    const TRIANGLES = 13;
     const uploads: number[][] = [];
     const gl = {
       VERTEX_SHADER: 1,
@@ -159,6 +186,7 @@ describe("createSwellParticleLayer — particle count", () => {
       ONE_MINUS_SRC_ALPHA: 10,
       LINES,
       POINTS,
+      TRIANGLES,
       createShader: jest.fn(() => ({})),
       shaderSource: jest.fn(),
       compileShader: jest.fn(),
@@ -191,9 +219,21 @@ describe("createSwellParticleLayer — particle count", () => {
       drawArrays: jest.fn(),
     } as unknown as WebGL2RenderingContext;
 
+    const triggerRepaint = jest.fn();
     const map = {
       getBounds: () => null,
-      triggerRepaint: jest.fn(),
+      getCanvas: () => ({
+        width: 1440,
+        getBoundingClientRect: () => ({
+          width: 1440,
+          height: 720,
+          top: 0,
+          left: 0,
+          right: 1440,
+          bottom: 720,
+        }),
+      }),
+      triggerRepaint,
     } as unknown as import("mapbox-gl").Map;
 
     let fieldIndex = 0;
@@ -212,13 +252,14 @@ describe("createSwellParticleLayer — particle count", () => {
       viewportWidthPx: 1440,
       count: opts?.count,
       markStyle: opts?.markStyle,
+      dashLengthScale: opts?.dashLengthScale,
     });
 
     layer.onAdd?.(map, gl);
     for (let i = 0; i < (opts?.renders ?? 1); i += 1) {
       layer.render(gl, new Array(16).fill(0));
     }
-    // drawArrays(mode, 0, vertexCount) — capture all calls (comet draws twice).
+    // drawArrays(mode, 0, vertexCount) - capture all calls.
     const draws = (gl.drawArrays as jest.Mock).mock.calls.map((c) => ({
       mode: c[0] as number,
       vertexCount: c[2] as number,
@@ -228,8 +269,10 @@ describe("createSwellParticleLayer — particle count", () => {
       vertexCount: draws[0].vertexCount,
       draws,
       uploads,
+      repaintCalls: triggerRepaint.mock.calls.length,
       LINES,
       POINTS,
+      TRIANGLES,
     };
   }
 
@@ -239,21 +282,21 @@ describe("createSwellParticleLayer — particle count", () => {
   }
 
   it("defaults to the viewport-derived count when no override is given", () => {
-    expect(renderedVertexCount()).toBe(PARTICLE_COUNT_DESKTOP * 2);
+    expect(renderedVertexCount()).toBe(PARTICLE_COUNT_DESKTOP * 6);
   });
 
   it("honors an explicit count override (combined-view per-layer budget)", () => {
-    expect(renderedVertexCount(500)).toBe(500 * 2);
+    expect(renderedVertexCount(500)).toBe(500 * 6);
   });
 
   it("ignores a non-positive override and falls back to the default", () => {
-    expect(renderedVertexCount(0)).toBe(PARTICLE_COUNT_DESKTOP * 2);
+    expect(renderedVertexCount(0)).toBe(PARTICLE_COUNT_DESKTOP * 6);
   });
 
-  it("draws LINES with two vertices per particle for the default dash style", () => {
-    const { mode, vertexCount, LINES } = renderedDraw({ count: 300 });
-    expect(mode).toBe(LINES);
-    expect(vertexCount).toBe(300 * 2);
+  it("draws TRIANGLES with six vertices (a quad) per particle for the default dash style", () => {
+    const { mode, vertexCount, TRIANGLES } = renderedDraw({ count: 300 });
+    expect(mode).toBe(TRIANGLES);
+    expect(vertexCount).toBe(300 * 6);
   });
 
   it("orients the default dash perpendicular to particle travel like a wave crest", () => {
@@ -270,14 +313,62 @@ describe("createSwellParticleLayer — particle count", () => {
         field: eastField,
         captureUploads: true,
       });
-      const positionUpload = uploads.find((upload) => upload.length === 4);
+      const positionUpload = uploads.find((upload) => upload.length === 12);
 
       if (!positionUpload) {
-        throw new Error("Expected particle position upload");
+        throw new Error("Expected particle quad position upload");
       }
-      const [x1, y1, x2, y2] = positionUpload;
-      expect(Math.abs(x2 - x1)).toBeLessThan(1e-9);
-      expect(Math.abs(y2 - y1)).toBeGreaterThan(0);
+      const xs = positionUpload.filter((_, i) => i % 2 === 0);
+      const ys = positionUpload.filter((_, i) => i % 2 === 1);
+      const xExtent = Math.max(...xs) - Math.min(...xs);
+      const yExtent = Math.max(...ys) - Math.min(...ys);
+      // East travel -> the crest (length) runs perpendicular, along y; the thickness
+      // (along travel) is x. So the mark is longer than it is wide, and — unlike the
+      // old 1px line — it now has real width.
+      expect(yExtent).toBeGreaterThan(xExtent);
+      expect(xExtent).toBeGreaterThan(0);
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
+  it("can shorten crest dashes without changing S2 defaults", () => {
+    const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.25);
+    const eastField: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha: 1 }],
+    };
+
+    try {
+      const defaultDraw = renderedDraw({
+        count: 1,
+        field: eastField,
+        captureUploads: true,
+      });
+      const scaledDraw = renderedDraw({
+        count: 1,
+        field: eastField,
+        dashLengthScale: 0.75,
+        captureUploads: true,
+      });
+      const defaultPosition = defaultDraw.uploads.find((upload) => upload.length === 12);
+      const scaledPosition = scaledDraw.uploads.find((upload) => upload.length === 12);
+
+      if (!defaultPosition || !scaledPosition) {
+        throw new Error("Expected particle quad position uploads");
+      }
+
+      // Crest length is the y-extent of the quad (east field). dashLengthScale only
+      // shortens length, not thickness.
+      const lengthOf = (p: number[]): number => {
+        const ys = p.filter((_, i) => i % 2 === 1);
+        return Math.max(...ys) - Math.min(...ys);
+      };
+      const defaultHeight = lengthOf(defaultPosition);
+      const scaledHeight = lengthOf(scaledPosition);
+      expect(scaledHeight).toBeLessThan(defaultHeight);
+      expect(scaledHeight / defaultHeight).toBeCloseTo(0.75, 2);
     } finally {
       randomSpy.mockRestore();
     }
@@ -292,17 +383,100 @@ describe("createSwellParticleLayer — particle count", () => {
     expect(vertexCount).toBe(300);
   });
 
-  it("draws a LINES tail AND a POINTS head for the comet style (wind layer)", () => {
-    const { draws, LINES, POINTS } = renderedDraw({
+  it("draws the wind worm as a single multi-segment line pass, no dot-head pass", () => {
+    const { draws, LINES } = renderedDraw({
       count: 300,
-      markStyle: "comet",
+      markStyle: "streak",
     });
-    // Two passes over the shared 2-vertex-per-particle buffer: LINES tail then POINTS.
-    expect(draws).toHaveLength(2);
-    const lines = draws.find((d) => d.mode === LINES);
-    const points = draws.find((d) => d.mode === POINTS);
-    expect(lines).toEqual({ mode: LINES, vertexCount: 300 * 2 });
-    expect(points).toEqual({ mode: POINTS, vertexCount: 300 * 2 });
+    // 10 segments per worm -> 20 vertices per particle, one LINES pass.
+    expect(draws).toEqual([{ mode: LINES, vertexCount: 300 * 20 }]);
+  });
+
+  it("builds the wind worm along travel with a sideways wiggle", () => {
+    const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.25);
+    const eastField: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha: 1 }],
+    };
+
+    try {
+      const { uploads } = renderedDraw({
+        count: 1,
+        field: eastField,
+        markStyle: "streak",
+        captureUploads: true,
+      });
+      const positionUpload = uploads.find((upload) => upload.length === 40);
+
+      if (!positionUpload) {
+        throw new Error("Expected particle position upload");
+      }
+      const xs = Array.from(positionUpload).filter((_, idx) => idx % 2 === 0);
+      const ys = Array.from(positionUpload).filter((_, idx) => idx % 2 === 1);
+      const xRange = Math.max(...xs) - Math.min(...xs);
+      const yRange = Math.max(...ys) - Math.min(...ys);
+      // East flow: body extends along x (travel) and wiggles sideways in y,
+      // but the travel extent dominates the wiggle.
+      expect(xRange).toBeGreaterThan(0.02);
+      expect(yRange).toBeGreaterThan(1e-6);
+      expect(xRange).toBeGreaterThan(yRange);
+
+      const alphaUpload = uploads.find((upload) => upload.length === 20);
+      if (!alphaUpload) {
+        throw new Error("Expected wind alpha upload");
+      }
+      // Full-strength wind (cell.alpha = 1) reads boldly; weaker would be fainter.
+      expect(Math.min(...alphaUpload)).toBeGreaterThan(0.7);
+    } finally {
+      randomSpy.mockRestore();
+    }
+  });
+
+  it("encodes wave strength: a strong cell draws a longer, more opaque dash than a weak one", () => {
+    const randomSpy = jest.spyOn(Math, "random").mockReturnValue(0.25);
+    const fieldFor = (alpha: number): FlowField => ({
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha }],
+    });
+    // Overall mark size (bbox diagonal of the quad) — strength grows both length
+    // and thickness, so a stronger cell draws a bigger mark.
+    const dashLength = (uploads: number[][]): number => {
+      const pos = uploads.find((upload) => upload.length === 12);
+      if (!pos) throw new Error("Expected dash quad position upload");
+      const xs = pos.filter((_, i) => i % 2 === 0);
+      const ys = pos.filter((_, i) => i % 2 === 1);
+      return Math.hypot(
+        Math.max(...xs) - Math.min(...xs),
+        Math.max(...ys) - Math.min(...ys),
+      );
+    };
+    const dashAlpha = (uploads: number[][]): number => {
+      const alpha = uploads.find((upload) => upload.length === 6);
+      if (!alpha) throw new Error("Expected dash alpha upload");
+      return alpha[0];
+    };
+
+    try {
+      const strong = renderedDraw({
+        count: 1,
+        field: fieldFor(1),
+        markStyle: "dash",
+        captureUploads: true,
+      });
+      const weak = renderedDraw({
+        count: 1,
+        field: fieldFor(0.2),
+        markStyle: "dash",
+        captureUploads: true,
+      });
+
+      expect(dashLength(strong.uploads)).toBeGreaterThan(dashLength(weak.uploads));
+      expect(dashAlpha(strong.uploads)).toBeGreaterThan(dashAlpha(weak.uploads));
+    } finally {
+      randomSpy.mockRestore();
+    }
   });
 
   it("keeps reduced-motion particles static after the first rendered frame", () => {
@@ -319,10 +493,183 @@ describe("createSwellParticleLayer — particle count", () => {
       renders: 2,
       captureUploads: true,
     });
-    const positionUploads = uploads.filter((upload) => upload.length === 8);
+    const positionUploads = uploads.filter((upload) => upload.length === 24);
 
     expect(positionUploads).toHaveLength(2);
     expect(positionUploads[1]).toEqual(positionUploads[0]);
+  });
+
+  it("schedules repaints only while animation is allowed", () => {
+    const movingField: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha: 1 }],
+    };
+
+    expect(
+      renderedDraw({
+        count: 2,
+        field: movingField,
+        reducedMotion: false,
+      }).repaintCalls,
+    ).toBe(1);
+    expect(
+      renderedDraw({
+        count: 2,
+        field: movingField,
+        reducedMotion: true,
+      }).repaintCalls,
+    ).toBe(0);
+  });
+
+  it("does not schedule hidden-tab animation frames", () => {
+    const hiddenDescriptor = Object.getOwnPropertyDescriptor(
+      Document.prototype,
+      "hidden",
+    );
+    const visibilityDescriptor = Object.getOwnPropertyDescriptor(
+      Document.prototype,
+      "visibilityState",
+    );
+    const movingField: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha: 1 }],
+    };
+
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+
+    try {
+      expect(
+        renderedDraw({
+          count: 2,
+          field: movingField,
+          reducedMotion: false,
+        }).repaintCalls,
+      ).toBe(0);
+    } finally {
+      if (hiddenDescriptor) {
+        Object.defineProperty(Document.prototype, "hidden", hiddenDescriptor);
+      } else {
+        delete (document as unknown as Record<string, unknown>).hidden;
+      }
+      if (visibilityDescriptor) {
+        Object.defineProperty(
+          Document.prototype,
+          "visibilityState",
+          visibilityDescriptor,
+        );
+      } else {
+        delete (document as unknown as Record<string, unknown>).visibilityState;
+      }
+    }
+  });
+
+  it("renders one static frame when animation is suppressed outside reduced motion", () => {
+    const hiddenDescriptor = Object.getOwnPropertyDescriptor(
+      Document.prototype,
+      "hidden",
+    );
+    const visibilityDescriptor = Object.getOwnPropertyDescriptor(
+      Document.prototype,
+      "visibilityState",
+    );
+    const movingField: FlowField = {
+      cols: 1,
+      rows: 1,
+      cells: [{ lon: 0, lat: 0, vx: 1, vy: 0, speed: 1, alpha: 1 }],
+    };
+
+    Object.defineProperty(document, "hidden", {
+      configurable: true,
+      value: true,
+    });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+
+    try {
+      const { uploads, repaintCalls } = renderedDraw({
+        count: 2,
+        field: movingField,
+        reducedMotion: false,
+        captureUploads: true,
+      });
+      const alphaUpload = uploads.find((upload) => upload.length === 12);
+
+      expect(repaintCalls).toBe(0);
+      expect(alphaUpload?.some((alpha) => alpha > 0)).toBe(true);
+    } finally {
+      if (hiddenDescriptor) {
+        Object.defineProperty(Document.prototype, "hidden", hiddenDescriptor);
+      } else {
+        delete (document as unknown as Record<string, unknown>).hidden;
+      }
+      if (visibilityDescriptor) {
+        Object.defineProperty(
+          Document.prototype,
+          "visibilityState",
+          visibilityDescriptor,
+        );
+      } else {
+        delete (document as unknown as Record<string, unknown>).visibilityState;
+      }
+    }
+  });
+
+  it("pauses the animation loop for data saver and offscreen canvases", () => {
+    const connectionDescriptor = Object.getOwnPropertyDescriptor(
+      Navigator.prototype,
+      "connection",
+    );
+    const offscreenMap = {
+      getCanvas: () => ({
+        getBoundingClientRect: () => ({
+          width: 1440,
+          height: 720,
+          top: 1200,
+          left: 0,
+          right: 1440,
+          bottom: 1920,
+        }),
+      }),
+    } as unknown as import("mapbox-gl").Map;
+
+    try {
+      Object.defineProperty(navigator, "connection", {
+        configurable: true,
+        value: { saveData: true, effectiveType: "4g" },
+      });
+      expect(shouldAnimateSwellParticles(offscreenMap)).toBe(false);
+
+      Object.defineProperty(navigator, "connection", {
+        configurable: true,
+        value: { saveData: false, effectiveType: "4g" },
+      });
+      expect(shouldAnimateSwellParticles(offscreenMap)).toBe(false);
+    } finally {
+      if (connectionDescriptor) {
+        Object.defineProperty(
+          Navigator.prototype,
+          "connection",
+          connectionDescriptor,
+        );
+      } else {
+        delete (
+          navigator as Navigator & {
+            connection?: { saveData?: boolean; effectiveType?: string };
+          }
+        ).connection;
+      }
+    }
   });
 
   it("refreshes the reduced-motion static frame when the flow field changes", () => {
@@ -344,7 +691,7 @@ describe("createSwellParticleLayer — particle count", () => {
       renders: 2,
       captureUploads: true,
     });
-    const alphaUploads = uploads.filter((upload) => upload.length === 4);
+    const alphaUploads = uploads.filter((upload) => upload.length === 12);
 
     expect(alphaUploads).toHaveLength(2);
     expect(alphaUploads[0].every((alpha) => alpha === 0)).toBe(true);

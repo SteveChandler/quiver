@@ -265,6 +265,8 @@ export interface SurfDiscoveryBoardPick {
  * match quality indicators, and distance information for GPS phase.
  */
 export interface SurfDiscoveryRecommendation {
+  /** Deterministic recommendation id shared by web attribution and Recommendations V2. */
+  recommendationId?: string;
   /** Recommendation source discriminator. Missing values should be treated as "beach" by older clients. */
   kind?: 'beach' | 'custom_spot';
   /** Custom spot id when kind="custom_spot"; null/undefined for curated beach recommendations. */
@@ -413,7 +415,7 @@ export interface SurfDiscoveryResponse {
 export interface SurfDiscoveryOptions {
   /** User's GPS location (required for GPS-based discovery) */
   userLocation?: { lat: number; lon: number };
-  /** Search radius in miles (default: 25) */
+  /** Search radius in miles; omitted lets discovery expand from 25 to 100 as needed */
   radiusMiles?: number;
   /**
    * Hard cap for how far in the future a "best window" may start (in hours).

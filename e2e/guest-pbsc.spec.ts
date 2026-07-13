@@ -80,7 +80,7 @@ test.describe('Guest PBSC welcome route', () => {
         page.getByRole('link', { name: /Get it on Google Play/i }),
       ).toHaveCount(0);
       await expect(
-        page.getByRole('button', { name: /Join Android waitlist/i }),
+        page.getByRole('button', { name: /Get the Android beta/i }),
       ).toHaveCount(0);
     });
   });
@@ -101,7 +101,7 @@ test.describe('Guest PBSC welcome route', () => {
         page.getByRole('link', { name: /Get it on the App Store/i }),
       ).toHaveCount(0);
       await expect(
-        page.getByRole('button', { name: /Join Android waitlist/i }),
+        page.getByRole('button', { name: /Get the Android beta/i }),
       ).toHaveCount(0);
     });
   });
@@ -133,7 +133,7 @@ test.describe('Guest PBSC welcome route', () => {
       0,
     );
     await expect(
-      page.getByRole('button', { name: /Join Android waitlist/i }),
+      page.getByRole('button', { name: /Get the Android beta/i }),
     ).toHaveCount(0);
   });
 });

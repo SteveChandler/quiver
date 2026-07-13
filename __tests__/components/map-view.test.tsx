@@ -1,17 +1,27 @@
-import { render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MapView } from "@/components/map-view";
+import { MapView, resolveViewedMapTimezone } from "@/components/map-view";
+import type { Beach } from "@/types/database";
 
 const mockLoadNearbyBeaches = jest.fn();
 const mockRouterReplace = jest.fn();
+const mockRouterPush = jest.fn();
 const mockSetSearchQuery = jest.fn();
+const mockSetSelectedBeach = jest.fn();
 const mockGetUserLocation = jest.fn();
 let mockIsMobile = false;
 let mockSearchParams = new URLSearchParams();
 let mockGeolocationLoading = false;
+let mockUserLocation: { lat: number; lon: number } | null = {
+  lat: 32.7702,
+  lon: -117.2525,
+};
+let mockUsingDefaultLocation = true;
 let mockBeachLoading = false;
 let mockHomeBeach: { lat: number; lon: number } | null = null;
 let mockProfileLoading = false;
+let mockFilteredBeaches: Beach[] = [];
+let mockSearchQuery = "";
 const mockCustomSpots = [
   {
     id: "spot-1",
@@ -25,7 +35,7 @@ const mockCustomSpots = [
 
 jest.mock("next/navigation", () => ({
   usePathname: () => "/map",
-  useRouter: () => ({ replace: mockRouterReplace }),
+  useRouter: () => ({ replace: mockRouterReplace, push: mockRouterPush }),
   useSearchParams: () => mockSearchParams,
 }));
 
@@ -46,9 +56,9 @@ jest.mock("@/context/profile-context", () => ({
 
 jest.mock("@/hooks/use-geolocation", () => ({
   useGeolocation: () => ({
-    userLocation: { lat: 32.7702, lon: -117.2525 },
+    userLocation: mockUserLocation,
     locationError: null,
-    usingDefaultLocation: true,
+    usingDefaultLocation: mockUsingDefaultLocation,
     hasTimedOut: false,
     loading: mockGeolocationLoading,
     getUserLocation: mockGetUserLocation,
@@ -58,16 +68,16 @@ jest.mock("@/hooks/use-geolocation", () => ({
 
 jest.mock("@/hooks/use-beach-search", () => ({
   useBeachSearch: () => ({
-    filteredBeaches: [],
+    filteredBeaches: mockFilteredBeaches,
     loading: mockBeachLoading,
-    searchQuery: "",
+    searchQuery: mockSearchQuery,
     selectedBeach: null,
     filters: { beginnerFriendly: false, breakTypes: new Set<string>() },
     loadBeaches: jest.fn(),
     loadNearbyBeaches: mockLoadNearbyBeaches,
     setSearchQuery: mockSetSearchQuery,
     clearSearch: jest.fn(),
-    setSelectedBeach: jest.fn(),
+    setSelectedBeach: mockSetSelectedBeach,
     toggleBeginnerFriendly: jest.fn(),
     toggleBreakType: jest.fn(),
     clearAllFilters: jest.fn(),
@@ -83,6 +93,7 @@ jest.mock("@/hooks/use-custom-spots", () => ({
 
 const mockTrackMapEvent = jest.fn();
 const mockTrackQrRendered = jest.fn();
+let lastMapContentProps: Record<string, unknown> = {};
 
 jest.mock("@/hooks/use-track-event", () => ({
   useTrackEvent: () => ({ track: mockTrackMapEvent }),
@@ -103,28 +114,30 @@ jest.mock("qrcode.react", () => ({
 }));
 
 jest.mock("@/components/map/map-content", () => ({
-  MapContent: ({
-    autoNavigateOnMarkerClick,
-    customSpots,
-    loading,
-    showSwellField,
-    swellTimelineSteps,
-  }: {
-    autoNavigateOnMarkerClick?: boolean;
-    customSpots?: unknown[];
-    loading?: boolean;
-    showSwellField?: boolean;
-    swellTimelineSteps?: string[];
-  }) => (
+  MapContent: (props: Record<string, unknown>) => {
+    const {
+      autoNavigateOnMarkerClick,
+      customSpots,
+      loading,
+      showSwellField,
+      swellTimelineSteps,
+      swellTimelineMode,
+      viewTimezone,
+    } = props;
+    lastMapContentProps = props;
+    return (
     <div
       data-auto-navigate-on-marker-click={String(autoNavigateOnMarkerClick)}
-      data-custom-spot-count={String(customSpots?.length ?? 0)}
+      data-custom-spot-count={String((customSpots as unknown[] | undefined)?.length ?? 0)}
       data-loading={String(loading)}
       data-show-swell-field={String(showSwellField)}
-      data-swell-timeline-steps={swellTimelineSteps?.join(",") ?? ""}
+      data-swell-timeline-steps={(swellTimelineSteps as string[] | undefined)?.join(",") ?? ""}
+      data-swell-timeline-mode={String(swellTimelineMode)}
+      data-view-timezone={String(viewTimezone)}
       data-testid="map-content"
     />
-  ),
+    );
+  },
 }));
 
 describe("MapView", () => {
@@ -133,9 +146,14 @@ describe("MapView", () => {
     mockIsMobile = false;
     mockSearchParams = new URLSearchParams();
     mockGeolocationLoading = false;
+    mockUserLocation = { lat: 32.7702, lon: -117.2525 };
+    mockUsingDefaultLocation = true;
     mockBeachLoading = false;
     mockHomeBeach = null;
     mockProfileLoading = false;
+    mockFilteredBeaches = [];
+    mockSearchQuery = "";
+    lastMapContentProps = {};
     try {
       window.localStorage.clear();
     } catch {
@@ -164,19 +182,162 @@ describe("MapView", () => {
     expect(screen.queryByTestId("view-mode-list")).not.toBeInTheDocument();
   });
 
-  it("passes a 48-hour swell timeline to the map", () => {
+  it("resolves viewed timezone from selected beach, explored beaches, then region", () => {
+    const honolulu = {
+      id: "honolulu",
+      lat: 21.28,
+      lon: -157.85,
+      timezone: "Pacific/Honolulu",
+    } as Beach;
+    const sanDiego = {
+      id: "san-diego",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+    } as Beach;
+    expect(
+      resolveViewedMapTimezone({
+        selectedBeach: sanDiego,
+        loadedBeaches: [honolulu, sanDiego],
+        exploredCenter: { lat: 21.29, lon: -157.86 },
+      }),
+    ).toBe("America/Los_Angeles");
+    expect(
+      resolveViewedMapTimezone({
+        selectedBeach: null,
+        loadedBeaches: [honolulu, sanDiego],
+        exploredCenter: { lat: 21.29, lon: -157.86 },
+      }),
+    ).toBe("Pacific/Honolulu");
+  });
+
+  it("enables the expandable local-time timeline for the public map", () => {
     render(<MapView />);
 
     expect(screen.getByTestId("map-content")).toHaveAttribute(
-      "data-swell-timeline-steps",
-      "Now,+3h,+6h,+12h,+18h,+24h,+36h,+48h",
+      "data-swell-timeline-mode",
+      "expandable-hourly",
     );
+    expect(screen.getByTestId("map-content")).toHaveAttribute("data-swell-timeline-steps", "");
+  });
+
+  it("commands once per search query while result reorders remain presentation-only", async () => {
+    const alaMoana = {
+      id: "ala-moana",
+      name: "Ala Moana Bowls",
+      lat: 21.28,
+      lon: -157.85,
+    } as Beach;
+    const queens = {
+      id: "queens",
+      name: "Queens",
+      lat: 21.27,
+      lon: -157.83,
+    } as Beach;
+    mockSearchQuery = "south shore";
+    mockFilteredBeaches = [alaMoana];
+    const { rerender } = render(<MapView />);
+
+    await waitFor(() => {
+      expect((lastMapContentProps.cameraCommand as { source: string }).source)
+        .toBe("search");
+    });
+    const firstSearchCommand = lastMapContentProps.cameraCommand as {
+      id: number;
+      source: string;
+    };
+
+    mockFilteredBeaches = [queens];
+    rerender(<MapView />);
+    expect(lastMapContentProps.cameraCommand).toBe(firstSearchCommand);
+
+    mockSearchQuery = "waikiki";
+    rerender(<MapView />);
+    await waitFor(() => {
+      expect((lastMapContentProps.cameraCommand as { id: number }).id)
+        .toBeGreaterThan(firstSearchCommand.id);
+    });
+    expect((lastMapContentProps.cameraCommand as { source: string }).source)
+      .toBe("search");
+
+    act(() => {
+      (lastMapContentProps.onBeachSelect as (beach: Beach) => void)(queens);
+    });
+    expect((lastMapContentProps.cameraCommand as { source: string }).source)
+      .toBe("pin");
+  });
+
+  it("keeps search suggestion selection on the map and centers the selected beach", async () => {
+    const waikiki = {
+      id: "waikiki",
+      name: "Waikiki",
+      slug: "waikiki",
+      city: "Honolulu",
+      state: "HI",
+      lat: 21.2767,
+      lon: -157.8263,
+    } as Beach;
+    mockSearchQuery = "waikiki";
+    mockFilteredBeaches = [waikiki];
+    const user = userEvent.setup();
+
+    render(<MapView />);
+    await user.click(screen.getByRole("option", { name: /Waikiki/i }));
+
+    expect(mockSetSelectedBeach).toHaveBeenCalledWith(waikiki);
+    expect(lastMapContentProps.cameraCommand).toMatchObject({
+      source: "pin",
+      center: { lat: 21.2767, lon: -157.8263 },
+    });
+    expect(mockRouterPush).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("map-search-suggestions")).not.toBeInTheDocument();
+    expect(screen.getByRole("combobox")).toHaveValue("waikiki");
+  });
+
+  it("uses the final user move center for timezone without issuing camera or beach loads", () => {
+    mockFilteredBeaches = [
+      { id: "sd", lat: 32.75, lon: -117.25, timezone: "America/Los_Angeles" } as Beach,
+      { id: "hi", lat: 21.28, lon: -157.85, timezone: "Pacific/Honolulu" } as Beach,
+    ];
+    render(<MapView />);
+    const initialCommand = lastMapContentProps.cameraCommand;
+    mockLoadNearbyBeaches.mockClear();
+
+    const report = lastMapContentProps.onUserCameraInteraction as (interaction: {
+      action: "pan";
+      center: { lat: number; lon: number };
+      phase: "start" | "end";
+    }) => void;
+    act(() => report({
+      action: "pan",
+      center: { lat: 32.75, lon: -117.25 },
+      phase: "start",
+    }));
+    expect(lastMapContentProps.cameraOwner).toBe("user");
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-view-timezone",
+      "UTC",
+    );
+
+    act(() => report({
+      action: "pan",
+      center: { lat: 21.29, lon: -157.86 },
+      phase: "end",
+    }));
+    expect(screen.getByTestId("map-content")).toHaveAttribute(
+      "data-view-timezone",
+      "Pacific/Honolulu",
+    );
+    expect(lastMapContentProps.cameraCommand).toBe(initialCommand);
+    expect(mockLoadNearbyBeaches).not.toHaveBeenCalled();
   });
 
   it("shows the field guide trigger but keeps the panel collapsed on the live map", () => {
     render(<MapView />);
 
-    expect(screen.getByTestId("map-field-guide-toggle")).toBeInTheDocument();
+    const fieldGuideToggle = screen.getByTestId("map-field-guide-toggle");
+    expect(fieldGuideToggle).toBeInTheDocument();
+    expect(fieldGuideToggle.closest('[data-testid="map-toolbar-actions"]')).not.toBeNull();
     expect(screen.queryByTestId("map-learning-panel")).not.toBeInTheDocument();
   });
 
@@ -243,6 +404,9 @@ describe("MapView", () => {
     expect(parsed.searchParams.get("qr_id")).toBe("map_literacy_field_guide");
     expect(parsed.searchParams.get("target")).toBe("download");
     expect(parsed.searchParams.get("utm_source")).toBe("qr");
+    expect(screen.queryByText("Smart QR")).not.toBeInTheDocument();
+    expect(screen.getByText(/take the map with you/i)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Get the app" })).toBeInTheDocument();
     expect(mockTrackQrRendered).toHaveBeenCalledWith(
       expect.objectContaining({
         source: "map_literacy_panel",
@@ -285,27 +449,14 @@ describe("MapView", () => {
     expect(mockSetSearchQuery).not.toHaveBeenCalledWith("");
   });
 
-  it("strips stale search URL params when a region is selected", async () => {
-    const user = userEvent.setup();
-    mockSearchParams = new URLSearchParams("search=Blacks");
-
-    render(<MapView />);
-
-    await user.click(
-      screen.getByRole("button", { name: "Regions and filters" }),
-    );
-    await user.click(screen.getByRole("button", { name: "OC" }));
-
-    expect(mockRouterReplace).toHaveBeenCalledWith("/map", { scroll: false });
-    expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(33.63, -117.95);
-  });
-
   it("centers on the signed-in home beach without prompting for GPS", async () => {
     mockHomeBeach = { lat: 36.9512, lon: -122.0258 }; // Steamer Lane, Santa Cruz
 
     render(<MapView />);
 
-    await screen.findByTestId("map-content");
+    await waitFor(() => {
+      expect(lastMapContentProps.cameraCommand).not.toBeNull();
+    });
 
     expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(36.9512, -122.0258);
     expect(mockLoadNearbyBeaches).not.toHaveBeenCalledWith(32.7702, -117.2525);
@@ -321,6 +472,99 @@ describe("MapView", () => {
 
     expect(mockLoadNearbyBeaches).toHaveBeenCalledWith(32.7702, -117.2525);
     expect(mockGetUserLocation).toHaveBeenCalled();
+  });
+
+  it("does not restore GPS ownership after pin or map interaction", async () => {
+    const alaMoana = {
+      id: "ala-moana",
+      lat: 21.28,
+      lon: -157.85,
+    } as Beach;
+    const { rerender } = render(<MapView />);
+
+    act(() => {
+      (lastMapContentProps.onBeachSelect as (beach: Beach) => void)(alaMoana);
+    });
+    expect(
+      (lastMapContentProps.cameraCommand as { source: string }).source,
+    ).toBe("pin");
+
+    mockLoadNearbyBeaches.mockClear();
+    mockUserLocation = { lat: 32.7702, lon: -117.2525 };
+    rerender(<MapView />);
+    expect(mockLoadNearbyBeaches).not.toHaveBeenCalledWith(
+      32.7702,
+      -117.2525,
+    );
+
+    act(() => {
+      (lastMapContentProps.onUserCameraInteraction as (interaction: {
+        action: "pan" | "zoom" | "rotate";
+        center: { lat: number; lon: number };
+        phase: "start" | "end";
+      }) => void)({
+        action: "pan",
+        center: { lat: 21.28, lon: -157.85 },
+        phase: "start",
+      });
+      (lastMapContentProps.onMapClick as () => void)();
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(lastMapContentProps.cameraOwner).toBe("user");
+    expect(
+      (lastMapContentProps.cameraCommand as { source: string }).source,
+    ).toBe("pin");
+  });
+
+  it("applies the fresh GPS result from an explicit location request", async () => {
+    const { rerender } = render(<MapView />);
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    await screen.findByTestId("map-content");
+
+    act(() => {
+      (lastMapContentProps.onUserCameraInteraction as (interaction: {
+        action: "pan" | "zoom" | "rotate";
+        center: { lat: number; lon: number };
+        phase: "start" | "end";
+      }) => void)({
+        action: "pan",
+        center: { lat: 21.28, lon: -157.85 },
+        phase: "start",
+      });
+    });
+    const previousId = (lastMapContentProps.cameraCommand as { id: number }).id;
+    const previousCommand = lastMapContentProps.cameraCommand;
+
+    act(() => {
+      (lastMapContentProps.onGetUserLocation as () => void)();
+    });
+
+    expect(mockGetUserLocation).toHaveBeenCalledWith(true);
+    expect(lastMapContentProps.cameraOwner).toBe("user");
+    expect(lastMapContentProps.cameraCommand).toBe(previousCommand);
+
+    mockGeolocationLoading = true;
+    rerender(<MapView />);
+    expect(lastMapContentProps.cameraCommand).toBe(previousCommand);
+
+    mockUserLocation = { lat: 34.0195, lon: -118.4912 };
+    mockUsingDefaultLocation = false;
+    mockGeolocationLoading = false;
+    rerender(<MapView />);
+
+    await waitFor(() => {
+      expect(lastMapContentProps.cameraOwner).toBe("explicit-command");
+    });
+    expect(lastMapContentProps.cameraCommand).toMatchObject({
+      id: previousId + 1,
+      source: "gps",
+      center: { lat: 34.0195, lon: -118.4912 },
+    });
   });
 
   it("does not render the mobile bottom sheet and keeps marker navigation enabled on mobile", () => {

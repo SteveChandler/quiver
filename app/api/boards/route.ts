@@ -18,7 +18,9 @@ export const GET = withAuth(
   async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const { data, error } = await supabase
       .from("boards")
-      .select("*")
+      .select(
+        "id, user_id, name, board_type, dimensions, description, image_url, size, volume, session_count, created_at, updated_at"
+      )
       .eq("user_id", user.id)
       .order("updated_at", { ascending: false });
 

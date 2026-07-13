@@ -6,7 +6,7 @@ import {
   type AuthenticatedContext,
 } from "@/lib/middleware/api-wrappers";
 import {
-  seedDefaultRuleForUser,
+  seedDefaultRulesForUser,
   type ExperienceLevel,
 } from "@/lib/alerts/seed-default-rule";
 
@@ -35,14 +35,23 @@ export const POST = withAuth(
       return createValidationError("home_beach_id_required");
     }
 
+    const { data: emailPrefs, error: emailPrefsError } = await supabase
+      .from("user_email_prefs")
+      .select("pref_time_bucket")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (emailPrefsError) throw emailPrefsError;
+
     // Mirror the web seed path defaults at actions/onboarding-actions.ts:249
     // — email opt-in is the higher-signal channel, push defaults off until the
     // user enables it.
-    const result = await seedDefaultRuleForUser({
+    const result = await seedDefaultRulesForUser({
       supabase,
       userId: user.id,
       beachId: profile.home_beach_id,
       experienceLevel: (profile.experience_level ?? null) as ExperienceLevel,
+      preferredTimeBucket: emailPrefs?.pref_time_bucket ?? null,
       notifyEmail: profile.notif_email_enabled ?? true,
       notifyPush: profile.notif_push_enabled ?? false,
     });

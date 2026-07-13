@@ -26,6 +26,7 @@ describe("robots.txt", () => {
     expect(rules.disallow).not.toEqual(
       expect.arrayContaining(["/_next/static/"]),
     );
+    expect(rules.disallow).not.toEqual(expect.arrayContaining(["/spots/"]));
   });
 
   it("disallows everything when DISALLOW_ROBOTS=true", () => {

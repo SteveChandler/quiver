@@ -14,6 +14,7 @@
  *
  * @project auth (most tests) + guest (auth flow tests)
  */
+/* eslint-disable playwright/no-conditional-in-test, playwright/no-skipped-test -- Dev validation intentionally adapts around auth state, remote bot blocking, rate limits, and optional local fixture availability. */
 
 import { test, expect, APIRequestContext } from '@playwright/test';
 import {
@@ -35,6 +36,29 @@ import { createIsolatedApiContext } from './utils/api-request-helpers';
 import { isVisibleSafe } from "./utils/strict-helpers";
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';
+
+async function resolveBeachIdForApiContract(api: APIRequestContext): Promise<string> {
+  if (TEST_BEACHES.blacks.id !== 'blacks') {
+    return TEST_BEACHES.blacks.id;
+  }
+
+  const response = await api.get('/api/beaches');
+  expect(response.status()).toBe(200);
+
+  const json = await response.json();
+  const beaches: Array<{ id?: string; name?: string; slug?: string }> = json?.data?.beaches ?? [];
+  const preferredBeach = beaches.find((candidate) => {
+    if (candidate.slug === TEST_BEACHES.blacks.slug) return true;
+    return /^blacks(?: beach)?$/i.test(candidate.name ?? '');
+  });
+  const beach = preferredBeach ?? beaches.find((candidate) => Boolean(candidate.id));
+
+  if (!beach?.id) {
+    throw new Error('Unable to resolve a local beach id for /api/beaches/:id contract');
+  }
+
+  return beach.id;
+}
 
 function stripHtmlTags(value: string): string {
   return value.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -378,10 +402,7 @@ test.describe('API Endpoints @dev', () => {
   });
 
   test('GET /api/beaches/:id returns beach data @dev', async () => {
-    const localBlacksBeachId = '907bfaa4-11db-4ebe-9762-440714850a0a';
-    const beachId = TEST_BEACHES.blacks.id === 'blacks'
-      ? localBlacksBeachId
-      : TEST_BEACHES.blacks.id;
+    const beachId = await resolveBeachIdForApiContract(api);
     const response = await api.get(`/api/beaches/${beachId}`);
 
     // Bot-blocking middleware may return 403 in remote dev.

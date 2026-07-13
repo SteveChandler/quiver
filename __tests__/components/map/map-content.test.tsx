@@ -8,9 +8,14 @@ let mockInteractiveMapMounts = 0;
 jest.mock("next/dynamic", () => () => {
   const InteractiveMapMock = ({
     customSpots,
+    disableBeachClustering,
     initialCenter,
+    markerDisplay,
     onLocationClick,
     onBeachSelect,
+    showConditionsOnTap,
+    swellTimelineMode,
+    viewTimezone,
   }: any) => {
     const [mountId] = require("react").useState(
       () => ++mockInteractiveMapMounts,
@@ -20,8 +25,13 @@ jest.mock("next/dynamic", () => () => {
       <div
         data-testid="interactive-map"
         data-custom-spot-count={String(customSpots?.length ?? 0)}
+        data-disable-beach-clustering={String(disableBeachClustering)}
         data-initial-center={initialCenter?.join(",")}
+        data-marker-display={String(markerDisplay)}
         data-mount-id={mountId}
+        data-show-conditions-on-tap={String(showConditionsOnTap)}
+        data-swell-timeline-mode={String(swellTimelineMode)}
+        data-view-timezone={String(viewTimezone)}
       >
         <button
           onClick={() => onLocationClick?.(mockBeaches[0])}
@@ -93,6 +103,32 @@ describe("MapContent", () => {
     expect(screen.getByText("Use San Diego Location")).toBeInTheDocument();
   });
 
+  it("should prompt users to search when location permission is denied and fallback map is shown", () => {
+    const onSearchPromptClick = jest.fn();
+
+    render(
+      <MapContent
+        {...defaultProps}
+        locationError="Location access denied - using default location"
+        usingDefaultLocation={true}
+        onSearchPromptClick={onSearchPromptClick}
+      />,
+    );
+
+    expect(screen.getByTestId("map-location-denied-prompt")).toBeInTheDocument();
+    expect(
+      screen.getByText("Location is off. Search your break."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("We are showing Mission Beach until you pick a spot."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /search spots/i }));
+
+    expect(onSearchPromptClick).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
+  });
+
   it("should show location permission instructions when blocked", () => {
     render(
       <MapContent
@@ -137,6 +173,49 @@ describe("MapContent", () => {
     expect(screen.getByTestId("interactive-map")).toHaveAttribute(
       "data-custom-spot-count",
       "1",
+    );
+  });
+
+  it("configures the public map for unclustered conditions points", () => {
+    render(<MapContent {...defaultProps} />);
+
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-marker-display",
+      "points",
+    );
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-disable-beach-clustering",
+      "true",
+    );
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-show-conditions-on-tap",
+      "true",
+    );
+  });
+
+  it("forwards expandable local-time timeline props without changing legacy callers", () => {
+    const { rerender } = render(
+      <MapContent
+        {...defaultProps}
+        swellTimelineMode="expandable-hourly"
+        viewTimezone="Pacific/Honolulu"
+      />,
+    );
+
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-swell-timeline-mode",
+      "expandable-hourly",
+    );
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-view-timezone",
+      "Pacific/Honolulu",
+    );
+
+    rerender(<MapContent {...defaultProps} />);
+
+    expect(screen.getByTestId("interactive-map")).toHaveAttribute(
+      "data-swell-timeline-mode",
+      "legacy",
     );
   });
 

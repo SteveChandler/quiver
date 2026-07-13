@@ -13,6 +13,8 @@ const PRESET_ICONS: Record<PresetType, string> = {
   tide_window: "\u{23F1}\u{FE0F}",
   epic_conditions: "\u{1F525}",
   daily_check_in: "\u{2705}",
+  weekend_warrior: "\u{1F4C5}",
+  after_work: "\u{1F306}",
 };
 
 interface AlertRuleCardProps {
