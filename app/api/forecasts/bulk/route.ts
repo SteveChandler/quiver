@@ -61,7 +61,7 @@ const HOURLY_SWELL_TIMELINE_HOUR_OFFSETS = Array.from(
   (_, hourOffset) => hourOffset,
 );
 const DEFAULT_TIMELINE_HOURS = 48;
-const MAX_TIMELINE_HOURS = 48;
+const MAX_TIMELINE_HOURS = 14 * 24;
 const HOUR_MS = 60 * 60 * 1000;
 const ISO_TIMESTAMP_WITH_TIMEZONE =
   /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:\d{2})$/;

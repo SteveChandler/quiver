@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { TimelineDaySegment } from "@/components/map/hourly-swell-timeline";
 import {
+  advancePlaybackPosition,
   findAdjacentLocalDayIndex,
   SwellDayTimeline,
   type SwellDayTimelineProps,
@@ -42,6 +43,12 @@ function createProps(
 }
 
 describe("SwellDayTimeline", () => {
+  it("advances the visual playhead continuously between forecast frames", () => {
+    expect(advancePlaybackPosition(2, 125, 10)).toBe(2.25);
+    expect(advancePlaybackPosition(2.25, 125, 10)).toBe(2.5);
+    expect(advancePlaybackPosition(9.9, 100, 10)).toBe(10);
+  });
+
   it("exposes the active local forecast time through the native slider", () => {
     render(<SwellDayTimeline {...createProps()} />);
 
@@ -64,6 +71,14 @@ describe("SwellDayTimeline", () => {
     rerender(<SwellDayTimeline {...createProps({ isPlaying: true, onPlayingChange })} />);
     fireEvent.click(screen.getByRole("button", { name: "Pause forecast timeline" }));
     expect(onPlayingChange).toHaveBeenLastCalledWith(false);
+  });
+
+  it("keeps playback progress above the day labels", () => {
+    render(<SwellDayTimeline {...createProps({ index: 12, isPlaying: true })} />);
+
+    expect(screen.getByTestId("timeline-progress")).toBeInTheDocument();
+    expect(screen.getByTestId("timeline-visual-track")).toHaveClass("bottom-8");
+    expect(screen.getByRole("slider", { name: "Forecast time" })).toHaveClass("opacity-0");
   });
 
   it("moves the controlled index with keyboard steps and clamps endpoints", () => {

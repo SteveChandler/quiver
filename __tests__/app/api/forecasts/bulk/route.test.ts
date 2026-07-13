@@ -752,7 +752,7 @@ describe("/api/forecasts/bulk", () => {
       hourlyTimelineRow("beach-1", "2", "2026-07-10T20:00:00.000Z"),
       hourlyTimelineRow("beach-2", "3", "2026-07-10T21:00:00.000Z"),
     ];
-    const nextRow = hourlyTimelineRow("beach-1", "4", "2026-07-13T04:00:00.000Z");
+    const nextRow = hourlyTimelineRow("beach-1", "4", "2026-07-25T04:00:00.000Z");
     const { hourlyTimelineChain, nextHourlyTimelineChain } = mockBulkQueries({
       hourlyTimelineRows: windowRows,
       nextHourlyTimelineRows: [nextRow],
@@ -761,7 +761,7 @@ describe("/api/forecasts/bulk", () => {
 
     const hourlyResponse = await GET(
       createHourlyTimelineRequest(
-        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1,beach-2&timeline=hourly&timelineStart=2026-07-10T20:00:00.000Z&timelineHours=99",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1,beach-2&timeline=hourly&timelineStart=2026-07-10T20:00:00.000Z&timelineHours=999",
       ),
     );
     const hourlyData = await expectSuccessResponse<BulkForecastResponse>(hourlyResponse, 200);
@@ -772,11 +772,11 @@ describe("/api/forecasts/bulk", () => {
     );
     expect(hourlyTimelineChain.lt).toHaveBeenCalledWith(
       "forecast_at",
-      "2026-07-12T20:00:00.000Z",
+      "2026-07-24T20:00:00.000Z",
     );
     expect(nextHourlyTimelineChain.gte).toHaveBeenCalledWith(
       "forecast_at",
-      "2026-07-12T20:00:00.000Z",
+      "2026-07-24T20:00:00.000Z",
     );
     expect(nextHourlyTimelineChain.order).toHaveBeenCalledWith(
       "forecast_at",
@@ -790,7 +790,7 @@ describe("/api/forecasts/bulk", () => {
         "beach-2": [null, expect.objectContaining({ s1HeightFt: 3 })],
       },
       hasMore: true,
-      nextStart: "2026-07-13T04:00:00.000Z",
+      nextStart: "2026-07-25T04:00:00.000Z",
     });
   });
 

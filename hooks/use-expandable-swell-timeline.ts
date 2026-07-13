@@ -31,6 +31,7 @@ export interface UseExpandableSwellTimelineArgs {
   timezone: string;
   loadChunk: (start: string, hours: number, signal: AbortSignal) => Promise<HourlySwellTimeline>;
   reducedMotion: boolean;
+  isFramePlayable?: (timeline: HourlySwellTimeline, index: number) => boolean;
 }
 
 export interface UseExpandableSwellTimelineResult extends ExpandableTimelineState {
@@ -95,6 +96,7 @@ export function useExpandableSwellTimeline({
   timezone,
   loadChunk,
   reducedMotion,
+  isFramePlayable = frameHasPartitions,
 }: UseExpandableSwellTimelineArgs): UseExpandableSwellTimelineResult {
   const [timeline, setTimeline] = useState<HourlySwellTimeline | null>(initial);
   const [index, setIndexState] = useState(0);
@@ -108,6 +110,7 @@ export function useExpandableSwellTimeline({
   const indexRef = useRef(0);
   const scopeKeyRef = useRef(scopeKey);
   const loadChunkRef = useRef(loadChunk);
+  const isFramePlayableRef = useRef(isFramePlayable);
   const abortControllerRef = useRef<AbortController | null>(null);
   const requestGenerationRef = useRef(0);
   const isLoadingRef = useRef(false);
@@ -121,7 +124,8 @@ export function useExpandableSwellTimeline({
     initialRef.current = initial;
     scopeKeyRef.current = scopeKey;
     loadChunkRef.current = loadChunk;
-  }, [initial, loadChunk, scopeKey]);
+    isFramePlayableRef.current = isFramePlayable;
+  }, [initial, isFramePlayable, loadChunk, scopeKey]);
 
   const setIndex = useCallback((nextIndex: number) => {
     const timestamps = timelineRef.current?.timestamps ?? [];
@@ -275,7 +279,7 @@ export function useExpandableSwellTimeline({
       for (let candidateIndex = indexRef.current + 1; candidateIndex < current.timestamps.length; candidateIndex += 1) {
         const candidateTime = parseTimestamp(current.timestamps[candidateIndex]);
         if (candidateTime == null || candidateTime > nextForecastTime) break;
-        if (frameHasPartitions(current, candidateIndex)) {
+        if (isFramePlayableRef.current(current, candidateIndex)) {
           selectedIndex = candidateIndex;
         }
       }

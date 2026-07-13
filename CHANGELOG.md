@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- **Map search and forecast playback regressions** (`components/map-view.tsx`, `components/map/*`). Beach search suggestions now keep surfers on the map, the condition legend clears the forecast scrubber at every viewport size, and playback skips missing swell frames without blanking pins or the active field.
+
 ### Added
 - **AI-scored wave punchiness grounding layer** (`lib/domains/spot-profile/wave-punchiness.ts`, `lib/services/discovery/surf-discovery-orchestrator.ts`, `supabase/migrations/20260704180000_add_wave_punchiness_ai.sql`, `..._180001_seed_wave_punchiness_ai.sql`). Adds nullable `beaches.wave_punchiness_ai` / `_confidence` / `_meta` columns and a `resolveWavePunchiness` precedence — manual override > confident AI score (≥0.55) > structural derivation. AI scores are distilled from each spot's own freetext (no external scrape); the confidence gate keeps the board-fit mismatch penalty off low-signal spots. Seeds 258 scored beaches.
 - **Board/style to spot-character discovery fit** (`lib/services/discovery/board-style-fit.ts`, `lib/services/discovery/surf-discovery-orchestrator.ts`, `supabase/migrations/20260704160000_add_beach_wave_punchiness.sql`). Adds an unapplied nullable `beaches.wave_punchiness` migration seed for iconic CA contrasts and folds the user's once-resolved dominant board class into discovery score reasons/warnings without changing the `/api/surf/discover` response contract.

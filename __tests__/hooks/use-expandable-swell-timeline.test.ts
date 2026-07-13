@@ -354,6 +354,42 @@ describe("useExpandableSwellTimeline", () => {
     );
   });
 
+  it("skips playback frames that cannot render the active swell layer", () => {
+    const initial = makeTimeline(0, 4, { hasMore: false, nextStart: null });
+    const isFramePlayable = jest.fn((_timeline: HourlySwellTimeline, index: number) =>
+      index !== 1,
+    );
+    const { result } = renderHook(() => useExpandableSwellTimeline({
+      scopeKey: "a",
+      initial,
+      timezone: "Pacific/Honolulu",
+      loadChunk: jest.fn(),
+      reducedMotion: false,
+      isFramePlayable,
+    }));
+
+    act(() => {
+      result.current.setPlaying(true);
+      jest.advanceTimersByTime(500);
+    });
+
+    expect(result.current.index).toBe(0);
+
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
+    expect(result.current.index).toBe(0);
+
+    act(() => {
+      jest.advanceTimersByTime(500);
+    });
+
+    expect(result.current.index).toBe(2);
+    expect(isFramePlayable).toHaveBeenCalledWith(initial, 1);
+    expect(isFramePlayable).toHaveBeenCalledWith(initial, 2);
+  });
+
   it("does not rebuild reset identity or day segments for index-only renders", () => {
     const stringifySpy = jest.spyOn(JSON, "stringify");
     const timelineUtils = jest.requireMock(

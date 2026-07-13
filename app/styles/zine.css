@@ -234,7 +234,7 @@
   color: var(--ink);
 }
 
-.theme-retro-dark .zine-tab input[data-zine-input="true"] {
+.theme-retro-dark input[data-zine-input="true"] {
   background-color: #F4EBD8 !important;
   border-color: #11100D !important;
   color: #11100D !important;

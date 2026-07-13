@@ -1,6 +1,7 @@
 "use client";
 
 import { Pause, Play } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CSSProperties, KeyboardEvent, ReactElement, ReactNode } from "react";
 import type { TimelineDaySegment } from "@/components/map/hourly-swell-timeline";
 import { formatTimelineBubble } from "@/components/map/hourly-swell-timeline";
@@ -26,6 +27,8 @@ export interface SwellDayTimelineProps {
   onIndexChange: (index: number) => void;
   onPlayingChange: (playing: boolean) => void;
   onRetry: () => void;
+  onHeightChange?: (height: number) => void;
+  onPlaybackPositionChange?: (position: number) => void;
 }
 
 const deltaByKey: Record<string, number> = {
@@ -34,6 +37,16 @@ const deltaByKey: Record<string, number> = {
   ArrowRight: 1,
   ArrowUp: 1,
 };
+const PLAYBACK_VISUAL_FRAME_MS = 500;
+const FIELD_UPDATE_INTERVAL_MS = 100;
+
+export function advancePlaybackPosition(
+  current: number,
+  elapsedMs: number,
+  maxIndex: number,
+): number {
+  return Math.min(maxIndex, current + elapsedMs / PLAYBACK_VISUAL_FRAME_MS);
+}
 
 interface LocalTimestampParts {
   dateOrdinal: number;
@@ -167,12 +180,32 @@ function TimelineStatus({
 function TimelineShell({
   children,
   timezone,
+  onHeightChange,
 }: {
   children: ReactNode;
   timezone: string;
+  onHeightChange?: (height: number) => void;
 }): ReactElement {
+  const shellRef = useRef<HTMLElement>(null);
+
+  useLayoutEffect(() => {
+    const shell = shellRef.current;
+    if (!shell || !onHeightChange) return;
+
+    const reportHeight = (): void => {
+      onHeightChange(shell.getBoundingClientRect().height);
+    };
+    reportHeight();
+    if (typeof ResizeObserver === "undefined") return;
+
+    const observer = new ResizeObserver(reportHeight);
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, [onHeightChange]);
+
   return (
     <aside
+      ref={shellRef}
       data-testid="swell-day-timeline"
       data-timezone={timezone}
       className="pointer-events-none absolute inset-x-0 bottom-0 z-20 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 sm:px-5"
@@ -208,16 +241,76 @@ export function SwellDayTimeline({
   onIndexChange,
   onPlayingChange,
   onRetry,
+  onHeightChange,
+  onPlaybackPositionChange,
 }: SwellDayTimelineProps): ReactElement | null {
   const finalTimestamp = timestamps.at(-1);
   const exhaustionLabel = finalTimestamp
     ? `Forecast ends ${formatTimelineBubble(finalTimestamp, timezone)}`
     : "No forecast hours available";
+  const safeIndex = clampIndex(index, timestamps.length);
+  const canPlay = timestamps.length > 1;
+  const maxIndex = Math.max(0, timestamps.length - 1);
+  const [visualIndex, setVisualIndex] = useState(safeIndex);
+  const visualIndexRef = useRef(safeIndex);
+  const controlledIndexRef = useRef(safeIndex);
+  const maxIndexRef = useRef(maxIndex);
+  const onPlaybackPositionChangeRef = useRef(onPlaybackPositionChange);
+
+  useEffect(() => {
+    onPlaybackPositionChangeRef.current = onPlaybackPositionChange;
+  }, [onPlaybackPositionChange]);
+
+  useEffect(() => {
+    controlledIndexRef.current = safeIndex;
+    if (isPlaying) return;
+    visualIndexRef.current = safeIndex;
+    setVisualIndex(safeIndex);
+    onPlaybackPositionChangeRef.current?.(safeIndex);
+  }, [isPlaying, safeIndex]);
+
+  useEffect(() => {
+    maxIndexRef.current = maxIndex;
+  }, [maxIndex]);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    visualIndexRef.current = controlledIndexRef.current;
+    setVisualIndex(controlledIndexRef.current);
+    onPlaybackPositionChangeRef.current?.(controlledIndexRef.current);
+    let animationFrame = 0;
+    let lastFrameTime: number | null = null;
+    let lastFieldUpdateTime: number | null = null;
+
+    const animate = (frameTime: number): void => {
+      if (lastFrameTime != null) {
+        const next = advancePlaybackPosition(
+          visualIndexRef.current,
+          frameTime - lastFrameTime,
+          maxIndexRef.current,
+        );
+        visualIndexRef.current = next;
+        setVisualIndex(next);
+        if (
+          lastFieldUpdateTime == null
+          || frameTime - lastFieldUpdateTime >= FIELD_UPDATE_INTERVAL_MS
+        ) {
+          lastFieldUpdateTime = frameTime;
+          onPlaybackPositionChangeRef.current?.(next);
+        }
+      }
+      lastFrameTime = frameTime;
+      animationFrame = window.requestAnimationFrame(animate);
+    };
+    animationFrame = window.requestAnimationFrame(animate);
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [isPlaying]);
+
   if (timestamps.length === 0) {
     if (!error && !isLoadingMore && !isExhausted) return null;
 
     return (
-      <TimelineShell timezone={timezone}>
+      <TimelineShell timezone={timezone} onHeightChange={onHeightChange}>
         <TimelineStatus
           error={error}
           isLoadingMore={isLoadingMore}
@@ -229,9 +322,7 @@ export function SwellDayTimeline({
     );
   }
 
-  const safeIndex = clampIndex(index, timestamps.length);
-  const canPlay = timestamps.length > 1;
-  const progress = timestamps.length <= 1 ? 0 : safeIndex / (timestamps.length - 1);
+  const progress = timestamps.length <= 1 ? 0 : visualIndex / maxIndex;
   const bubbleLeft = `${Math.min(96, Math.max(4, progress * 100))}%`;
 
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
@@ -255,7 +346,7 @@ export function SwellDayTimeline({
   };
 
   return (
-    <TimelineShell timezone={timezone}>
+    <TimelineShell timezone={timezone} onHeightChange={onHeightChange}>
       <div className="flex items-end gap-3">
         <Button
           type="button"
@@ -288,6 +379,34 @@ export function SwellDayTimeline({
           </div>
 
           <div className="relative h-11">
+            <input
+              type="range"
+              min={0}
+              max={timestamps.length - 1}
+              step={1}
+              value={safeIndex}
+              disabled={!canPlay}
+              aria-label="Forecast time"
+              aria-valuetext={bubbleLabel}
+              onChange={(event) => onIndexChange(clampIndex(Number(event.target.value), timestamps.length))}
+              onKeyDown={handleKeyDown}
+              className="peer absolute inset-x-0 bottom-0 z-20 h-11 w-full cursor-pointer opacity-0 accent-[var(--swell-timeline-active)] focus-visible:outline-none focus-visible:ring-[var(--swell-timeline-focus)] disabled:cursor-not-allowed disabled:opacity-0"
+            />
+            <div
+              data-testid="timeline-visual-track"
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 bottom-8 h-1 overflow-visible rounded-full bg-[var(--swell-timeline-ink)]/35 peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--swell-timeline-focus)] peer-focus-visible:ring-offset-2"
+            >
+              <div
+                data-testid="timeline-progress"
+                className="h-full rounded-full bg-[var(--swell-timeline-active)]"
+                style={{ width: `${progress * 100}%` }}
+              />
+              <span
+                className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[var(--swell-timeline-ink)] bg-[var(--swell-timeline-active)] shadow-sm"
+                style={{ left: `${progress * 100}%` }}
+              />
+            </div>
             <div
               data-testid="timeline-day-layer"
               aria-hidden="true"
@@ -321,19 +440,6 @@ export function SwellDayTimeline({
                 );
               })}
             </div>
-            <input
-              type="range"
-              min={0}
-              max={timestamps.length - 1}
-              step={1}
-              value={safeIndex}
-              disabled={!canPlay}
-              aria-label="Forecast time"
-              aria-valuetext={bubbleLabel}
-              onChange={(event) => onIndexChange(clampIndex(Number(event.target.value), timestamps.length))}
-              onKeyDown={handleKeyDown}
-              className="absolute inset-x-0 bottom-0 z-10 h-11 w-full cursor-pointer accent-[var(--swell-timeline-active)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--swell-timeline-focus)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
-            />
           </div>
         </div>
       </div>

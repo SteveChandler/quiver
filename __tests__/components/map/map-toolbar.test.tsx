@@ -1,13 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MapToolbar } from "@/components/map/map-toolbar";
-import type { MapRegionPill } from "@/components/map/map-regions";
 import type { Beach } from "@/types/database";
-
-const regions: MapRegionPill[] = [
-  { id: "san-diego", label: "San Diego", center: { lat: 32.79, lon: -117.25 } },
-  { id: "orange-county", label: "OC", center: { lat: 33.63, lon: -117.95 } },
-];
 
 const suggestions = [
   {
@@ -26,8 +20,6 @@ const defaultProps = {
   onClearSearch: jest.fn(),
   suggestions,
   onSuggestionSelect: jest.fn(),
-  regions,
-  onRegionSelect: jest.fn(),
   onUseMyLocation: jest.fn(),
   filters: { beginnerFriendly: false, breakTypes: new Set<string>() },
   onToggleBeginner: jest.fn(),
@@ -46,11 +38,15 @@ describe("MapToolbar", () => {
   it("renders an always-visible beach search input", () => {
     render(<MapToolbar {...defaultProps} />);
 
+    expect(screen.getByTestId("map-controls")).toHaveStyle({
+      background: "#F4EBD8",
+      color: "#11100D",
+    });
     expect(
       screen.getByRole("combobox", {
         name: "Search beaches, spots, or cities",
       }),
-    ).toBeInTheDocument();
+    ).toHaveClass("border-2", "border-[#11100D]", "bg-[#F5EEDC]");
   });
 
   it("calls onSearchChange when typing in the search input", async () => {
@@ -74,6 +70,7 @@ describe("MapToolbar", () => {
     await user.click(screen.getByRole("option", { name: /Blacks San Diego, CA/i }));
 
     expect(defaultProps.onSuggestionSelect).toHaveBeenCalledWith(suggestions[0]);
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 
   it("supports keyboard selection from the suggestions combobox", async () => {
@@ -90,18 +87,18 @@ describe("MapToolbar", () => {
     await user.keyboard("{ArrowDown}{Enter}");
 
     expect(defaultProps.onSuggestionSelect).toHaveBeenCalledWith(suggestions[0]);
+    expect(search).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
   });
 
-  it("calls onRegionSelect with the selected region pill", async () => {
+  it("only shows filters in the filters popover", async () => {
     const user = userEvent.setup();
     render(<MapToolbar {...defaultProps} />);
 
-    await user.click(
-      screen.getByRole("button", { name: "Regions and filters" }),
-    );
-    await user.click(screen.getByRole("button", { name: "OC" }));
+    await user.click(screen.getByRole("button", { name: "Filters" }));
 
-    expect(defaultProps.onRegionSelect).toHaveBeenCalledWith(regions[1]);
+    expect(screen.queryByText("Regions")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Beginner-friendly" })).toBeInTheDocument();
   });
 
   it("does not render the removed Map/List segmented control", () => {
@@ -155,7 +152,7 @@ describe("MapToolbar", () => {
     const { rerender } = render(<MapToolbar {...defaultProps} />);
 
     await user.click(
-      screen.getByRole("button", { name: "Regions and filters" }),
+      screen.getByRole("button", { name: "Filters" }),
     );
 
     expect(screen.queryByTestId("map-clear-all")).not.toBeInTheDocument();
@@ -165,25 +162,21 @@ describe("MapToolbar", () => {
     expect(screen.getByTestId("map-clear-all")).toBeInTheDocument();
   });
 
-  it("moves regions and filters into a dropdown", async () => {
+  it("moves filters into a dropdown", async () => {
     const user = userEvent.setup();
     render(<MapToolbar {...defaultProps} hasActiveFilters />);
 
     expect(
-      screen.getByRole("button", { name: "Regions and filters" }),
+      screen.getByRole("button", { name: "Filters" }),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByTestId("map-region-pill-san-diego"),
-    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Beginner-friendly" }),
     ).not.toBeInTheDocument();
 
     await user.click(
-      screen.getByRole("button", { name: "Regions and filters" }),
+      screen.getByRole("button", { name: "Filters" }),
     );
 
-    expect(screen.getByTestId("map-region-pill-san-diego")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "Beginner-friendly" }),
     ).toBeInTheDocument();

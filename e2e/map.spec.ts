@@ -6,8 +6,8 @@ import { isVisibleSafe } from './utils/strict-helpers';
 import { setupErrorDetection, assertNoErrors, ErrorCapture } from './utils/error-detection';
 import { dismissMapEntryOverlay } from './utils/map-helpers';
 
-async function openRegionsAndFilters(page: Page): Promise<void> {
-  await page.getByRole('button', { name: 'Regions and filters' }).click();
+async function openFilters(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Filters' }).click();
 }
 
 type MapRegion = 'hawaii' | 'san-diego' | 'unknown';
@@ -379,7 +379,7 @@ test.describe('Map Page - Toolbar Controls', () => {
       page.getByRole('combobox', { name: 'Search beaches, spots, or cities' })
     ).toBeVisible({ timeout: TIMEOUTS.medium });
     await expect(
-      page.getByRole('button', { name: 'Regions and filters' })
+      page.getByRole('button', { name: 'Filters' })
     ).toBeVisible();
 
     const toolbarActions = page.getByTestId('map-toolbar-actions');
@@ -410,7 +410,7 @@ test.describe('Map Page - Filter Functionality', () => {
   });
 
   test('should display filter badges', async ({ page }) => {
-    await openRegionsAndFilters(page);
+    await openFilters(page);
 
     const beginnerBadge = page.getByRole('button', { name: 'Beginner-friendly' });
     const beachBadge = page.getByRole('button', { name: 'beach', exact: true });
@@ -424,7 +424,7 @@ test.describe('Map Page - Filter Functionality', () => {
   });
 
   test('should toggle beginner-friendly filter', async ({ page }) => {
-    await openRegionsAndFilters(page);
+    await openFilters(page);
 
     const beginnerBadge = page.getByRole('button', { name: 'Beginner-friendly' });
 
@@ -448,7 +448,7 @@ test.describe('Map Page - Filter Functionality', () => {
   });
 
   test('should toggle break type filters', async ({ page }) => {
-    await openRegionsAndFilters(page);
+    await openFilters(page);
 
     const beachBadge = page.getByRole('button', { name: 'beach', exact: true });
 
@@ -514,6 +514,38 @@ test.describe('Map Page - Search Integration', () => {
     const count = await beachLinks.count();
 
     expect(count).toBeGreaterThanOrEqual(0);
+  });
+
+  test('should select a beach suggestion without leaving the map', async ({ page }) => {
+    await page.goto('/map');
+    await waitForPageLoad(page);
+    await dismissMapEntryOverlay(page);
+
+    const search = page.getByRole('combobox', {
+      name: 'Search beaches, spots, or cities',
+    });
+    await search.fill('Waikiki');
+    await expect(page.getByRole('option', { name: /Waikiki/i }).first()).toBeVisible({
+      timeout: TIMEOUTS.long,
+    });
+    await search.press('ArrowDown');
+    await search.press('Enter');
+
+    await expect(page).toHaveURL(/\/map(?:\?.*)?$/);
+    await expect(page.getByTestId('map-search-suggestions')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'View Waikiki conditions' }),
+    ).toBeVisible({ timeout: TIMEOUTS.long });
+    await expect
+      .poll(async () => {
+        const center = await readMapCenter(page);
+        if (!center) return false;
+        return (
+          Math.abs(center.lat - 21.2767) < 0.05 &&
+          Math.abs(center.lon - -157.8263) < 0.05
+        );
+      }, { timeout: TIMEOUTS.long })
+      .toBe(true);
   });
 });
 
@@ -677,8 +709,11 @@ test.describe('Map Page - Camera Ownership', () => {
       .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
       .toBe('san-diego');
 
-    await page.getByRole('button', { name: 'Regions and filters' }).click();
-    await page.getByRole('button', { name: 'Hawaii' }).click();
+    const search = page.getByRole('combobox', {
+      name: 'Search beaches, spots, or cities',
+    });
+    await search.fill('Waikiki');
+    await page.getByRole('option').first().click();
     await expect
       .poll(() => readMapRegion(page), { timeout: TIMEOUTS.long })
       .toBe('hawaii');
@@ -877,7 +912,7 @@ test.describe('Map Page - Stability and Performance', () => {
 
     const initialCount = mapInitCount;
 
-    await openRegionsAndFilters(page);
+    await openFilters(page);
     await page.keyboard.press('Escape');
 
     // The map should not reinitialize during normal interactions
