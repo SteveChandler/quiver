@@ -8,7 +8,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { QuickActionsBar } from "@/components/city/quick-actions-bar";
-import type { QuickLink } from "@/actions/city/city-editorial-actions";
+import type { QuickLink } from "@/types/editorial-content";
 
 // Mock next/link
 jest.mock("next/link", () => {
@@ -165,9 +165,9 @@ describe("QuickActionsBar Component", () => {
       expect(links.length).toBe(mockLinks.length);
 
       // Each link should contain an icon (SVG) and text
-      links.forEach((link) => {
+      links.forEach((link, index) => {
         expect(link.querySelector("svg")).toBeInTheDocument();
-        expect(link.textContent).toBeTruthy();
+        expect(link).toHaveTextContent(mockLinks[index].label);
       });
     });
 

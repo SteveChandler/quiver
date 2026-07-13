@@ -11,14 +11,6 @@ import type {
   SessionTimingModule,
 } from "@/types/editorial-content";
 
-export type {
-  CityEditorialContent,
-  CityEditorialIntent,
-  EditorialSource,
-  QuickLink,
-  SessionTimingModule,
-};
-
 function parseArrayField<T>(value: T[] | string | null | undefined): T[] {
   if (Array.isArray(value)) return value;
   if (typeof value !== "string") return [];
@@ -55,7 +47,7 @@ export async function getCityEditorialContent(
       p_city: slug,
       p_state: stateSlug,
       p_country: countrySlug,
-      p_intent: intent,
+      p_intent: intent ?? undefined,
     });
   };
 

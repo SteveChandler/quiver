@@ -1,3 +1,6 @@
+import { readFileSync } from "fs";
+import { join } from "path";
+
 /**
  * Tests for City Editorial Actions
  *
@@ -59,6 +62,15 @@ describe("City Editorial Actions", () => {
     );
   });
 
+  it("does not export types as server actions", () => {
+    const source = readFileSync(
+      join(process.cwd(), "actions/city/city-editorial-actions.ts"),
+      "utf8"
+    );
+
+    expect(source).not.toMatch(/^export type /m);
+  });
+
   describe("getCityEditorialContent", () => {
     describe("Success Cases", () => {
       it("should fetch San Diego editorial content successfully", async () => {
@@ -81,7 +93,7 @@ describe("City Editorial Actions", () => {
           p_city: "san-diego",
           p_state: "ca",
           p_country: "usa",
-          p_intent: null,
+          p_intent: undefined,
         });
       });
 
@@ -94,7 +106,7 @@ describe("City Editorial Actions", () => {
           p_city: "san-diego",
           p_state: "ca",
           p_country: "usa",
-          p_intent: null,
+          p_intent: undefined,
         });
       });
 

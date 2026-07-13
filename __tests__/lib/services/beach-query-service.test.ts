@@ -14,7 +14,12 @@ jest.mock("@/lib/supabase/server", () => ({
 
 import { getBeachesFromDb } from "@/lib/services/beach-query-service";
 
-function beach(overrides: Partial<Beach>): Beach {
+type BeachOverrides = Omit<Partial<Beach>, "lat" | "lon"> & {
+  lat?: unknown;
+  lon?: unknown;
+};
+
+function beach(overrides: BeachOverrides): Beach {
   return {
     id: "beach-1",
     name: "Test Beach",
@@ -26,7 +31,7 @@ function beach(overrides: Partial<Beach>): Beach {
     lon: -117.25,
     created_at: "2026-01-01T00:00:00Z",
     ...overrides,
-  } as Beach;
+  } as unknown as Beach;
 }
 
 describe("beach-query-service", () => {

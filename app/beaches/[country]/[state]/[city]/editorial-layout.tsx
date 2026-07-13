@@ -7,7 +7,7 @@
 
 import Link from "next/link";
 import { MapPin, Star } from "lucide-react";
-import type { CityEditorialContent } from "@/actions/city/city-editorial-actions";
+import type { CityEditorialContent } from "@/types/editorial-content";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
 import { CityMapView } from "@/components/city/city-map-view";
 import { QuickActionsBar } from "@/components/city/quick-actions-bar";

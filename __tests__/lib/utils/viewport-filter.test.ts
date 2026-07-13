@@ -1,84 +1,23 @@
 import { filterBeachesByViewport, type ViewportBounds } from "@/lib/utils/viewport-filter";
-import type { Beach } from "@/types/database";
+
+type TestBeach = {
+  id: string;
+  name: string;
+  lat: number | null;
+  lon: number | null;
+};
+
+type Beach = TestBeach;
 
 /**
  * Helper to create a minimal Beach object for testing.
  * All Beach fields have defaults except id, name, lat, lon which can be overridden.
  */
-function makeBeach(overrides: Partial<Beach> & { id: string; name: string }): Beach {
+function makeBeach(overrides: Partial<TestBeach> & { id: string; name: string }): TestBeach {
   return {
     // id and name always come from overrides (required in type signature)
     lat: 0,
     lon: 0,
-    cdip_eligible: false,
-    is_private: false,
-    terrain_enabled: false,
-    height_offset_enabled: false,
-    height_offset_max_age_days: 30,
-    height_offset_min_sample_count: 5,
-    max_wind_any_mph: null,
-    max_wind_onshore_mph: null,
-    nws_forecast_zone: null,
-    nws_office: null,
-    created_at: new Date().toISOString(),
-    region_id: null,
-
-    // Nullable fields with null defaults
-    access_tips: null,
-    aspect_deg: null,
-    average_rating: null,
-    best_conditions_prose: null,
-    best_months: null,
-    break_type: null,
-    cdip_station: null,
-    city: null,
-    country: null,
-    crowd_level: null,
-    crowd_tips: null,
-    deleted_at: null,
-    description: null,
-    features: null,
-    geog: null,
-    hazards: null,
-    local_etiquette: null,
-    owner_id: null,
-    parking_tips: null,
-    preference_model: null,
-    preferred_tide_direction: null,
-    preferred_tide_ft_max: null,
-    preferred_tide_ft_min: null,
-    real_takeaways: null,
-    region: null,
-    review_count: null,
-    shoaling_factors: null,
-    skill_level: "intermediate", // NOT NULL DEFAULT 'intermediate' since 20260312
-    slug: null,
-    state: null,
-    swell_access_factors: null,
-    swell_analyzed_at: null,
-    swell_window_center_deg: null,
-    swell_window_halfwidth_deg: null,
-    swell_window_max_deg: null,
-    swell_window_min_deg: null,
-    terrain_analysis_debug: null,
-    terrain_analyzed_at: null,
-    terrain_method: null,
-    terrain_params: null,
-    terrain_params_hash: null,
-    terrain_status: null,
-    tide_direction_sensitivity: null,
-    timezone: null,
-    warnings: null,
-    wave_tips: null,
-    wind_analyzed_at: null,
-    wind_cross_shore_ok_kt: null,
-    wind_exposure_factors: null,
-    wind_offshore_deg: null,
-    wind_offshore_tol_deg: null,
-    wind_onshore_bad_kt: null,
-    deepwater_decay_factor: null,
-    persona: null,
-
     // Apply overrides
     ...overrides,
   };

@@ -20,7 +20,7 @@ describe("map camera commands", () => {
     expect(boundsFromBeaches([
       { id: "north", lat: 21.67, lon: -158.05 } as Beach,
       { id: "bowls", lat: 21.28, lon: -157.85 } as Beach,
-      { id: "bad", lat: null, lon: null } as Beach,
+      { id: "bad", lat: null, lon: null } as unknown as Beach,
     ])).toEqual([[-158.05, 21.28], [-157.85, 21.67]]);
   });
 

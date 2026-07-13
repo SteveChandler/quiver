@@ -5,8 +5,6 @@
  * or lists alongside map views. Designed for use in `useMemo` hooks.
  */
 
-import type { Beach } from "@/types/database";
-
 /**
  * Geographic bounds of a map viewport
  * Matches the bounds object from Mapbox GL
@@ -34,10 +32,10 @@ export interface ViewportBounds {
  * }, [allBeaches, mapBounds]);
  * ```
  */
-export function filterBeachesByViewport(
-  beaches: Beach[],
+export function filterBeachesByViewport<T extends { lat: number | null; lon: number | null }>(
+  beaches: T[],
   bounds: ViewportBounds | null
-): Beach[] {
+): T[] {
   // Return all beaches if no bounds provided
   if (!bounds) {
     return beaches;
