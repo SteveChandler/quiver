@@ -19,11 +19,13 @@ import { getAllBeachLocations } from "@/actions/beach/beach-location-list-action
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-actions";
 import { getCitiesWithBestMonthsData } from "@/actions/city/best-time-actions";
+import { getReviewedCityEditorialContent } from "@/actions/city/city-editorial-actions";
 import {
   getAllBlogPosts,
   getLatestBlogModifiedDate,
 } from "@/lib/data/blog-posts";
 import { learnArticles } from "@/lib/data/learn-articles";
+import { slugifyAscii } from "@/lib/utils/text-utils";
 
 // Mock the action modules
 jest.mock("@/actions/beach/beach-location-list-actions", () => ({
@@ -41,6 +43,24 @@ jest.mock("@/actions/beach/beach-location-actions", () => ({
 jest.mock("@/actions/city/best-time-actions", () => ({
   getCitiesWithBestMonthsData: jest.fn(),
 }));
+
+jest.mock("@/actions/city/city-editorial-actions", () => ({
+  getReviewedCityEditorialContent: jest.fn(),
+}));
+
+function reviewedBeach() {
+  return {
+    seo_indexable: true,
+    editorial_reviewed_at: "2026-07-13T00:00:00.000Z",
+    editorial_sources: [{
+      url: "https://www.noaa.gov/example",
+      publisher: "NOAA",
+      retrievedAt: "2026-07-13T00:00:00.000Z",
+    }],
+    description: "Reviewed local beach guidance.",
+    wave_tips: "Use the local forecast and conditions before paddling out.",
+  };
+}
 
 describe("Sitemap Generation", () => {
   const baseUrl = (
@@ -73,6 +93,60 @@ describe("Sitemap Generation", () => {
     (getCitiesWithBestMonthsData as jest.Mock).mockResolvedValue({
       success: true,
       data: [],
+    });
+
+    const source = {
+      url: "https://www.noaa.gov/example",
+      publisher: "NOAA",
+      retrievedAt: "2026-07-13T00:00:00.000Z",
+    };
+    const intents = [
+      "beginner",
+      "least-crowded",
+      "tide",
+      "water-temp",
+      "longboard",
+      "dawn-patrol",
+      "sunset",
+      "best-time",
+      null,
+    ];
+    (getReviewedCityEditorialContent as jest.Mock).mockImplementation(async () => {
+      const cityResponse = await (getAllCitiesWithBeachSkills as jest.Mock)().catch(() => null);
+      const locationResponse = await (getAllBeachLocations as jest.Mock)().catch(() => null);
+      const cityRecords = new Map<string, { city: string; state: string; country: string }>();
+      const addCity = (city: string, state: string, country: string) => {
+        cityRecords.set(`${country}/${state}/${city}`, { city, state, country });
+      };
+
+      addCity("San Diego", "CA", "USA");
+      addCity("Encinitas", "CA", "USA");
+      if (cityResponse?.success) {
+        for (const city of cityResponse.data ?? []) {
+          addCity(city.city, city.state, city.country ?? "USA");
+        }
+      }
+      if (locationResponse?.success) {
+        for (const location of locationResponse.data ?? []) {
+          addCity(location.city, location.state, location.country ?? "USA");
+        }
+      }
+
+      return [...cityRecords.values()].flatMap(({ city, state, country }) =>
+        intents.map((intent) => ({
+          country_slug: country.toLowerCase() === "usa" || country.toLowerCase() === "us" ? "usa" : country.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+          state_slug: state.toLowerCase(),
+          city_slug: slugifyAscii(city),
+          intent,
+          seo_indexable: true,
+          editorial_reviewed_at: "2026-07-13T00:00:00.000Z",
+          editorial_sources: [source],
+          seo_intro: "A reviewed local introduction.",
+          seo_local_guidance: "Use the local access and seasonal guidance before planning.",
+          description: ["Reviewed local surf guidance."],
+          updated_at: "2026-07-13T00:00:00.000Z",
+        })),
+      );
     });
   });
 
@@ -277,6 +351,14 @@ describe("Sitemap Generation", () => {
       });
     });
 
+    it("omits a city intent when its reviewed editorial entry is absent", async () => {
+      (getReviewedCityEditorialContent as jest.Mock).mockResolvedValue([]);
+
+      const result = await sitemap();
+
+      expect(result.find((r) => r.url === `${baseUrl}/tide/encinitas`)).toBeUndefined();
+    });
+
     it("should exclude confirmed missing tide and water-temp city intent routes", async () => {
       (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
         success: true,
@@ -285,6 +367,7 @@ describe("Sitemap Generation", () => {
             city: "Dry Harbor",
             state: "CA",
             country: "USA",
+            ...reviewedBeach(),
             beachCount: 5,
             hasBeginnerBeaches: true,
             hasAdvancedBeaches: true,
@@ -329,43 +412,32 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url === `${baseUrl}/beginner/nags-head`)).toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/beginner/san-diego`)).not.toBeUndefined();
 
-      // Unfiltered state-level intent routes should still be present (tide, water-temp, etc.)
-      expect(result.find((r) => r.url === `${baseUrl}/tide/ca`)).not.toBeUndefined();
-      expect(result.find((r) => r.url === `${baseUrl}/water-temp/ca`)).not.toBeUndefined();
-
-      // Filtered state-level intents (beginner, longboard, least-crowded) are now excluded
-      // when city data is unavailable — fail-closed to avoid indexing empty pages.
+      // State intent pages remain public but are intentionally omitted until
+      // independently reviewed state-level editorial is available.
+      expect(result.find((r) => r.url === `${baseUrl}/tide/ca`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/water-temp/ca`)).toBeUndefined();
       expect(result.find((r) => r.url === `${baseUrl}/beginner/ca`)).toBeUndefined();
 
       consoleSpy.mockRestore();
     });
 
-    it("should include state-level intent routes", async () => {
+    it("should exclude state-level intent routes pending independent review", async () => {
       const result = await sitemap();
-      const usStates = ["ca", "or", "wa", "hi", "fl", "nj", "ny", "nc", "sc", "tx"];
-      const unFilteredIntents = ["tide", "water-temp", "dawn-patrol", "sunset"];
-      const skillIntents = ["beginner", "longboard"];
-
-      // Unfiltered intents should exist for all states
+      // Use CA, which has no separately curated funnel-page overlap.
+      const usStates = ["ca"];
+      const intents = ["beginner", "least-crowded", "tide", "water-temp", "longboard", "dawn-patrol", "sunset"];
       for (const state of usStates) {
-        for (const intent of unFilteredIntents) {
+        for (const intent of intents) {
           const route = result.find((r) => r.url === `${baseUrl}/${intent}/${state}`);
-          expect(route).not.toBeUndefined();
+          expect(route).toBeUndefined();
         }
       }
+    });
 
-      // Skill-based intents only for states with beginner beaches (CA from default mock)
-      for (const intent of skillIntents) {
-        expect(result.find((r) => r.url === `${baseUrl}/${intent}/ca`)).not.toBeUndefined();
-        // States without beginner data should be excluded
-        expect(result.find((r) => r.url === `${baseUrl}/${intent}/ga`)).toBeUndefined();
-      }
+    it("excludes state-intent funnel pages from the sitemap too", async () => {
+      const result = await sitemap();
 
-      // least-crowded is now filtered: only states with hasLeastCrowdedBeaches get it.
-      // Default mock has CA cities with hasLeastCrowdedBeaches: true → CA gets the route.
-      expect(result.find((r) => r.url === `${baseUrl}/least-crowded/ca`)).not.toBeUndefined();
-      // GA has no cities in the mock → least-crowded/ga should be excluded.
-      expect(result.find((r) => r.url === `${baseUrl}/least-crowded/ga`)).toBeUndefined();
+      expect(result.find((r) => r.url === `${baseUrl}/longboard/fl`)).toBeUndefined();
     });
   });
 
@@ -415,11 +487,11 @@ describe("Sitemap Generation", () => {
       );
       expect(stateBeginnerRoute).toBeUndefined();
 
-      // Unfiltered state-level intent routes (tide, water-temp, etc.) still exist
+      // State-level routes are outside the sitemap until independently reviewed.
       const stateTideRoute = result.find(
         (r) => r.url === `${baseUrl}/tide/ca`
       );
-      expect(stateTideRoute).not.toBeUndefined();
+      expect(stateTideRoute).toBeUndefined();
     });
 
     it("should exclude beginner/longboard intents for cities without beginner beaches", async () => {
@@ -590,6 +662,25 @@ describe("Sitemap Generation", () => {
   });
 
   describe("Beach Routes", () => {
+    it("omits unreviewed beaches from the sitemap", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          id: "beach-unreviewed",
+          slug: "unreviewed-break",
+          city: "San Diego",
+          state: "CA",
+          country: "USA",
+          description: "A beach with unreviewed content.",
+          wave_tips: "Do not index this until a human has reviewed the evidence.",
+        }],
+      });
+
+      const result = await sitemap();
+
+      expect(result.find((r) => r.url.includes("unreviewed-break"))).toBeUndefined();
+    });
+
     it("should use hierarchical URL for beaches with complete location data", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
@@ -600,6 +691,7 @@ describe("Sitemap Generation", () => {
             city: "San Diego",
             state: "CA",
             country: "USA",
+            ...reviewedBeach(),
           },
         ],
       });
@@ -648,6 +740,7 @@ describe("Sitemap Generation", () => {
             state: "CA",
             country: "USA",
             updated_at: "2024-12-01T00:00:00Z",
+            ...reviewedBeach(),
           },
         ],
       });
@@ -671,6 +764,7 @@ describe("Sitemap Generation", () => {
             city: "San Diego",
             state: "CA",
             country: "USA",
+            ...reviewedBeach(),
           },
         ],
       });
@@ -721,6 +815,7 @@ describe("Sitemap Generation", () => {
             state: "Baja California",
             country: "Mexico",
             updated_at: "2024-12-01T00:00:00Z",
+            ...reviewedBeach(),
           },
         ],
       });
@@ -746,6 +841,7 @@ describe("Sitemap Generation", () => {
             city: "Rosarito",
             state: "Baja California",
             country: "Mexico",
+            ...reviewedBeach(),
           },
           {
             id: "beach-2",
@@ -753,6 +849,7 @@ describe("Sitemap Generation", () => {
             city: "San Diego",
             state: "CA",
             country: "USA",
+            ...reviewedBeach(),
           },
         ],
       });
@@ -840,6 +937,7 @@ describe("Sitemap Generation", () => {
             city: "San Diego",
             state: "CA",
             country: "USA",
+            ...reviewedBeach(),
           },
         ],
       });
@@ -862,6 +960,7 @@ describe("Sitemap Generation", () => {
             city: "San Diego",
             state: "CA",
             country: "USA",
+            ...reviewedBeach(),
           },
         ],
       });
@@ -893,6 +992,7 @@ describe("Sitemap Generation", () => {
             state: "CA",
             country: "USA",
             updated_at: updatedAt,
+            ...reviewedBeach(),
           },
         ],
       });
@@ -930,8 +1030,8 @@ describe("Sitemap Generation", () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
-          { id: "b1", slug: "childrens-pool", city: "La Jolla", state: "CA", country: "USA" },
-          { id: "b2", slug: "swamis", city: "Encinitas", state: "CA", country: "USA" },
+          { id: "b1", slug: "childrens-pool", city: "La Jolla", state: "CA", country: "USA", ...reviewedBeach() },
+          { id: "b2", slug: "swamis", city: "Encinitas", state: "CA", country: "USA", ...reviewedBeach() },
         ],
       });
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
@@ -1027,7 +1127,7 @@ describe("Sitemap Generation", () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
-          { id: "b1", slug: "domes", city: "Rincón", state: "PR", country: "USA" },
+          { id: "b1", slug: "domes", city: "Rincón", state: "PR", country: "USA", ...reviewedBeach() },
         ],
       });
       (getAllBeachLocations as jest.Mock).mockResolvedValue({
@@ -1184,8 +1284,8 @@ describe("Sitemap Generation", () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
-          { id: "beach-1", slug: "sunset-cliffs-garbage", city: "San Diego", state: "CA" },
-          { id: "beach-2", slug: "la-jolla-cove", city: "La Jolla", state: "CA", country: "USA" },
+          { id: "beach-1", slug: "sunset-cliffs-garbage", city: "San Diego", state: "CA", ...reviewedBeach() },
+          { id: "beach-2", slug: "la-jolla-cove", city: "La Jolla", state: "CA", country: "USA", ...reviewedBeach() },
         ],
       });
       (getAllBeachLocations as jest.Mock).mockResolvedValue({

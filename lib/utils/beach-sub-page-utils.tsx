@@ -36,6 +36,10 @@ import {
   buildBeachSubPageCrawlCopy,
   type BeachSubPageCrawlCopy,
 } from "@/lib/utils/beach-sub-page-crawl-copy";
+import {
+  isBeachDatabaseRecordEligible,
+  type BeachEditorialDatabaseRecord,
+} from "@/lib/seo/indexability";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -408,7 +412,10 @@ export async function generateBeachSubPageMetadata({
       path: subPagePath,
       image: `/api/og/beach?slug=${beachSlug}`,
     });
-    return { ...meta, title: { absolute: title } };
+    const metadata = { ...meta, title: { absolute: title } };
+    return isBeachDatabaseRecordEligible(beach as BeachEditorialDatabaseRecord)
+      ? metadata
+      : { ...metadata, robots: { index: false, follow: true } };
   }
 
   const meta = buildPageMetadata({

@@ -5,6 +5,10 @@ import { notFound, redirect } from "next/navigation";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { renderBeachSubPage } from "@/lib/utils/beach-sub-page-utils";
+import {
+  isBeachDatabaseRecordEligible,
+  type BeachEditorialDatabaseRecord,
+} from "@/lib/seo/indexability";
 
 export default async function BeachTidesPage(
   props: {
@@ -89,12 +93,16 @@ export async function generateMetadata(
       tideData,
     });
 
-    return buildPageMetadata({
+    const metadata = buildPageMetadata({
       title,
       description,
       path: `/beach/${params.slug}/tides`,
       image: `/api/og/beach?slug=${params.slug}`,
     });
+
+    return isBeachDatabaseRecordEligible(beach as BeachEditorialDatabaseRecord)
+      ? metadata
+      : { ...metadata, robots: { index: false, follow: true } };
   }
 
   return buildPageMetadata({

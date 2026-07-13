@@ -7,6 +7,7 @@
 
 import {
   getCityEditorialContent,
+  getReviewedCityEditorialContent,
   hasCityEditorialContent,
 } from "@/actions/city/city-editorial-actions";
 import { createPublicReadClient } from "@/lib/supabase/server";
@@ -80,6 +81,7 @@ describe("City Editorial Actions", () => {
           p_city: "san-diego",
           p_state: "ca",
           p_country: "usa",
+          p_intent: null,
         });
       });
 
@@ -92,6 +94,20 @@ describe("City Editorial Actions", () => {
           p_city: "san-diego",
           p_state: "ca",
           p_country: "usa",
+          p_intent: null,
+        });
+      });
+
+      it("should request the exact editorial intent", async () => {
+        mockSupabaseClient.rpc.mockResolvedValue(mockRpcSuccessResponse);
+
+        await getCityEditorialContent("san-diego", "ca", "usa", "beginner");
+
+        expect(mockSupabaseClient.rpc).toHaveBeenCalledWith("get_city_editorial", {
+          p_city: "san-diego",
+          p_state: "ca",
+          p_country: "usa",
+          p_intent: "beginner",
         });
       });
 
@@ -462,6 +478,27 @@ describe("City Editorial Actions", () => {
         expect(typeof result).toBe("boolean");
         expect(result).toBe(false);
       });
+    });
+  });
+
+  describe("getReviewedCityEditorialContent", () => {
+    it("fails closed for malformed JSONB fields", async () => {
+      tableChain.select.mockResolvedValue({
+        data: [{
+          ...mockSanDiegoEditorial,
+          editorial_sources: "{not-json",
+          session_timing: "{not-json",
+          quick_links: "{not-json",
+        }],
+        error: null,
+      });
+
+      const result = await getReviewedCityEditorialContent();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.editorial_sources).toEqual([]);
+      expect(result[0]?.session_timing).toEqual([]);
+      expect(result[0]?.quick_links).toEqual([]);
     });
   });
 

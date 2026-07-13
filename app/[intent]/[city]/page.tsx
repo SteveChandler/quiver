@@ -16,7 +16,7 @@ import { ItemListSchema } from "@/components/seo/item-list-schema";
 import { generateIntentFAQ } from "@/lib/seo/intent-faq-generator";
 import { CityMapView } from "@/components/city/city-map-view";
 import type { BeachWithMetrics } from "@/types/location";
-import { isValidStateSlug, getUsStateDisplayNameFromSlug, COASTAL_STATE_SUFFIXES, buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { isValidStateSlug, getUsStateDisplayNameFromSlug, COASTAL_STATE_SUFFIXES, buildBeachUrl, cityToSlug } from "@/lib/utils/beach-url-utils";
 import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import { getBeachesByIntentAndCity, getBeachesByIntentAndState } from "@/actions/beach/beach-query-actions";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
@@ -82,6 +82,9 @@ import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 import { getSeoFunnelPageByIntentRoute } from "@/lib/seo/funnel-pages";
+import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
+import { evaluateCityEditorialIndexability } from "@/lib/seo/indexability";
+import { ReviewedCityEditorialSection } from "@/components/seo/reviewed-city-editorial-section";
 
 export const revalidate = 3600;
 
@@ -206,6 +209,21 @@ interface IntentPageParams {
 export async function generateMetadata(props: IntentPageParams): Promise<Metadata> {
   const params = await props.params;
 
+  // State intent pages have not received independently reviewed state-level
+  // editorial content. Check this before funnel-page lookups because a funnel
+  // page may share the same two-segment route.
+  if (isValidStateSlug(params.city) && SURF_INTENTS[params.intent as SurfIntentSlug]) {
+    const stateName = getUsStateDisplayNameFromSlug(params.city);
+    const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
+    const metadata = buildPageMetadata({
+      title: `${definition.label} Spots in ${stateName}`,
+      description: `Find the best ${definition.label.toLowerCase()} surf spots across ${stateName}. Live conditions, crowd data & surf windows — updated hourly.`,
+      path: `/${params.intent}/${params.city}`,
+      image: `/api/og/intent?intent=${params.intent}&city=${encodeURIComponent(stateName)}`,
+    });
+    return { ...metadata, robots: { index: false, follow: true } };
+  }
+
   const seoFunnelPage = getSeoFunnelPageByIntentRoute(params.intent, params.city);
   if (seoFunnelPage) {
     return buildPageMetadata({
@@ -214,35 +232,6 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
       path: seoFunnelPage.path,
       image: seoFunnelPage.heroImage.src,
     });
-  }
-
-  // Check if this is a state-level intent page like /beginner/ca
-  if (isValidStateSlug(params.city) && SURF_INTENTS[params.intent as SurfIntentSlug]) {
-    const stateName = getUsStateDisplayNameFromSlug(params.city);
-    const definition = SURF_INTENTS[params.intent as SurfIntentSlug];
-
-    const metadata = buildPageMetadata({
-      title: `${definition.label} Spots in ${stateName}`,
-      description: `Find the best ${definition.label.toLowerCase()} surf spots across ${stateName}. Live conditions, crowd data & surf windows — updated hourly.`,
-      path: `/${params.intent}/${params.city}`,
-      image: `/api/og/intent?intent=${params.intent}&city=${encodeURIComponent(stateName)}`,
-    });
-
-    // noindex empty state-level pages (thin content) as defense in depth.
-    // Fail-open: if the DB call fails, allow indexing (sitemap already excludes these).
-    if (NOINDEX_WHEN_EMPTY_INTENTS.has(params.intent)) {
-      try {
-        const beachesResult = await getBeachesByIntentAndState(params.intent, params.city);
-        const hasBeaches = beachesResult.success && beachesResult.data && beachesResult.data.length > 0;
-        if (!hasBeaches) {
-          return { ...metadata, robots: { index: false, follow: true } };
-        }
-      } catch {
-        // Fail-open: allow indexing if DB is unreachable
-      }
-    }
-
-    return metadata;
   }
 
   // If this is a legacy state/city URL, we redirect in the page render.
@@ -362,11 +351,33 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     image: `/api/og/intent?intent=${params.intent}&city=${encodeURIComponent(cityMetadata.cityName)}`,
   });
 
+  const cityEditorial = await getCityEditorialContent(
+    cityToSlug(cityMetadata.cityName),
+    cityMetadata.state.toLowerCase(),
+    "usa",
+    params.intent as SurfIntentSlug,
+  );
+  const editorialEligibility = cityEditorial
+    ? evaluateCityEditorialIndexability(
+        {
+          seoIndexable: cityEditorial.seo_indexable,
+          seoReviewedAt: cityEditorial.editorial_reviewed_at,
+          seoSources: cityEditorial.editorial_sources,
+          description: cityEditorial.description,
+          intent: cityEditorial.intent,
+          intro: cityEditorial.seo_intro,
+          localGuidance: cityEditorial.seo_local_guidance,
+        },
+        params.intent,
+      )
+    : { indexable: false };
+
   // Prevent indexing of filtered empty-state pages (thin content)
   if (
     !hasMatchingBeaches ||
     intentDataAvailability === "missing" ||
-    excludedCityIntents.includes(params.intent as IntentKey)
+    excludedCityIntents.includes(params.intent as IntentKey) ||
+    !editorialEligibility.indexable
   ) {
     return { ...metadata, robots: { index: false, follow: true } };
   }
@@ -563,11 +574,12 @@ export default async function IntentPage(props: IntentPageParams) {
     const stateSlugLower = cityMetadata.state.toLowerCase();
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-    const [conditionsData, beaches, cityEditorial, bestTimeToSurfUrl, excludeIntents] =
+    const [conditionsData, beaches, cityEditorial, reviewedEditorial, bestTimeToSurfUrl, excludeIntents] =
       await Promise.all([
         getBeginnerConditionsData(params.city, stateSlugLower),
         getBeginnerBeachesWithEditorial(params.city, stateSlugLower),
         getBeginnerCityEditorial(params.city, stateSlugLower),
+        getCityEditorialContent(cityToSlug(cityMetadata.cityName), stateSlugLower, "usa", "beginner"),
         getBestTimeToSurfUrl(params.city, cityMetadata.cityName, cityMetadata.state),
         getCityExcludeIntents(cityMetadata.cityName, cityMetadata.state),
       ]);
@@ -591,6 +603,7 @@ export default async function IntentPage(props: IntentPageParams) {
 
     return (
       <>
+        <ReviewedCityEditorialSection editorial={reviewedEditorial} />
         {/* Place JSON-LD — exposes geo data to crawlers (Mapbox canvas is not crawlable) */}
         <script
           type="application/ld+json"
@@ -676,8 +689,10 @@ export default async function IntentPage(props: IntentPageParams) {
         })),
       });
 
+      const reviewedEditorial = await getCityEditorialContent(cityToSlug(cityMetadata.cityName), cityMetadata.state.toLowerCase(), "usa", "tide");
       return (
         <>
+          <ReviewedCityEditorialSection editorial={reviewedEditorial} />
           {/* Place JSON-LD — exposes geo data to crawlers */}
           <script
             type="application/ld+json"
@@ -766,8 +781,10 @@ export default async function IntentPage(props: IntentPageParams) {
         })),
       });
 
+      const reviewedEditorial = await getCityEditorialContent(cityToSlug(cityMetadata.cityName), cityMetadata.state.toLowerCase(), "usa", "water-temp");
       return (
         <>
+          <ReviewedCityEditorialSection editorial={reviewedEditorial} />
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: JSON.stringify(waterTempPlaceSchema) }}
@@ -859,8 +876,10 @@ export default async function IntentPage(props: IntentPageParams) {
         })),
       });
 
+      const reviewedEditorial = await getCityEditorialContent(cityToSlug(cityMetadata.cityName), cityMetadata.state.toLowerCase(), "usa", "dawn-patrol");
       return (
         <>
+          <ReviewedCityEditorialSection editorial={reviewedEditorial} />
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: JSON.stringify(dpPlaceSchema) }}
@@ -943,8 +962,10 @@ export default async function IntentPage(props: IntentPageParams) {
         })),
       });
 
+      const reviewedEditorial = await getCityEditorialContent(cityToSlug(cityMetadata.cityName), cityMetadata.state.toLowerCase(), "usa", "sunset");
       return (
         <>
+          <ReviewedCityEditorialSection editorial={reviewedEditorial} />
           <script
             type="application/ld+json"
             dangerouslySetInnerHTML={{ __html: JSON.stringify(sunsetPlaceSchema) }}
@@ -1094,6 +1115,14 @@ export default async function IntentPage(props: IntentPageParams) {
 
   return (
     <div className="seo-paper-page">
+      <ReviewedCityEditorialSection
+        editorial={await getCityEditorialContent(
+          cityToSlug(cityMetadata.cityName),
+          cityMetadata.state.toLowerCase(),
+          "usa",
+          params.intent as SurfIntentSlug,
+        )}
+      />
       {/* Breadcrumb: Home → State → City → Intent (4 levels) */}
       <BreadcrumbStructuredData
         items={[

@@ -1,4 +1,5 @@
 import { cache, Suspense } from "react";
+import Link from "next/link";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -40,6 +41,10 @@ import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { LiveCamSchema } from "@/components/seo/live-cam-schema";
 import { getBeachCameraUrl } from "@/actions/beach/cam-actions";
 import { BeachProseSummary } from "@/components/beach-detail/beach-prose-summary";
+import {
+  evaluateBeachIndexability,
+  type EditorialSource,
+} from "@/lib/seo/indexability";
 
 // ISR: revalidate every hour. getSpotSurfReportPublic() uses the service-role
 // client with no cookie reads, so this route stays in ISR (not forced dynamic).
@@ -55,6 +60,40 @@ const getCachedBeachCandidates = cache(async (slug: string) => {
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+
+type BeachWithEditorialReview = Beach & {
+  seo_indexable?: boolean | null;
+  editorial_reviewed_at?: string | null;
+  editorial_sources?: EditorialSource[] | string | null;
+};
+
+function getBeachEditorialSources(beach: BeachWithEditorialReview): EditorialSource[] {
+  if (Array.isArray(beach.editorial_sources)) {
+    return beach.editorial_sources as EditorialSource[];
+  }
+
+  if (typeof beach.editorial_sources !== "string") return [];
+
+  try {
+    const sources = JSON.parse(beach.editorial_sources) as unknown;
+    return Array.isArray(sources) ? sources as EditorialSource[] : [];
+  } catch {
+    return [];
+  }
+}
+
+function isBeachEligibleForIndexing(beach: Beach): boolean {
+  const reviewedBeach = beach as BeachWithEditorialReview;
+  return evaluateBeachIndexability({
+    seoIndexable: reviewedBeach.seo_indexable,
+    seoReviewedAt: reviewedBeach.editorial_reviewed_at,
+    seoSources: getBeachEditorialSources(reviewedBeach),
+    description: beach.description,
+    crowdTips: beach.crowd_tips,
+    waveTips: beach.wave_tips,
+    bestConditionsProse: beach.best_conditions_prose,
+  }).indexable;
+}
 
 interface PageProps {
   params: Promise<{
@@ -291,7 +330,28 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         )}
 
         {/* SSR prose summary for AI crawlers and search engines (GEO) */}
-        <BeachProseSummary beach={beach} surfCallReport={surfCallReport} />
+        <BeachProseSummary
+          beach={beach}
+          surfCallReport={surfCallReport}
+          editorialSources={getBeachEditorialSources(beach as BeachWithEditorialReview)}
+        />
+
+        <nav
+          className="mx-auto flex max-w-5xl flex-wrap gap-x-4 gap-y-2 px-4 py-4 text-sm sm:px-6 lg:px-8"
+          aria-label={`${beach.name} related surf guides`}
+        >
+          <Link className="font-medium text-primary underline-offset-4 hover:underline" href={`${buildBeachUrl(beach)}/tides`}>
+            {beach.name} tide chart
+          </Link>
+          <Link className="font-medium text-primary underline-offset-4 hover:underline" href={`${buildBeachUrl(beach)}/water-temp`}>
+            {beach.name} water temperature
+          </Link>
+          {bestTimeToSurfUrl && (
+            <Link className="font-medium text-primary underline-offset-4 hover:underline" href={bestTimeToSurfUrl}>
+              Best time to surf {beach.city}
+            </Link>
+          )}
+        </nav>
 
         {/* Client detail component with auth tracking */}
         <BeachDetailClient
@@ -451,7 +511,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       forecast: forecastData,
     });
 
-    return buildPageMetadata({
+    const metadata = buildPageMetadata({
       title,
       description,
       path,
@@ -470,6 +530,12 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
         "wave height today",
       ].filter(Boolean),
     });
+
+    if (!isBeachEligibleForIndexing(beach)) {
+      return { ...metadata, robots: { index: false, follow: true } };
+    }
+
+    return metadata;
   } catch (error) {
     console.error("[GenericBeachDetailPage] Error generating metadata:", {
       params,

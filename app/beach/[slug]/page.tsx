@@ -26,6 +26,10 @@ import {
   createSupabaseServiceRoleClient,
 } from "@/lib/supabase/server";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
+import {
+  isBeachDatabaseRecordEligible,
+  type BeachEditorialDatabaseRecord,
+} from "@/lib/seo/indexability";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -276,12 +280,16 @@ export async function generateMetadata(
       forecast,
     });
 
-    return buildPageMetadata({
+    const metadata = buildPageMetadata({
       title,
       description,
       path: canonicalPath,
       image: `/api/og/beach?slug=${params.slug}`,
     });
+
+    return isBeachDatabaseRecordEligible(beach as BeachEditorialDatabaseRecord)
+      ? metadata
+      : { ...metadata, robots: { index: false, follow: true } };
   }
 
   return buildNoindexBeachMetadata(params.slug);
