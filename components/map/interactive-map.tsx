@@ -228,6 +228,30 @@ export function partitionAtAbsoluteTimelineIndex(
   return partitions[frameIndex] ?? undefined;
 }
 
+export function partitionAtAbsoluteTimelinePosition(
+  timeline: HourlySwellTimeline | null,
+  beachId: string,
+  position: number,
+): SwellPartition | undefined {
+  if (!timeline || !Number.isFinite(position) || timeline.timestamps.length === 0) {
+    return undefined;
+  }
+  const clampedPosition = Math.min(
+    Math.max(position, 0),
+    timeline.timestamps.length - 1,
+  );
+  const leftIndex = Math.floor(clampedPosition);
+  const rightIndex = Math.ceil(clampedPosition);
+  const progress = clampedPosition - leftIndex;
+  const left = partitionAtAbsoluteTimelineIndex(timeline, beachId, leftIndex);
+  const right = partitionAtAbsoluteTimelineIndex(timeline, beachId, rightIndex);
+
+  if (left && right && progress > 0) {
+    return interpolateSwellPartition(left, right, progress);
+  }
+  return left ?? right;
+}
+
 /** Sub-layer component ids whose flow fields a given active layer needs built. */
 function componentsForLayer(
   layerId: SwellLayerId
@@ -293,6 +317,7 @@ interface InteractiveMapProps {
 
 const SAN_DIEGO: [number, number] = [32.7157, -117.1611];
 const EMPTY_CUSTOM_SPOTS: CustomSpot[] = [];
+const FULL_FORECAST_TIMELINE_HOURS = 14 * 24;
 
 const CONDITION_LEGEND_ITEMS: Array<{
   label: ConditionSummary;
@@ -307,11 +332,13 @@ const CONDITION_LEGEND_ITEMS: Array<{
 interface MapConditionLegendProps {
   controls?: ReactNode;
   timeline?: ReactNode;
+  bottomOffset?: number;
 }
 
 function MapConditionLegend({
   controls,
   timeline,
+  bottomOffset = 0,
 }: MapConditionLegendProps): ReactElement {
   const [isMinimized, setIsMinimized] = useState(false);
   const embeddedControls = Children.toArray(controls);
@@ -346,6 +373,7 @@ function MapConditionLegend({
           : ""
       }`}
       style={{
+        bottom: bottomOffset > 0 ? `calc(${bottomOffset}px + 0.75rem)` : undefined,
         background: SWELL_MAP_LEGEND_SURFACE.paper,
         border: `2px solid ${SWELL_MAP_LEGEND_SURFACE.border}`,
         borderRadius: SWELL_MAP_STICKER_RADIUS,
@@ -463,6 +491,7 @@ export function InteractiveMap({
     zoom: number;
   } | null>(null);
   const [isMapReady, setIsMapReady] = useState(false);
+  const [mapStyleRevision, setMapStyleRevision] = useState(0);
   const [leashSuspendedCommandId, setLeashSuspendedCommandId] = useState<
     number | null
   >(null);
@@ -496,6 +525,8 @@ export function InteractiveMap({
   // so we surface a small "no swell data" sticker. Defaults true to avoid a
   // flash before the first build.
   const [hasSwellData, setHasSwellData] = useState(true);
+  const [expandableTimelineHeight, setExpandableTimelineHeight] = useState(0);
+  const [expandablePlaybackPosition, setExpandablePlaybackPosition] = useState(0);
   const [showAuth, setShowAuth] = useState(false);
   // One-time coastal-leash hint: the camera silently loses zoom-out when the
   // field's leash applies, so we flash a one-shot note the FIRST time it locks
@@ -684,12 +715,33 @@ export function InteractiveMap({
     },
     [],
   );
+  const isExpandableFramePlayable = useCallback(
+    (timeline: HourlySwellTimeline, index: number): boolean => {
+      const beachList = swellFieldBeaches.length > 0
+        ? swellFieldBeaches
+        : (beaches ?? []);
+      const components = componentsForLayer(swellLayerId);
+
+      return beachList.some((beach) => {
+        if (beach.lat == null || beach.lon == null) return false;
+        const lat = beach.lat;
+        const lon = beach.lon;
+        const partition = timeline.partitionsByBeach[beach.id]?.[index];
+        if (!partition) return false;
+        return components.some((component) =>
+          partitionToPoint(lon, lat, partition, component) != null,
+        );
+      });
+    },
+    [beaches, swellFieldBeaches, swellLayerId],
+  );
   const expandableTimeline = useExpandableSwellTimeline({
     scopeKey: hourlyTimelineScopeKey,
     initial: hourlyTimelineSeed,
     timezone: timelineTimezone,
     loadChunk: loadHourlyChunk,
     reducedMotion,
+    isFramePlayable: isExpandableFramePlayable,
   });
   const isExpandableTimeline = swellTimelineMode === "expandable-hourly";
   const isEmbedHourlyTimeline = swellTimelineMode === "hourly";
@@ -1307,7 +1359,10 @@ export function InteractiveMap({
           { fetchNearbyBeaches: fetchNearbyBeaches.current },
           swellTimelineMode === "legacy"
             ? {}
-            : { timeline: "hourly", timelineHours: 48 },
+            : {
+                timeline: "hourly",
+                timelineHours: FULL_FORECAST_TIMELINE_HOURS,
+              },
         );
         if (requestId !== populateRequestIdRef.current) return;
 
@@ -1434,7 +1489,16 @@ export function InteractiveMap({
       const points: BeachPartitionPoint[] = [];
       for (const beach of beachList) {
         const partition = isExpandableTimeline
-          ? expandableTimeline.partitionsByBeach[beach.id]?.[expandableTimeline.index] ?? null
+          ? partitionAtAbsoluteTimelinePosition(
+              {
+                timestamps: expandableTimeline.timestamps,
+                partitionsByBeach: expandableTimeline.partitionsByBeach,
+                hasMore: false,
+                nextStart: null,
+              },
+              beach.id,
+              expandablePlaybackPosition,
+            )
           : isEmbedHourlyTimeline
             ? partitionAtAbsoluteTimelineIndex(hourlyTimelineSeed, beach.id, swellTimelineIndex)
           : partitionAtTimelinePosition(
@@ -1465,6 +1529,10 @@ export function InteractiveMap({
       }
       nextFields[component] = buildFlowField(points, bounds, 12);
     }
+    if (!anyPoints && expandableTimeline.isPlaying) {
+      setHasSwellData(true);
+      return;
+    }
     flowFieldsRef.current = nextFields;
     setHasSwellData(anyPoints);
     // Best-effort mask now; the idle/moveend listener re-masks once tiles render.
@@ -1475,7 +1543,10 @@ export function InteractiveMap({
     applyWaterMask,
     beaches,
     expandableTimeline.index,
+    expandableTimeline.isPlaying,
     expandableTimeline.partitionsByBeach,
+    expandableTimeline.timestamps,
+    expandablePlaybackPosition,
     hourlyTimelineSeed,
     isEmbedHourlyTimeline,
     isExpandableTimeline,
@@ -1665,7 +1736,7 @@ export function InteractiveMap({
     swellLayerKeyRef.current = shapeKey;
     // No cleanup teardown: the layer persists across same-shape switches and is
     // removed on the next shape change (or with the map on unmount).
-  }, [showSwellField, isMapReady, reducedMotion, swellLayerId]);
+  }, [showSwellField, isMapReady, reducedMotion, swellLayerId, mapStyleRevision]);
 
   // Leash the camera to the coastal data corridor while the swell field is ON.
   // Locks zoom (so users can't pull back to open-ocean/continent scale) and pins
@@ -1953,6 +2024,9 @@ export function InteractiveMap({
     map.on("load", markMapReady);
     map.on("styledata", markMapReady);
     map.on("idle", markMapReady);
+    map.on("style.load", () => {
+      setMapStyleRevision((current) => current + 1);
+    });
 
     map.on("error", (e) => {
       console.error("Map error:", e);
@@ -2120,6 +2194,26 @@ export function InteractiveMap({
       cleanupMap();
     };
   }, [initialZoom, cleanupMap]);
+
+  useEffect(() => {
+    const container = mapContainerRef.current;
+    if (!container || typeof ResizeObserver === "undefined") return;
+
+    let resizeFrame: number | null = null;
+    const observer = new ResizeObserver(() => {
+      if (resizeFrame != null) window.cancelAnimationFrame(resizeFrame);
+      resizeFrame = window.requestAnimationFrame(() => {
+        resizeFrame = null;
+        mapRef.current?.resize();
+      });
+    });
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
+      if (resizeFrame != null) window.cancelAnimationFrame(resizeFrame);
+    };
+  }, []);
 
   // Initial population when map becomes ready
   useEffect(() => {
@@ -2555,6 +2649,8 @@ export function InteractiveMap({
         onIndexChange={handleExpandableTimelineIndexChange}
         onPlayingChange={handleExpandableTimelinePlayingChange}
         onRetry={expandableTimeline.retry}
+        onHeightChange={setExpandableTimelineHeight}
+        onPlaybackPositionChange={setExpandablePlaybackPosition}
       />
     ) : null;
 
@@ -2577,6 +2673,7 @@ export function InteractiveMap({
         <MapConditionLegend
           controls={swellLayerSelector}
           timeline={swellTimeline}
+          bottomOffset={expandableSwellTimeline ? expandableTimelineHeight : 0}
         />
       )}
       {showMapChrome && displayMode !== "wave-height" && swellLayerSelector}

@@ -34,6 +34,7 @@ jest.mock("mapbox-gl", () => ({
     flyTo: jest.fn(),
     easeTo: jest.fn(),
     fitBounds: jest.fn(),
+    resize: jest.fn(),
     getBounds: jest.fn(() => ({
       getWest: () => -117.3,
       getSouth: () => 32.7,
@@ -135,6 +136,7 @@ describe("InteractiveMap", () => {
     flyTo: jest.Mock;
     getCenter: jest.Mock;
     setMaxBounds: jest.Mock;
+    resize: jest.Mock;
   } {
     const Map = require("mapbox-gl").Map;
     return Map.mock.results[Map.mock.results.length - 1].value;
@@ -204,6 +206,49 @@ describe("InteractiveMap", () => {
       center: { lat: 32.7493, lon: -117.2511 },
       phase: "start",
     });
+  });
+
+  it("restores the swell overlay after the map style loads", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    render(
+      <InteractiveMap
+        beaches={[]}
+        showSwellField
+        swellLayerId="s1"
+      />,
+    );
+
+    await waitFor(() => expect(mockMapHandlers["style.load"]).toHaveLength(1));
+    const map = getMapInstance() as ReturnType<typeof getMapInstance> & {
+      addLayer: jest.Mock;
+    };
+    await waitFor(() => expect(map.addLayer).toHaveBeenCalled());
+    const initialAdds = map.addLayer.mock.calls.length;
+
+    act(() => mockMapHandlers["style.load"][0]());
+
+    await waitFor(() => {
+      expect(map.addLayer.mock.calls.length).toBeGreaterThan(initialAdds);
+    });
+  });
+
+  it("resizes Mapbox when its container changes size", async () => {
+    let resizeCallback: ResizeObserverCallback | null = null;
+    global.ResizeObserver = jest.fn((callback: ResizeObserverCallback) => {
+      resizeCallback = callback;
+      return {
+        observe: jest.fn(),
+        unobserve: jest.fn(),
+        disconnect: jest.fn(),
+      } as ResizeObserver;
+    }) as unknown as typeof ResizeObserver;
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    render(<InteractiveMap beaches={[]} />);
+
+    await waitFor(() => expect(resizeCallback).not.toBeNull());
+    act(() => resizeCallback?.([], {} as ResizeObserver));
+
+    await waitFor(() => expect(getMapInstance().resize).toHaveBeenCalled());
   });
 
   it("reports only a user gesture's final moveend center", async () => {
@@ -356,6 +401,38 @@ describe("InteractiveMap", () => {
       )
       : firstFrame;
     expect(mismatchedPartition).toBeUndefined();
+  });
+
+  it("interpolates absolute hourly partitions at a fractional playback position", async () => {
+    const interactiveMapModule = await import("@/components/map/interactive-map");
+    const resolve = interactiveMapModule.partitionAtAbsoluteTimelinePosition;
+    const timeline = {
+      timestamps: [
+        "2026-07-10T20:00:00.000Z",
+        "2026-07-10T21:00:00.000Z",
+      ],
+      partitionsByBeach: {
+        "beach-1": [
+          {
+            s1Dir: 350, s1PeriodS: 10, s1HeightFt: 2,
+            s2Dir: null, s2PeriodS: null, s2HeightFt: null,
+            windDir: null, windMph: null,
+          },
+          {
+            s1Dir: 10, s1PeriodS: 14, s1HeightFt: 4,
+            s2Dir: null, s2PeriodS: null, s2HeightFt: null,
+            windDir: null, windMph: null,
+          },
+        ],
+      },
+      hasMore: false,
+      nextStart: null,
+    };
+
+    expect(resolve(timeline, "beach-1", 0.5)).toEqual(expect.objectContaining({
+      s1HeightFt: 3,
+      s1PeriodS: 12,
+    }));
   });
 
   it("clears the debug center during map setup and cleanup", async () => {

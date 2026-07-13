@@ -47,4 +47,20 @@ test.describe('Prod Read-Only Guest API', () => {
     expect(firstBeach).toHaveProperty('name');
     expect(firstBeach).toHaveProperty('slug');
   });
+
+  for (const [label, query] of [
+    ['global', 'page=1&limit=10'],
+    ['friends', 'page=1&limit=10&feed_type=friends'],
+    ['nearby', 'page=1&limit=10&lat=32.75&lon=-117.25&radius_miles=30'],
+  ] as const) {
+    test(`@smoke public sessions ${label} feed does not return a server error`, async ({ request }) => {
+      const response = await request.get(`${BASE_URL}/api/sessions/public?${query}`);
+      const body = await response.text();
+
+      expect(response.status(), body).toBe(200);
+      const json = JSON.parse(body);
+      expect(json.success).toBe(true);
+      expect(Array.isArray(json.data)).toBe(true);
+    });
+  }
 });

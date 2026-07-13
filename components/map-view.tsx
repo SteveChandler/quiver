@@ -7,10 +7,6 @@ import { useGeolocation } from "@/hooks/use-geolocation";
 import { useBeachSearch } from "@/hooks/use-beach-search";
 import { MapToolbar } from "@/components/map/map-toolbar";
 import { useCustomSpots } from "@/hooks/use-custom-spots";
-import {
-  MAP_REGION_PILLS,
-  type MapRegionPill,
-} from "@/components/map/map-regions";
 import { MapContent } from "@/components/map/map-content";
 import { MapLearningPanel } from "@/components/map/map-learning-panel";
 import {
@@ -21,7 +17,6 @@ import {
 import { type SwellLayerId } from "@/components/map/swell-map-theme";
 import { useProfileContext } from "@/context/profile-context";
 import type { Beach } from "@/types/database";
-import { getBeachUrlSafe } from "@/lib/utils/beach-url-utils";
 
 const MISSION_BEACH_COORDS = { lat: 32.7702, lon: -117.2525 } as const;
 
@@ -52,12 +47,10 @@ export function resolveViewedMapTimezone({
   selectedBeach,
   loadedBeaches,
   exploredCenter,
-  activeRegion,
 }: {
   selectedBeach: Beach | null;
   loadedBeaches: Beach[];
   exploredCenter: { lat: number; lon: number } | null;
-  activeRegion: MapRegionPill | null;
 }): string {
   const selectedTimezone = selectedBeach?.timezone;
   if (isTimeZone(selectedTimezone)) return selectedTimezone;
@@ -75,7 +68,6 @@ export function resolveViewedMapTimezone({
     if (isTimeZone(nearestBeach?.timezone)) return nearestBeach.timezone;
   }
 
-  if (isTimeZone(activeRegion?.timezone)) return activeRegion.timezone;
   return deviceTimezone();
 }
 
@@ -135,7 +127,6 @@ export function MapView() {
     lat: number;
     lon: number;
   } | null>(null);
-  const [activeRegion, setActiveRegion] = useState<MapRegionPill | null>(null);
 
   const issueCameraCommand = useCallback(
     (input: Omit<MapCameraCommand, "id">, owner: MapCameraOwner) => {
@@ -201,9 +192,8 @@ export function MapView() {
         selectedBeach,
         loadedBeaches: filteredBeaches,
         exploredCenter,
-        activeRegion,
       }),
-    [activeRegion, exploredCenter, filteredBeaches, selectedBeach],
+    [exploredCenter, filteredBeaches, selectedBeach],
   );
 
   // Load nearby beaches when user location is available - prevent duplicate calls
@@ -427,7 +417,6 @@ export function MapView() {
   const handleBeachSelect = useCallback(
     (beach: Beach) => {
       setSelectedBeach(beach);
-      setActiveRegion(null);
       if (isFiniteCoord(beach.lat) && isFiniteCoord(beach.lon)) {
         issueCameraCommand(
           { source: "pin", center: { lat: beach.lat, lon: beach.lon } },
@@ -443,12 +432,8 @@ export function MapView() {
   const handleSuggestionSelect = useCallback(
     (beach: Beach) => {
       handleBeachSelect(beach);
-      const href = getBeachUrlSafe(beach);
-      if (href) {
-        router.push(href);
-      }
     },
-    [handleBeachSelect, router]
+    [handleBeachSelect]
   );
 
   const stripMapUrlParams = useCallback(
@@ -523,30 +508,6 @@ export function MapView() {
     applyDefaultLocation();
   }, [applyDefaultLocation, issueCameraCommand]);
 
-  const handleRegionSelect = useCallback(
-    (region: MapRegionPill) => {
-      setSelectedBeach(null);
-      setActiveRegion(region);
-      clearSearch();
-      issueCameraCommand(
-        region.bounds
-          ? { source: "region", bounds: region.bounds }
-          : { source: "region", center: region.center },
-        "explicit-command",
-      );
-      stripMapUrlParams(["search"]);
-      lastLocationRef.current = null;
-      void loadNearbyBeaches(region.center.lat, region.center.lon);
-    },
-    [
-      clearSearch,
-      issueCameraCommand,
-      loadNearbyBeaches,
-      setSelectedBeach,
-      stripMapUrlParams,
-    ]
-  );
-
   const handleMapClick = useCallback(() => {
     setSelectedBeach(null);
   }, [setSelectedBeach]);
@@ -593,8 +554,6 @@ export function MapView() {
         onClearSearch={handleClearSearch}
         suggestions={filteredBeaches.slice(0, 6)}
         onSuggestionSelect={handleSuggestionSelect}
-        regions={MAP_REGION_PILLS}
-        onRegionSelect={handleRegionSelect}
         onUseMyLocation={handleUseMyLocation}
         filters={filters}
         onToggleBeginner={toggleBeginnerFriendly}

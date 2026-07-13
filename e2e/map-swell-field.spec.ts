@@ -228,11 +228,8 @@ test.describe("expandable local forecast timeline", () => {
 
   test("uses absolute Hawaii time, keyboard hours, and a second forecast chunk", async ({ page }) => {
     const timeline = await routeExpandableTimeline(page);
-    await page.goto("/map");
+    await page.goto("/map?search=Waikiki");
     await page.waitForLoadState("load");
-
-    await page.getByRole("button", { name: "Regions and filters" }).click();
-    await page.getByRole("button", { name: "Hawaii" }).click();
 
     const dayTimeline = page.getByTestId("swell-day-timeline");
     await expect(dayTimeline).toBeVisible({ timeout: 30000 });
@@ -288,6 +285,30 @@ test.describe("expandable local forecast timeline", () => {
     const calloutBox = await callout.boundingBox();
     expect(calloutBox).not.toBeNull();
     expect(calloutBox!.y + calloutBox!.height).toBeLessThanOrEqual(panelBox!.y);
+  });
+
+  test("keeps Hawaii pins and the swell field visible while playback skips a missing frame", async ({ page }) => {
+    await routeExpandableTimeline(page);
+    await page.goto("/map?search=Waikiki");
+    await page.waitForLoadState("load");
+    await waitForMapInstance(page);
+    await requireRenderedSwellLayer(page);
+
+    const markers = page.getByTestId("beach-marker");
+    await expect(markers.first()).toBeVisible({ timeout: 30000 });
+    const initialMarkerCount = await markers.count();
+    expect(initialMarkerCount).toBeGreaterThan(0);
+
+    await page.getByRole("button", { name: "Play forecast timeline" }).click();
+    await expect.poll(
+      async () => Number(await page.getByRole("slider", { name: "Forecast time" }).inputValue()),
+      { timeout: 10000 },
+    ).toBeGreaterThan(7);
+
+    expect(await markers.count()).toBe(initialMarkerCount);
+    await expect(markers.first()).toBeVisible();
+    await expect(page.getByTestId("swell-field-empty-note")).toHaveCount(0);
+    expect(await layerExists(page)).toBe(true);
   });
 });
 
@@ -353,6 +374,7 @@ for (const viewport of [
       await waitForMapIdle(page);
 
       await expect(page.getByTestId("swell-layer-selector")).toBeVisible();
+      expect(await layerExists(page)).toBe(true);
 
       await page.getByTestId("swell-field-toggle").click();
       await expect(page.getByTestId("swell-layer-selector")).toHaveCount(0);
@@ -429,6 +451,13 @@ for (const viewport of [
         || timelineBox!.y >= fieldGuideBox!.y + fieldGuideBox!.height
       );
       expect(timelineOverlapsFieldGuide).toBe(false);
+      const timelineOverlapsLegend = !(
+        timelineBox!.x + timelineBox!.width <= legendBox!.x
+        || timelineBox!.x >= legendBox!.x + legendBox!.width
+        || timelineBox!.y + timelineBox!.height <= legendBox!.y
+        || timelineBox!.y >= legendBox!.y + legendBox!.height
+      );
+      expect(timelineOverlapsLegend).toBe(false);
 
       const visibleLegendBox = legendBox!;
       const visibleSelectorBox = selectorBox!;
