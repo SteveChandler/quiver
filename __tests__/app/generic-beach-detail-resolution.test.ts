@@ -2,7 +2,9 @@
  * @jest-environment node
  */
 
-import GenericBeachDetailPage from "@/app/[intent]/[city]/[beachSlug]/page";
+import GenericBeachDetailPage, {
+  generateMetadata,
+} from "@/app/[intent]/[city]/[beachSlug]/page";
 import { getBeachesBySlug } from "@/actions/beach/beach-query-actions";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
@@ -152,12 +154,23 @@ jest.mock("@/actions/beach/cam-actions", () => ({
   getBeachCameraUrl: jest.fn().mockResolvedValue(null),
 }));
 
+jest.mock("@/actions/forecast-actions", () => ({
+  getBeachForecastPreview: jest.fn().mockResolvedValue({ success: true, data: null }),
+}));
+
 jest.mock("@/lib/utils/nearby-beach-enrichment", () => ({
   enrichBeachesWithConditions: jest.fn().mockResolvedValue([]),
 }));
 
-function makeBeach(overrides: Partial<Beach>) {
+type BeachTestOverrides = Partial<Beach> & {
+  seo_indexable?: boolean;
+  editorial_reviewed_at?: string;
+  editorial_sources?: Array<{ url: string; publisher: string; retrievedAt: string }>;
+};
+
+function makeBeach(overrides: BeachTestOverrides) {
   return {
+    ...overrides,
     id: overrides.id ?? "beach-1",
     name: overrides.name ?? "Test Beach",
     slug: overrides.slug ?? "lower-trestles",
@@ -254,5 +267,47 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(redirect).toHaveBeenCalledWith("/ca/dana-point/lower-trestles");
     expect(notFound).not.toHaveBeenCalled();
     expect(getNearbyBeaches).not.toHaveBeenCalled();
+  });
+
+  it("noindexes a canonical beach URL until its local editorial evidence is approved", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({
+        description: "A local surf break with a defined takeoff zone.",
+        wave_tips: "Watch the peak before paddling out.",
+      })],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    });
+
+    expect(metadata.alternates?.canonical).toContain("/ca/dana-point/lower-trestles");
+    expect((metadata.robots as { index?: boolean })?.index).toBe(false);
+    expect((metadata.robots as { follow?: boolean })?.follow).toBe(true);
+  });
+
+  it("indexes a canonical beach URL after approved local editorial evidence is present", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({
+        description: "A local surf break with a defined takeoff zone.",
+        wave_tips: "Watch the peak before paddling out.",
+        seo_indexable: true,
+        editorial_reviewed_at: "2026-07-13T00:00:00.000Z",
+        editorial_sources: [{
+          url: "https://www.noaa.gov/example",
+          publisher: "NOAA",
+          retrievedAt: "2026-07-13T00:00:00.000Z",
+        }],
+      })],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ intent: "ca", city: "dana-point", beachSlug: "lower-trestles" }),
+    });
+
+    expect(metadata.alternates?.canonical).toContain("/ca/dana-point/lower-trestles");
+    expect((metadata.robots as { index?: boolean } | undefined)?.index).not.toBe(false);
   });
 });

@@ -3,43 +3,29 @@
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { parseLocationFromSlug } from "@/lib/utils/location-slug";
 import { parseHiIslandCitySlug } from "@/lib/utils/beach-url-utils";
+import type {
+  CityEditorialContent,
+  CityEditorialIntent,
+  EditorialSource,
+  QuickLink,
+  SessionTimingModule,
+} from "@/types/editorial-content";
+
+function parseArrayField<T>(value: T[] | string | null | undefined): T[] {
+  if (Array.isArray(value)) return value;
+  if (typeof value !== "string") return [];
+
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed as T[] : [];
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Session timing module structure
  */
-export interface SessionTimingModule {
-  icon: "sun" | "clock" | "calendar";
-  title: string;
-  summary: string;
-}
-
-/**
- * Quick action link structure
- */
-export interface QuickLink {
-  label: string;
-  href: string;
-}
-
-/**
- * City editorial content from the database
- */
-export interface CityEditorialContent {
-  id: string;
-  city_slug: string;
-  state_slug: string;
-  country_slug: string;
-  city_name: string;
-  region_label: string;
-  description: string[];
-  session_timing: SessionTimingModule[];
-  quick_links: QuickLink[];
-  featured_intents: string[];
-  planning_checklist: string[];
-  created_at: string;
-  updated_at: string;
-}
-
 /**
  * Fetch editorial content for a city page.
  * Returns null if no editorial content exists for this location.
@@ -51,7 +37,8 @@ export interface CityEditorialContent {
 export async function getCityEditorialContent(
   citySlug: string,
   stateSlug: string = "ca",
-  countrySlug: string = "usa"
+  countrySlug: string = "usa",
+  intent: CityEditorialIntent = null,
 ): Promise<CityEditorialContent | null> {
   const supabase = createPublicReadClient();
 
@@ -60,6 +47,7 @@ export async function getCityEditorialContent(
       p_city: slug,
       p_state: stateSlug,
       p_country: countrySlug,
+      p_intent: intent ?? undefined,
     });
   };
 
@@ -69,6 +57,19 @@ export async function getCityEditorialContent(
   if (error) {
     console.error("[getCityEditorialContent] Error fetching editorial content:", error);
     return null;
+  }
+
+  // General city content was historically stored as either NULL or "general".
+  // Intent pages always request their exact entry, so this fallback applies only
+  // to the city/location content lookup.
+  if (!data && intent === null) {
+    const retry = await supabase.rpc("get_city_editorial", {
+      p_city: citySlug,
+      p_state: stateSlug,
+      p_country: countrySlug,
+      p_intent: "general",
+    });
+    if (!retry.error) data = retry.data;
   }
 
   // HI island-suffixed city slugs (Waimea-only to start): fallback to base city slug
@@ -98,15 +99,35 @@ export async function getCityEditorialContent(
   return {
     ...result,
     city_name: normalizedCityName,
-    session_timing:
-      typeof result.session_timing === "string"
-        ? JSON.parse(result.session_timing)
-        : result.session_timing || [],
-    quick_links:
-      typeof result.quick_links === "string"
-        ? JSON.parse(result.quick_links)
-        : result.quick_links || [],
+    session_timing: parseArrayField<SessionTimingModule>(result.session_timing),
+    quick_links: parseArrayField<QuickLink>(result.quick_links),
+    editorial_sources: parseArrayField<EditorialSource>(result.editorial_sources),
   };
+}
+
+export async function getReviewedCityEditorialContent(): Promise<
+  CityEditorialContent[]
+> {
+  const supabase = createPublicReadClient();
+  const { data, error } = await supabase
+    .from("city_editorial_content")
+    .select("*");
+
+  if (error) {
+    console.error("[getReviewedCityEditorialContent] Error fetching editorial content:", error);
+    return [];
+  }
+
+  return (data ?? []).map((row) => {
+    const result = row as unknown as CityEditorialContent;
+    return {
+      ...result,
+      description: parseArrayField<string>(result.description),
+      session_timing: parseArrayField<SessionTimingModule>(result.session_timing),
+      quick_links: parseArrayField<QuickLink>(result.quick_links),
+      editorial_sources: parseArrayField<EditorialSource>(result.editorial_sources),
+    };
+  });
 }
 
 /**

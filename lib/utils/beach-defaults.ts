@@ -51,6 +51,9 @@ function getBeachDefaults(): Omit<
 
     // Descriptive fields
     description: null,
+    editorial_reviewed_at: null,
+    editorial_sources: [],
+    seo_indexable: false,
     skill_level: "", // non-nullable in DB schema; "" is the zero/empty state
     break_type: null,
     crowd_level: null,
@@ -93,6 +96,12 @@ function getBeachDefaults(): Omit<
     swell_window_max_deg: null,
     swell_window_center_deg: null,
     swell_window_halfwidth_deg: null,
+    swell_window_center_deg_v2: null,
+    swell_window_halfwidth_deg_v2: null,
+    swell_window_max_deg_v2: null,
+    swell_window_min_deg_v2: null,
+    swell_window_v2_analyzed_at: null,
+    swell_window_v2_method: null,
     swell_access_factors: null,
     swell_analyzed_at: null,
 
@@ -129,6 +138,9 @@ function getBeachDefaults(): Omit<
     terrain_params: null,
     terrain_params_hash: null,
     terrain_status: null,
+    wave_punchiness_ai: null,
+    wave_punchiness_ai_confidence: null,
+    wave_punchiness_ai_meta: null,
   };
 }
 

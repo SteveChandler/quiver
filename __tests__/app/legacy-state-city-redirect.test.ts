@@ -20,6 +20,10 @@ jest.mock("@/actions/forecast/intent-forecast-actions", () => ({
   getCitySunTimesData: jest.fn().mockResolvedValue(null),
 }));
 
+jest.mock("@/actions/city/city-editorial-actions", () => ({
+  getCityEditorialContent: jest.fn().mockResolvedValue(null),
+}));
+
 import IntentPage, { generateMetadata } from "@/app/[intent]/[city]/page";
 import {
   findCitiesMatchingPattern,
@@ -31,6 +35,7 @@ import {
   getCityTideData,
   getCityWaterTempHistory,
 } from "@/actions/forecast/intent-forecast-actions";
+import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
 
 jest.mock("next/navigation", () => ({
   redirect: jest.fn(),
@@ -65,6 +70,21 @@ describe("legacy state/city URLs", () => {
     (getCityIntentDataAvailability as jest.Mock).mockResolvedValue("unknown");
     (getCityTideData as jest.Mock).mockResolvedValue(null);
     (getCityWaterTempHistory as jest.Mock).mockResolvedValue(null);
+    (getCityEditorialContent as jest.Mock).mockImplementation(
+      async (_city: string, _state: string, _country: string, intent: string) => ({
+        seo_indexable: true,
+        editorial_reviewed_at: "2026-07-13T00:00:00.000Z",
+        editorial_sources: [{
+          url: "https://www.noaa.gov/example",
+          publisher: "NOAA",
+          retrievedAt: "2026-07-13T00:00:00.000Z",
+        }],
+        intent,
+        description: ["Reviewed local surf guidance."],
+        seo_intro: "Reviewed local introduction.",
+        seo_local_guidance: "Reviewed local safety guidance.",
+      }),
+    );
   });
 
   test("redirects /ca/:city to map with search filter", async () => {
@@ -132,6 +152,39 @@ describe("legacy state/city URLs", () => {
       }),
     });
 
+    expect((metadata.robots as any)?.index).toBe(false);
+    expect((metadata.robots as any)?.follow).toBe(true);
+  });
+
+  test("noindexes a city intent when its exact editorial entry is not approved", async () => {
+    (findCityBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: cityMetadata,
+    });
+    (getCityEditorialContent as jest.Mock).mockResolvedValue({
+      seo_indexable: false,
+      editorial_reviewed_at: "2026-07-13T00:00:00.000Z",
+      editorial_sources: [{
+        url: "https://www.noaa.gov/example",
+        publisher: "NOAA",
+        retrievedAt: "2026-07-13T00:00:00.000Z",
+      }],
+      intent: "beginner",
+      description: ["Local beginner guidance."],
+      seo_intro: "Local introduction.",
+      seo_local_guidance: "Local safety guidance.",
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ intent: "beginner", city: "test-harbor" }),
+    });
+
+    expect(getCityEditorialContent).toHaveBeenCalledWith(
+      "test-harbor",
+      "ca",
+      "usa",
+      "beginner",
+    );
     expect((metadata.robots as any)?.index).toBe(false);
     expect((metadata.robots as any)?.follow).toBe(true);
   });

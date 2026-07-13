@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Map, Waves, Users, Thermometer } from "lucide-react";
-import type { QuickLink } from "@/actions/city/city-editorial-actions";
+import type { QuickLink } from "@/types/editorial-content";
 
 interface QuickActionsBarProps {
   links: QuickLink[];

@@ -7,7 +7,7 @@
 
 import Link from "next/link";
 import { MapPin, Star } from "lucide-react";
-import type { CityEditorialContent } from "@/actions/city/city-editorial-actions";
+import type { CityEditorialContent } from "@/types/editorial-content";
 import { transformBeachesToSurfSpots } from "@/lib/utils/beach-to-surfspot-transformer";
 import { CityMapView } from "@/components/city/city-map-view";
 import { QuickActionsBar } from "@/components/city/quick-actions-bar";
@@ -30,6 +30,7 @@ import { resolveIslandDisplayName, buildCanonicalCityPath } from "./city-page-ut
 import type { LocationPageParams } from "./city-page-utils";
 import { SITE_ORIGIN } from "./city-page-utils";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
+import { ReviewedCityEditorialSection } from "@/components/seo/reviewed-city-editorial-section";
 
 interface EditorialLayoutProps {
   params: LocationPageParams;
@@ -129,6 +130,7 @@ export function EditorialLayout({
             {displayCityName}
           </span>
         </nav>
+        <ReviewedCityEditorialSection editorial={editorial} />
 
         {/* Header with editorial region label */}
         <header className="mb-8">

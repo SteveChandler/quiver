@@ -9,14 +9,20 @@ const TEST_BOARD: ClientBoard = {
   user_id: "user-1",
   name: "Everyday Fish",
   board_type: "fish",
+  color: null,
   dimensions: "5'8 x 20 x 2 1/2",
   description: null,
+  fin_setup: null,
   image_url: null,
+  model: null,
   size: null,
   volume: 34,
   session_count: 2,
+  shaper: null,
+  thickness: null,
   created_at: "2026-05-01T00:00:00.000Z",
   updated_at: "2026-05-02T00:00:00.000Z",
+  width: null,
 };
 
 async function loadClientGateway(mockFetchWithAuthRetry: jest.Mock) {

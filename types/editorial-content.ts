@@ -15,7 +15,17 @@ export type CityEditorialIntent =
   | 'water-temp'
   | 'general'
   | 'least-crowded'
+  | 'longboard'
+  | 'dawn-patrol'
+  | 'sunset'
+  | 'best-time'
   | null;
+
+export interface EditorialSource {
+  url: string;
+  publisher: string;
+  retrievedAt: string;
+}
 
 export interface SessionTimingModule {
   icon: string; // Icon name (e.g., "sun", "clock", "calendar")
@@ -36,7 +46,12 @@ export interface CityEditorialContent {
   country_slug: string;
   city_name: string;
   region_label: string; // e.g., "San Diego County, California"
-  intent: CityEditorialIntent;
+  intent?: CityEditorialIntent;
+  seo_indexable?: boolean | null;
+  editorial_reviewed_at?: string | null;
+  editorial_sources?: EditorialSource[];
+  seo_intro?: string | null;
+  seo_local_guidance?: string | null;
   description: string[]; // Array of paragraphs
   session_timing: SessionTimingModule[]; // Today/Now/Weekend modules
   quick_links: QuickLink[]; // Navigation links

@@ -8,7 +8,7 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { SessionTimingModules } from "@/components/city/session-timing-modules";
-import type { SessionTimingModule } from "@/actions/city/city-editorial-actions";
+import type { SessionTimingModule } from "@/types/editorial-content";
 
 describe("SessionTimingModules Component", () => {
   const mockModules: SessionTimingModule[] = [

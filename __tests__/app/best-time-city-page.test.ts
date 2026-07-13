@@ -7,6 +7,7 @@ import {
   generateMetadata,
 } from "@/app/best-time-to-surf/[city]/page";
 import { findCityBySlug } from "@/actions/city/city-metadata-actions";
+import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -19,9 +20,26 @@ jest.mock("@/actions/city/best-time-actions", () => ({
   getBestTimeToSurfData: jest.fn(),
 }));
 
+jest.mock("@/actions/city/city-editorial-actions", () => ({
+  getCityEditorialContent: jest.fn(),
+}));
+
 describe("best-time city SEO page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (getCityEditorialContent as jest.Mock).mockResolvedValue({
+      seo_indexable: true,
+      editorial_reviewed_at: "2026-07-13T00:00:00.000Z",
+      editorial_sources: [{
+        url: "https://www.noaa.gov/example",
+        publisher: "NOAA",
+        retrievedAt: "2026-07-13T00:00:00.000Z",
+      }],
+      intent: "best-time",
+      description: ["Reviewed city guidance."],
+      seo_intro: "Reviewed local introduction.",
+      seo_local_guidance: "Reviewed seasonal guidance.",
+    });
   });
 
   it("positions city metadata as a feeder into today's live surf report", async () => {
@@ -44,6 +62,20 @@ describe("best-time city SEO page", () => {
     expect(metadata.description).toContain("tides");
     expect(metadata.description).toContain("wind");
     expect(metadata.description).toContain("nearby spots");
+  });
+
+  it("noindexes a city without approved best-time editorial", async () => {
+    (findCityBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { cityName: "San Diego", state: "CA", stateName: "California" },
+    });
+    (getCityEditorialContent as jest.Mock).mockResolvedValue(null);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ city: "san-diego" }),
+    });
+
+    expect(metadata.robots).toEqual({ index: false, follow: true });
   });
 
   it.each([

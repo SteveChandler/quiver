@@ -18,6 +18,12 @@ import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import type { Beach } from "@/types/database";
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
+import { BeachProseSummary } from "@/components/beach-detail/beach-prose-summary";
+import {
+  isBeachDatabaseRecordEligible,
+  parseEditorialSources,
+  type BeachEditorialDatabaseRecord,
+} from "@/lib/seo/indexability";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -159,6 +165,14 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
           url={`${baseUrl}${beachPath}`}
         />
 
+        <BeachProseSummary
+          beach={beach}
+          surfCallReport={surfCallReport}
+          editorialSources={parseEditorialSources(
+            (beach as BeachEditorialDatabaseRecord).editorial_sources,
+          )}
+        />
+
         {/* Client detail component with auth tracking */}
         <BeachDetailClient
           beach={beach}
@@ -201,7 +215,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
     const locationContext =
       beach.city && beach.state ? ` in ${beach.city}, ${beach.state}` : "";
 
-    return buildPageMetadata({
+    const metadata = buildPageMetadata({
       title: `${beach.name} Surf Report & Forecast (Updated Daily)`,
       description: `${beach.name} surf report for ${formatMetaDate()}. Wave height, swell, wind, and tide conditions${locationContext}.`,
       path: `/mexico/${params.region}/${params.city}/${params.beachSlug}`,
@@ -221,6 +235,10 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
         "wind",
       ].filter(Boolean),
     });
+
+    return isBeachDatabaseRecordEligible(beach as BeachEditorialDatabaseRecord)
+      ? metadata
+      : { ...metadata, robots: { index: false, follow: true } };
   }
 
   return buildPageMetadata({

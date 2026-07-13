@@ -18,6 +18,8 @@ import {
 } from "./city-page-utils";
 import type { LocationPageProps } from "./city-page-utils";
 import { expandStateForMeta, truncateTitleForSEO } from "@/lib/seo/meta";
+import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
+import { evaluateCityEditorialIndexability } from "@/lib/seo/indexability";
 
 export async function generateMetadata(props: LocationPageProps) {
   const params = await props.params;
@@ -204,7 +206,7 @@ export async function generateMetadata(props: LocationPageProps) {
     const canonicalPath = buildCanonicalCityPath(params);
     const url = `${SITE_ORIGIN}${canonicalPath}`;
 
-    return {
+    const metadata = {
       title,
       description,
       openGraph: {
@@ -233,6 +235,31 @@ export async function generateMetadata(props: LocationPageProps) {
         canonical: url,
       },
     };
+
+    const cityEditorial = await getCityEditorialContent(
+      params.city,
+      params.state,
+      params.country,
+      null,
+    );
+    const editorialEligibility = cityEditorial
+      ? evaluateCityEditorialIndexability(
+          {
+            seoIndexable: cityEditorial.seo_indexable,
+            seoReviewedAt: cityEditorial.editorial_reviewed_at,
+            seoSources: cityEditorial.editorial_sources,
+            description: cityEditorial.description,
+            intent: cityEditorial.intent,
+            intro: cityEditorial.seo_intro,
+            localGuidance: cityEditorial.seo_local_guidance,
+          },
+          null,
+        )
+      : { indexable: false };
+
+    return editorialEligibility.indexable
+      ? metadata
+      : { ...metadata, robots: { index: false, follow: true } };
   } catch (error) {
     // Handle errors gracefully during build
     console.error("[generateMetadata] Error:", error);

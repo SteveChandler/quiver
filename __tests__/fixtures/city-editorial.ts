@@ -2,14 +2,14 @@
  * City Editorial Content Test Fixtures
  *
  * Mock data for testing city editorial actions and components.
- * Follows CityEditorialContent interface from actions/city/city-editorial-actions.ts
+ * Follows CityEditorialContent from types/editorial-content.ts.
  */
 
 import type {
   CityEditorialContent,
   SessionTimingModule,
   QuickLink,
-} from "@/actions/city/city-editorial-actions";
+} from "@/types/editorial-content";
 
 /**
  * Complete San Diego editorial content

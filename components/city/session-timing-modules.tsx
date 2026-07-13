@@ -1,7 +1,7 @@
 "use client";
 
 import { Sun, Clock, Calendar } from "lucide-react";
-import type { SessionTimingModule } from "@/actions/city/city-editorial-actions";
+import type { SessionTimingModule } from "@/types/editorial-content";
 
 interface SessionTimingModulesProps {
   modules: SessionTimingModule[];
