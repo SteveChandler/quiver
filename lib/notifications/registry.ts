@@ -96,6 +96,7 @@ const forecastFeedbackNudgeSchema = z.object({
 });
 
 const homeMorningCallSchema = z.object({
+  alert_date: z.string().min(1),
   verdict: z.enum(["YES", "MAYBE", "NO"]),
   beach_id: z.string().min(1),
   beach_name: z.string().optional(),
@@ -297,6 +298,7 @@ interface ForecastFeedbackNudgePayload {
 }
 
 interface HomeMorningCallPayload {
+  alert_date: string;
   verdict: "YES" | "MAYBE" | "NO";
   beach_id: string;
   beach_name?: string;
@@ -452,6 +454,7 @@ export const NOTIFICATION_REGISTRY = {
       },
     },
     suppressSelfNotify: false,
+    surfAlertPriority: 3,
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) => forecastAlertSchema.parse(input) as ForecastAlertPayload,
     buildPushPayload: (p) => ({
@@ -534,6 +537,7 @@ export const NOTIFICATION_REGISTRY = {
       },
     },
     suppressSelfNotify: false,
+    surfAlertPriority: 2,
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) =>
       similarityMatchSchema.parse(input) as SimilarityMatchPayload,
@@ -635,6 +639,7 @@ export const NOTIFICATION_REGISTRY = {
       perType: { push: "notif_reminders" },
     },
     suppressSelfNotify: false,
+    surfAlertPriority: 1,
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) => homeMorningCallSchema.parse(input),
     buildPushPayload: (p) => ({
@@ -643,6 +648,7 @@ export const NOTIFICATION_REGISTRY = {
       data: {
         type: "home_morning_call",
         beach_id: p.beach_id,
+        alert_date: p.alert_date,
         verdict: p.verdict,
         ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
       },

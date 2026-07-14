@@ -69,6 +69,15 @@ function isAutoManagedSimilarity(rule: AlertRuleRowForGuard): boolean {
   );
 }
 
+function needsBeginnerWindowConfirmation(
+  experienceLevel: unknown,
+  conditions: AlertConditions,
+): boolean {
+  if (conditions.beginner_sandy_window !== true) return false;
+  if (conditions.beginner_window_confirmed === true) return false;
+  return experienceLevel === "advanced" || experienceLevel === "expert";
+}
+
 /**
  * PATCH /api/alerts/rules/[ruleId] — Update an alert rule
  *
@@ -100,6 +109,21 @@ export const PATCH = withAuth(
 
     const body = await request.json();
     const { name, conditions, notify_email, notify_push, enabled } = body;
+
+    const effectiveConditions = (conditions ?? rule.conditions ?? {}) as AlertConditions;
+    if (conditions !== undefined || enabled === true) {
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("experience_level")
+        .eq("id", user.id)
+        .single();
+      if (profileError) throw profileError;
+      if (needsBeginnerWindowConfirmation(profile?.experience_level, effectiveConditions)) {
+        return createValidationError(
+          "Confirm that you want beginner-friendly windows before enabling this alert.",
+        );
+      }
+    }
 
     if (
       conditions !== undefined ||

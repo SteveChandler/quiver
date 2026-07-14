@@ -48,7 +48,36 @@ describe("enqueueNotification", () => {
       entity_id: "sess-1",
       payload: { session_id: "sess-1", beach_name: "Mavericks" },
       dedupe_key: "like:sess-1:user-B",
+      next_attempt_at: null,
     });
+  });
+
+  it("holds surf-alert events briefly so higher-priority sources can coalesce", async () => {
+    jest.useFakeTimers({ now: new Date("2026-07-13T15:00:00.000Z") });
+    mockSingle.mockResolvedValueOnce({
+      data: { id: "evt-surf" },
+      error: null,
+    });
+
+    await enqueueNotification({
+      type: "forecast_alert",
+      recipientUserId: "user-A",
+      entityType: "beach",
+      entityId: "beach-1",
+      payload: {
+        alert_date: "2026-07-13",
+        beach_id: "beach-1",
+        title: "Clean window",
+        body: "2.7 ft @ 14s",
+      },
+    });
+
+    expect(mockInsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        next_attempt_at: "2026-07-13T15:05:00.000Z",
+      }),
+    );
+    jest.useRealTimers();
   });
 
   it("returns enqueued=false reason=duplicate on unique-violation (Postgres 23505)", async () => {
@@ -209,6 +238,7 @@ describe("enqueueNotification", () => {
         trial_ends_at: "2026-05-01",
       },
       dedupe_key: null,
+      next_attempt_at: null,
     });
   });
 });

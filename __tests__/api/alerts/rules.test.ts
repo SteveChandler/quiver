@@ -53,9 +53,11 @@ interface AlertRuleRow {
 
 interface ProfileRow {
   home_beach_id: string | null;
+  experience_level?: string | null;
 }
 
 let mockProfile: ProfileRow = { home_beach_id: "beach-home" };
+let mockProfileError: { message: string } | null = null;
 let mockExistingRules: AlertRuleRow[] = [];
 let mockUserEntitlementTier: "free" | "premium" = "premium";
 let mockPersonalizationEligibility = {
@@ -111,7 +113,10 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
                 eq() {
                   return {
                     single: () =>
-                      Promise.resolve({ data: mockProfile, error: null }),
+                      Promise.resolve({
+                        data: mockProfileError ? null : mockProfile,
+                        error: mockProfileError,
+                      }),
                   };
                 },
               };
@@ -321,6 +326,7 @@ function autoSimilarityRule(
 
 beforeEach(() => {
   mockProfile = { home_beach_id: "beach-home" };
+  mockProfileError = null;
   mockExistingRules = [];
   mockUserEntitlementTier = "premium";
   mockPersonalizationEligibility = {
@@ -543,6 +549,56 @@ describe("POST /api/alerts/rules — duplicate similarity_match guard", () => {
 });
 
 describe("POST /api/alerts/rules — condition alert validation", () => {
+  it("fails closed when the profile lookup for the beginner-window guard fails", async () => {
+    mockProfileError = { message: "profile lookup failed" };
+
+    await expect(
+      POST(
+        makeReq({
+          beach_id: "beach-home",
+          name: "Small clean longboard waves",
+          preset_type: "mellow_session",
+          conditions: {
+            swell_height_min: 0.5,
+            swell_height_max: 3,
+            beginner_sandy_window: true,
+          },
+          notify_push: true,
+          notify_email: false,
+        })
+      )
+    ).rejects.toMatchObject({ message: "profile lookup failed" });
+
+    expect(insertSpy).not.toHaveBeenCalled();
+  });
+
+  it("requires an advanced user to explicitly opt into beginner windows", async () => {
+    mockProfile = {
+      home_beach_id: "beach-home",
+      experience_level: "advanced",
+    };
+
+    const res = await POST(
+      makeReq({
+        beach_id: "beach-home",
+        name: "Small clean longboard waves",
+        preset_type: "mellow_session",
+        conditions: {
+          swell_height_min: 0.5,
+          swell_height_max: 3,
+          beginner_sandy_window: true,
+        },
+        notify_push: true,
+        notify_email: false,
+      })
+    );
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toMatch(/confirm.*beginner/i);
+    expect(insertSpy).not.toHaveBeenCalled();
+  });
+
   it("rejects empty custom conditions before they can match every forecast", async () => {
     const res = await POST(
       makeReq({
@@ -717,6 +773,54 @@ describe("DELETE /api/alerts/rules/[ruleId] — auto-managed guard", () => {
 // ============================================================================
 
 describe("PATCH /api/alerts/rules/[ruleId] — auto-managed guard", () => {
+  it("fails closed when the profile lookup for the beginner-window guard fails", async () => {
+    mockProfileError = { message: "profile lookup failed" };
+    const rule = userRule({
+      id: "550e8400-e29b-41d4-a716-446655440010",
+      enabled: false,
+      conditions: {
+        swell_height_min: 0.5,
+        swell_height_max: 3,
+        beginner_sandy_window: true,
+      },
+    });
+    mockExistingRules = [rule];
+
+    await expect(
+      PATCH(
+        makeReq({ enabled: true }),
+        { params: { ruleId: rule.id } } as any,
+      )
+    ).rejects.toMatchObject({ message: "profile lookup failed" });
+
+    expect(updateSpy).not.toHaveBeenCalled();
+  });
+
+  it("does not re-enable an unconfirmed legacy beginner window for an advanced user", async () => {
+    mockProfile = {
+      home_beach_id: "beach-home",
+      experience_level: "expert",
+    };
+    const rule = userRule({
+      id: "550e8400-e29b-41d4-a716-446655440010",
+      enabled: false,
+      conditions: {
+        swell_height_min: 0.5,
+        swell_height_max: 3,
+        beginner_sandy_window: true,
+      },
+    });
+    mockExistingRules = [rule];
+
+    const res = await PATCH(
+      makeReq({ enabled: true }),
+      { params: { ruleId: rule.id } } as any,
+    );
+
+    expect(res.status).toBe(400);
+    expect(updateSpy).not.toHaveBeenCalled();
+  });
+
   it("returns 403 when patching enabled:false on auto-managed similarity rule", async () => {
     const rule = autoSimilarityRule({
       id: "550e8400-e29b-41d4-a716-446655440010",

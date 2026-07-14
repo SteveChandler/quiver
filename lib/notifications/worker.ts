@@ -229,6 +229,77 @@ interface ChannelDecision {
   nextAttemptAt?: Date | null;
 }
 
+type SurfAlertCandidate = {
+  id: string;
+  type: string;
+  recipient_user_id: string;
+  entity_id: string | null;
+  payload: Record<string, unknown>;
+};
+
+interface SurfAlertSlot {
+  beachId: string;
+  alertDate: string;
+  priority: 1 | 2 | 3;
+}
+
+export function getSurfAlertSlot(event: SurfAlertCandidate): SurfAlertSlot | null {
+  if (!isKnownNotificationType(event.type)) return null;
+
+  const priority = getRegistryEntry(event.type).surfAlertPriority;
+  const alertDate = typeof event.payload.alert_date === "string"
+    ? event.payload.alert_date
+    : null;
+  const beachId = event.entity_id ??
+    (typeof event.payload.beach_id === "string" ? event.payload.beach_id : null);
+
+  if (!priority || !alertDate || !/^\d{4}-\d{2}-\d{2}$/.test(alertDate) || !beachId) {
+    return null;
+  }
+
+  return { beachId, alertDate, priority };
+}
+
+/** Selects the preferred candidate per slot and priority-orders its fallbacks. */
+export function selectSurfAlertWinners<T extends SurfAlertCandidate>(events: T[]): {
+  winners: T[];
+  redundant: T[];
+} {
+  const winners: T[] = [];
+  const redundant: T[] = [];
+  const bySlot = new Map<string, T>();
+
+  for (const event of events) {
+    const slot = getSurfAlertSlot(event);
+    if (!slot) {
+      winners.push(event);
+      continue;
+    }
+
+    const key = `${event.recipient_user_id}:${slot.beachId}:${slot.alertDate}`;
+    const existing = bySlot.get(key);
+    if (!existing) {
+      bySlot.set(key, event);
+      winners.push(event);
+      continue;
+    }
+    const existingSlot = getSurfAlertSlot(existing);
+    if (existingSlot && slot.priority > existingSlot.priority) {
+      bySlot.set(key, event);
+      winners.splice(winners.indexOf(existing), 1, event);
+      redundant.push(existing);
+    } else {
+      redundant.push(event);
+    }
+  }
+  redundant.sort((a, b) => {
+    const aPriority = getSurfAlertSlot(a)?.priority ?? 0;
+    const bPriority = getSurfAlertSlot(b)?.priority ?? 0;
+    return bPriority - aPriority;
+  });
+  return { winners, redundant };
+}
+
 function channelDecision(
   status: NotificationDeliveryStatus,
   details: Omit<ChannelDecision, "status"> = {}
@@ -272,9 +343,20 @@ export async function processPendingEvents(
   summary.fetched = events.length;
   if (events.length === 0) return summary;
 
+  const arbitration = selectSurfAlertWinners(
+    events.map((event) => ({ ...event, payload: event.payload as Record<string, unknown> })),
+  );
+  // Evaluate the preferred candidate first, but do not cancel fallbacks until
+  // the winner reaches the actual push boundary. A disabled forecast alert
+  // must not suppress an enabled morning call for the same beach and day.
+  const dispatchEvents = [
+    ...arbitration.winners,
+    ...arbitration.redundant,
+  ] as NotificationEventRow[];
+
   const priorAttempts = await loadAttemptsForEvents(
     supabase,
-    events.map((e) => e.id)
+    dispatchEvents.map((e) => e.id)
   );
 
   // Track events that stay pending after the tick so we can release their
@@ -283,7 +365,7 @@ export async function processPendingEvents(
   // of hammering FCM every minute on transient failures.
   const pendingReleases: Array<{ eventId: string; nextAttemptAt: Date | null }> = [];
 
-  for (const event of events) {
+  for (const event of dispatchEvents) {
     const eventAttempts = priorAttempts.get(event.id) ?? [];
     try {
       const result = await processOne(
@@ -379,6 +461,13 @@ async function processOne(
     return { outcome: "failed", nextAttemptAt: null };
   }
   const def = getRegistryEntry(event.type as NotificationType);
+  const surfAlertSlot = getSurfAlertSlot({
+    id: event.id,
+    type: event.type,
+    recipient_user_id: event.recipient_user_id,
+    entity_id: event.entity_id,
+    payload: event.payload as Record<string, unknown>,
+  });
 
   // Profile lookup distinguishes "row missing" (terminal failure) from
   // "query errored" (transient — leave pending so next tick can retry).
@@ -442,6 +531,7 @@ async function processOne(
   const newAttempts: NotificationDeliveryAttemptInsert[] = [];
   const quietHoursRetryTimes: Date[] = [];
   const channelOutcomes = new Map<NotificationChannel, ChannelOutcome>();
+  let surfAlertRejected = false;
 
   for (const channel of def.channels) {
     const prior = attemptsByChannel.get(channel) ?? [];
@@ -470,7 +560,8 @@ async function processOne(
       profile,
       ctx,
       channel,
-      now
+      now,
+      surfAlertSlot,
     );
     const { status } = decision;
 
@@ -533,6 +624,11 @@ async function processOne(
       // Unrecognized status — defensive treat as failed.
       channelOutcomes.set(channel, "failed");
     }
+
+    if (surfAlertSlot && status === "skipped_dedup") {
+      surfAlertRejected = true;
+      break;
+    }
   }
 
   if (newAttempts.length > 0) {
@@ -540,6 +636,17 @@ async function processOne(
     if (attemptsInserted) {
       await captureDeliveryAttemptEvents(event, newAttempts);
     }
+  }
+
+  if (surfAlertRejected) {
+    await markEventTerminal(
+      supabase,
+      event.id,
+      "cancelled",
+      "skipped_redundant",
+      claimToken,
+    );
+    return { outcome: "all-skipped", nextAttemptAt: null };
   }
 
   const outcome = await finalizeEventStatus(
@@ -667,7 +774,8 @@ async function processChannel(
   profile: ProfileRow,
   ctx: BuildCtx,
   channel: NotificationChannel,
-  now: Date
+  now: Date,
+  surfAlertSlot: SurfAlertSlot | null,
 ): Promise<ChannelDecision> {
   if (
     def.suppressSelfNotify &&
@@ -783,9 +891,15 @@ async function processChannel(
   }
 
   if (channel === "push") {
-    return dispatchPush(supabase, fcm, event, def, ctx);
+    return dispatchPush(supabase, fcm, event, def, ctx, surfAlertSlot);
   }
   if (channel === "in_app") {
+    if (
+      surfAlertSlot &&
+      !(await claimSurfAlertSlot(supabase, event, surfAlertSlot))
+    ) {
+      return channelDecision("skipped_dedup");
+    }
     return channelDecision(await dispatchInApp(supabase, event, def, ctx));
   }
   // 'email' not supported in v1 — registry has no entries that route here.
@@ -836,7 +950,8 @@ async function dispatchPush(
   fcm: FcmMessaging,
   event: NotificationEventRow,
   def: NotificationTypeDef,
-  ctx: BuildCtx
+  ctx: BuildCtx,
+  surfAlertSlot: SurfAlertSlot | null,
 ): Promise<ChannelDecision> {
   if (!def.buildPushPayload) {
     return channelDecision("failed_internal", {
@@ -868,6 +983,13 @@ async function dispatchPush(
   const deviceList = (devices ?? []) as DeviceRow[];
   if (deviceList.length === 0) {
     return channelDecision("skipped_no_device");
+  }
+
+  if (
+    surfAlertSlot &&
+    !(await claimSurfAlertSlot(supabase, event, surfAlertSlot))
+  ) {
+    return channelDecision("skipped_dedup");
   }
 
   const payloadRecord = (event.payload ?? {}) as Record<string, unknown>;
@@ -1241,7 +1363,7 @@ async function captureDeliveryAttemptEvents(
 async function markEventTerminal(
   supabase: ServiceClient,
   eventId: string,
-  status: "processed" | "failed",
+  status: "processed" | "failed" | "cancelled",
   skipReason: string | null,
   claimToken: string
 ): Promise<void> {
@@ -1262,6 +1384,7 @@ async function markEventTerminal(
     .update({
       status,
       skip_reason: skipReason,
+      cancel_reason: status === "cancelled" ? skipReason : null,
       processed_at: new Date().toISOString(),
       claim_token: null,
       claimed_at: null,
@@ -1274,4 +1397,41 @@ async function markEventTerminal(
       error
     );
   }
+}
+
+async function claimSurfAlertSlot(
+  supabase: ServiceClient,
+  event: NotificationEventRow,
+  slot: SurfAlertSlot,
+): Promise<boolean> {
+  const rpcClient = supabase as unknown as {
+    rpc(
+      name: "claim_surf_alert_slot",
+      args: {
+        p_event_id: string;
+        p_recipient_user_id: string;
+        p_beach_id: string;
+        p_alert_date: string;
+        p_priority: number;
+      },
+    ): Promise<{
+      data: boolean | null;
+      error: { message: string; code?: string } | null;
+    }>;
+  };
+  const { data, error } = await rpcClient.rpc("claim_surf_alert_slot", {
+    p_event_id: event.id,
+    p_recipient_user_id: event.recipient_user_id,
+    p_beach_id: slot.beachId,
+    p_alert_date: slot.alertDate,
+    p_priority: slot.priority,
+  });
+
+  if (error) {
+    throw new Error(
+      `surf alert slot claim failed: ${error.message}${error.code ? ` (code=${error.code})` : ""}`,
+    );
+  }
+
+  return data === true;
 }

@@ -11,11 +11,14 @@ const baseItem = {
 };
 
 describe("consolidateQueueItems", () => {
-  it("groups items by user into a single payload", () => {
+  it("keeps different beaches in separate payloads for the same user", () => {
     const items = [baseItem, { ...baseItem, id: "q2", rule_id: "rule-2", beach_id: "beach-2", beach_name: "Trestles", rule_name: "Big Day" }];
     const payloads = consolidateQueueItems(items);
-    expect(payloads).toHaveLength(1);
-    expect(payloads[0].matches).toHaveLength(2);
+    expect(payloads).toHaveLength(2);
+    expect(payloads.map((payload) => payload.matches[0].beach_name)).toEqual([
+      "Blacks Beach",
+      "Trestles",
+    ]);
   });
 
   it("sorts matches by best_score descending", () => {

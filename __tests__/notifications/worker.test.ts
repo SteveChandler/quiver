@@ -86,6 +86,7 @@ interface MockState {
   }>;
   eventUpdates: Array<{ id: string; status: string; skip_reason: string | null }>;
   deviceDeletes: string[];
+  surfAlertSlots: Map<string, { eventId: string; priority: number }>;
   /** When set, fetch on this table throws to simulate a Supabase error. */
   errorOnSelect?: Set<string>;
   /** When set, profile lookup for this user_id throws. */
@@ -378,10 +379,61 @@ function buildMockSupabase(state: MockState) {
   }
   return {
     from: fromTable,
-    rpc: async (
-      name: string,
-      args: { p_batch_size: number; p_lease_seconds: number; p_claim_token: string }
-    ) => {
+    rpc: async (name: string, args: Record<string, unknown>) => {
+      if (name === "claim_surf_alert_slot") {
+        const eventId = args.p_event_id as string;
+        const slotKey = [
+          args.p_recipient_user_id,
+          args.p_beach_id,
+          args.p_alert_date,
+        ].join(":");
+        const priority = args.p_priority as number;
+        const existing = state.surfAlertSlots.get(slotKey);
+        if (!existing) {
+          state.surfAlertSlots.set(slotKey, { eventId, priority });
+          return { data: true, error: null };
+        }
+        if (existing.eventId === eventId) {
+          return { data: true, error: null };
+        }
+
+        const existingEvent = state.events.find((event) => event.id === existing.eventId);
+        if (!existingEvent || ["processing", "processed"].includes(existingEvent.status)) {
+          return { data: false, error: null };
+        }
+        if (existingEvent.status !== "pending" || priority > existing.priority) {
+          if (existingEvent.status === "pending") {
+            if (["forecast_alert", "similarity_match"].includes(existingEvent.type)) {
+              const queueItems = Array.isArray(existingEvent.payload.queue_items)
+                ? existingEvent.payload.queue_items
+                : [];
+              for (const queueItem of queueItems) {
+                if (
+                  typeof queueItem === "object" &&
+                  queueItem !== null &&
+                  "queue_id" in queueItem &&
+                  "rule_id" in queueItem
+                ) {
+                  state.alertAttempts.push({
+                    queue_id: String(queueItem.queue_id),
+                    rule_id: String(queueItem.rule_id),
+                    user_id: existingEvent.recipient_user_id,
+                    channel: "push",
+                    status: "skipped_dedup_collision",
+                    skip_reason: "skipped_dedup",
+                  });
+                }
+              }
+            }
+            existingEvent.status = "cancelled";
+            existingEvent.skip_reason = "skipped_redundant";
+            existingEvent.cancel_reason = "skipped_redundant";
+          }
+          state.surfAlertSlots.set(slotKey, { eventId, priority });
+          return { data: true, error: null };
+        }
+        return { data: false, error: null };
+      }
       if (name !== "claim_notification_events") {
         throw new Error(`Unexpected rpc in mock: ${name}`);
       }
@@ -392,9 +444,9 @@ function buildMockSupabase(state: MockState) {
         };
       }
       const data = simulateClaim(
-        args.p_batch_size,
-        args.p_lease_seconds,
-        args.p_claim_token,
+        args.p_batch_size as number,
+        args.p_lease_seconds as number,
+        args.p_claim_token as string,
         state.now ?? Date.now()
       );
       return { data, error: null };
@@ -412,6 +464,7 @@ function emptyState(): MockState {
     alertAttempts: [],
     eventUpdates: [],
     deviceDeletes: [],
+    surfAlertSlots: new Map(),
   };
 }
 
@@ -663,6 +716,269 @@ describe("processPendingEvents — happy path", () => {
         skip_reason: "sent",
       },
     ]);
+  });
+});
+
+describe("processPendingEvents — durable surf-alert arbitration", () => {
+  it("keeps one in-app surf alert when push is disabled", async () => {
+    const state = emptyState();
+    state.now = NOON_PT.getTime();
+    state.profiles.set(
+      "user-recipient",
+      buildProfile({ notif_push_enabled: false, notif_inapp_enabled: true }),
+    );
+    state.events.push(
+      buildEvent({
+        id: "evt-similarity-in-app",
+        actor_user_id: null,
+        type: "similarity_match",
+        entity_type: "beach",
+        entity_id: "beach-1",
+        payload: {
+          beach_id: "beach-1",
+          beach_slug: "mavericks",
+          beach_name: "Mavericks",
+          alert_date: "2026-04-29",
+          forecast_at: "2026-04-29T19:00:00.000Z",
+          score: 8.4,
+          label: "GOOD",
+          reason: "Conditions match your best sessions",
+        },
+      }),
+      buildEvent({
+        id: "evt-forecast-in-app",
+        actor_user_id: null,
+        type: "forecast_alert",
+        entity_type: "beach",
+        entity_id: "beach-1",
+        payload: {
+          alert_date: "2026-04-29",
+          beach_id: "beach-1",
+          title: "Clean window at Mavericks",
+          body: "2.7 ft @ 14s",
+        },
+      }),
+    );
+
+    const summary = await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: { sendEach: jest.fn() } as never,
+    });
+
+    expect(summary).toMatchObject({ processed: 2, skipped: 1 });
+    expect(state.notificationsInserts).toHaveLength(1);
+    expect(state.notificationsInserts[0]).toMatchObject({
+      type: "forecast_alert",
+    });
+    expect(state.events.find((event) => event.id === "evt-similarity-in-app")).toMatchObject({
+      status: "cancelled",
+      skip_reason: "skipped_redundant",
+    });
+  });
+
+  it("lets an enabled morning call deliver when a higher-priority forecast alert is disabled", async () => {
+    const state = emptyState();
+    state.now = NOON_PT.getTime();
+    state.profiles.set(
+      "user-recipient",
+      buildProfile({ notif_forecast_alerts: false, notif_reminders: true }),
+    );
+    state.devices.set("user-recipient", ["device-token-A"]);
+    state.events.push(
+      buildEvent({
+        id: "evt-home-enabled",
+        actor_user_id: null,
+        type: "home_morning_call",
+        entity_type: "beach",
+        entity_id: "beach-1",
+        payload: {
+          alert_date: "2026-04-29",
+          beach_id: "beach-1",
+          verdict: "YES",
+          title: "Worth it at Mavericks",
+          body: "Clean early window",
+        },
+      }),
+      buildEvent({
+        id: "evt-forecast-disabled",
+        actor_user_id: null,
+        type: "forecast_alert",
+        entity_type: "beach",
+        entity_id: "beach-1",
+        payload: {
+          alert_date: "2026-04-29",
+          beach_id: "beach-1",
+          title: "Clean window at Mavericks",
+          body: "2.7 ft @ 14s",
+        },
+      }),
+    );
+
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+
+    const summary = await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: fakeFcm as never,
+    });
+
+    expect(summary).toMatchObject({ processed: 2, skipped: 1 });
+    expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.events.find((event) => event.id === "evt-home-enabled")).toMatchObject({
+      status: "processed",
+      skip_reason: null,
+    });
+    expect(state.surfAlertSlots.get("user-recipient:beach-1:2026-04-29")).toEqual({
+      eventId: "evt-home-enabled",
+      priority: 1,
+    });
+  });
+
+  it("cancels a same-beach surf alert claimed in a later worker tick", async () => {
+    const state = emptyState();
+    state.now = NOON_PT.getTime();
+    state.profiles.set("user-recipient", buildProfile());
+    state.devices.set("user-recipient", ["device-token-A"]);
+    state.events.push(
+      buildEvent({
+        id: "evt-home",
+        actor_user_id: null,
+        type: "home_morning_call",
+        entity_type: "beach",
+        entity_id: "beach-1",
+        payload: {
+          alert_date: "2026-04-29",
+          beach_id: "beach-1",
+          verdict: "YES",
+          title: "Worth it at Mavericks",
+          body: "Clean early window",
+        },
+      }),
+    );
+
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: fakeFcm as never,
+    });
+
+    state.events.push(
+      buildEvent({
+        id: "evt-condition",
+        actor_user_id: null,
+        type: "forecast_alert",
+        entity_type: "beach",
+        entity_id: "beach-1",
+        payload: {
+          alert_date: "2026-04-29",
+          beach_id: "beach-1",
+          title: "Clean window at Mavericks",
+          body: "2.7 ft @ 14s",
+        },
+      }),
+    );
+
+    const summary = await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: fakeFcm as never,
+    });
+
+    expect(summary).toMatchObject({ processed: 1, skipped: 1 });
+    expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.events.find((event) => event.id === "evt-condition")).toMatchObject({
+      status: "cancelled",
+      skip_reason: "skipped_redundant",
+    });
+  });
+
+  it("reconciles queue bookkeeping when a higher-priority event displaces a pending winner", async () => {
+    const state = emptyState();
+    state.now = NOON_PT.getTime();
+    state.profiles.set("user-recipient", buildProfile());
+    state.devices.set("user-recipient", ["device-token-A"]);
+    state.events.push(
+      buildEvent({
+        id: "evt-similarity-pending",
+        actor_user_id: null,
+        type: "similarity_match",
+        entity_type: "beach",
+        entity_id: "beach-1",
+        payload: {
+          beach_id: "beach-1",
+          beach_slug: "mavericks",
+          beach_name: "Mavericks",
+          alert_date: "2026-04-29",
+          forecast_at: "2026-04-29T19:00:00.000Z",
+          score: 8.4,
+          label: "GOOD",
+          reason: "Conditions match your best sessions",
+          queue_items: [{ queue_id: "queue-sim-pending", rule_id: "rule-sim-pending" }],
+        },
+      }),
+    );
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: null,
+    });
+    expect(state.events[0]).toMatchObject({ status: "pending" });
+
+    state.events.push(
+      buildEvent({
+        id: "evt-condition-winner",
+        actor_user_id: null,
+        type: "forecast_alert",
+        entity_type: "beach",
+        entity_id: "beach-1",
+        payload: {
+          alert_date: "2026-04-29",
+          beach_id: "beach-1",
+          title: "Clean window at Mavericks",
+          body: "2.7 ft @ 14s",
+        },
+      }),
+    );
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: fakeFcm as never,
+    });
+
+    const retryAt = new Date(NOON_PT.getTime() + 61_000);
+    state.now = retryAt.getTime();
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: retryAt,
+      fcm: fakeFcm as never,
+    });
+
+    expect(state.alertAttempts).toContainEqual({
+      queue_id: "queue-sim-pending",
+      rule_id: "rule-sim-pending",
+      user_id: "user-recipient",
+      channel: "push",
+      status: "skipped_dedup_collision",
+      skip_reason: "skipped_dedup",
+    });
+    expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
   });
 });
 

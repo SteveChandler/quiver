@@ -27,6 +27,7 @@ const CONDITION_KEYS = new Set<keyof AlertConditions>([
   "quiet_hours_start",
   "quiet_hours_end",
   "beginner_sandy_window",
+  "beginner_window_confirmed",
 ]);
 
 const MEANINGFUL_KEYS = new Set<keyof AlertConditions>([
@@ -246,6 +247,13 @@ export function validateConditionAlertInput(args: {
     if (input.quiet_hours_start === input.quiet_hours_end) {
       return { ok: false, message: "Quiet hours cannot cover the full day." };
     }
+  }
+
+  if (
+    input.beginner_window_confirmed !== undefined &&
+    typeof input.beginner_window_confirmed !== "boolean"
+  ) {
+    return { ok: false, message: "beginner_window_confirmed must be true or false." };
   }
 
   const output: AlertConditions = {};

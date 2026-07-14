@@ -502,8 +502,12 @@ export async function GET(request: Request): Promise<NextResponse> {
         const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
 
         for (const payload of payloads) {
+          const payloadBeachId = payload.matches[0]?.beach_id ?? null;
           result.processed++;
-          const contributingItems = items.filter((i) => i.user_id === payload.user_id);
+          const contributingItems = items.filter(
+            (item) =>
+              item.user_id === payload.user_id && item.beach_id === payloadBeachId,
+          );
           const queueIds = contributingItems.map((i) => i.id);
           const emailItems = contributingItems.filter((i) => i.notify_email);
           const pushItems = contributingItems.filter((i) => i.notify_push);
@@ -726,6 +730,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                     .from("alert_deliveries")
                     .select("id")
                     .eq("user_id", payload.user_id)
+                    .eq("beach_id", payloadBeachId)
                     .eq("alert_date", payload.alert_date)
                     .eq("channel", "email")
                     .limit(1);
@@ -798,6 +803,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                       // Write dedup record
                       const { error: deliveryInsertError } = await supabase.from("alert_deliveries").insert({
                         user_id: payload.user_id,
+                        beach_id: payloadBeachId,
                         alert_date: payload.alert_date,
                         channel: "email",
                         payload: {
@@ -898,6 +904,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                     .from("alert_deliveries")
                     .select("id")
                     .eq("user_id", payload.user_id)
+                    .eq("beach_id", payloadBeachId)
                     .eq("alert_date", payload.alert_date)
                     .eq("channel", "push")
                     .limit(1);
@@ -961,7 +968,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                           rule_id: s.rule_id,
                         })),
                       },
-                      dedupeKey: `forecast_alert:${payload.user_id}:${payload.alert_date}`,
+                      dedupeKey: `forecast_alert:${payload.user_id}:${payloadBeachId}:${payload.alert_date}`,
                     }).catch((err) => {
                       console.error(`${CONTEXT_TAG} enqueue threw for user ${payload.user_id}:`, err);
                       return { enqueued: false as const, reason: "internal_error" as const };
@@ -976,6 +983,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                       // (per-rule rows in alert_delivery_attempts).
                       const { error: deliveryInsertError } = await supabase.from("alert_deliveries").insert({
                         user_id: payload.user_id,
+                        beach_id: payloadBeachId,
                         alert_date: payload.alert_date,
                         channel: "push",
                         payload: {
@@ -1216,7 +1224,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                   : { setup_tip: optionalStringField(snap.setup_tip) }),
                 queue_items: [{ queue_id: item.id, rule_id: item.rule_id }],
               },
-              dedupeKey: `similarity_match:${item.user_id}:${item.alert_date}`,
+              dedupeKey: `similarity_match:${item.user_id}:${item.beach_id}:${item.alert_date}`,
             }).catch((err) => {
               console.error(`${CONTEXT_TAG} similarity enqueue threw for user ${item.user_id}:`, err);
               return { enqueued: false as const, reason: "internal_error" as const };
