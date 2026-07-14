@@ -3,7 +3,7 @@ BEGIN;
 CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
 SET search_path = public, extensions;
 
-SELECT plan(16);
+SELECT plan(19);
 
 SELECT ok(
   EXISTS (
@@ -16,6 +16,33 @@ SELECT ok(
       AND index_meta.indpred IS NOT NULL
   ),
   'legacy alert writers retain a unique partial deduplication index during rollout'
+);
+
+SELECT ok(
+  NOT has_function_privilege(
+    'anon',
+    'public.claim_surf_alert_slot(uuid,uuid,uuid,date,smallint)',
+    'EXECUTE'
+  ),
+  'anonymous clients cannot claim surf-alert delivery slots'
+);
+
+SELECT ok(
+  NOT has_function_privilege(
+    'authenticated',
+    'public.claim_surf_alert_slot(uuid,uuid,uuid,date,smallint)',
+    'EXECUTE'
+  ),
+  'authenticated clients cannot claim surf-alert delivery slots'
+);
+
+SELECT ok(
+  has_function_privilege(
+    'service_role',
+    'public.claim_surf_alert_slot(uuid,uuid,uuid,date,smallint)',
+    'EXECUTE'
+  ),
+  'the notification worker retains permission to claim surf-alert delivery slots'
 );
 
 INSERT INTO auth.users (
