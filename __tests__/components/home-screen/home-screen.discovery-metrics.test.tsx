@@ -3,6 +3,7 @@ import { act, render } from "@testing-library/react";
 import { HomeScreen } from "@/components/home-screen";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
+import { useTimeSlotPrefetch } from "@/hooks/use-time-slot-prefetch";
 
 const mockRouterReplace = jest.fn();
 const mockRouterPush = jest.fn();
@@ -234,12 +235,12 @@ describe("HomeScreen discovery request instrumentation", () => {
     });
   });
 
-  it("records discovery request success/error marks without disabling geolocation polling", () => {
+  it("avoids mount GPS and counts primary plus prefetch discovery requests", () => {
     render(<HomeScreen />);
 
     expect(useGeolocation).toHaveBeenCalledWith(
       expect.objectContaining({
-        autoRequest: true,
+        autoRequest: false,
         enablePolling: true,
         pollingIntervalMs: 5 * 60 * 1000,
         minDistanceChangeMeters: 1000,
@@ -247,23 +248,28 @@ describe("HomeScreen discovery request instrumentation", () => {
     );
 
     const discoveryOptions = (useSurfDiscovery as jest.Mock).mock.calls[0][0];
+    const prefetchOptions = (useTimeSlotPrefetch as jest.Mock).mock.calls[0][0];
 
     act(() => {
-      discoveryOptions.onSuccess();
+      discoveryOptions.onRequest();
     });
 
     expect(getHomeDiscoveryWindow().__quiverHomeDiscoveryRequestCount).toBe(1);
     expect(markMock).toHaveBeenCalledWith(
-      "quiver:home:discovery-request:1:success",
+      "quiver:home:discovery-request:1:primary",
     );
 
     act(() => {
-      discoveryOptions.onError();
+      prefetchOptions.onRequest("dawn-patrol");
+      prefetchOptions.onRequest("afternoon");
     });
 
-    expect(getHomeDiscoveryWindow().__quiverHomeDiscoveryRequestCount).toBe(2);
+    expect(getHomeDiscoveryWindow().__quiverHomeDiscoveryRequestCount).toBe(3);
     expect(markMock).toHaveBeenCalledWith(
-      "quiver:home:discovery-request:2:error",
+      "quiver:home:discovery-request:2:prefetch:dawn-patrol",
+    );
+    expect(markMock).toHaveBeenCalledWith(
+      "quiver:home:discovery-request:3:prefetch:afternoon",
     );
   });
 });

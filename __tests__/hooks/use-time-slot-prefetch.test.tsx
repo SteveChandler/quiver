@@ -5,7 +5,7 @@
  * for all time slots to enable instant filter switching.
  */
 
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { useTimeSlotPrefetch } from "@/hooks/use-time-slot-prefetch";
 import * as authContext from "@/context/auth-context";
 import * as cacheUtils from "@/lib/utils/discovery-cache-utils";
@@ -30,6 +30,7 @@ describe("useTimeSlotPrefetch", () => {
 
   // Store original globals
   const originalFetch = global.fetch;
+  const originalRequestIdleCallback = globalThis.requestIdleCallback;
 
   beforeEach(() => {
     jest.clearAllMocks();
@@ -40,6 +41,18 @@ describe("useTimeSlotPrefetch", () => {
     });
     Object.defineProperty(navigator, "connection", {
       value: undefined,
+      configurable: true,
+    });
+    Object.defineProperty(navigator, "onLine", {
+      value: true,
+      configurable: true,
+    });
+    Object.defineProperty(globalThis, "requestIdleCallback", {
+      value: (callback: IdleRequestCallback): number =>
+        window.setTimeout(
+          () => callback({ didTimeout: false, timeRemaining: () => 50 }),
+          0
+        ),
       configurable: true,
     });
 
@@ -77,6 +90,10 @@ describe("useTimeSlotPrefetch", () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
+    Object.defineProperty(globalThis, "requestIdleCallback", {
+      value: originalRequestIdleCallback,
+      configurable: true,
+    });
   });
 
   describe("basic behavior", () => {
@@ -90,7 +107,7 @@ describe("useTimeSlotPrefetch", () => {
       );
 
       // Wait a bit to ensure no fetch happens
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 700));
 
       expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -106,7 +123,7 @@ describe("useTimeSlotPrefetch", () => {
         })
       );
 
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 700));
 
       expect(mockFetch).not.toHaveBeenCalled();
     });
@@ -168,12 +185,126 @@ describe("useTimeSlotPrefetch", () => {
       expect(mockFetch).not.toHaveBeenCalled();
     });
 
-    it("should prefetch other 3 time slots (excluding current)", async () => {
+    it("should not prefetch while offline", async () => {
+      Object.defineProperty(navigator, "onLine", {
+        value: false,
+        configurable: true,
+      });
+
       renderHook(() =>
         useTimeSlotPrefetch({
           userLocation: mockLocation,
           currentSlot: "any",
           enabled: true,
+        })
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 700));
+
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("starts prefetch after a hidden document becomes visible", async () => {
+      Object.defineProperty(document, "visibilityState", {
+        value: "hidden",
+        configurable: true,
+      });
+
+      renderHook(() =>
+        useTimeSlotPrefetch({
+          userLocation: mockLocation,
+          currentSlot: "any",
+          enabled: true,
+        })
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      expect(mockFetch).not.toHaveBeenCalled();
+
+      Object.defineProperty(document, "visibilityState", {
+        value: "visible",
+        configurable: true,
+      });
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(3), {
+        timeout: 5000,
+      });
+    });
+
+    it("starts prefetch after the browser returns online", async () => {
+      Object.defineProperty(navigator, "onLine", {
+        value: false,
+        configurable: true,
+      });
+
+      renderHook(() =>
+        useTimeSlotPrefetch({
+          userLocation: mockLocation,
+          currentSlot: "any",
+          enabled: true,
+        })
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(mockFetch).not.toHaveBeenCalled();
+
+      Object.defineProperty(navigator, "onLine", {
+        value: true,
+        configurable: true,
+      });
+      act(() => {
+        window.dispatchEvent(new Event("online"));
+      });
+
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(3), {
+        timeout: 5000,
+      });
+    });
+
+    it("starts prefetch after a constrained connection improves", async () => {
+      const connection = new EventTarget() as EventTarget & {
+        saveData: boolean;
+        effectiveType: string;
+      };
+      connection.saveData = false;
+      connection.effectiveType = "2g";
+      Object.defineProperty(navigator, "connection", {
+        value: connection,
+        configurable: true,
+      });
+
+      renderHook(() =>
+        useTimeSlotPrefetch({
+          userLocation: mockLocation,
+          currentSlot: "any",
+          enabled: true,
+        })
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(mockFetch).not.toHaveBeenCalled();
+
+      connection.effectiveType = "4g";
+      act(() => {
+        connection.dispatchEvent(new Event("change"));
+      });
+
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(3), {
+        timeout: 5000,
+      });
+    });
+
+    it("should prefetch other 3 time slots (excluding current)", async () => {
+      const onRequest = jest.fn();
+      renderHook(() =>
+        useTimeSlotPrefetch({
+          userLocation: mockLocation,
+          currentSlot: "any",
+          enabled: true,
+          onRequest,
         })
       );
 
@@ -193,6 +324,67 @@ describe("useTimeSlotPrefetch", () => {
       expect(urls.some((url) => url.includes("timeSlot=lunch-session"))).toBe(true);
       expect(urls.some((url) => url.includes("timeSlot=afternoon"))).toBe(true);
       expect(urls.some((url) => url.includes("timeSlot=any"))).toBe(false);
+      expect(onRequest).toHaveBeenCalledTimes(3);
+      expect(onRequest.mock.calls.map(([slot]) => slot)).toEqual([
+        "dawn-patrol",
+        "lunch-session",
+        "afternoon",
+      ]);
+    });
+
+    it("serializes 3g requests and resumes an interrupted cycle when visible", async () => {
+      Object.defineProperty(navigator, "connection", {
+        value: { saveData: false, effectiveType: "3g" },
+        configurable: true,
+      });
+      let resolveFirstFetch: ((value: unknown) => void) | undefined;
+      mockFetch.mockImplementationOnce(
+        () => new Promise((resolve) => {
+          resolveFirstFetch = resolve;
+        })
+      );
+
+      renderHook(() =>
+        useTimeSlotPrefetch({
+          userLocation: mockLocation,
+          currentSlot: "any",
+          enabled: true,
+        })
+      );
+
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(1), {
+        timeout: 5000,
+      });
+
+      Object.defineProperty(document, "visibilityState", {
+        value: "hidden",
+        configurable: true,
+      });
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      await act(async () => {
+        resolveFirstFetch?.({
+          ok: true,
+          json: async () => ({ data: { recommendations: [] } }),
+        });
+        await Promise.resolve();
+      });
+
+      expect(cacheUtils.writeToCache).not.toHaveBeenCalled();
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+
+      Object.defineProperty(document, "visibilityState", {
+        value: "visible",
+        configurable: true,
+      });
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+
+      await waitFor(() => expect(mockFetch).toHaveBeenCalledTimes(4), {
+        timeout: 5000,
+      });
     });
 
     it("should not prefetch current slot (lunch-session)", async () => {

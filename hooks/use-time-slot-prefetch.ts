@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import {
   getDiscoveryCacheKey,
@@ -19,6 +19,14 @@ const ALL_TIME_SLOTS: TimeSlot[] = ["any", "dawn-patrol", "lunch-session", "afte
 type NavigatorConnection = {
   saveData?: boolean;
   effectiveType?: string;
+  addEventListener?: (
+    type: string,
+    listener: EventListenerOrEventListenerObject
+  ) => void;
+  removeEventListener?: (
+    type: string,
+    listener: EventListenerOrEventListenerObject
+  ) => void;
 };
 
 function isPrefetchEnvironmentReady(): boolean {
@@ -27,6 +35,7 @@ function isPrefetchEnvironmentReady(): boolean {
   }
 
   if (typeof navigator === "undefined") return true;
+  if (navigator.onLine === false) return false;
 
   const connection = (navigator as Navigator & {
     connection?: NavigatorConnection;
@@ -56,6 +65,8 @@ interface UseTimeSlotPrefetchOptions {
   currentSlot: TimeSlot;
   /** Whether prefetching is enabled */
   enabled?: boolean;
+  /** Called immediately before a time-slot request starts */
+  onRequest?: (slot: TimeSlot) => void;
 }
 
 /**
@@ -68,7 +79,7 @@ interface UseTimeSlotPrefetchOptions {
  * Strategy:
  * - Waits 500ms after initial render to not block main content
  * - Uses requestIdleCallback (with setTimeout fallback for Safari)
- * - Skips hidden tabs, data-saver mode, and constrained connections
+ * - Pauses while hidden, offline, data-saving, or constrained and resumes when ready
  * - Fetches remaining time slots sequentially to avoid competing with active UI requests
  * - Skips slots that already have valid cache
  * - Silent failure - errors don't affect user experience
@@ -93,6 +104,7 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
     maxResults,
     currentSlot,
     enabled = true,
+    onRequest,
   } = options;
 
   const { user } = useAuth();
@@ -100,6 +112,33 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
   const abortControllerRef = useRef<AbortController | null>(null);
   const idleCallbackIdRef = useRef<number | null>(null);
   const prevLocationKeyRef = useRef<string | null>(null);
+  const onRequestRef = useRef(onRequest);
+  const [environmentReady, setEnvironmentReady] = useState(
+    isPrefetchEnvironmentReady
+  );
+  onRequestRef.current = onRequest;
+
+  useEffect(() => {
+    const updateEnvironmentReady = (): void => {
+      setEnvironmentReady(isPrefetchEnvironmentReady());
+    };
+    const connection = (navigator as Navigator & {
+      connection?: NavigatorConnection;
+    }).connection;
+
+    document.addEventListener("visibilitychange", updateEnvironmentReady);
+    window.addEventListener("online", updateEnvironmentReady);
+    window.addEventListener("offline", updateEnvironmentReady);
+    connection?.addEventListener?.("change", updateEnvironmentReady);
+    updateEnvironmentReady();
+
+    return () => {
+      document.removeEventListener("visibilitychange", updateEnvironmentReady);
+      window.removeEventListener("online", updateEnvironmentReady);
+      window.removeEventListener("offline", updateEnvironmentReady);
+      connection?.removeEventListener?.("change", updateEnvironmentReady);
+    };
+  }, []);
 
   // Reset prefetch tracking when location changes significantly (0.1 degree ~ 11km)
   const locationKey = userLocation
@@ -117,8 +156,14 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
   useEffect(() => {
     // Skip if not enabled, no user, already prefetched, or the browser is in a
     // context where background network work is likely to hurt the session.
-    if (!enabled || !user?.id || prefetchedRef.current) return;
-    if (!isPrefetchEnvironmentReady()) return;
+    if (
+      !enabled ||
+      !user?.id ||
+      prefetchedRef.current ||
+      !environmentReady
+    ) {
+      return;
+    }
 
     // Get slots to prefetch (exclude current slot)
     const slotsToFetch = ALL_TIME_SLOTS.filter((slot) => slot !== currentSlot);
@@ -173,11 +218,15 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
         // Create abort controller for cleanup
         abortControllerRef.current = new AbortController();
         const signal = abortControllerRef.current.signal;
+        let interrupted = false;
 
         for (const slot of slotsNeedingFetch) {
           try {
             // Check abort signal before fetch
-            if (signal.aborted) break;
+            if (signal.aborted || !isPrefetchEnvironmentReady()) {
+              interrupted = true;
+              break;
+            }
 
             const cacheOptions: DiscoveryCacheOptions = {
               userLocation,
@@ -212,6 +261,7 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
             const queryString = params.toString();
             const url = `/api/surf/discover${queryString ? `?${queryString}` : ""}`;
 
+            onRequestRef.current?.(slot);
             const response = await fetch(url, {
               method: "GET",
               headers: { "Content-Type": "application/json" },
@@ -220,7 +270,10 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
             });
 
             // Check abort signal after fetch
-            if (signal.aborted) break;
+            if (signal.aborted || !isPrefetchEnvironmentReady()) {
+              interrupted = true;
+              break;
+            }
 
             if (!response.ok) {
               // Silent failure - just skip this slot
@@ -230,7 +283,10 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
             const result = await response.json();
 
             // Check abort signal after parsing
-            if (signal.aborted) break;
+            if (signal.aborted || !isPrefetchEnvironmentReady()) {
+              interrupted = true;
+              break;
+            }
 
             // Transform date strings to Date objects
             if (result.data?.recommendations) {
@@ -254,14 +310,23 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
             writeToCache(cacheKey, discoveryData, optionsHash);
           } catch (error) {
             // Silent failure - prefetch errors shouldn't affect UX
-            // AbortError is expected during cleanup
-            if (error instanceof Error && error.name !== "AbortError") {
+            if (
+              signal.aborted ||
+              !isPrefetchEnvironmentReady() ||
+              (error instanceof Error && error.name === "AbortError")
+            ) {
+              interrupted = true;
+              break;
+            }
+            if (error instanceof Error) {
               console.debug(`Prefetch for ${slot} failed:`, error.message);
             }
           }
         }
 
-        prefetchedRef.current = true;
+        if (!interrupted) {
+          prefetchedRef.current = true;
+        }
       });
     }, 500);
 
@@ -283,6 +348,7 @@ export function useTimeSlotPrefetch(options: UseTimeSlotPrefetchOptions): void {
     };
   }, [
     enabled,
+    environmentReady,
     user?.id,
     currentSlot,
     locationKey,

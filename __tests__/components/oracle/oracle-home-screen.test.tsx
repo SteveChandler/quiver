@@ -374,6 +374,49 @@ describe("OracleHomeScreen", () => {
     expect(typeof OracleHomeScreen).toEqual("function");
   });
 
+  it("requests current location from the live nearby-spots action", async () => {
+    const requestLocation = jest.fn();
+    mockOracleData = {
+      ...MOCK_ORACLE_DATA_BASE,
+      geoSource: "default",
+      geoLoading: false,
+      requestLocation,
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Use my location" })
+    );
+
+    expect(requestLocation).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps populated conditions visible while GPS is resolving", () => {
+    mockOracleData = {
+      ...MOCK_ORACLE_DATA_BASE,
+      geoSource: "default",
+      geoLoading: true,
+      requestLocation: jest.fn(),
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    expect(
+      screen.getByRole("button", { name: "Detecting…" })
+    ).toBeDisabled();
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(screen.getByText("Today's Windows")).toBeInTheDocument();
+  });
+
+  it("hides the location action after a browser GPS fix", () => {
+    render(<OracleHomeScreen />);
+
+    expect(
+      screen.queryByRole("button", { name: "Use my location" })
+    ).not.toBeInTheDocument();
+  });
+
   it("renders the hero section with beach data", () => {
     render(<OracleHomeScreen />);
     const hero = screen.getByRole("banner");
@@ -584,6 +627,33 @@ describe("OracleHomeScreen", () => {
     } as unknown as OracleData;
     render(<OracleHomeScreen />);
     expect(screen.queryByText(/We couldn't find any surf spots/i)).not.toBeInTheDocument();
+  });
+
+  it("does not return a definitive discovery result to the bootstrap skeleton during GPS refresh", () => {
+    mockOracleData = {
+      ...mockOracleData,
+      profileLoading: false,
+      geoLoading: true,
+      discoveryLoading: false,
+      discovery: {
+        recommendations: [],
+        searchCriteria: { maxResults: 6 },
+        metadata: {
+          totalBeachesConsidered: 0,
+          successfulForecasts: 0,
+          partialSuccess: false,
+          failedBeaches: 0,
+          staleBeaches: 0,
+          generated_at: new Date().toISOString(),
+        },
+      },
+      discoveryError: null,
+      topRecommendation: null,
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    expect(screen.getByText(/We couldn't find any surf spots/i)).toBeInTheDocument();
   });
 
   it("shows empty card with 'no spots' reason when discovery resolved with zero recommendations", () => {

@@ -6,6 +6,7 @@ import { useGeolocation } from "@/hooks/use-geolocation";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
 import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
+import { useHomeDiscoveryRequestMetrics } from "@/hooks/use-home-discovery-request-metrics";
 import {
   FALLBACK_IMAGE_BY_NAME,
 } from "@/lib/constants/featured-beaches-config";
@@ -100,13 +101,15 @@ function getFallbackImageForBeach(beach: Beach | null): string | null {
  * - useReducedMotion — respects prefers-reduced-motion
  */
 export function useOracleData(): OracleData {
+  const recordHomeDiscoveryRequest = useHomeDiscoveryRequestMetrics();
+
   // ------------------------------------------------------------------
   // Profile
   // ------------------------------------------------------------------
   const { profile, homeBeach, refreshProfile, profileLoading } = useCachedProfile();
 
   // ------------------------------------------------------------------
-  // Geolocation — fallback chain: GPS > home beach > San Diego default
+  // Geolocation — explicit GPS > home beach > San Diego default
   // ------------------------------------------------------------------
   const homeBeachCoords = useMemo(() => {
     if (homeBeach?.lat != null && homeBeach?.lon != null) {
@@ -122,7 +125,7 @@ export function useOracleData(): OracleData {
     usingDefaultLocation,
     requestLocation,
   } = useGeolocation({
-    autoRequest: true,
+    autoRequest: false,
     enablePolling: true,
     pollingIntervalMs: 5 * 60 * 1000,
     minDistanceChangeMeters: 1000,
@@ -166,6 +169,7 @@ export function useOracleData(): OracleData {
     immediate: true,
     userLocation,
     userSkillLevel,
+    onRequest: () => recordHomeDiscoveryRequest("primary"),
   });
 
   // Fallback: if the user's location returns nothing (e.g. Nazaré, inland US,
@@ -189,6 +193,7 @@ export function useOracleData(): OracleData {
     immediate: true,
     userLocation: DEFAULT_LOCATION,
     userSkillLevel,
+    onRequest: () => recordHomeDiscoveryRequest("fallback"),
   });
 
   const discovery = primaryReturnedEmpty && !alreadySanDiego

@@ -32,6 +32,8 @@ interface UseSurfDiscoveryOptions {
   enabled?: boolean;
   /** Whether to fetch immediately on mount (default: true) */
   immediate?: boolean;
+  /** Optional callback immediately before an API request starts */
+  onRequest?: () => void;
   /** Optional callback when discovery results are fetched successfully */
   onSuccess?: (data: SurfDiscoveryResponse) => void;
   /** Optional callback when an error occurs */
@@ -112,10 +114,13 @@ export function useSurfDiscovery(
     userSkillLevel,
     enabled = true,
     immediate = true,
+    onRequest,
     onSuccess,
     onError,
   } = options;
   const { user } = useAuth();
+  const onRequestRef = useRef(onRequest);
+  onRequestRef.current = onRequest;
 
   const [cachedData, setCachedData] = useState<CachedDiscoveryData | null>(null);
   const [isCached, setIsCached] = useState(false);
@@ -206,6 +211,8 @@ export function useSurfDiscovery(
 
     const queryString = params.toString();
     const url = `/api/surf/discover${queryString ? `?${queryString}` : ""}`;
+
+    onRequestRef.current?.();
 
     // Fetch from API
     const response = await fetch(url, {
