@@ -130,7 +130,9 @@ describe("POST /api/forecast-feedback", () => {
   });
 
   it("forwards authenticated web/native feedback to Seaside with the internal secret", async () => {
-    const response = await POST(requestWithBody(basePayload()));
+    const response = await POST(
+      requestWithBody(basePayload({ observedFaceHeightFt: 6 })),
+    );
     const body = await response.json();
 
     expect(response.status).toBe(200);
@@ -171,6 +173,28 @@ describe("POST /api/forecast-feedback", () => {
     });
     expect(forwarded.displayed_context.wave_height_ft).toBe("2-3 ft");
     expect(forwarded.source_model_context.data_source).toBe("NOAA_NWS");
+    expect(forwarded.audit_metadata).toMatchObject({
+      surface: "forecast_tab",
+      user_observation: { face_height_ft: 6 },
+    });
+  });
+
+  it.each([
+    [
+      "about-right context",
+      { feedbackValue: "about_right", observedFaceHeightFt: 6 },
+    ],
+    ["below range", { observedFaceHeightFt: 0 }],
+    ["above range", { observedFaceHeightFt: 50.5 }],
+    ["non-half increment", { observedFaceHeightFt: 6.2 }],
+  ])("rejects invalid observed height: %s", async (_label, overrides) => {
+    const response = await POST(requestWithBody(basePayload(overrides)));
+    const body = await response.json();
+
+    expect(response.status).toBe(400);
+    expect(body.error).toBe("Invalid feedback payload");
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(mockSupabase.from).not.toHaveBeenCalled();
   });
 
   it("persists forecast-accuracy feedback into forecast_accuracy_votes", async () => {

@@ -101,6 +101,7 @@ export function parseSessionWizardParams(
       step: getParam('step'),
       forecastFeedbackId: getParam('forecastFeedbackId'),
       forecastFeedbackValue: getParam('forecastFeedbackValue'),
+      observedFaceHeightFt: getParam('observedFaceHeightFt'),
       recommendationId:
         getParam('recommendation_id') ?? getParam('recommendationId'),
       recommendationSurface:
@@ -154,6 +155,7 @@ export function parseSessionWizardParams(
       targetStep: validated.step,
       forecastFeedbackId: validated.forecastFeedbackId,
       forecastFeedbackValue: validated.forecastFeedbackValue,
+      observedFaceHeightFt: validated.observedFaceHeightFt,
       recommendationId: validated.recommendationId,
       recommendationSurface: validated.recommendationSurface,
       recommendationRank: validated.recommendationRank,
@@ -272,6 +274,10 @@ export function buildSessionWizardUrl(
     urlParams.set('forecastFeedbackValue', params.forecastFeedbackValue);
   }
 
+  if (params.observedFaceHeightFt !== undefined) {
+    urlParams.set('observedFaceHeightFt', params.observedFaceHeightFt.toString());
+  }
+
   if (params.recommendationId) {
     urlParams.set('recommendation_id', params.recommendationId);
   }
@@ -382,6 +388,12 @@ export function extractFormState(params: ValidatedSessionWizardParams) {
       ? { selectedTime: params.startTime.toTimeString().slice(0, 5) }
       : {}),
     ...(forecastAccuracy ? { forecastAccuracy } : {}),
+    ...(params.observedFaceHeightFt !== undefined
+      ? {
+          waveHeight: params.observedFaceHeightFt,
+          waveHeightEdited: true,
+        }
+      : {}),
     ...(params.recommendationId ? { recommendationId: params.recommendationId } : {}),
     ...(params.recommendationSurface ? { recommendationSurface: params.recommendationSurface } : {}),
     ...(params.recommendationRank !== undefined ? { recommendationRank: params.recommendationRank } : {}),

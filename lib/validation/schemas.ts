@@ -362,6 +362,20 @@ export const SessionWizardPrefillSchema = z.object({
     .optional()
     .describe('One-tap forecast feedback value used to prefill session accuracy'),
 
+  observedFaceHeightFt: z.string()
+    .regex(/^\d+(?:\.\d+)?$/, 'Observed face height must be numeric')
+    .transform((val) => Number.parseFloat(val))
+    .refine(
+      (num) => Number.isFinite(num) && num >= 0.5 && num <= 50,
+      'Observed face height must be between 0.5 and 50 ft',
+    )
+    .refine(
+      (num) => Number.isInteger(num * 2),
+      'Observed face height must use 0.5 ft increments',
+    )
+    .optional()
+    .describe('User-observed representative face height in feet'),
+
   recommendationId: z.string()
     .min(1)
     .max(200)
@@ -402,6 +416,19 @@ export const SessionWizardPrefillSchema = z.object({
     .datetime({ message: 'Invalid recommendation window end format' })
     .optional(),
 })
+  .refine(
+    (data) => {
+      if (data.observedFaceHeightFt === undefined) return true;
+      return (
+        data.forecastFeedbackValue === 'too_low' ||
+        data.forecastFeedbackValue === 'too_high'
+      );
+    },
+    {
+      message: 'Observed face height requires mismatch feedback',
+      path: ['observedFaceHeightFt'],
+    },
+  )
   // Cross-field validation: end time must be after start time
   .refine(
     (data) => {
