@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Native Home travel recommendations stay local** (`supabase/migrations/20260715051000_local_match_candidates.sql`). Device-backed match candidates now honor the tighter of the caller radius and the surfer's configured 15–90 minute drive range (with a bounded 100 km no-limit cap), exclude worldwide favorite bypasses, and return distance/provenance metadata while preserving the coordinate-free favorite fallback used by existing discovery callers.
 - **Map search and forecast playback regressions** (`components/map-view.tsx`, `components/map/*`). Beach search suggestions now keep surfers on the map, the condition legend clears the forecast scrubber at every viewport size, and playback skips missing swell frames without blanking pins or the active field.
 
 ### Added
