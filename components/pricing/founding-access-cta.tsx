@@ -127,7 +127,8 @@ export function FoundingAccessCta({
           isCompact ? "text-xs text-[#4B4030]" : "text-sm text-white/55",
         )}
       >
-        Install today. Test for 14 days to earn a free year of Pro.
+        Install today for personalized surf decisions, best-window guidance,
+        and session logging.
       </p>
     </div>
   );

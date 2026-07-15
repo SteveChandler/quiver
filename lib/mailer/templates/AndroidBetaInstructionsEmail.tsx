@@ -67,8 +67,8 @@ export function AndroidBetaInstructionsEmail({
               margin: "0 0 18px",
             }}
           >
-            You are on the Android beta list. Closed testing takes a few Google
-            Play steps, so keep this email handy.
+            Android beta access is available now. Closed testing takes a few
+            Google Play steps, so keep this email handy.
           </p>
 
           <PaperPanel rotation={STICKER_ROTATIONS.soft}>
@@ -85,9 +85,24 @@ export function AndroidBetaInstructionsEmail({
             >
               <li>Join the Quiver Android tester group with your Google Play account.</li>
               <li>Opt in on Google Play after the group accepts your account.</li>
-              <li>Install Quiver and test for 14 days to earn a free year of Pro.</li>
+              <li>Install Quiver from Google Play on that same account.</li>
             </ol>
           </PaperPanel>
+
+          <p
+            style={{
+              fontFamily: FONT_DISPLAY,
+              fontWeight: 500,
+              fontSize: 14,
+              lineHeight: 1.5,
+              color: TEXT,
+              margin: "18px 0 0",
+            }}
+          >
+            Use personalized surf decisions, best-window guidance, saved spots,
+            alerts, and session logging — then tell us where the Android
+            experience needs work.
+          </p>
 
           <div style={{ textAlign: "center", padding: "24px 0 16px" }}>
             <CTAButton href={groupUrl}>Join tester group</CTAButton>

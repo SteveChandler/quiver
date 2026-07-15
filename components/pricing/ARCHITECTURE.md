@@ -34,4 +34,9 @@ Pricing components render the public `/plans` native-app availability surface. T
   instructions and optional email capture. Existing profile/lead records remain
   available for prior enrollment fulfillment, but they do not control access
   to the handoff links.
+- Public Android acquisition copy leads with current product value and does not
+  promise free Pro, founding pricing, or queue priority. Earlier incentive
+  eligibility is handled through
+  [`docs/android-beta-legacy-offer-runbook.md`](../../docs/android-beta-legacy-offer-runbook.md),
+  not public copy; tester identities remain in the private fulfillment ledger.
 - `landing-pricing-teaser.tsx` adds a restrained landing-page link to `/plans`.

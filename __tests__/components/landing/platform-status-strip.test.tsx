@@ -44,6 +44,10 @@ describe("PlatformStatusStrip", () => {
     expect(cta).toHaveAttribute("data-surface", "landing-page");
     expect(cta).toHaveAttribute("data-placement", "platform_strip");
     expect(cta).toHaveAttribute("data-cohort", "app_first");
+    expect(
+      screen.getByText(/personalized surf decisions.*best window/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/free year|year of pro/i)).not.toBeInTheDocument();
   });
 
   it("keeps desktop visitors focused on the QR and email handoff", () => {

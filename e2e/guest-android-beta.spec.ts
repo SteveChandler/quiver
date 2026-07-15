@@ -101,6 +101,10 @@ test.describe("Android beta page", () => {
     await expect(
       page.getByRole("heading", { name: /join the quiver android beta/i }),
     ).toBeVisible();
+    await expect(page.getByText(/personalized surf decisions/i)).toBeVisible();
+    await expect(page.getByText(/279\+ beaches/i)).toBeVisible();
+    await expect(page.getByText(/shape android quality/i)).toBeVisible();
+    await expect(page.getByText(/free year|year of quiver pro/i)).toHaveCount(0);
     await expect(
       page.getByRole("link", { name: /join the tester group/i }),
     ).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);

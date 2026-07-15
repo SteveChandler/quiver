@@ -26,7 +26,7 @@ export function PlatformStatusStrip({
             {platform === "desktop"
               ? "Scan the QR or send the link above when you are ready to move Quiver to your phone."
               : platform === "android"
-                ? "Install today and test for 14 days to earn a free year of Pro."
+                ? "Install today for personalized surf decisions and a clear best window before you paddle out."
                 : "You are on the right path for this device. Keep the surf call close before you paddle out."}
           </p>
         </div>

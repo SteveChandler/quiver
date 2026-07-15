@@ -35,8 +35,8 @@ const STEPS = [
     body: "Once you're opted in, install Quiver straight from Google Play on that same account.",
   },
   {
-    title: "Test for 14 days",
-    body: `Save a home beach, log a session, and stay opted in for two weeks. Email ${ANDROID_BETA_CONTACT_EMAIL} if you hit any bugs.`,
+    title: "Shape Android quality",
+    body: `Use Quiver on your real surf routine and tell us where the Android experience needs work. Email ${ANDROID_BETA_CONTACT_EMAIL} if you hit any bugs.`,
   },
 ] as const;
 
@@ -148,11 +148,10 @@ export function AndroidBetaClient() {
               Join the Quiver Android beta
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[#11100D]/75 sm:text-xl">
-              Quiver on Android is in closed testing — and you can jump in right
-              now. Join the tester group with the Google account used by Play
-              Store on your phone, opt in on Google Play, and install Quiver
-              today. Email is optional. Test for 14 days and we&apos;ll comp you
-              a year of Quiver Pro.
+              Get personalized surf decisions and best-window guidance across
+              279+ beaches, then keep saved spots, alerts, and session logging
+              with you in the native Android app. Access is available now after
+              Google&apos;s closed-test steps. Email is optional.
             </p>
             <div className="mt-7 flex flex-wrap gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/65">
               <span>Google Group invite</span>

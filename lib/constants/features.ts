@@ -165,7 +165,7 @@ export const FEATURE_CARDS = [
       },
       {
         icon: Zap,
-        text: "Test 14 days for Pro",
+        text: "Native Android access",
         color: "text-[#F78E42]",
       },
     ],

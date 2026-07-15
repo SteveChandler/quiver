@@ -41,6 +41,20 @@ describe("AndroidBetaPage", () => {
     expect(metadata.alternates?.canonical).toBe("/android-beta");
   });
 
+  it("leads with current product value without promising a tester incentive", () => {
+    const { container } = render(<AndroidBetaPage />);
+
+    expect(screen.getByText(/personalized surf decisions/i)).toBeInTheDocument();
+    expect(screen.getByText(/279\+ beaches/i)).toBeInTheDocument();
+    expect(screen.getByText(/session logging/i)).toBeInTheDocument();
+    expect(screen.getByText(/saved spots.*alerts/i)).toBeInTheDocument();
+    expect(screen.getByText(/shape android quality/i)).toBeInTheDocument();
+
+    const pageText = container.textContent ?? "";
+    expect(pageText).not.toMatch(/free year|year of (?:quiver )?pro/i);
+    expect(pageText).not.toMatch(/founding pric|queue priority|waitlist/i);
+  });
+
   it("keeps the closed-beta links available before and after optional email capture", async () => {
     const user = userEvent.setup();
     render(<AndroidBetaPage />);

@@ -110,8 +110,9 @@ describe("FoundingAccessCta", () => {
       "plans",
     );
     expect(
-      screen.getByText(/test for 14 days to earn a free year of pro/i),
+      screen.getByText(/personalized surf decisions.*session logging/i),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/free year|year of pro/i)).not.toBeInTheDocument();
   });
 
   it("routes signed-in users to the same guided handoff", () => {
