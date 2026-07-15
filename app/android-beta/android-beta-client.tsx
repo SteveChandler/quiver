@@ -149,10 +149,10 @@ export function AndroidBetaClient() {
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-relaxed text-[#11100D]/75 sm:text-xl">
               Quiver on Android is in closed testing — and you can jump in right
-              now. Enter the Google Play email you will use on your phone, then
-              join the tester group, opt in on Google Play, and install Quiver
-              today. Test for 14 days and we&apos;ll comp you a year of Quiver
-              Pro.
+              now. Join the tester group with the Google account used by Play
+              Store on your phone, opt in on Google Play, and install Quiver
+              today. Email is optional. Test for 14 days and we&apos;ll comp you
+              a year of Quiver Pro.
             </p>
             <div className="mt-7 flex flex-wrap gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/65">
               <span>Google Group invite</span>
@@ -162,14 +162,44 @@ export function AndroidBetaClient() {
               <span>Same Google account</span>
             </div>
 
+            <div className="mt-8 flex flex-wrap gap-3">
+              <a
+                href={ANDROID_BETA_GROUP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackAndroidBetaOutboundClick("google_group")}
+                className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
+              >
+                1 · Join the tester group
+              </a>
+              {ANDROID_BETA_PLAY_URL ? (
+                <a
+                  href={ANDROID_BETA_PLAY_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => trackAndroidBetaOutboundClick("google_play")}
+                  className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#11100D] px-5 py-2 font-semibold text-[#F4EBD8] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
+                >
+                  Already joined? Open Google Play
+                </a>
+              ) : null}
+              <a
+                href={ANDROID_BETA_CONTACT_MAILTO}
+                onClick={() => trackAndroidBetaOutboundClick("email_contact")}
+                className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
+              >
+                Email {ANDROID_BETA_CONTACT_EMAIL}
+              </a>
+            </div>
+
             {hasCapturedEmail ? (
               <div className="mt-7 rounded-[14px_6px_16px_6px] border-2 border-[#11100D] bg-[#7BDCB5] px-4 py-3 text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.25)]">
                 <p
                   className="break-words font-mono text-sm font-bold tracking-[0.08em]"
                   role="status"
                 >
-                  Saved {capturedEmail}. Use the same Google account for the
-                  next two steps.
+                  Saved {capturedEmail} for beta updates. Your tester-group and
+                  Play links stay available above.
                 </p>
                 <button
                   type="button"
@@ -189,7 +219,7 @@ export function AndroidBetaClient() {
                   htmlFor="android-beta-email"
                   className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#11100D]/65 sm:col-span-2"
                 >
-                  Google Play email for Android beta access
+                  Email is optional — get beta updates
                 </label>
                 <input
                   id="android-beta-email"
@@ -213,12 +243,12 @@ export function AndroidBetaClient() {
                   disabled={status === "saving"}
                   className="inline-flex min-h-12 items-center justify-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-70 disabled:hover:translate-y-0"
                 >
-                  {status === "saving" ? "Saving..." : "Get beta steps"}
+                  {status === "saving" ? "Saving..." : "Send me beta updates"}
                 </button>
                 <p className="text-sm leading-relaxed text-[#11100D]/70 sm:col-span-2">
-                  Use the Gmail or Google account that opens Play Store on your
-                  Android phone. That is the account Google checks for closed
-                  testing.
+                  No signup is required to use the links above. If you opt in
+                  to updates, use an address where you want beta instructions
+                  and launch news.
                 </p>
                 {inlineError ? (
                   <p
@@ -232,37 +262,6 @@ export function AndroidBetaClient() {
               </form>
             )}
 
-            {hasCapturedEmail ? (
-              <div className="mt-8 flex flex-wrap gap-3">
-                <a
-                  href={ANDROID_BETA_GROUP_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => trackAndroidBetaOutboundClick("google_group")}
-                  className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#F78E42] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
-                >
-                  1 · Join the tester group
-                </a>
-                {ANDROID_BETA_PLAY_URL ? (
-                  <a
-                    href={ANDROID_BETA_PLAY_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => trackAndroidBetaOutboundClick("google_play")}
-                    className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#11100D] px-5 py-2 font-semibold text-[#F4EBD8] shadow-[2px_2px_0_rgba(17,16,13,0.35)] transition-transform hover:-translate-y-0.5"
-                  >
-                    2 · Opt in on Google Play
-                  </a>
-                ) : null}
-                <a
-                  href={ANDROID_BETA_CONTACT_MAILTO}
-                  onClick={() => trackAndroidBetaOutboundClick("email_contact")}
-                  className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5"
-                >
-                  Email {ANDROID_BETA_CONTACT_EMAIL}
-                </a>
-              </div>
-            ) : null}
           </div>
 
           <aside className="relative">

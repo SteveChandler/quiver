@@ -19,7 +19,7 @@ Last checked: 2026-06-29 UTC from the 2026-06-28 SEO weekly report and live App 
 - Brand Vault now treats `Surf Forecast: Quiver` as the canonical iOS title. `Quiver: Personal Surf Forecast` is archived as a future ASO test candidate, not active listing copy.
 - App Store page metadata serves live app state (`offerType=app`, `isPreorder=false`, button title `Get`), so public web CTAs use `Open App Store` with `app_store_live` analytics status.
 - iOS is no longer routed through TestFlight prompts in web UX.
-- Android closed testing now routes through `/android-beta`, which points testers to the Google Group gate and `steven@quiversurf.app` contact path until a public tester install URL exists.
+- Android closed testing routes through `/android-beta`, which keeps the ordered Google Group → Play opt-in → install handoff visible without requiring email capture. The contact path remains available for access problems.
 
 ## Component Boundaries
 

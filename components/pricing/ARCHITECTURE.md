@@ -6,7 +6,8 @@ Pricing components render the public `/plans` native-app availability surface. T
 
 ## Current Rules
 
-- Runtime copy routes iOS to the App Store and Android to the beta capture flow.
+- Runtime copy routes iOS to the App Store and every public Android CTA to the
+  canonical `/android-beta` guided handoff.
 - Trial copy can mention the current 14-day App Store trial when it stays
   Apple-managed and does not hardcode plan amounts.
 - High-level Pro benefits can appear here, but `/features` remains the fuller
@@ -14,7 +15,8 @@ Pricing components render the public `/plans` native-app availability surface. T
 - Do not render public prices, checkout links, or purchase availability.
 - Do not imply App Store and web purchases are interchangeable.
 - Pre-auth signup analytics must only fire for anonymous users.
-- Authenticated users should be able to confirm Android beta access without seeing another signup prompt.
+- Email capture on `/android-beta` is optional and never gates the Google Group
+  or Play opt-in links.
 - The plans page can use Quiver sticker-sheet assets for zine texture, but
   those visuals must stay decorative and must not introduce pricing or checkout
   claims before RevenueCat Web Billing is verified.
@@ -25,5 +27,11 @@ Pricing components render the public `/plans` native-app availability surface. T
 
 - `founding-offer-surface.tsx` renders the `/plans` page content.
 - `founding-access-cta.tsx` chooses the signed-in vs anonymous Android beta wrapper.
-- `android-waitlist-cta.tsx` renders a one-field Android beta email capture for anonymous users, then shows the closed-test steps with explicit Google Group and Play opt-in links. Authenticated users first confirm the Quiver profile flag, then get the same success affordance; legacy pending intents still resolve after auth.
+- `android-waitlist-cta.tsx` preserves the shared acquisition CTA API while
+  routing anonymous and authenticated visitors to `/android-beta` with source,
+  surface, placement, auth-state, and destination analytics.
+- `/android-beta` owns the ordered Google Group → Play opt-in → install
+  instructions and optional email capture. Existing profile/lead records remain
+  available for prior enrollment fulfillment, but they do not control access
+  to the handoff links.
 - `landing-pricing-teaser.tsx` adds a restrained landing-page link to `/plans`.

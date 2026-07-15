@@ -42,7 +42,7 @@ test.describe("Android beta page", () => {
     });
   });
 
-  test("captures an email before showing the group-gated beta instructions and QR", async ({
+  test("keeps beta access ungated and confirms optional email capture", async ({
     page,
   }) => {
     const capturedLeadEmails: string[] = [];
@@ -103,11 +103,19 @@ test.describe("Android beta page", () => {
     ).toBeVisible();
     await expect(
       page.getByRole("link", { name: /join the tester group/i }),
-    ).toHaveCount(0);
+    ).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
+    await expect(
+      page.getByRole("link", { name: /already joined.*open google play/i }),
+    ).toHaveAttribute("href", ANDROID_BETA_PLAY_URL ?? "");
+    await clickOutboundLinkAndClosePopup(page, /join the tester group/i);
+    await clickOutboundLinkAndClosePopup(
+      page,
+      /already joined.*open google play/i,
+    );
     await page
-      .getByLabel(/google play email for android beta access/i)
+      .getByLabel(/email is optional/i)
       .fill("SURFER@example.com");
-    await page.getByRole("button", { name: /get beta steps/i }).click();
+    await page.getByRole("button", { name: /send me beta updates/i }).click();
 
     await expect(page.getByRole("status")).toContainText(
       /saved surfer@example\.com/i,
@@ -115,11 +123,11 @@ test.describe("Android beta page", () => {
     await page.getByRole("button", { name: /use a different email/i }).click();
     await expect(
       page.getByRole("link", { name: /join the tester group/i }),
-    ).toHaveCount(0);
+    ).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
     await page
-      .getByLabel(/google play email for android beta access/i)
+      .getByLabel(/email is optional/i)
       .fill("corrected@example.com");
-    await page.getByRole("button", { name: /get beta steps/i }).click();
+    await page.getByRole("button", { name: /send me beta updates/i }).click();
     await expect(page.getByRole("status")).toContainText(
       /saved corrected@example\.com/i,
     );
@@ -127,16 +135,13 @@ test.describe("Android beta page", () => {
       page.getByRole("link", { name: /join the tester group/i }),
     ).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
     await expect(
-      page.getByRole("link", { name: /opt in on google play/i }),
+      page.getByRole("link", { name: /already joined.*open google play/i }),
     ).toHaveAttribute("href", ANDROID_BETA_PLAY_URL ?? "");
     await expect(
       page.getByRole("link", {
         name: new RegExp(`email ${ANDROID_BETA_CONTACT_EMAIL}`, "i"),
       }),
     ).toHaveAttribute("href", ANDROID_BETA_CONTACT_MAILTO);
-    await clickOutboundLinkAndClosePopup(page, /join the tester group/i);
-    await clickOutboundLinkAndClosePopup(page, /opt in on google play/i);
-
     const qr = page.getByTestId("android-beta-qr");
     await expect(qr).toBeVisible();
     const decodedUrl = new URL((await qr.getAttribute("data-smart-url")) ?? "");
