@@ -1,0 +1,245 @@
+/**
+ * @jest-environment node
+ */
+
+import {
+  generateWeekScoutForecast,
+  type WeekScoutServiceDependencies,
+} from '@/lib/services/discovery/week-scout';
+import type { Beach } from '@/types/database';
+import type { EnhancedForecastEntity } from '@/types/forecast';
+
+const BEACH_A = '11111111-1111-4111-8111-111111111111';
+const BEACH_B = '22222222-2222-4222-8222-222222222222';
+
+function beach(id: string, name: string): Beach {
+  return {
+    id,
+    name,
+    lat: 21.3,
+    lon: -157.8,
+    is_private: false,
+    skill_level: 'intermediate',
+  } as Beach;
+}
+
+function forecast(beachId: string, forecastAt: string): EnhancedForecastEntity {
+  return {
+    id: `${beachId}:${forecastAt}`,
+    beach_id: beachId,
+    forecast_at: forecastAt,
+    wave_height: '3.5',
+    wave_period: '12s',
+    wave_direction: 'NW',
+    wind_speed: '5',
+    wind_direction: 'E',
+    tide_height: '1.4',
+    tide_status: 'Rising',
+    confidence_score: 82,
+    data_source: 'NOAA_NWS',
+  } as EnhancedForecastEntity;
+}
+
+function dependencies(): WeekScoutServiceDependencies {
+  const beaches = [beach(BEACH_A, 'Ala Moana'), beach(BEACH_B, 'Diamond Head')];
+  const rows = new Map<string, EnhancedForecastEntity[]>(beaches.map((candidate) => [
+    candidate.id,
+    [
+      forecast(candidate.id, '2026-07-31T16:00:00.000Z'),
+      forecast(candidate.id, '2026-07-31T20:00:00.000Z'),
+      forecast(candidate.id, '2026-08-01T00:00:00.000Z'),
+    ],
+  ]));
+
+  return {
+    now: new Date('2026-07-31T14:00:00.000Z'),
+    fetchBeaches: jest.fn(async () => beaches),
+    fetchForecasts: jest.fn(async () => rows),
+    fetchSunTimes: jest.fn(async () => new Map()),
+    fetchPreferences: jest.fn(async () => null),
+    fetchSkill: jest.fn(async () => 'intermediate'),
+    fetchPersonalizationContext: jest.fn(async () => null),
+    calculatePersonalizationBonus: jest.fn(() => ({
+      affinityBonus: 0,
+      personalizationBonus: 0,
+      reasons: [],
+    })),
+    selectBestWindow: jest.fn(({ forecasts }) => {
+      const sourceForecast = forecasts[0];
+      const start = new Date(sourceForecast.forecast_at);
+      return {
+        start,
+        end: new Date(start.getTime() + 2 * 60 * 60 * 1000),
+        peakTime: new Date(start.getTime() + 60 * 60 * 1000),
+        tide: sourceForecast.tide_status ?? 'Unknown',
+        wind: `${sourceForecast.wind_speed} ${sourceForecast.wind_direction}`,
+        waveHeight: sourceForecast.wave_height ?? 'Unknown',
+        wavePeriod: sourceForecast.wave_period ?? 'Unknown',
+        dataSource: sourceForecast.data_source ?? 'unknown',
+        confidence: sourceForecast.confidence_score ?? 0,
+        timezone: 'Pacific/Honolulu',
+        sourceForecast,
+      };
+    }),
+    scoreWindowCondition: jest.fn((_forecast, candidateBeach) => (
+      candidateBeach.id === BEACH_B ? 84 : 78
+    )),
+    scoreBeach: jest.fn((_beach, _forecast, options) => ({
+      total: 80 + (options?.affinityBonus ?? 0),
+      matchQuality: 'excellent',
+      subscores: {
+        waveHeightFit: 22,
+        periodEnergyScore: 18,
+        windAlignment: 19,
+        tideFit: 14,
+        affinityBonus: options?.affinityBonus ?? 0,
+        personalizationBonus: 0,
+        distancePenalty: 0,
+      },
+      reasons: ['Clean wind and solid period'],
+      warnings: [],
+    })),
+    beachToSpotProfile: jest.fn(() => ({ kind: 'beach' } as never)),
+    rankWindows: jest.fn((recommendations) => ({
+      reranked: recommendations,
+      diagnostics: recommendations.map((recommendation, index) => ({
+        beachSlug: recommendation.beach.id,
+        representativeSlotScore: recommendation.score,
+        setupSuitability: 80,
+        windAlignment: recommendation.subscores.windAlignment,
+        tideFit: recommendation.subscores.tideFit,
+        waveHeightFit: recommendation.subscores.waveHeightFit,
+        periodEnergyScore: recommendation.subscores.periodEnergyScore,
+        affinityBonus: recommendation.subscores.affinityBonus,
+        windowDurationHours: 2,
+        windowPersistence: 100,
+        heroWindowScore: recommendation.beach.id === BEACH_B ? 88 : 82,
+        finalRank: index,
+        isHero: index === 0,
+        sharedSetupSignal: { directionDeg: 315, periodS: 12, source: 'cluster-majority' },
+      })),
+    })),
+  };
+}
+
+describe('generateWeekScoutForecast', () => {
+  it('builds seven local days with canonical morning, midday, and evening rankings', async () => {
+    const deps = dependencies();
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 7,
+      },
+      deps,
+    );
+
+    expect(response.days).toHaveLength(7);
+    expect(response.days.map((day) => day.localDate)).toEqual([
+      '2026-07-31',
+      '2026-08-01',
+      '2026-08-02',
+      '2026-08-03',
+      '2026-08-04',
+      '2026-08-05',
+      '2026-08-06',
+    ]);
+
+    const firstDay = response.days[0];
+    expect(firstDay.windows).toHaveLength(6);
+    expect(new Set(firstDay.windows.map((window) => window.bucket))).toEqual(
+      new Set(['morning', 'midday', 'evening']),
+    );
+    expect(firstDay.windows.filter((window) => window.bucket === 'morning')).toHaveLength(2);
+    expect(firstDay.windows.every((window) => window.rankedSpots.length === 2)).toBe(true);
+
+    const winner = firstDay.windows.find((window) => window.id === firstDay.bestWindowId);
+    expect(winner).toMatchObject({
+      beachId: BEACH_B,
+      bucket: 'morning',
+      conditionScore: 84,
+      rankingScore: 88,
+      verdict: 'worth_it',
+      rideable: true,
+      safe: true,
+      forecast: {
+        tideHeightFt: 1.4,
+        tidePhase: 'Rising',
+      },
+      takeaway: 'Clean wind and solid period',
+    });
+
+    expect(deps.selectBestWindow).toHaveBeenCalledTimes(6);
+    expect(deps.rankWindows).toHaveBeenCalledTimes(3);
+  });
+
+  it('generates the same candidate fingerprint regardless of input order', async () => {
+    const first = await generateWeekScoutForecast(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 7,
+      },
+      dependencies(),
+    );
+    const second = await generateWeekScoutForecast(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_B, BEACH_A],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 7,
+      },
+      dependencies(),
+    );
+
+    expect(first.candidateFingerprint).toBe(second.candidateFingerprint);
+  });
+
+  it('marks a high-scoring window unrideable when its size exceeds the surfer skill band', async () => {
+    const deps = dependencies();
+    const largeForecast = {
+      ...forecast(BEACH_A, '2026-07-31T16:00:00.000Z'),
+      wave_height: '20',
+    };
+    deps.fetchBeaches = jest.fn(async () => [beach(BEACH_A, 'Ala Moana')]);
+    deps.fetchForecasts = jest.fn(async () => new Map([[BEACH_A, [largeForecast]]]));
+    deps.scoreBeach = jest.fn(() => ({
+      total: 90,
+      matchQuality: 'perfect',
+      subscores: {
+        waveHeightFit: 25,
+        periodEnergyScore: 20,
+        windAlignment: 20,
+        tideFit: 15,
+        affinityBonus: 0,
+        personalizationBonus: 0,
+        distancePenalty: 0,
+      },
+      reasons: ['Powerful swell'],
+      warnings: ['Waves are above your usual range'],
+    }));
+
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 7,
+      },
+      deps,
+    );
+
+    expect(response.days[0].windows[0]).toMatchObject({
+      verdict: 'worth_it',
+      rideable: false,
+      safe: false,
+    });
+    expect(response.days[0].bestWindowId).toBeNull();
+  });
+});
