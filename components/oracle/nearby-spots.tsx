@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useRef } from "react";
-import { ChevronRight } from "lucide-react";
+import { ChevronRight, LocateFixed } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { StrategyTag } from "@/types/personalization";
 
@@ -34,6 +34,8 @@ export interface NearbySpotsProps {
   spots: NearbySpot[];
   onViewSpot: (spotId: string) => void;
   loading?: boolean;
+  onUseMyLocation?: () => void;
+  locationLoading?: boolean;
 }
 
 const STRATEGY_TAG_COLORS: Record<string, string> = {
@@ -119,7 +121,13 @@ function SkeletonCard() {
   );
 }
 
-export function NearbySpots({ spots, onViewSpot, loading = false }: NearbySpotsProps) {
+export function NearbySpots({
+  spots,
+  onViewSpot,
+  loading = false,
+  onUseMyLocation,
+  locationLoading = false,
+}: NearbySpotsProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -144,6 +152,17 @@ export function NearbySpots({ spots, onViewSpot, loading = false }: NearbySpotsP
         <h2 className="font-heading text-white text-lg font-semibold">Nearby Spots</h2>
         <Link href="/map" className="text-[#4A70D9] text-sm font-medium inline-flex items-center gap-0.5">Map <ChevronRight className="h-3.5 w-3.5" /></Link>
       </div>
+      {onUseMyLocation && (
+        <button
+          type="button"
+          onClick={onUseMyLocation}
+          disabled={locationLoading}
+          className="mb-3 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-[#F78E42]/40 bg-[#F78E42]/10 px-4 text-sm font-semibold text-[#FFD2B7] transition hover:bg-[#F78E42]/20 disabled:cursor-wait disabled:opacity-60 sm:w-auto"
+        >
+          <LocateFixed className="h-4 w-4" aria-hidden="true" />
+          {locationLoading ? "Detecting…" : "Use my location"}
+        </button>
+      )}
       <div className="relative">
         <div
           ref={scrollRef}

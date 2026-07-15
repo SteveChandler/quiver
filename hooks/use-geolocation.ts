@@ -307,11 +307,25 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       );
     };
 
+    const stopPolling = () => {
+      if (!pollingInterval) return;
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    };
+
+    const startPolling = () => {
+      if (pollingInterval) return;
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      pollingInterval = setInterval(checkLocationChange, pollingIntervalMs);
+    };
+
     const handleVisibilityChange = () => {
-      // Immediately check location when app returns to foreground
       if (document.visibilityState === 'visible') {
-        checkLocationChange();
+        startPolling();
+        return;
       }
+
+      stopPolling();
     };
 
     // Set up visibility change listener
@@ -319,11 +333,10 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       document.addEventListener('visibilitychange', handleVisibilityChange);
     }
 
-    // Start polling interval
-    pollingInterval = setInterval(checkLocationChange, pollingIntervalMs);
+    startPolling();
 
     return () => {
-      if (pollingInterval) clearInterval(pollingInterval);
+      stopPolling();
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
