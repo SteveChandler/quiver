@@ -692,6 +692,11 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       expect(upsertArg).not.toHaveProperty("build_number");
       expect(upsertArg).not.toHaveProperty("os_version");
       expect(upsertArg).not.toHaveProperty("expo_sdk");
+      expect(upsertArg).not.toHaveProperty("expo_update_id");
+      expect(upsertArg).not.toHaveProperty("expo_channel");
+      expect(upsertArg).not.toHaveProperty("expo_runtime_version");
+      expect(upsertArg).not.toHaveProperty("expo_is_embedded_launch");
+      expect(upsertArg).not.toHaveProperty("expo_is_emergency_launch");
     });
 
     it("does NOT include null or blank metadata fields in upsert so existing values are preserved", async () => {
@@ -722,6 +727,147 @@ describe("Device Token API - POST /api/devices/upsert", () => {
       expect(upsertArg).not.toHaveProperty("build_number");
       expect(upsertArg).not.toHaveProperty("os_version");
       expect(upsertArg).toHaveProperty("expo_sdk", "55.0.0");
+    });
+  });
+
+  describe("Expo Updates identity", () => {
+    it("passes valid identity fields through the conflict upsert", async () => {
+      const mockUser = createMockUser();
+      mockAuthenticatedUser(mockSupabase, mockUser);
+
+      const { mockUpsert } = mockSuccessfulDeviceRegistration();
+      const updateId = "u".repeat(64);
+      const channel = "c".repeat(64);
+      const runtimeVersion = "r".repeat(64);
+
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "tok",
+            expo_update_id: updateId,
+            expo_channel: channel,
+            expo_runtime_version: runtimeVersion,
+            expo_is_embedded_launch: false,
+            expo_is_emergency_launch: true,
+          },
+        },
+      );
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expo_update_id: updateId,
+          expo_channel: channel,
+          expo_runtime_version: runtimeVersion,
+          expo_is_embedded_launch: false,
+          expo_is_emergency_launch: true,
+        }),
+        { onConflict: "user_id,device_token" },
+      );
+    });
+
+    it("persists explicit null identity fields so stale values can be cleared", async () => {
+      const mockUser = createMockUser();
+      mockAuthenticatedUser(mockSupabase, mockUser);
+
+      const { mockUpsert } = mockSuccessfulDeviceRegistration();
+
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "android",
+            device_token: "tok",
+            expo_update_id: null,
+            expo_channel: null,
+            expo_runtime_version: null,
+            expo_is_embedded_launch: null,
+            expo_is_emergency_launch: null,
+          },
+        },
+      );
+
+      const response = await POST(request);
+
+      expect(response.status).toBe(200);
+      expect(mockUpsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          expo_update_id: null,
+          expo_channel: null,
+          expo_runtime_version: null,
+          expo_is_embedded_launch: null,
+          expo_is_emergency_launch: null,
+        }),
+        { onConflict: "user_id,device_token" },
+      );
+    });
+
+    it.each([
+      ["expo_update_id", 123],
+      ["expo_channel", false],
+      ["expo_runtime_version", { version: "1.0.0" }],
+      ["expo_is_embedded_launch", "false"],
+      ["expo_is_emergency_launch", 0],
+    ])("rejects invalid %s types", async (field, invalidValue) => {
+      const mockUser = createMockUser();
+      mockAuthenticatedUser(mockSupabase, mockUser);
+
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "tok",
+            [field]: invalidValue,
+          },
+        },
+      );
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain(field);
+      expect(data.error).toContain(
+        field.startsWith("expo_is_") ? "boolean" : "string",
+      );
+      expect(mockSupabase.from).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      "expo_update_id",
+      "expo_channel",
+      "expo_runtime_version",
+    ])("rejects %s values longer than 64 characters", async (field) => {
+      const mockUser = createMockUser();
+      mockAuthenticatedUser(mockSupabase, mockUser);
+
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/devices/upsert",
+        {
+          body: {
+            platform: "ios",
+            device_token: "tok",
+            [field]: "x".repeat(65),
+          },
+        },
+      );
+
+      const response = await POST(request);
+      const data = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(data.error).toContain(field);
+      expect(data.error).toContain("64 characters");
+      expect(mockSupabase.from).not.toHaveBeenCalled();
     });
   });
 
