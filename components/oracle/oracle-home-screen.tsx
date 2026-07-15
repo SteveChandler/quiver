@@ -870,7 +870,7 @@ export function OracleHomeScreen() {
     oracle.discovery !== null || !!oracle.discoveryError;
   const isBootstrapping =
     oracle.profileLoading ||
-    oracle.geoLoading ||
+    (oracle.geoLoading && !hasDefinitiveDiscoveryAnswer) ||
     oracle.discoveryLoading ||
     (!!oracle.profile && !hasDefinitiveDiscoveryAnswer);
 
@@ -1004,6 +1004,10 @@ export function OracleHomeScreen() {
             spots={nearbySpots}
             onViewSpot={handleViewSpot}
             loading={oracle.discoveryLoading}
+            onUseMyLocation={
+              oracle.geoSource === "browser" ? undefined : oracle.requestLocation
+            }
+            locationLoading={oracle.geoLoading}
           />
 
           {activityItems.length > 0 && (

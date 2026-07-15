@@ -331,6 +331,54 @@ describe("useGeolocation", () => {
       expect(pollingOptions.maximumAge).toBe(30000);
       expect(pollingOptions.timeout).toBe(8000);
     });
+
+    it("pauses while hidden and waits a full interval after returning visible", () => {
+      Object.defineProperty(document, "visibilityState", {
+        value: "visible",
+        writable: true,
+        configurable: true,
+      });
+      mockGeoSuccess(LA_JOLLA);
+
+      renderHook(() =>
+        useGeolocation({
+          autoRequest: true,
+          enablePolling: true,
+          pollingIntervalMs: 60000,
+        })
+      );
+
+      Object.defineProperty(document, "visibilityState", {
+        value: "hidden",
+        writable: true,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      act(() => {
+        jest.advanceTimersByTime(5 * 60000);
+      });
+      expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(1);
+
+      Object.defineProperty(document, "visibilityState", {
+        value: "visible",
+        writable: true,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        jest.advanceTimersByTime(59999);
+      });
+      expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        jest.advanceTimersByTime(1);
+      });
+      expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe("useDefaultLocation", () => {

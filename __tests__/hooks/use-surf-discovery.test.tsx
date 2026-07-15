@@ -110,6 +110,7 @@ describe("useSurfDiscovery", () => {
 
   describe("Basic Functionality", () => {
     it("fetches discovery data when user is authenticated", async () => {
+      const onRequest = jest.fn();
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -130,7 +131,7 @@ describe("useSurfDiscovery", () => {
       });
 
       const { result } = renderHook(() =>
-        useSurfDiscovery({ immediate: true })
+        useSurfDiscovery({ immediate: true, onRequest })
       );
 
       expect(result.current.loading).toBe(true);
@@ -141,6 +142,7 @@ describe("useSurfDiscovery", () => {
       expect(result.current.hasRecommendations).toBe(true);
       expect(result.current.error).toBeNull();
       expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(onRequest).toHaveBeenCalledTimes(1);
     });
 
     it("skips fetch when user is not authenticated", async () => {
