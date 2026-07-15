@@ -158,21 +158,91 @@ describe("fetchBuoyObservationWithFallback integration", () => {
     });
 
     it("should handle CDIP timeout gracefully", async () => {
-      // Mock CDIP timeout (taking > 10 seconds)
-      jest.spyOn(mockCDIPService, "getNearestStation").mockImplementation(
-        () => new Promise((resolve) => setTimeout(() => resolve("station_123"), 15000))
-      );
+      jest.useFakeTimers();
 
-      // Mock IOOS fallback
-      jest.spyOn(mockIOOSService, "findNearbyStations").mockResolvedValue([]);
+      try {
+        jest.spyOn(mockCDIPService, "getNearestStation").mockReturnValue(
+          new Promise(() => {}),
+        );
+        jest.spyOn(mockIOOSService, "findNearbyStations").mockResolvedValue([]);
 
-      const result = await manager.fetchBuoyObservationWithFallback(
-        loc(32.8, -117.2)
-      );
+        const resultPromise = manager.fetchBuoyObservationWithFallback(
+          loc(32.8, -117.2),
+        );
 
-      // Should fall back to IOOS after CDIP timeout
-      expect(result).toBeNull();
-      expect(mockIOOSService.findNearbyStations).toHaveBeenCalled();
+        await jest.advanceTimersByTimeAsync(10_000);
+
+        await expect(resultPromise).resolves.toBeNull();
+        expect(mockIOOSService.findNearbyStations).toHaveBeenCalled();
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it("does not continue the CDIP fetch after station lookup exceeds the deadline", async () => {
+      jest.useFakeTimers();
+      let resolveStation: ((stationId: string) => void) | undefined;
+
+      try {
+        jest.spyOn(mockCDIPService, "getNearestStation").mockReturnValue(
+          new Promise((resolve) => {
+            resolveStation = resolve;
+          }),
+        );
+        const fetchBuoyData = jest
+          .spyOn(mockCDIPService, "fetchBuoyData")
+          .mockResolvedValue(null);
+        jest.spyOn(mockIOOSService, "findNearbyStations").mockResolvedValue([]);
+
+        const resultPromise = manager.fetchBuoyObservationWithFallback(
+          loc(32.8, -117.2),
+        );
+
+        await jest.advanceTimersByTimeAsync(10_000);
+        await expect(resultPromise).resolves.toBeNull();
+
+        resolveStation?.("station_123");
+        await Promise.resolve();
+        await Promise.resolve();
+
+        expect(fetchBuoyData).not.toHaveBeenCalled();
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
+    });
+
+    it("clears the CDIP deadline timer after a fast success", async () => {
+      jest.useFakeTimers();
+
+      try {
+        jest.spyOn(mockCDIPService, "getNearestStation").mockResolvedValue("station_123");
+        jest.spyOn(mockCDIPService, "fetchBuoyData").mockResolvedValue({
+          stationId: "station_123",
+          stationName: "Test Station 123",
+          dataSource: "CDIP",
+          data: [
+            {
+              timestamp: "2026-01-22T12:00:00Z",
+              significantWaveHeight: 2.5,
+              peakWavePeriod: 14,
+              peakWaveDirection: 270,
+            },
+          ],
+          lastUpdated: "2026-01-22T12:00:00Z",
+        });
+
+        await expect(
+          manager.fetchBuoyObservationWithFallback(loc(32.8, -117.2)),
+        ).resolves.toMatchObject({ source: "CDIP", stationId: "station_123" });
+
+        expect(jest.getTimerCount()).toBe(0);
+      } finally {
+        jest.clearAllTimers();
+        jest.useRealTimers();
+      }
     });
 
     it("should use cdipStationOverride and skip getNearestStation", async () => {
