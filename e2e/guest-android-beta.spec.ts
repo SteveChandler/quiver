@@ -4,7 +4,7 @@
  * @project guest
  */
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page, type Route } from "@playwright/test";
 import {
   ANDROID_BETA_CONTACT_EMAIL,
   ANDROID_BETA_CONTACT_MAILTO,
@@ -19,6 +19,16 @@ import {
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
+function requireAndroidBetaPlayUrl(): string {
+  if (!ANDROID_BETA_PLAY_URL) {
+    throw new Error("Android beta Play URL is required for the handoff test");
+  }
+
+  return ANDROID_BETA_PLAY_URL;
+}
+
+const REQUIRED_ANDROID_BETA_PLAY_URL = requireAndroidBetaPlayUrl();
+
 async function clickOutboundLinkAndClosePopup(
   page: Page,
   name: RegExp,
@@ -26,7 +36,16 @@ async function clickOutboundLinkAndClosePopup(
   const popupPromise = page.waitForEvent("popup");
   await page.getByRole("link", { name }).click();
   const popup = await popupPromise;
+  await popup.waitForLoadState("domcontentloaded");
   await popup.close();
+}
+
+async function fulfillOutboundDestination(route: Route): Promise<void> {
+  await route.fulfill({
+    status: 200,
+    contentType: "text/html",
+    body: "<!doctype html><title>Outbound destination</title>",
+  });
 }
 
 test.describe("Android beta page", () => {
@@ -94,6 +113,12 @@ test.describe("Android beta page", () => {
         body: JSON.stringify({ ok: true }),
       });
     });
+    await page
+      .context()
+      .route(ANDROID_BETA_GROUP_URL, fulfillOutboundDestination);
+    await page
+      .context()
+      .route(REQUIRED_ANDROID_BETA_PLAY_URL, fulfillOutboundDestination);
 
     await page.goto("/android-beta");
     await page.waitForLoadState("load");
