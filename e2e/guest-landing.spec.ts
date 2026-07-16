@@ -425,9 +425,6 @@ test.describe('Guest Landing - Deleted Photos', () => {
     await page.goto('/');
     await waitForPageLoad(page);
 
-    // Wait for featured beaches to load
-    await page.waitForLoadState('networkidle');
-
     // Step 4: Verify the deleted photo does NOT appear on the page
     // We're looking for the specific placeholder image URL we used
     const deletedPhotoImage = page.locator(`img[src*="dc2626"]`);
@@ -465,9 +462,6 @@ test.describe('Guest Landing - Deleted Photos', () => {
     // Step 2: Navigate to landing page
     await page.goto('/');
     await waitForPageLoad(page);
-
-    // Wait for featured beaches to load
-    await page.waitForLoadState('networkidle');
 
     // Step 3: Verify the active photo DOES appear on the page
     // Look for beach cards/links (our test beach should appear if it has an active photo)
@@ -518,8 +512,6 @@ test.describe('Guest Landing - Deleted Photos', () => {
     // Step 4: Navigate to landing page - should NOT see photo
     await page.goto('/');
     await waitForPageLoad(page);
-    await page.waitForLoadState('networkidle');
-
     let toggledPhotoImage = page.locator(`img[src*="f59e0b"]`);
     let isVisible = await isVisibleSafe(toggledPhotoImage, { timeout: 3000 });
     expect(isVisible).toBe(false);
@@ -537,8 +529,6 @@ test.describe('Guest Landing - Deleted Photos', () => {
     // (Note: May not appear due to pagination/prioritization, but it's no longer excluded)
     await page.reload();
     await waitForPageLoad(page);
-    await page.waitForLoadState('networkidle');
-
     // We just verify the page loads successfully after restore
     const beachCards = page.locator('a[href^="/"]').filter({ has: page.locator('img') });
     const cardCount = await beachCards.count();
@@ -637,8 +627,6 @@ test.describe('Guest Landing - Deleted Photos', () => {
     // Navigate to landing page
     await page.goto('/');
     await waitForPageLoad(page);
-    await page.waitForLoadState('networkidle');
-
     // Should NOT appear (excluded by both filters)
     const photoImage = page.locator(`img[src*="7c3aed"]`);
     const isVisible = await isVisibleSafe(photoImage, { timeout: 3000 });
@@ -684,8 +672,6 @@ test.describe('Guest Landing - Deleted Photos', () => {
     // Navigate to landing page
     await page.goto('/');
     await waitForPageLoad(page);
-    await page.waitForLoadState('networkidle');
-
     // Should NOT see the newer (deleted) photo
     const newerPhoto = page.locator(`img[src*="ec4899"]`);
     const newerVisible = await isVisibleSafe(newerPhoto, { timeout: 3000 });
