@@ -207,6 +207,26 @@ const nextConfig = {
         destination: "/learn/how-quiver-calibrates-your-beach",
         permanent: true,
       },
+      {
+        source: "/fl/cocoa-beach/cocoa-beach-pier",
+        destination: "/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl",
+        permanent: true,
+      },
+      {
+        source: "/fl/cocoa-beach/cocoa-beach-pier/tides",
+        destination: "/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl/tides",
+        permanent: true,
+      },
+      {
+        source: "/fl/cocoa-beach/cocoa-beach-pier/water-temp",
+        destination: "/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl/water-temp",
+        permanent: true,
+      },
+      {
+        source: "/mexico/baja-california/rosarito/el-morro",
+        destination: "/mexico/baja-california/rosarito/el-morro-point-k375",
+        permanent: true,
+      },
     ];
   },
 

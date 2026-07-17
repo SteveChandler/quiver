@@ -1,0 +1,46 @@
+/**
+ * @jest-environment node
+ */
+
+const fs = require("node:fs");
+const path = require("node:path");
+
+function expectPermanentRedirect(configSource, source, destination) {
+  expect(configSource).toContain(`{
+        source: "${source}",
+        destination: "${destination}",
+        permanent: true,
+      }`);
+}
+
+describe("SEO legacy redirects", () => {
+  it("permanently redirects the retired Cocoa Beach Pier URL family", () => {
+    const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
+
+    expectPermanentRedirect(
+      configSource,
+      "/fl/cocoa-beach/cocoa-beach-pier",
+      "/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl",
+    );
+    expectPermanentRedirect(
+      configSource,
+      "/fl/cocoa-beach/cocoa-beach-pier/tides",
+      "/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl/tides",
+    );
+    expectPermanentRedirect(
+      configSource,
+      "/fl/cocoa-beach/cocoa-beach-pier/water-temp",
+      "/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl/water-temp",
+    );
+  });
+
+  it("permanently redirects the invalid El Morro URL to the canonical beach page", () => {
+    const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
+
+    expectPermanentRedirect(
+      configSource,
+      "/mexico/baja-california/rosarito/el-morro",
+      "/mexico/baja-california/rosarito/el-morro-point-k375",
+    );
+  });
+});

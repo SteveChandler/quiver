@@ -426,15 +426,15 @@ async function getLocationRoutes(
       const countrySlug = slugifyAscii(location.country);
       const regionSlug = slugifyAscii(location.state);
       const citySlug = slugifyAscii(location.city);
+      if (countrySlug && regionSlug && isValidCountrySlug(countrySlug)) {
+        internationalHubs.add(`${baseUrl}/beaches/${countrySlug}`);
+        internationalHubs.add(`${baseUrl}/beaches/${countrySlug}/${regionSlug}`);
+      }
       if (countrySlug && regionSlug && citySlug) {
         const editorial = approvedCityEditorial.get(
           cityEditorialKey(countrySlug, regionSlug, citySlug, null),
         );
         if (!editorial) continue;
-        if (isValidCountrySlug(countrySlug)) {
-          internationalHubs.add(`${baseUrl}/beaches/${countrySlug}`);
-          internationalHubs.add(`${baseUrl}/beaches/${countrySlug}/${regionSlug}`);
-        }
         const intlUrl = `${baseUrl}/${countrySlug}/${regionSlug}/${citySlug}`;
         if (emittedUrls.has(intlUrl)) continue;
         emittedUrls.add(intlUrl);

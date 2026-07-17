@@ -1024,6 +1024,22 @@ describe("Sitemap Generation", () => {
   });
 
   describe("Location Routes", () => {
+    it("keeps international country and state hubs in the sitemap when city editorial is not ready", async () => {
+      (getAllBeachLocations as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          { city: "Rosarito", state: "Baja California", country: "Mexico", beachCount: 7 },
+        ],
+      });
+      (getReviewedCityEditorialContent as jest.Mock).mockResolvedValue([]);
+
+      const result = await sitemap();
+
+      expect(result.some((route) => route.url === `${baseUrl}/beaches/mexico`)).toBe(true);
+      expect(result.some((route) => route.url === `${baseUrl}/beaches/mexico/baja-california`)).toBe(true);
+      expect(result.some((route) => route.url === `${baseUrl}/mexico/baja-california/rosarito`)).toBe(false);
+    });
+
     it("should include location routes from getAllBeachLocations", async () => {
       // Populate validCitySlugs so US cities pass the scored-beach cross-validation.
       // International cities (Mexico) bypass this check so no beach entry needed for Rosarito.
