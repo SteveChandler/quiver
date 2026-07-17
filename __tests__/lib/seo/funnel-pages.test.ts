@@ -141,6 +141,23 @@ describe("SEO funnel pages", () => {
     }
   });
 
+  it("links Cocoa Beach Pier cards to the database-backed canonical surface", () => {
+    const cocoaBeachPages = [
+      getSeoFunnelPageByTypeAndSlug("longboard", "fl"),
+      getSeoFunnelPageByTypeAndSlug("beginner", "cocoa-beach"),
+      getSeoFunnelPageByTypeAndSlug("surf-cams", "florida"),
+    ];
+
+    for (const page of cocoaBeachPages) {
+      expect(page?.nearbySpots).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          label: "Cocoa Beach Pier",
+          href: "/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl",
+        }),
+      ]));
+    }
+  });
+
   it("uses unique route, title, description, and image IDs", () => {
     const routes = new Set<string>();
     const titles = new Set<string>();

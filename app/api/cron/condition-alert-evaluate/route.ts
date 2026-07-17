@@ -132,17 +132,29 @@ export async function GET(request: Request) {
             const homeBeachTz = homeBeach?.timezone ?? "America/New_York";
             const userLocalDate = new Date().toLocaleDateString("en-CA", { timeZone: homeBeachTz });
 
-            // Check if already delivered today.
-            const { data: existing, error: existingError } = await supabase
+            // A surf alert is unique per beach, not per user. This lets an
+            // actionable second break through while keeping repeat windows at
+            // the same break quiet for the rest of the local day.
+            // `beach_id` is introduced by the same migration as this
+            // behavior; keep this boundary untyped until generated DB types
+            // are refreshed in the deployment environment.
+            const { data: existing, error: existingError } = await (supabase as any)
               .from("alert_deliveries")
-              .select("id")
+              .select("beach_id")
               .eq("user_id", userId)
-              .eq("alert_date", userLocalDate)
-              .limit(1);
+              .eq("alert_date", userLocalDate);
 
             if (existingError) throw existingError;
 
-            if (existing && existing.length > 0) {
+            const deliveredBeachIds = new Set(
+              ((existing ?? []) as Array<{ beach_id?: unknown }>)
+                .map((delivery: { beach_id?: unknown }) => delivery.beach_id)
+                .filter((beachId: unknown): beachId is string => typeof beachId === "string"),
+            );
+            const eligibleRules = userRules.filter(
+              (rule) => !deliveredBeachIds.has(rule.beach_id),
+            );
+            if (eligibleRules.length === 0) {
               result.skipped += userRules.length;
               continue;
             }
@@ -151,7 +163,7 @@ export async function GET(request: Request) {
             const entitlementRow = entitlementByUserId.get(userId) ?? null;
             const tier = resolveEntitlement(userId, entitlementRow);
             const caps = CAPS[tier];
-            const sortedRules = [...userRules].sort(
+            const sortedRules = [...eligibleRules].sort(
               (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
             );
             const activeRules = sortedRules.slice(0, caps.totalRules);

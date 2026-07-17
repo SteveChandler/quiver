@@ -66,6 +66,10 @@ export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
     "",
     renderKeywordMovement(input.gsc, input.dataforseo, openRecommendations),
     "",
+    "## CTR Cohort Monitoring",
+    "",
+    renderCtrCohortMonitoring(openRecommendations),
+    "",
     "## Product-Led SEO Opportunities",
     "",
     renderProductLedOpportunities(input.gsc, input.dataforseo),
@@ -77,6 +81,10 @@ export function renderWeeklySeoReport(input: WeeklySeoReportInput): string {
     "## SEO Metadata",
     "",
     renderMetadataAudit(input.metadata),
+    "",
+    "## Google Indexing Health",
+    "",
+    renderGoogleIndexingHealth(input.gsc),
     "",
     "## Technical Crawl Health",
     "",
@@ -199,6 +207,62 @@ function renderKeywordMovement(
     rows.push(`- Highest-click GSC query: "${gsc.topQueries[0]?.query}" (${gsc.topQueries[0]?.clicks ?? 0} clicks).`);
   }
   return rows.length ? rows.join("\n") : "- No keyword movement available.";
+}
+
+function renderCtrCohortMonitoring(recommendations: SeoRecommendation[]): string {
+  const monitors = recommendations
+    .filter((item) => item.source === "gsc-decay" && /^CTR monitor:/i.test(item.summary))
+    .sort((a, b) => a.canonicalPath.localeCompare(b.canonicalPath));
+
+  if (monitors.length === 0) return "- No dedicated CTR cohorts are configured.";
+
+  return monitors.map((item) => {
+    const evidence = item.evidence
+      .filter((entry) => /^(28d=|ctr=|avgPosition=|monitorUntil=|reason=)/.test(entry))
+      .join("; ");
+    return `- Monitor-only: \`${item.canonicalPath}\`${item.targetKeyword ? ` (${item.targetKeyword})` : ""} — ${evidence}`;
+  }).join("\n");
+}
+
+function renderGoogleIndexingHealth(gsc?: GscExportInput): string {
+  const indexing = gsc?.indexing;
+  if (!indexing) {
+    return "- GSC URL Inspection watchlist was unavailable; no direct Google crawl/index state was checked.";
+  }
+
+  const blockers = indexing.results.filter((item) => isGoogleIndexingBlocker(item.coverageState));
+  const rows = [
+    `- Read-only URL Inspection checked ${indexing.results.length} configured high-value URL${indexing.results.length === 1 ? "" : "s"}. This is a watchlist, not sitewide index coverage.`,
+  ];
+
+  if (blockers.length > 0) {
+    rows.push(`- ${blockers.length} confirmed crawl/index blocker${blockers.length === 1 ? "" : "s"}:`);
+    rows.push(...blockers.map((item) => {
+      const details = [
+        item.label,
+        item.coverageState,
+        item.lastCrawlTime ? `last crawl ${item.lastCrawlTime}` : "no crawl recorded",
+        item.sitemap?.length ? "sitemap known" : "no sitemap reported",
+      ].filter(Boolean).join("; ");
+      return `  - HIGH: \`${item.canonicalPath}\` — ${details}.`;
+    }));
+  } else if (indexing.results.length > 0) {
+    rows.push("- No configured URLs were reported as unknown to Google or discovered/crawled but currently not indexed.");
+  }
+
+  if (indexing.missing?.length) {
+    rows.push(...indexing.missing.map((item) => `- URL Inspection gap: ${item}`));
+  }
+  const individualErrors = indexing.results
+    .filter((item) => item.error)
+    .map((item) => `- URL Inspection gap for \`${item.canonicalPath}\`: ${item.error}`);
+  rows.push(...individualErrors);
+  return rows.join("\n");
+}
+
+function isGoogleIndexingBlocker(coverageState: string | undefined): boolean {
+  return /^(discovered|crawled) - currently not indexed$/i.test(coverageState ?? "") ||
+    /^url is unknown to google$/i.test(coverageState ?? "");
 }
 
 function renderMetadataAudit(metadata?: SeoMetadataAuditInput): string {

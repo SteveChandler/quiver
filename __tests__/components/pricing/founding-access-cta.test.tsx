@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { FoundingAccessCta } from "@/components/pricing/founding-access-cta";
 import { useAuth } from "@/context/auth-context";
 import { useProfileContext } from "@/context/profile-context";
+import { ANDROID_BETA_LANDING_PATH } from "@/lib/constants/app-store";
 
 jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(),
@@ -20,24 +21,21 @@ jest.mock("@/components/pricing/android-waitlist-cta", () => ({
     source,
     surface,
     placement,
-    onConfirmed,
   }: {
     children: ReactNode;
     source: string;
     surface: string;
     placement: string;
-    onConfirmed?: () => void;
   }) => (
-    <button
-      type="button"
+    <a
+      href={ANDROID_BETA_LANDING_PATH}
       data-testid="android-waitlist-cta"
       data-source={source}
       data-surface={surface}
       data-placement={placement}
-      onClick={onConfirmed}
     >
       {children}
-    </button>
+    </a>
   ),
 }));
 
@@ -91,14 +89,18 @@ describe("FoundingAccessCta", () => {
     mockProfileContext();
   });
 
-  it("renders an action-backed Android beta CTA for anonymous users", () => {
+  it("renders the guided Android beta handoff for anonymous users", () => {
     render(<FoundingAccessCta source="plans-test" surface="plans" />);
 
     expect(
-      screen.getByRole("button", {
+      screen.getByRole("link", {
         name: /get the android beta/i,
       }),
     ).toHaveAttribute("data-placement", "plans_primary");
+    expect(screen.getByTestId("android-waitlist-cta")).toHaveAttribute(
+      "href",
+      ANDROID_BETA_LANDING_PATH,
+    );
     expect(screen.getByTestId("android-waitlist-cta")).toHaveAttribute(
       "data-source",
       "plans-test",
@@ -108,22 +110,23 @@ describe("FoundingAccessCta", () => {
       "plans",
     );
     expect(
-      screen.getByText(/test for 14 days to earn a free year of pro/i),
+      screen.getByText(/personalized surf decisions.*session logging/i),
     ).toBeInTheDocument();
+    expect(screen.queryByText(/free year|year of pro/i)).not.toBeInTheDocument();
   });
 
-  it("asks signed-in users to confirm Android beta intent", () => {
+  it("routes signed-in users to the same guided handoff", () => {
     mockSignedInUser();
 
     render(<FoundingAccessCta source="plans-test" surface="plans" />);
 
     expect(screen.getByTestId("founding-access-signed-in-state")).toBeVisible();
     expect(
-      screen.getByText(/confirm this account for android beta access/i),
+      screen.getByText(/open the android beta instructions to get started/i),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("button", {
-        name: /get the android beta/i,
+      screen.getByRole("link", {
+        name: /view android beta steps/i,
       }),
     ).toHaveAttribute("data-placement", "plans_signed_in");
     expect(
@@ -141,8 +144,8 @@ describe("FoundingAccessCta", () => {
     expect(screen.getByTestId("founding-access-signed-in-state")).toBeVisible();
     expect(screen.getByText(/you're signed in/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("button", {
-        name: /get the android beta/i,
+      screen.getByRole("link", {
+        name: /view android beta steps/i,
       }),
     ).toHaveAttribute("data-placement", "plans_compact_signed_in");
     expect(
@@ -163,12 +166,14 @@ describe("FoundingAccessCta", () => {
     render(<FoundingAccessCta source="plans-test" surface="plans" />);
 
     expect(screen.getByTestId("founding-access-signed-in-state")).toBeVisible();
-    expect(screen.getByText(/android beta access is set/i)).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", {
-        name: /get the android beta/i,
+      screen.getByText(/earlier android beta signup is recorded/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", {
+        name: /view android beta steps/i,
       }),
-    ).not.toBeInTheDocument();
+    ).toHaveAttribute("href", ANDROID_BETA_LANDING_PATH);
     expect(
       screen.getByRole("link", {
         name: /open quiver/i,
@@ -176,19 +181,19 @@ describe("FoundingAccessCta", () => {
     ).toBeInTheDocument();
   });
 
-  it("refreshes the cached profile when signed-in waitlist confirmation succeeds", async () => {
+  it("does not mutate the profile when opening the public handoff", async () => {
     const user = userEvent.setup();
     mockSignedInUser();
     mockProfileContext({ id: "user-1", wants_android_access: false });
 
     render(<FoundingAccessCta source="plans-test" surface="plans" />);
 
-    await user.click(
-      screen.getByRole("button", {
-        name: /get the android beta/i,
-      }),
-    );
+    const link = screen.getByRole("link", {
+      name: /view android beta steps/i,
+    });
+    link.addEventListener("click", (event) => event.preventDefault());
+    await user.click(link);
 
-    expect(mockRefreshProfile).toHaveBeenCalledTimes(1);
+    expect(mockRefreshProfile).not.toHaveBeenCalled();
   });
 });

@@ -3,8 +3,11 @@ import type {
   GscCountryRow,
   GscDeviceRow,
   GscExportInput,
+  GscIndexingExport,
+  GscIndexingStatus,
   GscPageRow,
   GscQueryRow,
+  GscRefreshInput,
 } from "./types";
 
 export function parseGscExport(raw: unknown): GscExportInput {
@@ -30,18 +33,46 @@ export function parseGscExport(raw: unknown): GscExportInput {
     topPages: arrayValue(raw.topPages, "topPages").map(parsePageRow),
     byDevice: arrayValue(raw.byDevice, "byDevice").map(parseDeviceRow),
     byCountry: arrayValue(raw.byCountry, "byCountry").map(parseCountryRow),
+    indexing: raw.indexing === undefined ? undefined : parseIndexingExport(raw.indexing),
   };
 }
 
-export function toGscRefreshInput(exportInput: GscExportInput): Pick<
-  GscExportInput,
-  "last7d" | "prior7d" | "last28d" | "sitemapPaths"
-> {
+export function toGscRefreshInput(exportInput: GscExportInput): GscRefreshInput {
   return {
     last7d: exportInput.last7d,
     prior7d: exportInput.prior7d,
     last28d: exportInput.last28d,
     sitemapPaths: exportInput.sitemapPaths,
+    dataThrough: exportInput.dateRanges.last28d.end,
+    indexing: exportInput.indexing,
+  };
+}
+
+function parseIndexingExport(raw: unknown): GscIndexingExport {
+  if (!isRecord(raw)) throw new Error("indexing must be an object");
+  return {
+    generatedAt: stringValue(raw.generatedAt, "indexing.generatedAt"),
+    watchlistPath: stringValue(raw.watchlistPath, "indexing.watchlistPath"),
+    results: arrayValue(raw.results, "indexing.results").map(parseIndexingStatus),
+    missing: raw.missing === undefined ? undefined : arrayValue(raw.missing, "indexing.missing")
+      .map((value) => stringFromUnknown(value, "indexing.missing[]")),
+  };
+}
+
+function parseIndexingStatus(raw: unknown): GscIndexingStatus {
+  if (!isRecord(raw)) throw new Error("indexing.results[] must be an object");
+  return {
+    canonicalPath: normalizeSeoPath(stringValue(raw.canonicalPath, "indexing.results[].canonicalPath")),
+    label: optionalString(raw.label, "indexing.results[].label"),
+    verdict: optionalString(raw.verdict, "indexing.results[].verdict"),
+    coverageState: optionalString(raw.coverageState, "indexing.results[].coverageState"),
+    indexingState: optionalString(raw.indexingState, "indexing.results[].indexingState"),
+    robotsTxtState: optionalString(raw.robotsTxtState, "indexing.results[].robotsTxtState"),
+    pageFetchState: optionalString(raw.pageFetchState, "indexing.results[].pageFetchState"),
+    lastCrawlTime: optionalString(raw.lastCrawlTime, "indexing.results[].lastCrawlTime"),
+    sitemap: optionalStringArray(raw.sitemap, "indexing.results[].sitemap"),
+    referringUrls: optionalStringArray(raw.referringUrls, "indexing.results[].referringUrls"),
+    error: optionalString(raw.error, "indexing.results[].error"),
   };
 }
 
@@ -124,6 +155,16 @@ function numberValue(raw: unknown, field: string): number {
 function optionalNumber(raw: unknown, field: string): number | undefined {
   if (raw === undefined || raw === null) return undefined;
   return numberValue(raw, field);
+}
+
+function optionalString(raw: unknown, field: string): string | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  return stringValue(raw, field);
+}
+
+function optionalStringArray(raw: unknown, field: string): string[] | undefined {
+  if (raw === undefined || raw === null) return undefined;
+  return arrayValue(raw, field).map((value) => stringFromUnknown(value, `${field}[]`));
 }
 
 function isRecord(raw: unknown): raw is Record<string, unknown> {

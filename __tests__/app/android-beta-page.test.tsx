@@ -41,22 +41,44 @@ describe("AndroidBetaPage", () => {
     expect(metadata.alternates?.canonical).toBe("/android-beta");
   });
 
-  it("captures an email before revealing the closed-beta links", async () => {
+  it("leads with current product value without promising a tester incentive", () => {
+    const { container } = render(<AndroidBetaPage />);
+
+    expect(screen.getByText(/personalized surf decisions/i)).toBeInTheDocument();
+    expect(screen.getByText(/279\+ beaches/i)).toBeInTheDocument();
+    expect(screen.getByText(/session logging/i)).toBeInTheDocument();
+    expect(screen.getByText(/saved spots.*alerts/i)).toBeInTheDocument();
+    expect(screen.getByText(/shape android quality/i)).toBeInTheDocument();
+
+    const pageText = container.textContent ?? "";
+    expect(pageText).not.toMatch(/free year|year of (?:quiver )?pro/i);
+    expect(pageText).not.toMatch(/founding pric|queue priority|waitlist/i);
+  });
+
+  it("keeps the closed-beta links available before and after optional email capture", async () => {
     const user = userEvent.setup();
     render(<AndroidBetaPage />);
 
     expect(
       screen.getByRole("heading", { name: /join the quiver android beta/i }),
     ).toBeInTheDocument();
+    const initialGroupLink = screen.getByRole("link", {
+      name: /join the tester group/i,
+    });
+    const initialPlayLink = screen.getByRole("link", {
+      name: /already joined.*open google play/i,
+    });
+    expect(initialGroupLink).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
+    expect(initialPlayLink).toHaveAttribute("href", ANDROID_BETA_PLAY_URL ?? "");
     expect(
-      screen.queryByRole("link", { name: /join the tester group/i }),
-    ).not.toBeInTheDocument();
+      screen.getByText(/^email is optional — get beta updates$/i),
+    ).toBeInTheDocument();
 
     await user.type(
-      screen.getByLabelText(/email for android beta access/i),
+      screen.getByLabelText(/email is optional/i),
       "SURFER@example.com",
     );
-    await user.click(screen.getByRole("button", { name: /get beta steps/i }));
+    await user.click(screen.getByRole("button", { name: /send me beta updates/i }));
 
     expect(global.fetch).toHaveBeenCalledWith(
       "/api/android-beta/leads",
@@ -85,15 +107,15 @@ describe("AndroidBetaPage", () => {
       screen.getByRole("button", { name: /use a different email/i }),
     );
     expect(
-      screen.queryByRole("link", { name: /join the tester group/i }),
-    ).not.toBeInTheDocument();
-    const emailInput = screen.getByLabelText(/email for android beta access/i);
+      screen.getByRole("link", { name: /join the tester group/i }),
+    ).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
+    const emailInput = screen.getByLabelText(/email is optional/i);
     expect(emailInput).toHaveValue("SURFER@example.com");
 
     jest.clearAllMocks();
     await user.clear(emailInput);
     await user.type(emailInput, "corrected@example.com");
-    await user.click(screen.getByRole("button", { name: /get beta steps/i }));
+    await user.click(screen.getByRole("button", { name: /send me beta updates/i }));
     expect(global.fetch).toHaveBeenCalledWith(
       "/api/android-beta/leads",
       expect.objectContaining({
@@ -136,7 +158,7 @@ describe("AndroidBetaPage", () => {
     );
 
     const playLink = screen.getByRole("link", {
-      name: /opt in on google play/i,
+      name: /already joined.*open google play/i,
     });
     expect(playLink).toHaveAttribute("href", ANDROID_BETA_PLAY_URL ?? "");
     jest.clearAllMocks();

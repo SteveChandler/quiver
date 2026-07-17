@@ -36,6 +36,7 @@ const SENTRY_MONITOR = {
 };
 
 interface HomeMorningCallPayload {
+  alert_date: string;
   verdict: SurfCallVerdict;
   beach_id: string;
   beach_name: string;
@@ -170,6 +171,7 @@ function selectAndBuildMorningCall({
 
   return {
     payload: {
+      alert_date: localDate,
       verdict: call.verdict,
       beach_id: beach.id,
       beach_name: beach.name,

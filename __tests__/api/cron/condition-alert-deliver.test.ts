@@ -514,7 +514,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 
-  it("maps queued best_score into consolidated email ordering", async () => {
+  it("keeps queued alerts for different beaches in separate emails", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
@@ -538,17 +538,12 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
 
-    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(2);
     expect(store.alertQueueSelects[0]).toContain("best_score");
-    expect(mockConsolidatedAlertEmail).toHaveBeenCalledTimes(1);
-    const emailProps = mockConsolidatedAlertEmail.mock.calls[0][0];
-    expect(emailProps.matches.map((m: any) => ({
-      beach_name: m.beach_name,
-      best_score: m.best_score,
-    }))).toEqual([
-      { beach_name: "Higher Score Beach", best_score: 0.95 },
-      { beach_name: "Lower Score Beach", best_score: 0.25 },
-    ]);
+    expect(mockConsolidatedAlertEmail).toHaveBeenCalledTimes(2);
+    expect(mockConsolidatedAlertEmail.mock.calls.map((call) =>
+      call[0].matches[0].beach_name,
+    ).sort()).toEqual(["Higher Score Beach", "Lower Score Beach"]);
   });
 
   it("email-only rule, profile.email is null → skipped_no_email, no Resend call, queue still marked sent", async () => {
@@ -1137,7 +1132,7 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
       recipientUserId: USER_A,
       entityType: "beach",
       entityId: BEACH_1,
-      dedupeKey: `forecast_alert:${USER_A}:2026-04-26`,
+      dedupeKey: `forecast_alert:${USER_A}:${BEACH_1}:2026-04-26`,
     });
     expect(call.payload).toMatchObject({
       alert_date: "2026-04-26",
@@ -1156,6 +1151,7 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
     expect(store.deliveryInserts).toHaveLength(1);
     expect(store.deliveryInserts[0]).toMatchObject({
       user_id: USER_A,
+      beach_id: BEACH_1,
       alert_date: "2026-04-26",
       channel: "push",
     });
@@ -1347,7 +1343,7 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
       recipientUserId: USER_A,
       entityType: "beach",
       entityId: BEACH_SIM,
-      dedupeKey: `similarity_match:${USER_A}:2026-05-04`,
+      dedupeKey: `similarity_match:${USER_A}:${BEACH_SIM}:2026-05-04`,
     });
     expect(simCall.payload).toMatchObject({
       beach_id: BEACH_SIM,

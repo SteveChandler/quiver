@@ -33,3 +33,13 @@ Do not treat a dashboard proposal as covered until all four checks pass:
 4. The weekly report records the before/after GSC baseline and the intended rerun window.
 
 For this batch, rerun against the same baseline at end of week and compare CTR and query ownership for La Jolla, Newport Beach, and Malibu before making broader template changes.
+
+## Monitoring Cohort
+
+The weekly GSC refresh reads `docs/seo/ctr-watchlist.json` and renders this cohort under `CTR Cohort Monitoring` as monitor-only evidence. It must not trigger another metadata or copy rewrite before the first fully post-change 28-day window ends on 2026-07-26. The hold is evaluated against the export's `dateRanges.last28d.end`, not the report generation timestamp, so GSC's three-day reporting lag cannot release a page early.
+
+- `/best-time-to-surf/la-jolla`
+- `/best-time-to-surf/newport-beach`
+- `/best-time-to-surf/malibu`
+- `/surf-report/newport-beach-today` (9 impressions in the latest mixed window)
+- `/surf-report/malibu-today` (4 impressions in the latest mixed window)

@@ -432,11 +432,17 @@ export class ForecastDataSourceManager {
     observedAt: string;
   } | null> {
     // Try CDIP first (primary for West Coast)
+    let cdipTimeoutId: ReturnType<typeof setTimeout> | null = null;
+    let cdipDeadlineExpired = false;
+
     try {
       // Bug Fix #3: Add timeout to CDIP fallback (10 seconds)
-      const cdipTimeout = new Promise<null>((_, reject) =>
-        setTimeout(() => reject(new Error('CDIP fetch timeout')), 10000)
-      );
+      const cdipTimeout = new Promise<null>((_, reject) => {
+        cdipTimeoutId = setTimeout(() => {
+          cdipDeadlineExpired = true;
+          reject(new Error('CDIP fetch timeout'));
+        }, 10000);
+      });
 
       const cdipFetch = (async () => {
         const cdipStation = cdipStationOverride
@@ -446,8 +452,16 @@ export class ForecastDataSourceManager {
             radiusKm
           );
 
+        if (cdipDeadlineExpired) {
+          return null;
+        }
+
         if (cdipStation) {
           const cdipData = await this.cdipService.fetchBuoyData(cdipStation);
+          if (cdipDeadlineExpired) {
+            return null;
+          }
+
           if (cdipData && cdipData.data && cdipData.data.length > 0) {
             const latestPoint = cdipData.data[cdipData.data.length - 1];
             if (latestPoint.significantWaveHeight !== null) {
@@ -476,6 +490,10 @@ export class ForecastDataSourceManager {
         lon: location.longitude,
         error: error instanceof Error ? error.message : String(error),
       });
+    } finally {
+      if (cdipTimeoutId) {
+        clearTimeout(cdipTimeoutId);
+      }
     }
 
     // IOOS cached-first strategy
@@ -615,4 +633,3 @@ export class ForecastDataSourceManager {
     };
   }
 }
-

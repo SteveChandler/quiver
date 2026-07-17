@@ -29,6 +29,71 @@ def _load_gsc_stats_module():
 
 
 class GscStatsTests(unittest.TestCase):
+    def test_inspect_indexing_maps_success_and_preserves_per_url_failures(self):
+        gsc_stats = _load_gsc_stats_module()
+        inspection_api = mock.Mock()
+        inspection_api.index.return_value.inspect.return_value.execute.side_effect = [
+            {
+                "inspectionResult": {
+                    "indexStatusResult": {
+                        "verdict": "NEUTRAL",
+                        "coverageState": "Discovered - currently not indexed",
+                        "indexingState": "PASS",
+                        "robotsTxtState": "ALLOWED",
+                        "pageFetchState": "SUCCESSFUL",
+                        "lastCrawlTime": "2026-07-14T01:02:03Z",
+                        "sitemap": ["https://www.quiversurf.app/sitemap.xml", 123],
+                        "referringUrls": ["https://www.quiversurf.app/", None],
+                    }
+                }
+            },
+            RuntimeError("inspection denied"),
+        ]
+        service = mock.Mock()
+        service.urlInspection.return_value = inspection_api
+
+        watchlist = [
+            {"canonicalPath": "/beaches/mexico", "label": "Mexico location hub"},
+            {"canonicalPath": "/beaches/mexico/baja-california", "label": None},
+        ]
+        with mock.patch.object(
+            gsc_stats,
+            "get_indexing_watchlist",
+            return_value=(watchlist, ["watchlist warning"]),
+        ):
+            result = gsc_stats.inspect_indexing(service)
+
+        self.assertEqual(result["missing"], ["watchlist warning"])
+        self.assertEqual(result["results"][0], {
+            "canonicalPath": "/beaches/mexico",
+            "label": "Mexico location hub",
+            "verdict": "NEUTRAL",
+            "coverageState": "Discovered - currently not indexed",
+            "indexingState": "PASS",
+            "robotsTxtState": "ALLOWED",
+            "pageFetchState": "SUCCESSFUL",
+            "lastCrawlTime": "2026-07-14T01:02:03Z",
+            "sitemap": ["https://www.quiversurf.app/sitemap.xml"],
+            "referringUrls": ["https://www.quiversurf.app/"],
+        })
+        self.assertEqual(result["results"][1], {
+            "canonicalPath": "/beaches/mexico/baja-california",
+            "error": "inspection denied",
+        })
+        self.assertEqual(
+            inspection_api.index.return_value.inspect.call_args_list,
+            [
+                mock.call(body={
+                    "inspectionUrl": "https://www.quiversurf.app/beaches/mexico",
+                    "siteUrl": "https://www.quiversurf.app/",
+                }),
+                mock.call(body={
+                    "inspectionUrl": "https://www.quiversurf.app/beaches/mexico/baja-california",
+                    "siteUrl": "https://www.quiversurf.app/",
+                }),
+            ],
+        )
+
     def test_build_json_export_writes_partial_when_sitemap_fails(self):
         gsc_stats = _load_gsc_stats_module()
 

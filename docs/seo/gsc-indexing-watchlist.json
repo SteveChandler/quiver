@@ -1,0 +1,29 @@
+{
+  "pages": [
+    {
+      "canonicalPath": "/beaches/mexico",
+      "label": "Mexico location hub",
+      "reason": "Parent of the Baja California browse path; Google discovered it but has not crawled it."
+    },
+    {
+      "canonicalPath": "/beaches/mexico/baja-california",
+      "label": "Baja California location hub",
+      "reason": "Parent hub for the Rosarito pages; Google discovered it but has not crawled it."
+    },
+    {
+      "canonicalPath": "/mexico/baja-california/rosarito",
+      "label": "Rosarito city page",
+      "reason": "The city page was crawled but remains excluded from Google's index."
+    },
+    {
+      "canonicalPath": "/mexico/baja-california/rosarito/alfonsos",
+      "label": "Alfonsos beach page",
+      "reason": "Former orphan page added to the sitemap and internal-link path; Google discovered it but has not crawled it."
+    },
+    {
+      "canonicalPath": "/mexico/baja-california/rosarito/el-morro-point-k375",
+      "label": "El Morro beach page",
+      "reason": "Canonical former-orphan page added to the sitemap and internal-link path; verify Google's crawl and index state rather than a legacy 404."
+    }
+  ]
+}

@@ -19,6 +19,7 @@ export interface AlertConditions {
   quiet_hours_start?: number;
   quiet_hours_end?: number;
   beginner_sandy_window?: boolean;
+  beginner_window_confirmed?: boolean;
 }
 
 export type PresetType =

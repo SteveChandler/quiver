@@ -27,6 +27,8 @@ describe("SEO workflow weekly report", () => {
 
     expect(report).toContain("## Bottom Line");
     expect(report).toContain("## Web SEO");
+    expect(report).toContain("## CTR Cohort Monitoring");
+    expect(report).toContain("## Google Indexing Health");
     expect(report).toContain("## AI Citation / AEO Signals");
     expect(report).toContain("## Outreach Queue");
     expect(report).toContain("## Competitor Technical Surfaces");
@@ -37,6 +39,79 @@ describe("SEO workflow weekly report", () => {
     expect(report).toContain("no automated Google SERP scraping is performed");
     expect(report).toContain("Skipped source: POSTHOG_PROJECT_ID");
     expect(report).not.toContain("## Missing Data / Limits");
+  });
+
+  it("renders verified Google crawl and indexing blockers separately from GSC performance data", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-07-14T12:00:00Z",
+      recommendations: [],
+      missing: [],
+      gsc: {
+        generatedAt: "2026-07-14T12:00:00Z",
+        siteUrl: "https://www.quiversurf.app/",
+        dateRanges: {
+          last7d: { start: "2026-07-05", end: "2026-07-11" },
+          prior7d: { start: "2026-06-28", end: "2026-07-04" },
+          last28d: { start: "2026-06-14", end: "2026-07-11" },
+        },
+        last7d: [],
+        prior7d: [],
+        last28d: [],
+        sitemapPaths: [],
+        topQueries: [],
+        topPages: [],
+        byDevice: [],
+        byCountry: [],
+        indexing: {
+          generatedAt: "2026-07-14T12:00:00Z",
+          watchlistPath: "docs/seo/gsc-indexing-watchlist.json",
+          results: [{
+            canonicalPath: "/beaches/mexico",
+            label: "Mexico location hub",
+            coverageState: "Discovered - currently not indexed",
+          }, {
+            canonicalPath: "/mexico/baja-california/rosarito/el-morro",
+            coverageState: "URL is unknown to Google",
+          }],
+        },
+      },
+    });
+
+    const indexing = extractSection(report, "## Google Indexing Health");
+    expect(indexing).toContain("Read-only URL Inspection checked 2 configured high-value URLs");
+    expect(indexing).toContain("HIGH: `/beaches/mexico`");
+    expect(indexing).toContain("Discovered - currently not indexed");
+    expect(indexing).toContain("URL is unknown to Google");
+  });
+
+  it("renders CTR cohorts as monitoring evidence instead of weekly actions", () => {
+    const report = renderWeeklySeoReport({
+      generatedAt: "2026-07-14T12:00:00Z",
+      recommendations: [{
+        id: "gsc-ctr-monitor-surf-report-newport-beach-today",
+        createdAt: "2026-07-14T12:00:00Z",
+        source: "gsc-decay",
+        priority: "low",
+        canonicalPath: "/surf-report/newport-beach-today",
+        targetKeyword: "Newport Beach surf-report owner",
+        summary: "CTR monitor: retain the current page treatment and observe the next 28-day GSC window.",
+        evidence: [
+          "28d=0 clicks/9 impressions",
+          "ctr=0.00%",
+          "avgPosition=11.0",
+          "monitorUntil=2026-07-26",
+          "reason=New owner route needs a fully post-change window.",
+        ],
+        status: "open",
+      }],
+      missing: [],
+    });
+
+    const monitoring = extractSection(report, "## CTR Cohort Monitoring");
+    const actions = extractSection(report, "## Actions This Week");
+    expect(monitoring).toContain("Monitor-only: `/surf-report/newport-beach-today` (Newport Beach surf-report owner)");
+    expect(monitoring).toContain("28d=0 clicks/9 impressions");
+    expect(actions).not.toContain("newport-beach-today");
   });
 
   it("does not list optional Ahrefs enrichment as missing", () => {
@@ -338,8 +413,8 @@ describe("SEO workflow weekly report", () => {
 
     expect(report).toContain("## Execution Plan This Week");
     expect(report).toContain("1. Day 1:");
-    expect(report).toContain("2. Day 2: [COMPETITOR] Respond to Lazy Surfer comparison-page claims.");
-    expect(report).toContain("3. Day 2: [ASO] Resolve Quiver App Store listing drift.");
+    expect(report).not.toContain("Respond to Lazy Surfer comparison-page claims.");
+    expect(report).toContain("2. Day 2: [ASO] Resolve Quiver App Store listing drift.");
     expect(report).toContain("End of week: rerun the weekly SEO + ASO report");
   });
 

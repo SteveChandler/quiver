@@ -132,6 +132,12 @@ export interface NotificationTypeDef<P = Record<string, unknown>> {
   };
   /** Skip when actor === recipient. Default true for social types. */
   suppressSelfNotify: boolean;
+  /**
+   * Priority within the one-alert-per-user/beach/day surf slot. Surf alerts
+   * wait briefly at enqueue time so a higher-priority source can replace a
+   * lower-priority event before either is delivered.
+   */
+  surfAlertPriority?: 1 | 2 | 3;
   quietHours: QuietHoursConfig;
   /**
    * Phase 5e: validate (and parse) the producer-supplied payload at enqueue

@@ -102,6 +102,25 @@ describe("formatPushNotification", () => {
     expect(result.body.length).toBeLessThanOrEqual(150);
   });
 
+  it("labels a beginner window honestly instead of calling small surf firing", () => {
+    const result = formatPushNotification([
+      makeMatch({
+        best_score: 0.8,
+        beach_name: "Mission Beach",
+        conditions_snapshot: {
+          wave_height: 1.5,
+          wave_period: 14,
+          wind_speed: 2,
+          beginner_window_reason: "beginner-friendly",
+        },
+      }),
+    ]);
+
+    expect(result.title).toBe("Beginner-friendly — Mission Beach, 7–10 AM");
+    expect(result.title).not.toContain("Firing");
+    expect(result.body).toContain("1-2ft @ 14s");
+  });
+
   it("drops the beginner rationale rather than triggering the truncation fallback", () => {
     const result = formatPushNotification([
       makeMatch({

@@ -8,7 +8,7 @@
  * 2. Empty rules: 0 rules => message "No rules to evaluate", no DB writes after rules query.
  * 3. Missing profile: rule exists but profile lookup returns empty => rule skipped,
  *    summary.errors incremented, route does not crash.
- * 4. Existing delivery for today: alert_deliveries row present => all rules for user skipped.
+ * 4. Existing delivery for a beach today: that beach's rules are skipped.
  *
  * Mocking strategy: per-table chain factory matching the established pattern in
  * condition-alert-deliver.test.ts. Each Supabase table gets its own chain that
@@ -97,6 +97,7 @@ jest.mock("@/lib/utils/surf-call-logic", () => {
 const USER_A = "00000000-0000-0000-0000-000000000001";
 const RULE_1 = "00000000-0000-0000-0000-0000000000a1";
 const BEACH_1 = "00000000-0000-0000-0000-0000000000b1";
+const BEACH_2 = "00000000-0000-0000-0000-0000000000b2";
 const TEST_NOW = new Date("2026-04-26T12:00:00Z");
 
 interface Store {
@@ -145,6 +146,7 @@ function makeChain(rowsResolver: () => any[], onUpsert?: (row: any) => void) {
     _filters: {} as Record<string, any>,
     _neqFilters: {} as Record<string, any>,
     _orFilters: [] as string[],
+    _limit: null as number | null,
     select: jest.fn(() => chain),
     eq: jest.fn((_col: string, val: any) => { chain._filters[_col] = val; return chain; }),
     neq: jest.fn((_col: string, val: any) => { chain._neqFilters[_col] = val; return chain; }),
@@ -153,7 +155,7 @@ function makeChain(rowsResolver: () => any[], onUpsert?: (row: any) => void) {
     gte: jest.fn(() => chain),
     lt: jest.fn(() => chain),
     order: jest.fn(() => chain),
-    limit: jest.fn(() => chain),
+    limit: jest.fn((value: number) => { chain._limit = value; return chain; }),
     upsert: jest.fn((row: any, _opts?: any) => {
       onUpsert?.(row);
       return Promise.resolve({ error: null });
@@ -168,17 +170,18 @@ function makeChain(rowsResolver: () => any[], onUpsert?: (row: any) => void) {
       return updateChain;
     }),
     // Promise resolution (then is the terminal for most selects)
-    then: jest.fn((resolve: any) =>
-      resolve({
-        data: rowsResolver().filter((row) =>
+    then: jest.fn((resolve: any) => {
+      const rows = rowsResolver().filter((row) =>
           Object.entries(chain._neqFilters).every(
             ([col, val]) => row?.[col] != null && row[col] !== val
           ) &&
           chain._orFilters.every((filter: string) => matchesOrFilter(row, filter))
-        ),
+        );
+      return resolve({
+        data: chain._limit == null ? rows : rows.slice(0, chain._limit),
         error: null,
-      })
-    ),
+      });
+    }),
     single: jest.fn(() => Promise.resolve({ data: rowsResolver()[0] ?? null, error: null })),
     maybeSingle: jest.fn(() => Promise.resolve({ data: rowsResolver()[0] ?? null, error: null })),
   };
@@ -527,20 +530,31 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     expect(store.queueUpserts).toHaveLength(0);
   });
 
-  it("4. existing delivery for today: all rules for that user are skipped", async () => {
+  it("4. existing delivery for today: rules for that beach are skipped", async () => {
     seedRule();
     seedProfile();
     seedBeach();
     seedForecast();
     seedMatchingWindow();
 
-    // Pre-seed a delivery for today so the dedupe check fires.
-    store.deliveries.push({
-      id: "00000000-0000-0000-0000-000000000099",
-      user_id: USER_A,
-      alert_date: "2026-04-26",
-      channel: "email",
-    });
+    // Put another beach first so a one-row query would miss BEACH_1 and queue
+    // it again. The evaluator must load every delivered beach for the day.
+    store.deliveries.push(
+      {
+        id: "00000000-0000-0000-0000-000000000098",
+        user_id: USER_A,
+        beach_id: BEACH_2,
+        alert_date: "2026-04-26",
+        channel: "email",
+      },
+      {
+        id: "00000000-0000-0000-0000-000000000099",
+        user_id: USER_A,
+        beach_id: BEACH_1,
+        alert_date: "2026-04-26",
+        channel: "email",
+      },
+    );
 
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);

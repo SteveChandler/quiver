@@ -64,8 +64,8 @@ Steven reviews Gmail drafts and sends. Status updates happen here.
 | Target | Website/Channel | Nearest Beach | Status | Date | Notes |
 |--------|----------------|---------------|--------|------|-------|
 | Ben Gravy | YouTube 520K | East Coast | queued | | Great for EC coverage angle |
-| Kale Brock | YouTube 157K | lifestyle | queued | | Widget for his site |
-| Surf Simply | surfsimply.com | education | queued | | Align with /learn content |
+| Kale Brock | YouTube 157K | lifestyle | drafted | 2026-07-14 | Widget for his site |
+| Surf Simply | surfsimply.com | education | drafted | 2026-07-14 | Align with /learn content |
 | Barefoot Surf | YouTube | education | queued | | Beginner intent alignment |
 
 ---

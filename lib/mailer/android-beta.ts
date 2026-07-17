@@ -30,7 +30,8 @@ export async function sendAndroidBetaInstructionsEmail(
         playUrl: ANDROID_BETA_PLAY_URL,
       }),
       text: [
-        "You are on the Quiver Android beta list.",
+        "Android beta access is available now.",
+        "Use personalized surf decisions, best-window guidance, saved spots, alerts, and session logging in the native app.",
         "",
         "1. Join the Quiver Android tester group with your Google Play account:",
         ANDROID_BETA_GROUP_URL,
@@ -38,7 +39,9 @@ export async function sendAndroidBetaInstructionsEmail(
         "2. Opt in on Google Play after the group accepts your account:",
         ANDROID_BETA_PLAY_URL ?? "The Play opt-in link will be sent when available.",
         "",
-        "3. Install Quiver and test for 14 days to earn a free year of Pro.",
+        "3. Install Quiver from Google Play on that same account.",
+        "",
+        "Use Quiver on your real surf routine and tell us where the Android experience needs work.",
       ].join("\n"),
     });
 

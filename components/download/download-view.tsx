@@ -179,8 +179,8 @@ export function DownloadView({ platform }: DownloadViewProps): ReactElement {
             </h2>
             <p className="mt-2 font-mono text-sm leading-relaxed text-[#11100D]/80">
               The Android beta is open through Google Play closed testing. Join
-              the tester group, opt in, then install — test 14 days for a year
-              of Quiver Pro.
+              the tester group, opt in, then install for personalized surf
+              decisions, saved spots, alerts, and session logging.
             </p>
             <Link
               href={ANDROID_BETA_LANDING_PATH}

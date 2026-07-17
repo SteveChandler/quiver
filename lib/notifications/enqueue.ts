@@ -26,6 +26,7 @@ import type {
 } from "./db-augment";
 
 const POSTGRES_UNIQUE_VIOLATION = "23505";
+const SURF_ALERT_COALESCE_MS = 5 * 60 * 1000;
 
 type ServiceClient = SupabaseClient<Database>;
 
@@ -102,6 +103,9 @@ export async function enqueueNotification(
 
   const supabase = client ?? createSupabaseServiceRoleClient();
   const notifClient = supabase as unknown as NotificationEventsClient;
+  const nextAttemptAt = def.surfAlertPriority
+    ? new Date(Date.now() + SURF_ALERT_COALESCE_MS).toISOString()
+    : null;
 
   const { data, error } = await notifClient
     .from("notification_events")
@@ -113,6 +117,7 @@ export async function enqueueNotification(
       entity_id: args.entityId ?? null,
       payload: validatedPayload as never,
       dedupe_key: args.dedupeKey ?? null,
+      next_attempt_at: nextAttemptAt,
     })
     .select("id")
     .single();

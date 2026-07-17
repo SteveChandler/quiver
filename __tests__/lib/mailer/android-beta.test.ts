@@ -1,3 +1,5 @@
+import { render } from "@testing-library/react";
+
 const mockSend = jest.fn();
 
 export {};
@@ -38,5 +40,15 @@ describe("sendAndroidBetaInstructionsEmail", () => {
         ),
       }),
     );
+
+    const message = mockSend.mock.calls[0]?.[0];
+    expect(message.text).toContain("personalized surf decisions");
+    expect(message.text).toContain("saved spots, alerts, and session logging");
+    expect(message.text).not.toMatch(/free year|year of pro/i);
+
+    const { container } = render(message.react);
+    const html = container.textContent ?? "";
+    expect(html).toMatch(/personalized surf decisions/i);
+    expect(html).not.toMatch(/free year|year of Pro/i);
   });
 });

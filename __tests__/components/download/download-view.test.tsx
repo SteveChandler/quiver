@@ -71,6 +71,17 @@ describe("DownloadView", () => {
     ).toBeInTheDocument();
   });
 
+  it("describes immediate Android beta value without a tester incentive", () => {
+    const { container } = render(<DownloadView platform="android" />);
+
+    expect(
+      screen.getByText(/personalized surf decisions.*saved spots.*alerts/i),
+    ).toBeInTheDocument();
+    expect(container.textContent ?? "").not.toMatch(
+      /free year|year of (?:quiver )?pro|queue priority/i,
+    );
+  });
+
   it("does not render repeated zine masthead rows", () => {
     const { container } = render(<DownloadView platform="ios" />);
 

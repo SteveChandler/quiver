@@ -21,7 +21,7 @@ import sys
 import urllib.request
 import xml.etree.ElementTree as ET
 import argparse
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -35,7 +35,7 @@ SITE_URL = "https://www.quiversurf.app/"
 SCOPES = ["https://www.googleapis.com/auth/webmasters.readonly"]
 
 # GSC data has a 2-3 day lag; treat "today" as 3 days ago.
-TODAY = datetime.utcnow().date() - timedelta(days=3)
+TODAY = datetime.now(timezone.utc).date() - timedelta(days=3)
 START_28D = (TODAY - timedelta(days=27)).isoformat()
 END_28D = TODAY.isoformat()
 
@@ -48,6 +48,7 @@ END_PRIOR_7D = (TODAY - timedelta(days=7)).isoformat()
 # Resolve credentials relative to the project root (parent of scripts/)
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CREDENTIALS_FILE = PROJECT_ROOT / "gsc-credentials.json"
+INDEXING_WATCHLIST_FILE = PROJECT_ROOT / "docs" / "seo" / "gsc-indexing-watchlist.json"
 
 
 # ---------------------------------------------------------------------------
@@ -363,6 +364,80 @@ def get_sitemap_comparison(service):
     }
 
 
+def get_indexing_watchlist():
+    """Load the bounded URL Inspection watchlist without making it a hard dependency."""
+    if not INDEXING_WATCHLIST_FILE.exists():
+        return [], [f"URL Inspection watchlist missing: {INDEXING_WATCHLIST_FILE}"]
+
+    try:
+        raw = json.loads(INDEXING_WATCHLIST_FILE.read_text())
+    except Exception as exc:
+        return [], [f"URL Inspection watchlist unreadable: {exc}"]
+
+    pages = raw.get("pages") if isinstance(raw, dict) else None
+    if not isinstance(pages, list):
+        return [], ["URL Inspection watchlist must contain a pages array"]
+
+    watchlist = []
+    missing = []
+    for item in pages:
+        if not isinstance(item, dict) or not isinstance(item.get("canonicalPath"), str):
+            missing.append("URL Inspection watchlist contains an entry without canonicalPath")
+            continue
+        canonical_path = item["canonicalPath"].strip()
+        if not canonical_path.startswith("/"):
+            missing.append(f"URL Inspection watchlist path must start with '/': {canonical_path}")
+            continue
+        watchlist.append({
+            "canonicalPath": canonical_path.rstrip("/") or "/",
+            "label": item.get("label") if isinstance(item.get("label"), str) else None,
+        })
+    return watchlist, missing
+
+
+def inspect_indexing(service):
+    """Return direct, read-only URL Inspection results for the configured watchlist."""
+    watchlist, missing = get_indexing_watchlist()
+    results = []
+
+    for item in watchlist:
+        inspection_url = f"{SITE_URL.rstrip('/')}{item['canonicalPath']}"
+        result = {"canonicalPath": item["canonicalPath"]}
+        if item["label"]:
+            result["label"] = item["label"]
+        try:
+            response = service.urlInspection().index().inspect(body={
+                "inspectionUrl": inspection_url,
+                "siteUrl": SITE_URL,
+            }).execute()
+            index_status = response.get("inspectionResult", {}).get("indexStatusResult", {})
+            for source_key, output_key in [
+                ("verdict", "verdict"),
+                ("coverageState", "coverageState"),
+                ("indexingState", "indexingState"),
+                ("robotsTxtState", "robotsTxtState"),
+                ("pageFetchState", "pageFetchState"),
+                ("lastCrawlTime", "lastCrawlTime"),
+            ]:
+                value = index_status.get(source_key)
+                if isinstance(value, str) and value:
+                    result[output_key] = value
+            for source_key, output_key in [("sitemap", "sitemap"), ("referringUrls", "referringUrls")]:
+                value = index_status.get(source_key)
+                if isinstance(value, list):
+                    result[output_key] = [entry for entry in value if isinstance(entry, str)]
+        except Exception as exc:
+            result["error"] = str(exc)
+        results.append(result)
+
+    return {
+        "generatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "watchlistPath": str(INDEXING_WATCHLIST_FILE.relative_to(PROJECT_ROOT)),
+        "results": results,
+        "missing": missing,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Output formatting
 # ---------------------------------------------------------------------------
@@ -411,6 +486,16 @@ def build_json_export(service):
     except Exception as exc:
         missing.append(f"Sitemap comparison unavailable: {exc}")
 
+    try:
+        indexing = inspect_indexing(service)
+    except Exception as exc:
+        indexing = {
+            "generatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "watchlistPath": str(INDEXING_WATCHLIST_FILE.relative_to(PROJECT_ROOT)),
+            "results": [],
+            "missing": [f"URL Inspection unavailable: {exc}"],
+        }
+
     last_7d = query_gsc(service, START_LAST_7D, END_LAST_7D, ["page"], row_limit=25000)
     prior_7d = query_gsc(service, START_PRIOR_7D, END_PRIOR_7D, ["page"], row_limit=25000)
     last_28d = query_gsc(service, START_28D, END_28D, ["page"], row_limit=25000)
@@ -420,7 +505,7 @@ def build_json_export(service):
     by_country = get_by_country(service)
 
     return {
-        "generatedAt": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "generatedAt": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "siteUrl": SITE_URL,
         "dateRanges": {
             "last7d": {"start": START_LAST_7D, "end": END_LAST_7D},
@@ -435,6 +520,7 @@ def build_json_export(service):
         "topPages": [_page_row(row) for row in top_pages],
         "byDevice": [_dimension_row(row, "device") for row in by_device],
         "byCountry": [_dimension_row(row, "country") for row in by_country],
+        "indexing": indexing,
         "missing": missing,
     }
 
@@ -657,7 +743,7 @@ def print_dashboard(service):
         print()
 
     print("---")
-    print(f"_Generated {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')} | Data range: {START_28D} to {END_28D}_")
+    print(f"_Generated {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')} | Data range: {START_28D} to {END_28D}_")
 
 
 # ---------------------------------------------------------------------------

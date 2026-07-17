@@ -18,11 +18,23 @@ describe("SEO workflow GSC export", () => {
       topPages: [{ page: "/learn/foo", clicks: 8, impressions: 80 }],
       byDevice: [{ device: "mobile", clicks: 6, impressions: 60 }],
       byCountry: [{ country: "usa", clicks: 7, impressions: 70 }],
+      indexing: {
+        generatedAt: "2026-05-20T12:00:00Z",
+        watchlistPath: "docs/seo/gsc-indexing-watchlist.json",
+        results: [{
+          canonicalPath: "/beaches/mexico",
+          coverageState: "Discovered - currently not indexed",
+          sitemap: ["https://www.quiversurf.app/sitemap.xml"],
+        }],
+      },
     });
 
     expect(parsed.last7d[0]?.page).toBe("/learn/foo");
     expect(parsed.sitemapPaths).toEqual(["/learn/foo"]);
     expect(toGscRefreshInput(parsed).last28d).toHaveLength(1);
+    expect(toGscRefreshInput(parsed).dataThrough).toBe("2026-05-17");
+    expect(toGscRefreshInput(parsed).indexing?.results[0]?.coverageState)
+      .toBe("Discovered - currently not indexed");
   });
 
   it("rejects partial exports that cannot power the weekly workflow", () => {

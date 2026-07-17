@@ -287,6 +287,41 @@ test.describe('Route HTML Contracts', () => {
       expect(html.toLowerCase()).toContain('doheny');
     });
 
+    const seoCanonicalRedirects = [
+      {
+        source: '/fl/cocoa-beach/cocoa-beach-pier',
+        destination: '/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl',
+      },
+      {
+        source: '/fl/cocoa-beach/cocoa-beach-pier/tides',
+        destination: '/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl/tides',
+      },
+      {
+        source: '/fl/cocoa-beach/cocoa-beach-pier/water-temp',
+        destination: '/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl/water-temp',
+      },
+      {
+        source: '/mexico/baja-california/rosarito/el-morro',
+        destination: '/mexico/baja-california/rosarito/el-morro-point-k375',
+      },
+    ] as const;
+
+    for (const redirect of seoCanonicalRedirects) {
+      test(`308 redirects ${redirect.source} to a live canonical beach URL`, async ({
+        request,
+      }) => {
+        const response = await getResponse(request, redirect.source, { maxRedirects: 0 });
+        const destinationResponse = await getResponse(request, redirect.destination, {
+          maxRedirects: 0,
+        });
+
+        expect(response.status()).toBe(308);
+        expect(response.headers().location).toBe(redirect.destination);
+        expect(destinationResponse.status()).toBe(200);
+        expect(destinationResponse.headers().location).toBeUndefined();
+      });
+    }
+
     const northHbRedirects = [
       {
         source: '/ca/huntington-beach/north-hb-streets',

@@ -1175,7 +1175,7 @@ const LONGBOARD_PAGES = [
     spots: [
       {
         label: "Cocoa Beach Pier",
-        href: "/fl/cocoa-beach/cocoa-beach-pier",
+        href: "/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl",
         beachSlug: "cocoa-beach-pier",
       },
       { label: "Florida cams", href: "/surf-cams/florida" },
@@ -1836,7 +1836,7 @@ const BEGINNER_PAGES = [
     spots: [
       {
         label: "Cocoa Beach Pier",
-        href: "/fl/cocoa-beach/cocoa-beach-pier",
+        href: "/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl",
         beachSlug: "cocoa-beach-pier",
       },
       { label: "Florida cams", href: "/surf-cams/florida" },
@@ -2871,7 +2871,7 @@ const CAM_PAGES = [
     spots: [
       {
         label: "Cocoa Beach Pier",
-        href: "/fl/cocoa-beach/cocoa-beach-pier",
+        href: "/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl",
         beachSlug: "cocoa-beach-pier",
       },
       { label: "Florida longboard", href: "/longboard/fl" },

@@ -1,0 +1,34 @@
+{
+  "pages": [
+    {
+      "canonicalPath": "/best-time-to-surf/la-jolla",
+      "label": "La Jolla best-time page",
+      "monitorUntil": "2026-07-26",
+      "reason": "June 29 CTR treatment needs one fully post-change 28-day GSC window."
+    },
+    {
+      "canonicalPath": "/best-time-to-surf/newport-beach",
+      "label": "Newport Beach best-time page",
+      "monitorUntil": "2026-07-26",
+      "reason": "June 29 CTR treatment needs one fully post-change 28-day GSC window."
+    },
+    {
+      "canonicalPath": "/best-time-to-surf/malibu",
+      "label": "Malibu best-time page",
+      "monitorUntil": "2026-07-26",
+      "reason": "June 29 CTR treatment needs one fully post-change 28-day GSC window."
+    },
+    {
+      "canonicalPath": "/surf-report/newport-beach-today",
+      "label": "Newport Beach surf-report owner",
+      "monitorUntil": "2026-07-26",
+      "reason": "New owner route had only 9 GSC impressions in the latest mixed 28-day window."
+    },
+    {
+      "canonicalPath": "/surf-report/malibu-today",
+      "label": "Malibu surf-report owner",
+      "monitorUntil": "2026-07-26",
+      "reason": "New owner route had only 4 GSC impressions in the latest mixed 28-day window."
+    }
+  ]
+}

@@ -44,10 +44,10 @@ test.describe('Guest Plans Page', () => {
       }),
     ).toHaveAttribute('href', /apps\.apple\.com\/us\/app\/surf-forecast-quiver\/id6759300320/);
     await expect(
-      page.getByRole('button', {
+      page.getByRole('link', {
         name: /get the android beta/i,
       }),
-    ).toBeVisible();
+    ).toHaveAttribute('href', '/android-beta');
     await expect(page.getByText(/android beta is open/i).first()).toBeVisible();
 
     const bodyText = await page.locator('body').innerText();

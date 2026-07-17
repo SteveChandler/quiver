@@ -6,6 +6,14 @@ describe("Features Constants", () => {
       expect(FEATURE_CARDS).toHaveLength(7);
     });
 
+    it("describes Android access without the retired tester incentive", () => {
+      const appCard = FEATURE_CARDS.find((card) => card.title === "Get the App");
+      const featureText = appCard?.features.map((feature) => feature.text).join(" ") ?? "";
+
+      expect(featureText).toMatch(/native android access/i);
+      expect(featureText).not.toMatch(/14 days|free year|year of pro/i);
+    });
+
     it("has all required properties for each feature card", () => {
       FEATURE_CARDS.forEach((card, index) => {
         expect(card).toHaveProperty("icon");

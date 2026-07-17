@@ -73,6 +73,15 @@ function isPersonalAlertPreset(presetType: unknown): boolean {
   return presetType === "similarity_match";
 }
 
+function needsBeginnerWindowConfirmation(
+  experienceLevel: unknown,
+  conditions: Record<string, unknown>,
+): boolean {
+  if (conditions.beginner_sandy_window !== true) return false;
+  if (conditions.beginner_window_confirmed === true) return false;
+  return experienceLevel === "advanced" || experienceLevel === "expert";
+}
+
 function createEligibilityErrorResponse(
   code: PersonalizationResultCode,
   message: string,
@@ -156,13 +165,25 @@ export const POST = withAuth(
     }
 
     // Get user's home beach for entitlement check
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("home_beach_id")
+      .select("home_beach_id, experience_level")
       .eq("id", user.id)
       .single();
+    if (profileError) throw profileError;
 
     const homeBeachId = profile?.home_beach_id ?? null;
+
+    if (
+      needsBeginnerWindowConfirmation(
+        profile?.experience_level,
+        (validation.conditions ?? {}) as Record<string, unknown>,
+      )
+    ) {
+      return createValidationError(
+        "Confirm that you want beginner-friendly windows before creating this alert.",
+      );
+    }
 
     // Count existing rules and distinct beaches for this user
     const { data: existingRules } = await (supabase as any)

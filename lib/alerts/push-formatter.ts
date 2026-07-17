@@ -101,8 +101,16 @@ export function formatPushNotification(matches: MatchingWindow[]): PushContent {
       topMatch.window_end,
       topMatch.beach_timezone
     );
-    // Lead with quality, then beach + window: "Pumping — Blacks Beach, 7–9 AM".
-    const title = `${qualityWord(topMatch.best_score)} — ${topMatch.beach_name}, ${timeWindow}`;
+    const isBeginnerWindow =
+      typeof snap.beginner_window_reason === "string" &&
+      snap.beginner_window_reason.trim().length > 0;
+    // A beginner-window rule is intentionally about approachable surf, not
+    // a universal quality claim. Keep the actual wave range in the body and
+    // avoid calling a 1–2 ft window "Firing" on the lock screen.
+    const titleLabel = isBeginnerWindow
+      ? "Beginner-friendly"
+      : qualityWord(topMatch.best_score);
+    const title = `${titleLabel} — ${topMatch.beach_name}, ${timeWindow}`;
 
     // Match the email's units + rounding so push and email don't disagree.
     // wind_speed is knots (per ForecastHour), wave_period prefers the total-
