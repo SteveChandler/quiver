@@ -4,6 +4,8 @@ import {
   normalizeSeoPath,
 } from "./dashboard";
 import type {
+  GscCtrWatchItem,
+  GscIndexingStatus,
   GscPageRow,
   GscRefreshInput,
   SeoDashboard,
@@ -28,8 +30,17 @@ export function analyzeGscRefresh(
   const priorMap = mergeGscRowsByCanonicalPath(input.prior7d, legacyCanonicalPathMap);
   const lastMap = mergeGscRowsByCanonicalPath(input.last7d, legacyCanonicalPathMap);
   const last28Map = mergeGscRowsByCanonicalPath(input.last28d, legacyCanonicalPathMap);
+  const monitoringReference = input.dataThrough ?? now;
+  const activeCtrWatchlist = (input.ctrWatchlist ?? []).filter((item) =>
+    isCtrMonitorActive(item, monitoringReference)
+  );
+  const monitoredPaths = new Set(
+    activeCtrWatchlist.map((item) => normalizeSeoPath(item.canonicalPath)),
+  );
 
   for (const [canonicalPath, prior] of priorMap) {
+    if (monitoredPaths.has(canonicalPath)) continue;
+
     const last = lastMap.get(canonicalPath) ?? emptyRow(canonicalPath);
     const impressionDrop = prior.impressions > 0
       ? (prior.impressions - last.impressions) / prior.impressions
@@ -63,6 +74,8 @@ export function analyzeGscRefresh(
   }
 
   for (const [canonicalPath, row] of last28Map) {
+    if (monitoredPaths.has(canonicalPath)) continue;
+
     const ctr = getCtr(row);
     if (
       row.impressions >= LOW_CTR_IMPRESSIONS &&
@@ -90,6 +103,11 @@ export function analyzeGscRefresh(
     }
   }
 
+  recommendations.push(
+    ...buildCtrMonitoringRecommendations(activeCtrWatchlist, last28Map, now),
+  );
+  recommendations.push(...buildIndexingRecommendations(input.indexing?.results ?? [], now));
+
   const gscPaths = new Set(last28Map.keys());
   for (const sitemapPath of input.sitemapPaths.map(normalizeSeoPath)) {
     if (!gscPaths.has(sitemapPath)) {
@@ -108,6 +126,88 @@ export function analyzeGscRefresh(
   }
 
   return dedupeRecommendations(recommendations);
+}
+
+function isCtrMonitorActive(item: GscCtrWatchItem, referenceTime: string): boolean {
+  const referenceMs = Date.parse(referenceTime);
+  const cutoffMs = Date.parse(`${item.monitorUntil}T23:59:59.999Z`);
+  if (!Number.isFinite(referenceMs) || !Number.isFinite(cutoffMs)) return true;
+  return referenceMs <= cutoffMs;
+}
+
+function buildIndexingRecommendations(
+  statuses: GscIndexingStatus[],
+  now: string,
+): SeoRecommendation[] {
+  return statuses.flatMap((status) => {
+    const coverageState = status.coverageState?.trim();
+    if (!isGoogleIndexingBlocker(coverageState)) {
+      return [];
+    }
+
+    const canonicalPath = normalizeSeoPath(status.canonicalPath);
+    const evidence = [
+      status.verdict ? `verdict=${status.verdict}` : "",
+      `coverageState=${coverageState}`,
+      status.indexingState ? `indexingState=${status.indexingState}` : "",
+      status.robotsTxtState ? `robotsTxtState=${status.robotsTxtState}` : "",
+      status.pageFetchState ? `pageFetchState=${status.pageFetchState}` : "",
+      status.lastCrawlTime ? `lastCrawlTime=${status.lastCrawlTime}` : "",
+      status.sitemap?.length ? `sitemap=${status.sitemap.join(",")}` : "",
+      status.referringUrls?.length ? `referringUrls=${status.referringUrls.join(",")}` : "",
+    ].filter(Boolean);
+
+    return [{
+      id: makeSeoId("gsc-indexing", canonicalPath),
+      createdAt: now,
+      source: "gsc-indexing" as const,
+      priority: "high" as const,
+      canonicalPath,
+      targetKeyword: status.label,
+      summary: `Google indexing blocker: ${coverageState}.`,
+      evidence,
+      status: "open" as const,
+    }];
+  });
+}
+
+function isGoogleIndexingBlocker(coverageState: string | undefined): boolean {
+  return /^(discovered|crawled) - currently not indexed$/i.test(coverageState ?? "") ||
+    /^url is unknown to google$/i.test(coverageState ?? "");
+}
+
+function buildCtrMonitoringRecommendations(
+  watchlist: GscCtrWatchItem[],
+  last28Map: Map<string, MergedGscPageRow>,
+  now: string,
+): SeoRecommendation[] {
+  return watchlist.map((item) => {
+    const canonicalPath = normalizeSeoPath(item.canonicalPath);
+    const row = last28Map.get(canonicalPath) ?? emptyRow(canonicalPath);
+    const ctr = getCtr(row);
+    const evidence = [
+      `28d=${row.clicks} clicks/${row.impressions} impressions`,
+      `ctr=${(ctr * 100).toFixed(2)}%`,
+      ...(typeof row.position === "number" && row.impressions > 0
+        ? [`avgPosition=${row.position.toFixed(1)}`]
+        : []),
+      `monitorUntil=${item.monitorUntil}`,
+      `reason=${item.reason}`,
+      ...rawPathEvidence(canonicalPath, row),
+    ];
+
+    return {
+      id: makeSeoId("gsc-ctr-monitor", canonicalPath),
+      createdAt: now,
+      source: "gsc-decay",
+      priority: "low",
+      canonicalPath,
+      targetKeyword: item.label,
+      summary: "CTR monitor: retain the current page treatment and observe the next 28-day GSC window.",
+      evidence,
+      status: "open",
+    };
+  });
 }
 
 export function buildLegacyCanonicalPathMap(sitemapPaths: string[]): Map<string, string> {

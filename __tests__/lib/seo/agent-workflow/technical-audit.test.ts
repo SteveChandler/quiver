@@ -65,4 +65,31 @@ describe("SEO workflow technical audit", () => {
       "technical-title-foo",
     ]);
   });
+
+  it("keeps the crawl usable when a sampled page fetch fails", () => {
+    const recommendations = analyzeTechnicalAudit(
+      {
+        robotsTxt: "User-agent: *\nAllow: /\n",
+        sitemapXml: "<urlset><url><loc>https://www.quiversurf.app/foo</loc></url></urlset>",
+        pages: [],
+        unavailablePages: [{
+          url: "https://www.quiversurf.app/beginner/cocoa-beach",
+          error: "fetch failed",
+        }],
+      },
+      NOW,
+    );
+
+    expect(recommendations).toEqual([
+      expect.objectContaining({
+        id: "technical-page-fetch-failure-beginner-cocoa-beach",
+        canonicalPath: "/beginner/cocoa-beach",
+        summary: "Sampled page could not be fetched; crawl continued.",
+        evidence: [
+          "url=https://www.quiversurf.app/beginner/cocoa-beach",
+          "fetch failed",
+        ],
+      }),
+    ]);
+  });
 });

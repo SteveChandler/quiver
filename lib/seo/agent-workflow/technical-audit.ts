@@ -15,10 +15,31 @@ export function analyzeTechnicalAudit(
   const recommendations: SeoRecommendation[] = [
     ...analyzeRobots(input.robotsTxt, now),
     ...analyzeSitemap(input.sitemapXml, now),
+    ...analyzeUnavailablePages(input.unavailablePages ?? [], now),
     ...input.pages.flatMap((page) => analyzePage(page, now)),
   ];
 
   return recommendations.sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function analyzeUnavailablePages(
+  unavailablePages: Array<{ url: string; error: string }>,
+  now: string,
+): SeoRecommendation[] {
+  return unavailablePages.map((page) => {
+    const canonicalPath = normalizeSeoPath(page.url);
+
+    return {
+      id: makeSeoId("technical-page-fetch-failure", canonicalPath),
+      createdAt: now,
+      source: "technical-audit",
+      priority: "medium",
+      canonicalPath,
+      summary: "Sampled page could not be fetched; crawl continued.",
+      evidence: [`url=${page.url}`, page.error],
+      status: "open",
+    };
+  });
 }
 
 export function extractSitemapPaths(xml: string): string[] {

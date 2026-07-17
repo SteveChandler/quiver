@@ -11,6 +11,28 @@ function makeInput(overrides: Partial<WeeklySeoReportInput> = {}): WeeklySeoRepo
 }
 
 describe("SEO workflow weekly action queue", () => {
+  it("keeps verified Google indexing blockers in the weekly action queue as technical fixes", () => {
+    const queue = synthesizeWeeklyActionQueue(makeInput({
+      recommendations: [{
+        id: "gsc-indexing-beaches-mexico",
+        createdAt: "2026-07-14T12:00:00Z",
+        source: "gsc-indexing",
+        priority: "high",
+        canonicalPath: "/beaches/mexico",
+        summary: "Google indexing blocker: Discovered - currently not indexed.",
+        evidence: ["coverageState=Discovered - currently not indexed"],
+        status: "open",
+      }],
+    }));
+
+    expect(queue.actions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        category: "technical-fix",
+        title: "Fix technical SEO blockers on `/beaches/mexico`",
+      }),
+    ]));
+  });
+
   it("returns a mixed-signal queue when SEO, ASO, and competitor items all pass the confidence gate", () => {
     const queue = synthesizeWeeklyActionQueue(makeInput({
       recommendations: [{
@@ -64,9 +86,9 @@ describe("SEO workflow weekly action queue", () => {
         technicalSurfaces: [],
         materialDeltas: [],
         comparisonSignals: [{
-          competitor: "Lazy Surfer",
+          competitor: "Swellify",
           summary: "The Quiver comparison page is live in captured HTML and includes structured comparison copy around Android support and data-source transparency.",
-          url: "https://lazysurfer.app/compare/quiver.html",
+          url: "https://swellify.app/compare/quiver.html",
         }],
       },
       aeo: {
@@ -94,6 +116,54 @@ describe("SEO workflow weekly action queue", () => {
       expect.objectContaining({
         source: "aeo",
         category: "citation-readiness",
+      }),
+    ]));
+  });
+
+  it("keeps the completed Lazy Surfer comparison in monitoring without re-adding it to the action queue", () => {
+    const queue = synthesizeWeeklyActionQueue(makeInput({
+      competitor: {
+        generatedAt: "2026-06-20T12:00:00Z",
+        runId: "20260628T235143Z",
+        technicalSurfaces: [],
+        materialDeltas: [],
+        comparisonSignals: [{
+          competitor: "Lazy Surfer",
+          summary: "The Quiver comparison page is live in captured HTML and includes structured comparison copy around Android support and data-source transparency.",
+          url: "https://lazysurfer.app/compare/quiver.html",
+        }],
+      },
+    }));
+
+    expect(queue.actions).not.toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        source: "competitor",
+        category: "comparison-response",
+        title: "Respond to Lazy Surfer comparison-page claims",
+      }),
+    ]));
+  });
+
+  it("adds a new Lazy Surfer comparison action from a later report", () => {
+    const queue = synthesizeWeeklyActionQueue(makeInput({
+      competitor: {
+        generatedAt: "2026-07-17T12:00:00Z",
+        runId: "20260717T120000Z",
+        technicalSurfaces: [],
+        materialDeltas: [],
+        comparisonSignals: [{
+          competitor: "Lazy Surfer",
+          summary: "The Quiver comparison page added new claims about forecast accuracy.",
+          url: "https://lazysurfer.app/compare/quiver.html",
+        }],
+      },
+    }));
+
+    expect(queue.actions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        source: "competitor",
+        category: "comparison-response",
+        title: "Respond to Lazy Surfer comparison-page claims",
       }),
     ]));
   });

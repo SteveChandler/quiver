@@ -53,19 +53,22 @@ async function fetchLiveInput(dashboardFilePath?: string): Promise<TechnicalAudi
     ...dashboard.entries.slice(0, 10).map((entry) => entry.canonicalPath),
   ];
   const uniqueUrls = [...new Set(urls)];
-  const [robotsTxt, sitemapXml, ...pageResponses] = await Promise.all([
-    fetchTextWithRetry("https://www.quiversurf.app/robots.txt"),
-    fetchTextWithRetry("https://www.quiversurf.app/sitemap.xml"),
-    ...uniqueUrls.map(async (canonicalPath) => {
-      const url = `https://www.quiversurf.app${canonicalPath}`;
-      const response = await fetchWithRetry(url);
-      return {
-        url,
-        status: response.status,
-        html: await response.text(),
-      };
-    }),
+  const [robotsTxt, sitemapXml] = await Promise.all([
+    fetchRequiredText("https://www.quiversurf.app/robots.txt"),
+    fetchRequiredText("https://www.quiversurf.app/sitemap.xml"),
   ]);
+  const pageUrls = uniqueUrls.map((canonicalPath) => `https://www.quiversurf.app${canonicalPath}`);
+  const pageResults = await Promise.allSettled(pageUrls.map(fetchPage));
+  const pageResponses = pageResults.flatMap((result) =>
+    result.status === "fulfilled" ? [result.value] : [],
+  );
+  const unavailablePages = pageResults.flatMap((result, index) => {
+    if (result.status === "fulfilled") return [];
+    return [{
+      url: pageUrls[index] ?? "https://www.quiversurf.app/",
+      error: normalizeFetchError(result.reason),
+    }];
+  });
 
   const linksByPage = pageResponses.map((page) => ({
     page,
@@ -84,6 +87,24 @@ async function fetchLiveInput(dashboardFilePath?: string): Promise<TechnicalAudi
         .filter((href) => linkStatuses.has(href))
         .map((href) => ({ href, status: linkStatuses.get(href) })),
     })),
+    unavailablePages,
+  };
+}
+
+async function fetchRequiredText(url: string): Promise<string> {
+  try {
+    return await fetchTextWithRetry(url);
+  } catch (error) {
+    throw new Error(`${url}: ${normalizeFetchError(error)}`);
+  }
+}
+
+async function fetchPage(url: string): Promise<{ url: string; status: number; html: string }> {
+  const response = await fetchWithRetry(url);
+  return {
+    url,
+    status: response.status,
+    html: await response.text(),
   };
 }
 

@@ -10,6 +10,7 @@ export const SEO_STATUS_VALUES = [
 export const SEO_RECOMMENDATION_SOURCE_VALUES = [
   "keyword-research",
   "gsc-decay",
+  "gsc-indexing",
   "technical-audit",
   "metadata-audit",
   "vercel-analytics",
@@ -83,6 +84,34 @@ export interface GscPageRow {
   position?: number;
 }
 
+export interface GscCtrWatchItem {
+  canonicalPath: string;
+  label: string;
+  monitorUntil: string;
+  reason: string;
+}
+
+export interface GscIndexingStatus {
+  canonicalPath: string;
+  label?: string;
+  verdict?: string;
+  coverageState?: string;
+  indexingState?: string;
+  robotsTxtState?: string;
+  pageFetchState?: string;
+  lastCrawlTime?: string;
+  sitemap?: string[];
+  referringUrls?: string[];
+  error?: string;
+}
+
+export interface GscIndexingExport {
+  generatedAt: string;
+  watchlistPath: string;
+  results: GscIndexingStatus[];
+  missing?: string[];
+}
+
 export interface GscQueryRow {
   query: string;
   clicks: number;
@@ -112,6 +141,9 @@ export interface GscRefreshInput {
   prior7d: GscPageRow[];
   last28d: GscPageRow[];
   sitemapPaths: string[];
+  dataThrough?: string;
+  ctrWatchlist?: GscCtrWatchItem[];
+  indexing?: GscIndexingExport;
 }
 
 export interface GscExportInput extends GscRefreshInput {
@@ -139,6 +171,7 @@ export interface TechnicalAuditInput {
   robotsTxt: string;
   sitemapXml: string;
   pages: TechnicalAuditPageInput[];
+  unavailablePages?: Array<{ url: string; error: string }>;
 }
 
 export type SeoEnrichmentSource = "vercel" | "posthog" | "ahrefs";

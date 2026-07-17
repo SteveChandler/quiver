@@ -15,6 +15,10 @@ const PRIORITY_SCORE: Record<Extract<SeoPriority, "critical" | "high" | "medium"
   high: 200,
   medium: 100,
 };
+const COMPLETED_COMPARISON_RESPONSE_KEYS = new Set([
+  // Only the reviewed June 28 snapshot is complete; later reports remain actionable.
+  "lazy surfer\u000020260628T235143Z",
+]);
 
 interface WeeklyActionQueueResult {
   actions: WeeklyActionItem[];
@@ -87,7 +91,11 @@ function buildSeoActionCandidate(
   const highestPriority = maxPriority(recommendations);
   if (!highestPriority) return null;
 
-  const hasTechnical = recommendations.some((item) => item.source === "vercel-analytics" || item.source === "technical-audit");
+  const hasTechnical = recommendations.some((item) =>
+    item.source === "vercel-analytics" ||
+    item.source === "technical-audit" ||
+    item.source === "gsc-indexing",
+  );
   const hasCtrSignal = recommendations.some((item) =>
     item.source === "gsc-decay" && /CTR candidate/i.test(item.summary),
   ) || recommendations.some((item) => item.source === "metadata-audit");
@@ -119,6 +127,9 @@ function buildSeoActionCandidate(
   const whyNow = seoActionWhyNow(category, recommendations);
   const confidence = evidence.length >= 2 ? "high" : "medium";
   const impressionScore = parseHighestImpressionCount(recommendations);
+  const indexingBlockerScore = recommendations.some((item) => item.source === "gsc-indexing")
+    ? 90
+    : 0;
 
   return {
     source: "seo",
@@ -130,7 +141,7 @@ function buildSeoActionCandidate(
     evidence,
     confidence,
     whyNow,
-    score: PRIORITY_SCORE[highestPriority] + Math.min(Math.floor(impressionScore / 100), 60) + (isProductLedPath(canonicalPath) ? 15 : 0),
+    score: PRIORITY_SCORE[highestPriority] + Math.min(Math.floor(impressionScore / 100), 60) + (isProductLedPath(canonicalPath) ? 15 : 0) + indexingBlockerScore,
   };
 }
 
@@ -166,7 +177,10 @@ function buildCompetitorActionCandidates(
 ): ActionCandidate[] {
   return [
     ...deltas.map((delta) => buildCompetitorActionCandidate(delta)),
-    ...buildComparisonSignalCandidates(competitor?.comparisonSignals ?? []),
+    ...buildComparisonSignalCandidates(
+      competitor?.comparisonSignals ?? [],
+      competitor?.runId,
+    ),
   ]
     .filter(isDefined);
 }
@@ -196,6 +210,7 @@ function buildCompetitorActionCandidate(delta: CompetitorDelta): ActionCandidate
 
   if (/comparison page|frames quiver as a close competitor|attacks on platform coverage/.test(normalized)) {
     const competitor = detectCompetitorName(summary) ?? "Competitor";
+    if (isCompletedComparisonResponse(competitor, delta.runId)) return null;
     return {
       source: "competitor",
       category: "competitor-monitoring",
@@ -213,10 +228,14 @@ function buildCompetitorActionCandidate(delta: CompetitorDelta): ActionCandidate
   return null;
 }
 
-function buildComparisonSignalCandidates(signals: CompetitorComparisonSignal[]): ActionCandidate[] {
+function buildComparisonSignalCandidates(
+  signals: CompetitorComparisonSignal[],
+  runId?: string,
+): ActionCandidate[] {
   return signals
     .map((signal) => {
       if (!/comparison page|compare\/quiver\.html|attacks on/i.test(signal.summary)) return null;
+      if (isCompletedComparisonResponse(signal.competitor, runId)) return null;
 
       return {
         source: "competitor" as const,
@@ -232,6 +251,13 @@ function buildComparisonSignalCandidates(signals: CompetitorComparisonSignal[]):
       };
     })
     .filter(isDefined);
+}
+
+function isCompletedComparisonResponse(competitor: string, runId: string | undefined): boolean {
+  if (!runId) return false;
+  return COMPLETED_COMPARISON_RESPONSE_KEYS.has(
+    `${competitor.trim().toLowerCase()}\u0000${runId}`,
+  );
 }
 
 function buildAeoActionCandidates(aeo?: AeoCitationInput): ActionCandidate[] {
