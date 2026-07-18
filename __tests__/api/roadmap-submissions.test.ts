@@ -24,7 +24,14 @@ const mockSupabaseClient = {
     getUser: jest.fn(),
   },
   from: jest.fn(),
+  rpc: jest.fn(),
 };
+
+const mockCapturePostHogEvent = jest.fn();
+
+jest.mock("@/lib/posthog-server", () => ({
+  capturePostHogEvent: (...args: any[]) => mockCapturePostHogEvent(...args),
+}));
 
 const mockServiceRoleClient = {
   from: jest.fn(),
@@ -57,6 +64,7 @@ describe("POST /api/roadmap/submissions", () => {
       data: { user: { id: "u1" } },
       error: null,
     });
+    mockSupabaseClient.rpc.mockResolvedValue({ data: true, error: null });
   });
 
   const makeReq = (body: unknown) =>
@@ -201,7 +209,57 @@ describe("POST /api/roadmap/submissions", () => {
         is_custom_spot_request: false,
       },
     });
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      "get_my_analytics_tracking_allowed",
+      { p_expected_user_id: "u1" },
+    );
+    expect(mockCapturePostHogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        distinctId: "u1",
+        event: "feedback_roadmap_request_created",
+      }),
+    );
   });
+
+  it.each([
+    ["is disabled", { data: false, error: null }],
+    ["cannot be read", { data: null, error: { message: "rpc unavailable" } }],
+  ])(
+    "saves the submission but skips PostHog when analytics consent %s",
+    async (_label, consentResult) => {
+      const mockSingle = jest.fn().mockResolvedValue({
+        data: { id: "sub-private" },
+        error: null,
+      });
+      const mockSelect = jest.fn().mockReturnValue({ single: mockSingle });
+      const mockInsert = jest.fn().mockReturnValue({ select: mockSelect });
+      const mockEventInsert = jest.fn().mockResolvedValue({ error: null });
+      mockSupabaseClient.rpc.mockResolvedValue(consentResult);
+      mockSupabaseClient.from.mockImplementation((table: string) => {
+        if (table === "roadmap_item_submissions") {
+          return { insert: mockInsert };
+        }
+        if (table === "user_events") {
+          return { insert: mockEventInsert };
+        }
+        throw new Error(`Unexpected table: ${table}`);
+      });
+
+      const res = await POST(makeReq(validBody));
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body).toEqual({ id: "sub-private", decision: "pending" });
+      expect(mockInsert).toHaveBeenCalledWith({
+        title: "Add tide charts",
+        description: "Would love to see tide charts on the beach page",
+        category: "forecasts",
+        submitter_user_id: "u1",
+      });
+      expect(mockEventInsert).toHaveBeenCalledTimes(1);
+      expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
+    },
+  );
 
   it("10. DB insert error → 500 with generic message", async () => {
     const mockSingle = jest.fn().mockResolvedValue({

@@ -48,6 +48,7 @@ interface MockProfile {
   id: string;
   display_name: string | null;
   timezone: string | null;
+  allow_implicit_tracking: boolean;
   notif_push_enabled: boolean;
   notif_email_enabled: boolean;
   notif_inapp_enabled: boolean;
@@ -102,6 +103,7 @@ function buildProfile(over: Partial<MockProfile> = {}): MockProfile {
     id: "user-recipient",
     display_name: "Recipient User",
     timezone: "America/Los_Angeles",
+    allow_implicit_tracking: true,
     notif_push_enabled: true,
     notif_email_enabled: true,
     notif_inapp_enabled: true,
@@ -573,6 +575,44 @@ describe("processPendingEvents — happy path", () => {
         notification_status: "sent",
       }),
     });
+  });
+
+  it("delivers and records attempts without PostHog when the recipient opted out", async () => {
+    const state = emptyState();
+    state.events.push(buildEvent());
+    state.profiles.set(
+      "user-recipient",
+      buildProfile({ allow_implicit_tracking: false }),
+    );
+    state.profiles.set(
+      "user-actor",
+      buildProfile({ id: "user-actor", display_name: "Actor User" }),
+    );
+    state.devices.set("user-recipient", ["device-token-A"]);
+
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      { now: NOON_PT, fcm: fakeFcm as never },
+    );
+
+    expect(summary.processed).toBe(1);
+    expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(state.attempts).toEqual([
+      expect.objectContaining({ channel: "push", status: "sent" }),
+      expect.objectContaining({ channel: "in_app", status: "sent" }),
+    ]);
+    expect(state.eventUpdates).toEqual([
+      { id: "evt-1", status: "processed", skip_reason: null },
+    ]);
+    expect(capturePostHogEvent).not.toHaveBeenCalled();
   });
 
   it("push payload includes notification_event_id", async () => {

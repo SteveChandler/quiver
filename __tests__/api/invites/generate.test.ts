@@ -15,6 +15,11 @@ import {
 } from "@/test-utils/api-test-helpers";
 
 const mockSupabaseClient = createMockSupabaseClient();
+const mockCapturePostHogEvent = jest.fn();
+
+jest.mock("@/lib/posthog-server", () => ({
+  capturePostHogEvent: (...args: any[]) => mockCapturePostHogEvent(...args),
+}));
 
 // Phase 4.5 test-mock template: mock the api-wrappers module directly and
 // wire the auth check through the shared mock Supabase client.
@@ -78,6 +83,7 @@ describe("POST /api/invites/generate", () => {
     process.env.EMAIL_TOKEN_SECRET = TEST_SECRET;
     process.env.NEXT_PUBLIC_SITE_URL = "https://dev.quiversurf.app";
     jest.clearAllMocks();
+    mockSupabaseClient.rpc.mockResolvedValue({ data: true, error: null });
   });
 
   afterEach(() => {
@@ -123,7 +129,44 @@ describe("POST /api/invites/generate", () => {
     );
     expect(data.data.token_hash).toBe(hashInviteToken(data.data.token));
     expect(data.data.token_hash).toHaveLength(64);
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      "get_my_analytics_tracking_allowed",
+      { p_expected_user_id: "inviter-uuid-123" },
+    );
+    expect(mockCapturePostHogEvent).toHaveBeenCalledWith({
+      distinctId: "inviter-uuid-123",
+      event: "invite_link_generated",
+    });
   });
+
+  it.each([
+    ["is disabled", { data: false, error: null }],
+    ["cannot be read", { data: null, error: { message: "rpc unavailable" } }],
+  ])(
+    "returns the invite without PostHog capture when analytics consent %s",
+    async (_label, consentResult) => {
+      const user = createMockUser({ id: "private-inviter" });
+      mockAuthenticatedUser(mockSupabaseClient, user);
+      mockSupabaseClient.rpc.mockResolvedValue(consentResult);
+
+      const { POST } = require("@/app/api/invites/generate/route");
+      const request = createMockRequest(
+        "POST",
+        "http://localhost:3000/api/invites/generate",
+      );
+      const response = await POST(request, { params: {} });
+      const data = await expectSuccessResponse<{
+        token: string;
+        url: string;
+        token_hash: string;
+      }>(response, 200);
+
+      expect(data.data.token).toEqual(expect.any(String));
+      expect(data.data.url).toContain(`/invite/${data.data.token}`);
+      expect(data.data.token_hash).toBe(hashInviteToken(data.data.token));
+      expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
+    },
+  );
 
   it("generated token verifies back to the inviter user_id + invite purpose", async () => {
     const user = createMockUser({ id: "verifiable-inviter" });

@@ -52,10 +52,16 @@ jest.mock('@/lib/middleware/api-wrappers', () => {
   };
 });
 
+const mockAnalyticsConsentRpc = jest.fn().mockResolvedValue({
+  data: true,
+  error: null,
+});
+
 const mockSupabase = {
   auth: {
     getUser: jest.fn(),
   },
+  rpc: mockAnalyticsConsentRpc,
   from: jest.fn((_table: string) => ({
     select: jest.fn(() => ({
       eq: jest.fn(() => ({
@@ -82,6 +88,7 @@ const BROWSER_HEADERS = {
 describe('POST /api/events', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockAnalyticsConsentRpc.mockResolvedValue({ data: true, error: null });
     __clearTrackingCache(); // Clear the in-memory cache between tests
   });
 
@@ -147,6 +154,10 @@ describe('POST /api/events', () => {
     });
 
     const mockInsert = jest.fn();
+    mockAnalyticsConsentRpc.mockResolvedValueOnce({
+      data: false,
+      error: null,
+    });
 
     // User has opted out
     mockSupabase.from.mockImplementation((table: string) => {
@@ -625,7 +636,7 @@ describe('POST /api/events', () => {
   });
 
   describe('tracking cache integration', () => {
-    it('caches tracking preference after first check', async () => {
+    it('rechecks an allowed preference so revocation takes effect immediately', async () => {
       mockSupabase.auth.getUser.mockResolvedValue({
         data: { user: { id: 'user-cache-test' } },
         error: null,
@@ -651,24 +662,56 @@ describe('POST /api/events', () => {
         return { insert: mockInsert, select: jest.fn() };
       });
 
-      // First request - should query database
+      mockAnalyticsConsentRpc
+        .mockResolvedValueOnce({ data: true, error: null })
+        .mockResolvedValueOnce({ data: false, error: null });
+
       const request1 = new Request('http://localhost/api/events', {
         method: 'POST',
         headers: BROWSER_HEADERS,
         body: JSON.stringify({ eventType: 'beach_view' }),
       });
-      await POST(request1);
-      expect(mockProfileSelect).toHaveBeenCalledTimes(1);
+      const response1 = await POST(request1);
+      expect(response1.status).toBe(200);
+      expect(mockAnalyticsConsentRpc).toHaveBeenCalledTimes(1);
+      expect(mockInsert).toHaveBeenCalledTimes(1);
 
-      // Second request - should use cache
       const request2 = new Request('http://localhost/api/events', {
         method: 'POST',
         headers: BROWSER_HEADERS,
         body: JSON.stringify({ eventType: 'beach_view' }),
       });
+      const response2 = await POST(request2);
+      const data2 = await response2.json();
+
+      expect(response2.status).toBe(200);
+      expect(data2.data.status).toBe('tracking_disabled');
+      expect(mockAnalyticsConsentRpc).toHaveBeenCalledTimes(2);
+      expect(mockInsert).toHaveBeenCalledTimes(1);
+    });
+
+    it('caches a disabled preference without retaining positive consent', async () => {
+      mockSupabase.auth.getUser.mockResolvedValue({
+        data: { user: { id: 'user-disabled-cache-test' } },
+        error: null,
+      });
+      mockAnalyticsConsentRpc.mockResolvedValue({ data: false, error: null });
+
+      const request1 = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({ eventType: 'beach_view' }),
+      });
+      const request2 = new Request('http://localhost/api/events', {
+        method: 'POST',
+        headers: BROWSER_HEADERS,
+        body: JSON.stringify({ eventType: 'beach_view' }),
+      });
+
+      await POST(request1);
       await POST(request2);
-      // Should still be 1 (cache hit)
-      expect(mockProfileSelect).toHaveBeenCalledTimes(1);
+
+      expect(mockAnalyticsConsentRpc).toHaveBeenCalledTimes(1);
     });
 
     it('defaults to tracking allowed when no profile preference', async () => {
@@ -811,6 +854,7 @@ describe('POST /api/events', () => {
         'home_plan_weekend_no_recommendation',
         // Session logging events
         'session_log_start',
+        'session_log_form_view',
         'session_log_submit',
         'session_created',
         'session_log_validation_failed',

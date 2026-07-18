@@ -7,6 +7,7 @@ import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
 import { getSessionAnalytics } from "@/actions/analytics-actions";
 import type { ExportOptions, ExportResult } from "@/types/database";
 import { format } from "date-fns";
+import { PROFILE_PUBLIC_SESSION_RELATION_SELECT } from "@/lib/profile/constants";
 
 /**
  * Generate and export PDF documents for surf journal data
@@ -31,7 +32,7 @@ export const POST = withAuth(async (request, { user, supabase }) => {
       session_date:arrival_time,
       beach:beaches(*),
       board:boards(*),
-      user:profiles(*)
+      ${PROFILE_PUBLIC_SESSION_RELATION_SELECT}
     `,
     )
     .eq("user_id", user.id)

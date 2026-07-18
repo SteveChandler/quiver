@@ -12,6 +12,7 @@ import {
 } from "@/lib/utils/email-token";
 import { capturePostHogEvent } from "@/lib/posthog-server";
 import { hashInviteToken } from "@/lib/invites/token-hash";
+import { getOwnAnalyticsTrackingAllowed } from "@/lib/analytics/consent";
 
 /**
  * POST /api/invites/generate
@@ -24,7 +25,7 @@ import { hashInviteToken } from "@/lib/invites/token-hash";
  * `withRateLimit` so a compromised account can't mint unlimited invite tokens.
  */
 const generateHandler = withAuth(
-  async (_request: NextRequest, { user }: AuthenticatedContext) => {
+  async (_request: NextRequest, { user, supabase }: AuthenticatedContext) => {
     const token = await signEmailToken(
       { user_id: user.id, purpose: "invite" },
       getEmailTokenSecret(),
@@ -35,10 +36,16 @@ const generateHandler = withAuth(
     const url = `${siteUrl.replace(/\/$/, "")}/invite/${token}`;
     const token_hash = hashInviteToken(token);
 
-    await capturePostHogEvent({
-      distinctId: user.id,
-      event: "invite_link_generated",
-    });
+    const telemetryAllowed = await getOwnAnalyticsTrackingAllowed(
+      supabase,
+      user.id,
+    ).catch(() => false);
+    if (telemetryAllowed) {
+      await capturePostHogEvent({
+        distinctId: user.id,
+        event: "invite_link_generated",
+      });
+    }
 
     return createSuccessResponse({ token, url, token_hash });
   },
