@@ -165,6 +165,7 @@ export const VALID_EVENTS = [
   // Session log funnel
   'session_log_beach_selected',
   'session_log_conditions_set',
+  'session_log_form_view',
   'session_log_rating_set',
   'session_log_photo_added',
   'session_photo_upload_started',
