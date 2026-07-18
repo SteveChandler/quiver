@@ -7,7 +7,19 @@ import { POST } from "@/app/api/forecast-feedback/route";
 
 const mockUser = { id: "user-1" };
 const mockSupabase = { from: jest.fn() };
+const mockFeedbackMaybeSingle = jest.fn();
+const mockServiceFrom = jest.fn(() => ({
+  select: jest.fn(() => ({
+    eq: jest.fn(() => ({
+      eq: jest.fn(() => ({ maybeSingle: mockFeedbackMaybeSingle })),
+    })),
+  })),
+}));
 const MOCK_FORECAST_ID = "22222222-2222-4222-8222-222222222222";
+
+jest.mock("@/lib/supabase", () => ({
+  createServiceRoleClient: () => ({ from: mockServiceFrom }),
+}));
 
 jest.mock("@/lib/middleware/api-wrappers", () => {
   const actual = jest.requireActual("@/lib/api-utils");
@@ -106,6 +118,7 @@ describe("POST /api/forecast-feedback", () => {
     jest.clearAllMocks();
     mockSupabase.from.mockReset();
     mockForecastAccuracyVotePersistence();
+    mockFeedbackMaybeSingle.mockResolvedValue({ data: null, error: null });
     process.env = {
       ...originalEnv,
       ML_INTERNAL_SECRET: "test-secret",
@@ -195,6 +208,53 @@ describe("POST /api/forecast-feedback", () => {
       },
       { onConflict: "user_id,forecast_id" },
     );
+  });
+
+  it("acknowledges an already-stored stable request without calling Seaside", async () => {
+    mockFeedbackMaybeSingle.mockResolvedValueOnce({
+      data: {
+        id: "feedback-existing",
+        contract_version: "forecast-feedback-context.v1",
+        correlation_id: "corr-original",
+      },
+      error: null,
+    });
+
+    const response = await POST(requestWithBody(basePayload()));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data).toEqual({
+      id: "feedback-existing",
+      contractVersion: "forecast-feedback-context.v1",
+      correlationId: "corr-original",
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(mockSupabase.from).not.toHaveBeenCalledWith("forecast_accuracy_votes");
+  });
+
+  it("recovers a lost Seaside response when the stable request was stored", async () => {
+    mockFeedbackMaybeSingle
+      .mockResolvedValueOnce({ data: null, error: null })
+      .mockResolvedValueOnce({
+        data: {
+          id: "feedback-stored-before-error",
+          contract_version: "forecast-feedback-context.v1",
+          correlation_id: "corr-client",
+        },
+        error: null,
+      });
+    (global.fetch as jest.Mock).mockRejectedValueOnce(
+      new Error("connection closed after write"),
+    );
+
+    const response = await POST(requestWithBody(basePayload()));
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.id).toBe("feedback-stored-before-error");
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(mockFeedbackMaybeSingle).toHaveBeenCalledTimes(2);
   });
 
   it("adds explicit missing flags for empty context groups before calling Seaside", async () => {

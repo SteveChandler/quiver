@@ -13,6 +13,7 @@ import {
   type ForecastFeedbackClientPayload,
 } from "@/lib/services/forecast/forecast-feedback";
 import type { Json } from "@/types/database.generated";
+import { createServiceRoleClient } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,12 @@ type SeasideFeedbackResponse = {
   id?: string | null;
   contract_version?: string;
   correlation_id?: string | null;
+};
+
+type ExistingFeedbackContext = {
+  id: string;
+  contract_version: string;
+  correlation_id: string | null;
 };
 
 const FORECAST_ACCURACY_VOTE_VALUES: Record<string, boolean> = {
@@ -54,6 +61,36 @@ async function parseJsonResponse(
   } catch {
     return null;
   }
+}
+
+async function findExistingFeedbackContext(
+  userId: string,
+  requestId: string,
+): Promise<ExistingFeedbackContext | null> {
+  try {
+    const serviceClient = createServiceRoleClient();
+    const { data, error } = await serviceClient
+      .from("forecast_feedback_contexts")
+      .select("id,contract_version,correlation_id")
+      .eq("user_id", userId)
+      .eq("request_id", requestId)
+      .maybeSingle();
+    if (error) return null;
+    return (data as ExistingFeedbackContext | null) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function existingFeedbackResponse(
+  existing: ExistingFeedbackContext,
+  fallbackCorrelationId: string,
+): NextResponse {
+  return createSuccessResponse({
+    id: existing.id,
+    contractVersion: existing.contract_version,
+    correlationId: existing.correlation_id ?? fallbackCorrelationId,
+  });
 }
 
 function forecastAccuracyVoteValue(
@@ -142,6 +179,11 @@ async function forecastFeedbackHandler(
 
   const correlationId = validation.data.correlationId ?? randomUUID();
   const requestId = validation.data.requestId ?? randomUUID();
+  const existing = await findExistingFeedbackContext(
+    context.user.id,
+    requestId,
+  );
+  if (existing) return existingFeedbackResponse(existing, correlationId);
 
   try {
     await persistForecastAccuracyVote(context, validation.data);
@@ -176,6 +218,11 @@ async function forecastFeedbackHandler(
       cache: "no-store",
     });
   } catch {
+    const recovered = await findExistingFeedbackContext(
+      context.user.id,
+      requestId,
+    );
+    if (recovered) return existingFeedbackResponse(recovered, correlationId);
     return createErrorResponse(
       "Feedback storage failed",
       { correlationId, service: "seaside", status: "network_error" },
@@ -185,6 +232,11 @@ async function forecastFeedbackHandler(
 
   const responseBody = await parseJsonResponse(response);
   if (!response.ok || responseBody?.ok !== true) {
+    const recovered = await findExistingFeedbackContext(
+      context.user.id,
+      requestId,
+    );
+    if (recovered) return existingFeedbackResponse(recovered, correlationId);
     return createErrorResponse(
       "Feedback storage failed",
       { correlationId, service: "seaside", status: response.status },
