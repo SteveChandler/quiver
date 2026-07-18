@@ -14,7 +14,14 @@ const mockSupabaseClient = {
     getUser: jest.fn(),
   },
   from: jest.fn(),
+  rpc: jest.fn(),
 };
+
+const mockCapturePostHogEvent = jest.fn();
+
+jest.mock("@/lib/posthog-server", () => ({
+  capturePostHogEvent: (...args: any[]) => mockCapturePostHogEvent(...args),
+}));
 
 const mockServiceRoleClient = {
   from: jest.fn(),
@@ -49,6 +56,7 @@ describe("POST /api/roadmap/items/[id]/vote", () => {
       data: { user: { id: "u1" } },
       error: null,
     });
+    mockSupabaseClient.rpc.mockResolvedValue({ data: true, error: null });
   });
 
   const makeReq = () =>
@@ -133,7 +141,84 @@ describe("POST /api/roadmap/items/[id]/vote", () => {
         roadmap_item_title: "Custom spots",
       },
     });
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      "get_my_analytics_tracking_allowed",
+      { p_expected_user_id: "u1" },
+    );
+    expect(mockCapturePostHogEvent).toHaveBeenCalledTimes(2);
+    expect(mockCapturePostHogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        distinctId: "u1",
+        event: "feedback_roadmap_vote_submitted",
+      }),
+    );
+    expect(mockCapturePostHogEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        distinctId: "u1",
+        event: "custom_spots_feedback_voted",
+      }),
+    );
   });
+
+  it.each([
+    ["is disabled", { data: false, error: null }],
+    ["cannot be read", { data: null, error: { message: "rpc unavailable" } }],
+  ])(
+    "keeps the vote but skips PostHog when analytics consent %s",
+    async (_label, consentResult) => {
+      const mockInsert = jest.fn().mockResolvedValue({ error: null });
+      const mockEventInsert = jest.fn().mockResolvedValue({ error: null });
+      mockSupabaseClient.rpc.mockResolvedValue(consentResult);
+      mockSupabaseClient.from.mockImplementation((table: string) => {
+        if (table === "roadmap_votes") {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                eq: jest.fn().mockReturnValue({
+                  maybeSingle: jest.fn().mockResolvedValue({
+                    data: null,
+                    error: null,
+                  }),
+                }),
+              }),
+            }),
+            insert: mockInsert,
+          };
+        }
+        if (table === "roadmap_items_with_vote_count") {
+          return {
+            select: jest.fn().mockReturnValue({
+              eq: jest.fn().mockReturnValue({
+                maybeSingle: jest.fn().mockResolvedValue({
+                  data: {
+                    title: "Custom spots",
+                    description: "Create private custom spots",
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "user_events") {
+          return { insert: mockEventInsert };
+        }
+        throw new Error(`Unexpected table: ${table}`);
+      });
+
+      const res = await POST(makeReq(), { params: { id: "abc" } });
+      const body = await res.json();
+
+      expect(res.status).toBe(200);
+      expect(body.voted).toBe(true);
+      expect(mockInsert).toHaveBeenCalledWith({
+        item_id: "abc",
+        user_id: "u1",
+      });
+      expect(mockEventInsert).toHaveBeenCalledTimes(2);
+      expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
+    },
+  );
 
   it("3. toggle off (existing vote) → deletes, returns { voted: false }, insert NOT called", async () => {
     const mockDelete = jest.fn().mockReturnValue({

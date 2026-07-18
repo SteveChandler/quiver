@@ -11,7 +11,11 @@ import {
 
 const mockSupabaseClient = createMockSupabaseClient();
 const mockUserEventInsert = jest.fn();
-const mockTrackingPreferenceMaybeSingle = jest.fn();
+let mockTrackingAllowed = true;
+let mockAcceptInviteResponse: {
+  data: Record<string, boolean>;
+  error: { code?: string; message?: string } | null;
+};
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(() => mockSupabaseClient),
@@ -56,7 +60,7 @@ function mockAcceptInviteResult(result?: {
   data?: Record<string, boolean>;
   error?: { code?: string; message?: string } | null;
 }) {
-  mockSupabaseClient.rpc.mockResolvedValue({
+  mockAcceptInviteResponse = {
     data: result?.data ?? {
       follow_created: true,
       follow_existing: false,
@@ -64,16 +68,24 @@ function mockAcceptInviteResult(result?: {
       referral_existing: false,
     },
     error: result?.error ?? null,
-  });
+  };
 }
 
-function mockTrackingPreference(allowImplicitTracking: boolean | null = true) {
-  mockTrackingPreferenceMaybeSingle.mockResolvedValue({
-    data:
-      allowImplicitTracking === null
-        ? null
-        : { allow_implicit_tracking: allowImplicitTracking },
-    error: null,
+function mockTrackingPreference(allowImplicitTracking = true) {
+  mockTrackingAllowed = allowImplicitTracking;
+}
+
+function installRpcMock() {
+  mockSupabaseClient.rpc.mockImplementation((functionName: string) => {
+    if (functionName === "get_my_analytics_tracking_allowed") {
+      return Promise.resolve({ data: mockTrackingAllowed, error: null });
+    }
+
+    if (functionName === "accept_invite_for_user") {
+      return Promise.resolve(mockAcceptInviteResponse);
+    }
+
+    return Promise.resolve({ data: null, error: null });
   });
 }
 
@@ -91,19 +103,11 @@ describe("GET /invite/consume", () => {
     process.env.EMAIL_TOKEN_SECRET = TEST_SECRET;
     mockUserEventInsert.mockResolvedValue({ error: null });
     mockTrackingPreference();
-    mockSupabaseClient.from.mockImplementation((table: string) => {
-      if (table === "profiles") {
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              maybeSingle: mockTrackingPreferenceMaybeSingle,
-            })),
-          })),
-        } as any;
-      }
-      return { insert: mockUserEventInsert } as any;
-    });
+    mockSupabaseClient.from.mockImplementation(
+      () => ({ insert: mockUserEventInsert }) as any,
+    );
     mockAcceptInviteResult();
+    installRpcMock();
   });
 
   afterEach(() => {
@@ -256,7 +260,14 @@ describe("GET /invite/consume", () => {
     const location = getRedirectLocation(response);
     expect(location.pathname).toBe("/community");
     expect(location.searchParams.get("tab")).toBe("friends");
-    expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+    expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith(
+      "accept_invite_for_user",
+      expect.anything(),
+    );
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      "get_my_analytics_tracking_allowed",
+      { p_expected_user_id: "same-id" },
+    );
     expect(mockUserEventInsert).toHaveBeenCalledWith({
       user_id: "same-id",
       event_type: "invite_consumed",

@@ -151,6 +151,7 @@ interface ProfileRow {
   id: string;
   display_name: string | null;
   timezone: string | null;
+  allow_implicit_tracking: boolean;
   notif_push_enabled: boolean;
   notif_email_enabled: boolean;
   notif_inapp_enabled: boolean;
@@ -633,7 +634,7 @@ async function processOne(
 
   if (newAttempts.length > 0) {
     const attemptsInserted = await insertDeliveryAttempts(supabase, newAttempts);
-    if (attemptsInserted) {
+    if (attemptsInserted && profile.allow_implicit_tracking === true) {
       await captureDeliveryAttemptEvents(event, newAttempts);
     }
   }
@@ -1242,7 +1243,7 @@ async function loadProfile(
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, display_name, timezone, notif_push_enabled, notif_email_enabled, notif_inapp_enabled, notif_likes, notif_follows, notif_reminders, notif_xp_updates, notif_forecast_alerts, notif_water_quality, notif_similarity_alerts"
+      "id, display_name, timezone, allow_implicit_tracking, notif_push_enabled, notif_email_enabled, notif_inapp_enabled, notif_likes, notif_follows, notif_reminders, notif_xp_updates, notif_forecast_alerts, notif_water_quality, notif_similarity_alerts"
     )
     .eq("id", userId)
     .maybeSingle();

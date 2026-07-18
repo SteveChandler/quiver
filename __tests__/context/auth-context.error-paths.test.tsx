@@ -1,5 +1,19 @@
 import * as React from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
+
+const mockSetClientPostHogTrackingAllowed = jest.fn();
+const mockQueueClientPostHogSignup = jest.fn();
+const originalPostHogToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+jest.mock("@/lib/posthog-client", () => ({
+  buildPostHogUserProperties: jest.fn(() => ({})),
+  captureClientPostHogEvent: jest.fn(),
+  identifyPostHogUser: jest.fn(),
+  resetPostHog: jest.fn(),
+  queueClientPostHogSignup: (...args: unknown[]) =>
+    mockQueueClientPostHogSignup(...args),
+  setClientPostHogTrackingAllowed: (...args: unknown[]) =>
+    mockSetClientPostHogTrackingAllowed(...args),
+}));
 
 // Mock Supabase client setup
 const mockGetSession = jest.fn(() =>
@@ -8,9 +22,27 @@ const mockGetSession = jest.fn(() =>
 const mockGetUser = jest.fn(() =>
   Promise.resolve({ data: { user: null }, error: null })
 );
-const mockOnAuthStateChange = jest.fn(() => ({
-  data: { subscription: { unsubscribe: jest.fn() } },
-}));
+type AuthStateChangeHandler = (
+  event: string,
+  session: {
+    user: {
+      id: string;
+      created_at: string;
+      app_metadata: Record<string, unknown>;
+    };
+  } | null,
+) => void;
+const mockOnAuthStateChange = jest.fn(
+  (_handler: AuthStateChangeHandler) => ({
+    data: { subscription: { unsubscribe: jest.fn() } },
+  }),
+);
+
+function getAuthStateChangeHandler(): AuthStateChangeHandler {
+  const handler = mockOnAuthStateChange.mock.calls[0]?.[0];
+  if (!handler) throw new Error("Auth state change handler was not registered");
+  return handler;
+}
 
 jest.mock("@/lib/supabase/client", () => ({
   __esModule: true,
@@ -51,6 +83,15 @@ describe("AuthContext error paths", () => {
     });
   });
 
+  afterEach(() => {
+    sessionStorage.removeItem("welcome_email_sent_new-user");
+    if (originalPostHogToken === undefined) {
+      delete process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+    } else {
+      process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = originalPostHogToken;
+    }
+  });
+
   it("handles getSession error and sets unauthenticated", async () => {
     mockGetSession.mockResolvedValueOnce({
       data: { session: null },
@@ -65,6 +106,59 @@ describe("AuthContext error paths", () => {
 
     await waitFor(() =>
       expect(screen.getByTestId("authed").textContent).toBe("false")
+    );
+  });
+
+  it("closes the PostHog gate synchronously when a session signs in", async () => {
+    render(
+      <AuthProvider>
+        <div>child</div>
+      </AuthProvider>
+    );
+
+    await waitFor(() => expect(mockOnAuthStateChange).toHaveBeenCalled());
+    mockSetClientPostHogTrackingAllowed.mockClear();
+    const onAuthStateChange = getAuthStateChangeHandler();
+
+    act(() => {
+      onAuthStateChange("SIGNED_IN", {
+        user: {
+          id: "user-123",
+          created_at: "2020-01-01T00:00:00.000Z",
+          app_metadata: {},
+        },
+      });
+    });
+
+    expect(mockSetClientPostHogTrackingAllowed).toHaveBeenCalledWith(null);
+  });
+
+  it("queues a fresh signup conversion for the consent-aware provider", async () => {
+    process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN = "phc_test";
+    sessionStorage.setItem("welcome_email_sent_new-user", "true");
+
+    render(
+      <AuthProvider>
+        <div>child</div>
+      </AuthProvider>
+    );
+
+    await waitFor(() => expect(mockOnAuthStateChange).toHaveBeenCalled());
+    const onAuthStateChange = getAuthStateChangeHandler();
+
+    act(() => {
+      onAuthStateChange("SIGNED_IN", {
+        user: {
+          id: "new-user",
+          created_at: new Date().toISOString(),
+          app_metadata: { provider: "google" },
+        },
+      });
+    });
+
+    expect(mockQueueClientPostHogSignup).toHaveBeenCalledWith(
+      "new-user",
+      "google",
     );
   });
 });

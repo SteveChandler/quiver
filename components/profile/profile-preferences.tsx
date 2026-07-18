@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useWatch } from "react-hook-form";
@@ -34,6 +34,16 @@ import {
 } from "@/components/profile/shared/preference-fields";
 import { createClient } from "@/lib/supabase/client";
 import type { Beach, Profile } from "@/types/database";
+import {
+  buildAnalyticsConsentProfileUpdate,
+  getOwnAnalyticsTrackingAllowed,
+} from "@/lib/analytics/consent";
+import {
+  captureQueuedClientPostHogSignup,
+  identifyPostHogUser,
+  resetPostHog,
+  setClientPostHogTrackingAllowed,
+} from "@/lib/posthog-client";
 
 const preferencesFormSchema = z.object({
   home_beach_id: z.string().uuid().nullable().optional(),
@@ -72,6 +82,9 @@ export function ProfilePreferences({
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
+  const [consentStatus, setConsentStatus] = useState<
+    "loading" | "ready" | "error"
+  >("loading");
 
   const form = useForm<PreferencesFormValues>({
     resolver: zodResolver(preferencesFormSchema) as any,
@@ -91,9 +104,34 @@ export function ProfilePreferences({
       notif_reminders: profile?.notif_reminders || false,
       notif_forecast_alerts: profile?.notif_forecast_alerts ?? true,
       // Privacy preferences
-      allow_implicit_tracking: (profile as any)?.allow_implicit_tracking ?? true,
+      allow_implicit_tracking: false,
     },
   });
+
+  useEffect(() => {
+    let active = true;
+    setConsentStatus("loading");
+
+    void getOwnAnalyticsTrackingAllowed(createClient(), userId)
+      .then((allowed) => {
+        if (!active) return;
+        form.setValue("allow_implicit_tracking", allowed, {
+          shouldDirty: false,
+          shouldTouch: false,
+          shouldValidate: false,
+        });
+        setConsentStatus("ready");
+      })
+      .catch((error) => {
+        if (!active) return;
+        console.error("Error loading analytics consent:", error);
+        setConsentStatus("error");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [form, userId]);
 
   // Watch the allow_implicit_tracking value for conditional rendering
   const allowImplicitTracking = useWatch({
@@ -131,6 +169,10 @@ export function ProfilePreferences({
 
     setIsSubmitting(true);
     try {
+      const consentUpdate = buildAnalyticsConsentProfileUpdate(
+        consentStatus === "ready",
+        data.allow_implicit_tracking,
+      );
       const result = await updateProfile({
         home_beach_id: data.home_beach_id ?? null,
         // Surf preferences
@@ -140,12 +182,21 @@ export function ProfilePreferences({
         // Notification preferences
         notif_reminders: data.notif_reminders,
         notif_forecast_alerts: data.notif_forecast_alerts,
-        // Privacy preferences (new column from implicit-preference-learning migration)
-        allow_implicit_tracking: data.allow_implicit_tracking,
+        ...consentUpdate,
       } as any);
 
       if (!result.success) {
         throw new Error(result.error || "Failed to update preferences");
+      }
+
+      if (consentStatus === "ready") {
+        setClientPostHogTrackingAllowed(data.allow_implicit_tracking);
+        if (data.allow_implicit_tracking) {
+          identifyPostHogUser(userId);
+          captureQueuedClientPostHogSignup(userId);
+        } else {
+          resetPostHog();
+        }
       }
 
       toast({
@@ -303,10 +354,17 @@ export function ProfilePreferences({
                 name="allow_implicit_tracking"
                 label="Improve recommendations with my activity"
                 description="Uses your browsing behavior to personalize surf spot recommendations. Disabling this stops new tracking but does not delete pre-signup data."
-                disabled={isSubmitting}
+                disabled={isSubmitting || consentStatus !== "ready"}
               />
 
-              {!allowImplicitTracking && (
+              {consentStatus === "error" && (
+                <p className="text-sm text-destructive">
+                  Privacy preference could not be loaded. Your current setting
+                  will not be changed when you save.
+                </p>
+              )}
+
+              {consentStatus === "ready" && !allowImplicitTracking && (
                 <div className="pl-4 border-l-2 border-muted">
                   <p className="text-sm text-muted-foreground mb-3">
                     Tracking is disabled. You can also clear your existing browsing history.

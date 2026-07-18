@@ -7,6 +7,10 @@ import type { Profile } from "@/types/database";
 import type { Database } from "@/types/supabase";
 import { z } from "zod";
 import { getProfileWithHomeBeachById } from "@/lib/profile/fetchers";
+import {
+  PROFILE_PUBLIC_SELECT,
+  PROFILE_PUBLIC_WITH_HOME_BEACH_SELECT,
+} from "@/lib/profile/constants";
 
 // Unified profile update schema with permissive validation
 const profileUpdateSchema = z.object({
@@ -47,8 +51,13 @@ const profileUpdateSchema = z.object({
   allow_implicit_tracking: z.boolean().optional(),
 }).passthrough(); // Allow extra fields that aren't in schema
 
+type PublicProfile = Omit<Profile, "allow_implicit_tracking">;
+type PublicProfileWithHomeBeach = PublicProfile & {
+  home_beach: Record<string, unknown> | null;
+};
+
 // Return types for profile functions
-type ProfileSuccessResult = { success: true; data: Profile };
+type ProfileSuccessResult = { success: true; data: PublicProfile };
 type ProfileErrorResult = { success: false; error: string; isConnectionError?: boolean };
 type ProfileResult = ProfileSuccessResult | ProfileErrorResult;
 
@@ -62,9 +71,9 @@ export async function getProfile(userId: string): Promise<ProfileResult> {
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select(PROFILE_PUBLIC_SELECT)
       .eq("id", userId)
-      .maybeSingle();
+      .maybeSingle<PublicProfile>();
 
     if (error) {
       throw new Error(error.message || "Failed to fetch profile");
@@ -106,9 +115,9 @@ export async function getProfileWithHomeBeach(userId: string): Promise<{
 
     const { data, error } = await supabase
       .from("profiles")
-      .select("*, home_beach:beaches!profiles_home_beach_id_fkey(*)")
+      .select(PROFILE_PUBLIC_WITH_HOME_BEACH_SELECT)
       .eq("id", userId)
-      .maybeSingle();
+      .maybeSingle<PublicProfileWithHomeBeach>();
 
     if (error) {
       throw new Error(error.message || "Failed to fetch profile");
@@ -147,9 +156,9 @@ async function _fetchProfile(userId: string) {
     
     const { data, error } = await supabase
       .from("profiles")
-      .select("*")
+      .select(PROFILE_PUBLIC_SELECT)
       .eq("id", userId)
-      .maybeSingle();
+      .maybeSingle<PublicProfile>();
 
     if (error) {
       console.error("Error in _fetchProfile:", error);
@@ -245,8 +254,8 @@ async function createProfile(userId: string): Promise<ProfileResult> {
     const { data, error } = await supabase
       .from("profiles")
       .insert(insertPayload)
-      .select()
-      .single();
+      .select(PROFILE_PUBLIC_SELECT)
+      .single<PublicProfile>();
 
     if (error) {
       throw new Error(error.message || "Failed to create profile");
@@ -344,8 +353,8 @@ export async function updateProfile(
       .from("profiles")
       .update(dbPayload)
       .eq("id", user.id)
-      .select()
-      .single();
+      .select(PROFILE_PUBLIC_SELECT)
+      .single<PublicProfile>();
 
     if (error) {
       throw new Error(error.message || "Failed to update profile");

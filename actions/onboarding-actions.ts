@@ -1,7 +1,14 @@
 "use server";
 
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
+import { PROFILE_PUBLIC_SELECT } from "@/lib/profile/constants";
+import type { Database } from "@/types/database.generated";
 import type { SupabaseServerClient } from "@/types/supabase";
+
+type PublicProfile = Omit<
+  Database["public"]["Tables"]["profiles"]["Row"],
+  "allow_implicit_tracking"
+>;
 
 function normalizeIanaTimezone(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -256,8 +263,8 @@ export async function saveOnboardingData(data: OnboardingData) {
         .from("profiles")
         .update(profileUpdate)
         .eq("id", user.id)
-        .select()
-        .single();
+        .select(PROFILE_PUBLIC_SELECT)
+        .single<PublicProfile>();
 
       if (profileError) {
         console.error("Profile update error:", profileError);

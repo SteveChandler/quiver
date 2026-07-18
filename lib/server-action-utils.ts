@@ -8,6 +8,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { User } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { Database } from "@/types/database.generated";
+import { PROFILE_PUBLIC_SELECT } from "@/lib/profile/constants";
+
+type PublicProfile = Omit<
+  Database["public"]["Tables"]["profiles"]["Row"],
+  "allow_implicit_tracking"
+>;
 
 // Standard server action response type
 export interface ServerActionResponse<T = any> {
@@ -268,13 +274,21 @@ export async function withPublicDatabaseOperation<T>(
 // Common database queries
 export async function getUserById(userId: string) {
   return withDatabaseOperation(async (supabase) => {
-    return supabase.from("profiles").select("*").eq("id", userId).single();
+    return supabase
+      .from("profiles")
+      .select(PROFILE_PUBLIC_SELECT)
+      .eq("id", userId)
+      .single<PublicProfile>();
   });
 }
 
 export async function getUserByEmail(email: string) {
   return withDatabaseOperation(async (supabase) => {
-    return supabase.from("profiles").select("*").eq("email", email).single();
+    return supabase
+      .from("profiles")
+      .select(PROFILE_PUBLIC_SELECT)
+      .eq("email", email)
+      .single<PublicProfile>();
   });
 }
 

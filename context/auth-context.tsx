@@ -47,10 +47,10 @@ import {
 import { getExistingVisitorId, clearVisitorId } from "@/lib/utils/visitor-id";
 import { AUTH_INIT_TIMEOUT_MS } from "@/lib/constants/ui";
 import {
-  buildPostHogUserProperties,
   captureClientPostHogEvent,
-  identifyPostHogUser,
+  queueClientPostHogSignup,
   resetPostHog,
+  setClientPostHogTrackingAllowed,
 } from "@/lib/posthog-client";
 
 /**
@@ -303,6 +303,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // Handle post-auth redirect when user signs in
             if (event === "SIGNED_IN" && session) {
+              setClientPostHogTrackingAllowed(null);
+
               // Clear stored redirect path - components will re-render with new auth state
               // This prevents redirect loops caused by hard page reloads
               const storedPath = safeGetItem("auth_redirect_path");
@@ -453,20 +455,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               }
 
               if (process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN) {
-                const postHogUserProperties = buildPostHogUserProperties(session.user);
-                const provider = postHogUserProperties.provider ?? "email";
-                identifyPostHogUser(session.user.id, postHogUserProperties);
-
                 const isNewUserForPostHog = session.user.created_at
                   ? Date.now() - new Date(session.user.created_at).getTime() < 60_000
                   : false;
-                const signupCaptureKey = `posthog_signup_captured_${session.user.id}`;
-                const alreadyCapturedSignup =
-                  sessionStorage.getItem(signupCaptureKey);
 
-                if (isNewUserForPostHog && !alreadyCapturedSignup) {
-                  sessionStorage.setItem(signupCaptureKey, "true");
-                  captureClientPostHogEvent("user_signed_up", { provider });
+                if (isNewUserForPostHog) {
+                  const rawProvider = session.user.app_metadata?.provider;
+                  const provider =
+                    typeof rawProvider === "string" ? rawProvider : "email";
+                  queueClientPostHogSignup(session.user.id, provider);
                 }
               }
 

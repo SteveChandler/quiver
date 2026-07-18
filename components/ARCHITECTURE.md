@@ -218,7 +218,8 @@ function Providers({ children }) {
 **Privacy Considerations:**
 - Respects `allow_implicit_tracking` profile setting
 - Rate limited: 60 requests/minute per user
-- Uses LRU cache (5000 entries) for permission lookups
+- Caches denials only; allowed consent is rechecked before each recorded event
+- Authenticated PostHog consent is revalidated when the tab becomes visible or focused, with capture disabled while the owner-only lookup is pending
 
 ---
 

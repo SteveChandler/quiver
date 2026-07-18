@@ -61,14 +61,24 @@ function mockAuthUser(userId: string | null) {
 }
 
 function mockAcceptInviteRpc(error: { code: string } | null = null) {
-  mockSupabaseClient.rpc.mockResolvedValue({
-    data: {
-      follow_created: error ? false : true,
-      follow_existing: error?.code === "23505",
-      referral_created: error ? false : true,
-      referral_existing: false,
-    },
-    error: null,
+  mockSupabaseClient.rpc.mockImplementation((functionName: string) => {
+    if (functionName === "get_my_analytics_tracking_allowed") {
+      return Promise.resolve({ data: true, error: null });
+    }
+
+    if (functionName === "accept_invite_for_user") {
+      return Promise.resolve({
+        data: {
+          follow_created: !error,
+          follow_existing: error?.code === "23505",
+          referral_created: !error,
+          referral_existing: false,
+        },
+        error: null,
+      });
+    }
+
+    return Promise.resolve({ data: null, error: null });
   });
 
   return mockSupabaseClient.rpc;
@@ -95,6 +105,13 @@ function mockInviterProfile() {
 describe("/invite/[token]", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSupabaseClient.rpc.mockReset();
+    mockSupabaseClient.rpc.mockImplementation((functionName: string) => {
+      if (functionName === "get_my_analytics_tracking_allowed") {
+        return Promise.resolve({ data: true, error: null });
+      }
+      return Promise.resolve({ data: null, error: null });
+    });
     process.env.EMAIL_TOKEN_SECRET = TEST_SECRET;
   });
 
@@ -179,7 +196,14 @@ describe("/invite/[token]", () => {
 
     await expectRedirect(renderInvitePage(token), "/community?tab=friends");
 
-    expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+    expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith(
+      "accept_invite_for_user",
+      expect.anything(),
+    );
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      "get_my_analytics_tracking_allowed",
+      { p_expected_user_id: "same-id" },
+    );
     expect(mockCookies).not.toHaveBeenCalled();
   });
 });

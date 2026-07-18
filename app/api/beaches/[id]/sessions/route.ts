@@ -5,6 +5,7 @@ import {
   handleApiError,
 } from "@/lib/middleware/api-wrappers";
 import { addFeaturedPhotoToSessions } from "@/actions/session-actions";
+import { PROFILE_PUBLIC_SESSION_RELATION_SELECT } from "@/lib/profile/constants";
 
 // GET /api/beaches/[id]/sessions?limit=5 - fetch recent completed sessions for beach
 export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest, props: { params: Promise<{ id: s
         *,
         beach:beaches(*),
         board:boards(*),
-        user:profiles(*)
+        ${PROFILE_PUBLIC_SESSION_RELATION_SELECT}
       `
       )
       .eq("beach_id", params.id)

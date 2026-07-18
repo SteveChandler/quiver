@@ -17,6 +17,7 @@ import type {
   SessionInsert,
   Database,
 } from "@/types/database";
+import { PROFILE_PUBLIC_SESSION_RELATION_SELECT } from "@/lib/profile/constants";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SessionFormState } from "@/hooks/use-session-form";
 import { 
@@ -196,7 +197,7 @@ export async function getUserSessions(userId: string, limit?: number) {
           session_date:arrival_time,
           beach:beaches(*),
           board:boards(*),
-          user:profiles(*)
+          ${PROFILE_PUBLIC_SESSION_RELATION_SELECT}
         `
         )
         .eq("user_id", userId)
@@ -577,7 +578,7 @@ async function getAllSessions(limit = 20) {
       *,
       beach:beaches(*),
       board:boards(*),
-      user:profiles(*)
+      ${PROFILE_PUBLIC_SESSION_RELATION_SELECT}
     `
     )
     .order("created_at", { ascending: false })

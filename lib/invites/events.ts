@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database";
 import type { InviteAcceptanceFlags } from "@/lib/invites/consume";
+import { getOwnAnalyticsTrackingAllowed } from "@/lib/analytics/consent";
 
 type InviteConsumeSurface = "web" | "native";
 
@@ -18,22 +19,7 @@ async function isInviteProductTelemetryAllowed(
   userId: string,
 ): Promise<boolean> {
   try {
-    const query = (supabase as any)
-      .from("profiles")
-      .select("allow_implicit_tracking")
-      .eq("id", userId);
-
-    const { data, error } =
-      typeof query.maybeSingle === "function"
-        ? await query.maybeSingle()
-        : await query.single();
-
-    if (error) {
-      console.error("[invite] failed to check invite telemetry preference:", error);
-      return false;
-    }
-
-    return data?.allow_implicit_tracking !== false;
+    return await getOwnAnalyticsTrackingAllowed(supabase, userId);
   } catch (error) {
     console.error("[invite] failed to check invite telemetry preference:", error);
     return false;
@@ -50,7 +36,7 @@ export async function recordInviteConsumedEvent(
     selfInvite,
     flags,
   }: RecordInviteConsumedEventInput,
-): Promise<void> {
+): Promise<boolean> {
   const metadata = {
     token_hash: tokenHash,
     inviter_id: inviterId,
@@ -64,7 +50,7 @@ export async function recordInviteConsumedEvent(
 
   try {
     const allowed = await isInviteProductTelemetryAllowed(supabase, followerId);
-    if (!allowed) return;
+    if (!allowed) return false;
 
     const { error } = await (supabase as any).from("user_events").insert({
       user_id: followerId,
@@ -75,8 +61,11 @@ export async function recordInviteConsumedEvent(
 
     if (error) {
       console.error("[invite] failed to record invite_consumed:", error);
+      return false;
     }
+    return true;
   } catch (error) {
     console.error("[invite] failed to record invite_consumed:", error);
+    return false;
   }
 }
