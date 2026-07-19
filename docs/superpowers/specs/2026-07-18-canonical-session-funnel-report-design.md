@@ -2,7 +2,7 @@
 
 Date: 2026-07-18
 
-Status: approved design; awaiting written-spec review
+Status: approved
 
 ## Product Decision
 
