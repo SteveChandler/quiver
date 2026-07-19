@@ -150,7 +150,7 @@
     },
     {
       "path": "/api/cron/weekend-window",
-      "schedule": "0 1 * * 5,6"
+      "schedule": "0 * * * 4-6"
     },
     {
       "path": "/api/cron/swell-watch",
