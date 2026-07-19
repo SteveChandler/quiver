@@ -105,12 +105,29 @@ const homeMorningCallSchema = z.object({
   body: z.string().min(1),
 });
 
+const weekendLocalDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}, "Invalid local date");
+
 const weekendWindowSchema = z.object({
-  beach_id: z.string().min(1),
-  forecast_at: z.string().min(1),
-  window_local: z.string().optional(),
-  title: z.string().min(1),
-  body: z.string().min(1),
+  snapshot_id: z.string().uuid(),
+  weekend_start: weekendLocalDateSchema,
+  weekend_end: weekendLocalDateSchema,
+  qualifying_count: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  lead_beach_id: z.string().uuid(),
+  lead_beach_name: z.string().min(1),
+  lead_window_local: z.string().min(1),
+}).strict().superRefine((payload, context) => {
+  const expectedEnd = new Date(`${payload.weekend_start}T00:00:00.000Z`);
+  expectedEnd.setUTCDate(expectedEnd.getUTCDate() + 1);
+  if (payload.weekend_end !== expectedEnd.toISOString().slice(0, 10)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["weekend_end"],
+      message: "weekend_end must follow weekend_start",
+    });
+  }
 });
 
 const swellWatchSchema = z.object({
@@ -308,11 +325,13 @@ interface HomeMorningCallPayload {
 }
 
 interface WeekendWindowPayload {
-  beach_id: string;
-  forecast_at: string;
-  window_local?: string;
-  title: string;
-  body: string;
+  snapshot_id: string;
+  weekend_start: string;
+  weekend_end: string;
+  qualifying_count: 1 | 2 | 3;
+  lead_beach_id: string;
+  lead_beach_name: string;
+  lead_window_local: string;
 }
 
 interface SwellWatchPayload {
@@ -665,16 +684,23 @@ export const NOTIFICATION_REGISTRY = {
     suppressSelfNotify: false,
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) => weekendWindowSchema.parse(input),
-    buildPushPayload: (p) => ({
-      title: p.title,
-      body: p.body,
-      data: {
-        type: "weekend_window",
-        beach_id: p.beach_id,
-        forecast_at: p.forecast_at,
-        ...(p.window_local ? { window_local: p.window_local } : {}),
-      },
-    }),
+    buildPushPayload: (p) => {
+      const countLabel = p.qualifying_count === 1 ? "spot looks" : "spots look";
+      return {
+        title: `${p.qualifying_count} ${countLabel} promising this weekend`,
+        body: `${p.lead_beach_name} leads ${p.lead_window_local}. See your top picks and why.`,
+        data: {
+          type: "weekend_window",
+          snapshot_id: p.snapshot_id,
+          weekend_start: p.weekend_start,
+          weekend_end: p.weekend_end,
+          qualifying_count: p.qualifying_count,
+          lead_beach_id: p.lead_beach_id,
+          lead_beach_name: p.lead_beach_name,
+          lead_window_local: p.lead_window_local,
+        },
+      };
+    },
   } satisfies NotificationTypeDef<WeekendWindowPayload>,
 
   swell_watch: {

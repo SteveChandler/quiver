@@ -10,31 +10,57 @@ import {
 import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
 
 describe("weekend_window registry contract", () => {
-  it("emits the pinned native push data shape", () => {
+  const payload = {
+    snapshot_id: "11111111-1111-4111-8111-111111111111",
+    weekend_start: "2026-07-25",
+    weekend_end: "2026-07-26",
+    qualifying_count: 3,
+    lead_beach_id: "22222222-2222-4222-8222-222222222222",
+    lead_beach_name: "Black's",
+    lead_window_local: "Saturday morning",
+  };
+
+  it("emits the pinned Weekend Scout snapshot shape", () => {
     const def = (NOTIFICATION_REGISTRY as any).weekend_window;
 
     expect(def.channels).toEqual(["push"]);
     expect(def.prefs.master.push).toBe("notif_push_enabled");
     expect(def.prefs.perType.push).toBe("notif_reminders");
 
-    const out = def.buildPushPayload({
+    const out = def.buildPushPayload(def.validatePayload(payload));
+
+    expect(out).toEqual({
+      title: "3 spots look promising this weekend",
+      body: "Black's leads Saturday morning. See your top picks and why.",
+      data: { type: "weekend_window", ...payload },
+    });
+  });
+
+  it.each([
+    [1, "1 spot looks promising this weekend"],
+    [2, "2 spots look promising this weekend"],
+  ])("uses correct grammar for %i qualifying spots", (qualifyingCount, title) => {
+    const def = (NOTIFICATION_REGISTRY as any).weekend_window;
+    expect(def.buildPushPayload({ ...payload, qualifying_count: qualifyingCount }).title).toBe(title);
+  });
+
+  it("rejects the retired producer-authored payload", () => {
+    const def = (NOTIFICATION_REGISTRY as any).weekend_window;
+    expect(() => def.validatePayload({
       beach_id: "beach-1",
       forecast_at: "2026-06-20T15:00:00.000Z",
-      window_local: "Sat 8am",
-      title: "Saturday's looking fun at La Jolla",
-      body: "Sat 8am: 3.5ft @ 10s · NW wind 6mph.",
-    });
+      title: "Producer copy",
+      body: "Producer body",
+    })).toThrow();
+  });
 
-    expect(out).toMatchObject({
-      title: "Saturday's looking fun at La Jolla",
-      body: "Sat 8am: 3.5ft @ 10s · NW wind 6mph.",
-      data: {
-        type: "weekend_window",
-        beach_id: "beach-1",
-        forecast_at: "2026-06-20T15:00:00.000Z",
-        window_local: "Sat 8am",
-      },
-    });
+  it.each([
+    [{ ...payload, qualifying_count: 0 }],
+    [{ ...payload, weekend_start: "2026-02-30" }],
+    [{ ...payload, weekend_end: "2026-07-27" }],
+  ])("rejects an invalid snapshot summary", (invalidPayload) => {
+    const def = (NOTIFICATION_REGISTRY as any).weekend_window;
+    expect(() => def.validatePayload(invalidPayload)).toThrow();
   });
 });
 
