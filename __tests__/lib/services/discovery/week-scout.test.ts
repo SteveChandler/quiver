@@ -4,6 +4,7 @@
 
 import {
   generateWeekScoutForecast,
+  generateWeekScoutForecastForDays,
   type WeekScoutServiceDependencies,
 } from '@/lib/services/discovery/week-scout';
 import type { Beach } from '@/types/database';
@@ -123,6 +124,40 @@ function dependencies(): WeekScoutServiceDependencies {
 }
 
 describe('generateWeekScoutForecast', () => {
+  it('reuses canonical scoring for a two-day weekend request', async () => {
+    const response = await generateWeekScoutForecastForDays(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-08-01',
+        dayCount: 2,
+      },
+      dependencies(),
+    );
+
+    expect(response.days.map((day) => day.localDate)).toEqual([
+      '2026-08-01',
+      '2026-08-02',
+    ]);
+    expect(response.scorerVersion).toBe('week-scout-v1:discovery-hero-v1');
+  });
+
+  it.each([0, 8, 1.5])('rejects unsupported internal dayCount %s', async (dayCount) => {
+    await expect(
+      generateWeekScoutForecastForDays(
+        'user-week-scout',
+        {
+          candidateBeachIds: [BEACH_A],
+          localTimezone: 'Pacific/Honolulu',
+          startLocalDate: '2026-08-01',
+          dayCount,
+        },
+        dependencies(),
+      ),
+    ).rejects.toThrow(/dayCount/i);
+  });
+
   it('builds seven local days with canonical morning, midday, and evening rankings', async () => {
     const deps = dependencies();
     const response = await generateWeekScoutForecast(

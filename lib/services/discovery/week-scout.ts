@@ -49,6 +49,10 @@ export interface WeekScoutRequest {
   dayCount: 7;
 }
 
+export interface WeekScoutDaysRequest extends Omit<WeekScoutRequest, 'dayCount'> {
+  dayCount: number;
+}
+
 export interface WeekScoutRankedSpotResponse {
   beachId: string;
   beachName: string;
@@ -429,9 +433,9 @@ function rankDrafts(
   return responses.map((window) => ({ ...window, rankedSpots }));
 }
 
-export async function generateWeekScoutForecast(
+async function generateWeekScoutForecastInternal(
   userId: string,
-  request: WeekScoutRequest,
+  request: WeekScoutDaysRequest,
   dependencies?: WeekScoutServiceDependencies,
 ): Promise<WeekScoutResponse> {
   const deps = dependencies ?? defaultDependencies(new Date());
@@ -505,4 +509,23 @@ export async function generateWeekScoutForecast(
     candidateFingerprint: hash([...beachIds].sort()),
     days,
   };
+}
+
+export function generateWeekScoutForecastForDays(
+  userId: string,
+  request: WeekScoutDaysRequest,
+  dependencies?: WeekScoutServiceDependencies,
+): Promise<WeekScoutResponse> {
+  if (!Number.isInteger(request.dayCount) || request.dayCount < 1 || request.dayCount > 7) {
+    return Promise.reject(new Error('Week Scout dayCount must be between 1 and 7'));
+  }
+  return generateWeekScoutForecastInternal(userId, request, dependencies);
+}
+
+export function generateWeekScoutForecast(
+  userId: string,
+  request: WeekScoutRequest,
+  dependencies?: WeekScoutServiceDependencies,
+): Promise<WeekScoutResponse> {
+  return generateWeekScoutForecastInternal(userId, request, dependencies);
 }
