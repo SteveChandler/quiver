@@ -82,6 +82,7 @@ export interface WeekScoutWindowResponse {
     windDirection: string | null;
     tideHeightFt: number | null;
     tidePhase: string | null;
+    freshnessAt: string;
   };
   takeaway: string | null;
   rankedSpots: WeekScoutRankedSpotResponse[];
@@ -383,6 +384,7 @@ function buildDraftWindow(args: {
         windDirection: forecast.wind_direction ?? null,
         tideHeightFt: finiteNumber(forecast.tide_height),
         tidePhase: forecast.tide_status ?? null,
+        freshnessAt: forecast.updated_at ?? forecast.forecast_at,
       },
       takeaway: reasons[0] ?? null,
     },

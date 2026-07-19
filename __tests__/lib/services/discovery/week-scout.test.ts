@@ -38,6 +38,8 @@ function forecast(beachId: string, forecastAt: string): EnhancedForecastEntity {
     tide_status: 'Rising',
     confidence_score: 82,
     data_source: 'NOAA_NWS',
+    created_at: '2026-07-31T12:00:00.000Z',
+    updated_at: '2026-07-31T13:30:00.000Z',
   } as EnhancedForecastEntity;
 }
 
@@ -202,6 +204,7 @@ describe('generateWeekScoutForecast', () => {
       forecast: {
         tideHeightFt: 1.4,
         tidePhase: 'Rising',
+        freshnessAt: '2026-07-31T13:30:00.000Z',
       },
       takeaway: 'Clean wind and solid period',
     });
