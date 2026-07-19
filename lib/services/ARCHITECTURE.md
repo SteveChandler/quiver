@@ -1273,6 +1273,17 @@ lib/services/
 
 > **Note:** This is the recommended future organization. Current services are in the root `lib/services/` directory. Migration to this structure should be done incrementally during major refactoring efforts.
 
+### Weekend Scout discovery services
+
+The current-location Weekend Scout path is implemented as small stateless services under `lib/services/discovery/`:
+
+- `weekend-scout-candidate-pool.ts` calls a service-role-only exhaustive nearby RPC and suppresses incomplete pools.
+- `week-scout.ts` remains the canonical scorer; its internal day-count entry point allows the weekend flow to reuse the same scoring for two days without changing the public seven-day API.
+- `weekend-scout.ts` enforces the 24-hour location limit, quality floor, one best window per beach, distance friction, and top-three uniqueness. Home and saved state is attached after ranking as labels.
+- `weekend-scout-snapshots.ts` inserts once per user/weekend, reloads uniqueness-race winners, and reconstructs reads from stored count, lead, and ranking fields.
+
+The live endpoint calls the ranking service directly. The notification cron calls snapshot creation first and derives its payload exclusively from the returned immutable row.
+
 ---
 
 **Last Updated**: February 2026

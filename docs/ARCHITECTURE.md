@@ -450,3 +450,13 @@ supabase start
 2. **Implement**: Follow core patterns (DRY, `useDataFetcher`).
 3. **Verify**: Run tests (Unit/Integration/E2E).
 4. **Document**: Update `CHANGELOG.md` under `[Unreleased]`.
+
+---
+
+### Current-Location Weekend Scout
+
+The Expo app's Weekend Scout uses a foreground device fix as its only geographic authority. Native sends fixes captured within 15 minutes to `POST /api/user/location-snapshot`; the server derives the IANA timezone, rounds coordinates to two decimals, and replaces the user's single row. Deleting permission state calls the matching `DELETE` endpoint, so no location history accumulates.
+
+The Friday planning job accepts only location rows no older than 24 hours. It evaluates every eligible beach inside the user's configured drive range, applies canonical Week Scout scoring plus distance friction, and stores an immutable top-three snapshot. Home and saved beaches are labels only and receive no ranking bonus. Stored alert results and live refreshes are exposed separately so notification content remains reproducible when forecasts change.
+
+The cron runs hourly Thursday through Saturday UTC (`0 * * * 4-6`) and filters to exactly Friday 12 PM in each stored location timezone. Rollout is controlled by `WEEKEND_SCOUT_ENABLED` and `WEEKEND_SCOUT_TEST_USER_IDS`. Migration `20260719120000_create_weekend_scout_location_snapshots.sql` is committed but requires a separately approved database application.

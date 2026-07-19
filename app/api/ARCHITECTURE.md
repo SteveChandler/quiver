@@ -920,3 +920,13 @@ import {
 - Candidate pool limited to home beach + favorites for performance
 - Graceful degradation: returns null if no viable windows or forecast data unavailable
 - Future enhancement: geo-based candidate selection for current location
+
+---
+
+### Weekend Scout Native APIs
+
+- `POST /api/user/location-snapshot` accepts only foreground fixes captured within 15 minutes, derives timezone server-side, rounds coordinates to two decimals, and replaces the authenticated user's one location row. `DELETE` removes that row.
+- `POST /api/surf/week-scout/weekend` builds a non-persisted Saturday/Sunday ranking from the latest server location. Clients never send coordinates or candidate IDs to this route.
+- `GET /api/surf/week-scout/snapshots/[snapshotId]` returns an immutable alert snapshot scoped by both snapshot ID and authenticated user ID.
+- Successful responses are `private, no-store`; both Weekend Scout read routes are gated by `WEEKEND_SCOUT_ENABLED` and use the `surf-discovery` rate limit.
+- `/api/cron/weekend-window` runs hourly Thursday through Saturday UTC and filters eligible users to local Friday at 12 PM. Its payload contains only snapshot ID, weekend dates, count, and lead summary—never coordinates or full ranking evidence.
