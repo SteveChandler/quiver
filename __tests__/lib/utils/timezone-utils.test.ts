@@ -5,7 +5,12 @@
  * nighttime hours that are unrealistic for surfing.
  */
 
-import { isNightHour, getLocalHour, getTimezoneFromCoords } from '@/lib/utils/timezone-utils.server';
+import {
+  findTimezoneFromCoords,
+  getLocalHour,
+  getTimezoneFromCoords,
+  isNightHour,
+} from '@/lib/utils/timezone-utils.server';
 import { getLocalDateString } from "@/lib/utils/timezone-utils";
 
 describe('timezone-utils', () => {
@@ -160,6 +165,19 @@ describe('timezone-utils', () => {
       // Should still return a valid timezone
       expect(typeof tz).toBe('string');
       expect(tz.length).toBeGreaterThan(0);
+    });
+  });
+
+  describe('findTimezoneFromCoords', () => {
+    it('returns the coordinate timezone without a default fallback', () => {
+      expect(findTimezoneFromCoords(32.7157, -117.1611)).toBe('America/Los_Angeles');
+      expect(findTimezoneFromCoords(21.3069, -157.8583)).toBe('Pacific/Honolulu');
+    });
+
+    it('returns null for invalid coordinates', () => {
+      expect(findTimezoneFromCoords(Number.NaN, -117.1611)).toBeNull();
+      expect(findTimezoneFromCoords(91, -117.1611)).toBeNull();
+      expect(findTimezoneFromCoords(32.7157, -181)).toBeNull();
     });
   });
 
