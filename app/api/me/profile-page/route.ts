@@ -12,6 +12,7 @@ import type {
   ProfilePagePreferences,
   ProfilePageProfile,
 } from "@/types/profile-page";
+import { getOwnAnalyticsTrackingAllowed } from "@/lib/analytics/consent";
 import type { Board, SessionWithDetails } from "@/types/database";
 
 const PROFILE_PAGE_LEARNED_PREFERENCES_SELECT = `
@@ -105,6 +106,7 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
     learnedPrefsResult,
     recentSessionsResult,
     boardsResult,
+    analyticsConsent,
   ] = await Promise.all([
     // 1. Full profile with home beach join (all fields needed for profile page UI)
     supabase
@@ -122,7 +124,6 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
         surf_styles,
         notif_reminders,
         notif_forecast_alerts,
-        allow_implicit_tracking,
         home_beach:beaches!profiles_home_beach_id_fkey ( id, name )
       `
       )
@@ -178,6 +179,12 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
       .select(PROFILE_PAGE_BOARD_SELECT)
       .eq("user_id", userId)
       .order("created_at", { ascending: false }),
+
+    // 9. Owner-only analytics consent. Never expose this through public profile reads.
+    getOwnAnalyticsTrackingAllowed(supabase, userId).catch((error) => {
+      console.warn("Analytics consent fetch failed:", error);
+      return null;
+    }),
   ]);
 
   if (profileResult.error || !profileResult.data) {
@@ -266,7 +273,7 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
     // Notification settings for ProfilePreferences
     notif_reminders: profileData.notif_reminders ?? null,
     notif_forecast_alerts: profileData.notif_forecast_alerts ?? null,
-    allow_implicit_tracking: profileData.allow_implicit_tracking ?? null,
+    allow_implicit_tracking: analyticsConsent,
   };
 
   // Enrich sessions with featured photos.

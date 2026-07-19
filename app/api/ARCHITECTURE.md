@@ -480,9 +480,9 @@ export const GET = withAuth(handler);
 - **Authentication**: Required (user session)
 - **Function**: Records user behavioral events for implicit preference learning and analytics
 - **Features**:
-  - Privacy-aware: Respects `allow_implicit_tracking` profile setting
+  - Privacy-aware: Reads `allow_implicit_tracking` through the owner-only `get_my_analytics_tracking_allowed` RPC
   - Per-user rate limiting (60 requests/minute)
-  - LRU cache (5000 entries) for tracking permission lookups
+  - LRU cache (5000 entries) for denials only; allowed consent is rechecked so revocation is immediate
   - Debounced event processing on client side
 
 **Event Types:**
@@ -532,7 +532,7 @@ export const GET = withAuth(handler);
 
 | Table | Operation | Description |
 |-------|-----------|-------------|
-| `profiles` | SELECT | Check `allow_implicit_tracking` setting |
+| `get_my_analytics_tracking_allowed` | RPC | Check the authenticated owner's private analytics-consent setting |
 | `user_events` | INSERT | Store event with user_id, event_type, beach_id, metadata |
 
 **Integration:**

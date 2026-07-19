@@ -93,6 +93,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   home_timeline_tap: 0,
   // Session logging events
   session_log_start: 0,
+  session_log_form_view: 0,
   session_log_draft_opened: 0,
   session_log_time_selected: 0,
   session_log_draft_progress: 0,

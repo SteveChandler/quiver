@@ -65,7 +65,7 @@ export const POST = withAuth(
       throw result.error;
     }
 
-    await recordInviteConsumedEvent(supabase, {
+    const telemetryAllowed = await recordInviteConsumedEvent(supabase, {
       followerId: user.id,
       inviterId: result.inviterId,
       tokenHash,
@@ -74,17 +74,19 @@ export const POST = withAuth(
       flags: result,
     });
 
-    await capturePostHogEvent({
-      distinctId: user.id,
-      event: "invite_consumed",
-      properties: {
-        inviter_id: result.inviterId,
-        duplicate: result.followExisting,
-        follow_created: result.followCreated,
-        referral_created: result.referralCreated,
-        referral_existing: result.referralExisting,
-      },
-    });
+    if (telemetryAllowed) {
+      await capturePostHogEvent({
+        distinctId: user.id,
+        event: "invite_consumed",
+        properties: {
+          inviter_id: result.inviterId,
+          duplicate: result.followExisting,
+          follow_created: result.followCreated,
+          referral_created: result.referralCreated,
+          referral_existing: result.referralExisting,
+        },
+      });
+    }
 
     return createSuccessResponse({
       success: true,

@@ -142,6 +142,57 @@ describe("useTrackEvent", () => {
     });
   });
 
+  describe("PostHog handoff", () => {
+    it("waits for the consent-aware API before capturing", async () => {
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      let resolveFetch: (response: unknown) => void = () => undefined;
+      const fetchPromise = new Promise((resolve) => {
+        resolveFetch = resolve;
+      });
+      (global.fetch as jest.Mock).mockReturnValueOnce(fetchPromise);
+      const { result } = renderHook(() => useTrackEvent());
+
+      let trackPromise: Promise<void>;
+      act(() => {
+        trackPromise = result.current.track("beach_view");
+      });
+
+      expect(mockCaptureClientPostHogEvent).not.toHaveBeenCalled();
+
+      resolveFetch({
+        ok: true,
+        json: async () => ({ success: true, data: { ok: true } }),
+      });
+      await act(async () => {
+        await trackPromise!;
+      });
+
+      expect(mockCaptureClientPostHogEvent).toHaveBeenCalledWith(
+        "beach_view",
+        {},
+      );
+    });
+
+    it.each([
+      ["tracking_disabled", { ok: true, status: "tracking_disabled" }],
+      ["bot_filtered", { ok: true, status: "bot_filtered" }],
+      ["skipped", { ok: true, skipped: true }],
+    ])("does not capture when the API reports %s", async (_name, data) => {
+      (useOptionalAuth as jest.Mock).mockReturnValue({ user: { id: "user-123" } });
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ success: true, data }),
+      });
+      const { result } = renderHook(() => useTrackEvent());
+
+      await act(async () => {
+        await result.current.track("beach_view");
+      });
+
+      expect(mockCaptureClientPostHogEvent).not.toHaveBeenCalled();
+    });
+  });
+
   describe("guest users", () => {
     it("tracks anonymously for guests with sessionId", async () => {
       (useOptionalAuth as jest.Mock).mockReturnValue({ user: null });

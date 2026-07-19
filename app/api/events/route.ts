@@ -30,6 +30,7 @@ import { getTrackingCache, setTrackingCache } from '@/lib/services/tracking-cach
 import { parseUserAgent } from '@/lib/utils/user-agent-parser';
 import { isBot, isSuspiciousFingerprint } from '@/lib/utils/bot-detector';
 import { createServiceRoleClient } from '@/lib/supabase';
+import { getOwnAnalyticsTrackingAllowed } from '@/lib/analytics/consent';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,36 +113,33 @@ const ANON_RATE_LIMIT = 30; // Lower rate limit for anonymous users
 import { isValidUUID } from '@/lib/utils/validation';
 
 /**
- * Check if implicit tracking is allowed for a user
- * Uses 5-minute in-memory cache to reduce database queries
+ * Check if implicit tracking is allowed for a user.
+ *
+ * Only denials are cached. Retaining an allowed result would let tracking
+ * continue after a user revokes consent until the cache expires.
  */
 async function isTrackingAllowed(
   supabase: OptionalAuthContext['supabase'],
   userId: string
 ): Promise<boolean> {
-  // Check cache first (using LRU-aware getter)
   const cached = getTrackingCache(userId);
-  if (cached && cached.expires > Date.now()) {
-    return cached.allowed;
+  if (cached && !cached.allowed && cached.expires > Date.now()) {
+    return false;
   }
 
-  // Query database
-  const { data } = await supabase
-    .from('profiles')
-    .select('allow_implicit_tracking')
-    .eq('id', userId)
-    .single();
-
-  // Default to true if no preference set
-  const allowed = data?.allow_implicit_tracking !== false;
-
-  // Cache for 5 minutes (using LRU-aware setter)
-  setTrackingCache(userId, {
-    allowed,
-    expires: Date.now() + 5 * 60 * 1000,
-  });
-
-  return allowed;
+  try {
+    const allowed = await getOwnAnalyticsTrackingAllowed(supabase, userId);
+    if (!allowed) {
+      setTrackingCache(userId, {
+        allowed: false,
+        expires: Date.now() + 5 * 60 * 1000,
+      });
+    }
+    return allowed;
+  } catch (error) {
+    console.error('Error checking analytics consent:', error);
+    return false;
+  }
 }
 
 /**

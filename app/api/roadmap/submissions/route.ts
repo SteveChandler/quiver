@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { withAuth, withRateLimit, type AuthenticatedContext } from "@/lib/middleware/api-wrappers";
 import { capturePostHogEvent } from "@/lib/posthog-server";
+import { getOwnAnalyticsTrackingAllowed } from "@/lib/analytics/consent";
 import type { RoadmapCategory } from "@/lib/roadmap/types";
 
 export const dynamic = "force-dynamic";
@@ -68,16 +69,22 @@ export const POST = withRateLimit(
       if (eventError) {
         console.warn("[roadmap] submission analytics insert error:", eventError);
       }
-      await capturePostHogEvent({
-        distinctId: user.id,
-        event: "feedback_roadmap_request_created",
-        properties: {
-          source: "web_roadmap",
-          roadmap_submission_id: data.id,
-          category,
-          is_custom_spot_request: isCustomSpotRequest,
-        },
-      });
+      const telemetryAllowed = await getOwnAnalyticsTrackingAllowed(
+        supabase,
+        user.id,
+      ).catch(() => false);
+      if (telemetryAllowed) {
+        await capturePostHogEvent({
+          distinctId: user.id,
+          event: "feedback_roadmap_request_created",
+          properties: {
+            source: "web_roadmap",
+            roadmap_submission_id: data.id,
+            category,
+            is_custom_spot_request: isCustomSpotRequest,
+          },
+        });
+      }
 
       return NextResponse.json({ id: data.id, decision: "pending" });
     },

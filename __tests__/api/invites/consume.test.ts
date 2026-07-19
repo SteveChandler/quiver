@@ -13,11 +13,12 @@ import {
   mockUnauthenticatedUser,
 } from "@/test-utils/api-test-helpers";
 import { NextRequest } from "next/server";
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 const mockSupabaseClient = createMockSupabaseClient();
 const mockCapturePostHogEvent = jest.fn();
 const mockUserEventInsert = jest.fn();
-const mockTrackingPreferenceMaybeSingle = jest.fn();
+const mockAnalyticsConsentRpc = jest.fn();
 
 jest.mock("@/lib/middleware/api-wrappers", () => {
   const { NextResponse } = require("next/server");
@@ -94,18 +95,25 @@ function mockAcceptInviteResult(result?: {
     referral_created: true,
     referral_existing: false,
   };
-  mockSupabaseClient.rpc.mockResolvedValue({
-    data,
-    error: result?.error ?? null,
+  mockSupabaseClient.rpc.mockImplementation((functionName: string) => {
+    if (functionName === "accept_invite_for_user") {
+      return Promise.resolve({
+        data,
+        error: result?.error ?? null,
+      });
+    }
+
+    if (functionName === "get_my_analytics_tracking_allowed") {
+      return mockAnalyticsConsentRpc();
+    }
+
+    throw new Error(`Unexpected RPC: ${functionName}`);
   });
 }
 
-function mockTrackingPreference(allowImplicitTracking: boolean | null = true) {
-  mockTrackingPreferenceMaybeSingle.mockResolvedValue({
-    data:
-      allowImplicitTracking === null
-        ? null
-        : { allow_implicit_tracking: allowImplicitTracking },
+function mockTrackingPreference(allowImplicitTracking = true) {
+  mockAnalyticsConsentRpc.mockResolvedValue({
+    data: allowImplicitTracking,
     error: null,
   });
 }
@@ -120,18 +128,9 @@ describe("POST /api/invites/consume", () => {
     jest.clearAllMocks();
     mockUserEventInsert.mockResolvedValue({ error: null });
     mockTrackingPreference();
-    mockSupabaseClient.from.mockImplementation((table: string) => {
-      if (table === "profiles") {
-        return {
-          select: jest.fn(() => ({
-            eq: jest.fn(() => ({
-              maybeSingle: mockTrackingPreferenceMaybeSingle,
-            })),
-          })),
-        } as any;
-      }
-      return { insert: mockUserEventInsert } as any;
-    });
+    mockSupabaseClient.from.mockReturnValue({
+      insert: mockUserEventInsert,
+    } as any);
     mockAcceptInviteResult();
   });
 
@@ -220,6 +219,10 @@ describe("POST /api/invites/consume", () => {
         invitee: "follower-uuid",
       },
     );
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      "get_my_analytics_tracking_allowed",
+      { p_expected_user_id: "follower-uuid" },
+    );
     expect(mockUserEventInsert).toHaveBeenCalledWith({
       user_id: "follower-uuid",
       event_type: "invite_consumed",
@@ -273,7 +276,32 @@ describe("POST /api/invites/consume", () => {
         invitee: "follower-uuid",
       },
     );
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      "get_my_analytics_tracking_allowed",
+      { p_expected_user_id: "follower-uuid" },
+    );
     expect(mockUserEventInsert).not.toHaveBeenCalled();
+    expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
+  });
+
+  it("skips PostHog when the consent-gated event insert is rejected", async () => {
+    const follower = createMockUser({ id: "follower-uuid" });
+    mockAuthenticatedUser(mockSupabaseClient, follower);
+    mockUserEventInsert.mockResolvedValueOnce({
+      error: { code: "42501", message: "row-level security violation" },
+    });
+
+    const token = await signEmailToken(
+      { user_id: "inviter-uuid", purpose: "invite" },
+      TEST_SECRET,
+    );
+
+    const { POST } = require("@/app/api/invites/consume/route");
+    const response = await POST(buildRequest({ token }), { params: {} });
+
+    expectConsoleErrors([/failed to record invite_consumed/]);
+    expect(response.status).toBe(200);
+    expect(mockCapturePostHogEvent).not.toHaveBeenCalled();
   });
 
   it("treats duplicate follow acceptance as success", async () => {
@@ -349,7 +377,7 @@ describe("POST /api/invites/consume", () => {
     );
   });
 
-  it("skips RPC and flags self_invite when follower === inviter", async () => {
+  it("skips invite acceptance and flags self_invite when follower === inviter", async () => {
     const sameUser = createMockUser({ id: "same-id" });
     mockAuthenticatedUser(mockSupabaseClient, sameUser);
 
@@ -367,7 +395,14 @@ describe("POST /api/invites/consume", () => {
     }>(response, 200);
 
     expect(data.data.self_invite).toBe(true);
-    expect(mockSupabaseClient.rpc).not.toHaveBeenCalled();
+    expect(mockSupabaseClient.rpc).not.toHaveBeenCalledWith(
+      "accept_invite_for_user",
+      expect.anything(),
+    );
+    expect(mockSupabaseClient.rpc).toHaveBeenCalledWith(
+      "get_my_analytics_tracking_allowed",
+      { p_expected_user_id: "same-id" },
+    );
     expect(mockUserEventInsert).toHaveBeenCalledWith({
       user_id: "same-id",
       event_type: "invite_consumed",
