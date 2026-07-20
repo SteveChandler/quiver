@@ -1075,7 +1075,7 @@ describe("session acquisition funnel report", () => {
           clientStageAt: "2026-06-15T12:01:00.000Z",
           eventId: "user-conflict",
         }),
-        canonicalEventRow("user-2", "session_log_start", {
+        canonicalEventRow(null, "session_log_start", {
           flowId: "flow-a",
           clientStageAt: "2026-06-15T12:01:00.000Z",
           eventId: "user-conflict",
@@ -1086,9 +1086,10 @@ describe("session acquisition funnel report", () => {
           eventId: "flow-conflict",
         }),
         canonicalEventRow("user-1", "session_log_start", {
-          flowId: "flow-b",
+          flowId: "placeholder-flow",
           clientStageAt: "2026-06-15T12:02:00.000Z",
           eventId: "flow-conflict",
+          extra: { flow_id: "" },
         }),
         canonicalEventRow("user-1", "session_log_start", {
           flowId: "flow-a",
@@ -1099,6 +1100,7 @@ describe("session acquisition funnel report", () => {
           flowId: "flow-a",
           clientStageAt: "2026-06-15T12:04:00.000Z",
           eventId: "time-conflict",
+          extra: { client_stage_at: "2026-07-01T00:00:00.000Z" },
         }),
         canonicalEventRow("user-1", "session_log_submit", {
           flowId: "flow-a",
@@ -1110,7 +1112,6 @@ describe("session acquisition funnel report", () => {
           flowId: "flow-a",
           clientStageAt: "2026-06-15T12:05:00.000Z",
           eventId: "session-conflict",
-          sessionId: "session-b",
         }),
       ],
       windowSessions: [],
