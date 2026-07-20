@@ -157,6 +157,41 @@ export interface FunnelStepMetric {
   pctOfPrevious: number | null;
 }
 
+export type CanonicalSessionFunnelStepKey =
+  | "start"
+  | "form_view"
+  | "submit"
+  | "persisted_session";
+
+export interface CanonicalSessionFunnelStep {
+  key: CanonicalSessionFunnelStepKey;
+  label: string;
+  users: number;
+  flows: number;
+  pctOfStart: number | null;
+  pctOfPrevious: number | null;
+}
+
+export interface CanonicalSessionJoinCoverage {
+  funnelEventRowsMissingUserId: number;
+  funnelEventsMissingFlowId: number;
+  submitEventsMissingSessionId: number;
+  firstSessionMarkersMissingSessionId: number;
+  firstSessionMarkersMissingUserId: number;
+  funnelEventsWithUnusableClientStageAt: number;
+  stableIdConflictGroups: number;
+  submitFlowsWithoutWindowSession: number;
+  submitFlowsWithSessionOwnerMismatch: number;
+  submitFlowsWithIneligibleSession: number;
+}
+
+export interface CanonicalSessionFunnel {
+  grain: "unique_user";
+  ordering: "metadata.client_stage_at";
+  steps: CanonicalSessionFunnelStep[];
+  joinCoverage: CanonicalSessionJoinCoverage;
+}
+
 export interface ActivationSummary {
   windowUsersWithRatedSession: number;
   windowUsersWithThreeRatedSessions: number;
@@ -190,6 +225,7 @@ export interface SessionAcquisitionReport {
   excludedEventRows: number;
   excludedSessionRows: number;
   funnelSteps: FunnelStepMetric[];
+  canonicalFunnel: CanonicalSessionFunnel;
   eventsByType: Record<string, number>;
   eventsByPlatform: Record<string, number>;
   sessionsBySource: Record<string, number>;
@@ -887,6 +923,12 @@ export function computeSessionAcquisitionReport(input: {
     input.end,
     input.recentTelemetryDays ?? DEFAULT_RECENT_TELEMETRY_DAYS
   );
+  const canonicalSessionAnalysis = computeCanonicalSessionAnalysis({
+    events,
+    windowSessions,
+    start: input.start,
+    end: input.end,
+  });
 
   const report: Omit<SessionAcquisitionReport, "readiness"> = {
     reportSchemaVersion: SESSION_ACQUISITION_REPORT_SCHEMA_VERSION,
@@ -901,6 +943,7 @@ export function computeSessionAcquisitionReport(input: {
     excludedEventRows: input.events.length - events.length,
     excludedSessionRows: input.windowSessions.length - windowSessions.length,
     funnelSteps,
+    canonicalFunnel: canonicalSessionAnalysis.canonicalFunnel,
     eventsByType: countBy(events, (event) => event.event_type),
     eventsByPlatform: countBy(events, platformForEvent),
     sessionsBySource: countBy(completedWindowSessions, (session) =>
@@ -3873,6 +3916,375 @@ function metadataLabelValue(value: unknown): string | null {
     .replace(/\s+/g, " ")
     .slice(0, 80);
   return normalized.length > 0 ? normalized : null;
+}
+
+type CanonicalFunnelEventType =
+  | "session_log_start"
+  | "session_log_form_view"
+  | "session_log_validation_failed"
+  | "session_log_submit";
+
+interface ParsedCanonicalEvent {
+  row: SessionAcquisitionEventRow;
+  eventType: CanonicalFunnelEventType | "first_session_logged";
+  userId: string | null;
+  flowId: string | null;
+  sessionId: string | null;
+  eventId: string | null;
+  clientStageAtMs: number | null;
+  createdAtMs: number;
+  inputIndex: number;
+}
+
+interface CanonicalAttempt {
+  userId: string;
+  flowId: string;
+  start: ParsedCanonicalEvent;
+  formView: ParsedCanonicalEvent | null;
+  submit: ParsedCanonicalEvent | null;
+  validationFailures: ParsedCanonicalEvent[];
+  persistedSession: SessionAcquisitionSessionRow | null;
+}
+
+interface CanonicalSessionAnalysis {
+  attempts: CanonicalAttempt[];
+  firstSessionMarkers: ParsedCanonicalEvent[];
+  canonicalFunnel: CanonicalSessionFunnel;
+}
+
+function readMetadataString(metadata: unknown, key: string): string | null {
+  const value = toRecord(metadata)[key];
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+function readClientStageAtMs(
+  metadata: unknown,
+  startMs: number,
+  endMs: number,
+): number | null {
+  const raw = readMetadataString(metadata, "client_stage_at");
+  if (!raw) return null;
+  const value = Date.parse(raw);
+  return Number.isFinite(value) && value >= startMs && value < endMs
+    ? value
+    : null;
+}
+
+function compareCanonicalEvents(
+  left: ParsedCanonicalEvent,
+  right: ParsedCanonicalEvent,
+): number {
+  return (
+    (left.clientStageAtMs ?? Number.POSITIVE_INFINITY) -
+      (right.clientStageAtMs ?? Number.POSITIVE_INFINITY) ||
+    left.createdAtMs - right.createdAtMs ||
+    left.inputIndex - right.inputIndex
+  );
+}
+
+function parseCanonicalEvents(input: {
+  events: SessionAcquisitionEventRow[];
+  start: string;
+  end: string;
+}): ParsedCanonicalEvent[] {
+  const startMs = Date.parse(input.start);
+  const endMs = Date.parse(input.end);
+  const canonicalEventTypes = new Set<string>([
+    "session_log_start",
+    "session_log_form_view",
+    "session_log_validation_failed",
+    "session_log_submit",
+    "first_session_logged",
+  ]);
+
+  return input.events.flatMap((row, inputIndex) => {
+    if (!canonicalEventTypes.has(row.event_type)) return [];
+    const createdAt = Date.parse(row.created_at);
+    const eventType = row.event_type as ParsedCanonicalEvent["eventType"];
+    return [
+      {
+        row,
+        eventType,
+        userId: row.user_id?.trim() || null,
+        flowId: readMetadataString(row.metadata, "flow_id"),
+        sessionId: readMetadataString(row.metadata, "session_id"),
+        eventId: readMetadataString(row.metadata, "event_id"),
+        clientStageAtMs: readClientStageAtMs(row.metadata, startMs, endMs),
+        createdAtMs: Number.isFinite(createdAt) ? createdAt : 0,
+        inputIndex,
+      },
+    ];
+  });
+}
+
+function deduplicateCanonicalEvents(events: ParsedCanonicalEvent[]): {
+  events: ParsedCanonicalEvent[];
+  stableIdConflictGroups: number;
+} {
+  const byStableId = new Map<string, ParsedCanonicalEvent[]>();
+  const eventsWithoutStableId: ParsedCanonicalEvent[] = [];
+  for (const event of events) {
+    if (!event.eventId) {
+      eventsWithoutStableId.push(event);
+      continue;
+    }
+    const key = `${event.eventType}\u0000${event.eventId}`;
+    const group = byStableId.get(key) ?? [];
+    group.push(event);
+    byStableId.set(key, group);
+  }
+
+  let stableIdConflictGroups = 0;
+  const deduplicated = [...eventsWithoutStableId];
+  for (const group of byStableId.values()) {
+    const first = group[0];
+    const applicableSessionId = (event: ParsedCanonicalEvent): string | null =>
+      event.eventType === "session_log_submit" ||
+      event.eventType === "first_session_logged"
+        ? event.sessionId
+        : null;
+    const agrees = group.every(
+      (event) =>
+        event.userId === first.userId &&
+        event.flowId === first.flowId &&
+        event.clientStageAtMs === first.clientStageAtMs &&
+        applicableSessionId(event) === applicableSessionId(first),
+    );
+    if (!agrees) {
+      stableIdConflictGroups++;
+      continue;
+    }
+    deduplicated.push([...group].sort(compareCanonicalEvents)[0]);
+  }
+
+  return { events: deduplicated, stableIdConflictGroups };
+}
+
+function classifySubmittedSession(
+  submit: ParsedCanonicalEvent,
+  sessionsById: Map<string, SessionAcquisitionSessionRow>,
+):
+  | { kind: "persisted"; session: SessionAcquisitionSessionRow }
+  | { kind: "not_found" }
+  | { kind: "owner_mismatch" }
+  | { kind: "ineligible" } {
+  if (!submit.sessionId) return { kind: "not_found" };
+  const session = sessionsById.get(submit.sessionId);
+  if (!session) return { kind: "not_found" };
+  if (session.user_id !== submit.userId) return { kind: "owner_mismatch" };
+  if (!isCompletedSession(session)) return { kind: "ineligible" };
+  return { kind: "persisted", session };
+}
+
+function canonicalFunnelStep(
+  key: CanonicalSessionFunnelStepKey,
+  label: string,
+  users: Set<string>,
+  flows: number,
+  startUsers: number,
+  previousUsers: number | null,
+): CanonicalSessionFunnelStep {
+  return {
+    key,
+    label,
+    users: users.size,
+    flows,
+    pctOfStart:
+      key === "start"
+        ? users.size > 0
+          ? 1
+          : null
+        : ratio(users.size, startUsers),
+    pctOfPrevious:
+      previousUsers === null ? null : ratio(users.size, previousUsers),
+  };
+}
+
+function computeCanonicalSessionAnalysis(input: {
+  events: SessionAcquisitionEventRow[];
+  windowSessions: SessionAcquisitionSessionRow[];
+  start: string;
+  end: string;
+}): CanonicalSessionAnalysis {
+  const parsedEvents = parseCanonicalEvents(input);
+  const deduplicated = deduplicateCanonicalEvents(parsedEvents);
+  const joinCoverage: CanonicalSessionJoinCoverage = {
+    funnelEventRowsMissingUserId: 0,
+    funnelEventsMissingFlowId: 0,
+    submitEventsMissingSessionId: 0,
+    firstSessionMarkersMissingSessionId: 0,
+    firstSessionMarkersMissingUserId: 0,
+    funnelEventsWithUnusableClientStageAt: 0,
+    stableIdConflictGroups: deduplicated.stableIdConflictGroups,
+    submitFlowsWithoutWindowSession: 0,
+    submitFlowsWithSessionOwnerMismatch: 0,
+    submitFlowsWithIneligibleSession: 0,
+  };
+  const firstSessionMarkers: ParsedCanonicalEvent[] = [];
+  const eventsByAttempt = new Map<string, ParsedCanonicalEvent[]>();
+
+  for (const event of deduplicated.events) {
+    if (event.eventType === "first_session_logged") {
+      firstSessionMarkers.push(event);
+      if (!event.userId) joinCoverage.firstSessionMarkersMissingUserId++;
+      if (!event.sessionId) joinCoverage.firstSessionMarkersMissingSessionId++;
+      continue;
+    }
+
+    if (!event.userId) joinCoverage.funnelEventRowsMissingUserId++;
+    if (!event.flowId) joinCoverage.funnelEventsMissingFlowId++;
+    if (event.eventType === "session_log_submit" && !event.sessionId) {
+      joinCoverage.submitEventsMissingSessionId++;
+    }
+    if (event.clientStageAtMs === null) {
+      joinCoverage.funnelEventsWithUnusableClientStageAt++;
+    }
+    if (!event.userId || !event.flowId || event.clientStageAtMs === null) {
+      continue;
+    }
+
+    const key = JSON.stringify([event.userId, event.flowId]);
+    const attemptEvents = eventsByAttempt.get(key) ?? [];
+    attemptEvents.push(event);
+    eventsByAttempt.set(key, attemptEvents);
+  }
+
+  const attempts: CanonicalAttempt[] = [];
+  for (const attemptEvents of eventsByAttempt.values()) {
+    const ordered = [...attemptEvents].sort(compareCanonicalEvents);
+    const start = ordered.find(
+      (event) => event.eventType === "session_log_start",
+    );
+    if (
+      !start ||
+      !start.userId ||
+      !start.flowId ||
+      start.clientStageAtMs === null
+    ) {
+      continue;
+    }
+    const formView =
+      ordered.find(
+        (event) =>
+          event.eventType === "session_log_form_view" &&
+          event.clientStageAtMs !== null &&
+          event.clientStageAtMs >= start.clientStageAtMs,
+      ) ?? null;
+    const submit = formView
+      ? (ordered.find(
+          (event) =>
+            event.eventType === "session_log_submit" &&
+            event.clientStageAtMs !== null &&
+            event.clientStageAtMs >= formView.clientStageAtMs! &&
+            event.sessionId !== null,
+        ) ?? null)
+      : null;
+    attempts.push({
+      userId: start.userId,
+      flowId: start.flowId,
+      start,
+      formView,
+      submit,
+      validationFailures: ordered.filter(
+        (event) => event.eventType === "session_log_validation_failed",
+      ),
+      persistedSession: null,
+    });
+  }
+
+  const sessionsById = new Map<string, SessionAcquisitionSessionRow>(
+    input.windowSessions.map((session) => [session.id, session]),
+  );
+  for (const attempt of attempts) {
+    if (!attempt.submit) continue;
+    const classification = classifySubmittedSession(
+      attempt.submit,
+      sessionsById,
+    );
+    if (classification.kind === "persisted") {
+      attempt.persistedSession = classification.session;
+      continue;
+    }
+    if (classification.kind === "not_found") {
+      joinCoverage.submitFlowsWithoutWindowSession++;
+      continue;
+    }
+    if (classification.kind === "owner_mismatch") {
+      joinCoverage.submitFlowsWithSessionOwnerMismatch++;
+      continue;
+    }
+    joinCoverage.submitFlowsWithIneligibleSession++;
+  }
+
+  const formViewAttempts = attempts.filter(
+    (attempt) => attempt.formView !== null,
+  );
+  const submitAttempts = attempts.filter((attempt) => attempt.submit !== null);
+  const persistedAttempts = attempts.filter(
+    (attempt) => attempt.persistedSession !== null,
+  );
+  const rejectedSubmitFlows =
+    joinCoverage.submitFlowsWithoutWindowSession +
+    joinCoverage.submitFlowsWithSessionOwnerMismatch +
+    joinCoverage.submitFlowsWithIneligibleSession;
+  if (
+    rejectedSubmitFlows !==
+    submitAttempts.length - persistedAttempts.length
+  ) {
+    throw new Error(
+      "Canonical persistence buckets must partition submitted flows.",
+    );
+  }
+
+  const usersFor = (entries: CanonicalAttempt[]): Set<string> =>
+    new Set(entries.map((attempt) => attempt.userId));
+  const startUsers = usersFor(attempts);
+  const formViewUsers = usersFor(formViewAttempts);
+  const submitUsers = usersFor(submitAttempts);
+  const persistedUsers = usersFor(persistedAttempts);
+  const canonicalFunnel: CanonicalSessionFunnel = {
+    grain: "unique_user",
+    ordering: "metadata.client_stage_at",
+    steps: [
+      canonicalFunnelStep(
+        "start",
+        "Form started",
+        startUsers,
+        attempts.length,
+        startUsers.size,
+        null,
+      ),
+      canonicalFunnelStep(
+        "form_view",
+        "Form viewed",
+        formViewUsers,
+        formViewAttempts.length,
+        startUsers.size,
+        startUsers.size,
+      ),
+      canonicalFunnelStep(
+        "submit",
+        "Submitted",
+        submitUsers,
+        submitAttempts.length,
+        startUsers.size,
+        formViewUsers.size,
+      ),
+      canonicalFunnelStep(
+        "persisted_session",
+        "Persisted session",
+        persistedUsers,
+        persistedAttempts.length,
+        startUsers.size,
+        submitUsers.size,
+      ),
+    ],
+    joinCoverage,
+  };
+
+  return { attempts, firstSessionMarkers, canonicalFunnel };
 }
 
 function extractValidationErrorCodes(metadata: unknown): string[] {
