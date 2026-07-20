@@ -749,7 +749,7 @@ describe("session acquisition funnel report", () => {
     });
   });
 
-  it("validation recovery: counts an affected user only when the same flow later submits", () => {
+  it("validation recovery: marks post-form validation affected and same-flow submit recovered", () => {
     const report = computeSessionAcquisitionReport({
       start: START,
       end: END,
@@ -919,6 +919,52 @@ describe("session acquisition funnel report", () => {
     expect(reportWithLaterValidation.validationBranch).toMatchObject({
       affectedFlows: 0,
       recoveredFlows: 0,
+    });
+  });
+
+  it("validation recovery: uses input order when form and validation timestamps tie", () => {
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        canonicalEventRow("user-1", "session_log_start", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:00:00.000Z",
+          eventId: "start-a",
+        }),
+        canonicalEventRow("user-1", "session_log_form_view", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:01:00.000Z",
+          createdAt: "2026-06-15T12:02:00.000Z",
+          eventId: "form-a",
+        }),
+        canonicalEventRow("user-1", "session_log_validation_failed", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:01:00.000Z",
+          createdAt: "2026-06-15T12:02:00.000Z",
+          eventId: "validation-a",
+        }),
+        canonicalEventRow("user-1", "session_log_submit", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:03:00.000Z",
+          eventId: "submit-a",
+          sessionId: "session-a",
+        }),
+      ],
+      windowSessions: [
+        sessionRow("user-1", "2026-06-15T12:03:00.000Z", { id: "session-a" }),
+      ],
+      lifetimeSessions: [],
+    });
+
+    expect(report.validationBranch).toEqual({
+      affectedUsers: 1,
+      affectedFlows: 1,
+      pctOfFormViewUsers: 1,
+      recoveredUsers: 1,
+      recoveredFlows: 1,
+      recoveryRate: 1,
     });
   });
 
