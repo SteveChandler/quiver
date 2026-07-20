@@ -45,6 +45,19 @@ const UNSAFE_IDENTIFIER_KEYS = new Set([
   "session_id",
   "sessionId",
 ]);
+const NATIVE_PLATFORM_LABELS = new Set(["native-ios", "native-android"]);
+const DEVICE_TYPE_LABELS = new Set(["mobile", "desktop", "tablet"]);
+const DEVICE_OS_LABELS = new Set([
+  "iOS",
+  "Android",
+  "Windows",
+  "macOS",
+  "Linux",
+  "unknown",
+]);
+const APP_VERSION_PATTERN =
+  /^\d{1,4}(?:\.\d{1,4}){1,3}(?:[-+][0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/;
+const APP_BUILD_PATTERN = /^\d{1,15}$/;
 const SESSION_ACQUISITION_REPORT_KEYS = [
   "reportSchemaVersion",
   "generatedAt",
@@ -1121,6 +1134,13 @@ export function computeSessionAcquisitionReport(input: {
 export function renderSessionAcquisitionReport(
   report: SessionAcquisitionReport
 ): string {
+  const validation = validateSessionAcquisitionReport(report);
+  if (!validation.ok) {
+    throw new Error(
+      "Refusing to render invalid session acquisition report: " +
+        validation.blockers.join(", ")
+    );
+  }
   const lines: string[] = [];
   lines.push("# Track B Session Acquisition Instrumentation Report");
   lines.push("");
@@ -1672,9 +1692,10 @@ export function validateSessionAcquisitionReport(
     blockers
   );
   validateCountMap(report.eventsByType, "events_by_type_invalid", blockers);
-  validateCountMap(
+  validatePlatformCountMap(
     report.eventsByPlatform,
     "events_by_platform_invalid",
+    "events_by_platform_invalid_label",
     blockers
   );
   validateCountMap(
@@ -2425,6 +2446,10 @@ function validateTelemetryPlatformCoverageArray(
       blockers.push(blockerCode);
       return;
     }
+    if (!isSafePlatformLabel(row.platform)) {
+      blockers.push(`${blockerCode}_label`);
+      return;
+    }
     for (const field of [
       "startActors",
       "formViewActors",
@@ -2470,6 +2495,10 @@ function validateTelemetryClientBuildCoverageArray(
       typeof row.hasBuildMetadata !== "boolean"
     ) {
       blockers.push(blockerCode);
+      return;
+    }
+    if (!isSafeClientBuildLabel(row.clientBuild)) {
+      blockers.push(`${blockerCode}_label`);
       return;
     }
     for (const field of [
@@ -2643,7 +2672,12 @@ function validateValidationFailures(
       blockers.push(`${blockerCode}_counts`);
       return;
     }
-    validateCountMap(failure.platforms, `${blockerCode}_platforms`, blockers);
+    validatePlatformCountMap(
+      failure.platforms,
+      `${blockerCode}_platforms`,
+      `${blockerCode}_platforms_label`,
+      blockers
+    );
     if (
       isRecord(failure.platforms) &&
       sumCountMap(failure.platforms) !== failure.events
@@ -3196,6 +3230,19 @@ function validateCountMap(
   }
 }
 
+function validatePlatformCountMap(
+  value: unknown,
+  blockerCode: string,
+  labelBlockerCode: string,
+  blockers: string[]
+): void {
+  validateCountMap(value, blockerCode, blockers);
+  if (!isRecord(value)) return;
+  if (Object.keys(value).some((platform) => !isSafePlatformLabel(platform))) {
+    blockers.push(labelBlockerCode);
+  }
+}
+
 function sumCountMap(value: Record<string, unknown>): number {
   return Object.values(value).reduce<number>((sum, count) => {
     if (typeof count !== "number" || !Number.isFinite(count)) {
@@ -3414,13 +3461,13 @@ async function fetchEventRows(
 ): Promise<SessionAcquisitionEventRow[]> {
   const rows: SessionAcquisitionEventRow[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase
+    const query = supabase
       .from("user_events")
       .select("user_id, session_id, event_type, created_at, metadata, bot_flagged")
       .gte("created_at", options.start)
       .lt("created_at", options.end)
-      .in("event_type", Array.from(SESSION_ACQUISITION_EVENT_TYPES))
-      .order("created_at", { ascending: true })
+      .in("event_type", Array.from(SESSION_ACQUISITION_EVENT_TYPES));
+    const { data, error } = await applyStablePaginationOrder(query)
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) throw new Error(`Failed to fetch user_events: ${error.message}`);
@@ -3436,14 +3483,14 @@ async function fetchWindowSessionRows(
 ): Promise<SessionAcquisitionSessionRow[]> {
   const rows: SessionAcquisitionSessionRow[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase
+    const query = supabase
       .from("sessions")
       .select(
         "id, user_id, created_at, arrival_time, status, source, rating, wave_height_ft, deleted_at"
       )
       .gte("created_at", options.start)
-      .lt("created_at", options.end)
-      .order("created_at", { ascending: true })
+      .lt("created_at", options.end);
+    const { data, error } = await applyStablePaginationOrder(query)
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) throw new Error(`Failed to fetch sessions: ${error.message}`);
@@ -3459,12 +3506,12 @@ async function fetchProfilesCreatedInWindow(
 ): Promise<SessionAcquisitionProfileRow[]> {
   const rows: SessionAcquisitionProfileRow[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase
+    const query = supabase
       .from("profiles")
       .select(profileSelect())
       .gte("created_at", options.start)
-      .lt("created_at", options.end)
-      .order("created_at", { ascending: true })
+      .lt("created_at", options.end);
+    const { data, error } = await applyStablePaginationOrder(query)
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) throw new Error(`Failed to fetch profiles: ${error.message}`);
@@ -3503,14 +3550,14 @@ async function fetchLifetimeSessionsForUsers(
   const rows: SessionAcquisitionSessionRow[] = [];
   for (const chunk of chunks(userIds, 200)) {
     for (let from = 0; ; from += PAGE_SIZE) {
-      const { data, error } = await supabase
+      const query = supabase
         .from("sessions")
         .select(
           "id, user_id, created_at, arrival_time, status, source, rating, wave_height_ft, deleted_at"
         )
         .lt("created_at", end)
-        .in("user_id", chunk)
-        .order("created_at", { ascending: true })
+        .in("user_id", chunk);
+      const { data, error } = await applyStablePaginationOrder(query)
         .range(from, from + PAGE_SIZE - 1);
 
       if (error) {
@@ -3541,6 +3588,19 @@ function profileSelect(): string {
     "is_system_account",
     "analytics_exclusion_reason",
   ].join(", ");
+}
+
+export function applyStablePaginationOrder<
+  TQuery extends {
+    order(
+      column: string,
+      options: { ascending: boolean }
+    ): TQuery;
+  },
+>(query: TQuery): TQuery {
+  return query
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
 }
 
 function buildEventActorsByType(
@@ -4486,19 +4546,22 @@ function timestampInRange(timestamp: string, start: string, end: string): boolea
 
 function platformForEvent(event: SessionAcquisitionEventRow): string {
   const metadata = toRecord(event.metadata);
-  const nativePlatform = metadata["_platform"];
-  if (typeof nativePlatform === "string" && nativePlatform.length > 0) {
+  const nativePlatform = normalizeNativePlatform(metadata["_platform"]);
+  if (nativePlatform) {
     return nativePlatform;
   }
 
   const device = toRecord(metadata["_device"]);
-  const deviceType = device["device_type"];
-  const os = device["os"];
-  if (typeof deviceType === "string" && typeof os === "string") {
+  const deviceType = normalizeFiniteLabel(
+    device["device_type"],
+    DEVICE_TYPE_LABELS
+  );
+  const os = normalizeFiniteLabel(device["os"], DEVICE_OS_LABELS);
+  if (deviceType && os) {
     return `${deviceType}/${os}`;
   }
 
-  return "unknown";
+  return "unknown-platform";
 }
 
 function clientBuildForEvent(event: SessionAcquisitionEventRow): {
@@ -4509,18 +4572,18 @@ function clientBuildForEvent(event: SessionAcquisitionEventRow): {
   const metadata = toRecord(event.metadata);
   const platform = platformForEvent(event);
   const appVersion =
-    metadataLabelValue(metadata["app_version"]) ??
-    metadataLabelValue(metadata["appVersion"]) ??
-    metadataLabelValue(metadata["version"]) ??
+    normalizeAppVersion(metadata["app_version"]) ??
+    normalizeAppVersion(metadata["appVersion"]) ??
+    normalizeAppVersion(metadata["version"]) ??
     "unknown-version";
   const appBuild =
-    metadataLabelValue(metadata["app_build"]) ??
-    metadataLabelValue(metadata["appBuild"]) ??
-    metadataLabelValue(metadata["build"]) ??
-    metadataLabelValue(metadata["build_number"]) ??
-    metadataLabelValue(metadata["buildNumber"]) ??
-    metadataLabelValue(metadata["version_code"]) ??
-    metadataLabelValue(metadata["versionCode"]) ??
+    normalizeAppBuild(metadata["app_build"]) ??
+    normalizeAppBuild(metadata["appBuild"]) ??
+    normalizeAppBuild(metadata["build"]) ??
+    normalizeAppBuild(metadata["build_number"]) ??
+    normalizeAppBuild(metadata["buildNumber"]) ??
+    normalizeAppBuild(metadata["version_code"]) ??
+    normalizeAppBuild(metadata["versionCode"]) ??
     "unknown-build";
 
   return {
@@ -4541,21 +4604,58 @@ function parseClientBuildLabel(clientBuild: string): {
   };
 }
 
-function metadataLabelValue(value: unknown): string | null {
-  if (
-    typeof value !== "string" &&
-    typeof value !== "number" &&
-    typeof value !== "boolean"
-  ) {
-    return null;
-  }
+function normalizeNativePlatform(value: unknown): string | null {
+  return normalizeFiniteLabel(value, NATIVE_PLATFORM_LABELS);
+}
 
-  const normalized = String(value)
-    .trim()
-    .replace(/[\r\n|]/g, " ")
-    .replace(/\s+/g, " ")
-    .slice(0, 80);
-  return normalized.length > 0 ? normalized : null;
+function normalizeFiniteLabel(
+  value: unknown,
+  allowedValues: ReadonlySet<string>
+): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return allowedValues.has(normalized) ? normalized : null;
+}
+
+function normalizeAppVersion(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return APP_VERSION_PATTERN.test(normalized) ? normalized : null;
+}
+
+function normalizeAppBuild(value: unknown): string | null {
+  if (typeof value === "number") {
+    return Number.isSafeInteger(value) && value >= 0 ? String(value) : null;
+  }
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!APP_BUILD_PATTERN.test(normalized)) return null;
+  return Number.isSafeInteger(Number(normalized)) ? normalized : null;
+}
+
+function isSafePlatformLabel(value: string): boolean {
+  if (value === "unknown-platform") return true;
+  if (NATIVE_PLATFORM_LABELS.has(value)) return true;
+  const [deviceType, os, extra] = value.split("/");
+  return (
+    extra === undefined &&
+    DEVICE_TYPE_LABELS.has(deviceType) &&
+    DEVICE_OS_LABELS.has(os)
+  );
+}
+
+function isSafeClientBuildLabel(value: string): boolean {
+  const parts = value.split(" / ");
+  if (parts.length !== 3) return false;
+  const [platform, appVersion, appBuild] = parts;
+  return (
+    isSafePlatformLabel(platform) &&
+    (appVersion === "unknown-version" ||
+      APP_VERSION_PATTERN.test(appVersion)) &&
+    (appBuild === "unknown-build" ||
+      (APP_BUILD_PATTERN.test(appBuild) &&
+        Number.isSafeInteger(Number(appBuild))))
+  );
 }
 
 type CanonicalFunnelEventType =

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  applyStablePaginationOrder,
   computeSessionAcquisitionReport,
   computeTimeToNthRatedSession,
   parseCliArgs,
@@ -341,6 +342,25 @@ function resolveNativeRepoPath(...segments: string[]): string {
 }
 
 describe("session acquisition funnel report", () => {
+  it("stable pagination: orders offset pages by created_at and id", () => {
+    const orderCalls: Array<{
+      column: string;
+      options: { ascending: boolean };
+    }> = [];
+    const query = {
+      order(column: string, options: { ascending: boolean }) {
+        orderCalls.push({ column, options });
+        return this;
+      },
+    };
+
+    expect(applyStablePaginationOrder(query)).toBe(query);
+    expect(orderCalls).toEqual([
+      { column: "created_at", options: { ascending: true } },
+      { column: "id", options: { ascending: true } },
+    ]);
+  });
+
   it("parses a default 30-day window from the provided clock", () => {
     const options = parseCliArgs([], new Date("2026-06-19T12:00:00.000Z"));
 
@@ -2133,7 +2153,7 @@ describe("session acquisition funnel report", () => {
     const report = computeSessionAcquisitionReport({
       start: START,
       end: END,
-      generatedAt: "2026-06-19T00:00:00.000Z",
+      generatedAt: "2026-07-01T00:00:00.000Z",
       recentTelemetryDays: 30,
       readinessCriteria: {
         minRatedSessions: 1,
@@ -2520,7 +2540,7 @@ describe("session acquisition funnel report", () => {
     const report = computeSessionAcquisitionReport({
       start: START,
       end: END,
-      generatedAt: "2026-06-19T00:00:00.000Z",
+      generatedAt: "2026-07-01T00:00:00.000Z",
       profiles: [
         profileRow("native-1"),
         profileRow("native-2"),
@@ -2602,7 +2622,7 @@ describe("session acquisition funnel report", () => {
     const report = computeSessionAcquisitionReport({
       start: START,
       end: END,
-      generatedAt: "2026-06-19T00:00:00.000Z",
+      generatedAt: "2026-07-01T00:00:00.000Z",
       recentTelemetryDays: 7,
       profiles: [
         profileRow("old-user"),
@@ -2754,7 +2774,7 @@ describe("session acquisition funnel report", () => {
     const report = computeSessionAcquisitionReport({
       start: START,
       end: END,
-      generatedAt: "2026-06-19T00:00:00.000Z",
+      generatedAt: "2026-07-01T00:00:00.000Z",
       recentTelemetryDays: 7,
       profiles: [profileRow("new-client"), profileRow("old-client")],
       events: [
@@ -2986,6 +3006,96 @@ describe("session acquisition funnel report", () => {
     expect(markdown).toContain("right-censor offline delivery after the report end");
     expect(markdown).not.toContain("flow-a");
     expect(markdown).not.toContain("session-a");
+  });
+
+  it("final review privacy: normalizes UUID-valued client dimensions before rendering", () => {
+    const platformUuid = "11111111-1111-4111-8111-111111111111";
+    const versionUuid = "22222222-2222-4222-8222-222222222222";
+    const buildUuid = "33333333-3333-4333-8333-333333333333";
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      generatedAt: "2026-07-01T00:00:00.000Z",
+      profiles: [
+        profileRow("platform-user"),
+        profileRow("version-user"),
+        profileRow("build-user"),
+        profileRow("web-user"),
+      ],
+      events: [
+        eventRow("platform-user", "session_log_start", {
+          created_at: "2026-06-28T12:00:00.000Z",
+          metadata: { _platform: platformUuid },
+        }),
+        eventRow("version-user", "session_log_start", {
+          created_at: "2026-06-28T12:00:00.000Z",
+          metadata: {
+            _platform: "native-ios",
+            app_version: versionUuid,
+            app_build: "42",
+          },
+        }),
+        eventRow("build-user", "session_log_start", {
+          created_at: "2026-06-28T12:00:00.000Z",
+          metadata: {
+            _platform: "native-android",
+            app_version: "1.2.3-beta.1",
+            app_build: buildUuid,
+          },
+        }),
+        eventRow("web-user", "session_log_start", {
+          created_at: "2026-06-28T12:00:00.000Z",
+          metadata: {
+            _device: { device_type: "desktop", os: "macOS" },
+            app_version: "2.3.4",
+            app_build: 99,
+          },
+        }),
+      ],
+      windowSessions: [],
+      lifetimeSessions: [],
+    });
+
+    expect(report.eventsByPlatform).toEqual({
+      "desktop/macOS": 1,
+      "native-android": 1,
+      "native-ios": 1,
+      "unknown-platform": 1,
+    });
+    expect(
+      report.recentTelemetry.telemetryCoverageByClientBuild.map(
+        ({ clientBuild }) => clientBuild,
+      ),
+    ).toEqual([
+      "desktop/macOS / 2.3.4 / 99",
+      "native-android / 1.2.3-beta.1 / unknown-build",
+      "native-ios / unknown-version / 42",
+      "unknown-platform / unknown-version / unknown-build",
+    ]);
+
+    const markdown = renderSessionAcquisitionReport(report);
+    expect(markdown).toContain("desktop/macOS / 2.3.4 / 99");
+    expect(markdown).toContain("unknown-platform");
+    expect(markdown).toContain("unknown-version");
+    expect(markdown).toContain("unknown-build");
+    expect(markdown).not.toContain(platformUuid);
+    expect(markdown).not.toContain(versionUuid);
+    expect(markdown).not.toContain(buildUuid);
+  });
+
+  it("final review privacy: renderer rejects unnormalized tampering with blocker codes", () => {
+    const report = schemaV3ReportFixture();
+    const platformUuid = "44444444-4444-4444-8444-444444444444";
+    const tampered = {
+      ...report,
+      eventsByPlatform: { [platformUuid]: report.eventRows },
+    };
+
+    expect(() =>
+      renderSessionAcquisitionReport(tampered as typeof report),
+    ).toThrow(
+      "Refusing to render invalid session acquisition report: report_contains_uuid, events_by_platform_invalid_label",
+    );
   });
 
   it("writes aggregate-only JSON without raw actor identifiers", () => {
