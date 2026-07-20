@@ -218,6 +218,33 @@ describe("session acquisition funnel report", () => {
     });
   });
 
+  it("legacy telemetry corrections: excludes marker-only platforms and client builds from coverage", () => {
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      generatedAt: "2026-07-01T00:00:00.000Z",
+      recentTelemetryDays: 30,
+      profiles: [profileRow("marker-only-user")],
+      events: [
+        eventRow("marker-only-user", "first_session_logged", {
+          created_at: "2026-06-30T12:00:00.000Z",
+          metadata: {
+            _platform: "legacy-marker-only",
+            app_version: "9.9.9",
+            app_build: "999",
+          },
+        }),
+      ],
+      windowSessions: [],
+      lifetimeSessions: [],
+    });
+
+    expect(report.eventsByType).toEqual({ first_session_logged: 1 });
+    expect(report.telemetryCoverageByPlatform).toEqual([]);
+    expect(report.recentTelemetry.telemetryCoverageByPlatform).toEqual([]);
+    expect(report.recentTelemetry.telemetryCoverageByClientBuild).toEqual([]);
+  });
+
   it("keeps validation-failure codes aligned with the native session form", () => {
     const nativeSessionFormUtils = readFileSync(
       resolveNativeRepoPath(
@@ -1203,9 +1230,9 @@ describe("session acquisition funnel report", () => {
       eventRows: 3,
       startActors: 2,
       startActorsWithoutBuildMetadata: 2,
-      formViewActors: expect.any(Number),
-      formViewActorsWithStart: expect.any(Number),
-      formViewOfStart: expect.anything(),
+      formViewActors: 0,
+      formViewActorsWithStart: 0,
+      formViewOfStart: 0,
       beachSelectedActors: 1,
       beachSelectedActorsWithStart: 1,
       beachSelectedOfStart: 0.5,
@@ -1334,6 +1361,14 @@ describe("session acquisition funnel report", () => {
             app_build: "42",
           },
         }),
+        eventRow("new-client", "session_log_form_view", {
+          created_at: "2026-06-28T12:01:30.000Z",
+          metadata: {
+            _platform: "native-ios",
+            app_version: "1.0.1",
+            app_build: "42",
+          },
+        }),
         eventRow("new-client", "session_log_submit", {
           created_at: "2026-06-28T12:02:00.000Z",
           metadata: {
@@ -1357,9 +1392,9 @@ describe("session acquisition funnel report", () => {
         hasVersionMetadata: true,
         hasBuildMetadata: true,
         startActors: 1,
-        formViewActors: expect.any(Number),
-        formViewActorsWithStart: expect.any(Number),
-        formViewOfStart: expect.anything(),
+        formViewActors: 1,
+        formViewActorsWithStart: 1,
+        formViewOfStart: 1,
         beachSelectedActors: 1,
         beachSelectedActorsWithStart: 1,
         beachSelectedOfStart: 1,
@@ -1375,9 +1410,9 @@ describe("session acquisition funnel report", () => {
         hasVersionMetadata: false,
         hasBuildMetadata: false,
         startActors: 1,
-        formViewActors: expect.any(Number),
-        formViewActorsWithStart: expect.any(Number),
-        formViewOfStart: expect.anything(),
+        formViewActors: 0,
+        formViewActorsWithStart: 0,
+        formViewOfStart: 0,
         beachSelectedActors: 0,
         beachSelectedActorsWithStart: 0,
         beachSelectedOfStart: 0,
@@ -1396,7 +1431,7 @@ describe("session acquisition funnel report", () => {
 
     const markdown = renderSessionAcquisitionReport(report);
     expect(markdown).toContain(
-      "| native-ios / 1.0.1 / 42 | 1 | 0.0% | 100.0% | 0.0% | 100.0% |"
+      "| native-ios / 1.0.1 / 42 | 1 | 100.0% | 100.0% | 0.0% | 100.0% |"
     );
     expect(markdown).toContain(
       "| native-ios / unknown-version / unknown-build | 1 | 0.0% | 0.0% | 0.0% | 0.0% |"
