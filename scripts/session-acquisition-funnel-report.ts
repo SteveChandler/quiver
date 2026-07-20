@@ -201,6 +201,12 @@ export interface SessionValidationBranch {
   recoveryRate: number | null;
 }
 
+export interface FirstSessionTelemetryCoverage {
+  persistedFirstSessionUsers: number;
+  markerUsers: number;
+  coverage: number | null;
+}
+
 export interface ActivationSummary {
   windowUsersWithRatedSession: number;
   windowUsersWithThreeRatedSessions: number;
@@ -236,6 +242,7 @@ export interface SessionAcquisitionReport {
   funnelSteps: FunnelStepMetric[];
   canonicalFunnel: CanonicalSessionFunnel;
   validationBranch: SessionValidationBranch;
+  firstSessionTelemetryCoverage: FirstSessionTelemetryCoverage;
   eventsByType: Record<string, number>;
   eventsByPlatform: Record<string, number>;
   sessionsBySource: Record<string, number>;
@@ -939,6 +946,12 @@ export function computeSessionAcquisitionReport(input: {
     start: input.start,
     end: input.end,
   });
+  const firstSessionTelemetryCoverage = buildFirstSessionTelemetryCoverage({
+    attempts: canonicalSessionAnalysis.attempts,
+    firstSessionMarkers: canonicalSessionAnalysis.firstSessionMarkers,
+    lifetimeSessions,
+    end: input.end,
+  });
   const validationBranch = buildSessionValidationBranch(
     canonicalSessionAnalysis.attempts,
     canonicalSessionAnalysis.canonicalFunnel.steps.find(
@@ -961,6 +974,7 @@ export function computeSessionAcquisitionReport(input: {
     funnelSteps,
     canonicalFunnel: canonicalSessionAnalysis.canonicalFunnel,
     validationBranch,
+    firstSessionTelemetryCoverage,
     eventsByType: countBy(events, (event) => event.event_type),
     eventsByPlatform: countBy(events, platformForEvent),
     sessionsBySource: countBy(completedWindowSessions, (session) =>
@@ -4307,6 +4321,70 @@ function computeCanonicalSessionAnalysis(input: {
   };
 
   return { attempts, firstSessionMarkers, canonicalFunnel };
+}
+
+function isHistoricallyCompletedSession(
+  session: SessionAcquisitionSessionRow
+): boolean {
+  return session.status === "completed";
+}
+
+function buildFirstCompletedSessionByUser(
+  lifetimeSessions: SessionAcquisitionSessionRow[],
+  end: string
+): Map<string, SessionAcquisitionSessionRow> {
+  const sorted = lifetimeSessions
+    .filter(isHistoricallyCompletedSession)
+    .filter((session) => Date.parse(session.created_at) < Date.parse(end))
+    .sort(
+      (left, right) =>
+        Date.parse(left.created_at) - Date.parse(right.created_at) ||
+        left.id.localeCompare(right.id)
+    );
+  const firstByUser = new Map<string, SessionAcquisitionSessionRow>();
+  for (const session of sorted) {
+    if (!firstByUser.has(session.user_id)) {
+      firstByUser.set(session.user_id, session);
+    }
+  }
+  return firstByUser;
+}
+
+function buildFirstSessionTelemetryCoverage(input: {
+  attempts: CanonicalAttempt[];
+  firstSessionMarkers: ParsedCanonicalEvent[];
+  lifetimeSessions: SessionAcquisitionSessionRow[];
+  end: string;
+}): FirstSessionTelemetryCoverage {
+  const firstCompletedSessionByUser = buildFirstCompletedSessionByUser(
+    input.lifetimeSessions,
+    input.end
+  );
+  const persistedFirstSessionByUser = new Map<string, string>();
+
+  for (const attempt of input.attempts) {
+    const persistedSession = attempt.persistedSession;
+    const historicalFirst = firstCompletedSessionByUser.get(attempt.userId);
+    if (!persistedSession || !historicalFirst) continue;
+    if (persistedSession.id !== historicalFirst.id) continue;
+    persistedFirstSessionByUser.set(attempt.userId, persistedSession.id);
+  }
+
+  const markerUsers = new Set<string>();
+  for (const marker of input.firstSessionMarkers) {
+    if (!marker.userId || !marker.sessionId) continue;
+    if (persistedFirstSessionByUser.get(marker.userId) !== marker.sessionId) {
+      continue;
+    }
+    markerUsers.add(marker.userId);
+  }
+
+  const persistedFirstSessionUsers = persistedFirstSessionByUser.size;
+  return {
+    persistedFirstSessionUsers,
+    markerUsers: markerUsers.size,
+    coverage: ratio(markerUsers.size, persistedFirstSessionUsers),
+  };
 }
 
 function buildSessionValidationBranch(

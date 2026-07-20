@@ -124,6 +124,44 @@ function canonicalEventRow(
   });
 }
 
+function persistedCanonicalFlowEvents(input: {
+  userId: string;
+  flowId: string;
+  sessionId: string;
+}): SessionAcquisitionEventRow[] {
+  return [
+    canonicalEventRow(input.userId, "session_log_start", {
+      flowId: input.flowId,
+      clientStageAt: "2026-06-15T12:00:00.000Z",
+      eventId: `${input.flowId}-start`,
+    }),
+    canonicalEventRow(input.userId, "session_log_form_view", {
+      flowId: input.flowId,
+      clientStageAt: "2026-06-15T12:01:00.000Z",
+      eventId: `${input.flowId}-form-view`,
+    }),
+    canonicalEventRow(input.userId, "session_log_submit", {
+      flowId: input.flowId,
+      clientStageAt: "2026-06-15T12:02:00.000Z",
+      eventId: `${input.flowId}-submit`,
+      sessionId: input.sessionId,
+    }),
+  ];
+}
+
+function firstSessionMarkerEvent(input: {
+  userId: string;
+  sessionId: string;
+  eventId: string;
+}): SessionAcquisitionEventRow {
+  return canonicalEventRow(input.userId, "first_session_logged", {
+    flowId: "marker-only-flow",
+    clientStageAt: "2026-06-01T00:00:00.000Z",
+    eventId: input.eventId,
+    sessionId: input.sessionId,
+  });
+}
+
 function canonicalStep(
   report: ReturnType<typeof computeSessionAcquisitionReport>,
   key: "start" | "form_view" | "submit" | "persisted_session",
@@ -1514,6 +1552,230 @@ describe("session acquisition funnel report", () => {
       firstSessionMarkersMissingSessionId: 1,
     });
     expect(canonicalStep(report, "submit").flows).toBe(0);
+  });
+
+  it("first-session telemetry coverage: counts a matching marker for a canonical persisted first session", () => {
+    const session = sessionRow("user-1", "2026-06-15T12:02:00.000Z", {
+      id: "first-session",
+    });
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        ...persistedCanonicalFlowEvents({
+          userId: "user-1",
+          flowId: "flow-a",
+          sessionId: session.id,
+        }),
+        firstSessionMarkerEvent({
+          userId: "user-1",
+          sessionId: session.id,
+          eventId: "first-session-marker",
+        }),
+      ],
+      windowSessions: [session],
+      lifetimeSessions: [session],
+    });
+
+    expect(report.firstSessionTelemetryCoverage).toEqual({
+      persistedFirstSessionUsers: 1,
+      markerUsers: 1,
+      coverage: 1,
+    });
+  });
+
+  it("first-session telemetry coverage: excludes a marker with a mismatched session", () => {
+    const session = sessionRow("user-1", "2026-06-15T12:02:00.000Z", {
+      id: "first-session",
+    });
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        ...persistedCanonicalFlowEvents({
+          userId: "user-1",
+          flowId: "flow-a",
+          sessionId: session.id,
+        }),
+        firstSessionMarkerEvent({
+          userId: "user-1",
+          sessionId: "different-session",
+          eventId: "mismatched-session-marker",
+        }),
+      ],
+      windowSessions: [session],
+      lifetimeSessions: [session],
+    });
+
+    expect(report.firstSessionTelemetryCoverage).toEqual({
+      persistedFirstSessionUsers: 1,
+      markerUsers: 0,
+      coverage: 0,
+    });
+  });
+
+  it("first-session telemetry coverage: excludes a marker with a mismatched user", () => {
+    const session = sessionRow("user-1", "2026-06-15T12:02:00.000Z", {
+      id: "first-session",
+    });
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1"), profileRow("user-2")],
+      events: [
+        ...persistedCanonicalFlowEvents({
+          userId: "user-1",
+          flowId: "flow-a",
+          sessionId: session.id,
+        }),
+        firstSessionMarkerEvent({
+          userId: "user-2",
+          sessionId: session.id,
+          eventId: "mismatched-user-marker",
+        }),
+      ],
+      windowSessions: [session],
+      lifetimeSessions: [session],
+    });
+
+    expect(report.firstSessionTelemetryCoverage).toEqual({
+      persistedFirstSessionUsers: 1,
+      markerUsers: 0,
+      coverage: 0,
+    });
+  });
+
+  it("first-session telemetry coverage: ignores a marker without a canonical submit", () => {
+    const session = sessionRow("user-1", "2026-06-15T12:02:00.000Z", {
+      id: "first-session",
+    });
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        firstSessionMarkerEvent({
+          userId: "user-1",
+          sessionId: session.id,
+          eventId: "marker-without-submit",
+        }),
+      ],
+      windowSessions: [session],
+      lifetimeSessions: [session],
+    });
+
+    expect(report.firstSessionTelemetryCoverage).toEqual({
+      persistedFirstSessionUsers: 0,
+      markerUsers: 0,
+      coverage: null,
+    });
+  });
+
+  it("first-session telemetry coverage: deduplicates duplicate markers for one user", () => {
+    const session = sessionRow("user-1", "2026-06-15T12:02:00.000Z", {
+      id: "first-session",
+    });
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        ...persistedCanonicalFlowEvents({
+          userId: "user-1",
+          flowId: "flow-a",
+          sessionId: session.id,
+        }),
+        firstSessionMarkerEvent({
+          userId: "user-1",
+          sessionId: session.id,
+          eventId: "first-session-marker-a",
+        }),
+        firstSessionMarkerEvent({
+          userId: "user-1",
+          sessionId: session.id,
+          eventId: "first-session-marker-b",
+        }),
+      ],
+      windowSessions: [session],
+      lifetimeSessions: [session],
+    });
+
+    expect(report.firstSessionTelemetryCoverage).toEqual({
+      persistedFirstSessionUsers: 1,
+      markerUsers: 1,
+      coverage: 1,
+    });
+  });
+
+  it("first-session telemetry coverage: does not reclassify a later current session after the historical first was soft-deleted", () => {
+    const historicalFirst = sessionRow("user-1", "2026-06-01T12:00:00.000Z", {
+      id: "historical-first",
+      deleted_at: "2026-06-10T12:00:00.000Z",
+    });
+    const currentSession = sessionRow("user-1", "2026-06-15T12:02:00.000Z", {
+      id: "current-session",
+    });
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        ...persistedCanonicalFlowEvents({
+          userId: "user-1",
+          flowId: "flow-a",
+          sessionId: currentSession.id,
+        }),
+        firstSessionMarkerEvent({
+          userId: "user-1",
+          sessionId: currentSession.id,
+          eventId: "current-session-marker",
+        }),
+      ],
+      windowSessions: [currentSession],
+      lifetimeSessions: [historicalFirst, currentSession],
+    });
+
+    expect(report.firstSessionTelemetryCoverage).toEqual({
+      persistedFirstSessionUsers: 0,
+      markerUsers: 0,
+      coverage: null,
+    });
+  });
+
+  it("first-session telemetry coverage: uses the session ID to break lifetime creation-time ties", () => {
+    const firstById = sessionRow("user-1", "2026-06-15T12:02:00.000Z", {
+      id: "a-first-session",
+    });
+    const currentSession = sessionRow("user-1", "2026-06-15T12:02:00.000Z", {
+      id: "b-current-session",
+    });
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        ...persistedCanonicalFlowEvents({
+          userId: "user-1",
+          flowId: "flow-a",
+          sessionId: currentSession.id,
+        }),
+        firstSessionMarkerEvent({
+          userId: "user-1",
+          sessionId: currentSession.id,
+          eventId: "current-session-marker",
+        }),
+      ],
+      windowSessions: [currentSession],
+      lifetimeSessions: [currentSession, firstById],
+    });
+
+    expect(report.firstSessionTelemetryCoverage).toEqual({
+      persistedFirstSessionUsers: 0,
+      markerUsers: 0,
+      coverage: null,
+    });
   });
 
   it("persistence buckets: partitions every submitted flow exactly once", () => {
