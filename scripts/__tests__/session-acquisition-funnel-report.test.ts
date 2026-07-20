@@ -44,6 +44,7 @@ function sessionRow(
   overrides: Partial<SessionAcquisitionSessionRow> = {}
 ): SessionAcquisitionSessionRow {
   return {
+    id: "session-" + userId + "-" + createdAt,
     user_id: userId,
     created_at: createdAt,
     arrival_time: createdAt,
@@ -160,7 +161,7 @@ describe("session acquisition funnel report", () => {
     });
   });
 
-  it("keeps Track B event coverage aligned with web and native analytics allowlists", () => {
+  it("legacy telemetry corrections: keeps Track B event coverage aligned with web and native analytics allowlists", () => {
     const nativeAnalytics = readFileSync(
       resolveNativeRepoPath(
         "src",
@@ -181,6 +182,40 @@ describe("session acquisition funnel report", () => {
     expect(nativeEventTypes).toEqual(
       expect.arrayContaining([...SESSION_ACQUISITION_EVENT_TYPES])
     );
+  });
+
+  it("legacy telemetry corrections: fetches form views and keeps first-session markers out of submit", () => {
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      generatedAt: "2026-07-01T00:00:00.000Z",
+      profiles: [profileRow("user-1")],
+      events: [
+        eventRow("user-1", "session_log_start"),
+        eventRow("user-1", "session_log_form_view"),
+        eventRow("user-1", "first_session_logged", {
+          metadata: {
+            ...nativeBuildMetadata(),
+            session_id: "session-user-1",
+          },
+        }),
+      ],
+      windowSessions: [],
+      lifetimeSessions: [],
+    });
+
+    expect(SESSION_ACQUISITION_EVENT_TYPES).toContain("session_log_form_view");
+    expect(stepActors(report, "stored_submit_event")).toBe(0);
+    expect(report.telemetryCoverageByPlatform[0]).toMatchObject({
+      platform: "native-ios",
+      startActors: 1,
+      formViewActors: 1,
+      formViewActorsWithStart: 1,
+      formViewOfStart: 1,
+      submitEventActors: 0,
+      submitActorsWithStart: 0,
+      submitEventOfStart: 0,
+    });
   });
 
   it("keeps validation-failure codes aligned with the native session form", () => {
@@ -530,7 +565,7 @@ describe("session acquisition funnel report", () => {
     );
   });
 
-  it("uses saved sessions as durable conversion truth and includes first_session_logged submit telemetry", () => {
+  it("uses saved sessions as durable conversion truth and actual submit telemetry", () => {
     const report = computeSessionAcquisitionReport({
       start: START,
       end: END,
@@ -540,7 +575,7 @@ describe("session acquisition funnel report", () => {
         eventRow("user-1", "session_log_start"),
         eventRow("user-1", "session_log_beach_selected"),
         eventRow("user-1", "session_log_rating_set"),
-        eventRow("user-1", "first_session_logged"),
+        eventRow("user-1", "session_log_submit"),
         eventRow("mock-user", "session_log_start"),
       ],
       windowSessions: [
@@ -629,7 +664,7 @@ describe("session acquisition funnel report", () => {
         eventRow("user-1", "session_log_rating_set", {
           metadata: nativeBuildMetadata(),
         }),
-        eventRow("user-1", "first_session_logged", {
+        eventRow("user-1", "session_log_submit", {
           metadata: nativeBuildMetadata(),
         }),
       ],
@@ -1041,7 +1076,7 @@ describe("session acquisition funnel report", () => {
     expect(report.gaps.join("\n")).toContain("Stored submit events cover 0.0%");
   });
 
-  it("reports telemetry coverage by platform without mixing client surfaces", () => {
+  it("legacy telemetry corrections: reports telemetry coverage by platform without mixing client surfaces", () => {
     const report = computeSessionAcquisitionReport({
       start: START,
       end: END,
@@ -1058,7 +1093,7 @@ describe("session acquisition funnel report", () => {
         eventRow("native-1", "session_log_beach_selected", {
           metadata: { _platform: "native-ios" },
         }),
-        eventRow("native-1", "first_session_logged", {
+        eventRow("native-1", "session_log_submit", {
           metadata: { _platform: "native-ios" },
         }),
         eventRow("native-2", "session_log_start", {
@@ -1082,6 +1117,9 @@ describe("session acquisition funnel report", () => {
       {
         platform: "native-ios",
         startActors: 2,
+        formViewActors: expect.any(Number),
+        formViewActorsWithStart: expect.any(Number),
+        formViewOfStart: expect.anything(),
         beachSelectedActors: 1,
         beachSelectedActorsWithStart: 1,
         beachSelectedOfStart: 0.5,
@@ -1095,6 +1133,9 @@ describe("session acquisition funnel report", () => {
       {
         platform: "mobile/iOS",
         startActors: 1,
+        formViewActors: expect.any(Number),
+        formViewActorsWithStart: expect.any(Number),
+        formViewOfStart: expect.anything(),
         beachSelectedActors: 1,
         beachSelectedActorsWithStart: 1,
         beachSelectedOfStart: 1,
@@ -1109,11 +1150,15 @@ describe("session acquisition funnel report", () => {
 
     const markdown = renderSessionAcquisitionReport(report);
     expect(markdown).toContain("## Telemetry Coverage By Platform");
-    expect(markdown).toContain("| native-ios | 2 | 1 | 50.0% | 0 | 0.0% | 2 | 100.0% |");
-    expect(markdown).toContain("| mobile/iOS | 1 | 1 | 100.0% | 0 | 0.0% | 0 | 0.0% |");
+    expect(markdown).toContain(
+      "| native-ios | 2 | 0 | 0.0% | 1 | 50.0% | 0 | 0.0% | 2 | 100.0% |"
+    );
+    expect(markdown).toContain(
+      "| mobile/iOS | 1 | 0 | 0.0% | 1 | 100.0% | 0 | 0.0% | 0 | 0.0% |"
+    );
   });
 
-  it("reports a recent telemetry window separately from the full window", () => {
+  it("legacy telemetry corrections: reports a recent telemetry window separately from the full window", () => {
     const report = computeSessionAcquisitionReport({
       start: START,
       end: END,
@@ -1158,6 +1203,9 @@ describe("session acquisition funnel report", () => {
       eventRows: 3,
       startActors: 2,
       startActorsWithoutBuildMetadata: 2,
+      formViewActors: expect.any(Number),
+      formViewActorsWithStart: expect.any(Number),
+      formViewOfStart: expect.anything(),
       beachSelectedActors: 1,
       beachSelectedActorsWithStart: 1,
       beachSelectedOfStart: 0.5,
@@ -1173,6 +1221,9 @@ describe("session acquisition funnel report", () => {
       {
         platform: "mobile/iOS",
         startActors: 1,
+        formViewActors: expect.any(Number),
+        formViewActorsWithStart: expect.any(Number),
+        formViewOfStart: expect.anything(),
         beachSelectedActors: 1,
         beachSelectedActorsWithStart: 1,
         beachSelectedOfStart: 1,
@@ -1186,6 +1237,9 @@ describe("session acquisition funnel report", () => {
       {
         platform: "native-ios",
         startActors: 1,
+        formViewActors: expect.any(Number),
+        formViewActorsWithStart: expect.any(Number),
+        formViewOfStart: expect.anything(),
         beachSelectedActors: 0,
         beachSelectedActorsWithStart: 0,
         beachSelectedOfStart: 0,
@@ -1203,6 +1257,9 @@ describe("session acquisition funnel report", () => {
         hasVersionMetadata: false,
         hasBuildMetadata: false,
         startActors: 1,
+        formViewActors: expect.any(Number),
+        formViewActorsWithStart: expect.any(Number),
+        formViewOfStart: expect.anything(),
         beachSelectedActors: 1,
         beachSelectedActorsWithStart: 1,
         beachSelectedOfStart: 1,
@@ -1218,6 +1275,9 @@ describe("session acquisition funnel report", () => {
         hasVersionMetadata: false,
         hasBuildMetadata: false,
         startActors: 1,
+        formViewActors: expect.any(Number),
+        formViewActorsWithStart: expect.any(Number),
+        formViewOfStart: expect.anything(),
         beachSelectedActors: 0,
         beachSelectedActorsWithStart: 0,
         beachSelectedOfStart: 0,
@@ -1242,13 +1302,15 @@ describe("session acquisition funnel report", () => {
     expect(markdown).toContain(
       "| Start actors without version/build metadata | 2 |"
     );
-    expect(markdown).toContain("| native-ios | 1 | 0.0% | 0.0% | 0.0% |");
     expect(markdown).toContain(
-      "| native-ios / unknown-version / unknown-build | 1 | 0.0% | 0.0% | 0.0% |"
+      "| native-ios | 1 | 0.0% | 0.0% | 0.0% | 0.0% |"
+    );
+    expect(markdown).toContain(
+      "| native-ios / unknown-version / unknown-build | 1 | 0.0% | 0.0% | 0.0% | 0.0% |"
     );
   });
 
-  it("reports recent telemetry by client build metadata", () => {
+  it("legacy telemetry corrections: reports recent telemetry by client build metadata", () => {
     const report = computeSessionAcquisitionReport({
       start: START,
       end: END,
@@ -1295,6 +1357,9 @@ describe("session acquisition funnel report", () => {
         hasVersionMetadata: true,
         hasBuildMetadata: true,
         startActors: 1,
+        formViewActors: expect.any(Number),
+        formViewActorsWithStart: expect.any(Number),
+        formViewOfStart: expect.anything(),
         beachSelectedActors: 1,
         beachSelectedActorsWithStart: 1,
         beachSelectedOfStart: 1,
@@ -1310,6 +1375,9 @@ describe("session acquisition funnel report", () => {
         hasVersionMetadata: false,
         hasBuildMetadata: false,
         startActors: 1,
+        formViewActors: expect.any(Number),
+        formViewActorsWithStart: expect.any(Number),
+        formViewOfStart: expect.anything(),
         beachSelectedActors: 0,
         beachSelectedActorsWithStart: 0,
         beachSelectedOfStart: 0,
@@ -1328,10 +1396,10 @@ describe("session acquisition funnel report", () => {
 
     const markdown = renderSessionAcquisitionReport(report);
     expect(markdown).toContain(
-      "| native-ios / 1.0.1 / 42 | 1 | 100.0% | 0.0% | 100.0% |"
+      "| native-ios / 1.0.1 / 42 | 1 | 0.0% | 100.0% | 0.0% | 100.0% |"
     );
     expect(markdown).toContain(
-      "| native-ios / unknown-version / unknown-build | 1 | 0.0% | 0.0% | 0.0% |"
+      "| native-ios / unknown-version / unknown-build | 1 | 0.0% | 0.0% | 0.0% | 0.0% |"
     );
   });
 
@@ -1542,7 +1610,7 @@ describe("session acquisition funnel report", () => {
         eventRow("user-1", "session_log_rating_set", {
           metadata: nativeBuildMetadata(),
         }),
-        eventRow("user-1", "first_session_logged", {
+        eventRow("user-1", "session_log_submit", {
           metadata: nativeBuildMetadata(),
         }),
       ],
@@ -1697,7 +1765,7 @@ describe("session acquisition funnel report", () => {
           created_at: "2026-06-30T12:02:00.000Z",
           metadata: nativeBuildMetadata(),
         }),
-        eventRow("user-1", "first_session_logged", {
+        eventRow("user-1", "session_log_submit", {
           created_at: "2026-06-30T12:03:00.000Z",
           metadata: nativeBuildMetadata(),
         }),

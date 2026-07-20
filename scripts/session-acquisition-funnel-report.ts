@@ -36,6 +36,7 @@ const UUID_PATTERN =
 
 export const SESSION_ACQUISITION_EVENT_TYPES = [
   "session_log_start",
+  "session_log_form_view",
   "session_log_beach_selected",
   "session_log_conditions_set",
   "session_log_rating_set",
@@ -119,6 +120,7 @@ export interface SessionAcquisitionEventRow {
 }
 
 export interface SessionAcquisitionSessionRow {
+  id: string;
   user_id: string;
   created_at: string;
   arrival_time: string;
@@ -251,6 +253,9 @@ interface SessionAcquisitionReadinessFinding {
 export interface SessionTelemetryPlatformCoverage {
   platform: string;
   startActors: number;
+  formViewActors: number;
+  formViewActorsWithStart: number;
+  formViewOfStart: number | null;
   beachSelectedActors: number;
   beachSelectedActorsWithStart: number;
   beachSelectedOfStart: number | null;
@@ -267,6 +272,9 @@ export interface SessionTelemetryClientBuildCoverage {
   hasVersionMetadata: boolean;
   hasBuildMetadata: boolean;
   startActors: number;
+  formViewActors: number;
+  formViewActorsWithStart: number;
+  formViewOfStart: number | null;
   beachSelectedActors: number;
   beachSelectedActorsWithStart: number;
   beachSelectedOfStart: number | null;
@@ -292,6 +300,9 @@ export interface SessionRecentTelemetryWindow {
   eventRows: number;
   startActors: number;
   startActorsWithoutBuildMetadata: number;
+  formViewActors: number;
+  formViewActorsWithStart: number;
+  formViewOfStart: number | null;
   beachSelectedActors: number;
   beachSelectedActorsWithStart: number;
   beachSelectedOfStart: number | null;
@@ -785,10 +796,8 @@ export function computeSessionAcquisitionReport(input: {
     eventActorsByType.get("session_log_beach_selected") ?? new Set();
   const conditionsSetActors =
     eventActorsByType.get("session_log_conditions_set") ?? new Set();
-  const submitEventActors = unionSets([
-    eventActorsByType.get("session_log_submit"),
-    eventActorsByType.get("first_session_logged"),
-  ]);
+  const submitEventActors =
+    eventActorsByType.get("session_log_submit") ?? new Set();
   const savedSessionActors = actorSetFromSessions(completedWindowSessions);
   const ratedSessionActors = actorSetFromSessions(ratedWindowSessions);
   const faceHeightTruthActors = actorSetFromSessions(faceHeightTruthSessions);
@@ -1126,15 +1135,17 @@ export function renderSessionAcquisitionReport(
   lines.push("## Telemetry Coverage By Platform");
   lines.push("");
   lines.push(
-    "| Platform | Start actors | Beach-selected actors | Beach-selected of start | Conditions-set actors | Conditions-set of start | Submit actors | Submit of start |"
+    "| Platform | Start actors | Form-view actors | Form-view of start | Beach-selected actors | Beach-selected of start | Conditions-set actors | Conditions-set of start | Submit actors | Submit of start |"
   );
-  lines.push("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |");
+  lines.push("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |");
   if (report.telemetryCoverageByPlatform.length === 0) {
-    lines.push("| _No platform-tagged start actors._ | 0 | 0 | n/a | 0 | n/a | 0 | n/a |");
+    lines.push("| _No platform-tagged start actors._ | 0 | 0 | n/a | 0 | n/a | 0 | n/a | 0 | n/a |");
   } else {
     for (const platform of report.telemetryCoverageByPlatform) {
       lines.push(
-        `| ${platform.platform} | ${platform.startActors.toLocaleString()} | ${platform.beachSelectedActors.toLocaleString()} | ${formatPercent(
+        `| ${platform.platform} | ${platform.startActors.toLocaleString()} | ${platform.formViewActors.toLocaleString()} | ${formatPercent(
+          platform.formViewOfStart
+        )} | ${platform.beachSelectedActors.toLocaleString()} | ${formatPercent(
           platform.beachSelectedOfStart
         )} | ${platform.conditionsSetActors.toLocaleString()} | ${formatPercent(
           platform.conditionsSetOfStart
@@ -1163,6 +1174,11 @@ export function renderSessionAcquisitionReport(
     `| Start actors without version/build metadata | ${report.recentTelemetry.startActorsWithoutBuildMetadata.toLocaleString()} |`
   );
   lines.push(
+    `| Form-view of start | ${formatPercent(
+      report.recentTelemetry.formViewOfStart
+    )} |`
+  );
+  lines.push(
     `| Beach-selected of start | ${formatPercent(
       report.recentTelemetry.beachSelectedOfStart
     )} |`
@@ -1178,14 +1194,16 @@ export function renderSessionAcquisitionReport(
     )} |`
   );
   lines.push("");
-  lines.push("| Platform | Start actors | Beach-selected of start | Conditions-set of start | Submit of start |");
-  lines.push("| --- | ---: | ---: | ---: | ---: |");
+  lines.push("| Platform | Start actors | Form-view of start | Beach-selected of start | Conditions-set of start | Submit of start |");
+  lines.push("| --- | ---: | ---: | ---: | ---: | ---: |");
   if (report.recentTelemetry.telemetryCoverageByPlatform.length === 0) {
-    lines.push("| _No platform-tagged start actors._ | 0 | n/a | n/a | n/a |");
+    lines.push("| _No platform-tagged start actors._ | 0 | n/a | n/a | n/a | n/a |");
   } else {
     for (const platform of report.recentTelemetry.telemetryCoverageByPlatform) {
       lines.push(
         `| ${platform.platform} | ${platform.startActors.toLocaleString()} | ${formatPercent(
+          platform.formViewOfStart
+        )} | ${formatPercent(
           platform.beachSelectedOfStart
         )} | ${formatPercent(
           platform.conditionsSetOfStart
@@ -1194,14 +1212,16 @@ export function renderSessionAcquisitionReport(
     }
   }
   lines.push("");
-  lines.push("| Client build | Start actors | Beach-selected of start | Conditions-set of start | Submit of start |");
-  lines.push("| --- | ---: | ---: | ---: | ---: |");
+  lines.push("| Client build | Start actors | Form-view of start | Beach-selected of start | Conditions-set of start | Submit of start |");
+  lines.push("| --- | ---: | ---: | ---: | ---: | ---: |");
   if (report.recentTelemetry.telemetryCoverageByClientBuild.length === 0) {
-    lines.push("| _No client-build-tagged start actors._ | 0 | n/a | n/a | n/a |");
+    lines.push("| _No client-build-tagged start actors._ | 0 | n/a | n/a | n/a | n/a |");
   } else {
     for (const clientBuild of report.recentTelemetry.telemetryCoverageByClientBuild) {
       lines.push(
         `| ${clientBuild.clientBuild} | ${clientBuild.startActors.toLocaleString()} | ${formatPercent(
+          clientBuild.formViewOfStart
+        )} | ${formatPercent(
           clientBuild.beachSelectedOfStart
         )} | ${formatPercent(
           clientBuild.conditionsSetOfStart
@@ -1736,6 +1756,8 @@ function validateTelemetryPlatformCoverageArray(
     }
     for (const field of [
       "startActors",
+      "formViewActors",
+      "formViewActorsWithStart",
       "beachSelectedActors",
       "beachSelectedActorsWithStart",
       "conditionsSetActors",
@@ -1749,6 +1771,7 @@ function validateTelemetryPlatformCoverageArray(
       }
     }
     for (const field of [
+      "formViewOfStart",
       "beachSelectedOfStart",
       "conditionsSetOfStart",
       "submitEventOfStart",
@@ -1780,6 +1803,8 @@ function validateTelemetryClientBuildCoverageArray(
     }
     for (const field of [
       "startActors",
+      "formViewActors",
+      "formViewActorsWithStart",
       "beachSelectedActors",
       "beachSelectedActorsWithStart",
       "conditionsSetActors",
@@ -1793,6 +1818,7 @@ function validateTelemetryClientBuildCoverageArray(
       }
     }
     for (const field of [
+      "formViewOfStart",
       "beachSelectedOfStart",
       "conditionsSetOfStart",
       "submitEventOfStart",
@@ -1846,6 +1872,8 @@ function validateRecentTelemetry(
     "eventRows",
     "startActors",
     "startActorsWithoutBuildMetadata",
+    "formViewActors",
+    "formViewActorsWithStart",
     "beachSelectedActors",
     "beachSelectedActorsWithStart",
     "conditionsSetActors",
@@ -1860,6 +1888,7 @@ function validateRecentTelemetry(
     );
   }
   for (const field of [
+    "formViewOfStart",
     "beachSelectedOfStart",
     "conditionsSetOfStart",
     "submitEventOfStart",
@@ -1992,6 +2021,11 @@ function validateActorCoverageCounts(
     actorsWithStartField,
     rateField,
   } of [
+    {
+      actorsField: "formViewActors",
+      actorsWithStartField: "formViewActorsWithStart",
+      rateField: "formViewOfStart",
+    },
     {
       actorsField: "beachSelectedActors",
       actorsWithStartField: "beachSelectedActorsWithStart",
@@ -2722,7 +2756,7 @@ async function fetchWindowSessionRows(
     const { data, error } = await supabase
       .from("sessions")
       .select(
-        "user_id, created_at, arrival_time, status, source, rating, wave_height_ft, deleted_at"
+        "id, user_id, created_at, arrival_time, status, source, rating, wave_height_ft, deleted_at"
       )
       .gte("created_at", options.start)
       .lt("created_at", options.end)
@@ -2789,7 +2823,7 @@ async function fetchLifetimeSessionsForUsers(
       const { data, error } = await supabase
         .from("sessions")
         .select(
-          "user_id, created_at, arrival_time, status, source, rating, wave_height_ft, deleted_at"
+          "id, user_id, created_at, arrival_time, status, source, rating, wave_height_ft, deleted_at"
         )
         .lt("created_at", end)
         .in("user_id", chunk)
@@ -2882,10 +2916,10 @@ function buildTelemetryCoverageByPlatform(
   const platforms = new Set<string>();
   for (const eventType of [
     "session_log_start",
+    "session_log_form_view",
     "session_log_beach_selected",
     "session_log_conditions_set",
     "session_log_submit",
-    "first_session_logged",
   ]) {
     for (const platform of eventActorsByTypeAndPlatform.get(eventType)?.keys() ?? []) {
       platforms.add(platform);
@@ -2899,6 +2933,11 @@ function buildTelemetryCoverageByPlatform(
         "session_log_start",
         platform
       );
+      const formViewActors = platformActors(
+        eventActorsByTypeAndPlatform,
+        "session_log_form_view",
+        platform
+      );
       const beachSelectedActors = platformActors(
         eventActorsByTypeAndPlatform,
         "session_log_beach_selected",
@@ -2909,18 +2948,15 @@ function buildTelemetryCoverageByPlatform(
         "session_log_conditions_set",
         platform
       );
-      const submitEventActors = unionSets([
-        platformActors(
-          eventActorsByTypeAndPlatform,
-          "session_log_submit",
-          platform
-        ),
-        platformActors(
-          eventActorsByTypeAndPlatform,
-          "first_session_logged",
-          platform
-        ),
-      ]);
+      const submitEventActors = platformActors(
+        eventActorsByTypeAndPlatform,
+        "session_log_submit",
+        platform
+      );
+      const formViewActorsWithStart = intersectionSize(
+        formViewActors,
+        startActors
+      );
       const beachSelectedActorsWithStart = intersectionSize(
         beachSelectedActors,
         startActors
@@ -2937,6 +2973,9 @@ function buildTelemetryCoverageByPlatform(
       return {
         platform,
         startActors: startActors.size,
+        formViewActors: formViewActors.size,
+        formViewActorsWithStart,
+        formViewOfStart: ratio(formViewActorsWithStart, startActors.size),
         beachSelectedActors: beachSelectedActors.size,
         beachSelectedActorsWithStart,
         beachSelectedOfStart: ratio(
@@ -2975,6 +3014,11 @@ function buildTelemetryCoverageByClientBuild(
         "session_log_start",
         clientBuild
       );
+      const formViewActors = clientBuildActors(
+        eventActorsByTypeAndClientBuild,
+        "session_log_form_view",
+        clientBuild
+      );
       const beachSelectedActors = clientBuildActors(
         eventActorsByTypeAndClientBuild,
         "session_log_beach_selected",
@@ -2985,18 +3029,15 @@ function buildTelemetryCoverageByClientBuild(
         "session_log_conditions_set",
         clientBuild
       );
-      const submitEventActors = unionSets([
-        clientBuildActors(
-          eventActorsByTypeAndClientBuild,
-          "session_log_submit",
-          clientBuild
-        ),
-        clientBuildActors(
-          eventActorsByTypeAndClientBuild,
-          "first_session_logged",
-          clientBuild
-        ),
-      ]);
+      const submitEventActors = clientBuildActors(
+        eventActorsByTypeAndClientBuild,
+        "session_log_submit",
+        clientBuild
+      );
+      const formViewActorsWithStart = intersectionSize(
+        formViewActors,
+        startActors
+      );
       const beachSelectedActorsWithStart = intersectionSize(
         beachSelectedActors,
         startActors
@@ -3016,6 +3057,9 @@ function buildTelemetryCoverageByClientBuild(
         hasVersionMetadata: identity.appVersion !== "unknown-version",
         hasBuildMetadata: identity.appBuild !== "unknown-build",
         startActors: startActors.size,
+        formViewActors: formViewActors.size,
+        formViewActorsWithStart,
+        formViewOfStart: ratio(formViewActorsWithStart, startActors.size),
         beachSelectedActors: beachSelectedActors.size,
         beachSelectedActorsWithStart,
         beachSelectedOfStart: ratio(
@@ -3063,16 +3107,17 @@ function buildRecentTelemetryWindow(
   const eventActorsByTypeAndClientBuild =
     buildEventActorsByTypeAndClientBuild(recentEvents);
   const startActors = eventActorsByType.get("session_log_start") ?? new Set();
+  const formViewActors =
+    eventActorsByType.get("session_log_form_view") ?? new Set();
   const beachSelectedActors =
     eventActorsByType.get("session_log_beach_selected") ?? new Set();
   const conditionsSetActors =
     eventActorsByType.get("session_log_conditions_set") ?? new Set();
-  const submitEventActors = unionSets([
-    eventActorsByType.get("session_log_submit"),
-    eventActorsByType.get("first_session_logged"),
-  ]);
+  const submitEventActors =
+    eventActorsByType.get("session_log_submit") ?? new Set();
   const startActorsWithoutBuildMetadata =
     countStartActorsWithoutBuildMetadata(recentEvents);
+  const formViewActorsWithStart = intersectionSize(formViewActors, startActors);
   const beachSelectedActorsWithStart = intersectionSize(
     beachSelectedActors,
     startActors
@@ -3090,6 +3135,9 @@ function buildRecentTelemetryWindow(
     eventRows: recentEvents.length,
     startActors: startActors.size,
     startActorsWithoutBuildMetadata,
+    formViewActors: formViewActors.size,
+    formViewActorsWithStart,
+    formViewOfStart: ratio(formViewActorsWithStart, startActors.size),
     beachSelectedActors: beachSelectedActors.size,
     beachSelectedActorsWithStart,
     beachSelectedOfStart: ratio(beachSelectedActorsWithStart, startActors.size),
@@ -3889,15 +3937,6 @@ function sortCountRecord(counts: Record<string, number>): Record<string, number>
   return Object.fromEntries(
     Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
   );
-}
-
-function unionSets(sets: Array<Set<string> | undefined>): Set<string> {
-  const union = new Set<string>();
-  for (const set of sets) {
-    if (!set) continue;
-    for (const value of set) union.add(value);
-  }
-  return union;
 }
 
 function intersectionSize(left: Set<string>, right: Set<string>): number {
