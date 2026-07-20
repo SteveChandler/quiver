@@ -32,7 +32,7 @@ const DEFAULT_RECENT_TELEMETRY_DAYS = 7;
 const SESSION_ACQUISITION_REPORT_SCHEMA_VERSION = 3;
 const MAX_GENERATED_AT_FUTURE_SKEW_MS = 5 * 60 * 1000;
 const UUID_PATTERN =
-  /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
+  /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i;
 const UNSAFE_IDENTIFIER_EVIDENCE_PATTERN =
   /\b(?:user_id|flow_id|event_id|session_id)\s*[:=]\s*\S+/i;
 const UNSAFE_IDENTIFIER_KEYS = new Set([
@@ -1587,9 +1587,15 @@ export function validateSessionAcquisitionReport(
   } = {}
 ): SessionAcquisitionReportValidationResult {
   const blockers: string[] = [];
-  const serializedReport = JSON.stringify(report) ?? "";
-  if (UUID_PATTERN.test(serializedReport)) {
-    blockers.push("report_contains_uuid");
+  try {
+    const serializedReport = JSON.stringify(report);
+    if (serializedReport === undefined) {
+      blockers.push("report_not_serializable");
+    } else if (UUID_PATTERN.test(serializedReport)) {
+      blockers.push("report_contains_uuid");
+    }
+  } catch {
+    blockers.push("report_not_serializable");
   }
 
   if (!isRecord(report)) {
@@ -1980,8 +1986,11 @@ function validateCanonicalFunnel(value: unknown, blockers: string[]): void {
             ? null
             : ratio(step.users as number, typedSteps[index - 1].users as number);
         if (
-          !nullableNumbersMatch(step.pctOfStart, expectedPctOfStart) ||
-          !nullableNumbersMatch(step.pctOfPrevious, expectedPctOfPrevious)
+          !exactNullableNumbersMatch(step.pctOfStart, expectedPctOfStart) ||
+          !exactNullableNumbersMatch(
+            step.pctOfPrevious,
+            expectedPctOfPrevious
+          )
         ) {
           rateMismatch = true;
         }
@@ -2095,11 +2104,11 @@ function validateValidationBranch(
     blockers.push("validation_branch_counts_inconsistent");
   }
   if (
-    !nullableNumbersMatch(
+    !exactNullableNumbersMatch(
       value.pctOfFormViewUsers,
       ratio(affectedUsers, formViewUsers)
     ) ||
-    !nullableNumbersMatch(
+    !exactNullableNumbersMatch(
       value.recoveryRate,
       ratio(recoveredUsers, affectedUsers)
     )
@@ -2146,7 +2155,7 @@ function validateFirstSessionTelemetryCoverage(
     blockers.push("first_session_telemetry_counts_inconsistent");
   }
   if (
-    !nullableNumbersMatch(
+    !exactNullableNumbersMatch(
       value.coverage,
       ratio(markerUsers, persistedFirstSessionUsers)
     )
@@ -2161,9 +2170,11 @@ function validateAggregateOnlyReportPrivacy(
 ): void {
   let containsIdentifierKey = false;
   let containsIdentifierEvidence = false;
+  let containsUuid = false;
   const visited = new WeakSet<object>();
   const visit = (candidate: unknown): void => {
     if (typeof candidate === "string") {
+      if (UUID_PATTERN.test(candidate)) containsUuid = true;
       if (UNSAFE_IDENTIFIER_EVIDENCE_PATTERN.test(candidate)) {
         containsIdentifierEvidence = true;
       }
@@ -2182,6 +2193,9 @@ function validateAggregateOnlyReportPrivacy(
     }
   };
   visit(value);
+  if (containsUuid && !blockers.includes("report_contains_uuid")) {
+    blockers.push("report_contains_uuid");
+  }
   if (containsIdentifierKey) blockers.push("report_contains_identifier_key");
   if (containsIdentifierEvidence) {
     blockers.push("report_contains_identifier_evidence");
@@ -3322,6 +3336,18 @@ function nullableNumbersMatch(
     typeof actual === "number" &&
     Number.isFinite(actual) &&
     Math.abs(actual - expected) < 0.000_000_001
+  );
+}
+
+function exactNullableNumbersMatch(
+  actual: unknown,
+  expected: number | null
+): boolean {
+  if (actual === null || expected === null) {
+    return actual === expected;
+  }
+  return (
+    typeof actual === "number" && Number.isFinite(actual) && actual === expected
   );
 }
 

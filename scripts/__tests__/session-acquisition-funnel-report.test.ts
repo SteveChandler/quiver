@@ -202,6 +202,115 @@ function cloneReport(
   >;
 }
 
+function schemaV3HalfRatioReportFixture() {
+  const report = cloneReport(schemaV3ReportFixture());
+  const [start, formView, submit, persisted] = report.canonicalFunnel.steps;
+  Object.assign(start, {
+    users: 4,
+    flows: 4,
+    pctOfStart: 1,
+    pctOfPrevious: null,
+  });
+  Object.assign(formView, {
+    users: 2,
+    flows: 2,
+    pctOfStart: 0.5,
+    pctOfPrevious: 0.5,
+  });
+  Object.assign(submit, {
+    users: 2,
+    flows: 2,
+    pctOfStart: 0.5,
+    pctOfPrevious: 1,
+  });
+  Object.assign(persisted, {
+    users: 2,
+    flows: 2,
+    pctOfStart: 0.5,
+    pctOfPrevious: 1,
+  });
+  Object.assign(report.validationBranch, {
+    affectedUsers: 1,
+    affectedFlows: 1,
+    pctOfFormViewUsers: 0.5,
+    recoveredUsers: 1,
+    recoveredFlows: 1,
+    recoveryRate: 1,
+  });
+  Object.assign(report.firstSessionTelemetryCoverage, {
+    persistedFirstSessionUsers: 2,
+    markerUsers: 1,
+    coverage: 0.5,
+  });
+  return report;
+}
+
+type FormViewCoverageLayer = "top" | "recent-platform" | "recent-build";
+
+function tamperFirstCoverage(
+  source: ReturnType<typeof schemaV3ReportFixture>,
+  layer: FormViewCoverageLayer,
+  changes: Record<string, unknown>,
+): ReturnType<typeof schemaV3ReportFixture> {
+  const tampered = cloneReport(source);
+  if (layer === "top") {
+    Object.assign(tampered.telemetryCoverageByPlatform[0], changes);
+  } else if (layer === "recent-platform") {
+    Object.assign(
+      tampered.recentTelemetry.telemetryCoverageByPlatform[0],
+      changes,
+    );
+  } else {
+    Object.assign(
+      tampered.recentTelemetry.telemetryCoverageByClientBuild[0],
+      changes,
+    );
+  }
+  return tampered;
+}
+
+const FORM_VIEW_TAMPER_CASES = [
+  {
+    label: "top-level platform count",
+    layer: "top",
+    changes: { formViewActorsWithStart: 2 },
+    blocker: "telemetry_coverage_by_platform_invalid_counts_inconsistent",
+  },
+  {
+    label: "top-level platform rate",
+    layer: "top",
+    changes: { formViewOfStart: 0.5 },
+    blocker: "telemetry_coverage_by_platform_invalid_rate_mismatch",
+  },
+  {
+    label: "recent platform count",
+    layer: "recent-platform",
+    changes: { formViewActorsWithStart: 2 },
+    blocker:
+      "recent_telemetry_platform_coverage_invalid_counts_inconsistent",
+  },
+  {
+    label: "recent platform rate",
+    layer: "recent-platform",
+    changes: { formViewOfStart: 0.5 },
+    blocker: "recent_telemetry_platform_coverage_invalid_rate_mismatch",
+  },
+  {
+    label: "recent client-build count",
+    layer: "recent-build",
+    changes: { formViewActorsWithStart: 2 },
+    blocker:
+      "recent_telemetry_client_build_coverage_invalid_counts_inconsistent",
+  },
+  {
+    label: "recent client-build rate",
+    layer: "recent-build",
+    changes: { formViewOfStart: 0.5 },
+    blocker:
+      "recent_telemetry_client_build_coverage_invalid_rate_mismatch",
+  },
+] as const;
+
 function canonicalStep(
   report: ReturnType<typeof computeSessionAcquisitionReport>,
   key: "start" | "form_view" | "submit" | "persisted_session",
@@ -3140,6 +3249,32 @@ describe("session acquisition funnel report", () => {
     ).toContain("first_session_telemetry_rate_mismatch");
   });
 
+  it("schema v3 exact ratios: rejects near-equal canonical, validation, and first-session rates", () => {
+    const report = schemaV3HalfRatioReportFixture();
+    expect(validateSessionAcquisitionReport(report)).toEqual({
+      ok: true,
+      blockers: [],
+    });
+
+    const canonicalRate = cloneReport(report);
+    canonicalRate.canonicalFunnel.steps[1].pctOfStart = 0.5000000005;
+    expect(validateSessionAcquisitionReport(canonicalRate).blockers).toContain(
+      "canonical_funnel_rate_mismatch",
+    );
+
+    const validationRate = cloneReport(report);
+    validationRate.validationBranch.pctOfFormViewUsers = 0.5000000005;
+    expect(validateSessionAcquisitionReport(validationRate).blockers).toContain(
+      "validation_branch_rate_mismatch",
+    );
+
+    const firstSessionRate = cloneReport(report);
+    firstSessionRate.firstSessionTelemetryCoverage.coverage = 0.5000000005;
+    expect(
+      validateSessionAcquisitionReport(firstSessionRate).blockers,
+    ).toContain("first_session_telemetry_rate_mismatch");
+  });
+
   it("privacy tamper: rejects identifier keys, UUID values, and unsafe evidence without false positives", () => {
     const report = schemaV3ReportFixture();
 
@@ -3170,6 +3305,103 @@ describe("session acquisition funnel report", () => {
         gaps: ["unsafe correlation evidence flow_id=flow-a"],
       }).blockers,
     ).toContain("report_contains_identifier_evidence");
+  });
+
+  it("privacy hardening: rejects UUIDv7 values with a stable blocker", () => {
+    const report = schemaV3ReportFixture();
+
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        gaps: ["018f0c5e-7b2a-7c4d-8e9f-0123456789ab"],
+      }).blockers,
+    ).toContain("report_contains_uuid");
+  });
+
+  it("privacy matrix: rejects every exact identifier key nested inside arrays", () => {
+    const report = schemaV3ReportFixture();
+
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        readiness: {
+          ...report.readiness,
+          diagnostic: [{ submitEventsMissingSessionId: 1 }],
+        },
+      }).blockers,
+    ).not.toContain("report_contains_identifier_key");
+
+    for (const key of [
+      "user_id",
+      "userId",
+      "flow_id",
+      "flowId",
+      "event_id",
+      "eventId",
+      "session_id",
+      "sessionId",
+    ]) {
+      expect(
+        validateSessionAcquisitionReport({
+          ...report,
+          readiness: {
+            ...report.readiness,
+            diagnostic: [{ aggregate: { [key]: "secret" } }],
+          },
+        }).blockers,
+      ).toContain("report_contains_identifier_key");
+    }
+  });
+
+  it("privacy hardening: returns a stable blocker for cyclic reports", () => {
+    const cyclicReport = cloneReport(schemaV3ReportFixture());
+    const cycle: Record<string, unknown> = {};
+    cycle.self = cycle;
+    cycle.correlationValue = "018f0c5e-7b2a-7c4d-8e9f-0123456789ab";
+    Object.assign(cyclicReport.readiness, { diagnostic: cycle });
+    const blockers = validateSessionAcquisitionReport(cyclicReport).blockers;
+
+    expect(blockers).toContain("report_not_serializable");
+    expect(blockers).toContain("report_contains_uuid");
+  });
+
+  it("privacy hardening: returns a stable blocker for BigInt reports", () => {
+    const bigintReport = cloneReport(schemaV3ReportFixture());
+    Object.assign(bigintReport.readiness, { diagnostic: BigInt(1) });
+    expect(validateSessionAcquisitionReport(bigintReport).blockers).toContain(
+      "report_not_serializable",
+    );
+  });
+
+  it.each(FORM_VIEW_TAMPER_CASES)(
+    "legacy telemetry corrections: rejects form-view $label tampering",
+    ({ layer, changes, blocker }) => {
+      const report = schemaV3ReportFixture();
+      expect(
+        validateSessionAcquisitionReport(
+          tamperFirstCoverage(report, layer, changes),
+        ).blockers,
+      ).toContain(blocker);
+    },
+  );
+
+  it("privacy hardening: refuses a cyclic report before filesystem side effects", () => {
+    const dir = mkdtempSync(join(tmpdir(), "session-funnel-cyclic-report-"));
+    const outputPath = join(dir, "missing", "report.json");
+    const report = schemaV3ReportFixture();
+    const cycle: Record<string, unknown> = {};
+    cycle.self = cycle;
+    Object.assign(report.readiness, { diagnostic: cycle });
+
+    try {
+      expect(() => writeSessionAcquisitionReportJson(outputPath, report)).toThrow(
+        "Refusing to write invalid session acquisition report: report_not_serializable",
+      );
+      expect(existsSync(outputPath)).toBe(false);
+      expect(existsSync(join(dir, "missing"))).toBe(false);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   it("schema v3 tamper: refuses invalid JSON before creating output directories", () => {
