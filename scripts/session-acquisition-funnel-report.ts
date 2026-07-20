@@ -192,6 +192,15 @@ export interface CanonicalSessionFunnel {
   joinCoverage: CanonicalSessionJoinCoverage;
 }
 
+export interface SessionValidationBranch {
+  affectedUsers: number;
+  affectedFlows: number;
+  pctOfFormViewUsers: number | null;
+  recoveredUsers: number;
+  recoveredFlows: number;
+  recoveryRate: number | null;
+}
+
 export interface ActivationSummary {
   windowUsersWithRatedSession: number;
   windowUsersWithThreeRatedSessions: number;
@@ -226,6 +235,7 @@ export interface SessionAcquisitionReport {
   excludedSessionRows: number;
   funnelSteps: FunnelStepMetric[];
   canonicalFunnel: CanonicalSessionFunnel;
+  validationBranch: SessionValidationBranch;
   eventsByType: Record<string, number>;
   eventsByPlatform: Record<string, number>;
   sessionsBySource: Record<string, number>;
@@ -929,6 +939,12 @@ export function computeSessionAcquisitionReport(input: {
     start: input.start,
     end: input.end,
   });
+  const validationBranch = buildSessionValidationBranch(
+    canonicalSessionAnalysis.attempts,
+    canonicalSessionAnalysis.canonicalFunnel.steps.find(
+      (step) => step.key === "form_view",
+    )?.users ?? 0,
+  );
 
   const report: Omit<SessionAcquisitionReport, "readiness"> = {
     reportSchemaVersion: SESSION_ACQUISITION_REPORT_SCHEMA_VERSION,
@@ -944,6 +960,7 @@ export function computeSessionAcquisitionReport(input: {
     excludedSessionRows: input.windowSessions.length - windowSessions.length,
     funnelSteps,
     canonicalFunnel: canonicalSessionAnalysis.canonicalFunnel,
+    validationBranch,
     eventsByType: countBy(events, (event) => event.event_type),
     eventsByPlatform: countBy(events, platformForEvent),
     sessionsBySource: countBy(completedWindowSessions, (session) =>
@@ -4290,6 +4307,44 @@ function computeCanonicalSessionAnalysis(input: {
   };
 
   return { attempts, firstSessionMarkers, canonicalFunnel };
+}
+
+function buildSessionValidationBranch(
+  attempts: CanonicalAttempt[],
+  formViewUsers: number,
+): SessionValidationBranch {
+  const affectedUsers = new Set<string>();
+  const recoveredUsers = new Set<string>();
+  let affectedFlows = 0;
+  let recoveredFlows = 0;
+
+  for (const attempt of attempts) {
+    if (!attempt.formView) continue;
+    const firstSubmit = attempt.submit;
+    const affected = attempt.validationFailures.some((event) => {
+      if (compareCanonicalEvents(event, attempt.formView) < 0) {
+        return false;
+      }
+      return !firstSubmit || compareCanonicalEvents(event, firstSubmit) < 0;
+    });
+    if (!affected) continue;
+
+    affectedFlows += 1;
+    affectedUsers.add(attempt.userId);
+    if (firstSubmit) {
+      recoveredFlows += 1;
+      recoveredUsers.add(attempt.userId);
+    }
+  }
+
+  return {
+    affectedUsers: affectedUsers.size,
+    affectedFlows,
+    pctOfFormViewUsers: ratio(affectedUsers.size, formViewUsers),
+    recoveredUsers: recoveredUsers.size,
+    recoveredFlows,
+    recoveryRate: ratio(recoveredUsers.size, affectedUsers.size),
+  };
 }
 
 function extractValidationErrorCodes(metadata: unknown): string[] {

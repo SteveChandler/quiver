@@ -684,6 +684,324 @@ describe("session acquisition funnel report", () => {
     ]);
   });
 
+  it("validation recovery: leaves a clean submitted flow out of the branch", () => {
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        canonicalEventRow("user-1", "session_log_start", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:00:00.000Z",
+          eventId: "start-a",
+        }),
+        canonicalEventRow("user-1", "session_log_form_view", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:01:00.000Z",
+          eventId: "form-a",
+        }),
+        canonicalEventRow("user-1", "session_log_submit", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:02:00.000Z",
+          eventId: "submit-a",
+          sessionId: "session-a",
+        }),
+      ],
+      windowSessions: [
+        sessionRow("user-1", "2026-06-15T12:02:00.000Z", { id: "session-a" }),
+      ],
+      lifetimeSessions: [],
+    });
+
+    expect(report.validationBranch).toEqual({
+      affectedUsers: 0,
+      affectedFlows: 0,
+      pctOfFormViewUsers: 0,
+      recoveredUsers: 0,
+      recoveredFlows: 0,
+      recoveryRate: null,
+    });
+  });
+
+  it("validation recovery: returns null rates when there are no canonical form views", () => {
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        canonicalEventRow("user-1", "session_log_start", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:00:00.000Z",
+          eventId: "start-a",
+        }),
+      ],
+      windowSessions: [],
+      lifetimeSessions: [],
+    });
+
+    expect(report.validationBranch).toEqual({
+      affectedUsers: 0,
+      affectedFlows: 0,
+      pctOfFormViewUsers: null,
+      recoveredUsers: 0,
+      recoveredFlows: 0,
+      recoveryRate: null,
+    });
+  });
+
+  it("validation recovery: counts an affected user only when the same flow later submits", () => {
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      generatedAt: "2026-07-01T00:00:00.000Z",
+      profiles: [profileRow("user-1")],
+      events: [
+        canonicalEventRow("user-1", "session_log_start", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:00:00.000Z",
+          eventId: "start-a",
+        }),
+        canonicalEventRow("user-1", "session_log_form_view", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:01:00.000Z",
+          eventId: "form-a",
+        }),
+        canonicalEventRow("user-1", "session_log_validation_failed", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:02:00.000Z",
+          eventId: "validation-a",
+        }),
+        canonicalEventRow("user-1", "session_log_submit", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:03:00.000Z",
+          eventId: "submit-a",
+          sessionId: "session-a",
+        }),
+      ],
+      windowSessions: [
+        sessionRow("user-1", "2026-06-15T12:03:00.000Z", { id: "session-a" }),
+      ],
+      lifetimeSessions: [],
+    });
+
+    expect(report.validationBranch).toEqual({
+      affectedUsers: 1,
+      affectedFlows: 1,
+      pctOfFormViewUsers: 1,
+      recoveredUsers: 1,
+      recoveredFlows: 1,
+      recoveryRate: 1,
+    });
+  });
+
+  it("validation recovery: does not recover a validation failure through another flow", () => {
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        canonicalEventRow("user-1", "session_log_start", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:00:00.000Z",
+          eventId: "start-a",
+        }),
+        canonicalEventRow("user-1", "session_log_form_view", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:01:00.000Z",
+          eventId: "form-a",
+        }),
+        canonicalEventRow("user-1", "session_log_validation_failed", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:02:00.000Z",
+          eventId: "validation-a",
+        }),
+        canonicalEventRow("user-1", "session_log_start", {
+          flowId: "flow-b",
+          clientStageAt: "2026-06-15T12:03:00.000Z",
+          eventId: "start-b",
+        }),
+        canonicalEventRow("user-1", "session_log_form_view", {
+          flowId: "flow-b",
+          clientStageAt: "2026-06-15T12:04:00.000Z",
+          eventId: "form-b",
+        }),
+        canonicalEventRow("user-1", "session_log_submit", {
+          flowId: "flow-b",
+          clientStageAt: "2026-06-15T12:05:00.000Z",
+          eventId: "submit-b",
+          sessionId: "session-b",
+        }),
+      ],
+      windowSessions: [
+        sessionRow("user-1", "2026-06-15T12:05:00.000Z", { id: "session-b" }),
+      ],
+      lifetimeSessions: [],
+    });
+
+    expect(report.validationBranch).toEqual({
+      affectedUsers: 1,
+      affectedFlows: 1,
+      pctOfFormViewUsers: 1,
+      recoveredUsers: 0,
+      recoveredFlows: 0,
+      recoveryRate: 0,
+    });
+  });
+
+  it("validation recovery: orders equal logical timestamps by delivery time", () => {
+    const baseEvents = [
+      canonicalEventRow("user-1", "session_log_start", {
+        flowId: "flow-a",
+        clientStageAt: "2026-06-15T12:00:00.000Z",
+        eventId: "start-a",
+      }),
+      canonicalEventRow("user-1", "session_log_form_view", {
+        flowId: "flow-a",
+        clientStageAt: "2026-06-15T12:01:00.000Z",
+        eventId: "form-a",
+      }),
+    ];
+    const reportWithEarlierValidation = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        ...baseEvents,
+        canonicalEventRow("user-1", "session_log_validation_failed", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:02:00.000Z",
+          createdAt: "2026-06-15T12:03:00.000Z",
+          eventId: "validation-a",
+        }),
+        canonicalEventRow("user-1", "session_log_submit", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:02:00.000Z",
+          createdAt: "2026-06-15T12:04:00.000Z",
+          eventId: "submit-a",
+          sessionId: "session-a",
+        }),
+      ],
+      windowSessions: [
+        sessionRow("user-1", "2026-06-15T12:02:00.000Z", { id: "session-a" }),
+      ],
+      lifetimeSessions: [],
+    });
+    const reportWithLaterValidation = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        ...baseEvents,
+        canonicalEventRow("user-1", "session_log_validation_failed", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:02:00.000Z",
+          createdAt: "2026-06-15T12:04:00.000Z",
+          eventId: "validation-a",
+        }),
+        canonicalEventRow("user-1", "session_log_submit", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:02:00.000Z",
+          createdAt: "2026-06-15T12:03:00.000Z",
+          eventId: "submit-a",
+          sessionId: "session-a",
+        }),
+      ],
+      windowSessions: [
+        sessionRow("user-1", "2026-06-15T12:02:00.000Z", { id: "session-a" }),
+      ],
+      lifetimeSessions: [],
+    });
+
+    expect(reportWithEarlierValidation.validationBranch).toMatchObject({
+      affectedFlows: 1,
+      recoveredFlows: 1,
+    });
+    expect(reportWithLaterValidation.validationBranch).toMatchObject({
+      affectedFlows: 0,
+      recoveredFlows: 0,
+    });
+  });
+
+  it("validation recovery: counts repeated failures once per flow and deduplicates users", () => {
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1"), profileRow("user-2")],
+      events: [
+        ...["flow-a", "flow-b"].flatMap((flowId, index) => {
+          const minute = index * 4;
+          return [
+            canonicalEventRow("user-1", "session_log_start", {
+              flowId,
+              clientStageAt: `2026-06-15T12:0${minute}:00.000Z`,
+              eventId: `${flowId}-start`,
+            }),
+            canonicalEventRow("user-1", "session_log_form_view", {
+              flowId,
+              clientStageAt: `2026-06-15T12:0${minute + 1}:00.000Z`,
+              eventId: `${flowId}-form`,
+            }),
+            canonicalEventRow("user-1", "session_log_validation_failed", {
+              flowId,
+              clientStageAt: `2026-06-15T12:0${minute + 2}:00.000Z`,
+              eventId: `${flowId}-validation-1`,
+            }),
+            canonicalEventRow("user-1", "session_log_validation_failed", {
+              flowId,
+              clientStageAt: `2026-06-15T12:0${minute + 2}:30.000Z`,
+              eventId: `${flowId}-validation-2`,
+            }),
+            ...(flowId === "flow-a"
+              ? [
+                  canonicalEventRow("user-1", "session_log_submit", {
+                    flowId,
+                    clientStageAt: `2026-06-15T12:0${minute + 3}:00.000Z`,
+                    eventId: `${flowId}-submit`,
+                    sessionId: `${flowId}-session`,
+                  }),
+                ]
+              : []),
+          ];
+        }),
+        canonicalEventRow("user-2", "session_log_start", {
+          flowId: "flow-c",
+          clientStageAt: "2026-06-15T12:10:00.000Z",
+          eventId: "start-c",
+        }),
+        canonicalEventRow("user-2", "session_log_form_view", {
+          flowId: "flow-c",
+          clientStageAt: "2026-06-15T12:11:00.000Z",
+          eventId: "form-c",
+        }),
+        canonicalEventRow("user-2", "session_log_validation_failed", {
+          flowId: "flow-c",
+          clientStageAt: "2026-06-15T12:12:00.000Z",
+          eventId: "validation-c",
+        }),
+        canonicalEventRow("user-2", "session_log_submit", {
+          flowId: "flow-c",
+          clientStageAt: "2026-06-15T12:13:00.000Z",
+          eventId: "submit-c",
+          sessionId: "session-c",
+        }),
+      ],
+      windowSessions: [
+        sessionRow("user-1", "2026-06-15T12:03:00.000Z", { id: "flow-a-session" }),
+        sessionRow("user-2", "2026-06-15T12:13:00.000Z", { id: "session-c" }),
+      ],
+      lifetimeSessions: [],
+    });
+
+    expect(report.validationBranch).toEqual({
+      affectedUsers: 2,
+      affectedFlows: 3,
+      pctOfFormViewUsers: 1,
+      recoveredUsers: 2,
+      recoveredFlows: 2,
+      recoveryRate: 1,
+    });
+  });
+
   it("canonical funnel: does not stitch stages from separate flows", () => {
     const report = computeSessionAcquisitionReport({
       start: START,
