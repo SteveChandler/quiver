@@ -31,8 +31,9 @@ const DEFAULT_MIN_RECENT_BUILD_METADATA_COVERAGE = 0.8;
 const DEFAULT_RECENT_TELEMETRY_DAYS = 7;
 const SESSION_ACQUISITION_REPORT_SCHEMA_VERSION = 3;
 const MAX_GENERATED_AT_FUTURE_SKEW_MS = 5 * 60 * 1000;
+const MAX_APP_VERSION_LENGTH = 64;
 const UUID_PATTERN =
-  /\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/i;
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 const UNSAFE_IDENTIFIER_EVIDENCE_PATTERN =
   /\b(?:user_id|flow_id|event_id|session_id)\s*[:=]\s*\S+/i;
 const UNSAFE_IDENTIFIER_KEYS = new Set([
@@ -508,6 +509,13 @@ export function sessionAcquisitionReadinessCriteriaFromOptions(
 type AdminClient = SupabaseClient<Database>;
 type PlatformActorMap = Map<string, Map<string, Set<string>>>;
 type ClientBuildActorMap = Map<string, Map<string, Set<string>>>;
+
+export interface SessionAcquisitionSourceRows {
+  events: SessionAcquisitionEventRow[];
+  windowSessions: SessionAcquisitionSessionRow[];
+  lifetimeSessions: SessionAcquisitionSessionRow[];
+  profiles: SessionAcquisitionProfileRow[];
+}
 
 export function parseCliArgs(argv: string[], now: Date = new Date()): CliOptions {
   let start: string | null = null;
@@ -3571,6 +3579,43 @@ async function fetchLifetimeSessionsForUsers(
   return rows;
 }
 
+export async function readSessionAcquisitionSourceRows(
+  supabase: AdminClient,
+  options: CliOptions
+): Promise<SessionAcquisitionSourceRows> {
+  const [events, windowSessions, profilesCreatedInWindow] = await Promise.all([
+    fetchEventRows(supabase, options),
+    fetchWindowSessionRows(supabase, options),
+    fetchProfilesCreatedInWindow(supabase, options),
+  ]);
+
+  const scopedUserIds = Array.from(
+    new Set(
+      [
+        ...events.flatMap((event) => (event.user_id ? [event.user_id] : [])),
+        ...windowSessions.map((session) => session.user_id),
+        ...profilesCreatedInWindow.map((profile) => profile.id),
+      ].sort()
+    )
+  );
+  const [scopedProfiles, lifetimeSessions] = await Promise.all([
+    fetchProfilesForUsers(supabase, scopedUserIds),
+    fetchLifetimeSessionsForUsers(supabase, scopedUserIds, options.end),
+  ]);
+
+  const profilesById = new Map<string, SessionAcquisitionProfileRow>();
+  for (const profile of [...profilesCreatedInWindow, ...scopedProfiles]) {
+    profilesById.set(profile.id, profile);
+  }
+
+  return {
+    events,
+    windowSessions,
+    lifetimeSessions,
+    profiles: Array.from(profilesById.values()),
+  };
+}
+
 function profileSelect(): string {
   return [
     "id",
@@ -4620,7 +4665,16 @@ function normalizeFiniteLabel(
 function normalizeAppVersion(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value.trim();
-  return APP_VERSION_PATTERN.test(normalized) ? normalized : null;
+  return isSafeAppVersion(normalized) ? normalized : null;
+}
+
+function isSafeAppVersion(value: string): boolean {
+  return (
+    value.length <= MAX_APP_VERSION_LENGTH &&
+    APP_VERSION_PATTERN.test(value) &&
+    !UUID_PATTERN.test(value) &&
+    !UNSAFE_IDENTIFIER_EVIDENCE_PATTERN.test(value)
+  );
 }
 
 function normalizeAppBuild(value: unknown): string | null {
@@ -4651,7 +4705,7 @@ function isSafeClientBuildLabel(value: string): boolean {
   return (
     isSafePlatformLabel(platform) &&
     (appVersion === "unknown-version" ||
-      APP_VERSION_PATTERN.test(appVersion)) &&
+      isSafeAppVersion(appVersion)) &&
     (appBuild === "unknown-build" ||
       (APP_BUILD_PATTERN.test(appBuild) &&
         Number.isSafeInteger(Number(appBuild))))
@@ -5305,38 +5359,15 @@ async function runCli(): Promise<void> {
   }
 
   const supabase = createAdminClient();
-  const [events, windowSessions, profilesCreatedInWindow] = await Promise.all([
-    fetchEventRows(supabase, options),
-    fetchWindowSessionRows(supabase, options),
-    fetchProfilesCreatedInWindow(supabase, options),
-  ]);
-
-  const scopedUserIds = Array.from(
-    new Set(
-      [
-        ...events.flatMap((event) => (event.user_id ? [event.user_id] : [])),
-        ...windowSessions.map((session) => session.user_id),
-        ...profilesCreatedInWindow.map((profile) => profile.id),
-      ].sort()
-    )
-  );
-
-  const [scopedProfiles, lifetimeSessions] = await Promise.all([
-    fetchProfilesForUsers(supabase, scopedUserIds),
-    fetchLifetimeSessionsForUsers(supabase, scopedUserIds, options.end),
-  ]);
-
-  const profilesById = new Map<string, SessionAcquisitionProfileRow>();
-  for (const profile of [...profilesCreatedInWindow, ...scopedProfiles]) {
-    profilesById.set(profile.id, profile);
-  }
+  const { events, windowSessions, lifetimeSessions, profiles } =
+    await readSessionAcquisitionSourceRows(supabase, options);
 
   const report = computeSessionAcquisitionReport({
     ...options,
     events,
     windowSessions,
     lifetimeSessions,
-    profiles: Array.from(profilesById.values()),
+    profiles,
     readinessCriteria: sessionAcquisitionReadinessCriteriaFromOptions(options),
   });
 

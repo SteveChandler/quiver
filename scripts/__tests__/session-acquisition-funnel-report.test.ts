@@ -7,6 +7,7 @@ import {
   computeSessionAcquisitionReport,
   computeTimeToNthRatedSession,
   parseCliArgs,
+  readSessionAcquisitionSourceRows,
   renderSessionAcquisitionReport,
   SESSION_ACQUISITION_EVENT_TYPES,
   SESSION_FORM_VALIDATION_ERROR_CODES,
@@ -359,6 +360,105 @@ describe("session acquisition funnel report", () => {
       { column: "created_at", options: { ascending: true } },
       { column: "id", options: { ascending: true } },
     ]);
+  });
+
+  it("stable pagination: applies deterministic ordering in every offset-paginated fetch path", async () => {
+    type QueryTrace = {
+      table: string;
+      calls: string[];
+    };
+    const traces: QueryTrace[] = [];
+    const fakeSupabase = {
+      from(table: string) {
+        const trace: QueryTrace = { table, calls: [] };
+        traces.push(trace);
+
+        const builder = {
+          select(): typeof builder {
+            return builder;
+          },
+          gte(column: string): typeof builder {
+            trace.calls.push(`gte:${column}`);
+            return builder;
+          },
+          lt(column: string): typeof builder {
+            trace.calls.push(`lt:${column}`);
+            return builder;
+          },
+          in(column: string): typeof builder {
+            trace.calls.push(`in:${column}`);
+            return builder;
+          },
+          order(
+            column: string,
+            options: { ascending: boolean },
+          ): typeof builder {
+            trace.calls.push(
+              `order:${column}:${options.ascending ? "ASC" : "DESC"}`,
+            );
+            return builder;
+          },
+          range(from: number, to: number): typeof builder {
+            trace.calls.push(`range:${from}:${to}`);
+            return builder;
+          },
+          then(resolve: (result: { data: unknown[]; error: null }) => unknown) {
+            const isCreatedProfileQuery =
+              table === "profiles" && trace.calls.includes("gte:created_at");
+            return resolve({
+              data: isCreatedProfileQuery
+                ? [profileRow("pagination-user")]
+                : [],
+              error: null,
+            });
+          },
+        };
+
+        return builder;
+      },
+    };
+
+    await readSessionAcquisitionSourceRows(
+      fakeSupabase as unknown as Parameters<
+        typeof readSessionAcquisitionSourceRows
+      >[0],
+      parseCliArgs(["--start", START, "--end", END]),
+    );
+
+    const paginatedTraces = traces.filter((trace) =>
+      trace.calls.some((call) => call.startsWith("range:")),
+    );
+    expect(paginatedTraces).toHaveLength(4);
+
+    const callsByPath = Object.fromEntries(
+      paginatedTraces.map((trace) => {
+        const path =
+          trace.table === "user_events"
+            ? "events"
+            : trace.table === "profiles"
+              ? "profiles-created-in-window"
+              : trace.calls.includes("gte:created_at")
+                ? "window-sessions"
+                : "lifetime-sessions";
+        return [
+          path,
+          trace.calls.filter(
+            (call) => call.startsWith("order:") || call.startsWith("range:"),
+          ),
+        ];
+      }),
+    );
+    const expectedPaginationCalls = [
+      "order:created_at:ASC",
+      "order:id:ASC",
+      "range:0:999",
+    ];
+    expect(callsByPath).toEqual({
+      events: expectedPaginationCalls,
+      "window-sessions": expectedPaginationCalls,
+      "profiles-created-in-window": expectedPaginationCalls,
+      "lifetime-sessions": expectedPaginationCalls,
+    });
   });
 
   it("parses a default 30-day window from the provided clock", () => {
@@ -3081,6 +3181,75 @@ describe("session acquisition funnel report", () => {
     expect(markdown).not.toContain(platformUuid);
     expect(markdown).not.toContain(versionUuid);
     expect(markdown).not.toContain(buildUuid);
+  });
+
+  it("final review privacy: bounds app versions and removes identifier-bearing suffixes", () => {
+    const uuidVersion =
+      "1.2.3-22222222-2222-4222-8222-222222222222";
+    const oversizedVersion = `1.2.3-${"a".repeat(80)}`;
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      generatedAt: "2026-07-01T00:00:00.000Z",
+      profiles: [
+        profileRow("uuid-version-user"),
+        profileRow("oversized-version-user"),
+        profileRow("valid-version-user"),
+      ],
+      events: [
+        eventRow("uuid-version-user", "session_log_start", {
+          created_at: "2026-06-28T12:00:00.000Z",
+          metadata: {
+            _platform: "native-ios",
+            app_version: uuidVersion,
+            app_build: "42",
+          },
+        }),
+        eventRow("oversized-version-user", "session_log_start", {
+          created_at: "2026-06-28T12:00:00.000Z",
+          metadata: {
+            _platform: "native-ios",
+            app_version: oversizedVersion,
+            app_build: "42",
+          },
+        }),
+        eventRow("valid-version-user", "session_log_start", {
+          created_at: "2026-06-28T12:00:00.000Z",
+          metadata: {
+            _platform: "native-ios",
+            app_version: "1.2.3-beta.1",
+            app_build: "42",
+          },
+        }),
+      ],
+      windowSessions: [],
+      lifetimeSessions: [],
+    });
+
+    expect(
+      report.recentTelemetry.telemetryCoverageByClientBuild.map(
+        ({ clientBuild, startActors }) => ({ clientBuild, startActors }),
+      ),
+    ).toEqual([
+      {
+        clientBuild: "native-ios / unknown-version / 42",
+        startActors: 2,
+      },
+      {
+        clientBuild: "native-ios / 1.2.3-beta.1 / 42",
+        startActors: 1,
+      },
+    ]);
+    expect(validateSessionAcquisitionReport(report)).toEqual({
+      ok: true,
+      blockers: [],
+    });
+
+    const markdown = renderSessionAcquisitionReport(report);
+    expect(markdown).toContain("native-ios / 1.2.3-beta.1 / 42");
+    expect(markdown).toContain("native-ios / unknown-version / 42");
+    expect(markdown).not.toContain(uuidVersion);
+    expect(markdown).not.toContain(oversizedVersion);
   });
 
   it("final review privacy: renderer rejects unnormalized tampering with blocker codes", () => {
