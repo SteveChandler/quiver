@@ -752,6 +752,76 @@ describe("session acquisition funnel report", () => {
     expect(canonicalStep(report, "submit").flows).toBe(0);
   });
 
+  it("canonical funnel: does not advance a form that input-orders before an equal-time start", () => {
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        canonicalEventRow("user-1", "session_log_form_view", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:02:00.000Z",
+          createdAt: "2026-06-15T12:01:00.000Z",
+          eventId: "form-a",
+        }),
+        canonicalEventRow("user-1", "session_log_start", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:02:00.000Z",
+          createdAt: "2026-06-15T12:01:00.000Z",
+          eventId: "start-a",
+        }),
+        canonicalEventRow("user-1", "session_log_submit", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:03:00.000Z",
+          eventId: "submit-a",
+          sessionId: "session-a",
+        }),
+      ],
+      windowSessions: [
+        sessionRow("user-1", "2026-06-15T12:03:00.000Z", { id: "session-a" }),
+      ],
+      lifetimeSessions: [],
+    });
+
+    expect(canonicalStep(report, "form_view").flows).toBe(0);
+    expect(canonicalStep(report, "submit").flows).toBe(0);
+  });
+
+  it("canonical funnel: does not advance a submit that sorts before an equal-time form", () => {
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        canonicalEventRow("user-1", "session_log_start", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:01:00.000Z",
+          eventId: "start-a",
+        }),
+        canonicalEventRow("user-1", "session_log_form_view", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:02:00.000Z",
+          createdAt: "2026-06-15T12:03:00.000Z",
+          eventId: "form-a",
+        }),
+        canonicalEventRow("user-1", "session_log_submit", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:02:00.000Z",
+          createdAt: "2026-06-15T12:02:00.000Z",
+          eventId: "submit-a",
+          sessionId: "session-a",
+        }),
+      ],
+      windowSessions: [
+        sessionRow("user-1", "2026-06-15T12:02:00.000Z", { id: "session-a" }),
+      ],
+      lifetimeSessions: [],
+    });
+
+    expect(canonicalStep(report, "form_view").flows).toBe(1);
+    expect(canonicalStep(report, "submit").flows).toBe(0);
+  });
+
   it("canonical funnel: excludes unusable logical timestamps and records coverage", () => {
     const report = computeSessionAcquisitionReport({
       start: START,
@@ -807,6 +877,157 @@ describe("session acquisition funnel report", () => {
     expect(report.canonicalFunnel.joinCoverage.funnelEventsMissingFlowId).toBe(
       1,
     );
+  });
+
+  it("canonical funnel: keeps the same flow ID isolated by user", () => {
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1"), profileRow("user-2")],
+      events: [
+        canonicalEventRow("user-1", "session_log_start", {
+          flowId: "shared-flow",
+          clientStageAt: "2026-06-15T12:01:00.000Z",
+          eventId: "start-user-1",
+        }),
+        canonicalEventRow("user-2", "session_log_form_view", {
+          flowId: "shared-flow",
+          clientStageAt: "2026-06-15T12:02:00.000Z",
+          eventId: "form-user-2",
+        }),
+        canonicalEventRow("user-2", "session_log_submit", {
+          flowId: "shared-flow",
+          clientStageAt: "2026-06-15T12:03:00.000Z",
+          eventId: "submit-user-2",
+          sessionId: "session-user-2",
+        }),
+      ],
+      windowSessions: [
+        sessionRow("user-2", "2026-06-15T12:03:00.000Z", {
+          id: "session-user-2",
+        }),
+      ],
+      lifetimeSessions: [],
+    });
+
+    expect(canonicalStep(report, "start")).toMatchObject({ users: 1, flows: 1 });
+    expect(canonicalStep(report, "form_view")).toMatchObject({ users: 0, flows: 0 });
+    expect(canonicalStep(report, "submit")).toMatchObject({ users: 0, flows: 0 });
+  });
+
+  it("canonical funnel: counts two qualifying flows for one user separately", () => {
+    const events = ["flow-a", "flow-b"].flatMap((flowId, index) => {
+      const minute = index * 3 + 1;
+      const stageAt = (offset: number) =>
+        `2026-06-15T12:${String(minute + offset).padStart(2, "0")}:00.000Z`;
+      return [
+        canonicalEventRow("user-1", "session_log_start", {
+          flowId,
+          clientStageAt: stageAt(0),
+          eventId: `${flowId}-start`,
+        }),
+        canonicalEventRow("user-1", "session_log_form_view", {
+          flowId,
+          clientStageAt: stageAt(1),
+          eventId: `${flowId}-form`,
+        }),
+        canonicalEventRow("user-1", "session_log_submit", {
+          flowId,
+          clientStageAt: stageAt(2),
+          eventId: `${flowId}-submit`,
+          sessionId: `${flowId}-session`,
+        }),
+      ];
+    });
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events,
+      windowSessions: [
+        sessionRow("user-1", "2026-06-15T12:03:00.000Z", {
+          id: "flow-a-session",
+        }),
+        sessionRow("user-1", "2026-06-15T12:06:00.000Z", {
+          id: "flow-b-session",
+        }),
+      ],
+      lifetimeSessions: [],
+    });
+
+    for (const key of ["start", "form_view", "submit", "persisted_session"] as const) {
+      expect(canonicalStep(report, key)).toMatchObject({ users: 1, flows: 2 });
+    }
+  });
+
+  it("canonical funnel: records submits without session IDs without advancing them", () => {
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        canonicalEventRow("user-1", "session_log_start", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:01:00.000Z",
+          eventId: "start-a",
+        }),
+        canonicalEventRow("user-1", "session_log_form_view", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:02:00.000Z",
+          eventId: "form-a",
+        }),
+        canonicalEventRow("user-1", "session_log_submit", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:03:00.000Z",
+          eventId: "submit-a",
+        }),
+      ],
+      windowSessions: [],
+      lifetimeSessions: [],
+    });
+
+    expect(canonicalStep(report, "form_view").flows).toBe(1);
+    expect(canonicalStep(report, "submit").flows).toBe(0);
+    expect(report.canonicalFunnel.joinCoverage.submitEventsMissingSessionId).toBe(1);
+  });
+
+  it("canonical funnel: accepts ordered flows without stable event IDs", () => {
+    const report = computeSessionAcquisitionReport({
+      start: START,
+      end: END,
+      profiles: [profileRow("user-1")],
+      events: [
+        canonicalEventRow("user-1", "session_log_start", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:01:00.000Z",
+          eventId: "placeholder",
+          extra: { event_id: "" },
+        }),
+        canonicalEventRow("user-1", "session_log_form_view", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:02:00.000Z",
+          eventId: "placeholder",
+          extra: { event_id: "" },
+        }),
+        canonicalEventRow("user-1", "session_log_submit", {
+          flowId: "flow-a",
+          clientStageAt: "2026-06-15T12:03:00.000Z",
+          eventId: "placeholder",
+          sessionId: "session-a",
+          extra: { event_id: "" },
+        }),
+      ],
+      windowSessions: [
+        sessionRow("user-1", "2026-06-15T12:03:00.000Z", { id: "session-a" }),
+      ],
+      lifetimeSessions: [],
+    });
+
+    expect(canonicalStep(report, "persisted_session")).toMatchObject({
+      users: 1,
+      flows: 1,
+    });
+    expect(report.canonicalFunnel.joinCoverage.stableIdConflictGroups).toBe(0);
   });
 
   it("canonical funnel: deduplicates identical stable-ID retries", () => {
@@ -897,7 +1118,13 @@ describe("session acquisition funnel report", () => {
     });
 
     expect(canonicalStep(report, "start").flows).toBe(0);
-    expect(report.canonicalFunnel.joinCoverage.stableIdConflictGroups).toBe(4);
+    expect(report.canonicalFunnel.joinCoverage).toMatchObject({
+      stableIdConflictGroups: 4,
+      funnelEventRowsMissingUserId: 0,
+      funnelEventsMissingFlowId: 0,
+      submitEventsMissingSessionId: 0,
+      funnelEventsWithUnusableClientStageAt: 0,
+    });
   });
 
   it("canonical funnel: records incomplete first-session markers outside submit attempts", () => {

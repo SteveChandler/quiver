@@ -4165,21 +4165,26 @@ function computeCanonicalSessionAnalysis(input: {
     ) {
       continue;
     }
+    const startIndex = ordered.indexOf(start);
     const formView =
-      ordered.find(
-        (event) =>
-          event.eventType === "session_log_form_view" &&
-          event.clientStageAtMs !== null &&
-          event.clientStageAtMs >= start.clientStageAtMs,
-      ) ?? null;
-    const submit = formView
-      ? (ordered.find(
+      ordered
+        .slice(startIndex + 1)
+        .find(
           (event) =>
-            event.eventType === "session_log_submit" &&
+            event.eventType === "session_log_form_view" &&
             event.clientStageAtMs !== null &&
-            event.clientStageAtMs >= formView.clientStageAtMs! &&
-            event.sessionId !== null,
-        ) ?? null)
+            event.clientStageAtMs >= start.clientStageAtMs,
+        ) ?? null;
+    const submit = formView
+      ? (ordered
+          .slice(ordered.indexOf(formView) + 1)
+          .find(
+            (event) =>
+              event.eventType === "session_log_submit" &&
+              event.clientStageAtMs !== null &&
+              event.clientStageAtMs >= formView.clientStageAtMs! &&
+              event.sessionId !== null,
+          ) ?? null)
       : null;
     attempts.push({
       userId: start.userId,
