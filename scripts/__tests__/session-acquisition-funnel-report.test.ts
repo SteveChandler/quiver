@@ -162,6 +162,46 @@ function firstSessionMarkerEvent(input: {
   });
 }
 
+function schemaV3ReportFixture() {
+  const session = sessionRow("user-1", "2026-06-15T12:02:00.000Z", {
+    id: "session-a",
+  });
+  return computeSessionAcquisitionReport({
+    start: START,
+    end: END,
+    generatedAt: "2026-07-01T00:00:00.000Z",
+    recentTelemetryDays: 30,
+    profiles: [profileRow("user-1")],
+    events: [
+      ...persistedCanonicalFlowEvents({
+        userId: "user-1",
+        flowId: "flow-a",
+        sessionId: session.id,
+      }),
+      canonicalEventRow("user-1", "session_log_validation_failed", {
+        flowId: "flow-a",
+        clientStageAt: "2026-06-15T12:01:30.000Z",
+        eventId: "validation-a",
+      }),
+      firstSessionMarkerEvent({
+        userId: "user-1",
+        sessionId: session.id,
+        eventId: "marker-a",
+      }),
+    ],
+    windowSessions: [session],
+    lifetimeSessions: [session],
+  });
+}
+
+function cloneReport(
+  report: ReturnType<typeof computeSessionAcquisitionReport>,
+): ReturnType<typeof computeSessionAcquisitionReport> {
+  return JSON.parse(JSON.stringify(report)) as ReturnType<
+    typeof computeSessionAcquisitionReport
+  >;
+}
+
 function canonicalStep(
   report: ReturnType<typeof computeSessionAcquisitionReport>,
   key: "start" | "form_view" | "submit" | "persisted_session",
@@ -2825,24 +2865,18 @@ describe("session acquisition funnel report", () => {
   });
 
   it("renders aggregate-only markdown without raw actor identifiers", () => {
-    const report = computeSessionAcquisitionReport({
-      start: START,
-      end: END,
-      generatedAt: "2026-06-19T00:00:00.000Z",
-      profiles: [profileRow("user-secret")],
-      events: [
-        eventRow("user-secret", "session_log_start"),
-        eventRow(null, "session_log_start", { session_id: "anon-secret" }),
-      ],
-      windowSessions: [sessionRow("user-secret", "2026-06-15T12:00:00.000Z")],
-      lifetimeSessions: [sessionRow("user-secret", "2026-06-15T12:00:00.000Z")],
-    });
+    const report = schemaV3ReportFixture();
 
     const markdown = renderSessionAcquisitionReport(report);
 
     expect(markdown).toContain("# Track B Session Acquisition Instrumentation Report");
-    expect(markdown).not.toContain("user-secret");
-    expect(markdown).not.toContain("anon-secret");
+    expect(markdown).toContain("## Canonical Session Funnel");
+    expect(markdown).toContain("## Validation Recovery");
+    expect(markdown).toContain("## First-Session Telemetry Coverage");
+    expect(markdown).toContain("Correlation-complete traffic");
+    expect(markdown).toContain("right-censor offline delivery after the report end");
+    expect(markdown).not.toContain("flow-a");
+    expect(markdown).not.toContain("session-a");
   });
 
   it("writes aggregate-only JSON without raw actor identifiers", () => {
@@ -2853,7 +2887,7 @@ describe("session acquisition funnel report", () => {
       const report = computeSessionAcquisitionReport({
         start: START,
         end: END,
-        generatedAt: "2026-06-19T00:00:00.000Z",
+        generatedAt: "2026-07-01T00:00:00.000Z",
         profiles: [profileRow("user-secret")],
         events: [
           eventRow("user-secret", "session_log_start"),
@@ -2868,11 +2902,292 @@ describe("session acquisition funnel report", () => {
       const resolvedPath = writeSessionAcquisitionReportJson(outputPath, report);
       const json = readFileSync(resolvedPath, "utf8");
 
-      expect(json).toContain('"reportSchemaVersion": 2');
-      expect(json).toContain('"generatedAt": "2026-06-19T00:00:00.000Z"');
+      const parsed = JSON.parse(json);
+
+      expect(json).toContain('"reportSchemaVersion": 3');
+      expect(json).toContain('"generatedAt": "2026-07-01T00:00:00.000Z"');
       expect(json).toContain('"savedSessions": 1');
+      expect(parsed.reportSchemaVersion).toBe(3);
+      expect(
+        parsed.canonicalFunnel.steps.map((step: { key: string }) => step.key),
+      ).toEqual(["start", "form_view", "submit", "persisted_session"]);
       expect(json).not.toContain("user-secret");
       expect(json).not.toContain("anon-secret");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("schema v3 tamper: enforces exact report and canonical object keys", () => {
+    const report = schemaV3ReportFixture();
+
+    expect(validateSessionAcquisitionReport(report)).toEqual({
+      ok: true,
+      blockers: [],
+    });
+    expect(
+      validateSessionAcquisitionReport({ ...report, unexpectedAggregate: 1 })
+        .blockers,
+    ).toContain("report_keys_invalid");
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        canonicalFunnel: {
+          ...report.canonicalFunnel,
+          unexpectedAggregate: 1,
+        },
+      }).blockers,
+    ).toContain("canonical_funnel_keys_invalid");
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        canonicalFunnel: {
+          ...report.canonicalFunnel,
+          steps: report.canonicalFunnel.steps.map((step, index) =>
+            index === 0 ? { ...step, unexpectedAggregate: 1 } : step,
+          ),
+        },
+      }).blockers,
+    ).toContain("canonical_funnel_step_keys_invalid");
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        validationBranch: {
+          ...report.validationBranch,
+          unexpectedAggregate: 1,
+        },
+      }).blockers,
+    ).toContain("validation_branch_keys_invalid");
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        firstSessionTelemetryCoverage: {
+          ...report.firstSessionTelemetryCoverage,
+          unexpectedAggregate: 1,
+        },
+      }).blockers,
+    ).toContain("first_session_telemetry_keys_invalid");
+  });
+
+  it("schema v3 tamper: rejects stale, missing, reordered, and duplicate canonical steps", () => {
+    const report = schemaV3ReportFixture();
+
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        reportSchemaVersion: 2,
+      }).blockers,
+    ).toContain("report_schema_version_invalid");
+
+    for (const steps of [
+      report.canonicalFunnel.steps.slice(0, 3),
+      [
+        report.canonicalFunnel.steps[1],
+        report.canonicalFunnel.steps[0],
+        ...report.canonicalFunnel.steps.slice(2),
+      ],
+      [
+        report.canonicalFunnel.steps[0],
+        report.canonicalFunnel.steps[1],
+        report.canonicalFunnel.steps[1],
+        report.canonicalFunnel.steps[3],
+      ],
+    ]) {
+      expect(
+        validateSessionAcquisitionReport({
+          ...report,
+          canonicalFunnel: { ...report.canonicalFunnel, steps },
+        }).blockers,
+      ).toContain("canonical_funnel_step_order_invalid");
+    }
+  });
+
+  it("schema v3 tamper: rejects canonical count, ordering, bounds, and rate violations", () => {
+    const report = schemaV3ReportFixture();
+    const withStep = (
+      index: number,
+      changes: Record<string, unknown>,
+    ): ReturnType<typeof computeSessionAcquisitionReport> => {
+      const tampered = cloneReport(report);
+      Object.assign(tampered.canonicalFunnel.steps[index], changes);
+      return tampered;
+    };
+
+    expect(
+      validateSessionAcquisitionReport(withStep(0, { users: 0.5 })).blockers,
+    ).toContain("canonical_funnel_step_counts_invalid");
+    expect(
+      validateSessionAcquisitionReport(withStep(0, { flows: -1 })).blockers,
+    ).toContain("canonical_funnel_step_counts_invalid");
+    expect(
+      validateSessionAcquisitionReport(
+        withStep(1, { users: 2, flows: 2 }),
+      ).blockers,
+    ).toContain("canonical_funnel_users_non_monotonic");
+    expect(
+      validateSessionAcquisitionReport(withStep(1, { flows: 2 })).blockers,
+    ).toContain("canonical_funnel_flows_non_monotonic");
+    expect(
+      validateSessionAcquisitionReport(withStep(3, { flows: 0 })).blockers,
+    ).toContain("canonical_funnel_users_exceed_flows");
+    expect(
+      validateSessionAcquisitionReport(withStep(0, { pctOfStart: 0.5 }))
+        .blockers,
+    ).toContain("canonical_funnel_rate_mismatch");
+    expect(
+      validateSessionAcquisitionReport(withStep(2, { pctOfPrevious: 0.5 }))
+        .blockers,
+    ).toContain("canonical_funnel_rate_mismatch");
+  });
+
+  it("schema v3 tamper: rejects join coverage and rejection partition violations", () => {
+    const report = schemaV3ReportFixture();
+    const missingJoinField = cloneReport(report);
+    delete (missingJoinField.canonicalFunnel.joinCoverage as Partial<
+      typeof missingJoinField.canonicalFunnel.joinCoverage
+    >).funnelEventsMissingFlowId;
+    const negativeJoinField = cloneReport(report);
+    negativeJoinField.canonicalFunnel.joinCoverage.submitEventsMissingSessionId =
+      -1;
+    const invalidPartition = cloneReport(report);
+    invalidPartition.canonicalFunnel.joinCoverage.submitFlowsWithoutWindowSession =
+      1;
+
+    expect(validateSessionAcquisitionReport(missingJoinField).blockers).toContain(
+      "canonical_join_coverage_keys_invalid",
+    );
+    expect(validateSessionAcquisitionReport(negativeJoinField).blockers).toContain(
+      "canonical_join_coverage_counts_invalid",
+    );
+    expect(validateSessionAcquisitionReport(invalidPartition).blockers).toContain(
+      "canonical_persistence_rejection_partition_invalid",
+    );
+  });
+
+  it("schema v3 tamper: rejects validation recovery bounds and rates", () => {
+    const report = schemaV3ReportFixture();
+
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        validationBranch: { ...report.validationBranch, affectedUsers: 2 },
+      }).blockers,
+    ).toContain("validation_branch_counts_inconsistent");
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        validationBranch: { ...report.validationBranch, affectedFlows: 2 },
+      }).blockers,
+    ).toContain("validation_branch_counts_inconsistent");
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        validationBranch: { ...report.validationBranch, recoveredUsers: 2 },
+      }).blockers,
+    ).toContain("validation_branch_counts_inconsistent");
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        validationBranch: { ...report.validationBranch, recoveredFlows: 2 },
+      }).blockers,
+    ).toContain("validation_branch_counts_inconsistent");
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        validationBranch: {
+          ...report.validationBranch,
+          pctOfFormViewUsers: 0.5,
+        },
+      }).blockers,
+    ).toContain("validation_branch_rate_mismatch");
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        validationBranch: { ...report.validationBranch, recoveryRate: 0.5 },
+      }).blockers,
+    ).toContain("validation_branch_rate_mismatch");
+  });
+
+  it("schema v3 tamper: rejects first-session denominator, marker, and coverage violations", () => {
+    const report = schemaV3ReportFixture();
+
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        firstSessionTelemetryCoverage: {
+          ...report.firstSessionTelemetryCoverage,
+          persistedFirstSessionUsers: 2,
+        },
+      }).blockers,
+    ).toContain("first_session_telemetry_counts_inconsistent");
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        firstSessionTelemetryCoverage: {
+          ...report.firstSessionTelemetryCoverage,
+          markerUsers: 2,
+        },
+      }).blockers,
+    ).toContain("first_session_telemetry_counts_inconsistent");
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        firstSessionTelemetryCoverage: {
+          ...report.firstSessionTelemetryCoverage,
+          coverage: 0.5,
+        },
+      }).blockers,
+    ).toContain("first_session_telemetry_rate_mismatch");
+  });
+
+  it("privacy tamper: rejects identifier keys, UUID values, and unsafe evidence without false positives", () => {
+    const report = schemaV3ReportFixture();
+
+    expect(validateSessionAcquisitionReport(report)).toEqual({
+      ok: true,
+      blockers: [],
+    });
+    for (const key of ["user_id", "flow_id", "event_id", "session_id"]) {
+      expect(
+        validateSessionAcquisitionReport({
+          ...report,
+          readiness: {
+            ...report.readiness,
+            diagnostic: { [key]: "secret" },
+          },
+        }).blockers,
+      ).toContain("report_contains_identifier_key");
+    }
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        gaps: ["11111111-1111-4111-8111-111111111111"],
+      }).blockers,
+    ).toContain("report_contains_uuid");
+    expect(
+      validateSessionAcquisitionReport({
+        ...report,
+        gaps: ["unsafe correlation evidence flow_id=flow-a"],
+      }).blockers,
+    ).toContain("report_contains_identifier_evidence");
+  });
+
+  it("schema v3 tamper: refuses invalid JSON before creating output directories", () => {
+    const dir = mkdtempSync(join(tmpdir(), "session-funnel-invalid-report-"));
+    const outputPath = join(dir, "missing", "report.json");
+    const report = schemaV3ReportFixture();
+
+    try {
+      expect(() =>
+        writeSessionAcquisitionReportJson(outputPath, {
+          ...report,
+          reportSchemaVersion: 2,
+        } as typeof report),
+      ).toThrow(
+        "Refusing to write invalid session acquisition report: report_schema_version_invalid",
+      );
+      expect(existsSync(outputPath)).toBe(false);
+      expect(existsSync(join(dir, "missing"))).toBe(false);
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

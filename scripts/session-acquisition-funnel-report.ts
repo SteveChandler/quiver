@@ -29,10 +29,105 @@ const DEFAULT_MIN_CONDITIONS_SET_COVERAGE = 0.8;
 const DEFAULT_MIN_SUBMIT_EVENT_COVERAGE = 0.8;
 const DEFAULT_MIN_RECENT_BUILD_METADATA_COVERAGE = 0.8;
 const DEFAULT_RECENT_TELEMETRY_DAYS = 7;
-const SESSION_ACQUISITION_REPORT_SCHEMA_VERSION = 2;
+const SESSION_ACQUISITION_REPORT_SCHEMA_VERSION = 3;
 const MAX_GENERATED_AT_FUTURE_SKEW_MS = 5 * 60 * 1000;
 const UUID_PATTERN =
   /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
+const UNSAFE_IDENTIFIER_EVIDENCE_PATTERN =
+  /\b(?:user_id|flow_id|event_id|session_id)\s*[:=]\s*\S+/i;
+const UNSAFE_IDENTIFIER_KEYS = new Set([
+  "user_id",
+  "userId",
+  "flow_id",
+  "flowId",
+  "event_id",
+  "eventId",
+  "session_id",
+  "sessionId",
+]);
+const SESSION_ACQUISITION_REPORT_KEYS = [
+  "reportSchemaVersion",
+  "generatedAt",
+  "start",
+  "end",
+  "days",
+  "eventRows",
+  "sessionRows",
+  "lifetimeSessionRows",
+  "profileRows",
+  "excludedEventRows",
+  "excludedSessionRows",
+  "funnelSteps",
+  "canonicalFunnel",
+  "validationBranch",
+  "firstSessionTelemetryCoverage",
+  "eventsByType",
+  "eventsByPlatform",
+  "sessionsBySource",
+  "savedSessionUsers",
+  "ratedSessionUsers",
+  "faceHeightTruthUsers",
+  "ratedFaceHeightTruthUsers",
+  "savedSessions",
+  "ratedSessions",
+  "faceHeightTruthSessions",
+  "ratedFaceHeightTruthSessions",
+  "abandonedActors",
+  "validationFailedActors",
+  "activation",
+  "onboarding",
+  "readiness",
+  "telemetryCoverage",
+  "telemetryCoverageByPlatform",
+  "recentTelemetry",
+  "validationFailuresByCode",
+  "gaps",
+] as const;
+const CANONICAL_FUNNEL_KEYS = [
+  "grain",
+  "ordering",
+  "steps",
+  "joinCoverage",
+] as const;
+const CANONICAL_STEP_KEYS = [
+  "key",
+  "label",
+  "users",
+  "flows",
+  "pctOfStart",
+  "pctOfPrevious",
+] as const;
+const CANONICAL_JOIN_COVERAGE_KEYS = [
+  "funnelEventRowsMissingUserId",
+  "funnelEventsMissingFlowId",
+  "submitEventsMissingSessionId",
+  "firstSessionMarkersMissingSessionId",
+  "firstSessionMarkersMissingUserId",
+  "funnelEventsWithUnusableClientStageAt",
+  "stableIdConflictGroups",
+  "submitFlowsWithoutWindowSession",
+  "submitFlowsWithSessionOwnerMismatch",
+  "submitFlowsWithIneligibleSession",
+] as const;
+const VALIDATION_BRANCH_KEYS = [
+  "affectedUsers",
+  "affectedFlows",
+  "pctOfFormViewUsers",
+  "recoveredUsers",
+  "recoveredFlows",
+  "recoveryRate",
+] as const;
+const FIRST_SESSION_TELEMETRY_KEYS = [
+  "persistedFirstSessionUsers",
+  "markerUsers",
+  "coverage",
+] as const;
+const CANONICAL_STEP_ORDER = [
+  "start",
+  "form_view",
+  "submit",
+  "persisted_session",
+] as const;
 
 export const SESSION_ACQUISITION_EVENT_TYPES = [
   "session_log_start",
@@ -228,7 +323,7 @@ export interface OnboardingSummary {
 }
 
 export interface SessionAcquisitionReport {
-  reportSchemaVersion: 2;
+  reportSchemaVersion: 3;
   generatedAt: string;
   start: string;
   end: string;
@@ -1065,6 +1160,127 @@ export function renderSessionAcquisitionReport(
     );
   }
   lines.push("");
+  lines.push("## Canonical Session Funnel");
+  lines.push("");
+  lines.push("- Grain: unique authenticated users; flow counts are diagnostic.");
+  lines.push(
+    "- Correlation-complete traffic only; legacy/web rows without flow metadata remain diagnostic."
+  );
+  lines.push("");
+  lines.push("| Step | Users | Flows | Of start | From previous |");
+  lines.push("| --- | ---: | ---: | ---: | ---: |");
+  for (const step of report.canonicalFunnel.steps) {
+    lines.push(
+      "| " +
+        step.label +
+        " | " +
+        step.users.toLocaleString() +
+        " | " +
+        step.flows.toLocaleString() +
+        " | " +
+        formatPercent(step.pctOfStart) +
+        " | " +
+        formatPercent(step.pctOfPrevious) +
+        " |"
+    );
+  }
+  lines.push("");
+  lines.push("### Correlation Gaps");
+  lines.push("");
+  lines.push("| Aggregate diagnostic | Count |");
+  lines.push("| --- | ---: |");
+  for (const [label, count] of [
+    [
+      "Funnel event rows missing user ID",
+      report.canonicalFunnel.joinCoverage.funnelEventRowsMissingUserId,
+    ],
+    [
+      "Funnel events missing flow ID",
+      report.canonicalFunnel.joinCoverage.funnelEventsMissingFlowId,
+    ],
+    [
+      "Submit events missing surf-session ID",
+      report.canonicalFunnel.joinCoverage.submitEventsMissingSessionId,
+    ],
+    [
+      "First-session markers missing surf-session ID",
+      report.canonicalFunnel.joinCoverage.firstSessionMarkersMissingSessionId,
+    ],
+    [
+      "First-session markers missing user ID",
+      report.canonicalFunnel.joinCoverage.firstSessionMarkersMissingUserId,
+    ],
+    [
+      "Funnel events with unusable client stage time",
+      report.canonicalFunnel.joinCoverage
+        .funnelEventsWithUnusableClientStageAt,
+    ],
+    [
+      "Stable event-ID conflict groups",
+      report.canonicalFunnel.joinCoverage.stableIdConflictGroups,
+    ],
+    [
+      "Submit flows without a window session",
+      report.canonicalFunnel.joinCoverage.submitFlowsWithoutWindowSession,
+    ],
+    [
+      "Submit flows with session-owner mismatch",
+      report.canonicalFunnel.joinCoverage
+        .submitFlowsWithSessionOwnerMismatch,
+    ],
+    [
+      "Submit flows with an ineligible session",
+      report.canonicalFunnel.joinCoverage.submitFlowsWithIneligibleSession,
+    ],
+  ] as const) {
+    lines.push(`| ${label} | ${count.toLocaleString()} |`);
+  }
+  lines.push("");
+  lines.push("## Validation Recovery");
+  lines.push("");
+  lines.push("| Metric | Count / Rate |");
+  lines.push("| --- | ---: |");
+  lines.push(
+    `| Affected users | ${report.validationBranch.affectedUsers.toLocaleString()} |`
+  );
+  lines.push(
+    `| Affected flows | ${report.validationBranch.affectedFlows.toLocaleString()} |`
+  );
+  lines.push(
+    `| Affected users of form-view users | ${formatPercent(
+      report.validationBranch.pctOfFormViewUsers
+    )} |`
+  );
+  lines.push(
+    `| Recovered users | ${report.validationBranch.recoveredUsers.toLocaleString()} |`
+  );
+  lines.push(
+    `| Recovered flows | ${report.validationBranch.recoveredFlows.toLocaleString()} |`
+  );
+  lines.push(
+    `| Recovery rate | ${formatPercent(report.validationBranch.recoveryRate)} |`
+  );
+  lines.push("");
+  lines.push("## First-Session Telemetry Coverage");
+  lines.push("");
+  lines.push("| Metric | Count / Rate |");
+  lines.push("| --- | ---: |");
+  lines.push(
+    `| Persisted first-session users | ${report.firstSessionTelemetryCoverage.persistedFirstSessionUsers.toLocaleString()} |`
+  );
+  lines.push(
+    `| First-session marker users | ${report.firstSessionTelemetryCoverage.markerUsers.toLocaleString()} |`
+  );
+  lines.push(
+    `| Marker coverage | ${formatPercent(
+      report.firstSessionTelemetryCoverage.coverage
+    )} |`
+  );
+  lines.push("");
+  lines.push(
+    "- The fixed measurement window can right-censor offline delivery after the report end; it does not provide a mature follow-up horizon."
+  );
+  lines.push("");
   lines.push("## Durable Session Signal");
   lines.push("");
   lines.push("| Metric | Count |");
@@ -1335,7 +1551,7 @@ export function renderSessionAcquisitionReport(
   lines.push("## Notes");
   lines.push("");
   lines.push(
-    "- Raw user IDs and session IDs are used only in-memory for dedupe and are not rendered."
+    "- Raw user, flow, event, and surf-session IDs are used only in-memory for dedupe and correlation and are not rendered."
   );
   lines.push(
     "- Saved completed sessions are the durable conversion source; stored submit events are treated as telemetry coverage."
@@ -1350,6 +1566,13 @@ export function writeSessionAcquisitionReportJson(
   outputJsonPath: string,
   report: SessionAcquisitionReport
 ): string {
+  const validation = validateSessionAcquisitionReport(report);
+  if (!validation.ok) {
+    throw new Error(
+      "Refusing to write invalid session acquisition report: " +
+        validation.blockers.join(", ")
+    );
+  }
   const resolvedPath = resolve(outputJsonPath);
   mkdirSync(dirname(resolvedPath), { recursive: true });
   writeFileSync(resolvedPath, `${JSON.stringify(report, null, 2)}\n`);
@@ -1376,6 +1599,13 @@ export function validateSessionAcquisitionReport(
     };
   }
 
+  validateExactObjectKeys(
+    report,
+    SESSION_ACQUISITION_REPORT_KEYS,
+    "report_keys_invalid",
+    blockers
+  );
+  validateAggregateOnlyReportPrivacy(report, blockers);
   if (
     report.reportSchemaVersion !== SESSION_ACQUISITION_REPORT_SCHEMA_VERSION
   ) {
@@ -1424,6 +1654,17 @@ export function validateSessionAcquisitionReport(
   }
   validateSessionAcquisitionCountRelationships(report, blockers);
   validateFunnelSteps(report.funnelSteps, blockers);
+  validateCanonicalFunnel(report.canonicalFunnel, blockers);
+  validateValidationBranch(
+    report.validationBranch,
+    report.canonicalFunnel,
+    blockers
+  );
+  validateFirstSessionTelemetryCoverage(
+    report.firstSessionTelemetryCoverage,
+    report.canonicalFunnel,
+    blockers
+  );
   validateCountMap(report.eventsByType, "events_by_type_invalid", blockers);
   validateCountMap(
     report.eventsByPlatform,
@@ -1616,6 +1857,348 @@ function validateSessionAcquisitionCountRelationships(
       blockers.push(blockerCode);
     }
   }
+}
+
+function validateExactObjectKeys(
+  value: Record<string, unknown>,
+  allowedKeys: readonly string[],
+  blockerCode: string,
+  blockers: string[]
+): void {
+  const actual = Object.keys(value).sort();
+  const expected = [...allowedKeys].sort();
+  if (
+    actual.length !== expected.length ||
+    actual.some((key, index) => key !== expected[index])
+  ) {
+    blockers.push(blockerCode);
+  }
+}
+
+function validateCanonicalFunnel(value: unknown, blockers: string[]): void {
+  if (!isRecord(value)) {
+    blockers.push("canonical_funnel_invalid");
+    return;
+  }
+  validateExactObjectKeys(
+    value,
+    CANONICAL_FUNNEL_KEYS,
+    "canonical_funnel_keys_invalid",
+    blockers
+  );
+  if (value.grain !== "unique_user") {
+    blockers.push("canonical_funnel_grain_invalid");
+  }
+  if (value.ordering !== "metadata.client_stage_at") {
+    blockers.push("canonical_funnel_ordering_invalid");
+  }
+
+  const steps = value.steps;
+  if (!Array.isArray(steps)) {
+    blockers.push("canonical_funnel_steps_invalid");
+  } else {
+    const actualOrder = steps.map((step) =>
+      isRecord(step) && typeof step.key === "string" ? step.key : null
+    );
+    if (
+      actualOrder.length !== CANONICAL_STEP_ORDER.length ||
+      actualOrder.some((key, index) => key !== CANONICAL_STEP_ORDER[index])
+    ) {
+      blockers.push("canonical_funnel_step_order_invalid");
+    }
+
+    let stepShapeInvalid = false;
+    let stepCountsInvalid = false;
+    let stepRateInvalid = false;
+    for (const step of steps) {
+      if (!isRecord(step)) {
+        stepShapeInvalid = true;
+        continue;
+      }
+      validateExactObjectKeys(
+        step,
+        CANONICAL_STEP_KEYS,
+        "canonical_funnel_step_keys_invalid",
+        blockers
+      );
+      if (typeof step.key !== "string" || typeof step.label !== "string") {
+        stepShapeInvalid = true;
+      }
+      if (
+        !isNonNegativeIntegerValue(step.users) ||
+        !isNonNegativeIntegerValue(step.flows)
+      ) {
+        stepCountsInvalid = true;
+      }
+      if (
+        readRateOrNull(step.pctOfStart) === undefined ||
+        readRateOrNull(step.pctOfPrevious) === undefined
+      ) {
+        stepRateInvalid = true;
+      }
+    }
+    if (stepShapeInvalid) blockers.push("canonical_funnel_step_shape_invalid");
+    if (stepCountsInvalid) blockers.push("canonical_funnel_step_counts_invalid");
+    if (stepRateInvalid) blockers.push("canonical_funnel_rate_invalid");
+
+    const validSteps = steps.every(
+      (step) =>
+        isRecord(step) &&
+        isNonNegativeIntegerValue(step.users) &&
+        isNonNegativeIntegerValue(step.flows)
+    );
+    if (validSteps) {
+      const typedSteps = steps as Record<string, unknown>[];
+      if (typedSteps.some((step) => step.users! > step.flows!)) {
+        blockers.push("canonical_funnel_users_exceed_flows");
+      }
+      if (
+        typedSteps.some(
+          (step, index) =>
+            index > 0 && step.users! > typedSteps[index - 1].users!
+        )
+      ) {
+        blockers.push("canonical_funnel_users_non_monotonic");
+      }
+      if (
+        typedSteps.some(
+          (step, index) =>
+            index > 0 && step.flows! > typedSteps[index - 1].flows!
+        )
+      ) {
+        blockers.push("canonical_funnel_flows_non_monotonic");
+      }
+
+      const startUsers = typedSteps[0]?.users as number | undefined;
+      let rateMismatch = false;
+      for (const [index, step] of typedSteps.entries()) {
+        if (typeof startUsers !== "number") break;
+        const expectedPctOfStart =
+          index === 0 ? (startUsers > 0 ? 1 : null) : ratio(step.users as number, startUsers);
+        const expectedPctOfPrevious =
+          index === 0
+            ? null
+            : ratio(step.users as number, typedSteps[index - 1].users as number);
+        if (
+          !nullableNumbersMatch(step.pctOfStart, expectedPctOfStart) ||
+          !nullableNumbersMatch(step.pctOfPrevious, expectedPctOfPrevious)
+        ) {
+          rateMismatch = true;
+        }
+      }
+      if (rateMismatch) blockers.push("canonical_funnel_rate_mismatch");
+    }
+  }
+
+  const joinCoverage = value.joinCoverage;
+  if (!isRecord(joinCoverage)) {
+    blockers.push("canonical_join_coverage_invalid");
+    return;
+  }
+  validateExactObjectKeys(
+    joinCoverage,
+    CANONICAL_JOIN_COVERAGE_KEYS,
+    "canonical_join_coverage_keys_invalid",
+    blockers
+  );
+  const joinCountsValid = CANONICAL_JOIN_COVERAGE_KEYS.every((key) =>
+    isNonNegativeIntegerValue(joinCoverage[key])
+  );
+  if (!joinCountsValid) {
+    blockers.push("canonical_join_coverage_counts_invalid");
+    return;
+  }
+  if (!Array.isArray(steps)) return;
+  const submit = steps.find(
+    (step) => isRecord(step) && step.key === "submit"
+  );
+  const persisted = steps.find(
+    (step) => isRecord(step) && step.key === "persisted_session"
+  );
+  if (
+    !isRecord(submit) ||
+    !isRecord(persisted) ||
+    !isNonNegativeIntegerValue(submit.flows) ||
+    !isNonNegativeIntegerValue(persisted.flows)
+  ) {
+    return;
+  }
+  const rejectedFlows =
+    joinCoverage.submitFlowsWithoutWindowSession +
+    joinCoverage.submitFlowsWithSessionOwnerMismatch +
+    joinCoverage.submitFlowsWithIneligibleSession;
+  if (rejectedFlows !== submit.flows - persisted.flows) {
+    blockers.push("canonical_persistence_rejection_partition_invalid");
+  }
+}
+
+function validateValidationBranch(
+  value: unknown,
+  canonicalFunnel: unknown,
+  blockers: string[]
+): void {
+  if (!isRecord(value)) {
+    blockers.push("validation_branch_invalid");
+    return;
+  }
+  validateExactObjectKeys(
+    value,
+    VALIDATION_BRANCH_KEYS,
+    "validation_branch_keys_invalid",
+    blockers
+  );
+  const countFields = [
+    "affectedUsers",
+    "affectedFlows",
+    "recoveredUsers",
+    "recoveredFlows",
+  ] as const;
+  if (countFields.some((field) => !isNonNegativeIntegerValue(value[field]))) {
+    blockers.push("validation_branch_counts_invalid");
+    return;
+  }
+  const pctOfFormViewUsers = readRateOrNull(value.pctOfFormViewUsers);
+  const recoveryRate = readRateOrNull(value.recoveryRate);
+  if (pctOfFormViewUsers === undefined || recoveryRate === undefined) {
+    blockers.push("validation_branch_rate_invalid");
+  }
+
+  const formView = findCanonicalStep(canonicalFunnel, "form_view");
+  const submit = findCanonicalStep(canonicalFunnel, "submit");
+  if (!formView || !submit) return;
+  const formViewUsers = readNonNegativeInteger(formView.users);
+  const formViewFlows = readNonNegativeInteger(formView.flows);
+  const submitUsers = readNonNegativeInteger(submit.users);
+  const submitFlows = readNonNegativeInteger(submit.flows);
+  if (
+    formViewUsers === null ||
+    formViewFlows === null ||
+    submitUsers === null ||
+    submitFlows === null
+  ) {
+    return;
+  }
+  const affectedUsers = value.affectedUsers as number;
+  const affectedFlows = value.affectedFlows as number;
+  const recoveredUsers = value.recoveredUsers as number;
+  const recoveredFlows = value.recoveredFlows as number;
+  if (
+    affectedUsers > affectedFlows ||
+    affectedUsers > formViewUsers ||
+    affectedFlows > formViewFlows ||
+    recoveredUsers > recoveredFlows ||
+    recoveredUsers > affectedUsers ||
+    recoveredUsers > submitUsers ||
+    recoveredFlows > affectedFlows ||
+    recoveredFlows > submitFlows
+  ) {
+    blockers.push("validation_branch_counts_inconsistent");
+  }
+  if (
+    !nullableNumbersMatch(
+      value.pctOfFormViewUsers,
+      ratio(affectedUsers, formViewUsers)
+    ) ||
+    !nullableNumbersMatch(
+      value.recoveryRate,
+      ratio(recoveredUsers, affectedUsers)
+    )
+  ) {
+    blockers.push("validation_branch_rate_mismatch");
+  }
+}
+
+function validateFirstSessionTelemetryCoverage(
+  value: unknown,
+  canonicalFunnel: unknown,
+  blockers: string[]
+): void {
+  if (!isRecord(value)) {
+    blockers.push("first_session_telemetry_invalid");
+    return;
+  }
+  validateExactObjectKeys(
+    value,
+    FIRST_SESSION_TELEMETRY_KEYS,
+    "first_session_telemetry_keys_invalid",
+    blockers
+  );
+  if (
+    !isNonNegativeIntegerValue(value.persistedFirstSessionUsers) ||
+    !isNonNegativeIntegerValue(value.markerUsers)
+  ) {
+    blockers.push("first_session_telemetry_counts_invalid");
+    return;
+  }
+  if (readRateOrNull(value.coverage) === undefined) {
+    blockers.push("first_session_telemetry_rate_invalid");
+  }
+  const persistedStep = findCanonicalStep(canonicalFunnel, "persisted_session");
+  if (!persistedStep) return;
+  const persistedUsers = readNonNegativeInteger(persistedStep.users);
+  if (persistedUsers === null) return;
+  const persistedFirstSessionUsers = value.persistedFirstSessionUsers;
+  const markerUsers = value.markerUsers;
+  if (
+    persistedFirstSessionUsers > persistedUsers ||
+    markerUsers > persistedFirstSessionUsers
+  ) {
+    blockers.push("first_session_telemetry_counts_inconsistent");
+  }
+  if (
+    !nullableNumbersMatch(
+      value.coverage,
+      ratio(markerUsers, persistedFirstSessionUsers)
+    )
+  ) {
+    blockers.push("first_session_telemetry_rate_mismatch");
+  }
+}
+
+function validateAggregateOnlyReportPrivacy(
+  value: unknown,
+  blockers: string[]
+): void {
+  let containsIdentifierKey = false;
+  let containsIdentifierEvidence = false;
+  const visited = new WeakSet<object>();
+  const visit = (candidate: unknown): void => {
+    if (typeof candidate === "string") {
+      if (UNSAFE_IDENTIFIER_EVIDENCE_PATTERN.test(candidate)) {
+        containsIdentifierEvidence = true;
+      }
+      return;
+    }
+    if (typeof candidate !== "object" || candidate === null) return;
+    if (visited.has(candidate)) return;
+    visited.add(candidate);
+    if (Array.isArray(candidate)) {
+      for (const item of candidate) visit(item);
+      return;
+    }
+    for (const [key, nestedValue] of Object.entries(candidate)) {
+      if (UNSAFE_IDENTIFIER_KEYS.has(key)) containsIdentifierKey = true;
+      visit(nestedValue);
+    }
+  };
+  visit(value);
+  if (containsIdentifierKey) blockers.push("report_contains_identifier_key");
+  if (containsIdentifierEvidence) {
+    blockers.push("report_contains_identifier_evidence");
+  }
+}
+
+function findCanonicalStep(
+  canonicalFunnel: unknown,
+  key: CanonicalSessionFunnelStepKey
+): Record<string, unknown> | null {
+  if (!isRecord(canonicalFunnel) || !Array.isArray(canonicalFunnel.steps)) {
+    return null;
+  }
+  const step = canonicalFunnel.steps.find(
+    (candidate) => isRecord(candidate) && candidate.key === key
+  );
+  return isRecord(step) ? step : null;
 }
 
 function validateFunnelSteps(value: unknown, blockers: string[]): void {
