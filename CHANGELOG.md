@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Clean migration replays restore the profile drive-radius preference** (`supabase/migrations/20260715050000_restore_profile_max_drive_minutes.sql`). Reconciles the nullable `profiles.max_drive_minutes` column and production comment before the local match-candidate RPC first reads it, without rewriting applied history or dropping preference data.
 - **Clean migration replays exclude the Board Rec seed from analytics** (`supabase/migrations/20260709122000_exclude_board_rec_seed_from_analytics.sql`). Classifies the auth-orphaned synthetic profile as mock data before the historical `session_created` backfill, preserving the `user_events.user_id` foreign key without rewriting applied migration history.
 - **SEO canonical discovery and crawl continuity** (`app/sitemap.ts`, `lib/seo/funnel-pages.ts`, `next.config.mjs`). Keeps international country/region hubs discoverable before city editorial is approved, points Cocoa Beach Pier cards and retired URLs at the live database-backed canonical page, redirects the legacy El Morro URL, and lets technical audits report individual page-fetch failures without abandoning the full crawl.
 - **CDIP fallback deadlines stop expired work** (`lib/services/forecast/data-source-manager.ts`). Fast CDIP responses now clear their fallback timer, and station lookups or buoy fetches that finish after the 10-second deadline can no longer continue work or emit late test/runtime activity after the IOOS fallback has started.
