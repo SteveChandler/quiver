@@ -61,6 +61,8 @@ import {
   type ScoredSlot,
 } from "@/lib/alerts/similarity-best-pick";
 import { isLearnedMatchState } from "@/lib/personalization/match-state-compat";
+import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
+import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -116,6 +118,7 @@ interface EligibleUserRow {
   anchor_rule_id: string;
   home_beach_id: string;
   timezone: string | null;
+  experience_level: string | null;
 }
 
 /**
@@ -385,6 +388,8 @@ async function _GET(req: Request): Promise<Response> {
           await bumpLastMatchedAt(supabase, user.anchor_rule_id);
         } else if (inserted === "dedup") {
           dedupSkipped++;
+        } else if (inserted === "suppressed") {
+          noPickSkipped++;
         } else {
           errors++;
         }
@@ -476,7 +481,7 @@ async function loadEligibleUsers(
   const [profilesRes, entitlementsRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("id, home_beach_id, timezone")
+      .select("id, home_beach_id, timezone, experience_level")
       .in("id", userIds),
     supabase
       .from("user_entitlements")
@@ -501,16 +506,22 @@ async function loadEligibleUsers(
   // 3. Build lookup maps.
   const profileById = new Map<
     string,
-    { home_beach_id: string | null; timezone: string | null }
+    {
+      home_beach_id: string | null;
+      timezone: string | null;
+      experience_level: string | null;
+    }
   >();
   for (const p of (profilesRes.data ?? []) as Array<{
     id: string;
     home_beach_id: string | null;
     timezone: string | null;
+    experience_level: string | null;
   }>) {
     profileById.set(p.id, {
       home_beach_id: p.home_beach_id,
       timezone: p.timezone,
+      experience_level: p.experience_level,
     });
   }
 
@@ -543,6 +554,7 @@ async function loadEligibleUsers(
       auto_created_at: string | null;
       home_beach_id: string;
       timezone: string | null;
+      experience_level: string | null;
     }>
   >();
 
@@ -569,6 +581,7 @@ async function loadEligibleUsers(
       auto_created_at: rule.auto_created_at,
       home_beach_id: profile.home_beach_id,
       timezone: profile.timezone,
+      experience_level: profile.experience_level,
     });
     groups.set(rule.user_id, list);
   }
@@ -589,6 +602,7 @@ async function loadEligibleUsers(
       anchor_rule_id: anchor.id,
       home_beach_id: anchor.home_beach_id,
       timezone: anchor.timezone,
+      experience_level: anchor.experience_level,
     });
   }
 
@@ -917,7 +931,7 @@ async function scoreCandidates(
   return out;
 }
 
-type InsertOutcome = "inserted" | "dedup" | "error";
+type InsertOutcome = "inserted" | "dedup" | "suppressed" | "error";
 
 async function tryInsertAlert(
   supabase: any,
@@ -932,7 +946,11 @@ async function tryInsertAlert(
   // these out), fall back to "now" so the deliver cron picks it up on the
   // next tick instead of holding an alert that will never fire.
   const windowStartMs = new Date(pick.forecast_at).getTime();
-  const sendAtMs = Number.isFinite(windowStartMs)
+  const hasValidWindow = Number.isFinite(windowStartMs);
+  const windowEndIso = hasValidWindow
+    ? new Date(windowStartMs + 60 * 60 * 1000).toISOString()
+    : pick.forecast_at;
+  const sendAtMs = hasValidWindow
     ? windowStartMs - SEND_AT_LEAD_MINUTES * 60 * 1000
     : now;
   const sendAtIso = new Date(sendAtMs >= now ? sendAtMs : now).toISOString();
@@ -962,7 +980,25 @@ async function tryInsertAlert(
     ...(pick.condition_summary == null ? {} : { condition_summary: pick.condition_summary }),
     ...(pick.board_tip == null ? {} : { board_tip: pick.board_tip }),
     ...(pick.setup_tip == null ? {} : { setup_tip: pick.setup_tip }),
+    ...(hasValidWindow
+      ? {
+          policy_context: {
+            kind: "positive_session_recommendation" as const,
+            beach_id: pick.beach_id,
+            starts_at: pick.forecast_at,
+            ends_at: windowEndIso,
+          },
+        }
+      : {}),
   };
+
+  const holdResolution = await resolveNotificationMajorEventHold({
+    eventId: `similarity-alerts:${user.user_id}:${pick.beach_id}:${pick.forecast_at}`,
+    type: "similarity_match",
+    payload: snapshot,
+    profileExperience: parseSkillLevel(user.experience_level),
+  });
+  if (holdResolution.status === "suppressed") return "suppressed";
 
   const { data, error } = await supabase.rpc("try_insert_similarity_alert", {
     p_user_id: user.user_id,
@@ -971,7 +1007,7 @@ async function tryInsertAlert(
     p_alert_date: alertDate,
     p_send_at: sendAtIso,
     p_window_start: pick.forecast_at,
-    p_window_end: pick.forecast_at,
+    p_window_end: windowEndIso,
     p_best_hour: pick.forecast_at,
     p_conditions_snapshot: snapshot,
   });

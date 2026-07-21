@@ -34,8 +34,20 @@ jest.mock("@/lib/services/surf-discovery-service", () => ({
   discoverSurfSpots: (...args: unknown[]) => mockDiscoverSurfSpots(...args),
 }));
 
+const mockGetProfileExperienceLevel = jest.fn();
+jest.mock("@/lib/profile/skill-level", () => ({
+  getProfileExperienceLevel: (...args: unknown[]) =>
+    mockGetProfileExperienceLevel(...args),
+}));
+
+const mockSanitizeSerializationBoundary = jest.fn();
+jest.mock("@/lib/services/discovery/major-event-hold", () => ({
+  sanitizeSurfDiscoveryForSerializationMajorEventHold: (
+    ...args: unknown[]
+  ) => mockSanitizeSerializationBoundary(...args),
+}));
+
 import { NextRequest } from "next/server";
-import { generateETag } from "@/lib/utils/cache-headers";
 
 // Build a fake supabase client that returns a configurable user_entitlements
 // row from .from("user_entitlements").select(...).eq(...).maybeSingle().
@@ -259,6 +271,16 @@ describe("/api/surf/discover entitlement resolution", () => {
     jest.clearAllMocks();
     delete process.env.SURF_DISCOVERY_BEST_SPOT_GATE;
     delete process.env.FREE_GROWTH_PHASE;
+    mockGetProfileExperienceLevel.mockResolvedValue("advanced");
+    mockSanitizeSerializationBoundary.mockImplementation(
+      async (discovery) => ({
+        ...discovery,
+        recommendationAvailability: {
+          state: "available",
+          holdEpoch: "route-epoch",
+        },
+      }),
+    );
     // Default discovery response: empty but well-formed.
     mockDiscoverSurfSpots.mockResolvedValue({
       recommendations: [],
@@ -360,6 +382,9 @@ describe("/api/surf/discover entitlement resolution", () => {
 
     expect(response.status).toBe(400);
     expect(mockDiscoverSurfSpots).not.toHaveBeenCalled();
+    expect(response.headers.get("Cache-Control")).toBe(
+      "private, no-store, no-cache, must-revalidate",
+    );
   });
 
   it("trialing user with future expires_at → isPro:true", async () => {
@@ -551,6 +576,14 @@ describe("/api/surf/discover entitlement resolution", () => {
       scoreBand: "80-89",
       conditionSummary: expect.any(String),
     });
+    expect(body.data.recommendationAvailability).toEqual({
+      state: "available",
+      holdEpoch: "route-epoch",
+    });
+    expect(mockSanitizeSerializationBoundary).toHaveBeenCalledWith(
+      expect.objectContaining({ recommendations: [expect.any(Object)] }),
+      "advanced",
+    );
     expect(responseText).not.toContain("beach-secret-id");
     expect(responseText).not.toContain("Ocean Beach Pier");
     expect(responseText).not.toContain("ocean-beach-pier");
@@ -585,18 +618,103 @@ describe("/api/surf/discover entitlement resolution", () => {
     expect(body.data.recommendations[0].personalExplanation).toBeUndefined();
   });
 
-  it("generates ETag from the opt-in gated free response rather than the ungated discovery object", async () => {
+  it("sanitizes after calibration and before entitlement gating using verified profile experience", async () => {
+    mockDiscoverSurfSpots.mockResolvedValue(makeDiscoveryResponse());
+    mockSanitizeSerializationBoundary.mockImplementationOnce(
+      async (discovery) => ({
+        ...discovery,
+        recommendations: [],
+        includedRecommendations: [],
+        regionalCall: "",
+        recommendationAvailability: {
+          state: "none",
+          reasonCode: "major_event_hold",
+          holdEpoch: "fresh-route-epoch",
+        },
+      }),
+    );
+
+    const response = await callDiscoverRoute({
+      is_pro: true,
+      is_trialing: false,
+      billing_issue: false,
+      expires_at: null,
+    });
+    const body = await response.json();
+
+    expect(mockGetProfileExperienceLevel).toHaveBeenCalledWith(
+      expect.anything(),
+      "user-contract",
+    );
+    expect(mockSanitizeSerializationBoundary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recommendations: [
+          expect.objectContaining({
+            forecast: expect.objectContaining({ isCalibrated: false }),
+          }),
+        ],
+      }),
+      "advanced",
+    );
+    expect(body.data.recommendations).toEqual([]);
+    expect(body.data.recommendationAvailability).toEqual({
+      state: "none",
+      reasonCode: "major_event_hold",
+      holdEpoch: "fresh-route-epoch",
+    });
+  });
+
+  it("does not derive a free-user teaser from a candidate removed by the fresh hold boundary", async () => {
     process.env.SURF_DISCOVERY_BEST_SPOT_GATE = "1";
-    const ungatedDiscovery = makeDiscoveryResponse();
-    mockDiscoverSurfSpots.mockResolvedValue(ungatedDiscovery);
+    mockDiscoverSurfSpots.mockResolvedValue(makeDiscoveryResponse());
+    mockSanitizeSerializationBoundary.mockImplementationOnce(
+      async (discovery) => ({
+        ...discovery,
+        recommendations: [],
+        recommendationsV2: undefined,
+        includedRecommendations: [],
+        regionalCall: "",
+        recommendationAvailability: {
+          state: "none",
+          reasonCode: "major_event_hold",
+          holdEpoch: "held-route-epoch",
+        },
+      }),
+    );
 
     const response = await callDiscoverRoute(null);
     const body = await response.json();
-    const actualEtag = response.headers.get("ETag")?.replace(/"/g, "");
-    const gatedEtag = await generateETag({ success: true, data: body.data });
-    const ungatedEtag = await generateETag({ success: true, data: ungatedDiscovery });
 
-    expect(actualEtag).toBe(gatedEtag);
-    expect(actualEtag).not.toBe(ungatedEtag);
+    expect(response.status).toBe(200);
+    expect(body.data.recommendations).toEqual([]);
+    expect(body.data.lockedBestSpotTeaser).toBeNull();
+    expect(body.data.recommendationAvailability).toEqual({
+      state: "none",
+      reasonCode: "major_event_hold",
+      holdEpoch: "held-route-epoch",
+    });
+  });
+
+  it("never returns 304 or ETag and sends the exact private no-store policy", async () => {
+    mockDiscoverSurfSpots.mockResolvedValue(makeDiscoveryResponse());
+    const supabase = makeSupabaseStub(null);
+    const { GET } = await import("@/app/api/surf/discover/route");
+    const response = await GET(
+      new NextRequest(
+        "http://localhost:3000/api/surf/discover?lat=32.7157&lon=-117.1611",
+        { headers: { "If-None-Match": '"stale-etag"' } },
+      ),
+      {
+        user: { id: "user-contract" } as any,
+        supabase: supabase as any,
+        params: {},
+      } as any,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("ETag")).toBeNull();
+    expect(response.headers.get("Cache-Control")).toBe(
+      "private, no-store, no-cache, must-revalidate",
+    );
   });
 });

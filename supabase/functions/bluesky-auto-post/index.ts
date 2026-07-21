@@ -6,6 +6,16 @@
 
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import {
+  authorizationContextKey,
+  evaluateHoldAuthorizationRows,
+  shouldUseObjectiveSafetyPost,
+} from "./hold-policy.ts";
+import type {
+  HoldAuthorizationContext,
+  HoldAuthorizationResolution,
+} from "./hold-policy.ts";
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -91,6 +101,18 @@ interface DevNoteRow {
   created_at: string;
 }
 
+interface GeneratedForecastPost {
+  text: string;
+  templateIndex: number;
+  beachesFeatured: string[];
+  imageUrl: string | null;
+  authorizationContexts: HoldAuthorizationContext[];
+}
+
+type HoldFilterResult =
+  | { state: "resolved"; scoredBeaches: ScoredBeach[] }
+  | { state: "unavailable"; scoredBeaches: [] };
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -107,6 +129,19 @@ const SCORE_MAYBE = 4;
 
 // Template rotation: avoid last N posts of same type
 const TEMPLATE_ROTATION_LOOKBACK = 3;
+
+function objectiveSafetyPost(): GeneratedForecastPost {
+  return {
+    text:
+      "San Diego swell and safety awareness\n" +
+      "Wave, wind, and tide conditions can change quickly. Check current forecasts and official advisories before entering the water.\n" +
+      "quiversurf.app",
+    templateIndex: -1,
+    beachesFeatured: [],
+    imageUrl: null,
+    authorizationContexts: [],
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Templates
@@ -490,6 +525,11 @@ interface DaySummary {
   scoredBeaches: ScoredBeach[];
 }
 
+interface TomorrowOutlook {
+  text: string;
+  authorizationContexts: HoldAuthorizationContext[];
+}
+
 function buildWeekendSlots(saturday: DaySummary, sunday: DaySummary): TemplateSlots {
   const bestDay = saturday.scoredBeaches[0]?.score >= (sunday.scoredBeaches[0]?.score ?? 0) ? "Saturday" : "Sunday";
   const otherDay = bestDay === "Saturday" ? "Sunday" : "Saturday";
@@ -762,6 +802,138 @@ function groupForecastsByBeach(forecasts: ForecastRow[]): Map<string, ForecastRo
   return map;
 }
 
+function exactForecastSlot(
+  forecasts: ForecastRow[],
+): { start: string; end: string } | null {
+  const instants = Array.from(
+    new Set(
+      forecasts
+        .map(({ forecast_at }) => Date.parse(forecast_at))
+        .filter(Number.isFinite),
+    ),
+  ).sort((left, right) => left - right);
+  if (instants.length < 2 || instants[1] <= instants[0]) return null;
+  return {
+    start: new Date(instants[0]).toISOString(),
+    end: new Date(instants[1]).toISOString(),
+  };
+}
+
+function authorizationContextsForScoredBeaches(
+  scoredBeaches: readonly ScoredBeach[],
+  window: { start: string; end: string },
+): HoldAuthorizationContext[] {
+  return scoredBeaches.map(({ beach }) => ({
+    beachId: beach.id,
+    startsAt: window.start,
+    endsAt: window.end,
+  }));
+}
+
+function uniqueAuthorizationContexts(
+  contexts: readonly HoldAuthorizationContext[],
+): HoldAuthorizationContext[] {
+  return [
+    ...new Map(
+      contexts.map((context) => [authorizationContextKey(context), context]),
+    ).values(),
+  ];
+}
+
+async function resolveMajorEventHoldAuthorizationContexts(
+  supabase: SupabaseClient,
+  contexts: readonly HoldAuthorizationContext[],
+  configuredMode = Deno.env.get("MAJOR_EVENT_HOLD_MODE") ?? "off",
+): Promise<HoldAuthorizationResolution> {
+  if (configuredMode === "off") {
+    return { state: "resolved", blockedContextKeys: new Set() };
+  }
+  if (configuredMode !== "shadow" && configuredMode !== "enforce") {
+    return { state: "unavailable", blockedContextKeys: new Set() };
+  }
+
+  const uniqueContexts = uniqueAuthorizationContexts(contexts);
+  if (uniqueContexts.length === 0) {
+    return { state: "resolved", blockedContextKeys: new Set() };
+  }
+
+  const contextsByWindow = new Map<string, HoldAuthorizationContext[]>();
+  for (const context of uniqueContexts) {
+    const key = `${context.startsAt}|${context.endsAt}`;
+    const existing = contextsByWindow.get(key);
+    if (existing) {
+      existing.push(context);
+    } else {
+      contextsByWindow.set(key, [context]);
+    }
+  }
+
+  const asOf = new Date().toISOString();
+  const blockedContextKeys = new Set<string>();
+  try {
+    for (const windowContexts of contextsByWindow.values()) {
+      const first = windowContexts[0];
+      const { data, error } = await supabase.rpc(
+        "resolve_active_regional_recommendation_holds",
+        {
+          p_as_of: asOf,
+          p_beach_ids: windowContexts.map(({ beachId }) => beachId),
+          p_window_start: first.startsAt,
+          p_window_end: first.endsAt,
+        },
+      );
+      if (configuredMode === "shadow") continue;
+      if (error) {
+        return { state: "unavailable", blockedContextKeys: new Set() };
+      }
+
+      const resolution = evaluateHoldAuthorizationRows({
+        contexts: windowContexts,
+        rows: data,
+        asOf,
+      });
+      if (resolution.state === "unavailable") return resolution;
+      for (const key of resolution.blockedContextKeys) {
+        blockedContextKeys.add(key);
+      }
+    }
+  } catch {
+    return configuredMode === "shadow"
+      ? { state: "resolved", blockedContextKeys: new Set() }
+      : { state: "unavailable", blockedContextKeys: new Set() };
+  }
+
+  return { state: "resolved", blockedContextKeys };
+}
+
+async function filterScoredBeachesForMajorEventHold(
+  supabase: SupabaseClient,
+  scoredBeaches: ScoredBeach[],
+  window: { start: string; end: string },
+): Promise<HoldFilterResult> {
+  const configuredMode = Deno.env.get("MAJOR_EVENT_HOLD_MODE") ?? "off";
+  const contexts = authorizationContextsForScoredBeaches(
+    scoredBeaches,
+    window,
+  );
+  const resolution = await resolveMajorEventHoldAuthorizationContexts(
+    supabase,
+    contexts,
+    configuredMode,
+  );
+  if (resolution.state === "unavailable") {
+    return { state: "unavailable", scoredBeaches: [] };
+  }
+  return {
+    state: "resolved",
+    scoredBeaches: scoredBeaches.filter((_scoredBeach, index) =>
+      !resolution.blockedContextKeys.has(
+        authorizationContextKey(contexts[index]),
+      )
+    ),
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Pacific Time helpers
 // ---------------------------------------------------------------------------
@@ -872,7 +1044,7 @@ async function getTomorrowOutlook(
   supabase: SupabaseClient,
   beachIds: string[],
   beaches: BeachRow[],
-): Promise<string> {
+): Promise<TomorrowOutlook> {
   const window = tomorrowFullWindow();
   const forecasts = await getForecastsForWindow(supabase, beachIds, window.start, window.end);
   const grouped = groupForecastsByBeach(forecasts);
@@ -885,14 +1057,31 @@ async function getTomorrowOutlook(
       scored.push(buildScoredBeach(beach, beachForecasts));
     }
   }
-  scored.sort((a, b) => b.score - a.score);
+  const policy = await filterScoredBeachesForMajorEventHold(
+    supabase,
+    scored,
+    window,
+  );
+  if (policy.state === "unavailable" || policy.scoredBeaches.length === 0) {
+    return { text: "unclear", authorizationContexts: [] };
+  }
+  const allowedScored = policy.scoredBeaches.sort((a, b) => b.score - a.score);
 
-  if (scored.length === 0) return "unclear";
-  const bestScore = scored[0].score;
-  if (bestScore >= 8) return "much better";
-  if (bestScore >= 6) return "better";
-  if (bestScore >= 4) return "a bit better";
-  return "about the same";
+  const bestScore = allowedScored[0].score;
+  const text = bestScore >= 8
+    ? "much better"
+    : bestScore >= 6
+    ? "better"
+    : bestScore >= 4
+    ? "a bit better"
+    : "about the same";
+  return {
+    text,
+    authorizationContexts: authorizationContextsForScoredBeaches(
+      [allowedScored[0]],
+      window,
+    ),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -902,14 +1091,14 @@ async function getTomorrowOutlook(
 async function generateGoNoPost(
   supabase: SupabaseClient,
   beaches: BeachRow[],
-): Promise<{ text: string; templateIndex: number; beachesFeatured: string[]; imageUrl: string | null }> {
+): Promise<GeneratedForecastPost> {
   const window = todayFullWindow();
   const beachIds = beaches.map((b) => b.id);
   const forecasts = await getForecastsForWindow(supabase, beachIds, window.start, window.end);
   const grouped = groupForecastsByBeach(forecasts);
 
   const beachMap = new Map(beaches.map((b) => [b.id, b]));
-  const scoredBeaches: ScoredBeach[] = [];
+  let scoredBeaches: ScoredBeach[] = [];
 
   for (const [beachId, beachForecasts] of grouped) {
     const beach = beachMap.get(beachId);
@@ -918,7 +1107,17 @@ async function generateGoNoPost(
     }
   }
 
-  // Sort by score descending
+  const policy = await filterScoredBeachesForMajorEventHold(
+    supabase,
+    scoredBeaches,
+    window,
+  );
+  if (policy.state === "unavailable" || policy.scoredBeaches.length === 0) {
+    return objectiveSafetyPost();
+  }
+  scoredBeaches = policy.scoredBeaches;
+
+  // Sort the policy-filtered complete pool before applying the display limit.
   scoredBeaches.sort((a, b) => b.score - a.score);
 
   // Determine overall verdict based on top beaches
@@ -940,24 +1139,34 @@ async function generateGoNoPost(
   const tomorrowOutlook =
     overallVerdict === "no"
       ? await getTomorrowOutlook(supabase, beachIds, beaches)
-      : "promising";
+      : { text: "promising", authorizationContexts: [] };
 
   const slots = buildGoNoSlots(
     scoredBeaches.length > 0 ? scoredBeaches : [buildScoredBeach(beaches[0], [])],
-    tomorrowOutlook,
+    tomorrowOutlook.text,
   );
 
   const text = resolveTemplate(template, slots);
   const featured = topBeaches.map((b) => b.beach.name);
+  const authorizationContexts = uniqueAuthorizationContexts([
+    ...authorizationContextsForScoredBeaches(topBeaches, window),
+    ...tomorrowOutlook.authorizationContexts,
+  ]);
 
   // go_no posts are text-only per spec
-  return { text, templateIndex: index, beachesFeatured: featured, imageUrl: null };
+  return {
+    text,
+    templateIndex: index,
+    beachesFeatured: featured,
+    imageUrl: null,
+    authorizationContexts,
+  };
 }
 
 async function generateWeekendWavePost(
   supabase: SupabaseClient,
   beaches: BeachRow[],
-): Promise<{ text: string; templateIndex: number; beachesFeatured: string[]; imageUrl: string | null }> {
+): Promise<GeneratedForecastPost> {
   const { saturday, sunday } = weekendWindows();
   const beachIds = beaches.map((b) => b.id);
 
@@ -979,8 +1188,28 @@ async function generateWeekendWavePost(
     return scored;
   };
 
-  const satScored = scoreSingle(satForecasts);
-  const sunScored = scoreSingle(sunForecasts);
+  const [satPolicy, sunPolicy] = await Promise.all([
+    filterScoredBeachesForMajorEventHold(
+      supabase,
+      scoreSingle(satForecasts),
+      saturday,
+    ),
+    filterScoredBeachesForMajorEventHold(
+      supabase,
+      scoreSingle(sunForecasts),
+      sunday,
+    ),
+  ]);
+  if (
+    satPolicy.state === "unavailable" ||
+    sunPolicy.state === "unavailable" ||
+    satPolicy.scoredBeaches.length === 0 ||
+    sunPolicy.scoredBeaches.length === 0
+  ) {
+    return objectiveSafetyPost();
+  }
+  const satScored = satPolicy.scoredBeaches.sort((a, b) => b.score - a.score);
+  const sunScored = sunPolicy.scoredBeaches.sort((a, b) => b.score - a.score);
 
   const satSummary = buildDaySummary(satScored);
   const sunSummary = buildDaySummary(sunScored);
@@ -995,31 +1224,39 @@ async function generateWeekendWavePost(
   ];
   const uniqueFeatured = [...new Set(featured)];
 
-  // Build OG image URL for weekend wave check
-  // NOTE: the OG route uses snake_case query params (sat_verdict, sun_verdict, etc.)
-  const bestDay = (satScored[0]?.score ?? 0) >= (sunScored[0]?.score ?? 0) ? "Saturday" : "Sunday";
-  const satBestBeach = satScored[0]?.beach.name ?? "";
-  const sunBestBeach = sunScored[0]?.beach.name ?? "";
-  const bestWindowLabel = `${bestDay} morning`;
-
-  const imageUrl = satScored.length > 0 || sunScored.length > 0
-    ? `${APP_BASE_URL}/api/og/weekend-wave-check?sat_verdict=${encodeURIComponent(satSummary.verdict)}&sun_verdict=${encodeURIComponent(sunSummary.verdict)}&sat_summary=${encodeURIComponent(satSummary.summary)}&sun_summary=${encodeURIComponent(sunSummary.summary)}&sat_beach=${encodeURIComponent(satBestBeach)}&sun_beach=${encodeURIComponent(sunBestBeach)}&best_day=${encodeURIComponent(bestDay)}&best_window=${encodeURIComponent(bestWindowLabel)}`
+  const satBest = satScored[0];
+  const sunBest = sunScored[0];
+  const satSlot = exactForecastSlot(satBest.forecasts);
+  const sunSlot = exactForecastSlot(sunBest.forecasts);
+  const imageUrl = satSlot && sunSlot
+    ? `${APP_BASE_URL}/api/og/weekend-wave-check?sat_beach_id=${encodeURIComponent(satBest.beach.id)}&sat_starts_at=${encodeURIComponent(satSlot.start)}&sat_ends_at=${encodeURIComponent(satSlot.end)}&sun_beach_id=${encodeURIComponent(sunBest.beach.id)}&sun_starts_at=${encodeURIComponent(sunSlot.start)}&sun_ends_at=${encodeURIComponent(sunSlot.end)}`
     : null;
 
-  return { text, templateIndex: index, beachesFeatured: uniqueFeatured, imageUrl };
+  const authorizationContexts = uniqueAuthorizationContexts([
+    ...authorizationContextsForScoredBeaches(satScored.slice(0, 2), saturday),
+    ...authorizationContextsForScoredBeaches(sunScored.slice(0, 2), sunday),
+  ]);
+
+  return {
+    text,
+    templateIndex: index,
+    beachesFeatured: uniqueFeatured,
+    imageUrl,
+    authorizationContexts,
+  };
 }
 
 async function generateLongboardSundayPost(
   supabase: SupabaseClient,
   beaches: BeachRow[],
-): Promise<{ text: string; templateIndex: number; beachesFeatured: string[]; imageUrl: string | null }> {
+): Promise<GeneratedForecastPost> {
   const window = todayFullWindow();
   const beachIds = beaches.map((b) => b.id);
   const forecasts = await getForecastsForWindow(supabase, beachIds, window.start, window.end);
   const grouped = groupForecastsByBeach(forecasts);
 
   const beachMap = new Map(beaches.map((b) => [b.id, b]));
-  const scoredBeaches: ScoredBeach[] = [];
+  let scoredBeaches: ScoredBeach[] = [];
 
   for (const [beachId, beachForecasts] of grouped) {
     const beach = beachMap.get(beachId);
@@ -1027,6 +1264,16 @@ async function generateLongboardSundayPost(
       scoredBeaches.push(buildScoredBeach(beach, beachForecasts));
     }
   }
+
+  const policy = await filterScoredBeachesForMajorEventHold(
+    supabase,
+    scoredBeaches,
+    window,
+  );
+  if (policy.state === "unavailable" || policy.scoredBeaches.length === 0) {
+    return objectiveSafetyPost();
+  }
+  scoredBeaches = policy.scoredBeaches;
 
   // For longboard Sunday, prefer small/clean waves — favor lower wave heights
   scoredBeaches.sort((a, b) => {
@@ -1038,16 +1285,7 @@ async function generateLongboardSundayPost(
 
   const topBeach = scoredBeaches[0];
   if (!topBeach) {
-    // Fallback: use first beach with minimal data
-    const fallback = buildScoredBeach(beaches[0], []);
-    const { template, index } = await pickTemplate(LONGBOARD_SUNDAY_TEMPLATES, "longboard_sunday", supabase);
-    const slots = buildLongboardSlots(fallback);
-    return {
-      text: resolveTemplate(template, slots),
-      templateIndex: index,
-      beachesFeatured: [fallback.beach.name],
-      imageUrl: null,
-    };
+    return objectiveSafetyPost();
   }
 
   const { template, index } = await pickTemplate(LONGBOARD_SUNDAY_TEMPLATES, "longboard_sunday", supabase);
@@ -1064,7 +1302,28 @@ async function generateLongboardSundayPost(
     templateIndex: index,
     beachesFeatured: [topBeach.beach.name],
     imageUrl,
+    authorizationContexts: authorizationContextsForScoredBeaches(
+      [topBeach],
+      window,
+    ),
   };
+}
+
+async function applyLastMileMajorEventHoldPolicy(
+  supabase: SupabaseClient,
+  result: GeneratedForecastPost,
+): Promise<GeneratedForecastPost> {
+  const configuredMode = Deno.env.get("MAJOR_EVENT_HOLD_MODE") ?? "off";
+  const resolution = result.authorizationContexts.length === 0
+    ? { state: "unavailable" as const, blockedContextKeys: new Set<string>() }
+    : await resolveMajorEventHoldAuthorizationContexts(
+      supabase,
+      result.authorizationContexts,
+      configuredMode,
+    );
+  return shouldUseObjectiveSafetyPost(configuredMode, resolution)
+    ? objectiveSafetyPost()
+    : result;
 }
 
 // ---------------------------------------------------------------------------
@@ -1337,7 +1596,7 @@ Deno.serve(async (req: Request) => {
     console.log(`[bluesky-auto-post] Found ${beaches.length} SD beaches`);
 
     // Generate post content
-    let result: { text: string; templateIndex: number; beachesFeatured: string[]; imageUrl: string | null };
+    let result: GeneratedForecastPost;
 
     switch (post_type) {
       case "go_no":
@@ -1353,6 +1612,7 @@ Deno.serve(async (req: Request) => {
         throw new Error(`Unknown post_type: ${post_type}`);
     }
 
+    result = await applyLastMileMajorEventHoldPolicy(supabase, result);
     console.log(`[bluesky-auto-post] Generated text (${result.text.length} chars):\n${result.text}`);
 
     // Dry-run mode: config.enabled = false
@@ -1385,6 +1645,8 @@ Deno.serve(async (req: Request) => {
     const session = await createBlueskySession();
     console.log(`[bluesky-auto-post] Bluesky auth successful for DID: ${session.did}`);
 
+    result = await applyLastMileMajorEventHoldPolicy(supabase, result);
+
     // Handle image upload (if applicable)
     let imageBlob: any = null;
     let altText = "";
@@ -1408,6 +1670,12 @@ Deno.serve(async (req: Request) => {
       } else {
         console.warn(`[bluesky-auto-post] Image fetch failed, posting text-only`);
       }
+    }
+
+    result = await applyLastMileMajorEventHoldPolicy(supabase, result);
+    if (result.imageUrl === null) {
+      imageBlob = null;
+      altText = "";
     }
 
     // Create the Bluesky post

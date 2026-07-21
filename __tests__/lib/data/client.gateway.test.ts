@@ -67,4 +67,43 @@ describe("client data gateway", () => {
       cache: "no-store",
     });
   });
+
+  it("always refreshes hold-aware daily intel instead of replaying a cached positive", async () => {
+    const availableIntel = {
+      beach_id: "beach-1",
+      forecast_date: "2026-07-19",
+      best_window_start: "06:00:00",
+      best_window_end: "09:00:00",
+      conditions_score: 8,
+      recommendationAvailability: {
+        state: "available",
+        holdEpoch: "available-epoch",
+      },
+    };
+    const heldIntel = {
+      ...availableIntel,
+      best_window_start: null,
+      best_window_end: null,
+      conditions_score: null,
+      recommendationAvailability: {
+        state: "none",
+        reasonCode: "major_event_hold",
+        holdEpoch: "held-epoch",
+      },
+    };
+    const fetchWithAuthRetry = jest
+      .fn()
+      .mockResolvedValueOnce(jsonResponse({ data: { intel: availableIntel } }))
+      .mockResolvedValueOnce(jsonResponse({ data: { intel: heldIntel } }));
+    const { data } = await loadClientGateway(fetchWithAuthRetry);
+
+    await expect(
+      data.intel.getDaily("beach-1", "2026-07-19"),
+    ).resolves.toEqual(availableIntel);
+    await expect(
+      data.intel.getDaily("beach-1", "2026-07-19"),
+    ).resolves.toEqual(heldIntel);
+
+    expect(fetchWithAuthRetry).toHaveBeenCalledTimes(2);
+  });
 });

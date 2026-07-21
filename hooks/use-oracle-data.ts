@@ -171,8 +171,11 @@ export function useOracleData(): OracleData {
   // Fallback: if the user's location returns nothing (e.g. Nazaré, inland US,
   // anywhere without Quiver coverage), retry with San Diego so they see a hero
   // instead of an empty state. Skip when the primary query is already SD.
+  const primaryRecommendationUnavailable =
+    primaryDiscovery?.recommendationAvailability?.state === "none";
   const primaryReturnedEmpty =
     primaryDiscovery !== null &&
+    !primaryRecommendationUnavailable &&
     (primaryDiscovery.recommendations?.length ?? 0) === 0;
   const alreadySanDiego =
     userLocation.lat === DEFAULT_LOCATION.lat &&
@@ -191,17 +194,24 @@ export function useOracleData(): OracleData {
     userSkillLevel,
   });
 
-  const discovery = primaryReturnedEmpty && !alreadySanDiego
+  const shouldUseFallback = primaryReturnedEmpty && !alreadySanDiego;
+  const discovery = shouldUseFallback
     ? fallbackDiscovery
     : primaryDiscovery;
-  const discoveryLoading = primaryLoading || fallbackLoading;
+  const discoveryLoading = primaryLoading || (shouldUseFallback && fallbackLoading);
   // Surface a hard error so the consumer can distinguish "still bootstrapping"
   // (discovery hasn't run yet because profile/geo isn't ready) from "discovery
   // failed." Prefer the active query's error.
-  const discoveryError = (primaryReturnedEmpty && !alreadySanDiego ? fallbackError : primaryError) ?? null;
+  const discoveryError = (shouldUseFallback ? fallbackError : primaryError) ?? null;
 
-  const topRecommendation = discovery?.recommendations[0] ?? null;
-  const remainingSpots = discovery?.recommendations.slice(1) ?? [];
+  const recommendationUnavailable =
+    discovery?.recommendationAvailability?.state === "none";
+  const topRecommendation = recommendationUnavailable
+    ? null
+    : discovery?.recommendations[0] ?? null;
+  const remainingSpots = recommendationUnavailable
+    ? []
+    : discovery?.recommendations.slice(1) ?? [];
 
   // ------------------------------------------------------------------
   // Hero photo — three-tier fallback

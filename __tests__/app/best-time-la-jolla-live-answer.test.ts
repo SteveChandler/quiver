@@ -44,6 +44,7 @@ describe("best-time La Jolla live answer copy", () => {
         },
         topPicks: [
           {
+            beachId: "11111111-1111-4111-8111-111111111111",
             name: "La Jolla Shores",
             slug: "la-jolla-shores",
             waveHeight: "2-3 ft",
@@ -57,6 +58,10 @@ describe("best-time La Jolla live answer copy", () => {
           swell: "2-3 ft",
         },
         isTomorrow: false,
+        recommendationAvailability: {
+          state: "available",
+          holdEpoch: "test-epoch",
+        },
       },
     });
 

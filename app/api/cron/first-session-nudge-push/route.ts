@@ -45,13 +45,16 @@ import {
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withObservedCron } from "@/lib/cron/observability";
-import { getUtcDayBounds } from "@/lib/alerts/timezone-utils";
 import {
   getLocalDateString,
   getLocalHour,
   isNightHour,
-  resolveBeachTimezone,
 } from "@/lib/utils/timezone-utils";
+import {
+  resolveNotificationMajorEventHold,
+  type PositiveRecommendationPolicyContext,
+} from "@/lib/recommendations/major-event-hold/adapters/notification";
+import { fromZonedTime } from "date-fns-tz";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -100,6 +103,7 @@ interface Candidate {
   is_trialing: boolean;
   is_pro: boolean;
   device_tokens: string[];
+  experience_level: string | null;
 }
 
 interface BeachRow {
@@ -115,6 +119,12 @@ interface ResolvedCohort {
   beach_id: string | null;
   beach_name: string | null;
   confidence_score: number | null;
+  policy_context?: PositiveRecommendationPolicyContext;
+}
+
+interface FiringConfidence {
+  confidenceScore: number;
+  policyContext: PositiveRecommendationPolicyContext;
 }
 
 interface RunSummary {
@@ -143,13 +153,16 @@ async function fetchFiringConfidence(
   supabase: ReturnType<typeof createSupabaseServiceRoleClient>,
   beachId: string,
   timezone?: string | null
-): Promise<number | null> {
-  const beachTimezone = resolveBeachTimezone(timezone);
+): Promise<FiringConfidence | null> {
+  if (!isValidIanaTimezone(timezone) || !isUuid(beachId)) return null;
+  const beachTimezone = timezone;
 
   try {
     const now = new Date();
     const localDate = getLocalDateString(now, beachTimezone);
-    const { start, end } = getUtcDayBounds(localDate, beachTimezone);
+    const bounds = getStrictUtcDayBounds(localDate, beachTimezone);
+    if (bounds === null) return null;
+    const { start, end } = bounds;
 
     const { data, error } = await supabase
       .from("enhanced_forecasts")
@@ -175,9 +188,72 @@ async function fetchFiringConfidence(
     if (!forecastAt || Number.isNaN(forecastAt.getTime())) return null;
     if (isNightHour(getLocalHour(forecastAt, beachTimezone))) return null;
 
-    return data.confidence_score;
+    return {
+      confidenceScore: data.confidence_score,
+      policyContext: {
+        kind: "positive_session_recommendation",
+        beach_id: beachId,
+        starts_at: start,
+        ends_at: end,
+      },
+    };
   } catch (err) {
     console.warn(`${CONTEXT_TAG} confidence lookup threw for beach ${beachId}:`, err);
+    return null;
+  }
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+function isValidIanaTimezone(value: unknown): value is string {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.length > 100 ||
+    value.trim() !== value
+  ) {
+    return false;
+  }
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: value }).format(new Date(0));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function nextLocalDate(localDate: string): string | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(localDate);
+  if (!match) return null;
+  const date = new Date(
+    Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + 1),
+  );
+  if (!Number.isFinite(date.getTime())) return null;
+  return date.toISOString().slice(0, 10);
+}
+
+function getStrictUtcDayBounds(
+  localDate: string,
+  timezone: string,
+): { start: string; end: string } | null {
+  const followingDate = nextLocalDate(localDate);
+  if (followingDate === null) return null;
+  try {
+    const start = fromZonedTime(`${localDate}T00:00:00.000`, timezone);
+    const end = fromZonedTime(`${followingDate}T00:00:00.000`, timezone);
+    if (
+      !Number.isFinite(start.getTime()) ||
+      !Number.isFinite(end.getTime()) ||
+      end.getTime() <= start.getTime()
+    ) {
+      return null;
+    }
+    return { start: start.toISOString(), end: end.toISOString() };
+  } catch {
     return null;
   }
 }
@@ -230,14 +306,18 @@ async function resolveCohort(
     candidate.home_beach_id,
     beach.timezone
   );
-  if (confidence !== null && confidence >= CONDITIONS_FIRING_THRESHOLD) {
+  if (
+    confidence !== null &&
+    confidence.confidenceScore >= CONDITIONS_FIRING_THRESHOLD
+  ) {
     return {
       cohort: "free_home_firing",
       title: "Good window at your home break",
       body: "Check today's forecast, and log a session if you paddle out.",
       beach_id: null,
       beach_name: beachName,
-      confidence_score: confidence,
+      confidence_score: confidence.confidenceScore,
+      policy_context: confidence.policyContext,
     };
   }
 
@@ -304,7 +384,7 @@ async function _GET(request: Request): Promise<Response> {
 
     const { data: windowProfiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("id, home_beach_id")
+      .select("id, home_beach_id, experience_level")
       .gte("created_at", signupAfter)
       .lt("created_at", signupBefore);
 
@@ -467,6 +547,7 @@ async function _GET(request: Request): Promise<Response> {
         p.id,
         {
           home_beach_id: p.home_beach_id as string | null,
+          experience_level: (p.experience_level as string | null) ?? null,
         },
       ])
     );
@@ -490,6 +571,7 @@ async function _GET(request: Request): Promise<Response> {
         is_trialing: ent?.is_trialing ?? false,
         is_pro: ent?.is_pro ?? false,
         device_tokens: tokens,
+        experience_level: profile.experience_level,
       });
     }
 
@@ -543,24 +625,51 @@ async function _GET(request: Request): Promise<Response> {
         const resolved = await resolveCohort(supabase, candidate, beachById);
         summary.cohorts[resolved.cohort]++;
 
+        const payload = {
+          cohort: resolved.cohort,
+          title: resolved.title,
+          body: resolved.body,
+          beach_id: null,
+          ...(resolved.policy_context
+            ? { policy_context: resolved.policy_context }
+            : {}),
+          ...buildNotificationRelevanceMetadata({
+            category: "session_growth",
+            triggerSource: "first_session_day7",
+            relevanceConfidence: "medium",
+            beachConfidence: "low",
+            beachConfidenceScore: resolved.confidence_score,
+          }),
+        };
+        if (resolved.cohort === "free_home_firing") {
+          const holdDecision = await resolveNotificationMajorEventHold({
+            eventId: `first-session:${candidate.user_id}:${NUDGE_TYPE}`,
+            type: "log_session_nudge",
+            payload,
+            profileExperience: candidate.experience_level,
+            asOf: new Date(),
+          });
+          if (holdDecision.status !== "allowed") {
+            console.info(
+              `${CONTEXT_TAG} Suppressed ${resolved.cohort} for ${candidate.user_id}`,
+              {
+                audit_code: "major_event_hold",
+                reason_code:
+                  holdDecision.status === "suppressed"
+                    ? holdDecision.reasonCode
+                    : "hold_state_unavailable",
+              },
+            );
+            continue;
+          }
+        }
+
         const enqueueResult = await enqueueNotification({
           type: "log_session_nudge",
           recipientUserId: candidate.user_id,
           entityType: null,
           entityId: null,
-          payload: {
-            cohort: resolved.cohort,
-            title: resolved.title,
-            body: resolved.body,
-            beach_id: null,
-            ...buildNotificationRelevanceMetadata({
-              category: "session_growth",
-              triggerSource: "first_session_day7",
-              relevanceConfidence: "medium",
-              beachConfidence: "low",
-              beachConfidenceScore: resolved.confidence_score,
-            }),
-          },
+          payload,
           dedupeKey: `log_session_nudge:${candidate.user_id}:${NUDGE_TYPE}`,
         });
 

@@ -1,14 +1,27 @@
 import {
   getCityTideData,
   getCityWaterTempHistory,
+  getIntentForecastSummary,
   CityTideData,
   CityWaterTempData,
 } from "@/actions/forecast/intent-forecast-actions";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { findMagicHour } from "@/lib/services/magic-hour/magic-hour-finder";
+
+const mockEvaluateMajorEventHoldCandidates = jest.fn();
 
 // Mock Supabase client
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(),
+}));
+
+jest.mock("@/lib/services/magic-hour/magic-hour-finder", () => ({
+  findMagicHour: jest.fn(),
+}));
+
+jest.mock("@/lib/recommendations/major-event-hold/service", () => ({
+  evaluateMajorEventHoldCandidates: (input: unknown) =>
+    mockEvaluateMajorEventHoldCandidates(input),
 }));
 
 describe("getCityTideData", () => {
@@ -21,6 +34,7 @@ describe("getCityTideData", () => {
       from: jest.fn().mockReturnThis(),
       select: jest.fn().mockReturnThis(),
       eq: jest.fn().mockReturnThis(),
+      in: jest.fn().mockReturnThis(),
       ilike: jest.fn().mockReturnThis(),
       order: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
@@ -33,6 +47,155 @@ describe("getCityTideData", () => {
     (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue(
       mockSupabase
     );
+  });
+
+  describe("getIntentForecastSummary major-event hold boundary", () => {
+    const beachIds = [
+      "11111111-1111-4111-8111-111111111111",
+      "22222222-2222-4222-8222-222222222222",
+      "33333333-3333-4333-8333-333333333333",
+      "44444444-4444-4444-8444-444444444444",
+    ];
+    const peakTimes = [
+      "2026-07-19T20:00:00.000Z",
+      "2026-07-19T21:00:00.000Z",
+      "2026-07-19T22:00:00.000Z",
+      "2026-07-19T23:00:00.000Z",
+    ];
+
+    beforeEach(() => {
+      jest.useFakeTimers({ now: new Date("2026-07-19T12:00:00.000Z") });
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it("filters all confidence-sorted candidates before truncating and source-binds rank one", async () => {
+      const beaches = beachIds.map((id, index) => ({
+        id,
+        name: `Beach ${index + 1}`,
+        slug: `beach-${index + 1}`,
+        city: "San Diego",
+        state: "CA",
+      }));
+      const forecasts = beachIds.map((beachId, index) => ({
+        id: `forecast-${index + 1}`,
+        beach_id: beachId,
+        forecast_at: peakTimes[index],
+        forecast_date: "2026-07-19",
+        forecast_time: peakTimes[index].slice(11, 19),
+        wave_height: `${index + 2}-${index + 3} ft`,
+        wave_period: "12",
+        wave_direction: "W",
+        wind_direction_deg: 90,
+        wind_speed: `${index + 4} mph`,
+        tide_height: "2.5",
+        tide_status: "Rising",
+        created_at: "2026-07-19T00:00:00.000Z",
+        updated_at: "2026-07-19T00:00:00.000Z",
+      }));
+      const query: any = {
+        select: jest.fn(() => query),
+        in: jest.fn(() => query),
+        gte: jest.fn(() => query),
+        lt: jest.fn(() => query),
+        order: jest.fn(async () => ({ data: forecasts, error: null })),
+      };
+      (createSupabaseServiceRoleClient as jest.Mock).mockResolvedValue({
+        from: jest.fn(() => query),
+      });
+      (findMagicHour as jest.Mock).mockImplementation(
+        (_forecasts, beach: { id: string }) => {
+          const index = beachIds.indexOf(beach.id);
+          return {
+            found: true,
+            peakTime: new Date(peakTimes[index]),
+            windowStart: `${8 + index}:00 AM`,
+            windowEnd: `${9 + index}:00 AM`,
+            confidence: [0.99, 0.88, 0.77, 0.66][index],
+            swellMatch: true,
+            windQuality: "perfect",
+            tideInRange: true,
+          };
+        }
+      );
+      mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
+        ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+          Promise.resolve(
+            candidates.map(({ candidateId }, index) =>
+              index === 0
+                ? {
+                    candidateId,
+                    evaluation: {
+                      outcome: "explicit_none",
+                      reasonCode: "major_event_hold",
+                      holdIds: ["internal-hold-id"],
+                      expiresAt: "2026-07-20T00:00:00.000Z",
+                      holdEpoch: "intent-epoch",
+                    },
+                    recommendationAvailability: {
+                      state: "none",
+                      reasonCode: "major_event_hold",
+                      expiresAt: "2026-07-20T00:00:00.000Z",
+                      holdEpoch: "intent-epoch",
+                    },
+                  }
+                : {
+                    candidateId,
+                    evaluation: {
+                      outcome: "allow",
+                      holdIds: [],
+                      holdEpoch: "intent-epoch",
+                    },
+                    recommendationAvailability: {
+                      state: "available",
+                      holdEpoch: "intent-epoch",
+                    },
+                  }
+            )
+          )
+      );
+
+      const result = await getIntentForecastSummary(beaches, "beginner");
+
+      expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledWith({
+        candidates: beachIds.map((beachId, index) => ({
+          candidateId: `intent:${beachId}:${peakTimes[index]}`,
+          beachId,
+          startsAt: new Date(
+            Date.parse(peakTimes[index]) - 30 * 60 * 1000
+          ).toISOString(),
+          endsAt: new Date(
+            Date.parse(peakTimes[index]) + 30 * 60 * 1000
+          ).toISOString(),
+        })),
+        profileExperience: null,
+      });
+      expect(result).toMatchObject({
+        bestWindow: null,
+        topPicks: [
+          {
+            beachId: beachIds[1],
+            name: "Beach 2",
+            waveHeight: "3-4 ft",
+            windDirection: "5 mph",
+            score: 88,
+          },
+          { beachId: beachIds[2], name: "Beach 3", score: 77 },
+          { beachId: beachIds[3], name: "Beach 4", score: 66 },
+        ],
+        conditions: { tide: "Rising", wind: "4 mph", swell: "2-3 ft" },
+        isTomorrow: false,
+        recommendationAvailability: {
+          state: "available",
+          holdEpoch: "intent-epoch",
+        },
+      });
+      expect(JSON.stringify(result)).not.toMatch(
+        /internal-hold-id|holdIds|evaluation/
+      );
+    });
   });
 
   it("returns null when no beaches found in city", async () => {

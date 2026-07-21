@@ -11,18 +11,6 @@ import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
 import { MatchScoreRing } from "./match-score-ring";
 
 // ---------------------------------------------------------------------------
-// Static fallback (used when live fetches fail)
-// ---------------------------------------------------------------------------
-
-const FALLBACK = {
-  beachName: "Blacks Beach",
-  city: "San Diego",
-  state: "CA",
-  score: 87,
-  conditions: ["Offshore Wind", "Chest-high", "Rising Tide"],
-} as const;
-
-// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -73,7 +61,7 @@ function buildConditionChips(
     else chips.push(tideStatus);
   }
 
-  return chips.length > 0 ? chips.slice(0, 3) : FALLBACK.conditions.slice();
+  return chips.slice(0, 3);
 }
 
 // ---------------------------------------------------------------------------
@@ -143,7 +131,7 @@ export function HeroMatchDemo() {
     ? `${coordinates.lat.toFixed(2)},${coordinates.lon.toFixed(2)}`
     : "";
 
-  const fetchDemoData = useCallback(async (): Promise<DemoData> => {
+  const fetchDemoData = useCallback(async (): Promise<DemoData | null> => {
     // Parse coords from stable key
     let lat: number | undefined;
     let lon: number | undefined;
@@ -158,13 +146,7 @@ export function HeroMatchDemo() {
     const topBeach = topBeaches[0];
 
     if (!topBeach) {
-      return {
-        beachName: FALLBACK.beachName,
-        city: FALLBACK.city,
-        state: FALLBACK.state,
-        score: FALLBACK.score,
-        conditions: FALLBACK.conditions.slice(),
-      };
+      return null;
     }
 
     // Step 2: get forecast details for condition chips
@@ -217,15 +199,11 @@ export function HeroMatchDemo() {
     return <CardSkeleton />;
   }
 
-  const demo: DemoData = data ?? {
-    beachName: FALLBACK.beachName,
-    city: FALLBACK.city,
-    state: FALLBACK.state,
-    score: FALLBACK.score,
-    conditions: FALLBACK.conditions.slice(),
-  };
+  const demo = data ?? null;
 
-  const locationLine = [demo.city, demo.state].filter(Boolean).join(", ");
+  const locationLine = demo
+    ? [demo.city, demo.state].filter(Boolean).join(", ")
+    : "";
 
   return (
     <div className="relative w-full max-w-sm">
@@ -249,24 +227,30 @@ export function HeroMatchDemo() {
           {/* Beach info */}
           <div className="flex-1 min-w-0">
             <p className="font-mono uppercase tracking-[0.08em] text-white/60 text-xs mb-1">
-              Best match now
+              {demo ? "Best match now" : "Live surf conditions"}
             </p>
             <h3 className="font-mono uppercase tracking-[0.08em] text-white text-sm font-semibold leading-tight truncate">
-              {demo.beachName}
+              {demo?.beachName ?? "Check the latest forecast"}
             </h3>
-            {locationLine && (
+            {demo && locationLine ? (
               <p className="text-white/60 text-xs mt-0.5">{locationLine}</p>
-            )}
+            ) : !demo ? (
+              <p className="text-white/60 text-xs mt-1">
+                Wave, wind, and tide can change quickly.
+              </p>
+            ) : null}
           </div>
 
           {/* Score ring */}
-          <div className="shrink-0">
-            <MatchScoreRing score={demo.score} size={96} animated />
-          </div>
+          {demo ? (
+            <div className="shrink-0">
+              <MatchScoreRing score={demo.score} size={96} animated />
+            </div>
+          ) : null}
         </div>
 
         {/* Condition chips */}
-        {demo.conditions.length > 0 && (
+        {demo && demo.conditions.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {demo.conditions.map((label, i) => (
               <ConditionChip key={label} label={label} index={i} />

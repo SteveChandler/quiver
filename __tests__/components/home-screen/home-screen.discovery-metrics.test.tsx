@@ -1,11 +1,20 @@
 import React from "react";
-import { act, render } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { HomeScreen } from "@/components/home-screen";
 import { useGeolocation } from "@/hooks/use-geolocation";
 import { useSurfDiscovery } from "@/hooks/use-surf-discovery";
 
 const mockRouterReplace = jest.fn();
 const mockRouterPush = jest.fn();
+let mockSurfDiscoveryResult: {
+  discovery: Record<string, unknown> | null;
+  loading: boolean;
+  error: string | null;
+} = {
+  discovery: { recommendations: [] },
+  loading: false,
+  error: null,
+};
 
 type HomeDiscoveryWindow = Window & {
   __quiverHomeDiscoveryRequestCount?: number;
@@ -99,11 +108,7 @@ jest.mock("@/context/location-context", () => ({
 }));
 
 jest.mock("@/hooks/use-surf-discovery", () => ({
-  useSurfDiscovery: jest.fn(() => ({
-    discovery: { recommendations: [] },
-    loading: false,
-    error: null,
-  })),
+  useSurfDiscovery: jest.fn(() => mockSurfDiscoveryResult),
 }));
 
 jest.mock("@/hooks/use-time-slot-prefetch", () => ({
@@ -166,7 +171,11 @@ jest.mock("@/components/home-screen/use-time-of-day", () => ({
 }));
 
 jest.mock("@/components/home-screen/hero-recommendation", () => ({
-  HeroRecommendation: () => <div data-testid="hero-recommendation" />,
+  HeroRecommendation: ({ recommendation }: { recommendation: { beach: { name: string } } | null }) => (
+    <div data-testid="hero-recommendation">
+      {recommendation?.beach.name ?? "No recommendation"}
+    </div>
+  ),
 }));
 
 jest.mock("@/components/home-screen/primary-actions", () => ({
@@ -174,7 +183,12 @@ jest.mock("@/components/home-screen/primary-actions", () => ({
 }));
 
 jest.mock("@/lib/share/share-data-builder", () => ({
-  buildSurfCallShareData: jest.fn(() => null),
+  buildSurfCallShareData: jest.fn(() => ({
+    imageUrl: "https://example.com/share.png",
+    beachName: "Stale Positive Beach",
+    title: "Go surf",
+    text: "Best window now",
+  })),
 }));
 
 jest.mock("@/lib/utils/beach-url-utils", () => ({
@@ -186,7 +200,11 @@ jest.mock("@/lib/data/forecast-regions", () => ({
 }));
 
 jest.mock("@/components/home-screen/top-spots-carousel", () => ({
-  TopSpotsCarousel: () => <div data-testid="top-spots-carousel" />,
+  TopSpotsCarousel: ({ spots }: { spots: Array<{ beach: { name: string } }> }) => (
+    <div data-testid="top-spots-carousel">
+      {spots.map((spot) => spot.beach.name).join(",")}
+    </div>
+  ),
 }));
 
 jest.mock("@/components/home-screen/time-slot-selector", () => ({
@@ -206,7 +224,19 @@ jest.mock("@/components/home-screen/home-conditions-ticker", () => ({
 }));
 
 jest.mock("@/components/home-screen/session-intelligence-module", () => ({
-  SessionIntelligenceModule: () => <div data-testid="session-intelligence-module" />,
+  SessionIntelligenceModule: ({
+    recommendations,
+    recommendationAvailability,
+  }: {
+    recommendations: unknown[];
+    recommendationAvailability?: { state: string };
+  }) => (
+    <div
+      data-testid="session-intelligence-module"
+      data-recommendation-count={recommendations.length}
+      data-availability={recommendationAvailability?.state ?? "absent"}
+    />
+  ),
 }));
 
 jest.mock("@/components/home-screen/first-session-cta", () => ({
@@ -220,6 +250,11 @@ describe("HomeScreen discovery request instrumentation", () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockSurfDiscoveryResult = {
+      discovery: { recommendations: [] },
+      loading: false,
+      error: null,
+    };
     delete getHomeDiscoveryWindow().__quiverHomeDiscoveryRequestCount;
     Object.defineProperty(performance, "mark", {
       configurable: true,
@@ -265,5 +300,66 @@ describe("HomeScreen discovery request instrumentation", () => {
     expect(markMock).toHaveBeenCalledWith(
       "quiver:home:discovery-request:2:error",
     );
+  });
+
+  it("lets explicit none win before hero, top spots, share, actions, and local window rebuilding", () => {
+    const stalePositive = {
+      beach: {
+        id: "stale-beach",
+        name: "Stale Positive Beach",
+        slug: "stale-positive",
+        city: "San Diego",
+        state: "CA",
+        photo_url: "https://example.com/stale.jpg",
+      },
+      window: {
+        start: new Date("2026-07-20T16:00:00.000Z"),
+        end: new Date("2026-07-20T18:00:00.000Z"),
+        timezone: "America/Los_Angeles",
+      },
+      score: 92,
+    };
+    mockSurfDiscoveryResult = {
+      discovery: {
+        recommendations: [stalePositive],
+        recommendationAvailability: {
+          state: "none",
+          reasonCode: "major_event_hold",
+          holdEpoch: "hold-1:1",
+        },
+      },
+      loading: false,
+      error: null,
+    };
+
+    const { buildSurfCallShareData } = jest.requireMock(
+      "@/lib/share/share-data-builder",
+    ) as { buildSurfCallShareData: jest.Mock };
+    const { useTimeSlotPrefetch } = jest.requireMock(
+      "@/hooks/use-time-slot-prefetch",
+    ) as { useTimeSlotPrefetch: jest.Mock };
+
+    render(<HomeScreen />);
+
+    expect(screen.queryByTestId("hero-recommendation")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("time-slot-selector")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("top-spots-carousel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("primary-actions")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("fallback-actions")).not.toBeInTheDocument();
+    expect(buildSurfCallShareData).not.toHaveBeenCalled();
+    expect(screen.getByTestId("recommendation-unavailable-state")).toHaveTextContent(
+      "Session picks aren't available right now."
+    );
+
+    const sessionIntelligence = screen.getByTestId("session-intelligence-module");
+    expect(sessionIntelligence).toHaveAttribute("data-recommendation-count", "0");
+    expect(sessionIntelligence).toHaveAttribute("data-availability", "none");
+    expect(useTimeSlotPrefetch).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled: false }),
+    );
+
+    expect(screen.getByTestId("home-conditions-ticker")).toBeInTheDocument();
+    expect(screen.getByTestId("forecast-outlook-card")).toBeInTheDocument();
+    expect(screen.queryByText(/low confidence|confidence/i)).not.toBeInTheDocument();
   });
 });

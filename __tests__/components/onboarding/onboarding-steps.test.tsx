@@ -496,6 +496,49 @@ describe("Onboarding Step Components - New 3-Step Flow", () => {
       });
     });
 
+    it("keeps physical conditions but hides cached positive intel during a hold", async () => {
+      mockGetDaily.mockResolvedValue({
+        best_window_start: "06:00:00",
+        best_window_end: "09:00:00",
+        best_window_description: "Perfect offshore winds",
+        conditions_score: 8,
+        surf_description: "Clean and firing",
+        current_wave_height_label: "4-5ft",
+        best_window_wave_height_label: "5-6ft",
+        wind_quality: "offshore",
+        wind_speed_mph: 10,
+        wind_direction_text: "E",
+        recommendationAvailability: {
+          state: "none",
+          reasonCode: "major_event_hold",
+          holdEpoch: "held-epoch",
+        },
+      });
+      mockUseOnboardingStore.mockReturnValue({
+        ...defaultStore,
+        data: {
+          homeBeachId: "beach-123",
+          homeBeachName: "Pipeline",
+        },
+      });
+
+      render(<PayoffStep />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId("major-event-hold-payoff-neutral"),
+        ).toHaveTextContent("4-5ft");
+      });
+      expect(
+        screen.getByTestId("major-event-hold-payoff-neutral"),
+      ).toHaveTextContent("10mph E");
+      expect(screen.queryByText(/Your Best Window/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Perfect offshore winds/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/offshore/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/\/10/i)).not.toBeInTheDocument();
+      expect(screen.queryByText("5-6ft")).not.toBeInTheDocument();
+    });
+
     it("shows fallback forecast card when no intel but forecastPreview available", async () => {
       mockUseForecastPreview.mockReturnValue({
         forecastPreview: {

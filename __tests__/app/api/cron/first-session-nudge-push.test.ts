@@ -154,6 +154,15 @@ jest.mock("@/lib/notifications/enqueue", () => ({
   enqueueNotification: (...args: unknown[]) => mockEnqueueNotification(...args),
 }));
 
+const mockResolveNotificationMajorEventHold = jest.fn();
+jest.mock(
+  "@/lib/recommendations/major-event-hold/adapters/notification",
+  () => ({
+    resolveNotificationMajorEventHold: (...args: unknown[]) =>
+      mockResolveNotificationMajorEventHold(...args),
+  }),
+);
+
 // ============================================================================
 // Helpers
 // ============================================================================
@@ -229,11 +238,21 @@ describe("First-Session-Nudge Push Cron", () => {
       enqueued: true,
       eventId: "evt-mock",
     });
+    mockResolveNotificationMajorEventHold.mockResolvedValue({
+      status: "allowed",
+      candidate: {
+        candidateId: "notification:first-session",
+        beachId: "11111111-1111-4111-8111-111111111111",
+        startsAt: "2026-07-17T07:00:00.000Z",
+        endsAt: "2026-07-18T07:00:00.000Z",
+      },
+    });
     const { validateCronRequest } = require("@/lib/middleware/api-wrappers");
     validateCronRequest.mockReturnValue(true);
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     consoleLogSpy.mockRestore();
   });
 
@@ -419,7 +438,12 @@ describe("First-Session-Nudge Push Cron", () => {
         firingForecastAt = "2026-06-20T16:00:00.000Z",
       } = overrides;
       seedWindow("profiles", [
-        { id: userId, first_name: "Steve", home_beach_id },
+        {
+          id: userId,
+          first_name: "Steve",
+          home_beach_id,
+          experience_level: "beginner",
+        },
       ]);
       seedIn("activation_push_log", []);
       seedIn("sessions", []);
@@ -496,11 +520,14 @@ describe("First-Session-Nudge Push Cron", () => {
     });
 
     it("free_home_firing → '✨ {beach} is looking good' when confidence>=70", async () => {
+      jest.useFakeTimers().setSystemTime(new Date("2026-07-17T17:00:00.000Z"));
       setupBase("u-fhf", {
-        home_beach_id: "beach-2",
+        home_beach_id: "11111111-1111-4111-8111-111111111111",
         entitlement: { is_pro: false, is_trialing: false },
         beachName: "Blacks",
+        beachTimezone: "America/Los_Angeles",
         firingScore: 82,
+        firingForecastAt: "2026-07-17T16:00:00.000Z",
       });
 
       const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
@@ -513,11 +540,69 @@ describe("First-Session-Nudge Push Cron", () => {
         "Check today's forecast, and log a session if you paddle out."
       );
       expect(call.payload.beach_id).toBeNull();
+      expect(call.payload.policy_context).toEqual({
+        kind: "positive_session_recommendation",
+        beach_id: "11111111-1111-4111-8111-111111111111",
+        starts_at: "2026-07-17T07:00:00.000Z",
+        ends_at: "2026-07-18T07:00:00.000Z",
+      });
+      expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: "log_session_nudge",
+          profileExperience: "beginner",
+          payload: expect.objectContaining({
+            policy_context: call.payload.policy_context,
+          }),
+        }),
+      );
+    });
+
+    it("suppresses firing copy at producer time when the current hold blocks it", async () => {
+      jest.useFakeTimers().setSystemTime(new Date("2026-07-17T17:00:00.000Z"));
+      setupBase("u-held", {
+        home_beach_id: "11111111-1111-4111-8111-111111111111",
+        entitlement: { is_pro: false, is_trialing: false },
+        beachName: "Blacks",
+        beachTimezone: "America/Los_Angeles",
+        firingScore: 82,
+        firingForecastAt: "2026-07-17T16:00:00.000Z",
+      });
+      mockResolveNotificationMajorEventHold.mockResolvedValue({
+        status: "suppressed",
+        reasonCode: "major_event_hold",
+        auditCode: "major_event_hold",
+        candidate: null,
+      });
+
+      const response = await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+      const data = await response.json();
+
+      expect(data.data.summary.sent).toBe(0);
+      expect(mockEnqueueNotification).not.toHaveBeenCalled();
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
+    it("falls back to non-firing copy when the beach timezone is missing", async () => {
+      setupBase("u-no-tz", {
+        home_beach_id: "11111111-1111-4111-8111-111111111111",
+        entitlement: { is_pro: false, is_trialing: false },
+        beachName: "Blacks",
+        beachTimezone: null,
+        firingScore: 82,
+      });
+
+      await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+
+      const call = mockEnqueueNotification.mock.calls[0][0];
+      expect(call.payload.cohort).toBe("free_home");
+      expect(call.payload).not.toHaveProperty("policy_context");
+      expect(mockResolveNotificationMajorEventHold).not.toHaveBeenCalled();
     });
 
     it("free_home ignores high-confidence overnight local forecasts", async () => {
+      jest.useFakeTimers().setSystemTime(new Date("2026-06-20T17:00:00.000Z"));
       setupBase("u-overnight", {
-        home_beach_id: "beach-overnight",
+        home_beach_id: "22222222-2222-4222-8222-222222222222",
         entitlement: { is_pro: false, is_trialing: false },
         beachName: "Blacks",
         beachTimezone: "America/Los_Angeles",
@@ -530,6 +615,8 @@ describe("First-Session-Nudge Push Cron", () => {
 
       expect(data.data.summary.cohorts.free_home_firing).toBe(0);
       expect(data.data.summary.cohorts.free_home).toBe(1);
+      expect(mockFrom).toHaveBeenCalledWith("enhanced_forecasts");
+      expect(mockResolveNotificationMajorEventHold).not.toHaveBeenCalled();
       const call = mockEnqueueNotification.mock.calls[0][0];
       expect(call.payload.title).toBe("Start your surf log");
       expect(call.payload.body).toBe("Add your first session when you paddle out.");

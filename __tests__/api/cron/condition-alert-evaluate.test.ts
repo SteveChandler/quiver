@@ -59,6 +59,7 @@ const mockComputeSurfCall = jest.fn<any, any[]>();
 const mockSelectActionableAlertWindow = jest.fn<any, any[]>(
   (windows: any[]) => windows[0] ?? null
 );
+const mockResolveNotificationMajorEventHold = jest.fn();
 
 jest.mock("@/lib/alerts/window-finder", () => ({
   findMatchingWindows: (...args: any[]) => mockFindMatchingWindows(...args),
@@ -91,6 +92,10 @@ jest.mock("@/lib/utils/surf-call-logic", () => {
     computeSurfCall: (...args: any[]) => mockComputeSurfCall(...args),
   };
 });
+jest.mock("@/lib/recommendations/major-event-hold/adapters/notification", () => ({
+  resolveNotificationMajorEventHold: (...args: unknown[]) =>
+    mockResolveNotificationMajorEventHold(...args),
+}));
 
 // ---- Store + mock Supabase ----
 
@@ -263,6 +268,7 @@ function seedProfile(overrides: Partial<any> = {}) {
     notif_forecast_alerts: true,
     notif_email_enabled: true,
     notif_push_enabled: false,
+    experience_level: "beginner",
     ...overrides,
   });
 }
@@ -366,6 +372,10 @@ beforeEach(() => {
     end: "2026-04-27T00:00:00.000Z",
   });
   mockResolveEntitlement.mockReturnValue("free");
+  mockResolveNotificationMajorEventHold.mockResolvedValue({
+    status: "allowed",
+    candidate: null,
+  });
   mockSelectActionableAlertWindow.mockImplementation(
     (windows: any[]) => windows[0] ?? null
   );
@@ -445,6 +455,42 @@ describe("condition-alert-evaluate — A4.2 flat queries", () => {
     expect(store.ruleUpdates).toHaveLength(1);
     expect(store.ruleUpdates[0].id).toBe(RULE_1);
     expect(typeof store.ruleUpdates[0].last_matched_at).toBe("string");
+
+    expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledWith({
+      eventId: `condition-alert-evaluate:${RULE_1}:2026-04-26T14:00:00Z`,
+      type: "forecast_alert",
+      payload: {
+        beach_id: BEACH_1,
+        forecast_at: "2026-04-26T15:00:00Z",
+        policy_context: {
+          kind: "positive_session_recommendation",
+          beach_id: BEACH_1,
+          starts_at: "2026-04-26T14:00:00Z",
+          ends_at: "2026-04-26T16:00:00Z",
+        },
+      },
+      profileExperience: "beginner",
+    });
+  });
+
+  it("suppresses held or unresolved positive windows before alert_queue persistence", async () => {
+    seedRule();
+    seedProfile();
+    seedBeach();
+    seedForecast();
+    seedMatchingWindow();
+    mockResolveNotificationMajorEventHold.mockResolvedValueOnce({
+      status: "suppressed",
+      reasonCode: "hold_state_unavailable",
+      auditCode: "major_event_hold",
+      candidate: null,
+    });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ queued: 0, skipped: 1 });
+    expect(store.queueUpserts).toHaveLength(0);
+    expect(store.ruleUpdates).toHaveLength(0);
   });
 
   it("2. empty rules: 0 enabled rules => no DB writes after rules query, message returned", async () => {

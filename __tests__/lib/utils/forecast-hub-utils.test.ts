@@ -7,6 +7,7 @@
 
 import {
   getRegionalSummaries,
+  getRegionalSummary,
   getBestRegionToday,
   getBestRegionForUser,
   getClosestRegion,
@@ -24,22 +25,63 @@ jest.mock("@/lib/utils/forecast-service-utils");
 jest.mock("@/lib/utils/beach-url-utils");
 jest.mock("@/lib/utils/regional-forecast-utils");
 jest.mock("@/lib/utils/distance-utils");
+jest.mock("@/lib/recommendations/major-event-hold/service", () => ({
+  evaluateMajorEventHoldCandidates: jest.fn(async ({ candidates }) =>
+    candidates.map((candidate: { candidateId: string } | null) => ({
+      candidateId: candidate?.candidateId ?? null,
+      evaluation: {
+        outcome: "allow",
+        holdIds: [],
+        holdEpoch: "test-hold-epoch",
+      },
+      recommendationAvailability: {
+        state: "available",
+        holdEpoch: "test-hold-epoch",
+      },
+    })),
+  ),
+}));
+jest.mock("@/lib/recommendations/major-event-hold/adapters/regional", () => ({
+  buildRegionalMajorEventHoldCandidates: jest.fn(
+    (summary: RegionalForecastSummary) =>
+      (summary.bestSurfWindows ?? []).map((window) => ({
+        candidateId: `regional-window:${window.windowId}`,
+        beachId: window.beach.id,
+        startsAt: window.startIso,
+        endsAt: window.endIso,
+      })),
+  ),
+  sanitizeRegionalForecastForMajorEventHold: jest.fn(
+    (summary: RegionalForecastSummary) => ({
+      ...summary,
+      bestSurfWindows: (summary.bestSurfWindows ?? []).slice(0, 5),
+      recommendationAvailability: {
+        state: "available",
+        holdEpoch: "test-hold-epoch",
+      },
+    }),
+  ),
+}));
 
 // attachRegionPhotos + getTopBeachesRightNow hit the service-role Supabase
 // client to fetch approved beach photos. CI has no SUPABASE_SERVICE_ROLE_KEY,
 // so the real client init throws and pollutes console.error. Stub both so
 // photo attachment silently no-ops (summaries retain null photoUrl fields,
 // which matches the photos-unavailable branch the callers already handle).
+let mockPhotoBeachIds: string[] = [];
 jest.mock("@/lib/supabase/server", () => ({
-  createSupabaseServiceRoleClient: () => ({
+  createSupabaseServiceRoleClient: jest.fn(() => ({
     from: () => ({
       select: () => ({
-        in: () => ({
+        in: (_field: string, beachIds: string[]) => {
+          mockPhotoBeachIds = beachIds;
+          return {
           order: () => Promise.resolve({ data: [], error: null }),
-        }),
+          };
+        },
       }),
     }),
-  }),
+  })),
 }));
 jest.mock("@/lib/supabase/query-builders", () => ({
   withApprovedPhotos: async (query: unknown) => {
@@ -63,6 +105,11 @@ jest.mock("@/lib/data/forecast-regions", () => ({
 
 import { FORECAST_REGIONS } from "@/lib/data/forecast-regions";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
+import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
+import {
+  buildRegionalMajorEventHoldCandidates,
+  sanitizeRegionalForecastForMajorEventHold,
+} from "@/lib/recommendations/major-event-hold/adapters/regional";
 
 // Mock data
 const mockRegion1: ForecastRegion = {
@@ -228,6 +275,7 @@ function createMockRegionalSummary(
 describe("forecast-hub-utils", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPhotoBeachIds = [];
 
     // Set up FORECAST_REGIONS mock data
     Object.keys(FORECAST_REGIONS).forEach((key) => {
@@ -354,6 +402,7 @@ describe("forecast-hub-utils", () => {
       const result = await getRegionalSummaries(undefined, {
         now: SURF_WINDOW_NOW,
         baseUrl: "https://example.com",
+        profileExperience: "intermediate",
       });
 
       expect(getBatchFreshForecastsFromCache).toHaveBeenCalledTimes(1);
@@ -376,6 +425,19 @@ describe("forecast-hub-utils", () => {
       expect(regionTwoWindows[0]).toMatchObject({
         appDeepLink: expect.stringContaining("window="),
       });
+      const regionOneSanitizeCall = (
+        sanitizeRegionalForecastForMajorEventHold as jest.Mock
+      ).mock.calls.find(
+        ([summary]: [RegionalForecastSummary]) =>
+          summary.region.slug === "test-region-1",
+      );
+      expect(regionOneSanitizeCall?.[0].bestSurfWindows).toHaveLength(7);
+      expect(buildRegionalMajorEventHoldCandidates).toHaveBeenCalledWith(
+        regionOneSanitizeCall?.[0],
+      );
+      expect(evaluateMajorEventHoldCandidates).toHaveBeenCalledWith(
+        expect.objectContaining({ profileExperience: "intermediate" }),
+      );
     });
 
     it("fetches all beaches once and reuses for all regions", async () => {
@@ -420,6 +482,55 @@ describe("forecast-hub-utils", () => {
       // Should still create summaries, just with empty data
       expect(result).toHaveProperty("test-region-1");
       expect(result).toHaveProperty("test-region-2");
+    });
+  });
+
+  describe("getRegionalSummary", () => {
+    it("selects hero photos only after held beaches are removed", async () => {
+      const held = {
+        beachId: "held-beach",
+        beachName: "Held Beach",
+        beachSlug: "held-beach",
+        state: "CA",
+        city: "San Diego",
+        country: "USA",
+        currentScore: 95,
+        currentWaveHeight: 6,
+        trend: "steady" as const,
+        bestDay: "Monday",
+        bestDayScore: 95,
+      };
+      const allowed = {
+        ...held,
+        beachId: "allowed-beach",
+        beachName: "Allowed Beach",
+        beachSlug: "allowed-beach",
+        currentScore: 80,
+        bestDayScore: 80,
+      };
+      const summary = createMockRegionalSummary(mockRegion1, 80, [
+        held,
+        allowed,
+      ]);
+      (getBeachesForRegion as jest.Mock).mockReturnValue(mockBeaches);
+      (getBatchFreshForecastsFromCache as jest.Mock).mockResolvedValue(
+        new Map(),
+      );
+      (aggregateRegionalForecast as jest.Mock).mockReturnValue(summary);
+      (sanitizeRegionalForecastForMajorEventHold as jest.Mock).mockReturnValueOnce({
+        ...summary,
+        beachConditions: [allowed],
+        recommendationAvailability: {
+          state: "available",
+          holdEpoch: "test-hold-epoch",
+        },
+      });
+
+      await getRegionalSummary(mockRegion1, mockBeaches, {
+        includeBestSurfWindows: false,
+      });
+
+      expect(mockPhotoBeachIds).toEqual(["allowed-beach"]);
     });
   });
 

@@ -191,6 +191,14 @@
     {
       "path": "/api/cron/sitemap-health",
       "schedule": "15 6 * * *"
+    },
+    {
+      "path": "/api/cron/major-event-hold-evaluate",
+      "schedule": "55 * * * *"
+    },
+    {
+      "path": "/api/cron/major-event-hold-retention",
+      "schedule": "15 9 * * 0"
     }
   ]
 }

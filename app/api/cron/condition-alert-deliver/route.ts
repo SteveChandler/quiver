@@ -53,6 +53,12 @@ import {
 import type { AlertConditions } from "@/lib/alerts/types";
 import type { MatchingWindow } from "@/lib/alerts/types";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
+import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
+import {
+  resolveNotificationMajorEventHold,
+  type NotificationMajorEventHoldResult,
+  type PositiveRecommendationPolicyContext,
+} from "@/lib/recommendations/major-event-hold/adapters/notification";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -62,6 +68,10 @@ export const maxDuration = 120;
 const CONTEXT_TAG = "[condition-alert-deliver]";
 
 type Channel = "email" | "push";
+type SuppressedNotificationHold = Extract<
+  NotificationMajorEventHoldResult,
+  { status: "suppressed" }
+>;
 
 type RuleEmbed = {
   name: string;
@@ -215,6 +225,57 @@ function buildRenderedMatchDetails(matches: MatchingWindow[]): Array<Record<stri
     wave_label: waveLabelFromSnapshot(match.conditions_snapshot),
     snapshot_summary: buildConditionsLine(match.conditions_snapshot),
   }));
+}
+
+function policyContextForMatch(
+  match: MatchingWindow | undefined
+): PositiveRecommendationPolicyContext | null {
+  if (!match) return null;
+  const startsAtMs = Date.parse(match.window_start);
+  const endsAtMs = Date.parse(match.window_end);
+  if (
+    !Number.isFinite(startsAtMs) ||
+    !Number.isFinite(endsAtMs) ||
+    endsAtMs <= startsAtMs
+  ) {
+    return null;
+  }
+
+  return {
+    kind: "positive_session_recommendation",
+    beach_id: match.beach_id,
+    starts_at: match.window_start,
+    ends_at: match.window_end,
+  };
+}
+
+async function resolveHoldForForecastMatches(args: {
+  eventIdPrefix: string;
+  payload: Record<string, unknown>;
+  matches: MatchingWindow[];
+  profileExperience: unknown;
+}): Promise<SuppressedNotificationHold | null> {
+  const basePayload = { ...args.payload };
+  delete basePayload.policy_context;
+  delete basePayload.matches;
+
+  for (const match of args.matches) {
+    const policyContext = policyContextForMatch(match);
+    const resolution = await resolveNotificationMajorEventHold({
+      eventId: `${args.eventIdPrefix}:${match.rule_id}:${match.window_start}`,
+      type: "forecast_alert",
+      payload: {
+        ...basePayload,
+        beach_id: match.beach_id,
+        forecast_at: match.best_hour || match.window_start,
+        ...(policyContext ? { policy_context: policyContext } : {}),
+      },
+      profileExperience: args.profileExperience,
+    });
+    if (resolution.status === "suppressed") return resolution;
+  }
+
+  return null;
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -461,6 +522,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           display_name: string | null;
           notif_email_enabled: boolean;
           notif_push_enabled: boolean;
+          experience_level: string | null;
           // Drives the email quiet-hours window resolution (same source the
           // push worker uses via resolveNotificationTimezone). Nullable;
           // falls back to DEFAULT_TIMEZONE.
@@ -469,7 +531,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         const userIds = Array.from(new Set(queueRows.map((r) => r.user_id)));
         const { data: profileRows, error: profilesError } = await supabase
           .from("profiles")
-          .select("id, email, display_name, notif_email_enabled, notif_push_enabled, timezone")
+          .select("id, email, display_name, notif_email_enabled, notif_push_enabled, timezone, experience_level")
           .in("id", userIds);
 
         if (profilesError) throw profilesError;
@@ -547,6 +609,7 @@ export async function GET(request: Request): Promise<NextResponse> {
             }
             continue;
           }
+          const profileExperience = parseSkillLevel(profile.experience_level);
 
           // Per-rule cooldown decision (cached) and per-user weekly cap decision.
           // Status priority: skipped_disabled > skipped_allowlist >
@@ -770,22 +833,46 @@ export async function GET(request: Request): Promise<NextResponse> {
 
                     await rateLimiter.throttle();
 
-                    const { data: sendData, error: sendError } = await resend.emails.send({
-                      from: MAIL_FROM,
-                      replyTo: MAIL_REPLY_TO,
-                      to: profile.email,
-                      subject: emailSubject,
-                      react: ConsolidatedAlertEmail({
-                        displayName: profile.display_name,
-                        alertDate,
-                        matches: emailMatches,
-                        manageAlertsUrl,
-                        unsubscribeUrl,
-                        baseUrl,
-                      }),
+                    const emailHold = await resolveHoldForForecastMatches({
+                      eventIdPrefix: `condition-alert-deliver:email:${payload.user_id}`,
+                      payload: {
+                        alert_date: payload.alert_date,
+                        title: emailSubject,
+                        body: emailMatches.map((match) => match.rule_name).join(", "),
+                      },
+                      matches: emailMatches,
+                      profileExperience,
                     });
+                    const sendResult = emailHold
+                      ? { data: null, error: null }
+                      : await resend.emails.send({
+                          from: MAIL_FROM,
+                          replyTo: MAIL_REPLY_TO,
+                          to: profile.email,
+                          subject: emailSubject,
+                          react: ConsolidatedAlertEmail({
+                            displayName: profile.display_name,
+                            alertDate,
+                            matches: emailMatches,
+                            manageAlertsUrl,
+                            unsubscribeUrl,
+                            baseUrl,
+                          }),
+                        });
+                    const { data: sendData, error: sendError } = sendResult;
 
-                    if (sendError) {
+                    if (emailHold) {
+                      for (const item of emailSurvivors) {
+                        await recordAttempt({
+                          queueId: item.id,
+                          ruleId: item.rule_id,
+                          userId: payload.user_id,
+                          channel: "email",
+                          status: "skipped_disabled",
+                          skipReason: `${emailHold.auditCode}:${emailHold.reasonCode}`,
+                        });
+                      }
+                    } else if (sendError) {
                       console.error(`${CONTEXT_TAG} Email send failed for user ${payload.user_id}:`, sendError);
                       result.errors++;
                       const errorMessage = (sendError as { message?: string })?.message ?? String(sendError);
@@ -935,44 +1022,60 @@ export async function GET(request: Request): Promise<NextResponse> {
                     const { title, body, data: pushData } = formatPushNotification(pushMatches);
                     const topMatch = pushMatches[0];
                     const quietHoursOverride = resolveQuietHoursOverride(pushSurvivors);
-
-                    const enqueueResult = await enqueueNotification({
-                      type: "forecast_alert",
-                      recipientUserId: payload.user_id,
-                      entityType: "beach",
-                      entityId: topMatch?.beach_id ?? null,
-                      payload: {
-                        alert_date: payload.alert_date,
-                        title,
-                        body,
-                        beach_id: pushData.beach_id,
-                        forecast_at: pushData.forecast_at ?? topMatch?.best_hour ?? topMatch?.window_start ?? null,
-                        matches: pushMatches.map((m) => ({
-                          beach_id: m.beach_id,
-                          beach_name: m.beach_name,
-                          window_start: m.window_start,
-                          window_end: m.window_end,
-                          best_hour: m.best_hour,
-                          best_score: m.best_score,
-                        })),
-                        rendered_matches: renderedPushMatches,
-                        ...(quietHoursOverride ?? {}),
-                        // Queue-item provenance: the forecast_alert
-                        // onChannelOutcome hook in lib/notifications/registry.ts
-                        // writes alert_delivery_attempts(status=...) for each
-                        // queue item once the worker reaches a terminal channel
-                        // outcome — so cooldown/cap reads only see actually-
-                        // delivered pushes (not enqueued-but-skipped ones).
-                        queue_items: pushSurvivors.map((s) => ({
-                          queue_id: s.id,
-                          rule_id: s.rule_id,
-                        })),
-                      },
-                      dedupeKey: `forecast_alert:${payload.user_id}:${payloadBeachId}:${payload.alert_date}`,
-                    }).catch((err) => {
-                      console.error(`${CONTEXT_TAG} enqueue threw for user ${payload.user_id}:`, err);
-                      return { enqueued: false as const, reason: "internal_error" as const };
+                    const topPolicyContext = policyContextForMatch(topMatch);
+                    const pushPayload = {
+                      alert_date: payload.alert_date,
+                      title,
+                      body,
+                      beach_id: pushData.beach_id,
+                      forecast_at: pushData.forecast_at ?? topMatch?.best_hour ?? topMatch?.window_start ?? null,
+                      matches: pushMatches.map((m) => ({
+                        beach_id: m.beach_id,
+                        beach_name: m.beach_name,
+                        window_start: m.window_start,
+                        window_end: m.window_end,
+                        best_hour: m.best_hour,
+                        best_score: m.best_score,
+                      })),
+                      rendered_matches: renderedPushMatches,
+                      ...(quietHoursOverride ?? {}),
+                      ...(topPolicyContext
+                        ? { policy_context: topPolicyContext }
+                        : {}),
+                      // Queue-item provenance: the forecast_alert
+                      // onChannelOutcome hook in lib/notifications/registry.ts
+                      // writes alert_delivery_attempts(status=...) for each
+                      // queue item once the worker reaches a terminal channel
+                      // outcome — so cooldown/cap reads only see actually-
+                      // delivered pushes (not enqueued-but-skipped ones).
+                      queue_items: pushSurvivors.map((s) => ({
+                        queue_id: s.id,
+                        rule_id: s.rule_id,
+                      })),
+                    };
+                    const pushHold = await resolveHoldForForecastMatches({
+                      eventIdPrefix: `condition-alert-deliver:push:${payload.user_id}`,
+                      payload: pushPayload,
+                      matches: pushMatches,
+                      profileExperience,
                     });
+                    const enqueueResult = pushHold
+                      ? {
+                          enqueued: false as const,
+                          reason: "major_event_hold" as const,
+                          holdReason: pushHold.reasonCode,
+                        }
+                      : await enqueueNotification({
+                          type: "forecast_alert",
+                          recipientUserId: payload.user_id,
+                          entityType: "beach",
+                          entityId: topMatch?.beach_id ?? null,
+                          payload: pushPayload,
+                          dedupeKey: `forecast_alert:${payload.user_id}:${payloadBeachId}:${payload.alert_date}`,
+                        }).catch((err) => {
+                          console.error(`${CONTEXT_TAG} enqueue threw for user ${payload.user_id}:`, err);
+                          return { enqueued: false as const, reason: "internal_error" as const };
+                        });
 
                     if (enqueueResult.enqueued) {
                       // Evaluator-side day gate: condition-alert-evaluate skips
@@ -1013,6 +1116,17 @@ export async function GET(request: Request): Promise<NextResponse> {
                       // (sent / skipped_no_device / skipped_channel_disabled /
                       // failed_provider / etc.), so cooldown reads on
                       // status='sent' reflect actual delivery.
+                    } else if (enqueueResult.reason === "major_event_hold") {
+                      for (const item of pushSurvivors) {
+                        await recordAttempt({
+                          queueId: item.id,
+                          ruleId: item.rule_id,
+                          userId: payload.user_id,
+                          channel: "push",
+                          status: "skipped_disabled",
+                          skipReason: `major_event_hold:${enqueueResult.holdReason}`,
+                        });
+                      }
                     } else if (enqueueResult.reason === "duplicate") {
                       // Worker-level dedup caught it (a prior tick already
                       // enqueued the same forecast_alert for today).
@@ -1175,55 +1289,88 @@ export async function GET(request: Request): Promise<NextResponse> {
               typeof value === "number" && Number.isFinite(value)
                 ? value
                 : undefined;
+            const similarityPolicyContext = policyContextForMatch(item);
+            const similarityPayload = {
+              beach_id: String(snap.beach_id ?? item.beach_id),
+              beach_slug: String(snap.beach_slug ?? ""),
+              beach_name: String(snap.beach_name ?? item.beach_name),
+              alert_date: item.alert_date,
+              forecast_at: String(snap.forecast_at ?? ""),
+              score: typeof snap.score === "number" ? snap.score : 0,
+              label: snap.label == null ? null : String(snap.label),
+              reason: String(snap.reason ?? ""),
+              ...(optionalStringField(snap.window_local) == null
+                ? {}
+                : { window_local: optionalStringField(snap.window_local) }),
+              ...(optionalNumberField(snap.wave_height_ft) == null
+                ? {}
+                : { wave_height_ft: optionalNumberField(snap.wave_height_ft) }),
+              ...(optionalNumberField(snap.wave_period_s) == null
+                ? {}
+                : { wave_period_s: optionalNumberField(snap.wave_period_s) }),
+              ...(optionalNumberField(snap.wind_speed_mph) == null
+                ? {}
+                : { wind_speed_mph: optionalNumberField(snap.wind_speed_mph) }),
+              ...(optionalStringField(snap.wind_direction) == null
+                ? {}
+                : { wind_direction: optionalStringField(snap.wind_direction) }),
+              ...(optionalNumberField(snap.tide_height_ft) == null
+                ? {}
+                : { tide_height_ft: optionalNumberField(snap.tide_height_ft) }),
+              ...(optionalStringField(snap.tide_status) == null
+                ? {}
+                : { tide_status: optionalStringField(snap.tide_status) }),
+              ...(optionalNumberField(snap.confidence) == null
+                ? {}
+                : { confidence: optionalNumberField(snap.confidence) }),
+              ...(optionalStringField(snap.condition_summary) == null
+                ? {}
+                : { condition_summary: optionalStringField(snap.condition_summary) }),
+              ...(optionalStringField(snap.board_tip) == null
+                ? {}
+                : { board_tip: optionalStringField(snap.board_tip) }),
+              ...(optionalStringField(snap.setup_tip) == null
+                ? {}
+                : { setup_tip: optionalStringField(snap.setup_tip) }),
+              ...(similarityPolicyContext
+                ? { policy_context: similarityPolicyContext }
+                : {}),
+              queue_items: [{ queue_id: item.id, rule_id: item.rule_id }],
+            };
+            const similarityHold = await resolveNotificationMajorEventHold({
+              eventId: `condition-alert-deliver:similarity:${item.id}`,
+              type: "similarity_match",
+              payload: similarityPayload,
+              profileExperience: parseSkillLevel(profile.experience_level),
+            });
+            if (similarityHold.status === "suppressed") {
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId: item.user_id,
+                channel: "push",
+                status: "skipped_disabled",
+                skipReason: `${similarityHold.auditCode}:${similarityHold.reasonCode}`,
+              });
+              const { error: markErr } = await supabase
+                .from("alert_queue")
+                .update({ sent: true })
+                .in("id", queueIds);
+              if (markErr) {
+                console.error(`${CONTEXT_TAG} Failed to mark held similarity queue item sent for user ${item.user_id}:`, markErr);
+                result.errors++;
+              } else {
+                result.queueMarked += queueIds.length;
+              }
+              continue;
+            }
+
             const enqueueResult = await enqueueNotification({
               type: "similarity_match",
               recipientUserId: item.user_id,
               entityType: "beach",
               entityId: item.beach_id,
-              payload: {
-                beach_id: String(snap.beach_id ?? item.beach_id),
-                beach_slug: String(snap.beach_slug ?? ""),
-                beach_name: String(snap.beach_name ?? item.beach_name),
-                alert_date: item.alert_date,
-                forecast_at: String(snap.forecast_at ?? ""),
-                score: typeof snap.score === "number" ? snap.score : 0,
-                label: snap.label == null ? null : String(snap.label),
-                reason: String(snap.reason ?? ""),
-                ...(optionalStringField(snap.window_local) == null
-                  ? {}
-                  : { window_local: optionalStringField(snap.window_local) }),
-                ...(optionalNumberField(snap.wave_height_ft) == null
-                  ? {}
-                  : { wave_height_ft: optionalNumberField(snap.wave_height_ft) }),
-                ...(optionalNumberField(snap.wave_period_s) == null
-                  ? {}
-                  : { wave_period_s: optionalNumberField(snap.wave_period_s) }),
-                ...(optionalNumberField(snap.wind_speed_mph) == null
-                  ? {}
-                  : { wind_speed_mph: optionalNumberField(snap.wind_speed_mph) }),
-                ...(optionalStringField(snap.wind_direction) == null
-                  ? {}
-                  : { wind_direction: optionalStringField(snap.wind_direction) }),
-                ...(optionalNumberField(snap.tide_height_ft) == null
-                  ? {}
-                  : { tide_height_ft: optionalNumberField(snap.tide_height_ft) }),
-                ...(optionalStringField(snap.tide_status) == null
-                  ? {}
-                  : { tide_status: optionalStringField(snap.tide_status) }),
-                ...(optionalNumberField(snap.confidence) == null
-                  ? {}
-                  : { confidence: optionalNumberField(snap.confidence) }),
-                ...(optionalStringField(snap.condition_summary) == null
-                  ? {}
-                  : { condition_summary: optionalStringField(snap.condition_summary) }),
-                ...(optionalStringField(snap.board_tip) == null
-                  ? {}
-                  : { board_tip: optionalStringField(snap.board_tip) }),
-                ...(optionalStringField(snap.setup_tip) == null
-                  ? {}
-                  : { setup_tip: optionalStringField(snap.setup_tip) }),
-                queue_items: [{ queue_id: item.id, rule_id: item.rule_id }],
-              },
+              payload: similarityPayload,
               dedupeKey: `similarity_match:${item.user_id}:${item.beach_id}:${item.alert_date}`,
             }).catch((err) => {
               console.error(`${CONTEXT_TAG} similarity enqueue threw for user ${item.user_id}:`, err);

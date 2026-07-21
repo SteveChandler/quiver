@@ -26,6 +26,13 @@ export function applyForceVerdict(
 ): SpotSurfReportResult | null {
   if (!result || !forceVerdict || !isDev) return result;
   if (!isValidVerdict(forceVerdict)) return result;
+  if (result.report.recommendationAvailability.state === 'none') return result;
+  if (
+    forceVerdict !== 'NO' &&
+    (!result.report.bestWindowStart || !result.report.bestWindowEnd)
+  ) {
+    return result;
+  }
 
   const verdict = forceVerdict;
   const report = { ...result.report, verdict };
@@ -45,13 +52,6 @@ export function applyForceVerdict(
         const narrow = narrowWindowAroundPeak(peakTime, rawStart, rawEnd);
         report.bestWindowStart = narrow.start.toISOString();
         report.bestWindowEnd = narrow.end.toISOString();
-      } else {
-        // Upstream verdict was NO (windows are null) but we're forcing MAYBE —
-        // synthesize a peakTime ± 1h window from scratch so the walkthrough
-        // shows the narrowed row instead of silently dropping it.
-        const ONE_HOUR_MS = 60 * 60 * 1000;
-        report.bestWindowStart = new Date(peakTime.getTime() - ONE_HOUR_MS).toISOString();
-        report.bestWindowEnd = new Date(peakTime.getTime() + ONE_HOUR_MS).toISOString();
       }
     }
   }

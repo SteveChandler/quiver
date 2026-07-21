@@ -1,35 +1,58 @@
-import { NextRequest } from "next/server";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 import {
   createSuccessResponse,
   handleApiError,
   withRateLimit,
+  type RouteHandler,
 } from "@/lib/middleware/api-wrappers";
+import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import { sanitizeCoachPicksForMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/legacy";
+import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 
-export const dynamic = 'force-dynamic';
+export const dynamic = "force-dynamic";
 
-async function coachPicksHandler(request: NextRequest) {
+const NO_STORE = "private, no-store, no-cache, must-revalidate";
+
+type ApiSupabaseClient = Awaited<ReturnType<typeof createAPIServerClient>>;
+
+async function getVerifiedProfileExperience(
+  supabase: ApiSupabaseClient,
+): Promise<unknown> {
   try {
-    const { searchParams } = new URL(request.url);
-    const beachId = searchParams.get("beachId");
-    const radiusKm = Number(searchParams.get("radiusKm") || 80);
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    if (error || !user) return null;
+    return await getProfileExperienceLevel(supabase, user.id);
+  } catch {
+    return null;
+  }
+}
 
-    if (!beachId) {
-      return createSuccessResponse({ picks: [] });
-    }
+function withNoStore(handler: RouteHandler): RouteHandler {
+  return async (request, context) => {
+    const response = await handler(request, context);
+    response.headers.set("Cache-Control", NO_STORE);
+    return response;
+  };
+}
 
+async function coachPicksHandler() {
+  try {
     const supabase = await createAPIServerClient();
-    const { data, error } = await supabase.rpc("get_coach_picks", {
-      _beach_id: beachId,
-      _radius_km: radiusKm,
+    const profileExperience = await getVerifiedProfileExperience(supabase);
+    const decisions = await evaluateMajorEventHoldCandidates({
+      candidates: [null],
+      profileExperience,
     });
-    if (error) throw error;
-
-    return createSuccessResponse({ picks: data || [] });
+    return createSuccessResponse(
+      sanitizeCoachPicksForMajorEventHold({ picks: [] }, decisions),
+    );
   } catch (error) {
     return handleApiError(error);
   }
 }
 
-// Apply rate limiting to prevent abuse of RPC calls
-export const GET = withRateLimit(coachPicksHandler, "coach-picks");
+// Keep the legacy surface rate-limited while it remains explicitly empty.
+export const GET = withNoStore(withRateLimit(coachPicksHandler, "coach-picks"));

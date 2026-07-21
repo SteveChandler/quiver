@@ -15,6 +15,21 @@ jest.mock("@/lib/utils/forecast-service-utils", () => ({
   getBatchFreshForecastsFromCache: jest.fn(),
 }));
 
+jest.mock("@/lib/services/discovery/major-event-hold", () => ({
+  enforceMajorEventHoldBeforeDiscoveryTruncation: jest.fn(
+    async ({ recommendations, maxResults, isPrimaryEligible }) => ({
+      allAllowedRecommendations: recommendations,
+      primaryRecommendations: recommendations
+        .filter(isPrimaryEligible)
+        .slice(0, maxResults),
+      recommendationAvailability: {
+        state: "available",
+        holdEpoch: "scoring-test-epoch",
+      },
+    }),
+  ),
+}));
+
 jest.mock("@/lib/utils/timezone-utils.server", () => ({
   getTimezoneFromCoords: jest.fn(() => "UTC"),
   getLocalHour: jest.fn((d: Date) => d.getUTCHours()),
