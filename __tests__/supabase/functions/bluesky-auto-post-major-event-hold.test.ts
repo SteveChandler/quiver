@@ -145,6 +145,24 @@ describe("Bluesky hold authorization evaluation", () => {
     expect(shouldUseObjectiveSafetyPost("enforce", resolution)).toBe(true);
   });
 
+  it("accepts deterministic UUIDv8 hold identities", () => {
+    const resolution = evaluateHoldAuthorizationRows({
+      contexts: [context],
+      rows: [
+        {
+          ...activeRow,
+          hold_id: "33333333-3333-8333-8333-333333333333",
+        },
+      ],
+      asOf: "2026-07-20T13:30:00.000Z",
+    });
+
+    expect(resolution).toEqual({
+      state: "resolved",
+      blockedContextKeys: new Set([authorizationContextKey(context)]),
+    });
+  });
+
   it("fails closed when a resolver row cannot be trusted", () => {
     const resolution = evaluateHoldAuthorizationRows({
       contexts: [context],

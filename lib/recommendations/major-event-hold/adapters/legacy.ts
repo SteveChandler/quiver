@@ -21,6 +21,7 @@ const ABSOLUTE_INSTANT_PATTERN =
 const AMBIGUITY_SCAN_RADIUS_MS = 3 * 60 * 60 * 1000;
 const AMBIGUITY_SCAN_STEP_MS = 15 * 60 * 1000;
 const CLIENT_SAFE_UNAVAILABLE_EPOCH = "hold-state-unavailable";
+const COACH_PICK_CANDIDATE_DURATION_MS = 1;
 
 interface CivilTime {
   canonical: string;
@@ -687,6 +688,50 @@ interface ValidCoachDecision {
   recommendationAvailability: RecommendationAvailability;
 }
 
+export function buildCoachPicksMajorEventHoldCandidates(
+  picks: readonly unknown[],
+  asOf: Date,
+): Array<MajorEventHoldCandidate | null> {
+  const startsAtMs = asOf instanceof Date ? asOf.getTime() : NaN;
+  const endsAtMs = startsAtMs + COACH_PICK_CANDIDATE_DURATION_MS;
+  if (!Number.isFinite(startsAtMs) || !Number.isFinite(endsAtMs)) {
+    return picks.map(() => null);
+  }
+
+  const startsAt = new Date(startsAtMs).toISOString();
+  const endsAt = new Date(endsAtMs).toISOString();
+  return picks.map((pick) => {
+    if (!isRecord(pick) || !isNonEmptyString(pick.beach_id)) return null;
+    const beachId = pick.beach_id.toLowerCase();
+    if (!UUID_PATTERN.test(beachId)) return null;
+    return {
+      candidateId: `coach-pick:${beachId}:${startsAt}`,
+      beachId,
+      startsAt,
+      endsAt,
+    };
+  });
+}
+
+function expectedCoachCandidates(
+  response: CoachPicksResponseLike,
+  candidates: readonly unknown[],
+): MajorEventHoldCandidate[] | null {
+  if (response.picks.length === 0) {
+    return candidates.length === 0 ? [] : null;
+  }
+  const firstCandidate = candidates[0];
+  if (!isRecord(firstCandidate)) return null;
+  const startsAtMs = parseStrictAbsoluteInstant(firstCandidate.startsAt);
+  if (startsAtMs === null) return null;
+  const expected = buildCoachPicksMajorEventHoldCandidates(
+    response.picks,
+    new Date(startsAtMs),
+  );
+  if (expected.some((candidate) => candidate === null)) return null;
+  return expected as MajorEventHoldCandidate[];
+}
+
 function validCoachDecision(
   decisions: readonly MajorEventHoldCandidateDecision[],
 ): ValidCoachDecision | null {
@@ -745,24 +790,57 @@ export function sanitizeCoachPicksForMajorEventHold<
   TResponse extends CoachPicksResponseLike,
 >(
   response: TResponse,
-  decisions: readonly MajorEventHoldCandidateDecision[],
+  candidatesOrDecisions: readonly unknown[],
+  boundDecisions?: readonly MajorEventHoldCandidateDecision[],
 ): SanitizedCoachPicksResponse<TResponse> {
-  const validated = validCoachDecision(decisions);
-  if (validated === null) {
+  if (boundDecisions === undefined) {
+    const validated = validCoachDecision(
+      candidatesOrDecisions as readonly MajorEventHoldCandidateDecision[],
+    );
+    if (validated === null) {
+      return {
+        ...response,
+        picks: [],
+        recommendationAvailability: {
+          state: "none",
+          reasonCode: "hold_state_unavailable",
+          holdEpoch: CLIENT_SAFE_UNAVAILABLE_EPOCH,
+        },
+      };
+    }
+
     return {
       ...response,
-      picks: [],
-      recommendationAvailability: {
-        state: "none",
-        reasonCode: "hold_state_unavailable",
-        holdEpoch: CLIENT_SAFE_UNAVAILABLE_EPOCH,
-      },
+      picks: validated.allow ? [...response.picks] : [],
+      recommendationAvailability: validated.recommendationAvailability,
     };
   }
 
+  const expectedCandidates = expectedCoachCandidates(
+    response,
+    candidatesOrDecisions,
+  );
+  const validBinding =
+    expectedCandidates !== null &&
+    exactCandidateList(candidatesOrDecisions, expectedCandidates);
+  const boundary = validBinding
+    ? resolveMajorEventHoldBoundary(
+        candidatesOrDecisions,
+        expectedCandidates,
+        boundDecisions,
+      )
+    : unavailableBoundary(candidatesOrDecisions, boundDecisions);
+
   return {
     ...response,
-    picks: validated.allow ? [...response.picks] : [],
-    recommendationAvailability: validated.recommendationAvailability,
+    picks:
+      validBinding && expectedCandidates
+        ? response.picks.filter((_, index) =>
+            boundary.allowedCandidateIds.has(
+              expectedCandidates[index].candidateId,
+            ),
+          )
+        : [],
+    recommendationAvailability: boundary.recommendationAvailability,
   };
 }

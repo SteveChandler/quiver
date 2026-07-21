@@ -50,9 +50,11 @@ async function expectOrdinaryRecommendation(page: Page): Promise<void> {
   await expect(
     hero.getByLabel(`Wave height ${OBJECTIVE_WAVE_HEIGHT}`),
   ).toBeVisible();
-  await expect(hero.getByText("Best time", { exact: true })).toBeVisible();
   await expect(
-    page.getByRole("heading", { name: "Today's Windows" }),
+    hero.getByText(/^Best time(?: tomorrow)?$/i),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: /^(?:today|tomorrow)'s windows$/i }),
   ).toBeVisible();
 }
 
@@ -72,9 +74,9 @@ async function expectExplicitNone(page: Page): Promise<void> {
   await expect(
     page.getByLabel(`Wave height ${OBJECTIVE_WAVE_HEIGHT}`),
   ).toHaveCount(0);
-  await expect(page.getByText("Best time", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/^Best time(?: tomorrow)?$/i)).toHaveCount(0);
   await expect(
-    page.getByRole("heading", { name: /today's windows/i }),
+    page.getByRole("heading", { name: /^(?:today|tomorrow)'s windows$/i }),
   ).toHaveCount(0);
   await expect(
     page.getByRole("button", {
