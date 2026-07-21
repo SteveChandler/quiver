@@ -1,3 +1,4 @@
+import { NextRequest } from "next/server";
 import { createAPIServerClient } from "@/lib/supabase/api-server-client";
 import {
   createSuccessResponse,
@@ -6,7 +7,10 @@ import {
   type RouteHandler,
 } from "@/lib/middleware/api-wrappers";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
-import { sanitizeCoachPicksForMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/legacy";
+import {
+  buildCoachPicksMajorEventHoldCandidates,
+  sanitizeCoachPicksForMajorEventHold,
+} from "@/lib/recommendations/major-event-hold/adapters/legacy";
 import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 
 export const dynamic = "force-dynamic";
@@ -38,21 +42,48 @@ function withNoStore(handler: RouteHandler): RouteHandler {
   };
 }
 
-async function coachPicksHandler() {
+async function coachPicksHandler(request: NextRequest) {
   try {
+    const requestAsOf = new Date();
+    const { searchParams } = new URL(request.url);
+    const beachId = searchParams.get("beachId");
+    const radiusKm = Number(searchParams.get("radiusKm") || 80);
     const supabase = await createAPIServerClient();
     const profileExperience = await getVerifiedProfileExperience(supabase);
+    if (!beachId) {
+      const decisions = await evaluateMajorEventHoldCandidates({
+        candidates: [null],
+        profileExperience,
+        asOf: requestAsOf,
+      });
+      return createSuccessResponse(
+        sanitizeCoachPicksForMajorEventHold({ picks: [] }, [null], decisions),
+      );
+    }
+
+    const { data, error } = await supabase.rpc("get_coach_picks", {
+      _beach_id: beachId,
+      _radius_km: radiusKm,
+    });
+    if (error) throw error;
+
+    const picks = Array.isArray(data) ? data : [];
+    const candidates = buildCoachPicksMajorEventHoldCandidates(
+      picks,
+      requestAsOf,
+    );
     const decisions = await evaluateMajorEventHoldCandidates({
-      candidates: [null],
+      candidates,
       profileExperience,
+      asOf: requestAsOf,
     });
     return createSuccessResponse(
-      sanitizeCoachPicksForMajorEventHold({ picks: [] }, decisions),
+      sanitizeCoachPicksForMajorEventHold({ picks }, candidates, decisions),
     );
   } catch (error) {
     return handleApiError(error);
   }
 }
 
-// Keep the legacy surface rate-limited while it remains explicitly empty.
+// Keep the legacy surface rate-limited while applying the hold at the boundary.
 export const GET = withNoStore(withRateLimit(coachPicksHandler, "coach-picks"));

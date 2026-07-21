@@ -52,6 +52,13 @@ async function weekScoutHandler(
   request: NextRequest,
   { user }: AuthenticatedContext,
 ): Promise<NextResponse> {
+  if (process.env.WEEK_SCOUT_ENDPOINT_ENABLED !== 'true') {
+    return NextResponse.json(
+      { success: false, error: 'Week Scout endpoint is not enabled' },
+      { status: 404 },
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();

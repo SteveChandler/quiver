@@ -47,6 +47,7 @@ async function callRoute(body: unknown) {
 describe('POST /api/surf/week-scout', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    process.env.WEEK_SCOUT_ENDPOINT_ENABLED = 'true';
     mockGenerateWeekScoutForecast.mockResolvedValue({
       generatedAt: '2026-07-15T18:00:00.000Z',
       scorerVersion: 'week-scout-v1',
@@ -120,7 +121,8 @@ describe('POST /api/surf/week-scout', () => {
     expect(mockGenerateWeekScoutForecast).not.toHaveBeenCalled();
   });
 
-  it('stays enabled without a rollout-flag prerequisite', async () => {
+  it('returns 404 without running discovery when the rollout flag is disabled', async () => {
+    delete process.env.WEEK_SCOUT_ENDPOINT_ENABLED;
     const response = await callRoute({
       candidateBeachIds: [BEACH_A],
       localTimezone: 'Pacific/Honolulu',
@@ -128,8 +130,8 @@ describe('POST /api/surf/week-scout', () => {
       dayCount: 7,
     });
 
-    expect(response.status).toBe(200);
-    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(404);
+    expect(mockGenerateWeekScoutForecast).not.toHaveBeenCalled();
     expect(response.headers.get('Cache-Control')).toBe(
       'private, no-store, no-cache, must-revalidate',
     );

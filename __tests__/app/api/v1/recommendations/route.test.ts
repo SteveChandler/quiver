@@ -246,6 +246,43 @@ describe("GET /api/v1/recommendations", () => {
   });
 
   describe("major-event hold boundary", () => {
+    it("canonicalizes a parseable date before binding hold candidates", async () => {
+      setupCompleteRecommendationQuery();
+      mockSupabaseClient.auth.getUser.mockResolvedValueOnce({
+        data: { user: { id: "verified-user" } },
+        error: null,
+      });
+
+      const response = await GET(
+        createMockRequest(
+          "GET",
+          "http://localhost:3000/api/v1/recommendations",
+          {
+            searchParams: {
+              lat: "32.79",
+              lon: "-117.23",
+              time: "2026-07-19",
+            },
+          },
+        ),
+      );
+      const body = await expectSuccessResponse<any>(response, 200);
+
+      expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledWith({
+        candidates: [
+          {
+            candidateId: `legacy-v1:${BEACH_ID}:2026-07-19T00:00:00.000Z`,
+            beachId: BEACH_ID,
+            startsAt: "2026-07-19T00:00:00.000Z",
+            endsAt: "2026-07-19T00:00:00.001Z",
+          },
+        ],
+        profileExperience: "advanced",
+      });
+      expect(body.data.recommendations).toHaveLength(1);
+      expect(body.data.recommendationAvailability.state).toBe("available");
+    });
+
     it("uses verified profile experience while preserving query skill for legacy scoring", async () => {
       setupCompleteRecommendationQuery();
       mockSupabaseClient.auth.getUser.mockResolvedValueOnce({

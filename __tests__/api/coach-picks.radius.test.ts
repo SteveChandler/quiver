@@ -11,8 +11,20 @@ jest.mock("@/lib/supabase/api-server-client", () => ({
       }
       return {
         data: [
-          { pick_rank: 1, beach_id: "near", name: "Near", distance_km: 10, score: 80 },
-          { pick_rank: 2, beach_id: "far", name: "Far", distance_km: 35, score: 90 },
+          {
+            pick_rank: 1,
+            beach_id: "11111111-1111-4111-8111-111111111111",
+            name: "Near",
+            distance_km: 10,
+            score: 80,
+          },
+          {
+            pick_rank: 2,
+            beach_id: "22222222-2222-4222-8222-222222222222",
+            name: "Far",
+            distance_km: 35,
+            score: 90,
+          },
         ],
         error: null,
       };
@@ -31,9 +43,16 @@ describe("GET /api/coach-picks radius forwarding", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     const picks = json?.data?.picks || json?.picks || [];
-    expect(Array.isArray(picks)).toBe(true);
-    // API layer returns what DB gives; filtering happens in component
+    expect(picks).toEqual([
+      expect.objectContaining({
+        beach_id: "11111111-1111-4111-8111-111111111111",
+        name: "Near",
+      }),
+      expect.objectContaining({
+        beach_id: "22222222-2222-4222-8222-222222222222",
+        name: "Far",
+      }),
+    ]);
   });
 });
-
 

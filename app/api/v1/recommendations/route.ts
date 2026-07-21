@@ -199,8 +199,8 @@ async function recommendationsHandler(
       });
     }
 
-    const timeIso = timeParam || new Date().toISOString();
-    const queryTime = new Date(timeIso);
+    const queryTime = timeParam ? new Date(timeParam) : new Date();
+    const timeIso = queryTime.toISOString();
 
     // 1) Nearby beaches via PostGIS helper
     const postGisStart = Date.now();
