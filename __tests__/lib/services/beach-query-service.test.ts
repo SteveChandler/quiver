@@ -43,6 +43,10 @@ describe("beach-query-service", () => {
     mockFrom.mockClear();
   });
 
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
   describe("getBeachesFromDb", () => {
     it("filters beaches without finite lat/lon coordinates", async () => {
       const validBeach = beach({ id: "valid" });
@@ -64,6 +68,26 @@ describe("beach-query-service", () => {
       });
       expect(mockFrom).toHaveBeenCalledWith("beaches");
       expect(mockSelect).toHaveBeenCalledWith(expect.stringContaining("lat, lon"));
+      const selectedFields = (mockSelect.mock.calls[0] as unknown as [string])[0];
+      expect(selectedFields).toContain("city");
+      expect(selectedFields).toContain("state");
+      expect(selectedFields).not.toMatch(/\b(?:location|updated_at)\b/);
+    });
+
+    it("does not retry schema errors with removed legacy columns", async () => {
+      const consoleError = jest.spyOn(console, "error").mockImplementation(() => undefined);
+      mockOrder.mockResolvedValue({
+        data: null,
+        error: { code: "42703", message: "column beaches.unknown does not exist" },
+      });
+
+      await expect(getBeachesFromDb()).resolves.toEqual({
+        success: false,
+        error: "column beaches.unknown does not exist",
+      });
+
+      expect(mockSelect).toHaveBeenCalledTimes(1);
+      expect(mockSelect).not.toHaveBeenCalledWith(expect.stringContaining("location"));
     });
   });
 });
