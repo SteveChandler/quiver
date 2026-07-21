@@ -19,13 +19,17 @@ import {
 
 interface BulkForecastResponse {
   forecasts: Record<string, number | undefined>;
-  displayForecasts: Record<string, {
-    label: string;
-    minFt: number;
-    maxFt: number;
-    forecastAt: string;
-    context: "today_headline" | "selected_hour";
-  } | undefined>;
+  displayForecasts: Record<
+    string,
+    | {
+        label: string;
+        minFt: number;
+        maxFt: number;
+        forecastAt: string;
+        context: "today_headline" | "selected_hour";
+      }
+    | undefined
+  >;
   waterTemps: Record<string, string | undefined>;
   isCalibrated: Record<string, boolean>;
   conditionScores: Record<string, number | undefined>;
@@ -37,6 +41,12 @@ interface BulkForecastResponse {
     partitionsByBeach: Record<string, Array<unknown | null>>;
     hasMore: boolean;
     nextStart: string | null;
+  };
+  recommendationAvailability?: {
+    state: "available" | "none";
+    reasonCode?: "major_event_hold" | "hold_state_unavailable";
+    expiresAt?: string;
+    holdEpoch: string;
   };
 }
 
@@ -113,6 +123,12 @@ type BeachRow = {
 
 const mockSupabaseClient = createMockSupabaseClient();
 const STABLE_TEST_NOW = new Date("2026-07-07T18:00:00.000Z");
+const BOUND_BEACH_ID = "11111111-1111-4111-8111-111111111111";
+const BOUND_BEACH_ID_TWO = "22222222-2222-4222-8222-222222222222";
+const BOUND_BEACH_ID_THREE = "33333333-3333-4333-8333-333333333333";
+const BOUND_BEACH_ID_FOUR = "44444444-4444-4444-8444-444444444444";
+const NO_STORE = "private, no-store, no-cache, must-revalidate";
+const mockEvaluateMajorEventHoldCandidates = jest.fn();
 
 jest.mock("@/lib/supabase/api-server-client", () => ({
   createAPIServerClient: jest.fn(() => mockSupabaseClient),
@@ -123,11 +139,18 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 jest.mock("@/lib/services/forecast/v5-display-gate", () => ({
-  applyV51DisplayOverrideToForecasts: jest.fn(async (forecasts: ForecastRow[]) => forecasts),
+  applyV51DisplayOverrideToForecasts: jest.fn(
+    async (forecasts: ForecastRow[]) => forecasts,
+  ),
 }));
 
 jest.mock("@/lib/profile/skill-level", () => ({
   getProfileExperienceLevel: jest.fn(async () => null),
+}));
+
+jest.mock("@/lib/recommendations/major-event-hold/service", () => ({
+  evaluateMajorEventHoldCandidates: (input: unknown) =>
+    mockEvaluateMajorEventHoldCandidates(input),
 }));
 
 jest.mock("@/lib/services/discovery", () => ({
@@ -175,23 +198,27 @@ function mockDisplayForForecast(
 }
 
 jest.mock("@/lib/services/forecast/today-headline", () => ({
-  resolveTodayHeadline: jest.fn(({ forecasts }: { forecasts: ForecastRow[] }) => {
-    const forecast = forecasts[0];
-    if (!forecast) return null;
-    const display = mockDisplayForForecast(forecast, "today_headline");
-    if (!display) return null;
-    return {
-      display,
-      window: {
-        start: new Date(forecast.forecast_at),
-        end: new Date(new Date(forecast.forecast_at).getTime() + 60 * 60 * 1000),
-        waveHeight: forecast.wave_height,
-        sourceForecast: forecast,
-      },
-    };
-  }),
+  resolveTodayHeadline: jest.fn(
+    ({ forecasts }: { forecasts: ForecastRow[] }) => {
+      const forecast = forecasts[0];
+      if (!forecast) return null;
+      const display = mockDisplayForForecast(forecast, "today_headline");
+      if (!display) return null;
+      return {
+        display,
+        window: {
+          start: new Date(forecast.forecast_at),
+          end: new Date(
+            new Date(forecast.forecast_at).getTime() + 60 * 60 * 1000,
+          ),
+          waveHeight: forecast.wave_height,
+          sourceForecast: forecast,
+        },
+      };
+    },
+  ),
   resolveSelectedHourDisplay: jest.fn((forecast: ForecastRow | null) =>
-    forecast ? mockDisplayForForecast(forecast, "selected_hour") : null
+    forecast ? mockDisplayForForecast(forecast, "selected_hour") : null,
   ),
 }));
 
@@ -205,7 +232,11 @@ jest.mock("@/lib/api-utils", () => {
     ...actual,
     createSuccessResponse: jest.fn((data: unknown) => {
       return new Response(
-        JSON.stringify({ success: true, data, timestamp: new Date().toISOString() }),
+        JSON.stringify({
+          success: true,
+          data,
+          timestamp: new Date().toISOString(),
+        }),
         {
           status: 200,
           headers: { "Content-Type": "application/json" },
@@ -214,7 +245,11 @@ jest.mock("@/lib/api-utils", () => {
     }),
     handleApiError: jest.fn((_error: unknown, message: string) => {
       return new Response(
-        JSON.stringify({ success: false, error: message, timestamp: new Date().toISOString() }),
+        JSON.stringify({
+          success: false,
+          error: message,
+          timestamp: new Date().toISOString(),
+        }),
         {
           status: 500,
           headers: { "Content-Type": "application/json" },
@@ -260,6 +295,52 @@ function forecastRow(
   };
 }
 
+function majorEventDecision(
+  candidateId: string,
+  state: "allow" | "blocked" | "unavailable" = "allow",
+) {
+  const holdEpoch = `${state}-epoch`;
+  if (state === "allow") {
+    return {
+      candidateId,
+      evaluation: { outcome: "allow", holdIds: [], holdEpoch },
+      recommendationAvailability: { state: "available", holdEpoch },
+    };
+  }
+  if (state === "unavailable") {
+    return {
+      candidateId,
+      evaluation: {
+        outcome: "explicit_none",
+        reasonCode: "hold_state_unavailable",
+        holdIds: [],
+        holdEpoch,
+      },
+      recommendationAvailability: {
+        state: "none",
+        reasonCode: "hold_state_unavailable",
+        holdEpoch,
+      },
+    };
+  }
+  return {
+    candidateId,
+    evaluation: {
+      outcome: "explicit_none",
+      reasonCode: "major_event_hold",
+      holdIds: ["internal-hold-id"],
+      expiresAt: "2026-07-08T00:00:00.000Z",
+      holdEpoch,
+    },
+    recommendationAvailability: {
+      state: "none",
+      reasonCode: "major_event_hold",
+      expiresAt: "2026-07-08T00:00:00.000Z",
+      holdEpoch,
+    },
+  };
+}
+
 function hourlyTimelineRows(): ForecastRow[] {
   return Array.from({ length: 43 }, (_, offsetHours) => ({
     ...forecastRow("beach-1", String(offsetHours), offsetHours),
@@ -288,7 +369,9 @@ let hourlyTimelineRequestSequence = 0;
 function createHourlyTimelineRequest(url: string) {
   hourlyTimelineRequestSequence += 1;
   return createMockRequest("GET", url, {
-    headers: { "x-forwarded-for": `203.0.113.${hourlyTimelineRequestSequence}` },
+    headers: {
+      "x-forwarded-for": `203.0.113.${hourlyTimelineRequestSequence}`,
+    },
   });
 }
 
@@ -357,18 +440,20 @@ function queryChain<T>(result: QueryResult<T>) {
   return chain;
 }
 
-function mockBulkQueries(options: {
-  forecastRows?: ForecastRow[] | null;
-  hourlyTimelineRows?: ForecastRow[] | null;
-  hourlyTimelineError?: { message: string } | null;
-  nextHourlyTimelineRows?: ForecastRow[] | null;
-  nextHourlyTimelineError?: { message: string } | null;
-  forecastError?: { message: string } | null;
-  beachRows?: BeachRow[] | null;
-  beachError?: { message: string } | null;
-  waterRows?: Array<{ beach_id: string; water_temp: string | null }> | null;
-  extensionOnly?: boolean;
-} = {}) {
+function mockBulkQueries(
+  options: {
+    forecastRows?: ForecastRow[] | null;
+    hourlyTimelineRows?: ForecastRow[] | null;
+    hourlyTimelineError?: { message: string } | null;
+    nextHourlyTimelineRows?: ForecastRow[] | null;
+    nextHourlyTimelineError?: { message: string } | null;
+    forecastError?: { message: string } | null;
+    beachRows?: BeachRow[] | null;
+    beachError?: { message: string } | null;
+    waterRows?: Array<{ beach_id: string; water_temp: string | null }> | null;
+    extensionOnly?: boolean;
+  } = {},
+) {
   const forecastChain = queryChain({
     data: options.forecastRows ?? [],
     error: options.forecastError ?? null,
@@ -436,7 +521,15 @@ describe("/api/forecasts/bulk", () => {
     jest.clearAllMocks();
     (scoreWindowConditionScore as jest.Mock).mockReturnValue(72);
     (resolveTodayHeadline as jest.Mock).mockClear();
-    mockSupabaseClient.from = jest.fn(() => queryChain({ data: null, error: null })) as any;
+    mockEvaluateMajorEventHoldCandidates.mockImplementation(
+      ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+        Promise.resolve(
+          candidates.map(({ candidateId }) => majorEventDecision(candidateId)),
+        ),
+    );
+    mockSupabaseClient.from = jest.fn(() =>
+      queryChain({ data: null, error: null }),
+    ) as any;
   });
 
   afterEach(() => {
@@ -462,7 +555,10 @@ describe("/api/forecasts/bulk", () => {
       "http://localhost:3000/api/forecasts/bulk?beachIds=   ",
     ]) {
       const response = await GET(createMockRequest("GET", url));
-      const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+      const data = await expectSuccessResponse<BulkForecastResponse>(
+        response,
+        200,
+      );
 
       expect(data.data).toEqual({
         forecasts: {},
@@ -473,6 +569,11 @@ describe("/api/forecasts/bulk", () => {
         conditionSummaries: {},
         swellPartitions: {},
         swellPartitionTimeline: {},
+        recommendationAvailability: {
+          state: "none",
+          reasonCode: "hold_state_unavailable",
+          holdEpoch: "hold-state-unavailable",
+        },
       });
     }
     expect(mockSupabaseClient.from).not.toHaveBeenCalled();
@@ -480,17 +581,25 @@ describe("/api/forecasts/bulk", () => {
 
   it("allows anonymous requests through optional auth", async () => {
     mockBulkQueries({
-      forecastRows: [forecastRow("beach-1", "2.4")],
-      beachRows: [beachRow("beach-1")],
+      forecastRows: [forecastRow(BOUND_BEACH_ID, "2.4")],
+      beachRows: [beachRow(BOUND_BEACH_ID)],
     });
 
     const response = await GET(
-      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+      createMockRequest(
+        "GET",
+        `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}`,
+      ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
-    expect(data.data.forecasts).toEqual({ "beach-1": 2.4 });
-    expect(data.data.conditionSummaries).toEqual({ "beach-1": "GOOD" });
+    expect(data.data.forecasts).toEqual({ [BOUND_BEACH_ID]: 2.4 });
+    expect(data.data.conditionSummaries).toEqual({
+      [BOUND_BEACH_ID]: "GOOD",
+    });
   });
 
   it("fetches current forecasts from enhanced_forecasts for a single beach", async () => {
@@ -499,9 +608,15 @@ describe("/api/forecasts/bulk", () => {
     });
 
     const response = await GET(
-      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+      createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1",
+      ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(mockSupabaseClient.from).toHaveBeenCalledWith("enhanced_forecasts");
     expect(forecastChain.in).toHaveBeenCalledWith("beach_id", ["beach-1"]);
@@ -523,7 +638,10 @@ describe("/api/forecasts/bulk", () => {
         "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1,beach-2,beach-3",
       ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(forecastChain.in).toHaveBeenCalledWith("beach_id", [
       "beach-1",
@@ -542,13 +660,16 @@ describe("/api/forecasts/bulk", () => {
     const headlineRow = forecastRow("beach-1", "2.7", 10);
     (resolveTodayHeadline as jest.Mock).mockImplementationOnce(
       ({ forecasts }: { forecasts: ForecastRow[] }) => {
-        const forecast = forecasts.find((row) => row.wave_height === "2.7") ?? headlineRow;
+        const forecast =
+          forecasts.find((row) => row.wave_height === "2.7") ?? headlineRow;
         const display = mockDisplayForForecast(forecast, "today_headline");
         return {
           display,
           window: {
             start: new Date(forecast.forecast_at),
-            end: new Date(new Date(forecast.forecast_at).getTime() + 60 * 60 * 1000),
+            end: new Date(
+              new Date(forecast.forecast_at).getTime() + 60 * 60 * 1000,
+            ),
             waveHeight: forecast.wave_height,
             sourceForecast: forecast,
           },
@@ -561,9 +682,15 @@ describe("/api/forecasts/bulk", () => {
     });
 
     const response = await GET(
-      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+      createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1",
+      ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(data.data.displayForecasts["beach-1"]).toMatchObject({
       label: "2-3ft",
@@ -586,7 +713,10 @@ describe("/api/forecasts/bulk", () => {
       ),
     );
 
-    expect(forecastChain.in).toHaveBeenCalledWith("beach_id", beachIds.slice(0, 50));
+    expect(forecastChain.in).toHaveBeenCalledWith(
+      "beach_id",
+      beachIds.slice(0, 50),
+    );
   });
 
   it("returns a 500 error when the forecast query fails", async () => {
@@ -601,7 +731,10 @@ describe("/api/forecasts/bulk", () => {
 
     try {
       const response = await GET(
-        createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+        createMockRequest(
+          "GET",
+          "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1",
+        ),
       );
       const data = await response.json();
 
@@ -621,9 +754,15 @@ describe("/api/forecasts/bulk", () => {
     mockBulkQueries();
 
     const response = await GET(
-      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1,beach-2"),
+      createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1,beach-2",
+      ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(data.data).toEqual({
       forecasts: {},
@@ -637,6 +776,11 @@ describe("/api/forecasts/bulk", () => {
       },
       swellPartitions: {},
       swellPartitionTimeline: {},
+      recommendationAvailability: {
+        state: "none",
+        reasonCode: "hold_state_unavailable",
+        holdEpoch: "hold-state-unavailable",
+      },
     });
   });
 
@@ -649,9 +793,15 @@ describe("/api/forecasts/bulk", () => {
     });
 
     const response = await GET(
-      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1,beach-2"),
+      createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1,beach-2",
+      ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(data.data.forecasts).toEqual({});
     expect(data.data.displayForecasts).toEqual({});
@@ -663,9 +813,15 @@ describe("/api/forecasts/bulk", () => {
     });
 
     const response = await GET(
-      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+      createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1",
+      ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(data.data.forecasts).toEqual({ "beach-1": 3 });
     expect(data.data.displayForecasts["beach-1"]).toMatchObject({
@@ -680,9 +836,15 @@ describe("/api/forecasts/bulk", () => {
     });
 
     const response = await GET(
-      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+      createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1",
+      ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(data.data.swellPartitionTimeline["beach-1"]).toHaveLength(5);
     expect(data.data.swellPartitionTimeline["beach-1"][0]).toMatchObject({
@@ -723,7 +885,10 @@ describe("/api/forecasts/bulk", () => {
         "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly",
       ),
     );
-    const hourlyData = await expectSuccessResponse<BulkForecastResponse>(hourlyResponse, 200);
+    const hourlyData = await expectSuccessResponse<BulkForecastResponse>(
+      hourlyResponse,
+      200,
+    );
 
     expect(hourlyTimelineChain.gte).toHaveBeenCalledWith(
       "forecast_at",
@@ -733,13 +898,13 @@ describe("/api/forecasts/bulk", () => {
       "forecast_at",
       "2026-07-09T18:00:00.000Z",
     );
-    expect(hourlyTimelineChain.order).toHaveBeenCalledWith("forecast_at", { ascending: true });
+    expect(hourlyTimelineChain.order).toHaveBeenCalledWith("forecast_at", {
+      ascending: true,
+    });
     expect(hourlyData.data.hourlySwellTimeline).toEqual({
       timestamps: ["2026-07-07T21:00:00.000Z"],
       partitionsByBeach: {
-        "beach-1": [
-          expect.objectContaining({ s1HeightFt: 3 }),
-        ],
+        "beach-1": [expect.objectContaining({ s1HeightFt: 3 })],
       },
       hasMore: false,
       nextStart: null,
@@ -752,7 +917,11 @@ describe("/api/forecasts/bulk", () => {
       hourlyTimelineRow("beach-1", "2", "2026-07-10T20:00:00.000Z"),
       hourlyTimelineRow("beach-2", "3", "2026-07-10T21:00:00.000Z"),
     ];
-    const nextRow = hourlyTimelineRow("beach-1", "4", "2026-07-25T04:00:00.000Z");
+    const nextRow = hourlyTimelineRow(
+      "beach-1",
+      "4",
+      "2026-07-25T04:00:00.000Z",
+    );
     const { hourlyTimelineChain, nextHourlyTimelineChain } = mockBulkQueries({
       hourlyTimelineRows: windowRows,
       nextHourlyTimelineRows: [nextRow],
@@ -764,7 +933,10 @@ describe("/api/forecasts/bulk", () => {
         "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1,beach-2&timeline=hourly&timelineStart=2026-07-10T20:00:00.000Z&timelineHours=999",
       ),
     );
-    const hourlyData = await expectSuccessResponse<BulkForecastResponse>(hourlyResponse, 200);
+    const hourlyData = await expectSuccessResponse<BulkForecastResponse>(
+      hourlyResponse,
+      200,
+    );
 
     expect(hourlyTimelineChain.gte).toHaveBeenCalledWith(
       "forecast_at",
@@ -778,10 +950,9 @@ describe("/api/forecasts/bulk", () => {
       "forecast_at",
       "2026-07-24T20:00:00.000Z",
     );
-    expect(nextHourlyTimelineChain.order).toHaveBeenCalledWith(
-      "forecast_at",
-      { ascending: true },
-    );
+    expect(nextHourlyTimelineChain.order).toHaveBeenCalledWith("forecast_at", {
+      ascending: true,
+    });
     expect(nextHourlyTimelineChain.limit).toHaveBeenCalledWith(1);
     expect(hourlyData.data.hourlySwellTimeline).toEqual({
       timestamps: ["2026-07-10T20:00:00.000Z", "2026-07-10T21:00:00.000Z"],
@@ -812,7 +983,10 @@ describe("/api/forecasts/bulk", () => {
         "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly&timelineStart=2026-07-10T20:00:00.000Z&timelineHours=2",
       ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(hourlyTimelineChain.lt).toHaveBeenCalledWith(
       "forecast_at",
@@ -832,26 +1006,48 @@ describe("/api/forecasts/bulk", () => {
   });
 
   it("uses only the hourly window and next-row queries for an extension", async () => {
-    const { hourlyTimelineChain, nextHourlyTimelineChain, beachChain, waterChain } =
-      mockBulkQueries({
-        hourlyTimelineRows: [
-          hourlyTimelineRow("beach-1", "2", "2026-07-10T20:00:00.000Z"),
-        ],
-        nextHourlyTimelineRows: [],
-        extensionOnly: true,
-      });
+    const {
+      hourlyTimelineChain,
+      nextHourlyTimelineChain,
+      beachChain,
+      waterChain,
+    } = mockBulkQueries({
+      hourlyTimelineRows: [
+        hourlyTimelineRow("beach-1", "2", "2026-07-10T20:00:00.000Z"),
+      ],
+      nextHourlyTimelineRows: [],
+      extensionOnly: true,
+    });
 
     const response = await GET(
       createHourlyTimelineRequest(
         "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly&timelineStart=2026-07-10T20:00:00.000Z&timelineHours=2",
       ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
-    expect(Object.keys(data.data)).toEqual(["hourlySwellTimeline"]);
+    expect(Object.keys(data.data)).toEqual([
+      "hourlySwellTimeline",
+      "recommendationAvailability",
+    ]);
+    expect(data.data.recommendationAvailability).toEqual({
+      state: "none",
+      reasonCode: "hold_state_unavailable",
+      holdEpoch: "hold-state-unavailable",
+    });
+    expect(response.headers.get("Cache-Control")).toBe(NO_STORE);
     expect(mockSupabaseClient.from).toHaveBeenCalledTimes(2);
-    expect(mockSupabaseClient.from).toHaveBeenNthCalledWith(1, "enhanced_forecasts");
-    expect(mockSupabaseClient.from).toHaveBeenNthCalledWith(2, "enhanced_forecasts");
+    expect(mockSupabaseClient.from).toHaveBeenNthCalledWith(
+      1,
+      "enhanced_forecasts",
+    );
+    expect(mockSupabaseClient.from).toHaveBeenNthCalledWith(
+      2,
+      "enhanced_forecasts",
+    );
     expect(hourlyTimelineChain.select).toHaveBeenCalledTimes(1);
     expect(nextHourlyTimelineChain.select).toHaveBeenCalledWith("forecast_at");
     expect(getProfileExperienceLevel).not.toHaveBeenCalled();
@@ -880,7 +1076,10 @@ describe("/api/forecasts/bulk", () => {
         "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly&timelineStart=2026-07-10T20:00:00.000Z&timelineHours=2",
       ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(data.data.hourlySwellTimeline).toEqual({
       timestamps: ["2026-07-10T20:00:00.000Z"],
@@ -909,7 +1108,10 @@ describe("/api/forecasts/bulk", () => {
         "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly&timelineStart=2026-07-10T20:00:00.000Z&timelineHours=2",
       ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(data.data.hourlySwellTimeline).toMatchObject({
       timestamps: ["2026-07-10T20:00:00.000Z"],
@@ -932,7 +1134,10 @@ describe("/api/forecasts/bulk", () => {
         "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1&timeline=hourly&timelineStart=2026-07-10T20:00:00.000Z&timelineHours=2",
       ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(data.data.hourlySwellTimeline).toMatchObject({
       hasMore: false,
@@ -1072,7 +1277,9 @@ describe("/api/forecasts/bulk", () => {
       hourlyTimelineRows: null,
       hourlyTimelineError: { message: "timeline query failed" },
     });
-    const consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
 
     try {
       const response = await GET(
@@ -1104,9 +1311,15 @@ describe("/api/forecasts/bulk", () => {
     });
 
     const response = await GET(
-      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+      createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1",
+      ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(data.data.forecasts).toEqual({ "beach-1": 0 });
     expect(data.data.displayForecasts["beach-1"]).toMatchObject({
@@ -1122,9 +1335,15 @@ describe("/api/forecasts/bulk", () => {
     });
 
     const response = await GET(
-      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+      createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1",
+      ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(data.data.waterTemps).toEqual({ "beach-1": "64" });
   });
@@ -1136,35 +1355,139 @@ describe("/api/forecasts/bulk", () => {
       .mockReturnValueOnce(39);
     mockBulkQueries({
       forecastRows: [
-        forecastRow("beach-good", "3.5"),
-        forecastRow("beach-fair", "2.5"),
-        forecastRow("beach-check", "1.2"),
+        forecastRow(BOUND_BEACH_ID, "3.5"),
+        forecastRow(BOUND_BEACH_ID_TWO, "2.5"),
+        forecastRow(BOUND_BEACH_ID_THREE, "1.2"),
       ],
       beachRows: [
-        beachRow("beach-good"),
-        beachRow("beach-fair"),
-        beachRow("beach-check"),
+        beachRow(BOUND_BEACH_ID),
+        beachRow(BOUND_BEACH_ID_TWO),
+        beachRow(BOUND_BEACH_ID_THREE),
       ],
     });
 
     const response = await GET(
       createMockRequest(
         "GET",
-        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-good,beach-fair,beach-check,beach-missing",
+        `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID},${BOUND_BEACH_ID_TWO},${BOUND_BEACH_ID_THREE},${BOUND_BEACH_ID_FOUR}`,
       ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(data.data.conditionScores).toEqual({
-      "beach-good": 71,
-      "beach-fair": 40,
-      "beach-check": 39,
+      [BOUND_BEACH_ID]: 71,
+      [BOUND_BEACH_ID_TWO]: 40,
+      [BOUND_BEACH_ID_THREE]: 39,
     });
     expect(data.data.conditionSummaries).toEqual({
-      "beach-good": "GOOD",
-      "beach-fair": "FAIR",
-      "beach-check": "CHECK",
-      "beach-missing": "UNKNOWN",
+      [BOUND_BEACH_ID]: "GOOD",
+      [BOUND_BEACH_ID_TWO]: "FAIR",
+      [BOUND_BEACH_ID_THREE]: "CHECK",
+      [BOUND_BEACH_ID_FOUR]: "UNKNOWN",
+    });
+  });
+
+  it("binds policy to the selected score forecast and sanitizes after physical computation", async () => {
+    const currentRow = forecastRow(BOUND_BEACH_ID, "1.9", 1);
+    const selectedScoreRow = forecastRow(BOUND_BEACH_ID, "3.7", 10);
+    (resolveTodayHeadline as jest.Mock).mockImplementationOnce(() => ({
+      display: mockDisplayForForecast(selectedScoreRow, "today_headline"),
+      window: {
+        start: new Date(selectedScoreRow.forecast_at),
+        end: new Date(
+          Date.parse(selectedScoreRow.forecast_at) + 60 * 60 * 1000,
+        ),
+        waveHeight: selectedScoreRow.wave_height,
+        sourceForecast: selectedScoreRow,
+      },
+    }));
+    mockBulkQueries({
+      forecastRows: [currentRow, selectedScoreRow],
+      beachRows: [beachRow(BOUND_BEACH_ID)],
+    });
+    mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
+      ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+        Promise.resolve(
+          candidates.map(({ candidateId }) =>
+            majorEventDecision(candidateId, "blocked"),
+          ),
+        ),
+    );
+
+    const response = await GET(
+      createMockRequest(
+        "GET",
+        `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}`,
+        { headers: { "x-forwarded-for": "203.0.113.240" } },
+      ),
+    );
+    const body = await expectSuccessResponse<any>(response, 200);
+    const expectedEnd = new Date(
+      Date.parse(selectedScoreRow.forecast_at) + 3 * 60 * 60 * 1000,
+    ).toISOString();
+
+    expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledWith({
+      candidates: [
+        {
+          candidateId: `bulk-forecast:${BOUND_BEACH_ID}:${selectedScoreRow.forecast_at}`,
+          beachId: BOUND_BEACH_ID,
+          startsAt: selectedScoreRow.forecast_at,
+          endsAt: expectedEnd,
+        },
+      ],
+      profileExperience: null,
+    });
+    expect(body.data.forecasts).toEqual({ [BOUND_BEACH_ID]: 3.7 });
+    expect(body.data.displayForecasts[BOUND_BEACH_ID]).toMatchObject({
+      forecastAt: selectedScoreRow.forecast_at,
+    });
+    expect(body.data.conditionScores).toEqual({});
+    expect(body.data.conditionSummaries).toEqual({
+      [BOUND_BEACH_ID]: "UNKNOWN",
+    });
+    expect(body.data.recommendationAvailability).toMatchObject({
+      state: "none",
+      reasonCode: "major_event_hold",
+    });
+    expect(JSON.stringify(body)).not.toMatch(
+      /internal-hold-id|holdIds|evaluation/,
+    );
+    expect(response.headers.get("Cache-Control")).toBe(NO_STORE);
+  });
+
+  it("fails unresolved policy closed while retaining physical forecast fields", async () => {
+    const row = forecastRow(BOUND_BEACH_ID, "2.5", 2);
+    mockBulkQueries({
+      forecastRows: [row],
+      beachRows: [beachRow(BOUND_BEACH_ID)],
+    });
+    mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
+      ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+        Promise.resolve(
+          candidates.map(({ candidateId }) =>
+            majorEventDecision(candidateId, "unavailable"),
+          ),
+        ),
+    );
+
+    const response = await GET(
+      createMockRequest(
+        "GET",
+        `http://localhost:3000/api/forecasts/bulk?beachIds=${BOUND_BEACH_ID}`,
+        { headers: { "x-forwarded-for": "203.0.113.241" } },
+      ),
+    );
+    const body = await expectSuccessResponse<any>(response, 200);
+
+    expect(body.data.forecasts).toEqual({ [BOUND_BEACH_ID]: 2.5 });
+    expect(body.data.conditionScores).toEqual({});
+    expect(body.data.conditionSummaries[BOUND_BEACH_ID]).toBe("UNKNOWN");
+    expect(body.data.recommendationAvailability).toMatchObject({
+      state: "none",
+      reasonCode: "hold_state_unavailable",
     });
   });
 
@@ -1182,9 +1505,15 @@ describe("/api/forecasts/bulk", () => {
 
     try {
       const response = await GET(
-        createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+        createMockRequest(
+          "GET",
+          "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1",
+        ),
       );
-      const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+      const data = await expectSuccessResponse<BulkForecastResponse>(
+        response,
+        200,
+      );
 
       expect(data.data.forecasts).toEqual({ "beach-1": 2.5 });
       expect(data.data.conditionScores).toEqual({});
@@ -1211,9 +1540,15 @@ describe("/api/forecasts/bulk", () => {
     });
 
     const response = await GET(
-      createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-a,beach-b"),
+      createMockRequest(
+        "GET",
+        "http://localhost:3000/api/forecasts/bulk?beachIds=beach-a,beach-b",
+      ),
     );
-    const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+    const data = await expectSuccessResponse<BulkForecastResponse>(
+      response,
+      200,
+    );
 
     expect(data.data.isCalibrated).toEqual({
       "beach-a": true,
@@ -1234,9 +1569,15 @@ describe("/api/forecasts/bulk", () => {
 
     try {
       const response = await GET(
-        createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1"),
+        createMockRequest(
+          "GET",
+          "http://localhost:3000/api/forecasts/bulk?beachIds=beach-1",
+        ),
       );
-      const data = await expectSuccessResponse<BulkForecastResponse>(response, 200);
+      const data = await expectSuccessResponse<BulkForecastResponse>(
+        response,
+        200,
+      );
 
       expect(data.data.forecasts).toEqual({ "beach-1": 2.5 });
       expect(data.data.isCalibrated).toEqual({});

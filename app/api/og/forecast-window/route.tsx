@@ -8,9 +8,11 @@ import {
 } from "@/lib/share/forecast-window-share";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
-function withCache(response: ImageResponse): ImageResponse {
-  response.headers.set("Cache-Control", "public, max-age=3600, s-maxage=86400");
+function noStore(response: ImageResponse): ImageResponse {
+  response.headers.set("Cache-Control", "no-store");
   return response;
 }
 
@@ -22,7 +24,7 @@ function renderForecastWindowCard(
   const waveHeight = metadata.waveHeight || "Forecast window";
   const conditionRow = metadata.conditionRow || "Open the latest surf call";
 
-  return withCache(
+  return noStore(
     new ImageResponse(
       (
         <div
@@ -175,8 +177,6 @@ export async function GET(request: NextRequest): Promise<ImageResponse> {
     const metadata = await loadForecastWindowShareMetadata({
       slug,
       window: windowValue,
-      windowLabel: searchParams.get("label"),
-      conditions: searchParams.get("conditions"),
     });
 
     return renderForecastWindowCard(metadata, appIconSrc);

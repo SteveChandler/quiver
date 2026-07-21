@@ -43,6 +43,7 @@ import { FullPageLoader } from "@/components/ui/loading-states";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { getBeachLocation } from "@/lib/utils/beach-card-utils";
 import type { SurfCallResult } from "@/lib/utils/surf-call-logic";
+import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import type { ZineBeachPhoto } from "@/components/beach-detail/zine/types";
 import type { BeachAmenities } from "@/types/amenities";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
@@ -202,6 +203,10 @@ const SessionsTab = lazy(() =>
 // Constants to prevent unnecessary re-renders
 const EMPTY_FORECASTS: EnhancedForecastEntity[] = [];
 
+type SurfCallReportWithAvailability = SurfCallResult & {
+  recommendationAvailability?: RecommendationAvailability;
+};
+
 function getClosestForecastToNow(
   forecasts: EnhancedForecastEntity[],
 ): EnhancedForecastEntity | null {
@@ -229,7 +234,7 @@ interface BeachDetailProps {
   publicMode?: boolean;
   initialBeach?: Beach;
   beachTimezone?: string | null;
-  surfCallReport?: SurfCallResult | null;
+  surfCallReport?: SurfCallReportWithAvailability | null;
   surfCallIsTomorrow?: boolean;
   defaultTab?: "overview" | "forecast" | "reviews" | "intel" | "sessions";
   defaultSubTab?: "today" | "tides" | "conditions";
@@ -1006,6 +1011,9 @@ function BeachDetailContent({
           canonicalPath={beachCanonicalPath}
           forecasts={forecasts || []}
           beachTimezone={beachTimezone}
+          recommendationAvailability={
+            surfCallReport?.recommendationAvailability
+          }
         />
         <BeachTabs
           activeTab={activeTab}

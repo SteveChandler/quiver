@@ -84,6 +84,12 @@ jest.mock("@/lib/notifications/enqueue", () => ({
   enqueueNotification: (...args: any[]) => mockEnqueueNotification(...args),
 }));
 
+const mockResolveNotificationMajorEventHold = jest.fn();
+jest.mock("@/lib/recommendations/major-event-hold/adapters/notification", () => ({
+  resolveNotificationMajorEventHold: (...args: unknown[]) =>
+    mockResolveNotificationMajorEventHold(...args),
+}));
+
 // ---- Mock email-token (deterministic) ----
 jest.mock("@/lib/alerts/email-token", () => ({
   generateDisableToken: jest.fn(() => "test-disable-token"),
@@ -324,6 +330,7 @@ function seedProfile(overrides: Partial<any> = {}) {
     display_name: "Tester",
     notif_email_enabled: true,
     notif_push_enabled: true,
+    experience_level: "beginner",
     ...overrides,
   });
 }
@@ -360,6 +367,10 @@ beforeEach(() => {
   mockEnqueueNotification.mockResolvedValue({
     enqueued: true,
     eventId: "evt-mock",
+  });
+  mockResolveNotificationMajorEventHold.mockResolvedValue({
+    status: "allowed",
+    candidate: null,
   });
   delete process.env.ALERTS_DELIVERY_ENABLED;
   delete process.env.ALERTS_DELIVERY_USER_ALLOWLIST;
@@ -479,6 +490,60 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       status: "sent",
     });
 
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
+  });
+
+  it("immediately suppresses held or unresolved forecast email and push delivery", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
+    seedQueueRow({
+      alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
+    });
+    seedProfile();
+    mockResolveNotificationMajorEventHold.mockResolvedValue({
+      status: "suppressed",
+      reasonCode: "hold_state_unavailable",
+      auditCode: "major_event_hold",
+      candidate: null,
+    });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEmailsSend).not.toHaveBeenCalled();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledTimes(2);
+    for (const call of mockResolveNotificationMajorEventHold.mock.calls) {
+      expect(call[0]).toMatchObject({
+        type: "forecast_alert",
+        payload: {
+          beach_id: BEACH_1,
+          policy_context: {
+            kind: "positive_session_recommendation",
+            beach_id: BEACH_1,
+            starts_at: "2026-04-26T13:00:00Z",
+            ends_at: "2026-04-26T15:00:00Z",
+          },
+        },
+        profileExperience: "beginner",
+      });
+    }
+    expect(store.attemptInserts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          queue_id: QUEUE_1,
+          channel: "email",
+          status: "skipped_disabled",
+          skip_reason: "major_event_hold:hold_state_unavailable",
+        }),
+        expect.objectContaining({
+          queue_id: QUEUE_1,
+          channel: "push",
+          status: "skipped_disabled",
+          skip_reason: "major_event_hold:hold_state_unavailable",
+        }),
+      ])
+    );
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 
@@ -1142,6 +1207,12 @@ describe("condition-alert-deliver — push branch enqueues via notifications pip
       forecast_at: "2026-04-26T14:00:00Z",
       quiet_hours_start: 23,
       quiet_hours_end: 6,
+      policy_context: {
+        kind: "positive_session_recommendation",
+        beach_id: BEACH_1,
+        starts_at: "2026-04-26T13:00:00Z",
+        ends_at: "2026-04-26T15:00:00Z",
+      },
       // Queue-item provenance for the worker's onChannelOutcome hook to fan
       // back into alert_delivery_attempts after actual delivery (review fix
       // for cooldown burning on terminal-skipped pushes).
@@ -1365,6 +1436,12 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
       confidence: 0.86,
       condition_summary: "4.5ft @ 11s, NW wind 8mph, rising tide 2.1ft",
       board_tip: "Bring the step-up",
+      policy_context: {
+        kind: "positive_session_recommendation",
+        beach_id: BEACH_SIM,
+        starts_at: "2026-05-04T13:00:00Z",
+        ends_at: "2026-05-04T15:00:00Z",
+      },
       queue_items: [{ queue_id: QUEUE_SIM, rule_id: RULE_SIM }],
     });
 
@@ -1376,6 +1453,46 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
     // Both queue rows marked sent.
     const allMarked = store.queueUpdates.flatMap((u) => u.ids).sort();
     expect(allMarked).toEqual([QUEUE_1, QUEUE_SIM].sort());
+  });
+
+  it("suppresses a held or unresolved similarity row before notification enqueue", async () => {
+    process.env.ALERTS_DELIVERY_ENABLED = "true";
+    seedSimilarityQueueRow();
+    seedProfile();
+    mockResolveNotificationMajorEventHold.mockResolvedValueOnce({
+      status: "suppressed",
+      reasonCode: "major_event_hold",
+      auditCode: "major_event_hold",
+      candidate: null,
+    });
+
+    const res = await GET(makeRequest());
+    expect(res.status).toBe(200);
+
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledWith({
+      eventId: `condition-alert-deliver:similarity:${QUEUE_SIM}`,
+      type: "similarity_match",
+      payload: expect.objectContaining({
+        beach_id: BEACH_SIM,
+        policy_context: {
+          kind: "positive_session_recommendation",
+          beach_id: BEACH_SIM,
+          starts_at: "2026-05-04T13:00:00Z",
+          ends_at: "2026-05-04T15:00:00Z",
+        },
+      }),
+      profileExperience: "beginner",
+    });
+    expect(store.attemptInserts).toEqual([
+      expect.objectContaining({
+        queue_id: QUEUE_SIM,
+        channel: "push",
+        status: "skipped_disabled",
+        skip_reason: "major_event_hold:major_event_hold",
+      }),
+    ]);
+    expect(store.queueUpdates).toEqual([{ ids: [QUEUE_SIM], sent: true }]);
   });
 
   it("kill switch: ALERTS_DELIVERY_ENABLED=false records skipped_disabled and marks similarity queue sent without enqueueing", async () => {

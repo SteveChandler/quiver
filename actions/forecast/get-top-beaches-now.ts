@@ -11,7 +11,22 @@
 
 import { getTopBeachesRightNow } from "@/lib/utils/forecast-hub-utils";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
+import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { TopBeachEntry } from "@/lib/utils/forecast-hub-utils";
+
+async function getVerifiedProfileExperience(): Promise<unknown> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return null;
+    return await getProfileExperienceLevel(supabase, user.id);
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Fetch the top beaches by current forecast score.
@@ -30,7 +45,12 @@ export async function getTopBeachesNow(
       userLat !== undefined && userLon !== undefined
         ? { lat: userLat, lon: userLon }
         : null;
-    return await getTopBeachesRightNow(limit, userCoords);
+    const profileExperience = await getVerifiedProfileExperience();
+    return await getTopBeachesRightNow(
+      limit,
+      userCoords,
+      profileExperience,
+    );
   } catch (error) {
     console.error("Failed to fetch top beaches for Best Right Now:", error);
     trackFallback({ domain: 'homepage', field: 'top_beaches', fallbackValue: '[]' });

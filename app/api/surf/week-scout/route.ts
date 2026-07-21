@@ -52,13 +52,6 @@ async function weekScoutHandler(
   request: NextRequest,
   { user }: AuthenticatedContext,
 ): Promise<NextResponse> {
-  if (process.env.WEEK_SCOUT_ENDPOINT_ENABLED !== 'true') {
-    return NextResponse.json(
-      { success: false, error: 'Week Scout endpoint is not enabled' },
-      { status: 404 },
-    );
-  }
-
   let body: unknown;
   try {
     body = await request.json();
@@ -72,12 +65,22 @@ async function weekScoutHandler(
   }
 
   const forecast = await generateWeekScoutForecast(user.id, parsed.data);
-  const response = createSuccessResponse(forecast);
-  response.headers.set('Cache-Control', 'private, no-store');
-  return response;
+  return createSuccessResponse(forecast);
 }
 
-export const POST = withRateLimit(
+const protectedPOST = withRateLimit(
   withAuth(weekScoutHandler, { errorMessage: 'Error generating Week Scout forecast' }),
   'surf-discovery',
 );
+
+export const POST = async (
+  ...args: Parameters<typeof protectedPOST>
+): Promise<NextResponse> => {
+  const response = await protectedPOST(...args);
+  response.headers.delete('ETag');
+  response.headers.set(
+    'Cache-Control',
+    'private, no-store, no-cache, must-revalidate',
+  );
+  return response;
+};

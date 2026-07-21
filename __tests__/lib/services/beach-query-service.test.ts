@@ -64,6 +64,8 @@ describe("beach-query-service", () => {
       });
       expect(mockFrom).toHaveBeenCalledWith("beaches");
       expect(mockSelect).toHaveBeenCalledWith(expect.stringContaining("lat, lon"));
+      const selectedFields = (mockSelect.mock.calls[0] as unknown as [string])[0];
+      expect(selectedFields).not.toContain("updated_at");
     });
   });
 });

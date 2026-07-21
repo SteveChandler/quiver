@@ -24,7 +24,20 @@ interface ForecastsBulkResponse {
   conditionSummaries: Record<string, "GOOD" | "FAIR" | "CHECK" | "UNKNOWN">;
   swellPartitions: Record<string, unknown>;
   swellPartitionTimeline: Record<string, unknown[]>;
+  recommendationAvailability: {
+    state: "available" | "none";
+    reasonCode?: "major_event_hold" | "hold_state_unavailable";
+    holdEpoch: string;
+    resolutionAsOf?: string;
+  };
 }
+
+type HoldCandidate = {
+  candidateId: string;
+  beachId: string;
+  startsAt: string;
+  endsAt: string;
+};
 
 type QueryResult<T> = {
   data: T | null;
@@ -82,6 +95,11 @@ type BeachRow = {
 
 const mockSupabaseClient = createMockSupabaseClient();
 const STABLE_TEST_NOW = new Date("2026-07-07T18:00:00.000Z");
+const AVAILABLE_HOLD_EPOCH = "available-hold-epoch";
+const BEACH_ONE_ID = "11111111-1111-4111-8111-111111111111";
+const BEACH_TWO_ID = "22222222-2222-4222-8222-222222222222";
+const BEACH_THREE_ID = "33333333-3333-4333-8333-333333333333";
+const mockEvaluateMajorEventHoldCandidates = jest.fn();
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data: unknown) => {
@@ -117,6 +135,11 @@ jest.mock("@/lib/services/forecast/v5-display-gate", () => ({
 
 jest.mock("@/lib/services/discovery", () => ({
   getBatchSunTimes: jest.fn(async () => new Map()),
+}));
+
+jest.mock("@/lib/recommendations/major-event-hold/service", () => ({
+  evaluateMajorEventHoldCandidates: (input: unknown) =>
+    mockEvaluateMajorEventHoldCandidates(input),
 }));
 
 function mockDisplayForForecast(
@@ -316,6 +339,22 @@ describe("GET /api/forecasts/bulk", () => {
     cleanup = testEnv.cleanup;
     jest.useFakeTimers({ now: STABLE_TEST_NOW });
     jest.clearAllMocks();
+    mockEvaluateMajorEventHoldCandidates.mockImplementation(
+      async ({ candidates }: { candidates: HoldCandidate[] }) =>
+        candidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          evaluation: {
+            outcome: "allow",
+            holdIds: [],
+            holdEpoch: AVAILABLE_HOLD_EPOCH,
+          },
+          recommendationAvailability: {
+            state: "available",
+            holdEpoch: AVAILABLE_HOLD_EPOCH,
+            resolutionAsOf: STABLE_TEST_NOW.toISOString(),
+          },
+        })),
+    );
     mockSupabaseClient.from = jest.fn(() => queryChain({ data: null, error: null })) as any;
   });
 
@@ -327,38 +366,45 @@ describe("GET /api/forecasts/bulk", () => {
   it("fetches forecasts for multiple beaches from enhanced_forecasts", async () => {
     mockBulkQueries({
       forecastRows: [
-        forecastRow("beach-1", "4.5"),
-        forecastRow("beach-2", "3.2"),
-        forecastRow("beach-3", "5.8"),
+        forecastRow(BEACH_ONE_ID, "4.5"),
+        forecastRow(BEACH_TWO_ID, "3.2"),
+        forecastRow(BEACH_THREE_ID, "5.8"),
       ],
       beachRows: [
-        beachRow("beach-1"),
-        beachRow("beach-2"),
-        beachRow("beach-3"),
+        beachRow(BEACH_ONE_ID),
+        beachRow(BEACH_TWO_ID),
+        beachRow(BEACH_THREE_ID),
       ],
     });
 
     const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-      searchParams: { beachIds: "beach-1,beach-2,beach-3" },
+      searchParams: {
+        beachIds: `${BEACH_ONE_ID},${BEACH_TWO_ID},${BEACH_THREE_ID}`,
+      },
     });
 
     const response = await GET(request);
     const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
     expect(result.data.forecasts).toEqual({
-      "beach-1": 4.5,
-      "beach-2": 3.2,
-      "beach-3": 5.8,
+      [BEACH_ONE_ID]: 4.5,
+      [BEACH_TWO_ID]: 3.2,
+      [BEACH_THREE_ID]: 5.8,
     });
     expect(result.data.conditionScores).toEqual({
-      "beach-1": 72,
-      "beach-2": 72,
-      "beach-3": 72,
+      [BEACH_ONE_ID]: 72,
+      [BEACH_TWO_ID]: 72,
+      [BEACH_THREE_ID]: 72,
     });
     expect(result.data.conditionSummaries).toEqual({
-      "beach-1": "GOOD",
-      "beach-2": "GOOD",
-      "beach-3": "GOOD",
+      [BEACH_ONE_ID]: "GOOD",
+      [BEACH_TWO_ID]: "GOOD",
+      [BEACH_THREE_ID]: "GOOD",
+    });
+    expect(result.data.recommendationAvailability).toEqual({
+      state: "available",
+      holdEpoch: AVAILABLE_HOLD_EPOCH,
+      resolutionAsOf: STABLE_TEST_NOW.toISOString(),
     });
   });
 
@@ -386,6 +432,11 @@ describe("GET /api/forecasts/bulk", () => {
         conditionSummaries: {},
         swellPartitions: {},
         swellPartitionTimeline: {},
+        recommendationAvailability: {
+          state: "none",
+          reasonCode: "hold_state_unavailable",
+          holdEpoch: "hold-state-unavailable",
+        },
       });
     }
     expect(mockSupabaseClient.from).not.toHaveBeenCalled();
@@ -393,20 +444,20 @@ describe("GET /api/forecasts/bulk", () => {
 
   it("handles beaches with no forecast data", async () => {
     mockBulkQueries({
-      forecastRows: [forecastRow("beach-with-forecast", "4.5")],
+      forecastRows: [forecastRow(BEACH_ONE_ID, "4.5")],
     });
 
     const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-      searchParams: { beachIds: "beach-with-forecast,beach-without-forecast" },
+      searchParams: { beachIds: `${BEACH_ONE_ID},beach-without-forecast` },
     });
 
     const response = await GET(request);
     const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
-    expect(result.data.forecasts).toHaveProperty("beach-with-forecast", 4.5);
+    expect(result.data.forecasts).toHaveProperty(BEACH_ONE_ID, 4.5);
     expect(result.data.forecasts).not.toHaveProperty("beach-without-forecast");
     expect(result.data.conditionSummaries).toEqual({
-      "beach-with-forecast": "GOOD",
+      [BEACH_ONE_ID]: "GOOD",
       "beach-without-forecast": "UNKNOWN",
     });
   });
@@ -523,21 +574,71 @@ describe("GET /api/forecasts/bulk", () => {
 
   it("returns water temps and calibration status in the envelope", async () => {
     mockBulkQueries({
-      forecastRows: [forecastRow("beach-1", "4.5")],
-      waterRows: [{ beach_id: "beach-1", water_temp: "63" }],
-      beachRows: [beachRow("beach-1", { shoaling_factors: { "270": 1.05 } })],
+      forecastRows: [forecastRow(BEACH_ONE_ID, "4.5")],
+      waterRows: [{ beach_id: BEACH_ONE_ID, water_temp: "63" }],
+      beachRows: [beachRow(BEACH_ONE_ID, { shoaling_factors: { "270": 1.05 } })],
     });
 
     const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
-      searchParams: { beachIds: "beach-1" },
+      searchParams: { beachIds: BEACH_ONE_ID },
     });
 
     const response = await GET(request);
     const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
 
-    expect(result.data.forecasts["beach-1"]).toBe(4.5);
-    expect(result.data.waterTemps).toEqual({ "beach-1": "63" });
-    expect(result.data.isCalibrated).toEqual({ "beach-1": true });
-    expect(result.data.conditionSummaries).toEqual({ "beach-1": "GOOD" });
+    expect(result.data.forecasts[BEACH_ONE_ID]).toBe(4.5);
+    expect(result.data.waterTemps).toEqual({ [BEACH_ONE_ID]: "63" });
+    expect(result.data.isCalibrated).toEqual({ [BEACH_ONE_ID]: true });
+    expect(result.data.conditionSummaries).toEqual({ [BEACH_ONE_ID]: "GOOD" });
+  });
+
+  it("fails closed when hold resolution is unavailable without hiding physical forecasts", async () => {
+    mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
+      async ({ candidates }: { candidates: HoldCandidate[] }) =>
+        candidates.map((candidate) => ({
+          candidateId: candidate.candidateId,
+          evaluation: {
+            outcome: "explicit_none",
+            reasonCode: "hold_state_unavailable",
+            holdIds: [],
+            holdEpoch: "unresolved-hold-epoch",
+          },
+          recommendationAvailability: {
+            state: "none",
+            reasonCode: "hold_state_unavailable",
+            holdEpoch: "unresolved-hold-epoch",
+            resolutionAsOf: STABLE_TEST_NOW.toISOString(),
+          },
+        })),
+    );
+    mockBulkQueries({
+      forecastRows: [forecastRow(BEACH_ONE_ID, "4.5")],
+      beachRows: [beachRow(BEACH_ONE_ID)],
+    });
+
+    const request = createMockRequest("GET", "http://localhost:3000/api/forecasts/bulk", {
+      searchParams: { beachIds: BEACH_ONE_ID },
+    });
+
+    const response = await GET(request);
+    const result = await expectSuccessResponse<ForecastsBulkResponse>(response, 200);
+
+    expect(result.data.forecasts).toEqual({ [BEACH_ONE_ID]: 4.5 });
+    expect(result.data.displayForecasts[BEACH_ONE_ID]).toMatchObject({
+      label: "4-5ft",
+      minFt: 4,
+      maxFt: 5,
+    });
+    expect(result.data.conditionScores).toEqual({});
+    expect(result.data.conditionSummaries).toEqual({ [BEACH_ONE_ID]: "UNKNOWN" });
+    expect(result.data.recommendationAvailability).toEqual({
+      state: "none",
+      reasonCode: "hold_state_unavailable",
+      holdEpoch: "unresolved-hold-epoch",
+      resolutionAsOf: STABLE_TEST_NOW.toISOString(),
+    });
+    expect(response.headers.get("Cache-Control")).toBe(
+      "private, no-store, no-cache, must-revalidate",
+    );
   });
 });

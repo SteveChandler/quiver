@@ -18,6 +18,7 @@ const summary: IntentForecastSummary = {
   },
   topPicks: [
     {
+      beachId: "33333333-3333-4333-8333-333333333333",
       name: "Tourmaline Surf Park",
       slug: "tourmaline-surf-park",
       waveHeight: "2-3 ft",
@@ -31,6 +32,10 @@ const summary: IntentForecastSummary = {
     swell: "2-3 ft",
   },
   isTomorrow: false,
+  recommendationAvailability: {
+    state: "available",
+    holdEpoch: "test-epoch",
+  },
 };
 
 describe("TodaysIntentPlan", () => {

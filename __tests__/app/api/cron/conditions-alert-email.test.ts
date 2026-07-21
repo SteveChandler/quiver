@@ -152,6 +152,15 @@ jest.mock("@/lib/mailer/client", () => ({
   getBaseUrl: () => "https://quiversurf.app",
 }));
 
+const mockResolveNotificationMajorEventHold = jest.fn();
+jest.mock(
+  "@/lib/recommendations/major-event-hold/adapters/notification",
+  () => ({
+    resolveNotificationMajorEventHold: (...args: unknown[]) =>
+      mockResolveNotificationMajorEventHold(...args),
+  })
+);
+
 // Mock email template
 jest.mock("@/lib/mailer/templates/ConditionsAlertEmail", () => ({
   ConditionsAlertEmail: jest.fn(() => "ConditionsAlertEmail"),
@@ -288,6 +297,10 @@ describe("Conditions Alert Email Cron Job API", () => {
       data: { id: "mock-resend-id" },
       error: null,
     });
+    mockResolveNotificationMajorEventHold.mockResolvedValue({
+      status: "allowed",
+      candidate: null,
+    });
 
     // Default enrichment: every signal null (graceful-degradation baseline).
     mockEnrichBeachSignals.mockResolvedValue({
@@ -382,6 +395,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           claimFailed: 0,
           rescoreFailed: 0,
           scoreBelowFloor: 0,
+          holdSuppressed: 0,
           sendFailed: 0,
         },
       });
@@ -594,6 +608,92 @@ describe("Conditions Alert Email Cron Job API", () => {
   });
 
   describe("Email Sending", () => {
+    it("suppresses a positive conditions email when the last-mile hold blocks its selected slot", async () => {
+      const beachId = "11111111-1111-4111-8111-111111111111";
+      const candidates = [
+        {
+          user_id: "user-1",
+          email: "user1@example.com",
+          display_name: "User One",
+          experience_level: "beginner",
+          home_beach_id: beachId,
+          beach_name: "Test Beach",
+          beach_slug: "test-beach",
+          beach_state: "CA",
+          beach_city: "San Diego",
+          conditions_score: 90,
+          surf_description: "Clean 2ft",
+          wind_description: "Light offshore",
+          best_window_start: "08:00:00",
+          best_window_end: "10:00:00",
+          recommendation: null,
+        },
+      ];
+
+      mockRpc
+        .mockResolvedValueOnce({ data: candidates, error: null })
+        .mockResolvedValueOnce({ data: true, error: null });
+      mockFrom.mockImplementation(
+        mockBeachForecastFrom(() =>
+          Promise.resolve({
+            data: [
+              {
+                id: "best",
+                beach_id: beachId,
+                forecast_at: "2026-06-13T13:00:00.000Z",
+                wave_height: "2 ft",
+                wave_period: "17s",
+                wave_direction: "NW",
+                wind_speed: "4 mph",
+                wind_direction_deg: 90,
+                tide_height: "2.8",
+                tide_status: "Falling",
+                swell_1_period: "17s",
+                created_at: "2026-06-13T00:00:00.000Z",
+                updated_at: "2026-06-13T00:00:00.000Z",
+              },
+            ],
+            error: null,
+          })
+        )
+      );
+      mockResolveNotificationMajorEventHold.mockResolvedValue({
+        status: "suppressed",
+        reasonCode: "major_event_hold",
+        auditCode: "major_event_hold",
+        candidate: null,
+      });
+
+      const response = await GET(
+        mockRequest({ authorization: "Bearer valid-cron-secret" })
+      );
+      const data = await response.json();
+
+      expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledWith({
+        eventId: `conditions-alert-email:user-1:${beachId}`,
+        type: "forecast_alert",
+        payload: {
+          beach_id: beachId,
+          forecast_at: "2026-06-13T15:00:00.000Z",
+          policy_context: {
+            kind: "positive_session_recommendation",
+            beach_id: beachId,
+            starts_at: "2026-06-13T15:00:00.000Z",
+            ends_at: "2026-06-13T17:00:00.000Z",
+          },
+        },
+        profileExperience: "beginner",
+      });
+      expect(mockThrottle.mock.invocationCallOrder[0]).toBeLessThan(
+        mockResolveNotificationMajorEventHold.mock.invocationCallOrder[0]
+      );
+      expect(mockEmailsSend).not.toHaveBeenCalled();
+      expect(data.data.summary).toMatchObject({
+        sent: 0,
+        skipped: { holdSuppressed: 1 },
+      });
+    });
+
     it("should send email with correct parameters and plain score subject", async () => {
       const candidates = [
         {
@@ -1508,6 +1608,7 @@ describe("Conditions Alert Email Cron Job API", () => {
           claimFailed: 1,
           rescoreFailed: 0,
           scoreBelowFloor: 0,
+          holdSuppressed: 0,
           sendFailed: 1,
         },
       });

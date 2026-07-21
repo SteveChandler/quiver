@@ -73,7 +73,7 @@ describe("map marker preview popup", () => {
     setCanHover(false);
   });
 
-  it("renders compact beach preview content with verdict, surf height, and beach URL", () => {
+  it("renders objective surf height and beach URL without a score-inferred verdict", () => {
     const content = createBeachPreviewPopupContent({
       location: beach,
       waveLabel: "3-4 ft",
@@ -81,8 +81,11 @@ describe("map marker preview popup", () => {
     });
 
     expect(content).toHaveTextContent("Windansea");
-    expect(content).toHaveTextContent("Worth it");
     expect(content).toHaveTextContent("3-4 ft");
+    expect(content).not.toHaveTextContent("Worth it");
+    expect(
+      content.querySelector(".quiver-beach-preview-popup__verdict")
+    ).toBeNull();
 
     const link = content.querySelector("a");
     expect(link).toHaveTextContent("Full forecast →");

@@ -36,6 +36,12 @@ import type {
   PersonalizedForecastWindow,
   SurfDiscoveryRecommendation,
 } from '@/types/personalization';
+import {
+  sanitizeWeekScoutForMajorEventHold,
+  type MajorEventHoldWeekScoutResponse,
+} from '@/lib/recommendations/major-event-hold/adapters/week-scout';
+import { evaluateMajorEventHoldCandidates } from '@/lib/recommendations/major-event-hold/service';
+import type { MajorEventHoldCandidate } from '@/lib/recommendations/major-event-hold/types';
 
 export const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v1:discovery-hero-v1';
 
@@ -433,7 +439,7 @@ export async function generateWeekScoutForecast(
   userId: string,
   request: WeekScoutRequest,
   dependencies?: WeekScoutServiceDependencies,
-): Promise<WeekScoutResponse> {
+): Promise<MajorEventHoldWeekScoutResponse> {
   const deps = dependencies ?? defaultDependencies(new Date());
   const generatedAt = deps.now.toISOString();
   const localDates = Array.from(
@@ -499,10 +505,23 @@ export async function generateWeekScoutForecast(
     };
   });
 
-  return {
+  const response: WeekScoutResponse = {
     generatedAt,
     scorerVersion: WEEK_SCOUT_SCORER_VERSION,
     candidateFingerprint: hash([...beachIds].sort()),
     days,
   };
+  const candidates: MajorEventHoldCandidate[] = response.days.flatMap((day) =>
+    day.windows.map((window) => ({
+      candidateId: window.id,
+      beachId: window.beachId,
+      startsAt: window.start,
+      endsAt: window.end,
+    })),
+  );
+  const decisions = await evaluateMajorEventHoldCandidates({
+    candidates,
+    profileExperience: userSkillLevel,
+  });
+  return sanitizeWeekScoutForMajorEventHold(response, candidates, decisions);
 }

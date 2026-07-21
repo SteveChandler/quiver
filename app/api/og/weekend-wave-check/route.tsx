@@ -1,7 +1,23 @@
 import { ImageResponse } from "next/og";
 import { NextRequest } from "next/server";
+import { parseMajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/evaluator";
+import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
+import { resolveMajorEventHoldBoundary } from "@/lib/recommendations/major-event-hold/adapters/shared";
+import { getBeachByIdFromDb } from "@/lib/services/beach-query-service";
+import { calculateDayScore } from "@/lib/utils/regional-forecast-utils";
+import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
+import { DEFAULT_TIMEZONE } from "@/lib/utils/timezone-utils";
+import type { Beach } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
+import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function noStore(response: ImageResponse): ImageResponse {
+  response.headers.set("Cache-Control", "no-store");
+  return response;
+}
 
 function renderFallback() {
   const response = new ImageResponse(
@@ -53,11 +69,7 @@ function renderFallback() {
     ),
     { width: 1200, height: 630 },
   );
-  response.headers.set(
-    "Cache-Control",
-    "public, max-age=3600, s-maxage=3600",
-  );
-  return response;
+  return noStore(response);
 }
 
 type Verdict = "Go" | "Maybe" | "Skip";
@@ -101,16 +113,264 @@ function getVerdictBorder(verdict: Verdict): string {
   }
 }
 
-function parseVerdict(value: string | null): Verdict {
-  if (value === "Go" || value === "Maybe" || value === "Skip") {
-    return value;
-  }
-  return "Maybe";
-}
-
 function truncate(value: string, max: number): string {
   if (!value) return "";
   return value.length > max ? value.substring(0, max - 1) + "\u2026" : value;
+}
+
+interface ResolvedWeekendDay {
+  beach: Beach;
+  candidate: MajorEventHoldCandidate;
+  forecasts: EnhancedForecastEntity[];
+  verdict: Verdict;
+  score: number;
+  summary: string;
+}
+
+interface ResolvedWeekendCard {
+  saturday: ResolvedWeekendDay;
+  sunday: ResolvedWeekendDay;
+  bestDay: "Saturday" | "Sunday";
+  bestWindow: string;
+}
+
+function candidateFromQuery(
+  searchParams: URLSearchParams,
+  day: "sat" | "sun",
+): MajorEventHoldCandidate | null {
+  return parseMajorEventHoldCandidate({
+    candidateId: `og-weekend:${day}`,
+    beachId: searchParams.get(`${day}_beach_id`),
+    startsAt: searchParams.get(`${day}_starts_at`),
+    endsAt: searchParams.get(`${day}_ends_at`),
+  });
+}
+
+function verdictForScore(score: number): Verdict {
+  if (score >= 60) return "Go";
+  if (score >= 40) return "Maybe";
+  return "Skip";
+}
+
+function objectiveSummary(forecasts: EnhancedForecastEntity[]): string {
+  const waveHeights = forecasts
+    .map((forecast) => Number(forecast.wave_height))
+    .filter(Number.isFinite);
+  const averageWaveHeight =
+    waveHeights.length > 0
+      ? waveHeights.reduce((sum, height) => sum + height, 0) /
+        waveHeights.length
+      : null;
+  const forecast = forecasts[0];
+  return [
+    averageWaveHeight === null
+      ? null
+      : `${averageWaveHeight.toFixed(1)} ft waves`,
+    forecast?.wind_direction ? `${forecast.wind_direction} wind` : null,
+    forecast?.tide_status ? `${forecast.tide_status} tide` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
+function exactForecastRows(
+  forecasts: EnhancedForecastEntity[],
+  candidate: MajorEventHoldCandidate,
+): EnhancedForecastEntity[] {
+  const start = Date.parse(candidate.startsAt);
+  const end = Date.parse(candidate.endsAt);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+    return [];
+  }
+
+  const timestampedRows = forecasts.map((forecast) => ({
+    forecast,
+    forecastAt: Date.parse(forecast.forecast_at),
+  }));
+  if (
+    timestampedRows.some(
+      ({ forecast, forecastAt }) =>
+        forecast.beach_id !== candidate.beachId || !Number.isFinite(forecastAt),
+    )
+  ) {
+    return [];
+  }
+
+  const serverInstants = [
+    ...new Set(timestampedRows.map(({ forecastAt }) => forecastAt)),
+  ].sort((left, right) => left - right);
+  const startIndex = serverInstants.indexOf(start);
+  if (startIndex < 0 || serverInstants[startIndex + 1] !== end) {
+    return [];
+  }
+
+  const rows = timestampedRows
+    .filter(({ forecastAt }) => forecastAt === start)
+    .map(({ forecast }) => forecast);
+  return rows.length > 0 ? rows : [];
+}
+
+function validBeachTimezone(timezone: string | null): string {
+  const candidate = timezone || DEFAULT_TIMEZONE;
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone: candidate }).format(
+      new Date(0),
+    );
+    return candidate;
+  } catch {
+    return DEFAULT_TIMEZONE;
+  }
+}
+
+function formatBestWindowStart(day: ResolvedWeekendDay): string {
+  return new Date(day.candidate.startsAt).toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: validBeachTimezone(day.beach.timezone),
+    timeZoneName: "short",
+  });
+}
+
+async function resolveWeekendCard(
+  searchParams: URLSearchParams,
+): Promise<ResolvedWeekendCard | null> {
+  const saturdayCandidate = candidateFromQuery(searchParams, "sat");
+  const sundayCandidate = candidateFromQuery(searchParams, "sun");
+  if (!saturdayCandidate || !sundayCandidate) return null;
+
+  const [saturdayBeachResult, sundayBeachResult] = await Promise.all([
+    getBeachByIdFromDb(saturdayCandidate.beachId),
+    getBeachByIdFromDb(sundayCandidate.beachId),
+  ]);
+  if (
+    !saturdayBeachResult.success ||
+    !saturdayBeachResult.data ||
+    !sundayBeachResult.success ||
+    !sundayBeachResult.data
+  ) {
+    return null;
+  }
+
+  const candidates = [saturdayCandidate, sundayCandidate];
+  const forecastMap = await getBatchFreshForecastsFromCache(
+    candidates.map(({ beachId }) => beachId),
+    168,
+  );
+  const saturdayForecasts = exactForecastRows(
+    forecastMap.get(saturdayCandidate.beachId)?.forecasts ?? [],
+    saturdayCandidate,
+  );
+  const sundayForecasts = exactForecastRows(
+    forecastMap.get(sundayCandidate.beachId)?.forecasts ?? [],
+    sundayCandidate,
+  );
+  if (saturdayForecasts.length === 0 || sundayForecasts.length === 0) {
+    return null;
+  }
+
+  const decisions = await evaluateMajorEventHoldCandidates({
+    candidates,
+    profileExperience: null,
+  });
+  const boundary = resolveMajorEventHoldBoundary(
+    candidates,
+    candidates,
+    decisions,
+  );
+  if (
+    boundary.recommendationAvailability.state !== "available" ||
+    candidates.some(
+      ({ candidateId }) => !boundary.allowedCandidateIds.has(candidateId),
+    )
+  ) {
+    return null;
+  }
+
+  const saturdayScore = calculateDayScore(
+    saturdayForecasts,
+    saturdayBeachResult.data,
+  );
+  const sundayScore = calculateDayScore(
+    sundayForecasts,
+    sundayBeachResult.data,
+  );
+  const saturday: ResolvedWeekendDay = {
+    beach: saturdayBeachResult.data,
+    candidate: saturdayCandidate,
+    forecasts: saturdayForecasts,
+    score: saturdayScore,
+    verdict: verdictForScore(saturdayScore),
+    summary: objectiveSummary(saturdayForecasts),
+  };
+  const sunday: ResolvedWeekendDay = {
+    beach: sundayBeachResult.data,
+    candidate: sundayCandidate,
+    forecasts: sundayForecasts,
+    score: sundayScore,
+    verdict: verdictForScore(sundayScore),
+    summary: objectiveSummary(sundayForecasts),
+  };
+  const best = sundayScore > saturdayScore ? sunday : saturday;
+
+  return {
+    saturday,
+    sunday,
+    bestDay: best === sunday ? "Sunday" : "Saturday",
+    bestWindow: `${best.beach.name || "Surf conditions"} · ${formatBestWindowStart(best)}`,
+  };
+}
+
+function renderNeutralWeekendCard(spaceGroteskData: ArrayBuffer): ImageResponse {
+  return noStore(
+    new ImageResponse(
+      <div
+        style={{
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "linear-gradient(180deg, #1E2558 0%, #252D6B 100%)",
+          color: "#FFFFFF",
+          fontFamily: "SpaceGrotesk, system-ui, sans-serif",
+          padding: 64,
+        }}
+      >
+        <div style={{ display: "flex", fontSize: 56, fontWeight: 800 }}>
+          Weekend swell and safety awareness
+        </div>
+        <div
+          style={{
+            display: "flex",
+            marginTop: 24,
+            maxWidth: 900,
+            textAlign: "center",
+            fontSize: 26,
+            color: "rgba(255,255,255,0.75)",
+          }}
+        >
+          Wave, wind, and tide conditions can change quickly. Check current
+          forecasts and official advisories before entering the water.
+        </div>
+        <div style={{ display: "flex", marginTop: 32, color: "#F78E42" }}>
+          quiversurf.app
+        </div>
+      </div>,
+      {
+        width: 1200,
+        height: 630,
+        fonts: [
+          {
+            name: "SpaceGrotesk",
+            data: spaceGroteskData,
+            weight: 700,
+            style: "normal" as const,
+          },
+        ],
+      },
+    ),
+  );
 }
 
 export async function GET(request: NextRequest) {
@@ -125,27 +385,17 @@ export async function GET(request: NextRequest) {
     ).then((res) => res.arrayBuffer());
 
     const { searchParams } = new URL(request.url);
+    const resolved = await resolveWeekendCard(searchParams);
+    if (!resolved) return renderNeutralWeekendCard(spaceGroteskData);
 
-    const satVerdict = parseVerdict(searchParams.get("sat_verdict"));
-    const sunVerdict = parseVerdict(searchParams.get("sun_verdict"));
-    const satSummary = truncate(
-      searchParams.get("sat_summary") || "Check the forecast",
-      60,
-    );
-    const sunSummary = truncate(
-      searchParams.get("sun_summary") || "Check the forecast",
-      60,
-    );
-    const satBeach = truncate(
-      searchParams.get("sat_beach") || "",
-      28,
-    );
-    const sunBeach = truncate(
-      searchParams.get("sun_beach") || "",
-      28,
-    );
-    const bestDay = searchParams.get("best_day") || "";
-    const bestWindow = searchParams.get("best_window") || "";
+    const satVerdict = resolved.saturday.verdict;
+    const sunVerdict = resolved.sunday.verdict;
+    const satSummary = truncate(resolved.saturday.summary, 60);
+    const sunSummary = truncate(resolved.sunday.summary, 60);
+    const satBeach = truncate(resolved.saturday.beach.name || "", 28);
+    const sunBeach = truncate(resolved.sunday.beach.name || "", 28);
+    const bestDay = resolved.bestDay;
+    const bestWindow = resolved.bestWindow;
 
     const response = new ImageResponse(
       (
@@ -694,11 +944,7 @@ export async function GET(request: NextRequest) {
       },
     );
 
-    response.headers.set(
-      "Cache-Control",
-      "public, max-age=3600, s-maxage=3600, stale-while-revalidate=86400",
-    );
-    return response;
+    return noStore(response);
   } catch (error) {
     console.error("[OG/weekend-wave-check] Error generating image:", error);
     return renderFallback();

@@ -15,6 +15,11 @@ import {
 import { withObservedCron } from "@/lib/cron/observability";
 import { getLocalDateString, getLocalHour } from "@/lib/utils/timezone-utils";
 import { scoreWindowWithComposite } from "@/lib/services/discovery/window-selector";
+import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
+import {
+  resolveNotificationMajorEventHold,
+  type PositiveRecommendationPolicyContext,
+} from "@/lib/recommendations/major-event-hold/adapters/notification";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -39,6 +44,7 @@ interface WeekendWindowPayload {
   window_local: string;
   title: string;
   body: string;
+  policy_context: PositiveRecommendationPolicyContext;
 }
 
 interface WeekendCopyInput {
@@ -197,13 +203,13 @@ function pickBestWeekendWindow(
   return best;
 }
 
-function selectAndBuildWeekendWindow({
+export async function selectAndBuildWeekendWindow({
   profile,
   beach,
   forecasts,
   timezone,
   now,
-}: HomeBeachPushSelectArgs): HomeBeachPushSelection<WeekendWindowPayload> {
+}: HomeBeachPushSelectArgs): Promise<HomeBeachPushSelection<WeekendWindowPayload>> {
   const weekendKey = getUpcomingWeekendKey(now, timezone);
   const pick = pickBestWeekendWindow(forecasts, beach, timezone, weekendKey);
   if (!pick) {
@@ -211,6 +217,11 @@ function selectAndBuildWeekendWindow({
   }
 
   const forecast = pick.forecast;
+  const startsAtMs = Date.parse(forecast.forecast_at);
+  if (!Number.isFinite(startsAtMs)) {
+    return { skipReason: "majorEventHold" };
+  }
+  const endsAt = new Date(startsAtMs + 60 * 60 * 1000).toISOString();
   const windowLocal = formatWindowLocal(forecast.forecast_at, timezone);
   const copy = buildWeekendWindowCopy({
     beachName: beach.name,
@@ -221,14 +232,36 @@ function selectAndBuildWeekendWindow({
     windSpeedMph: parseOptionalNumber(forecast.wind_speed),
   });
 
-  return {
-    payload: {
+  const payload: WeekendWindowPayload = {
+    beach_id: beach.id,
+    forecast_at: forecast.forecast_at,
+    window_local: windowLocal,
+    title: copy.title,
+    body: copy.body,
+    policy_context: {
+      kind: "positive_session_recommendation",
       beach_id: beach.id,
-      forecast_at: forecast.forecast_at,
-      window_local: windowLocal,
-      title: copy.title,
-      body: copy.body,
+      starts_at: forecast.forecast_at,
+      ends_at: endsAt,
     },
+  };
+  const profileExperience = parseSkillLevel(
+    (profile as HomeBeachPushSelectArgs["profile"] & {
+      experience_level?: string | null;
+    }).experience_level
+  );
+  const holdResolution = await resolveNotificationMajorEventHold({
+    eventId: `weekend-window:${profile.id}:${weekendKey}`,
+    type: NOTIFICATION_TYPE,
+    payload,
+    profileExperience,
+  });
+  if (holdResolution.status === "suppressed") {
+    return { skipReason: "majorEventHold" };
+  }
+
+  return {
+    payload,
     dedupeKey: `${NOTIFICATION_TYPE}:${profile.id}:${weekendKey}`,
   };
 }
@@ -240,6 +273,7 @@ async function _GET(request: Request): Promise<Response> {
     allowlistEnv: "WEEKEND_WINDOW_TEST_USER_IDS",
     type: NOTIFICATION_TYPE,
     lookaheadHours: LOOKAHEAD_HOURS,
+    profileSelectExtraFields: ["experience_level"],
     selectAndBuild: selectAndBuildWeekendWindow,
   });
 }

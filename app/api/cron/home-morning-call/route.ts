@@ -18,6 +18,11 @@ import {
   computeSurfCall,
   type SurfCallVerdict,
 } from "@/lib/utils/surf-call-logic";
+import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
+import {
+  resolveNotificationMajorEventHold,
+  type PositiveRecommendationPolicyContext,
+} from "@/lib/recommendations/major-event-hold/adapters/notification";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -43,6 +48,7 @@ interface HomeMorningCallPayload {
   forecast_at: string;
   title: string;
   body: string;
+  policy_context?: PositiveRecommendationPolicyContext;
 }
 
 interface MorningCopyInput {
@@ -124,13 +130,13 @@ function filterMorningForecasts(
   });
 }
 
-function selectAndBuildMorningCall({
+export async function selectAndBuildMorningCall({
   profile,
   beach,
   forecasts,
   timezone,
   now,
-}: HomeBeachPushSelectArgs): HomeBeachPushSelection<HomeMorningCallPayload> {
+}: HomeBeachPushSelectArgs): Promise<HomeBeachPushSelection<HomeMorningCallPayload>> {
   const morningForecasts = filterMorningForecasts(forecasts, timezone, now);
   if (morningForecasts.length === 0) {
     return { skipReason: "noForecast" };
@@ -169,18 +175,57 @@ function selectAndBuildMorningCall({
     headline?.display.forecastAt ??
     sourceForecast.forecast_at;
 
-  return {
-    payload: {
-      alert_date: localDate,
-      verdict: call.verdict,
-      beach_id: beach.id,
-      beach_name: beach.name,
-      forecast_at: forecastAt,
-      title: copy.title,
-      body: copy.body,
-    },
+  const payload: HomeMorningCallPayload = {
+    alert_date: localDate,
+    verdict: call.verdict,
+    beach_id: beach.id,
+    beach_name: beach.name,
+    forecast_at: forecastAt,
+    title: copy.title,
+    body: copy.body,
+  };
+  const selection = {
+    payload,
     dedupeKey: `${NOTIFICATION_TYPE}:${profile.id}:${localDate}`,
   };
+
+  if (call.verdict === "NO") return selection;
+
+  const bestStartsAt = call.bestWindowStart;
+  const bestEndsAt = call.bestWindowEnd;
+  const bestStartsAtMs = bestStartsAt ? Date.parse(bestStartsAt) : Number.NaN;
+  const bestEndsAtMs = bestEndsAt ? Date.parse(bestEndsAt) : Number.NaN;
+  if (
+    !bestStartsAt ||
+    !bestEndsAt ||
+    !Number.isFinite(bestStartsAtMs) ||
+    !Number.isFinite(bestEndsAtMs) ||
+    bestEndsAtMs <= bestStartsAtMs
+  ) {
+    return { skipReason: "majorEventHold" };
+  }
+  payload.policy_context = {
+    kind: "positive_session_recommendation",
+    beach_id: beach.id,
+    starts_at: bestStartsAt,
+    ends_at: bestEndsAt,
+  };
+  const profileExperience = parseSkillLevel(
+    (profile as HomeBeachPushSelectArgs["profile"] & {
+      experience_level?: string | null;
+    }).experience_level
+  );
+  const holdResolution = await resolveNotificationMajorEventHold({
+    eventId: `home-morning-call:${profile.id}:${localDate}`,
+    type: NOTIFICATION_TYPE,
+    payload,
+    profileExperience,
+  });
+  if (holdResolution.status === "suppressed") {
+    return { skipReason: "majorEventHold" };
+  }
+
+  return selection;
 }
 
 async function _GET(request: Request): Promise<Response> {
@@ -190,6 +235,7 @@ async function _GET(request: Request): Promise<Response> {
     allowlistEnv: "HOME_MORNING_CALL_TEST_USER_IDS",
     type: NOTIFICATION_TYPE,
     lookaheadHours: LOOKAHEAD_HOURS,
+    profileSelectExtraFields: ["experience_level"],
     selectAndBuild: selectAndBuildMorningCall,
   });
 }

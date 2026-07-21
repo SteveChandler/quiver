@@ -13,6 +13,8 @@ import type { AlertConditions, BeachAlertMeta, ForecastHour } from "@/lib/alerts
 import type { Database } from "@/types/database.generated";
 import { getMinRideable, MINIMUM_VIABLE_WINDOW_MINUTES } from "@/lib/utils/surf-call-logic";
 import type { Beach } from "@/types/database";
+import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
+import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -23,7 +25,12 @@ const CONTEXT_TAG = "[condition-alert-evaluate]";
 
 type ProfileRow = Pick<
   Database["public"]["Tables"]["profiles"]["Row"],
-  "id" | "home_beach_id" | "notif_forecast_alerts" | "notif_email_enabled" | "notif_push_enabled"
+  | "id"
+  | "home_beach_id"
+  | "notif_forecast_alerts"
+  | "notif_email_enabled"
+  | "notif_push_enabled"
+  | "experience_level"
 >;
 type BeachRow = Beach;
 type EntitlementRow = Pick<
@@ -72,7 +79,7 @@ export async function GET(request: Request) {
         const [profilesRes, beachesRes, entitlementsRes] = await Promise.all([
           supabase
             .from("profiles")
-            .select("id, home_beach_id, notif_forecast_alerts, notif_email_enabled, notif_push_enabled")
+            .select("id, home_beach_id, notif_forecast_alerts, notif_email_enabled, notif_push_enabled, experience_level")
             .in("id", userIds),
           supabase
             .from("beaches")
@@ -127,6 +134,7 @@ export async function GET(request: Request) {
         for (const [userId, userRules] of byUser) {
           try {
             const profile = profilesById.get(userId)!;
+            const profileExperience = parseSkillLevel(profile.experience_level);
             const homeBeachId = profile.home_beach_id;
             const homeBeach = homeBeachId ? beachesById.get(homeBeachId) : undefined;
             const homeBeachTz = homeBeach?.timezone ?? "America/New_York";
@@ -289,7 +297,29 @@ export async function GET(request: Request) {
 
               const { sunrise } = getDaylightWindow(beach.lat, beach.lon, new Date(todayStart));
 
+              let holdSuppressed = false;
               for (const window of [matchedWindow]) {
+                const holdResolution = await resolveNotificationMajorEventHold({
+                  eventId: `condition-alert-evaluate:${rule.id}:${window.window_start}`,
+                  type: "forecast_alert",
+                  payload: {
+                    beach_id: rule.beach_id,
+                    forecast_at: window.best_hour,
+                    policy_context: {
+                      kind: "positive_session_recommendation",
+                      beach_id: rule.beach_id,
+                      starts_at: window.window_start,
+                      ends_at: window.window_end,
+                    },
+                  },
+                  profileExperience,
+                });
+                if (holdResolution.status === "suppressed") {
+                  result.skipped++;
+                  holdSuppressed = true;
+                  continue;
+                }
+
                 const sendAtDate = new Date(new Date(window.window_start).getTime() - 2 * 60 * 60 * 1000);
                 const clampedSendAt = sendAtDate < sunrise ? sunrise : sendAtDate;
                 const sendAt = clampedSendAt < new Date() ? new Date() : clampedSendAt;
@@ -323,10 +353,12 @@ export async function GET(request: Request) {
                 }
               }
 
-              await supabase
-                .from("alert_rules")
-                .update({ last_matched_at: new Date().toISOString() })
-                .eq("id", rule.id);
+              if (!holdSuppressed) {
+                await supabase
+                  .from("alert_rules")
+                  .update({ last_matched_at: new Date().toISOString() })
+                  .eq("id", rule.id);
+              }
             }
           } catch (err) {
             console.error(`${CONTEXT_TAG} Error evaluating user ${userId}:`, err);

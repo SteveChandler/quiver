@@ -4,12 +4,21 @@ import {
   createSuccessResponse,
   createValidationError,
   withErrorHandler,
+  type RouteHandler,
 } from "@/lib/middleware/api-wrappers";
+import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import {
+  buildDailyIntelMajorEventHoldCandidate,
+  sanitizeDailyIntelForMajorEventHold,
+} from "@/lib/recommendations/major-event-hold/adapters/legacy";
+import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 import { getDailyIntelWaveHeightLabels } from "@/lib/services/intel/wave-height-labels";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
+
+const NO_STORE = "private, no-store, no-cache, must-revalidate";
 
 const QuerySchema = z.object({
   beachId: z.string().uuid("beachId must be a valid UUID"),
@@ -17,6 +26,33 @@ const QuerySchema = z.object({
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "forecastDate must be YYYY-MM-DD"),
 });
+
+type ServerSupabaseClient = Awaited<
+  ReturnType<typeof createSupabaseServerClient>
+>;
+
+async function getVerifiedProfileExperience(
+  supabase: ServerSupabaseClient
+): Promise<unknown> {
+  try {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    if (error || !user) return null;
+    return await getProfileExperienceLevel(supabase, user.id);
+  } catch {
+    return null;
+  }
+}
+
+function withNoStore(handler: RouteHandler): RouteHandler {
+  return async (request, context) => {
+    const response = await handler(request, context);
+    response.headers.set("Cache-Control", NO_STORE);
+    return response;
+  };
+}
 
 /**
  * GET /api/beach-daily-intel?beachId=<uuid>&forecastDate=YYYY-MM-DD
@@ -86,7 +122,10 @@ async function getBeachDailyIntel(request: NextRequest): Promise<NextResponse> {
       next_tide_height_ft,
       next_tide_time,
       next_tide_type,
-      raw_intel_data
+      raw_intel_data,
+      beaches!inner (
+        timezone
+      )
     `
     )
     .eq("beach_id", beachId)
@@ -126,10 +165,32 @@ async function getBeachDailyIntel(request: NextRequest): Promise<NextResponse> {
       bestWindowEnd: intel.best_window_end,
     }
   );
+  const { beaches, ...intelFields } = intel;
+  const beach = Array.isArray(beaches) ? beaches[0] : beaches;
+  const beachTimeZone = beach?.timezone ?? "";
+  const completeIntel = { ...intelFields, ...labels };
+  const candidate = buildDailyIntelMajorEventHoldCandidate(
+    completeIntel,
+    beachTimeZone
+  );
+  const candidates = [candidate];
+  const profileExperience = await getVerifiedProfileExperience(supabase);
+  const decisions = await evaluateMajorEventHoldCandidates({
+    candidates,
+    profileExperience,
+  });
+  const sanitizedIntel = sanitizeDailyIntelForMajorEventHold(
+    completeIntel,
+    beachTimeZone,
+    candidates,
+    decisions
+  );
 
-  return createSuccessResponse({ intel: { ...intel, ...labels } });
+  return createSuccessResponse({ intel: sanitizedIntel });
 }
 
-export const GET = withErrorHandler(getBeachDailyIntel, {
-  errorMessage: "Failed to load beach daily intel",
-});
+export const GET = withNoStore(
+  withErrorHandler(getBeachDailyIntel, {
+    errorMessage: "Failed to load beach daily intel",
+  })
+);

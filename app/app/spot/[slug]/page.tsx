@@ -6,6 +6,10 @@ import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
 import { loadForecastWindowShareMetadata } from "@/lib/share/forecast-window-share";
 import { ShareLinkOpenTracker } from "./share-link-open-tracker";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
 interface AppSpotHandoffPageProps {
   params: Promise<{ slug: string }>;
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -43,8 +47,6 @@ export async function generateMetadata({
   const shareMetadata = await loadForecastWindowShareMetadata({
     slug,
     window: windowId,
-    windowLabel: firstSearchValue(resolvedSearchParams.label),
-    conditions: firstSearchValue(resolvedSearchParams.conditions),
   });
   const ogImage = absoluteUrl(shareMetadata.ogImagePath);
 
@@ -88,14 +90,6 @@ function safeDecodeSlug(slug: string): string {
   }
 }
 
-function formatSpotName(slug: string): string {
-  return safeDecodeSlug(slug)
-    .split("-")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(" ");
-}
-
 function buildBeachFallbackPath(slug: string): string {
   return `/beach/${encodeURIComponent(safeDecodeSlug(slug))}`;
 }
@@ -110,12 +104,12 @@ export default async function AppSpotHandoffPage({
   const shareMetadata = await loadForecastWindowShareMetadata({
     slug,
     window: windowId,
-    windowLabel: firstSearchValue(resolvedSearchParams.label),
-    conditions: firstSearchValue(resolvedSearchParams.conditions),
   });
-  const spotName = formatSpotName(slug);
   const webFallbackHref = buildBeachFallbackPath(slug);
-  const displayWindowLabel = shareMetadata.windowLabel ?? windowId;
+  const hasPositiveWindow = !shareMetadata.isFallback;
+  const displayWindowLabel = hasPositiveWindow
+    ? shareMetadata.windowLabel
+    : null;
 
   return (
     <main className="min-h-screen bg-[#101436] px-5 py-12 text-white sm:px-8">
@@ -129,7 +123,9 @@ export default async function AppSpotHandoffPage({
           Quiver surf window
         </p>
         <h1 className="font-heading text-4xl font-black leading-tight text-white sm:text-5xl">
-          {spotName || "This spot"} is ready in Quiver.
+          {hasPositiveWindow
+            ? `${shareMetadata.beachName} is ready in Quiver.`
+            : "Check current surf conditions in Quiver."}
         </h1>
         {displayWindowLabel ? (
           <p className="mt-4 text-base font-semibold text-[#B8C7E0]">

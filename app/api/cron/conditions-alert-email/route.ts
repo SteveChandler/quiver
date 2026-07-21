@@ -44,6 +44,12 @@ import {
   pickBestNativeForecastSlot,
   resolveNativeSkillLevel,
 } from "@/lib/scoring/native-condition-score";
+import { formatInTimeZone } from "date-fns-tz";
+import { buildDailyIntelMajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/adapters/legacy";
+import {
+  resolveNotificationMajorEventHold,
+  type PositiveRecommendationPolicyContext,
+} from "@/lib/recommendations/major-event-hold/adapters/notification";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -71,6 +77,7 @@ interface RunSummary {
     claimFailed: number;
     rescoreFailed: number;
     scoreBelowFloor: number;
+    holdSuppressed: number;
     sendFailed: number;
   };
 }
@@ -80,6 +87,7 @@ type ProcessingStatus =
   | "claim_failed"
   | "rescore_failed"
   | "score_below_floor"
+  | "hold_suppressed"
   | "send_failed";
 
 interface ProcessingResult {
@@ -160,6 +168,47 @@ function formatTideDescription(
   const status = forecast.tide_status?.trim() || null;
   if (heightPart && status) return `${heightPart}, ${status}`;
   return heightPart ?? status;
+}
+
+function buildPositivePolicyContext(
+  beachId: string,
+  timezone: string | null | undefined,
+  forecastAt: string | null | undefined,
+  bestWindowStart: string | null | undefined,
+  bestWindowEnd: string | null | undefined
+): PositiveRecommendationPolicyContext | null {
+  if (!timezone || !forecastAt) return null;
+
+  const forecastInstant = new Date(forecastAt);
+  if (!Number.isFinite(forecastInstant.getTime())) return null;
+
+  try {
+    const forecastDate = formatInTimeZone(
+      forecastInstant,
+      timezone,
+      "yyyy-MM-dd"
+    );
+    const candidate = buildDailyIntelMajorEventHoldCandidate(
+      {
+        id: `${beachId}:${forecastDate}`,
+        beach_id: beachId,
+        forecast_date: forecastDate,
+        best_window_start: bestWindowStart ?? null,
+        best_window_end: bestWindowEnd ?? null,
+      },
+      timezone
+    );
+    if (!candidate) return null;
+
+    return {
+      kind: "positive_session_recommendation",
+      beach_id: candidate.beachId,
+      starts_at: candidate.startsAt,
+      ends_at: candidate.endsAt,
+    };
+  } catch {
+    return null;
+  }
 }
 
 interface DigestWhyContent {
@@ -290,11 +339,10 @@ async function processCandidate(
     return { status: "score_below_floor" };
   }
 
-  // Beach thresholds power the personalized why-bullets only. This is fetched
-  // AFTER the floor gate (so we skip the query for candidates we won't email)
-  // and is best-effort: a metadata failure must never block a send backed by a
-  // verified score, so it degrades to empty why-content (deriveWhyContent
-  // tolerates a null beach) rather than failing closed.
+  // Beach thresholds power the personalized why-bullets, while the timezone
+  // binds the displayed local best window to an exact hold interval. The why
+  // content remains best-effort; enforce mode fails closed when the timezone
+  // needed for that interval is unavailable.
   let beachMeta: BeachMetadata | null = null;
   try {
     const { data: beach } = await supabase
@@ -322,7 +370,7 @@ async function processCandidate(
     }
   } catch (beachError) {
     console.warn(
-      `${CONTEXT_TAG} Beach metadata fetch failed for ${candidate.beach_name}, sending without why-bullets:`,
+      `${CONTEXT_TAG} Beach metadata fetch failed for ${candidate.beach_name}:`,
       beachError
     );
   }
@@ -364,6 +412,35 @@ async function processCandidate(
 
   // 6. Rate limit and send email
   await rateLimiter.throttle();
+
+  const policyContext = buildPositivePolicyContext(
+    candidate.home_beach_id,
+    beachMeta?.timezone,
+    selectedForecast?.forecast_at,
+    candidate.best_window_start,
+    candidate.best_window_end
+  );
+  const holdDecision = await resolveNotificationMajorEventHold({
+    eventId: `conditions-alert-email:${candidate.user_id}:${candidate.home_beach_id}`,
+    type: "forecast_alert",
+    payload: {
+      beach_id: candidate.home_beach_id,
+      forecast_at: policyContext?.starts_at ?? null,
+      ...(policyContext ? { policy_context: policyContext } : {}),
+    },
+    profileExperience: candidate.experience_level,
+  });
+  if (holdDecision.status !== "allowed") {
+    console.info(`${CONTEXT_TAG} Suppressed positive email`, {
+      audit_code: "major_event_hold",
+      reason_code:
+        holdDecision.status === "suppressed"
+          ? holdDecision.reasonCode
+          : "hold_state_unavailable",
+      user_id: candidate.user_id,
+    });
+    return { status: "hold_suppressed" };
+  }
 
   const { data: sendData, error: sendError } = await resend.emails.send({
     from: MAIL_FROM,
@@ -446,6 +523,7 @@ async function _GET(request: Request): Promise<Response> {
         claimFailed: 0,
         rescoreFailed: 0,
         scoreBelowFloor: 0,
+        holdSuppressed: 0,
         sendFailed: 0,
       },
     };
@@ -505,6 +583,9 @@ async function _GET(request: Request): Promise<Response> {
             break;
           case "score_below_floor":
             summary.skipped.scoreBelowFloor++;
+            break;
+          case "hold_suppressed":
+            summary.skipped.holdSuppressed++;
             break;
           case "send_failed":
             summary.skipped.sendFailed++;

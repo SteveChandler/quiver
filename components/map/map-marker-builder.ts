@@ -31,13 +31,6 @@ export const CONDITION_MARKER_CALLS: ReadonlyArray<{
   { summary: "UNKNOWN", label: "No read" },
 ];
 
-function conditionSummaryFromScore(score?: number): ConditionSummary {
-  if (typeof score !== "number" || !Number.isFinite(score)) return "UNKNOWN";
-  if (score >= 70) return "GOOD";
-  if (score >= 40) return "FAIR";
-  return "CHECK";
-}
-
 /**
  * Get badge background color for water temperature display.
  * Uses a warm→cold color scale.
@@ -65,12 +58,11 @@ export function getConditionMarkerGradient(
 
 export function getConditionMarkerCall({
   conditionSummary,
-  conditionScore,
 }: {
   conditionSummary?: ConditionSummary;
   conditionScore?: number;
 }): ConditionMarkerCall {
-  const summary = conditionSummary ?? conditionSummaryFromScore(conditionScore);
+  const summary = conditionSummary ?? "UNKNOWN";
   const label =
     CONDITION_MARKER_CALLS.find((item) => item.summary === summary)?.label ??
     "No read";

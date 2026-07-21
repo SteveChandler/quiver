@@ -24,7 +24,11 @@ import type { Beach } from "@/types/database";
 // Updated after 20251025 migrations: location->city, latitude->lat, longitude->lon, region->state
 // WARNING: Some environments may still use legacy columns (location/region) and may not have updated_at.
 const BEACH_LIST_FIELDS =
-  "id, name, slug, city, lat, lon, state, country, created_at, updated_at, is_private, break_type, skill_level, average_rating, review_count, description, crowd_tips, wave_tips, best_conditions_prose, seo_indexable, editorial_reviewed_at, editorial_sources";
+  // `updated_at` is not present in the deployed production schema. Keep this
+  // list limited to fields shared by production and local environments so
+  // sitemap generation does not fall back to the legacy shape without slugs
+  // or SEO eligibility fields.
+  "id, name, slug, city, lat, lon, state, country, created_at, is_private, break_type, skill_level, average_rating, review_count, description, crowd_tips, wave_tips, best_conditions_prose, seo_indexable, editorial_reviewed_at, editorial_sources";
 const BEACH_LIST_FIELDS_LEGACY =
   "id, name, location, region, lat, lon, country, created_at, is_private, break_type, skill_level, average_rating, review_count";
 

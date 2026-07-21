@@ -155,6 +155,15 @@ jest.mock("@/lib/utils/email-rate-limiter", () => ({
   })),
 }));
 
+const mockResolveNotificationMajorEventHold = jest.fn();
+jest.mock(
+  "@/lib/recommendations/major-event-hold/adapters/notification",
+  () => ({
+    resolveNotificationMajorEventHold: (...args: unknown[]) =>
+      mockResolveNotificationMajorEventHold(...args),
+  })
+);
+
 describe("Re-engagement Email Cron Job API", () => {
   const routeSource = readFileSync(
     "app/api/cron/reengagement-email/route.ts",
@@ -215,6 +224,10 @@ describe("Re-engagement Email Cron Job API", () => {
     mockEmailsSend.mockResolvedValue({
       data: { id: "test-email-id" },
       error: null,
+    });
+    mockResolveNotificationMajorEventHold.mockResolvedValue({
+      status: "allowed",
+      candidate: null,
     });
   });
 
@@ -313,6 +326,7 @@ describe("Re-engagement Email Cron Job API", () => {
         durationMs: expect.any(Number),
         skipped: {
           claimFailed: 0,
+          holdSuppressed: 0,
           sendFailed: 0,
         },
       });
@@ -527,6 +541,43 @@ describe("Re-engagement Email Cron Job API", () => {
   });
 
   describe("Email Sending", () => {
+    it("suppresses positive re-engagement copy when an absolute window cannot be safely authorized", async () => {
+      const candidates = [makeMockCandidate()];
+      mockRpc
+        .mockResolvedValueOnce({ data: candidates, error: null })
+        .mockResolvedValueOnce({ data: true, error: null });
+      mockLimit.mockResolvedValueOnce({ data: [], error: null });
+      mockResolveNotificationMajorEventHold.mockResolvedValue({
+        status: "suppressed",
+        reasonCode: "hold_state_unavailable",
+        auditCode: "major_event_hold",
+        candidate: null,
+      });
+
+      const response = await GET(
+        mockRequest({ authorization: "Bearer valid-cron-secret" })
+      );
+      const data = await response.json();
+
+      expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledWith({
+        eventId: "reengagement-email:user-1:beach-1",
+        type: "forecast_alert",
+        payload: {
+          beach_id: "beach-1",
+          forecast_at: null,
+        },
+        profileExperience: null,
+      });
+      expect(mockThrottle.mock.invocationCallOrder[0]).toBeLessThan(
+        mockResolveNotificationMajorEventHold.mock.invocationCallOrder[0]
+      );
+      expect(mockEmailsSend).not.toHaveBeenCalled();
+      expect(data.data.summary).toMatchObject({
+        sent: 0,
+        skipped: { holdSuppressed: 1 },
+      });
+    });
+
     it("should send email with correct parameters", async () => {
       const { ReengagementEmail } = require("@/lib/mailer/templates/ReengagementEmail");
       const candidates = [
@@ -1073,6 +1124,7 @@ describe("Re-engagement Email Cron Job API", () => {
         durationMs: expect.any(Number),
         skipped: {
           claimFailed: 1,
+          holdSuppressed: 0,
           sendFailed: 1,
         },
       });

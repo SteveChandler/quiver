@@ -34,6 +34,12 @@ import {
   buildBeachEmailLink,
   buildSessionEmailLink,
 } from "@/lib/mailer/email-links";
+import { buildDailyIntelMajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/adapters/legacy";
+import {
+  resolveNotificationMajorEventHold,
+  type PositiveRecommendationPolicyContext,
+} from "@/lib/recommendations/major-event-hold/adapters/notification";
+import { parseMajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/evaluator";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -48,6 +54,7 @@ const EMAIL_TYPE = "first_session_nudge" as const;
 const SIGNUP_MIN_HOURS = 18;
 const SIGNUP_MAX_HOURS = 30;
 const GLOBAL_COOLDOWN_HOURS = 24;
+const ABSOLUTE_INSTANT_SUFFIX_PATTERN = /(?:Z|[+-]\d{2}:\d{2})$/;
 
 // ============================================================================
 // Type Definitions
@@ -59,6 +66,7 @@ interface NudgeCandidate {
   display_name: string | null;
   home_beach_id: string | null;
   onboarding_completed_at: string | null;
+  experience_level: string | null;
 }
 
 interface BeachData {
@@ -67,6 +75,7 @@ interface BeachData {
   city: string | null;
   state: string | null;
   country: string | null;
+  timezone: string | null;
 }
 
 interface IntelData {
@@ -98,7 +107,7 @@ async function fetchBeachData(
 ): Promise<BeachData | null> {
   const { data, error } = await supabase
     .from("beaches")
-    .select("name, slug, city, state, country")
+    .select("name, slug, city, state, country, timezone")
     .eq("id", beachId)
     .single();
   if (error || !data) return null;
@@ -152,6 +161,50 @@ function buildStartedAt(
   return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
 }
 
+function buildPositivePolicyContext(
+  beachId: string,
+  timezone: string | null | undefined,
+  intel: IntelData | null
+): PositiveRecommendationPolicyContext | null {
+  if (!intel?.best_window_start || !intel.best_window_end) return null;
+
+  const startIsAbsolute = ABSOLUTE_INSTANT_SUFFIX_PATTERN.test(
+    intel.best_window_start
+  );
+  const endIsAbsolute = ABSOLUTE_INSTANT_SUFFIX_PATTERN.test(
+    intel.best_window_end
+  );
+  if (startIsAbsolute !== endIsAbsolute) return null;
+
+  const candidate = startIsAbsolute
+    ? parseMajorEventHoldCandidate({
+        candidateId: "first-session-email-window",
+        beachId,
+        startsAt: intel.best_window_start,
+        endsAt: intel.best_window_end,
+      })
+    : timezone && intel.forecast_date
+      ? buildDailyIntelMajorEventHoldCandidate(
+          {
+            id: "first-session-email-window",
+            beach_id: beachId,
+            forecast_date: intel.forecast_date,
+            best_window_start: intel.best_window_start,
+            best_window_end: intel.best_window_end,
+          },
+          timezone
+        )
+      : null;
+  if (!candidate) return null;
+
+  return {
+    kind: "positive_session_recommendation",
+    beach_id: candidate.beachId,
+    starts_at: candidate.startsAt,
+    ends_at: candidate.endsAt,
+  };
+}
+
 // ============================================================================
 // Main Handler
 // ============================================================================
@@ -195,7 +248,7 @@ async function _GET(request: Request): Promise<Response> {
     // Query profiles table for users in the signup window (scalable, no pagination limit)
     const { data: windowProfiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("id, display_name, home_beach_id, onboarding_completed_at")
+      .select("id, display_name, home_beach_id, onboarding_completed_at, experience_level")
       .gte("created_at", signupAfter)
       .lte("created_at", signupBefore);
 
@@ -253,6 +306,7 @@ async function _GET(request: Request): Promise<Response> {
           display_name: p.display_name as string | null,
           home_beach_id: p.home_beach_id as string | null,
           onboarding_completed_at: p.onboarding_completed_at as string | null,
+          experience_level: (p.experience_level as string | null) ?? null,
         },
       ])
     );
@@ -284,6 +338,7 @@ async function _GET(request: Request): Promise<Response> {
             display_name: profile?.display_name ?? null,
             home_beach_id: profile?.home_beach_id ?? null,
             onboarding_completed_at: profile?.onboarding_completed_at ?? null,
+            experience_level: profile?.experience_level ?? null,
           });
         }
       }
@@ -323,7 +378,8 @@ async function _GET(request: Request): Promise<Response> {
             quick: "true",
           },
         };
-        let logSessionUrl = buildSessionEmailLink(sessionLinkParams);
+        const genericLogSessionUrl = buildSessionEmailLink(sessionLinkParams);
+        let logSessionUrl = genericLogSessionUrl;
         const unsubscribeUrl = `${baseUrl}/settings`;
 
         const isOnboarded =
@@ -333,6 +389,7 @@ async function _GET(request: Request): Promise<Response> {
         let subject: string;
         let emailElement: React.ReactElement;
         let emailMeta: Record<string, unknown>;
+        let templateType: "personalized" | "generic";
 
         if (isOnboarded) {
           const beachData = await fetchBeachData(supabase, candidate.home_beach_id!);
@@ -398,6 +455,45 @@ async function _GET(request: Request): Promise<Response> {
             signup_window: `${SIGNUP_MIN_HOURS}-${SIGNUP_MAX_HOURS}h`,
             message_instance_id: messageInstanceId,
           };
+          templateType = "personalized";
+
+          const policyContext = buildPositivePolicyContext(
+            candidate.home_beach_id!,
+            beachData?.timezone,
+            intelData
+          );
+          let holdDecision: Awaited<
+            ReturnType<typeof resolveNotificationMajorEventHold>
+          > | null = null;
+          try {
+            holdDecision = await resolveNotificationMajorEventHold({
+              eventId: `first-session-nudge-email:${candidate.user_id}:${candidate.home_beach_id}`,
+              type: "log_session_nudge",
+              payload: {
+                cohort: "free_home_firing",
+                ...(policyContext ? { policy_context: policyContext } : {}),
+              },
+              profileExperience: candidate.experience_level,
+            });
+          } catch {
+            holdDecision = null;
+          }
+
+          if (holdDecision?.status !== "allowed") {
+            subject = "Your first forecast is waiting";
+            logSessionUrl = genericLogSessionUrl;
+            emailElement = React.createElement(FirstSessionNudgeEmail, {
+              displayName: candidate.display_name,
+              logSessionUrl,
+              unsubscribeUrl,
+            });
+            emailMeta = {
+              template: "generic",
+              signup_window: `${SIGNUP_MIN_HOURS}-${SIGNUP_MAX_HOURS}h`,
+              message_instance_id: messageInstanceId,
+            };
+            templateType = "generic";
+          }
         } else {
           subject = "Your first forecast is waiting";
 
@@ -412,6 +508,7 @@ async function _GET(request: Request): Promise<Response> {
             signup_window: `${SIGNUP_MIN_HOURS}-${SIGNUP_MAX_HOURS}h`,
             message_instance_id: messageInstanceId,
           };
+          templateType = "generic";
         }
 
         const { data: sendData, error: sendError } = await resend.emails.send({
@@ -445,7 +542,6 @@ async function _GET(request: Request): Promise<Response> {
         }
 
         summary.sent++;
-        const templateType = isOnboarded ? "personalized" : "generic";
         console.log(
           `${CONTEXT_TAG} Sent ${templateType} to user ${candidate.user_id}`
         );

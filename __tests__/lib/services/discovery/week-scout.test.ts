@@ -2,6 +2,12 @@
  * @jest-environment node
  */
 
+const mockEvaluateMajorEventHoldCandidates = jest.fn();
+jest.mock('@/lib/recommendations/major-event-hold/service', () => ({
+  evaluateMajorEventHoldCandidates: (...args: unknown[]) =>
+    mockEvaluateMajorEventHoldCandidates(...args),
+}));
+
 import {
   generateWeekScoutForecast,
   type WeekScoutServiceDependencies,
@@ -123,6 +129,25 @@ function dependencies(): WeekScoutServiceDependencies {
 }
 
 describe('generateWeekScoutForecast', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockEvaluateMajorEventHoldCandidates.mockImplementation(
+      async ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+        candidates.map(({ candidateId }) => ({
+          candidateId,
+          evaluation: {
+            outcome: 'allow',
+            holdIds: [],
+            holdEpoch: 'week-scout-test-epoch',
+          },
+          recommendationAvailability: {
+            state: 'available',
+            holdEpoch: 'week-scout-test-epoch',
+          },
+        })),
+    );
+  });
+
   it('builds seven local days with canonical morning, midday, and evening rankings', async () => {
     const deps = dependencies();
     const response = await generateWeekScoutForecast(
@@ -241,5 +266,115 @@ describe('generateWeekScoutForecast', () => {
       safe: false,
     });
     expect(response.days[0].bestWindowId).toBeNull();
+  });
+
+  it('evaluates exact generated windows with the verified profile skill', async () => {
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 7,
+      },
+      dependencies(),
+    );
+    const firstWindow = response.days[0].windows[0];
+
+    expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledWith({
+      candidates: expect.arrayContaining([
+        {
+          candidateId: firstWindow.id,
+          beachId: firstWindow.beachId,
+          startsAt: firstWindow.start,
+          endsAt: firstWindow.end,
+        },
+      ]),
+      profileExperience: 'intermediate',
+    });
+    expect(mockEvaluateMajorEventHoldCandidates.mock.calls[0][0].candidates).toHaveLength(6);
+    expect(response.recommendationAvailability).toEqual({
+      state: 'available',
+      holdEpoch: 'week-scout-test-epoch',
+    });
+  });
+
+  it('returns explicit none recommendation semantics while preserving physical day data when held', async () => {
+    mockEvaluateMajorEventHoldCandidates.mockImplementationOnce(
+      async ({ candidates }: { candidates: Array<{ candidateId: string }> }) =>
+        candidates.map(({ candidateId }) => ({
+          candidateId,
+          evaluation: {
+            outcome: 'explicit_none',
+            reasonCode: 'major_event_hold',
+            holdIds: ['hold-1'],
+            expiresAt: '2026-08-02T00:00:00.000Z',
+            holdEpoch: 'held-epoch',
+          },
+          recommendationAvailability: {
+            state: 'none',
+            reasonCode: 'major_event_hold',
+            expiresAt: '2026-08-02T00:00:00.000Z',
+            holdEpoch: 'held-epoch',
+          },
+        })),
+    );
+
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 7,
+      },
+      dependencies(),
+    );
+    const firstWindow = response.days[0].windows[0];
+
+    expect(response.days[0].bestWindowId).toBeNull();
+    expect(firstWindow).toMatchObject({
+      beachId: expect.any(String),
+      start: expect.any(String),
+      end: expect.any(String),
+      forecast: {
+        waveHeight: '3.5',
+        period: '12s',
+        tideHeightFt: 1.4,
+      },
+      conditionScore: null,
+      rankingScore: null,
+      verdict: null,
+      takeaway: null,
+      rankedSpots: [],
+    });
+    expect(response.recommendationAvailability).toMatchObject({
+      state: 'none',
+      reasonCode: 'major_event_hold',
+    });
+  });
+
+  it('fails malformed hold decisions closed without dropping physical windows', async () => {
+    mockEvaluateMajorEventHoldCandidates.mockResolvedValueOnce([]);
+
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 7,
+      },
+      dependencies(),
+    );
+
+    expect(response.days[0].windows).toHaveLength(6);
+    expect(response.days[0].windows[0].forecast.waveHeight).toBe('3.5');
+    expect(response.days[0].windows[0].conditionScore).toBeNull();
+    expect(response.days[0].bestWindowId).toBeNull();
+    expect(response.recommendationAvailability).toMatchObject({
+      state: 'none',
+      reasonCode: 'hold_state_unavailable',
+    });
   });
 });

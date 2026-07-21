@@ -6,6 +6,7 @@ import { BestSurfWindows } from "@/components/session-intelligence";
 import { canRenderBestSurfWindowsForSurface } from "@/lib/recommendations/session-intelligence-rollout";
 import { buildSpotSurfWindowRecommendations } from "@/lib/recommendations/session-intelligence-surface-adapters";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -16,6 +17,7 @@ export interface SessionIntelligencePilotProps {
   now?: Date;
   baseUrl?: string;
   canonicalPath?: string;
+  recommendationAvailability?: RecommendationAvailability;
 }
 
 export function SessionIntelligencePilot({
@@ -25,6 +27,7 @@ export function SessionIntelligencePilot({
   now,
   baseUrl,
   canonicalPath,
+  recommendationAvailability,
 }: SessionIntelligencePilotProps) {
   const effectiveCanonicalPath = canonicalPath ?? buildBeachUrl(beach);
   const canRenderSpotWindows = canRenderBestSurfWindowsForSurface(
@@ -32,6 +35,7 @@ export function SessionIntelligencePilot({
     effectiveCanonicalPath
   );
   const recommendations = useMemo(() => {
+    if (recommendationAvailability?.state === "none") return [];
     if (!canRenderSpotWindows) return [];
     if (forecasts.length === 0) return [];
     return buildSpotSurfWindowRecommendations({
@@ -40,7 +44,14 @@ export function SessionIntelligencePilot({
       now,
       baseUrl,
     });
-  }, [beach, forecasts, now, baseUrl, canRenderSpotWindows]);
+  }, [
+    beach,
+    forecasts,
+    now,
+    baseUrl,
+    canRenderSpotWindows,
+    recommendationAvailability,
+  ]);
 
   if (recommendations.length === 0) return null;
 

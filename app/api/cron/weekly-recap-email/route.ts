@@ -31,6 +31,7 @@ import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { computeBestDaysForUser } from "@/lib/alerts/best-days";
 import { getDisplayCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
 import { withObservedCron } from "@/lib/cron/observability";
+import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -233,7 +234,7 @@ async function _GET(request: Request): Promise<Response> {
     // 4. Fetch user profiles for active users
     const { data: profiles, error: profilesError } = await supabase
       .from("profiles")
-      .select("id, email, display_name, notif_email_enabled")
+      .select("id, email, display_name, experience_level, notif_email_enabled")
       .in("id", activeUserIds)
       .eq("notif_email_enabled", true)
       .eq("is_mock", false)
@@ -308,6 +309,24 @@ async function _GET(request: Request): Promise<Response> {
           // Rate limit before sending
           await rateLimiter.throttle();
 
+          let authorizedBestDays = bestDays;
+          if (bestDays.length > 0) {
+            try {
+              const holdDecision = await resolveNotificationMajorEventHold({
+                eventId: `weekly-recap-email:${profile.id}:best-days`,
+                type: "similarity_match",
+                // BestDaySlot does not expose a beach ID or absolute instant.
+                payload: null,
+                profileExperience: profile.experience_level,
+              });
+              if (holdDecision.status !== "allowed") {
+                authorizedBestDays = [];
+              }
+            } catch {
+              authorizedBestDays = [];
+            }
+          }
+
           const { data: sendData, error: sendError } = await resend.emails.send({
             from: MAIL_FROM,
             replyTo: MAIL_REPLY_TO,
@@ -320,7 +339,7 @@ async function _GET(request: Request): Promise<Response> {
               stats,
               ctaUrl,
               unsubscribeUrl,
-              bestDays,
+              bestDays: authorizedBestDays,
               topSpotImageUrl,
             }),
           });

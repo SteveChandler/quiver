@@ -42,6 +42,32 @@ const likeSchema = z.object({
 // follow has no required fields; actor identity comes from BuildCtx.
 const followSchema = z.record(z.string(), z.unknown());
 
+const positiveRecommendationPolicyContextSchema = z
+  .object({
+    kind: z.literal("positive_session_recommendation"),
+    beach_id: z.string().uuid(),
+    starts_at: z.string().datetime({ offset: true }),
+    ends_at: z.string().datetime({ offset: true }),
+  })
+  .strict()
+  .superRefine((context, refinement) => {
+    if (Date.parse(context.ends_at) <= Date.parse(context.starts_at)) {
+      refinement.addIssue({
+        code: "custom",
+        path: ["ends_at"],
+        message: "ends_at must be after starts_at",
+      });
+    }
+  });
+
+type PositiveRecommendationPolicyContextPayload = z.infer<
+  typeof positiveRecommendationPolicyContextSchema
+>;
+
+const notificationSimilarityMatchSchema = similarityMatchSchema.extend({
+  policy_context: positiveRecommendationPolicyContextSchema.optional(),
+});
+
 const forecastAlertSchema = z.object({
   alert_date: z.string().min(1),
   title: z.string().min(1),
@@ -49,6 +75,7 @@ const forecastAlertSchema = z.object({
   beach_id: z.string().nullable().optional(),
   beach_slug: z.string().nullable().optional(),
   forecast_at: z.string().nullable().optional(),
+  policy_context: positiveRecommendationPolicyContextSchema.optional(),
   matches: z.unknown().optional(),
   quiet_hours_start: z.number().int().min(0).max(23).optional(),
   quiet_hours_end: z.number().int().min(0).max(23).optional(),
@@ -63,21 +90,38 @@ const trialEndingSchema = z.object({
   trial_ends_at: z.string().min(1),
 });
 
-const logSessionNudgeSchema = z.object({
-  cohort: z.string().min(1),
-  title: z.string().min(1),
-  body: z.string().min(1),
-  beach_id: z.string().nullable().optional(),
-  beach_name: z.string().nullable().optional(),
-  notification_category: z.string().optional(),
-  trigger_source: z.string().optional(),
-  relevance_confidence: z.enum(["high", "medium", "low", "unknown"]).optional(),
-  beach_confidence: z.enum(["high", "medium", "low", "unknown"]).optional(),
-  assumed_attendance: z.literal(false).optional(),
-  attendance_confidence_score: z.number().finite().optional(),
-  beach_confidence_score: z.number().finite().optional(),
-  relevance_score: z.number().finite().optional(),
-});
+const logSessionNudgeSchema = z
+  .object({
+    cohort: z.string().min(1),
+    title: z.string().min(1),
+    body: z.string().min(1),
+    beach_id: z.string().nullable().optional(),
+    beach_name: z.string().nullable().optional(),
+    policy_context: positiveRecommendationPolicyContextSchema.optional(),
+    notification_category: z.string().optional(),
+    trigger_source: z.string().optional(),
+    relevance_confidence: z
+      .enum(["high", "medium", "low", "unknown"])
+      .optional(),
+    beach_confidence: z.enum(["high", "medium", "low", "unknown"]).optional(),
+    assumed_attendance: z.literal(false).optional(),
+    attendance_confidence_score: z.number().finite().optional(),
+    beach_confidence_score: z.number().finite().optional(),
+    relevance_score: z.number().finite().optional(),
+  })
+  .strict()
+  .superRefine((payload, refinement) => {
+    if (
+      payload.cohort === "free_home_firing" &&
+      payload.policy_context === undefined
+    ) {
+      refinement.addIssue({
+        code: "custom",
+        path: ["policy_context"],
+        message: "free_home_firing requires positive recommendation context",
+      });
+    }
+  });
 
 const forecastFeedbackNudgeSchema = z.object({
   beach_id: z.string().min(1),
@@ -101,6 +145,7 @@ const homeMorningCallSchema = z.object({
   beach_id: z.string().min(1),
   beach_name: z.string().optional(),
   forecast_at: z.string().nullable().optional(),
+  policy_context: positiveRecommendationPolicyContextSchema.optional(),
   title: z.string().min(1),
   body: z.string().min(1),
 });
@@ -108,6 +153,7 @@ const homeMorningCallSchema = z.object({
 const weekendWindowSchema = z.object({
   beach_id: z.string().min(1),
   forecast_at: z.string().min(1),
+  policy_context: positiveRecommendationPolicyContextSchema.optional(),
   window_local: z.string().optional(),
   title: z.string().min(1),
   body: z.string().min(1),
@@ -248,6 +294,7 @@ interface ForecastAlertPayload {
   beach_id?: string | null;
   beach_slug?: string | null;
   forecast_at?: string | null;
+  policy_context?: PositiveRecommendationPolicyContextPayload;
   /** Full match list for the in-app inbox row. */
   matches?: unknown;
   /**
@@ -271,6 +318,7 @@ interface LogSessionNudgePayload {
   body: string;
   beach_id?: string | null;
   beach_name?: string | null;
+  policy_context?: PositiveRecommendationPolicyContextPayload;
   notification_category?: string;
   trigger_source?: string;
   relevance_confidence?: "high" | "medium" | "low" | "unknown";
@@ -303,6 +351,7 @@ interface HomeMorningCallPayload {
   beach_id: string;
   beach_name?: string;
   forecast_at?: string | null;
+  policy_context?: PositiveRecommendationPolicyContextPayload;
   title: string;
   body: string;
 }
@@ -310,6 +359,7 @@ interface HomeMorningCallPayload {
 interface WeekendWindowPayload {
   beach_id: string;
   forecast_at: string;
+  policy_context?: PositiveRecommendationPolicyContextPayload;
   window_local?: string;
   title: string;
   body: string;
@@ -540,7 +590,7 @@ export const NOTIFICATION_REGISTRY = {
     surfAlertPriority: 2,
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) =>
-      similarityMatchSchema.parse(input) as SimilarityMatchPayload,
+      notificationSimilarityMatchSchema.parse(input) as SimilarityMatchPayload,
     buildPushPayload: (p) => {
       const waveWindow =
         p.wave_height_ft != null &&

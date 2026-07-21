@@ -7,17 +7,57 @@ import { MapImage } from "@/components/map-image";
 import { BestSurfWindows } from "@/components/session-intelligence";
 import { getStaticMapImageUrlWithPins } from "@/lib/map-utils";
 import { buildHomepageSurfWindowRecommendations } from "@/lib/recommendations/session-intelligence-surface-adapters";
+import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 
 export interface SessionIntelligenceModuleProps {
   recommendations: SurfDiscoveryRecommendation[];
+  recommendationAvailability?: RecommendationAvailability;
   baseUrl?: string;
 }
 
 export function SessionIntelligenceModule({
   recommendations,
+  recommendationAvailability,
   baseUrl,
 }: SessionIntelligenceModuleProps) {
+  if (recommendationAvailability?.state === "none") {
+    return (
+      <section
+        data-testid="home-session-intelligence-module"
+        aria-labelledby="home-session-intelligence-heading"
+        className="overflow-hidden rounded-2xl border border-[#404C92] bg-[#252D6B] p-4 text-white shadow-[0_10px_28px_rgba(13,16,32,0.18)] sm:p-5"
+      >
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="space-y-1">
+            <h2
+              id="home-session-intelligence-heading"
+              className="font-[var(--font-heading)] text-xl font-bold text-white"
+            >
+              Surf forecast
+            </h2>
+            <p className="text-sm text-white/65">
+              Physical forecast details remain available on beach pages.
+            </p>
+          </div>
+          <Link
+            href="/forecast"
+            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#F78E42]/35 bg-[#F78E42]/15 px-4 text-sm font-semibold text-[#FFD2B7] transition hover:bg-[#F78E42]/22"
+          >
+            Browse forecasts
+            <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
+        <div
+          className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-5 text-sm text-white/68"
+          role="status"
+        >
+          Session picks aren&apos;t available right now.
+        </div>
+      </section>
+    );
+  }
+
   const surfWindows = buildHomepageSurfWindowRecommendations({
     recommendations,
     baseUrl,

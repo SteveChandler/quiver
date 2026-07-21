@@ -8,6 +8,7 @@
  */
 
 import { fetchWithAuthRetry } from "@/lib/fetch-with-auth-retry";
+import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import type { Board } from "@/types/database";
 
 export type ClientBeach = {
@@ -29,7 +30,6 @@ const __cache = {
   usersSessions: new Map<string, __CacheEntry<any[]>>(), // key: `${userId}:${limit}`
   boards: new Map<string, __CacheEntry<ClientBoard[]>>(), // key: "me"
   sessionLikesStatus: new Map<string, __CacheEntry<{ liked: boolean; likesCount: number }>>(),
-  dailyIntel: new Map<string, __CacheEntry<ClientBeachDailyIntel | null>>(), // key: `${beachId}:${forecastDate}`
   inflight: new Map<string, Promise<any>>(),
 };
 
@@ -111,40 +111,25 @@ export type ClientBeachDailyIntel = {
   conditions_score: number | null;
 
   raw_intel_data: unknown;
+  recommendationAvailability?: RecommendationAvailability;
 };
 
 async function getDailyIntel(
   beachId: string,
   forecastDate: string
 ): Promise<ClientBeachDailyIntel | null> {
-  const cacheKey = `${beachId}:${forecastDate}`;
-  const cached = __getCached(__cache.dailyIntel, cacheKey);
-  if (cached !== null) return cached;
-
-  const inflightKey = `dailyIntel:${cacheKey}`;
-  const inflight = __cache.inflight.get(inflightKey);
-  if (inflight) return inflight;
-
-  const p = (async () => {
-    const params = new URLSearchParams({ beachId, forecastDate });
-    const res = await fetchWithAuthRetry(`/api/beach-daily-intel?${params.toString()}`, {
+  const params = new URLSearchParams({ beachId, forecastDate });
+  const res = await fetchWithAuthRetry(
+    `/api/beach-daily-intel?${params.toString()}`,
+    {
       method: "GET",
       headers: { "Content-Type": "application/json" },
       cache: "no-store",
-    });
-    if (!res.ok) throw new Error(`Failed to load daily intel: ${res.status}`);
-    const json = await res.json();
-    const intel = (json?.data?.intel ?? null) as ClientBeachDailyIntel | null;
-    __setCached(__cache.dailyIntel, cacheKey, intel);
-    return intel;
-  })();
-
-  __cache.inflight.set(inflightKey, p);
-  try {
-    return await p;
-  } finally {
-    __cache.inflight.delete(inflightKey);
-  }
+    }
+  );
+  if (!res.ok) throw new Error(`Failed to load daily intel: ${res.status}`);
+  const json = await res.json();
+  return (json?.data?.intel ?? null) as ClientBeachDailyIntel | null;
 }
 
 export const data = {

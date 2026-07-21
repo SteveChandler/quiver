@@ -159,6 +159,15 @@ jest.mock("@/lib/utils/email-rate-limiter", () => ({
   })),
 }));
 
+const mockResolveNotificationMajorEventHold = jest.fn();
+jest.mock(
+  "@/lib/recommendations/major-event-hold/adapters/notification",
+  () => ({
+    resolveNotificationMajorEventHold: (...args: unknown[]) =>
+      mockResolveNotificationMajorEventHold(...args),
+  })
+);
+
 function expectEmailAttribution(
   url: URL,
   emailType: string
@@ -351,6 +360,10 @@ describe("First Session Nudge Cron Job API", () => {
     const { createResendRateLimiter } = require("@/lib/utils/email-rate-limiter");
     createResendRateLimiter.mockReturnValue({ throttle: mockThrottle });
     mockThrottle.mockResolvedValue(undefined);
+    mockResolveNotificationMajorEventHold.mockResolvedValue({
+      status: "allowed",
+      candidate: null,
+    });
 
     // Restore formatter implementations (reset by jest.resetAllMocks)
     const {
@@ -537,6 +550,206 @@ describe("First Session Nudge Cron Job API", () => {
       expect(mockEmailsSend).toHaveBeenCalledWith(
         expect.objectContaining({
           subject: "✨ Rincon — conditions are looking good",
+        })
+      );
+    });
+
+    it("downgrades held personalized beach and window content to the generic growth email", async () => {
+      const { FirstSessionNudgeEmail } = require("@/lib/mailer/templates/FirstSessionNudgeEmail");
+      const beachId = "11111111-1111-4111-8111-111111111111";
+      setupSupabaseChain({
+        profiles: [
+          {
+            id: "user-held",
+            display_name: "Held Surfer",
+            experience_level: "beginner",
+            home_beach_id: beachId,
+            onboarding_completed_at: "2026-06-26T10:00:00Z",
+          },
+        ],
+        sessions: [],
+        emailLog: [],
+        authUsers: [{ user: { email: "held@example.com" } }],
+        beach: {
+          name: "Pipeline",
+          slug: "pipeline",
+          city: "Haleiwa",
+          state: "HI",
+          country: "USA",
+          timezone: "Pacific/Honolulu",
+        },
+        intel: {
+          forecast_date: "2026-06-27",
+          conditions_score: 88,
+          surf_description: "Overhead barrels",
+          wind_description: "Light offshore",
+          best_window_start: "06:00:00",
+          best_window_end: "09:00:00",
+        },
+      });
+      mockResolveNotificationMajorEventHold.mockResolvedValue({
+        status: "suppressed",
+        reasonCode: "major_event_hold",
+        auditCode: "major_event_hold",
+        candidate: null,
+      });
+
+      const response = await GET(
+        mockRequest({ authorization: "Bearer test-cron-secret" })
+      );
+      const data = await response.json();
+
+      expect(data.data.summary.sent).toBe(1);
+      expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledWith({
+        eventId: `first-session-nudge-email:user-held:${beachId}`,
+        type: "log_session_nudge",
+        payload: {
+          cohort: "free_home_firing",
+          policy_context: {
+            kind: "positive_session_recommendation",
+            beach_id: beachId,
+            starts_at: "2026-06-27T16:00:00.000Z",
+            ends_at: "2026-06-27T19:00:00.000Z",
+          },
+        },
+        profileExperience: "beginner",
+      });
+      expect(mockThrottle.mock.invocationCallOrder[0]).toBeLessThan(
+        mockResolveNotificationMajorEventHold.mock.invocationCallOrder[0]
+      );
+      expect(mockResolveNotificationMajorEventHold.mock.invocationCallOrder[0]).toBeLessThan(
+        mockEmailsSend.mock.invocationCallOrder[0]
+      );
+      const sent = mockEmailsSend.mock.calls[0][0];
+      expect(sent.subject).toBe("Your first forecast is waiting");
+      expect(sent.react.type).toBe(FirstSessionNudgeEmail);
+      expect(sent.react.props).not.toHaveProperty("beachName");
+      const logSessionUrl = new URL(sent.react.props.logSessionUrl);
+      expect(logSessionUrl.searchParams.get("beachId")).toBeNull();
+      expect(logSessionUrl.searchParams.get("startedAt")).toBeNull();
+      expect(JSON.stringify(sent)).not.toContain("policy_context");
+    });
+
+    it.each([
+      [
+        "a nonexistent DST time",
+        "2026-03-08",
+        "02:30:00",
+        "03:30:00",
+        "America/Los_Angeles",
+      ],
+      [
+        "an ambiguous DST-fold time",
+        "2026-11-01",
+        "01:30:00",
+        "03:00:00",
+        "America/New_York",
+      ],
+    ])(
+      "downgrades %s to generic copy",
+      async (_label, forecastDate, windowStart, windowEnd, timezone) => {
+        const beachId = "11111111-1111-4111-8111-111111111111";
+        setupSupabaseChain({
+          profiles: [
+            {
+              id: "user-dst",
+              display_name: "DST Surfer",
+              experience_level: "beginner",
+              home_beach_id: beachId,
+              onboarding_completed_at: "2026-03-07T10:00:00Z",
+            },
+          ],
+          sessions: [],
+          emailLog: [],
+          authUsers: [{ user: { email: "dst@example.com" } }],
+          beach: {
+            name: "DST Beach",
+            slug: "dst-beach",
+            city: "Test",
+            state: "CA",
+            country: "USA",
+            timezone,
+          },
+          intel: {
+            forecast_date: forecastDate,
+            conditions_score: 88,
+            surf_description: "Clean",
+            wind_description: "Light offshore",
+            best_window_start: windowStart,
+            best_window_end: windowEnd,
+          },
+        });
+        mockResolveNotificationMajorEventHold.mockImplementation(
+          async ({ payload }: { payload: { policy_context?: unknown } }) =>
+            payload.policy_context
+              ? { status: "allowed", candidate: null }
+              : {
+                  status: "suppressed",
+                  reasonCode: "hold_state_unavailable",
+                  auditCode: "major_event_hold",
+                  candidate: null,
+                }
+        );
+
+        await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+
+        expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledWith(
+          expect.objectContaining({
+            payload: { cohort: "free_home_firing" },
+          })
+        );
+        const sent = mockEmailsSend.mock.calls[0][0];
+        expect(sent.subject).toBe("Your first forecast is waiting");
+        expect(sent.react.props).not.toHaveProperty("beachName");
+      }
+    );
+
+    it("preserves already-absolute best-window instants in the internal policy binding", async () => {
+      const beachId = "11111111-1111-4111-8111-111111111111";
+      setupSupabaseChain({
+        profiles: [
+          {
+            id: "user-absolute",
+            display_name: "Absolute Surfer",
+            experience_level: "intermediate",
+            home_beach_id: beachId,
+            onboarding_completed_at: "2026-06-26T10:00:00Z",
+          },
+        ],
+        sessions: [],
+        emailLog: [],
+        authUsers: [{ user: { email: "absolute@example.com" } }],
+        beach: {
+          name: "Pipeline",
+          slug: "pipeline",
+          city: "Haleiwa",
+          state: "HI",
+          country: "USA",
+          timezone: "Pacific/Honolulu",
+        },
+        intel: {
+          forecast_date: "2026-06-27",
+          conditions_score: 88,
+          surf_description: "Clean",
+          wind_description: "Light offshore",
+          best_window_start: "2026-06-27T16:00:00.000Z",
+          best_window_end: "2026-06-27T19:00:00.000Z",
+        },
+      });
+
+      await GET(mockRequest({ authorization: "Bearer test-cron-secret" }));
+
+      expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledWith(
+        expect.objectContaining({
+          payload: {
+            cohort: "free_home_firing",
+            policy_context: {
+              kind: "positive_session_recommendation",
+              beach_id: beachId,
+              starts_at: "2026-06-27T16:00:00.000Z",
+              ends_at: "2026-06-27T19:00:00.000Z",
+            },
+          },
         })
       );
     });

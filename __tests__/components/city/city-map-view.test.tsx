@@ -222,6 +222,7 @@ describe("CityMapView Component", () => {
           citySlug="la-jolla"
           forecastTopPicks={[
             {
+              beachId: "22222222-2222-4222-8222-222222222222",
               name: "Blacks Beach",
               slug: "blacks",
               waveHeight: "4-5 ft",

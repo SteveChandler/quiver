@@ -111,6 +111,7 @@ import { FEATURE_HERO_WINDOW_SCORE } from '@/lib/constants/feature-flags';
 import type { ScoringEngine } from '@/lib/domains/scoring';
 import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
 import { boardStyleFit } from './board-style-fit';
+import { enforceMajorEventHoldBeforeDiscoveryTruncation } from './major-event-hold';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -1962,10 +1963,17 @@ async function discoverSurfSpotsInner(
   const allRecsScored = [...similarityResult.recommendations];
   allRecsScored.sort(compareDiscoveryRecommendations);
 
-  // Take top results AFTER similarity bonus is applied.
-  const merged = allRecsScored
-    .filter((rec) => primaryEligibleKeys.has(recommendationKey(rec)))
-    .slice(0, maxResults);
+  const holdPool = await enforceMajorEventHoldBeforeDiscoveryTruncation({
+    recommendations: allRecsScored,
+    profileExperience: userSkillLevel,
+    maxResults,
+    isPrimaryEligible: (rec) =>
+      primaryEligibleKeys.has(recommendationKey(rec)),
+  });
+
+  // Hold filtering happens across the full sorted pool before this top-N is
+  // consumed, so an allowed rank below a blocked result can fill the response.
+  const merged = holdPool.primaryRecommendations;
 
   // Phase 2: populate per-slot scorer outputs across each candidate's window
   // BEFORE rerank so hero-window-score's persistence/duration evidence is
@@ -1994,7 +2002,7 @@ async function discoverSurfSpotsInner(
   const rankedSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
   const finalSlice = applyWorthTheDriveReasons(rankedSlice);
   const finalSliceKeys = new Set(finalSlice.map((rec) => recommendationKey(rec)));
-  const includedSlice = allRecsScored.filter((rec) => {
+  const includedSlice = holdPool.allAllowedRecommendations.filter((rec) => {
     if ((rec.kind ?? 'beach') === 'beach') {
       return (
         requestedIncludeBeachIdSet.has(rec.beach.id) &&
@@ -2224,6 +2232,7 @@ async function discoverSurfSpotsInner(
     },
     regionalCall,
     eveningTransition,
+    recommendationAvailability: holdPool.recommendationAvailability,
   };
 }
 

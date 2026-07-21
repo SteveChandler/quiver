@@ -5,7 +5,15 @@ import {
   createValidationError,
   handleApiError,
   withRateLimit,
+  type RouteHandler,
 } from "@/lib/middleware/api-wrappers";
+import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import {
+  sanitizeLegacyV1RecommendationsForMajorEventHold,
+  type SanitizedLegacyV1RecommendationsResponse,
+} from "@/lib/recommendations/major-event-hold/adapters/legacy";
+import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
+import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
 import { scoreRecommendation } from "@/lib/utils/recommendation-scorer";
 import type { Beach } from "@/types/database";
 import type {
@@ -28,6 +36,8 @@ import { normalizeCoordinates } from "@/lib/types/coordinates";
 import { msToKts, mToFt } from "@/lib/utils/unit-conversions";
 
 export const dynamic = "force-dynamic";
+
+const NO_STORE = "private, no-store, no-cache, must-revalidate";
 
 type ScoredRecommendation = Recommendation & {
   marine_created_at: string | null;
@@ -53,7 +63,65 @@ function hasDegradation(degradation: DegradationInfo): boolean {
   return Object.keys(degradation).length > 0;
 }
 
-async function recommendationsHandler(request: NextRequest): Promise<NextResponse> {
+type ApiSupabaseClient = Awaited<ReturnType<typeof createAPIServerClient>>;
+
+async function getVerifiedProfileExperience(
+  supabase: ApiSupabaseClient,
+): Promise<unknown> {
+  try {
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    if (error || !user) return null;
+    return await getProfileExperienceLevel(supabase, user.id);
+  } catch {
+    return null;
+  }
+}
+
+function buildLegacyV1Candidates(
+  response: RecommendationsResponse,
+): MajorEventHoldCandidate[] {
+  const startsAt = response.metadata.query_time;
+  const startsAtMs = Date.parse(startsAt);
+  const endsAt = new Date(startsAtMs + 1).toISOString();
+  return response.recommendations.map(({ spotId }) => ({
+    candidateId: `legacy-v1:${spotId}:${startsAt}`,
+    beachId: spotId,
+    startsAt,
+    endsAt,
+  }));
+}
+
+async function sanitizeRecommendations(
+  response: RecommendationsResponse,
+  supabase: ApiSupabaseClient,
+): Promise<SanitizedLegacyV1RecommendationsResponse> {
+  const candidates = buildLegacyV1Candidates(response);
+  const profileExperience = await getVerifiedProfileExperience(supabase);
+  const decisions = await evaluateMajorEventHoldCandidates({
+    candidates,
+    profileExperience,
+  });
+  return sanitizeLegacyV1RecommendationsForMajorEventHold(
+    response,
+    candidates,
+    decisions,
+  );
+}
+
+function withNoStore(handler: RouteHandler): RouteHandler {
+  return async (request, context) => {
+    const response = await handler(request, context);
+    response.headers.set("Cache-Control", NO_STORE);
+    return response;
+  };
+}
+
+async function recommendationsHandler(
+  request: NextRequest,
+): Promise<NextResponse> {
   try {
     const DEBUG_RECOMMENDATIONS_PERF =
       process.env.DEBUG_RECOMMENDATIONS_PERF === "true" ||
@@ -77,7 +145,7 @@ async function recommendationsHandler(request: NextRequest): Promise<NextRespons
         latitude: url.searchParams.get("latitude"),
         longitude: url.searchParams.get("longitude"),
       },
-      { context: "GET /api/v1/recommendations" }
+      { context: "GET /api/v1/recommendations" },
     );
     const timeParam = url.searchParams.get("time");
     const userSkill = url.searchParams.get("skill") || null;
@@ -175,7 +243,9 @@ async function recommendationsHandler(request: NextRequest): Promise<NextRespons
 
             const distance_meters = distanceById.get(id);
             const distance_km =
-              typeof distance_meters === "number" ? distance_meters / 1000 : null;
+              typeof distance_meters === "number"
+                ? distance_meters / 1000
+                : null;
 
             return {
               ...b,
@@ -188,7 +258,7 @@ async function recommendationsHandler(request: NextRequest): Promise<NextRespons
     } else {
       console.warn(
         "[DEGRADED] PostGIS RPC unavailable, using fallback query:",
-        nearby.error
+        nearby.error,
       );
       degradation.postgis_unavailable = true;
       degradation.fallback_to_simple_query = true;
@@ -208,7 +278,7 @@ async function recommendationsHandler(request: NextRequest): Promise<NextRespons
     const postGisTime = Date.now() - postGisStart;
 
     if (beaches.length === 0) {
-      return createSuccessResponse<RecommendationsResponse>({
+      const response: RecommendationsResponse = {
         recommendations: [],
         top_picks: [],
         metadata: {
@@ -218,24 +288,27 @@ async function recommendationsHandler(request: NextRequest): Promise<NextRespons
           user_skill: userSkill,
           ...(hasDegradation(degradation) && { degradation }),
         },
-      });
+      };
+      return createSuccessResponse(
+        await sanitizeRecommendations(response, supabase),
+      );
     }
 
     // 2) Pull forecast snapshot for given hour from marine_forecasts/tide_forecasts
     const perfStart = Date.now();
     const beachIds = beaches.map((b) => b.id);
     const windowStart = new Date(
-      queryTime.getTime() - 6 * 60 * 60 * 1000
+      queryTime.getTime() - 6 * 60 * 60 * 1000,
     ).toISOString();
     const windowEnd = new Date(
-      queryTime.getTime() + 6 * 60 * 60 * 1000
+      queryTime.getTime() + 6 * 60 * 60 * 1000,
     ).toISOString();
 
     const [marineResult, tideResult] = await Promise.all([
       supabase
         .from("marine_forecasts")
         .select(
-          "beach_id,ts,created_at,source,wave_height_m,wave_period_s,wind_speed_ms,wind_direction_deg,wave_direction_deg"
+          "beach_id,ts,created_at,source,wave_height_m,wave_period_s,wind_speed_ms,wind_direction_deg,wave_direction_deg",
         )
         .in("beach_id", beachIds)
         .gte("ts", windowStart)
@@ -273,7 +346,7 @@ async function recommendationsHandler(request: NextRequest): Promise<NextRespons
 
     if (DEBUG_RECOMMENDATIONS_PERF) {
       console.warn(
-        `[PERF] Forecast queries: ${queryDurationMs}ms (marine: ${marineRows} rows, tide: ${tideRows} rows)`
+        `[PERF] Forecast queries: ${queryDurationMs}ms (marine: ${marineRows} rows, tide: ${tideRows} rows)`,
       );
     }
 
@@ -349,13 +422,16 @@ async function recommendationsHandler(request: NextRequest): Promise<NextRespons
     scored.sort((a, b) => b.score - a.score);
 
     const recommendations: Recommendation[] = scored.map(
-      ({ marine_created_at, tide_created_at, ...rec }) => rec
+      ({ marine_created_at, tide_created_at, ...rec }) => rec,
     );
 
-    const topPicks: TopPick[] = scored.slice(0, 3).map((pick, index) => {
+    const topPickPool: TopPick[] = scored.map((pick, index) => {
       const { marine_created_at, tide_created_at, ...base } = pick;
 
-      const marineFreshness = calculateDataFreshness(marine_created_at, queryTime);
+      const marineFreshness = calculateDataFreshness(
+        marine_created_at,
+        queryTime,
+      );
       const tideFreshness = calculateDataFreshness(tide_created_at, queryTime);
       const dataFreshness = combineFreshness(marineFreshness, tideFreshness);
 
@@ -380,7 +456,10 @@ async function recommendationsHandler(request: NextRequest): Promise<NextRespons
           quality_indicators: {
             data_freshness: dataFreshness,
             forecast_age_hours: forecastAgeHours,
-            confidence_level: calculateConfidenceLevel(base.score, dataFreshness),
+            confidence_level: calculateConfidenceLevel(
+              base.score,
+              dataFreshness,
+            ),
           },
         },
       };
@@ -395,9 +474,9 @@ async function recommendationsHandler(request: NextRequest): Promise<NextRespons
       console.warn(`[PERF] Total API time: ${totalTime}ms`);
     }
 
-    return createSuccessResponse<RecommendationsResponse>({
+    const response: RecommendationsResponse = {
       recommendations,
-      top_picks: topPicks,
+      top_picks: topPickPool,
       metadata: {
         query_time: timeIso,
         location: { lat, lon },
@@ -405,11 +484,16 @@ async function recommendationsHandler(request: NextRequest): Promise<NextRespons
         user_skill: userSkill,
         ...(hasDegradation(degradation) && { degradation }),
       },
-    });
+    };
+    return createSuccessResponse(
+      await sanitizeRecommendations(response, supabase),
+    );
   } catch (error) {
     return handleApiError(error);
   }
 }
 
 // Apply rate limiting to prevent N+1 query abuse
-export const GET = withRateLimit(recommendationsHandler, "recommendations");
+export const GET = withNoStore(
+  withRateLimit(recommendationsHandler, "recommendations"),
+);

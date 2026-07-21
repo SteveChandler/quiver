@@ -53,4 +53,25 @@ describe("createCustomSpotMarkerElement", () => {
     expect(marker.style.color).toBe("rgb(255, 255, 255)");
     expect(marker.style.cursor).toBe("pointer");
   });
+
+  it("keeps the objective wave label but does not infer a call from score alone", () => {
+    const marker = createCustomSpotMarkerElement(spot, {
+      conditionScore: 82,
+      waveLabel: "3-4 ft",
+    });
+    const markerCall = getConditionMarkerCall({ conditionScore: 82 });
+
+    expect(markerCall).toMatchObject({
+      summary: "UNKNOWN",
+      label: "No read",
+    });
+    expect(marker).toHaveAttribute("data-condition-summary", "UNKNOWN");
+    expect(marker).toHaveAttribute("data-condition-score", "82");
+    expect(marker).toHaveAttribute("data-wave-label", "3-4 ft");
+    expect(marker.textContent).toBe("3-4 ft");
+    expect(marker).toHaveAttribute(
+      "data-marker-gradient",
+      getConditionMarkerCall({ conditionSummary: "UNKNOWN" }).gradient,
+    );
+  });
 });

@@ -93,6 +93,11 @@ import {
   resolveNotificationTimezone,
 } from "@/lib/notifications/quiet-hours";
 import type { messaging as fbMessaging } from "firebase-admin";
+import {
+  resolveNotificationMajorEventHold,
+  type NotificationMajorEventHoldResult,
+  type ResolveNotificationMajorEventHoldInput,
+} from "@/lib/recommendations/major-event-hold/adapters/notification";
 
 type ServiceClient = SupabaseClient<Database>;
 type FcmMessaging = fbMessaging.Messaging | null;
@@ -151,6 +156,7 @@ interface ProfileRow {
   id: string;
   display_name: string | null;
   timezone: string | null;
+  experience_level: string | null;
   allow_implicit_tracking: boolean;
   notif_push_enabled: boolean;
   notif_email_enabled: boolean;
@@ -174,17 +180,23 @@ export interface ProcessOptions {
   now?: Date;
   /** Pre-resolved FCM messaging client. If undefined, looked up lazily. */
   fcm?: FcmMessaging;
+  /** Override the last-mile safety resolver for deterministic tests. */
+  resolveMajorEventHold?: NotificationMajorEventHoldResolver;
 }
+
+export type NotificationMajorEventHoldResolver = (
+  input: ResolveNotificationMajorEventHoldInput,
+) => Promise<NotificationMajorEventHoldResult>;
 
 export interface ProcessSummary {
   fetched: number;
-  /** Events that reached terminal `processed` this tick (any sent or all-skipped). */
+  /** Events finalized this tick, including decisive all-skip cancellations. */
   processed: number;
   /**
    * Retained for backwards-compat with dashboards. Phase 5a removed `skipped`
    * as an event-level status (skips are channel-level), so this counter now
-   * tracks events whose channels were ALL terminal-skips. The event row has
-   * status='processed' on disk; this number breaks it out for monitoring.
+   * tracks events whose channels were ALL terminal-skips. The event row is
+   * normally `processed`; arbitration and safety cancellations remain `cancelled`.
    */
   skipped: number;
   /** Events that reached terminal `failed` this tick (retry exhausted or fatal). */
@@ -228,6 +240,7 @@ interface ChannelDecision {
   providerResponse?: Json | null;
   errorMessage?: string | null;
   nextAttemptAt?: Date | null;
+  cancelEventReason?: string | null;
 }
 
 type SurfAlertCandidate = {
@@ -317,6 +330,9 @@ export async function processPendingEvents(
   const batchSize = opts.batchSize ?? DEFAULT_BATCH_SIZE;
   const now = opts.now ?? new Date();
   const fcm = opts.fcm !== undefined ? opts.fcm : getFirebaseAdminMessaging();
+  const resolveMajorEventHold =
+    opts.resolveMajorEventHold ?? resolveNotificationMajorEventHold;
+  const majorEventHoldAsOf = opts.now;
 
   const summary: ProcessSummary = {
     fetched: 0,
@@ -376,7 +392,9 @@ export async function processPendingEvents(
         eventAttempts,
         now,
         summary,
-        claimToken
+        claimToken,
+        resolveMajorEventHold,
+        majorEventHoldAsOf,
       );
       tallyOutcome(summary, result.outcome);
       if (result.outcome === "pending") {
@@ -422,7 +440,7 @@ function tallyOutcome(
 /**
  * Event-level outcome of one tick's pass over an event.
  *   - processed: at least one channel was sent and the event finalized
- *   - all-skipped: every channel was a terminal skip (event status: processed)
+ *   - all-skipped: every channel was a terminal skip (processed or cancelled)
  *   - failed: at least one required channel exhausted retries
  *   - pending: at least one channel is retryable; revisit next tick
  */
@@ -448,7 +466,9 @@ async function processOne(
   priorAttempts: NotificationDeliveryAttemptRow[],
   now: Date,
   summary: ProcessSummary,
-  claimToken: string
+  claimToken: string,
+  resolveMajorEventHold: NotificationMajorEventHoldResolver,
+  majorEventHoldAsOf: Date | undefined,
 ): Promise<ProcessOneResult> {
   if (!isKnownNotificationType(event.type)) {
     summary.unknown_type_count++;
@@ -532,7 +552,9 @@ async function processOne(
   const newAttempts: NotificationDeliveryAttemptInsert[] = [];
   const quietHoursRetryTimes: Date[] = [];
   const channelOutcomes = new Map<NotificationChannel, ChannelOutcome>();
+  let hasSentDelivery = priorAttempts.some((attempt) => attempt.status === "sent");
   let surfAlertRejected = false;
+  let terminalCancellationReason: string | null = null;
 
   for (const channel of def.channels) {
     const prior = attemptsByChannel.get(channel) ?? [];
@@ -563,6 +585,8 @@ async function processOne(
       channel,
       now,
       surfAlertSlot,
+      resolveMajorEventHold,
+      majorEventHoldAsOf,
     );
     const { status } = decision;
 
@@ -609,6 +633,7 @@ async function processOne(
 
     if (status === "sent") {
       channelOutcomes.set(channel, "sent");
+      hasSentDelivery = true;
     } else if (TERMINAL_SKIP_STATUSES.has(status)) {
       channelOutcomes.set(channel, "skipped");
     } else if (status === "deferred_quiet_hours") {
@@ -630,6 +655,10 @@ async function processOne(
       surfAlertRejected = true;
       break;
     }
+    if (decision.cancelEventReason && !hasSentDelivery) {
+      terminalCancellationReason = decision.cancelEventReason;
+      break;
+    }
   }
 
   if (newAttempts.length > 0) {
@@ -645,6 +674,17 @@ async function processOne(
       event.id,
       "cancelled",
       "skipped_redundant",
+      claimToken,
+    );
+    return { outcome: "all-skipped", nextAttemptAt: null };
+  }
+
+  if (terminalCancellationReason) {
+    await markEventTerminal(
+      supabase,
+      event.id,
+      "cancelled",
+      terminalCancellationReason,
       claimToken,
     );
     return { outcome: "all-skipped", nextAttemptAt: null };
@@ -777,6 +817,8 @@ async function processChannel(
   channel: NotificationChannel,
   now: Date,
   surfAlertSlot: SurfAlertSlot | null,
+  resolveMajorEventHold: NotificationMajorEventHoldResolver,
+  majorEventHoldAsOf: Date | undefined,
 ): Promise<ChannelDecision> {
   if (
     def.suppressSelfNotify &&
@@ -891,8 +933,26 @@ async function processChannel(
     }
   }
 
+  const holdSuppression = await resolveHoldSuppression(
+    event,
+    profile,
+    resolveMajorEventHold,
+    majorEventHoldAsOf,
+  );
+  if (holdSuppression) return holdSuppression;
+
   if (channel === "push") {
-    return dispatchPush(supabase, fcm, event, def, ctx, surfAlertSlot);
+    return dispatchPush(
+      supabase,
+      fcm,
+      event,
+      def,
+      profile,
+      ctx,
+      surfAlertSlot,
+      resolveMajorEventHold,
+      majorEventHoldAsOf,
+    );
   }
   if (channel === "in_app") {
     if (
@@ -901,12 +961,58 @@ async function processChannel(
     ) {
       return channelDecision("skipped_dedup");
     }
+    const finalHoldSuppression = await resolveHoldSuppression(
+      event,
+      profile,
+      resolveMajorEventHold,
+      majorEventHoldAsOf,
+      surfAlertSlot !== null,
+    );
+    if (finalHoldSuppression) return finalHoldSuppression;
     return channelDecision(await dispatchInApp(supabase, event, def, ctx));
   }
   // 'email' not supported in v1 — registry has no entries that route here.
   return channelDecision("failed_internal", {
     errorMessage: "Unsupported notification channel",
   });
+}
+
+async function resolveHoldSuppression(
+  event: NotificationEventRow,
+  profile: ProfileRow,
+  resolveMajorEventHold: NotificationMajorEventHoldResolver,
+  majorEventHoldAsOf: Date | undefined,
+  cancelEventOnSuppression = false,
+): Promise<ChannelDecision | null> {
+  let holdDecision: NotificationMajorEventHoldResult;
+  try {
+    holdDecision = await resolveMajorEventHold({
+      eventId: event.id,
+      type: event.type,
+      payload: event.payload,
+      profileExperience: profile.experience_level,
+      ...(majorEventHoldAsOf ? { asOf: majorEventHoldAsOf } : {}),
+    });
+  } catch {
+    holdDecision = {
+      status: "suppressed",
+      reasonCode: "hold_state_unavailable",
+      auditCode: "major_event_hold",
+      candidate: null,
+    };
+  }
+  if (holdDecision.status === "suppressed") {
+    return channelDecision("skipped_disabled", {
+      providerResponse: {
+        audit_code: holdDecision.auditCode,
+        reason_code: holdDecision.reasonCode,
+      },
+      ...(cancelEventOnSuppression
+        ? { cancelEventReason: holdDecision.auditCode }
+        : {}),
+    });
+  }
+  return null;
 }
 
 function resolveQuietWindow(
@@ -951,8 +1057,11 @@ async function dispatchPush(
   fcm: FcmMessaging,
   event: NotificationEventRow,
   def: NotificationTypeDef,
+  profile: ProfileRow,
   ctx: BuildCtx,
   surfAlertSlot: SurfAlertSlot | null,
+  resolveMajorEventHold: NotificationMajorEventHoldResolver,
+  majorEventHoldAsOf: Date | undefined,
 ): Promise<ChannelDecision> {
   if (!def.buildPushPayload) {
     return channelDecision("failed_internal", {
@@ -992,6 +1101,15 @@ async function dispatchPush(
   ) {
     return channelDecision("skipped_dedup");
   }
+
+  const finalHoldSuppression = await resolveHoldSuppression(
+    event,
+    profile,
+    resolveMajorEventHold,
+    majorEventHoldAsOf,
+    surfAlertSlot !== null,
+  );
+  if (finalHoldSuppression) return finalHoldSuppression;
 
   const payloadRecord = (event.payload ?? {}) as Record<string, unknown>;
   const built = def.buildPushPayload(payloadRecord, ctx);
@@ -1243,7 +1361,7 @@ async function loadProfile(
   const { data, error } = await supabase
     .from("profiles")
     .select(
-      "id, display_name, timezone, allow_implicit_tracking, notif_push_enabled, notif_email_enabled, notif_inapp_enabled, notif_likes, notif_follows, notif_reminders, notif_xp_updates, notif_forecast_alerts, notif_water_quality, notif_similarity_alerts"
+      "id, display_name, timezone, experience_level, allow_implicit_tracking, notif_push_enabled, notif_email_enabled, notif_inapp_enabled, notif_likes, notif_follows, notif_reminders, notif_xp_updates, notif_forecast_alerts, notif_water_quality, notif_similarity_alerts"
     )
     .eq("id", userId)
     .maybeSingle();

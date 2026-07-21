@@ -45,11 +45,8 @@ async function callRoute(body: unknown) {
 }
 
 describe('POST /api/surf/week-scout', () => {
-  const originalFlag = process.env.WEEK_SCOUT_ENDPOINT_ENABLED;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    process.env.WEEK_SCOUT_ENDPOINT_ENABLED = 'true';
     mockGenerateWeekScoutForecast.mockResolvedValue({
       generatedAt: '2026-07-15T18:00:00.000Z',
       scorerVersion: 'week-scout-v1',
@@ -58,15 +55,7 @@ describe('POST /api/surf/week-scout', () => {
     });
   });
 
-  afterAll(() => {
-    if (originalFlag === undefined) {
-      delete process.env.WEEK_SCOUT_ENDPOINT_ENABLED;
-    } else {
-      process.env.WEEK_SCOUT_ENDPOINT_ENABLED = originalFlag;
-    }
-  });
-
-  it('deduplicates candidate IDs and returns a private no-store response', async () => {
+  it('deduplicates candidate IDs and returns the exact private no-store response', async () => {
     const response = await callRoute({
       candidateBeachIds: [BEACH_B, BEACH_A, BEACH_B],
       localTimezone: 'Pacific/Honolulu',
@@ -75,7 +64,9 @@ describe('POST /api/surf/week-scout', () => {
     });
 
     expect(response.status).toBe(200);
-    expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+    expect(response.headers.get('Cache-Control')).toBe(
+      'private, no-store, no-cache, must-revalidate',
+    );
     expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith(
       'user-week-scout',
       {
@@ -129,9 +120,7 @@ describe('POST /api/surf/week-scout', () => {
     expect(mockGenerateWeekScoutForecast).not.toHaveBeenCalled();
   });
 
-  it('returns 404 without invoking the service when the rollout flag is off', async () => {
-    delete process.env.WEEK_SCOUT_ENDPOINT_ENABLED;
-
+  it('stays enabled without a rollout-flag prerequisite', async () => {
     const response = await callRoute({
       candidateBeachIds: [BEACH_A],
       localTimezone: 'Pacific/Honolulu',
@@ -139,7 +128,57 @@ describe('POST /api/surf/week-scout', () => {
       dayCount: 7,
     });
 
-    expect(response.status).toBe(404);
-    expect(mockGenerateWeekScoutForecast).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledTimes(1);
+    expect(response.headers.get('Cache-Control')).toBe(
+      'private, no-store, no-cache, must-revalidate',
+    );
+  });
+
+  it('returns HTTP 200 explicit none with no best window for held results', async () => {
+    mockGenerateWeekScoutForecast.mockResolvedValueOnce({
+      generatedAt: '2026-07-15T18:00:00.000Z',
+      scorerVersion: 'week-scout-v1',
+      candidateFingerprint: 'candidate-fingerprint',
+      days: [
+        {
+          localDate: '2026-07-15',
+          windows: [
+            {
+              id: 'window-1',
+              beachId: BEACH_A,
+              start: '2026-07-15T16:00:00.000Z',
+              end: '2026-07-15T18:00:00.000Z',
+              conditionScore: null,
+              rankingScore: null,
+              verdict: null,
+              forecast: { waveHeight: '4 ft' },
+            },
+          ],
+          bestWindowId: null,
+        },
+      ],
+      recommendationAvailability: {
+        state: 'none',
+        reasonCode: 'major_event_hold',
+        holdEpoch: 'held-epoch',
+      },
+    });
+
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-15',
+      dayCount: 7,
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.days[0].bestWindowId).toBeNull();
+    expect(body.data.recommendationAvailability).toEqual({
+      state: 'none',
+      reasonCode: 'major_event_hold',
+      holdEpoch: 'held-epoch',
+    });
   });
 });

@@ -32,6 +32,7 @@ import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { withObservedCron } from "@/lib/cron/observability";
+import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -60,11 +61,16 @@ interface RunSummary {
   durationMs: number;
   skipped: {
     claimFailed: number;
+    holdSuppressed: number;
     sendFailed: number;
   };
 }
 
-type ProcessingStatus = "success" | "claim_failed" | "send_failed";
+type ProcessingStatus =
+  | "success"
+  | "claim_failed"
+  | "hold_suppressed"
+  | "send_failed";
 
 interface ProcessingResult {
   status: ProcessingStatus;
@@ -172,6 +178,29 @@ async function processCandidate(
   // 5. Rate limit and send email
   await rateLimiter.throttle();
 
+  // The legacy RPC omits the forecast date, so its time-only window cannot be
+  // safely bound in enforce mode. Off/shadow modes retain the existing send.
+  const holdDecision = await resolveNotificationMajorEventHold({
+    eventId: `reengagement-email:${candidate.user_id}:${candidate.home_beach_id}`,
+    type: "forecast_alert",
+    payload: {
+      beach_id: candidate.home_beach_id,
+      forecast_at: null,
+    },
+    profileExperience: null,
+  });
+  if (holdDecision.status !== "allowed") {
+    console.info(`${CONTEXT_TAG} Suppressed positive email`, {
+      audit_code: "major_event_hold",
+      reason_code:
+        holdDecision.status === "suppressed"
+          ? holdDecision.reasonCode
+          : "hold_state_unavailable",
+      user_id: candidate.user_id,
+    });
+    return { status: "hold_suppressed" };
+  }
+
   const { data: sendData, error: sendError } = await resend.emails.send({
     from: MAIL_FROM,
     replyTo: MAIL_REPLY_TO,
@@ -249,6 +278,7 @@ async function _GET(request: Request): Promise<Response> {
       durationMs: 0,
       skipped: {
         claimFailed: 0,
+        holdSuppressed: 0,
         sendFailed: 0,
       },
     };
@@ -305,6 +335,9 @@ async function _GET(request: Request): Promise<Response> {
             break;
           case "claim_failed":
             summary.skipped.claimFailed++;
+            break;
+          case "hold_suppressed":
+            summary.skipped.holdSuppressed++;
             break;
           case "send_failed":
             summary.skipped.sendFailed++;

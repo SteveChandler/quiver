@@ -88,7 +88,7 @@ describe("install-style OG share cards", () => {
     );
   });
 
-  it("renders surf-call share cards with the install-card anatomy and QR attribution", async () => {
+  it("renders query-only surf-call cards neutrally with install-card anatomy and QR attribution", async () => {
     const { GET } = await import("@/app/api/og/surf-call/route");
 
     const response = await GET(
@@ -102,8 +102,8 @@ describe("install-style OG share cards", () => {
     expect(capturedProps()).toEqual(
       expect.objectContaining({
         baseUrl: "http://localhost:3000",
-        title: "Big Jetty is lining up",
-        subtitle: expect.stringContaining("8.5/10"),
+        title: "Check current surf conditions",
+        subtitle: expect.stringMatching(/wave, wind, and tide/i),
         footer: "Free surf forecasts and condition alerts by Quiver",
       }),
     );

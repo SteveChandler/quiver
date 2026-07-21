@@ -1,6 +1,16 @@
 import { render, screen } from "@testing-library/react";
 
-import AppSpotHandoffPage, { generateMetadata } from "@/app/app/spot/[slug]/page";
+const mockLoadForecastWindowShareMetadata = jest.fn();
+
+jest.mock("@/lib/share/forecast-window-share", () => ({
+  loadForecastWindowShareMetadata: (...args: unknown[]) =>
+    mockLoadForecastWindowShareMetadata(...args),
+}));
+
+import AppSpotHandoffPage, {
+  generateMetadata,
+} from "@/app/app/spot/[slug]/page";
+import * as handoffModule from "@/app/app/spot/[slug]/page";
 import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
 import { track } from "@/lib/analytics";
 
@@ -8,7 +18,47 @@ jest.mock("@/lib/analytics", () => ({
   track: jest.fn(),
 }));
 
-function firstOpenGraphImageUrl(metadata: Awaited<ReturnType<typeof generateMetadata>>): string {
+function neutralMetadata(overrides: Record<string, unknown> = {}) {
+  return {
+    title: "Open Quiver Surf Window",
+    description: "Open this surf window in Quiver.",
+    beachName: "This spot",
+    slug: "fake-beach",
+    forecastAt: null,
+    windowLabel: null,
+    waveHeight: "Forecast window",
+    conditionRow: "",
+    locationLabel: null,
+    ogImagePath: "/api/og/forecast-window?slug=fake-beach&window=fallback",
+    appSpotPath: "/app/spot/fake-beach",
+    isFallback: true,
+    ...overrides,
+  };
+}
+
+function positiveMetadata(overrides: Record<string, unknown> = {}) {
+  return neutralMetadata({
+    title: "Server Beach 7:30 AM is lining up",
+    description: "Server Beach 7:30 AM is lining up: 4.5 ft.",
+    beachName: "Server Beach",
+    slug: "server-beach",
+    forecastAt: "2026-06-03T14:30:00.000Z",
+    windowLabel: "7:30 AM",
+    waveHeight: "4.5 ft",
+    conditionRow: "18s SW · 5 mph E",
+    locationLabel: "La Jolla, CA",
+    ogImagePath:
+      "/api/og/forecast-window?slug=server-beach&window=2026-06-03T14%3A30%3A00.000Z",
+    appSpotPath:
+      "/app/spot/server-beach?window=2026-06-03T14%3A30%3A00.000Z",
+    isFallback: false,
+    ...overrides,
+  });
+}
+
+function firstOpenGraphImageUrl(
+  metadata: Awaited<ReturnType<typeof generateMetadata>>,
+): string {
   const images = metadata.openGraph?.images;
   const image = Array.isArray(images) ? images[0] : images;
   if (typeof image === "string" || image instanceof URL) return image.toString();
@@ -18,9 +68,10 @@ function firstOpenGraphImageUrl(metadata: Awaited<ReturnType<typeof generateMeta
 describe("/app/spot/[slug] handoff page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockLoadForecastWindowShareMetadata.mockResolvedValue(neutralMetadata());
   });
 
-  it("is noindexed so app-link fallback URLs do not create SEO canonicals", async () => {
+  it("is noindexed, dynamic, and no-store", async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ slug: "ocean-beach" }),
       searchParams: Promise.resolve({ window: "window-1" }),
@@ -30,44 +81,107 @@ describe("/app/spot/[slug] handoff page", () => {
     expect((metadata.robots as any).index).toBe(false);
     expect((metadata.robots as any).follow).toBe(false);
     expect(metadata.alternates).toBeUndefined();
+    expect((handoffModule as any).dynamic).toBe("force-dynamic");
+    expect((handoffModule as any).revalidate).toBe(0);
+    expect((handoffModule as any).fetchCache).toBe("force-no-store");
   });
 
-  it("returns selected-window social metadata for timestamp windows", async () => {
+  it("does not let query-only label or conditions authorize positive metadata", async () => {
     const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: "la-jolla-shores" }),
+      params: Promise.resolve({ slug: "fake-beach" }),
       searchParams: Promise.resolve({
         window: "2026-06-03T14:30:00.000Z",
+        label: "Ready now",
+        conditions: "20 ft · Go now",
       }),
     });
 
-    expect(metadata.title).not.toBe("Open Quiver Surf Window");
-    expect(String(metadata.title)).toContain("is lining up");
-    expect(metadata.openGraph?.title).toContain("is lining up");
-    expect(firstOpenGraphImageUrl(metadata)).toContain("/api/og/forecast-window");
-    expect(firstOpenGraphImageUrl(metadata)).not.toContain("utm_");
-  });
-
-  it("returns exact forecast-window CTA metadata from compact preview params", async () => {
-    const metadata = await generateMetadata({
-      params: Promise.resolve({ slug: "204s" }),
-      searchParams: Promise.resolve({
-        window: "2026-06-04T22:30:00.000Z",
-        label: "3:30-6:00 PM",
-        conditions: "2-3 ft · 18s SSW · 7 mph SW · 3 ft, rising",
-      }),
+    expect(mockLoadForecastWindowShareMetadata).toHaveBeenCalledWith({
+      slug: "fake-beach",
+      window: "2026-06-03T14:30:00.000Z",
     });
-    const imageUrl = firstOpenGraphImageUrl(metadata);
-
-    expect(metadata.title).toBe("204s 3:30-6:00 PM is lining up");
-    expect(metadata.description).toBe(
-      "204s 3:30-6:00 PM is lining up: 2-3 ft · 18s SSW · 7 mph SW · 3 ft, rising. Check it on Quiver.",
+    expect(metadata.title).toBe("Open Quiver Surf Window");
+    expect(String(metadata.description)).not.toMatch(
+      /lining up|ready now|20 ft|go now/i,
     );
-    expect(imageUrl).toContain("label=3%3A30-6%3A00");
-    expect(imageUrl).toContain("conditions=2-3");
-    expect(imageUrl).not.toContain("utm_");
   });
 
-  it("renders App Store and canonical web fallback links while preserving window context", async () => {
+  it("returns positive social metadata only from resolved share metadata", async () => {
+    mockLoadForecastWindowShareMetadata.mockResolvedValue(positiveMetadata());
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ slug: "server-beach" }),
+      searchParams: Promise.resolve({
+        window: "2026-06-03T14:30:00.000Z",
+        label: "Fake ready",
+        conditions: "99 ft",
+      }),
+    });
+
+    expect(metadata.title).toBe("Server Beach 7:30 AM is lining up");
+    expect(metadata.description).toContain("4.5 ft");
+    expect(firstOpenGraphImageUrl(metadata)).toContain(
+      "/api/og/forecast-window",
+    );
+    expect(firstOpenGraphImageUrl(metadata)).not.toMatch(
+      /label=|conditions=|utm_/,
+    );
+    expect(JSON.stringify(metadata)).not.toMatch(/Fake ready|99 ft/i);
+  });
+
+  it("renders neutral handoff copy without a query-derived ready state or window", async () => {
+    mockLoadForecastWindowShareMetadata.mockResolvedValue(
+      neutralMetadata({
+        title: "Current surf conditions at Server Beach",
+        description:
+          "Wave, wind, and tide conditions can change quickly. Check the latest forecast and official advisories.",
+        beachName: "Server Beach",
+        slug: "server-beach",
+        forecastAt: "2026-06-03T14:30:00.000Z",
+        waveHeight: "4.5 ft",
+        conditionRow: "18s SW · 5 mph E",
+      }),
+    );
+
+    const page = await AppSpotHandoffPage({
+      params: Promise.resolve({ slug: "fake-ready-beach" }),
+      searchParams: Promise.resolve({
+        window: "2026-06-03T14:30:00.000Z",
+        label: "Ready now",
+      }),
+    });
+
+    render(page);
+
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Check current surf conditions in Quiver.",
+    );
+    expect(screen.queryByText(/is ready/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/window:/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ready now|7:30 AM/i)).not.toBeInTheDocument();
+  });
+
+  it("renders a resolved positive server beach and window", async () => {
+    mockLoadForecastWindowShareMetadata.mockResolvedValue(positiveMetadata());
+
+    const page = await AppSpotHandoffPage({
+      params: Promise.resolve({ slug: "fake-beach" }),
+      searchParams: Promise.resolve({
+        window: "2026-06-03T14:30:00.000Z",
+        label: "Fake ready",
+      }),
+    });
+
+    render(page);
+
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(
+      "Server Beach is ready in Quiver.",
+    );
+    expect(screen.getByText(/7:30 AM/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Fake ready/i)).not.toBeInTheDocument();
+  });
+
+  it("renders App Store and canonical web fallback links", async () => {
     const page = await AppSpotHandoffPage({
       params: Promise.resolve({ slug: "ocean-beach" }),
       searchParams: Promise.resolve({ window: "window-1" }),
@@ -76,15 +190,15 @@ describe("/app/spot/[slug] handoff page", () => {
     render(page);
 
     expect(
-      screen.getByRole("link", { name: /open in the app store/i })
+      screen.getByRole("link", { name: /open in the app store/i }),
     ).toHaveAttribute("href", IOS_APP_STORE_URL);
     expect(
-      screen.getByRole("link", { name: /continue on web/i })
+      screen.getByRole("link", { name: /continue on web/i }),
     ).toHaveAttribute("href", "/beach/ocean-beach");
-    expect(screen.getByText(/window-1/i)).toBeInTheDocument();
+    expect(screen.queryByText(/window-1/i)).not.toBeInTheDocument();
   });
 
-  it("renders a human-readable selected-window label and emits compact share-open attribution", async () => {
+  it("retains compact share-open attribution without rendering raw window copy", async () => {
     const page = await AppSpotHandoffPage({
       params: Promise.resolve({ slug: "la-jolla-shores" }),
       searchParams: Promise.resolve({
@@ -94,7 +208,7 @@ describe("/app/spot/[slug] handoff page", () => {
 
     render(page);
 
-    expect(screen.getByText(/7:30 AM/i)).toBeInTheDocument();
+    expect(screen.queryByText(/7:30 AM/i)).not.toBeInTheDocument();
     expect(track).toHaveBeenCalledWith(
       "share_link_opened",
       expect.objectContaining({
@@ -106,20 +220,5 @@ describe("/app/spot/[slug] handoff page", () => {
       }),
       { includeAttribution: false },
     );
-  });
-
-  it("renders the shared preview window range on the handoff page", async () => {
-    const page = await AppSpotHandoffPage({
-      params: Promise.resolve({ slug: "204s" }),
-      searchParams: Promise.resolve({
-        window: "2026-06-04T22:30:00.000Z",
-        label: "3:30-6:00 PM",
-        conditions: "2-3 ft · 18s SSW · 7 mph SW · 3 ft, rising",
-      }),
-    });
-
-    render(page);
-
-    expect(screen.getByText(/3:30-6:00 PM/i)).toBeInTheDocument();
   });
 });
