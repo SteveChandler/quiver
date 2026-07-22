@@ -276,7 +276,7 @@ test.describe('Route HTML Contracts', () => {
       expect(getHeadingTexts(html, 1).join(' ')).toMatch(/alfonsos/i);
     });
 
-    test('canonical beach URL loads directly', async ({ request }) => {
+    test('Doheny loads without the snapshot and keeps supporting guide links', async ({ request }) => {
       const response = await getResponse(request, '/ca/dana-point/doheny-state-beach', {
         maxRedirects: 0,
       });
@@ -285,6 +285,9 @@ test.describe('Route HTML Contracts', () => {
       expect(response.status()).toBe(200);
       expect(response.headers().location).toBeUndefined();
       expect(html.toLowerCase()).toContain('doheny');
+      expect(html).not.toContain('Surf report snapshot');
+      expect(html).toContain('href="/ca/dana-point/doheny-state-beach/tides"');
+      expect(html).toContain('href="/ca/dana-point/doheny-state-beach/water-temp"');
     });
 
     const seoCanonicalRedirects = [

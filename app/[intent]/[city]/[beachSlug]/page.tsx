@@ -60,6 +60,10 @@ const getCachedBeachCandidates = cache(async (slug: string) => {
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+const BEACH_PROSE_SUMMARY_HIDDEN_SLUGS = new Set([
+  "doheny",
+  "doheny-state-beach",
+]);
 
 type BeachWithEditorialReview = Beach & {
   seo_indexable?: boolean | null;
@@ -330,11 +334,14 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         )}
 
         {/* SSR prose summary for AI crawlers and search engines (GEO) */}
-        <BeachProseSummary
-          beach={beach}
-          surfCallReport={surfCallReport}
-          editorialSources={getBeachEditorialSources(beach as BeachWithEditorialReview)}
-        />
+        {!BEACH_PROSE_SUMMARY_HIDDEN_SLUGS.has(beachSlug) &&
+          !BEACH_PROSE_SUMMARY_HIDDEN_SLUGS.has(beach.slug ?? "") && (
+            <BeachProseSummary
+              beach={beach}
+              surfCallReport={surfCallReport}
+              editorialSources={getBeachEditorialSources(beach as BeachWithEditorialReview)}
+            />
+          )}
 
         <nav
           className="mx-auto flex max-w-5xl flex-wrap gap-x-4 gap-y-2 px-4 py-4 text-sm sm:px-6 lg:px-8"
