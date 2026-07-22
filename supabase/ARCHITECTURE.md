@@ -1167,24 +1167,24 @@ Before any new migration:
 ## Utility Views
 
 - `public.v_beach_hourly_scores`
-  - Computes per-hour surf suitability scores (0-100) for each beach using wind direction vs. offshore bearing, tide preference band, and swell window inclusion with fade.
-  - Inputs: `marine_forecasts(beach_id, ts, wind_direction_deg, wind_speed_ms, wave_direction_deg)` and `tide_forecasts(beach_id, ts, tide_height_m)`; preferences from `beaches` (`wind_offshore_deg`, `wind_cross_shore_ok_kt`, `preferred_tide_ft_min/max`, `swell_window_min/max`).
-  - Current weights: wind 0.4, swell 0.4, tide 0.2. Period/height scoring reserved for later when calibrated fields exist.
-  - Introduced by migration `20250812160500_create_v_beach_hourly_scores.sql` with rollback `20250812160501_rollback_v_beach_hourly_scores.sql`.
-  - Security: `WITH (security_invoker = true)` so underlying table RLS is enforced for the querying role. `GRANT SELECT` provided to `anon` and `authenticated` only.
+  - Retired by migration `20260113120100_remove_unused_hourly_scores_mv.sql` together with `mv_beach_hourly_scores`.
+  - Current recommendation code must not depend on this view.
 
 ## Utility RPCs
 
+- `public.get_coach_picks(_beach_id uuid, _radius_km numeric default 80)`
+  - Returns the top three public, non-deleted beaches inside the strict requested radius.
+  - Ranks candidates by the latest `beach_daily_intel.conditions_score`, with distance as the deterministic tiebreaker.
+  - Repaired by migration `20260722193000_repair_get_coach_picks_daily_intel.sql` after the hourly-score views were retired.
+
 - `public.get_best_times(p_beach uuid, p_start timestamptz, p_end timestamptz, p_limit int default 6)`
-  - Returns top-scoring 2-hour windows within the range using `v_beach_hourly_scores` rolling averages, labelled `epic/good/fair/poor`.
-  - Read-only (`stable`), executable by `anon`, `authenticated`, and `service_role`.
-  - Introduced by migration `20250812161000_create_get_best_times.sql` with rollback `20250812161001_rollback_get_best_times.sql`.
+  - Retired when `v_beach_hourly_scores` was dropped; current session-window recommendations use the application-layer forecast scorer.
 
 ## Scoring Weights (per beach)
 
 ## Best Times Performance
 
-**Status: Infrastructure Present, No Active Consumers (Planned Feature)**
+**Status: Retired**
 
 - `public.mv_best_times` (materialized view)
 
@@ -1192,14 +1192,14 @@ Before any new migration:
   - Refreshed hourly via `pg_cron` job `refresh_mv_best_times_hourly` calling `public.refresh_mv_best_times()`.
   - Unique index on `(beach_id, start_ts)` enables concurrent refresh and fast lookup.
   - Introduced by `20250812170000_create_mv_best_times.sql` with rollback `20250812170001_rollback_mv_best_times.sql`.
-  - **Current Usage**: None - feature not yet launched. Helper function exists in `lib/bestTimes.ts` but no API routes or components consume it.
+  - **Current Usage**: None. Removed after the underlying hourly-score view was retired.
 
 - `public.mv_beach_hourly_scores` (materialized view)
 
   - Precomputes hourly marine+tide joins with surf suitability scores.
   - Refreshed via `refresh_mv_beach_hourly_scores()` function (pg_cron schedule TBD).
   - Introduced by `20250820134000_create_mv_beach_hourly_scores.sql`.
-  - **Current Usage**: None - supports `mv_best_times` which is also not yet consumed.
+  - **Current Usage**: None. Removed by `20260113120100_remove_unused_hourly_scores_mv.sql`.
 
 - **Data Engineering Review**: See `docs/data-engineering/BEACH_RECOMMENDATION_CLEANUP_REVIEW.md` for recommendations on:
 
