@@ -37,31 +37,60 @@ test.describe("Field-guide landing — desktop", () => {
     });
   });
 
-  test("hero shows the current H1 and download link @smoke", async ({
+  test("hero shows the current H1 and download link without waiting for its poster @smoke", async ({
     page,
   }) => {
-    const response = await page.goto("/", {
-      timeout: 15000,
-      waitUntil: "domcontentloaded",
+    let releasePoster: () => void = () => undefined;
+    const posterGate = new Promise<void>((resolve) => {
+      releasePoster = resolve;
     });
-    expect(response).not.toBeNull();
-    expect(response!.status()).toBe(200);
-    await page.waitForLoadState("load", { timeout: 15000 });
-
-    await expect(
-      page.getByRole("heading", {
-        level: 1,
-        name: /know where to paddle out before dawn\./i,
-      }),
-    ).toBeVisible({ timeout: 10000 });
-    await expect(
-      page.getByTestId("field-guide-hero").getByRole("link", {
-        name: "Get the app",
-      }),
-    ).toHaveAttribute(
-      "href",
-      "/download?source=landing_hero&placement=hero&platform=desktop",
+    const posterRequest = page.waitForRequest(
+      (request) =>
+        request.url().includes("/_next/image?") &&
+        new URL(request.url()).searchParams
+          .get("url")
+          ?.includes("quiver-landing-hero-poster.jpg") === true,
+      { timeout: 5000 },
     );
+
+    await page.route("**/_next/image?**", async (route) => {
+      const imagePath = new URL(route.request().url()).searchParams.get("url");
+      if (!imagePath?.includes("quiver-landing-hero-poster.jpg")) {
+        await route.continue();
+        return;
+      }
+
+      await posterGate;
+      await route.continue();
+    });
+
+    try {
+      const response = await page.goto("/", {
+        timeout: 15000,
+        waitUntil: "domcontentloaded",
+      });
+      expect(response).not.toBeNull();
+      expect(response!.status()).toBe(200);
+      await posterRequest;
+
+      await expect(
+        page.getByRole("heading", {
+          level: 1,
+          name: /know where to paddle out before dawn\./i,
+        }),
+      ).toBeVisible({ timeout: 10000 });
+      await expect(
+        page.getByTestId("field-guide-hero").getByRole("link", {
+          name: "Get the app",
+        }),
+      ).toHaveAttribute(
+        "href",
+        "/download?source=landing_hero&placement=hero&platform=desktop",
+      );
+    } finally {
+      releasePoster();
+      await page.unroute("**/_next/image?**");
+    }
   });
 });
 
@@ -90,7 +119,6 @@ test.describe("Field-guide landing — iPhone UA", () => {
     });
     expect(response).not.toBeNull();
     expect(response!.status()).toBe(200);
-    await page.waitForLoadState("load", { timeout: 15000 });
 
     await expect(
       page.getByRole("heading", {
@@ -134,7 +162,6 @@ test.describe("Field-guide landing — Android UA", () => {
     });
     expect(response).not.toBeNull();
     expect(response!.status()).toBe(200);
-    await page.waitForLoadState("load", { timeout: 15000 });
 
     await expect(
       page.getByRole("heading", {

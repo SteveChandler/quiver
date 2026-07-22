@@ -1,4 +1,5 @@
 import { test, expect } from "./fixtures/auth-fixture";
+import type { Page } from "@playwright/test";
 import {
   waitForPageLoad,
   ensureAuthenticated,
@@ -35,6 +36,40 @@ import {
 const TOP_REC_BEACH_ID = "11111111-1111-4111-8111-111111111111";
 const HOME_BEACH_ID = "22222222-2222-4222-8222-222222222222";
 const TOP_REC_CANDIDATE_ID = "recommendation:oracle-e2e-top";
+const LA_JOLLA = { latitude: 32.8473, longitude: -117.275 };
+
+type OracleGeolocationWindow = Window & {
+  __quiverGeolocationRequestCount?: number;
+};
+
+function installGeolocationRequestCounter(): void {
+  const oracleWindow = window as OracleGeolocationWindow;
+  const geolocation = navigator.geolocation;
+  const getCurrentPosition = geolocation.getCurrentPosition.bind(geolocation);
+
+  oracleWindow.__quiverGeolocationRequestCount = 0;
+  Object.defineProperty(geolocation, "getCurrentPosition", {
+    configurable: true,
+    value: (
+      success: PositionCallback,
+      error?: PositionErrorCallback | null,
+      options?: PositionOptions,
+    ): void => {
+      oracleWindow.__quiverGeolocationRequestCount =
+        (oracleWindow.__quiverGeolocationRequestCount ?? 0) + 1;
+      getCurrentPosition(success, error, options);
+    },
+  });
+}
+
+async function readGeolocationRequestCount(
+  page: Page,
+): Promise<number> {
+  return page.evaluate(() => {
+    const oracleWindow = window as OracleGeolocationWindow;
+    return oracleWindow.__quiverGeolocationRequestCount ?? 0;
+  });
+}
 
 function discoveryFixture() {
   const now = Date.now();
@@ -272,5 +307,42 @@ test.describe('Oracle home — regional-best hero', () => {
     // `showHomeCard` boolean. They must stay in sync: card count must
     // be ≤ subtitle count (i.e. card cannot exist without subtitle).
     expect(homeCardCount).toBeLessThanOrEqual(subtitleCount);
+  });
+
+  test('requests browser GPS only after Use my location is activated', async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["geolocation"]);
+    await context.setGeolocation(LA_JOLLA);
+    await page.addInitScript(installGeolocationRequestCounter);
+
+    await page.goto('/', { waitUntil: 'domcontentloaded' });
+
+    const hero = page.locator('section[role="banner"]');
+    await expect(hero).toBeVisible({ timeout: 20_000 });
+
+    const useMyLocation = page.getByRole('button', {
+      name: 'Use my location',
+    });
+    await expect(useMyLocation).toBeVisible();
+    expect(await readGeolocationRequestCount(page)).toBe(0);
+
+    const gpsDiscoveryRequest = page.waitForRequest((request) => {
+      const url = new URL(request.url());
+      return (
+        url.pathname === '/api/surf/discover' &&
+        url.searchParams.get('lat') === LA_JOLLA.latitude.toString() &&
+        url.searchParams.get('lon') === LA_JOLLA.longitude.toString()
+      );
+    });
+
+    await useMyLocation.click();
+    await gpsDiscoveryRequest;
+
+    await expect
+      .poll(() => readGeolocationRequestCount(page))
+      .toBe(1);
+    await expect(useMyLocation).toHaveCount(0);
   });
 });
