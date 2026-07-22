@@ -15,6 +15,7 @@ import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 const TEST_BEACH_ID = "33333333-3333-3333-3333-333333333333";
 const TEST_USER_ID = "44444444-4444-4444-4444-444444444444";
 
+// eslint-disable-next-line jest/no-disabled-tests -- Requires the intentionally deferred local migration-replay repair documented above.
 describe.skip("finalize_anon_alert_capture RPC", () => {
   // To re-enable: ensure local supabase db reset succeeds, regenerate types,
   // and remove the .skip. The body below mirrors the plan's Task 18 spec.
