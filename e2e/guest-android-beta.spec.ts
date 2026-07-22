@@ -61,21 +61,34 @@ test.describe("Android beta page", () => {
     });
   });
 
-  test("keeps beta access ungated and confirms optional email capture", async ({
+  test("requires the Google account email before the beta handoff", async ({
     page,
   }) => {
     const capturedLeadEmails: string[] = [];
+    let capturedBrowserSessionId: string | null = null;
     let groupClickTracked = false;
     let playClickTracked = false;
 
     await page.route("**/api/android-beta/leads", async (route) => {
       const body = route.request().postDataJSON() as {
         email?: string;
+        sessionId?: string;
         source?: string;
         surface?: string;
         placement?: string;
       };
       expect(body.email).toMatch(/^(surfer|corrected)@example\.com$/);
+      expect(body.sessionId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
+      if (!body.sessionId) {
+        throw new Error("Android beta lead is missing a browser session ID");
+      }
+      if (capturedBrowserSessionId) {
+        expect(body.sessionId).toBe(capturedBrowserSessionId);
+      } else {
+        capturedBrowserSessionId = body.sessionId;
+      }
       expect(body.source).toBe("android_beta_page");
       expect(body.surface).toBe("android_beta");
       expect(body.placement).toBe("hero_email_capture");
@@ -89,6 +102,7 @@ test.describe("Android beta page", () => {
     await page.route("**/api/events", async (route) => {
       const body = route.request().postDataJSON() as {
         eventType?: string;
+        sessionId?: string;
         metadata?: {
           cta_family?: string;
           destination_type?: string;
@@ -100,6 +114,7 @@ test.describe("Android beta page", () => {
         body.metadata?.cta_family === "android_waitlist" &&
         body.metadata.source === "android_beta_page"
       ) {
+        expect(body.sessionId).toBe(capturedBrowserSessionId);
         if (body.metadata.destination_type === "google_group") {
           groupClickTracked = true;
         }
@@ -129,7 +144,40 @@ test.describe("Android beta page", () => {
     await expect(page.getByText(/personalized surf decisions/i)).toBeVisible();
     await expect(page.getByText(/279\+ beaches/i)).toBeVisible();
     await expect(page.getByText(/shape android quality/i)).toBeVisible();
-    await expect(page.getByText(/free year|year of quiver pro/i)).toHaveCount(0);
+    await expect(page.getByText(/free year|year of quiver pro/i)).toHaveCount(
+      0,
+    );
+    await expect(
+      page.getByRole("button", { name: /join the tester group/i }),
+    ).toBeVisible();
+    await expect(page.getByTestId("android-beta-qr-locked")).toBeVisible();
+    await page.getByRole("button", { name: /join the tester group/i }).click();
+    await expect(page.locator("#android-beta-email-error")).toContainText(
+      /google account email.*unlock the beta handoff/i,
+    );
+    await page
+      .getByLabel(/google account email.*required/i)
+      .fill("SURFER@example.com");
+    await page
+      .getByRole("button", { name: /save email and unlock beta/i })
+      .click();
+
+    await expect(page.getByRole("status")).toContainText(
+      /saved surfer@example\.com/i,
+    );
+    await page.getByRole("button", { name: /use a different email/i }).click();
+    await expect(
+      page.getByRole("button", { name: /join the tester group/i }),
+    ).toBeVisible();
+    await page
+      .getByLabel(/google account email.*required/i)
+      .fill("corrected@example.com");
+    await page
+      .getByRole("button", { name: /save email and unlock beta/i })
+      .click();
+    await expect(page.getByRole("status")).toContainText(
+      /saved corrected@example\.com/i,
+    );
     await expect(
       page.getByRole("link", { name: /join the tester group/i }),
     ).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
@@ -141,31 +189,6 @@ test.describe("Android beta page", () => {
       page,
       /already joined.*open google play/i,
     );
-    await page
-      .getByLabel(/email is optional/i)
-      .fill("SURFER@example.com");
-    await page.getByRole("button", { name: /send me beta updates/i }).click();
-
-    await expect(page.getByRole("status")).toContainText(
-      /saved surfer@example\.com/i,
-    );
-    await page.getByRole("button", { name: /use a different email/i }).click();
-    await expect(
-      page.getByRole("link", { name: /join the tester group/i }),
-    ).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
-    await page
-      .getByLabel(/email is optional/i)
-      .fill("corrected@example.com");
-    await page.getByRole("button", { name: /send me beta updates/i }).click();
-    await expect(page.getByRole("status")).toContainText(
-      /saved corrected@example\.com/i,
-    );
-    await expect(
-      page.getByRole("link", { name: /join the tester group/i }),
-    ).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
-    await expect(
-      page.getByRole("link", { name: /already joined.*open google play/i }),
-    ).toHaveAttribute("href", ANDROID_BETA_PLAY_URL ?? "");
     await expect(
       page.getByRole("link", {
         name: new RegExp(`email ${ANDROID_BETA_CONTACT_EMAIL}`, "i"),

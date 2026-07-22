@@ -68,18 +68,21 @@ describe("POST /api/android-beta/leads", () => {
     });
     mockResetEqEmail.mockReturnValue({ eq: mockResetEqClaimedAt });
     mockResetEqClaimedAt.mockResolvedValue({ error: null });
-    mockUpdate.mockImplementation((payload: { instructions_sent_at?: string | null }) => {
-      if (payload.instructions_sent_at === null) {
-        return { eq: mockResetEqEmail };
-      }
+    mockUpdate.mockImplementation(
+      (payload: { instructions_sent_at?: string | null }) => {
+        if (payload.instructions_sent_at === null) {
+          return { eq: mockResetEqEmail };
+        }
 
-      return { eq: mockClaimEq };
-    });
+        return { eq: mockClaimEq };
+      },
+    );
     mockInsert.mockResolvedValue({ error: null });
   });
 
   it("normalizes and stores a new Android beta lead", async () => {
-    const { sendAndroidBetaInstructionsEmail } = await import("@/lib/mailer/android-beta");
+    const { sendAndroidBetaInstructionsEmail } =
+      await import("@/lib/mailer/android-beta");
     const { POST } = await import("@/app/api/android-beta/leads/route");
 
     const response = await POST(
@@ -103,10 +106,13 @@ describe("POST /api/android-beta/leads", () => {
         source: "features-hero-android-waitlist",
         surface: "features-page",
         placement: "hero_secondary",
+        session_id: "00000000-0000-4000-8000-000000000001",
       },
       { onConflict: "email" },
     );
-    expect(sendAndroidBetaInstructionsEmail).toHaveBeenCalledWith("surfer@example.com");
+    expect(sendAndroidBetaInstructionsEmail).toHaveBeenCalledWith(
+      "surfer@example.com",
+    );
     expect(mockUpdate).toHaveBeenCalledWith({
       instructions_sent_at: expect.any(String),
     });
@@ -135,7 +141,8 @@ describe("POST /api/android-beta/leads", () => {
       data: null,
       error: null,
     });
-    const { sendAndroidBetaInstructionsEmail } = await import("@/lib/mailer/android-beta");
+    const { sendAndroidBetaInstructionsEmail } =
+      await import("@/lib/mailer/android-beta");
     const { POST } = await import("@/app/api/android-beta/leads/route");
 
     const response = await POST(
@@ -147,6 +154,15 @@ describe("POST /api/android-beta/leads", () => {
       }),
     );
 
+    expect(mockUpsert).toHaveBeenCalledWith(
+      {
+        email: "surfer@example.com",
+        source: "features-hero-android-waitlist",
+        surface: "features-page",
+        placement: "hero_secondary",
+      },
+      { onConflict: "email" },
+    );
     await expect(response.json()).resolves.toEqual({
       success: true,
       emailSent: false,

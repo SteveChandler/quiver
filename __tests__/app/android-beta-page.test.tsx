@@ -44,7 +44,9 @@ describe("AndroidBetaPage", () => {
   it("leads with current product value without promising a tester incentive", () => {
     const { container } = render(<AndroidBetaPage />);
 
-    expect(screen.getByText(/personalized surf decisions/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/personalized surf decisions/i),
+    ).toBeInTheDocument();
     expect(screen.getByText(/279\+ beaches/i)).toBeInTheDocument();
     expect(screen.getByText(/session logging/i)).toBeInTheDocument();
     expect(screen.getByText(/saved spots.*alerts/i)).toBeInTheDocument();
@@ -55,30 +57,40 @@ describe("AndroidBetaPage", () => {
     expect(pageText).not.toMatch(/founding pric|queue priority|waitlist/i);
   });
 
-  it("keeps the closed-beta links available before and after optional email capture", async () => {
+  it("requires the Google account email before unlocking closed-beta handoff links", async () => {
     const user = userEvent.setup();
     render(<AndroidBetaPage />);
 
     expect(
       screen.getByRole("heading", { name: /join the quiver android beta/i }),
     ).toBeInTheDocument();
-    const initialGroupLink = screen.getByRole("link", {
+    const initialGroupLink = screen.getByRole("button", {
       name: /join the tester group/i,
     });
-    const initialPlayLink = screen.getByRole("link", {
+    const initialPlayLink = screen.getByRole("button", {
       name: /already joined.*open google play/i,
     });
-    expect(initialGroupLink).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
-    expect(initialPlayLink).toHaveAttribute("href", ANDROID_BETA_PLAY_URL ?? "");
     expect(
-      screen.getByText(/^email is optional — get beta updates$/i),
+      screen.getByText(/^google account email — required for beta access$/i),
     ).toBeInTheDocument();
+    expect(screen.getByTestId("android-beta-qr-locked")).toBeInTheDocument();
+
+    await user.click(initialGroupLink);
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      "/api/events",
+      expect.anything(),
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      /google account email.*unlock the beta handoff/i,
+    );
 
     await user.type(
-      screen.getByLabelText(/email is optional/i),
+      screen.getByLabelText(/google account email.*required/i),
       "SURFER@example.com",
     );
-    await user.click(screen.getByRole("button", { name: /send me beta updates/i }));
+    await user.click(
+      screen.getByRole("button", { name: /save email and unlock beta/i }),
+    );
 
     expect(global.fetch).toHaveBeenCalledWith(
       "/api/android-beta/leads",
@@ -102,20 +114,27 @@ describe("AndroidBetaPage", () => {
     expect(screen.getByRole("status")).toHaveTextContent(
       /saved surfer@example\.com/i,
     );
+    expect(screen.getByTestId("android-beta-qr")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("android-beta-qr-locked"),
+    ).not.toBeInTheDocument();
 
     await user.click(
       screen.getByRole("button", { name: /use a different email/i }),
     );
+    expect(screen.getByTestId("android-beta-qr-locked")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /join the tester group/i }),
-    ).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
-    const emailInput = screen.getByLabelText(/email is optional/i);
+      screen.getByRole("button", { name: /join the tester group/i }),
+    ).toBeInTheDocument();
+    const emailInput = screen.getByLabelText(/google account email.*required/i);
     expect(emailInput).toHaveValue("SURFER@example.com");
 
     jest.clearAllMocks();
     await user.clear(emailInput);
     await user.type(emailInput, "corrected@example.com");
-    await user.click(screen.getByRole("button", { name: /send me beta updates/i }));
+    await user.click(
+      screen.getByRole("button", { name: /save email and unlock beta/i }),
+    );
     expect(global.fetch).toHaveBeenCalledWith(
       "/api/android-beta/leads",
       expect.objectContaining({

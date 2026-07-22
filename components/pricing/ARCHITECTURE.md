@@ -15,8 +15,8 @@ Pricing components render the public `/plans` native-app availability surface. T
 - Do not render public prices, checkout links, or purchase availability.
 - Do not imply App Store and web purchases are interchangeable.
 - Pre-auth signup analytics must only fire for anonymous users.
-- Email capture on `/android-beta` is optional and never gates the Google Group
-  or Play opt-in links.
+- The Google account email on `/android-beta` is required before the Google
+  Group, Play opt-in, or QR handoff links unlock.
 - The plans page can use Quiver sticker-sheet assets for zine texture, but
   those visuals must stay decorative and must not introduce pricing or checkout
   claims before RevenueCat Web Billing is verified.
@@ -31,9 +31,9 @@ Pricing components render the public `/plans` native-app availability surface. T
   routing anonymous and authenticated visitors to `/android-beta` with source,
   surface, placement, auth-state, and destination analytics.
 - `/android-beta` owns the ordered Google Group → Play opt-in → install
-  instructions and optional email capture. Existing profile/lead records remain
-  available for prior enrollment fulfillment, but they do not control access
-  to the handoff links.
+  instructions and required Google-account email capture. Existing profile/lead
+  records remain available for prior enrollment fulfillment, while new handoffs
+  are tied to the captured visitor session.
 - Public Android acquisition copy leads with current product value and does not
   promise free Pro, founding pricing, or queue priority. Earlier incentive
   eligibility is handled through
