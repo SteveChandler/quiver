@@ -10,6 +10,7 @@ import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { expectConsoleWarnings } from "@/__tests__/setup/test-utils";
 import type { Beach } from "@/types/database";
 import { notFound, redirect } from "next/navigation";
+import { renderToStaticMarkup } from "react-dom/server";
 
 // Mock React's cache function for server components
 jest.mock("react", () => ({
@@ -92,7 +93,12 @@ jest.mock("@/components/beach-detail/related-guides-section", () => ({
 }));
 
 jest.mock("@/components/beach-detail/beach-prose-summary", () => ({
-  BeachProseSummary: () => null,
+  BeachProseSummary: () =>
+    jest.requireActual("react").createElement(
+      "section",
+      { "data-testid": "beach-prose-summary" },
+      "Surf report snapshot",
+    ),
 }));
 
 jest.mock("@/components/beach-detail/optimal-conditions-section", () => ({
@@ -236,6 +242,57 @@ describe("GenericBeachDetailPage slug resolution", () => {
 
     expect(notFound).not.toHaveBeenCalled();
     expect(getNearbyBeaches).not.toHaveBeenCalled();
+  });
+
+  it("removes the Doheny snapshot while preserving its supporting guide links", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [
+        makeBeach({
+          id: "doheny",
+          name: "Doheny Beach",
+          slug: "doheny",
+          city: "Dana Point",
+        }),
+      ],
+    });
+
+    const page = await GenericBeachDetailPage({
+      params: Promise.resolve({
+        intent: "ca",
+        city: "dana-point",
+        beachSlug: "doheny",
+      }),
+    });
+    const html = renderToStaticMarkup(page);
+
+    expect(html).not.toContain("Surf report snapshot");
+    expect(html).toContain("Doheny Beach tide chart");
+    expect(html).toContain("Doheny Beach water temperature");
+  });
+
+  it("keeps the snapshot on other beach pages", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [
+        makeBeach({
+          id: "lower-trestles",
+          name: "Lower Trestles",
+          slug: "lower-trestles",
+          city: "San Clemente",
+        }),
+      ],
+    });
+
+    const page = await GenericBeachDetailPage({
+      params: Promise.resolve({
+        intent: "ca",
+        city: "san-clemente",
+        beachSlug: "lower-trestles",
+      }),
+    });
+
+    expect(renderToStaticMarkup(page)).toContain("Surf report snapshot");
   });
 
   it("redirects stale city slugs to the canonical beach URL", async () => {
