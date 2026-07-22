@@ -86,7 +86,8 @@ import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
 import { evaluateCityEditorialIndexability } from "@/lib/seo/indexability";
 import { ReviewedCityEditorialSection } from "@/components/seo/reviewed-city-editorial-section";
 
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 /**
  * Try to resolve a city slug with automatic state suffix detection.
@@ -197,7 +198,7 @@ const STATE_INTENT_SLUG_ALIASES: Record<string, string> = {
 /** Intents that may return zero beaches and should noindex at state level when empty */
 const NOINDEX_WHEN_EMPTY_INTENTS = new Set(["beginner", "longboard", "least-crowded"]);
 
-// NOTE: generateStaticParams not used — pages are rendered on-demand with ISR (revalidate = 3600).
+// NOTE: generateStaticParams is not used; hold-sensitive pages render on demand.
 // State-level routes (e.g., /beginner/ca) are handled by the dynamic catch-all.
 
 interface IntentPageParams {

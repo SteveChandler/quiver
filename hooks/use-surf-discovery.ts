@@ -4,11 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "@/context/auth-context";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import {
-  CACHE_KEY_PREFIX,
+  clearDiscoveryRecommendationCache,
   hashDiscoveryOptions,
-  readFromCache,
-  writeToCache,
-  type CachedDiscoveryData,
 } from "@/lib/utils/discovery-cache-utils";
 import type { SurfDiscoveryResponse, TimeSlot } from "@/types/personalization";
 
@@ -26,7 +23,7 @@ interface UseSurfDiscoveryOptions {
   maxResults?: number;
   /** Filter windows to specific time of day (default: 'any') */
   timeSlot?: TimeSlot;
-  /** User's skill level — included in cache key so changes invalidate cache */
+  /** User's skill level — changes trigger a fresh policy-gated request. */
   userSkillLevel?: string | null;
   /** Whether the hook is enabled (default: true) */
   enabled?: boolean;
@@ -52,18 +49,19 @@ interface UseSurfDiscoveryReturn {
   refetch: () => Promise<SurfDiscoveryResponse | undefined>;
   /** Convenience helper: true if recommendations exist, false otherwise */
   hasRecommendations: boolean;
-  /** Whether the current data is from cache */
+  /** Compatibility field; recommendation responses are never cached. */
   isCached: boolean;
-  /** Clear the cache and refetch fresh data */
+  /** Remove any pre-migration entries and refetch fresh data. */
   clearCacheAndRefetch: () => Promise<void>;
 }
 
 /**
- * Hook for discovering ranked surf spot recommendations with localStorage caching
+ * Hook for discovering ranked surf spot recommendations.
  *
  * Fetches multiple surf spot recommendations ranked by current conditions,
- * user preferences, beach metadata, and familiarity. Results are cached in
- * localStorage for 30 minutes to improve page load performance.
+ * user preferences, beach metadata, and familiarity. Recommendation responses
+ * are intentionally never persisted because a newly active safety hold must
+ * take precedence over every prior positive response.
  *
  * @param options - Configuration options for the hook
  * @returns Discovery data with loading and error states
@@ -71,7 +69,7 @@ interface UseSurfDiscoveryReturn {
  * @example
  * ```tsx
  * function DiscoverPage() {
- *   const { discovery, loading, error, refetch, isCached, clearCacheAndRefetch } = useSurfDiscovery({
+ *   const { discovery, loading, error, clearCacheAndRefetch } = useSurfDiscovery({
  *     maxResults: 5,
  *     immediate: true,
  *     enabled: true,
@@ -80,7 +78,7 @@ interface UseSurfDiscoveryReturn {
  *   // Pull-to-refresh should call clearCacheAndRefetch()
  *   const handleRefresh = () => clearCacheAndRefetch();
  *
- *   if (loading && !isCached) return <div>Finding the best spots...</div>;
+ *   if (loading) return <div>Finding the best spots...</div>;
  *   if (error) return <div>Error: {error}</div>;
  *   if (!discovery || discovery.recommendations.length === 0) {
  *     return <div>No surf spots found</div>;
@@ -88,7 +86,6 @@ interface UseSurfDiscoveryReturn {
  *
  *   return (
  *     <div>
- *       {isCached && <span>Updated {timeSince(discovery.metadata.generated_at)}</span>}
  *       {discovery.recommendations.map((rec) => (
  *         <div key={rec.beach.id}>
  *           <h3>{rec.beach.name}</h3>
@@ -117,10 +114,6 @@ export function useSurfDiscovery(
   } = options;
   const { user } = useAuth();
 
-  const [cachedData, setCachedData] = useState<CachedDiscoveryData | null>(null);
-  const [isCached, setIsCached] = useState(false);
-  const prevCacheKeyRef = useRef<string | null>(null);
-
   const userLat = userLocation?.lat;
   const userLon = userLocation?.lon;
 
@@ -139,40 +132,11 @@ export function useSurfDiscovery(
     });
   }, [userLat, userLon, radiusMiles, horizonHours, maxResults, timeSlot, userSkillLevel]);
 
-  // Generate cache key for this user + options combination
-  const cacheKey = useMemo(() => {
-    if (!user?.id) return null;
-    return `${CACHE_KEY_PREFIX}${user.id}_${optionsHash}`;
-  }, [user?.id, optionsHash]);
-
-  // If the cache key changes (e.g. location/options change), ensure we don't keep using
-  // cached data from a previous key. This also allows `useDataFetcher` to re-run when
-  // `immediate` toggles back to true (because `cachedData` becomes null).
-  // Also track if this is a change (not initial mount) to trigger refetch.
-  const isInitialMountRef = useRef(true);
+  // One-time migration: discard every old persisted recommendation response.
+  // Other localStorage namespaces contain objective/user data and are untouched.
   useEffect(() => {
-    if (prevCacheKeyRef.current !== cacheKey) {
-      setCachedData(null);
-      setIsCached(false);
-      prevCacheKeyRef.current = cacheKey;
-    }
-    // After initial mount, mark as no longer initial
-    if (isInitialMountRef.current) {
-      isInitialMountRef.current = false;
-    }
-  }, [cacheKey]);
-
-  // Load cached data on mount (uses shared utility that handles Date restoration)
-  useEffect(() => {
-    if (typeof window === "undefined" || !user?.id || !enabled) return;
-    if (!cacheKey) return;
-
-    const cached = readFromCache(cacheKey);
-    if (cached) {
-      setCachedData(cached);
-      setIsCached(true);
-    }
-  }, [user?.id, enabled, cacheKey]);
+    clearDiscoveryRecommendationCache();
+  }, []);
 
   // Memoized fetch function to discover surf spots
   const fetchSurfDiscovery = useCallback(async () => {
@@ -214,6 +178,7 @@ export function useSurfDiscovery(
         "Content-Type": "application/json",
       },
       credentials: "include",
+      cache: "no-store",
     });
 
     if (!response.ok) {
@@ -238,19 +203,28 @@ export function useSurfDiscovery(
     }
 
     const discoveryData = result.data as SurfDiscoveryResponse;
-
-    // Save to localStorage cache using shared utility.
-    // Don't cache empty responses — otherwise a transient empty result
-    // (cold start, auth blip, deploy flip) poisons the cache for up to
-    // 30 min and the UI keeps rendering phantom zeros even after the
-    // server recovers.
-    const hasResults = (discoveryData?.recommendations?.length ?? 0) > 0;
-    if (cacheKey && hasResults) {
-      writeToCache(cacheKey, discoveryData, optionsHash);
+    if (discoveryData?.recommendationAvailability?.state !== "none") {
+      return discoveryData;
     }
 
-    setIsCached(false);
-    return discoveryData;
+    return {
+      ...discoveryData,
+      recommendations: [],
+      includedRecommendations: discoveryData.includedRecommendations ? [] : undefined,
+      recommendationsV2: discoveryData.recommendationsV2
+        ? {
+            ...discoveryData.recommendationsV2,
+            state: "no_good_window" as const,
+            hero: null,
+            items: [],
+            watch_window: null,
+            empty_state: { title: null, body: null, action_label: null },
+          }
+        : undefined,
+      regionalCall: "",
+      eveningTransition: undefined,
+      lockedBestSpotTeaser: null,
+    };
   }, [
     user,
     userLat,
@@ -259,60 +233,165 @@ export function useSurfDiscovery(
     horizonHours,
     maxResults,
     timeSlot,
-    cacheKey,
-    optionsHash,
   ]);
 
+  // Keep the data-fetcher callback stable so option changes are handled by the
+  // guarded, fail-closed debounce below instead of triggering a second request.
+  const fetchSurfDiscoveryRef = useRef(fetchSurfDiscovery);
+  fetchSurfDiscoveryRef.current = fetchSurfDiscovery;
+  const executeSurfDiscovery = useCallback(
+    () => fetchSurfDiscoveryRef.current(),
+    [],
+  );
+
   // Use standard data fetcher pattern
-  // Skip initial fetch if we have valid cached data
-  const { data: freshData, loading, error, refetch } = useDataFetcher(
-    fetchSurfDiscovery,
+  const {
+    data: freshData,
+    loading,
+    error,
+    refetch,
+    reset,
+  } = useDataFetcher(
+    executeSurfDiscovery,
     {
-      immediate: immediate && enabled && !!user && !cachedData,
-      skip: !enabled || !user,
+      immediate: immediate && enabled && !!user,
+      skip: !enabled || !immediate || !user,
       onSuccess,
       onError,
     }
   );
 
+  const refreshDiscovery = useCallback(async () => {
+    reset();
+    return refetch();
+  }, [refetch, reset]);
+
+  const currentUserId = user?.id ?? null;
+  const previousUserIdRef = useRef(currentUserId);
+  useEffect(() => {
+    const previousUserId = previousUserIdRef.current;
+    previousUserIdRef.current = currentUserId;
+    if (
+      previousUserId === currentUserId ||
+      previousUserId === null ||
+      currentUserId === null ||
+      !enabled ||
+      !immediate
+    ) {
+      return;
+    }
+    void refreshDiscovery();
+  }, [currentUserId, enabled, immediate, refreshDiscovery]);
+
+  const resumeRevalidationRef = useRef<Promise<unknown> | null>(null);
+  const resumeRevalidationQueuedRef = useRef(false);
+  const [resumeRevalidationPending, setResumeRevalidationPending] =
+    useState(false);
+
+  const startResumeRevalidation = useCallback(() => {
+    if (
+      !enabled ||
+      !immediate ||
+      !user ||
+      loading ||
+      resumeRevalidationRef.current
+    ) {
+      return;
+    }
+
+    resumeRevalidationQueuedRef.current = false;
+    setResumeRevalidationPending(true);
+    const pending = refreshDiscovery();
+    resumeRevalidationRef.current = pending;
+    const settle = () => {
+      if (resumeRevalidationRef.current !== pending) return;
+      resumeRevalidationRef.current = null;
+      if (!resumeRevalidationQueuedRef.current) {
+        setResumeRevalidationPending(false);
+      }
+    };
+    void pending.then(settle, settle);
+  }, [enabled, immediate, loading, refreshDiscovery, user]);
+
+  const revalidateOnResume = useCallback(() => {
+    if (!enabled || !immediate || !user) return;
+
+    setResumeRevalidationPending(true);
+    if (loading || resumeRevalidationRef.current) {
+      resumeRevalidationQueuedRef.current = true;
+      return;
+    }
+    startResumeRevalidation();
+  }, [enabled, immediate, loading, startResumeRevalidation, user]);
+
+  useEffect(() => {
+    if (!enabled || !immediate || !user) {
+      resumeRevalidationQueuedRef.current = false;
+      setResumeRevalidationPending(false);
+      return;
+    }
+    if (
+      !loading &&
+      resumeRevalidationQueuedRef.current &&
+      !resumeRevalidationRef.current
+    ) {
+      startResumeRevalidation();
+    }
+  }, [enabled, immediate, loading, startResumeRevalidation, user]);
+
+  useEffect(() => {
+    if (!enabled || !immediate || !user) return;
+
+    const handleFocus = () => revalidateOnResume();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        revalidateOnResume();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [enabled, immediate, revalidateOnResume, user]);
+
   // Refetch when options change (e.g., timeSlot) - debounced to prevent rapid clicks
   const prevOptionsHashRef = useRef(optionsHash);
   useEffect(() => {
-    // Skip if this is initial mount or options haven't changed
-    if (isInitialMountRef.current || prevOptionsHashRef.current === optionsHash) {
+    if (prevOptionsHashRef.current === optionsHash) {
       prevOptionsHashRef.current = optionsHash;
       return;
     }
     prevOptionsHashRef.current = optionsHash;
+    if (!enabled || !immediate || !user) return;
 
     // Debounce to prevent rapid time slot switching from hitting rate limits
+    reset();
     const timeoutId = setTimeout(() => {
-      refetch();
+      void refreshDiscovery();
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [optionsHash, refetch]);
+  }, [enabled, immediate, optionsHash, refreshDiscovery, reset, user]);
 
-  // Use cached data if available, otherwise use fresh data
-  const discovery = cachedData?.discovery || freshData;
+  const discovery = resumeRevalidationPending ? null : freshData;
 
-  // Clear cache and refetch (for pull-to-refresh)
+  // Preserve the existing pull-to-refresh interface while ensuring any
+  // pre-migration entries are removed before the fresh request.
   const clearCacheAndRefetch = useCallback(async () => {
-    if (cacheKey) {
-      localStorage.removeItem(cacheKey);
-    }
-    setCachedData(null);
-    setIsCached(false);
-    await refetch();
-  }, [cacheKey, refetch]);
+    clearDiscoveryRecommendationCache();
+    await refreshDiscovery();
+  }, [refreshDiscovery]);
 
   return {
     discovery: discovery ?? null,
-    loading: loading && !cachedData,
+    loading: loading || resumeRevalidationPending,
     error,
-    refetch,
+    refetch: refreshDiscovery,
     hasRecommendations: discovery !== null && discovery.recommendations.length > 0,
-    isCached,
+    isCached: false,
     clearCacheAndRefetch,
   };
 }

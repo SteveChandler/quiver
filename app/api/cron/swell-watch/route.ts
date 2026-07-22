@@ -278,7 +278,6 @@ async function sendSwellWatchEmail(input: {
     userId: input.profile.id,
     emailType: EMAIL_TYPE,
     subject,
-    bestBeachId: input.beach.id,
     resendMessageId: sendData?.id,
     meta: {
       beach_name: input.beach.name,

@@ -24,8 +24,21 @@ import {
 import { applyV51DisplayOverrideToForecasts } from '@/lib/services/forecast/v5-display-gate';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { resolveTodayHeadline } from '@/lib/services/forecast/today-headline';
+import {
+  sanitizeSurfCallForMajorEventHold,
+  type AuthorizedSurfCallTier,
+  type MajorEventHoldSurfCallResult,
+} from '@/lib/recommendations/major-event-hold/adapters/surf-call';
+import { evaluateMajorEventHoldCandidates } from '@/lib/recommendations/major-event-hold/service';
+import type { MajorEventHoldCandidate } from '@/lib/recommendations/major-event-hold/types';
 
 export interface SpotSurfReportResult {
+  report: MajorEventHoldSurfCallResult;
+  isTomorrow: boolean;
+  forecastContext: ForecastRecommendationContext | null;
+}
+
+interface CachedSpotSurfReportResult {
   report: SurfCallResult;
   isTomorrow: boolean;
   forecastContext: ForecastRecommendationContext | null;
@@ -34,6 +47,130 @@ export interface SpotSurfReportResult {
 export interface SpotSurfReportAuthContext {
   user: User;
   supabase: SupabaseClient<Database>;
+}
+
+const NO_POSITIVE_SURF_CALL_HOLD_EPOCH = 'no-positive-surf-call';
+
+function authorizedSurfCallTier(
+  profileExperience: SkillLevel | null,
+): AuthorizedSurfCallTier {
+  if (profileExperience === 'beginner') return 'beginner';
+  if (profileExperience === 'intermediate') return 'intermediate';
+  if (profileExperience === 'advanced' || profileExperience === 'expert') {
+    return 'advanced';
+  }
+  return null;
+}
+
+function surfCallCandidate(
+  report: SurfCallResult,
+  beachId: string,
+): MajorEventHoldCandidate | null {
+  if (
+    typeof report.bestWindowStart !== 'string' ||
+    typeof report.bestWindowEnd !== 'string'
+  ) {
+    return null;
+  }
+  return {
+    candidateId:
+      `surf-call:${beachId}:${report.bestWindowStart}:${report.bestWindowEnd}`,
+    beachId,
+    startsAt: report.bestWindowStart,
+    endsAt: report.bestWindowEnd,
+  };
+}
+
+function hasPositiveSurfCallSemantics(report: SurfCallResult): boolean {
+  if (report.bestWindowStart !== null || report.bestWindowEnd !== null) {
+    return true;
+  }
+  if (report.verdict !== 'NO') return true;
+  if (!report.tiers) return false;
+  return Object.values(report.tiers).some(({ verdict }) => verdict !== 'NO');
+}
+
+function unavailableUnboundSurfCall(
+  report: SurfCallResult,
+): MajorEventHoldSurfCallResult {
+  return {
+    ...report,
+    verdict: 'NO',
+    bestWindowStart: null,
+    bestWindowEnd: null,
+    windowMinutes: null,
+    shortWindow: false,
+    whySentence: '',
+    score: 0,
+    peakTime: null,
+    trendTags: [],
+    character: null,
+    tiers: null,
+    recommendationAvailability: {
+      state: 'none',
+      reasonCode: 'hold_state_unavailable',
+      holdEpoch: 'hold-state-unavailable',
+    },
+  };
+}
+
+function availableNonPositiveSurfCall(
+  report: SurfCallResult,
+): MajorEventHoldSurfCallResult {
+  return {
+    ...report,
+    recommendationAvailability: {
+      state: 'available',
+      holdEpoch: NO_POSITIVE_SURF_CALL_HOLD_EPOCH,
+    },
+  };
+}
+
+async function applySurfCallMajorEventHold(
+  result: CachedSpotSurfReportResult,
+  beachId: string,
+  profileExperience: SkillLevel | null,
+  authorizedTier: AuthorizedSurfCallTier,
+): Promise<SpotSurfReportResult> {
+  const candidate = surfCallCandidate(result.report, beachId);
+  if (!candidate) {
+    const report = hasPositiveSurfCallSemantics(result.report)
+      ? unavailableUnboundSurfCall(result.report)
+      : availableNonPositiveSurfCall(result.report);
+    return {
+      ...result,
+      report,
+      forecastContext:
+        report.recommendationAvailability.state === 'none'
+          ? null
+          : result.forecastContext,
+    };
+  }
+
+  const candidates = [candidate];
+  const decisions = await evaluateMajorEventHoldCandidates({
+    candidates,
+    profileExperience,
+  });
+  const report = sanitizeSurfCallForMajorEventHold(
+    result.report,
+    {
+      candidateId: candidate.candidateId,
+      beachId,
+      authorizedTier,
+    },
+    candidates,
+    decisions,
+  );
+
+  return {
+    ...result,
+    report,
+    forecastContext:
+      report.recommendationAvailability.state === 'none'
+        ? null
+        : result.forecastContext,
+  };
 }
 
 interface BuildReportOptions {
@@ -114,7 +251,7 @@ export async function getSpotSurfReportPublic(beach: Beach): Promise<SpotSurfRep
   if (!beach.id) return null;
 
   try {
-    return await getCachedSurfReport(
+    const cached = await getCachedSurfReport(
       beach.id,
       canonicalizeBeachForSurfCall(beach),
       'anonymous',
@@ -123,6 +260,9 @@ export async function getSpotSurfReportPublic(beach: Beach): Promise<SpotSurfRep
       null,
       null
     );
+    return cached
+      ? await applySurfCallMajorEventHold(cached, beach.id, null, null)
+      : null;
   } catch (error) {
     console.error('[getSpotSurfReportPublic] Error:', {
       beachId: beach.id,
@@ -166,7 +306,7 @@ export async function getSpotSurfReport(
     // Generate stable preference key for cache (avoids object serialization issues)
     const prefsKey = getPrefsKey(userPrefs);
 
-    return await getCachedSurfReport(
+    const cached = await getCachedSurfReport(
       beach.id,
       canonicalizeBeachForSurfCall(beach),
       userId,
@@ -175,6 +315,14 @@ export async function getSpotSurfReport(
       userPrefs,
       userSkillLevel
     );
+    return cached
+      ? await applySurfCallMajorEventHold(
+          cached,
+          beach.id,
+          userSkillLevel,
+          authorizedSurfCallTier(userSkillLevel),
+        )
+      : null;
   } catch (error) {
     console.error('[getSpotSurfReport] Error:', {
       beachId: beach.id,
@@ -323,7 +471,7 @@ const getCachedSurfReport = unstable_cache(
     boardClass: BoardClass | null,
     userPrefs: UserSurfPreferences | null,
     userSkillLevel: SkillLevel | null
-  ): Promise<SpotSurfReportResult | null> => {
+  ): Promise<CachedSpotSurfReportResult | null> => {
     const resolvedSkillForBoard = boardClass
       ? resolveVerdictSkill(userSkillLevel, boardClass)
       : null;

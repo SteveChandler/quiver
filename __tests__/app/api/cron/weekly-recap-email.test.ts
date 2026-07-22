@@ -13,6 +13,7 @@ import { computeBestDaysForUser } from "@/lib/alerts/best-days";
 
 const mockLogDelivery = jest.fn();
 const mockThrottle = jest.fn();
+const mockResolveNotificationMajorEventHold = jest.fn();
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   createSuccessResponse: jest.fn((data, status = 200) => ({
@@ -162,6 +163,14 @@ jest.mock("@/lib/alerts/best-days", () => ({
   computeBestDaysForUser: jest.fn(() => Promise.resolve([])),
 }));
 
+jest.mock(
+  "@/lib/recommendations/major-event-hold/adapters/notification",
+  () => ({
+    resolveNotificationMajorEventHold: (...args: unknown[]) =>
+      mockResolveNotificationMajorEventHold(...args),
+  })
+);
+
 type SessionRow = {
   id: string;
   user_id: string;
@@ -175,6 +184,7 @@ type ProfileRow = {
   id: string;
   email: string | null;
   display_name: string | null;
+  experience_level: string | null;
   notif_email_enabled: boolean;
 };
 
@@ -306,6 +316,10 @@ describe("weekly recap email cron route", () => {
       error: null,
     });
     (computeBestDaysForUser as jest.Mock).mockResolvedValue([]);
+    mockResolveNotificationMajorEventHold.mockResolvedValue({
+      status: "allowed",
+      candidate: null,
+    });
     consoleLogSpy = jest.spyOn(console, "log").mockImplementation(() => {});
     consoleErrorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
     consoleWarnSpy = jest.spyOn(console, "warn").mockImplementation(() => {});
@@ -409,6 +423,7 @@ describe("weekly recap email cron route", () => {
             id: "user-1",
             email: "surfer@example.com",
             display_name: "Test Surfer",
+            experience_level: "intermediate",
             notif_email_enabled: true,
           },
         ],
@@ -430,7 +445,7 @@ describe("weekly recap email cron route", () => {
 
     expect(response.status).toBe(200);
     expect(profilesQuery.select).toHaveBeenCalledWith(
-      "id, email, display_name, notif_email_enabled"
+      "id, email, display_name, experience_level, notif_email_enabled"
     );
     expect(profilesQuery.in).toHaveBeenCalledWith("id", ["user-1"]);
     expect(profilesQuery.eq).toHaveBeenCalledWith("notif_email_enabled", true);
@@ -484,5 +499,72 @@ describe("weekly recap email cron route", () => {
       },
     });
     expect(typeof data.data.summary.durationMs).toBe("number");
+  });
+
+  it("still sends the recap but omits unsafe best days when the hold policy blocks", async () => {
+    mockSupabaseQueries(
+      {
+        data: [
+          {
+            id: "session-1",
+            user_id: "user-1",
+            duration_minutes: 60,
+            beach_id: "beach-1",
+            beach_name: "Mission Beach",
+            beaches: { name: "Mission Beach" },
+          },
+        ],
+        error: null,
+      },
+      {
+        data: [
+          {
+            id: "user-1",
+            email: "surfer@example.com",
+            display_name: "Test Surfer",
+            experience_level: "beginner",
+            notif_email_enabled: true,
+          },
+        ],
+        error: null,
+      }
+    );
+    (computeBestDaysForUser as jest.Mock).mockResolvedValue([
+      {
+        beach_name: "Mission Beach",
+        score: 8.5,
+        label: "GOOD",
+        weekday: "Thursday",
+        time: "6am",
+      },
+    ]);
+    mockResolveNotificationMajorEventHold.mockResolvedValue({
+      status: "suppressed",
+      reasonCode: "hold_state_unavailable",
+      auditCode: "major_event_hold",
+      candidate: null,
+    });
+
+    const response = await GET(
+      new Request("http://localhost/api/cron/weekly-recap-email")
+    );
+
+    expect(response.status).toBe(200);
+    expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledWith({
+      eventId: "weekly-recap-email:user-1:best-days",
+      type: "similarity_match",
+      payload: null,
+      profileExperience: "beginner",
+    });
+    expect(mockThrottle.mock.invocationCallOrder[0]).toBeLessThan(
+      mockResolveNotificationMajorEventHold.mock.invocationCallOrder[0]
+    );
+    expect(WeeklyRecapEmail).toHaveBeenCalledWith(
+      expect.objectContaining({ bestDays: [] })
+    );
+    expect(resend.emails.send).toHaveBeenCalledTimes(1);
+    expect(mockResolveNotificationMajorEventHold.mock.invocationCallOrder[0]).toBeLessThan(
+      (resend.emails.send as jest.Mock).mock.invocationCallOrder[0]
+    );
   });
 });

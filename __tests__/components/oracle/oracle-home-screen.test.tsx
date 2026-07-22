@@ -610,6 +610,91 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByText(/We couldn't find any surf spots/i)).toBeInTheDocument();
   });
 
+  it("lets explicit none override stale hero, window, nearby, share, and action data", () => {
+    const { getLocalActivity } = jest.requireMock(
+      "@/actions/oracle-actions",
+    ) as { getLocalActivity: jest.Mock };
+    getLocalActivity.mockImplementationOnce(() => new Promise(() => {}));
+    mockOracleData = {
+      ...mockOracleData,
+      topRecommendation: MOCK_TOP_REC,
+      remainingSpots: [MOCK_HOME_REC],
+      discovery: {
+        ...mockOracleData.discovery!,
+        recommendations: [MOCK_TOP_REC, MOCK_HOME_REC],
+        recommendationAvailability: {
+          state: "none",
+          reasonCode: "major_event_hold",
+          holdEpoch: "hold-1:1",
+        },
+      },
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+    expect(screen.queryByText("Today's Windows")).not.toBeInTheDocument();
+    expect(screen.queryByText("Nearby Spots")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("home-session-intelligence-module")
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /paddle out/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /set alarm/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /share/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /try again/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Blacks Beach")).toBeVisible();
+    expect(screen.getByText("Session picks aren't available right now.")).toBeVisible();
+    expect(screen.queryByText(/low confidence|confidence/i)).not.toBeInTheDocument();
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it("does not inspect or sort stale recommendation rows after explicit none", () => {
+    const staleRecommendations = new Proxy(
+      [MOCK_TOP_REC, MOCK_HOME_REC],
+      {
+        get() {
+          throw new Error("held recommendation rows must not be inspected");
+        },
+      },
+    );
+    mockOracleData = {
+      ...mockOracleData,
+      homeBeach: null,
+      topRecommendation: MOCK_TOP_REC,
+      discovery: {
+        ...mockOracleData.discovery!,
+        recommendations: staleRecommendations,
+        recommendationAvailability: {
+          state: "none",
+          reasonCode: "major_event_hold",
+          holdEpoch: "hold-1:1",
+        },
+      },
+    } as unknown as OracleData;
+
+    expect(() => render(<OracleHomeScreen />)).not.toThrow();
+    expect(screen.getByText("Your Surf")).toBeVisible();
+    expect(screen.getByText("Session picks aren't available right now.")).toBeVisible();
+  });
+
+  it("preserves the ordinary hero when availability is explicitly available", () => {
+    mockOracleData = {
+      ...mockOracleData,
+      discovery: {
+        ...mockOracleData.discovery!,
+        recommendationAvailability: {
+          state: "available",
+          holdEpoch: "ordinary-1",
+        },
+      },
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(screen.getByText("Today's Windows")).toBeInTheDocument();
+  });
+
   it("shows the Set Home Beach CTA from the empty state when the user has no home beach", async () => {
     mockOracleData = {
       ...mockOracleData,

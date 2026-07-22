@@ -9,7 +9,10 @@ export const ADMIN_USER_IDS = [
 ] as const;
 
 // Matches Ruby AdminAuthenticationManagement functionality
-export interface AdminUser extends Omit<User, 'app_metadata' | 'user_metadata'> {
+export interface AdminUser extends Omit<
+  User,
+  "app_metadata" | "user_metadata"
+> {
   user_metadata?: {
     role?: string;
     is_admin?: boolean;
@@ -45,12 +48,9 @@ export function isAdmin(user: AdminUser | null): boolean {
     return true;
   }
 
-  // Check various sources for admin role
+  // Only app metadata is server-controlled; user metadata is user-editable.
   return (
-    user.user_metadata?.is_admin === true ||
-    user.app_metadata?.is_admin === true ||
-    user.user_metadata?.role === "admin" ||
-    user.app_metadata?.role === "admin"
+    user.app_metadata?.is_admin === true || user.app_metadata?.role === "admin"
   );
 }
 
@@ -95,7 +95,9 @@ export async function authenticateAdmin(): Promise<
  * TypeScript assertion function to narrow user type to AdminUser
  * Throws if user is null or not an admin
  */
-export function assertIsAdmin(user: AdminUser | null): asserts user is AdminUser {
+export function assertIsAdmin(
+  user: AdminUser | null,
+): asserts user is AdminUser {
   if (!user) {
     throw new UnauthorizedError("Authentication required");
   }
@@ -104,4 +106,3 @@ export function assertIsAdmin(user: AdminUser | null): asserts user is AdminUser
     throw new ForbiddenError("Admin access required");
   }
 }
-

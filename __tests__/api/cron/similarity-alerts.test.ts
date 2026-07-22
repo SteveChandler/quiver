@@ -46,6 +46,7 @@ jest.mock("@/lib/services/discovery/window-selector", () => ({
 
 const mockFrom = jest.fn();
 const mockRpc = jest.fn();
+const mockResolveNotificationMajorEventHold = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() =>
@@ -54,6 +55,10 @@ jest.mock("@/lib/supabase/server", () => ({
       rpc: (...args: unknown[]) => mockRpc(...args),
     }),
   ),
+}));
+jest.mock("@/lib/recommendations/major-event-hold/adapters/notification", () => ({
+  resolveNotificationMajorEventHold: (...args: unknown[]) =>
+    mockResolveNotificationMajorEventHold(...args),
 }));
 
 import { GET } from "@/app/api/cron/similarity-alerts/route";
@@ -142,6 +147,7 @@ function fromImpl(table: string) {
           id: p.id,
           home_beach_id: p.home_beach_id ?? null,
           timezone: p.timezone ?? null,
+          experience_level: p.experience_level ?? null,
         });
       }
       return chainOk(Array.from(profilesById.values()));
@@ -213,6 +219,7 @@ function seedActiveProUser(opts?: {
       id: USER_PRO,
       home_beach_id: HOME_BEACH,
       timezone: "America/Los_Angeles",
+      experience_level: "beginner",
       user_entitlements: {
         is_pro: true,
         is_trialing: false,
@@ -288,6 +295,10 @@ beforeEach(() => {
   // exercise the similarity-scoring path. Individual tests override this to
   // test the floor itself.
   mockScoreWindowWithComposite.mockReturnValue({ total: 75 });
+  mockResolveNotificationMajorEventHold.mockResolvedValue({
+    status: "allowed",
+    candidate: null,
+  });
 });
 
 afterEach(() => {
@@ -397,7 +408,61 @@ describe("similarity-alerts cron — Plan V4", () => {
       (c: any[]) => c[0] === "try_insert_similarity_alert",
     );
     expect(insertCalls).toHaveLength(1);
-    expect(insertCalls[0][1]).toMatchObject({ p_user_id: USER_PRO });
+    expect(insertCalls[0][1]).toMatchObject({
+      p_user_id: USER_PRO,
+      p_window_start: "2026-05-04T18:00:00Z",
+      p_window_end: "2026-05-04T19:00:00.000Z",
+    });
+    expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledWith({
+      eventId: `similarity-alerts:${USER_PRO}:${HOME_BEACH}:2026-05-04T18:00:00Z`,
+      type: "similarity_match",
+      payload: expect.objectContaining({
+        beach_id: HOME_BEACH,
+        forecast_at: "2026-05-04T18:00:00Z",
+        policy_context: {
+          kind: "positive_session_recommendation",
+          beach_id: HOME_BEACH,
+          starts_at: "2026-05-04T18:00:00Z",
+          ends_at: "2026-05-04T19:00:00.000Z",
+        },
+      }),
+      profileExperience: "beginner",
+    });
+  });
+
+  it("suppresses held or unresolved similarity picks before the queue RPC", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+    mockRpc.mockImplementation((name: string, args: any) => {
+      if (name === "compute_user_match_score_batch") {
+        return Promise.resolve({
+          data: [
+            {
+              slot_idx: 0,
+              forecast_at: "2026-05-04T18:00:00Z",
+              result: { state: "ready", score: 8.5, label: "GOOD" },
+            },
+          ],
+          error: null,
+        });
+      }
+      return rpcImpl(name, args);
+    });
+    mockResolveNotificationMajorEventHold.mockResolvedValueOnce({
+      status: "suppressed",
+      reasonCode: "major_event_hold",
+      auditCode: "major_event_hold",
+      candidate: null,
+    });
+
+    const res = await GET(makeReq());
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ enqueued: 0 });
+    expect(
+      mockRpc.mock.calls.filter((call: unknown[]) =>
+        call[0] === "try_insert_similarity_alert"
+      )
+    ).toHaveLength(0);
+    expect(store.ruleUpdates).toHaveLength(0);
   });
 
   it("3. anchor preference: auto_created_at NOT NULL beats user-created (older id)", async () => {

@@ -43,6 +43,7 @@ export function useDataFetcher<T>(
   const cacheKeyRef = useRef(cacheKey);
   const cacheTTLRef = useRef(cacheTTL);
   const cacheRef = useRef(cache);
+  const requestSequenceRef = useRef(0);
 
   // Update refs when props change
   fetchFnRef.current = fetchFn;
@@ -68,6 +69,8 @@ export function useDataFetcher<T>(
   });
 
   const fetchData = useCallback(async (bypassCache = false) => {
+    const requestSequence = ++requestSequenceRef.current;
+
     // Return cached data immediately when available and not forcing a refresh
     if (!bypassCache && cacheKeyRef.current) {
       const cachedData = cacheRef.current.get<T>(cacheKeyRef.current);
@@ -87,6 +90,9 @@ export function useDataFetcher<T>(
 
     try {
       const result = await fetchFnRef.current();
+      if (requestSequence !== requestSequenceRef.current) {
+        return result;
+      }
 
       // Populate cache when a key is provided
       if (cacheKeyRef.current) {
@@ -105,6 +111,9 @@ export function useDataFetcher<T>(
 
       return result;
     } catch (error) {
+      if (requestSequence !== requestSequenceRef.current) {
+        return;
+      }
       const errorMessage =
         error instanceof Error ? error.message : "Failed to fetch data";
       setState({
@@ -154,6 +163,7 @@ export function useDataFetcher<T>(
   }, [fetchData]);
 
   const reset = useCallback(() => {
+    requestSequenceRef.current += 1;
     setState({
       data: null,
       loading: false,

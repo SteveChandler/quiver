@@ -27,7 +27,7 @@ const QuerySchema = z.object({
  *
  * Authentication: required (user session)
  * Rate limit: surf-discovery bucket (shared with /api/surf/discover)
- * Cache: private, 5 min
+ * Cache: private no-store; physical forecast computation remains internally cached.
  */
 async function surfCallHandler(
   request: NextRequest,
@@ -91,12 +91,22 @@ async function surfCallHandler(
     process.env.NODE_ENV !== 'production',
   );
 
-  const response = createSuccessResponse(result);
-  response.headers.set('Cache-Control', 'private, max-age=300, stale-while-revalidate=900');
-  return response;
+  return createSuccessResponse(result);
 }
 
-export const GET = withRateLimit(
+const protectedGET = withRateLimit(
   withAuth(surfCallHandler, { errorMessage: 'Error computing surf call' }),
   'surf-discovery'
 );
+
+export const GET = async (
+  ...args: Parameters<typeof protectedGET>
+): Promise<NextResponse> => {
+  const response = await protectedGET(...args);
+  response.headers.delete('ETag');
+  response.headers.set(
+    'Cache-Control',
+    'private, no-store, no-cache, must-revalidate',
+  );
+  return response;
+};

@@ -39,6 +39,7 @@ import { useOnboardingStore } from "@/store/onboarding-store";
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
+const EMPTY_RECOMMENDATIONS: SurfDiscoveryRecommendation[] = [];
 
 /** Extended profile fields not yet in generated Supabase types. */
 interface ProfileWithOracle {
@@ -445,7 +446,7 @@ function OracleHeroEmpty({
   beachName: string;
   reason: string;
   onSetHomeBeach?: () => void;
-  onRetry: () => void;
+  onRetry?: () => void;
 }) {
   return (
     <div className="min-h-screen bg-[#252D6B]">
@@ -464,13 +465,15 @@ function OracleHeroEmpty({
               Set your home beach
             </button>
           )}
-          <button
-            type="button"
-            onClick={onRetry}
-            className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#F78E42] bg-[#F78E42]/10 px-5 py-2 text-sm font-semibold text-[#F78E42] transition-colors hover:bg-[#F78E42]/20 sm:w-auto"
-          >
-            Try again
-          </button>
+          {onRetry && (
+            <button
+              type="button"
+              onClick={onRetry}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#F78E42] bg-[#F78E42]/10 px-5 py-2 text-sm font-semibold text-[#F78E42] transition-colors hover:bg-[#F78E42]/20 sm:w-auto"
+            >
+              Try again
+            </button>
+          )}
         </div>
       </div>
       <BottomNav />
@@ -507,14 +510,22 @@ export function OracleHomeScreen() {
   // screen falls through to `OracleHeroEmpty` below — no synthesized
   // fallback to bare homeBeach.
   // ------------------------------------------------------------------
-  const { topRecommendation: topRec, profile, homeBeach } = oracle;
+  const recommendationsUnavailable =
+    oracle.discovery?.recommendationAvailability?.state === "none";
+  const topRec = recommendationsUnavailable
+    ? null
+    : oracle.topRecommendation;
+  const effectiveRecommendations = recommendationsUnavailable
+    ? EMPTY_RECOMMENDATIONS
+    : oracle.discovery?.recommendations ?? EMPTY_RECOMMENDATIONS;
+  const { profile, homeBeach } = oracle;
 
   const homeBeachRec = useMemo(() => {
-    if (!homeBeach?.id || !oracle.discovery?.recommendations) return null;
-    return oracle.discovery.recommendations.find(
+    if (!homeBeach?.id) return null;
+    return effectiveRecommendations.find(
       r => !isCustomSpotRecommendation(r) && r.beach.id === homeBeach.id
     ) ?? null;
-  }, [homeBeach?.id, oracle.discovery?.recommendations]);
+  }, [homeBeach?.id, effectiveRecommendations]);
 
   const heroRec = topRec;
   const heroBeach = heroRec?.beach;
@@ -698,7 +709,7 @@ export function OracleHomeScreen() {
 
   const handleViewSpot = useCallback(
     (spotId: string) => {
-      const spot = oracle.discovery?.recommendations?.find(
+      const spot = effectiveRecommendations.find(
         (r) =>
           getRecommendationIdentity(r) === spotId ||
           (!isCustomSpotRecommendation(r) && r.beach.id === spotId)
@@ -710,7 +721,7 @@ export function OracleHomeScreen() {
       const state = spot.beach.state?.toLowerCase() ?? "";
       router.push(`/${state}/${city}/${spot.beach.slug}`);
     },
-    [router, oracle.discovery?.recommendations]
+    [effectiveRecommendations, router]
   );
 
   // Drive subtitle context: "↗ N mi {direction} of {homeBeach}". Only
@@ -808,8 +819,8 @@ export function OracleHomeScreen() {
 
   // Transformed sub-component data (memoised to avoid child re-renders)
   const timeWindows = useMemo(
-    () => transformToTimeWindows(oracle.discovery?.recommendations ?? [], heroRec),
-    [oracle.discovery?.recommendations, heroRec]
+    () => transformToTimeWindows(effectiveRecommendations, heroRec),
+    [effectiveRecommendations, heroRec]
   );
   // Hero context used to personalize backup-spot reasons in the transform
   // layer. Built from the freshness-gated `heroSurfCall` (see
@@ -823,12 +834,12 @@ export function OracleHomeScreen() {
 
   const nearbySpots = useMemo(() => {
     const heroIdentity = heroRec ? getRecommendationIdentity(heroRec) : null;
-    const spots = (oracle.discovery?.recommendations ?? [])
+    const spots = effectiveRecommendations
       .filter(r => getRecommendationIdentity(r) !== heroIdentity)
       .sort((a, b) => (a.distanceMiles ?? Infinity) - (b.distanceMiles ?? Infinity));
     return transformToNearbySpots(spots, oracle.userSkillLevel, heroReasonContext);
   }, [
-    oracle.discovery?.recommendations,
+    effectiveRecommendations,
     heroRec,
     oracle.userSkillLevel,
     heroReasonContext,
@@ -871,15 +882,25 @@ export function OracleHomeScreen() {
   // honest empty card with a retry affordance instead of letting
   // `parseNumeric(undefined) → 0` leak phantom zeros into the hero UI.
   if (!heroRec) {
-    const reason = oracle.discoveryError
-      ? "We couldn't load conditions for your area."
-      : "We couldn't find any surf spots near you right now.";
+    const reason = recommendationsUnavailable
+      ? "Session picks aren't available right now."
+      : oracle.discoveryError
+        ? "We couldn't load conditions for your area."
+        : "We couldn't find any surf spots near you right now.";
     return (
       <OracleHeroEmpty
         beachName={homeBeach?.name ?? "Your Surf"}
         reason={reason}
-        onSetHomeBeach={homeBeach ? undefined : handleSetHomeBeach}
-        onRetry={() => globalThis.location.reload()}
+        onSetHomeBeach={
+          recommendationsUnavailable || homeBeach
+            ? undefined
+            : handleSetHomeBeach
+        }
+        onRetry={
+          recommendationsUnavailable
+            ? undefined
+            : () => globalThis.location.reload()
+        }
       />
     );
   }
@@ -994,7 +1015,10 @@ export function OracleHomeScreen() {
       {!oracle.discoveryLoading && (
         <div className="px-6 pb-24 md:pb-6">
           <SessionIntelligenceModule
-            recommendations={oracle.discovery?.recommendations ?? []}
+            recommendations={effectiveRecommendations}
+            recommendationAvailability={
+              oracle.discovery?.recommendationAvailability
+            }
           />
         </div>
       )}

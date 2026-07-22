@@ -4,7 +4,14 @@ import {
   validateUuidParam,
   createSuccessResponse,
   createNotFoundError,
+  type RouteHandler,
 } from "@/lib/middleware/api-wrappers";
+import {
+  sanitizeScoredForecastForMajorEventHold,
+  type ScoredForecastGoldenWindowBinding,
+  type ScoredForecastSlotBinding,
+} from "@/lib/recommendations/major-event-hold/adapters/bulk-forecast";
+import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 import { calculateRideableWaves } from "@/lib/domains/wave-frequency/calculator";
 import { scoreNativeForecastSlot } from "@/lib/scoring/native-condition-score";
 import type { SkillLevel } from "@/lib/domains/user-preferences/skill-level";
@@ -23,6 +30,9 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { Beach } from "@/types/database";
 
 export const dynamic = "force-dynamic";
+
+const NO_STORE = "private, no-store, no-cache, must-revalidate";
+const SLOT_DURATION_MS = 3 * 60 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -274,11 +284,57 @@ export function identifyGoldenWindows(slots: TimeSlot[]): GoldenWindow[] {
   return windows;
 }
 
+function slotEnd(forecastAt: string): string {
+  const startsAtMs = Date.parse(forecastAt);
+  return Number.isFinite(startsAtMs)
+    ? new Date(startsAtMs + SLOT_DURATION_MS).toISOString()
+    : "";
+}
+
+function buildSlotBindings(
+  beachId: string,
+  timeSlots: readonly TimeSlot[]
+): ScoredForecastSlotBinding[] {
+  return timeSlots.map(({ forecastAt }) => ({
+    forecastAt,
+    candidate: {
+      candidateId: `scored-slot:${beachId}:${forecastAt}`,
+      beachId,
+      startsAt: forecastAt,
+      endsAt: slotEnd(forecastAt),
+    },
+  }));
+}
+
+function buildGoldenBindings(
+  beachId: string,
+  goldenWindows: readonly GoldenWindow[]
+): ScoredForecastGoldenWindowBinding[] {
+  return goldenWindows.map(({ startTime, endTime }) => ({
+    startTime,
+    endTime,
+    candidate: {
+      candidateId: `scored-golden:${beachId}:${startTime}:${endTime}`,
+      beachId,
+      startsAt: startTime,
+      endsAt: endTime,
+    },
+  }));
+}
+
+function withNoStore(handler: RouteHandler): RouteHandler {
+  return async (request, context) => {
+    const response = await handler(request, context);
+    response.headers.set("Cache-Control", NO_STORE);
+    return response;
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Route handler
 // ---------------------------------------------------------------------------
 
-export const GET = withAuth(
+export const GET = withNoStore(withAuth(
   async (request: NextRequest, context) => {
     const params = context.params ?? {};
     const beachId = (params as Record<string, string>).beachId;
@@ -331,12 +387,10 @@ export const GET = withAuth(
     );
 
     // Score all slots
-    const userId = context.user?.id;
-    if (!userId) {
-      throw new Error("Authenticated user missing from scored forecast request");
-    }
-
-    const userSkillLevel = await getProfileExperienceLevel(supabase, userId);
+    const userSkillLevel = await getProfileExperienceLevel(
+      supabase,
+      context.user?.id
+    );
 
     const timeSlots = scoreForecastSlots(forecastList, beach as Beach, userSkillLevel);
 
@@ -349,7 +403,7 @@ export const GET = withAuth(
     // forecast-only sig-wave heights in the UI.
     const isCalibrated = beach.shoaling_factors !== null;
 
-    return createSuccessResponse({
+    const response = {
       timeSlots,
       goldenWindows,
       beach: {
@@ -360,7 +414,26 @@ export const GET = withAuth(
       // Top-level (not per-slot) — the live observation is a single "now"
       // reading that doesn't vary across the 8 forecast slots.
       latestObservation,
+    };
+    const slotBindings = buildSlotBindings(validBeachId, timeSlots);
+    const goldenBindings = buildGoldenBindings(validBeachId, goldenWindows);
+    const candidates = [...slotBindings, ...goldenBindings].map(
+      ({ candidate }) => candidate
+    );
+    const decisions = await evaluateMajorEventHoldCandidates({
+      candidates,
+      profileExperience: userSkillLevel,
     });
+    return createSuccessResponse(
+      sanitizeScoredForecastForMajorEventHold(
+        response,
+        validBeachId,
+        slotBindings,
+        goldenBindings,
+        candidates,
+        decisions
+      )
+    );
   },
   { optional: true, errorMessage: "Failed to fetch scored forecast" }
-);
+));

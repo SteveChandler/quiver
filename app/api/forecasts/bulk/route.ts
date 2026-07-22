@@ -6,10 +6,17 @@ import {
   withAuth,
   withRateLimit,
   type OptionalAuthContext,
+  type RouteHandler,
 } from "@/lib/middleware/api-wrappers";
 import {
-  applyV51DisplayOverrideToForecasts,
-} from "@/lib/services/forecast/v5-display-gate";
+  sanitizeBulkForecastForMajorEventHold,
+  type BulkForecastCandidateBinding,
+  type BulkForecastResponseLike,
+  type SanitizedBulkForecastResponse,
+} from "@/lib/recommendations/major-event-hold/adapters/bulk-forecast";
+import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
+import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
+import { applyV51DisplayOverrideToForecasts } from "@/lib/services/forecast/v5-display-gate";
 import { scoreWindowConditionScore } from "@/lib/services/discovery/window-selector/window-scorer";
 import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
 import {
@@ -26,6 +33,14 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { rowToSwellPartition, type SwellPartition } from "./swell-partition";
 
 export const dynamic = 'force-dynamic';
+
+const NO_STORE = "private, no-store, no-cache, must-revalidate";
+const BULK_CANDIDATE_DURATION_MS = 3 * 60 * 60 * 1000;
+const UNAVAILABLE_RECOMMENDATION: RecommendationAvailability = {
+  state: "none",
+  reasonCode: "hold_state_unavailable",
+  holdEpoch: "hold-state-unavailable",
+};
 
 export type { SwellPartition };
 
@@ -112,6 +127,65 @@ function conditionSummaryFromScore(score: number): ConditionSummary {
   if (score >= 70) return "GOOD";
   if (score >= 40) return "FAIR";
   return "CHECK";
+}
+
+function buildBulkCandidateBindings(
+  response: BulkForecastResponseLike,
+  selectedForecastAtByBeach: ReadonlyMap<string, string>
+): BulkForecastCandidateBinding[] {
+  const positiveBeachIds = new Set<string>();
+  for (const [beachId, score] of Object.entries(response.conditionScores)) {
+    if (typeof score === "number" && Number.isFinite(score)) {
+      positiveBeachIds.add(beachId);
+    }
+  }
+  for (const [beachId, summary] of Object.entries(response.conditionSummaries)) {
+    if (summary !== undefined && summary !== "UNKNOWN") {
+      positiveBeachIds.add(beachId);
+    }
+  }
+
+  const bindings: BulkForecastCandidateBinding[] = [];
+  for (const beachId of positiveBeachIds) {
+    const startsAt = selectedForecastAtByBeach.get(beachId);
+    const startsAtMs = startsAt ? Date.parse(startsAt) : NaN;
+    if (!startsAt || !Number.isFinite(startsAtMs)) continue;
+    const candidate = {
+      candidateId: `bulk-forecast:${beachId}:${startsAt}`,
+      beachId,
+      startsAt,
+      endsAt: new Date(startsAtMs + BULK_CANDIDATE_DURATION_MS).toISOString(),
+    };
+    bindings.push({ beachId, candidate });
+  }
+  return bindings;
+}
+
+async function sanitizeBulkResponse<TResponse extends BulkForecastResponseLike>(
+  response: TResponse,
+  selectedForecastAtByBeach: ReadonlyMap<string, string>,
+  profileExperience: unknown
+): Promise<SanitizedBulkForecastResponse<TResponse>> {
+  const bindings = buildBulkCandidateBindings(response, selectedForecastAtByBeach);
+  const candidates = bindings.map(({ candidate }) => candidate);
+  const decisions = await evaluateMajorEventHoldCandidates({
+    candidates,
+    profileExperience,
+  });
+  return sanitizeBulkForecastForMajorEventHold(
+    response,
+    bindings,
+    candidates,
+    decisions
+  );
+}
+
+function withNoStore(handler: RouteHandler): RouteHandler {
+  return async (request, context) => {
+    const response = await handler(request, context);
+    response.headers.set("Cache-Control", NO_STORE);
+    return response;
+  };
 }
 
 function parseLegacyWaveHeight(value: string | number | null | undefined): number | null {
@@ -513,7 +587,9 @@ async function bulkForecastHandler(
 
     // Return empty forecasts for missing/empty beachIds (not an error)
     if (!beachIdsParam || !beachIdsParam.trim()) {
-      return createSuccessResponse(emptyBulkForecastResponse);
+      return createSuccessResponse(
+        await sanitizeBulkResponse(emptyBulkForecastResponse, new Map(), null)
+      );
     }
 
     // Parse beach IDs and filter out empty strings
@@ -523,7 +599,9 @@ async function bulkForecastHandler(
       .filter(Boolean);
 
     if (beachIds.length === 0) {
-      return createSuccessResponse(emptyBulkForecastResponse);
+      return createSuccessResponse(
+        await sanitizeBulkResponse(emptyBulkForecastResponse, new Map(), null)
+      );
     }
 
     // Limit to prevent abuse
@@ -545,7 +623,10 @@ async function bulkForecastHandler(
         );
       }
 
-      return createSuccessResponse({ hourlySwellTimeline: timeline });
+      return createSuccessResponse({
+        hourlySwellTimeline: timeline,
+        recommendationAvailability: UNAVAILABLE_RECOMMENDATION,
+      });
     }
 
     const userSkillLevel = await getProfileExperienceLevel(supabase, user?.id);
@@ -605,6 +686,7 @@ async function bulkForecastHandler(
         : SWELL_TIMELINE_HOUR_OFFSETS,
     );
     const conditionScoreMap: Record<string, number | undefined> = {};
+    const selectedScoreForecastAtByBeach = new Map<string, string>();
     const conditionSummaryMap: Record<string, ConditionSummary> =
       Object.fromEntries(
         limitedBeachIds.map((beachId) => [beachId, "UNKNOWN" as ConditionSummary])
@@ -701,6 +783,7 @@ async function bulkForecastHandler(
           conditionScoreMap[beach.id] = score;
           conditionSummaryMap[beach.id] =
             conditionSummaryFromScore(score);
+          selectedScoreForecastAtByBeach.set(beach.id, forecast.forecast_at);
         } catch (error) {
           console.warn("Failed to score bulk forecast condition:", {
             beachId: beach.id,
@@ -731,7 +814,7 @@ async function bulkForecastHandler(
       });
     }
 
-    return createSuccessResponse({
+    const response = {
       forecasts: waveHeightMap,
       displayForecasts: displayForecastMap,
       waterTemps: waterTempMap,
@@ -741,7 +824,14 @@ async function bulkForecastHandler(
       swellPartitions: swellPartitionMap,
       swellPartitionTimeline,
       ...(hourlySwellTimeline ? { hourlySwellTimeline } : {}),
-    });
+    };
+    return createSuccessResponse(
+      await sanitizeBulkResponse(
+        response,
+        selectedScoreForecastAtByBeach,
+        userSkillLevel
+      )
+    );
   } catch (error) {
     console.error("Unexpected error in bulk forecast API:", error);
     return handleApiError(error instanceof Error ? error : new Error(String(error)), "Unexpected error fetching forecasts");
@@ -749,10 +839,12 @@ async function bulkForecastHandler(
 }
 
 // Apply rate limiting to prevent abuse of bulk operations
-export const GET = withRateLimit(
-  withAuth(bulkForecastHandler, {
-    optional: true,
-    errorMessage: "Unexpected error fetching forecasts",
-  }),
-  "forecast-bulk"
+export const GET = withNoStore(
+  withRateLimit(
+    withAuth(bulkForecastHandler, {
+      optional: true,
+      errorMessage: "Unexpected error fetching forecasts",
+    }),
+    "forecast-bulk"
+  )
 );

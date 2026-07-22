@@ -104,6 +104,7 @@ describe("useSurfDiscovery", () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
@@ -176,6 +177,80 @@ describe("useSurfDiscovery", () => {
       expect(result.current.discovery).toBeNull();
       expect(global.fetch).not.toHaveBeenCalled();
     });
+
+    it("allows manual refetch when immediate is false", async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          data: {
+            ...mockDiscoveryResponse,
+            recommendations: mockDiscoveryResponse.recommendations.map(
+              (recommendation) => ({
+                ...recommendation,
+                window: {
+                  ...recommendation.window,
+                  start: recommendation.window.start.toISOString(),
+                  end: recommendation.window.end.toISOString(),
+                },
+              }),
+            ),
+          },
+        }),
+      });
+      const { result } = renderHook(() =>
+        useSurfDiscovery({ immediate: false }),
+      );
+
+      expect(global.fetch).not.toHaveBeenCalled();
+      await act(async () => {
+        await result.current.refetch();
+      });
+
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(result.current.hasRecommendations).toBe(true);
+    });
+
+    it("does not fetch after options change while disabled", () => {
+      jest.useFakeTimers();
+      const { rerender } = renderHook(
+        ({ userSkillLevel }) =>
+          useSurfDiscovery({
+            enabled: false,
+            immediate: true,
+            userSkillLevel,
+          }),
+        { initialProps: { userSkillLevel: "beginner" } },
+      );
+
+      rerender({ userSkillLevel: "intermediate" });
+      act(() => {
+        jest.advanceTimersByTime(301);
+      });
+
+      expect(global.fetch).not.toHaveBeenCalled();
+      jest.useRealTimers();
+    });
+
+    it("does not fetch after options change when immediate is false", () => {
+      jest.useFakeTimers();
+      const { rerender } = renderHook(
+        ({ userLocation }) =>
+          useSurfDiscovery({
+            enabled: true,
+            immediate: false,
+            userLocation,
+          }),
+        { initialProps: { userLocation: { lat: 32.7, lon: -117.2 } } },
+      );
+
+      rerender({ userLocation: { lat: 33.0, lon: -117.3 } });
+      act(() => {
+        jest.advanceTimersByTime(301);
+      });
+
+      expect(global.fetch).not.toHaveBeenCalled();
+      jest.useRealTimers();
+    });
   });
 
   describe("Options Handling", () => {
@@ -231,7 +306,7 @@ describe("useSurfDiscovery", () => {
 
       await waitFor(() => expect(result.current.loading).toBe(false));
 
-      expect(result.current.error).toBeTruthy();
+      expect(result.current.error).toBe("Internal server error");
       expect(result.current.discovery).toBeNull();
     });
 

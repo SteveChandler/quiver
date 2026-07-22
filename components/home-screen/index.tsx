@@ -265,19 +265,29 @@ export function HomeScreen() {
     onError: () => recordHomeDiscoveryRequest("error"),
   });
 
+  const recommendationsUnavailable =
+    discovery?.recommendationAvailability?.state === "none";
+
   // Pre-fetch other time slots for instant filter switching
   useTimeSlotPrefetch({
     userLocation: seedDiscoveryLocation,
     horizonHours: 24,
     maxResults: 6,
     currentSlot: timeSlot,
-    enabled: !!profile && !geoLoading && !discoveryLoading,
+    enabled:
+      !!profile &&
+      !geoLoading &&
+      !discoveryLoading &&
+      !recommendationsUnavailable,
   });
 
   // Extract top recommendation and remaining spots — only show beaches with photos
-  const recsWithPhotos = discovery?.recommendations.filter(
+  const effectiveRecommendations = recommendationsUnavailable
+    ? []
+    : discovery?.recommendations ?? [];
+  const recsWithPhotos = effectiveRecommendations.filter(
     (rec) => rec.beach.photo_url?.startsWith('http')
-  ) || [];
+  );
   const topRecommendation = recsWithPhotos[0] || null;
   const topSpots = recsWithPhotos.slice(1);
 
@@ -452,7 +462,7 @@ export function HomeScreen() {
             </motion.section>
 
             {/* 2. Time Slot Filter */}
-            {profile && (
+            {profile && !recommendationsUnavailable && (
               <motion.section
                 className="centered-container"
                 variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
@@ -471,21 +481,36 @@ export function HomeScreen() {
                 className="centered-container"
                 variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
               >
-                <HeroRecommendation
-                  recommendation={topRecommendation}
-                  loading={discoveryLoading}
-                  error={discoveryError ? new Error(discoveryError) : null}
-                  onViewBeach={handleViewBeach}
-                  onEnableReminder={handleHeroEnableReminder}
-                  forecastAlertsEnabled={profile.notif_forecast_alerts ?? false}
-                  homeBeachId={homeBeach?.id ?? null}
-                  timeSlot={timeSlot}
-                />
+                {recommendationsUnavailable ? (
+                  <div
+                    className="px-4 py-4 text-center sm:px-1"
+                    data-testid="recommendation-unavailable-state"
+                    role="status"
+                  >
+                    <p className="text-base text-high sm:text-lg">
+                      Session picks aren&apos;t available right now.
+                    </p>
+                    <p className="mt-1 text-xs text-medium sm:text-sm">
+                      Objective conditions remain available below.
+                    </p>
+                  </div>
+                ) : (
+                  <HeroRecommendation
+                    recommendation={topRecommendation}
+                    loading={discoveryLoading}
+                    error={discoveryError ? new Error(discoveryError) : null}
+                    onViewBeach={handleViewBeach}
+                    onEnableReminder={handleHeroEnableReminder}
+                    forecastAlertsEnabled={profile.notif_forecast_alerts ?? false}
+                    homeBeachId={homeBeach?.id ?? null}
+                    timeSlot={timeSlot}
+                  />
+                )}
               </motion.section>
             )}
 
             {/* 4. Primary Actions (or FirstSessionCta for zero-session users) */}
-            {profile && (
+            {profile && !recommendationsUnavailable && (
               <motion.section
                 className="centered-container"
                 variants={reducedMotion ? { visible: { opacity: 1, y: 0 } } : HOME_HEADER_MOTION.entryItem}
@@ -537,7 +562,7 @@ export function HomeScreen() {
         {/* Content below gradient */}
         <div className="pt-6 space-y-6 xs:space-y-8">
           {/* 5. Top Spots Carousel - full width for edge-to-edge scroll */}
-          {profile && (
+          {profile && !recommendationsUnavailable && (
             <section className="w-full">
               <TopSpotsCarousel
                 spots={topSpots}
@@ -555,7 +580,8 @@ export function HomeScreen() {
           {profile && !discoveryLoading && (
             <section className="centered-container px-4 sm:px-0">
               <SessionIntelligenceModule
-                recommendations={discovery?.recommendations ?? []}
+                recommendations={effectiveRecommendations}
+                recommendationAvailability={discovery?.recommendationAvailability}
               />
             </section>
           )}

@@ -162,6 +162,31 @@ describe("SessionIntelligencePilot", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("does not reconstruct windows when authoritative availability is explicitly none", () => {
+    const unavailable = {
+      recommendationAvailability: {
+        state: "none" as const,
+        reasonCode: "major_event_hold" as const,
+        holdEpoch: "hold-epoch",
+      },
+    };
+    const { container } = render(
+      <SessionIntelligencePilot
+        beach={makeBeach()}
+        forecasts={[makeForecast("forecast-1", "2026-02-10T16:00:00Z")]}
+        now={NOW}
+        {...unavailable}
+      />
+    );
+
+    expect(container).toBeEmptyDOMElement();
+    expect(
+      screen.queryByRole("heading", { name: /best surf windows/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
+  });
+
   it("keeps every rendered window public and explainable", () => {
     render(
       <SessionIntelligencePilot

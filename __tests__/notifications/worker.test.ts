@@ -20,6 +20,14 @@ jest.mock("@/lib/posthog-server", () => ({
 import { processPendingEvents } from "@/lib/notifications/worker";
 import { capturePostHogEvent } from "@/lib/posthog-server";
 import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
+import {
+  resolveNotificationMajorEventHold,
+  type NotificationMajorEventHoldEvaluator,
+} from "@/lib/recommendations/major-event-hold/adapters/notification";
+import type {
+  MajorEventHoldCandidate,
+  MajorEventHoldCandidateDecision,
+} from "@/lib/recommendations/major-event-hold/types";
 
 interface MockEvent {
   id: string;
@@ -48,6 +56,7 @@ interface MockProfile {
   id: string;
   display_name: string | null;
   timezone: string | null;
+  experience_level: string | null;
   allow_implicit_tracking: boolean;
   notif_push_enabled: boolean;
   notif_email_enabled: boolean;
@@ -103,6 +112,7 @@ function buildProfile(over: Partial<MockProfile> = {}): MockProfile {
     id: "user-recipient",
     display_name: "Recipient User",
     timezone: "America/Los_Angeles",
+    experience_level: "beginner",
     allow_implicit_tracking: true,
     notif_push_enabled: true,
     notif_email_enabled: true,
@@ -221,6 +231,7 @@ function buildMockSupabase(state: MockState) {
             claim_token: string | null;
             processed_at: string | null;
             next_attempt_at: string | null;
+            cancel_reason: string | null;
           }>
         ) => {
           // markEventTerminal: update(row).eq('id', eventId).eq('claim_token', claimToken)
@@ -249,6 +260,7 @@ function buildMockSupabase(state: MockState) {
                     });
                     e.status = row.status as MockEvent["status"];
                     e.skip_reason = (row.skip_reason ?? null) as string | null;
+                    e.cancel_reason = (row.cancel_reason ?? null) as string | null;
                     e.claim_token = null;
                     e.claimed_at = null;
                   }
@@ -1023,6 +1035,618 @@ describe("processPendingEvents — durable surf-alert arbitration", () => {
 });
 
 describe("processPendingEvents — terminal skips", () => {
+  it.each([
+    ["off", true],
+    ["shadow", true],
+    ["enforce", false],
+  ] as const)(
+    "%s mode preserves or suppresses a valid held candidate at the worker boundary",
+    async (mode, shouldSend) => {
+      const state = emptyState();
+      state.events.push(
+        buildEvent({
+          id: `evt-held-${mode}`,
+          actor_user_id: null,
+          type: "log_session_nudge",
+          entity_type: null,
+          entity_id: null,
+          payload: {
+            cohort: "free_home_firing",
+            title: "Good window at your home break",
+            body: "Check today's forecast, and log a session if you paddle out.",
+            beach_id: null,
+            policy_context: {
+              kind: "positive_session_recommendation",
+              beach_id: "11111111-1111-4111-8111-111111111111",
+              starts_at: "2026-04-29T18:00:00.000Z",
+              ends_at: "2026-04-29T21:00:00.000Z",
+            },
+          },
+        }),
+      );
+      state.profiles.set("user-recipient", buildProfile());
+      state.devices.set("user-recipient", ["device-token-A"]);
+      const fakeFcm = {
+        sendEach: jest.fn(async () => ({
+          successCount: 1,
+          failureCount: 0,
+          responses: [{ success: true }],
+        })),
+      };
+      const evaluateCandidates: jest.MockedFunction<NotificationMajorEventHoldEvaluator> =
+        jest.fn(async ({ candidates, mode: evaluationMode }) => {
+          const candidate = candidates[0] as MajorEventHoldCandidate;
+          expect(evaluationMode).toBe(mode);
+          expect(candidate).toEqual({
+            candidateId: `notification:evt-held-${mode}`,
+            beachId: "11111111-1111-4111-8111-111111111111",
+            startsAt: "2026-04-29T18:00:00.000Z",
+            endsAt: "2026-04-29T21:00:00.000Z",
+          });
+          const decision: MajorEventHoldCandidateDecision = {
+            candidateId: candidate.candidateId,
+            evaluation: {
+              outcome: "explicit_none",
+              reasonCode: "major_event_hold",
+              holdIds: ["hold-1"],
+              expiresAt: candidate.endsAt,
+              holdEpoch: "epoch-held",
+            },
+            recommendationAvailability: {
+              state: "none",
+              reasonCode: "major_event_hold",
+              expiresAt: candidate.endsAt,
+              holdEpoch: "epoch-held",
+            },
+          };
+          return [decision];
+        });
+
+      const summary = await processPendingEvents(
+        buildMockSupabase(state) as never,
+        {
+          now: NOON_PT,
+          fcm: fakeFcm as never,
+          resolveMajorEventHold: (input) =>
+            resolveNotificationMajorEventHold(
+              { ...input, mode },
+              { evaluateCandidates },
+            ),
+        },
+      );
+
+      expect(evaluateCandidates).toHaveBeenCalledTimes(shouldSend ? 2 : 1);
+      expect(fakeFcm.sendEach).toHaveBeenCalledTimes(shouldSend ? 1 : 0);
+      expect(summary.by_status).toMatchObject(
+        shouldSend ? { sent: 1 } : { skipped_disabled: 1 },
+      );
+      expect(state.attempts[0]).toMatchObject(
+        shouldSend
+          ? { status: "sent" }
+          : {
+              status: "skipped_disabled",
+              provider_response: {
+                audit_code: "major_event_hold",
+                reason_code: "major_event_hold",
+              },
+            },
+      );
+    },
+  );
+
+  it("suppresses a positive alert queued before hold activation immediately before delivery", async () => {
+    const state = emptyState();
+    state.events.push(
+      buildEvent({
+        id: "evt-held-forecast",
+        actor_user_id: null,
+        type: "forecast_alert",
+        entity_type: "beach",
+        entity_id: "11111111-1111-4111-8111-111111111111",
+        payload: {
+          alert_date: "2026-04-29",
+          title: "Conditions lining up today",
+          body: "Clean morning window",
+          beach_id: "11111111-1111-4111-8111-111111111111",
+          forecast_at: "2026-04-29T19:00:00.000Z",
+          queue_items: [{ queue_id: "queue-held", rule_id: "rule-held" }],
+        },
+      }),
+    );
+    state.profiles.set("user-recipient", buildProfile());
+    state.devices.set("user-recipient", ["device-token-A"]);
+    const fakeFcm = { sendEach: jest.fn() };
+    const resolveMajorEventHold = jest.fn(async () => ({
+      status: "suppressed" as const,
+      reasonCode: "major_event_hold" as const,
+      auditCode: "major_event_hold" as const,
+      candidate: {
+        candidateId: "notification:evt-held-forecast",
+        beachId: "11111111-1111-4111-8111-111111111111",
+        startsAt: "2026-04-29T19:00:00.000Z",
+        endsAt: "2026-04-29T20:00:00.000Z",
+      },
+    }));
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      {
+        now: NOON_PT,
+        fcm: fakeFcm as never,
+        resolveMajorEventHold,
+      },
+    );
+
+    expect(resolveMajorEventHold).toHaveBeenCalledWith(
+      expect.objectContaining({
+        eventId: "evt-held-forecast",
+        profileExperience: "beginner",
+        asOf: NOON_PT,
+      }),
+    );
+    expect(fakeFcm.sendEach).not.toHaveBeenCalled();
+    expect(state.notificationsInserts).toEqual([]);
+    expect(summary.by_status.skipped_disabled).toBe(2);
+    expect(state.attempts).toEqual([
+      expect.objectContaining({
+        channel: "push",
+        status: "skipped_disabled",
+        provider_response: {
+          audit_code: "major_event_hold",
+          reason_code: "major_event_hold",
+        },
+      }),
+      expect.objectContaining({
+        channel: "in_app",
+        status: "skipped_disabled",
+        provider_response: {
+          audit_code: "major_event_hold",
+          reason_code: "major_event_hold",
+        },
+      }),
+    ]);
+    expect(state.alertAttempts).toEqual([
+      {
+        queue_id: "queue-held",
+        rule_id: "rule-held",
+        user_id: "user-recipient",
+        channel: "push",
+        status: "skipped_disabled",
+        skip_reason: "skipped_disabled",
+      },
+    ]);
+  });
+
+  it("suppresses a queued consolidated alert when a non-top match becomes held", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    const topStart = "2026-04-29T19:00:00.000Z";
+    const topEnd = "2026-04-29T20:00:00.000Z";
+    const heldStart = "2026-04-29T21:00:00.000Z";
+    const heldEnd = "2026-04-29T22:00:00.000Z";
+    const state = emptyState();
+    state.events.push(
+      buildEvent({
+        id: "evt-held-secondary-match",
+        actor_user_id: null,
+        type: "forecast_alert",
+        entity_type: "beach",
+        entity_id: beachId,
+        payload: {
+          alert_date: "2026-04-29",
+          title: "Two windows line up today",
+          body: "Morning and afternoon windows",
+          beach_id: beachId,
+          forecast_at: topStart,
+          policy_context: {
+            kind: "positive_session_recommendation",
+            beach_id: beachId,
+            starts_at: topStart,
+            ends_at: topEnd,
+          },
+          matches: [
+            {
+              beach_id: beachId,
+              window_start: topStart,
+              window_end: topEnd,
+              best_hour: topStart,
+            },
+            {
+              beach_id: beachId,
+              window_start: heldStart,
+              window_end: heldEnd,
+              best_hour: heldStart,
+            },
+          ],
+        },
+      }),
+    );
+    state.profiles.set("user-recipient", buildProfile());
+    state.devices.set("user-recipient", ["device-token-A"]);
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+    const evaluateCandidates: NotificationMajorEventHoldEvaluator = jest.fn(
+      async ({ candidates }) =>
+        (candidates as MajorEventHoldCandidate[]).map((candidate) => {
+          const blocked = candidate.startsAt === heldStart;
+          const evaluation = blocked
+            ? {
+                outcome: "explicit_none" as const,
+                reasonCode: "major_event_hold" as const,
+                holdIds: ["hold-activated-after-enqueue"],
+                expiresAt: heldEnd,
+                holdEpoch: "epoch-current",
+              }
+            : {
+                outcome: "allow" as const,
+                holdIds: [],
+                holdEpoch: "epoch-current",
+              };
+          return {
+            candidateId: candidate.candidateId,
+            evaluation,
+            recommendationAvailability: blocked
+              ? {
+                  state: "none" as const,
+                  reasonCode: "major_event_hold" as const,
+                  expiresAt: heldEnd,
+                  holdEpoch: "epoch-current",
+                }
+              : {
+                  state: "available" as const,
+                  holdEpoch: "epoch-current",
+                },
+          };
+        }),
+    );
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      {
+        now: NOON_PT,
+        fcm: fakeFcm as never,
+        resolveMajorEventHold: (input) =>
+          resolveNotificationMajorEventHold(
+            { ...input, mode: "enforce" },
+            { evaluateCandidates },
+          ),
+      },
+    );
+
+    expect(evaluateCandidates).toHaveBeenCalledWith(
+      expect.objectContaining({
+        candidates: [
+          expect.objectContaining({ startsAt: topStart, endsAt: topEnd }),
+          expect.objectContaining({ startsAt: heldStart, endsAt: heldEnd }),
+        ],
+      }),
+    );
+    expect(fakeFcm.sendEach).not.toHaveBeenCalled();
+    expect(state.notificationsInserts).toEqual([]);
+    expect(summary.by_status.skipped_disabled).toBe(2);
+  });
+
+  it("cancels a post-claim hold suppression so a later allowed event can take the slot", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    const startsAt = "2026-04-29T19:00:00.000Z";
+    const endsAt = "2026-04-29T20:00:00.000Z";
+    const state = emptyState();
+    state.events.push(
+      buildEvent({
+        id: "evt-held-after-claim",
+        actor_user_id: null,
+        type: "forecast_alert",
+        entity_type: "beach",
+        entity_id: beachId,
+        payload: {
+          alert_date: "2026-04-29",
+          beach_id: beachId,
+          forecast_at: startsAt,
+          queue_items: [{ queue_id: "queue-held", rule_id: "rule-held" }],
+          policy_context: {
+            kind: "positive_session_recommendation",
+            beach_id: beachId,
+            starts_at: startsAt,
+            ends_at: endsAt,
+          },
+          title: "Conditions line up this morning",
+          body: "A clean window lines up.",
+        },
+      }),
+    );
+    state.profiles.set("user-recipient", buildProfile());
+    state.devices.set("user-recipient", ["device-token-A"]);
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+    let heldEventResolutionCount = 0;
+    let sawClaimedSlotAtSuppression = false;
+    const resolveMajorEventHold = jest.fn(async ({ eventId }: { eventId: string }) => {
+      const candidate = {
+        candidateId: `notification:${eventId}`,
+        beachId,
+        startsAt,
+        endsAt,
+      };
+      if (eventId === "evt-held-after-claim") {
+        heldEventResolutionCount += 1;
+        if (heldEventResolutionCount === 1) {
+          return { status: "allowed" as const, candidate };
+        }
+        sawClaimedSlotAtSuppression =
+          state.surfAlertSlots.get(`user-recipient:${beachId}:2026-04-29`)?.eventId ===
+          "evt-held-after-claim";
+        return {
+          status: "suppressed" as const,
+          reasonCode: "major_event_hold" as const,
+          auditCode: "major_event_hold" as const,
+          candidate,
+        };
+      }
+      return { status: "allowed" as const, candidate };
+    });
+
+    const heldSummary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      {
+        now: NOON_PT,
+        fcm: fakeFcm as never,
+        resolveMajorEventHold,
+      },
+    );
+
+    expect(resolveMajorEventHold).toHaveBeenCalledTimes(2);
+    expect(sawClaimedSlotAtSuppression).toBe(true);
+    expect(fakeFcm.sendEach).not.toHaveBeenCalled();
+    expect(heldSummary.by_status.skipped_disabled).toBe(1);
+    expect(state.events.find((event) => event.id === "evt-held-after-claim")).toMatchObject({
+      status: "cancelled",
+      skip_reason: "major_event_hold",
+      cancel_reason: "major_event_hold",
+    });
+    expect(state.attempts).toContainEqual(
+      expect.objectContaining({
+        notification_event_id: "evt-held-after-claim",
+        channel: "push",
+        status: "skipped_disabled",
+        provider_response: {
+          audit_code: "major_event_hold",
+          reason_code: "major_event_hold",
+        },
+      }),
+    );
+    expect(state.alertAttempts).toContainEqual({
+      queue_id: "queue-held",
+      rule_id: "rule-held",
+      user_id: "user-recipient",
+      channel: "push",
+      status: "skipped_disabled",
+      skip_reason: "skipped_disabled",
+    });
+
+    state.events.push(
+      buildEvent({
+        id: "evt-allowed-after-hold",
+        actor_user_id: null,
+        type: "home_morning_call",
+        entity_type: "beach",
+        entity_id: beachId,
+        payload: {
+          alert_date: "2026-04-29",
+          verdict: "YES",
+          beach_id: beachId,
+          forecast_at: startsAt,
+          policy_context: {
+            kind: "positive_session_recommendation",
+            beach_id: beachId,
+            starts_at: startsAt,
+            ends_at: endsAt,
+          },
+          title: "Worth it this morning",
+          body: "A clean window lines up.",
+        },
+      }),
+    );
+
+    const allowedSummary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      {
+        now: NOON_PT,
+        fcm: fakeFcm as never,
+        resolveMajorEventHold,
+      },
+    );
+
+    expect(fakeFcm.sendEach).toHaveBeenCalledTimes(1);
+    expect(allowedSummary.by_status.sent).toBe(1);
+    expect(state.events.find((event) => event.id === "evt-allowed-after-hold")).toMatchObject({
+      status: "processed",
+      skip_reason: null,
+    });
+    expect(state.surfAlertSlots.get(`user-recipient:${beachId}:2026-04-29`)).toEqual({
+      eventId: "evt-allowed-after-hold",
+      priority: 1,
+    });
+  });
+
+  it("keeps a claimed slot terminal after another channel already delivered", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    const startsAt = "2026-04-29T19:00:00.000Z";
+    const endsAt = "2026-04-29T20:00:00.000Z";
+    const state = emptyState();
+    state.events.push(
+      buildEvent({
+        id: "evt-partially-delivered",
+        actor_user_id: null,
+        type: "forecast_alert",
+        entity_type: "beach",
+        entity_id: beachId,
+        payload: {
+          alert_date: "2026-04-29",
+          beach_id: beachId,
+          forecast_at: startsAt,
+          policy_context: {
+            kind: "positive_session_recommendation",
+            beach_id: beachId,
+            starts_at: startsAt,
+            ends_at: endsAt,
+          },
+          title: "Conditions line up this morning",
+          body: "A clean window lines up.",
+        },
+      }),
+    );
+    state.attempts.push({
+      id: "att-in-app-already-sent",
+      notification_event_id: "evt-partially-delivered",
+      channel: "in_app",
+      status: "sent",
+      provider_response: null,
+      error_message: null,
+      created_at: "2026-04-29T18:00:00.000Z",
+    });
+    state.profiles.set("user-recipient", buildProfile());
+    state.devices.set("user-recipient", ["device-token-A"]);
+    const fakeFcm = {
+      sendEach: jest.fn(async () => ({
+        successCount: 1,
+        failureCount: 0,
+        responses: [{ success: true }],
+      })),
+    };
+    let resolutionCount = 0;
+    const resolveMajorEventHold = jest.fn(async ({ eventId }: { eventId: string }) => {
+      const candidate = {
+        candidateId: `notification:${eventId}`,
+        beachId,
+        startsAt,
+        endsAt,
+      };
+      resolutionCount += 1;
+      if (eventId === "evt-partially-delivered" && resolutionCount === 2) {
+        return {
+          status: "suppressed" as const,
+          reasonCode: "major_event_hold" as const,
+          auditCode: "major_event_hold" as const,
+          candidate,
+        };
+      }
+      return { status: "allowed" as const, candidate };
+    });
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: fakeFcm as never,
+      resolveMajorEventHold,
+    });
+
+    expect(state.events.find((event) => event.id === "evt-partially-delivered")).toMatchObject({
+      status: "processed",
+    });
+    expect(fakeFcm.sendEach).not.toHaveBeenCalled();
+
+    state.events.push(
+      buildEvent({
+        id: "evt-after-partial-delivery",
+        actor_user_id: null,
+        type: "home_morning_call",
+        entity_type: "beach",
+        entity_id: beachId,
+        payload: {
+          alert_date: "2026-04-29",
+          verdict: "YES",
+          beach_id: beachId,
+          forecast_at: startsAt,
+          policy_context: {
+            kind: "positive_session_recommendation",
+            beach_id: beachId,
+            starts_at: startsAt,
+            ends_at: endsAt,
+          },
+          title: "Worth it this morning",
+          body: "A clean window lines up.",
+        },
+      }),
+    );
+
+    await processPendingEvents(buildMockSupabase(state) as never, {
+      now: NOON_PT,
+      fcm: fakeFcm as never,
+      resolveMajorEventHold,
+    });
+
+    expect(fakeFcm.sendEach).not.toHaveBeenCalled();
+    expect(state.events.find((event) => event.id === "evt-after-partial-delivery")).toMatchObject({
+      status: "cancelled",
+      skip_reason: "skipped_redundant",
+    });
+    expect(state.surfAlertSlots.get(`user-recipient:${beachId}:2026-04-29`)).toEqual({
+      eventId: "evt-partially-delivered",
+      priority: 3,
+    });
+  });
+
+  it("suppresses a firing first-session nudge without leaking its policy context", async () => {
+    const state = emptyState();
+    state.events.push(
+      buildEvent({
+        id: "evt-held-firing-nudge",
+        actor_user_id: null,
+        type: "log_session_nudge",
+        entity_type: null,
+        entity_id: null,
+        payload: {
+          cohort: "free_home_firing",
+          title: "Good window at your home break",
+          body: "Check today's forecast, and log a session if you paddle out.",
+          beach_id: null,
+          policy_context: {
+            kind: "positive_session_recommendation",
+            beach_id: "11111111-1111-4111-8111-111111111111",
+            starts_at: "2026-04-29T07:00:00.000Z",
+            ends_at: "2026-04-30T07:00:00.000Z",
+          },
+        },
+      }),
+    );
+    state.profiles.set("user-recipient", buildProfile());
+    state.devices.set("user-recipient", ["device-token-A"]);
+    const fakeFcm = { sendEach: jest.fn() };
+    const resolveMajorEventHold = jest.fn(async () => ({
+      status: "suppressed" as const,
+      reasonCode: "major_event_hold" as const,
+      auditCode: "major_event_hold" as const,
+      candidate: null,
+    }));
+
+    const summary = await processPendingEvents(
+      buildMockSupabase(state) as never,
+      {
+        now: NOON_PT,
+        fcm: fakeFcm as never,
+        resolveMajorEventHold,
+      },
+    );
+
+    expect(summary.by_status.skipped_disabled).toBe(1);
+    expect(fakeFcm.sendEach).not.toHaveBeenCalled();
+    expect(state.attempts[0]).toMatchObject({
+      status: "skipped_disabled",
+      provider_response: {
+        audit_code: "major_event_hold",
+        reason_code: "major_event_hold",
+      },
+    });
+  });
+
   it("master pref off → both channels skipped_pref_master, event skipped", async () => {
     const state = emptyState();
     state.events.push(buildEvent());

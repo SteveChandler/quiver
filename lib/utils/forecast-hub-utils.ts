@@ -16,7 +16,12 @@ import {
   getBeachesForRegion,
   type RegionalForecastSummary,
 } from "@/lib/utils/regional-forecast-utils";
-import { buildRegionalSurfWindowRecommendations } from "@/lib/recommendations/session-intelligence-surface-adapters";
+import { buildSurfWindowRecommendations } from "@/lib/recommendations/surf-window-recommendations";
+import {
+  buildRegionalMajorEventHoldCandidates,
+  sanitizeRegionalForecastForMajorEventHold,
+} from "@/lib/recommendations/major-event-hold/adapters/regional";
+import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
 import { getBatchFreshForecastsFromCache } from "@/lib/utils/forecast-service-utils";
 import { getBeachesFromDb } from "@/lib/services/beach-query-service";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
@@ -26,8 +31,6 @@ import { withApprovedPhotos } from "@/lib/supabase/query-builders";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
-
-const REGIONAL_BEST_SURF_WINDOW_LIMIT = 5;
 
 /**
  * Get regional forecast summaries for all regions.
@@ -42,6 +45,30 @@ export interface GetRegionalSummariesOptions {
   baseUrl?: string;
   includeBestSurfWindows?: boolean;
   includePhotos?: boolean;
+  profileExperience?: unknown;
+}
+
+async function applyRegionalMajorEventHold(
+  summary: RegionalForecastSummary,
+  profileExperience: unknown,
+): Promise<RegionalForecastSummary> {
+  const candidates = buildRegionalMajorEventHoldCandidates(summary);
+  const hasPositiveRecommendation =
+    summary.days.some((day) => day.topBeaches.length > 0) ||
+    (summary.bestSurfWindows?.length ?? 0) > 0 ||
+    summary.beachConditions.length > 0;
+  const decisions = await evaluateMajorEventHoldCandidates({
+    candidates:
+      candidates.length === 0 && hasPositiveRecommendation
+        ? [null]
+        : candidates,
+    profileExperience,
+  });
+  return sanitizeRegionalForecastForMajorEventHold(
+    summary,
+    candidates,
+    decisions,
+  );
 }
 
 export async function getRegionalSummaries(
@@ -100,19 +127,16 @@ export async function getRegionalSummaries(
       regionForecastMap
     );
     if (options.includeBestSurfWindows !== false) {
-      summary.bestSurfWindows = buildRegionalSurfWindowRecommendations({
-        groups: regionBeaches
-          .map((beach) => ({
-            beach,
-            forecasts: regionForecastMap.get(beach.id) ?? [],
-          }))
-          .filter((group) => group.forecasts.length > 0),
-        maxRecommendations: REGIONAL_BEST_SURF_WINDOW_LIMIT,
-        now: options.now,
-        baseUrl: options.baseUrl,
-      });
+      summary.bestSurfWindows = buildBestSurfWindowsForRegion(
+        regionBeaches,
+        regionForecastMap,
+        options,
+      );
     }
-    summaries[region.slug] = summary;
+    summaries[region.slug] = await applyRegionalMajorEventHold(
+      summary,
+      options.profileExperience ?? null,
+    );
   }
 
   // Attach one approved photo per region (from the region's highest-scored
@@ -141,17 +165,18 @@ function buildBestSurfWindowsForRegion(
   regionForecastMap: Map<string, EnhancedForecastEntity[]>,
   options: GetRegionalSummariesOptions
 ): SurfWindowRecommendation[] {
-  return buildRegionalSurfWindowRecommendations({
-    groups: regionBeaches
-      .map((beach) => ({
-        beach,
-        forecasts: regionForecastMap.get(beach.id) ?? [],
-      }))
-      .filter((group) => group.forecasts.length > 0),
-    maxRecommendations: REGIONAL_BEST_SURF_WINDOW_LIMIT,
+  const groups = regionBeaches
+    .map((beach) => ({
+      beach,
+      forecasts: regionForecastMap.get(beach.id) ?? [],
+    }))
+    .filter((group) => group.forecasts.length > 0);
+  return buildSurfWindowRecommendations(groups, {
+    maxRecommendations: groups.length,
+    maxWindowsPerBeach: 1,
     now: options.now,
     baseUrl: options.baseUrl,
-  });
+  }).recommendations;
 }
 
 export function createEmptyRegionalSummary(
@@ -180,6 +205,11 @@ export function createEmptyRegionalSummary(
     upcomingSwells: [],
     beachConditions: [],
     bestSurfWindows: [],
+    recommendationAvailability: {
+      state: "none",
+      reasonCode: "hold_state_unavailable",
+      holdEpoch: "hold-state-unavailable",
+    },
     photoUrl: null,
     photoBeachName: null,
     secondaryPhotoUrl: null,
@@ -238,11 +268,16 @@ export async function getRegionalSummary(
     );
   }
 
+  const policyFilteredSummary = await applyRegionalMajorEventHold(
+    summary,
+    options.profileExperience ?? null,
+  );
+
   if (options.includePhotos !== false) {
-    await attachRegionPhotos({ [region.slug]: summary });
+    await attachRegionPhotos({ [region.slug]: policyFilteredSummary });
   }
 
-  return summary;
+  return policyFilteredSummary;
 }
 
 /**
@@ -454,7 +489,8 @@ export interface TopBeachEntry {
  */
 export async function getTopBeachesRightNow(
   limit: number = 5,
-  userCoords?: { lat: number; lon: number } | null
+  userCoords?: { lat: number; lon: number } | null,
+  profileExperience: unknown = null,
 ): Promise<TopBeachEntry[]> {
   // Fetch beaches once and pass to getRegionalSummaries to avoid double fetch
   const beachesResult = await getBeachesFromDb();
@@ -481,12 +517,14 @@ export async function getTopBeachesRightNow(
         await getRegionalSummary(closestRegion, allBeaches, {
           includeBestSurfWindows: false,
           includePhotos: false,
+          profileExperience,
         }),
       ];
     } else {
       const summaries = await getRegionalSummaries(allBeaches, {
         includeBestSurfWindows: false,
         includePhotos: false,
+        profileExperience,
       });
       targetSummaries = Object.values(summaries);
     }
@@ -494,6 +532,7 @@ export async function getTopBeachesRightNow(
     const summaries = await getRegionalSummaries(allBeaches, {
       includeBestSurfWindows: false,
       includePhotos: false,
+      profileExperience,
     });
     targetSummaries = Object.values(summaries);
   }

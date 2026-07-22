@@ -260,4 +260,51 @@ describe("SessionIntelligenceModule", () => {
     );
     expect(screen.queryByTestId("surf-window-card")).not.toBeInTheDocument();
   });
+
+  it("does not reconstruct best-window positives when availability is explicit none", () => {
+    render(
+      <SessionIntelligenceModule
+        recommendations={[
+          makeDiscoveryRecommendation(1),
+          makeDiscoveryRecommendation(2),
+        ]}
+        recommendationAvailability={{
+          state: "none",
+          reasonCode: "major_event_hold",
+          holdEpoch: "hold-1:1",
+        }}
+      />
+    );
+
+    expect(screen.getByRole("heading", { name: "Surf forecast" })).toBeVisible();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Session picks aren't available right now."
+    );
+    expect(screen.getByRole("link", { name: "Browse forecasts" })).toHaveAttribute(
+      "href",
+      "/forecast"
+    );
+    expect(screen.queryByTestId("surf-window-card")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("surf-window-overview-map")).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/best surf window|take it with you|low confidence/i)
+    ).not.toBeInTheDocument();
+  });
+
+  it("preserves best-window rendering when availability is available", () => {
+    render(
+      <SessionIntelligenceModule
+        recommendations={[makeDiscoveryRecommendation(1)]}
+        recommendationAvailability={{
+          state: "available",
+          holdEpoch: "ordinary-1",
+        }}
+      />
+    );
+
+    expect(screen.getByTestId("surf-window-card")).toBeVisible();
+    expect(
+      screen.getByRole("heading", { name: "Find your next best surf window" })
+    ).toBeVisible();
+  });
 });

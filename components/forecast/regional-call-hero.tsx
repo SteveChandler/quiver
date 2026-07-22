@@ -182,12 +182,22 @@ export function RegionalCallHero({
   const stickerDate = coerceDate(summary?.generatedAt);
   const dateSticker = stickerDate ? formatDateSticker(stickerDate) : "TODAY";
   const stickerDateTime = stickerDate?.toISOString();
-  const angle = computeHeadlineAngle(region, summary);
+  const recommendationsAvailable =
+    summary?.recommendationAvailability?.state === "available";
+  const angle = recommendationsAvailable
+    ? computeHeadlineAngle(region, summary)
+    : {
+        headline: `Surf conditions in ${region.name}.`,
+        peakScore: 0,
+      };
+  const objectiveDay = summary?.days[0];
   const photoUrl = summary?.photoUrl ?? null;
   const photoAlt = summary?.photoBeachName
     ? `${summary.photoBeachName}, ${region.name}`
     : region.name;
-  const pullquote = pullquoteForScore(angle.peakScore);
+  const pullquote = recommendationsAvailable
+    ? pullquoteForScore(angle.peakScore)
+    : null;
 
   useEffect(() => {
     const hero = heroRef.current;
@@ -372,9 +382,10 @@ export function RegionalCallHero({
           Acts as a share button: opens native share sheet on mobile, falls
           back to clipboard-copy + toast on desktop browsers that lack the
           Web Share API. Every tier is interactive (per /over scope). */}
-      <button
-        type="button"
-        onClick={() => {
+      {pullquote ? (
+        <button
+          type="button"
+          onClick={() => {
           // Prefer the build-time canonical origin. When absent (e.g. a preview
           // env that didn't set `NEXT_PUBLIC_SITE_URL`) fall back to a relative
           // URL — `navigator.share` + `clipboard.writeText` both resolve it
@@ -434,28 +445,29 @@ export function RegionalCallHero({
               toast.error("Couldn't copy the link");
             }
           })();
-        }}
-        aria-label={`Share ${region.name}'s forecast`}
-        className="group absolute bottom-5 right-5 hidden max-w-[16rem] flex-col items-end gap-0.5 rounded-[10px_4px_14px_4px] text-right transition-transform hover:scale-[1.04] hover:rotate-[-1.5deg] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B] motion-reduce:hover:scale-100 motion-reduce:hover:rotate-0 sm:right-8 sm:bottom-8 sm:inline-flex md:text-3xl"
-        style={{
-          willChange: "transform",
-          transform: stickerTransform(11, 7, -30, "-3deg"),
-        }}
-      >
-        <span className="inline-flex items-center gap-2 font-[var(--font-handwritten)] text-2xl leading-tight text-[#F78E42] md:text-3xl">
-          <span className="whitespace-nowrap">{pullquote}</span>
-          <Share2
-            aria-hidden="true"
-            className="h-4 w-4 shrink-0 opacity-70 transition-opacity group-hover:opacity-100 md:h-5 md:w-5"
-          />
-        </span>
-        <span
-          aria-hidden="true"
-          className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-[#F78E42]/65 transition-colors group-hover:text-[#F78E42]"
+          }}
+          aria-label={`Share ${region.name}'s forecast`}
+          className="group absolute bottom-5 right-5 hidden max-w-[16rem] flex-col items-end gap-0.5 rounded-[10px_4px_14px_4px] text-right transition-transform hover:scale-[1.04] hover:rotate-[-1.5deg] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F78E42] focus-visible:ring-offset-2 focus-visible:ring-offset-[#252D6B] motion-reduce:hover:scale-100 motion-reduce:hover:rotate-0 sm:right-8 sm:bottom-8 sm:inline-flex md:text-3xl"
+          style={{
+            willChange: "transform",
+            transform: stickerTransform(11, 7, -30, "-3deg"),
+          }}
         >
-          Tap to share
-        </span>
-      </button>
+          <span className="inline-flex items-center gap-2 font-[var(--font-handwritten)] text-2xl leading-tight text-[#F78E42] md:text-3xl">
+            <span className="whitespace-nowrap">{pullquote}</span>
+            <Share2
+              aria-hidden="true"
+              className="h-4 w-4 shrink-0 opacity-70 transition-opacity group-hover:opacity-100 md:h-5 md:w-5"
+            />
+          </span>
+          <span
+            aria-hidden="true"
+            className="font-mono text-[0.62rem] uppercase tracking-[0.18em] text-[#F78E42]/65 transition-colors group-hover:text-[#F78E42]"
+          >
+            Tap to share
+          </span>
+        </button>
+      ) : null}
 
       <div className="relative flex flex-col gap-6">
         {/* Date sticker + wave-height tag + region chip */}
@@ -471,7 +483,7 @@ export function RegionalCallHero({
             <time dateTime={stickerDateTime}>{dateSticker}</time>
           </span>
 
-          {angle.peakWaveRange && (
+          {recommendationsAvailable && angle.peakWaveRange && (
             <span
               aria-hidden="true"
               className="inline-flex items-center rounded-[8px_18px_6px_16px] border border-white/20 bg-white/[0.06] px-2.5 py-1 font-mono text-[0.68rem] uppercase tracking-[0.18em] text-white/75"
@@ -513,7 +525,10 @@ export function RegionalCallHero({
             {angle.headline}
           </h1>
 
-          {angle.peakDay && angle.peakWaveRange && angle.peakWindDescriptor ? (
+          {recommendationsAvailable &&
+          angle.peakDay &&
+          angle.peakWaveRange &&
+          angle.peakWindDescriptor ? (
             <p className="mt-4 text-lg text-white/85 sm:text-xl">
               Best window:{" "}
               <span className="font-semibold text-white">
@@ -521,13 +536,22 @@ export function RegionalCallHero({
               </span>
               , {angle.peakWaveRange}, {angle.peakWindDescriptor.split(", ")[1]}.
             </p>
+          ) : objectiveDay ? (
+            <p className="mt-4 text-lg text-white/85 sm:text-xl">
+              {objectiveDay.dayOfWeek} conditions:{" "}
+              {formatWaveHeightRange(objectiveDay.avgWaveHeight)}, {windDescriptor(objectiveDay.windConditions)} wind,{" "}
+              {objectiveDay.dominantTideStatus
+                ? `${objectiveDay.dominantTideStatus} tide`
+                : "tide status pending"}
+              .
+            </p>
           ) : (
             <p className="mt-4 text-lg text-white/85">
               Try again in a few — we&apos;re waiting on fresh data for {region.name}.
             </p>
           )}
 
-          {angle.whyLine && (
+          {recommendationsAvailable && angle.whyLine && (
             <p className="mt-2 font-mono text-sm text-white/60">
               Why ▸ {angle.whyLine}.
             </p>

@@ -317,6 +317,16 @@ describe("GET /api/cron/swell-watch", () => {
         subject: "Swell incoming Sunday — Lower Trestles: 6 ft @ 14s",
       })
     );
+    const enqueuedPayload = mockEnqueueNotification.mock.calls[0][0].payload;
+    const outboundCopy = [
+      enqueuedPayload.title,
+      enqueuedPayload.body,
+      mockResendSend.mock.calls[0][0].subject,
+    ].join(" ");
+    expect(outboundCopy).toContain("6 ft @ 14s");
+    expect(outboundCopy).not.toMatch(
+      /\b(go|head to|best spot|surf it|recommend(?:ed|ation)?)\b/i
+    );
     const emailHtml = renderToStaticMarkup(mockResendSend.mock.calls[0][0].react);
     expect(emailHtml).toContain("WED · JUL 1");
     expect(emailHtml).not.toContain("MON · JUL 6");
@@ -325,9 +335,11 @@ describe("GET /api/cron/swell-watch", () => {
       expect.objectContaining({
         userId: "user-1",
         emailType: "swell_watch",
-        bestBeachId: "beach-1",
         resendMessageId: "email-1",
       })
+    );
+    expect(mockLogDelivery).toHaveBeenCalledWith(
+      expect.not.objectContaining({ bestBeachId: expect.anything() })
     );
   });
 

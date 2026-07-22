@@ -65,8 +65,14 @@ export function SevenDayOutlook({
     );
   }
 
-  const peakScore = Math.max(...summary.days.map((d) => d.score));
-  const peakIndex = summary.days.findIndex((d) => d.score === peakScore);
+  const recommendationsAvailable =
+    summary.recommendationAvailability?.state === "available";
+  const peakScore = recommendationsAvailable
+    ? Math.max(...summary.days.map((d) => d.score))
+    : 0;
+  const peakIndex = recommendationsAvailable
+    ? summary.days.findIndex((d) => d.score === peakScore)
+    : -1;
 
   const arcPoints: SwellArcPoint[] = summary.days.map((d) => ({
     dayOfWeek: d.dayOfWeek,
@@ -88,13 +94,20 @@ export function SevenDayOutlook({
         7-Day Region Outlook
       </h2>
 
-      <SwellArc points={arcPoints} peakIndex={Math.max(0, peakIndex)} />
+      {recommendationsAvailable ? (
+        <SwellArc points={arcPoints} peakIndex={Math.max(0, peakIndex)} />
+      ) : null}
 
       <ol className="divide-y divide-white/10 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04]">
         {summary.days.map((day, idx) => {
-          const scoreColors = getScoreColorClasses(day.score);
+          const scoreColors = recommendationsAvailable
+            ? getScoreColorClasses(day.score)
+            : null;
           const waves = formatWaveHeightRange(day.avgWaveHeight);
-          const isPeak = day.score === peakScore && peakScore > 0;
+          const isPeak =
+            recommendationsAvailable &&
+            day.score === peakScore &&
+            peakScore > 0;
           const prevScore = idx > 0 ? summary.days[idx - 1].score : day.score;
           const trend = trendIcon(day.score - prevScore);
           const monthDay = `${day.date.getUTCMonth() + 1}/${day.date.getUTCDate()}`;
@@ -126,17 +139,19 @@ export function SevenDayOutlook({
               </div>
 
               {/* Score badge */}
-              <div className="shrink-0">
-                <span
-                  className={[
-                    "inline-flex h-9 min-w-[2.5rem] items-center justify-center rounded-full px-2 text-sm font-bold text-white",
-                    scoreColors.bg,
-                  ].join(" ")}
-                  aria-label={`Score ${day.score} out of 100 (${scoreColors.label})`}
-                >
-                  {day.score}
-                </span>
-              </div>
+              {recommendationsAvailable && scoreColors ? (
+                <div className="shrink-0">
+                  <span
+                    className={[
+                      "inline-flex h-9 min-w-[2.5rem] items-center justify-center rounded-full px-2 text-sm font-bold text-white",
+                      scoreColors.bg,
+                    ].join(" ")}
+                    aria-label={`Score ${day.score} out of 100 (${scoreColors.label})`}
+                  >
+                    {day.score}
+                  </span>
+                </div>
+              ) : null}
 
               {/* Waves + callout */}
               <div className="min-w-0 flex-1">
@@ -152,20 +167,30 @@ export function SevenDayOutlook({
                         : "onshore"}
                   </span>
                 </div>
-                <div className="truncate text-sm text-white/70">
-                  {daySubtitle(day.windConditions, day.score)}
-                </div>
+                {recommendationsAvailable ? (
+                  <div className="truncate text-sm text-white/70">
+                    {daySubtitle(day.windConditions, day.score)}
+                  </div>
+                ) : (
+                  <div className="truncate text-sm text-white/70">
+                    {day.dominantTideStatus
+                      ? `${day.dominantTideStatus} tide`
+                      : "Tide status pending"}
+                  </div>
+                )}
               </div>
 
               {/* Trend dot */}
-              <div className="shrink-0 text-right">
-                <span
-                  className={`font-mono text-xl ${trend.color}`}
-                  aria-label={`Trend ${trend.label} vs previous day`}
-                >
-                  {trend.char}
-                </span>
-              </div>
+              {recommendationsAvailable ? (
+                <div className="shrink-0 text-right">
+                  <span
+                    className={`font-mono text-xl ${trend.color}`}
+                    aria-label={`Trend ${trend.label} vs previous day`}
+                  >
+                    {trend.char}
+                  </span>
+                </div>
+              ) : null}
             </li>
           );
         })}

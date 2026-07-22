@@ -65,7 +65,13 @@ export function BeachDiscoveryList({
   const discovery = discoveryData ?? fetchedDiscovery;
   const loading = discoveryData !== undefined ? (externalLoading ?? false) : fetchLoading;
   const error = discoveryData !== undefined ? externalError : fetchError;
-  const hasRecommendations = discovery ? discovery.recommendations.length > 0 : fetchHasRecommendations;
+  const recommendationsUnavailable =
+    discovery?.recommendationAvailability?.state === "none";
+  const hasRecommendations =
+    !recommendationsUnavailable &&
+    (discovery
+      ? discovery.recommendations.length > 0
+      : fetchHasRecommendations);
 
   const handleLogSession = (
     recommendation: SurfDiscoveryRecommendation,

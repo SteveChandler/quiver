@@ -46,11 +46,8 @@ import {
   type EditorialSource,
 } from "@/lib/seo/indexability";
 
-// ISR: revalidate every hour. getSpotSurfReportPublic() uses the service-role
-// client with no cookie reads, so this route stays in ISR (not forced dynamic).
-// Personalised data (user prefs, alerts, favourites) loads client-side in
-// BeachDetailClient after hydration.
-export const revalidate = 3600;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 const getCachedBeachCandidates = cache(async (slug: string) => {
   const { getBeachesBySlug } =
@@ -562,7 +559,5 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
 // generateStaticParams deferred: the beach page has additional no-store fetches
 // (enrichBeachesWithConditions, getBeachForecastPreview, getBestTimeToSurfUrl) and a
 // useSearchParams() call without Suspense that prevent full SSG prerendering.
-// Fixing those is a follow-up task. All pages are served via ISR on first request
-// (revalidate = 3600). The primary ISR unlock from this workstream is decoupling
-// getSpotSurfReport from cookies() — that removes the force-dynamic constraint for
-// on-demand (non-prerendered) requests.
+// Fixing those is a follow-up task. Hold-sensitive recommendations keep this page
+// dynamic even though getSpotSurfReportPublic() no longer depends on cookies().

@@ -44,6 +44,18 @@ function formatIntelWaveHeightLabel(intel: ClientBeachDailyIntel): string | null
   return `${Math.round(intel.surf_min_ft)}-${Math.round(intel.surf_max_ft)}ft`;
 }
 
+function formatCurrentIntelWaveHeightLabel(
+  intel: ClientBeachDailyIntel
+): string | null {
+  if (intel.current_wave_height_label) {
+    return intel.current_wave_height_label;
+  }
+  if (intel.surf_min_ft == null || intel.surf_max_ft == null) {
+    return null;
+  }
+  return `${Math.round(intel.surf_min_ft)}-${Math.round(intel.surf_max_ft)}ft`;
+}
+
 // Animated score counter — displays a spring-animated number with scale pop on finish
 function AnimatedScore({ target }: { target: number }) {
   const motionValue = useMotionValue(0);
@@ -311,6 +323,11 @@ export function PayoffStep() {
   };
 
   const conditionsScore = intel?.conditions_score ?? null;
+  const recommendationHeld =
+    intel?.recommendationAvailability?.state === 'none';
+  const currentWaveHeightLabel = intel
+    ? formatCurrentIntelWaveHeightLabel(intel)
+    : null;
   const kookTitle = LEVEL_THRESHOLDS[0].title;
 
   return (
@@ -355,8 +372,45 @@ export function PayoffStep() {
                 </h2>
               </div>
 
-              {/* Best Window Card (when intel is available) */}
-              {intel && (intel.best_window_start || intel.surf_description) && (
+              {/* Objective conditions remain visible when recommendations are held. */}
+              {intel && recommendationHeld && (
+                <div
+                  className="bg-white/[0.06] border border-white/[0.12] rounded-lg p-5 space-y-3"
+                  data-testid="major-event-hold-payoff-neutral"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-wide text-white/50">
+                    Today&apos;s Conditions
+                  </p>
+
+                  <div className="space-y-2">
+                    {currentWaveHeightLabel && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-base leading-none">🌊</span>
+                        <span className="text-white">
+                          {currentWaveHeightLabel}
+                        </span>
+                      </div>
+                    )}
+                    {(intel.wind_speed_mph != null ||
+                      intel.wind_direction_text) && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="text-base leading-none">🌬️</span>
+                        <span className="text-white">
+                          {intel.wind_speed_mph != null
+                            ? `${intel.wind_speed_mph}mph`
+                            : ''}{' '}
+                          {intel.wind_direction_text ?? ''}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Best Window Card (when allowed intel is available) */}
+              {intel &&
+                !recommendationHeld &&
+                (intel.best_window_start || intel.surf_description) && (
                 <div className="bg-white/[0.06] border border-white/[0.12] rounded-lg p-5 space-y-3">
                   <div className="flex items-center justify-between">
                     <p className="text-xs font-semibold uppercase tracking-wide text-white/50">

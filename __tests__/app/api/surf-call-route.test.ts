@@ -201,4 +201,36 @@ describe("GET /api/surf/call", () => {
       { user: mockUser, supabase: mockSupabase }
     );
   });
+
+  it("returns the exact private no-store cache policy", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      deleted_at: null,
+    });
+    mockSurfReportResult(beachId);
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`),
+    );
+
+    expect(response.headers.get("Cache-Control")).toBe(
+      "private, no-store, no-cache, must-revalidate",
+    );
+  });
+
+  it("applies the exact no-store policy to validation errors", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost:3000/api/surf/call?beachId=invalid"),
+    );
+
+    expect(response.status).toBe(400);
+    expect(response.headers.get("Cache-Control")).toBe(
+      "private, no-store, no-cache, must-revalidate",
+    );
+  });
 });

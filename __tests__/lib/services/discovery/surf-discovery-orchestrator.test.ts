@@ -256,6 +256,21 @@ jest.mock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
   batchFetchForecasts: jest.fn(async () => mockState.forecastBatchResponse),
 }));
 
+jest.mock('@/lib/services/discovery/major-event-hold', () => ({
+  enforceMajorEventHoldBeforeDiscoveryTruncation: jest.fn(
+    async ({ recommendations, maxResults, isPrimaryEligible }) => ({
+      allAllowedRecommendations: recommendations,
+      primaryRecommendations: recommendations
+        .filter(isPrimaryEligible)
+        .slice(0, maxResults),
+      recommendationAvailability: {
+        state: 'available',
+        holdEpoch: 'orchestrator-test-epoch',
+      },
+    }),
+  ),
+}));
+
 jest.mock('@/lib/services/discovery/window-selector', () => ({
   selectBestWindow: jest.fn((forecasts: any[]) => {
     // Return null if no forecasts

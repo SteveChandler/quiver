@@ -68,15 +68,14 @@ export async function getCurrentUser(): Promise<AdminUser | null> {
   }
 }
 
-// Multi-source admin role validation
+// Server-controlled admin role validation
 export function isAdmin(user: AdminUser | null): boolean {
   if (!user) return false;
 
+  if (ADMIN_USER_IDS.includes(user.id)) return true;
+
   return (
-    user.user_metadata?.is_admin === true ||
-    user.app_metadata?.is_admin === true ||
-    user.user_metadata?.role === "admin" ||
-    user.app_metadata?.role === "admin"
+    user.app_metadata?.is_admin === true || user.app_metadata?.role === "admin"
   );
 }
 
@@ -97,10 +96,6 @@ export async function requireAdmin(): Promise<
 
 ```typescript
 export interface AdminUser extends User {
-  user_metadata?: {
-    role?: string;
-    is_admin?: boolean;
-  };
   app_metadata?: {
     role?: string;
     is_admin?: boolean;
@@ -190,19 +185,17 @@ export async function adminRouteGuard(
 
 ## 🔒 **SECURITY PATTERNS**
 
-### **Multi-Source Role Validation**
+### **Server-Controlled Role Validation**
 
 ```typescript
-// Comprehensive admin role checking
+// User metadata is intentionally excluded because users can edit it.
 export function isAdmin(user: AdminUser | null): boolean {
   if (!user) return false;
 
-  // Check multiple sources for admin privileges
+  if (ADMIN_USER_IDS.includes(user.id)) return true;
+
   return (
-    user.user_metadata?.is_admin === true || // User metadata flag
-    user.app_metadata?.is_admin === true || // App metadata flag
-    user.user_metadata?.role === "admin" || // User role string
-    user.app_metadata?.role === "admin" // App role string
+    user.app_metadata?.is_admin === true || user.app_metadata?.role === "admin"
   );
 }
 ```

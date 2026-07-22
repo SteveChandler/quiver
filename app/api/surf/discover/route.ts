@@ -10,8 +10,9 @@ import {
 } from '@/lib/middleware/api-wrappers';
 import { discoverSurfSpots } from '@/lib/services/surf-discovery-service';
 import { entitlementFromRow } from '@/lib/alerts/entitlements';
-import { generateETag, isETagMatch } from '@/lib/utils/cache-headers';
 import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discovery-gating';
+import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
+import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import type { SurfDiscoveryEntitlement, TimeSlot } from '@/types/personalization';
 
 export const dynamic = 'force-dynamic';
@@ -212,36 +213,39 @@ async function surfDiscoveryHandler(
     }));
   }
 
-  const gatedDiscovery = gateSurfDiscoveryResponse(discovery, entitlement);
-
-  // 4. Generate ETag for conditional request support
-  const responseData = { success: true, data: gatedDiscovery };
-  const etag = await generateETag(responseData);
-
-  // 5. Check If-None-Match header - return 304 if data unchanged
-  const ifNoneMatch = request.headers.get('If-None-Match');
-  if (ifNoneMatch && await isETagMatch(ifNoneMatch, responseData)) {
-    return new NextResponse(null, {
-      status: 304,
-      headers: {
-        'ETag': `"${etag}"`,
-        'Cache-Control': 'private, max-age=300, stale-while-revalidate=900',
-      },
-    });
+  let profileExperience = null;
+  try {
+    profileExperience = await getProfileExperienceLevel(supabase, user.id);
+  } catch {
+    profileExperience = null;
   }
+  const sanitizedDiscovery =
+    await sanitizeSurfDiscoveryForSerializationMajorEventHold(
+      discovery,
+      profileExperience,
+    );
+  const gatedDiscovery = gateSurfDiscoveryResponse(
+    sanitizedDiscovery,
+    entitlement,
+  );
 
-  // 6. Return success response with ETag and improved caching
-  const response = createSuccessResponse(gatedDiscovery);
-
-  // Private cache: 5 min max-age + 15 min stale-while-revalidate
-  response.headers.set('Cache-Control', 'private, max-age=300, stale-while-revalidate=900');
-  response.headers.set('ETag', `"${etag}"`);
-
-  return response;
+  return createSuccessResponse(gatedDiscovery);
 }
 
 // Compose: auth first (inner), then rate limit (outer)
-export const GET = withRateLimit(
+const protectedGET = withRateLimit(
   withAuth(surfDiscoveryHandler, { errorMessage: 'Error discovering surf spots' }),
   'surf-discovery'
 );
+
+export const GET = async (
+  ...args: Parameters<typeof protectedGET>
+): Promise<NextResponse> => {
+  const response = await protectedGET(...args);
+  response.headers.delete('ETag');
+  response.headers.set(
+    'Cache-Control',
+    'private, no-store, no-cache, must-revalidate',
+  );
+  return response;
+};

@@ -12,6 +12,7 @@ import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { PersonalizedScore } from "@/lib/services/personalized-scoring-service";
 import type { SpotProfile } from "@/lib/domains/spot-profile/types";
 import type { RecommendationsV2Response } from "@/lib/services/discovery/recommendations-v2";
+import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 
 // ============================================================================
 // Time Slot Filter Types
@@ -407,6 +408,8 @@ export interface SurfDiscoveryResponse {
   };
   regionalCall: string;
   eveningTransition?: EveningTransition;
+  /** Major-event safety boundary applied to recommendation semantics. */
+  recommendationAvailability?: RecommendationAvailability;
 }
 
 /**

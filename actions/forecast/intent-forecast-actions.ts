@@ -13,6 +13,9 @@ import type { BeachMetadata, MagicHourResult } from "@/lib/services/magic-hour/t
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import { buildCitySlug } from "@/lib/seo/city-slug-utils";
 import { COLLISION_CITY_MAP } from "@/lib/seo/city-collision-list";
+import { sanitizeIntentForecastForMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/intent";
+import { evaluateMajorEventHoldCandidates } from "@/lib/recommendations/major-event-hold/service";
+import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 
 type SupabaseClient = Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>;
 
@@ -181,6 +184,7 @@ export interface CitySunTimesData {
 export interface IntentForecastSummary {
   bestWindow: { start: string; end: string; reason: string } | null;
   topPicks: Array<{
+    beachId: string;
     name: string;
     slug: string;
     waveHeight: string;
@@ -191,6 +195,7 @@ export interface IntentForecastSummary {
   }>;
   conditions: { tide: string; wind: string; swell: string };
   isTomorrow: boolean;
+  recommendationAvailability: RecommendationAvailability;
 }
 
 /**
@@ -1257,36 +1262,53 @@ export async function getIntentForecastSummary(
       }
     }
 
-    // Sort by confidence descending, take top 3
+    // Sort every positive result before policy filtering. The adapter owns the
+    // final top-three truncation so a held rank-one result cannot hide rank four.
     const sortedResults = results
       .filter((r) => r.result.found)
       .sort((a, b) => b.result.confidence - a.result.confidence);
 
-    const topResults = sortedResults.slice(0, 3);
-
-    // Build topPicks
-    const topPicks = topResults.map((r) => {
+    const rankedItems = sortedResults.map((r) => {
       // Find the best forecast row for wave/wind display
       const beachForecasts = r.forecasts;
       const representativeForecast = beachForecasts[0];
+      const peakTimeMs = r.result.peakTime?.getTime() ?? NaN;
+      const peakTime = Number.isFinite(peakTimeMs)
+        ? new Date(peakTimeMs).toISOString()
+        : "";
+      const candidate = {
+        candidateId: `intent:${r.beach.id}:${peakTime || "invalid"}`,
+        beachId: r.beach.id,
+        startsAt: Number.isFinite(peakTimeMs)
+          ? new Date(peakTimeMs - 30 * 60 * 1000).toISOString()
+          : "",
+        endsAt: Number.isFinite(peakTimeMs)
+          ? new Date(peakTimeMs + 30 * 60 * 1000).toISOString()
+          : "",
+      };
 
       return {
-        name: r.beach.name,
-        slug: r.beach.slug,
-        waveHeight: representativeForecast?.wave_height ?? "N/A",
-        windDirection: representativeForecast?.wind_speed
-          ? `${representativeForecast.wind_speed}`
-          : "N/A",
-        score: Math.round(r.result.confidence * 100),
-        citySlug: r.beach.city?.toLowerCase().replace(/\s+/g, "-"),
-        stateSlug: r.beach.state?.toLowerCase().replace(/\s+/g, "-"),
+        candidate,
+        peakTime,
+        topPick: {
+          beachId: r.beach.id,
+          name: r.beach.name,
+          slug: r.beach.slug,
+          waveHeight: representativeForecast?.wave_height ?? "N/A",
+          windDirection: representativeForecast?.wind_speed
+            ? `${representativeForecast.wind_speed}`
+            : "N/A",
+          score: Math.round(r.result.confidence * 100),
+          citySlug: r.beach.city?.toLowerCase().replace(/\s+/g, "-"),
+          stateSlug: r.beach.state?.toLowerCase().replace(/\s+/g, "-"),
+        },
       };
     });
 
     // Extract bestWindow from the top result
     let bestWindow: IntentForecastSummary["bestWindow"] = null;
-    if (topResults.length > 0) {
-      const best = topResults[0];
+    if (sortedResults.length > 0) {
+      const best = sortedResults[0];
       bestWindow = {
         start: best.result.windowStart ?? "",
         end: best.result.windowEnd ?? "",
@@ -1296,8 +1318,8 @@ export async function getIntentForecastSummary(
 
     // Extract conditions from the best beach's forecast data
     const bestForecasts: EnhancedForecastEntity[] =
-      topResults.length > 0
-        ? forecastsByBeach.get(topResults[0].beach.id) ?? []
+      sortedResults.length > 0
+        ? forecastsByBeach.get(sortedResults[0].beach.id) ?? []
         : (forecasts as EnhancedForecastEntity[]);
     const conditionForecast = bestForecasts[0];
 
@@ -1307,12 +1329,24 @@ export async function getIntentForecastSummary(
       swell: conditionForecast?.wave_height ?? "Unknown",
     };
 
-    return {
-      bestWindow,
-      topPicks,
-      conditions,
-      isTomorrow,
-    };
+    const candidates = rankedItems.map(({ candidate }) => candidate);
+    const decisions = await evaluateMajorEventHoldCandidates({
+      candidates,
+      profileExperience: null,
+    });
+
+    return sanitizeIntentForecastForMajorEventHold(
+      {
+        items: rankedItems,
+        bestWindow,
+        bestWindowSourceCandidateId:
+          rankedItems[0]?.candidate.candidateId ?? null,
+        conditions,
+        isTomorrow,
+      },
+      candidates,
+      decisions,
+    );
   } catch (error) {
     console.error("Error in getIntentForecastSummary:", error);
     return null;

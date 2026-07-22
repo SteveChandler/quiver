@@ -16,6 +16,40 @@ jest.mock("@/lib/utils/request-cache", () => {
 });
 
 describe("useDataFetcher", () => {
+  it("ignores an older request that resolves after a newer refetch", async () => {
+    let resolveFirst!: (value: { version: number }) => void;
+    let resolveSecond!: (value: { version: number }) => void;
+    const first = new Promise<{ version: number }>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const second = new Promise<{ version: number }>((resolve) => {
+      resolveSecond = resolve;
+    });
+    const fetcher = jest
+      .fn()
+      .mockReturnValueOnce(first)
+      .mockReturnValueOnce(second);
+    const { result } = renderHook(() => useDataFetcher(fetcher));
+
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
+    act(() => {
+      void result.current.refetch();
+    });
+    await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2));
+
+    await act(async () => {
+      resolveSecond({ version: 2 });
+      await second;
+    });
+    expect(result.current.data).toEqual({ version: 2 });
+
+    await act(async () => {
+      resolveFirst({ version: 1 });
+      await first;
+    });
+    expect(result.current.data).toEqual({ version: 2 });
+  });
+
   it("sets loading then data on success", async () => {
     const fetcher = jest.fn().mockResolvedValue({ hello: "world" });
     const { result } = renderHook(() => useDataFetcher(fetcher));

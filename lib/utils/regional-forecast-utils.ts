@@ -12,9 +12,52 @@ import type { ForecastRegion } from "@/lib/data/forecast-regions";
 import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfWindowRecommendation } from "@/types/session-intelligence";
+import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 import { getWaveSizeDescription } from "@/lib/utils/wave-formatters";
 import { classifyWindDirection } from "@/lib/utils/wind-classification";
 import { scoreNativeForecastDay } from "@/lib/scoring/native-condition-score";
+
+interface ForecastInterval {
+  windowStart: string;
+  windowEnd: string;
+}
+
+function resolveForecastInterval(
+  forecasts: readonly EnhancedForecastEntity[],
+): ForecastInterval | null {
+  const parsedInstants = forecasts.map((forecast) => {
+    if (
+      typeof forecast.forecast_at !== "string" ||
+      !/(?:Z|[+-]\d{2}:\d{2})$/.test(forecast.forecast_at)
+    ) {
+      return null;
+    }
+    const milliseconds = Date.parse(forecast.forecast_at);
+    return Number.isFinite(milliseconds) ? milliseconds : null;
+  });
+  if (parsedInstants.some((instant) => instant === null)) return null;
+  const instants = Array.from(new Set(parsedInstants as number[])).sort(
+    (left, right) => left - right,
+  );
+  if (instants.length !== forecasts.length) return null;
+  if (instants.length < 2) return null;
+
+  const cadenceMs = instants[1] - instants[0];
+  if (
+    cadenceMs <= 0 ||
+    instants.slice(2).some((instant, index) => {
+      const previous = instants[index + 1];
+      return instant - previous !== cadenceMs;
+    })
+  ) {
+    return null;
+  }
+
+  return {
+    windowStart: new Date(instants[0]).toISOString(),
+    windowEnd: new Date(instants[instants.length - 1] + cadenceMs).toISOString(),
+  };
+}
 
 /**
  * Summary of forecast conditions for a single day across a region
@@ -36,15 +79,20 @@ export interface DaySummary {
   dominantWindDirection: string;
   /** Overall wind conditions for the region */
   windConditions: "offshore" | "light" | "onshore";
+  /** Most common objective tide status across the region. */
+  dominantTideStatus?: string | null;
   /** Best time window to surf this day */
   bestTimeSlot: "dawn-patrol" | "morning" | "midday" | "afternoon" | "evening";
-  /** Top 5 beaches with best conditions for this day */
+  /** Complete ranked beach pool. Policy filtering applies display limits later. */
   topBeaches: Array<{
     id: string;
     name: string;
     slug: string;
     score: number;
     waveHeight: number;
+    /** Exact server-generated interval represented by this daily ranking. */
+    windowStart?: string;
+    windowEnd?: string;
   }>;
   /** Count of beaches with good conditions (score > 60) */
   beachesWithGoodConditions: number;
@@ -89,6 +137,9 @@ export interface BeachConditionSummary {
   currentScore: number;
   /** Current wave height (feet) */
   currentWaveHeight: number;
+  /** Exact server-generated interval represented by the current ranking. */
+  currentWindowStart?: string;
+  currentWindowEnd?: string;
   /** Trend over next 24 hours */
   trend: "improving" | "steady" | "declining";
   /** Best day name for this beach */
@@ -115,6 +166,8 @@ export interface RegionalForecastSummary {
   beachConditions: BeachConditionSummary[];
   /** Top surf-window recommendations for the active regional pilot surface. */
   bestSurfWindows?: SurfWindowRecommendation[];
+  /** Availability of positive regional recommendations after policy filtering. */
+  recommendationAvailability?: RecommendationAvailability;
   /**
    * Approved photo representing the region (from `beach_photos` table).
    * Attached by `getRegionalSummaries` — null when no top beach has an
@@ -416,6 +469,7 @@ export function aggregateRegionalForecast(
       beachId: string;
       score: number;
       avgHeight: number;
+      interval: ForecastInterval | null;
     }> = [];
 
     for (const [beachId, forecasts] of beachForecasts.entries()) {
@@ -427,7 +481,12 @@ export function aggregateRegionalForecast(
           .map((f) => parseFloat(f.wave_height || "0"))
           .filter((h) => h > 0);
         const avgHeight = heights.length > 0 ? heights.reduce((a, b) => a + b, 0) / heights.length : 0;
-        beachScores.push({ beachId, score, avgHeight });
+        beachScores.push({
+          beachId,
+          score,
+          avgHeight,
+          interval: resolveForecastInterval(forecasts),
+        });
       }
     }
 
@@ -465,15 +524,26 @@ export function aggregateRegionalForecast(
           ? "light"
           : "onshore";
 
+    const tideStatuses = allForecasts
+      .map((forecast) => forecast.tide_status)
+      .filter((status): status is string => Boolean(status));
+    const tideCounts = new Map<string, number>();
+    for (const status of tideStatuses) {
+      tideCounts.set(status, (tideCounts.get(status) || 0) + 1);
+    }
+    const dominantTideStatus =
+      Array.from(tideCounts.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ??
+      null;
+
     // Determine best time slot (simplified - could be more sophisticated)
     const bestTimeSlot: "dawn-patrol" | "morning" | "midday" | "afternoon" | "evening" =
       windConditions === "offshore" ? "dawn-patrol" : "morning";
 
-    // Rank top 5 beaches
+    // Retain the complete ranked pool so policy filtering can happen before
+    // the display cap is applied.
     const topBeaches = beachScores
       .sort((a, b) => b.score - a.score)
-      .slice(0, 5)
-      .map(({ beachId, score, avgHeight }) => {
+      .map(({ beachId, score, avgHeight, interval }) => {
         const beach = beaches.find((b) => b.id === beachId)!;
         return {
           id: beach.id,
@@ -481,6 +551,12 @@ export function aggregateRegionalForecast(
           slug: beach.slug || "",
           score,
           waveHeight: avgHeight,
+          ...(interval
+            ? {
+                windowStart: interval.windowStart,
+                windowEnd: interval.windowEnd,
+              }
+            : {}),
         };
       });
 
@@ -502,6 +578,7 @@ export function aggregateRegionalForecast(
       waveRange,
       dominantWindDirection,
       windConditions,
+      dominantTideStatus,
       bestTimeSlot,
       topBeaches,
       beachesWithGoodConditions,
@@ -518,6 +595,7 @@ export function aggregateRegionalForecast(
     waveRange: [0, 0] as [number, number],
     dominantWindDirection: "",
     windConditions: "onshore" as const,
+    dominantTideStatus: null,
     bestTimeSlot: "morning" as const,
     topBeaches: [],
     beachesWithGoodConditions: 0,
@@ -533,7 +611,14 @@ export function aggregateRegionalForecast(
     if (!forecasts || forecasts.length === 0) continue;
 
     // Current score (first forecast)
-    const currentForecasts = forecasts.filter((f) => f.forecast_date === sortedDates[0]).slice(0, 3);
+    const currentForecasts = forecasts
+      .filter((forecast) => forecast.forecast_at?.split("T")[0] === sortedDates[0])
+      .sort(
+        (left, right) =>
+          Date.parse(left.forecast_at) - Date.parse(right.forecast_at),
+      )
+      .slice(0, 3);
+    const currentInterval = resolveForecastInterval(currentForecasts);
     const currentScore = calculateDayScore(currentForecasts, beach);
     const currentWaveHeight = parseFloat(currentForecasts[0]?.wave_height || "0");
 
@@ -568,6 +653,12 @@ export function aggregateRegionalForecast(
       country: beach.country ?? null,
       currentScore,
       currentWaveHeight,
+      ...(currentInterval
+        ? {
+            currentWindowStart: currentInterval.windowStart,
+            currentWindowEnd: currentInterval.windowEnd,
+          }
+        : {}),
       trend,
       bestDay: bestDayName || "Unknown",
       bestDayScore,

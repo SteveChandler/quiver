@@ -1,4 +1,5 @@
 import type { Beach, Database } from "@/types/database";
+import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
 
 // ===================================================
 // RPC + DB SHAPES
@@ -127,8 +128,9 @@ export interface RecommendationsResponse {
   recommendations: Recommendation[];
   top_picks: TopPick[];
   metadata: RequestMetadata;
+  /** Added by the route's major-event hold sanitizer before public delivery. */
+  recommendationAvailability?: RecommendationAvailability;
 }
-
 
 
 
