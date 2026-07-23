@@ -1,4 +1,5 @@
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
+import type { CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
 
 export type MajorEventHoldFixturePhase =
   | "available"
@@ -8,6 +9,7 @@ export type MajorEventHoldFixturePhase =
 export const HOLD_TEST_BEACH_ID = "11111111-1111-4111-8111-111111111111";
 export const HOLD_TEST_BEACH_NAME = "Major Event Test Beach";
 export const OBJECTIVE_WAVE_HEIGHT = "4-5ft";
+export const HOLD_TEST_CANDIDATE_ID = "recommendation:major-event-e2e";
 
 function recommendationAvailability(
   phase: MajorEventHoldFixturePhase,
@@ -30,6 +32,73 @@ function recommendationAvailability(
   };
 }
 
+export function createCanonicalSessionDecisionFixture(input: {
+  phase: MajorEventHoldFixturePhase;
+  candidateId: string;
+  beachId: string;
+  beachName: string;
+  windowStart: string;
+  windowEnd: string;
+  timezone: string;
+  forecastId: string;
+  forecastAt: string;
+}): CanonicalSessionDecision {
+  const availability = recommendationAvailability(input.phase);
+  const held = input.phase === "held";
+  const createdAt = new Date().toISOString();
+  return {
+    schemaVersion: "canonical-session-decision.v1",
+    engineVersion: "rules.v1",
+    decisionId: input.phase === "held"
+      ? "b".repeat(64)
+      : input.phase === "cancelled"
+        ? "c".repeat(64)
+        : "a".repeat(64),
+    createdAt,
+    expiresAt: new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    scope: {
+      kind: "plan_next_session",
+      windowStart: createdAt,
+      windowEnd: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      timezone: input.timezone,
+    },
+    verdict: held ? "no" : "go",
+    reasonCode: held ? "major_event_hold" : "selected_go",
+    selection: held
+      ? null
+      : {
+          candidateId: input.candidateId,
+          beachId: input.beachId,
+          beachName: input.beachName,
+          windowStart: input.windowStart,
+          windowEnd: input.windowEnd,
+          timezone: input.timezone,
+          forecastRef: {
+            forecastId: input.forecastId,
+            beachId: input.beachId,
+            forecastAt: input.forecastAt,
+          },
+          skillEligibility: {
+            skill: "intermediate",
+            state: "eligible",
+            reasonCodes: [],
+          },
+        },
+    skillEligibility: held
+      ? {
+          skill: "intermediate",
+          state: "ineligible",
+          reasonCodes: ["major_event_hold"],
+        }
+      : {
+          skill: "intermediate",
+          state: "eligible",
+          reasonCodes: [],
+        },
+    holdEpoch: availability.holdEpoch,
+  };
+}
+
 export function createMajorEventDiscoveryFixture(
   phase: MajorEventHoldFixturePhase,
 ): Record<string, unknown> {
@@ -37,6 +106,7 @@ export function createMajorEventDiscoveryFixture(
   const start = new Date(Date.now() + 60 * 60 * 1000);
   const end = new Date(Date.now() + 3 * 60 * 60 * 1000);
   const recommendation = {
+    recommendationId: HOLD_TEST_CANDIDATE_ID,
     beach: {
       id: HOLD_TEST_BEACH_ID,
       name: HOLD_TEST_BEACH_NAME,
@@ -118,6 +188,17 @@ export function createMajorEventDiscoveryFixture(
         scoreBand: "excellent",
       },
       recommendationAvailability: recommendationAvailability(phase),
+      sessionDecision: createCanonicalSessionDecisionFixture({
+        phase,
+        candidateId: HOLD_TEST_CANDIDATE_ID,
+        beachId: HOLD_TEST_BEACH_ID,
+        beachName: HOLD_TEST_BEACH_NAME,
+        windowStart: start.toISOString(),
+        windowEnd: end.toISOString(),
+        timezone: "America/Los_Angeles",
+        forecastId: recommendation.forecast.id,
+        forecastAt: start.toISOString(),
+      }),
     },
   };
 }
