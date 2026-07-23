@@ -99,12 +99,12 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
 
     mockFetchHourlyTidePredictions.mockResolvedValue([
       {
-        ts: "2025-12-20T01:00:00.000Z",
+        ts: "2025-12-20T01:17:00.000Z",
         tide_height_m: 1.2,
         tide_phase: "H",
       },
       {
-        ts: "2025-12-20T02:00:00.000Z",
+        ts: "2025-12-20T02:42:00.000Z",
         tide_height_m: 1.1,
         tide_phase: null,
       },
@@ -159,12 +159,20 @@ describe("/api/cron/forecasts/refresh (tides)", () => {
     const rowsArg = firstCall[0] as any[];
     const beachIds = new Set(rowsArg.map((r: any) => r.beach_id));
     expect(beachIds).toEqual(new Set(["beach-a", "beach-b"]));
+    expect(new Set(rowsArg.map((r: any) => r.station_id))).toEqual(
+      new Set(["9410230"])
+    );
+    expect(new Set(rowsArg.map((r: any) => r.ts))).toEqual(
+      new Set([
+        "2025-12-20T01:00:00.000Z",
+        "2025-12-20T02:00:00.000Z",
+      ])
+    );
 
     // 2 beaches * 2 tide points
     expect(json.data.totals.tides).toBe(4);
   });
 });
-
 
 
 
