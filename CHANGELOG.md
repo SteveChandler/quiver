@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Patched archive tooling vulnerabilities** (`package.json`, `yarn.lock`). Forces all resolved `tar` 7.x consumers to 7.5.19 or later, covering the open decompression, infinite-loop, PAX parsing, and type-confusion advisories.
 - **Coach Picks no longer depends on the retired hourly-score view** (`supabase/migrations/20260722193000_repair_get_coach_picks_daily_intel.sql`). Preserves the existing RPC response while ranking public, non-deleted beaches inside the requested radius by their latest precomputed daily conditions score.
 - **Doheny beach pages no longer repeat the oversized surf-report snapshot** (`app/[intent]/[city]/[beachSlug]/page.tsx`). Keeps the dedicated tide, water-temperature, and best-time guide links while removing the redundant conditions summary from both known Doheny route variants.
 - **Clean migration replays restore the profile drive-radius preference** (`supabase/migrations/20260715050000_restore_profile_max_drive_minutes.sql`). Reconciles the nullable `profiles.max_drive_minutes` column and production comment before the local match-candidate RPC first reads it, without rewriting applied history or dropping preference data.
