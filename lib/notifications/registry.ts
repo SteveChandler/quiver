@@ -745,7 +745,9 @@ export const NOTIFICATION_REGISTRY = {
 
   swell_watch: {
     type: "swell_watch",
-    channels: ["push", "in_app"],
+    // Contract capability remains available, but major-swell automation and
+    // delivery are intentionally disabled for this rollout slice.
+    channels: [],
     prefs: {
       master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
       perType: {

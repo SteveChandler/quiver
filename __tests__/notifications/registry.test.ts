@@ -98,6 +98,91 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     });
   });
 
+  it("keeps shadow and enforce major-swell contract capability delivery-disabled", () => {
+    const validate = NOTIFICATION_REGISTRY.swell_watch.validatePayload!;
+
+    const shadow = validate({
+      schema_version: "major-swell-notification.v1",
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      beach_name: "Black's Beach",
+      event_start_date: "2026-08-01",
+      peak_date: "2026-08-02",
+      peak_height_ft: 8,
+      peak_period_s: 16,
+      forecast_at: "2026-08-02T15:00:00.000Z",
+      awareness_mode: "shadow",
+      automation_enabled: false,
+      awareness_signal: "forecast_trend",
+      awareness_severity: "major",
+      official_evidence_refs: [],
+      would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+      enforcement: null,
+      title: "Major swell incoming",
+      body: "Advanced conditions are approaching.",
+    });
+    const enforce = validate({
+      schema_version: "major-swell-notification.v1",
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      beach_name: "Black's Beach",
+      event_start_date: "2026-08-01",
+      peak_date: "2026-08-02",
+      peak_height_ft: 8,
+      peak_period_s: 16,
+      forecast_at: "2026-08-02T15:00:00.000Z",
+      awareness_mode: "enforce",
+      automation_enabled: true,
+      awareness_signal: "corroborated",
+      awareness_severity: "major",
+      official_evidence_refs: ["official:nws_alert:high-surf"],
+      would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+      enforcement: {
+        hold_id: "22222222-2222-4222-8222-222222222222",
+        hold_record_id: "33333333-3333-4333-8333-333333333333",
+        hold_valid_until: "2026-08-03T00:00:00.000Z",
+      },
+      title: "Major swell incoming",
+      body: "Advanced conditions are approaching.",
+    });
+
+    expect(shadow.awareness_mode).toBe("shadow");
+    expect(enforce.awareness_mode).toBe("enforce");
+    expect(NOTIFICATION_REGISTRY.swell_watch.channels).toEqual([]);
+  });
+
+  it("normalizes legacy forecast-trend payloads at the registry boundary", () => {
+    const payload = NOTIFICATION_REGISTRY.swell_watch.validatePayload!({
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      beach_slug: "blacks",
+      beach_name: "Black's Beach",
+      event_start_date: "2026-08-01",
+      peak_date: "2026-08-02",
+      peak_height_ft: 8,
+      peak_period_s: 16,
+      forecast_at: "2026-08-02T15:00:00.000Z",
+      awareness_mode: "shadow",
+      awareness_signal: "forecast_trend",
+      awareness_severity: "major",
+      title: "Major swell incoming",
+      body: "Advanced conditions are approaching.",
+    });
+
+    expect(payload).toMatchObject({
+      schema_version: "major-swell-notification.v1",
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      event_start_date: "2026-08-01",
+      peak_date: "2026-08-02",
+      peak_height_ft: 8,
+      peak_period_s: 16,
+      forecast_at: "2026-08-02T15:00:00.000Z",
+      awareness_mode: "shadow",
+      automation_enabled: false,
+      awareness_signal: "forecast_trend",
+      official_evidence_refs: [],
+      would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+      enforcement: null,
+    });
+  });
+
   it("does not expose major-swell evidence or hold proof to clients", () => {
     const payload = NOTIFICATION_REGISTRY.swell_watch.validatePayload!({
       schema_version: "major-swell-notification.v1",
