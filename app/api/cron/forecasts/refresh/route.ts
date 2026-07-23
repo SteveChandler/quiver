@@ -676,6 +676,7 @@ async function _GET(request: Request): Promise<Response> {
             beachIds,
             points,
             createdAt: refreshedAt,
+            stationId,
           });
 
           for (const chunk of chunkArray(rows, 1000)) {
