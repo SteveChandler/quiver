@@ -193,6 +193,12 @@ test.describe('Route HTML Contracts', () => {
       expect(response.status()).toBe(200);
       expect(xml).toMatch(/<urlset|<sitemapindex/);
       expect(xml).toContain('<url>');
+      expect(xml).toMatch(/<loc>https?:\/\/[^<]+\/download<\/loc>/);
+      expect(xml).toMatch(/<loc>https?:\/\/[^<]+\/android-beta<\/loc>/);
+      expect(xml).toMatch(/<loc>https?:\/\/[^<]+\/guides<\/loc>/);
+      expect(xml).not.toMatch(/<loc>https?:\/\/[^<]+\/support<\/loc>/);
+      expect(xml).not.toMatch(/<loc>https?:\/\/[^<]+\/data-deletion<\/loc>/);
+      expect(xml).not.toMatch(/<loc>https?:\/\/[^<]+\/pbsc<\/loc>/);
     });
 
     test('robots.txt returns a readable response when configured', async ({ request }) => {

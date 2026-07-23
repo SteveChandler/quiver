@@ -61,7 +61,7 @@ describe("PbscPage", () => {
     });
   });
 
-  it("exports evergreen metadata for the stable /pbsc path", () => {
+  it("exports noindex campaign metadata for the stable /pbsc path", () => {
     expect(metadata.title).toEqual({
       absolute: "Get the Quiver Surf App | Welcome",
     });
@@ -69,6 +69,10 @@ describe("PbscPage", () => {
       "You found the flyer. Get the surf app that matches today's forecast against the sessions you loved.",
     );
     expect(metadata.alternates?.canonical).toBe("http://localhost:3000/pbsc");
+    expect(metadata.robots).toEqual({
+      index: false,
+      follow: true,
+    });
   });
 
   it("renders evergreen welcome copy without stale event framing", async () => {

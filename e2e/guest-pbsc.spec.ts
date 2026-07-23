@@ -111,6 +111,10 @@ test.describe('Guest PBSC welcome route', () => {
   }) => {
     await gotoPbsc(page);
 
+    await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+      'content',
+      /noindex/,
+    );
     await expectHeroHandoffLink(page, /Get the app/i);
     const heroWords = page.getByLabel('Welcome to Quiver.');
     await expect(heroWords).toBeVisible({ timeout: 10000 });

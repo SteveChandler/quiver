@@ -51,6 +51,12 @@ const SITEMAP_CONTENT_VERSIONS = {
   learnContentFallback: "2026-03-26",
 } as const;
 
+const SITEMAP_ACQUISITION_ROUTES = [
+  { path: "/download", lastModified: "2026-07-15" },
+  { path: "/android-beta", lastModified: "2026-07-22" },
+  { path: "/guides", lastModified: "2026-06-25" },
+] as const;
+
 // Force dynamic rendering because sitemap generation requires database queries
 // at request time to fetch beaches, locations, and cities with skill data.
 export const dynamic = "force-dynamic";
@@ -245,7 +251,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
  * Static pages - home, features, about, etc.
  */
 function getStaticRoutes(): MetadataRoute.Sitemap {
-  return [
+  const staticRoutes = [
     "/",
     "/features",
     "/about",
@@ -269,6 +275,14 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
     url: `${baseUrl}${route}`,
     lastModified: SITEMAP_CONTENT_VERSIONS.staticPages,
   }));
+
+  return [
+    ...staticRoutes,
+    ...SITEMAP_ACQUISITION_ROUTES.map((route) => ({
+      url: `${baseUrl}${route.path}`,
+      lastModified: route.lastModified,
+    })),
+  ];
 }
 
 /**

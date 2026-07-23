@@ -216,6 +216,26 @@ describe("Sitemap Generation", () => {
       expect(route).not.toBeUndefined();
     });
 
+    it("includes acquisition hubs and keeps utility or campaign routes out", async () => {
+      const result = await sitemap();
+      const routesByUrl = new Map(
+        result.map((route) => [route.url, route] as const),
+      );
+
+      expect(routesByUrl.get(`${baseUrl}/download`)?.lastModified).toBe(
+        "2026-07-15",
+      );
+      expect(routesByUrl.get(`${baseUrl}/android-beta`)?.lastModified).toBe(
+        "2026-07-22",
+      );
+      expect(routesByUrl.get(`${baseUrl}/guides`)?.lastModified).toBe(
+        "2026-06-25",
+      );
+      expect(routesByUrl.has(`${baseUrl}/support`)).toBe(false);
+      expect(routesByUrl.has(`${baseUrl}/data-deletion`)).toBe(false);
+      expect(routesByUrl.has(`${baseUrl}/pbsc`)).toBe(false);
+    });
+
     it("should include /beaches/usa route", async () => {
       const result = await sitemap();
       const route = result.find((r) => r.url === `${baseUrl}/beaches/usa`);
