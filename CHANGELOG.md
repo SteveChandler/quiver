@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Discover suggested-surfer follows now honor the live API response and have end-to-end regression coverage** (`hooks/use-user-follow.ts`, `__tests__/hooks/use-user-follow.test.ts`, `__tests__/components/discover-page.test.tsx`, `e2e/discover-community.spec.ts`). The follow hook reads the gateway's unwrapped state instead of treating a successful follow as an unfollow; the authenticated flow proves suggestions appear before search, the follow reaches the toggle endpoint, the canonical `discover_follow_attempt` event reaches PostHog and user events with its target and surface, and the UI reflects the successful follow.
 - **Auth failure events now survive transient sign-in/sign-up loading states** (`components/analytics/posthog-provider.tsx`). Keeps the previously resolved anonymous or consented tracking decision active while an auth request is in flight so `login_failed` and `signup_failed` reach PostHog.
 - **Landing media now has a browser-enforced first-load request budget** (`e2e/guest-landing-media-budget.spec.ts`). Covers desktop and mobile viewports and proves reduced-motion and Save-Data sessions do not request the autoplay hero video.
 - **Beach-detail secondary requests now have behavioral budget coverage** (`__tests__/components/beach-detail.loading-guards.test.tsx`). Proves empty-state count APIs stay at zero during initial render and idle time, then issue exactly one request for each community tab the surfer explicitly opens.

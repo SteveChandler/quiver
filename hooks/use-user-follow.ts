@@ -168,9 +168,10 @@ export function useUserFollow(
         return;
       }
 
+      const followState = result.following ?? result.data?.following;
       const isFollowAction =
-        typeof result.data?.following === "boolean"
-          ? result.data.following
+        typeof followState === "boolean"
+          ? followState
           : Boolean(result.data && "followId" in result.data);
 
       if (isFollowAction) {

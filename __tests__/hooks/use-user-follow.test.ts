@@ -155,7 +155,9 @@ describe("useUserFollow", () => {
       });
       mockToggleFollowGateway.mockResolvedValue({
         success: true,
-        data: { following: true, followersCount: 11, followingCount: 5 },
+        following: true,
+        followersCount: 11,
+        followingCount: 5,
       });
 
       const { result } = renderHook(() => useUserFollow("user-2", 10, 5));
@@ -178,7 +180,9 @@ describe("useUserFollow", () => {
       });
       mockToggleFollowGateway.mockResolvedValue({
         success: true,
-        data: { following: false, followersCount: 9, followingCount: 5 },
+        following: false,
+        followersCount: 9,
+        followingCount: 5,
       });
 
       const { result } = renderHook(() => useUserFollow("user-2", 10, 5));
@@ -424,7 +428,9 @@ describe("useUserFollow", () => {
       mockGetStatusAndCounts.mockResolvedValue({ followersCount: 10, followingCount: 5, following: false });
       mockToggleFollowGateway.mockResolvedValue({
         success: true,
-        data: { following: true, followersCount: 11, followingCount: 5 },
+        following: true,
+        followersCount: 11,
+        followingCount: 5,
       });
 
       const { result } = renderHook(() =>
