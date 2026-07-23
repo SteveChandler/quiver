@@ -138,6 +138,26 @@ const BEST_TIME_CTR_OVERRIDES: Record<string, BestTimeCtrOverride> = {
         "Use the live Malibu report for First Point tide, wind, crowd, and backup context.",
     },
   },
+  "santa-cruz": {
+    metadataTitle: "Best Time to Surf Santa Cruz: Wind, Tide & Season",
+    metadataDescription:
+      "Find the best time to surf Santa Cruz today. Compare Steamer Lane with Cowell's and Capitola windows, then check wind, tide, water temperature, and season.",
+    h1: "Best Time to Surf Santa Cruz Today",
+    heroDek:
+      "Steamer Lane, Cowell's and Capitola windows, wind, tide, cold water, and season",
+    answerPrefix:
+      "For Santa Cruz, separate Steamer Lane's experienced reef setup from smaller Cowell's and Capitola beginner windows; the same swell, tide, and wind do not suit both.",
+    weekSuffix:
+      "Smaller summer surf can open gentler beginner windows; fall and winter NW swell favors exposed reef and point breaks, but morning wind, tide, and spot fit still decide the session.",
+    surfReportCue:
+      "Check Steamer Lane's live wind, tide, and swell first. For a beginner plan, use Cowell's or Capitola only when the surf stays small and manageable, and confirm Santa Cruz water temperature before choosing a wetsuit.",
+    surfReportStep: {
+      label: "Open live Steamer Lane conditions",
+      href: "/ca/santa-cruz/steamer-lane-santa-cruz-ca",
+      description:
+        "Check Steamer Lane's live wave height, wind, tide, and swell before applying the Santa Cruz season guide.",
+    },
+  },
 };
 
 function getBestTimeCtrOverride(citySlug: string): BestTimeCtrOverride | null {
