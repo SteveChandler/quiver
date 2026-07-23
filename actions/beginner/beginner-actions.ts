@@ -167,6 +167,7 @@ function getConditionPriority(
   if (!evaluation.applies) return 2;
   if (evaluation.rating === "ideal") return 0;
   if (evaluation.rating === "acceptable") return 1;
+  if (evaluation.rating === "unknown") return 2;
   return 3;
 }
 
@@ -310,6 +311,7 @@ function determineConditionStatus(
   if (beginnerWindow?.applies) {
     if (beginnerWindow.rating === "ideal") return "great";
     if (beginnerWindow.rating === "acceptable") return "fair";
+    if (beginnerWindow.rating === "unknown") return "fair";
     return "challenging";
   }
 
@@ -547,6 +549,7 @@ export async function getBeginnerConditionsData(
     };
 
     const rightNow: RightNowConditions = {
+      spotId: beach.id,
       spotName: beach.name,
       spotSlug: beach.slug ?? "",
       metrics: {
@@ -555,6 +558,39 @@ export async function getBeginnerConditionsData(
         waterTemp: waterTempMetric,
         tide: tideMetric,
         crowd: crowdMetric,
+      },
+      beginnerVerdict: {
+        rating:
+          beginnerWindow.applies &&
+          beginnerWindow.rating !== "not_applicable"
+            ? beginnerWindow.rating
+            : "unknown",
+        reasons: [
+          {
+            factor: "Wave size",
+            detail: beginnerWindow.applies
+              ? beginnerWindow.labels.wave
+              : waveHeightMetric.label,
+          },
+          {
+            factor: "Wind",
+            detail: beginnerWindow.applies
+              ? beginnerWindow.labels.wind
+              : windMetric.label,
+          },
+          {
+            factor: "Tide",
+            detail: beginnerWindow.applies
+              ? beginnerWindow.labels.tide
+              : tideMetric.label,
+          },
+          {
+            factor: "Time window",
+            detail: beginnerWindow.applies
+              ? beginnerWindow.labels.time
+              : "Verify the current window before leaving",
+          },
+        ],
       },
       summary: generateSummary(
         waveHeightMetric.status,

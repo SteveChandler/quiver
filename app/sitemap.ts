@@ -59,6 +59,7 @@ const SITEMAP_ACQUISITION_ROUTES = [
   { path: "/download", lastModified: "2026-07-15" },
   { path: "/android-beta", lastModified: "2026-07-22" },
   { path: "/guides", lastModified: "2026-06-25" },
+  { path: "/us-open-of-surfing-forecast", lastModified: "2026-07-23" },
 ] as const;
 
 // Force dynamic rendering because sitemap generation requires database queries

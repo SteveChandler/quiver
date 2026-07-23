@@ -114,17 +114,23 @@ export function BeginnerPageContent({
             </SectionFadeUp>
           )}
 
-          {rightNowConditions && (
-            <SectionFadeUp delay={0.12}>
-              <BeginnerSessionDecision
-                bestTimeToSurfUrl={bestTimeToSurfUrl}
-                cityName={cityName}
-                citySlug={citySlug}
-                conditions={rightNowConditions}
-                stateSlug={stateSlug}
-              />
-            </SectionFadeUp>
-          )}
+          <SectionFadeUp delay={0.12}>
+            <BeginnerSessionDecision
+              bestTimeToSurfUrl={bestTimeToSurfUrl}
+              cityName={cityName}
+              citySlug={citySlug}
+              conditions={rightNowConditions ?? undefined}
+              decisionSummary={
+                rightNowConditions
+                  ? undefined
+                  : "Live wave, wind, tide, and time-window data is unavailable. Check the beach first."
+              }
+              referenceSpotName={
+                conditionsBadge?.spotName ?? beaches[0]?.name
+              }
+              stateSlug={stateSlug}
+            />
+          </SectionFadeUp>
 
           {/* Module 3: Curated Spot Cards */}
           <SectionFadeUp delay={0.15}>

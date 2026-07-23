@@ -2,7 +2,10 @@ import Image from "next/image";
 import Link from "next/link";
 import type { ReactElement } from "react";
 import { ArrowUpRight, CalendarDays, ShieldCheck, Waves } from "lucide-react";
-import type { RightNowConditions } from "@/types/beginner";
+import type {
+  BeginnerVerdictRating,
+  RightNowConditions,
+} from "@/types/beginner";
 
 interface BeginnerSessionDecisionProps {
   cityName: string;
@@ -15,6 +18,43 @@ interface BeginnerSessionDecisionProps {
 }
 
 const STICKER_SRC = "/images/quiver-stickers/surf-wax.png";
+
+const VERDICT_COPY: Record<
+  BeginnerVerdictRating,
+  {
+    label: "YES" | "MAYBE" | "NO";
+    headline: string;
+    nextStep: string;
+    tone: string;
+  }
+> = {
+  ideal: {
+    label: "YES",
+    headline: "Go surf!",
+    nextStep: "Recheck the beach when you arrive and stay inside your limits.",
+    tone: "border-emerald-300 bg-emerald-50 text-emerald-800",
+  },
+  acceptable: {
+    label: "MAYBE",
+    headline: "Might work",
+    nextStep: "Watch a few sets from shore and use the mellowest available peak.",
+    tone: "border-amber-300 bg-amber-50 text-amber-800",
+  },
+  poor: {
+    label: "NO",
+    headline: "Skip it",
+    nextStep:
+      "Wait for a smaller, lighter-wind window or book a lesson at a protected beginner break.",
+    tone: "border-rose-300 bg-rose-50 text-rose-800",
+  },
+  unknown: {
+    label: "MAYBE",
+    headline: "Check the beach first",
+    nextStep:
+      "Confirm the sets, wind, and current before deciding whether this window fits you.",
+    tone: "border-slate-300 bg-slate-50 text-slate-800",
+  },
+};
 
 export function BeginnerSessionDecision({
   cityName,
@@ -32,6 +72,9 @@ export function BeginnerSessionDecision({
     conditions?.summary ??
     decisionSummary ??
     `Use this ${cityName} beginner guide as the first filter.`;
+  const rating = conditions?.beginnerVerdict.rating ?? "unknown";
+  const verdict = VERDICT_COPY[rating];
+  const reasons = conditions?.beginnerVerdict.reasons ?? [];
   const links = [
     {
       label: `Open live ${cityName} spots`,
@@ -63,10 +106,40 @@ export function BeginnerSessionDecision({
             Beginner call
           </div>
           <h2 className="mt-3 text-xl font-semibold text-slate-900">
-            {spotName} is the reference spot right now
+            Can a beginner surf here today?
           </h2>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <span
+              className={`inline-flex rounded-full border px-3 py-1 font-mono text-sm font-black tracking-[0.12em] ${verdict.tone}`}
+            >
+              {verdict.label}
+            </span>
+            <p className="text-lg font-bold text-slate-900">
+              {verdict.headline}
+            </p>
+          </div>
           <p className="mt-2 text-sm leading-6 text-slate-700">
-            {summary} Check the tide and keep a backup spot.
+            <strong>{spotName}:</strong> {summary}
+          </p>
+          {reasons.length > 0 ? (
+            <dl className="mt-4 grid gap-2 sm:grid-cols-2">
+              {reasons.map((reason) => (
+                <div
+                  className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                  key={reason.factor}
+                >
+                  <dt className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                    {reason.factor}
+                  </dt>
+                  <dd className="mt-1 text-sm text-slate-800">
+                    {reason.detail}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : null}
+          <p className="mt-4 text-sm font-medium leading-6 text-slate-800">
+            Next step: {verdict.nextStep}
           </p>
           <div className="mt-4 grid gap-2 sm:grid-cols-3">
             {links.map(({ href, icon: Icon, label }) => (

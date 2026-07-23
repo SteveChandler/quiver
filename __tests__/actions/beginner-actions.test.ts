@@ -234,6 +234,15 @@ describe("beginner actions", () => {
     expect(result.badge?.spotName).toBe("Lower Rated Good Tide");
     expect(result.badge?.status).toBe("great");
     expect(result.rightNow?.metrics.tide.status).toBe("good");
+    expect(result.rightNow?.beginnerVerdict).toMatchObject({
+      rating: "ideal",
+      reasons: expect.arrayContaining([
+        { factor: "Wave size", detail: "Ideal 1-2 ft learner surf" },
+        { factor: "Wind", detail: "Light wind" },
+        { factor: "Tide", detail: "Low-to-mid tide fit" },
+        { factor: "Time window", detail: "Best morning glass window" },
+      ]),
+    });
   });
 
   it("does not promote missing wind telemetry to great learner conditions", async () => {
@@ -249,5 +258,6 @@ describe("beginner actions", () => {
       label: "Wind unavailable",
       status: "caution",
     });
+    expect(result.rightNow?.beginnerVerdict.rating).toBe("acceptable");
   });
 });

@@ -45,10 +45,28 @@ export interface RightNowMetrics {
   crowd: ConditionMetric;
 }
 
+export type BeginnerVerdictRating =
+  | "ideal"
+  | "acceptable"
+  | "poor"
+  | "unknown";
+
+export interface BeginnerVerdictReason {
+  factor: "Wave size" | "Wind" | "Tide" | "Time window";
+  detail: string;
+}
+
+export interface BeginnerVerdict {
+  rating: BeginnerVerdictRating;
+  reasons: BeginnerVerdictReason[];
+}
+
 export interface RightNowConditions {
+  spotId: string;
   spotName: string;
   spotSlug: string;
   metrics: RightNowMetrics;
+  beginnerVerdict: BeginnerVerdict;
   summary: string;
   lastUpdated: string;
 }
