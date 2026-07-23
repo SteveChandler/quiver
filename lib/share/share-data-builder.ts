@@ -6,15 +6,11 @@
  * component for better testability and reusability.
  */
 
+import type { CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
 import type { SurfDiscoveryRecommendation, TimeSlot } from "@/types/personalization";
-import { formatDiscoveryScore } from "@/lib/utils/rating-formatters";
 import { formatTimeWindowCompact } from "@/lib/utils/date-time";
 import {
-  getConditionTier,
-  getConditionBadge,
-  buildHeadlineText,
   isFutureDayInTimezone,
-  isEveningInTimezone,
 } from "@/lib/utils/condition-tier-utils";
 import { buildSurfCallShareUrl } from "./build-share-card-url";
 
@@ -38,6 +34,8 @@ export interface ShareData {
 export interface BuildShareDataInput {
   /** The surf discovery recommendation to share */
   recommendation: SurfDiscoveryRecommendation;
+  /** Canonical authority that selected this exact recommendation */
+  sessionDecision: CanonicalSessionDecision | null;
   /** Optional time slot filter for headline context */
   timeSlot?: TimeSlot;
 }
@@ -47,10 +45,10 @@ export interface BuildShareDataInput {
  *
  * This function extracts all the logic needed to create shareable content
  * from a recommendation, including:
- * - Condition tier calculation
+ * - Exact canonical-selection validation
  * - Time window formatting
- * - Headline text generation
- * - OG image URL construction
+ * - Canonical verdict projection
+ * - OG image URL construction without legacy scores
  *
  * @param input The recommendation and optional time slot
  * @returns ShareData object or null if invalid input
@@ -59,6 +57,7 @@ export interface BuildShareDataInput {
  * ```ts
  * const shareData = buildSurfCallShareData({
  *   recommendation: topRecommendation,
+ *   sessionDecision,
  *   timeSlot: 'lunch-session',
  * });
  *
@@ -68,28 +67,36 @@ export interface BuildShareDataInput {
  * ```
  */
 export function buildSurfCallShareData(input: BuildShareDataInput): ShareData | null {
-  const { recommendation, timeSlot } = input;
+  const { recommendation, sessionDecision, timeSlot } = input;
 
-  if (!recommendation) {
+  const selection = sessionDecision?.selection;
+  const expiresAt = Date.parse(sessionDecision?.expiresAt ?? "");
+  const recommendationStart = recommendation?.window?.start;
+  const recommendationEnd = recommendation?.window?.end;
+  if (
+    !recommendation
+    || !sessionDecision
+    || sessionDecision.verdict === "no"
+    || !selection
+    || !Number.isFinite(expiresAt)
+    || Date.now() >= expiresAt
+    || recommendation.recommendationId !== selection.candidateId
+    || recommendation.beach?.id !== selection.beachId
+    || !(recommendationStart instanceof Date)
+    || !(recommendationEnd instanceof Date)
+    || recommendationStart.toISOString() !== selection.windowStart
+    || recommendationEnd.toISOString() !== selection.windowEnd
+  ) {
     return null;
   }
 
   try {
-    const { beach, score, window, conditionBadges, waveHeightBadge, message } = recommendation;
-
-    // Calculate condition tier and related data
-    const tier = getConditionTier(score);
-    const formattedScore = formatDiscoveryScore(score);
+    const { beach, window, conditionBadges, waveHeightBadge, message } = recommendation;
     const timeWindow = formatTimeWindowCompact(window.start, window.end, window.timezone);
-    const conditionBadge = getConditionBadge(tier);
 
     // Determine if tomorrow using centralized utility
     const timezone = window.timezone || beach.timezone || "America/Los_Angeles";
     const isTomorrow = isFutureDayInTimezone(window.start, timezone);
-
-    // Build headline text for share description
-    const isEvening = isEveningInTimezone(timezone);
-    const headlineText = buildHeadlineText(beach.name, tier, isTomorrow, timeSlot, isEvening);
 
     // Build time context for OG image subtitle (e.g., "Tomorrow Morning", "This Afternoon")
     // Time slots: dawn-patrol (6-11am), lunch-session (11am-2pm), afternoon (2-6pm)
@@ -109,15 +116,13 @@ export function buildSurfCallShareData(input: BuildShareDataInput): ShareData | 
     // Build the OG image URL with all parameters
     const imageUrl = buildSurfCallShareUrl({
       beach: beach.name,
-      verdict: tier === "great" || tier === "good" ? "YES" : tier === "fair" ? "MAYBE" : "NO",
+      verdict: sessionDecision.verdict === "go" ? "YES" : "MAYBE",
       window: timeWindow,
       waveHeight: waveHeightBadge || "",
       wind: "",
       tags: conditionBadges?.slice(0, 3).map((b) => b.label).join(",") || "",
-      // New parameters for redesigned share card
-      score: Math.round(score),
       headline: beach.name, // Beach name only - time context moved to separate param
-      conditionLabel: conditionBadge?.label || "",
+      conditionLabel: sessionDecision.verdict === "go" ? "Go" : "Consider",
       message: message || "",
       timeContext,
     });
@@ -125,8 +130,8 @@ export function buildSurfCallShareData(input: BuildShareDataInput): ShareData | 
     return {
       imageUrl,
       beachName: beach.name,
-      title: `Check out ${beach.name}!`,
-      text: `${headlineText.prefix}${beach.name} ${headlineText.connector} ${formattedScore}/10`,
+      title: `Surf ${beach.name}`,
+      text: `${sessionDecision.verdict === "go" ? "Go" : "Consider"}: ${beach.name}, ${timeWindow}`,
     };
   } catch (error) {
     console.error("[buildSurfCallShareData] Error building share data:", error);

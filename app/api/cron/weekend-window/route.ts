@@ -20,6 +20,10 @@ import {
   resolveNotificationMajorEventHold,
   type PositiveRecommendationPolicyContext,
 } from "@/lib/recommendations/major-event-hold/adapters/notification";
+import {
+  buildCanonicalSessionDecision,
+  type CanonicalSessionDecision,
+} from "@/lib/recommendations/canonical-decision";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -45,6 +49,7 @@ interface WeekendWindowPayload {
   title: string;
   body: string;
   policy_context: PositiveRecommendationPolicyContext;
+  session_decision: CanonicalSessionDecision;
 }
 
 interface WeekendCopyInput {
@@ -244,6 +249,44 @@ export async function selectAndBuildWeekendWindow({
       starts_at: forecast.forecast_at,
       ends_at: endsAt,
     },
+    session_decision: buildCanonicalSessionDecision({
+      anchorTime: now.toISOString(),
+      scope: {
+        kind: "plan_next_session",
+        windowStart: now.toISOString(),
+        windowEnd: endsAt,
+        timezone,
+      },
+      profileExperience: (profile as HomeBeachPushSelectArgs["profile"] & {
+        experience_level?: string | null;
+      }).experience_level,
+      recommendationAvailability: {
+        state: "available",
+        holdEpoch: `notification:weekend-window:${weekendKey}`,
+        resolutionAsOf: now.toISOString(),
+      },
+      candidates: [
+        {
+          candidateId: `weekend-window:${beach.id}:${forecast.forecast_at}`,
+          beachId: beach.id,
+          beachName: beach.name,
+          beachSkillLevel: beach.skill_level,
+          windowStart: forecast.forecast_at,
+          windowEnd: endsAt,
+          timezone,
+          forecastId:
+            typeof forecast.id === "string" && forecast.id.length > 0
+              ? forecast.id
+              : `forecast:${beach.id}:${forecast.forecast_at}`,
+          forecastAt: forecast.forecast_at,
+          waveHeight:
+            parseOptionalNumber(forecast.wave_height) == null
+              ? null
+              : `${parseOptionalNumber(forecast.wave_height)} ft`,
+          utilityScore: pick.score,
+        },
+      ],
+    }),
   };
   const profileExperience = parseSkillLevel(
     (profile as HomeBeachPushSelectArgs["profile"] & {
@@ -256,7 +299,13 @@ export async function selectAndBuildWeekendWindow({
     payload,
     profileExperience,
   });
-  if (holdResolution.status === "suppressed") {
+  if (
+    holdResolution.status !== "allowed" ||
+    payload.session_decision.verdict === "no" ||
+    payload.session_decision.selection?.beachId !== beach.id ||
+    payload.session_decision.selection.windowStart !== forecast.forecast_at ||
+    payload.session_decision.selection.windowEnd !== endsAt
+  ) {
     return { skipReason: "majorEventHold" };
   }
 

@@ -85,14 +85,6 @@
       "schedule": "0 2 * * 1"
     },
     {
-      "path": "/api/cron/reengagement-email",
-      "schedule": "0 18 * * 1,3,5"
-    },
-    {
-      "path": "/api/cron/conditions-alert-email",
-      "schedule": "30 14 * * *"
-    },
-    {
       "path": "/api/cron/session-prompt-email",
       "schedule": "30 18 * * *"
     },

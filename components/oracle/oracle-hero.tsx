@@ -8,6 +8,7 @@ import { ConditionsOverlay } from "./conditions-overlay";
 import { getHourInTimezone } from "@/lib/utils/date-time";
 import { getOracleGreeting } from "@/lib/oracle/greeting";
 import type { CompassPoint } from "@/lib/utils/distance-utils";
+import type { CanonicalDecisionVerdict } from "@/lib/recommendations/canonical-decision/types";
 
 export interface OracleHeroProps {
   beachName: string;
@@ -16,6 +17,8 @@ export interface OracleHeroProps {
   /** null while the canonical surf-call is still loading — keeps the hero
    * visible without painting a phantom 0/10 score in the badge. */
   score: number | null;
+  /** Single server-owned session decision; replaces client score-derived calls. */
+  decisionVerdict?: CanonicalDecisionVerdict | null;
   swellDirection: string;
   swellPeriod: number;
   tideHeight: number;
@@ -127,6 +130,7 @@ export function OracleHero({
   heroPhotoUrl,
   waveHeight,
   score,
+  decisionVerdict,
   swellDirection,
   swellPeriod,
   tideHeight,
@@ -262,6 +266,7 @@ export function OracleHero({
         beachName={beachName}
         waveHeight={waveHeight}
         score={score}
+        decisionVerdict={decisionVerdict}
         swellDirection={swellDirection}
         swellPeriod={swellPeriod}
         tideHeight={tideHeight}

@@ -21,6 +21,7 @@ export interface HomeBeachPushProfileRow {
 }
 
 export interface HomeBeachPushSelectArgs {
+  supabase?: ReturnType<typeof createSupabaseServiceRoleClient>;
   profile: HomeBeachPushProfileRow;
   beach: Beach;
   forecasts: EnhancedForecastEntity[];
@@ -40,6 +41,7 @@ interface HomeBeachPushRunnerOptions<P extends object> {
   lookaheadHours: number;
   profileSelectExtraFields?: string[];
   createAdditionalSummary?: () => Record<string, unknown>;
+  deliveryMode?: "deliver" | "shadow";
   selectAndBuild: (
     args: HomeBeachPushSelectArgs
   ) => HomeBeachPushSelection<P> | Promise<HomeBeachPushSelection<P>>;
@@ -52,6 +54,16 @@ interface HomeBeachPushRunnerOptions<P extends object> {
     now: Date;
     selection: { payload: P; dedupeKey: string };
     enqueueResult: EnqueueResult;
+    summary: HomeBeachPushRunSummary;
+  }) => Promise<void>;
+  afterShadowSelection?: (args: {
+    supabase: ReturnType<typeof createSupabaseServiceRoleClient>;
+    profile: HomeBeachPushProfileRow;
+    beach: Beach;
+    forecasts: EnhancedForecastEntity[];
+    timezone: string;
+    now: Date;
+    selection: { payload: P; dedupeKey: string };
     summary: HomeBeachPushRunSummary;
   }) => Promise<void>;
 }
@@ -190,6 +202,7 @@ export async function runHomeBeachPushCron<P extends object>(
       evaluated: 0,
       candidates: 0,
       sent: 0,
+      shadowMatches: 0,
       duplicates: 0,
       testAllowlistActive: false,
       skippedCounts: createSkippedCounts(),
@@ -265,6 +278,7 @@ export async function runHomeBeachPushCron<P extends object>(
         }
 
         const selection = await options.selectAndBuild({
+          supabase,
           profile,
           beach,
           forecasts,
@@ -273,6 +287,21 @@ export async function runHomeBeachPushCron<P extends object>(
         });
         if ("skipReason" in selection) {
           increment(summary.skippedCounts, selection.skipReason);
+          continue;
+        }
+
+        if (options.deliveryMode === "shadow") {
+          summary.shadowMatches = Number(summary.shadowMatches ?? 0) + 1;
+          await options.afterShadowSelection?.({
+            supabase,
+            profile,
+            beach,
+            forecasts,
+            timezone,
+            now,
+            selection,
+            summary,
+          });
           continue;
         }
 

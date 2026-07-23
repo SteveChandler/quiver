@@ -451,7 +451,7 @@ describe("weekly recap email cron route", () => {
     expect(profilesQuery.eq).toHaveBeenCalledWith("notif_email_enabled", true);
     expect(profilesQuery.eq).toHaveBeenCalledWith("is_mock", false);
     expect(profilesQuery.not).toHaveBeenCalledWith("email", "is", null);
-    expect(computeBestDaysForUser).toHaveBeenCalledWith(supabase, "user-1");
+    expect(computeBestDaysForUser).not.toHaveBeenCalled();
     // Top-spot cam thumbnail resolved from beach_sources (top spot is the
     // beach_id shared by both sessions). Pure URL derivation — no network.
     expect(beachSourcesQuery.eq).toHaveBeenCalledWith("beach_id", "beach-1");
@@ -501,7 +501,7 @@ describe("weekly recap email cron route", () => {
     expect(typeof data.data.summary.durationMs).toBe("number");
   });
 
-  it("still sends the recap but omits unsafe best days when the hold policy blocks", async () => {
+  it("sends the retrospective recap without a separate best-days recommendation", async () => {
     mockSupabaseQueries(
       {
         data: [
@@ -550,21 +550,11 @@ describe("weekly recap email cron route", () => {
     );
 
     expect(response.status).toBe(200);
-    expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledWith({
-      eventId: "weekly-recap-email:user-1:best-days",
-      type: "similarity_match",
-      payload: null,
-      profileExperience: "beginner",
-    });
-    expect(mockThrottle.mock.invocationCallOrder[0]).toBeLessThan(
-      mockResolveNotificationMajorEventHold.mock.invocationCallOrder[0]
-    );
+    expect(mockResolveNotificationMajorEventHold).not.toHaveBeenCalled();
+    expect(computeBestDaysForUser).not.toHaveBeenCalled();
     expect(WeeklyRecapEmail).toHaveBeenCalledWith(
       expect.objectContaining({ bestDays: [] })
     );
     expect(resend.emails.send).toHaveBeenCalledTimes(1);
-    expect(mockResolveNotificationMajorEventHold.mock.invocationCallOrder[0]).toBeLessThan(
-      (resend.emails.send as jest.Mock).mock.invocationCallOrder[0]
-    );
   });
 });

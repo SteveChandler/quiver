@@ -33,7 +33,7 @@ jest.mock("@/lib/supabase/api-server-client", () => ({
 }));
 
 describe("GET /api/coach-picks radius forwarding", () => {
-  it("passes radiusKm=30 and returns data", async () => {
+  it("passes radiusKm=30 and suppresses anonymous positive picks", async () => {
     const { GET } = await import("@/app/api/coach-picks/route");
     const { NextRequest } = await import("next/server");
     const req = new NextRequest(
@@ -43,16 +43,14 @@ describe("GET /api/coach-picks radius forwarding", () => {
     expect(res.status).toBe(200);
     const json = await res.json();
     const picks = json?.data?.picks || json?.picks || [];
-    expect(picks).toEqual([
-      expect.objectContaining({
-        beach_id: "11111111-1111-4111-8111-111111111111",
-        name: "Near",
-      }),
-      expect.objectContaining({
-        beach_id: "22222222-2222-4222-8222-222222222222",
-        name: "Far",
-      }),
-    ]);
+    expect(picks).toEqual([]);
+    expect(json.data.sessionDecision).toMatchObject({
+      verdict: "no",
+      selection: null,
+      skillEligibility: {
+        skill: "unknown",
+        state: "insufficient_safety_data",
+      },
+    });
   });
 });
-

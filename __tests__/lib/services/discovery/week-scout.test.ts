@@ -148,7 +148,7 @@ describe('generateWeekScoutForecast', () => {
     );
   });
 
-  it('builds seven local days with canonical morning, midday, and evening rankings', async () => {
+  it('returns one canonical weekly session while preserving every physical forecast window', async () => {
     const deps = dependencies();
     const response = await generateWeekScoutForecast(
       'user-week-scout',
@@ -178,23 +178,50 @@ describe('generateWeekScoutForecast', () => {
       new Set(['morning', 'midday', 'evening']),
     );
     expect(firstDay.windows.filter((window) => window.bucket === 'morning')).toHaveLength(2);
-    expect(firstDay.windows.every((window) => window.rankedSpots.length === 2)).toBe(true);
+    expect(response.sessionDecision).toMatchObject({
+      verdict: 'go',
+      selection: {
+        beachId: BEACH_B,
+      },
+      skillEligibility: {
+        skill: 'intermediate',
+        state: 'eligible',
+      },
+    });
+    const selectedId = response.sessionDecision.selection?.candidateId;
+    const visibleDecisions = response.days.flatMap((day) =>
+      day.windows.filter((window) => window.verdict !== null),
+    );
+    expect(visibleDecisions).toHaveLength(1);
+    expect(visibleDecisions[0]?.id).toBe(selectedId);
+    expect(
+      response.days.flatMap((day) => day.windows).every((window) => (
+        window.forecast.waveHeight === '3.5'
+        && window.forecast.period === '12s'
+        && window.forecast.tideHeightFt === 1.4
+      )),
+    ).toBe(true);
 
-    const winner = firstDay.windows.find((window) => window.id === firstDay.bestWindowId);
+    const winner = response.days
+      .flatMap((day) => day.windows)
+      .find((window) => window.id === selectedId);
     expect(winner).toMatchObject({
       beachId: BEACH_B,
       bucket: 'morning',
-      conditionScore: 84,
-      rankingScore: 88,
       verdict: 'worth_it',
-      rideable: true,
-      safe: true,
+      conditionScore: null,
+      rankingScore: null,
+      rideable: null,
+      safe: null,
       forecast: {
         tideHeightFt: 1.4,
         tidePhase: 'Rising',
       },
-      takeaway: 'Clean wind and solid period',
+      takeaway: null,
+      rankedSpots: [],
     });
+    expect(firstDay.bestWindowId).toBe(selectedId);
+    expect(response.days.slice(1).every((day) => day.bestWindowId === null)).toBe(true);
 
     expect(deps.selectBestWindow).toHaveBeenCalledTimes(6);
     expect(deps.rankWindows).toHaveBeenCalledTimes(3);
@@ -260,10 +287,18 @@ describe('generateWeekScoutForecast', () => {
       deps,
     );
 
+    expect(response.sessionDecision).toMatchObject({
+      verdict: 'no',
+      reasonCode: 'wave_height_exceeds_skill',
+      selection: null,
+    });
     expect(response.days[0].windows[0]).toMatchObject({
-      verdict: 'worth_it',
-      rideable: false,
-      safe: false,
+      verdict: null,
+      rideable: null,
+      safe: null,
+      forecast: {
+        waveHeight: '20',
+      },
     });
     expect(response.days[0].bestWindowId).toBeNull();
   });
@@ -352,6 +387,11 @@ describe('generateWeekScoutForecast', () => {
       state: 'none',
       reasonCode: 'major_event_hold',
     });
+    expect(response.sessionDecision).toMatchObject({
+      verdict: 'no',
+      reasonCode: 'major_event_hold',
+      selection: null,
+    });
   });
 
   it('fails malformed hold decisions closed without dropping physical windows', async () => {
@@ -375,6 +415,11 @@ describe('generateWeekScoutForecast', () => {
     expect(response.recommendationAvailability).toMatchObject({
       state: 'none',
       reasonCode: 'hold_state_unavailable',
+    });
+    expect(response.sessionDecision).toMatchObject({
+      verdict: 'no',
+      reasonCode: 'hold_state_unavailable',
+      selection: null,
     });
   });
 });

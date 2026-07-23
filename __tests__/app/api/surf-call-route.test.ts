@@ -37,6 +37,18 @@ jest.mock("@/lib/utils/dev-force-verdict", () => ({
   applyForceVerdict: jest.fn((result) => result),
 }));
 
+const mockResolveCanonicalSessionDecision = jest.fn();
+jest.mock("@/lib/recommendations/canonical-decision", () => ({
+  resolveCanonicalSessionDecision: (...args: unknown[]) =>
+    mockResolveCanonicalSessionDecision(...args),
+}));
+
+const mockGetProfileExperienceLevel = jest.fn();
+jest.mock("@/lib/profile/skill-level", () => ({
+  getProfileExperienceLevel: (...args: unknown[]) =>
+    mockGetProfileExperienceLevel(...args),
+}));
+
 function mockBeachQuery(beach: Record<string, unknown>) {
   const query: {
     select: jest.Mock;
@@ -52,7 +64,18 @@ function mockBeachQuery(beach: Record<string, unknown>) {
   query.select.mockReturnValue(query);
   query.eq.mockReturnValue(query);
   query.is.mockReturnValue(query);
-  mockSupabase.from.mockReturnValue(query);
+  mockSupabase.from.mockImplementation((table: string) => {
+    if (table === "user_entitlements") {
+      return {
+        select: jest.fn(() => ({
+          eq: jest.fn(() => ({
+            maybeSingle: jest.fn(async () => ({ data: null, error: null })),
+          })),
+        })),
+      };
+    }
+    return query;
+  });
   return query;
 }
 
@@ -82,9 +105,61 @@ function mockSurfReportResult(beachId: string) {
 describe("GET /api/surf/call", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetProfileExperienceLevel.mockResolvedValue("intermediate");
+    mockResolveCanonicalSessionDecision.mockResolvedValue({
+      schemaVersion: "canonical-session-decision.v1",
+      engineVersion: "rules.v1",
+      decisionId: "d".repeat(64),
+      verdict: "consider",
+      reasonCode: "selected_consider",
+      selection: {
+        candidateId: "candidate-surf-call",
+        beachId: "11111111-1111-4111-8111-111111111111",
+        beachName: "Ocean Beach Pier",
+        windowStart: "2026-05-08T22:30:00.000Z",
+        windowEnd: "2026-05-09T01:30:00.000Z",
+        timezone: "America/Los_Angeles",
+        forecastRef: {
+          forecastId: "forecast-1",
+          beachId: "11111111-1111-4111-8111-111111111111",
+          forecastAt: "2026-05-08T22:00:00.000Z",
+        },
+        skillEligibility: {
+          skill: "intermediate",
+          state: "eligible",
+          reasonCodes: [],
+        },
+      },
+    });
   });
 
-  it("returns forecastContext while preserving the existing report payload", async () => {
+  it("uses the canonical decision as the Surf Call verdict authority", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+    mockSurfReportResult(beachId);
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`),
+    );
+    const body = await response.json();
+
+    expect(body.data.sessionDecision).toMatchObject({
+      decisionId: "d".repeat(64),
+      verdict: "consider",
+      selection: { beachId },
+    });
+    expect(body.data.report.verdict).toBe("MAYBE");
+  });
+
+  it("preserves physical forecast context while canonicalizing decision fields", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     const report = {
       verdict: "YES",
@@ -152,7 +227,15 @@ describe("GET /api/surf/call", () => {
 
     expect(response.status).toBe(200);
     expect(body.success).toBe(true);
-    expect(body.data.report).toEqual(report);
+    expect(body.data.report).toMatchObject({
+      waveHeight: report.waveHeight,
+      windSpeed: report.windSpeed,
+      windCompass: report.windCompass,
+      forecastConfidence: report.forecastConfidence,
+      verdict: "MAYBE",
+      bestWindowStart: "2026-05-08T22:30:00.000Z",
+      bestWindowEnd: "2026-05-09T01:30:00.000Z",
+    });
     expect(body.data.forecastContext).toEqual(forecastContext);
   });
 

@@ -2,8 +2,6 @@
  * @jest-environment node
  */
 
-import { renderToStaticMarkup } from "react-dom/server";
-
 if (typeof (globalThis as any).Response?.json !== "function") {
   (globalThis as any).Response.json = (data: any, init?: ResponseInit) =>
     new Response(JSON.stringify(data), {
@@ -51,6 +49,7 @@ type Store = {
   profiles: any[];
   beaches: any[];
   forecastsByBeachId: Record<string, any[]>;
+  officialRisks: any[];
   claimResult: boolean;
 };
 
@@ -58,6 +57,7 @@ const store: Store = {
   profiles: [],
   beaches: [],
   forecastsByBeachId: {},
+  officialRisks: [],
   claimResult: true,
 };
 
@@ -106,6 +106,15 @@ const mockSupabase = {
       return makeChain((chain) => {
         const beachId = chain.filters.beach_id as string | undefined;
         return beachId ? store.forecastsByBeachId[beachId] ?? [] : [];
+      });
+    }
+    if (table === "rip_current_risks") {
+      return makeChain((chain) => {
+        const beachId = chain.filters.beach_id as string | undefined;
+        return store.officialRisks.filter((row) => (
+          (!beachId || row.beach_id === beachId)
+          && row.risk_level === "high"
+        ));
       });
     }
     return makeChain(() => []);
@@ -195,6 +204,7 @@ describe("GET /api/cron/swell-watch", () => {
         forecast(5, "6 ft", "14s"),
       ],
     };
+    store.officialRisks = [];
     mockEnqueueNotification.mockResolvedValue({
       enqueued: true,
       eventId: "notification-event-1",
@@ -245,19 +255,16 @@ describe("GET /api/cron/swell-watch", () => {
     expect(mockResendSend).not.toHaveBeenCalled();
   });
 
-  it("enqueues one swell_watch event with the pinned payload shape", async () => {
+  it("records one non-delivering shadow evaluation with the pinned payload shape", async () => {
     const response = await GET(request());
     const body = await json(response);
 
     expect(response.status).toBe(200);
-    expect(body.data.sent).toBe(1);
-    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
-    expect(mockEnqueueNotification).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: "swell_watch",
-        recipientUserId: "user-1",
-        dedupeKey: `swell_watch:user-1:beach-1:${dateKey(4)}`,
-        payload: {
+    expect(body.data.sent).toBe(0);
+    expect(body.data.shadowMatches).toBe(1);
+    expect(body.data.automationEnabled).toBe(false);
+    expect(body.data.shadowEvaluations).toEqual([
+      {
           beach_id: "beach-1",
           beach_slug: "lower-trestles",
           beach_name: "Lower Trestles",
@@ -266,15 +273,21 @@ describe("GET /api/cron/swell-watch", () => {
           peak_height_ft: 6,
           peak_period_s: 14,
           forecast_at: forecastAt(5),
+          awareness_mode: "shadow",
+          automation_enabled: false,
+          awareness_signal: "forecast_trend",
+          awareness_severity: "major",
+          official_evidence_refs: [],
+          would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
           title: "Swell incoming — Lower Trestles",
           body: "Sunday: building to 6 ft @ 14s. Peak Monday.",
-        },
-      }),
-      mockSupabase
-    );
+      },
+    ]);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockResendSend).not.toHaveBeenCalled();
   });
 
-  it("treats duplicate dedupe results as success", async () => {
+  it("does not consult notification dedupe while running in shadow", async () => {
     mockEnqueueNotification.mockResolvedValue({
       enqueued: false,
       reason: "duplicate",
@@ -285,11 +298,13 @@ describe("GET /api/cron/swell-watch", () => {
 
     expect(response.status).toBe(200);
     expect(body.data.sent).toBe(0);
-    expect(body.data.duplicates).toBe(1);
+    expect(body.data.shadowMatches).toBe(1);
+    expect(body.data.duplicates).toBe(0);
     expect(body.data.errors).toBe(0);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
   });
 
-  it("sends a swell_watch email when the profile is eligible", async () => {
+  it("never sends push or email even when every delivery preference is enabled", async () => {
     store.profiles[0] = {
       ...store.profiles[0],
       email: "surfer@example.com",
@@ -301,80 +316,63 @@ describe("GET /api/cron/swell-watch", () => {
     const body = await json(response);
 
     expect(response.status).toBe(200);
-    expect(body.data.emailSent).toBe(1);
-    expect(mockSupabase.rpc).toHaveBeenCalledWith(
-      "claim_forecast_delivery_slot",
-      expect.objectContaining({
-        p_user_id: "user-1",
-        p_beach_id: "beach-1",
-        p_alert_type: "swell_watch_email",
-        p_dedupe_hours: 96,
-      })
-    );
-    expect(mockResendSend).toHaveBeenCalledWith(
-      expect.objectContaining({
-        to: "surfer@example.com",
-        subject: "Swell incoming Sunday — Lower Trestles: 6 ft @ 14s",
-      })
-    );
-    const enqueuedPayload = mockEnqueueNotification.mock.calls[0][0].payload;
-    const outboundCopy = [
-      enqueuedPayload.title,
-      enqueuedPayload.body,
-      mockResendSend.mock.calls[0][0].subject,
-    ].join(" ");
-    expect(outboundCopy).toContain("6 ft @ 14s");
-    expect(outboundCopy).not.toMatch(
-      /\b(go|head to|best spot|surf it|recommend(?:ed|ation)?)\b/i
-    );
-    const emailHtml = renderToStaticMarkup(mockResendSend.mock.calls[0][0].react);
-    expect(emailHtml).toContain("WED · JUL 1");
-    expect(emailHtml).not.toContain("MON · JUL 6");
-    expect(emailHtml).toContain("Sunday arrival · Monday peak");
-    expect(mockLogDelivery).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "user-1",
-        emailType: "swell_watch",
-        resendMessageId: "email-1",
-      })
-    );
-    expect(mockLogDelivery).toHaveBeenCalledWith(
-      expect.not.objectContaining({ bestBeachId: expect.anything() })
-    );
+    expect(body.data.shadowMatches).toBe(1);
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+    expect(mockResendSend).not.toHaveBeenCalled();
+    expect(mockLogDelivery).not.toHaveBeenCalled();
   });
 
-  it("skips swell_watch email when email notifications are disabled", async () => {
-    store.profiles[0] = {
-      ...store.profiles[0],
-      email: "surfer@example.com",
-      notif_email_enabled: false,
-      notif_forecast_alerts: true,
-    };
-
+  it("corroborates the forecast trend with fresh official advisory evidence", async () => {
+    store.officialRisks = [{
+      id: "11111111-1111-4111-8111-111111111111",
+      beach_id: "beach-1",
+      valid_date: dateKey(4),
+      risk_level: "high",
+      source: "alert",
+      fetched_at: "2026-07-01T14:30:00.000Z",
+    }];
     const response = await GET(request());
     const body = await json(response);
 
     expect(response.status).toBe(200);
-    expect(body.data.emailSent).toBe(0);
-    expect(body.data.emailSkippedCounts.disabledPrefs).toBe(1);
+    expect(body.data.shadowEvaluations[0]).toMatchObject({
+      awareness_signal: "corroborated",
+      automation_enabled: false,
+      official_evidence_refs: [
+        "official:rip_current_risks:11111111-1111-4111-8111-111111111111",
+      ],
+    });
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
     expect(mockResendSend).not.toHaveBeenCalled();
   });
 
-  it("skips swell_watch email when the email slot is already claimed", async () => {
-    store.profiles[0] = {
-      ...store.profiles[0],
-      email: "surfer@example.com",
-      notif_email_enabled: true,
-      notif_forecast_alerts: true,
-    };
-    store.claimResult = false;
-
+  it("detects an official-only signal without inventing forecast peak values", async () => {
+    store.forecastsByBeachId["beach-1"] = [
+      forecast(0, "2 ft", "8s"),
+      forecast(1, "2 ft", "8s"),
+    ];
+    store.officialRisks = [{
+      id: "22222222-2222-4222-8222-222222222222",
+      beach_id: "beach-1",
+      valid_date: dateKey(1),
+      risk_level: "high",
+      source: "srf",
+      fetched_at: "2026-07-01T14:30:00.000Z",
+    }];
     const response = await GET(request());
     const body = await json(response);
 
     expect(response.status).toBe(200);
-    expect(body.data.emailSent).toBe(0);
-    expect(body.data.emailSkippedCounts.claimFailed).toBe(1);
+    expect(body.data.shadowEvaluations[0]).toMatchObject({
+      awareness_signal: "official_advisory",
+      event_start_date: null,
+      peak_date: null,
+      peak_height_ft: null,
+      peak_period_s: null,
+      forecast_at: null,
+    });
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
     expect(mockResendSend).not.toHaveBeenCalled();
   });
 });

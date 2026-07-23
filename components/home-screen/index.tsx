@@ -300,8 +300,12 @@ export function HomeScreen() {
   // Compute share data for the Share button in PrimaryActions
   const shareData = useMemo(() => {
     if (!topRecommendation) return null;
-    return buildSurfCallShareData({ recommendation: topRecommendation, timeSlot });
-  }, [topRecommendation, timeSlot]);
+    return buildSurfCallShareData({
+      recommendation: topRecommendation,
+      sessionDecision: discovery?.sessionDecision ?? null,
+      timeSlot,
+    });
+  }, [discovery?.sessionDecision, topRecommendation, timeSlot]);
 
   // Handler for enabling forecast reminders (delegates to useReminderHandler)
   const handleEnableReminder = useCallback(

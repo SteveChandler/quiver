@@ -28,10 +28,8 @@ import { subDays, format, startOfDay, endOfDay } from "date-fns";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
-import { computeBestDaysForUser } from "@/lib/alerts/best-days";
 import { getDisplayCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
 import { withObservedCron } from "@/lib/cron/observability";
-import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -287,19 +285,6 @@ async function _GET(request: Request): Promise<Response> {
           topSpotBeachId
         );
 
-        // Phase 2: compute top similarity-match slots for the next 7 days
-        // across the user's subscribed beaches. Errors here must not abort
-        // the digest — on failure we simply omit the section.
-        let bestDays: Awaited<ReturnType<typeof computeBestDaysForUser>> = [];
-        try {
-          bestDays = await computeBestDaysForUser(supabase, profile.id);
-        } catch (bestDaysErr) {
-          console.warn(
-            `${CONTEXT_TAG} best-days query failed for user ${profile.id}:`,
-            bestDaysErr,
-          );
-        }
-
         const ctaUrl = `${baseUrl}/profile/analytics`;
         const unsubscribeUrl = `${baseUrl}/settings`;
 
@@ -308,24 +293,6 @@ async function _GET(request: Request): Promise<Response> {
         try {
           // Rate limit before sending
           await rateLimiter.throttle();
-
-          let authorizedBestDays = bestDays;
-          if (bestDays.length > 0) {
-            try {
-              const holdDecision = await resolveNotificationMajorEventHold({
-                eventId: `weekly-recap-email:${profile.id}:best-days`,
-                type: "similarity_match",
-                // BestDaySlot does not expose a beach ID or absolute instant.
-                payload: null,
-                profileExperience: profile.experience_level,
-              });
-              if (holdDecision.status !== "allowed") {
-                authorizedBestDays = [];
-              }
-            } catch {
-              authorizedBestDays = [];
-            }
-          }
 
           const { data: sendData, error: sendError } = await resend.emails.send({
             from: MAIL_FROM,
@@ -339,7 +306,7 @@ async function _GET(request: Request): Promise<Response> {
               stats,
               ctaUrl,
               unsubscribeUrl,
-              bestDays: authorizedBestDays,
+              bestDays: [],
               topSpotImageUrl,
             }),
           });

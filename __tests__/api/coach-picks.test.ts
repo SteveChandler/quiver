@@ -7,6 +7,7 @@ import { join } from "node:path";
 
 const mockEvaluateMajorEventHoldCandidates = jest.fn();
 const mockGetProfileExperienceLevel = jest.fn();
+const mockResolveCanonicalSessionDecision = jest.fn();
 const mockAuthGetUser = jest.fn();
 const mockRpc = jest.fn();
 const NO_STORE = "private, no-store, no-cache, must-revalidate";
@@ -95,13 +96,67 @@ jest.mock("@/lib/recommendations/major-event-hold/service", () => ({
     mockEvaluateMajorEventHoldCandidates(input),
 }));
 
+jest.mock("@/lib/recommendations/canonical-decision", () => ({
+  ...jest.requireActual("@/lib/recommendations/canonical-decision"),
+  resolveCanonicalSessionDecision: (input: unknown) =>
+    mockResolveCanonicalSessionDecision(input),
+}));
+
+function canonicalDecision(beachId: string | null = PRIMARY_BEACH_ID) {
+  return {
+    schemaVersion: "canonical-session-decision.v1",
+    engineVersion: "rules.v1",
+    decisionId: "coach-decision-1",
+    createdAt: REQUEST_AS_OF,
+    expiresAt: "2026-07-20T12:15:00.000Z",
+    scope: {
+      kind: "plan_next_session",
+      windowStart: REQUEST_AS_OF,
+      windowEnd: "2026-07-21T12:00:00.000Z",
+      timezone: "UTC",
+    },
+    verdict: beachId ? "go" : "no",
+    reasonCode: beachId ? "selected_go" : "no_candidates",
+    selection: beachId
+      ? {
+          candidateId: `discovery:${beachId}`,
+          beachId,
+          beachName: beachId === PRIMARY_BEACH_ID ? "Primary" : "Secondary",
+          windowStart: "2026-07-20T14:00:00.000Z",
+          windowEnd: "2026-07-20T17:00:00.000Z",
+          timezone: "UTC",
+          forecastRef: {
+            forecastId: "forecast-1",
+            beachId,
+            forecastAt: "2026-07-20T14:00:00.000Z",
+          },
+          skillEligibility: {
+            skill: "intermediate",
+            state: "eligible",
+            reasonCodes: [],
+          },
+        }
+      : null,
+    skillEligibility: {
+      skill: "intermediate",
+      state: beachId ? "eligible" : "insufficient_safety_data",
+      reasonCodes: beachId ? [] : ["no_candidates"],
+    },
+    holdEpoch: "ordinary-epoch",
+  };
+}
+
 describe("GET /api/coach-picks", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     jest.setSystemTime(new Date(REQUEST_AS_OF));
     jest.clearAllMocks();
-    mockAuthGetUser.mockResolvedValue({ data: { user: null }, error: null });
-    mockGetProfileExperienceLevel.mockResolvedValue(null);
+    mockAuthGetUser.mockResolvedValue({
+      data: { user: { id: "verified-user" } },
+      error: null,
+    });
+    mockGetProfileExperienceLevel.mockResolvedValue("intermediate");
+    mockResolveCanonicalSessionDecision.mockResolvedValue(canonicalDecision());
     mockRpc.mockResolvedValue({
       data: [
         {
@@ -165,7 +220,7 @@ describe("GET /api/coach-picks", () => {
           endsAt: "2026-07-20T12:00:00.001Z",
         },
       ],
-      profileExperience: null,
+      profileExperience: "intermediate",
       asOf: new Date(REQUEST_AS_OF),
     });
     expect(body.data).toEqual({
@@ -175,7 +230,6 @@ describe("GET /api/coach-picks", () => {
           beach_id: PRIMARY_BEACH_ID,
           name: "Stale RPC Beach",
           distance_km: 1.2,
-          score: 88,
         },
       ],
       recommendationAvailability: {
@@ -183,7 +237,18 @@ describe("GET /api/coach-picks", () => {
         holdEpoch: "ordinary-epoch",
         resolutionAsOf: REQUEST_AS_OF,
       },
+      sessionDecision: canonicalDecision(),
     });
+    expect(mockResolveCanonicalSessionDecision).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: "verified-user",
+        profileExperience: "intermediate",
+        discoveryOptions: expect.objectContaining({
+          includeBeachIds: [PRIMARY_BEACH_ID],
+          horizonHours: 24,
+        }),
+      }),
+    );
     expect(response.headers.get("Cache-Control")).toBe(NO_STORE);
   });
 
@@ -202,7 +267,7 @@ describe("GET /api/coach-picks", () => {
     expect(mockRpc).not.toHaveBeenCalled();
     expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledWith({
       candidates: [null],
-      profileExperience: null,
+      profileExperience: "intermediate",
       asOf: new Date(REQUEST_AS_OF),
     });
     expect(body.data).toEqual({
@@ -213,6 +278,10 @@ describe("GET /api/coach-picks", () => {
         holdEpoch: "unavailable-epoch",
         resolutionAsOf: REQUEST_AS_OF,
       },
+      sessionDecision: expect.objectContaining({
+        verdict: "no",
+        selection: null,
+      }),
     });
     expect(response.headers.get("Cache-Control")).toBe(NO_STORE);
   });
@@ -273,6 +342,9 @@ describe("GET /api/coach-picks", () => {
       blockedDecision(PRIMARY_BEACH_ID),
       allowDecision(SECONDARY_BEACH_ID),
     ]);
+    mockResolveCanonicalSessionDecision.mockResolvedValueOnce(
+      canonicalDecision(SECONDARY_BEACH_ID),
+    );
     const { GET } = await import("@/app/api/coach-picks/route");
     const { NextRequest } = await import("next/server");
 
@@ -294,6 +366,46 @@ describe("GET /api/coach-picks", () => {
       holdEpoch: "ordinary-epoch",
       resolutionAsOf: REQUEST_AS_OF,
     });
+  });
+
+  it("projects legacy picks to the one beach selected by the canonical engine", async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: [
+        {
+          pick_rank: 1,
+          beach_id: PRIMARY_BEACH_ID,
+          name: "Legacy High Score",
+          score: 99,
+        },
+        {
+          pick_rank: 2,
+          beach_id: SECONDARY_BEACH_ID,
+          name: "Canonical Safe Pick",
+          score: 75,
+        },
+      ],
+      error: null,
+    });
+    mockResolveCanonicalSessionDecision.mockResolvedValueOnce(
+      canonicalDecision(SECONDARY_BEACH_ID),
+    );
+    const { GET } = await import("@/app/api/coach-picks/route");
+    const { NextRequest } = await import("next/server");
+
+    const response = await GET(
+      new NextRequest(
+        new URL(`http://localhost/api/coach-picks?beachId=${PRIMARY_BEACH_ID}`),
+      ) as never,
+    );
+    const body = await response.json();
+
+    expect(body.data.picks).toEqual([
+      expect.objectContaining({
+        beach_id: SECONDARY_BEACH_ID,
+        name: "Canonical Safe Pick",
+      }),
+    ]);
+    expect(body.data.sessionDecision.selection.beachId).toBe(SECONDARY_BEACH_ID);
   });
 
   it("fails unresolved policy closed without exposing internal evidence", async () => {
