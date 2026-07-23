@@ -277,6 +277,7 @@ describe('buildSessionWizardUrl', () => {
       quick: true,
       forecastFeedbackId: '123e4567-e89b-42d3-a456-426614174999',
       forecastFeedbackValue: 'too_high',
+      observedFaceHeightFt: 6,
     });
 
     const result = parseSessionWizardParams(
@@ -289,7 +290,49 @@ describe('buildSessionWizardUrl', () => {
       '123e4567-e89b-42d3-a456-426614174999',
     );
     expect(data.forecastFeedbackValue).toBe('too_high');
+    expect(data.observedFaceHeightFt).toBe(6);
+    expect(url).toContain('observedFaceHeightFt=6');
   });
+
+  it.each(['0', '50.5', '6.2', 'not-a-number'])(
+    'should reject invalid observed face height %s',
+    (observedFaceHeightFt) => {
+      const params = new URLSearchParams({
+        mode: 'log',
+        beach: '123e4567-e89b-12d3-a456-426614174000',
+        beachName: 'Pacific Beach',
+        observedFaceHeightFt,
+      });
+
+      const result = parseSessionWizardParams(params);
+
+      const failure = expectFailedParse(result);
+      expect(failure.error).not.toBe('');
+    },
+  );
+
+  it.each([
+    ['about-right feedback', 'about_right'],
+    ['no feedback value', undefined],
+  ])(
+    'should reject observed face height with %s',
+    (_label, forecastFeedbackValue) => {
+      const params = new URLSearchParams({
+        mode: 'log',
+        beach: '123e4567-e89b-12d3-a456-426614174000',
+        beachName: 'Pacific Beach',
+        observedFaceHeightFt: '6',
+      });
+      if (forecastFeedbackValue) {
+        params.set('forecastFeedbackValue', forecastFeedbackValue);
+      }
+
+      const result = parseSessionWizardParams(params);
+
+      const failure = expectFailedParse(result);
+      expect(failure.error).not.toBe('');
+    },
+  );
 
   it('should round-trip recommendation attribution params', () => {
     const url = buildSessionWizardUrl({
@@ -437,6 +480,19 @@ describe('extractFormState', () => {
         forecastFeedbackValue: 'too_high',
       }).forecastAccuracy,
     ).toBe('inaccurate');
+  });
+
+  it('should preserve carried observed height as an edited user value', () => {
+    const formState = extractFormState({
+      ...validParams,
+      forecastFeedbackValue: 'too_low',
+      observedFaceHeightFt: 6,
+    });
+
+    expect(formState).toMatchObject({
+      waveHeight: 6,
+      waveHeightEdited: true,
+    });
   });
 
   it('should carry recommendation attribution into form state', () => {

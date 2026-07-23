@@ -237,4 +237,54 @@ test.describe('Beach Detail - Forecast Tab', () => {
     const tideChart = page.getByTestId('tide-chart-section');
     await expect(tideChart).toBeVisible({ timeout: 15000 });
   });
+
+  test('carries a structured mismatch height into session logging @requires-data', async ({
+    page,
+  }) => {
+    let submittedPayload: Record<string, unknown> | null = null;
+    await page.route('**/api/forecast-feedback', async (route) => {
+      submittedPayload = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          success: true,
+          data: {
+            id: '123e4567-e89b-42d3-a456-426614174000',
+            contractVersion: 'forecast-feedback-context.v1',
+          },
+        }),
+      });
+    });
+
+    const tooLow = page.getByRole('button', { name: /too low/i });
+    await expect(tooLow).toBeVisible({ timeout: 15000 });
+    await tooLow.click();
+
+    const observedHeight = page.getByLabel(/what face height did you see/i);
+    await expect(observedHeight).toBeVisible();
+    await observedHeight.fill('6');
+    await page.getByRole('button', { name: /^send$/i }).click();
+
+    await expect(page.getByText('Feedback saved.')).toBeVisible();
+    expect(submittedPayload).toMatchObject({
+      feedbackKind: 'forecast_accuracy',
+      feedbackValue: 'too_low',
+      observedFaceHeightFt: 6,
+    });
+    expect(submittedPayload?.requestId).toEqual(expect.any(String));
+
+    const sessionLogLink = page.getByRole('link', { name: 'Log the session' });
+    await expect(sessionLogLink).toBeVisible();
+    const sessionLogUrl = new URL(
+      (await sessionLogLink.getAttribute('href')) ?? '',
+      'http://localhost:3000',
+    );
+    expect(sessionLogUrl.searchParams.get('forecastFeedbackValue')).toBe(
+      'too_low',
+    );
+    expect(sessionLogUrl.searchParams.get('observedFaceHeightFt')).toBe('6');
+    await expect(tooLow).toBeDisabled();
+    await expect(observedHeight).toBeDisabled();
+  });
 });

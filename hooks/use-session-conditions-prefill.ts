@@ -92,6 +92,10 @@ export function useSessionConditionsPrefill(
       value: SessionFormState[K] | undefined
     ) => {
       if (attempted.has(field)) return;
+      if (field === "waveHeight" && formState.waveHeightEdited === true) {
+        attempted.add(field);
+        return;
+      }
       if (value === undefined || value === null || value === "") return;
       if (!isFieldEmpty(formState, field)) {
         // User (or caller) already set this field before we ran. Mark as

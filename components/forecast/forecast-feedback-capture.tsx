@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Check, Loader2, Send, TrendingDown, TrendingUp } from "lucide-react";
@@ -36,6 +36,9 @@ const FEEDBACK_OPTIONS: Array<{
   { value: "too_high", label: "Too high", Icon: TrendingUp },
 ];
 
+const OBSERVED_HEIGHT_ERROR =
+  "Enter a height from 0.5 to 50 ft in 0.5 ft increments.";
+
 function compactNote(value: string): string | null {
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
@@ -66,6 +69,31 @@ function isUuid(value: string | undefined): value is string {
   );
 }
 
+function parseObservedFaceHeight(value: string): {
+  value: number | null;
+  error: string | null;
+} {
+  const trimmed = value.trim();
+  if (!trimmed) return { value: null, error: null };
+
+  const parsed = Number(trimmed);
+  const isValid =
+    Number.isFinite(parsed) &&
+    parsed >= 0.5 &&
+    parsed <= 50 &&
+    Number.isInteger(parsed * 2);
+
+  return isValid
+    ? { value: parsed, error: null }
+    : { value: null, error: OBSERVED_HEIGHT_ERROR };
+}
+
+function fingerprintDraftPayload(
+  payload: ForecastFeedbackClientPayload,
+): string {
+  return JSON.stringify({ ...payload, requestId: null });
+}
+
 function buildPayload(args: {
   beach: Beach;
   forecast: EnhancedForecastEntity;
@@ -79,6 +107,8 @@ function buildPayload(args: {
   routePathname?: string | null;
   feedbackValue: FeedbackValue;
   feedbackNote: string | null;
+  observedFaceHeightFt: number | null;
+  requestId: string;
 }): ForecastFeedbackClientPayload {
   const { beach, forecast, surfCall, forecastMetadata } = args;
   const sourceContext = {
@@ -126,6 +156,7 @@ function buildPayload(args: {
     feedbackKind: "forecast_accuracy",
     feedbackValue: args.feedbackValue,
     feedbackNote: args.feedbackNote,
+    observedFaceHeightFt: args.observedFaceHeightFt,
     displayedContext: {
       wave_height_ft: forecast.ml_corrected_height ?? forecast.wave_height,
       raw_wave_height_ft: forecast.wave_height,
@@ -154,6 +185,7 @@ function buildPayload(args: {
       timezone: args.beachTimezone ?? null,
     },
     clientSource: "quiver-web",
+    requestId: args.requestId,
   };
 }
 
@@ -174,9 +206,21 @@ export function ForecastFeedbackCapture({
     null,
   );
   const [note, setNote] = useState("");
+  const [observedFaceHeight, setObservedFaceHeight] = useState("");
+  const [observedHeightError, setObservedHeightError] = useState<string | null>(
+    null,
+  );
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [sessionLogUrl, setSessionLogUrl] = useState<string | null>(null);
+  const draftRequestIdRef = useRef<string | null>(null);
+  const draftFingerprintRef = useRef<string | null>(null);
+  const submissionInFlightRef = useRef(false);
+  const observedHeightErrorId = useId();
+
+  const isMismatch =
+    selectedValue === "too_low" || selectedValue === "too_high";
+  const isLocked = isSubmitting || status === "success";
 
   const selectedLabel = useMemo(
     () =>
@@ -186,10 +230,23 @@ export function ForecastFeedbackCapture({
   );
 
   const handleSubmit = async () => {
-    if (!selectedValue || isSubmitting) return;
-    setIsSubmitting(true);
-    setStatus("idle");
-    const payload = buildPayload({
+    if (
+      !selectedValue ||
+      submissionInFlightRef.current ||
+      status === "success"
+    ) {
+      return;
+    }
+
+    const observedHeight = isMismatch
+      ? parseObservedFaceHeight(observedFaceHeight)
+      : { value: null, error: null };
+    if (observedHeight.error) {
+      setObservedHeightError(observedHeight.error);
+      return;
+    }
+
+    const draftPayload = buildPayload({
       beach,
       forecast,
       forecastMetadata,
@@ -202,7 +259,25 @@ export function ForecastFeedbackCapture({
       routePathname: pathname,
       feedbackValue: selectedValue,
       feedbackNote: compactNote(note),
+      observedFaceHeightFt: observedHeight.value,
+      requestId: "",
     });
+    const draftFingerprint = fingerprintDraftPayload(draftPayload);
+    const requestId =
+      draftFingerprint === draftFingerprintRef.current &&
+      draftRequestIdRef.current
+        ? draftRequestIdRef.current
+        : crypto.randomUUID();
+    draftRequestIdRef.current = requestId;
+    draftFingerprintRef.current = draftFingerprint;
+    submissionInFlightRef.current = true;
+    setIsSubmitting(true);
+    setStatus("idle");
+    setObservedHeightError(null);
+    const payload: ForecastFeedbackClientPayload = {
+      ...draftPayload,
+      requestId,
+    };
 
     try {
       const response = await fetch("/api/forecast-feedback", {
@@ -242,10 +317,10 @@ export function ForecastFeedbackCapture({
           targetStep: 1,
           forecastFeedbackId,
           forecastFeedbackValue: selectedValue,
+          observedFaceHeightFt: observedHeight.value ?? undefined,
         }),
       );
       setStatus("success");
-      setNote("");
       track("forecast_interaction", {
         beachId: beach.id,
         metadata: {
@@ -257,6 +332,7 @@ export function ForecastFeedbackCapture({
       setStatus("error");
       setSessionLogUrl(null);
     } finally {
+      submissionInFlightRef.current = false;
       setIsSubmitting(false);
     }
   };
@@ -281,9 +357,13 @@ export function ForecastFeedbackCapture({
               <button
                 key={value}
                 type="button"
+                disabled={isLocked}
                 onClick={() => {
+                  if (isLocked) return;
                   setSelectedValue(value);
                   setStatus("idle");
+                  setObservedHeightError(null);
+                  setSessionLogUrl(null);
                 }}
                 className={`flex min-h-11 items-center justify-center gap-2 rounded-[8px] border-2 px-2 py-2 text-xs font-black uppercase transition ${
                   active
@@ -301,30 +381,72 @@ export function ForecastFeedbackCapture({
       </div>
 
       {selectedValue && (
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <textarea
-            value={note}
-            onChange={(event) => setNote(event.target.value)}
-            maxLength={1000}
-            rows={2}
-            className="min-h-12 flex-1 rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-2 text-sm font-medium text-[#11100D] outline-none focus:ring-2 focus:ring-[#0B3A75]"
-            placeholder="Add a detail"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              void handleSubmit();
-            }}
-            disabled={isSubmitting}
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-heading text-sm font-black uppercase text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#11100D] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {isSubmitting ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-            <span>Send</span>
-          </button>
+        <div className="mt-3 space-y-2">
+          {isMismatch && (
+            <div>
+              <label className="block text-sm font-bold text-[#11100D]">
+                What face height did you see?{" "}
+                <span className="font-medium">(optional)</span>
+                <span className="mt-1 flex max-w-48 items-center rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8]">
+                  <input
+                    type="number"
+                    inputMode="decimal"
+                    min="0.5"
+                    max="50"
+                    step="0.5"
+                    value={observedFaceHeight}
+                    onChange={(event) => {
+                      setObservedFaceHeight(event.target.value);
+                      setObservedHeightError(null);
+                    }}
+                    disabled={isLocked}
+                    aria-invalid={Boolean(observedHeightError)}
+                    aria-describedby={
+                      observedHeightError ? observedHeightErrorId : undefined
+                    }
+                    className="min-h-11 min-w-0 flex-1 bg-transparent px-3 py-2 text-sm font-medium text-[#11100D] outline-none"
+                  />
+                  <span className="pr-3 text-sm font-bold text-[#5F5646]">ft</span>
+                </span>
+              </label>
+              {observedHeightError && (
+                <p
+                  id={observedHeightErrorId}
+                  className="mt-1 text-sm font-bold text-[#B42318]"
+                  role="alert"
+                >
+                  {observedHeightError}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <textarea
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              maxLength={1000}
+              rows={2}
+              disabled={isLocked}
+              className="min-h-12 flex-1 rounded-[8px] border-2 border-[#11100D] bg-[#F4EBD8] px-3 py-2 text-sm font-medium text-[#11100D] outline-none focus:ring-2 focus:ring-[#0B3A75] disabled:cursor-not-allowed disabled:opacity-60"
+              placeholder="Add a detail"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                void handleSubmit();
+              }}
+              disabled={isLocked}
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-[8px] border-2 border-[#11100D] bg-[#F78E42] px-4 py-2 font-heading text-sm font-black uppercase text-[#11100D] shadow-[2px_2px_0_#11100D] transition hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[1px_1px_0_#11100D] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+              <span>Send</span>
+            </button>
+          </div>
         </div>
       )}
 

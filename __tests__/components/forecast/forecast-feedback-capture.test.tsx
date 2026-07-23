@@ -103,17 +103,21 @@ function mockFeedbackResponse(
 function renderFeedbackCapture(
   overrides: Partial<ComponentProps<typeof ForecastFeedbackCapture>> = {},
 ) {
-  return render(
-    <ForecastFeedbackCapture
-      beach={beach}
-      forecast={createForecast()}
-      isCalibrated={false}
-      isDisplayStaleForecast={false}
-      forecastTimeLabel="7 AM"
-      freshnessLabel="fresh"
-      {...overrides}
-    />,
-  );
+  return render(<ForecastFeedbackCapture {...feedbackCaptureProps(overrides)} />);
+}
+
+function feedbackCaptureProps(
+  overrides: Partial<ComponentProps<typeof ForecastFeedbackCapture>> = {},
+): ComponentProps<typeof ForecastFeedbackCapture> {
+  return {
+    beach,
+    forecast: createForecast(),
+    isCalibrated: false,
+    isDisplayStaleForecast: false,
+    forecastTimeLabel: "7 AM",
+    freshnessLabel: "fresh",
+    ...overrides,
+  };
 }
 
 async function submitFeedback(label: RegExp): Promise<void> {
@@ -148,6 +152,236 @@ describe("ForecastFeedbackCapture", () => {
     const params = getSessionLogParams();
     expect(params.get("forecastFeedbackId")).toBe(FEEDBACK_ID);
     expect(params.get("forecastFeedbackValue")).toBe("about_right");
+    expect(
+      screen.queryByRole("spinbutton", {
+        name: /what face height did you see/i,
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("captures optional mismatch height and carries it into the session log", async () => {
+    mockFeedbackResponse({
+      success: true,
+      data: { id: FEEDBACK_ID },
+    });
+    const user = userEvent.setup();
+
+    renderFeedbackCapture();
+    await user.click(screen.getByRole("button", { name: /^too low$/i }));
+
+    const heightInput = screen.getByRole("spinbutton", {
+      name: /what face height did you see/i,
+    });
+    expect(heightInput).toHaveAttribute("min", "0.5");
+    expect(heightInput).toHaveAttribute("max", "50");
+    expect(heightInput).toHaveAttribute("step", "0.5");
+
+    await user.type(heightInput, "6");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(await screen.findByText("Feedback saved.")).toBeInTheDocument();
+    const [, init] = (global.fetch as jest.Mock).mock.calls[0] as [
+      string,
+      RequestInit,
+    ];
+    expect(JSON.parse(String(init.body))).toMatchObject({
+      feedbackValue: "too_low",
+      observedFaceHeightFt: 6,
+    });
+    expect(getSessionLogParams().get("observedFaceHeightFt")).toBe("6");
+  });
+
+  it("blocks malformed mismatch height before submitting", async () => {
+    const user = userEvent.setup();
+
+    renderFeedbackCapture();
+    await user.click(screen.getByRole("button", { name: /^too high$/i }));
+    await user.type(
+      screen.getByRole("spinbutton", {
+        name: /what face height did you see/i,
+      }),
+      "6.2",
+    );
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(
+      screen.getByText(/0\.5 to 50 ft in 0\.5 ft increments/i),
+    ).toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("reuses one draft request id on retry and locks after success", async () => {
+    mockFeedbackResponse({ success: false }, { ok: false });
+    mockFeedbackResponse({
+      success: true,
+      data: { id: FEEDBACK_ID },
+    });
+    const user = userEvent.setup();
+
+    renderFeedbackCapture();
+    await user.click(screen.getByRole("button", { name: /^too high$/i }));
+    await user.type(
+      screen.getByRole("spinbutton", {
+        name: /what face height did you see/i,
+      }),
+      "8",
+    );
+    await user.type(
+      screen.getByPlaceholderText("Add a detail"),
+      "Sets arrived late",
+    );
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(
+      await screen.findByText("Feedback could not be saved."),
+    ).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(await screen.findByText("Feedback saved.")).toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    const requestBodies = (global.fetch as jest.Mock).mock.calls.map(
+      ([, init]) => JSON.parse(String((init as RequestInit).body)),
+    );
+    expect(requestBodies[0].requestId).toEqual(expect.any(String));
+    expect(requestBodies[1].requestId).toBe(requestBodies[0].requestId);
+
+    const sendButton = screen.getByRole("button", { name: /send/i });
+    expect(sendButton).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^too low$/i })).toBeDisabled();
+    expect(screen.getByPlaceholderText("Add a detail")).toBeDisabled();
+    expect(
+      screen.getByRole("spinbutton", {
+        name: /what face height did you see/i,
+      }),
+    ).toBeDisabled();
+
+    await user.click(sendButton);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("uses a new request id and matching CTA after a failed height draft is edited", async () => {
+    mockFeedbackResponse({ success: false }, { ok: false });
+    mockFeedbackResponse({
+      success: true,
+      data: { id: FEEDBACK_ID },
+    });
+    const user = userEvent.setup();
+
+    renderFeedbackCapture();
+    await user.click(screen.getByRole("button", { name: /^too low$/i }));
+    const heightInput = screen.getByRole("spinbutton", {
+      name: /what face height did you see/i,
+    });
+    await user.type(heightInput, "6");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(
+      await screen.findByText("Feedback could not be saved."),
+    ).toBeInTheDocument();
+    await user.clear(heightInput);
+    await user.type(heightInput, "8");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(await screen.findByText("Feedback saved.")).toBeInTheDocument();
+    const requestBodies = (global.fetch as jest.Mock).mock.calls.map(
+      ([, init]) => JSON.parse(String((init as RequestInit).body)),
+    );
+    expect(requestBodies[1].requestId).not.toBe(requestBodies[0].requestId);
+    expect(requestBodies[1].observedFaceHeightFt).toBe(8);
+    expect(getSessionLogParams().get("observedFaceHeightFt")).toBe("8");
+  });
+
+  it("uses a new request id when a failed note draft is edited", async () => {
+    mockFeedbackResponse({ success: false }, { ok: false });
+    mockFeedbackResponse({
+      success: true,
+      data: { id: FEEDBACK_ID },
+    });
+    const user = userEvent.setup();
+
+    renderFeedbackCapture();
+    await user.click(screen.getByRole("button", { name: /^right$/i }));
+    const noteInput = screen.getByPlaceholderText("Add a detail");
+    await user.type(noteInput, "First note");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(
+      await screen.findByText("Feedback could not be saved."),
+    ).toBeInTheDocument();
+    await user.clear(noteInput);
+    await user.type(noteInput, "Corrected note");
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(await screen.findByText("Feedback saved.")).toBeInTheDocument();
+    const requestBodies = (global.fetch as jest.Mock).mock.calls.map(
+      ([, init]) => JSON.parse(String((init as RequestInit).body)),
+    );
+    expect(requestBodies[1].requestId).not.toBe(requestBodies[0].requestId);
+    expect(requestBodies[1].feedbackNote).toBe("Corrected note");
+  });
+
+  it("uses a new request id when forecast context changes after failure", async () => {
+    mockFeedbackResponse({ success: false }, { ok: false });
+    mockFeedbackResponse({
+      success: true,
+      data: { id: FEEDBACK_ID },
+    });
+    const user = userEvent.setup();
+    const initialForecastAt = "2026-07-15T06:00:00.000Z";
+    const nextForecastAt = "2026-07-15T07:00:00.000Z";
+    const sharedCreatedAt = "2026-07-15T05:00:00.000Z";
+    const sharedUpdatedAt = "2026-07-15T05:30:00.000Z";
+
+    const view = renderFeedbackCapture({
+      forecast: createForecast({
+        forecast_at: initialForecastAt,
+        created_at: sharedCreatedAt,
+        updated_at: sharedUpdatedAt,
+      }),
+    });
+    await user.click(screen.getByRole("button", { name: /^right$/i }));
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(
+      await screen.findByText("Feedback could not be saved."),
+    ).toBeInTheDocument();
+    view.rerender(
+      <ForecastFeedbackCapture
+        {...feedbackCaptureProps({
+          forecast: createForecast({
+            forecast_at: nextForecastAt,
+            created_at: sharedCreatedAt,
+            updated_at: sharedUpdatedAt,
+          }),
+        })}
+      />,
+    );
+    await user.click(screen.getByRole("button", { name: /send/i }));
+
+    expect(await screen.findByText("Feedback saved.")).toBeInTheDocument();
+    const requestBodies = (global.fetch as jest.Mock).mock.calls.map(
+      ([, init]) => JSON.parse(String((init as RequestInit).body)),
+    );
+    expect(requestBodies[0].forecastAt).toBe(initialForecastAt);
+    expect(requestBodies[1].forecastAt).toBe(nextForecastAt);
+    expect(requestBodies[1].requestId).not.toBe(requestBodies[0].requestId);
+  });
+
+  it("locks submission synchronously while a request is pending", async () => {
+    (global.fetch as jest.Mock).mockImplementationOnce(
+      () => new Promise<Response>(() => undefined),
+    );
+    const user = userEvent.setup();
+
+    renderFeedbackCapture();
+    await user.click(screen.getByRole("button", { name: /^right$/i }));
+    const sendButton = screen.getByRole("button", { name: /send/i });
+
+    await user.click(sendButton);
+
+    expect(sendButton).toBeDisabled();
+    await user.click(sendButton);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the CTA when the saved feedback response has no id", async () => {
