@@ -724,3 +724,26 @@ git commit -m "docs(release): document major swell activation gate"
 - Scope boundary: this plan prepares the contract and validation path only; it does not create holds, enable automation, or send notifications.
 - Type consistency: `MajorSwellNotificationPayload` is the only payload type used by the producer and registry; `parseMajorSwellNotificationPayload` is the only parser.
 - Deployment impact: no migration and no environment change; production behavior remains shadow-only.
+
+## Verification Record
+
+- Contract matrix: PASS
+- Legacy queued payload compatibility: PASS
+- Registry privacy projection: PASS
+- Shadow producer parity: PASS
+- Notification worker regression: PASS
+- Typecheck: PASS
+- Targeted lint: PASS
+- Automation enabled: NO
+- Delivery enabled: NO
+
+## Activation Preconditions
+
+1. The enforce producer must append and read back an accepted durable hold.
+2. The enforce payload must carry the accepted hold and record IDs.
+3. Beginner, intermediate, and unknown cohorts must receive no positive recommendation.
+4. Protected alternatives require separate eligibility and hold resolution.
+5. Push and in-app payloads must omit evidence references and hold identifiers.
+6. Physical forecast values must match the pre-enforcement values exactly.
+7. A single-beach manual canary must prove activation, extension, cancellation, and restoration.
+8. Automation and delivery flags remain off until the canary is approved.
