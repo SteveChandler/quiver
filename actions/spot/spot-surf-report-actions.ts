@@ -36,12 +36,14 @@ export interface SpotSurfReportResult {
   report: MajorEventHoldSurfCallResult;
   isTomorrow: boolean;
   forecastContext: ForecastRecommendationContext | null;
+  forecastAlignment?: SurfCallForecastAlignment;
 }
 
 interface CachedSpotSurfReportResult {
   report: SurfCallResult;
   isTomorrow: boolean;
   forecastContext: ForecastRecommendationContext | null;
+  forecastAlignment?: SurfCallForecastAlignment;
 }
 
 export interface SpotSurfReportAuthContext {
@@ -49,7 +51,21 @@ export interface SpotSurfReportAuthContext {
   supabase: SupabaseClient<Database>;
 }
 
+export interface SpotSurfReportOptions {
+  forecastAt?: string | null;
+}
+
+export interface SurfCallForecastAlignment {
+  requestedForecastAt: string;
+  matchedForecastAt: string | null;
+  matchType: 'exact' | 'nearest' | 'none';
+  deltaMinutes: number | null;
+}
+
 const NO_POSITIVE_SURF_CALL_HOLD_EPOCH = 'no-positive-surf-call';
+// Hourly forecast rows may be shifted during ingestion; never bind across
+// more than one neighboring slot.
+const FORECAST_ALIGNMENT_TOLERANCE_MINUTES = 90;
 
 function authorizedSurfCallTier(
   profileExperience: SkillLevel | null,
@@ -258,7 +274,8 @@ export async function getSpotSurfReportPublic(beach: Beach): Promise<SpotSurfRep
       'default',
       null,
       null,
-      null
+      null,
+      null,
     );
     return cached
       ? await applySurfCallMajorEventHold(cached, beach.id, null, null)
@@ -275,7 +292,8 @@ export async function getSpotSurfReportPublic(beach: Beach): Promise<SpotSurfRep
 export async function getSpotSurfReport(
   beach: Beach,
   boardClass?: BoardClass | null,
-  authContext?: SpotSurfReportAuthContext
+  authContext?: SpotSurfReportAuthContext,
+  options: SpotSurfReportOptions = {},
 ): Promise<SpotSurfReportResult | null> {
   if (!beach.id) return null;
 
@@ -313,7 +331,8 @@ export async function getSpotSurfReport(
       prefsKey,
       boardClass ?? null,
       userPrefs,
-      userSkillLevel
+      userSkillLevel,
+      options.forecastAt ?? null,
     );
     return cached
       ? await applySurfCallMajorEventHold(
@@ -335,6 +354,51 @@ export async function getSpotSurfReport(
 interface PreferenceAdjustmentResult {
   window: PersonalizedForecastWindow;
   boardNote: string | null;
+}
+
+function resolveForecastAlignment(
+  forecasts: EnhancedForecastEntity[],
+  requestedForecastAt: string,
+): {
+  forecast: EnhancedForecastEntity | null;
+  alignment: SurfCallForecastAlignment;
+} {
+  const requestedMs = Date.parse(requestedForecastAt);
+  let nearest: EnhancedForecastEntity | null = null;
+  let nearestDeltaMs = Number.POSITIVE_INFINITY;
+
+  for (const forecast of forecasts) {
+    const forecastMs = Date.parse(forecast.forecast_at);
+    if (!Number.isFinite(forecastMs)) continue;
+    const deltaMs = Math.abs(forecastMs - requestedMs);
+    if (deltaMs < nearestDeltaMs) {
+      nearest = forecast;
+      nearestDeltaMs = deltaMs;
+    }
+  }
+
+  const toleranceMs = FORECAST_ALIGNMENT_TOLERANCE_MINUTES * 60 * 1000;
+  if (!nearest || nearestDeltaMs > toleranceMs) {
+    return {
+      forecast: null,
+      alignment: {
+        requestedForecastAt,
+        matchedForecastAt: null,
+        matchType: 'none',
+        deltaMinutes: null,
+      },
+    };
+  }
+
+  return {
+    forecast: nearest,
+    alignment: {
+      requestedForecastAt,
+      matchedForecastAt: new Date(nearest.forecast_at).toISOString(),
+      matchType: nearestDeltaMs === 0 ? 'exact' : 'nearest',
+      deltaMinutes: Math.round(nearestDeltaMs / (60 * 1000)),
+    },
+  };
 }
 
 /**
@@ -459,6 +523,7 @@ function canonicalizeBeachForSurfCall(beach: Beach): Beach {
  *
  * Cache is keyed by (beachId, userId, prefsKey, boardClass) so each user gets
  * personalized results based on their surf preferences and board-aware calls.
+ * Scoped native requests also include forecastAt in the argument-derived key.
  * The prefsKey is a stable string derived from preference values to ensure
  * consistent cache key generation.
  */
@@ -470,7 +535,8 @@ const getCachedSurfReport = unstable_cache(
     prefsKey: string,
     boardClass: BoardClass | null,
     userPrefs: UserSurfPreferences | null,
-    userSkillLevel: SkillLevel | null
+    userSkillLevel: SkillLevel | null,
+    forecastAt: string | null,
   ): Promise<CachedSpotSurfReportResult | null> => {
     const resolvedSkillForBoard = boardClass
       ? resolveVerdictSkill(userSkillLevel, boardClass)
@@ -485,7 +551,7 @@ const getCachedSurfReport = unstable_cache(
       : DEFAULT_TIMEZONE;
 
     // 2. Determine "today" and "tomorrow" in beach timezone
-    const now = new Date();
+    const now = forecastAt ? new Date(forecastAt) : new Date();
     const todayStr = formatDateInTimezone(now, beachTz);
     const tomorrow = new Date(now.getTime() + 86_400_000);
     const tomorrowStr = formatDateInTimezone(tomorrow, beachTz);
@@ -523,6 +589,14 @@ const getCachedSurfReport = unstable_cache(
         report: buildReport(null, [], beach, {}, resolvedSkill),
         isTomorrow: false,
         forecastContext: null,
+        ...(forecastAt
+          ? {
+              forecastAlignment: resolveForecastAlignment(
+                [],
+                forecastAt,
+              ).alignment,
+            }
+          : {}),
       };
     }
 
@@ -537,6 +611,82 @@ const getCachedSurfReport = unstable_cache(
     const rideabilityBand = boardClass
       ? getRideabilityBand(resolvedSkillForBoard!.skill, boardClass)
       : null;
+
+    if (forecastAt) {
+      const { forecast, alignment } = resolveForecastAlignment(
+        forecasts,
+        forecastAt,
+      );
+      if (!forecast) {
+        return {
+          report: buildReport(null, forecasts, beach, { isTomorrow: true }, resolvedSkill),
+          isTomorrow: true,
+          forecastContext: null,
+          forecastAlignment: alignment,
+        };
+      }
+
+      const scopedForecasts = [forecast];
+      const headline = resolveTodayHeadline({
+        forecasts: scopedForecasts,
+        beach,
+        userPrefs,
+        horizonHours: 24,
+        sunTimesCache,
+        rideabilityBand,
+        userSkillLevel,
+        now,
+      });
+      if (!headline) {
+        return {
+          report: buildReport(
+            null,
+            scopedForecasts,
+            beach,
+            { isTomorrow: true },
+            resolvedSkill,
+          ),
+          isTomorrow: true,
+          forecastContext: buildForecastRecommendationContext({
+            beach,
+            forecasts: scopedForecasts,
+            window: null,
+            now,
+            timezone: beachTz,
+          }),
+          forecastAlignment: alignment,
+        };
+      }
+
+      const {
+        window: adjustedWindow,
+        boardNote,
+      } = applyPreferenceAdjustments(
+        headline.window,
+        resolvedSkill,
+        boardClass,
+      );
+      const forecastContext = buildForecastRecommendationContext({
+        beach,
+        forecasts: scopedForecasts,
+        window: adjustedWindow,
+        now,
+        timezone: beachTz,
+      });
+      delete adjustedWindow.sourceForecast;
+      return {
+        report: buildReport(
+          adjustedWindow,
+          scopedForecasts,
+          beach,
+          { isTomorrow: true, boardNote },
+          resolvedSkill,
+        ),
+        isTomorrow: true,
+        forecastContext,
+        forecastAlignment: alignment,
+      };
+    }
 
     // Try today's forecasts first
     if (todayForecasts.length > 0) {

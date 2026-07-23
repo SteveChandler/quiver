@@ -659,6 +659,190 @@ describe("spot-surf-report-actions", () => {
       expect(mockCachedSurfReportCalls[0]?.[4]).toBe("longboard");
     });
 
+    it("computes a scoped surf call from the exact requested forecast row", async () => {
+      const requestedForecastAt = "2024-01-15T18:00:00.000Z";
+      await setupBoardAwareScenario({
+        profileSkill: "intermediate",
+        forecastRows: [
+          {
+            ...mockForecasts[0],
+            id: "earlier-row",
+            forecast_at: "2024-01-15T14:00:00.000Z",
+            wave_height: "2 ft",
+            wave_period: "9s",
+          },
+          {
+            ...mockForecasts[0],
+            id: "requested-row",
+            forecast_at: requestedForecastAt,
+            wave_height: "5 ft",
+            wave_period: "14s",
+          },
+        ],
+      });
+      mockSelectBestWindow.mockImplementation(({ forecasts, now }) => {
+        const sourceForecast = forecasts[0];
+        return {
+          start: new Date(sourceForecast.forecast_at),
+          end: new Date(Date.parse(sourceForecast.forecast_at) + 2 * 60 * 60 * 1000),
+          score: 82,
+          waveHeight: sourceForecast.wave_height,
+          wavePeriod: sourceForecast.wave_period,
+          confidence: sourceForecast.confidence_score,
+          peakTime: new Date(sourceForecast.forecast_at),
+          sourceForecast,
+          timezone: "America/Los_Angeles",
+          tide: "Rising",
+          wind: "3 mph E",
+          dataSource: "NOAA_NWS",
+        };
+      });
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+
+      const result = await getSpotSurfReport(
+        mockBeach,
+        null,
+        undefined,
+        { forecastAt: requestedForecastAt },
+      );
+
+      expect(mockSelectBestWindow).toHaveBeenCalledWith(
+        expect.objectContaining({
+          forecasts: [
+            expect.objectContaining({
+              id: "requested-row",
+              forecast_at: requestedForecastAt,
+            }),
+          ],
+          now: new Date(requestedForecastAt),
+        }),
+      );
+      expect(result?.forecastAlignment).toEqual({
+        requestedForecastAt,
+        matchedForecastAt: requestedForecastAt,
+        matchType: "exact",
+        deltaMinutes: 0,
+      });
+      expect(result?.forecastContext?.selectedRowTime).toBe(requestedForecastAt);
+      expect(result?.forecastContext?.waveHeight).toBe("5 ft");
+    });
+
+    it("uses the nearest forecast row within the scoped alignment tolerance", async () => {
+      const requestedForecastAt = "2024-01-15T18:20:00.000Z";
+      const matchedForecastAt = "2024-01-15T18:00:00.000Z";
+      await setupBoardAwareScenario({
+        profileSkill: "intermediate",
+        forecastRows: [
+          {
+            ...mockForecasts[0],
+            id: "nearest-row",
+            forecast_at: matchedForecastAt,
+            wave_height: "4 ft",
+            wave_period: "13s",
+          },
+        ],
+      });
+      mockSelectBestWindow.mockImplementation(({ forecasts }) => {
+        const sourceForecast = forecasts[0];
+        return {
+          start: new Date(sourceForecast.forecast_at),
+          end: new Date(Date.parse(sourceForecast.forecast_at) + 2 * 60 * 60 * 1000),
+          score: 75,
+          waveHeight: sourceForecast.wave_height,
+          wavePeriod: sourceForecast.wave_period,
+          confidence: sourceForecast.confidence_score,
+          peakTime: new Date(sourceForecast.forecast_at),
+          sourceForecast,
+          timezone: "America/Los_Angeles",
+          tide: "Rising",
+          wind: "3 mph E",
+          dataSource: "NOAA_NWS",
+        };
+      });
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+
+      const result = await getSpotSurfReport(
+        mockBeach,
+        null,
+        undefined,
+        { forecastAt: requestedForecastAt },
+      );
+
+      expect(result?.forecastAlignment).toEqual({
+        requestedForecastAt,
+        matchedForecastAt,
+        matchType: "nearest",
+        deltaMinutes: 20,
+      });
+      expect(result?.forecastContext?.selectedRowTime).toBe(matchedForecastAt);
+    });
+
+    it("returns explicit no-match metadata instead of scoring an unrelated row", async () => {
+      const requestedForecastAt = "2024-01-15T21:00:00.000Z";
+      await setupBoardAwareScenario({
+        profileSkill: "intermediate",
+        forecastRows: [
+          {
+            ...mockForecasts[0],
+            id: "stale-row",
+            forecast_at: "2024-01-15T18:00:00.000Z",
+            wave_height: "5 ft",
+            wave_period: "14s",
+          },
+        ],
+      });
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+
+      const result = await getSpotSurfReport(
+        mockBeach,
+        null,
+        undefined,
+        { forecastAt: requestedForecastAt },
+      );
+
+      expect(mockSelectBestWindow).not.toHaveBeenCalled();
+      expect(result?.forecastAlignment).toEqual({
+        requestedForecastAt,
+        matchedForecastAt: null,
+        matchType: "none",
+        deltaMinutes: null,
+      });
+      expect(result?.forecastContext).toBeNull();
+      expect(result?.report.verdict).toBe("NO");
+    });
+
+    it("returns explicit no-match metadata when the scoped date has no forecast rows", async () => {
+      const requestedForecastAt = "2024-01-15T21:00:00.000Z";
+      await setupBoardAwareScenario({
+        profileSkill: "intermediate",
+        forecastRows: [],
+      });
+      const { getSpotSurfReport } = await import(
+        "@/actions/spot/spot-surf-report-actions"
+      );
+
+      const result = await getSpotSurfReport(
+        mockBeach,
+        null,
+        undefined,
+        { forecastAt: requestedForecastAt },
+      );
+
+      expect(result?.forecastAlignment).toEqual({
+        requestedForecastAt,
+        matchedForecastAt: null,
+        matchType: "none",
+        deltaMinutes: null,
+      });
+      expect(result?.forecastContext).toBeNull();
+    });
+
     it("evaluates the exact best window after the physical cache with verified profile experience", async () => {
       await setupBoardAwareScenario({ profileSkill: "advanced" });
       const { getSpotSurfReport } = await import(

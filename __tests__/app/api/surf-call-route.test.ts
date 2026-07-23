@@ -179,6 +179,46 @@ describe("GET /api/surf/call", () => {
     );
   });
 
+  it("passes a validated forecastAt to the scoped surf-call computation", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    const forecastAt = "2026-05-08T23:00:00.000Z";
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      deleted_at: null,
+    });
+    mockSurfReportResult(beachId);
+
+    await GET(
+      new NextRequest(
+        `http://localhost:3000/api/surf/call?beachId=${beachId}&forecastAt=${encodeURIComponent(forecastAt)}`,
+      ),
+    );
+
+    expect(getSpotSurfReport).toHaveBeenCalledWith(
+      expect.objectContaining({ id: beachId }),
+      null,
+      { user: mockUser, supabase: mockSupabase },
+      { forecastAt },
+    );
+  });
+
+  it("rejects an invalid forecastAt instead of silently returning an unscoped call", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost:3000/api/surf/call?beachId=${beachId}&forecastAt=not-a-timestamp`,
+      ),
+    );
+
+    expect(response.status).toBe(400);
+    expect(getSpotSurfReport).not.toHaveBeenCalled();
+  });
+
   it("passes null for invalid boardClass values", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     mockBeachQuery({

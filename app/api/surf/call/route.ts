@@ -17,10 +17,11 @@ export const maxDuration = 15;
 
 const QuerySchema = z.object({
   beachId: z.string().uuid({ message: 'beachId must be a valid UUID' }),
+  forecastAt: z.string().datetime({ offset: true }).optional(),
 });
 
 /**
- * GET /api/surf/call?beachId=<uuid>&boardClass=<BoardClass>
+ * GET /api/surf/call?beachId=<uuid>&boardClass=<BoardClass>&forecastAt=<ISO-8601>
  *
  * Returns a personalized surf-call verdict for a single beach.
  * Consumed by the Quiver Native app so the native surf call matches web exactly.
@@ -36,12 +37,13 @@ async function surfCallHandler(
   const { searchParams } = new URL(request.url);
   const validation = validateOrError(QuerySchema, {
     beachId: searchParams.get('beachId') ?? undefined,
+    forecastAt: searchParams.get('forecastAt') ?? undefined,
   });
   if ('error' in validation) {
     return validation.error;
   }
 
-  const { beachId } = validation.data;
+  const { beachId, forecastAt } = validation.data;
   const boardClass = normalizeBoardClass(searchParams.get('boardClass'));
 
   // Narrow column list — only what getSpotSurfReport, selectBestWindow, and
@@ -73,11 +75,18 @@ async function surfCallHandler(
     );
   }
 
-  const rawResult = await getSpotSurfReport(
-    beach as unknown as Beach,
-    boardClass,
-    { user, supabase }
-  );
+  const rawResult = forecastAt
+    ? await getSpotSurfReport(
+        beach as unknown as Beach,
+        boardClass,
+        { user, supabase },
+        { forecastAt },
+      )
+    : await getSpotSurfReport(
+        beach as unknown as Beach,
+        boardClass,
+        { user, supabase },
+      );
   if (!rawResult) {
     return NextResponse.json(
       { success: false, error: 'Unable to compute surf call' },
