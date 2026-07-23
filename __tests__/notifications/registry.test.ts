@@ -145,7 +145,15 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     });
 
     expect(shadow.awareness_mode).toBe("shadow");
+    expect(shadow.automation_enabled).toBe(false);
+    expect(shadow.enforcement).toBeNull();
     expect(enforce.awareness_mode).toBe("enforce");
+    expect(enforce.automation_enabled).toBe(true);
+    expect(enforce.enforcement).toEqual({
+      hold_id: "22222222-2222-4222-8222-222222222222",
+      hold_record_id: "33333333-3333-4333-8333-333333333333",
+      hold_valid_until: "2026-08-03T00:00:00.000Z",
+    });
     expect(NOTIFICATION_REGISTRY.swell_watch.channels).toEqual([]);
   });
 
@@ -217,6 +225,12 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
       expect(clientPayload).not.toHaveProperty("enforcement");
       expect(JSON.stringify(clientPayload)).not.toContain(
         "22222222-2222-4222-8222-222222222222",
+      );
+      expect(JSON.stringify(clientPayload)).not.toContain(
+        "33333333-3333-4333-8333-333333333333",
+      );
+      expect(JSON.stringify(clientPayload)).not.toContain(
+        "2026-08-03T00:00:00.000Z",
       );
     }
   });

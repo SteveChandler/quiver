@@ -343,7 +343,18 @@ describe("GET /api/cron/swell-watch", () => {
     const body = await json(response);
 
     expect(response.status).toBe(200);
-    expect(body.data.shadowMatches).toBe(1);
+    expect(body.data).toMatchObject({
+      sent: 0,
+      shadowMatches: 1,
+      automationEnabled: false,
+      shadowEvaluations: [
+        {
+          awareness_mode: "shadow",
+          automation_enabled: false,
+          enforcement: null,
+        },
+      ],
+    });
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
     expect(mockSupabase.rpc).not.toHaveBeenCalled();
     expect(mockResendSend).not.toHaveBeenCalled();
