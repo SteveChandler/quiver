@@ -51,8 +51,8 @@ export class RouteGuard {
    * Returns the route type and required access levels
    */
   static classifyRoute(pathname: string, method: string): RouteClassification {
-    // Skip middleware for non-GET requests
-    if (method !== "GET") {
+    // HEAD must follow GET routing so canonical rewrites resolve identically.
+    if (method !== "GET" && method !== "HEAD") {
       return {
         type: "skip",
         requiresAuth: false,

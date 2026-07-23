@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Sitemap city routes now preserve canonical rewrites for HEAD requests** (`lib/middleware/route-guard.ts`, `e2e/guest-sitemap-city-head-parity.spec.ts`). Treats HEAD like GET during page-route classification so Rosarito and the Waimea island pages return the same 200 contract to browsers and lightweight crawlers.
 - **Patched Sharp/libvips image-processing vulnerabilities** (`package.json`, `yarn.lock`). Resolves Next.js image tooling to Sharp 0.35.3, compatible with Quiver's Node 22 runtime and existing WebP conversion calls.
 - **Patched DOMPurify custom-element hook bypass** (`package.json`, `yarn.lock`). Resolves PostHog's sanitizer dependency to 3.4.12 or later so allowed custom elements still pass through post-sanitize hooks.
 - **Patched brace-expansion denial of service** (`package.json`, `yarn.lock`). Resolves vulnerable 1.x consumers to 1.1.16 while restoring independently required 2.x and 5.x dependency paths.

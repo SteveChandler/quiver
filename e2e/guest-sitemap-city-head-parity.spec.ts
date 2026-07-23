@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 const SITEMAP_CITY_ROUTES = [
   "/hi/waimea-big-island",
   "/hi/waimea-kauai",
+  "/mexico/baja-california/rosarito",
 ] as const;
 
 test.use({ storageState: { cookies: [], origins: [] } });

@@ -260,6 +260,19 @@ describe("Middleware Integration Tests", () => {
       );
     });
 
+    it("should preserve the international city rewrite for HEAD requests", async () => {
+      const request = createMockRequest("/mexico/baja-california/rosarito");
+      request.method = "HEAD";
+
+      const response = await middleware(request);
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("location")).toBeNull();
+      expect(response.headers.get("x-middleware-rewrite")).toContain(
+        "/beaches/mexico/baja-california/rosarito",
+      );
+    });
+
     it("should not rewrite partner flyer URLs as international city pages", async () => {
       const request = createMockRequest("/p/SURF12/flyer");
 
