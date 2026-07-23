@@ -31,6 +31,10 @@ import {
   similarityMatchSchema,
   type SimilarityMatchPayload,
 } from "./types/similarity-match";
+import {
+  parseMajorSwellNotificationPayload,
+  type MajorSwellNotificationPayload,
+} from "./types/major-swell";
 import { canonicalSessionDecisionSchema } from "@/lib/recommendations/canonical-decision/contract";
 
 // ─── Phase 5e: payload schemas (validatePayload source of truth) ─────────────
@@ -160,31 +164,6 @@ const weekendWindowSchema = z.object({
   policy_context: positiveRecommendationPolicyContextSchema.optional(),
   session_decision: canonicalSessionDecisionSchema.optional(),
   window_local: z.string().optional(),
-  title: z.string().min(1),
-  body: z.string().min(1),
-});
-
-const swellWatchSchema = z.object({
-  beach_id: z.string().min(1),
-  beach_slug: z.string().optional(),
-  beach_name: z.string().min(1),
-  event_start_date: z.string().min(1).nullable(),
-  peak_date: z.string().min(1).nullable(),
-  peak_height_ft: z.number().nullable(),
-  peak_period_s: z.number().nullable(),
-  forecast_at: z.string().min(1).nullable(),
-  awareness_mode: z.literal("shadow"),
-  automation_enabled: z.literal(false).optional(),
-  awareness_signal: z.enum([
-    "forecast_trend",
-    "official_advisory",
-    "corroborated",
-  ]),
-  awareness_severity: z.enum(["significant", "major"]),
-  official_evidence_refs: z.array(z.string().min(1)).optional(),
-  would_suppress_cohorts: z
-    .array(z.enum(["beginner", "intermediate", "unknown"]))
-    .optional(),
   title: z.string().min(1),
   body: z.string().min(1),
 });
@@ -389,30 +368,6 @@ type NotificationSimilarityMatchPayload = SimilarityMatchPayload & {
   policy_context?: PositiveRecommendationPolicyContextPayload;
   session_decision?: z.infer<typeof canonicalSessionDecisionSchema>;
 };
-
-interface SwellWatchPayload {
-  beach_id: string;
-  beach_slug?: string;
-  beach_name: string;
-  event_start_date: string | null;
-  peak_date: string | null;
-  peak_height_ft: number | null;
-  peak_period_s: number | null;
-  forecast_at: string | null;
-  awareness_mode: "shadow";
-  automation_enabled?: false;
-  awareness_signal:
-    | "forecast_trend"
-    | "official_advisory"
-    | "corroborated";
-  awareness_severity: "significant" | "major";
-  official_evidence_refs?: string[];
-  would_suppress_cohorts?: Array<
-    "beginner" | "intermediate" | "unknown"
-  >;
-  title: string;
-  body: string;
-}
 
 interface WeeklyStreakReminderPayload {
   streak: number;
@@ -801,7 +756,7 @@ export const NOTIFICATION_REGISTRY = {
     suppressSelfNotify: false,
     quietHours: DEFAULT_QUIET,
     cooldownMs: 96 * 60 * 60 * 1000,
-    validatePayload: (input) => swellWatchSchema.parse(input),
+    validatePayload: parseMajorSwellNotificationPayload,
     buildPushPayload: (p) => ({
       title: p.title,
       body: p.body,
@@ -811,6 +766,7 @@ export const NOTIFICATION_REGISTRY = {
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
         ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
         awareness_signal: p.awareness_signal,
+        awareness_severity: p.awareness_severity,
       },
     }),
     buildInAppPayload: (p) => ({
@@ -826,12 +782,11 @@ export const NOTIFICATION_REGISTRY = {
         forecast_at: p.forecast_at,
         awareness_signal: p.awareness_signal,
         awareness_severity: p.awareness_severity,
-        official_evidence_refs: p.official_evidence_refs ?? [],
         title: p.title,
         body: p.body,
       },
     }),
-  } satisfies NotificationTypeDef<SwellWatchPayload>,
+  } satisfies NotificationTypeDef<MajorSwellNotificationPayload>,
 
   trial_ending: {
     type: "trial_ending",
