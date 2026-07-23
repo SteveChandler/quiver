@@ -210,6 +210,17 @@ export function createMajorEventBulkForecastFixture(
   const forecastAt = new Date();
   forecastAt.setUTCMinutes(0, 0, 0);
   const held = phase === "held";
+  const swellPartition = {
+    s1Dir: 270,
+    swellDirOm: 270,
+    s1PeriodS: 14,
+    s1HeightFt: 3.5,
+    s2Dir: null,
+    s2PeriodS: null,
+    s2HeightFt: null,
+    windDir: 45,
+    windMph: 8,
+  };
 
   return {
     success: true,
@@ -242,22 +253,17 @@ export function createMajorEventBulkForecastFixture(
         beachIds.map((beachId) => [beachId, held ? "UNKNOWN" : "GOOD"]),
       ),
       swellPartitions: Object.fromEntries(
-        beachIds.map((beachId) => [
-          beachId,
-          {
-            s1Dir: 270,
-            swellDirOm: 270,
-            s1PeriodS: 14,
-            s1HeightFt: 3.5,
-            s2Dir: null,
-            s2PeriodS: null,
-            s2HeightFt: null,
-            windDir: 45,
-            windMph: 8,
-          },
-        ]),
+        beachIds.map((beachId) => [beachId, swellPartition]),
       ),
       swellPartitionTimeline: {},
+      hourlySwellTimeline: {
+        timestamps: [forecastAt.toISOString()],
+        partitionsByBeach: Object.fromEntries(
+          beachIds.map((beachId) => [beachId, [swellPartition]]),
+        ),
+        hasMore: false,
+        nextStart: null,
+      },
       recommendationAvailability: recommendationAvailability(phase),
     },
   };

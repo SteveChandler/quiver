@@ -42,7 +42,7 @@ async function reloadAndWaitForBulkForecast(page: Page): Promise<void> {
 }
 
 interface OpenMapConditionsResult {
-  markerButton: Locator;
+  marker: Locator;
   objectiveSwell: Locator;
 }
 
@@ -53,6 +53,8 @@ async function openWaikikiConditions(
     .getByRole("button", { name: /View Waikiki.* conditions/i })
     .first();
   await expect(markerButton).toBeVisible({ timeout: 30_000 });
+  const marker = markerButton.locator("..");
+  await expect(marker).toHaveAttribute("data-testid", "beach-marker");
   await markerButton.click();
 
   const callout = page.locator('[data-conditions-callout="true"]');
@@ -68,12 +70,11 @@ async function openWaikikiConditions(
     callout.getByText(OBJECTIVE_SWELL_LABEL, { exact: true }),
   ).toBeVisible();
 
-  return { markerButton, objectiveSwell };
+  return { marker, objectiveSwell };
 }
 
 async function expectAvailableMarker(page: Page): Promise<string> {
-  const { markerButton, objectiveSwell } = await openWaikikiConditions(page);
-  const marker = page.getByTestId("beach-marker").filter({ has: markerButton });
+  const { marker, objectiveSwell } = await openWaikikiConditions(page);
 
   await expect(marker).toHaveAttribute("data-condition-summary", "GOOD");
   await expect(marker).toHaveAttribute("data-condition-score", "91");
@@ -81,8 +82,7 @@ async function expectAvailableMarker(page: Page): Promise<string> {
 }
 
 async function expectHeldMarker(page: Page): Promise<string> {
-  const { markerButton, objectiveSwell } = await openWaikikiConditions(page);
-  const marker = page.getByTestId("beach-marker").filter({ has: markerButton });
+  const { marker, objectiveSwell } = await openWaikikiConditions(page);
 
   await expect(marker).toHaveAttribute("data-condition-summary", "UNKNOWN");
   await expect(marker).not.toHaveAttribute("data-condition-score", /.+/);
