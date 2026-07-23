@@ -276,7 +276,6 @@
     "undici": "^6.27.0",
     "qs": "^6.15.2",
     "diff": "^8.0.3",
-    "js-yaml": "^4.2.0",
     "@babel/core": "^7.29.6",
     "@opentelemetry/core": "2.8.0",
     "@sentry/node": "10.59.0",
