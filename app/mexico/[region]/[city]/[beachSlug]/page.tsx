@@ -20,8 +20,10 @@ import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 import { BeachProseSummary } from "@/components/beach-detail/beach-prose-summary";
 import {
-  isBeachDatabaseRecordEligible,
+  applyIndexabilityToMetadata,
+  evaluateBeachIndexability,
   parseEditorialSources,
+  toBeachEditorialInput,
   type BeachEditorialDatabaseRecord,
 } from "@/lib/seo/indexability";
 
@@ -237,16 +239,28 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       ].filter(Boolean),
     });
 
-    return isBeachDatabaseRecordEligible(beach as BeachEditorialDatabaseRecord)
-      ? metadata
-      : { ...metadata, robots: { index: false, follow: true } };
+    const canonicalPath =
+      `/mexico/${params.region}/${params.city}/${params.beachSlug}`;
+    const decision = evaluateBeachIndexability(
+      toBeachEditorialInput(beach as BeachEditorialDatabaseRecord),
+      canonicalPath,
+    );
+    return applyIndexabilityToMetadata(metadata, decision);
   }
 
-  return buildPageMetadata({
+  const metadata = buildPageMetadata({
     title: `Beach - Surf Forecast & Conditions`,
     description: `Conditions, intel, photos, and community tips for this beach.`,
     path: `/mexico/${params.region}/${params.city}/${params.beachSlug}`,
   });
+  return {
+    ...metadata,
+    robots: {
+      index: false,
+      follow: false,
+      googleBot: { index: false, follow: false },
+    },
+  };
 }
 
 /**

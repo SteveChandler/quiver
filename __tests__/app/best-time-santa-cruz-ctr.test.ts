@@ -12,6 +12,7 @@ import {
 } from "@/app/best-time-to-surf/[city]/page";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
 import { findCityBySlug } from "@/actions/city/city-metadata-actions";
+import { getBestTimeToSurfData } from "@/actions/city/best-time-actions";
 
 jest.mock("@/actions/city/city-metadata-actions", () => ({
   findCityBySlug: jest.fn(),
@@ -29,6 +30,13 @@ jest.mock("@/actions/city/city-editorial-actions", () => ({
 describe("best-time Santa Cruz CTR treatment", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (getBestTimeToSurfData as jest.Mock).mockResolvedValue({
+      success: true,
+      data: {
+        totalBeaches: 8,
+        topBeaches: [{ bestMonths: [10, 11, 12] }],
+      },
+    });
     (findCityBySlug as jest.Mock).mockResolvedValue({
       success: true,
       data: {

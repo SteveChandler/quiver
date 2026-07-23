@@ -272,7 +272,9 @@ test.describe('Beach Detail - Forecast Tab', () => {
       feedbackValue: 'too_low',
       observedFaceHeightFt: 6,
     });
-    expect(submittedPayload?.requestId).toEqual(expect.any(String));
+    expect(
+      (submittedPayload as Record<string, unknown> | null)?.requestId,
+    ).toEqual(expect.any(String));
 
     const sessionLogLink = page.getByRole('link', { name: 'Log the session' });
     await expect(sessionLogLink).toBeVisible();

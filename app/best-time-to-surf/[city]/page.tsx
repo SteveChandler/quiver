@@ -50,7 +50,11 @@ import {
 } from "@/lib/constants/seo-scenes";
 import { isPhase18BestTimePath } from "@/lib/recommendations/session-intelligence-rollout";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
-import { evaluateCityEditorialIndexability } from "@/lib/seo/indexability";
+import {
+  applyIndexabilityToMetadata,
+  evaluateCityEditorialIndexability,
+  toCityEditorialInput,
+} from "@/lib/seo/indexability";
 import { ReviewedCityEditorialSection } from "@/components/seo/reviewed-city-editorial-section";
 
 export const revalidate = 86400;
@@ -374,30 +378,30 @@ export async function generateMetadata(props: PageParams): Promise<Metadata> {
     ],
   });
 
-  const cityEditorial = await getCityEditorialContent(
-    cityToSlug(cityName),
-    cityResult.data.state.toLowerCase(),
-    "usa",
+  const [cityEditorial, bestTimeData] = await Promise.all([
+    getCityEditorialContent(
+      cityToSlug(cityName),
+      cityResult.data.state.toLowerCase(),
+      "usa",
+      "best-time",
+    ),
+    getBestTimeToSurfData(cityName, cityResult.data.state),
+  ]);
+  const canonicalPath = `/best-time-to-surf/${citySlug}`;
+  const decision = evaluateCityEditorialIndexability(
+    toCityEditorialInput(cityEditorial),
     "best-time",
+    canonicalPath,
+    Boolean(
+      bestTimeData.success &&
+      bestTimeData.data &&
+      bestTimeData.data.topBeaches.some(
+        (beach) => beach.bestMonths.length > 0,
+      ),
+    ),
   );
-  const editorialEligibility = cityEditorial
-    ? evaluateCityEditorialIndexability(
-        {
-          seoIndexable: cityEditorial.seo_indexable,
-          seoReviewedAt: cityEditorial.editorial_reviewed_at,
-          seoSources: cityEditorial.editorial_sources,
-          description: cityEditorial.description,
-          intent: cityEditorial.intent,
-          intro: cityEditorial.seo_intro,
-          localGuidance: cityEditorial.seo_local_guidance,
-        },
-        "best-time",
-      )
-    : { indexable: false };
 
-  return editorialEligibility.indexable
-    ? metadata
-    : { ...metadata, robots: { index: false, follow: true } };
+  return applyIndexabilityToMetadata(metadata, decision);
 }
 
 export default async function BestTimeToSurfPage(props: PageParams) {
