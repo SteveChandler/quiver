@@ -8,6 +8,9 @@ import {
   assertNoErrors,
   ErrorCapture,
 } from './utils/error-detection';
+import {
+  createCanonicalSessionDecisionFixture,
+} from "./fixtures/major-event-recommendation-hold";
 
 /**
  * Regional-best hero on the Oracle home screen — integration smoke test.
@@ -31,6 +34,7 @@ import {
 
 const TOP_REC_BEACH_ID = "11111111-1111-4111-8111-111111111111";
 const HOME_BEACH_ID = "22222222-2222-4222-8222-222222222222";
+const TOP_REC_CANDIDATE_ID = "recommendation:oracle-e2e-top";
 
 function discoveryFixture() {
   const now = Date.now();
@@ -39,6 +43,7 @@ function discoveryFixture() {
 
   // The Rock @ Oceanside (regional best)
   const topRec = {
+    recommendationId: TOP_REC_CANDIDATE_ID,
     beach: {
       id: TOP_REC_BEACH_ID,
       name: "The Rock",
@@ -151,6 +156,21 @@ function discoveryFixture() {
         generated_at: new Date().toISOString(),
       },
       regionalCall: "Local sandbars holding lined-up WNW lines.",
+      recommendationAvailability: {
+        state: "available",
+        holdEpoch: "enforce:resolved:before-major-event-e2e",
+      },
+      sessionDecision: createCanonicalSessionDecisionFixture({
+        phase: "available",
+        candidateId: TOP_REC_CANDIDATE_ID,
+        beachId: TOP_REC_BEACH_ID,
+        beachName: topRec.beach.name,
+        windowStart: start.toISOString(),
+        windowEnd: end.toISOString(),
+        timezone: topRec.window.timezone,
+        forecastId: topRec.forecast.id,
+        forecastAt: start.toISOString(),
+      }),
     },
   };
 }
