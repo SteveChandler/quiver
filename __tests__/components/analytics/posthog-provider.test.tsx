@@ -86,6 +86,21 @@ describe("PostHogProvider", () => {
     expect(getOwnAnalyticsTrackingAllowed).not.toHaveBeenCalled();
   });
 
+  it("preserves anonymous tracking during a transient auth action", () => {
+    (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
+    const { rerender } = render(<PostHogProvider />);
+
+    expect(setAnonymousClientPostHogTracking).toHaveBeenCalledTimes(1);
+
+    (setClientPostHogTrackingAllowed as jest.Mock).mockClear();
+    (resetPostHog as jest.Mock).mockClear();
+    (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: true });
+    rerender(<PostHogProvider />);
+
+    expect(setClientPostHogTrackingAllowed).not.toHaveBeenCalled();
+    expect(resetPostHog).not.toHaveBeenCalled();
+  });
+
   it("identifies authenticated users only after owner consent resolves true", async () => {
     const user = {
       id: "user-123",

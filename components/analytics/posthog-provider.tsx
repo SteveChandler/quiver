@@ -17,6 +17,7 @@ import { createClient } from "@/lib/supabase/client";
 
 export function PostHogProvider(): null {
   const { user, isLoading } = useAuth();
+  const hasResolvedAuth = useRef(false);
   const identifiedUserId = useRef<string | null>(null);
   const supabase = useMemo(() => createClient(), []);
 
@@ -34,11 +35,15 @@ export function PostHogProvider(): null {
     let active = true;
 
     if (isLoading) {
-      setClientPostHogTrackingAllowed(null);
+      if (!hasResolvedAuth.current) {
+        setClientPostHogTrackingAllowed(null);
+      }
       return () => {
         active = false;
       };
     }
+
+    hasResolvedAuth.current = true;
 
     if (!user) {
       setClientPostHogTrackingAllowed(null);
