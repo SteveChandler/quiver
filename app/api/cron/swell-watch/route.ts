@@ -18,6 +18,11 @@ import {
   loadNwsSwellAdvisories,
   loadOfficialSwellAdvisories,
 } from "@/lib/recommendations/major-swell-awareness/official-advisory-adapter";
+import {
+  MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
+  parseMajorSwellNotificationPayload,
+  type MajorSwellNotificationPayload,
+} from "@/lib/notifications/types/major-swell";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import type { Beach } from "@/types/database";
@@ -37,28 +42,6 @@ const SENTRY_MONITOR = {
   maxRuntimeMinutes: 5,
 };
 
-interface SwellWatchPayload {
-  beach_id: string;
-  beach_slug?: string;
-  beach_name: string;
-  event_start_date: string | null;
-  peak_date: string | null;
-  peak_height_ft: number | null;
-  peak_period_s: number | null;
-  forecast_at: string | null;
-  awareness_mode: "shadow";
-  automation_enabled: false;
-  awareness_signal:
-    | "forecast_trend"
-    | "official_advisory"
-    | "corroborated";
-  awareness_severity: "significant" | "major";
-  official_evidence_refs: string[];
-  would_suppress_cohorts: Array<"beginner" | "intermediate" | "unknown">;
-  title: string;
-  body: string;
-}
-
 interface SwellWatchSummary {
   skipped: boolean;
   reason?: string;
@@ -72,7 +55,7 @@ interface SwellWatchSummary {
   errors: number;
   durationMs: number;
   automationEnabled: false;
-  shadowEvaluations: SwellWatchPayload[];
+  shadowEvaluations: MajorSwellNotificationPayload[];
 }
 
 type SwellWatchBeach = Beach & {
@@ -80,11 +63,15 @@ type SwellWatchBeach = Beach & {
 };
 
 type SwellWatchSelection =
-  | { payload: SwellWatchPayload }
+  | { payload: MajorSwellNotificationPayload }
   | { skipReason: string };
 
 type SwellWatchEvaluation =
-  | { state: "match"; payload: SwellWatchPayload; noForecast: boolean }
+  | {
+      state: "match";
+      payload: MajorSwellNotificationPayload;
+      noForecast: boolean;
+    }
   | { state: "skip"; reason: string; noForecast: boolean }
   | { state: "error"; beachId: string; error: unknown };
 
@@ -218,26 +205,28 @@ async function selectAndBuildSwellWatch({
         body: "An official coastal advisory is active in the forecast window.",
       };
 
-  return {
-    payload: {
-      beach_id: beach.id,
-      ...(beach.slug ? { beach_slug: beach.slug } : {}),
-      beach_name: beach.name,
-      event_start_date: event?.eventStartDate ?? null,
-      peak_date: event?.peakDate ?? null,
-      peak_height_ft: event?.peakHeightFt ?? null,
-      peak_period_s: event?.peakPeriodS ?? null,
-      forecast_at: event?.peakForecastAt ?? null,
-      awareness_mode: "shadow",
-      automation_enabled: false,
-      awareness_signal: awareness.signal,
-      awareness_severity: awareness.severity ?? "significant",
-      official_evidence_refs: awareness.officialEvidenceRefs,
-      would_suppress_cohorts: awareness.wouldSuppressCohorts,
-      title: copy.title,
-      body: copy.body,
-    },
-  };
+  const payload = parseMajorSwellNotificationPayload({
+    schema_version: MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
+    beach_id: beach.id,
+    ...(beach.slug ? { beach_slug: beach.slug } : {}),
+    beach_name: beach.name,
+    event_start_date: event?.eventStartDate ?? null,
+    peak_date: event?.peakDate ?? null,
+    peak_height_ft: event?.peakHeightFt ?? null,
+    peak_period_s: event?.peakPeriodS ?? null,
+    forecast_at: event?.peakForecastAt ?? null,
+    awareness_mode: "shadow",
+    automation_enabled: false,
+    awareness_signal: awareness.signal,
+    awareness_severity: awareness.severity ?? "significant",
+    official_evidence_refs: awareness.officialEvidenceRefs,
+    would_suppress_cohorts: awareness.wouldSuppressCohorts,
+    enforcement: null,
+    title: copy.title,
+    body: copy.body,
+  });
+
+  return { payload };
 }
 
 async function _GET(request: Request): Promise<Response> {

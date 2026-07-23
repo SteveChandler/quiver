@@ -61,6 +61,8 @@ const store: Store = {
   claimResult: true,
 };
 
+const BEACH_ID = "11111111-1111-4111-8111-111111111111";
+
 function makeChain(rowsResolver: (chain: any) => any[]) {
   const chain: any = {
     filters: {} as Record<string, any>,
@@ -140,7 +142,7 @@ function forecastAt(offset: number): string {
 function forecast(offset: number, waveHeight: string, period: string): any {
   return {
     id: `forecast-${offset}`,
-    beach_id: "beach-1",
+    beach_id: BEACH_ID,
     forecast_at: forecastAt(offset),
     forecast_date: dateKey(offset),
     forecast_time: "12:00",
@@ -179,7 +181,7 @@ describe("GET /api/cron/swell-watch", () => {
     store.profiles = [
       {
         id: "user-1",
-        home_beach_id: "beach-1",
+        home_beach_id: BEACH_ID,
         timezone: "America/Los_Angeles",
         notif_push_enabled: null,
         notif_reminders: null,
@@ -187,7 +189,7 @@ describe("GET /api/cron/swell-watch", () => {
     ];
     store.beaches = [
       {
-        id: "beach-1",
+        id: BEACH_ID,
         name: "Lower Trestles",
         slug: "lower-trestles",
         timezone: "America/Los_Angeles",
@@ -195,7 +197,7 @@ describe("GET /api/cron/swell-watch", () => {
       },
     ];
     store.forecastsByBeachId = {
-      "beach-1": [
+      [BEACH_ID]: [
         forecast(0, "2 ft", "8s"),
         forecast(1, "2 ft", "8s"),
         forecast(2, "2 ft", "8s"),
@@ -238,7 +240,7 @@ describe("GET /api/cron/swell-watch", () => {
   });
 
   it("skips users when no swell event is detected", async () => {
-    store.forecastsByBeachId["beach-1"] = [
+    store.forecastsByBeachId[BEACH_ID] = [
       forecast(0, "2 ft", "8s"),
       forecast(1, "2 ft", "8s"),
       forecast(2, "2 ft", "8s"),
@@ -263,9 +265,15 @@ describe("GET /api/cron/swell-watch", () => {
     expect(body.data.sent).toBe(0);
     expect(body.data.shadowMatches).toBe(1);
     expect(body.data.automationEnabled).toBe(false);
+    expect(body.data.shadowEvaluations[0]).toMatchObject({
+      schema_version: "major-swell-notification.v1",
+      awareness_mode: "shadow",
+      automation_enabled: false,
+      enforcement: null,
+    });
     expect(body.data.shadowEvaluations).toEqual([
       {
-          beach_id: "beach-1",
+          beach_id: BEACH_ID,
           beach_slug: "lower-trestles",
           beach_name: "Lower Trestles",
           event_start_date: dateKey(4),
@@ -273,12 +281,14 @@ describe("GET /api/cron/swell-watch", () => {
           peak_height_ft: 6,
           peak_period_s: 14,
           forecast_at: forecastAt(5),
+          schema_version: "major-swell-notification.v1",
           awareness_mode: "shadow",
           automation_enabled: false,
           awareness_signal: "forecast_trend",
           awareness_severity: "major",
           official_evidence_refs: [],
           would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+          enforcement: null,
           title: "Swell incoming — Lower Trestles",
           body: "Sunday: building to 6 ft @ 14s. Peak Monday.",
       },
@@ -297,7 +307,7 @@ describe("GET /api/cron/swell-watch", () => {
     expect(body.data.evaluated).toBe(1);
     expect(body.data.shadowMatches).toBe(1);
     expect(body.data.shadowEvaluations[0]).toMatchObject({
-      beach_id: "beach-1",
+      beach_id: BEACH_ID,
       awareness_signal: "forecast_trend",
     });
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
@@ -343,7 +353,7 @@ describe("GET /api/cron/swell-watch", () => {
   it("corroborates the forecast trend with fresh official advisory evidence", async () => {
     store.officialRisks = [{
       id: "11111111-1111-4111-8111-111111111111",
-      beach_id: "beach-1",
+      beach_id: BEACH_ID,
       valid_date: dateKey(4),
       risk_level: "high",
       source: "alert",
@@ -354,8 +364,11 @@ describe("GET /api/cron/swell-watch", () => {
 
     expect(response.status).toBe(200);
     expect(body.data.shadowEvaluations[0]).toMatchObject({
+      schema_version: "major-swell-notification.v1",
+      awareness_mode: "shadow",
       awareness_signal: "corroborated",
       automation_enabled: false,
+      enforcement: null,
       official_evidence_refs: [
         "official:rip_current_risks:11111111-1111-4111-8111-111111111111",
       ],
@@ -365,13 +378,13 @@ describe("GET /api/cron/swell-watch", () => {
   });
 
   it("detects an official-only signal without inventing forecast peak values", async () => {
-    store.forecastsByBeachId["beach-1"] = [
+    store.forecastsByBeachId[BEACH_ID] = [
       forecast(0, "2 ft", "8s"),
       forecast(1, "2 ft", "8s"),
     ];
     store.officialRisks = [{
       id: "22222222-2222-4222-8222-222222222222",
-      beach_id: "beach-1",
+      beach_id: BEACH_ID,
       valid_date: dateKey(1),
       risk_level: "high",
       source: "srf",
@@ -382,12 +395,16 @@ describe("GET /api/cron/swell-watch", () => {
 
     expect(response.status).toBe(200);
     expect(body.data.shadowEvaluations[0]).toMatchObject({
+      schema_version: "major-swell-notification.v1",
+      awareness_mode: "shadow",
+      automation_enabled: false,
       awareness_signal: "official_advisory",
       event_start_date: null,
       peak_date: null,
       peak_height_ft: null,
       peak_period_s: null,
       forecast_at: null,
+      enforcement: null,
     });
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
     expect(mockResendSend).not.toHaveBeenCalled();
@@ -395,10 +412,10 @@ describe("GET /api/cron/swell-watch", () => {
 
   it("still evaluates official advisories when forecast rows are unavailable", async () => {
     store.profiles = [];
-    store.forecastsByBeachId["beach-1"] = [];
+    store.forecastsByBeachId[BEACH_ID] = [];
     store.officialRisks = [{
       id: "33333333-3333-4333-8333-333333333333",
-      beach_id: "beach-1",
+      beach_id: BEACH_ID,
       valid_date: dateKey(1),
       risk_level: "high",
       source: "alert",
@@ -412,7 +429,7 @@ describe("GET /api/cron/swell-watch", () => {
     expect(body.data.evaluated).toBe(1);
     expect(body.data.shadowMatches).toBe(1);
     expect(body.data.shadowEvaluations[0]).toMatchObject({
-      beach_id: "beach-1",
+      beach_id: BEACH_ID,
       awareness_signal: "official_advisory",
       peak_height_ft: null,
       forecast_at: null,
