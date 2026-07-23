@@ -886,6 +886,7 @@ export const learnArticles: LearnArticle[] = [
       "Surf forecast height is significant wave height (Hs) — the average of the tallest third of waves measured by NDBC buoys. Face height (what you see) runs 1.5-2x the forecast number. So a '3-5 ft' forecast means 4.5-10 ft wave faces. Hawaiian scale uses roughly half of face height, adding further confusion.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
+    dateModified: "2026-07-23",
     heroImage: "/images/hero/hero-2-barrel-wave.webp",
     thumbnailImage: "/images/hero/hero-2-barrel-wave.webp",
     keywords: [
@@ -912,6 +913,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "detail",
         heading: "The Three Wave Measurement Scales",
+        figureKey: "wave-height-reference",
         content: `<p><strong>Significant wave height (Hs)</strong>: Used by NOAA, WaveWatch III, and most forecast models. It's a statistical measure from buoys — the mean of the highest third of waves over a 20-minute sampling window. This is what you see on Quiver and most forecasting apps.</p><p><strong>Face height</strong>: What surfers actually see standing on the beach. A 3-foot Hs reading from a CDIP buoy translates to roughly 4.5-6 foot faces, depending on the break's bathymetry. Sandy beach breaks tend toward the higher multiplier; deep-water reefs toward the lower.</p><p><strong>Hawaiian scale</strong>: Used in Hawaii and by some old-school surfers. Roughly half of face height (or close to Hs). A "6-foot Hawaiian" wave has a 10-12 foot face. If someone in Hawaii says "it's 4 feet," prepare for 8-foot faces.</p>`,
         keyTakeaway:
           "Three scales exist: significant height (buoy/forecast), face height (what you see, 1.5-2x Hs), and Hawaiian scale (~0.5x face height).",
@@ -2068,6 +2070,7 @@ export const learnArticles: LearnArticle[] = [
       "Learn how tides work for surfing: why high and low tide shift, what spring and neap tides mean, and how tide timing changes wave shape.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
+    dateModified: "2026-07-23",
     heroImage: "/images/learn/learn-tide-pools.jpg",
     thumbnailImage: "/images/learn/learn-tide-pools.jpg",
     keywords: [
@@ -2094,6 +2097,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "detail",
         heading: "The Lunar Cycle and Tidal Range",
+        figureKey: "tide-window",
         content: `<p>The moon's gravity creates a <strong>tidal bulge</strong> — water is pulled toward the moon on the near side of Earth, and centrifugal force creates a second bulge on the far side. As Earth rotates, coastlines pass through these bulges, experiencing <strong>two high tides and two low tides daily</strong>.</p><p><strong>Spring tides</strong> happen twice per month (new moon and full moon) when sun and moon align. Their combined gravity produces tidal ranges <strong>20-30% larger</strong> than average. In San Francisco, spring tidal range can exceed <strong>7 feet</strong>. <strong>Neap tides</strong> happen at quarter moons when sun and moon pull at right angles, partially canceling each other. Neap ranges are <strong>20-30% smaller</strong> than average. For surfing, spring tides mean bigger swings between low and high — which can expose more reef at low tide or flood breaks more at high tide. Neap tides produce more moderate, stable conditions.</p>`,
         keyTakeaway:
           "Spring tides (full/new moon) swing 20-30% more than average. Neap tides (quarter moon) swing 20-30% less. Both affect wave shape at your break.",
