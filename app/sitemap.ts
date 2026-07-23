@@ -34,6 +34,23 @@ const baseUrl = (
   process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"
 ).replace(/\/$/, "");
 
+// Update a family date only when its shared page content or template changes
+// significantly. Row-backed and authored-content routes use their own timestamps.
+const SITEMAP_CONTENT_VERSIONS = {
+  staticPages: "2026-02-10",
+  beachFallback: "2026-02-10",
+  cityEditorialFallback: "2026-02-10",
+  locationTemplate: "2026-02-01",
+  intentTemplate: "2026-03-06",
+  guideContent: "2026-03-26",
+  forecastTemplate: "2026-02-10",
+  camDirectory: "2026-02-11",
+  seoFunnelContent: "2026-05-10",
+  bestTimeTemplate: "2026-02-12",
+  toolsContent: "2026-03-30",
+  learnContentFallback: "2026-03-26",
+} as const;
+
 // Force dynamic rendering because sitemap generation requires database queries
 // at request time to fetch beaches, locations, and cities with skill data.
 export const dynamic = "force-dynamic";
@@ -151,7 +168,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         editorial.city_slug,
         editorial.intent === "general" ? null : editorial.intent ?? null,
       ),
-      { lastModified: editorial.updated_at || editorial.editorial_reviewed_at || "2026-02-10" },
+      {
+        lastModified:
+          editorial.updated_at ||
+          editorial.editorial_reviewed_at ||
+          SITEMAP_CONTENT_VERSIONS.cityEditorialFallback,
+      },
     );
   }
 
@@ -223,9 +245,6 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
  * Static pages - home, features, about, etc.
  */
 function getStaticRoutes(): MetadataRoute.Sitemap {
-  // Use fixed date - these pages change when content updates, not per-request
-  const staticPageDate = "2026-02-10";
-
   return [
     "/",
     "/features",
@@ -248,26 +267,7 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
     "/roadmap",
   ].map((route) => ({
     url: `${baseUrl}${route}`,
-    lastModified: staticPageDate,
-    changeFrequency:
-      route === "/best-free-surf-forecast-app" ||
-      route === "/best-surf-forecast-app"
-        ? "monthly"
-        : "daily",
-    priority:
-      route === "/"
-        ? 1
-        : route === "/free-surf-reports" ||
-            route === "/best-surf-forecast-app" ||
-            route === "/best-free-surf-forecast-app"
-          ? 0.85
-          : route === "/vs/surfline"
-            ? 0.8
-            : route === "/vs/surfline/free"
-              ? 0.78
-              : route === "/roadmap"
-                ? 0.6
-                : 0.7,
+    lastModified: SITEMAP_CONTENT_VERSIONS.staticPages,
   }));
 }
 
@@ -286,8 +286,6 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
  * sitemap function shares this data with location route validation).
  */
 export function buildBeachRoutes(beaches: NonNullable<Awaited<ReturnType<typeof getBeaches>>["data"]>): MetadataRoute.Sitemap {
-  const fallbackDate = "2026-02-10";
-
   const subPageTypes = ["tides", "water-temp"] as const;
 
   return beaches
@@ -299,7 +297,7 @@ export function buildBeachRoutes(beaches: NonNullable<Awaited<ReturnType<typeof 
       const lastModifiedDate =
         (beach as { updated_at?: string | null }).updated_at ||
         beach.created_at ||
-        fallbackDate;
+        SITEMAP_CONTENT_VERSIONS.beachFallback;
 
       // Determine whether this is a US beach. Only US beaches have tides/water-temp
       // subpage routes — international beaches (e.g., /mexico/baja-california/rosarito/teresas)
@@ -316,15 +314,11 @@ export function buildBeachRoutes(beaches: NonNullable<Awaited<ReturnType<typeof 
         {
           url: beachUrl,
           lastModified: lastModifiedDate,
-          changeFrequency: "weekly" as const,
-          priority: 0.7,
         },
         ...(isUsa
           ? subPageTypes.map((subPage) => ({
               url: `${beachUrl}/${subPage}`,
               lastModified: lastModifiedDate,
-              changeFrequency: "weekly" as const,
-              priority: 0.65,
             }))
           : []),
       ];
@@ -343,9 +337,6 @@ async function getLocationRoutes(
     console.error("Sitemap: Failed to load beach locations");
     return [];
   }
-
-  // Use fixed date - location pages change when template updates, not per-request
-  const locationPageDate = "2026-02-01";
 
   const usaStates = new Set<string>();
   const internationalHubs = new Set<string>();
@@ -373,15 +364,11 @@ async function getLocationRoutes(
       locationRoutes.push(
         {
           url: `${baseUrl}/hi/waimea-kauai`,
-          lastModified: locationPageDate,
-          changeFrequency: "hourly",
-          priority: 0.85,
+          lastModified: SITEMAP_CONTENT_VERSIONS.locationTemplate,
         },
         {
           url: `${baseUrl}/hi/waimea-big-island`,
-          lastModified: locationPageDate,
-          changeFrequency: "hourly",
-          priority: 0.85,
+          lastModified: SITEMAP_CONTENT_VERSIONS.locationTemplate,
         }
       );
       continue;
@@ -417,9 +404,9 @@ async function getLocationRoutes(
         usaStates.add(stateSlug);
         locationRoutes.push({
           url: locationUrl,
-          lastModified: editorial.lastModified || locationPageDate,
-          changeFrequency: "hourly",
-          priority: 0.85,
+          lastModified:
+            editorial.lastModified ||
+            SITEMAP_CONTENT_VERSIONS.locationTemplate,
         });
       }
     } else {
@@ -440,9 +427,9 @@ async function getLocationRoutes(
         emittedUrls.add(intlUrl);
         locationRoutes.push({
           url: intlUrl,
-          lastModified: editorial.lastModified || locationPageDate,
-          changeFrequency: "weekly",
-          priority: 0.75,
+          lastModified:
+            editorial.lastModified ||
+            SITEMAP_CONTENT_VERSIONS.locationTemplate,
         });
       }
     }
@@ -455,16 +442,12 @@ async function getLocationRoutes(
   // Add state-level pages
   const stateRoutes: MetadataRoute.Sitemap = [...usaStates].map((stateSlug) => ({
     url: `${baseUrl}/beaches/usa/${stateSlug}`,
-    lastModified: locationPageDate,
-    changeFrequency: "weekly",
-    priority: 0.7,
+    lastModified: SITEMAP_CONTENT_VERSIONS.locationTemplate,
   }));
 
   const internationalHubRoutes: MetadataRoute.Sitemap = [...internationalHubs].map((url) => ({
     url,
-    lastModified: locationPageDate,
-    changeFrequency: "weekly",
-    priority: url.split("/").length <= 5 ? 0.7 : 0.65,
+    lastModified: SITEMAP_CONTENT_VERSIONS.locationTemplate,
   }));
 
   return [...stateRoutes, ...internationalHubRoutes, ...locationRoutes];
@@ -485,9 +468,6 @@ async function getLocationRoutes(
 async function getIntentRoutes(
   approvedCityEditorial: Map<string, ApprovedCityEditorialRoute>,
 ): Promise<MetadataRoute.Sitemap> {
-  // Use template version date - intent pages change when template updates
-  const intentTemplateDate = "2026-03-06";
-
   // Skill-based intents that require cities to have matching beach skill levels
   const BEGINNER_INTENTS = new Set(["beginner", "longboard"]);
   const FILTERED_INTENTS = new Set(["beginner", "longboard", "least-crowded"]);
@@ -543,14 +523,11 @@ async function getIntentRoutes(
           if (intent === "tide" && cityRecord.hasTideData === false) continue;
           if (intent === "water-temp" && cityRecord.hasWaterTempData === false) continue;
 
-          // Dynamic priority based on beach count
-          const priority = cityRecord.beachCount >= 10 ? 0.8 : 0.7;
-
           routes.push({
             url: `${baseUrl}/${intent}/${citySlug}`,
-            lastModified: editorial.lastModified || intentTemplateDate,
-            changeFrequency: "daily" as const,
-            priority: intent === "beginner" ? Math.min(0.85, priority + 0.05) : priority,
+            lastModified:
+              editorial.lastModified ||
+              SITEMAP_CONTENT_VERSIONS.intentTemplate,
           });
         }
       }
@@ -566,14 +543,9 @@ async function getIntentRoutes(
  * Hub region guide pages.
  */
 function getGuideRoutes(): MetadataRoute.Sitemap {
-  // Use fixed date - guide pages change when content is updated
-  const guidePageDate = "2026-01-15";
-
   return HUB_REGION_SLUGS.map((region) => ({
     url: `${baseUrl}/guides/surfing-${region}`,
-    lastModified: guidePageDate,
-    changeFrequency: "weekly" as const,
-    priority: 0.9,
+    lastModified: SITEMAP_CONTENT_VERSIONS.guideContent,
   }));
 }
 
@@ -581,17 +553,12 @@ function getGuideRoutes(): MetadataRoute.Sitemap {
  * Forecast pages - hub landing page and regional forecast pages.
  */
 function getForecastRoutes(): MetadataRoute.Sitemap {
-  // Use fixed date - forecast pages are templated, data updates frequently but pages don't
-  const forecastTemplateDate = "2026-02-10";
-
   const routes: MetadataRoute.Sitemap = [];
 
   // Forecast hub landing page
   routes.push({
     url: `${baseUrl}/forecast`,
-    lastModified: forecastTemplateDate,
-    changeFrequency: "daily" as const,
-    priority: 0.9,
+    lastModified: SITEMAP_CONTENT_VERSIONS.forecastTemplate,
   });
 
   // Regional forecast pages (e.g., /forecast/southern-california)
@@ -599,9 +566,7 @@ function getForecastRoutes(): MetadataRoute.Sitemap {
   for (const slug of regionSlugs) {
     routes.push({
       url: `${baseUrl}/forecast/${slug}`,
-      lastModified: forecastTemplateDate,
-      changeFrequency: "daily" as const,
-      priority: 0.8,
+      lastModified: SITEMAP_CONTENT_VERSIONS.forecastTemplate,
     });
   }
 
@@ -612,16 +577,12 @@ function getForecastRoutes(): MetadataRoute.Sitemap {
  * Cam directory pages - hub and regional cam listings.
  */
 function getCamRoutes(): MetadataRoute.Sitemap {
-  const camPageDate = "2026-02-11";
-
   const routes: MetadataRoute.Sitemap = [];
 
   // Cam hub page
   routes.push({
     url: `${baseUrl}/cams`,
-    lastModified: camPageDate,
-    changeFrequency: "daily" as const,
-    priority: 0.9,
+    lastModified: SITEMAP_CONTENT_VERSIONS.camDirectory,
   });
 
   // Regional cam pages (e.g., /cams/southern-california)
@@ -629,9 +590,7 @@ function getCamRoutes(): MetadataRoute.Sitemap {
   for (const slug of camRegionSlugs) {
     routes.push({
       url: `${baseUrl}/cams/${slug}`,
-      lastModified: camPageDate,
-      changeFrequency: "daily" as const,
-      priority: 0.8,
+      lastModified: SITEMAP_CONTENT_VERSIONS.camDirectory,
     });
   }
 
@@ -642,15 +601,11 @@ function getCamRoutes(): MetadataRoute.Sitemap {
  * Curated SEO funnel pages.
  */
 function getSeoFunnelRoutes(): MetadataRoute.Sitemap {
-  const funnelDate = "2026-05-10";
-
   return INDEXABLE_SEO_FUNNEL_PAGES
     .filter((page) => !isStateIntentPath(page.path))
     .map((page) => ({
-    url: `${baseUrl}${page.path}`,
-    lastModified: funnelDate,
-    changeFrequency: page.type === "surf-report-today" ? "daily" : "weekly",
-    priority: page.type === "surf-report-today" ? 0.86 : 0.82,
+      url: `${baseUrl}${page.path}`,
+      lastModified: SITEMAP_CONTENT_VERSIONS.seoFunnelContent,
     }));
 }
 
@@ -667,15 +622,11 @@ function isStateIntentPath(path: string): boolean {
 async function getBestTimeToSurfRoutes(
   approvedCityEditorial: Map<string, ApprovedCityEditorialRoute>,
 ): Promise<MetadataRoute.Sitemap> {
-  const bestTimeDate = "2026-02-12";
-
   // Hub page
   const routes: MetadataRoute.Sitemap = [
     {
       url: `${baseUrl}/best-time-to-surf`,
-      lastModified: bestTimeDate,
-      changeFrequency: "monthly" as const,
-      priority: 0.85,
+      lastModified: SITEMAP_CONTENT_VERSIONS.bestTimeTemplate,
     },
   ];
 
@@ -694,9 +645,9 @@ async function getBestTimeToSurfRoutes(
         if (!editorial) return null;
         return {
           url: `${baseUrl}/best-time-to-surf/${citySlug}`,
-          lastModified: editorial.lastModified || bestTimeDate,
-          changeFrequency: "monthly" as const,
-          priority: 0.7,
+          lastModified:
+            editorial.lastModified ||
+            SITEMAP_CONTENT_VERSIONS.bestTimeTemplate,
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
@@ -712,8 +663,6 @@ async function getBestTimeToSurfRoutes(
  * Free surf tools — static routes for all 8 tools.
  */
 function getToolsRoutes(): MetadataRoute.Sitemap {
-  const toolsDate = "2026-03-30";
-
   const toolSlugs = [
     "tide-clock",
     "wave-converter",
@@ -727,15 +676,11 @@ function getToolsRoutes(): MetadataRoute.Sitemap {
   return [
     {
       url: `${baseUrl}/tools`,
-      lastModified: toolsDate,
-      changeFrequency: "weekly" as const,
-      priority: 0.85,
+      lastModified: SITEMAP_CONTENT_VERSIONS.toolsContent,
     },
     ...toolSlugs.map((slug) => ({
       url: `${baseUrl}/tools/${slug}`,
-      lastModified: toolsDate,
-      changeFrequency: "weekly" as const,
-      priority: 0.8,
+      lastModified: SITEMAP_CONTENT_VERSIONS.toolsContent,
     })),
   ];
 }
@@ -744,20 +689,23 @@ function getToolsRoutes(): MetadataRoute.Sitemap {
  * Learn hub and article pages — educational content for AI citability.
  */
 function getLearnRoutes(): MetadataRoute.Sitemap {
-  const learnDate = "2026-03-26";
-
   return [
     {
       url: `${baseUrl}/learn`,
-      lastModified: learnDate,
-      changeFrequency: "weekly",
-      priority: 0.85,
+      lastModified: learnArticles.reduce<string>(
+        (latest, article) =>
+          (article.dateModified ?? article.datePublished ?? "") > latest
+            ? article.dateModified ?? article.datePublished ?? latest
+            : latest,
+        SITEMAP_CONTENT_VERSIONS.learnContentFallback,
+      ),
     },
     ...learnArticles.map((article) => ({
       url: `${baseUrl}/learn/${article.slug}`,
-      lastModified: learnDate,
-      changeFrequency: "monthly" as const,
-      priority: 0.8,
+      lastModified:
+        article.dateModified ??
+        article.datePublished ??
+        SITEMAP_CONTENT_VERSIONS.learnContentFallback,
     })),
   ];
 }
@@ -773,14 +721,10 @@ function getBlogRoutes(): MetadataRoute.Sitemap {
     {
       url: `${baseUrl}/blog`,
       lastModified: blogDate,
-      changeFrequency: "weekly",
-      priority: 0.75,
     },
     ...posts.map((post) => ({
       url: `${baseUrl}/blog/${post.slug}`,
       lastModified: post.dateModified ?? post.datePublished,
-      changeFrequency: "monthly" as const,
-      priority: 0.7,
     })),
   ];
 }

@@ -222,6 +222,13 @@ Single flat sitemap at `/sitemap.xml` combining route groups for static pages, b
 
 **Implementation:** `app/sitemap.ts` (single flat generator)
 
+The XML emits only `<loc>` and verifiable `<lastmod>` metadata. [Google ignores
+`<priority>` and `<changefreq>`](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap),
+so Quiver does not emit them. Row-backed routes use row/editorial timestamps,
+blog and learn routes use authored publication metadata, and template-backed
+route families use the named `SITEMAP_CONTENT_VERSIONS` constants. Update a
+family constant only after a significant shared content or template change.
+
 ---
 
 ### Intent Pages System
