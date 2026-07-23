@@ -2,10 +2,10 @@
  * Unit tests for ConditionsAlertEmail React component (Daily Surf Call rebuild).
  *
  * Test coverage:
- * - Score rendering on a 0-100 scale + verdict-colored chip
+ * - Canonical go/consider verdict rendering
  * - Condition-character headline vs fallback
  * - Signal grid cells render when present, omitted when null
- * - New signals: rideable/hr, best window, confidence, rip risk
+ * - New signals: rideable/hr, best window, rip risk
  * - whyText bullets + crowd warning
  * - Single orange CTA
  * - Masthead + footer provenance
@@ -24,7 +24,7 @@ function makeProps(
 ): ConditionsAlertEmailProps {
   return {
     beachName: "Ocean Beach",
-    conditionsScore: 88,
+    decisionVerdict: "go",
     surfDescription: "Clean 3-4 ft",
     windDescription: "Light offshore",
     tideDescription: "2.1 ft, incoming",
@@ -90,90 +90,61 @@ describe("ConditionsAlertEmail", () => {
       const { container } = render(
         <ConditionsAlertEmail
           {...makeProps({
-            conditionsScore: 88,
+            decisionVerdict: "go",
             signals: { ...EMPTY_SIGNALS },
           })}
         />
       );
-      // No character → fallback headline for an 88 score.
-      expect(container.textContent).toContain("It's firing");
+      expect(container.textContent).toContain(
+        "Your best session window is lining up",
+      );
       expect(container.textContent).not.toContain("undefined");
     });
 
-    it("shows the NOW FIRING sticker only for score >= 85", () => {
+    it("shows the NOW FIRING sticker only for a go decision", () => {
       const high = render(
-        <ConditionsAlertEmail {...makeProps({ conditionsScore: 90 })} />
+        <ConditionsAlertEmail {...makeProps({ decisionVerdict: "go" })} />
       );
       expect(high.container.textContent).toContain("NOW FIRING");
 
       const low = render(
-        <ConditionsAlertEmail {...makeProps({ conditionsScore: 72 })} />
+        <ConditionsAlertEmail
+          {...makeProps({ decisionVerdict: "consider" })}
+        />
       );
       expect(low.container.textContent).not.toContain("NOW FIRING");
     });
   });
 
-  describe("Score block", () => {
-    it.each([0, 42, 60, 72, 88, 100])(
-      "renders the raw score %i on a 0-100 scale",
-      (score) => {
-        const { container } = render(
-          <ConditionsAlertEmail {...makeProps({ conditionsScore: score })} />
-        );
-        expect(container.textContent).toContain(String(score));
-      }
-    );
-
-    it("uses teal chip + Go surf for score >= 70", () => {
+  describe("Decision block", () => {
+    it("uses a teal GO chip for the canonical go verdict", () => {
       const { container } = render(
-        <ConditionsAlertEmail {...makeProps({ conditionsScore: 75 })} />
+        <ConditionsAlertEmail {...makeProps({ decisionVerdict: "go" })} />
       );
       expect(container.textContent).toContain("Go surf!");
       const chip = Array.from(container.querySelectorAll("td")).find(
         (td) => td.style.backgroundColor === "rgb(0, 212, 170)"
       );
-      expect(chip?.textContent).toContain("75");
+      expect(chip?.textContent).toContain("GO");
     });
 
-    it("uses gold chip + Might work for 55-69", () => {
+    it("uses a gold CONSIDER chip for the canonical consider verdict", () => {
       const { container } = render(
-        <ConditionsAlertEmail {...makeProps({ conditionsScore: 60 })} />
+        <ConditionsAlertEmail
+          {...makeProps({ decisionVerdict: "consider" })}
+        />
       );
-      expect(container.textContent).toContain("Might work");
+      expect(container.textContent).toContain("Worth considering");
       const chip = Array.from(container.querySelectorAll("td")).find(
         (td) => td.style.backgroundColor === "rgb(253, 184, 75)"
       );
-      expect(chip?.textContent).toContain("60");
+      expect(chip?.textContent).toContain("CONSIDER");
     });
 
-    it("uses muted gray chip + Skip it for < 55", () => {
-      const { container } = render(
-        <ConditionsAlertEmail {...makeProps({ conditionsScore: 40 })} />
-      );
-      expect(container.textContent).toContain("Skip it");
-      const chip = Array.from(container.querySelectorAll("td")).find(
-        (td) => td.style.backgroundColor === "rgb(136, 135, 128)"
-      );
-      expect(chip?.textContent).toContain("40");
-    });
-
-    it("never renders the score chip in CTA orange", () => {
+    it("does not expose a legacy numeric recommendation score", () => {
       const { container } = render(<ConditionsAlertEmail {...makeProps()} />);
-      // Orange (#F78E42) should appear only on the CTA button cell, never on a
-      // chip that also holds the big score number.
-      const orangeCells = Array.from(container.querySelectorAll("td")).filter(
-        (td) => td.style.backgroundColor === "rgb(247, 142, 66)"
-      );
-      orangeCells.forEach((cell) => {
-        expect(cell.textContent).not.toMatch(/\b88\b/);
-      });
-    });
-
-    it("renders the brand condition label from getConditionLabel", () => {
-      const { container } = render(
-        <ConditionsAlertEmail {...makeProps({ conditionsScore: 88 })} />
-      );
-      expect(container.textContent).toContain("EPIC");
+      expect(container.textContent).not.toMatch(/\b88\b/);
+      expect(container.textContent).not.toContain("EPIC");
     });
   });
 
@@ -215,12 +186,10 @@ describe("ConditionsAlertEmail", () => {
       expect(container.textContent).toContain("7:00 AM–9:00 AM");
     });
 
-    it("renders confidence copy as 'two models agree' for high confidence", () => {
+    it("does not expose confidence labels", () => {
       const { container } = render(<ConditionsAlertEmail {...makeProps()} />);
-      expect(container.textContent).toContain("CONFIDENCE");
-      expect(container.textContent).toContain("High · two models agree");
-      // Never imply ML correction (Seaside v3 serving retired).
-      expect(container.textContent).not.toMatch(/ML[- ]corrected/i);
+      expect(container.textContent).not.toContain("CONFIDENCE");
+      expect(container.textContent).not.toContain("two models agree");
     });
 
     it("omits each signal cell gracefully when its datum is null", () => {

@@ -24,11 +24,59 @@ function discoveryResponse(
   availability: SurfDiscoveryResponse["recommendationAvailability"],
   recommendationCount: number,
 ): SurfDiscoveryResponse {
+  const isAvailable =
+    availability?.state === "available" && recommendationCount > 0;
   return {
+    sessionDecision: {
+      schemaVersion: "canonical-session-decision.v1",
+      engineVersion: "rules.v1",
+      decisionId: "b".repeat(64),
+      createdAt: "2026-07-19T12:00:00.000Z",
+      expiresAt: "2099-07-19T12:15:00.000Z",
+      scope: {
+        kind: "plan_next_session",
+        windowStart: "2026-07-19T12:00:00.000Z",
+        windowEnd: "2026-07-20T12:00:00.000Z",
+        timezone: "America/Los_Angeles",
+      },
+      verdict: isAvailable ? "go" : "no",
+      reasonCode: isAvailable
+        ? "selected_go"
+        : availability?.reasonCode ?? "no_candidates",
+      selection: isAvailable
+        ? {
+            candidateId: "candidate-1",
+            beachId: "beach-1",
+            beachName: "Beach 1",
+            windowStart: "2026-07-20T15:00:00.000Z",
+            windowEnd: "2026-07-20T18:00:00.000Z",
+            timezone: "America/Los_Angeles",
+            forecastRef: {
+              forecastId: "forecast-1",
+              beachId: "beach-1",
+              forecastAt: "2026-07-20T15:00:00.000Z",
+            },
+            skillEligibility: {
+              skill: "intermediate",
+              state: "eligible",
+              reasonCodes: [],
+            },
+          }
+        : null,
+      skillEligibility: {
+        skill: "intermediate",
+        state: isAvailable ? "eligible" : "ineligible",
+        reasonCodes: isAvailable
+          ? []
+          : [availability?.reasonCode ?? "no_candidates"],
+      },
+      holdEpoch: availability?.holdEpoch ?? "missing-hold-state",
+    },
     recommendations: Array.from(
       { length: recommendationCount },
       (_, index) =>
         ({
+          recommendationId: `candidate-${index + 1}`,
           beach: {
             id: `beach-${index + 1}`,
             name: `Beach ${index + 1}`,

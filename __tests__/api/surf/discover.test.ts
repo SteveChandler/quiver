@@ -47,6 +47,12 @@ jest.mock("@/lib/services/discovery/major-event-hold", () => ({
   ) => mockSanitizeSerializationBoundary(...args),
 }));
 
+const mockBuildCanonicalDecisionFromSurfDiscovery = jest.fn();
+jest.mock("@/lib/recommendations/canonical-decision", () => ({
+  buildCanonicalDecisionFromSurfDiscovery: (...args: unknown[]) =>
+    mockBuildCanonicalDecisionFromSurfDiscovery(...args),
+}));
+
 import { NextRequest } from "next/server";
 
 // Build a fake supabase client that returns a configurable user_entitlements
@@ -272,6 +278,14 @@ describe("/api/surf/discover entitlement resolution", () => {
     delete process.env.SURF_DISCOVERY_BEST_SPOT_GATE;
     delete process.env.FREE_GROWTH_PHASE;
     mockGetProfileExperienceLevel.mockResolvedValue("advanced");
+    mockBuildCanonicalDecisionFromSurfDiscovery.mockReturnValue({
+      schemaVersion: "canonical-session-decision.v1",
+      engineVersion: "rules.v1",
+      decisionId: "a".repeat(64),
+      verdict: "no",
+      reasonCode: "no_candidates",
+      selection: null,
+    });
     mockSanitizeSerializationBoundary.mockImplementation(
       async (discovery) => ({
         ...discovery,
@@ -492,6 +506,21 @@ describe("/api/surf/discover entitlement resolution", () => {
     );
     expect(body.data.recommendations[0].personalExplanation).not.toEqual(
       expect.stringContaining("Matches your surfing patterns")
+    );
+    expect(body.data.sessionDecision).toMatchObject({
+      schemaVersion: "canonical-session-decision.v1",
+      verdict: "no",
+      selection: null,
+    });
+    expect(mockBuildCanonicalDecisionFromSurfDiscovery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profileExperience: "advanced",
+        recommendationAvailability: {
+          state: "available",
+          holdEpoch: "route-epoch",
+        },
+        recommendations: [expect.any(Object)],
+      }),
     );
   });
 

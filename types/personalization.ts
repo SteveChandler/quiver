@@ -13,6 +13,7 @@ import type { PersonalizedScore } from "@/lib/services/personalized-scoring-serv
 import type { SpotProfile } from "@/lib/domains/spot-profile/types";
 import type { RecommendationsV2Response } from "@/lib/services/discovery/recommendations-v2";
 import type { RecommendationAvailability } from "@/lib/recommendations/major-event-hold/types";
+import type { CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision/types";
 
 // ============================================================================
 // Time Slot Filter Types
@@ -365,6 +366,8 @@ export interface SurfDiscoveryRecommendation {
  * Surf discovery response with multiple ranked recommendations
  */
 export interface SurfDiscoveryResponse {
+  /** One server-owned product decision for this request scope. */
+  sessionDecision?: CanonicalSessionDecision;
   /** Ranked list of surf spot recommendations (best first) */
   recommendations: SurfDiscoveryRecommendation[];
   /** Shared V2 recommendation contract for native recommendation surfaces */

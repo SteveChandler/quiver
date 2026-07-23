@@ -13,6 +13,7 @@ import { entitlementFromRow } from '@/lib/alerts/entitlements';
 import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discovery-gating';
 import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
+import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision';
 import type { SurfDiscoveryEntitlement, TimeSlot } from '@/types/personalization';
 
 export const dynamic = 'force-dynamic';
@@ -95,6 +96,7 @@ async function surfDiscoveryHandler(
   request: NextRequest,
   { user, supabase }: AuthenticatedContext
 ): Promise<NextResponse> {
+  const anchor = new Date();
   // 1. Parse and validate query parameters
   const { searchParams } = new URL(request.url);
   const queryData = {
@@ -228,6 +230,28 @@ async function surfDiscoveryHandler(
     sanitizedDiscovery,
     entitlement,
   );
+
+  const decisionTimezone =
+    gatedDiscovery.recommendations[0]?.window?.timezone ?? 'UTC';
+  const decisionHorizonHours = horizonHours ?? 24;
+  gatedDiscovery.sessionDecision = buildCanonicalDecisionFromSurfDiscovery({
+    anchorTime: anchor.toISOString(),
+    scope: {
+      kind: 'plan_next_session',
+      windowStart: anchor.toISOString(),
+      windowEnd: new Date(
+        anchor.getTime() + decisionHorizonHours * 60 * 60 * 1000,
+      ).toISOString(),
+      timezone: decisionTimezone,
+    },
+    profileExperience,
+    recommendationAvailability: gatedDiscovery.recommendationAvailability ?? {
+      state: 'none',
+      reasonCode: 'hold_state_unavailable',
+      holdEpoch: 'hold-state-unavailable',
+    },
+    recommendations: gatedDiscovery.recommendations,
+  });
 
   return createSuccessResponse(gatedDiscovery);
 }

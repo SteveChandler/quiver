@@ -9,6 +9,8 @@ import type {
   RecommendationHoldReasonCode,
 } from "../types";
 import { resolveMajorEventHoldBoundary } from "./shared";
+import { canonicalSessionDecisionSchema } from "@/lib/recommendations/canonical-decision/contract";
+import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 
 const POSITIVE_NOTIFICATION_TYPES = new Set([
   "forecast_alert",
@@ -321,6 +323,49 @@ function unavailableForMode(
     : { status: "allowed", candidate };
 }
 
+function hasFreshCanonicalPositiveDecision(args: {
+  type: string;
+  payload: unknown;
+  candidate: MajorEventHoldCandidate | null;
+  profileExperience: unknown;
+  asOf: Date;
+}): boolean {
+  if (!isRecord(args.payload) || args.candidate === null) return false;
+  const parsed = canonicalSessionDecisionSchema.safeParse(
+    args.payload.session_decision,
+  );
+  if (!parsed.success) return false;
+  const decision = parsed.data;
+  const selection = decision.selection;
+  const expectedSkill = parseSkillLevel(
+    typeof args.profileExperience === "string"
+      ? args.profileExperience
+      : null,
+  ) ?? "unknown";
+  const expectedVerdict =
+    decision.verdict === "go"
+      ? "YES"
+      : decision.verdict === "consider"
+        ? "MAYBE"
+        : "NO";
+  const verdictMatches =
+    args.type !== "home_morning_call" ||
+    args.payload.verdict === expectedVerdict;
+
+  return (
+    decision.verdict !== "no"
+    && selection !== null
+    && Date.parse(decision.expiresAt) > args.asOf.getTime()
+    && Date.parse(decision.createdAt) <= args.asOf.getTime() + 5 * 60 * 1000
+    && decision.skillEligibility.skill === expectedSkill
+    && verdictMatches
+    && selection.beachId === args.candidate.beachId
+    && selection.windowStart === args.candidate.startsAt
+    && selection.windowEnd === args.candidate.endsAt
+    && selection.forecastRef.forecastAt === args.payload.forecast_at
+  );
+}
+
 export async function resolveNotificationMajorEventHold(
   input: ResolveNotificationMajorEventHoldInput,
   dependencies: NotificationMajorEventHoldDependencies = {},
@@ -332,6 +377,19 @@ export async function resolveNotificationMajorEventHold(
   const mode = input.mode ?? MAJOR_EVENT_HOLD_MODE;
   const candidate = buildNotificationMajorEventHoldCandidate(input);
   const candidates = buildNotificationMajorEventHoldCandidates(input);
+  if (
+    mode === "enforce"
+    && POSITIVE_NOTIFICATION_TYPES.has(input.type)
+    && !hasFreshCanonicalPositiveDecision({
+      type: input.type,
+      payload: input.payload,
+      candidate,
+      profileExperience: input.profileExperience,
+      asOf: input.asOf ?? new Date(),
+    })
+  ) {
+    return suppressed("hold_state_unavailable", candidate);
+  }
   const evaluateCandidates =
     dependencies.evaluateCandidates ?? evaluateMajorEventHoldCandidates;
   let decisions: MajorEventHoldCandidateDecision[];

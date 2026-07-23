@@ -31,6 +31,7 @@ import {
   similarityMatchSchema,
   type SimilarityMatchPayload,
 } from "./types/similarity-match";
+import { canonicalSessionDecisionSchema } from "@/lib/recommendations/canonical-decision/contract";
 
 // ─── Phase 5e: payload schemas (validatePayload source of truth) ─────────────
 
@@ -66,6 +67,7 @@ type PositiveRecommendationPolicyContextPayload = z.infer<
 
 const notificationSimilarityMatchSchema = similarityMatchSchema.extend({
   policy_context: positiveRecommendationPolicyContextSchema.optional(),
+  session_decision: canonicalSessionDecisionSchema.optional(),
 });
 
 const forecastAlertSchema = z.object({
@@ -76,6 +78,7 @@ const forecastAlertSchema = z.object({
   beach_slug: z.string().nullable().optional(),
   forecast_at: z.string().nullable().optional(),
   policy_context: positiveRecommendationPolicyContextSchema.optional(),
+  session_decision: canonicalSessionDecisionSchema.optional(),
   matches: z.unknown().optional(),
   quiet_hours_start: z.number().int().min(0).max(23).optional(),
   quiet_hours_end: z.number().int().min(0).max(23).optional(),
@@ -146,6 +149,7 @@ const homeMorningCallSchema = z.object({
   beach_name: z.string().optional(),
   forecast_at: z.string().nullable().optional(),
   policy_context: positiveRecommendationPolicyContextSchema.optional(),
+  session_decision: canonicalSessionDecisionSchema.optional(),
   title: z.string().min(1),
   body: z.string().min(1),
 });
@@ -154,6 +158,7 @@ const weekendWindowSchema = z.object({
   beach_id: z.string().min(1),
   forecast_at: z.string().min(1),
   policy_context: positiveRecommendationPolicyContextSchema.optional(),
+  session_decision: canonicalSessionDecisionSchema.optional(),
   window_local: z.string().optional(),
   title: z.string().min(1),
   body: z.string().min(1),
@@ -168,6 +173,9 @@ const swellWatchSchema = z.object({
   peak_height_ft: z.number(),
   peak_period_s: z.number(),
   forecast_at: z.string().min(1),
+  awareness_mode: z.literal("shadow"),
+  awareness_signal: z.literal("forecast_trend"),
+  awareness_severity: z.enum(["significant", "major"]),
   title: z.string().min(1),
   body: z.string().min(1),
 });
@@ -295,6 +303,7 @@ interface ForecastAlertPayload {
   beach_slug?: string | null;
   forecast_at?: string | null;
   policy_context?: PositiveRecommendationPolicyContextPayload;
+  session_decision?: z.infer<typeof canonicalSessionDecisionSchema>;
   /** Full match list for the in-app inbox row. */
   matches?: unknown;
   /**
@@ -352,6 +361,7 @@ interface HomeMorningCallPayload {
   beach_name?: string;
   forecast_at?: string | null;
   policy_context?: PositiveRecommendationPolicyContextPayload;
+  session_decision?: z.infer<typeof canonicalSessionDecisionSchema>;
   title: string;
   body: string;
 }
@@ -360,10 +370,16 @@ interface WeekendWindowPayload {
   beach_id: string;
   forecast_at: string;
   policy_context?: PositiveRecommendationPolicyContextPayload;
+  session_decision?: z.infer<typeof canonicalSessionDecisionSchema>;
   window_local?: string;
   title: string;
   body: string;
 }
+
+type NotificationSimilarityMatchPayload = SimilarityMatchPayload & {
+  policy_context?: PositiveRecommendationPolicyContextPayload;
+  session_decision?: z.infer<typeof canonicalSessionDecisionSchema>;
+};
 
 interface SwellWatchPayload {
   beach_id: string;
@@ -520,6 +536,12 @@ export const NOTIFICATION_REGISTRY = {
         ...(p.beach_id ? { beach_id: p.beach_id } : {}),
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
         ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
+        ...(p.session_decision
+          ? {
+              decision_id: p.session_decision.decisionId,
+              decision_verdict: p.session_decision.verdict,
+            }
+          : {}),
       },
     }),
     buildInAppPayload: (p) => ({
@@ -531,7 +553,9 @@ export const NOTIFICATION_REGISTRY = {
         ...(p.beach_id ? { beach_id: p.beach_id } : {}),
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
         ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
-        ...(p.matches ? { matches: p.matches } : {}),
+        ...(p.session_decision
+          ? { session_decision: p.session_decision }
+          : {}),
       },
     }),
     /**
@@ -590,7 +614,9 @@ export const NOTIFICATION_REGISTRY = {
     surfAlertPriority: 2,
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) =>
-      notificationSimilarityMatchSchema.parse(input) as SimilarityMatchPayload,
+      notificationSimilarityMatchSchema.parse(
+        input,
+      ) as NotificationSimilarityMatchPayload,
     buildPushPayload: (p) => {
       const waveWindow =
         p.wave_height_ft != null &&
@@ -611,7 +637,9 @@ export const NOTIFICATION_REGISTRY = {
         : p.reason;
 
       return {
-        title: `${p.label ? `${p.label} ` : ""}match at ${p.beach_name}`.trim(),
+        title: p.session_decision
+          ? `${p.session_decision.verdict === "go" ? "Go" : "Consider"} ${p.beach_name}`
+          : `${p.label ? `${p.label} ` : ""}match at ${p.beach_name}`.trim(),
         body,
         data: {
           type: "similarity_match",
@@ -619,6 +647,12 @@ export const NOTIFICATION_REGISTRY = {
           beach_slug: p.beach_slug,
           alert_date: p.alert_date,
           forecast_at: p.forecast_at,
+          ...(p.session_decision
+            ? {
+                decision_id: p.session_decision.decisionId,
+                decision_verdict: p.session_decision.verdict,
+              }
+            : {}),
         },
       };
     },
@@ -630,7 +664,6 @@ export const NOTIFICATION_REGISTRY = {
         beach_name: p.beach_name,
         alert_date: p.alert_date,
         forecast_at: p.forecast_at,
-        score: p.score,
         label: p.label ?? null,
         reason: p.reason,
         window_local: p.window_local,
@@ -640,10 +673,12 @@ export const NOTIFICATION_REGISTRY = {
         wind_direction: p.wind_direction,
         tide_height_ft: p.tide_height_ft,
         tide_status: p.tide_status,
-        confidence: p.confidence,
         condition_summary: p.condition_summary,
         board_tip: p.board_tip,
         setup_tip: p.setup_tip,
+        ...(p.session_decision
+          ? { session_decision: p.session_decision }
+          : {}),
       },
     }),
     /**
@@ -679,7 +714,7 @@ export const NOTIFICATION_REGISTRY = {
         );
       }
     },
-  } satisfies NotificationTypeDef<SimilarityMatchPayload>,
+  } satisfies NotificationTypeDef<NotificationSimilarityMatchPayload>,
 
   home_morning_call: {
     type: "home_morning_call",
@@ -723,6 +758,12 @@ export const NOTIFICATION_REGISTRY = {
         beach_id: p.beach_id,
         forecast_at: p.forecast_at,
         ...(p.window_local ? { window_local: p.window_local } : {}),
+        ...(p.session_decision
+          ? {
+              decision_id: p.session_decision.decisionId,
+              decision_verdict: p.session_decision.verdict,
+            }
+          : {}),
       },
     }),
   } satisfies NotificationTypeDef<WeekendWindowPayload>,

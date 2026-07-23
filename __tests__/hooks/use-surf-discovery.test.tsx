@@ -38,8 +38,48 @@ describe("useSurfDiscovery", () => {
   });
 
   const mockDiscoveryResponse: SurfDiscoveryResponse = {
+    sessionDecision: {
+      schemaVersion: "canonical-session-decision.v1",
+      engineVersion: "rules.v1",
+      decisionId: "a".repeat(64),
+      createdAt: "2025-12-16T14:00:00.000Z",
+      expiresAt: "2099-12-16T14:15:00.000Z",
+      scope: {
+        kind: "plan_next_session",
+        windowStart: "2025-12-16T14:00:00.000Z",
+        windowEnd: "2025-12-17T14:00:00.000Z",
+        timezone: "America/Los_Angeles",
+      },
+      verdict: "go",
+      reasonCode: "selected_go",
+      selection: {
+        candidateId: "candidate-1",
+        beachId: "beach-1",
+        beachName: "Ocean Beach",
+        windowStart: "2025-12-16T15:00:00.000Z",
+        windowEnd: "2025-12-16T18:00:00.000Z",
+        timezone: "America/Los_Angeles",
+        forecastRef: {
+          forecastId: "forecast-1",
+          beachId: "beach-1",
+          forecastAt: "2025-12-16T15:00:00.000Z",
+        },
+        skillEligibility: {
+          skill: "intermediate",
+          state: "eligible",
+          reasonCodes: [],
+        },
+      },
+      skillEligibility: {
+        skill: "intermediate",
+        state: "eligible",
+        reasonCodes: [],
+      },
+      holdEpoch: "clear",
+    },
     recommendations: [
       {
+        recommendationId: "candidate-1",
         beach: {
           id: "beach-1",
           name: "Ocean Beach",

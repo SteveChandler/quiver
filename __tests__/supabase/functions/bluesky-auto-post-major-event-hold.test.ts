@@ -93,6 +93,15 @@ describe("Bluesky major-event hold boundary", () => {
     );
   });
 
+  it("projects every public forecast post to canonical unknown-skill none", () => {
+    const handler = source.slice(source.indexOf("Deno.serve"));
+
+    expect(handler).toContain("result = objectiveSafetyPost()");
+    expect(handler).not.toContain("getSanDiegoBeaches(supabase)");
+    expect(handler).not.toMatch(/result = await generate(?:GoNo|WeekendWave|LongboardSunday)Post/);
+    expect(source).not.toMatch(/low confidence/i);
+  });
+
   it("re-resolves before a disabled forecast post is logged or returned", () => {
     const handler = source.slice(source.indexOf("Deno.serve"));
     const generatedLog = handler.indexOf(

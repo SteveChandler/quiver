@@ -7,10 +7,17 @@ import {
   validateOrError,
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
-import { getSpotSurfReport } from '@/actions/spot/spot-surf-report-actions';
+import {
+  getSpotSurfReport,
+  type SpotSurfReportResult,
+} from '@/actions/spot/spot-surf-report-actions';
 import type { Beach } from '@/types/database';
 import { applyForceVerdict } from '@/lib/utils/dev-force-verdict';
 import { normalizeBoardClass } from '@/lib/domains/rideability';
+import { entitlementFromRow } from '@/lib/alerts/entitlements';
+import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
+import { resolveCanonicalSessionDecision } from '@/lib/recommendations/canonical-decision';
+import type { CanonicalSessionDecision } from '@/lib/recommendations/canonical-decision/types';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -18,6 +25,55 @@ export const maxDuration = 15;
 const QuerySchema = z.object({
   beachId: z.string().uuid({ message: 'beachId must be a valid UUID' }),
 });
+
+type CanonicalSurfCallResponse = SpotSurfReportResult & {
+  sessionDecision: CanonicalSessionDecision;
+};
+
+function applyCanonicalDecisionToSurfCall(
+  result: SpotSurfReportResult,
+  decision: CanonicalSessionDecision,
+  requestedBeachId: string,
+): CanonicalSurfCallResponse {
+  const selection = decision.selection;
+  const selectionMatchesRequest =
+    decision.verdict !== 'no' &&
+    selection !== null &&
+    selection.beachId === requestedBeachId;
+
+  if (!selectionMatchesRequest) {
+    return {
+      ...result,
+      report: {
+        ...result.report,
+        verdict: 'NO',
+        bestWindowStart: null,
+        bestWindowEnd: null,
+        windowMinutes: null,
+        shortWindow: false,
+        whySentence: '',
+        score: 0,
+        peakTime: null,
+        trendTags: [],
+        character: null,
+        tiers: null,
+      },
+      sessionDecision: decision,
+    };
+  }
+
+  return {
+    ...result,
+    report: {
+      ...result.report,
+      verdict: decision.verdict === 'go' ? 'YES' : 'MAYBE',
+      bestWindowStart: selection.windowStart,
+      bestWindowEnd: selection.windowEnd,
+      peakTime: selection.windowStart,
+    },
+    sessionDecision: decision,
+  };
+}
 
 /**
  * GET /api/surf/call?beachId=<uuid>&boardClass=<BoardClass>
@@ -72,9 +128,10 @@ async function surfCallHandler(
       { status: 404 }
     );
   }
+  const typedBeach = beach as unknown as Beach;
 
   const rawResult = await getSpotSurfReport(
-    beach as unknown as Beach,
+    typedBeach,
     boardClass,
     { user, supabase }
   );
@@ -89,9 +146,46 @@ async function surfCallHandler(
     rawResult,
     searchParams.get('_forceVerdict'),
     process.env.NODE_ENV !== 'production',
-  );
+  ) as SpotSurfReportResult;
 
-  return createSuccessResponse(result);
+  let profileExperience: unknown = null;
+  try {
+    profileExperience = await getProfileExperienceLevel(supabase, user.id);
+  } catch {
+    profileExperience = null;
+  }
+  const { data: entitlementRow } = await supabase
+    .from('user_entitlements')
+    .select('is_pro, is_trialing, billing_issue, expires_at')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
+  const anchor = new Date();
+  const anchorTime = anchor.toISOString();
+  const sessionDecision = await resolveCanonicalSessionDecision({
+    userId: user.id,
+    profileExperience,
+    anchorTime,
+    scope: {
+      kind: 'plan_next_session',
+      windowStart: anchorTime,
+      windowEnd: new Date(anchor.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      timezone: typedBeach.timezone ?? 'UTC',
+    },
+    discoveryOptions: {
+      userLocation:
+        typedBeach.lat !== null && typedBeach.lon !== null
+          ? { lat: typedBeach.lat, lon: typedBeach.lon }
+          : undefined,
+      horizonHours: 24,
+      includeBeachIds: [beachId],
+      isPro,
+    },
+  });
+
+  return createSuccessResponse(
+    applyCanonicalDecisionToSurfCall(result, sessionDecision, beachId),
+  );
 }
 
 const protectedGET = withRateLimit(

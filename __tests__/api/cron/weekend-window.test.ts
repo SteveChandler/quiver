@@ -39,6 +39,7 @@ function weekendSelectArgs(): HomeBeachPushSelectArgs {
       id: BEACH_ID,
       name: "La Jolla",
       timezone: "America/Los_Angeles",
+      skill_level: "intermediate",
     } as HomeBeachPushSelectArgs["beach"],
     forecasts: [
       {
@@ -105,6 +106,14 @@ describe("weekend_window helpers", () => {
           beach_id: BEACH_ID,
           starts_at: WINDOW_START,
           ends_at: WINDOW_END,
+        },
+        session_decision: {
+          verdict: "go",
+          selection: {
+            beachId: BEACH_ID,
+            windowStart: WINDOW_START,
+            windowEnd: WINDOW_END,
+          },
         },
       },
     });

@@ -315,10 +315,14 @@ function seedQueueRow(overrides: Partial<any> = {}) {
     window_end: "2026-04-26T15:00:00Z",
     best_hour: "2026-04-26T14:00:00Z",
     best_score: 0.8,
-    conditions_snapshot: {},
+    conditions_snapshot: { wave_height: 3 },
     sent: false,
     alert_rules: { name: "Test rule", notify_email: true, notify_push: true },
-    beaches: { name: "Test Beach", timezone: "America/Los_Angeles" },
+    beaches: {
+      name: "Test Beach",
+      timezone: "America/Los_Angeles",
+      skill_level: "beginner",
+    },
     ...overrides,
   });
 }
@@ -512,7 +516,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
 
     expect(mockEmailsSend).not.toHaveBeenCalled();
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
-    expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledTimes(2);
+    expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledTimes(1);
     for (const call of mockResolveNotificationMajorEventHold.mock.calls) {
       expect(call[0]).toMatchObject({
         type: "forecast_alert",
@@ -579,7 +583,7 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(store.queueUpdates).toEqual([{ ids: [QUEUE_1], sent: true }]);
   });
 
-  it("keeps queued alerts for different beaches in separate emails", async () => {
+  it("sends only the canonical highest-ranked beach when multiple alerts qualify", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedQueueRow({
@@ -588,7 +592,11 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       beach_id: "00000000-0000-0000-0000-0000000000b2",
       best_score: 0.25,
       alert_rules: { name: "Lower score rule", notify_email: true, notify_push: false },
-      beaches: { name: "Lower Score Beach", timezone: "America/Los_Angeles" },
+      beaches: {
+        name: "Lower Score Beach",
+        timezone: "America/Los_Angeles",
+        skill_level: "beginner",
+      },
     });
     seedQueueRow({
       id: "00000000-0000-0000-0000-0000000000c3",
@@ -596,19 +604,23 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
       beach_id: "00000000-0000-0000-0000-0000000000b3",
       best_score: 0.95,
       alert_rules: { name: "Higher score rule", notify_email: true, notify_push: false },
-      beaches: { name: "Higher Score Beach", timezone: "America/Los_Angeles" },
+      beaches: {
+        name: "Higher Score Beach",
+        timezone: "America/Los_Angeles",
+        skill_level: "beginner",
+      },
     });
     seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
 
     const res = await GET(makeRequest());
     expect(res.status).toBe(200);
 
-    expect(mockEmailsSend).toHaveBeenCalledTimes(2);
+    expect(mockEmailsSend).toHaveBeenCalledTimes(1);
     expect(store.alertQueueSelects[0]).toContain("best_score");
-    expect(mockConsolidatedAlertEmail).toHaveBeenCalledTimes(2);
-    expect(mockConsolidatedAlertEmail.mock.calls.map((call) =>
-      call[0].matches[0].beach_name,
-    ).sort()).toEqual(["Higher Score Beach", "Lower Score Beach"]);
+    expect(mockConsolidatedAlertEmail).toHaveBeenCalledTimes(1);
+    expect(
+      mockConsolidatedAlertEmail.mock.calls[0][0].matches[0].beach_name,
+    ).toBe("Higher Score Beach");
   });
 
   it("email-only rule, profile.email is null → skipped_no_email, no Resend call, queue still marked sent", async () => {
@@ -742,7 +754,11 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
           skill_level: "intermediate",
         },
       });
-      seedProfile({ notif_email_enabled: true, notif_push_enabled: false });
+      seedProfile({
+        notif_email_enabled: true,
+        notif_push_enabled: false,
+        experience_level: "intermediate",
+      });
       store.forecastRows.push(
         {
           forecast_at: "2026-04-26T15:00:00Z",
@@ -1366,21 +1382,25 @@ function seedSimilarityQueueRow(overrides: Partial<any> = {}) {
       // pipeline. Tests below override / strip these to simulate legacy
       // queue rows.
       window_local: "Sat 8am",
-      wave_height_ft: 4.5,
+      wave_height_ft: 3.5,
       wave_period_s: 11,
       wind_speed_mph: 8,
       wind_direction: "NW",
       tide_height_ft: 2.1,
       tide_status: "rising",
       confidence: 0.86,
-      condition_summary: "4.5ft @ 11s, NW wind 8mph, rising tide 2.1ft",
+      condition_summary: "3.5ft @ 11s, NW wind 8mph, rising tide 2.1ft",
       board_tip: "Bring the step-up",
     },
     sent: false,
     // notify_push/notify_email do NOT gate similarity — registry pref does.
     // We default false here to confirm the route bypasses the legacy flags.
     alert_rules: { name: "Similarity match", notify_email: false, notify_push: false },
-    beaches: { name: "Ocean Beach SF", timezone: "America/Los_Angeles" },
+    beaches: {
+      name: "Ocean Beach SF",
+      timezone: "America/Los_Angeles",
+      skill_level: "beginner",
+    },
     ...overrides,
   });
 }
@@ -1427,20 +1447,20 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
       reason: "Conditions match your top sessions",
       // Plan V4 fix F2: extended fields forwarded from conditions_snapshot.
       window_local: "Sat 8am",
-      wave_height_ft: 4.5,
+      wave_height_ft: 3.5,
       wave_period_s: 11,
       wind_speed_mph: 8,
       wind_direction: "NW",
       tide_height_ft: 2.1,
       tide_status: "rising",
       confidence: 0.86,
-      condition_summary: "4.5ft @ 11s, NW wind 8mph, rising tide 2.1ft",
+      condition_summary: "3.5ft @ 11s, NW wind 8mph, rising tide 2.1ft",
       board_tip: "Bring the step-up",
       policy_context: {
         kind: "positive_session_recommendation",
         beach_id: BEACH_SIM,
-        starts_at: "2026-05-04T13:00:00Z",
-        ends_at: "2026-05-04T15:00:00Z",
+        starts_at: "2026-05-04T15:00:00Z",
+        ends_at: "2026-05-04T16:00:00.000Z",
       },
       queue_items: [{ queue_id: QUEUE_SIM, rule_id: RULE_SIM }],
     });
@@ -1478,8 +1498,8 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
         policy_context: {
           kind: "positive_session_recommendation",
           beach_id: BEACH_SIM,
-          starts_at: "2026-05-04T13:00:00Z",
-          ends_at: "2026-05-04T15:00:00Z",
+          starts_at: "2026-05-04T15:00:00Z",
+          ends_at: "2026-05-04T16:00:00.000Z",
         },
       }),
       profileExperience: "beginner",
@@ -1637,7 +1657,7 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
     expect(allMarked).toContain(QUEUE_SIM);
   });
 
-  it("legacy row missing extended fields: omits optional fields without poisoning the payload", async () => {
+  it("fails a legacy similarity row without wave safety data closed", async () => {
     process.env.ALERTS_DELIVERY_ENABLED = "true";
     process.env.ALERTS_DELIVERY_USER_ALLOWLIST = "";
     seedSimilarityQueueRow({
@@ -1659,12 +1679,15 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
 
     await GET(makeRequest());
 
-    expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
-    const payload = mockEnqueueNotification.mock.calls[0][0].payload;
-    expect(payload.window_local).toBeUndefined();
-    expect(payload.wave_height_ft).toBeUndefined();
-    expect(payload.wave_period_s).toBeUndefined();
-    expect(payload.wind_speed_mph).toBeUndefined();
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(store.attemptInserts).toContainEqual(
+      expect.objectContaining({
+        queue_id: QUEUE_SIM,
+        channel: "push",
+        status: "skipped_disabled",
+        skip_reason: "canonical_decision:missing_wave_height",
+      }),
+    );
   });
 
   it("forwards window_local/wave_height_ft/wave_period_s from conditions_snapshot", async () => {
@@ -1678,7 +1701,7 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
     expect(mockEnqueueNotification).toHaveBeenCalledTimes(1);
     const payload = mockEnqueueNotification.mock.calls[0][0].payload;
     expect(payload.window_local).toBe("Sat 8am");
-    expect(payload.wave_height_ft).toBe(4.5);
+    expect(payload.wave_height_ft).toBe(3.5);
     expect(payload.wave_period_s).toBe(11);
   });
 

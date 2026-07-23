@@ -7,6 +7,7 @@ import {
   clearDiscoveryRecommendationCache,
   hashDiscoveryOptions,
 } from "@/lib/utils/discovery-cache-utils";
+import { projectCanonicalDiscoverySurface } from "@/lib/recommendations/canonical-decision/client-projection";
 import type { SurfDiscoveryResponse, TimeSlot } from "@/types/personalization";
 
 /**
@@ -201,30 +202,21 @@ export function useSurfDiscovery(
         },
       }));
     }
-
-    const discoveryData = result.data as SurfDiscoveryResponse;
-    if (discoveryData?.recommendationAvailability?.state !== "none") {
-      return discoveryData;
+    if (result.data?.includedRecommendations) {
+      result.data.includedRecommendations = result.data.includedRecommendations.map(
+        (rec: any) => ({
+          ...rec,
+          window: {
+            ...rec.window,
+            start: new Date(rec.window.start),
+            end: new Date(rec.window.end),
+          },
+        }),
+      );
     }
 
-    return {
-      ...discoveryData,
-      recommendations: [],
-      includedRecommendations: discoveryData.includedRecommendations ? [] : undefined,
-      recommendationsV2: discoveryData.recommendationsV2
-        ? {
-            ...discoveryData.recommendationsV2,
-            state: "no_good_window" as const,
-            hero: null,
-            items: [],
-            watch_window: null,
-            empty_state: { title: null, body: null, action_label: null },
-          }
-        : undefined,
-      regionalCall: "",
-      eveningTransition: undefined,
-      lockedBestSpotTeaser: null,
-    };
+    const discoveryData = result.data as SurfDiscoveryResponse;
+    return projectCanonicalDiscoverySurface(discoveryData);
   }, [
     user,
     userLat,
