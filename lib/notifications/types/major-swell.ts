@@ -100,6 +100,7 @@ export type MajorSwellNotificationPayload = z.infer<
 >;
 
 const legacyForecastTrendSchema = z.object({
+  schema_version: z.undefined(),
   beach_id: z.string().min(1),
   beach_slug: z.string().min(1).optional(),
   beach_name: z.string().min(1),

@@ -78,6 +78,38 @@ describe("major swell notification contract", () => {
     })).toThrow();
   });
 
+  it("accepts enforce mode with complete durable hold proof", () => {
+    expect(parseMajorSwellNotificationPayload({
+      ...base,
+      ...physicalEvent,
+      awareness_mode: "enforce",
+      automation_enabled: true,
+      awareness_signal: "corroborated",
+      official_evidence_refs: ["official:nws_alert:high-surf"],
+      enforcement: {
+        hold_id: "22222222-2222-4222-8222-222222222222",
+        hold_record_id: "33333333-3333-4333-8333-333333333333",
+        hold_valid_until: "2026-08-02T18:00:00.000Z",
+      },
+    })).toMatchObject({
+      awareness_mode: "enforce",
+      enforcement: {
+        hold_id: "22222222-2222-4222-8222-222222222222",
+      },
+    });
+  });
+
+  it("rejects a versioned payload instead of adapting it as legacy", () => {
+    expect(() => parseMajorSwellNotificationPayload({
+      ...base,
+      ...physicalEvent,
+      schema_version: 1,
+      awareness_signal: "forecast_trend",
+      official_evidence_refs: [],
+      enforcement: null,
+    })).toThrow();
+  });
+
   it("normalizes a queued unversioned forecast-trend payload", () => {
     const parsed = parseMajorSwellNotificationPayload({
       ...base,
