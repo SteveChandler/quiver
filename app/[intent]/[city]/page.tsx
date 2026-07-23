@@ -83,7 +83,11 @@ import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 import { getSeoFunnelPageByIntentRoute } from "@/lib/seo/funnel-pages";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
-import { evaluateCityEditorialIndexability } from "@/lib/seo/indexability";
+import {
+  applyIndexabilityToMetadata,
+  evaluateCityEditorialIndexability,
+  toCityEditorialInput,
+} from "@/lib/seo/indexability";
 import { ReviewedCityEditorialSection } from "@/components/seo/reviewed-city-editorial-section";
 
 export const dynamic = "force-dynamic";
@@ -239,11 +243,19 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
   // Metadata can't redirect, so just avoid surf-intent metadata generation.
   if (isValidStateSlug(params.intent)) {
     const cityName = parseLocationFromSlug(params.city);
-    return buildPageMetadata({
+    const metadata = buildPageMetadata({
       title: `Surf spots in ${cityName}`,
       description: `Open the surf map filtered to ${cityName}.`,
       path: `/${params.intent}/${params.city}`,
     });
+    return {
+      ...metadata,
+      robots: {
+        index: false,
+        follow: true,
+        googleBot: { index: false, follow: true },
+      },
+    };
   }
 
   // Database-driven city metadata
@@ -358,32 +370,18 @@ export async function generateMetadata(props: IntentPageParams): Promise<Metadat
     "usa",
     params.intent as SurfIntentSlug,
   );
-  const editorialEligibility = cityEditorial
-    ? evaluateCityEditorialIndexability(
-        {
-          seoIndexable: cityEditorial.seo_indexable,
-          seoReviewedAt: cityEditorial.editorial_reviewed_at,
-          seoSources: cityEditorial.editorial_sources,
-          description: cityEditorial.description,
-          intent: cityEditorial.intent,
-          intro: cityEditorial.seo_intro,
-          localGuidance: cityEditorial.seo_local_guidance,
-        },
-        params.intent,
-      )
-    : { indexable: false };
+  const dataRich =
+    hasMatchingBeaches &&
+    intentDataAvailability !== "missing" &&
+    !excludedCityIntents.includes(params.intent as IntentKey);
+  const decision = evaluateCityEditorialIndexability(
+    toCityEditorialInput(cityEditorial),
+    params.intent,
+    `/${params.intent}/${canonicalCitySlug}`,
+    dataRich,
+  );
 
-  // Prevent indexing of filtered empty-state pages (thin content)
-  if (
-    !hasMatchingBeaches ||
-    intentDataAvailability === "missing" ||
-    excludedCityIntents.includes(params.intent as IntentKey) ||
-    !editorialEligibility.indexable
-  ) {
-    return { ...metadata, robots: { index: false, follow: true } };
-  }
-
-  return metadata;
+  return applyIndexabilityToMetadata(metadata, decision);
 }
 
 export default async function IntentPage(props: IntentPageParams) {

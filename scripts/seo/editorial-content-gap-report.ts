@@ -2,8 +2,11 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
-  evaluateBeachIndexability,
-  evaluateCityEditorialIndexability,
+  cityEditorialKey,
+  evaluateBeachEditorialQuality,
+  evaluateCityEditorialQuality,
+  toBeachEditorialInput,
+  toCityEditorialInput,
   type EditorialSource,
 } from "../../lib/seo/indexability";
 import { loadSeoEnv } from "./load-env";
@@ -73,16 +76,10 @@ async function main(): Promise<void> {
   const gaps: ContentGap[] = [];
   for (const beach of beaches) {
     if (!beach.slug || !beach.city || !beach.state) continue;
-    const result = evaluateBeachIndexability({
-      seoIndexable: beach.seo_indexable,
-      seoReviewedAt: beach.editorial_reviewed_at,
-      seoSources: beach.editorial_sources,
-      description: beach.description,
-      crowdTips: beach.crowd_tips,
-      waveTips: beach.wave_tips,
-      bestConditionsProse: beach.best_conditions_prose,
-    });
-    if (result.indexable) continue;
+    const result = evaluateBeachEditorialQuality(
+      toBeachEditorialInput(beach),
+    );
+    if (result.approved) continue;
     gaps.push({
       kind: "beach",
       canonicalPath: slug(beach.country || "usa") === "usa"
@@ -96,7 +93,7 @@ async function main(): Promise<void> {
 
   const editorialByKey = new Map(
     cityEditorial.map((editorial) => [
-      editorialKey(
+      cityEditorialKey(
         editorial.country_slug,
         editorial.state_slug,
         editorial.city_slug,
@@ -124,7 +121,9 @@ async function main(): Promise<void> {
     const candidates: Array<string | null> = [null, "best-time", ...cityIntents];
     for (const intent of candidates) {
       if (city.country !== "usa" && intent !== null) continue;
-      const editorial = editorialByKey.get(editorialKey(city.country, city.state, city.city, intent));
+      const editorial = editorialByKey.get(
+        cityEditorialKey(city.country, city.state, city.city, intent),
+      );
       const kind = intent === null ? "location" : intent === "best-time" ? "best-time" : "city-intent";
       const canonicalPath = kind === "location"
         ? city.country === "usa" ? `/beaches/usa/${city.state}/${city.canonicalCitySlug}` : `/beaches/${city.country}/${city.state}/${city.city}`
@@ -133,16 +132,11 @@ async function main(): Promise<void> {
         gaps.push({ kind, canonicalPath, priority: kind === "location" ? 80 : 70, reason: "missing-intent-editorial", entity: city.city });
         continue;
       }
-      const result = evaluateCityEditorialIndexability({
-        seoIndexable: editorial.seo_indexable,
-        seoReviewedAt: editorial.editorial_reviewed_at,
-        seoSources: editorial.editorial_sources,
-        description: editorial.description,
-        intent: editorial.intent,
-        intro: editorial.seo_intro,
-        localGuidance: editorial.seo_local_guidance,
-      }, intent);
-      if (!result.indexable) {
+      const result = evaluateCityEditorialQuality(
+        toCityEditorialInput(editorial),
+        intent,
+      );
+      if (!result.approved) {
         gaps.push({ kind, canonicalPath, priority: kind === "location" ? 80 : 70, reason: result.reason ?? "unknown", entity: city.city });
       }
     }
@@ -178,10 +172,6 @@ async function fetchRows<T>(table: string, select: string): Promise<T[]> {
 
 function slug(value: string): string {
   return value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
-}
-
-function editorialKey(country: string, state: string, city: string, intent: string | null | undefined): string {
-  return `${slug(country)}/${slug(state)}/${slug(city)}/${intent ?? "general"}`;
 }
 
 function getFlag(name: string): string | null {

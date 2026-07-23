@@ -42,8 +42,11 @@ import { LiveCamSchema } from "@/components/seo/live-cam-schema";
 import { getBeachCameraUrl } from "@/actions/beach/cam-actions";
 import { BeachProseSummary } from "@/components/beach-detail/beach-prose-summary";
 import {
+  applyIndexabilityToMetadata,
   evaluateBeachIndexability,
-  type EditorialSource,
+  parseEditorialSources,
+  toBeachEditorialInput,
+  type BeachEditorialDatabaseRecord,
 } from "@/lib/seo/indexability";
 
 export const dynamic = "force-dynamic";
@@ -61,40 +64,6 @@ const BEACH_PROSE_SUMMARY_HIDDEN_SLUGS = new Set([
   "doheny",
   "doheny-state-beach",
 ]);
-
-type BeachWithEditorialReview = Beach & {
-  seo_indexable?: boolean | null;
-  editorial_reviewed_at?: string | null;
-  editorial_sources?: EditorialSource[] | string | null;
-};
-
-function getBeachEditorialSources(beach: BeachWithEditorialReview): EditorialSource[] {
-  if (Array.isArray(beach.editorial_sources)) {
-    return beach.editorial_sources as EditorialSource[];
-  }
-
-  if (typeof beach.editorial_sources !== "string") return [];
-
-  try {
-    const sources = JSON.parse(beach.editorial_sources) as unknown;
-    return Array.isArray(sources) ? sources as EditorialSource[] : [];
-  } catch {
-    return [];
-  }
-}
-
-function isBeachEligibleForIndexing(beach: Beach): boolean {
-  const reviewedBeach = beach as BeachWithEditorialReview;
-  return evaluateBeachIndexability({
-    seoIndexable: reviewedBeach.seo_indexable,
-    seoReviewedAt: reviewedBeach.editorial_reviewed_at,
-    seoSources: getBeachEditorialSources(reviewedBeach),
-    description: beach.description,
-    crowdTips: beach.crowd_tips,
-    waveTips: beach.wave_tips,
-    bestConditionsProse: beach.best_conditions_prose,
-  }).indexable;
-}
 
 interface PageProps {
   params: Promise<{
@@ -336,7 +305,9 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             <BeachProseSummary
               beach={beach}
               surfCallReport={surfCallReport}
-              editorialSources={getBeachEditorialSources(beach as BeachWithEditorialReview)}
+              editorialSources={parseEditorialSources(
+                (beach as BeachEditorialDatabaseRecord).editorial_sources,
+              )}
             />
           )}
 
@@ -535,11 +506,11 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       ].filter(Boolean),
     });
 
-    if (!isBeachEligibleForIndexing(beach)) {
-      return { ...metadata, robots: { index: false, follow: true } };
-    }
-
-    return metadata;
+    const decision = evaluateBeachIndexability(
+      toBeachEditorialInput(beach as BeachEditorialDatabaseRecord),
+      path,
+    );
+    return applyIndexabilityToMetadata(metadata, decision);
   } catch (error) {
     console.error("[GenericBeachDetailPage] Error generating metadata:", {
       params,

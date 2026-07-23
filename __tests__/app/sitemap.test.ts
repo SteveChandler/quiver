@@ -323,6 +323,70 @@ describe("Sitemap Generation", () => {
   });
 
   describe("Database-Driven Intent Routes", () => {
+    it("includes protected, data-rich city route families without editorial approval", async () => {
+      (getReviewedCityEditorialContent as jest.Mock).mockResolvedValue([]);
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          id: "san-diego-beach",
+          slug: "unproven-san-diego-break",
+          city: "San Diego",
+          state: "CA",
+          country: "USA",
+          description: "Substantive local beach content.",
+          wave_tips: "Use the forecast before choosing the peak.",
+        }],
+      });
+      (getAllBeachLocations as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          city: "San Diego",
+          state: "CA",
+          country: "USA",
+          beachCount: 15,
+        }],
+      });
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          city: "Santa Cruz",
+          state: "CA",
+          country: "USA",
+          beachCount: 8,
+          hasBeginnerBeaches: true,
+          hasAdvancedBeaches: true,
+          hasLeastCrowdedBeaches: true,
+          hasEditorialContent: true,
+          hasTideData: true,
+          hasWaterTempData: true,
+        }, {
+          city: "San Diego",
+          state: "CA",
+          country: "USA",
+          beachCount: 15,
+          hasBeginnerBeaches: true,
+          hasAdvancedBeaches: true,
+          hasLeastCrowdedBeaches: true,
+          hasEditorialContent: true,
+          hasTideData: true,
+          hasWaterTempData: true,
+        }],
+      });
+      (getCitiesWithBestMonthsData as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{ city: "La Jolla", state: "CA", beachCount: 5 }],
+      });
+
+      const result = await sitemap();
+      const urls = new Set(result.map((route) => route.url));
+
+      expect(urls.has(`${baseUrl}/tide/santa-cruz`)).toBe(true);
+      expect(urls.has(`${baseUrl}/water-temp/santa-cruz`)).toBe(true);
+      expect(urls.has(`${baseUrl}/longboard/san-diego`)).toBe(true);
+      expect(urls.has(`${baseUrl}/best-time-to-surf/la-jolla`)).toBe(true);
+      expect(urls.has(`${baseUrl}/ca/san-diego`)).toBe(true);
+    });
+
     it("should generate intent routes for cities from database", async () => {
       const result = await sitemap();
 
@@ -671,6 +735,60 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       expect(result.find((r) => r.url.includes("unreviewed-break"))).toBeUndefined();
+    });
+
+    it("includes only the protected subpages for a substantive unreviewed beach", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          id: "swamis",
+          slug: "swamis",
+          city: "Encinitas",
+          state: "CA",
+          country: "USA",
+          description: "A substantive local reef-break description.",
+          wave_tips: "Use the channel and respect the established peak.",
+        }],
+      });
+
+      const result = await sitemap();
+
+      expect(
+        result.find((route) => route.url === `${baseUrl}/ca/encinitas/swamis`),
+      ).toBeUndefined();
+      expect(
+        result.find(
+          (route) =>
+            route.url === `${baseUrl}/ca/encinitas/swamis/tides`,
+        ),
+      ).not.toBeUndefined();
+      expect(
+        result.find(
+          (route) =>
+            route.url === `${baseUrl}/ca/encinitas/swamis/water-temp`,
+        ),
+      ).not.toBeUndefined();
+    });
+
+    it("lets explicit rejection veto protected beach subpages", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          id: "swamis",
+          slug: "swamis",
+          city: "Encinitas",
+          state: "CA",
+          country: "USA",
+          description: "A substantive local reef-break description.",
+          wave_tips: "Use the channel and respect the established peak.",
+          seo_indexable: false,
+          editorial_reviewed_at: "2026-07-13T00:00:00.000Z",
+        }],
+      });
+
+      const result = await sitemap();
+
+      expect(result.some((route) => route.url.includes("/swamis"))).toBe(false);
     });
 
     it("should use hierarchical URL for beaches with complete location data", async () => {

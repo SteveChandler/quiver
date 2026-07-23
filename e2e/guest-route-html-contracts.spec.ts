@@ -82,6 +82,17 @@ function getMetaContent(html: string, selector: MetaSelector): string | null {
   return null;
 }
 
+function getCanonicalHref(html: string): string | null {
+  const links = html.match(/<link\b[^>]*>/gi) ?? [];
+
+  for (const link of links) {
+    if (getTagAttribute(link, 'rel') !== 'canonical') continue;
+    return getTagAttribute(link, 'href');
+  }
+
+  return null;
+}
+
 function getHeadingTexts(html: string, level: 1 | 2): string[] {
   const pattern = new RegExp(`<h${level}\\b[^>]*>([\\s\\S]*?)<\\/h${level}>`, 'gi');
 
@@ -215,6 +226,27 @@ test.describe('Route HTML Contracts', () => {
       const hasH1 = getHeadingTexts(html, 1).length > 0;
 
       expect(hasNoindex || hasH1).toBe(true);
+    });
+
+    test('GSC-protected and gated routes expose opposite robots contracts', async ({
+      request,
+    }) => {
+      const protectedHtml = await getHtml(
+        request,
+        '/ca/san-diego/blacks/water-temp',
+      );
+      const protectedRobots = getMetaContent(protectedHtml, {
+        name: 'robots',
+      });
+      expect(protectedRobots ?? '').not.toContain('noindex');
+      expect(getCanonicalHref(protectedHtml)).toContain(
+        '/ca/san-diego/blacks/water-temp',
+      );
+
+      const gatedHtml = await getHtml(request, '/longboard/ca');
+      expect(getMetaContent(gatedHtml, { name: 'robots' })).toContain(
+        'noindex',
+      );
     });
   });
 

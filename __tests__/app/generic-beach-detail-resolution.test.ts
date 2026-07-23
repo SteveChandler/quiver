@@ -367,4 +367,55 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(metadata.alternates?.canonical).toContain("/ca/dana-point/lower-trestles");
     expect((metadata.robots as { index?: boolean } | undefined)?.index).not.toBe(false);
   });
+
+  it("indexes a substantive unreviewed beach with checked-in GSC protection", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({
+        slug: "georges",
+        city: "Cardiff-by-the-Sea",
+        description: "A local reef break with a defined takeoff zone.",
+        wave_tips: "Watch the reef peak before paddling out.",
+      })],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        intent: "ca",
+        city: "cardiff-by-the-sea",
+        beachSlug: "georges",
+      }),
+    });
+
+    expect(metadata.alternates?.canonical).toContain(
+      "/ca/cardiff-by-the-sea/georges",
+    );
+    expect((metadata.robots as { index?: boolean } | undefined)?.index).not.toBe(
+      false,
+    );
+  });
+
+  it("keeps an explicitly rejected GSC-protected beach noindex", async () => {
+    (getBeachesBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: [makeBeach({
+        slug: "georges",
+        city: "Cardiff-by-the-Sea",
+        description: "A local reef break with a defined takeoff zone.",
+        wave_tips: "Watch the reef peak before paddling out.",
+        seo_indexable: false,
+        editorial_reviewed_at: "2026-07-13T00:00:00.000Z",
+      })],
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({
+        intent: "ca",
+        city: "cardiff-by-the-sea",
+        beachSlug: "georges",
+      }),
+    });
+
+    expect((metadata.robots as { index?: boolean })?.index).toBe(false);
+  });
 });
