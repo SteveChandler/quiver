@@ -219,6 +219,7 @@ describe("GET /api/cron/swell-watch", () => {
 
   afterEach(() => {
     jest.useRealTimers();
+    jest.restoreAllMocks();
     process.env = originalEnv;
   });
 
@@ -445,5 +446,31 @@ describe("GET /api/cron/swell-watch", () => {
       peak_height_ft: null,
       forecast_at: null,
     });
+  });
+
+  it("records a parser failure without retaining an invalid shadow evaluation", async () => {
+    const invalidBeachId = "invalid-beach-id";
+    const errorSpy = jest.spyOn(console, "error").mockImplementation(() => {});
+    store.beaches = [
+      {
+        ...store.beaches[0],
+        id: invalidBeachId,
+      },
+    ];
+    store.forecastsByBeachId = {
+      [invalidBeachId]: store.forecastsByBeachId[BEACH_ID],
+    };
+
+    const response = await GET(request());
+    const body = await json(response);
+
+    expect(response.status).toBe(200);
+    expect(body.data.errors).toBe(1);
+    expect(body.data.shadowMatches).toBe(0);
+    expect(body.data.shadowEvaluations).toEqual([]);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining(`Error evaluating beach ${invalidBeachId}`),
+      expect.anything(),
+    );
   });
 });

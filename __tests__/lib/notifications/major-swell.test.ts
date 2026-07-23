@@ -166,6 +166,53 @@ describe("major swell notification contract", () => {
     })).toThrow();
   });
 
+  it.each([
+    "official:rip_current_risks:11111111-1111-4111-8111-111111111111",
+    "official:nws_alert:https://api.weather.gov/alerts/high-surf",
+  ])("accepts recognized official evidence reference %s", (officialRef) => {
+    expect(parseMajorSwellNotificationPayload({
+      ...base,
+      event_start_date: null,
+      peak_date: null,
+      peak_height_ft: null,
+      peak_period_s: null,
+      forecast_at: null,
+      awareness_signal: "official_advisory",
+      official_evidence_refs: [officialRef],
+      enforcement: null,
+    })).toMatchObject({
+      awareness_signal: "official_advisory",
+      official_evidence_refs: [officialRef],
+    });
+  });
+
+  it.each(["source:unrecognized:alert", "official:other_producer:alert"])(
+    "rejects unrecognized official-only evidence reference %s",
+    (officialRef) => {
+      expect(() => parseMajorSwellNotificationPayload({
+        ...base,
+        event_start_date: null,
+        peak_date: null,
+        peak_height_ft: null,
+        peak_period_s: null,
+        forecast_at: null,
+        awareness_signal: "official_advisory",
+        official_evidence_refs: [officialRef],
+        enforcement: null,
+      })).toThrow();
+    },
+  );
+
+  it("rejects unrecognized corroborated evidence references", () => {
+    expect(() => parseMajorSwellNotificationPayload({
+      ...base,
+      ...physicalEvent,
+      awareness_signal: "corroborated",
+      official_evidence_refs: ["arbitrary-but-nonempty"],
+      enforcement: null,
+    })).toThrow();
+  });
+
   it("rejects a versioned payload instead of adapting it as legacy", () => {
     expect(() => parseMajorSwellNotificationPayload({
       ...base,
@@ -189,5 +236,25 @@ describe("major swell notification contract", () => {
       MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
     );
     expect(parsed.enforcement).toBeNull();
+  });
+
+  it("strips benign legacy metadata while normalizing recognized fields", () => {
+    const parsed = parseMajorSwellNotificationPayload({
+      ...base,
+      ...physicalEvent,
+      schema_version: undefined,
+      awareness_signal: "forecast_trend",
+      official_evidence_refs: [],
+      delivery_attempt: 2,
+      metadata: { queued_by: "legacy-worker" },
+    });
+
+    expect(parsed).not.toHaveProperty("delivery_attempt");
+    expect(parsed).not.toHaveProperty("metadata");
+    expect(parsed).toMatchObject({
+      schema_version: MAJOR_SWELL_NOTIFICATION_SCHEMA_VERSION,
+      awareness_signal: "forecast_trend",
+      enforcement: null,
+    });
   });
 });

@@ -44,6 +44,13 @@ const enforceFields = {
   enforcement: enforcementSchema,
 };
 
+export const officialEvidenceReferenceSchema = z.string().regex(
+  /^official:(?:rip_current_risks|nws_alert):.+$/,
+);
+const officialEvidenceReferencesSchema = z
+  .array(officialEvidenceReferenceSchema)
+  .min(1);
+
 const forecastTrendSchema = baseSchema.extend({
   ...physicalEventSchema,
   ...shadowFields,
@@ -59,7 +66,7 @@ const officialAdvisorySchema = baseSchema.extend({
   forecast_at: z.null(),
   ...shadowFields,
   awareness_signal: z.literal("official_advisory"),
-  official_evidence_refs: z.array(z.string().min(1)).min(1),
+  official_evidence_refs: officialEvidenceReferencesSchema,
 }).strict();
 
 const officialAdvisoryEnforceSchema = baseSchema.extend({
@@ -70,21 +77,21 @@ const officialAdvisoryEnforceSchema = baseSchema.extend({
   forecast_at: z.null(),
   ...enforceFields,
   awareness_signal: z.literal("official_advisory"),
-  official_evidence_refs: z.array(z.string().min(1)).min(1),
+  official_evidence_refs: officialEvidenceReferencesSchema,
 }).strict();
 
 const corroboratedShadowSchema = baseSchema.extend({
   ...physicalEventSchema,
   ...shadowFields,
   awareness_signal: z.literal("corroborated"),
-  official_evidence_refs: z.array(z.string().min(1)).min(1),
+  official_evidence_refs: officialEvidenceReferencesSchema,
 }).strict();
 
 const corroboratedEnforceSchema = baseSchema.extend({
   ...physicalEventSchema,
   ...enforceFields,
   awareness_signal: z.literal("corroborated"),
-  official_evidence_refs: z.array(z.string().min(1)).min(1),
+  official_evidence_refs: officialEvidenceReferencesSchema,
 }).strict();
 
 export const majorSwellNotificationPayloadSchema = z.union([
@@ -117,7 +124,7 @@ const legacyForecastTrendSchema = z.object({
   would_suppress_cohorts: cohortsSchema.optional(),
   title: z.string().min(1),
   body: z.string().min(1),
-}).passthrough();
+});
 
 export function parseMajorSwellNotificationPayload(
   value: unknown,
