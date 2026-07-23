@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Patched DOMPurify custom-element hook bypass** (`package.json`, `yarn.lock`). Resolves PostHog's sanitizer dependency to 3.4.12 or later so allowed custom elements still pass through post-sanitize hooks.
 - **Patched brace-expansion denial of service** (`package.json`, `yarn.lock`). Resolves vulnerable 1.x consumers to 1.1.16 while restoring independently required 2.x and 5.x dependency paths.
 - **Patched YAML merge-key denial of service** (`package.json`, `yarn.lock`). Resolves affected `js-yaml` 4.x consumers to 4.3.0 while restoring legacy 3.x consumers to their compatible release line.
 - **Patched URI parsing vulnerabilities** (`package.json`, `yarn.lock`). Forces all resolved `fast-uri` 3.x consumers to 3.1.4 or later, covering the open IPv6 address validation advisory.

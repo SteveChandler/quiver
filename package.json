@@ -316,7 +316,7 @@
     "@supabase/supabase-js/**/ws": "^8.20.1",
     "jest-environment-jsdom/**/ws": "^8.20.1",
     "lighthouse/**/ws": "^8.20.1",
-    "dompurify": "^3.4.8",
+    "dompurify": "^3.4.12",
     "esbuild": "^0.28.1"
   }
 }
