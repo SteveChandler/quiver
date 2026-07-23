@@ -231,6 +231,10 @@ describe("Sitemap Generation", () => {
       expect(routesByUrl.get(`${baseUrl}/guides`)?.lastModified).toBe(
         "2026-06-25",
       );
+      expect(
+        routesByUrl.get(`${baseUrl}/us-open-of-surfing-forecast`)
+          ?.lastModified,
+      ).toBe("2026-07-23");
       expect(routesByUrl.has(`${baseUrl}/support`)).toBe(false);
       expect(routesByUrl.has(`${baseUrl}/data-deletion`)).toBe(false);
       expect(routesByUrl.has(`${baseUrl}/pbsc`)).toBe(false);

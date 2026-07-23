@@ -2,6 +2,12 @@ import { learnArticles } from "@/lib/data/learn-articles";
 
 const expectedLearnMetadata = [
   {
+    slug: "surf-paddling-for-beginners",
+    title: "Surf Paddling for Beginners: Technique & Paddle-Out Guide",
+    description:
+      "Learn beginner surf paddling technique, how to judge the paddle-out, conserve energy, and choose a manageable beginner window before you go.",
+  },
+  {
     slug: "best-surf-conditions-for-beginners",
     title: "Best Surf Conditions for Beginners: Size, Wind & Tide",
     description:
@@ -73,5 +79,28 @@ describe("learn article SEO metadata", () => {
       expect(article?.description).toBe(expected.description);
       expect(article!.description.length).toBeLessThanOrEqual(155);
     }
+  });
+
+  it("connects the paddling guide to live beginner decisions without claiming safety", () => {
+    const article = learnArticles.find(
+      ({ slug }) => slug === "surf-paddling-for-beginners",
+    );
+    const difficultySection = article?.sections.find(
+      ({ id }) => id === "difficulty-near-you",
+    );
+
+    expect(difficultySection?.heading).toBe(
+      "Paddling Difficulty Near You Today",
+    );
+    expect(difficultySection?.content).toContain(
+      'href="/beginner/huntington-beach"',
+    );
+    expect(difficultySection?.content).toContain(
+      'href="/beginner/san-diego"',
+    );
+    expect(difficultySection?.content).toMatch(/planning insert/i);
+    expect(article?.relatedLinks.some(({ href }) =>
+      href.startsWith("/beginner/"),
+    )).toBe(true);
   });
 });

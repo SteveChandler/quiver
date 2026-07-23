@@ -62,7 +62,7 @@ describe("beginner sandy-window evaluator", () => {
     expect(result.labels.tide).toContain("Tiny high tide");
   });
 
-  it("does not treat completely missing forecast data as acceptable", () => {
+  it("returns an unknown rating when every forecast input is missing", () => {
     const result = evaluateBeginnerWindow({
       beach: sandyBeginnerBeach,
       waveHeightFtMax: null,
@@ -73,7 +73,7 @@ describe("beginner sandy-window evaluator", () => {
       timezone: "America/Los_Angeles",
     });
 
-    expect(result.rating).toBe("poor");
+    expect(result.rating).toBe("unknown");
     expect(result.statuses).toEqual({
       wave: "unknown",
       wind: "unknown",
