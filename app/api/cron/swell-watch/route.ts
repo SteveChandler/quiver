@@ -1,21 +1,27 @@
 /**
  * GET /api/cron/swell-watch
  *
- * Forward-looking major-swell shadow evaluation. It never enqueues or sends.
- * Disabled by default and allowlist-gated. Auth: Authorization: Bearer ***
+ * Forward-looking major-swell shadow evaluation across every active beach.
+ * It never enqueues or sends. Disabled by default.
+ * Auth: Authorization: Bearer ***
  */
 
-import {
-  runHomeBeachPushCron,
-  type HomeBeachPushSelectArgs,
-  type HomeBeachPushSelection,
-} from "@/lib/cron/home-beach-push-runner";
 import { withObservedCron } from "@/lib/cron/observability";
+import {
+  createErrorResponse,
+  createSuccessResponse,
+  handleApiError,
+  validateCronRequest,
+} from "@/lib/middleware/api-wrappers";
 import { evaluateMajorSwellAwarenessShadow } from "@/lib/recommendations/major-swell-awareness/shadow-evaluator";
 import {
   loadNwsSwellAdvisories,
   loadOfficialSwellAdvisories,
 } from "@/lib/recommendations/major-swell-awareness/official-advisory-adapter";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
+import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
+import type { Beach } from "@/types/database";
+import type { EnhancedForecastEntity } from "@/types/forecast";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -23,8 +29,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300;
 
 const CONTEXT_TAG = "[swell-watch]";
-const NOTIFICATION_TYPE = "swell_watch";
 const LOOKAHEAD_HOURS = 10 * 24;
+const EVALUATION_CONCURRENCY = 8;
 const SENTRY_MONITOR = {
   slug: "swell-watch",
   schedule: "0 15 * * *",
@@ -51,6 +57,79 @@ interface SwellWatchPayload {
   would_suppress_cohorts: Array<"beginner" | "intermediate" | "unknown">;
   title: string;
   body: string;
+}
+
+interface SwellWatchSummary {
+  skipped: boolean;
+  reason?: string;
+  evaluated: number;
+  candidates: number;
+  sent: number;
+  shadowMatches: number;
+  duplicates: number;
+  testAllowlistActive: false;
+  skippedCounts: Record<string, number>;
+  errors: number;
+  durationMs: number;
+  automationEnabled: false;
+  shadowEvaluations: SwellWatchPayload[];
+}
+
+type SwellWatchBeach = Beach & {
+  nws_forecast_zone?: string | null;
+};
+
+type SwellWatchSelection =
+  | { payload: SwellWatchPayload }
+  | { skipReason: string };
+
+type SwellWatchEvaluation =
+  | { state: "match"; payload: SwellWatchPayload; noForecast: boolean }
+  | { state: "skip"; reason: string; noForecast: boolean }
+  | { state: "error"; beachId: string; error: unknown };
+
+function increment(counts: Record<string, number>, key: string): void {
+  counts[key] = (counts[key] ?? 0) + 1;
+}
+
+function createSummary(): SwellWatchSummary {
+  return {
+    skipped: false,
+    evaluated: 0,
+    candidates: 0,
+    sent: 0,
+    shadowMatches: 0,
+    duplicates: 0,
+    testAllowlistActive: false,
+    skippedCounts: {},
+    errors: 0,
+    durationMs: 0,
+    automationEnabled: false,
+    shadowEvaluations: [],
+  };
+}
+
+async function mapWithConcurrency<T, R>(
+  values: readonly T[],
+  concurrency: number,
+  worker: (value: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(values.length);
+  let nextIndex = 0;
+  const runNext = async (): Promise<void> => {
+    while (nextIndex < values.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await worker(values[index]);
+    }
+  };
+  await Promise.all(
+    Array.from(
+      { length: Math.min(concurrency, values.length) },
+      () => runNext(),
+    ),
+  );
+  return results;
 }
 
 function formatNumber(value: number): string {
@@ -86,20 +165,23 @@ export function buildSwellWatchCopy(input: {
 
 async function selectAndBuildSwellWatch({
   supabase,
-  profile,
   beach,
   forecasts,
   timezone,
   now,
-}: HomeBeachPushSelectArgs): Promise<HomeBeachPushSelection<SwellWatchPayload>> {
-  const ledgerAdvisories = supabase
-    ? await loadOfficialSwellAdvisories({
-        supabase,
-        beachId: beach.id,
-        timezone,
-        now,
-      })
-    : [];
+}: {
+  supabase: ReturnType<typeof createSupabaseServiceRoleClient>;
+  beach: SwellWatchBeach;
+  forecasts: EnhancedForecastEntity[];
+  timezone: string;
+  now: Date;
+}): Promise<SwellWatchSelection> {
+  const ledgerAdvisories = await loadOfficialSwellAdvisories({
+    supabase,
+    beachId: beach.id,
+    timezone,
+    now,
+  });
   let nwsAdvisories: Awaited<ReturnType<typeof loadNwsSwellAdvisories>> = [];
   try {
     nwsAdvisories = await loadNwsSwellAdvisories({
@@ -155,33 +237,115 @@ async function selectAndBuildSwellWatch({
       title: copy.title,
       body: copy.body,
     },
-    dedupeKey:
-      `${NOTIFICATION_TYPE}:${profile.id}:${beach.id}:`
-      + `${event?.eventStartDate ?? awareness.officialEvidenceRefs.join(",")}`,
   };
 }
 
 async function _GET(request: Request): Promise<Response> {
-  return runHomeBeachPushCron<SwellWatchPayload>(request, {
-    contextTag: CONTEXT_TAG,
-    enabledEnv: "SWELL_WATCH_ENABLED",
-    allowlistEnv: "SWELL_WATCH_USER_ALLOWLIST",
-    type: NOTIFICATION_TYPE,
-    deliveryMode: "shadow",
-    lookaheadHours: LOOKAHEAD_HOURS,
-    createAdditionalSummary: () => ({
-      automationEnabled: false,
-      shadowEvaluations: [],
-    }),
-    selectAndBuild: selectAndBuildSwellWatch,
-    afterShadowSelection: async ({ selection, summary }) => {
-      const evaluations = Array.isArray(summary.shadowEvaluations)
-        ? summary.shadowEvaluations
-        : [];
-      if (evaluations.length < 100) evaluations.push(selection.payload);
-      summary.shadowEvaluations = evaluations;
-    },
-  });
+  const startedAt = Date.now();
+  if (!validateCronRequest(request)) {
+    return createErrorResponse(
+      "Unauthorized",
+      "Invalid cron authentication",
+      401,
+    );
+  }
+
+  const summary = createSummary();
+  if (process.env.SWELL_WATCH_ENABLED !== "true") {
+    summary.skipped = true;
+    summary.reason = "disabled";
+    summary.durationMs = Date.now() - startedAt;
+    return createSuccessResponse(summary);
+  }
+
+  try {
+    const supabase = createSupabaseServiceRoleClient();
+    const { data: beachRows, error: beachError } = await supabase
+      .from("beaches")
+      .select("*")
+      .is("deleted_at", null)
+      .order("id", { ascending: true });
+    if (beachError) {
+      throw new Error(`Failed to load active beaches: ${beachError.message}`);
+    }
+
+    const beaches = (beachRows ?? []) as SwellWatchBeach[];
+    const now = new Date();
+    const horizon = new Date(
+      now.getTime() + LOOKAHEAD_HOURS * 60 * 60 * 1000,
+    );
+    summary.candidates = beaches.length;
+    summary.evaluated = beaches.length;
+    const evaluations = await mapWithConcurrency(
+      beaches,
+      EVALUATION_CONCURRENCY,
+      async (beach): Promise<SwellWatchEvaluation> => {
+        try {
+          const { data: forecastRows, error: forecastError } = await supabase
+            .from("enhanced_forecasts")
+            .select("*")
+            .eq("beach_id", beach.id)
+            .gte("forecast_at", now.toISOString())
+            .lt("forecast_at", horizon.toISOString())
+            .order("forecast_at", { ascending: true });
+          if (forecastError) {
+            throw new Error(
+              `Failed to load forecasts for ${beach.id}: ${forecastError.message}`,
+            );
+          }
+          const forecasts = (forecastRows ?? []) as EnhancedForecastEntity[];
+          const noForecast = forecasts.length === 0;
+
+          const selection = await selectAndBuildSwellWatch({
+            supabase,
+            beach,
+            forecasts,
+            timezone: resolveBeachTimezone(beach.timezone),
+            now,
+          });
+          if ("skipReason" in selection) {
+            return {
+              state: "skip",
+              reason: selection.skipReason,
+              noForecast,
+            };
+          }
+
+          return { state: "match", payload: selection.payload, noForecast };
+        } catch (error) {
+          return { state: "error", beachId: beach.id, error };
+        }
+      },
+    );
+
+    for (const evaluation of evaluations) {
+      if (evaluation.state === "error") {
+        console.error(
+          `${CONTEXT_TAG} Error evaluating beach ${evaluation.beachId}:`,
+          evaluation.error,
+        );
+        summary.errors += 1;
+        continue;
+      }
+      if (evaluation.noForecast) {
+        increment(summary.skippedCounts, "noForecast");
+      }
+      if (evaluation.state === "skip") {
+        increment(summary.skippedCounts, evaluation.reason);
+        continue;
+      }
+
+      summary.shadowMatches += 1;
+      if (summary.shadowEvaluations.length < 100) {
+        summary.shadowEvaluations.push(evaluation.payload);
+      }
+    }
+
+    summary.durationMs = Date.now() - startedAt;
+    return createSuccessResponse(summary);
+  } catch (error) {
+    return handleApiError(error);
+  }
 }
 
 export const GET = withObservedCron(

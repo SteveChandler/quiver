@@ -1,4 +1,5 @@
 import {
+  loadNwsSwellAdvisories,
   nwsAlertsToSwellAdvisories,
   officialRiskRowsToSwellAdvisories,
 } from "@/lib/recommendations/major-swell-awareness/official-advisory-adapter";
@@ -105,5 +106,38 @@ describe("official swell advisory adapter", () => {
       beachId: "beach-1",
       now,
     })).toEqual([]);
+  });
+
+  it("reuses one NWS zone response while scoping evidence to each beach", async () => {
+    const fetchImpl = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        features: [{
+          id: "shared-zone-alert",
+          properties: {
+            event: "High Surf Warning",
+            onset: "2026-07-02T00:00:00-07:00",
+            ends: "2026-07-03T00:00:00-07:00",
+          },
+        }],
+      }),
+    });
+
+    const first = await loadNwsSwellAdvisories({
+      zone: "CAZ999",
+      beachId: "beach-1",
+      now,
+      fetchImpl,
+    });
+    const second = await loadNwsSwellAdvisories({
+      zone: "CAZ999",
+      beachId: "beach-2",
+      now,
+      fetchImpl,
+    });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(first[0].beachIds).toEqual(["beach-1"]);
+    expect(second[0].beachIds).toEqual(["beach-2"]);
   });
 });

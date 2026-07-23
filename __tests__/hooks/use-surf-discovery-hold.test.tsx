@@ -151,6 +151,7 @@ describe("useSurfDiscovery major-event hold precedence", () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
@@ -220,6 +221,38 @@ describe("useSurfDiscovery major-event hold precedence", () => {
       ),
     ).toEqual([]);
     expect(result.current.isCached).toBe(false);
+  });
+
+  it("clears and revalidates a positive decision when its authority expires", async () => {
+    jest.useFakeTimers().setSystemTime(
+      new Date("2026-07-19T12:00:00.000Z"),
+    );
+    const allowed = discoveryResponse(
+      { state: "available", holdEpoch: "clear" },
+      1,
+    );
+    allowed.sessionDecision!.expiresAt = "2026-07-19T12:00:01.000Z";
+    const refreshResponse = deferred<{
+      ok: boolean;
+      json: () => Promise<{ data: SurfDiscoveryResponse }>;
+    }>();
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: serialized(allowed) }),
+      })
+      .mockReturnValueOnce(refreshResponse.promise);
+
+    const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
+
+    await waitFor(() => expect(result.current.hasRecommendations).toBe(true));
+    act(() => {
+      jest.advanceTimersByTime(1_001);
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(result.current.discovery).toBeNull();
+    expect(result.current.hasRecommendations).toBe(false);
   });
 
   it("revalidates a visible session and replaces a prior positive with explicit none", async () => {

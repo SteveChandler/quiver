@@ -368,6 +368,40 @@ export function useSurfDiscovery(
     return () => clearTimeout(timeoutId);
   }, [enabled, immediate, optionsHash, refreshDiscovery, reset, user]);
 
+  useEffect(() => {
+    const decision = freshData?.sessionDecision;
+    if (
+      !freshData ||
+      freshData.recommendations.length === 0 ||
+      !decision ||
+      decision.verdict === "no"
+    ) {
+      return;
+    }
+
+    const expiresAt = Date.parse(decision.expiresAt);
+    if (!Number.isFinite(expiresAt)) {
+      reset();
+      return;
+    }
+
+    const expireAndRevalidate = () => {
+      if (enabled && immediate && user) {
+        void refreshDiscovery();
+        return;
+      }
+      reset();
+    };
+    const remainingMs = expiresAt - Date.now();
+    if (remainingMs <= 0) {
+      expireAndRevalidate();
+      return;
+    }
+
+    const timeoutId = window.setTimeout(expireAndRevalidate, remainingMs);
+    return () => window.clearTimeout(timeoutId);
+  }, [enabled, freshData, immediate, refreshDiscovery, reset, user]);
+
   const discovery = resumeRevalidationPending ? null : freshData;
 
   // Preserve the existing pull-to-refresh interface while ensuring any

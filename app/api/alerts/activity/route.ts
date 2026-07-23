@@ -69,6 +69,14 @@ function firstMatch(data: Record<string, unknown>): Record<string, unknown> | nu
   return first ?? null;
 }
 
+function canonicalSelection(
+  data: Record<string, unknown>,
+): Record<string, unknown> | null {
+  const decision = data.session_decision;
+  if (!isRecord(decision) || decision.verdict === "no") return null;
+  return isRecord(decision.selection) ? decision.selection : null;
+}
+
 function stringFromData(
   data: Record<string, unknown>,
   match: Record<string, unknown> | null,
@@ -117,7 +125,7 @@ function bodyFor(row: NotificationRow, data: Record<string, unknown>): string {
 
 function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
   const data = isRecord(row.data) ? row.data : {};
-  const match = firstMatch(data);
+  const match = canonicalSelection(data) ?? firstMatch(data);
   const beachName = stringFromData(data, match, ["beach_name", "beachName"]);
   const forecastAt = stringFromData(data, match, ["forecast_at", "forecastAt"]);
   const reason =
@@ -126,13 +134,13 @@ function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
     row.type === "similarity_match"
       ? forecastAt
       : match
-        ? nonEmptyString(match.window_start)
+        ? stringFromData({}, match, ["window_start", "windowStart"])
         : null;
   const windowEnd =
     row.type === "similarity_match"
       ? null
       : match
-        ? nonEmptyString(match.window_end)
+        ? stringFromData({}, match, ["window_end", "windowEnd"])
         : null;
 
   return {

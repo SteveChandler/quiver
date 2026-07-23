@@ -70,6 +70,32 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     });
   });
 
+  it("accepts an official-only swell observation without invented forecast values", () => {
+    const parsed = NOTIFICATION_REGISTRY.swell_watch.validatePayload!({
+      beach_id: "beach-1",
+      beach_name: "Black's Beach",
+      event_start_date: null,
+      peak_date: null,
+      peak_height_ft: null,
+      peak_period_s: null,
+      forecast_at: null,
+      awareness_mode: "shadow",
+      automation_enabled: false,
+      awareness_signal: "official_advisory",
+      awareness_severity: "major",
+      official_evidence_refs: ["official:nws_alert:high-surf"],
+      would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+      title: "Official surf hazard signal — Black's Beach",
+      body: "An official coastal advisory is active in the forecast window.",
+    });
+
+    expect(parsed).toMatchObject({
+      awareness_signal: "official_advisory",
+      forecast_at: null,
+      peak_height_ft: null,
+    });
+  });
+
   it("retains first-session policy context internally but never sends it to FCM", () => {
     const policyContext = {
       kind: "positive_session_recommendation" as const,

@@ -168,14 +168,23 @@ const swellWatchSchema = z.object({
   beach_id: z.string().min(1),
   beach_slug: z.string().optional(),
   beach_name: z.string().min(1),
-  event_start_date: z.string().min(1),
-  peak_date: z.string().min(1),
-  peak_height_ft: z.number(),
-  peak_period_s: z.number(),
-  forecast_at: z.string().min(1),
+  event_start_date: z.string().min(1).nullable(),
+  peak_date: z.string().min(1).nullable(),
+  peak_height_ft: z.number().nullable(),
+  peak_period_s: z.number().nullable(),
+  forecast_at: z.string().min(1).nullable(),
   awareness_mode: z.literal("shadow"),
-  awareness_signal: z.literal("forecast_trend"),
+  automation_enabled: z.literal(false).optional(),
+  awareness_signal: z.enum([
+    "forecast_trend",
+    "official_advisory",
+    "corroborated",
+  ]),
   awareness_severity: z.enum(["significant", "major"]),
+  official_evidence_refs: z.array(z.string().min(1)).optional(),
+  would_suppress_cohorts: z
+    .array(z.enum(["beginner", "intermediate", "unknown"]))
+    .optional(),
   title: z.string().min(1),
   body: z.string().min(1),
 });
@@ -385,11 +394,22 @@ interface SwellWatchPayload {
   beach_id: string;
   beach_slug?: string;
   beach_name: string;
-  event_start_date: string;
-  peak_date: string;
-  peak_height_ft: number;
-  peak_period_s: number;
-  forecast_at: string;
+  event_start_date: string | null;
+  peak_date: string | null;
+  peak_height_ft: number | null;
+  peak_period_s: number | null;
+  forecast_at: string | null;
+  awareness_mode: "shadow";
+  automation_enabled?: false;
+  awareness_signal:
+    | "forecast_trend"
+    | "official_advisory"
+    | "corroborated";
+  awareness_severity: "significant" | "major";
+  official_evidence_refs?: string[];
+  would_suppress_cohorts?: Array<
+    "beginner" | "intermediate" | "unknown"
+  >;
   title: string;
   body: string;
 }
@@ -789,7 +809,8 @@ export const NOTIFICATION_REGISTRY = {
         type: "swell_watch",
         beach_id: p.beach_id,
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
-        forecast_at: p.forecast_at,
+        ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
+        awareness_signal: p.awareness_signal,
       },
     }),
     buildInAppPayload: (p) => ({
@@ -803,6 +824,9 @@ export const NOTIFICATION_REGISTRY = {
         peak_height_ft: p.peak_height_ft,
         peak_period_s: p.peak_period_s,
         forecast_at: p.forecast_at,
+        awareness_signal: p.awareness_signal,
+        awareness_severity: p.awareness_severity,
+        official_evidence_refs: p.official_evidence_refs ?? [],
         title: p.title,
         body: p.body,
       },

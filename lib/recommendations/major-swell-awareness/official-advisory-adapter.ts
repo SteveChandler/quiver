@@ -26,6 +26,10 @@ const nwsCache = new Map<string, {
   expiresAt: number;
   advisories: OfficialSwellAdvisoryEvidence[];
 }>();
+const nwsInflight = new Map<
+  string,
+  Promise<OfficialSwellAdvisoryEvidence[]>
+>();
 
 interface OfficialRiskRow {
   id: string;
@@ -214,39 +218,59 @@ export async function loadNwsSwellAdvisories(input: {
 }): Promise<OfficialSwellAdvisoryEvidence[]> {
   const zone = input.zone?.trim().toUpperCase() ?? "";
   if (!/^[A-Z]{3}\d{3}$/.test(zone)) return [];
-  const cacheKey = `${zone}:${input.beachId}`;
-  const cached = nwsCache.get(cacheKey);
+  const scopeToBeach = (
+    advisories: readonly OfficialSwellAdvisoryEvidence[],
+  ): OfficialSwellAdvisoryEvidence[] => advisories.map((advisory) => ({
+    ...advisory,
+    beachIds: [input.beachId],
+  }));
+  const cached = nwsCache.get(zone);
   if (cached && cached.expiresAt > input.now.getTime()) {
-    return cached.advisories;
+    return scopeToBeach(cached.advisories);
   }
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), NWS_TIMEOUT_MS);
-  try {
-    const response = await (input.fetchImpl ?? fetch)(
-      `https://api.weather.gov/alerts/active?zone=${encodeURIComponent(zone)}`,
-      {
-        headers: {
-          Accept: "application/geo+json",
-          "User-Agent": "Quiver Surf major-swell-shadow",
+  const activeRequest = nwsInflight.get(zone);
+  if (activeRequest) {
+    return scopeToBeach(await activeRequest);
+  }
+
+  const request = (async (): Promise<OfficialSwellAdvisoryEvidence[]> => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), NWS_TIMEOUT_MS);
+    try {
+      const response = await (input.fetchImpl ?? fetch)(
+        `https://api.weather.gov/alerts/active?zone=${encodeURIComponent(zone)}`,
+        {
+          headers: {
+            Accept: "application/geo+json",
+            "User-Agent": "Quiver Surf major-swell-shadow",
+          },
+          signal: controller.signal,
         },
-        signal: controller.signal,
-      },
-    );
-    if (!response.ok) {
-      throw new Error(`NWS alerts request failed with ${response.status}`);
+      );
+      if (!response.ok) {
+        throw new Error(`NWS alerts request failed with ${response.status}`);
+      }
+      const advisories = nwsAlertsToSwellAdvisories({
+        payload: await response.json(),
+        beachId: input.beachId,
+        now: input.now,
+      });
+      nwsCache.set(zone, {
+        expiresAt: input.now.getTime() + NWS_CACHE_MS,
+        advisories,
+      });
+      return advisories;
+    } finally {
+      clearTimeout(timeout);
     }
-    const advisories = nwsAlertsToSwellAdvisories({
-      payload: await response.json(),
-      beachId: input.beachId,
-      now: input.now,
-    });
-    nwsCache.set(cacheKey, {
-      expiresAt: input.now.getTime() + NWS_CACHE_MS,
-      advisories,
-    });
-    return advisories;
+  })();
+  nwsInflight.set(zone, request);
+  try {
+    return scopeToBeach(await request);
   } finally {
-    clearTimeout(timeout);
+    if (nwsInflight.get(zone) === request) {
+      nwsInflight.delete(zone);
+    }
   }
 }

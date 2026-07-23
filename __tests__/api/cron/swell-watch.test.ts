@@ -287,6 +287,23 @@ describe("GET /api/cron/swell-watch", () => {
     expect(mockResendSend).not.toHaveBeenCalled();
   });
 
+  it("evaluates every active beach without requiring an eligible home-beach profile", async () => {
+    store.profiles = [];
+
+    const response = await GET(request());
+    const body = await json(response);
+
+    expect(response.status).toBe(200);
+    expect(body.data.evaluated).toBe(1);
+    expect(body.data.shadowMatches).toBe(1);
+    expect(body.data.shadowEvaluations[0]).toMatchObject({
+      beach_id: "beach-1",
+      awareness_signal: "forecast_trend",
+    });
+    expect(mockEnqueueNotification).not.toHaveBeenCalled();
+    expect(mockResendSend).not.toHaveBeenCalled();
+  });
+
   it("does not consult notification dedupe while running in shadow", async () => {
     mockEnqueueNotification.mockResolvedValue({
       enqueued: false,
@@ -374,5 +391,31 @@ describe("GET /api/cron/swell-watch", () => {
     });
     expect(mockEnqueueNotification).not.toHaveBeenCalled();
     expect(mockResendSend).not.toHaveBeenCalled();
+  });
+
+  it("still evaluates official advisories when forecast rows are unavailable", async () => {
+    store.profiles = [];
+    store.forecastsByBeachId["beach-1"] = [];
+    store.officialRisks = [{
+      id: "33333333-3333-4333-8333-333333333333",
+      beach_id: "beach-1",
+      valid_date: dateKey(1),
+      risk_level: "high",
+      source: "alert",
+      fetched_at: "2026-07-01T14:30:00.000Z",
+    }];
+
+    const response = await GET(request());
+    const body = await json(response);
+
+    expect(response.status).toBe(200);
+    expect(body.data.evaluated).toBe(1);
+    expect(body.data.shadowMatches).toBe(1);
+    expect(body.data.shadowEvaluations[0]).toMatchObject({
+      beach_id: "beach-1",
+      awareness_signal: "official_advisory",
+      peak_height_ft: null,
+      forecast_at: null,
+    });
   });
 });
