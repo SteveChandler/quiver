@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Fixed
+- **Landing media now has a browser-enforced first-load request budget** (`e2e/guest-landing-media-budget.spec.ts`). Covers desktop and mobile viewports and proves reduced-motion and Save-Data sessions do not request the autoplay hero video.
 - **Beach-detail secondary requests now have behavioral budget coverage** (`__tests__/components/beach-detail.loading-guards.test.tsx`). Proves empty-state count APIs stay at zero during initial render and idle time, then issue exactly one request for each community tab the surfer explicitly opens.
 - **Sitemap freshness metadata is lean and auditable** (`app/sitemap.ts`, `__tests__/app/sitemap.test.ts`). Removes Google-ignored `priority` and `changefreq` tags, centralizes template/content version dates, and derives learn article `lastmod` values from their authored publication metadata.
 - **Sitemap city routes now preserve canonical rewrites for HEAD requests** (`lib/middleware/route-guard.ts`, `e2e/guest-sitemap-city-head-parity.spec.ts`). Treats HEAD like GET during page-route classification so Rosarito and the Waimea island pages return the same 200 contract to browsers and lightweight crawlers.
