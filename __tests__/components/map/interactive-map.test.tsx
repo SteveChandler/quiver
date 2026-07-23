@@ -120,6 +120,12 @@ describe("InteractiveMap", () => {
         __quiverMapDebugCenter?: { lat: number; lon: number };
       }
     ).__quiverMapDebugCenter;
+    const markerDebugWindow = window as typeof window & {
+      __quiverMapMarkerRebuildCount?: number;
+      __quiverMapVisibleMarkerCount?: number;
+    };
+    delete markerDebugWindow.__quiverMapMarkerRebuildCount;
+    delete markerDebugWindow.__quiverMapVisibleMarkerCount;
   });
 
   function getLastCustomSpotMarkerElement(id: string): HTMLElement {
@@ -736,6 +742,140 @@ describe("InteractiveMap", () => {
 
     expect(firstMarker.remove).not.toHaveBeenCalled();
     expect(secondMarker.remove).toHaveBeenCalledTimes(1);
+    expect(
+      (window as typeof window & { __quiverMapVisibleMarkerCount?: number })
+        .__quiverMapVisibleMarkerCount,
+    ).toBe(1);
+  });
+
+  it("reuses stable beach markers across equivalent cluster updates", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const beach = {
+      id: "beach-1",
+      name: "Stable Beach",
+      lat: 32.75,
+      lon: -117.25,
+    } as import("@/types/database").Beach;
+    const { rerender } = render(
+      <InteractiveMap beaches={[beach]} disableBeachClustering />,
+    );
+
+    const Marker = require("mapbox-gl").Marker;
+    await waitFor(() => {
+      expect(
+        Marker.mock.calls.filter(
+          ([options]: [{ element?: HTMLElement }]) =>
+            options.element?.getAttribute("data-beach-id") === beach.id,
+        ),
+      ).toHaveLength(1);
+    });
+
+    const markerCallIndex = Marker.mock.calls.findIndex(
+      ([options]: [{ element?: HTMLElement }]) =>
+        options.element?.getAttribute("data-beach-id") === beach.id,
+    );
+    const marker = mockMarkerInstances[markerCallIndex];
+    const rebuildCount = (
+      window as typeof window & { __quiverMapMarkerRebuildCount?: number }
+    ).__quiverMapMarkerRebuildCount;
+
+    rerender(
+      <InteractiveMap beaches={[{ ...beach }]} disableBeachClustering />,
+    );
+
+    expect(
+      Marker.mock.calls.filter(
+        ([options]: [{ element?: HTMLElement }]) =>
+          options.element?.getAttribute("data-beach-id") === beach.id,
+      ),
+    ).toHaveLength(1);
+    expect(marker.remove).not.toHaveBeenCalled();
+    expect(
+      (
+        window as typeof window & {
+          __quiverMapMarkerRebuildCount?: number;
+        }
+      ).__quiverMapMarkerRebuildCount,
+    ).toBe(rebuildCount);
+    expect(
+      (window as typeof window & { __quiverMapVisibleMarkerCount?: number })
+        .__quiverMapVisibleMarkerCount,
+    ).toBe(1);
+  });
+
+  it("reuses a stable cluster marker when equivalent beaches are reindexed", async () => {
+    const { InteractiveMap } = await import("@/components/map/interactive-map");
+    const beaches = [
+      {
+        id: "beach-1",
+        name: "Cluster Beach One",
+        lat: 32.75,
+        lon: -117.25,
+      },
+      {
+        id: "beach-2",
+        name: "Cluster Beach Two",
+        lat: 32.7501,
+        lon: -117.2501,
+      },
+    ] as import("@/types/database").Beach[];
+    const { rerender } = render(<InteractiveMap beaches={beaches} />);
+
+    const Marker = require("mapbox-gl").Marker;
+    await waitFor(() => {
+      expect(
+        Marker.mock.calls.filter(
+          ([options]: [{ element?: HTMLElement }]) =>
+            options.element?.getAttribute("data-testid") === "cluster-marker",
+        ),
+      ).not.toHaveLength(0);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    const clusterMarkerCallIndexes = Marker.mock.calls.reduce(
+      (
+        indexes: number[],
+        [options]: [{ element?: HTMLElement }],
+        index: number,
+      ) => {
+        if (options.element?.getAttribute("data-testid") === "cluster-marker") {
+          indexes.push(index);
+        }
+        return indexes;
+      },
+      [],
+    );
+    const markerCallIndex = clusterMarkerCallIndexes.at(-1);
+    if (markerCallIndex === undefined) {
+      throw new Error("Expected a settled cluster marker");
+    }
+    const marker = mockMarkerInstances[markerCallIndex];
+    const clusterMarkerCallCount = clusterMarkerCallIndexes.length;
+    const rebuildCount = (
+      window as typeof window & { __quiverMapMarkerRebuildCount?: number }
+    ).__quiverMapMarkerRebuildCount;
+
+    rerender(
+      <InteractiveMap beaches={beaches.map((beach) => ({ ...beach }))} />,
+    );
+
+    expect(
+      Marker.mock.calls.filter(
+        ([options]: [{ element?: HTMLElement }]) =>
+          options.element?.getAttribute("data-testid") === "cluster-marker",
+      ),
+    ).toHaveLength(clusterMarkerCallCount);
+    expect(marker.remove).not.toHaveBeenCalled();
+    expect(
+      (
+        window as typeof window & {
+          __quiverMapMarkerRebuildCount?: number;
+        }
+      ).__quiverMapMarkerRebuildCount,
+    ).toBe(rebuildCount);
     expect(
       (window as typeof window & { __quiverMapVisibleMarkerCount?: number })
         .__quiverMapVisibleMarkerCount,
