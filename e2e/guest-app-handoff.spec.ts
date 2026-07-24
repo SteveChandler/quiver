@@ -10,6 +10,7 @@ const IPHONE_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
 const ANDROID_UA =
   "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+const HERO_POSTER_PATH = "/images/hero/quiver-landing-hero-poster.jpg";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -21,6 +22,15 @@ async function mockTelemetry(page: Parameters<typeof setupErrorDetection>[0]) {
       body: JSON.stringify({ success: true }),
     });
   });
+}
+
+function isHeroPosterRequest(url: URL): boolean {
+  const assetPath =
+    url.pathname === "/_next/image"
+      ? url.searchParams.get("url")
+      : url.pathname;
+
+  return assetPath === HERO_POSTER_PATH;
 }
 
 test.describe("Field-guide landing — desktop", () => {
@@ -44,22 +54,13 @@ test.describe("Field-guide landing — desktop", () => {
     const posterGate = new Promise<void>((resolve) => {
       releasePoster = resolve;
     });
-    const posterRequest = page.waitForRequest(
-      (request) =>
-        request.url().includes("/_next/image?") &&
-        new URL(request.url()).searchParams
-          .get("url")
-          ?.includes("quiver-landing-hero-poster.jpg") === true,
-      { timeout: 5000 },
-    );
+    let markPosterIntercepted: () => void = () => undefined;
+    const posterIntercepted = new Promise<void>((resolve) => {
+      markPosterIntercepted = resolve;
+    });
 
-    await page.route("**/_next/image?**", async (route) => {
-      const imagePath = new URL(route.request().url()).searchParams.get("url");
-      if (!imagePath?.includes("quiver-landing-hero-poster.jpg")) {
-        await route.continue();
-        return;
-      }
-
+    await page.route(isHeroPosterRequest, async (route) => {
+      markPosterIntercepted();
       await posterGate;
       await route.continue();
     });
@@ -71,7 +72,7 @@ test.describe("Field-guide landing — desktop", () => {
       });
       expect(response).not.toBeNull();
       expect(response!.status()).toBe(200);
-      await posterRequest;
+      await posterIntercepted;
 
       await expect(
         page.getByRole("heading", {
@@ -89,7 +90,7 @@ test.describe("Field-guide landing — desktop", () => {
       );
     } finally {
       releasePoster();
-      await page.unroute("**/_next/image?**");
+      await page.unroute(isHeroPosterRequest);
     }
   });
 });
