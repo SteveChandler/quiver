@@ -2,33 +2,37 @@ BEGIN;
 
 LOCK TABLE public.forecast_feedback_contexts IN SHARE ROW EXCLUSIVE MODE;
 
--- Preserve every historical feedback row while making any pre-existing
--- duplicate key unique. The oldest row keeps the original request ID so a
--- retry still resolves to the first accepted delivery.
-WITH ranked_requests AS (
-  SELECT
-    id,
-    request_id,
-    row_number() OVER (
-      PARTITION BY user_id, request_id
-      ORDER BY created_at ASC, id ASC
-    ) AS delivery_rank
-  FROM public.forecast_feedback_contexts
-  WHERE user_id IS NOT NULL AND request_id IS NOT NULL
-)
-UPDATE public.forecast_feedback_contexts AS feedback
-SET
-  request_id = feedback.request_id || ':legacy-duplicate:' || feedback.id::text,
-  updated_at = now()
-FROM ranked_requests AS ranked
-WHERE feedback.id = ranked.id
-  AND ranked.delivery_rank > 1;
+-- Do not rewrite historical feedback to make the index fit. If duplicates
+-- exist, abort transactionally so operators can review the read-only audit
+-- result and approve a separate remediation plan.
+DO $$
+DECLARE
+  duplicate_group_count bigint;
+BEGIN
+  SELECT count(*)
+  INTO duplicate_group_count
+  FROM (
+    SELECT user_id, request_id, ingest_path
+    FROM public.forecast_feedback_contexts
+    WHERE user_id IS NOT NULL AND request_id IS NOT NULL
+    GROUP BY user_id, request_id, ingest_path
+    HAVING count(*) > 1
+  ) AS duplicate_groups;
+
+  IF duplicate_group_count > 0 THEN
+    RAISE EXCEPTION
+      'Cannot enforce forecast feedback idempotency: % duplicate authenticated request group(s) require an approved remediation plan',
+      duplicate_group_count
+      USING ERRCODE = '23505';
+  END IF;
+END
+$$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_forecast_feedback_contexts_user_request
-  ON public.forecast_feedback_contexts (user_id, request_id)
+  ON public.forecast_feedback_contexts (user_id, request_id, ingest_path)
   WHERE user_id IS NOT NULL AND request_id IS NOT NULL;
 
 COMMENT ON INDEX public.uq_forecast_feedback_contexts_user_request IS
-  'Makes authenticated forecast-feedback retries idempotent by stable client request ID.';
+  'Makes authenticated forecast-feedback retries idempotent per ingest path without collapsing independent producers.';
 
 COMMIT;
