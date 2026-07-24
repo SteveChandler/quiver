@@ -30,7 +30,7 @@ describe("similarity alert canonical dedupe migration", () => {
       "create unique index alert_queue_similarity_canonical_decision_dedupe",
     );
     expect(normalizedMigration).toContain(
-      "user_id, beach_id, window_start, ((conditions_snapshot -> 'session_decision' ->> 'verdict'))",
+      "user_id, beach_id, window_start, ( case when conditions_snapshot ? 'session_decision' then conditions_snapshot -> 'session_decision' ->> 'verdict' else 'go' end )",
     );
     expect(normalizedMigration).toContain(
       "where (conditions_snapshot ->> 'alert_type') = 'similarity_match'",
@@ -40,12 +40,15 @@ describe("similarity alert canonical dedupe migration", () => {
     );
   });
 
-  it("makes the insert RPC require and infer the canonical verdict contract", () => {
+  it("makes the insert RPC validate canonical verdicts and infer legacy snapshots as go", () => {
+    expect(normalizedMigration).toContain(
+      "v_verdict := case when p_conditions_snapshot ? 'session_decision' then p_conditions_snapshot -> 'session_decision' ->> 'verdict' else 'go' end",
+    );
     expect(normalizedMigration).toContain(
       "v_verdict not in ('go', 'maybe', 'no')",
     );
     expect(normalizedMigration).toContain(
-      "on conflict ( user_id, beach_id, window_start, ((conditions_snapshot -> 'session_decision' ->> 'verdict')) )",
+      "on conflict ( user_id, beach_id, window_start, ( case when conditions_snapshot ? 'session_decision' then conditions_snapshot -> 'session_decision' ->> 'verdict' else 'go' end ) )",
     );
     expect(normalizedMigration).toContain("to service_role");
     expect(normalizedMigration).toContain("notify pgrst, 'reload schema'");
