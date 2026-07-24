@@ -86,17 +86,10 @@ const SURFABILITY_FLOOR = 60;
 /**
  * Forecast horizon scanned per run.
  *
- * Trade-off (code review 2026-05-03 M2): with the partial unique index
- * `alert_queue_one_similarity_per_user_day` keyed on (user_id, alert_date),
- * scanning 72h means Friday's run can pick a Monday slot. If Saturday's
- * run finds a BETTER Monday slot (different forecast_at or higher score),
- * `try_insert_similarity_alert` returns inserted=false and silently keeps
- * the older, worse pick — the cron logs it as `dedupSkipped`. Acceptable
- * for v1 (rare-edge: model-update-induced score swings on the same window),
- * but if telemetry shows users complaining about stale picks, change the
- * dedup contract to "best pick wins" (UPDATE on conflict when new score >
- * stored score) or shrink LOOKAHEAD_HOURS to 24 to make per-day dedup
- * semantics align with the scan horizon.
+ * The queue dedupe contract keys similarity alerts by user, beach, forecast
+ * window, and canonical verdict. An identical decision from a later cron
+ * tick returns inserted=false and is counted in `dedupSkipped`, while a
+ * genuinely different beach/window remains eligible inside this horizon.
  */
 const LOOKAHEAD_HOURS = 72;
 const NEARBY_RADIUS_MILES = 30;
