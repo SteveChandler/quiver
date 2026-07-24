@@ -51,6 +51,7 @@ describe("useSurfDiscovery", () => {
         timezone: "America/Los_Angeles",
       },
       verdict: "go",
+      decisionBasis: "physical_fallback",
       reasonCode: "selected_go",
       selection: {
         candidateId: "candidate-1",
@@ -68,6 +69,11 @@ describe("useSurfDiscovery", () => {
           skill: "intermediate",
           state: "eligible",
           reasonCodes: [],
+        },
+        evidence: {
+          conditionScore: 85,
+          recommendationLabel: "Worth it",
+          personalMatch: null,
         },
       },
       skillEligibility: {

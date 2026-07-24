@@ -63,6 +63,7 @@ export function createCanonicalSessionDecisionFixture(input: {
       timezone: input.timezone,
     },
     verdict: held ? "no" : "go",
+    decisionBasis: held ? "safety_override" : "physical_fallback",
     reasonCode: held ? "major_event_hold" : "selected_go",
     selection: held
       ? null
@@ -82,6 +83,11 @@ export function createCanonicalSessionDecisionFixture(input: {
             skill: "intermediate",
             state: "eligible",
             reasonCodes: [],
+          },
+          evidence: {
+            conditionScore: 91,
+            recommendationLabel: "Worth it",
+            personalMatch: null,
           },
         },
     skillEligibility: held

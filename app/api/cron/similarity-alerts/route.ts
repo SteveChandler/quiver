@@ -63,6 +63,8 @@ import {
 import { isLearnedMatchState } from "@/lib/personalization/match-state-compat";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import { resolveNotificationMajorEventHold } from "@/lib/recommendations/major-event-hold/adapters/notification";
+import { buildCanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
+import { normalizeTideStatus } from "@/lib/services/preference-learning-service";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -177,13 +179,15 @@ interface BatchSlotResult {
     score?: number;
     label?: string | null;
     reason_bullets?: unknown;
-    confidence?: number;
+    confidence?: number | "low" | "medium" | "high";
     board_tip?: unknown;
     setup_tip?: unknown;
   } | null;
 }
 
 type RichScoredSlot = ScoredSlot & {
+  beach_skill_level?: string | null;
+  window_end?: string;
   wind_speed_mph?: number;
   wind_direction?: string;
   tide_height_ft?: number;
@@ -623,13 +627,16 @@ async function buildCandidateBeaches(
     .from("favorite_beaches")
     .select("beach_id")
     .eq("user_id", user.user_id)
-    .order("rank", { ascending: true, nullsFirst: false })
-    .limit(FAVORITE_LIMIT);
+    .order("rank", { ascending: true, nullsFirst: false });
+  const favoriteIds: string[] = [];
   for (const r of (favs ?? []) as Array<{ beach_id: string }>) {
-    if (r.beach_id) ids.add(r.beach_id);
+    if (!r.beach_id || favoriteIds.includes(r.beach_id)) continue;
+    favoriteIds.push(r.beach_id);
+    ids.add(r.beach_id);
   }
 
   // Nearby: need home beach coords first.
+  const nearbyIds: string[] = [];
   const { data: home } = await supabase
     .from("beaches")
     .select("id, lat, lon")
@@ -649,7 +656,10 @@ async function buildCandidateBeaches(
       limit_count: NEARBY_LIMIT,
     });
     for (const r of (nearby ?? []) as Array<{ id: string; is_private?: boolean | null }>) {
-      if (r.id && !r.is_private) ids.add(r.id);
+      if (r.id && !r.is_private) {
+        nearbyIds.push(r.id);
+        ids.add(r.id);
+      }
     }
   }
 
@@ -691,7 +701,7 @@ async function buildCandidateBeaches(
   // seed time — dropping it before similarity scoring is safer than letting
   // the worker self-reject the payload (which would burn a queue slot AND
   // log invalid_payload errors that look like data-shape regressions).
-  return ((beaches ?? []) as BeachRow[]).filter((b) => {
+  const validBeaches = ((beaches ?? []) as BeachRow[]).filter((b) => {
     const slug = b.slug;
     if (slug == null || slug === "") {
       console.warn(
@@ -701,6 +711,20 @@ async function buildCandidateBeaches(
     }
     return true;
   });
+  const validIds = new Set(validBeaches.map((beach) => beach.id));
+  const selectedIds = new Set<string>();
+  if (validIds.has(user.home_beach_id)) {
+    selectedIds.add(user.home_beach_id);
+  }
+  favoriteIds
+    .filter((beachId) => validIds.has(beachId))
+    .slice(0, FAVORITE_LIMIT)
+    .forEach((beachId) => selectedIds.add(beachId));
+  nearbyIds
+    .filter((beachId) => validIds.has(beachId))
+    .forEach((beachId) => selectedIds.add(beachId));
+
+  return validBeaches.filter((beach) => selectedIds.has(beach.id));
 }
 
 /**
@@ -813,6 +837,7 @@ async function scoreCandidates(
     // EnhancedForecastEntity so the shared scorer can read the forecast shape
     // used by the rest of the app.
     const surfable: ForecastSlot[] = [];
+    const conditionScoreByForecastAt = new Map<string, number>();
     for (const f of daylight) {
       if (f.wave_height == null || f.wave_period == null) continue;
       let baseScore = 0;
@@ -832,6 +857,7 @@ async function scoreCandidates(
       }
       if (baseScore < SURFABILITY_FLOOR) continue;
       surfable.push(f);
+      conditionScoreByForecastAt.set(f.forecast_at, baseScore);
     }
     if (surfable.length === 0) continue;
 
@@ -884,7 +910,14 @@ async function scoreCandidates(
         (source?.wind_direction_deg == null
           ? undefined
           : String(source.wind_direction_deg));
-      const tideStatus = optionalString(source?.tide_status);
+      const tideStatus =
+        normalizeTideStatus(source?.tide_status) ?? undefined;
+      const matchConfidence =
+        result.confidence === "low" ||
+        result.confidence === "medium" ||
+        result.confidence === "high"
+          ? result.confidence
+          : undefined;
       const confidence =
         typeof result.confidence === "number"
           ? result.confidence
@@ -911,6 +944,14 @@ async function scoreCandidates(
         score: result.score,
         label: result.label ?? null,
         reason: firstReasonBullet(result.reason_bullets),
+        ...(matchConfidence == null
+          ? {}
+          : { match_confidence: matchConfidence }),
+        beach_skill_level: beach.skill_level,
+        condition_score: conditionScoreByForecastAt.get(r.forecast_at),
+        window_end: new Date(
+          new Date(r.forecast_at).getTime() + 60 * 60 * 1000,
+        ).toISOString(),
         window_local: formatWindowLocal(r.forecast_at, tz),
         wave_height_ft: waveHeightFt,
         wave_period_s: wavePeriodS,
@@ -933,6 +974,22 @@ async function scoreCandidates(
 
 type InsertOutcome = "inserted" | "dedup" | "suppressed" | "error";
 
+function canonicalMatchLabel(
+  value: string | null,
+): "EPIC" | "GOOD" | "FAIR" | "RIDEABLE" | "MEH" | null {
+  const label = value?.trim().toUpperCase();
+  if (
+    label === "EPIC" ||
+    label === "GOOD" ||
+    label === "FAIR" ||
+    label === "RIDEABLE" ||
+    label === "MEH"
+  ) {
+    return label;
+  }
+  return null;
+}
+
 async function tryInsertAlert(
   supabase: any,
   user: EligibleUserRow,
@@ -947,13 +1004,74 @@ async function tryInsertAlert(
   // next tick instead of holding an alert that will never fire.
   const windowStartMs = new Date(pick.forecast_at).getTime();
   const hasValidWindow = Number.isFinite(windowStartMs);
-  const windowEndIso = hasValidWindow
-    ? new Date(windowStartMs + 60 * 60 * 1000).toISOString()
+  const parsedWindowEnd = Date.parse(pick.window_end ?? "");
+  const windowEndIso = Number.isFinite(parsedWindowEnd)
+    ? new Date(parsedWindowEnd).toISOString()
+    : hasValidWindow
+      ? new Date(windowStartMs + 60 * 60 * 1000).toISOString()
     : pick.forecast_at;
   const sendAtMs = hasValidWindow
     ? windowStartMs - SEND_AT_LEAD_MINUTES * 60 * 1000
     : now;
   const sendAtIso = new Date(sendAtMs >= now ? sendAtMs : now).toISOString();
+  const matchLabel = canonicalMatchLabel(pick.label);
+  if (!hasValidWindow || matchLabel === null) return "suppressed";
+
+  const conditionScore = pick.condition_score ?? 0;
+  const recommendationLabel =
+    conditionScore >= 70
+      ? "Worth it"
+      : conditionScore >= 40
+        ? "Maybe"
+        : "Skip";
+  const anchorTime = new Date(windowStartMs).toISOString();
+  const candidateId =
+    `similarity-alert:${pick.beach_id}:${pick.forecast_at}`;
+  const canonicalDecision = buildCanonicalSessionDecision({
+    anchorTime,
+    scope: {
+      kind: "plan_next_session",
+      windowStart: anchorTime,
+      windowEnd: windowEndIso,
+      timezone: pick.beach_timezone,
+    },
+    profileExperience: user.experience_level,
+    recommendationAvailability: {
+      state: "available",
+      holdEpoch: "similarity-alert-preflight",
+    },
+    candidates: [
+      {
+        candidateId,
+        beachId: pick.beach_id,
+        beachName: pick.beach_name,
+        beachSkillLevel: pick.beach_skill_level,
+        windowStart: pick.forecast_at,
+        windowEnd: windowEndIso,
+        timezone: pick.beach_timezone,
+        forecastId: candidateId,
+        forecastAt: pick.forecast_at,
+        waveHeight: `${pick.wave_height_ft} ft`,
+        utilityScore: conditionScore,
+        recommendationLabel,
+        personalMatch: {
+          score: pick.score,
+          label: matchLabel,
+          confidence:
+            pick.match_confidence ??
+            (pick.score >= 8 ? "high" : "medium"),
+          sessionCount: 0,
+          reasons: pick.reason ? [pick.reason] : [],
+        },
+      },
+    ],
+  });
+  if (
+    canonicalDecision.verdict !== "go" ||
+    canonicalDecision.selection?.candidateId !== candidateId
+  ) {
+    return "suppressed";
+  }
 
   const snapshot = {
     alert_type: "similarity_match" as const,
@@ -965,6 +1083,7 @@ async function tryInsertAlert(
     beach_slug: pick.beach_slug,
     beach_name: pick.beach_name,
     reason: pick.reason ?? `${pick.label ?? "Match"} at ${pick.beach_name}`,
+    session_decision: canonicalDecision,
     // Plan V4 fix F2: extended payload fields. The deliver cron reads these
     // off conditions_snapshot and forwards them into the notifications
     // pipeline; the registry's buildPushPayload composes them into the body

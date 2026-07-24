@@ -15,6 +15,14 @@ interface TestCandidate {
   waveHeight: unknown;
   utilityScore: number;
   recommendationLabel: "Worth it" | "Maybe" | "Skip";
+  safetyOverrideReasons?: Array<"water_quality_closure">;
+  personalMatch?: {
+    score: number;
+    label: "EPIC" | "GOOD" | "FAIR" | "RIDEABLE" | "MEH";
+    confidence: "low" | "medium" | "high";
+    sessionCount: number;
+    reasons: readonly string[];
+  } | null;
 }
 
 function loadEngine(): CanonicalDecisionModule {
@@ -96,7 +104,7 @@ describe("canonical session decision engine", () => {
     );
   });
 
-  it("returns consider when the best safe session is worth watching but not a go", () => {
+  it("returns maybe when the best safe session is worth watching but not a go", () => {
     const { buildCanonicalSessionDecision } = loadEngine();
     const decision = buildCanonicalSessionDecision(
       input([
@@ -107,9 +115,279 @@ describe("canonical session decision engine", () => {
       ]),
     ) as { verdict: string; reasonCode: string; selection: unknown };
 
-    expect(decision.verdict).toBe("consider");
-    expect(decision.reasonCode).toBe("selected_consider");
+    expect(decision.verdict).toBe("maybe");
+    expect(decision.reasonCode).toBe("selected_maybe");
     expect(decision.selection).not.toBeNull();
+  });
+
+  it.each([
+    ["EPIC", "go"],
+    ["GOOD", "go"],
+    ["FAIR", "maybe"],
+    ["RIDEABLE", "maybe"],
+    ["MEH", "no"],
+  ] as const)(
+    "maps a learned %s match to canonical %s",
+    (label, expectedVerdict) => {
+      const { buildCanonicalSessionDecision } = loadEngine();
+      const decision = buildCanonicalSessionDecision(
+        input([
+          candidate({
+            utilityScore: 42,
+            recommendationLabel: "Maybe",
+            personalMatch: {
+              score: label === "MEH" ? 2.5 : 8.1,
+              label,
+              confidence: "medium",
+              sessionCount: 14,
+              reasons: ["Matches your completed sessions"],
+            },
+          }),
+        ]),
+      ) as {
+        verdict: string;
+        decisionBasis: string;
+        selection: {
+          evidence: {
+            conditionScore: number;
+            personalMatch: { label: string; sessionCount: number };
+          };
+        } | null;
+      };
+
+      expect(decision.verdict).toBe(expectedVerdict);
+      expect(decision.decisionBasis).toBe("personal_match");
+      expect(decision.selection?.evidence).toMatchObject({
+        conditionScore: 42,
+        personalMatch: { label, sessionCount: 14 },
+      });
+    },
+  );
+
+  it("lets a safe GOOD personal match override rough physical MAYBE context", () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(
+      input([
+        candidate({
+          beachId: "ala-moana-bowls",
+          beachName: "Ala Moana Bowls",
+          utilityScore: 54,
+          recommendationLabel: "Maybe",
+          personalMatch: {
+            score: 8.1,
+            label: "GOOD",
+            confidence: "medium",
+            sessionCount: 12,
+            reasons: ["Your completed sessions match this setup"],
+          },
+        }),
+      ]),
+    ) as { verdict: string; decisionBasis: string };
+
+    expect(decision).toMatchObject({
+      verdict: "go",
+      decisionBasis: "personal_match",
+    });
+  });
+
+  it.each([
+    [
+      "match score",
+      {
+        personalMatch: {
+          score: 8.2,
+          label: "GOOD" as const,
+          confidence: "low" as const,
+          sessionCount: 12,
+          reasons: ["Higher match"],
+        },
+        utilityScore: 50,
+        windowStart: "2026-07-23T16:00:00.000Z",
+      },
+      {
+        personalMatch: {
+          score: 8.1,
+          label: "GOOD" as const,
+          confidence: "high" as const,
+          sessionCount: 12,
+          reasons: ["Lower match"],
+        },
+        utilityScore: 90,
+        windowStart: "2026-07-23T13:00:00.000Z",
+      },
+    ],
+    [
+      "confidence",
+      {
+        personalMatch: {
+          score: 8.1,
+          label: "GOOD" as const,
+          confidence: "high" as const,
+          sessionCount: 12,
+          reasons: ["Higher confidence"],
+        },
+        utilityScore: 50,
+        windowStart: "2026-07-23T16:00:00.000Z",
+      },
+      {
+        personalMatch: {
+          score: 8.1,
+          label: "GOOD" as const,
+          confidence: "medium" as const,
+          sessionCount: 12,
+          reasons: ["Lower confidence"],
+        },
+        utilityScore: 90,
+        windowStart: "2026-07-23T13:00:00.000Z",
+      },
+    ],
+    [
+      "physical utility",
+      {
+        personalMatch: {
+          score: 8.1,
+          label: "GOOD" as const,
+          confidence: "high" as const,
+          sessionCount: 12,
+          reasons: ["Higher utility"],
+        },
+        utilityScore: 80,
+        windowStart: "2026-07-23T16:00:00.000Z",
+      },
+      {
+        personalMatch: {
+          score: 8.1,
+          label: "GOOD" as const,
+          confidence: "high" as const,
+          sessionCount: 12,
+          reasons: ["Lower utility"],
+        },
+        utilityScore: 70,
+        windowStart: "2026-07-23T13:00:00.000Z",
+      },
+    ],
+    [
+      "earliest start",
+      {
+        personalMatch: {
+          score: 8.1,
+          label: "GOOD" as const,
+          confidence: "high" as const,
+          sessionCount: 12,
+          reasons: ["Earlier"],
+        },
+        utilityScore: 70,
+        windowStart: "2026-07-23T13:00:00.000Z",
+      },
+      {
+        personalMatch: {
+          score: 8.1,
+          label: "GOOD" as const,
+          confidence: "high" as const,
+          sessionCount: 12,
+          reasons: ["Later"],
+        },
+        utilityScore: 70,
+        windowStart: "2026-07-23T16:00:00.000Z",
+      },
+    ],
+  ] as const)(
+    "selects a learned window by %s before lower-priority tie breakers",
+    (_priority, winningOverrides, losingOverrides) => {
+      const { buildCanonicalSessionDecision } = loadEngine();
+      const winner = candidate({
+        ...winningOverrides,
+        candidateId: "winner",
+        windowEnd: "2026-07-23T17:00:00.000Z",
+      });
+      const loser = candidate({
+        ...losingOverrides,
+        candidateId: "loser",
+        windowEnd: "2026-07-23T17:00:00.000Z",
+      });
+      const decision = buildCanonicalSessionDecision(
+        input([loser, winner]),
+      ) as { selection: { candidateId: string } | null };
+
+      expect(decision.selection?.candidateId).toBe("winner");
+    },
+  );
+
+  it("uses stable candidate id as the final learned-window tie breaker", () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const match = {
+      score: 8.1,
+      label: "GOOD" as const,
+      confidence: "high" as const,
+      sessionCount: 12,
+      reasons: ["Same evidence"],
+    };
+    const decision = buildCanonicalSessionDecision(
+      input([
+        candidate({ candidateId: "window-b", personalMatch: match }),
+        candidate({ candidateId: "window-a", personalMatch: match }),
+      ]),
+    ) as { selection: { candidateId: string } | null };
+
+    expect(decision.selection?.candidateId).toBe("window-a");
+  });
+
+  it("lets a hard skill gate override a GOOD personal match", () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(
+      input(
+        [
+          candidate({
+            beachSkillLevel: "advanced",
+            waveHeight: "7-9 ft",
+            personalMatch: {
+              score: 8.1,
+              label: "GOOD",
+              confidence: "high",
+              sessionCount: 28,
+              reasons: ["Strong historical match"],
+            },
+          }),
+        ],
+        { profileExperience: "beginner" },
+      ),
+    ) as { verdict: string; decisionBasis: string; selection: unknown };
+
+    expect(decision).toMatchObject({
+      verdict: "no",
+      decisionBasis: "safety_override",
+      selection: null,
+    });
+  });
+
+  it("lets a water-quality closure override a GOOD personal match", () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(
+      input([
+        candidate({
+          safetyOverrideReasons: ["water_quality_closure"],
+          personalMatch: {
+            score: 8.1,
+            label: "GOOD",
+            confidence: "high",
+            sessionCount: 28,
+            reasons: ["Strong historical match"],
+          },
+        }),
+      ]),
+    ) as {
+      verdict: string;
+      decisionBasis: string;
+      reasonCode: string;
+      selection: unknown;
+    };
+
+    expect(decision).toMatchObject({
+      verdict: "no",
+      decisionBasis: "safety_override",
+      reasonCode: "water_quality_closure",
+      selection: null,
+    });
   });
 
   it("returns explicit no instead of selecting the best below-threshold session", () => {
@@ -124,8 +402,8 @@ describe("canonical session decision engine", () => {
     ) as { verdict: string; reasonCode: string; selection: unknown };
 
     expect(decision.verdict).toBe("no");
-    expect(decision.reasonCode).toBe("below_minimum_utility");
-    expect(decision.selection).toBeNull();
+    expect(decision.reasonCode).toBe("selected_no");
+    expect(decision.selection).not.toBeNull();
   });
 
   it("reports low utility when a safe skip exists beside an unsafe positive candidate", () => {
@@ -166,8 +444,8 @@ describe("canonical session decision engine", () => {
 
     expect(decision).toMatchObject({
       verdict: "no",
-      reasonCode: "below_minimum_utility",
-      selection: null,
+      reasonCode: "selected_no",
+      selection: expect.objectContaining({ beachId: "safe" }),
       skillEligibility: { state: "eligible", reasonCodes: [] },
     });
   });

@@ -613,7 +613,13 @@ export const NOTIFICATION_REGISTRY = {
 
       return {
         title: p.session_decision
-          ? `${p.session_decision.verdict === "go" ? "Go" : "Consider"} ${p.beach_name}`
+          ? `${
+              p.session_decision.verdict === "go"
+                ? "Go"
+                : p.session_decision.verdict === "maybe"
+                  ? "Maybe"
+                  : "No"
+            } ${p.beach_name}`
           : `${p.label ? `${p.label} ` : ""}match at ${p.beach_name}`.trim(),
         body,
         data: {

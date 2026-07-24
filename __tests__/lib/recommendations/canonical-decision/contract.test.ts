@@ -20,6 +20,7 @@ function validDecision(): Record<string, unknown> {
       timezone: "America/Los_Angeles",
     },
     verdict: "go",
+    decisionBasis: "physical_fallback",
     reasonCode: "selected_go",
     selection: {
       candidateId: "candidate-1",
@@ -37,6 +38,11 @@ function validDecision(): Record<string, unknown> {
         skill: "intermediate",
         state: "eligible",
         reasonCodes: [],
+      },
+      evidence: {
+        conditionScore: 82,
+        recommendationLabel: "Worth it",
+        personalMatch: null,
       },
     },
     skillEligibility: {
@@ -63,7 +69,7 @@ describe("canonical session decision contract", () => {
   it("rejects a verdict whose reason does not match the selected outcome", () => {
     const { parseCanonicalSessionDecision } = loadContract();
     const decision = validDecision();
-    decision.verdict = "consider";
+    decision.verdict = "maybe";
 
     expect(() => parseCanonicalSessionDecision(decision)).toThrow();
   });

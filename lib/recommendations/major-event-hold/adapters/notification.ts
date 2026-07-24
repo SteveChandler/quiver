@@ -345,7 +345,7 @@ function hasFreshCanonicalPositiveDecision(args: {
   const expectedVerdict =
     decision.verdict === "go"
       ? "YES"
-      : decision.verdict === "consider"
+      : decision.verdict === "maybe"
         ? "MAYBE"
         : "NO";
   const verdictMatches =

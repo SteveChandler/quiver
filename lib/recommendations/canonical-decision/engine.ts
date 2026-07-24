@@ -11,6 +11,7 @@ import { parseCanonicalSessionDecision } from "./contract";
 import type {
   BuildCanonicalSessionDecisionInput,
   CanonicalDecisionCandidate,
+  CanonicalDecisionBasis,
   CanonicalDecisionReasonCode,
   CanonicalDecisionSelection,
   CanonicalDecisionSkill,
@@ -54,7 +55,9 @@ function candidateSafetyReasons(
   skill: CanonicalDecisionSkill,
 ): CanonicalDecisionReasonCode[] {
   if (skill === "unknown") return ["unknown_skill"];
-  const reasons: CanonicalDecisionReasonCode[] = [];
+  const reasons: CanonicalDecisionReasonCode[] = [
+    ...(candidate.safetyOverrideReasons ?? []),
+  ];
   if (!isValidCandidate(candidate)) {
     reasons.push("invalid_candidate");
   }
@@ -79,15 +82,34 @@ function candidateSafetyReasons(
   return reasons;
 }
 
-function verdictForCandidate(
+function physicalVerdictForCandidate(
   candidate: CanonicalDecisionCandidate,
-): "go" | "consider" | "no" {
+): "go" | "maybe" | "no" {
   if (candidate.recommendationLabel === "Skip") return "no";
-  if (candidate.recommendationLabel === "Maybe") return "consider";
+  if (candidate.recommendationLabel === "Maybe") return "maybe";
   if (candidate.recommendationLabel === "Worth it") return "go";
   if (candidate.utilityScore >= GO_UTILITY_THRESHOLD) return "go";
-  if (candidate.utilityScore >= CONSIDER_UTILITY_THRESHOLD) return "consider";
+  if (candidate.utilityScore >= CONSIDER_UTILITY_THRESHOLD) return "maybe";
   return "no";
+}
+
+function personalMatchVerdict(
+  candidate: CanonicalDecisionCandidate,
+): "go" | "maybe" | "no" | null {
+  const label = candidate.personalMatch?.label;
+  if (label === "EPIC" || label === "GOOD") return "go";
+  if (label === "FAIR" || label === "RIDEABLE") return "maybe";
+  if (label === "MEH") return "no";
+  return null;
+}
+
+function confidenceRank(
+  candidate: CanonicalDecisionCandidate,
+): number {
+  const confidence = candidate.personalMatch?.confidence;
+  if (confidence === "high") return 3;
+  if (confidence === "medium") return 2;
+  return confidence === "low" ? 1 : 0;
 }
 
 function decisionId(input: BuildCanonicalSessionDecisionInput): string {
@@ -128,6 +150,8 @@ function decisionId(input: BuildCanonicalSessionDecisionInput): string {
             : null,
         utilityScore: candidate.utilityScore,
         recommendationLabel: candidate.recommendationLabel ?? null,
+        personalMatch: candidate.personalMatch ?? null,
+        safetyOverrideReasons: candidate.safetyOverrideReasons ?? [],
       }))
       .sort((left, right) => left.candidateId.localeCompare(right.candidateId)),
     engineVersion: CANONICAL_SESSION_DECISION_ENGINE_VERSION,
@@ -160,6 +184,11 @@ function selectionFor(
       state: "eligible",
       reasonCodes: [],
     },
+    evidence: {
+      conditionScore: candidate.utilityScore,
+      recommendationLabel: candidate.recommendationLabel ?? null,
+      personalMatch: candidate.personalMatch ?? null,
+    },
   };
 }
 
@@ -180,31 +209,44 @@ export function buildCanonicalSessionDecision(
   const safeCandidates = candidateEvaluations
     .filter(({ reasons }) => reasons.length === 0)
     .map(({ candidate }) => candidate);
-  const selected = safeCandidates
-    .filter((candidate) => verdictForCandidate(candidate) !== "no")
-    .sort(
-      (left, right) =>
-        right.utilityScore - left.utilityScore ||
-        Date.parse(left.windowStart) - Date.parse(right.windowStart) ||
-        left.candidateId.localeCompare(right.candidateId),
-    )[0];
+  const learnedCandidates = safeCandidates.filter(
+    (candidate) => personalMatchVerdict(candidate) !== null,
+  );
+  const physicallyRecommendableCandidates = safeCandidates.filter(
+    (candidate) => physicalVerdictForCandidate(candidate) !== "no",
+  );
+  const selected =
+    learnedCandidates.length > 0
+      ? [...learnedCandidates].sort(
+          (left, right) =>
+            (right.personalMatch?.score ?? -1) -
+              (left.personalMatch?.score ?? -1) ||
+            confidenceRank(right) - confidenceRank(left) ||
+            right.utilityScore - left.utilityScore ||
+            Date.parse(left.windowStart) - Date.parse(right.windowStart) ||
+            left.candidateId.localeCompare(right.candidateId),
+        )[0]
+      : [
+          ...(physicallyRecommendableCandidates.length > 0
+            ? physicallyRecommendableCandidates
+            : safeCandidates),
+        ].sort(
+          (left, right) =>
+            right.utilityScore - left.utilityScore ||
+            Date.parse(left.windowStart) - Date.parse(right.windowStart) ||
+            left.candidateId.localeCompare(right.candidateId),
+        )[0];
   const holdReason =
     input.recommendationAvailability.state === "none"
       ? input.recommendationAvailability.reasonCode ?? "hold_state_unavailable"
       : null;
-  const verdict = holdReason
-    ? "no"
-    : selected
-      ? verdictForCandidate(selected)
-      : "no";
-  const hasSelection =
-    holdReason === null && selected !== undefined && verdict !== "no";
   const isUnknownSkill = skill === "unknown";
   const hasNoCandidates = input.candidates.length === 0;
   const safetyReasons = Array.from(
     new Set(candidateEvaluations.flatMap(({ reasons }) => reasons)),
   ).sort((left, right) => {
     const priority: CanonicalDecisionReasonCode[] = [
+      "water_quality_closure",
       "beach_skill_exceeds_user",
       "wave_height_exceeds_skill",
       "missing_beach_skill",
@@ -218,6 +260,24 @@ export function buildCanonicalSessionDecision(
     !isUnknownSkill &&
     input.candidates.length > 0 &&
     safeCandidates.length === 0;
+  const safetyOverride =
+    holdReason !== null ||
+    isUnknownSkill ||
+    hasNoCandidates ||
+    noSafeCandidate;
+  const decisionBasis: CanonicalDecisionBasis = safetyOverride
+    ? "safety_override"
+    : learnedCandidates.length > 0
+      ? "personal_match"
+      : "physical_fallback";
+  const verdict = safetyOverride
+    ? "no"
+    : selected
+      ? decisionBasis === "personal_match"
+        ? (personalMatchVerdict(selected) ?? "no")
+        : physicalVerdictForCandidate(selected)
+      : "no";
+  const hasSelection = !safetyOverride && selected !== undefined;
 
   let reasonCode: CanonicalDecisionReasonCode;
   if (holdReason !== null) {
@@ -230,8 +290,10 @@ export function buildCanonicalSessionDecision(
     reasonCode = safetyReasons[0];
   } else if (verdict === "go") {
     reasonCode = "selected_go";
-  } else if (verdict === "consider") {
-    reasonCode = "selected_consider";
+  } else if (verdict === "maybe") {
+    reasonCode = "selected_maybe";
+  } else if (selected) {
+    reasonCode = "selected_no";
   } else {
     reasonCode = "below_minimum_utility";
   }
@@ -266,6 +328,7 @@ export function buildCanonicalSessionDecision(
     expiresAt,
     scope: input.scope,
     verdict,
+    decisionBasis,
     reasonCode,
     selection: hasSelection ? selectionFor(selected, skill) : null,
     skillEligibility: {

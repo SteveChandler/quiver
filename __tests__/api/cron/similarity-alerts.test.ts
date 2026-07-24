@@ -235,7 +235,7 @@ function seedActiveProUser(opts?: {
     lat: 33.6,
     lon: -118.0,
     timezone: "America/Los_Angeles",
-    skill_level: "intermediate",
+    skill_level: "beginner",
     break_type: "beach",
     swell_window_min_deg: 180,
     swell_window_max_deg: 270,
@@ -260,7 +260,7 @@ function seedActiveProUser(opts?: {
       wind_direction: "W",
       wind_direction_deg: 270,
       tide_height: "2.0",
-      tide_status: "rising",
+      tide_status: "Rising",
       swell_1_height: "3.0",
       swell_1_period: "12",
       swell_1_direction: "220",
@@ -465,6 +465,42 @@ describe("similarity-alerts cron — Plan V4", () => {
     expect(store.ruleUpdates).toHaveLength(0);
   });
 
+  it("suppresses a learned GOOD match when the beach exceeds the user's skill", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+    store.beaches[0].skill_level = "advanced";
+    mockRpc.mockImplementation((name: string, args: any) => {
+      if (name === "compute_user_match_score_batch") {
+        return Promise.resolve({
+          data: [
+            {
+              slot_idx: 0,
+              forecast_at: "2026-05-04T18:00:00Z",
+              result: {
+                state: "ready",
+                score: 8.5,
+                label: "GOOD",
+                reason_bullets: ["Strong personal match"],
+              },
+            },
+          ],
+          error: null,
+        });
+      }
+      return rpcImpl(name, args);
+    });
+
+    const res = await GET(makeReq());
+
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toMatchObject({ enqueued: 0 });
+    expect(
+      mockRpc.mock.calls.filter((call: unknown[]) =>
+        call[0] === "try_insert_similarity_alert"
+      )
+    ).toHaveLength(0);
+    expect(store.ruleUpdates).toHaveLength(0);
+  });
+
   it("3. anchor preference: auto_created_at NOT NULL beats user-created (older id)", async () => {
     // Two rules, same user. The user-created one has MIN(id) but NULL
     // auto_created_at — anchor must pick the auto one anyway.
@@ -476,6 +512,7 @@ describe("similarity-alerts cron — Plan V4", () => {
         id: USER_ANCHOR,
         home_beach_id: HOME_BEACH,
         timezone: "America/Los_Angeles",
+        experience_level: "beginner",
         user_entitlements: {
           is_pro: true,
           is_trialing: false,
@@ -492,6 +529,7 @@ describe("similarity-alerts cron — Plan V4", () => {
         id: USER_ANCHOR,
         home_beach_id: HOME_BEACH,
         timezone: "America/Los_Angeles",
+        experience_level: "beginner",
         user_entitlements: {
           is_pro: true,
           is_trialing: false,
@@ -507,6 +545,7 @@ describe("similarity-alerts cron — Plan V4", () => {
       lat: 33.6,
       lon: -118.0,
       timezone: "America/Los_Angeles",
+      skill_level: "beginner",
     });
     store.forecasts.push({
       forecast_at: "2026-05-04T18:00:00Z",
@@ -553,6 +592,7 @@ describe("similarity-alerts cron — Plan V4", () => {
         id: USER_ANCHOR,
         home_beach_id: HOME_BEACH,
         timezone: "America/Los_Angeles",
+        experience_level: "beginner",
         user_entitlements: {
           is_pro: true,
           is_trialing: false,
@@ -569,6 +609,7 @@ describe("similarity-alerts cron — Plan V4", () => {
         id: USER_ANCHOR,
         home_beach_id: HOME_BEACH,
         timezone: "America/Los_Angeles",
+        experience_level: "beginner",
         user_entitlements: {
           is_pro: true,
           is_trialing: false,
@@ -584,6 +625,7 @@ describe("similarity-alerts cron — Plan V4", () => {
       lat: 33.6,
       lon: -118.0,
       timezone: "America/Los_Angeles",
+      skill_level: "beginner",
     });
     store.forecasts.push({
       forecast_at: "2026-05-04T18:00:00Z",
@@ -1040,6 +1082,48 @@ describe("similarity-alerts cron — Plan V4", () => {
     expect(inserts).toHaveLength(0);
   });
 
+  it("filters invalid favorites before applying the five-favorite limit", async () => {
+    seedActiveProUser({ forecastsForBeach: HOME_BEACH });
+    const favoriteIds = Array.from(
+      { length: 6 },
+      (_, index) =>
+        `00000000-0000-0000-0000-0000000000${String(index + 2).padStart(2, "d")}`,
+    );
+    favoriteIds.forEach((beachId, index) => {
+      store.favoriteBeaches.push({
+        beach_id: beachId,
+        user_id: USER_PRO,
+        rank: index + 1,
+      });
+      store.beaches.push({
+        ...store.beaches[0],
+        id: beachId,
+        name: `Favorite ${index + 1}`,
+        slug: index < 5 ? null : "valid-sixth-favorite",
+      });
+    });
+    mockRpc.mockImplementation((name: string, args: any) => {
+      if (name === "compute_user_match_score_batch") {
+        return Promise.resolve({ data: [], error: null });
+      }
+      return rpcImpl(name, args);
+    });
+
+    const response = await GET(makeReq());
+
+    expectConsoleWarnings([
+      /dropping candidate beach .* — null\/empty slug/,
+    ]);
+    expect(response.status).toBe(200);
+    const scoredBeachIds = mockRpc.mock.calls
+      .filter((call: unknown[]) => call[0] === "compute_user_match_score_batch")
+      .map((call: unknown[]) =>
+        (call[1] as { p_beach_id: string }).p_beach_id
+      );
+    expect(scoredBeachIds).toContain(favoriteIds[5]);
+    expect(scoredBeachIds).not.toContain(favoriteIds[0]);
+  });
+
   // Plan V4 fix F2: stamps window_local + wave_height_ft + wave_period_s
   // into conditions_snapshot so the deliver cron can forward them to the
   // registry's push body builder ("4.5ft @ 11s · Sat 8am").
@@ -1091,7 +1175,7 @@ describe("similarity-alerts cron — Plan V4", () => {
       wind_direction: "NW",
       wind_direction_deg: 315,
       tide_height: "2.4",
-      tide_status: "rising",
+      tide_status: "RISING",
       confidence_score: 0.82,
     });
 
@@ -1136,6 +1220,22 @@ describe("similarity-alerts cron — Plan V4", () => {
       confidence: 0.91,
       reason: "cleaner than your usual good sessions",
       condition_summary: "3.5ft @ 12s, NW wind 6mph, rising tide 2.4ft",
+      session_decision: {
+        verdict: "go",
+        decisionBasis: "personal_match",
+        reasonCode: "selected_go",
+        selection: {
+          beachId: HOME_BEACH,
+          windowStart: "2026-05-04T18:00:00Z",
+          evidence: {
+            personalMatch: {
+              score: 8.7,
+              label: "GOOD",
+              reasons: ["cleaner than your usual good sessions"],
+            },
+          },
+        },
+      },
     });
   });
 

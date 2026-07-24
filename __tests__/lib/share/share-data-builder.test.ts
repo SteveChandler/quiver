@@ -38,7 +38,7 @@ function recommendation(
 }
 
 function sessionDecision(
-  verdict: "go" | "consider" | "no" = "go",
+  verdict: "go" | "maybe" | "no" = "go",
   overrides: Partial<CanonicalSessionDecision> = {},
 ): CanonicalSessionDecision {
   return {
@@ -54,7 +54,14 @@ function sessionDecision(
       timezone: "America/Los_Angeles",
     },
     verdict,
-    reasonCode: verdict === "go" ? "selected_go" : "selected_consider",
+    decisionBasis:
+      verdict === "no" ? "safety_override" : "physical_fallback",
+    reasonCode:
+      verdict === "go"
+        ? "selected_go"
+        : verdict === "maybe"
+          ? "selected_maybe"
+          : "below_minimum_utility",
     selection: verdict === "no" ? null : {
       candidateId: "recommendation-1",
       beachId: "test-beach-id",
@@ -71,6 +78,11 @@ function sessionDecision(
         skill: "intermediate",
         state: "eligible",
         reasonCodes: [],
+      },
+      evidence: {
+        conditionScore: 85,
+        recommendationLabel: "Worth it",
+        personalMatch: null,
       },
     },
     skillEligibility: {
@@ -109,10 +121,10 @@ describe("buildSurfCallShareData", () => {
     expect(result?.imageUrl).not.toContain("score=");
   });
 
-  it("uses consider from the decision even when the legacy score is high", () => {
+  it("uses maybe from the decision even when the legacy score is high", () => {
     const result = buildSurfCallShareData({
       recommendation: recommendation({ score: 99 }),
-      sessionDecision: sessionDecision("consider"),
+      sessionDecision: sessionDecision("maybe"),
     });
 
     expect(result?.imageUrl).toContain("verdict=MAYBE");

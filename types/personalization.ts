@@ -219,8 +219,8 @@ export interface DetailedScore {
  *   (e.g. similarity feature disabled for the request).
  * - state="onboarding": Pro/trial user but fewer than the qualifying-session
  *   threshold met. UI shows a "Log a few sessions to unlock" affordance.
- * - state="ready": full readout including the additive bonus that's already
- *   baked into the recommendation's `score` field.
+ * - state="ready": learned evidence used to select the window and determine
+ *   the canonical verdict. Physical `score` remains unchanged.
  */
 export type SimilarityRecommendation =
   | null
@@ -233,8 +233,11 @@ export type SimilarityRecommendation =
       state: "ready";
       score: number;          // raw similarity score 0-10ish from compute_user_match_score
       label: string;          // EPIC | GOOD | FAIR | RIDEABLE | MEH
-      bonusApplied: number;   // additive bonus already injected into recommendation.score (0 if score below threshold)
+      /** @deprecated Similarity no longer mutates the physical condition score. */
+      bonusApplied: number;
+      confidence: "low" | "medium" | "high";
       reason: string;         // 1-2 sentence user-facing copy derived from reason_bullets[0]
+      reasons: string[];
       sessionCount: number;
     };
 
@@ -347,11 +350,9 @@ export interface SurfDiscoveryRecommendation {
   /**
    * Per-recommendation similarity readout (REQUIRED — always present).
    * `null` = free user or feature disabled. Otherwise a state="onboarding"
-   * or state="ready" object. When state="ready" with score >= threshold,
-   * the recommendation's `score` field already includes the additive bonus.
-   *
-   * Ranking authority only — the verdict text in computeSurfCall does NOT
-   * read this field. See feedback_separate_ranking_from_verdict_authority.
+   * or state="ready" object. Learned ready-state matches are kept separate
+   * from the physical condition score and are consumed by the canonical
+   * decision engine as the window-selection and verdict authority.
    */
   similarity: SimilarityRecommendation;
   /** Paid/trial explanation derived from already-present preference signals */
@@ -452,8 +453,8 @@ export interface SurfDiscoveryOptions {
    * Whether the requesting user has Pro/trial entitlement.
    * Default false: free user, similarity layer is skipped and every
    * recommendation gets `similarity: null`. When true, the similarity
-   * layer bulk-scores top-N candidates via compute_user_match_score_batch
-   * and may inject a ranking bonus.
+   * layer bulk-scores eligible candidates via compute_user_match_score_batch
+   * and lets the canonical decision engine select the authoritative window.
    */
   isPro?: boolean;
 }

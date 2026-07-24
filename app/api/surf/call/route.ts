@@ -7,17 +7,24 @@ import {
   validateOrError,
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
-import {
-  getSpotSurfReport,
-  type SpotSurfReportResult,
-} from '@/actions/spot/spot-surf-report-actions';
+import type { SpotSurfReportResult } from '@/actions/spot/spot-surf-report-actions';
 import type { Beach } from '@/types/database';
 import { applyForceVerdict } from '@/lib/utils/dev-force-verdict';
 import { normalizeBoardClass } from '@/lib/domains/rideability';
 import { entitlementFromRow } from '@/lib/alerts/entitlements';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
-import { resolveCanonicalSessionDecision } from '@/lib/recommendations/canonical-decision';
+import { resolveCanonicalSessionDecisionContext } from '@/lib/recommendations/canonical-decision';
 import type { CanonicalSessionDecision } from '@/lib/recommendations/canonical-decision/types';
+import type { SurfDiscoveryRecommendation } from '@/types/personalization';
+import { buildForecastRecommendationContext } from '@/lib/services/forecast-recommendation-context';
+import {
+  computeSurfCall,
+  computeSurfCallTiers,
+} from '@/lib/utils/surf-call-logic';
+import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
+import { checkBoardFit } from '@/lib/domains/scoring/discovery-adapter';
+import type { BoardClass, SkillLevel } from '@/lib/domains/user-preferences';
+import type { RecommendationAvailability } from '@/lib/recommendations/major-event-hold/types';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
@@ -30,47 +37,132 @@ type CanonicalSurfCallResponse = SpotSurfReportResult & {
   sessionDecision: CanonicalSessionDecision;
 };
 
-function applyCanonicalDecisionToSurfCall(
-  result: SpotSurfReportResult,
+function appendBoardNote(whySentence: string, boardNote: string | null): string {
+  if (!boardNote) return whySentence;
+  const sentence = `Board fit: ${boardNote}.`;
+  return whySentence ? `${whySentence} ${sentence}` : sentence;
+}
+
+function safetyReason(decision: CanonicalSessionDecision): string {
+  switch (decision.reasonCode) {
+    case 'water_quality_closure':
+      return 'Water quality is closed at this spot.';
+    case 'major_event_hold':
+      return 'This call is paused while major-event conditions are unresolved.';
+    case 'beach_skill_exceeds_user':
+      return 'This break is above your current skill level.';
+    case 'wave_height_exceeds_skill':
+      return 'The forecast wave height is above your current skill range.';
+    case 'missing_beach_skill':
+    case 'missing_wave_height':
+    case 'unknown_skill':
+    case 'invalid_candidate':
+    case 'hold_state_unavailable':
+      return 'Safety information is incomplete, so Quiver is holding this call.';
+    case 'no_candidates':
+      return 'No safe surf window is available.';
+    default:
+      return 'Quiver is holding this call for safety.';
+  }
+}
+
+function buildCanonicalSurfCall(
   decision: CanonicalSessionDecision,
   requestedBeachId: string,
+  recommendations: SurfDiscoveryRecommendation[],
+  beach: Beach,
+  now: Date,
+  profileExperience: SkillLevel | null,
+  boardClass: BoardClass | null,
+  recommendationAvailability: RecommendationAvailability,
 ): CanonicalSurfCallResponse {
   const selection = decision.selection;
-  const selectionMatchesRequest =
-    decision.verdict !== 'no' &&
+  const selectedRecommendation = selection
+    ? recommendations.find(
+        (recommendation) =>
+          recommendation.recommendationId === selection.candidateId &&
+          recommendation.beach.id === requestedBeachId,
+      ) ?? null
+    : null;
+  const objectiveRecommendation =
+    selectedRecommendation ??
+    recommendations.find(
+      (recommendation) => recommendation.beach.id === requestedBeachId,
+    ) ??
+    null;
+  const window = objectiveRecommendation?.window ?? null;
+  const forecasts = objectiveRecommendation
+    ? [objectiveRecommendation.forecast]
+    : [];
+  const timezone = window?.timezone ?? beach.timezone ?? 'UTC';
+  const isTomorrow = window
+    ? isFutureDayInTimezone(window.start, timezone)
+    : false;
+  const baseline = computeSurfCall(
+    window,
+    forecasts,
+    beach,
+    { isTomorrow },
+  );
+  const exactSelection =
     selection !== null &&
+    selectedRecommendation !== null &&
     selection.beachId === requestedBeachId;
-
-  if (!selectionMatchesRequest) {
-    return {
-      ...result,
-      report: {
-        ...result.report,
-        verdict: 'NO',
-        bestWindowStart: null,
-        bestWindowEnd: null,
-        windowMinutes: null,
-        shortWindow: false,
-        whySentence: '',
-        score: 0,
-        peakTime: null,
-        trendTags: [],
-        character: null,
-        tiers: null,
-      },
-      sessionDecision: decision,
-    };
-  }
+  const forecastContext = exactSelection && window
+    ? buildForecastRecommendationContext({
+        beach,
+        forecasts,
+        window,
+        now,
+        timezone,
+      })
+    : null;
+  const boardNote =
+    exactSelection && window && profileExperience && boardClass
+      ? checkBoardFit(
+          Number.parseFloat(window.waveHeight),
+          profileExperience,
+          boardClass,
+        ).note
+      : null;
+  const personalReasons =
+    selection?.evidence.personalMatch?.reasons.join(' ') ?? '';
+  const whySentence = appendBoardNote(
+    decision.decisionBasis === 'safety_override'
+      ? safetyReason(decision)
+      : personalReasons || baseline.whySentence,
+    boardNote,
+  );
+  const report = {
+    ...baseline,
+    verdict:
+      decision.verdict === 'go'
+        ? 'YES' as const
+        : decision.verdict === 'maybe'
+          ? 'MAYBE' as const
+          : 'NO' as const,
+    bestWindowStart: exactSelection ? selection.windowStart : null,
+    bestWindowEnd: exactSelection ? selection.windowEnd : null,
+    windowMinutes: exactSelection ? baseline.windowMinutes : null,
+    shortWindow: exactSelection ? baseline.shortWindow : false,
+    whySentence,
+    score: exactSelection
+      ? selection.evidence.conditionScore
+      : baseline.score,
+    peakTime: exactSelection ? baseline.peakTime : null,
+    tiers:
+      decision.decisionBasis === 'physical_fallback' && window
+        ? computeSurfCallTiers(window, forecasts, beach, { isTomorrow })
+        : null,
+    userTier: profileExperience,
+    skillSource: profileExperience ? 'profile' as const : null,
+    recommendationAvailability,
+  };
 
   return {
-    ...result,
-    report: {
-      ...result.report,
-      verdict: decision.verdict === 'go' ? 'YES' : 'MAYBE',
-      bestWindowStart: selection.windowStart,
-      bestWindowEnd: selection.windowEnd,
-      peakTime: selection.windowStart,
-    },
+    report,
+    isTomorrow,
+    forecastContext,
     sessionDecision: decision,
   };
 }
@@ -98,10 +190,12 @@ async function surfCallHandler(
   }
 
   const { beachId } = validation.data;
-  const boardClass = normalizeBoardClass(searchParams.get('boardClass'));
+  const boardClass = normalizeBoardClass(
+    searchParams.get('boardClass'),
+  ) as BoardClass | null;
 
-  // Narrow column list — only what getSpotSurfReport, selectBestWindow, and
-  // computeSurfCall actually read. Skips the heavy text/jsonb columns
+  // Narrow column list — only what discovery and computeSurfCall read. Skips
+  // the heavy text/jsonb columns
   // (description, terrain_*, access_tips, geog, etc.) that the surf-call
   // chain doesn't touch but `select('*')` would otherwise pull on every
   // 5-min refetch from the native client.
@@ -130,25 +224,7 @@ async function surfCallHandler(
   }
   const typedBeach = beach as unknown as Beach;
 
-  const rawResult = await getSpotSurfReport(
-    typedBeach,
-    boardClass,
-    { user, supabase }
-  );
-  if (!rawResult) {
-    return NextResponse.json(
-      { success: false, error: 'Unable to compute surf call' },
-      { status: 503 }
-    );
-  }
-
-  const result = applyForceVerdict(
-    rawResult,
-    searchParams.get('_forceVerdict'),
-    process.env.NODE_ENV !== 'production',
-  ) as SpotSurfReportResult;
-
-  let profileExperience: unknown = null;
+  let profileExperience: SkillLevel | null = null;
   try {
     profileExperience = await getProfileExperienceLevel(supabase, user.id);
   } catch {
@@ -162,7 +238,7 @@ async function surfCallHandler(
   const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
   const anchor = new Date();
   const anchorTime = anchor.toISOString();
-  const sessionDecision = await resolveCanonicalSessionDecision({
+  const canonicalContext = await resolveCanonicalSessionDecisionContext({
     userId: user.id,
     profileExperience,
     anchorTime,
@@ -182,10 +258,34 @@ async function surfCallHandler(
       isPro,
     },
   });
-
-  return createSuccessResponse(
-    applyCanonicalDecisionToSurfCall(result, sessionDecision, beachId),
+  const sessionDecision = canonicalContext.decision;
+  const recommendations = [
+    ...canonicalContext.discovery.recommendations,
+    ...(canonicalContext.discovery.includedRecommendations ?? []),
+  ];
+  const recommendationAvailability =
+    canonicalContext.discovery.recommendationAvailability ?? {
+      state: 'none' as const,
+      reasonCode: 'hold_state_unavailable' as const,
+      holdEpoch: sessionDecision.holdEpoch,
+    };
+  const canonicalResult = buildCanonicalSurfCall(
+    sessionDecision,
+    beachId,
+    recommendations,
+    typedBeach,
+    anchor,
+    profileExperience,
+    boardClass,
+    recommendationAvailability,
   );
+  const result = applyForceVerdict(
+    canonicalResult,
+    searchParams.get('_forceVerdict'),
+    process.env.NODE_ENV !== 'production',
+  ) as CanonicalSurfCallResponse;
+
+  return createSuccessResponse(result);
 }
 
 const protectedGET = withRateLimit(
