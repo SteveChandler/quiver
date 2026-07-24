@@ -1,5 +1,7 @@
 -- Align similarity alert queue deduplication with the canonical Surf Call:
 -- the same user, beach, forecast window, and verdict may be queued only once.
+-- Treat snapshots from the currently deployed legacy producer, which omit
+-- session_decision, as "go" until that producer is replaced.
 -- The previous user/day index was stricter, so existing rows cannot conflict
 -- with this broader composite key when the replacement index is created.
 
@@ -12,13 +14,18 @@ CREATE UNIQUE INDEX alert_queue_similarity_canonical_decision_dedupe
     user_id,
     beach_id,
     window_start,
-    ((conditions_snapshot -> 'session_decision' ->> 'verdict'))
+    (
+      CASE
+        WHEN conditions_snapshot ? 'session_decision'
+          THEN conditions_snapshot -> 'session_decision' ->> 'verdict'
+        ELSE 'go'
+      END
+    )
   )
-  WHERE (conditions_snapshot ->> 'alert_type') = 'similarity_match'
-    AND (conditions_snapshot -> 'session_decision' ->> 'verdict') IS NOT NULL;
+  WHERE (conditions_snapshot ->> 'alert_type') = 'similarity_match';
 
 COMMENT ON INDEX public.alert_queue_similarity_canonical_decision_dedupe IS
-  'Deduplicates similarity alerts by user, beach, forecast window, and canonical session verdict.';
+  'Deduplicates similarity alerts by user, beach, forecast window, and canonical session verdict; legacy missing verdicts are treated as go.';
 
 DROP INDEX IF EXISTS public.alert_queue_one_similarity_per_user_day;
 
@@ -48,7 +55,11 @@ BEGIN
       coalesce(p_conditions_snapshot ->> 'alert_type', '<null>');
   END IF;
 
-  v_verdict := p_conditions_snapshot -> 'session_decision' ->> 'verdict';
+  v_verdict := CASE
+    WHEN p_conditions_snapshot ? 'session_decision'
+      THEN p_conditions_snapshot -> 'session_decision' ->> 'verdict'
+    ELSE 'go'
+  END;
   IF v_verdict IS NULL OR v_verdict NOT IN ('go', 'maybe', 'no') THEN
     RAISE EXCEPTION
       'try_insert_similarity_alert requires a canonical session_decision.verdict (got: %)',
@@ -82,10 +93,15 @@ BEGIN
     user_id,
     beach_id,
     window_start,
-    ((conditions_snapshot -> 'session_decision' ->> 'verdict'))
+    (
+      CASE
+        WHEN conditions_snapshot ? 'session_decision'
+          THEN conditions_snapshot -> 'session_decision' ->> 'verdict'
+        ELSE 'go'
+      END
+    )
   )
   WHERE (conditions_snapshot ->> 'alert_type') = 'similarity_match'
-    AND (conditions_snapshot -> 'session_decision' ->> 'verdict') IS NOT NULL
   DO NOTHING
   RETURNING id INTO v_id;
 
@@ -132,7 +148,7 @@ COMMENT ON FUNCTION public.try_insert_similarity_alert(
   timestamptz,
   jsonb
 ) IS
-  'Idempotently queues a similarity alert by user, beach, window, and canonical verdict.';
+  'Idempotently queues a similarity alert by user, beach, window, and canonical verdict; legacy missing verdicts are treated as go.';
 
 NOTIFY pgrst, 'reload schema';
 
