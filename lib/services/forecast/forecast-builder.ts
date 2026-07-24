@@ -23,6 +23,11 @@ import {
   parseDisplayHeightFt,
 } from "./apply-beach-height-offset";
 import {
+  applyFeedbackHeightCalibration,
+  loadFeedbackHeightCalibrationForBeach,
+  type FeedbackHeightCalibrationCandidate,
+} from "./feedback-height-calibration";
+import {
   logDisplayPredictions,
   type DisplayPredictionRow,
 } from "./log-display-prediction";
@@ -231,6 +236,8 @@ export interface ForecastInputs {
    * and wave_height is byte-identical to today's output.
    */
   heightOffset?: BeachHeightOffsetRow | null;
+  /** Optional active temporary feedback calibration, loaded once per beach. */
+  feedbackCalibrationCandidate?: FeedbackHeightCalibrationCandidate | null;
   /** Optional report-only GFS-Wave issue-time source shadow data. */
   gfsWaveData?: GfsWaveShadowForecast | null;
 }
@@ -338,6 +345,7 @@ export class ForecastBuilder {
       nowcastAnchor,
       southOcSanoShadowZoneSnapshot,
       heightOffset,
+      feedbackCalibrationCandidate,
       gfsWaveData,
     } = inputs;
     const forecasts: EnhancedForecastWithRawData[] = [];
@@ -355,6 +363,10 @@ export class ForecastBuilder {
     if (resolvedOffset === undefined && beachOffsetCfg.enabled) {
       resolvedOffset = await this.loadOffsetForBeach(beach.id);
     }
+    const resolvedFeedbackCalibration =
+      feedbackCalibrationCandidate === undefined
+        ? await loadFeedbackHeightCalibrationForBeach(beach.id, now)
+        : feedbackCalibrationCandidate;
 
     // Snapshot buffer for ml_predictions_log. Captured pre-offset (telemetry
     // feedback-loop invariant) inside buildSingleForecast and flushed after
@@ -469,6 +481,7 @@ export class ForecastBuilder {
         nowcastAnchor: effectiveAnchor,
         southOcSanoGuardrail,
         heightOffset: resolvedOffset ?? null,
+        feedbackCalibrationCandidate: resolvedFeedbackCalibration ?? null,
         snapshotBuffer,
         calibrationCoverage,
         handoffBlendState,
@@ -578,6 +591,7 @@ export class ForecastBuilder {
     nowcastAnchor: NowcastAnchor | null;
     southOcSanoGuardrail: SouthOcSanoGuardrailResult;
     heightOffset: BeachHeightOffsetRow | null;
+    feedbackCalibrationCandidate: FeedbackHeightCalibrationCandidate | null;
     snapshotBuffer: DisplayPredictionRow[];
     calibrationCoverage: CalibrationCoverage;
     handoffBlendState: ForecastHandoffBlendState;
@@ -606,6 +620,7 @@ export class ForecastBuilder {
       nowcastAnchor,
       southOcSanoGuardrail,
       heightOffset,
+      feedbackCalibrationCandidate,
       snapshotBuffer,
       calibrationCoverage,
       handoffBlendState,
@@ -748,15 +763,31 @@ export class ForecastBuilder {
       correctedFt != null &&
       Math.abs(correctedFt - rawDisplayHeightFt) > 1e-6;
 
-    // Re-stringify ONLY when the offset actually changed the value. When no
-    // offset applied (any gate failed) we leave the original string untouched
-    // so wave_height is byte-identical to today's output. Reformatting an
-    // unchanged value would needlessly diverge ("3 ft" → "3ft") and break the
-    // height_offset_enabled=false invariant.
+    const feedbackCalibration =
+      correctedFt == null
+        ? {
+            heightFt: correctedFt,
+            applied: false,
+            candidateId: null,
+            offsetFt: null,
+          }
+        : applyFeedbackHeightCalibration({
+            heightFt: correctedFt,
+            rawDisplayLabel: waveHeightResult.value,
+            forecastAt,
+            candidate: feedbackCalibrationCandidate,
+            now,
+          });
+    const finalCorrectedFt = feedbackCalibration.heightFt;
+    const anyOffsetApplied =
+      offsetActuallyApplied || feedbackCalibration.applied;
+
+    // Re-stringify only when one of the two ordered offset layers changed the
+    // display. Otherwise preserve the original string byte-for-byte.
     const finalWaveHeightString =
-      offsetActuallyApplied && correctedFt != null
+      anyOffsetApplied && finalCorrectedFt != null
         ? formatDisplayHeightFt({
-            numericFt: correctedFt,
+            numericFt: finalCorrectedFt,
             rangeSpread: parsedDisplay.rangeSpread,
           })
         : waveHeightResult.value;
@@ -774,12 +805,12 @@ export class ForecastBuilder {
     const forecastHorizonBucket = getForecastAccuracyHorizonBucket(horizonInt);
     if (
       rawDisplayHeightFt != null &&
-      correctedFt != null &&
+      finalCorrectedFt != null &&
       horizonInt <= 168 &&
       forecastHorizonBucket
     ) {
       const rawDisplayHeightM = rawDisplayHeightFt / METERS_TO_FEET;
-      const correctedDisplayM = correctedFt / METERS_TO_FEET;
+      const correctedDisplayM = finalCorrectedFt / METERS_TO_FEET;
 
       // v5 shadow inputs. Direction comes from NOAA primary swell to match
       // the calibration audits' bucketing; OM direction is a documented
@@ -829,6 +860,10 @@ export class ForecastBuilder {
         height_offset_sample_count: offsetActuallyApplied
           ? heightOffset?.sample_count ?? null
           : null,
+        feedback_height_calibration_candidate_id:
+          feedbackCalibration.candidateId,
+        feedback_height_offset_ft: feedbackCalibration.offsetFt,
+        feedback_height_calibration_applied: feedbackCalibration.applied,
         display_source: "face-Hs-transformer-v1",
         display_wave_source: waveHeightResult.debug.source,
         display_raw_input_height_m: displayRawInputHeightM,

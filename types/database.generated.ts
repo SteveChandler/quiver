@@ -996,6 +996,80 @@ export type Database = {
           },
         ]
       }
+      beach_feedback_calibration_candidates: {
+        Row: {
+          activated_at: string | null
+          beach_id: string
+          created_at: string
+          decision_reason: string
+          evidence_summary: Json
+          evidence_window_end: string | null
+          evidence_window_start: string | null
+          expires_at: string | null
+          id: string
+          mae_after_ft: number
+          mae_before_ft: number
+          offset_ft: number
+          rejected_at: string | null
+          residual_direction: string
+          sample_count: number
+          shadow_started_at: string | null
+          status: string
+          unique_user_count: number
+          updated_at: string
+        }
+        Insert: {
+          activated_at?: string | null
+          beach_id: string
+          created_at?: string
+          decision_reason: string
+          evidence_summary?: Json
+          evidence_window_end?: string | null
+          evidence_window_start?: string | null
+          expires_at?: string | null
+          id?: string
+          mae_after_ft: number
+          mae_before_ft: number
+          offset_ft: number
+          rejected_at?: string | null
+          residual_direction: string
+          sample_count: number
+          shadow_started_at?: string | null
+          status?: string
+          unique_user_count: number
+          updated_at?: string
+        }
+        Update: {
+          activated_at?: string | null
+          beach_id?: string
+          created_at?: string
+          decision_reason?: string
+          evidence_summary?: Json
+          evidence_window_end?: string | null
+          evidence_window_start?: string | null
+          expires_at?: string | null
+          id?: string
+          mae_after_ft?: number
+          mae_before_ft?: number
+          offset_ft?: number
+          rejected_at?: string | null
+          residual_direction?: string
+          sample_count?: number
+          shadow_started_at?: string | null
+          status?: string
+          unique_user_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beach_feedback_calibration_candidates_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       beach_forecast_accuracy: {
         Row: {
           avg_confidence_accuracy: number | null
@@ -5192,6 +5266,9 @@ export type Database = {
           display_raw_input_height_m: number | null
           display_source: string | null
           display_wave_source: string | null
+          feedback_height_calibration_applied: boolean
+          feedback_height_calibration_candidate_id: string | null
+          feedback_height_offset_ft: number | null
           forecast_horizon_bucket: string | null
           forecast_horizon_hours: number | null
           height_offset_m: number | null
@@ -5260,6 +5337,9 @@ export type Database = {
           display_raw_input_height_m?: number | null
           display_source?: string | null
           display_wave_source?: string | null
+          feedback_height_calibration_applied?: boolean
+          feedback_height_calibration_candidate_id?: string | null
+          feedback_height_offset_ft?: number | null
           forecast_horizon_bucket?: string | null
           forecast_horizon_hours?: number | null
           height_offset_m?: number | null
@@ -5328,6 +5408,9 @@ export type Database = {
           display_raw_input_height_m?: number | null
           display_source?: string | null
           display_wave_source?: string | null
+          feedback_height_calibration_applied?: boolean
+          feedback_height_calibration_candidate_id?: string | null
+          feedback_height_offset_ft?: number | null
           forecast_horizon_bucket?: string | null
           forecast_horizon_hours?: number | null
           height_offset_m?: number | null
@@ -5385,6 +5468,13 @@ export type Database = {
           wind_wave_period_om?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ml_predictions_log_feedback_height_candidate_fkey"
+            columns: ["feedback_height_calibration_candidate_id"]
+            isOneToOne: false
+            referencedRelation: "beach_feedback_calibration_candidates"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ml_predictions_log_beach_id_fkey"
             columns: ["beach_id"]

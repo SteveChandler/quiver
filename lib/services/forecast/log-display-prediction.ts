@@ -44,6 +44,12 @@ export type DisplayPredictionRow = {
   height_offset_m: number | null;
   /** Sample count backing the offset, or null when no offset applied. */
   height_offset_sample_count: number | null;
+  /** Active temporary feedback calibration that changed the final display. */
+  feedback_height_calibration_candidate_id: string | null;
+  /** Temporary feedback residual offset in feet, or null when not applied. */
+  feedback_height_offset_ft: number | null;
+  /** True only when the temporary feedback layer changed the final display. */
+  feedback_height_calibration_applied: boolean;
   /** Display path identifier, e.g. 'face-Hs-transformer-v1'. */
   display_source: string;
   /**
@@ -209,6 +215,11 @@ export async function logDisplayPredictions(
       offset_corrected_display_height_m: r.offset_corrected_display_height_m,
       height_offset_m: r.height_offset_m,
       height_offset_sample_count: r.height_offset_sample_count,
+      feedback_height_calibration_candidate_id:
+        r.feedback_height_calibration_candidate_id,
+      feedback_height_offset_ft: r.feedback_height_offset_ft,
+      feedback_height_calibration_applied:
+        r.feedback_height_calibration_applied,
       display_source: r.display_source,
       display_wave_source: r.display_wave_source,
       display_raw_input_height_m: r.display_raw_input_height_m,
