@@ -242,6 +242,7 @@ async function surfCallHandler(
     userId: user.id,
     profileExperience,
     anchorTime,
+    candidateBeachIds: [beachId],
     scope: {
       kind: 'plan_next_session',
       windowStart: anchorTime,

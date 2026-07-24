@@ -17,6 +17,8 @@ export interface ResolveCanonicalSessionDecisionInput {
   profileExperience: unknown;
   anchorTime: string;
   scope: CanonicalDecisionScope;
+  /** Restrict verdict selection to these beaches while preserving discovery context. */
+  candidateBeachIds?: readonly string[];
   discoveryOptions: Omit<SurfDiscoveryOptions, "maxResults">;
 }
 
@@ -49,6 +51,14 @@ export async function resolveCanonicalSessionDecisionContext(
       candidate.recommendationId === recommendation.recommendationId
     )) === index
   ));
+  const candidateBeachIds = input.candidateBeachIds
+    ? new Set(input.candidateBeachIds)
+    : null;
+  const decisionRecommendations = candidateBeachIds
+    ? recommendations.filter((recommendation) =>
+        candidateBeachIds.has(recommendation.beach.id),
+      )
+    : recommendations;
 
   const decision = buildCanonicalDecisionFromSurfDiscovery({
     anchorTime: input.anchorTime,
@@ -59,7 +69,7 @@ export async function resolveCanonicalSessionDecisionContext(
       reasonCode: "hold_state_unavailable",
       holdEpoch: "hold-state-unavailable",
     },
-    recommendations,
+    recommendations: decisionRecommendations,
   });
 
   return { decision, discovery };

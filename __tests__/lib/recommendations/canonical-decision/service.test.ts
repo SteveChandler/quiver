@@ -163,6 +163,67 @@ describe("canonical session decision service", () => {
     expect(decision.selection?.beachId).toBe("included");
   });
 
+  it("restricts the canonical decision to explicitly requested candidate beaches", async () => {
+    const { resolveCanonicalSessionDecisionContext } = loadService();
+    const requestedBeach = {
+      ...discoveryRecommendation(),
+      recommendationId: "beach:bowls:2026-07-23T16:00:00.000Z",
+      beach: {
+        id: "bowls",
+        name: "Ala Moana Bowls",
+        skill_level: "intermediate",
+      },
+      window: {
+        start: new Date("2026-07-23T16:00:00.000Z"),
+        end: new Date("2026-07-23T19:00:00.000Z"),
+        timezone: "Pacific/Honolulu",
+      },
+      forecast: {
+        id: "forecast-bowls",
+        beach_id: "bowls",
+        forecast_at: "2026-07-23T16:00:00.000Z",
+        wave_height: "3-4 ft",
+      },
+      score: 70,
+      recommendationLabel: "Maybe",
+    };
+    const discovery = {
+      recommendations: [discoveryRecommendation()],
+      includedRecommendations: [requestedBeach],
+      recommendationAvailability: {
+        state: "available",
+        holdEpoch: "hold-epoch-1",
+      },
+    };
+    const discoverSurfSpots = jest.fn().mockResolvedValue(discovery);
+
+    const result = (await resolveCanonicalSessionDecisionContext(
+      {
+        userId: "user-1",
+        profileExperience: "intermediate",
+        anchorTime: "2026-07-22T18:00:00.000Z",
+        scope: {
+          kind: "plan_next_session",
+          windowStart: "2026-07-22T18:00:00.000Z",
+          windowEnd: "2026-07-23T20:00:00.000Z",
+          timezone: "Pacific/Honolulu",
+        },
+        candidateBeachIds: ["bowls"],
+        discoveryOptions: {
+          includeBeachIds: ["bowls"],
+          horizonHours: 24,
+        },
+      },
+      { discoverSurfSpots },
+    )) as {
+      decision: { selection: { beachId: string } | null };
+      discovery: Record<string, unknown>;
+    };
+
+    expect(result.decision.selection?.beachId).toBe("bowls");
+    expect(result.discovery).toBe(discovery);
+  });
+
   it("returns the exact discovery payload used to make the decision", async () => {
     const { resolveCanonicalSessionDecisionContext } = loadService();
     const discovery = {

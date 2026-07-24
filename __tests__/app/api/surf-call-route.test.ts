@@ -195,6 +195,11 @@ describe("GET /api/surf/call", () => {
     );
     const body = await response.json();
 
+    expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        candidateBeachIds: [beachId],
+      }),
+    );
     expect(body.data.sessionDecision).toMatchObject({
       decisionId: "d".repeat(64),
       verdict: "maybe",
