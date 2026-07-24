@@ -34,7 +34,20 @@ function normalizeIanaTimezone(value: unknown): string | null {
  */
 export const POST = withAuth(async (request: NextRequest, { user, supabase }) => {
   const body = await request.json();
-  const { platform, device_token, app_version, build_number, os_version, expo_sdk, timezone } = body;
+  const {
+    platform,
+    device_token,
+    app_version,
+    build_number,
+    os_version,
+    expo_sdk,
+    timezone,
+    expo_update_id,
+    expo_channel,
+    expo_runtime_version,
+    expo_is_embedded_launch,
+    expo_is_emergency_launch,
+  } = body;
 
   if (!platform || !device_token) {
     return NextResponse.json(
@@ -80,14 +93,16 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
     );
   }
 
-  // Phase 5l: optional device metadata. Each capped at 32 chars to keep
-  // dashboard/log payloads small. Bad values fail loudly rather than silently
-  // truncating.
-  for (const [field, value] of [
-    ["app_version", app_version],
-    ["build_number", build_number],
-    ["os_version", os_version],
-    ["expo_sdk", expo_sdk],
+  // Optional device metadata is bounded to keep dashboard/log payloads small.
+  // Bad values fail loudly rather than silently truncating.
+  for (const [field, value, maxLength] of [
+    ["app_version", app_version, 32],
+    ["build_number", build_number, 32],
+    ["os_version", os_version, 32],
+    ["expo_sdk", expo_sdk, 32],
+    ["expo_update_id", expo_update_id, 64],
+    ["expo_channel", expo_channel, 64],
+    ["expo_runtime_version", expo_runtime_version, 64],
   ] as const) {
     if (value !== undefined && value !== null) {
       if (typeof value !== "string") {
@@ -102,16 +117,32 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
       }
       const normalizedValue = value.trim();
       if (normalizedValue.length === 0) continue;
-      if (normalizedValue.length > 32) {
+      if (normalizedValue.length > maxLength) {
         return NextResponse.json(
           {
             success: false,
-            error: `${field} exceeds maximum length of 32 characters`,
+            error: `${field} exceeds maximum length of ${maxLength} characters`,
             timestamp: new Date().toISOString(),
           },
           { status: 400 }
         );
       }
+    }
+  }
+
+  for (const [field, value] of [
+    ["expo_is_embedded_launch", expo_is_embedded_launch],
+    ["expo_is_emergency_launch", expo_is_emergency_launch],
+  ] as const) {
+    if (value !== undefined && value !== null && typeof value !== "boolean") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `${field} must be a boolean`,
+          timestamp: new Date().toISOString(),
+        },
+        { status: 400 }
+      );
     }
   }
 
@@ -145,6 +176,27 @@ export const POST = withAuth(async (request: NextRequest, { user, supabase }) =>
   if (normalizedOsVersion) upsertRow.os_version = normalizedOsVersion;
   if (normalizedExpoSdk) upsertRow.expo_sdk = normalizedExpoSdk;
   if (normalizedTimezone) upsertRow.timezone = normalizedTimezone;
+
+  for (const [field, value] of [
+    ["expo_update_id", expo_update_id],
+    ["expo_channel", expo_channel],
+    ["expo_runtime_version", expo_runtime_version],
+  ] as const) {
+    if (value === null) {
+      upsertRow[field] = null;
+      continue;
+    }
+
+    const normalizedValue = normalizeOptionalMetadata(value);
+    if (normalizedValue) upsertRow[field] = normalizedValue;
+  }
+
+  for (const [field, value] of [
+    ["expo_is_embedded_launch", expo_is_embedded_launch],
+    ["expo_is_emergency_launch", expo_is_emergency_launch],
+  ] as const) {
+    if (value !== undefined) upsertRow[field] = value;
+  }
 
   const { error: upsertError } = await supabase
     .from("user_devices")

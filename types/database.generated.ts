@@ -9247,7 +9247,12 @@ export type Database = {
           build_number: string | null
           created_at: string
           device_token: string
+          expo_channel: string | null
+          expo_is_embedded_launch: boolean | null
+          expo_is_emergency_launch: boolean | null
+          expo_runtime_version: string | null
           expo_sdk: string | null
+          expo_update_id: string | null
           id: string
           os_version: string | null
           platform: string
@@ -9260,7 +9265,12 @@ export type Database = {
           build_number?: string | null
           created_at?: string
           device_token: string
+          expo_channel?: string | null
+          expo_is_embedded_launch?: boolean | null
+          expo_is_emergency_launch?: boolean | null
+          expo_runtime_version?: string | null
           expo_sdk?: string | null
+          expo_update_id?: string | null
           id?: string
           os_version?: string | null
           platform: string
@@ -9273,7 +9283,12 @@ export type Database = {
           build_number?: string | null
           created_at?: string
           device_token?: string
+          expo_channel?: string | null
+          expo_is_embedded_launch?: boolean | null
+          expo_is_emergency_launch?: boolean | null
+          expo_runtime_version?: string | null
           expo_sdk?: string | null
+          expo_update_id?: string | null
           id?: string
           os_version?: string | null
           platform?: string
