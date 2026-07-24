@@ -20,6 +20,7 @@ import type {
 } from "../forecast-builder";
 import type { Beach } from "@/types/database";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
+import type { FeedbackHeightCalibrationCandidate } from "../feedback-height-calibration";
 
 // Capture insert calls so we can assert no snapshot ever leaks out (the
 // fire-and-forget invariant — we are testing the buffer, not the writer).
@@ -47,13 +48,14 @@ jest.mock("@/lib/logger", () => ({
 
 // Pin getWaveHeight output to a known string so we can deterministically
 // reason about parser/formatter/offset interactions.
+let mockWaveHeightValue = "3 ft";
 jest.mock("@/lib/utils/wave-formatters", () => {
   const actual = jest.requireActual("@/lib/utils/unit-conversions");
   return {
-    toFaceHeightFeet: jest.fn(() => "3 ft"),
-    toFaceHeightFeetDecomposed: jest.fn(() => "3 ft"),
+    toFaceHeightFeet: jest.fn(() => mockWaveHeightValue),
+    toFaceHeightFeetDecomposed: jest.fn(() => mockWaveHeightValue),
     toFaceHeightFeetDecomposedWithDebug: jest.fn(() => ({
-      value: "3 ft",
+      value: mockWaveHeightValue,
       debug: {
         source: "model_swell",
         rawHeightFt: 3,
@@ -167,9 +169,87 @@ const newBuilder = () =>
 
 describe("ForecastBuilder per-beach height-offset hook", () => {
   beforeEach(() => {
+    delete process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED;
+    mockWaveHeightValue = "3 ft";
     capturedSnapshotRows = [];
     insertMock.mockClear();
     fromMock.mockClear();
+  });
+
+  it("applies the temporary feedback layer after the existing beach offset", async () => {
+    process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED = "true";
+    const flagBeach = {
+      ...baseBeach,
+      height_offset_enabled: true,
+    } as unknown as Beach;
+    const offsetRow: BeachHeightOffsetRow = {
+      offset_m: 0.1524,
+      sample_count: 60,
+      mae_before_m: 0.4,
+      mae_after_m: 0.18,
+      computed_at: new Date().toISOString(),
+    };
+    const candidate: FeedbackHeightCalibrationCandidate = {
+      id: "candidate-1",
+      beach_id: "beach-1",
+      status: "active_temp",
+      offset_ft: 0.5,
+      sample_count: 5,
+      unique_user_count: 3,
+      activated_at: new Date(Date.now() - 60_000).toISOString(),
+      expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    const builder = newBuilder();
+    await builder.buildForecasts(
+      buildInputs({
+        beach: flagBeach,
+        heightOffset: offsetRow,
+        feedbackCalibrationCandidate: candidate,
+      }),
+    );
+
+    const bothApplied = capturedSnapshotRows.filter(
+      (row) =>
+        row.height_offset_m != null &&
+        row.feedback_height_calibration_applied === true,
+    );
+    expect(bothApplied.length).toBeGreaterThan(0);
+    for (const row of bothApplied) {
+      expect(row.height_offset_m).toBe(0.1524);
+      expect(row.feedback_height_calibration_candidate_id).toBe("candidate-1");
+      expect(row.feedback_height_offset_ft).toBe(0.5);
+      expect(
+        row.raw_display_height_m - row.offset_corrected_display_height_m,
+      ).toBeCloseTo(0.3048, 2);
+    }
+  });
+
+  it("preserves range formatting when the temporary layer applies", async () => {
+    process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED = "true";
+    mockWaveHeightValue = "3-4ft";
+    const candidate: FeedbackHeightCalibrationCandidate = {
+      id: "candidate-1",
+      beach_id: "beach-1",
+      status: "active_temp",
+      offset_ft: 0.5,
+      sample_count: 5,
+      unique_user_count: 3,
+      activated_at: new Date(Date.now() - 60_000).toISOString(),
+      expires_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+    };
+
+    const forecasts = await newBuilder().buildForecasts(
+      buildInputs({
+        heightOffset: null,
+        feedbackCalibrationCandidate: candidate,
+      }),
+    );
+
+    expect(forecasts.length).toBeGreaterThan(0);
+    for (const forecast of forecasts) {
+      expect(forecast.wave_height).toBe("2-4ft");
+    }
   });
 
   it("flag disabled → wave_height byte-identical to today's getWaveHeight output", async () => {
