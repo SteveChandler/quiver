@@ -46,7 +46,15 @@ export async function loadFeedbackHeightCalibrationForBeach(
       .limit(1)
       .maybeSingle();
 
-    if (error || !data) return null;
+    if (error) {
+      log.warn("active feedback calibration lookup failed", {
+        beachId,
+        error: error.message,
+        code: error.code,
+      });
+      return null;
+    }
+    if (!data) return null;
     return data as unknown as FeedbackHeightCalibrationCandidate;
   } catch (error) {
     log.warn("active feedback calibration lookup failed", {

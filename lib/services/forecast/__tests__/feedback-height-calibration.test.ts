@@ -1,7 +1,35 @@
 import {
   applyFeedbackHeightCalibration,
+  loadFeedbackHeightCalibrationForBeach,
   type FeedbackHeightCalibrationCandidate,
 } from "../feedback-height-calibration";
+
+const mockWarn = jest.fn();
+const mockMaybeSingle = jest.fn();
+const mockQuery = {
+  select: jest.fn().mockReturnThis(),
+  eq: jest.fn().mockReturnThis(),
+  gt: jest.fn().mockReturnThis(),
+  limit: jest.fn().mockReturnThis(),
+  maybeSingle: mockMaybeSingle,
+};
+const originalFeedbackHeightCalibrationEnabled =
+  process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED;
+
+jest.mock("@/lib/supabase", () => ({
+  createServiceRoleClient: () => ({
+    from: jest.fn(() => mockQuery),
+  }),
+}));
+
+jest.mock("@/lib/logger", () => ({
+  createContextLogger: () => ({
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: (...args: unknown[]) => mockWarn(...args),
+    error: jest.fn(),
+  }),
+}));
 
 const now = new Date("2026-07-24T03:00:00.000Z");
 const candidate: FeedbackHeightCalibrationCandidate = {
@@ -16,6 +44,42 @@ const candidate: FeedbackHeightCalibrationCandidate = {
 };
 
 describe("temporary feedback height calibration", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED = "true";
+  });
+
+  afterAll(() => {
+    if (originalFeedbackHeightCalibrationEnabled === undefined) {
+      delete process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED;
+      return;
+    }
+    process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED =
+      originalFeedbackHeightCalibrationEnabled;
+  });
+
+  it("logs a returned Supabase error while failing open", async () => {
+    mockMaybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: {
+        message: "relation does not exist",
+        code: "42P01",
+      },
+    });
+
+    await expect(
+      loadFeedbackHeightCalibrationForBeach("beach-1", now),
+    ).resolves.toBeNull();
+    expect(mockWarn).toHaveBeenCalledWith(
+      "active feedback calibration lookup failed",
+      {
+        beachId: "beach-1",
+        error: "relation does not exist",
+        code: "42P01",
+      },
+    );
+  });
+
   it("applies a bounded active candidate after the caller's current height", () => {
     expect(
       applyFeedbackHeightCalibration({
