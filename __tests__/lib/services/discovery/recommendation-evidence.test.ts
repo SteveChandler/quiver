@@ -20,7 +20,9 @@ describe('buildRecommendationEvidence', () => {
         score: 8.2,
         label: 'GOOD',
         bonusApplied: 12,
+        confidence: 'medium',
         reason: 'Similar to your 4-star HB Pier session in May.',
+        reasons: ['Similar to your 4-star HB Pier session in May.'],
         sessionCount: 6,
       },
     }));

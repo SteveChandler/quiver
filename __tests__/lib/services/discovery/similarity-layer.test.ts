@@ -1,14 +1,12 @@
 /**
  * Unit tests for similarity-layer.ts
  *
- * Covers the contract from Plan V4 Agent 1 (locked formula post-Fix Agent F1):
+ * Covers the learned-evidence contract:
  *   1. Free users: no RPC, every rec gets similarity: null.
  *   2. Onboarding: RPC returns state=onboarding → onboarding object, score unchanged.
- *   3. Ready below threshold (< 5.0): bonus = 0, score unchanged.
- *   4. Ready above threshold: additive bonus = (score - 5) * 4, capped at +20.
- *   5. Ready at cap (score = 10): bonus = 20.
- *   6. Bulk RPC call shape: p_user_id, p_beach_id, p_slots jsonb array.
- *   7. Missing beach.id: rec is preserved, gets similarity: null, no RPC for it.
+ *   3. Learned evidence never mutates the physical score.
+ *   4. Bulk RPC call shape: p_user_id, p_beach_id, p_slots jsonb array.
+ *   5. Missing beach.id: rec is preserved, gets similarity: null, no RPC for it.
  */
 
 jest.mock("@/lib/logger", () => ({
@@ -24,10 +22,7 @@ import type { Beach } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 
-import {
-  applySimilarityLayer,
-  computeSimilarityBonus,
-} from "@/lib/services/discovery/similarity-layer";
+import { applySimilarityLayer } from "@/lib/services/discovery/similarity-layer";
 
 // ============================================================================
 // Fixtures
@@ -103,38 +98,6 @@ function makeSupabase(rpcImpl: jest.Mock) {
 // ============================================================================
 // Tests
 // ============================================================================
-
-describe("computeSimilarityBonus (formula)", () => {
-  it("returns 0 below the 5.0 threshold", () => {
-    expect(computeSimilarityBonus(0)).toBe(0);
-    expect(computeSimilarityBonus(3)).toBe(0);
-    expect(computeSimilarityBonus(4.99)).toBe(0);
-  });
-
-  it("returns 0 at exactly 5.0", () => {
-    expect(computeSimilarityBonus(5)).toBe(0);
-  });
-
-  it("scales (score - 5) * 4 between 5 and 10", () => {
-    expect(computeSimilarityBonus(6)).toBeCloseTo(4);
-    expect(computeSimilarityBonus(7)).toBeCloseTo(8);
-    expect(computeSimilarityBonus(7.5)).toBeCloseTo(10);
-    expect(computeSimilarityBonus(8)).toBeCloseTo(12);
-    expect(computeSimilarityBonus(9)).toBeCloseTo(16);
-  });
-
-  it("caps at +20 (score 10)", () => {
-    expect(computeSimilarityBonus(10)).toBe(20);
-    expect(computeSimilarityBonus(11)).toBe(20);
-    expect(computeSimilarityBonus(99)).toBe(20);
-  });
-
-  it("treats non-finite input as 0 bonus (NaN/Infinity defensive)", () => {
-    expect(computeSimilarityBonus(Number.NaN)).toBe(0);
-    expect(computeSimilarityBonus(Number.POSITIVE_INFINITY)).toBe(0);
-    expect(computeSimilarityBonus(Number.NEGATIVE_INFINITY)).toBe(0);
-  });
-});
 
 describe("applySimilarityLayer", () => {
   beforeEach(() => {
@@ -246,7 +209,7 @@ describe("applySimilarityLayer", () => {
     expect(out.recommendations[0].score).toBe(60);
   });
 
-  it("ready below threshold (4.5): bonusApplied = 0, score unchanged", async () => {
+  it("keeps a low learned match separate from the physical score", async () => {
     const rpc = jest.fn(async () => ({
       data: [
         {
@@ -286,7 +249,7 @@ describe("applySimilarityLayer", () => {
     expect(out.recommendations[0].score).toBe(60); // unchanged
   });
 
-  it("ready above threshold (7.5): bonusApplied = 10, score = original + 10", async () => {
+  it("keeps ready match evidence separate from the physical score", async () => {
     const rpc = jest.fn(async () => ({
       data: [
         {
@@ -296,6 +259,7 @@ describe("applySimilarityLayer", () => {
             state: "ready",
             score: 7.5,
             label: "GOOD",
+            confidence: "medium",
             reason_bullets: ["Strong match"],
             sessions_in_profile: 20,
           },
@@ -319,9 +283,11 @@ describe("applySimilarityLayer", () => {
       state: "ready",
       score: 7.5,
       label: "GOOD",
-      bonusApplied: 10,
+      bonusApplied: 0,
+      confidence: "medium",
+      reasons: ["Strong match"],
     });
-    expect(out.recommendations[0].score).toBeCloseTo(70);
+    expect(out.recommendations[0].score).toBe(60);
   });
 
   it("learned above threshold remains compatible with ready similarity consumers", async () => {
@@ -354,9 +320,9 @@ describe("applySimilarityLayer", () => {
     expect(out.recommendations[0].similarity).toMatchObject({
       state: "ready",
       score: 8,
-      bonusApplied: 12,
+      bonusApplied: 0,
     });
-    expect(out.recommendations[0].score).toBeCloseTo(72);
+    expect(out.recommendations[0].score).toBe(60);
   });
 
   it("learned without a numeric score does not surface similarity", async () => {
@@ -389,7 +355,7 @@ describe("applySimilarityLayer", () => {
     expect(out.recommendations[0].score).toBe(60);
   });
 
-  it("ready exactly at threshold (5.0): bonusApplied = 0, score unchanged", async () => {
+  it("keeps a boundary learned match separate from the physical score", async () => {
     const rpc = jest.fn(async () => ({
       data: [
         {
@@ -425,7 +391,7 @@ describe("applySimilarityLayer", () => {
     expect(out.recommendations[0].score).toBe(60);
   });
 
-  it("ready at score 6.0: bonusApplied = 4, score = original + 4", async () => {
+  it("keeps a FAIR match separate from the physical score", async () => {
     const rpc = jest.fn(async () => ({
       data: [
         {
@@ -455,12 +421,12 @@ describe("applySimilarityLayer", () => {
     expect(out.recommendations[0].similarity).toMatchObject({
       state: "ready",
       score: 6.0,
-      bonusApplied: 4,
+      bonusApplied: 0,
     });
-    expect(out.recommendations[0].score).toBeCloseTo(64);
+    expect(out.recommendations[0].score).toBe(60);
   });
 
-  it("ready at cap (10.0): bonusApplied = 20, score = original + 20 (capped at 100)", async () => {
+  it("does not mutate the physical score for an EPIC match", async () => {
     const rpc = jest.fn(async () => ({
       data: [
         {
@@ -488,14 +454,14 @@ describe("applySimilarityLayer", () => {
     });
 
     const sim = out.recommendations[0].similarity;
-    expect(sim).not.toBeNull();
-    if (sim && sim.state === "ready") {
-      expect(sim.bonusApplied).toBe(20);
-    }
-    expect(out.recommendations[0].score).toBe(80);
+    expect(sim).toMatchObject({
+      state: "ready",
+      bonusApplied: 0,
+    });
+    expect(out.recommendations[0].score).toBe(60);
   });
 
-  it("ready at score 10 with high base score caps at 100", async () => {
+  it("preserves a high physical score without similarity arithmetic", async () => {
     const rpc = jest.fn(async () => ({
       data: [
         {
@@ -522,8 +488,7 @@ describe("applySimilarityLayer", () => {
       supabase,
     });
 
-    // 95 + 20 = 115 → capped at 100
-    expect(out.recommendations[0].score).toBe(100);
+    expect(out.recommendations[0].score).toBe(95);
   });
 
   it("bulk RPC is called with p_user_id, p_beach_id, p_slots jsonb array", async () => {
@@ -674,10 +639,53 @@ describe("applySimilarityLayer", () => {
     });
 
     expect(rpc).toHaveBeenCalledTimes(2);
-    // beach-A: 8.0 → bonus = (8-5)*4 = 12 → score 72
-    expect(out.recommendations[0].score).toBeCloseTo(72);
-    // beach-B: 4.0 → below threshold (5.0) → bonus = 0 → score 70
+    expect(out.recommendations[0].score).toBe(60);
     expect(out.recommendations[1].score).toBe(70);
+  });
+
+  it("scores multiple windows for one beach in one batch", async () => {
+    const rpc = jest.fn(async (
+      _fn: string,
+      args: { p_slots: Array<{ forecast_at: string }> },
+    ) => ({
+      data: args.p_slots.map((slot, slotIdx) => ({
+        slot_idx: slotIdx,
+        forecast_at: slot.forecast_at,
+        result: {
+          state: "ready",
+          score: slotIdx === 0 ? 6.5 : 8.1,
+          label: slotIdx === 0 ? "FAIR" : "GOOD",
+          confidence: slotIdx === 0 ? "medium" : "high",
+          reason_bullets: [`window-${slotIdx}`],
+          sessions_in_profile: 18,
+        },
+      })),
+      error: null,
+    }));
+    const supabase = makeSupabase(rpc);
+    const first = makeRec({ beachId: "beach-A", score: 72 });
+    const second = makeRec({ beachId: "beach-A", score: 58 });
+    second.forecast.forecast_at = "2026-05-04T18:00:00Z";
+
+    const out = await applySimilarityLayer({
+      recommendations: [first, second],
+      userId: "user-1",
+      isPro: true,
+      supabase,
+    });
+
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc.mock.calls[0]?.[1].p_slots).toHaveLength(2);
+    expect(out.recommendations[0].similarity).toMatchObject({
+      state: "ready",
+      score: 6.5,
+      label: "FAIR",
+    });
+    expect(out.recommendations[1].similarity).toMatchObject({
+      state: "ready",
+      score: 8.1,
+      label: "GOOD",
+    });
   });
 
   it("empty recommendations: no RPC, returns empty array", async () => {

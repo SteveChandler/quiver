@@ -63,6 +63,7 @@ describe("major-event hold notification delivery boundary", () => {
               timezone: "America/Los_Angeles",
             },
             verdict: "go",
+            decisionBasis: "physical_fallback",
             reasonCode: "selected_go",
             selection: {
               candidateId: "delivery-boundary-test",
@@ -80,6 +81,11 @@ describe("major-event hold notification delivery boundary", () => {
                 skill: "beginner",
                 state: "eligible",
                 reasonCodes: [],
+              },
+              evidence: {
+                conditionScore: 82,
+                recommendationLabel: "Worth it",
+                personalMatch: null,
               },
             },
             skillEligibility: {

@@ -62,6 +62,7 @@ import {
 import {
   buildCanonicalDecisionFromAlertMatches,
   canonicalAlertCandidateId,
+  parseCanonicalSessionDecision,
   type CanonicalSessionDecision,
 } from "@/lib/recommendations/canonical-decision";
 
@@ -1513,6 +1514,20 @@ export async function GET(request: Request): Promise<NextResponse> {
             const similarityWindowEnd = Number.isFinite(similarityForecastAtMs)
               ? new Date(similarityForecastAtMs + 60 * 60 * 1000).toISOString()
               : "";
+            let storedSimilarityDecision: CanonicalSessionDecision | null = null;
+            try {
+              storedSimilarityDecision = parseCanonicalSessionDecision(
+                snap.session_decision,
+              );
+            } catch {
+              storedSimilarityDecision = null;
+            }
+            const storedSelection = storedSimilarityDecision?.selection;
+            const storedDecisionMatchesWindow =
+              storedSimilarityDecision?.verdict === "go" &&
+              storedSelection?.beachId === item.beach_id &&
+              storedSelection.windowStart === similarityForecastAt &&
+              storedSelection.windowEnd === similarityWindowEnd;
             const similarityPolicyContext =
               Number.isFinite(similarityForecastAtMs) &&
               similarityWindowEnd.length > 0
@@ -1612,10 +1627,15 @@ export async function GET(request: Request): Promise<NextResponse> {
             const selectedSimilarityMatch = similarityDecision
               ? selectedAlertMatch([similarityMatch], similarityDecision)
               : null;
+            const notificationDecision =
+              storedDecisionMatchesWindow && storedSimilarityDecision
+                ? storedSimilarityDecision
+                : similarityDecision;
             if (
               similarityHold.status !== "allowed" ||
               !similarityDecision ||
-              !selectedSimilarityMatch
+              !selectedSimilarityMatch ||
+              notificationDecision?.verdict !== "go"
             ) {
               await recordAttempt({
                 queueId: item.id,
@@ -1648,9 +1668,11 @@ export async function GET(request: Request): Promise<NextResponse> {
               entityId: item.beach_id,
               payload: {
                 ...similarityPayload,
-                session_decision: similarityDecision,
+                session_decision: notificationDecision,
               },
-              dedupeKey: `similarity_match:${item.user_id}:${item.beach_id}:${item.alert_date}`,
+              dedupeKey:
+                `similarity_match:${item.user_id}:${item.beach_id}:` +
+                `${similarityForecastAt}:${notificationDecision.decisionId}`,
             }).catch((err) => {
               console.error(`${CONTEXT_TAG} similarity enqueue threw for user ${item.user_id}:`, err);
               return { enqueued: false as const, reason: "internal_error" as const };

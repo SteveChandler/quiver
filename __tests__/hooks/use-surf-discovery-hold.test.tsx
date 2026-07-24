@@ -40,6 +40,7 @@ function discoveryResponse(
         timezone: "America/Los_Angeles",
       },
       verdict: isAvailable ? "go" : "no",
+      decisionBasis: isAvailable ? "physical_fallback" : "safety_override",
       reasonCode: isAvailable
         ? "selected_go"
         : availability?.reasonCode ?? "no_candidates",
@@ -60,6 +61,11 @@ function discoveryResponse(
               skill: "intermediate",
               state: "eligible",
               reasonCodes: [],
+            },
+            evidence: {
+              conditionScore: 90,
+              recommendationLabel: "Worth it",
+              personalMatch: null,
             },
           }
         : null,

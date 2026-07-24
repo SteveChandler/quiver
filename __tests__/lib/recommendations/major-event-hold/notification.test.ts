@@ -110,6 +110,7 @@ describe("notification major-event hold adapter", () => {
           timezone: "UTC",
         },
         verdict: "go",
+        decisionBasis: "physical_fallback",
         reasonCode: "selected_go",
         selection: {
           candidateId: "recommendation-1",
@@ -127,6 +128,11 @@ describe("notification major-event hold adapter", () => {
             skill: "beginner",
             state: "eligible",
             reasonCodes: [],
+          },
+          evidence: {
+            conditionScore: 82,
+            recommendationLabel: "Worth it",
+            personalMatch: null,
           },
         },
         skillEligibility: {

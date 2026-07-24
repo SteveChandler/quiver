@@ -109,7 +109,7 @@ describe("ConditionsAlertEmail", () => {
 
       const low = render(
         <ConditionsAlertEmail
-          {...makeProps({ decisionVerdict: "consider" })}
+          {...makeProps({ decisionVerdict: "maybe" })}
         />
       );
       expect(low.container.textContent).not.toContain("NOW FIRING");
@@ -128,10 +128,10 @@ describe("ConditionsAlertEmail", () => {
       expect(chip?.textContent).toContain("GO");
     });
 
-    it("uses a gold CONSIDER chip for the canonical consider verdict", () => {
+    it("uses a gold CONSIDER chip for the canonical maybe verdict", () => {
       const { container } = render(
         <ConditionsAlertEmail
-          {...makeProps({ decisionVerdict: "consider" })}
+          {...makeProps({ decisionVerdict: "maybe" })}
         />
       );
       expect(container.textContent).toContain("Worth considering");

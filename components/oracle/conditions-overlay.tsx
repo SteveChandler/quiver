@@ -94,7 +94,7 @@ function DecisionBadge({
   verdict: CanonicalDecisionVerdict;
   shouldAnimate: boolean;
 }) {
-  const label = verdict === "go" ? "Go" : verdict === "consider" ? "Consider" : "No";
+  const label = verdict === "go" ? "Go" : verdict === "maybe" ? "Maybe" : "No";
   return (
     <motion.div
       initial={shouldAnimate ? { scale: 0 } : false}

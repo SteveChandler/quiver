@@ -1,15 +1,11 @@
 /**
- * Unit tests for surf-discovery-orchestrator similarity ordering (Plan V4 / Fix Agent F1).
+ * Unit tests for surf-discovery-orchestrator similarity evidence ordering.
  *
  * Pin invariants:
  *   1. applySimilarityLayer runs over the FULL allRecs pool, not the post-slice
- *      maxResults subset. A beach just outside the base top-N can be lifted
- *      into the hero by similarity if its bonus pushes its score above the cut.
- *   2. The final maxResults slice happens AFTER the bonus is injected and the
- *      pool is re-sorted.
- *
- * The original Plan V4 ship sliced first then ran similarity, so a base-rank
- * #6 with bonus +20 could never reach the hero — defeating the feature.
+ *      maxResults subset so every candidate window can receive match evidence.
+ *   2. Similarity never mutates the physical score or cross-beach ranking.
+ *   3. The final maxResults slice still happens after window candidates collapse.
  */
 
 import type { Beach } from '@/types/database';
@@ -26,26 +22,25 @@ const candidateBeaches: Partial<Beach>[] = [
 ];
 
 // Per-beach base score table the scoring engine mock will return.
-// beach-6 is rank #6 by base score and the only one with a similarity bonus.
-// With bonus +20, 60 → 80 lifts it to the top of the post-similarity ordering.
+// beach-6 is rank #6 by physical score and the only learned personal match.
 const mockBaseScores: Record<string, number> = {
   'beach-1': 75,
   'beach-2': 74,
   'beach-3': 73,
   'beach-4': 72,
   'beach-5': 71,
-  'beach-6': 60, // base-rank #6 — would never reach top-5 without the lift
+  'beach-6': 60,
 };
 
-// Per-beach similarity config the mocked applySimilarityLayer will inject.
-type SimConfig = { score: number; bonus: number } | null;
+// Per-beach similarity config the mocked applySimilarityLayer will attach.
+type SimConfig = { score: number } | null;
 const simByBeach: Record<string, SimConfig> = {
   'beach-1': null,
   'beach-2': null,
   'beach-3': null,
   'beach-4': null,
   'beach-5': null,
-  'beach-6': { score: 10, bonus: 20 }, // perfect personal match, lifts 60→80
+  'beach-6': { score: 10 },
 };
 
 const mockForecast: Partial<EnhancedForecastEntity> = {
@@ -87,8 +82,8 @@ jest.mock('@/lib/services/discovery/forecast-batch-fetcher', () => ({
   })),
 }));
 
-jest.mock('@/lib/services/discovery/window-selector', () => ({
-  selectBestWindow: jest.fn(() => ({
+jest.mock('@/lib/services/discovery/window-selector', () => {
+  const selectBestWindow = jest.fn(() => ({
     start: new Date('2026-07-08T15:00:00Z'),
     end: new Date('2026-07-08T18:00:00Z'),
     tide: 'Rising',
@@ -98,13 +93,21 @@ jest.mock('@/lib/services/discovery/window-selector', () => ({
     dataSource: 'CDIP',
     confidence: 85,
     timezone: 'America/Los_Angeles',
-  })),
-  getLocalDateStr: jest.fn((date: Date) => date.toISOString().split('T')[0]),
-  getLocalHour: jest.fn((date: Date) => date.getUTCHours()),
-  MIN_SESSION_HOURS: 1,
-  FORECAST_WINDOW_DURATION_MINUTES: 180,
-  PAST_WINDOW_TOLERANCE_MINUTES: 60,
-}));
+  }));
+
+  return {
+    selectBestWindow,
+    selectBestWindows: jest.fn(() => {
+      const window = selectBestWindow();
+      return window ? [window] : [];
+    }),
+    getLocalDateStr: jest.fn((date: Date) => date.toISOString().split('T')[0]),
+    getLocalHour: jest.fn((date: Date) => date.getUTCHours()),
+    MIN_SESSION_HOURS: 1,
+    FORECAST_WINDOW_DURATION_MINUTES: 180,
+    PAST_WINDOW_TOLERANCE_MINUTES: 60,
+  };
+});
 
 jest.mock('@/lib/services/discovery/response-formatter', () => ({
   enrichWithPhotos: jest.fn(async (recs: any[]) => recs),
@@ -243,9 +246,8 @@ jest.mock('@/lib/services/discovery/major-event-hold', () => ({
   ),
 }));
 
-// Inline mock for the similarity layer — captures the input array length to
-// verify it sees the FULL pool, not the post-slice subset, and stamps the
-// configured bonus into recommendation.score so we can observe the lift.
+// Inline mock for the similarity layer captures the input array length and
+// attaches learned evidence without mutating recommendation.score.
 const applySimilarityLayerMock = jest.fn();
 jest.mock('@/lib/services/discovery/similarity-layer', () => ({
   applySimilarityLayer: (args: { recommendations: SurfDiscoveryRecommendation[]; isPro: boolean }) =>
@@ -259,7 +261,7 @@ import { calculatePersonalizationBonus } from '@/lib/services/discovery/personal
 const calculatePersonalizationBonusMock =
   calculatePersonalizationBonus as jest.MockedFunction<typeof calculatePersonalizationBonus>;
 
-describe('discoverSurfSpots — similarity is applied BEFORE the maxResults slice (Plan V4 Fix F1)', () => {
+describe('discoverSurfSpots — personal match evidence stays separate from physical score', () => {
   const userLocation = { lat: 32.7, lon: -117.1 };
 
   beforeEach(() => {
@@ -278,13 +280,14 @@ describe('discoverSurfSpots — similarity is applied BEFORE the maxResults slic
           if (!sim) return { ...rec, similarity: null };
           return {
             ...rec,
-            score: Math.min(100, rec.score + sim.bonus),
             similarity: {
               state: 'ready' as const,
               score: sim.score,
               label: 'EPIC',
-              bonusApplied: sim.bonus,
+              bonusApplied: 0,
+              confidence: 'high' as const,
               reason: 'Matches your style',
+              reasons: ['Matches your style'],
               sessionCount: 20,
             },
           };
@@ -303,30 +306,39 @@ describe('discoverSurfSpots — similarity is applied BEFORE the maxResults slic
     expect(args.isPro).toBe(true);
   });
 
-  it('lifts beach-6 (base 60, bonus +20 → 80) into top 5 ahead of beach-5 (base 71)', async () => {
+  it('does not let a learned match mutate physical score or cross-beach ranking', async () => {
     const result = await discoverSurfSpots('user-pro', {
       userLocation,
       maxResults: 5,
       isPro: true,
     });
 
-    // beach-6 must be in the response (top 5) thanks to the similarity lift.
     const ids = result.recommendations.map((r) => r.beach.id);
-    expect(ids).toContain('beach-6');
-
-    // Verify the lifted score on beach-6 reflects the bonus.
-    const beach6 = result.recommendations.find((r) => r.beach.id === 'beach-6');
-    expect(beach6?.score).toBe(80); // 60 + 20
-    expect(beach6?.similarity).toMatchObject({ state: 'ready', bonusApplied: 20 });
-
-    // beach-6 (lifted to 80) lands AHEAD of beach-1 (75) in the final order.
-    // With the OLD slice-then-similarity ordering beach-6 would never appear
-    // here at all — it would have been filtered out at base-rank #6.
-    expect(ids.indexOf('beach-6')).toBeLessThan(ids.indexOf('beach-1'));
-    expect(ids).not.toContain('beach-5'); // beach-5 (71) bumped out of top 5
+    expect(ids).not.toContain('beach-6');
+    expect(ids).toEqual([
+      'beach-1',
+      'beach-2',
+      'beach-3',
+      'beach-4',
+      'beach-5',
+    ]);
+    const scoredBeach6 = applySimilarityLayerMock.mock.results[0].value;
+    await expect(scoredBeach6).resolves.toEqual(expect.objectContaining({
+      recommendations: expect.arrayContaining([
+        expect.objectContaining({
+          beach: expect.objectContaining({ id: 'beach-6' }),
+          score: 60,
+          similarity: expect.objectContaining({
+            state: 'ready',
+            score: 10,
+            bonusApplied: 0,
+          }),
+        }),
+      ]),
+    }));
   });
 
-  it('returns exactly maxResults entries even after lift (slice happens AFTER bonus)', async () => {
+  it('returns exactly maxResults entries after evidence attachment and collapse', async () => {
     const result = await discoverSurfSpots('user-pro', {
       userLocation,
       maxResults: 5,
@@ -336,7 +348,7 @@ describe('discoverSurfSpots — similarity is applied BEFORE the maxResults slic
     expect(result.recommendations).toHaveLength(5);
   });
 
-  it('non-bonus beaches keep similarity:null, score unchanged', async () => {
+  it('unmatched beaches keep similarity:null and their physical score unchanged', async () => {
     const result = await discoverSurfSpots('user-pro', {
       userLocation,
       maxResults: 5,
@@ -348,7 +360,7 @@ describe('discoverSurfSpots — similarity is applied BEFORE the maxResults slic
     expect(beach1?.similarity).toBeNull();
   });
 
-  it('free user (isPro:false) — similarity layer still runs but produces no bonus, ranking is base-only', async () => {
+  it('free user (isPro:false) keeps physical fallback ranking', async () => {
     // Re-implement the layer mock to mirror real free-path behavior.
     applySimilarityLayerMock.mockImplementation(
       async ({ recommendations }: { recommendations: SurfDiscoveryRecommendation[] }) => ({

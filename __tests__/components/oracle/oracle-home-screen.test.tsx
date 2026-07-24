@@ -297,8 +297,9 @@ const MOCK_ORACLE_DATA_BASE = {
         windowEnd: "2026-03-12T12:00:00.000Z",
         timezone: "America/Los_Angeles",
       },
-      verdict: "consider",
-      reasonCode: "selected_consider",
+      verdict: "maybe",
+      decisionBasis: "physical_fallback",
+      reasonCode: "selected_maybe",
       selection: {
         candidateId: "candidate-b1",
         beachId: "b1",
@@ -315,6 +316,11 @@ const MOCK_ORACLE_DATA_BASE = {
           skill: "intermediate",
           state: "eligible",
           reasonCodes: [],
+        },
+        evidence: {
+          conditionScore: 65,
+          recommendationLabel: "Maybe",
+          personalMatch: null,
         },
       },
       skillEligibility: {
@@ -474,7 +480,7 @@ describe("OracleHomeScreen", () => {
     render(<OracleHomeScreen />);
 
     expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent(
-      "Consider",
+      "Maybe",
     );
     expect(
       mockFetch.mock.calls.some(([url]) =>
@@ -486,7 +492,7 @@ describe("OracleHomeScreen", () => {
   it("renders the canonical verdict instead of a client score", () => {
     render(<OracleHomeScreen />);
     expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent(
-      "Consider",
+      "Maybe",
     );
     expect(screen.queryByText(/\/10$/)).not.toBeInTheDocument();
   });
@@ -565,7 +571,7 @@ describe("OracleHomeScreen", () => {
     render(<OracleHomeScreen />);
 
     expect(screen.queryByText("Community Reef")).not.toBeInTheDocument();
-    expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Consider");
+    expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Maybe");
   });
 
   it("hides Activity section when no activity items exist", () => {
@@ -1029,7 +1035,7 @@ describe("OracleHomeScreen", () => {
     render(<OracleHomeScreen />);
 
     expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent(
-      "Consider",
+      "Maybe",
     );
     expect(screen.queryByText("Today's a no-go")).not.toBeInTheDocument();
     expect(screen.queryByText(/Onshore wind all day/i)).not.toBeInTheDocument();
@@ -1059,7 +1065,7 @@ describe("OracleHomeScreen", () => {
     it("keeps the supporting context separate from the canonical verdict", () => {
       render(<OracleHomeScreen />);
       expect(screen.getByText("Clean WNW swell")).toBeInTheDocument();
-      expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Consider");
+      expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Maybe");
     });
 
     it("omits the whySentence node when /api/surf/call returns no whySentence", async () => {
@@ -1260,7 +1266,7 @@ describe("OracleHomeScreen", () => {
     it("renders the decision immediately without a score-loading state", () => {
       mockFetch.mockImplementation(() => new Promise(() => {}));
       render(<OracleHomeScreen />);
-      expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Consider");
+      expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Maybe");
       expect(screen.queryByTestId("hero-score-badge")).not.toBeInTheDocument();
     });
 

@@ -13,7 +13,8 @@
  *     Each slot's `beach_timezone` is used for the local-hour conversion so a
  *     west-coast slot and an east-coast slot at the same UTC are evaluated
  *     against their own local clocks.
- *  3. Sort by score desc, then forecast_at asc — earliest wins on ties.
+ *  3. Sort by match score, match confidence, physical utility, earliest
+ *     forecast, then a stable beach/window ID.
  *  4. Return the head, or null on empty.
  *
  * The water-quality and surfability filters live upstream in the cron — by
@@ -30,6 +31,8 @@ export interface ScoredSlot {
   score: number;
   label: string | null;
   reason: string | null;
+  match_confidence?: "low" | "medium" | "high";
+  condition_score?: number;
   /**
    * Conditions snapshot fields stamped at scoring time so the cron can
    * forward them into the notifications payload (window_local label,
@@ -89,7 +92,24 @@ export function pickBestSimilaritySlot(args: PickArgs): ScoredSlot | null {
 
   eligible.sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score;
-    return new Date(a.forecast_at).getTime() - new Date(b.forecast_at).getTime();
+    const confidenceRank = { low: 0, medium: 1, high: 2 };
+    const confidenceDelta =
+      confidenceRank[b.match_confidence ?? "low"] -
+      confidenceRank[a.match_confidence ?? "low"];
+    if (confidenceDelta !== 0) return confidenceDelta;
+    const aCondition = Number.isFinite(a.condition_score)
+      ? a.condition_score!
+      : Number.NEGATIVE_INFINITY;
+    const bCondition = Number.isFinite(b.condition_score)
+      ? b.condition_score!
+      : Number.NEGATIVE_INFINITY;
+    if (aCondition !== bCondition) return bCondition - aCondition;
+    const startDelta =
+      new Date(a.forecast_at).getTime() - new Date(b.forecast_at).getTime();
+    if (startDelta !== 0) return startDelta;
+    return `${a.beach_id}:${a.forecast_at}`.localeCompare(
+      `${b.beach_id}:${b.forecast_at}`,
+    );
   });
 
   return eligible[0];

@@ -51,6 +51,7 @@ describe("GET /api/surf/session-decision", () => {
       engineVersion: "rules.v1",
       decisionId: "a".repeat(64),
       verdict: "no",
+      decisionBasis: "safety_override",
       reasonCode: "no_candidates",
       selection: null,
     });

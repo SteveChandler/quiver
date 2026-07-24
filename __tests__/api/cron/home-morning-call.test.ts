@@ -73,6 +73,7 @@ beforeEach(() => {
         timezone: "America/Los_Angeles",
       },
       verdict: "go",
+      decisionBasis: "physical_fallback",
       reasonCode: "selected_go",
       selection: {
         candidateId: "recommendation-1",
@@ -90,6 +91,11 @@ beforeEach(() => {
           skill: "beginner",
           state: "eligible",
           reasonCodes: [],
+        },
+        evidence: {
+          conditionScore: 82,
+          recommendationLabel: "Worth it",
+          personalMatch: null,
         },
       },
       skillEligibility: {

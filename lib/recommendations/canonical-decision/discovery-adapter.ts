@@ -5,6 +5,7 @@ import { buildCanonicalSessionDecision } from "./engine";
 import type {
   BuildCanonicalSessionDecisionInput,
   CanonicalDecisionCandidate,
+  CanonicalPersonalMatchEvidence,
   CanonicalSessionDecision,
 } from "./types";
 
@@ -26,9 +27,45 @@ function serializeInstant(value: unknown): string {
     : "";
 }
 
+function toPersonalMatchEvidence(
+  recommendation: SurfDiscoveryRecommendation,
+): CanonicalPersonalMatchEvidence | null {
+  const similarity = recommendation.similarity;
+  if (similarity?.state !== "ready") return null;
+
+  const label = similarity.label.trim().toUpperCase();
+  if (
+    label !== "EPIC" &&
+    label !== "GOOD" &&
+    label !== "FAIR" &&
+    label !== "RIDEABLE" &&
+    label !== "MEH"
+  ) {
+    return null;
+  }
+
+  return {
+    score: similarity.score,
+    label,
+    confidence: similarity.confidence,
+    sessionCount: similarity.sessionCount,
+    reasons:
+      similarity.reasons.length > 0
+        ? similarity.reasons
+        : [similarity.reason].filter(Boolean),
+  };
+}
+
 function toCanonicalCandidate(
   recommendation: SurfDiscoveryRecommendation,
 ): CanonicalDecisionCandidate {
+  const safetyOverrideReasons = (recommendation.warnings ?? []).some(
+    (warning) =>
+      warning.toLowerCase().includes("water quality closure"),
+  )
+    ? (["water_quality_closure"] as const)
+    : [];
+
   return {
     candidateId: recommendation.recommendationId ?? "",
     beachId: recommendation.beach?.id ?? "",
@@ -42,6 +79,8 @@ function toCanonicalCandidate(
     waveHeight: recommendation.forecast?.wave_height,
     utilityScore: recommendation.score,
     recommendationLabel: recommendation.recommendationLabel,
+    personalMatch: toPersonalMatchEvidence(recommendation),
+    safetyOverrideReasons: [...safetyOverrideReasons],
   };
 }
 

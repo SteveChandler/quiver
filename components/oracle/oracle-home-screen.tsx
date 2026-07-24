@@ -130,7 +130,7 @@ function getCanonicalDecisionTitle(
     return isTomorrow ? "Tomorrow looks worth it" : "Worth paddling out";
   }
 
-  if (verdict === "consider") {
+  if (verdict === "maybe") {
     return isTomorrow ? "Tomorrow has a narrow window" : "Small window if you time it";
   }
 
@@ -301,7 +301,7 @@ function toLegacySurfVerdict(
   verdict: CanonicalDecisionVerdict | null,
 ): HeroReasonContext["verdict"] | undefined {
   if (verdict === "go") return "YES";
-  if (verdict === "consider") return "MAYBE";
+  if (verdict === "maybe") return "MAYBE";
   if (verdict === "no") return "NO";
   return undefined;
 }

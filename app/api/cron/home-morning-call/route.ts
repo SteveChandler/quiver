@@ -205,7 +205,7 @@ export async function selectAndBuildMorningCall({
   const selectedBeach = recommendation?.beach ?? beach;
   const verdict: SurfCallVerdict = decision.verdict === "go"
     ? "YES"
-    : decision.verdict === "consider"
+    : decision.verdict === "maybe"
       ? "MAYBE"
       : "NO";
   const copy = buildMorningCallCopy({

@@ -106,7 +106,7 @@ function canonicalDecision(beachId: string | null = PRIMARY_BEACH_ID) {
   return {
     schemaVersion: "canonical-session-decision.v1",
     engineVersion: "rules.v1",
-    decisionId: "coach-decision-1",
+    decisionId: "c".repeat(64),
     createdAt: REQUEST_AS_OF,
     expiresAt: "2026-07-20T12:15:00.000Z",
     scope: {
@@ -116,6 +116,7 @@ function canonicalDecision(beachId: string | null = PRIMARY_BEACH_ID) {
       timezone: "UTC",
     },
     verdict: beachId ? "go" : "no",
+    decisionBasis: beachId ? "physical_fallback" : "safety_override",
     reasonCode: beachId ? "selected_go" : "no_candidates",
     selection: beachId
       ? {
@@ -134,6 +135,11 @@ function canonicalDecision(beachId: string | null = PRIMARY_BEACH_ID) {
             skill: "intermediate",
             state: "eligible",
             reasonCodes: [],
+          },
+          evidence: {
+            conditionScore: 88,
+            recommendationLabel: "Worth it",
+            personalMatch: null,
           },
         }
       : null,

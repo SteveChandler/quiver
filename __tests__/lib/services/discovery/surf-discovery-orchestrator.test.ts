@@ -271,8 +271,8 @@ jest.mock('@/lib/services/discovery/major-event-hold', () => ({
   ),
 }));
 
-jest.mock('@/lib/services/discovery/window-selector', () => ({
-  selectBestWindow: jest.fn((forecasts: any[]) => {
+jest.mock('@/lib/services/discovery/window-selector', () => {
+  const selectBestWindow = jest.fn((forecasts: any[]) => {
     // Return null if no forecasts
     if (!forecasts || forecasts.length === 0) {
       return null;
@@ -289,15 +289,23 @@ jest.mock('@/lib/services/discovery/window-selector', () => ({
       confidence: 85,
       timezone: 'America/Los_Angeles',
     };
-  }),
-  scoreWindowConditionScore: jest.fn(() => 70),
-  getLocalDateStr: jest.fn((date: Date, _tz: string) => {
-    return date.toISOString().split('T')[0];
-  }),
-  getLocalHour: jest.fn((date: Date, _tz: string) => {
-    return date.getUTCHours();
-  }),
-}));
+  });
+
+  return {
+    selectBestWindow,
+    selectBestWindows: jest.fn((...args: any[]) => {
+      const window = selectBestWindow(args[0]);
+      return window ? [window] : [];
+    }),
+    scoreWindowConditionScore: jest.fn(() => 70),
+    getLocalDateStr: jest.fn((date: Date, _tz: string) => {
+      return date.toISOString().split('T')[0];
+    }),
+    getLocalHour: jest.fn((date: Date, _tz: string) => {
+      return date.getUTCHours();
+    }),
+  };
+});
 
 jest.mock('@/lib/services/discovery/response-formatter', () => ({
   enrichWithPhotos: jest.fn(async (recs: any[]) => recs),
@@ -2753,6 +2761,10 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
       selectBestWindow: mockSelectBestWindow,
+      selectBestWindows: (...args: any[]) => {
+        const window = mockSelectBestWindow(...args);
+        return window ? [window] : [];
+      },
       getLocalDateStr: jest.fn((date: Date, _tz: string) => date.toISOString().split('T')[0]),
       getLocalHour: jest.fn((date: Date, _tz: string) => date.getUTCHours()),
     }));
@@ -2957,6 +2969,10 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
       selectBestWindow: mockSelectBestWindow,
+      selectBestWindows: (...args: any[]) => {
+        const window = mockSelectBestWindow(...args);
+        return window ? [window] : [];
+      },
       getLocalDateStr: jest.fn((date: Date, _tz: string) => date.toISOString().split('T')[0]),
       getLocalHour: jest.fn((date: Date, _tz: string) => date.getUTCHours()),
     }));
@@ -3149,6 +3165,10 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
       selectBestWindow: mockSelectBestWindow,
+      selectBestWindows: (...args: any[]) => {
+        const window = mockSelectBestWindow(...args);
+        return window ? [window] : [];
+      },
       getLocalDateStr: jest.fn((date: Date, _tz: string) => date.toISOString().split('T')[0]),
       getLocalHour: jest.fn((date: Date, _tz: string) => date.getUTCHours()),
       MIN_SESSION_HOURS: 1.0,
@@ -3338,6 +3358,10 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
       selectBestWindow: mockSelectBestWindow,
+      selectBestWindows: (...args: any[]) => {
+        const window = mockSelectBestWindow(...args);
+        return window ? [window] : [];
+      },
       getLocalDateStr: jest.fn((date: Date, _tz: string) => date.toISOString().split('T')[0]),
       getLocalHour: jest.fn((date: Date, _tz: string) => date.getUTCHours()),
       MIN_SESSION_HOURS: 1.0,
@@ -3518,6 +3542,10 @@ describe('discoverSurfSpots - Today-First No-Fallback Guard', () => {
     }));
     jest.doMock('@/lib/services/discovery/window-selector', () => ({
       selectBestWindow: mockSelectBestWindow,
+      selectBestWindows: (...args: any[]) => {
+        const window = mockSelectBestWindow(...args);
+        return window ? [window] : [];
+      },
       getLocalDateStr: jest.fn((date: Date, _tz: string) => date.toISOString().split('T')[0]),
       getLocalHour: jest.fn((date: Date, _tz: string) => date.getUTCHours()),
       MIN_SESSION_HOURS: 1.0,

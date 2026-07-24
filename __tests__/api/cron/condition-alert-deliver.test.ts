@@ -32,6 +32,7 @@ if (typeof (globalThis as any).Response?.json !== "function") {
 
 import { GET } from "@/app/api/cron/condition-alert-deliver/route";
 import { ConsolidatedAlertEmail } from "@/lib/mailer/templates/ConsolidatedAlertEmail";
+import { buildCanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
 import { readFileSync } from "fs";
 
 // ---- Mock API wrappers ----
@@ -1356,7 +1357,48 @@ const QUEUE_SIM = "00000000-0000-0000-0000-0000000000c2";
 const RULE_SIM = "00000000-0000-0000-0000-0000000000a2";
 const BEACH_SIM = "00000000-0000-0000-0000-0000000000b2";
 
+function buildStoredSimilarityDecision() {
+  return buildCanonicalSessionDecision({
+    anchorTime: "2026-05-04T15:00:00Z",
+    scope: {
+      kind: "plan_next_session",
+      windowStart: "2026-05-04T15:00:00Z",
+      windowEnd: "2026-05-04T16:00:00.000Z",
+      timezone: "America/Los_Angeles",
+    },
+    profileExperience: "beginner",
+    recommendationAvailability: {
+      state: "available",
+      holdEpoch: "similarity-alert-preflight",
+    },
+    candidates: [
+      {
+        candidateId: `similarity-alert:${BEACH_SIM}:2026-05-04T15:00:00Z`,
+        beachId: BEACH_SIM,
+        beachName: "Ocean Beach SF",
+        beachSkillLevel: "beginner",
+        windowStart: "2026-05-04T15:00:00Z",
+        windowEnd: "2026-05-04T16:00:00.000Z",
+        timezone: "America/Los_Angeles",
+        forecastId: `similarity-alert:${BEACH_SIM}:2026-05-04T15:00:00Z`,
+        forecastAt: "2026-05-04T15:00:00Z",
+        waveHeight: "3.5 ft",
+        utilityScore: 80,
+        recommendationLabel: "Worth it",
+        personalMatch: {
+          score: 8.5,
+          label: "EPIC",
+          confidence: "high",
+          sessionCount: 17,
+          reasons: ["Matches your best sessions"],
+        },
+      },
+    ],
+  });
+}
+
 function seedSimilarityQueueRow(overrides: Partial<any> = {}) {
+  const storedDecision = buildStoredSimilarityDecision();
   store.alertQueueRows.push({
     id: QUEUE_SIM,
     user_id: USER_A,
@@ -1377,6 +1419,7 @@ function seedSimilarityQueueRow(overrides: Partial<any> = {}) {
       beach_slug: "ocean-beach-sf",
       beach_name: "Ocean Beach SF",
       reason: "Conditions match your top sessions",
+      session_decision: storedDecision,
       // Plan V4 fix F2: extended payload fields written by the
       // similarity-alerts cron and forwarded into the notifications
       // pipeline. Tests below override / strip these to simulate legacy
@@ -1429,12 +1472,15 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
     expect(types).toEqual(["forecast_alert", "similarity_match"]);
 
     const simCall = calls.find((c) => c.type === "similarity_match")!;
+    const storedDecision = buildStoredSimilarityDecision();
     expect(simCall).toMatchObject({
       type: "similarity_match",
       recipientUserId: USER_A,
       entityType: "beach",
       entityId: BEACH_SIM,
-      dedupeKey: `similarity_match:${USER_A}:${BEACH_SIM}:2026-05-04`,
+      dedupeKey:
+        `similarity_match:${USER_A}:${BEACH_SIM}:` +
+        `2026-05-04T15:00:00Z:${storedDecision.decisionId}`,
     });
     expect(simCall.payload).toMatchObject({
       beach_id: BEACH_SIM,
@@ -1463,6 +1509,7 @@ describe("condition-alert-deliver — similarity_match partition + enqueue", () 
         ends_at: "2026-05-04T16:00:00.000Z",
       },
       queue_items: [{ queue_id: QUEUE_SIM, rule_id: RULE_SIM }],
+      session_decision: storedDecision,
     });
 
     // Similarity DOES NOT pre-write an alert_delivery_attempts row on success

@@ -27,11 +27,14 @@ export {
 export type {
   BuildCanonicalSessionDecisionInput,
   CanonicalDecisionCandidate,
+  CanonicalDecisionBasis,
+  CanonicalMatchConfidence,
   CanonicalDecisionReasonCode,
   CanonicalDecisionScope,
   CanonicalDecisionSelection,
   CanonicalDecisionSkill,
   CanonicalDecisionVerdict,
   CanonicalEligibilityState,
+  CanonicalPersonalMatchEvidence,
   CanonicalSessionDecision,
 } from "./types";

@@ -59,7 +59,7 @@ export interface ConditionsAlertSignals {
 
 export interface ConditionsAlertEmailProps {
   beachName: string;
-  decisionVerdict: "go" | "consider";
+  decisionVerdict: "go" | "maybe";
   surfDescription: string | null;
   windDescription: string | null;
   /** Tide summary, e.g. "2.1 ft, incoming". */
@@ -94,7 +94,7 @@ interface Verdict {
   label: string;
 }
 
-function getVerdict(verdict: "go" | "consider"): Verdict {
+function getVerdict(verdict: "go" | "maybe"): Verdict {
   if (verdict === "go") {
     return {
       chipColor: TEAL,

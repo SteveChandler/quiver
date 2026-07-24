@@ -503,6 +503,7 @@ function canonicalNotificationDecision(input: {
       timezone: "America/Los_Angeles",
     },
     verdict: "go",
+    decisionBasis: "physical_fallback",
     reasonCode: "selected_go",
     selection: {
       candidateId: "canonical-worker-test",
@@ -520,6 +521,11 @@ function canonicalNotificationDecision(input: {
         skill: "beginner",
         state: "eligible",
         reasonCodes: [],
+      },
+      evidence: {
+        conditionScore: 82,
+        recommendationLabel: "Worth it",
+        personalMatch: null,
       },
     },
     skillEligibility: {
