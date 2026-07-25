@@ -1,0 +1,15 @@
+{
+  "host": "www.quiversurf.app",
+  "rules": [
+    { "path": "/invite", "match": "prefix" },
+    { "path": "/beach", "match": "prefix" },
+    { "path": "/sessions", "match": "prefix" },
+    { "path": "/profile", "match": "prefix" },
+    { "path": "/auth", "match": "prefix" },
+    { "path": "/settings", "match": "exact" },
+    { "path": "/map", "match": "exact" },
+    { "path": "/alerts", "match": "prefix" },
+    { "path": "/app/spot", "match": "subpaths" },
+    { "path": "/app/forecast", "match": "exact" }
+  ]
+}

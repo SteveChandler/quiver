@@ -169,8 +169,11 @@ behavior file.
 - iOS universal links are served by
   `app/.well-known/apple-app-site-association/route.ts` through the AASA
   response.
-- Current required AASA paths are `/auth/*`, `/sessions/*`, `/beach/*`,
-  `/profile/*`, `/map*`, `/invite/*`, and `/settings*`.
+- The canonical path policy lives in `config/app-link-contract.json`. The AASA
+  route derives exact/prefix rules from that contract for invite, beach,
+  sessions, profile, auth, settings, map, alerts, `/app/spot/*`, and
+  `/app/forecast`. Bare `/app` and every other `/app/*` path stay on web/store
+  handoff.
 - Android asset links are served by
   `app/.well-known/assetlinks.json/route.ts`; the response delegates
   `delegate_permission/common.handle_all_urls` to configured Android packages

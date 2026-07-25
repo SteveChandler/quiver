@@ -21,12 +21,16 @@ Run these checks after changing app-link code:
 ```bash
 yarn test:unit __tests__/app/well-known-app-links.test.ts __tests__/app/app-spot-handoff-page.test.tsx __tests__/lib/recommendations/surf-window-links.test.ts __tests__/lib/recommendations/surf-window-recommendations.test.ts __tests__/lib/recommendations/session-intelligence-surface-adapters.test.ts --runInBand
 npx eslint --max-warnings=0 app/.well-known/apple-app-site-association/route.ts app/.well-known/assetlinks.json/route.ts app/app/spot lib/recommendations/surf-window-links.ts __tests__/app/well-known-app-links.test.ts __tests__/app/app-spot-handoff-page.test.tsx __tests__/lib/recommendations/surf-window-links.test.ts __tests__/lib/recommendations/surf-window-recommendations.test.ts __tests__/lib/recommendations/session-intelligence-surface-adapters.test.ts
+QUIVER_WEB_REPO="$PWD" npm --prefix ../quiver-native run verify:app-link-parity
 yarn typecheck
 ```
 
 Expected local evidence:
 
-- Apple AASA includes `/app/spot/*` plus the existing required paths.
+- Apple AASA derives the approved route set from
+  `config/app-link-contract.json`, includes `/app/spot/*` and
+  `/app/forecast`, and excludes broad `/app*` capture.
+- The web and native copies of the contract are semantically identical.
 - Apple AASA falls back to the checked-in Quiver team ID when an obvious
   placeholder `APPLE_TEAM_ID` is configured locally.
 - Android assetlinks remains environment-driven and filters obvious placeholder

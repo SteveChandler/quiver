@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import appLinkContract from "@/config/app-link-contract.json";
 
 const DEFAULT_APPLE_TEAM_ID = "QBA8TA48NG";
 const DEFAULT_APPLE_BUNDLE_IDS = "app.quiversurf.mobile";
@@ -35,28 +36,19 @@ function normalizeExplicitAppId(value: string | undefined): string | undefined {
 const teamId = normalizeAppleTeamId(process.env.APPLE_TEAM_ID);
 const explicitAppId = normalizeExplicitAppId(process.env.APPLE_APP_ID);
 
-const pathEnv = process.env.APPLE_APP_SITE_ASSOCIATION_PATHS ??
-  "/auth/*,/sessions/*,/beach/*,/profile/*,/map*";
-const requiredApplinkPaths = [
-  "/auth/*",
-  "/sessions/*",
-  "/beach/*",
-  "/profile/*",
-  "/map*",
-  "/invite/*",
-  "/settings*",
-  "/app*",
-  "/app/spot/*",
-];
-const applinkPaths = Array.from(
-  new Set([
-    ...pathEnv
-      .split(",")
-      .map((value) => value.trim())
-      .filter(Boolean),
-    ...requiredApplinkPaths,
-  ])
-);
+type AppLinkRule = {
+  path: string;
+  match: "exact" | "prefix" | "subpaths";
+};
+
+function toApplePaths(rule: AppLinkRule): string[] {
+  if (rule.match === "exact") return [rule.path];
+  if (rule.match === "subpaths") return [`${rule.path}/*`];
+
+  return [rule.path, `${rule.path}/*`];
+}
+
+const applinkPaths = (appLinkContract.rules as AppLinkRule[]).flatMap(toApplePaths);
 
 const webCredentialApps = (process.env.APPLE_WEB_CREDENTIALS_APP_IDS ?? "")
   .split(",")
