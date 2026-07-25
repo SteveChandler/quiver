@@ -182,9 +182,10 @@ describe("QuiverFieldGuideLanding", () => {
         "src",
         "/videos/quiver-landing-hero-720.mp4",
       );
-      expect(video).toHaveAttribute(
-        "poster",
-        "/images/hero/quiver-landing-hero-poster.jpg",
+      expect(video).not.toHaveAttribute("poster");
+      expect(media.querySelector("img")).toHaveAttribute(
+        "src",
+        expect.stringContaining("/images/hero/quiver-landing-hero-poster.jpg"),
       );
     } finally {
       window.matchMedia = originalMatchMedia;
