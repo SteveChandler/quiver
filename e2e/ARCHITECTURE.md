@@ -572,10 +572,12 @@ Files with `@infra` tests: `push-notifications.spec.ts`, `rate-limiting.spec.ts`
 `guest-landing-media-budget.spec.ts` protects the unauthenticated landing
 page's first-load media contract at desktop (1440×900) and mobile (390×844)
 viewports. Each viewport may make at most five landing media requests: the
-optimized hero poster, the poster used by the video element, the
-`local-intel-720.webp` screenshot, and up to two byte-range requests for the
-720p hero video. The same spec proves reduced-motion and Save-Data sessions
-render the poster/play control without requesting the autoplay video.
+optimized hero poster preload/image pair, the `local-intel-720.webp`
+screenshot, and up to two byte-range requests for the 720p hero video. The
+poster remains behind the video as its loading fallback, so the video element
+does not request a second unoptimized poster asset. The same spec proves
+reduced-motion and Save-Data sessions render the poster/play control without
+requesting the autoplay video.
 
 Update this budget only when a measured landing change intentionally adds or
 replaces first-load media. Legacy screenshot PNGs and the 1280p hero video are

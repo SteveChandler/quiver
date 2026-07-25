@@ -40,6 +40,14 @@ export function FieldGuideHeroVideo(): ReactElement {
       className="halftone-photo relative aspect-video w-full overflow-hidden bg-[#C8C2B0]"
       data-testid="field-guide-hero-video"
     >
+      <Image
+        src={HERO_POSTER_SRC}
+        alt={showVideo ? "" : "Quiver app launch video preview"}
+        fill
+        priority
+        sizes="(min-width: 1024px) 470px, (min-width: 768px) 430px, 100vw"
+        className="object-cover"
+      />
       {showVideo ? (
         <video
           src={HERO_VIDEO_SRC}
@@ -49,28 +57,17 @@ export function FieldGuideHeroVideo(): ReactElement {
           controls={userRequestedVideo}
           playsInline
           preload={canAutoplay ? "metadata" : "none"}
-          poster={HERO_POSTER_SRC}
           aria-label="Quiver app launch video preview"
           className="absolute inset-0 h-full w-full object-cover"
         />
       ) : (
-        <>
-          <Image
-            src={HERO_POSTER_SRC}
-            alt="Quiver app launch video preview"
-            fill
-            priority
-            sizes="(min-width: 1024px) 470px, (min-width: 768px) 430px, 100vw"
-            className="object-cover"
-          />
-          <button
-            type="button"
-            onClick={() => setUserRequestedVideo(true)}
-            className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border-2 border-[#11100D] bg-[#F4EBD8] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.2)] transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
-          >
-            Play demo
-          </button>
-        </>
+        <button
+          type="button"
+          onClick={() => setUserRequestedVideo(true)}
+          className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2 border-2 border-[#11100D] bg-[#F4EBD8] px-4 py-2 font-mono text-xs font-black uppercase tracking-[0.14em] text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.2)] transition-transform hover:scale-[1.02] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0B3A75]"
+        >
+          Play demo
+        </button>
       )}
       <div className="absolute bottom-1.5 right-1.5 z-10 border border-[#11100D] bg-[#F4EBD8]/85 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-[#11100D]">
         Live now

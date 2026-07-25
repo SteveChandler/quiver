@@ -216,7 +216,7 @@ describe("Sitemap Generation", () => {
       expect(route).not.toBeUndefined();
     });
 
-    it("includes acquisition hubs and keeps utility or campaign routes out", async () => {
+    it("includes indexable public routes and keeps campaign routes out", async () => {
       const result = await sitemap();
       const routesByUrl = new Map(
         result.map((route) => [route.url, route] as const),
@@ -235,8 +235,12 @@ describe("Sitemap Generation", () => {
         routesByUrl.get(`${baseUrl}/us-open-of-surfing-forecast`)
           ?.lastModified,
       ).toBe("2026-07-23");
-      expect(routesByUrl.has(`${baseUrl}/support`)).toBe(false);
-      expect(routesByUrl.has(`${baseUrl}/data-deletion`)).toBe(false);
+      expect(routesByUrl.get(`${baseUrl}/support`)?.lastModified).toBe(
+        "2026-06-25",
+      );
+      expect(
+        routesByUrl.get(`${baseUrl}/data-deletion`)?.lastModified,
+      ).toBe("2026-06-25");
       expect(routesByUrl.has(`${baseUrl}/pbsc`)).toBe(false);
     });
 
