@@ -1118,6 +1118,19 @@ async function dispatchPush(
     to: d.device_token,
     title: built.title,
     body: built.body,
+    ...(built.iosSound
+      ? {
+          sound: built.iosSound,
+          apns: { payload: { aps: { sound: built.iosSound } } },
+        }
+      : {}),
+    ...(built.androidChannelId
+      ? {
+          android: {
+            notification: { channelId: built.androidChannelId },
+          },
+        }
+      : {}),
     data: {
       ...built.data,
       notification_event_id: event.id,

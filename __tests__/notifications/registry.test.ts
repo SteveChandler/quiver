@@ -8,6 +8,63 @@
 import { NOTIFICATION_REGISTRY } from "@/lib/notifications/registry";
 
 describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () => {
+  it("assigns the native surf-alert sound only to the approved alert payloads", () => {
+    const alertPushes = [
+      NOTIFICATION_REGISTRY.forecast_alert.buildPushPayload!({
+        alert_date: "2026-07-25",
+        title: "Conditions lining up",
+        body: "Clean window",
+      }),
+      NOTIFICATION_REGISTRY.similarity_match.buildPushPayload!({
+        beach_id: "beach-1",
+        beach_slug: "blacks",
+        beach_name: "Black's",
+        alert_date: "2026-07-25",
+        forecast_at: "2026-07-25T16:00:00.000Z",
+        score: 8.7,
+        reason: "Matches your best sessions",
+      }),
+      NOTIFICATION_REGISTRY.swell_watch.buildPushPayload!(
+        NOTIFICATION_REGISTRY.swell_watch.validatePayload!({
+          beach_id: "11111111-1111-4111-8111-111111111111",
+          beach_name: "Black's",
+          event_start_date: "2026-07-25",
+          peak_date: "2026-07-26",
+          peak_height_ft: 8,
+          peak_period_s: 16,
+          forecast_at: "2026-07-25T16:00:00.000Z",
+          awareness_mode: "shadow",
+          awareness_signal: "forecast_trend",
+          awareness_severity: "major",
+          title: "Major swell incoming",
+          body: "Advanced conditions are approaching.",
+        }),
+      ),
+      NOTIFICATION_REGISTRY.weekend_window.buildPushPayload!({
+        beach_id: "beach-1",
+        forecast_at: "2026-07-25T16:00:00.000Z",
+        title: "Weekend window",
+        body: "Saturday morning lines up",
+      }),
+    ];
+
+    for (const push of alertPushes) {
+      expect(push).toMatchObject({
+        iosSound: "quiver-alert.wav",
+        androidChannelId: "quiver-alerts-v1",
+      });
+    }
+
+    const ordinaryPush =
+      NOTIFICATION_REGISTRY.trial_ending.buildPushPayload!({
+        title: "Trial ending",
+        body: "Keep your forecast access",
+        trial_ends_at: "2026-07-26T16:00:00.000Z",
+      });
+    expect(ordinaryPush).not.toHaveProperty("iosSound");
+    expect(ordinaryPush).not.toHaveProperty("androidChannelId");
+  });
+
   it("home_morning_call and weekend_window are registered as push-only reminders", () => {
     const registry = NOTIFICATION_REGISTRY as any;
 

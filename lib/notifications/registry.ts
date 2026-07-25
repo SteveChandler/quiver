@@ -25,7 +25,11 @@
 
 import { z } from "zod";
 
-import type { NotificationDeliveryStatus, NotificationTypeDef } from "./types";
+import type {
+  NotificationDeliveryStatus,
+  NotificationPushPayload,
+  NotificationTypeDef,
+} from "./types";
 import { isHighConfidenceNotification } from "./relevance";
 import {
   similarityMatchSchema,
@@ -268,6 +272,13 @@ function mapWorkerStatusToAlertAttempt(
 // trial_ending runs at 9am PT and never needs nighttime suppression).
 const DEFAULT_QUIET = { mode: "defer", windowStart: 22, windowEnd: 4 } as const;
 const NO_QUIET = { mode: "ignore" } as const;
+const SURF_ALERT_PUSH_PRESENTATION = {
+  iosSound: "quiver-alert.wav",
+  androidChannelId: "quiver-alerts-v1",
+} as const satisfies Pick<
+  NotificationPushPayload,
+  "iosSound" | "androidChannelId"
+>;
 
 // ─── Payload shapes (what producers pass + what builders consume) ────────────
 
@@ -499,6 +510,7 @@ export const NOTIFICATION_REGISTRY = {
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) => forecastAlertSchema.parse(input) as ForecastAlertPayload,
     buildPushPayload: (p) => ({
+      ...SURF_ALERT_PUSH_PRESENTATION,
       title: p.title,
       body: p.body,
       data: {
@@ -612,6 +624,7 @@ export const NOTIFICATION_REGISTRY = {
         : p.reason;
 
       return {
+        ...SURF_ALERT_PUSH_PRESENTATION,
         title: p.session_decision
           ? `${
               p.session_decision.verdict === "go"
@@ -732,6 +745,7 @@ export const NOTIFICATION_REGISTRY = {
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) => weekendWindowSchema.parse(input),
     buildPushPayload: (p) => ({
+      ...SURF_ALERT_PUSH_PRESENTATION,
       title: p.title,
       body: p.body,
       data: {
@@ -766,6 +780,7 @@ export const NOTIFICATION_REGISTRY = {
     cooldownMs: 96 * 60 * 60 * 1000,
     validatePayload: parseMajorSwellNotificationPayload,
     buildPushPayload: (p) => ({
+      ...SURF_ALERT_PUSH_PRESENTATION,
       title: p.title,
       body: p.body,
       data: {
