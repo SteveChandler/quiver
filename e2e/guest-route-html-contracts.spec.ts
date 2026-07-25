@@ -314,7 +314,7 @@ test.describe('Route HTML Contracts', () => {
       expect(getHeadingTexts(html, 1).join(' ')).toMatch(/alfonsos/i);
     });
 
-    test('Doheny loads without the snapshot and keeps supporting guide links', async ({ request }) => {
+    test('Doheny loads without the removed snapshot or supporting guide links', async ({ request }) => {
       const response = await getResponse(request, '/ca/dana-point/doheny-state-beach', {
         maxRedirects: 0,
       });
@@ -324,8 +324,24 @@ test.describe('Route HTML Contracts', () => {
       expect(response.headers().location).toBeUndefined();
       expect(html.toLowerCase()).toContain('doheny');
       expect(html).not.toContain('Surf report snapshot');
-      expect(html).toContain('href="/ca/dana-point/doheny-state-beach/tides"');
-      expect(html).toContain('href="/ca/dana-point/doheny-state-beach/water-temp"');
+      expect(html).not.toContain('aria-label="Doheny Beach related surf guides"');
+      expect(html).not.toContain('href="/ca/dana-point/doheny-state-beach/tides"');
+      expect(html).not.toContain('href="/ca/dana-point/doheny-state-beach/water-temp"');
+    });
+
+    test('Ala Moana Bowls loads without the removed snapshot or supporting guide links', async ({ request }) => {
+      const response = await getResponse(request, '/hi/honolulu/ala-moana-bowls', {
+        maxRedirects: 0,
+      });
+      const html = await response.text();
+
+      expect(response.status()).toBe(200);
+      expect(response.headers().location).toBeUndefined();
+      expect(html).toContain('Ala Moana Bowls');
+      expect(html).not.toContain('Surf report snapshot');
+      expect(html).not.toContain('aria-label="Ala Moana Bowls related surf guides"');
+      expect(html).not.toContain('href="/hi/honolulu/ala-moana-bowls/tides"');
+      expect(html).not.toContain('href="/hi/honolulu/ala-moana-bowls/water-temp"');
     });
 
     const seoCanonicalRedirects = [
