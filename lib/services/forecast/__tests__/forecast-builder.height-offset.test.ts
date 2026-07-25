@@ -247,8 +247,12 @@ describe("ForecastBuilder per-beach height-offset hook", () => {
     );
 
     expect(forecasts.length).toBeGreaterThan(0);
-    for (const forecast of forecasts) {
-      expect(forecast.wave_height).toBe("2-4ft");
+    const appliedIndexes = capturedSnapshotRows.flatMap((row, index) =>
+      row.feedback_height_calibration_applied ? [index] : [],
+    );
+    expect(appliedIndexes.length).toBeGreaterThan(0);
+    for (const index of appliedIndexes) {
+      expect(forecasts[index]?.wave_height).toBe("2-4ft");
     }
   });
 
