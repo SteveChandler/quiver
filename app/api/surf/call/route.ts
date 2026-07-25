@@ -25,16 +25,23 @@ import { isFutureDayInTimezone } from '@/lib/utils/condition-tier-utils';
 import { checkBoardFit } from '@/lib/domains/scoring/discovery-adapter';
 import type { BoardClass, SkillLevel } from '@/lib/domains/user-preferences';
 import type { RecommendationAvailability } from '@/lib/recommendations/major-event-hold/types';
+import {
+  FORECAST_ALIGNMENT_TOLERANCE_MINUTES,
+  resolveForecastAlignment,
+  type SurfCallForecastAlignment,
+} from '@/lib/services/discovery/forecast-alignment';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 15;
 
 const QuerySchema = z.object({
   beachId: z.string().uuid({ message: 'beachId must be a valid UUID' }),
+  forecastAt: z.string().datetime({ offset: true }).optional(),
 });
 
 type CanonicalSurfCallResponse = SpotSurfReportResult & {
   sessionDecision: CanonicalSessionDecision;
+  forecastAlignment?: SurfCallForecastAlignment;
 };
 
 function appendBoardNote(whySentence: string, boardNote: string | null): string {
@@ -184,12 +191,13 @@ async function surfCallHandler(
   const { searchParams } = new URL(request.url);
   const validation = validateOrError(QuerySchema, {
     beachId: searchParams.get('beachId') ?? undefined,
+    forecastAt: searchParams.get('forecastAt') ?? undefined,
   });
   if ('error' in validation) {
     return validation.error;
   }
 
-  const { beachId } = validation.data;
+  const { beachId, forecastAt } = validation.data;
   const boardClass = normalizeBoardClass(
     searchParams.get('boardClass'),
   ) as BoardClass | null;
@@ -238,6 +246,24 @@ async function surfCallHandler(
   const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
   const anchor = new Date();
   const anchorTime = anchor.toISOString();
+  const requestedForecastTime = forecastAt
+    ? new Date(forecastAt)
+    : null;
+  const scopeStart = requestedForecastTime
+    ? new Date(
+        requestedForecastTime.getTime() -
+          FORECAST_ALIGNMENT_TOLERANCE_MINUTES * 60 * 1000,
+      )
+    : anchor;
+  const requestedScopeEndMs = requestedForecastTime
+    ? requestedForecastTime.getTime() + 24 * 60 * 60 * 1000
+    : 0;
+  const scopeEnd = new Date(
+    Math.max(
+      anchor.getTime() + 24 * 60 * 60 * 1000,
+      requestedScopeEndMs,
+    ),
+  );
   const canonicalContext = await resolveCanonicalSessionDecisionContext({
     userId: user.id,
     profileExperience,
@@ -245,8 +271,8 @@ async function surfCallHandler(
     candidateBeachIds: [beachId],
     scope: {
       kind: 'plan_next_session',
-      windowStart: anchorTime,
-      windowEnd: new Date(anchor.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+      windowStart: scopeStart.toISOString(),
+      windowEnd: scopeEnd.toISOString(),
       timezone: typedBeach.timezone ?? 'UTC',
     },
     discoveryOptions: {
@@ -255,6 +281,7 @@ async function surfCallHandler(
           ? { lat: typedBeach.lat, lon: typedBeach.lon }
           : undefined,
       horizonHours: 24,
+      ...(forecastAt ? { forecastAt } : {}),
       includeBeachIds: [beachId],
       isPro,
     },
@@ -280,8 +307,20 @@ async function surfCallHandler(
     boardClass,
     recommendationAvailability,
   );
+  const alignedForecasts = recommendations
+    .filter((recommendation) => recommendation.beach.id === beachId)
+    .map((recommendation) => recommendation.forecast);
+  const scopedCanonicalResult: CanonicalSurfCallResponse = forecastAt
+    ? {
+        ...canonicalResult,
+        forecastAlignment: resolveForecastAlignment(
+          alignedForecasts,
+          forecastAt,
+        ).alignment,
+      }
+    : canonicalResult;
   const result = applyForceVerdict(
-    canonicalResult,
+    scopedCanonicalResult,
     searchParams.get('_forceVerdict'),
     process.env.NODE_ENV !== 'production',
   ) as CanonicalSurfCallResponse;

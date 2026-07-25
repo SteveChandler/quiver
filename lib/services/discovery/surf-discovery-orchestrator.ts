@@ -113,6 +113,7 @@ import type { ScoringEngine } from '@/lib/domains/scoring';
 import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
 import { boardStyleFit } from './board-style-fit';
 import { enforceMajorEventHoldBeforeDiscoveryTruncation } from './major-event-hold';
+import { resolveForecastAlignment } from './forecast-alignment';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -1359,6 +1360,7 @@ async function discoverSurfSpotsInner(
   const {
     radiusMiles: requestedRadiusMiles,
     horizonHours,
+    forecastAt,
     maxResults = DEFAULT_MAX_RESULTS,
     maxConcurrent = DEFAULT_MAX_CONCURRENT,
     timeout = DEFAULT_TIMEOUT_MS,
@@ -1575,7 +1577,14 @@ async function discoverSurfSpotsInner(
   for (const { beach, forecasts } of beachForecasts) {
     // Today-first: try today's forecasts first, fall back to all (matches beach detail page)
     const beachTz = getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
-    const todayStr = getLocalDateStr(new Date(), beachTz);
+    const requestedAlignment = forecastAt
+      ? resolveForecastAlignment(forecasts, forecastAt)
+      : null;
+    const scopedForecasts = requestedAlignment?.forecast
+      ? [requestedAlignment.forecast]
+      : [];
+    const selectionNow = forecastAt ? new Date(forecastAt) : new Date();
+    const todayStr = getLocalDateStr(selectionNow, beachTz);
     const todayForecasts = forecasts.filter(f =>
       getLocalDateStr(new Date(f.forecast_at), beachTz) === todayStr
     );
@@ -1592,7 +1601,7 @@ async function discoverSurfSpotsInner(
     //      window-selector-core.ts:565, closing the dead-zone where
     //      today-only returns null but we aren't technically past sunset
     //      yet (e.g. 19:21 PDT with sunset 19:31).
-    const nowForFallback = new Date();
+    const nowForFallback = selectionNow;
     const beachSunTimes = sunTimesCache.get(beach.id);
     const beachSameDaySunset = beachSunTimes?.sunsets.find(
       (s: Date) => getLocalDateStr(s, beachTz) === todayStr
@@ -1622,34 +1631,49 @@ async function discoverSurfSpotsInner(
       (todayForecasts.length > 0 && !hasUsableTodayForecast);
 
     let selectedWindows =
-      discoveryMode === 'now'
-        ? [
-            selectImmediateWindow(
-              forecasts,
-              beach,
-              sunTimesCache,
-              nowForFallback,
-              userSkillLevel,
-            ),
-          ].filter(
-            (window): window is PersonalizedForecastWindow => window !== null,
-          )
-        : todayForecasts.length > 0
+      forecastAt
+        ? scopedForecasts.length > 0
           ? selectBestWindows({
-              forecasts: todayForecasts,
+              forecasts: scopedForecasts,
               beach,
               userPrefs,
               horizonHours,
               sunTimesCache,
               timeSlot,
-              now: nowForFallback,
-              maxWindows: 3,
+              now: selectionNow,
+              maxWindows: 1,
               userSkillLevel,
             })
-          : [];
+          : []
+        : discoveryMode === 'now'
+          ? [
+              selectImmediateWindow(
+                forecasts,
+                beach,
+                sunTimesCache,
+                nowForFallback,
+                userSkillLevel,
+              ),
+            ].filter(
+              (window): window is PersonalizedForecastWindow => window !== null,
+            )
+          : todayForecasts.length > 0
+            ? selectBestWindows({
+                forecasts: todayForecasts,
+                beach,
+                userPrefs,
+                horizonHours,
+                sunTimesCache,
+                timeSlot,
+                now: nowForFallback,
+                maxWindows: 3,
+                userSkillLevel,
+              })
+            : [];
 
     if (
       discoveryMode !== 'now' &&
+      !forecastAt &&
       selectedWindows.length === 0 &&
       (todayForecasts.length === 0 || todayIsEffectivelyOver)
     ) {
@@ -1691,13 +1715,14 @@ async function discoverSurfSpotsInner(
     // Use the exact forecast entity that the window selector scored.
     // sourceForecast carries the forecast through from window selection;
     // fuzzy-match fallback handles edge cases where it's absent.
+    const selectionForecasts = forecastAt ? scopedForecasts : forecasts;
     const bestWindowForecast = bestWindow.sourceForecast
-      ?? forecasts.reduce((closest, f) => {
+      ?? selectionForecasts.reduce((closest, f) => {
            const fTime = new Date(f.forecast_at).getTime();
            const closestTime = new Date(closest.forecast_at).getTime();
            const target = bestWindow.start.getTime();
            return Math.abs(fTime - target) < Math.abs(closestTime - target) ? f : closest;
-         }, forecasts[0]);
+         }, selectionForecasts[0]);
 
     // Strip sourceForecast to avoid bloating the API response
     const responseWindow: PersonalizedForecastWindow = { ...bestWindow };

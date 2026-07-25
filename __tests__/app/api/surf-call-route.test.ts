@@ -208,6 +208,112 @@ describe("GET /api/surf/call", () => {
     expect(body.data.report.verdict).toBe("MAYBE");
   });
 
+  it("scores a validated forecastAt through the canonical discovery path", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    const forecastAt = "2026-05-08T22:00:00.000Z";
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost:3000/api/surf/call?beachId=${beachId}&forecastAt=${encodeURIComponent(forecastAt)}`,
+      ),
+    );
+    const body = await response.json();
+
+    expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        candidateBeachIds: [beachId],
+        discoveryOptions: expect.objectContaining({ forecastAt }),
+        scope: expect.objectContaining({
+          windowStart: "2026-05-08T20:30:00.000Z",
+        }),
+      }),
+    );
+    expect(body.data.forecastAlignment).toEqual({
+      requestedForecastAt: forecastAt,
+      matchedForecastAt: forecastAt,
+      matchType: "exact",
+      deltaMinutes: 0,
+    });
+  });
+
+  it("reports a nearest canonical forecast match within 90 minutes", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    const forecastAt = "2026-05-08T22:45:00.000Z";
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost:3000/api/surf/call?beachId=${beachId}&forecastAt=${encodeURIComponent(forecastAt)}`,
+      ),
+    );
+    const body = await response.json();
+
+    expect(body.data.forecastAlignment).toEqual({
+      requestedForecastAt: forecastAt,
+      matchedForecastAt: "2026-05-08T22:00:00.000Z",
+      matchType: "nearest",
+      deltaMinutes: 45,
+    });
+  });
+
+  it("reports no alignment instead of binding to an unrelated canonical row", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    const forecastAt = "2026-05-09T03:00:00.000Z";
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost:3000/api/surf/call?beachId=${beachId}&forecastAt=${encodeURIComponent(forecastAt)}`,
+      ),
+    );
+    const body = await response.json();
+
+    expect(body.data.forecastAlignment).toEqual({
+      requestedForecastAt: forecastAt,
+      matchedForecastAt: null,
+      matchType: "none",
+      deltaMinutes: null,
+    });
+  });
+
+  it("rejects an invalid forecastAt before canonical discovery", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost:3000/api/surf/call?beachId=${beachId}&forecastAt=not-a-timestamp`,
+      ),
+    );
+
+    expect(response.status).toBe(400);
+    expect(mockResolveCanonicalSessionDecisionContext).not.toHaveBeenCalled();
+  });
+
   it("uses objective metrics from the exact canonical window", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     mockBeachQuery({

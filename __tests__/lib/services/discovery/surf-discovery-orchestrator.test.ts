@@ -733,6 +733,102 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(result.recommendations.every(r => !r.isFavorite)).toBe(true);
   });
 
+  test('scores only the forecast row nearest a requested forecastAt', async () => {
+    const requestedForecastAt = '2024-01-15T14:20:00.000Z';
+    const matchedForecastAt = '2024-01-15T15:00:00.000Z';
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: [
+        {
+          beach: mockBeach1,
+          forecasts: [
+            {
+              ...mockForecast,
+              id: 'unrelated-row',
+              forecast_at: '2024-01-15T12:00:00.000Z',
+            },
+            {
+              ...mockForecast,
+              id: 'matched-row',
+              forecast_at: matchedForecastAt,
+            },
+          ],
+        },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+    const { selectBestWindows } = require(
+      '@/lib/services/discovery/window-selector',
+    );
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      forecastAt: requestedForecastAt,
+      maxResults: 5,
+    });
+
+    expect(selectBestWindows).toHaveBeenCalledWith(
+      expect.objectContaining({
+        forecasts: [
+          expect.objectContaining({
+            id: 'matched-row',
+            forecast_at: matchedForecastAt,
+          }),
+        ],
+        now: new Date(requestedForecastAt),
+        maxWindows: 1,
+      }),
+    );
+    expect(result.recommendations[0]?.forecast).toMatchObject({
+      id: 'matched-row',
+      forecast_at: matchedForecastAt,
+    });
+  });
+
+  test('does not fall through to another row when forecastAt has no nearby match', async () => {
+    const requestedForecastAt = '2024-01-15T18:00:00.000Z';
+    mockState.candidatePoolResponse = {
+      candidates: [mockBeach1] as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: [
+        {
+          beach: mockBeach1,
+          forecasts: [
+            {
+              ...mockForecast,
+              id: 'unrelated-row',
+              forecast_at: '2024-01-15T12:00:00.000Z',
+            },
+          ],
+        },
+      ],
+      failed: [],
+      staleCount: 0,
+    };
+    const { selectBestWindows } = require(
+      '@/lib/services/discovery/window-selector',
+    );
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      forecastAt: requestedForecastAt,
+      maxResults: 5,
+    });
+
+    expect(selectBestWindows).not.toHaveBeenCalled();
+    expect(result.recommendations).toEqual([]);
+  });
+
   test('handles favorites fetch error gracefully', async () => {
     mockState.favoritesError = new Error('Database connection failed');
 

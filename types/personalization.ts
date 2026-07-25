@@ -430,6 +430,12 @@ export interface SurfDiscoveryOptions {
    * selecting each beach's best window. Intended for "next 24 hours" UX.
    */
   horizonHours?: number;
+  /**
+   * Score only the forecast row exact/nearest to this timestamp. Used when
+   * opening an alert or selected forecast window so the verdict cannot drift
+   * to another candidate window.
+   */
+  forecastAt?: string;
   /** Filter windows to specific time of day (default: 'any') */
   timeSlot?: TimeSlot;
   /** Discovery ranking mode: future best window or immediate current conditions */
