@@ -375,6 +375,7 @@ const weekScoutFixture: WeekScoutResponse = {
             windDirection: "E",
             tideHeightFt: 2.4,
             tidePhase: "Rising",
+            freshnessAt: "2026-07-19T17:00:00.000Z",
           },
           takeaway: "Excellent clean swell.",
           rankedSpots: [
@@ -408,6 +409,7 @@ const weekScoutFixture: WeekScoutResponse = {
             windDirection: "NE",
             tideHeightFt: 2.1,
             tidePhase: "Rising",
+            freshnessAt: "2026-07-19T17:00:00.000Z",
           },
           takeaway: "A decent backup.",
           rankedSpots: [

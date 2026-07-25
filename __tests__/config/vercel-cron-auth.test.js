@@ -11,6 +11,7 @@ const SHARED_AUTH_RUNNERS = [
   "runEnhancedForecastSyncCdip",
   "runEnhancedForecastSyncCdipHead",
   "runEnhancedForecastSyncHead",
+  "runWeekendScoutCron",
 ];
 
 const STALE_CRON_HEADER_PATTERNS = [

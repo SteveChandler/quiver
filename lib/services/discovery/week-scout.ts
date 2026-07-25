@@ -60,6 +60,10 @@ export interface WeekScoutRequest {
   dayCount: 7;
 }
 
+export interface WeekScoutDaysRequest extends Omit<WeekScoutRequest, 'dayCount'> {
+  dayCount: number;
+}
+
 export interface WeekScoutRankedSpotResponse {
   beachId: string;
   beachName: string;
@@ -89,6 +93,7 @@ export interface WeekScoutWindowResponse {
     windDirection: string | null;
     tideHeightFt: number | null;
     tidePhase: string | null;
+    freshnessAt: string;
   };
   takeaway: string | null;
   rankedSpots: WeekScoutRankedSpotResponse[];
@@ -110,6 +115,15 @@ export interface WeekScoutResponse {
 export type CanonicalWeekScoutResponse = MajorEventHoldWeekScoutResponse & {
   sessionDecision: CanonicalSessionDecision;
 };
+
+interface GeneratedWeekScoutContext {
+  heldResponse: MajorEventHoldWeekScoutResponse;
+  beaches: Beach[];
+  forecastsByBeach: Map<string, EnhancedForecastEntity[]>;
+  userSkillLevel: SkillLevel | null;
+  generatedAt: string;
+  now: Date;
+}
 
 interface PersonalizationBonus {
   affinityBonus: number;
@@ -394,6 +408,7 @@ function buildDraftWindow(args: {
         windDirection: forecast.wind_direction ?? null,
         tideHeightFt: finiteNumber(forecast.tide_height),
         tidePhase: forecast.tide_status ?? null,
+        freshnessAt: forecast.updated_at ?? forecast.forecast_at,
       },
       takeaway: reasons[0] ?? null,
     },
@@ -550,11 +565,11 @@ function applyCanonicalDecisionToWeekScout(
   };
 }
 
-export async function generateWeekScoutForecast(
+async function generateWeekScoutForecastInternal(
   userId: string,
-  request: WeekScoutRequest,
+  request: WeekScoutDaysRequest,
   dependencies?: WeekScoutServiceDependencies,
-): Promise<CanonicalWeekScoutResponse> {
+): Promise<GeneratedWeekScoutContext> {
   const deps = dependencies ?? defaultDependencies(new Date());
   const generatedAt = deps.now.toISOString();
   const localDates = Array.from(
@@ -643,26 +658,76 @@ export async function generateWeekScoutForecast(
     candidates,
     decisions,
   );
-  const canonicalCandidates = buildWeekScoutCanonicalCandidates({
-    response: heldResponse,
+
+  return {
+    heldResponse,
     beaches,
     forecastsByBeach,
+    userSkillLevel,
+    generatedAt,
+    now: deps.now,
+  };
+}
+
+function validateDayCount(dayCount: number): void {
+  if (!Number.isInteger(dayCount) || dayCount < 1 || dayCount > 7) {
+    throw new Error('Week Scout dayCount must be between 1 and 7');
+  }
+}
+
+function buildCanonicalWeekScoutResponse(
+  context: GeneratedWeekScoutContext,
+  request: WeekScoutDaysRequest,
+): CanonicalWeekScoutResponse {
+  const canonicalCandidates = buildWeekScoutCanonicalCandidates({
+    response: context.heldResponse,
+    beaches: context.beaches,
+    forecastsByBeach: context.forecastsByBeach,
     timezone: request.localTimezone,
   });
   const sessionDecision = buildCanonicalSessionDecision({
-    anchorTime: generatedAt,
+    anchorTime: context.generatedAt,
     scope: {
       kind: 'plan_next_session',
-      windowStart: generatedAt,
+      windowStart: context.generatedAt,
       windowEnd: new Date(
-        deps.now.getTime() + request.dayCount * 24 * 60 * 60 * 1000,
+        context.now.getTime() + request.dayCount * 24 * 60 * 60 * 1000,
       ).toISOString(),
       timezone: request.localTimezone,
     },
-    profileExperience: userSkillLevel,
-    recommendationAvailability: heldResponse.recommendationAvailability,
+    profileExperience: context.userSkillLevel,
+    recommendationAvailability: context.heldResponse.recommendationAvailability,
     candidates: canonicalCandidates,
   });
 
-  return applyCanonicalDecisionToWeekScout(heldResponse, sessionDecision);
+  return applyCanonicalDecisionToWeekScout(context.heldResponse, sessionDecision);
+}
+
+export async function generateWeekScoutForecastForDays(
+  userId: string,
+  request: WeekScoutDaysRequest,
+  dependencies?: WeekScoutServiceDependencies,
+): Promise<CanonicalWeekScoutResponse> {
+  validateDayCount(request.dayCount);
+  const context = await generateWeekScoutForecastInternal(userId, request, dependencies);
+  return buildCanonicalWeekScoutResponse(context, request);
+}
+
+export async function generateWeekScoutRankingForDays(
+  userId: string,
+  request: WeekScoutDaysRequest,
+  dependencies?: WeekScoutServiceDependencies,
+): Promise<MajorEventHoldWeekScoutResponse> {
+  validateDayCount(request.dayCount);
+  const context = await generateWeekScoutForecastInternal(userId, request, dependencies);
+  return context.heldResponse;
+}
+
+export async function generateWeekScoutForecast(
+  userId: string,
+  request: WeekScoutRequest,
+  dependencies?: WeekScoutServiceDependencies,
+): Promise<CanonicalWeekScoutResponse> {
+  const context = await generateWeekScoutForecastInternal(userId, request, dependencies);
+  return buildCanonicalWeekScoutResponse(context, request);
 }

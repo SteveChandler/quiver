@@ -20,6 +20,42 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     }
   });
 
+  it("weekend_window rejects location and full-ranking data", () => {
+    const def = (NOTIFICATION_REGISTRY as any).weekend_window;
+    expect(() => def.validatePayload({
+      snapshot_id: "11111111-1111-4111-8111-111111111111",
+      weekend_start: "2026-07-25",
+      weekend_end: "2026-07-26",
+      qualifying_count: 3,
+      lead_beach_id: "22222222-2222-4222-8222-222222222222",
+      lead_beach_name: "Black's",
+      lead_window_local: "Saturday morning",
+      lat: 32.81,
+      results: [],
+    })).toThrow();
+  });
+
+  it("weekend_window owns the snapshot alert copy and routing summary", () => {
+    const def = (NOTIFICATION_REGISTRY as any).weekend_window;
+    const payload = {
+      snapshot_id: "11111111-1111-4111-8111-111111111111",
+      weekend_start: "2026-07-25",
+      weekend_end: "2026-07-26",
+      qualifying_count: 3,
+      lead_beach_id: "22222222-2222-4222-8222-222222222222",
+      lead_beach_name: "Black's",
+      lead_window_local: "Saturday morning",
+    };
+    expect(def.buildPushPayload(def.validatePayload(payload))).toEqual({
+      title: "3 spots look promising this weekend",
+      body: "Black's leads Saturday morning. See your top picks and why.",
+      data: { type: "weekend_window", ...payload },
+    });
+    expect(def.buildPushPayload({ ...payload, qualifying_count: 1 }).title).toBe(
+      "1 spot looks promising this weekend"
+    );
+  });
+
   it("forecast_alert restores push alongside in_app", () => {
     const def = NOTIFICATION_REGISTRY.forecast_alert as unknown as {
       channels: string[];
@@ -321,13 +357,6 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
         forecast_at: policyContext.starts_at,
         title: "Worth it",
         body: "Clean early window",
-        policy_context: policyContext,
-      },
-      weekend_window: {
-        beach_id: policyContext.beach_id,
-        forecast_at: policyContext.starts_at,
-        title: "Weekend window",
-        body: "Saturday morning lines up",
         policy_context: policyContext,
       },
     };
