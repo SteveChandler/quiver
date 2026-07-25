@@ -92,15 +92,6 @@ jest.mock("@/components/beach-detail/related-guides-section", () => ({
   RelatedGuidesSection: () => null,
 }));
 
-jest.mock("@/components/beach-detail/beach-prose-summary", () => ({
-  BeachProseSummary: () =>
-    jest.requireActual("react").createElement(
-      "section",
-      { "data-testid": "beach-prose-summary" },
-      "Surf report snapshot",
-    ),
-}));
-
 jest.mock("@/components/beach-detail/optimal-conditions-section", () => ({
   OptimalConditionsSection: () => null,
 }));
@@ -150,10 +141,6 @@ jest.mock("@/lib/supabase/server", () => ({
       maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }),
     }),
   }),
-}));
-
-jest.mock("@/lib/utils/best-time-to-surf-utils", () => ({
-  getBestTimeToSurfUrl: jest.fn().mockResolvedValue(undefined),
 }));
 
 jest.mock("@/actions/beach/cam-actions", () => ({
@@ -244,34 +231,7 @@ describe("GenericBeachDetailPage slug resolution", () => {
     expect(getNearbyBeaches).not.toHaveBeenCalled();
   });
 
-  it("removes the Doheny snapshot while preserving its supporting guide links", async () => {
-    (getBeachesBySlug as jest.Mock).mockResolvedValue({
-      success: true,
-      data: [
-        makeBeach({
-          id: "doheny",
-          name: "Doheny Beach",
-          slug: "doheny",
-          city: "Dana Point",
-        }),
-      ],
-    });
-
-    const page = await GenericBeachDetailPage({
-      params: Promise.resolve({
-        intent: "ca",
-        city: "dana-point",
-        beachSlug: "doheny",
-      }),
-    });
-    const html = renderToStaticMarkup(page);
-
-    expect(html).not.toContain("Surf report snapshot");
-    expect(html).toContain("Doheny Beach tide chart");
-    expect(html).toContain("Doheny Beach water temperature");
-  });
-
-  it("keeps the snapshot on other beach pages", async () => {
+  it("omits the removed conditions summary and guide links from beach pages", async () => {
     (getBeachesBySlug as jest.Mock).mockResolvedValue({
       success: true,
       data: [
@@ -291,8 +251,13 @@ describe("GenericBeachDetailPage slug resolution", () => {
         beachSlug: "lower-trestles",
       }),
     });
+    const html = renderToStaticMarkup(page);
 
-    expect(renderToStaticMarkup(page)).toContain("Surf report snapshot");
+    expect(html).not.toContain("Surf report snapshot");
+    expect(html).not.toContain("current conditions and local guidance");
+    expect(html).not.toContain("Lower Trestles tide chart");
+    expect(html).not.toContain("Lower Trestles water temperature");
+    expect(html).not.toContain('aria-label="Lower Trestles related surf guides"');
   });
 
   it("redirects stale city slugs to the canonical beach URL", async () => {
