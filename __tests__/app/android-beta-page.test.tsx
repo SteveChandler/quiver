@@ -215,7 +215,7 @@ describe("AndroidBetaPage", () => {
     expect(qr).toHaveAttribute("width", "248");
     const qrValue = qr.getAttribute("data-value") ?? "";
     const parsedQr = new URL(qrValue);
-    expect(parsedQr.pathname).toBe("/app");
+    expect(parsedQr.pathname).toBe("/app/handoff");
     expect(parsedQr.searchParams.get("source")).toBe("android_beta_page");
     expect(parsedQr.searchParams.get("surface")).toBe("android_beta");
     expect(parsedQr.searchParams.get("placement")).toBe("instructions_qr");

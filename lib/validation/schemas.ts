@@ -133,6 +133,7 @@ export type IntelPostCreateInput = z.infer<typeof IntelPostCreateSchema>;
 
 export const AppLinkEmailSchema = z.object({
   email: z.string().email("Enter a valid email address.").max(254),
+  handoff_id: uuidSchema,
   source: z.string().max(64).optional(),
   surface: z.string().max(64).optional(),
   placement: z.string().max(64).optional(),

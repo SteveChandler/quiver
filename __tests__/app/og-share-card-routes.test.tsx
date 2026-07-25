@@ -108,7 +108,7 @@ describe("install-style OG share cards", () => {
       }),
     );
     const qrValue = new URL(String(capturedProps().qrValue));
-    expect(qrValue.pathname).toBe("/app");
+    expect(qrValue.pathname).toBe("/app/handoff");
     expect(qrValue.searchParams.get("surface")).toBe("og_surf_call_card");
     expect(qrValue.searchParams.get("qr_id")).toBe("surf_call_share_card");
     expect(qrValue.searchParams.get("utm_source")).toBe("qr");

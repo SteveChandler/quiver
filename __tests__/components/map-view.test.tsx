@@ -398,7 +398,7 @@ describe("MapView", () => {
     const value = qr.getAttribute("data-value") ?? "";
     const parsed = new URL(value);
 
-    expect(parsed.pathname).toBe("/app");
+    expect(parsed.pathname).toBe("/app/handoff");
     expect(parsed.searchParams.get("source")).toBe("map_literacy_panel");
     expect(parsed.searchParams.get("surface")).toBe("map");
     expect(parsed.searchParams.get("qr_id")).toBe("map_literacy_field_guide");

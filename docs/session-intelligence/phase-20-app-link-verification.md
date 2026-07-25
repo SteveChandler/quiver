@@ -28,7 +28,7 @@ yarn typecheck
 Expected local evidence:
 
 - Apple AASA derives the approved route set from
-  `config/app-link-contract.json`, includes `/app/spot/*` and
+  `config/app-link-contract.json`, includes `/app/handoff`, `/app/spot/*`, and
   `/app/forecast`, and excludes broad `/app*` capture.
 - The web and native copies of the contract are semantically identical.
 - Apple AASA falls back to the checked-in Quiver team ID when an obvious

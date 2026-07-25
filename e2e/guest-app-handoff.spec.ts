@@ -11,6 +11,7 @@ const IPHONE_UA =
 const ANDROID_UA =
   "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
 const HERO_POSTER_PATH = "/images/hero/quiver-landing-hero-poster.jpg";
+const HANDOFF_ID = "33333333-3333-4333-8333-333333333333";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -181,14 +182,17 @@ test.describe("Field-guide landing — Android UA", () => {
   });
 });
 
-test.describe("/app handoff route", () => {
+test.describe("/app/handoff route", () => {
   test("iPhone UA redirects toward the campaign-tagged App Store", async ({
     page,
   }) => {
-    const response = await page.request.get("/app?source=qr", {
+    const response = await page.request.get(
+      `/app/handoff?source=qr&handoff_id=${HANDOFF_ID}`,
+      {
       headers: { "user-agent": IPHONE_UA },
       maxRedirects: 0,
-    });
+      },
+    );
 
     expect([301, 302, 307, 308]).toContain(response.status());
     expect(response.headers()["location"] ?? "").toContain("apps.apple.com");
@@ -196,10 +200,13 @@ test.describe("/app handoff route", () => {
   });
 
   test("Android UA redirects to the guided beta page", async ({ page }) => {
-    const response = await page.request.get("/app?source=qr", {
+    const response = await page.request.get(
+      `/app/handoff?source=qr&handoff_id=${HANDOFF_ID}`,
+      {
       headers: { "user-agent": ANDROID_UA },
       maxRedirects: 0,
-    });
+      },
+    );
 
     expect([301, 302, 307, 308]).toContain(response.status());
     expect(response.headers()["location"] ?? "").toBe("/android-beta");
@@ -209,7 +216,17 @@ test.describe("/app handoff route", () => {
     const errorCapture = setupErrorDetection(page);
     await mockTelemetry(page);
 
-    const response = await page.goto("/app", {
+    let emailRequestBody: Record<string, unknown> | null = null;
+    await page.route("**/api/app-link-email", async (route) => {
+      emailRequestBody = route.request().postDataJSON();
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ success: true }),
+      });
+    });
+
+    const response = await page.goto(`/app/handoff?handoff_id=${HANDOFF_ID}`, {
       timeout: 15000,
       waitUntil: "domcontentloaded",
     });
@@ -220,9 +237,18 @@ test.describe("/app handoff route", () => {
       page.getByRole("heading", { level: 1, name: /get quiver on your phone/i }),
     ).toBeVisible({ timeout: 10000 });
     await expect(page.getByLabel(/email/i).first()).toBeVisible();
+    await expect(page.getByTestId("app-handoff-qr")).toHaveAttribute(
+      "data-smart-url",
+      new RegExp(`handoff_id=${HANDOFF_ID}`),
+    );
+
+    await page.getByLabel(/email/i).first().fill("handoff-test@example.com");
+    await page.getByRole("button", { name: "Send link" }).click();
+    await expect(page.getByText(/check your email/i)).toBeVisible();
+    expect(emailRequestBody).toMatchObject({ handoff_id: HANDOFF_ID });
 
     await assertNoErrors(page, errorCapture, {
-      context: "/app desktop handoff",
+      context: "/app/handoff desktop handoff",
     });
   });
 });

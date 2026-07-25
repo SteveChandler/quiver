@@ -18,8 +18,18 @@ describe("AppLinkEmailSchema", () => {
         source: "landing_hero",
         surface: "landing-page",
         placement: "hero_primary",
+        handoff_id: "33333333-3333-4333-8333-333333333333",
       }).success,
     ).toBe(true);
+  });
+
+  it("rejects a non-UUID handoff identifier", () => {
+    const result = AppLinkEmailSchema.safeParse({
+      email: "surfer@example.com",
+      handoff_id: "shared-campaign-name",
+    });
+
+    expect(result.success).toBe(false);
   });
 
   it("rejects invalid emails with user-facing copy", () => {

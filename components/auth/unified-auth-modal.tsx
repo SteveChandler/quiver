@@ -45,6 +45,11 @@ import { useLocationSafe } from "@/context/location-context";
 import { getAttributionFromCookies } from "@/lib/attribution";
 import { signInWithApple } from "@/lib/auth/apple-sign-in";
 import {
+  buildWebSignupMetadata,
+  type SignupMetadata,
+  type WebSignupMethod,
+} from "@/lib/analytics/acquisition-context";
+import {
   AuthProviders,
   EmailPasswordForm,
   MagicLinkForm,
@@ -167,22 +172,12 @@ export function UnifiedAuthModal({
   /**
    * Build rich metadata payload for signup
    */
-  const buildSignupMetadata = (method: "email" | "google") => {
+  const buildSignupMetadata = (
+    method: WebSignupMethod,
+  ): SignupMetadata => {
     const now = new Date().toISOString();
-    const termsVersion = "2026-01-25";
     const attribution = getAttributionFromCookies();
-    const ipLocation = locationContext?.ipLocation;
-
-    // Strip query params from referrer to avoid leaking sensitive URLs
-    let referrer = "direct";
-    if (typeof document !== "undefined" && document.referrer) {
-      try {
-        const url = new URL(document.referrer);
-        referrer = url.origin + url.pathname;
-      } catch {
-        referrer = "unknown";
-      }
-    }
+    const ipLocation = locationContext?.ipLocation ?? null;
 
     // Detect device type using modern API with UA fallback
     let deviceKind: "mobile" | "desktop" = "desktop";
@@ -194,47 +189,25 @@ export function UnifiedAuthModal({
       }
     }
 
-    return {
-      signup_context: {
-        method,
-        entrypoint: source,
-        landing_path:
-          // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
-          typeof window !== "undefined" ? window.location.pathname : "/",
-        referrer,
-        utm: {
-          source: attribution.utm_source,
-          medium: attribution.utm_medium,
-          campaign: attribution.utm_campaign,
-          content: attribution.utm_content,
-          term: attribution.utm_term,
-        },
-        tz:
-          typeof Intl !== "undefined"
-            ? Intl.DateTimeFormat().resolvedOptions().timeZone
-            : null,
-        locale: typeof navigator !== "undefined" ? navigator.language : null,
-        device: {
-          kind: deviceKind,
-        },
-        captured_at: new Date().toISOString(),
-      },
-      location_data: ipLocation
-        ? {
-            source: "ip",
-            city: ipLocation.city,
-            region: ipLocation.region,
-            country: ipLocation.country,
-            latitude: ipLocation.latitude,
-            longitude: ipLocation.longitude,
-          }
-        : null,
-      legal_consent: {
-        terms_accepted_at: now,
-        terms_version: termsVersion,
-        privacy_accepted_at: now,
-      },
-    };
+    return buildWebSignupMetadata({
+      method,
+      entrypoint: source,
+      pathname:
+        // eslint-disable-next-line no-restricted-properties -- Reading pathname for analytics context, not navigation
+        typeof window !== "undefined" ? window.location.pathname : "/",
+      referrer:
+        typeof document !== "undefined" ? document.referrer : "",
+      attribution,
+      timezone:
+        typeof Intl !== "undefined"
+          ? Intl.DateTimeFormat().resolvedOptions().timeZone
+          : null,
+      locale: typeof navigator !== "undefined" ? navigator.language : null,
+      deviceKind,
+      capturedAt: now,
+      legalAcceptedAt: now,
+      location: ipLocation,
+    });
   };
 
   // Track modal open event — only for anonymous users (pre-auth funnel)
@@ -327,7 +300,11 @@ export function UnifiedAuthModal({
       trackLoginStarted("apple");
     }
 
-    const result = await signInWithApple(getReturnPath());
+    const metadata =
+      activeMode === "signup" ? buildSignupMetadata("apple") : undefined;
+    const result = metadata
+      ? await signInWithApple(getReturnPath(), metadata)
+      : await signInWithApple(getReturnPath());
 
     if (result.error) {
       setError(result.error);

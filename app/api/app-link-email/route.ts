@@ -56,7 +56,7 @@ export const POST = withBotBlockingAndRateLimit(
       );
     }
 
-    const { email, source, placement } = parsed.data;
+    const { email, handoff_id, source, surface, placement } = parsed.data;
 
     if (!checkEmailRateLimit(email)) {
       return createErrorResponse(
@@ -79,7 +79,9 @@ export const POST = withBotBlockingAndRateLimit(
 
     const appUrl = `${getBaseUrl()}${buildAppHandoffPath({
       source: source ?? "app_link_email",
+      surface: surface ?? "email",
       placement: placement ?? "email",
+      handoff_id,
       utm_source: "email",
       utm_medium: "app_link",
       utm_campaign: APP_FIRST_CAMPAIGN,

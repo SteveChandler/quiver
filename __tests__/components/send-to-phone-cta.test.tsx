@@ -1,7 +1,11 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 
 import { SendToPhoneCta } from "@/components/app-store/send-to-phone-cta";
-import { trackAppHandoffQrRendered } from "@/lib/analytics/app-handoff-tracking";
+import {
+  trackAppHandoffEmailSent,
+  trackAppHandoffEmailSubmit,
+  trackAppHandoffQrRendered,
+} from "@/lib/analytics/app-handoff-tracking";
 
 jest.mock("@/lib/analytics/app-handoff-tracking", () => ({
   trackAppHandoffQrRendered: jest.fn(),
@@ -13,6 +17,14 @@ jest.mock("@/lib/analytics/app-handoff-tracking", () => ({
 const mockTrackAppHandoffQrRendered =
   trackAppHandoffQrRendered as jest.MockedFunction<
     typeof trackAppHandoffQrRendered
+  >;
+const mockTrackAppHandoffEmailSubmit =
+  trackAppHandoffEmailSubmit as jest.MockedFunction<
+    typeof trackAppHandoffEmailSubmit
+  >;
+const mockTrackAppHandoffEmailSent =
+  trackAppHandoffEmailSent as jest.MockedFunction<
+    typeof trackAppHandoffEmailSent
   >;
 
 describe("SendToPhoneCta", () => {
@@ -31,13 +43,27 @@ describe("SendToPhoneCta", () => {
     );
   });
 
-  it("renders a labeled email input and a QR with a /app target", () => {
+  it("renders one UUID across the QR URL and QR event", async () => {
     render(<SendToPhoneCta {...baseProps} />);
     expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
     expect(screen.getByText(/send link/i)).toBeInTheDocument();
     expect(screen.queryByText("quiversurf.app/app")).not.toBeInTheDocument();
     expect(screen.queryByText(/utm_medium=desktop_handoff/i)).not.toBeInTheDocument();
     expect(screen.getByText(/open app store anyway/i)).toBeInTheDocument();
+
+    await waitFor(() => {
+      const smartUrl = screen
+        .getByTestId("app-handoff-qr")
+        .getAttribute("data-smart-url");
+      const handoffId = new URL(smartUrl ?? "").searchParams.get("handoff_id");
+
+      expect(handoffId).toMatch(
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      );
+      expect(mockTrackAppHandoffQrRendered).toHaveBeenCalledWith(
+        expect.objectContaining({ handoff_id: handoffId }),
+      );
+    });
   });
 
   it("can render QR-only copy without the email form", () => {
@@ -49,6 +75,17 @@ describe("SendToPhoneCta", () => {
     expect(screen.queryByLabelText(/email/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/send link/i)).not.toBeInTheDocument();
     expect(screen.getByText(/open app store anyway/i)).toBeInTheDocument();
+  });
+
+  it("keeps the desktop fallback pointed at the App Store", () => {
+    render(<SendToPhoneCta {...baseProps} />);
+
+    const fallback = screen.getByRole("link", {
+      name: /open app store anyway/i,
+    });
+    expect(fallback.getAttribute("href")).toMatch(
+      /^https:\/\/apps\.apple\.com\//,
+    );
   });
 
   it("adds the rollout cohort to QR render tracking when provided", () => {
@@ -85,6 +122,20 @@ describe("SendToPhoneCta", () => {
     expect((global as any).fetch).toHaveBeenCalledWith(
       "/api/app-link-email",
       expect.objectContaining({ method: "POST" }),
+    );
+    const request = ((global as any).fetch as jest.Mock).mock.calls.find(
+      ([url]) => url === "/api/app-link-email",
+    );
+    const requestBody = JSON.parse(request[1].body);
+    const handoffId = requestBody.handoff_id;
+    expect(handoffId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    expect(mockTrackAppHandoffEmailSubmit).toHaveBeenCalledWith(
+      expect.objectContaining({ handoff_id: handoffId }),
+    );
+    expect(mockTrackAppHandoffEmailSent).toHaveBeenCalledWith(
+      expect.objectContaining({ handoff_id: handoffId }),
     );
   });
 

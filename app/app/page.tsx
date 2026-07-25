@@ -13,6 +13,7 @@ import {
   IOS_APP_STORE_URL,
 } from "@/lib/constants/app-store";
 import { DesktopHandoff } from "./desktop-handoff";
+import { isValidUUID } from "@/lib/utils/validation";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 
@@ -31,8 +32,16 @@ function readSource(searchParams: Awaited<SearchParams>): string {
   return value ?? "app_handoff_route";
 }
 
+function resolveHandoffId(searchParams: Awaited<SearchParams>): string {
+  const handoffId = readFirstParam(searchParams, "handoff_id");
+  return handoffId && isValidUUID(handoffId)
+    ? handoffId
+    : crypto.randomUUID();
+}
+
 function buildHandoffMetadata(
   searchParams: Awaited<SearchParams>,
+  handoffId: string,
   platform: "ios" | "android" | "desktop",
   destination: {
     type: string;
@@ -42,6 +51,7 @@ function buildHandoffMetadata(
   const source = readSource(searchParams);
   const metadata: Record<string, unknown> = {
     source,
+    handoff_id: handoffId,
     platform,
     destination_type: destination.type,
     destination_url: destination.url,
@@ -83,12 +93,13 @@ export default async function AppHandoffPage({
   const sp = await searchParams;
   const userAgent = (await headers()).get("user-agent") ?? "";
   const platform = getFirstTouchPlatform(userAgent);
+  const handoffId = resolveHandoffId(sp);
 
   if (platform === "ios") {
     const destinationUrl = iosAppStoreUrlWithCampaign(campaignFromParams(sp));
     await logAppHandoffLinkOpenedServer({
-      sessionId: crypto.randomUUID(),
-      metadata: buildHandoffMetadata(sp, "ios", {
+      sessionId: handoffId,
+      metadata: buildHandoffMetadata(sp, handoffId, "ios", {
         type: "app_store",
         url: destinationUrl,
       }),
@@ -99,8 +110,8 @@ export default async function AppHandoffPage({
   if (platform === "android") {
     const destination = androidDestination();
     await logAppHandoffLinkOpenedServer({
-      sessionId: crypto.randomUUID(),
-      metadata: buildHandoffMetadata(sp, "android", destination),
+      sessionId: handoffId,
+      metadata: buildHandoffMetadata(sp, handoffId, "android", destination),
     });
     redirect(destination.url);
   }
@@ -113,6 +124,7 @@ export default async function AppHandoffPage({
         surface={readFirstParam(sp, "surface") ?? "app_handoff"}
         qrId={readFirstParam(sp, "qr_id")}
         target={readFirstParam(sp, "target")}
+        handoffId={handoffId}
       />
       <noscript>
         <p>

@@ -171,9 +171,9 @@ behavior file.
   response.
 - The canonical path policy lives in `config/app-link-contract.json`. The AASA
   route derives exact/prefix rules from that contract for invite, beach,
-  sessions, profile, auth, settings, map, alerts, `/app/spot/*`, and
-  `/app/forecast`. Bare `/app` and every other `/app/*` path stay on web/store
-  handoff.
+  sessions, profile, auth, settings, map, alerts, `/app/handoff`,
+  `/app/spot/*`, and `/app/forecast`. Bare `/app` stays on the web/store
+  handoff; `/app/handoff` is the exact controllable acquisition path.
 - Android asset links are served by
   `app/.well-known/assetlinks.json/route.ts`; the response delegates
   `delegate_permission/common.handle_all_urls` to configured Android packages

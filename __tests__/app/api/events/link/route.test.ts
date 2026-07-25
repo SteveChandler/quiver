@@ -55,6 +55,20 @@ const { POST } = require("@/app/api/events/link/route");
 // ---------------------------------------------------------------------------
 const VALID_SESSION_ID = "84d3468b-c1ec-46ad-8621-d8507e5f167a";
 const VALID_USER_ID = "550e8400-e29b-41d4-a716-446655440000";
+const LINK_RESULT = {
+  linked: 0,
+  attribution_outcome: "no_evidence",
+  signup_surface: "unknown",
+  evidence_source: "none",
+};
+const VALID_SIGNUP_CONTEXT = {
+  schema_version: 2,
+  signup_surface: "web",
+  method: "google",
+  entrypoint: "landing_hero",
+  source_capture_status: "captured",
+  captured_at: "2026-07-25T18:00:00.000Z",
+};
 
 // ---------------------------------------------------------------------------
 // Test suite
@@ -74,8 +88,8 @@ describe("POST /api/events/link", () => {
     // Default: authenticated user.
     mockAuthenticatedUser(mockSupabaseClient, createMockUser({ id: VALID_USER_ID }));
 
-    // Default: RPC succeeds returning 0.
-    mockRpc.mockResolvedValue({ data: 0, error: null });
+    // Default: RPC succeeds without linked events or acquisition evidence.
+    mockRpc.mockResolvedValue({ data: LINK_RESULT, error: null });
   });
 
   afterEach(() => {
@@ -152,6 +166,24 @@ describe("POST /api/events/link", () => {
       expect(res.status).toBe(400);
       await expectErrorResponse(res, 400, "Invalid or missing sessionId");
     });
+
+    it("returns 400 for malformed signupContext without calling the RPC", async () => {
+      const req = createMockRequest("POST", "http://localhost/api/events/link", {
+        body: {
+          sessionId: VALID_SESSION_ID,
+          signupContext: {
+            schema_version: 2,
+            signup_surface: "native_ios",
+            method: "google",
+          },
+        },
+      });
+
+      const res = await POST(req);
+
+      await expectErrorResponse(res, 400, "Invalid signupContext");
+      expect(mockRpc).not.toHaveBeenCalled();
+    });
   });
 
   // -------------------------------------------------------------------------
@@ -178,7 +210,15 @@ describe("POST /api/events/link", () => {
 
   describe("successful event linking", () => {
     it("links events and returns count when RPC returns a positive number", async () => {
-      mockRpc.mockResolvedValue({ data: 5, error: null });
+      mockRpc.mockResolvedValue({
+        data: {
+          linked: 5,
+          attribution_outcome: "materialized",
+          signup_surface: "web",
+          evidence_source: "request_signup_context",
+        },
+        error: null,
+      });
 
       const req = createMockRequest("POST", "http://localhost/api/events/link", {
         body: { sessionId: VALID_SESSION_ID },
@@ -187,11 +227,17 @@ describe("POST /api/events/link", () => {
       const res = await POST(req);
       const body = await expectSuccessResponse(res, 200);
 
-      expect(body.data).toEqual({ ok: true, linked: 5 });
+      expect(body.data).toEqual({
+        ok: true,
+        linked: 5,
+        attributionOutcome: "materialized",
+        signupSurface: "web",
+        evidenceSource: "request_signup_context",
+      });
     });
 
     it("returns linked: 0 when no events exist to link", async () => {
-      mockRpc.mockResolvedValue({ data: 0, error: null });
+      mockRpc.mockResolvedValue({ data: LINK_RESULT, error: null });
 
       const req = createMockRequest("POST", "http://localhost/api/events/link", {
         body: { sessionId: VALID_SESSION_ID },
@@ -200,7 +246,13 @@ describe("POST /api/events/link", () => {
       const res = await POST(req);
       const body = await expectSuccessResponse(res, 200);
 
-      expect(body.data).toEqual({ ok: true, linked: 0 });
+      expect(body.data).toEqual({
+        ok: true,
+        linked: 0,
+        attributionOutcome: "no_evidence",
+        signupSurface: "unknown",
+        evidenceSource: "none",
+      });
     });
 
     it("returns linked: 0 when RPC returns null (no rows affected)", async () => {
@@ -213,27 +265,64 @@ describe("POST /api/events/link", () => {
       const res = await POST(req);
       const body = await expectSuccessResponse(res, 200);
 
-      // The route uses `data ?? 0` so null should produce 0.
-      expect(body.data).toEqual({ ok: true, linked: 0 });
+      expect(body.data).toEqual({
+        ok: true,
+        linked: 0,
+        attributionOutcome: "no_evidence",
+        signupSurface: "unknown",
+        evidenceSource: "none",
+      });
     });
 
-    it("passes the correct arguments to the RPC call", async () => {
-      mockRpc.mockResolvedValue({ data: 3, error: null });
+    it("passes the authenticated user and validated signup context to v2", async () => {
+      mockRpc.mockResolvedValue({
+        data: { ...LINK_RESULT, linked: 3 },
+        error: null,
+      });
 
       const req = createMockRequest("POST", "http://localhost/api/events/link", {
-        body: { sessionId: VALID_SESSION_ID },
+        body: {
+          sessionId: VALID_SESSION_ID,
+          signupContext: VALID_SIGNUP_CONTEXT,
+        },
       });
 
       await POST(req);
 
-      expect(mockRpc).toHaveBeenCalledWith("link_anonymous_events", {
+      expect(mockRpc).toHaveBeenCalledWith("link_anonymous_events_v2", {
         p_session_id: VALID_SESSION_ID,
         p_user_id: VALID_USER_ID,
+        p_signup_context: VALID_SIGNUP_CONTEXT,
+      });
+    });
+
+    it("accepts a canonical native signup context at the shared link boundary", async () => {
+      const nativeSignupContext = {
+        ...VALID_SIGNUP_CONTEXT,
+        signup_surface: "native_ios",
+        source_capture_status: "missing",
+      };
+      const req = createMockRequest("POST", "http://localhost/api/events/link", {
+        body: {
+          sessionId: VALID_SESSION_ID,
+          signupContext: nativeSignupContext,
+        },
+      });
+
+      await POST(req);
+
+      expect(mockRpc).toHaveBeenCalledWith("link_anonymous_events_v2", {
+        p_session_id: VALID_SESSION_ID,
+        p_user_id: VALID_USER_ID,
+        p_signup_context: nativeSignupContext,
       });
     });
 
     it("uses the service-role client (not the auth-scoped client) for the RPC", async () => {
-      mockRpc.mockResolvedValue({ data: 1, error: null });
+      mockRpc.mockResolvedValue({
+        data: { ...LINK_RESULT, linked: 1 },
+        error: null,
+      });
 
       const req = createMockRequest("POST", "http://localhost/api/events/link", {
         body: { sessionId: VALID_SESSION_ID },
@@ -245,7 +334,15 @@ describe("POST /api/events/link", () => {
     });
 
     it("includes session and user ids in the structured link log for race diagnostics", async () => {
-      mockRpc.mockResolvedValue({ data: 3, error: null });
+      mockRpc.mockResolvedValue({
+        data: {
+          linked: 3,
+          attribution_outcome: "materialized",
+          signup_surface: "web",
+          evidence_source: "linked_web_signup_event",
+        },
+        error: null,
+      });
 
       const req = createMockRequest("POST", "http://localhost/api/events/link", {
         body: { sessionId: VALID_SESSION_ID },
@@ -261,8 +358,12 @@ describe("POST /api/events/link", () => {
         user_id: VALID_USER_ID,
         duration_ms: expect.any(Number),
         events_updated: 3,
+        attribution_outcome: "materialized",
+        signup_surface: "web",
+        evidence_source: "linked_web_signup_event",
         outcome: "success",
       });
+      expect(logPayload).not.toHaveProperty("signup_context");
     });
   });
 

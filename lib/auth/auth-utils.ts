@@ -15,6 +15,7 @@ import {
   safeSetItem,
   safeRemoveItem,
 } from "@/lib/utils/safe-storage";
+import type { SignupMetadata } from "@/lib/analytics/acquisition-context";
 
 // Constants for storage keys and configuration
 const REDIRECT_STORAGE_KEY = "auth_redirect_path";
@@ -25,6 +26,23 @@ const PENDING_SIGNUP_METADATA_KEY = "pending_signup_metadata";
 
 /** Minimum password length for validation (stricter than Supabase's 6-char minimum) */
 export const MIN_PASSWORD_LENGTH = 8;
+
+export function storePendingSignupMetadata(
+  metadata: SignupMetadata | undefined,
+): void {
+  if (!metadata || typeof window === "undefined") return;
+
+  sessionStorage.setItem(
+    PENDING_SIGNUP_METADATA_KEY,
+    JSON.stringify(metadata),
+  );
+}
+
+export function clearPendingSignupMetadata(): void {
+  if (typeof window === "undefined") return;
+
+  sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
+}
 
 /**
  * Store the intended redirect path after authentication
@@ -96,7 +114,7 @@ export function buildAuthUrl(basePath: string, returnTo?: string): string {
 export async function initiateOAuthFlow(
   provider: "google",
   returnTo: string,
-  metadata?: Record<string, any>
+  metadata?: SignupMetadata,
 ): Promise<{ error?: string }> {
   try {
     const sb = createClient();
@@ -107,9 +125,7 @@ export async function initiateOAuthFlow(
     console.log("[auth-utils] Storing redirect path for OAuth:", returnTo);
 
     // Stash signup metadata for post-OAuth processing (if provided)
-    if (metadata && Object.keys(metadata).length > 0) {
-      sessionStorage.setItem(PENDING_SIGNUP_METADATA_KEY, JSON.stringify(metadata));
-    }
+    storePendingSignupMetadata(metadata);
 
     // Web: standard redirect flow
     const redirectTo = `${origin}/auth/callback?redirect=${encodeURIComponent(returnTo)}`;
@@ -121,7 +137,7 @@ export async function initiateOAuthFlow(
     if (oauthError) {
       console.error("[auth-utils] OAuth error:", oauthError);
       clearAuthRedirect();
-      sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
+      clearPendingSignupMetadata();
       return {
         error: "Unable to sign in with Google. Please try another method.",
       };
@@ -132,7 +148,7 @@ export async function initiateOAuthFlow(
   } catch (error) {
     console.error("[auth-utils] OAuth exception:", error);
     clearAuthRedirect();
-    sessionStorage.removeItem(PENDING_SIGNUP_METADATA_KEY);
+    clearPendingSignupMetadata();
     return {
       error: "An unexpected error occurred during sign in.",
     };

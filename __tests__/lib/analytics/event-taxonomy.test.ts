@@ -14,6 +14,7 @@ const appHandoffEvents = [
   "app_handoff_email_sent",
   "app_handoff_email_failed",
   "app_handoff_link_opened",
+  "app_handoff_native_open",
 ] as const satisfies readonly EventType[];
 
 describe("event taxonomy", () => {

@@ -60,18 +60,42 @@ describe("POST /api/app-link-email", () => {
 
   it("sends the handoff email for a valid address", async () => {
     const res = await POST(
-      req({ email: "surf@gmail.com", source: "landing_hero" }),
+      req({
+        email: "surf@gmail.com",
+        source: "landing_hero",
+        handoff_id: "33333333-3333-4333-8333-333333333333",
+      }),
       undefined as never,
     );
     expect(res.status).toBe(200);
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({ subject: "Open Quiver on your phone" }),
     );
+    const arg = send.mock.calls[0]?.[0] as { react: unknown };
+    expect(JSON.stringify(arg.react)).toContain(
+      "handoff_id=33333333-3333-4333-8333-333333333333",
+    );
   });
 
   it("never echoes the recipient address into the email body", async () => {
-    await POST(req({ email: "surf@gmail.com" }), undefined as never);
+    await POST(
+      req({
+        email: "surf@gmail.com",
+        handoff_id: "33333333-3333-4333-8333-333333333333",
+      }),
+      undefined as never,
+    );
     const arg = send.mock.calls[0]?.[0] as { react: unknown };
     expect(JSON.stringify(arg.react)).not.toContain("surf@gmail.com");
+  });
+
+  it("rejects missing handoff IDs instead of creating an unlinked email", async () => {
+    const res = await POST(
+      req({ email: "surf@gmail.com" }),
+      undefined as never,
+    );
+
+    expect(res.status).toBe(400);
+    expect(send).not.toHaveBeenCalled();
   });
 });

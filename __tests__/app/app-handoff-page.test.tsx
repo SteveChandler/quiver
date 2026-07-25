@@ -29,11 +29,13 @@ jest.mock("@/lib/analytics/app-handoff-tracking", () => ({
 }));
 
 import AppHandoffPage, { metadata } from "@/app/app/page";
+import DedicatedAppHandoffPage from "@/app/app/handoff/page";
 
 const IPHONE_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1";
 const ANDROID_UA =
   "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36";
+const HANDOFF_ID = "33333333-3333-4333-8333-333333333333";
 
 describe("/app handoff page", () => {
   beforeEach(() => {
@@ -42,6 +44,10 @@ describe("/app handoff page", () => {
 
   it("is noindex", () => {
     expect(metadata.robots).toEqual({ index: false, follow: false });
+  });
+
+  it("serves the same handoff behavior on the dedicated universal-link path", () => {
+    expect(DedicatedAppHandoffPage).toBe(AppHandoffPage);
   });
 
   it("logs and redirects iPhone visitors to the campaign-tagged App Store URL", async () => {
@@ -53,6 +59,7 @@ describe("/app handoff page", () => {
           source: "map_literacy_panel",
           surface: "map",
           placement: "field_guide_qr",
+          handoff_id: HANDOFF_ID,
           qr_id: "map_literacy_field_guide",
           target: "download",
           utm_source: "qr",
@@ -64,7 +71,9 @@ describe("/app handoff page", () => {
 
     expect(mockLogOpen).toHaveBeenCalledWith(
       expect.objectContaining({
+        sessionId: HANDOFF_ID,
         metadata: expect.objectContaining({
+          handoff_id: HANDOFF_ID,
           source: "map_literacy_panel",
           surface: "map",
           placement: "field_guide_qr",
@@ -92,6 +101,7 @@ describe("/app handoff page", () => {
           source: "android_beta_page",
           surface: "android_beta",
           placement: "instructions_qr",
+          handoff_id: HANDOFF_ID,
           qr_id: "android_beta_instructions",
           target: "android_beta",
           utm_source: "qr",
@@ -101,7 +111,9 @@ describe("/app handoff page", () => {
 
     expect(mockLogOpen).toHaveBeenCalledWith(
       expect.objectContaining({
+        sessionId: HANDOFF_ID,
         metadata: expect.objectContaining({
+          handoff_id: HANDOFF_ID,
           source: "android_beta_page",
           surface: "android_beta",
           placement: "instructions_qr",
@@ -115,6 +127,29 @@ describe("/app handoff page", () => {
       }),
     );
     expect(mockRedirect).toHaveBeenCalledWith("/android-beta");
+  });
+
+  it("replaces an invalid handoff ID at the server boundary", async () => {
+    mockHeadersGet.mockReturnValue(IPHONE_UA);
+
+    await expect(
+      AppHandoffPage({
+        searchParams: Promise.resolve({
+          handoff_id: "shared-campaign-name",
+        }),
+      }),
+    ).rejects.toThrow("NEXT_REDIRECT");
+
+    expect(mockLogOpen).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: expect.stringMatching(
+          /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+        ),
+        metadata: expect.not.objectContaining({
+          handoff_id: "shared-campaign-name",
+        }),
+      }),
+    );
   });
 
   it("renders the desktop handoff module for desktop visitors", async () => {

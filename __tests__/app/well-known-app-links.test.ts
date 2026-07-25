@@ -51,6 +51,7 @@ describe('.well-known app-link manifests', () => {
           '/map',
           '/alerts',
           '/alerts/*',
+          '/app/handoff',
           '/app/spot/*',
           '/app/forecast',
         ],
@@ -68,7 +69,12 @@ describe('.well-known app-link manifests', () => {
 
     expect(paths).not.toContain('/app*');
     expect(paths).not.toContain('/roadmap/*');
-    expect(paths).toEqual(expect.arrayContaining(['/alerts', '/map', '/app/forecast']));
+    expect(paths).toEqual(expect.arrayContaining([
+      '/alerts',
+      '/map',
+      '/app/handoff',
+      '/app/forecast',
+    ]));
   });
 
   it('does not emit placeholder Apple team IDs as live app-link evidence', async () => {

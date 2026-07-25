@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Acquisition and activation measurement now separates web signups, native installs, and web-to-app handoffs** (`lib/analytics/acquisition-context.ts`, `/api/events/link`, `/app/handoff`, `supabase/migrations/2026072512*.sql`). Signup OAuth paths preserve bounded source context, native opens carry exact handoff IDs, identity linking follows deterministic precedence, and service-role semantic views expose each funnel at its correct denominator without combining web registrants with native installers.
+
 ### Fixed
 - **Saved-session edits now use a strict owner-only API contract** (`app/api/sessions/[id]/route.ts`). The PATCH endpoint accepts session time, duration, board, rating, conditions, notes, and visibility while rejecting location/media changes; board changes refresh the historical board snapshot and condition changes keep numeric wave quality aligned.
 - **Native app links now share one narrow cross-repository path contract** (`config/app-link-contract.json`, `app/.well-known/apple-app-site-association/route.ts`). The AASA response covers only approved invite, beach, session, profile, auth, settings, map, alerts, spot-handoff, and forecast-handoff routes; it no longer lets environment overrides capture bare `/app` or unrelated `/app/*` web/store handoffs.

@@ -22,10 +22,10 @@ function expectPbscHandoffHref(link: HTMLElement, placement: string): void {
   if (!href) {
     throw new Error("Expected PBSC handoff CTA to have an href");
   }
-  expect(href).toMatch(/^\/app\?/);
+  expect(href).toMatch(/^\/app\/handoff\?/);
 
   const url = new URL(href, "https://www.quiversurf.app");
-  expect(url.pathname).toBe("/app");
+  expect(url.pathname).toBe("/app/handoff");
   expect(url.searchParams.get("source")).toBe("pbsc-flyer");
   expect(url.searchParams.get("surface")).toBe("pbsc-page");
   expect(url.searchParams.get("placement")).toBe(placement);

@@ -12,6 +12,7 @@ interface DesktopHandoffProps {
   placement?: string;
   qrId?: string;
   target?: string;
+  handoffId: string;
 }
 
 const HANDOFF_STEPS = [
@@ -26,6 +27,7 @@ export function DesktopHandoff({
   placement = "handoff_page",
   qrId,
   target,
+  handoffId,
 }: DesktopHandoffProps): ReactElement {
   const viewed = useRef(false);
 
@@ -36,11 +38,12 @@ export function DesktopHandoff({
       source,
       surface,
       placement,
+      handoff_id: handoffId,
       qr_id: qrId,
       target,
       platform: "desktop",
     });
-  }, [placement, qrId, source, surface, target]);
+  }, [handoffId, placement, qrId, source, surface, target]);
 
   return (
     <ZineSurface
@@ -76,6 +79,7 @@ export function DesktopHandoff({
             source={source}
             surface={surface}
             placement={placement}
+            handoffId={handoffId}
             qrId={qrId}
             target={target}
           />

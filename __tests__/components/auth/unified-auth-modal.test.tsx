@@ -409,6 +409,35 @@ describe("UnifiedAuthModal", () => {
       );
     });
 
+    it("passes v2 acquisition metadata into Apple signup", async () => {
+      render(
+        <UnifiedAuthModal
+          isOpen={true}
+          onClose={mockOnClose}
+          mode="signup"
+          returnTo="/sessions"
+          source="landing_hero"
+        />
+      );
+
+      fireEvent.click(screen.getByText("Continue with Apple"));
+
+      await waitFor(() => {
+        expect(appleSignIn.signInWithApple).toHaveBeenCalledWith(
+          "/sessions",
+          expect.objectContaining({
+            signup_context: expect.objectContaining({
+              schema_version: 2,
+              signup_surface: "web",
+              method: "apple",
+              entrypoint: "landing_hero",
+              source_capture_status: "captured",
+            }),
+          }),
+        );
+      });
+    });
+
     it("should show error when Apple Sign-In fails", async () => {
       (appleSignIn.signInWithApple as jest.Mock).mockResolvedValue({
         error: "Apple sign-in was cancelled or failed.",

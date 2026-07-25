@@ -279,6 +279,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   app_handoff_email_sent: 0,
   app_handoff_email_failed: 0,
   app_handoff_link_opened: 0,
+  app_handoff_native_open: 0,
   android_lead_captured: 0,
 } as const;
 

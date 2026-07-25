@@ -3,6 +3,11 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 
 const mockSetClientPostHogTrackingAllowed = jest.fn();
 const mockQueueClientPostHogSignup = jest.fn();
+const mockGetExistingVisitorId = jest.fn<string | null, []>(() => null);
+const mockClearVisitorId = jest.fn();
+const mockUpdateUser = jest.fn(() =>
+  Promise.resolve({ data: { user: null }, error: null }),
+);
 const originalPostHogToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
 jest.mock("@/lib/posthog-client", () => ({
   buildPostHogUserProperties: jest.fn(() => ({})),
@@ -13,6 +18,11 @@ jest.mock("@/lib/posthog-client", () => ({
     mockQueueClientPostHogSignup(...args),
   setClientPostHogTrackingAllowed: (...args: unknown[]) =>
     mockSetClientPostHogTrackingAllowed(...args),
+}));
+
+jest.mock("@/lib/utils/visitor-id", () => ({
+  getExistingVisitorId: () => mockGetExistingVisitorId(),
+  clearVisitorId: () => mockClearVisitorId(),
 }));
 
 // Mock Supabase client setup
@@ -52,6 +62,7 @@ jest.mock("@/lib/supabase/client", () => ({
       getUser: mockGetUser,
       onAuthStateChange: mockOnAuthStateChange,
       refreshSession: jest.fn(),
+      updateUser: mockUpdateUser,
     },
   }),
 }));
@@ -76,6 +87,10 @@ function Consumer() {
 describe("AuthContext error paths", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetExistingVisitorId.mockReturnValue(null);
+    global.fetch = jest.fn(() =>
+      Promise.resolve(new Response("{}", { status: 200 })),
+    ) as jest.Mock;
     // Reset to default behavior
     mockGetSession.mockResolvedValue({
       data: { session: null },
@@ -85,6 +100,8 @@ describe("AuthContext error paths", () => {
 
   afterEach(() => {
     sessionStorage.removeItem("welcome_email_sent_new-user");
+    sessionStorage.removeItem("pending_signup_metadata");
+    sessionStorage.removeItem("events_linked_new-user");
     if (originalPostHogToken === undefined) {
       delete process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
     } else {
@@ -160,5 +177,64 @@ describe("AuthContext error paths", () => {
       "new-user",
       "google",
     );
+  });
+
+  it("passes validated pending acquisition context to the identity link", async () => {
+    const visitorId = "11111111-1111-4111-8111-111111111111";
+    mockGetExistingVisitorId.mockReturnValue(visitorId);
+    sessionStorage.setItem("welcome_email_sent_new-user", "true");
+    sessionStorage.setItem(
+      "pending_signup_metadata",
+      JSON.stringify({
+        signup_context: {
+          schema_version: 2,
+          signup_surface: "web",
+          method: "google",
+          entrypoint: "landing_hero",
+          source_capture_status: "captured",
+          captured_at: "2026-07-25T18:00:00.000Z",
+        },
+      }),
+    );
+
+    render(
+      <AuthProvider>
+        <div>child</div>
+      </AuthProvider>,
+    );
+
+    await waitFor(() => expect(mockOnAuthStateChange).toHaveBeenCalled());
+    const onAuthStateChange = getAuthStateChangeHandler();
+
+    act(() => {
+      onAuthStateChange("SIGNED_IN", {
+        user: {
+          id: "new-user",
+          created_at: new Date().toISOString(),
+          app_metadata: { provider: "google" },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/events/link",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            sessionId: visitorId,
+            signupContext: {
+              schema_version: 2,
+              signup_surface: "web",
+              method: "google",
+              entrypoint: "landing_hero",
+              source_capture_status: "captured",
+              captured_at: "2026-07-25T18:00:00.000Z",
+            },
+          }),
+        }),
+      );
+    });
+    expect(sessionStorage.getItem("pending_signup_metadata")).toBeNull();
   });
 });
