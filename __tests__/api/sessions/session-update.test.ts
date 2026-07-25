@@ -593,7 +593,6 @@ describe("PATCH /api/sessions/[id]", () => {
         expect.objectContaining({
           ...updates,
           wave_quality: 5,
-          updated_at: expect.any(String),
         })
       );
     });
@@ -998,7 +997,7 @@ describe("PATCH /api/sessions/[id]", () => {
       expect(data.data.session.is_public).toBe(true);
     });
 
-    it("sets updated_at timestamp", async () => {
+    it("does not reference the nonexistent sessions.updated_at column", async () => {
       mockAuthGetUser.mockResolvedValue({
         data: {
           user: { id: validUserId, email: "user@example.com" },
@@ -1015,12 +1014,10 @@ describe("PATCH /api/sessions/[id]", () => {
       const mockSelect = jest.fn().mockReturnValue({ eq: mockEq });
 
       // Mock update
-      const now = new Date().toISOString();
       const updatedSession = {
         id: validSessionId,
         user_id: validUserId,
         notes: "Updated",
-        updated_at: now,
       };
       const mockUpdateSingle = jest.fn().mockResolvedValue({
         data: updatedSession,
@@ -1059,9 +1056,9 @@ describe("PATCH /api/sessions/[id]", () => {
 
       expect(response.status).toBe(200);
       expect(data.success).toBe(true);
-      expect(typeof data.data.session.updated_at).toBe("string");
+      expect(mockUpdate).toHaveBeenCalledWith({ notes: "Updated" });
       expect(mockUpdateSelect).toHaveBeenCalledWith(
-        expect.stringContaining("updated_at"),
+        expect.not.stringContaining("updated_at")
       );
     });
   });

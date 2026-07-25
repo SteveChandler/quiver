@@ -88,7 +88,6 @@ const SESSION_ROW_SELECT = `
   board_snapshot,
   arrival_time,
   created_at,
-  updated_at,
   duration_minutes,
   status,
   is_public,
@@ -147,9 +146,7 @@ export const PATCH = withAuth(
     if ("error" in ownership) return ownership.error;
 
     // Build update payload
-    const updatePayload: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
+    const updatePayload: Record<string, unknown> = {};
     if (validation.data.arrival_time !== undefined) {
       updatePayload.arrival_time = validation.data.arrival_time;
     }
