@@ -96,4 +96,27 @@ describe("useSessionConditionsPrefill", () => {
 
     expect(updateField).not.toHaveBeenCalledWith("tideHeight", expect.anything());
   });
+
+  it("does not overwrite a user-owned wave height", async () => {
+    const updateField = jest.fn();
+
+    renderHook(() =>
+      useSessionConditionsPrefill(
+        "log",
+        makeFormState({
+          waveHeight: undefined,
+          waveHeightEdited: true,
+        }),
+        updateField,
+      ),
+    );
+
+    await waitFor(() => {
+      expect(updateField).toHaveBeenCalledWith("windSpeed", 8);
+    });
+    expect(updateField).not.toHaveBeenCalledWith(
+      "waveHeight",
+      expect.anything(),
+    );
+  });
 });

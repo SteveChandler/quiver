@@ -54,6 +54,17 @@ describe("RouteGuard", () => {
         expect(result.requiresAuth).toBe(false);
       });
 
+      it("should process HEAD requests like GET requests", () => {
+        const result = RouteGuard.classifyRoute(
+          "/mexico/baja-california/rosarito",
+          "HEAD",
+        );
+
+        expect(result.type).toBe("public");
+        expect(result.requiresAuth).toBe(false);
+        expect(result.requiresAdmin).toBe(false);
+      });
+
       it("should process POST to valid paths as skip", () => {
         const methods = ["POST", "PUT", "DELETE", "PATCH"];
         methods.forEach((method) => {

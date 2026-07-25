@@ -38,8 +38,54 @@ describe("useSurfDiscovery", () => {
   });
 
   const mockDiscoveryResponse: SurfDiscoveryResponse = {
+    sessionDecision: {
+      schemaVersion: "canonical-session-decision.v1",
+      engineVersion: "rules.v1",
+      decisionId: "a".repeat(64),
+      createdAt: "2025-12-16T14:00:00.000Z",
+      expiresAt: "2099-12-16T14:15:00.000Z",
+      scope: {
+        kind: "plan_next_session",
+        windowStart: "2025-12-16T14:00:00.000Z",
+        windowEnd: "2025-12-17T14:00:00.000Z",
+        timezone: "America/Los_Angeles",
+      },
+      verdict: "go",
+      decisionBasis: "physical_fallback",
+      reasonCode: "selected_go",
+      selection: {
+        candidateId: "candidate-1",
+        beachId: "beach-1",
+        beachName: "Ocean Beach",
+        windowStart: "2025-12-16T15:00:00.000Z",
+        windowEnd: "2025-12-16T18:00:00.000Z",
+        timezone: "America/Los_Angeles",
+        forecastRef: {
+          forecastId: "forecast-1",
+          beachId: "beach-1",
+          forecastAt: "2025-12-16T15:00:00.000Z",
+        },
+        skillEligibility: {
+          skill: "intermediate",
+          state: "eligible",
+          reasonCodes: [],
+        },
+        evidence: {
+          conditionScore: 85,
+          recommendationLabel: "Worth it",
+          personalMatch: null,
+        },
+      },
+      skillEligibility: {
+        skill: "intermediate",
+        state: "eligible",
+        reasonCodes: [],
+      },
+      holdEpoch: "clear",
+    },
     recommendations: [
       {
+        recommendationId: "candidate-1",
         beach: {
           id: "beach-1",
           name: "Ocean Beach",
@@ -110,6 +156,7 @@ describe("useSurfDiscovery", () => {
 
   describe("Basic Functionality", () => {
     it("fetches discovery data when user is authenticated", async () => {
+      const onRequest = jest.fn();
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         json: async () => ({
@@ -130,7 +177,7 @@ describe("useSurfDiscovery", () => {
       });
 
       const { result } = renderHook(() =>
-        useSurfDiscovery({ immediate: true })
+        useSurfDiscovery({ immediate: true, onRequest })
       );
 
       expect(result.current.loading).toBe(true);
@@ -141,6 +188,7 @@ describe("useSurfDiscovery", () => {
       expect(result.current.hasRecommendations).toBe(true);
       expect(result.current.error).toBeNull();
       expect(global.fetch).toHaveBeenCalledTimes(1);
+      expect(onRequest).toHaveBeenCalledTimes(1);
     });
 
     it("skips fetch when user is not authenticated", async () => {

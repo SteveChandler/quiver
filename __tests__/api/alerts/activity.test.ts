@@ -207,4 +207,152 @@ describe("GET /api/alerts/activity", () => {
     });
     expect(body.data.activity[0]).not.toHaveProperty("matches");
   });
+
+  it("normalizes forecast alert context from the canonical session decision", async () => {
+    notificationRows = [
+      {
+        id: "notif-canonical-forecast",
+        type: "forecast_alert",
+        created_at: "2026-05-26T05:00:00.000Z",
+        read_at: null,
+        data: {
+          alert_date: "2026-05-26",
+          title: "Go Bolsa Chica",
+          body: "Best window is 6:30-8:30 AM.",
+          beach_id: "beach-2",
+          beach_slug: "bolsa-chica",
+          forecast_at: "2026-05-26T14:00:00.000Z",
+          session_decision: {
+            verdict: "go",
+            selection: {
+              beachId: "beach-2",
+              beachName: "Bolsa Chica",
+              windowStart: "2026-05-26T13:30:00.000Z",
+              windowEnd: "2026-05-26T15:30:00.000Z",
+              forecastRef: {
+                forecastAt: "2026-05-26T14:00:00.000Z",
+              },
+            },
+          },
+        },
+      },
+    ];
+
+    const res = await GET(
+      new NextRequest("http://localhost:3000/api/alerts/activity?days=3"),
+    );
+    const body = await res.json();
+
+    expect(body.data.activity[0]).toMatchObject({
+      beach_id: "beach-2",
+      beach_name: "Bolsa Chica",
+      forecast_at: "2026-05-26T14:00:00.000Z",
+      window_start: "2026-05-26T13:30:00.000Z",
+      window_end: "2026-05-26T15:30:00.000Z",
+    });
+  });
+
+  it("prefers canonical selection context over mismatched top-level and legacy values", async () => {
+    notificationRows = [
+      {
+        id: "notif-canonical-mismatch",
+        type: "similarity_match",
+        created_at: "2026-05-26T05:00:00.000Z",
+        read_at: null,
+        data: {
+          title: "Go canonical",
+          body: "Use the canonical window.",
+          beach_id: "top-level-beach",
+          beach_name: "Top-Level Beach",
+          forecast_at: "2026-05-26T10:00:00.000Z",
+          matches: [
+            {
+              beach_id: "legacy-beach",
+              beach_name: "Legacy Beach",
+              forecast_at: "2026-05-26T11:00:00.000Z",
+              window_start: "2026-05-26T11:00:00.000Z",
+              window_end: "2026-05-26T12:00:00.000Z",
+            },
+          ],
+          session_decision: {
+            verdict: "go",
+            selection: {
+              beachId: "canonical-beach",
+              beachName: "Canonical Beach",
+              windowStart: "2026-05-26T13:30:00.000Z",
+              windowEnd: "2026-05-26T15:30:00.000Z",
+              forecastRef: {
+                forecastAt: "2026-05-26T14:00:00.000Z",
+              },
+            },
+          },
+        },
+      },
+    ];
+
+    const res = await GET(
+      new NextRequest("http://localhost:3000/api/alerts/activity?days=3"),
+    );
+    const body = await res.json();
+
+    expect(body.data.activity[0]).toMatchObject({
+      beach_id: "canonical-beach",
+      beach_name: "Canonical Beach",
+      forecast_at: "2026-05-26T14:00:00.000Z",
+      window_start: "2026-05-26T13:30:00.000Z",
+      window_end: "2026-05-26T15:30:00.000Z",
+    });
+  });
+
+  it("does not revive positive context after an explicit canonical no decision", async () => {
+    notificationRows = [
+      {
+        id: "notif-canonical-no",
+        type: "forecast_alert",
+        created_at: "2026-05-26T05:00:00.000Z",
+        read_at: null,
+        data: {
+          title: "No worthwhile window",
+          body: "Conditions do not clear the bar.",
+          beach_id: "top-level-beach",
+          beach_slug: "top-level-beach",
+          beach_name: "Top-Level Beach",
+          forecast_at: "2026-05-26T10:00:00.000Z",
+          score: 9,
+          window_label: "6-8 AM",
+          reason: "Top-level positive reason.",
+          matches: [
+            {
+              beach_id: "legacy-beach",
+              beach_name: "Legacy Beach",
+              forecast_at: "2026-05-26T11:00:00.000Z",
+              window_start: "2026-05-26T11:00:00.000Z",
+              window_end: "2026-05-26T12:00:00.000Z",
+            },
+          ],
+          session_decision: {
+            verdict: "no",
+            selection: null,
+          },
+        },
+      },
+    ];
+
+    const res = await GET(
+      new NextRequest("http://localhost:3000/api/alerts/activity?days=3"),
+    );
+    const body = await res.json();
+
+    expect(body.data.activity[0]).toMatchObject({
+      beach_id: null,
+      beach_slug: null,
+      beach_name: null,
+      forecast_at: null,
+      window_start: null,
+      window_end: null,
+      window_label: null,
+      score: null,
+      reason: null,
+    });
+  });
 });

@@ -1,255 +1,189 @@
-import { buildSurfCallShareData, ShareData } from "@/lib/share/share-data-builder";
+import { buildSurfCallShareData } from "@/lib/share/share-data-builder";
+import type { CanonicalSessionDecision } from "@/lib/recommendations/canonical-decision";
 import type { SurfDiscoveryRecommendation } from "@/types/personalization";
-
-// Mock the utility functions to avoid complex dependencies
-jest.mock("@/lib/utils/rating-formatters", () => ({
-  formatDiscoveryScore: (score: number) => (score / 10).toFixed(1),
-}));
 
 jest.mock("@/lib/utils/date-time", () => ({
   formatTimeWindowCompact: () => "7-10am",
 }));
 
-describe("buildSurfCallShareData", () => {
-  const createMockRecommendation = (
-    overrides: Partial<SurfDiscoveryRecommendation> = {}
-  ): SurfDiscoveryRecommendation => {
-    const now = new Date();
-    return {
-      beach: {
-        id: "test-beach-id",
-        name: "Big Jetty",
-        slug: "big-jetty",
-        timezone: "America/Los_Angeles",
-        center_lat: 33.0,
-        center_lng: -117.0,
+const NOW = new Date("2026-07-22T18:00:00.000Z");
+
+function recommendation(
+  overrides: Partial<SurfDiscoveryRecommendation> = {},
+): SurfDiscoveryRecommendation {
+  return {
+    recommendationId: "recommendation-1",
+    beach: {
+      id: "test-beach-id",
+      name: "Big Jetty",
+      slug: "big-jetty",
+      timezone: "America/Los_Angeles",
+    },
+    score: 85,
+    window: {
+      start: new Date("2026-07-23T14:00:00.000Z"),
+      end: new Date("2026-07-23T17:00:00.000Z"),
+      timezone: "America/Los_Angeles",
+    },
+    matchQuality: "high",
+    recommendationLabel: "Worth it",
+    message: "Good wave size",
+    conditionBadges: [
+      { label: "Clean Swell", contribution: 10 },
+      { label: "Light Offshore", contribution: 8 },
+    ],
+    waveHeightBadge: "3-5ft",
+    ...overrides,
+  } as SurfDiscoveryRecommendation;
+}
+
+function sessionDecision(
+  verdict: "go" | "maybe" | "no" = "go",
+  overrides: Partial<CanonicalSessionDecision> = {},
+): CanonicalSessionDecision {
+  return {
+    schemaVersion: "canonical-session-decision.v1",
+    engineVersion: "rules.v1",
+    decisionId: "c".repeat(64),
+    createdAt: NOW.toISOString(),
+    expiresAt: "2026-07-22T18:15:00.000Z",
+    scope: {
+      kind: "plan_next_session",
+      windowStart: NOW.toISOString(),
+      windowEnd: "2026-07-23T18:00:00.000Z",
+      timezone: "America/Los_Angeles",
+    },
+    verdict,
+    decisionBasis:
+      verdict === "no" ? "safety_override" : "physical_fallback",
+    reasonCode:
+      verdict === "go"
+        ? "selected_go"
+        : verdict === "maybe"
+          ? "selected_maybe"
+          : "below_minimum_utility",
+    selection: verdict === "no" ? null : {
+      candidateId: "recommendation-1",
+      beachId: "test-beach-id",
+      beachName: "Big Jetty",
+      windowStart: "2026-07-23T14:00:00.000Z",
+      windowEnd: "2026-07-23T17:00:00.000Z",
+      timezone: "America/Los_Angeles",
+      forecastRef: {
+        forecastId: "forecast-1",
+        beachId: "test-beach-id",
+        forecastAt: "2026-07-23T14:00:00.000Z",
       },
-      score: 85,
-      window: {
-        start: now,
-        end: new Date(now.getTime() + 3 * 60 * 60 * 1000), // 3 hours later
-        timezone: "America/Los_Angeles",
+      skillEligibility: {
+        skill: "intermediate",
+        state: "eligible",
+        reasonCodes: [],
       },
-      matchQuality: "high" as const,
-      recommendationLabel: "Great morning surf",
-      message: "Good wave size (3.9ft), Good swell energy.",
-      conditionBadges: [
-        { label: "Clean Swell", contribution: 10 },
-        { label: "Light Offshore", contribution: 8 },
-      ],
-      waveHeightBadge: "3-5ft",
-      ...overrides,
-    } as SurfDiscoveryRecommendation;
+      evidence: {
+        conditionScore: 85,
+        recommendationLabel: "Worth it",
+        personalMatch: null,
+      },
+    },
+    skillEligibility: {
+      skill: "intermediate",
+      state: verdict === "no" ? "ineligible" : "eligible",
+      reasonCodes: [],
+    },
+    holdEpoch: "hold-epoch-1",
+    ...overrides,
   };
+}
 
-  describe("successful share data generation", () => {
-    it("returns ShareData for valid recommendation", () => {
-      const recommendation = createMockRecommendation();
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result).not.toBeNull();
-      expect(result?.beachName).toBe("Big Jetty");
-      expect(result?.title).toBe("Check out Big Jetty!");
-      expect(result?.imageUrl).toContain("/api/og/surf-call");
-    });
-
-    it("includes score in image URL", () => {
-      const recommendation = createMockRecommendation({ score: 85 });
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result?.imageUrl).toContain("score=85");
-    });
-
-    it("includes beach name in image URL", () => {
-      const recommendation = createMockRecommendation();
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result?.imageUrl).toContain("beach=Big");
-    });
-
-    it("includes wave height in image URL", () => {
-      const recommendation = createMockRecommendation({ waveHeightBadge: "3-5ft" });
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result?.imageUrl).toContain("waveHeight=3-5ft");
-    });
-
-    it("includes message in image URL", () => {
-      const recommendation = createMockRecommendation({
-        message: "Good wave size",
-      });
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result?.imageUrl).toContain("message=Good");
-    });
+describe("buildSurfCallShareData", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(NOW);
   });
 
-  describe("condition tier handling", () => {
-    it("sets verdict to YES for great conditions (score >= 80)", () => {
-      const recommendation = createMockRecommendation({ score: 85 });
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result?.imageUrl).toContain("verdict=YES");
-    });
-
-    it("sets verdict to YES for good conditions (score 60-79)", () => {
-      const recommendation = createMockRecommendation({ score: 70 });
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result?.imageUrl).toContain("verdict=YES");
-    });
-
-    it("sets verdict to MAYBE for fair conditions (score 40-59)", () => {
-      const recommendation = createMockRecommendation({ score: 50 });
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result?.imageUrl).toContain("verdict=MAYBE");
-    });
-
-    it("sets verdict to NO for marginal conditions (score < 40)", () => {
-      const recommendation = createMockRecommendation({ score: 30 });
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result?.imageUrl).toContain("verdict=NO");
-    });
-
-    it("includes conditionLabel for great tier", () => {
-      const recommendation = createMockRecommendation({ score: 85 });
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result?.imageUrl).toContain("conditionLabel=Great");
-    });
+  afterEach(() => {
+    jest.useRealTimers();
   });
 
-  describe("time slot handling", () => {
-    it("builds share data without time slot", () => {
-      const recommendation = createMockRecommendation();
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result).not.toBeNull();
+  it("builds a share from the exact canonical go selection", () => {
+    const result = buildSurfCallShareData({
+      recommendation: recommendation(),
+      sessionDecision: sessionDecision(),
     });
 
-    it("builds share data with morning time slot", () => {
-      const recommendation = createMockRecommendation();
-      const result = buildSurfCallShareData({
-        recommendation,
-        timeSlot: "lunch-session",
-      });
-
-      expect(result).not.toBeNull();
+    expect(result).toMatchObject({
+      beachName: "Big Jetty",
+      title: "Surf Big Jetty",
+      text: "Go: Big Jetty, 7-10am",
     });
-
-    it("builds share data with dawn-patrol time slot", () => {
-      const recommendation = createMockRecommendation();
-      const result = buildSurfCallShareData({
-        recommendation,
-        timeSlot: "dawn-patrol",
-      });
-
-      expect(result).not.toBeNull();
-    });
+    expect(result?.imageUrl).toContain("verdict=YES");
+    expect(result?.imageUrl).toContain("waveHeight=3-5ft");
+    expect(result?.imageUrl).not.toContain("score=");
   });
 
-  describe("edge cases", () => {
-    it("returns null for null recommendation", () => {
-      const result = buildSurfCallShareData({
-        recommendation: null as unknown as SurfDiscoveryRecommendation,
-      });
-
-      expect(result).toBeNull();
+  it("uses maybe from the decision even when the legacy score is high", () => {
+    const result = buildSurfCallShareData({
+      recommendation: recommendation({ score: 99 }),
+      sessionDecision: sessionDecision("maybe"),
     });
 
-    it("returns null for undefined recommendation", () => {
-      const result = buildSurfCallShareData({
-        recommendation: undefined as unknown as SurfDiscoveryRecommendation,
-      });
-
-      expect(result).toBeNull();
-    });
-
-    it("handles missing optional fields gracefully", () => {
-      const recommendation = createMockRecommendation({
-        message: undefined,
-        conditionBadges: undefined,
-        waveHeightBadge: undefined,
-      });
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result).not.toBeNull();
-      expect(result?.beachName).toBe("Big Jetty");
-    });
-
-    it("handles empty condition badges array", () => {
-      const recommendation = createMockRecommendation({
-        conditionBadges: [],
-      });
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result).not.toBeNull();
-    });
-
-    it("limits condition badges to 3", () => {
-      const recommendation = createMockRecommendation({
-        conditionBadges: [
-          { label: "Tag1", contribution: 10 },
-          { label: "Tag2", contribution: 9 },
-          { label: "Tag3", contribution: 8 },
-          { label: "Tag4", contribution: 7 },
-          { label: "Tag5", contribution: 6 },
-        ],
-      });
-      const result = buildSurfCallShareData({ recommendation });
-
-      // Should only include first 3 tags
-      expect(result?.imageUrl).toContain("Tag1");
-      expect(result?.imageUrl).toContain("Tag2");
-      expect(result?.imageUrl).toContain("Tag3");
-      expect(result?.imageUrl).not.toContain("Tag4");
-      expect(result?.imageUrl).not.toContain("Tag5");
-    });
+    expect(result?.imageUrl).toContain("verdict=MAYBE");
+    expect(result?.text).toBe("Consider: Big Jetty, 7-10am");
   });
 
-  describe("text generation", () => {
-    it("generates correct title format", () => {
-      const recommendation = createMockRecommendation();
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result?.title).toBe("Check out Big Jetty!");
-    });
-
-    it("generates text with score", () => {
-      const recommendation = createMockRecommendation({ score: 85 });
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result?.text).toContain("8.5/10");
-    });
-
-    it("includes beach name in text", () => {
-      const recommendation = createMockRecommendation();
-      const result = buildSurfCallShareData({ recommendation });
-
-      expect(result?.text).toContain("Big Jetty");
-    });
+  it("returns null for an explicit no decision", () => {
+    expect(buildSurfCallShareData({
+      recommendation: recommendation(),
+      sessionDecision: sessionDecision("no"),
+    })).toBeNull();
   });
 
-  describe("error handling", () => {
-    it("returns null and logs error on exception", () => {
-      const consoleSpy = jest.spyOn(console, "error").mockImplementation();
+  it("returns null when the recommendation does not match the selected candidate", () => {
+    expect(buildSurfCallShareData({
+      recommendation: recommendation({ recommendationId: "other" }),
+      sessionDecision: sessionDecision(),
+    })).toBeNull();
+  });
 
-      // Create a recommendation that will cause an error
-      const badRecommendation = {
-        beach: null, // This will cause an error when accessing beach.name
-      } as unknown as SurfDiscoveryRecommendation;
+  it("returns null when the selected beach does not match", () => {
+    expect(buildSurfCallShareData({
+      recommendation: recommendation(),
+      sessionDecision: sessionDecision("go", {
+        selection: {
+          ...sessionDecision().selection!,
+          beachId: "other-beach",
+        },
+      }),
+    })).toBeNull();
+  });
 
-      const result = buildSurfCallShareData({ recommendation: badRecommendation });
+  it("returns null when the canonical decision is missing", () => {
+    expect(buildSurfCallShareData({
+      recommendation: recommendation(),
+      sessionDecision: null,
+    })).toBeNull();
+  });
 
-      expect(result).toBeNull();
-      expect(consoleSpy).toHaveBeenCalledWith(
-        "[buildSurfCallShareData] Error building share data:",
-        expect.any(Error)
-      );
+  it("returns null after the canonical decision expires", () => {
+    jest.setSystemTime(new Date("2026-07-22T18:16:00.000Z"));
 
-      consoleSpy.mockRestore();
+    expect(buildSurfCallShareData({
+      recommendation: recommendation(),
+      sessionDecision: sessionDecision(),
+    })).toBeNull();
+  });
+
+  it("preserves physical context without exposing the internal score", () => {
+    const result = buildSurfCallShareData({
+      recommendation: recommendation({
+        waveHeightBadge: "4-6ft",
+        message: "Long-period swell",
+      }),
+      sessionDecision: sessionDecision(),
     });
+
+    expect(result?.imageUrl).toContain("waveHeight=4-6ft");
+    expect(result?.imageUrl).toContain("message=Long-period");
+    expect(result?.text).not.toMatch(/\d+(?:\.\d+)?\/10/);
   });
 });

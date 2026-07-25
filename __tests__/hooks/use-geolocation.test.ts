@@ -1,9 +1,17 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useGeolocation } from "@/hooks/use-geolocation";
+import { captureClientPostHogEvent } from "@/lib/posthog-client";
+
+jest.mock("@/lib/posthog-client", () => ({
+  captureClientPostHogEvent: jest.fn(),
+}));
+
+const capturePostHogEventMock = jest.mocked(captureClientPostHogEvent);
 
 // Mock timers for safety timeout tests
 beforeEach(() => {
   jest.useFakeTimers();
+  capturePostHogEventMock.mockClear();
   // Reset geolocation mock
   Object.defineProperty(navigator, "geolocation", {
     value: {
@@ -120,6 +128,25 @@ describe("useGeolocation", () => {
   });
 
   describe("GPS errors with fallback", () => {
+    it("records denied home GPS requests", () => {
+      mockGeoError(1);
+
+      renderHook(() =>
+        useGeolocation({
+          autoRequest: true,
+          monitoringContext: "home",
+        })
+      );
+
+      expect(capturePostHogEventMock).toHaveBeenCalledWith(
+        "home_geolocation_request",
+        {
+          trigger: "auto",
+          outcome: "denied",
+        }
+      );
+    });
+
     it("falls back on PERMISSION_DENIED with errorType denied", () => {
       mockGeoError(1); // PERMISSION_DENIED
       const { result } = renderHook(() => useGeolocation({ autoRequest: true }));
@@ -213,6 +240,28 @@ describe("useGeolocation", () => {
   });
 
   describe("safety timeout", () => {
+    it("records a timed-out home GPS request", () => {
+      mockGeoHang();
+      renderHook(() =>
+        useGeolocation({
+          autoRequest: true,
+          monitoringContext: "home",
+        })
+      );
+
+      act(() => {
+        jest.advanceTimersByTime(12000);
+      });
+
+      expect(capturePostHogEventMock).toHaveBeenCalledWith(
+        "home_geolocation_request",
+        {
+          trigger: "auto",
+          outcome: "timeout",
+        }
+      );
+    });
+
     it("fires safety timeout after 12 seconds if GPS hangs", () => {
       mockGeoHang();
       const { result } = renderHook(() => useGeolocation({ autoRequest: true }));
@@ -248,6 +297,37 @@ describe("useGeolocation", () => {
   });
 
   describe("requestLocation (force retry)", () => {
+    it("records an explicit home GPS success without coordinates", () => {
+      mockGeoSuccess(LA_JOLLA);
+      const { result } = renderHook(() =>
+        useGeolocation({
+          autoRequest: false,
+          monitoringContext: "home",
+        })
+      );
+
+      expect(capturePostHogEventMock).not.toHaveBeenCalled();
+
+      act(() => {
+        result.current.requestLocation();
+      });
+
+      expect(capturePostHogEventMock).toHaveBeenCalledTimes(1);
+      expect(capturePostHogEventMock).toHaveBeenCalledWith(
+        "home_geolocation_request",
+        {
+          trigger: "explicit",
+          outcome: "success",
+        }
+      );
+
+      const properties = capturePostHogEventMock.mock.calls[0][1];
+      expect(properties).not.toHaveProperty("lat");
+      expect(properties).not.toHaveProperty("lon");
+      expect(properties).not.toHaveProperty("latitude");
+      expect(properties).not.toHaveProperty("longitude");
+    });
+
     it("forces a new GPS request when called with true", () => {
       mockGeoError(1); // First call fails
       const { result } = renderHook(() => useGeolocation({ autoRequest: true }));
@@ -282,6 +362,46 @@ describe("useGeolocation", () => {
   });
 
   describe("polling behavior", () => {
+    it("records home polling separately from the initial GPS request", () => {
+      Object.defineProperty(document, "visibilityState", {
+        value: "visible",
+        writable: true,
+        configurable: true,
+      });
+      mockGeoSuccess(LA_JOLLA);
+
+      renderHook(() =>
+        useGeolocation({
+          autoRequest: true,
+          enablePolling: true,
+          pollingIntervalMs: 60000,
+          monitoringContext: "home",
+        })
+      );
+
+      expect(capturePostHogEventMock).toHaveBeenLastCalledWith(
+        "home_geolocation_request",
+        {
+          trigger: "auto",
+          outcome: "success",
+        }
+      );
+
+      capturePostHogEventMock.mockClear();
+      act(() => {
+        jest.advanceTimersByTime(60000);
+      });
+
+      expect(capturePostHogEventMock).toHaveBeenCalledTimes(1);
+      expect(capturePostHogEventMock).toHaveBeenCalledWith(
+        "home_geolocation_request",
+        {
+          trigger: "poll",
+          outcome: "success",
+        }
+      );
+    });
+
     it("does not poll when enablePolling is false", () => {
       mockGeoSuccess(LA_JOLLA);
       renderHook(() =>
@@ -331,6 +451,54 @@ describe("useGeolocation", () => {
       expect(pollingOptions.maximumAge).toBe(30000);
       expect(pollingOptions.timeout).toBe(8000);
     });
+
+    it("pauses while hidden and waits a full interval after returning visible", () => {
+      Object.defineProperty(document, "visibilityState", {
+        value: "visible",
+        writable: true,
+        configurable: true,
+      });
+      mockGeoSuccess(LA_JOLLA);
+
+      renderHook(() =>
+        useGeolocation({
+          autoRequest: true,
+          enablePolling: true,
+          pollingIntervalMs: 60000,
+        })
+      );
+
+      Object.defineProperty(document, "visibilityState", {
+        value: "hidden",
+        writable: true,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      act(() => {
+        jest.advanceTimersByTime(5 * 60000);
+      });
+      expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(1);
+
+      Object.defineProperty(document, "visibilityState", {
+        value: "visible",
+        writable: true,
+        configurable: true,
+      });
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        jest.advanceTimersByTime(59999);
+      });
+      expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        jest.advanceTimersByTime(1);
+      });
+      expect(navigator.geolocation.getCurrentPosition).toHaveBeenCalledTimes(2);
+    });
   });
 
   describe("useDefaultLocation", () => {
@@ -368,6 +536,29 @@ describe("useGeolocation", () => {
   });
 
   describe("geolocation unavailable", () => {
+    it("records unavailable home GPS requests", () => {
+      Object.defineProperty(navigator, "geolocation", {
+        value: undefined,
+        writable: true,
+        configurable: true,
+      });
+
+      renderHook(() =>
+        useGeolocation({
+          autoRequest: true,
+          monitoringContext: "home",
+        })
+      );
+
+      expect(capturePostHogEventMock).toHaveBeenCalledWith(
+        "home_geolocation_request",
+        {
+          trigger: "auto",
+          outcome: "unavailable",
+        }
+      );
+    });
+
     it("handles missing navigator.geolocation gracefully", () => {
       Object.defineProperty(navigator, "geolocation", {
         value: undefined,

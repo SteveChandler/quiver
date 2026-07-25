@@ -71,6 +71,7 @@ import {
 } from './distance-friction';
 import {
   selectBestWindow,
+  selectBestWindows,
   getLocalDateStr,
   getLocalHour,
   MIN_SESSION_HOURS,
@@ -112,6 +113,7 @@ import type { ScoringEngine } from '@/lib/domains/scoring';
 import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
 import { boardStyleFit } from './board-style-fit';
 import { enforceMajorEventHoldBeforeDiscoveryTruncation } from './major-event-hold';
+import { resolveForecastAlignment } from './forecast-alignment';
 
 const log = createContextLogger('SurfDiscoveryOrchestrator');
 
@@ -832,6 +834,90 @@ function recommendationKey(rec: Pick<SurfDiscoveryRecommendation, 'kind' | 'cust
     : `beach:${rec.beach.id}`;
 }
 
+function recommendationIdFor(
+  rec: Pick<
+    SurfDiscoveryRecommendation,
+    'kind' | 'customSpotId' | 'beach' | 'forecast' | 'window'
+  >,
+): string {
+  const forecastAt =
+    typeof rec.forecast.forecast_at === 'string'
+      ? rec.forecast.forecast_at
+      : rec.window.start.toISOString();
+  return `${recommendationKey(rec)}:${forecastAt}`;
+}
+
+const CANONICAL_MATCH_LABELS = new Set([
+  'EPIC',
+  'GOOD',
+  'FAIR',
+  'RIDEABLE',
+  'MEH',
+]);
+
+function hasCanonicalLearnedMatch(
+  rec: SurfDiscoveryRecommendation,
+): boolean {
+  return (
+    rec.similarity?.state === 'ready' &&
+    CANONICAL_MATCH_LABELS.has(rec.similarity.label)
+  );
+}
+
+function compareLearnedWindowCandidates(
+  a: SurfDiscoveryRecommendation,
+  b: SurfDiscoveryRecommendation,
+): number {
+  const aSimilarity = a.similarity?.state === 'ready' ? a.similarity : null;
+  const bSimilarity = b.similarity?.state === 'ready' ? b.similarity : null;
+  const matchDelta = (bSimilarity?.score ?? 0) - (aSimilarity?.score ?? 0);
+  if (matchDelta !== 0) return matchDelta;
+
+  const confidenceRank = { low: 0, medium: 1, high: 2 };
+  const confidenceDelta =
+    confidenceRank[bSimilarity?.confidence ?? 'low'] -
+    confidenceRank[aSimilarity?.confidence ?? 'low'];
+  if (confidenceDelta !== 0) return confidenceDelta;
+
+  const physicalDelta = b.score - a.score;
+  if (physicalDelta !== 0) return physicalDelta;
+
+  const startDelta = a.window.start.getTime() - b.window.start.getTime();
+  if (startDelta !== 0) return startDelta;
+
+  return recommendationIdFor(a).localeCompare(recommendationIdFor(b));
+}
+
+function collapseWindowCandidates(
+  recommendations: SurfDiscoveryRecommendation[],
+): SurfDiscoveryRecommendation[] {
+  const candidatesByRecommendation = new Map<
+    string,
+    SurfDiscoveryRecommendation[]
+  >();
+  for (const rec of recommendations) {
+    const key = recommendationKey(rec);
+    const candidates = candidatesByRecommendation.get(key) ?? [];
+    candidates.push(rec);
+    candidatesByRecommendation.set(key, candidates);
+  }
+
+  return Array.from(candidatesByRecommendation.values()).map((candidates) => {
+    const learnedCandidates = candidates.filter(hasCanonicalLearnedMatch);
+    if (learnedCandidates.length > 0) {
+      return [...learnedCandidates].sort(compareLearnedWindowCandidates)[0];
+    }
+
+    return [...candidates].sort((a, b) => {
+      const physicalDelta = compareDiscoveryRecommendations(a, b);
+      if (physicalDelta !== 0) return physicalDelta;
+      const startDelta = a.window.start.getTime() - b.window.start.getTime();
+      if (startDelta !== 0) return startDelta;
+      return recommendationIdFor(a).localeCompare(recommendationIdFor(b));
+    })[0];
+  });
+}
+
 function applyWorthTheDriveReasons(
   recommendations: SurfDiscoveryRecommendation[]
 ): SurfDiscoveryRecommendation[] {
@@ -1274,6 +1360,7 @@ async function discoverSurfSpotsInner(
   const {
     radiusMiles: requestedRadiusMiles,
     horizonHours,
+    forecastAt,
     maxResults = DEFAULT_MAX_RESULTS,
     maxConcurrent = DEFAULT_MAX_CONCURRENT,
     timeout = DEFAULT_TIMEOUT_MS,
@@ -1490,7 +1577,14 @@ async function discoverSurfSpotsInner(
   for (const { beach, forecasts } of beachForecasts) {
     // Today-first: try today's forecasts first, fall back to all (matches beach detail page)
     const beachTz = getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
-    const todayStr = getLocalDateStr(new Date(), beachTz);
+    const requestedAlignment = forecastAt
+      ? resolveForecastAlignment(forecasts, forecastAt)
+      : null;
+    const scopedForecasts = requestedAlignment?.forecast
+      ? [requestedAlignment.forecast]
+      : [];
+    const selectionNow = forecastAt ? new Date(forecastAt) : new Date();
+    const todayStr = getLocalDateStr(selectionNow, beachTz);
     const todayForecasts = forecasts.filter(f =>
       getLocalDateStr(new Date(f.forecast_at), beachTz) === todayStr
     );
@@ -1507,7 +1601,7 @@ async function discoverSurfSpotsInner(
     //      window-selector-core.ts:565, closing the dead-zone where
     //      today-only returns null but we aren't technically past sunset
     //      yet (e.g. 19:21 PDT with sunset 19:31).
-    const nowForFallback = new Date();
+    const nowForFallback = selectionNow;
     const beachSunTimes = sunTimesCache.get(beach.id);
     const beachSameDaySunset = beachSunTimes?.sunsets.find(
       (s: Date) => getLocalDateStr(s, beachTz) === todayStr
@@ -1536,68 +1630,99 @@ async function discoverSurfSpotsInner(
       (hoursUntilSunset !== null && hoursUntilSunset < MIN_SESSION_HOURS) ||
       (todayForecasts.length > 0 && !hasUsableTodayForecast);
 
-    let bestWindow =
-      discoveryMode === 'now'
-        ? selectImmediateWindow(forecasts, beach, sunTimesCache, nowForFallback, userSkillLevel)
-        : todayForecasts.length > 0
-          ? selectBestWindow({
-              forecasts: todayForecasts,
+    let selectedWindows =
+      forecastAt
+        ? scopedForecasts.length > 0
+          ? selectBestWindows({
+              forecasts: scopedForecasts,
               beach,
               userPrefs,
               horizonHours,
               sunTimesCache,
               timeSlot,
+              now: selectionNow,
+              maxWindows: 1,
               userSkillLevel,
             })
-          : null;
+          : []
+        : discoveryMode === 'now'
+          ? [
+              selectImmediateWindow(
+                forecasts,
+                beach,
+                sunTimesCache,
+                nowForFallback,
+                userSkillLevel,
+              ),
+            ].filter(
+              (window): window is PersonalizedForecastWindow => window !== null,
+            )
+          : todayForecasts.length > 0
+            ? selectBestWindows({
+                forecasts: todayForecasts,
+                beach,
+                userPrefs,
+                horizonHours,
+                sunTimesCache,
+                timeSlot,
+                now: nowForFallback,
+                maxWindows: 3,
+                userSkillLevel,
+              })
+            : [];
 
     if (
       discoveryMode !== 'now' &&
-      !bestWindow &&
+      !forecastAt &&
+      selectedWindows.length === 0 &&
       (todayForecasts.length === 0 || todayIsEffectivelyOver)
     ) {
-      bestWindow = selectBestWindow({
+      selectedWindows = selectBestWindows({
         forecasts,
         beach,
         userPrefs,
         horizonHours,
         sunTimesCache,
         timeSlot,
+        now: nowForFallback,
+        maxWindows: 3,
         userSkillLevel,
       });
-      if (!bestWindow && todayForecasts.length === 0) {
+      if (selectedWindows.length === 0 && todayForecasts.length === 0) {
         log.warn(`[discoverSurfSpots] ${beach.name}: no today forecasts (total=${forecasts.length}), tomorrow fallback returned null`);
-      } else if (!bestWindow) {
+      } else if (selectedWindows.length === 0) {
         log.warn(`[discoverSurfSpots] ${beach.name}: pre/post-sunset fall-through failed (today=${todayForecasts.length}, total=${forecasts.length}, hoursUntilSunset=${hoursUntilSunset?.toFixed(2)})`);
       }
     }
 
-    if (!bestWindow) {
+    if (selectedWindows.length === 0) {
       beachesWithNoWindow.push(beach.name);
-      log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindow returned null (forecasts=${forecasts.length})`);
+      log.debug(`[discoverSurfSpots] ${beach.name}: selectBestWindows returned no windows (forecasts=${forecasts.length})`);
       continue;
     }
 
-    // Diagnostic: capture tomorrow-flip events so we can debug cases where the
-    // selector returns a next-day window even though today has viable data.
-    // Expected to be quiet after the today-first no-fallback guard above.
-    if (isFutureDayInTimezone(bestWindow.start, beachTz)) {
-      log.info(
-        `[tomorrow-flip-diag] ${beach.name}: bestWindow.start=${bestWindow.start.toISOString()} ` +
-        `beachTz=${beachTz} todayStr=${todayStr} todayForecasts=${todayForecasts.length}/${forecasts.length}`
-      );
-    }
+    for (const bestWindow of selectedWindows) {
+      // Diagnostic: capture tomorrow-flip events so we can debug cases where the
+      // selector returns a next-day window even though today has viable data.
+      // Expected to be quiet after the today-first no-fallback guard above.
+      if (isFutureDayInTimezone(bestWindow.start, beachTz)) {
+        log.info(
+          `[tomorrow-flip-diag] ${beach.name}: bestWindow.start=${bestWindow.start.toISOString()} ` +
+          `beachTz=${beachTz} todayStr=${todayStr} todayForecasts=${todayForecasts.length}/${forecasts.length}`
+        );
+      }
 
     // Use the exact forecast entity that the window selector scored.
     // sourceForecast carries the forecast through from window selection;
     // fuzzy-match fallback handles edge cases where it's absent.
+    const selectionForecasts = forecastAt ? scopedForecasts : forecasts;
     const bestWindowForecast = bestWindow.sourceForecast
-      ?? forecasts.reduce((closest, f) => {
+      ?? selectionForecasts.reduce((closest, f) => {
            const fTime = new Date(f.forecast_at).getTime();
            const closestTime = new Date(closest.forecast_at).getTime();
            const target = bestWindow.start.getTime();
            return Math.abs(fTime - target) < Math.abs(closestTime - target) ? f : closest;
-         }, forecasts[0]);
+         }, selectionForecasts[0]);
 
     // Strip sourceForecast to avoid bloating the API response
     const responseWindow: PersonalizedForecastWindow = { ...bestWindow };
@@ -1757,6 +1882,8 @@ async function discoverSurfSpotsInner(
       similarity: null,
       generated_at: new Date().toISOString(),
     };
+    baseRecommendation.recommendationId =
+      recommendationIdFor(baseRecommendation);
 
     if (discoverableBeachIds.has(beach.id)) {
       scored.push(baseRecommendation);
@@ -1841,7 +1968,7 @@ async function discoverSurfSpotsInner(
             )
           : null;
 
-      scored.push({
+      const customRecommendation: SurfDiscoveryRecommendation = {
         kind: 'custom_spot',
         customSpotId: customCandidate.spot.id,
         visibility: customCandidate.spot.visibility,
@@ -1879,15 +2006,19 @@ async function discoverSurfSpotsInner(
           : undefined,
         similarity: null,
         generated_at: new Date().toISOString(),
-      });
+      };
+      customRecommendation.recommendationId =
+        recommendationIdFor(customRecommendation);
+      scored.push(customRecommendation);
     }
 
-    log.info(
-      `RANKING DEBUG: ${beach.name} score=${detailedScore.total} ` +
-      `wave=${detailedScore.subscores.waveHeightFit} wind=${detailedScore.subscores.windAlignment} ` +
-      `tide=${detailedScore.subscores.tideFit} dist=${distanceMiles?.toFixed(1)}mi ` +
-      `height=${bestWindowForecast.wave_height}`
-    );
+      log.info(
+        `RANKING DEBUG: ${beach.name} score=${detailedScore.total} ` +
+        `wave=${detailedScore.subscores.waveHeightFit} wind=${detailedScore.subscores.windAlignment} ` +
+        `tide=${detailedScore.subscores.tideFit} dist=${distanceMiles?.toFixed(1)}mi ` +
+        `height=${bestWindowForecast.wave_height}`
+      );
+    }
   }
 
   // Log beaches that had no window selected
@@ -1937,30 +2068,25 @@ async function discoverSurfSpotsInner(
   // Sort ALL recommendations by score descending (pure score ranking)
   allRecs.sort(compareDiscoveryRecommendations);
 
-  // Pass 2 (Plan V4 — Fix Agent F1): inject similarity scoring for Pro/trial
-  // users BEFORE truncating to maxResults. Running similarity after slice
-  // meant a beach just outside the base top-N could never be lifted into the
-  // hero by similarity, defeating the "where to surf today" promise.
+  // Attach personal-match evidence for Pro/trial users before window
+  // candidates collapse and the beach pool is truncated.
   //
   // - Free users: no RPC call; every rec keeps similarity:null.
-  // - Pro users: bulk RPC per beach via compute_user_match_score_batch.
-  //   Ready-state slots with score >= threshold get an additive bonus
-  //   (capped +20) added to recommendation.score, then we re-sort.
+  // - Pro users: one bulk RPC per beach scores up to three windows.
+  //   Learned evidence selects the window within that beach; physical score
+  //   remains unchanged and continues to rank beaches against one another.
   //
-  // Authority separation: this only changes RANK. Verdict copy is generated
-  // separately by computeSurfCall and does not read similarity.
-  // (See feedback_separate_ranking_from_verdict_authority.)
-  //
-  // Perf note: candidate pool is typically 5-20 beaches, so N RPC calls
-  // is acceptable for v1. The deferred compute_user_match_score_multibeach
-  // RPC will collapse this to one call once shipped.
+  // Candidate pools are typically 5-20 beaches, so one call per beach is
+  // bounded while preserving the existing RPC contract.
   const similarityResult = await applySimilarityLayer({
     recommendations: allRecs,
     userId,
     isPro,
     supabase,
   });
-  const allRecsScored = [...similarityResult.recommendations];
+  const allRecsScored = collapseWindowCandidates(
+    similarityResult.recommendations,
+  );
   allRecsScored.sort(compareDiscoveryRecommendations);
 
   const holdPool = await enforceMajorEventHoldBeforeDiscoveryTruncation({

@@ -8,6 +8,7 @@ import {
 } from "@/app/best-time-to-surf/[city]/page";
 import { findCityBySlug } from "@/actions/city/city-metadata-actions";
 import { getCityEditorialContent } from "@/actions/city/city-editorial-actions";
+import { getBestTimeToSurfData } from "@/actions/city/best-time-actions";
 import { readFileSync } from "fs";
 import { join } from "path";
 
@@ -27,6 +28,13 @@ jest.mock("@/actions/city/city-editorial-actions", () => ({
 describe("best-time city SEO page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    (getBestTimeToSurfData as jest.Mock).mockResolvedValue({
+      success: true,
+      data: {
+        totalBeaches: 3,
+        topBeaches: [{ bestMonths: [10, 11, 12] }],
+      },
+    });
     (getCityEditorialContent as jest.Mock).mockResolvedValue({
       seo_indexable: true,
       editorial_reviewed_at: "2026-07-13T00:00:00.000Z",
@@ -75,7 +83,41 @@ describe("best-time city SEO page", () => {
       params: Promise.resolve({ city: "san-diego" }),
     });
 
-    expect(metadata.robots).toEqual({ index: false, follow: true });
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
+  });
+
+  it("preserves an unreviewed, data-rich city with checked-in GSC protection", async () => {
+    (findCityBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { cityName: "La Jolla", state: "CA", stateName: "California" },
+    });
+    (getCityEditorialContent as jest.Mock).mockResolvedValue(null);
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ city: "la-jolla" }),
+    });
+
+    expect((metadata.robots as { index?: boolean } | undefined)?.index).not.toBe(
+      false,
+    );
+  });
+
+  it("keeps an explicitly rejected protected city noindex", async () => {
+    (findCityBySlug as jest.Mock).mockResolvedValue({
+      success: true,
+      data: { cityName: "La Jolla", state: "CA", stateName: "California" },
+    });
+    (getCityEditorialContent as jest.Mock).mockResolvedValue({
+      seo_indexable: false,
+      editorial_reviewed_at: "2026-07-13T00:00:00.000Z",
+      intent: "best-time",
+    });
+
+    const metadata = await generateMetadata({
+      params: Promise.resolve({ city: "la-jolla" }),
+    });
+
+    expect(metadata.robots).toMatchObject({ index: false, follow: true });
   });
 
   it.each([

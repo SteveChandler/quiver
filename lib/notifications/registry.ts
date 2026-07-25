@@ -31,6 +31,11 @@ import {
   similarityMatchSchema,
   type SimilarityMatchPayload,
 } from "./types/similarity-match";
+import {
+  parseMajorSwellNotificationPayload,
+  type MajorSwellNotificationPayload,
+} from "./types/major-swell";
+import { canonicalSessionDecisionSchema } from "@/lib/recommendations/canonical-decision/contract";
 
 // ─── Phase 5e: payload schemas (validatePayload source of truth) ─────────────
 
@@ -66,6 +71,7 @@ type PositiveRecommendationPolicyContextPayload = z.infer<
 
 const notificationSimilarityMatchSchema = similarityMatchSchema.extend({
   policy_context: positiveRecommendationPolicyContextSchema.optional(),
+  session_decision: canonicalSessionDecisionSchema.optional(),
 });
 
 const forecastAlertSchema = z.object({
@@ -76,6 +82,7 @@ const forecastAlertSchema = z.object({
   beach_slug: z.string().nullable().optional(),
   forecast_at: z.string().nullable().optional(),
   policy_context: positiveRecommendationPolicyContextSchema.optional(),
+  session_decision: canonicalSessionDecisionSchema.optional(),
   matches: z.unknown().optional(),
   quiet_hours_start: z.number().int().min(0).max(23).optional(),
   quiet_hours_end: z.number().int().min(0).max(23).optional(),
@@ -146,30 +153,34 @@ const homeMorningCallSchema = z.object({
   beach_name: z.string().optional(),
   forecast_at: z.string().nullable().optional(),
   policy_context: positiveRecommendationPolicyContextSchema.optional(),
+  session_decision: canonicalSessionDecisionSchema.optional(),
   title: z.string().min(1),
   body: z.string().min(1),
 });
+
+const weekendLocalDateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}, "Invalid local date");
 
 const weekendWindowSchema = z.object({
-  beach_id: z.string().min(1),
-  forecast_at: z.string().min(1),
-  policy_context: positiveRecommendationPolicyContextSchema.optional(),
-  window_local: z.string().optional(),
-  title: z.string().min(1),
-  body: z.string().min(1),
-});
-
-const swellWatchSchema = z.object({
-  beach_id: z.string().min(1),
-  beach_slug: z.string().optional(),
-  beach_name: z.string().min(1),
-  event_start_date: z.string().min(1),
-  peak_date: z.string().min(1),
-  peak_height_ft: z.number(),
-  peak_period_s: z.number(),
-  forecast_at: z.string().min(1),
-  title: z.string().min(1),
-  body: z.string().min(1),
+  snapshot_id: z.string().uuid(),
+  weekend_start: weekendLocalDateSchema,
+  weekend_end: weekendLocalDateSchema,
+  qualifying_count: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  lead_beach_id: z.string().uuid(),
+  lead_beach_name: z.string().min(1),
+  lead_window_local: z.string().min(1),
+}).strict().superRefine((payload, context) => {
+  const expectedEnd = new Date(`${payload.weekend_start}T00:00:00.000Z`);
+  expectedEnd.setUTCDate(expectedEnd.getUTCDate() + 1);
+  if (payload.weekend_end !== expectedEnd.toISOString().slice(0, 10)) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["weekend_end"],
+      message: "weekend_end must follow weekend_start",
+    });
+  }
 });
 
 const weeklyStreakReminderSchema = z.object({
@@ -295,6 +306,7 @@ interface ForecastAlertPayload {
   beach_slug?: string | null;
   forecast_at?: string | null;
   policy_context?: PositiveRecommendationPolicyContextPayload;
+  session_decision?: z.infer<typeof canonicalSessionDecisionSchema>;
   /** Full match list for the in-app inbox row. */
   matches?: unknown;
   /**
@@ -352,31 +364,25 @@ interface HomeMorningCallPayload {
   beach_name?: string;
   forecast_at?: string | null;
   policy_context?: PositiveRecommendationPolicyContextPayload;
+  session_decision?: z.infer<typeof canonicalSessionDecisionSchema>;
   title: string;
   body: string;
 }
 
 interface WeekendWindowPayload {
-  beach_id: string;
-  forecast_at: string;
-  policy_context?: PositiveRecommendationPolicyContextPayload;
-  window_local?: string;
-  title: string;
-  body: string;
+  snapshot_id: string;
+  weekend_start: string;
+  weekend_end: string;
+  qualifying_count: 1 | 2 | 3;
+  lead_beach_id: string;
+  lead_beach_name: string;
+  lead_window_local: string;
 }
 
-interface SwellWatchPayload {
-  beach_id: string;
-  beach_slug?: string;
-  beach_name: string;
-  event_start_date: string;
-  peak_date: string;
-  peak_height_ft: number;
-  peak_period_s: number;
-  forecast_at: string;
-  title: string;
-  body: string;
-}
+type NotificationSimilarityMatchPayload = SimilarityMatchPayload & {
+  policy_context?: PositiveRecommendationPolicyContextPayload;
+  session_decision?: z.infer<typeof canonicalSessionDecisionSchema>;
+};
 
 interface WeeklyStreakReminderPayload {
   streak: number;
@@ -520,6 +526,12 @@ export const NOTIFICATION_REGISTRY = {
         ...(p.beach_id ? { beach_id: p.beach_id } : {}),
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
         ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
+        ...(p.session_decision
+          ? {
+              decision_id: p.session_decision.decisionId,
+              decision_verdict: p.session_decision.verdict,
+            }
+          : {}),
       },
     }),
     buildInAppPayload: (p) => ({
@@ -531,7 +543,9 @@ export const NOTIFICATION_REGISTRY = {
         ...(p.beach_id ? { beach_id: p.beach_id } : {}),
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
         ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
-        ...(p.matches ? { matches: p.matches } : {}),
+        ...(p.session_decision
+          ? { session_decision: p.session_decision }
+          : {}),
       },
     }),
     /**
@@ -590,7 +604,9 @@ export const NOTIFICATION_REGISTRY = {
     surfAlertPriority: 2,
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) =>
-      notificationSimilarityMatchSchema.parse(input) as SimilarityMatchPayload,
+      notificationSimilarityMatchSchema.parse(
+        input,
+      ) as NotificationSimilarityMatchPayload,
     buildPushPayload: (p) => {
       const waveWindow =
         p.wave_height_ft != null &&
@@ -611,7 +627,15 @@ export const NOTIFICATION_REGISTRY = {
         : p.reason;
 
       return {
-        title: `${p.label ? `${p.label} ` : ""}match at ${p.beach_name}`.trim(),
+        title: p.session_decision
+          ? `${
+              p.session_decision.verdict === "go"
+                ? "Go"
+                : p.session_decision.verdict === "maybe"
+                  ? "Maybe"
+                  : "No"
+            } ${p.beach_name}`
+          : `${p.label ? `${p.label} ` : ""}match at ${p.beach_name}`.trim(),
         body,
         data: {
           type: "similarity_match",
@@ -619,6 +643,12 @@ export const NOTIFICATION_REGISTRY = {
           beach_slug: p.beach_slug,
           alert_date: p.alert_date,
           forecast_at: p.forecast_at,
+          ...(p.session_decision
+            ? {
+                decision_id: p.session_decision.decisionId,
+                decision_verdict: p.session_decision.verdict,
+              }
+            : {}),
         },
       };
     },
@@ -630,7 +660,6 @@ export const NOTIFICATION_REGISTRY = {
         beach_name: p.beach_name,
         alert_date: p.alert_date,
         forecast_at: p.forecast_at,
-        score: p.score,
         label: p.label ?? null,
         reason: p.reason,
         window_local: p.window_local,
@@ -640,10 +669,12 @@ export const NOTIFICATION_REGISTRY = {
         wind_direction: p.wind_direction,
         tide_height_ft: p.tide_height_ft,
         tide_status: p.tide_status,
-        confidence: p.confidence,
         condition_summary: p.condition_summary,
         board_tip: p.board_tip,
         setup_tip: p.setup_tip,
+        ...(p.session_decision
+          ? { session_decision: p.session_decision }
+          : {}),
       },
     }),
     /**
@@ -679,7 +710,7 @@ export const NOTIFICATION_REGISTRY = {
         );
       }
     },
-  } satisfies NotificationTypeDef<SimilarityMatchPayload>,
+  } satisfies NotificationTypeDef<NotificationSimilarityMatchPayload>,
 
   home_morning_call: {
     type: "home_morning_call",
@@ -715,21 +746,30 @@ export const NOTIFICATION_REGISTRY = {
     suppressSelfNotify: false,
     quietHours: DEFAULT_QUIET,
     validatePayload: (input) => weekendWindowSchema.parse(input),
-    buildPushPayload: (p) => ({
-      title: p.title,
-      body: p.body,
-      data: {
-        type: "weekend_window",
-        beach_id: p.beach_id,
-        forecast_at: p.forecast_at,
-        ...(p.window_local ? { window_local: p.window_local } : {}),
-      },
-    }),
+    buildPushPayload: (p) => {
+      const countLabel = p.qualifying_count === 1 ? "spot looks" : "spots look";
+      return {
+        title: `${p.qualifying_count} ${countLabel} promising this weekend`,
+        body: `${p.lead_beach_name} leads ${p.lead_window_local}. See your top picks and why.`,
+        data: {
+          type: "weekend_window",
+          snapshot_id: p.snapshot_id,
+          weekend_start: p.weekend_start,
+          weekend_end: p.weekend_end,
+          qualifying_count: p.qualifying_count,
+          lead_beach_id: p.lead_beach_id,
+          lead_beach_name: p.lead_beach_name,
+          lead_window_local: p.lead_window_local,
+        },
+      };
+    },
   } satisfies NotificationTypeDef<WeekendWindowPayload>,
 
   swell_watch: {
     type: "swell_watch",
-    channels: ["push", "in_app"],
+    // Contract capability remains available, but major-swell automation and
+    // delivery are intentionally disabled for this rollout slice.
+    channels: [],
     prefs: {
       master: { push: "notif_push_enabled", in_app: "notif_inapp_enabled" },
       perType: {
@@ -740,7 +780,7 @@ export const NOTIFICATION_REGISTRY = {
     suppressSelfNotify: false,
     quietHours: DEFAULT_QUIET,
     cooldownMs: 96 * 60 * 60 * 1000,
-    validatePayload: (input) => swellWatchSchema.parse(input),
+    validatePayload: parseMajorSwellNotificationPayload,
     buildPushPayload: (p) => ({
       title: p.title,
       body: p.body,
@@ -748,7 +788,9 @@ export const NOTIFICATION_REGISTRY = {
         type: "swell_watch",
         beach_id: p.beach_id,
         ...(p.beach_slug ? { beach_slug: p.beach_slug } : {}),
-        forecast_at: p.forecast_at,
+        ...(p.forecast_at ? { forecast_at: p.forecast_at } : {}),
+        awareness_signal: p.awareness_signal,
+        awareness_severity: p.awareness_severity,
       },
     }),
     buildInAppPayload: (p) => ({
@@ -762,11 +804,13 @@ export const NOTIFICATION_REGISTRY = {
         peak_height_ft: p.peak_height_ft,
         peak_period_s: p.peak_period_s,
         forecast_at: p.forecast_at,
+        awareness_signal: p.awareness_signal,
+        awareness_severity: p.awareness_severity,
         title: p.title,
         body: p.body,
       },
     }),
-  } satisfies NotificationTypeDef<SwellWatchPayload>,
+  } satisfies NotificationTypeDef<MajorSwellNotificationPayload>,
 
   trial_ending: {
     type: "trial_ending",

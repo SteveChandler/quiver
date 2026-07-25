@@ -6,12 +6,14 @@ import {
   compassPointToWord,
   type CompassPoint,
 } from "@/lib/utils/distance-utils";
+import type { CanonicalDecisionVerdict } from "@/lib/recommendations/canonical-decision/types";
 
 interface ConditionsOverlayProps {
   beachName: string;
   waveHeight: string;
   /** null while the canonical surf-call is still in flight — render a placeholder. */
   score: number | null;
+  decisionVerdict?: CanonicalDecisionVerdict | null;
   swellDirection: string;
   swellPeriod: number;
   tideHeight: number;
@@ -85,6 +87,34 @@ function ScoreBadge({
   );
 }
 
+function DecisionBadge({
+  verdict,
+  shouldAnimate,
+}: {
+  verdict: CanonicalDecisionVerdict;
+  shouldAnimate: boolean;
+}) {
+  const label = verdict === "go" ? "Go" : verdict === "maybe" ? "Maybe" : "No";
+  return (
+    <motion.div
+      initial={shouldAnimate ? { scale: 0 } : false}
+      animate={{ scale: 1 }}
+      transition={
+        shouldAnimate
+          ? { duration: 0.4, delay: 1.5, ease: [0.16, 1, 0.3, 1] }
+          : { duration: 0 }
+      }
+      className="inline-flex items-center rounded-full bg-[#FDB84B] px-3 py-1"
+      aria-label={`Session decision: ${label}`}
+      data-testid="hero-decision-badge"
+    >
+      <span className="font-mono text-sm font-bold uppercase text-[#252D6B]">
+        {label}
+      </span>
+    </motion.div>
+  );
+}
+
 interface SwellStatProps {
   label: string;
   value: string;
@@ -105,6 +135,7 @@ export function ConditionsOverlay({
   beachName,
   waveHeight,
   score,
+  decisionVerdict,
   swellDirection,
   swellPeriod,
   tideHeight,
@@ -138,7 +169,14 @@ export function ConditionsOverlay({
           {displayWaveHeight}
         </h1>
         <div className="mb-1.5">
-          <ScoreBadge score={score} shouldAnimate={shouldAnimate} />
+          {decisionVerdict ? (
+            <DecisionBadge
+              verdict={decisionVerdict}
+              shouldAnimate={shouldAnimate}
+            />
+          ) : (
+            <ScoreBadge score={score} shouldAnimate={shouldAnimate} />
+          )}
         </div>
       </div>
 

@@ -1,3 +1,9 @@
+import type { Metadata } from "next";
+
+import { isGscPerformanceProtected } from "./gsc-performance-protection";
+import { normalizeSeoPath } from "./agent-workflow/dashboard";
+import { slugifyAscii } from "@/lib/utils/text-utils";
+
 export interface EditorialSource {
   url: string;
   publisher: string;
@@ -38,15 +44,46 @@ export interface CityIntentEditorialInput {
   localGuidance?: string | null;
 }
 
-export type IndexabilityReason =
+export interface CityEditorialDatabaseRecord {
+  seo_indexable?: boolean | null;
+  editorial_reviewed_at?: string | null;
+  editorial_sources?: EditorialSource[] | string | null;
+  description?: string[] | null;
+  intent?: string | null;
+  seo_intro?: string | null;
+  seo_local_guidance?: string | null;
+}
+
+export type EditorialQualityReason =
   | "missing-review"
   | "missing-sources"
   | "missing-local-content"
   | "missing-intent-editorial";
 
-export interface IndexabilityResult {
+export type IndexabilityReason =
+  | "editorial-approved"
+  | "gsc-protected"
+  | "editorial-rejected"
+  | "insufficient-data"
+  | "unproven";
+
+export interface EditorialQualityResult {
+  approved: boolean;
+  rejected: boolean;
+  reason: EditorialQualityReason | null;
+}
+
+export interface IndexabilityContext {
+  canonicalPath: string;
+  editorialApproved: boolean;
+  editorialRejected: boolean;
+  dataRich: boolean;
+  performanceProtected: boolean;
+}
+
+export interface IndexabilityDecision {
   indexable: boolean;
-  reason: IndexabilityReason | null;
+  reason: IndexabilityReason;
 }
 
 function hasText(value: string | null | undefined): boolean {
@@ -76,22 +113,10 @@ export function parseEditorialSources(value: unknown): EditorialSource[] {
   }
 }
 
-export function isBeachEligibleForIndexing(beach: BeachEditorialRecord): boolean {
-  return evaluateBeachIndexability({
-    seoIndexable: beach.seoIndexable,
-    seoReviewedAt: beach.seoReviewedAt,
-    seoSources: parseEditorialSources(beach.editorial_sources),
-    description: beach.description,
-    crowdTips: beach.crowdTips,
-    waveTips: beach.waveTips,
-    bestConditionsProse: beach.bestConditionsProse,
-  }).indexable;
-}
-
-export function isBeachDatabaseRecordEligible(
+export function toBeachEditorialInput(
   beach: BeachEditorialDatabaseRecord,
-): boolean {
-  return evaluateBeachIndexability({
+): BeachIndexabilityInput {
+  return {
     seoIndexable: beach.seo_indexable,
     seoReviewedAt: beach.editorial_reviewed_at,
     seoSources: parseEditorialSources(beach.editorial_sources),
@@ -99,47 +124,105 @@ export function isBeachDatabaseRecordEligible(
     crowdTips: beach.crowd_tips,
     waveTips: beach.wave_tips,
     bestConditionsProse: beach.best_conditions_prose,
-  }).indexable;
+  };
 }
 
-export function evaluateBeachIndexability(
+export function toCityEditorialInput(
+  editorial: CityEditorialDatabaseRecord | null | undefined,
+): CityIntentEditorialInput | null {
+  if (!editorial) return null;
+
+  return {
+    seoIndexable: editorial.seo_indexable,
+    seoReviewedAt: editorial.editorial_reviewed_at,
+    seoSources: parseEditorialSources(editorial.editorial_sources),
+    description: editorial.description,
+    intent: editorial.intent,
+    intro: editorial.seo_intro,
+    localGuidance: editorial.seo_local_guidance,
+  };
+}
+
+export function cityEditorialKey(
+  country: string,
+  state: string,
+  city: string,
+  intent: string | null,
+): string {
+  return [
+    slugifyAscii(country),
+    slugifyAscii(state),
+    slugifyAscii(city),
+    intent ?? "general",
+  ].join("/");
+}
+
+export function hasBeachSubstantiveContent(
+  input: Pick<
+    BeachIndexabilityInput,
+    "description" | "crowdTips" | "waveTips" | "bestConditionsProse"
+  >,
+): boolean {
+  return (
+    hasText(input.description) &&
+    [input.crowdTips, input.waveTips, input.bestConditionsProse].some(hasText)
+  );
+}
+
+export function evaluateBeachEditorialQuality(
   input: BeachIndexabilityInput,
-): IndexabilityResult {
-  if (!input.seoIndexable || !input.seoReviewedAt) {
-    return { indexable: false, reason: "missing-review" };
+): EditorialQualityResult {
+  const rejected = Boolean(
+    input.seoReviewedAt && input.seoIndexable === false,
+  );
+
+  if (!input.seoReviewedAt || input.seoIndexable !== true) {
+    return { approved: false, rejected, reason: "missing-review" };
   }
 
   if (!hasSources(input.seoSources)) {
-    return { indexable: false, reason: "missing-sources" };
+    return { approved: false, rejected: false, reason: "missing-sources" };
   }
 
-  if (
-    !hasText(input.description) ||
-    ![input.crowdTips, input.waveTips, input.bestConditionsProse].some(hasText)
-  ) {
-    return { indexable: false, reason: "missing-local-content" };
+  if (!hasBeachSubstantiveContent(input)) {
+    return {
+      approved: false,
+      rejected: false,
+      reason: "missing-local-content",
+    };
   }
 
-  return { indexable: true, reason: null };
+  return { approved: true, rejected: false, reason: null };
 }
 
-export function evaluateCityEditorialIndexability(
-  input: CityIntentEditorialInput,
+export function evaluateCityEditorialQuality(
+  input: CityIntentEditorialInput | null,
   expectedIntent: string | null,
-): IndexabilityResult {
-  if (!input.seoIndexable || !input.seoReviewedAt) {
-    return { indexable: false, reason: "missing-review" };
+): EditorialQualityResult {
+  if (!input) {
+    return { approved: false, rejected: false, reason: "missing-review" };
+  }
+
+  const rejected = Boolean(
+    input.seoReviewedAt && input.seoIndexable === false,
+  );
+  if (!input.seoReviewedAt || input.seoIndexable !== true) {
+    return { approved: false, rejected, reason: "missing-review" };
   }
 
   if (!hasSources(input.seoSources)) {
-    return { indexable: false, reason: "missing-sources" };
+    return { approved: false, rejected: false, reason: "missing-sources" };
   }
 
   const intentMatches = expectedIntent === null
     ? input.intent === null || input.intent === "general"
     : input.intent === expectedIntent;
   if (!intentMatches) {
-    return { indexable: false, reason: "missing-intent-editorial" };
+    return {
+      approved: false,
+      rejected: false,
+      reason: "missing-intent-editorial",
+    };
   }
 
   if (
@@ -147,8 +230,111 @@ export function evaluateCityEditorialIndexability(
     !hasText(input.intro) ||
     !hasText(input.localGuidance)
   ) {
-    return { indexable: false, reason: "missing-local-content" };
+    return {
+      approved: false,
+      rejected: false,
+      reason: "missing-local-content",
+    };
   }
 
-  return { indexable: true, reason: null };
+  return { approved: true, rejected: false, reason: null };
+}
+
+export function resolveIndexability(
+  context: IndexabilityContext,
+): IndexabilityDecision {
+  if (!context.dataRich) {
+    return { indexable: false, reason: "insufficient-data" };
+  }
+
+  if (context.editorialRejected) {
+    return { indexable: false, reason: "editorial-rejected" };
+  }
+
+  if (context.editorialApproved) {
+    return { indexable: true, reason: "editorial-approved" };
+  }
+
+  if (context.performanceProtected) {
+    return { indexable: true, reason: "gsc-protected" };
+  }
+
+  return { indexable: false, reason: "unproven" };
+}
+
+export function evaluateBeachIndexability(
+  input: BeachIndexabilityInput,
+  canonicalPath = "/",
+): IndexabilityDecision {
+  const editorial = evaluateBeachEditorialQuality(input);
+  return resolveIndexability({
+    canonicalPath: normalizeSeoPath(canonicalPath),
+    editorialApproved: editorial.approved,
+    editorialRejected: editorial.rejected,
+    dataRich: hasBeachSubstantiveContent(input),
+    performanceProtected: isGscPerformanceProtected(canonicalPath),
+  });
+}
+
+export function evaluateCityEditorialIndexability(
+  input: CityIntentEditorialInput | null,
+  expectedIntent: string | null,
+  canonicalPath = "/",
+  dataRich = true,
+): IndexabilityDecision {
+  const editorial = evaluateCityEditorialQuality(input, expectedIntent);
+  return resolveIndexability({
+    canonicalPath: normalizeSeoPath(canonicalPath),
+    editorialApproved: editorial.approved,
+    editorialRejected: editorial.rejected,
+    dataRich,
+    performanceProtected: isGscPerformanceProtected(canonicalPath),
+  });
+}
+
+export function isBeachEligibleForIndexing(
+  beach: BeachEditorialRecord,
+  canonicalPath = "/",
+): boolean {
+  return evaluateBeachIndexability(
+    {
+      seoIndexable: beach.seoIndexable,
+      seoReviewedAt: beach.seoReviewedAt,
+      seoSources: parseEditorialSources(beach.editorial_sources),
+      description: beach.description,
+      crowdTips: beach.crowdTips,
+      waveTips: beach.waveTips,
+      bestConditionsProse: beach.bestConditionsProse,
+    },
+    canonicalPath,
+  ).indexable;
+}
+
+export function isBeachDatabaseRecordEligible(
+  beach: BeachEditorialDatabaseRecord,
+  canonicalPath = "/",
+): boolean {
+  return evaluateBeachIndexability(
+    toBeachEditorialInput(beach),
+    canonicalPath,
+  ).indexable;
+}
+
+export function applyIndexabilityToMetadata<T extends Metadata>(
+  metadata: T,
+  decision: IndexabilityDecision,
+): T | (T & { robots: Metadata["robots"] }) {
+  if (decision.indexable) return metadata;
+
+  return {
+    ...metadata,
+    robots: {
+      index: false,
+      follow: true,
+      googleBot: {
+        index: false,
+        follow: true,
+      },
+    },
+  };
 }

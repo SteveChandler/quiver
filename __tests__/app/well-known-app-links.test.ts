@@ -27,31 +27,54 @@ describe('.well-known app-link manifests', () => {
     process.env = originalEnv;
   });
 
-  it('emits the native iOS app id, beach paths, and app handoff path by default', async () => {
+  it('emits only the approved native app-link path contract by default', async () => {
     const { GET } = await import('@/app/.well-known/apple-app-site-association/route');
 
     const response = GET();
     const body = await response.json();
 
-    expect(body.applinks.details).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          appID: 'QBA8TA48NG.app.quiversurf.mobile',
-          paths: expect.arrayContaining(['/beach/*', '/settings*', '/app*', '/app/spot/*']),
-        }),
-      ]),
-    );
+    expect(body.applinks.details).toEqual([
+      {
+        appID: 'QBA8TA48NG.app.quiversurf.mobile',
+        paths: [
+          '/invite',
+          '/invite/*',
+          '/beach',
+          '/beach/*',
+          '/sessions',
+          '/sessions/*',
+          '/profile',
+          '/profile/*',
+          '/auth',
+          '/auth/*',
+          '/settings',
+          '/map',
+          '/alerts',
+          '/alerts/*',
+          '/app/handoff',
+          '/app/spot/*',
+          '/app/forecast',
+        ],
+      },
+    ]);
   });
 
-  it('keeps required native paths even when env paths are partial', async () => {
-    process.env.APPLE_APP_SITE_ASSOCIATION_PATHS = '/auth/*';
+  it('does not let an environment override broaden the approved app-link contract', async () => {
+    process.env.APPLE_APP_SITE_ASSOCIATION_PATHS = '/app*,/roadmap/*';
     const { GET } = await import('@/app/.well-known/apple-app-site-association/route');
 
     const response = GET();
     const body = await response.json();
     const paths = body.applinks.details[0].paths;
 
-    expect(paths).toEqual(expect.arrayContaining(['/auth/*', '/beach/*', '/settings*', '/app*', '/app/spot/*']));
+    expect(paths).not.toContain('/app*');
+    expect(paths).not.toContain('/roadmap/*');
+    expect(paths).toEqual(expect.arrayContaining([
+      '/alerts',
+      '/map',
+      '/app/handoff',
+      '/app/forecast',
+    ]));
   });
 
   it('does not emit placeholder Apple team IDs as live app-link evidence', async () => {

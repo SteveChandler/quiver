@@ -69,6 +69,31 @@ function firstMatch(data: Record<string, unknown>): Record<string, unknown> | nu
   return first ?? null;
 }
 
+type CanonicalContext =
+  | { state: "absent" }
+  | { state: "no" }
+  | {
+      state: "positive";
+      selection: Record<string, unknown>;
+      forecastRef: Record<string, unknown> | null;
+    };
+
+function canonicalContext(
+  data: Record<string, unknown>,
+): CanonicalContext {
+  const decision = data.session_decision;
+  if (!isRecord(decision)) return { state: "absent" };
+  if (decision.verdict === "no") return { state: "no" };
+  if (!isRecord(decision.selection)) return { state: "absent" };
+  return {
+    state: "positive",
+    selection: decision.selection,
+    forecastRef: isRecord(decision.selection.forecastRef)
+      ? decision.selection.forecastRef
+      : null,
+  };
+}
+
 function stringFromData(
   data: Record<string, unknown>,
   match: Record<string, unknown> | null,
@@ -79,6 +104,18 @@ function stringFromData(
     if (fromData) return fromData;
     const fromMatch = match ? nonEmptyString(match[key]) : null;
     if (fromMatch) return fromMatch;
+  }
+  return null;
+}
+
+function stringFromRecord(
+  record: Record<string, unknown> | null,
+  keys: string[],
+): string | null {
+  if (!record) return null;
+  for (const key of keys) {
+    const value = nonEmptyString(record[key]);
+    if (value) return value;
   }
   return null;
 }
@@ -117,43 +154,74 @@ function bodyFor(row: NotificationRow, data: Record<string, unknown>): string {
 
 function normalizeActivityItem(row: NotificationRow): AlertActivityItem {
   const data = isRecord(row.data) ? row.data : {};
-  const match = firstMatch(data);
-  const beachName = stringFromData(data, match, ["beach_name", "beachName"]);
-  const forecastAt = stringFromData(data, match, ["forecast_at", "forecastAt"]);
+  const canonical = canonicalContext(data);
+  const match =
+    canonical.state === "positive"
+      ? canonical.selection
+      : canonical.state === "absent"
+        ? firstMatch(data)
+        : null;
+  const useTopLevelContext = canonical.state !== "no";
+  const contextString = (keys: string[]): string | null => {
+    if (!useTopLevelContext) return null;
+    if (canonical.state === "positive") {
+      return (
+        stringFromRecord(canonical.selection, keys) ??
+        stringFromRecord(data, keys)
+      );
+    }
+    return stringFromData(data, match, keys);
+  };
+  const beachName = contextString(["beach_name", "beachName"]);
+  const forecastAt =
+    canonical.state === "positive"
+      ? stringFromRecord(canonical.forecastRef, ["forecast_at", "forecastAt"]) ??
+        contextString(["forecast_at", "forecastAt"])
+      : contextString(["forecast_at", "forecastAt"]);
   const reason =
-    nonEmptyString(data.reason) ?? nonEmptyString(data.condition_summary);
-  const windowStart =
-    row.type === "similarity_match"
-      ? forecastAt
-      : match
-        ? nonEmptyString(match.window_start)
-        : null;
-  const windowEnd =
-    row.type === "similarity_match"
+    canonical.state === "no"
       ? null
-      : match
-        ? nonEmptyString(match.window_end)
-        : null;
+      : nonEmptyString(data.reason) ?? nonEmptyString(data.condition_summary);
+  const windowStart =
+    canonical.state === "no"
+      ? null
+      : canonical.state === "positive"
+        ? stringFromRecord(canonical.selection, ["window_start", "windowStart"])
+      : row.type === "similarity_match"
+        ? forecastAt
+        : match
+          ? stringFromData({}, match, ["window_start", "windowStart"])
+          : null;
+  const windowEnd =
+    canonical.state === "no"
+      ? null
+      : canonical.state === "positive"
+        ? stringFromRecord(canonical.selection, ["window_end", "windowEnd"])
+        : row.type === "similarity_match"
+          ? null
+          : match
+            ? stringFromData({}, match, ["window_end", "windowEnd"])
+            : null;
 
   return {
     id: row.id,
     type: row.type,
     title: titleFor(row, data, beachName),
     body: bodyFor(row, data),
-    beach_id: stringFromData(data, match, ["beach_id", "beachId"]),
-    beach_slug: stringFromData(data, match, ["beach_slug", "beachSlug"]),
+    beach_id: contextString(["beach_id", "beachId"]),
+    beach_slug: contextString(["beach_slug", "beachSlug"]),
     beach_name: beachName,
     forecast_at: forecastAt,
-    alert_date: stringFromData(data, match, ["alert_date", "alertDate"]),
+    alert_date: stringFromData(data, null, ["alert_date", "alertDate"]),
     window_start: windowStart,
     window_end: windowEnd,
     reason,
-    window_label: stringFromData(data, match, [
+    window_label: canonical.state === "no" ? null : stringFromData(data, match, [
       "window_label",
       "window_local",
       "display_time_label",
     ]),
-    score: finiteNumber(data.score),
+    score: canonical.state === "no" ? null : finiteNumber(data.score),
     read_at: row.read_at,
     created_at: row.created_at,
   };

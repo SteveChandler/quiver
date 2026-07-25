@@ -1355,3 +1355,13 @@ DROP INDEX IF EXISTS public.idx_sessions_user_rated_completed;
 ALTER TABLE public.sessions DROP COLUMN IF EXISTS board_snapshot;
 COMMIT;
 ```
+
+### Current-Location Weekend Scout Storage (20260719120000)
+
+Migration `20260719120000_create_weekend_scout_location_snapshots.sql` defines two privacy-bounded tables and one service-role candidate RPC:
+
+- `user_location_snapshots` has `user_id` as its primary key, so a new rounded foreground fix replaces the previous row instead of creating history. Authenticated users can select or delete only their row; writes use the validated server endpoint.
+- `weekend_scout_snapshots` is append-only to application code and unique on `(user_id, weekend_start)`. It stores the exact top-three evidence, lead summary, scorer version, drive range, and location timestamp used for delivery.
+- `get_weekend_scout_candidates` excludes private, deleted, and user-excluded beaches, orders by PostGIS distance, and returns the pre-limit total so the service can suppress truncated rankings.
+
+The API write freshness limit is 15 minutes; push evaluation is limited to snapshots no older than 24 hours. The migration is committed but has not been applied as part of code implementation; database application remains approval-gated.

@@ -8,6 +8,11 @@ import { currentAuditDate, resolveSeoAuditFile } from "../../lib/seo/agent-workf
 import { parseGscExport, toGscRefreshInput } from "../../lib/seo/agent-workflow/gsc-export";
 import { analyzeGscRefresh } from "../../lib/seo/agent-workflow/gsc-refresh";
 import type { GscRefreshInput } from "../../lib/seo/agent-workflow/types";
+import {
+  buildGscProtectionSnapshot,
+  diffGscProtectionSnapshots,
+  type GscProtectionSnapshot,
+} from "../../lib/seo/gsc-performance-protection";
 
 const inputPath = getFlag("--input");
 if (!inputPath) {
@@ -17,6 +22,7 @@ if (!inputPath) {
 const dashboardPath = getFlag("--dashboard") ?? undefined;
 const outputPath = getFlag("--output") ??
   resolveSeoAuditFile("GSC-REFRESH.json", currentAuditDate());
+const protectionOutputPath = getFlag("--protection-output");
 const now = getFlag("--now") ?? new Date().toISOString();
 const watchlistPath = getFlag("--watchlist") ??
   path.join(process.cwd(), "docs", "seo", "ctr-watchlist.json");
@@ -31,10 +37,33 @@ const recommendations = analyzeGscRefresh(input, dashboard, now);
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, `${JSON.stringify(recommendations, null, 2)}\n`);
 
-console.log(JSON.stringify({
+const result: Record<string, unknown> = {
   outputPath,
   recommendations: recommendations.length,
-}, null, 2));
+};
+
+if (protectionOutputPath) {
+  const previousSnapshot = readProtectionSnapshot(protectionOutputPath);
+  const protectionSnapshot = buildGscProtectionSnapshot(exportInput);
+  const protectionDiff = diffGscProtectionSnapshots(
+    previousSnapshot,
+    protectionSnapshot,
+  );
+
+  fs.mkdirSync(path.dirname(protectionOutputPath), { recursive: true });
+  fs.writeFileSync(
+    protectionOutputPath,
+    `${JSON.stringify(protectionSnapshot, null, 2)}\n`,
+  );
+  result.protection = {
+    outputPath: protectionOutputPath,
+    entries: protectionSnapshot.entries.length,
+    added: protectionDiff.added,
+    removed: protectionDiff.removed,
+  };
+}
+
+console.log(JSON.stringify(result, null, 2));
 
 function getFlag(name: string): string | null {
   const index = process.argv.indexOf(name);
@@ -70,4 +99,28 @@ function readCtrWatchlist(filePath: string): NonNullable<GscRefreshInput["ctrWat
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function readProtectionSnapshot(
+  filePath: string,
+): GscProtectionSnapshot | null {
+  if (!fs.existsSync(filePath)) return null;
+
+  try {
+    const value = JSON.parse(fs.readFileSync(filePath, "utf8")) as unknown;
+    if (
+      !isRecord(value) ||
+      !Array.isArray(value.entries) ||
+      !value.entries.every(
+        (entry) =>
+          isRecord(entry) &&
+          typeof entry.canonicalPath === "string",
+      )
+    ) {
+      return null;
+    }
+    return value as unknown as GscProtectionSnapshot;
+  } catch {
+    return null;
+  }
 }

@@ -203,36 +203,38 @@ async function findUnobscuredBeachMarkerPoint(
   page: Page,
   minimumY: number,
 ): Promise<{ x: number; y: number }> {
-  const markerPoint = await page.evaluate((minY): { x: number; y: number } | null => {
-    const badges = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '[data-testid="beach-marker"] [data-marker-badge="true"]',
-      ),
-    );
+  const markerPoint = await page
+    .waitForFunction((minY): { x: number; y: number } | null => {
+      const badges = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '[data-testid="beach-marker"] [data-marker-badge="true"]',
+        ),
+      );
 
-    for (const badge of badges) {
-      const rect = badge.getBoundingClientRect();
-      const x = rect.left + rect.width / 2;
-      const y = rect.top + rect.height / 2;
+      for (const badge of badges) {
+        const rect = badge.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
 
-      if (
-        rect.width <= 0 ||
-        rect.height <= 0 ||
-        x < 0 ||
-        y < minY ||
-        x > window.innerWidth ||
-        y > window.innerHeight
-      ) {
-        continue;
+        if (
+          rect.width <= 0 ||
+          rect.height <= 0 ||
+          x < 0 ||
+          y < minY ||
+          x > window.innerWidth ||
+          y > window.innerHeight
+        ) {
+          continue;
+        }
+
+        if (document.elementsFromPoint(x, y).includes(badge)) {
+          return { x, y };
+        }
       }
 
-      if (document.elementsFromPoint(x, y).includes(badge)) {
-        return { x, y };
-      }
-    }
-
-    return null;
-  }, minimumY);
+      return null;
+    }, minimumY)
+    .then((handle) => handle.jsonValue());
 
   if (!markerPoint) {
     throw new Error(
@@ -243,33 +245,34 @@ async function findUnobscuredBeachMarkerPoint(
   return markerPoint;
 }
 
-async function findUnobscuredBeachMarkerId(
-  page: Page,
-  minimumY: number,
-): Promise<string> {
-  const markerId = await page.evaluate((minY): string | null => {
-    const badges = Array.from(
-      document.querySelectorAll<HTMLElement>(
-        '[data-testid="beach-marker"] [data-marker-badge="true"]',
-      ),
-    );
+async function findUnobscuredBeachMarkerId(page: Page): Promise<string> {
+  const markerId = await page
+    .waitForFunction((): string | null => {
+      const badges = Array.from(
+        document.querySelectorAll<HTMLElement>(
+          '[data-testid="beach-marker"] [data-marker-badge="true"]',
+        ),
+      );
 
-    for (const badge of badges) {
-      const rect = badge.getBoundingClientRect();
-      const x = rect.left + rect.width / 2;
-      const y = rect.top + rect.height / 2;
-      if (
-        rect.width > 0 &&
-        rect.height > 0 &&
-        y >= minY &&
-        document.elementsFromPoint(x, y).includes(badge)
-      ) {
-        return badge.closest<HTMLElement>('[data-beach-id]')?.dataset.beachId ?? null;
+      for (const badge of badges) {
+        const rect = badge.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        if (
+          rect.width > 0 &&
+          rect.height > 0 &&
+          document.elementsFromPoint(x, y).includes(badge)
+        ) {
+          return (
+            badge.closest<HTMLElement>('[data-beach-id]')?.dataset.beachId ??
+            null
+          );
+        }
       }
-    }
 
-    return null;
-  }, minimumY);
+      return null;
+    })
+    .then((handle) => handle.jsonValue());
 
   if (!markerId) {
     throw new Error('No unobscured beach marker badge is available in the viewport');
@@ -1079,7 +1082,7 @@ test.describe('Map Page - Beach Detail Navigation', () => {
       await forecastsLoaded;
       await expect(touchPage.getByTestId('bottom-sheet')).toHaveCount(0);
 
-      const markerId = await findUnobscuredBeachMarkerId(touchPage, 160);
+      const markerId = await findUnobscuredBeachMarkerId(touchPage);
       await touchPage
         .locator(`[data-beach-id="${markerId}"] [data-marker-badge="true"]`)
         .dispatchEvent('touchend', {

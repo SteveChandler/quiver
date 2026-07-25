@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { Coordinates } from "@/lib/types/coordinates";
 import { calculateDistance } from "@/lib/utils/distance-utils";
+import { captureClientPostHogEvent } from "@/lib/posthog-client";
 
 // Default to Ocean Beach, San Diego coordinates (ultimate fallback)
 const OCEAN_BEACH_COORDS: Coordinates = {
@@ -25,6 +26,10 @@ type LastBeachMeta = Coordinates & {
 };
 
 export type GeolocationErrorType = 'denied' | 'unavailable' | 'timeout' | null;
+type HomeGeolocationRequestTrigger = "auto" | "explicit" | "poll";
+type HomeGeolocationRequestOutcome =
+  | Exclude<GeolocationErrorType, null>
+  | "success";
 
 interface GeolocationState {
   userLocation: Coordinates | null;
@@ -50,6 +55,8 @@ interface UseGeolocationOptions {
   pollingIntervalMs?: number;
   /** Minimum distance change in meters to trigger location update. Default: 1000 (1 km) */
   minDistanceChangeMeters?: number;
+  /** Enables privacy-safe production monitoring for Home GPS behavior. */
+  monitoringContext?: "home";
 }
 
 export function useGeolocation(options: UseGeolocationOptions = {}) {
@@ -61,6 +68,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     enablePolling = false,
     pollingIntervalMs = DEFAULT_POLLING_INTERVAL_MS,
     minDistanceChangeMeters = DEFAULT_MIN_DISTANCE_CHANGE_METERS,
+    monitoringContext,
   } = options;
 
   const readLastBeach = useCallback((): LastBeachMeta | null => {
@@ -117,6 +125,21 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
   const safetyTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
   const isRequestInFlightRef = useRef(false); // Track active geolocation requests
 
+  const reportHomeGeolocationRequest = useCallback(
+    (
+      trigger: HomeGeolocationRequestTrigger,
+      outcome: HomeGeolocationRequestOutcome,
+    ): void => {
+      if (monitoringContext !== "home") return;
+
+      captureClientPostHogEvent("home_geolocation_request", {
+        trigger,
+        outcome,
+      });
+    },
+    [monitoringContext],
+  );
+
   const useDefaultLocation = useCallback(() => {
     setState((prev) => ({
       ...prev,
@@ -140,7 +163,12 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     }));
   }, []);
 
-  const getUserLocation = useCallback(async (forceRetry = false): Promise<void> => {
+  const getUserLocation = useCallback(async (
+    forceRetry = false,
+    trigger: Exclude<HomeGeolocationRequestTrigger, "poll"> = forceRetry
+      ? "explicit"
+      : "auto",
+  ): Promise<void> => {
     // Prevent multiple simultaneous requests (unless force retry)
     if (isRequestInFlightRef.current && !forceRetry) {
       return;
@@ -149,6 +177,12 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     if (hasAttemptedRef.current && !forceRetry) return;
     hasAttemptedRef.current = true;
     isRequestInFlightRef.current = true;
+    let hasReportedOutcome = false;
+    const reportOutcome = (outcome: HomeGeolocationRequestOutcome): void => {
+      if (hasReportedOutcome) return;
+      hasReportedOutcome = true;
+      reportHomeGeolocationRequest(trigger, outcome);
+    };
 
     // Mark as loading for explicit requests too
     setState((prev) => ({ ...prev, loading: true }));
@@ -167,6 +201,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
           value: SAFETY_TIMEOUT_MS,
         });
       }
+      reportOutcome("timeout");
       setState((prev) => ({
         ...prev,
         usingDefaultLocation: true,
@@ -182,6 +217,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     if (typeof window === "undefined" || !navigator.geolocation) {
       clearTimeout(safetyTimeoutRef.current);
       isRequestInFlightRef.current = false;
+      reportOutcome("unavailable");
       setState((prev) => ({
         ...prev,
         locationError: "Location services not supported",
@@ -203,6 +239,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
         clearTimeout(safetyTimeoutRef.current);
         isRequestInFlightRef.current = false; // Clear in-flight flag
         const { latitude, longitude } = position.coords;
+        reportOutcome("success");
 
         setState((prev) => ({
           ...prev,
@@ -233,6 +270,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
         }
 
         console.warn("[useGeolocation] Error:", error.message);
+        reportOutcome(errorType);
         setState((prev) => ({
           ...prev,
           locationError: errorMessage,
@@ -246,11 +284,11 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       },
       options
     );
-  }, [fallbackCoords, fallbackSource]);
+  }, [fallbackCoords, fallbackSource, reportHomeGeolocationRequest]);
 
   useEffect(() => {
     if (autoRequest) {
-      getUserLocation();
+      getUserLocation(false, "auto");
     } else {
       // Mirror HomeScreen behavior: no auto prompt, but we should ensure loading is false.
       setState((prev) => ({ ...prev, loading: false }));
@@ -301,17 +339,40 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
               usingDefaultLocation: false,
             }));
           }
+          reportHomeGeolocationRequest("poll", "success");
         },
-        () => {}, // Silent fail on polling errors - don't disrupt UX
+        (error) => {
+          const outcome: Exclude<GeolocationErrorType, null> =
+            error.code === error.PERMISSION_DENIED
+              ? "denied"
+              : error.code === error.TIMEOUT
+                ? "timeout"
+                : "unavailable";
+          reportHomeGeolocationRequest("poll", outcome);
+        },
         { enableHighAccuracy: true, timeout: 8000, maximumAge: 30000 }
       );
     };
 
+    const stopPolling = () => {
+      if (!pollingInterval) return;
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    };
+
+    const startPolling = () => {
+      if (pollingInterval) return;
+      if (typeof document !== 'undefined' && document.visibilityState !== 'visible') return;
+      pollingInterval = setInterval(checkLocationChange, pollingIntervalMs);
+    };
+
     const handleVisibilityChange = () => {
-      // Immediately check location when app returns to foreground
       if (document.visibilityState === 'visible') {
-        checkLocationChange();
+        startPolling();
+        return;
       }
+
+      stopPolling();
     };
 
     // Set up visibility change listener
@@ -319,16 +380,22 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
       document.addEventListener('visibilitychange', handleVisibilityChange);
     }
 
-    // Start polling interval
-    pollingInterval = setInterval(checkLocationChange, pollingIntervalMs);
+    startPolling();
 
     return () => {
-      if (pollingInterval) clearInterval(pollingInterval);
+      stopPolling();
       if (typeof document !== 'undefined') {
         document.removeEventListener('visibilitychange', handleVisibilityChange);
       }
     };
-  }, [enablePolling, state.userLocation, state.source, pollingIntervalMs, minDistanceChangeMeters]);
+  }, [
+    enablePolling,
+    state.userLocation,
+    state.source,
+    pollingIntervalMs,
+    minDistanceChangeMeters,
+    reportHomeGeolocationRequest,
+  ]);
 
   return {
     ...state,
@@ -339,7 +406,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     coords: state.userLocation,
     error: state.locationError,
     requestLocation: () => {
-      void getUserLocation(true);
+      void getUserLocation(true, "explicit");
     },
     setLastBeach,
   };

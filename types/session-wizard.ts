@@ -49,6 +49,9 @@ export interface SessionWizardPrefillParams {
   /** One-tap forecast verification value captured before session logging */
   forecastFeedbackValue?: 'too_low' | 'about_right' | 'too_high';
 
+  /** User-observed representative face height in feet */
+  observedFaceHeightFt?: string;
+
   /** Recommendation attribution id from surf discovery/home surfaces */
   recommendation_id?: string;
 
@@ -102,6 +105,9 @@ export interface ValidatedSessionWizardParams {
 
   /** One-tap forecast verification value captured before session logging */
   forecastFeedbackValue?: 'too_low' | 'about_right' | 'too_high';
+
+  /** Validated user-observed representative face height in feet */
+  observedFaceHeightFt?: number;
 
   recommendationId?: string;
   recommendationSurface?: string;

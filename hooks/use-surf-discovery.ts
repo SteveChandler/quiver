@@ -7,6 +7,7 @@ import {
   clearDiscoveryRecommendationCache,
   hashDiscoveryOptions,
 } from "@/lib/utils/discovery-cache-utils";
+import { projectCanonicalDiscoverySurface } from "@/lib/recommendations/canonical-decision/client-projection";
 import type { SurfDiscoveryResponse, TimeSlot } from "@/types/personalization";
 
 /**
@@ -29,6 +30,8 @@ interface UseSurfDiscoveryOptions {
   enabled?: boolean;
   /** Whether to fetch immediately on mount (default: true) */
   immediate?: boolean;
+  /** Optional callback immediately before an API request starts */
+  onRequest?: () => void;
   /** Optional callback when discovery results are fetched successfully */
   onSuccess?: (data: SurfDiscoveryResponse) => void;
   /** Optional callback when an error occurs */
@@ -109,10 +112,13 @@ export function useSurfDiscovery(
     userSkillLevel,
     enabled = true,
     immediate = true,
+    onRequest,
     onSuccess,
     onError,
   } = options;
   const { user } = useAuth();
+  const onRequestRef = useRef(onRequest);
+  onRequestRef.current = onRequest;
 
   const userLat = userLocation?.lat;
   const userLon = userLocation?.lon;
@@ -171,6 +177,8 @@ export function useSurfDiscovery(
     const queryString = params.toString();
     const url = `/api/surf/discover${queryString ? `?${queryString}` : ""}`;
 
+    onRequestRef.current?.();
+
     // Fetch from API
     const response = await fetch(url, {
       method: "GET",
@@ -201,30 +209,21 @@ export function useSurfDiscovery(
         },
       }));
     }
-
-    const discoveryData = result.data as SurfDiscoveryResponse;
-    if (discoveryData?.recommendationAvailability?.state !== "none") {
-      return discoveryData;
+    if (result.data?.includedRecommendations) {
+      result.data.includedRecommendations = result.data.includedRecommendations.map(
+        (rec: any) => ({
+          ...rec,
+          window: {
+            ...rec.window,
+            start: new Date(rec.window.start),
+            end: new Date(rec.window.end),
+          },
+        }),
+      );
     }
 
-    return {
-      ...discoveryData,
-      recommendations: [],
-      includedRecommendations: discoveryData.includedRecommendations ? [] : undefined,
-      recommendationsV2: discoveryData.recommendationsV2
-        ? {
-            ...discoveryData.recommendationsV2,
-            state: "no_good_window" as const,
-            hero: null,
-            items: [],
-            watch_window: null,
-            empty_state: { title: null, body: null, action_label: null },
-          }
-        : undefined,
-      regionalCall: "",
-      eveningTransition: undefined,
-      lockedBestSpotTeaser: null,
-    };
+    const discoveryData = result.data as SurfDiscoveryResponse;
+    return projectCanonicalDiscoverySurface(discoveryData);
   }, [
     user,
     userLat,
@@ -375,6 +374,40 @@ export function useSurfDiscovery(
 
     return () => clearTimeout(timeoutId);
   }, [enabled, immediate, optionsHash, refreshDiscovery, reset, user]);
+
+  useEffect(() => {
+    const decision = freshData?.sessionDecision;
+    if (
+      !freshData ||
+      freshData.recommendations.length === 0 ||
+      !decision ||
+      decision.verdict === "no"
+    ) {
+      return;
+    }
+
+    const expiresAt = Date.parse(decision.expiresAt);
+    if (!Number.isFinite(expiresAt)) {
+      reset();
+      return;
+    }
+
+    const expireAndRevalidate = () => {
+      if (enabled && immediate && user) {
+        void refreshDiscovery();
+        return;
+      }
+      reset();
+    };
+    const remainingMs = expiresAt - Date.now();
+    if (remainingMs <= 0) {
+      expireAndRevalidate();
+      return;
+    }
+
+    const timeoutId = window.setTimeout(expireAndRevalidate, remainingMs);
+    return () => window.clearTimeout(timeoutId);
+  }, [enabled, freshData, immediate, refreshDiscovery, reset, user]);
 
   const discovery = resumeRevalidationPending ? null : freshData;
 

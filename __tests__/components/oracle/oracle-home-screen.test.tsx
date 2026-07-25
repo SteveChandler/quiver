@@ -225,6 +225,7 @@ const MOCK_HOME_FORECAST = {
 };
 
 const MOCK_TOP_REC = {
+  recommendationId: "candidate-b1",
   beach: MOCK_BEACH,
   window: MOCK_WINDOW,
   forecast: MOCK_FORECAST,
@@ -284,6 +285,51 @@ const MOCK_ORACLE_DATA_BASE = {
   heroPhotoUrl: "/images/hero/hero-1-la-jolla.webp",
   heroPhotoLoading: false,
   discovery: {
+    sessionDecision: {
+      schemaVersion: "canonical-session-decision.v1",
+      engineVersion: "rules.v1",
+      decisionId: "c".repeat(64),
+      createdAt: "2026-03-11T12:00:00.000Z",
+      expiresAt: "2099-03-11T12:15:00.000Z",
+      scope: {
+        kind: "plan_next_session",
+        windowStart: "2026-03-11T12:00:00.000Z",
+        windowEnd: "2026-03-12T12:00:00.000Z",
+        timezone: "America/Los_Angeles",
+      },
+      verdict: "maybe",
+      decisionBasis: "physical_fallback",
+      reasonCode: "selected_maybe",
+      selection: {
+        candidateId: "candidate-b1",
+        beachId: "b1",
+        beachName: "Blacks Beach",
+        windowStart: "2026-03-11T13:00:00.000Z",
+        windowEnd: "2026-03-11T16:00:00.000Z",
+        timezone: "America/Los_Angeles",
+        forecastRef: {
+          forecastId: "forecast-b1",
+          beachId: "b1",
+          forecastAt: "2026-03-11T13:00:00.000Z",
+        },
+        skillEligibility: {
+          skill: "intermediate",
+          state: "eligible",
+          reasonCodes: [],
+        },
+        evidence: {
+          conditionScore: 65,
+          recommendationLabel: "Maybe",
+          personalMatch: null,
+        },
+      },
+      skillEligibility: {
+        skill: "intermediate",
+        state: "eligible",
+        reasonCodes: [],
+      },
+      holdEpoch: "clear",
+    },
     recommendations: [MOCK_TOP_REC],
     searchCriteria: { maxResults: 6 },
     metadata: {
@@ -374,6 +420,49 @@ describe("OracleHomeScreen", () => {
     expect(typeof OracleHomeScreen).toEqual("function");
   });
 
+  it("requests current location from the live nearby-spots action", async () => {
+    const requestLocation = jest.fn();
+    mockOracleData = {
+      ...MOCK_ORACLE_DATA_BASE,
+      geoSource: "default",
+      geoLoading: false,
+      requestLocation,
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Use my location" })
+    );
+
+    expect(requestLocation).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps populated conditions visible while GPS is resolving", () => {
+    mockOracleData = {
+      ...MOCK_ORACLE_DATA_BASE,
+      geoSource: "default",
+      geoLoading: true,
+      requestLocation: jest.fn(),
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    expect(
+      screen.getByRole("button", { name: "Detecting…" })
+    ).toBeDisabled();
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+    expect(screen.getByText("Today's Windows")).toBeInTheDocument();
+  });
+
+  it("hides the location action after a browser GPS fix", () => {
+    render(<OracleHomeScreen />);
+
+    expect(
+      screen.queryByRole("button", { name: "Use my location" })
+    ).not.toBeInTheDocument();
+  });
+
   it("renders the hero section with beach data", () => {
     render(<OracleHomeScreen />);
     const hero = screen.getByRole("banner");
@@ -387,66 +476,56 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("3-4ft");
   });
 
-  it("renders score in X/10 format", async () => {
-    // Score now comes from the canonical surf-call (fetched via /api/surf/call),
-    // not discovery's boosted score. Async wait for the fetch to resolve.
+  it("uses the embedded canonical decision without calling the legacy surf-call endpoint", () => {
     render(<OracleHomeScreen />);
-    expect(await screen.findByText("8.5/10")).toBeInTheDocument();
-  });
 
-  it("renders contextual CTA buttons", async () => {
-    // With homeBeach set, score>60, and surfVerdict="MAYBE" (not NO),
-    // primary CTA is "Paddle out". Wait for the surf-call fetch to populate.
-    render(<OracleHomeScreen />);
+    expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent(
+      "Maybe",
+    );
     expect(
-      await screen.findByRole("button", { name: /paddle out/i })
-    ).toBeInTheDocument();
+      mockFetch.mock.calls.some(([url]) =>
+        String(url).startsWith("/api/surf/call"),
+      ),
+    ).toBe(false);
   });
 
-  it("hides 'Paddle out' CTA when surf-call verdict is NO", async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        success: true,
-        data: {
-          report: {
-            verdict: "NO",
-            score: 25,
-            whySentence: "Conditions not favorable for surfing.",
-            updatedAt: new Date().toISOString(),
-            bestWindowStart: null,
-            bestWindowEnd: null,
-            peakTime: null,
-            waveHeight: "1ft",
-            windDescription: "20 mph onshore",
-            tidePhase: "rising",
-            isCalibrated: true,
-            trendTags: [],
-            shortWindow: false,
-            windowMinutes: null,
-            lowForecastConfidence: false,
-            rideableWavesPerHour: 0,
+  it("renders the canonical verdict instead of a client score", () => {
+    render(<OracleHomeScreen />);
+    expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent(
+      "Maybe",
+    );
+    expect(screen.queryByText(/\/10$/)).not.toBeInTheDocument();
+  });
+
+  it("uses a neutral CTA for a consider decision", () => {
+    render(<OracleHomeScreen />);
+    expect(screen.getByRole("button", { name: /invite a friend/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /paddle out/i })).not.toBeInTheDocument();
+  });
+
+  it("renders no positive surface when the canonical decision is no", () => {
+    mockOracleData = {
+      ...mockOracleData,
+      topRecommendation: null,
+      discovery: {
+        ...mockOracleData.discovery!,
+        recommendations: [],
+        sessionDecision: {
+          ...mockOracleData.discovery!.sessionDecision!,
+          verdict: "no",
+          reasonCode: "below_minimum_utility",
+          selection: null,
+          skillEligibility: {
+            skill: "intermediate",
+            state: "eligible",
+            reasonCodes: [],
           },
-          isTomorrow: false,
         },
-      }),
-    });
+      },
+    } as unknown as OracleData;
     render(<OracleHomeScreen />);
-    // Wait on the contextLine specifically — "Set alarm" also appears as a
-    // secondary CTA in the default (no-verdict-yet) branch, so a button-name
-    // wait would resolve on the initial pre-fetch render and miss the actual
-    // verdict=NO branch we care about.
-    expect(
-      await screen.findByText(/Conditions aren't there today/i)
-    ).toBeInTheDocument();
-    // Now that the NO branch is active, "Paddle out" must not be present and
-    // "Set alarm" is the primary action.
-    expect(
-      screen.queryByRole("button", { name: /paddle out/i })
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /set alarm/i })
-    ).toBeInTheDocument();
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /paddle out/i })).not.toBeInTheDocument();
   });
 
   it("renders Today's Windows section", () => {
@@ -467,9 +546,10 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByText("Nearby Spots")).toBeInTheDocument();
   });
 
-  it("keeps custom spot recommendations distinct from their nearest beach identity", async () => {
+  it("does not render alternate recommendations beside the canonical selection", () => {
     const customSpotRec = {
       ...MOCK_TOP_REC,
+      recommendationId: "candidate-custom-reef",
       kind: "custom_spot" as const,
       customSpotId: "custom-reef-1",
       visibility: "public",
@@ -482,21 +562,16 @@ describe("OracleHomeScreen", () => {
     };
     mockOracleData = {
       ...mockOracleData,
-      topRecommendation: MOCK_HOME_REC,
       discovery: {
         ...mockOracleData.discovery!,
-        recommendations: [MOCK_HOME_REC, MOCK_TOP_REC, customSpotRec],
+        recommendations: [MOCK_TOP_REC, customSpotRec],
       },
     } as unknown as OracleData;
 
     render(<OracleHomeScreen />);
 
-    const rail = screen.getByTestId("nearby-spots-scroll");
-    const card = await within(rail).findByText("Community Reef");
-    expect(card).toBeInTheDocument();
-
-    await userEvent.click(card.closest('[role="button"]') ?? card);
-    expect(mockRouterPush).not.toHaveBeenCalledWith("/ca/la-jolla/blacks");
+    expect(screen.queryByText("Community Reef")).not.toBeInTheDocument();
+    expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Maybe");
   });
 
   it("hides Activity section when no activity items exist", () => {
@@ -584,6 +659,33 @@ describe("OracleHomeScreen", () => {
     } as unknown as OracleData;
     render(<OracleHomeScreen />);
     expect(screen.queryByText(/We couldn't find any surf spots/i)).not.toBeInTheDocument();
+  });
+
+  it("does not return a definitive discovery result to the bootstrap skeleton during GPS refresh", () => {
+    mockOracleData = {
+      ...mockOracleData,
+      profileLoading: false,
+      geoLoading: true,
+      discoveryLoading: false,
+      discovery: {
+        recommendations: [],
+        searchCriteria: { maxResults: 6 },
+        metadata: {
+          totalBeachesConsidered: 0,
+          successfulForecasts: 0,
+          partialSuccess: false,
+          failedBeaches: 0,
+          staleBeaches: 0,
+          generated_at: new Date().toISOString(),
+        },
+      },
+      discoveryError: null,
+      topRecommendation: null,
+    } as unknown as OracleData;
+
+    render(<OracleHomeScreen />);
+
+    expect(screen.getByText(/We couldn't find any surf spots/i)).toBeInTheDocument();
   });
 
   it("shows empty card with 'no spots' reason when discovery resolved with zero recommendations", () => {
@@ -769,11 +871,9 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByRole("button", { name: /set alarm/i })).toBeInTheDocument();
   });
 
-  it("passes the correct userName from profile to OracleHero", async () => {
+  it("does not expose confidence language with the canonical decision", () => {
     render(<OracleHomeScreen />);
-    // Score=85 (8.5/10 > 7) at 8am PDT → conditions-reactive greeting for high score.
-    // Score now comes from the canonical surf-call fetch — wait for it to resolve.
-    expect(await screen.findByText(/firing/i)).toBeInTheDocument();
+    expect(screen.queryByText(/confidence/i)).not.toBeInTheDocument();
   });
 
   it("uses waveHeightBadge from topRecommendation for display", () => {
@@ -804,7 +904,7 @@ describe("OracleHomeScreen", () => {
     });
   });
 
-  it("generates a personalized dawn patrol title when window starts early", () => {
+  it("uses the canonical session window when the selected start changes", () => {
     // 5:45 AM PDT = 12:45 UTC (PDT is UTC-7 in March 2026)
     const earlyWindow = {
       ...MOCK_WINDOW,
@@ -817,10 +917,18 @@ describe("OracleHomeScreen", () => {
       discovery: {
         ...mockOracleData.discovery!,
         recommendations: [{ ...MOCK_TOP_REC, window: earlyWindow }],
+        sessionDecision: {
+          ...mockOracleData.discovery!.sessionDecision!,
+          selection: {
+            ...mockOracleData.discovery!.sessionDecision!.selection!,
+            windowStart: "2026-03-11T12:45:00.000Z",
+            windowEnd: "2026-03-11T15:45:00.000Z",
+          },
+        },
       },
     } as unknown as OracleData;
     render(<OracleHomeScreen />);
-    expect(screen.getByText("Dawn patrol is your move")).toBeInTheDocument();
+    expect(screen.getByText("5:45am")).toBeInTheDocument();
   });
 
   it("uses slotForecasts wave heights for non-best time slots when provided", () => {
@@ -886,7 +994,7 @@ describe("OracleHomeScreen", () => {
     expect(screen.getByRole("banner")).toBeInTheDocument();
   });
 
-  it("uses the surf-call API as the hero verdict source when it disagrees with discovery", async () => {
+  it("ignores the retired surf-call verdict when it disagrees with the canonical decision", () => {
     mockFetch.mockResolvedValue({
       ok: true,
       json: async () => ({
@@ -926,17 +1034,11 @@ describe("OracleHomeScreen", () => {
 
     render(<OracleHomeScreen />);
 
-    await waitFor(() => {
-      expect(screen.getByText("Today's a no-go")).toBeInTheDocument();
-    });
-    // whySentence renders in its own dedicated slot under the best-window
-    // card — not as the card subtitle (which is now sourced from
-    // heroRec.reasons[0]).
-    const why = screen.getByTestId("hero-why-sentence");
-    expect(why).toHaveTextContent(
-      "Onshore wind all day making conditions choppy."
+    expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent(
+      "Maybe",
     );
-    expect(screen.getByText("—")).toBeInTheDocument();
+    expect(screen.queryByText("Today's a no-go")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Onshore wind all day/i)).not.toBeInTheDocument();
   });
 
   // ===========================================================================
@@ -948,32 +1050,22 @@ describe("OracleHomeScreen", () => {
   // same string at the same time, and the why-sentence node must be
   // omitted entirely when the surf-call payload doesn't carry one.
   // ===========================================================================
-  describe("hero whySentence vs bestWindowSubtitle", () => {
-    it("renders whySentence under the card when /api/surf/call provides one", async () => {
-      // Default beforeEach mock returns whySentence "Solid window with offshore winds."
+  describe("canonical hero explanation", () => {
+    it("does not render reasoning from the retired surf-call endpoint", () => {
       render(<OracleHomeScreen />);
-      const why = await screen.findByTestId("hero-why-sentence");
-      expect(why).toHaveTextContent("Solid window with offshore winds.");
+      expect(screen.queryByTestId("hero-why-sentence")).not.toBeInTheDocument();
+      expect(screen.queryByText("Solid window with offshore winds.")).not.toBeInTheDocument();
     });
 
-    it("renders the heroRec.reasons[0] fallback as the card subtitle, not the whySentence", async () => {
+    it("renders the selected recommendation reason as supporting physical context", () => {
       render(<OracleHomeScreen />);
-      // Wait for the surf-call fetch to settle so the render is stable.
-      await screen.findByTestId("hero-why-sentence");
-      // MOCK_TOP_REC.reasons = ["Clean WNW swell", "Offshore NW winds"].
       expect(screen.getByText("Clean WNW swell")).toBeInTheDocument();
     });
 
-    it("does not render the whySentence and the subtitle as the same string", async () => {
+    it("keeps the supporting context separate from the canonical verdict", () => {
       render(<OracleHomeScreen />);
-      const why = await screen.findByTestId("hero-why-sentence");
-      const whyText = why.textContent ?? "";
-      // The subtitle copy from MOCK_TOP_REC is "Clean WNW swell".
-      // The whySentence from beforeEach is "Solid window with offshore winds."
-      // These must be distinct nodes carrying distinct strings.
-      expect(whyText).not.toEqual("Clean WNW swell");
-      // And the subtitle string must not also appear as the why-sentence.
-      expect(whyText).not.toContain("Clean WNW swell");
+      expect(screen.getByText("Clean WNW swell")).toBeInTheDocument();
+      expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Maybe");
     });
 
     it("omits the whySentence node when /api/surf/call returns no whySentence", async () => {
@@ -1056,6 +1148,14 @@ describe("OracleHomeScreen", () => {
       discovery: {
         ...mockOracleData.discovery!,
         recommendations: [{ ...MOCK_TOP_REC, window: tomorrowWindow }],
+        sessionDecision: {
+          ...mockOracleData.discovery!.sessionDecision!,
+          selection: {
+            ...mockOracleData.discovery!.sessionDecision!.selection!,
+            windowStart: "2026-03-12T14:00:00.000Z",
+            windowEnd: "2026-03-12T17:00:00.000Z",
+          },
+        },
       },
     } as unknown as OracleData;
     render(<OracleHomeScreen />);
@@ -1106,13 +1206,10 @@ describe("OracleHomeScreen", () => {
       );
     });
 
-    it("renders the HomeBeachCard with 'Your home' label", () => {
+    it("does not render the home beach as a second recommendation", () => {
       setupHomeNeqTopRec();
       render(<OracleHomeScreen />);
-      const card = screen.getByTestId("home-beach-card");
-      expect(card).toBeInTheDocument();
-      expect(card).toHaveTextContent("Your home");
-      expect(card).toHaveTextContent("Ocean Beach Pier");
+      expect(screen.queryByTestId("home-beach-card")).not.toBeInTheDocument();
     });
 
     it("activity feed follows the hero (calls getLocalActivity with topRec id)", async () => {
@@ -1165,220 +1262,54 @@ describe("OracleHomeScreen", () => {
   // hero still renders with the discovery-driven title; only the score
   // badge and verdict-driven CTA wait.
   // ===========================================================================
-  describe("hero score gate while /api/surf/call is loading", () => {
-    function setupPendingSurfCall() {
-      // `mockFetch` resolves the surf-call request in beforeEach. Replace it
-      // with a never-resolving promise to pin the loading state.
+  describe("canonical decision freshness", () => {
+    it("renders the decision immediately without a score-loading state", () => {
       mockFetch.mockImplementation(() => new Promise(() => {}));
-    }
-
-    it("renders a placeholder score badge instead of '0.0/10' while surf-call is loading", () => {
-      setupPendingSurfCall();
       render(<OracleHomeScreen />);
-      // Hero is visible (not blocked by an outer skeleton — discovery resolved).
-      expect(screen.getByRole("banner")).toBeInTheDocument();
-      // The score badge renders the pending placeholder, NOT a numeric value.
-      const badge = screen.getByTestId("hero-score-badge");
-      expect(badge).toHaveAttribute("data-score-pending", "true");
-      expect(badge).toHaveTextContent("—/10");
-      // No phantom "0.0/10" leaks into the DOM.
-      expect(screen.queryByText("0.0/10")).not.toBeInTheDocument();
+      expect(screen.getByTestId("hero-decision-badge")).toHaveTextContent("Maybe");
+      expect(screen.queryByTestId("hero-score-badge")).not.toBeInTheDocument();
     });
 
-    it("falls through to the neutral default CTA branch while surf-call is loading", () => {
-      setupPendingSurfCall();
-      render(<OracleHomeScreen />);
-      // The "set alarm" lead branch ("Conditions aren't there today…") must NOT
-      // fire on undefined verdict — that copy is reserved for an explicit NO.
-      expect(
-        screen.queryByText(/Conditions aren't there today/i)
-      ).not.toBeInTheDocument();
-      // The "Paddle out" CTA also must NOT fire on undefined conditionsGood.
-      expect(
-        screen.queryByRole("button", { name: /paddle out/i })
-      ).not.toBeInTheDocument();
-      // Falls to the default `inviteFriend` branch — context line + primary CTA.
-      expect(screen.getByText(/Surfing's better with friends/i)).toBeInTheDocument();
-      expect(
-        screen.getByRole("button", { name: /invite a friend/i })
-      ).toBeInTheDocument();
-    });
-
-    // -----------------------------------------------------------------------
-    // Hero-swap stale-flash protection
-    //
-    // useDataFetcher (hooks/use-data-fetcher.ts:83) preserves `state.data`
-    // across the param-change render — when a fetchFn change kicks off the
-    // next request, the loading-flip setState keeps `prev.data`. That means
-    // when `heroBeach.id` swaps from A to B, there's a render where the
-    // component reads `{data: dataA, loading: false}` even though heroBeach
-    // already points at B. Pre-fix, `heroSurfCallReady = !loading = true`
-    // happily painted beach A's score and verdict next to beach B's name.
-    //
-    // The freshness gate (`heroSurfCallFresh` / `heroSurfCallReady`) tags
-    // each fetched payload with `forBeachId` and treats a mismatch as
-    // still-loading regardless of `loading`. This test reproduces that
-    // logical state deterministically by pre-populating apiCache with
-    // tagged data whose `forBeachId` doesn't match — the same state the
-    // component sees on the first render after a hero swap.
-    // -----------------------------------------------------------------------
-    it("does not paint stale score/verdict when heroSurfCallData was tagged for a different beach (hero-swap protection)", () => {
-      // Pre-populate the cache for the current heroBeach.id ("b1") with
-      // data tagged for a DIFFERENT beach. useDataFetcher's useState
-      // initializer (use-data-fetcher.ts:55-68) seeds synchronously from
-      // cache, so the first render lands with `{data: STALE, loading:
-      // false}` — bypassing the loading window and isolating the
-      // freshness gate as the only thing protecting the UI.
-      apiCache.set(
-        "oracle-hero-surf-call:b1",
-        {
-          report: {
-            verdict: "MAYBE",
-            score: 85,
-            whySentence: "stale data — should not paint",
-            updatedAt: new Date().toISOString(),
-            bestWindowStart: new Date("2026-03-11T13:00:00.000Z").toISOString(),
-            bestWindowEnd: new Date("2026-03-11T16:00:00.000Z").toISOString(),
-            peakTime: new Date("2026-03-11T14:00:00.000Z").toISOString(),
-            waveHeight: "3-4ft",
-            windDescription: "8 mph NW",
-            tidePhase: "rising",
-            isCalibrated: true,
-            trendTags: [],
-            shortWindow: false,
-            windowMinutes: 180,
-            lowForecastConfidence: false,
-            rideableWavesPerHour: 12,
+    it("fails closed when the selected candidate does not match the hero", () => {
+      mockOracleData = {
+        ...mockOracleData,
+        discovery: {
+          ...mockOracleData.discovery!,
+          sessionDecision: {
+            ...mockOracleData.discovery!.sessionDecision!,
+            selection: {
+              ...mockOracleData.discovery!.sessionDecision!.selection!,
+              candidateId: "stale-candidate",
+            },
           },
-          isTomorrow: false,
-          forBeachId: "different-beach-id",
         },
-        5 * 60 * 1000
-      );
+      } as unknown as OracleData;
 
       render(<OracleHomeScreen />);
 
-      // Score badge must show the pending placeholder, NOT the stale 8.5/10
-      // from the mismatched payload.
-      const badge = screen.getByTestId("hero-score-badge");
-      expect(badge).toHaveAttribute("data-score-pending", "true");
-      expect(screen.queryByText("8.5/10")).not.toBeInTheDocument();
-
-      // Hero subtitle and verdict-driven CTA must also fall back to the
-      // discovery-derived defaults — no stale `whySentence`, no MAYBE
-      // verdict bleeding through to ContextualCTA's "Paddle out" branch.
-      expect(
-        screen.queryByText("stale data — should not paint")
-      ).not.toBeInTheDocument();
-      expect(
-        screen.queryByRole("button", { name: /paddle out/i })
-      ).not.toBeInTheDocument();
-      // Neutral default CTA branch fires.
-      expect(screen.getByText(/Surfing's better with friends/i)).toBeInTheDocument();
+      expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /paddle out/i })).not.toBeInTheDocument();
     });
   });
 
-  // ===========================================================================
-  // Nearby-spot reason personalization
-  //
-  // Personalization happens in `transformToNearbySpots(...)` while the full
-  // `SurfDiscoveryRecommendation` is still in scope. NearbySpot itself does
-  // NOT carry forecast fields, so the renderer cannot recompute hero-relative
-  // copy at render time. These tests exercise the precedence chain:
-  //   buildPersonalizedReason(rec, hero) ?? strategyTag.reason ?? rec.summary
-  // ===========================================================================
-  describe("nearby-spot reason personalization", () => {
-    // A second rec to occupy the Nearby Spots row. Uses a different beach id
-    // than MOCK_TOP_REC (otherwise the filter at the call site drops it).
-    const MOCK_BACKUP_BEACH = {
-      ...MOCK_HOME_BEACH,
-      id: "backup-1",
-      name: "Backup Spot",
-    };
+  it("suppresses all backup recommendation copy", () => {
+    mockOracleData = {
+      ...mockOracleData,
+      discovery: {
+        ...mockOracleData.discovery!,
+        recommendations: [
+          MOCK_TOP_REC,
+          {
+            ...MOCK_HOME_REC,
+            recommendationId: "candidate-backup",
+            summary: "Backup recommendation copy",
+          },
+        ],
+      },
+    } as unknown as OracleData;
 
-    function recWithStrategy(strategyTag: {
-      type: "biggest_waves" | "cleanest" | "sleep_in" | "low_crowd" | "skip";
-      label: string;
-      reason: string;
-    }) {
-      return {
-        ...MOCK_TOP_REC,
-        beach: MOCK_BACKUP_BEACH,
-        summary: "Generic backup summary",
-        strategyTag,
-      };
-    }
+    render(<OracleHomeScreen />);
 
-    it("renders personalized reasonText for biggest_waves backup when hero verdict is MAYBE", async () => {
-      const backupRec = recWithStrategy({
-        type: "biggest_waves",
-        label: "Biggest",
-        reason: "Strategy-tag default",
-      });
-      mockOracleData = {
-        ...mockOracleData,
-        discovery: {
-          ...mockOracleData.discovery!,
-          recommendations: [MOCK_TOP_REC, backupRec],
-        },
-      } as unknown as OracleData;
-      // Default mockFetch in beforeEach returns verdict="MAYBE".
-
-      render(<OracleHomeScreen />);
-
-      expect(
-        await screen.findByText("More size than the hero call")
-      ).toBeInTheDocument();
-      // Strategy-tag default reason and the generic summary should be
-      // shadowed by the personalized copy.
-      expect(screen.queryByText("Strategy-tag default")).not.toBeInTheDocument();
-      expect(screen.queryByText("Generic backup summary")).not.toBeInTheDocument();
-    });
-
-    it("falls back to strategyTag.reason when no personalized copy applies", async () => {
-      // `low_crowd` is only personalized when hero verdict is YES. Default
-      // mock verdict is MAYBE, so personalization returns null and the card
-      // should display the strategy-tag's own reason.
-      const backupRec = recWithStrategy({
-        type: "low_crowd",
-        label: "Low crowd",
-        reason: "Locals only at dawn",
-      });
-      mockOracleData = {
-        ...mockOracleData,
-        discovery: {
-          ...mockOracleData.discovery!,
-          recommendations: [MOCK_TOP_REC, backupRec],
-        },
-      } as unknown as OracleData;
-
-      render(<OracleHomeScreen />);
-
-      // Wait for the surf-call fetch to resolve so heroReasonContext is set.
-      await screen.findByText("8.5/10");
-      expect(screen.getByText("Locals only at dawn")).toBeInTheDocument();
-      expect(screen.queryByText("Generic backup summary")).not.toBeInTheDocument();
-    });
-
-    it("falls back to summary when no strategyTag and no personalized copy", async () => {
-      const backupRec = {
-        ...MOCK_TOP_REC,
-        beach: MOCK_BACKUP_BEACH,
-        summary: "Plain summary text",
-        strategyTag: undefined,
-      };
-      mockOracleData = {
-        ...mockOracleData,
-        discovery: {
-          ...mockOracleData.discovery!,
-          recommendations: [MOCK_TOP_REC, backupRec],
-        },
-      } as unknown as OracleData;
-
-      render(<OracleHomeScreen />);
-
-      await screen.findByText("8.5/10");
-      expect(screen.getByText("Plain summary text")).toBeInTheDocument();
-    });
+    expect(screen.queryByText("Backup recommendation copy")).not.toBeInTheDocument();
   });
 });

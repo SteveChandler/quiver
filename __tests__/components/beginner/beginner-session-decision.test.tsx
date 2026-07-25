@@ -3,6 +3,7 @@ import { BeginnerSessionDecision } from "@/components/beginner/beginner-session-
 import type { RightNowConditions } from "@/types/beginner";
 
 const conditions: RightNowConditions = {
+  spotId: "bolsa-chica-id",
   spotName: "Bolsa Chica",
   spotSlug: "bolsa-chica",
   summary: "Small waves with light wind. Good for practicing basics.",
@@ -18,6 +19,15 @@ const conditions: RightNowConditions = {
     },
     tide: { value: "Rising", label: "push", status: "good" },
     crowd: { value: "Light", label: "room to learn", status: "good" },
+  },
+  beginnerVerdict: {
+    rating: "ideal",
+    reasons: [
+      { factor: "Wave size", detail: "Ideal 1-2 ft learner surf" },
+      { factor: "Wind", detail: "Light wind" },
+      { factor: "Tide", detail: "Low-to-mid tide fit" },
+      { factor: "Time window", detail: "Best morning glass window" },
+    ],
   },
 };
 
@@ -38,7 +48,14 @@ describe("BeginnerSessionDecision", () => {
     });
 
     expect(within(region).getByText(/small waves with light wind/i)).toBeVisible();
-    expect(within(region).getByText(/check the tide and keep a backup spot/i)).toBeVisible();
+    expect(
+      within(region).getByRole("heading", {
+        name: /can a beginner surf here today/i,
+      }),
+    ).toBeVisible();
+    expect(within(region).getByText("YES")).toBeVisible();
+    expect(within(region).getByText("Go surf!")).toBeVisible();
+    expect(within(region).getByText(/ideal 1-2 ft learner surf/i)).toBeVisible();
     expect(within(region).queryByText(/sign in/i)).not.toBeInTheDocument();
     expect(within(region).getByRole("link", { name: /open live huntington beach spots/i })).toHaveAttribute("href", "/ca/huntington-beach");
     expect(within(region).getByRole("link", { name: /check tide timing/i })).toHaveAttribute("href", "/tide/huntington-beach");
@@ -64,12 +81,62 @@ describe("BeginnerSessionDecision", () => {
       name: /beginner session call for huntington beach/i,
     });
 
-    expect(
-      within(region).getByRole("heading", {
-        name: /bolsa chica is the reference spot right now/i,
-      })
-    ).toBeVisible();
+    expect(within(region).getByText("MAYBE")).toBeVisible();
+    expect(within(region).getByText("Check the beach first")).toBeVisible();
     expect(within(region).getByText(/1-2 ft surf/i)).toBeVisible();
     expect(within(region).getByRole("link", { name: /open live huntington beach spots/i })).toHaveAttribute("href", "/ca/huntington-beach");
+  });
+
+  it.each([
+    ["acceptable", "MAYBE", "Might work"],
+    ["poor", "NO", "Skip it"],
+    ["unknown", "MAYBE", "Check the beach first"],
+  ] as const)(
+    "maps %s conditions to the researched %s verdict",
+    (rating, label, headline) => {
+      render(
+        <BeginnerSessionDecision
+          cityName="Huntington Beach"
+          citySlug="huntington-beach"
+          stateSlug="ca"
+          conditions={{
+            ...conditions,
+            beginnerVerdict: {
+              ...conditions.beginnerVerdict,
+              rating,
+            },
+          }}
+        />,
+      );
+
+      const region = screen.getByRole("region", {
+        name: /beginner session call for huntington beach/i,
+      });
+
+      expect(within(region).getByText(label)).toBeVisible();
+      expect(within(region).getByText(headline)).toBeVisible();
+    },
+  );
+
+  it("gives a safer next step when the verdict is NO", () => {
+    render(
+      <BeginnerSessionDecision
+        cityName="Huntington Beach"
+        citySlug="huntington-beach"
+        stateSlug="ca"
+        conditions={{
+          ...conditions,
+          beginnerVerdict: {
+            ...conditions.beginnerVerdict,
+            rating: "poor",
+          },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText(/wait for a smaller, lighter-wind window/i),
+    ).toBeVisible();
+    expect(screen.queryByText(/\bsafe\b/i)).not.toBeInTheDocument();
   });
 });

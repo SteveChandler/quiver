@@ -25,19 +25,27 @@ export const POST = withErrorHandler(
       }
 
       const { email, source, surface, placement, sessionId } = parsed.data;
+      const leadPayload: {
+        email: string;
+        source: string;
+        surface: string;
+        placement: string;
+        session_id?: string;
+      } = {
+        email,
+        source,
+        surface,
+        placement,
+      };
+
+      if (sessionId) {
+        leadPayload.session_id = sessionId;
+      }
 
       const supabase = await createSupabaseServiceRoleClient();
       const { error } = await (supabase as any)
         .from("android_beta_leads")
-        .upsert(
-          {
-            email,
-            source,
-            surface,
-            placement,
-          },
-          { onConflict: "email" },
-        );
+        .upsert(leadPayload, { onConflict: "email" });
 
       if (error) {
         return NextResponse.json({ success: false, error: "save_failed" });

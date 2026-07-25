@@ -17,8 +17,7 @@ test.describe("surf map prototype route", () => {
   });
 
   test("redirects the public prototype URL to the canonical map", async ({ page }) => {
-    await page.goto("/surf-map-prototype");
-    await page.waitForLoadState("load");
+    await page.goto("/surf-map-prototype", { waitUntil: "domcontentloaded" });
     await expect(page).toHaveURL(/\/map$/);
   });
 });

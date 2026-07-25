@@ -2,19 +2,16 @@
  * @jest-environment node
  */
 
-const mockResolveTodayHeadline = jest.fn();
-const mockComputeSurfCall = jest.fn();
 const mockResolveNotificationMajorEventHold = jest.fn();
+const mockResolveCanonicalSessionDecisionContext = jest.fn();
 
-jest.mock("@/lib/services/forecast/today-headline", () => ({
-  resolveTodayHeadline: (...args: unknown[]) => mockResolveTodayHeadline(...args),
-}));
-jest.mock("@/lib/utils/surf-call-logic", () => ({
-  computeSurfCall: (...args: unknown[]) => mockComputeSurfCall(...args),
-}));
 jest.mock("@/lib/recommendations/major-event-hold/adapters/notification", () => ({
   resolveNotificationMajorEventHold: (...args: unknown[]) =>
     mockResolveNotificationMajorEventHold(...args),
+}));
+jest.mock("@/lib/recommendations/canonical-decision", () => ({
+  resolveCanonicalSessionDecisionContext: (...args: unknown[]) =>
+    mockResolveCanonicalSessionDecisionContext(...args),
 }));
 
 import {
@@ -58,21 +55,83 @@ function morningSelectArgs(): HomeBeachPushSelectArgs {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockResolveTodayHeadline.mockReturnValue({
-    window: { start: new Date(WINDOW_START), end: new Date(WINDOW_END) },
-    display: { forecastAt: WINDOW_START },
-  });
-  mockComputeSurfCall.mockReturnValue({
-    verdict: "YES",
-    bestWindowStart: WINDOW_START,
-    bestWindowEnd: WINDOW_END,
-    waveHeight: "3-4 ft",
-    windDescription: "clean offshore",
-    whySentence: "Clean offshore with 3-4 ft swell energy.",
-  });
   mockResolveNotificationMajorEventHold.mockResolvedValue({
     status: "allowed",
     candidate: null,
+  });
+  mockResolveCanonicalSessionDecisionContext.mockResolvedValue({
+    decision: {
+      schemaVersion: "canonical-session-decision.v1",
+      engineVersion: "rules.v1",
+      decisionId: "b".repeat(64),
+      createdAt: "2026-06-24T12:00:00.000Z",
+      expiresAt: "2026-06-24T12:15:00.000Z",
+      scope: {
+        kind: "plan_next_session",
+        windowStart: "2026-06-24T12:00:00.000Z",
+        windowEnd: "2026-06-25T12:00:00.000Z",
+        timezone: "America/Los_Angeles",
+      },
+      verdict: "go",
+      decisionBasis: "physical_fallback",
+      reasonCode: "selected_go",
+      selection: {
+        candidateId: "recommendation-1",
+        beachId: BEACH_ID,
+        beachName: "La Jolla",
+        windowStart: WINDOW_START,
+        windowEnd: WINDOW_END,
+        timezone: "America/Los_Angeles",
+        forecastRef: {
+          forecastId: "forecast-1",
+          beachId: BEACH_ID,
+          forecastAt: WINDOW_START,
+        },
+        skillEligibility: {
+          skill: "beginner",
+          state: "eligible",
+          reasonCodes: [],
+        },
+        evidence: {
+          conditionScore: 82,
+          recommendationLabel: "Worth it",
+          personalMatch: null,
+        },
+      },
+      skillEligibility: {
+        skill: "beginner",
+        state: "eligible",
+        reasonCodes: [],
+      },
+      holdEpoch: "hold-epoch-1",
+    },
+    discovery: {
+      recommendations: [
+        {
+          recommendationId: "recommendation-1",
+          beach: {
+            id: BEACH_ID,
+            name: "La Jolla",
+            timezone: "America/Los_Angeles",
+            skill_level: "beginner",
+          },
+          window: {
+            start: new Date(WINDOW_START),
+            end: new Date(WINDOW_END),
+            timezone: "America/Los_Angeles",
+          },
+          forecast: {
+            id: "forecast-1",
+            beach_id: BEACH_ID,
+            forecast_at: WINDOW_START,
+            wave_height: "3-4 ft",
+            wave_period: "11s",
+          },
+          message: "Clean offshore with 3-4 ft swell energy.",
+        },
+      ],
+      includedRecommendations: [],
+    },
   });
 });
 
@@ -121,8 +180,22 @@ describe("home_morning_call helpers", () => {
           starts_at: WINDOW_START,
           ends_at: WINDOW_END,
         },
+        session_decision: {
+          decisionId: "b".repeat(64),
+          verdict: "go",
+        },
       },
     });
+    expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: USER_ID,
+        profileExperience: "beginner",
+        discoveryOptions: expect.objectContaining({
+          includeBeachIds: [BEACH_ID],
+          timeSlot: "dawn-patrol",
+        }),
+      }),
+    );
     expect(mockResolveNotificationMajorEventHold).toHaveBeenCalledWith({
       eventId: `home-morning-call:${USER_ID}:2026-06-24`,
       type: "home_morning_call",
@@ -138,27 +211,17 @@ describe("home_morning_call helpers", () => {
     });
   });
 
-  it.each([
-    ["missing", null, null],
-    ["invalid", WINDOW_END, WINDOW_START],
-  ])(
-    "fails closed when a positive morning call has a %s exact best-window pair",
-    async (_case, bestWindowStart, bestWindowEnd) => {
-      mockComputeSurfCall.mockReturnValueOnce({
-        verdict: "YES",
-        bestWindowStart,
-        bestWindowEnd,
-        waveHeight: "3-4 ft",
-        windDescription: "clean offshore",
-        whySentence: "Clean offshore with 3-4 ft swell energy.",
-      });
+  it("fails closed when the canonical selection is not in its discovery payload", async () => {
+    mockResolveCanonicalSessionDecisionContext.mockResolvedValueOnce({
+      ...(await mockResolveCanonicalSessionDecisionContext()),
+      discovery: { recommendations: [], includedRecommendations: [] },
+    });
 
-      await expect(
-        selectAndBuildMorningCall(morningSelectArgs())
-      ).resolves.toEqual({ skipReason: "majorEventHold" });
-      expect(mockResolveNotificationMajorEventHold).not.toHaveBeenCalled();
-    }
-  );
+    await expect(
+      selectAndBuildMorningCall(morningSelectArgs())
+    ).resolves.toEqual({ skipReason: "canonicalDecision" });
+    expect(mockResolveNotificationMajorEventHold).not.toHaveBeenCalled();
+  });
 
   it("suppresses held or unresolved positive morning copy before enqueue", async () => {
     mockResolveNotificationMajorEventHold.mockResolvedValueOnce({
@@ -174,13 +237,15 @@ describe("home_morning_call helpers", () => {
   });
 
   it("keeps non-positive morning calls unchanged without consulting the hold", async () => {
-    mockComputeSurfCall.mockReturnValueOnce({
-      verdict: "NO",
-      bestWindowStart: null,
-      bestWindowEnd: null,
-      waveHeight: null,
-      windDescription: null,
-      whySentence: "No viable surf window today.",
+    const context = await mockResolveCanonicalSessionDecisionContext();
+    mockResolveCanonicalSessionDecisionContext.mockResolvedValueOnce({
+      ...context,
+      decision: {
+        ...context.decision,
+        verdict: "no",
+        reasonCode: "below_minimum_utility",
+        selection: null,
+      },
     });
     mockResolveNotificationMajorEventHold.mockResolvedValueOnce({
       status: "suppressed",
@@ -195,6 +260,10 @@ describe("home_morning_call helpers", () => {
       payload: {
         verdict: "NO",
         title: "La Jolla: Rest up today",
+        session_decision: {
+          verdict: "no",
+          selection: null,
+        },
       },
     });
     expect(mockResolveNotificationMajorEventHold).not.toHaveBeenCalled();

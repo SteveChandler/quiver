@@ -484,6 +484,59 @@ function emptyState(): MockState {
 
 const NOON_PT = new Date("2026-04-29T19:00:00Z"); // 12:00 Pacific.
 
+function canonicalNotificationDecision(input: {
+  beachId: string;
+  windowStart: string;
+  windowEnd: string;
+  forecastAt: string;
+}) {
+  return {
+    schemaVersion: "canonical-session-decision.v1",
+    engineVersion: "rules.v1",
+    decisionId: "a".repeat(64),
+    createdAt: "2026-04-29T18:59:00.000Z",
+    expiresAt: "2026-04-29T20:30:00.000Z",
+    scope: {
+      kind: "plan_next_session",
+      windowStart: input.windowStart,
+      windowEnd: input.windowEnd,
+      timezone: "America/Los_Angeles",
+    },
+    verdict: "go",
+    decisionBasis: "physical_fallback",
+    reasonCode: "selected_go",
+    selection: {
+      candidateId: "canonical-worker-test",
+      beachId: input.beachId,
+      beachName: "Test Beach",
+      windowStart: input.windowStart,
+      windowEnd: input.windowEnd,
+      timezone: "America/Los_Angeles",
+      forecastRef: {
+        forecastId: "forecast-worker-test",
+        beachId: input.beachId,
+        forecastAt: input.forecastAt,
+      },
+      skillEligibility: {
+        skill: "beginner",
+        state: "eligible",
+        reasonCodes: [],
+      },
+      evidence: {
+        conditionScore: 82,
+        recommendationLabel: "Worth it",
+        personalMatch: null,
+      },
+    },
+    skillEligibility: {
+      skill: "beginner",
+      state: "eligible",
+      reasonCodes: [],
+    },
+    holdEpoch: "worker-test",
+  };
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
 });
@@ -1237,6 +1290,12 @@ describe("processPendingEvents — terminal skips", () => {
           body: "Morning and afternoon windows",
           beach_id: beachId,
           forecast_at: topStart,
+          session_decision: canonicalNotificationDecision({
+            beachId,
+            windowStart: topStart,
+            windowEnd: topEnd,
+            forecastAt: topStart,
+          }),
           policy_context: {
             kind: "positive_session_recommendation",
             beach_id: beachId,

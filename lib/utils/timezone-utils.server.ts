@@ -16,6 +16,32 @@ import { find } from "geo-tz/now";
 const DEFAULT_TIMEZONE = "America/Los_Angeles";
 
 /**
+ * Resolve a coordinate timezone without substituting a geographic default.
+ * Use this when timezone is part of persisted location truth.
+ */
+export function findTimezoneFromCoords(lat: number, lon: number): string | null {
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lon) ||
+    lat < -90 ||
+    lat > 90 ||
+    lon < -180 ||
+    lon > 180
+  ) {
+    return null;
+  }
+
+  try {
+    const timezone = find(lat, lon)[0];
+    if (!timezone) return null;
+    new Intl.DateTimeFormat("en-US", { timeZone: timezone }).format(new Date(0));
+    return timezone;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Get the timezone for a given lat/lon coordinate.
  */
 export function getTimezoneFromCoords(lat: number, lon: number): string {
@@ -66,6 +92,5 @@ export function getLocalHour(date: Date, timezone: string): number {
 export function isNightHour(hour: number): boolean {
   return hour >= 21 || hour < 5;
 }
-
 
 

@@ -26,6 +26,7 @@ describe("app-handoff-tracking", () => {
       source: "landing_hero",
       surface: "landing-page",
       placement: "hero_primary",
+      handoff_id: "33333333-3333-4333-8333-333333333333",
       platform: "desktop",
     });
     expect(track).toHaveBeenCalledWith(
@@ -40,6 +41,9 @@ describe("app-handoff-tracking", () => {
       (fetchMock.mock.calls[0][1] as RequestInit).body as string,
     );
     expect(body.eventType).toBe("app_handoff_view");
+    expect(body.metadata.handoff_id).toBe(
+      "33333333-3333-4333-8333-333333333333",
+    );
   });
 
   it("never includes a raw email - only the domain", () => {

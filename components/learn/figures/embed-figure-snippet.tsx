@@ -8,6 +8,8 @@ import type { FigureKey } from "./figure-keys";
 const EMBED_HEIGHTS: Record<FigureKey, number> = {
   "swell-period-morph": 520,
   "swell-origin-fetch": 340,
+  "wave-height-reference": 570,
+  "tide-window": 620,
 };
 
 export function EmbedFigureSnippet({ figureKey }: { figureKey: FigureKey }) {

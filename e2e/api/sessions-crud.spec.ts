@@ -205,6 +205,43 @@ test.describe('Sessions CRUD API Contract', () => {
 
         expect(response.status()).toBe(400);
       });
+
+      test('should reject immutable location and media fields', async ({ request }) => {
+        for (const field of ['beach_id', 'custom_spot_id', 'image_url']) {
+          const response = await request.patch(SESSIONS_ENDPOINT(MISSING_SESSION_ID), {
+            data: { [field]: MISSING_SESSION_ID },
+          });
+
+          await expectApiError(response, 400);
+        }
+      });
+
+      test('should reject a future session time', async ({ request }) => {
+        const response = await request.patch(SESSIONS_ENDPOINT(MISSING_SESSION_ID), {
+          data: { arrival_time: '2999-01-01T12:00:00.000Z' },
+        });
+
+        await expectApiError(response, 400);
+      });
+
+      test('should reject out-of-range editable conditions', async ({ request }) => {
+        const invalidUpdates = [
+          { duration_minutes: 0 },
+          { duration_minutes: 1441 },
+          { crowd_level: 6 },
+          { wave_height_ft: -1 },
+          { tide_status: 'incoming' },
+          { rip_current_observed: 'unknown' },
+        ];
+
+        for (const data of invalidUpdates) {
+          const response = await request.patch(SESSIONS_ENDPOINT(MISSING_SESSION_ID), {
+            data,
+          });
+
+          await expectApiError(response, 400);
+        }
+      });
     });
 
     test.describe('Response Structure', () => {

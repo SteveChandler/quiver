@@ -10,18 +10,24 @@ import {
   type PbscVisitorPlatform,
 } from "./pbsc-welcome-client";
 
-export const metadata: Metadata = buildPageMetadata({
-  title: "Get the Quiver Surf App | Welcome",
-  description:
-    "You found the flyer. Get the surf app that matches today's forecast against the sessions you loved.",
-  path: "/pbsc",
-  keywords: [
-    "Quiver app",
-    "surf forecast app",
-    "surf session log",
-    "surf app",
-  ],
-});
+export const metadata: Metadata = {
+  ...buildPageMetadata({
+    title: "Get the Quiver Surf App | Welcome",
+    description:
+      "You found the flyer. Get the surf app that matches today's forecast against the sessions you loved.",
+    path: "/pbsc",
+    keywords: [
+      "Quiver app",
+      "surf forecast app",
+      "surf session log",
+      "surf app",
+    ],
+  }),
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 export const dynamic = "force-dynamic";
 

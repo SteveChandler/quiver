@@ -5,6 +5,11 @@
  */
 
 import { createClient } from "@/lib/supabase/client";
+import type { SignupMetadata } from "@/lib/analytics/acquisition-context";
+import {
+  clearPendingSignupMetadata,
+  storePendingSignupMetadata,
+} from "@/lib/auth/auth-utils";
 
 export interface AppleSignInResult {
   error?: string;
@@ -16,11 +21,14 @@ export interface AppleSignInResult {
  * @param returnTo - Path to return to after auth
  */
 export async function signInWithApple(
-  returnTo: string = "/"
+  returnTo: string = "/",
+  metadata?: SignupMetadata,
 ): Promise<AppleSignInResult> {
   const sb = createClient();
 
   try {
+    storePendingSignupMetadata(metadata);
+
     const origin =
       typeof window !== "undefined" ? window.location.origin : ""; // eslint-disable-line no-restricted-properties
     const callbackUrl = new URL(`${origin}/auth/callback`);
@@ -35,6 +43,7 @@ export async function signInWithApple(
 
     if (oauthError) {
       console.error("[apple-sign-in] OAuth error:", oauthError);
+      clearPendingSignupMetadata();
       return {
         error: "Unable to sign in with Apple. Please try another method.",
       };
@@ -43,6 +52,7 @@ export async function signInWithApple(
     return {};
   } catch (err) {
     console.error("[apple-sign-in] Exception:", err);
+    clearPendingSignupMetadata();
     return { error: "An unexpected error occurred during Apple sign in." };
   }
 }

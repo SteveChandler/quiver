@@ -3,7 +3,9 @@ import { ChevronLeft } from "lucide-react";
 
 import { CamGrid } from "@/components/cams/cam-grid";
 import { BeginnerSessionDecision } from "@/components/beginner/beginner-session-decision";
+import { getBeginnerConditionsData } from "@/actions/beginner/beginner-actions";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
+import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import type { CamBeachWithRegion } from "@/actions/beach/cam-actions";
 import {
   getSeoFunnelInternalLinks,
@@ -121,7 +123,10 @@ function getBeginnerDecisionLink(page: SeoPageConfig): BeginnerDecisionLink | nu
   };
 }
 
-export function SeoLocationPage({ page, cameras = [] }: SeoLocationPageProps) {
+export async function SeoLocationPage({
+  page,
+  cameras = [],
+}: SeoLocationPageProps) {
   const baseUrl = (
     process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app"
   ).replace(/\/$/, "");
@@ -142,6 +147,12 @@ export function SeoLocationPage({ page, cameras = [] }: SeoLocationPageProps) {
       ? `${boardLead} ${conditionsLead}`
       : boardLead;
   const beginnerDecisionLink = getBeginnerDecisionLink(page);
+  const beginnerConditions = beginnerDecisionLink
+    ? await getBeginnerConditionsData(
+        beginnerDecisionLink.citySlug,
+        beginnerDecisionLink.stateSlug,
+      )
+    : null;
 
   return (
     <div className="seo-paper-page">
@@ -197,10 +208,20 @@ export function SeoLocationPage({ page, cameras = [] }: SeoLocationPageProps) {
             <BeginnerSessionDecision
               cityName={page.locationName}
               citySlug={beginnerDecisionLink.citySlug}
+              conditions={beginnerConditions?.rightNow ?? undefined}
               stateSlug={beginnerDecisionLink.stateSlug}
               referenceSpotName={beginnerDecisionLink.referenceSpotName}
               decisionSummary={beginnerDecisionLink.decisionSummary}
             />
+            {beginnerConditions?.rightNow ? (
+              <AlertCaptureCta
+                beachId={beginnerConditions.rightNow.spotId}
+                beachName={beginnerConditions.rightNow.spotName}
+                className="mt-5"
+                pageContext="beginner"
+                source={`seo-funnel-beginner-${beginnerDecisionLink.citySlug}`}
+              />
+            ) : null}
           </div>
         ) : null}
 

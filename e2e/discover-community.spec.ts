@@ -94,7 +94,7 @@ test.describe("Discover community page", () => {
     });
   });
 
-  test("shows suggested surfers before manual search and supports search", async ({
+  test("shows suggested surfers, tracks a follow attempt, and supports search", async ({
     page,
   }) => {
     await page.goto("/discover");
@@ -106,6 +106,50 @@ test.describe("Discover community page", () => {
     await expect(page.getByText("7 followers")).toBeVisible();
     await expect(page.getByText(/Search by surfer name/i)).toBeVisible();
     await expect(page.getByText(/Search by name or email/i)).toHaveCount(0);
+
+    const followAttemptRequestPromise = page.waitForRequest((request) => {
+      if (
+        request.method() !== "POST" ||
+        !request.url().endsWith("/api/events")
+      ) {
+        return false;
+      }
+
+      const body = request.postDataJSON() as { eventType?: string };
+      return body.eventType === "discover_follow_attempt";
+    });
+    const followToggleRequestPromise = page.waitForRequest(
+      (request) =>
+        request.method() === "POST" &&
+        request.url().includes(
+          "/api/users/550e8400-e29b-41d4-a716-446655440001/follow/toggle"
+        )
+    );
+    const followButton = page.getByRole("button", {
+      name: "Follow this user. Currently has 7 followers",
+      exact: true,
+    });
+
+    await expect(followButton).toBeEnabled();
+    await followButton.click();
+
+    const [followAttemptRequest] = await Promise.all([
+      followAttemptRequestPromise,
+      followToggleRequestPromise,
+    ]);
+    expect(followAttemptRequest.postDataJSON()).toMatchObject({
+      eventType: "discover_follow_attempt",
+      metadata: {
+        target_user_id: "550e8400-e29b-41d4-a716-446655440001",
+        surface: "suggested",
+      },
+    });
+    await expect(
+      page.getByRole("button", {
+        name: "Following this user. Currently has 8 followers",
+        exact: true,
+      })
+    ).toBeVisible();
 
     await page.getByPlaceholder("Search by surfer name...").fill("Jordan");
     await page.getByRole("button", { name: /^Search$/i }).click();

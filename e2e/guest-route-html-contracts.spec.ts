@@ -82,6 +82,17 @@ function getMetaContent(html: string, selector: MetaSelector): string | null {
   return null;
 }
 
+function getCanonicalHref(html: string): string | null {
+  const links = html.match(/<link\b[^>]*>/gi) ?? [];
+
+  for (const link of links) {
+    if (getTagAttribute(link, 'rel') !== 'canonical') continue;
+    return getTagAttribute(link, 'href');
+  }
+
+  return null;
+}
+
 function getHeadingTexts(html: string, level: 1 | 2): string[] {
   const pattern = new RegExp(`<h${level}\\b[^>]*>([\\s\\S]*?)<\\/h${level}>`, 'gi');
 
@@ -193,6 +204,12 @@ test.describe('Route HTML Contracts', () => {
       expect(response.status()).toBe(200);
       expect(xml).toMatch(/<urlset|<sitemapindex/);
       expect(xml).toContain('<url>');
+      expect(xml).toMatch(/<loc>https?:\/\/[^<]+\/download<\/loc>/);
+      expect(xml).toMatch(/<loc>https?:\/\/[^<]+\/android-beta<\/loc>/);
+      expect(xml).toMatch(/<loc>https?:\/\/[^<]+\/guides<\/loc>/);
+      expect(xml).not.toMatch(/<loc>https?:\/\/[^<]+\/support<\/loc>/);
+      expect(xml).not.toMatch(/<loc>https?:\/\/[^<]+\/data-deletion<\/loc>/);
+      expect(xml).not.toMatch(/<loc>https?:\/\/[^<]+\/pbsc<\/loc>/);
     });
 
     test('robots.txt returns a readable response when configured', async ({ request }) => {
@@ -209,6 +226,27 @@ test.describe('Route HTML Contracts', () => {
       const hasH1 = getHeadingTexts(html, 1).length > 0;
 
       expect(hasNoindex || hasH1).toBe(true);
+    });
+
+    test('GSC-protected and gated routes expose opposite robots contracts', async ({
+      request,
+    }) => {
+      const protectedHtml = await getHtml(
+        request,
+        '/ca/san-diego/blacks/water-temp',
+      );
+      const protectedRobots = getMetaContent(protectedHtml, {
+        name: 'robots',
+      });
+      expect(protectedRobots ?? '').not.toContain('noindex');
+      expect(getCanonicalHref(protectedHtml)).toContain(
+        '/ca/san-diego/blacks/water-temp',
+      );
+
+      const gatedHtml = await getHtml(request, '/longboard/ca');
+      expect(getMetaContent(gatedHtml, { name: 'robots' })).toContain(
+        'noindex',
+      );
     });
   });
 
@@ -276,7 +314,7 @@ test.describe('Route HTML Contracts', () => {
       expect(getHeadingTexts(html, 1).join(' ')).toMatch(/alfonsos/i);
     });
 
-    test('Doheny loads without the snapshot and keeps supporting guide links', async ({ request }) => {
+    test('Doheny loads without the removed snapshot or supporting guide links', async ({ request }) => {
       const response = await getResponse(request, '/ca/dana-point/doheny-state-beach', {
         maxRedirects: 0,
       });
@@ -286,8 +324,24 @@ test.describe('Route HTML Contracts', () => {
       expect(response.headers().location).toBeUndefined();
       expect(html.toLowerCase()).toContain('doheny');
       expect(html).not.toContain('Surf report snapshot');
-      expect(html).toContain('href="/ca/dana-point/doheny-state-beach/tides"');
-      expect(html).toContain('href="/ca/dana-point/doheny-state-beach/water-temp"');
+      expect(html).not.toContain('aria-label="Doheny Beach related surf guides"');
+      expect(html).not.toContain('href="/ca/dana-point/doheny-state-beach/tides"');
+      expect(html).not.toContain('href="/ca/dana-point/doheny-state-beach/water-temp"');
+    });
+
+    test('Ala Moana Bowls loads without the removed snapshot or supporting guide links', async ({ request }) => {
+      const response = await getResponse(request, '/hi/honolulu/ala-moana-bowls', {
+        maxRedirects: 0,
+      });
+      const html = await response.text();
+
+      expect(response.status()).toBe(200);
+      expect(response.headers().location).toBeUndefined();
+      expect(html).toContain('Ala Moana Bowls');
+      expect(html).not.toContain('Surf report snapshot');
+      expect(html).not.toContain('aria-label="Ala Moana Bowls related surf guides"');
+      expect(html).not.toContain('href="/hi/honolulu/ala-moana-bowls/tides"');
+      expect(html).not.toContain('href="/hi/honolulu/ala-moana-bowls/water-temp"');
     });
 
     const seoCanonicalRedirects = [

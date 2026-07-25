@@ -38,6 +38,14 @@ jest.mock("@/components/beginner/RightNowConditions", () => ({
   RightNowConditions: () => <div>Conditions</div>,
 }));
 
+jest.mock("@/components/beginner/beginner-session-decision", () => ({
+  BeginnerSessionDecision: ({
+    decisionSummary,
+  }: {
+    decisionSummary?: string;
+  }) => <div>{decisionSummary ?? "Live beginner decision"}</div>,
+}));
+
 jest.mock("@/components/beginner/BeginnerSpotList", () => ({
   BeginnerSpotList: () => <div>Spot List</div>,
 }));
@@ -111,6 +119,11 @@ describe("BeginnerPageContent", () => {
       screen.getByText(
         /treat a jump from 1-2 ft to 3-4 ft as a real step up for a beginner/i
       )
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /live wave, wind, tide, and time-window data is unavailable/i,
+      ),
     ).toBeInTheDocument();
   });
 });

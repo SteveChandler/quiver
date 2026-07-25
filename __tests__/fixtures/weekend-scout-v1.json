@@ -1,0 +1,88 @@
+{
+  "snapshotId": "11111111-1111-4111-8111-111111111111",
+  "contractVersion": "weekend-scout-v1",
+  "weekendStart": "2026-07-25",
+  "weekendEnd": "2026-07-26",
+  "generatedAt": "2026-07-24T20:00:00.000Z",
+  "locationCapturedAt": "2026-07-24T19:55:00.000Z",
+  "timezone": "America/Los_Angeles",
+  "qualifyingCount": 3,
+  "scorerVersion": "week-scout-v1:discovery-hero-v1",
+  "results": [
+    {
+      "rank": 1,
+      "beachId": "22222222-2222-4222-8222-222222222222",
+      "beachName": "Black's",
+      "beachSlug": "blacks",
+      "distanceMiles": 12.4,
+      "sourceLabels": ["nearby", "saved"],
+      "bestWindow": {
+        "start": "2026-07-25T14:00:00.000Z",
+        "end": "2026-07-25T17:00:00.000Z",
+        "peakTime": "2026-07-25T15:00:00.000Z",
+        "localLabel": "Saturday morning",
+        "waveHeight": "4.2",
+        "period": "13",
+        "windSpeed": "4",
+        "windDirection": "E",
+        "tideHeightFt": 2.1,
+        "tidePhase": "rising",
+        "confidence": 87,
+        "freshnessAt": "2026-07-24T18:30:00.000Z"
+      },
+      "conditionScore": 88,
+      "rankingScore": 85.5,
+      "takeaway": "Clean morning lines with light offshore wind."
+    },
+    {
+      "rank": 2,
+      "beachId": "33333333-3333-4333-8333-333333333333",
+      "beachName": "Scripps Pier",
+      "beachSlug": "scripps-pier",
+      "distanceMiles": 9.8,
+      "sourceLabels": ["nearby", "home"],
+      "bestWindow": {
+        "start": "2026-07-25T15:00:00.000Z",
+        "end": "2026-07-25T18:00:00.000Z",
+        "peakTime": "2026-07-25T16:00:00.000Z",
+        "localLabel": "Saturday morning",
+        "waveHeight": "3.6",
+        "period": "12",
+        "windSpeed": "5",
+        "windDirection": "ENE",
+        "tideHeightFt": 2.5,
+        "tidePhase": "rising",
+        "confidence": 82,
+        "freshnessAt": "2026-07-24T18:30:00.000Z"
+      },
+      "conditionScore": 82,
+      "rankingScore": 81.4,
+      "takeaway": "Consistent peaks before the afternoon wind arrives."
+    },
+    {
+      "rank": 3,
+      "beachId": "44444444-4444-4444-8444-444444444444",
+      "beachName": "Tourmaline",
+      "beachSlug": "tourmaline-surfing-park",
+      "distanceMiles": 6.2,
+      "sourceLabels": ["nearby"],
+      "bestWindow": {
+        "start": "2026-07-26T14:00:00.000Z",
+        "end": "2026-07-26T17:00:00.000Z",
+        "peakTime": "2026-07-26T15:00:00.000Z",
+        "localLabel": "Sunday morning",
+        "waveHeight": "3.1",
+        "period": "11",
+        "windSpeed": "3",
+        "windDirection": "NE",
+        "tideHeightFt": 1.8,
+        "tidePhase": "rising",
+        "confidence": 79,
+        "freshnessAt": "2026-07-24T18:30:00.000Z"
+      },
+      "conditionScore": 78,
+      "rankingScore": 78.2,
+      "takeaway": "A friendly clean window close to town."
+    }
+  ]
+}

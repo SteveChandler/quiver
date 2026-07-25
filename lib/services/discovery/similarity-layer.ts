@@ -1,34 +1,9 @@
 /**
  * Similarity Layer — Pro Similarity Scoring for Discovery Ranking
  *
- * Two-pass design (Plan V4):
- *   PASS 1: existing condition-scoring engine selects the best window per
- *           beach (in surf-discovery-orchestrator).
- *   PASS 2: this layer bulk-scores the top-N candidates via
- *           compute_user_match_score_batch and injects an additive bonus
- *           into each recommendation's `score` field, then the orchestrator
- *           re-sorts.
- *
- * Authority separation (locked by feedback_separate_ranking_from_verdict_authority):
- *   - This layer affects RANK only — it modifies recommendation.score.
- *   - The hero verdict (Worth it / Maybe / Skip and the "best window" copy)
- *     is computed by computeSurfCall from snapshot data; similarity does NOT
- *     feed into that path.
- *
- * Bonus math (LOCKED Plan V4 spec — do not retune without product approval):
- *   - state="ready" with score >= 5.0:  bonusApplied = min(20, (score - 5) * 4)
- *   - state="ready" with score < 5.0:   bonusApplied = 0
- *   - state="onboarding":               bonusApplied = 0
- *   - null (free / disabled):           bonusApplied = 0
- *
- * Curve:
- *   score=5.0  -> bonus=0
- *   score=6.0  -> bonus=4
- *   score=7.0  -> bonus=8
- *   score=7.5  -> bonus=10
- *   score=8.0  -> bonus=12
- *   score=9.0  -> bonus=16
- *   score=10.0 -> bonus=20  (cap)
+ * The physical condition score and learned personal match remain separate.
+ * This layer attaches the learned match evidence; the canonical decision
+ * engine owns window selection and verdict mapping.
  *
  * @module lib/services/discovery/similarity-layer
  */
@@ -46,15 +21,6 @@ import {
 } from "@/lib/personalization/match-state-compat";
 
 const log = createContextLogger("SimilarityLayer");
-
-/** Threshold below which a "ready" similarity score yields no bonus. */
-const SIMILARITY_BONUS_THRESHOLD = 5.0;
-
-/** Hard cap on the additive bonus injected into recommendation.score. */
-const SIMILARITY_BONUS_MAX = 20;
-
-/** Slope: each +1 above threshold = +4 points, capped at +20 (i.e. score=10). */
-const SIMILARITY_BONUS_SLOPE = 4;
 
 /**
  * Shape of a single row from compute_user_match_score_batch.
@@ -77,18 +43,8 @@ export interface ApplySimilarityLayerArgs {
 }
 
 export interface ApplySimilarityLayerResult {
-  /** Same array length and shape as input, with `similarity` stamped + score adjusted. */
+  /** Same array length and shape as input, with `similarity` stamped. */
   recommendations: SurfDiscoveryRecommendation[];
-}
-
-/**
- * Bonus calculation, exported for unit-test reuse and to keep the formula
- * pinned to one place (see "Bonus math" in the module doc).
- */
-export function computeSimilarityBonus(score: number): number {
-  if (!Number.isFinite(score) || score < SIMILARITY_BONUS_THRESHOLD) return 0;
-  const raw = (score - SIMILARITY_BONUS_THRESHOLD) * SIMILARITY_BONUS_SLOPE;
-  return Math.min(SIMILARITY_BONUS_MAX, raw);
 }
 
 /**
@@ -132,15 +88,14 @@ function recToSlotPayload(
 }
 
 /**
- * Translate a single slot's RPC `result` jsonb into a SimilarityRecommendation
- * and the bonus to add. Tolerant to the three documented shapes plus a missing/
- * malformed result (treated as null, no bonus).
+ * Translate a single slot's RPC `result` jsonb into a SimilarityRecommendation.
+ * Tolerant to the three documented shapes plus a missing/malformed result.
  */
 function interpretRpcResult(
   result: Record<string, unknown> | null,
-): { similarity: SimilarityRecommendation; bonus: number } {
+): SimilarityRecommendation {
   if (!result || typeof result !== "object") {
-    return { similarity: null, bonus: 0 };
+    return null;
   }
 
   const state = result.state;
@@ -150,59 +105,58 @@ function interpretRpcResult(
       typeof result.session_count === "number" ? result.session_count : 0;
     const sessionsNeeded =
       typeof result.sessions_needed === "number" ? result.sessions_needed : 0;
-    return {
-      similarity: { state: "onboarding", sessionCount, sessionsNeeded },
-      bonus: 0,
-    };
+    return { state: "onboarding", sessionCount, sessionsNeeded };
   }
 
   if (isLearnedMatchState(typeof state === "string" ? state : undefined)) {
     if (typeof result.score !== "number") {
-      return { similarity: null, bonus: 0 };
+      return null;
     }
     const score = result.score;
-    const label = typeof result.label === "string" ? result.label : "";
+    const label =
+      typeof result.label === "string"
+        ? result.label.trim().toUpperCase()
+        : "";
     const sessionCount =
       typeof result.sessions_in_profile === "number"
         ? result.sessions_in_profile
         : 0;
 
     // Pull first reason bullet for user-facing copy. Fall back to label when absent.
-    const reasonBullets = Array.isArray(result.reason_bullets)
-      ? result.reason_bullets
+    const reasons = Array.isArray(result.reason_bullets)
+      ? result.reason_bullets.filter(
+          (reason): reason is string =>
+            typeof reason === "string" && reason.length > 0,
+        )
       : [];
-    const reason =
-      typeof reasonBullets[0] === "string" && reasonBullets[0].length > 0
-        ? reasonBullets[0]
-        : label;
-
-    const bonus = computeSimilarityBonus(score);
+    const reason = reasons[0] ?? label;
+    const confidence =
+      result.confidence === "high" || result.confidence === "medium"
+        ? result.confidence
+        : "low";
 
     return {
-      similarity: {
-        state: "ready",
-        score,
-        label,
-        bonusApplied: bonus,
-        reason,
-        sessionCount,
-      },
-      bonus,
+      state: "ready",
+      score,
+      label,
+      bonusApplied: 0,
+      confidence,
+      reason,
+      reasons,
+      sessionCount,
     };
   }
 
   // Unknown state — degrade gracefully to null.
-  return { similarity: null, bonus: 0 };
+  return null;
 }
 
 /**
- * Inject Pro similarity scoring into the top-N discovery recommendations.
+ * Attach Pro similarity scoring to discovery window candidates.
  *
  * - Free users (or null userId): every rec gets `similarity: null`, no RPC.
- * - Pro users: one bulk RPC call per beach (most discovery returns share no
- *   beach so it's typically N calls; if multiple recs share a beach the calls
- *   are still made independently because each carries a distinct slot — this
- *   mirrors the per-slot semantics of compute_user_match_score).
+ * - Pro users: one bulk RPC call per beach with every candidate window passed
+ *   as a slot.
  * - Recommendations missing `beach.id` are filtered before the bulk call but
  *   still receive `similarity: null` in the output (preserves array length).
  */
@@ -221,23 +175,29 @@ export async function applySimilarityLayer(
     };
   }
 
-  // Pro path. Score each rec independently (one RPC per beach because the
-  // bulk RPC is keyed on a single beach_id). Recs without a beach.id are
-  // skipped — they fall through to similarity: null.
-  const results = await Promise.all(
-    recommendations.map(async (rec) => {
-      const beachId = rec.beach?.id;
-      if (!beachId) {
-        return { rec, similarity: null as SimilarityRecommendation, bonus: 0 };
-      }
+  const indexesByBeach = new Map<string, number[]>();
+  recommendations.forEach((rec, index) => {
+    const beachId = rec.beach?.id;
+    if (!beachId) return;
+    const indexes = indexesByBeach.get(beachId) ?? [];
+    indexes.push(index);
+    indexesByBeach.set(beachId, indexes);
+  });
 
+  const similarityByIndex: SimilarityRecommendation[] =
+    recommendations.map(() => null);
+
+  await Promise.all(
+    Array.from(indexesByBeach.entries()).map(async ([beachId, indexes]) => {
       try {
         const { data, error } = await supabase.rpc(
           "compute_user_match_score_batch",
           {
             p_user_id: userId,
             p_beach_id: beachId,
-            p_slots: recToSlotPayload(rec),
+            p_slots: indexes.flatMap((index) =>
+              recToSlotPayload(recommendations[index]),
+            ),
           },
         );
 
@@ -245,38 +205,31 @@ export async function applySimilarityLayer(
           log.warn(
             `Bulk match-score RPC error for beach=${beachId}: ${error.message}`,
           );
-          return {
-            rec,
-            similarity: null as SimilarityRecommendation,
-            bonus: 0,
-          };
+          return;
         }
 
-        const rows = (data ?? []) as BatchRpcRow[];
-        // Single-slot input → first (and only) row carries the result.
-        const first = rows[0];
-        const interp = interpretRpcResult(first?.result ?? null);
-        return { rec, similarity: interp.similarity, bonus: interp.bonus };
+        const rowsBySlot = new Map(
+          ((data ?? []) as BatchRpcRow[]).map((row) => [row.slot_idx, row]),
+        );
+        indexes.forEach((recommendationIndex, slotIndex) => {
+          similarityByIndex[recommendationIndex] = interpretRpcResult(
+            rowsBySlot.get(slotIndex)?.result ?? null,
+          );
+        });
       } catch (err) {
         log.warn(
           `Bulk match-score RPC threw for beach=${beachId}: ${
             err instanceof Error ? err.message : String(err)
           }`,
         );
-        return {
-          rec,
-          similarity: null as SimilarityRecommendation,
-          bonus: 0,
-        };
       }
     }),
   );
 
   return {
-    recommendations: results.map(({ rec, similarity, bonus }) => ({
+    recommendations: recommendations.map((rec, index) => ({
       ...rec,
-      score: bonus > 0 ? Math.min(100, rec.score + bonus) : rec.score,
-      similarity,
+      similarity: similarityByIndex[index],
     })),
   };
 }

@@ -40,6 +40,136 @@ interface LearnArticle {
 
 export const learnArticles: LearnArticle[] = [
   {
+    slug: "surf-paddling-for-beginners",
+    title: "Surf Paddling for Beginners: Technique & Paddle-Out Guide",
+    description:
+      "Learn beginner surf paddling technique, how to judge the paddle-out, conserve energy, and choose a manageable beginner window before you go.",
+    readingTimeMin: 7,
+    datePublished: "2026-07-23",
+    dateModified: "2026-07-23",
+    heroImage: "/beginnerWhiteWater.jpg",
+    thumbnailImage: "/beginnerWhiteWater.jpg",
+    keywords: [
+      "surf paddling for beginners",
+      "how to paddle a surfboard",
+      "how to paddle out surfing",
+      "beginner surf paddling technique",
+      "surf paddle fitness",
+      "paddle out difficulty",
+    ],
+    sections: [
+      {
+        id: "answer",
+        heading: "The Short Answer",
+        content: `<p>Good surf paddling starts with a balanced board, a quiet chest, long relaxed strokes, and a route that avoids the strongest whitewater. The common beginner mistake is sprinting straight at every broken wave until the arms are gone. Before you enter, watch several sets, identify the channel or softest inside section, and decide where you will turn back if the paddle-out is taking too much energy. The pop-up gets attention, but paddle judgment determines how many useful waves you can attempt.</p>`,
+        keyTakeaway:
+          "Save energy by balancing the board, using long relaxed strokes, and choosing the easiest route before you enter.",
+      },
+      {
+        id: "difficulty-near-you",
+        heading: "Paddling Difficulty Near You Today",
+        content: `<p>This is a <strong>planning insert, not an ocean-safety claim</strong>. Paddling difficulty rises with larger surf, shorter gaps between waves, stronger onshore wind, adverse current, and a long route to the lineup. Quiver's beginner city pages combine the current wave, wind, tide, and time window into a <strong>YES, MAYBE, or NO</strong> learner call. Start with <a href="/beginner/huntington-beach">Huntington Beach</a>, <a href="/beginner/san-diego">San Diego</a>, <a href="/beginner/santa-cruz">Santa Cruz</a>, <a href="/beginner/cocoa-beach">Cocoa Beach</a>, or <a href="/beginner/honolulu">Honolulu</a>, then open the named reference spot and watch conditions from shore before deciding.</p><p>If live forecast data is unavailable, treat the difficulty as <strong>unknown</strong>. Check the beach first, keep a turnaround point, and choose a lesson or protected whitewater practice area when the route is unclear.</p>`,
+        keyTakeaway:
+          "Use the city verdict as a first filter, then confirm the actual paddle route and set pattern from shore.",
+      },
+      {
+        id: "board-position",
+        heading: "Find the Board's Balance Point",
+        content: `<p>Lie centered over the stringer with your nose just above the water. Too far back and the nose lifts, pushing water like a plow. Too far forward and the nose pearls whenever a bump reaches you. Keep your feet together, squeeze your legs lightly, and lift your chest only enough to keep the nose clear. A stable board lets each stroke move you forward instead of rocking side to side.</p><p>Beginners often copy shortboard posture on a large foam board. That wastes the foamie's biggest advantage: glide. Let the board run flat. Make one adjustment at a time until it carries speed between strokes.</p>`,
+        keyTakeaway:
+          "The fastest beginner paddle position is usually flatter and quieter than it feels.",
+      },
+      {
+        id: "stroke",
+        heading: "Use Long Strokes Without Burning Your Shoulders",
+        content: `<p>Reach forward without twisting off center, place the hand cleanly, pull past your ribs, and release before the hand reaches your hip. Keep the elbow comfortably high and alternate at a rhythm you can hold. Splashy windmill strokes feel fast for ten seconds and then collapse. Smooth strokes preserve enough energy for the takeoff and the trip back outside.</p><p>When you need a short burst, increase cadence while keeping the same clean entry. Do not shorten the stroke so much that your hands only slap the surface. For wave-catching, take several controlled strokes first, then add the burst as the wave reaches you.</p>`,
+        keyTakeaway:
+          "Build speed with clean repeatable strokes, then add cadence instead of abandoning technique.",
+      },
+      {
+        id: "route",
+        heading: "Read the Paddle-Out Before You Enter",
+        content: `<p>Watch at least three set cycles. Look for where surfers are returning outside, where foam loses power, and whether a channel is carrying water seaward. A channel can make the paddle easier, but it can also pull you away from the beach, so use it only when you understand where it goes. At a beach break, a diagonal route around the main impact zone is often easier than the shortest straight line.</p><p>Choose landmarks on shore before you enter. If you drift past them, reassess. If you are still trapped inside after repeated attempts, come in, rest, and try a smaller window. Turning around early is better judgment than spending the whole session exhausted.</p>`,
+        keyTakeaway:
+          "The shortest route is not always the easiest; watch where foam weakens and where other surfers return outside.",
+      },
+      {
+        id: "whitewater",
+        heading: "Handle Whitewater in Stages",
+        content: `<p>For small foam, keep paddling and lift your chest slightly so the board climbs over it. For a firmer line of whitewater on a foam board, grip the rails, press your chest up, and let the foam pass between you and the deck. A turtle roll can work on a longboard once practiced, but it is not a substitute for choosing a manageable day. Duck diving is mainly for lower-volume boards and takes repetition to time correctly.</p><p>Never abandon the board where someone is behind you. Keep control, leave space, and angle away from other surfers before the wave reaches you. If the foam is repeatedly ripping the board from your hands, that is useful information: the window or equipment may not fit your current level.</p>`,
+        keyTakeaway:
+          "Technique helps with whitewater, but repeated loss of control is a reason to choose an easier window.",
+      },
+      {
+        id: "practice",
+        heading: "Build Paddle Fitness Without Chasing Heavy Surf",
+        content: `<p>Short consistent sessions beat one exhausting mission. Practice twenty relaxed strokes, a clean turn, and a controlled prone glide in flat water or gentle whitewater. Add shoulder and upper-back endurance away from the ocean with swimming, band rows, and mobility work. Stop before fatigue destroys your form.</p><p>Track one simple measure: how many wave attempts you can make while still paddling smoothly. As that number rises, you will catch more waves because you arrive in position with energy left. The goal is not to win the paddle-out. It is to have enough control for the whole session.</p>`,
+        keyTakeaway:
+          "Paddle fitness is useful only when it leaves you enough control to catch waves and return to shore.",
+      },
+    ],
+    faqs: [
+      {
+        question: "Why is paddling a surfboard so tiring for beginners?",
+        answer:
+          "New surfers often sit too far back, rock side to side, sprint with short strokes, and take the hardest route through the foam. A balanced board, relaxed long strokes, and better route choice reduce wasted effort quickly.",
+      },
+      {
+        question: "How do I know whether the paddle-out is too difficult?",
+        answer:
+          "Watch several sets first. If surfers are repeatedly losing ground, the channel is unclear, whitewater is taking boards away, or you cannot identify a turnaround point, choose a smaller window or a lesson at a more protected break.",
+      },
+      {
+        question: "Should a beginner learn to duck dive?",
+        answer:
+          "Most true beginners use high-volume foam boards that do not duck dive easily. Learn board control, push-ups over small foam, route choice, and eventually turtle rolls before treating duck diving as the answer.",
+      },
+      {
+        question: "How can I improve surf paddling away from the ocean?",
+        answer:
+          "Swimming, band rows, shoulder mobility, and short prone-paddling sessions build useful endurance. Keep the work controlled and stop when shoulder discomfort changes your stroke.",
+      },
+    ],
+    relatedLinks: [
+      {
+        label: "Beginner Surf in Huntington Beach",
+        href: "/beginner/huntington-beach",
+        description:
+          "Check the current learner window, reference spot, tide, and alert option.",
+      },
+      {
+        label: "Beginner Surf in San Diego",
+        href: "/beginner/san-diego",
+        description:
+          "Compare beginner breaks and today's local conditions.",
+      },
+      {
+        label: "Beginner Surf in Santa Cruz",
+        href: "/beginner/santa-cruz",
+        description:
+          "Use the current call before choosing Cowell's or another learner spot.",
+      },
+      {
+        label: "Best Surf Conditions for Beginners",
+        href: "/learn/best-surf-conditions-for-beginners",
+        description:
+          "Understand the wave, wind, tide, and crowd window before paddling out.",
+      },
+      {
+        label: "How to Read Surf Conditions",
+        href: "/learn/how-to-read-surf-conditions",
+        description:
+          "Read period, direction, wind, tide, and height in the right order.",
+      },
+      {
+        label: "Beginner Surf in Long Island",
+        href: "/beginner/long-island",
+        description:
+          "Check an East Coast learner window and local spot options.",
+      },
+    ],
+  },
+  {
     slug: "how-to-read-surf-conditions",
     title: "How to Read a Surf Report: Forecast & Conditions Guide",
     description: "Learn how to read a surf report or surf forecast: period, direction, wind, tide, and wave height, plus what changes at your break.",
@@ -886,6 +1016,7 @@ export const learnArticles: LearnArticle[] = [
       "Surf forecast height is significant wave height (Hs) — the average of the tallest third of waves measured by NDBC buoys. Face height (what you see) runs 1.5-2x the forecast number. So a '3-5 ft' forecast means 4.5-10 ft wave faces. Hawaiian scale uses roughly half of face height, adding further confusion.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
+    dateModified: "2026-07-23",
     heroImage: "/images/hero/hero-2-barrel-wave.webp",
     thumbnailImage: "/images/hero/hero-2-barrel-wave.webp",
     keywords: [
@@ -912,6 +1043,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "detail",
         heading: "The Three Wave Measurement Scales",
+        figureKey: "wave-height-reference",
         content: `<p><strong>Significant wave height (Hs)</strong>: Used by NOAA, WaveWatch III, and most forecast models. It's a statistical measure from buoys — the mean of the highest third of waves over a 20-minute sampling window. This is what you see on Quiver and most forecasting apps.</p><p><strong>Face height</strong>: What surfers actually see standing on the beach. A 3-foot Hs reading from a CDIP buoy translates to roughly 4.5-6 foot faces, depending on the break's bathymetry. Sandy beach breaks tend toward the higher multiplier; deep-water reefs toward the lower.</p><p><strong>Hawaiian scale</strong>: Used in Hawaii and by some old-school surfers. Roughly half of face height (or close to Hs). A "6-foot Hawaiian" wave has a 10-12 foot face. If someone in Hawaii says "it's 4 feet," prepare for 8-foot faces.</p>`,
         keyTakeaway:
           "Three scales exist: significant height (buoy/forecast), face height (what you see, 1.5-2x Hs), and Hawaiian scale (~0.5x face height).",
@@ -2068,6 +2200,7 @@ export const learnArticles: LearnArticle[] = [
       "Learn how tides work for surfing: why high and low tide shift, what spring and neap tides mean, and how tide timing changes wave shape.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
+    dateModified: "2026-07-23",
     heroImage: "/images/learn/learn-tide-pools.jpg",
     thumbnailImage: "/images/learn/learn-tide-pools.jpg",
     keywords: [
@@ -2094,6 +2227,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "detail",
         heading: "The Lunar Cycle and Tidal Range",
+        figureKey: "tide-window",
         content: `<p>The moon's gravity creates a <strong>tidal bulge</strong> — water is pulled toward the moon on the near side of Earth, and centrifugal force creates a second bulge on the far side. As Earth rotates, coastlines pass through these bulges, experiencing <strong>two high tides and two low tides daily</strong>.</p><p><strong>Spring tides</strong> happen twice per month (new moon and full moon) when sun and moon align. Their combined gravity produces tidal ranges <strong>20-30% larger</strong> than average. In San Francisco, spring tidal range can exceed <strong>7 feet</strong>. <strong>Neap tides</strong> happen at quarter moons when sun and moon pull at right angles, partially canceling each other. Neap ranges are <strong>20-30% smaller</strong> than average. For surfing, spring tides mean bigger swings between low and high — which can expose more reef at low tide or flood breaks more at high tide. Neap tides produce more moderate, stable conditions.</p>`,
         keyTakeaway:
           "Spring tides (full/new moon) swing 20-30% more than average. Neap tides (quarter moon) swing 20-30% less. Both affect wave shape at your break.",

@@ -10,6 +10,8 @@ jest.mock('@/lib/recommendations/major-event-hold/service', () => ({
 
 import {
   generateWeekScoutForecast,
+  generateWeekScoutForecastForDays,
+  generateWeekScoutRankingForDays,
   type WeekScoutServiceDependencies,
 } from '@/lib/services/discovery/week-scout';
 import type { Beach } from '@/types/database';
@@ -43,6 +45,8 @@ function forecast(beachId: string, forecastAt: string): EnhancedForecastEntity {
     tide_status: 'Rising',
     confidence_score: 82,
     data_source: 'NOAA_NWS',
+    created_at: '2026-07-31T12:00:00.000Z',
+    updated_at: '2026-07-31T13:30:00.000Z',
   } as EnhancedForecastEntity;
 }
 
@@ -148,7 +152,63 @@ describe('generateWeekScoutForecast', () => {
     );
   });
 
-  it('builds seven local days with canonical morning, midday, and evening rankings', async () => {
+  it('reuses canonical scoring for a two-day weekend request', async () => {
+    const response = await generateWeekScoutForecastForDays(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 2,
+      },
+      dependencies(),
+    );
+
+    expect(response.days.map((day) => day.localDate)).toEqual([
+      '2026-07-31',
+      '2026-08-01',
+    ]);
+    expect(response.scorerVersion).toBe('week-scout-v1:discovery-hero-v1');
+  });
+
+  it('preserves every allowed two-day window for Weekend Scout ranking', async () => {
+    const response = await generateWeekScoutRankingForDays(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A, BEACH_B],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 2,
+      },
+      dependencies(),
+    );
+
+    expect(response.days).toHaveLength(2);
+    expect(response.days[0].windows).toHaveLength(6);
+    expect(response.days[0].windows.every((window) => (
+      window.rankingScore !== null
+      && window.conditionScore !== null
+      && window.safe !== null
+      && window.rideable !== null
+    ))).toBe(true);
+  });
+
+  it.each([0, 8, 1.5])('rejects unsupported internal dayCount %s', async (dayCount) => {
+    await expect(
+      generateWeekScoutForecastForDays(
+        'user-week-scout',
+        {
+          candidateBeachIds: [BEACH_A],
+          localTimezone: 'Pacific/Honolulu',
+          startLocalDate: '2026-08-01',
+          dayCount,
+        },
+        dependencies(),
+      ),
+    ).rejects.toThrow(/dayCount/i);
+  });
+
+  it('returns one canonical weekly session while preserving every physical forecast window', async () => {
     const deps = dependencies();
     const response = await generateWeekScoutForecast(
       'user-week-scout',
@@ -178,23 +238,51 @@ describe('generateWeekScoutForecast', () => {
       new Set(['morning', 'midday', 'evening']),
     );
     expect(firstDay.windows.filter((window) => window.bucket === 'morning')).toHaveLength(2);
-    expect(firstDay.windows.every((window) => window.rankedSpots.length === 2)).toBe(true);
+    expect(response.sessionDecision).toMatchObject({
+      verdict: 'go',
+      selection: {
+        beachId: BEACH_B,
+      },
+      skillEligibility: {
+        skill: 'intermediate',
+        state: 'eligible',
+      },
+    });
+    const selectedId = response.sessionDecision.selection?.candidateId;
+    const visibleDecisions = response.days.flatMap((day) =>
+      day.windows.filter((window) => window.verdict !== null),
+    );
+    expect(visibleDecisions).toHaveLength(1);
+    expect(visibleDecisions[0]?.id).toBe(selectedId);
+    expect(
+      response.days.flatMap((day) => day.windows).every((window) => (
+        window.forecast.waveHeight === '3.5'
+        && window.forecast.period === '12s'
+        && window.forecast.tideHeightFt === 1.4
+      )),
+    ).toBe(true);
 
-    const winner = firstDay.windows.find((window) => window.id === firstDay.bestWindowId);
+    const winner = response.days
+      .flatMap((day) => day.windows)
+      .find((window) => window.id === selectedId);
     expect(winner).toMatchObject({
       beachId: BEACH_B,
       bucket: 'morning',
-      conditionScore: 84,
-      rankingScore: 88,
       verdict: 'worth_it',
-      rideable: true,
-      safe: true,
+      conditionScore: null,
+      rankingScore: null,
+      rideable: null,
+      safe: null,
       forecast: {
         tideHeightFt: 1.4,
         tidePhase: 'Rising',
+        freshnessAt: '2026-07-31T13:30:00.000Z',
       },
-      takeaway: 'Clean wind and solid period',
+      takeaway: null,
+      rankedSpots: [],
     });
+    expect(firstDay.bestWindowId).toBe(selectedId);
+    expect(response.days.slice(1).every((day) => day.bestWindowId === null)).toBe(true);
 
     expect(deps.selectBestWindow).toHaveBeenCalledTimes(6);
     expect(deps.rankWindows).toHaveBeenCalledTimes(3);
@@ -260,10 +348,18 @@ describe('generateWeekScoutForecast', () => {
       deps,
     );
 
+    expect(response.sessionDecision).toMatchObject({
+      verdict: 'no',
+      reasonCode: 'wave_height_exceeds_skill',
+      selection: null,
+    });
     expect(response.days[0].windows[0]).toMatchObject({
-      verdict: 'worth_it',
-      rideable: false,
-      safe: false,
+      verdict: null,
+      rideable: null,
+      safe: null,
+      forecast: {
+        waveHeight: '20',
+      },
     });
     expect(response.days[0].bestWindowId).toBeNull();
   });
@@ -352,6 +448,11 @@ describe('generateWeekScoutForecast', () => {
       state: 'none',
       reasonCode: 'major_event_hold',
     });
+    expect(response.sessionDecision).toMatchObject({
+      verdict: 'no',
+      reasonCode: 'major_event_hold',
+      selection: null,
+    });
   });
 
   it('fails malformed hold decisions closed without dropping physical windows', async () => {
@@ -375,6 +476,11 @@ describe('generateWeekScoutForecast', () => {
     expect(response.recommendationAvailability).toMatchObject({
       state: 'none',
       reasonCode: 'hold_state_unavailable',
+    });
+    expect(response.sessionDecision).toMatchObject({
+      verdict: 'no',
+      reasonCode: 'hold_state_unavailable',
+      selection: null,
     });
   });
 });

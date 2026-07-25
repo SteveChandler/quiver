@@ -84,6 +84,172 @@ function evaluatorReturning(
 }
 
 describe("notification major-event hold adapter", () => {
+  function homeMorningPayload(expiresAt: string): Record<string, unknown> {
+    return {
+      verdict: "YES",
+      beach_id: BEACH_ID,
+      forecast_at: STARTS_AT,
+      title: "Go this morning",
+      body: "A clean window is lining up.",
+      policy_context: {
+        kind: "positive_session_recommendation",
+        beach_id: BEACH_ID,
+        starts_at: STARTS_AT,
+        ends_at: ENDS_AT,
+      },
+      session_decision: {
+        schemaVersion: "canonical-session-decision.v1",
+        engineVersion: "rules.v1",
+        decisionId: "a".repeat(64),
+        createdAt: "2026-07-17T06:55:00.000Z",
+        expiresAt,
+        scope: {
+          kind: "plan_next_session",
+          windowStart: "2026-07-17T06:55:00.000Z",
+          windowEnd: ENDS_AT,
+          timezone: "UTC",
+        },
+        verdict: "go",
+        decisionBasis: "physical_fallback",
+        reasonCode: "selected_go",
+        selection: {
+          candidateId: "recommendation-1",
+          beachId: BEACH_ID,
+          beachName: "Test Beach",
+          windowStart: STARTS_AT,
+          windowEnd: ENDS_AT,
+          timezone: "UTC",
+          forecastRef: {
+            forecastId: "forecast-1",
+            beachId: BEACH_ID,
+            forecastAt: STARTS_AT,
+          },
+          skillEligibility: {
+            skill: "beginner",
+            state: "eligible",
+            reasonCodes: [],
+          },
+          evidence: {
+            conditionScore: 82,
+            recommendationLabel: "Worth it",
+            personalMatch: null,
+          },
+        },
+        skillEligibility: {
+          skill: "beginner",
+          state: "eligible",
+          reasonCodes: [],
+        },
+        holdEpoch: "epoch-clear",
+      },
+    };
+  }
+
+  it("allows a home morning push only while its exact canonical decision is fresh", async () => {
+    const evaluateCandidates = evaluatorReturning("allowed");
+    const result = await resolveNotificationMajorEventHold(
+      {
+        eventId: "event-home-canonical",
+        type: "home_morning_call",
+        payload: homeMorningPayload("2026-07-17T07:10:00.000Z"),
+        profileExperience: "beginner",
+        mode: "enforce",
+        asOf: new Date("2026-07-17T07:00:00.000Z"),
+      },
+      { evaluateCandidates },
+    );
+
+    expect(result).toMatchObject({ status: "allowed" });
+    expect(evaluateCandidates).toHaveBeenCalledTimes(1);
+  });
+
+  it("suppresses a stale home morning push before hold evaluation", async () => {
+    const evaluateCandidates = evaluatorReturning("allowed");
+    const result = await resolveNotificationMajorEventHold(
+      {
+        eventId: "event-home-stale",
+        type: "home_morning_call",
+        payload: homeMorningPayload("2026-07-17T06:59:00.000Z"),
+        profileExperience: "beginner",
+        mode: "enforce",
+        asOf: new Date("2026-07-17T07:00:00.000Z"),
+      },
+      { evaluateCandidates },
+    );
+
+    expect(result).toMatchObject({
+      status: "suppressed",
+      reasonCode: "hold_state_unavailable",
+    });
+    expect(evaluateCandidates).not.toHaveBeenCalled();
+  });
+
+  it("requires every positive surf notification to carry the exact fresh canonical decision", async () => {
+    const evaluateCandidates = evaluatorReturning("allowed");
+    const weekendPayload = homeMorningPayload(
+      "2026-07-17T07:10:00.000Z",
+    );
+    delete weekendPayload.verdict;
+
+    await expect(
+      resolveNotificationMajorEventHold(
+        {
+          eventId: "event-weekend-canonical",
+          type: "weekend_window",
+          payload: weekendPayload,
+          profileExperience: "beginner",
+          mode: "enforce",
+          asOf: new Date("2026-07-17T07:00:00.000Z"),
+        },
+        { evaluateCandidates },
+      ),
+    ).resolves.toMatchObject({ status: "allowed" });
+
+    const missingDecision = { ...weekendPayload };
+    delete missingDecision.session_decision;
+    await expect(
+      resolveNotificationMajorEventHold(
+        {
+          eventId: "event-weekend-missing",
+          type: "weekend_window",
+          payload: missingDecision,
+          profileExperience: "beginner",
+          mode: "enforce",
+          asOf: new Date("2026-07-17T07:00:00.000Z"),
+        },
+        { evaluateCandidates },
+      ),
+    ).resolves.toMatchObject({
+      status: "suppressed",
+      reasonCode: "hold_state_unavailable",
+    });
+  });
+
+  it("suppresses a positive alert when its canonical selection does not match the outbound window", async () => {
+    const evaluateCandidates = evaluatorReturning("allowed");
+    const payload = homeMorningPayload("2026-07-17T07:10:00.000Z");
+    delete payload.verdict;
+    payload.forecast_at = "2026-07-17T08:00:00.000Z";
+
+    const result = await resolveNotificationMajorEventHold(
+      {
+        eventId: "event-forecast-mismatch",
+        type: "forecast_alert",
+        payload,
+        profileExperience: "beginner",
+        mode: "enforce",
+        asOf: new Date("2026-07-17T07:00:00.000Z"),
+      },
+      { evaluateCandidates },
+    );
+
+    expect(result).toMatchObject({
+      status: "suppressed",
+      reasonCode: "hold_state_unavailable",
+    });
+    expect(evaluateCandidates).not.toHaveBeenCalled();
+  });
+
   it("binds a firing first-session nudge to its exact internal beach/day context", async () => {
     const evaluateCandidates = evaluatorReturning("allowed");
 

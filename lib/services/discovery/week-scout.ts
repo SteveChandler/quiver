@@ -42,6 +42,11 @@ import {
 } from '@/lib/recommendations/major-event-hold/adapters/week-scout';
 import { evaluateMajorEventHoldCandidates } from '@/lib/recommendations/major-event-hold/service';
 import type { MajorEventHoldCandidate } from '@/lib/recommendations/major-event-hold/types';
+import {
+  buildCanonicalSessionDecision,
+  type CanonicalDecisionCandidate,
+  type CanonicalSessionDecision,
+} from '@/lib/recommendations/canonical-decision';
 
 export const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v1:discovery-hero-v1';
 
@@ -53,6 +58,10 @@ export interface WeekScoutRequest {
   localTimezone: string;
   startLocalDate: string;
   dayCount: 7;
+}
+
+export interface WeekScoutDaysRequest extends Omit<WeekScoutRequest, 'dayCount'> {
+  dayCount: number;
 }
 
 export interface WeekScoutRankedSpotResponse {
@@ -84,6 +93,7 @@ export interface WeekScoutWindowResponse {
     windDirection: string | null;
     tideHeightFt: number | null;
     tidePhase: string | null;
+    freshnessAt: string;
   };
   takeaway: string | null;
   rankedSpots: WeekScoutRankedSpotResponse[];
@@ -100,6 +110,19 @@ export interface WeekScoutResponse {
   scorerVersion: string;
   candidateFingerprint: string;
   days: WeekScoutDayResponse[];
+}
+
+export type CanonicalWeekScoutResponse = MajorEventHoldWeekScoutResponse & {
+  sessionDecision: CanonicalSessionDecision;
+};
+
+interface GeneratedWeekScoutContext {
+  heldResponse: MajorEventHoldWeekScoutResponse;
+  beaches: Beach[];
+  forecastsByBeach: Map<string, EnhancedForecastEntity[]>;
+  userSkillLevel: SkillLevel | null;
+  generatedAt: string;
+  now: Date;
 }
 
 interface PersonalizationBonus {
@@ -385,6 +408,7 @@ function buildDraftWindow(args: {
         windDirection: forecast.wind_direction ?? null,
         tideHeightFt: finiteNumber(forecast.tide_height),
         tidePhase: forecast.tide_status ?? null,
+        freshnessAt: forecast.updated_at ?? forecast.forecast_at,
       },
       takeaway: reasons[0] ?? null,
     },
@@ -435,11 +459,117 @@ function rankDrafts(
   return responses.map((window) => ({ ...window, rankedSpots }));
 }
 
-export async function generateWeekScoutForecast(
+function nearestForecastForWindow(
+  forecasts: readonly EnhancedForecastEntity[],
+  peakTime: string,
+): EnhancedForecastEntity | null {
+  if (forecasts.length === 0) return null;
+  const target = Date.parse(peakTime);
+  return forecasts.reduce((closest, candidate) => (
+    Math.abs(Date.parse(candidate.forecast_at) - target)
+      < Math.abs(Date.parse(closest.forecast_at) - target)
+      ? candidate
+      : closest
+  ));
+}
+
+function canonicalLabelForVerdict(
+  verdict: WeekScoutVerdict,
+): CanonicalDecisionCandidate['recommendationLabel'] {
+  if (verdict === 'worth_it') return 'Worth it';
+  if (verdict === 'maybe') return 'Maybe';
+  return 'Skip';
+}
+
+function buildWeekScoutCanonicalCandidates(args: {
+  response: MajorEventHoldWeekScoutResponse;
+  beaches: readonly Beach[];
+  forecastsByBeach: ReadonlyMap<string, EnhancedForecastEntity[]>;
+  timezone: string;
+}): CanonicalDecisionCandidate[] {
+  const beachById = new Map(args.beaches.map((candidate) => [candidate.id, candidate]));
+
+  return args.response.days.flatMap((day) =>
+    day.windows.flatMap((window) => {
+      const beach = beachById.get(window.beachId);
+      if (
+        !beach
+        || window.rankingScore === null
+        || window.verdict === null
+      ) {
+        return [];
+      }
+      const forecast = nearestForecastForWindow(
+        args.forecastsByBeach.get(window.beachId) ?? [],
+        window.peakTime,
+      );
+
+      return [{
+        candidateId: window.id,
+        beachId: window.beachId,
+        beachName: beach.name,
+        beachSkillLevel: beach.skill_level,
+        windowStart: window.start,
+        windowEnd: window.end,
+        timezone: args.timezone,
+        forecastId: forecast?.id ?? '',
+        forecastAt: forecast?.forecast_at ?? '',
+        waveHeight: window.forecast.waveHeight,
+        utilityScore: window.rankingScore,
+        recommendationLabel: canonicalLabelForVerdict(window.verdict),
+      }];
+    }),
+  );
+}
+
+function applyCanonicalDecisionToWeekScout(
+  response: MajorEventHoldWeekScoutResponse,
+  sessionDecision: CanonicalSessionDecision,
+): CanonicalWeekScoutResponse {
+  const selectedCandidateId = sessionDecision.selection?.candidateId ?? null;
+  const selectedBeachId = sessionDecision.selection?.beachId ?? null;
+
+  return {
+    ...response,
+    days: response.days.map((day) => {
+      const hasSelection = day.windows.some((window) => (
+        window.id === selectedCandidateId
+        && window.beachId === selectedBeachId
+      ));
+      return {
+        ...day,
+        bestWindowId: hasSelection ? selectedCandidateId : null,
+        windows: day.windows.map((window) => {
+          const isSelected = (
+            window.id === selectedCandidateId
+            && window.beachId === selectedBeachId
+          );
+          return {
+            ...window,
+            conditionScore: null,
+            rankingScore: null,
+            verdict: isSelected
+              ? sessionDecision.verdict === 'go'
+                ? 'worth_it' as const
+                : 'maybe' as const
+              : null,
+            rideable: null,
+            safe: null,
+            takeaway: null,
+            rankedSpots: [],
+          };
+        }),
+      };
+    }),
+    sessionDecision,
+  };
+}
+
+async function generateWeekScoutForecastInternal(
   userId: string,
-  request: WeekScoutRequest,
+  request: WeekScoutDaysRequest,
   dependencies?: WeekScoutServiceDependencies,
-): Promise<MajorEventHoldWeekScoutResponse> {
+): Promise<GeneratedWeekScoutContext> {
   const deps = dependencies ?? defaultDependencies(new Date());
   const generatedAt = deps.now.toISOString();
   const localDates = Array.from(
@@ -523,5 +653,81 @@ export async function generateWeekScoutForecast(
     candidates,
     profileExperience: userSkillLevel,
   });
-  return sanitizeWeekScoutForMajorEventHold(response, candidates, decisions);
+  const heldResponse = sanitizeWeekScoutForMajorEventHold(
+    response,
+    candidates,
+    decisions,
+  );
+
+  return {
+    heldResponse,
+    beaches,
+    forecastsByBeach,
+    userSkillLevel,
+    generatedAt,
+    now: deps.now,
+  };
+}
+
+function validateDayCount(dayCount: number): void {
+  if (!Number.isInteger(dayCount) || dayCount < 1 || dayCount > 7) {
+    throw new Error('Week Scout dayCount must be between 1 and 7');
+  }
+}
+
+function buildCanonicalWeekScoutResponse(
+  context: GeneratedWeekScoutContext,
+  request: WeekScoutDaysRequest,
+): CanonicalWeekScoutResponse {
+  const canonicalCandidates = buildWeekScoutCanonicalCandidates({
+    response: context.heldResponse,
+    beaches: context.beaches,
+    forecastsByBeach: context.forecastsByBeach,
+    timezone: request.localTimezone,
+  });
+  const sessionDecision = buildCanonicalSessionDecision({
+    anchorTime: context.generatedAt,
+    scope: {
+      kind: 'plan_next_session',
+      windowStart: context.generatedAt,
+      windowEnd: new Date(
+        context.now.getTime() + request.dayCount * 24 * 60 * 60 * 1000,
+      ).toISOString(),
+      timezone: request.localTimezone,
+    },
+    profileExperience: context.userSkillLevel,
+    recommendationAvailability: context.heldResponse.recommendationAvailability,
+    candidates: canonicalCandidates,
+  });
+
+  return applyCanonicalDecisionToWeekScout(context.heldResponse, sessionDecision);
+}
+
+export async function generateWeekScoutForecastForDays(
+  userId: string,
+  request: WeekScoutDaysRequest,
+  dependencies?: WeekScoutServiceDependencies,
+): Promise<CanonicalWeekScoutResponse> {
+  validateDayCount(request.dayCount);
+  const context = await generateWeekScoutForecastInternal(userId, request, dependencies);
+  return buildCanonicalWeekScoutResponse(context, request);
+}
+
+export async function generateWeekScoutRankingForDays(
+  userId: string,
+  request: WeekScoutDaysRequest,
+  dependencies?: WeekScoutServiceDependencies,
+): Promise<MajorEventHoldWeekScoutResponse> {
+  validateDayCount(request.dayCount);
+  const context = await generateWeekScoutForecastInternal(userId, request, dependencies);
+  return context.heldResponse;
+}
+
+export async function generateWeekScoutForecast(
+  userId: string,
+  request: WeekScoutRequest,
+  dependencies?: WeekScoutServiceDependencies,
+): Promise<CanonicalWeekScoutResponse> {
+  const context = await generateWeekScoutForecastInternal(userId, request, dependencies);
+  return buildCanonicalWeekScoutResponse(context, request);
 }

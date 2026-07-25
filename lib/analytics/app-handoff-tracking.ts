@@ -19,6 +19,7 @@ type AppHandoffEvent =
 
 export interface AppHandoffMetadata {
   source: string;
+  handoff_id?: string;
   surface?: string;
   placement?: string;
   platform?: "ios" | "android" | "desktop";

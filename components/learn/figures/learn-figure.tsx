@@ -14,6 +14,14 @@ const FIGURES: Record<FigureKey, ComponentType> = {
     ssr: false,
     loading: () => <FigurePoster kind="origin-fetch" />,
   }),
+  "wave-height-reference": dynamic(() => import("./wave-height-reference"), {
+    ssr: false,
+    loading: () => <FigurePoster kind="wave-height-reference" />,
+  }),
+  "tide-window": dynamic(() => import("./tide-window"), {
+    ssr: false,
+    loading: () => <FigurePoster kind="tide-window" />,
+  }),
 };
 
 export function LearnFigure({ figureKey }: { figureKey: FigureKey }) {

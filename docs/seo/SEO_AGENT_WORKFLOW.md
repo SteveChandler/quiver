@@ -22,6 +22,7 @@ yarn seo:store-snapshot
 yarn seo:backlink-proxy
 yarn seo:outreach-digest
 yarn seo:gsc-refresh --input path/to/gsc-export.json
+yarn seo:gsc-refresh --input path/to/gsc-export.json --protection-output lib/seo/gsc-performance-protection.v1.json
 yarn seo:technical-audit
 yarn seo:enrich --source vercel --input path/to/vercel-export.json
 yarn seo:enrich --source posthog --input path/to/posthog-export.json
@@ -41,6 +42,7 @@ The commands generate dashboard updates or review reports only. They do not publ
 - AEO export: structured llms inventory, AI referrer traffic, and Ahrefs AI citation snapshot inputs for weekly citation-readiness reporting.
 - Ahrefs: external SEO. Use it for crawl issues, backlink/ranking context, and keyword opportunities that should enter the review queue. The manual snapshot file is `AHREFS-SCREENSHOT-INPUT.json`; do not use the same path for `--input` and `--output`, because that overwrites the source export and can silently produce an empty enrichment. Ahrefs keyword priorities are cross-checked against same-folder `GSC-EXPORT.json`, `VERCEL-EXPORT.json`, and `POSTHOG-EXPORT.json`; Ahrefs-only keyword rows stay low priority until one of those sources corroborates demand.
 - GSC remains the indexing/query source of truth when available. `scripts/gsc-stats.py --json-output` now also performs read-only URL Inspection checks for the high-value URLs in `docs/seo/gsc-indexing-watchlist.json`; discovered/crawled-but-not-indexed states appear under **Google Indexing Health** and become high-priority technical actions. This is a bounded watchlist, not a substitute for sitewide Index Coverage.
+- The optional `--protection-output` refreshes the reviewed, versioned performance-protection snapshot from the latest complete 28-day export and reports canonical paths added to or removed from the rolling cohort. Review that diff before committing it; the snapshot is passive evidence and route-level data checks still control final robots and sitemap decisions.
 - Store snapshots: App Store / Play listing metadata, sampled App Store keyword position checks, competitor version/rating/IAP deltas, and listing drift against Brand Vault copy. Current iOS competitor targets are Lazy Surfer, Swellify, Swell Scope, Duune, and Surf Radar.
 - Backlink proxy: Vercel referrers, widget embed referrers, outreach tracker rows, and optional manual Ahrefs Webmaster Tools, Moz Link Explorer, GSC links, or generic backlink CSV/JSON exports.
 

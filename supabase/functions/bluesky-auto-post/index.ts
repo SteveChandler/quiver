@@ -1588,29 +1588,11 @@ Deno.serve(async (req: Request) => {
       return await handleDevNotesPost(supabase, config);
     }
 
-    // Fetch San Diego beaches
-    const beaches = await getSanDiegoBeaches(supabase);
-    if (beaches.length === 0) {
-      throw new Error("No San Diego beaches found in database");
-    }
-    console.log(`[bluesky-auto-post] Found ${beaches.length} SD beaches`);
-
-    // Generate post content
+    // Public social posts have no verified surfer skill. The canonical
+    // unknown-skill decision is explicit none, so no beach/window
+    // recommendation may leave this boundary.
     let result: GeneratedForecastPost;
-
-    switch (post_type) {
-      case "go_no":
-        result = await generateGoNoPost(supabase, beaches);
-        break;
-      case "weekend_wave":
-        result = await generateWeekendWavePost(supabase, beaches);
-        break;
-      case "longboard_sunday":
-        result = await generateLongboardSundayPost(supabase, beaches);
-        break;
-      default:
-        throw new Error(`Unknown post_type: ${post_type}`);
-    }
+    result = objectiveSafetyPost();
 
     result = await applyLastMileMajorEventHoldPolicy(supabase, result);
     console.log(`[bluesky-auto-post] Generated text (${result.text.length} chars):\n${result.text}`);

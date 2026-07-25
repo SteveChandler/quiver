@@ -31,6 +31,7 @@ interface SendToPhoneCtaProps {
   cohort?: string;
   qrId?: string;
   target?: string;
+  handoffId?: string;
   className?: string;
   showEmailForm?: boolean;
 }
@@ -47,34 +48,47 @@ export function SendToPhoneCta({
   cohort,
   qrId,
   target,
+  handoffId: providedHandoffId,
   className,
   showEmailForm = true,
 }: SendToPhoneCtaProps): ReactElement {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<SendState>("idle");
   const [inlineError, setInlineError] = useState<string | null>(null);
+  const [handoffId, setHandoffId] = useState<string | null>(
+    providedHandoffId ?? null,
+  );
   const qrTracked = useRef(false);
 
+  useEffect(() => {
+    setHandoffId((current) => current ?? providedHandoffId ?? crypto.randomUUID());
+  }, [providedHandoffId]);
+
   const qrValue = useMemo(
-    () =>
-      buildSmartQrHandoffUrl({
+    () => {
+      if (!handoffId) return null;
+
+      return buildSmartQrHandoffUrl({
         source,
         surface,
         placement,
+        handoff_id: handoffId,
         qr_id: qrId ?? `${surface}_${placement}_qr`,
         target: target ?? "download",
         utm_medium: "desktop_handoff",
-      }),
-    [placement, qrId, source, surface, target],
+      });
+    },
+    [handoffId, placement, qrId, source, surface, target],
   );
 
   useEffect(() => {
-    if (qrTracked.current) return;
+    if (!handoffId || !qrValue || qrTracked.current) return;
     qrTracked.current = true;
     trackAppHandoffQrRendered({
       source,
       surface,
       placement,
+      handoff_id: handoffId,
       variant,
       cohort,
       platform: "desktop",
@@ -82,7 +96,17 @@ export function SendToPhoneCta({
       qr_id: qrId ?? `${surface}_${placement}_qr`,
       target: target ?? "download",
     });
-  }, [cohort, placement, qrId, source, surface, target, variant]);
+  }, [
+    cohort,
+    handoffId,
+    placement,
+    qrId,
+    qrValue,
+    source,
+    surface,
+    target,
+    variant,
+  ]);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -94,12 +118,15 @@ export function SendToPhoneCta({
       return;
     }
 
+    if (!handoffId) return;
+
     const emailDomain = email.split("@")[1] ?? "";
     setState("sending");
     trackAppHandoffEmailSubmit({
       source,
       surface,
       placement,
+      handoff_id: handoffId,
       variant,
       cohort,
       platform: "desktop",
@@ -110,7 +137,13 @@ export function SendToPhoneCta({
       const response = await fetch("/api/app-link-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, source, surface, placement }),
+        body: JSON.stringify({
+          email,
+          handoff_id: handoffId,
+          source,
+          surface,
+          placement,
+        }),
       });
 
       if (!response.ok) {
@@ -119,6 +152,7 @@ export function SendToPhoneCta({
           source,
           surface,
           placement,
+          handoff_id: handoffId,
           variant,
           cohort,
           platform: "desktop",
@@ -132,6 +166,7 @@ export function SendToPhoneCta({
         source,
         surface,
         placement,
+        handoff_id: handoffId,
         variant,
         cohort,
         platform: "desktop",
@@ -143,6 +178,7 @@ export function SendToPhoneCta({
         source,
         surface,
         placement,
+        handoff_id: handoffId,
         variant,
         cohort,
         platform: "desktop",
@@ -169,23 +205,30 @@ export function SendToPhoneCta({
     >
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
         <div className="mx-auto shrink-0 -rotate-1 rounded-[1.1rem] bg-white p-3 shadow-md">
-          <QRCodeSVG
-            aria-label="Scan to open Quiver on your phone"
-            data-testid="app-handoff-qr"
-            data-smart-url={qrValue}
-            value={qrValue}
-            size={150}
-            level="H"
-            marginSize={3}
-            bgColor="#FFFFFF"
-            fgColor="#252D6B"
-            imageSettings={{
-              src: "/quiver-app-icon-128.png",
-              width: 28,
-              height: 28,
-              excavate: true,
-            }}
-          />
+          {qrValue ? (
+            <QRCodeSVG
+              aria-label="Scan to open Quiver on your phone"
+              data-testid="app-handoff-qr"
+              data-smart-url={qrValue}
+              value={qrValue}
+              size={150}
+              level="H"
+              marginSize={3}
+              bgColor="#FFFFFF"
+              fgColor="#252D6B"
+              imageSettings={{
+                src: "/quiver-app-icon-128.png",
+                width: 28,
+                height: 28,
+                excavate: true,
+              }}
+            />
+          ) : (
+            <div
+              aria-label="Preparing Quiver handoff"
+              className="size-[150px]"
+            />
+          )}
         </div>
 
         <div className="min-w-0 flex-1">
@@ -216,7 +259,7 @@ export function SendToPhoneCta({
                 />
                 <button
                   type="submit"
-                  disabled={state === "sending"}
+                  disabled={state === "sending" || !handoffId}
                   className="inline-flex min-h-11 items-center justify-center rounded-md bg-ocean-blue-decorative px-5 font-sans text-base font-bold text-header-end transition hover:bg-[#D57835] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white active:bg-[#C06A25] disabled:opacity-60"
                 >
                   {state === "sending" ? "Sending..." : "Send link"}

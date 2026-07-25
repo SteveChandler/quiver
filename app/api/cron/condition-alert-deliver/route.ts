@@ -59,6 +59,12 @@ import {
   type NotificationMajorEventHoldResult,
   type PositiveRecommendationPolicyContext,
 } from "@/lib/recommendations/major-event-hold/adapters/notification";
+import {
+  buildCanonicalDecisionFromAlertMatches,
+  canonicalAlertCandidateId,
+  parseCanonicalSessionDecision,
+  type CanonicalSessionDecision,
+} from "@/lib/recommendations/canonical-decision";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -221,10 +227,57 @@ function buildRenderedMatchDetails(matches: MatchingWindow[]): Array<Record<stri
     window_start: match.window_start,
     window_end: match.window_end,
     best_hour: match.best_hour,
-    best_score: match.best_score,
     wave_label: waveLabelFromSnapshot(match.conditions_snapshot),
     snapshot_summary: buildConditionsLine(match.conditions_snapshot),
   }));
+}
+
+function buildAlertSessionDecision(args: {
+  matches: MatchingWindow[];
+  profileExperience: unknown;
+  anchorTime?: Date;
+}): CanonicalSessionDecision {
+  const anchorTime = args.anchorTime ?? new Date();
+  const starts = args.matches
+    .map((match) => Date.parse(match.window_start))
+    .filter(Number.isFinite);
+  const ends = args.matches
+    .map((match) => Date.parse(match.window_end))
+    .filter(Number.isFinite);
+  const scopeStart =
+    starts.length > 0 ? new Date(Math.min(...starts)).toISOString() : anchorTime.toISOString();
+  const scopeEnd =
+    ends.length > 0 ? new Date(Math.max(...ends)).toISOString() : anchorTime.toISOString();
+
+  return buildCanonicalDecisionFromAlertMatches({
+    anchorTime: anchorTime.toISOString(),
+    scope: {
+      kind: "plan_next_session",
+      windowStart: scopeStart,
+      windowEnd: scopeEnd,
+      timezone: args.matches[0]?.beach_timezone ?? "UTC",
+    },
+    profileExperience: args.profileExperience,
+    recommendationAvailability: {
+      state: "available",
+      holdEpoch: `notification:alert:${anchorTime.toISOString()}`,
+      resolutionAsOf: anchorTime.toISOString(),
+    },
+    matches: args.matches,
+  });
+}
+
+function selectedAlertMatch(
+  matches: MatchingWindow[],
+  decision: CanonicalSessionDecision,
+): MatchingWindow | null {
+  const candidateId = decision.selection?.candidateId;
+  if (!candidateId) return null;
+  return (
+    matches.find(
+      (match) => canonicalAlertCandidateId(match) === candidateId,
+    ) ?? null
+  );
 }
 
 function policyContextForMatch(
@@ -448,6 +501,7 @@ export async function GET(request: Request): Promise<NextResponse> {
             rule_name: rule.name,
             beach_name: beach.name,
             beach_slug: beach.slug ?? null,
+            beach_skill_level: beach.skill_level ?? null,
             beach_timezone: beach.timezone ?? "America/Los_Angeles",
             notify_email: rule.notify_email,
             notify_push: rule.notify_push,
@@ -557,8 +611,102 @@ export async function GET(request: Request): Promise<NextResponse> {
           attempted_at: new Date(r.attempted_at),
         }));
 
-        // 4. Consolidate per user
-        const payloads = consolidateQueueItems(items);
+        // 4. Resolve one authoritative alert session per user across every
+        // beach/rule candidate. Candidates must first pass the P0-A boundary;
+        // only the exact canonical selection can reach email or push.
+        const canonicalItems: QueueItemWithMeta[] = [];
+        const itemsByUser = new Map<string, QueueItemWithMeta[]>();
+        for (const item of items) {
+          const userItems = itemsByUser.get(item.user_id) ?? [];
+          userItems.push(item);
+          itemsByUser.set(item.user_id, userItems);
+        }
+
+        for (const [userId, userItems] of itemsByUser) {
+          const profile = profilesByUser.get(userId);
+          if (!profile) {
+            canonicalItems.push(...userItems);
+            continue;
+          }
+          const userMatches = consolidateQueueItems(userItems).flatMap(
+            (candidatePayload) => candidatePayload.matches,
+          );
+          const allowedMatches: MatchingWindow[] = [];
+          let holdSuppressionReason: string | null = null;
+          for (const match of userMatches) {
+            const policyContext = policyContextForMatch(match);
+            const resolution = await resolveNotificationMajorEventHold({
+              eventId: `condition-alert-deliver:canonical:${userId}:${canonicalAlertCandidateId(match)}`,
+              type: "forecast_alert",
+              payload: {
+                beach_id: match.beach_id,
+                forecast_at: match.best_hour,
+                ...(policyContext ? { policy_context: policyContext } : {}),
+              },
+              profileExperience: profile.experience_level,
+            });
+            if (resolution.status === "allowed") {
+              allowedMatches.push(match);
+            } else if (resolution.status === "suppressed") {
+              holdSuppressionReason = `${resolution.auditCode}:${resolution.reasonCode}`;
+            }
+          }
+
+          const decision = buildAlertSessionDecision({
+            matches: allowedMatches,
+            profileExperience: profile.experience_level,
+          });
+          const selectedMatch = selectedAlertMatch(allowedMatches, decision);
+          const selectedItem = selectedMatch
+            ? userItems.find(
+                (item) =>
+                  item.rule_id === selectedMatch.rule_id &&
+                  item.beach_id === selectedMatch.beach_id &&
+                  item.window_start === selectedMatch.window_start,
+              ) ?? null
+            : null;
+          if (selectedItem) {
+            canonicalItems.push(selectedItem);
+          }
+
+          const suppressedItems = userItems.filter(
+            (item) => item.id !== selectedItem?.id,
+          );
+          for (const item of suppressedItems) {
+            for (const channel of enabledChannels(item)) {
+              await recordAttempt({
+                queueId: item.id,
+                ruleId: item.rule_id,
+                userId,
+                channel,
+                status: "skipped_disabled",
+                skipReason:
+                  holdSuppressionReason ??
+                  `canonical_decision:${decision.reasonCode}`,
+              });
+            }
+          }
+          if (suppressedItems.length > 0) {
+            const { error: canonicalMarkError } = await supabase
+              .from("alert_queue")
+              .update({ sent: true })
+              .in(
+                "id",
+                suppressedItems.map((item) => item.id),
+              );
+            if (canonicalMarkError) {
+              console.error(
+                `${CONTEXT_TAG} Failed to mark non-canonical alert rows sent for user ${userId}:`,
+                canonicalMarkError,
+              );
+              result.errors++;
+            } else {
+              result.queueMarked += suppressedItems.length;
+            }
+          }
+        }
+
+        const payloads = consolidateQueueItems(canonicalItems);
         const baseUrl = getBaseUrl();
         const rateLimiter = createResendRateLimiter();
         const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
@@ -566,7 +714,7 @@ export async function GET(request: Request): Promise<NextResponse> {
         for (const payload of payloads) {
           const payloadBeachId = payload.matches[0]?.beach_id ?? null;
           result.processed++;
-          const contributingItems = items.filter(
+          const contributingItems = canonicalItems.filter(
             (item) =>
               item.user_id === payload.user_id && item.beach_id === payloadBeachId,
           );
@@ -812,10 +960,9 @@ export async function GET(request: Request): Promise<NextResponse> {
                     }
                   } else {
                     const survivorRuleIds = new Set(emailSurvivors.map((i) => i.rule_id));
-                    const emailMatches = payload.matches
+                    const candidateEmailMatches = payload.matches
                       .filter((m) => m.notify_email && survivorRuleIds.has(m.rule_id))
                       .map((m) => ({ ...m, disable_token: generateDisableToken(m.rule_id) }));
-                    const renderedEmailMatches = buildRenderedMatchDetails(emailMatches);
                     const manageAlertsUrl = `${baseUrl}/settings`;
                     const unsubscribeToken = generateEmailUnsubscribeToken(payload.user_id);
                     const unsubscribeUrl =
@@ -826,8 +973,8 @@ export async function GET(request: Request): Promise<NextResponse> {
                       month: "long",
                       day: "numeric",
                     });
-                    const emailSubject = buildConsolidatedSubject(
-                      emailMatches,
+                    const candidateEmailSubject = buildConsolidatedSubject(
+                      candidateEmailMatches,
                       alertDate
                     );
 
@@ -837,13 +984,31 @@ export async function GET(request: Request): Promise<NextResponse> {
                       eventIdPrefix: `condition-alert-deliver:email:${payload.user_id}`,
                       payload: {
                         alert_date: payload.alert_date,
-                        title: emailSubject,
-                        body: emailMatches.map((match) => match.rule_name).join(", "),
+                        title: candidateEmailSubject,
+                        body: candidateEmailMatches.map((match) => match.rule_name).join(", "),
                       },
-                      matches: emailMatches,
+                      matches: candidateEmailMatches,
                       profileExperience,
                     });
-                    const sendResult = emailHold
+                    const emailDecision = emailHold
+                      ? null
+                      : buildAlertSessionDecision({
+                          matches: candidateEmailMatches,
+                          profileExperience,
+                        });
+                    const selectedEmailMatch = emailDecision
+                      ? selectedAlertMatch(candidateEmailMatches, emailDecision)
+                      : null;
+                    const emailMatches = selectedEmailMatch
+                      ? [selectedEmailMatch]
+                      : [];
+                    const renderedEmailMatches =
+                      buildRenderedMatchDetails(emailMatches);
+                    const emailSubject =
+                      emailMatches.length > 0
+                        ? buildConsolidatedSubject(emailMatches, alertDate)
+                        : candidateEmailSubject;
+                    const sendResult = emailHold || !emailDecision || !selectedEmailMatch
                       ? { data: null, error: null }
                       : await resend.emails.send({
                           from: MAIL_FROM,
@@ -861,7 +1026,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                         });
                     const { data: sendData, error: sendError } = sendResult;
 
-                    if (emailHold) {
+                    if (emailHold || !emailDecision || !selectedEmailMatch) {
                       for (const item of emailSurvivors) {
                         await recordAttempt({
                           queueId: item.id,
@@ -869,7 +1034,9 @@ export async function GET(request: Request): Promise<NextResponse> {
                           userId: payload.user_id,
                           channel: "email",
                           status: "skipped_disabled",
-                          skipReason: `${emailHold.auditCode}:${emailHold.reasonCode}`,
+                          skipReason: emailHold
+                            ? `${emailHold.auditCode}:${emailHold.reasonCode}`
+                            : `canonical_decision:${emailDecision?.reasonCode ?? "unavailable"}`,
                         });
                       }
                     } else if (sendError) {
@@ -924,6 +1091,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                             match_count: emailMatches.length,
                             beaches: emailMatches.map((m) => m.beach_name),
                             matches: renderedEmailMatches,
+                            session_decision_id: emailDecision.decisionId,
                           },
                           resendMessageId: sendData?.id,
                         });
@@ -1015,55 +1183,104 @@ export async function GET(request: Request): Promise<NextResponse> {
                     // pref enforcement. The `notif_push_enabled` master gate
                     // above is kept as a cheap producer-side pre-filter.
                     const survivorRuleIdsPush = new Set(pushSurvivors.map((i) => i.rule_id));
-                    const pushMatches = payload.matches.filter(
+                    const candidatePushMatches = payload.matches.filter(
                       (m) => m.notify_push && survivorRuleIdsPush.has(m.rule_id)
                     );
-                    const renderedPushMatches = buildRenderedMatchDetails(pushMatches);
-                    const { title, body, data: pushData } = formatPushNotification(pushMatches);
+                    const candidateTopMatch = candidatePushMatches[0];
+                    const holdProbePayload = {
+                      alert_date: payload.alert_date,
+                      title: "Forecast alert",
+                      body: "A surf window matched your alert.",
+                      beach_id: candidateTopMatch?.beach_id ?? null,
+                      forecast_at:
+                        candidateTopMatch?.best_hour ??
+                        candidateTopMatch?.window_start ??
+                        null,
+                      matches: candidatePushMatches.map((m) => ({
+                        beach_id: m.beach_id,
+                        window_start: m.window_start,
+                        window_end: m.window_end,
+                        best_hour: m.best_hour,
+                      })),
+                    };
+                    const pushHold = await resolveHoldForForecastMatches({
+                      eventIdPrefix: `condition-alert-deliver:push:${payload.user_id}`,
+                      payload: holdProbePayload,
+                      matches: candidatePushMatches,
+                      profileExperience,
+                    });
+                    const pushDecision = pushHold
+                      ? null
+                      : buildAlertSessionDecision({
+                          matches: candidatePushMatches,
+                          profileExperience,
+                        });
+                    const selectedPushMatch = pushDecision
+                      ? selectedAlertMatch(candidatePushMatches, pushDecision)
+                      : null;
+                    const pushMatches = selectedPushMatch
+                      ? [selectedPushMatch]
+                      : [];
+                    const renderedPushMatches =
+                      buildRenderedMatchDetails(pushMatches);
+                    const {
+                      title,
+                      body,
+                      data: pushData,
+                    } = selectedPushMatch
+                      ? formatPushNotification(pushMatches)
+                      : {
+                          title: "Forecast alert",
+                          body: "No approved surf window.",
+                          data: {
+                            type: "forecast_alert",
+                            beach_id: null,
+                            forecast_at: null,
+                          },
+                        };
                     const topMatch = pushMatches[0];
-                    const quietHoursOverride = resolveQuietHoursOverride(pushSurvivors);
+                    const quietHoursOverride =
+                      resolveQuietHoursOverride(pushSurvivors);
                     const topPolicyContext = policyContextForMatch(topMatch);
                     const pushPayload = {
                       alert_date: payload.alert_date,
                       title,
                       body,
                       beach_id: pushData.beach_id,
-                      forecast_at: pushData.forecast_at ?? topMatch?.best_hour ?? topMatch?.window_start ?? null,
+                      forecast_at:
+                        pushData.forecast_at ??
+                        topMatch?.best_hour ??
+                        topMatch?.window_start ??
+                        null,
                       matches: pushMatches.map((m) => ({
                         beach_id: m.beach_id,
                         beach_name: m.beach_name,
                         window_start: m.window_start,
                         window_end: m.window_end,
                         best_hour: m.best_hour,
-                        best_score: m.best_score,
                       })),
                       rendered_matches: renderedPushMatches,
                       ...(quietHoursOverride ?? {}),
                       ...(topPolicyContext
                         ? { policy_context: topPolicyContext }
                         : {}),
-                      // Queue-item provenance: the forecast_alert
-                      // onChannelOutcome hook in lib/notifications/registry.ts
-                      // writes alert_delivery_attempts(status=...) for each
-                      // queue item once the worker reaches a terminal channel
-                      // outcome — so cooldown/cap reads only see actually-
-                      // delivered pushes (not enqueued-but-skipped ones).
+                      ...(pushDecision
+                        ? { session_decision: pushDecision }
+                        : {}),
                       queue_items: pushSurvivors.map((s) => ({
                         queue_id: s.id,
                         rule_id: s.rule_id,
                       })),
                     };
-                    const pushHold = await resolveHoldForForecastMatches({
-                      eventIdPrefix: `condition-alert-deliver:push:${payload.user_id}`,
-                      payload: pushPayload,
-                      matches: pushMatches,
-                      profileExperience,
-                    });
-                    const enqueueResult = pushHold
+                    const enqueueResult =
+                      pushHold || !pushDecision || !selectedPushMatch
                       ? {
                           enqueued: false as const,
                           reason: "major_event_hold" as const,
-                          holdReason: pushHold.reasonCode,
+                          holdReason:
+                            pushHold?.reasonCode ??
+                            pushDecision?.reasonCode ??
+                            "hold_state_unavailable",
                         }
                       : await enqueueNotification({
                           type: "forecast_alert",
@@ -1094,6 +1311,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                           notification_event_id: enqueueResult.eventId,
                           method: "enqueued_via_pipeline",
                           matches: renderedPushMatches,
+                          session_decision_id: pushDecision!.decisionId,
                         } as import("@/types/database.generated").Json,
                       });
 
@@ -1289,13 +1507,43 @@ export async function GET(request: Request): Promise<NextResponse> {
               typeof value === "number" && Number.isFinite(value)
                 ? value
                 : undefined;
-            const similarityPolicyContext = policyContextForMatch(item);
+            const similarityForecastAt = String(
+              snap.forecast_at ?? item.best_hour,
+            );
+            const similarityForecastAtMs = Date.parse(similarityForecastAt);
+            const similarityWindowEnd = Number.isFinite(similarityForecastAtMs)
+              ? new Date(similarityForecastAtMs + 60 * 60 * 1000).toISOString()
+              : "";
+            let storedSimilarityDecision: CanonicalSessionDecision | null = null;
+            try {
+              storedSimilarityDecision = parseCanonicalSessionDecision(
+                snap.session_decision,
+              );
+            } catch {
+              storedSimilarityDecision = null;
+            }
+            const storedSelection = storedSimilarityDecision?.selection;
+            const storedDecisionMatchesWindow =
+              storedSimilarityDecision?.verdict === "go" &&
+              storedSelection?.beachId === item.beach_id &&
+              storedSelection.windowStart === similarityForecastAt &&
+              storedSelection.windowEnd === similarityWindowEnd;
+            const similarityPolicyContext =
+              Number.isFinite(similarityForecastAtMs) &&
+              similarityWindowEnd.length > 0
+                ? {
+                    kind: "positive_session_recommendation" as const,
+                    beach_id: item.beach_id,
+                    starts_at: similarityForecastAt,
+                    ends_at: similarityWindowEnd,
+                  }
+                : null;
             const similarityPayload = {
               beach_id: String(snap.beach_id ?? item.beach_id),
               beach_slug: String(snap.beach_slug ?? ""),
               beach_name: String(snap.beach_name ?? item.beach_name),
               alert_date: item.alert_date,
-              forecast_at: String(snap.forecast_at ?? ""),
+              forecast_at: similarityForecastAt,
               score: typeof snap.score === "number" ? snap.score : 0,
               label: snap.label == null ? null : String(snap.label),
               reason: String(snap.reason ?? ""),
@@ -1343,14 +1591,62 @@ export async function GET(request: Request): Promise<NextResponse> {
               payload: similarityPayload,
               profileExperience: parseSkillLevel(profile.experience_level),
             });
-            if (similarityHold.status === "suppressed") {
+            const similarityScore =
+              typeof snap.score === "number" && Number.isFinite(snap.score)
+                ? snap.score
+                : item.best_score;
+            const normalizedSimilarityScore =
+              similarityScore <= 10 ? similarityScore * 10 : similarityScore;
+            const similarityMatch: MatchingWindow = {
+              rule_id: item.rule_id,
+              rule_name: item.rule_name,
+              beach_id: item.beach_id,
+              beach_name: item.beach_name,
+              beach_slug: item.beach_slug ?? null,
+              beach_skill_level:
+                item.beach_skill_level ?? item.beach_meta?.skill_level ?? null,
+              beach_timezone: item.beach_timezone,
+              window_start: similarityForecastAt,
+              window_end: similarityWindowEnd,
+              best_hour: similarityForecastAt,
+              best_score: normalizedSimilarityScore,
+              conditions_snapshot: {
+                ...snap,
+                wave_height: snap.wave_height_ft,
+              },
+              notify_email: false,
+              notify_push: true,
+            };
+            const similarityDecision =
+              similarityHold.status === "allowed"
+                ? buildAlertSessionDecision({
+                    matches: [similarityMatch],
+                    profileExperience: profile.experience_level,
+                  })
+                : null;
+            const selectedSimilarityMatch = similarityDecision
+              ? selectedAlertMatch([similarityMatch], similarityDecision)
+              : null;
+            const notificationDecision =
+              storedDecisionMatchesWindow && storedSimilarityDecision
+                ? storedSimilarityDecision
+                : similarityDecision;
+            if (
+              similarityHold.status !== "allowed" ||
+              !similarityDecision ||
+              !selectedSimilarityMatch ||
+              notificationDecision?.verdict !== "go"
+            ) {
               await recordAttempt({
                 queueId: item.id,
                 ruleId: item.rule_id,
                 userId: item.user_id,
                 channel: "push",
                 status: "skipped_disabled",
-                skipReason: `${similarityHold.auditCode}:${similarityHold.reasonCode}`,
+                skipReason:
+                  similarityHold.status === "suppressed"
+                    ? `${similarityHold.auditCode}:${similarityHold.reasonCode}`
+                    : `canonical_decision:${similarityDecision?.reasonCode ?? "unavailable"}`,
               });
               const { error: markErr } = await supabase
                 .from("alert_queue")
@@ -1370,8 +1666,13 @@ export async function GET(request: Request): Promise<NextResponse> {
               recipientUserId: item.user_id,
               entityType: "beach",
               entityId: item.beach_id,
-              payload: similarityPayload,
-              dedupeKey: `similarity_match:${item.user_id}:${item.beach_id}:${item.alert_date}`,
+              payload: {
+                ...similarityPayload,
+                session_decision: notificationDecision,
+              },
+              dedupeKey:
+                `similarity_match:${item.user_id}:${item.beach_id}:` +
+                `${similarityForecastAt}:${notificationDecision.decisionId}`,
             }).catch((err) => {
               console.error(`${CONTEXT_TAG} similarity enqueue threw for user ${item.user_id}:`, err);
               return { enqueued: false as const, reason: "internal_error" as const };

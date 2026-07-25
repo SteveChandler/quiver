@@ -220,6 +220,7 @@ function Providers({ children }) {
 - Rate limited: 60 requests/minute per user
 - Caches denials only; allowed consent is rechecked before each recorded event
 - Authenticated PostHog consent is revalidated when the tab becomes visible or focused, with capture disabled while the owner-only lookup is pending
+- Initial auth resolution remains fail-closed, while later sign-in/sign-up loading transitions preserve the resolved tracking decision so outcome events are not dropped
 
 ---
 

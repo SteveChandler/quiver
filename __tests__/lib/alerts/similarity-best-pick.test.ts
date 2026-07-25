@@ -204,4 +204,60 @@ describe("pickBestSimilaritySlot", () => {
     expect(pick).not.toBeNull();
     expect(pick!.beach_id).toBe("beach-west-day");
   });
+
+  it("uses confidence before physical utility to break match-score ties", () => {
+    const common = {
+      score: 8.5,
+      forecast_at: "2026-05-04T17:00:00Z",
+    };
+    const pick = pickBestSimilaritySlot({
+      scoredSlots: [
+        slot({
+          ...common,
+          beach_id: "beach-z",
+          match_confidence: "high",
+          condition_score: 70,
+        }),
+        slot({
+          ...common,
+          beach_id: "beach-best-physical",
+          match_confidence: "high",
+          condition_score: 71,
+        }),
+        slot({
+          ...common,
+          beach_id: "beach-higher-physical",
+          match_confidence: "medium",
+          condition_score: 99,
+        }),
+      ],
+      ...DEFAULTS,
+    });
+
+    expect(pick?.beach_id).toBe("beach-best-physical");
+  });
+
+  it("uses a stable beach/window ID after all other tie-breakers", () => {
+    const pick = pickBestSimilaritySlot({
+      scoredSlots: [
+        slot({
+          beach_id: "beach-z",
+          score: 8.5,
+          match_confidence: "high",
+          condition_score: 70,
+          forecast_at: "2026-05-04T17:00:00Z",
+        }),
+        slot({
+          beach_id: "beach-a",
+          score: 8.5,
+          match_confidence: "high",
+          condition_score: 70,
+          forecast_at: "2026-05-04T17:00:00Z",
+        }),
+      ],
+      ...DEFAULTS,
+    });
+
+    expect(pick?.beach_id).toBe("beach-a");
+  });
 });

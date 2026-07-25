@@ -13,16 +13,17 @@ import {
 } from "@/lib/cron/home-beach-push-runner";
 import { withObservedCron } from "@/lib/cron/observability";
 import { getLocalDateString, getLocalHour } from "@/lib/utils/timezone-utils";
-import { resolveTodayHeadline } from "@/lib/services/forecast/today-headline";
-import {
-  computeSurfCall,
-  type SurfCallVerdict,
-} from "@/lib/utils/surf-call-logic";
+import type { SurfCallVerdict } from "@/lib/utils/surf-call-logic";
 import { parseSkillLevel } from "@/lib/domains/user-preferences/skill-level";
 import {
   resolveNotificationMajorEventHold,
   type PositiveRecommendationPolicyContext,
 } from "@/lib/recommendations/major-event-hold/adapters/notification";
+import {
+  resolveCanonicalSessionDecisionContext,
+  type CanonicalSessionDecision,
+} from "@/lib/recommendations/canonical-decision";
+import type { SurfDiscoveryRecommendation } from "@/types/personalization";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -48,6 +49,7 @@ interface HomeMorningCallPayload {
   forecast_at: string;
   title: string;
   body: string;
+  session_decision: CanonicalSessionDecision;
   policy_context?: PositiveRecommendationPolicyContext;
 }
 
@@ -130,6 +132,20 @@ function filterMorningForecasts(
   });
 }
 
+function findCanonicalRecommendation(
+  decision: CanonicalSessionDecision,
+  recommendations: readonly SurfDiscoveryRecommendation[],
+): SurfDiscoveryRecommendation | null {
+  const selection = decision.selection;
+  if (!selection || decision.verdict === "no") return null;
+  return recommendations.find((recommendation) => (
+    recommendation.recommendationId === selection.candidateId
+    && recommendation.beach.id === selection.beachId
+    && recommendation.window.start.toISOString() === selection.windowStart
+    && recommendation.window.end.toISOString() === selection.windowEnd
+  )) ?? null;
+}
+
 export async function selectAndBuildMorningCall({
   profile,
   beach,
@@ -141,58 +157,88 @@ export async function selectAndBuildMorningCall({
   if (morningForecasts.length === 0) {
     return { skipReason: "noForecast" };
   }
-
-  const headline = resolveTodayHeadline({
-    forecasts: morningForecasts,
-    beach,
-    userPrefs: null,
-    horizonHours: 12,
-    now,
-  });
-  const window = headline?.window ?? null;
-  const call = computeSurfCall(window, morningForecasts, beach, {
-    isTomorrow: false,
-  });
-  const sourceForecast =
-    morningForecasts.find(
-      (forecast) => forecast.forecast_at === call.bestWindowStart
-    ) ??
-    morningForecasts.find(
-      (forecast) => forecast.forecast_at === headline?.display.forecastAt
-    ) ??
-    morningForecasts[0];
+  const profileExperience = parseSkillLevel(
+    (profile as HomeBeachPushSelectArgs["profile"] & {
+      experience_level?: string | null;
+    }).experience_level
+  );
+  const anchorTime = now.toISOString();
+  const { decision, discovery } =
+    await resolveCanonicalSessionDecisionContext({
+      userId: profile.id,
+      profileExperience,
+      anchorTime,
+      scope: {
+        kind: "plan_next_session",
+        windowStart: anchorTime,
+        windowEnd: new Date(
+          now.getTime() + 24 * 60 * 60 * 1000,
+        ).toISOString(),
+        timezone,
+      },
+      discoveryOptions: {
+        userLocation:
+          typeof beach.lat === "number"
+          && typeof beach.lon === "number"
+          && Number.isFinite(beach.lat)
+          && Number.isFinite(beach.lon)
+            ? { lat: beach.lat, lon: beach.lon }
+            : undefined,
+        horizonHours: 24,
+        timeSlot: "dawn-patrol",
+        discoveryMode: "best-window",
+        includeBeachIds: [beach.id],
+        isPro: false,
+      },
+    });
+  const recommendation = findCanonicalRecommendation(
+    decision,
+    [
+      ...discovery.recommendations,
+      ...(discovery.includedRecommendations ?? []),
+    ],
+  );
+  if (decision.verdict !== "no" && !recommendation) {
+    return { skipReason: "canonicalDecision" };
+  }
+  const sourceForecast = recommendation?.forecast ?? morningForecasts[0];
+  const selectedBeach = recommendation?.beach ?? beach;
+  const verdict: SurfCallVerdict = decision.verdict === "go"
+    ? "YES"
+    : decision.verdict === "maybe"
+      ? "MAYBE"
+      : "NO";
   const copy = buildMorningCallCopy({
-    verdict: call.verdict,
-    beachName: beach.name,
-    waveHeight: call.waveHeight ?? sourceForecast.wave_height ?? null,
+    verdict,
+    beachName: selectedBeach.name,
+    waveHeight: sourceForecast.wave_height ?? null,
     wavePeriod: normalizePeriod(sourceForecast.wave_period),
-    windDescription: call.windDescription,
-    whySentence: call.whySentence,
+    windDescription: null,
+    whySentence: recommendation?.message ?? null,
   });
   const localDate = getLocalDateString(now, timezone);
-  const forecastAt =
-    call.bestWindowStart ??
-    headline?.display.forecastAt ??
-    sourceForecast.forecast_at;
+  const forecastAt = decision.selection?.forecastRef.forecastAt
+    ?? sourceForecast.forecast_at;
 
   const payload: HomeMorningCallPayload = {
     alert_date: localDate,
-    verdict: call.verdict,
-    beach_id: beach.id,
-    beach_name: beach.name,
+    verdict,
+    beach_id: selectedBeach.id,
+    beach_name: selectedBeach.name,
     forecast_at: forecastAt,
     title: copy.title,
     body: copy.body,
+    session_decision: decision,
   };
   const selection = {
     payload,
     dedupeKey: `${NOTIFICATION_TYPE}:${profile.id}:${localDate}`,
   };
 
-  if (call.verdict === "NO") return selection;
+  if (verdict === "NO") return selection;
 
-  const bestStartsAt = call.bestWindowStart;
-  const bestEndsAt = call.bestWindowEnd;
+  const bestStartsAt = decision.selection?.windowStart;
+  const bestEndsAt = decision.selection?.windowEnd;
   const bestStartsAtMs = bestStartsAt ? Date.parse(bestStartsAt) : Number.NaN;
   const bestEndsAtMs = bestEndsAt ? Date.parse(bestEndsAt) : Number.NaN;
   if (
@@ -206,15 +252,10 @@ export async function selectAndBuildMorningCall({
   }
   payload.policy_context = {
     kind: "positive_session_recommendation",
-    beach_id: beach.id,
+    beach_id: selectedBeach.id,
     starts_at: bestStartsAt,
     ends_at: bestEndsAt,
   };
-  const profileExperience = parseSkillLevel(
-    (profile as HomeBeachPushSelectArgs["profile"] & {
-      experience_level?: string | null;
-    }).experience_level
-  );
   const holdResolution = await resolveNotificationMajorEventHold({
     eventId: `home-morning-call:${profile.id}:${localDate}`,
     type: NOTIFICATION_TYPE,

@@ -1,6 +1,5 @@
 import * as React from "react";
 
-import { getConditionLabel } from "@/lib/email/email-formatters";
 import {
   BeachBadge,
   CTAButton,
@@ -60,7 +59,7 @@ export interface ConditionsAlertSignals {
 
 export interface ConditionsAlertEmailProps {
   beachName: string;
-  conditionsScore: number;
+  decisionVerdict: "go" | "maybe";
   surfDescription: string | null;
   windDescription: string | null;
   /** Tide summary, e.g. "2.1 ft, incoming". */
@@ -92,41 +91,24 @@ interface Verdict {
   inkColor: string;
   /** Short verdict phrase. */
   phrase: string;
+  label: string;
 }
 
-function getVerdict(score: number): Verdict {
-  if (score >= 70) {
-    return { chipColor: TEAL, inkColor: INK, phrase: "Go surf!" };
+function getVerdict(verdict: "go" | "maybe"): Verdict {
+  if (verdict === "go") {
+    return {
+      chipColor: TEAL,
+      inkColor: INK,
+      phrase: "Go surf!",
+      label: "GO",
+    };
   }
-  if (score >= 55) {
-    return { chipColor: GOLD, inkColor: INK, phrase: "Might work" };
-  }
-  return { chipColor: GRAY, inkColor: "#1A1A1A", phrase: "Skip it" };
-}
-
-/** Fallback headline when the engine has no condition-character label. */
-function getFallbackHeadline(score: number): string {
-  if (score >= 85) return "It's firing — go now";
-  if (score >= 70) return "Clean window lining up";
-  if (score >= 55) return "Could work if you time it";
-  return "Marginal, but it's your call";
-}
-
-function formatConfidenceCopy(
-  forecastConfidence: number | null,
-  waveFrequencyConfidence: "high" | "medium" | "low" | null
-): string | null {
-  // Prefer the explicit forecast confidence score when present; otherwise fall
-  // back to the wave-frequency confidence bucket.
-  if (typeof forecastConfidence === "number") {
-    if (forecastConfidence >= 70) return "High · two models agree";
-    if (forecastConfidence >= 45) return "Medium · per-beach calibrated";
-    return "Low · single source";
-  }
-  if (waveFrequencyConfidence === "high") return "High · two models agree";
-  if (waveFrequencyConfidence === "medium") return "Medium · per-beach calibrated";
-  if (waveFrequencyConfidence === "low") return "Low · single source";
-  return null;
+  return {
+    chipColor: GOLD,
+    inkColor: INK,
+    phrase: "Worth considering",
+    label: "CONSIDER",
+  };
 }
 
 function formatRideableCopy(
@@ -229,7 +211,7 @@ function SignalCell({
 
 export function ConditionsAlertEmail({
   beachName,
-  conditionsScore,
+  decisionVerdict,
   surfDescription,
   windDescription,
   tideDescription,
@@ -241,21 +223,19 @@ export function ConditionsAlertEmail({
   manageUrl,
   unsubscribeUrl,
 }: ConditionsAlertEmailProps) {
-  const { label: conditionLabel } = getConditionLabel(conditionsScore);
-  const verdict = getVerdict(conditionsScore);
+  const verdict = getVerdict(decisionVerdict);
   const headline =
-    signals.conditionCharacter ?? getFallbackHeadline(conditionsScore);
-  const showFiringSticker = conditionsScore >= 85;
+    signals.conditionCharacter ??
+    (decisionVerdict === "go"
+      ? "Your best session window is lining up"
+      : "A session window is worth watching");
+  const showFiringSticker = decisionVerdict === "go";
 
   const rideableCopy = formatRideableCopy(
     signals.rideableWavesPerHour,
     signals.setIntervalSeconds
   );
   const bestWindowCopy = bestWindow ? `${bestWindow.start}–${bestWindow.end}` : null;
-  const confidenceCopy = formatConfidenceCopy(
-    signals.forecastConfidence,
-    signals.waveFrequencyConfidence
-  );
   const rip = getRipPresentation(signals.ripRisk);
   const water = getWaterQualityPresentation(signals.waterQuality);
 
@@ -269,7 +249,6 @@ export function ConditionsAlertEmail({
   const secondaryCells = [
     { label: "RIDEABLE / HR", value: rideableCopy, color: TEAL },
     { label: "BEST WINDOW", value: bestWindowCopy, color: CREAM },
-    { label: "CONFIDENCE", value: confidenceCopy, color: CREAM },
   ];
 
   const hasPrimaryRow = primaryCells.some((c) => c.value);
@@ -359,20 +338,7 @@ export function ConditionsAlertEmail({
                       color: verdict.inkColor,
                     }}
                   >
-                    {conditionsScore}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: FONT_MONO,
-                      fontSize: 12,
-                      fontWeight: 700,
-                      letterSpacing: "1.5px",
-                      textTransform: "uppercase" as const,
-                      color: verdict.inkColor,
-                      marginTop: 4,
-                    }}
-                  >
-                    {conditionLabel}
+                    {verdict.label}
                   </div>
                 </td>
                 <td

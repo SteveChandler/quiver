@@ -20,6 +20,42 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
     }
   });
 
+  it("weekend_window rejects location and full-ranking data", () => {
+    const def = (NOTIFICATION_REGISTRY as any).weekend_window;
+    expect(() => def.validatePayload({
+      snapshot_id: "11111111-1111-4111-8111-111111111111",
+      weekend_start: "2026-07-25",
+      weekend_end: "2026-07-26",
+      qualifying_count: 3,
+      lead_beach_id: "22222222-2222-4222-8222-222222222222",
+      lead_beach_name: "Black's",
+      lead_window_local: "Saturday morning",
+      lat: 32.81,
+      results: [],
+    })).toThrow();
+  });
+
+  it("weekend_window owns the snapshot alert copy and routing summary", () => {
+    const def = (NOTIFICATION_REGISTRY as any).weekend_window;
+    const payload = {
+      snapshot_id: "11111111-1111-4111-8111-111111111111",
+      weekend_start: "2026-07-25",
+      weekend_end: "2026-07-26",
+      qualifying_count: 3,
+      lead_beach_id: "22222222-2222-4222-8222-222222222222",
+      lead_beach_name: "Black's",
+      lead_window_local: "Saturday morning",
+    };
+    expect(def.buildPushPayload(def.validatePayload(payload))).toEqual({
+      title: "3 spots look promising this weekend",
+      body: "Black's leads Saturday morning. See your top picks and why.",
+      data: { type: "weekend_window", ...payload },
+    });
+    expect(def.buildPushPayload({ ...payload, qualifying_count: 1 }).title).toBe(
+      "1 spot looks promising this weekend"
+    );
+  });
+
   it("forecast_alert restores push alongside in_app", () => {
     const def = NOTIFICATION_REGISTRY.forecast_alert as unknown as {
       channels: string[];
@@ -68,6 +104,201 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
       beach_slug: "cardiff-reef",
       forecast_at: "2026-05-10T14:30:00.000Z",
     });
+  });
+
+  it("accepts an official-only swell observation without invented forecast values", () => {
+    const parsed = NOTIFICATION_REGISTRY.swell_watch.validatePayload!({
+      schema_version: "major-swell-notification.v1",
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      beach_name: "Black's Beach",
+      event_start_date: null,
+      peak_date: null,
+      peak_height_ft: null,
+      peak_period_s: null,
+      forecast_at: null,
+      awareness_mode: "shadow",
+      automation_enabled: false,
+      awareness_signal: "official_advisory",
+      awareness_severity: "major",
+      official_evidence_refs: ["official:nws_alert:high-surf"],
+      would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+      enforcement: null,
+      title: "Official surf hazard signal — Black's Beach",
+      body: "An official coastal advisory is active in the forecast window.",
+    });
+
+    expect(parsed).toMatchObject({
+      awareness_signal: "official_advisory",
+      forecast_at: null,
+      peak_height_ft: null,
+    });
+  });
+
+  it("keeps shadow and enforce major-swell contract capability delivery-disabled", () => {
+    const validate = NOTIFICATION_REGISTRY.swell_watch.validatePayload!;
+
+    const shadow = validate({
+      schema_version: "major-swell-notification.v1",
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      beach_name: "Black's Beach",
+      event_start_date: "2026-08-01",
+      peak_date: "2026-08-02",
+      peak_height_ft: 8,
+      peak_period_s: 16,
+      forecast_at: "2026-08-02T15:00:00.000Z",
+      awareness_mode: "shadow",
+      automation_enabled: false,
+      awareness_signal: "forecast_trend",
+      awareness_severity: "major",
+      official_evidence_refs: [],
+      would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+      enforcement: null,
+      title: "Major swell incoming",
+      body: "Advanced conditions are approaching.",
+    });
+    const enforce = validate({
+      schema_version: "major-swell-notification.v1",
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      beach_name: "Black's Beach",
+      event_start_date: "2026-08-01",
+      peak_date: "2026-08-02",
+      peak_height_ft: 8,
+      peak_period_s: 16,
+      forecast_at: "2026-08-02T15:00:00.000Z",
+      awareness_mode: "enforce",
+      automation_enabled: true,
+      awareness_signal: "corroborated",
+      awareness_severity: "major",
+      official_evidence_refs: ["official:nws_alert:high-surf"],
+      would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+      enforcement: {
+        hold_id: "22222222-2222-4222-8222-222222222222",
+        hold_record_id: "33333333-3333-4333-8333-333333333333",
+        hold_valid_until: "2026-08-03T00:00:00.000Z",
+      },
+      title: "Major swell incoming",
+      body: "Advanced conditions are approaching.",
+    });
+
+    expect(shadow.awareness_mode).toBe("shadow");
+    expect(shadow.automation_enabled).toBe(false);
+    expect(shadow.enforcement).toBeNull();
+    expect(enforce.awareness_mode).toBe("enforce");
+    expect(enforce.automation_enabled).toBe(true);
+    expect(enforce.enforcement).toEqual({
+      hold_id: "22222222-2222-4222-8222-222222222222",
+      hold_record_id: "33333333-3333-4333-8333-333333333333",
+      hold_valid_until: "2026-08-03T00:00:00.000Z",
+    });
+    expect(NOTIFICATION_REGISTRY.swell_watch.channels).toEqual([]);
+  });
+
+  it("normalizes legacy forecast-trend payloads at the registry boundary", () => {
+    const payload = NOTIFICATION_REGISTRY.swell_watch.validatePayload!({
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      beach_slug: "blacks",
+      beach_name: "Black's Beach",
+      event_start_date: "2026-08-01",
+      peak_date: "2026-08-02",
+      peak_height_ft: 8,
+      peak_period_s: 16,
+      forecast_at: "2026-08-02T15:00:00.000Z",
+      awareness_mode: "shadow",
+      awareness_signal: "forecast_trend",
+      awareness_severity: "major",
+      title: "Major swell incoming",
+      body: "Advanced conditions are approaching.",
+    });
+
+    expect(payload).toMatchObject({
+      schema_version: "major-swell-notification.v1",
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      event_start_date: "2026-08-01",
+      peak_date: "2026-08-02",
+      peak_height_ft: 8,
+      peak_period_s: 16,
+      forecast_at: "2026-08-02T15:00:00.000Z",
+      awareness_mode: "shadow",
+      automation_enabled: false,
+      awareness_signal: "forecast_trend",
+      official_evidence_refs: [],
+      would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+      enforcement: null,
+    });
+  });
+
+  it("does not expose major-swell evidence or hold proof to clients", () => {
+    const payload = NOTIFICATION_REGISTRY.swell_watch.validatePayload!({
+      schema_version: "major-swell-notification.v1",
+      beach_id: "11111111-1111-4111-8111-111111111111",
+      beach_slug: "blacks",
+      beach_name: "Black's Beach",
+      event_start_date: "2026-08-01",
+      peak_date: "2026-08-02",
+      peak_height_ft: 8,
+      peak_period_s: 16,
+      forecast_at: "2026-08-02T15:00:00.000Z",
+      awareness_mode: "enforce",
+      automation_enabled: true,
+      awareness_signal: "corroborated",
+      awareness_severity: "major",
+      official_evidence_refs: ["official:nws_alert:high-surf"],
+      would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+      enforcement: {
+        hold_id: "22222222-2222-4222-8222-222222222222",
+        hold_record_id: "33333333-3333-4333-8333-333333333333",
+        hold_valid_until: "2026-08-03T00:00:00.000Z",
+      },
+      title: "Major swell incoming",
+      body: "Advanced conditions are approaching.",
+    });
+
+    const push = NOTIFICATION_REGISTRY.swell_watch.buildPushPayload!(payload);
+    const inApp = NOTIFICATION_REGISTRY.swell_watch.buildInAppPayload!(payload);
+    for (const clientPayload of [push.data, inApp.data]) {
+      expect(clientPayload).not.toHaveProperty("official_evidence_refs");
+      expect(clientPayload).not.toHaveProperty("would_suppress_cohorts");
+      expect(clientPayload).not.toHaveProperty("enforcement");
+      expect(JSON.stringify(clientPayload)).not.toContain(
+        "22222222-2222-4222-8222-222222222222",
+      );
+      expect(JSON.stringify(clientPayload)).not.toContain(
+        "33333333-3333-4333-8333-333333333333",
+      );
+      expect(JSON.stringify(clientPayload)).not.toContain(
+        "2026-08-03T00:00:00.000Z",
+      );
+    }
+  });
+
+  it("omits nonexistent physical values from official-only push data", () => {
+    const officialOnlyPayload = NOTIFICATION_REGISTRY.swell_watch.validatePayload!(
+      {
+        schema_version: "major-swell-notification.v1",
+        beach_id: "11111111-1111-4111-8111-111111111111",
+        beach_name: "Black's Beach",
+        event_start_date: null,
+        peak_date: null,
+        peak_height_ft: null,
+        peak_period_s: null,
+        forecast_at: null,
+        awareness_mode: "shadow",
+        automation_enabled: false,
+        awareness_signal: "official_advisory",
+        awareness_severity: "major",
+        official_evidence_refs: ["official:nws_alert:high-surf"],
+        would_suppress_cohorts: ["beginner", "intermediate", "unknown"],
+        enforcement: null,
+        title: "Official surf hazard signal — Black's Beach",
+        body: "An official coastal advisory is active in the forecast window.",
+      },
+    );
+
+    const push = NOTIFICATION_REGISTRY.swell_watch.buildPushPayload!(
+      officialOnlyPayload,
+    );
+    expect(push.data).not.toHaveProperty("forecast_at");
+    expect(JSON.stringify(push.data)).not.toContain("null");
   });
 
   it("retains first-session policy context internally but never sends it to FCM", () => {
@@ -126,13 +357,6 @@ describe("NOTIFICATION_REGISTRY — Phase 5h informational consolidation", () =>
         forecast_at: policyContext.starts_at,
         title: "Worth it",
         body: "Clean early window",
-        policy_context: policyContext,
-      },
-      weekend_window: {
-        beach_id: policyContext.beach_id,
-        forecast_at: policyContext.starts_at,
-        title: "Weekend window",
-        body: "Saturday morning lines up",
         policy_context: policyContext,
       },
     };

@@ -3,7 +3,12 @@ import { learnArticles } from "@/lib/data/learn-articles";
 
 describe("figure keys", () => {
   it("declares the v1 figure keys", () => {
-    expect([...FIGURE_KEYS]).toEqual(["swell-period-morph", "swell-origin-fetch"]);
+    expect([...FIGURE_KEYS]).toEqual([
+      "swell-period-morph",
+      "swell-origin-fetch",
+      "wave-height-reference",
+      "tide-window",
+    ]);
   });
 
   it("isFigureKey narrows valid/invalid keys", () => {
@@ -55,6 +60,14 @@ it("reuses registered figures across the swell education cluster", () => {
       slug: "how-swell-wraps-around-points",
       figureKey: "swell-period-morph",
     },
+    {
+      slug: "how-are-waves-measured",
+      figureKey: "wave-height-reference",
+    },
+    {
+      slug: "how-do-tides-work",
+      figureKey: "tide-window",
+    },
   ] as const;
 
   for (const { slug, figureKey } of expectedFigures) {
@@ -65,6 +78,10 @@ it("reuses registered figures across the swell education cluster", () => {
     }
 
     expect(article.sections.map((section) => section.figureKey)).toContain(figureKey);
-    expect(article.dateModified).toBe("2026-07-06");
+    expect(article.dateModified).toBe(
+      figureKey === "wave-height-reference" || figureKey === "tide-window"
+        ? "2026-07-23"
+        : "2026-07-06",
+    );
   }
 });

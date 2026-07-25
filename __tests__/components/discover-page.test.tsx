@@ -4,10 +4,14 @@ import userEvent from "@testing-library/user-event";
 import DiscoverPage from "@/app/discover/page";
 import { useAuth } from "@/context/auth-context";
 import { FollowButton } from "@/components/social/follow-button";
+import { track } from "@/lib/analytics";
 
 // Mock dependencies
 jest.mock("@/context/auth-context");
 jest.mock("@/components/social/follow-button");
+jest.mock("@/lib/analytics", () => ({
+  track: jest.fn(),
+}));
 jest.mock("@/components/social/user-profile-modal", () => ({
   UserProfileModal: ({ isOpen }: { isOpen: boolean }) =>
     isOpen ? <div role="dialog">Surfer Profile</div> : null,
@@ -17,6 +21,7 @@ const mockUseAuth = useAuth as jest.MockedFunction<typeof useAuth>;
 const MockFollowButton = FollowButton as jest.MockedFunction<
   typeof FollowButton
 >;
+const mockTrack = track as jest.MockedFunction<typeof track>;
 
 const mockUser = {
   id: "user-1",
@@ -477,6 +482,48 @@ describe("DiscoverPage", () => {
           body: JSON.stringify({
             eventType: "discover_suggested_users_impression",
             metadata: { count: 1, source: "popular_profiles" },
+          }),
+        }),
+      );
+    });
+
+    it("tracks a suggested-user follow attempt in PostHog and user events", async () => {
+      const user = userEvent.setup();
+      mockDiscoverFetch({
+        suggestedResponse: {
+          success: true,
+          data: {
+            source: "popular_profiles",
+            users: [
+              {
+                id: "suggested-1",
+                full_name: "Suggested Surfer",
+                followers_count: 9,
+                avatar_url: null,
+              },
+            ],
+          },
+        },
+      });
+
+      render(<DiscoverPage />);
+      await screen.findByText("Suggested Surfer");
+      await user.click(screen.getByTestId("follow-button-suggested-1"));
+
+      expect(mockTrack).toHaveBeenCalledWith("discover_follow_attempt", {
+        target_user_id: "suggested-1",
+        surface: "suggested",
+      });
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/events",
+        expect.objectContaining({
+          method: "POST",
+          body: JSON.stringify({
+            eventType: "discover_follow_attempt",
+            metadata: {
+              target_user_id: "suggested-1",
+              surface: "suggested",
+            },
           }),
         }),
       );

@@ -24,11 +24,65 @@ function discoveryResponse(
   availability: SurfDiscoveryResponse["recommendationAvailability"],
   recommendationCount: number,
 ): SurfDiscoveryResponse {
+  const isAvailable =
+    availability?.state === "available" && recommendationCount > 0;
   return {
+    sessionDecision: {
+      schemaVersion: "canonical-session-decision.v1",
+      engineVersion: "rules.v1",
+      decisionId: "b".repeat(64),
+      createdAt: "2026-07-19T12:00:00.000Z",
+      expiresAt: "2099-07-19T12:15:00.000Z",
+      scope: {
+        kind: "plan_next_session",
+        windowStart: "2026-07-19T12:00:00.000Z",
+        windowEnd: "2026-07-20T12:00:00.000Z",
+        timezone: "America/Los_Angeles",
+      },
+      verdict: isAvailable ? "go" : "no",
+      decisionBasis: isAvailable ? "physical_fallback" : "safety_override",
+      reasonCode: isAvailable
+        ? "selected_go"
+        : availability?.reasonCode ?? "no_candidates",
+      selection: isAvailable
+        ? {
+            candidateId: "candidate-1",
+            beachId: "beach-1",
+            beachName: "Beach 1",
+            windowStart: "2026-07-20T15:00:00.000Z",
+            windowEnd: "2026-07-20T18:00:00.000Z",
+            timezone: "America/Los_Angeles",
+            forecastRef: {
+              forecastId: "forecast-1",
+              beachId: "beach-1",
+              forecastAt: "2026-07-20T15:00:00.000Z",
+            },
+            skillEligibility: {
+              skill: "intermediate",
+              state: "eligible",
+              reasonCodes: [],
+            },
+            evidence: {
+              conditionScore: 90,
+              recommendationLabel: "Worth it",
+              personalMatch: null,
+            },
+          }
+        : null,
+      skillEligibility: {
+        skill: "intermediate",
+        state: isAvailable ? "eligible" : "ineligible",
+        reasonCodes: isAvailable
+          ? []
+          : [availability?.reasonCode ?? "no_candidates"],
+      },
+      holdEpoch: availability?.holdEpoch ?? "missing-hold-state",
+    },
     recommendations: Array.from(
       { length: recommendationCount },
       (_, index) =>
         ({
+          recommendationId: `candidate-${index + 1}`,
           beach: {
             id: `beach-${index + 1}`,
             name: `Beach ${index + 1}`,
@@ -103,6 +157,7 @@ describe("useSurfDiscovery major-event hold precedence", () => {
   });
 
   afterEach(() => {
+    jest.useRealTimers();
     jest.restoreAllMocks();
   });
 
@@ -172,6 +227,38 @@ describe("useSurfDiscovery major-event hold precedence", () => {
       ),
     ).toEqual([]);
     expect(result.current.isCached).toBe(false);
+  });
+
+  it("clears and revalidates a positive decision when its authority expires", async () => {
+    jest.useFakeTimers().setSystemTime(
+      new Date("2026-07-19T12:00:00.000Z"),
+    );
+    const allowed = discoveryResponse(
+      { state: "available", holdEpoch: "clear" },
+      1,
+    );
+    allowed.sessionDecision!.expiresAt = "2026-07-19T12:00:01.000Z";
+    const refreshResponse = deferred<{
+      ok: boolean;
+      json: () => Promise<{ data: SurfDiscoveryResponse }>;
+    }>();
+    (global.fetch as jest.Mock)
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ data: serialized(allowed) }),
+      })
+      .mockReturnValueOnce(refreshResponse.promise);
+
+    const { result } = renderHook(() => useSurfDiscovery({ immediate: true }));
+
+    await waitFor(() => expect(result.current.hasRecommendations).toBe(true));
+    act(() => {
+      jest.advanceTimersByTime(1_001);
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(result.current.discovery).toBeNull();
+    expect(result.current.hasRecommendations).toBe(false);
   });
 
   it("revalidates a visible session and replaces a prior positive with explicit none", async () => {

@@ -230,7 +230,7 @@ describe("NOTIFICATION_REGISTRY.similarity_match — buildPushPayload", () => {
 });
 
 describe("NOTIFICATION_REGISTRY.similarity_match — buildInAppPayload", () => {
-  it("uses type='similarity_match' and surfaces all fields in data", () => {
+  it("uses type='similarity_match' without exposing legacy recommendation scores", () => {
     const out =
       NOTIFICATION_REGISTRY.similarity_match.buildInAppPayload!(validPayload);
     expect(out.type).toBe("similarity_match");
@@ -240,10 +240,10 @@ describe("NOTIFICATION_REGISTRY.similarity_match — buildInAppPayload", () => {
       beach_name: validPayload.beach_name,
       alert_date: validPayload.alert_date,
       forecast_at: validPayload.forecast_at,
-      score: validPayload.score,
       label: validPayload.label,
       reason: validPayload.reason,
     });
+    expect(out.data).not.toHaveProperty("score");
   });
 
   it("normalizes label=undefined to null in the in-app payload", () => {

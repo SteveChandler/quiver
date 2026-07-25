@@ -29,13 +29,123 @@ const DEFAULT_MIN_CONDITIONS_SET_COVERAGE = 0.8;
 const DEFAULT_MIN_SUBMIT_EVENT_COVERAGE = 0.8;
 const DEFAULT_MIN_RECENT_BUILD_METADATA_COVERAGE = 0.8;
 const DEFAULT_RECENT_TELEMETRY_DAYS = 7;
-const SESSION_ACQUISITION_REPORT_SCHEMA_VERSION = 2;
+const SESSION_ACQUISITION_REPORT_SCHEMA_VERSION = 3;
 const MAX_GENERATED_AT_FUTURE_SKEW_MS = 5 * 60 * 1000;
+const MAX_APP_VERSION_LENGTH = 64;
 const UUID_PATTERN =
-  /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
+  /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+const UNSAFE_IDENTIFIER_EVIDENCE_PATTERN =
+  /\b(?:user_id|flow_id|event_id|session_id)\s*[:=]\s*\S+/i;
+const UNSAFE_IDENTIFIER_KEYS = new Set([
+  "user_id",
+  "userId",
+  "flow_id",
+  "flowId",
+  "event_id",
+  "eventId",
+  "session_id",
+  "sessionId",
+]);
+const NATIVE_PLATFORM_LABELS = new Set(["native-ios", "native-android"]);
+const DEVICE_TYPE_LABELS = new Set(["mobile", "desktop", "tablet"]);
+const DEVICE_OS_LABELS = new Set([
+  "iOS",
+  "Android",
+  "Windows",
+  "macOS",
+  "Linux",
+  "unknown",
+]);
+const APP_VERSION_PATTERN =
+  /^\d{1,4}(?:\.\d{1,4}){1,3}(?:[-+][0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?$/;
+const APP_BUILD_PATTERN = /^\d{1,15}$/;
+const SESSION_ACQUISITION_REPORT_KEYS = [
+  "reportSchemaVersion",
+  "generatedAt",
+  "start",
+  "end",
+  "days",
+  "eventRows",
+  "sessionRows",
+  "lifetimeSessionRows",
+  "profileRows",
+  "excludedEventRows",
+  "excludedSessionRows",
+  "funnelSteps",
+  "canonicalFunnel",
+  "validationBranch",
+  "firstSessionTelemetryCoverage",
+  "eventsByType",
+  "eventsByPlatform",
+  "sessionsBySource",
+  "savedSessionUsers",
+  "ratedSessionUsers",
+  "faceHeightTruthUsers",
+  "ratedFaceHeightTruthUsers",
+  "savedSessions",
+  "ratedSessions",
+  "faceHeightTruthSessions",
+  "ratedFaceHeightTruthSessions",
+  "abandonedActors",
+  "validationFailedActors",
+  "activation",
+  "onboarding",
+  "readiness",
+  "telemetryCoverage",
+  "telemetryCoverageByPlatform",
+  "recentTelemetry",
+  "validationFailuresByCode",
+  "gaps",
+] as const;
+const CANONICAL_FUNNEL_KEYS = [
+  "grain",
+  "ordering",
+  "steps",
+  "joinCoverage",
+] as const;
+const CANONICAL_STEP_KEYS = [
+  "key",
+  "label",
+  "users",
+  "flows",
+  "pctOfStart",
+  "pctOfPrevious",
+] as const;
+const CANONICAL_JOIN_COVERAGE_KEYS = [
+  "funnelEventRowsMissingUserId",
+  "funnelEventsMissingFlowId",
+  "submitEventsMissingSessionId",
+  "firstSessionMarkersMissingSessionId",
+  "firstSessionMarkersMissingUserId",
+  "funnelEventsWithUnusableClientStageAt",
+  "stableIdConflictGroups",
+  "submitFlowsWithoutWindowSession",
+  "submitFlowsWithSessionOwnerMismatch",
+  "submitFlowsWithIneligibleSession",
+] as const;
+const VALIDATION_BRANCH_KEYS = [
+  "affectedUsers",
+  "affectedFlows",
+  "pctOfFormViewUsers",
+  "recoveredUsers",
+  "recoveredFlows",
+  "recoveryRate",
+] as const;
+const FIRST_SESSION_TELEMETRY_KEYS = [
+  "persistedFirstSessionUsers",
+  "markerUsers",
+  "coverage",
+] as const;
+const CANONICAL_STEP_ORDER = [
+  "start",
+  "form_view",
+  "submit",
+  "persisted_session",
+] as const;
 
 export const SESSION_ACQUISITION_EVENT_TYPES = [
   "session_log_start",
+  "session_log_form_view",
   "session_log_beach_selected",
   "session_log_conditions_set",
   "session_log_rating_set",
@@ -119,6 +229,7 @@ export interface SessionAcquisitionEventRow {
 }
 
 export interface SessionAcquisitionSessionRow {
+  id: string;
   user_id: string;
   created_at: string;
   arrival_time: string;
@@ -155,6 +266,56 @@ export interface FunnelStepMetric {
   pctOfPrevious: number | null;
 }
 
+export type CanonicalSessionFunnelStepKey =
+  | "start"
+  | "form_view"
+  | "submit"
+  | "persisted_session";
+
+export interface CanonicalSessionFunnelStep {
+  key: CanonicalSessionFunnelStepKey;
+  label: string;
+  users: number;
+  flows: number;
+  pctOfStart: number | null;
+  pctOfPrevious: number | null;
+}
+
+export interface CanonicalSessionJoinCoverage {
+  funnelEventRowsMissingUserId: number;
+  funnelEventsMissingFlowId: number;
+  submitEventsMissingSessionId: number;
+  firstSessionMarkersMissingSessionId: number;
+  firstSessionMarkersMissingUserId: number;
+  funnelEventsWithUnusableClientStageAt: number;
+  stableIdConflictGroups: number;
+  submitFlowsWithoutWindowSession: number;
+  submitFlowsWithSessionOwnerMismatch: number;
+  submitFlowsWithIneligibleSession: number;
+}
+
+export interface CanonicalSessionFunnel {
+  grain: "unique_user";
+  ordering: "metadata.client_stage_at";
+  steps: CanonicalSessionFunnelStep[];
+  joinCoverage: CanonicalSessionJoinCoverage;
+}
+
+export interface SessionValidationBranch {
+  affectedUsers: number;
+  affectedFlows: number;
+  pctOfFormViewUsers: number | null;
+  recoveredUsers: number;
+  recoveredFlows: number;
+  recoveryRate: number | null;
+}
+
+export interface FirstSessionTelemetryCoverage {
+  persistedFirstSessionUsers: number;
+  markerUsers: number;
+  coverage: number | null;
+}
+
 export interface ActivationSummary {
   windowUsersWithRatedSession: number;
   windowUsersWithThreeRatedSessions: number;
@@ -176,7 +337,7 @@ export interface OnboardingSummary {
 }
 
 export interface SessionAcquisitionReport {
-  reportSchemaVersion: 2;
+  reportSchemaVersion: 3;
   generatedAt: string;
   start: string;
   end: string;
@@ -188,6 +349,9 @@ export interface SessionAcquisitionReport {
   excludedEventRows: number;
   excludedSessionRows: number;
   funnelSteps: FunnelStepMetric[];
+  canonicalFunnel: CanonicalSessionFunnel;
+  validationBranch: SessionValidationBranch;
+  firstSessionTelemetryCoverage: FirstSessionTelemetryCoverage;
   eventsByType: Record<string, number>;
   eventsByPlatform: Record<string, number>;
   sessionsBySource: Record<string, number>;
@@ -251,6 +415,9 @@ interface SessionAcquisitionReadinessFinding {
 export interface SessionTelemetryPlatformCoverage {
   platform: string;
   startActors: number;
+  formViewActors: number;
+  formViewActorsWithStart: number;
+  formViewOfStart: number | null;
   beachSelectedActors: number;
   beachSelectedActorsWithStart: number;
   beachSelectedOfStart: number | null;
@@ -267,6 +434,9 @@ export interface SessionTelemetryClientBuildCoverage {
   hasVersionMetadata: boolean;
   hasBuildMetadata: boolean;
   startActors: number;
+  formViewActors: number;
+  formViewActorsWithStart: number;
+  formViewOfStart: number | null;
   beachSelectedActors: number;
   beachSelectedActorsWithStart: number;
   beachSelectedOfStart: number | null;
@@ -292,6 +462,9 @@ export interface SessionRecentTelemetryWindow {
   eventRows: number;
   startActors: number;
   startActorsWithoutBuildMetadata: number;
+  formViewActors: number;
+  formViewActorsWithStart: number;
+  formViewOfStart: number | null;
   beachSelectedActors: number;
   beachSelectedActorsWithStart: number;
   beachSelectedOfStart: number | null;
@@ -336,6 +509,13 @@ export function sessionAcquisitionReadinessCriteriaFromOptions(
 type AdminClient = SupabaseClient<Database>;
 type PlatformActorMap = Map<string, Map<string, Set<string>>>;
 type ClientBuildActorMap = Map<string, Map<string, Set<string>>>;
+
+export interface SessionAcquisitionSourceRows {
+  events: SessionAcquisitionEventRow[];
+  windowSessions: SessionAcquisitionSessionRow[];
+  lifetimeSessions: SessionAcquisitionSessionRow[];
+  profiles: SessionAcquisitionProfileRow[];
+}
 
 export function parseCliArgs(argv: string[], now: Date = new Date()): CliOptions {
   let start: string | null = null;
@@ -785,10 +965,8 @@ export function computeSessionAcquisitionReport(input: {
     eventActorsByType.get("session_log_beach_selected") ?? new Set();
   const conditionsSetActors =
     eventActorsByType.get("session_log_conditions_set") ?? new Set();
-  const submitEventActors = unionSets([
-    eventActorsByType.get("session_log_submit"),
-    eventActorsByType.get("first_session_logged"),
-  ]);
+  const submitEventActors =
+    eventActorsByType.get("session_log_submit") ?? new Set();
   const savedSessionActors = actorSetFromSessions(completedWindowSessions);
   const ratedSessionActors = actorSetFromSessions(ratedWindowSessions);
   const faceHeightTruthActors = actorSetFromSessions(faceHeightTruthSessions);
@@ -878,6 +1056,24 @@ export function computeSessionAcquisitionReport(input: {
     input.end,
     input.recentTelemetryDays ?? DEFAULT_RECENT_TELEMETRY_DAYS
   );
+  const canonicalSessionAnalysis = computeCanonicalSessionAnalysis({
+    events,
+    windowSessions,
+    start: input.start,
+    end: input.end,
+  });
+  const firstSessionTelemetryCoverage = buildFirstSessionTelemetryCoverage({
+    attempts: canonicalSessionAnalysis.attempts,
+    firstSessionMarkers: canonicalSessionAnalysis.firstSessionMarkers,
+    lifetimeSessions,
+    end: input.end,
+  });
+  const validationBranch = buildSessionValidationBranch(
+    canonicalSessionAnalysis.attempts,
+    canonicalSessionAnalysis.canonicalFunnel.steps.find(
+      (step) => step.key === "form_view",
+    )?.users ?? 0,
+  );
 
   const report: Omit<SessionAcquisitionReport, "readiness"> = {
     reportSchemaVersion: SESSION_ACQUISITION_REPORT_SCHEMA_VERSION,
@@ -892,6 +1088,9 @@ export function computeSessionAcquisitionReport(input: {
     excludedEventRows: input.events.length - events.length,
     excludedSessionRows: input.windowSessions.length - windowSessions.length,
     funnelSteps,
+    canonicalFunnel: canonicalSessionAnalysis.canonicalFunnel,
+    validationBranch,
+    firstSessionTelemetryCoverage,
     eventsByType: countBy(events, (event) => event.event_type),
     eventsByPlatform: countBy(events, platformForEvent),
     sessionsBySource: countBy(completedWindowSessions, (session) =>
@@ -943,6 +1142,13 @@ export function computeSessionAcquisitionReport(input: {
 export function renderSessionAcquisitionReport(
   report: SessionAcquisitionReport
 ): string {
+  const validation = validateSessionAcquisitionReport(report);
+  if (!validation.ok) {
+    throw new Error(
+      "Refusing to render invalid session acquisition report: " +
+        validation.blockers.join(", ")
+    );
+  }
   const lines: string[] = [];
   lines.push("# Track B Session Acquisition Instrumentation Report");
   lines.push("");
@@ -981,6 +1187,127 @@ export function renderSessionAcquisitionReport(
       )} | ${formatPercent(step.pctOfPrevious)} |`
     );
   }
+  lines.push("");
+  lines.push("## Canonical Session Funnel");
+  lines.push("");
+  lines.push("- Grain: unique authenticated users; flow counts are diagnostic.");
+  lines.push(
+    "- Correlation-complete traffic only; legacy/web rows without flow metadata remain diagnostic."
+  );
+  lines.push("");
+  lines.push("| Step | Users | Flows | Of start | From previous |");
+  lines.push("| --- | ---: | ---: | ---: | ---: |");
+  for (const step of report.canonicalFunnel.steps) {
+    lines.push(
+      "| " +
+        step.label +
+        " | " +
+        step.users.toLocaleString() +
+        " | " +
+        step.flows.toLocaleString() +
+        " | " +
+        formatPercent(step.pctOfStart) +
+        " | " +
+        formatPercent(step.pctOfPrevious) +
+        " |"
+    );
+  }
+  lines.push("");
+  lines.push("### Correlation Gaps");
+  lines.push("");
+  lines.push("| Aggregate diagnostic | Count |");
+  lines.push("| --- | ---: |");
+  for (const [label, count] of [
+    [
+      "Funnel event rows missing user ID",
+      report.canonicalFunnel.joinCoverage.funnelEventRowsMissingUserId,
+    ],
+    [
+      "Funnel events missing flow ID",
+      report.canonicalFunnel.joinCoverage.funnelEventsMissingFlowId,
+    ],
+    [
+      "Submit events missing surf-session ID",
+      report.canonicalFunnel.joinCoverage.submitEventsMissingSessionId,
+    ],
+    [
+      "First-session markers missing surf-session ID",
+      report.canonicalFunnel.joinCoverage.firstSessionMarkersMissingSessionId,
+    ],
+    [
+      "First-session markers missing user ID",
+      report.canonicalFunnel.joinCoverage.firstSessionMarkersMissingUserId,
+    ],
+    [
+      "Funnel events with unusable client stage time",
+      report.canonicalFunnel.joinCoverage
+        .funnelEventsWithUnusableClientStageAt,
+    ],
+    [
+      "Stable event-ID conflict groups",
+      report.canonicalFunnel.joinCoverage.stableIdConflictGroups,
+    ],
+    [
+      "Submit flows without a window session",
+      report.canonicalFunnel.joinCoverage.submitFlowsWithoutWindowSession,
+    ],
+    [
+      "Submit flows with session-owner mismatch",
+      report.canonicalFunnel.joinCoverage
+        .submitFlowsWithSessionOwnerMismatch,
+    ],
+    [
+      "Submit flows with an ineligible session",
+      report.canonicalFunnel.joinCoverage.submitFlowsWithIneligibleSession,
+    ],
+  ] as const) {
+    lines.push(`| ${label} | ${count.toLocaleString()} |`);
+  }
+  lines.push("");
+  lines.push("## Validation Recovery");
+  lines.push("");
+  lines.push("| Metric | Count / Rate |");
+  lines.push("| --- | ---: |");
+  lines.push(
+    `| Affected users | ${report.validationBranch.affectedUsers.toLocaleString()} |`
+  );
+  lines.push(
+    `| Affected flows | ${report.validationBranch.affectedFlows.toLocaleString()} |`
+  );
+  lines.push(
+    `| Affected users of form-view users | ${formatPercent(
+      report.validationBranch.pctOfFormViewUsers
+    )} |`
+  );
+  lines.push(
+    `| Recovered users | ${report.validationBranch.recoveredUsers.toLocaleString()} |`
+  );
+  lines.push(
+    `| Recovered flows | ${report.validationBranch.recoveredFlows.toLocaleString()} |`
+  );
+  lines.push(
+    `| Recovery rate | ${formatPercent(report.validationBranch.recoveryRate)} |`
+  );
+  lines.push("");
+  lines.push("## First-Session Telemetry Coverage");
+  lines.push("");
+  lines.push("| Metric | Count / Rate |");
+  lines.push("| --- | ---: |");
+  lines.push(
+    `| Persisted first-session users | ${report.firstSessionTelemetryCoverage.persistedFirstSessionUsers.toLocaleString()} |`
+  );
+  lines.push(
+    `| First-session marker users | ${report.firstSessionTelemetryCoverage.markerUsers.toLocaleString()} |`
+  );
+  lines.push(
+    `| Marker coverage | ${formatPercent(
+      report.firstSessionTelemetryCoverage.coverage
+    )} |`
+  );
+  lines.push("");
+  lines.push(
+    "- The fixed measurement window can right-censor offline delivery after the report end; it does not provide a mature follow-up horizon."
+  );
   lines.push("");
   lines.push("## Durable Session Signal");
   lines.push("");
@@ -1126,15 +1453,17 @@ export function renderSessionAcquisitionReport(
   lines.push("## Telemetry Coverage By Platform");
   lines.push("");
   lines.push(
-    "| Platform | Start actors | Beach-selected actors | Beach-selected of start | Conditions-set actors | Conditions-set of start | Submit actors | Submit of start |"
+    "| Platform | Start actors | Form-view actors | Form-view of start | Beach-selected actors | Beach-selected of start | Conditions-set actors | Conditions-set of start | Submit actors | Submit of start |"
   );
-  lines.push("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |");
+  lines.push("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |");
   if (report.telemetryCoverageByPlatform.length === 0) {
-    lines.push("| _No platform-tagged start actors._ | 0 | 0 | n/a | 0 | n/a | 0 | n/a |");
+    lines.push("| _No platform-tagged start actors._ | 0 | 0 | n/a | 0 | n/a | 0 | n/a | 0 | n/a |");
   } else {
     for (const platform of report.telemetryCoverageByPlatform) {
       lines.push(
-        `| ${platform.platform} | ${platform.startActors.toLocaleString()} | ${platform.beachSelectedActors.toLocaleString()} | ${formatPercent(
+        `| ${platform.platform} | ${platform.startActors.toLocaleString()} | ${platform.formViewActors.toLocaleString()} | ${formatPercent(
+          platform.formViewOfStart
+        )} | ${platform.beachSelectedActors.toLocaleString()} | ${formatPercent(
           platform.beachSelectedOfStart
         )} | ${platform.conditionsSetActors.toLocaleString()} | ${formatPercent(
           platform.conditionsSetOfStart
@@ -1163,6 +1492,11 @@ export function renderSessionAcquisitionReport(
     `| Start actors without version/build metadata | ${report.recentTelemetry.startActorsWithoutBuildMetadata.toLocaleString()} |`
   );
   lines.push(
+    `| Form-view of start | ${formatPercent(
+      report.recentTelemetry.formViewOfStart
+    )} |`
+  );
+  lines.push(
     `| Beach-selected of start | ${formatPercent(
       report.recentTelemetry.beachSelectedOfStart
     )} |`
@@ -1178,14 +1512,16 @@ export function renderSessionAcquisitionReport(
     )} |`
   );
   lines.push("");
-  lines.push("| Platform | Start actors | Beach-selected of start | Conditions-set of start | Submit of start |");
-  lines.push("| --- | ---: | ---: | ---: | ---: |");
+  lines.push("| Platform | Start actors | Form-view of start | Beach-selected of start | Conditions-set of start | Submit of start |");
+  lines.push("| --- | ---: | ---: | ---: | ---: | ---: |");
   if (report.recentTelemetry.telemetryCoverageByPlatform.length === 0) {
-    lines.push("| _No platform-tagged start actors._ | 0 | n/a | n/a | n/a |");
+    lines.push("| _No platform-tagged start actors._ | 0 | n/a | n/a | n/a | n/a |");
   } else {
     for (const platform of report.recentTelemetry.telemetryCoverageByPlatform) {
       lines.push(
         `| ${platform.platform} | ${platform.startActors.toLocaleString()} | ${formatPercent(
+          platform.formViewOfStart
+        )} | ${formatPercent(
           platform.beachSelectedOfStart
         )} | ${formatPercent(
           platform.conditionsSetOfStart
@@ -1194,14 +1530,16 @@ export function renderSessionAcquisitionReport(
     }
   }
   lines.push("");
-  lines.push("| Client build | Start actors | Beach-selected of start | Conditions-set of start | Submit of start |");
-  lines.push("| --- | ---: | ---: | ---: | ---: |");
+  lines.push("| Client build | Start actors | Form-view of start | Beach-selected of start | Conditions-set of start | Submit of start |");
+  lines.push("| --- | ---: | ---: | ---: | ---: | ---: |");
   if (report.recentTelemetry.telemetryCoverageByClientBuild.length === 0) {
-    lines.push("| _No client-build-tagged start actors._ | 0 | n/a | n/a | n/a |");
+    lines.push("| _No client-build-tagged start actors._ | 0 | n/a | n/a | n/a | n/a |");
   } else {
     for (const clientBuild of report.recentTelemetry.telemetryCoverageByClientBuild) {
       lines.push(
         `| ${clientBuild.clientBuild} | ${clientBuild.startActors.toLocaleString()} | ${formatPercent(
+          clientBuild.formViewOfStart
+        )} | ${formatPercent(
           clientBuild.beachSelectedOfStart
         )} | ${formatPercent(
           clientBuild.conditionsSetOfStart
@@ -1241,7 +1579,7 @@ export function renderSessionAcquisitionReport(
   lines.push("## Notes");
   lines.push("");
   lines.push(
-    "- Raw user IDs and session IDs are used only in-memory for dedupe and are not rendered."
+    "- Raw user, flow, event, and surf-session IDs are used only in-memory for dedupe and correlation and are not rendered."
   );
   lines.push(
     "- Saved completed sessions are the durable conversion source; stored submit events are treated as telemetry coverage."
@@ -1256,6 +1594,13 @@ export function writeSessionAcquisitionReportJson(
   outputJsonPath: string,
   report: SessionAcquisitionReport
 ): string {
+  const validation = validateSessionAcquisitionReport(report);
+  if (!validation.ok) {
+    throw new Error(
+      "Refusing to write invalid session acquisition report: " +
+        validation.blockers.join(", ")
+    );
+  }
   const resolvedPath = resolve(outputJsonPath);
   mkdirSync(dirname(resolvedPath), { recursive: true });
   writeFileSync(resolvedPath, `${JSON.stringify(report, null, 2)}\n`);
@@ -1270,9 +1615,15 @@ export function validateSessionAcquisitionReport(
   } = {}
 ): SessionAcquisitionReportValidationResult {
   const blockers: string[] = [];
-  const serializedReport = JSON.stringify(report) ?? "";
-  if (UUID_PATTERN.test(serializedReport)) {
-    blockers.push("report_contains_uuid");
+  try {
+    const serializedReport = JSON.stringify(report);
+    if (serializedReport === undefined) {
+      blockers.push("report_not_serializable");
+    } else if (UUID_PATTERN.test(serializedReport)) {
+      blockers.push("report_contains_uuid");
+    }
+  } catch {
+    blockers.push("report_not_serializable");
   }
 
   if (!isRecord(report)) {
@@ -1282,6 +1633,13 @@ export function validateSessionAcquisitionReport(
     };
   }
 
+  validateExactObjectKeys(
+    report,
+    SESSION_ACQUISITION_REPORT_KEYS,
+    "report_keys_invalid",
+    blockers
+  );
+  validateAggregateOnlyReportPrivacy(report, blockers);
   if (
     report.reportSchemaVersion !== SESSION_ACQUISITION_REPORT_SCHEMA_VERSION
   ) {
@@ -1330,10 +1688,22 @@ export function validateSessionAcquisitionReport(
   }
   validateSessionAcquisitionCountRelationships(report, blockers);
   validateFunnelSteps(report.funnelSteps, blockers);
+  validateCanonicalFunnel(report.canonicalFunnel, blockers);
+  validateValidationBranch(
+    report.validationBranch,
+    report.canonicalFunnel,
+    blockers
+  );
+  validateFirstSessionTelemetryCoverage(
+    report.firstSessionTelemetryCoverage,
+    report.canonicalFunnel,
+    blockers
+  );
   validateCountMap(report.eventsByType, "events_by_type_invalid", blockers);
-  validateCountMap(
+  validatePlatformCountMap(
     report.eventsByPlatform,
     "events_by_platform_invalid",
+    "events_by_platform_invalid_label",
     blockers
   );
   validateCountMap(
@@ -1522,6 +1892,356 @@ function validateSessionAcquisitionCountRelationships(
       blockers.push(blockerCode);
     }
   }
+}
+
+function validateExactObjectKeys(
+  value: Record<string, unknown>,
+  allowedKeys: readonly string[],
+  blockerCode: string,
+  blockers: string[]
+): void {
+  const actual = Object.keys(value).sort();
+  const expected = [...allowedKeys].sort();
+  if (
+    actual.length !== expected.length ||
+    actual.some((key, index) => key !== expected[index])
+  ) {
+    blockers.push(blockerCode);
+  }
+}
+
+function validateCanonicalFunnel(value: unknown, blockers: string[]): void {
+  if (!isRecord(value)) {
+    blockers.push("canonical_funnel_invalid");
+    return;
+  }
+  validateExactObjectKeys(
+    value,
+    CANONICAL_FUNNEL_KEYS,
+    "canonical_funnel_keys_invalid",
+    blockers
+  );
+  if (value.grain !== "unique_user") {
+    blockers.push("canonical_funnel_grain_invalid");
+  }
+  if (value.ordering !== "metadata.client_stage_at") {
+    blockers.push("canonical_funnel_ordering_invalid");
+  }
+
+  const steps = value.steps;
+  if (!Array.isArray(steps)) {
+    blockers.push("canonical_funnel_steps_invalid");
+  } else {
+    const actualOrder = steps.map((step) =>
+      isRecord(step) && typeof step.key === "string" ? step.key : null
+    );
+    if (
+      actualOrder.length !== CANONICAL_STEP_ORDER.length ||
+      actualOrder.some((key, index) => key !== CANONICAL_STEP_ORDER[index])
+    ) {
+      blockers.push("canonical_funnel_step_order_invalid");
+    }
+
+    let stepShapeInvalid = false;
+    let stepCountsInvalid = false;
+    let stepRateInvalid = false;
+    for (const step of steps) {
+      if (!isRecord(step)) {
+        stepShapeInvalid = true;
+        continue;
+      }
+      validateExactObjectKeys(
+        step,
+        CANONICAL_STEP_KEYS,
+        "canonical_funnel_step_keys_invalid",
+        blockers
+      );
+      if (typeof step.key !== "string" || typeof step.label !== "string") {
+        stepShapeInvalid = true;
+      }
+      if (
+        !isNonNegativeIntegerValue(step.users) ||
+        !isNonNegativeIntegerValue(step.flows)
+      ) {
+        stepCountsInvalid = true;
+      }
+      if (
+        readRateOrNull(step.pctOfStart) === undefined ||
+        readRateOrNull(step.pctOfPrevious) === undefined
+      ) {
+        stepRateInvalid = true;
+      }
+    }
+    if (stepShapeInvalid) blockers.push("canonical_funnel_step_shape_invalid");
+    if (stepCountsInvalid) blockers.push("canonical_funnel_step_counts_invalid");
+    if (stepRateInvalid) blockers.push("canonical_funnel_rate_invalid");
+
+    const validSteps = steps.every(
+      (step) =>
+        isRecord(step) &&
+        isNonNegativeIntegerValue(step.users) &&
+        isNonNegativeIntegerValue(step.flows)
+    );
+    if (validSteps) {
+      const typedSteps = steps as Record<string, unknown>[];
+      if (typedSteps.some((step) => step.users! > step.flows!)) {
+        blockers.push("canonical_funnel_users_exceed_flows");
+      }
+      if (
+        typedSteps.some(
+          (step, index) =>
+            index > 0 && step.users! > typedSteps[index - 1].users!
+        )
+      ) {
+        blockers.push("canonical_funnel_users_non_monotonic");
+      }
+      if (
+        typedSteps.some(
+          (step, index) =>
+            index > 0 && step.flows! > typedSteps[index - 1].flows!
+        )
+      ) {
+        blockers.push("canonical_funnel_flows_non_monotonic");
+      }
+
+      const startUsers = typedSteps[0]?.users as number | undefined;
+      let rateMismatch = false;
+      for (const [index, step] of typedSteps.entries()) {
+        if (typeof startUsers !== "number") break;
+        const expectedPctOfStart =
+          index === 0 ? (startUsers > 0 ? 1 : null) : ratio(step.users as number, startUsers);
+        const expectedPctOfPrevious =
+          index === 0
+            ? null
+            : ratio(step.users as number, typedSteps[index - 1].users as number);
+        if (
+          !exactNullableNumbersMatch(step.pctOfStart, expectedPctOfStart) ||
+          !exactNullableNumbersMatch(
+            step.pctOfPrevious,
+            expectedPctOfPrevious
+          )
+        ) {
+          rateMismatch = true;
+        }
+      }
+      if (rateMismatch) blockers.push("canonical_funnel_rate_mismatch");
+    }
+  }
+
+  const joinCoverage = value.joinCoverage;
+  if (!isRecord(joinCoverage)) {
+    blockers.push("canonical_join_coverage_invalid");
+    return;
+  }
+  validateExactObjectKeys(
+    joinCoverage,
+    CANONICAL_JOIN_COVERAGE_KEYS,
+    "canonical_join_coverage_keys_invalid",
+    blockers
+  );
+  const joinCountsValid = CANONICAL_JOIN_COVERAGE_KEYS.every((key) =>
+    isNonNegativeIntegerValue(joinCoverage[key])
+  );
+  if (!joinCountsValid) {
+    blockers.push("canonical_join_coverage_counts_invalid");
+    return;
+  }
+  if (!Array.isArray(steps)) return;
+  const submit = steps.find(
+    (step) => isRecord(step) && step.key === "submit"
+  );
+  const persisted = steps.find(
+    (step) => isRecord(step) && step.key === "persisted_session"
+  );
+  if (
+    !isRecord(submit) ||
+    !isRecord(persisted) ||
+    !isNonNegativeIntegerValue(submit.flows) ||
+    !isNonNegativeIntegerValue(persisted.flows)
+  ) {
+    return;
+  }
+  const rejectedFlows =
+    joinCoverage.submitFlowsWithoutWindowSession +
+    joinCoverage.submitFlowsWithSessionOwnerMismatch +
+    joinCoverage.submitFlowsWithIneligibleSession;
+  if (rejectedFlows !== submit.flows - persisted.flows) {
+    blockers.push("canonical_persistence_rejection_partition_invalid");
+  }
+}
+
+function validateValidationBranch(
+  value: unknown,
+  canonicalFunnel: unknown,
+  blockers: string[]
+): void {
+  if (!isRecord(value)) {
+    blockers.push("validation_branch_invalid");
+    return;
+  }
+  validateExactObjectKeys(
+    value,
+    VALIDATION_BRANCH_KEYS,
+    "validation_branch_keys_invalid",
+    blockers
+  );
+  const countFields = [
+    "affectedUsers",
+    "affectedFlows",
+    "recoveredUsers",
+    "recoveredFlows",
+  ] as const;
+  if (countFields.some((field) => !isNonNegativeIntegerValue(value[field]))) {
+    blockers.push("validation_branch_counts_invalid");
+    return;
+  }
+  const pctOfFormViewUsers = readRateOrNull(value.pctOfFormViewUsers);
+  const recoveryRate = readRateOrNull(value.recoveryRate);
+  if (pctOfFormViewUsers === undefined || recoveryRate === undefined) {
+    blockers.push("validation_branch_rate_invalid");
+  }
+
+  const formView = findCanonicalStep(canonicalFunnel, "form_view");
+  const submit = findCanonicalStep(canonicalFunnel, "submit");
+  if (!formView || !submit) return;
+  const formViewUsers = readNonNegativeInteger(formView.users);
+  const formViewFlows = readNonNegativeInteger(formView.flows);
+  const submitUsers = readNonNegativeInteger(submit.users);
+  const submitFlows = readNonNegativeInteger(submit.flows);
+  if (
+    formViewUsers === null ||
+    formViewFlows === null ||
+    submitUsers === null ||
+    submitFlows === null
+  ) {
+    return;
+  }
+  const affectedUsers = value.affectedUsers as number;
+  const affectedFlows = value.affectedFlows as number;
+  const recoveredUsers = value.recoveredUsers as number;
+  const recoveredFlows = value.recoveredFlows as number;
+  if (
+    affectedUsers > affectedFlows ||
+    affectedUsers > formViewUsers ||
+    affectedFlows > formViewFlows ||
+    recoveredUsers > recoveredFlows ||
+    recoveredUsers > affectedUsers ||
+    recoveredUsers > submitUsers ||
+    recoveredFlows > affectedFlows ||
+    recoveredFlows > submitFlows
+  ) {
+    blockers.push("validation_branch_counts_inconsistent");
+  }
+  if (
+    !exactNullableNumbersMatch(
+      value.pctOfFormViewUsers,
+      ratio(affectedUsers, formViewUsers)
+    ) ||
+    !exactNullableNumbersMatch(
+      value.recoveryRate,
+      ratio(recoveredUsers, affectedUsers)
+    )
+  ) {
+    blockers.push("validation_branch_rate_mismatch");
+  }
+}
+
+function validateFirstSessionTelemetryCoverage(
+  value: unknown,
+  canonicalFunnel: unknown,
+  blockers: string[]
+): void {
+  if (!isRecord(value)) {
+    blockers.push("first_session_telemetry_invalid");
+    return;
+  }
+  validateExactObjectKeys(
+    value,
+    FIRST_SESSION_TELEMETRY_KEYS,
+    "first_session_telemetry_keys_invalid",
+    blockers
+  );
+  if (
+    !isNonNegativeIntegerValue(value.persistedFirstSessionUsers) ||
+    !isNonNegativeIntegerValue(value.markerUsers)
+  ) {
+    blockers.push("first_session_telemetry_counts_invalid");
+    return;
+  }
+  if (readRateOrNull(value.coverage) === undefined) {
+    blockers.push("first_session_telemetry_rate_invalid");
+  }
+  const persistedStep = findCanonicalStep(canonicalFunnel, "persisted_session");
+  if (!persistedStep) return;
+  const persistedUsers = readNonNegativeInteger(persistedStep.users);
+  if (persistedUsers === null) return;
+  const persistedFirstSessionUsers = value.persistedFirstSessionUsers;
+  const markerUsers = value.markerUsers;
+  if (
+    persistedFirstSessionUsers > persistedUsers ||
+    markerUsers > persistedFirstSessionUsers
+  ) {
+    blockers.push("first_session_telemetry_counts_inconsistent");
+  }
+  if (
+    !exactNullableNumbersMatch(
+      value.coverage,
+      ratio(markerUsers, persistedFirstSessionUsers)
+    )
+  ) {
+    blockers.push("first_session_telemetry_rate_mismatch");
+  }
+}
+
+function validateAggregateOnlyReportPrivacy(
+  value: unknown,
+  blockers: string[]
+): void {
+  let containsIdentifierKey = false;
+  let containsIdentifierEvidence = false;
+  let containsUuid = false;
+  const visited = new WeakSet<object>();
+  const visit = (candidate: unknown): void => {
+    if (typeof candidate === "string") {
+      if (UUID_PATTERN.test(candidate)) containsUuid = true;
+      if (UNSAFE_IDENTIFIER_EVIDENCE_PATTERN.test(candidate)) {
+        containsIdentifierEvidence = true;
+      }
+      return;
+    }
+    if (typeof candidate !== "object" || candidate === null) return;
+    if (visited.has(candidate)) return;
+    visited.add(candidate);
+    if (Array.isArray(candidate)) {
+      for (const item of candidate) visit(item);
+      return;
+    }
+    for (const [key, nestedValue] of Object.entries(candidate)) {
+      if (UNSAFE_IDENTIFIER_KEYS.has(key)) containsIdentifierKey = true;
+      visit(nestedValue);
+    }
+  };
+  visit(value);
+  if (containsUuid && !blockers.includes("report_contains_uuid")) {
+    blockers.push("report_contains_uuid");
+  }
+  if (containsIdentifierKey) blockers.push("report_contains_identifier_key");
+  if (containsIdentifierEvidence) {
+    blockers.push("report_contains_identifier_evidence");
+  }
+}
+
+function findCanonicalStep(
+  canonicalFunnel: unknown,
+  key: CanonicalSessionFunnelStepKey
+): Record<string, unknown> | null {
+  if (!isRecord(canonicalFunnel) || !Array.isArray(canonicalFunnel.steps)) {
+    return null;
+  }
+  const step = canonicalFunnel.steps.find(
+    (candidate) => isRecord(candidate) && candidate.key === key
+  );
+  return isRecord(step) ? step : null;
 }
 
 function validateFunnelSteps(value: unknown, blockers: string[]): void {
@@ -1734,8 +2454,14 @@ function validateTelemetryPlatformCoverageArray(
       blockers.push(blockerCode);
       return;
     }
+    if (!isSafePlatformLabel(row.platform)) {
+      blockers.push(`${blockerCode}_label`);
+      return;
+    }
     for (const field of [
       "startActors",
+      "formViewActors",
+      "formViewActorsWithStart",
       "beachSelectedActors",
       "beachSelectedActorsWithStart",
       "conditionsSetActors",
@@ -1749,6 +2475,7 @@ function validateTelemetryPlatformCoverageArray(
       }
     }
     for (const field of [
+      "formViewOfStart",
       "beachSelectedOfStart",
       "conditionsSetOfStart",
       "submitEventOfStart",
@@ -1778,8 +2505,14 @@ function validateTelemetryClientBuildCoverageArray(
       blockers.push(blockerCode);
       return;
     }
+    if (!isSafeClientBuildLabel(row.clientBuild)) {
+      blockers.push(`${blockerCode}_label`);
+      return;
+    }
     for (const field of [
       "startActors",
+      "formViewActors",
+      "formViewActorsWithStart",
       "beachSelectedActors",
       "beachSelectedActorsWithStart",
       "conditionsSetActors",
@@ -1793,6 +2526,7 @@ function validateTelemetryClientBuildCoverageArray(
       }
     }
     for (const field of [
+      "formViewOfStart",
       "beachSelectedOfStart",
       "conditionsSetOfStart",
       "submitEventOfStart",
@@ -1846,6 +2580,8 @@ function validateRecentTelemetry(
     "eventRows",
     "startActors",
     "startActorsWithoutBuildMetadata",
+    "formViewActors",
+    "formViewActorsWithStart",
     "beachSelectedActors",
     "beachSelectedActorsWithStart",
     "conditionsSetActors",
@@ -1860,6 +2596,7 @@ function validateRecentTelemetry(
     );
   }
   for (const field of [
+    "formViewOfStart",
     "beachSelectedOfStart",
     "conditionsSetOfStart",
     "submitEventOfStart",
@@ -1943,7 +2680,12 @@ function validateValidationFailures(
       blockers.push(`${blockerCode}_counts`);
       return;
     }
-    validateCountMap(failure.platforms, `${blockerCode}_platforms`, blockers);
+    validatePlatformCountMap(
+      failure.platforms,
+      `${blockerCode}_platforms`,
+      `${blockerCode}_platforms_label`,
+      blockers
+    );
     if (
       isRecord(failure.platforms) &&
       sumCountMap(failure.platforms) !== failure.events
@@ -1992,6 +2734,11 @@ function validateActorCoverageCounts(
     actorsWithStartField,
     rateField,
   } of [
+    {
+      actorsField: "formViewActors",
+      actorsWithStartField: "formViewActorsWithStart",
+      rateField: "formViewOfStart",
+    },
     {
       actorsField: "beachSelectedActors",
       actorsWithStartField: "beachSelectedActorsWithStart",
@@ -2491,6 +3238,19 @@ function validateCountMap(
   }
 }
 
+function validatePlatformCountMap(
+  value: unknown,
+  blockerCode: string,
+  labelBlockerCode: string,
+  blockers: string[]
+): void {
+  validateCountMap(value, blockerCode, blockers);
+  if (!isRecord(value)) return;
+  if (Object.keys(value).some((platform) => !isSafePlatformLabel(platform))) {
+    blockers.push(labelBlockerCode);
+  }
+}
+
 function sumCountMap(value: Record<string, unknown>): number {
   return Object.values(value).reduce<number>((sum, count) => {
     if (typeof count !== "number" || !Number.isFinite(count)) {
@@ -2634,6 +3394,18 @@ function nullableNumbersMatch(
   );
 }
 
+function exactNullableNumbersMatch(
+  actual: unknown,
+  expected: number | null
+): boolean {
+  if (actual === null || expected === null) {
+    return actual === expected;
+  }
+  return (
+    typeof actual === "number" && Number.isFinite(actual) && actual === expected
+  );
+}
+
 function countMapsMatch(
   actual: unknown,
   expected: Record<string, number>
@@ -2697,13 +3469,13 @@ async function fetchEventRows(
 ): Promise<SessionAcquisitionEventRow[]> {
   const rows: SessionAcquisitionEventRow[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase
+    const query = supabase
       .from("user_events")
       .select("user_id, session_id, event_type, created_at, metadata, bot_flagged")
       .gte("created_at", options.start)
       .lt("created_at", options.end)
-      .in("event_type", Array.from(SESSION_ACQUISITION_EVENT_TYPES))
-      .order("created_at", { ascending: true })
+      .in("event_type", Array.from(SESSION_ACQUISITION_EVENT_TYPES));
+    const { data, error } = await applyStablePaginationOrder(query)
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) throw new Error(`Failed to fetch user_events: ${error.message}`);
@@ -2719,14 +3491,14 @@ async function fetchWindowSessionRows(
 ): Promise<SessionAcquisitionSessionRow[]> {
   const rows: SessionAcquisitionSessionRow[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase
+    const query = supabase
       .from("sessions")
       .select(
-        "user_id, created_at, arrival_time, status, source, rating, wave_height_ft, deleted_at"
+        "id, user_id, created_at, arrival_time, status, source, rating, wave_height_ft, deleted_at"
       )
       .gte("created_at", options.start)
-      .lt("created_at", options.end)
-      .order("created_at", { ascending: true })
+      .lt("created_at", options.end);
+    const { data, error } = await applyStablePaginationOrder(query)
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) throw new Error(`Failed to fetch sessions: ${error.message}`);
@@ -2742,12 +3514,12 @@ async function fetchProfilesCreatedInWindow(
 ): Promise<SessionAcquisitionProfileRow[]> {
   const rows: SessionAcquisitionProfileRow[] = [];
   for (let from = 0; ; from += PAGE_SIZE) {
-    const { data, error } = await supabase
+    const query = supabase
       .from("profiles")
       .select(profileSelect())
       .gte("created_at", options.start)
-      .lt("created_at", options.end)
-      .order("created_at", { ascending: true })
+      .lt("created_at", options.end);
+    const { data, error } = await applyStablePaginationOrder(query)
       .range(from, from + PAGE_SIZE - 1);
 
     if (error) throw new Error(`Failed to fetch profiles: ${error.message}`);
@@ -2786,14 +3558,14 @@ async function fetchLifetimeSessionsForUsers(
   const rows: SessionAcquisitionSessionRow[] = [];
   for (const chunk of chunks(userIds, 200)) {
     for (let from = 0; ; from += PAGE_SIZE) {
-      const { data, error } = await supabase
+      const query = supabase
         .from("sessions")
         .select(
-          "user_id, created_at, arrival_time, status, source, rating, wave_height_ft, deleted_at"
+          "id, user_id, created_at, arrival_time, status, source, rating, wave_height_ft, deleted_at"
         )
         .lt("created_at", end)
-        .in("user_id", chunk)
-        .order("created_at", { ascending: true })
+        .in("user_id", chunk);
+      const { data, error } = await applyStablePaginationOrder(query)
         .range(from, from + PAGE_SIZE - 1);
 
       if (error) {
@@ -2805,6 +3577,43 @@ async function fetchLifetimeSessionsForUsers(
     }
   }
   return rows;
+}
+
+export async function readSessionAcquisitionSourceRows(
+  supabase: AdminClient,
+  options: CliOptions
+): Promise<SessionAcquisitionSourceRows> {
+  const [events, windowSessions, profilesCreatedInWindow] = await Promise.all([
+    fetchEventRows(supabase, options),
+    fetchWindowSessionRows(supabase, options),
+    fetchProfilesCreatedInWindow(supabase, options),
+  ]);
+
+  const scopedUserIds = Array.from(
+    new Set(
+      [
+        ...events.flatMap((event) => (event.user_id ? [event.user_id] : [])),
+        ...windowSessions.map((session) => session.user_id),
+        ...profilesCreatedInWindow.map((profile) => profile.id),
+      ].sort()
+    )
+  );
+  const [scopedProfiles, lifetimeSessions] = await Promise.all([
+    fetchProfilesForUsers(supabase, scopedUserIds),
+    fetchLifetimeSessionsForUsers(supabase, scopedUserIds, options.end),
+  ]);
+
+  const profilesById = new Map<string, SessionAcquisitionProfileRow>();
+  for (const profile of [...profilesCreatedInWindow, ...scopedProfiles]) {
+    profilesById.set(profile.id, profile);
+  }
+
+  return {
+    events,
+    windowSessions,
+    lifetimeSessions,
+    profiles: Array.from(profilesById.values()),
+  };
 }
 
 function profileSelect(): string {
@@ -2824,6 +3633,19 @@ function profileSelect(): string {
     "is_system_account",
     "analytics_exclusion_reason",
   ].join(", ");
+}
+
+export function applyStablePaginationOrder<
+  TQuery extends {
+    order(
+      column: string,
+      options: { ascending: boolean }
+    ): TQuery;
+  },
+>(query: TQuery): TQuery {
+  return query
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
 }
 
 function buildEventActorsByType(
@@ -2882,10 +3704,10 @@ function buildTelemetryCoverageByPlatform(
   const platforms = new Set<string>();
   for (const eventType of [
     "session_log_start",
+    "session_log_form_view",
     "session_log_beach_selected",
     "session_log_conditions_set",
     "session_log_submit",
-    "first_session_logged",
   ]) {
     for (const platform of eventActorsByTypeAndPlatform.get(eventType)?.keys() ?? []) {
       platforms.add(platform);
@@ -2899,6 +3721,11 @@ function buildTelemetryCoverageByPlatform(
         "session_log_start",
         platform
       );
+      const formViewActors = platformActors(
+        eventActorsByTypeAndPlatform,
+        "session_log_form_view",
+        platform
+      );
       const beachSelectedActors = platformActors(
         eventActorsByTypeAndPlatform,
         "session_log_beach_selected",
@@ -2909,18 +3736,15 @@ function buildTelemetryCoverageByPlatform(
         "session_log_conditions_set",
         platform
       );
-      const submitEventActors = unionSets([
-        platformActors(
-          eventActorsByTypeAndPlatform,
-          "session_log_submit",
-          platform
-        ),
-        platformActors(
-          eventActorsByTypeAndPlatform,
-          "first_session_logged",
-          platform
-        ),
-      ]);
+      const submitEventActors = platformActors(
+        eventActorsByTypeAndPlatform,
+        "session_log_submit",
+        platform
+      );
+      const formViewActorsWithStart = intersectionSize(
+        formViewActors,
+        startActors
+      );
       const beachSelectedActorsWithStart = intersectionSize(
         beachSelectedActors,
         startActors
@@ -2937,6 +3761,9 @@ function buildTelemetryCoverageByPlatform(
       return {
         platform,
         startActors: startActors.size,
+        formViewActors: formViewActors.size,
+        formViewActorsWithStart,
+        formViewOfStart: ratio(formViewActorsWithStart, startActors.size),
         beachSelectedActors: beachSelectedActors.size,
         beachSelectedActorsWithStart,
         beachSelectedOfStart: ratio(
@@ -2975,6 +3802,11 @@ function buildTelemetryCoverageByClientBuild(
         "session_log_start",
         clientBuild
       );
+      const formViewActors = clientBuildActors(
+        eventActorsByTypeAndClientBuild,
+        "session_log_form_view",
+        clientBuild
+      );
       const beachSelectedActors = clientBuildActors(
         eventActorsByTypeAndClientBuild,
         "session_log_beach_selected",
@@ -2985,18 +3817,15 @@ function buildTelemetryCoverageByClientBuild(
         "session_log_conditions_set",
         clientBuild
       );
-      const submitEventActors = unionSets([
-        clientBuildActors(
-          eventActorsByTypeAndClientBuild,
-          "session_log_submit",
-          clientBuild
-        ),
-        clientBuildActors(
-          eventActorsByTypeAndClientBuild,
-          "first_session_logged",
-          clientBuild
-        ),
-      ]);
+      const submitEventActors = clientBuildActors(
+        eventActorsByTypeAndClientBuild,
+        "session_log_submit",
+        clientBuild
+      );
+      const formViewActorsWithStart = intersectionSize(
+        formViewActors,
+        startActors
+      );
       const beachSelectedActorsWithStart = intersectionSize(
         beachSelectedActors,
         startActors
@@ -3016,6 +3845,9 @@ function buildTelemetryCoverageByClientBuild(
         hasVersionMetadata: identity.appVersion !== "unknown-version",
         hasBuildMetadata: identity.appBuild !== "unknown-build",
         startActors: startActors.size,
+        formViewActors: formViewActors.size,
+        formViewActorsWithStart,
+        formViewOfStart: ratio(formViewActorsWithStart, startActors.size),
         beachSelectedActors: beachSelectedActors.size,
         beachSelectedActorsWithStart,
         beachSelectedOfStart: ratio(
@@ -3063,16 +3895,17 @@ function buildRecentTelemetryWindow(
   const eventActorsByTypeAndClientBuild =
     buildEventActorsByTypeAndClientBuild(recentEvents);
   const startActors = eventActorsByType.get("session_log_start") ?? new Set();
+  const formViewActors =
+    eventActorsByType.get("session_log_form_view") ?? new Set();
   const beachSelectedActors =
     eventActorsByType.get("session_log_beach_selected") ?? new Set();
   const conditionsSetActors =
     eventActorsByType.get("session_log_conditions_set") ?? new Set();
-  const submitEventActors = unionSets([
-    eventActorsByType.get("session_log_submit"),
-    eventActorsByType.get("first_session_logged"),
-  ]);
+  const submitEventActors =
+    eventActorsByType.get("session_log_submit") ?? new Set();
   const startActorsWithoutBuildMetadata =
     countStartActorsWithoutBuildMetadata(recentEvents);
+  const formViewActorsWithStart = intersectionSize(formViewActors, startActors);
   const beachSelectedActorsWithStart = intersectionSize(
     beachSelectedActors,
     startActors
@@ -3090,6 +3923,9 @@ function buildRecentTelemetryWindow(
     eventRows: recentEvents.length,
     startActors: startActors.size,
     startActorsWithoutBuildMetadata,
+    formViewActors: formViewActors.size,
+    formViewActorsWithStart,
+    formViewOfStart: ratio(formViewActorsWithStart, startActors.size),
     beachSelectedActors: beachSelectedActors.size,
     beachSelectedActorsWithStart,
     beachSelectedOfStart: ratio(beachSelectedActorsWithStart, startActors.size),
@@ -3755,19 +4591,22 @@ function timestampInRange(timestamp: string, start: string, end: string): boolea
 
 function platformForEvent(event: SessionAcquisitionEventRow): string {
   const metadata = toRecord(event.metadata);
-  const nativePlatform = metadata["_platform"];
-  if (typeof nativePlatform === "string" && nativePlatform.length > 0) {
+  const nativePlatform = normalizeNativePlatform(metadata["_platform"]);
+  if (nativePlatform) {
     return nativePlatform;
   }
 
   const device = toRecord(metadata["_device"]);
-  const deviceType = device["device_type"];
-  const os = device["os"];
-  if (typeof deviceType === "string" && typeof os === "string") {
+  const deviceType = normalizeFiniteLabel(
+    device["device_type"],
+    DEVICE_TYPE_LABELS
+  );
+  const os = normalizeFiniteLabel(device["os"], DEVICE_OS_LABELS);
+  if (deviceType && os) {
     return `${deviceType}/${os}`;
   }
 
-  return "unknown";
+  return "unknown-platform";
 }
 
 function clientBuildForEvent(event: SessionAcquisitionEventRow): {
@@ -3778,18 +4617,18 @@ function clientBuildForEvent(event: SessionAcquisitionEventRow): {
   const metadata = toRecord(event.metadata);
   const platform = platformForEvent(event);
   const appVersion =
-    metadataLabelValue(metadata["app_version"]) ??
-    metadataLabelValue(metadata["appVersion"]) ??
-    metadataLabelValue(metadata["version"]) ??
+    normalizeAppVersion(metadata["app_version"]) ??
+    normalizeAppVersion(metadata["appVersion"]) ??
+    normalizeAppVersion(metadata["version"]) ??
     "unknown-version";
   const appBuild =
-    metadataLabelValue(metadata["app_build"]) ??
-    metadataLabelValue(metadata["appBuild"]) ??
-    metadataLabelValue(metadata["build"]) ??
-    metadataLabelValue(metadata["build_number"]) ??
-    metadataLabelValue(metadata["buildNumber"]) ??
-    metadataLabelValue(metadata["version_code"]) ??
-    metadataLabelValue(metadata["versionCode"]) ??
+    normalizeAppBuild(metadata["app_build"]) ??
+    normalizeAppBuild(metadata["appBuild"]) ??
+    normalizeAppBuild(metadata["build"]) ??
+    normalizeAppBuild(metadata["build_number"]) ??
+    normalizeAppBuild(metadata["buildNumber"]) ??
+    normalizeAppBuild(metadata["version_code"]) ??
+    normalizeAppBuild(metadata["versionCode"]) ??
     "unknown-build";
 
   return {
@@ -3810,21 +4649,543 @@ function parseClientBuildLabel(clientBuild: string): {
   };
 }
 
-function metadataLabelValue(value: unknown): string | null {
-  if (
-    typeof value !== "string" &&
-    typeof value !== "number" &&
-    typeof value !== "boolean"
-  ) {
-    return null;
+function normalizeNativePlatform(value: unknown): string | null {
+  return normalizeFiniteLabel(value, NATIVE_PLATFORM_LABELS);
+}
+
+function normalizeFiniteLabel(
+  value: unknown,
+  allowedValues: ReadonlySet<string>
+): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return allowedValues.has(normalized) ? normalized : null;
+}
+
+function normalizeAppVersion(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  return isSafeAppVersion(normalized) ? normalized : null;
+}
+
+function isSafeAppVersion(value: string): boolean {
+  return (
+    value.length <= MAX_APP_VERSION_LENGTH &&
+    APP_VERSION_PATTERN.test(value) &&
+    !UUID_PATTERN.test(value) &&
+    !UNSAFE_IDENTIFIER_EVIDENCE_PATTERN.test(value)
+  );
+}
+
+function normalizeAppBuild(value: unknown): string | null {
+  if (typeof value === "number") {
+    return Number.isSafeInteger(value) && value >= 0 ? String(value) : null;
+  }
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!APP_BUILD_PATTERN.test(normalized)) return null;
+  return Number.isSafeInteger(Number(normalized)) ? normalized : null;
+}
+
+function isSafePlatformLabel(value: string): boolean {
+  if (value === "unknown-platform") return true;
+  if (NATIVE_PLATFORM_LABELS.has(value)) return true;
+  const [deviceType, os, extra] = value.split("/");
+  return (
+    extra === undefined &&
+    DEVICE_TYPE_LABELS.has(deviceType) &&
+    DEVICE_OS_LABELS.has(os)
+  );
+}
+
+function isSafeClientBuildLabel(value: string): boolean {
+  const parts = value.split(" / ");
+  if (parts.length !== 3) return false;
+  const [platform, appVersion, appBuild] = parts;
+  return (
+    isSafePlatformLabel(platform) &&
+    (appVersion === "unknown-version" ||
+      isSafeAppVersion(appVersion)) &&
+    (appBuild === "unknown-build" ||
+      (APP_BUILD_PATTERN.test(appBuild) &&
+        Number.isSafeInteger(Number(appBuild))))
+  );
+}
+
+type CanonicalFunnelEventType =
+  | "session_log_start"
+  | "session_log_form_view"
+  | "session_log_validation_failed"
+  | "session_log_submit";
+
+interface ParsedCanonicalEvent {
+  row: SessionAcquisitionEventRow;
+  eventType: CanonicalFunnelEventType | "first_session_logged";
+  userId: string | null;
+  flowId: string | null;
+  sessionId: string | null;
+  eventId: string | null;
+  clientStageAtMs: number | null;
+  createdAtMs: number;
+  inputIndex: number;
+}
+
+interface CanonicalAttempt {
+  userId: string;
+  flowId: string;
+  start: ParsedCanonicalEvent;
+  formView: ParsedCanonicalEvent | null;
+  submit: ParsedCanonicalEvent | null;
+  validationFailures: ParsedCanonicalEvent[];
+  persistedSession: SessionAcquisitionSessionRow | null;
+}
+
+interface CanonicalSessionAnalysis {
+  attempts: CanonicalAttempt[];
+  firstSessionMarkers: ParsedCanonicalEvent[];
+  canonicalFunnel: CanonicalSessionFunnel;
+}
+
+function readMetadataString(metadata: unknown, key: string): string | null {
+  const value = toRecord(metadata)[key];
+  return typeof value === "string" && value.trim().length > 0
+    ? value.trim()
+    : null;
+}
+
+function readClientStageAtMs(
+  metadata: unknown,
+  startMs: number,
+  endMs: number,
+): number | null {
+  const raw = readMetadataString(metadata, "client_stage_at");
+  if (!raw) return null;
+  const value = Date.parse(raw);
+  return Number.isFinite(value) && value >= startMs && value < endMs
+    ? value
+    : null;
+}
+
+function compareCanonicalEvents(
+  left: ParsedCanonicalEvent,
+  right: ParsedCanonicalEvent,
+): number {
+  return (
+    (left.clientStageAtMs ?? Number.POSITIVE_INFINITY) -
+      (right.clientStageAtMs ?? Number.POSITIVE_INFINITY) ||
+    left.createdAtMs - right.createdAtMs ||
+    left.inputIndex - right.inputIndex
+  );
+}
+
+function parseCanonicalEvents(input: {
+  events: SessionAcquisitionEventRow[];
+  start: string;
+  end: string;
+}): ParsedCanonicalEvent[] {
+  const startMs = Date.parse(input.start);
+  const endMs = Date.parse(input.end);
+  const canonicalEventTypes = new Set<string>([
+    "session_log_start",
+    "session_log_form_view",
+    "session_log_validation_failed",
+    "session_log_submit",
+    "first_session_logged",
+  ]);
+
+  return input.events.flatMap((row, inputIndex) => {
+    if (!canonicalEventTypes.has(row.event_type)) return [];
+    const createdAt = Date.parse(row.created_at);
+    const eventType = row.event_type as ParsedCanonicalEvent["eventType"];
+    return [
+      {
+        row,
+        eventType,
+        userId: row.user_id?.trim() || null,
+        flowId: readMetadataString(row.metadata, "flow_id"),
+        sessionId: readMetadataString(row.metadata, "session_id"),
+        eventId: readMetadataString(row.metadata, "event_id"),
+        clientStageAtMs: readClientStageAtMs(row.metadata, startMs, endMs),
+        createdAtMs: Number.isFinite(createdAt) ? createdAt : 0,
+        inputIndex,
+      },
+    ];
+  });
+}
+
+function deduplicateCanonicalEvents(events: ParsedCanonicalEvent[]): {
+  events: ParsedCanonicalEvent[];
+  stableIdConflictGroups: number;
+} {
+  const byStableId = new Map<string, ParsedCanonicalEvent[]>();
+  const eventsWithoutStableId: ParsedCanonicalEvent[] = [];
+  for (const event of events) {
+    if (!event.eventId) {
+      eventsWithoutStableId.push(event);
+      continue;
+    }
+    const key = `${event.eventType}\u0000${event.eventId}`;
+    const group = byStableId.get(key) ?? [];
+    group.push(event);
+    byStableId.set(key, group);
   }
 
-  const normalized = String(value)
-    .trim()
-    .replace(/[\r\n|]/g, " ")
-    .replace(/\s+/g, " ")
-    .slice(0, 80);
-  return normalized.length > 0 ? normalized : null;
+  let stableIdConflictGroups = 0;
+  const deduplicated = [...eventsWithoutStableId];
+  for (const group of byStableId.values()) {
+    const first = group[0];
+    const applicableSessionId = (event: ParsedCanonicalEvent): string | null =>
+      event.eventType === "session_log_submit" ||
+      event.eventType === "first_session_logged"
+        ? event.sessionId
+        : null;
+    const agrees = group.every(
+      (event) =>
+        event.userId === first.userId &&
+        event.flowId === first.flowId &&
+        event.clientStageAtMs === first.clientStageAtMs &&
+        applicableSessionId(event) === applicableSessionId(first),
+    );
+    if (!agrees) {
+      stableIdConflictGroups++;
+      continue;
+    }
+    deduplicated.push([...group].sort(compareCanonicalEvents)[0]);
+  }
+
+  return { events: deduplicated, stableIdConflictGroups };
+}
+
+function classifySubmittedSession(
+  submit: ParsedCanonicalEvent,
+  sessionsById: Map<string, SessionAcquisitionSessionRow>,
+):
+  | { kind: "persisted"; session: SessionAcquisitionSessionRow }
+  | { kind: "not_found" }
+  | { kind: "owner_mismatch" }
+  | { kind: "ineligible" } {
+  if (!submit.sessionId) return { kind: "not_found" };
+  const session = sessionsById.get(submit.sessionId);
+  if (!session) return { kind: "not_found" };
+  if (session.user_id !== submit.userId) return { kind: "owner_mismatch" };
+  if (!isCompletedSession(session)) return { kind: "ineligible" };
+  return { kind: "persisted", session };
+}
+
+function canonicalFunnelStep(
+  key: CanonicalSessionFunnelStepKey,
+  label: string,
+  users: Set<string>,
+  flows: number,
+  startUsers: number,
+  previousUsers: number | null,
+): CanonicalSessionFunnelStep {
+  return {
+    key,
+    label,
+    users: users.size,
+    flows,
+    pctOfStart:
+      key === "start"
+        ? users.size > 0
+          ? 1
+          : null
+        : ratio(users.size, startUsers),
+    pctOfPrevious:
+      previousUsers === null ? null : ratio(users.size, previousUsers),
+  };
+}
+
+function computeCanonicalSessionAnalysis(input: {
+  events: SessionAcquisitionEventRow[];
+  windowSessions: SessionAcquisitionSessionRow[];
+  start: string;
+  end: string;
+}): CanonicalSessionAnalysis {
+  const parsedEvents = parseCanonicalEvents(input);
+  const deduplicated = deduplicateCanonicalEvents(parsedEvents);
+  const joinCoverage: CanonicalSessionJoinCoverage = {
+    funnelEventRowsMissingUserId: 0,
+    funnelEventsMissingFlowId: 0,
+    submitEventsMissingSessionId: 0,
+    firstSessionMarkersMissingSessionId: 0,
+    firstSessionMarkersMissingUserId: 0,
+    funnelEventsWithUnusableClientStageAt: 0,
+    stableIdConflictGroups: deduplicated.stableIdConflictGroups,
+    submitFlowsWithoutWindowSession: 0,
+    submitFlowsWithSessionOwnerMismatch: 0,
+    submitFlowsWithIneligibleSession: 0,
+  };
+  const firstSessionMarkers: ParsedCanonicalEvent[] = [];
+  const eventsByAttempt = new Map<string, ParsedCanonicalEvent[]>();
+
+  for (const event of deduplicated.events) {
+    if (event.eventType === "first_session_logged") {
+      firstSessionMarkers.push(event);
+      if (!event.userId) joinCoverage.firstSessionMarkersMissingUserId++;
+      if (!event.sessionId) joinCoverage.firstSessionMarkersMissingSessionId++;
+      continue;
+    }
+
+    if (!event.userId) joinCoverage.funnelEventRowsMissingUserId++;
+    if (!event.flowId) joinCoverage.funnelEventsMissingFlowId++;
+    if (event.eventType === "session_log_submit" && !event.sessionId) {
+      joinCoverage.submitEventsMissingSessionId++;
+    }
+    if (event.clientStageAtMs === null) {
+      joinCoverage.funnelEventsWithUnusableClientStageAt++;
+    }
+    if (!event.userId || !event.flowId || event.clientStageAtMs === null) {
+      continue;
+    }
+
+    const key = JSON.stringify([event.userId, event.flowId]);
+    const attemptEvents = eventsByAttempt.get(key) ?? [];
+    attemptEvents.push(event);
+    eventsByAttempt.set(key, attemptEvents);
+  }
+
+  const attempts: CanonicalAttempt[] = [];
+  for (const attemptEvents of eventsByAttempt.values()) {
+    const ordered = [...attemptEvents].sort(compareCanonicalEvents);
+    const start = ordered.find(
+      (event) => event.eventType === "session_log_start",
+    );
+    if (
+      !start ||
+      !start.userId ||
+      !start.flowId ||
+      start.clientStageAtMs === null
+    ) {
+      continue;
+    }
+    const startIndex = ordered.indexOf(start);
+    const formView =
+      ordered
+        .slice(startIndex + 1)
+        .find(
+          (event) =>
+            event.eventType === "session_log_form_view" &&
+            event.clientStageAtMs !== null &&
+            event.clientStageAtMs >= start.clientStageAtMs,
+        ) ?? null;
+    const submit = formView
+      ? (ordered
+          .slice(ordered.indexOf(formView) + 1)
+          .find(
+            (event) =>
+              event.eventType === "session_log_submit" &&
+              event.clientStageAtMs !== null &&
+              event.clientStageAtMs >= formView.clientStageAtMs! &&
+              event.sessionId !== null,
+          ) ?? null)
+      : null;
+    attempts.push({
+      userId: start.userId,
+      flowId: start.flowId,
+      start,
+      formView,
+      submit,
+      validationFailures: ordered.filter(
+        (event) => event.eventType === "session_log_validation_failed",
+      ),
+      persistedSession: null,
+    });
+  }
+
+  const sessionsById = new Map<string, SessionAcquisitionSessionRow>(
+    input.windowSessions.map((session) => [session.id, session]),
+  );
+  for (const attempt of attempts) {
+    if (!attempt.submit) continue;
+    const classification = classifySubmittedSession(
+      attempt.submit,
+      sessionsById,
+    );
+    if (classification.kind === "persisted") {
+      attempt.persistedSession = classification.session;
+      continue;
+    }
+    if (classification.kind === "not_found") {
+      joinCoverage.submitFlowsWithoutWindowSession++;
+      continue;
+    }
+    if (classification.kind === "owner_mismatch") {
+      joinCoverage.submitFlowsWithSessionOwnerMismatch++;
+      continue;
+    }
+    joinCoverage.submitFlowsWithIneligibleSession++;
+  }
+
+  const formViewAttempts = attempts.filter(
+    (attempt) => attempt.formView !== null,
+  );
+  const submitAttempts = attempts.filter((attempt) => attempt.submit !== null);
+  const persistedAttempts = attempts.filter(
+    (attempt) => attempt.persistedSession !== null,
+  );
+  const rejectedSubmitFlows =
+    joinCoverage.submitFlowsWithoutWindowSession +
+    joinCoverage.submitFlowsWithSessionOwnerMismatch +
+    joinCoverage.submitFlowsWithIneligibleSession;
+  if (
+    rejectedSubmitFlows !==
+    submitAttempts.length - persistedAttempts.length
+  ) {
+    throw new Error(
+      "Canonical persistence buckets must partition submitted flows.",
+    );
+  }
+
+  const usersFor = (entries: CanonicalAttempt[]): Set<string> =>
+    new Set(entries.map((attempt) => attempt.userId));
+  const startUsers = usersFor(attempts);
+  const formViewUsers = usersFor(formViewAttempts);
+  const submitUsers = usersFor(submitAttempts);
+  const persistedUsers = usersFor(persistedAttempts);
+  const canonicalFunnel: CanonicalSessionFunnel = {
+    grain: "unique_user",
+    ordering: "metadata.client_stage_at",
+    steps: [
+      canonicalFunnelStep(
+        "start",
+        "Form started",
+        startUsers,
+        attempts.length,
+        startUsers.size,
+        null,
+      ),
+      canonicalFunnelStep(
+        "form_view",
+        "Form viewed",
+        formViewUsers,
+        formViewAttempts.length,
+        startUsers.size,
+        startUsers.size,
+      ),
+      canonicalFunnelStep(
+        "submit",
+        "Submitted",
+        submitUsers,
+        submitAttempts.length,
+        startUsers.size,
+        formViewUsers.size,
+      ),
+      canonicalFunnelStep(
+        "persisted_session",
+        "Persisted session",
+        persistedUsers,
+        persistedAttempts.length,
+        startUsers.size,
+        submitUsers.size,
+      ),
+    ],
+    joinCoverage,
+  };
+
+  return { attempts, firstSessionMarkers, canonicalFunnel };
+}
+
+function isHistoricallyCompletedSession(
+  session: SessionAcquisitionSessionRow
+): boolean {
+  return session.status === "completed";
+}
+
+function buildFirstCompletedSessionByUser(
+  lifetimeSessions: SessionAcquisitionSessionRow[],
+  end: string
+): Map<string, SessionAcquisitionSessionRow> {
+  const sorted = lifetimeSessions
+    .filter(isHistoricallyCompletedSession)
+    .filter((session) => Date.parse(session.created_at) < Date.parse(end))
+    .sort(
+      (left, right) =>
+        Date.parse(left.created_at) - Date.parse(right.created_at) ||
+        left.id.localeCompare(right.id)
+    );
+  const firstByUser = new Map<string, SessionAcquisitionSessionRow>();
+  for (const session of sorted) {
+    if (!firstByUser.has(session.user_id)) {
+      firstByUser.set(session.user_id, session);
+    }
+  }
+  return firstByUser;
+}
+
+function buildFirstSessionTelemetryCoverage(input: {
+  attempts: CanonicalAttempt[];
+  firstSessionMarkers: ParsedCanonicalEvent[];
+  lifetimeSessions: SessionAcquisitionSessionRow[];
+  end: string;
+}): FirstSessionTelemetryCoverage {
+  const firstCompletedSessionByUser = buildFirstCompletedSessionByUser(
+    input.lifetimeSessions,
+    input.end
+  );
+  const persistedFirstSessionByUser = new Map<string, string>();
+
+  for (const attempt of input.attempts) {
+    const persistedSession = attempt.persistedSession;
+    const historicalFirst = firstCompletedSessionByUser.get(attempt.userId);
+    if (!persistedSession || !historicalFirst) continue;
+    if (persistedSession.id !== historicalFirst.id) continue;
+    persistedFirstSessionByUser.set(attempt.userId, persistedSession.id);
+  }
+
+  const markerUsers = new Set<string>();
+  for (const marker of input.firstSessionMarkers) {
+    if (!marker.userId || !marker.sessionId) continue;
+    if (persistedFirstSessionByUser.get(marker.userId) !== marker.sessionId) {
+      continue;
+    }
+    markerUsers.add(marker.userId);
+  }
+
+  const persistedFirstSessionUsers = persistedFirstSessionByUser.size;
+  return {
+    persistedFirstSessionUsers,
+    markerUsers: markerUsers.size,
+    coverage: ratio(markerUsers.size, persistedFirstSessionUsers),
+  };
+}
+
+function buildSessionValidationBranch(
+  attempts: CanonicalAttempt[],
+  formViewUsers: number,
+): SessionValidationBranch {
+  const affectedUsers = new Set<string>();
+  const recoveredUsers = new Set<string>();
+  let affectedFlows = 0;
+  let recoveredFlows = 0;
+
+  for (const attempt of attempts) {
+    if (!attempt.formView) continue;
+    const firstSubmit = attempt.submit;
+    const affected = attempt.validationFailures.some((event) => {
+      if (compareCanonicalEvents(event, attempt.formView) < 0) {
+        return false;
+      }
+      return !firstSubmit || compareCanonicalEvents(event, firstSubmit) < 0;
+    });
+    if (!affected) continue;
+
+    affectedFlows += 1;
+    affectedUsers.add(attempt.userId);
+    if (firstSubmit) {
+      recoveredFlows += 1;
+      recoveredUsers.add(attempt.userId);
+    }
+  }
+
+  return {
+    affectedUsers: affectedUsers.size,
+    affectedFlows,
+    pctOfFormViewUsers: ratio(affectedUsers.size, formViewUsers),
+    recoveredUsers: recoveredUsers.size,
+    recoveredFlows,
+    recoveryRate: ratio(recoveredUsers.size, affectedUsers.size),
+  };
 }
 
 function extractValidationErrorCodes(metadata: unknown): string[] {
@@ -3889,15 +5250,6 @@ function sortCountRecord(counts: Record<string, number>): Record<string, number>
   return Object.fromEntries(
     Object.entries(counts).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
   );
-}
-
-function unionSets(sets: Array<Set<string> | undefined>): Set<string> {
-  const union = new Set<string>();
-  for (const set of sets) {
-    if (!set) continue;
-    for (const value of set) union.add(value);
-  }
-  return union;
 }
 
 function intersectionSize(left: Set<string>, right: Set<string>): number {
@@ -4007,38 +5359,15 @@ async function runCli(): Promise<void> {
   }
 
   const supabase = createAdminClient();
-  const [events, windowSessions, profilesCreatedInWindow] = await Promise.all([
-    fetchEventRows(supabase, options),
-    fetchWindowSessionRows(supabase, options),
-    fetchProfilesCreatedInWindow(supabase, options),
-  ]);
-
-  const scopedUserIds = Array.from(
-    new Set(
-      [
-        ...events.flatMap((event) => (event.user_id ? [event.user_id] : [])),
-        ...windowSessions.map((session) => session.user_id),
-        ...profilesCreatedInWindow.map((profile) => profile.id),
-      ].sort()
-    )
-  );
-
-  const [scopedProfiles, lifetimeSessions] = await Promise.all([
-    fetchProfilesForUsers(supabase, scopedUserIds),
-    fetchLifetimeSessionsForUsers(supabase, scopedUserIds, options.end),
-  ]);
-
-  const profilesById = new Map<string, SessionAcquisitionProfileRow>();
-  for (const profile of [...profilesCreatedInWindow, ...scopedProfiles]) {
-    profilesById.set(profile.id, profile);
-  }
+  const { events, windowSessions, lifetimeSessions, profiles } =
+    await readSessionAcquisitionSourceRows(supabase, options);
 
   const report = computeSessionAcquisitionReport({
     ...options,
     events,
     windowSessions,
     lifetimeSessions,
-    profiles: Array.from(profilesById.values()),
+    profiles,
     readinessCriteria: sessionAcquisitionReadinessCriteriaFromOptions(options),
   });
 

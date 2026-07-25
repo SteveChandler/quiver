@@ -45,7 +45,7 @@ export interface BeginnerWindowInput {
 
 export interface BeginnerWindowEvaluation {
   applies: boolean;
-  rating: Exclude<BeginnerWindowRating, "unknown"> | "not_applicable";
+  rating: BeginnerWindowRating | "not_applicable";
   labels: {
     wave: string;
     wind: string;
@@ -176,7 +176,9 @@ export function evaluateBeginnerWindow(
   };
   const knownStatuses = Object.values(statuses).filter((s) => s !== "unknown");
   let rating: BeginnerWindowEvaluation["rating"];
-  if (knownStatuses.length === 0 || knownStatuses.includes("poor")) {
+  if (knownStatuses.length === 0) {
+    rating = "unknown";
+  } else if (knownStatuses.includes("poor")) {
     rating = "poor";
   } else if (Object.values(statuses).every((s) => s === "ideal")) {
     rating = "ideal";

@@ -156,7 +156,6 @@ describe("Sitemap Generation", () => {
       const homeRoute = result.find((r) => r.url === `${baseUrl}/`);
 
       expect(homeRoute).not.toBeUndefined();
-      expect(homeRoute?.priority).toBe(1);
     });
 
     it("should include /features route", async () => {
@@ -164,7 +163,6 @@ describe("Sitemap Generation", () => {
       const route = result.find((r) => r.url === `${baseUrl}/features`);
 
       expect(route).not.toBeUndefined();
-      expect(route?.priority).toBe(0.7);
     });
 
     it("should include /about route", async () => {
@@ -193,27 +191,22 @@ describe("Sitemap Generation", () => {
       const route = result.find((r) => r.url === `${baseUrl}/plans`);
 
       expect(route).not.toBeUndefined();
-      expect(route?.priority).toBe(0.7);
     });
 
-    it("should include /free-surf-reports route with high crawl priority", async () => {
+    it("should include /free-surf-reports route", async () => {
       const result = await sitemap();
       const route = result.find((r) => r.url === `${baseUrl}/free-surf-reports`);
 
       expect(route).not.toBeUndefined();
-      expect(route?.priority).toBe(0.85);
-      expect(route?.changeFrequency).toBe("daily");
     });
 
-    it("should include /best-surf-forecast-app route with monthly freshness", async () => {
+    it("should include /best-surf-forecast-app route", async () => {
       const result = await sitemap();
       const route = result.find(
         (r) => r.url === `${baseUrl}/best-surf-forecast-app`,
       );
 
       expect(route).not.toBeUndefined();
-      expect(route?.priority).toBe(0.85);
-      expect(route?.changeFrequency).toBe("monthly");
     });
 
     it("should include /forecast-accuracy (curated comparison page)", async () => {
@@ -221,7 +214,30 @@ describe("Sitemap Generation", () => {
       const route = result.find((r) => r.url === `${baseUrl}/forecast-accuracy`);
 
       expect(route).not.toBeUndefined();
-      expect(route?.priority).toBe(0.7);
+    });
+
+    it("includes acquisition hubs and keeps utility or campaign routes out", async () => {
+      const result = await sitemap();
+      const routesByUrl = new Map(
+        result.map((route) => [route.url, route] as const),
+      );
+
+      expect(routesByUrl.get(`${baseUrl}/download`)?.lastModified).toBe(
+        "2026-07-15",
+      );
+      expect(routesByUrl.get(`${baseUrl}/android-beta`)?.lastModified).toBe(
+        "2026-07-22",
+      );
+      expect(routesByUrl.get(`${baseUrl}/guides`)?.lastModified).toBe(
+        "2026-06-25",
+      );
+      expect(
+        routesByUrl.get(`${baseUrl}/us-open-of-surfing-forecast`)
+          ?.lastModified,
+      ).toBe("2026-07-23");
+      expect(routesByUrl.has(`${baseUrl}/support`)).toBe(false);
+      expect(routesByUrl.has(`${baseUrl}/data-deletion`)).toBe(false);
+      expect(routesByUrl.has(`${baseUrl}/pbsc`)).toBe(false);
     });
 
     it("should include /beaches/usa route", async () => {
@@ -238,26 +254,7 @@ describe("Sitemap Generation", () => {
       expect(route).not.toBeUndefined();
     });
 
-    it("should set changeFrequency to daily for static routes", async () => {
-      const result = await sitemap();
-      const staticRoutes = [
-        "/",
-        "/features",
-        "/about",
-        "/privacy",
-        "/plans",
-        "/map",
-        "/free-surf-reports",
-        "/beaches/mexico",
-      ];
-
-      staticRoutes.forEach((path) => {
-        const route = result.find((r) => r.url === `${baseUrl}${path}`);
-        expect(route?.changeFrequency).toBe("daily");
-      });
-    });
-
-    it("should set lastModified to fixed date for static routes", async () => {
+    it("uses the named static content version for static routes", async () => {
       const result = await sitemap();
       const homeRoute = result.find((r) => r.url === `${baseUrl}/`);
 
@@ -298,6 +295,16 @@ describe("Sitemap Generation", () => {
   describe("Learn Routes", () => {
     it("should include every canonical learn article and exclude retired aliases", async () => {
       const result = await sitemap();
+      const latestArticleDate = learnArticles.reduce(
+        (latest, article) =>
+          (article.dateModified ?? article.datePublished ?? "") > latest
+            ? article.dateModified ?? article.datePublished ?? latest
+            : latest,
+        "1970-01-01",
+      );
+      const learnHub = result.find((r) => r.url === `${baseUrl}/learn`);
+
+      expect(learnHub?.lastModified).toBe(latestArticleDate);
 
       for (const article of learnArticles) {
         const route = result.find(
@@ -305,6 +312,9 @@ describe("Sitemap Generation", () => {
         );
 
         expect(route).not.toBeUndefined();
+        expect(route?.lastModified).toBe(
+          article.dateModified ?? article.datePublished,
+        );
       }
 
       expect(
@@ -317,6 +327,70 @@ describe("Sitemap Generation", () => {
   });
 
   describe("Database-Driven Intent Routes", () => {
+    it("includes protected, data-rich city route families without editorial approval", async () => {
+      (getReviewedCityEditorialContent as jest.Mock).mockResolvedValue([]);
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          id: "san-diego-beach",
+          slug: "unproven-san-diego-break",
+          city: "San Diego",
+          state: "CA",
+          country: "USA",
+          description: "Substantive local beach content.",
+          wave_tips: "Use the forecast before choosing the peak.",
+        }],
+      });
+      (getAllBeachLocations as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          city: "San Diego",
+          state: "CA",
+          country: "USA",
+          beachCount: 15,
+        }],
+      });
+      (getAllCitiesWithBeachSkills as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          city: "Santa Cruz",
+          state: "CA",
+          country: "USA",
+          beachCount: 8,
+          hasBeginnerBeaches: true,
+          hasAdvancedBeaches: true,
+          hasLeastCrowdedBeaches: true,
+          hasEditorialContent: true,
+          hasTideData: true,
+          hasWaterTempData: true,
+        }, {
+          city: "San Diego",
+          state: "CA",
+          country: "USA",
+          beachCount: 15,
+          hasBeginnerBeaches: true,
+          hasAdvancedBeaches: true,
+          hasLeastCrowdedBeaches: true,
+          hasEditorialContent: true,
+          hasTideData: true,
+          hasWaterTempData: true,
+        }],
+      });
+      (getCitiesWithBestMonthsData as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{ city: "La Jolla", state: "CA", beachCount: 5 }],
+      });
+
+      const result = await sitemap();
+      const urls = new Set(result.map((route) => route.url));
+
+      expect(urls.has(`${baseUrl}/tide/santa-cruz`)).toBe(true);
+      expect(urls.has(`${baseUrl}/water-temp/santa-cruz`)).toBe(true);
+      expect(urls.has(`${baseUrl}/longboard/san-diego`)).toBe(true);
+      expect(urls.has(`${baseUrl}/best-time-to-surf/la-jolla`)).toBe(true);
+      expect(urls.has(`${baseUrl}/ca/san-diego`)).toBe(true);
+    });
+
     it("should generate intent routes for cities from database", async () => {
       const result = await sitemap();
 
@@ -441,21 +515,7 @@ describe("Sitemap Generation", () => {
     });
   });
 
-  describe("Intent Route Priorities", () => {
-    it("should prioritize beginner intent (0.85) over others (0.8)", async () => {
-      const result = await sitemap();
-
-      const beginnerRoute = result.find(
-        (r) => r.url === `${baseUrl}/beginner/san-diego`
-      );
-      const tideRoute = result.find(
-        (r) => r.url === `${baseUrl}/tide/san-diego`
-      );
-
-      expect(beginnerRoute?.priority).toBe(0.85);
-      expect(tideRoute?.priority).toBe(0.8);
-    });
-
+  describe("Intent Route URLs", () => {
     it("should use correct URL format /{intent}/{city}", async () => {
       const result = await sitemap();
       const intentRoutes = result.filter(
@@ -679,6 +739,60 @@ describe("Sitemap Generation", () => {
       const result = await sitemap();
 
       expect(result.find((r) => r.url.includes("unreviewed-break"))).toBeUndefined();
+    });
+
+    it("includes only the protected subpages for a substantive unreviewed beach", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          id: "swamis",
+          slug: "swamis",
+          city: "Encinitas",
+          state: "CA",
+          country: "USA",
+          description: "A substantive local reef-break description.",
+          wave_tips: "Use the channel and respect the established peak.",
+        }],
+      });
+
+      const result = await sitemap();
+
+      expect(
+        result.find((route) => route.url === `${baseUrl}/ca/encinitas/swamis`),
+      ).toBeUndefined();
+      expect(
+        result.find(
+          (route) =>
+            route.url === `${baseUrl}/ca/encinitas/swamis/tides`,
+        ),
+      ).not.toBeUndefined();
+      expect(
+        result.find(
+          (route) =>
+            route.url === `${baseUrl}/ca/encinitas/swamis/water-temp`,
+        ),
+      ).not.toBeUndefined();
+    });
+
+    it("lets explicit rejection veto protected beach subpages", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [{
+          id: "swamis",
+          slug: "swamis",
+          city: "Encinitas",
+          state: "CA",
+          country: "USA",
+          description: "A substantive local reef-break description.",
+          wave_tips: "Use the channel and respect the established peak.",
+          seo_indexable: false,
+          editorial_reviewed_at: "2026-07-13T00:00:00.000Z",
+        }],
+      });
+
+      const result = await sitemap();
+
+      expect(result.some((route) => route.url.includes("/swamis"))).toBe(false);
     });
 
     it("should use hierarchical URL for beaches with complete location data", async () => {
@@ -927,30 +1041,7 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url.includes("sunset-cliffs"))).toBeUndefined();
     });
 
-    it("should set priority 0.7 for beach routes", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [
-          {
-            id: "beach-1",
-            slug: "sunset-cliffs-garbage",
-            city: "San Diego",
-            state: "CA",
-            country: "USA",
-            ...reviewedBeach(),
-          },
-        ],
-      });
-
-      const result = await sitemap();
-      const beachRoute = result.find((r) =>
-        r.url.includes("/ca/san-diego/sunset-cliffs") && !r.url.includes("/tides") && !r.url.includes("/water-temp")
-      );
-
-      expect(beachRoute?.priority).toBe(0.7);
-    });
-
-    it("should set priority 0.65 for beach tides/water-temp routes", async () => {
+    it("should include beach tides/water-temp routes", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -975,9 +1066,7 @@ describe("Sitemap Generation", () => {
       );
 
       expect(tidesRoute).not.toBeUndefined();
-      expect(tidesRoute?.priority).toBe(0.65);
       expect(waterTempRoute).not.toBeUndefined();
-      expect(waterTempRoute?.priority).toBe(0.65);
     });
 
     it("should use beach updated_at for lastModified", async () => {
@@ -1160,42 +1249,6 @@ describe("Sitemap Generation", () => {
       expect(redirecting).toBeUndefined();
     });
 
-    it("should set priority 0.75 for location routes", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [{ id: "b1", slug: "la-jolla-cove", city: "La Jolla", state: "CA", country: "USA" }],
-      });
-      (getAllBeachLocations as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [{ city: "La Jolla", state: "CA", country: "USA", beachCount: 5 }],
-      });
-
-      const result = await sitemap();
-      const locationRoute = result.find((r) =>
-        r.url.endsWith("/ca/la-jolla")
-      );
-
-      expect(locationRoute?.priority).toBe(0.85);
-    });
-
-    it("should set changeFrequency to weekly for location routes", async () => {
-      (getBeaches as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [{ id: "b1", slug: "la-jolla-cove", city: "La Jolla", state: "CA", country: "USA" }],
-      });
-      (getAllBeachLocations as jest.Mock).mockResolvedValue({
-        success: true,
-        data: [{ city: "La Jolla", state: "CA", country: "USA", beachCount: 5 }],
-      });
-
-      const result = await sitemap();
-      const locationRoute = result.find((r) =>
-        r.url.endsWith("/ca/la-jolla")
-      );
-
-      expect(locationRoute?.changeFrequency).toBe("hourly");
-    });
-
     it("should include single-beach city pages (beachCount >= 1) but exclude zero-beach cities", async () => {
       // Mock getBeaches so validCitySlugs is populated for "big-city" and "tiny-town".
       // Both need a matching beach entry to pass the scored-beach cross-validation.
@@ -1279,19 +1332,6 @@ describe("Sitemap Generation", () => {
       expect(result.find((r) => r.url === `${baseUrl}/guides/surfing-hawaii`)).not.toBeUndefined();
     });
 
-    it("should set priority 0.9 for guide routes", async () => {
-      const result = await sitemap();
-      const guideRoute = result.find((r) => r.url.includes("/guides/surfing-"));
-
-      expect(guideRoute?.priority).toBe(0.9);
-    });
-
-    it("should set changeFrequency to weekly for guide routes", async () => {
-      const result = await sitemap();
-      const guideRoute = result.find((r) => r.url.includes("/guides/surfing-"));
-
-      expect(guideRoute?.changeFrequency).toBe("weekly");
-    });
   });
 
   describe("Combined Sitemap", () => {
@@ -1336,6 +1376,24 @@ describe("Sitemap Generation", () => {
   });
 
   describe("Sitemap Structure", () => {
+    it("omits changeFrequency and priority from every sitemap entry", async () => {
+      const result = await sitemap();
+
+      result.forEach((entry) => {
+        expect(entry).not.toHaveProperty("changeFrequency");
+        expect(entry).not.toHaveProperty("priority");
+      });
+    });
+
+    it("does not collapse all lastModified values to one fixed date", async () => {
+      const result = await sitemap();
+      const lastModifiedValues = new Set(
+        result.map((entry) => entry.lastModified),
+      );
+
+      expect(lastModifiedValues.size).toBeGreaterThan(1);
+    });
+
     it("should return array of sitemap entries", async () => {
       const result = await sitemap();
 
@@ -1343,8 +1401,8 @@ describe("Sitemap Generation", () => {
       result.forEach((entry) => {
         expect(entry).toHaveProperty("url");
         expect(entry).toHaveProperty("lastModified");
-        expect(entry).toHaveProperty("changeFrequency");
-        expect(entry).toHaveProperty("priority");
+        expect(entry).not.toHaveProperty("changeFrequency");
+        expect(entry).not.toHaveProperty("priority");
       });
     });
 
@@ -1353,33 +1411,7 @@ describe("Sitemap Generation", () => {
 
       result.forEach((entry) => {
         expect(entry.url.startsWith(baseUrl)).toBe(true);
-      });
-    });
-
-    it("should have valid priority values (0-1)", async () => {
-      const result = await sitemap();
-
-      result.forEach((entry) => {
-        expect(entry.priority).toBeGreaterThanOrEqual(0);
-        expect(entry.priority).toBeLessThanOrEqual(1);
-      });
-    });
-
-    it("should have valid changeFrequency values", async () => {
-      const validFrequencies = [
-        "always",
-        "hourly",
-        "daily",
-        "weekly",
-        "monthly",
-        "yearly",
-        "never",
-      ];
-
-      const result = await sitemap();
-
-      result.forEach((entry) => {
-        expect(validFrequencies).toContain(entry.changeFrequency);
+        expect(Number.isNaN(Date.parse(String(entry.lastModified)))).toBe(false);
       });
     });
   });
@@ -1390,8 +1422,6 @@ describe("Sitemap Generation", () => {
       const forecastHub = result.find((r) => r.url === `${baseUrl}/forecast`);
 
       expect(forecastHub).not.toBeUndefined();
-      expect(forecastHub?.priority).toBe(0.9);
-      expect(forecastHub?.changeFrequency).toBe("daily");
     });
 
     it("should include regional forecast pages", async () => {
@@ -1399,8 +1429,6 @@ describe("Sitemap Generation", () => {
       const regionalForecast = result.find((r) => r.url.includes("/forecast/southern-california"));
 
       expect(regionalForecast).not.toBeUndefined();
-      expect(regionalForecast?.priority).toBe(0.8);
-      expect(regionalForecast?.changeFrequency).toBe("daily");
     });
   });
 });

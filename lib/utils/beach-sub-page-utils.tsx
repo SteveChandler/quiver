@@ -37,7 +37,9 @@ import {
   type BeachSubPageCrawlCopy,
 } from "@/lib/utils/beach-sub-page-crawl-copy";
 import {
-  isBeachDatabaseRecordEligible,
+  applyIndexabilityToMetadata,
+  evaluateBeachIndexability,
+  toBeachEditorialInput,
   type BeachEditorialDatabaseRecord,
 } from "@/lib/seo/indexability";
 
@@ -413,9 +415,11 @@ export async function generateBeachSubPageMetadata({
       image: `/api/og/beach?slug=${beachSlug}`,
     });
     const metadata = { ...meta, title: { absolute: title } };
-    return isBeachDatabaseRecordEligible(beach as BeachEditorialDatabaseRecord)
-      ? metadata
-      : { ...metadata, robots: { index: false, follow: true } };
+    const decision = evaluateBeachIndexability(
+      toBeachEditorialInput(beach as BeachEditorialDatabaseRecord),
+      subPagePath,
+    );
+    return applyIndexabilityToMetadata(metadata, decision);
   }
 
   const meta = buildPageMetadata({
@@ -423,5 +427,13 @@ export async function generateBeachSubPageMetadata({
     description: config.fallbackMetadata.description,
     path: subPagePath,
   });
-  return { ...meta, title: { absolute: config.fallbackMetadata.title } };
+  return {
+    ...meta,
+    title: { absolute: config.fallbackMetadata.title },
+    robots: {
+      index: false,
+      follow: false,
+      googleBot: { index: false, follow: false },
+    },
+  };
 }

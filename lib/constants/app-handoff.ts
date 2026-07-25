@@ -5,15 +5,16 @@ import {
 
 export { APP_FIRST_CAMPAIGN, iosAppStoreUrlWithCampaign };
 
-/** Quiver-hosted handoff route. QR + email links point here so attribution
- *  survives the phone handoff. Never link a QR straight at the App Store. */
-export const APP_HANDOFF_PATH = "/app";
+/** Approved universal-link route for controllable QR + email handoffs.
+ * Bare /app remains a web/store route and must not be captured by the app. */
+export const APP_HANDOFF_PATH = "/app/handoff";
 
 /** Only these keys survive into the handoff URL. Anything else is dropped. */
 export const SAFE_HANDOFF_PARAM_KEYS = [
   "source",
   "surface",
   "placement",
+  "handoff_id",
   "qr_id",
   "target",
   "utm_source",

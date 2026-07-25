@@ -1,5 +1,4 @@
 import { cache, Suspense } from "react";
-import Link from "next/link";
 import { BeachPageStructuredData } from "@/components/seo/structured-data";
 import { BreadcrumbStructuredData } from "@/components/seo/breadcrumb-schema";
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
@@ -32,7 +31,6 @@ import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
 import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { getBeachReviews } from "@/actions/beach-review-actions";
-import { getBestTimeToSurfUrl } from "@/lib/utils/best-time-to-surf-utils";
 import {
   createPublicReadClient,
   createSupabaseServiceRoleClient,
@@ -40,10 +38,11 @@ import {
 import { WebPageSchema } from "@/components/seo/web-page-schema";
 import { LiveCamSchema } from "@/components/seo/live-cam-schema";
 import { getBeachCameraUrl } from "@/actions/beach/cam-actions";
-import { BeachProseSummary } from "@/components/beach-detail/beach-prose-summary";
 import {
+  applyIndexabilityToMetadata,
   evaluateBeachIndexability,
-  type EditorialSource,
+  toBeachEditorialInput,
+  type BeachEditorialDatabaseRecord,
 } from "@/lib/seo/indexability";
 
 export const dynamic = "force-dynamic";
@@ -57,44 +56,6 @@ const getCachedBeachCandidates = cache(async (slug: string) => {
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
-const BEACH_PROSE_SUMMARY_HIDDEN_SLUGS = new Set([
-  "doheny",
-  "doheny-state-beach",
-]);
-
-type BeachWithEditorialReview = Beach & {
-  seo_indexable?: boolean | null;
-  editorial_reviewed_at?: string | null;
-  editorial_sources?: EditorialSource[] | string | null;
-};
-
-function getBeachEditorialSources(beach: BeachWithEditorialReview): EditorialSource[] {
-  if (Array.isArray(beach.editorial_sources)) {
-    return beach.editorial_sources as EditorialSource[];
-  }
-
-  if (typeof beach.editorial_sources !== "string") return [];
-
-  try {
-    const sources = JSON.parse(beach.editorial_sources) as unknown;
-    return Array.isArray(sources) ? sources as EditorialSource[] : [];
-  } catch {
-    return [];
-  }
-}
-
-function isBeachEligibleForIndexing(beach: Beach): boolean {
-  const reviewedBeach = beach as BeachWithEditorialReview;
-  return evaluateBeachIndexability({
-    seoIndexable: reviewedBeach.seo_indexable,
-    seoReviewedAt: reviewedBeach.editorial_reviewed_at,
-    seoSources: getBeachEditorialSources(reviewedBeach),
-    description: beach.description,
-    crowdTips: beach.crowd_tips,
-    waveTips: beach.wave_tips,
-    bestConditionsProse: beach.best_conditions_prose,
-  }).indexable;
-}
 
 interface PageProps {
   params: Promise<{
@@ -159,7 +120,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     const [
       surfReportResult,
       reviewsResult,
-      bestTimeToSurfUrl,
       amenitiesResult,
       waterQualityResult,
       cameraUrl,
@@ -167,9 +127,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     ] = await Promise.all([
       getSpotSurfReportPublic(beach),
       getBeachReviews(beach.id),
-      beach.city && beach.state
-        ? getBestTimeToSurfUrl(cityToSlug(beach.city), beach.city, beach.state)
-        : Promise.resolve(undefined),
       (async () => {
         try {
           const supabase = createSupabaseServiceRoleClient();
@@ -329,33 +286,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
             pageUrl={buildBeachUrl(beach)}
           />
         )}
-
-        {/* SSR prose summary for AI crawlers and search engines (GEO) */}
-        {!BEACH_PROSE_SUMMARY_HIDDEN_SLUGS.has(beachSlug) &&
-          !BEACH_PROSE_SUMMARY_HIDDEN_SLUGS.has(beach.slug ?? "") && (
-            <BeachProseSummary
-              beach={beach}
-              surfCallReport={surfCallReport}
-              editorialSources={getBeachEditorialSources(beach as BeachWithEditorialReview)}
-            />
-          )}
-
-        <nav
-          className="mx-auto flex max-w-5xl flex-wrap gap-x-4 gap-y-2 px-4 py-4 text-sm sm:px-6 lg:px-8"
-          aria-label={`${beach.name} related surf guides`}
-        >
-          <Link className="font-medium text-primary underline-offset-4 hover:underline" href={`${buildBeachUrl(beach)}/tides`}>
-            {beach.name} tide chart
-          </Link>
-          <Link className="font-medium text-primary underline-offset-4 hover:underline" href={`${buildBeachUrl(beach)}/water-temp`}>
-            {beach.name} water temperature
-          </Link>
-          {bestTimeToSurfUrl && (
-            <Link className="font-medium text-primary underline-offset-4 hover:underline" href={bestTimeToSurfUrl}>
-              Best time to surf {beach.city}
-            </Link>
-          )}
-        </nav>
 
         {/* Client detail component with auth tracking */}
         <BeachDetailClient
@@ -535,11 +465,11 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
       ].filter(Boolean),
     });
 
-    if (!isBeachEligibleForIndexing(beach)) {
-      return { ...metadata, robots: { index: false, follow: true } };
-    }
-
-    return metadata;
+    const decision = evaluateBeachIndexability(
+      toBeachEditorialInput(beach as BeachEditorialDatabaseRecord),
+      path,
+    );
+    return applyIndexabilityToMetadata(metadata, decision);
   } catch (error) {
     console.error("[GenericBeachDetailPage] Error generating metadata:", {
       params,
@@ -557,7 +487,7 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
 }
 
 // generateStaticParams deferred: the beach page has additional no-store fetches
-// (enrichBeachesWithConditions, getBeachForecastPreview, getBestTimeToSurfUrl) and a
+// (enrichBeachesWithConditions, getBeachForecastPreview) and a
 // useSearchParams() call without Suspense that prevent full SSG prerendering.
 // Fixing those is a follow-up task. Hold-sensitive recommendations keep this page
 // dynamic even though getSpotSurfReportPublic() no longer depends on cookies().

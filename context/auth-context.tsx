@@ -37,7 +37,6 @@ import {
 } from "react";
 import type { User, Session, AuthChangeEvent } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/client";
-import { z } from "zod";
 import * as Sentry from "@sentry/nextjs";
 import {
   safeGetItem,
@@ -52,58 +51,10 @@ import {
   resetPostHog,
   setClientPostHogTrackingAllowed,
 } from "@/lib/posthog-client";
-
-/**
- * Zod schema for validating signup metadata from OAuth flows.
- * This ensures nested objects have proper structure and prevents
- * arbitrary data injection into user metadata.
- */
-const signupMetadataSchema = z
-  .object({
-    signup_context: z
-      .object({
-        method: z.string().optional(),
-        entrypoint: z.string().optional(),
-        landing_path: z.string().optional(),
-        referrer: z.string().optional(),
-        utm: z
-          .object({
-            source: z.string().nullable().optional(),
-            medium: z.string().nullable().optional(),
-            campaign: z.string().nullable().optional(),
-            content: z.string().nullable().optional(),
-            term: z.string().nullable().optional(),
-          })
-          .optional(),
-        tz: z.string().nullable().optional(),
-        locale: z.string().nullable().optional(),
-        device: z
-          .object({
-            kind: z.enum(["mobile", "desktop"]).optional(),
-          })
-          .optional(),
-        captured_at: z.string().optional(),
-      })
-      .optional(),
-    location_data: z
-      .object({
-        source: z.string().optional(),
-        city: z.string().nullable().optional(),
-        region: z.string().nullable().optional(),
-        country: z.string().nullable().optional(),
-        latitude: z.number().nullable().optional(),
-        longitude: z.number().nullable().optional(),
-      })
-      .nullable()
-      .optional(),
-    legal_consent: z
-      .object({
-        terms_accepted_at: z.string().optional(),
-        terms_version: z.string().optional(),
-        privacy_accepted_at: z.string().optional(),
-      })
-      .optional(),
-  });
+import {
+  parseSignupMetadata,
+  type WebSignupContext,
+} from "@/lib/analytics/acquisition-context";
 
 /**
  * AuthContext provides authentication state and methods throughout the application.
@@ -304,6 +255,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Handle post-auth redirect when user signs in
             if (event === "SIGNED_IN" && session) {
               setClientPostHogTrackingAllowed(null);
+              let pendingSignupContext: WebSignupContext | undefined;
 
               // Clear stored redirect path - components will re-render with new auth state
               // This prevents redirect loops caused by hard page reloads
@@ -330,30 +282,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                 if (isNewUser) {
                   try {
-                    const raw = JSON.parse(pendingMetadata);
-
-                    // Validate metadata structure using Zod schema
-                    // This ensures all nested objects have proper shape
-                    const parseResult = signupMetadataSchema.safeParse(raw);
-
-                    if (!parseResult.success) {
-                      if (process.env.NODE_ENV === "development") {
-                        console.warn(
-                          "[AuthContext] Invalid signup metadata structure:",
-                          parseResult.error.flatten(),
-                        );
-                      }
-                      // Skip updating with invalid metadata
-                      sessionStorage.removeItem("pending_signup_metadata");
-                      return;
-                    }
-
-                    const metadata = parseResult.data;
-
-                    // Reject if payload is too large (16KB limit)
-                    if (JSON.stringify(metadata).length > 16_384) {
+                    if (pendingMetadata.length > 16_384) {
                       throw new Error("Metadata payload exceeds size limit");
                     }
+
+                    const raw = JSON.parse(pendingMetadata);
+                    const metadata = parseSignupMetadata(raw);
+                    pendingSignupContext = metadata.signup_context;
 
                     supabase.auth
                       .updateUser({ data: metadata })
@@ -374,8 +309,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     }
                   }
                 }
-                // Always remove regardless of whether we applied it
-                sessionStorage.removeItem("pending_signup_metadata");
               }
               // Send immediate welcome email for new users
               // Check if this is a fresh signup (created within last 60 seconds)
@@ -437,21 +370,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               const visitorId = getExistingVisitorId();
               if (visitorId && !alreadyLinked) {
                 sessionStorage.setItem(linkKey, "true");
-                fetch('/api/events/link', {
+                const linkRequest = fetch('/api/events/link', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ sessionId: visitorId }),
-                })
+                  body: JSON.stringify({
+                    sessionId: visitorId,
+                    ...(pendingSignupContext
+                      ? { signupContext: pendingSignupContext }
+                      : {}),
+                  }),
+                });
+                if (pendingMetadata) {
+                  sessionStorage.removeItem("pending_signup_metadata");
+                }
+                linkRequest
                   .then((res) => {
                     if (res.ok) {
                       clearVisitorId();
+                    } else {
+                      sessionStorage.removeItem(linkKey);
                     }
                   })
                   .catch((err) => {
+                    sessionStorage.removeItem(linkKey);
                     if (process.env.NODE_ENV === 'development') {
                       console.error('[AuthContext] Failed to link anonymous events:', err);
                     }
                   });
+              } else if (pendingMetadata) {
+                sessionStorage.removeItem("pending_signup_metadata");
               }
 
               if (process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN) {
