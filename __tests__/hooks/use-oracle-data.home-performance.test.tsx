@@ -79,6 +79,7 @@ describe("useOracleData home performance gates", () => {
       expect.objectContaining({
         autoRequest: false,
         enablePolling: true,
+        monitoringContext: "home",
       })
     );
 

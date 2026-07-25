@@ -138,6 +138,7 @@ export function HomeScreen() {
     enablePolling: true,
     pollingIntervalMs: 5 * 60 * 1000, // 5 minutes
     minDistanceChangeMeters: 1000, // 1 km
+    monitoringContext: "home",
   });
 
   // IP-based location from LocationContext (middleware cookie)

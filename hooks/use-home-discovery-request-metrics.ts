@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { captureClientPostHogEvent } from "@/lib/posthog-client";
 
 export type HomeDiscoveryRequestSource = "primary" | "fallback";
 
@@ -7,6 +8,17 @@ type HomeDiscoveryWindow = Window & {
 };
 
 const HOME_DISCOVERY_MARK_PREFIX = "quiver:home:discovery-request:";
+
+function createHomeLoadId(): string {
+  if (
+    typeof crypto !== "undefined" &&
+    typeof crypto.randomUUID === "function"
+  ) {
+    return crypto.randomUUID();
+  }
+
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+}
 
 function clearStaleHomeDiscoveryMarks(): void {
   if (
@@ -32,6 +44,10 @@ export function useHomeDiscoveryRequestMetrics(): (
   source: HomeDiscoveryRequestSource
 ) => void {
   const requestCountRef = useRef(0);
+  const homeLoadIdRef = useRef<string | null>(null);
+  if (homeLoadIdRef.current === null) {
+    homeLoadIdRef.current = createHomeLoadId();
+  }
 
   useEffect(() => {
     requestCountRef.current = 0;
@@ -48,6 +64,12 @@ export function useHomeDiscoveryRequestMetrics(): (
     if (typeof window !== "undefined") {
       (window as HomeDiscoveryWindow).__quiverHomeDiscoveryRequestCount = count;
     }
+
+    captureClientPostHogEvent("home_discovery_request", {
+      home_load_id: homeLoadIdRef.current,
+      request_number: count,
+      source,
+    });
 
     if (typeof performance !== "undefined" && typeof performance.mark === "function") {
       try {

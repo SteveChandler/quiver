@@ -279,6 +279,7 @@ describe("HomeScreen discovery request instrumentation", () => {
         enablePolling: true,
         pollingIntervalMs: 5 * 60 * 1000,
         minDistanceChangeMeters: 1000,
+        monitoringContext: "home",
       }),
     );
 
