@@ -15,8 +15,16 @@ const HANDOFF_ID = "33333333-3333-4333-8333-333333333333";
 
 test.use({ storageState: { cookies: [], origins: [] } });
 
-async function mockTelemetry(page: Parameters<typeof setupErrorDetection>[0]) {
+async function mockTelemetry(
+  page: Parameters<typeof setupErrorDetection>[0],
+  onEvent?: (eventType: string) => void,
+): Promise<void> {
   await page.route("**/api/events", async (route) => {
+    const body = route.request().postDataJSON() as { eventType?: unknown };
+    if (typeof body.eventType === "string") {
+      onEvent?.(body.eventType);
+    }
+
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -214,7 +222,12 @@ test.describe("/app/handoff route", () => {
 
   test("desktop renders the handoff module @smoke", async ({ page }) => {
     const errorCapture = setupErrorDetection(page);
-    await mockTelemetry(page);
+    let qrRenderTracked = false;
+    await mockTelemetry(page, (eventType) => {
+      if (eventType === "app_handoff_qr_rendered") {
+        qrRenderTracked = true;
+      }
+    });
 
     let emailRequestBody: Record<string, unknown> | null = null;
     await page.route("**/api/app-link-email", async (route) => {
@@ -241,6 +254,11 @@ test.describe("/app/handoff route", () => {
       "data-smart-url",
       new RegExp(`handoff_id=${HANDOFF_ID}`),
     );
+    await expect
+      .poll(() => qrRenderTracked, {
+        message: "Wait for the handoff form to hydrate before interacting",
+      })
+      .toBe(true);
 
     await page.getByLabel(/email/i).first().fill("handoff-test@example.com");
     await page.getByRole("button", { name: "Send link" }).click();
