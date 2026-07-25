@@ -68,12 +68,6 @@ export default async function Home(): Promise<ReactElement> {
 
   return (
     <>
-      <link
-        rel="preload"
-        as="image"
-        href="/images/hero/quiver-landing-hero-poster.jpg"
-        type="image/jpeg"
-      />
       <Suspense>
         <AuthAwareLandingWrapper
           initialPlatform={initialPlatform}
