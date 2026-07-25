@@ -57,7 +57,10 @@ jest.mock("@/lib/profile/skill-level", () => ({
     mockGetProfileExperienceLevel(...args),
 }));
 
-function mockBeachQuery(beach: Record<string, unknown>) {
+function mockBeachQuery(
+  beach: Record<string, unknown>,
+  forecastRows: Array<{ forecast_at: string }> = [],
+) {
   const query: {
     select: jest.Mock;
     eq: jest.Mock;
@@ -81,6 +84,23 @@ function mockBeachQuery(beach: Record<string, unknown>) {
           })),
         })),
       };
+    }
+    if (table === "enhanced_forecasts") {
+      const forecastQuery = {
+        select: jest.fn(),
+        eq: jest.fn(),
+        gte: jest.fn(),
+        lte: jest.fn(),
+        order: jest.fn().mockResolvedValue({
+          data: forecastRows,
+          error: null,
+        }),
+      };
+      forecastQuery.select.mockReturnValue(forecastQuery);
+      forecastQuery.eq.mockReturnValue(forecastQuery);
+      forecastQuery.gte.mockReturnValue(forecastQuery);
+      forecastQuery.lte.mockReturnValue(forecastQuery);
+      return forecastQuery;
     }
     return query;
   });
@@ -211,15 +231,18 @@ describe("GET /api/surf/call", () => {
   it("scores a validated forecastAt through the canonical discovery path", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     const forecastAt = "2026-05-08T22:00:00.000Z";
-    mockBeachQuery({
-      id: beachId,
-      name: "Ocean Beach Pier",
-      slug: "ocean-beach-pier",
-      lat: 32.75,
-      lon: -117.25,
-      timezone: "America/Los_Angeles",
-      deleted_at: null,
-    });
+    mockBeachQuery(
+      {
+        id: beachId,
+        name: "Ocean Beach Pier",
+        slug: "ocean-beach-pier",
+        lat: 32.75,
+        lon: -117.25,
+        timezone: "America/Los_Angeles",
+        deleted_at: null,
+      },
+      [{ forecast_at: forecastAt }],
+    );
 
     const response = await GET(
       new NextRequest(
@@ -248,15 +271,18 @@ describe("GET /api/surf/call", () => {
   it("reports a nearest canonical forecast match within 90 minutes", async () => {
     const beachId = "11111111-1111-4111-8111-111111111111";
     const forecastAt = "2026-05-08T22:45:00.000Z";
-    mockBeachQuery({
-      id: beachId,
-      name: "Ocean Beach Pier",
-      slug: "ocean-beach-pier",
-      lat: 32.75,
-      lon: -117.25,
-      timezone: "America/Los_Angeles",
-      deleted_at: null,
-    });
+    mockBeachQuery(
+      {
+        id: beachId,
+        name: "Ocean Beach Pier",
+        slug: "ocean-beach-pier",
+        lat: 32.75,
+        lon: -117.25,
+        timezone: "America/Los_Angeles",
+        deleted_at: null,
+      },
+      [{ forecast_at: "2026-05-08T22:00:00.000Z" }],
+    );
 
     const response = await GET(
       new NextRequest(
@@ -298,6 +324,53 @@ describe("GET /api/surf/call", () => {
       matchedForecastAt: null,
       matchType: "none",
       deltaMinutes: null,
+    });
+  });
+
+  it("reports an exact row even when safety rejects the recommendation", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    const forecastAt = "2026-05-08T22:00:00.000Z";
+    canonicalContext = {
+      decision: {
+        ...canonicalContext.decision,
+        verdict: "no",
+        reasonCode: "no_candidates",
+        selection: null,
+      },
+      discovery: {
+        ...canonicalContext.discovery,
+        recommendations: [],
+      },
+    };
+    mockResolveCanonicalSessionDecisionContext.mockResolvedValue(
+      canonicalContext,
+    );
+    mockBeachQuery(
+      {
+        id: beachId,
+        name: "Ocean Beach Pier",
+        slug: "ocean-beach-pier",
+        lat: 32.75,
+        lon: -117.25,
+        timezone: "America/Los_Angeles",
+        deleted_at: null,
+      },
+      [{ forecast_at: forecastAt }],
+    );
+
+    const response = await GET(
+      new NextRequest(
+        `http://localhost:3000/api/surf/call?beachId=${beachId}&forecastAt=${encodeURIComponent(forecastAt)}`,
+      ),
+    );
+    const body = await response.json();
+
+    expect(body.data.report.verdict).toBe("NO");
+    expect(body.data.forecastAlignment).toEqual({
+      requestedForecastAt: forecastAt,
+      matchedForecastAt: forecastAt,
+      matchType: "exact",
+      deltaMinutes: 0,
     });
   });
 

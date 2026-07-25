@@ -44,6 +44,31 @@ type CanonicalSurfCallResponse = SpotSurfReportResult & {
   forecastAlignment?: SurfCallForecastAlignment;
 };
 
+async function readForecastAlignment(
+  supabase: AuthenticatedContext['supabase'],
+  beachId: string,
+  requestedForecastAt: string,
+): Promise<SurfCallForecastAlignment> {
+  const requestedMs = Date.parse(requestedForecastAt);
+  const toleranceMs = FORECAST_ALIGNMENT_TOLERANCE_MINUTES * 60 * 1000;
+  const { data, error } = await supabase
+    .from('enhanced_forecasts')
+    .select('forecast_at')
+    .eq('beach_id', beachId)
+    .gte('forecast_at', new Date(requestedMs - toleranceMs).toISOString())
+    .lte('forecast_at', new Date(requestedMs + toleranceMs).toISOString())
+    .order('forecast_at', { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return resolveForecastAlignment(
+    data ?? [],
+    requestedForecastAt,
+  ).alignment;
+}
+
 function appendBoardNote(whySentence: string, boardNote: string | null): string {
   if (!boardNote) return whySentence;
   const sentence = `Board fit: ${boardNote}.`;
@@ -307,16 +332,14 @@ async function surfCallHandler(
     boardClass,
     recommendationAvailability,
   );
-  const alignedForecasts = recommendations
-    .filter((recommendation) => recommendation.beach.id === beachId)
-    .map((recommendation) => recommendation.forecast);
   const scopedCanonicalResult: CanonicalSurfCallResponse = forecastAt
     ? {
         ...canonicalResult,
-        forecastAlignment: resolveForecastAlignment(
-          alignedForecasts,
+        forecastAlignment: await readForecastAlignment(
+          supabase,
+          beachId,
           forecastAt,
-        ).alignment,
+        ),
       }
     : canonicalResult;
   const result = applyForceVerdict(
