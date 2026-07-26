@@ -5,6 +5,7 @@ import {
   communityPhotoErrorResponse,
   parseCommunityPhotoMutation,
   recoverCommunityPhoto,
+  withCommunityPhotoRouteObservability,
 } from "@/lib/community-photos";
 import {
   withAdminAuth,
@@ -36,4 +37,10 @@ async function handler(
   }
 }
 
-export const POST = withAdminAuth(handler);
+export const POST = withCommunityPhotoRouteObservability(
+  {
+    route: "/api/admin/community-photos/:photoId/recover",
+    surface: "admin",
+  },
+  withAdminAuth(handler),
+);

@@ -5,6 +5,7 @@ import {
   communityPhotoErrorResponse,
   parseCommunityPhotoMutation,
   removeCommunityPhoto,
+  withCommunityPhotoRouteObservability,
 } from "@/lib/community-photos";
 import {
   withAuth,
@@ -40,4 +41,10 @@ async function removeHandler(
   }
 }
 
-export const DELETE = withAuth(removeHandler);
+export const DELETE = withCommunityPhotoRouteObservability(
+  {
+    route: "/api/community-photos/:photoId",
+    surface: "write",
+  },
+  withAuth(removeHandler),
+);

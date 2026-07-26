@@ -10,6 +10,7 @@ import {
   parseCommunityPhotoUploadFields,
   preflightCommunityPhotoUpload,
   reserveCommunityPhotoUpload,
+  withCommunityPhotoRouteObservability,
 } from "@/lib/community-photos";
 import {
   COMMUNITY_PHOTO_MAX_INPUT_BYTES,
@@ -142,9 +143,16 @@ async function uploadHandler(
   }
 }
 
-export const POST = withRateLimit(
-  withAuth(uploadHandler, {
-    errorMessage: "Community photo upload failed",
-  }),
-  "authenticated-default",
+export const POST = withCommunityPhotoRouteObservability(
+  {
+    route: "/api/community-photos/upload",
+    surface: "write",
+    successResultClass: "upload_success",
+  },
+  withRateLimit(
+    withAuth(uploadHandler, {
+      errorMessage: "Community photo upload failed",
+    }),
+    "authenticated-default",
+  ),
 );

@@ -1,0 +1,39 @@
+-- Source: PostHog event community_photo_route_outcome
+-- Numerator: upload route outcomes with HTTP 500-599
+-- Denominator: all upload route outcomes
+-- Rolling window: 60 minutes
+-- Minimum sample: 20
+-- Threshold: greater than 1%
+-- Owner: community photos rollout operator
+-- Rollback: disable runtime community photo writes
+
+SELECT
+  countIf(
+    toFloat(properties.status) >= 500
+    AND toFloat(properties.status) < 600
+  ) AS numerator,
+  count() AS denominator,
+  if(
+    count() >= 20,
+    countIf(
+      toFloat(properties.status) >= 500
+      AND toFloat(properties.status) < 600
+    ) / count(),
+    NULL
+  ) AS "5xx_rate",
+  if(
+    count() < 20,
+    'insufficient_sample',
+    if(
+      countIf(
+        toFloat(properties.status) >= 500
+        AND toFloat(properties.status) < 600
+      ) / count() > 0.01,
+      'stop',
+      'pass'
+    )
+  ) AS gate_status
+FROM events
+WHERE event = 'community_photo_route_outcome'
+  AND timestamp >= now() - INTERVAL 60 MINUTE
+  AND properties.route = '/api/community-photos/upload'

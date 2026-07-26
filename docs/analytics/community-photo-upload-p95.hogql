@@ -1,0 +1,26 @@
+-- Source: PostHog event community_photo_route_outcome
+-- Numerator: successful upload duration distribution
+-- Denominator: successful upload route outcomes
+-- Rolling window: 60 minutes
+-- Minimum sample: 20
+-- Threshold: 5000 ms
+-- Owner: community photos rollout operator
+-- Rollback: disable runtime community photo writes
+
+SELECT
+  count() AS denominator,
+  quantile(0.95)(toFloat(properties.duration_ms)) AS p95_duration_ms,
+  if(
+    count() < 20,
+    'insufficient_sample',
+    if(
+      quantile(0.95)(toFloat(properties.duration_ms)) > 5000,
+      'stop',
+      'pass'
+    )
+  ) AS gate_status
+FROM events
+WHERE event = 'community_photo_route_outcome'
+  AND timestamp >= now() - INTERVAL 60 MINUTE
+  AND properties.route = '/api/community-photos/upload'
+  AND properties.result_class = 'upload_success'

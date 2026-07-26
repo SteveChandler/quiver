@@ -6,6 +6,7 @@ import {
   parseCommunityPhotoMutation,
   restrictCommunityPhotoContributor,
   unrestrictCommunityPhotoContributor,
+  withCommunityPhotoRouteObservability,
 } from "@/lib/community-photos";
 import {
   withAdminAuth,
@@ -71,5 +72,19 @@ async function deleteHandler(
   }
 }
 
-export const POST = withAdminAuth(postHandler);
-export const DELETE = withAdminAuth(deleteHandler);
+export const POST = withCommunityPhotoRouteObservability(
+  {
+    route:
+      "/api/admin/community-photo-contributors/:contributorId/restriction",
+    surface: "admin",
+  },
+  withAdminAuth(postHandler),
+);
+export const DELETE = withCommunityPhotoRouteObservability(
+  {
+    route:
+      "/api/admin/community-photo-contributors/:contributorId/restriction",
+    surface: "admin",
+  },
+  withAdminAuth(deleteHandler),
+);

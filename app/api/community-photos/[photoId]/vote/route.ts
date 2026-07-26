@@ -7,6 +7,7 @@ import {
   getCommunityPhotoFeatureFlags,
   parseCommunityPhotoVote,
   voteCommunityPhoto,
+  withCommunityPhotoRouteObservability,
 } from "@/lib/community-photos";
 import {
   withAuth,
@@ -46,7 +47,10 @@ async function voteHandler(
   }
 }
 
-export const PUT = withRateLimit(
-  withAuth(voteHandler),
-  "authenticated-default",
+export const PUT = withCommunityPhotoRouteObservability(
+  {
+    route: "/api/community-photos/:photoId/vote",
+    surface: "write",
+  },
+  withRateLimit(withAuth(voteHandler), "authenticated-default"),
 );

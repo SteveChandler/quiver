@@ -6,6 +6,7 @@ import {
   communityPhotoErrorResponse,
   getCommunityPhotoFeatureFlags,
   listOwnedRemovedCommunityPhotos,
+  withCommunityPhotoRouteObservability,
 } from "@/lib/community-photos";
 import {
   withAuth,
@@ -44,4 +45,10 @@ async function handler(
   }
 }
 
-export const GET = withAuth(handler);
+export const GET = withCommunityPhotoRouteObservability(
+  {
+    route: "/api/community-photos/mine",
+    surface: "read",
+  },
+  withAuth(handler),
+);
