@@ -116,6 +116,32 @@ without a purge schedule because no raw identity remains to retain or purge.
 The sync purges identities whose deadline is due; the separately callable purge
 RPC supports an operational scheduler after rollout approval.
 
+## Scheduled maintenance
+
+Vercel invokes `GET /api/cron/android-tester-roster` every six hours at minute
+15 UTC (`15 */6 * * *`). The route requires the existing `CRON_SECRET`
+authorization and has two independent, exact-string feature flags that default
+off:
+
+```dotenv
+ANDROID_TESTER_ROSTER_CRON_ENABLED=false
+ANDROID_TESTER_ROSTER_GOOGLE_SYNC_ENABLED=false
+```
+
+When the cron flag is not exactly `true`, the route returns `disabled` before
+creating a service client. It does not contact Google, claim a sync, purge
+identity, or mutate roster state. When the cron flag is `true`, due identity
+purge runs even if Google sync remains disabled. Google Directory access and
+sync claims occur only when the Google sync flag is also exactly `true`.
+
+Purge and sync are independent maintenance attempts: a purge failure does not
+prevent sync, and a sync failure does not undo a successful purge. Responses
+contain only bounded outcome classes and aggregate counts. They never include
+emails, member IDs, tokens, keys, ciphertext, provider errors, or exception
+details. A concurrent claim reports `busy`; an incomplete Directory snapshot
+reports `incomplete` and does not apply leave observations. Claims abandoned
+for 15 minutes are recoverable by the next eligible run.
+
 ## Google Workspace provisioning
 
 1. Create a dedicated service account in the approved Google Cloud project.
@@ -162,15 +188,21 @@ member ID, or ciphertext to application logs, Sentry, PostHog, or roster audit.
 3. Apply through the tracked production owner connection. Do not apply from a
    feature branch.
 4. Regenerate database types only after the migration is applied.
-5. Provision encrypted environment variables and deploy the web routes.
-6. Run one admin manual sync and verify `complete=true` aggregate counts.
+5. Provision encrypted environment variables with both scheduler flags set to
+   `false`, then deploy the web routes.
+6. After separate production-owner approval, set
+   `ANDROID_TESTER_ROSTER_CRON_ENABLED=true` while leaving Google sync disabled
+   to exercise retention purge only.
+7. After Google credentials and Directory behavior are independently verified,
+   set `ANDROID_TESTER_ROSTER_GOOGLE_SYNC_ENABLED=true`.
+8. Run one admin manual sync and verify `complete=true` aggregate counts.
    A `busy` result means another sync owns the claim; retry after it finishes.
-7. Validate Android simulator redemption, authenticated join, explicit
+9. Validate Android simulator redemption, authenticated join, explicit
    first-open, optional bounded install receipt, all three idempotent retries,
    raw-identity deletion, and account deletion. Simulator/API validation plus
    production monitoring is the standard gate; a physical device is optional
    and non-blocking.
-8. Release native join support and monitor before expanding membership.
+10. Release native join support and monitor before expanding membership.
 
 ## Monitoring and rollback
 
@@ -186,8 +218,12 @@ Alert on:
 - unexpected changes in per-stage eligible, linked, install, first-open, or
   manual Play-evidence aggregates.
 
-Rollback removes Google roster credentials or sets them unavailable, causing
-sync to fail closed without network or leave changes. Keep encryption keys and
-schema in place so retained envelopes remain decryptable. Do not roll back by
-dropping tables or deleting rows. The existing Android beta Group/Play handoff
-continues independently.
+Rollback Google synchronization first by setting
+`ANDROID_TESTER_ROSTER_GOOGLE_SYNC_ENABLED=false`. If scheduler execution itself
+must stop, then set `ANDROID_TESTER_ROSTER_CRON_ENABLED=false`; otherwise keep
+the cron enabled in purge-only mode so approved retention deadlines continue to
+be enforced. Removing Google roster credentials also causes sync to fail
+closed without leave changes. Keep encryption keys and schema in place so
+retained envelopes remain decryptable. Do not roll back by dropping tables or
+deleting rows. The existing Android beta Group/Play handoff continues
+independently.
