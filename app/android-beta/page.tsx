@@ -10,9 +10,16 @@ export const metadata: Metadata = {
 };
 
 export default function AndroidBetaPage() {
+  const installAttributionIssuanceEnabled =
+    process.env.INSTALL_ATTRIBUTION_ISSUANCE_ENABLED === "true";
+
   return (
     <Suspense>
-      <AndroidBetaClient />
+      <AndroidBetaClient
+        installAttributionIssuanceEnabled={
+          installAttributionIssuanceEnabled
+        }
+      />
     </Suspense>
   );
 }
