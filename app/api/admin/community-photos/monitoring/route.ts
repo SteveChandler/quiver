@@ -1,7 +1,10 @@
 import { z } from "zod";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { communityPhotoErrorResponse } from "@/lib/community-photos";
+import {
+  communityPhotoErrorResponse,
+  withCommunityPhotoRouteObservability,
+} from "@/lib/community-photos";
 import {
   withAdminAuth,
   type AdminAuthenticatedContext,
@@ -35,4 +38,10 @@ async function handler(
   }
 }
 
-export const GET = withAdminAuth(handler);
+export const GET = withCommunityPhotoRouteObservability(
+  {
+    route: "/api/admin/community-photos/monitoring",
+    surface: "admin",
+  },
+  withAdminAuth(handler),
+);

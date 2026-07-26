@@ -7,6 +7,7 @@ import {
   communityPhotoErrorResponse,
   downloadCommunityPhoto,
   getCommunityPhotoFeatureFlags,
+  withCommunityPhotoRouteObservability,
 } from "@/lib/community-photos";
 import {
   withAuth,
@@ -47,4 +48,11 @@ async function imageHandler(
   }
 }
 
-export const GET = withAuth(imageHandler, { optional: true });
+export const GET = withCommunityPhotoRouteObservability(
+  {
+    route: "/api/community-photos/:photoId/image",
+    surface: "read",
+    successResultClass: "media_served",
+  },
+  withAuth(imageHandler, { optional: true }),
+);

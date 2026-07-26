@@ -7,6 +7,7 @@ import {
   getCommunityPhotoFeatureFlags,
   parseCommunityPhotoMutation,
   recoverOwnedCommunityPhoto,
+  withCommunityPhotoRouteObservability,
 } from "@/lib/community-photos";
 import {
   withAuth,
@@ -48,7 +49,10 @@ async function handler(
   }
 }
 
-export const POST = withRateLimit(
-  withAuth(handler),
-  "authenticated-default",
+export const POST = withCommunityPhotoRouteObservability(
+  {
+    route: "/api/community-photos/:photoId/recover",
+    surface: "write",
+  },
+  withRateLimit(withAuth(handler), "authenticated-default"),
 );
