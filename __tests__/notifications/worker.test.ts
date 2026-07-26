@@ -80,10 +80,17 @@ interface MockAttempt {
   created_at: string;
 }
 
+interface MockDevice {
+  device_token: string;
+  platform: string | null;
+  app_version: string | null;
+  build_number: string | null;
+}
+
 interface MockState {
   events: MockEvent[];
   profiles: Map<string, MockProfile>;
-  devices: Map<string, string[]>;
+  devices: Map<string, Array<string | MockDevice>>;
   notificationsInserts: Array<{ user_id: string; type: string; data: unknown }>;
   attempts: MockAttempt[];
   alertAttempts: Array<{
@@ -149,6 +156,19 @@ function buildEvent(over: Partial<MockEvent> = {}): MockEvent {
     claim_token: null,
     cancel_reason: null,
     last_error: null,
+    ...over,
+  };
+}
+
+function buildDevice(
+  deviceToken: string,
+  over: Partial<Omit<MockDevice, "device_token">> = {},
+): MockDevice {
+  return {
+    device_token: deviceToken,
+    platform: "ios",
+    app_version: "1.0.1",
+    build_number: "11",
     ...over,
   };
 }
@@ -369,7 +389,16 @@ function buildMockSupabase(state: MockState) {
       return {
         select: () => ({
           eq: async (_col: string, val: string) => ({
-            data: (state.devices.get(val) ?? []).map((t) => ({ device_token: t })),
+            data: (state.devices.get(val) ?? []).map((device) =>
+              typeof device === "string"
+                ? {
+                    device_token: device,
+                    platform: null,
+                    app_version: null,
+                    build_number: null,
+                  }
+                : device,
+            ),
             error: null,
           }),
         }),
@@ -562,6 +591,7 @@ describe("processPendingEvents — empty state", () => {
       retry_scheduled_count: 0,
       unknown_type_count: 0,
       missing_timezone_count: 0,
+      presentation_compatibility: {},
     });
     expect(state.attempts).toEqual([]);
     expect(state.eventUpdates).toEqual([]);
@@ -739,13 +769,24 @@ describe("processPendingEvents — happy path", () => {
       })
     );
     state.profiles.set("user-recipient", buildProfile());
-    state.devices.set("user-recipient", ["device-token-A"]);
+    state.devices.set("user-recipient", [
+      buildDevice("device-token-ios"),
+      buildDevice("device-token-android", {
+        platform: "android",
+        build_number: "12",
+      }),
+      buildDevice("device-token-old", { build_number: "10" }),
+    ]);
 
     const fakeFcm = {
       sendEach: jest.fn(async () => ({
-        successCount: 1,
+        successCount: 3,
         failureCount: 0,
-        responses: [{ success: true }],
+        responses: [
+          { success: true },
+          { success: true },
+          { success: true },
+        ],
       })),
     };
 
@@ -774,8 +815,19 @@ describe("processPendingEvents — happy path", () => {
       apns?: { payload?: { aps?: { sound?: string } } };
     }>;
     expect(sentMessages[0]).toMatchObject({
-      android: { notification: { channelId: "quiver-alerts-v1" } },
       apns: { payload: { aps: { sound: "quiver-alert.wav" } } },
+    });
+    expect(sentMessages[0]).not.toHaveProperty("android");
+    expect(sentMessages[1]).toMatchObject({
+      android: { notification: { channelId: "quiver-alerts-v1" } },
+    });
+    expect(sentMessages[1]).not.toHaveProperty("apns");
+    expect(sentMessages[2]).not.toHaveProperty("android");
+    expect(sentMessages[2]).not.toHaveProperty("apns");
+    expect(summary.presentation_compatibility).toEqual({
+      "android:eligible_custom:eligible": 1,
+      "ios:eligible_custom:eligible": 1,
+      "ios:legacy_default:old_build": 1,
     });
   });
 
@@ -2303,7 +2355,9 @@ describe("processPendingEvents — push provider details", () => {
         }),
       );
       state.profiles.set("user-recipient", buildProfile());
-      state.devices.set("user-recipient", ["ExponentPushToken[expo-weekend]"]);
+      state.devices.set("user-recipient", [
+        buildDevice("ExponentPushToken[expo-weekend]"),
+      ]);
 
       const fakeFcm = {
         sendEach: jest.fn(async () => ({
@@ -2324,7 +2378,6 @@ describe("processPendingEvents — push provider details", () => {
       expect(JSON.parse(request.body as string)).toEqual([
         expect.objectContaining({
           sound: "quiver-alert.wav",
-          channelId: "quiver-alerts-v1",
         }),
       ]);
     } finally {

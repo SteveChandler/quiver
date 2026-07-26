@@ -80,10 +80,38 @@ production telemetry confirms it.
 4. Regenerate `types/database.generated.ts` from the applied schema.
 5. Deploy web issue/redeem routes and the Android handoff together.
 6. Validate the browser flow and Android simulator contract.
-7. Release the native Install Referrer build and monitor production outcomes.
+7. Set `INSTALL_ATTRIBUTION_REDEMPTION_ENABLED=true` and validate redemption
+   independently.
+8. Release the native Install Referrer build and monitor production outcomes.
+9. In a separate approval, set
+   `INSTALL_ATTRIBUTION_ISSUANCE_ENABLED=true` for the internal cohort.
+10. Expand issuance only after the internal observation window passes.
 
-No new environment variable is required. Do not apply the migration or change
-production from a feature branch without the explicit migration approval.
+Both controls default off:
+
+```text
+INSTALL_ATTRIBUTION_ISSUANCE_ENABLED=false
+INSTALL_ATTRIBUTION_REDEMPTION_ENABLED=false
+```
+
+Issuance-off creates no token or audit row and gives the Android CTA the
+ordinary Play listing. Existing tokens remain redeemable while redemption is
+enabled. Redemption-off returns `unattributed_retryable` before creating a
+service-role client or calling the consume RPC, so it cannot consume, expire,
+or terminally mutate a token.
+
+Do not apply the migration, change either production control, or deploy from a
+feature branch without the corresponding explicit approval.
+
+## Rollback
+
+1. Set `INSTALL_ATTRIBUTION_ISSUANCE_ENABLED=false`.
+2. Keep redemption enabled until either the 30-day token lifetime passes or the
+   monitoring query reports zero live tokens.
+3. Set `INSTALL_ATTRIBUTION_REDEMPTION_ENABLED=false`.
+
+Do not reverse steps 1 and 3. Disabling redemption first strands issued tokens
+and prevents the required drain.
 
 ## Monitoring
 

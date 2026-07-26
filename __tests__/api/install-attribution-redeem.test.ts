@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 const mockRpc = jest.fn();
 const mockAuditInsert = jest.fn();
@@ -46,7 +47,30 @@ describe("POST /api/install-attribution/redeem", () => {
     jest.resetModules();
     jest.clearAllMocks();
     mockRateLimitResponse.current = null;
+    process.env.INSTALL_ATTRIBUTION_REDEMPTION_ENABLED = "true";
     mockAuditInsert.mockResolvedValue({ error: null });
+  });
+
+  afterEach(() => {
+    delete process.env.INSTALL_ATTRIBUTION_REDEMPTION_ENABLED;
+  });
+
+  it("defaults redemption off without resolving or consuming the token", async () => {
+    delete process.env.INSTALL_ATTRIBUTION_REDEMPTION_ENABLED;
+    const { POST } = await import("@/app/api/install-attribution/redeem/route");
+    const response = await POST(
+      request({ token: TOKEN, redemptionId: REDEMPTION_ID }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      outcome: "unattributed_retryable",
+      retryable: true,
+      attribution: null,
+    });
+    expect(createSupabaseServiceRoleClient).not.toHaveBeenCalled();
+    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockAuditInsert).not.toHaveBeenCalled();
   });
 
   it("returns bounded attribution for the first consume or same-key retry", async () => {
