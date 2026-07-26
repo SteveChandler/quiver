@@ -1,3 +1,4 @@
+import type { ImgHTMLAttributes } from "react";
 import { render, screen } from "@testing-library/react";
 import { notFound } from "next/navigation";
 import CustomSpotDetailPage, {
@@ -6,8 +7,35 @@ import CustomSpotDetailPage, {
 import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
+const getResolvedSpotPhotos = jest.fn();
+
+jest.mock("@/lib/community-photos", () => ({
+  getResolvedSpotPhotos: (...args: unknown[]) => getResolvedSpotPhotos(...args),
+}));
+
 jest.mock("@/actions/forecast-actions", () => ({
   getEnhancedBeachForecasts: jest.fn(),
+}));
+
+jest.mock("next/image", () => ({
+  __esModule: true,
+  default: ({
+    alt = "",
+    fill: _fill,
+    unoptimized: _unoptimized,
+    priority: _priority,
+    ...props
+  }: ImgHTMLAttributes<HTMLImageElement> & {
+    fill?: boolean;
+    unoptimized?: boolean;
+    priority?: boolean;
+  }) => (
+    <img
+      alt={alt}
+      data-unoptimized={_unoptimized ? "true" : undefined}
+      {...props}
+    />
+  ),
 }));
 
 jest.mock("@/lib/supabase/server", () => ({
@@ -96,6 +124,12 @@ const forecast = {
 
 const mockSupabase = {
   from: jest.fn(),
+  auth: {
+    getUser: jest.fn(async () => ({
+      data: { user: { id: "user-1" } },
+      error: null,
+    })),
+  },
 };
 const tableResults = new Map<string, unknown>();
 
@@ -127,6 +161,7 @@ describe("/custom-spots/[id] page", () => {
       success: true,
       data: [forecast],
     });
+    getResolvedSpotPhotos.mockResolvedValue([]);
   });
 
   it("renders a public custom spot with borrowed forecast data", async () => {
@@ -148,6 +183,9 @@ describe("/custom-spots/[id] page", () => {
       "src",
       beachPhoto.thumb_url,
     );
+    expect(
+      screen.getByAltText("Ocean Beach surf zone"),
+    ).not.toHaveAttribute("data-unoptimized");
     expect(screen.getByText("Borrowed from Ocean Beach")).toBeInTheDocument();
     expect(screen.getByText(/Forecast borrowed from Ocean Beach/i)).toBeInTheDocument();
     expect(screen.getByTestId("custom-spot-forecast-table")).toHaveClass(
@@ -160,6 +198,116 @@ describe("/custom-spots/[id] page", () => {
       "1 forecasts",
     );
     expect(getEnhancedBeachForecasts).toHaveBeenCalledWith("beach-1", 10);
+  });
+
+  it("prefers an eligible custom-spot community photo with safe attribution", async () => {
+    mockTableSingle("custom_spots", publicSpot);
+    mockTableSingle("beaches", nearestBeach);
+    mockTableSingle("beach_photos", beachPhoto);
+    getResolvedSpotPhotos.mockResolvedValue([
+      {
+        id: "community-1",
+        source: "community",
+        imageUrl: "/api/community-photos/community-1/image",
+        thumbUrl: null,
+        title: "Clean morning",
+        creatorName: "Jo",
+        attributionHtml: null,
+        attribution: {
+          kind: "profile",
+          displayName: "<strong>Jo</strong>",
+          profileId: "profile-1",
+        },
+        community: {
+          voteScore: 0.4,
+          upvotes: 8,
+          downvotes: 2,
+          viewerVote: null,
+          canVote: false,
+          canReport: false,
+          canRemove: false,
+          isPinned: false,
+        },
+        createdAt: "2026-07-25T12:00:00.000Z",
+      },
+    ]);
+
+    const page = await CustomSpotDetailPage({
+      params: Promise.resolve({ id: "spot-public" }),
+    });
+    render(page);
+
+    expect(screen.getByAltText("Public Peak surf zone")).toHaveAttribute(
+      "src",
+      "/api/community-photos/community-1/image",
+    );
+    expect(
+      screen.getAllByRole("link", { name: "<strong>Jo</strong>" }),
+    ).toHaveLength(2);
+    screen
+      .getAllByRole("link", { name: "<strong>Jo</strong>" })
+      .forEach((link) =>
+        expect(link).toHaveAttribute("href", "/profile/profile-1"),
+      );
+    expect(document.querySelector("strong")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Spot photos" }),
+    ).toBeInTheDocument();
+    expect(getResolvedSpotPhotos).toHaveBeenCalledWith({
+      target: { type: "custom_spot", id: "spot-public" },
+      curated: [],
+      viewerId: "user-1",
+      limit: 6,
+    });
+  });
+
+  it("bypasses image optimization for owner-private community photo URLs", async () => {
+    mockTableSingle("custom_spots", privateSpot);
+    mockTableSingle("beaches", nearestBeach);
+    mockTableSingle("beach_photos", beachPhoto);
+    getResolvedSpotPhotos.mockResolvedValue([
+      {
+        id: "community-private",
+        source: "community",
+        visibility: "private",
+        imageUrl: "/api/community-photos/community-private/image",
+        thumbUrl: "/api/community-photos/community-private/image",
+        width: 1200,
+        height: 900,
+        title: null,
+        creatorName: null,
+        attributionHtml: null,
+        attribution: null,
+        community: {
+          voteScore: 0,
+          upvotes: 0,
+          downvotes: 0,
+          viewerVote: null,
+          canVote: false,
+          canReport: false,
+          canRemove: true,
+          isPinned: false,
+        },
+        createdAt: "2026-07-25T12:00:00.000Z",
+      },
+    ]);
+
+    const page = await CustomSpotDetailPage({
+      params: Promise.resolve({ id: "spot-private" }),
+    });
+    render(page);
+
+    const privateCommunityImages = screen
+      .getAllByRole("img")
+      .filter(
+        (image) =>
+          image.getAttribute("src") ===
+          "/api/community-photos/community-private/image",
+      );
+    expect(privateCommunityImages).toHaveLength(2);
+    privateCommunityImages.forEach((image) => {
+      expect(image).toHaveAttribute("data-unoptimized", "true");
+    });
   });
 
   it("returns a true 404 when RLS hides or misses the custom spot", async () => {

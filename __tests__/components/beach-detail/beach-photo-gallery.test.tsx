@@ -597,6 +597,36 @@ describe('BeachPhotoGallery', () => {
   });
 
   describe('Accessibility', () => {
+    test('renders structured community attribution without parsing display-name markup', () => {
+      const { useDataFetcher } = require('@/hooks/use-data-fetcher');
+      useDataFetcher.mockReturnValue({
+        data: [
+          {
+            id: 'community-1',
+            public_url: '/api/community-photos/community-1/image',
+            created_at: '2026-07-25T12:00:00.000Z',
+            title: 'Clean morning',
+            attribution: {
+              kind: 'profile',
+              displayName: '<strong>Jo</strong>',
+              profileId: 'profile-1',
+            },
+            community: { upvotes: 8, downvotes: 2 },
+          },
+        ],
+        isLoading: false,
+        error: null,
+      });
+
+      render(<BeachPhotoGallery beach={mockBeach} />);
+
+      expect(
+        screen.getByRole('link', { name: '<strong>Jo</strong>' }),
+      ).toHaveAttribute('href', '/profile/profile-1');
+      expect(document.querySelector('strong')).not.toBeInTheDocument();
+      expect(screen.getByText('8 up · 2 down')).toBeInTheDocument();
+    });
+
     test('all images have proper alt text', () => {
       const { useDataFetcher } = require('@/hooks/use-data-fetcher');
       useDataFetcher.mockReturnValue({

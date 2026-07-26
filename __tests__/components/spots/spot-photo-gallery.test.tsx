@@ -22,10 +22,29 @@ jest.mock("@/hooks/use-data-fetcher", () => ({
   useDataFetcher: () => ({
     data: [
       {
+        id: "community-photo-1",
+        source: "community",
         imageUrl: "https://example.com/full.jpg",
         thumbUrl: "https://example.com/thumb.jpg",
         title: "Lineup at sunset",
-        attributionHtml: "Photo credit",
+        creatorName: "Dawn Patrol",
+        attributionHtml: null,
+        attribution: {
+          kind: "profile",
+          displayName: "<b>Dawn Patrol</b>",
+          profileId: "profile-1",
+        },
+        community: {
+          voteScore: 0.42,
+          upvotes: 8,
+          downvotes: 2,
+          viewerVote: null,
+          canVote: true,
+          canReport: true,
+          canRemove: false,
+          isPinned: false,
+        },
+        createdAt: "2026-07-25T12:00:00.000Z",
       },
     ],
     loading: false,
@@ -55,5 +74,10 @@ describe("SpotPhotoGallery", () => {
     expect(screen.getAllByAltText("").some((image) =>
       image.getAttribute("src") === "/images/spot-icons/photo.png"
     )).toBe(true);
+    expect(
+      screen.getByRole("link", { name: "<b>Dawn Patrol</b>" }),
+    ).toHaveAttribute("href", "/profile/profile-1");
+    expect(document.querySelector("b")).not.toBeInTheDocument();
+    expect(screen.getByText("8 up · 2 down")).toBeInTheDocument();
   });
 });

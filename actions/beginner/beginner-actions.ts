@@ -23,6 +23,11 @@ import {
   evaluateBeginnerWindow,
   type BeginnerWindowEvaluation,
 } from "@/lib/beginner/beginner-window-evaluator";
+import {
+  communityPhotoTargetKey,
+  getResolvedSpotPhotoMap,
+  type ResolvedSpotPhoto,
+} from "@/lib/community-photos";
 
 // ================================================
 // Internal Helpers
@@ -644,6 +649,20 @@ export async function getBeginnerBeachesWithEditorial(
       supabase,
       beachRows.map((beach) => beach.id),
     );
+    let communityPhotoMap = new Map<string, ResolvedSpotPhoto[]>();
+    try {
+      communityPhotoMap = await getResolvedSpotPhotoMap({
+        targets: beachRows.map((beach) => ({
+          type: "beach" as const,
+          id: beach.id,
+        })),
+        limitPerTarget: 1,
+      });
+    } catch (error) {
+      console.error("[getBeginnerBeachesWithEditorial] Photo resolver error:", {
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
 
     return beachRows.map((beach: any) => {
       const editorialRows = Array.isArray(beach.beach_editorial_content)
@@ -676,9 +695,15 @@ export async function getBeginnerBeachesWithEditorial(
         ? beach.beach_photos
         : [];
       const firstPhoto = photoRows.find((p: any) => p.image_url);
-      const photoUrl = firstPhoto
-        ? getOptimizedImageUrl(firstPhoto.image_url)
-        : null;
+      const resolvedPhoto = communityPhotoMap.get(
+        communityPhotoTargetKey({ type: "beach", id: beach.id }),
+      )?.[0];
+      const rawPhotoUrl =
+        resolvedPhoto?.thumbUrl ??
+        resolvedPhoto?.imageUrl ??
+        firstPhoto?.image_url ??
+        null;
+      const photoUrl = rawPhotoUrl ? getOptimizedImageUrl(rawPhotoUrl) : null;
       const forecast = forecastMap.get(beach.id);
 
       return {

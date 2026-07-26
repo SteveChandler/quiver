@@ -1,3 +1,5 @@
+import type { CommunityPhotoAttribution } from "@/lib/community-photos";
+
 export interface ZineBeachPhoto {
   image_url: string;
   thumb_url: string | null;
@@ -5,4 +7,5 @@ export interface ZineBeachPhoto {
   creator_name: string | null;
   license_code: string | null;
   attribution_html: string | null;
+  attribution?: CommunityPhotoAttribution | null;
 }

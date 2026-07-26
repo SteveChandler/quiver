@@ -9,6 +9,12 @@ jest.mock("@/lib/supabase/server", () => ({
   createPublicReadClient: jest.fn(() => mockSupabase),
 }));
 
+jest.mock("@/lib/community-photos", () => ({
+  getResolvedSpotPhotoMap: jest.fn(async () => new Map()),
+  communityPhotoTargetKey: (target: { type: string; id: string }) =>
+    `${target.type}:${target.id}`,
+}));
+
 interface MockBeachRow {
   id: string;
   name: string;

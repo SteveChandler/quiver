@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
+import {
+  PhotoAttribution,
+  type StructuredPhotoAttribution,
+} from "@/components/photos/photo-attribution";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
 import { SpotGeneratedIcon } from "./spot-generated-icon";
@@ -11,7 +15,8 @@ interface SpotHeroSectionProps {
   latitude: number | null;
   longitude: number | null;
   featuredPhotoUrl: string | null;
-  attribution?: string | null;
+  attribution?: StructuredPhotoAttribution | null;
+  attributionHtml?: string | null;
   eyebrow?: string;
   subtitle?: string | null;
   metadata?: string | null;
@@ -31,6 +36,7 @@ export function SpotHeroSection({
   longitude,
   featuredPhotoUrl,
   attribution,
+  attributionHtml,
   eyebrow,
   subtitle,
   metadata,
@@ -168,10 +174,11 @@ export function SpotHeroSection({
       </div>
 
       {/* Attribution badge */}
-      {hasPhoto && attribution && (
-        <div
-          className="absolute bottom-3 right-3 bg-black/50 text-white text-xs px-2 py-1 rounded"
-          dangerouslySetInnerHTML={{ __html: attribution }}
+      {hasPhoto && (attribution || attributionHtml) && (
+        <PhotoAttribution
+          attribution={attribution ?? null}
+          attributionHtml={attributionHtml}
+          className="absolute bottom-3 right-3 rounded bg-black/50 px-2 py-1 text-xs text-white underline-offset-2 hover:underline"
         />
       )}
     </div>
