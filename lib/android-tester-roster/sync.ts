@@ -64,7 +64,7 @@ async function applyIncompleteRun({
   supabase,
   failureCode,
 }: {
-  actorUserId: string;
+  actorUserId: string | null;
   claimToken: string;
   now: string;
   supabase: SyncClient;

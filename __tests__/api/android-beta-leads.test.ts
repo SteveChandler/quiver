@@ -1,3 +1,5 @@
+export {};
+
 const mockUpsert = jest.fn();
 const mockLeadSelect = jest.fn();
 const mockLeadMaybeSingle = jest.fn();
