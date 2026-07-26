@@ -133,6 +133,24 @@ const nextConfig = {
         ],
       },
       {
+        source: "/api/android-tester-roster/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
+      {
+        source: "/api/admin/android-tester-roster/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
+      {
         source: "/api/surf/discover",
         headers: [
           {

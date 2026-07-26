@@ -165,6 +165,17 @@ export const PRIVACY_CONTENT = {
           "Push notification service providers (Apple Push Notification Service), Analytics service providers, Crash reporting services",
       },
       {
+        name: "Android Tester Roster Data",
+        description:
+          "We operate a private Android tester roster to manage closed-test eligibility, support access, and measure the bounded test rollout. For people who have not linked a Quiver account, direct Google Group USER membership identity is encrypted in an AES-256-GCM envelope with a random IV and key version. We keep no reversible identity hash. When a tester account is linked, we immediately delete the raw external email and member ID. If an unjoined tester leaves the configured Group, a complete Directory snapshot marks the record ineligible and schedules raw identity deletion at exactly 30 days; rejoining before then cancels that deletion. Eligibility, Google Play opt-in, install, first open, and account join are independent timestamped evidence stages, and we never infer one stage from another. Google Play opt-in remains unknown unless we record separate manual evidence. Account deletion removes the user-linked roster record. We report aggregate rollout counts without personal information.",
+        sources:
+          "Google Workspace Directory direct Group membership, authenticated Quiver account join, bounded native install evidence, and manual Google Play evidence",
+        purpose:
+          "Performance of the closed-test service, Necessary for our legitimate interests in secure release operations and support",
+        disclosed:
+          "Authorized Quiver administrators and Google Workspace as the Group provider",
+      },
+      {
         name: "Live Camera Feed Data",
         description:
           "We display live video streams from third-party camera providers to show real-time beach conditions. These are publicly available livestreams that may capture individuals at public beaches. We do not record, store, or process video content from these feeds — streams are passed through to your device. Our servers may temporarily proxy video stream URLs to ensure reliable playback.",
@@ -567,6 +578,11 @@ export const TERMS_CONTENT = {
           subtitle: "Google Play Install Attribution",
           details:
             "After you complete the Android closed-test eligibility and opt-in guidance, Quiver may provide a Google Play install link containing an opaque, single-use install attribution token. The token expires after 30 days, carries no direct account or contact information, and is used only to measure the bounded web-to-app acquisition path. Invalid, expired, or already-consumed tokens do not prevent you from launching or using the Service.",
+        },
+        {
+          subtitle: "Android Closed-Test Eligibility",
+          details:
+            "Direct USER membership in Quiver's configured Google Group establishes Android closed-test eligibility. Google Play opt-in is a separate step and is not guaranteed, inferred, or recorded as complete without separate manual evidence. Providing an email on Quiver's Android beta page is optional and does not gate Group access, Play access, or the install handoff.",
         },
       ],
     },

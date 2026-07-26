@@ -5,7 +5,6 @@ import {
   useMemo,
   useState,
   type FormEvent,
-  type MouseEvent,
 } from "react";
 import { useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
@@ -102,10 +101,12 @@ export function AndroidBetaClient() {
     null,
   );
   const [installLinkFailed, setInstallLinkFailed] = useState(false);
+  const [installLinkLoading, setInstallLinkLoading] = useState(false);
   const hasCapturedEmail = status === "saved" && Boolean(capturedEmail);
 
   const issueInstallLink = useCallback(async (): Promise<void> => {
     setInstallLinkFailed(false);
+    setInstallLinkLoading(true);
     try {
       const response = await fetch("/api/install-attribution/issue", {
         method: "POST",
@@ -123,6 +124,8 @@ export function AndroidBetaClient() {
       setAttributedStoreUrl(result.storeUrl);
     } catch {
       setInstallLinkFailed(true);
+    } finally {
+      setInstallLinkLoading(false);
     }
   }, [installAttribution]);
 
@@ -165,7 +168,6 @@ export function AndroidBetaClient() {
 
       setCapturedEmail(normalizedEmail);
       setStatus("saved");
-      void issueInstallLink();
     } catch {
       setInlineError("Could not save your email. Try again.");
       setStatus("error");
@@ -175,28 +177,6 @@ export function AndroidBetaClient() {
   function handleEditEmail(): void {
     setStatus("idle");
     setInlineError(null);
-    setAttributedStoreUrl(null);
-    setInstallLinkFailed(false);
-  }
-
-  function handleHandoffClick(
-    event: MouseEvent<HTMLAnchorElement>,
-    destinationType: string,
-  ): void {
-    if (!hasCapturedEmail) {
-      handleBlockedHandoff();
-      event.preventDefault();
-      return;
-    }
-
-    trackAndroidBetaOutboundClick(destinationType);
-  }
-
-  function handleBlockedHandoff(): void {
-    setInlineError(
-      "Enter the Google account email you use on your phone to unlock the beta handoff.",
-    );
-    document.getElementById("android-beta-email")?.focus();
   }
 
   const handoffButtonClass =
@@ -223,8 +203,8 @@ export function AndroidBetaClient() {
               Get personalized surf decisions and best-window guidance across
               279+ beaches, then keep saved spots, alerts, and session logging
               with you in the native Android app. Access is available now after
-              Google&apos;s closed-test steps. Use the same Google account email
-              you&apos;ll use on your phone to unlock the handoff.
+              Google&apos;s closed-test steps. Email is optional if you want a
+              copy of the instructions.
             </p>
             <div className="mt-7 flex flex-wrap gap-3 font-mono text-xs uppercase tracking-[0.14em] text-[#11100D]/65">
               <span>Google Group invite</span>
@@ -235,94 +215,64 @@ export function AndroidBetaClient() {
             </div>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              {hasCapturedEmail ? (
+              <a
+                href={ANDROID_BETA_GROUP_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={() => trackAndroidBetaOutboundClick("google_group")}
+                className={cn(
+                  handoffButtonClass,
+                  "bg-[#F78E42] text-[#11100D]",
+                )}
+              >
+                1 · Join the tester group
+              </a>
+              {ANDROID_BETA_PLAY_URL ? (
                 <a
-                  href={ANDROID_BETA_GROUP_URL}
+                  href={ANDROID_BETA_PLAY_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  onClick={(event) => handleHandoffClick(event, "google_group")}
+                  onClick={() => trackAndroidBetaOutboundClick("google_play")}
                   className={cn(
                     handoffButtonClass,
-                    "bg-[#F78E42] text-[#11100D]",
+                    "bg-[#11100D] text-[#F4EBD8]",
                   )}
                 >
-                  1 · Join the tester group
+                  2 · Opt in on Google Play
+                </a>
+              ) : null}
+              {attributedStoreUrl ? (
+                <a
+                  href={attributedStoreUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() =>
+                    trackAndroidInstallCtaClick(installAttribution)
+                  }
+                  className={cn(
+                    handoffButtonClass,
+                    "bg-[#7BDCB5] text-[#11100D]",
+                  )}
+                >
+                  3 · Install from Google Play
                 </a>
               ) : (
                 <button
                   type="button"
-                  onClick={handleBlockedHandoff}
+                  onClick={() => void issueInstallLink()}
+                  disabled={installLinkLoading}
                   className={cn(
                     handoffButtonClass,
-                    "bg-[#F78E42] text-[#11100D] opacity-60",
+                    "bg-[#7BDCB5] text-[#11100D] disabled:cursor-wait disabled:opacity-70",
                   )}
                 >
-                  1 · Join the tester group
+                  {installLinkLoading
+                    ? "3 · Preparing Play install link..."
+                    : installLinkFailed
+                      ? "3 · Retry Play install link"
+                      : "3 · Prepare Play install link"}
                 </button>
               )}
-              {ANDROID_BETA_PLAY_URL ? (
-                hasCapturedEmail ? (
-                  <a
-                    href={ANDROID_BETA_PLAY_URL}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(event) =>
-                      handleHandoffClick(event, "google_play")
-                    }
-                    className={cn(
-                      handoffButtonClass,
-                      "bg-[#11100D] text-[#F4EBD8]",
-                    )}
-                  >
-                    2 · Opt in on Google Play
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={handleBlockedHandoff}
-                    className={cn(
-                      handoffButtonClass,
-                      "bg-[#11100D] text-[#F4EBD8] opacity-60",
-                    )}
-                  >
-                    2 · Opt in on Google Play
-                  </button>
-                )
-              ) : null}
-              {hasCapturedEmail ? (
-                attributedStoreUrl ? (
-                  <a
-                    href={attributedStoreUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() =>
-                      trackAndroidInstallCtaClick(installAttribution)
-                    }
-                    className={cn(
-                      handoffButtonClass,
-                      "bg-[#7BDCB5] text-[#11100D]",
-                    )}
-                  >
-                    3 · Install from Google Play
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (installLinkFailed) void issueInstallLink();
-                    }}
-                    disabled={!installLinkFailed}
-                    className={cn(
-                      handoffButtonClass,
-                      "bg-[#7BDCB5] text-[#11100D] disabled:cursor-wait disabled:opacity-70",
-                    )}
-                  >
-                    {installLinkFailed
-                      ? "3 · Retry Play install link"
-                      : "3 · Preparing Play install link..."}
-                  </button>
-                )
-              ) : null}
               <a
                 href={ANDROID_BETA_CONTACT_MAILTO}
                 onClick={() => trackAndroidBetaOutboundClick("email_contact")}
@@ -338,8 +288,7 @@ export function AndroidBetaClient() {
                   className="break-words font-mono text-sm font-bold tracking-[0.08em]"
                   role="status"
                 >
-                  Saved {capturedEmail}. Your tester-group and Play links are
-                  now unlocked.
+                  Saved {capturedEmail}. We&apos;ll send the beta instructions.
                 </p>
                 <button
                   type="button"
@@ -359,7 +308,7 @@ export function AndroidBetaClient() {
                   htmlFor="android-beta-email"
                   className="font-mono text-xs font-bold uppercase tracking-[0.16em] text-[#11100D]/65 sm:col-span-2"
                 >
-                  Google account email — required for beta access
+                  Google account email — optional
                 </label>
                 <input
                   id="android-beta-email"
@@ -386,12 +335,12 @@ export function AndroidBetaClient() {
                 >
                   {status === "saving"
                     ? "Saving..."
-                    : "Save email and unlock beta"}
+                    : "Email me beta instructions"}
                 </button>
                 <p className="text-sm leading-relaxed text-[#11100D]/70 sm:col-span-2">
-                  Use the Google account email you&apos;ll use for the tester
-                  group and Google Play. We&apos;ll save it and send the beta
-                  instructions before unlocking the handoff links.
+                  Optional: use the Google account email you&apos;ll use for the
+                  tester group and Google Play, and we&apos;ll send a copy of
+                  the instructions. Access does not depend on sharing it.
                 </p>
                 {inlineError ? (
                   <p
@@ -412,49 +361,33 @@ export function AndroidBetaClient() {
               className="absolute -top-6 left-8 z-10 w-28 -rotate-6 opacity-90"
             />
             <div className="torn torn-tb rot-2 border-2 border-[#11100D] bg-[#FBF6E8]">
-              {hasCapturedEmail ? (
-                <div className="mx-auto w-fit border-2 border-[#11100D] bg-white p-4 shadow-[3px_3px_0_rgba(17,16,13,0.25)]">
-                  <QRCodeSVG
-                    data-testid="android-beta-qr"
-                    data-smart-url={ANDROID_BETA_SMART_QR_URL}
-                    value={ANDROID_BETA_SMART_QR_URL}
-                    size={248}
-                    level="H"
-                    marginSize={4}
-                    bgColor="#FFFFFF"
-                    fgColor="#252D6B"
-                    imageSettings={{
-                      src: "/quiver-app-icon-128.png",
-                      width: 34,
-                      height: 34,
-                      excavate: true,
-                    }}
-                  />
-                </div>
-              ) : (
-                <div
-                  data-testid="android-beta-qr-locked"
-                  className="mx-auto grid min-h-[280px] max-w-[280px] place-items-center border-2 border-dashed border-[#11100D] bg-white p-6 text-center shadow-[3px_3px_0_rgba(17,16,13,0.25)]"
-                >
-                  <p className="font-mono text-sm font-bold uppercase tracking-[0.08em] text-[#11100D]/70">
-                    Save your Google account email above to unlock the beta QR
-                    handoff.
-                  </p>
-                </div>
-              )}
+              <div className="mx-auto w-fit border-2 border-[#11100D] bg-white p-4 shadow-[3px_3px_0_rgba(17,16,13,0.25)]">
+                <QRCodeSVG
+                  data-testid="android-beta-qr"
+                  data-smart-url={ANDROID_BETA_SMART_QR_URL}
+                  value={ANDROID_BETA_SMART_QR_URL}
+                  size={248}
+                  level="H"
+                  marginSize={4}
+                  bgColor="#FFFFFF"
+                  fgColor="#252D6B"
+                  imageSettings={{
+                    src: "/quiver-app-icon-128.png",
+                    width: 34,
+                    height: 34,
+                    excavate: true,
+                  }}
+                />
+              </div>
               <div className="mt-5 space-y-2 text-center">
-                <p className="typewriter mb-1">
-                  {hasCapturedEmail ? "Scan to start" : "Handoff locked"}
-                </p>
+                <p className="typewriter mb-1">Scan to start</p>
                 <h2 className="font-display text-lg font-black uppercase leading-tight text-[#11100D]">
-                  {hasCapturedEmail
-                    ? "Scan for the beta instructions"
-                    : "Save your Google account email first"}
+                  Scan for the beta instructions
                 </h2>
                 <p className="text-sm leading-relaxed text-[#11100D]/70">
-                  {hasCapturedEmail
-                    ? "This QR code uses the Quiver smart handoff: Android routes to the beta access path, iPhone routes to the App Store, and desktop gets the phone handoff."
-                    : "Enter the same Google account email you use on your phone to unlock the QR handoff."}
+                  This QR code uses the Quiver smart handoff: Android routes to
+                  the beta access path, iPhone routes to the App Store, and
+                  desktop gets the phone handoff.
                 </p>
               </div>
             </div>
