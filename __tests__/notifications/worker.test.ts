@@ -591,6 +591,7 @@ describe("processPendingEvents — empty state", () => {
       retry_scheduled_count: 0,
       unknown_type_count: 0,
       missing_timezone_count: 0,
+      presentation_compatibility: {},
     });
     expect(state.attempts).toEqual([]);
     expect(state.eventUpdates).toEqual([]);

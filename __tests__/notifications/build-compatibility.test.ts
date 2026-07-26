@@ -10,7 +10,7 @@ function resolve(
     platform: "ios",
     appVersion: "1.0.1",
     buildNumber: "11",
-    requestsCustomPresentation: true,
+    notificationType: "forecast_alert",
     ...over,
   });
 }
@@ -50,14 +50,22 @@ describe("notification presentation build compatibility", () => {
   });
 
   it.each([
-    ["missing platform", { platform: null }, "missing_metadata"],
-    ["missing version", { appVersion: null }, "missing_metadata"],
-    ["missing build", { buildNumber: null }, "missing_metadata"],
-    ["malformed version", { appVersion: "v1" }, "malformed_metadata"],
-    ["malformed build", { buildNumber: "12beta" }, "malformed_metadata"],
+    ["missing iOS platform", { platform: null }, "missing_metadata"],
+    ["missing iOS version", { appVersion: null }, "missing_metadata"],
+    ["missing Android build", { platform: "android", buildNumber: null }, "missing_metadata"],
+    ["malformed iOS version", { appVersion: "v1" }, "malformed_metadata"],
+    [
+      "malformed Android build",
+      { platform: "android", buildNumber: "12beta" },
+      "malformed_metadata",
+    ],
     ["unknown platform", { platform: "web" }, "unknown_platform"],
-    ["unknown version", { appVersion: "1.0.2" }, "unknown_build"],
-    ["unknown newer build", { buildNumber: "999" }, "unknown_build"],
+    ["unknown iOS version", { appVersion: "1.0.2" }, "unknown_build"],
+    [
+      "unknown Android newer build",
+      { platform: "android", buildNumber: "999" },
+      "unknown_build",
+    ],
   ])("fails closed for %s", (_name, input, reason) => {
     expect(resolve(input)).toMatchObject({
       eligible: false,
@@ -69,8 +77,8 @@ describe("notification presentation build compatibility", () => {
 
   it.each(["like", "follow", "daily_digest"])(
     "keeps ordinary %s notifications ordinary on eligible builds",
-    () => {
-      expect(resolve({ requestsCustomPresentation: false })).toEqual({
+    (notificationType) => {
+      expect(resolve({ notificationType })).toEqual({
         eligible: false,
         outcome: "ordinary_default",
         reason: "ordinary_notification",
