@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { recordMandatoryRosterAudit } from "@/lib/android-tester-roster/admin-audit";
-import { syncAndroidTesterRoster } from "@/lib/android-tester-roster/sync";
+import { syncCanonicalAndroidTesterRoster } from "@/lib/android-tester-roster/canonical-sync";
 import { withAdminAuth } from "@/lib/middleware/api-wrappers";
 
 export const dynamic = "force-dynamic";
@@ -26,7 +26,7 @@ export const POST = withAdminAuth(
     }
 
     try {
-      const result = await syncAndroidTesterRoster({
+      const result = await syncCanonicalAndroidTesterRoster({
         actorUserId: user.id,
         supabase: supabase as any,
       });

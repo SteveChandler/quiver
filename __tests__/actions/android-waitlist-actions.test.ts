@@ -7,6 +7,7 @@ const mockProfileEq = jest.fn();
 const mockProfileSelect = jest.fn();
 const mockProfileMaybeSingle = jest.fn();
 const mockUserEventInsert = jest.fn();
+const mockServiceRoleRpc = jest.fn();
 const mockSupabase = {
   from: jest.fn((table: string) => {
     if (table === "profiles") {
@@ -32,7 +33,10 @@ jest.mock("next/cache", () => ({
 jest.mock("@/lib/server-action-utils", () => ({
   withAuthenticatedAction: jest.fn(async (action: any) => {
     try {
-      const data = await action({ id: "user-1" }, mockSupabase);
+      const data = await action(
+        { id: "user-1", email: "surfer@example.com" },
+        mockSupabase,
+      );
       return { success: true, data };
     } catch (error) {
       return {
@@ -41,6 +45,12 @@ jest.mock("@/lib/server-action-utils", () => ({
       };
     }
   }),
+}));
+
+jest.mock("@/lib/supabase/server", () => ({
+  createSupabaseServiceRoleClient: jest.fn(async () => ({
+    rpc: mockServiceRoleRpc,
+  })),
 }));
 
 describe("joinAndroidWaitlist", () => {
@@ -60,6 +70,10 @@ describe("joinAndroidWaitlist", () => {
       error: null,
     });
     mockUserEventInsert.mockResolvedValue({ error: null });
+    mockServiceRoleRpc.mockResolvedValue({
+      data: "30000000-0000-4000-8000-000000000003",
+      error: null,
+    });
   });
 
   it("sets the Android waitlist profile flag and records a profile update event", async () => {
@@ -83,6 +97,19 @@ describe("joinAndroidWaitlist", () => {
     expect(mockProfileEq).toHaveBeenCalledWith("id", "user-1");
     expect(mockProfileSelect).toHaveBeenCalledWith("id");
     expect(mockProfileMaybeSingle).toHaveBeenCalled();
+    expect(mockServiceRoleRpc).toHaveBeenCalledWith(
+      "resolve_android_waitlist_entry",
+      expect.objectContaining({
+        p_user_id: "user-1",
+        p_normalized_email_sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        p_roster_entry_id: null,
+        p_source_kind: "profile_intent",
+        p_source_id: "user-1",
+        p_source: "features-hero-android-waitlist",
+        p_surface: "features-page",
+        p_placement: "hero_secondary",
+      }),
+    );
     expect(mockUserEventInsert).toHaveBeenCalledWith({
       user_id: "user-1",
       event_type: "profile_update",
@@ -91,9 +118,6 @@ describe("joinAndroidWaitlist", () => {
         destination_type: "profile_flag",
         platform: "android",
         profile_flag_set: true,
-        source: "features-hero-android-waitlist",
-        surface: "features-page",
-        placement: "hero_secondary",
       }),
     });
     expect(revalidatePath).toHaveBeenCalledWith("/features");
@@ -155,6 +179,25 @@ describe("joinAndroidWaitlist", () => {
 
     expect(result.success).toBe(false);
     expect(result.error).toContain("No profile row was updated");
+    expect(mockUserEventInsert).not.toHaveBeenCalled();
+  });
+
+  it("fails closed when the canonical waitlist resolver is unavailable", async () => {
+    mockServiceRoleRpc.mockResolvedValue({
+      data: null,
+      error: { message: "resolver unavailable" },
+    });
+
+    const result = await joinAndroidWaitlist({
+      source: "features-hero-android-waitlist",
+      surface: "features-page",
+      placement: "hero_secondary",
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain(
+      "Canonical Android waitlist resolver unavailable",
+    );
     expect(mockUserEventInsert).not.toHaveBeenCalled();
   });
 });

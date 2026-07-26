@@ -137,7 +137,7 @@ export async function syncAndroidTesterRoster({
   loadActiveKey = loadActiveTesterIdentityKey,
   loadKey = loadTesterIdentityKey,
 }: {
-  actorUserId: string;
+  actorUserId: string | null;
   now?: string;
   supabase: SyncClient;
   fetchSnapshot?: () => Promise<DirectoryRosterSnapshot>;
