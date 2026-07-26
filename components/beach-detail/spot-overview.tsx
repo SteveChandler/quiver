@@ -12,14 +12,23 @@ import { degreeWindowToCardinal } from "@/lib/utils/direction-utils";
 import { WaveTipsCard } from "@/components/beach-detail/wave-tips-card";
 import { AmenitiesBadges } from "@/components/beach-detail/amenities-badges";
 import { WaterQualityBadge } from "@/components/beach-detail/water-quality-badge";
+import { PhotoAttribution } from "@/components/photos/photo-attribution";
 import { deriveAmenitiesFromFeatures } from "@/lib/utils/amenity-fallback-utils";
 import type { BeachAmenities } from "@/types/amenities";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
+import type { CommunityPhotoAttribution } from "@/lib/community-photos";
 
 interface BestPhoto {
   id: string;
   public_url: string;
   created_at: string;
+  title?: string | null;
+  attributionHtml?: string | null;
+  attribution?: CommunityPhotoAttribution | null;
+  community?: {
+    upvotes: number;
+    downvotes: number;
+  } | null;
 }
 
 async function getBestBeachPhotos(
@@ -250,7 +259,7 @@ export function SpotOverview({ beach, amenities, waterQuality }: SpotOverviewPro
                   >
                     <Image
                       src={p.public_url}
-                      alt="Best of spot"
+                      alt={p.title || `${beach.name} surf photo`}
                       fill
                       loading="lazy"
                       sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
@@ -259,6 +268,20 @@ export function SpotOverview({ beach, amenities, waterQuality }: SpotOverviewPro
                       // External Openverse/Flickr images bypass Next.js optimization due to CORS and rate limiting
                       unoptimized={p.public_url.includes("openverse") || p.public_url.includes("flickr")}
                     />
+                    {p.attribution || p.attributionHtml || p.community ? (
+                      <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/75 to-transparent p-2 pt-8 text-white">
+                        <PhotoAttribution
+                          attribution={p.attribution ?? null}
+                          attributionHtml={p.attributionHtml}
+                          className="min-w-0 truncate text-[10px] underline-offset-2 hover:underline"
+                        />
+                        {p.community ? (
+                          <span className="shrink-0 text-[10px]">
+                            {p.community.upvotes} up · {p.community.downvotes} down
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>

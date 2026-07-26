@@ -145,6 +145,16 @@ export const PRIVACY_CONTENT = {
           "Any person with your credentials, Community members (based on privacy settings)",
       },
       {
+        name: "Community Spot Photo Data",
+        description:
+          "When you submit a spot photo, we process the image, your versioned rights confirmation, the target beach or custom spot, votes, reports, and moderation status. For attribution, we resolve your current safe display name dynamically and link to your profile. If no safe display name exists, we show the non-linked label Quiver community instead. We strip EXIF metadata, including embedded GPS coordinates, before storage. Photos for canonical beaches and community-visible custom spots may be public. Photos for a private custom spot remain visible only to its owner and do not receive public attribution, votes, reports, or ranking.",
+        sources: "Directly from contributors and other community members",
+        purpose:
+          "Performance of the community photo service, content safety, abuse prevention, and our legitimate interest in showing useful current spot imagery",
+        disclosed:
+          "Community members according to spot visibility, authorized Quiver moderators, and storage and image-processing service providers",
+      },
+      {
         name: "Sensitive Personal Data",
         description:
           "includes precise geolocation when tracking surf sessions and identification documentation for identity verification. This data will only be collected where necessary and with your consent.",
@@ -232,6 +242,11 @@ export const PRIVACY_CONTENT = {
           subtitle: "Analytics and Engagement Tracking",
           details:
             "We collect interaction data including page views, feature usage, scroll behavior, and navigation patterns through analytics services. Multiple analytics services may receive the same event data for redundancy and accuracy. Email communications may include tracking to measure engagement (opens, clicks). When you sign up, we may record how you discovered Quiver (e.g., referral source, landing page).",
+        },
+        {
+          subtitle: "Community Spot Photos",
+          details:
+            "A spot-photo submission includes one processed image, the target spot, your versioned rights confirmation, and operational records needed for upvote, downvote, report, moderation, abuse limits, and removal. Before storage, Quiver re-encodes the image and strips EXIF metadata and embedded GPS coordinates. Eligible public photos are ordered by a confidence-adjusted score with no recency decay; an authorized administrator may place an audited pin, but a pin never overrides privacy, removal, or moderation eligibility.",
         },
       ],
     },
@@ -357,6 +372,11 @@ export const PRIVACY_CONTENT = {
           subtitle: "Determining Retention",
           details:
             "To determine the appropriate retention period, we consider the amount, nature and sensitivity of the personal data, the potential risk of harm from unauthorized use or disclosure, the purposes for processing and whether we can achieve those purposes through other means, and applicable legal requirements.",
+        },
+        {
+          subtitle: "Community Photo Removal",
+          details:
+            "When a contributor removes a community spot photo, it disappears from public and owner galleries immediately and enters a 30-day recovery period. After that period, Quiver permanently purges the image and recomputes affected ranking unless an authorized administrator places a documented investigation hold. A hold delays deletion only as long as needed for the investigation and is audited.",
         },
       ],
     },
@@ -607,6 +627,21 @@ export const TERMS_CONTENT = {
           subtitle: "Your Content Rights",
           details:
             "You retain ownership of content you submit (session logs, reviews, photos, comments). By posting content, you grant Quiver a worldwide, non-exclusive, royalty-free license to use, display, reproduce, and distribute your content in connection with the Service.",
+        },
+        {
+          subtitle: "Spot Photo Rights and Publication",
+          details:
+            "Before submitting a community spot photo, you must confirm that you took the photo or otherwise have all rights needed to share and license it. Subject to the spot's visibility, an accepted photo is immediately published without advance editorial review. The license above includes processing, resizing, displaying, ranking, and distributing the photo through Quiver while you retain ownership.",
+        },
+        {
+          subtitle: "Community Ranking and Moderation",
+          details:
+            "Eligible public photos may receive an upvote or downvote from each community member and may be reported for safety, privacy, explicit content, or incorrect or stale imagery. Quiver uses those signals for confidence-adjusted ranking with no recency decay. Authorized administrators may audit and reverse moderation decisions, place or remove a featured pin, and place an investigation hold. A pin never makes hidden, removed, or private content eligible for public display.",
+        },
+        {
+          subtitle: "Removal and Recovery",
+          details:
+            "You may remove your community spot photo at any time. Removal hides it immediately, and Quiver keeps it for 30 days so you may recover it before permanent deletion unless a documented investigation hold is active. Moderation, legal, safety, or abuse-prevention obligations may limit restoration or require temporary retention.",
         },
         {
           subtitle: "Content Restrictions",

@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 import type { SpotPageData } from "@/lib/utils/spot-data-transformer";
+import type { CommunityPhotoAttribution } from "@/lib/community-photos";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { getIntentSlug } from "@/lib/utils/slug-helpers";
@@ -37,7 +38,8 @@ interface SpotPageContentProps {
   cityName: string;
   updatedAt: string;
   featuredPhotoUrl: string | null;
-  featuredPhotoAttribution?: string | null;
+  featuredPhotoAttribution?: CommunityPhotoAttribution | null;
+  featuredPhotoAttributionHtml?: string | null;
   nearbySpots: NearbySpotCardData[];
 }
 
@@ -281,6 +283,7 @@ export function SpotPageContent({
   updatedAt,
   featuredPhotoUrl,
   featuredPhotoAttribution,
+  featuredPhotoAttributionHtml,
   nearbySpots,
 }: SpotPageContentProps) {
   const summary = buildSpotSummary(spot);
@@ -306,6 +309,7 @@ export function SpotPageContent({
         longitude={spot.longitude}
         featuredPhotoUrl={featuredPhotoUrl}
         attribution={featuredPhotoAttribution}
+        attributionHtml={featuredPhotoAttributionHtml}
         eyebrow="Live surf intel"
         subtitle={summary}
         metadata={`Updated ${updatedAt} PT${locationText ? ` · ${locationText}` : ""}`}
