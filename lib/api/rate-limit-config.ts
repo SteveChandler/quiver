@@ -277,6 +277,16 @@ export const RATE_LIMITS = {
     requestsPerHour: 12,
     burstLimit: 3,
   }),
+  "install-attribution-issue": relaxForE2E({
+    requestsPerMinute: 6,
+    requestsPerHour: 30,
+    burstLimit: 3,
+  }),
+  "install-attribution-redeem": relaxForE2E({
+    requestsPerMinute: 12,
+    requestsPerHour: 60,
+    burstLimit: 4,
+  }),
 } as const;
 
 /**
@@ -317,6 +327,10 @@ const RATE_LIMIT_MESSAGES = {
     "Too many alert sign-up attempts. Please wait before retrying.",
   "android-beta-lead":
     "Too many Android beta sign-up attempts. Please wait before retrying.",
+  "install-attribution-issue":
+    "Too many install attribution requests. Please wait before trying again.",
+  "install-attribution-redeem":
+    "Too many install attribution redemptions. Please wait before retrying.",
 } as const;
 
 /**

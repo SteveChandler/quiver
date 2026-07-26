@@ -57,9 +57,9 @@ export const PRIVACY_CONTENT = {
   hero: {
     title: "Privacy Policy",
     subtitle: "How we protect and handle your data",
-    lastUpdated: "March 1, 2026",
+    lastUpdated: "July 25, 2026",
     effectiveDate:
-      "This policy is effective as of March 1, 2026. We will notify you of any material changes by email or through our app.",
+      "This policy is effective as of July 25, 2026. We will notify you of any material changes by email or through our app.",
   },
   overview: {
     title: "Welcome to Quiver's Privacy Policy",
@@ -157,7 +157,7 @@ export const PRIVACY_CONTENT = {
       {
         name: "Mobile Device Data",
         description:
-          "When you use our iOS mobile app, we collect device push notification tokens (to send surf session invites, community updates, and notifications), device identifiers (for app analytics, crash reporting, and user authentication), device type and operating system version (for compatibility, support, and feature optimization), and mobile app usage patterns. Push notification tokens are stored securely and only used to deliver relevant surf-related notifications you have opted in to receive.",
+          "When you use our mobile apps, we collect device push notification tokens (to send surf session invites, community updates, and notifications), device identifiers (for app analytics, crash reporting, and user authentication), device type and operating system version (for compatibility, support, and feature optimization), and mobile app usage patterns. For attributed Android installs, Google Play may deliver an opaque install attribution token. It is single-use and expires 30 days after issue. It resolves only to bounded campaign context and does not contain your email, Quiver user ID, Google identity, native install ID, precise timestamp, or location.",
         sources: "Directly from your mobile device",
         purpose:
           "Performance of a contract, Necessary for our legitimate interests, Consent (for push notifications)",
@@ -210,7 +210,7 @@ export const PRIVACY_CONTENT = {
         {
           subtitle: "Mobile App",
           details:
-            "When you use our iOS mobile application, we automatically collect certain device information including push notification tokens (to send you session invites and updates you've opted in to receive), device identifiers (for authentication and analytics), device model and operating system version (for compatibility and support), and app usage data (to improve features and user experience). You can control push notification permissions in your device settings at any time.",
+            "When you use our mobile applications, we automatically collect certain device information including push notification tokens (to send you session invites and updates you've opted in to receive), device identifiers (for authentication and analytics), device model and operating system version (for compatibility and support), and app usage data (to improve features and user experience). Android installs reached through a Quiver web handoff may also return a short-lived opaque install attribution token from Google Play. Quiver stores only a cryptographic hash on the server and uses the token once to recover a bounded source, surface, placement, and campaign. You can control push notification permissions in your device settings at any time.",
         },
         {
           subtitle: "Live Camera Feeds",
@@ -531,9 +531,9 @@ export const TERMS_CONTENT = {
   hero: {
     title: "Terms of Service",
     subtitle: "Rules and guidelines for using Quiver",
-    lastUpdated: "February 12, 2026",
+    lastUpdated: "July 25, 2026",
     effectiveDate:
-      "This policy is effective as of February 12, 2026. We will notify you of any material changes by email or through our app.",
+      "This policy is effective as of July 25, 2026. We will notify you of any material changes by email or through our app.",
   },
   overview: {
     title: "Welcome to Quiver",
@@ -562,6 +562,11 @@ export const TERMS_CONTENT = {
           subtitle: "What Quiver Provides",
           details:
             "Quiver provides surf forecasting, beach condition information, session tracking, and community features for surfers. Our Service includes: surf condition forecasts and predictions, machine learning-enhanced wave forecasts, real-time weather and ocean data, live beach camera feeds from third-party providers, beach and surf spot information, personal session logging and statistics, and community features including reviews and local intel.",
+        },
+        {
+          subtitle: "Google Play Install Attribution",
+          details:
+            "After you complete the Android closed-test eligibility and opt-in guidance, Quiver may provide a Google Play install link containing an opaque, single-use install attribution token. The token expires after 30 days, carries no direct account or contact information, and is used only to measure the bounded web-to-app acquisition path. Invalid, expired, or already-consumed tokens do not prevent you from launching or using the Service.",
         },
       ],
     },

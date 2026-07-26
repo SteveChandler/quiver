@@ -4,9 +4,11 @@ import {
   ANDROID_WAITLIST_DESTINATION_STATUS,
 } from "@/lib/constants/android-waitlist";
 import { getVisitorId } from "@/lib/utils/visitor-id";
+import type { InstallAttribution } from "@/lib/install-attribution";
 
 export const ANDROID_WAITLIST_CTA_VIEW_EVENT = "android_waitlist_cta_view";
 export const ANDROID_WAITLIST_CTA_CLICK_EVENT = "android_waitlist_cta_click";
+export const ANDROID_INSTALL_CTA_CLICK_EVENT = "android_install_cta_click";
 
 type InternalCtaEventType = "cta_impression" | "cta_click";
 
@@ -73,4 +75,18 @@ export function trackAndroidWaitlistCtaClick(
   const enriched = buildAndroidWaitlistCtaMetadata(metadata);
   track(ANDROID_WAITLIST_CTA_CLICK_EVENT, enriched);
   fireToUserEvents("cta_click", enriched);
+}
+
+export function trackAndroidInstallCtaClick(
+  attribution: InstallAttribution,
+): void {
+  const metadata = {
+    cta_family: "android_install",
+    platform: "android" as const,
+    destination_type: "google_play_store_listing",
+    destination_status: "attributed_outbound",
+    ...attribution,
+  };
+  track(ANDROID_INSTALL_CTA_CLICK_EVENT, metadata);
+  fireToUserEvents("cta_click", metadata);
 }

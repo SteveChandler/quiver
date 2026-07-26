@@ -7,7 +7,6 @@ import {
   trackAndroidWaitlistCtaClick,
   trackAndroidWaitlistCtaView,
 } from "@/lib/analytics/android-waitlist-tracking";
-import { ANDROID_BETA_LANDING_PATH } from "@/lib/constants/app-store";
 
 jest.mock("@/context/auth-context", () => ({
   useAuth: jest.fn(),
@@ -54,6 +53,9 @@ function renderCta(onClickTrack = jest.fn()) {
 }
 
 describe("AndroidWaitlistCta", () => {
+  const attributedHandoffPath =
+    "/android-beta?source=features-hero-android-waitlist&surface=features-page&placement=hero_secondary&campaign=app_first_v1";
+
   beforeEach(() => {
     jest.clearAllMocks();
     mockAuth(null);
@@ -82,7 +84,7 @@ describe("AndroidWaitlistCta", () => {
     const { onClickTrack } = renderCta();
 
     const link = screen.getByRole("link", { name: /get the android beta/i });
-    expect(link).toHaveAttribute("href", ANDROID_BETA_LANDING_PATH);
+    expect(link).toHaveAttribute("href", attributedHandoffPath);
     expect(
       screen.queryByLabelText(/email for android beta access/i),
     ).not.toBeInTheDocument();
@@ -98,7 +100,7 @@ describe("AndroidWaitlistCta", () => {
       auth_state: "anonymous",
       destination_type: "android_beta_handoff",
       destination_status: "guided_closed_test",
-      destination_url: ANDROID_BETA_LANDING_PATH,
+      destination_url: attributedHandoffPath,
       profile_flag_requested: false,
     });
   });
@@ -109,7 +111,7 @@ describe("AndroidWaitlistCta", () => {
     renderCta();
 
     const link = screen.getByRole("link", { name: /get the android beta/i });
-    expect(link).toHaveAttribute("href", ANDROID_BETA_LANDING_PATH);
+    expect(link).toHaveAttribute("href", attributedHandoffPath);
 
     link.addEventListener("click", (event) => event.preventDefault());
     await user.click(link);
@@ -118,7 +120,7 @@ describe("AndroidWaitlistCta", () => {
       expect.objectContaining({
         auth_state: "authenticated",
         destination_type: "android_beta_handoff",
-        destination_url: ANDROID_BETA_LANDING_PATH,
+        destination_url: attributedHandoffPath,
         profile_flag_requested: false,
       }),
     );
@@ -137,7 +139,7 @@ describe("AndroidWaitlistCta", () => {
       auth_state: "anonymous",
       destination_type: "android_beta_handoff",
       destination_status: "guided_closed_test",
-      destination_url: ANDROID_BETA_LANDING_PATH,
+      destination_url: attributedHandoffPath,
     });
   });
 });

@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, type FormEvent, type MouseEvent } from "react";
+import {
+  useCallback,
+  useMemo,
+  useState,
+  type FormEvent,
+  type MouseEvent,
+} from "react";
+import { useSearchParams } from "next/navigation";
 import { QRCodeSVG } from "qrcode.react";
 import {
   ANDROID_BETA_CONTACT_EMAIL,
@@ -12,6 +19,11 @@ import { buildSmartQrHandoffUrl } from "@/lib/constants/app-handoff";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 import { cn } from "@/lib/utils";
+import {
+  normalizeInstallAttribution,
+  type InstallAttribution,
+} from "@/lib/install-attribution";
+import { trackAndroidInstallCtaClick } from "@/lib/analytics/android-waitlist-tracking";
 
 const ANDROID_BETA_SMART_QR_URL = buildSmartQrHandoffUrl({
   source: "android_beta_page",
@@ -74,10 +86,45 @@ function trackAndroidBetaOutboundClick(destinationType: string): void {
 }
 
 export function AndroidBetaClient() {
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [capturedEmail, setCapturedEmail] = useState<string | null>(null);
   const [status, setStatus] = useState<CaptureStatus>("idle");
   const [inlineError, setInlineError] = useState<string | null>(null);
+  const installAttribution = useMemo<InstallAttribution>(
+    () =>
+      normalizeInstallAttribution(
+        Object.fromEntries(searchParams.entries()),
+      ),
+    [searchParams],
+  );
+  const [attributedStoreUrl, setAttributedStoreUrl] = useState<string | null>(
+    null,
+  );
+  const [installLinkFailed, setInstallLinkFailed] = useState(false);
+  const hasCapturedEmail = status === "saved" && Boolean(capturedEmail);
+
+  const issueInstallLink = useCallback(async (): Promise<void> => {
+    setInstallLinkFailed(false);
+    try {
+      const response = await fetch("/api/install-attribution/issue", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(installAttribution),
+      });
+      const result = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        storeUrl?: string;
+      } | null;
+      if (!response.ok || !result?.success || !result.storeUrl) {
+        setInstallLinkFailed(true);
+        return;
+      }
+      setAttributedStoreUrl(result.storeUrl);
+    } catch {
+      setInstallLinkFailed(true);
+    }
+  }, [installAttribution]);
 
   async function handleSubmit(
     event: FormEvent<HTMLFormElement>,
@@ -118,6 +165,7 @@ export function AndroidBetaClient() {
 
       setCapturedEmail(normalizedEmail);
       setStatus("saved");
+      void issueInstallLink();
     } catch {
       setInlineError("Could not save your email. Try again.");
       setStatus("error");
@@ -127,9 +175,9 @@ export function AndroidBetaClient() {
   function handleEditEmail(): void {
     setStatus("idle");
     setInlineError(null);
+    setAttributedStoreUrl(null);
+    setInstallLinkFailed(false);
   }
-
-  const hasCapturedEmail = status === "saved" && Boolean(capturedEmail);
 
   function handleHandoffClick(
     event: MouseEvent<HTMLAnchorElement>,
@@ -226,7 +274,7 @@ export function AndroidBetaClient() {
                       "bg-[#11100D] text-[#F4EBD8]",
                     )}
                   >
-                    Already joined? Open Google Play
+                    2 · Opt in on Google Play
                   </a>
                 ) : (
                   <button
@@ -237,7 +285,41 @@ export function AndroidBetaClient() {
                       "bg-[#11100D] text-[#F4EBD8] opacity-60",
                     )}
                   >
-                    Already joined? Open Google Play
+                    2 · Opt in on Google Play
+                  </button>
+                )
+              ) : null}
+              {hasCapturedEmail ? (
+                attributedStoreUrl ? (
+                  <a
+                    href={attributedStoreUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() =>
+                      trackAndroidInstallCtaClick(installAttribution)
+                    }
+                    className={cn(
+                      handoffButtonClass,
+                      "bg-[#7BDCB5] text-[#11100D]",
+                    )}
+                  >
+                    3 · Install from Google Play
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (installLinkFailed) void issueInstallLink();
+                    }}
+                    disabled={!installLinkFailed}
+                    className={cn(
+                      handoffButtonClass,
+                      "bg-[#7BDCB5] text-[#11100D] disabled:cursor-wait disabled:opacity-70",
+                    )}
+                  >
+                    {installLinkFailed
+                      ? "3 · Retry Play install link"
+                      : "3 · Preparing Play install link..."}
                   </button>
                 )
               ) : null}
