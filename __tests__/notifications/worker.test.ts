@@ -705,6 +705,8 @@ describe("processPendingEvents — happy path", () => {
 
     const sentMessages = (fakeFcm.sendEach.mock.calls[0] as unknown[])[0] as Array<{
       data?: Record<string, string>;
+      android?: { notification?: { channelId?: string } };
+      apns?: { payload?: { aps?: { sound?: string } } };
     }>;
     expect(sentMessages[0].data?.notification_event_id).toBe(
       "evt-push-attribution"
@@ -712,6 +714,8 @@ describe("processPendingEvents — happy path", () => {
     expect(sentMessages[0].data?.message_instance_id).toBe(
       "evt-push-attribution"
     );
+    expect(sentMessages[0]).not.toHaveProperty("android");
+    expect(sentMessages[0]).not.toHaveProperty("apns");
   });
 
   it("forecast_alert: worker push success reconciles alert_delivery_attempts", async () => {
@@ -765,6 +769,14 @@ describe("processPendingEvents — happy path", () => {
         skip_reason: "sent",
       },
     ]);
+    const sentMessages = (fakeFcm.sendEach.mock.calls[0] as unknown[])[0] as Array<{
+      android?: { notification?: { channelId?: string } };
+      apns?: { payload?: { aps?: { sound?: string } } };
+    }>;
+    expect(sentMessages[0]).toMatchObject({
+      android: { notification: { channelId: "quiver-alerts-v1" } },
+      apns: { payload: { aps: { sound: "quiver-alert.wav" } } },
+    });
   });
 
   it("similarity_match: worker push success reconciles alert_delivery_attempts", async () => {
@@ -2254,6 +2266,67 @@ describe("processPendingEvents — push provider details", () => {
         "https://exp.host/--/api/v2/push/send",
         expect.objectContaining({ method: "POST" })
       );
+      const request = (global.fetch as jest.Mock).mock.calls[0][1] as RequestInit;
+      const [expoPayload] = JSON.parse(request.body as string);
+      expect(expoPayload).not.toHaveProperty("sound");
+      expect(expoPayload).not.toHaveProperty("channelId");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("routes weekend-window Expo pushes through the native alert sound channel", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: [{ status: "ok", id: "ticket-1" }],
+      }),
+    })) as unknown as typeof fetch;
+
+    try {
+      const state = emptyState();
+      state.events.push(
+        buildEvent({
+          id: "evt-weekend-window",
+          actor_user_id: null,
+          type: "weekend_window",
+          entity_type: "beach",
+          entity_id: "beach-1",
+          payload: {
+            beach_id: "beach-1",
+            forecast_at: "2026-07-25T16:00:00.000Z",
+            title: "Weekend window",
+            body: "Saturday morning lines up",
+          },
+          dedupe_key: "weekend_window:user-recipient:2026-07-25",
+        }),
+      );
+      state.profiles.set("user-recipient", buildProfile());
+      state.devices.set("user-recipient", ["ExponentPushToken[expo-weekend]"]);
+
+      const fakeFcm = {
+        sendEach: jest.fn(async () => ({
+          successCount: 1,
+          failureCount: 0,
+          responses: [{ success: true }],
+        })),
+      };
+
+      const summary = await processPendingEvents(
+        buildMockSupabase(state) as never,
+        { now: NOON_PT, fcm: fakeFcm as never },
+      );
+
+      expect(summary.processed).toBe(1);
+      expect(fakeFcm.sendEach).not.toHaveBeenCalled();
+      const request = (global.fetch as jest.Mock).mock.calls[0][1] as RequestInit;
+      expect(JSON.parse(request.body as string)).toEqual([
+        expect.objectContaining({
+          sound: "quiver-alert.wav",
+          channelId: "quiver-alerts-v1",
+        }),
+      ]);
     } finally {
       global.fetch = originalFetch;
     }
