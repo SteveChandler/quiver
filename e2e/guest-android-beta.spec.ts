@@ -225,7 +225,7 @@ test.describe("Android beta page", () => {
     const qr = page.getByTestId("android-beta-qr");
     await expect(qr).toBeVisible();
     const decodedUrl = new URL((await qr.getAttribute("data-smart-url")) ?? "");
-    expect(decodedUrl.pathname).toBe("/app");
+    expect(decodedUrl.pathname).toBe("/app/handoff");
     expect(decodedUrl.searchParams.get("source")).toBe("android_beta_page");
     expect(decodedUrl.searchParams.get("surface")).toBe("android_beta");
     expect(decodedUrl.searchParams.get("qr_id")).toBe(
