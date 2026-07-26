@@ -162,6 +162,18 @@ export const RATE_LIMITS = {
   }),
 
   /**
+   * Account Recovery - CRITICAL
+   *
+   * Fresh identity proofs are intentionally sparse. Keep both burst and
+   * sustained attempt counts low to limit replay and account probing.
+   */
+  "account-recovery": relaxForE2E({
+    requestsPerMinute: 5,
+    requestsPerHour: 12,
+    burstLimit: 2,
+  }),
+
+  /**
    * Surf Discovery - MEDIUM
    *
    * Endpoint: /api/surf/discover
@@ -289,6 +301,8 @@ const RATE_LIMIT_MESSAGES = {
     "API rate limit exceeded. Please wait before making more requests.",
   "authenticated-default":
     "API rate limit exceeded. Please reduce request frequency.",
+  "account-recovery":
+    "Too many account recovery attempts. Please wait before trying again.",
   "surf-discovery":
     "Surf discovery rate limit exceeded. Please wait before requesting more recommendations.",
   "surf-insights":
