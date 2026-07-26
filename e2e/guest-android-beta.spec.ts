@@ -61,7 +61,7 @@ test.describe("Android beta page", () => {
     });
   });
 
-  test("requires the Google account email before the beta handoff", async ({
+  test("keeps email optional while preserving the tester and install handoff", async ({
     page,
   }) => {
     const opaqueToken = "A".repeat(43);
@@ -182,37 +182,35 @@ test.describe("Android beta page", () => {
       0,
     );
     await expect(
-      page.getByRole("button", { name: /join the tester group/i }),
-    ).toBeVisible();
-    await expect(page.getByTestId("android-beta-qr-locked")).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: /install from google play/i }),
-    ).toHaveCount(0);
-    expect(issueRequestCount).toBe(0);
-    await page.getByRole("button", { name: /join the tester group/i }).click();
-    await expect(page.locator("#android-beta-email-error")).toContainText(
-      /google account email.*unlock the beta handoff/i,
-    );
-    await page
-      .getByLabel(/google account email.*required/i)
-      .fill("SURFER@example.com");
-    await page
-      .getByRole("button", { name: /save email and unlock beta/i })
-      .click();
-
-    await expect(page.getByRole("status")).toContainText(
-      /saved surfer@example\.com/i,
-    );
-    const installLink = page.getByRole("link", {
-      name: /3 · install from google play/i,
-    });
-    await expect(installLink).toHaveAttribute("href", attributedStoreUrl);
-    await expect(
       page.getByRole("link", { name: /join the tester group/i }),
     ).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
     await expect(
       page.getByRole("link", { name: /2 · opt in on google play/i }),
     ).toHaveAttribute("href", ANDROID_BETA_PLAY_URL ?? "");
+    await expect(page.getByTestId("android-beta-qr")).toBeVisible();
+    await expect(page.getByTestId("android-beta-qr-locked")).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: /install from google play/i }),
+    ).toHaveCount(0);
+    expect(issueRequestCount).toBe(0);
+    await page
+      .getByLabel(/google account email.*optional/i)
+      .fill("SURFER@example.com");
+    await page
+      .getByRole("button", { name: /email me beta instructions/i })
+      .click();
+
+    await expect(page.getByRole("status")).toContainText(
+      /saved surfer@example\.com/i,
+    );
+    expect(issueRequestCount).toBe(0);
+    await page
+      .getByRole("button", { name: /3 · prepare play install link/i })
+      .click();
+    const installLink = page.getByRole("link", {
+      name: /3 · install from google play/i,
+    });
+    await expect(installLink).toHaveAttribute("href", attributedStoreUrl);
     await clickOutboundLinkAndClosePopup(page, /join the tester group/i);
     await clickOutboundLinkAndClosePopup(
       page,
