@@ -6,6 +6,7 @@ import {
   applyClientPostHogTrackingStorageEvent,
   buildPostHogUserProperties,
   captureQueuedClientPostHogSignup,
+  flushQueuedClientPostHogEvents,
   identifyPostHogUser,
   isClientPostHogTrackingRevisionCurrent,
   resetPostHog,
@@ -50,6 +51,7 @@ export function PostHogProvider(): null {
       resetPostHog();
       identifiedUserId.current = null;
       setAnonymousClientPostHogTracking();
+      flushQueuedClientPostHogEvents();
       return () => {
         active = false;
       };
@@ -84,6 +86,7 @@ export function PostHogProvider(): null {
           identifyPostHogUser(user.id, buildPostHogUserProperties(user));
           identifiedUserId.current = user.id;
           captureQueuedClientPostHogSignup(user.id);
+          flushQueuedClientPostHogEvents();
         })
         .catch(() => {
           if (

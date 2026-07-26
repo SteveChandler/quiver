@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import type { Coordinates } from "@/lib/types/coordinates";
 import { calculateDistance } from "@/lib/utils/distance-utils";
-import { captureClientPostHogEvent } from "@/lib/posthog-client";
+import { captureClientPostHogEventAfterConsent } from "@/lib/posthog-client";
 
 // Default to Ocean Beach, San Diego coordinates (ultimate fallback)
 const OCEAN_BEACH_COORDS: Coordinates = {
@@ -132,7 +132,7 @@ export function useGeolocation(options: UseGeolocationOptions = {}) {
     ): void => {
       if (monitoringContext !== "home") return;
 
-      captureClientPostHogEvent("home_geolocation_request", {
+      captureClientPostHogEventAfterConsent("home_geolocation_request", {
         trigger,
         outcome,
       });

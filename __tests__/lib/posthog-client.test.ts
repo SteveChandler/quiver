@@ -13,7 +13,9 @@ import {
   _resetPostHogClientForTesting,
   applyClientPostHogTrackingStorageEvent,
   captureClientPostHogEvent,
+  captureClientPostHogEventAfterConsent,
   captureQueuedClientPostHogSignup,
+  flushQueuedClientPostHogEvents,
   identifyPostHogUser,
   initPostHog,
   queueClientPostHogSignup,
@@ -59,6 +61,35 @@ describe("posthog-client", () => {
     expect(posthog.init).not.toHaveBeenCalled();
     expect(posthog.capture).not.toHaveBeenCalled();
     expect(posthog.identify).not.toHaveBeenCalled();
+  });
+
+  it("queues operational events until authenticated consent is allowed", () => {
+    expect(
+      captureClientPostHogEventAfterConsent("home_discovery_request", {
+        request_number: 1,
+      }),
+    ).toBe(true);
+    expect(posthog.capture).not.toHaveBeenCalled();
+
+    setClientPostHogTrackingAllowed(true);
+    expect(posthog.capture).not.toHaveBeenCalled();
+    expect(flushQueuedClientPostHogEvents()).toBe(1);
+    expect(posthog.capture).toHaveBeenCalledWith(
+      "home_discovery_request",
+      expect.objectContaining({ request_number: 1 }),
+    );
+  });
+
+  it("discards queued operational events when consent is denied", () => {
+    captureClientPostHogEventAfterConsent("home_discovery_request", {
+      request_number: 1,
+    });
+
+    setClientPostHogTrackingAllowed(false);
+    setClientPostHogTrackingAllowed(true);
+
+    expect(flushQueuedClientPostHogEvents()).toBe(0);
+    expect(posthog.capture).not.toHaveBeenCalled();
   });
 
   it("enables capture only after explicit consent and disables autocapture", () => {

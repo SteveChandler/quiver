@@ -40,6 +40,7 @@ import {
 } from "@/lib/analytics/consent";
 import {
   captureQueuedClientPostHogSignup,
+  flushQueuedClientPostHogEvents,
   identifyPostHogUser,
   resetPostHog,
   setClientPostHogTrackingAllowed,
@@ -194,6 +195,7 @@ export function ProfilePreferences({
         if (data.allow_implicit_tracking) {
           identifyPostHogUser(userId);
           captureQueuedClientPostHogSignup(userId);
+          flushQueuedClientPostHogEvents();
         } else {
           resetPostHog();
         }
