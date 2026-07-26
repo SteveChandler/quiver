@@ -124,6 +124,15 @@ const nextConfig = {
         ],
       },
       {
+        source: "/api/install-attribution/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
+      {
         source: "/api/surf/discover",
         headers: [
           {

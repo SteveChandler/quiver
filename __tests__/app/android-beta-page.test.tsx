@@ -30,7 +30,14 @@ describe("AndroidBetaPage", () => {
     jest.clearAllMocks();
     (global as any).fetch = jest.fn(() =>
       Promise.resolve(
-        new Response(JSON.stringify({ success: true }), { status: 200 }),
+        new Response(
+          JSON.stringify({
+            success: true,
+            storeUrl: `https://play.google.com/store/apps/details?id=app.quiversurf.surf&referrer=${"A".repeat(43)}`,
+            expiresOn: "2026-08-24",
+          }),
+          { status: 200 },
+        ),
       ),
     );
   });
@@ -57,6 +64,81 @@ describe("AndroidBetaPage", () => {
     expect(pageText).not.toMatch(/founding pric|queue priority|waitlist/i);
   });
 
+  it("issues a PII-free attributed Play listing link only after the guided handoff unlocks", async () => {
+    const user = userEvent.setup();
+    const storeUrl = `https://play.google.com/store/apps/details?id=app.quiversurf.surf&referrer=${"A".repeat(43)}`;
+    (global.fetch as jest.Mock).mockImplementation((url: string) =>
+      Promise.resolve(
+        new Response(
+          JSON.stringify(
+            url === "/api/install-attribution/issue"
+              ? {
+                  success: true,
+                  storeUrl,
+                  expiresOn: "2026-08-24",
+                }
+              : { success: true },
+          ),
+          { status: 200 },
+        ),
+      ),
+    );
+
+    render(<AndroidBetaPage />);
+
+    expect(
+      screen.queryByRole("link", {
+        name: /install from google play/i,
+      }),
+    ).not.toBeInTheDocument();
+    expect(global.fetch).not.toHaveBeenCalledWith(
+      "/api/install-attribution/issue",
+      expect.anything(),
+    );
+
+    await user.type(
+      screen.getByLabelText(/google account email.*required/i),
+      "surfer@example.com",
+    );
+    await user.click(
+      screen.getByRole("button", { name: /save email and unlock beta/i }),
+    );
+
+    const installLink = await screen.findByRole("link", {
+      name: /^3 · install from google play$/i,
+    });
+    expect(installLink).toHaveAttribute("href", storeUrl);
+    expect(screen.getByTestId("android-beta-qr")).toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/install-attribution/issue",
+      expect.objectContaining({
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "android_beta_page",
+          surface: "android_beta",
+          placement: "direct",
+          campaign: "app_first_v1",
+        }),
+      }),
+    );
+    expect(
+      (global.fetch as jest.Mock).mock.calls.filter(
+        ([url]) => url === "/api/install-attribution/issue",
+      ),
+    ).toHaveLength(1);
+
+    jest.clearAllMocks();
+    installLink.addEventListener("click", (event) => event.preventDefault());
+    await user.click(installLink);
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/events",
+      expect.objectContaining({
+        body: expect.stringContaining('"cta_family":"android_install"'),
+      }),
+    );
+  });
+
   it("requires the Google account email before unlocking closed-beta handoff links", async () => {
     const user = userEvent.setup();
     render(<AndroidBetaPage />);
@@ -68,7 +150,7 @@ describe("AndroidBetaPage", () => {
       name: /join the tester group/i,
     });
     const initialPlayLink = screen.getByRole("button", {
-      name: /already joined.*open google play/i,
+      name: /2 · opt in on google play/i,
     });
     expect(
       screen.getByText(/^google account email — required for beta access$/i),
@@ -177,7 +259,7 @@ describe("AndroidBetaPage", () => {
     );
 
     const playLink = screen.getByRole("link", {
-      name: /already joined.*open google play/i,
+      name: /2 · opt in on google play/i,
     });
     expect(playLink).toHaveAttribute("href", ANDROID_BETA_PLAY_URL ?? "");
     jest.clearAllMocks();

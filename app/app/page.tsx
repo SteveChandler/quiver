@@ -8,10 +8,8 @@ import {
   APP_FIRST_CAMPAIGN,
   iosAppStoreUrlWithCampaign,
 } from "@/lib/constants/app-handoff";
-import {
-  ANDROID_BETA_LANDING_PATH,
-  IOS_APP_STORE_URL,
-} from "@/lib/constants/app-store";
+import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import { buildAndroidBetaHandoffPath } from "@/lib/install-attribution";
 import { DesktopHandoff } from "./desktop-handoff";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -71,8 +69,19 @@ function campaignFromParams(searchParams: Awaited<SearchParams>): string {
   return readFirstParam(searchParams, "utm_campaign") ?? APP_FIRST_CAMPAIGN;
 }
 
-function androidDestination(): { type: string; url: string } {
-  return { type: "android_beta", url: ANDROID_BETA_LANDING_PATH };
+function androidDestination(searchParams: Awaited<SearchParams>): {
+  type: string;
+  url: string;
+} {
+  return {
+    type: "android_beta",
+    url: buildAndroidBetaHandoffPath({
+      source: readSource(searchParams),
+      surface: readFirstParam(searchParams, "surface"),
+      placement: readFirstParam(searchParams, "placement"),
+      campaign: campaignFromParams(searchParams),
+    }),
+  };
 }
 
 export default async function AppHandoffPage({
@@ -97,7 +106,7 @@ export default async function AppHandoffPage({
   }
 
   if (platform === "android") {
-    const destination = androidDestination();
+    const destination = androidDestination(sp);
     await logAppHandoffLinkOpenedServer({
       sessionId: crypto.randomUUID(),
       metadata: buildHandoffMetadata(sp, "android", destination),
@@ -118,7 +127,7 @@ export default async function AppHandoffPage({
         <p>
           <a href={IOS_APP_STORE_URL}>Download Quiver on the App Store</a>
           {" · "}
-          <a href={ANDROID_BETA_LANDING_PATH}>Get the Android beta</a>
+          <a href={buildAndroidBetaHandoffPath({})}>Get the Android beta</a>
         </p>
       </noscript>
     </>
