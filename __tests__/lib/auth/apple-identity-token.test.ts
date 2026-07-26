@@ -7,15 +7,30 @@ jest.mock("jose", () => ({
 
 import { verifyAppleIdentityToken } from "@/lib/auth/apple-identity-token";
 
+const originalAppleAppBundleId = process.env.APPLE_APP_BUNDLE_ID;
+const originalAppleClientId = process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
+
 describe("verifyAppleIdentityToken", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    delete process.env.APPLE_APP_BUNDLE_ID;
+    delete process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
     process.env.APPLE_RECOVERY_AUDIENCES =
       "app.quiversurf.mobile,com.quiversurf.web";
   });
 
   afterEach(() => {
     delete process.env.APPLE_RECOVERY_AUDIENCES;
+    if (originalAppleAppBundleId === undefined) {
+      delete process.env.APPLE_APP_BUNDLE_ID;
+    } else {
+      process.env.APPLE_APP_BUNDLE_ID = originalAppleAppBundleId;
+    }
+    if (originalAppleClientId === undefined) {
+      delete process.env.NEXT_PUBLIC_APPLE_CLIENT_ID;
+    } else {
+      process.env.NEXT_PUBLIC_APPLE_CLIENT_ID = originalAppleClientId;
+    }
   });
 
   it("returns only the stable Apple subject and ignores relay/email ownership signals", async () => {
