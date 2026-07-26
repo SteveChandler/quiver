@@ -61,13 +61,40 @@ test.describe("Android beta page", () => {
     });
   });
 
-  test("requires the Google account email before the beta handoff", async ({
+  test("keeps email optional while preserving the tester and install handoff", async ({
     page,
   }) => {
+    const opaqueToken = "A".repeat(43);
+    const attributedStoreUrl = `https://play.google.com/store/apps/details?id=app.quiversurf.surf&referrer=${opaqueToken}`;
     const capturedLeadEmails: string[] = [];
     let capturedBrowserSessionId: string | null = null;
     let groupClickTracked = false;
     let playClickTracked = false;
+    let installClickTracked = false;
+    let issueRequestCount = 0;
+
+    await page.route("**/api/install-attribution/issue", async (route) => {
+      const body = route.request().postDataJSON() as Record<string, unknown>;
+      expect(body).toEqual({
+        source: "android_beta_page",
+        surface: "android_beta",
+        placement: "direct",
+        campaign: "app_first_v1",
+      });
+      expect(JSON.stringify(body)).not.toMatch(
+        /email|user_id|google|native_install_id|latitude|longitude/i,
+      );
+      issueRequestCount += 1;
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          success: true,
+          storeUrl: attributedStoreUrl,
+          expiresOn: "2026-08-24",
+        }),
+      });
+    });
 
     await page.route("**/api/android-beta/leads", async (route) => {
       const body = route.request().postDataJSON() as {
@@ -77,7 +104,7 @@ test.describe("Android beta page", () => {
         surface?: string;
         placement?: string;
       };
-      expect(body.email).toMatch(/^(surfer|corrected)@example\.com$/);
+      expect(body.email).toBe("surfer@example.com");
       expect(body.sessionId).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
       );
@@ -122,6 +149,12 @@ test.describe("Android beta page", () => {
           playClickTracked = true;
         }
       }
+      if (
+        body.eventType === "cta_click" &&
+        body.metadata?.cta_family === "android_install"
+      ) {
+        installClickTracked = true;
+      }
       await route.fulfill({
         status: 200,
         contentType: "application/json",
@@ -134,6 +167,7 @@ test.describe("Android beta page", () => {
     await page
       .context()
       .route(REQUIRED_ANDROID_BETA_PLAY_URL, fulfillOutboundDestination);
+    await page.context().route(attributedStoreUrl, fulfillOutboundDestination);
 
     await page.goto("/android-beta");
     await page.waitForLoadState("load");
@@ -148,47 +182,41 @@ test.describe("Android beta page", () => {
       0,
     );
     await expect(
-      page.getByRole("button", { name: /join the tester group/i }),
-    ).toBeVisible();
-    await expect(page.getByTestId("android-beta-qr-locked")).toBeVisible();
-    await page.getByRole("button", { name: /join the tester group/i }).click();
-    await expect(page.locator("#android-beta-email-error")).toContainText(
-      /google account email.*unlock the beta handoff/i,
-    );
+      page.getByRole("link", { name: /join the tester group/i }),
+    ).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
+    await expect(
+      page.getByRole("link", { name: /2 · opt in on google play/i }),
+    ).toHaveAttribute("href", ANDROID_BETA_PLAY_URL ?? "");
+    await expect(page.getByTestId("android-beta-qr")).toBeVisible();
+    await expect(page.getByTestId("android-beta-qr-locked")).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: /install from google play/i }),
+    ).toHaveCount(0);
+    expect(issueRequestCount).toBe(0);
     await page
-      .getByLabel(/google account email.*required/i)
+      .getByLabel(/google account email.*optional/i)
       .fill("SURFER@example.com");
     await page
-      .getByRole("button", { name: /save email and unlock beta/i })
+      .getByRole("button", { name: /email me beta instructions/i })
       .click();
 
     await expect(page.getByRole("status")).toContainText(
       /saved surfer@example\.com/i,
     );
-    await page.getByRole("button", { name: /use a different email/i }).click();
-    await expect(
-      page.getByRole("button", { name: /join the tester group/i }),
-    ).toBeVisible();
+    expect(issueRequestCount).toBe(0);
     await page
-      .getByLabel(/google account email.*required/i)
-      .fill("corrected@example.com");
-    await page
-      .getByRole("button", { name: /save email and unlock beta/i })
+      .getByRole("button", { name: /3 · prepare play install link/i })
       .click();
-    await expect(page.getByRole("status")).toContainText(
-      /saved corrected@example\.com/i,
-    );
-    await expect(
-      page.getByRole("link", { name: /join the tester group/i }),
-    ).toHaveAttribute("href", ANDROID_BETA_GROUP_URL);
-    await expect(
-      page.getByRole("link", { name: /already joined.*open google play/i }),
-    ).toHaveAttribute("href", ANDROID_BETA_PLAY_URL ?? "");
+    const installLink = page.getByRole("link", {
+      name: /3 · install from google play/i,
+    });
+    await expect(installLink).toHaveAttribute("href", attributedStoreUrl);
     await clickOutboundLinkAndClosePopup(page, /join the tester group/i);
     await clickOutboundLinkAndClosePopup(
       page,
-      /already joined.*open google play/i,
+      /2 · opt in on google play/i,
     );
+    await clickOutboundLinkAndClosePopup(page, /3 · install from google play/i);
     await expect(
       page.getByRole("link", {
         name: new RegExp(`email ${ANDROID_BETA_CONTACT_EMAIL}`, "i"),
@@ -197,7 +225,7 @@ test.describe("Android beta page", () => {
     const qr = page.getByTestId("android-beta-qr");
     await expect(qr).toBeVisible();
     const decodedUrl = new URL((await qr.getAttribute("data-smart-url")) ?? "");
-    expect(decodedUrl.pathname).toBe("/app");
+    expect(decodedUrl.pathname).toBe("/app/handoff");
     expect(decodedUrl.searchParams.get("source")).toBe("android_beta_page");
     expect(decodedUrl.searchParams.get("surface")).toBe("android_beta");
     expect(decodedUrl.searchParams.get("qr_id")).toBe(
@@ -208,11 +236,10 @@ test.describe("Android beta page", () => {
 
     await expect(page.getByText(/testflight/i)).toHaveCount(0);
     await expect(page.getByText(/join the ios beta/i)).toHaveCount(0);
-    expect(capturedLeadEmails).toEqual([
-      "surfer@example.com",
-      "corrected@example.com",
-    ]);
+    expect(capturedLeadEmails).toEqual(["surfer@example.com"]);
     await expect.poll(() => groupClickTracked).toBe(true);
     await expect.poll(() => playClickTracked).toBe(true);
+    await expect.poll(() => installClickTracked).toBe(true);
+    expect(issueRequestCount).toBe(1);
   });
 });

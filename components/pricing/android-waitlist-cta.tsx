@@ -1,15 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, type ReactElement, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 
 import { useAuth } from "@/context/auth-context";
 import {
   trackAndroidWaitlistCtaClick,
   trackAndroidWaitlistCtaView,
 } from "@/lib/analytics/android-waitlist-tracking";
-import { ANDROID_BETA_LANDING_PATH } from "@/lib/constants/app-store";
 import { ANDROID_WAITLIST_CTA } from "@/lib/constants/android-waitlist";
+import { buildAndroidBetaHandoffPath } from "@/lib/install-attribution";
 import { cn } from "@/lib/utils";
 
 interface AndroidWaitlistCtaProps {
@@ -20,12 +26,6 @@ interface AndroidWaitlistCtaProps {
   children?: ReactNode;
   onClickTrack?: () => void;
 }
-
-const HANDOFF_METADATA = {
-  destination_type: "android_beta_handoff",
-  destination_status: "guided_closed_test",
-  destination_url: ANDROID_BETA_LANDING_PATH,
-} as const;
 
 export function AndroidWaitlistCta({
   source,
@@ -38,6 +38,20 @@ export function AndroidWaitlistCta({
   const { user, isLoading } = useAuth();
   const linkRef = useRef<HTMLAnchorElement>(null);
   const hasTrackedView = useRef(false);
+  const handoffPath = buildAndroidBetaHandoffPath({
+    source,
+    surface,
+    placement,
+  });
+  const handoffMetadata = useMemo(
+    () =>
+      ({
+        destination_type: "android_beta_handoff",
+        destination_status: "guided_closed_test",
+        destination_url: handoffPath,
+      }) as const,
+    [handoffPath],
+  );
 
   useEffect(() => {
     const link = linkRef.current;
@@ -51,7 +65,7 @@ export function AndroidWaitlistCta({
         surface,
         placement,
         auth_state: user ? "authenticated" : "anonymous",
-        ...HANDOFF_METADATA,
+        ...handoffMetadata,
       });
     };
 
@@ -71,7 +85,7 @@ export function AndroidWaitlistCta({
 
     observer.observe(link);
     return () => observer.disconnect();
-  }, [isLoading, placement, source, surface, user]);
+  }, [handoffMetadata, isLoading, placement, source, surface, user]);
 
   function handleClick(): void {
     onClickTrack?.();
@@ -80,7 +94,7 @@ export function AndroidWaitlistCta({
       surface,
       placement,
       auth_state: user ? "authenticated" : "anonymous",
-      ...HANDOFF_METADATA,
+      ...handoffMetadata,
       profile_flag_requested: false,
     });
   }
@@ -88,7 +102,7 @@ export function AndroidWaitlistCta({
   return (
     <Link
       ref={linkRef}
-      href={ANDROID_BETA_LANDING_PATH}
+      href={handoffPath}
       className={cn(className)}
       onClick={handleClick}
       data-testid="android-waitlist-cta"

@@ -217,7 +217,9 @@ test.describe("/app/handoff route", () => {
     );
 
     expect([301, 302, 307, 308]).toContain(response.status());
-    expect(response.headers()["location"] ?? "").toBe("/android-beta");
+    expect(response.headers()["location"] ?? "").toBe(
+      "/android-beta?source=android_beta_page&surface=android_beta&placement=direct&campaign=app_first_v1",
+    );
   });
 
   test("desktop renders the handoff module @smoke", async ({ page }) => {

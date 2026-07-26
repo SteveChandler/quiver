@@ -47,6 +47,10 @@ jest.mock("@/actions/spot/spot-surf-report-actions", () => ({
   }),
 }));
 
+jest.mock("@/actions/spot/spot-data-actions", () => ({
+  getSpotFeaturedPhoto: jest.fn().mockResolvedValue(null),
+}));
+
 jest.mock("@/lib/utils/timezone-utils.server", () => ({
   getTimezoneFromCoords: jest.fn().mockReturnValue("America/Los_Angeles"),
 }));

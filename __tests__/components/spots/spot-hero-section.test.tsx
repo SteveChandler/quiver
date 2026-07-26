@@ -34,6 +34,11 @@ describe("SpotHeroSection", () => {
         latitude={33.65}
         longitude={-118}
         featuredPhotoUrl="https://example.com/photo.jpg"
+        attribution={{
+          kind: "profile",
+          displayName: "<em>Dawn Patrol</em>",
+          profileId: "profile-1",
+        }}
         eyebrow="Live surf intel"
         subtitle="Fast, punchy beachbreak."
         metadata="Updated now"
@@ -51,5 +56,9 @@ describe("SpotHeroSection", () => {
     expect(
       screen.getByRole("heading", { name: "Huntington Beach Pier" })
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "<em>Dawn Patrol</em>" }),
+    ).toHaveAttribute("href", "/profile/profile-1");
+    expect(document.querySelector("em")).not.toBeInTheDocument();
   });
 });

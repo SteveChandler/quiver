@@ -57,6 +57,7 @@ export const VALID_EVENTS = [
   'signup_form_submitted',
   'login_form_submitted',
   'native_app_first_open',
+  'native_install_attribution_joined',
   // Home screen events
   'home_viewed',
   'home_at_beach_click',
@@ -281,6 +282,7 @@ export const VALID_EVENTS = [
 export type EventType = (typeof VALID_EVENTS)[number];
 
 export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
+  'android_install_cta_click',
   'android_waitlist_cta_click',
   'android_waitlist_cta_view',
   'auth_redirect_completed',

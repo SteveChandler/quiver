@@ -3,8 +3,10 @@
 import { useState, useCallback } from "react";
 import Image from "next/image";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
-import { getSpotGalleryPhotos, type SpotFeaturedPhoto } from "@/actions/spot/spot-data-actions";
+import { getSpotGalleryPhotos } from "@/actions/spot/spot-data-actions";
+import { PhotoAttribution } from "@/components/photos/photo-attribution";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
+import type { ResolvedSpotPhoto } from "@/lib/community-photos";
 import { SpotGeneratedIcon } from "./spot-generated-icon";
 
 interface SpotPhotoGalleryProps {
@@ -31,7 +33,7 @@ export function SpotPhotoGallery({
 
   const { data: photos, loading } = useDataFetcher(fetchPhotos, {
     immediate: true,
-    initialData: [] as SpotFeaturedPhoto[],
+    initialData: [] as ResolvedSpotPhoto[],
   });
 
   // Handle image load errors
@@ -106,14 +108,19 @@ export function SpotPhotoGallery({
               unoptimized
               onError={() => handleImageError(photo.imageUrl)}
             />
-            {/* Photo attribution overlay on hover */}
-            {photo.attributionHtml && (
+            {(photo.attribution || photo.attributionHtml) && (
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-end justify-start p-2 opacity-0 group-hover:opacity-100">
-                <div
-                  className="text-xs text-high line-clamp-2"
-                  dangerouslySetInnerHTML={{ __html: photo.attributionHtml }}
+                <PhotoAttribution
+                  attribution={photo.attribution}
+                  attributionHtml={photo.attributionHtml}
+                  className="line-clamp-2 text-xs text-high underline-offset-2 hover:underline"
                 />
               </div>
+            )}
+            {photo.community && (
+              <span className="absolute bottom-2 right-2 rounded bg-black/60 px-2 py-1 text-[10px] font-medium text-white">
+                {photo.community.upvotes} up · {photo.community.downvotes} down
+              </span>
             )}
             {/* Camera icon overlay */}
             <div className="absolute top-2 right-2 bg-black/30 p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">
@@ -129,7 +136,7 @@ export function SpotPhotoGallery({
 
       {validPhotos.length > 0 && (
         <p className="mt-3 text-xs text-slate-500">
-          Photos from the surf community. Attribution available on hover.
+          Curated and community photos. Attribution available on hover.
         </p>
       )}
     </section>

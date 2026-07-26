@@ -52,6 +52,21 @@ class MockSignJWT {
     return this;
   }
 
+  setIssuer(issuer: string): this {
+    this.payload.iss = issuer;
+    return this;
+  }
+
+  setSubject(subject: string): this {
+    this.payload.sub = subject;
+    return this;
+  }
+
+  setAudience(audience: string): this {
+    this.payload.aud = audience;
+    return this;
+  }
+
   setExpirationTime(exp: string): this {
     // Parse expiration like "7d" or "0d"
     const match = exp.match(/^(\d+)([dhms])$/);
@@ -124,5 +139,27 @@ async function jwtVerify(
   return { payload, protectedHeader: header };
 }
 
-export { MockSignJWT as SignJWT, jwtVerify };
+function createRemoteJWKSet(_url: URL): Uint8Array {
+  return new TextEncoder().encode("test-remote-jwk");
+}
+
+async function importPKCS8(pem: string): Promise<Uint8Array> {
+  return new TextEncoder().encode(pem);
+}
+
+function decodeJwt(token: string): JWTPayload {
+  const parts = token.split(".");
+  if (parts.length !== 3) {
+    throw new Error("Invalid token");
+  }
+  return JSON.parse(base64UrlDecode(parts[1])) as JWTPayload;
+}
+
+export {
+  MockSignJWT as SignJWT,
+  createRemoteJWKSet,
+  decodeJwt,
+  importPKCS8,
+  jwtVerify,
+};
 export type { JWTPayload };

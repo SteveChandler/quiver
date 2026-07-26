@@ -74,6 +74,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   signup_form_submitted: 0,
   login_form_submitted: 0,
   native_app_first_open: 0,
+  native_install_attribution_joined: 0,
   // Home screen events
   home_viewed: 0,
   home_at_beach_click: 0,

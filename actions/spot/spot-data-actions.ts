@@ -10,20 +10,45 @@ import {
   type SpotPageData,
 } from "@/lib/utils/spot-data-transformer";
 import { createContextLogger } from "@/lib/logger";
+import {
+  getResolvedSpotPhotos,
+  type ResolvedSpotPhoto,
+} from "@/lib/community-photos";
 import type { Beach } from "@/types/database";
-import type { Database } from "@/types/supabase";
 
 const log = createContextLogger("SpotDataActions");
 
 /**
  * Featured photo data structure
  */
-export interface SpotFeaturedPhoto {
-  imageUrl: string;
-  thumbUrl: string | null;
-  attributionHtml: string | null;
+export type SpotFeaturedPhoto = ResolvedSpotPhoto;
+
+interface CuratedSpotPhotoRow {
+  id: string;
+  image_url: string;
+  thumb_url: string | null;
+  attribution_html: string | null;
   title: string | null;
-  creatorName: string | null;
+  creator_name: string | null;
+  fetched_at: string | null;
+}
+
+function toResolvedCuratedPhoto(row: CuratedSpotPhotoRow): ResolvedSpotPhoto {
+  return {
+    id: row.id,
+    source: "curated",
+    visibility: "public",
+    imageUrl: row.image_url,
+    thumbUrl: row.thumb_url,
+    width: null,
+    height: null,
+    attributionHtml: row.attribution_html,
+    attribution: null,
+    title: row.title,
+    creatorName: row.creator_name,
+    community: null,
+    createdAt: row.fetched_at ?? new Date(0).toISOString(),
+  };
 }
 
 /**
@@ -110,52 +135,8 @@ export async function getSpotDataBySlug(
 export async function getSpotFeaturedPhoto(
   beachId: string
 ): Promise<SpotFeaturedPhoto | null> {
-  return withDatabaseOperation<SpotFeaturedPhoto | null>(async (supabase: any) => {
-    // Query the beach_photos_featured view
-    const { data, error } = await supabase
-      .from("beach_photos_featured")
-      .select("image_url, thumb_url, attribution_html")
-      .eq("beach_id", beachId)
-      .maybeSingle();
-
-    if (error || !data) {
-      // No featured photo found, try getting the latest approved photo
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from("beach_photos")
-        .select("image_url, thumb_url, attribution_html, title, creator_name")
-        .eq("beach_id", beachId)
-        .eq("approved", true)
-        .order("fetched_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (fallbackError || !fallbackData) {
-        return { data: null, error: null };
-      }
-
-      return {
-        data: {
-          imageUrl: fallbackData.image_url,
-          thumbUrl: fallbackData.thumb_url,
-          attributionHtml: fallbackData.attribution_html,
-          title: fallbackData.title,
-          creatorName: fallbackData.creator_name,
-        },
-        error: null,
-      };
-    }
-
-    return {
-      data: {
-        imageUrl: data.image_url,
-        thumbUrl: data.thumb_url,
-        attributionHtml: data.attribution_html,
-        title: null,
-        creatorName: null,
-      },
-      error: null,
-    };
-  }, { allowNull: true }).then((result) => result.data ?? null);
+  const photos = await getSpotGalleryPhotos(beachId, 1);
+  return photos[0] ?? null;
 }
 
 /**
@@ -166,12 +147,15 @@ export async function getSpotGalleryPhotos(
   beachId: string,
   limit: number = 6
 ): Promise<SpotFeaturedPhoto[]> {
-  return withDatabaseOperation<SpotFeaturedPhoto[]>(async (supabase) => {
+  const curated = await withDatabaseOperation<ResolvedSpotPhoto[]>(async (supabase) => {
     const { data, error } = await supabase
       .from("beach_photos")
-      .select("image_url, thumb_url, attribution_html, title, creator_name")
+      .select(
+        "id, image_url, thumb_url, attribution_html, title, creator_name, fetched_at",
+      )
       .eq("beach_id", beachId)
       .eq("approved", true)
+      .is("deleted_at", null)
       .order("fetched_at", { ascending: false })
       .limit(limit);
 
@@ -180,14 +164,21 @@ export async function getSpotGalleryPhotos(
     }
 
     return {
-      data: data.map((row: Pick<Database['public']['Tables']['beach_photos']['Row'], 'image_url' | 'thumb_url' | 'attribution_html' | 'title' | 'creator_name'>) => ({
-        imageUrl: row.image_url,
-        thumbUrl: row.thumb_url,
-        attributionHtml: row.attribution_html,
-        title: row.title,
-        creatorName: row.creator_name,
-      })),
+      data: (data as CuratedSpotPhotoRow[]).map(toResolvedCuratedPhoto),
       error: null,
     };
   }).then((result) => result.data ?? []);
+
+  try {
+    return await getResolvedSpotPhotos({
+      target: { type: "beach", id: beachId },
+      curated,
+      limit,
+    });
+  } catch (error) {
+    log.warn("Community photo resolution failed; using curated photos", {
+      error,
+    });
+    return curated.slice(0, limit);
+  }
 }
