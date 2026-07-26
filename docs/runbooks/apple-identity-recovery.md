@@ -17,6 +17,27 @@ until all gates are approved:
 Local `supabase/config.toml` enables manual linking for testing only. This commit
 does not change production Auth configuration or apply a migration.
 
+## Supported-provider boundary
+
+Rechecked against the official Supabase Auth contract on 2026-07-26:
+
+- [Identity linking](https://supabase.com/docs/guides/auth/auth-identity-linking)
+  supports automatic same-verified-email linking and signed-in manual linking.
+  A candidate identity already linked to another user is rejected.
+- [Identity unlinking](https://supabase.com/docs/reference/javascript/auth-unlinkidentity)
+  is initiated by the currently authenticated identity owner and requires that
+  user to retain at least one other identity.
+- The [Supabase Auth repository](https://github.com/supabase/auth) explicitly
+  warns applications not to modify or depend on the Auth-managed schema.
+
+Supabase documents no admin API that transactionally reassigns an OAuth
+identity between users. `admin.updateUserById()` changes user attributes; it
+does not transfer an `auth.identities` owner. Do not work around that boundary
+by coercing email metadata, deleting the secondary user before a replacement
+link is confirmed, or writing Auth-owned tables directly. Those approaches
+cannot provide the approved atomic transfer, session revocation, notification,
+snapshot, and rollback guarantees.
+
 ## Assessment drill
 
 Test four disposable cases: unclaimed Apple identity, identity already linked to
