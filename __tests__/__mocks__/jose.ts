@@ -124,5 +124,9 @@ async function jwtVerify(
   return { payload, protectedHeader: header };
 }
 
-export { MockSignJWT as SignJWT, jwtVerify };
+function createRemoteJWKSet(_url: URL): Uint8Array {
+  return new TextEncoder().encode("test-remote-jwk");
+}
+
+export { MockSignJWT as SignJWT, createRemoteJWKSet, jwtVerify };
 export type { JWTPayload };
