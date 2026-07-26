@@ -5,6 +5,7 @@ const mockSetClientPostHogTrackingAllowed = jest.fn();
 const mockIdentifyPostHogUser = jest.fn();
 const mockResetPostHog = jest.fn();
 const mockCaptureQueuedClientPostHogSignup = jest.fn();
+const mockFlushQueuedClientPostHogEvents = jest.fn();
 
 jest.mock("next/navigation", () => ({
   useRouter: () => ({ push: jest.fn(), refresh: jest.fn() }),
@@ -29,6 +30,8 @@ jest.mock("@/lib/analytics/consent", () => {
 jest.mock("@/lib/posthog-client", () => ({
   captureQueuedClientPostHogSignup: (...args: unknown[]) =>
     mockCaptureQueuedClientPostHogSignup(...args),
+  flushQueuedClientPostHogEvents: (...args: unknown[]) =>
+    mockFlushQueuedClientPostHogEvents(...args),
   identifyPostHogUser: (...args: unknown[]) => mockIdentifyPostHogUser(...args),
   resetPostHog: (...args: unknown[]) => mockResetPostHog(...args),
   setClientPostHogTrackingAllowed: (...args: unknown[]) =>
@@ -112,6 +115,7 @@ describe("ProfilePreferences analytics consent", () => {
     expect(mockCaptureQueuedClientPostHogSignup).toHaveBeenCalledWith(
       "user-123",
     );
+    expect(mockFlushQueuedClientPostHogEvents).toHaveBeenCalledTimes(1);
     expect(mockResetPostHog).not.toHaveBeenCalled();
   });
 });

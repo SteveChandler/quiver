@@ -4,15 +4,21 @@ import { getAttributionForAnalytics } from "@/lib/attribution";
 type PostHogProperties = Record<string, unknown>;
 type PostHogClient = typeof posthog & { __quiverInitialized?: boolean };
 type PostHogTrackingState = "unknown" | "allowed" | "denied";
+type PendingPostHogEvent = {
+  event: string;
+  properties: PostHogProperties;
+};
 
 const POSTHOG_HOST = "/ingest";
 const POSTHOG_UI_HOST = "https://us.posthog.com";
 const POSTHOG_TRACKING_DENIED_KEY = "quiver_posthog_tracking_denied_v1";
 const POSTHOG_SIGNUP_PENDING_PREFIX = "posthog_signup_pending_";
 const POSTHOG_SIGNUP_CAPTURED_PREFIX = "posthog_signup_captured_";
+const MAX_PENDING_POSTHOG_EVENTS = 50;
 
 let postHogTrackingState: PostHogTrackingState = "unknown";
 let postHogTrackingRevision = 0;
+const pendingPostHogEvents: PendingPostHogEvent[] = [];
 
 function getPostHogToken(): string {
   return process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN ?? "";
@@ -164,6 +170,7 @@ export function setClientPostHogTrackingAllowed(
   persistPostHogTrackingDenial(!allowed);
 
   if (!allowed) {
+    pendingPostHogEvents.length = 0;
     if (isPostHogInitialized()) {
       safelySetPostHogCapturing(false);
     }
@@ -220,6 +227,52 @@ export function captureClientPostHogEvent(
     }
     return false;
   }
+}
+
+export function captureClientPostHogEventAfterConsent(
+  event: string,
+  properties: PostHogProperties = {},
+): boolean {
+  if (postHogTrackingState === "allowed") {
+    return captureClientPostHogEvent(event, properties);
+  }
+  if (postHogTrackingState === "denied") return false;
+
+  if (pendingPostHogEvents.length >= MAX_PENDING_POSTHOG_EVENTS) {
+    pendingPostHogEvents.shift();
+  }
+  pendingPostHogEvents.push({
+    event,
+    properties: { ...properties },
+  });
+  return true;
+}
+
+export function flushQueuedClientPostHogEvents(): number {
+  if (postHogTrackingState !== "allowed") return 0;
+  if (!initPostHog()) return 0;
+
+  const events = pendingPostHogEvents.splice(0);
+  let capturedCount = 0;
+
+  for (let index = 0; index < events.length; index += 1) {
+    const pendingEvent = events[index];
+    if (
+      pendingEvent &&
+      captureClientPostHogEvent(
+        pendingEvent.event,
+        pendingEvent.properties,
+      )
+    ) {
+      capturedCount += 1;
+      continue;
+    }
+
+    pendingPostHogEvents.unshift(...events.slice(index));
+    break;
+  }
+
+  return capturedCount;
 }
 
 export function queueClientPostHogSignup(
@@ -287,6 +340,7 @@ export function identifyPostHogUser(
 }
 
 export function resetPostHog(): void {
+  pendingPostHogEvents.length = 0;
   if (!isPostHogInitialized()) return;
 
   try {
@@ -322,6 +376,7 @@ export function _resetPostHogClientForTesting(): void {
   (posthog as PostHogClient).__quiverInitialized = false;
   postHogTrackingState = "unknown";
   postHogTrackingRevision = 0;
+  pendingPostHogEvents.length = 0;
   if (typeof window !== "undefined") {
     window.localStorage.removeItem(POSTHOG_TRACKING_DENIED_KEY);
   }

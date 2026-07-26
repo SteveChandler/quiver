@@ -82,7 +82,7 @@ const mockBeach = {
   lon: -117.25,
   center_lat: 32.87,
   center_lng: -117.25,
-  timezone: 'America/Los_Angeles',
+  timezone: 'UTC',
   wind_offshore_deg: 90,
   wind_offshore_tol_deg: 45,
   preferred_tide_ft_min: null,

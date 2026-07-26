@@ -166,7 +166,7 @@ describe('horizon-strip-utils', () => {
       expect(TIER_COLORS.fair.bg).toContain('blue');
 
       // Marginal should use brand navy
-      expect(TIER_COLORS.marginal.bg).toBeTruthy();
+      expect(TIER_COLORS.marginal.bg).toContain('2D357D');
     });
   });
 
@@ -214,13 +214,40 @@ describe('horizon-strip-utils', () => {
       name: 'Test Beach',
       lat: 21.0,
       lon: -157.0,
-      timezone: 'Pacific/Honolulu',
+      timezone: 'UTC',
       wind_offshore_deg: 0,
       wind_offshore_tol_deg: 45,
       wind_onshore_bad_kt: null,
       preferred_tide_ft_min: null,
       preferred_tide_ft_max: null,
     } as unknown as Beach;
+
+    it('labels the Hawaii-local forecast date as today after UTC rolls over', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-07-26T03:00:00Z'));
+
+      try {
+        const hawaiiBeach = {
+          ...mockBeach,
+          name: 'Ala Moana Bowls',
+          timezone: 'Pacific/Honolulu',
+        };
+        const result = aggregateDayForecasts(
+          [makeForecast('2026-07-26', '03:00', 'NOAA_NWS', '5.1')],
+          hawaiiBeach
+        );
+
+        expect(result).toHaveLength(1);
+        expect(result[0]).toMatchObject({
+          fullDate: '2026-07-25',
+          date: 'Jul 25',
+          dayName: 'Today',
+          isToday: true,
+        });
+      } finally {
+        jest.useRealTimers();
+      }
+    });
 
     it('trims trailing days with all-null wave_height', () => {
       const today = new Date();

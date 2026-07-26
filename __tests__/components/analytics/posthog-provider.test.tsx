@@ -6,6 +6,7 @@ import {
   applyClientPostHogTrackingStorageEvent,
   buildPostHogUserProperties,
   captureQueuedClientPostHogSignup,
+  flushQueuedClientPostHogEvents,
   identifyPostHogUser,
   isClientPostHogTrackingRevisionCurrent,
   resetPostHog,
@@ -34,6 +35,7 @@ jest.mock("@/lib/posthog-client", () => ({
     provider: user.app_metadata?.provider ?? "email",
   })),
   captureQueuedClientPostHogSignup: jest.fn(),
+  flushQueuedClientPostHogEvents: jest.fn(),
   identifyPostHogUser: jest.fn(),
   isClientPostHogTrackingRevisionCurrent: jest.fn(() => true),
   resetPostHog: jest.fn(),
@@ -57,6 +59,7 @@ describe("PostHogProvider", () => {
 
     expect(setClientPostHogTrackingAllowed).toHaveBeenCalledWith(null);
     expect(setAnonymousClientPostHogTracking).toHaveBeenCalledTimes(1);
+    expect(flushQueuedClientPostHogEvents).toHaveBeenCalledTimes(1);
     expect(identifyPostHogUser).not.toHaveBeenCalled();
   });
 
@@ -126,6 +129,7 @@ describe("PostHogProvider", () => {
       expect(captureQueuedClientPostHogSignup).toHaveBeenCalledWith(
         "user-123",
       );
+      expect(flushQueuedClientPostHogEvents).toHaveBeenCalledTimes(1);
     });
   });
 

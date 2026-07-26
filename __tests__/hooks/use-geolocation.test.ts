@@ -1,12 +1,14 @@
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useGeolocation } from "@/hooks/use-geolocation";
-import { captureClientPostHogEvent } from "@/lib/posthog-client";
+import { captureClientPostHogEventAfterConsent } from "@/lib/posthog-client";
 
 jest.mock("@/lib/posthog-client", () => ({
-  captureClientPostHogEvent: jest.fn(),
+  captureClientPostHogEventAfterConsent: jest.fn(),
 }));
 
-const capturePostHogEventMock = jest.mocked(captureClientPostHogEvent);
+const capturePostHogEventMock = jest.mocked(
+  captureClientPostHogEventAfterConsent,
+);
 
 // Mock timers for safety timeout tests
 beforeEach(() => {

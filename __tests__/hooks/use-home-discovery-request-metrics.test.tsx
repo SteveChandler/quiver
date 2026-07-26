@@ -1,12 +1,14 @@
 import { act, renderHook } from "@testing-library/react";
 import { useHomeDiscoveryRequestMetrics } from "@/hooks/use-home-discovery-request-metrics";
-import { captureClientPostHogEvent } from "@/lib/posthog-client";
+import { captureClientPostHogEventAfterConsent } from "@/lib/posthog-client";
 
 jest.mock("@/lib/posthog-client", () => ({
-  captureClientPostHogEvent: jest.fn(),
+  captureClientPostHogEventAfterConsent: jest.fn(),
 }));
 
-const capturePostHogEventMock = jest.mocked(captureClientPostHogEvent);
+const capturePostHogEventMock = jest.mocked(
+  captureClientPostHogEventAfterConsent,
+);
 
 type HomeDiscoveryWindow = Window & {
   __quiverHomeDiscoveryRequestCount?: number;

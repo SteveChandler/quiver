@@ -5,8 +5,7 @@
  * for the visual day selector strip.
  */
 
-import { format, parseISO, startOfDay } from 'date-fns';
-import { formatInTimeZone, toZonedTime } from 'date-fns-tz';
+import { format, parseISO } from 'date-fns';
 import type { EnhancedForecastEntity } from '@/types/forecast';
 import type { Beach } from '@/types/database';
 import {
@@ -17,7 +16,10 @@ import {
   type NativeScoredForecast,
 } from '@/lib/scoring/native-condition-score';
 import type { SkillLevel } from '@/lib/domains/user-preferences/skill-level';
-import { DEFAULT_TIMEZONE } from '@/lib/utils/timezone-utils';
+import {
+  DEFAULT_TIMEZONE,
+  getLocalDateString,
+} from '@/lib/utils/timezone-utils';
 import { extractForecastDate } from '@/lib/utils/forecast-at-adapter';
 import {
   type ConditionTier,
@@ -209,16 +211,13 @@ function formatDateForDisplay(
   timezone: string
 ): { date: string; dayName: string; isTodayFlag: boolean } {
   try {
+    // dateStr is already a beach-local calendar date, not an instant.
     const parsed = parseISO(dateStr);
-    const zonedDate = toZonedTime(parsed, timezone);
-
-    // Check if it's today in the beach's timezone
-    const now = toZonedTime(new Date(), timezone);
-    const isTodayFlag = startOfDay(zonedDate).getTime() === startOfDay(now).getTime();
+    const isTodayFlag = dateStr === getLocalDateString(new Date(), timezone);
 
     return {
-      date: formatInTimeZone(parsed, timezone, 'MMM d'),
-      dayName: isTodayFlag ? 'Today' : formatInTimeZone(parsed, timezone, 'EEE'),
+      date: format(parsed, 'MMM d'),
+      dayName: isTodayFlag ? 'Today' : format(parsed, 'EEE'),
       isTodayFlag,
     };
   } catch {
@@ -264,8 +263,7 @@ export function aggregateDayForecasts(
   const sortedDates = Array.from(forecastsByDate.keys()).sort();
 
   // Filter to only include today and future dates
-  const now = toZonedTime(new Date(), timezone);
-  const todayStr = format(startOfDay(now), 'yyyy-MM-dd');
+  const todayStr = getLocalDateString(new Date(), timezone);
   const futureDates = sortedDates.filter((date) => date >= todayStr);
 
   // Take only maxDays

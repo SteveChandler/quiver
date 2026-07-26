@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { captureClientPostHogEvent } from "@/lib/posthog-client";
+import { captureClientPostHogEventAfterConsent } from "@/lib/posthog-client";
 
 export type HomeDiscoveryRequestSource = "primary" | "fallback";
 
@@ -65,7 +65,7 @@ export function useHomeDiscoveryRequestMetrics(): (
       (window as HomeDiscoveryWindow).__quiverHomeDiscoveryRequestCount = count;
     }
 
-    captureClientPostHogEvent("home_discovery_request", {
+    captureClientPostHogEventAfterConsent("home_discovery_request", {
       home_load_id: homeLoadIdRef.current,
       request_number: count,
       source,
