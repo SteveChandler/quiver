@@ -54,8 +54,8 @@ jest.mock("@/lib/android-tester-roster/keys", () => ({
   loadTesterIdentityKey: jest.fn(() => Buffer.from("11".repeat(32), "hex")),
 }));
 
-jest.mock("@/lib/android-tester-roster/sync", () => ({
-  syncAndroidTesterRoster: mockSyncRoster,
+jest.mock("@/lib/android-tester-roster/canonical-sync", () => ({
+  syncCanonicalAndroidTesterRoster: mockSyncRoster,
 }));
 
 function request(

@@ -34,17 +34,35 @@ psql "$smoke_url" -v ON_ERROR_STOP=1 \
   -c "DROP SCHEMA public CASCADE;
       CREATE SCHEMA public;
       CREATE SCHEMA auth;
+      CREATE SCHEMA extensions;
+      CREATE EXTENSION pgcrypto WITH SCHEMA extensions;
       CREATE TABLE auth.users (
         id uuid PRIMARY KEY,
         email text
       );
       CREATE TABLE public.profiles (
         id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-        deleted_at timestamptz
+        deleted_at timestamptz,
+        wants_android_access boolean NOT NULL DEFAULT false,
+        android_waitlist_joined_at timestamptz,
+        android_waitlist_source text,
+        android_waitlist_surface text,
+        android_waitlist_placement text
+      );
+      CREATE TABLE public.android_beta_leads (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        email text NOT NULL UNIQUE,
+        source text NOT NULL,
+        surface text NOT NULL,
+        placement text NOT NULL,
+        created_at timestamptz NOT NULL DEFAULT now()
       );" \
   >/dev/null
 psql "$smoke_url" -v ON_ERROR_STOP=1 \
   -f supabase/migrations/20260725213000_create_android_tester_roster.sql \
+  >/dev/null
+psql "$smoke_url" -v ON_ERROR_STOP=1 \
+  -f supabase/migrations/20260726120000_create_canonical_android_waitlist.sql \
   >/dev/null
 
 pids=()

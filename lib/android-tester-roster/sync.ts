@@ -64,7 +64,7 @@ async function applyIncompleteRun({
   supabase,
   failureCode,
 }: {
-  actorUserId: string;
+  actorUserId: string | null;
   claimToken: string;
   now: string;
   supabase: SyncClient;
@@ -137,7 +137,7 @@ export async function syncAndroidTesterRoster({
   loadActiveKey = loadActiveTesterIdentityKey,
   loadKey = loadTesterIdentityKey,
 }: {
-  actorUserId: string;
+  actorUserId: string | null;
   now?: string;
   supabase: SyncClient;
   fetchSnapshot?: () => Promise<DirectoryRosterSnapshot>;
