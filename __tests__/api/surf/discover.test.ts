@@ -342,7 +342,220 @@ describe("/api/surf/discover entitlement resolution", () => {
 
     expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(1);
     const [, opts] = mockDiscoverSurfSpots.mock.calls[0];
-    expect(opts).toMatchObject({ isPro: true });
+    expect(opts).toMatchObject({
+      isPro: true,
+      candidatePoolLimit: 8,
+      throwOnFailure: true,
+    });
+  });
+
+  it("returns explicit no_candidates without manufacturing a safety hold", async () => {
+    mockDiscoverSurfSpots.mockResolvedValueOnce({
+      recommendations: [],
+      searchCriteria: { maxResults: 5 },
+      metadata: {
+        outcome: "no_candidates",
+        totalBeachesConsidered: 0,
+        successfulForecasts: 0,
+        partialSuccess: false,
+        failedBeaches: 0,
+        staleBeaches: 0,
+        generated_at: new Date().toISOString(),
+      },
+      regionalCall: "",
+    });
+
+    const response = await callDiscoverRoute(null);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockSanitizeSerializationBoundary).not.toHaveBeenCalled();
+    expect(body.data.recommendationAvailability).toMatchObject({
+      state: "available",
+    });
+    expect(body.data.sessionDecision).toMatchObject({
+      reasonCode: "no_candidates",
+      selection: null,
+    });
+  });
+
+  it("normalizes a successful legacy empty result without manufacturing a safety hold", async () => {
+    const response = await callDiscoverRoute(null);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockSanitizeSerializationBoundary).not.toHaveBeenCalled();
+    expect(body.data.recommendationAvailability).toEqual({
+      state: "available",
+      holdEpoch: "no-candidates",
+    });
+    expect(body.data.sessionDecision).toMatchObject({
+      reasonCode: "no_candidates",
+      selection: null,
+    });
+  });
+
+  it("normalizes the production-shaped empty result when the generated hold pool is unavailable", async () => {
+    mockDiscoverSurfSpots.mockResolvedValueOnce({
+      recommendations: [],
+      includedRecommendations: [],
+      recommendationsV2: {
+        state: "empty",
+        generated_at: new Date().toISOString(),
+        hero: null,
+        items: [],
+        watch_window: null,
+        empty_state: {
+          title: null,
+          body: null,
+          action_label: null,
+        },
+      },
+      searchCriteria: { maxResults: 5 },
+      metadata: {
+        totalBeachesConsidered: 8,
+        successfulForecasts: 4,
+        partialSuccess: true,
+        failedBeaches: 4,
+        staleBeaches: 4,
+        usingStaleData: false,
+        generated_at: new Date().toISOString(),
+      },
+      regionalCall: "",
+      recommendationAvailability: {
+        state: "none",
+        reasonCode: "hold_state_unavailable",
+        holdEpoch: "hold-state-unavailable",
+      },
+    });
+
+    const response = await callDiscoverRoute(null);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockSanitizeSerializationBoundary).not.toHaveBeenCalled();
+    expect(body.data.recommendationAvailability).toEqual({
+      state: "available",
+      holdEpoch: "no-candidates",
+    });
+    expect(body.data.sessionDecision).toMatchObject({
+      reasonCode: "no_candidates",
+      selection: null,
+    });
+  });
+
+  it("does not normalize an empty legacy list when V2 still carries a candidate", async () => {
+    const discoveryWithV2Hero = {
+      recommendations: [],
+      recommendationsV2: {
+        state: "ranked",
+        generated_at: new Date().toISOString(),
+        hero: { id: "remaining-v2-candidate" },
+        items: [],
+        watch_window: null,
+        empty_state: {
+          title: null,
+          body: null,
+          action_label: null,
+        },
+      },
+      searchCriteria: { maxResults: 5 },
+      metadata: {
+        totalBeachesConsidered: 1,
+        successfulForecasts: 1,
+        partialSuccess: false,
+        failedBeaches: 0,
+        staleBeaches: 0,
+        generated_at: new Date().toISOString(),
+      },
+      regionalCall: "",
+    };
+    mockDiscoverSurfSpots.mockResolvedValueOnce(discoveryWithV2Hero);
+
+    const response = await callDiscoverRoute(null);
+
+    expect(response.status).toBe(200);
+    expect(mockSanitizeSerializationBoundary).toHaveBeenCalledWith(
+      discoveryWithV2Hero,
+      "advanced",
+    );
+  });
+
+  it("does not normalize an explicit major-event hold as a legacy empty result", async () => {
+    const heldDiscovery = {
+      recommendations: [],
+      searchCriteria: { maxResults: 5 },
+      metadata: {
+        outcome: "no_candidates",
+        totalBeachesConsidered: 0,
+        successfulForecasts: 0,
+        partialSuccess: false,
+        failedBeaches: 0,
+        staleBeaches: 0,
+        generated_at: new Date().toISOString(),
+      },
+      regionalCall: "",
+      recommendationAvailability: {
+        state: "none",
+        reasonCode: "major_event_hold",
+        holdEpoch: "held-route-epoch",
+      },
+    };
+    mockDiscoverSurfSpots.mockResolvedValueOnce(heldDiscovery);
+
+    const response = await callDiscoverRoute(null);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockSanitizeSerializationBoundary).not.toHaveBeenCalled();
+    expect(body.data.recommendationAvailability).toEqual({
+      state: "none",
+      reasonCode: "major_event_hold",
+      holdEpoch: "held-route-epoch",
+    });
+  });
+
+  it("returns a retryable error instead of serializing unavailable hold state as success", async () => {
+    mockDiscoverSurfSpots.mockResolvedValueOnce(makeDiscoveryResponse());
+    mockSanitizeSerializationBoundary.mockImplementationOnce(
+      async (discovery) => ({
+        ...discovery,
+        recommendationAvailability: {
+          state: "none",
+          reasonCode: "hold_state_unavailable",
+          holdEpoch: "hold-state-unavailable",
+        },
+      }),
+    );
+
+    const response = await callDiscoverRoute(null);
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      success: false,
+      retryable: true,
+      code: "hold_state_unavailable",
+    });
+  });
+
+  it("returns a retryable error for an operational discovery failure", async () => {
+    mockDiscoverSurfSpots.mockRejectedValueOnce(
+      Object.assign(new Error("Forecast service unavailable"), {
+        code: "forecast_unavailable",
+      }),
+    );
+
+    const response = await callDiscoverRoute(null);
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      success: false,
+      retryable: true,
+      code: "forecast_unavailable",
+    });
+    expect(mockSanitizeSerializationBoundary).not.toHaveBeenCalled();
   });
 
   it("passes de-duped includeBeachIds through to the discovery orchestrator", async () => {

@@ -64,6 +64,51 @@ const QuerySchema = z.object({
   }),
 });
 
+function retryableDiscoveryResponse(error: unknown): NextResponse {
+  const candidateCode =
+    error && typeof error === 'object' && 'code' in error
+      ? error.code
+      : undefined;
+  const code =
+    candidateCode === 'timeout' ||
+    candidateCode === 'forecast_unavailable' ||
+    candidateCode === 'hold_state_unavailable' ||
+    candidateCode === 'internal_error'
+      ? candidateCode
+      : 'internal_error';
+
+  return NextResponse.json(
+    {
+      success: false,
+      error: 'Recommendations are temporarily unavailable',
+      code,
+      retryable: true,
+    },
+    { status: code === 'timeout' ? 504 : 503 },
+  );
+}
+
+function hasNoDiscoveryCandidates(
+  discovery: Awaited<ReturnType<typeof discoverSurfSpots>>,
+): boolean {
+  if (discovery.recommendations.length > 0) return false;
+  if ((discovery.includedRecommendations?.length ?? 0) > 0) return false;
+  if ((discovery.recommendationsV2?.items.length ?? 0) > 0) return false;
+  if (discovery.recommendationsV2?.hero) return false;
+  if (discovery.recommendationsV2?.watch_window) return false;
+
+  return true;
+}
+
+function hasExplicitMajorEventHold(
+  discovery: Awaited<ReturnType<typeof discoverSurfSpots>>,
+): boolean {
+  return (
+    discovery.recommendationAvailability?.state === 'none' &&
+    discovery.recommendationAvailability.reasonCode === 'major_event_hold'
+  );
+}
+
 /**
  * GET /api/surf/discover
  *
@@ -155,16 +200,23 @@ async function surfDiscoveryHandler(
   };
 
   // 4. Call service to get ranked recommendations
-  const discovery = await discoverSurfSpots(user.id, {
-    userLocation,
-    radiusMiles: radius,
-    horizonHours,
-    maxResults,
-    discoveryMode: mode ?? 'best-window',
-    timeSlot,
-    isPro,
-    includeBeachIds,
-  });
+  let discovery;
+  try {
+    discovery = await discoverSurfSpots(user.id, {
+      userLocation,
+      radiusMiles: radius,
+      horizonHours,
+      maxResults,
+      candidatePoolLimit: 8,
+      discoveryMode: mode ?? 'best-window',
+      timeSlot,
+      isPro,
+      includeBeachIds,
+      throwOnFailure: true,
+    });
+  } catch (error) {
+    return retryableDiscoveryResponse(error);
+  }
 
   // 3a. Stamp empirical shoaling calibration status onto each recommendation's
   // forecast so the honesty-layer UI can distinguish calibrated face heights
@@ -221,11 +273,40 @@ async function surfDiscoveryHandler(
   } catch {
     profileExperience = null;
   }
+  const hasIncomingMajorEventHold = hasExplicitMajorEventHold(discovery);
+  const isSuccessfulNoCandidateResult =
+    hasNoDiscoveryCandidates(discovery) &&
+    !hasIncomingMajorEventHold;
   const sanitizedDiscovery =
-    await sanitizeSurfDiscoveryForSerializationMajorEventHold(
-      discovery,
-      profileExperience,
+    hasIncomingMajorEventHold
+      ? discovery
+      : isSuccessfulNoCandidateResult
+      ? {
+          ...discovery,
+          metadata: {
+            ...discovery.metadata,
+            outcome: 'no_candidates' as const,
+          },
+          recommendationAvailability: {
+            state: 'available' as const,
+            holdEpoch: 'no-candidates',
+          },
+        }
+      : await sanitizeSurfDiscoveryForSerializationMajorEventHold(
+          discovery,
+          profileExperience,
+        );
+  if (
+    sanitizedDiscovery.recommendationAvailability?.state === 'none' &&
+    sanitizedDiscovery.recommendationAvailability.reasonCode ===
+      'hold_state_unavailable'
+  ) {
+    return retryableDiscoveryResponse(
+      Object.assign(new Error('Recommendation hold state unavailable'), {
+        code: 'hold_state_unavailable',
+      }),
     );
+  }
   const gatedDiscovery = gateSurfDiscoveryResponse(
     sanitizedDiscovery,
     entitlement,

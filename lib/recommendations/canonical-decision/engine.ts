@@ -282,10 +282,10 @@ export function buildCanonicalSessionDecision(
   let reasonCode: CanonicalDecisionReasonCode;
   if (holdReason !== null) {
     reasonCode = holdReason;
-  } else if (isUnknownSkill) {
-    reasonCode = "unknown_skill";
   } else if (hasNoCandidates) {
     reasonCode = "no_candidates";
+  } else if (isUnknownSkill) {
+    reasonCode = "unknown_skill";
   } else if (noSafeCandidate) {
     reasonCode = safetyReasons[0];
   } else if (verdict === "go") {
@@ -334,15 +334,15 @@ export function buildCanonicalSessionDecision(
     skillEligibility: {
       skill,
       state: eligibilityState,
-      reasonCodes: isUnknownSkill
-        ? ["unknown_skill"]
-        : holdReason
-          ? [holdReason]
+      reasonCodes: holdReason
+        ? [holdReason]
         : hasNoCandidates
           ? ["no_candidates"]
-        : noSafeCandidate
-          ? safetyReasons
-          : [],
+          : isUnknownSkill
+            ? ["unknown_skill"]
+            : noSafeCandidate
+              ? safetyReasons
+              : [],
     },
     holdEpoch: input.recommendationAvailability.holdEpoch,
   };

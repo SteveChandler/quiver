@@ -17,4 +17,8 @@
 export {
   discoverSurfSpots,
   getBatchSunTimes,
+  SurfDiscoveryOperationalError,
+} from './discovery/surf-discovery-orchestrator';
+export type {
+  SurfDiscoveryOperationalErrorCode,
 } from './discovery/surf-discovery-orchestrator';

@@ -218,6 +218,10 @@ describe("GET /api/surf/call", () => {
     expect(mockResolveCanonicalSessionDecisionContext).toHaveBeenCalledWith(
       expect.objectContaining({
         candidateBeachIds: [beachId],
+        discoveryOptions: expect.objectContaining({
+          candidatePoolLimit: 1,
+          throwOnFailure: true,
+        }),
       }),
     );
     expect(body.data.sessionDecision).toMatchObject({
@@ -226,6 +230,36 @@ describe("GET /api/surf/call", () => {
       selection: { beachId },
     });
     expect(body.data.report.verdict).toBe("MAYBE");
+  });
+
+  it("returns a retryable error when canonical discovery fails operationally", async () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+    mockBeachQuery({
+      id: beachId,
+      name: "Ocean Beach Pier",
+      slug: "ocean-beach-pier",
+      lat: 32.75,
+      lon: -117.25,
+      timezone: "America/Los_Angeles",
+      deleted_at: null,
+    });
+    mockResolveCanonicalSessionDecisionContext.mockRejectedValueOnce(
+      Object.assign(new Error("Forecast service unavailable"), {
+        code: "forecast_unavailable",
+      }),
+    );
+
+    const response = await GET(
+      new NextRequest(`http://localhost:3000/api/surf/call?beachId=${beachId}`),
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      success: false,
+      retryable: true,
+      code: "forecast_unavailable",
+    });
   });
 
   it("scores a validated forecastAt through the canonical discovery path", async () => {
