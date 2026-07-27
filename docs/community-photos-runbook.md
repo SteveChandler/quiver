@@ -40,10 +40,43 @@ confirm those counts are unchanged and both legacy tables reject client writes.
 Do not copy legacy objects or rows into the canonical model without a separate
 review of consent, ownership, moderation status, and retention eligibility.
 
+The exact rollback artifact is
+`scripts/db/restore-community-legacy-photo-writes.sql`. It restores the four
+removed policy definitions and the `INSERT`, `UPDATE`, and `DELETE` grants for
+`anon` and `authenticated`; it does not change legacy or canonical rows,
+votes, moderation events, holds, or storage objects. Verify it on disposable
+local PostgreSQL before requesting any production migration approval:
+
+```bash
+scripts/db/run-community-legacy-policy-restoration-smoke.sh
+```
+
 ## Production monitoring
 
-Track these by route, status, and app version without storing image content,
-coordinates, voter identity, or reporter identity in telemetry:
+Every community public, image, mutation, admin, and retention route emits
+`community_photo_route_outcome`. Its properties are limited to normalized
+route, method, status, duration, normalized platform/build or `unknown`,
+bounded result class, rollout eligibility, and deployment SHA. The distinct
+ID is the constant `community-photo-route`; the event never includes request
+or response bodies, image content or URLs, EXIF/GPS, tokens, user or reporter
+identity, IDs, filenames, storage paths, IPs, or report text. Metrics capture
+is best effort after the route outcome is known and cannot replace or weaken
+authentication, authorization, moderation audit, or retention behavior.
+
+Executable release queries:
+
+- `docs/analytics/community-photo-upload-5xx.hogql`
+- `docs/analytics/community-photo-upload-p95.hogql`
+- `docs/analytics/community-photo-stuck-processing.sql`
+- `docs/analytics/community-photo-retention-backlog.sql`
+- `docs/analytics/community-photo-private-media-zero-tolerance.hogql`
+
+Run the `.hogql` files as PostHog SQL insights and the `.sql` files read-only
+against Supabase. Each file records its source, numerator, denominator,
+rolling window, minimum sample, owner, and rollback action.
+
+Track these outcomes without storing image content, coordinates, voter
+identity, or reporter identity in telemetry:
 
 - upload starts, 201/200 success, processing latency, 413/415 validation,
   preflight/reservation/storage/DB compensation failures, and 429 rate limits;

@@ -17,6 +17,15 @@ DECLARE
   v_summary jsonb;
   v_outcome text;
   v_count integer;
+  v_waitlist_entry_id uuid;
+  v_first_backfill jsonb;
+  v_second_backfill jsonb;
+  v_merge_roster_id uuid;
+  v_merge_source_id constant uuid := '60000000-0000-4000-8000-000000000006';
+  v_merge_entry_id uuid;
+  v_resolved_merge_entry_id uuid;
+  v_merge_link_count integer;
+  v_merge_event_count integer;
 BEGIN
   INSERT INTO auth.users (
     id,
@@ -249,6 +258,144 @@ BEGIN
     RAISE EXCEPTION 'latest-stage summary is incorrect: %', v_summary;
   END IF;
 
+  UPDATE public.profiles
+  SET
+    wants_android_access = true,
+    android_waitlist_joined_at = '2026-07-25T11:00:00Z',
+    android_waitlist_source = 'profile_waitlist',
+    android_waitlist_surface = 'profile',
+    android_waitlist_placement = 'primary'
+  WHERE id = v_linked_user_id;
+
+  INSERT INTO public.android_beta_leads (
+    email,
+    source,
+    surface,
+    placement,
+    created_at
+  )
+  SELECT
+    'roster-smoke-linked@example.test',
+    'android_beta_page',
+    'android_beta',
+    'direct',
+    '2026-07-25T10:00:00Z'
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM public.android_beta_leads
+    WHERE email = 'roster-smoke-linked@example.test'
+  );
+
+  v_first_backfill := public.backfill_android_waitlist_entries();
+  v_second_backfill := public.backfill_android_waitlist_entries();
+  IF v_first_backfill <> v_second_backfill THEN
+    RAISE EXCEPTION 'canonical waitlist backfill is not idempotent';
+  END IF;
+
+  SELECT entry.id
+  INTO v_waitlist_entry_id
+  FROM public.android_waitlist_entries AS entry
+  WHERE entry.user_id = v_linked_user_id;
+
+  IF v_waitlist_entry_id IS NULL
+     OR (
+       SELECT count(*)
+       FROM public.android_waitlist_source_links
+       WHERE entry_id = v_waitlist_entry_id
+     ) <> 3
+     OR (
+       SELECT count(*)
+       FROM public.android_waitlist_events
+       WHERE entry_id = v_waitlist_entry_id
+         AND event_type = 'android_waitlist_joined'
+     ) <> 1 THEN
+    RAISE EXCEPTION 'canonical waitlist did not deduplicate three sources';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.get_android_waitlist_operator_projection() AS projection
+    WHERE projection.entry_id = v_waitlist_entry_id
+      AND projection.group_membership_status = 'eligible'
+      AND projection.play_opt_in_status = 'observed'
+      AND projection.install_status = 'observed'
+      AND projection.first_open_status = 'observed'
+      AND projection.account_join_status = 'linked'
+  ) THEN
+    RAISE EXCEPTION 'operator projection lost independent evidence stages';
+  END IF;
+
+  INSERT INTO public.android_tester_roster_entries (
+    eligibility_observed_at
+  ) VALUES ('2026-07-25T14:00:00Z')
+  RETURNING id INTO v_merge_roster_id;
+
+  PERFORM public.resolve_android_waitlist_entry(
+    NULL,
+    NULL,
+    v_merge_roster_id,
+    'roster_evidence',
+    v_merge_roster_id,
+    'google_directory',
+    'android_tester_roster',
+    'direct_group_membership',
+    '2026-07-25T14:00:00Z'
+  );
+  v_merge_entry_id := public.resolve_android_waitlist_entry(
+    NULL,
+    encode(
+      extensions.digest(
+        convert_to('merge-smoke@example.test', 'UTF8'),
+        'sha256'
+      ),
+      'hex'
+    ),
+    NULL,
+    'anonymous_lead',
+    v_merge_source_id,
+    'android_beta_page',
+    'android_beta',
+    'direct',
+    '2026-07-25T13:00:00Z'
+  );
+  v_resolved_merge_entry_id := public.resolve_android_waitlist_entry(
+    NULL,
+    encode(
+      extensions.digest(
+        convert_to('merge-smoke@example.test', 'UTF8'),
+        'sha256'
+      ),
+      'hex'
+    ),
+    v_merge_roster_id,
+    'roster_evidence',
+    v_merge_roster_id,
+    'google_directory',
+    'android_tester_roster',
+    'direct_group_membership',
+    '2026-07-25T15:00:00Z'
+  );
+  SELECT count(DISTINCT entry_id)
+  INTO v_merge_link_count
+  FROM public.android_waitlist_source_links
+  WHERE (source_kind = 'roster_evidence' AND source_id = v_merge_roster_id)
+     OR (source_kind = 'anonymous_lead' AND source_id = v_merge_source_id);
+  SELECT count(*)
+  INTO v_merge_event_count
+  FROM public.android_waitlist_events
+  WHERE entry_id = v_merge_entry_id
+    AND event_type = 'android_waitlist_joined';
+  IF v_resolved_merge_entry_id <> v_merge_entry_id
+     OR v_merge_link_count <> 1
+     OR v_merge_event_count <> 1 THEN
+    RAISE EXCEPTION
+      'exact email precedence merge failed target=% resolved=% links=% events=%',
+      v_merge_entry_id,
+      v_resolved_merge_entry_id,
+      v_merge_link_count,
+      v_merge_event_count;
+  END IF;
+
   v_claim := public.claim_android_tester_roster_sync(
     v_actor_id,
     '2026-07-26T12:00:00Z'
@@ -298,6 +445,8 @@ BEGIN
   SELECT entry.id
   INTO v_purge_entry_id
   FROM public.android_tester_roster_entries AS entry
+  JOIN public.android_tester_roster_identities AS identity
+    ON identity.entry_id = entry.id
   WHERE entry.id <> v_entry_id
   ORDER BY entry.created_at DESC
   LIMIT 1;

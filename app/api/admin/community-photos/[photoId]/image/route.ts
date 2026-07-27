@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import {
   communityPhotoErrorResponse,
   downloadAdminCommunityPhoto,
+  withCommunityPhotoRouteObservability,
 } from "@/lib/community-photos";
 import {
   withAdminAuth,
@@ -44,4 +45,11 @@ async function handler(
   }
 }
 
-export const GET = withAdminAuth(handler);
+export const GET = withCommunityPhotoRouteObservability(
+  {
+    route: "/api/admin/community-photos/:photoId/image",
+    surface: "admin",
+    successResultClass: "admin_audited_media_served",
+  },
+  withAdminAuth(handler),
+);

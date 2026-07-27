@@ -6,6 +6,7 @@ import {
   parseCommunityPhotoMutation,
   pinCommunityPhoto,
   unpinCommunityPhoto,
+  withCommunityPhotoRouteObservability,
 } from "@/lib/community-photos";
 import {
   withAdminAuth,
@@ -67,5 +68,17 @@ async function deleteHandler(
   }
 }
 
-export const POST = withAdminAuth(postHandler);
-export const DELETE = withAdminAuth(deleteHandler);
+export const POST = withCommunityPhotoRouteObservability(
+  {
+    route: "/api/admin/community-photos/:photoId/pin",
+    surface: "admin",
+  },
+  withAdminAuth(postHandler),
+);
+export const DELETE = withCommunityPhotoRouteObservability(
+  {
+    route: "/api/admin/community-photos/:photoId/pin",
+    surface: "admin",
+  },
+  withAdminAuth(deleteHandler),
+);

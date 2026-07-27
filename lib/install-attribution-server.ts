@@ -1,10 +1,21 @@
 import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
+import { ANDROID_PLAY_STORE_LISTING_URL } from "@/lib/constants/app-store";
 
 const OPAQUE_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-const PLAY_STORE_LISTING_URL = "https://play.google.com/store/apps/details";
-const ANDROID_PACKAGE_NAME = "app.quiversurf.surf";
+
+export function isInstallAttributionIssuanceEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return env.INSTALL_ATTRIBUTION_ISSUANCE_ENABLED === "true";
+}
+
+export function isInstallAttributionRedemptionEnabled(
+  env: NodeJS.ProcessEnv = process.env,
+): boolean {
+  return env.INSTALL_ATTRIBUTION_REDEMPTION_ENABLED === "true";
+}
 
 export function createOpaqueInstallToken(): string {
   return randomBytes(32).toString("base64url");
@@ -21,8 +32,7 @@ export function hashOpaqueInstallToken(token: string): string {
 }
 
 export function buildPlayStoreInstallUrl(token: string): string {
-  const url = new URL(PLAY_STORE_LISTING_URL);
-  url.searchParams.set("id", ANDROID_PACKAGE_NAME);
+  const url = new URL(ANDROID_PLAY_STORE_LISTING_URL);
   url.searchParams.set("referrer", token);
   return url.toString();
 }

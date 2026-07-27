@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+import { withCommunityPhotoRouteObservability } from "@/lib/community-photos";
 import { withObservedCron } from "@/lib/cron/observability";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
@@ -199,7 +200,14 @@ async function runRetention(request: Request): Promise<Response> {
   });
 }
 
-export const GET = withObservedCron(ROUTE, runRetention, {
-  slug: "community-photo-retention",
-  schedule: "35 9 * * *",
-});
+export const GET = withCommunityPhotoRouteObservability(
+  {
+    route: "/api/cron/community-photo-retention",
+    surface: "retention",
+    successResultClass: "retention_success",
+  },
+  withObservedCron(ROUTE, runRetention, {
+    slug: "community-photo-retention",
+    schedule: "35 9 * * *",
+  }),
+);

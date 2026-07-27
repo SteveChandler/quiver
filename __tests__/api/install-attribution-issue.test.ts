@@ -1,4 +1,5 @@
 import type { NextRequest } from "next/server";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 const mockInsert = jest.fn();
 const mockAuditInsert = jest.fn();
@@ -47,12 +48,38 @@ describe("POST /api/install-attribution/issue", () => {
     jest.setSystemTime(new Date("2026-07-25T12:00:00.000Z"));
     jest.resetModules();
     jest.clearAllMocks();
+    process.env.INSTALL_ATTRIBUTION_ISSUANCE_ENABLED = "true";
     mockInsert.mockResolvedValue({ error: null });
     mockAuditInsert.mockResolvedValue({ error: null });
   });
 
   afterEach(() => {
     jest.useRealTimers();
+    delete process.env.INSTALL_ATTRIBUTION_ISSUANCE_ENABLED;
+  });
+
+  it("defaults issuance off and returns the ordinary Play listing without persistence", async () => {
+    delete process.env.INSTALL_ATTRIBUTION_ISSUANCE_ENABLED;
+    const { POST } = await import("@/app/api/install-attribution/issue/route");
+    const response = await POST({
+      json: async () => ({
+        source: "android_beta_page",
+        surface: "android_beta",
+        placement: "direct",
+        campaign: "app_first_v1",
+      }),
+    } as NextRequest);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      success: true,
+      storeUrl:
+        "https://play.google.com/store/apps/details?id=app.quiversurf.surf",
+      attributionEnabled: false,
+    });
+    expect(createSupabaseServiceRoleClient).not.toHaveBeenCalled();
+    expect(mockInsert).not.toHaveBeenCalled();
+    expect(mockAuditInsert).not.toHaveBeenCalled();
   });
 
   it("issues a 30-day single-use token without storing the raw token", async () => {

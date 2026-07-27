@@ -3,11 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { resolveCanonicalAndroidWaitlist } from "@/lib/android-tester-roster/waitlist";
 import { withAuthenticatedAction } from "@/lib/server-action-utils";
 import {
   ANDROID_WAITLIST_CTA,
   ANDROID_WAITLIST_DESTINATION_STATUS,
 } from "@/lib/constants/android-waitlist";
+import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 
 const androidWaitlistIntentSchema = z.object({
   source: z.string().trim().min(1).max(120),
@@ -50,6 +52,19 @@ export async function joinAndroidWaitlist(input: unknown) {
     if (!updatedProfile) {
       throw new Error("No profile row was updated for Android waitlist");
     }
+
+    const serviceRoleClient = await createSupabaseServiceRoleClient();
+    await resolveCanonicalAndroidWaitlist(serviceRoleClient as any, {
+      userId: user.id,
+      email: user.email ?? null,
+      rosterEntryId: null,
+      sourceKind: "profile_intent",
+      sourceId: user.id,
+      source: parsed.data.source,
+      surface: parsed.data.surface,
+      placement: parsed.data.placement,
+      observedAt: joinedAt,
+    });
 
     const { error: eventError } = await supabase.from("user_events").insert({
       user_id: user.id,

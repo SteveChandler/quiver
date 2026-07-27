@@ -7,6 +7,7 @@ import {
   getCommunityPhotoFeatureFlags,
   parseCommunityPhotoReport,
   reportCommunityPhoto,
+  withCommunityPhotoRouteObservability,
 } from "@/lib/community-photos";
 import {
   withAuth,
@@ -46,7 +47,10 @@ async function reportHandler(
   }
 }
 
-export const POST = withRateLimit(
-  withAuth(reportHandler),
-  "authenticated-default",
+export const POST = withCommunityPhotoRouteObservability(
+  {
+    route: "/api/community-photos/:photoId/report",
+    surface: "write",
+  },
+  withRateLimit(withAuth(reportHandler), "authenticated-default"),
 );
