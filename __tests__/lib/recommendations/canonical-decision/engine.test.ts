@@ -633,6 +633,21 @@ describe("canonical session decision engine", () => {
     });
   });
 
+  it("prioritizes no_candidates over unknown skill for an empty scope", () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(
+      input([], { profileExperience: null }),
+    ) as {
+      reasonCode: string;
+      skillEligibility: {
+        reasonCodes: string[];
+      };
+    };
+
+    expect(decision.reasonCode).toBe("no_candidates");
+    expect(decision.skillEligibility.reasonCodes).toEqual(["no_candidates"]);
+  });
+
   it("selects the highest-ranked recommendable session instead of a higher-scored skip", () => {
     const { buildCanonicalSessionDecision } = loadEngine();
     const decision = buildCanonicalSessionDecision(
