@@ -75,6 +75,21 @@ async function weekScoutHandler(
     ...parsed.data,
     candidateBeachIds: parsed.data.candidateBeachIds.slice(0, 8),
   });
+  if (
+    forecast.recommendationAvailability?.state === 'none'
+    && forecast.recommendationAvailability.reasonCode === 'hold_state_unavailable'
+  ) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Recommendations are temporarily unavailable',
+        code: 'hold_state_unavailable',
+        retryable: true,
+      },
+      { status: 503 },
+    );
+  }
+
   return createSuccessResponse(forecast);
 }
 
