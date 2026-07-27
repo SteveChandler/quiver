@@ -72,6 +72,7 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
   const code =
     candidateCode === 'timeout' ||
     candidateCode === 'forecast_unavailable' ||
+    candidateCode === 'hold_state_unavailable' ||
     candidateCode === 'internal_error'
       ? candidateCode
       : 'internal_error';
@@ -84,6 +85,27 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
       retryable: true,
     },
     { status: code === 'timeout' ? 504 : 503 },
+  );
+}
+
+function hasNoDiscoveryCandidates(
+  discovery: Awaited<ReturnType<typeof discoverSurfSpots>>,
+): boolean {
+  if (discovery.recommendations.length > 0) return false;
+  if ((discovery.includedRecommendations?.length ?? 0) > 0) return false;
+  if ((discovery.recommendationsV2?.items.length ?? 0) > 0) return false;
+  if (discovery.recommendationsV2?.hero) return false;
+  if (discovery.recommendationsV2?.watch_window) return false;
+
+  return true;
+}
+
+function hasExplicitMajorEventHold(
+  discovery: Awaited<ReturnType<typeof discoverSurfSpots>>,
+): boolean {
+  return (
+    discovery.recommendationAvailability?.state === 'none' &&
+    discovery.recommendationAvailability.reasonCode === 'major_event_hold'
   );
 }
 
@@ -251,10 +273,20 @@ async function surfDiscoveryHandler(
   } catch {
     profileExperience = null;
   }
+  const hasIncomingMajorEventHold = hasExplicitMajorEventHold(discovery);
+  const isSuccessfulNoCandidateResult =
+    hasNoDiscoveryCandidates(discovery) &&
+    !hasIncomingMajorEventHold;
   const sanitizedDiscovery =
-    discovery.metadata.outcome === 'no_candidates'
+    hasIncomingMajorEventHold
+      ? discovery
+      : isSuccessfulNoCandidateResult
       ? {
           ...discovery,
+          metadata: {
+            ...discovery.metadata,
+            outcome: 'no_candidates' as const,
+          },
           recommendationAvailability: {
             state: 'available' as const,
             holdEpoch: 'no-candidates',
@@ -264,6 +296,17 @@ async function surfDiscoveryHandler(
           discovery,
           profileExperience,
         );
+  if (
+    sanitizedDiscovery.recommendationAvailability?.state === 'none' &&
+    sanitizedDiscovery.recommendationAvailability.reasonCode ===
+      'hold_state_unavailable'
+  ) {
+    return retryableDiscoveryResponse(
+      Object.assign(new Error('Recommendation hold state unavailable'), {
+        code: 'hold_state_unavailable',
+      }),
+    );
+  }
   const gatedDiscovery = gateSurfDiscoveryResponse(
     sanitizedDiscovery,
     entitlement,
