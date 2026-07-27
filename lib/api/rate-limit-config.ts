@@ -185,7 +185,7 @@ export const RATE_LIMITS = {
   "surf-discovery": relaxForE2E({
     requestsPerMinute: IS_PRODUCTION ? 15 : 60,
     requestsPerHour: IS_PRODUCTION ? 150 : 600,
-    burstLimit: IS_PRODUCTION ? 6 : 30, // Allow clicking through all 4 time slots quickly
+    burstLimit: IS_PRODUCTION ? 15 : 30,
   }),
 
   /**

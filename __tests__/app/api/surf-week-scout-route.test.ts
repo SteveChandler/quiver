@@ -79,6 +79,27 @@ describe('POST /api/surf/week-scout', () => {
     );
   });
 
+  it('accepts legacy requests but evaluates only the first eight unique candidates in order', async () => {
+    const candidateBeachIds = Array.from({ length: 12 }, (_, index) => (
+      `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`
+    ));
+
+    const response = await callRoute({
+      candidateBeachIds,
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-15',
+      dayCount: 7,
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith(
+      'user-week-scout',
+      expect.objectContaining({
+        candidateBeachIds: candidateBeachIds.slice(0, 8),
+      }),
+    );
+  });
+
   it.each([
     ['an invalid timezone', {
       candidateBeachIds: [BEACH_A],
@@ -181,6 +202,35 @@ describe('POST /api/surf/week-scout', () => {
       state: 'none',
       reasonCode: 'major_event_hold',
       holdEpoch: 'held-epoch',
+    });
+  });
+
+  it('returns a retryable error instead of serializing unavailable hold state as success', async () => {
+    mockGenerateWeekScoutForecast.mockResolvedValueOnce({
+      generatedAt: '2026-07-15T18:00:00.000Z',
+      scorerVersion: 'week-scout-v1',
+      candidateFingerprint: 'candidate-fingerprint',
+      days: [],
+      recommendationAvailability: {
+        state: 'none',
+        reasonCode: 'hold_state_unavailable',
+        holdEpoch: 'hold-state-unavailable',
+      },
+    });
+
+    const response = await callRoute({
+      candidateBeachIds: [BEACH_A],
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-15',
+      dayCount: 7,
+    });
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      success: false,
+      retryable: true,
+      code: 'hold_state_unavailable',
     });
   });
 });

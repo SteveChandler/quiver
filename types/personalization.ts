@@ -395,6 +395,8 @@ export interface SurfDiscoveryResponse {
   };
   /** Generation metadata */
   metadata: {
+    /** Successful request outcome; empty candidate sets are not operational failures. */
+    outcome?: 'success' | 'no_candidates';
     /** Total beaches considered for ranking */
     totalBeachesConsidered: number;
     /** Beaches with successful forecast fetches */
@@ -442,6 +444,8 @@ export interface SurfDiscoveryOptions {
   discoveryMode?: SurfDiscoveryMode;
   /** Maximum recommendations to return (default: 5, max: 10) */
   maxResults?: number;
+  /** Maximum distance-ordered candidates to evaluate before ranking. */
+  candidatePoolLimit?: number;
   /**
    * Curated beach IDs that should be scored in the same batch as nearby
    * discovery candidates, even when outside the GPS radius. Outside-radius
@@ -455,6 +459,8 @@ export interface SurfDiscoveryOptions {
   timeout?: number;
   /** Overall batch timeout in ms (default: 12000) */
   overallTimeout?: number;
+  /** Propagate retryable operational failures instead of returning a legacy empty response. */
+  throwOnFailure?: boolean;
   /**
    * Whether the requesting user has Pro/trial entitlement.
    * Default false: free user, similarity layer is skipped and every
