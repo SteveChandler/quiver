@@ -59,6 +59,11 @@ const navItems = [
     icon: ImageIcon,
   },
   {
+    title: "Community Photos",
+    href: "/admin/community-photos",
+    icon: ImageIcon,
+  },
+  {
     title: "Intel",
     href: "/admin/intel",
     icon: FileText,
@@ -140,4 +145,3 @@ export default async function AdminLayout({
     </SidebarProvider>
   );
 }
-

@@ -1,0 +1,45 @@
+-- Source: PostHog event community_photo_route_outcome
+-- Numerator: successful image outcomes marked ineligible, or admin image
+--            success without the audited-media result class
+-- Denominator: all ordinary and admin image route outcomes
+-- Rolling window: 60 minutes
+-- Minimum sample: 1
+-- Threshold: zero tolerance
+-- Owner: community photos rollout operator
+-- Rollback: disable runtime reads and writes; investigate auth and audit
+
+SELECT
+  countIf(
+    toFloat(properties.status) >= 200
+    AND toFloat(properties.status) < 300
+    AND (
+      properties.rollout_eligibility = 'ineligible'
+      OR (
+        properties.route = '/api/admin/community-photos/:photoId/image'
+        AND properties.result_class != 'admin_audited_media_served'
+      )
+    )
+  ) AS violations,
+  count() AS denominator,
+  if(
+    countIf(
+      toFloat(properties.status) >= 200
+      AND toFloat(properties.status) < 300
+      AND (
+        properties.rollout_eligibility = 'ineligible'
+        OR (
+          properties.route = '/api/admin/community-photos/:photoId/image'
+          AND properties.result_class != 'admin_audited_media_served'
+        )
+      )
+    ) > 0,
+    'stop',
+    'pass'
+  ) AS gate_status
+FROM events
+WHERE event = 'community_photo_route_outcome'
+  AND timestamp >= now() - INTERVAL 60 MINUTE
+  AND properties.route IN (
+    '/api/community-photos/:photoId/image',
+    '/api/admin/community-photos/:photoId/image'
+  )

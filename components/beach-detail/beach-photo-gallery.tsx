@@ -4,7 +4,9 @@ import { useState, useCallback, useMemo } from "react";
 import Image from "next/image";
 import { Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PhotoAttribution } from "@/components/photos/photo-attribution";
 import type { Beach } from "@/types/database";
+import type { CommunityPhotoAttribution } from "@/lib/community-photos";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getStaticMapImageUrl } from "@/lib/map-utils";
 import { getOptimizedImageUrl } from "@/lib/image-proxy";
@@ -13,6 +15,13 @@ interface BestPhoto {
   id: string;
   public_url: string;
   created_at: string;
+  title?: string | null;
+  attributionHtml?: string | null;
+  attribution?: CommunityPhotoAttribution | null;
+  community?: {
+    upvotes: number;
+    downvotes: number;
+  } | null;
 }
 
 async function getBestBeachPhotos(
@@ -55,6 +64,27 @@ function MapFallback({
       placeholder="blur"
       blurDataURL="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2UyZThmMCIvPjwvc3ZnPg=="
     />
+  );
+}
+
+function PhotoMetadataOverlay({ photo }: { photo: BestPhoto }) {
+  if (!photo.attribution && !photo.attributionHtml && !photo.community) {
+    return null;
+  }
+
+  return (
+    <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 bg-gradient-to-t from-black/75 to-transparent p-3 pt-8 text-white">
+      <PhotoAttribution
+        attribution={photo.attribution ?? null}
+        attributionHtml={photo.attributionHtml}
+        className="min-w-0 truncate text-xs underline-offset-2 hover:underline"
+      />
+      {photo.community ? (
+        <span className="shrink-0 text-[10px] font-medium">
+          {photo.community.upvotes} up · {photo.community.downvotes} down
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -141,7 +171,7 @@ export function BeachPhotoGallery({
           {heroPhoto ? (
             <Image
               src={getOptimizedImageUrl(heroPhoto.public_url)}
-              alt={`${beach.name} - main view`}
+              alt={heroPhoto.title || `${beach.name} - main view`}
               fill
               sizes="(max-width: 768px) 100vw, 50vw"
               className="object-cover"
@@ -161,6 +191,7 @@ export function BeachPhotoGallery({
               <Camera className="h-16 w-16 text-muted-foreground/40" />
             </div>
           )}
+          {heroPhoto ? <PhotoMetadataOverlay photo={heroPhoto} /> : null}
         </div>
 
         {/* Right Column: Small photos and map */}
@@ -191,6 +222,9 @@ export function BeachPhotoGallery({
                 <Camera className="h-8 w-8 text-muted-foreground/30" />
               </div>
             )}
+            {sidePhotos[0] ? (
+              <PhotoMetadataOverlay photo={sidePhotos[0]} />
+            ) : null}
           </div>
 
           {/* Small Photo 2 or Map (only show map if 2+ photos) */}
@@ -219,6 +253,9 @@ export function BeachPhotoGallery({
                 <Camera className="h-8 w-8 text-muted-foreground/30" />
               </div>
             )}
+            {sidePhotos[1] ? (
+              <PhotoMetadataOverlay photo={sidePhotos[1]} />
+            ) : null}
           </div>
         </div>
       </div>

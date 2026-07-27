@@ -2,10 +2,10 @@
  * @jest-environment node
  */
 
-import { createThenableQuery } from "@/__tests__/setup/admin-action-test-utils";
+const getSpotGalleryPhotos = jest.fn();
 
-jest.mock("@/lib/supabase/server", () => ({
-  createSupabaseServerClient: jest.fn(),
+jest.mock("@/actions/spot/spot-data-actions", () => ({
+  getSpotGalleryPhotos: (...args: unknown[]) => getSpotGalleryPhotos(...args),
 }));
 
 describe("beach media actions", () => {
@@ -14,55 +14,66 @@ describe("beach media actions", () => {
     jest.resetModules();
   });
 
-  test("returns approved beach photos from beach_photos", async () => {
-    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
-    const query = createThenableQuery<any[]>({
-      data: [
-        {
-          id: "bp1",
-          image_url: "https://cdn.example.com/full.jpg",
-          thumb_url: "https://cdn.example.com/thumb.jpg?format=json",
-          fetched_at: "2026-06-01T00:00:00Z",
-        },
-      ],
-      error: null,
-    });
-    const from = jest.fn(() => query);
-
-    (createSupabaseServerClient as jest.Mock).mockResolvedValue({ from });
-
-    const { getBestBeachPhotosAction } = await import("@/actions/beach-media-actions");
-    const res = await getBestBeachPhotosAction("beach-1", 6);
-
-    expect(res.success).toBe(true);
-    expect(res.data).toEqual([
+  test("returns the shared resolved photo contract for beach galleries", async () => {
+    getSpotGalleryPhotos.mockResolvedValue([
       {
-        id: "bp1",
-        created_at: "2026-06-01T00:00:00Z",
-        public_url: "https://cdn.example.com/thumb.jpg",
+        id: "community-1",
+        source: "community",
+        imageUrl: "/api/community-photos/community-1/image",
+        thumbUrl: null,
+        attributionHtml: null,
+        attribution: {
+          kind: "profile",
+          displayName: "Jo",
+          profileId: "profile-1",
+        },
+        title: "Clean morning",
+        creatorName: "Jo",
+        community: {
+          voteScore: 0.4,
+          upvotes: 8,
+          downvotes: 2,
+          viewerVote: null,
+          canVote: false,
+          canReport: false,
+          canRemove: false,
+          isPinned: false,
+        },
+        createdAt: "2026-07-25T12:00:00.000Z",
       },
     ]);
-    expect(from).toHaveBeenCalledWith("beach_photos");
-    expect(query.eq).toHaveBeenCalledWith("approved", true);
-    expect(query.is).toHaveBeenCalledWith("deleted_at", null);
+
+    const { getBestBeachPhotosAction } = await import(
+      "@/actions/beach-media-actions"
+    );
+    const result = await getBestBeachPhotosAction("beach-1", 6);
+
+    expect(result).toEqual({
+      success: true,
+      data: [
+        expect.objectContaining({
+          id: "community-1",
+          public_url: "/api/community-photos/community-1/image",
+          attribution: {
+            kind: "profile",
+            displayName: "Jo",
+            profileId: "profile-1",
+          },
+          community: expect.objectContaining({ upvotes: 8, downvotes: 2 }),
+        }),
+      ],
+    });
+    expect(getSpotGalleryPhotos).toHaveBeenCalledWith("beach-1", 6);
   });
 
-  test("does not fall back to raw session_media when no approved beach photos exist", async () => {
-    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
-    const query = createThenableQuery<any[]>({
-      data: [],
-      error: null,
-    });
-    const from = jest.fn(() => query);
+  test("keeps an empty resolver result empty", async () => {
+    getSpotGalleryPhotos.mockResolvedValue([]);
 
-    (createSupabaseServerClient as jest.Mock).mockResolvedValue({ from });
+    const { getBestBeachPhotosAction } = await import(
+      "@/actions/beach-media-actions"
+    );
+    const result = await getBestBeachPhotosAction("beach-1", 6);
 
-    const { getBestBeachPhotosAction } = await import("@/actions/beach-media-actions");
-    const res = await getBestBeachPhotosAction("beach-1", 6);
-
-    expect(res.success).toBe(true);
-    expect(res.data).toEqual([]);
-    expect(from).toHaveBeenCalledTimes(1);
-    expect(from).toHaveBeenCalledWith("beach_photos");
+    expect(result).toEqual({ success: true, data: [] });
   });
 });

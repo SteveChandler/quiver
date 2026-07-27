@@ -191,6 +191,14 @@
     {
       "path": "/api/cron/major-event-hold-retention",
       "schedule": "15 9 * * 0"
+    },
+    {
+      "path": "/api/cron/android-tester-roster",
+      "schedule": "15 */6 * * *"
+    },
+    {
+      "path": "/api/cron/community-photo-retention",
+      "schedule": "35 9 * * *"
     }
   ]
 }

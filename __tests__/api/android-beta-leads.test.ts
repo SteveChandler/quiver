@@ -1,4 +1,8 @@
+export {};
+
 const mockUpsert = jest.fn();
+const mockLeadSelect = jest.fn();
+const mockLeadMaybeSingle = jest.fn();
 const mockUpdate = jest.fn();
 const mockClaimEq = jest.fn();
 const mockClaimIs = jest.fn();
@@ -7,6 +11,7 @@ const mockClaimMaybeSingle = jest.fn();
 const mockResetEqEmail = jest.fn();
 const mockResetEqClaimedAt = jest.fn();
 const mockInsert = jest.fn();
+const mockRpc = jest.fn();
 const mockFrom = jest.fn((table: string) => {
   if (table === "android_beta_leads") {
     return {
@@ -27,6 +32,7 @@ const mockFrom = jest.fn((table: string) => {
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() => ({
     from: mockFrom,
+    rpc: mockRpc,
   })),
 }));
 
@@ -58,7 +64,16 @@ function buildRequest(body: unknown): any {
 describe("POST /api/android-beta/leads", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUpsert.mockResolvedValue({ error: null });
+    mockUpsert.mockReturnValue({ select: mockLeadSelect });
+    mockLeadSelect.mockReturnValue({ maybeSingle: mockLeadMaybeSingle });
+    mockLeadMaybeSingle.mockResolvedValue({
+      data: { id: "30000000-0000-4000-8000-000000000003" },
+      error: null,
+    });
+    mockRpc.mockResolvedValue({
+      data: "40000000-0000-4000-8000-000000000004",
+      error: null,
+    });
     mockClaimEq.mockReturnValue({ is: mockClaimIs });
     mockClaimIs.mockReturnValue({ select: mockClaimSelect });
     mockClaimSelect.mockReturnValue({ maybeSingle: mockClaimMaybeSingle });
@@ -109,6 +124,18 @@ describe("POST /api/android-beta/leads", () => {
         session_id: "00000000-0000-4000-8000-000000000001",
       },
       { onConflict: "email" },
+    );
+    expect(mockLeadSelect).toHaveBeenCalledWith("id");
+    expect(mockLeadMaybeSingle).toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalledWith(
+      "resolve_android_waitlist_entry",
+      expect.objectContaining({
+        p_user_id: null,
+        p_normalized_email_sha256: expect.stringMatching(/^[a-f0-9]{64}$/),
+        p_roster_entry_id: null,
+        p_source_kind: "anonymous_lead",
+        p_source_id: "30000000-0000-4000-8000-000000000003",
+      }),
     );
     expect(sendAndroidBetaInstructionsEmail).toHaveBeenCalledWith(
       "surfer@example.com",
@@ -191,5 +218,30 @@ describe("POST /api/android-beta/leads", () => {
       error: "invalid_email",
     });
     expect(mockFrom).not.toHaveBeenCalled();
+  });
+
+  it("fails closed before sending instructions when canonical resolution fails", async () => {
+    mockRpc.mockResolvedValue({
+      data: null,
+      error: { message: "resolver unavailable" },
+    });
+    const { sendAndroidBetaInstructionsEmail } =
+      await import("@/lib/mailer/android-beta");
+    const { POST } = await import("@/app/api/android-beta/leads/route");
+
+    const response = await POST(
+      buildRequest({
+        email: "surfer@example.com",
+        source: "features-hero-android-waitlist",
+        surface: "features-page",
+        placement: "hero_secondary",
+      }),
+    );
+
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      error: "save_failed",
+    });
+    expect(sendAndroidBetaInstructionsEmail).not.toHaveBeenCalled();
   });
 });

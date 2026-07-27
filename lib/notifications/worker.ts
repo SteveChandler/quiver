@@ -98,6 +98,7 @@ import {
   type NotificationMajorEventHoldResult,
   type ResolveNotificationMajorEventHoldInput,
 } from "@/lib/recommendations/major-event-hold/adapters/notification";
+import { resolveNotificationPresentationCompatibility } from "./build-compatibility";
 
 type ServiceClient = SupabaseClient<Database>;
 type FcmMessaging = fbMessaging.Messaging | null;
@@ -172,6 +173,9 @@ interface ProfileRow {
 
 interface DeviceRow {
   device_token: string;
+  platform: string | null;
+  app_version: string | null;
+  build_number: string | null;
 }
 
 export interface ProcessOptions {
@@ -230,6 +234,11 @@ export interface ProcessSummary {
    * over with UTC-default forever.
    */
   missing_timezone_count: number;
+  /**
+   * Privacy-safe per-device presentation decisions. Keys include only coarse
+   * platform, outcome, and reason — never device tokens, event IDs, or users.
+   */
+  presentation_compatibility: Record<string, number>;
 }
 
 /** Per-channel decision rolled up at the end of one tick. */
@@ -346,6 +355,7 @@ export async function processPendingEvents(
     retry_scheduled_count: 0,
     unknown_type_count: 0,
     missing_timezone_count: 0,
+    presentation_compatibility: {},
   };
 
   // Each tick gets a unique claim_token. Workers write terminal status only
@@ -584,6 +594,7 @@ async function processOne(
       ctx,
       channel,
       now,
+      summary.presentation_compatibility,
       surfAlertSlot,
       resolveMajorEventHold,
       majorEventHoldAsOf,
@@ -816,6 +827,7 @@ async function processChannel(
   ctx: BuildCtx,
   channel: NotificationChannel,
   now: Date,
+  presentationCompatibility: Record<string, number>,
   surfAlertSlot: SurfAlertSlot | null,
   resolveMajorEventHold: NotificationMajorEventHoldResolver,
   majorEventHoldAsOf: Date | undefined,
@@ -949,6 +961,7 @@ async function processChannel(
       def,
       profile,
       ctx,
+      presentationCompatibility,
       surfAlertSlot,
       resolveMajorEventHold,
       majorEventHoldAsOf,
@@ -1059,6 +1072,7 @@ async function dispatchPush(
   def: NotificationTypeDef,
   profile: ProfileRow,
   ctx: BuildCtx,
+  presentationCompatibility: Record<string, number>,
   surfAlertSlot: SurfAlertSlot | null,
   resolveMajorEventHold: NotificationMajorEventHoldResolver,
   majorEventHoldAsOf: Date | undefined,
@@ -1078,7 +1092,7 @@ async function dispatchPush(
 
   const { data: devices, error: devicesError } = await supabase
     .from("user_devices")
-    .select("device_token")
+    .select("device_token, platform, app_version, build_number")
     .eq("user_id", event.recipient_user_id);
 
   if (devicesError) {
@@ -1114,16 +1128,46 @@ async function dispatchPush(
   const payloadRecord = (event.payload ?? {}) as Record<string, unknown>;
   const built = def.buildPushPayload(payloadRecord, ctx);
 
-  const messages: PushMessage[] = deviceList.map((d) => ({
-    to: d.device_token,
-    title: built.title,
-    body: built.body,
-    data: {
-      ...built.data,
-      notification_event_id: event.id,
-      message_instance_id: event.id,
-    },
-  }));
+  const messages: PushMessage[] = deviceList.map((device) => {
+    const compatibility = resolveNotificationPresentationCompatibility({
+      platform: device.platform,
+      appVersion: device.app_version,
+      buildNumber: device.build_number,
+      notificationType: event.type,
+    });
+    const compatibilityKey = [
+      compatibility.platform,
+      compatibility.outcome,
+      compatibility.reason,
+    ].join(":");
+    presentationCompatibility[compatibilityKey] =
+      (presentationCompatibility[compatibilityKey] ?? 0) + 1;
+
+    return {
+      to: device.device_token,
+      title: built.title,
+      body: built.body,
+      ...(compatibility.presentation === "ios_custom_sound" && built.iosSound
+        ? {
+            sound: built.iosSound,
+            apns: { payload: { aps: { sound: built.iosSound } } },
+          }
+        : {}),
+      ...(compatibility.presentation === "android_custom_channel" &&
+      built.androidChannelId
+        ? {
+            android: {
+              notification: { channelId: built.androidChannelId },
+            },
+          }
+        : {}),
+      data: {
+        ...built.data,
+        notification_event_id: event.id,
+        message_instance_id: event.id,
+      },
+    };
+  });
 
   let result;
   try {

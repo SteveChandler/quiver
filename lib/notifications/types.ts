@@ -81,6 +81,10 @@ export interface NotificationPushPayload {
   body: string;
   /** FCM data fields are stringified at send-time; values can be any JSON-serializable. */
   data: Record<string, unknown>;
+  /** Bundled iOS/Expo sound file for notification presentation. */
+  iosSound?: string;
+  /** Immutable Android notification channel configured by the native app. */
+  androidChannelId?: string;
 }
 
 export interface NotificationInAppPayload {

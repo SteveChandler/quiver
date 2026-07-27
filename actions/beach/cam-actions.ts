@@ -6,6 +6,10 @@ import {
   dedupeCameraBeachesForDirectory,
   type CamDirectoryBeach,
 } from "@/lib/media/cam-directory";
+import {
+  communityPhotoTargetKey,
+  getResolvedSpotPhotoMap,
+} from "@/lib/community-photos";
 import { unstable_cache } from "next/cache";
 
 export interface CamBeach {
@@ -133,6 +137,30 @@ export const getBeachesWithCameras = unstable_cache(
         for (const beach of dedupedResults) {
           beach.photo_url = photoByBeachId.get(beach.id) ?? null;
         }
+      }
+
+      try {
+        const targets = beachIds.map((id) => ({
+          type: "beach" as const,
+          id,
+        }));
+        const communityPhotos = await getResolvedSpotPhotoMap({
+          targets,
+          limitPerTarget: 1,
+        });
+
+        for (const beach of dedupedResults) {
+          const photo = communityPhotos.get(
+            communityPhotoTargetKey({ type: "beach", id: beach.id }),
+          )?.[0];
+          if (photo) {
+            beach.photo_url = photo.thumbUrl ?? photo.imageUrl;
+          }
+        }
+      } catch (error) {
+        console.error("Failed to resolve community photos for cameras:", {
+          message: error instanceof Error ? error.message : "Unknown error",
+        });
       }
     }
 

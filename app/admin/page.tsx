@@ -29,6 +29,12 @@ const quickLinks = [
     icon: ImageIcon,
   },
   {
+    title: "Community Photos",
+    description: "Review reports, pins, holds, and contributor restrictions",
+    href: "/admin/community-photos",
+    icon: ImageIcon,
+  },
+  {
     title: "Intel",
     description: "Manage surf intel posts and reports",
     href: "/admin/intel",

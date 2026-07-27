@@ -34,6 +34,10 @@ Pricing components render the public `/plans` native-app availability surface. T
   instructions and required Google-account email capture. Existing profile/lead
   records remain available for prior enrollment fulfillment, while new handoffs
   are tied to the captured visitor session.
+- Once the handoff is unlocked, `/android-beta` requests a short-lived,
+  single-use attributed Play Store link. The browser sends only the bounded
+  source, surface, placement, and campaign dimensions; identity is not bound to
+  the install token.
 - Public Android acquisition copy leads with current product value and does not
   promise free Pro, founding pricing, or queue priority. Earlier incentive
   eligibility is handled through

@@ -4,6 +4,7 @@ import {
   withBotBlockingAndRateLimit,
   withErrorHandler,
 } from "@/lib/middleware/api-wrappers";
+import { resolveCanonicalAndroidWaitlist } from "@/lib/android-tester-roster/waitlist";
 import { sendAndroidBetaInstructionsEmail } from "@/lib/mailer/android-beta";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { AndroidBetaLeadSchema } from "@/lib/validation/schemas";
@@ -43,11 +44,29 @@ export const POST = withErrorHandler(
       }
 
       const supabase = await createSupabaseServiceRoleClient();
-      const { error } = await (supabase as any)
+      const { data: savedLead, error } = await (supabase as any)
         .from("android_beta_leads")
-        .upsert(leadPayload, { onConflict: "email" });
+        .upsert(leadPayload, { onConflict: "email" })
+        .select("id")
+        .maybeSingle();
 
-      if (error) {
+      if (error || !savedLead?.id) {
+        return NextResponse.json({ success: false, error: "save_failed" });
+      }
+
+      try {
+        await resolveCanonicalAndroidWaitlist(supabase as any, {
+          userId: null,
+          email,
+          rosterEntryId: null,
+          sourceKind: "anonymous_lead",
+          sourceId: savedLead.id,
+          source,
+          surface,
+          placement,
+          observedAt: new Date().toISOString(),
+        });
+      } catch {
         return NextResponse.json({ success: false, error: "save_failed" });
       }
 

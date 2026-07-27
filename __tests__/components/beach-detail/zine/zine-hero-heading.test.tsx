@@ -50,4 +50,32 @@ describe("ZineHero heading level", () => {
     expect(screen.getByText(/live stream unavailable right now/i)).toBeInTheDocument();
     expect(screen.queryByText("Live now")).not.toBeInTheDocument();
   });
+
+  it("renders structured community photo attribution as an inert profile link", () => {
+    const beach = createMockBeach({ name: "Seaside Reef" });
+
+    render(
+      <ZineHero
+        beach={beach}
+        beachPhoto={{
+          image_url: "/api/community-photos/community-1/image",
+          thumb_url: null,
+          source: "community",
+          creator_name: "Jo",
+          license_code: null,
+          attribution_html: null,
+          attribution: {
+            kind: "profile",
+            displayName: "<strong>Jo</strong>",
+            profileId: "profile-1",
+          },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: "<strong>Jo</strong>" }),
+    ).toHaveAttribute("href", "/profile/profile-1");
+    expect(document.querySelector("strong")).not.toBeInTheDocument();
+  });
 });

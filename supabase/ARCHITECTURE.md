@@ -620,6 +620,28 @@ California → CA
 
 ### **5. Data Maintenance**
 
+#### **Android Private Tester Roster (20260725213000)**
+
+- Service-role-only RLS tables separate roster eligibility, AES-256-GCM
+  unjoined identity envelopes, append-only evidence stages, independent
+  account-join/install/first-open receipts, complete/incomplete sync runs, and
+  mandatory non-PII audit.
+- Atomic SECURITY DEFINER RPCs handle account join with immediate identity
+  redaction, complete-snapshot reconciliation, exact +30-day unjoined identity
+  purge scheduling, aggregate reporting, and account-deletion cleanup. A
+  singleton expiring claim prevents overlapping syncs from fetching or applying
+  the same pre-sync state, and account join rechecks idempotency after locking.
+  Leave apply locks and rechecks unlinked state, so a concurrent join cannot
+  create a zero-row ineligible stage or count.
+- No deterministic or reversible external identity hash is stored. Eligibility,
+  Play opt-in, install, first open, and account join remain independent.
+  New entries receive explicit `unknown` rows for every non-eligibility stage;
+  aggregate reporting uses the latest row per entry and stage. Account deletion
+  cascades all receipts and anonymizes retained audit residue.
+  Unlinked Directory identity changes explicitly replace the encrypted envelope
+  with a fresh IV and increment a non-PII refresh count. Manual Play evidence is
+  limited to a bounded code and opaque UUID.
+
 #### **Session Log Template Link Update (20251204120001)**
 
 **Purpose**: Update quick links in city editorial content to point to correct route.

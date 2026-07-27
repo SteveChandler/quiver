@@ -21,7 +21,7 @@ import {
 import { EVENT_WEIGHTS } from "@/types/implicit-preferences";
 
 const CURRENT_EVENT_SET_HASHES = {
-  valid: "c4c950000e899903a0a958a7ef024713978b30b4fb65c406c14ce52a429966cc",
+  valid: "fa4d6036dce7f646c4cd64af57427851d4a99a98a66e22cf8305fe99a890767b",
   anonymousAllowed:
     "960579b65b52600bf0ef4da9bc8b20548651c29813edabdf5763f65bc13ccd24",
   preAuthOnly:
