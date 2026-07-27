@@ -59,6 +59,32 @@ export function parseSkillLevel(value: string | null | undefined): SkillLevel | 
   return null;
 }
 
+/**
+ * Parse the minimum skill requirement stored on a beach.
+ *
+ * Beach taxonomy includes bounded labels that are not valid profile skill
+ * values. Keep this normalization separate so profile parsing remains strict.
+ */
+export function parseBeachSkillRequirement(
+  value: string | null | undefined,
+): SkillLevel | null {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized) return null;
+
+  switch (normalized) {
+    case 'all':
+      return 'beginner';
+    case 'beginner-intermediate':
+    case 'lower-intermediate':
+    case 'upper-intermediate':
+      return 'intermediate';
+    case 'intermediate-advanced':
+      return 'advanced';
+    default:
+      return parseSkillLevel(normalized);
+  }
+}
+
 // ============================================================================
 // Wave Threshold Data
 // ============================================================================

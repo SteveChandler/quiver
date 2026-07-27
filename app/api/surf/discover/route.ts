@@ -14,7 +14,11 @@ import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discove
 import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision';
-import type { SurfDiscoveryEntitlement, TimeSlot } from '@/types/personalization';
+import type {
+  SurfDiscoveryEntitlement,
+  SurfDiscoveryRecommendation,
+  TimeSlot,
+} from '@/types/personalization';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30; // Allow 30s for GPS discovery + batch forecast fetching
@@ -107,6 +111,39 @@ function hasExplicitMajorEventHold(
     discovery.recommendationAvailability?.state === 'none' &&
     discovery.recommendationAvailability.reasonCode === 'major_event_hold'
   );
+}
+
+function recommendationPoolKey(
+  recommendation: SurfDiscoveryRecommendation,
+): string {
+  if (recommendation.recommendationId) {
+    return recommendation.recommendationId;
+  }
+  const kind = recommendation.kind ?? 'beach';
+  const targetId = kind === 'custom_spot'
+    ? recommendation.customSpotId ?? recommendation.beach.id
+    : recommendation.beach.id;
+  const forecastAt = recommendation.forecast?.forecast_at ?? '';
+  const windowStart = recommendation.window?.start instanceof Date
+    ? recommendation.window.start.toISOString()
+    : String(recommendation.window?.start ?? '');
+  return `${kind}:${targetId}:${forecastAt}:${windowStart}`;
+}
+
+function dedupeReturnedRecommendationPool(
+  discovery: Awaited<ReturnType<typeof discoverSurfSpots>>,
+): SurfDiscoveryRecommendation[] {
+  const byId = new Map<string, SurfDiscoveryRecommendation>();
+  for (const recommendation of [
+    ...discovery.recommendations,
+    ...(discovery.includedRecommendations ?? []),
+  ]) {
+    const key = recommendationPoolKey(recommendation);
+    if (!byId.has(key)) {
+      byId.set(key, recommendation);
+    }
+  }
+  return Array.from(byId.values());
 }
 
 /**
@@ -313,8 +350,13 @@ async function surfDiscoveryHandler(
   );
 
   const decisionTimezone =
-    gatedDiscovery.recommendations[0]?.window?.timezone ?? 'UTC';
+    gatedDiscovery.recommendations[0]?.window?.timezone
+    ?? gatedDiscovery.includedRecommendations?.[0]?.window?.timezone
+    ?? 'UTC';
   const decisionHorizonHours = horizonHours ?? 24;
+  const decisionRecommendations = dedupeReturnedRecommendationPool(
+    gatedDiscovery,
+  );
   gatedDiscovery.sessionDecision = buildCanonicalDecisionFromSurfDiscovery({
     anchorTime: anchor.toISOString(),
     scope: {
@@ -331,7 +373,7 @@ async function surfDiscoveryHandler(
       reasonCode: 'hold_state_unavailable',
       holdEpoch: 'hold-state-unavailable',
     },
-    recommendations: gatedDiscovery.recommendations,
+    recommendations: decisionRecommendations,
   });
 
   return createSuccessResponse(gatedDiscovery);

@@ -133,6 +133,16 @@ export function sanitizeWeekScoutForMajorEventHold(
       ...day,
       windows,
       bestWindowId: bestAllowedWindow?.id ?? null,
+      exclusionReasons:
+        boundary.recommendationAvailability.state === "available" &&
+        day.bestWindowId === null
+          ? day.exclusionReasons
+          : boundary.recommendationAvailability.state === "available" &&
+              bestAllowedWindow === null &&
+              day.bestWindowId !== null &&
+              !boundary.allowedCandidateIds.has(day.bestWindowId)
+            ? ["major_event_hold"]
+          : [],
     };
   });
 

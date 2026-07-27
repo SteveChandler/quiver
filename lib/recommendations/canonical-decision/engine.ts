@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 
 import {
+  parseBeachSkillRequirement,
   parseSkillLevel,
   SKILL_WAVE_RANGES,
 } from "@/lib/domains/user-preferences/skill-level";
@@ -61,7 +62,7 @@ function candidateSafetyReasons(
   if (!isValidCandidate(candidate)) {
     reasons.push("invalid_candidate");
   }
-  const beachSkill = parseSkillLevel(
+  const beachSkill = parseBeachSkillRequirement(
     typeof candidate.beachSkillLevel === "string"
       ? candidate.beachSkillLevel
       : null,
@@ -134,7 +135,7 @@ function decisionId(input: BuildCanonicalSessionDecisionInput): string {
         candidateId: candidate.candidateId,
         beachId: candidate.beachId,
         beachName: candidate.beachName,
-        beachSkillLevel: parseSkillLevel(
+        beachSkillLevel: parseBeachSkillRequirement(
           typeof candidate.beachSkillLevel === "string"
             ? candidate.beachSkillLevel
             : null,

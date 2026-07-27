@@ -353,6 +353,7 @@ const weekScoutFixture: WeekScoutResponse = {
     {
       localDate: "2026-07-19",
       bestWindowId: "window-primary",
+      exclusionReasons: [],
       windows: [
         {
           id: "window-primary",
@@ -2078,6 +2079,7 @@ describe("major-event hold adapters", () => {
       reasonCode: "major_event_hold",
     });
     expect(result.days[0].bestWindowId).toBeNull();
+    expect(result.days[0].exclusionReasons).toEqual([]);
     expect(result.days[0].windows).toHaveLength(2);
     for (const window of result.days[0].windows) {
       expect(window.conditionScore).toBeNull();
@@ -2141,6 +2143,53 @@ describe("major-event hold adapters", () => {
     expect(result.days[0].windows[1]).toEqual({
       ...input.days[0].windows[1],
       rankedSpots: [input.days[0].windows[1].rankedSpots[1]],
+    });
+  });
+
+  it("marks only the fully held day when another day keeps the response available", () => {
+    const firstDay = structuredClone(weekScoutFixture.days[0]);
+    const secondDay = structuredClone(weekScoutFixture.days[0]);
+    secondDay.localDate = "2026-07-20";
+    secondDay.bestWindowId = "window-primary-day-two";
+    secondDay.windows = secondDay.windows.map((window) => ({
+      ...window,
+      id: `${window.id}-day-two`,
+      start: window.start.replace("2026-07-19", "2026-07-20"),
+      end: window.end.replace("2026-07-19", "2026-07-20"),
+      peakTime: window.peakTime.replace("2026-07-19", "2026-07-20"),
+    }));
+    const input: WeekScoutResponse = {
+      ...structuredClone(weekScoutFixture),
+      days: [firstDay, secondDay],
+    };
+    const candidates = input.days.flatMap((day) =>
+      day.windows.map((window) =>
+        candidate(window.id, window.beachId, window.start, window.end),
+      ),
+    );
+
+    const result = sanitizeWeekScoutForMajorEventHold(
+      deepFreeze(input),
+      candidates,
+      [
+        decision("window-primary", "blocked"),
+        decision("window-included", "blocked"),
+        decision("window-primary-day-two", "allow"),
+        decision("window-included-day-two", "allow"),
+      ],
+    );
+
+    expect(result.recommendationAvailability).toEqual({
+      state: "available",
+      holdEpoch: EPOCH,
+    });
+    expect(result.days[0]).toMatchObject({
+      bestWindowId: null,
+      exclusionReasons: ["major_event_hold"],
+    });
+    expect(result.days[1]).toMatchObject({
+      bestWindowId: "window-primary-day-two",
+      exclusionReasons: [],
     });
   });
 

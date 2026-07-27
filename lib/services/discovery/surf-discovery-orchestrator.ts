@@ -837,17 +837,63 @@ function buildCustomSpotBeach(
   };
 }
 
-function mergeCandidatePools(nearbyCandidates: Beach[], includedCandidates: Beach[]): Beach[] {
+function mergeCandidatePools(...candidatePools: readonly Beach[][]): Beach[] {
   const byId = new Map<string, Beach>();
-  for (const beach of nearbyCandidates) {
-    if (beach?.id) byId.set(beach.id, beach);
-  }
-  for (const beach of includedCandidates) {
-    if (beach?.id && !byId.has(beach.id)) {
-      byId.set(beach.id, beach);
+  for (const candidates of candidatePools) {
+    for (const beach of candidates) {
+      if (beach?.id && !byId.has(beach.id)) {
+        byId.set(beach.id, beach);
+      }
     }
   }
   return Array.from(byId.values());
+}
+
+function sortCandidatesByDistance(
+  candidates: readonly Beach[],
+  userLocation: { lat: number; lon: number },
+): Beach[] {
+  return [...candidates].sort((left, right) => (
+    calculateDistance(userLocation, { lat: left.lat ?? 0, lon: left.lon ?? 0 })
+    - calculateDistance(userLocation, { lat: right.lat ?? 0, lon: right.lon ?? 0 })
+  ));
+}
+
+function buildBoundedCandidatePool(args: {
+  nearbyCandidates: Beach[];
+  includedCandidates: Beach[];
+  customNearestCandidates: Beach[];
+  userLocation: { lat: number; lon: number };
+  limit: number;
+  minimumNearbyCount: number;
+}): Beach[] {
+  const nearby = sortCandidatesByDistance(
+    mergeCandidatePools(args.nearbyCandidates),
+    args.userLocation,
+  );
+  const reservedNearby = nearby.slice(
+    0,
+    Math.min(args.limit, args.minimumNearbyCount),
+  );
+  const selectedIds = new Set(reservedNearby.map((beach) => beach.id));
+  const selected = [...reservedNearby];
+  const merged = sortCandidatesByDistance(
+    mergeCandidatePools(
+      nearby,
+      args.includedCandidates,
+      args.customNearestCandidates,
+    ),
+    args.userLocation,
+  );
+
+  for (const beach of merged) {
+    if (selected.length >= args.limit) break;
+    if (selectedIds.has(beach.id)) continue;
+    selected.push(beach);
+    selectedIds.add(beach.id);
+  }
+
+  return sortCandidatesByDistance(selected, args.userLocation);
 }
 
 function recommendationKey(rec: Pick<SurfDiscoveryRecommendation, 'kind' | 'customSpotId' | 'beach'>): string {
@@ -1417,22 +1463,19 @@ async function discoverSurfSpotsInner(
     buildCustomSpotCandidates(userId, userLocation, radiusMiles),
   ]);
 
-  // Limit nearby candidates to prevent excessive forecast work, then append
-  // explicit include targets. Included beaches are capped separately at the
-  // route boundary so saved/home targets can be scored without N native calls.
   const customNearestCandidates = customSpotCandidates.map((candidate) => candidate.nearestBeach);
-  const maxNearbyCandidates = Math.min(
-    candidates.length,
-    Math.max(
-      0,
-      effectiveCandidatePoolLimit - includedCandidates.length - customNearestCandidates.length
-    )
-  );
-  const nearbyCandidates = candidates.slice(0, maxNearbyCandidates);
-  const finalCandidates = mergeCandidatePools(
-    mergeCandidatePools(nearbyCandidates, includedCandidates),
+  const finalCandidates = buildBoundedCandidatePool({
+    nearbyCandidates: candidates,
+    includedCandidates,
     customNearestCandidates,
-  ).slice(0, effectiveCandidatePoolLimit);
+    userLocation,
+    limit: effectiveCandidatePoolLimit,
+    minimumNearbyCount: Math.min(maxResults, effectiveCandidatePoolLimit),
+  });
+  const nearbyCandidateIds = new Set(candidates.map((beach) => beach.id));
+  const nearbyCandidates = finalCandidates.filter((beach) =>
+    nearbyCandidateIds.has(beach.id),
+  );
   // A custom spot is only "primary" (eligible for the Now/Best feeds) when it's
   // as close as the nearby beaches — the same nearest-within-radius cut curated
   // beaches pass. Without this an own custom spot surfaces in Now/Best from
@@ -1441,11 +1484,18 @@ async function discoverSurfSpotsInner(
   // (My spots only); far public spots drop out entirely, same as a far beach.
   // ponytail: boundary is the furthest nearby beach once the 20-spot cap bites;
   // before that every in-radius beach is nearby, so the boundary is the radius.
+  const selectedNearbyIds = new Set(nearbyCandidates.map((beach) => beach.id));
   const nearbyMaxMiles =
-    candidates.length > maxNearbyCandidates
+    candidates.some((beach) => !selectedNearbyIds.has(beach.id))
       ? nearbyCandidates.reduce(
           (miles, beach) =>
-            Math.max(miles, calculateDistance(userLocation, { lat: beach.lat || 0, lon: beach.lon || 0 })),
+            Math.max(
+              miles,
+              calculateDistance(userLocation, {
+                lat: beach.lat ?? 0,
+                lon: beach.lon ?? 0,
+              }),
+            ),
           0,
         )
       : radiusMiles;
@@ -1473,7 +1523,7 @@ async function discoverSurfSpotsInner(
 
   log.debug(
     `Found ${finalCandidates.length} candidate beaches ` +
-    `(${maxNearbyCandidates} nearby, ${includedCandidates.length} included, ` +
+    `(${nearbyCandidates.length} nearby, ${includedCandidates.length} included, ` +
     `${customSpotCandidates.length} custom spots)`
   );
 

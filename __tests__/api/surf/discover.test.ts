@@ -99,6 +99,7 @@ function makeDiscoveryResponse() {
   return {
     recommendations: [
       {
+        recommendationId: "primary-recommendation",
         kind: "custom_spot",
         customSpotId: "custom-spot-contract-id",
         visibility: "public",
@@ -174,6 +175,7 @@ function makeDiscoveryResponse() {
     ],
     includedRecommendations: [
       {
+        recommendationId: "included-recommendation",
         kind: "beach",
         customSpotId: null,
         visibility: null,
@@ -733,9 +735,65 @@ describe("/api/surf/discover entitlement resolution", () => {
           state: "available",
           holdEpoch: "route-epoch",
         },
-        recommendations: [expect.any(Object)],
+        recommendations: [expect.any(Object), expect.any(Object)],
       }),
     );
+  });
+
+  it("builds the Home decision from the deduped returned primary and included ranking pool", async () => {
+    const discovery = makeDiscoveryResponse();
+    discovery.includedRecommendations = [
+      {
+        ...discovery.includedRecommendations[0],
+        recommendationId: "shared-recommendation",
+      },
+      {
+        ...discovery.includedRecommendations[0],
+        recommendationId: "included-recommendation",
+      },
+    ];
+    discovery.recommendations = [
+      {
+        ...discovery.recommendations[0],
+        recommendationId: "shared-recommendation",
+      },
+    ];
+    mockDiscoverSurfSpots.mockResolvedValue(discovery);
+    mockBuildCanonicalDecisionFromSurfDiscovery.mockImplementationOnce(
+      ({ recommendations }) => ({
+        schemaVersion: "canonical-session-decision.v1",
+        engineVersion: "rules.v1",
+        decisionId: "b".repeat(64),
+        verdict: recommendations.length > 0 ? "go" : "no",
+        decisionBasis: "physical_conditions",
+        reasonCode: recommendations.length > 0 ? "recommended" : "no_candidates",
+        selection: recommendations.length > 0
+          ? { candidateId: recommendations[0].recommendationId }
+          : null,
+      }),
+    );
+
+    const response = await callDiscoverRoute({
+      is_pro: true,
+      is_trialing: false,
+      billing_issue: false,
+      expires_at: null,
+    });
+    const body = await response.json();
+
+    expect(mockBuildCanonicalDecisionFromSurfDiscovery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        recommendations: [
+          expect.objectContaining({ recommendationId: "shared-recommendation" }),
+          expect.objectContaining({ recommendationId: "included-recommendation" }),
+        ],
+      }),
+    );
+    expect(body.data.sessionDecision).toMatchObject({
+      verdict: "go",
+      reasonCode: "recommended",
+    });
+    expect(body.data.sessionDecision.reasonCode).not.toBe("no_candidates");
   });
 
   it("preserves recommendation discriminator metadata in the route response", async () => {

@@ -5,6 +5,7 @@
  */
 
 import {
+  parseBeachSkillRequirement,
   parseSkillLevel,
   getSkillLevelOrDefault,
   DEFAULT_SKILL_LEVEL,
@@ -67,6 +68,32 @@ describe('Skill Level Utilities', () => {
       expect(parseSkillLevel('  intermediate  ')).toBe('intermediate');
       expect(parseSkillLevel('\tadvanced\t')).toBe('advanced');
       expect(parseSkillLevel('\n expert \n')).toBe('expert');
+    });
+  });
+
+  describe('parseBeachSkillRequirement', () => {
+    it.each([
+      ['all', 'beginner'],
+      ['beginner-intermediate', 'intermediate'],
+      ['lower-intermediate', 'intermediate'],
+      ['intermediate-advanced', 'advanced'],
+      ['upper-intermediate', 'intermediate'],
+      ['beginner', 'beginner'],
+      ['expert', 'expert'],
+    ] as const)('normalizes %s to %s', (value, expected) => {
+      expect(parseBeachSkillRequirement(value)).toBe(expected);
+    });
+
+    it.each(['all-levels', 'advanced-expert', 'novice', '', '   '])(
+      'keeps unknown beach requirement %p unresolved',
+      (value) => {
+        expect(parseBeachSkillRequirement(value)).toBeNull();
+      },
+    );
+
+    it('does not broaden profile skill parsing', () => {
+      expect(parseSkillLevel('beginner-intermediate')).toBeNull();
+      expect(parseSkillLevel('intermediate-advanced')).toBeNull();
     });
   });
 
