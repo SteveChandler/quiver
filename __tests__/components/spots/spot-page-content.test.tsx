@@ -94,7 +94,7 @@ describe("SpotPageContent", () => {
         cityName="Huntington Beach"
         updatedAt="May 22, 2026 at 6:30 AM"
         featuredPhotoUrl="https://example.com/featured.jpg"
-        featuredPhotoAttribution="Photo credit"
+        featuredPhotoAttributionHtml="Photo credit"
         nearbySpots={[
           {
             slug: "bolsa-chica",

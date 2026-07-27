@@ -80,10 +80,17 @@ interface MockAttempt {
   created_at: string;
 }
 
+interface MockDevice {
+  device_token: string;
+  platform: string | null;
+  app_version: string | null;
+  build_number: string | null;
+}
+
 interface MockState {
   events: MockEvent[];
   profiles: Map<string, MockProfile>;
-  devices: Map<string, string[]>;
+  devices: Map<string, Array<string | MockDevice>>;
   notificationsInserts: Array<{ user_id: string; type: string; data: unknown }>;
   attempts: MockAttempt[];
   alertAttempts: Array<{
@@ -149,6 +156,19 @@ function buildEvent(over: Partial<MockEvent> = {}): MockEvent {
     claim_token: null,
     cancel_reason: null,
     last_error: null,
+    ...over,
+  };
+}
+
+function buildDevice(
+  deviceToken: string,
+  over: Partial<Omit<MockDevice, "device_token">> = {},
+): MockDevice {
+  return {
+    device_token: deviceToken,
+    platform: "ios",
+    app_version: "1.0.1",
+    build_number: "11",
     ...over,
   };
 }
@@ -369,7 +389,16 @@ function buildMockSupabase(state: MockState) {
       return {
         select: () => ({
           eq: async (_col: string, val: string) => ({
-            data: (state.devices.get(val) ?? []).map((t) => ({ device_token: t })),
+            data: (state.devices.get(val) ?? []).map((device) =>
+              typeof device === "string"
+                ? {
+                    device_token: device,
+                    platform: null,
+                    app_version: null,
+                    build_number: null,
+                  }
+                : device,
+            ),
             error: null,
           }),
         }),
@@ -562,6 +591,7 @@ describe("processPendingEvents — empty state", () => {
       retry_scheduled_count: 0,
       unknown_type_count: 0,
       missing_timezone_count: 0,
+      presentation_compatibility: {},
     });
     expect(state.attempts).toEqual([]);
     expect(state.eventUpdates).toEqual([]);
@@ -705,6 +735,8 @@ describe("processPendingEvents — happy path", () => {
 
     const sentMessages = (fakeFcm.sendEach.mock.calls[0] as unknown[])[0] as Array<{
       data?: Record<string, string>;
+      android?: { notification?: { channelId?: string } };
+      apns?: { payload?: { aps?: { sound?: string } } };
     }>;
     expect(sentMessages[0].data?.notification_event_id).toBe(
       "evt-push-attribution"
@@ -712,6 +744,8 @@ describe("processPendingEvents — happy path", () => {
     expect(sentMessages[0].data?.message_instance_id).toBe(
       "evt-push-attribution"
     );
+    expect(sentMessages[0]).not.toHaveProperty("android");
+    expect(sentMessages[0]).not.toHaveProperty("apns");
   });
 
   it("forecast_alert: worker push success reconciles alert_delivery_attempts", async () => {
@@ -735,13 +769,24 @@ describe("processPendingEvents — happy path", () => {
       })
     );
     state.profiles.set("user-recipient", buildProfile());
-    state.devices.set("user-recipient", ["device-token-A"]);
+    state.devices.set("user-recipient", [
+      buildDevice("device-token-ios"),
+      buildDevice("device-token-android", {
+        platform: "android",
+        build_number: "12",
+      }),
+      buildDevice("device-token-old", { build_number: "10" }),
+    ]);
 
     const fakeFcm = {
       sendEach: jest.fn(async () => ({
-        successCount: 1,
+        successCount: 3,
         failureCount: 0,
-        responses: [{ success: true }],
+        responses: [
+          { success: true },
+          { success: true },
+          { success: true },
+        ],
       })),
     };
 
@@ -765,6 +810,25 @@ describe("processPendingEvents — happy path", () => {
         skip_reason: "sent",
       },
     ]);
+    const sentMessages = (fakeFcm.sendEach.mock.calls[0] as unknown[])[0] as Array<{
+      android?: { notification?: { channelId?: string } };
+      apns?: { payload?: { aps?: { sound?: string } } };
+    }>;
+    expect(sentMessages[0]).toMatchObject({
+      apns: { payload: { aps: { sound: "quiver-alert.wav" } } },
+    });
+    expect(sentMessages[0]).not.toHaveProperty("android");
+    expect(sentMessages[1]).toMatchObject({
+      android: { notification: { channelId: "quiver-alerts-v1" } },
+    });
+    expect(sentMessages[1]).not.toHaveProperty("apns");
+    expect(sentMessages[2]).not.toHaveProperty("android");
+    expect(sentMessages[2]).not.toHaveProperty("apns");
+    expect(summary.presentation_compatibility).toEqual({
+      "android:eligible_custom:eligible": 1,
+      "ios:eligible_custom:eligible": 1,
+      "ios:legacy_default:old_build": 1,
+    });
   });
 
   it("similarity_match: worker push success reconciles alert_delivery_attempts", async () => {
@@ -2254,6 +2318,68 @@ describe("processPendingEvents — push provider details", () => {
         "https://exp.host/--/api/v2/push/send",
         expect.objectContaining({ method: "POST" })
       );
+      const request = (global.fetch as jest.Mock).mock.calls[0][1] as RequestInit;
+      const [expoPayload] = JSON.parse(request.body as string);
+      expect(expoPayload).not.toHaveProperty("sound");
+      expect(expoPayload).not.toHaveProperty("channelId");
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it("routes weekend-window Expo pushes through the native alert sound channel", async () => {
+    const originalFetch = global.fetch;
+    global.fetch = jest.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        data: [{ status: "ok", id: "ticket-1" }],
+      }),
+    })) as unknown as typeof fetch;
+
+    try {
+      const state = emptyState();
+      state.events.push(
+        buildEvent({
+          id: "evt-weekend-window",
+          actor_user_id: null,
+          type: "weekend_window",
+          entity_type: "beach",
+          entity_id: "beach-1",
+          payload: {
+            beach_id: "beach-1",
+            forecast_at: "2026-07-25T16:00:00.000Z",
+            title: "Weekend window",
+            body: "Saturday morning lines up",
+          },
+          dedupe_key: "weekend_window:user-recipient:2026-07-25",
+        }),
+      );
+      state.profiles.set("user-recipient", buildProfile());
+      state.devices.set("user-recipient", [
+        buildDevice("ExponentPushToken[expo-weekend]"),
+      ]);
+
+      const fakeFcm = {
+        sendEach: jest.fn(async () => ({
+          successCount: 1,
+          failureCount: 0,
+          responses: [{ success: true }],
+        })),
+      };
+
+      const summary = await processPendingEvents(
+        buildMockSupabase(state) as never,
+        { now: NOON_PT, fcm: fakeFcm as never },
+      );
+
+      expect(summary.processed).toBe(1);
+      expect(fakeFcm.sendEach).not.toHaveBeenCalled();
+      const request = (global.fetch as jest.Mock).mock.calls[0][1] as RequestInit;
+      expect(JSON.parse(request.body as string)).toEqual([
+        expect.objectContaining({
+          sound: "quiver-alert.wav",
+        }),
+      ]);
     } finally {
       global.fetch = originalFetch;
     }

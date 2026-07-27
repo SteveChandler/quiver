@@ -121,12 +121,15 @@ describe("/app handoff page", () => {
           target: "android_beta",
           platform: "android",
           destination_type: "android_beta",
-          destination_url: "/android-beta",
+          destination_url:
+            "/android-beta?source=android_beta_page&surface=android_beta&placement=instructions_qr&campaign=app_first_v1",
           handoff_channel: "qr",
         }),
       }),
     );
-    expect(mockRedirect).toHaveBeenCalledWith("/android-beta");
+    expect(mockRedirect).toHaveBeenCalledWith(
+      "/android-beta?source=android_beta_page&surface=android_beta&placement=instructions_qr&campaign=app_first_v1",
+    );
   });
 
   it("replaces an invalid handoff ID at the server boundary", async () => {

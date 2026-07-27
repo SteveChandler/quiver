@@ -4,6 +4,34 @@
 
 The `/app/api` directory implements a comprehensive REST API layer using Next.js 16 App Router conventions. This API serves as the backend for the Quiver surf community platform, providing data access, authentication, real-time integrations, and automated services across multiple domains.
 
+## Android Install Attribution
+
+- `POST /api/install-attribution/issue` creates a 30-day Google Play referrer token after the guided Android beta handoff unlocks. The database stores only the token's SHA-256 hash and bounded acquisition dimensions.
+- `POST /api/install-attribution/redeem` is intentionally public so Android can resolve the Play Install Referrer before authentication. It ignores optional bearer credentials, uses only the static rate limiter, and atomically consumes tokens through the service-role RPC.
+- `INSTALL_ATTRIBUTION_ISSUANCE_ENABLED` and `INSTALL_ATTRIBUTION_REDEMPTION_ENABLED` are independent, exact-`true`, default-off controls. Issuance-off returns the ordinary Play listing. Redemption-off returns a retryable unattributed response before any RPC so active tokens remain drainable later.
+- Both routes and their explicit Next.js header override use `private, no-store, no-cache, must-revalidate`.
+- Schema, replay behavior, rollout approval, and production monitoring are documented in [`docs/install-attribution-runbook.md`](../../docs/install-attribution-runbook.md).
+
+## Android Private Tester Roster
+
+- `POST /api/android-tester-roster/join` is an authenticated, no-store,
+  analytics-consent-independent native join. Its strict body contains only the
+  native install UUID and a 43-character idempotency key.
+- `POST /api/android-tester-roster/first-open` records an explicit server-time
+  first-open receipt. `POST /api/android-tester-roster/install` separately
+  records bounded install attribution when it exists. Both are authenticated,
+  no-store, strict, idempotent, and remain retryable until account join.
+- Admin-only no-store routes provide aggregate summary, manual Directory sync,
+  one-row audited identity reveal, non-PII export, and explicit manual Play
+  evidence. Manual Play evidence is a bounded code plus opaque internal UUID;
+  free-form or raw external identity references are rejected. Mandatory audit
+  failure blocks the underlying read or change.
+- Direct active USER membership in the fixed Google Group is the only automatic
+  eligibility source. Directory sync is fail-closed, complete-snapshot-only,
+  and database-claimed before Directory fetch through atomic apply.
+- See [`docs/android-tester-roster-runbook.md`](../../docs/android-tester-roster-runbook.md)
+  for encryption, retention, provisioning, monitoring, and rollout.
+
 ## Core Architecture Patterns
 
 ### 🔧 **Response Utilities**

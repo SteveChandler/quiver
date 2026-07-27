@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { AndroidBetaClient } from "./android-beta-client";
 
 export const metadata: Metadata = {
@@ -9,5 +10,16 @@ export const metadata: Metadata = {
 };
 
 export default function AndroidBetaPage() {
-  return <AndroidBetaClient />;
+  const installAttributionIssuanceEnabled =
+    process.env.INSTALL_ATTRIBUTION_ISSUANCE_ENABLED === "true";
+
+  return (
+    <Suspense>
+      <AndroidBetaClient
+        installAttributionIssuanceEnabled={
+          installAttributionIssuanceEnabled
+        }
+      />
+    </Suspense>
+  );
 }

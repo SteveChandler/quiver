@@ -90,6 +90,11 @@ jest.mock("@/components/edit-profile-modal", () => ({
 jest.mock("@/components/profile/surf-profile-section", () => ({
   SurfProfileSection: () => <div data-testid="surf-profile-section">Surf Profile Section</div>,
 }));
+jest.mock("@/components/profile/community-photo-recovery", () => ({
+  CommunityPhotoRecovery: () => (
+    <div data-testid="community-photo-recovery">Removed spot photos</div>
+  ),
+}));
 jest.mock("@/components/user-stats", () => ({
   UserStats: () => <div data-testid="user-stats">User Stats</div>,
 }));
@@ -633,6 +638,32 @@ describe("ProfileView - Surf Style Card", () => {
           "/profile",
           { scroll: false }
         );
+      });
+    });
+  });
+
+  describe("Community photo recovery", () => {
+    it("makes removed spot photos reachable from the profile settings tab", async () => {
+      mockSearchParamsGet = jest.fn((key: string) => {
+        if (key === "tab") return "surf-profile";
+        return null;
+      });
+      mockSearchParamsToString = jest
+        .fn()
+        .mockReturnValue("tab=surf-profile");
+      (useUserPreferences as jest.Mock).mockReturnValue({
+        data: null,
+        loading: false,
+        error: null,
+        refetch: jest.fn(),
+      });
+
+      render(<ProfileView />);
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId("community-photo-recovery"),
+        ).toBeInTheDocument();
       });
     });
   });

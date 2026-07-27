@@ -100,6 +100,11 @@ const SurfProfileSection = lazy(() =>
     default: m.SurfProfileSection,
   }))
 );
+const CommunityPhotoRecovery = lazy(() =>
+  import("@/components/profile/community-photo-recovery").then((m) => ({
+    default: m.CommunityPhotoRecovery,
+  }))
+);
 
 // Loading skeletons for tabs
 function SessionsLoadingSkeleton() {
@@ -672,6 +677,11 @@ function ProfileViewContent() {
                       fallback={<TabLoadingSkeleton type="Surf Profile" />}
                     >
                       <SurfProfileSection />
+                    </Suspense>
+                    <Suspense
+                      fallback={<TabLoadingSkeleton type="Removed photos" />}
+                    >
+                      <CommunityPhotoRecovery />
                     </Suspense>
                   </TabsContent>
                 </div>

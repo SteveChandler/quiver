@@ -29,6 +29,7 @@ import { ReviewSchema } from "@/components/seo/review-schema";
 import { pickBestUsaBeachMatch } from "@/lib/utils/beach-matching-utils";
 import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
 import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions";
+import { getSpotFeaturedPhoto } from "@/actions/spot/spot-data-actions";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import { getBeachReviews } from "@/actions/beach-review-actions";
 import {
@@ -156,25 +157,19 @@ export default async function GenericBeachDetailPage(props: PageProps) {
         }
       })(),
       getBeachCameraUrl(beach.id),
-      (async () => {
-        try {
-          const supabase = createPublicReadClient();
-          const { data } = await supabase
-            .from("beach_photos")
-            .select(
-              "image_url, thumb_url, source, creator_name, license_code, attribution_html",
-            )
-            .eq("beach_id", beach.id)
-            .eq("approved", true)
-            .is("deleted_at", null)
-            .order("source", { ascending: true }) // google_places sorts before openverse
-            .limit(1)
-            .maybeSingle();
-          return data;
-        } catch {
-          return null;
-        }
-      })(),
+      getSpotFeaturedPhoto(beach.id).then((photo) =>
+        photo
+          ? {
+              image_url: photo.thumbUrl ?? photo.imageUrl,
+              thumb_url: photo.thumbUrl,
+              source: photo.source,
+              creator_name: photo.creatorName,
+              license_code: null,
+              attribution_html: photo.attributionHtml,
+              attribution: photo.attribution,
+            }
+          : null,
+      ),
     ]);
 
     const surfCallReport = surfReportResult?.report || null;

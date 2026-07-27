@@ -1,6 +1,7 @@
 import type { Beach } from "@/types/database";
 import type { BeachSources } from "@/hooks/use-beach-detail-data";
 import type { ZineBeachPhoto } from "./types";
+import { PhotoAttribution } from "@/components/photos/photo-attribution";
 import { buildCamEmbed } from "@/lib/media/cam-embed";
 import { CamsSection } from "@/components/beach-detail/cams-section";
 import {
@@ -246,6 +247,14 @@ function TapedMapPhoto({
           <span className="tape tl" aria-hidden />
           <span className="tape tr" aria-hidden />
           <HalftonePhoto src={beachPhoto?.image_url} alt={beachPhoto ? `${beachName} surf zine photo` : undefined} label="HERO PHOTO" height={210} />
+          {beachPhoto?.image_url &&
+          (beachPhoto.attribution || beachPhoto.attribution_html) ? (
+            <PhotoAttribution
+              attribution={beachPhoto.attribution ?? null}
+              attributionHtml={beachPhoto.attribution_html}
+              className="absolute bottom-2 right-2 z-20 max-w-[70%] truncate bg-[#11100D]/75 px-2 py-1 font-mono text-[10px] text-[#F4EBD8] underline-offset-2 hover:underline"
+            />
+          ) : null}
           {/* "Line up here" annotation — only when we have a real photo to
               point at. The fallback ocean silhouette has no specific feature,
               so suppressing the arrow there reads as honest "no photo yet". */}

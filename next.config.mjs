@@ -124,6 +124,69 @@ const nextConfig = {
         ],
       },
       {
+        source: "/api/install-attribution/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
+      {
+        source: "/api/android-tester-roster/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
+      {
+        source: "/api/admin/android-tester-roster/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
+      {
+        source: "/api/community-photos/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
+      {
+        source: "/api/admin/community-photos/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
+      {
+        source: "/api/admin/community-photo-contributors/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
+      {
+        source: "/api/cron/community-photo-retention",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
+      {
         source: "/api/surf/discover",
         headers: [
           {

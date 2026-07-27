@@ -40,3 +40,6 @@ export const ANDROID_BETA_CONTACT_MAILTO =
 
 export const ANDROID_BETA_PLAY_URL: string | null =
   "https://play.google.com/apps/testing/app.quiversurf.surf";
+
+export const ANDROID_PLAY_STORE_LISTING_URL =
+  "https://play.google.com/store/apps/details?id=app.quiversurf.surf";

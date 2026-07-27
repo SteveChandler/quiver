@@ -6,8 +6,13 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Compass, MapPin, Waves } from "lucide-react";
 import { ConditionsTicker } from "@/components/conditions/conditions-ticker";
 import { MultiDayForecastTable } from "@/components/forecast/forecast-table";
+import { PhotoAttribution } from "@/components/photos/photo-attribution";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  getResolvedSpotPhotos,
+  type ResolvedSpotPhoto,
+} from "@/lib/community-photos";
 import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
@@ -114,6 +119,34 @@ async function getNearestBeachPhoto(
   return normalizePhotoUrl(photo?.thumb_url) ?? normalizePhotoUrl(photo?.image_url);
 }
 
+async function getCurrentViewerId(): Promise<string | undefined> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id;
+  } catch {
+    return undefined;
+  }
+}
+
+async function getCustomSpotPhotos(
+  spotId: string,
+  viewerId: string | undefined,
+): Promise<ResolvedSpotPhoto[]> {
+  return getResolvedSpotPhotos({
+    target: { type: "custom_spot", id: spotId },
+    curated: [],
+    viewerId,
+    limit: 6,
+  });
+}
+
+function requiresDirectPhotoFetch(
+  photo: ResolvedSpotPhoto | null,
+): boolean {
+  return photo?.source === "community";
+}
+
 function formatNumber(value: number | null): string {
   if (value == null || !Number.isFinite(value)) return "Not set";
   return `${Math.round(value)} deg`;
@@ -165,11 +198,18 @@ export default async function CustomSpotDetailPage(
 
   if (!spot) notFound();
 
-  const [nearestBeach, forecasts, heroPhotoUrl] = await Promise.all([
+  const viewerId = await getCurrentViewerId();
+  const [nearestBeach, forecasts, borrowedPhotoUrl, customSpotPhotos] = await Promise.all([
     getNearestBeach(spot.nearest_beach_id),
     getBorrowedForecasts(spot.nearest_beach_id),
     getNearestBeachPhoto(spot.nearest_beach_id),
+    getCustomSpotPhotos(spot.id, viewerId),
   ]);
+  const featuredSpotPhoto = customSpotPhotos[0] ?? null;
+  const heroPhotoUrl =
+    featuredSpotPhoto?.thumbUrl ??
+    featuredSpotPhoto?.imageUrl ??
+    borrowedPhotoUrl;
   const currentForecast = getCurrentForecast(forecasts);
   const beachTimezone = nearestBeach?.timezone ?? null;
   const fullForecastHref = nearestBeach
@@ -222,16 +262,19 @@ export default async function CustomSpotDetailPage(
             </div>
           </div>
 
-          {nearestBeach && heroPhotoUrl ? (
+          {heroPhotoUrl ? (
             <div className="polaroid rot-2">
               <div className="photo">
                 <Image
                   src={heroPhotoUrl}
-                  alt={`${nearestBeach.name} surf zone`}
+                  alt={`${
+                    featuredSpotPhoto ? spot.name : nearestBeach?.name ?? spot.name
+                  } surf zone`}
                   width={800}
                   height={600}
                   className="h-full w-full object-cover saturate-[0.78]"
                   sizes="(min-width: 1024px) 400px, 100vw"
+                  unoptimized={requiresDirectPhotoFetch(featuredSpotPhoto)}
                 />
                 <div className="absolute inset-0 bg-[#F4EBD8]/10 mix-blend-screen" />
                 <QuiverSticker
@@ -239,7 +282,19 @@ export default async function CustomSpotDetailPage(
                   className="absolute -bottom-5 -right-4 w-28 -rotate-[2deg] drop-shadow-md"
                 />
               </div>
-              <p className="cap">Borrowed from {nearestBeach.name}</p>
+              <p className="cap">
+                {featuredSpotPhoto ? (
+                  <PhotoAttribution
+                    attribution={featuredSpotPhoto.attribution}
+                    attributionHtml={featuredSpotPhoto.attributionHtml}
+                    className="underline-offset-2 hover:underline"
+                  />
+                ) : nearestBeach ? (
+                  `Borrowed from ${nearestBeach.name}`
+                ) : (
+                  "Quiver community"
+                )}
+              </p>
             </div>
           ) : (
             <div className="torn torn-tb relative hidden min-h-48 border-2 border-[#11100D] bg-[#FBF6E8] p-6 lg:block">
@@ -253,6 +308,58 @@ export default async function CustomSpotDetailPage(
             </div>
           )}
         </header>
+
+        {customSpotPhotos.length > 0 ? (
+          <section className="mt-12" aria-labelledby="custom-spot-photos-heading">
+            <div className="mb-5 flex items-end justify-between gap-4 border-b-2 border-dashed border-[#11100D]/35 pb-3">
+              <h2
+                id="custom-spot-photos-heading"
+                className="font-heading text-2xl font-black uppercase leading-tight text-[#11100D]"
+              >
+                Spot photos
+              </h2>
+              <span className="font-mono text-xs uppercase tracking-[0.12em] text-[#11100D]/58">
+                {customSpotPhotos.length}{" "}
+                {customSpotPhotos.length === 1 ? "photo" : "photos"}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+              {customSpotPhotos.map((photo, index) => (
+                <figure
+                  key={photo.id}
+                  className="overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] shadow-[2px_3px_0_rgba(17,16,13,0.18)]"
+                >
+                  <div className="relative aspect-[4/3]">
+                    <Image
+                      src={photo.thumbUrl ?? photo.imageUrl}
+                      alt={
+                        photo.title ??
+                        `${spot.name} community surf photo ${index + 1}`
+                      }
+                      fill
+                      sizes="(min-width: 768px) 33vw, 50vw"
+                      className="object-cover"
+                      unoptimized={requiresDirectPhotoFetch(photo)}
+                    />
+                  </div>
+                  <figcaption className="flex min-h-10 items-center justify-between gap-2 px-2 py-1.5 font-mono text-[10px] text-[#11100D]/72">
+                    <PhotoAttribution
+                      attribution={photo.attribution}
+                      attributionHtml={photo.attributionHtml}
+                      className="min-w-0 truncate underline-offset-2 hover:underline"
+                    />
+                    {spot.visibility === "public" && photo.community ? (
+                      <span className="shrink-0">
+                        {photo.community.upvotes} up ·{" "}
+                        {photo.community.downvotes} down
+                      </span>
+                    ) : null}
+                  </figcaption>
+                </figure>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <section className="torn torn-tb mt-12 border-2 border-[#11100D] bg-[#FBF6E8]">
           <div className="mb-4 flex items-center gap-3">
