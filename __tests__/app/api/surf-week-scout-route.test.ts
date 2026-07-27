@@ -79,6 +79,27 @@ describe('POST /api/surf/week-scout', () => {
     );
   });
 
+  it('accepts legacy requests but evaluates only the first eight unique candidates in order', async () => {
+    const candidateBeachIds = Array.from({ length: 12 }, (_, index) => (
+      `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`
+    ));
+
+    const response = await callRoute({
+      candidateBeachIds,
+      localTimezone: 'Pacific/Honolulu',
+      startLocalDate: '2026-07-15',
+      dayCount: 7,
+    });
+
+    expect(response.status).toBe(200);
+    expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith(
+      'user-week-scout',
+      expect.objectContaining({
+        candidateBeachIds: candidateBeachIds.slice(0, 8),
+      }),
+    );
+  });
+
   it.each([
     ['an invalid timezone', {
       candidateBeachIds: [BEACH_A],

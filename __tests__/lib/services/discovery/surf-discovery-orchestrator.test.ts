@@ -549,6 +549,99 @@ afterEach(() => {
   resetDefaultDiscoveryMocks();
 });
 
+describe('discoverSurfSpots - Hotfix Candidate Boundaries', () => {
+  const userLocation = { lat: 32.7157, lon: -117.1611 };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockState.candidatePoolResponse = {
+      candidates: Array.from({ length: 12 }, (_, index) => ({
+        ...mockBeach1,
+        id: `beach-${index + 1}`,
+        name: `Beach ${index + 1}`,
+      })) as Beach[],
+      preferredWaveSize: null,
+      userSkillLevel: null,
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: [],
+      failed: [],
+      staleCount: 0,
+    };
+  });
+
+  it('fetches forecasts for only the first eight distance-ordered candidates', async () => {
+    await discoverSurfSpots('candidate-limit-user', {
+      userLocation,
+      candidatePoolLimit: 8,
+    });
+
+    const { batchFetchForecasts } = require(
+      '@/lib/services/discovery/forecast-batch-fetcher',
+    );
+    expect(batchFetchForecasts).toHaveBeenCalledTimes(1);
+    const fetchedCandidates = batchFetchForecasts.mock.calls[0][0] as Beach[];
+    expect(fetchedCandidates.map((beach) => beach.id)).toEqual(
+      Array.from({ length: 8 }, (_, index) => `beach-${index + 1}`),
+    );
+  });
+
+  it('marks a successful empty candidate lookup as no_candidates', async () => {
+    mockState.candidatePoolResponse.candidates = [];
+
+    const result = await discoverSurfSpots('empty-candidate-user', {
+      userLocation,
+      candidatePoolLimit: 8,
+      throwOnFailure: true,
+    });
+
+    expect(result.metadata.outcome).toBe('no_candidates');
+  });
+
+  it('throws a retryable operational error when forecasts are unavailable', async () => {
+    await expect(discoverSurfSpots('forecast-outage-user', {
+      userLocation,
+      candidatePoolLimit: 8,
+      throwOnFailure: true,
+    })).rejects.toMatchObject({
+      code: 'forecast_unavailable',
+      retryable: true,
+    });
+  });
+
+  it('classifies an overall timeout as retryable', async () => {
+    const { buildCandidatePool } = require(
+      '@/lib/services/discovery/candidate-pool-builder',
+    );
+    buildCandidatePool.mockImplementationOnce(() => new Promise(() => {}));
+
+    await expect(discoverSurfSpots('timeout-user', {
+      userLocation,
+      overallTimeout: 1,
+      throwOnFailure: true,
+    })).rejects.toMatchObject({
+      code: 'timeout',
+      retryable: true,
+    });
+  });
+
+  it('classifies an unexpected internal failure as retryable', async () => {
+    const { buildCandidatePool } = require(
+      '@/lib/services/discovery/candidate-pool-builder',
+    );
+    buildCandidatePool.mockRejectedValueOnce(new Error('candidate query failed'));
+
+    await expect(discoverSurfSpots('internal-error-user', {
+      userLocation,
+      throwOnFailure: true,
+    })).rejects.toMatchObject({
+      code: 'internal_error',
+      retryable: true,
+    });
+  });
+});
+
 describe('discoverSurfSpots - Favorites Merging', () => {
   const testUserId = 'test-user-123';
   const defaultUserLocation = { lat: 32.7157, lon: -117.1611 };

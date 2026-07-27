@@ -342,7 +342,60 @@ describe("/api/surf/discover entitlement resolution", () => {
 
     expect(mockDiscoverSurfSpots).toHaveBeenCalledTimes(1);
     const [, opts] = mockDiscoverSurfSpots.mock.calls[0];
-    expect(opts).toMatchObject({ isPro: true });
+    expect(opts).toMatchObject({
+      isPro: true,
+      candidatePoolLimit: 8,
+      throwOnFailure: true,
+    });
+  });
+
+  it("returns explicit no_candidates without manufacturing a safety hold", async () => {
+    mockDiscoverSurfSpots.mockResolvedValueOnce({
+      recommendations: [],
+      searchCriteria: { maxResults: 5 },
+      metadata: {
+        outcome: "no_candidates",
+        totalBeachesConsidered: 0,
+        successfulForecasts: 0,
+        partialSuccess: false,
+        failedBeaches: 0,
+        staleBeaches: 0,
+        generated_at: new Date().toISOString(),
+      },
+      regionalCall: "",
+    });
+
+    const response = await callDiscoverRoute(null);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockSanitizeSerializationBoundary).not.toHaveBeenCalled();
+    expect(body.data.recommendationAvailability).toMatchObject({
+      state: "available",
+    });
+    expect(body.data.sessionDecision).toMatchObject({
+      reasonCode: "no_candidates",
+      selection: null,
+    });
+  });
+
+  it("returns a retryable error for an operational discovery failure", async () => {
+    mockDiscoverSurfSpots.mockRejectedValueOnce(
+      Object.assign(new Error("Forecast service unavailable"), {
+        code: "forecast_unavailable",
+      }),
+    );
+
+    const response = await callDiscoverRoute(null);
+    const body = await response.json();
+
+    expect(response.status).toBe(503);
+    expect(body).toMatchObject({
+      success: false,
+      retryable: true,
+      code: "forecast_unavailable",
+    });
+    expect(mockSanitizeSerializationBoundary).not.toHaveBeenCalled();
   });
 
   it("passes de-duped includeBeachIds through to the discovery orchestrator", async () => {
