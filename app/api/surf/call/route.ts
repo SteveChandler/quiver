@@ -44,6 +44,29 @@ type CanonicalSurfCallResponse = SpotSurfReportResult & {
   forecastAlignment?: SurfCallForecastAlignment;
 };
 
+function retryableDiscoveryResponse(error: unknown): NextResponse {
+  const candidateCode =
+    error && typeof error === 'object' && 'code' in error
+      ? error.code
+      : undefined;
+  const code =
+    candidateCode === 'timeout' ||
+    candidateCode === 'forecast_unavailable' ||
+    candidateCode === 'internal_error'
+      ? candidateCode
+      : 'internal_error';
+
+  return NextResponse.json(
+    {
+      success: false,
+      error: 'Recommendations are temporarily unavailable',
+      code,
+      retryable: true,
+    },
+    { status: code === 'timeout' ? 504 : 503 },
+  );
+}
+
 async function readForecastAlignment(
   supabase: AuthenticatedContext['supabase'],
   beachId: string,
@@ -289,28 +312,35 @@ async function surfCallHandler(
       requestedScopeEndMs,
     ),
   );
-  const canonicalContext = await resolveCanonicalSessionDecisionContext({
-    userId: user.id,
-    profileExperience,
-    anchorTime,
-    candidateBeachIds: [beachId],
-    scope: {
-      kind: 'plan_next_session',
-      windowStart: scopeStart.toISOString(),
-      windowEnd: scopeEnd.toISOString(),
-      timezone: typedBeach.timezone ?? 'UTC',
-    },
-    discoveryOptions: {
-      userLocation:
-        typedBeach.lat !== null && typedBeach.lon !== null
-          ? { lat: typedBeach.lat, lon: typedBeach.lon }
-          : undefined,
-      horizonHours: 24,
-      ...(forecastAt ? { forecastAt } : {}),
-      includeBeachIds: [beachId],
-      isPro,
-    },
-  });
+  let canonicalContext;
+  try {
+    canonicalContext = await resolveCanonicalSessionDecisionContext({
+      userId: user.id,
+      profileExperience,
+      anchorTime,
+      candidateBeachIds: [beachId],
+      scope: {
+        kind: 'plan_next_session',
+        windowStart: scopeStart.toISOString(),
+        windowEnd: scopeEnd.toISOString(),
+        timezone: typedBeach.timezone ?? 'UTC',
+      },
+      discoveryOptions: {
+        userLocation:
+          typedBeach.lat !== null && typedBeach.lon !== null
+            ? { lat: typedBeach.lat, lon: typedBeach.lon }
+            : undefined,
+        horizonHours: 24,
+        candidatePoolLimit: 1,
+        ...(forecastAt ? { forecastAt } : {}),
+        includeBeachIds: [beachId],
+        isPro,
+        throwOnFailure: true,
+      },
+    });
+  } catch (error) {
+    return retryableDiscoveryResponse(error);
+  }
   const sessionDecision = canonicalContext.decision;
   const recommendations = [
     ...canonicalContext.discovery.recommendations,

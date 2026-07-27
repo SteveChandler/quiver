@@ -71,7 +71,10 @@ async function weekScoutHandler(
     return createValidationError('Invalid Week Scout request', parsed.error.flatten());
   }
 
-  const forecast = await generateWeekScoutForecast(user.id, parsed.data);
+  const forecast = await generateWeekScoutForecast(user.id, {
+    ...parsed.data,
+    candidateBeachIds: parsed.data.candidateBeachIds.slice(0, 8),
+  });
   return createSuccessResponse(forecast);
 }
 

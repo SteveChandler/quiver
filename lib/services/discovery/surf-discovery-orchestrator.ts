@@ -150,6 +150,24 @@ const DEFAULT_OVERALL_TIMEOUT_MS = 12000; // Increased from 8s for more beaches
 const MAX_INCLUDED_BEACH_IDS = 12;
 const MAX_PUBLIC_CUSTOM_SPOTS = 5;
 
+export type SurfDiscoveryOperationalErrorCode =
+  | 'forecast_unavailable'
+  | 'timeout'
+  | 'internal_error';
+
+export class SurfDiscoveryOperationalError extends Error {
+  readonly retryable = true;
+
+  constructor(
+    readonly code: SurfDiscoveryOperationalErrorCode,
+    message: string,
+    options?: ErrorOptions,
+  ) {
+    super(message, options);
+    this.name = 'SurfDiscoveryOperationalError';
+  }
+}
+
 interface CustomSpotDiscoveryRow {
   id: string;
   user_id: string;
@@ -454,9 +472,12 @@ export function generatePrimaryReason(
 }
 
 /**
- * Empty response for error cases
+ * Empty response for successful no-candidate and legacy fallback cases.
  */
-function emptyResponse(maxResults: number): SurfDiscoveryResponse {
+function emptyResponse(
+  maxResults: number,
+  outcome: SurfDiscoveryResponse['metadata']['outcome'],
+): SurfDiscoveryResponse {
   const generatedAt = new Date();
   return {
     recommendations: [],
@@ -468,6 +489,7 @@ function emptyResponse(maxResults: number): SurfDiscoveryResponse {
       maxResults,
     },
     metadata: {
+      outcome,
       totalBeachesConsidered: 0,
       successfulForecasts: 0,
       partialSuccess: false,
@@ -1362,6 +1384,7 @@ async function discoverSurfSpotsInner(
     horizonHours,
     forecastAt,
     maxResults = DEFAULT_MAX_RESULTS,
+    candidatePoolLimit = CANDIDATE_POOL_LIMIT,
     maxConcurrent = DEFAULT_MAX_CONCURRENT,
     timeout = DEFAULT_TIMEOUT_MS,
     overallTimeout = DEFAULT_OVERALL_TIMEOUT_MS,
@@ -1370,6 +1393,10 @@ async function discoverSurfSpotsInner(
     isPro = false,
     includeBeachIds,
   } = options;
+  const effectiveCandidatePoolLimit = Math.min(
+    CANDIDATE_POOL_LIMIT,
+    Math.max(1, Math.floor(candidatePoolLimit)),
+  );
   const radiusMiles =
     requestedRadiusMiles === undefined
       ? MAX_CANDIDATE_RADIUS_MILES
@@ -1398,14 +1425,14 @@ async function discoverSurfSpotsInner(
     candidates.length,
     Math.max(
       0,
-      CANDIDATE_POOL_LIMIT - includedCandidates.length - customNearestCandidates.length
+      effectiveCandidatePoolLimit - includedCandidates.length - customNearestCandidates.length
     )
   );
   const nearbyCandidates = candidates.slice(0, maxNearbyCandidates);
   const finalCandidates = mergeCandidatePools(
     mergeCandidatePools(nearbyCandidates, includedCandidates),
     customNearestCandidates,
-  ).slice(0, CANDIDATE_POOL_LIMIT);
+  ).slice(0, effectiveCandidatePoolLimit);
   // A custom spot is only "primary" (eligible for the Now/Best feeds) when it's
   // as close as the nearby beaches — the same nearest-within-radius cut curated
   // beaches pass. Without this an own custom spot surfaces in Now/Best from
@@ -1441,7 +1468,7 @@ async function discoverSurfSpotsInner(
 
   if (finalCandidates.length === 0) {
     log.warn(`No candidate beaches found for user ${userId}`);
-    return emptyResponse(maxResults);
+    return emptyResponse(maxResults, 'no_candidates');
   }
 
   log.debug(
@@ -1495,7 +1522,10 @@ async function discoverSurfSpotsInner(
 
     if (beachForecasts.length === 0) {
       log.error(`No forecasts retrieved for user ${userId} (even with stale fallback)`);
-      return emptyResponse(maxResults);
+      throw new SurfDiscoveryOperationalError(
+        'forecast_unavailable',
+        'No forecasts were available for discovery candidates',
+      );
     }
   }
 
@@ -2400,13 +2430,14 @@ export async function discoverSurfSpots(
     userLocation,
     maxResults = DEFAULT_MAX_RESULTS,
     overallTimeout = DEFAULT_OVERALL_TIMEOUT_MS,
+    throwOnFailure = false,
   } = options;
 
   try {
     // GPS location is required for discovery
     if (!userLocation) {
       log.warn(`Discovery called without userLocation for user ${userId}`);
-      return emptyResponse(maxResults);
+      return emptyResponse(maxResults, 'no_candidates');
     }
 
     // Enforce overall timeout with Promise.race
@@ -2430,6 +2461,18 @@ export async function discoverSurfSpots(
   } catch (error) {
     const duration = Date.now() - startTime;
     log.error(`Discovery failed after ${duration}ms for user ${userId}:`, error);
-    return emptyResponse(maxResults);
+    if (throwOnFailure) {
+      if (error instanceof SurfDiscoveryOperationalError) {
+        throw error;
+      }
+      const isTimeout =
+        error instanceof Error && error.message.startsWith('Discovery timeout');
+      throw new SurfDiscoveryOperationalError(
+        isTimeout ? 'timeout' : 'internal_error',
+        isTimeout ? 'Surf discovery timed out' : 'Surf discovery failed',
+        { cause: error },
+      );
+    }
+    return emptyResponse(maxResults, 'no_candidates');
   }
 }

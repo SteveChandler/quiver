@@ -64,6 +64,29 @@ const QuerySchema = z.object({
   }),
 });
 
+function retryableDiscoveryResponse(error: unknown): NextResponse {
+  const candidateCode =
+    error && typeof error === 'object' && 'code' in error
+      ? error.code
+      : undefined;
+  const code =
+    candidateCode === 'timeout' ||
+    candidateCode === 'forecast_unavailable' ||
+    candidateCode === 'internal_error'
+      ? candidateCode
+      : 'internal_error';
+
+  return NextResponse.json(
+    {
+      success: false,
+      error: 'Recommendations are temporarily unavailable',
+      code,
+      retryable: true,
+    },
+    { status: code === 'timeout' ? 504 : 503 },
+  );
+}
+
 /**
  * GET /api/surf/discover
  *
@@ -155,16 +178,23 @@ async function surfDiscoveryHandler(
   };
 
   // 4. Call service to get ranked recommendations
-  const discovery = await discoverSurfSpots(user.id, {
-    userLocation,
-    radiusMiles: radius,
-    horizonHours,
-    maxResults,
-    discoveryMode: mode ?? 'best-window',
-    timeSlot,
-    isPro,
-    includeBeachIds,
-  });
+  let discovery;
+  try {
+    discovery = await discoverSurfSpots(user.id, {
+      userLocation,
+      radiusMiles: radius,
+      horizonHours,
+      maxResults,
+      candidatePoolLimit: 8,
+      discoveryMode: mode ?? 'best-window',
+      timeSlot,
+      isPro,
+      includeBeachIds,
+      throwOnFailure: true,
+    });
+  } catch (error) {
+    return retryableDiscoveryResponse(error);
+  }
 
   // 3a. Stamp empirical shoaling calibration status onto each recommendation's
   // forecast so the honesty-layer UI can distinguish calibrated face heights
@@ -222,10 +252,18 @@ async function surfDiscoveryHandler(
     profileExperience = null;
   }
   const sanitizedDiscovery =
-    await sanitizeSurfDiscoveryForSerializationMajorEventHold(
-      discovery,
-      profileExperience,
-    );
+    discovery.metadata.outcome === 'no_candidates'
+      ? {
+          ...discovery,
+          recommendationAvailability: {
+            state: 'available' as const,
+            holdEpoch: 'no-candidates',
+          },
+        }
+      : await sanitizeSurfDiscoveryForSerializationMajorEventHold(
+          discovery,
+          profileExperience,
+        );
   const gatedDiscovery = gateSurfDiscoveryResponse(
     sanitizedDiscovery,
     entitlement,
