@@ -73,8 +73,18 @@ function forecast(windows: WeekScoutWindowResponse[]): MajorEventHoldWeekScoutRe
     scorerVersion: 'week-scout-v1:discovery-hero-v1',
     candidateFingerprint: 'fingerprint',
     days: [
-      { localDate: '2026-07-25', windows, bestWindowId: windows[0]?.id ?? null },
-      { localDate: '2026-07-26', windows: [], bestWindowId: null },
+      {
+        localDate: '2026-07-25',
+        windows,
+        bestWindowId: windows[0]?.id ?? null,
+        exclusionReasons: [],
+      },
+      {
+        localDate: '2026-07-26',
+        windows: [],
+        bestWindowId: null,
+        exclusionReasons: ['no_forecasts'],
+      },
     ],
     recommendationAvailability: {
       state: 'available',

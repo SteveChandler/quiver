@@ -10,7 +10,7 @@ import {
 import { generateWeekScoutForecast } from '@/lib/services/discovery/week-scout';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+export const maxDuration = 60;
 
 function isValidLocalDate(value: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -42,7 +42,7 @@ const WeekScoutRequestSchema = z.object({
     .array(z.string().uuid())
     .min(1)
     .transform((ids) => Array.from(new Set(ids)))
-    .refine((ids) => ids.length <= 30, 'At most 30 candidate beaches are allowed'),
+    .refine((ids) => ids.length <= 100, 'At most 100 candidate beaches are allowed'),
   localTimezone: z.string().min(1).refine(isValidTimezone, 'Invalid IANA timezone'),
   startLocalDate: z.string().refine(isValidLocalDate, 'Invalid local date'),
   dayCount: z.literal(7),
@@ -71,10 +71,7 @@ async function weekScoutHandler(
     return createValidationError('Invalid Week Scout request', parsed.error.flatten());
   }
 
-  const forecast = await generateWeekScoutForecast(user.id, {
-    ...parsed.data,
-    candidateBeachIds: parsed.data.candidateBeachIds.slice(0, 8),
-  });
+  const forecast = await generateWeekScoutForecast(user.id, parsed.data);
   if (
     forecast.recommendationAvailability?.state === 'none'
     && forecast.recommendationAvailability.reasonCode === 'hold_state_unavailable'

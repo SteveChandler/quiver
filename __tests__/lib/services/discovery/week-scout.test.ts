@@ -208,7 +208,7 @@ describe('generateWeekScoutForecast', () => {
     ).rejects.toThrow(/dayCount/i);
   });
 
-  it('returns one canonical weekly session while preserving every physical forecast window', async () => {
+  it('retains every daily ranking while adding one supplemental canonical weekly session', async () => {
     const deps = dependencies();
     const response = await generateWeekScoutForecast(
       'user-week-scout',
@@ -249,11 +249,17 @@ describe('generateWeekScoutForecast', () => {
       },
     });
     const selectedId = response.sessionDecision.selection?.candidateId;
-    const visibleDecisions = response.days.flatMap((day) =>
-      day.windows.filter((window) => window.verdict !== null),
-    );
-    expect(visibleDecisions).toHaveLength(1);
-    expect(visibleDecisions[0]?.id).toBe(selectedId);
+    const visibleDecisions = response.days.flatMap((day) => day.windows);
+    expect(visibleDecisions).toHaveLength(6);
+    expect(visibleDecisions.every((window) => (
+      window.verdict !== null
+      && window.conditionScore !== null
+      && window.rankingScore !== null
+      && window.rideable !== null
+      && window.safe !== null
+      && window.takeaway !== null
+      && window.rankedSpots.length > 0
+    ))).toBe(true);
     expect(
       response.days.flatMap((day) => day.windows).every((window) => (
         window.forecast.waveHeight === '3.5'
@@ -269,23 +275,80 @@ describe('generateWeekScoutForecast', () => {
       beachId: BEACH_B,
       bucket: 'morning',
       verdict: 'worth_it',
-      conditionScore: null,
-      rankingScore: null,
-      rideable: null,
-      safe: null,
+      conditionScore: 84,
+      rankingScore: 88,
+      rideable: true,
+      safe: true,
       forecast: {
         tideHeightFt: 1.4,
         tidePhase: 'Rising',
         freshnessAt: '2026-07-31T13:30:00.000Z',
       },
-      takeaway: null,
-      rankedSpots: [],
+      takeaway: 'Clean wind and solid period',
+      rankedSpots: expect.arrayContaining([
+        expect.objectContaining({ beachId: BEACH_A }),
+        expect.objectContaining({ beachId: BEACH_B }),
+      ]),
     });
     expect(firstDay.bestWindowId).toBe(selectedId);
     expect(response.days.slice(1).every((day) => day.bestWindowId === null)).toBe(true);
+    expect(firstDay.exclusionReasons).toEqual([]);
+    expect(response.days.slice(1).every((day) => (
+      day.exclusionReasons.length === 1
+      && day.exclusionReasons[0] === 'no_forecasts'
+    ))).toBe(true);
 
     expect(deps.selectBestWindow).toHaveBeenCalledTimes(6);
     expect(deps.rankWindows).toHaveBeenCalledTimes(3);
+  });
+
+  it('scores a broad drive-range pool but returns only eight ranked windows per bucket', async () => {
+    const candidates = Array.from({ length: 10 }, (_, index) => beach(
+      `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+      `Beach ${index + 1}`,
+    ));
+    const deps = dependencies();
+    deps.fetchBeaches = jest.fn(async () => candidates);
+    deps.fetchForecasts = jest.fn(async () => new Map(
+      candidates.map((candidate) => [
+        candidate.id,
+        [
+          forecast(candidate.id, '2026-07-31T16:00:00.000Z'),
+          forecast(candidate.id, '2026-07-31T20:00:00.000Z'),
+          forecast(candidate.id, '2026-08-01T00:00:00.000Z'),
+        ],
+      ]),
+    ));
+
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      {
+        candidateBeachIds: candidates.map((candidate) => candidate.id),
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 7,
+      },
+      deps,
+    );
+
+    expect(mockEvaluateMajorEventHoldCandidates).toHaveBeenCalledWith(
+      expect.objectContaining({
+        candidates: expect.any(Array),
+      }),
+    );
+    const evaluatedCandidates = mockEvaluateMajorEventHoldCandidates.mock.calls.at(-1)?.[0]
+      .candidates as unknown[];
+    expect(deps.fetchBeaches).toHaveBeenCalledWith(
+      candidates.map((candidate) => candidate.id),
+    );
+    expect(evaluatedCandidates).toHaveLength(30);
+    expect(response.days[0].windows).toHaveLength(24);
+    expect(response.days[0].windows.every((window) => (
+      window.rankedSpots.length <= 8
+    ))).toBe(true);
+    expect(response.days[0].windows.some((window) => (
+      window.id === response.days[0].bestWindowId
+    ))).toBe(true);
   });
 
   it('generates the same candidate fingerprint regardless of input order', async () => {
@@ -334,7 +397,7 @@ describe('generateWeekScoutForecast', () => {
         distancePenalty: 0,
       },
       reasons: ['Powerful swell'],
-      warnings: ['Waves are above your usual range'],
+      warnings: [],
     }));
 
     const response = await generateWeekScoutForecast(
@@ -354,14 +417,74 @@ describe('generateWeekScoutForecast', () => {
       selection: null,
     });
     expect(response.days[0].windows[0]).toMatchObject({
-      verdict: null,
-      rideable: null,
-      safe: null,
+      verdict: 'worth_it',
+      rideable: false,
+      safe: true,
       forecast: {
         waveHeight: '20',
       },
     });
     expect(response.days[0].bestWindowId).toBeNull();
+    expect(response.days[0].exclusionReasons).toEqual(['no_rideable_windows']);
+  });
+
+  it('explains when every generated window is unsafe', async () => {
+    const deps = dependencies();
+    deps.scoreBeach = jest.fn(() => ({
+      total: 82,
+      matchQuality: 'excellent',
+      subscores: {
+        waveHeightFit: 22,
+        periodEnergyScore: 18,
+        windAlignment: 19,
+        tideFit: 14,
+        affinityBonus: 0,
+        personalizationBonus: 0,
+        distancePenalty: 0,
+      },
+      reasons: ['Strong conditions'],
+      warnings: ['Unsafe hazard at this beach'],
+    }));
+
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 7,
+      },
+      deps,
+    );
+
+    expect(response.days[0].bestWindowId).toBeNull();
+    expect(response.days[0].exclusionReasons).toEqual(['no_safe_windows']);
+  });
+
+  it('explains when safe rideable windows all have skip verdicts', async () => {
+    const deps = dependencies();
+    deps.scoreWindowCondition = jest.fn(() => 30);
+
+    const response = await generateWeekScoutForecast(
+      'user-week-scout',
+      {
+        candidateBeachIds: [BEACH_A],
+        localTimezone: 'Pacific/Honolulu',
+        startLocalDate: '2026-07-31',
+        dayCount: 7,
+      },
+      deps,
+    );
+
+    expect(response.days[0].windows[0]).toMatchObject({
+      safe: true,
+      rideable: true,
+      verdict: 'skip',
+    });
+    expect(response.days[0].bestWindowId).toBeNull();
+    expect(response.days[0].exclusionReasons).toEqual([
+      'no_recommendable_windows',
+    ]);
   });
 
   it('evaluates exact generated windows with the verified profile skill', async () => {
@@ -429,6 +552,7 @@ describe('generateWeekScoutForecast', () => {
     const firstWindow = response.days[0].windows[0];
 
     expect(response.days[0].bestWindowId).toBeNull();
+    expect(response.days[0].exclusionReasons).toEqual([]);
     expect(firstWindow).toMatchObject({
       beachId: expect.any(String),
       start: expect.any(String),
@@ -473,6 +597,7 @@ describe('generateWeekScoutForecast', () => {
     expect(response.days[0].windows[0].forecast.waveHeight).toBe('3.5');
     expect(response.days[0].windows[0].conditionScore).toBeNull();
     expect(response.days[0].bestWindowId).toBeNull();
+    expect(response.days[0].exclusionReasons).toEqual([]);
     expect(response.recommendationAvailability).toMatchObject({
       state: 'none',
       reasonCode: 'hold_state_unavailable',
