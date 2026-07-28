@@ -26,6 +26,7 @@ Phases 1 through 19 are complete. Phase 13 closed the controlled refactor checkp
   simulator-verified through the app scheme. Simulator evidence is accepted for
   closeout; signed iOS HTTPS handoff is deferred to the next native release
   validation lane.
+
 - Future refactor candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Public go-live deployment/alias promotion and any outbound launch actions remain approval-gated.
 
@@ -43,6 +44,7 @@ Phases 1 through 19 are complete. Phase 13 closed the controlled refactor checkp
 - Start 3-day, 7-day, and 28-day after-measurement checks from deployment time
   `2026-06-02T18:55:38Z`; run signed HTTPS handoff validation before the next
   native release.
+
 - Keep deploy, production mutation, outbound send, payment, and entitlement actions approval-gated.
 
 ## Session Intelligence v1 Addendum
@@ -342,3 +344,55 @@ Completed phases are summarized here to keep this file small:
 - Phase 11 completed PBSC event route deploy and QR verification work.
 - Phase 12 completed Sentry observability rollout work.
 - Phase 13 completed controlled refactor import cleanup, wrapper compatibility ownership, and final local validation.
+
+### Phase 21: Multi-Forecaster Forecast Adjustment and Production Ingestion
+
+**Goal:** Replace the local 17-endpoint forecast scraper with reliable production
+Seaside ingestion and use normalized human forecasts to apply bounded,
+coverage-aware adjustments to Quiver's displayed face heights.
+**Mode:** standard
+**Requirements**: MFA-01, MFA-02, MFA-03, MFA-04, MFA-05, MFA-06, MFA-07, MFA-08
+**Depends on:** Phase 20
+**UI hint:** no
+**Success Criteria** (what must be TRUE):
+
+  1. Seaside ingests all 10 WaveCast regions and seven additional forecast
+     endpoints every six hours with source-specific parsers and immutable issue
+     identity.
+
+  2. Normalized issues retain issue time, local valid window, region or beach,
+     exposure, direction, period, breaking-face-height range, measurement basis,
+     parser version, source hash, and independent provider lineage.
+
+  3. WaveCast leads covered regions; validated regional casters can lead
+     uncovered regions; mirrors count once; model and buoy evidence never count
+     as human consensus.
+
+  4. Independent overlapping casters corroborate the primary range or block the
+     adjustment when nearest-edge range separation exceeds 1.00 ft.
+
+  5. Eligible adjustments move exactly 0.25 or 0.50 ft toward the selected
+     range, never exceed ±0.50 ft, do not stack session-feedback adjustments,
+     and apply only at forecast horizons from 0 through 168 hours.
+
+  6. Decisions, applications, alerts, prediction snapshots, and server-verified
+     build receipts persist atomically; unresolved ambiguous commits return a
+     retriable error rather than serving unaudited output.
+
+  7. Private forecaster ranges, narratives, URLs, attribution, evidence, and
+     internal identifiers never appear in public APIs, UI payloads, or client
+     analytics.
+
+  8. Focused and full Seaside, Quiver, database, privacy, and live-ingestion
+     verification passes before default-on serving, and the local launchd job is
+     retired only after production parity is verified.
+
+**Plans:** 5 plans
+
+Plans:
+
+- [ ] 21-01 — Production Multi-Source Ingestion
+- [ ] 21-02 — Immutable Trusted-Forecast Storage
+- [ ] 21-03 — Coverage-Aware Decision Engine
+- [ ] 21-04 — Forecast Builder Integration and Privacy
+- [ ] 21-05 — Verification and Default-On Rollout

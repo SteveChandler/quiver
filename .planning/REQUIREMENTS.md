@@ -1,7 +1,7 @@
 # Requirements: Quiver Go-Live Campaign
 
 Defined: 2026-05-24
-Last compressed: 2026-05-31
+Last updated: 2026-07-27
 Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/REQUIREMENTS-full-history.md](archive/2026-05-31-doc-cleanup/REQUIREMENTS-full-history.md)
 
 ## Current Goal
@@ -10,7 +10,7 @@ Track only the active requirements for the current go-live/refactor planning sta
 
 ## Current Status
 
-The Phase 14 Session Intelligence guardrails and inventory, Phase 15 recommendation primitive, Phase 16 reusable UI, and Phase 17 limited pilot are complete. Phase 18 SEO-safe intent rollout is planned and ready for execution. Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, release-quality, PBSC, Sentry, and controlled-refactor work is historical for this tracker unless a future task reopens it.
+Phases 14-20 are complete. Phase 21 adds production multi-forecaster ingestion and a bounded, auditable trusted-adjustment layer. Earlier messaging, landing, pricing, blog, App Store, outreach, analytics, release-quality, PBSC, Sentry, and controlled-refactor work is historical for this tracker unless a future task reopens it.
 
 ## Active Requirements
 
@@ -26,10 +26,18 @@ The Phase 14 Session Intelligence guardrails and inventory, Phase 15 recommendat
 - **SI-05**: Roll out only after pilot validation while preserving page intent, canonical URLs, schema, app CTAs, and measurement.
 - **SI-06**: Upgrade `/forecast-accuracy` so it never appears empty and only shows accuracy claims backed by data.
 - **SI-07**: Phase 14 baseline complete. Universal/app links, analytics, performance, structured-data, source-claim, and fallback-state checklists are documented; later implementation phases must preserve and extend validation before broad rollout.
+- **MFA-01**: Seaside ingests all 10 WaveCast regions and seven additional forecast endpoints every six hours with source-specific freshness, retry, redirect, and parser-failure controls.
+- **MFA-02**: Normalized issues are immutable and retain independent provider lineage, issue time, local valid date/window, region or beach, exposure, direction, period, face-height range, measurement basis, parser version, and source hash.
+- **MFA-03**: Provider identity prevents mirrors or shared upstream content from counting as independent evidence; model and buoy pages never count as human forecaster votes.
+- **MFA-04**: Coverage-aware authority prefers spot WaveCast, then regional WaveCast, then a validated regional caster when WaveCast has no fresh compatible issue; overlapping independent sources corroborate or block separations over 1.00 ft.
+- **MFA-05**: Eligible forecasts move exactly 0.25 or 0.50 ft toward the authority range, remain unchanged inside the range or below the 0.50 ft deadband, never exceed ±0.50 ft, and apply only at 0-168 hour horizons.
+- **MFA-06**: Decisions, applications, alerts, prediction snapshots, and server-verified build receipts persist atomically without violating first-write-wins prediction history; unresolved ambiguous commits return a retriable error instead of unaudited output.
+- **MFA-07**: Source ranges, narratives, URLs, attribution, parser metadata, evidence, and internal decision identities remain absent from public APIs, UI payloads, and client analytics.
+- **MFA-08**: Focused and full Seaside, Quiver, database, privacy, and live-ingestion gates pass before default-on serving; the local launchd scraper is retired only after production parity is verified.
 
 ## Open Gaps
 
-- Phase 18 SEO-safe intent rollout is planned and still needs execution. Phases 19-20 still need planning and execution.
+- Phase 21 research and executable plans are complete; implementation and approval-gated production verification remain.
 - Future candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Wrapper-internal helper collapse remains future work outside the completed Phase 13 checkpoint.
 
@@ -43,7 +51,7 @@ The Phase 14 Session Intelligence guardrails and inventory, Phase 15 recommendat
 
 ## Next Actions
 
-- Execute Phase 18 SEO-safe intent rollout before planning Phase 19 forecast-accuracy trust page.
+- Execute and verify Phase 21 locally before any approval-gated production multi-forecaster serving change.
 - Preserve approval gates for deploys, production mutations, outbound sends, payment actions, and entitlement changes.
 
 ## Historical Notes
