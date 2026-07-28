@@ -104,9 +104,9 @@ Steven reviews Gmail drafts and sends. Status updates happen here.
 
 | Publication | DA | Contact | Angle | Status | Date |
 |-------------|----|---------|---------| --------|------|
-| The Inertia | 65 | editorial form | Transparency + ML angle | queued | |
+| The Inertia | 65 | editorial form | Transparency + ML angle | drafted | 2026-07-27 |
 | Adventure Journal | 45 | editor about page | Surf data story | queued | |
-| Outside Online | 90 | contributor portal | Outdoor sports + data | queued | |
+| Outside Online | 90 | contributor portal | Outdoor sports + data | drafted | 2026-07-27 |
 | Weatherwise | 50 | editor contact | Wave forecast methodology | queued | |
 | REI Co-op Journal | 80 | content editor | Water sports safety | queued | |
 
