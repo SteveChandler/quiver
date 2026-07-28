@@ -176,6 +176,99 @@ describe("export-dataforseo script", () => {
     }
   });
 
+  it("dispatches all ASO batches before waiting for any batch result", async () => {
+    const requests: Array<{ path: string; body: unknown }> = [];
+    let heldFirstPostResponse: http.ServerResponse | null = null;
+    const server = http.createServer(async (request, response) => {
+      const body = await readRequestBody(request);
+      const parsedBody = body.length > 0 ? JSON.parse(body) : null;
+      const pathName = request.url ?? "";
+      requests.push({ path: pathName, body: parsedBody });
+      response.setHeader("content-type", "application/json");
+
+      if (pathName === "/v3/app_data/apple/app_searches/task_post") {
+        const keyword = Array.isArray(parsedBody) && isRecord(parsedBody[0])
+          ? String(parsedBody[0].keyword)
+          : "";
+        const payload = JSON.stringify({
+          status_code: 20000,
+          status_message: "Ok.",
+          tasks: [{ id: `task-${keyword}`, status_code: 20000, status_message: "Ok." }],
+        });
+
+        if (keyword === "surf forecast") {
+          heldFirstPostResponse = response;
+          return;
+        }
+
+        heldFirstPostResponse?.end(payload);
+        heldFirstPostResponse = null;
+        response.end(payload);
+        return;
+      }
+
+      response.end(JSON.stringify({
+        status_code: 20000,
+        status_message: "Ok.",
+        tasks: [{
+          result: [{
+            items: [
+              { title: "Lazy Surfer", app_id: "1450887020", rank_absolute: 1 },
+              { title: "Quiver", app_id: "6759300320", rank_absolute: 8 },
+            ],
+          }],
+        }],
+      }));
+    });
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+
+    try {
+      const address = server.address();
+      if (!address || typeof address === "string") {
+        throw new Error("Expected local test server address");
+      }
+      const cwd = makeTempWorkspace({
+        google: {
+          domain: "quiversurf.app",
+          device: "mobile",
+          depth: 100,
+          keywords: [],
+          locations: [{ name: "United States", code: 2840 }],
+        },
+        aso: {
+          depth: 100,
+          platforms: ["ios"],
+          keywords: ["surf forecast", "free surf forecast"],
+          quiver: { iosAppId: "6759300320" },
+        },
+        competitors: [],
+      });
+      const outputPath = path.join(cwd, "DATAFORSEO-EXPORT.json");
+
+      await runExporter(cwd, outputPath, {
+        DATAFORSEO_API_BASE: `http://127.0.0.1:${address.port}`,
+        DATAFORSEO_ENABLED: "true",
+        DATAFORSEO_LOGIN: "login",
+        DATAFORSEO_PASSWORD: "password",
+        DATAFORSEO_APP_BATCH_SIZE: "1",
+        NODE_ENV: "test",
+      });
+
+      expect(requests.filter((item) => item.path === "/v3/app_data/apple/app_searches/task_post")).toHaveLength(2);
+      expect(JSON.parse(fs.readFileSync(outputPath, "utf8"))).toMatchObject({
+        status: "complete",
+        completedPhases: ["googleRankings", "keywordMetrics", "asoRankings", "competitorKeywords"],
+        asoRankings: [
+          { keyword: "surf forecast", quiverRank: 8 },
+          { keyword: "free surf forecast", quiverRank: 8 },
+        ],
+      });
+    } finally {
+      (heldFirstPostResponse as http.ServerResponse | null)?.destroy();
+      await closeServer(server);
+    }
+  });
+
   it("merges Apple Search Ads campaign keywords into the ASO watchlist", async () => {
     const requests: Array<{ path: string; body: unknown }> = [];
     const server = createDataForSeoServer(requests);
