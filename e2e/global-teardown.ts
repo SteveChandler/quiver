@@ -12,7 +12,11 @@ import {
 } from './utils/test-data-cleanup';
 import { USER_OWNED_TABLES } from './scripts/lib/user-owned-tables';
 import { POOL_SIZE, poolEmail } from './scripts/lib/worker-pool';
-import { isLocalSupabaseUrl, loadPlaywrightEnv } from './scripts/lib/playwright-env';
+import {
+  isLocalSupabaseUrl,
+  loadPlaywrightEnv,
+  resolvePsqlExecutable,
+} from './scripts/lib/playwright-env';
 
 function getLocalDbUrl(): string {
   return (
@@ -146,7 +150,7 @@ async function cleanupWorkerPoolUsers(): Promise<number> {
   `;
 
   return new Promise((resolve, reject) => {
-    const child = spawn('psql', [
+    const child = spawn(resolvePsqlExecutable(), [
       getLocalDbUrl(),
       '-v',
       'ON_ERROR_STOP=1',

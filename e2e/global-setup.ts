@@ -17,6 +17,7 @@ import {
   loadPlaywrightEnv,
   requireEnv,
   requireLocalSupabaseEnv,
+  resolvePsqlExecutable,
 } from './scripts/lib/playwright-env';
 import { seedPoolUsers } from './scripts/seed-pool-users';
 import { POOL_SIZE, poolEmail } from './scripts/lib/worker-pool';
@@ -108,7 +109,7 @@ function clearWorkerAuthStates(): void {
 async function rebaseLocalForecastSnapshot(): Promise<void> {
   const dbUrl = process.env.E2E_LOCAL_DB_URL || DEFAULT_LOCAL_DB_URL;
   const { stdout, stderr } = await execFileAsync(
-    'psql',
+    resolvePsqlExecutable(),
     [dbUrl, '-v', 'ON_ERROR_STOP=1', '-At', '-c', LOCAL_FORECAST_REBASE_SQL],
     { maxBuffer: 1024 * 1024 }
   );
@@ -121,6 +122,17 @@ async function rebaseLocalForecastSnapshot(): Promise<void> {
   const warning = stderr.trim();
   if (warning.length > 0) {
     console.warn(`[Global Setup] Forecast snapshot rebase warning: ${warning}`);
+  }
+}
+
+async function rebaseLocalForecastSnapshotBestEffort(): Promise<void> {
+  try {
+    await rebaseLocalForecastSnapshot();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn(
+      `[Global Setup] Forecast snapshot rebase unavailable; authenticated tests will continue: ${message}`
+    );
   }
 }
 
@@ -196,7 +208,7 @@ async function prepareLocalWorkerPool(baseURL: string): Promise<void> {
   }
 
   clearWorkerAuthStates();
-  await rebaseLocalForecastSnapshot();
+  await rebaseLocalForecastSnapshotBestEffort();
   await seedPoolUsers();
   await writeLocalSharedAuthState(baseURL);
   await writeLocalWorkerAuthStates(baseURL);

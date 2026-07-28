@@ -16,6 +16,7 @@ import { spawn } from 'node:child_process';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import * as dotenv from 'dotenv';
 import { existsSync } from 'fs';
+import { resolvePsqlExecutable } from '../scripts/lib/playwright-env';
 
 // Load environment variables
 const lockedEnv = new Map<string, string | undefined>(Object.entries(process.env));
@@ -391,7 +392,7 @@ async function cleanupLocalOrphanEphemeralProfiles(
   `;
 
   return new Promise((resolve) => {
-    const child = spawn('psql', [
+    const child = spawn(resolvePsqlExecutable(), [
       getLocalDbUrl(),
       '-v',
       'ON_ERROR_STOP=1',

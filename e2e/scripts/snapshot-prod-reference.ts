@@ -4,6 +4,7 @@ import {
   loadPlaywrightEnv,
   requireEnv,
   requireLocalSupabaseEnv,
+  resolvePsqlExecutable,
 } from "./lib/playwright-env";
 import { rebaseRows } from "./lib/rebase-forecasts";
 
@@ -326,7 +327,7 @@ async function insertRows(
   const copyCommand = `\\copy public.${quoteIdent(table)} (${quotedColumns}) FROM STDIN WITH (FORMAT csv, NULL '\\N')`;
 
   await new Promise<void>((resolve, reject) => {
-    const child = spawn("psql", [
+    const child = spawn(resolvePsqlExecutable(), [
       getLocalDbUrl(),
       "-v",
       "ON_ERROR_STOP=1",
@@ -376,7 +377,7 @@ async function clearLocalForecastSnapshot(
   )} >= '1900-01-01T00:00:00.000Z';`;
 
   await new Promise<void>((resolve, reject) => {
-    const child = spawn("psql", [
+    const child = spawn(resolvePsqlExecutable(), [
       getLocalDbUrl(),
       "-v",
       "ON_ERROR_STOP=1",
