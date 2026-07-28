@@ -7,10 +7,8 @@
  */
 
 /**
- * Gates Phase 2 of hero re-rank: when true, `surf-discovery-orchestrator`
- * returns the `rerankHero(...)` lifted slice as the response array; when
- * false, the original engine-score-sorted slice is returned. Diagnostics
- * emit either way.
+ * Gates Phase 2 of hero re-rank. The setup-aware ranker is the default
+ * production behavior; an explicit "false" remains available as a kill switch.
  */
 export const FEATURE_HERO_WINDOW_SCORE: boolean =
-  process.env.HERO_WINDOW_SCORE === "true";
+  process.env.HERO_WINDOW_SCORE !== "false";

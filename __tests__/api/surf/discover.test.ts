@@ -55,9 +55,12 @@ jest.mock("@/lib/recommendations/canonical-decision", () => ({
 
 import { NextRequest } from "next/server";
 
-// Build a fake supabase client that returns a configurable user_entitlements
-// row from .from("user_entitlements").select(...).eq(...).maybeSingle().
-function makeSupabaseStub(entitlementRow: Record<string, unknown> | null) {
+// Build a fake supabase client that returns configurable entitlement/profile
+// rows from the route's authenticated reads.
+function makeSupabaseStub(
+  entitlementRow: Record<string, unknown> | null,
+  profileRow: Record<string, unknown> | null = { max_drive_minutes: null },
+) {
   // beaches.in() is consulted by the calibration-stamp block. Stub it to
   // succeed with empty rows so the handler reaches the response stage.
   return {
@@ -68,6 +71,18 @@ function makeSupabaseStub(entitlementRow: Record<string, unknown> | null) {
             eq: jest.fn(() => ({
               maybeSingle: jest.fn(async () => ({
                 data: entitlementRow,
+                error: null,
+              })),
+            })),
+          })),
+        };
+      }
+      if (table === "profiles") {
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              maybeSingle: jest.fn(async () => ({
+                data: profileRow,
                 error: null,
               })),
             })),
@@ -346,8 +361,58 @@ describe("/api/surf/discover entitlement resolution", () => {
     const [, opts] = mockDiscoverSurfSpots.mock.calls[0];
     expect(opts).toMatchObject({
       isPro: true,
-      candidatePoolLimit: 8,
+      candidatePoolLimit: 100,
+      radiusMiles: 100,
       throwOnFailure: true,
+    });
+  });
+
+  it("maps a configured drive-time preference to the Home discovery radius", async () => {
+    const supabase = makeSupabaseStub(
+      {
+        is_pro: true,
+        is_trialing: false,
+        billing_issue: false,
+        expires_at: null,
+      },
+      { max_drive_minutes: 60 },
+    );
+
+    const { GET } = await import("@/app/api/surf/discover/route");
+    await GET(makeRequest(), {
+      user: { id: "user-pro" } as any,
+      supabase: supabase as any,
+      params: {},
+    } as any);
+
+    const [, opts] = mockDiscoverSurfSpots.mock.calls[0];
+    expect(opts).toMatchObject({
+      candidatePoolLimit: 100,
+      radiusMiles: 30,
+    });
+  });
+
+  it("keeps an explicit request radius instead of replacing it with the profile preference", async () => {
+    const supabase = makeSupabaseStub(
+      {
+        is_pro: true,
+        is_trialing: false,
+        billing_issue: false,
+        expires_at: null,
+      },
+      { max_drive_minutes: 60 },
+    );
+
+    const { GET } = await import("@/app/api/surf/discover/route");
+    await GET(makeRequest("lat=32.7157&lon=-117.1611&radius=50"), {
+      user: { id: "user-pro" } as any,
+      supabase: supabase as any,
+      params: {},
+    } as any);
+
+    const [, opts] = mockDiscoverSurfSpots.mock.calls[0];
+    expect(opts).toMatchObject({
+      radiusMiles: 50,
     });
   });
 

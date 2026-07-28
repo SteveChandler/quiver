@@ -14,6 +14,8 @@ import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discove
 import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
 import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 import { buildCanonicalDecisionFromSurfDiscovery } from '@/lib/recommendations/canonical-decision';
+import { resolveDriveRadiusMiles } from '@/lib/services/discovery/drive-range';
+import { CANDIDATE_POOL_LIMIT } from '@/lib/services/discovery/candidate-pool-builder';
 import type {
   SurfDiscoveryEntitlement,
   SurfDiscoveryRecommendation,
@@ -224,27 +226,37 @@ async function surfDiscoveryHandler(
   //    Pro/trial (with billing-issue grace-period carve-out) and "free"
   //    otherwise. Missing row, RLS error, or query failure all fall back
   //    to free — safer than over-granting Pro on a transient DB blip.
-  const { data: entitlementRow } = await supabase
-    .from('user_entitlements')
-    .select('is_pro, is_trialing, billing_issue, expires_at')
-    .eq('user_id', user.id)
-    .maybeSingle();
+  const [entitlementResult, profileResult] = await Promise.all([
+    supabase
+      .from('user_entitlements')
+      .select('is_pro, is_trialing, billing_issue, expires_at')
+      .eq('user_id', user.id)
+      .maybeSingle(),
+    supabase
+      .from('profiles')
+      .select('max_drive_minutes')
+      .eq('id', user.id)
+      .maybeSingle(),
+  ]);
+  const entitlementRow = entitlementResult.data;
   const isPro = entitlementFromRow(entitlementRow ?? null) === 'premium';
   const entitlement: SurfDiscoveryEntitlement = {
     tier: isPro ? 'premium' : 'free',
     hasPaidAccess: isPro,
     canSeeBestSpot: isPro,
   };
+  const radiusMiles =
+    radius ?? resolveDriveRadiusMiles(profileResult.data?.max_drive_minutes ?? null);
 
   // 4. Call service to get ranked recommendations
   let discovery;
   try {
     discovery = await discoverSurfSpots(user.id, {
       userLocation,
-      radiusMiles: radius,
+      radiusMiles,
       horizonHours,
       maxResults,
-      candidatePoolLimit: 8,
+      candidatePoolLimit: CANDIDATE_POOL_LIMIT,
       discoveryMode: mode ?? 'best-window',
       timeSlot,
       isPro,

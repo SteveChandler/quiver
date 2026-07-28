@@ -73,7 +73,7 @@ describe("canonical session decision service", () => {
       expect.objectContaining({
         userLocation: { lat: 32.83, lon: -117.27 },
         horizonHours: 24,
-        maxResults: 60,
+        maxResults: 100,
       }),
     );
     expect(decision).toMatchObject({

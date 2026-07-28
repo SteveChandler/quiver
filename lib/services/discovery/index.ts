@@ -18,7 +18,6 @@ export {
   CANDIDATE_POOL_LIMIT,
   CANDIDATE_POOL_RADIUS_TIERS_MILES,
   MAX_CANDIDATE_RADIUS_MILES,
-  MIN_CANDIDATES,
   type CandidatePoolOptions,
   type CandidatePoolResult,
 } from './candidate-pool-builder';

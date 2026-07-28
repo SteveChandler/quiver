@@ -20,8 +20,7 @@ import { getProfileExperienceLevel } from '@/lib/profile/skill-level';
 const log = createContextLogger('CandidatePoolBuilder');
 
 export const CANDIDATE_POOL_RADIUS_TIERS_MILES = [25, 60, 100] as const;
-export const CANDIDATE_POOL_LIMIT = 60;
-export const MIN_CANDIDATES = 8;
+export const CANDIDATE_POOL_LIMIT = 100;
 export const MAX_CANDIDATE_RADIUS_MILES = 100;
 
 const MILES_TO_METERS = 1609.34;
@@ -179,10 +178,6 @@ export async function buildCandidatePool(
         }
       }
       log.info(`[buildCandidatePool] Tier ${radiusMiles}mi: ${candidates.length} candidates`);
-
-      if (candidates.length >= MIN_CANDIDATES) {
-        break;
-      }
     }
 
     if (candidates.length === 0) {

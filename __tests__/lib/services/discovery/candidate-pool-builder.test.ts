@@ -268,6 +268,67 @@ describe('buildCandidatePool', () => {
       ).toEqual([40234, 96560, 160934]);
     });
 
+    it('searches the full default drive range beyond the old 60-beach Home cap', async () => {
+      const localBeaches: Partial<Beach>[] = Array.from({ length: 60 }, (_, index) => ({
+        id: `local-beach-${index + 1}`,
+        name: `Local Beach ${index + 1}`,
+        slug: `local-beach-${index + 1}`,
+        lat: 32.75 + index * 0.01,
+        lon: -117.2,
+        city: 'San Diego',
+        state: 'CA',
+        is_private: false,
+      }));
+      const northBeach: Partial<Beach> = {
+        id: 'north-beach',
+        name: 'North Beach',
+        slug: 'north-beach',
+        lat: 33.16,
+        lon: -117.35,
+        city: 'Carlsbad',
+        state: 'CA',
+        is_private: false,
+      };
+
+      mockState.profileResponse = {
+        data: { experience_level: 'advanced' },
+        error: null,
+      };
+      mockState.nearbyRpcResponse = (params) => {
+        const localRows = localBeaches.map((beach, index) => ({
+          id: beach.id,
+          is_private: false,
+          distance_meters: 1000 + index * 1000,
+        }));
+        if (params.max_distance_meters === 40234) {
+          return { data: localRows, error: null };
+        }
+        return {
+          data: [
+            ...localRows,
+            { id: northBeach.id, is_private: false, distance_meters: 46671 },
+          ],
+          error: null,
+        };
+      };
+      mockState.beachesInResponse = {
+        data: [...localBeaches, northBeach],
+        error: null,
+      };
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+      });
+
+      const rpcCalls = mockState.mockCalls.filter(
+        (call) => call.method === 'get_nearby_beaches'
+      );
+      expect(
+        rpcCalls.map((call) => (call.args[0] as Record<string, unknown>).max_distance_meters)
+      ).toEqual([40234, 96560, 160934]);
+      expect(result.candidates.map((beach) => beach.id)).toContain(northBeach.id);
+    });
+
     it('should cap radiusMiles at 100 miles', async () => {
       mockState.profileResponse = {
         data: { experience_level: null },

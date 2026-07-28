@@ -18,6 +18,10 @@ import {
   type WeekScoutDaysRequest,
   type WeekScoutWindowResponse,
 } from '@/lib/services/discovery/week-scout';
+import {
+  resolveDriveRadiusMiles,
+  resolveMaxDriveMinutes,
+} from '@/lib/services/discovery/drive-range';
 import type {
   MajorEventHoldWeekScoutResponse,
   MajorEventHoldWeekScoutWindow,
@@ -25,10 +29,6 @@ import type {
 
 const LOCATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const LOCATION_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
-const DEFAULT_MAX_DRIVE_MINUTES = 200;
-const MIN_CONFIGURED_DRIVE_MINUTES = 15;
-const MAX_CONFIGURED_DRIVE_MINUTES = 90;
-const MILES_PER_DRIVE_MINUTE = 0.5;
 
 export interface WeekendScoutLocation {
   lat: number;
@@ -148,16 +148,6 @@ function localDate(now: Date, timezone: string): string {
   return `${value('year')}-${value('month')}-${value('day')}`;
 }
 
-function resolveMaxDriveMinutes(configuredMinutes: number | null): number {
-  if (configuredMinutes === null || !Number.isFinite(configuredMinutes)) {
-    return DEFAULT_MAX_DRIVE_MINUTES;
-  }
-  return Math.min(
-    MAX_CONFIGURED_DRIVE_MINUTES,
-    Math.max(MIN_CONFIGURED_DRIVE_MINUTES, Math.round(configuredMinutes)),
-  );
-}
-
 function weekendDates(now: Date, timezone: string): { start: string; end: string } {
   const today = localDate(now, timezone);
   const date = new Date(`${today}T00:00:00.000Z`);
@@ -256,7 +246,7 @@ export async function buildWeekendScoutRanking(
   const maxDriveMinutes = resolveMaxDriveMinutes(context.maxDriveMinutes);
   const pool = await deps.buildCandidatePool(userId, {
     userLocation: { lat: location.lat, lon: location.lon },
-    radiusMiles: maxDriveMinutes * MILES_PER_DRIVE_MINUTE,
+    radiusMiles: resolveDriveRadiusMiles(context.maxDriveMinutes),
   });
   if (pool.wasTruncated) return { status: 'candidate_limit_reached' };
   if (pool.candidates.length === 0) return { status: 'no_candidates' };

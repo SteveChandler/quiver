@@ -110,7 +110,6 @@ import {
 import { buildRecommendationEvidence } from '@/lib/services/discovery/recommendation-evidence';
 import { FEATURE_HERO_WINDOW_SCORE } from '@/lib/constants/feature-flags';
 import type { ScoringEngine } from '@/lib/domains/scoring';
-import { resolveWavePunchiness } from '@/lib/domains/spot-profile/wave-punchiness';
 import { boardStyleFit } from './board-style-fit';
 import { enforceMajorEventHoldBeforeDiscoveryTruncation } from './major-event-hold';
 import { resolveForecastAlignment } from './forecast-alignment';
@@ -135,8 +134,6 @@ interface UserBoardContext {
 
 type BeachWithWavePunchiness = Beach & {
   wave_punchiness?: unknown;
-  wave_punchiness_ai?: unknown;
-  wave_punchiness_ai_confidence?: unknown;
 };
 
 // ============================================================================
@@ -659,17 +656,9 @@ function resolveDominantBoardClass(rows: UserBoardContextRow[]): BoardClass | nu
 
 function getWavePunchiness(beach: Beach): number | null {
   const b = beach as BeachWithWavePunchiness;
-  return resolveWavePunchiness({
-    override: typeof b.wave_punchiness === 'number' ? b.wave_punchiness : null,
-    ai: typeof b.wave_punchiness_ai === 'number' ? b.wave_punchiness_ai : null,
-    aiConfidence:
-      typeof b.wave_punchiness_ai_confidence === 'number'
-        ? b.wave_punchiness_ai_confidence
-        : null,
-    persona: beach.persona,
-    break_type: beach.break_type,
-    skill_level: beach.skill_level,
-  });
+  return typeof b.wave_punchiness === 'number' && Number.isFinite(b.wave_punchiness)
+    ? b.wave_punchiness
+    : null;
 }
 
 async function fetchIncludedBeachCandidates(includeBeachIds: string[] | undefined): Promise<Beach[]> {
@@ -2169,17 +2158,21 @@ async function discoverSurfSpotsInner(
   );
   allRecsScored.sort(compareDiscoveryRecommendations);
 
+  const isPrimaryEligible = (rec: SurfDiscoveryRecommendation): boolean =>
+    primaryEligibleKeys.has(recommendationKey(rec));
   const holdPool = await enforceMajorEventHoldBeforeDiscoveryTruncation({
     recommendations: allRecsScored,
     profileExperience: userSkillLevel,
     maxResults,
-    isPrimaryEligible: (rec) =>
-      primaryEligibleKeys.has(recommendationKey(rec)),
+    isPrimaryEligible,
   });
 
-  // Hold filtering happens across the full sorted pool before this top-N is
-  // consumed, so an allowed rank below a blocked result can fill the response.
-  const merged = holdPool.primaryRecommendations;
+  // The setup-aware hero ranker must see the full allowed, in-range pool.
+  // Truncating to maxResults here would permanently hide physically superior
+  // venues that distance friction placed just below the response boundary.
+  const merged = FEATURE_HERO_WINDOW_SCORE
+    ? holdPool.allAllowedRecommendations.filter(isPrimaryEligible)
+    : holdPool.primaryRecommendations;
 
   // Phase 2: populate per-slot scorer outputs across each candidate's window
   // BEFORE rerank so hero-window-score's persistence/duration evidence is
@@ -2202,10 +2195,11 @@ async function discoverSurfSpotsInner(
   const { reranked, diagnostics } = rerankHero(merged);
   diagnostics.forEach(logHeroRankingDiagnostic);
 
-  // Flag-gated behavior: when off (default), return the engine-sorted slice
-  // verbatim. When on, return the hero-lifted slice (only [0] moves;
-  // remaining order is preserved).
-  const rankedSlice = FEATURE_HERO_WINDOW_SCORE ? reranked : merged;
+  // Default to the hero-lifted slice (only [0] moves; remaining order is
+  // preserved). The flag remains an explicit production kill switch.
+  const rankedSlice = (
+    FEATURE_HERO_WINDOW_SCORE ? reranked : merged
+  ).slice(0, maxResults);
   const finalSlice = applyWorthTheDriveReasons(rankedSlice);
   const finalSliceKeys = new Set(finalSlice.map((rec) => recommendationKey(rec)));
   const includedSlice = holdPool.allAllowedRecommendations.filter((rec) => {

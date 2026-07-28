@@ -1111,7 +1111,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     expect(result.recommendations[0].reasons[0]).toBe(WORTH_THE_DRIVE_REASON);
   });
 
-  test('uses nearer distance as the final tie-breaker within 3 score points', async () => {
+  test('lets the setup-aware hero ranker select beyond the distance-truncated response', async () => {
     const closeBeach: Partial<Beach> = {
       ...mockBeach1,
       id: 'close-tiebreaker',
@@ -1170,16 +1170,12 @@ describe('discoverSurfSpots - Favorites Merging', () => {
 
     const result = await discoverSurfSpots(testUserId, {
       userLocation: defaultUserLocation,
-      maxResults: 2,
+      maxResults: 1,
     });
 
     expect(result.recommendations.map((rec) => rec.beach.id)).toEqual([
-      'close-tiebreaker',
       'far-tiebreaker',
     ]);
-    expect(result.recommendations[0].score).toBeLessThan(
-      result.recommendations[1].score
-    );
   });
 
   test('respects maxResults limit with pure score ranking', async () => {
@@ -1371,7 +1367,7 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     );
   });
 
-  test('derives board-style fit from beach attributes when no wave punchiness override exists', async () => {
+  test('does not grant board-style score or claims without a validated wave punchiness override', async () => {
     const punchyReef = {
       ...mockBeach3,
       id: 'derived-reef',
@@ -1432,8 +1428,8 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     const reefForShortboard = shortboardResult.recommendations.find(
       (rec) => rec.beach.id === 'derived-reef'
     );
-    expect(reefForShortboard?.score).toBe(80);
-    expect(reefForShortboard?.reasons).toContain('Classic shortboard wave');
+    expect(reefForShortboard?.score).toBe(75);
+    expect(reefForShortboard?.reasons).not.toContain('Classic shortboard wave');
 
     mockState.boards = [
       {
@@ -1451,9 +1447,58 @@ describe('discoverSurfSpots - Favorites Merging', () => {
     const softBeachForGun = gunResult.recommendations.find(
       (rec) => rec.beach.id === 'derived-soft-beach'
     );
-    expect(softBeachForGun?.score).toBe(65);
-    expect(softBeachForGun?.warnings).toContain(
+    expect(softBeachForGun?.score).toBe(75);
+    expect(softBeachForGun?.warnings).not.toContain(
       'Soft, rolling wave - not much push for a gun'
+    );
+  });
+
+  test('does not grant Classic shortboard credit from AI punchiness alone', async () => {
+    const aiClassifiedReef = {
+      ...mockBeach3,
+      id: 'ai-classified-reef',
+      name: 'AI Classified Reef',
+      slug: 'ai-classified-reef',
+      lat: 32.7157,
+      lon: -117.1611,
+      wave_punchiness: null,
+      wave_punchiness_ai: 0.55,
+      wave_punchiness_ai_confidence: 0.8,
+    } as Beach & {
+      wave_punchiness: null;
+      wave_punchiness_ai: number;
+      wave_punchiness_ai_confidence: number;
+    };
+
+    mockState.candidatePoolResponse = {
+      candidates: [aiClassifiedReef],
+      preferredWaveSize: null,
+      userSkillLevel: 'advanced',
+      preferredBreakType: null,
+    };
+    mockState.forecastBatchResponse = {
+      successful: [{
+        beach: aiClassifiedReef,
+        forecasts: [{ ...mockForecast, beach_id: aiClassifiedReef.id }],
+      }],
+      failed: [],
+      staleCount: 0,
+    };
+    mockState.boards = [{
+      id: 'shortboard-1',
+      name: "5'10 Driver",
+      board_type: 'shortboard',
+      session_count: 12,
+    }];
+
+    const result = await discoverSurfSpots(testUserId, {
+      userLocation: defaultUserLocation,
+      maxResults: 1,
+    });
+
+    expect(result.recommendations[0]?.score).toBe(75);
+    expect(result.recommendations[0]?.reasons).not.toContain(
+      'Classic shortboard wave'
     );
   });
 
