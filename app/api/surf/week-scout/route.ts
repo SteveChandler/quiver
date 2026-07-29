@@ -10,7 +10,34 @@ import {
 import { generateWeekScoutForecast } from '@/lib/services/discovery/week-scout';
 
 export const dynamic = 'force-dynamic';
+
+/**
+ * Request-size and timeout budget.
+ *
+ * Measured 2026-07-29 against production data, after the Week Scout hot-path
+ * fix removed the per-candidate Intl.DateTimeFormat cost:
+ *
+ *   candidates |  1     8      20     40
+ *   before     |  633ms 2002ms 4295ms 8214ms   (~195ms marginal per beach)
+ *   after      |  199ms  305ms  532ms  786ms   (~15ms marginal per beach)
+ *
+ * MAX_CANDIDATE_BEACHES matches WEEK_SCOUT_MAX_CANDIDATES in quiver-native, so
+ * a well-behaved client is never rejected. At that ceiling the scoring work is
+ * well under a second, which leaves maxDuration as pure headroom for cold
+ * starts and slow upstream reads rather than a limit the happy path approaches.
+ */
 export const maxDuration = 30;
+
+const MAX_CANDIDATE_BEACHES = 30;
+
+/**
+ * Ceiling on beaches actually scored, from the 2026-07-26 latency hotfix
+ * (d7a4fd3bf). It predates the hot-path fix above and is no longer required to
+ * stay inside maxDuration. Raising it toward MAX_CANDIDATE_BEACHES changes
+ * which spots appear in a user's week, so it belongs in a behaviour change with
+ * its own verification — not in this performance pass.
+ */
+const MAX_SCORED_BEACHES = 8;
 
 function isValidLocalDate(value: string): boolean {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
@@ -42,7 +69,10 @@ const WeekScoutRequestSchema = z.object({
     .array(z.string().uuid())
     .min(1)
     .transform((ids) => Array.from(new Set(ids)))
-    .refine((ids) => ids.length <= 30, 'At most 30 candidate beaches are allowed'),
+    .refine(
+      (ids) => ids.length <= MAX_CANDIDATE_BEACHES,
+      `At most ${MAX_CANDIDATE_BEACHES} candidate beaches are allowed`,
+    ),
   localTimezone: z.string().min(1).refine(isValidTimezone, 'Invalid IANA timezone'),
   startLocalDate: z.string().refine(isValidLocalDate, 'Invalid local date'),
   dayCount: z.literal(7),
@@ -73,7 +103,7 @@ async function weekScoutHandler(
 
   const forecast = await generateWeekScoutForecast(user.id, {
     ...parsed.data,
-    candidateBeachIds: parsed.data.candidateBeachIds.slice(0, 8),
+    candidateBeachIds: parsed.data.candidateBeachIds.slice(0, MAX_SCORED_BEACHES),
   });
   if (
     forecast.recommendationAvailability?.state === 'none'
