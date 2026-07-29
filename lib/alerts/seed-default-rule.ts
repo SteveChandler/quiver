@@ -43,6 +43,12 @@ export interface SeedDefaultRuleParams {
   preferredTimeBucket: string | null;
   notifyEmail: boolean;
   notifyPush: boolean;
+  // Whether `beachId` is the user's home break. Defaults to true so existing
+  // callers (web onboarding, native with no override) keep seeding "at your
+  // home break" rules unchanged. Set false when `beachId` targets a
+  // different beach (e.g. a recommended nearby break) so rule names credit
+  // the actual beach instead.
+  isHomeBeach?: boolean;
 }
 
 // Fields required to build a BeachAlertMeta for preset conditions.
@@ -71,25 +77,30 @@ function pickSchedulePreset(
   return "weekend_warrior";
 }
 
-function nameForPreset(preset: SeedRulePresetType): string {
+function nameForPreset(preset: SeedRulePresetType, location: string): string {
   switch (preset) {
     case "clean_groundswell":
-      return "Clean groundswell at your home break";
+      return `Clean groundswell at ${location}`;
     case "dawn_patrol":
-      return "Dawn patrol at your home break";
+      return `Dawn patrol at ${location}`;
     case "after_work":
-      return "After-work windows at your home break";
+      return `After-work windows at ${location}`;
     case "weekend_warrior":
-      return "Weekend windows at your home break";
+      return `Weekend windows at ${location}`;
     case "mellow_session":
-      return "Mellow session at your home break";
+      return `Mellow session at ${location}`;
   }
 }
 
 /**
- * Seeds default alert rules on a user's home beach, tuned to their experience
- * level and schedule preference. Non-throwing: returns a structured result the
- * caller logs.
+ * Seeds default alert rules on `beachId` — the user's home beach, or an
+ * explicit override (e.g. onboarding recommends a nearby break) — tuned to
+ * their experience level and schedule preference. Non-throwing: returns a
+ * structured result the caller logs.
+ *
+ * `isHomeBeach` (defaults true) controls rule naming: home-beach rules read
+ * "... at your home break"; non-home rules are named after `beachId`'s
+ * actual beach name instead.
  *
  * Idempotent — bails if the user already has any rule. Falls back to
  * mellow_session when experience_level is null/undefined so every new user
@@ -107,6 +118,7 @@ export async function seedDefaultRulesForUser(
     preferredTimeBucket,
     notifyEmail,
     notifyPush,
+    isHomeBeach = true,
   } = params;
 
   const { count, error: countError } = await supabase
@@ -173,6 +185,8 @@ export async function seedDefaultRulesForUser(
       index,
   );
 
+  const location = isHomeBeach ? "your home break" : beachMeta.name;
+
   const { data: inserted, error: insertError } = await supabase
     .from("alert_rules")
     .insert(
@@ -185,7 +199,7 @@ export async function seedDefaultRulesForUser(
         return {
           user_id: userId,
           beach_id: beachId,
-          name: nameForPreset(presetType),
+          name: nameForPreset(presetType, location),
           preset_type: presetType,
           conditions,
           notify_email: notifyEmail,
