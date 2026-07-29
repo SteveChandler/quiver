@@ -94,15 +94,13 @@ jest.mock("@/lib/alerts/seed-default-rule", () => ({
 
 import { POST } from "@/app/api/alerts/seed-default/route";
 
-// Mirrors real NextRequest.json() behavior: no body -> the promise rejects
-// (native callers today send no body at all), a body -> it resolves with it.
-function makeReq(body?: unknown): any {
+function makeReq(body?: unknown, rawBody?: string): any {
   return {
     headers: { get: () => null },
-    json: () =>
-      body === undefined
-        ? Promise.reject(new SyntaxError("Unexpected end of JSON input"))
-        : Promise.resolve(body),
+    text: () =>
+      Promise.resolve(
+        rawBody ?? (body === undefined ? "" : JSON.stringify(body)),
+      ),
   };
 }
 
@@ -294,6 +292,30 @@ describe("POST /api/alerts/seed-default", () => {
       );
     });
 
+    it("returns a validation error for a JSON null body and does not seed", async () => {
+      const res = await POST(makeReq(null));
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body).toMatchObject({
+        success: false,
+        error: "invalid_request_body",
+      });
+      expect(seedSpy).not.toHaveBeenCalled();
+    });
+
+    it("returns a validation error for malformed non-empty JSON and does not seed", async () => {
+      const res = await POST(makeReq(undefined, "{"));
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body).toMatchObject({
+        success: false,
+        error: "invalid_request_body",
+      });
+      expect(seedSpy).not.toHaveBeenCalled();
+    });
+
     it("with an explicit beach_id that differs from home, seeds on that beach and marks isHomeBeach false", async () => {
       const targetId = "22222222-2222-4222-8222-222222222222";
       mockBeachLookupResult = { data: { id: targetId }, error: null };
@@ -352,6 +374,18 @@ describe("POST /api/alerts/seed-default", () => {
 
     it("returns the standard validation error for a malformed beach_id and does not seed", async () => {
       const res = await POST(makeReq({ beach_id: "not-a-uuid" }));
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body).toMatchObject({
+        success: false,
+        error: "beach_not_found",
+      });
+      expect(seedSpy).not.toHaveBeenCalled();
+    });
+
+    it("returns the standard validation error for a non-string beach_id and does not seed", async () => {
+      const res = await POST(makeReq({ beach_id: 123 }));
 
       expect(res.status).toBe(400);
       const body = await res.json();

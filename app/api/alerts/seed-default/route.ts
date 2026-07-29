@@ -40,17 +40,32 @@ export const POST = withAuth(
       return createValidationError("home_beach_id_required");
     }
 
-    // No-body callers (all native clients today) resolve to `{}` here, so
-    // the target beach falls through to the home beach below unchanged.
-    const { beach_id: targetBeachId } = (await request
-      .json()
-      .catch(() => ({}))) as { beach_id?: string };
+    const rawRequestBody = await request.text();
+    let requestBody: Record<string, unknown> = {};
+    if (rawRequestBody.trim()) {
+      let parsedBody: unknown;
+      try {
+        parsedBody = JSON.parse(rawRequestBody);
+      } catch {
+        return createValidationError("invalid_request_body");
+      }
+      if (
+        parsedBody === null ||
+        typeof parsedBody !== "object" ||
+        Array.isArray(parsedBody)
+      ) {
+        return createValidationError("invalid_request_body");
+      }
+      requestBody = parsedBody as Record<string, unknown>;
+    }
+
+    const targetBeachId = requestBody.beach_id;
 
     let beachId = profile.home_beach_id;
     let isHomeBeach = true;
 
-    if (targetBeachId) {
-      if (!isValidUuid(targetBeachId)) {
+    if (targetBeachId !== undefined) {
+      if (typeof targetBeachId !== "string" || !isValidUuid(targetBeachId)) {
         return createValidationError("beach_not_found");
       }
 
@@ -69,6 +84,10 @@ export const POST = withAuth(
       isHomeBeach = targetBeachId === profile.home_beach_id;
     }
 
+    // This endpoint is a one-time onboarding bootstrap, not a general alert
+    // creation path. seedDefaultRulesForUser refuses to seed when any rule
+    // exists, so the explicit target is the approved non-home onboarding
+    // exception; /api/alerts/rules continues to enforce normal entitlements.
     const { data: emailPrefs, error: emailPrefsError } = await supabase
       .from("user_email_prefs")
       .select("pref_time_bucket")
