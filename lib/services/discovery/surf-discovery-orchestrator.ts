@@ -1209,37 +1209,6 @@ interface ImmediateForecastBucket {
   end: Date;
 }
 
-function isImmediateDaylight(
-  now: Date,
-  beachTz: string,
-  sunTimes: { sunrises: Date[]; sunsets: Date[] } | undefined
-): boolean {
-  const localHour = getLocalHour(now, beachTz);
-  if (localHour === null) return false;
-  if (localHour < 6 || localHour >= 21) return false;
-
-  const todayStr = getLocalDateStr(now, beachTz);
-  const sameDaySunrise = sunTimes?.sunrises.find(
-    (sunrise) => getLocalDateStr(sunrise, beachTz) === todayStr
-  );
-  if (sameDaySunrise && now.getTime() < sameDaySunrise.getTime() - 30 * 60 * 1000) {
-    return false;
-  }
-
-  const sameDaySunset = sunTimes?.sunsets.find(
-    (sunset) => getLocalDateStr(sunset, beachTz) === todayStr
-  );
-  if (sameDaySunset) {
-    return now.getTime() < sameDaySunset.getTime();
-  }
-
-  if (localHour >= 18) {
-    return false;
-  }
-
-  return true;
-}
-
 function capImmediateEndAtSunset(
   end: Date,
   now: Date,
@@ -1250,7 +1219,10 @@ function capImmediateEndAtSunset(
   const sameDaySunset = sunTimes?.sunsets.find(
     (sunset) => getLocalDateStr(sunset, beachTz) === todayStr
   );
-  if (sameDaySunset && sameDaySunset < end) {
+  // Only trim once we know sunset is still ahead. Past sunset the trim pulled
+  // end back before now, and the caller reads end <= now as "no window" — that
+  // emptied the Now feed for the whole evening.
+  if (sameDaySunset && sameDaySunset < end && sameDaySunset > now) {
     return sameDaySunset;
   }
   if (!sameDaySunset) {
@@ -1334,10 +1306,9 @@ function selectImmediateWindow(
     getTimezoneFromCoords(beach.lat || 0, beach.lon || 0);
   const sunTimes = sunTimesCache.get(beach.id);
 
-  if (!isImmediateDaylight(now, beachTz, sunTimes)) {
-    return null;
-  }
-
+  // "Now" means now: no daylight gate. A surfer checking at 4am or after dark
+  // still needs the current reading, and gating on local hour left the Now feed
+  // empty every evening and every pre-dawn check.
   const bucket = findImmediateForecastBucket(forecasts, beachTz, now);
   if (!bucket) return null;
 
