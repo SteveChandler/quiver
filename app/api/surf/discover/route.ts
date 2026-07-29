@@ -9,6 +9,10 @@ import {
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
 import { discoverSurfSpots } from '@/lib/services/surf-discovery-service';
+import {
+  hasExplicitMajorEventHold,
+  hasNoDiscoveryCandidates,
+} from '@/lib/services/discovery/discovery-availability';
 import { entitlementFromRow } from '@/lib/alerts/entitlements';
 import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discovery-gating';
 import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
@@ -89,27 +93,6 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
       retryable: true,
     },
     { status: code === 'timeout' ? 504 : 503 },
-  );
-}
-
-function hasNoDiscoveryCandidates(
-  discovery: Awaited<ReturnType<typeof discoverSurfSpots>>,
-): boolean {
-  if (discovery.recommendations.length > 0) return false;
-  if ((discovery.includedRecommendations?.length ?? 0) > 0) return false;
-  if ((discovery.recommendationsV2?.items.length ?? 0) > 0) return false;
-  if (discovery.recommendationsV2?.hero) return false;
-  if (discovery.recommendationsV2?.watch_window) return false;
-
-  return true;
-}
-
-function hasExplicitMajorEventHold(
-  discovery: Awaited<ReturnType<typeof discoverSurfSpots>>,
-): boolean {
-  return (
-    discovery.recommendationAvailability?.state === 'none' &&
-    discovery.recommendationAvailability.reasonCode === 'major_event_hold'
   );
 }
 
