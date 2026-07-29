@@ -51,6 +51,14 @@ let mockPrefsResult: {
   error: null,
 };
 
+let mockBeachLookupResult: {
+  data: { id: string } | null;
+  error: { message: string } | null;
+} = {
+  data: { id: "beach-999" },
+  error: null,
+};
+
 const seedSpy = jest.fn();
 
 jest.mock("@/lib/middleware/api-wrappers", () => {
@@ -67,7 +75,9 @@ jest.mock("@/lib/middleware/api-wrappers", () => {
                 Promise.resolve(
                   table === "user_email_prefs"
                     ? mockPrefsResult
-                    : mockProfileResult
+                    : table === "beaches"
+                      ? mockBeachLookupResult
+                      : mockProfileResult
                 ),
             }),
           }),
@@ -84,8 +94,16 @@ jest.mock("@/lib/alerts/seed-default-rule", () => ({
 
 import { POST } from "@/app/api/alerts/seed-default/route";
 
-function makeReq(): any {
-  return { headers: { get: () => null } };
+// Mirrors real NextRequest.json() behavior: no body -> the promise rejects
+// (native callers today send no body at all), a body -> it resolves with it.
+function makeReq(body?: unknown): any {
+  return {
+    headers: { get: () => null },
+    json: () =>
+      body === undefined
+        ? Promise.reject(new SyntaxError("Unexpected end of JSON input"))
+        : Promise.resolve(body),
+  };
 }
 
 beforeEach(() => {
@@ -101,6 +119,10 @@ beforeEach(() => {
   };
   mockPrefsResult = {
     data: { pref_time_bucket: "dawn_patrol" },
+    error: null,
+  };
+  mockBeachLookupResult = {
+    data: { id: "beach-999" },
     error: null,
   };
 });
@@ -255,6 +277,89 @@ describe("POST /api/alerts/seed-default", () => {
     expect(body).toMatchObject({
       success: true,
       data: { seeded: false, reason: "already_has_rules" },
+    });
+  });
+
+  describe("target beach override", () => {
+    it("with no body, seeds on the home beach and marks isHomeBeach true", async () => {
+      seedSpy.mockResolvedValueOnce({
+        seeded: true,
+        rules: [{ ruleId: "rule-abc", presetType: "mellow_session" }],
+      });
+
+      await POST(makeReq());
+
+      expect(seedSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ beachId: "beach-123", isHomeBeach: true })
+      );
+    });
+
+    it("with an explicit beach_id that differs from home, seeds on that beach and marks isHomeBeach false", async () => {
+      const targetId = "22222222-2222-4222-8222-222222222222";
+      mockBeachLookupResult = { data: { id: targetId }, error: null };
+      seedSpy.mockResolvedValueOnce({
+        seeded: true,
+        rules: [{ ruleId: "rule-abc", presetType: "mellow_session" }],
+      });
+
+      const res = await POST(makeReq({ beach_id: targetId }));
+
+      expect(res.status).toBe(200);
+      expect(seedSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ beachId: targetId, isHomeBeach: false })
+      );
+    });
+
+    it("with an explicit beach_id equal to home, seeds on the home beach and marks isHomeBeach true", async () => {
+      const homeId = "11111111-1111-4111-8111-111111111111";
+      mockProfileResult = {
+        data: {
+          home_beach_id: homeId,
+          experience_level: "beginner",
+          notif_email_enabled: true,
+          notif_push_enabled: false,
+        },
+        error: null,
+      };
+      mockBeachLookupResult = { data: { id: homeId }, error: null };
+      seedSpy.mockResolvedValueOnce({
+        seeded: true,
+        rules: [{ ruleId: "rule-abc", presetType: "mellow_session" }],
+      });
+
+      await POST(makeReq({ beach_id: homeId }));
+
+      expect(seedSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ beachId: homeId, isHomeBeach: true })
+      );
+    });
+
+    it("returns the standard validation error for an unknown beach_id and does not seed", async () => {
+      mockBeachLookupResult = { data: null, error: null };
+
+      const res = await POST(
+        makeReq({ beach_id: "33333333-3333-4333-8333-333333333333" })
+      );
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body).toMatchObject({
+        success: false,
+        error: "beach_not_found",
+      });
+      expect(seedSpy).not.toHaveBeenCalled();
+    });
+
+    it("returns the standard validation error for a malformed beach_id and does not seed", async () => {
+      const res = await POST(makeReq({ beach_id: "not-a-uuid" }));
+
+      expect(res.status).toBe(400);
+      const body = await res.json();
+      expect(body).toMatchObject({
+        success: false,
+        error: "beach_not_found",
+      });
+      expect(seedSpy).not.toHaveBeenCalled();
     });
   });
 });
