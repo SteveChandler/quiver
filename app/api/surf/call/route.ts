@@ -26,6 +26,10 @@ import { checkBoardFit } from '@/lib/domains/scoring/discovery-adapter';
 import type { BoardClass, SkillLevel } from '@/lib/domains/user-preferences';
 import type { RecommendationAvailability } from '@/lib/recommendations/major-event-hold/types';
 import {
+  isUnresolvedHoldAvailability,
+  resolveScopedRecommendationAvailability,
+} from '@/lib/services/discovery/discovery-availability';
+import {
   FORECAST_ALIGNMENT_TOLERANCE_MINUTES,
   resolveForecastAlignment,
   type SurfCallForecastAlignment,
@@ -52,6 +56,7 @@ function retryableDiscoveryResponse(error: unknown): NextResponse {
   const code =
     candidateCode === 'timeout' ||
     candidateCode === 'forecast_unavailable' ||
+    candidateCode === 'hold_state_unavailable' ||
     candidateCode === 'internal_error'
       ? candidateCode
       : 'internal_error';
@@ -346,12 +351,19 @@ async function surfCallHandler(
     ...canonicalContext.discovery.recommendations,
     ...(canonicalContext.discovery.includedRecommendations ?? []),
   ];
-  const recommendationAvailability =
-    canonicalContext.discovery.recommendationAvailability ?? {
-      state: 'none' as const,
-      reasonCode: 'hold_state_unavailable' as const,
-      holdEpoch: sessionDecision.holdEpoch,
-    };
+  const recommendationAvailability = resolveScopedRecommendationAvailability(
+    canonicalContext.discovery,
+    sessionDecision.holdEpoch,
+  );
+  // An unresolved hold is an operational state, not a surf call. Serializing it
+  // as HTTP 200 makes native clients throw on a payload they must reject.
+  if (isUnresolvedHoldAvailability(recommendationAvailability)) {
+    return retryableDiscoveryResponse(
+      Object.assign(new Error('Recommendation hold state unavailable'), {
+        code: 'hold_state_unavailable',
+      }),
+    );
+  }
   const canonicalResult = buildCanonicalSurfCall(
     sessionDecision,
     beachId,
