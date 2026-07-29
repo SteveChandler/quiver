@@ -23,6 +23,15 @@ export {
   type CandidatePoolResult,
 } from './candidate-pool-builder';
 
+// Pre-forecast preference fit used to order the candidate pool
+export {
+  effectiveDistanceMiles,
+  preferenceFit,
+  PREFERENCE_DETOUR_BUDGET_MILES,
+  type PoolFitBeach,
+  type PoolPreferenceProfile,
+} from './candidate-pool-fit';
+
 // Distance friction
 export {
   calculateDistancePenalty,

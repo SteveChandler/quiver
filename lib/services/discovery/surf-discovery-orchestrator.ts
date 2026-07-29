@@ -2,7 +2,8 @@
  * Surf Discovery Orchestrator
  *
  * Orchestrates the surf discovery flow by composing modular services:
- * 1. CandidatePoolBuilder - Builds initial candidate pool using GPS proximity
+ * 1. CandidatePoolBuilder - Builds the candidate pool from GPS proximity,
+ *    re-ordered by the user's stored preferences (see candidate-pool-fit)
  * 2. ForecastBatchFetcher - Fetches forecasts for all candidates in parallel
  * 3. WindowSelector - Selects best surf window for each beach
  * 4. ResponseFormatter - Enriches recommendations with photos and summaries
@@ -837,14 +838,17 @@ function buildCustomSpotBeach(
   };
 }
 
-function mergeCandidatePools(nearbyCandidates: Beach[], includedCandidates: Beach[]): Beach[] {
+/**
+ * Concatenate candidate sources, keeping the first occurrence of each beach.
+ * Earlier pools win, so the ordering the pool builder produced survives.
+ */
+function mergeCandidatePools(...pools: Beach[][]): Beach[] {
   const byId = new Map<string, Beach>();
-  for (const beach of nearbyCandidates) {
-    if (beach?.id) byId.set(beach.id, beach);
-  }
-  for (const beach of includedCandidates) {
-    if (beach?.id && !byId.has(beach.id)) {
-      byId.set(beach.id, beach);
+  for (const pool of pools) {
+    for (const beach of pool) {
+      if (beach?.id && !byId.has(beach.id)) {
+        byId.set(beach.id, beach);
+      }
     }
   }
   return Array.from(byId.values());
@@ -1393,6 +1397,10 @@ async function discoverSurfSpotsInner(
     isPro = false,
     includeBeachIds,
   } = options;
+  // `candidatePoolLimit` (how many beaches get forecasts fetched and scored) is
+  // NOT `maxResults` (how many are shown). Shrinking the pool to the size of the
+  // result list narrows the ranking universe to the physically nearest handful
+  // and quietly hides better spots a few miles further out.
   const effectiveCandidatePoolLimit = Math.min(
     CANDIDATE_POOL_LIMIT,
     Math.max(1, Math.floor(candidatePoolLimit)),
@@ -1407,7 +1415,7 @@ async function discoverSurfSpotsInner(
 
   log.debug(`Discovering surf spots for user ${userId} (maxResults: ${maxResults})`);
 
-  // 1. Build candidate pool (GPS-based, sorted by distance)
+  // 1. Build candidate pool (GPS-based, re-ordered by pre-forecast preference fit)
   const [{ candidates, userSkillLevel }, includedCandidates, customSpotCandidates] = await Promise.all([
     buildCandidatePool(userId, {
       userLocation,
@@ -1417,20 +1425,24 @@ async function discoverSurfSpotsInner(
     buildCustomSpotCandidates(userId, userLocation, radiusMiles),
   ]);
 
-  // Limit nearby candidates to prevent excessive forecast work, then append
-  // explicit include targets. Included beaches are capped separately at the
-  // route boundary so saved/home targets can be scored without N native calls.
+  // Explicit include targets and custom-spot host beaches reserve their slots
+  // first; whatever is left of the pool budget goes to nearby discovery.
+  // Included beaches are capped separately at the route boundary so saved/home
+  // targets can be scored without N native calls.
   const customNearestCandidates = customSpotCandidates.map((candidate) => candidate.nearestBeach);
-  const maxNearbyCandidates = Math.min(
+  const nearbyCandidateSlots = Math.min(
     candidates.length,
     Math.max(
       0,
       effectiveCandidatePoolLimit - includedCandidates.length - customNearestCandidates.length
     )
   );
-  const nearbyCandidates = candidates.slice(0, maxNearbyCandidates);
+  // `candidates` arrives pool-ordered (pinned spots, then effective distance),
+  // so taking a prefix keeps home/saved spots even when the cap bites.
+  const nearbyCandidates = candidates.slice(0, nearbyCandidateSlots);
   const finalCandidates = mergeCandidatePools(
-    mergeCandidatePools(nearbyCandidates, includedCandidates),
+    nearbyCandidates,
+    includedCandidates,
     customNearestCandidates,
   ).slice(0, effectiveCandidatePoolLimit);
   // A custom spot is only "primary" (eligible for the Now/Best feeds) when it's
@@ -1439,10 +1451,10 @@ async function discoverSurfSpotsInner(
   // anywhere in radius and out-ranks the curated beach it borrows its forecast
   // from. Gated-out OWN spots still fall through to includedRecommendations
   // (My spots only); far public spots drop out entirely, same as a far beach.
-  // ponytail: boundary is the furthest nearby beach once the 20-spot cap bites;
-  // before that every in-radius beach is nearby, so the boundary is the radius.
+  // Boundary is the furthest nearby beach once the pool cap bites; before that
+  // every in-radius beach is nearby, so the boundary is the radius itself.
   const nearbyMaxMiles =
-    candidates.length > maxNearbyCandidates
+    candidates.length > nearbyCandidateSlots
       ? nearbyCandidates.reduce(
           (miles, beach) =>
             Math.max(miles, calculateDistance(userLocation, { lat: beach.lat || 0, lon: beach.lon || 0 })),
@@ -1473,7 +1485,7 @@ async function discoverSurfSpotsInner(
 
   log.debug(
     `Found ${finalCandidates.length} candidate beaches ` +
-    `(${maxNearbyCandidates} nearby, ${includedCandidates.length} included, ` +
+    `(${nearbyCandidateSlots} nearby, ${includedCandidates.length} included, ` +
     `${customSpotCandidates.length} custom spots)`
   );
 

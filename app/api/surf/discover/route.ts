@@ -9,6 +9,7 @@ import {
   type AuthenticatedContext,
 } from '@/lib/middleware/api-wrappers';
 import { discoverSurfSpots } from '@/lib/services/surf-discovery-service';
+import { CANDIDATE_POOL_LIMIT } from '@/lib/services/discovery/candidate-pool-builder';
 import { entitlementFromRow } from '@/lib/alerts/entitlements';
 import { gateSurfDiscoveryResponse } from '@/lib/services/discovery/surf-discovery-gating';
 import { sanitizeSurfDiscoveryForSerializationMajorEventHold } from '@/lib/services/discovery/major-event-hold';
@@ -113,8 +114,9 @@ function hasExplicitMajorEventHold(
  * GET /api/surf/discover
  *
  * Returns ranked surf spot recommendations based on user's GPS location.
- * Discovers nearby beaches sorted by distance, scores them with detailed
- * condition matching, and returns the top ranked list.
+ * Discovers nearby beaches, orders the candidate pool by distance blended with
+ * the user's stored preferences, scores them with detailed condition matching,
+ * and returns the top ranked list.
  *
  * @param request - Next.js request with query params
  * @returns SurfDiscoveryResponse with ranked recommendations
@@ -207,7 +209,14 @@ async function surfDiscoveryHandler(
       radiusMiles: radius,
       horizonHours,
       maxResults,
-      candidatePoolLimit: 8,
+      // Consider the full pool. `maxResults` alone controls how many spots the
+      // user sees; shrinking the pool to match it makes the physically nearest
+      // handful the entire ranking universe and hides better spots a few miles
+      // out. Measured in San Diego (49 vs 7 beaches considered): ~720ms at a
+      // pool of 8 vs ~1200ms at 60, well inside the 12s batch timeout — so if
+      // this route ever needs bounding again, bound `maxConcurrent` or the
+      // radius, not the ranking universe.
+      candidatePoolLimit: CANDIDATE_POOL_LIMIT,
       discoveryMode: mode ?? 'best-window',
       timeSlot,
       isPro,
