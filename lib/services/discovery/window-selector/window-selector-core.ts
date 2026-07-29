@@ -51,7 +51,15 @@ import {
   MORNING_TIME_BONUS,
   EVENING_CUTOFF_HOUR,
 } from './constants';
-import { getLocalDateStr, getTimeSlotRange, capEndTimeToTimeSlot, getLocalHour } from './time-slot-utils';
+import {
+  getLocalDateStr,
+  getLocalDateFormatter,
+  getLocalHourFormatter,
+  getLocalTimeLabelFormatter,
+  getTimeSlotRange,
+  capEndTimeToTimeSlot,
+  getLocalHour,
+} from './time-slot-utils';
 import { calculateTideDrivenBoundaries } from './tide-boundary-calculator';
 import { findPeakWithinWindow } from './peak-finder';
 import { applySubHourRefinement } from './window-refiner';
@@ -93,19 +101,9 @@ function prepareForecasts(
       let isToday = false;
       let localHourStr = '';
       try {
-        const forecastDateStr = new Intl.DateTimeFormat("en-CA", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          timeZone: beachTz,
-        }).format(forecastTime);
+        const forecastDateStr = getLocalDateFormatter(beachTz).format(forecastTime);
         isToday = forecastDateStr === todayDateStr;
-        localHourStr = new Intl.DateTimeFormat("en-US", {
-          hour: "numeric",
-          minute: "numeric",
-          hour12: true,
-          timeZone: beachTz,
-        }).format(forecastTime);
+        localHourStr = getLocalTimeLabelFormatter(beachTz).format(forecastTime);
       } catch {
         // Default to not today if timezone conversion fails
       }
@@ -146,11 +144,7 @@ function filterByTimeSlot(
   return forecasts.filter(({ forecastTime }) => {
     try {
       const localHour = parseInt(
-        new Intl.DateTimeFormat("en-US", {
-          hour: "numeric",
-          hour12: false,
-          timeZone: beachTz,
-        }).format(forecastTime),
+        getLocalHourFormatter(beachTz).format(forecastTime),
         10
       );
 
@@ -183,11 +177,7 @@ function shouldSkipDueToLight({
   // Night Filter (using Local Hour)
   try {
     const localHour = parseInt(
-      new Intl.DateTimeFormat("en-US", {
-        hour: "numeric",
-        hour12: false,
-        timeZone: beachTz,
-      }).format(startTime),
+      getLocalHourFormatter(beachTz).format(startTime),
       10
     );
 
@@ -221,11 +211,7 @@ function shouldSkipDueToLight({
   if (!sameDaySunset && sunsets.length > 0) {
     try {
       const localHour = parseInt(
-        new Intl.DateTimeFormat("en-US", {
-          hour: "numeric",
-          hour12: false,
-          timeZone: beachTz,
-        }).format(startTime),
+        getLocalHourFormatter(beachTz).format(startTime),
         10
       );
       if (localHour >= 18) {
@@ -273,11 +259,7 @@ function calculateAdjustedScore(
   if (isMorning && isToday) {
     try {
       const forecastLocalHour = parseInt(
-        new Intl.DateTimeFormat("en-US", {
-          hour: "numeric",
-          hour12: false,
-          timeZone: beachTz,
-        }).format(startTime),
+        getLocalHourFormatter(beachTz).format(startTime),
         10
       );
       if (forecastLocalHour < EVENING_CUTOFF_HOUR) {
@@ -736,20 +718,11 @@ export function selectBestWindows(
   let todayDateStr = '';
   try {
     const localHourNow = parseInt(
-      new Intl.DateTimeFormat("en-US", {
-        hour: "numeric",
-        hour12: false,
-        timeZone: beachTz,
-      }).format(actualNow),
+      getLocalHourFormatter(beachTz).format(actualNow),
       10
     );
     isMorning = localHourNow < MORNING_CUTOFF_HOUR;
-    todayDateStr = new Intl.DateTimeFormat("en-CA", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      timeZone: beachTz,
-    }).format(actualNow);
+    todayDateStr = getLocalDateFormatter(beachTz).format(actualNow);
   } catch {
     // If timezone conversion fails, default to not morning priority
   }
@@ -842,22 +815,14 @@ export function selectBestWindows(
       if (actualTimeSlot && actualTimeSlot !== 'any') {
         try {
           const tideStartHour = parseInt(
-            new Intl.DateTimeFormat("en-US", {
-              hour: "numeric",
-              hour12: false,
-              timeZone: beachTz,
-            }).format(tideBoundaries.start),
+            getLocalHourFormatter(beachTz).format(tideBoundaries.start),
             10
           );
           const slotRange = getTimeSlotRange(actualTimeSlot, sunrises, startTime, beachTz);
 
           if (tideStartHour < slotRange.startHour || tideStartHour >= slotRange.endHour) {
             const forecastStartHour = parseInt(
-              new Intl.DateTimeFormat("en-US", {
-                hour: "numeric",
-                hour12: false,
-                timeZone: beachTz,
-              }).format(startTime),
+              getLocalHourFormatter(beachTz).format(startTime),
               10
             );
 
@@ -1045,11 +1010,7 @@ function selectFallbackWindow(
     if (timeSlot && timeSlot !== 'any') {
       try {
         const localHour = parseInt(
-          new Intl.DateTimeFormat("en-US", {
-            hour: "numeric",
-            hour12: false,
-            timeZone: beachTz,
-          }).format(forecastTime),
+          getLocalHourFormatter(beachTz).format(forecastTime),
           10
         );
         const slotRange = getTimeSlotRange(timeSlot, sunrises, forecastTime, beachTz);
@@ -1070,11 +1031,7 @@ function selectFallbackWindow(
 
     try {
       const localHour = parseInt(
-        new Intl.DateTimeFormat("en-US", {
-          hour: "numeric",
-          hour12: false,
-          timeZone: beachTz,
-        }).format(forecastTime),
+        getLocalHourFormatter(beachTz).format(forecastTime),
         10
       );
 
@@ -1110,11 +1067,7 @@ function selectFallbackWindow(
       bonus += TODAY_BONUS_POINTS;
       try {
         const localHour = parseInt(
-          new Intl.DateTimeFormat("en-US", {
-            hour: "numeric",
-            hour12: false,
-            timeZone: beachTz,
-          }).format(f.forecastTime),
+          getLocalHourFormatter(beachTz).format(f.forecastTime),
           10
         );
         if (localHour < EVENING_CUTOFF_HOUR) {

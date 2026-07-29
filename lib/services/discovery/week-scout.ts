@@ -15,6 +15,7 @@ import {
   selectBestWindow,
   scoreWindowConditionScore,
   getLocalDateStr,
+  getLocalHourFormatter,
 } from '@/lib/services/discovery/window-selector';
 import {
   beachToSpotProfile,
@@ -208,15 +209,57 @@ function addLocalDays(localDate: string, days: number): string {
 
 function localHour(date: Date, timezone: string): number | null {
   try {
-    const hour = Number(new Intl.DateTimeFormat('en-US', {
-      hour: 'numeric',
-      hour12: false,
-      timeZone: timezone,
-    }).format(date));
+    const hour = Number(getLocalHourFormatter(timezone).format(date));
     return Number.isFinite(hour) ? hour % 24 : null;
   } catch {
     return null;
   }
+}
+
+function bucketForLocalHour(hour: number): WeekScoutBucket | null {
+  const match = BUCKETS.find(({ startHour, endHour }) => (
+    hour >= startHour && (endHour === null || hour < endHour)
+  ));
+  return match?.bucket ?? null;
+}
+
+function slotKey(localDate: string, bucket: WeekScoutBucket): string {
+  return `${localDate}|${bucket}`;
+}
+
+/**
+ * Bucket a beach's forecast rows by local date and daypart in a single pass.
+ *
+ * The naive form re-derives each row's local date and hour once per
+ * (day x bucket) pair — 21 times over a 7-day request — and each derivation
+ * built a fresh Intl.DateTimeFormat. Resolving every row once keeps the output
+ * identical (buckets are ordered and disjoint, and insertion order preserves
+ * the original row order) while cutting the timezone work by 21x.
+ */
+function groupForecastsByLocalSlot(
+  forecasts: EnhancedForecastEntity[],
+  timezone: string,
+): Map<string, EnhancedForecastEntity[]> {
+  const grouped = new Map<string, EnhancedForecastEntity[]>();
+
+  for (const row of forecasts) {
+    const date = new Date(row.forecast_at);
+    const hour = localHour(date, timezone);
+    if (hour === null) continue;
+
+    const bucket = bucketForLocalHour(hour);
+    if (!bucket) continue;
+
+    const key = slotKey(getLocalDateStr(date, timezone), bucket);
+    const existing = grouped.get(key);
+    if (existing) {
+      existing.push(row);
+      continue;
+    }
+    grouped.set(key, [row]);
+  }
+
+  return grouped;
 }
 
 function finiteNumber(value: unknown): number | null {
@@ -586,19 +629,18 @@ async function generateWeekScoutForecastInternal(
     deps.fetchPersonalizationContext(userId, beachIds),
   ]);
 
+  const slotsByBeach = new Map(beaches.map((candidate) => [
+    candidate.id,
+    groupForecastsByLocalSlot(
+      forecastsByBeach.get(candidate.id) ?? [],
+      request.localTimezone,
+    ),
+  ]));
+
   const days = localDates.map((localDate): WeekScoutDayResponse => {
-    const windows = BUCKETS.flatMap(({ bucket, startHour, endHour }) => {
+    const windows = BUCKETS.flatMap(({ bucket, endHour }) => {
       const drafts = beaches.flatMap((candidate) => {
-        const forecasts = (forecastsByBeach.get(candidate.id) ?? []).filter((row) => {
-          const date = new Date(row.forecast_at);
-          const hour = localHour(date, request.localTimezone);
-          return (
-            getLocalDateStr(date, request.localTimezone) === localDate
-            && hour !== null
-            && hour >= startHour
-            && (endHour === null || hour < endHour)
-          );
-        });
+        const forecasts = slotsByBeach.get(candidate.id)?.get(slotKey(localDate, bucket)) ?? [];
         if (forecasts.length === 0) return [];
 
         const draft = buildDraftWindow({
