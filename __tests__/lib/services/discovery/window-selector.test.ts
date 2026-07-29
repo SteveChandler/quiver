@@ -2913,3 +2913,101 @@ describe('sub-hour window refinement with peak centering', () => {
     expect(durationMinutes).toBeGreaterThanOrEqual(30);
   });
 });
+
+describe('selectBestWindows fallback horizon constraint', () => {
+  // After sunset the orchestrator falls through to a whole-horizon fallback.
+  // That fallback must pick the best slot WITHIN the horizon; picking the
+  // globally-best slot and then rejecting it for being out of horizon leaves
+  // the beach with no window at all, which downstream becomes a zero-candidate
+  // discovery and an unresolvable recommendation hold.
+  const nightNow = new Date('2024-01-15T05:00:00Z'); // 9pm PT Jan 14 — after sunset
+
+  // forecast_date/forecast_time still drive window construction, so they must
+  // stay consistent with forecast_at or the window lands on the wrong day.
+  function localParts(forecastAt: string): { date: string; time: string } {
+    const d = new Date(forecastAt);
+    const fmt = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/Los_Angeles',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+    const parts = Object.fromEntries(
+      fmt.formatToParts(d).map((p) => [p.type, p.value])
+    );
+    return {
+      date: `${parts.year}-${parts.month}-${parts.day}`,
+      time: `${parts.hour}:${parts.minute}`,
+    };
+  }
+
+  function poorDaylightForecast(forecastAt: string): EnhancedForecastEntity {
+    const { date, time } = localParts(forecastAt);
+    return createForecast({
+      forecast_at: forecastAt,
+      forecast_date: date,
+      forecast_time: time,
+      wave_height: '0.8',
+      wave_period: '7s',
+      wind_speed: '14',
+      wind_direction: 'SW',
+      wind_direction_deg: 225, // onshore for this beach
+      tide_height: '0.5',
+    });
+  }
+
+  function betterDaylightForecast(forecastAt: string): EnhancedForecastEntity {
+    const { date, time } = localParts(forecastAt);
+    return createForecast({
+      forecast_at: forecastAt,
+      forecast_date: date,
+      forecast_time: time,
+      wave_height: '3',
+      wave_period: '14s',
+      wind_speed: '2',
+      wind_direction: 'NE',
+      wind_direction_deg: 45, // offshore
+      tide_height: '3.5',
+    });
+  }
+
+  it('selects an in-horizon window even when the best slot is beyond the horizon', () => {
+    const forecasts = [
+      poorDaylightForecast('2024-01-15T18:00:00Z'), // ~13h ahead, in horizon
+      betterDaylightForecast('2024-01-16T18:00:00Z'), // ~37h ahead, out of horizon
+    ];
+
+    const windows = selectBestWindows({
+      forecasts,
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: nightNow,
+      horizonHours: 24,
+    });
+
+    expect(windows.length).toBeGreaterThan(0);
+    const hoursAhead =
+      (windows[0].start.getTime() - nightNow.getTime()) / (1000 * 60 * 60);
+    expect(hoursAhead).toBeLessThanOrEqual(24);
+  });
+
+  it('returns no window when every daylight slot is beyond the horizon', () => {
+    const forecasts = [
+      betterDaylightForecast('2024-01-17T18:00:00Z'), // ~61h ahead
+      betterDaylightForecast('2024-01-18T18:00:00Z'), // ~85h ahead
+    ];
+
+    const windows = selectBestWindows({
+      forecasts,
+      beach: mockBeach as Beach,
+      userPrefs: null,
+      now: nightNow,
+      horizonHours: 24,
+    });
+
+    expect(windows).toHaveLength(0);
+  });
+});

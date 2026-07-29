@@ -621,4 +621,97 @@ describe("GET /api/surf/call", () => {
       "private, no-store, no-cache, must-revalidate",
     );
   });
+
+  describe("recommendation availability serialization", () => {
+    const beachId = "11111111-1111-4111-8111-111111111111";
+
+    function mockScopedBeach(): void {
+      mockBeachQuery({
+        id: beachId,
+        name: "Ocean Beach Pier",
+        slug: "ocean-beach-pier",
+        lat: 32.75,
+        lon: -117.25,
+        timezone: "America/Los_Angeles",
+        deleted_at: null,
+      });
+    }
+
+    it("treats a successful empty scoped discovery as no_candidates, not an unresolved hold", async () => {
+      // A single-beach call whose scoped discovery legitimately produced no
+      // candidate is a real answer, not a failure to evaluate the safety hold.
+      canonicalContext.discovery = {
+        recommendations: [],
+        includedRecommendations: [],
+        recommendationAvailability:
+          undefined as unknown as Record<string, unknown>,
+      };
+      mockScopedBeach();
+
+      const response = await GET(
+        new NextRequest(
+          `http://localhost:3000/api/surf/call?beachId=${beachId}`,
+        ),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.data.report.recommendationAvailability).toEqual({
+        state: "available",
+        holdEpoch: "no-candidates",
+      });
+    });
+
+    it("returns a retryable 503 when the hold state is genuinely unavailable", async () => {
+      // Never serialize an unresolved hold as HTTP 200 — the native client
+      // rejects that payload and surfaces a dead-end error on Home.
+      canonicalContext.discovery.recommendationAvailability = {
+        state: "none",
+        reasonCode: "hold_state_unavailable",
+        holdEpoch: "hold-state-unavailable",
+      };
+      mockScopedBeach();
+
+      const response = await GET(
+        new NextRequest(
+          `http://localhost:3000/api/surf/call?beachId=${beachId}`,
+        ),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(503);
+      expect(body).toMatchObject({
+        success: false,
+        code: "hold_state_unavailable",
+        retryable: true,
+      });
+    });
+
+    it("preserves an explicit major-event hold as a successful response", async () => {
+      canonicalContext.discovery = {
+        recommendations: [],
+        includedRecommendations: [],
+        recommendationAvailability: {
+          state: "none",
+          reasonCode: "major_event_hold",
+          holdEpoch: "major-event-epoch",
+        },
+      };
+      mockScopedBeach();
+
+      const response = await GET(
+        new NextRequest(
+          `http://localhost:3000/api/surf/call?beachId=${beachId}`,
+        ),
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.data.report.recommendationAvailability).toMatchObject({
+        state: "none",
+        reasonCode: "major_event_hold",
+        holdEpoch: "major-event-epoch",
+      });
+    });
+  });
 });
