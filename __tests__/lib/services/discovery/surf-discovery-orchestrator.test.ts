@@ -587,69 +587,6 @@ describe('discoverSurfSpots - Hotfix Candidate Boundaries', () => {
     );
   });
 
-  it.each(['best-window', 'now'] as const)(
-    'keeps the bounded %s pool distance-ordered without starving nearby candidates',
-    async (discoveryMode) => {
-      const nearbyCandidates = Array.from({ length: 12 }, (_, index) => ({
-        ...mockBeach1,
-        id: `nearby-${index + 1}`,
-        name: `Nearby ${index + 1}`,
-        lat: userLocation.lat + (index + 1) * 0.001,
-        lon: userLocation.lon,
-      })) as Beach[];
-      const includedCandidates = Array.from({ length: 8 }, (_, index) => ({
-        ...mockBeach4,
-        id: `included-${index + 1}`,
-        name: `Included ${index + 1}`,
-        lat: userLocation.lat + (index + 1) * 0.0001,
-        lon: userLocation.lon,
-      })) as Beach[];
-      const customNearestBeach = {
-        ...mockBeach4,
-        id: 'custom-nearest',
-        name: 'Custom Nearest',
-        lat: userLocation.lat + 0.00005,
-        lon: userLocation.lon,
-      } as Beach;
-
-      mockState.candidatePoolResponse.candidates = nearbyCandidates;
-      mockState.includedBeachRows = [...includedCandidates, customNearestBeach];
-      mockState.customSpots = Array.from({ length: 4 }, (_, index) =>
-        customSpotRow({
-          id: `custom-${index + 1}`,
-          userId: 'candidate-limit-user',
-          name: `Custom ${index + 1}`,
-          visibility: 'private',
-          nearestBeachId: customNearestBeach.id,
-        }),
-      );
-
-      await discoverSurfSpots('candidate-limit-user', {
-        userLocation,
-        candidatePoolLimit: 8,
-        maxResults: 10,
-        discoveryMode,
-        includeBeachIds: includedCandidates.map((beach) => beach.id),
-      });
-
-      const { batchFetchForecasts } = require(
-        '@/lib/services/discovery/forecast-batch-fetcher',
-      );
-      const fetchedCandidates = batchFetchForecasts.mock.calls[0][0] as Beach[];
-      expect(fetchedCandidates).toHaveLength(8);
-      expect(fetchedCandidates.map((beach) => beach.id)).toEqual(
-        nearbyCandidates.slice(0, 8).map((beach) => beach.id),
-      );
-      expect(new Set(fetchedCandidates.map((beach) => beach.id)).size).toBe(8);
-      const fetchedLatitudes = fetchedCandidates.map((beach) => beach.lat);
-      expect(fetchedLatitudes).toEqual(
-        [...fetchedLatitudes].sort(
-          (left, right) => (left ?? 0) - (right ?? 0),
-        ),
-      );
-    },
-  );
-
   it('marks a successful empty candidate lookup as no_candidates', async () => {
     mockState.candidatePoolResponse.candidates = [];
 

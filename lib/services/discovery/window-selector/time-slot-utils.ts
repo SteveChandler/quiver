@@ -9,6 +9,72 @@
 import type { TimeSlot } from '@/types/personalization';
 import { TIME_SLOT_RANGES } from '@/types/personalization';
 
+// Constructing an Intl.DateTimeFormat is ~30µs and dominated Week Scout CPU
+// (~60% of a 40-beach request) because the same handful of beach timezones get
+// formatted tens of thousands of times per request. Formatters are immutable, so
+// keep one per timezone. Construction failures are not cached, which preserves
+// the throw-on-invalid-timezone behaviour every caller's try/catch relies on.
+const localDateFormatters = new Map<string, Intl.DateTimeFormat>();
+const localHourFormatters = new Map<string, Intl.DateTimeFormat>();
+const localTimeLabelFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function cachedFormatter(
+  cache: Map<string, Intl.DateTimeFormat>,
+  beachTz: string,
+  build: () => Intl.DateTimeFormat
+): Intl.DateTimeFormat {
+  const cached = cache.get(beachTz);
+  if (cached) return cached;
+
+  const formatter = build();
+  cache.set(beachTz, formatter);
+  return formatter;
+}
+
+/**
+ * Cached YYYY-MM-DD formatter for a beach timezone.
+ * Throws for an invalid IANA timezone, exactly like direct construction.
+ */
+export function getLocalDateFormatter(beachTz: string): Intl.DateTimeFormat {
+  return cachedFormatter(localDateFormatters, beachTz, () =>
+    new Intl.DateTimeFormat("en-CA", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      timeZone: beachTz,
+    })
+  );
+}
+
+/**
+ * Cached 24-hour hour-of-day formatter for a beach timezone.
+ * Throws for an invalid IANA timezone, exactly like direct construction.
+ */
+export function getLocalHourFormatter(beachTz: string): Intl.DateTimeFormat {
+  return cachedFormatter(localHourFormatters, beachTz, () =>
+    new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      hour12: false,
+      timeZone: beachTz,
+    })
+  );
+}
+
+/**
+ * Cached human-readable "h:mm AM/PM" formatter for a beach timezone.
+ * Throws for an invalid IANA timezone, exactly like direct construction.
+ */
+export function getLocalTimeLabelFormatter(beachTz: string): Intl.DateTimeFormat {
+  return cachedFormatter(localTimeLabelFormatters, beachTz, () =>
+    new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "numeric",
+      hour12: true,
+      timeZone: beachTz,
+    })
+  );
+}
+
 /**
  * Get local date string for a timestamp in a given timezone.
  * Returns format: YYYY-MM-DD
@@ -19,12 +85,7 @@ import { TIME_SLOT_RANGES } from '@/types/personalization';
  */
 export function getLocalDateStr(time: Date, beachTz: string): string {
   try {
-    return new Intl.DateTimeFormat("en-CA", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      timeZone: beachTz,
-    }).format(time);
+    return getLocalDateFormatter(beachTz).format(time);
   } catch {
     return time.toISOString().slice(0, 10); // Fallback to UTC
   }
@@ -81,11 +142,7 @@ export function getDawnPatrolRange(
   // Get local hour of civil twilight
   try {
     const twilightHour = parseInt(
-      new Intl.DateTimeFormat("en-US", {
-        hour: "numeric",
-        hour12: false,
-        timeZone: beachTz,
-      }).format(civilTwilight),
+      getLocalHourFormatter(beachTz).format(civilTwilight),
       10
     );
     return { startHour: twilightHour, endHour: 11 };
@@ -120,11 +177,7 @@ export function capEndTimeToTimeSlot(
   try {
     // Get the local hour of the start time in beach timezone
     const startLocalHour = parseInt(
-      new Intl.DateTimeFormat("en-US", {
-        hour: "numeric",
-        hour12: false,
-        timeZone: beachTz,
-      }).format(effectiveStartTime),
+      getLocalHourFormatter(beachTz).format(effectiveStartTime),
       10
     );
 
@@ -157,11 +210,7 @@ export function capEndTimeToTimeSlot(
 export function getLocalHour(time: Date, beachTz: string): number | null {
   try {
     return parseInt(
-      new Intl.DateTimeFormat("en-US", {
-        hour: "numeric",
-        hour12: false,
-        timeZone: beachTz,
-      }).format(time),
+      getLocalHourFormatter(beachTz).format(time),
       10
     );
   } catch {
