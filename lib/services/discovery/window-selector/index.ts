@@ -35,6 +35,9 @@ export { getDirectionDegrees } from './direction-utils';
 // Re-export time slot utilities
 export {
   getLocalDateStr,
+  getLocalDateFormatter,
+  getLocalHourFormatter,
+  getLocalTimeLabelFormatter,
   getTimeSlotRange,
   getDawnPatrolRange,
   capEndTimeToTimeSlot,

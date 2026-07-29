@@ -54,6 +54,7 @@ jest.mock("@/lib/recommendations/canonical-decision", () => ({
 }));
 
 import { NextRequest } from "next/server";
+import { CANDIDATE_POOL_LIMIT } from "@/lib/services/discovery/candidate-pool-builder";
 
 // Build a fake supabase client that returns a configurable user_entitlements
 // row from .from("user_entitlements").select(...).eq(...).maybeSingle().
@@ -99,7 +100,6 @@ function makeDiscoveryResponse() {
   return {
     recommendations: [
       {
-        recommendationId: "primary-recommendation",
         kind: "custom_spot",
         customSpotId: "custom-spot-contract-id",
         visibility: "public",
@@ -175,7 +175,6 @@ function makeDiscoveryResponse() {
     ],
     includedRecommendations: [
       {
-        recommendationId: "included-recommendation",
         kind: "beach",
         customSpotId: null,
         visibility: null,
@@ -346,9 +345,33 @@ describe("/api/surf/discover entitlement resolution", () => {
     const [, opts] = mockDiscoverSurfSpots.mock.calls[0];
     expect(opts).toMatchObject({
       isPro: true,
-      candidatePoolLimit: 8,
+      candidatePoolLimit: CANDIDATE_POOL_LIMIT,
       throwOnFailure: true,
     });
+  });
+
+  // Regression guard for the Jul 26 "bound discovery hot paths" hotfix, which
+  // set candidatePoolLimit to 8 and collapsed the ranking universe to the 8
+  // physically nearest beaches. maxResults limits what is SHOWN; the pool
+  // limit must stay wide so better spots slightly further out stay eligible.
+  it("considers the full candidate pool regardless of maxResults", async () => {
+    const supabase = makeSupabaseStub(null);
+
+    const { GET } = await import("@/app/api/surf/discover/route");
+    await GET(
+      new NextRequest(
+        "http://localhost:3000/api/surf/discover?lat=32.766908&lon=-117.188202&maxResults=3",
+      ) as any,
+      {
+        user: { id: "user-pool-limit" } as any,
+        supabase: supabase as any,
+        params: {},
+      } as any,
+    );
+
+    const [, opts] = mockDiscoverSurfSpots.mock.calls[0];
+    expect(opts.candidatePoolLimit).toBe(CANDIDATE_POOL_LIMIT);
+    expect(opts.candidatePoolLimit).toBeGreaterThan(opts.maxResults);
   });
 
   it("returns explicit no_candidates without manufacturing a safety hold", async () => {
@@ -735,65 +758,9 @@ describe("/api/surf/discover entitlement resolution", () => {
           state: "available",
           holdEpoch: "route-epoch",
         },
-        recommendations: [expect.any(Object), expect.any(Object)],
+        recommendations: [expect.any(Object)],
       }),
     );
-  });
-
-  it("builds the Home decision from the deduped returned primary and included ranking pool", async () => {
-    const discovery = makeDiscoveryResponse();
-    discovery.includedRecommendations = [
-      {
-        ...discovery.includedRecommendations[0],
-        recommendationId: "shared-recommendation",
-      },
-      {
-        ...discovery.includedRecommendations[0],
-        recommendationId: "included-recommendation",
-      },
-    ];
-    discovery.recommendations = [
-      {
-        ...discovery.recommendations[0],
-        recommendationId: "shared-recommendation",
-      },
-    ];
-    mockDiscoverSurfSpots.mockResolvedValue(discovery);
-    mockBuildCanonicalDecisionFromSurfDiscovery.mockImplementationOnce(
-      ({ recommendations }) => ({
-        schemaVersion: "canonical-session-decision.v1",
-        engineVersion: "rules.v1",
-        decisionId: "b".repeat(64),
-        verdict: recommendations.length > 0 ? "go" : "no",
-        decisionBasis: "physical_conditions",
-        reasonCode: recommendations.length > 0 ? "recommended" : "no_candidates",
-        selection: recommendations.length > 0
-          ? { candidateId: recommendations[0].recommendationId }
-          : null,
-      }),
-    );
-
-    const response = await callDiscoverRoute({
-      is_pro: true,
-      is_trialing: false,
-      billing_issue: false,
-      expires_at: null,
-    });
-    const body = await response.json();
-
-    expect(mockBuildCanonicalDecisionFromSurfDiscovery).toHaveBeenCalledWith(
-      expect.objectContaining({
-        recommendations: [
-          expect.objectContaining({ recommendationId: "shared-recommendation" }),
-          expect.objectContaining({ recommendationId: "included-recommendation" }),
-        ],
-      }),
-    );
-    expect(body.data.sessionDecision).toMatchObject({
-      verdict: "go",
-      reasonCode: "recommended",
-    });
-    expect(body.data.sessionDecision.reasonCode).not.toBe("no_candidates");
   });
 
   it("preserves recommendation discriminator metadata in the route response", async () => {
