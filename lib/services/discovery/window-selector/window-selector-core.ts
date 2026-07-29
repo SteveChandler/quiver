@@ -1128,16 +1128,25 @@ function selectFallbackWindow(
     return getSelectionScore(f) + bonus + soonBonus + underwayBonus;
   };
 
-  const best = daylightForecasts.reduce((prev, curr) =>
-    getAdjustedScore(curr) > getAdjustedScore(prev) ? curr : prev
-  );
+  // Constrain to the horizon BEFORE picking a winner. Selecting the globally
+  // best slot and then rejecting it for being out of horizon throws away
+  // perfectly good in-horizon slots, leaving the beach with no window at all.
+  const inHorizonForecasts = horizonHours
+    ? daylightForecasts.filter(
+        (f) =>
+          (f.forecastTime.getTime() - now.getTime()) / (1000 * 60 * 60) <=
+          horizonHours
+      )
+    : daylightForecasts;
 
-  // Check horizon constraint
-  const hoursAhead = (best.forecastTime.getTime() - now.getTime()) / (1000 * 60 * 60);
-  if (horizonHours && hoursAhead > horizonHours) {
-    log.debug(`${logPrefix}: Best fallback forecast is ${hoursAhead.toFixed(1)}h ahead, exceeds horizon of ${horizonHours}h`);
+  if (inHorizonForecasts.length === 0) {
+    log.debug(`${logPrefix}: No daylight forecasts within horizon of ${horizonHours}h (${daylightForecasts.length} daylight forecasts beyond it)`);
     return null;
   }
+
+  const best = inHorizonForecasts.reduce((prev, curr) =>
+    getAdjustedScore(curr) > getAdjustedScore(prev) ? curr : prev
+  );
 
   const effectiveStartTime = best.forecastTime;
   const fallbackDateStr = getLocalDateStrForBeach(effectiveStartTime);
