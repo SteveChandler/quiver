@@ -1,8 +1,11 @@
 /**
  * Unit tests for Candidate Pool Builder
  *
- * Tests the buildCandidatePool function that gathers candidate beaches
- * for surf discovery using pure GPS-based proximity ordering.
+ * Tests the buildCandidatePool function that gathers candidate beaches for
+ * surf discovery. Beaches come out of PostGIS in distance order and are then
+ * re-ordered by *effective* distance — real miles minus the detour the user's
+ * stored preferences have earned — with home beach and saved spots pinned so
+ * the pool cap can never evict them.
  */
 
 import type { Beach } from '@/types/database';
@@ -41,9 +44,12 @@ const mockNearbyBeach3: Partial<Beach> = {
   is_private: false,
 };
 
+const MILES_TO_METERS = 1609.34;
+
 // Shared mock state that can be updated between tests
 const mockState = {
   profileResponse: { data: null as unknown, error: null as unknown },
+  favoritesResponse: { data: [] as unknown, error: null as unknown },
   nearbyRpcResponse: { data: [] as unknown, error: null as unknown } as
     | { data: unknown; error: unknown }
     | ((params: Record<string, unknown>) => { data: unknown; error: unknown }),
@@ -73,6 +79,12 @@ jest.mock('@/lib/supabase/server', () => ({
                       return Promise.resolve(mockState.profileResponse);
                     }),
                   };
+                }
+
+                if (table === 'favorite_beaches') {
+                  // The favourites query is awaited directly (no terminal
+                  // method), so the builder must be thenable here.
+                  return Promise.resolve(mockState.favoritesResponse);
                 }
 
                 // For beaches table
@@ -140,6 +152,7 @@ import {
   buildCandidatePool,
   CANDIDATE_POOL_LIMIT,
 } from '@/lib/services/discovery/candidate-pool-builder';
+import { PREFERENCE_DETOUR_BUDGET_MILES } from '@/lib/services/discovery/candidate-pool-fit';
 
 describe('buildCandidatePool', () => {
   const testUserId = 'test-user-123';
@@ -149,6 +162,7 @@ describe('buildCandidatePool', () => {
     jest.clearAllMocks();
     // Reset mock state
     mockState.profileResponse = { data: null, error: null };
+    mockState.favoritesResponse = { data: [], error: null };
     mockState.nearbyRpcResponse = { data: [], error: null };
     mockState.beachesInResponse = { data: [], error: null };
     mockState.mockCalls = [];
@@ -178,7 +192,7 @@ describe('buildCandidatePool', () => {
       });
 
       expect(result.candidates).toHaveLength(3);
-      // Verify distance-based ordering is maintained
+      // No preference signals on these rows, so ordering stays pure distance.
       expect(result.candidates[0].id).toBe(mockNearbyBeach1.id);
       expect(result.candidates[1].id).toBe(mockNearbyBeach2.id);
       expect(result.candidates[2].id).toBe(mockNearbyBeach3.id);
@@ -227,6 +241,196 @@ describe('buildCandidatePool', () => {
     });
   });
 
+  describe('preference-aware ordering', () => {
+    /**
+     * Three spots at comparable distance. Only the mid one matches the
+     * shortboard/intermediate profile.
+     */
+    function seedComparableDistanceSpots() {
+      const near: Partial<Beach> = {
+        ...mockNearbyBeach1,
+        id: 'near-mismatch',
+        skill_level: 'expert',
+        break_type: 'pier',
+        average_rating: 3,
+      };
+      const mid: Partial<Beach> = {
+        ...mockNearbyBeach2,
+        id: 'mid-match',
+        skill_level: 'intermediate',
+        break_type: 'reef',
+        average_rating: 4.8,
+      };
+      const far: Partial<Beach> = {
+        ...mockNearbyBeach3,
+        id: 'far-mismatch',
+        skill_level: 'expert',
+        break_type: 'pier',
+        average_rating: 3,
+      };
+
+      mockState.nearbyRpcResponse = {
+        data: [
+          { id: near.id, is_private: false, distance_meters: 5 * MILES_TO_METERS },
+          { id: mid.id, is_private: false, distance_meters: 9 * MILES_TO_METERS },
+          { id: far.id, is_private: false, distance_meters: 12 * MILES_TO_METERS },
+        ],
+        error: null,
+      };
+      mockState.beachesInResponse = { data: [near, mid, far], error: null };
+    }
+
+    it('promotes a preference match over a closer non-match at comparable distance', async () => {
+      mockState.profileResponse = {
+        data: { experience_level: 'intermediate', surf_styles: ['shortboard'] },
+        error: null,
+      };
+      seedComparableDistanceSpots();
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+      });
+
+      expect(result.candidates[0].id).toBe('mid-match');
+    });
+
+    it('keeps pure distance ordering for a user with no stored preferences', async () => {
+      mockState.profileResponse = {
+        data: { experience_level: null, surf_styles: [] },
+        error: null,
+      };
+      seedComparableDistanceSpots();
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+      });
+
+      expect(result.candidates.map((beach) => beach.id)).toEqual([
+        'near-mismatch',
+        'mid-match',
+        'far-mismatch',
+      ]);
+    });
+
+    it('does not let a distant preference match leapfrog a good local spot', async () => {
+      const local: Partial<Beach> = {
+        ...mockNearbyBeach1,
+        id: 'local-spot',
+        skill_level: 'expert',
+        break_type: 'pier',
+        average_rating: 3,
+      };
+      const distant: Partial<Beach> = {
+        ...mockNearbyBeach2,
+        id: 'distant-perfect-match',
+        skill_level: 'intermediate',
+        break_type: 'reef',
+        average_rating: 5,
+      };
+
+      mockState.profileResponse = {
+        data: { experience_level: 'intermediate', surf_styles: ['shortboard'] },
+        error: null,
+      };
+      mockState.nearbyRpcResponse = {
+        data: [
+          { id: local.id, is_private: false, distance_meters: 4 * MILES_TO_METERS },
+          {
+            id: distant.id,
+            is_private: false,
+            // Comfortably beyond what a perfect match can buy.
+            distance_meters:
+              (4 + PREFERENCE_DETOUR_BUDGET_MILES + 20) * MILES_TO_METERS,
+          },
+        ],
+        error: null,
+      };
+      mockState.beachesInResponse = { data: [local, distant], error: null };
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+      });
+
+      expect(result.candidates.map((beach) => beach.id)).toEqual([
+        'local-spot',
+        'distant-perfect-match',
+      ]);
+    });
+
+    it('pins the home beach and saved spots ahead of everything else', async () => {
+      const nearest: Partial<Beach> = {
+        ...mockNearbyBeach1,
+        id: 'nearest-generic',
+        skill_level: 'intermediate',
+        break_type: 'reef',
+        average_rating: 5,
+      };
+      const saved: Partial<Beach> = {
+        ...mockNearbyBeach2,
+        id: 'saved-spot',
+        skill_level: 'expert',
+        break_type: 'pier',
+        average_rating: 3,
+      };
+      const home: Partial<Beach> = {
+        ...mockNearbyBeach3,
+        id: 'home-beach',
+        skill_level: 'expert',
+        break_type: 'pier',
+        average_rating: 3,
+      };
+
+      mockState.profileResponse = {
+        data: {
+          experience_level: 'intermediate',
+          surf_styles: ['shortboard'],
+          home_beach_id: 'home-beach',
+        },
+        error: null,
+      };
+      mockState.favoritesResponse = {
+        data: [{ beach_id: 'saved-spot' }],
+        error: null,
+      };
+      mockState.nearbyRpcResponse = {
+        data: [
+          { id: nearest.id, is_private: false, distance_meters: 2 * MILES_TO_METERS },
+          { id: home.id, is_private: false, distance_meters: 30 * MILES_TO_METERS },
+          { id: saved.id, is_private: false, distance_meters: 18 * MILES_TO_METERS },
+        ],
+        error: null,
+      };
+      mockState.beachesInResponse = { data: [nearest, home, saved], error: null };
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+      });
+
+      // Pinned spots lead (nearest pinned first), so a cap of 2 cannot drop them.
+      expect(result.candidates.map((beach) => beach.id)).toEqual([
+        'saved-spot',
+        'home-beach',
+        'nearest-generic',
+      ]);
+    });
+
+    it('still returns candidates when the favourites lookup fails', async () => {
+      mockState.profileResponse = {
+        data: { experience_level: 'intermediate', surf_styles: ['shortboard'] },
+        error: null,
+      };
+      mockState.favoritesResponse = { data: null, error: { message: 'boom' } };
+      seedComparableDistanceSpots();
+
+      const result = await buildCandidatePool(testUserId, {
+        userLocation: defaultUserLocation,
+      });
+
+      expect(result.candidates).toHaveLength(3);
+      expect(result.userSkillLevel).toBe('intermediate');
+    });
+  });
+
   describe('radius handling', () => {
     it('should use provided radiusMiles for nearby search', async () => {
       mockState.profileResponse = {
@@ -266,6 +470,23 @@ describe('buildCandidatePool', () => {
       expect(
         rpcCalls.map((call) => (call.args[0] as Record<string, unknown>).max_distance_meters)
       ).toEqual([40234, 96560, 160934]);
+    });
+
+    it('requests the full candidate pool limit from PostGIS on every tier', async () => {
+      mockState.profileResponse = { data: { experience_level: null }, error: null };
+      mockState.nearbyRpcResponse = { data: [], error: null };
+
+      await buildCandidatePool(testUserId, { userLocation: defaultUserLocation });
+
+      const rpcCalls = mockState.mockCalls.filter(
+        (call) => call.method === 'get_nearby_beaches'
+      );
+      expect(rpcCalls.length).toBeGreaterThan(0);
+      rpcCalls.forEach((call) => {
+        expect((call.args[0] as Record<string, unknown>).limit_count).toBe(
+          CANDIDATE_POOL_LIMIT
+        );
+      });
     });
 
     it('should cap radiusMiles at 100 miles', async () => {
