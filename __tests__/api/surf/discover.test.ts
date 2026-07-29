@@ -54,6 +54,7 @@ jest.mock("@/lib/recommendations/canonical-decision", () => ({
 }));
 
 import { NextRequest } from "next/server";
+import { CANDIDATE_POOL_LIMIT } from "@/lib/services/discovery/candidate-pool-builder";
 
 // Build a fake supabase client that returns a configurable user_entitlements
 // row from .from("user_entitlements").select(...).eq(...).maybeSingle().
@@ -344,9 +345,33 @@ describe("/api/surf/discover entitlement resolution", () => {
     const [, opts] = mockDiscoverSurfSpots.mock.calls[0];
     expect(opts).toMatchObject({
       isPro: true,
-      candidatePoolLimit: 8,
+      candidatePoolLimit: CANDIDATE_POOL_LIMIT,
       throwOnFailure: true,
     });
+  });
+
+  // Regression guard for the Jul 26 "bound discovery hot paths" hotfix, which
+  // set candidatePoolLimit to 8 and collapsed the ranking universe to the 8
+  // physically nearest beaches. maxResults limits what is SHOWN; the pool
+  // limit must stay wide so better spots slightly further out stay eligible.
+  it("considers the full candidate pool regardless of maxResults", async () => {
+    const supabase = makeSupabaseStub(null);
+
+    const { GET } = await import("@/app/api/surf/discover/route");
+    await GET(
+      new NextRequest(
+        "http://localhost:3000/api/surf/discover?lat=32.766908&lon=-117.188202&maxResults=3",
+      ) as any,
+      {
+        user: { id: "user-pool-limit" } as any,
+        supabase: supabase as any,
+        params: {},
+      } as any,
+    );
+
+    const [, opts] = mockDiscoverSurfSpots.mock.calls[0];
+    expect(opts.candidatePoolLimit).toBe(CANDIDATE_POOL_LIMIT);
+    expect(opts.candidatePoolLimit).toBeGreaterThan(opts.maxResults);
   });
 
   it("returns explicit no_candidates without manufacturing a safety hold", async () => {
