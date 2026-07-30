@@ -4,7 +4,12 @@ import "@testing-library/jest-dom";
 
 import { ShareSheet } from "@/components/share/share-sheet";
 import { track } from "@/lib/analytics";
-import { shareImage } from "@/lib/share/share-image";
+import {
+  copyToClipboard,
+  downloadImage,
+  ShareImageError,
+  shareImage,
+} from "@/lib/share/share-image";
 import { getVisitorId } from "@/lib/utils/visitor-id";
 
 jest.mock("framer-motion", () => ({
@@ -130,5 +135,102 @@ describe("ShareSheet", () => {
       sessionId: "12345678-1234-1234-1234-123456789012",
       viewportWidth: 390,
     });
+  });
+
+  it("tracks share_link_copied after copying the tracked share URL", async () => {
+    render(
+      <ShareSheet
+        open
+        onOpenChange={jest.fn()}
+        imageUrl="/api/og/session?id=session-1"
+        type="session"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /copy link/i }));
+
+    await waitFor(() => {
+      expect(copyToClipboard).toHaveBeenCalled();
+    });
+    expect(track).toHaveBeenCalledWith("share_link_copied", {
+      type: "session",
+    });
+  });
+
+  it("tracks share_image_saved after saving the image", async () => {
+    render(
+      <ShareSheet
+        open
+        onOpenChange={jest.fn()}
+        imageUrl="/api/og/session?id=session-1"
+        type="session"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(downloadImage).toHaveBeenCalled();
+    });
+    expect(track).toHaveBeenCalledWith("share_image_saved", {
+      type: "session",
+    });
+  });
+
+  it("never posts or tracks social_share for any share action", async () => {
+    render(
+      <ShareSheet
+        open
+        onOpenChange={jest.fn()}
+        imageUrl="/api/og/session?id=session-1"
+        type="session"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /copy link/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /more/i }));
+
+    await waitFor(() => {
+      expect(track).toHaveBeenCalledWith("share_completed", {
+        type: "session",
+      });
+    });
+
+    for (const [eventName] of (track as jest.Mock).mock.calls) {
+      expect(eventName).not.toBe("social_share");
+    }
+    for (const [, request] of (global.fetch as jest.Mock).mock.calls) {
+      const body = JSON.parse((request as RequestInit).body as string);
+      expect(body.eventType).not.toBe("social_share");
+    }
+  });
+
+  it("does not emit share_completed when native sharing is cancelled", async () => {
+    (shareImage as jest.Mock).mockRejectedValueOnce(
+      new ShareImageError("Share cancelled by user", "SHARE_CANCELLED"),
+    );
+
+    render(
+      <ShareSheet
+        open
+        onOpenChange={jest.fn()}
+        imageUrl="/api/og/session?id=session-1"
+        type="session"
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /more/i }));
+
+    await waitFor(() => {
+      expect(shareImage).toHaveBeenCalled();
+    });
+    expect(track).toHaveBeenCalledWith("share_started", {
+      type: "session",
+    });
+    expect(track).not.toHaveBeenCalledWith("share_completed", {
+      type: "session",
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });
