@@ -5,6 +5,11 @@ import {
   SKILL_WAVE_RANGES,
   type SkillLevel,
 } from "@/lib/domains/user-preferences/skill-level";
+import {
+  DAYLIGHT_END_HOUR,
+  DAYLIGHT_START_HOUR,
+} from "@/lib/services/magic-hour/constants";
+import { getLocalHour } from "@/lib/utils/timezone-utils";
 
 export interface NativeSkillThresholds {
   waveMinFt: number;
@@ -153,11 +158,28 @@ export function scoreNativeForecastSlot(
 
 export function pickBestNativeForecastSlot(
   forecasts: EnhancedForecastEntity[],
-  skillLevel?: SkillLevel | string | null
+  skillLevel?: SkillLevel | string | null,
+  options: { beachTz?: string } = {}
 ): NativeScoredForecast | null {
+  const { beachTz } = options;
+  const daylightForecasts = beachTz
+    ? forecasts.filter((forecast) => {
+        const localHour = getLocalHour(
+          new Date(forecast.forecast_at),
+          beachTz,
+        );
+        return (
+          localHour >= DAYLIGHT_START_HOUR &&
+          localHour < DAYLIGHT_END_HOUR
+        );
+      })
+    : forecasts;
+  const candidates = daylightForecasts.length > 0
+    ? daylightForecasts
+    : forecasts;
   let best: NativeScoredForecast | null = null;
 
-  for (const forecast of forecasts) {
+  for (const forecast of candidates) {
     const score = scoreNativeForecastSlot(forecast, skillLevel);
     if (!best || score > best.score) {
       best = { forecast, score };

@@ -86,6 +86,7 @@ export function useConditionIntelligence(
 
     // Calculate multiple surf windows for today
     const multiWindowResult = calculateMultipleWindows(scoringForecasts, beach, {
+      beachTimezone: beachTimezone ?? undefined,
       skillLevel,
     });
 

@@ -13,6 +13,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import type { BestDaySlot } from "@/lib/mailer/templates/WeeklyRecapEmail";
 import { isLearnedMatchState } from "@/lib/personalization/match-state-compat";
+import {
+  DAYLIGHT_END_HOUR,
+  DAYLIGHT_START_HOUR,
+} from "@/lib/services/magic-hour/constants";
+import { getLocalHour } from "@/lib/utils/timezone-utils";
 
 const DIGEST_SCORE_THRESHOLD = 6;
 const DIGEST_LOOKAHEAD_DAYS = 7;
@@ -79,6 +84,7 @@ export async function computeBestDaysForUser(
   const slots: BestDaySlot[] = [];
 
   for (const [beachId, beach] of beachesById) {
+    const tz = beach.timezone ?? "America/Los_Angeles";
     const { data: forecasts } = await (supabase as any)
       .from("enhanced_forecasts")
       .select(
@@ -92,6 +98,14 @@ export async function computeBestDaysForUser(
     if (!forecasts || forecasts.length === 0) continue;
 
     for (const f of forecasts as ForecastRow[]) {
+      const localHour = getLocalHour(new Date(f.forecast_at), tz);
+      if (
+        localHour < DAYLIGHT_START_HOUR ||
+        localHour >= DAYLIGHT_END_HOUR
+      ) {
+        continue;
+      }
+
       const wave = f.wave_height ? parseFloat(f.wave_height) : null;
       const period = f.wave_period
         ? parseFloat(String(f.wave_period).replace("s", ""))
@@ -120,7 +134,6 @@ export async function computeBestDaysForUser(
       if (typeof result.score !== "number") continue;
       if (result.score < DIGEST_SCORE_THRESHOLD) continue;
 
-      const tz = beach.timezone ?? "America/Los_Angeles";
       const d = new Date(f.forecast_at);
       const weekday = d.toLocaleDateString("en-US", {
         weekday: "long",

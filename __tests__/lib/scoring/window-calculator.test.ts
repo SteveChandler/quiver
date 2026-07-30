@@ -78,6 +78,39 @@ describe('calculateOptimalWindow', () => {
     expect(result!.end.getTime()).toBeLessThanOrEqual(sunset.getTime());
   });
 
+  it('selects a daylight window over a higher-scoring night block', () => {
+    const forecasts = createForecasts([
+      { hour: 9, windSpeed: 1, tideHeight: 3.0 },
+      { hour: 10, windSpeed: 1, tideHeight: 3.0 },
+      { hour: 11, windSpeed: 1, tideHeight: 3.0 },
+      { hour: 21, windSpeed: 10, tideHeight: 3.0 },
+      { hour: 22, windSpeed: 10, tideHeight: 3.0 },
+      { hour: 23, windSpeed: 10, tideHeight: 3.0 },
+    ]);
+
+    const result = calculateOptimalWindow(forecasts, baseBeach, {
+      beachTimezone: 'America/Los_Angeles',
+    });
+
+    expect(result).not.toBeNull();
+    expect(result!.start.getUTCHours()).toBe(21);
+    expect(result!.peakTime!.getUTCHours()).toBeGreaterThanOrEqual(21);
+  });
+
+  it('returns null when timezone filtering leaves only night forecasts', () => {
+    const forecasts = createForecasts([
+      { hour: 9, windSpeed: 1, tideHeight: 3.0 },
+      { hour: 10, windSpeed: 1, tideHeight: 3.0 },
+      { hour: 11, windSpeed: 1, tideHeight: 3.0 },
+    ]);
+
+    const result = calculateOptimalWindow(forecasts, baseBeach, {
+      beachTimezone: 'America/Los_Angeles',
+    });
+
+    expect(result).toBeNull();
+  });
+
   it('returns null when no viable window exists', () => {
     // Wind ≥30 mph offshore (or ≥22 mph onshore/cross) = blown-out tier in the
     // new engine — only blown-out skips, replacing the legacy max_wind_any_mph

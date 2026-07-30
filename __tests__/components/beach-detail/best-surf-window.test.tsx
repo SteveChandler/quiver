@@ -553,6 +553,16 @@ describe("BestSurfWindow", () => {
         screen.getByText(/Next Favorable Window Today/i)
       ).toBeInTheDocument();
       expect(screen.getByText(/2:00.*PM.*4:00.*PM/i)).toBeInTheDocument();
+      expect(mockFindNextBestWindow).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({
+            forecast_at: "2024-01-15T06:00:00Z",
+          }),
+        ]),
+        expect.any(Date),
+        270,
+        "America/Los_Angeles",
+      );
     });
 
     it("should show current conditions when window passed and no next window", () => {
