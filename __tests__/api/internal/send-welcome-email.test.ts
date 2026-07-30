@@ -78,11 +78,7 @@ jest.mock("@/lib/supabase/server", () => ({
 // Mock the Resend email client
 const mockEmailSend = jest.fn();
 jest.mock("@/lib/mailer/client", () => ({
-  resend: {
-    emails: {
-      send: jest.fn((...args) => mockEmailSend(...args)),
-    },
-  },
+  sendEmail: jest.fn((...args) => mockEmailSend(...args)),
   MAIL_FROM: "Quiver <test@quiversurf.app>",
   MAIL_REPLY_TO: "Quiver <test@quiversurf.app>",
   getBaseUrl: jest.fn(() => "https://quiversurf.app"),
@@ -97,6 +93,10 @@ jest.mock("@/lib/email/templates/welcome-email", () => ({
 // Mock the email token secret
 jest.mock("@/lib/utils/email-token", () => ({
   getEmailTokenSecret: jest.fn(() => "test-secret-key"),
+}));
+
+jest.mock("@/lib/alerts/email-token", () => ({
+  generateEmailUnsubscribeToken: jest.fn(() => "test-unsubscribe-token"),
 }));
 
 // Mock rate limiter to allow requests in tests
@@ -261,6 +261,8 @@ describe("POST /api/internal/send-welcome-email", () => {
         expect.objectContaining({
           to: "test@example.com",
           subject: "You're in",
+          unsubscribeUrl:
+            "https://quiversurf.app/api/alerts/unsubscribe-email?user_id=user-123&token=test-unsubscribe-token",
         })
       );
       expect(mockGenerateWelcomeEmail).toHaveBeenCalledWith(

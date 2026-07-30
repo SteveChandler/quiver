@@ -61,11 +61,7 @@ jest.mock("@/lib/supabase/server", () => ({
 // Mock the Resend email client
 const mockEmailSend = jest.fn();
 jest.mock("@/lib/mailer/client", () => ({
-  resend: {
-    emails: {
-      send: jest.fn((...args) => mockEmailSend(...args)),
-    },
-  },
+  sendEmail: jest.fn((...args) => mockEmailSend(...args)),
   MAIL_FROM: "Quiver <test@quiversurf.app>",
   MAIL_REPLY_TO: "Quiver <test@quiversurf.app>",
 }));
@@ -79,6 +75,10 @@ jest.mock("@/lib/email/templates/welcome-email", () => ({
 // Mock the email token secret
 jest.mock("@/lib/utils/email-token", () => ({
   getEmailTokenSecret: jest.fn(() => "test-secret-key"),
+}));
+
+jest.mock("@/lib/alerts/email-token", () => ({
+  generateEmailUnsubscribeToken: jest.fn(() => "test-unsubscribe-token"),
 }));
 
 // Import route handler after mocks are set up
@@ -227,6 +227,8 @@ describe("Cron: welcome-email", () => {
         expect.objectContaining({
           to: "unconfirmed@example.com",
           subject: "Welcome to Quiver!",
+          unsubscribeUrl:
+            "https://quiversurf.app/api/alerts/unsubscribe-email?user_id=user-unconfirmed-24h&token=test-unsubscribe-token",
         })
       );
     });

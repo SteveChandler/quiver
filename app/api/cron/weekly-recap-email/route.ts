@@ -22,7 +22,7 @@ import {
   validateCronRequest,
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
+import { sendEmail, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { WeeklyRecapEmail } from "@/lib/mailer/templates/WeeklyRecapEmail";
 import { subDays, format, startOfDay, endOfDay } from "date-fns";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
@@ -30,6 +30,7 @@ import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { getDisplayCamThumbnailUrl } from "@/lib/media/cam-thumbnail";
 import { withObservedCron } from "@/lib/cron/observability";
+import { generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -286,7 +287,11 @@ async function _GET(request: Request): Promise<Response> {
         );
 
         const ctaUrl = `${baseUrl}/profile/analytics`;
-        const unsubscribeUrl = `${baseUrl}/settings`;
+        const settingsUrl = `${baseUrl}/settings`;
+        const unsubscribeToken = generateEmailUnsubscribeToken(profile.id);
+        const unsubscribeUrl =
+          `${baseUrl}/api/alerts/unsubscribe-email?user_id=${profile.id}` +
+          `&token=${unsubscribeToken}`;
 
         const emailSubject = `Your Week in the Water: ${stats.totalSessions} Session${stats.totalSessions === 1 ? "" : "s"}`;
 
@@ -294,7 +299,7 @@ async function _GET(request: Request): Promise<Response> {
           // Rate limit before sending
           await rateLimiter.throttle();
 
-          const { data: sendData, error: sendError } = await resend.emails.send({
+          const { data: sendData, error: sendError } = await sendEmail({
             from: MAIL_FROM,
             replyTo: MAIL_REPLY_TO,
             to: profile.email,
@@ -305,10 +310,11 @@ async function _GET(request: Request): Promise<Response> {
               endDate: format(endDate, "MMM d"),
               stats,
               ctaUrl,
-              unsubscribeUrl,
+              unsubscribeUrl: settingsUrl,
               bestDays: [],
               topSpotImageUrl,
             }),
+            unsubscribeUrl,
           });
 
           if (sendError) {

@@ -21,13 +21,14 @@ import {
   validateCronRequest,
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { resend, MAIL_FROM, MAIL_REPLY_TO } from "@/lib/mailer/client";
+import { sendEmail, MAIL_FROM, MAIL_REPLY_TO } from "@/lib/mailer/client";
 import { generateWelcomeEmail } from "@/lib/email/templates/welcome-email";
 import { getEmailTokenSecret } from "@/lib/utils/email-token";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { withObservedCron } from "@/lib/cron/observability";
+import { generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -161,14 +162,21 @@ async function _GET(request: Request): Promise<Response> {
           secret
         );
 
-        // Send via Resend
-        const { data: sendData, error: sendError } = await resend.emails.send({
+        const unsubscribeToken = generateEmailUnsubscribeToken(
+          candidate.user_id
+        );
+        const unsubscribeUrl =
+          `${baseUrl}/api/alerts/unsubscribe-email?user_id=${candidate.user_id}` +
+          `&token=${unsubscribeToken}`;
+
+        const { data: sendData, error: sendError } = await sendEmail({
           from: MAIL_FROM,
           replyTo: MAIL_REPLY_TO,
           to: candidate.email,
           subject,
           html,
           text,
+          unsubscribeUrl,
         });
 
         if (sendError) {
