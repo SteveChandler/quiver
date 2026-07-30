@@ -43,12 +43,12 @@ test.describe('Forecast Window OG Image API Contract', () => {
     }
   });
 
-  test('sets public cache headers', async ({ request }) => {
+  test('disables caching so cards always render live forecast data', async ({ request }) => {
     const response = await request.get(
       `${OG_FORECAST_WINDOW_ENDPOINT}?slug=la-jolla-shores&window=${VALID_WINDOW}`,
     );
     const cacheControl = response.headers()['cache-control'] || '';
 
-    expect(cacheControl).toMatch(/public|max-age|s-maxage/);
+    expect(cacheControl).toContain('no-store');
   });
 });
