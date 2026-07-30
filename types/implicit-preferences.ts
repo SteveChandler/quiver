@@ -203,6 +203,7 @@ export const EVENT_WEIGHTS: Record<ImplicitEventType, number> = {
   // Search
   beach_search_result_click: 0,
   // Growth markers
+  acquisition_source_self_reported: 0,
   first_beach_view_post_signup: 0,
   first_session_logged: 0,
   // Empty states & impressions
