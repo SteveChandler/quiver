@@ -1,8 +1,13 @@
 import type { Metadata } from "next";
 import type { ReactElement } from "react";
+import { headers } from "next/headers";
 import { ExternalLink, Smartphone, Waves } from "lucide-react";
 
-import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import { getFirstTouchPlatform } from "@/lib/analytics/web-context";
+import {
+  ANDROID_BETA_LANDING_PATH,
+  IOS_APP_STORE_URL,
+} from "@/lib/constants/app-store";
 import { loadForecastWindowShareMetadata } from "@/lib/share/forecast-window-share";
 import { ShareLinkOpenTracker } from "./share-link-open-tracker";
 
@@ -94,6 +99,10 @@ function buildBeachFallbackPath(slug: string): string {
   return `/beach/${encodeURIComponent(safeDecodeSlug(slug))}`;
 }
 
+/** Android goes to the beta waitlist (not the Play Store) per 2026-07-30
+ *  product decision. Params feed first-touch attribution on landing. */
+const ANDROID_BETA_SHARE_HREF = `${ANDROID_BETA_LANDING_PATH}?source=forecast_share&utm_source=share_link&utm_medium=app_spot_handoff&utm_campaign=forecast_window`;
+
 export default async function AppSpotHandoffPage({
   params,
   searchParams,
@@ -105,6 +114,8 @@ export default async function AppSpotHandoffPage({
     slug,
     window: windowId,
   });
+  const userAgent = (await headers()).get("user-agent") ?? "";
+  const isAndroid = getFirstTouchPlatform(userAgent) === "android";
   const webFallbackHref = buildBeachFallbackPath(slug);
   const hasPositiveWindow = !shareMetadata.isFallback;
   const displayWindowLabel = hasPositiveWindow
@@ -135,11 +146,11 @@ export default async function AppSpotHandoffPage({
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <a
-            href={IOS_APP_STORE_URL}
+            href={isAndroid ? ANDROID_BETA_SHARE_HREF : IOS_APP_STORE_URL}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-md bg-[#F78E42] px-5 py-3 text-base font-black text-[#11100D] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] focus-visible:ring-offset-2 focus-visible:ring-offset-[#101436]"
           >
             <Smartphone className="h-5 w-5" aria-hidden="true" />
-            Open in the App Store
+            {isAndroid ? "Join the Android beta" : "Open in the App Store"}
           </a>
           <a
             href={webFallbackHref}
@@ -151,8 +162,9 @@ export default async function AppSpotHandoffPage({
         </div>
 
         <p className="mt-6 max-w-xl text-sm font-semibold leading-6 text-[#91A0C8]">
-          Open Quiver from the App Store, or keep reading this spot forecast
-          on the web.
+          {isAndroid
+            ? "Join the Quiver Android beta waitlist, or keep reading this spot forecast on the web."
+            : "Open Quiver from the App Store, or keep reading this spot forecast on the web."}
         </p>
       </section>
     </main>

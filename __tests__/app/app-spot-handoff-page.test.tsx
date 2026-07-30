@@ -1,17 +1,27 @@
 import { render, screen } from "@testing-library/react";
 
 const mockLoadForecastWindowShareMetadata = jest.fn();
+const mockHeadersGet = jest.fn();
 
 jest.mock("@/lib/share/forecast-window-share", () => ({
   loadForecastWindowShareMetadata: (...args: unknown[]) =>
     mockLoadForecastWindowShareMetadata(...args),
 }));
 
+jest.mock("next/headers", () => ({
+  headers: jest.fn(async () => ({
+    get: mockHeadersGet,
+  })),
+}));
+
 import AppSpotHandoffPage, {
   generateMetadata,
 } from "@/app/app/spot/[slug]/page";
 import * as handoffModule from "@/app/app/spot/[slug]/page";
-import { IOS_APP_STORE_URL } from "@/lib/constants/app-store";
+import {
+  ANDROID_BETA_LANDING_PATH,
+  IOS_APP_STORE_URL,
+} from "@/lib/constants/app-store";
 import { track } from "@/lib/analytics";
 
 jest.mock("@/lib/analytics", () => ({
@@ -65,10 +75,18 @@ function firstOpenGraphImageUrl(
   return image?.url?.toString() ?? "";
 }
 
+const DESKTOP_UA =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36";
+const IPHONE_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1";
+const ANDROID_UA =
+  "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36";
+
 describe("/app/spot/[slug] handoff page", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockLoadForecastWindowShareMetadata.mockResolvedValue(neutralMetadata());
+    mockHeadersGet.mockReturnValue(DESKTOP_UA);
   });
 
   it("is noindexed, dynamic, and no-store", async () => {
@@ -181,7 +199,7 @@ describe("/app/spot/[slug] handoff page", () => {
     expect(screen.queryByText(/Fake ready/i)).not.toBeInTheDocument();
   });
 
-  it("renders App Store and canonical web fallback links", async () => {
+  it("renders App Store and canonical web fallback links on desktop", async () => {
     const page = await AppSpotHandoffPage({
       params: Promise.resolve({ slug: "ocean-beach" }),
       searchParams: Promise.resolve({ window: "window-1" }),
@@ -196,6 +214,49 @@ describe("/app/spot/[slug] handoff page", () => {
       screen.getByRole("link", { name: /continue on web/i }),
     ).toHaveAttribute("href", "/beach/ocean-beach");
     expect(screen.queryByText(/window-1/i)).not.toBeInTheDocument();
+  });
+
+  it("renders the App Store link for iOS visitors", async () => {
+    mockHeadersGet.mockReturnValue(IPHONE_UA);
+
+    const page = await AppSpotHandoffPage({
+      params: Promise.resolve({ slug: "ocean-beach" }),
+      searchParams: Promise.resolve({}),
+    });
+
+    render(page);
+
+    expect(
+      screen.getByRole("link", { name: /open in the app store/i }),
+    ).toHaveAttribute("href", IOS_APP_STORE_URL);
+    expect(
+      screen.queryByRole("link", { name: /android beta/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("routes Android visitors to the beta waitlist with share attribution", async () => {
+    mockHeadersGet.mockReturnValue(ANDROID_UA);
+
+    const page = await AppSpotHandoffPage({
+      params: Promise.resolve({ slug: "ocean-beach" }),
+      searchParams: Promise.resolve({}),
+    });
+
+    render(page);
+
+    const betaLink = screen.getByRole("link", { name: /join the android beta/i });
+    const href = betaLink.getAttribute("href") ?? "";
+    expect(href.startsWith(`${ANDROID_BETA_LANDING_PATH}?`)).toBe(true);
+    const search = new URLSearchParams(href.split("?")[1]);
+    expect(search.get("source")).toBe("forecast_share");
+    expect(search.get("utm_medium")).toBe("app_spot_handoff");
+    expect(search.get("utm_campaign")).toBe("forecast_window");
+    expect(
+      screen.queryByRole("link", { name: /open in the app store/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /continue on web/i }),
+    ).toHaveAttribute("href", "/beach/ocean-beach");
   });
 
   it("retains compact share-open attribution without rendering raw window copy", async () => {
