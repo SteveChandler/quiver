@@ -86,7 +86,9 @@ export async function enrichBeachesWithConditions(
 
     if (forecastResult?.forecasts?.length) {
       const forecasts = forecastResult.forecasts;
-      const best = pickBestNativeForecastSlot(forecasts);
+      const best = pickBestNativeForecastSlot(forecasts, undefined, {
+        beachTz: beach.timezone ?? undefined,
+      });
       score = best && best.score > 0 ? best.score : null;
       waveHeight = best ? parseMaxWaveHeightFt(best.forecast.wave_height) || null : null;
     }

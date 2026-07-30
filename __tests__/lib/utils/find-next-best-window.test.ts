@@ -171,6 +171,52 @@ describe('findNextBestWindow', () => {
   });
 
   describe('Scoring Behavior', () => {
+    test('filters calm local-night rows and returns the afternoon window', () => {
+      const forecasts = [
+        {
+          ...createForecast('09:00', 1, 270, 14, 3),
+          forecast_at: '2025-07-15T09:00:00Z',
+          forecast_date: '2025-07-15',
+        },
+        {
+          ...createForecast('10:00', 1, 270, 14, 3),
+          forecast_at: '2025-07-15T10:00:00Z',
+          forecast_date: '2025-07-15',
+        },
+        {
+          ...createForecast('11:00', 1, 270, 14, 3),
+          forecast_at: '2025-07-15T11:00:00Z',
+          forecast_date: '2025-07-15',
+        },
+        {
+          ...createForecast('20:00', 8, 270, 10, 3),
+          forecast_at: '2025-07-15T20:00:00Z',
+          forecast_date: '2025-07-15',
+        },
+        {
+          ...createForecast('21:00', 8, 270, 10, 3),
+          forecast_at: '2025-07-15T21:00:00Z',
+          forecast_date: '2025-07-15',
+        },
+        {
+          ...createForecast('22:00', 8, 270, 10, 3),
+          forecast_at: '2025-07-15T22:00:00Z',
+          forecast_date: '2025-07-15',
+        },
+      ];
+
+      const result = findNextBestWindow(
+        forecasts,
+        new Date('2025-07-15T08:00:00Z'),
+        270,
+        'America/Los_Angeles'
+      );
+
+      expect(result).not.toBeNull();
+      expect(result?.startTime).toBe('20:00');
+      expect(result?.startTime).not.toMatch(/^(09|10|11):/);
+    });
+
     test('should prefer offshore winds in scoring', () => {
       const forecasts = [
         createForecast('10:00', 5, 270, 10, 3), // Offshore (270° matches beach normal 270°)

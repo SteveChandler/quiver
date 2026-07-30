@@ -325,5 +325,53 @@ describe('horizon-strip-utils', () => {
 
       expect(result.length).toBe(3);
     });
+
+    it('uses the daylight slot for a future Pacific day', () => {
+      jest.useFakeTimers();
+      jest.setSystemTime(new Date('2026-07-26T12:00:00Z'));
+
+      try {
+        const pacificBeach = {
+          ...mockBeach,
+          timezone: 'America/Los_Angeles',
+        };
+        const night = makeForecast(
+          '2026-07-29',
+          '09:00',
+          'NOAA_NWS',
+          '4.5',
+        );
+        Object.assign(night, {
+          wave_period: '14s',
+          swell_1_period: '14s',
+          wind_speed: '1 mph',
+          tide_height: '3',
+          tide_status: 'rising',
+        });
+        const afternoon = makeForecast(
+          '2026-07-29',
+          '21:00',
+          'NOAA_NWS',
+          '3.5',
+        );
+        Object.assign(afternoon, {
+          wave_period: '10s',
+          swell_1_period: '10s',
+          wind_speed: '8 mph',
+          tide_height: '3',
+          tide_status: 'rising',
+        });
+
+        const result = aggregateDayForecasts(
+          [night, afternoon],
+          pacificBeach,
+        );
+
+        expect(result).toHaveLength(1);
+        expect(result[0].bestTime).toBe('21:00');
+      } finally {
+        jest.useRealTimers();
+      }
+    });
   });
 });

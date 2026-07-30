@@ -22,6 +22,10 @@
 
 import { calculateOnOffshore, windAt } from "@/lib/analyzers/wind-analyzer";
 import { tideAt } from "@/lib/analyzers/tide-analyzer";
+import {
+  DAYLIGHT_END_HOUR,
+  DAYLIGHT_START_HOUR,
+} from "@/lib/services/magic-hour/constants";
 import type { ForecastSlice } from "@/types/morning-intel";
 
 // Re-export unified scoring window calculator for forward compatibility
@@ -156,7 +160,11 @@ export interface SessionWindow {
  * // Returns: ~90 (offshore, light wind, long period, mid-tide, morning)
  * ```
  */
-function scoreForecast(forecast: ForecastData, beachAspect: number): number {
+function scoreForecast(
+  forecast: ForecastData,
+  beachAspect: number,
+  beachTimezone?: string
+): number {
   let score = 0;
   
   // Wind scoring (most important factor)
@@ -181,9 +189,11 @@ function scoreForecast(forecast: ForecastData, beachAspect: number): number {
   else if (tideHeight >= 1.5 && tideHeight <= 6) score += TIDE_ACCEPTABLE_SCORE;
 
   // Time of day bonus (prefer early morning and late afternoon)
-  const hour = forecast.forecast_at
-    ? new Date(forecast.forecast_at).getUTCHours()
-    : parseInt(forecast.forecast_time?.split(":")[0] || '12');
+  const hour = beachTimezone
+    ? localTimeFromForecast(forecast, beachTimezone)?.hour ?? Number.NaN
+    : forecast.forecast_at
+      ? new Date(forecast.forecast_at).getUTCHours()
+      : parseInt(forecast.forecast_time?.split(":")[0] || '12');
   if (hour >= 6 && hour <= 9) score += MORNING_BONUS;
   else if (hour >= 16 && hour <= 18) score += AFTERNOON_BONUS;
 
@@ -336,7 +346,8 @@ function buildWindowDescription(
 export function findNextBestWindow(
   forecasts: ForecastData[],
   currentTime: Date,
-  beachAspect: number = 270 // Default: Ocean Beach, San Diego (WSW)
+  beachAspect: number = 270, // Default: Ocean Beach, San Diego (WSW)
+  beachTimezone: string | undefined = undefined
 ): SessionWindow | null {
   if (forecasts.length === 0) {
     return null;
@@ -347,7 +358,7 @@ export function findNextBestWindow(
   const currentMinute = currentTime.getMinutes();
 
   // Filter to future forecasts only
-  const futureForecasts = forecasts.filter((f) => {
+  const futureCandidates = forecasts.filter((f) => {
     if (f.forecast_at) {
       const forecastDate = f.forecast_at.split("T")[0];
       if (forecastDate !== today) return false;
@@ -359,14 +370,36 @@ export function findNextBestWindow(
     return hour > currentHour || (hour === currentHour && minute > currentMinute);
   });
 
-  if (futureForecasts.length === 0) {
+  if (futureCandidates.length === 0) {
     return null;
+  }
+
+  const futureForecasts = futureCandidates.filter((forecast) => {
+    const localHour = beachTimezone
+      ? localTimeFromForecast(forecast, beachTimezone)?.hour
+      : forecast.forecast_at
+        ? new Date(forecast.forecast_at).getUTCHours()
+        : parseInt(forecast.forecast_time.split(":")[0], 10);
+    return (
+      localHour !== undefined &&
+      localHour >= DAYLIGHT_START_HOUR &&
+      localHour < DAYLIGHT_END_HOUR
+    );
+  });
+
+  if (futureForecasts.length === 0) {
+    return {
+      startTime: null,
+      endTime: null,
+      description: "Too late in the day",
+      conditions: "Check tomorrow's forecast for better windows",
+    };
   }
 
   // Score each forecast
   const scoredForecasts: ScoredForecast[] = futureForecasts.map((f) => ({
     forecast: f,
-    score: scoreForecast(f, beachAspect),
+    score: scoreForecast(f, beachAspect, beachTimezone),
   }));
 
   // Find best forecast

@@ -23,6 +23,11 @@ import {
   type ScoringEngine,
 } from '@/lib/domains/scoring';
 import { scoreNativeConditionInputs } from '@/lib/scoring/native-condition-score';
+import {
+  DAYLIGHT_END_HOUR,
+  DAYLIGHT_START_HOUR,
+} from '@/lib/services/magic-hour/constants';
+import { getLocalHour } from '@/lib/utils/timezone-utils';
 import { generateWindowMessage } from './message-generator';
 
 // Singleton engine for performance — created lazily on first call.
@@ -115,6 +120,21 @@ const DEFAULT_MIN_SCORE_THRESHOLD = 40;
 const DEFAULT_MIN_SESSION_HOURS = 1;
 const MAX_WINDOW_HOURS = 4;
 
+function filterForecastsToDaylight(
+  forecasts: ForecastForScoring[],
+  beachTimezone?: string
+): ForecastForScoring[] {
+  if (!beachTimezone) return forecasts;
+
+  return forecasts.filter((forecast) => {
+    const localHour = getLocalHour(forecast.forecastTime, beachTimezone);
+    return (
+      localHour >= DAYLIGHT_START_HOUR &&
+      localHour < DAYLIGHT_END_HOUR
+    );
+  });
+}
+
 /**
  * Scored forecast point with the original forecast and computed score
  */
@@ -153,10 +173,18 @@ export function calculateOptimalWindow(
     minScoreThreshold = DEFAULT_MIN_SCORE_THRESHOLD,
     minSessionHours = DEFAULT_MIN_SESSION_HOURS,
   } = options;
+  const daylightForecasts = filterForecastsToDaylight(
+    forecasts,
+    options.beachTimezone
+  );
+
+  if (daylightForecasts.length === 0) {
+    return null;
+  }
 
   // Score all forecasts
   const scoredForecasts = scoreForecasts(
-    forecasts,
+    daylightForecasts,
     beach,
     minScoreThreshold,
     options.skillLevel
@@ -787,9 +815,15 @@ export function calculateMultipleWindows(
 
   const minScore = options.minScoreThreshold ?? MULTI_WINDOW_MIN_SCORE;
   const maxWindows = options.maxWindows ?? MULTI_WINDOW_DEFAULT_MAX;
+  const daylightForecasts = filterForecastsToDaylight(
+    forecasts,
+    options.beachTimezone
+  );
+
+  if (daylightForecasts.length === 0) return empty;
 
   // Score all forecasts
-  const scoredForecasts: ScoredForecast[] = forecasts.map(forecast => {
+  const scoredForecasts: ScoredForecast[] = daylightForecasts.map(forecast => {
     const total = scoreForecastTotal(forecast, beach, options.skillLevel);
     return {
       forecast,
