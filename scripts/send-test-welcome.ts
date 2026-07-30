@@ -14,10 +14,9 @@ config({ path: ".env.local", override: true });
 
 import { Resend } from "resend";
 import { createClient } from "@supabase/supabase-js";
-import { generateWelcomeEmail } from "../lib/email/templates/welcome-email";
-import { buildBeachUrl } from "../lib/utils/beach-url-utils";
+import { generateWelcomeEmail } from "../lib/mailer/welcome-email";
 
-async function main() {
+async function main(): Promise<void> {
   const to = process.argv[2];
   if (!to) {
     console.error("Usage: npx tsx scripts/send-test-welcome.ts <email>");
@@ -37,7 +36,7 @@ async function main() {
   );
 
   let homeBeachName: string | null = null;
-  let homeBeachUrl: string | null = null;
+  let homeBeachSlug: string | null = null;
 
   const { data: { users } } = await supabase.auth.admin.listUsers({ perPage: 200 });
   const profileUser = users.find((u) => u.email?.toLowerCase() === to.toLowerCase());
@@ -50,45 +49,37 @@ async function main() {
     if (profile?.home_beach_id) {
       const { data: beach } = await supabase
         .from("beaches")
-        .select("name, slug, city, state")
+        .select("name, slug")
         .eq("id", profile.home_beach_id)
         .maybeSingle();
-      if (beach?.name && beach?.slug && beach?.city && beach?.state) {
+      if (beach?.name && beach?.slug) {
         homeBeachName = beach.name;
-        homeBeachUrl = buildBeachUrl({
-          slug: beach.slug,
-          city: beach.city,
-          state: beach.state,
-        });
+        homeBeachSlug = beach.slug;
       }
     }
   }
 
   console.log("[send-test-welcome]", {
     to,
-    hasHomeBeach: Boolean(homeBeachName && homeBeachUrl),
+    hasHomeBeach: Boolean(homeBeachName && homeBeachSlug),
     homeBeachName,
-    homeBeachUrl,
+    homeBeachSlug,
     baseUrl,
   });
 
-  const { subject, html, text } = await generateWelcomeEmail(
-    {
-      userId: profileUser?.id ?? "preview-user",
-      userEmail: to,
-      baseUrl,
-      homeBeachName,
-      homeBeachUrl,
-    },
-    "preview-secret"
-  );
+  const { subject, react, text } = generateWelcomeEmail({
+    baseUrl,
+    homeBeachName,
+    homeBeachSlug,
+    messageInstanceId: crypto.randomUUID(),
+  });
 
   const { data, error } = await resend.emails.send({
     from: mailFrom,
     replyTo: mailReplyTo,
     to,
     subject: `[PREVIEW] ${subject}`,
-    html,
+    react,
     text,
   });
 

@@ -21,13 +21,13 @@ import {
   validateCronRequest,
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { resend, MAIL_FROM, MAIL_REPLY_TO } from "@/lib/mailer/client";
-import { generateWelcomeEmail } from "@/lib/email/templates/welcome-email";
-import { getEmailTokenSecret } from "@/lib/utils/email-token";
+import { sendEmail, MAIL_FROM, MAIL_REPLY_TO } from "@/lib/mailer/client";
+import { generateWelcomeEmail } from "@/lib/mailer/welcome-email";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { withObservedCron } from "@/lib/cron/observability";
+import { generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -81,7 +81,6 @@ async function _GET(request: Request): Promise<Response> {
 
     const supabase = await createSupabaseServiceRoleClient();
     const baseUrl = (process.env.NEXT_PUBLIC_APP_URL || "https://quiversurf.app").trim();
-    const secret = getEmailTokenSecret();
 
     const summary: RunSummary = {
       candidates: 0,
@@ -149,26 +148,28 @@ async function _GET(request: Request): Promise<Response> {
 
         // Generate welcome email
         const messageInstanceId = crypto.randomUUID();
-        const { subject, html, text } = await generateWelcomeEmail(
-          {
-            userId: candidate.user_id,
-            userEmail: candidate.email,
-            baseUrl,
-            homeBeachName,
-            homeBeachSlug,
-            messageInstanceId,
-          },
-          secret
-        );
+        const { subject, react, text } = await generateWelcomeEmail({
+          baseUrl,
+          homeBeachName,
+          homeBeachSlug,
+          messageInstanceId,
+        });
 
-        // Send via Resend
-        const { data: sendData, error: sendError } = await resend.emails.send({
+        const unsubscribeToken = generateEmailUnsubscribeToken(
+          candidate.user_id
+        );
+        const unsubscribeUrl =
+          `${baseUrl}/api/alerts/unsubscribe-email?user_id=${candidate.user_id}` +
+          `&token=${unsubscribeToken}`;
+
+        const { data: sendData, error: sendError } = await sendEmail({
           from: MAIL_FROM,
           replyTo: MAIL_REPLY_TO,
           to: candidate.email,
           subject,
-          html,
+          react,
           text,
+          unsubscribeUrl,
         });
 
         if (sendError) {

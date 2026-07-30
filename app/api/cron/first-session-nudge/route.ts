@@ -21,7 +21,7 @@ import {
   validateCronRequest,
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
+import { sendEmail, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import { FirstSessionNudgeEmail } from "@/lib/mailer/templates/FirstSessionNudgeEmail";
 import { PersonalizedNudgeEmail } from "@/lib/mailer/templates/PersonalizedNudgeEmail";
 import { formatActionableBestWindow } from "@/lib/email/email-formatters";
@@ -40,6 +40,7 @@ import {
   type PositiveRecommendationPolicyContext,
 } from "@/lib/recommendations/major-event-hold/adapters/notification";
 import { parseMajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/evaluator";
+import { generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 
 export const revalidate = 0;
 export const runtime = "nodejs";
@@ -380,7 +381,13 @@ async function _GET(request: Request): Promise<Response> {
         };
         const genericLogSessionUrl = buildSessionEmailLink(sessionLinkParams);
         let logSessionUrl = genericLogSessionUrl;
-        const unsubscribeUrl = `${baseUrl}/settings`;
+        const settingsUrl = `${baseUrl}/settings`;
+        const unsubscribeToken = generateEmailUnsubscribeToken(
+          candidate.user_id
+        );
+        const unsubscribeUrl =
+          `${baseUrl}/api/alerts/unsubscribe-email?user_id=${candidate.user_id}` +
+          `&token=${unsubscribeToken}`;
 
         const isOnboarded =
           candidate.home_beach_id !== null &&
@@ -445,7 +452,7 @@ async function _GET(request: Request): Promise<Response> {
             bestWindow,
             ctaUrl,
             logSessionUrl,
-            unsubscribeUrl,
+            unsubscribeUrl: settingsUrl,
           });
 
           emailMeta = {
@@ -485,7 +492,7 @@ async function _GET(request: Request): Promise<Response> {
             emailElement = React.createElement(FirstSessionNudgeEmail, {
               displayName: candidate.display_name,
               logSessionUrl,
-              unsubscribeUrl,
+              unsubscribeUrl: settingsUrl,
             });
             emailMeta = {
               template: "generic",
@@ -500,7 +507,7 @@ async function _GET(request: Request): Promise<Response> {
           emailElement = React.createElement(FirstSessionNudgeEmail, {
             displayName: candidate.display_name,
             logSessionUrl,
-            unsubscribeUrl,
+            unsubscribeUrl: settingsUrl,
           });
 
           emailMeta = {
@@ -511,12 +518,13 @@ async function _GET(request: Request): Promise<Response> {
           templateType = "generic";
         }
 
-        const { data: sendData, error: sendError } = await resend.emails.send({
+        const { data: sendData, error: sendError } = await sendEmail({
           from: MAIL_FROM,
           replyTo: MAIL_REPLY_TO,
           to: candidate.email,
           subject,
           react: emailElement,
+          unsubscribeUrl,
         });
 
         if (sendError) {

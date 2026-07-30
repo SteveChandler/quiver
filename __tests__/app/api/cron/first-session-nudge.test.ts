@@ -87,14 +87,14 @@ jest.mock("@/lib/supabase/server", () => ({
 
 const mockEmailsSend = jest.fn();
 jest.mock("@/lib/mailer/client", () => ({
-  resend: {
-    emails: {
-      send: (...args: unknown[]) => mockEmailsSend(...args),
-    },
-  },
+  sendEmail: (...args: unknown[]) => mockEmailsSend(...args),
   MAIL_FROM: "Quiver <test@quiversurf.app>",
   MAIL_REPLY_TO: "Quiver <test@quiversurf.app>",
   getBaseUrl: () => "https://quiversurf.app",
+}));
+
+jest.mock("@/lib/alerts/email-token", () => ({
+  generateEmailUnsubscribeToken: jest.fn(() => "test-unsubscribe-token"),
 }));
 
 // ============================================================================
@@ -360,6 +360,8 @@ describe("First Session Nudge Cron Job API", () => {
     const { createResendRateLimiter } = require("@/lib/utils/email-rate-limiter");
     createResendRateLimiter.mockReturnValue({ throttle: mockThrottle });
     mockThrottle.mockResolvedValue(undefined);
+    const { generateEmailUnsubscribeToken } = require("@/lib/alerts/email-token");
+    generateEmailUnsubscribeToken.mockReturnValue("test-unsubscribe-token");
     mockResolveNotificationMajorEventHold.mockResolvedValue({
       status: "allowed",
       candidate: null,
@@ -509,6 +511,8 @@ describe("First Session Nudge Cron Job API", () => {
         expect.objectContaining({
           to: "newbie@example.com",
           subject: "Your first forecast is waiting",
+          unsubscribeUrl:
+            "https://quiversurf.app/api/alerts/unsubscribe-email?user_id=user-1&token=test-unsubscribe-token",
         })
       );
     });

@@ -20,10 +20,10 @@ import {
   withRateLimit,
 } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServerClient, createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
-import { generateWelcomeEmail } from "@/lib/email/templates/welcome-email";
-import { getEmailTokenSecret } from "@/lib/utils/email-token";
+import { sendEmail, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
+import { generateWelcomeEmail } from "@/lib/mailer/welcome-email";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
+import { generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 
 export const runtime = "nodejs";
 
@@ -79,7 +79,6 @@ async function handler(request: NextRequest) {
 
     // Generate and send welcome email
     const baseUrl = getBaseUrl();
-    const secret = getEmailTokenSecret();
 
     // Immediate-signup path may race the profile insert, so tolerate a null read.
     let homeBeachName: string | null = null;
@@ -102,25 +101,26 @@ async function handler(request: NextRequest) {
     }
 
     const messageInstanceId = crypto.randomUUID();
-    const { subject, html, text } = await generateWelcomeEmail(
-      {
-        userId: user.id,
-        userEmail,
-        baseUrl,
-        homeBeachName,
-        homeBeachSlug,
-        messageInstanceId,
-      },
-      secret
-    );
+    const { subject, react, text } = await generateWelcomeEmail({
+      baseUrl,
+      homeBeachName,
+      homeBeachSlug,
+      messageInstanceId,
+    });
 
-    const { data: sendData, error: sendError } = await resend.emails.send({
+    const unsubscribeToken = generateEmailUnsubscribeToken(user.id);
+    const unsubscribeUrl =
+      `${baseUrl}/api/alerts/unsubscribe-email?user_id=${user.id}` +
+      `&token=${unsubscribeToken}`;
+
+    const { data: sendData, error: sendError } = await sendEmail({
       from: MAIL_FROM,
       replyTo: MAIL_REPLY_TO,
       to: userEmail,
       subject,
-      html,
+      react,
       text,
+      unsubscribeUrl,
     });
 
     if (sendError) {

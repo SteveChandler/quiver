@@ -524,26 +524,6 @@ export async function createLoggedSession(data: SessionFormState | SessionInputW
       }
     }
 
-    // Fire-and-forget: emit to user_events for retention analytics.
-    void (async () => {
-      const { error: evtErr } = await writeClient.from("user_events").insert({
-        user_id: user.id,
-        event_type: "session_log_submit",
-        beach_id: session.beach_id ?? null,
-        metadata: {
-          source: "web-session-form",
-          session_id: session.id,
-          duration_minutes: session.duration_minutes ?? null,
-          rating: session.rating ?? null,
-          recommendation_id:
-            (session as any).recommendation_id ??
-            (cleaned as any).recommendation_id ??
-            null,
-        },
-      });
-      if (evtErr) console.warn("[createLoggedSession] user_events insert failed:", evtErr);
-    })();
-
     // Track XP (fire-and-forget — failure is non-fatal, already logged internally)
     trackXPOptional("log_session", session.id, "session").catch(() => {});
 

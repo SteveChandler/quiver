@@ -1,4 +1,8 @@
-import { Resend } from "resend";
+import {
+  Resend,
+  type CreateEmailOptions,
+  type CreateEmailResponse,
+} from "resend";
 
 let resendInstance: Resend | null = null;
 
@@ -41,6 +45,44 @@ export const resend: any = new Proxy(
     },
   }
 );
+
+export type SendEmailOptions = CreateEmailOptions & {
+  unsubscribeUrl?: string;
+};
+
+export async function sendEmail(
+  options: SendEmailOptions
+): Promise<CreateEmailResponse> {
+  const { unsubscribeUrl, headers, ...resendOptions } = options;
+
+  if (!unsubscribeUrl) {
+    return resend.emails.send({
+      ...resendOptions,
+      ...(headers ? { headers } : {}),
+    });
+  }
+
+  if (process.env.NODE_ENV === "production") {
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(unsubscribeUrl);
+    } catch {
+      throw new Error("unsubscribeUrl must be a valid HTTPS URL in production");
+    }
+
+    if (parsedUrl.protocol !== "https:") {
+      throw new Error("unsubscribeUrl must use HTTPS in production");
+    }
+  }
+
+  return resend.emails.send({
+    ...resendOptions,
+    headers: {
+      ...headers,
+      "List-Unsubscribe": `<${unsubscribeUrl}>`,
+    },
+  });
+}
 
 // Default uses the verified Resend subdomain (send.quiversurf.app). The apex
 // quiversurf.app is NOT verified on Resend, so falling back to it would 403.
