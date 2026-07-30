@@ -86,13 +86,8 @@ jest.mock("@/lib/mailer/client", () => ({
 
 // Mock the welcome email template generator
 const mockGenerateWelcomeEmail = jest.fn();
-jest.mock("@/lib/email/templates/welcome-email", () => ({
+jest.mock("@/lib/mailer/welcome-email", () => ({
   generateWelcomeEmail: jest.fn((...args) => mockGenerateWelcomeEmail(...args)),
-}));
-
-// Mock the email token secret
-jest.mock("@/lib/utils/email-token", () => ({
-  getEmailTokenSecret: jest.fn(() => "test-secret-key"),
 }));
 
 jest.mock("@/lib/alerts/email-token", () => ({
@@ -145,7 +140,7 @@ describe("POST /api/internal/send-welcome-email", () => {
     // Default: successful email generation
     mockGenerateWelcomeEmail.mockResolvedValue({
       subject: "You're in",
-      html: "<html>Welcome</html>",
+      react: "Welcome",
       text: "Welcome to Quiver!",
     });
 
@@ -164,6 +159,8 @@ describe("POST /api/internal/send-welcome-email", () => {
 
     expect(source).not.toMatch(/from\s+["']@\/lib\/api-utils["']/);
     expect(source).toMatch(/from\s+["']@\/lib\/middleware\/api-wrappers["']/);
+    expect(source).toMatch(/from\s+["']@\/lib\/mailer\/welcome-email["']/);
+    expect(source).not.toContain("getEmailTokenSecret");
   });
 
   // ==========================================================================
@@ -261,6 +258,8 @@ describe("POST /api/internal/send-welcome-email", () => {
         expect.objectContaining({
           to: "test@example.com",
           subject: "You're in",
+          react: "Welcome",
+          text: "Welcome to Quiver!",
           unsubscribeUrl:
             "https://quiversurf.app/api/alerts/unsubscribe-email?user_id=user-123&token=test-unsubscribe-token",
         })
@@ -271,8 +270,7 @@ describe("POST /api/internal/send-welcome-email", () => {
           homeBeachName: null,
           homeBeachSlug: null,
           messageInstanceId: expect.any(String),
-        }),
-        "test-secret-key"
+        })
       );
     });
 
@@ -290,8 +288,7 @@ describe("POST /api/internal/send-welcome-email", () => {
           homeBeachName: "Blacks",
           homeBeachSlug: "blacks",
           messageInstanceId: expect.any(String),
-        }),
-        "test-secret-key"
+        })
       );
     });
 
