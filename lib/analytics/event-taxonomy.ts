@@ -191,6 +191,7 @@ export const VALID_EVENTS = [
   // Search
   'beach_search_result_click',
   // Growth markers
+  'acquisition_source_self_reported',
   'first_beach_view_post_signup',
   'first_session_logged',
   // Empty states & impressions

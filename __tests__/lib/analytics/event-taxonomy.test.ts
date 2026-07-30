@@ -17,6 +17,9 @@ const appHandoffEvents = [
   "app_handoff_native_open",
 ] as const satisfies readonly EventType[];
 
+const acquisitionSourceSelfReportedEvent =
+  "acquisition_source_self_reported" as const satisfies EventType;
+
 describe("event taxonomy", () => {
   it("allows app handoff funnel events for anonymous and signed-in users", () => {
     for (const event of appHandoffEvents) {
@@ -26,5 +29,19 @@ describe("event taxonomy", () => {
       expect(EXTERNAL_ANALYTICS_ONLY_EVENTS).not.toContain(event);
       expect(EVENT_WEIGHTS[event]).toBe(0);
     }
+  });
+
+  it("keeps acquisition self-report authenticated-only and zero-weight", () => {
+    expect(VALID_EVENTS).toContain(acquisitionSourceSelfReportedEvent);
+    expect(ANONYMOUS_ALLOWED_EVENTS).not.toContain(
+      acquisitionSourceSelfReportedEvent
+    );
+    expect(PRE_AUTH_ONLY_EVENTS).not.toContain(
+      acquisitionSourceSelfReportedEvent
+    );
+    expect(EXTERNAL_ANALYTICS_ONLY_EVENTS).not.toContain(
+      acquisitionSourceSelfReportedEvent
+    );
+    expect(EVENT_WEIGHTS[acquisitionSourceSelfReportedEvent]).toBe(0);
   });
 });
