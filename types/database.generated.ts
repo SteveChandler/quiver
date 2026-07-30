@@ -140,6 +140,13 @@ export type Database = {
             foreignKeyName: "admin_audit_log_admin_user_id_fkey"
             columns: ["admin_user_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "admin_audit_log_admin_user_id_fkey"
+            columns: ["admin_user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -162,6 +169,7 @@ export type Database = {
       alert_deliveries: {
         Row: {
           alert_date: string
+          beach_id: string | null
           channel: string
           created_at: string
           id: string
@@ -171,6 +179,7 @@ export type Database = {
         }
         Insert: {
           alert_date: string
+          beach_id?: string | null
           channel: string
           created_at?: string
           id?: string
@@ -180,6 +189,7 @@ export type Database = {
         }
         Update: {
           alert_date?: string
+          beach_id?: string | null
           channel?: string
           created_at?: string
           id?: string
@@ -188,6 +198,55 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "alert_deliveries_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_deliveries_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "alert_deliveries_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_deliveries_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "alert_deliveries_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "alert_deliveries_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "alert_deliveries_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
           {
             foreignKeyName: "alert_deliveries_user_id_fkey"
             columns: ["user_id"]
@@ -242,6 +301,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "alert_rules"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "alert_delivery_attempts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "alert_delivery_attempts_user_id_fkey"
@@ -535,6 +601,7 @@ export type Database = {
           id: string
           instructions_sent_at: string | null
           placement: string
+          session_id: string | null
           source: string
           surface: string
         }
@@ -544,6 +611,7 @@ export type Database = {
           id?: string
           instructions_sent_at?: string | null
           placement: string
+          session_id?: string | null
           source: string
           surface: string
         }
@@ -553,8 +621,680 @@ export type Database = {
           id?: string
           instructions_sent_at?: string | null
           placement?: string
+          session_id?: string | null
           source?: string
           surface?: string
+        }
+        Relationships: []
+      }
+      android_tester_roster_audit: {
+        Row: {
+          action: string
+          actor_user_id: string | null
+          entry_id: string | null
+          evidence: Json
+          id: number
+          observed_at: string
+          outcome: string
+        }
+        Insert: {
+          action: string
+          actor_user_id?: string | null
+          entry_id?: string | null
+          evidence?: Json
+          id?: never
+          observed_at?: string
+          outcome: string
+        }
+        Update: {
+          action?: string
+          actor_user_id?: string | null
+          entry_id?: string | null
+          evidence?: Json
+          id?: never
+          observed_at?: string
+          outcome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "android_tester_roster_audit_actor_user_id_fkey"
+            columns: ["actor_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "android_tester_roster_audit_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "android_tester_roster_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      android_tester_roster_entries: {
+        Row: {
+          created_at: string
+          eligibility_confidence: string
+          eligibility_observed_at: string
+          eligibility_source: string
+          eligibility_status: string
+          group_membership_status: string
+          id: string
+          linked_at: string | null
+          purge_after: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          eligibility_confidence?: string
+          eligibility_observed_at: string
+          eligibility_source?: string
+          eligibility_status?: string
+          group_membership_status?: string
+          id?: string
+          linked_at?: string | null
+          purge_after?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          eligibility_confidence?: string
+          eligibility_observed_at?: string
+          eligibility_source?: string
+          eligibility_status?: string
+          group_membership_status?: string
+          id?: string
+          linked_at?: string | null
+          purge_after?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "android_tester_roster_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      android_tester_roster_first_open_evidence: {
+        Row: {
+          entry_id: string
+          id: string
+          idempotency_key_hash: string
+          native_install_id: string
+          observed_at: string
+          user_id: string
+        }
+        Insert: {
+          entry_id: string
+          id?: string
+          idempotency_key_hash: string
+          native_install_id: string
+          observed_at?: string
+          user_id: string
+        }
+        Update: {
+          entry_id?: string
+          id?: string
+          idempotency_key_hash?: string
+          native_install_id?: string
+          observed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "android_tester_roster_first_open_evidence_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "android_tester_roster_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "android_tester_roster_first_open_evidence_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      android_tester_roster_identities: {
+        Row: {
+          auth_tag: string
+          ciphertext: string
+          created_at: string
+          entry_id: string
+          iv: string
+          key_version: number
+          updated_at: string
+        }
+        Insert: {
+          auth_tag: string
+          ciphertext: string
+          created_at?: string
+          entry_id: string
+          iv: string
+          key_version: number
+          updated_at?: string
+        }
+        Update: {
+          auth_tag?: string
+          ciphertext?: string
+          created_at?: string
+          entry_id?: string
+          iv?: string
+          key_version?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "android_tester_roster_identities_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: true
+            referencedRelation: "android_tester_roster_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      android_tester_roster_install_evidence: {
+        Row: {
+          campaign: string
+          created_on: string
+          entry_id: string
+          expires_on: string
+          id: string
+          idempotency_key_hash: string
+          native_install_id: string
+          observed_at: string
+          placement: string
+          source: string
+          surface: string
+          user_id: string
+        }
+        Insert: {
+          campaign: string
+          created_on: string
+          entry_id: string
+          expires_on: string
+          id?: string
+          idempotency_key_hash: string
+          native_install_id: string
+          observed_at?: string
+          placement: string
+          source: string
+          surface: string
+          user_id: string
+        }
+        Update: {
+          campaign?: string
+          created_on?: string
+          entry_id?: string
+          expires_on?: string
+          id?: string
+          idempotency_key_hash?: string
+          native_install_id?: string
+          observed_at?: string
+          placement?: string
+          source?: string
+          surface?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "android_tester_roster_install_evidence_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "android_tester_roster_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "android_tester_roster_install_evidence_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      android_tester_roster_join_evidence: {
+        Row: {
+          entry_id: string
+          id: string
+          idempotency_key_hash: string
+          native_install_id: string
+          observed_at: string
+          user_id: string
+        }
+        Insert: {
+          entry_id: string
+          id?: string
+          idempotency_key_hash: string
+          native_install_id: string
+          observed_at?: string
+          user_id: string
+        }
+        Update: {
+          entry_id?: string
+          id?: string
+          idempotency_key_hash?: string
+          native_install_id?: string
+          observed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "android_tester_roster_join_evidence_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "android_tester_roster_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "android_tester_roster_join_evidence_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      android_tester_roster_stages: {
+        Row: {
+          confidence: string
+          created_at: string
+          entry_id: string
+          evidence: Json
+          id: number
+          observed_at: string
+          source: string
+          stage: string
+          status: string
+        }
+        Insert: {
+          confidence: string
+          created_at?: string
+          entry_id: string
+          evidence?: Json
+          id?: never
+          observed_at: string
+          source: string
+          stage: string
+          status: string
+        }
+        Update: {
+          confidence?: string
+          created_at?: string
+          entry_id?: string
+          evidence?: Json
+          id?: never
+          observed_at?: string
+          source?: string
+          stage?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "android_tester_roster_stages_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "android_tester_roster_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      android_tester_roster_sync_claims: {
+        Row: {
+          claim_token: string
+          claimed_at: string
+          claimed_by: string | null
+          singleton: boolean
+        }
+        Insert: {
+          claim_token: string
+          claimed_at: string
+          claimed_by?: string | null
+          singleton?: boolean
+        }
+        Update: {
+          claim_token?: string
+          claimed_at?: string
+          claimed_by?: string | null
+          singleton?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "android_tester_roster_sync_claims_claimed_by_fkey"
+            columns: ["claimed_by"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      android_tester_roster_sync_runs: {
+        Row: {
+          added_count: number
+          complete: boolean
+          created_at: string
+          direct_user_count: number
+          failure_code: string | null
+          id: string
+          left_count: number
+          observed_at: string
+          purged_count: number
+          refreshed_count: number
+          rejoined_count: number
+          source: string
+        }
+        Insert: {
+          added_count?: number
+          complete: boolean
+          created_at?: string
+          direct_user_count?: number
+          failure_code?: string | null
+          id?: string
+          left_count?: number
+          observed_at: string
+          purged_count?: number
+          refreshed_count?: number
+          rejoined_count?: number
+          source: string
+        }
+        Update: {
+          added_count?: number
+          complete?: boolean
+          created_at?: string
+          direct_user_count?: number
+          failure_code?: string | null
+          id?: string
+          left_count?: number
+          observed_at?: string
+          purged_count?: number
+          refreshed_count?: number
+          rejoined_count?: number
+          source?: string
+        }
+        Relationships: []
+      }
+      android_waitlist_entries: {
+        Row: {
+          created_at: string
+          first_joined_at: string
+          id: string
+          last_joined_at: string
+          normalized_email_sha256: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          first_joined_at: string
+          id?: string
+          last_joined_at: string
+          normalized_email_sha256?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          first_joined_at?: string
+          id?: string
+          last_joined_at?: string
+          normalized_email_sha256?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "android_waitlist_entries_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      android_waitlist_events: {
+        Row: {
+          created_at: string
+          entry_id: string
+          event_type: string
+          id: string
+          observed_at: string
+          source_kind: string
+        }
+        Insert: {
+          created_at?: string
+          entry_id: string
+          event_type: string
+          id?: string
+          observed_at: string
+          source_kind: string
+        }
+        Update: {
+          created_at?: string
+          entry_id?: string
+          event_type?: string
+          id?: string
+          observed_at?: string
+          source_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "android_waitlist_events_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "android_waitlist_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      android_waitlist_source_links: {
+        Row: {
+          created_at: string
+          entry_id: string
+          first_observed_at: string
+          id: string
+          last_observed_at: string
+          placement: string
+          roster_entry_id: string | null
+          source: string
+          source_id: string
+          source_kind: string
+          surface: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          entry_id: string
+          first_observed_at: string
+          id?: string
+          last_observed_at: string
+          placement: string
+          roster_entry_id?: string | null
+          source: string
+          source_id: string
+          source_kind: string
+          surface: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          entry_id?: string
+          first_observed_at?: string
+          id?: string
+          last_observed_at?: string
+          placement?: string
+          roster_entry_id?: string | null
+          source?: string
+          source_id?: string
+          source_kind?: string
+          surface?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "android_waitlist_source_links_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "android_waitlist_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "android_waitlist_source_links_roster_entry_id_fkey"
+            columns: ["roster_entry_id"]
+            isOneToOne: false
+            referencedRelation: "android_tester_roster_entries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      apple_identity_recovery_audit: {
+        Row: {
+          canonical_user_id: string
+          created_at: string
+          event_details: Json
+          event_type: string
+          id: number
+          recovery_id: string | null
+        }
+        Insert: {
+          canonical_user_id: string
+          created_at?: string
+          event_details?: Json
+          event_type: string
+          id?: never
+          recovery_id?: string | null
+        }
+        Update: {
+          canonical_user_id?: string
+          created_at?: string
+          event_details?: Json
+          event_type?: string
+          id?: never
+          recovery_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "apple_identity_recovery_audit_recovery_id_fkey"
+            columns: ["recovery_id"]
+            isOneToOne: false
+            referencedRelation: "apple_identity_recovery_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      apple_identity_recovery_requests: {
+        Row: {
+          apple_identity_id: string
+          apple_sub_sha256: string
+          apple_token_sha256: string
+          assessment_idempotency_key: string
+          canonical_user_id: string
+          completed_at: string | null
+          confirmation_idempotency_key: string | null
+          confirmed_at: string | null
+          created_at: string
+          eligibility_snapshot: Json
+          expires_at: string
+          id: string
+          notification_status: string
+          rollback_until: string | null
+          secondary_user_id: string
+          status: string
+          support_reference: string
+          updated_at: string
+        }
+        Insert: {
+          apple_identity_id: string
+          apple_sub_sha256: string
+          apple_token_sha256: string
+          assessment_idempotency_key: string
+          canonical_user_id: string
+          completed_at?: string | null
+          confirmation_idempotency_key?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          eligibility_snapshot: Json
+          expires_at: string
+          id?: string
+          notification_status?: string
+          rollback_until?: string | null
+          secondary_user_id: string
+          status: string
+          support_reference: string
+          updated_at?: string
+        }
+        Update: {
+          apple_identity_id?: string
+          apple_sub_sha256?: string
+          apple_token_sha256?: string
+          assessment_idempotency_key?: string
+          canonical_user_id?: string
+          completed_at?: string | null
+          confirmation_idempotency_key?: string | null
+          confirmed_at?: string | null
+          created_at?: string
+          eligibility_snapshot?: Json
+          expires_at?: string
+          id?: string
+          notification_status?: string
+          rollback_until?: string | null
+          secondary_user_id?: string
+          status?: string
+          support_reference?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "apple_identity_recovery_requests_canonical_user_id_fkey"
+            columns: ["canonical_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "apple_identity_recovery_requests_secondary_user_id_fkey"
+            columns: ["secondary_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      apple_recovery_dependency_registry: {
+        Row: {
+          constraint_name: string
+          registered_at: string
+          source_columns: string[]
+          source_schema: string
+          source_table: string
+          target_schema: string
+          target_table: string
+        }
+        Insert: {
+          constraint_name: string
+          registered_at?: string
+          source_columns: string[]
+          source_schema: string
+          source_table: string
+          target_schema: string
+          target_table: string
+        }
+        Update: {
+          constraint_name?: string
+          registered_at?: string
+          source_columns?: string[]
+          source_schema?: string
+          source_table?: string
+          target_schema?: string
+          target_table?: string
         }
         Relationships: []
       }
@@ -1065,8 +1805,50 @@ export type Database = {
             foreignKeyName: "beach_feedback_calibration_candidates_beach_id_fkey"
             columns: ["beach_id"]
             isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_feedback_calibration_candidates_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_feedback_calibration_candidates_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
             referencedRelation: "beaches"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "beach_feedback_calibration_candidates_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_feedback_calibration_candidates_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_feedback_calibration_candidates_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "beach_feedback_calibration_candidates_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
           },
         ]
       }
@@ -1279,6 +2061,13 @@ export type Database = {
             foreignKeyName: "beach_photo_submission_votes_voter_id_fkey"
             columns: ["voter_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "beach_photo_submission_votes_voter_id_fkey"
+            columns: ["voter_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1404,6 +2193,13 @@ export type Database = {
             foreignKeyName: "beach_photo_submissions_reviewed_by_fkey"
             columns: ["reviewed_by"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "beach_photo_submissions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1420,6 +2216,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "session_activation_report"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "beach_photo_submissions_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "beach_photo_submissions_submitted_by_fkey"
@@ -1617,6 +2420,13 @@ export type Database = {
             foreignKeyName: "beach_photos_history_changed_by_fkey"
             columns: ["changed_by"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "beach_photos_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1771,6 +2581,13 @@ export type Database = {
             foreignKeyName: "beach_review_likes_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "beach_review_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1896,6 +2713,13 @@ export type Database = {
             foreignKeyName: "beach_reviews_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "beach_reviews_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -1980,6 +2804,13 @@ export type Database = {
           wave_quality_rating?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "beach_reviews_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
           {
             foreignKeyName: "beach_reviews_history_changed_by_fkey"
             columns: ["changed_by"]
@@ -2455,6 +3286,13 @@ export type Database = {
             foreignKeyName: "beaches_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "beaches_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2806,6 +3644,13 @@ export type Database = {
             foreignKeyName: "comments_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "comments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2821,6 +3666,591 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "session_activation_report"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      community_photo_action_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          idempotency_key: string
+          outcome: string
+          photo_id: string | null
+          reason_code: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          outcome: string
+          photo_id?: string | null
+          reason_code: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          outcome?: string
+          photo_id?: string | null
+          reason_code?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_photo_action_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      community_photo_consents: {
+        Row: {
+          confirmed_at: string
+          contributor_id: string | null
+          photo_id: string
+          rights_confirmed: boolean
+          terms_version: string
+        }
+        Insert: {
+          confirmed_at?: string
+          contributor_id?: string | null
+          photo_id: string
+          rights_confirmed: boolean
+          terms_version: string
+        }
+        Update: {
+          confirmed_at?: string
+          contributor_id?: string | null
+          photo_id?: string
+          rights_confirmed?: boolean
+          terms_version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_photo_consents_contributor_id_fkey"
+            columns: ["contributor_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "community_photo_consents_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: true
+            referencedRelation: "community_spot_photos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      community_photo_contributor_restrictions: {
+        Row: {
+          applied_at: string
+          applied_by: string | null
+          contributor_id: string
+          lifted_at: string | null
+          lifted_by: string | null
+          reason_code: string
+          restricted_until: string | null
+        }
+        Insert: {
+          applied_at?: string
+          applied_by?: string | null
+          contributor_id: string
+          lifted_at?: string | null
+          lifted_by?: string | null
+          reason_code: string
+          restricted_until?: string | null
+        }
+        Update: {
+          applied_at?: string
+          applied_by?: string | null
+          contributor_id?: string
+          lifted_at?: string | null
+          lifted_by?: string | null
+          reason_code?: string
+          restricted_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_photo_contributor_restrictions_applied_by_fkey"
+            columns: ["applied_by"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "community_photo_contributor_restrictions_contributor_id_fkey"
+            columns: ["contributor_id"]
+            isOneToOne: true
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "community_photo_contributor_restrictions_lifted_by_fkey"
+            columns: ["lifted_by"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      community_photo_feature_config: {
+        Row: {
+          read_enabled: boolean
+          singleton: boolean
+          terms_version: string
+          updated_at: string
+          writes_enabled: boolean
+        }
+        Insert: {
+          read_enabled?: boolean
+          singleton?: boolean
+          terms_version?: string
+          updated_at?: string
+          writes_enabled?: boolean
+        }
+        Update: {
+          read_enabled?: boolean
+          singleton?: boolean
+          terms_version?: string
+          updated_at?: string
+          writes_enabled?: boolean
+        }
+        Relationships: []
+      }
+      community_photo_feature_pins: {
+        Row: {
+          beach_id: string | null
+          custom_spot_id: string | null
+          id: string
+          photo_id: string
+          pinned_at: string
+          pinned_by: string | null
+          revoked_at: string | null
+          revoked_by: string | null
+          target_type: string
+        }
+        Insert: {
+          beach_id?: string | null
+          custom_spot_id?: string | null
+          id?: string
+          photo_id: string
+          pinned_at?: string
+          pinned_by?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          target_type: string
+        }
+        Update: {
+          beach_id?: string | null
+          custom_spot_id?: string | null
+          id?: string
+          photo_id?: string
+          pinned_at?: string
+          pinned_by?: string | null
+          revoked_at?: string | null
+          revoked_by?: string | null
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_photo_feature_pins_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_photo_feature_pins_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "community_photo_feature_pins_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_photo_feature_pins_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "community_photo_feature_pins_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "community_photo_feature_pins_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "community_photo_feature_pins_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "community_photo_feature_pins_custom_spot_id_fkey"
+            columns: ["custom_spot_id"]
+            isOneToOne: false
+            referencedRelation: "custom_spots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_photo_feature_pins_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "community_spot_photos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_photo_feature_pins_pinned_by_fkey"
+            columns: ["pinned_by"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "community_photo_feature_pins_revoked_by_fkey"
+            columns: ["revoked_by"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      community_photo_investigation_holds: {
+        Row: {
+          id: string
+          photo_id: string
+          placed_at: string
+          placed_by: string | null
+          reason: string
+          released_at: string | null
+          released_by: string | null
+        }
+        Insert: {
+          id?: string
+          photo_id: string
+          placed_at?: string
+          placed_by?: string | null
+          reason: string
+          released_at?: string | null
+          released_by?: string | null
+        }
+        Update: {
+          id?: string
+          photo_id?: string
+          placed_at?: string
+          placed_by?: string | null
+          reason?: string
+          released_at?: string | null
+          released_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_photo_investigation_holds_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "community_spot_photos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_photo_investigation_holds_placed_by_fkey"
+            columns: ["placed_by"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "community_photo_investigation_holds_released_by_fkey"
+            columns: ["released_by"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      community_photo_moderation_events: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          id: string
+          idempotency_key: string
+          photo_id: string | null
+          reason: string
+          subject_user_id: string | null
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          photo_id?: string | null
+          reason: string
+          subject_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          photo_id?: string | null
+          reason?: string
+          subject_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_photo_moderation_events_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "community_photo_moderation_events_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "community_spot_photos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_photo_moderation_events_subject_user_id_fkey"
+            columns: ["subject_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      community_photo_reports: {
+        Row: {
+          created_at: string
+          photo_id: string
+          reason: string
+          reporter_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          photo_id: string
+          reason: string
+          reporter_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          photo_id?: string
+          reason?: string
+          reporter_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_photo_reports_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "community_spot_photos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_photo_reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      community_photo_votes: {
+        Row: {
+          created_at: string
+          photo_id: string
+          updated_at: string
+          vote: string
+          voter_id: string
+        }
+        Insert: {
+          created_at?: string
+          photo_id: string
+          updated_at?: string
+          vote: string
+          voter_id: string
+        }
+        Update: {
+          created_at?: string
+          photo_id?: string
+          updated_at?: string
+          vote?: string
+          voter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_photo_votes_photo_id_fkey"
+            columns: ["photo_id"]
+            isOneToOne: false
+            referencedRelation: "community_spot_photos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_photo_votes_voter_id_fkey"
+            columns: ["voter_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      community_spot_photos: {
+        Row: {
+          beach_id: string | null
+          content_type: string
+          created_at: string
+          custom_spot_id: string | null
+          height: number | null
+          hidden_reason: string | null
+          id: string
+          idempotency_key: string
+          lifecycle_status: string
+          moderation_status: string
+          processing_status: string
+          recoverable_until: string | null
+          removed_at: string | null
+          storage_path: string
+          target_type: string
+          updated_at: string
+          uploader_id: string | null
+          visibility: string
+          width: number | null
+        }
+        Insert: {
+          beach_id?: string | null
+          content_type?: string
+          created_at?: string
+          custom_spot_id?: string | null
+          height?: number | null
+          hidden_reason?: string | null
+          id?: string
+          idempotency_key: string
+          lifecycle_status?: string
+          moderation_status?: string
+          processing_status?: string
+          recoverable_until?: string | null
+          removed_at?: string | null
+          storage_path: string
+          target_type: string
+          updated_at?: string
+          uploader_id?: string | null
+          visibility: string
+          width?: number | null
+        }
+        Update: {
+          beach_id?: string | null
+          content_type?: string
+          created_at?: string
+          custom_spot_id?: string | null
+          height?: number | null
+          hidden_reason?: string | null
+          id?: string
+          idempotency_key?: string
+          lifecycle_status?: string
+          moderation_status?: string
+          processing_status?: string
+          recoverable_until?: string | null
+          removed_at?: string | null
+          storage_path?: string
+          target_type?: string
+          updated_at?: string
+          uploader_id?: string | null
+          visibility?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_spot_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_spot_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "community_spot_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_spot_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "community_spot_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "community_spot_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "community_spot_photos_beach_id_fkey"
+            columns: ["beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "community_spot_photos_custom_spot_id_fkey"
+            columns: ["custom_spot_id"]
+            isOneToOne: false
+            referencedRelation: "custom_spots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "community_spot_photos_uploader_id_fkey"
+            columns: ["uploader_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
             referencedColumns: ["user_id"]
           },
         ]
@@ -2873,6 +4303,13 @@ export type Database = {
             foreignKeyName: "content_reports_moderator_id_fkey"
             columns: ["moderator_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "content_reports_moderator_id_fkey"
+            columns: ["moderator_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2894,6 +4331,13 @@ export type Database = {
             foreignKeyName: "content_reports_reporter_id_fkey"
             columns: ["reporter_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "content_reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2910,6 +4354,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "session_activation_report"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "content_reports_target_owner_id_fkey"
+            columns: ["target_owner_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "content_reports_target_owner_id_fkey"
@@ -3515,6 +4966,44 @@ export type Database = {
           },
         ]
       }
+      email_delivery_events: {
+        Row: {
+          created_at: string
+          email_send_log_id: number | null
+          event_at: string
+          event_type: string
+          id: number
+          resend_message_id: string
+          webhook_message_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_send_log_id?: number | null
+          event_at: string
+          event_type: string
+          id?: number
+          resend_message_id: string
+          webhook_message_id: string
+        }
+        Update: {
+          created_at?: string
+          email_send_log_id?: number | null
+          event_at?: string
+          event_type?: string
+          id?: number
+          resend_message_id?: string
+          webhook_message_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_delivery_events_email_send_log_id_fkey"
+            columns: ["email_send_log_id"]
+            isOneToOne: false
+            referencedRelation: "email_send_log"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       email_send_log: {
         Row: {
           best_beach_id: string | null
@@ -3987,6 +5476,13 @@ export type Database = {
             foreignKeyName: "favorite_beaches_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "favorite_beaches_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -4106,6 +5602,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "ten_day_enhanced_forecasts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "forecast_accuracy_votes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "forecast_accuracy_votes_user_id_fkey"
@@ -4587,6 +6090,69 @@ export type Database = {
           },
         ]
       }
+      install_attribution_audit: {
+        Row: {
+          action: string
+          created_at: string
+          id: number
+          outcome: string
+          token_hash_prefix: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: never
+          outcome: string
+          token_hash_prefix: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: never
+          outcome?: string
+          token_hash_prefix?: string
+        }
+        Relationships: []
+      }
+      install_attribution_tokens: {
+        Row: {
+          campaign: string
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          placement: string
+          redemption_key_hash: string | null
+          source: string
+          surface: string
+          token_hash: string
+        }
+        Insert: {
+          campaign: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          placement: string
+          redemption_key_hash?: string | null
+          source: string
+          surface: string
+          token_hash: string
+        }
+        Update: {
+          campaign?: string
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          placement?: string
+          redemption_key_hash?: string | null
+          source?: string
+          surface?: string
+          token_hash?: string
+        }
+        Relationships: []
+      }
       intel_post_confirmations: {
         Row: {
           created_at: string
@@ -4613,6 +6179,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "intel_posts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intel_post_confirmations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "intel_post_confirmations_user_id_fkey"
@@ -4770,6 +6343,13 @@ export type Database = {
             foreignKeyName: "intel_posts_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "intel_posts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -4857,6 +6437,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "intel_posts"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "intel_votes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "intel_votes_user_id_fkey"
@@ -5469,13 +7056,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "ml_predictions_log_feedback_height_candidate_fkey"
-            columns: ["feedback_height_calibration_candidate_id"]
-            isOneToOne: false
-            referencedRelation: "beach_feedback_calibration_candidates"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "ml_predictions_log_beach_id_fkey"
             columns: ["beach_id"]
             isOneToOne: false
@@ -5523,6 +7103,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tide_forecast_latest"
             referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "ml_predictions_log_feedback_height_candidate_fkey"
+            columns: ["feedback_height_calibration_candidate_id"]
+            isOneToOne: false
+            referencedRelation: "beach_feedback_calibration_candidates"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -6049,6 +7636,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tide_forecast_latest"
             referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "pending_alert_captures_consumed_user_id_fkey"
+            columns: ["consumed_user_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "pending_alert_captures_consumed_user_id_fkey"
@@ -6811,6 +8405,13 @@ export type Database = {
             foreignKeyName: "referrals_referee_id_fkey"
             columns: ["referee_id"]
             isOneToOne: true
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "referrals_referee_id_fkey"
+            columns: ["referee_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -6832,6 +8433,13 @@ export type Database = {
             foreignKeyName: "referrals_referrer_id_fkey"
             columns: ["referrer_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "referrals_referrer_id_fkey"
+            columns: ["referrer_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -6848,6 +8456,130 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "session_activation_report"
             referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      regional_recommendation_hold_operator_refs: {
+        Row: {
+          created_at: string
+          operator_ref: string
+          operator_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          operator_ref?: string
+          operator_user_id: string
+        }
+        Update: {
+          created_at?: string
+          operator_ref?: string
+          operator_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regional_recommendation_hold_operator_ref_operator_user_id_fkey"
+            columns: ["operator_user_id"]
+            isOneToOne: true
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      regional_recommendation_holds: {
+        Row: {
+          action: string
+          affected_cohorts: string[]
+          authorizing_actor: string
+          authorizing_operator_ref: string | null
+          automatic_policy_version: string | null
+          created_at: string
+          effective_at: string
+          event_reference: string | null
+          expires_at: string
+          hold_id: string
+          idempotency_key: string
+          payload_hash: string
+          protected_alternative_beach_ids: string[]
+          reason_code: string
+          record_id: string
+          region_keys: string[]
+          request_id: string | null
+          scope_beach_ids: string[]
+          scope_exposure_classes: string[]
+          status: string
+          supersedes_record_id: string | null
+          supporting_evidence_refs: Json
+          transition: string
+          trigger_type: string
+          valid_from: string
+          valid_until: string
+          version: number
+        }
+        Insert: {
+          action: string
+          affected_cohorts: string[]
+          authorizing_actor: string
+          authorizing_operator_ref?: string | null
+          automatic_policy_version?: string | null
+          created_at?: string
+          effective_at: string
+          event_reference?: string | null
+          expires_at: string
+          hold_id: string
+          idempotency_key: string
+          payload_hash: string
+          protected_alternative_beach_ids?: string[]
+          reason_code: string
+          record_id?: string
+          region_keys?: string[]
+          request_id?: string | null
+          scope_beach_ids: string[]
+          scope_exposure_classes?: string[]
+          status: string
+          supersedes_record_id?: string | null
+          supporting_evidence_refs?: Json
+          transition: string
+          trigger_type: string
+          valid_from: string
+          valid_until: string
+          version: number
+        }
+        Update: {
+          action?: string
+          affected_cohorts?: string[]
+          authorizing_actor?: string
+          authorizing_operator_ref?: string | null
+          automatic_policy_version?: string | null
+          created_at?: string
+          effective_at?: string
+          event_reference?: string | null
+          expires_at?: string
+          hold_id?: string
+          idempotency_key?: string
+          payload_hash?: string
+          protected_alternative_beach_ids?: string[]
+          reason_code?: string
+          record_id?: string
+          region_keys?: string[]
+          request_id?: string | null
+          scope_beach_ids?: string[]
+          scope_exposure_classes?: string[]
+          status?: string
+          supersedes_record_id?: string | null
+          supporting_evidence_refs?: Json
+          transition?: string
+          trigger_type?: string
+          valid_from?: string
+          valid_until?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "regional_recommendation_holds_supersedes_record_id_fkey"
+            columns: ["supersedes_record_id"]
+            isOneToOne: true
+            referencedRelation: "regional_recommendation_holds"
+            referencedColumns: ["record_id"]
           },
         ]
       }
@@ -7296,6 +9028,13 @@ export type Database = {
             foreignKeyName: "session_forecast_snapshots_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "session_forecast_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -7360,6 +9099,13 @@ export type Database = {
             foreignKeyName: "session_invitations_invitee_id_fkey"
             columns: ["invitee_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "session_invitations_invitee_id_fkey"
+            columns: ["invitee_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -7376,6 +9122,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "session_activation_report"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "session_invitations_inviter_id_fkey"
+            columns: ["inviter_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "session_invitations_inviter_id_fkey"
@@ -7489,6 +9242,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_likes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "session_likes_user_id_fkey"
@@ -7689,6 +9449,13 @@ export type Database = {
             foreignKeyName: "session_media_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "session_media_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -7761,6 +9528,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "session_media_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
           {
             foreignKeyName: "session_media_history_changed_by_fkey"
             columns: ["changed_by"]
@@ -7847,6 +9621,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_share_links_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "session_share_links_user_id_fkey"
@@ -7940,6 +9721,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "sessions"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_shares_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "session_shares_user_id_fkey"
@@ -8325,6 +10113,13 @@ export type Database = {
             foreignKeyName: "sessions_user_id_profiles_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "sessions_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -8491,6 +10286,13 @@ export type Database = {
             foreignKeyName: "storage_usage_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "storage_usage_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -8616,6 +10418,51 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tide_forecast_latest"
             referencedColumns: ["beach_id"]
+          },
+        ]
+      }
+      surf_alert_delivery_slots: {
+        Row: {
+          alert_date: string
+          beach_id: string
+          created_at: string
+          priority: number
+          recipient_user_id: string
+          updated_at: string
+          winner_notification_event_id: string
+        }
+        Insert: {
+          alert_date: string
+          beach_id: string
+          created_at?: string
+          priority: number
+          recipient_user_id: string
+          updated_at?: string
+          winner_notification_event_id: string
+        }
+        Update: {
+          alert_date?: string
+          beach_id?: string
+          created_at?: string
+          priority?: number
+          recipient_user_id?: string
+          updated_at?: string
+          winner_notification_event_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "surf_alert_delivery_slots_recipient_user_id_fkey"
+            columns: ["recipient_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "surf_alert_delivery_slots_winner_notification_event_id_fkey"
+            columns: ["winner_notification_event_id"]
+            isOneToOne: false
+            referencedRelation: "notification_events"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -8894,6 +10741,7 @@ export type Database = {
           created_at: string
           id: string
           source: string
+          station_id: string | null
           tide_ft: number | null
           tide_height_m: number | null
           tide_phase: string | null
@@ -8905,6 +10753,7 @@ export type Database = {
           created_at?: string
           id?: string
           source: string
+          station_id?: string | null
           tide_ft?: number | null
           tide_height_m?: number | null
           tide_phase?: string | null
@@ -8916,6 +10765,7 @@ export type Database = {
           created_at?: string
           id?: string
           source?: string
+          station_id?: string | null
           tide_ft?: number | null
           tide_height_m?: number | null
           tide_phase?: string | null
@@ -9032,6 +10882,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "user_activities_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
           {
             foreignKeyName: "user_activities_user_id_fkey"
             columns: ["user_id"]
@@ -9251,6 +11108,13 @@ export type Database = {
             foreignKeyName: "user_beach_exclusions_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "user_beach_exclusions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -9291,6 +11155,13 @@ export type Database = {
             foreignKeyName: "user_blocks_blocked_id_fkey"
             columns: ["blocked_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "user_blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -9307,6 +11178,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "session_activation_report"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_blocks_blocker_id_fkey"
+            columns: ["blocker_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "user_blocks_blocker_id_fkey"
@@ -9695,6 +11573,13 @@ export type Database = {
             foreignKeyName: "user_follows_follower_id_fkey"
             columns: ["follower_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "user_follows_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -9711,6 +11596,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "session_activation_report"
             referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "user_follows_following_id_fkey"
+            columns: ["following_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "user_follows_following_id_fkey"
@@ -9875,6 +11767,65 @@ export type Database = {
           },
         ]
       }
+      user_location_snapshots: {
+        Row: {
+          captured_at: string
+          lat: number
+          lon: number
+          source: string
+          timezone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          captured_at: string
+          lat: number
+          lon: number
+          source: string
+          timezone: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          captured_at?: string
+          lat?: number
+          lon?: number
+          source?: string
+          timezone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_location_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "user_location_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_location_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles_with_home_beach"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_location_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "session_activation_report"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       user_surf_preferences: {
         Row: {
           avoidance_by_beach: Json
@@ -9948,6 +11899,13 @@ export type Database = {
             foreignKeyName: "user_surf_preferences_user_id_profiles_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "user_surf_preferences_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -9998,6 +11956,141 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: true
             referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      weekend_scout_snapshots: {
+        Row: {
+          contract_version: string
+          created_at: string
+          generated_at: string
+          id: string
+          lead_beach_id: string
+          lead_beach_name: string
+          lead_window_local: string
+          location_captured_at: string
+          location_timezone: string
+          max_drive_minutes: number
+          qualifying_count: number
+          rankings: Json
+          scorer_version: string
+          user_id: string
+          weekend_end: string
+          weekend_start: string
+        }
+        Insert: {
+          contract_version: string
+          created_at?: string
+          generated_at: string
+          id?: string
+          lead_beach_id: string
+          lead_beach_name: string
+          lead_window_local: string
+          location_captured_at: string
+          location_timezone: string
+          max_drive_minutes: number
+          qualifying_count: number
+          rankings: Json
+          scorer_version: string
+          user_id: string
+          weekend_end: string
+          weekend_start: string
+        }
+        Update: {
+          contract_version?: string
+          created_at?: string
+          generated_at?: string
+          id?: string
+          lead_beach_id?: string
+          lead_beach_name?: string
+          lead_window_local?: string
+          location_captured_at?: string
+          location_timezone?: string
+          max_drive_minutes?: number
+          qualifying_count?: number
+          rankings?: Json
+          scorer_version?: string
+          user_id?: string
+          weekend_end?: string
+          weekend_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "weekend_scout_snapshots_lead_beach_id_fkey"
+            columns: ["lead_beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_location_audit"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekend_scout_snapshots_lead_beach_id_fkey"
+            columns: ["lead_beach_id"]
+            isOneToOne: false
+            referencedRelation: "beach_ml_performance_baseline"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "weekend_scout_snapshots_lead_beach_id_fkey"
+            columns: ["lead_beach_id"]
+            isOneToOne: false
+            referencedRelation: "beaches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekend_scout_snapshots_lead_beach_id_fkey"
+            columns: ["lead_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_enhanced_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "weekend_scout_snapshots_lead_beach_id_fkey"
+            columns: ["lead_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_marine_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "weekend_scout_snapshots_lead_beach_id_fkey"
+            columns: ["lead_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_sun_times_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "weekend_scout_snapshots_lead_beach_id_fkey"
+            columns: ["lead_beach_id"]
+            isOneToOne: false
+            referencedRelation: "v_tide_forecast_latest"
+            referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "weekend_scout_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "weekend_scout_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekend_scout_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles_with_home_beach"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "weekend_scout_snapshots_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "session_activation_report"
             referencedColumns: ["user_id"]
           },
         ]
@@ -10360,6 +12453,13 @@ export type Database = {
             foreignKeyName: "user_blocks_blocked_id_fkey"
             columns: ["blocked_id"]
             isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "user_blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -10378,6 +12478,105 @@ export type Database = {
             referencedColumns: ["user_id"]
           },
         ]
+      }
+      growth_app_handoff_v1: {
+        Row: {
+          cohort_anchor: string | null
+          d1_returned: boolean | null
+          d7_returned: boolean | null
+          eligible_24h: boolean | null
+          eligible_7d: boolean | null
+          eligible_d1: boolean | null
+          eligible_d7: boolean | null
+          entrypoint: string | null
+          evidence_level: string | null
+          first_email_action_at: string | null
+          first_handoff_view_at: string | null
+          first_native_activation_at: string | null
+          first_native_open_at: string | null
+          first_persisted_session_at: string | null
+          first_phone_link_open_at: string | null
+          first_qr_action_at: string | null
+          first_store_redirect_at: string | null
+          handoff_channel: string | null
+          handoff_id: string | null
+          linked_profile_id: string | null
+          persisted_session_within_7d: boolean | null
+          placement: string | null
+          source_capture_status: string | null
+          source_group: string | null
+          surface: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Relationships: []
+      }
+      growth_native_install_activation_v1: {
+        Row: {
+          app_build: string | null
+          cohort_anchor: string | null
+          d1_returned: boolean | null
+          d7_returned: boolean | null
+          eligible_24h: boolean | null
+          eligible_7d: boolean | null
+          eligible_d1: boolean | null
+          eligible_d7: boolean | null
+          entrypoint: string | null
+          evidence_level: string | null
+          first_auth_at: string | null
+          first_high_intent_native_at: string | null
+          first_onboarding_completed_at: string | null
+          first_persisted_session_at: string | null
+          first_session_log_start_at: string | null
+          handoff_id: string | null
+          linked_profile_id: string | null
+          native_install_id: string | null
+          persisted_session_within_7d: boolean | null
+          platform: string | null
+          referrer_domain: string | null
+          source_capture_status: string | null
+          source_group: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_events_user_id_fkey"
+            columns: ["linked_profile_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      growth_web_signup_activation_v1: {
+        Row: {
+          cohort_anchor: string | null
+          cohort_type: string | null
+          d1_returned: boolean | null
+          d7_returned: boolean | null
+          eligible_24h: boolean | null
+          eligible_7d: boolean | null
+          eligible_d1: boolean | null
+          eligible_d7: boolean | null
+          entrypoint: string | null
+          evidence_level: string | null
+          first_app_handoff_intent_at: string | null
+          first_linked_native_open_at: string | null
+          first_persisted_session_at: string | null
+          first_web_product_activation_at: string | null
+          persisted_session_within_7d: boolean | null
+          profile_id: string | null
+          referrer_domain: string | null
+          source_capture_status: string | null
+          source_group: string | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
+        }
+        Relationships: []
       }
       mv_beach_amenities: {
         Row: {
@@ -10695,6 +12894,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_tide_forecast_latest"
             referencedColumns: ["beach_id"]
+          },
+          {
+            foreignKeyName: "sessions_user_id_profiles_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "growth_web_signup_activation_v1"
+            referencedColumns: ["profile_id"]
           },
           {
             foreignKeyName: "sessions_user_id_profiles_fkey"
@@ -11104,6 +13310,76 @@ export type Database = {
         Args: { invitee: string; inviter: string }
         Returns: Json
       }
+      admin_list_community_spot_photos_v1: {
+        Args: {
+          p_before?: string
+          p_limit?: number
+          p_status?: string
+          p_target_id?: string
+          p_target_type?: string
+        }
+        Returns: Json
+      }
+      append_regional_recommendation_hold_transition: {
+        Args: { p_transition: Json }
+        Returns: {
+          action: string
+          affected_cohorts: string[]
+          authorizing_actor: string
+          authorizing_operator_ref: string | null
+          automatic_policy_version: string | null
+          created_at: string
+          effective_at: string
+          event_reference: string | null
+          expires_at: string
+          hold_id: string
+          idempotency_key: string
+          payload_hash: string
+          protected_alternative_beach_ids: string[]
+          reason_code: string
+          record_id: string
+          region_keys: string[]
+          request_id: string | null
+          scope_beach_ids: string[]
+          scope_exposure_classes: string[]
+          status: string
+          supersedes_record_id: string | null
+          supporting_evidence_refs: Json
+          transition: string
+          trigger_type: string
+          valid_from: string
+          valid_until: string
+          version: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "regional_recommendation_holds"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      apply_android_tester_roster_snapshot: {
+        Args: {
+          p_actor_user_id: string
+          p_claim_token: string
+          p_direct_user_count: number
+          p_failure_code?: string
+          p_observations: Json
+          p_observed_at: string
+          p_snapshot_complete: boolean
+        }
+        Returns: Json
+      }
+      assess_apple_identity_recovery: {
+        Args: {
+          p_apple_sub: string
+          p_apple_token_sha256: string
+          p_canonical_user_id: string
+          p_idempotency_key: string
+        }
+        Returns: Json
+      }
+      backfill_android_waitlist_entries: { Args: never; Returns: Json }
       backfill_ml_observations: {
         Args: { batch_size?: number }
         Returns: {
@@ -11146,6 +13422,10 @@ export type Database = {
           status: string
           value: number
         }[]
+      }
+      claim_android_tester_roster_sync: {
+        Args: { p_actor_user_id: string; p_observed_at: string }
+        Returns: string
       }
       claim_daily_forecast_notification_slot: {
         Args: {
@@ -11199,6 +13479,23 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_stuck_community_spot_photo_uploads_v1: {
+        Args: { p_limit?: number; p_now?: string }
+        Returns: {
+          photo_id: string
+          storage_path: string
+        }[]
+      }
+      claim_surf_alert_slot: {
+        Args: {
+          p_alert_date: string
+          p_beach_id: string
+          p_event_id: string
+          p_priority: number
+          p_recipient_user_id: string
+        }
+        Returns: boolean
+      }
       cleanup_expired_events: { Args: never; Returns: number }
       cleanup_inactive_buoys: {
         Args: { inactive_days?: number }
@@ -11222,6 +13519,10 @@ export type Database = {
       }
       cleanup_stale_enhanced_forecasts: {
         Args: { retention_days?: number }
+        Returns: number
+      }
+      community_photo_wilson_lower_bound: {
+        Args: { p_downvotes: number; p_upvotes: number }
         Returns: number
       }
       compute_all_affinities_initial: { Args: never; Returns: undefined }
@@ -11275,6 +13576,14 @@ export type Database = {
         Returns: Json
       }
       concat_text_array: { Args: { vals: string[] }; Returns: string }
+      confirm_apple_identity_recovery: {
+        Args: {
+          p_canonical_user_id: string
+          p_idempotency_key: string
+          p_recovery_id: string
+        }
+        Returns: Json
+      }
       count_auth_apple_orphan_users: { Args: never; Returns: number }
       create_activity: {
         Args: {
@@ -11325,6 +13634,36 @@ export type Database = {
       }
       delete_user_account: { Args: { p_user_id: string }; Returns: Json }
       ensure_user_xp: { Args: { p_user_id: string }; Returns: undefined }
+      erase_regional_recommendation_hold_operator_v1: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
+      export_android_tester_roster_non_pii: {
+        Args: never
+        Returns: {
+          eligibility_confidence: string
+          eligibility_observed_at: string
+          eligibility_source: string
+          eligibility_status: string
+          entry_id: string
+          group_membership_status: string
+          linked: boolean
+          purge_after: string
+          stage: string
+          stage_confidence: string
+          stage_observed_at: string
+          stage_source: string
+          stage_status: string
+        }[]
+      }
+      fail_community_spot_photo_upload_v1: {
+        Args: {
+          p_photo_id: string
+          p_reason_code: string
+          p_uploader_id: string
+        }
+        Returns: boolean
+      }
       finalize_anon_alert_capture: {
         Args: { p_email: string; p_user_id: string }
         Returns: {
@@ -11334,6 +13673,23 @@ export type Database = {
           preset_type: string
           return_path: string
         }[]
+      }
+      finalize_community_spot_photo_v1: {
+        Args: {
+          p_height: number
+          p_photo_id: string
+          p_uploader_id: string
+          p_width: number
+        }
+        Returns: boolean
+      }
+      finalize_purged_community_spot_photos_v1: {
+        Args: { p_photo_ids: string[] }
+        Returns: number
+      }
+      finalize_stuck_community_spot_photo_uploads_v1: {
+        Args: { p_photo_ids: string[] }
+        Returns: number
       }
       find_cities_by_pattern: {
         Args: { search_pattern: string; state_filter?: string }
@@ -11400,6 +13756,13 @@ export type Database = {
       }
       generate_referral_code: { Args: never; Returns: string }
       generate_surf_drop_slug: { Args: never; Returns: string }
+      get_admin_community_spot_photo_image_v1: {
+        Args: { p_actor_id: string; p_audit_id: string; p_photo_id: string }
+        Returns: {
+          content_type: string
+          storage_path: string
+        }[]
+      }
       get_all_beach_locations: {
         Args: never
         Returns: {
@@ -11407,6 +13770,49 @@ export type Database = {
           city: string
           country: string
           state: string
+        }[]
+      }
+      get_android_tester_roster_join_context: {
+        Args: { p_idempotency_key_hash: string; p_user_id: string }
+        Returns: {
+          already_linked: boolean
+          candidates: Json
+          snapshot_complete: boolean
+        }[]
+      }
+      get_android_tester_roster_summary: { Args: never; Returns: Json }
+      get_android_tester_roster_sync_identities: {
+        Args: never
+        Returns: {
+          auth_tag: string
+          ciphertext: string
+          eligibility_status: string
+          entry_id: string
+          iv: string
+          key_version: number
+          purge_after: string
+          user_id: string
+        }[]
+      }
+      get_android_waitlist_operator_projection: {
+        Args: never
+        Returns: {
+          account_join_observed_at: string
+          account_join_status: string
+          authenticated_account_linked: boolean
+          entry_id: string
+          first_joined_at: string
+          first_open_observed_at: string
+          first_open_status: string
+          group_membership_observed_at: string
+          group_membership_status: string
+          install_observed_at: string
+          install_status: string
+          last_joined_at: string
+          play_opt_in_observed_at: string
+          play_opt_in_status: string
+          source_count: number
+          source_kinds: string[]
         }[]
       }
       get_beach_ml_performance: {
@@ -11619,6 +14025,17 @@ export type Database = {
           score: number
         }[]
       }
+      get_community_photo_monitoring_v1: {
+        Args: { p_since?: string }
+        Returns: Json
+      }
+      get_community_spot_photo_image_v1: {
+        Args: { p_photo_id: string; p_viewer_id?: string }
+        Returns: {
+          content_type: string
+          storage_path: string
+        }[]
+      }
       get_conditions_alert_candidates: {
         Args: { p_min_score?: number }
         Returns: {
@@ -11759,6 +14176,10 @@ export type Database = {
           beach_name: string
           visit_count: number
         }[]
+      }
+      get_my_analytics_tracking_allowed: {
+        Args: { p_expected_user_id: string }
+        Returns: boolean
       }
       get_nearby_beaches: {
         Args: {
@@ -12020,6 +14441,20 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: number
       }
+      get_weekend_scout_candidates: {
+        Args: {
+          input_lat: number
+          input_lon: number
+          input_user_id: string
+          limit_count?: number
+          max_distance_meters: number
+        }
+        Returns: {
+          distance_meters: number
+          id: string
+          total_count: number
+        }[]
+      }
       get_welcome_email_candidates: {
         Args: never
         Returns: {
@@ -12060,6 +14495,19 @@ export type Database = {
         Args: { a: string; b: string }
         Returns: boolean
       }
+      hold_community_spot_photo_v1: {
+        Args: {
+          p_actor_id: string
+          p_idempotency_key: string
+          p_photo_id: string
+          p_reason: string
+        }
+        Returns: {
+          hold_id: string
+          placed_at: string
+          reason: string
+        }[]
+      }
       increment_session_share_count: {
         Args: { session_id: string }
         Returns: undefined
@@ -12088,9 +14536,55 @@ export type Database = {
         Args: { p_actor_id: string; p_dedupe_key: string; p_session_id: string }
         Returns: Json
       }
+      link_android_tester_roster_account: {
+        Args: {
+          p_entry_id: string
+          p_idempotency_key_hash: string
+          p_native_install_id: string
+          p_user_id: string
+        }
+        Returns: {
+          outcome: string
+        }[]
+      }
       link_anonymous_events: {
         Args: { p_session_id: string; p_user_id: string }
         Returns: number
+      }
+      link_anonymous_events_v2: {
+        Args: {
+          p_session_id: string
+          p_signup_context?: Json
+          p_user_id: string
+        }
+        Returns: Json
+      }
+      list_orphan_community_photo_objects_v1: {
+        Args: { p_limit?: number; p_now?: string }
+        Returns: {
+          storage_path: string
+        }[]
+      }
+      list_owned_removed_community_spot_photos_v1: {
+        Args: { p_uploader_id: string }
+        Returns: {
+          has_active_hold: boolean
+          moderation_status: string
+          photo_id: string
+          recoverable_until: string
+          target_id: string
+          target_type: string
+        }[]
+      }
+      moderate_community_spot_photo_v1: {
+        Args: {
+          p_action: string
+          p_actor_id: string
+          p_idempotency_key: string
+          p_photo_id: string
+          p_reason: string
+        }
+        Returns: string
       }
       nightly_forecast_maintenance: { Args: never; Returns: Json }
       notify_session_invite: {
@@ -12117,6 +14611,20 @@ export type Database = {
         }
       }
       parse_numeric_from_text: { Args: { input: string }; Returns: number }
+      pin_community_spot_photo_v1: {
+        Args: {
+          p_actor_id: string
+          p_idempotency_key: string
+          p_photo_id: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: boolean
+      }
+      preflight_community_spot_photo_upload_v1: {
+        Args: { p_idempotency_key: string; p_uploader_id: string }
+        Returns: boolean
+      }
       preset_default_conditions: {
         Args: { p_beach_id: string; p_preset: string }
         Returns: Json
@@ -12137,9 +14645,76 @@ export type Database = {
           tide_deleted: number
         }[]
       }
+      purge_android_tester_roster_identities: {
+        Args: { p_actor_user_id: string; p_now?: string }
+        Returns: number
+      }
+      purge_expired_regional_recommendation_holds_v1: {
+        Args: never
+        Returns: {
+          chains_deleted: number
+          rows_deleted: number
+        }[]
+      }
       purge_implicit_history: {
         Args: { target_user_id: string }
         Returns: undefined
+      }
+      purge_removed_community_spot_photos_v1: {
+        Args: { p_limit?: number; p_now?: string }
+        Returns: {
+          photo_id: string
+          storage_path: string
+        }[]
+      }
+      record_android_tester_roster_audit: {
+        Args: {
+          p_action: string
+          p_actor_user_id: string
+          p_entry_id: string
+          p_evidence?: Json
+          p_outcome: string
+        }
+        Returns: number
+      }
+      record_android_tester_roster_first_open: {
+        Args: {
+          p_idempotency_key_hash: string
+          p_native_install_id: string
+          p_user_id: string
+        }
+        Returns: {
+          outcome: string
+        }[]
+      }
+      record_android_tester_roster_install: {
+        Args: {
+          p_campaign: string
+          p_created_on: string
+          p_expires_on: string
+          p_idempotency_key_hash: string
+          p_native_install_id: string
+          p_placement: string
+          p_source: string
+          p_surface: string
+          p_user_id: string
+        }
+        Returns: {
+          outcome: string
+        }[]
+      }
+      record_android_tester_roster_stage: {
+        Args: {
+          p_actor_user_id: string
+          p_confidence: string
+          p_entry_id: string
+          p_evidence?: Json
+          p_observed_at: string
+          p_source: string
+          p_stage: string
+          p_status: string
+        }
+        Returns: number
       }
       record_referral_attribution: {
         Args: {
@@ -12150,6 +14725,36 @@ export type Database = {
         }
         Returns: Json
       }
+      recover_community_spot_photo_v1: {
+        Args: {
+          p_actor_id: string
+          p_idempotency_key: string
+          p_photo_id: string
+        }
+        Returns: boolean
+      }
+      recover_owned_community_spot_photo_v1: {
+        Args: {
+          p_idempotency_key: string
+          p_photo_id: string
+          p_uploader_id: string
+        }
+        Returns: {
+          photo_id: string
+          status: string
+        }[]
+      }
+      redeem_install_attribution_token: {
+        Args: { p_redemption_key_hash: string; p_token_hash: string }
+        Returns: {
+          campaign: string
+          created_at: string
+          expires_at: string
+          placement: string
+          source: string
+          surface: string
+        }[]
+      }
       refresh_beach_ml_baseline: { Args: never; Returns: undefined }
       refresh_enhanced_forecasts_for_active_beaches: {
         Args: never
@@ -12157,6 +14762,52 @@ export type Database = {
       }
       refresh_mv_beach_amenities: { Args: never; Returns: undefined }
       refresh_observable_beaches: { Args: never; Returns: undefined }
+      regional_recommendation_hold_canonical_payload: {
+        Args: {
+          p_row: Database["public"]["Tables"]["regional_recommendation_holds"]["Row"]
+        }
+        Returns: Json
+      }
+      regional_recommendation_hold_refs_are_safe: {
+        Args: { p_refs: Json }
+        Returns: boolean
+      }
+      regional_recommendation_hold_region_keys_are_safe: {
+        Args: { p_region_keys: string[] }
+        Returns: boolean
+      }
+      release_android_tester_roster_sync_claim: {
+        Args: { p_claim_token: string }
+        Returns: boolean
+      }
+      release_community_spot_photo_hold_v1: {
+        Args: {
+          p_actor_id: string
+          p_idempotency_key: string
+          p_photo_id: string
+        }
+        Returns: boolean
+      }
+      release_community_spot_photo_purge_v1: {
+        Args: { p_photo_ids: string[] }
+        Returns: number
+      }
+      release_stuck_community_spot_photo_uploads_v1: {
+        Args: { p_photo_ids: string[] }
+        Returns: number
+      }
+      remove_community_spot_photo_v1: {
+        Args: {
+          p_idempotency_key: string
+          p_photo_id: string
+          p_uploader_id: string
+        }
+        Returns: {
+          photo_id: string
+          recoverable_until: string
+          status: string
+        }[]
+      }
       repair_strict_session_snapshots: {
         Args: { p_apply?: boolean; p_limit?: number }
         Returns: {
@@ -12168,8 +14819,173 @@ export type Database = {
           user_id: string
         }[]
       }
+      report_community_spot_photo_v1: {
+        Args: {
+          p_idempotency_key: string
+          p_photo_id: string
+          p_reason: string
+          p_reporter_id: string
+        }
+        Returns: {
+          photo_id: string
+          report_count: number
+          status: string
+        }[]
+      }
+      reserve_community_spot_photo_v1: {
+        Args: {
+          p_idempotency_key: string
+          p_photo_id: string
+          p_rights_confirmed: boolean
+          p_storage_path: string
+          p_target_id: string
+          p_target_type: string
+          p_terms_version: string
+          p_uploader_id: string
+          p_visibility: string
+        }
+        Returns: {
+          photo_id: string
+          processing_status: string
+          replay: boolean
+          storage_path: string
+        }[]
+      }
+      resolve_active_regional_recommendation_holds: {
+        Args: {
+          p_as_of: string
+          p_beach_ids: string[]
+          p_window_end: string
+          p_window_start: string
+        }
+        Returns: {
+          action: string
+          affected_cohorts: string[]
+          authorizing_actor: string
+          authorizing_operator_ref: string | null
+          automatic_policy_version: string | null
+          created_at: string
+          effective_at: string
+          event_reference: string | null
+          expires_at: string
+          hold_id: string
+          idempotency_key: string
+          payload_hash: string
+          protected_alternative_beach_ids: string[]
+          reason_code: string
+          record_id: string
+          region_keys: string[]
+          request_id: string | null
+          scope_beach_ids: string[]
+          scope_exposure_classes: string[]
+          status: string
+          supersedes_record_id: string | null
+          supporting_evidence_refs: Json
+          transition: string
+          trigger_type: string
+          valid_from: string
+          valid_until: string
+          version: number
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "regional_recommendation_holds"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      resolve_android_waitlist_entry: {
+        Args: {
+          p_normalized_email_sha256: string
+          p_observed_at: string
+          p_placement: string
+          p_roster_entry_id: string
+          p_source: string
+          p_source_id: string
+          p_source_kind: string
+          p_surface: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      resolve_community_spot_photo_batch_v1: {
+        Args: {
+          p_limit_per_target?: number
+          p_targets: Json
+          p_viewer_id?: string
+        }
+        Returns: {
+          created_at: string
+          display_name: string
+          downvotes: number
+          height: number
+          is_pinned: boolean
+          photo_id: string
+          target_id: string
+          target_type: string
+          uploader_id: string
+          upvotes: number
+          viewer_vote: string
+          visibility: string
+          width: number
+          wilson_score: number
+        }[]
+      }
+      resolve_community_spot_photo_by_id_v1: {
+        Args: { p_photo_id: string; p_viewer_id: string }
+        Returns: {
+          created_at: string
+          display_name: string
+          downvotes: number
+          height: number
+          is_pinned: boolean
+          photo_id: string
+          target_id: string
+          target_type: string
+          uploader_id: string
+          upvotes: number
+          viewer_vote: string
+          visibility: string
+          width: number
+          wilson_score: number
+        }[]
+      }
+      resolve_community_spot_photos_v1: {
+        Args: {
+          p_limit?: number
+          p_target_id: string
+          p_target_type: string
+          p_viewer_id?: string
+        }
+        Returns: {
+          created_at: string
+          display_name: string
+          downvotes: number
+          height: number
+          is_pinned: boolean
+          photo_id: string
+          target_id: string
+          target_type: string
+          uploader_id: string
+          upvotes: number
+          viewer_vote: string
+          visibility: string
+          width: number
+          wilson_score: number
+        }[]
+      }
       restore_entity: {
         Args: { entity_id: string; table_name: string }
+        Returns: boolean
+      }
+      restrict_community_photo_contributor_v1: {
+        Args: {
+          p_actor_id: string
+          p_contributor_id: string
+          p_idempotency_key: string
+          p_reason_code: string
+          p_restricted_until: string
+        }
         Returns: boolean
       }
       run_database_maintenance: {
@@ -12248,6 +15064,22 @@ export type Database = {
         }[]
       }
       unaccent: { Args: { "": string }; Returns: string }
+      unpin_community_spot_photo_v1: {
+        Args: {
+          p_actor_id: string
+          p_idempotency_key: string
+          p_photo_id: string
+        }
+        Returns: boolean
+      }
+      unrestrict_community_photo_contributor_v1: {
+        Args: {
+          p_actor_id: string
+          p_contributor_id: string
+          p_idempotency_key: string
+        }
+        Returns: boolean
+      }
       update_beach_coordinates: {
         Args: { p_beach_id: string; p_latitude: number; p_longitude: number }
         Returns: undefined
@@ -12301,6 +15133,21 @@ export type Database = {
           p_user_id: string
         }
         Returns: undefined
+      }
+      vote_community_spot_photo_v1: {
+        Args: {
+          p_idempotency_key: string
+          p_photo_id: string
+          p_vote: string
+          p_voter_id: string
+        }
+        Returns: {
+          downvotes: number
+          photo_id: string
+          upvotes: number
+          vote: string
+          vote_score: number
+        }[]
       }
     }
     Enums: {

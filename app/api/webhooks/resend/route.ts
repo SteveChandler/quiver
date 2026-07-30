@@ -102,9 +102,9 @@ async function recordDeliveryEvent(
   eventTimestamp: string,
   resendMessageId: string,
   webhookMessageId: string,
-  emailSendLogId: string | number | null
+  emailSendLogId: number | null
 ): Promise<{ code?: string; message?: string } | null> {
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("email_delivery_events")
     .insert({
       email_send_log_id: emailSendLogId,
@@ -120,7 +120,7 @@ async function recordDeliveryEvent(
 async function findEmailSendLogId(
   supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>,
   resendMessageId: string
-): Promise<string | number | null> {
+): Promise<number | null> {
   try {
     const { data, error } = await supabase
       .from("email_send_log")
