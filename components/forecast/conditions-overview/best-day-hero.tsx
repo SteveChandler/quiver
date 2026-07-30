@@ -84,10 +84,12 @@ export function BestDayHero({ bestDay, otherGoodDays, isUserSelected, isPersonal
                   {wind.label}
                 </span>
 
-                <span className="inline-flex items-center gap-1">
-                  <Clock className="h-4 w-4" />
-                  Best: {capitalize(bestDay.bestTimeSlot)}
-                </span>
+                {bestDay.bestTimeSlot && (
+                  <span className="inline-flex items-center gap-1">
+                    <Clock className="h-4 w-4" />
+                    Best: {capitalize(bestDay.bestTimeSlot)}
+                  </span>
+                )}
 
                 {bestDay.period != null && (
                   <span className="text-[#0B3A75]">

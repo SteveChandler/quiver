@@ -155,12 +155,12 @@ function groupForecastsByDate(
 function findBestForecast(
   dayForecasts: EnhancedForecastEntity[],
   skillLevel?: SkillLevel | string | null,
-  _beachTz?: string,
+  beachTz?: string,
   _userPreferences?: UserScoringPreferences
 ): NativeScoredForecast | null {
   if (dayForecasts.length === 0) return null;
 
-  return pickBestNativeForecastSlot(dayForecasts, skillLevel);
+  return pickBestNativeForecastSlot(dayForecasts, skillLevel, { beachTz });
 }
 
 /**

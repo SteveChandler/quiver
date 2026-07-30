@@ -41,8 +41,17 @@ jest.mock("next/dynamic", () => ({
 // Mock enrichDaySummaries utility
 const mockEnrichDaySummaries = jest.fn();
 jest.mock("@/lib/utils/enriched-day-summary", () => ({
-  enrichDaySummaries: (days: DaySummary[], forecasts: EnhancedForecastEntity[], windOffshoreDeg?: number | null) =>
-    mockEnrichDaySummaries(days, forecasts, windOffshoreDeg),
+  enrichDaySummaries: (
+    days: DaySummary[],
+    forecasts: EnhancedForecastEntity[],
+    windOffshoreDeg?: number | null,
+    beachTimezone?: string | null,
+  ) => mockEnrichDaySummaries(
+    days,
+    forecasts,
+    windOffshoreDeg,
+    beachTimezone,
+  ),
 }));
 
 function createMockDay(overrides: Partial<EnrichedDaySummary> = {}): EnrichedDaySummary {
@@ -149,7 +158,9 @@ describe("ConditionsOverview", () => {
     ];
     mockEnrichDaySummaries.mockReturnValue(enrichedDays);
 
-    const beach = createMockBeach();
+    const beach = createMockBeach({
+      timezone: "America/Los_Angeles",
+    });
     render(
       <ConditionsOverview
         horizonDaySummaries={[]}
@@ -160,6 +171,12 @@ describe("ConditionsOverview", () => {
 
     expect(screen.getByTestId("best-day-score")).toHaveTextContent("85");
     expect(screen.getByTestId("best-day-date")).toHaveTextContent("2026-02-11");
+    expect(mockEnrichDaySummaries).toHaveBeenCalledWith(
+      [],
+      mockForecasts,
+      undefined,
+      "America/Los_Angeles",
+    );
   });
 
   it("filters otherGoodDays to only include days with score >= 60", () => {

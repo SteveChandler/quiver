@@ -65,4 +65,87 @@ describe("computeBestDaysForUser", () => {
       }),
     ]);
   });
+
+  it("skips a higher-scoring night slot in favor of a passing daylight slot", async () => {
+    const rpc = jest.fn(async (
+      _name: string,
+      params: { p_wave_height: string },
+    ) => ({
+      data: params.p_wave_height === "4"
+        ? { state: "learned", score: 9.5, label: "EPIC" }
+        : { state: "learned", score: 7, label: "GOOD" },
+      error: null,
+    }));
+    const from = jest.fn((table: string) => {
+      if (table === "alert_rules") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: async () => ({
+                data: [
+                  {
+                    beach_id: "beach-1",
+                    beaches: {
+                      id: "beach-1",
+                      name: "Cardiff Reef",
+                      timezone: "America/Los_Angeles",
+                    },
+                  },
+                ],
+              }),
+            }),
+          }),
+        };
+      }
+
+      return {
+        select: () => ({
+          eq: () => ({
+            gte: () => ({
+              lte: () => ({
+                order: async () => ({
+                  data: [
+                    {
+                      forecast_at: "2026-08-04T10:00:00.000Z",
+                      wave_height: "4",
+                      wave_period: "14s",
+                      wind_speed: "1",
+                      wind_direction_deg: 270,
+                      tide_height: "3",
+                    },
+                    {
+                      forecast_at: "2026-08-04T22:00:00.000Z",
+                      wave_height: "3",
+                      wave_period: "11s",
+                      wind_speed: "8",
+                      wind_direction_deg: 270,
+                      tide_height: "3",
+                    },
+                  ],
+                }),
+              }),
+            }),
+          }),
+        }),
+      };
+    });
+
+    const slots = await computeBestDaysForUser(
+      { from, rpc } as never,
+      "user-1",
+    );
+
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith(
+      "compute_user_match_score",
+      expect.objectContaining({ p_wave_height: "3" }),
+    );
+    expect(slots).toEqual([
+      expect.objectContaining({
+        beach_name: "Cardiff Reef",
+        score: 7,
+        time: "3pm",
+      }),
+    ]);
+  });
 });

@@ -44,8 +44,19 @@ export function ConditionsOverview({
   beachTimezone,
 }: ConditionsOverviewProps) {
   const enrichedDays = useMemo(
-    () => enrichDaySummaries(horizonDaySummaries, forecasts, beach.wind_offshore_deg),
-    [horizonDaySummaries, forecasts, beach.wind_offshore_deg]
+    () => enrichDaySummaries(
+      horizonDaySummaries,
+      forecasts,
+      beach.wind_offshore_deg,
+      beachTimezone ?? beach.timezone,
+    ),
+    [
+      horizonDaySummaries,
+      forecasts,
+      beach.wind_offshore_deg,
+      beach.timezone,
+      beachTimezone,
+    ]
   );
 
   // No data available
