@@ -324,6 +324,90 @@ describe("seedDefaultRulesForUser", () => {
     });
   });
 
+  it("keeps 'at your home break' naming when isHomeBeach is omitted (default)", async () => {
+    const state = baseState();
+    const supabase = makeMockSupabase(state);
+
+    await seedDefaultRulesForUser({
+      supabase,
+      userId: "user-1",
+      beachId: "beach-123",
+      experienceLevel: "beginner",
+      preferredTimeBucket: "dawn",
+      notifyEmail: true,
+      notifyPush: false,
+    });
+
+    expect(state.insertPayload?.map((row) => row.name)).toEqual([
+      "Mellow session at your home break",
+      "Dawn patrol at your home break",
+    ]);
+  });
+
+  it("names the rule after the actual beach when isHomeBeach is false", async () => {
+    const state = baseState({
+      beachRow: {
+        id: "beach-999",
+        name: "Waves Point",
+        slug: "waves-point",
+        lat: 37.8,
+        lon: -122.6,
+        timezone: "America/Los_Angeles",
+        wind_offshore_deg: 90,
+        wind_offshore_tol_deg: 45,
+        aspect_deg: 270,
+        preferred_tide_ft_min: 2,
+        preferred_tide_ft_max: 5,
+        preferred_tide_direction: "rising",
+        swell_window_center_deg: 270,
+        swell_window_halfwidth_deg: 60,
+        break_type: null,
+        skill_level: null,
+        features: null,
+        preference_model: null,
+        wind_onshore_bad_kt: null,
+      },
+    });
+    const supabase = makeMockSupabase(state);
+
+    await seedDefaultRulesForUser({
+      supabase,
+      userId: "user-1",
+      beachId: "beach-999",
+      isHomeBeach: false,
+      experienceLevel: "beginner",
+      preferredTimeBucket: "dawn",
+      notifyEmail: true,
+      notifyPush: false,
+    });
+
+    expect(state.insertPayload?.map((row) => row.name)).toEqual([
+      "Mellow session at Waves Point",
+      "Dawn patrol at Waves Point",
+    ]);
+  });
+
+  it("keeps 'at your home break' naming when isHomeBeach is explicitly true", async () => {
+    const state = baseState();
+    const supabase = makeMockSupabase(state);
+
+    await seedDefaultRulesForUser({
+      supabase,
+      userId: "user-1",
+      beachId: "beach-123",
+      isHomeBeach: true,
+      experienceLevel: "advanced",
+      preferredTimeBucket: "evening",
+      notifyEmail: true,
+      notifyPush: false,
+    });
+
+    expect(state.insertPayload?.map((row) => row.name)).toEqual([
+      "Clean groundswell at your home break",
+      "After-work windows at your home break",
+    ]);
+  });
+
   it("uses beach preferred_tide fields when building mellow_session conditions", async () => {
     const state = baseState();
     const supabase = makeMockSupabase(state);
