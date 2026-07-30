@@ -3,6 +3,7 @@
  */
 
 import { act, renderHook } from "@testing-library/react";
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 const mockCreateLoggedSession = jest.fn();
 const mockCreateActivity = jest.fn();
@@ -63,6 +64,7 @@ const createSessionFormData = () => ({
 describe("useSessionSubmission", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    global.fetch = jest.fn() as jest.Mock;
     mockCreateLoggedSession.mockResolvedValue({
       success: true,
       data: { id: "session-123" },
@@ -70,7 +72,7 @@ describe("useSessionSubmission", () => {
     mockCreateActivity.mockResolvedValue({ success: true });
   });
 
-  it("keeps GA submit tracking but does not duplicate Supabase session_log_submit", async () => {
+  it("emits submit-funnel telemetry exactly once after a successful save", async () => {
     const { result } = renderHook(() =>
       useSessionSubmission({
         mode: "log",
@@ -99,8 +101,11 @@ describe("useSessionSubmission", () => {
         wave_quality: 4,
       })
     );
-    expect(mockTrack).toHaveBeenCalledWith(
-      "session_log_submit",
+    const submitCalls = mockTrack.mock.calls.filter(
+      ([eventName]) => eventName === "session_log_submit",
+    );
+    expect(submitCalls).toHaveLength(1);
+    expect(submitCalls[0]?.[1]).toEqual(
       expect.objectContaining({
         beach_slug: "ocean-beach",
         wave_rating: 4,
@@ -110,10 +115,36 @@ describe("useSessionSubmission", () => {
       "session_log_submit",
       expect.anything()
     );
+    expect(global.fetch).not.toHaveBeenCalled();
     expect(mockSaveLastBeach).toHaveBeenCalledWith({
       id: "beach-123",
       name: "Ocean Beach",
     });
+  });
+
+  it("does not emit submit telemetry when the session save fails", async () => {
+    mockCreateLoggedSession.mockResolvedValueOnce({
+      success: false,
+      error: "Session creation failed",
+    });
+    const { result } = renderHook(() =>
+      useSessionSubmission({
+        mode: "log",
+        user: { id: "user-123" },
+      })
+    );
+
+    await act(async () => {
+      await result.current.handleSessionComplete(createSessionFormData());
+    });
+
+    expectConsoleErrors([/error creating session/i]);
+    expect(mockTrack).not.toHaveBeenCalledWith(
+      "session_log_submit",
+      expect.anything(),
+    );
+    expect(mockTrackSupabase).not.toHaveBeenCalled();
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it("threads a forecast feedback id into the logged-session payload", async () => {

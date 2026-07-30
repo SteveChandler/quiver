@@ -130,9 +130,13 @@ describe("createLoggedSession personalization recompute", () => {
         }),
       })
     );
+    const insertedEventTypes = mockSupabase.insert.mock.calls
+      .map(([payload]) => payload?.event_type)
+      .filter(Boolean);
+    expect(insertedEventTypes).not.toContain("session_log_submit");
   });
 
-  it("does not emit session_created for mock/internal users", async () => {
+  it("does not emit server analytics for mock/internal users", async () => {
     const originalAllowE2E = process.env.ALLOW_E2E_MUTATIONS_DEV;
     process.env.ALLOW_E2E_MUTATIONS_DEV = "0";
     mockSupabase.single.mockReset();
@@ -171,7 +175,7 @@ describe("createLoggedSession personalization recompute", () => {
         .map(([payload]) => payload?.event_type)
         .filter(Boolean);
       expect(insertedEventTypes).not.toContain("session_created");
-      expect(insertedEventTypes).toContain("session_log_submit");
+      expect(insertedEventTypes).not.toContain("session_log_submit");
     } finally {
       if (originalAllowE2E === undefined) {
         delete process.env.ALLOW_E2E_MUTATIONS_DEV;

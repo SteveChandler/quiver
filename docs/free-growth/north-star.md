@@ -4,16 +4,16 @@
 
 Add one canonical event: `session_created`.
 
-No existing web event is universal for "a real `sessions` row was inserted." `session_log_submit` is partial and overloaded: it fires after standard web session saves and after conditions-report session backfills, while the client also emits it as submit/success telemetry. `first_session_logged` is a milestone threshold, not a per-insert event. `session_log` is not an accepted `user_events` event in web code; it appears only as a launch-campaign destination label for `/sessions` routes.
+No other web event is universal for "a real `sessions` row was inserted." `session_log_submit` is submit-funnel telemetry emitted once by the standard web session client after a successful save. Conditions reports never emit it. `first_session_logged` is a milestone threshold, not a per-insert event. `session_log` is not an accepted `user_events` event in web code; it appears only as a launch-campaign destination label for `/sessions` routes.
 
-`session_created` is the only north-star logged-session event. Intent, funnel, CTA, selected, abandon, and milestone events never count as logged sessions.
+`session_created` is the only logged-session event and the only north-star session numerator. Intent, funnel, CTA, selected, abandon, and milestone events never count as logged sessions.
 
 ## Existing Session Taxonomy
 
 | Event | Fires Here | Counts As North-Star |
 | --- | --- | --- |
 | `session_created` | `actions/session-actions.ts` after `sessions.insert`; `actions/conditions-report-actions.ts` after conditions-report `sessions.insert` | Yes |
-| `session_log_submit` | Server-side `actions/session-actions.ts`; server-side `actions/conditions-report-actions.ts`; client-side `app/sessions/new/useSessionSubmission.ts` after successful action | No |
+| `session_log_submit` | Client-side `app/sessions/new/useSessionSubmission.ts` exactly once after a successful `createLoggedSession` response; conditions reports never emit it | No |
 | `first_session_logged` | Web milestone detection in `lib/services/personalization-milestone-service.ts` when session count reaches 1; historical/native `user_events` rows may exist | No |
 | `session_log` | No web event emitter; `lib/analytics/launch-campaign.ts` destination label only | No |
 | `session_log_start` | `components/session-forms/SessionScrollForm.tsx`; `components/session-forms/LocationStep.tsx` | No |
@@ -52,7 +52,17 @@ Paths covered in this web slice:
 | `web-session-form` | `sessions/new` | `actions/session-actions.ts:createLoggedSession` |
 | `web-conditions-report` | `conditions-report` | `actions/conditions-report-actions.ts:submitConditionsReport` |
 
-Excluded before emit: profiles with `is_mock=true`, `is_system_account=true`, `analytics_is_real_user=false`, or `deleted_at` set. Existing `session_log_submit` and funnel events remain unchanged for continuity.
+Excluded before emit: profiles with `is_mock=true`, `is_system_account=true`, `analytics_is_real_user=false`, or `deleted_at` set.
+
+The standard session client emits `session_log_submit` once as external
+submit-funnel telemetry after `createLoggedSession` succeeds. It does not post
+that event to `/api/events`. Conditions reports emit `intel_post_created` and,
+after a successful session insert, `session_created`; they never emit submit
+telemetry.
+
+Registry constants and database constraints may retain `session_log_submit`
+for native or historical compatibility. Those occurrences do not define
+north-star semantics or authorize a web server/API emitter.
 
 ## Event Contract
 
