@@ -38,6 +38,9 @@ jest.mock("svix", () => ({
 // Mock Supabase
 const mockUpdate = jest.fn();
 const mockInsert = jest.fn();
+const mockDeliveryInsert = jest.fn();
+const mockDeliveryDelete = jest.fn();
+const mockSuppressionUpsert = jest.fn();
 const mockFrom = jest.fn();
 const mockEq = jest.fn();
 const mockIs = jest.fn();
@@ -45,12 +48,11 @@ const mockSelect = jest.fn();
 const mockExistingLogSelect = jest.fn();
 const mockExistingLogEq = jest.fn();
 const mockExistingLogMaybeSingle = jest.fn();
+const mockCreateSupabaseServiceRoleClient = jest.fn();
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() =>
-    Promise.resolve({
-      from: mockFrom,
-    })
+    mockCreateSupabaseServiceRoleClient()
   ),
 }));
 
@@ -96,6 +98,11 @@ describe("Resend Webhook Endpoint", () => {
     mockEq.mockReturnValue({ is: mockIs });
     mockUpdate.mockReturnValue({ eq: mockEq });
     mockInsert.mockResolvedValue({ error: null });
+    mockDeliveryInsert.mockResolvedValue({ error: null });
+    mockSuppressionUpsert.mockResolvedValue({ error: null });
+    mockCreateSupabaseServiceRoleClient.mockResolvedValue({
+      from: mockFrom,
+    });
     mockExistingLogMaybeSingle.mockResolvedValue({
       data: { id: "existing-log-id" },
       error: null,
@@ -103,8 +110,17 @@ describe("Resend Webhook Endpoint", () => {
     mockExistingLogEq.mockReturnValue({ maybeSingle: mockExistingLogMaybeSingle });
     mockExistingLogSelect.mockReturnValue({ eq: mockExistingLogEq });
     mockFrom.mockImplementation((table: string) => {
+      if (table === "email_delivery_events") {
+        return {
+          insert: mockDeliveryInsert,
+          delete: mockDeliveryDelete,
+        };
+      }
       if (table === "email_click_events") {
         return { insert: mockInsert };
+      }
+      if (table === "email_suppression_list") {
+        return { upsert: mockSuppressionUpsert };
       }
       return { update: mockUpdate, select: mockExistingLogSelect };
     });
@@ -209,6 +225,16 @@ describe("Resend Webhook Endpoint", () => {
       expect(mockUpdate).toHaveBeenCalledWith({ delivered_at: expect.any(String) });
       expect(mockEq).toHaveBeenCalledWith("resend_message_id", "test-email-123");
       expect(mockIs).toHaveBeenCalledWith("delivered_at", null);
+      expect(mockDeliveryInsert).toHaveBeenCalledWith({
+        email_send_log_id: "existing-log-id",
+        resend_message_id: "test-email-123",
+        webhook_message_id: "msg_test123",
+        event_type: "email.delivered",
+        event_at: expect.any(String),
+      });
+      expect(mockDeliveryInsert.mock.invocationCallOrder[0]).toBeLessThan(
+        mockUpdate.mock.invocationCallOrder[0]
+      );
     });
 
     it("should use current timestamp for delivered_at", async () => {
@@ -265,6 +291,13 @@ describe("Resend Webhook Endpoint", () => {
       expect(mockUpdate).toHaveBeenCalledWith({ opened_at: expect.any(String) });
       expect(mockEq).toHaveBeenCalledWith("resend_message_id", "test-email-456");
       expect(mockIs).toHaveBeenCalledWith("opened_at", null);
+      expect(mockDeliveryInsert).toHaveBeenCalledWith({
+        email_send_log_id: "existing-log-id",
+        resend_message_id: "test-email-456",
+        webhook_message_id: "msg_test123",
+        event_type: "email.opened",
+        event_at: expect.any(String),
+      });
     });
   });
 
@@ -308,9 +341,16 @@ describe("Resend Webhook Endpoint", () => {
       });
       expect(mockEq).toHaveBeenCalledWith("resend_message_id", "test-email-789");
       expect(mockIs).toHaveBeenCalledWith("clicked_at", null);
+      expect(mockDeliveryInsert).toHaveBeenCalledWith({
+        email_send_log_id: "existing-log-id",
+        resend_message_id: "test-email-789",
+        webhook_message_id: "msg_test123",
+        event_type: "email.clicked",
+        event_at: "2026-05-22T14:01:24.891Z",
+      });
       expect(mockFrom).toHaveBeenCalledWith("email_click_events");
       expect(mockInsert).toHaveBeenCalledWith({
-        email_send_log_id: "1",
+        email_send_log_id: "existing-log-id",
         resend_message_id: "test-email-789",
         webhook_message_id: "msg_test123",
         clicked_at: "2026-05-22T14:01:24.891Z",
@@ -318,6 +358,9 @@ describe("Resend Webhook Endpoint", () => {
         user_agent: "Mozilla/5.0",
       });
       expect(JSON.stringify(mockInsert.mock.calls[0][0])).not.toContain("203.0.113.10");
+      expect(JSON.stringify(mockDeliveryInsert.mock.calls[0][0])).not.toContain(
+        "203.0.113.10"
+      );
     });
 
     it("does not record click detail when email.clicked has no link", async () => {
@@ -405,6 +448,261 @@ describe("Resend Webhook Endpoint", () => {
       expect(mockUpdate).toHaveBeenCalledWith({ bounced_at: expect.any(String) });
       expect(mockEq).toHaveBeenCalledWith("resend_message_id", "test-email-bounced");
       expect(mockIs).toHaveBeenCalledWith("bounced_at", null);
+    });
+
+    it("preserves hard-bounce suppression behavior after durable recording", async () => {
+      mockVerify.mockReturnValueOnce({
+        type: "email.bounced",
+        data: {
+          email_id: "hard-bounce-message",
+          created_at: "2026-07-30T18:00:00.000Z",
+          to: ["BOUNCED@example.com"],
+          bounce: {
+            type: "hard",
+            message: "Mailbox does not exist",
+          },
+        },
+      });
+
+      const response = await POST(
+        createWebhookRequest({
+          type: "email.bounced",
+          data: { email_id: "hard-bounce-message" },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(mockDeliveryInsert).toHaveBeenCalledWith({
+        email_send_log_id: "existing-log-id",
+        resend_message_id: "hard-bounce-message",
+        webhook_message_id: "msg_test123",
+        event_type: "email.bounced",
+        event_at: "2026-07-30T18:00:00.000Z",
+      });
+      expect(mockSuppressionUpsert).toHaveBeenCalledWith(
+        {
+          email: "bounced@example.com",
+          reason: "hard_bounce",
+          notes:
+            "Auto-suppressed from Resend bounce event hard-bounce-message — Mailbox does not exist",
+        },
+        { onConflict: "email" }
+      );
+    });
+  });
+
+  describe("Durable Delivery Events", () => {
+    it("returns a retryable 503 when the service-role client cannot initialize", async () => {
+      mockCreateSupabaseServiceRoleClient.mockRejectedValueOnce(
+        new Error("client initialization failed")
+      );
+      mockVerify.mockReturnValueOnce({
+        type: "email.delivered",
+        data: { email_id: "client-init-failure" },
+      });
+
+      const response = await POST(
+        createWebhookRequest({
+          type: "email.delivered",
+          data: { email_id: "client-init-failure" },
+        })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(503);
+      expect(body).toEqual({
+        received: true,
+        processed: false,
+        retryable: true,
+        error: "Failed to persist webhook event",
+      });
+      expect(mockDeliveryInsert).not.toHaveBeenCalled();
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("stores a nullable send-log link when the webhook wins the send-log race", async () => {
+      mockExistingLogMaybeSingle.mockResolvedValueOnce({
+        data: null,
+        error: null,
+      });
+      mockSelect.mockResolvedValueOnce({ data: [], error: null });
+      mockVerify.mockReturnValueOnce({
+        type: "email.delivered",
+        data: {
+          email_id: "early-provider-message",
+          created_at: "2026-07-30T16:00:00.000Z",
+        },
+      });
+
+      const response = await POST(
+        createWebhookRequest({
+          type: "email.delivered",
+          data: { email_id: "early-provider-message" },
+        })
+      );
+
+      expect(response.status).toBe(200);
+      expect(mockDeliveryInsert).toHaveBeenCalledWith({
+        email_send_log_id: null,
+        resend_message_id: "early-provider-message",
+        webhook_message_id: "msg_test123",
+        event_type: "email.delivered",
+        event_at: "2026-07-30T16:00:00.000Z",
+      });
+    });
+
+    it("stores out-of-order open and delivery events independently", async () => {
+      mockExistingLogMaybeSingle
+        .mockResolvedValueOnce({ data: null, error: null })
+        .mockResolvedValueOnce({
+          data: { id: "late-send-log-id" },
+          error: null,
+        });
+      mockSelect
+        .mockResolvedValueOnce({ data: [], error: null })
+        .mockResolvedValueOnce({
+          data: [{ id: "late-send-log-id" }],
+          error: null,
+        });
+      mockVerify
+        .mockReturnValueOnce({
+          type: "email.opened",
+          data: {
+            email_id: "out-of-order-message",
+            created_at: "2026-07-30T16:05:00.000Z",
+          },
+        })
+        .mockReturnValueOnce({
+          type: "email.delivered",
+          data: {
+            email_id: "out-of-order-message",
+            created_at: "2026-07-30T16:00:00.000Z",
+          },
+        });
+
+      await POST(
+        createWebhookRequest(
+          { type: "email.opened" },
+          { "svix-id": "open-webhook-id" }
+        )
+      );
+      await POST(
+        createWebhookRequest(
+          { type: "email.delivered" },
+          { "svix-id": "delivery-webhook-id" }
+        )
+      );
+
+      expect(mockDeliveryInsert.mock.calls).toEqual([
+        [
+          {
+            email_send_log_id: null,
+            resend_message_id: "out-of-order-message",
+            webhook_message_id: "open-webhook-id",
+            event_type: "email.opened",
+            event_at: "2026-07-30T16:05:00.000Z",
+          },
+        ],
+        [
+          {
+            email_send_log_id: "late-send-log-id",
+            resend_message_id: "out-of-order-message",
+            webhook_message_id: "delivery-webhook-id",
+            event_type: "email.delivered",
+            event_at: "2026-07-30T16:00:00.000Z",
+          },
+        ],
+      ]);
+    });
+
+    it("treats a duplicate svix-id as a replay and still heals the summary", async () => {
+      mockDeliveryInsert.mockResolvedValueOnce({
+        error: { code: "23505", message: "duplicate key value" },
+      });
+      mockVerify.mockReturnValueOnce({
+        type: "email.opened",
+        data: {
+          email_id: "replayed-message",
+          created_at: "2026-07-30T17:00:00.000Z",
+        },
+      });
+
+      const response = await POST(
+        createWebhookRequest({
+          type: "email.opened",
+          data: { email_id: "replayed-message" },
+        })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.processed).toBe(true);
+      expect(mockUpdate).toHaveBeenCalledWith({
+        opened_at: "2026-07-30T17:00:00.000Z",
+      });
+    });
+
+    it("returns a retryable 503 when the durable insert fails", async () => {
+      mockDeliveryInsert.mockResolvedValueOnce({
+        error: { code: "PGRST301", message: "database unavailable" },
+      });
+      mockVerify.mockReturnValueOnce({
+        type: "email.delivered",
+        data: { email_id: "durable-failure" },
+      });
+
+      const response = await POST(
+        createWebhookRequest({
+          type: "email.delivered",
+          data: { email_id: "durable-failure" },
+        })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(503);
+      expect(body).toEqual({
+        received: true,
+        processed: false,
+        retryable: true,
+        error: "database unavailable",
+      });
+      expect(mockUpdate).not.toHaveBeenCalled();
+    });
+
+    it("keeps the durable event when the later summary update fails", async () => {
+      mockSelect.mockResolvedValueOnce({
+        data: null,
+        error: { code: "PGRST301", message: "summary update failed" },
+      });
+      mockVerify.mockReturnValueOnce({
+        type: "email.delivered",
+        data: {
+          email_id: "partial-success",
+          created_at: "2026-07-30T19:00:00.000Z",
+        },
+      });
+
+      const response = await POST(
+        createWebhookRequest({
+          type: "email.delivered",
+          data: { email_id: "partial-success" },
+        })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(200);
+      expect(body.processed).toBe(false);
+      expect(mockDeliveryInsert).toHaveBeenCalledWith({
+        email_send_log_id: "existing-log-id",
+        resend_message_id: "partial-success",
+        webhook_message_id: "msg_test123",
+        event_type: "email.delivered",
+        event_at: "2026-07-30T19:00:00.000Z",
+      });
+      expect(mockDeliveryInsert.mock.invocationCallOrder[0]).toBeLessThan(
+        mockUpdate.mock.invocationCallOrder[0]
+      );
+      expect(mockDeliveryDelete).not.toHaveBeenCalled();
     });
   });
 
