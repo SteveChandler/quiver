@@ -136,6 +136,7 @@ interface BestSurfWindowProps {
 // ------------------------------------------------------------------
 
 type WindowForecast = {
+  forecast_at?: string;
   forecast_time: string;
   forecast_date: string;
   wind_speed: number | null;
@@ -330,6 +331,7 @@ export function BestSurfWindow({
     const tz = resolveBeachTimezone(beachTimezone);
     const rows = (forecasts || []).filter((f) => extractForecastDate(f.forecast_at, tz) === forecastDate);
     return rows.map((f) => ({
+      forecast_at: f.forecast_at,
       forecast_time: f.forecast_time,
       forecast_date: f.forecast_date,
       wind_speed:
@@ -354,9 +356,14 @@ export function BestSurfWindow({
     if (!mappedForecasts || mappedForecasts.length === 0) {
       return null;
     }
-    const computed = findNextBestWindow(mappedForecasts, new Date());
+    const computed = findNextBestWindow(
+      mappedForecasts,
+      new Date(),
+      270,
+      resolveBeachTimezone(beachTimezone)
+    );
     return computed;
-  }, [mappedForecasts]);
+  }, [mappedForecasts, beachTimezone]);
 
   // ----------------------------------------------------------------
   // Condition Intelligence: Primary + secondary windows

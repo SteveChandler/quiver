@@ -43,9 +43,11 @@ function CustomTooltip({
       <p className="text-[#5F5646]">
         Wind: {capitalize(day.windConditions)}
       </p>
-      <p className="text-[#5F5646]">
-        Best time: {capitalize(day.bestTimeSlot)}
-      </p>
+      {day.bestTimeSlot && (
+        <p className="text-[#5F5646]">
+          Best time: {capitalize(day.bestTimeSlot)}
+        </p>
+      )}
     </div>
   );
 }

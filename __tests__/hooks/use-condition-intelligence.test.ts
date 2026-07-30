@@ -243,10 +243,14 @@ describe("useConditionIntelligence", () => {
 
     expect(mockCalculateMultipleWindows).toHaveBeenCalledTimes(1);
     // First argument should be an array of ForecastForScoring (converted from EnhancedForecastEntity)
-    const [forecastsArg, beachArg] = mockCalculateMultipleWindows.mock.calls[0];
+    const [forecastsArg, beachArg, optionsArg] = mockCalculateMultipleWindows.mock.calls[0];
     expect(Array.isArray(forecastsArg)).toBe(true);
     expect(forecastsArg.length).toBe(mockForecasts.length);
     expect(beachArg).toEqual(mockBeach);
+    expect(optionsArg).toEqual({
+      beachTimezone: mockBeachTimezone,
+      skillLevel: undefined,
+    });
 
     expect(result.current.windows).toEqual(mockWindowResult.windows);
     expect(result.current.bestWindow).toEqual(mockWindowResult.bestWindow);

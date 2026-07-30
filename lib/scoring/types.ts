@@ -145,6 +145,8 @@ export interface WindowCalculatorOptions {
   minSessionHours?: number;
   /** Viewer skill level for native-compatible condition scoring */
   skillLevel?: SkillLevel | string | null;
+  /** IANA timezone used to exclude non-daylight forecast rows */
+  beachTimezone?: string;
 }
 
 /**
