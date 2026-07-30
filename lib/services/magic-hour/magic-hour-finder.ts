@@ -88,12 +88,12 @@ export function findMagicHour(
     return localHour >= DAYLIGHT_START_HOUR && localHour < DAYLIGHT_END_HOUR;
   });
 
-  // If no daylight slots available, fall back to windowed slots
-  // but this shouldn't happen in normal conditions
-  const slotsToEvaluate = daylightSlots.length > 0 ? daylightSlots : windowedSlots;
+  if (daylightSlots.length === 0) {
+    return nullResult();
+  }
 
   // Find weighted peak from daylight-filtered slots
-  const peak = findWeightedPeak(slotsToEvaluate, beach, options.weights);
+  const peak = findWeightedPeak(daylightSlots, beach, options.weights);
 
   if (!peak) {
     return nullResult();

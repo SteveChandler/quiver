@@ -173,9 +173,10 @@ describe('calculateMultipleWindows', () => {
 
     expect(result.windows).toHaveLength(2);
     result.windows.forEach(window => {
-      expect(window.character).toBeDefined();
-      expect(window.character!.label).toBeTruthy();
-      expect(window.character!.category).toBeTruthy();
+      expect(window.character).toEqual(expect.objectContaining({
+        label: expect.any(String),
+        category: expect.any(String),
+      }));
     });
   });
 
@@ -202,8 +203,9 @@ describe('calculateMultipleWindows', () => {
     const result = calculateMultipleWindows(forecasts, baseBeach);
 
     expect(result.windows).toHaveLength(1);
-    expect(result.windows[0].avgScore).toBeDefined();
-    expect(typeof result.windows[0].avgScore).toBe('number');
+    expect(result.windows[0]).toEqual(expect.objectContaining({
+      avgScore: expect.any(Number),
+    }));
     expect(result.windows[0].avgScore).toBeGreaterThan(0);
   });
 
@@ -219,9 +221,18 @@ describe('calculateMultipleWindows', () => {
     expect(w.start).toBeInstanceOf(Date);
     expect(w.end).toBeInstanceOf(Date);
     expect(w.peakTime).toBeInstanceOf(Date);
-    expect(w.startReason).toBeDefined();
-    expect(w.endReason).toBeDefined();
-    expect(w.message).toBeTruthy();
+    expect(w.startReason).toEqual(expect.objectContaining({
+      time: expect.any(Date),
+      factor: expect.any(String),
+      description: expect.any(String),
+    }));
+    expect(w.endReason).toEqual(expect.objectContaining({
+      time: expect.any(Date),
+      factor: expect.any(String),
+      description: expect.any(String),
+    }));
+    expect(w.message).toEqual(expect.any(String));
+    expect(w.message.length).toBeGreaterThan(0);
   });
 
   it('respects maxWindows option — returns at most that many windows', () => {
@@ -244,6 +255,40 @@ describe('calculateMultipleWindows', () => {
     expect(result.bestWindow).toBeNull();
   });
 
+  it('selects an afternoon window over a higher-scoring night block', () => {
+    const forecasts: ForecastForScoring[] = [
+      makeForecast(9, 3.5, 14, 1, 90, 3.5),
+      makeForecast(10, 3.5, 14, 1, 90, 3.5),
+      makeForecast(11, 3.5, 14, 1, 90, 3.5),
+      makeForecast(20, 3.5, 12, 10, 90, 3.5),
+      makeForecast(21, 3.5, 12, 10, 90, 3.5),
+      makeForecast(22, 3.5, 12, 10, 90, 3.5),
+    ];
+
+    const result = calculateMultipleWindows(forecasts, baseBeach, {
+      beachTimezone: 'America/Los_Angeles',
+    });
+
+    expect(result.windows).toHaveLength(1);
+    expect(result.bestWindow?.start.getUTCHours()).toBe(20);
+    expect(result.windows.every((window) => window.start.getUTCHours() >= 20)).toBe(true);
+  });
+
+  it('returns no windows when timezone filtering leaves only night forecasts', () => {
+    const forecasts: ForecastForScoring[] = [
+      goodForecast(9),
+      goodForecast(10),
+      goodForecast(11),
+    ];
+
+    const result = calculateMultipleWindows(forecasts, baseBeach, {
+      beachTimezone: 'America/Los_Angeles',
+    });
+
+    expect(result.windows).toEqual([]);
+    expect(result.bestWindow).toBeNull();
+  });
+
   it('uses lower threshold (30) than calculateOptimalWindow (40) — includes minimal-quality blocks', () => {
     // Mediocre forecasts that score around 30-40 (above 30 but below 40)
     // These should be included by calculateMultipleWindows but not calculateOptimalWindow
@@ -258,7 +303,6 @@ describe('calculateMultipleWindows', () => {
 
     // With the lower threshold, these should be included
     // (exact score depends on scorer internals, but we verify the function runs)
-    expect(result).toBeDefined();
     expect(Array.isArray(result.windows)).toBe(true);
   });
 });

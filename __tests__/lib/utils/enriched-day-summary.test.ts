@@ -106,12 +106,12 @@ describe("enrichDaySummaries", () => {
   });
 
   describe("Time slot derivation", () => {
-    it("derives dawn-patrol time slot (before 7am)", () => {
-      const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "05:00" });
+    it("derives dawn-patrol time slot (6am-7am)", () => {
+      const day = makeDaySummary({ fullDate: "2026-02-10", bestTime: "06:00" });
       const forecast = makeForecast({
-        forecast_at: "2026-02-10T05:00Z",
+        forecast_at: "2026-02-10T06:00Z",
         forecast_date: "2026-02-10",
-        forecast_time: "05:00",
+        forecast_time: "06:00",
       });
 
       const result = enrichDaySummaries([day], [forecast]);
@@ -195,6 +195,57 @@ describe("enrichDaySummaries", () => {
       const result = enrichDaySummaries([day], [forecast]);
 
       expect(result[0].bestTimeSlot).toBe("midday");
+    });
+
+    it("derives the slot from the beach-local forecast_at hour", () => {
+      const day = makeDaySummary({
+        fullDate: "2026-07-29",
+        bestTime: "21:00",
+      });
+      const forecasts = [
+        makeForecast({
+          id: "night",
+          forecast_at: "2026-07-29T09:00:00Z",
+          forecast_date: "2026-07-29",
+          forecast_time: "09:00",
+        }),
+        makeForecast({
+          id: "afternoon",
+          forecast_at: "2026-07-29T21:00:00Z",
+          forecast_date: "2026-07-29",
+          forecast_time: "21:00",
+        }),
+      ];
+
+      const result = enrichDaySummaries(
+        [day],
+        forecasts,
+        undefined,
+        "America/Los_Angeles",
+      );
+
+      expect(result[0].bestTimeSlot).toBe("afternoon");
+    });
+
+    it("returns no slot for a resolved local-night forecast", () => {
+      const day = makeDaySummary({
+        fullDate: "2026-07-29",
+        bestTime: "09:00",
+      });
+      const forecast = makeForecast({
+        forecast_at: "2026-07-29T09:00:00Z",
+        forecast_date: "2026-07-29",
+        forecast_time: "09:00",
+      });
+
+      const result = enrichDaySummaries(
+        [day],
+        [forecast],
+        undefined,
+        "America/Los_Angeles",
+      );
+
+      expect(result[0].bestTimeSlot).toBeNull();
     });
   });
 

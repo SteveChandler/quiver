@@ -114,4 +114,41 @@ describe("native-condition-score", () => {
       score: 100,
     });
   });
+
+  it("selects from daylight rows when a beach timezone is provided", () => {
+    const night = forecast({
+      id: "night",
+      forecast_at: "2026-07-29T09:00:00Z",
+    });
+    const afternoon = forecast({
+      id: "afternoon",
+      forecast_at: "2026-07-29T21:00:00Z",
+      wind_speed: "8 mph",
+      wave_period: "10s",
+      swell_1_period: "10s",
+    });
+
+    expect(
+      pickBestNativeForecastSlot([night, afternoon], "intermediate", {
+        beachTz: "America/Los_Angeles",
+      }),
+    ).toMatchObject({
+      forecast: { id: "afternoon" },
+    });
+  });
+
+  it("falls back to night rows when no daylight ranking row exists", () => {
+    const night = forecast({
+      id: "night",
+      forecast_at: "2026-07-29T09:00:00Z",
+    });
+
+    expect(
+      pickBestNativeForecastSlot([night], "intermediate", {
+        beachTz: "America/Los_Angeles",
+      }),
+    ).toMatchObject({
+      forecast: { id: "night" },
+    });
+  });
 });

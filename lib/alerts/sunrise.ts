@@ -16,10 +16,9 @@ export function filterToDaylight<T extends { forecast_at: string }>(
   lon: number
 ): T[] {
   if (forecasts.length === 0) return [];
-  const date = new Date(forecasts[0].forecast_at);
-  const { sunrise, sunset } = getDaylightWindow(lat, lon, date);
   return forecasts.filter((f) => {
     const t = new Date(f.forecast_at);
+    const { sunrise, sunset } = getDaylightWindow(lat, lon, t);
     return t >= sunrise && t <= sunset;
   });
 }
