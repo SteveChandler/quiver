@@ -76,6 +76,8 @@ export const GET = withAuth(async (request, { user, supabase }) => {
 
 Also available: `withErrorHandler`, `withRateLimit`, `withBotBlockingAndRateLimit`, `withFullProtection`, `validateUuidParam`, `requireOwnership`.
 
+**Mobile-consumed API routes are versioned contracts** (ratchet policy 2026-07-31). Before changing any `/api/*` route, grep `../quiver-native/src` for the path. If native consumes it: shape changes must be additive (never rename/remove/repurpose fields in place — add a field or a new route), and failures must return real HTTP error statuses, never a 200-wrapped error payload. Installed binaries live for months. Full rules: `AGENTS.md` §Native ↔ web boundary and `../quiver-native/AGENTS.md` §Architecture Ratchet.
+
 ### Realtime Subscriptions
 
 Always clean up channels — subscribe in `useEffect`, return `() => supabase.removeChannel(channel)` in cleanup.
@@ -214,6 +216,7 @@ Before touching `lib/seo/meta.ts` or related SEO files, define the target patter
 - Don't `DROP VIEW` + `CREATE VIEW` without carrying forward `WITH (security_invoker = true)`
 - Don't fire pre-auth funnel events (`signup_cta_view`, `auth_modal_opened`, etc.) for authenticated users
 - Don't rely on parent `publicMode` prop alone for hiding CTAs — always self-guard with `useAuth()`
+- Don't change a mobile-consumed API response shape in place or return errors as 200s — additive only, real HTTP statuses (see API Routes)
 
 ---
 

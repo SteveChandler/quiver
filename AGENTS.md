@@ -52,8 +52,15 @@ Every CTA component shown to anonymous users must **independently check auth sta
 ### OAuth testing
 Test OAuth signup flows (Apple, Google) on **real iOS Safari** — cookie handling during cross-origin OAuth redirects differs from Chrome. `context/auth-context.tsx` uses `onAuthStateChange` which may not fire if session cookies aren't immediately visible after redirect. Apple Sign-In creates orphan Supabase users (≥11 affected as of 2026-05-03) — privaterelay or shared-email Apple signins create duplicates instead of linking. Permanent fix needed before iOS marketing push.
 
-### Native ↔ web auth boundary
+### Native ↔ web boundary
 **Native cannot call `"use server"` actions.** Server actions re-auth via cookies and silently drop native Bearer writes. Inline DB queries in the API route instead.
+
+**Mobile-consumed API routes are versioned contracts** (ratchet policy 2026-07-31, counterpart: `../quiver-native/AGENTS.md` §Architecture Ratchet). Installed native binaries live for months, so old JS keeps calling old shapes:
+
+- Shape changes must be **additive** — never rename, remove, or repurpose a response/request field in place. Add a field, or add a new route.
+- Failures must return real HTTP error statuses. Never wrap an error state in a 200 payload — native retry/error UI keys off status codes (the `/api/surf/call` `hold_state_unavailable` incident shipped errors as 200s).
+- Before changing any `/api/*` route, grep `../quiver-native/src` for the path to know whether native consumes it; if it does, verify both consumers.
+- Remember the blanket 60s `/api/*` cache in `next.config.mjs` — mutation routes native depends on need explicit no-store behavior.
 
 ## Routing & Coverage
 
