@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Security
+- Regenerated transitive `brace-expansion` lockfile entries to 1.1.18 / 2.1.4 (ReDoS advisory).
 - Bumped `next` 16.2.6 → 16.2.11 and `postcss` → 8.5.25, clearing all open Dependabot advisories (4 high / 5 moderate on `next`: SSRF in Server Actions and rewrites, middleware bypass, DoS, cache confusion; 1 high on `postcss`: source-map path traversal).
 
 ### Added
