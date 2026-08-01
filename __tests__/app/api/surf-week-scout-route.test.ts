@@ -23,7 +23,7 @@ jest.mock(
 );
 
 import { NextRequest } from 'next/server';
-import { maxDuration, POST } from '@/app/api/surf/week-scout/route';
+import { POST } from '@/app/api/surf/week-scout/route';
 
 const BEACH_A = '11111111-1111-4111-8111-111111111111';
 const BEACH_B = '22222222-2222-4222-8222-222222222222';
@@ -56,10 +56,6 @@ describe('POST /api/surf/week-scout', () => {
     });
   });
 
-  it('allows enough runtime for the full no-limit candidate pool', () => {
-    expect(maxDuration).toBe(60);
-  });
-
   it('deduplicates candidate IDs and returns the exact private no-store response', async () => {
     const response = await callRoute({
       candidateBeachIds: [BEACH_B, BEACH_A, BEACH_B],
@@ -83,7 +79,7 @@ describe('POST /api/surf/week-scout', () => {
     );
   });
 
-  it('evaluates the full bounded candidate pool in caller order', async () => {
+  it('accepts legacy requests but evaluates only the first eight unique candidates in order', async () => {
     const candidateBeachIds = Array.from({ length: 12 }, (_, index) => (
       `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`
     ));
@@ -99,7 +95,7 @@ describe('POST /api/surf/week-scout', () => {
     expect(mockGenerateWeekScoutForecast).toHaveBeenCalledWith(
       'user-week-scout',
       expect.objectContaining({
-        candidateBeachIds,
+        candidateBeachIds: candidateBeachIds.slice(0, 8),
       }),
     );
   });
@@ -130,8 +126,8 @@ describe('POST /api/surf/week-scout', () => {
     expect(mockGenerateWeekScoutForecast).not.toHaveBeenCalled();
   });
 
-  it('rejects more than 100 unique candidate IDs', async () => {
-    const candidateBeachIds = Array.from({ length: 101 }, (_, index) => (
+  it('rejects more than 30 unique candidate IDs', async () => {
+    const candidateBeachIds = Array.from({ length: 31 }, (_, index) => (
       `00000000-0000-4000-8000-${String(index).padStart(12, '0')}`
     ));
 
@@ -183,7 +179,6 @@ describe('POST /api/surf/week-scout', () => {
             },
           ],
           bestWindowId: null,
-          exclusionReasons: [],
         },
       ],
       recommendationAvailability: {
