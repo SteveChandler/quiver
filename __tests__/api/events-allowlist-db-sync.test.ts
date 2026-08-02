@@ -3,6 +3,9 @@ import path from "node:path";
 import { VALID_EVENTS } from "@/app/api/events/route";
 import { KNOWN_REJECTED_USER_EVENT_EMITTERS } from "@/lib/analytics/event-taxonomy";
 
+const ACQUISITION_SOURCE_SELF_REPORTED_EVENT =
+  "acquisition_source_self_reported";
+
 /**
  * Parses user_events_event_type_check migrations and extracts event names from
  * both full static CHECK arrays and additive dynamic migrations that preserve
@@ -75,5 +78,12 @@ describe("user_events allowlist / DB CHECK sync", () => {
       .sort();
 
     expect(dbOnlyEvents).toEqual([]);
+  });
+
+  it("keeps acquisition self-report synchronized across the API and DB CHECK", () => {
+    expect(VALID_EVENTS).toContain(ACQUISITION_SOURCE_SELF_REPORTED_EVENT);
+    expect(userEventsCheckMigrationEventTypes()).toContain(
+      ACQUISITION_SOURCE_SELF_REPORTED_EVENT
+    );
   });
 });
