@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+- Bumped `next` 16.2.6 → 16.2.11 and `postcss` → 8.5.25; regenerated transitive `brace-expansion` to 1.1.18/2.1.4. Clears all open Dependabot advisories (SSRF in Server Actions/rewrites, middleware bypass, DoS, cache confusion, source-map path traversal, ReDoS).
+
 ### Added
 - **`POST /api/alerts/seed-default` accepts an optional `beach_id` target** (`app/api/alerts/seed-default/route.ts`, `lib/alerts/seed-default-rule.ts`). Onboarding can now seed the default alert rule on a recommended nearby beach instead of always the user's home break; the id is validated against the `beaches` table and rule names credit the actual beach instead of claiming it's "your home break". Omitting `beach_id` (all current native callers) is unchanged.
 - **Production-dormant rollout safety controls for notifications, Android tester operations, community photos, and install attribution** (`lib/notifications/build-compatibility.ts`, `app/api/cron/android-tester-roster/route.ts`, `lib/community-photos/observability.ts`, `lib/install-attribution-server.ts`). Custom surf-alert presentation now requires an exact compatible native build, tester purge and Google sync use independent default-off scheduler controls, all community-photo routes emit privacy-safe outcome telemetry with executable release queries, and attribution issuance/redemption can be drained independently.
