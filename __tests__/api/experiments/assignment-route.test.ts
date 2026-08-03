@@ -40,7 +40,12 @@ function request(key: string): never {
 function configureRowLookup(rows: Record<string, unknown>) {
   mockFrom.mockImplementation(() => {
     const state: { userId?: string } = {};
-    const builder = {
+    type RowLookupBuilder = {
+      select: jest.Mock;
+      eq: jest.Mock;
+      maybeSingle: jest.Mock;
+    };
+    const builder: RowLookupBuilder = {
       select: jest.fn(() => builder),
       eq: jest.fn((column: string, value: string) => {
         if (column === "user_id") state.userId = value;

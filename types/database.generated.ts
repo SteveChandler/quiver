@@ -5354,6 +5354,50 @@ export type Database = {
           },
         ]
       }
+      experiment_assignments: {
+        Row: {
+          arm: number
+          assignment_version: string
+          build: string | null
+          created_at: string
+          experiment_key: string
+          index_at: string
+          linked_at: string | null
+          source: string | null
+          user_id: string
+        }
+        Insert: {
+          arm: number
+          assignment_version?: string
+          build?: string | null
+          created_at?: string
+          experiment_key: string
+          index_at?: string
+          linked_at?: string | null
+          source?: string | null
+          user_id: string
+        }
+        Update: {
+          arm?: number
+          assignment_version?: string
+          build?: string | null
+          created_at?: string
+          experiment_key?: string
+          index_at?: string
+          linked_at?: string | null
+          source?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "experiment_assignments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_apple_orphan_users"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       fallback_events: {
         Row: {
           context: Json | null
@@ -13320,6 +13364,30 @@ export type Database = {
         }
         Returns: Json
       }
+      allocate_experiment_batch: {
+        Args: {
+          p_experiment_key: string
+          p_index_at?: string
+          p_user_ids: string[]
+        }
+        Returns: {
+          arm: number
+          assignment_version: string
+          build: string | null
+          created_at: string
+          experiment_key: string
+          index_at: string
+          linked_at: string | null
+          source: string | null
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "experiment_assignments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       append_regional_recommendation_hold_transition: {
         Args: { p_transition: Json }
         Returns: {
@@ -13378,6 +13446,30 @@ export type Database = {
           p_idempotency_key: string
         }
         Returns: Json
+      }
+      assign_experiment: {
+        Args: {
+          p_experiment_key: string
+          p_index_at?: string
+          p_user_id: string
+        }
+        Returns: {
+          arm: number
+          assignment_version: string
+          build: string | null
+          created_at: string
+          experiment_key: string
+          index_at: string
+          linked_at: string | null
+          source: string | null
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "experiment_assignments"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       backfill_android_waitlist_entries: { Args: never; Returns: Json }
       backfill_ml_observations: {
@@ -13637,6 +13729,10 @@ export type Database = {
       erase_regional_recommendation_hold_operator_v1: {
         Args: { p_user_id: string }
         Returns: Json
+      }
+      experiment_arm: {
+        Args: { p_experiment_key: string; p_user_id: string }
+        Returns: number
       }
       export_android_tester_roster_non_pii: {
         Args: never
@@ -14558,6 +14654,15 @@ export type Database = {
           p_user_id: string
         }
         Returns: Json
+      }
+      link_experiment_eligibility: {
+        Args: { p_build: string; p_source: string; p_user_id: string }
+        Returns: {
+          already_linked: boolean
+          existing_build: string
+          existing_source: string
+          rows_linked: number
+        }[]
       }
       list_orphan_community_photo_objects_v1: {
         Args: { p_limit?: number; p_now?: string }

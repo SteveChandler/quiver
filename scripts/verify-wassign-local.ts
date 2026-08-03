@@ -178,8 +178,14 @@ async function verify(): Promise<void> {
     });
     if (batchError) throw batchError;
     const rowsByUser = new Map((batchRows as Assignment[]).map((row) => [row.user_id, row]));
-    assertion(rowsByUser.get(preAssigned.id)?.index_at === preAssignedAt, "batch re-indexed a pre-assigned user");
-    assertion(rowsByUser.get(batchNew.id)?.index_at === batchAt, "batch did not set index_at for a new user");
+    assertion(
+      Date.parse(rowsByUser.get(preAssigned.id)?.index_at ?? "") === Date.parse(preAssignedAt),
+      "batch re-indexed a pre-assigned user",
+    );
+    assertion(
+      Date.parse(rowsByUser.get(batchNew.id)?.index_at ?? "") === Date.parse(batchAt),
+      "batch did not set index_at for a new user",
+    );
     for (const [userId, row] of rowsByUser) {
       assertion(row.arm === expectedArm(userId, row.experiment_key), `batch hash mismatch for ${userId}`);
     }
