@@ -57,20 +57,20 @@ BEGIN
   END IF;
 
   SELECT
-    current_user.created_at,
+    current_user_row.created_at,
     lower(
       regexp_replace(
         trim(
           coalesce(
             nullif(current_profile.full_name, ''),
             nullif(current_profile.display_name, ''),
-            nullif(current_user.raw_user_meta_data->>'full_name', ''),
-            nullif(current_user.raw_user_meta_data->>'name', ''),
+            nullif(current_user_row.raw_user_meta_data->>'full_name', ''),
+            nullif(current_user_row.raw_user_meta_data->>'name', ''),
             nullif(
               concat_ws(
                 ' ',
-                current_user.raw_user_meta_data->>'given_name',
-                current_user.raw_user_meta_data->>'family_name'
+                current_user_row.raw_user_meta_data->>'given_name',
+                current_user_row.raw_user_meta_data->>'family_name'
               ),
               ''
             )
@@ -82,12 +82,12 @@ BEGIN
       )
     )
   INTO v_current_created_at, v_current_name
-  FROM auth.users current_user
+  FROM auth.users current_user_row
   LEFT JOIN public.profiles current_profile
-    ON current_profile.id = current_user.id
+    ON current_profile.id = current_user_row.id
    AND current_profile.deleted_at IS NULL
-  WHERE current_user.id = p_current_user_id
-    AND current_user.deleted_at IS NULL;
+  WHERE current_user_row.id = p_current_user_id
+    AND current_user_row.deleted_at IS NULL;
 
   IF NOT FOUND
      OR v_current_name IS NULL
