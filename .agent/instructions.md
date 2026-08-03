@@ -1,69 +1,37 @@
-# Agent Instructions for Quiver
+# Quiver AI Model Instructions
 
-You are an expert Senior React Native/Next.js Engineer focused on Growth. You are working on "Quiver", a surf forecasting and community app.
+This file is a compatibility entry point for AI coding environments. The canonical repository guidance is in [`../AGENTS.md`](../AGENTS.md), with product and design context in [`../CLAUDE.md`](../CLAUDE.md).
 
-## Core Principles
+## Working Style
 
-### 0. 🚨 GOVERNANCE COMPLIANCE (MANDATORY)
+- Work directly unless optional delegation is genuinely useful and supported by the current runtime.
+- Do not require a named agent, orchestrator, MCP server, skill, or model-specific command.
+- Inspect the affected code and nearest relevant `ARCHITECTURE.md`, make focused changes, run proportionate checks, and review the final diff.
+- Preserve existing user changes and do not commit unless asked.
+- Never expose secrets or mutate production data without the repository's approval protocol.
 
-- **YOU MUST READ**: `docs/GOVERNANCE.md` before starting any task.
-- **YOU MUST FOLLOW**: The rules defined in `.cursorrules`.
-- **Identity**: Technical, concise, no fluff.
-- **Security**: No secrets in code, no authorized file access.
+## Model Choice
 
-### ORCHESTRATION (READ FIRST)
+- Use the least expensive model that can complete the task reliably, unless the user requests a specific model.
+- Reserve stronger models for high-risk or genuinely difficult reasoning; downgrade after that reasoning is complete.
+- Avoid duplicated agent work and repeated context. Prefer local search, scripts, and deterministic checks.
 
-**This codebase requires agent-first development.**
+## Quiver Essentials
 
-**Before ANY task:**
-1. Route to `@tech-lead-orchestrator` for task breakdown
-2. Follow the agent routing map EXACTLY
-3. Never implement code directly in the main session
+- Web: Next.js 16, React 19, TypeScript, Tailwind, Radix UI, Supabase, Jest, and Playwright.
+- Native: separate Expo/React Native repository at `../quiver-native`; mobile-consumed API contracts must remain additive.
+- Use `useDataFetcher` for the established client-fetching pattern, `withAuthenticatedAction` for protected server actions, and `withAuth` for authenticated API routes.
+- Beach coordinates are `lat`/`lon`; `beach.latitude` and new `lng` fields are invalid.
+- Use `forecast_at`, not `forecast_date` plus `forecast_time`.
+- Keep authenticated users out of pre-auth analytics funnels and independently auth-guard anonymous CTAs.
+- Follow `docs/MIGRATION_SAFETY.md` for migrations and production database work.
 
-**Quick Reference:**
-| Task Type | Required Agent(s) |
-|-----------|-------------------|
-| New feature | tech-lead-orchestrator → specialists → code-reviewer |
-| Bug fix | code-archaeologist → specialist → test-automator |
-| Database change | supabase-db-expert → code-reviewer |
-| UI component | react-nextjs-expert → test-automator |
+## Key Locations
 
-**See CLAUDE.md for the full agent roster and workflow patterns.**
-
-### 1. DRY & Component Reusability
-
-- **NEVER** build a form from scratch.
-- **ALWAYS** use `components/ui/form-layout.tsx` for form containers.
-- **ALWAYS** use `components/ui/form-fields.tsx` for inputs.
-- Refactor duplicate code into `components/` or `lib/` immediately upon discovery.
-
-### 2. Data Fetching
-
-- **STRICT** pattern: `useCallback` for the async function + `useDataFetcher` hook.
-- **NEVER** use `useEffect` for data fetching directly.
-- **NEVER** manage `loading` or `error` states manually for API calls.
-
-### 3. Testing Strategy (The Pyramid)
-
-- **Unit Tests (`__tests__`)**: First line of defense. Mock everything. Run with `npm test`.
-- **E2E Tests (`e2e/`)**: Critical user flows only. Run with `npx playwright test`.
-- **Rule**: If a bug is found, write a failing _Unit Test_ first. Only write an E2E test if it involves complex multi-page navigation.
-
-### 4. Styling
-
-- **Stack**: Tailwind CSS + shadcn/ui.
-- **Theme**: Use semantic tokens (`bg-primary`, `text-muted-foreground`) over arbitrary colors (`bg-blue-500`).
-- **Responsiveness**: Mobile-first always.
-
-### 5. Mobile & Capacitor
-
-- This is a Hybrid App (Web + Capacitor).
-- **ALWAYS** consider safe areas (`pt-safe`, `pb-safe`) for mobile views.
-- Features involving native plugins (Geoloc, Haptics) must be guarded or mocked in web views.
-
-## Common Locations
-
-- `docs/` - Source of truth. Keep `ARCHITECTURE.md` updated.
-- `lib/` - Shared business logic.
-- `components/ui/` - Shadcn primitives.
-- `app/` - Next.js App Router pages.
+- `docs/ARCHITECTURE.md` — architecture index
+- `docs/README.md` — documentation index
+- `app/` — App Router pages and API routes
+- `components/` — shared UI
+- `lib/` — business logic and services
+- `__tests__/` — Jest tests
+- `e2e/` — Playwright tests

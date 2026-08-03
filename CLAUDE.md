@@ -1,18 +1,23 @@
-# CLAUDE.md - Quiver
+# Quiver AI Coding Context
 
-## Agent-First Mandate
+## Model Compatibility
 
-The main session is a **coordinator**, not an implementer. Use subagents for all work.
+This file is shared project context for Claude, SOL, Fable, Codex, and other coding models.
 
-| Situation | Action |
-|-----------|--------|
-| Multi-step task | `@agents-orchestrator` FIRST, then follow its routing map |
-| Single-domain task | Use the specialist agent directly (see `docs/AGENT_ROSTER.md`) |
-| Unsure which agent | Ask `@agents-orchestrator` anyway |
-| "This is simple, I'll just..." | STOP. Use an agent. Always. |
+- Work directly by default. Delegation and parallel agents are optional when the runtime supports them and the task benefits from them.
+- Do not require a named agent, orchestrator, skill, MCP server, or model-specific command to complete work.
+- Use available local tools and repository scripts. If an optional integration is unavailable, continue with the best local alternative.
+- Keep process proportional to the task: inspect relevant code and documentation, make a focused change, validate it, and review the result.
+- Follow the user's requested scope. Do not add unrelated features, refactors, commits, or cross-repo changes.
 
-Workflow: `@agents-orchestrator` -> specialist agents -> `@engineering-code-reviewer` for QA.
-Full roster: `docs/AGENT_ROSTER.md`
+## Model Selection and Usage Efficiency
+
+- Use the least expensive model that can complete the task reliably. Honor an explicit user model choice.
+- Use fast, lower-cost models for repository search, file discovery, mechanical edits, documentation, formatting, summaries, and routine test triage.
+- Use stronger reasoning models for architecture decisions, security-sensitive work, migrations, production incidents, ambiguous cross-cutting bugs, and final review of high-risk changes.
+- Escalate only when the task's risk clearly warrants it or a focused lower-cost attempt leaves material uncertainty. Return to a lower-cost model after the difficult reasoning is complete.
+- Avoid duplicate model work. Parallelize only independent subtasks with a clear latency benefit, and pass concise findings instead of replaying full context.
+- Prefer local search, repository scripts, deterministic checks, and cached results over additional model calls.
 
 ---
 
@@ -23,19 +28,15 @@ Full roster: `docs/AGENT_ROSTER.md`
 **Stack:**
 - **Frontend:** Next.js 16 (App Router), React 19, TypeScript (strict), Tailwind CSS, Radix UI, Framer Motion, Mapbox GL
 - **Backend:** Supabase (PostgreSQL 15+ with PostGIS, RLS, Edge Functions, Realtime, Storage), Next.js API Routes
-- **Mobile (Native):** Expo 55 / React Native 0.83 — separate repo `../quiver-native` (see its own `CLAUDE.md`)
+- **Mobile (Native):** Expo 55 / React Native 0.83 — separate repo `../quiver-native` (see `../quiver-native/AGENTS.md` and its local project instructions)
 - **Testing:** Playwright (E2E), Jest (unit/integration), Testing Library
 - **Infra:** Vercel, Sentry, Firebase | **Build:** Yarn, `next.config.mjs`
 
-**MCP Servers** (`.mcp.json`): Playwright (UI validation), Supabase (DB inspection), Sentry (error tracking)
-
----
-
 ## Cross-App Product Unity
 
-Quiver web and Quiver Native are separate repos but one product. For UI, UX, surf-condition displays, API contracts, domain models, analytics events, or refactoring-opportunity work, use the `quiver-product-unity` skill.
+Quiver web and Quiver Native are separate repos but one product. Keep UI, UX, surf-condition displays, API contracts, domain models, and analytics events aligned when a change affects both surfaces.
 
-Before visible or contract changes, compare the counterpart surface in `../quiver-native` and the canonical design reference in `../Brand-Vault/style-guide/source-docs/DESIGN_SYSTEM.md`. If `graphify-out/graph.json` exists, query it before inventing a new pattern. Surface refactor opportunities as `P0` bug/regression, `P1` product drift, or `P2` cleanup, with file references.
+Before visible or contract changes shared with native, inspect the relevant counterpart in `../quiver-native` and the canonical design reference in `../Brand-Vault/style-guide/source-docs/DESIGN_SYSTEM.md`. Reuse established patterns instead of inventing duplicates. Classify cross-app findings as `P0` bug/regression, `P1` product drift, or `P2` cleanup, with file references.
 
 Do not make opportunistic cross-repo changes unless required for the requested task and covered by the relevant web/native tests.
 
@@ -101,7 +102,7 @@ Every CTA component that shows to anonymous users must **independently check aut
 
 ### OAuth Testing
 
-Always test OAuth signup flows (Apple, Google) on **real iOS Safari** — cookie handling during cross-origin OAuth redirects differs from Chrome. The auth context at `context/auth-context.tsx` uses `onAuthStateChange` which may not fire if session cookies aren't immediately visible after redirect.
+OAuth signup changes (Apple, Google) require validation on **real iOS Safari** before release — cookie handling during cross-origin redirects differs from Chrome. If that environment is unavailable, complete the available checks and report the remaining validation gap. The auth context at `context/auth-context.tsx` uses `onAuthStateChange`, which may not fire if session cookies are not immediately visible after redirect.
 
 ---
 
@@ -114,7 +115,7 @@ See `docs/GIT_WORKFLOW.md` for the full branching strategy, hotfix process, and 
 
 ## Architecture Documentation
 
-**49 `ARCHITECTURE.md` files exist.** Always read the relevant one before editing a directory. Start at `docs/ARCHITECTURE.md`. Follow existing patterns. No duplicate implementations. DRY.
+**49 `ARCHITECTURE.md` files exist.** Read the nearest relevant one before editing a directory; use `docs/ARCHITECTURE.md` as the top-level index. Follow existing patterns and avoid duplicate implementations.
 
 ---
 
@@ -139,36 +140,29 @@ Full rules: `docs/MIGRATION_SAFETY.md`
 
 ## Testing Rules
 
-### Same-Commit Rule
+### Behavior and Test Changes
 
-When changing behavior, update affected tests in the **same commit**. Feature + broken tests = incomplete work. A feature commit that breaks existing tests is a process failure — the fix belongs in the original commit, not a follow-up.
+When changing behavior, update affected tests in the same change. Do not leave tests knowingly broken.
 
 ### Blast Radius Check
 
-Before committing, identify test files that import or reference changed modules. Search `e2e/` and `__tests__/` for imports from modified files. Run those tests. If you changed it, you own verifying it.
+Identify test files that import or reference changed modules. Search `e2e/` and `__tests__/` for the affected surface, then run the smallest meaningful set of checks.
 
 ### Running Tests
 
 - **`yarn test` runs Playwright (E2E), `yarn test:unit` runs Jest** — don't confuse them
-- Run tests after every change. If tests don't run, the update is not complete.
-- Always run a **subset** of Playwright tests (not the full suite): `npx playwright test path/to/spec.spec.ts`
-- Prefer **Playwright MCP** for quick UI validation before shelling out to CLI
-- Test across mobile AND desktop breakpoints
+- Prefer targeted Playwright coverage: `npx playwright test path/to/spec.spec.ts`
+- For responsive UI changes, validate the affected mobile and desktop breakpoints using available browser tooling or Playwright
 - **`yarn lint` OOMs without `NODE_OPTIONS="--max-old-space-size=8192"`** — scope lint to your files with `npx eslint --max-warnings=0 <files>` instead
 - `.worktrees/` is not excluded from eslint — pre-existing lint errors there are not your problem
 
-### Self-Review, Verify, Commit Protocol
+### Review and Verification
 
-When the user asks for implementation and authorizes committing when verification passes:
-
-1. Implement the smallest complete change that satisfies the request.
-2. Review your own final diff before staging. Look for logic bugs, regressions, missing tests, user-data risk, and unrelated churn.
-3. Run the blast-radius tests, scoped ESLint for touched files, and `yarn typecheck` with Node 22. Add targeted Playwright only when the change affects browser behavior or routing.
-4. Fix any issue found by review or tests, then rerun the failing check.
-5. Inspect `git status` and `git diff --cached`; stage only files owned by the task.
-6. If all required verification passes, commit with a scoped Conventional Commit subject. If a required check fails because of a pre-existing or environment blocker, stop and report it instead of committing.
-
-If `CHANGELOG.md` is part of the work, bundle or amend it into the code commit. Do not leave a CHANGELOG-only commit at `HEAD` on a Vercel branch.
+- Review the final diff for logic bugs, regressions, missing tests, user-data risk, and unrelated churn.
+- Run checks proportional to the touched surface: targeted tests first, scoped ESLint for changed source files, then `yarn typecheck` or broader gates when warranted.
+- Fix issues introduced by the change and rerun the relevant failed check.
+- Do not commit unless the user asks. If committing, stage only task-owned files and use a scoped Conventional Commit subject.
+- Never leave a CHANGELOG-only commit at `HEAD` on a Vercel branch.
 
 ### E2E Required Patterns
 
@@ -196,10 +190,10 @@ Before touching `lib/seo/meta.ts` or related SEO files, define the target patter
 - TypeScript-first, explicit signatures, meaningful names. Early returns, no empty catches. Minimal comments (explain **why**). Preserve existing formatting. Don't reformat unrelated code.
 
 ### Pre-Merge Checklist
-- [ ] `engineering-code-reviewer` agent review
-- [ ] All tests passing (unit + E2E)
-- [ ] CHANGELOG.md updated under `[Unreleased]`
-- [ ] No console errors or warnings
+- [ ] Final diff reviewed
+- [ ] Relevant checks passing
+- [ ] User-visible changes documented when appropriate
+- [ ] No new console errors or warnings
 
 ---
 
@@ -244,12 +238,3 @@ Surfers checking conditions, logging sessions, and connecting with their local c
 3. **Sparse accents hit harder** — Use Charming Orange and neon glows sparingly. When everything glows, nothing does.
 4. **Surf culture, not surf cliche** — No generic wave illustrations, no "hang loose" clip art, no teal-and-white Surfline palette. Reference the culture through typography, texture, and attitude.
 5. **Respect reduced motion** — All animations must honor `prefers-reduced-motion`. Data-first users shouldn't need motion to use the app.
-
----
-
-## Post-Implementation
-
-1. Update `CHANGELOG.md` under `[Unreleased]` with a brief bullet (Added/Changed/Fixed/Performance/Removed)
-2. Run affected tests — blast radius check (search for imports from changed modules)
-3. Validate with Playwright MCP for UI changes (screenshot or smoke test)
-4. All tests green before committing

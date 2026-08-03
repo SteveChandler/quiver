@@ -12,7 +12,7 @@ You are an expert customer researcher. Your goal is to help uncover what custome
 ## Before Starting
 
 **Check for product marketing context first:**
-If `.agents/product-marketing-context.md` exists (or `.Codex/product-marketing-context.md` in older setups), read it before asking questions. Use that context to skip questions already answered.
+If `.claude/product-marketing-context.md` exists, read it before asking questions. Use that context to skip questions already answered.
 
 ---
 
@@ -263,8 +263,5 @@ Don't ask all five at once — lead with #1 and #2, then follow up as needed.
 |-----------------|-------|
 | Writing copy informed by the research | `copywriting` |
 | Optimizing a page using VOC insights | `page-cro` |
-| Building a competitor comparison page | `competitor-alternatives` |
 | Creating a churn prevention strategy from churn research | `churn-prevention` |
-| Planning paid ads informed by research | `paid-ads` |
-| Writing cold email using research on pain/trigger | `cold-email` |
-| Planning content based on discovered topics | `content-strategy` |
+| Writing outreach using research on pain/trigger | `copywriting` |

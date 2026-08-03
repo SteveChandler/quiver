@@ -1,7 +1,6 @@
 ---
 name: teach-impeccable
 description: One-time setup that gathers design context for your project and saves it to your AI config file. Run once to establish persistent design guidelines.
-user-invokable: true
 ---
 
 Gather design context for this project, then persist it for all future sessions.
@@ -21,7 +20,7 @@ Note what you've learned and what remains unclear.
 
 ## Step 2: Ask UX-Focused Questions
 
-STOP and call the AskUserQuestionTool to clarify. Focus only on what you couldn't infer from the codebase:
+Ask concise questions only for information that cannot be inferred and would materially change the design direction. Use the current runtime's available user-input mechanism and skip anything already answered by the codebase or project context.
 
 ### Users & Purpose
 - Who uses this? What's their context when using it?
@@ -64,6 +63,6 @@ Synthesize your findings and the user's answers into a `## Design Context` secti
 [3-5 principles derived from the conversation that should guide all design decisions]
 ```
 
-Write this section to AGENTS.md in the project root. If the file exists, append or update the Design Context section.
+Write this section to `CLAUDE.md` in the project root. If the file exists, update its Design Context section without duplicating it.
 
 Confirm completion and summarize the key design principles that will now guide all future work.

@@ -2,14 +2,14 @@
 
 ## Scope
 
-This directory contains Quiver web Playwright tests. Follow the root and `quiver/AGENTS.md` instructions first, then these stricter E2E rules.
+This directory contains Quiver web Playwright tests. Follow the root `AGENTS.md` instructions first, then these stricter E2E rules.
 
-## Inspect and Plan First
+## Relevant Context
 
-- Before editing tests, read nearby specs plus `README.md`, `ARCHITECTURE.md`, `TEST_DEBT.md`, `playwright.config.ts`, relevant helpers in `utils/`, and relevant fixtures in `fixtures/`.
-- During inspect and planning, decide which local helpers, scripts, skills, and plugins apply. Use local specs, helpers, package scripts, and configured Playwright tooling before external plugins, web search, or new tools.
+- Before editing tests, inspect nearby specs and the relevant portions of `README.md`, `ARCHITECTURE.md`, `TEST_DEBT.md`, `playwright.config.ts`, helpers in `utils/`, and fixtures in `fixtures/`.
+- Use available local specs, helpers, package scripts, and Playwright tooling. Optional skills, plugins, or integrations are not prerequisites.
 - Identify the real user flow and existing coverage gap before adding tests. Do not add tests that only duplicate current coverage or prove that a page rendered.
-- Review the plan for risky assumptions, missing setup, missing cleanup, weak assertions, and unnecessary production-code changes before implementing.
+- For non-trivial changes, review the approach for risky assumptions, missing setup, missing cleanup, weak assertions, and unnecessary production-code changes.
 
 ## Writing and Updating Tests
 
@@ -38,9 +38,9 @@ This directory contains Quiver web Playwright tests. Follow the root and `quiver
 - Classify each failure as product bug, test bug, flaky timing issue, missing setup, or environment issue.
 - Fix actionable failures and rerun the relevant E2E command.
 - Review the diff like a PR for missing assertions, weak assertions, false positives, flaky waits/timeouts, race conditions, brittle selectors, test data leakage, environment assumptions, CI-only failures, untested behavior changes, unnecessary production-code changes, overbroad mocks, and tests that pass without proving behavior.
-- Repeat review -> fix -> test until clean. Stop after 5 full cycles if findings remain and report the unresolved findings with exact failing commands.
+- Repeat review → fix → test while making progress, then report any unresolved findings with the exact failing commands.
 
 ## Final Response
 
-- Include E2E tests reviewed, tests added or modified, exact E2E commands run, pass/fail status for each command, final E2E pass/fail status, unresolved findings, and remaining risks.
-- If E2E tests were not run, state that clearly and do not imply they passed.
+- Report the E2E specs reviewed or changed, exact commands run with pass/fail status, unresolved findings, and remaining risks.
+- If E2E tests were not run, state that clearly.
