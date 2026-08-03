@@ -7,6 +7,7 @@ import { RouteGuard } from "@/lib/middleware/route-guard";
 import { AdminChecker } from "@/lib/middleware/admin-checker";
 import {
   buildBeachUrl,
+  isValidCountrySlug,
   isValidStateSlug,
 } from "@/lib/utils/beach-url-utils";
 import {
@@ -406,11 +407,13 @@ export async function proxy(request: NextRequest) {
     if (isValidStateSlug(country)) {
       // country segment is actually a state slug; let the beach route handle it
       // (or fall through to normal routing).
+    } else if (INTERNATIONAL_RESERVED_SEGMENTS.has(country)) {
+      // Reserved app routes should continue through normal route resolution.
+    } else if (isValidCountrySlug(country)) {
+      rewriteTarget = request.nextUrl.clone();
+      rewriteTarget.pathname = `/beaches/${country}/${state}/${city}`;
     } else {
-      if (!INTERNATIONAL_RESERVED_SEGMENTS.has(country)) {
-        rewriteTarget = request.nextUrl.clone();
-        rewriteTarget.pathname = `/beaches/${country}/${state}/${city}`;
-      }
+      return createInvalidInternationalNotFoundResponse();
     }
   }
 
@@ -528,6 +531,25 @@ function createSecureResponse(request: NextRequest, rewriteUrl?: URL): NextRespo
 
   // Capture IP-based location for dynamic content
   captureIPLocation(request, response);
+
+  return response;
+}
+
+function createInvalidInternationalNotFoundResponse(): NextResponse {
+  const response = new NextResponse(
+    "<!doctype html><html><head><meta name=\"robots\" content=\"noindex, follow\"><title>Page Not Found | Quiver</title></head><body><h1>Page Not Found</h1></body></html>",
+    {
+      status: 404,
+      headers: {
+        "content-type": "text/html; charset=utf-8",
+        "x-robots-tag": "noindex, follow",
+      },
+    },
+  );
+
+  Object.entries(DEFAULT_SECURITY_HEADERS).forEach(([key, value]) => {
+    response.headers.set(key, value as string);
+  });
 
   return response;
 }

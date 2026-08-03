@@ -41,7 +41,7 @@ async function nearbyBeachesHandler(request: NextRequest) {
     const supabase = await createSupabaseServerClient();
     const { data: allBeaches, error: fallbackError } = await supabase
       .from("beaches")
-      .select("id, name, lat, lon, slug, city, state");
+      .select("id, name, lat, lon, slug, city, state, country");
 
     if (fallbackError) throw fallbackError;
 
@@ -64,6 +64,7 @@ async function nearbyBeachesHandler(request: NextRequest) {
         slug: b.slug,
         city: b.city,
         state: b.state,
+        country: b.country,
       }));
 
     return createSuccessResponse(filtered);

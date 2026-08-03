@@ -140,6 +140,7 @@ function NearbyCard({
     slug: beach.slug,
     city: beach.city,
     state: beach.state,
+    country: beach.country,
   }) || "/";
   const location = getBeachLocation(beach);
   const skill = beach.skill_level || "All";

@@ -260,6 +260,16 @@ describe("Middleware Integration Tests", () => {
       );
     });
 
+    it("should return a real 404/noindex for an invalid international route", async () => {
+      const request = createMockRequest("/baja-california/rosarito/k-38");
+
+      const response = await middleware(request);
+
+      expect(response.status).toBe(404);
+      expect(response.headers.get("x-robots-tag")).toBe("noindex, follow");
+      expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+    });
+
     it("should preserve the international city rewrite for HEAD requests", async () => {
       const request = createMockRequest("/mexico/baja-california/rosarito");
       request.method = "HEAD";

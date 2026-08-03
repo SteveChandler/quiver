@@ -69,7 +69,7 @@ export function classifyGscProtectedPageFamily(
 ): GscProtectedPageFamily | null {
   const canonicalPath = normalizeSeoPath(value);
   const segments = canonicalPath.split("/").filter(Boolean);
-  const [first, second, third, fourth] = segments;
+  const [first, second, third, fourth, fifth] = segments;
 
   if (
     segments.length === 4 &&
@@ -85,7 +85,18 @@ export function classifyGscProtectedPageFamily(
   }
 
   if (segments.length === 4 && first === "mexico") {
+    // Mexico beach detail pages use the four-segment location shape. Keep this
+    // branch before the dedicated sub-page check so legacy rows remain covered.
     return "beach";
+  }
+
+  if (
+    segments.length === 5 &&
+    first === "mexico" &&
+    fifth &&
+    (fifth === "tides" || fifth === "water-temp")
+  ) {
+    return fifth === "tides" ? "beach-tides" : "beach-water-temp";
   }
 
   if (segments.length === 2 && first === "best-time-to-surf" && second) {
@@ -129,6 +140,9 @@ export function buildGscProtectionSnapshot(
   input: GscExportInput,
 ): GscProtectionSnapshot {
   const legacyCanonicalPathMap = buildLegacyCanonicalPathMap(input.sitemapPaths);
+  const authoritativeSitemapPaths = new Set(
+    input.sitemapPaths.map((path) => normalizeSeoPath(path)),
+  );
   const mergedRows = mergeGscRowsByCanonicalPath(
     input.last28d,
     legacyCanonicalPathMap,
@@ -138,8 +152,21 @@ export function buildGscProtectionSnapshot(
       const pageFamily = classifyGscProtectedPageFamily(row.page);
       if (!pageFamily || !qualifiesForGscProtection(row)) return [];
 
+      const canonicalPath = normalizeSeoPath(row.page);
+      const isMexicoSubPage =
+        pageFamily === "beach-tides" || pageFamily === "beach-water-temp"
+          ? canonicalPath.startsWith("/mexico/")
+          : false;
+
+      // Shape alone is not authoritative for Mexico's five-segment routes.
+      // Only protect paths that the current canonical sitemap emits; the
+      // route renderer separately validates the beach's region and city.
+      if (isMexicoSubPage && !authoritativeSitemapPaths.has(canonicalPath)) {
+        return [];
+      }
+
       return [{
-        canonicalPath: row.page,
+        canonicalPath,
         pageFamily,
         clicks: row.clicks,
         impressions: row.impressions,

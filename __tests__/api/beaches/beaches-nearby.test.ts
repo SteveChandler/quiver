@@ -56,6 +56,7 @@ const mockBeaches = [
     slug: "ocean-beach",
     city: "San Diego",
     state: "CA",
+    country: "USA",
   },
   {
     id: "beach-2",
@@ -65,6 +66,7 @@ const mockBeaches = [
     slug: "pacific-beach",
     city: "San Diego",
     state: "CA",
+    country: "USA",
   },
   {
     id: "beach-3",
@@ -74,6 +76,7 @@ const mockBeaches = [
     slug: "la-jolla-shores",
     city: "La Jolla",
     state: "CA",
+    country: "USA",
   },
   {
     id: "beach-4",
@@ -83,6 +86,7 @@ const mockBeaches = [
     slug: "distant-beach",
     city: "Los Angeles",
     state: "CA",
+    country: "USA",
   },
 ];
 
@@ -119,6 +123,23 @@ describe("GET /api/beaches/nearby", () => {
 
     expect(source).not.toMatch(/@\/lib\/api-utils/);
     expect(source).toMatch(/@\/lib\/middleware\/api-wrappers/);
+  });
+
+  it("returns country so international nearby links retain their canonical URL", async () => {
+    const originalCountry = mockBeaches[0].country;
+    mockBeaches[0].country = "Mexico";
+    try {
+      const req = new NextRequest(
+        new URL("http://localhost/api/beaches/nearby?lat=32.75&lon=-117.25"),
+      );
+
+      const res = await GET(req);
+      const json = await res.json();
+
+      expect(json.data[0].country).toBe("Mexico");
+    } finally {
+      mockBeaches[0].country = originalCountry;
+    }
   });
 
   describe("Coordinate Validation", () => {

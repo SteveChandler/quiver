@@ -3,7 +3,10 @@
 import { createPublicReadClient } from "@/lib/supabase/server";
 import { calculateDistanceInMiles } from "@/lib/utils/distance-utils";
 import { slugifyAscii } from "@/lib/utils/text-utils";
-import { stateToSlug } from "@/lib/utils/beach-url-utils";
+import {
+  normalizeBeachCountry,
+  stateToSlug,
+} from "@/lib/utils/beach-url-utils";
 import type { Beach } from "@/types/database";
 
 export async function getNearbyBeaches(
@@ -85,10 +88,50 @@ export async function getNearbyBeaches(
       };
     }
 
+    // The RPC predates the country field. Hydrate it from the source rows so
+    // every nearby card can build the canonical international URL.
+    const nearbyRows = (nearbyBeaches || []) as Array<{ id?: string } & Record<string, unknown>>;
+    const nearbyIds = nearbyRows
+      .map((beach) => beach.id)
+      .filter((id): id is string => Boolean(id));
+    const countryById = new Map<string, string>();
+    const rpcIncludedCountry = nearbyRows.every(
+      (beach) => normalizeBeachCountry(beach.country as string | null | undefined) !== null,
+    );
+
+    if (nearbyIds.length > 0 && !rpcIncludedCountry) {
+      const { data: countryRows, error: countryError } = await supabase
+        .from("beaches")
+        .select("id, country")
+        .in("id", nearbyIds);
+
+      if (countryError) throw countryError;
+
+      for (const row of countryRows || []) {
+        const country = normalizeBeachCountry(row.country);
+        if (country) countryById.set(row.id, country);
+      }
+
+      const missingCountryIds = nearbyIds.filter((id) => !countryById.has(id));
+      if (missingCountryIds.length > 0) {
+        throw new Error(
+          `Nearby beach country hydration was incomplete for ${missingCountryIds.length} beach(es)`,
+        );
+      }
+    }
+
+    const beachesWithCountry = nearbyRows.map((beach) => ({
+      ...beach,
+      country: beach.id
+        ? countryById.get(beach.id) ??
+          normalizeBeachCountry(beach.country as string | null | undefined)
+        : normalizeBeachCountry(beach.country as string | null | undefined),
+    }));
+
     // Success with spatial function
     return {
       success: true,
-      data: nearbyBeaches as unknown as Beach[],
+      data: beachesWithCountry as unknown as Beach[],
       fallbackUsed: false,
     };
   } catch (error) {
