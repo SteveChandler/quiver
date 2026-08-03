@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Migration SQL syntax gate** (`test-utils/migration-sql-syntax.ts`, `scripts/check-migration-syntax.ts`, `__tests__/migrations/migration-sql-syntax.test.ts`, `yarn migrations:check`). Every file in `supabase/migrations/` is parsed with the real Postgres grammar (`libpg-query`), and every plpgsql routine and `DO` block body is compiled against a throwaway Postgres (PGlite) — the step that rejects errors a statement parser cannot see inside dollar-quoted bodies. Closes the gap that let a migration with a reserved-word table alias merge with every existing `__tests__/migrations/` string-match test green. Runs in `yarn test:unit`; no database or Docker required.
 - In-content, device-aware install CTA (`InstallAppCtaSection`) on beach detail pages (after-tabs) and a mobile-only install link on `/welcome`, both via `NativeAppFunnelCta` with full source/surface/placement attribution (Plan 063 T1).
 
 ### Changed

@@ -56,6 +56,7 @@
     "test:cleanup": "tsx scripts/cleanup-test-data.ts",
     "test:cleanup:dry": "tsx scripts/cleanup-test-data.ts --dry-run --verbose",
     "test:integration": "jest __tests__/integration/ --testTimeout=30000",
+    "migrations:check": "tsx scripts/check-migration-syntax.ts",
     "dead:knip": "knip --no-progress",
     "dead:tsprune": "ts-prune -p tsconfig.json",
     "dead:deps": "depcheck --skip-missing=true",
@@ -217,6 +218,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4",
     "@jest/globals": "^29.7.0",
     "@lhci/cli": "^0.15.1",
     "@next/swc-darwin-arm64": "16.2.6",
@@ -251,6 +253,7 @@
     "jest-environment-jsdom": "^29.7.0",
     "jsqr": "^1.4.0",
     "knip": "^5.36.6",
+    "libpg-query": "^17.7.4",
     "lighthouse": "^13.4.0",
     "node-fetch": "^3.3.2",
     "patch-package": "^8.0.1",

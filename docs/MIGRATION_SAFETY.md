@@ -23,6 +23,32 @@ All migrations go in `supabase/migrations/` with naming `YYYYMMDDHHMMSS_descript
 5. Document schema changes in migration comments
 6. When recreating views (`DROP VIEW` + `CREATE VIEW`), carry forward `WITH (security_invoker = true)` if the view previously had it — this option is silently lost on `DROP`
 
+## Syntax Gate
+
+```bash
+yarn migrations:check
+```
+
+Parses every `supabase/migrations/*.sql` with the real Postgres grammar and compiles every plpgsql
+routine and `DO` block body against a throwaway in-process Postgres. No database or Docker needed.
+The same check runs as `__tests__/migrations/migration-sql-syntax.test.ts` under `yarn test:unit`.
+
+Why it exists: the rest of `__tests__/migrations/` asserts on file contents with `toContain(...)`, so
+a migration Postgres cannot parse still passes them. That is how
+`20260802162000_detect_apple_orphan_after_sign_in.sql` shipped with `current_user` — a reserved
+keyword — as an `auth.users` alias, aborting `CREATE FUNCTION` and breaking `supabase db reset` from
+that file forward.
+
+Limits, so nobody reads a pass as more than it is:
+
+- Syntax only. It does not check that referenced tables, columns, policies, or grants exist, and it
+  does not check migration ordering. `supabase db reset` remains the fidelity check before applying
+  anything to production.
+- Routines whose *signature* references a type or table the scratch database lacks (PostGIS
+  `geometry`, project enums, `RETURNS SETOF <table>`) cannot be compiled. Those are listed under
+  "routine(s) not compiled" in the command's output rather than silently passed, and the test fails
+  if that list grows past 10% of routines.
+
 ## Before Applying to Production
 
 1. Fresh `pg_dump` backup within 24 hours

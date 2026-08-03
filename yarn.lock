@@ -1088,6 +1088,11 @@
     workbox-webpack-plugin "7.1.0"
     workbox-window "7.1.0"
 
+"@electric-sql/pglite@^0.5.4":
+  version "0.5.4"
+  resolved "https://registry.yarnpkg.com/@electric-sql/pglite/-/pglite-0.5.4.tgz#808defde2ab84ce96bd7f6ae04cc76f66f83e4e0"
+  integrity sha512-yYZUyyXrHU7tPlCjwZQJ6hIG9DscdCCn7Uk0mYKwC1FeHX286AbcmFveMiRBEak8e9iPupjsoVImN3yJZVed2g==
+
 "@emnapi/core@^1.4.3", "@emnapi/core@^1.7.1":
   version "1.8.1"
   resolved "https://registry.yarnpkg.com/@emnapi/core/-/core-1.8.1.tgz#fd9efe721a616288345ffee17a1f26ac5dd01349"
@@ -2765,6 +2770,11 @@
   dependencies:
     legacy-javascript latest
     third-party-web latest
+
+"@pgsql/types@^17.6.2":
+  version "17.6.2"
+  resolved "https://registry.yarnpkg.com/@pgsql/types/-/types-17.6.2.tgz#c92c08c5a9397bd561332721ebf111033ed7d1fb"
+  integrity sha512-1UtbELdbqNdyOShhrVfSz3a1gDi0s9XXiQemx+6QqtsrXe62a6zOGU+vjb2GRfG5jeEokI1zBBcfD42enRv0Rw==
 
 "@pkgjs/parseargs@^0.11.0":
   version "0.11.0"
@@ -9236,6 +9246,13 @@ levn@^0.4.1:
   dependencies:
     prelude-ls "^1.2.1"
     type-check "~0.4.0"
+
+libpg-query@^17.7.4:
+  version "17.7.4"
+  resolved "https://registry.yarnpkg.com/libpg-query/-/libpg-query-17.7.4.tgz#067084e6c06d04c89fbebe98908d2d09497ad0ae"
+  integrity sha512-hTV3LvacQgJhc6GHpu5GYZMQBOAEpJ/LF1JjkixZ8YLh2TtbuN8y0JlNiPTe8PBTV9ChFkKcZMWSYKyhJfkYaQ==
+  dependencies:
+    "@pgsql/types" "^17.6.2"
 
 lighthouse-logger@1.2.0:
   version "1.2.0"
