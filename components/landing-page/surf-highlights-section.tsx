@@ -15,6 +15,7 @@ interface Beach {
   name: string;
   city?: string | null;
   state?: string | null;
+  country?: string | null;
   slug?: string | null;
   photo_url?: string | null;
   average_rating?: number | null;
@@ -97,6 +98,7 @@ export function SurfHighlightsSection({
             slug: beach.slug,
             city: beach.city,
             state: beach.state,
+            country: beach.country,
             imageUrl,
             averageRating: beach.average_rating ?? null,
             reviewCount: beach.review_count ?? null,

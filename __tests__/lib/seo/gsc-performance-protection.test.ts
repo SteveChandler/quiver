@@ -13,6 +13,8 @@ describe("GSC performance protection", () => {
     ["/ca/encinitas/swamis", "beach"],
     ["/ca/encinitas/swamis/tides", "beach-tides"],
     ["/ca/encinitas/swamis/water-temp", "beach-water-temp"],
+    ["/mexico/baja-california/puerto-nuevo/k-40-puerto-nuevo/tides", "beach-tides"],
+    ["/mexico/baja-california/puerto-nuevo/k-40-puerto-nuevo/water-temp", "beach-water-temp"],
     ["/best-time-to-surf/la-jolla", "best-time-city"],
     ["/beginner/santa-cruz", "city-intent"],
     ["/ca/san-diego", "city-location"],
@@ -39,6 +41,45 @@ describe("GSC performance protection", () => {
       "/ca/encinitas/click-boundary",
       "/ca/encinitas/impression-boundary",
     ]);
+  });
+
+  it("protects eligible Mexico five-segment subpages", () => {
+    const result = buildGscProtectionSnapshot(
+      exportInput([
+        row(
+          "/mexico/baja-california/puerto-nuevo/k-40-puerto-nuevo/tides",
+          1,
+          42,
+          8,
+        ),
+      ], ["/mexico/baja-california/puerto-nuevo/k-40-puerto-nuevo/tides"]),
+    );
+
+    expect(result.entries).toEqual([
+      {
+        canonicalPath:
+          "/mexico/baja-california/puerto-nuevo/k-40-puerto-nuevo/tides",
+        pageFamily: "beach-tides",
+        clicks: 1,
+        impressions: 42,
+        averagePosition: 8,
+      },
+    ]);
+  });
+
+  it("does not protect a Mexico subpage that is absent from the canonical sitemap", () => {
+    const result = buildGscProtectionSnapshot(
+      exportInput([
+        row(
+          "/mexico/wrong-region/wrong-city/k-40-puerto-nuevo/tides",
+          1,
+          42,
+          8,
+        ),
+      ], ["/mexico/baja-california/puerto-nuevo/k-40-puerto-nuevo/tides"]),
+    );
+
+    expect(result.entries).toEqual([]);
   });
 
   it("canonicalizes, merges, deduplicates, and sorts rows deterministically", () => {

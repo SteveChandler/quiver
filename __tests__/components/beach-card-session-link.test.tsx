@@ -159,4 +159,35 @@ describe("BeachCard - session link (Task 8B)", () => {
     // Modal should still not be open
     expect(screen.queryByTestId("auth-modal")).not.toBeInTheDocument();
   });
+
+  it("updates the canonical href when country arrives after the first render", () => {
+    (useAuth as jest.Mock).mockReturnValue({ user: null });
+
+    const { rerender } = render(
+      <BeachCard
+        {...defaultProps}
+        city="Rosarito"
+        state="Baja California"
+        country={null}
+      />,
+    );
+
+    expect(
+      document.querySelector('a[href="/beach/ocean-beach"]'),
+    ).toBeInTheDocument();
+
+    rerender(
+      <BeachCard
+        {...defaultProps}
+        city="Rosarito"
+        state="Baja California"
+        country="Mexico"
+      />,
+    );
+
+    expect(
+      document.querySelector('a[href="/mexico/baja-california/rosarito/ocean-beach"]'),
+    ).toBeInTheDocument();
+    expect(document.querySelector('a[href="/beach/ocean-beach"]')).not.toBeInTheDocument();
+  });
 });

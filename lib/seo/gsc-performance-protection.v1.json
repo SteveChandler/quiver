@@ -1,8 +1,8 @@
 {
   "policyVersion": 1,
   "window": {
-    "start": "2026-06-20",
-    "end": "2026-07-17"
+    "start": "2026-07-04",
+    "end": "2026-07-31"
   },
   "thresholds": {
     "minimumClicks": 1,
@@ -14,148 +14,183 @@
       "canonicalPath": "/beginner/carlsbad",
       "pageFamily": "city-intent",
       "clicks": 0,
-      "impressions": 147,
-      "averagePosition": 14.0884
+      "impressions": 209,
+      "averagePosition": 11.1196
+    },
+    {
+      "canonicalPath": "/beginner/huntington-beach",
+      "pageFamily": "city-intent",
+      "clicks": 1,
+      "impressions": 193,
+      "averagePosition": 8.6684
     },
     {
       "canonicalPath": "/beginner/long-island",
       "pageFamily": "city-intent",
-      "clicks": 2,
-      "impressions": 52,
-      "averagePosition": 8
+      "clicks": 3,
+      "impressions": 71,
+      "averagePosition": 8.8169
     },
     {
       "canonicalPath": "/beginner/luquillo",
       "pageFamily": "city-intent",
       "clicks": 1,
-      "impressions": 3,
-      "averagePosition": 3.3333
+      "impressions": 8,
+      "averagePosition": 7.125
+    },
+    {
+      "canonicalPath": "/beginner/san-juan",
+      "pageFamily": "city-intent",
+      "clicks": 1,
+      "impressions": 19,
+      "averagePosition": 7.9474
+    },
+    {
+      "canonicalPath": "/beginner/sea-isle-city",
+      "pageFamily": "city-intent",
+      "clicks": 1,
+      "impressions": 47,
+      "averagePosition": 9.617
     },
     {
       "canonicalPath": "/beginner/spring-lake",
       "pageFamily": "city-intent",
       "clicks": 1,
-      "impressions": 9,
-      "averagePosition": 8.6667
+      "impressions": 20,
+      "averagePosition": 7.95
     },
     {
       "canonicalPath": "/best-time-to-surf/aguadilla",
       "pageFamily": "best-time-city",
-      "clicks": 5,
-      "impressions": 160,
-      "averagePosition": 9.9
+      "clicks": 3,
+      "impressions": 151,
+      "averagePosition": 9.5099
     },
     {
-      "canonicalPath": "/best-time-to-surf/arch-cape",
+      "canonicalPath": "/best-time-to-surf/anahola",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 14,
-      "averagePosition": 7.5714
+      "impressions": 4,
+      "averagePosition": 4.25
+    },
+    {
+      "canonicalPath": "/best-time-to-surf/asbury-park",
+      "pageFamily": "best-time-city",
+      "clicks": 1,
+      "impressions": 72,
+      "averagePosition": 6.8889
     },
     {
       "canonicalPath": "/best-time-to-surf/bay-head",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 22,
-      "averagePosition": 8.0909
+      "impressions": 19,
+      "averagePosition": 8.1579
     },
     {
       "canonicalPath": "/best-time-to-surf/belmar",
       "pageFamily": "best-time-city",
-      "clicks": 1,
-      "impressions": 43,
-      "averagePosition": 8
+      "clicks": 0,
+      "impressions": 113,
+      "averagePosition": 8.4336
+    },
+    {
+      "canonicalPath": "/best-time-to-surf/bolinas",
+      "pageFamily": "best-time-city",
+      "clicks": 2,
+      "impressions": 78,
+      "averagePosition": 9.5385
     },
     {
       "canonicalPath": "/best-time-to-surf/carolina-beach",
       "pageFamily": "best-time-city",
-      "clicks": 4,
-      "impressions": 52,
-      "averagePosition": 6.5962
+      "clicks": 5,
+      "impressions": 121,
+      "averagePosition": 6.7769
     },
     {
       "canonicalPath": "/best-time-to-surf/cocoa-beach",
       "pageFamily": "best-time-city",
-      "clicks": 4,
-      "impressions": 612,
-      "averagePosition": 11.2582
+      "clicks": 2,
+      "impressions": 399,
+      "averagePosition": 11.0952
     },
     {
       "canonicalPath": "/best-time-to-surf/coos-bay",
       "pageFamily": "best-time-city",
       "clicks": 1,
       "impressions": 24,
-      "averagePosition": 8.1667
-    },
-    {
-      "canonicalPath": "/best-time-to-surf/coronado",
-      "pageFamily": "best-time-city",
-      "clicks": 1,
-      "impressions": 72,
-      "averagePosition": 11.875
+      "averagePosition": 7.0417
     },
     {
       "canonicalPath": "/best-time-to-surf/dana-point",
       "pageFamily": "best-time-city",
-      "clicks": 3,
-      "impressions": 53,
-      "averagePosition": 7.9623
+      "clicks": 2,
+      "impressions": 47,
+      "averagePosition": 8.2979
+    },
+    {
+      "canonicalPath": "/best-time-to-surf/ewa-beach",
+      "pageFamily": "best-time-city",
+      "clicks": 1,
+      "impressions": 81,
+      "averagePosition": 10.1975
     },
     {
       "canonicalPath": "/best-time-to-surf/flagler-beach",
       "pageFamily": "best-time-city",
-      "clicks": 4,
-      "impressions": 28,
-      "averagePosition": 4.2143
+      "clicks": 2,
+      "impressions": 19,
+      "averagePosition": 3.6842
     },
     {
       "canonicalPath": "/best-time-to-surf/folly-beach",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 143,
-      "averagePosition": 9.6923
+      "impressions": 221,
+      "averagePosition": 9.8054
     },
     {
       "canonicalPath": "/best-time-to-surf/hampton",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 29,
-      "averagePosition": 6.5517
+      "impressions": 67,
+      "averagePosition": 6.9701
+    },
+    {
+      "canonicalPath": "/best-time-to-surf/hull",
+      "pageFamily": "best-time-city",
+      "clicks": 1,
+      "impressions": 13,
+      "averagePosition": 5.3077
     },
     {
       "canonicalPath": "/best-time-to-surf/isabela",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 93,
-      "averagePosition": 9.7419
-    },
-    {
-      "canonicalPath": "/best-time-to-surf/isle-of-palms",
-      "pageFamily": "best-time-city",
-      "clicks": 1,
-      "impressions": 54,
-      "averagePosition": 7.8519
+      "impressions": 80,
+      "averagePosition": 8.6875
     },
     {
       "canonicalPath": "/best-time-to-surf/jacksonville-beach",
       "pageFamily": "best-time-city",
-      "clicks": 1,
-      "impressions": 124,
-      "averagePosition": 9.2581
+      "clicks": 2,
+      "impressions": 138,
+      "averagePosition": 8.6667
     },
     {
       "canonicalPath": "/best-time-to-surf/kure-beach",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 23,
-      "averagePosition": 3.913
+      "impressions": 22,
+      "averagePosition": 4.5
     },
     {
       "canonicalPath": "/best-time-to-surf/la-jolla",
       "pageFamily": "best-time-city",
-      "clicks": 5,
-      "impressions": 13362,
-      "averagePosition": 8.2161
+      "clicks": 7,
+      "impressions": 18174,
+      "averagePosition": 7.8615
     },
     {
       "canonicalPath": "/best-time-to-surf/laguna-beach",
@@ -165,1537 +200,1698 @@
       "averagePosition": 8.9921
     },
     {
+      "canonicalPath": "/best-time-to-surf/long-beach-ca",
+      "pageFamily": "best-time-city",
+      "clicks": 1,
+      "impressions": 19,
+      "averagePosition": 6.4737
+    },
+    {
       "canonicalPath": "/best-time-to-surf/long-beach-ny",
       "pageFamily": "best-time-city",
-      "clicks": 2,
-      "impressions": 675,
-      "averagePosition": 14.443
+      "clicks": 1,
+      "impressions": 296,
+      "averagePosition": 12.7196
     },
     {
       "canonicalPath": "/best-time-to-surf/long-branch",
       "pageFamily": "best-time-city",
-      "clicks": 1,
+      "clicks": 2,
       "impressions": 18,
-      "averagePosition": 5.2222
+      "averagePosition": 4.6111
     },
     {
       "canonicalPath": "/best-time-to-surf/luquillo",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 46,
-      "averagePosition": 10.6957
+      "impressions": 57,
+      "averagePosition": 8.3684
     },
     {
       "canonicalPath": "/best-time-to-surf/malibu",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 180,
-      "averagePosition": 8.9056
+      "impressions": 269,
+      "averagePosition": 7.8104
     },
     {
       "canonicalPath": "/best-time-to-surf/melbourne-beach",
       "pageFamily": "best-time-city",
-      "clicks": 3,
-      "impressions": 690,
-      "averagePosition": 12.8942
+      "clicks": 2,
+      "impressions": 502,
+      "averagePosition": 10.8665
     },
     {
       "canonicalPath": "/best-time-to-surf/miami-beach",
       "pageFamily": "best-time-city",
-      "clicks": 0,
-      "impressions": 271,
-      "averagePosition": 12.9594
-    },
-    {
-      "canonicalPath": "/best-time-to-surf/morro-bay",
-      "pageFamily": "best-time-city",
-      "clicks": 0,
-      "impressions": 103,
-      "averagePosition": 8.2621
+      "clicks": 1,
+      "impressions": 373,
+      "averagePosition": 11.9571
     },
     {
       "canonicalPath": "/best-time-to-surf/narragansett",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 35,
-      "averagePosition": 7.8857
+      "impressions": 39,
+      "averagePosition": 7.8974
     },
     {
       "canonicalPath": "/best-time-to-surf/navarre",
       "pageFamily": "best-time-city",
-      "clicks": 1,
-      "impressions": 7,
-      "averagePosition": 5.1429
+      "clicks": 3,
+      "impressions": 21,
+      "averagePosition": 5.2857
     },
     {
       "canonicalPath": "/best-time-to-surf/new-smyrna-beach",
       "pageFamily": "best-time-city",
       "clicks": 4,
-      "impressions": 126,
-      "averagePosition": 7.5873
+      "impressions": 191,
+      "averagePosition": 6.466
     },
     {
       "canonicalPath": "/best-time-to-surf/newport-beach",
       "pageFamily": "best-time-city",
-      "clicks": 1,
-      "impressions": 1153,
-      "averagePosition": 13.0598
+      "clicks": 0,
+      "impressions": 492,
+      "averagePosition": 15.1423
+    },
+    {
+      "canonicalPath": "/best-time-to-surf/oceanside",
+      "pageFamily": "best-time-city",
+      "clicks": 4,
+      "impressions": 171,
+      "averagePosition": 6.8012
     },
     {
       "canonicalPath": "/best-time-to-surf/ogunquit",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 42,
-      "averagePosition": 7.8333
+      "impressions": 39,
+      "averagePosition": 7.5897
     },
     {
       "canonicalPath": "/best-time-to-surf/pacifica",
       "pageFamily": "best-time-city",
-      "clicks": 11,
-      "impressions": 814,
-      "averagePosition": 10.3636
+      "clicks": 6,
+      "impressions": 726,
+      "averagePosition": 10.0937
+    },
+    {
+      "canonicalPath": "/best-time-to-surf/palos-verdes",
+      "pageFamily": "best-time-city",
+      "clicks": 1,
+      "impressions": 50,
+      "averagePosition": 8.7
     },
     {
       "canonicalPath": "/best-time-to-surf/pebble-beach",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 6,
-      "averagePosition": 7.1667
+      "impressions": 8,
+      "averagePosition": 7.375
     },
     {
       "canonicalPath": "/best-time-to-surf/pensacola-beach",
       "pageFamily": "best-time-city",
-      "clicks": 3,
-      "impressions": 129,
-      "averagePosition": 7.1783
+      "clicks": 2,
+      "impressions": 124,
+      "averagePosition": 6.7984
     },
     {
       "canonicalPath": "/best-time-to-surf/pismo-beach",
       "pageFamily": "best-time-city",
       "clicks": 3,
-      "impressions": 162,
-      "averagePosition": 7.5247
+      "impressions": 179,
+      "averagePosition": 6.9441
     },
     {
       "canonicalPath": "/best-time-to-surf/playa-del-rey",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 2,
-      "averagePosition": 6
-    },
-    {
-      "canonicalPath": "/best-time-to-surf/ponce-inlet",
-      "pageFamily": "best-time-city",
-      "clicks": 1,
-      "impressions": 49,
-      "averagePosition": 7.6735
+      "impressions": 3,
+      "averagePosition": 7.6667
     },
     {
       "canonicalPath": "/best-time-to-surf/port-aransas",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 150,
-      "averagePosition": 7.3867
+      "impressions": 79,
+      "averagePosition": 7.8734
     },
     {
       "canonicalPath": "/best-time-to-surf/redondo-beach",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 275,
-      "averagePosition": 9.7891
+      "impressions": 190,
+      "averagePosition": 7.9895
     },
     {
       "canonicalPath": "/best-time-to-surf/rincon",
       "pageFamily": "best-time-city",
-      "clicks": 4,
-      "impressions": 514,
-      "averagePosition": 11.5078
+      "clicks": 5,
+      "impressions": 495,
+      "averagePosition": 11.7152
+    },
+    {
+      "canonicalPath": "/best-time-to-surf/rodanthe",
+      "pageFamily": "best-time-city",
+      "clicks": 1,
+      "impressions": 20,
+      "averagePosition": 7.65
     },
     {
       "canonicalPath": "/best-time-to-surf/san-onofre",
       "pageFamily": "best-time-city",
       "clicks": 0,
-      "impressions": 492,
-      "averagePosition": 10.3191
+      "impressions": 443,
+      "averagePosition": 10.3386
     },
     {
       "canonicalPath": "/best-time-to-surf/santa-cruz",
       "pageFamily": "best-time-city",
-      "clicks": 3,
-      "impressions": 1005,
-      "averagePosition": 11.5025
+      "clicks": 2,
+      "impressions": 1172,
+      "averagePosition": 11.2594
     },
     {
       "canonicalPath": "/best-time-to-surf/santa-monica",
       "pageFamily": "best-time-city",
-      "clicks": 1,
-      "impressions": 171,
-      "averagePosition": 7.6374
+      "clicks": 2,
+      "impressions": 264,
+      "averagePosition": 7.4129
     },
     {
       "canonicalPath": "/best-time-to-surf/stinson-beach",
       "pageFamily": "best-time-city",
       "clicks": 2,
-      "impressions": 60,
-      "averagePosition": 6.4833
+      "impressions": 87,
+      "averagePosition": 6.5402
     },
     {
       "canonicalPath": "/best-time-to-surf/surf-city",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 51,
-      "averagePosition": 7.1373
+      "impressions": 48,
+      "averagePosition": 8.4583
     },
     {
       "canonicalPath": "/best-time-to-surf/surfside-beach",
       "pageFamily": "best-time-city",
-      "clicks": 8,
-      "impressions": 765,
-      "averagePosition": 9.3346
+      "clicks": 9,
+      "impressions": 740,
+      "averagePosition": 9.2959
     },
     {
       "canonicalPath": "/best-time-to-surf/tybee-island",
       "pageFamily": "best-time-city",
       "clicks": 1,
-      "impressions": 104,
-      "averagePosition": 8.5865
+      "impressions": 75,
+      "averagePosition": 8.08
+    },
+    {
+      "canonicalPath": "/best-time-to-surf/waimanalo",
+      "pageFamily": "best-time-city",
+      "clicks": 1,
+      "impressions": 65,
+      "averagePosition": 9.5692
     },
     {
       "canonicalPath": "/best-time-to-surf/westport",
       "pageFamily": "best-time-city",
-      "clicks": 4,
-      "impressions": 364,
-      "averagePosition": 12.8626
+      "clicks": 6,
+      "impressions": 316,
+      "averagePosition": 12.5253
+    },
+    {
+      "canonicalPath": "/ca/big-sur",
+      "pageFamily": "city-location",
+      "clicks": 1,
+      "impressions": 8,
+      "averagePosition": 13.25
     },
     {
       "canonicalPath": "/ca/capitola/capitola-capitola-ca/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 3,
-      "impressions": 170,
-      "averagePosition": 6.4941
+      "clicks": 4,
+      "impressions": 135,
+      "averagePosition": 5.7481
     },
     {
       "canonicalPath": "/ca/cardiff-by-the-sea/georges",
       "pageFamily": "beach",
       "clicks": 1,
-      "impressions": 57,
-      "averagePosition": 12.1053
+      "impressions": 91,
+      "averagePosition": 10.4945
+    },
+    {
+      "canonicalPath": "/ca/carlsbad",
+      "pageFamily": "city-location",
+      "clicks": 0,
+      "impressions": 160,
+      "averagePosition": 8.975
     },
     {
       "canonicalPath": "/ca/carlsbad/carlsbad-state-beach/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 0,
-      "impressions": 468,
-      "averagePosition": 10.7372
+      "impressions": 503,
+      "averagePosition": 10.829
     },
     {
       "canonicalPath": "/ca/carlsbad/ponto/tides",
       "pageFamily": "beach-tides",
       "clicks": 0,
-      "impressions": 123,
-      "averagePosition": 9.0894
+      "impressions": 154,
+      "averagePosition": 9.1623
+    },
+    {
+      "canonicalPath": "/ca/carlsbad/ponto/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 51,
+      "averagePosition": 5.0392
     },
     {
       "canonicalPath": "/ca/carlsbad/tamarack/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 1,
-      "impressions": 64,
-      "averagePosition": 5.2188
+      "impressions": 108,
+      "averagePosition": 5.1759
     },
     {
       "canonicalPath": "/ca/carmel-by-the-sea/carmel-beach-carmel-ca/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 102,
-      "averagePosition": 7.1863
+      "clicks": 4,
+      "impressions": 422,
+      "averagePosition": 5.6209
     },
     {
       "canonicalPath": "/ca/carmel-by-the-sea/garrapata-southern-coves-carmel-ca/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 1,
-      "impressions": 7,
-      "averagePosition": 7
+      "impressions": 6,
+      "averagePosition": 6.8333
     },
     {
       "canonicalPath": "/ca/carmel/monastery-beach-san-jose-creek-beach-carmel-ca/tides",
       "pageFamily": "beach-tides",
       "clicks": 1,
-      "impressions": 13,
-      "averagePosition": 7.5385
+      "impressions": 14,
+      "averagePosition": 5.7143
+    },
+    {
+      "canonicalPath": "/ca/dana-point/doheny-state-beach/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 0,
+      "impressions": 154,
+      "averagePosition": 9.2857
     },
     {
       "canonicalPath": "/ca/dana-point/doheny-state-beach/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 0,
-      "impressions": 313,
-      "averagePosition": 6.7796
+      "impressions": 452,
+      "averagePosition": 5.6659
+    },
+    {
+      "canonicalPath": "/ca/dana-point/doheny/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 0,
+      "impressions": 113,
+      "averagePosition": 8.7788
     },
     {
       "canonicalPath": "/ca/dana-point/doheny/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 3,
-      "impressions": 148,
-      "averagePosition": 6.1216
+      "impressions": 210,
+      "averagePosition": 5.4905
     },
     {
       "canonicalPath": "/ca/dana-point/salt-creek/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 0,
-      "impressions": 129,
-      "averagePosition": 7.8527
+      "clicks": 2,
+      "impressions": 172,
+      "averagePosition": 7.436
     },
     {
       "canonicalPath": "/ca/dana-point/strands/tides",
       "pageFamily": "beach-tides",
       "clicks": 0,
-      "impressions": 108,
-      "averagePosition": 9.0741
+      "impressions": 100,
+      "averagePosition": 9.25
+    },
+    {
+      "canonicalPath": "/ca/dana-point/strands/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 56,
+      "averagePosition": 6.2143
     },
     {
       "canonicalPath": "/ca/encinitas/beacons/tides",
       "pageFamily": "beach-tides",
       "clicks": 0,
-      "impressions": 108,
-      "averagePosition": 8.1204
+      "impressions": 113,
+      "averagePosition": 7.9115
+    },
+    {
+      "canonicalPath": "/ca/encinitas/cardiff-reef/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 91,
+      "averagePosition": 5.989
     },
     {
       "canonicalPath": "/ca/encinitas/grandview",
       "pageFamily": "beach",
       "clicks": 1,
-      "impressions": 244,
-      "averagePosition": 9.4057
+      "impressions": 326,
+      "averagePosition": 7.7025
+    },
+    {
+      "canonicalPath": "/ca/encinitas/grandview/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 1,
+      "impressions": 81,
+      "averagePosition": 7.2346
+    },
+    {
+      "canonicalPath": "/ca/encinitas/moonlight-state-beach/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 0,
+      "impressions": 254,
+      "averagePosition": 8.626
     },
     {
       "canonicalPath": "/ca/encinitas/moonlight-state-beach/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 1,
-      "impressions": 312,
-      "averagePosition": 8.6442
+      "impressions": 402,
+      "averagePosition": 8.3706
     },
     {
       "canonicalPath": "/ca/encinitas/swamis/tides",
       "pageFamily": "beach-tides",
       "clicks": 1,
-      "impressions": 75,
-      "averagePosition": 9.48
+      "impressions": 95,
+      "averagePosition": 8.9895
     },
     {
       "canonicalPath": "/ca/encinitas/swamis/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 20,
-      "impressions": 1985,
-      "averagePosition": 6.5456
+      "clicks": 10,
+      "impressions": 1323,
+      "averagePosition": 6.0552
     },
     {
       "canonicalPath": "/ca/goleta/refugio-state-beach-goleta-ca/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 1,
-      "impressions": 45,
-      "averagePosition": 5.1333
+      "impressions": 56,
+      "averagePosition": 4.9107
     },
     {
       "canonicalPath": "/ca/hermosa-beach/hermosa-beach-pier-hermosa-beach-ca/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 0,
-      "impressions": 143,
-      "averagePosition": 8.958
+      "impressions": 112,
+      "averagePosition": 8.7857
     },
     {
       "canonicalPath": "/ca/huntington-beach/huntington-beach-pier/tides",
       "pageFamily": "beach-tides",
       "clicks": 1,
-      "impressions": 83,
-      "averagePosition": 8.8072
+      "impressions": 28,
+      "averagePosition": 8.3929
+    },
+    {
+      "canonicalPath": "/ca/huntington-beach/huntington-state-beach/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 67,
+      "averagePosition": 5.6418
+    },
+    {
+      "canonicalPath": "/ca/la-jolla",
+      "pageFamily": "city-location",
+      "clicks": 1,
+      "impressions": 232,
+      "averagePosition": 12.8233
     },
     {
       "canonicalPath": "/ca/la-jolla/horseshoe/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 1,
-      "averagePosition": 4
-    },
-    {
-      "canonicalPath": "/ca/la-jolla/la-jolla-shores/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 0,
-      "impressions": 163,
-      "averagePosition": 10.2454
-    },
-    {
-      "canonicalPath": "/ca/la-jolla/scripps/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 1,
-      "impressions": 10,
-      "averagePosition": 10.6
-    },
-    {
-      "canonicalPath": "/ca/laguna-beach/thalia-street/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 1,
-      "impressions": 46,
-      "averagePosition": 5.6087
-    },
-    {
-      "canonicalPath": "/ca/malibu/county-line-malibu-ca/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 24,
-      "averagePosition": 7.5833
-    },
-    {
-      "canonicalPath": "/ca/malibu/latigo-point-malibu-ca",
-      "pageFamily": "beach",
-      "clicks": 2,
-      "impressions": 321,
-      "averagePosition": 9.0872
-    },
-    {
-      "canonicalPath": "/ca/malibu/malibu-surfrider-first-point-malibu-ca",
-      "pageFamily": "beach",
-      "clicks": 0,
-      "impressions": 944,
-      "averagePosition": 11.1684
-    },
-    {
-      "canonicalPath": "/ca/newport-beach",
-      "pageFamily": "city-location",
-      "clicks": 0,
-      "impressions": 413,
-      "averagePosition": 8.6949
-    },
-    {
-      "canonicalPath": "/ca/newport-beach/corona-del-mar/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 108,
-      "averagePosition": 8.0093
-    },
-    {
-      "canonicalPath": "/ca/newport-beach/newport-lower-jetties/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 14,
-      "averagePosition": 6.3571
-    },
-    {
-      "canonicalPath": "/ca/newport-coast/crystal-cove/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 99,
-      "averagePosition": 6.7374
-    },
-    {
-      "canonicalPath": "/ca/oceanside/oceanside-harbor/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 175,
-      "averagePosition": 8.9771
-    },
-    {
-      "canonicalPath": "/ca/oceanside/oceanside-pier/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 0,
-      "impressions": 250,
-      "averagePosition": 8.928
-    },
-    {
-      "canonicalPath": "/ca/orange-county",
-      "pageFamily": "city-location",
-      "clicks": 2,
-      "impressions": 415,
-      "averagePosition": 11.3229
-    },
-    {
-      "canonicalPath": "/ca/pacific-grove/asilomar-state-beach-pacific-grove-ca/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 1,
-      "impressions": 160,
-      "averagePosition": 8.3375
-    },
-    {
-      "canonicalPath": "/ca/pacific-grove/lovers-point-pacific-grove-ca",
-      "pageFamily": "beach",
-      "clicks": 1,
-      "impressions": 25,
-      "averagePosition": 8.92
-    },
-    {
-      "canonicalPath": "/ca/pacific-grove/lovers-point-pacific-grove-ca/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 0,
-      "impressions": 105,
-      "averagePosition": 6.581
-    },
-    {
-      "canonicalPath": "/ca/pacifica/linda-mar-pacifica-ca/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 0,
-      "impressions": 143,
-      "averagePosition": 8.2657
-    },
-    {
-      "canonicalPath": "/ca/pacifica/linda-mar-pacifica-ca/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 585,
-      "averagePosition": 8.4188
-    },
-    {
-      "canonicalPath": "/ca/pacifica/rockaway-beach-pacifica-ca/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 4,
-      "impressions": 340,
-      "averagePosition": 10.3206
-    },
-    {
-      "canonicalPath": "/ca/pacifica/rockaway-beach-pacifica-ca/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 2,
-      "impressions": 32,
-      "averagePosition": 4.5313
-    },
-    {
-      "canonicalPath": "/ca/san-clemente/204s/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 1,
-      "impressions": 9,
-      "averagePosition": 7.3333
-    },
-    {
-      "canonicalPath": "/ca/san-clemente/church/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 4,
-      "averagePosition": 4.25
-    },
-    {
-      "canonicalPath": "/ca/san-clemente/old-mans-sano",
-      "pageFamily": "beach",
-      "clicks": 1,
-      "impressions": 109,
-      "averagePosition": 10.1651
-    },
-    {
-      "canonicalPath": "/ca/san-clemente/poche-beach/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 13,
-      "averagePosition": 3.3846
-    },
-    {
-      "canonicalPath": "/ca/san-clemente/riviera",
-      "pageFamily": "beach",
-      "clicks": 1,
-      "impressions": 27,
-      "averagePosition": 6.9259
-    },
-    {
-      "canonicalPath": "/ca/san-clemente/san-clemente-state-beach/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 0,
-      "impressions": 111,
-      "averagePosition": 10.2162
-    },
-    {
-      "canonicalPath": "/ca/san-clemente/san-onofre-state-beach/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 1,
-      "impressions": 21,
-      "averagePosition": 8.9048
-    },
-    {
-      "canonicalPath": "/ca/san-clemente/san-onofre-state-beach/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 80,
-      "averagePosition": 6.3375
-    },
-    {
-      "canonicalPath": "/ca/san-clemente/t-street/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 47,
-      "averagePosition": 8.3191
-    },
-    {
-      "canonicalPath": "/ca/san-diego",
-      "pageFamily": "city-location",
-      "clicks": 4,
-      "impressions": 1600,
-      "averagePosition": 10.1969
-    },
-    {
-      "canonicalPath": "/ca/san-diego/blacks/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 105,
-      "averagePosition": 7.219
-    },
-    {
-      "canonicalPath": "/ca/san-diego/crystal-pier/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 0,
-      "impressions": 171,
-      "averagePosition": 6.8655
-    },
-    {
-      "canonicalPath": "/ca/san-diego/marine-street-beach/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 5,
-      "impressions": 64,
-      "averagePosition": 5.6406
-    },
-    {
-      "canonicalPath": "/ca/san-diego/mission-beach/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 361,
-      "averagePosition": 8.4515
-    },
-    {
-      "canonicalPath": "/ca/san-diego/ocean-beach/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 165,
-      "averagePosition": 9.5333
-    },
-    {
-      "canonicalPath": "/ca/san-diego/pacific-beach/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 214,
-      "averagePosition": 9.6776
-    },
-    {
-      "canonicalPath": "/ca/san-diego/sunset-cliffs-garbage/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 2,
-      "impressions": 790,
-      "averagePosition": 8.4
-    },
-    {
-      "canonicalPath": "/ca/san-diego/sunset-cliffs-luscombs-san-diego-ca/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 4,
-      "impressions": 30,
-      "averagePosition": 5.8667
-    },
-    {
-      "canonicalPath": "/ca/san-diego/torrey-pines-state-beach/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 190,
-      "averagePosition": 8.9895
-    },
-    {
-      "canonicalPath": "/ca/san-diego/tourmaline-surf-park/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 2,
-      "impressions": 79,
-      "averagePosition": 6.038
-    },
-    {
-      "canonicalPath": "/ca/san-francisco/ocean-beach-middle-san-francisco-ca/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 0,
-      "impressions": 154,
-      "averagePosition": 8.7013
-    },
-    {
-      "canonicalPath": "/ca/san-onofre/church/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 3,
-      "impressions": 8,
-      "averagePosition": 5.875
-    },
-    {
-      "canonicalPath": "/ca/san-onofre/san-onofre-state-beach/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 101,
-      "averagePosition": 8.2376
-    },
-    {
-      "canonicalPath": "/ca/santa-cruz/38th-avenue-santa-cruz-ca/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 4,
-      "impressions": 14,
-      "averagePosition": 4.0714
-    },
-    {
-      "canonicalPath": "/ca/santa-cruz/pleasure-point-santa-cruz-ca/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 0,
-      "impressions": 160,
-      "averagePosition": 9.675
-    },
-    {
-      "canonicalPath": "/ca/santa-cruz/pleasure-point-santa-cruz-ca/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 9,
-      "averagePosition": 7.4444
-    },
-    {
-      "canonicalPath": "/ca/santa-monica/will-rogers-state-beach-santa-monica-ca",
-      "pageFamily": "beach",
-      "clicks": 1,
-      "impressions": 180,
-      "averagePosition": 7.4333
-    },
-    {
-      "canonicalPath": "/ca/santa-monica/will-rogers-state-beach-santa-monica-ca/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 1,
-      "impressions": 146,
-      "averagePosition": 7.4247
-    },
-    {
-      "canonicalPath": "/ca/santa-monica/will-rogers-state-beach-santa-monica-ca/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 122,
-      "averagePosition": 6.459
-    },
-    {
-      "canonicalPath": "/ca/stinson-beach/stinson-beach-stinson-beach-ca/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 0,
-      "impressions": 202,
-      "averagePosition": 6.797
-    },
-    {
-      "canonicalPath": "/ca/venice/venice-beach-venice-ca/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 0,
-      "impressions": 264,
-      "averagePosition": 8.9129
-    },
-    {
-      "canonicalPath": "/ca/ventura/mondos-beach-ventura-ca/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 1,
-      "impressions": 84,
-      "averagePosition": 7.119
-    },
-    {
-      "canonicalPath": "/ca/ventura/mondos-beach-ventura-ca/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 7,
-      "impressions": 46,
-      "averagePosition": 3.9783
-    },
-    {
-      "canonicalPath": "/ca/ventura/solimar-reef-ventura-ca/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 1,
-      "impressions": 47,
-      "averagePosition": 8.2766
-    },
-    {
-      "canonicalPath": "/ca/ventura/solimar-reef-ventura-ca/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 4,
-      "impressions": 18,
-      "averagePosition": 3.3889
-    },
-    {
-      "canonicalPath": "/dawn-patrol/carolina-beach",
-      "pageFamily": "city-intent",
-      "clicks": 2,
-      "impressions": 54,
-      "averagePosition": 7.0556
-    },
-    {
-      "canonicalPath": "/dawn-patrol/newport-beach",
-      "pageFamily": "city-intent",
-      "clicks": 1,
-      "impressions": 15,
-      "averagePosition": 8.6
-    },
-    {
-      "canonicalPath": "/dawn-patrol/oceanside",
-      "pageFamily": "city-intent",
-      "clicks": 1,
-      "impressions": 23,
-      "averagePosition": 8.9565
-    },
-    {
-      "canonicalPath": "/dawn-patrol/san-francisco",
-      "pageFamily": "city-intent",
-      "clicks": 0,
-      "impressions": 474,
-      "averagePosition": 13.0422
-    },
-    {
-      "canonicalPath": "/dawn-patrol/torrance",
-      "pageFamily": "city-intent",
-      "clicks": 0,
-      "impressions": 103,
-      "averagePosition": 12.534
-    },
-    {
-      "canonicalPath": "/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 97,
-      "averagePosition": 10.5876
-    },
-    {
-      "canonicalPath": "/fl/jacksonville-beach/jacksonville-beach-pier-jacksonville-beach-fl/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 174,
-      "averagePosition": 7.2069
-    },
-    {
-      "canonicalPath": "/fl/navarre/navarre-beach-pier-navarre-fl/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 0,
-      "impressions": 104,
-      "averagePosition": 8.7212
-    },
-    {
-      "canonicalPath": "/fl/new-smyrna-beach/new-smyrna-beach-nsb-inlet-new-smyrna-beach-fl/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 99,
-      "averagePosition": 9.9697
-    },
-    {
-      "canonicalPath": "/fl/pensacola-beach",
-      "pageFamily": "city-location",
-      "clicks": 1,
-      "impressions": 103,
-      "averagePosition": 22.3107
-    },
-    {
-      "canonicalPath": "/hi/honolulu/kewalo-basin/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 1,
       "impressions": 2,
       "averagePosition": 4.5
     },
     {
-      "canonicalPath": "/hi/koloa-hi/poipu-beach-kauai/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 1,
-      "impressions": 104,
-      "averagePosition": 9.5769
-    },
-    {
-      "canonicalPath": "/hi/koloa/poipu-beach-kauai/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 3,
-      "impressions": 133,
-      "averagePosition": 9.5639
-    },
-    {
-      "canonicalPath": "/hi/koloa/poipu-beach-kauai/water-temp",
+      "canonicalPath": "/ca/la-jolla/la-jolla-shores/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 0,
-      "impressions": 113,
-      "averagePosition": 7.3982
+      "impressions": 177,
+      "averagePosition": 10.3616
     },
     {
-      "canonicalPath": "/hi/lahaina/lahaina-harbor-breakwall",
-      "pageFamily": "beach",
-      "clicks": 1,
-      "impressions": 78,
-      "averagePosition": 13.7949
-    },
-    {
-      "canonicalPath": "/hi/waimea/hapuna-beach-kohala/water-temp",
+      "canonicalPath": "/ca/la-jolla/windansea/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 1,
-      "impressions": 32,
-      "averagePosition": 5.5625
-    },
-    {
-      "canonicalPath": "/least-crowded/westport",
-      "pageFamily": "city-intent",
-      "clicks": 3,
-      "impressions": 117,
-      "averagePosition": 8.7436
-    },
-    {
-      "canonicalPath": "/longboard/carlsbad",
-      "pageFamily": "city-intent",
-      "clicks": 3,
-      "impressions": 117,
-      "averagePosition": 8.4872
-    },
-    {
-      "canonicalPath": "/longboard/dana-point",
-      "pageFamily": "city-intent",
-      "clicks": 1,
-      "impressions": 188,
-      "averagePosition": 7.6277
-    },
-    {
-      "canonicalPath": "/longboard/encinitas",
-      "pageFamily": "city-intent",
-      "clicks": 2,
       "impressions": 116,
-      "averagePosition": 8.0603
+      "averagePosition": 6.2845
     },
     {
-      "canonicalPath": "/longboard/san-clemente",
-      "pageFamily": "city-intent",
-      "clicks": 3,
-      "impressions": 18,
-      "averagePosition": 6.4444
-    },
-    {
-      "canonicalPath": "/longboard/san-diego",
-      "pageFamily": "city-intent",
-      "clicks": 3,
-      "impressions": 326,
-      "averagePosition": 10.0276
-    },
-    {
-      "canonicalPath": "/longboard/solana-beach",
-      "pageFamily": "city-intent",
-      "clicks": 2,
-      "impressions": 5,
-      "averagePosition": 4
-    },
-    {
-      "canonicalPath": "/me/ogunquit/ogunquit-beach-ogunquit-me/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 8,
-      "impressions": 695,
-      "averagePosition": 7.4374
-    },
-    {
-      "canonicalPath": "/me/scarborough/higgins-beach-scarborough-me/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 38,
-      "averagePosition": 7.9474
-    },
-    {
-      "canonicalPath": "/nc/carolina-beach/carolina-beach-carolina-beach-nc/tides",
+      "canonicalPath": "/ca/laguna-beach/thalia-street/tides",
       "pageFamily": "beach-tides",
       "clicks": 1,
-      "impressions": 20,
-      "averagePosition": 10.55
+      "impressions": 77,
+      "averagePosition": 5.7532
     },
     {
-      "canonicalPath": "/nc/carolina-beach/carolina-beach-carolina-beach-nc/water-temp",
+      "canonicalPath": "/ca/malibu/latigo-point-malibu-ca",
+      "pageFamily": "beach",
+      "clicks": 5,
+      "impressions": 527,
+      "averagePosition": 8.7457
+    },
+    {
+      "canonicalPath": "/ca/malibu/malibu-first-point-surfrider/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 1,
-      "impressions": 179,
-      "averagePosition": 8.2682
+      "impressions": 28,
+      "averagePosition": 8.5357
     },
     {
-      "canonicalPath": "/nc/corolla/corolla-corolla-nc",
+      "canonicalPath": "/ca/malibu/malibu-surfrider-first-point-malibu-ca",
       "pageFamily": "beach",
       "clicks": 1,
-      "impressions": 128,
-      "averagePosition": 9.1719
+      "impressions": 1027,
+      "averagePosition": 10.2756
     },
     {
-      "canonicalPath": "/nc/corolla/corolla-corolla-nc/water-temp",
+      "canonicalPath": "/ca/malibu/malibu-surfrider-first-point-malibu-ca/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 55,
-      "impressions": 2628,
-      "averagePosition": 5.7827
+      "clicks": 1,
+      "impressions": 71,
+      "averagePosition": 5.831
     },
     {
-      "canonicalPath": "/nc/kill-devil-hills/kill-devil-hills-kill-devil-hills-nc/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 49,
-      "impressions": 1204,
-      "averagePosition": 5.8654
-    },
-    {
-      "canonicalPath": "/nc/kure-beach/kure-beach-kure-beach-nc/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 2,
-      "impressions": 207,
-      "averagePosition": 8.8068
-    },
-    {
-      "canonicalPath": "/nc/nags-head/nags-head-nags-head-nc/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 2,
-      "impressions": 121,
-      "averagePosition": 10.2479
-    },
-    {
-      "canonicalPath": "/nc/surf-city/surf-city-surf-city-nc/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 2,
-      "impressions": 241,
-      "averagePosition": 6.5021
-    },
-    {
-      "canonicalPath": "/nc/wrightsville-beach/wrightsville-beach-wrightsville-beach-nc/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 0,
-      "impressions": 124,
-      "averagePosition": 9.5968
-    },
-    {
-      "canonicalPath": "/nj/asbury-park/asbury-park-asbury-park-nj/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 7,
-      "impressions": 1247,
-      "averagePosition": 7.9487
-    },
-    {
-      "canonicalPath": "/nj/bay-head/bay-head-beach-bay-head-nj/tides",
+      "canonicalPath": "/ca/malibu/malibu-third-point-malibu-ca/tides",
       "pageFamily": "beach-tides",
       "clicks": 1,
       "impressions": 8,
       "averagePosition": 9.625
     },
     {
-      "canonicalPath": "/nj/bay-head/bay-head-beach-bay-head-nj/water-temp",
+      "canonicalPath": "/ca/newport-beach",
+      "pageFamily": "city-location",
+      "clicks": 2,
+      "impressions": 400,
+      "averagePosition": 8.59
+    },
+    {
+      "canonicalPath": "/ca/newport-beach/corona-del-mar/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 177,
+      "averagePosition": 8.1638
+    },
+    {
+      "canonicalPath": "/ca/newport-beach/newport-56th-st",
+      "pageFamily": "beach",
+      "clicks": 2,
+      "impressions": 177,
+      "averagePosition": 16.1469
+    },
+    {
+      "canonicalPath": "/ca/newport-coast/crystal-cove/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 122,
+      "averagePosition": 5.6967
+    },
+    {
+      "canonicalPath": "/ca/oceanside/oceanside-harbor/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 139,
+      "averagePosition": 8.6259
+    },
+    {
+      "canonicalPath": "/ca/oceanside/oceanside-pier/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 2,
+      "impressions": 323,
+      "averagePosition": 8.5418
+    },
+    {
+      "canonicalPath": "/ca/orange-county",
+      "pageFamily": "city-location",
+      "clicks": 5,
+      "impressions": 650,
+      "averagePosition": 10.3015
+    },
+    {
+      "canonicalPath": "/ca/pacific-grove/asilomar-state-beach-pacific-grove-ca/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 2,
+      "impressions": 223,
+      "averagePosition": 8.3901
+    },
+    {
+      "canonicalPath": "/ca/pacifica/linda-mar-pacifica-ca/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 0,
+      "impressions": 273,
+      "averagePosition": 8.4505
+    },
+    {
+      "canonicalPath": "/ca/pacifica/linda-mar-pacifica-ca/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 353,
+      "averagePosition": 7.9292
+    },
+    {
+      "canonicalPath": "/ca/pacifica/rockaway-beach-pacifica-ca/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 1,
+      "impressions": 238,
+      "averagePosition": 9.8277
+    },
+    {
+      "canonicalPath": "/ca/pacifica/rockaway-beach-pacifica-ca/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 104,
+      "averagePosition": 6.4327
+    },
+    {
+      "canonicalPath": "/ca/san-clemente/church/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 7,
+      "averagePosition": 3.1429
+    },
+    {
+      "canonicalPath": "/ca/san-clemente/old-mans-sano",
+      "pageFamily": "beach",
+      "clicks": 3,
+      "impressions": 107,
+      "averagePosition": 9.0187
+    },
+    {
+      "canonicalPath": "/ca/san-clemente/poche-beach/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 12,
+      "averagePosition": 3.25
+    },
+    {
+      "canonicalPath": "/ca/san-clemente/riviera",
+      "pageFamily": "beach",
+      "clicks": 1,
+      "impressions": 46,
+      "averagePosition": 6.913
+    },
+    {
+      "canonicalPath": "/ca/san-clemente/san-clemente-state-beach/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 141,
+      "averagePosition": 9.156
+    },
+    {
+      "canonicalPath": "/ca/san-clemente/san-onofre-state-beach/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 1,
+      "impressions": 22,
+      "averagePosition": 8.3636
+    },
+    {
+      "canonicalPath": "/ca/san-clemente/san-onofre-state-beach/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 2,
+      "impressions": 130,
+      "averagePosition": 7.3154
+    },
+    {
+      "canonicalPath": "/ca/san-diego",
+      "pageFamily": "city-location",
+      "clicks": 9,
+      "impressions": 1181,
+      "averagePosition": 9.989
+    },
+    {
+      "canonicalPath": "/ca/san-diego/blacks",
+      "pageFamily": "beach",
+      "clicks": 0,
+      "impressions": 147,
+      "averagePosition": 16.7687
+    },
+    {
+      "canonicalPath": "/ca/san-diego/blacks/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 118,
+      "averagePosition": 6.9322
+    },
+    {
+      "canonicalPath": "/ca/san-diego/marine-street-beach/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 3,
-      "impressions": 430,
-      "averagePosition": 6.7953
+      "impressions": 68,
+      "averagePosition": 5.4559
+    },
+    {
+      "canonicalPath": "/ca/san-diego/mission-beach/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 3,
+      "impressions": 634,
+      "averagePosition": 8.0221
+    },
+    {
+      "canonicalPath": "/ca/san-diego/ocean-beach/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 181,
+      "averagePosition": 9.6243
+    },
+    {
+      "canonicalPath": "/ca/san-diego/pacific-beach/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 253,
+      "averagePosition": 10.0237
+    },
+    {
+      "canonicalPath": "/ca/san-diego/sunset-cliffs-garbage/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 1,
+      "impressions": 603,
+      "averagePosition": 8.0846
+    },
+    {
+      "canonicalPath": "/ca/san-diego/sunset-cliffs-luscombs-san-diego-ca/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 3,
+      "impressions": 27,
+      "averagePosition": 6.4074
+    },
+    {
+      "canonicalPath": "/ca/san-diego/torrey-pines-state-beach/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 243,
+      "averagePosition": 8.037
+    },
+    {
+      "canonicalPath": "/ca/san-diego/tourmaline-surf-park/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 78,
+      "averagePosition": 5.9487
+    },
+    {
+      "canonicalPath": "/ca/san-francisco/ocean-beach-middle-san-francisco-ca/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 120,
+      "averagePosition": 8.7417
+    },
+    {
+      "canonicalPath": "/ca/san-onofre/church/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 3,
+      "impressions": 9,
+      "averagePosition": 5.4444
+    },
+    {
+      "canonicalPath": "/ca/san-onofre/san-onofre-state-beach/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 133,
+      "averagePosition": 6.4737
+    },
+    {
+      "canonicalPath": "/ca/santa-cruz/38th-avenue-santa-cruz-ca/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 3,
+      "impressions": 15,
+      "averagePosition": 4.2667
+    },
+    {
+      "canonicalPath": "/ca/santa-cruz/pleasure-point-santa-cruz-ca/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 24,
+      "averagePosition": 6.6667
+    },
+    {
+      "canonicalPath": "/ca/santa-monica/santa-monica-beach-santa-monica-ca/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 136,
+      "averagePosition": 10.7059
+    },
+    {
+      "canonicalPath": "/ca/santa-monica/will-rogers-state-beach-santa-monica-ca",
+      "pageFamily": "beach",
+      "clicks": 1,
+      "impressions": 169,
+      "averagePosition": 7.6095
+    },
+    {
+      "canonicalPath": "/ca/santa-monica/will-rogers-state-beach-santa-monica-ca/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 0,
+      "impressions": 127,
+      "averagePosition": 6.9055
+    },
+    {
+      "canonicalPath": "/ca/santa-monica/will-rogers-state-beach-santa-monica-ca/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 152,
+      "averagePosition": 6.6053
+    },
+    {
+      "canonicalPath": "/ca/stinson-beach/stinson-beach-stinson-beach-ca/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 2,
+      "impressions": 211,
+      "averagePosition": 6.4408
+    },
+    {
+      "canonicalPath": "/ca/venice/venice-beach-venice-ca/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 366,
+      "averagePosition": 8.9891
+    },
+    {
+      "canonicalPath": "/ca/ventura/mondos-beach-ventura-ca/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 0,
+      "impressions": 106,
+      "averagePosition": 7.1321
+    },
+    {
+      "canonicalPath": "/ca/ventura/mondos-beach-ventura-ca/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 7,
+      "impressions": 145,
+      "averagePosition": 7.1586
+    },
+    {
+      "canonicalPath": "/ca/ventura/solimar-reef-ventura-ca/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 2,
+      "impressions": 23,
+      "averagePosition": 3.1304
+    },
+    {
+      "canonicalPath": "/dawn-patrol/carolina-beach",
+      "pageFamily": "city-intent",
+      "clicks": 2,
+      "impressions": 54,
+      "averagePosition": 7.6667
+    },
+    {
+      "canonicalPath": "/dawn-patrol/newport-beach",
+      "pageFamily": "city-intent",
+      "clicks": 2,
+      "impressions": 26,
+      "averagePosition": 8.5385
+    },
+    {
+      "canonicalPath": "/dawn-patrol/pawleys-island",
+      "pageFamily": "city-intent",
+      "clicks": 1,
+      "impressions": 32,
+      "averagePosition": 10.4688
+    },
+    {
+      "canonicalPath": "/dawn-patrol/san-francisco",
+      "pageFamily": "city-intent",
+      "clicks": 0,
+      "impressions": 611,
+      "averagePosition": 11.2128
+    },
+    {
+      "canonicalPath": "/dawn-patrol/venice",
+      "pageFamily": "city-intent",
+      "clicks": 1,
+      "impressions": 56,
+      "averagePosition": 8.1071
+    },
+    {
+      "canonicalPath": "/fl/boynton-beach/boynton-inlet-boynton-beach-fl/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 1,
+      "impressions": 1,
+      "averagePosition": 20
+    },
+    {
+      "canonicalPath": "/fl/cocoa-beach/cocoa-beach-pier-cocoa-beach-fl/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 155,
+      "averagePosition": 9.6258
+    },
+    {
+      "canonicalPath": "/fl/jacksonville-beach/jacksonville-beach-pier-jacksonville-beach-fl/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 2,
+      "impressions": 293,
+      "averagePosition": 7.0512
+    },
+    {
+      "canonicalPath": "/fl/navarre/navarre-beach-pier-navarre-fl/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 167,
+      "averagePosition": 7.0419
+    },
+    {
+      "canonicalPath": "/fl/new-smyrna-beach/new-smyrna-beach-nsb-inlet-new-smyrna-beach-fl/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 143,
+      "averagePosition": 10.0909
+    },
+    {
+      "canonicalPath": "/hi/honolulu/kewalo-basin",
+      "pageFamily": "beach",
+      "clicks": 2,
+      "impressions": 226,
+      "averagePosition": 7.2434
+    },
+    {
+      "canonicalPath": "/hi/honolulu/kewalo-basin/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 3,
+      "averagePosition": 5.3333
+    },
+    {
+      "canonicalPath": "/hi/koloa-hi/poipu-beach-kauai/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 1,
+      "impressions": 118,
+      "averagePosition": 9.5254
+    },
+    {
+      "canonicalPath": "/hi/koloa/poipu-beach-kauai/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 2,
+      "impressions": 143,
+      "averagePosition": 9.7832
+    },
+    {
+      "canonicalPath": "/hi/koloa/poipu-beach-kauai/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 101,
+      "averagePosition": 7.2673
+    },
+    {
+      "canonicalPath": "/hi/lahaina/lahaina-harbor-breakwall",
+      "pageFamily": "beach",
+      "clicks": 2,
+      "impressions": 161,
+      "averagePosition": 11.9503
+    },
+    {
+      "canonicalPath": "/hi/waianae/makaha",
+      "pageFamily": "beach",
+      "clicks": 0,
+      "impressions": 114,
+      "averagePosition": 11.9211
+    },
+    {
+      "canonicalPath": "/hi/waikoloa/waikoloa-village-lagoon/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 45,
+      "averagePosition": 4.6
+    },
+    {
+      "canonicalPath": "/least-crowded/westport",
+      "pageFamily": "city-intent",
+      "clicks": 1,
+      "impressions": 170,
+      "averagePosition": 9.7059
+    },
+    {
+      "canonicalPath": "/longboard/carlsbad",
+      "pageFamily": "city-intent",
+      "clicks": 1,
+      "impressions": 74,
+      "averagePosition": 8.1216
+    },
+    {
+      "canonicalPath": "/longboard/dana-point",
+      "pageFamily": "city-intent",
+      "clicks": 1,
+      "impressions": 89,
+      "averagePosition": 7.8315
+    },
+    {
+      "canonicalPath": "/longboard/encinitas",
+      "pageFamily": "city-intent",
+      "clicks": 2,
+      "impressions": 124,
+      "averagePosition": 7.7823
+    },
+    {
+      "canonicalPath": "/longboard/ocean-city",
+      "pageFamily": "city-intent",
+      "clicks": 2,
+      "impressions": 154,
+      "averagePosition": 8.1883
+    },
+    {
+      "canonicalPath": "/longboard/san-clemente",
+      "pageFamily": "city-intent",
+      "clicks": 6,
+      "impressions": 71,
+      "averagePosition": 6.3944
+    },
+    {
+      "canonicalPath": "/longboard/san-diego",
+      "pageFamily": "city-intent",
+      "clicks": 4,
+      "impressions": 370,
+      "averagePosition": 8.9622
+    },
+    {
+      "canonicalPath": "/longboard/ventura",
+      "pageFamily": "city-intent",
+      "clicks": 3,
+      "impressions": 88,
+      "averagePosition": 5.5682
+    },
+    {
+      "canonicalPath": "/ma/orleans/nauset-beach-orleans-ma/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 1,
+      "impressions": 21,
+      "averagePosition": 10.1429
+    },
+    {
+      "canonicalPath": "/me/ogunquit/ogunquit-beach-ogunquit-me/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 17,
+      "impressions": 1334,
+      "averagePosition": 6.0457
+    },
+    {
+      "canonicalPath": "/me/scarborough/higgins-beach-scarborough-me/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 3,
+      "impressions": 172,
+      "averagePosition": 5.2616
+    },
+    {
+      "canonicalPath": "/mexico/baja-california/puerto-nuevo/k-40-puerto-nuevo/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 1,
+      "impressions": 42,
+      "averagePosition": 8
+    },
+    {
+      "canonicalPath": "/mexico/baja-california/rosarito/las-gaviotas/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 2,
+      "impressions": 28,
+      "averagePosition": 5.1786
+    },
+    {
+      "canonicalPath": "/nc/carolina-beach/carolina-beach-carolina-beach-nc/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 1,
+      "impressions": 25,
+      "averagePosition": 9.84
+    },
+    {
+      "canonicalPath": "/nc/carolina-beach/carolina-beach-carolina-beach-nc/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 175,
+      "averagePosition": 6.9943
+    },
+    {
+      "canonicalPath": "/nc/corolla/corolla-corolla-nc",
+      "pageFamily": "beach",
+      "clicks": 1,
+      "impressions": 201,
+      "averagePosition": 9.4129
+    },
+    {
+      "canonicalPath": "/nc/corolla/corolla-corolla-nc/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 44,
+      "impressions": 2320,
+      "averagePosition": 5.6306
+    },
+    {
+      "canonicalPath": "/nc/kill-devil-hills/kill-devil-hills-kill-devil-hills-nc/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 60,
+      "impressions": 1650,
+      "averagePosition": 5.0164
+    },
+    {
+      "canonicalPath": "/nc/kure-beach/kure-beach-kure-beach-nc/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 3,
+      "impressions": 452,
+      "averagePosition": 9.2124
+    },
+    {
+      "canonicalPath": "/nc/nags-head/nags-head-nags-head-nc/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 164,
+      "averagePosition": 10.128
+    },
+    {
+      "canonicalPath": "/nc/surf-city/surf-city-surf-city-nc/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 313,
+      "averagePosition": 5.1502
+    },
+    {
+      "canonicalPath": "/nc/wrightsville-beach/wrightsville-beach-wrightsville-beach-nc/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 179,
+      "averagePosition": 8.9832
+    },
+    {
+      "canonicalPath": "/nj/asbury-park/asbury-park-asbury-park-nj/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 3,
+      "impressions": 560,
+      "averagePosition": 8.0536
+    },
+    {
+      "canonicalPath": "/nj/bay-head/bay-head-beach-bay-head-nj/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 266,
+      "averagePosition": 6.1917
     },
     {
       "canonicalPath": "/nj/belmar",
       "pageFamily": "city-location",
       "clicks": 1,
-      "impressions": 202,
-      "averagePosition": 9.1436
+      "impressions": 226,
+      "averagePosition": 8.6814
     },
     {
       "canonicalPath": "/nj/belmar/belmar-belmar-nj/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 1116,
-      "averagePosition": 9.7903
+      "clicks": 2,
+      "impressions": 797,
+      "averagePosition": 9.7591
     },
     {
       "canonicalPath": "/nj/bradley-beach/3rd-avenue-beach-bradley-beach-nj",
       "pageFamily": "beach",
       "clicks": 1,
-      "impressions": 3,
-      "averagePosition": 8
+      "impressions": 2,
+      "averagePosition": 9.5
     },
     {
       "canonicalPath": "/nj/cape-may/poverty-beach-cape-may-nj/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 4,
-      "impressions": 21,
-      "averagePosition": 4.3333
+      "impressions": 17,
+      "averagePosition": 3.9412
     },
     {
       "canonicalPath": "/nj/cape-may/the-cove-cape-may-nj/tides",
       "pageFamily": "beach-tides",
       "clicks": 1,
-      "impressions": 75,
-      "averagePosition": 9.72
+      "impressions": 67,
+      "averagePosition": 10.194
     },
     {
       "canonicalPath": "/nj/cape-may/the-cove-cape-may-nj/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 3,
-      "impressions": 103,
-      "averagePosition": 7.466
+      "impressions": 81,
+      "averagePosition": 6.7407
     },
     {
       "canonicalPath": "/nj/long-branch/long-branch-long-branch-nj/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 2,
-      "impressions": 701,
-      "averagePosition": 7.9914
+      "clicks": 7,
+      "impressions": 753,
+      "averagePosition": 7.089
     },
     {
       "canonicalPath": "/nj/long-branch/seven-presidents-long-branch-nj",
       "pageFamily": "beach",
-      "clicks": 0,
-      "impressions": 109,
-      "averagePosition": 8.7064
+      "clicks": 2,
+      "impressions": 198,
+      "averagePosition": 6.7374
     },
     {
       "canonicalPath": "/nj/long-branch/seven-presidents-long-branch-nj/tides",
       "pageFamily": "beach-tides",
       "clicks": 0,
-      "impressions": 271,
-      "averagePosition": 6.0037
+      "impressions": 357,
+      "averagePosition": 5.5098
     },
     {
       "canonicalPath": "/nj/long-branch/seven-presidents-long-branch-nj/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 270,
-      "averagePosition": 5.2926
+      "clicks": 2,
+      "impressions": 229,
+      "averagePosition": 4.9563
     },
     {
       "canonicalPath": "/nj/manasquan/manasquan-inlet-manasquan-nj/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 3,
-      "impressions": 449,
-      "averagePosition": 10.4388
+      "clicks": 2,
+      "impressions": 270,
+      "averagePosition": 10.3222
     },
     {
       "canonicalPath": "/nj/ocean-city/1st-street-jetty-ocean-city-nj/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 2,
-      "impressions": 10,
-      "averagePosition": 6.7
+      "impressions": 9,
+      "averagePosition": 6.6667
     },
     {
       "canonicalPath": "/nj/ocean-city/7th-street-beach-ocean-city-nj/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 17,
-      "impressions": 1880,
-      "averagePosition": 7.766
+      "clicks": 22,
+      "impressions": 5878,
+      "averagePosition": 8.592
     },
     {
       "canonicalPath": "/nj/sandy-hook/sandy-hook-sandy-hook-nj/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 680,
-      "averagePosition": 9.7559
-    },
-    {
-      "canonicalPath": "/nj/sea-isle-city/12th-street-jetty-sea-isle-city-nj/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 41,
-      "averagePosition": 8
+      "clicks": 0,
+      "impressions": 368,
+      "averagePosition": 9.7799
     },
     {
       "canonicalPath": "/nj/sea-isle-city/36th-42nd-street-sea-isle-city-nj/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 3,
-      "impressions": 641,
-      "averagePosition": 8.3682
+      "clicks": 2,
+      "impressions": 343,
+      "averagePosition": 8.6268
     },
     {
       "canonicalPath": "/nj/seaside-park/seaside-park-seaside-park-nj/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 7,
-      "impressions": 1178,
-      "averagePosition": 7.5407
+      "impressions": 1007,
+      "averagePosition": 6.3406
     },
     {
       "canonicalPath": "/nj/spring-lake/kook-bay-spring-lake-nj/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 0,
-      "impressions": 317,
-      "averagePosition": 9.4259
+      "impressions": 329,
+      "averagePosition": 8.5714
     },
     {
       "canonicalPath": "/nj/toms-river/ortley-beach-toms-river-nj/tides",
       "pageFamily": "beach-tides",
       "clicks": 1,
-      "impressions": 157,
-      "averagePosition": 8.3949
+      "impressions": 142,
+      "averagePosition": 8.1408
     },
     {
       "canonicalPath": "/nj/toms-river/ortley-beach-toms-river-nj/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 17,
-      "impressions": 453,
-      "averagePosition": 6.5011
+      "clicks": 20,
+      "impressions": 577,
+      "averagePosition": 6.4853
     },
     {
       "canonicalPath": "/ny/babylon/robert-moses-state-park-babylon-ny/tides",
       "pageFamily": "beach-tides",
-      "clicks": 1,
-      "impressions": 641,
-      "averagePosition": 8.0359
+      "clicks": 0,
+      "impressions": 743,
+      "averagePosition": 8.362
     },
     {
       "canonicalPath": "/ny/babylon/robert-moses-state-park-babylon-ny/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 6,
-      "impressions": 889,
-      "averagePosition": 6.1856
+      "clicks": 9,
+      "impressions": 548,
+      "averagePosition": 5.135
     },
     {
       "canonicalPath": "/ny/queens",
       "pageFamily": "city-location",
-      "clicks": 2,
-      "impressions": 118,
-      "averagePosition": 10.5847
+      "clicks": 4,
+      "impressions": 137,
+      "averagePosition": 9.292
     },
     {
       "canonicalPath": "/ny/queens/rockaway-beach-98th-st-queens-ny/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 3,
-      "impressions": 676,
-      "averagePosition": 9.0858
+      "clicks": 0,
+      "impressions": 198,
+      "averagePosition": 9.5455
     },
     {
       "canonicalPath": "/ny/shirley/smith-point-county-park-shirley-ny",
       "pageFamily": "beach",
-      "clicks": 4,
-      "impressions": 142,
-      "averagePosition": 7.9014
+      "clicks": 9,
+      "impressions": 486,
+      "averagePosition": 5.9918
     },
     {
       "canonicalPath": "/ny/shirley/smith-point-county-park-shirley-ny/water-temp",
       "pageFamily": "beach-water-temp",
-      "clicks": 10,
-      "impressions": 348,
-      "averagePosition": 3.8822
+      "clicks": 9,
+      "impressions": 269,
+      "averagePosition": 4.0149
     },
     {
       "canonicalPath": "/or/arch-cape",
       "pageFamily": "city-location",
+      "clicks": 3,
+      "impressions": 27,
+      "averagePosition": 4.5185
+    },
+    {
+      "canonicalPath": "/or/arch-cape/short-sands-oswald-west/tides",
+      "pageFamily": "beach-tides",
       "clicks": 2,
-      "impressions": 18,
-      "averagePosition": 6.4444
+      "impressions": 29,
+      "averagePosition": 7.6207
+    },
+    {
+      "canonicalPath": "/or/arch-cape/short-sands-oswald-west/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 42,
+      "averagePosition": 6.4524
     },
     {
       "canonicalPath": "/or/bandon/bandon/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 2,
-      "impressions": 31,
-      "averagePosition": 6.7419
+      "impressions": 42,
+      "averagePosition": 7.0238
     },
     {
-      "canonicalPath": "/or/brookings/brookings-harris-beach/tides",
-      "pageFamily": "beach-tides",
+      "canonicalPath": "/or/brookings",
+      "pageFamily": "city-location",
+      "clicks": 3,
+      "impressions": 36,
+      "averagePosition": 7.1667
+    },
+    {
+      "canonicalPath": "/or/gold-beach",
+      "pageFamily": "city-location",
       "clicks": 1,
-      "impressions": 41,
-      "averagePosition": 8.439
+      "impressions": 103,
+      "averagePosition": 8.1553
     },
     {
-      "canonicalPath": "/or/charleston/sunset-bay-charleston-or/water-temp",
+      "canonicalPath": "/or/otter-rock/otter-rock-otter-rock-or/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 1,
-      "impressions": 8,
-      "averagePosition": 3.375
-    },
-    {
-      "canonicalPath": "/or/manzanita/short-sands-manzanita-or/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 1,
-      "impressions": 11,
-      "averagePosition": 7.1818
-    },
-    {
-      "canonicalPath": "/or/pacific-city/pacific-city-cape-kiwanda/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 1,
-      "impressions": 131,
-      "averagePosition": 9.1221
+      "impressions": 18,
+      "averagePosition": 5.2222
     },
     {
       "canonicalPath": "/or/pacific-city/pacific-city-cape-kiwanda/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 0,
-      "impressions": 123,
-      "averagePosition": 7.122
+      "impressions": 100,
+      "averagePosition": 6.31
     },
     {
       "canonicalPath": "/or/port-orford",
       "pageFamily": "city-location",
       "clicks": 1,
       "impressions": 3,
-      "averagePosition": 8.3333
+      "averagePosition": 7.3333
     },
     {
       "canonicalPath": "/or/port-orford/humbug-mountain-port-orford/tides",
       "pageFamily": "beach-tides",
       "clicks": 2,
-      "impressions": 8,
-      "averagePosition": 5.5
-    },
-    {
-      "canonicalPath": "/or/seaside/seaside-cove/water-temp",
-      "pageFamily": "beach-water-temp",
-      "clicks": 1,
-      "impressions": 6,
-      "averagePosition": 8.3333
+      "impressions": 4,
+      "averagePosition": 3.5
     },
     {
       "canonicalPath": "/pr/aguadilla",
       "pageFamily": "city-location",
-      "clicks": 3,
-      "impressions": 95,
-      "averagePosition": 16.3579
+      "clicks": 6,
+      "impressions": 82,
+      "averagePosition": 13.7927
     },
     {
       "canonicalPath": "/pr/aguadilla/crash-boat",
       "pageFamily": "beach",
       "clicks": 3,
-      "impressions": 420,
-      "averagePosition": 7.9643
+      "impressions": 350,
+      "averagePosition": 8
+    },
+    {
+      "canonicalPath": "/pr/aguadilla/surfers-beach",
+      "pageFamily": "beach",
+      "clicks": 1,
+      "impressions": 14,
+      "averagePosition": 23.1429
     },
     {
       "canonicalPath": "/pr/isabela/jobos",
       "pageFamily": "beach",
       "clicks": 1,
-      "impressions": 234,
-      "averagePosition": 9.5043
+      "impressions": 358,
+      "averagePosition": 9.4693
     },
     {
       "canonicalPath": "/pr/isabela/shacks",
       "pageFamily": "beach",
-      "clicks": 1,
-      "impressions": 133,
-      "averagePosition": 6.6617
+      "clicks": 3,
+      "impressions": 174,
+      "averagePosition": 6.3448
     },
     {
       "canonicalPath": "/pr/luquillo/la-pared",
       "pageFamily": "beach",
-      "clicks": 4,
-      "impressions": 251,
-      "averagePosition": 7.2311
+      "clicks": 5,
+      "impressions": 193,
+      "averagePosition": 6.9326
     },
     {
       "canonicalPath": "/pr/patillas/inches-patillas-pr",
       "pageFamily": "beach",
-      "clicks": 1,
-      "impressions": 140,
-      "averagePosition": 7.75
+      "clicks": 2,
+      "impressions": 192,
+      "averagePosition": 7.7969
     },
     {
-      "canonicalPath": "/pr/rincon/domes",
-      "pageFamily": "beach",
-      "clicks": 1,
-      "impressions": 12,
-      "averagePosition": 17.4167
+      "canonicalPath": "/pr/rincon",
+      "pageFamily": "city-location",
+      "clicks": 0,
+      "impressions": 210,
+      "averagePosition": 16.819
     },
     {
       "canonicalPath": "/pr/rincon/sandy-beach-rincon/tides",
       "pageFamily": "beach-tides",
+      "clicks": 3,
+      "impressions": 33,
+      "averagePosition": 6.2727
+    },
+    {
+      "canonicalPath": "/pr/yabucoa",
+      "pageFamily": "city-location",
       "clicks": 1,
-      "impressions": 27,
-      "averagePosition": 7.4815
+      "impressions": 43,
+      "averagePosition": 5.0233
+    },
+    {
+      "canonicalPath": "/pr/yabucoa/el-cocal-yabucoa-pr",
+      "pageFamily": "beach",
+      "clicks": 0,
+      "impressions": 121,
+      "averagePosition": 6.3388
     },
     {
       "canonicalPath": "/sunset/yabucoa",
       "pageFamily": "city-intent",
       "clicks": 1,
-      "impressions": 11,
-      "averagePosition": 6.6364
+      "impressions": 15,
+      "averagePosition": 4.7333
     },
     {
       "canonicalPath": "/tide/carmel-by-the-sea",
       "pageFamily": "city-intent",
       "clicks": 0,
-      "impressions": 125,
-      "averagePosition": 11.176
+      "impressions": 103,
+      "averagePosition": 11.2136
     },
     {
       "canonicalPath": "/tide/isabela",
       "pageFamily": "city-intent",
       "clicks": 1,
-      "impressions": 152,
-      "averagePosition": 7.7566
+      "impressions": 114,
+      "averagePosition": 7.6667
     },
     {
       "canonicalPath": "/tide/kahaluu-keauhou",
       "pageFamily": "city-intent",
       "clicks": 0,
-      "impressions": 181,
-      "averagePosition": 9.453
+      "impressions": 136,
+      "averagePosition": 8.4485
+    },
+    {
+      "canonicalPath": "/tide/kahuku",
+      "pageFamily": "city-intent",
+      "clicks": 0,
+      "impressions": 104,
+      "averagePosition": 7.2308
     },
     {
       "canonicalPath": "/tide/kailua-kona",
       "pageFamily": "city-intent",
       "clicks": 2,
-      "impressions": 400,
-      "averagePosition": 12.1925
+      "impressions": 663,
+      "averagePosition": 10.3861
     },
     {
       "canonicalPath": "/tide/koloa-hi",
       "pageFamily": "city-intent",
-      "clicks": 5,
-      "impressions": 101,
-      "averagePosition": 4.7327
+      "clicks": 6,
+      "impressions": 105,
+      "averagePosition": 4.981
     },
     {
       "canonicalPath": "/tide/litchfield-beach",
       "pageFamily": "city-intent",
       "clicks": 0,
-      "impressions": 227,
-      "averagePosition": 10.8414
+      "impressions": 238,
+      "averagePosition": 10.8613
     },
     {
       "canonicalPath": "/tide/santa-cruz",
       "pageFamily": "city-intent",
       "clicks": 0,
-      "impressions": 647,
-      "averagePosition": 13.272
+      "impressions": 551,
+      "averagePosition": 13.2541
     },
     {
       "canonicalPath": "/tide/sea-isle-city",
       "pageFamily": "city-intent",
       "clicks": 0,
-      "impressions": 219,
-      "averagePosition": 9.9954
+      "impressions": 125,
+      "averagePosition": 9.752
     },
     {
-      "canonicalPath": "/tx/port-aransas/port-aransas-horace-caldwell-pier-port-aransas-tx/tides",
-      "pageFamily": "beach-tides",
-      "clicks": 1,
-      "impressions": 6,
-      "averagePosition": 8.6667
+      "canonicalPath": "/tx/south-padre-island/south-padre-island-isla-blanca-park-south-padre-island-tx",
+      "pageFamily": "beach",
+      "clicks": 0,
+      "impressions": 103,
+      "averagePosition": 7.1262
     },
     {
       "canonicalPath": "/tx/surfside-beach",
       "pageFamily": "city-location",
-      "clicks": 2,
-      "impressions": 111,
-      "averagePosition": 7.9369
+      "clicks": 1,
+      "impressions": 186,
+      "averagePosition": 8.6505
+    },
+    {
+      "canonicalPath": "/tx/surfside-beach/surfside-beach-surfside-beach-tx/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 0,
+      "impressions": 118,
+      "averagePosition": 7.2034
     },
     {
       "canonicalPath": "/wa/la-push/la-push-first-beach",
       "pageFamily": "beach",
-      "clicks": 0,
-      "impressions": 144,
-      "averagePosition": 8.1944
+      "clicks": 2,
+      "impressions": 496,
+      "averagePosition": 8.1452
+    },
+    {
+      "canonicalPath": "/wa/la-push/la-push-second-beach-la-push-wa/tides",
+      "pageFamily": "beach-tides",
+      "clicks": 1,
+      "impressions": 6,
+      "averagePosition": 7.8333
+    },
+    {
+      "canonicalPath": "/wa/long-beach/long-beach-boardwalk/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 103,
+      "averagePosition": 7.3495
+    },
+    {
+      "canonicalPath": "/wa/neah-bay/hobuck-beach-neah-bay-wa/water-temp",
+      "pageFamily": "beach-water-temp",
+      "clicks": 1,
+      "impressions": 20,
+      "averagePosition": 4.4
     },
     {
       "canonicalPath": "/wa/pacific-beach",
       "pageFamily": "city-location",
-      "clicks": 3,
-      "impressions": 76,
-      "averagePosition": 8.2632
+      "clicks": 2,
+      "impressions": 61,
+      "averagePosition": 7.3443
     },
     {
       "canonicalPath": "/wa/pacific-beach/seabrook-pacific-beach-area/water-temp",
       "pageFamily": "beach-water-temp",
       "clicks": 1,
-      "impressions": 64,
-      "averagePosition": 5.875
+      "impressions": 86,
+      "averagePosition": 5.2907
     },
     {
       "canonicalPath": "/wa/westport/westport-half-moon-bay-westport-wa",
       "pageFamily": "beach",
-      "clicks": 3,
-      "impressions": 329,
-      "averagePosition": 9.6201
+      "clicks": 2,
+      "impressions": 311,
+      "averagePosition": 9.3698
     },
     {
       "canonicalPath": "/water-temp/bradley-beach",
       "pageFamily": "city-intent",
-      "clicks": 3,
-      "impressions": 452,
-      "averagePosition": 7.3473
+      "clicks": 1,
+      "impressions": 310,
+      "averagePosition": 6.6613
     },
     {
       "canonicalPath": "/water-temp/huntington-beach",
       "pageFamily": "city-intent",
-      "clicks": 137,
-      "impressions": 8214,
-      "averagePosition": 4.8662
+      "clicks": 106,
+      "impressions": 4339,
+      "averagePosition": 4.2837
     },
     {
       "canonicalPath": "/water-temp/kailua-kona",
       "pageFamily": "city-intent",
-      "clicks": 14,
-      "impressions": 1947,
-      "averagePosition": 6.1274
+      "clicks": 16,
+      "impressions": 1776,
+      "averagePosition": 5.7579
     },
     {
       "canonicalPath": "/water-temp/koloa-hi",
       "pageFamily": "city-intent",
       "clicks": 1,
-      "impressions": 14,
-      "averagePosition": 2.8571
+      "impressions": 9,
+      "averagePosition": 2.3333
     },
     {
       "canonicalPath": "/water-temp/kure-beach",
       "pageFamily": "city-intent",
-      "clicks": 0,
-      "impressions": 164,
-      "averagePosition": 6.9207
+      "clicks": 2,
+      "impressions": 136,
+      "averagePosition": 5.5221
     },
     {
       "canonicalPath": "/water-temp/litchfield-beach",
       "pageFamily": "city-intent",
       "clicks": 1,
-      "impressions": 26,
-      "averagePosition": 7.0769
+      "impressions": 43,
+      "averagePosition": 7.0465
     },
     {
       "canonicalPath": "/water-temp/long-beach-ca",
       "pageFamily": "city-intent",
-      "clicks": 0,
-      "impressions": 233,
-      "averagePosition": 8.3863
+      "clicks": 1,
+      "impressions": 125,
+      "averagePosition": 6.784
     },
     {
       "canonicalPath": "/water-temp/long-beach-ny",
       "pageFamily": "city-intent",
-      "clicks": 37,
-      "impressions": 2897,
-      "averagePosition": 6.9703
+      "clicks": 30,
+      "impressions": 2205,
+      "averagePosition": 6.6703
     },
     {
       "canonicalPath": "/water-temp/long-beach-wa",
       "pageFamily": "city-intent",
       "clicks": 5,
-      "impressions": 532,
-      "averagePosition": 7.8477
+      "impressions": 871,
+      "averagePosition": 7.1504
     },
     {
       "canonicalPath": "/water-temp/ocean-city",
       "pageFamily": "city-intent",
-      "clicks": 2,
-      "impressions": 175,
-      "averagePosition": 8.1486
+      "clicks": 7,
+      "impressions": 728,
+      "averagePosition": 8.2363
     },
     {
       "canonicalPath": "/water-temp/playa-del-rey",
       "pageFamily": "city-intent",
       "clicks": 10,
-      "impressions": 661,
-      "averagePosition": 6.0045
+      "impressions": 596,
+      "averagePosition": 5.5503
     },
     {
       "canonicalPath": "/water-temp/san-diego",
       "pageFamily": "city-intent",
-      "clicks": 1,
-      "impressions": 181,
-      "averagePosition": 8.2652
+      "clicks": 8,
+      "impressions": 1029,
+      "averagePosition": 7.7162
     },
     {
       "canonicalPath": "/water-temp/santa-barbara",
       "pageFamily": "city-intent",
-      "clicks": 28,
-      "impressions": 2285,
-      "averagePosition": 7.0818
+      "clicks": 49,
+      "impressions": 3343,
+      "averagePosition": 6.8768
     },
     {
       "canonicalPath": "/water-temp/santa-cruz",
       "pageFamily": "city-intent",
       "clicks": 86,
-      "impressions": 6609,
-      "averagePosition": 4.9899
+      "impressions": 5910,
+      "averagePosition": 4.9516
     },
     {
       "canonicalPath": "/water-temp/santa-monica",
       "pageFamily": "city-intent",
       "clicks": 49,
-      "impressions": 5981,
-      "averagePosition": 6.6517
+      "impressions": 5070,
+      "averagePosition": 5.5919
     },
     {
       "canonicalPath": "/water-temp/sea-isle-city",
       "pageFamily": "city-intent",
-      "clicks": 5,
-      "impressions": 750,
-      "averagePosition": 9.7107
+      "clicks": 4,
+      "impressions": 752,
+      "averagePosition": 7.625
     },
     {
       "canonicalPath": "/water-temp/seal-beach",
       "pageFamily": "city-intent",
-      "clicks": 4,
-      "impressions": 552,
-      "averagePosition": 5.4964
+      "clicks": 6,
+      "impressions": 736,
+      "averagePosition": 4.3981
     },
     {
       "canonicalPath": "/water-temp/torrance",
       "pageFamily": "city-intent",
       "clicks": 1,
-      "impressions": 278,
-      "averagePosition": 6.1727
+      "impressions": 249,
+      "averagePosition": 6.0723
     }
   ]
 }
