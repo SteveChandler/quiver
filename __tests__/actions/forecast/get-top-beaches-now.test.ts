@@ -8,9 +8,25 @@ jest.mock("@/lib/utils/forecast-hub-utils", () => ({
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: jest.fn(),
 }));
-jest.mock("@/lib/profile/skill-level", () => ({
-  getProfileExperienceLevel: jest.fn(),
-}));
+jest.mock("@/lib/profile/skill-level", () => {
+  const getProfileExperienceLevel = jest.fn();
+  return {
+    getProfileExperienceLevel,
+    getVerifiedProfileExperience: async (supabase: any) => {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        const user = data?.user;
+        if (error || !user) return { userId: null, profileExperience: null };
+        return {
+          userId: user.id,
+          profileExperience: await getProfileExperienceLevel(supabase, user.id),
+        };
+      } catch {
+        return { userId: null, profileExperience: null };
+      }
+    },
+  };
+});
 jest.mock("@/lib/monitoring/fallback-tracker", () => ({
   trackFallback: jest.fn(),
 }));

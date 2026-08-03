@@ -11,22 +11,9 @@
 
 import { getTopBeachesRightNow } from "@/lib/utils/forecast-hub-utils";
 import { trackFallback } from "@/lib/monitoring/fallback-tracker";
-import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import { getVerifiedProfileExperience } from "@/lib/profile/skill-level";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { TopBeachEntry } from "@/lib/utils/forecast-hub-utils";
-
-async function getVerifiedProfileExperience(): Promise<unknown> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return null;
-    return await getProfileExperienceLevel(supabase, user.id);
-  } catch {
-    return null;
-  }
-}
 
 /**
  * Fetch the top beaches by current forecast score.
@@ -45,7 +32,12 @@ export async function getTopBeachesNow(
       userLat !== undefined && userLon !== undefined
         ? { lat: userLat, lon: userLon }
         : null;
-    const profileExperience = await getVerifiedProfileExperience();
+    // Client creation failure degrades to the anonymous experience, matching
+    // getVerifiedProfileExperience's own auth-failure behavior.
+    const profileExperience = await createSupabaseServerClient()
+      .then((supabase) => getVerifiedProfileExperience(supabase))
+      .then(({ profileExperience }) => profileExperience)
+      .catch(() => null);
     return await getTopBeachesRightNow(
       limit,
       userCoords,
