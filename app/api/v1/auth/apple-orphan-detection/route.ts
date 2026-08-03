@@ -6,7 +6,7 @@ import {
   type AuthenticatedHandler,
   type RouteHandler,
 } from "@/lib/middleware/api-wrappers";
-import { assessAppleRecovery } from "@/lib/auth/apple-recovery";
+import { detectAppleOrphanAfterSignIn } from "@/lib/auth/apple-orphan-detection";
 import { AppleIdentityTokenError } from "@/lib/auth/apple-identity-token";
 
 export const runtime = "nodejs";
@@ -15,6 +15,7 @@ export const revalidate = 0;
 
 const bodySchema = z.object({
   identityToken: z.string().min(1).max(16_384),
+  nativeInstallId: z.string().uuid(),
 }).strict();
 const idempotencySchema = z.string().min(8).max(128);
 
@@ -25,7 +26,7 @@ function jsonNoStore(body: unknown, status: number): NextResponse {
   });
 }
 
-export const assessHandler: AuthenticatedHandler = async (
+export const detectionHandler: AuthenticatedHandler = async (
   request,
   { user },
 ) => {
@@ -34,17 +35,15 @@ export const assessHandler: AuthenticatedHandler = async (
     request.headers.get("Idempotency-Key"),
   );
   if (!parsedBody.success || !parsedIdempotency.success) {
-    return jsonNoStore(
-      { status: "unavailable", reason: "invalid_request" },
-      400,
-    );
+    return jsonNoStore({ status: "unavailable", reason: "invalid_request" }, 400);
   }
 
   let result;
   try {
-    result = await assessAppleRecovery({
+    result = await detectAppleOrphanAfterSignIn({
       user,
       identityToken: parsedBody.data.identityToken,
+      nativeInstallId: parsedBody.data.nativeInstallId,
       idempotencyKey: parsedIdempotency.data,
     });
   } catch (error) {
@@ -63,16 +62,11 @@ export const assessHandler: AuthenticatedHandler = async (
     throw error;
   }
 
-  const status =
-    result.status === "recent_auth_required"
-      ? 428
-      : result.status === "replayed" ||
-          result.status === "support_required"
-        ? 409
-        : result.status === "unavailable"
-          ? 503
-          : 200;
-
+  const status = result.status === "recent_auth_required"
+    ? 428
+    : result.status === "unavailable"
+      ? 503
+      : 200;
   return jsonNoStore(result, status);
 };
 
@@ -85,5 +79,5 @@ function withNoStore(handler: RouteHandler): RouteHandler {
 }
 
 export const POST = withNoStore(
-  withRateLimit(withAuth(assessHandler), "account-recovery"),
+  withRateLimit(withAuth(detectionHandler), "account-recovery"),
 );

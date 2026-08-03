@@ -11,10 +11,17 @@ export interface VerifiedAppleIdentity {
   issuedAt: Date;
 }
 
+export type AppleIdentityTokenErrorCode =
+  | "configuration_error"
+  | "invalid_apple_challenge";
+
 export class AppleIdentityTokenError extends Error {
-  constructor(message: string) {
+  readonly code: AppleIdentityTokenErrorCode;
+
+  constructor(code: AppleIdentityTokenErrorCode, message: string) {
     super(message);
     this.name = "AppleIdentityTokenError";
+    this.code = code;
   }
 }
 
@@ -37,6 +44,7 @@ export async function verifyAppleIdentityToken(
   const audiences = getAppleAudiences();
   if (audiences.length === 0) {
     throw new AppleIdentityTokenError(
+      "configuration_error",
       "Apple recovery audience is not configured",
     );
   }
@@ -48,16 +56,21 @@ export async function verifyAppleIdentityToken(
       audience: audiences,
     }));
   } catch {
-    throw new AppleIdentityTokenError("Apple identity token is invalid");
+    throw new AppleIdentityTokenError(
+      "invalid_apple_challenge",
+      "Apple identity token is invalid",
+    );
   }
 
   if (typeof payload.sub !== "string" || payload.sub.length === 0) {
     throw new AppleIdentityTokenError(
+      "invalid_apple_challenge",
       "Apple identity token is missing a stable subject",
     );
   }
   if (typeof payload.iat !== "number") {
     throw new AppleIdentityTokenError(
+      "invalid_apple_challenge",
       "Apple identity token is missing its issue time",
     );
   }
@@ -66,6 +79,7 @@ export async function verifyAppleIdentityToken(
   const ageMs = now.getTime() - issuedAt.getTime();
   if (ageMs < -30_000 || ageMs > FRESH_CHALLENGE_MS) {
     throw new AppleIdentityTokenError(
+      "invalid_apple_challenge",
       "Apple challenge is no longer fresh",
     );
   }
