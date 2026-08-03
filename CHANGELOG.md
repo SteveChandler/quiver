@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- In-content, device-aware install CTA (`InstallAppCtaSection`) on beach detail pages (after-tabs) and a mobile-only install link on `/welcome`, both via `NativeAppFunnelCta` with full source/surface/placement attribution (Plan 063 T1).
+
 ### Changed
 - Hoisted the duplicated `withNoStore`/`NO_STORE` cache wrapper (5 personalized API routes) and `getVerifiedProfileExperience` (3 call sites) into `lib/middleware/api-wrappers/cache-wrappers.ts` and `lib/profile/skill-level.ts`; behavior unchanged, shared helper unit-tested.
 

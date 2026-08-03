@@ -5,6 +5,7 @@ import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spots";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { InstallAppCtaSection } from "@/components/app-store/install-app-cta-section";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
@@ -307,6 +308,12 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           }
           afterTabsContent={
             <div className="pt-2">
+              <InstallAppCtaSection
+                source={`beach-detail-${beachSlug}`}
+                surface="beach-detail"
+                placement="after-tabs"
+                beachName={beach.name}
+              />
               <Suspense fallback={null}>
                 <DeferredZineNearbySpots beach={beach} />
               </Suspense>
