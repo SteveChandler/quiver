@@ -18,6 +18,7 @@ interface NearbyBeach {
   slug: string | null;
   city: string | null;
   state: string | null;
+  country: string | null;
 }
 
 interface NearbyBeachChipsProps {
@@ -64,6 +65,7 @@ export function NearbyBeachChips({
       slug: b.slug,
       city: b.city,
       state: b.state,
+      country: b.country,
     }));
   }, [coords?.lat, coords?.lon, limit]);
 
@@ -109,6 +111,7 @@ export function NearbyBeachChips({
         slug: b.slug,
         city: b.city,
         state: b.state,
+        country: b.country,
       });
 
       if (beachUrl) {

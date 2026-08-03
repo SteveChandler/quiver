@@ -32,6 +32,7 @@ interface BeachCardProps {
   slug?: string | null;
   city?: string | null;
   state?: string | null;
+  country?: string | null;
   onViewDetails?: () => void;
   onMapClick?: () => void;
   onReviewsClick?: () => void;
@@ -66,6 +67,7 @@ const BeachCardComponent = function BeachCard({
   slug,
   city,
   state,
+  country,
   onViewDetails,
   onMapClick,
   onReviewsClick,
@@ -83,7 +85,7 @@ const BeachCardComponent = function BeachCard({
   const { user } = useAuth();
 
   // Generate beach URL (hierarchical if slug/city/state available, otherwise fallback to ID)
-  const beachUrl = getBeachHrefSafe({ id, slug, city, state });
+  const beachUrl = getBeachHrefSafe({ id, slug, city, state, country });
 
   const beachReviewsUrl = beachUrl ? `${beachUrl}?tab=reviews` : null;
 
@@ -377,6 +379,9 @@ const areBeachCardPropsEqual = (
   if (prev.id !== next.id) return false;
   if (prev.name !== next.name) return false;
   if (prev.slug !== next.slug) return false;
+  if (prev.city !== next.city) return false;
+  if (prev.state !== next.state) return false;
+  if (prev.country !== next.country) return false;
 
   // Visual/display props
   if (prev.distance !== next.distance) return false;

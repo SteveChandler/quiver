@@ -14,6 +14,10 @@ export default async function MexicoBeachTidesPage(props: {
     beachSlug: params.beachSlug,
     pageType: "tides",
     beachPath: `/mexico/${params.region}/${params.city}/${params.beachSlug}`,
+    expectedMexicoLocation: {
+      region: params.region,
+      city: params.city,
+    },
   });
 }
 
@@ -25,5 +29,9 @@ export async function generateMetadata(props: {
     beachSlug: params.beachSlug,
     pageType: "tides",
     beachPath: `/mexico/${params.region}/${params.city}/${params.beachSlug}`,
+    expectedMexicoLocation: {
+      region: params.region,
+      city: params.city,
+    },
   });
 }

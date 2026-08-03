@@ -68,6 +68,7 @@ function BeachCard({
       slug: beach.slug,
       city: beach.city,
       state: beach.state,
+      country: beach.country,
     }) || "/";
 
   const imageUrl = getBeachImageUrl(beach);

@@ -10,8 +10,10 @@ import { getAllCitiesWithBeachSkills } from "@/actions/beach/beach-location-acti
 import {
   buildBeachUrl,
   cityToSlug,
+  isUsaCountry,
   isValidCountrySlug,
   isValidStateSlug,
+  normalizeBeachCountry,
   stateToSlug,
 } from "@/lib/utils/beach-url-utils";
 import { slugifyAscii } from "@/lib/utils/text-utils";
@@ -43,6 +45,7 @@ const baseUrl = (
 const SITEMAP_CONTENT_VERSIONS = {
   staticPages: "2026-02-10",
   beachFallback: "2026-02-10",
+  beachTemplate: "2026-08-03",
   cityEditorialFallback: "2026-02-10",
   locationTemplate: "2026-02-01",
   intentTemplate: "2026-03-06",
@@ -54,6 +57,22 @@ const SITEMAP_CONTENT_VERSIONS = {
   toolsContent: "2026-03-30",
   learnContentFallback: "2026-03-26",
 } as const;
+
+function latestSitemapDate(
+  fallback: string,
+  ...values: Array<string | null | undefined>
+): string {
+  return values
+    .filter((value): value is string => {
+      if (!value) return false;
+      return !Number.isNaN(Date.parse(value));
+    })
+    .reduce(
+      (latest, candidate) =>
+        Date.parse(candidate) > Date.parse(latest) ? candidate : latest,
+      fallback,
+    );
+}
 
 const SITEMAP_ACQUISITION_ROUTES = [
   { path: "/download", lastModified: "2026-07-15" },
@@ -105,6 +124,17 @@ function isCityRouteIndexable(
     canonicalPath,
     dataRich,
   ).indexable;
+}
+
+function hasUsableSitemapCountry(
+  beach: { country?: string | null },
+): boolean {
+  // Older callers may omit country entirely; keep that legacy USA behavior.
+  // An explicitly present null/blank value is unknown and cannot be canonical.
+  return (
+    !Object.prototype.hasOwnProperty.call(beach, "country") ||
+    normalizeBeachCountry(beach.country) !== null
+  );
 }
 
 /**
@@ -278,9 +308,9 @@ function getStaticRoutes(): MetadataRoute.Sitemap {
  * data, and CTAs. Google already crawls and ranks them via internal links —
  * adding them to the sitemap formalizes discoverability.
  *
- * Tides/water-temp subpages are only generated for US beaches (state slug is a
- * valid 2-letter US state). International beaches (e.g., Baja Mexico) use a
- * 4-segment URL pattern that does not have dedicated subpage routes.
+ * Tides/water-temp subpages are generated for US beaches and eligible Mexico
+ * beaches. Other international beaches use a 4-segment URL pattern without
+ * dedicated subpage routes.
  *
  * Accepts pre-fetched beach data to avoid duplicate DB calls (the main
  * sitemap function shares this data with location route validation).
@@ -289,21 +319,31 @@ export function buildBeachRoutes(beaches: NonNullable<Awaited<ReturnType<typeof 
   const subPageTypes = ["tides", "water-temp"] as const;
 
   return beaches
-    .filter((beach) => beach.slug && beach.city && beach.state)
+    .filter(
+      (beach) =>
+        beach.slug &&
+        beach.city &&
+        beach.state &&
+        hasUsableSitemapCountry(beach),
+    )
     .flatMap((beach) => {
       const beachPath = buildBeachUrl(beach);
       const beachUrl = `${baseUrl}${beachPath}`;
+      const countrySlug = slugifyAscii(normalizeBeachCountry(beach.country) ?? "");
 
-      const lastModifiedDate =
-        (beach as { updated_at?: string | null }).updated_at ||
-        beach.created_at ||
-        SITEMAP_CONTENT_VERSIONS.beachFallback;
+      const lastModifiedDate = latestSitemapDate(
+        countrySlug === "mexico"
+          ? SITEMAP_CONTENT_VERSIONS.beachTemplate
+          : SITEMAP_CONTENT_VERSIONS.beachFallback,
+        (beach as { updated_at?: string | null }).updated_at,
+        beach.created_at,
+      );
 
-      // Determine whether this is a US beach. Only US beaches have tides/water-temp
-      // subpage routes — international beaches (e.g., /mexico/baja-california/rosarito/teresas)
-      // use a 4-segment URL pattern with no dedicated subpage routes.
+      // US beaches and Mexico beaches have dedicated tides/water-temp routes;
+      // other international beaches retain their four-segment detail URL only.
       const stateSlug = stateToSlug(beach.state);
-      const isUsa = isValidStateSlug(stateSlug);
+      const isUsa = isUsaCountry(beach.country) && isValidStateSlug(stateSlug);
+      const hasDedicatedSubPages = isUsa || countrySlug === "mexico";
 
       const candidateRoutes = [
         ...(isBeachIndexableForSitemap(
@@ -315,7 +355,7 @@ export function buildBeachRoutes(beaches: NonNullable<Awaited<ReturnType<typeof 
           lastModified: lastModifiedDate,
         }]
           : []),
-        ...(isUsa
+        ...(hasDedicatedSubPages
           ? subPageTypes.flatMap((subPage) => {
               const subPagePath = `${beachPath}/${subPage}`;
               return isBeachIndexableForSitemap(
@@ -388,9 +428,10 @@ async function getLocationRoutes(
         }
         locationRoutes.push({
           url: `${baseUrl}${canonicalPath}`,
-          lastModified:
-            editorial?.lastModified ||
+          lastModified: latestSitemapDate(
             SITEMAP_CONTENT_VERSIONS.locationTemplate,
+            editorial?.lastModified,
+          ),
         });
       }
       continue;
@@ -436,9 +477,10 @@ async function getLocationRoutes(
         usaStates.add(stateSlug);
         locationRoutes.push({
           url: locationUrl,
-          lastModified:
-            editorial?.lastModified ||
+          lastModified: latestSitemapDate(
             SITEMAP_CONTENT_VERSIONS.locationTemplate,
+            editorial?.lastModified,
+          ),
         });
       }
     } else {
@@ -469,9 +511,10 @@ async function getLocationRoutes(
         emittedUrls.add(intlUrl);
         locationRoutes.push({
           url: intlUrl,
-          lastModified:
-            editorial?.lastModified ||
+          lastModified: latestSitemapDate(
             SITEMAP_CONTENT_VERSIONS.locationTemplate,
+            editorial?.lastModified,
+          ),
         });
       }
     }
@@ -580,9 +623,10 @@ async function getIntentRoutes(
 
           routes.push({
             url: `${baseUrl}${canonicalPath}`,
-            lastModified:
-              editorial?.lastModified ||
+            lastModified: latestSitemapDate(
               SITEMAP_CONTENT_VERSIONS.intentTemplate,
+              editorial?.lastModified,
+            ),
           });
         }
       }
@@ -710,9 +754,10 @@ async function getBestTimeToSurfRoutes(
         }
         return {
           url: `${baseUrl}${canonicalPath}`,
-          lastModified:
-            editorial?.lastModified ||
+          lastModified: latestSitemapDate(
             SITEMAP_CONTENT_VERSIONS.bestTimeTemplate,
+            editorial?.lastModified,
+          ),
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);

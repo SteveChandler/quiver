@@ -39,7 +39,7 @@ export interface FeaturedBeachesOptions {
 // Type for beach data selected from database
 type BeachSelect = Pick<
   Beach,
-  "id" | "name" | "city" | "state" | "slug" | "average_rating" | "review_count" | "skill_level" | "lat" | "lon"
+  "id" | "name" | "city" | "state" | "country" | "slug" | "average_rating" | "review_count" | "skill_level" | "lat" | "lon"
 >;
 
 // Type for enriched beach with photo URL
@@ -48,6 +48,7 @@ export interface EnrichedBeach {
   name: string;
   city: string | null;
   state: string | null;
+  country?: string | null;
   slug: string | null;
   average_rating: number | null;
   review_count: number | null;
@@ -113,6 +114,7 @@ const mapBeachRecord = (
     name: normalizedName,
     city: sanitizeOptional(beach.city),
     state: sanitizeOptional(beach.state),
+    country: sanitizeOptional(beach.country),
     slug: sanitizeOptional(beach.slug),
     average_rating: beach.average_rating ?? null,
     review_count: beach.review_count ?? null,
@@ -367,7 +369,7 @@ async function _getFeaturedBeaches(options?: FeaturedBeachesOptions): Promise<Fe
 
     let beachesQuery = supabase
       .from("beaches")
-      .select("id, name, city, state, slug, average_rating, review_count, skill_level, lat, lon")
+      .select("id, name, city, state, country, slug, average_rating, review_count, skill_level, lat, lon")
       .eq("is_private", false);
 
     // When no coordinates, limit for performance; with coordinates, fetch all for proximity filtering
