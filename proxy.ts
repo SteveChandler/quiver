@@ -116,6 +116,13 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
 
+  // Static assets must pass through before the SEO route rewrites below inspect
+  // multi-segment paths. The matcher excludes these in production; this guard
+  // keeps direct proxy invocation and alternate runtimes safe as well.
+  if (RouteGuard.isStaticAssetPath(pathname)) {
+    return NextResponse.next();
+  }
+
   // `/vs/surfline/free` (3 URL segments) is shadowed at runtime by the dynamic beach route
   // app/[intent]/[city]/[beachSlug] (Next 16 static-vs-dynamic precedence) and was served
   // the beach "Location Not Found" soft-404. A next.config `beforeFiles` rewrite does NOT
@@ -437,7 +444,7 @@ export async function proxy(request: NextRequest) {
   // Classify the route to determine access requirements
   const routeClassification = RouteGuard.classifyRoute(
     pathname,
-    request.method
+    request.method,
   );
   const sessionSearchParams = request.nextUrl.searchParams;
   const isEmailSessionFallback =
@@ -451,7 +458,7 @@ export async function proxy(request: NextRequest) {
       sessionSearchParams?.has("message_instance_id") === true
     );
 
-  // Skip middleware for API routes, static files, etc.
+  // Skip middleware for API routes, auth routes, and non-navigation requests.
   if (routeClassification.type === "skip") {
     return NextResponse.next();
   }
@@ -833,6 +840,6 @@ export const config = {
      * - Files with extensions (.svg, .png, etc.)
      * Only apply to actual page navigation
      */
-    "/((?!api|_next/static|_next/image|_vercel|favicon.ico|robots.txt|sitemap).*)",
+    "/((?!api|_next/static|_next/image|_vercel|favicon.ico|robots.txt|sitemap|.*\\.[^/]+$).*)",
   ],
 };
