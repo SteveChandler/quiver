@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { linkExperimentEligibility } from '@/lib/experiments/assignments';
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -97,6 +98,15 @@ export async function GET(request: NextRequest) {
   if (supabase) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      if (Date.now() - Date.parse(user.created_at) < 10 * 60 * 1000) {
+        // A failed new-user OAuth linkage may later be linked by native. That
+        // rare double-failure mislabels the source, so cohort SQL reports the
+        // linkage-source distribution instead of hiding the edge.
+        void linkExperimentEligibility(user.id, 'web', 'web_oauth').catch((error) => {
+          console.warn('[Auth Callback] W-ASSIGN OAuth eligibility linkage failed:', error);
+        });
+      }
+
       const sessionEmail = user.email;
       const sessionUserId = user.id;
       if (sessionEmail && sessionUserId) {
