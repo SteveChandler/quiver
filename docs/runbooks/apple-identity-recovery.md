@@ -17,6 +17,43 @@ until all gates are approved:
 Local `supabase/config.toml` enables manual linking for testing only. This commit
 does not change production Auth configuration or apply a migration.
 
+## Production configuration checklist
+
+Apply and verify these changes through the normal operator approval path. Code
+deployment alone does not enable recovery.
+
+1. Apply `20260725190000_apple_identity_recovery_foundation.sql`, then
+   `20260802160000_register_post_foundation_apple_recovery_dependencies.sql`.
+   The later migration registers whichever of the 21 reviewed Auth FKs exist
+   in the target schema, covering the Android tester roster, community photo,
+   and canonical Android waitlist migrations after the foundation's frozen
+   dependency snapshot. It aborts if any current Auth/Profile FK is still
+   uncovered, including an unexpected dependency outside that reviewed set.
+2. Apply `20260802161000_add_apple_orphan_recovery_flagged_event.sql` before a
+   native build can trigger `apple_orphan_recovery_flagged`, then apply
+   `20260802162000_detect_apple_orphan_after_sign_in.sql`.
+3. Set Vercel Production `APPLE_RECOVERY_AUDIENCES` exactly to
+   `app.quiversurf.mobile,app.quiversurf.mobile.web`. Verify the existing
+   public identifiers remain `APPLE_APP_BUNDLE_ID=app.quiversurf.mobile` and
+   `NEXT_PUBLIC_APPLE_CLIENT_ID=app.quiversurf.mobile.web`.
+4. Enable Supabase Auth manual identity linking in the target environment.
+5. Run the schema-coverage query in
+   `.planning/apple-orphan-population-20260802.sql`; it must return zero rows.
+6. Set Vercel Production `APPLE_IDENTITY_RECOVERY_ENABLED=true` and redeploy so
+   the serverless functions receive the new environment.
+7. With a canonical account signed in less than ten minutes ago, submit a new
+   Apple identity token issued less than five minutes ago. `eligible` requires
+   the Apple-linked secondary to have no `profiles` row and no row in any
+   registered dependency. A profile row alone deliberately returns
+   `support_required`; do not delete product data to force eligibility.
+
+Assessment remains unavailable when the feature flag is not the exact string
+`true`, when no allowed Apple audience is configured, or when current catalog
+FKs exceed the reviewed dependency registry. Invalid, stale, or wrong-audience
+Apple challenges return `invalid_apple_challenge` instead of being reported as
+server configuration failures. Confirmation remains fail-closed with
+`identity_transfer_not_supported` after it records explicit consent.
+
 ## Supported-provider boundary
 
 Rechecked against the official Supabase Auth contract on 2026-07-26:

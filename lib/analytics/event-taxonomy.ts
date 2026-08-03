@@ -192,6 +192,7 @@ export const VALID_EVENTS = [
   'beach_search_result_click',
   // Growth markers
   'acquisition_source_self_reported',
+  'apple_orphan_recovery_flagged',
   'first_beach_view_post_signup',
   'first_session_logged',
   // Empty states & impressions

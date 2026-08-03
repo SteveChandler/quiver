@@ -9,7 +9,14 @@ jest.mock("@/lib/auth/apple-recovery", () => ({
 }));
 
 jest.mock("@/lib/auth/apple-identity-token", () => ({
-  AppleIdentityTokenError: class AppleIdentityTokenError extends Error {},
+  AppleIdentityTokenError: class AppleIdentityTokenError extends Error {
+    constructor(
+      readonly code: "configuration_error" | "invalid_apple_challenge",
+      message: string,
+    ) {
+      super(message);
+    }
+  },
 }));
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
@@ -115,7 +122,10 @@ describe("Apple recovery API routes", () => {
 
   it("returns a non-cacheable client error for an invalid Apple challenge", async () => {
     mockAssess.mockRejectedValue(
-      new AppleIdentityTokenError("Apple identity token is invalid"),
+      new AppleIdentityTokenError(
+        "invalid_apple_challenge",
+        "Apple identity token is invalid",
+      ),
     );
 
     const response = await assessPOST(
@@ -132,6 +142,31 @@ describe("Apple recovery API routes", () => {
     expect(await response.json()).toEqual({
       status: "unavailable",
       reason: "invalid_apple_challenge",
+    });
+  });
+
+  it("returns a non-cacheable unavailable response for missing audience configuration", async () => {
+    mockAssess.mockRejectedValue(
+      new AppleIdentityTokenError(
+        "configuration_error",
+        "Apple recovery audience is not configured",
+      ),
+    );
+
+    const response = await assessPOST(
+      request(
+        "/api/auth/apple-recovery/assess",
+        { identityToken: "signed-token" },
+        "assessment-key",
+      ),
+      AUTH_CONTEXT,
+    );
+
+    expect(response.status).toBe(503);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(await response.json()).toEqual({
+      status: "unavailable",
+      reason: "configuration_error",
     });
   });
 
