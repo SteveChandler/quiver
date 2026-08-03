@@ -19,6 +19,10 @@ const appHandoffEvents = [
 
 const acquisitionSourceSelfReportedEvent =
   "acquisition_source_self_reported" as const satisfies EventType;
+const appleOrphanPrecheckEvents = [
+  "apple_orphan_precheck_indeterminate",
+  "apple_orphan_prevented",
+] as const satisfies readonly EventType[];
 const appleOrphanRecoveryFlaggedEvent =
   "apple_orphan_recovery_flagged" as const satisfies EventType;
 
@@ -59,5 +63,15 @@ describe("event taxonomy", () => {
       appleOrphanRecoveryFlaggedEvent,
     );
     expect(EVENT_WEIGHTS[appleOrphanRecoveryFlaggedEvent]).toBe(0);
+  });
+
+  it("keeps Apple orphan precheck outcomes anonymous, pre-auth-only, and zero-weight", () => {
+    for (const event of appleOrphanPrecheckEvents) {
+      expect(VALID_EVENTS).toContain(event);
+      expect(ANONYMOUS_ALLOWED_EVENTS).toContain(event);
+      expect(PRE_AUTH_ONLY_EVENTS).toContain(event);
+      expect(EXTERNAL_ANALYTICS_ONLY_EVENTS).not.toContain(event);
+      expect(EVENT_WEIGHTS[event]).toBe(0);
+    }
   });
 });
