@@ -68,54 +68,6 @@ export const metadata: Metadata = buildPageMetadata({
 
 const SITE_ORIGIN = SITE_URL;
 
-function ComparisonStructuredData() {
-  const quiverApp = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "Quiver Surf App",
-    applicationCategory: "SportsApplication",
-    operatingSystem: "Web",
-    url: SITE_ORIGIN,
-    description:
-      "Personal surf forecasting and session tracking app with tide charts, live cams, community reports, and beach-specific surf calls for 279+ beaches.",
-    offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "USD",
-    },
-  };
-
-  const surflineApp = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "Surfline",
-    applicationCategory: "SportsApplication",
-    operatingSystem: "Web, iOS, Android",
-    url: "https://www.surfline.com",
-    description:
-      "Surf forecast app with regional surf reports, live cams, global coverage, and subscription-based forecast features.",
-    offers: {
-      "@type": "AggregateOffer",
-      lowPrice: "69.99",
-      highPrice: "119.99",
-      priceCurrency: "USD",
-      priceValidUntil: "2027-06-23",
-    },
-  };
-
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify({
-          "@context": "https://schema.org",
-          "@graph": [quiverApp, surflineApp],
-        }),
-      }}
-    />
-  );
-}
-
 // ---------------------------------------------------------------------------
 // FAQ Data
 // ---------------------------------------------------------------------------
@@ -391,7 +343,6 @@ export default function VsSurflinePage() {
           { name: "Quiver vs Surfline", url: `${SITE_ORIGIN}/vs/surfline` },
         ]}
       />
-      <ComparisonStructuredData />
       <FAQSchema items={FAQ_ITEMS} />
 
       <ZineSurface

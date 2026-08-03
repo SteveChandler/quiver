@@ -1,20 +1,36 @@
 import { readFileSync } from "node:fs";
 
-const HOLD_SENSITIVE_PAGES = [
+const PUBLIC_SEO_PAGES = [
   "app/[intent]/[city]/page.tsx",
   "app/[intent]/[city]/[beachSlug]/page.tsx",
+  "app/[intent]/[city]/[beachSlug]/[intlBeachSlug]/page.tsx",
+  "app/[intent]/[city]/[beachSlug]/tides/page.tsx",
+  "app/[intent]/[city]/[beachSlug]/water-temp/page.tsx",
   "app/mexico/[region]/[city]/[beachSlug]/page.tsx",
+  "app/mexico/[region]/[city]/[beachSlug]/tides/page.tsx",
+  "app/mexico/[region]/[city]/[beachSlug]/water-temp/page.tsx",
 ];
 
 describe("major-event hold-sensitive pages", () => {
-  it.each(HOLD_SENSITIVE_PAGES)(
-    "keeps %s dynamic across scheduled hold transitions",
+  it.each(PUBLIC_SEO_PAGES)(
+    "keeps %s on ISR for crawler performance",
     (page) => {
       const source = readFileSync(page, "utf8");
 
-      expect(source).toContain('export const dynamic = "force-dynamic"');
-      expect(source).toContain("export const revalidate = 0");
-      expect(source).not.toContain("export const revalidate = 3600");
+      expect(source).toContain('export const dynamic = "force-static"');
+      expect(source).toContain("export const revalidate = 3600");
+      expect(source).not.toContain('export const dynamic = "force-dynamic"');
+      expect(source).not.toContain("export const revalidate = 0");
     },
   );
+
+  it("keeps the Mexico server render cookie-free", () => {
+    const source = readFileSync(
+      "app/mexico/[region]/[city]/[beachSlug]/page.tsx",
+      "utf8",
+    );
+
+    expect(source).toContain("getSpotSurfReportPublic(beach)");
+    expect(source).not.toContain("getSpotSurfReport(beach)");
+  });
 });

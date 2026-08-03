@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
-import { StructuredData } from "@/components/seo/structured-data";
 import { ZineSurface } from "@/components/zine";
 import {
   BusinessesEmbedPromo,
@@ -39,15 +38,12 @@ export default async function ForBusinessesPage() {
       : [];
 
   return (
-    <>
-      <StructuredData type="softwareApplication" />
-      <ZineSurface
-        sectionLabel="For businesses"
-        editionLabel="Embed the surf, free"
-        data-testid="for-businesses-zine-surface"
-      >
-        <BusinessesEmbedPromo beaches={beaches} />
-      </ZineSurface>
-    </>
+    <ZineSurface
+      sectionLabel="For businesses"
+      editionLabel="Embed the surf, free"
+      data-testid="for-businesses-zine-surface"
+    >
+      <BusinessesEmbedPromo beaches={beaches} />
+    </ZineSurface>
   );
 }

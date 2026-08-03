@@ -204,9 +204,8 @@ function SoftwareApplicationStructuredData(): ReactElement {
     description:
       "Free iPhone surf forecast app for personal daily calls, alerts, tides, session logging, and 280+ US, Hawaii, Puerto Rico, and Baja breaks.",
     offers: {
-      "@type": "AggregateOffer",
-      lowPrice: "0",
-      highPrice: "39.99",
+      "@type": "Offer",
+      price: "0",
       priceCurrency: "USD",
     },
     aggregateRating: {

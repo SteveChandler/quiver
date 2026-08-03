@@ -170,37 +170,6 @@ const SOURCE_LINKS: SourceLink[] = [
   },
 ];
 
-function SoftwareApplicationStructuredData(): ReactElement {
-  const data = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "Quiver Surf App",
-    applicationCategory: "SportsApplication",
-    operatingSystem: "iOS",
-    url: APP_STORE_URL,
-    description:
-      "Surf forecast app for beach-level calls, alerts, tides, session logging, similarity scores, board recommendations, and custom spots.",
-    offers: {
-      "@type": "AggregateOffer",
-      lowPrice: "0",
-      highPrice: "119.99",
-      priceCurrency: "USD",
-    },
-    publisher: {
-      "@type": "Organization",
-      name: "Quiver",
-      url: SITE_URL,
-    },
-  };
-
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
-  );
-}
-
 function ComparisonItemListStructuredData(): ReactElement {
   const data = {
     "@context": "https://schema.org",
@@ -243,7 +212,6 @@ export default function BestSurfForecastAppPage(): ReactElement {
         url={PAGE_URL}
         dateModified={CHECKED_ON_ISO}
       />
-      <SoftwareApplicationStructuredData />
       <ComparisonItemListStructuredData />
 
       <ZineSurface

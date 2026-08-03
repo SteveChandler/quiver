@@ -180,36 +180,6 @@ const FAQ_ITEMS: FAQItem[] = [
   },
 ];
 
-function WebApplicationSchema(): ReactElement {
-  const data = {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "Quiver Surf App",
-    applicationCategory: "SportsApplication",
-    operatingSystem: ["Web", "iOS", "Android"],
-    url: PAGE_URL,
-    description:
-      "Free surf reports, forecasts, tide charts, and session windows for 279+ beaches.",
-    offers: {
-      "@type": "Offer",
-      price: "0",
-      priceCurrency: "USD",
-    },
-    publisher: {
-      "@type": "Organization",
-      name: "Quiver",
-      url: SITE_URL,
-    },
-  };
-
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
-    />
-  );
-}
-
 export default function FreeSurfReportsPage(): ReactElement {
   const breadcrumbs = [
     { name: "Home", url: SITE_URL },
@@ -226,7 +196,6 @@ export default function FreeSurfReportsPage(): ReactElement {
         url={PAGE_URL}
         dateModified={DATE_MODIFIED}
       />
-      <WebApplicationSchema />
 
       <ZineSurface
         sectionLabel="Free reports"
