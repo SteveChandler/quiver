@@ -159,9 +159,20 @@ export function stateToSlug(state: string | null | undefined): string {
   return slugifyAscii(state).toLowerCase();
 }
 
-function isUsaCountry(country: string | null | undefined): boolean {
-  if (!country) return true; // default to USA when unknown for backward compatibility
-  const normalized = country.trim().toLowerCase();
+export function normalizeBeachCountry(
+  country: string | null | undefined,
+): string | null {
+  if (typeof country !== "string") return null;
+  const normalized = country.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+export function isUsaCountry(country: string | null | undefined): boolean {
+  // Preserve the legacy omitted-country behavior, but never classify an
+  // explicitly unknown value as USA.
+  if (country === undefined) return true;
+  const normalized = normalizeBeachCountry(country)?.toLowerCase();
+  if (!normalized) return false;
   return (
     normalized === "usa" ||
     normalized === "us" ||
@@ -171,8 +182,9 @@ function isUsaCountry(country: string | null | undefined): boolean {
 }
 
 export function countryToSlug(country: string | null | undefined): string {
-  if (!country) return "";
-  return slugifyAscii(country).toLowerCase();
+  const normalized = normalizeBeachCountry(country);
+  if (!normalized) return "";
+  return slugifyAscii(normalized).toLowerCase();
 }
 
 export function regionToSlug(region: string | null | undefined): string {
@@ -230,7 +242,12 @@ export function buildBeachUrl(beach: {
     return `/beach/${beachSlug || "unknown"}`;
   }
 
-  if (isUsaCountry(beach.country)) {
+  const hasCountryField = Object.prototype.hasOwnProperty.call(beach, "country");
+  if (hasCountryField && normalizeBeachCountry(beach.country) === null) {
+    return `/beach/${beachSlug}`;
+  }
+
+  if (!hasCountryField || isUsaCountry(beach.country)) {
     const stateSlug = stateToSlug(beach.state);
     if (!stateSlug) return `/beach/${beachSlug}`;
     return `/${stateSlug}/${citySlug}/${beachSlug}`;
@@ -406,14 +423,28 @@ export function getBeachUrlSafe(beach: {
   state?: string | null;
   country?: string | null;
 }): string | null {
+  // An explicit null country means the location lookup is incomplete. Keep
+  // the link country-independent instead of guessing a US route for Mexico.
+  if (beach.country === null && beach.slug) {
+    return `/beach/${beach.slug}`;
+  }
+
   // Try hierarchical URL first if all required data is available
   if (beach.slug && beach.city && beach.state) {
-    return buildBeachUrl({
+    const beachForUrl: {
+      slug: string;
+      city: string;
+      state: string;
+      country?: string | null;
+    } = {
       slug: beach.slug,
       city: beach.city,
       state: beach.state,
-      country: beach.country,
-    });
+    };
+    if (Object.prototype.hasOwnProperty.call(beach, "country")) {
+      beachForUrl.country = beach.country;
+    }
+    return buildBeachUrl(beachForUrl);
   }
 
   // Fallback to slug-based URL if hierarchical data is missing
@@ -452,7 +483,9 @@ export function getBeachHrefSafe(beach: {
     slug: beach.slug ?? undefined,
     city: beach.city ?? undefined,
     state: beach.state ?? undefined,
-    country: beach.country ?? undefined,
+    ...(Object.prototype.hasOwnProperty.call(beach, "country")
+      ? { country: beach.country }
+      : {}),
   });
   if (safe) return safe;
 

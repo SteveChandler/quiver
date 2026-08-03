@@ -17,6 +17,7 @@ export interface SurfSpotCardProps {
   slug?: string | null;
   city?: string | null;
   state?: string | null;
+  country?: string | null;
   imageUrl?: string | null;
   averageRating?: number | null;
   reviewCount?: number | null;
@@ -74,6 +75,7 @@ export function SurfSpotCard({
   slug,
   city,
   state,
+  country,
   imageUrl,
   averageRating,
   reviewCount,
@@ -90,7 +92,7 @@ export function SurfSpotCard({
   const searchParamsString = searchParams.toString() ? `?${searchParams.toString()}` : "";
 
   // Generate beach URL using hierarchical format with safe fallback chain
-  const beachUrl = getBeachHrefSafe({ id, slug, city, state }) || "/";
+  const beachUrl = getBeachHrefSafe({ id, slug, city, state, country }) || "/";
 
   // Show fallback if no imageUrl or if image failed to load
   const showFallback = !imageUrl || imageError;

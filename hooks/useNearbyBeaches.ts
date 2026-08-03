@@ -3,6 +3,7 @@
 import { useCallback } from "react";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { createClient } from "@/lib/supabase/client";
+import { normalizeBeachCountry } from "@/lib/utils/beach-url-utils";
 
 type NearbyBeachRow = {
   id: string;
@@ -19,6 +20,7 @@ type NearbyBeachRow = {
   slug?: string | null;
   city?: string | null;
   state?: string | null;
+  country?: string | null;
 };
 
 export type NearbyBeach = {
@@ -33,6 +35,7 @@ export type NearbyBeach = {
   slug: string | null;
   city: string | null;
   state: string | null;
+  country: string | null;
 };
 
 export async function fetchNearestBeaches(lat: number, lon: number, limit = 4) {
@@ -48,7 +51,39 @@ export async function fetchNearestBeaches(lat: number, lon: number, limit = 4) {
     throw error;
   }
 
-  return (data as NearbyBeachRow[] | null)?.map<NearbyBeach>((b) => ({
+  const rows = (data as NearbyBeachRow[] | null) ?? [];
+  const countryById = new Map<string, string>();
+  const ids = rows.map((row) => row.id).filter(Boolean);
+  const rpcIncludedCountry = rows.every(
+    (row) => normalizeBeachCountry(row.country) !== null,
+  );
+
+  if (ids.length > 0 && !rpcIncludedCountry) {
+    if (typeof (client as { from?: unknown }).from !== "function") {
+      throw new Error("Nearby beach country hydration is unavailable");
+    }
+
+    const { data: countryRows, error: countryError } = await client
+      .from("beaches")
+      .select("id, country")
+      .in("id", ids);
+
+    if (countryError) throw countryError;
+
+    for (const row of countryRows || []) {
+      const country = normalizeBeachCountry(row.country);
+      if (country) countryById.set(row.id, country);
+    }
+
+    const missingCountryIds = ids.filter((id) => !countryById.has(id));
+    if (missingCountryIds.length > 0) {
+      throw new Error(
+        `Nearby beach country hydration was incomplete for ${missingCountryIds.length} beach(es)`,
+      );
+    }
+  }
+
+  return rows.map<NearbyBeach>((b) => ({
     id: b.id,
     name: b.name,
     lat: b.lat,
@@ -66,7 +101,8 @@ export async function fetchNearestBeaches(lat: number, lon: number, limit = 4) {
     slug: b.slug ?? null,
     city: b.city ?? null,
     state: b.state ?? null,
-  })) ?? [];
+    country: countryById.get(b.id) ?? normalizeBeachCountry(b.country),
+  }));
 }
 
 export function useNearbyBeaches(

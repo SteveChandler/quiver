@@ -1,5 +1,14 @@
 import Link from "next/link";
 import { MapPin, ChevronLeft } from "lucide-react";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Location Not Found | Quiver",
+  robots: {
+    index: false,
+    follow: true,
+  },
+};
 
 /**
  * Custom 404 page for invalid beach locations

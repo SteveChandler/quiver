@@ -36,6 +36,8 @@ import {
   buildBeachSubPageCrawlCopy,
   type BeachSubPageCrawlCopy,
 } from "@/lib/utils/beach-sub-page-crawl-copy";
+import { cityToSlug, regionToSlug } from "@/lib/utils/beach-url-utils";
+import { slugifyAscii } from "@/lib/utils/text-utils";
 import {
   applyIndexabilityToMetadata,
   evaluateBeachIndexability,
@@ -111,6 +113,24 @@ interface RenderParams {
   pageType: SubPageType;
   /** Full path to the beach (e.g., "/ca/san-diego/ocean-beach") */
   beachPath: string;
+  /** Required for Mexico routes so malformed region/city pairs 404. */
+  expectedMexicoLocation?: {
+    region: string;
+    city: string;
+  };
+}
+
+function matchesExpectedMexicoLocation(
+  beach: Beach,
+  expectedLocation: RenderParams["expectedMexicoLocation"],
+): boolean {
+  if (!expectedLocation) return true;
+
+  return (
+    slugifyAscii(beach.country ?? "") === "mexico" &&
+    regionToSlug(beach.state) === expectedLocation.region &&
+    cityToSlug(beach.city) === expectedLocation.city
+  );
 }
 
 /**
@@ -121,10 +141,15 @@ export async function renderBeachSubPage({
   beachSlug,
   pageType,
   beachPath,
+  expectedMexicoLocation,
 }: RenderParams) {
   const beach = await getBeachBySlugOrId(beachSlug);
 
   if (!beach) {
+    notFound();
+  }
+
+  if (!matchesExpectedMexicoLocation(beach, expectedMexicoLocation)) {
     notFound();
   }
 
@@ -362,12 +387,17 @@ export async function generateBeachSubPageMetadata({
   beachSlug,
   pageType,
   beachPath,
+  expectedMexicoLocation,
 }: RenderParams): Promise<Metadata> {
   const beach = await getBeachBySlugOrId(beachSlug);
   const config = SUB_PAGE_CONFIGS[pageType];
   const subPagePath = `${beachPath}/${pageType}`;
 
   if (beach) {
+    if (!matchesExpectedMexicoLocation(beach, expectedMexicoLocation)) {
+      notFound();
+    }
+
     // Fetch dynamic data for SEO based on page type
     let title: string;
     let description: string;

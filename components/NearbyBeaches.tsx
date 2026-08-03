@@ -105,6 +105,7 @@ export function NearbyBeaches({ limit = 4 }: NearbyBeachesProps) {
               slug={beach.slug ?? undefined}
               city={beach.city ?? undefined}
               state={beach.state ?? undefined}
+              country={beach.country}
             />
           ))}
         </div>
