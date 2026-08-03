@@ -115,6 +115,7 @@ BEGIN
     FROM public.user_events event_row
     WHERE event_row.user_id IS NOT NULL
       AND event_row.user_id <> p_current_user_id
+      AND event_row.metadata ? 'native_install_id'
       AND event_row.metadata->>'native_install_id' = p_native_install_id::text
   ),
   named_candidates AS (
