@@ -99,6 +99,20 @@ describe("POST /api/v1/experiments/link", () => {
     expect(mockLinkExperimentEligibility).not.toHaveBeenCalled();
   });
 
+  it("accepts the largest documented native build value without narrowing the API contract", async () => {
+    mockLinkExperimentEligibility.mockResolvedValue({
+      rowsLinked: 2,
+      alreadyLinked: false,
+      existingBuild: "9999999999",
+      existingSource: "native_app",
+    });
+
+    const response = await POST(request({ build: "9999999999" }), { user: USER } as never);
+
+    expect(response.status).toBe(200);
+    expect(mockLinkExperimentEligibility).toHaveBeenCalledWith(USER.id, "9999999999", "native_app");
+  });
+
   it("ignores client-supplied source, user_id, and arm fields", async () => {
     mockLinkExperimentEligibility.mockResolvedValue({
       rowsLinked: 2,

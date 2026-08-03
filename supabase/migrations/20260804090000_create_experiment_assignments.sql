@@ -6,9 +6,11 @@
  * exception handler always returns NEW because signup availability is more
  * important than assignment completeness.
  *
- * ON DELETE CASCADE follows account-deletion hygiene. Deleted users leave the
- * cohort denominators; cohort queries report row counts per run. This accepted
- * tradeoff mirrors the rest of the schema's user-row handling.
+ * Assignment rows deliberately do not have a foreign key to auth.users.
+ * Supabase account deletion must remain available, but an assigned account
+ * must never disappear from the ITT ledger. After auth.users deletion the
+ * retained UUID is a detached pseudonymous cohort identifier: it cannot join
+ * to an account, while the immutable key, arm, and index_at remain analyzable.
  *
  * ROLLBACK (operator-owned; drop the signup trigger first):
  * DROP TRIGGER IF EXISTS on_auth_user_created_assign_experiments ON auth.users;
@@ -33,7 +35,7 @@ CREATE TABLE IF NOT EXISTS public.experiment_assignments (
     CONSTRAINT experiment_assignments_key_check CHECK (
       experiment_key IN ('t3-quicklog-v1', 't10-freegrowth-v1', 't2a-swellwatch-v1')
     ),
-  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL,
   arm smallint NOT NULL
     CONSTRAINT experiment_assignments_arm_check CHECK (arm IN (0, 1)),
   index_at timestamptz NOT NULL DEFAULT now(),
@@ -55,7 +57,7 @@ CREATE INDEX IF NOT EXISTS idx_experiment_assignments_key_index_at
   ON public.experiment_assignments (experiment_key, index_at);
 
 COMMENT ON TABLE public.experiment_assignments IS
-  'W-ASSIGN ledger of record (plan 063 §5). Service-role only. arm 0=control 1=treatment. Rows are immutable except a single write-once (build, source) linkage.';
+  'W-ASSIGN ledger of record (plan 063 §5). Service-role only. arm 0=control 1=treatment. Rows are immutable except a single write-once (build, source) linkage. user_id intentionally has no auth.users foreign key so account deletion retains a detached pseudonymous ITT row.';
 COMMENT ON COLUMN public.experiment_assignments.index_at IS
   'Analysis anchor: auth.users.created_at for signup-hook rows (t3/t10); allocation time for batch-allocated rows (t2a). Frozen — 7-day-return windows are computed from this.';
 COMMENT ON COLUMN public.experiment_assignments.build IS

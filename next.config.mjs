@@ -3,6 +3,7 @@ import withPWA from "@ducanh2912/next-pwa";
 import { withSentryConfig } from "@sentry/nextjs";
 import { validateEnvironment } from "./config/environment-validation.mjs";
 import { isCacheableForecastApiPath } from "./config/forecast-api-cache-rules.mjs";
+import { apiCacheHeaderRules } from "./config/api-cache-header-rules.mjs";
 
 const require = createRequire(import.meta.url);
 
@@ -114,15 +115,10 @@ const nextConfig = {
       // explicitly — but be aware that header precedence is a Next.js-
       // version-dependent behavior, so prefer moving truly-cacheable routes
       // to a more specific source pattern here if you need CDN caching.
-      {
-        source: "/api/(.*)",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "private, max-age=60, stale-while-revalidate=120",
-          },
-        ],
-      },
+      // Experiment assignment and eligibility responses vary by authenticated
+      // user. The ordered rules put their no-store header after the blanket
+      // API rule, matching Next's final-matching-header behavior.
+      ...apiCacheHeaderRules,
       {
         source: "/api/install-attribution/:path*",
         headers: [
