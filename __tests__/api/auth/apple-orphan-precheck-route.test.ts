@@ -32,6 +32,11 @@ jest.mock("@/lib/auth/apple-orphan-precheck-rate-limit", () => ({
 }));
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
+  // Keep the real cache-control constant: mocking it away silently drops the
+  // header and the no-store assertions below would pass against undefined.
+  NO_STORE_CACHE_CONTROL: jest.requireActual(
+    "@/lib/middleware/api-wrappers/cache-wrappers",
+  ).NO_STORE_CACHE_CONTROL,
   withBotBlockingAndRateLimit:
     (handler: (...args: unknown[]) => unknown) =>
     (request: unknown, context: unknown) =>
@@ -41,6 +46,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
 import { NextRequest } from "next/server";
 import { POST } from "@/app/api/v1/auth/apple-orphan-precheck/route";
 import { AppleIdentityTokenError } from "@/lib/auth/apple-identity-token";
+import { NO_STORE_CACHE_CONTROL } from "@/lib/middleware/api-wrappers";
 
 const VERIFIED_IDENTITY = {
   appleSub: "stable-apple-sub",
@@ -94,7 +100,9 @@ describe("pre-sign-in Apple orphan precheck route", () => {
     const response = await POST(request(validBody()));
 
     expect(response.status).toBe(status);
-    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(response.headers.get("Cache-Control")).toBe(
+      NO_STORE_CACHE_CONTROL,
+    );
     expect(await response.json()).toEqual({ verdict });
     expect(mockIdentityRateLimit).toHaveBeenCalledWith({
       nativeInstallId: "22222222-2222-4222-8222-222222222222",

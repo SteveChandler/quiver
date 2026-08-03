@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import {
   withBotBlockingAndRateLimit,
+  NO_STORE_CACHE_CONTROL,
   type RouteHandler,
 } from "@/lib/middleware/api-wrappers";
 import {
@@ -36,7 +37,7 @@ function jsonVerdict(
       status,
       headers: {
         ...Object.fromEntries(new Headers(headers).entries()),
-        "Cache-Control": "no-store",
+        "Cache-Control": NO_STORE_CACHE_CONTROL,
       },
     },
   );
@@ -113,7 +114,7 @@ function withVerdictOnly(handler: RouteHandler): RouteHandler {
 
     const headers = new Headers(response.headers);
     headers.delete("Content-Length");
-    headers.set("Cache-Control", "no-store");
+    headers.set("Cache-Control", NO_STORE_CACHE_CONTROL);
     return NextResponse.json({ verdict }, { status: response.status, headers });
   };
 }
