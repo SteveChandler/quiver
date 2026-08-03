@@ -1,11 +1,11 @@
 # Documentation Index
 
-This is the first stop for future Codex sessions. Prefer the files below before opening older plans, reports, or archived implementation history.
+This is the first stop for AI coding sessions and human contributors. Prefer the files below before opening older plans, reports, or archived implementation history.
 
 ## Use These First
 
-- [`../AGENTS.md`](../AGENTS.md) - repo-wide Codex instructions, testing gates, migration safety, and current project gotchas.
-- [`../CLAUDE.md`](../CLAUDE.md) - current architecture, stack, patterns, and product/design context.
+- [`../AGENTS.md`](../AGENTS.md) - repo-wide model-neutral instructions, testing gates, migration safety, and current project gotchas.
+- [`../CLAUDE.md`](../CLAUDE.md) - shared context for Claude, SOL, Fable, Codex, and other coding models.
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) - top-level architecture index and directory map.
 - [`MIGRATION_SAFETY.md`](MIGRATION_SAFETY.md) - required process before database migrations or production mutations.
 - [`ROUTING_PATTERNS.md`](ROUTING_PATTERNS.md) - canonical route and coverage behavior.
@@ -61,10 +61,10 @@ This is the first stop for future Codex sessions. Prefer the files below before 
 ## Documentation Maintenance Rules
 
 - New markdown files need a clear purpose, owner, and expected update trigger.
-- Future Codex tasks should update existing docs before creating duplicate planning docs.
+- Future AI-assisted tasks should update existing docs before creating duplicate planning docs.
 - Long-running planning/spec files should be summarized after major milestones.
 - Completed plans should be compressed into historical notes, with full history archived when needed.
-- Superseded files should move to `docs/archive/` or a local archive folder instead of remaining in active paths.
+- Delete superseded files once their durable history or replacement is confirmed; do not create local archive copies.
 - When uncertain, classify a doc as `Unknown` or `Needs human review` instead of retiring it.
 - Do not hand-edit generated references or scratch history unless the task is specifically about those files.
 - Keep central indexes concise; link to detailed history instead of copying it into the index.

@@ -112,7 +112,7 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 | **[SUPABASE_SETUP.md](docs/SUPABASE_SETUP.md)** ⭐  | Complete Supabase connection guide - which client to use when |
 | **[SETUP.md](docs/SETUP.md)**                       | Development environment setup and configuration               |
 | **[TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md)**   | Common development issues and solutions                       |
-| **[CLAUDE.md](docs/CLAUDE.md)**                     | AI-assisted development guide and coding standards            |
+| **[AI coding context](CLAUDE.md)**                  | Model-neutral project patterns and product context             |
 | **[MOBILE_LOCAL_DEV.md](docs/MOBILE_LOCAL_DEV.md)** | Mobile development with local tunnels                         |
 
 ---

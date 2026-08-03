@@ -1,31 +1,21 @@
 ---
 name: delight
 description: Add moments of joy, personality, and unexpected touches that make interfaces memorable and enjoyable to use. Elevates functional to delightful.
-user-invokable: true
-args:
-  - name: target
-    description: The feature or area to add delight to (optional)
-    required: false
 ---
 
 Identify opportunities to add moments of joy, personality, and unexpected polish that transform functional interfaces into delightful experiences.
 
-## MANDATORY PREPARATION
+## Context Preparation
 
 ### Context Gathering (Do This First)
 
 You cannot do a great job without having necessary context, such as target audience (critical), desired use-cases (critical), brand personality (playful vs professional vs quirky vs elegant), and what's appropriate for the domain.
 
-Attempt to gather these from the current thread or codebase.
+Gather this from the current thread, `CLAUDE.md` Design Context, relevant architecture and style documentation, and the code. Ask one concise question only when missing information would materially change the outcome; otherwise state reasonable assumptions and continue. Use the current runtime's available user-input mechanism.
 
-1. If you don't find *exact* information and have to infer from existing design and functionality, you MUST STOP and STOP and call the AskUserQuestionTool to clarify. whether you got it right.
-2. Otherwise, if you can't fully infer or your level of confidence is medium or lower, you MUST STOP and call the AskUserQuestionTool to clarify. clarifying questions first to complete your context.
+### Design Principles
 
-Do NOT proceed until you have answers. Delight that's wrong for the context is worse than no delight at all.
-
-### Use frontend-design skill
-
-Use the frontend-design skill for design principles and anti-patterns. Do NOT proceed until it has executed and you know all DO's and DON'Ts.
+Apply Quiver's existing design principles and anti-patterns. Load the frontend-design skill only when the necessary guidance is not already available; do not invoke another model solely to satisfy this step.
 
 ---
 
@@ -54,7 +44,7 @@ Identify where delight would enhance (not distract from) the experience:
    - **Helpful surprises**: Anticipating needs before users ask (productivity tools)
    - **Sensory richness**: Satisfying sounds, smooth animations (creative tools)
 
-If any of these are unclear from the codebase, STOP and call the AskUserQuestionTool to clarify.
+If any of these remain materially unclear after inspection, ask one concise question; otherwise proceed with stated assumptions.
 
 **CRITICAL**: Delight should enhance usability, never obscure it. If users notice the delight more than accomplishing their goal, you've gone too far.
 

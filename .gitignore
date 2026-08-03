@@ -87,8 +87,10 @@ scripts/setup-dev-cron.sh
 .codex/
 
 # AI tooling local configs
-.agent/
+.agent/*
+!.agent/skills
 .claude/skills/
+!.agents/skills/seo-audit/
 .claude/settings.local.json
 
 # Temporary scripts

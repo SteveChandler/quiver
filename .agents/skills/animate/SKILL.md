@@ -1,31 +1,21 @@
 ---
 name: animate
 description: Review a feature and enhance it with purposeful animations, micro-interactions, and motion effects that improve usability and delight.
-user-invokable: true
-args:
-  - name: target
-    description: The feature or component to animate (optional)
-    required: false
 ---
 
 Analyze a feature and strategically add animations and micro-interactions that enhance understanding, provide feedback, and create delight.
 
-## MANDATORY PREPARATION
+## Context Preparation
 
 ### Context Gathering (Do This First)
 
 You cannot do a great job without having necessary context, such as target audience (critical), desired use-cases (critical), brand personality/tone (playful vs serious, energetic vs calm), and performance constraints.
 
-Attempt to gather these from the current thread or codebase.
+Gather this from the current thread, `CLAUDE.md` Design Context, relevant architecture and style documentation, and the code. Ask one concise question only when missing information would materially change the outcome; otherwise state reasonable assumptions and continue. Use the current runtime's available user-input mechanism.
 
-1. If you don't find *exact* information and have to infer from existing design and functionality, you MUST STOP and STOP and call the AskUserQuestionTool to clarify. whether you got it right.
-2. Otherwise, if you can't fully infer or your level of confidence is medium or lower, you MUST STOP and call the AskUserQuestionTool to clarify. clarifying questions first to complete your context.
+### Design Principles
 
-Do NOT proceed until you have answers. Guessing leads to inappropriate or excessive animation.
-
-### Use frontend-design skill
-
-Use the frontend-design skill for design principles and anti-patterns. Do NOT proceed until it has executed and you know all DO's and DON'Ts.
+Apply Quiver's existing design principles and anti-patterns. Load the frontend-design skill only when the necessary guidance is not already available; do not invoke another model solely to satisfy this step.
 
 ---
 
@@ -46,7 +36,7 @@ Analyze where motion would improve the experience:
    - Who's the audience? (Motion-sensitive users? Power users who want speed?)
    - What matters most? (One hero animation vs many micro-interactions?)
 
-If any of these are unclear from the codebase, STOP and call the AskUserQuestionTool to clarify.
+If any of these remain materially unclear after inspection, ask one concise question; otherwise proceed with stated assumptions.
 
 **CRITICAL**: Respect `prefers-reduced-motion`. Always provide non-animated alternatives for users who need them.
 

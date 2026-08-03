@@ -192,6 +192,8 @@ export const VALID_EVENTS = [
   'beach_search_result_click',
   // Growth markers
   'acquisition_source_self_reported',
+  'apple_orphan_precheck_indeterminate',
+  'apple_orphan_prevented',
   'apple_orphan_recovery_flagged',
   'first_beach_view_post_signup',
   'first_session_logged',
@@ -337,6 +339,7 @@ export const ANONYMOUS_ALLOWED_EVENTS: readonly EventType[] = [
   'auth_modal_opened', 'auth_modal_closed_without_action',
   'auth_method_selected', 'auth_provider_selected',
   'auth_failed', 'native_app_first_open',
+  'apple_orphan_precheck_indeterminate', 'apple_orphan_prevented',
   // Auth-transition events — legitimately fire for both anon and authed users
   // (e.g. signup success fires after auth completes). Not on PRE_AUTH_ONLY_EVENTS.
   'signup_started', 'signup_success', 'login_success',
@@ -406,6 +409,8 @@ export const PRE_AUTH_ONLY_EVENTS: readonly EventType[] = [
   'auth_modal_closed_without_action',
   'auth_failed',
   'native_app_first_open',
+  'apple_orphan_precheck_indeterminate',
+  'apple_orphan_prevented',
   // Native signed-out onboarding intro CTA.
   'onboarding_intro_get_started',
   // Anon alert capture (pre-auth only). Ghost-authed fires of these

@@ -74,6 +74,7 @@ export function NearbyBeachScroll({
                   slug={originalBeach?.slug}
                   city={originalBeach?.city}
                   state={originalBeach?.state}
+                  country={originalBeach?.country}
                   showForecastPreview={showForecastPreviews}
                   onViewDetails={() =>
                     originalBeach && onBeachSelect(originalBeach)

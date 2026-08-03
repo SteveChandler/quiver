@@ -152,6 +152,46 @@ describe("Beach URL Utils", () => {
       expect(buildBeachUrl(beach)).toBe("/mexico/baja-california/ensenada/k38");
     });
 
+    it.each([null, "", "   "])(
+      "should never treat an explicitly unknown country (%j) as USA",
+      (country) => {
+        expect(
+          buildBeachUrl({
+            slug: "k-40-puerto-nuevo",
+            city: "Puerto Nuevo",
+            state: "Baja California",
+            country,
+          }),
+        ).toBe("/beach/k-40-puerto-nuevo");
+      },
+    );
+
+    it("keeps the legacy USA shape only when country is omitted", () => {
+      expect(
+        buildBeachUrl({
+          slug: "ocean-beach",
+          city: "San Diego",
+          state: "CA",
+        }),
+      ).toBe("/ca/san-diego/ocean-beach");
+      expect(
+        buildBeachUrl({
+          slug: "k-40-puerto-nuevo",
+          city: "Puerto Nuevo",
+          state: "Baja California",
+          country: undefined,
+        }),
+      ).toBe("/beach/k-40-puerto-nuevo");
+      expect(
+        getBeachHrefSafe({
+          slug: "k-40-puerto-nuevo",
+          city: "Puerto Nuevo",
+          state: "Baja California",
+          country: undefined,
+        }),
+      ).toBe("/beach/k-40-puerto-nuevo");
+    });
+
     it("should handle cities with spaces", () => {
       const beach = {
         slug: "pier",
@@ -499,6 +539,17 @@ describe("Beach URL Utils", () => {
           state: null,
         })
       ).toBe("/beach/test-beach");
+    });
+
+    it("should use a country-independent fallback when country is explicitly unknown", () => {
+      expect(
+        getBeachHrefSafe({
+          slug: "k-40-puerto-nuevo",
+          city: "Puerto Nuevo",
+          state: "Baja California",
+          country: null,
+        }),
+      ).toBe("/beach/k-40-puerto-nuevo");
     });
 
     it("should fallback to /beach/{id} when slug missing but id exists", () => {

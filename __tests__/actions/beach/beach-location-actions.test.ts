@@ -4,6 +4,7 @@ import {
   lookupCityByCityAndStateSlug,
   getAllCitiesWithBeachSkills,
   getTopCitiesInStateForIntent,
+  getNearbyBeaches,
 } from '@/actions/beach/beach-location-actions';
 
 jest.mock('@/lib/supabase/server');
@@ -366,5 +367,106 @@ describe('city lookup functions', () => {
       const result = await lookupCityByCityAndStateSlug('oceanside', 'ca');
       expect(result).toBeNull();
     });
+  });
+});
+
+describe('getNearbyBeaches country hydration', () => {
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function makeNearbySupabaseFake(
+    countryResult: { data: Array<{ id: string; country: string | null }> | null; error: Error | null },
+    rpcCountry?: string | null,
+  ) {
+    return {
+      rpc: jest.fn().mockResolvedValue({
+        data: [
+          {
+            id: 'mexico-beach',
+            name: 'K-40',
+            lat: 32.2,
+            lon: -117.1,
+            slug: 'k-40-puerto-nuevo',
+            city: 'Puerto Nuevo',
+            state: 'Baja California',
+            ...(rpcCountry !== undefined ? { country: rpcCountry } : {}),
+          },
+        ],
+        error: null,
+      }),
+      from: jest.fn(() => ({
+        select: jest.fn(() => ({
+          in: jest.fn().mockResolvedValue(countryResult),
+        })),
+      })),
+    } as any;
+  }
+
+  it('hydrates Mexico country before returning nearby cards', async () => {
+    mockCreate.mockReturnValue(
+      makeNearbySupabaseFake({
+        data: [{ id: 'mexico-beach', country: 'Mexico' }],
+        error: null,
+      }),
+    );
+
+    const result = await getNearbyBeaches(32.2, -117.1);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.[0].country).toBe('Mexico');
+  });
+
+  it('fails the nearby result when country hydration returns an error', async () => {
+    mockCreate.mockReturnValue(
+      makeNearbySupabaseFake({ data: null, error: new Error('country lookup failed') }),
+    );
+
+    const result = await getNearbyBeaches(32.2, -117.1);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('country lookup failed');
+  });
+
+  it('fails the nearby result when country hydration is incomplete', async () => {
+    mockCreate.mockReturnValue(
+      makeNearbySupabaseFake({ data: [], error: null }),
+    );
+
+    const result = await getNearbyBeaches(32.2, -117.1);
+
+    expect(result.success).toBe(false);
+    expect(result.error).toContain('country hydration was incomplete');
+  });
+
+  it.each([null, '', '   '])(
+    'fails closed when hydration returns an unusable country (%j)',
+    async (country) => {
+      mockCreate.mockReturnValue(
+        makeNearbySupabaseFake({
+          data: [{ id: 'mexico-beach', country }],
+          error: null,
+        }),
+      );
+
+      const result = await getNearbyBeaches(32.2, -117.1);
+
+      expect(result.success).toBe(false);
+      expect(result.error).toContain('country hydration was incomplete');
+    },
+  );
+
+  it('prefers a valid hydrated country over an unusable RPC country', async () => {
+    mockCreate.mockReturnValue(
+      makeNearbySupabaseFake(
+        { data: [{ id: 'mexico-beach', country: 'Mexico' }], error: null },
+        ' ',
+      ),
+    );
+
+    const result = await getNearbyBeaches(32.2, -117.1);
+
+    expect(result.success).toBe(true);
+    expect(result.data?.[0].country).toBe('Mexico');
   });
 });

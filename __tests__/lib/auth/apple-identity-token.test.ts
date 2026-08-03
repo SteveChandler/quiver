@@ -38,6 +38,7 @@ describe("verifyAppleIdentityToken", () => {
       payload: {
         sub: "000123.stable-apple-sub",
         iat: 1_785_000_000,
+        exp: 1_785_000_600,
         email: "hidden@privaterelay.appleid.com",
         email_verified: true,
       },
@@ -51,6 +52,7 @@ describe("verifyAppleIdentityToken", () => {
     expect(result).toEqual({
       appleSub: "000123.stable-apple-sub",
       issuedAt: new Date(1_785_000_000_000),
+      expiresAt: new Date(1_785_000_600_000),
     });
     expect(mockJwtVerify).toHaveBeenCalledWith(
       "signed-apple-token",
@@ -64,7 +66,11 @@ describe("verifyAppleIdentityToken", () => {
 
   it("rejects a token older than the fresh Apple challenge window", async () => {
     mockJwtVerify.mockResolvedValue({
-      payload: { sub: "stable-sub", iat: 1_785_000_000 },
+      payload: {
+        sub: "stable-sub",
+        iat: 1_785_000_000,
+        exp: 1_785_000_600,
+      },
     });
 
     await expect(
@@ -73,6 +79,23 @@ describe("verifyAppleIdentityToken", () => {
         new Date(1_785_000_301_000),
       ),
     ).rejects.toThrow("Apple challenge is no longer fresh");
+  });
+
+  it("rejects an expired token even when its issue time is recent", async () => {
+    mockJwtVerify.mockResolvedValue({
+      payload: {
+        sub: "stable-sub",
+        iat: 1_785_000_000,
+        exp: 1_785_000_060,
+      },
+    });
+
+    await expect(
+      verifyAppleIdentityToken(
+        "expired-token",
+        new Date(1_785_000_120_000),
+      ),
+    ).rejects.toThrow("Apple identity token has expired");
   });
 
   it("fails closed when the audience configuration is absent", async () => {

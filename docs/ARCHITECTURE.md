@@ -420,7 +420,7 @@ Two mobile strategies coexist:
 - **Repo**: Separate Git repo — `quiver-native`
 - **Stack**: Expo 55, React Native 0.83, Tamagui, TanStack Query, Zustand, React Navigation 7
 - **Backend**: Shares same Supabase instance (DB + Auth + Storage). Also calls this repo's Next.js API routes for forecasts/surf calls.
-- **Docs**: Has its own `CLAUDE.md`, `docs/ARCHITECTURE.md`, and inline `ARCHITECTURE.md` files
+- **Docs**: Has its own `AGENTS.md`, model context, `docs/ARCHITECTURE.md`, and inline `ARCHITECTURE.md` files
 - **Build**: EAS Build (dev/preview/production profiles) or local `npx expo run:ios/android`
 - **Bundle ID**: `app.quiversurf.native`
 

@@ -1,16 +1,11 @@
 ---
 name: critique
 description: Evaluate design effectiveness from a UX perspective. Assesses visual hierarchy, information architecture, emotional resonance, and overall design quality with actionable feedback.
-user-invokable: true
-args:
-  - name: area
-    description: The feature or area to critique (optional)
-    required: false
 ---
 
 Conduct a holistic design critique, evaluating whether the interface actually works—not just technically, but as a designed experience. Think like a design director giving feedback.
 
-**First**: Use the frontend-design skill for design principles and anti-patterns.
+Apply the Design Context in `CLAUDE.md` and the relevant frontend-design principles. Load the frontend-design skill only if those principles are not already available; do not invoke another model solely for this step.
 
 ## Design Critique
 
@@ -20,7 +15,7 @@ Evaluate the interface across these dimensions:
 
 **This is the most important check.** Does this look like every other AI-generated interface from 2024-2025?
 
-Review the design against ALL the **DON'T** guidelines in the frontend-design skill—they are the fingerprints of AI-generated work. Check for the AI color palette, gradient text, dark mode with glowing accents, glassmorphism, hero metric layouts, identical card grids, generic fonts, and all other tells.
+Review the design against Quiver's anti-references and relevant frontend-design guidance. Check for generic AI color palettes, gradient text, dark mode with glowing accents, glassmorphism, hero metric layouts, identical card grids, generic fonts, and similar tells.
 
 **The test**: If you showed this to someone and said "AI made this," would they believe you immediately? If yes, that's the problem.
 

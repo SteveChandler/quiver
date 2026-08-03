@@ -92,6 +92,7 @@ export function NearbyBeachesEnriched({
                 slug={beach.slug}
                 city={beach.city}
                 state={beach.state}
+                country={beach.country}
                 imageUrl={beach.photoUrl}
                 score={beach.score}
                 waveHeight={beach.waveHeight}
@@ -125,6 +126,7 @@ export function NearbyBeachesEnriched({
                   slug={beach.slug}
                   city={beach.city}
                   state={beach.state}
+                  country={beach.country}
                   imageUrl={beach.photoUrl}
                   score={beach.score}
                   waveHeight={beach.waveHeight}

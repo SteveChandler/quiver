@@ -1,6 +1,6 @@
 ---
 name: churn-prevention
-description: "When the user wants to reduce churn, build cancellation flows, set up save offers, recover failed payments, or implement retention strategies. Also use when the user mentions 'churn,' 'cancel flow,' 'offboarding,' 'save offer,' 'dunning,' 'failed payment recovery,' 'win-back,' 'retention,' 'exit survey,' 'pause subscription,' 'involuntary churn,' 'people keep canceling,' 'churn rate is too high,' 'how do I keep users,' or 'customers are leaving.' Use this whenever someone is losing subscribers or wants to build systems to prevent it. For post-cancel win-back email sequences, see email-sequence. For in-app upgrade paywalls, see paywall-upgrade-cro."
+description: "When the user wants to reduce churn, build cancellation flows, set up save offers, recover failed payments, or implement retention strategies. Also use when the user mentions 'churn,' 'cancel flow,' 'offboarding,' 'save offer,' 'dunning,' 'failed payment recovery,' 'win-back,' 'retention,' 'exit survey,' 'pause subscription,' 'involuntary churn,' 'people keep canceling,' 'churn rate is too high,' 'how do I keep users,' or 'customers are leaving.' Use this whenever someone is losing subscribers or wants to build systems to prevent it. For post-cancel win-back email sequences, see email-sequence."
 metadata:
   version: 1.1.0
 ---
@@ -12,7 +12,7 @@ You are an expert in SaaS retention and churn prevention. Your goal is to help r
 ## Before Starting
 
 **Check for product marketing context first:**
-If `.agents/product-marketing-context.md` exists (or `.Codex/product-marketing-context.md` in older setups), read it before asking questions. Use that context and only ask for information not already covered or specific to this task.
+If `.claude/product-marketing-context.md` exists, read it before asking questions. Use that context and only ask for information not already covered or specific to this task.
 
 Gather this context (ask if not provided):
 
@@ -252,7 +252,7 @@ Health Score = (
 | Trigger | Intervention |
 |---------|-------------|
 | Usage drop >50% for 2 weeks | "We noticed you haven't used [feature]. Need help?" email |
-| Approaching plan limit | Upgrade nudge (not a wall — paywall-upgrade-cro handles this) |
+| Approaching plan limit | Flag as separate monetization work that requires explicit direction |
 | No login for 14 days | Re-engagement email with recent product updates |
 | NPS detractor (0-6) | Personal follow-up within 24 hours |
 | Support ticket unresolved >48h | Escalation + proactive status update |
@@ -360,14 +360,14 @@ Test one variable at a time:
 | Offer presentation (modal vs full page) | Full page gets more attention | Save rate |
 | Copy tone (empathetic vs direct) | Empathetic reduces friction | Save rate |
 
-**How to run cancel flow experiments:** Use the **ab-test-setup** skill to design statistically rigorous tests. PostHog is a good fit for cancel flow experiments — its feature flags can split users into different flows server-side, and its funnel analytics track each step of the cancel flow (survey → offer → accept/decline → confirm). See the [PostHog integration guide](../../tools/integrations/posthog.md) for setup.
+**How to run cancel flow experiments:** Define the hypothesis, primary metric, guardrails, eligibility rules, sample-size requirement, and stop condition before implementation. Use Quiver's existing analytics and feature-flag patterns; do not create external dashboards or mutate production systems without explicit approval.
 
 ---
 
 ## Common Mistakes
 
 - **No cancel flow at all** — Instant cancel leaves money on the table. Even a simple survey + one offer saves 10-15%
-- **Making cancellation hard to find** — Hidden cancel buttons breed resentment and bad reviews. Many jurisdictions require easy cancellation (FTC Click-to-Cancel rule)
+- **Making cancellation hard to find** — Hidden cancel buttons breed resentment and bad reviews. Verify current cancellation requirements for every applicable jurisdiction.
 - **Same offer for every reason** — A blanket discount doesn't address "missing feature" or "not using it"
 - **Discounts too deep** — 50%+ discounts train customers to cancel-and-return for deals
 - **Ignoring involuntary churn** — Often 30-50% of total churn and the easiest to fix
@@ -379,46 +379,7 @@ Test one variable at a time:
 
 ---
 
-## Tool Integrations
-
-For implementation, see the [tools registry](../../tools/REGISTRY.md).
-
-### Retention Platforms
-
-| Tool | Best For | Key Feature |
-|------|----------|-------------|
-| **Churnkey** | Full cancel flow + dunning | AI-powered adaptive offers, 34% avg save rate |
-| **ProsperStack** | Cancel flows with analytics | Advanced rules engine, Stripe/Chargebee integration |
-| **Raaft** | Simple cancel flow builder | Easy setup, good for early-stage |
-| **Chargebee Retention** | Chargebee customers | Native integration, was Brightback |
-
-### Billing Providers (Dunning)
-
-| Provider | Smart Retries | Dunning Emails | Card Updater |
-|----------|:------------:|:--------------:|:------------:|
-| **Stripe** | Built-in (Smart Retries) | Built-in | Automatic |
-| **Chargebee** | Built-in | Built-in | Via gateway |
-| **Paddle** | Built-in | Built-in | Managed |
-| **Recurly** | Built-in | Built-in | Built-in |
-| **Braintree** | Manual config | Manual | Via gateway |
-
-### Related CLI Tools
-
-| Tool | Use For |
-|------|---------|
-| `stripe` | Subscription management, dunning config, payment retries |
-| `customer-io` | Dunning email sequences, retention campaigns |
-| `posthog` | Cancel flow A/B tests via feature flags, funnel analytics |
-| `mixpanel` / `ga4` | Usage tracking, churn signal analysis |
-| `segment` | Event routing for health scoring |
-
----
-
 ## Related Skills
 
 - **email-sequence**: For win-back email sequences after cancellation
-- **paywall-upgrade-cro**: For in-app upgrade moments and trial expiration
-- **pricing-strategy**: For plan structure and annual discount strategy
 - **onboarding-cro**: For activation to prevent early churn
-- **analytics-tracking**: For setting up churn signal events
-- **ab-test-setup**: For testing cancel flow variations with statistical rigor

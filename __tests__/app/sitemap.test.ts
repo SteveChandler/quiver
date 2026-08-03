@@ -847,6 +847,29 @@ describe("Sitemap Generation", () => {
       expect(anyBreakRoute).toBeUndefined();
     });
 
+    it.each([null, "", "   ", undefined])(
+      "should exclude beaches with an explicitly unknown country (%j)",
+      async (country) => {
+        (getBeaches as jest.Mock).mockResolvedValue({
+          success: true,
+          data: [
+            {
+              id: "beach-unknown-country",
+              slug: "k-40-puerto-nuevo",
+              city: "Puerto Nuevo",
+              state: "Baja California",
+              country,
+              ...reviewedBeach(),
+            },
+          ],
+        });
+
+        const result = await sitemap();
+
+        expect(result.some((route) => route.url.includes("k-40-puerto-nuevo"))).toBe(false);
+      },
+    );
+
     it("should include beach routes using hierarchical URL for complete data", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
@@ -947,9 +970,7 @@ describe("Sitemap Generation", () => {
       expect(beachRoute).not.toBeUndefined();
     });
 
-    it("should NOT include tides/water-temp subpages for international beaches", async () => {
-      // International beaches use a 4-segment URL pattern and have no dedicated
-      // tides/water-temp subpage routes — only US beaches get those subpages.
+    it("should include tides/water-temp subpages for eligible Mexico beaches", async () => {
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
         data: [
@@ -974,10 +995,10 @@ describe("Sitemap Generation", () => {
 
       const result = await sitemap();
 
-      // International beach: main page present, subpages absent
+      // Mexico beach: main page AND dedicated subpages are present.
       expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas"))).not.toBeUndefined();
-      expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas/tides"))).toBeUndefined();
-      expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas/water-temp"))).toBeUndefined();
+      expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas/tides"))).not.toBeUndefined();
+      expect(result.find((r) => r.url.includes("/mexico/baja-california/rosarito/teresas/water-temp"))).not.toBeUndefined();
 
       // US beach: main page AND subpages present
       expect(result.find((r) => r.url.includes("/ca/san-diego/sunset-cliffs-garbage") && !r.url.includes("/tides") && !r.url.includes("/water-temp"))).not.toBeUndefined();
@@ -1073,7 +1094,7 @@ describe("Sitemap Generation", () => {
       expect(waterTempRoute).not.toBeUndefined();
     });
 
-    it("should use beach updated_at for lastModified", async () => {
+    it("keeps unchanged US beach lastModified dates on the existing fallback", async () => {
       const updatedAt = "2024-11-15T12:00:00Z";
       (getBeaches as jest.Mock).mockResolvedValue({
         success: true,
@@ -1095,7 +1116,34 @@ describe("Sitemap Generation", () => {
         r.url.includes("/ca/san-diego/sunset-cliffs") && !r.url.includes("/tides") && !r.url.includes("/water-temp")
       );
 
-      expect(beachRoute?.lastModified).toBe(updatedAt);
+      expect(beachRoute?.lastModified).toBe("2026-02-10");
+    });
+
+    it("uses the newer Mexico template date when beach data predates a canonical change", async () => {
+      (getBeaches as jest.Mock).mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: "beach-1",
+            slug: "teresas",
+            city: "Rosarito",
+            state: "Baja California",
+            country: "Mexico",
+            updated_at: "2026-07-01T00:00:00Z",
+            ...reviewedBeach(),
+          },
+        ],
+      });
+
+      const result = await sitemap();
+      const beachRoute = result.find(
+        (r) =>
+          r.url.includes("/mexico/baja-california/rosarito/teresas") &&
+          !r.url.includes("/tides") &&
+          !r.url.includes("/water-temp"),
+      );
+
+      expect(beachRoute?.lastModified).toBe("2026-08-03");
     });
 
     it("should handle getBeaches failure gracefully", async () => {

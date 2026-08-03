@@ -1,8 +1,14 @@
 const rpcMock = jest.fn();
+const countryLookupMock = jest.fn();
 
 jest.mock("@/lib/supabase/client", () => ({
   __esModule: true,
-  createClient: () => ({ rpc: rpcMock }),
+  createClient: () => ({
+    rpc: rpcMock,
+    from: () => ({
+      select: () => ({ in: countryLookupMock }),
+    }),
+  }),
 }));
 
 jest.mock("@/components/beach-card", () => ({
@@ -47,6 +53,12 @@ function SelectedBeachInitializer({
 describe("NearbyBeaches component", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    countryLookupMock.mockImplementation((_column: string, ids: string[]) =>
+      Promise.resolve({
+        data: ids.map((id) => ({ id, country: "USA" })),
+        error: null,
+      }),
+    );
   });
 
   it("renders nearby beaches excluding the selected beach and formats distance", async () => {

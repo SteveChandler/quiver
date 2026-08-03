@@ -1,31 +1,21 @@
 ---
 name: distill
 description: Strip designs to their essence by removing unnecessary complexity. Great design is simple, powerful, and clean.
-user-invokable: true
-args:
-  - name: target
-    description: The feature or component to distill (optional)
-    required: false
 ---
 
 Remove unnecessary complexity from designs, revealing the essential elements and creating clarity through ruthless simplification.
 
-## MANDATORY PREPARATION
+## Context Preparation
 
 ### Context Gathering (Do This First)
 
 You cannot do a great job without having necessary context, such as target audience (critical), desired use-cases (critical), and understanding what's truly essential vs nice-to-have for this product.
 
-Attempt to gather these from the current thread or codebase.
+Gather this from the current thread, `CLAUDE.md` Design Context, relevant architecture and style documentation, and the code. Ask one concise question only when missing information would materially change the outcome; otherwise state reasonable assumptions and continue. Use the current runtime's available user-input mechanism.
 
-1. If you don't find *exact* information and have to infer from existing design and functionality, you MUST STOP and STOP and call the AskUserQuestionTool to clarify. whether you got it right.
-2. Otherwise, if you can't fully infer or your level of confidence is medium or lower, you MUST STOP and call the AskUserQuestionTool to clarify. clarifying questions first to complete your context.
+### Design Principles
 
-Do NOT proceed until you have answers. Simplifying the wrong things destroys usability.
-
-### Use frontend-design skill
-
-Use the frontend-design skill for design principles and anti-patterns. Do NOT proceed until it has executed and you know all DO's and DON'Ts.
+Apply Quiver's existing design principles and anti-patterns. Load the frontend-design skill only when the necessary guidance is not already available; do not invoke another model solely to satisfy this step.
 
 ---
 
@@ -47,7 +37,7 @@ Analyze what makes the design feel complex or cluttered:
    - What can be removed, hidden, or combined?
    - What's the 20% that delivers 80% of value?
 
-If any of these are unclear from the codebase, STOP and call the AskUserQuestionTool to clarify.
+If any of these remain materially unclear after inspection, ask one concise question; otherwise proceed with stated assumptions.
 
 **CRITICAL**: Simplicity is not about removing features - it's about removing obstacles between users and their goals. Every element should justify its existence.
 
