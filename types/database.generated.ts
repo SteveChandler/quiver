@@ -5388,15 +5388,7 @@ export type Database = {
           source?: string | null
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "experiment_assignments_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "auth_apple_orphan_users"
-            referencedColumns: ["user_id"]
-          },
-        ]
+        Relationships: []
       }
       fallback_events: {
         Row: {

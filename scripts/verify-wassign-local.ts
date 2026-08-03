@@ -206,33 +206,35 @@ async function verify(): Promise<void> {
         .in("user_id", createdUserIds);
       if (retainedRowsError) throw retainedRowsError;
 
-      try {
-        // Some local DBs guard auth.users deletion behind a protective trigger
-        // (app.allow_destructive). That is environmental, not a substrate
-        // failure: warn and skip the retained-orphan assertion, which is only
-        // meaningful when deletions actually happened.
-        if (deletionErrors.length > 0) {
-          console.warn(
-            `auth-user cleanup skipped by environment guard: ${deletionErrors.join(", ")}`,
-          );
-        } else {
-          const retainedUserIds = new Set((retainedRows ?? []).map((row) => row.user_id));
-          assertion(
-            retainedUserIds.size === createdUserIds.length,
-            "account deletion did not retain an orphaned W-ASSIGN row for every generated test user",
-          );
-        }
-      } finally {
+      // Some local DBs guard auth.users deletion behind a protective trigger
+      // (app.allow_destructive). Assignment rows are only cleaned for users
+      // that were actually deleted: removing a live user's assignment would
+      // recreate the exact signup-coverage gap the trigger exists to prevent.
+      const failedIds = new Set(deletionErrors.map((line) => line.split(":")[0]));
+      const deletedUserIds = createdUserIds.filter((id) => !failedIds.has(id));
+
+      if (deletionErrors.length > 0) {
+        console.warn(
+          `auth-user cleanup blocked by environment guard; test users AND their assignments remain: ${deletionErrors.join(", ")}`,
+        );
+      }
+      if (deletedUserIds.length > 0) {
+        const retainedUserIds = new Set((retainedRows ?? []).map((row) => row.user_id));
+        assertion(
+          deletedUserIds.every((id) => retainedUserIds.has(id)),
+          "account deletion did not retain an orphaned W-ASSIGN row for every deleted test user",
+        );
+
         const { error: assignmentCleanupError } = await client
           .from("experiment_assignments")
           .delete()
-          .in("user_id", createdUserIds);
+          .in("user_id", deletedUserIds);
         if (assignmentCleanupError) throw assignmentCleanupError;
 
         const { count: remainingRows, error: remainingRowsError } = await client
           .from("experiment_assignments")
           .select("*", { count: "exact", head: true })
-          .in("user_id", createdUserIds);
+          .in("user_id", deletedUserIds);
         if (remainingRowsError) throw remainingRowsError;
         assertion(remainingRows === 0, "service-role cleanup left W-ASSIGN test rows behind");
       }
