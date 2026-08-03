@@ -9,6 +9,7 @@ const FRESH_CHALLENGE_MS = 5 * 60 * 1000;
 export interface VerifiedAppleIdentity {
   appleSub: string;
   issuedAt: Date;
+  expiresAt: Date;
 }
 
 export type AppleIdentityTokenErrorCode =
@@ -54,6 +55,7 @@ export async function verifyAppleIdentityToken(
     ({ payload } = await jwtVerify(identityToken, APPLE_JWKS, {
       issuer: APPLE_ISSUER,
       audience: audiences,
+      currentDate: now,
     }));
   } catch {
     throw new AppleIdentityTokenError(
@@ -74,8 +76,15 @@ export async function verifyAppleIdentityToken(
       "Apple identity token is missing its issue time",
     );
   }
+  if (typeof payload.exp !== "number") {
+    throw new AppleIdentityTokenError(
+      "invalid_apple_challenge",
+      "Apple identity token is missing its expiry time",
+    );
+  }
 
   const issuedAt = new Date(payload.iat * 1000);
+  const expiresAt = new Date(payload.exp * 1000);
   const ageMs = now.getTime() - issuedAt.getTime();
   if (ageMs < -30_000 || ageMs > FRESH_CHALLENGE_MS) {
     throw new AppleIdentityTokenError(
@@ -83,9 +92,16 @@ export async function verifyAppleIdentityToken(
       "Apple challenge is no longer fresh",
     );
   }
+  if (expiresAt.getTime() <= now.getTime()) {
+    throw new AppleIdentityTokenError(
+      "invalid_apple_challenge",
+      "Apple identity token has expired",
+    );
+  }
 
   return {
     appleSub: payload.sub,
     issuedAt,
+    expiresAt,
   };
 }
