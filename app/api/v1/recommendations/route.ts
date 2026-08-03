@@ -5,9 +5,9 @@ import {
   createValidationError,
   handleApiError,
   withRateLimit,
-  type RouteHandler,
+  withNoStore,
 } from "@/lib/middleware/api-wrappers";
-import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import { getVerifiedProfileExperience } from "@/lib/profile/skill-level";
 import {
   sanitizeLegacyV1RecommendationsForMajorEventHold,
   type SanitizedLegacyV1RecommendationsResponse,
@@ -37,7 +37,6 @@ import { msToKts, mToFt } from "@/lib/utils/unit-conversions";
 
 export const dynamic = "force-dynamic";
 
-const NO_STORE = "private, no-store, no-cache, must-revalidate";
 
 type ScoredRecommendation = Recommendation & {
   marine_created_at: string | null;
@@ -65,20 +64,6 @@ function hasDegradation(degradation: DegradationInfo): boolean {
 
 type ApiSupabaseClient = Awaited<ReturnType<typeof createAPIServerClient>>;
 
-async function getVerifiedProfileExperience(
-  supabase: ApiSupabaseClient,
-): Promise<unknown> {
-  try {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-    if (error || !user) return null;
-    return await getProfileExperienceLevel(supabase, user.id);
-  } catch {
-    return null;
-  }
-}
 
 function buildLegacyV1Candidates(
   response: RecommendationsResponse,
@@ -99,7 +84,7 @@ async function sanitizeRecommendations(
   supabase: ApiSupabaseClient,
 ): Promise<SanitizedLegacyV1RecommendationsResponse> {
   const candidates = buildLegacyV1Candidates(response);
-  const profileExperience = await getVerifiedProfileExperience(supabase);
+  const { profileExperience } = await getVerifiedProfileExperience(supabase);
   const decisions = await evaluateMajorEventHoldCandidates({
     candidates,
     profileExperience,
@@ -111,13 +96,6 @@ async function sanitizeRecommendations(
   );
 }
 
-function withNoStore(handler: RouteHandler): RouteHandler {
-  return async (request, context) => {
-    const response = await handler(request, context);
-    response.headers.set("Cache-Control", NO_STORE);
-    return response;
-  };
-}
 
 async function recommendationsHandler(
   request: NextRequest,

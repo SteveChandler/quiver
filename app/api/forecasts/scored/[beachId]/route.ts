@@ -4,7 +4,7 @@ import {
   validateUuidParam,
   createSuccessResponse,
   createNotFoundError,
-  type RouteHandler,
+  withNoStore,
 } from "@/lib/middleware/api-wrappers";
 import {
   sanitizeScoredForecastForMajorEventHold,
@@ -31,7 +31,6 @@ import type { Beach } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 
-const NO_STORE = "private, no-store, no-cache, must-revalidate";
 const SLOT_DURATION_MS = 3 * 60 * 60 * 1000;
 
 // ---------------------------------------------------------------------------
@@ -322,13 +321,6 @@ function buildGoldenBindings(
   }));
 }
 
-function withNoStore(handler: RouteHandler): RouteHandler {
-  return async (request, context) => {
-    const response = await handler(request, context);
-    response.headers.set("Cache-Control", NO_STORE);
-    return response;
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Route handler

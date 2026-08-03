@@ -6,7 +6,7 @@ import {
   withAuth,
   withRateLimit,
   type OptionalAuthContext,
-  type RouteHandler,
+  withNoStore,
 } from "@/lib/middleware/api-wrappers";
 import {
   sanitizeBulkForecastForMajorEventHold,
@@ -34,7 +34,6 @@ import { rowToSwellPartition, type SwellPartition } from "./swell-partition";
 
 export const dynamic = 'force-dynamic';
 
-const NO_STORE = "private, no-store, no-cache, must-revalidate";
 const BULK_CANDIDATE_DURATION_MS = 3 * 60 * 60 * 1000;
 const UNAVAILABLE_RECOMMENDATION: RecommendationAvailability = {
   state: "none",
@@ -180,13 +179,6 @@ async function sanitizeBulkResponse<TResponse extends BulkForecastResponseLike>(
   );
 }
 
-function withNoStore(handler: RouteHandler): RouteHandler {
-  return async (request, context) => {
-    const response = await handler(request, context);
-    response.headers.set("Cache-Control", NO_STORE);
-    return response;
-  };
-}
 
 function parseLegacyWaveHeight(value: string | number | null | undefined): number | null {
   if (value == null) return null;

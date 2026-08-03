@@ -1,4 +1,7 @@
-import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import {
+  getProfileExperienceLevel,
+  getVerifiedProfileExperience,
+} from "@/lib/profile/skill-level";
 
 type ProfileSkillClient = Parameters<typeof getProfileExperienceLevel>[0];
 
@@ -69,5 +72,57 @@ describe("getProfileExperienceLevel", () => {
     expect(select).toHaveBeenCalledWith("experience_level");
     expect(eq).toHaveBeenCalledWith("id", "user-123");
     expect(maybeSingle).toHaveBeenCalled();
+  });
+});
+
+describe("getVerifiedProfileExperience", () => {
+  function supabaseWithAuth(
+    authResult: {
+      data: { user: { id: string } | null };
+      error: { message: string } | null;
+    },
+    experienceLevel: string | null = null
+  ) {
+    const { supabase } = supabaseWithProfileResult({
+      data: experienceLevel ? { experience_level: experienceLevel } : null,
+      error: null,
+    });
+    return {
+      ...supabase,
+      auth: { getUser: jest.fn().mockResolvedValue(authResult) },
+    };
+  }
+
+  it("returns the user id and parsed experience for a verified session", async () => {
+    const supabase = supabaseWithAuth(
+      { data: { user: { id: "user-1" } }, error: null },
+      "intermediate"
+    );
+
+    await expect(
+      getVerifiedProfileExperience(asProfileSkillClient(supabase))
+    ).resolves.toEqual({ userId: "user-1", profileExperience: "intermediate" });
+  });
+
+  it("collapses missing users, auth errors, and thrown auth failures to nulls", async () => {
+    const missingUser = supabaseWithAuth({ data: { user: null }, error: null });
+    const authError = supabaseWithAuth({
+      data: { user: { id: "user-1" } },
+      error: { message: "expired" },
+    });
+    const throwing = {
+      auth: { getUser: jest.fn().mockRejectedValue(new Error("network")) },
+    };
+
+    const anonymous = { userId: null, profileExperience: null };
+    await expect(
+      getVerifiedProfileExperience(asProfileSkillClient(missingUser))
+    ).resolves.toEqual(anonymous);
+    await expect(
+      getVerifiedProfileExperience(asProfileSkillClient(authError))
+    ).resolves.toEqual(anonymous);
+    await expect(
+      getVerifiedProfileExperience(asProfileSkillClient(throwing))
+    ).resolves.toEqual(anonymous);
   });
 });

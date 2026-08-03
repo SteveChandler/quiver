@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Hoisted the duplicated `withNoStore`/`NO_STORE` cache wrapper (5 personalized API routes) and `getVerifiedProfileExperience` (3 call sites) into `lib/middleware/api-wrappers/cache-wrappers.ts` and `lib/profile/skill-level.ts`; behavior unchanged, shared helper unit-tested.
+
 ### Security
 - Regenerated transitive `brace-expansion` lockfile entries to 1.1.18 / 2.1.4 (ReDoS advisory).
 - Bumped `next` 16.2.6 → 16.2.11 and `postcss` → 8.5.25, clearing all open Dependabot advisories (4 high / 5 moderate on `next`: SSRF in Server Actions and rewrites, middleware bypass, DoS, cache confusion; 1 high on `postcss`: source-map path traversal).

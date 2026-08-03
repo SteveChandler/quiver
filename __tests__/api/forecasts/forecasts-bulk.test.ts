@@ -102,6 +102,8 @@ const BEACH_THREE_ID = "33333333-3333-4333-8333-333333333333";
 const mockEvaluateMajorEventHoldCandidates = jest.fn();
 
 jest.mock("@/lib/middleware/api-wrappers", () => ({
+  withNoStore: jest.requireActual("@/lib/middleware/api-wrappers/cache-wrappers")
+    .withNoStore,
   createSuccessResponse: jest.fn((data: unknown) => {
     return new Response(
       JSON.stringify({ success: true, data, timestamp: new Date().toISOString() }),

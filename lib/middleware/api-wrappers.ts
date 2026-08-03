@@ -66,6 +66,10 @@ export {
   // Protection wrappers
   withProtection,
 
+  // Cache wrappers
+  withNoStore,
+  NO_STORE_CACHE_CONTROL,
+
   // Response utilities (re-exports from api-utils)
   createSuccessResponse,
   createErrorResponse,

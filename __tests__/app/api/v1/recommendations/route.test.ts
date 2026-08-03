@@ -36,6 +36,8 @@ function normalizeSelect(select: string): string {
 jest.mock("@/lib/middleware/api-wrappers", () => ({
   ...jest.requireActual("@/lib/api-utils"),
   withRateLimit: (handler: any) => handler,
+  withNoStore: jest.requireActual("@/lib/middleware/api-wrappers/cache-wrappers")
+    .withNoStore,
 }));
 
 jest.mock("@/lib/supabase/api-server-client", () => ({
@@ -45,6 +47,19 @@ jest.mock("@/lib/supabase/api-server-client", () => ({
 jest.mock("@/lib/profile/skill-level", () => ({
   getProfileExperienceLevel: (...args: unknown[]) =>
     mockGetProfileExperienceLevel(...args),
+  getVerifiedProfileExperience: async (supabase: any) => {
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      const user = data?.user;
+      if (error || !user) return { userId: null, profileExperience: null };
+      return {
+        userId: user.id,
+        profileExperience: await mockGetProfileExperienceLevel(supabase, user.id),
+      };
+    } catch {
+      return { userId: null, profileExperience: null };
+    }
+  },
 }));
 
 jest.mock("@/lib/recommendations/major-event-hold/service", () => ({
