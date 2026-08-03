@@ -50,7 +50,6 @@ describe("event taxonomy", () => {
     );
     expect(EVENT_WEIGHTS[acquisitionSourceSelfReportedEvent]).toBe(0);
   });
-
   it("keeps Apple orphan recovery flags authenticated-only and zero-weight", () => {
     expect(VALID_EVENTS).toContain(appleOrphanRecoveryFlaggedEvent);
     expect(ANONYMOUS_ALLOWED_EVENTS).not.toContain(

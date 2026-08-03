@@ -50,9 +50,16 @@ import {
 } from '@/lib/recommendations/canonical-decision';
 
 export const WEEK_SCOUT_SCORER_VERSION = 'week-scout-v1:discovery-hero-v1';
+const WEEK_SCOUT_RESPONSE_RANK_LIMIT = 8;
 
 export type WeekScoutBucket = 'morning' | 'midday' | 'evening';
 export type WeekScoutVerdict = 'worth_it' | 'maybe' | 'skip';
+export type WeekScoutDayExclusionReason =
+  | 'no_forecasts'
+  | 'no_safe_windows'
+  | 'no_rideable_windows'
+  | 'no_recommendable_windows'
+  | 'major_event_hold';
 
 export interface WeekScoutRequest {
   candidateBeachIds: string[];
@@ -104,6 +111,7 @@ export interface WeekScoutDayResponse {
   localDate: string;
   windows: WeekScoutWindowResponse[];
   bestWindowId: string | null;
+  exclusionReasons: WeekScoutDayExclusionReason[];
 }
 
 export interface WeekScoutResponse {
@@ -569,42 +577,67 @@ function applyCanonicalDecisionToWeekScout(
   response: MajorEventHoldWeekScoutResponse,
   sessionDecision: CanonicalSessionDecision,
 ): CanonicalWeekScoutResponse {
-  const selectedCandidateId = sessionDecision.selection?.candidateId ?? null;
-  const selectedBeachId = sessionDecision.selection?.beachId ?? null;
+  return {
+    ...response,
+    sessionDecision,
+  };
+}
 
+function exclusionReasonsForDay(
+  windows: readonly WeekScoutWindowResponse[],
+  bestWindowId: string | null,
+): WeekScoutDayExclusionReason[] {
+  if (bestWindowId !== null) return [];
+  if (windows.length === 0) return ['no_forecasts'];
+  const safeWindows = windows.filter((window) => window.safe);
+  if (safeWindows.length === 0) return ['no_safe_windows'];
+  const rideableWindows = safeWindows.filter((window) => window.rideable);
+  if (rideableWindows.length === 0) return ['no_rideable_windows'];
+  const recommendableWindows = rideableWindows.filter(
+    (window) => window.verdict !== 'skip',
+  );
+  if (recommendableWindows.length === 0) {
+    return ['no_recommendable_windows'];
+  }
+  return [];
+}
+
+function compactHeldResponse(
+  response: MajorEventHoldWeekScoutResponse,
+): MajorEventHoldWeekScoutResponse {
   return {
     ...response,
     days: response.days.map((day) => {
-      const hasSelection = day.windows.some((window) => (
-        window.id === selectedCandidateId
-        && window.beachId === selectedBeachId
-      ));
+      const windows = BUCKETS.flatMap(({ bucket }) => {
+        const bucketWindows = day.windows.filter((window) => window.bucket === bucket);
+        const visibleWindows = bucketWindows.filter((window) => window.rankingScore !== null);
+        const selected = (
+          visibleWindows.length > 0 ? visibleWindows : bucketWindows
+        ).slice(0, WEEK_SCOUT_RESPONSE_RANK_LIMIT);
+        const bestWindow = bucketWindows.find((window) => window.id === day.bestWindowId);
+
+        if (
+          bestWindow
+          && !selected.some((window) => window.id === bestWindow.id)
+        ) {
+          selected.splice(
+            Math.max(0, selected.length - 1),
+            selected.length === 0 ? 0 : 1,
+            bestWindow,
+          );
+        }
+
+        return selected.map((window) => ({
+          ...window,
+          rankedSpots: window.rankedSpots.slice(0, WEEK_SCOUT_RESPONSE_RANK_LIMIT),
+        }));
+      });
+
       return {
         ...day,
-        bestWindowId: hasSelection ? selectedCandidateId : null,
-        windows: day.windows.map((window) => {
-          const isSelected = (
-            window.id === selectedCandidateId
-            && window.beachId === selectedBeachId
-          );
-          return {
-            ...window,
-            conditionScore: null,
-            rankingScore: null,
-            verdict: isSelected
-              ? sessionDecision.verdict === 'go'
-                ? 'worth_it' as const
-                : 'maybe' as const
-              : null,
-            rideable: null,
-            safe: null,
-            takeaway: null,
-            rankedSpots: [],
-          };
-        }),
+        windows,
       };
     }),
-    sessionDecision,
   };
 }
 
@@ -674,6 +707,7 @@ async function generateWeekScoutForecastInternal(
       localDate,
       windows,
       bestWindowId: best?.id ?? null,
+      exclusionReasons: exclusionReasonsForDay(windows, best?.id ?? null),
     };
   });
 
@@ -695,11 +729,11 @@ async function generateWeekScoutForecastInternal(
     candidates,
     profileExperience: userSkillLevel,
   });
-  const heldResponse = sanitizeWeekScoutForMajorEventHold(
+  const heldResponse = compactHeldResponse(sanitizeWeekScoutForMajorEventHold(
     response,
     candidates,
     decisions,
-  );
+  ));
 
   return {
     heldResponse,
