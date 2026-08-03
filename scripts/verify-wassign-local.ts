@@ -192,12 +192,42 @@ async function verify(): Promise<void> {
 
     console.log("W-ASSIGN local verification passed: race, signup coverage, linkage, immutability, batch allocator.");
   } finally {
-    await Promise.all(
-      createdUserIds.map(async (userId) => {
-        const { error } = await client.auth.admin.deleteUser(userId);
-        if (error) console.warn(`cleanup failed for ${userId}: ${error.message}`);
-      }),
-    );
+    if (createdUserIds.length > 0) {
+      const deletionErrors = (await Promise.all(
+        createdUserIds.map(async (userId) => {
+          const { error } = await client.auth.admin.deleteUser(userId);
+          return error ? `${userId}: ${error.message}` : null;
+        }),
+      )).filter((error): error is string => error !== null);
+
+      const { data: retainedRows, error: retainedRowsError } = await client
+        .from("experiment_assignments")
+        .select("user_id")
+        .in("user_id", createdUserIds);
+      if (retainedRowsError) throw retainedRowsError;
+
+      try {
+        assertion(deletionErrors.length === 0, `auth-user cleanup failed: ${deletionErrors.join(", ")}`);
+        const retainedUserIds = new Set((retainedRows ?? []).map((row) => row.user_id));
+        assertion(
+          retainedUserIds.size === createdUserIds.length,
+          "account deletion did not retain an orphaned W-ASSIGN row for every generated test user",
+        );
+      } finally {
+        const { error: assignmentCleanupError } = await client
+          .from("experiment_assignments")
+          .delete()
+          .in("user_id", createdUserIds);
+        if (assignmentCleanupError) throw assignmentCleanupError;
+
+        const { count: remainingRows, error: remainingRowsError } = await client
+          .from("experiment_assignments")
+          .select("*", { count: "exact", head: true })
+          .in("user_id", createdUserIds);
+        if (remainingRowsError) throw remainingRowsError;
+        assertion(remainingRows === 0, "service-role cleanup left W-ASSIGN test rows behind");
+      }
+    }
   }
 }
 
