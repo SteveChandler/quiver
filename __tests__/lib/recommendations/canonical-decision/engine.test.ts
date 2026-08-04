@@ -104,6 +104,35 @@ describe("canonical session decision engine", () => {
     );
   });
 
+  it("treats a compound beach skill rating as eligible at its lower bound", () => {
+    const { buildCanonicalSessionDecision } = loadEngine();
+    const decision = buildCanonicalSessionDecision(
+      input(
+        [
+          candidate({
+            beachSkillLevel: "intermediate-advanced",
+            waveHeight: "2-3 ft",
+          }),
+        ],
+        { profileExperience: "intermediate" },
+      ),
+    ) as {
+      verdict: string;
+      reasonCode: string;
+      selection: unknown;
+      skillEligibility: { state: string; reasonCodes: string[] };
+    };
+
+    expect(decision.verdict).toBe("go");
+    expect(decision.reasonCode).toBe("selected_go");
+    expect(decision.selection).not.toBeNull();
+    expect(decision.skillEligibility).toEqual({
+      skill: "intermediate",
+      state: "eligible",
+      reasonCodes: [],
+    });
+  });
+
   it("returns maybe when the best safe session is worth watching but not a go", () => {
     const { buildCanonicalSessionDecision } = loadEngine();
     const decision = buildCanonicalSessionDecision(

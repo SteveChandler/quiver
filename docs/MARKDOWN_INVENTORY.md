@@ -336,7 +336,7 @@ Source: `git ls-files '*.md'`.
 | `.planning/slices/2026-06-24-last-mile-ui-web-PLAN.md` | Long-running goal/spec tracker | 128 | no | Likely active tracker; verify ownership before compressing |
 | `.planning/tourmaline-source-decay-2026-06-27.md` | Active reference | 79 | no | Tracked markdown with no retirement signal; keep active until focused review says otherwise |
 | `AGENTS.md` | Active reference | 190 | no | Current reference; keep indexed |
-| `CHANGELOG.md` | Active reference | 1985 | no | Current reference; keep indexed |
+| `CHANGELOG.md` | Active reference | 1973 | no | Current reference; keep indexed |
 | `CLAUDE.md` | Active reference | 240 | no | Current reference; keep indexed |
 | `README.md` | Active reference | 603 | no | Current reference; keep indexed |
 | `TODO.md` | Long-running goal/spec tracker | 63 | no | Compress; keep current goals, gaps, decisions, next actions |
@@ -392,7 +392,7 @@ Source: `git ls-files '*.md'`.
 | `docs/2026-06-24-win-on-the-surfer-strategy.md` | Active reference | 64 | no | Tracked markdown with no retirement signal; keep active until focused review says otherwise |
 | `docs/API_MIDDLEWARE.md` | Active reference | 929 | no | Current reference; keep indexed |
 | `docs/API_MIDDLEWARE_REFERENCE.md` | Active reference | 926 | no | Current reference; keep indexed |
-| `docs/ARCHITECTURE.md` | Active reference | 482 | no | Current reference; keep indexed |
+| `docs/ARCHITECTURE.md` | Active reference | 469 | no | Current reference; keep indexed |
 | `docs/ATTRIBUTION_FUNNEL.md` | Active reference | 310 | no | Tracked markdown with no retirement signal; keep active until focused review says otherwise |
 | `docs/BRANDED_COORDINATES.md` | Active reference | 783 | no | Tracked markdown with no retirement signal; keep active until focused review says otherwise |
 | `docs/BRAND_GUIDE.md` | Active reference | 188 | no | Current reference; keep indexed |
@@ -499,7 +499,7 @@ Source: `git ls-files '*.md'`.
 | `docs/features/SOCIAL_SHARING.md` | Active reference | 148 | no | Current reference, instruction, architecture, setup, or feature documentation |
 | `docs/forecast-data-input-research.md` | Active reference | 252 | no | Tracked markdown with no retirement signal; keep active until focused review says otherwise |
 | `docs/free-growth/gate-audit.md` | Active reference | 63 | no | Tracked markdown with no retirement signal; keep active until focused review says otherwise |
-| `docs/free-growth/north-star.md` | Active reference | 463 | no | Tracked markdown with no retirement signal; keep active until focused review says otherwise |
+| `docs/free-growth/north-star.md` | Active reference | 453 | no | Tracked markdown with no retirement signal; keep active until focused review says otherwise |
 | `docs/geo/product-hunt-copy.md` | Historical/archive | 46 | no | Historical report or analysis |
 | `docs/geo/reddit-strategy.md` | Historical/archive | 194 | no | Historical report or analysis |
 | `docs/geo/show-hn-copy.md` | Historical/archive | 70 | no | Historical report or analysis |
@@ -543,7 +543,7 @@ Source: `git ls-files '*.md'`.
 | `docs/quick-start/NEW_DEVELOPER.md` | Active reference | 206 | no | Current reference, instruction, architecture, setup, or feature documentation |
 | `docs/quick-start/RUNNING_TESTS.md` | Active reference | 321 | no | Current reference, instruction, architecture, setup, or feature documentation |
 | `docs/quiver_screen_state_planner.md` | Unknown | 1565 | no | Needs human review before compression or retirement |
-| `docs/refactor-roadmap.md` | Long-running goal/spec tracker | 190 | no | Compress; keep current goals, gaps, decisions, next actions |
+| `docs/refactor-roadmap.md` | Long-running goal/spec tracker | 179 | no | Compress; keep current goals, gaps, decisions, next actions |
 | `docs/refactoring/2026-01-22-beach-defaults-consolidation.md` | Historical/archive | 333 | no | Historical context unless a task names it |
 | `docs/refactoring/surf-report-refactoring-2026-01-22.md` | Historical/archive | 221 | no | Historical context unless a task names it |
 | `docs/refactorings/2026-02-04-review-feature-refactoring.md` | Historical/archive | 271 | no | Historical context unless a task names it |
@@ -565,7 +565,7 @@ Source: `git ls-files '*.md'`.
 | `docs/research/STATE_MANAGEMENT_CONSOLIDATION_RESEARCH.md` | Historical/archive | 1065 | no | Historical context unless a task names it |
 | `docs/research/reddit_guidance.md` | Unknown | 2038 | no | Needs human review before compression or retirement |
 | `docs/research/supabase-connection-pooling-research.md` | Historical/archive | 799 | no | Historical context unless a task names it |
-| `docs/runbooks/apple-identity-recovery.md` | Active reference | 120 | no | Tracked markdown with no retirement signal; keep active until focused review says otherwise |
+| `docs/runbooks/apple-identity-recovery.md` | Active reference | 83 | no | Tracked markdown with no retirement signal; keep active until focused review says otherwise |
 | `docs/runbooks/major-event-recommendation-hold.md` | Active reference | 194 | no | Tracked markdown with no retirement signal; keep active until focused review says otherwise |
 | `docs/security/APPLE_IDENTITY_RECOVERY_THREAT_MODEL.md` | Active reference | 41 | no | Current reference, instruction, architecture, setup, or feature documentation |
 | `docs/security/IMAGE_PROXY_SECURITY.md` | Active reference | 422 | no | Current reference, instruction, architecture, setup, or feature documentation |

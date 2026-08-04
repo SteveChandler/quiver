@@ -136,6 +136,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
   };
 
   beforeEach(() => {
+    process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = "false";
     jest.useFakeTimers();
     jest.setSystemTime(new Date("2024-01-15T12:00:00Z"));
 
@@ -190,6 +191,7 @@ describe("Enhanced Forecast Service - CDIP Integration", () => {
   });
 
   afterEach(() => {
+    delete process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
     jest.useRealTimers();
   });
 

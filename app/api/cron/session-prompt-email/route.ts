@@ -32,6 +32,7 @@ import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
 import { filterSuppressedRecipients } from "@/lib/email/suppression";
 import { signEmailToken, getEmailTokenSecret } from "@/lib/utils/email-token";
+import { generateEmailUnsubscribeToken } from "@/lib/alerts/email-token";
 import { withObservedCron } from "@/lib/cron/observability";
 
 export const revalidate = 0;
@@ -67,6 +68,16 @@ type ProcessingStatus = "success" | "claim_failed" | "send_failed";
 interface ProcessingResult {
   status: ProcessingStatus;
   error?: unknown;
+}
+
+interface SessionPromptEmailPreferenceRow {
+  id: string;
+  notif_session_prompt_email: boolean | null;
+}
+
+interface ProfilePreferenceSelectResult {
+  data: SessionPromptEmailPreferenceRow[] | null;
+  error: { message: string } | null;
 }
 
 // ============================================================================
@@ -126,7 +137,14 @@ async function processCandidate(
   }
 
   // 2. Prepare email content
-  const unsubscribeUrl = `${baseUrl}/settings`;
+  const unsubscribeToken = generateEmailUnsubscribeToken(candidate.user_id);
+  const unsubscribeUrl = `${baseUrl}/api/alerts/unsubscribe-email?${new URLSearchParams(
+    {
+      user_id: candidate.user_id,
+      token: unsubscribeToken,
+      email_type: "session_prompt",
+    }
+  ).toString()}`;
   const emailSubject = `How was your session at ${candidate.beach_name}?`;
   const messageInstanceId = crypto.randomUUID();
 
@@ -207,6 +225,43 @@ async function processCandidate(
   return { status: "success" };
 }
 
+/**
+ * Filter out users who have session prompt emails disabled.
+ * Default to enabled when preference is missing so existing users remain protected.
+ */
+async function filterSessionPromptRecipients(
+  supabase: SupabaseClient,
+  candidates: SessionPromptCandidate[]
+): Promise<SessionPromptCandidate[]> {
+  if (candidates.length === 0) {
+    return candidates;
+  }
+
+  const userIds = candidates.map((candidate) => candidate.user_id);
+
+  const profileSelect = (await supabase
+    .from("profiles")
+    .select("id, notif_session_prompt_email")
+    .in("id", userIds)) as unknown as ProfilePreferenceSelectResult;
+
+  if (profileSelect.error || !profileSelect.data) {
+    console.error(
+      `${CONTEXT_TAG} Failed to fetch session prompt email preferences:`,
+      profileSelect.error
+    );
+    return candidates;
+  }
+
+  const preferenceByUser = new Map(
+    profileSelect.data.map((row) => [row.id, row.notif_session_prompt_email])
+  );
+
+  return candidates.filter((candidate) => {
+    const preference = preferenceByUser.get(candidate.user_id);
+    return preference === undefined || preference === null || preference === true;
+  });
+}
+
 // ============================================================================
 // Main Handler
 // ============================================================================
@@ -264,7 +319,11 @@ async function _GET(request: Request): Promise<Response> {
       supabase,
       candidates as SessionPromptCandidate[]
     );
-    summary.candidates = deliverable.length;
+    const sessionPromptEnabled = await filterSessionPromptRecipients(
+      supabase,
+      deliverable as SessionPromptCandidate[]
+    );
+    summary.candidates = sessionPromptEnabled.length;
     const baseUrl = getBaseUrl();
 
     // Initialize shared utilities
@@ -272,7 +331,7 @@ async function _GET(request: Request): Promise<Response> {
     const emailLogger = createEmailLogger(supabase, CONTEXT_TAG);
 
     // 3. Process each candidate
-    for (const candidate of deliverable) {
+    for (const candidate of sessionPromptEnabled) {
       try {
         const result = await processCandidate(
           candidate,

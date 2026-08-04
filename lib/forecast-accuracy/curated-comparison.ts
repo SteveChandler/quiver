@@ -77,3 +77,31 @@ export const CURATED_MATCH: CuratedMatch = {
   concordancePct: 75,
   comparablePairs: 4095,
 };
+
+/**
+ * Latest saved-session snapshot for beaches where every rating was good.
+ * This is outcome evidence, not recommendation attribution. Keep the dated
+ * window visible anywhere the percentage is published.
+ */
+export interface CuratedSessionOutcome {
+  satisfactionPct: number;
+  totalRatedSessions: number;
+  goodRatingLabel: string;
+  windowLabel: string;
+  beaches: ReadonlyArray<{
+    name: string;
+    ratedSessions: number;
+  }>;
+}
+
+export const CURATED_SESSION_OUTCOME: CuratedSessionOutcome = {
+  satisfactionPct: 100,
+  totalRatedSessions: 5,
+  goodRatingLabel: "4–5 stars",
+  windowLabel: "July 9–August 3, 2026",
+  beaches: [
+    { name: "Ala Moana Bowls", ratedSessions: 3 },
+    { name: "Malibu First Point", ratedSessions: 1 },
+    { name: "Terramar Point", ratedSessions: 1 },
+  ],
+};

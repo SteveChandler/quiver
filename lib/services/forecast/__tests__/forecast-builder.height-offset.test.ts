@@ -21,6 +21,7 @@ import type {
 import type { Beach } from "@/types/database";
 import { METERS_TO_FEET } from "@/lib/utils/unit-conversions";
 import type { FeedbackHeightCalibrationCandidate } from "../feedback-height-calibration";
+import type { TrustedExternalForecastRow } from "../trusted-forecast-adjustment";
 
 // Capture insert calls so we can assert no snapshot ever leaks out (the
 // fire-and-forget invariant — we are testing the buffer, not the writer).
@@ -45,6 +46,15 @@ jest.mock("@/lib/logger", () => ({
     error: jest.fn(),
   }),
 }));
+
+jest.mock("../trusted-forecast-adjustment", () => {
+  const actual = jest.requireActual("../trusted-forecast-adjustment");
+  return {
+    ...actual,
+    loadTrustedExternalForecastsForBeach: jest.fn(async () => []),
+    persistTrustedForecastDecisions: jest.fn(async () => true),
+  };
+});
 
 // Pin getWaveHeight output to a known string so we can deterministically
 // reason about parser/formatter/offset interactions.
@@ -170,6 +180,8 @@ const newBuilder = () =>
 describe("ForecastBuilder per-beach height-offset hook", () => {
   beforeEach(() => {
     delete process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED;
+    delete process.env.MODEL_SWELL_HEIGHT_BLEND_ENABLED;
+    delete process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
     mockWaveHeightValue = "3 ft";
     capturedSnapshotRows = [];
     insertMock.mockClear();
@@ -256,6 +268,67 @@ describe("ForecastBuilder per-beach height-offset hook", () => {
     }
   });
 
+  it("applies WaveCast after the beach offset and suppresses feedback stacking", async () => {
+    process.env.FEEDBACK_HEIGHT_CALIBRATION_ENABLED = "true";
+    process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = "true";
+    const issuedAt = new Date(Date.now() - 60_000);
+    const validStart = new Date(Date.now() - 60 * 60 * 1000);
+    const validEnd = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const candidate: FeedbackHeightCalibrationCandidate = {
+      id: "candidate-1",
+      beach_id: "beach-1",
+      status: "active_temp",
+      offset_ft: 0.5,
+      sample_count: 5,
+      unique_user_count: 3,
+      activated_at: issuedAt.toISOString(),
+      expires_at: validEnd.toISOString(),
+    };
+    const waveCast: TrustedExternalForecastRow = {
+      id: "00000000-0000-0000-0000-000000000001",
+      provider: "wavecast",
+      source_scope: "spot",
+      source_key: "test-beach",
+      beach_id: "beach-1",
+      issued_at: issuedAt.toISOString(),
+      valid_start: validStart.toISOString(),
+      valid_end: validEnd.toISOString(),
+      min_face_ft: 4,
+      max_face_ft: 5,
+    };
+
+    const forecasts = await newBuilder().buildForecasts(
+      buildInputs({
+        heightOffset: null,
+        feedbackCalibrationCandidate: candidate,
+        trustedExternalForecasts: [waveCast],
+      }),
+    );
+
+    const adjustedRows = capturedSnapshotRows.filter(
+      (row) => row.trusted_forecast_adjustment_applied === true,
+    );
+    expect(adjustedRows.length).toBeGreaterThan(0);
+    const publicForecastPayload = JSON.stringify(forecasts);
+    expect(publicForecastPayload).not.toContain("wavecast");
+    expect(publicForecastPayload).not.toContain(waveCast.id);
+    expect(publicForecastPayload).not.toContain("trusted_forecast");
+    for (const row of adjustedRows) {
+      const forecast = forecasts.find(
+        (candidate) => candidate.forecast_at === row.predicted_at,
+      );
+      expect(forecast?.wave_height).toBe("3-4ft");
+      expect(row.trusted_forecast_offset_ft).toBe(-0.5);
+      expect(row.trusted_forecast_adjustment_key).toMatch(/^[a-f0-9]{64}$/);
+      expect(row.feedback_height_calibration_applied).toBe(false);
+      expect(row.feedback_height_calibration_candidate_id).toBeNull();
+      expect(row.offset_corrected_display_height_m).toBeCloseTo(
+        3.5 / METERS_TO_FEET,
+        3,
+      );
+    }
+  });
+
   it("flag disabled → wave_height byte-identical to today's getWaveHeight output", async () => {
     const builder = newBuilder();
     const forecasts = await builder.buildForecasts(
@@ -271,6 +344,52 @@ describe("ForecastBuilder per-beach height-offset hook", () => {
     for (const f of forecasts) {
       expect(f.wave_height).toBe("3 ft");
     }
+  });
+
+  it("applies the bounded model-swell blend through the forecast builder", async () => {
+    process.env.MODEL_SWELL_HEIGHT_BLEND_ENABLED = "true";
+    const inputs = buildInputs();
+    const sourceWavePoint = (inputs.waveData as any).forecast[0];
+    const startMs = Date.now();
+    (inputs.waveData as any).forecast = Array.from(
+      { length: 97 },
+      (_, index) => ({
+        ...sourceWavePoint,
+        timestamp: new Date(startMs + index * 3 * 60 * 60 * 1000).toISOString(),
+      }),
+    );
+
+    const forecasts = await newBuilder().buildForecasts(inputs);
+
+    expect(forecasts.length).toBeGreaterThan(0);
+    const shortHorizonRows = capturedSnapshotRows.filter(
+      (row) => row.forecast_horizon_hours <= 72,
+    );
+    const longHorizonRows = capturedSnapshotRows.filter(
+      (row) => row.forecast_horizon_hours > 72,
+    );
+    expect(shortHorizonRows.length).toBeGreaterThan(0);
+    expect(longHorizonRows.length).toBeGreaterThan(0);
+    for (const row of shortHorizonRows) {
+      expect(row.raw_display_height_m).toBeCloseTo(3.2 / METERS_TO_FEET, 3);
+      expect(row.model_version).toBe("face-Hs-om-blend-v1");
+    }
+    for (const row of longHorizonRows) {
+      expect(row.raw_display_height_m).toBeCloseTo(3 / METERS_TO_FEET, 3);
+      expect(row.model_version).toBe("face-Hs-transformer-v1");
+    }
+  });
+
+  it("leaves range-form forecasts unchanged", async () => {
+    process.env.MODEL_SWELL_HEIGHT_BLEND_ENABLED = "true";
+    mockWaveHeightValue = "3-4ft";
+
+    const forecasts = await newBuilder().buildForecasts(buildInputs());
+
+    expect(forecasts[0]?.wave_height).toBe("3-4ft");
+    expect(capturedSnapshotRows[0]?.model_version).toBe(
+      "face-Hs-transformer-v1",
+    );
   });
 
   it("flag disabled → snapshot still records raw_display_height_m (telemetry)", async () => {

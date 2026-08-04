@@ -135,6 +135,7 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
   let service: EnhancedForecastService;
 
   beforeEach(() => {
+    process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED = "false";
     // Use fake timers with fixed date for reliable tests
     jest.useFakeTimers();
     jest.setSystemTime(FIXED_TEST_DATE);
@@ -181,6 +182,7 @@ describe("Enhanced Forecast Service - 12 Day Forecast", () => {
   });
 
   afterEach(() => {
+    delete process.env.TRUSTED_FORECAST_ADJUSTMENTS_ENABLED;
     jest.useRealTimers();
   });
 

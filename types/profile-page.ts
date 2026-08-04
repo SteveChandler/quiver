@@ -52,6 +52,7 @@ export interface ProfilePageProfile {
   // Notification settings (used by ProfilePreferences)
   notif_reminders: boolean | null;
   notif_forecast_alerts: boolean | null;
+  notif_session_prompt_email?: boolean | null;
   allow_implicit_tracking: boolean | null;
 }
 

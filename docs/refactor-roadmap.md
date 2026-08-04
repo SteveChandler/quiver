@@ -185,6 +185,6 @@ Residual risks:
 
 ## Historical Notes
 
-The full pre-cleanup roadmap contained the architecture summary, ranked refactor inventory, first five planned slices, and detailed progress rows for Slices 1-81. That detail is archived because it is useful for audit but too large for future Codex sessions to load by default.
+The full pre-cleanup roadmap contained the architecture summary, ranked refactor inventory, first five planned slices, and detailed progress rows for Slices 1-81. That detail is archived because it is useful for audit but too large for routine AI coding context.
 
 Completed work covered event taxonomy characterization, typed event registry extraction, client gateway board typing, and route-by-route helper import migration through proxy/security-header cleanup. Slice 81 migrated `proxy.ts` `DEFAULT_SECURITY_HEADERS` usage to the shared wrapper barrel while preserving public/protected/admin route behavior, canonical redirects/rewrites, middleware skip rules, and security headers. Slice 82 migrated the session confirmation route UUID helper import with focused behavior coverage plus a source guard. Slice 83 migrated the remaining non-route helper imports in cron observability, validation middleware, and bot blocking. Slice 84 completed wrapper compatibility shim type ownership and refreshed API architecture import guidance. Slice 85 passed the final local source-guard, focused Jest, scoped ESLint, typecheck, and preview build gate.

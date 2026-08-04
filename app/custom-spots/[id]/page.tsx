@@ -14,9 +14,12 @@ import {
   type ResolvedSpotPhoto,
 } from "@/lib/community-photos";
 import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
-import { getCurrentForecast } from "@/lib/utils/current-forecast-utils";
 import { forecastToConditionsData } from "@/lib/mappers/conditions-mappers";
 import { buildBeachUrlWithTab } from "@/lib/utils/beach-url-utils";
+import { fetchPointMarineForecast } from "@/lib/services/point-marine-forecast/service";
+import { resolveCustomSpotForecast } from "@/lib/services/custom-spot-forecast-resolver";
+import { fetchCustomSpotAtmosphericForecast } from "@/lib/services/custom-spot-atmospheric-forecast";
+import { findTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import type { Beach, Database } from "@/types/database";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -76,7 +79,7 @@ async function getNearestBeach(beachId: string | null): Promise<Beach | null> {
   return data as Beach | null;
 }
 
-async function getBorrowedForecasts(
+async function getCuratedForecasts(
   beachId: string | null,
 ): Promise<EnhancedForecastEntity[]> {
   if (!beachId) return [];
@@ -162,11 +165,6 @@ function formatSwellWindow(spot: CustomSpotRow): string {
   )} deg`;
 }
 
-function formatDistance(value: number | null): string {
-  if (value == null || !Number.isFinite(value)) return "Nearest forecast spot";
-  return `${value.toFixed(1)} mi to nearest forecast spot`;
-}
-
 export async function generateMetadata(
   props: CustomSpotPageProps,
 ): Promise<Metadata> {
@@ -182,7 +180,7 @@ export async function generateMetadata(
 
   return {
     title: `${spot.name} Surf Forecast | Quiver`,
-    description: `Borrowed surf forecast and local conditions for ${spot.name}.`,
+    description: `Surf forecast and local conditions for ${spot.name}.`,
     robots:
       spot.visibility === "public"
         ? { index: true, follow: true }
@@ -199,27 +197,56 @@ export default async function CustomSpotDetailPage(
   if (!spot) notFound();
 
   const viewerId = await getCurrentViewerId();
-  const [nearestBeach, forecasts, borrowedPhotoUrl, customSpotPhotos] = await Promise.all([
+  const [nearestBeach, borrowedPhotoUrl, customSpotPhotos] = await Promise.all([
     getNearestBeach(spot.nearest_beach_id),
-    getBorrowedForecasts(spot.nearest_beach_id),
     getNearestBeachPhoto(spot.nearest_beach_id),
     getCustomSpotPhotos(spot.id, viewerId),
   ]);
+  const resolvedForecast = await resolveCustomSpotForecast({
+    spotName: spot.name,
+    lat: spot.lat,
+    lon: spot.lon,
+    nearestBeachName: nearestBeach?.name,
+    nearestBeachDistanceMi: spot.nearest_beach_distance_mi,
+    loadCuratedForecasts: () => getCuratedForecasts(spot.nearest_beach_id),
+    loadPointForecast: () => fetchPointMarineForecast({
+      lat: spot.lat,
+      lon: spot.lon,
+      days: 10,
+    }),
+    loadAtmosphericForecast: () => fetchCustomSpotAtmosphericForecast({
+      lat: spot.lat,
+      lon: spot.lon,
+    }),
+  });
+  const forecasts = resolvedForecast.rows;
+  const currentForecast = resolvedForecast.current;
+  const isPointDerived = resolvedForecast.kind === "gfs_wave_point";
+  const isCurated = resolvedForecast.kind === "curated";
+  const isAtmosphericOnly = resolvedForecast.kind === "atmospheric_only";
   const featuredSpotPhoto = customSpotPhotos[0] ?? null;
   const heroPhotoUrl =
     featuredSpotPhoto?.thumbUrl ??
     featuredSpotPhoto?.imageUrl ??
     borrowedPhotoUrl;
-  const currentForecast = getCurrentForecast(forecasts);
-  const beachTimezone = nearestBeach?.timezone ?? null;
-  const fullForecastHref = nearestBeach
+  const beachTimezone =
+    findTimezoneFromCoords(spot.lat, spot.lon) ??
+    nearestBeach?.timezone ??
+    "America/Los_Angeles";
+  const fullForecastHref = nearestBeach && isCurated
     ? buildBeachUrlWithTab(nearestBeach, "forecast")
     : null;
 
   return (
     <ZineSurface
       sectionLabel="Custom spot"
-      editionLabel="Borrowed forecast"
+      editionLabel={isPointDerived
+        ? "Point forecast"
+        : isCurated
+          ? "Borrowed forecast"
+          : isAtmosphericOnly
+            ? "Weather-only"
+            : "Forecast unavailable"}
       data-testid="custom-spot-zine-surface"
     >
       <main className="font-sans text-[#11100D]">
@@ -253,7 +280,7 @@ export default async function CustomSpotDetailPage(
                 <MapPin className="h-4 w-4 text-[#11100D]" aria-hidden="true" />
                 {spot.lat.toFixed(4)}, {spot.lon.toFixed(4)}
               </span>
-              {nearestBeach ? (
+              {nearestBeach && isCurated ? (
                 <>
                   <span aria-hidden>/</span>
                   <span>Forecast borrowed from {nearestBeach.name}</span>
@@ -303,7 +330,13 @@ export default async function CustomSpotDetailPage(
                 className="absolute -right-4 -top-4 w-28 -rotate-[2deg] opacity-85"
               />
               <p className="max-w-xs font-heading text-2xl font-black uppercase leading-tight text-[#11100D]">
-                Forecast borrowed, photo pending.
+                {isPointDerived
+                  ? "Point forecast, photo pending."
+                  : isCurated
+                    ? "Forecast borrowed, photo pending."
+                    : isAtmosphericOnly
+                      ? "Weather-only forecast, photo pending."
+                      : "Forecast unavailable, photo pending."}
               </p>
             </div>
           )}
@@ -371,9 +404,12 @@ export default async function CustomSpotDetailPage(
           {currentForecast ? (
             <div className="overflow-hidden border-2 border-[#11100D] bg-[#FBF6E8] font-mono shadow-[2px_3px_0_rgba(17,16,13,0.18)] [&_span]:!text-[#11100D] [&_svg]:!text-[#11100D]">
               <ConditionsTicker
-                data={forecastToConditionsData(currentForecast, nearestBeach)}
+                data={forecastToConditionsData(
+                  currentForecast,
+                  isCurated ? nearestBeach : null,
+                )}
                 beachName={spot.name}
-                showFrequency={Boolean(nearestBeach)}
+                showFrequency={Boolean(nearestBeach && isCurated)}
                 className="border-0 bg-[#FBF6E8] text-[#11100D]"
               />
             </div>
@@ -382,6 +418,19 @@ export default async function CustomSpotDetailPage(
               Forecast data is not available for this custom spot yet.
             </p>
           )}
+          <p
+            className="mt-4 border-t border-dashed border-[#11100D]/24 pt-3 font-mono text-xs uppercase tracking-[0.08em] text-[#11100D]/68"
+            data-testid="custom-spot-forecast-source"
+          >
+            {resolvedForecast.source.honestyLine}
+            {resolvedForecast.source.fetchedAt
+              ? ` Updated ${new Date(resolvedForecast.source.fetchedAt).toLocaleString("en-US", {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}.`
+              : ""}
+            {resolvedForecast.source.stale ? " Stale cache." : ""}
+          </p>
         </section>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-[0.85fr_1.35fr]">
@@ -413,13 +462,7 @@ export default async function CustomSpotDetailPage(
               <DetailRow label="Swell window" value={formatSwellWindow(spot)} />
               <DetailRow
                 label="Forecast source"
-                value={
-                  nearestBeach
-                    ? `${nearestBeach.name} (${formatDistance(
-                        spot.nearest_beach_distance_mi,
-                      )})`
-                    : "No nearest beach linked"
-                }
+                value={resolvedForecast.source.label}
               />
             </div>
           </section>
@@ -428,7 +471,13 @@ export default async function CustomSpotDetailPage(
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
               <h2 className="flex items-center gap-2 font-heading text-2xl font-black uppercase leading-tight text-[#11100D]">
                 <Waves className="h-5 w-5" aria-hidden="true" />
-                Borrowed forecast
+                {isPointDerived
+                  ? "Point forecast"
+                  : isCurated
+                    ? "Borrowed forecast"
+                    : isAtmosphericOnly
+                      ? "Weather-only"
+                      : "Forecast unavailable"}
               </h2>
               {fullForecastHref ? (
                 <Link

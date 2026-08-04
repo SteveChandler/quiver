@@ -34,9 +34,9 @@ Steven reviews Gmail drafts and sends. Status updates happen here.
 ### California
 | Target | Website | Nearest Beach | Status | Date | Notes |
 |--------|---------|---------------|--------|------|-------|
-| Surf Diva | surfdiva.com | La Jolla | queued | | ~DA 30, women's surf school |
-| Pacific Surf School | pacificsurfschool.com | San Diego | queued | | |
-| Corky Carroll's Surf School | corkysurfschool.com | Huntington Beach | queued | | |
+| Surf Diva | surfdiva.com | La Jolla | drafted | 2026-08-03 | ~DA 30, women's surf school |
+| Pacific Surf School | pacificsurfschool.com | San Diego | drafted | 2026-08-03 | |
+| Corky Carroll's Surf School | corkysurfschool.com | Huntington Beach | drafted | 2026-08-03 | |
 | Zuma Jay Surfboards | zmjay.com | Malibu | queued | | Has school program |
 | Santa Cruz Surf School | santacruzsurfschool.com | Santa Cruz | queued | | |
 | Nor Cal Surf Shop | norcalsurfshop.com | Pacifica | queued | | |

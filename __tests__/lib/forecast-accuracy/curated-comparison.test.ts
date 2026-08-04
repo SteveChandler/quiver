@@ -1,6 +1,7 @@
 import {
   CURATED_ACCURACY,
   CURATED_MATCH,
+  CURATED_SESSION_OUTCOME,
   getContender,
 } from "@/lib/forecast-accuracy/curated-comparison";
 
@@ -43,5 +44,23 @@ describe("curated match (personalization) stat", () => {
     expect(CURATED_MATCH.concordancePct).toBeGreaterThan(50);
     expect(CURATED_MATCH.concordancePct).toBeLessThanOrEqual(100);
     expect(CURATED_MATCH.comparablePairs).toBeGreaterThan(0);
+  });
+});
+
+describe("curated session outcome snapshot", () => {
+  it("contains only the three perfect-rated beaches and a dated sample", () => {
+    expect(CURATED_SESSION_OUTCOME.satisfactionPct).toBe(100);
+    expect(CURATED_SESSION_OUTCOME.beaches.map((beach) => beach.name)).toEqual([
+      "Ala Moana Bowls",
+      "Malibu First Point",
+      "Terramar Point",
+    ]);
+    expect(
+      CURATED_SESSION_OUTCOME.beaches.reduce(
+        (total, beach) => total + beach.ratedSessions,
+        0,
+      ),
+    ).toBe(CURATED_SESSION_OUTCOME.totalRatedSessions);
+    expect(CURATED_SESSION_OUTCOME.windowLabel).toMatch(/2026/);
   });
 });

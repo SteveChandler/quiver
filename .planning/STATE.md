@@ -3,13 +3,13 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-last_updated: "2026-07-28T14:44:51.739Z"
+last_updated: "2026-08-03T17:34:01.876Z"
 progress:
-  total_phases: 8
+  total_phases: 9
   completed_phases: 7
-  total_plans: 36
+  total_plans: 40
   completed_plans: 31
-  percent: 86
+  percent: 78
 ---
 
 # Project State
@@ -22,7 +22,7 @@ Track the active go-live campaign state without loading the completed phase hist
 
 Phase: 21
 Plan: —
-Status: Planned — ready to execute
+Status: Ready to execute
 Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/STATE-full-history.md](archive/2026-05-31-doc-cleanup/STATE-full-history.md)
 
 Progress: 20 of 21 phases complete. Phase 21 execution progress: 0 of 5 planned plans complete, 0%.
@@ -83,6 +83,8 @@ Progress: 20 of 21 phases complete. Phase 21 execution progress: 0 of 5 planned 
 ### Roadmap Evolution
 
 - Phase 21 added: Multi-Forecaster Forecast Adjustment and Production Ingestion, coordinated by Quiver with Seaside as the production-ingestion workstream.
+- Phase 22 added: Demand-Driven Bot Engagement and Morning Intel Orchestration.
+- Phase 22 researched and planned: demand-gap ranking, private aggregate audit, guarded NPC publishing, Morning Intel orchestration, and staged measurement/rollout.
 - Phases 14-20 added: Session Intelligence v1 addendum.
 - Phase 14 completed with four documentation-only plans covering guardrails, template inventory, data availability, risk/schema checks, app-link/deeplink checks, and analytics validation.
 - Phase 15 planned with four implementation plans covering the recommendation model, top-window selection, shared helper, source flags, links, and final verification.
@@ -134,4 +136,4 @@ Progress: 20 of 21 phases complete. Phase 21 execution progress: 0 of 5 planned 
 
 ## Historical Notes
 
-The previous state file held detailed accumulated decisions from Phases 1-12. That history is archived because it is useful for audit but too large for future Codex sessions to load by default. Current sessions should read this file, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`, `.planning/PROJECT.md`, and [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) first.
+The previous state file held detailed accumulated decisions from Phases 1-12. That history is archived because it is useful for audit but too large for routine AI coding context. Current sessions should read this file, `.planning/ROADMAP.md`, `.planning/REQUIREMENTS.md`, `.planning/PROJECT.md`, and [docs/refactor-roadmap.md](../docs/refactor-roadmap.md) first.

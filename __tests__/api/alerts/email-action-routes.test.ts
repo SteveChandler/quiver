@@ -84,4 +84,26 @@ describe("alert email action routes", () => {
       },
     ]);
   });
+
+  it("unsubscribes session prompt email recipients with email_type param", async () => {
+    mockVerifyEmailUnsubscribeToken.mockReturnValue(true);
+    const { GET } = await import("@/app/api/alerts/unsubscribe-email/route");
+
+    const response = await GET(
+      new Request(
+        "https://www.quiversurf.app/api/alerts/unsubscribe-email?user_id=user-1&token=good&email_type=session_prompt"
+      )
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toContain("Session Prompt Emails Off");
+    expect(mockUpdates).toEqual([
+      {
+        table: "profiles",
+        values: { notif_session_prompt_email: false },
+        column: "id",
+        value: "user-1",
+      },
+    ]);
+  });
 });

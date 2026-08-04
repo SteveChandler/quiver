@@ -101,6 +101,18 @@ export const RATE_LIMITS = {
   }),
 
   /**
+   * Point marine forecast - HIGH
+   *
+   * Endpoint: /api/forecasts/point
+   * Risk: Each request may probe a bounded offshore candidate ring upstream.
+   */
+  "point-marine-forecast": relaxForE2E({
+    requestsPerMinute: 12,
+    requestsPerHour: 120,
+    burstLimit: 3,
+  }),
+
+  /**
    * Coach Picks - MEDIUM
    *
    * Endpoint: /api/coach-picks
@@ -305,6 +317,8 @@ const RATE_LIMIT_MESSAGES = {
     "Recommendation API rate limit exceeded. Please wait before requesting more recommendations.",
   "beach-search": "Search rate limit exceeded. Please wait before searching again.",
   "forecast-bulk": "Forecast data rate limit exceeded. Please reduce request frequency.",
+  "point-marine-forecast":
+    "Point marine forecast rate limit exceeded. Please wait before requesting more forecast data.",
   "coach-picks": "Coach picks rate limit exceeded. Please wait before retrying.",
   "public-default": "API rate limit exceeded. Please wait before making more requests.",
   "public-showcase":

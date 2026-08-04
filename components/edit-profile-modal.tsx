@@ -31,23 +31,25 @@ export function EditProfileModal({
   onProfileUpdated,
   scrollToNotifications,
 }: EditProfileModalProps) {
+  const typedProfile = profile as Profile & { notif_session_prompt_email?: boolean | null };
   const initialData = profile
     ? {
-        full_name: profile.full_name ?? undefined,
-        bio: profile.bio ?? undefined,
-        location: profile.location ?? undefined,
-        experience_level: profile.experience_level ?? undefined,
-        instagram: profile.instagram ?? undefined,
-        avatar_url: profile.avatar_url ?? undefined,
-        home_beach_id: profile.home_beach_id ?? undefined,
-        surf_styles: profile.surf_styles ?? undefined,
-        notif_push_enabled: profile.notif_push_enabled,
-        notif_email_enabled: profile.notif_email_enabled,
-        notif_inapp_enabled: profile.notif_inapp_enabled,
-        notif_likes: profile.notif_likes,
-        notif_follows: profile.notif_follows,
-        notif_reminders: profile.notif_reminders,
-        notif_xp_updates: profile.notif_xp_updates,
+        full_name: typedProfile.full_name ?? undefined,
+        bio: typedProfile.bio ?? undefined,
+        location: typedProfile.location ?? undefined,
+        experience_level: typedProfile.experience_level ?? undefined,
+        instagram: typedProfile.instagram ?? undefined,
+        avatar_url: typedProfile.avatar_url ?? undefined,
+        home_beach_id: typedProfile.home_beach_id ?? undefined,
+        surf_styles: typedProfile.surf_styles ?? undefined,
+        notif_push_enabled: typedProfile.notif_push_enabled,
+        notif_email_enabled: typedProfile.notif_email_enabled,
+        notif_inapp_enabled: typedProfile.notif_inapp_enabled,
+        notif_likes: typedProfile.notif_likes,
+        notif_follows: typedProfile.notif_follows,
+        notif_reminders: typedProfile.notif_reminders,
+        notif_xp_updates: typedProfile.notif_xp_updates,
+        notif_session_prompt_email: typedProfile.notif_session_prompt_email ?? true,
       }
     : undefined;
 

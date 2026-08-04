@@ -28,6 +28,18 @@ import {
   type FeedbackHeightCalibrationCandidate,
 } from "./feedback-height-calibration";
 import {
+  applyModelSwellHeightBlend,
+  formatModelSwellHeightBlendFt,
+  MODEL_SWELL_HEIGHT_BLEND_MODEL_VERSION,
+} from "./model-swell-height-blend";
+import {
+  buildTrustedForecastDecisions,
+  loadTrustedExternalForecastsForBeach,
+  persistTrustedForecastDecisions,
+  type TrustedExternalForecastRow,
+  type TrustedForecastSlot,
+} from "./trusted-forecast-adjustment";
+import {
   logDisplayPredictions,
   type DisplayPredictionRow,
 } from "./log-display-prediction";
@@ -238,6 +250,8 @@ export interface ForecastInputs {
   heightOffset?: BeachHeightOffsetRow | null;
   /** Optional active temporary feedback calibration, loaded once per beach. */
   feedbackCalibrationCandidate?: FeedbackHeightCalibrationCandidate | null;
+  /** Optional preloaded private trusted-source rows for this beach. */
+  trustedExternalForecasts?: TrustedExternalForecastRow[] | null;
   /** Optional report-only GFS-Wave issue-time source shadow data. */
   gfsWaveData?: GfsWaveShadowForecast | null;
 }
@@ -346,6 +360,7 @@ export class ForecastBuilder {
       southOcSanoShadowZoneSnapshot,
       heightOffset,
       feedbackCalibrationCandidate,
+      trustedExternalForecasts,
       gfsWaveData,
     } = inputs;
     const forecasts: EnhancedForecastWithRawData[] = [];
@@ -367,11 +382,21 @@ export class ForecastBuilder {
       feedbackCalibrationCandidate === undefined
         ? await loadFeedbackHeightCalibrationForBeach(beach.id, now)
         : feedbackCalibrationCandidate;
+    const loadedTrustedExternalForecasts =
+      trustedExternalForecasts === undefined
+        ? await loadTrustedExternalForecastsForBeach(beach.id, now)
+        : trustedExternalForecasts;
+    const resolvedTrustedExternalForecasts = Array.isArray(
+      loadedTrustedExternalForecasts,
+    )
+      ? loadedTrustedExternalForecasts
+      : [];
 
     // Snapshot buffer for ml_predictions_log. Captured pre-offset (telemetry
     // feedback-loop invariant) inside buildSingleForecast and flushed after
     // the row loop completes.
     const snapshotBuffer: DisplayPredictionRow[] = [];
+    const trustedForecastSlots: TrustedForecastSlot[] = [];
     const gfsWaveForecastTimes: Date[] = [];
     const handoffBlendEnabled = isForecastHandoffBlendEnabled();
     const handoffBlendState = createForecastHandoffBlendState();
@@ -483,12 +508,61 @@ export class ForecastBuilder {
         heightOffset: resolvedOffset ?? null,
         feedbackCalibrationCandidate: resolvedFeedbackCalibration ?? null,
         snapshotBuffer,
+        slotIndex: i,
+        trustedForecastSlots,
         calibrationCoverage,
         handoffBlendState,
         handoffBlendEnabled,
       });
 
       forecasts.push(forecast);
+    }
+
+    const trustedForecastDecisions = buildTrustedForecastDecisions({
+      beachId: beach.id,
+      sources: resolvedTrustedExternalForecasts,
+      slots: trustedForecastSlots,
+      now,
+    });
+    const trustedDecisionsPersisted = await persistTrustedForecastDecisions(
+      trustedForecastDecisions,
+    );
+    if (trustedDecisionsPersisted) {
+      const snapshotsByForecastAt = new Map(
+        snapshotBuffer.map((row) => [row.predicted_at, row]),
+      );
+      for (const decision of trustedForecastDecisions) {
+        if (decision.status !== "applied") continue;
+        for (const slotIndex of decision.slotIndexes) {
+          const slot = trustedForecastSlots[slotIndex];
+          const forecast = forecasts[slotIndex];
+          if (!slot || !forecast) continue;
+
+          const finalHeightFt = Math.max(
+            0,
+            slot.baselineHeightFt - decision.offsetFt,
+          );
+          forecast.wave_height = formatDisplayHeightFt({
+            numericFt: finalHeightFt,
+            rangeSpread: slot.rangeSpread,
+          });
+
+          const snapshot = snapshotsByForecastAt.get(slot.forecastAt);
+          if (!snapshot) continue;
+          snapshot.offset_corrected_display_height_m = Number(
+            (finalHeightFt / METERS_TO_FEET).toFixed(3),
+          );
+          snapshot.feedback_height_calibration_candidate_id = null;
+          snapshot.feedback_height_offset_ft = null;
+          snapshot.feedback_height_calibration_applied = false;
+          snapshot.trusted_forecast_adjustment_key = decision.decisionKey;
+          snapshot.trusted_forecast_baseline_height_m = Number(
+            (slot.baselineHeightFt / METERS_TO_FEET).toFixed(3),
+          );
+          snapshot.trusted_forecast_offset_ft = decision.offsetFt;
+          snapshot.trusted_forecast_adjustment_applied = true;
+        }
+      }
     }
 
     if (hasCalibrationLoss(calibrationCoverage)) {
@@ -593,6 +667,8 @@ export class ForecastBuilder {
     heightOffset: BeachHeightOffsetRow | null;
     feedbackCalibrationCandidate: FeedbackHeightCalibrationCandidate | null;
     snapshotBuffer: DisplayPredictionRow[];
+    slotIndex: number;
+    trustedForecastSlots: TrustedForecastSlot[];
     calibrationCoverage: CalibrationCoverage;
     handoffBlendState: ForecastHandoffBlendState;
     handoffBlendEnabled: boolean;
@@ -622,6 +698,8 @@ export class ForecastBuilder {
       heightOffset,
       feedbackCalibrationCandidate,
       snapshotBuffer,
+      slotIndex,
+      trustedForecastSlots,
       calibrationCoverage,
       handoffBlendState,
       handoffBlendEnabled,
@@ -664,6 +742,34 @@ export class ForecastBuilder {
     const forecastHorizonHours =
       (forecastTime.getTime() - now.getTime()) / (60 * 60 * 1000);
     const forecastAt = getNormalizedForecastAt(forecastTime);
+
+    const preModelSwellBlendDisplay = parseDisplayHeightFt(
+      waveHeightResult.value,
+    );
+    const modelSwellHeightBlend = applyModelSwellHeightBlend({
+      displayHeightFt:
+        preModelSwellBlendDisplay.rangeSpread == null
+          ? (preModelSwellBlendDisplay.numericFt ?? Number.NaN)
+          : Number.NaN,
+      rawOmHeightM: wavePoint?.om_values?.wave_height_om,
+      waveSource: waveHeightResult.debug.source,
+      forecastHorizonHours,
+    });
+    if (modelSwellHeightBlend.applied) {
+      waveHeightResult = {
+        ...waveHeightResult,
+        value: formatModelSwellHeightBlendFt(modelSwellHeightBlend.heightFt),
+      };
+      log.debug("model_swell_height_blend_applied", {
+        beachId: beach.id,
+        forecastAt,
+        forecastHorizonHours,
+        originalHeightFt: modelSwellHeightBlend.originalHeightFt,
+        rawOmHeightFt: modelSwellHeightBlend.rawOmHeightFt,
+        blendedHeightFt: modelSwellHeightBlend.heightFt,
+        upliftFt: modelSwellHeightBlend.upliftFt,
+      });
+    }
 
     const handoffStep = processForecastHandoffBlendSlot({
       state: handoffBlendState,
@@ -782,8 +888,17 @@ export class ForecastBuilder {
     const anyOffsetApplied =
       offsetActuallyApplied || feedbackCalibration.applied;
 
-    // Re-stringify only when one of the two ordered offset layers changed the
-    // display. Otherwise preserve the original string byte-for-byte.
+    if (correctedFt != null) {
+      trustedForecastSlots[slotIndex] = {
+        index: slotIndex,
+        forecastAt,
+        baselineHeightFt: correctedFt,
+        rangeSpread: parsedDisplay.rangeSpread,
+      };
+    }
+
+    // Re-stringify only when one of the provisional ordered offset layers
+    // changed the display. Otherwise preserve the original string byte-for-byte.
     const finalWaveHeightString =
       anyOffsetApplied && finalCorrectedFt != null
         ? formatDisplayHeightFt({
@@ -864,7 +979,14 @@ export class ForecastBuilder {
           feedbackCalibration.candidateId,
         feedback_height_offset_ft: feedbackCalibration.offsetFt,
         feedback_height_calibration_applied: feedbackCalibration.applied,
+        trusted_forecast_adjustment_key: null,
+        trusted_forecast_baseline_height_m: null,
+        trusted_forecast_offset_ft: null,
+        trusted_forecast_adjustment_applied: false,
         display_source: "face-Hs-transformer-v1",
+        model_version: modelSwellHeightBlend.applied
+          ? MODEL_SWELL_HEIGHT_BLEND_MODEL_VERSION
+          : "face-Hs-transformer-v1",
         display_wave_source: waveHeightResult.debug.source,
         display_raw_input_height_m: displayRawInputHeightM,
         wave_height_om_m: omHeightM,
@@ -932,8 +1054,8 @@ export class ForecastBuilder {
       // still co-located on this row in `wave_height_om` for the Seaside ML
       // pipeline. The OM-primary scalar override (now removed) was inflating
       // display by ~2× because raw deep-water Hs is not face height.
-      // Per-beach offset (when enabled + gates pass) is layered on TOP via
-      // applyBeachHeightOffset; otherwise byte-identical to waveHeightResult.value.
+      // Per-beach and private trusted-source offsets are layered after the
+      // base/handoff result; otherwise this stays byte-identical.
       wave_height: finalWaveHeightString,
       wave_period: this.getWavePeriod(cdipPoint, wavePoint, buoyData, useCDIPData),
       wave_direction: this.getWaveDirection(cdipPoint, wavePoint, useCDIPData),

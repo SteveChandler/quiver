@@ -31,6 +31,7 @@ export const PROFILE_PREFERENCE_FIELDS = [
 export const PROFILE_NOTIFICATION_FIELDS = [
   'notif_push_enabled',
   'notif_forecast_alerts',
+  'notif_session_prompt_email',
   'notif_email_enabled',
   'notif_inapp_enabled',
   'notif_likes',
@@ -89,6 +90,7 @@ export const PROFILE_PUBLIC_FIELDS = [
   'notif_forecast_alerts',
   'notif_inapp_enabled',
   'notif_likes',
+  'notif_session_prompt_email',
   'notif_push_enabled',
   'notif_reminders',
   'notif_session_invites',

@@ -396,3 +396,23 @@ Plans:
 - [ ] 21-03 — Coverage-Aware Decision Engine
 - [ ] 21-04 — Forecast Builder Integration and Privacy
 - [ ] 21-05 — Verification and Default-On Rollout
+
+### Phase 22: Demand-Driven Bot Engagement and Morning Intel Orchestration
+
+**Goal:** Shift bot activity from volume-driven, home-region posting to demand-driven engagement that follows clean web beach interest, uses Morning Intel Bot as a concise editorial orchestrator, preserves Quiver Surf Forecast as the structured forecast publisher, and measures usefulness, trust, and downstream session intent.
+**Requirements**: TBD
+**Depends on:** Phase 21
+**Plans:** 4 plans
+Plans:
+**Wave 1**
+
+- [ ] 22-01 — Demand signal ranking and audit schema
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 22-02 — Demand-driven NPC publishing guardrails
+- [ ] 22-03 — Morning Intel orchestration
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 22-04 — Measurement and staged rollout

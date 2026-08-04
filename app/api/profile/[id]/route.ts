@@ -34,6 +34,7 @@ interface ProfileDetails {
   notif_follows: boolean | null;
   notif_reminders: boolean | null;
   notif_xp_updates: boolean | null;
+  notif_session_prompt_email: boolean | null;
   wants_android_access: boolean | null;
   android_waitlist_joined_at: string | null;
   android_waitlist_source: string | null;
@@ -171,6 +172,8 @@ const profileHandler = withAuth(
         notif_follows: details?.notif_follows ?? true,
         notif_reminders: details?.notif_reminders ?? true,
         notif_xp_updates: details?.notif_xp_updates ?? true,
+        notif_session_prompt_email:
+          details?.notif_session_prompt_email ?? true,
         // Android waitlist state
         wants_android_access: details?.wants_android_access ?? false,
         android_waitlist_joined_at:

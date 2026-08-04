@@ -64,9 +64,30 @@ test.describe("Guest forecast accuracy trust page", () => {
         })
       ).toBeVisible();
       await expect(page.getByText("WINNER")).toBeVisible();
-      await expect(page.getByText("0.30m")).toBeVisible();
-      await expect(page.getByText("0.35m")).toBeVisible();
-      await expect(page.getByText("0.67m")).toBeVisible();
+      await expect(
+        page.getByRole("img", {
+          name: "Quiver mean absolute error 0.30m",
+        })
+      ).toBeVisible();
+      await expect(
+        page.getByRole("img", {
+          name: "Surfline mean absolute error 0.35m",
+        })
+      ).toBeVisible();
+      await expect(
+        page.getByRole("img", {
+          name: "NOAA mean absolute error 0.67m",
+        })
+      ).toBeVisible();
+      await expect(
+        page.getByRole("heading", {
+          name: "Tighter than Surfline. 100% good sessions at three breaks.",
+        })
+      ).toBeVisible();
+      await expect(page.getByText("Ala Moana Bowls")).toBeVisible();
+      await expect(page.getByText("Malibu First Point")).toBeVisible();
+      await expect(page.getByText("Terramar Point")).toBeVisible();
+      await expect(page.getByText(/Saved Quiver session ratings/i)).toBeVisible();
       await expectNoHorizontalOverflow(page);
 
       const jsonLdCount = await page

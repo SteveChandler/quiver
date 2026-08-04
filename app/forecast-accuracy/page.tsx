@@ -20,6 +20,7 @@ import { QuiverSticker, ZineSurface } from "@/components/zine";
 import { AccuracyHero } from "@/components/forecast-accuracy/accuracy-hero";
 import { PersonalFitSection } from "@/components/forecast-accuracy/personal-fit-section";
 import { AccuracyComparison } from "@/components/forecast-accuracy/accuracy-comparison";
+import { SessionOutcomeProof } from "@/components/forecast-accuracy/session-outcome-proof";
 import { MethodologySection } from "@/components/forecast-accuracy/methodology-section";
 import { AccuracyFaq } from "@/components/forecast-accuracy/accuracy-faq";
 import { CrowdsourceCta } from "@/components/forecast-accuracy/crowdsource-cta";
@@ -79,7 +80,8 @@ export default function ForecastAccuracyPage() {
               <p className="label-black mb-5">Forecast accuracy</p>
               <p className="typewriter mb-6 max-w-2xl">
                 Buoy-checked receipts: Quiver vs Surfline vs the raw NOAA
-                baseline, plus the personal Match Score number.
+                baseline, plus the personal Match Score and real session
+                ratings.
               </p>
               <AccuracyHero />
             </div>
@@ -94,6 +96,12 @@ export default function ForecastAccuracyPage() {
           <ScrollReveal>
             <div className="mt-12">
               <AccuracyComparison />
+            </div>
+          </ScrollReveal>
+
+          <ScrollReveal>
+            <div className="mt-12">
+              <SessionOutcomeProof />
             </div>
           </ScrollReveal>
 

@@ -49,6 +49,10 @@ const sampleRow = (
   feedback_height_calibration_candidate_id: null,
   feedback_height_offset_ft: null,
   feedback_height_calibration_applied: false,
+  trusted_forecast_adjustment_key: null,
+  trusted_forecast_baseline_height_m: null,
+  trusted_forecast_offset_ft: null,
+  trusted_forecast_adjustment_applied: false,
   display_source: "face-Hs-transformer-v1",
   display_wave_source: "model_swell",
   display_raw_input_height_m: 0.8,
@@ -419,6 +423,10 @@ describe("logDisplayPredictions", () => {
       feedback_height_calibration_candidate_id: null,
       feedback_height_offset_ft: null,
       feedback_height_calibration_applied: false,
+      trusted_forecast_adjustment_key: null,
+      trusted_forecast_baseline_height_m: null,
+      trusted_forecast_offset_ft: null,
+      trusted_forecast_adjustment_applied: false,
       display_source: "face-Hs-transformer-v1",
       display_wave_source: "cdip_sig",
       display_raw_input_height_m: 0.9,
@@ -591,6 +599,45 @@ describe("logDisplayPredictions", () => {
     expect(payload[0].height_offset_sample_count).toBeNull();
     expect(payload[0].offset_corrected_display_height_m).toBe(
       payload[0].raw_display_height_m
+    );
+  });
+
+  it("updates only trusted sidecar fields when the first-write snapshot already exists", async () => {
+    const query = {
+      error: null,
+      eq: jest.fn(),
+    };
+    query.eq.mockReturnValue(query);
+    const update = jest.fn(() => query);
+    fromMock.mockImplementation(() => ({
+      upsert: upsertMock,
+      update,
+    }));
+
+    await logDisplayPredictions([
+      sampleRow({
+        offset_corrected_display_height_m: 1.067,
+        trusted_forecast_adjustment_key: "decision-key",
+        trusted_forecast_baseline_height_m: 0.914,
+        trusted_forecast_offset_ft: -0.5,
+        trusted_forecast_adjustment_applied: true,
+      }),
+    ]);
+
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        offset_corrected_display_height_m: 1.067,
+        trusted_forecast_adjustment_key: "decision-key",
+        trusted_forecast_baseline_height_m: 0.914,
+        trusted_forecast_offset_ft: -0.5,
+        trusted_forecast_adjustment_applied: true,
+        feedback_height_calibration_applied: false,
+      }),
+    );
+    expect(query.eq).toHaveBeenCalledWith("beach_id", "beach-1");
+    expect(query.eq).toHaveBeenCalledWith(
+      "forecast_horizon_bucket",
+      "0-24h",
     );
   });
 });

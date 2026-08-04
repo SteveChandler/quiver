@@ -1372,7 +1372,7 @@ When adding new tests:
 - [Persona Testing Guide](./PERSONAS.md) - Multi-user persona testing
 - [Test Data Fixtures](./fixtures/) - Reusable test data
 - [Helper Utilities](./utils/) - Test helper functions
-- [Quiver CLAUDE.md](../CLAUDE.md) - Project overview and guidelines
+- [Quiver AI coding context](../CLAUDE.md) - Model-neutral project overview and guidelines
 
 ---
 

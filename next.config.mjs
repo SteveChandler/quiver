@@ -228,6 +228,15 @@ const nextConfig = {
         ],
       },
       {
+        source: "/api/forecasts/point",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-store, no-cache, must-revalidate",
+          },
+        ],
+      },
+      {
         source: "/api/forecasts/scored/:beachId",
         headers: [
           {

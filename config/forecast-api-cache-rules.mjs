@@ -1,6 +1,7 @@
 const noStoreForecastApiPaths = new Set([
   "/api/forecasts/current",
   "/api/forecasts/bulk",
+  "/api/forecasts/point",
 ]);
 
 export const isNoStoreForecastApiPath = (pathname) =>

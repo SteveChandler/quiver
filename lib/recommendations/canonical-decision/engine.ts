@@ -32,6 +32,27 @@ const SKILL_ORDER: Record<Exclude<CanonicalDecisionSkill, "unknown">, number> = 
   expert: 3,
 };
 
+/**
+ * Beach skill ratings may be stored as ranges such as "intermediate-advanced".
+ * For the safety gate, the lower bound is the minimum skill that can safely
+ * attempt the break; user skill remains an exact canonical level.
+ */
+function parseBeachSkillLevel(value: unknown): Exclude<CanonicalDecisionSkill, "unknown"> | null {
+  if (typeof value !== "string") return null;
+
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return null;
+
+  const exact = parseSkillLevel(normalized);
+  if (exact) return exact;
+
+  if (normalized.includes("beginner")) return "beginner";
+  if (normalized.includes("intermediate")) return "intermediate";
+  if (normalized.includes("advanced")) return "advanced";
+  if (normalized.includes("expert")) return "expert";
+  return null;
+}
+
 function isValidCandidate(candidate: CanonicalDecisionCandidate): boolean {
   const windowStart = Date.parse(candidate.windowStart);
   const windowEnd = Date.parse(candidate.windowEnd);
@@ -61,11 +82,7 @@ function candidateSafetyReasons(
   if (!isValidCandidate(candidate)) {
     reasons.push("invalid_candidate");
   }
-  const beachSkill = parseSkillLevel(
-    typeof candidate.beachSkillLevel === "string"
-      ? candidate.beachSkillLevel
-      : null,
-  );
+  const beachSkill = parseBeachSkillLevel(candidate.beachSkillLevel);
   if (beachSkill === null) {
     reasons.push("missing_beach_skill");
   } else if (SKILL_ORDER[beachSkill] > SKILL_ORDER[skill]) {
@@ -134,11 +151,7 @@ function decisionId(input: BuildCanonicalSessionDecisionInput): string {
         candidateId: candidate.candidateId,
         beachId: candidate.beachId,
         beachName: candidate.beachName,
-        beachSkillLevel: parseSkillLevel(
-          typeof candidate.beachSkillLevel === "string"
-            ? candidate.beachSkillLevel
-            : null,
-        ),
+        beachSkillLevel: parseBeachSkillLevel(candidate.beachSkillLevel),
         windowStart: candidate.windowStart,
         windowEnd: candidate.windowEnd,
         timezone: candidate.timezone,

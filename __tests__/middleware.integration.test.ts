@@ -478,6 +478,9 @@ describe("Middleware Integration Tests", () => {
         "/favicon.ico",
         "/logo.png",
         "/styles.css",
+        "/images/landing/swell-view-preview-v2.png",
+        "/images/quiver-stickers/orange-tape.png",
+        "/fonts/SpaceGrotesk/SpaceGrotesk-Bold.ttf",
       ];
 
       for (const path of staticFiles) {
@@ -485,6 +488,9 @@ describe("Middleware Integration Tests", () => {
 
         const response = await middleware(request);
         expect(mockAuthValidator.validateAuth).not.toHaveBeenCalled();
+        expect(response.status).toBe(200);
+        expect(response.headers.get("x-middleware-rewrite")).toBeNull();
+        expect(response.headers.get("location")).toBeNull();
       }
     });
 

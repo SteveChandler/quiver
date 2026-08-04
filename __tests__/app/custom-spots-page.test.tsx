@@ -6,6 +6,8 @@ import CustomSpotDetailPage, {
 } from "@/app/custom-spots/[id]/page";
 import { getEnhancedBeachForecasts } from "@/actions/forecast-actions";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { fetchPointMarineForecast } from "@/lib/services/point-marine-forecast/service";
+import { fetchCustomSpotAtmosphericForecast } from "@/lib/services/custom-spot-atmospheric-forecast";
 
 const getResolvedSpotPhotos = jest.fn();
 
@@ -15,6 +17,14 @@ jest.mock("@/lib/community-photos", () => ({
 
 jest.mock("@/actions/forecast-actions", () => ({
   getEnhancedBeachForecasts: jest.fn(),
+}));
+
+jest.mock("@/lib/services/point-marine-forecast/service", () => ({
+  fetchPointMarineForecast: jest.fn(),
+}));
+
+jest.mock("@/lib/services/custom-spot-atmospheric-forecast", () => ({
+  fetchCustomSpotAtmosphericForecast: jest.fn(),
 }));
 
 jest.mock("next/image", () => ({
@@ -49,8 +59,13 @@ jest.mock("@/components/conditions/conditions-ticker", () => ({
 }));
 
 jest.mock("@/components/forecast/forecast-table", () => ({
-  MultiDayForecastTable: ({ forecasts }: { forecasts: unknown[] }) => (
-    <div data-testid="forecast-table">{forecasts.length} forecasts</div>
+  MultiDayForecastTable: ({
+    forecasts,
+    beachTimezone,
+  }: { forecasts: unknown[]; beachTimezone?: string | null }) => (
+    <div data-testid="forecast-table" data-timezone={beachTimezone ?? ""}>
+      {forecasts.length} forecasts
+    </div>
   ),
 }));
 
@@ -80,6 +95,19 @@ const privateSpot = {
   ...publicSpot,
   id: "spot-private",
   visibility: "private",
+};
+
+const farSpot = {
+  ...publicSpot,
+  id: "spot-far",
+  nearest_beach_distance_mi: 40,
+};
+
+const crossTimezoneSpot = {
+  ...farSpot,
+  id: "spot-cross-timezone",
+  lat: 40.7128,
+  lon: -74.006,
 };
 
 const nearestBeach = {
@@ -122,6 +150,26 @@ const forecast = {
   updated_at: "2026-06-25T12:00:00.000Z",
 };
 
+const pointForecast = {
+  schemaVersion: 1 as const,
+  source: "open_meteo" as const,
+  sourceModel: "ncep_gfswave016" as const,
+  requestedPoint: { lat: 32.75, lon: -117.25 },
+  sampledPoint: { lat: 32.785, lon: -117.25 },
+  sampleResolution: "offshore_shifted" as const,
+  modelRunAt: null,
+  fetchedAt: "2026-07-31T12:00:00.000Z",
+  stale: false,
+  rows: [{
+    forecastAt: "2026-07-31T12:00:00.000Z",
+    total: { heightM: 1.2, periodS: 13, directionDeg: 270 },
+    swell1: { heightM: 0.9, periodS: 15, directionDeg: 260 },
+    swell2: null,
+    swell3: null,
+    windWave: { heightM: 0.3, periodS: 6, directionDeg: 280 },
+  }],
+};
+
 const mockSupabase = {
   from: jest.fn(),
   auth: {
@@ -160,6 +208,15 @@ describe("/custom-spots/[id] page", () => {
     (getEnhancedBeachForecasts as jest.Mock).mockResolvedValue({
       success: true,
       data: [forecast],
+    });
+    (fetchPointMarineForecast as jest.Mock).mockResolvedValue(pointForecast);
+    (fetchCustomSpotAtmosphericForecast as jest.Mock).mockResolvedValue({
+      windSpeed: "8 mph",
+      windDirection: "NW",
+      windDirectionDeg: 315,
+      temperatureF: 70,
+      summary: "Clear",
+      fetchedAt: "2026-07-31T12:00:00.000Z",
     });
     getResolvedSpotPhotos.mockResolvedValue([]);
   });
@@ -259,6 +316,100 @@ describe("/custom-spots/[id] page", () => {
       viewerId: "user-1",
       limit: 6,
     });
+  });
+
+  it("renders point-derived marine forecast copy without borrowed-forecast labeling", async () => {
+    mockTableSingle("custom_spots", farSpot);
+    mockTableSingle("beaches", nearestBeach);
+
+    const page = await CustomSpotDetailPage({
+      params: Promise.resolve({ id: "spot-far" }),
+    });
+    render(page);
+
+    expect(screen.getAllByText("Point forecast").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("custom-spot-forecast-source")).toHaveTextContent(
+      "Marine model sampled at a nearby offshore model cell.",
+    );
+    expect(screen.queryByText("Borrowed forecast")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Forecast borrowed from/i)).not.toBeInTheDocument();
+    expect(fetchPointMarineForecast).toHaveBeenCalledWith({
+      lat: farSpot.lat,
+      lon: farSpot.lon,
+      days: 10,
+    });
+  });
+
+  it("passes the custom spot coordinate timezone to the forecast table", async () => {
+    mockTableSingle("custom_spots", crossTimezoneSpot);
+    mockTableSingle("beaches", nearestBeach);
+
+    const page = await CustomSpotDetailPage({
+      params: Promise.resolve({ id: "spot-cross-timezone" }),
+    });
+    render(page);
+
+    expect(screen.getByTestId("forecast-table")).toHaveAttribute(
+      "data-timezone",
+      "America/New_York",
+    );
+  });
+
+  it("keeps atmospheric-only fallback explicit without linking to a borrowed forecast", async () => {
+    mockTableSingle("custom_spots", farSpot);
+    mockTableSingle("beaches", nearestBeach);
+    (fetchPointMarineForecast as jest.Mock).mockRejectedValueOnce(
+      new Error("point forecast unavailable"),
+    );
+    (fetchCustomSpotAtmosphericForecast as jest.Mock).mockResolvedValueOnce({
+      forecastAt: "2026-07-31T12:00:00.000Z",
+      windSpeed: "8 mph",
+      windDirection: "NW",
+      windDirectionDeg: 315,
+      temperatureF: 70,
+      summary: "Clear",
+      fetchedAt: "2026-07-31T12:00:00.000Z",
+    });
+
+    const page = await CustomSpotDetailPage({
+      params: Promise.resolve({ id: "spot-far" }),
+    });
+    render(page);
+
+    expect(screen.getAllByText("Weather-only").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("custom-spot-forecast-source")).toHaveTextContent(
+      "NOAA weather and wind are available; complete marine swell data is unavailable.",
+    );
+    expect(screen.queryByText("Full forecast")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Forecast borrowed from/i)).not.toBeInTheDocument();
+  });
+
+  it("labels a missing point and atmospheric forecast as unavailable", async () => {
+    mockTableSingle("custom_spots", farSpot);
+    mockTableSingle("beaches", nearestBeach);
+    (fetchPointMarineForecast as jest.Mock).mockRejectedValueOnce(
+      new Error("point forecast unavailable"),
+    );
+    (fetchCustomSpotAtmosphericForecast as jest.Mock).mockResolvedValueOnce({
+      forecastAt: null,
+      windSpeed: null,
+      windDirection: null,
+      windDirectionDeg: null,
+      temperatureF: null,
+      summary: null,
+      fetchedAt: "2026-07-31T12:00:00.000Z",
+    });
+
+    const page = await CustomSpotDetailPage({
+      params: Promise.resolve({ id: "spot-far" }),
+    });
+    render(page);
+
+    expect(screen.getAllByText("Forecast unavailable").length).toBeGreaterThan(0);
+    expect(screen.getByTestId("custom-spot-forecast-source")).toHaveTextContent(
+      "No complete marine forecast is available for Public Peak.",
+    );
+    expect(screen.queryByText(/Atmospheric forecast/i)).not.toBeInTheDocument();
   });
 
   it("bypasses image optimization for owner-private community photo URLs", async () => {

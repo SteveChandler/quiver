@@ -16,6 +16,7 @@ export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const userId = url.searchParams.get("user_id");
   const token = url.searchParams.get("token");
+  const emailType = url.searchParams.get("email_type");
   const baseUrl = getBaseUrl();
 
   if (!userId || !token || !verifyEmailUnsubscribeToken(userId, token)) {
@@ -28,9 +29,13 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   const supabase = await createSupabaseServiceRoleClient();
+  const updates =
+    emailType === "session_prompt"
+      ? { notif_session_prompt_email: false }
+      : { notif_email_enabled: false };
   const { error } = await supabase
     .from("profiles")
-    .update({ notif_email_enabled: false })
+    .update(updates)
     .eq("id", userId);
 
   if (error) {
@@ -43,8 +48,11 @@ export async function GET(request: Request): Promise<Response> {
   }
 
   return renderEmailActionPage({
-    title: "Email Notifications Off",
-    message: "Quiver will stop sending email notifications to this account.",
+    title: emailType === "session_prompt" ? "Session Prompt Emails Off" : "Email Notifications Off",
+    message:
+      emailType === "session_prompt"
+        ? "Quiver will stop sending this type of email to this account."
+        : "Quiver will stop sending email notifications to this account.",
     buttonText: "Manage Alerts",
     buttonUrl: `${baseUrl}/settings`,
   });

@@ -2,7 +2,7 @@
  * @jest-environment node
  */
 
-import { proxy as middleware } from "@/proxy";
+import { config, proxy as middleware } from "@/proxy";
 
 // Setup mock variables at the module level
 let mockNext: any;
@@ -82,6 +82,36 @@ describe("Middleware", () => {
     const request: any = { nextUrl: { pathname: "/api/health" }, method: "GET", headers: new Headers(), cookies: { get: () => undefined, getAll: () => [] } };
     await middleware(request);
     expect(mockNext).toHaveBeenCalled();
+  });
+
+  test.each([
+    "/images/landing/swell-view-preview-v2.png",
+    "/images/hero/quiver-landing-hero-poster.jpg",
+    "/images/quiver-stickers/orange-tape.png",
+    "/videos/quiver-landing-hero-720.mp4",
+  ])("passes static asset %s through before SEO rewrites", async (pathname) => {
+    const request: any = {
+      nextUrl: { pathname },
+      url: `http://localhost${pathname}`,
+      method: "GET",
+      headers: new Headers(),
+      cookies: { get: () => undefined, getAll: () => [] },
+    };
+
+    await middleware(request);
+
+    expect(mockNext).toHaveBeenCalledTimes(1);
+    expect(mockRewrite).not.toHaveBeenCalled();
+    expect(mockRedirect).not.toHaveBeenCalled();
+  });
+
+  test("excludes extension-bearing assets from the proxy matcher", () => {
+    const matcher = new RegExp(`^${config.matcher[0]}$`);
+
+    expect(matcher.test("/images/landing/swell-view-preview-v2.png")).toBe(false);
+    expect(matcher.test("/fonts/SpaceGrotesk/SpaceGrotesk-Bold.ttf")).toBe(false);
+    expect(matcher.test("/mexico/baja-california/rosarito")).toBe(true);
+    expect(matcher.test("/vs/surfline/free")).toBe(true);
   });
 
   test("allows / for Capacitor UA when unauthenticated (landing page is public)", async () => {

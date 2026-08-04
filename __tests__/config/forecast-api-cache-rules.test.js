@@ -9,6 +9,8 @@ describe("forecast API cache rules", () => {
 
     expect(isNoStoreForecastApiPath("/api/forecasts/current")).toBe(true);
     expect(isCacheableForecastApiPath("/api/forecasts/current")).toBe(false);
+    expect(isNoStoreForecastApiPath("/api/forecasts/point")).toBe(true);
+    expect(isCacheableForecastApiPath("/api/forecasts/point")).toBe(false);
     expect(isCacheableForecastApiPath("/api/forecasts/current/extra")).toBe(
       true,
     );

@@ -50,6 +50,14 @@ export type DisplayPredictionRow = {
   feedback_height_offset_ft: number | null;
   /** True only when the temporary feedback layer changed the final display. */
   feedback_height_calibration_applied: boolean;
+  /** Internal trusted-source decision applied to this row, or null. */
+  trusted_forecast_adjustment_key: string | null;
+  /** Baseline face height before the trusted-source offset, in meters. */
+  trusted_forecast_baseline_height_m: number | null;
+  /** Signed trusted-source offset in feet, or null when not applied. */
+  trusted_forecast_offset_ft: number | null;
+  /** True only when a persisted trusted-source decision changed the display. */
+  trusted_forecast_adjustment_applied: boolean;
   /** Display path identifier, e.g. 'face-Hs-transformer-v1'. */
   display_source: string;
   /**
@@ -220,6 +228,13 @@ export async function logDisplayPredictions(
       feedback_height_offset_ft: r.feedback_height_offset_ft,
       feedback_height_calibration_applied:
         r.feedback_height_calibration_applied,
+      trusted_forecast_adjustment_key:
+        r.trusted_forecast_adjustment_key,
+      trusted_forecast_baseline_height_m:
+        r.trusted_forecast_baseline_height_m,
+      trusted_forecast_offset_ft: r.trusted_forecast_offset_ft,
+      trusted_forecast_adjustment_applied:
+        r.trusted_forecast_adjustment_applied,
       display_source: r.display_source,
       display_wave_source: r.display_wave_source,
       display_raw_input_height_m: r.display_raw_input_height_m,
@@ -286,6 +301,13 @@ export async function logDisplayPredictions(
             forecast_horizon_bucket: _forecastHorizonBucket,
             display_wave_source: _displayWaveSource,
             display_raw_input_height_m: _displayRawInputHeightM,
+            trusted_forecast_adjustment_key:
+              _trustedForecastAdjustmentKey,
+            trusted_forecast_baseline_height_m:
+              _trustedForecastBaselineHeightM,
+            trusted_forecast_offset_ft: _trustedForecastOffsetFt,
+            trusted_forecast_adjustment_applied:
+              _trustedForecastAdjustmentApplied,
             ...row
           }) => row
         );
@@ -320,11 +342,52 @@ export async function logDisplayPredictions(
       });
       return;
     }
+    await syncTrustedForecastApplications(supabase, validRows);
   } catch (err) {
     log.warn("logDisplayPredictions: unexpected error", {
       rowCount: rows.length,
       error: err instanceof Error ? err.message : String(err),
     });
+  }
+}
+
+async function syncTrustedForecastApplications(
+  supabase: ReturnType<typeof createServiceRoleClient>,
+  rows: DisplayPredictionRow[],
+): Promise<void> {
+  const appliedRows = rows.filter(
+    (row) =>
+      row.trusted_forecast_adjustment_applied &&
+      row.trusted_forecast_adjustment_key != null,
+  );
+  for (const row of appliedRows) {
+    const { error } = await supabase
+      .from("ml_predictions_log" as never)
+      .update({
+        offset_corrected_display_height_m:
+          row.offset_corrected_display_height_m,
+        feedback_height_calibration_candidate_id: null,
+        feedback_height_offset_ft: null,
+        feedback_height_calibration_applied: false,
+        trusted_forecast_adjustment_key:
+          row.trusted_forecast_adjustment_key,
+        trusted_forecast_baseline_height_m:
+          row.trusted_forecast_baseline_height_m,
+        trusted_forecast_offset_ft: row.trusted_forecast_offset_ft,
+        trusted_forecast_adjustment_applied: true,
+      } as never)
+      .eq("beach_id", row.beach_id)
+      .eq("predicted_at", row.predicted_at)
+      .eq("forecast_horizon_bucket", row.forecast_horizon_bucket)
+      .eq("display_source", row.display_source);
+    if (error) {
+      log.warn("logDisplayPredictions: trusted sidecar update failed", {
+        beachId: row.beach_id,
+        predictedAt: row.predicted_at,
+        error: error.message,
+        code: error.code,
+      });
+    }
   }
 }
 
@@ -342,7 +405,11 @@ function shouldFallbackToLegacyConflictTarget(error: {
     message.includes("ml_predictions_log") &&
     (message.includes("forecast_horizon_bucket") ||
       message.includes("display_wave_source") ||
-      message.includes("display_raw_input_height_m"));
+      message.includes("display_raw_input_height_m") ||
+      message.includes("trusted_forecast_adjustment_key") ||
+      message.includes("trusted_forecast_baseline_height_m") ||
+      message.includes("trusted_forecast_offset_ft") ||
+      message.includes("trusted_forecast_adjustment_applied"));
   const isLegacyConflictShape =
     error.code === "42P10" &&
     message.includes("no unique or exclusion constraint");

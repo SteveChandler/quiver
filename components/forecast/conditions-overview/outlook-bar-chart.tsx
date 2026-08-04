@@ -105,7 +105,8 @@ export function OutlookBarChart({ days }: OutlookBarChartProps) {
           <ReferenceLine y={40} stroke="#0B3A75" strokeDasharray="3 3" />
           <ReferenceLine y={60} stroke="#0B3A75" strokeDasharray="3 3" />
           <ReferenceLine y={80} stroke="#0B3A75" strokeDasharray="3 3" />
-          <Bar dataKey="score" radius={[4, 4, 0, 0]} maxBarSize={40}>
+          {/* Keep zero-score days visible as a small baseline marker. */}
+          <Bar dataKey="score" radius={[4, 4, 0, 0]} maxBarSize={40} minPointSize={3}>
             {days.map((day, i) => (
               <Cell
                 key={i}

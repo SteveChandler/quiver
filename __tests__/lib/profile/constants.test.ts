@@ -4,6 +4,7 @@ import {
   PROFILE_NOTIFICATION_FIELDS,
   PROFILE_FULL_SELECT,
   PROFILE_ONBOARDING_SELECT,
+  PROFILE_PUBLIC_FIELDS,
 } from '@/lib/profile/constants';
 
 describe('profile constants', () => {
@@ -29,6 +30,7 @@ describe('profile constants', () => {
     it('should include notification settings', () => {
       expect(PROFILE_NOTIFICATION_FIELDS).toContain('notif_push_enabled');
       expect(PROFILE_NOTIFICATION_FIELDS).toContain('notif_forecast_alerts');
+      expect(PROFILE_NOTIFICATION_FIELDS).toContain('notif_session_prompt_email');
     });
   });
 
@@ -49,6 +51,10 @@ describe('profile constants', () => {
     it('should include Android waitlist fields for signed-in CTA state', () => {
       expect(PROFILE_FULL_SELECT).toContain('wants_android_access');
       expect(PROFILE_FULL_SELECT).toContain('android_waitlist_joined_at');
+    });
+
+    it('should include session prompt email preference in public fields', () => {
+      expect(PROFILE_PUBLIC_FIELDS).toContain('notif_session_prompt_email');
     });
   });
 

@@ -124,9 +124,10 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
         surf_styles,
         notif_reminders,
         notif_forecast_alerts,
+        notif_session_prompt_email,
         home_beach:beaches!profiles_home_beach_id_fkey ( id, name )
       `
-      )
+        )
       .eq("id", userId)
       .single(),
 
@@ -273,6 +274,7 @@ export const GET = withAuth(async (_request, { user, supabase }) => {
     // Notification settings for ProfilePreferences
     notif_reminders: profileData.notif_reminders ?? null,
     notif_forecast_alerts: profileData.notif_forecast_alerts ?? null,
+    notif_session_prompt_email: profileData.notif_session_prompt_email ?? null,
     allow_implicit_tracking: analyticsConsent,
   };
 
