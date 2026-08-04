@@ -148,7 +148,9 @@ function isIphoneSafari(userAgent: string): boolean {
 
 function shouldShowBeachSubPageInstallCta(userAgent: string): boolean {
   if (!isBeachSubPageInstallCtaEnabled()) return false;
-  if (!isIphoneSafari(userAgent)) return false;
+  // Keep iPhone Safari on the native smart banner; show this CTA only on
+  // non-Safari iPhone browsers to avoid competing install surfaces.
+  if (isIphoneSafari(userAgent)) return false;
 
   return getFirstTouchPlatform(userAgent) === "ios";
 }
