@@ -53,11 +53,41 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
 
 // Mock Supabase client
 const mockRpc = jest.fn();
+const mockSuppressedEmails: Array<{ email: string }> = [];
+const mockProfileSessionPromptRows: Array<{
+  id: string;
+  notif_session_prompt_email: boolean | null;
+}> = [];
+const mockFrom = jest.fn((table: string) => ({
+  select: (_columns: string) => ({
+    in: async () => {
+      if (table === "email_suppression_list") {
+        return {
+          data: mockSuppressedEmails,
+          error: null,
+        };
+      }
+
+      if (table === "profiles") {
+        return {
+          data: mockProfileSessionPromptRows,
+          error: null,
+        };
+      }
+
+      return {
+        data: [],
+        error: null,
+      };
+    },
+  }),
+}));
 
 jest.mock("@/lib/supabase/server", () => ({
   createSupabaseServiceRoleClient: jest.fn(() =>
     Promise.resolve({
       rpc: mockRpc,
+      from: mockFrom,
     })
   ),
 }));
@@ -106,6 +136,14 @@ jest.mock("@/lib/utils/email-token", () => ({
   getEmailTokenSecret: jest.fn().mockReturnValue("mock-secret"),
 }));
 
+const mockGenerateEmailUnsubscribeToken = jest.fn().mockReturnValue(
+  "mock-unsubscribe-token"
+);
+jest.mock("@/lib/alerts/email-token", () => ({
+  generateEmailUnsubscribeToken: (...args: unknown[]) =>
+    mockGenerateEmailUnsubscribeToken(...args),
+}));
+
 describe("Session Prompt Email Cron Job API", () => {
   const routeSource = readFileSync(
     "app/api/cron/session-prompt-email/route.ts",
@@ -138,6 +176,8 @@ describe("Session Prompt Email Cron Job API", () => {
       data: [],
       error: null,
     });
+    mockSuppressedEmails.length = 0;
+    mockProfileSessionPromptRows.length = 0;
 
     // Default Resend response
     mockEmailsSend.mockResolvedValue({
@@ -300,6 +340,61 @@ describe("Session Prompt Email Cron Job API", () => {
       expect(data.data.summary.candidates).toBe(2);
       expect(data.data.summary.sent).toBe(2);
       expect(mockEmailsSend).toHaveBeenCalledTimes(2);
+    });
+
+    it("should skip candidates with session prompt emails disabled", async () => {
+      const candidates = [
+        {
+          user_id: "user-1",
+          email: "user1@example.com",
+          display_name: "User One",
+          home_beach_id: "beach-1",
+          beach_name: "Test Beach 1",
+          beach_slug: "test-beach-1",
+          conditions_score: 90,
+          surf_description: "Clean 3-4ft",
+        },
+        {
+          user_id: "user-2",
+          email: "user2@example.com",
+          display_name: "User Two",
+          home_beach_id: "beach-2",
+          beach_name: "Test Beach 2",
+          beach_slug: "test-beach-2",
+          conditions_score: 80,
+          surf_description: "Solid 2-3ft",
+        },
+      ];
+
+      mockProfileSessionPromptRows.push(
+        { id: "user-1", notif_session_prompt_email: false },
+        { id: "user-2", notif_session_prompt_email: true }
+      );
+
+      mockRpc
+        .mockResolvedValueOnce({
+          data: candidates,
+          error: null,
+        })
+        .mockResolvedValueOnce({ data: true, error: null }); // claim slot user-2
+
+      const request = mockRequest({
+        authorization: "Bearer valid-cron-secret",
+      });
+
+      const response = await GET(request);
+      const data = await response.json();
+
+      expect(data.success).toBe(true);
+      expect(data.data.summary.candidates).toBe(1);
+      expect(data.data.summary.sent).toBe(1);
+      expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+      expect(mockRpc).toHaveBeenCalledWith("claim_forecast_delivery_slot", {
+        p_user_id: "user-2",
+        p_beach_id: "beach-2",
+        p_alert_type: "session_prompt",
+        p_dedupe_hours: 20,
+      });
     });
   });
 
@@ -479,7 +574,13 @@ describe("Session Prompt Email Cron Job API", () => {
       expect(callArgs.beachName).toBe("Ocean Beach");
       expect(callArgs.conditionsScore).toBe(90);
       expect(callArgs.surfDescription).toBe("Clean 3-4ft");
-      expect(callArgs.unsubscribeUrl).toBe("https://quiversurf.app/settings");
+      const unsubscribeUrl = new URL(callArgs.unsubscribeUrl);
+      expect(unsubscribeUrl.pathname).toBe("/api/alerts/unsubscribe-email");
+      expect(unsubscribeUrl.searchParams.get("user_id")).toBe("user-1");
+      expect(unsubscribeUrl.searchParams.get("token")).toBe("mock-unsubscribe-token");
+      expect(unsubscribeUrl.searchParams.get("email_type")).toBe(
+        "session_prompt"
+      );
       expect(callArgs.appSessionUrl).toBe(callArgs.confirmUrl);
       expect(callArgs.confirmUrl).toBe(callArgs.skipUrl);
       const ctaUrl = new URL(callArgs.appSessionUrl);

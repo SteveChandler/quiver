@@ -69,17 +69,24 @@ export function NotificationsSection({ control }: NotificationsSectionProps) {
         </summary>
 
         <div className="mt-2 grid grid-cols-1 gap-2 md:grid-cols-2">
-          <FormSwitch
-            control={control}
-            name="notif_forecast_alerts"
-            label="Forecast Alerts"
-            icon={CloudSun}
-            variant="row"
-          />
-          <FormSwitch
-            control={control}
-            name="notif_likes"
-            label="Likes"
+        <FormSwitch
+          control={control}
+          name="notif_forecast_alerts"
+          label="Forecast Alerts"
+          icon={CloudSun}
+          variant="row"
+        />
+        <FormSwitch
+          control={control}
+          name="notif_session_prompt_email"
+          label="Session Prompt Emails"
+          icon={Mail}
+          variant="row"
+        />
+        <FormSwitch
+          control={control}
+          name="notif_likes"
+          label="Likes"
             icon={Heart}
             variant="row"
           />

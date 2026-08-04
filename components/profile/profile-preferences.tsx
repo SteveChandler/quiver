@@ -61,6 +61,7 @@ const preferencesFormSchema = z.object({
   // Notification preferences
   notif_reminders: z.boolean().default(false),
   notif_forecast_alerts: z.boolean().default(true),
+  notif_session_prompt_email: z.boolean().default(true),
   // Privacy preferences
   allow_implicit_tracking: z.boolean().default(true),
 });
@@ -73,6 +74,10 @@ interface ProfilePreferencesProps {
   beaches: Beach[];
   onSaveComplete?: () => void;
 }
+
+type ProfileWithSessionPromptToggle = Profile & {
+  notif_session_prompt_email?: boolean | null;
+};
 
 export function ProfilePreferences({
   userId,
@@ -104,6 +109,8 @@ export function ProfilePreferences({
       // Notification preferences
       notif_reminders: profile?.notif_reminders || false,
       notif_forecast_alerts: profile?.notif_forecast_alerts ?? true,
+      notif_session_prompt_email:
+        (profile as ProfileWithSessionPromptToggle)?.notif_session_prompt_email ?? true,
       // Privacy preferences
       allow_implicit_tracking: false,
     },
@@ -183,6 +190,7 @@ export function ProfilePreferences({
         // Notification preferences
         notif_reminders: data.notif_reminders,
         notif_forecast_alerts: data.notif_forecast_alerts,
+        notif_session_prompt_email: data.notif_session_prompt_email,
         ...consentUpdate,
       } as any);
 
@@ -339,6 +347,14 @@ export function ProfilePreferences({
                 name="notif_forecast_alerts"
                 label="Forecast Alerts"
                 description="Get a push when your home beach forecast matches your preferences"
+                disabled={isSubmitting}
+              />
+
+              <FormSwitch
+                control={form.control as any}
+                name="notif_session_prompt_email"
+                label="Session Prompt Emails"
+                description="Receive reminders to log sessions you might have missed"
                 disabled={isSubmitting}
               />
 

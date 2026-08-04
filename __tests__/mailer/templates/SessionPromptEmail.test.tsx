@@ -73,14 +73,14 @@ describe("SessionPromptEmail", () => {
       );
     });
 
-    it("displays beach name in footer text", () => {
-      const props = makeProps({ beachName: "Trestles" });
-      render(<SessionPromptEmail {...props} />);
+      it("displays beach name in footer text", () => {
+        const props = makeProps({ beachName: "Trestles" });
+        render(<SessionPromptEmail {...props} />);
 
-      expect(
-        screen.getByText(/forecast alerts enabled for Trestles/i)
-      ).toBeInTheDocument();
-    });
+        expect(
+          screen.getByText(/session prompt reminders for Trestles/i)
+        ).toBeInTheDocument();
+      });
 
     it("handles beach names with special characters", () => {
       const props = makeProps({ beachName: "La Jolla Shores" });
@@ -319,7 +319,7 @@ describe("SessionPromptEmail", () => {
 
       // Footer
       expect(
-        screen.getByText(/forecast alerts enabled for Black's Beach/i)
+        screen.getByText(/session prompt reminders for Black's Beach/i)
       ).toBeInTheDocument();
       expect(
         screen.getByText(/Manage notification preferences/i)

@@ -60,6 +60,7 @@ interface EditProfileFormProps {
     notif_follows?: boolean;
     notif_reminders?: boolean;
     notif_xp_updates?: boolean;
+    notif_session_prompt_email?: boolean;
   };
   onSuccess?: () => void;
   scrollToNotifications?: boolean;
@@ -111,6 +112,7 @@ export function EditProfileForm({
       notif_follows: initialData?.notif_follows ?? true,
       notif_reminders: initialData?.notif_reminders ?? true,
       notif_xp_updates: initialData?.notif_xp_updates ?? true,
+      notif_session_prompt_email: initialData?.notif_session_prompt_email ?? true,
     },
   });
 
@@ -137,7 +139,7 @@ export function EditProfileForm({
           ? { home_beach_text: homeBeachText }
           : {}),
         ...prepareAvatarPayload(avatarUrl),
-      });
+      } as any);
 
       if (!result.success) {
         throw new Error(result.error || "Failed to update profile");

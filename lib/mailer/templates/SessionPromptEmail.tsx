@@ -169,8 +169,8 @@ export function SessionPromptEmail({
             margin: 0,
           }}
         >
-          You&apos;re receiving this because you have forecast alerts enabled for{" "}
-          {beachName}. ·{" "}
+          You&apos;re receiving this because you&apos;ve enabled session prompt
+          reminders for {beachName}. ·{" "}
           <a
             href={unsubscribeUrl}
             style={{ color: MUTED, textDecoration: "underline" }}

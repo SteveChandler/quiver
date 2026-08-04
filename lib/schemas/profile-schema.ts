@@ -54,6 +54,7 @@ export const profileFormSchema = z.object({
   notif_follows: z.boolean().optional(),
   notif_reminders: z.boolean().optional(),
   notif_xp_updates: z.boolean().optional(),
+  notif_session_prompt_email: z.boolean().optional(),
 });
 
 export type ProfileFormValues = z.infer<typeof profileFormSchema>;
