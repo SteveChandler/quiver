@@ -326,3 +326,40 @@ describe("major-event hold service", () => {
     );
   });
 });
+
+describe("resolution failure diagnostics", () => {
+  it("fails closed AND reports why when hold resolution throws", async () => {
+    const consoleError = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const audit = jest.fn();
+
+    const decisions = await evaluateMajorEventHoldCandidates(
+      { mode: "enforce", profileExperience: "intermediate", candidates },
+      {
+        resolveHolds: jest
+          .fn()
+          .mockRejectedValue(new Error("hold store unreachable")),
+        audit,
+      },
+    );
+
+    // Fail-closed behaviour is deliberate and must not regress: a resolution
+    // failure suppresses recommendations rather than serving an unsafe call.
+    for (const decision of decisions) {
+      expect(decision.evaluation.outcome).toBe("explicit_none");
+      expect(decision.evaluation.reasonCode).toBe("hold_state_unavailable");
+    }
+
+    // ...but the cause must be recoverable. Before this, a bare catch swallowed
+    // the error, so a DB outage, a timeout and a bad asOf were indistinguishable
+    // from each other in production.
+    expect(consoleError).toHaveBeenCalledWith(
+      "[major-event-hold:resolution-failed]",
+      expect.objectContaining({ error: "hold store unreachable" }),
+    );
+
+    consoleError.mockRestore();
+  });
+});
+

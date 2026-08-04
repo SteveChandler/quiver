@@ -212,7 +212,17 @@ export async function evaluateMajorEventHoldCandidates(
       resolution = await resolveHolds(validCandidates, {
         asOf: resolutionAsOfDate,
       });
-    } catch {
+    } catch (error) {
+      // Failing closed here suppresses recommendations for every candidate with
+      // reasonCode "hold_state_unavailable". The audit sink records that it
+      // happened, but swallowing the error left no way to tell WHY resolution
+      // failed — a DB error, a timeout and a bad asOf are indistinguishable
+      // from the audit line alone. Keep failing closed; just say why.
+      console.error("[major-event-hold:resolution-failed]", {
+        candidateCount: validCandidates.length,
+        asOf: resolutionAsOf,
+        error: error instanceof Error ? error.message : String(error),
+      });
       resolution = { state: "unresolved", holds: [] };
     }
   }
