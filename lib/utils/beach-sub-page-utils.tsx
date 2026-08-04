@@ -10,11 +10,13 @@ import { BeachFAQSchema, TideFAQSchema, WaterTempFAQSchema } from "@/components/
 import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
 import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 import Link from "next/link";
+import { headers } from "next/headers";
 
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
 import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
+import { NativeAppFunnelCta } from "@/components/app-store/native-app-funnel-cta";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { TideSummaryHero } from "@/components/beach-detail/tide-summary-hero";
 import { WaterTempSummaryHero } from "@/components/beach-detail/water-temp-summary-hero";
@@ -32,18 +34,21 @@ import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 import { notFound } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
+import { classifyIphoneBrowser, isIphoneUserAgent } from "@/lib/app-store/iphone-app-banner";
 import {
   buildBeachSubPageCrawlCopy,
   type BeachSubPageCrawlCopy,
 } from "@/lib/utils/beach-sub-page-crawl-copy";
 import { cityToSlug, regionToSlug } from "@/lib/utils/beach-url-utils";
 import { slugifyAscii } from "@/lib/utils/text-utils";
+import { getFirstTouchPlatform } from "@/lib/analytics/web-context";
 import {
   applyIndexabilityToMetadata,
   evaluateBeachIndexability,
   toBeachEditorialInput,
   type BeachEditorialDatabaseRecord,
 } from "@/lib/seo/indexability";
+import { isBeachSubPageInstallCtaEnabled } from "@/lib/flags/beach-subpage-install-cta";
 
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
@@ -133,6 +138,21 @@ function matchesExpectedMexicoLocation(
   );
 }
 
+function isIphoneSafari(userAgent: string): boolean {
+  if (!isIphoneUserAgent(userAgent)) {
+    return false;
+  }
+
+  return classifyIphoneBrowser(userAgent) === "safari";
+}
+
+function shouldShowBeachSubPageInstallCta(userAgent: string): boolean {
+  if (!isBeachSubPageInstallCtaEnabled()) return false;
+  if (!isIphoneSafari(userAgent)) return false;
+
+  return getFirstTouchPlatform(userAgent) === "ios";
+}
+
 /**
  * Renders a beach sub-page (tides or water-temp) with consistent structure.
  * Use in page components to eliminate duplication.
@@ -161,6 +181,8 @@ export async function renderBeachSubPage({
   const config = SUB_PAGE_CONFIGS[pageType];
   const ctaConfig = SUB_PAGE_CTA_CONFIGS[pageType];
   const ctaSource = `${ctaConfig.sourcePrefix}-${beachSlug}`;
+  const userAgent = (await headers()).get("user-agent") ?? "";
+  const shouldRenderInstallCta = shouldShowBeachSubPageInstallCta(userAgent);
   const subPagePath = `${beachPath}/${pageType}`;
 
   // Fetch dataset schema data in parallel with nearby beaches — uses React cache()
@@ -276,12 +298,23 @@ export async function renderBeachSubPage({
       />
 
       <div className="container mx-auto px-4 py-8">
-        <AlertCaptureCta
-          pageContext={pageType}
-          beachId={beach.id}
-          beachName={beach.name}
-          source={`${ctaSource}-inline`}
-        />
+        {shouldRenderInstallCta ? (
+          <NativeAppFunnelCta
+            platform="ios"
+            source={ctaSource}
+            surface="beach-subpage"
+            placement={`${pageType}-${beachSlug}`}
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#F78E42] px-6 py-3 font-sans text-sm font-bold text-[#11100D] shadow-[2px_3px_0_rgba(17,16,13,0.22)] transition hover:bg-[#FDB84B] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75] focus-visible:ring-offset-2 focus-visible:ring-offset-[#F4EBD8]"
+            iosLabel="Open in App"
+          />
+        ) : (
+          <AlertCaptureCta
+            pageContext={pageType}
+            beachId={beach.id}
+            beachName={beach.name}
+            source={`${ctaSource}-inline`}
+          />
+        )}
       </div>
 
       <div className="container mx-auto px-4 pb-8">
