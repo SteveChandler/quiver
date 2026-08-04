@@ -1,5 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
+import { linkExperimentEligibility } from '@/lib/experiments/assignments';
+
+const OAUTH_PROVIDERS = new Set(['apple', 'google']);
+const OAUTH_LINK_TIMEOUT_MS = 1_000;
+
+function isFreshOAuthSignup(user: {
+  app_metadata?: { provider?: unknown };
+  created_at: string;
+  last_sign_in_at?: string | null;
+}): boolean {
+  const provider = user.app_metadata?.provider;
+  if (typeof provider !== 'string' || !OAUTH_PROVIDERS.has(provider)) return false;
+
+  const createdAt = Date.parse(user.created_at);
+  const lastSignInAt = Date.parse(user.last_sign_in_at ?? '');
+  if (!Number.isFinite(createdAt) || !Number.isFinite(lastSignInAt)) return false;
+
+  return Math.abs(lastSignInAt - createdAt) < 10 * 60 * 1000;
+}
+
+async function linkFreshOAuthEligibility(userId: string): Promise<void> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      linkExperimentEligibility(userId, 'web', 'web_oauth').catch((error) => {
+        console.warn('[Auth Callback] W-ASSIGN OAuth eligibility linkage failed:', error);
+      }),
+      new Promise<void>((resolve) => {
+        timeout = setTimeout(resolve, OAUTH_LINK_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+}
 
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -97,6 +132,10 @@ export async function GET(request: NextRequest) {
   if (supabase) {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
+      if (isFreshOAuthSignup(user)) {
+        await linkFreshOAuthEligibility(user.id);
+      }
+
       const sessionEmail = user.email;
       const sessionUserId = user.id;
       if (sessionEmail && sessionUserId) {

@@ -119,7 +119,7 @@ export async function proxy(request: NextRequest) {
   // Static assets must pass through before the SEO route rewrites below inspect
   // multi-segment paths. The matcher excludes these in production; this guard
   // keeps direct proxy invocation and alternate runtimes safe as well.
-  if (pathname.includes(".") && !pathname.endsWith("/")) {
+  if (RouteGuard.isStaticAssetPath(pathname)) {
     return NextResponse.next();
   }
 

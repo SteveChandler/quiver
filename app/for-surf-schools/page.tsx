@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { buildPageMetadata } from "@/lib/seo/meta";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
-import { StructuredData } from "@/components/seo/structured-data";
 import {
   SurfSchoolsZinePage,
   type BeachOption,
@@ -38,9 +37,6 @@ export default async function ForSurfSchoolsPage() {
       : [];
 
   return (
-    <>
-      <StructuredData type="softwareApplication" />
-      <SurfSchoolsZinePage beaches={beaches} />
-    </>
+    <SurfSchoolsZinePage beaches={beaches} />
   );
 }

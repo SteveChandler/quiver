@@ -36,12 +36,14 @@ describe("Android tester roster identity encryption", () => {
       KEY,
       1,
     );
+    const tamperedCiphertext = Buffer.from(envelope.ciphertext, "base64url");
+    tamperedCiphertext[0] ^= 0x01;
 
     expect(() =>
       decryptTesterIdentity(
         {
           ...envelope,
-          ciphertext: `${envelope.ciphertext.slice(0, -1)}A`,
+          ciphertext: tamperedCiphertext.toString("base64url"),
         },
         KEY,
       ),

@@ -1,502 +1,108 @@
-# SEO Components Architecture
+# SEO structured-data architecture
 
-## 🎯 **PURPOSE**
+## Purpose
 
-The SEO components provide structured data and metadata management for search engine optimization, enhancing discoverability and rich snippet generation across the application.
+SEO components emit route-specific JSON-LD. Schema eligibility is explicit: a
+page should only claim an entity type that its visible content and source data
+can support.
 
-## 📁 **COMPONENT STRUCTURE**
+## Main components
 
-```
+```text
 components/seo/
-├── article-schema.tsx     # Article and BlogPosting JSON-LD
-├── blog-schema.tsx        # Blog collection JSON-LD for /blog
-├── breadcrumb-schema.tsx  # BreadcrumbList JSON-LD
-├── web-page-schema.tsx    # WebPage JSON-LD
-└── structured-data.tsx    # Root Organization/App/WebSite JSON-LD
+├── article-schema.tsx              # Article and BlogPosting
+├── blog-schema.tsx                 # Blog collection
+├── breadcrumb-schema.tsx           # BreadcrumbList
+├── home-page-structured-data.tsx   # Organization/WebSite root graph wrapper
+├── structured-data.tsx             # Beach Place schema
+└── web-page-schema.tsx              # WebPage
 ```
 
-## 🏗️ **ARCHITECTURE PATTERNS**
+The root layout calls `buildRootStructuredDataGraph()` directly. The homepage
+wrapper uses the same builder when a component form is useful in tests or a
+page surface.
 
-### **Structured Data Pattern**
+## Root graph
 
-```typescript
-SEOSystem
-├── StructuredData (Generic JSON-LD)
-├── HomePageStructuredData (Organization/App)
-├── BeachPageStructuredData (Local Business/Place)
-├── ArticleSchema (Article/BlogPosting)
-├── BlogSchema (Blog collection)
-├── BreadcrumbStructuredData (BreadcrumbList)
-└── WebPageSchema (WebPage)
+`lib/seo/root-structured-data.ts` builds one object with a top-level
+`@context` and an `@graph` containing only:
+
+- `Organization`
+- `WebSite`
+
+Do not add `SoftwareApplication` to the root graph. Application rich-result
+markup belongs only on an app-specific page with the required offer and real
+rating or review data.
+
+```tsx
+const jsonLd = buildRootStructuredDataGraph();
+
+<script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+/>
 ```
 
-### **JSON-LD Generation Pattern**
+## Beach pages
 
-```typescript
-// Centralized structured data generation
-const getStructuredData = (type: string, customData?: any) => {
-  const baseData = getOrganizationData();
-  const typeSpecificData = getTypeSpecificData(type);
-  return { ...baseData, ...typeSpecificData, ...customData };
-};
+`BeachPageStructuredData` emits one `Place` object with coordinates, postal
+context, and verified amenity flags.
+
+Public beaches are not businesses. Do not emit `LocalBusiness`,
+`SportsActivityLocation`, `sport`, or `AggregateRating` from this component.
+Those properties make beach pages eligible for rich-result features whose
+required business and review data Quiver cannot truthfully provide.
+
+```tsx
+<BeachPageStructuredData
+  beachName={beach.name}
+  description={description}
+  latitude={beach.lat}
+  longitude={beach.lon}
+  city={beach.city}
+  state={beach.state}
+  country={beach.country}
+  amenities={amenities}
+/>
 ```
 
-## 📊 **COMPONENT RESPONSIBILITIES**
+The root layout already supplies Organization and WebSite identity, so beach
+components must not duplicate them.
 
-### **StructuredData** (Generic Component)
+## Application schema
 
-- **Purpose**: Flexible structured data injection for any page type
-- **Props**: `type, customData`
-- **Features**:
-  - Multi-type support (organization, software, website, all)
-  - Custom data merging
-  - JSON-LD script injection
-  - Type-safe data validation
+Application schema is route-owned rather than globally configurable. Before
+emitting `SoftwareApplication`, confirm the page supplies:
 
-**Supported Schema Types:**
+- an application-specific entity;
+- a concrete `Offer` or `AggregateOffer` price and currency;
+- a genuine `AggregateRating` or `Review` when Google requires one;
+- values visible to users and backed by current source data.
 
-```typescript
-interface StructuredDataProps {
-  type?: "organization" | "softwareApplication" | "website" | "all";
-  customData?: Record<string, any>;
-}
+Do not add placeholder ratings, reviews, prices, or third-party product claims
+to satisfy a validator. If required data is unavailable, omit the application
+schema.
 
-// Base organization schema
-const organizationSchema = {
-  "@context": "https://schema.org",
-  "@type": "Organization",
-  name: "Quiver",
-  description: "Community-driven surf forecasting and session tracking",
-  url: "https://www.quiversurf.app",
-  logo: "https://www.quiversurf.app/quiver-app-icon.png",
-  sameAs: [
-    "https://twitter.com/quiversurf",
-    "https://instagram.com/quiversurf",
-  ],
-};
-```
+## Other route schemas
 
-### **HomePageStructuredData** (Landing Page)
+- Use `BreadcrumbStructuredData` for visible navigation hierarchy.
+- Use `WebPageSchema` for the page entity.
+- Use `ArticleSchema` or `BlogSchema` only on editorial content.
+- Use dataset schemas only when the page exposes the described dataset.
+- Prefer a dedicated builder or component over a generic type selector.
 
-- **Purpose**: Rich structured data for the main application landing page
-- **Features**:
-  - Organization information
-  - Software application schema
-  - Feature highlights
-  - User ratings and reviews
-  - Download/access information
+All JSON-LD is server-rendered without client state or effects.
 
-**Homepage Schema:**
+## Testing and validation
 
-```typescript
-const homepageSchema = {
-  "@context": "https://schema.org",
-  "@type": "SoftwareApplication",
-  name: "Quiver",
-  applicationCategory: "SportsApplication",
-  description:
-    "Track surf sessions, discover beaches, and connect with the surfing community",
-  operatingSystem: ["Web", "iOS", "Android"],
-  offers: {
-    "@type": "Offer",
-    price: "0",
-    priceCurrency: "USD",
-  },
-  // NOTE: Do NOT add aggregateRating with fabricated numbers here.
-  // Google prohibits hardcoded ratings not sourced from real reviews.
-};
-```
+Relevant regression coverage lives in:
 
-### **BeachPageStructuredData** (Location Pages)
+- `__tests__/lib/seo/structured-data.test.ts`
+- `__tests__/components/seo/structured-data.test.tsx`
+- `__tests__/app/ahrefs-structured-data-regressions.test.ts`
 
-- **Purpose**: Local business and place schema for beach detail pages
-- **Props**: `beachName, description, latitude, longitude, rating, reviewCount`
-- **Features**:
-  - Local business schema
-  - Geographic coordinates
-  - Photo gallery references
-  - Activity information
-  - Intentionally omits review snippet markup (`AggregateRating`) for Place-based schemas
-
-**Beach Schema:**
-
-```typescript
-interface BeachPageStructuredDataProps {
-  beachName: string;
-  description: string;
-  latitude: number;
-  longitude: number;
-  rating?: number;
-  reviewCount?: number;
-}
-
-const placeSchema = {
-  "@context": "https://schema.org",
-  "@type": "Place",
-  name: beachName,
-  description: description,
-  geo: {
-    "@type": "GeoCoordinates",
-    latitude: latitude,
-    longitude: longitude,
-  },
-  // NOTE: Do not emit AggregateRating here. Google review snippets do not support
-  // ratings for Place/Beach types, and emitting it can trigger Search Console
-  // "Review snippets" errors.
-};
-
-const sportsActivityLocationSchema = {
-  "@context": "https://schema.org",
-  "@type": "SportsActivityLocation",
-  name: beachName,
-  description: description,
-  sport: "Surfing",
-  geo: placeSchema.geo,
-  // Keep address on Place only. Ahrefs flags address on the combined
-  // Place + SportsActivityLocation item.
-};
-```
-
-### **ArticleSchema** (Guides and Blog Posts)
-
-- **Purpose**: Article-style JSON-LD for learn articles, guides, and founder notes
-- **Props**: `title, description, url, imageUrl, datePublished, dateModified, author, wordCount, articleSection, keywords, type`
-- **Features**:
-  - Defaults to `Article`
-  - Supports `BlogPosting` for `/blog/[slug]`
-  - Adds publisher logo, author, canonical `mainEntityOfPage`, word count, section, and keyword signals
-
-### **BlogSchema** (Blog Hub)
-
-- **Purpose**: Collection-level JSON-LD for `/blog`
-- **Props**: `name, description, url, posts`
-- **Features**:
-  - Emits a `Blog` schema with `BlogPosting` entries
-  - Keeps founder notes discoverable without turning Quiver into a generic media site
-  - Uses absolute post URLs and image URLs
-
-## 🎨 **DESIGN PATTERNS**
-
-### **Script Injection Pattern**
-
-```typescript
-// Safe JSON-LD injection with dangerouslySetInnerHTML
-export function StructuredData({
-  type = "all",
-  customData,
-}: StructuredDataProps) {
-  const structuredData = getStructuredData();
-
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{
-        __html: JSON.stringify(structuredData, null, 2),
-      }}
-    />
-  );
-}
-```
-
-### **Conditional Schema Assembly**
-
-```typescript
-const getStructuredData = () => {
-  const schemas = [];
-
-  if (type === "organization" || type === "all") {
-    schemas.push(organizationSchema);
-  }
-
-  if (type === "softwareApplication" || type === "all") {
-    schemas.push(softwareApplicationSchema);
-  }
-
-  // Return single schema or array based on count
-  return schemas.length === 1 ? schemas[0] : schemas;
-};
-```
-
-### **Data Merging Strategy**
-
-```typescript
-// Custom data override pattern
-const mergedData = {
-  ...baseSchema,
-  ...customData,
-  // Preserve critical fields
-  "@context": baseSchema["@context"],
-  "@type": baseSchema["@type"],
-};
-```
-
-## 🚀 **SEO OPTIMIZATION FEATURES**
-
-### **Rich Snippets Support**
-
-```typescript
-// Enhanced organization schema
-const enhancedOrganizationSchema = {
-  "@type": "Organization",
-  name: "Quiver",
-  alternateName: "Quiver Surf App",
-  description: "Community-driven surf forecasting platform",
-  foundingDate: "2024",
-  founder: {
-    "@type": "Person",
-    name: "Quiver Team",
-  },
-  contactPoint: {
-    "@type": "ContactPoint",
-    contactType: "customer service",
-    email: "support@quiver.surf",
-  },
-};
-```
-
-### **Local SEO Enhancement**
-
-```typescript
-// Beach location schema with local business features
-const localBusinessSchema = {
-  "@type": ["Place", "TouristAttraction", "LocalBusiness"],
-  businessStatus: "OPERATIONAL",
-  priceRange: "Free",
-  amenityFeature: [
-    {
-      "@type": "LocationFeatureSpecification",
-      name: "Surfing",
-      value: true,
-    },
-    {
-      "@type": "LocationFeatureSpecification",
-      name: "Parking",
-      value: true,
-    },
-  ],
-};
-```
-
-### **Review Integration**
-
-```typescript
-// Review schema for beach pages
-if (rating && reviewCount) {
-  beachSchema.aggregateRating = {
-    "@type": "AggregateRating",
-    ratingValue: rating.toString(),
-    reviewCount: reviewCount.toString(),
-    bestRating: "5",
-    worstRating: "1",
-  };
-}
-```
-
-## 🔍 **SEARCH ENGINE FEATURES**
-
-### **Multiple Schema Types**
-
-```typescript
-// Support for multiple concurrent schemas
-const multipleSchemas = [
-  {
-    "@context": "https://schema.org",
-    "@type": "Organization",
-    // Organization data
-  },
-  {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    // App data
-  },
-  {
-    "@context": "https://schema.org",
-    "@type": "WebSite",
-    // Website data
-  },
-];
-```
-
-### **Breadcrumb Schema**
-
-```typescript
-// Breadcrumb navigation for beach pages
-const breadcrumbSchema = {
-  "@context": "https://schema.org",
-  "@type": "BreadcrumbList",
-  itemListElement: [
-    {
-      "@type": "ListItem",
-      position: 1,
-      name: "Home",
-      item: "https://www.quiversurf.app",
-    },
-    {
-      "@type": "ListItem",
-      position: 2,
-      name: "Beaches",
-      item: "https://www.quiversurf.app/map",
-    },
-    {
-      "@type": "ListItem",
-      position: 3,
-      name: beachName,
-      item: `https://www.quiversurf.app/beach/${beachId}`,
-    },
-  ],
-};
-```
-
-### **Event Schema for Sessions**
-
-```typescript
-// Future: Session/event schema
-const sessionEventSchema = {
-  "@context": "https://schema.org",
-  "@type": "SportsEvent",
-  name: "Surf Session",
-  sport: "Surfing",
-  location: {
-    "@type": "Place",
-    name: beachName,
-    geo: {
-      "@type": "GeoCoordinates",
-      latitude: latitude,
-      longitude: longitude,
-    },
-  },
-  startDate: sessionDate,
-  eventStatus: "EventScheduled",
-};
-```
-
-## 📱 **MOBILE & PERFORMANCE**
-
-### **Minimal Bundle Impact**
-
-```typescript
-// Lightweight component with no runtime JS
-export function StructuredData({
-  type = "all",
-  customData,
-}: StructuredDataProps) {
-  // Pure data generation, no React state or effects
-  const structuredData = getStructuredData();
-
-  // Static script injection
-  return (
-    <script
-      type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
-    />
-  );
-}
-```
-
-### **SSR Optimization**
-
-```typescript
-// Server-side rendered structured data
-// No client-side hydration needed
-// Immediate availability to search engine crawlers
-```
-
-## 🔧 **INTEGRATION PATTERNS**
-
-### **Next.js Head Integration**
-
-```typescript
-// Usage in page components
-import { BeachPageStructuredData } from "@/components/seo/structured-data";
-
-export default function BeachPage({ beach }) {
-  return (
-    <>
-      <Head>
-        <title>{beach.name} - Quiver</title>
-        <meta name="description" content={beach.description} />
-      </Head>
-
-      <BeachPageStructuredData
-        beachName={beach.name}
-        description={beach.description}
-        latitude={beach.latitude}
-        longitude={beach.longitude}
-        rating={beach.rating}
-        reviewCount={beach.reviewCount}
-      />
-
-      <main>{/* Page content */}</main>
-    </>
-  );
-}
-```
-
-### **Dynamic Data Integration**
-
-```typescript
-// Real-time data integration
-const dynamicBeachData = {
-  aggregateRating: {
-    "@type": "AggregateRating",
-    ratingValue: calculateAverageRating(reviews),
-    reviewCount: reviews.length,
-    ratingExplanation: "Based on community reviews",
-  },
-  photo: recentPhotos.map((photo) => ({
-    "@type": "ImageObject",
-    url: photo.url,
-    caption: photo.caption,
-  })),
-};
-```
-
-## 🧪 **TESTING & VALIDATION**
-
-### **Schema Validation**
-
-```typescript
-// Validate generated schemas
-const validateSchema = (schema: any) => {
-  // Ensure required fields are present
-  if (!schema["@context"] || !schema["@type"]) {
-    throw new Error("Invalid schema: missing required fields");
-  }
-
-  // Type-specific validation
-  if (schema["@type"] === "Organization" && !schema.name) {
-    throw new Error("Organization schema requires name");
-  }
-};
-```
-
-### **SEO Testing Tools**
-
-- Google Rich Results Test
-- Schema.org validator
-- Lighthouse SEO audits
-- Search Console monitoring
-
-## 🔮 **FUTURE ENHANCEMENTS**
-
-### **Planned Features**
-
-- Event schema for surf sessions
-- Product schema for gear recommendations
-- FAQ schema for help pages
-- Recipe schema for surf tips
-- Video schema for session content
-
-### **Advanced SEO Features**
-
-- Sitemap generation coverage for every indexable route group
-- Meta tag optimization
-- Open Graph integration
-- Twitter Card support
-- Canonical URL management
-
----
-
-**Last Updated**: May 2026
-**Status**: Production-ready with comprehensive structured data
-**Next Review**: After advanced SEO features implementation
+Tests must assert the emitted semantic object, including prohibited entity
+types, instead of only checking that a JSON-LD script exists. Before shipping
+schema changes, run the focused unit tests, TypeScript, ESLint, a production
+build, and validate representative rendered URLs with Google Rich Results,
+Schema.org, and the next Ahrefs crawl.

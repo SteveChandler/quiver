@@ -31,7 +31,7 @@ describe("Free surf reports SEO metadata", () => {
     expect(source).toContain("href: \"/best-free-surf-forecast-app\"");
     expect(source).toContain("href: \"/vs/surfline/free\"");
     expect(source).toContain("href: \"/features\"");
-    expect(source).toContain("\"@type\": \"SoftwareApplication\"");
+    expect(source).not.toContain("\"@type\": \"SoftwareApplication\"");
     expect(source).toContain("<WebPageSchema");
   });
 });

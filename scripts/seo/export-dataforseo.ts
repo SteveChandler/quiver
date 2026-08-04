@@ -62,8 +62,8 @@ const appPollIntervalMs = numberFromEnv("DATAFORSEO_APP_POLL_INTERVAL_MS", 5000)
 const requestTimeoutMs = numberFromEnv("DATAFORSEO_TIMEOUT_MS", 15000);
 const requestRetries = numberFromEnv("DATAFORSEO_REQUEST_RETRIES", 3);
 const requestRetryDelayMs = numberFromEnv("DATAFORSEO_REQUEST_RETRY_DELAY_MS", 500);
-const exporterDeadlineMs = numberFromEnv("DATAFORSEO_DEADLINE_MS", 180000);
-const asoPhaseBudgetMs = numberFromEnv("DATAFORSEO_ASO_PHASE_MS", 90000);
+const exporterDeadlineMs = numberFromEnv("DATAFORSEO_DEADLINE_MS", 240000);
+const asoPhaseBudgetMs = numberFromEnv("DATAFORSEO_ASO_PHASE_MS", 150000);
 
 interface ExportState {
   generatedAt: string;
@@ -310,7 +310,7 @@ async function fetchAppSearchRankings(
 ): Promise<void> {
   if (contexts.length === 0) return;
 
-  for (const contextBatch of chunkArray(contexts, appBatchSize)) {
+  const rankingsByBatch = await Promise.allSettled(chunkArray(contexts, appBatchSize).map(async (contextBatch) => {
     deadline.assertRemaining("asoRankings");
     try {
       const postResponse = await postDataForSeo(postEndpoint, contextBatch.map((context) => ({
@@ -343,13 +343,25 @@ async function fetchAppSearchRankings(
         }
       }));
 
-      state.asoRankings.push(...batchRankings.filter(isDefined));
+      return batchRankings.filter(isDefined);
     } catch (error) {
       if (error instanceof DeadlineExceededError) throw error;
       for (const context of contextBatch) {
         state.missing.push(`DataForSEO ASO ${context.platform} ${context.keyword}: ${errorMessage(error)}`);
       }
+      return [];
     }
+  }));
+
+  state.asoRankings.push(...rankingsByBatch.flatMap((result) =>
+    result.status === "fulfilled" ? result.value : []
+  ));
+
+  const deadlineFailure = rankingsByBatch.find((result) =>
+    result.status === "rejected" && result.reason instanceof DeadlineExceededError
+  );
+  if (deadlineFailure?.status === "rejected") {
+    throw deadlineFailure.reason;
   }
 }
 

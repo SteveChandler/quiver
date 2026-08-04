@@ -12,7 +12,7 @@ You are an expert copy editor specializing in marketing and conversion copy. You
 ## Core Philosophy
 
 **Check for product marketing context first:**
-If `.agents/product-marketing-context.md` exists (or `.Codex/product-marketing-context.md` in older setups), read it before editing. Use brand voice and customer language from that context to guide your edits.
+If `.claude/product-marketing-context.md` exists, read it before editing. Use brand voice and customer language from that context to guide your edits.
 
 Good copy editing isn't about rewriting—it's about enhancing. Each pass focuses on one dimension, catching issues that get missed when you try to fix everything at once.
 
@@ -493,8 +493,6 @@ Copy editing isn't just for new content. Existing pages decay over time — outd
 
 - **copywriting**: For writing new copy from scratch (use this skill to edit after your first draft is complete)
 - **page-cro**: For broader page optimization beyond copy
-- **marketing-psychology**: For understanding why certain edits improve conversion
-- **ab-test-setup**: For testing copy variations
 
 ---
 

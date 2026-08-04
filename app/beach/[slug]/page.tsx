@@ -95,8 +95,6 @@ export default async function BeachDetailBySlugPage(
           description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
           latitude={beach.lat || 0}
           longitude={beach.lon || 0}
-          rating={(beach as any).average_rating || undefined}
-          reviewCount={(beach as any).review_count || undefined}
           city={beach.city || undefined}
           state={beach.state || undefined}
           country={beach.country || undefined}

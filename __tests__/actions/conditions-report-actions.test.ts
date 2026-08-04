@@ -234,7 +234,7 @@ describe("submitConditionsReport", () => {
       expect(inner.data?.sessionId).toBe("session-xyz");
     });
 
-    test("emits user_events rows for intel_post_created and session_log_submit", async () => {
+    test("emits intel_post_created and session_created, not session_log_submit", async () => {
       const supabase = createSupabaseMock();
       supabase.auth.getUser.mockResolvedValue({ data: { user: mockUser }, error: null } as any);
       mockSupabaseClient(supabase);
@@ -276,13 +276,10 @@ describe("submitConditionsReport", () => {
           }),
         })
       );
-      expect(supabase.insert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          user_id: mockUser.id,
-          event_type: "session_log_submit",
-          beach_id: "beach-1",
-        })
-      );
+      const insertedEventTypes = supabase.insert.mock.calls
+        .map(([payload]) => payload?.event_type)
+        .filter(Boolean);
+      expect(insertedEventTypes).not.toContain("session_log_submit");
     });
 
     test("succeeds even when session insert fails", async () => {

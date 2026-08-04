@@ -48,6 +48,16 @@ describe("RouteGuard", () => {
         expect(RouteGuard.classifyRoute("/app.js", "GET").type).toBe("skip");
       });
 
+      it("should not skip routes with dots outside the final segment", () => {
+        const result = RouteGuard.classifyRoute(
+          "/profile/jane.doe/settings",
+          "GET",
+        );
+
+        expect(result.type).toBe("protected");
+        expect(result.requiresAuth).toBe(true);
+      });
+
       it("should skip non-GET requests", () => {
         const result = RouteGuard.classifyRoute("/profile", "POST");
         expect(result.type).toBe("skip");

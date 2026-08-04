@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: active
-last_updated: "2026-06-02T19:42:00.000Z"
+status: executing
+last_updated: "2026-07-28T14:44:51.739Z"
 progress:
-  total_phases: 7
+  total_phases: 8
   completed_phases: 7
-  total_plans: 31
+  total_plans: 36
   completed_plans: 31
-  percent: 100
+  percent: 86
 ---
 
 # Project State
@@ -20,12 +20,12 @@ Track the active go-live campaign state without loading the completed phase hist
 
 ## Current Status
 
-Phase: 20
-Plan: 20-05
-Status: Phase 20 production web verification passed after approved deploy; native `/app/spot` route gap is patched and simulator evidence is accepted for closeout
+Phase: 21
+Plan: —
+Status: Planned — ready to execute
 Full pre-cleanup history: [.planning/archive/2026-05-31-doc-cleanup/STATE-full-history.md](archive/2026-05-31-doc-cleanup/STATE-full-history.md)
 
-Progress: 20 of 20 phases complete. Active Session Intelligence addendum execution progress: 31 of 31 planned plans complete, 100%.
+Progress: 20 of 21 phases complete. Phase 21 execution progress: 0 of 5 planned plans complete, 0%.
 
 ## Active Requirements
 
@@ -35,10 +35,15 @@ Progress: 20 of 20 phases complete. Active Session Intelligence addendum executi
 
 ## Open Gaps
 
+- Phase 21 is fully researched and planned. Implementation, local verification,
+  and the explicit production schema/deploy/write/retirement authorization gates
+  remain.
+
 - Native `/app/spot/:slug` routing is patched in `quiver-native` and verified
   through the simulator app scheme. Full HTTPS universal-link handoff is
   deferred to signed physical/TestFlight validation before the next native
   release.
+
 - Phase 13 is complete. Future refactor candidates are listed in [docs/refactor-roadmap.md](../docs/refactor-roadmap.md).
 - Public launch deploy/alias status may have changed outside the repo and must be checked live before public claims.
 
@@ -59,9 +64,14 @@ Progress: 20 of 20 phases complete. Active Session Intelligence addendum executi
 
 ## Next Actions
 
+- Execute Phase 21 Plans 21-01 and 21-02 as the parallel foundation wave, then
+  continue through the decision engine, builder/privacy integration, and
+  approval-gated rollout.
+
 - Start the 3-day, 7-day, and 28-day after-measurement checks from deployment
   time `2026-06-02T18:55:38Z`; run signed HTTPS handoff validation before the
   next native release.
+
 - Preserve the Phase 16 sticker treatment when wiring Session Intelligence into
   real surfaces; use Brand-Vault stickers/tape/condition icons before inventing
   new decorative assets.
@@ -72,6 +82,7 @@ Progress: 20 of 20 phases complete. Active Session Intelligence addendum executi
 
 ### Roadmap Evolution
 
+- Phase 21 added: Multi-Forecaster Forecast Adjustment and Production Ingestion, coordinated by Quiver with Seaside as the production-ingestion workstream.
 - Phases 14-20 added: Session Intelligence v1 addendum.
 - Phase 14 completed with four documentation-only plans covering guardrails, template inventory, data availability, risk/schema checks, app-link/deeplink checks, and analytics validation.
 - Phase 15 planned with four implementation plans covering the recommendation model, top-window selection, shared helper, source flags, links, and final verification.
@@ -81,12 +92,14 @@ Progress: 20 of 20 phases complete. Active Session Intelligence addendum executi
 - Phase 19 completed the forecast-accuracy trust page, including live/building
   accuracy report states, claim gating, methodology/limits copy, Dataset
   structured data, and guest Playwright coverage for mobile and desktop.
+
 - Phase 20 plan 20-01 completed app-link route alignment: AASA includes
   `/app/spot/*`, Android assetlinks filters placeholder fingerprints, Apple
   placeholder team IDs fall back to the checked-in Quiver team ID, slugged
   Session Intelligence app/universal links use `/app/spot/{slug}?window=...`,
   `/app/spot/[slug]` provides a noindex App Store/web fallback, and local unit,
   lint, static, diff, and typecheck gates passed.
+
 - Phase 20 plan 20-02 completed analytics event plumbing: seven Session
   Intelligence measurement events are valid, anonymous-allowed, not
   pre-auth-only, zero-weighted for implicit preferences, covered by an additive
@@ -94,15 +107,18 @@ Progress: 20 of 20 phases complete. Active Session Intelligence addendum executi
   forecast-accuracy, alert CTA, and SEO intent handoff surfaces. The production
   allowlist migration was applied and verified on 2026-06-02. Focused unit,
   lint, typecheck, and preview build gates passed.
+
 - Phase 20 plan 20-03 completed before-baseline documentation: GSC, PostHog,
   Vercel Web Analytics, app CTA, app deep-link conversion, multi-page behavior,
   bounce behavior, route-performance samples, and 3-day/7-day/28-day after-check
   rules are recorded without claiming lift.
+
 - Phase 20 plan 20-04 completed the public QA matrix and focused guest browser
   coverage for app-link fallback, sampled Session Intelligence surfaces,
   canonical/schema checks, and required viewports. It also fixed `/app/spot/*`
   proxy routing, downgraded expected forecast-accuracy fallback logging from
   error to warning, and narrowed E2E dev-server reset noise filtering.
+
 - Phase 20 plan 20-05 verification found a production release blocker:
   `www.quiversurf.app` is reachable and live assetlinks has a concrete Android
   fingerprint, but live AASA lacks `/app/spot/*` and the live

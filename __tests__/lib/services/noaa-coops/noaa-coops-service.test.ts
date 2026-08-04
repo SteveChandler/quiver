@@ -90,7 +90,7 @@ describe('NOAACOOPSService', () => {
 
         // Heights should be converted to feet (1.5m * 3.28084 ≈ 4.9ft)
         const mainHigh = highs.find(h => Math.abs(h.height - 4.9) < 0.2);
-        expect(mainHigh).toBeDefined();
+        expect(mainHigh).toMatchObject({ type: 'high' });
       });
 
       it('should sort tides by time', async () => {
@@ -109,7 +109,7 @@ describe('NOAACOOPSService', () => {
 
         const result = await service.fetchCachedTides(beachId);
 
-        expect(result?.tides).toBeDefined();
+        expect(result).not.toBeNull();
         // Verify tides are sorted by time
         for (let i = 1; i < (result?.tides.length ?? 0); i++) {
           expect(result!.tides[i].time).toBeGreaterThanOrEqual(result!.tides[i - 1].time);
@@ -135,13 +135,13 @@ describe('NOAACOOPSService', () => {
 
         const result = await service.fetchCachedTides(beachId);
 
-        expect(result?.tides).toBeDefined();
+        expect(result).not.toBeNull();
         const highs = result?.tides.filter(t => t.type === 'high') ?? [];
         // Should include the first point as a high tide
         expect(highs.length).toBeGreaterThanOrEqual(1);
         // 2.0m * 3.28084 ≈ 6.6ft
         const firstHigh = highs.find(h => Math.abs(h.height - 6.6) < 0.2);
-        expect(firstHigh).toBeDefined();
+        expect(firstHigh).toMatchObject({ type: 'high' });
       });
 
       it('should detect low tide at last data point when it is lower than second-to-last', async () => {
@@ -161,13 +161,13 @@ describe('NOAACOOPSService', () => {
 
         const result = await service.fetchCachedTides(beachId);
 
-        expect(result?.tides).toBeDefined();
+        expect(result).not.toBeNull();
         const lows = result?.tides.filter(t => t.type === 'low') ?? [];
         // Should include the last point as a low tide
         expect(lows.length).toBeGreaterThanOrEqual(1);
         // 0.0m = 0.0ft
         const lastLow = lows.find(l => l.height === 0);
-        expect(lastLow).toBeDefined();
+        expect(lastLow).toMatchObject({ type: 'low', height: 0 });
       });
 
       it('should detect extrema at both boundaries when data starts high and ends low', async () => {
@@ -185,7 +185,7 @@ describe('NOAACOOPSService', () => {
 
         const result = await service.fetchCachedTides(beachId);
 
-        expect(result?.tides).toBeDefined();
+        expect(result).not.toBeNull();
         const highs = result?.tides.filter(t => t.type === 'high') ?? [];
         const lows = result?.tides.filter(t => t.type === 'low') ?? [];
 
@@ -282,11 +282,11 @@ describe('NOAACOOPSService', () => {
 
         // High at 1.5m → ~4.9 ft
         const mainHigh = highs.find(h => Math.abs(h.height - 4.9) < 0.2);
-        expect(mainHigh).toBeDefined();
+        expect(mainHigh).toMatchObject({ type: 'high' });
       });
 
       it('should produce same extrema from deduplicated rows as from single rows', async () => {
-        const now = new Date();
+        const now = new Date('2026-08-02T12:00:00.000Z');
         const heights = [0.5, 1.0, 1.5, 1.2, 0.8, 0.3, 0.6, 1.1];
 
         // Single row per hour

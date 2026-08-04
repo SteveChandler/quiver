@@ -5,7 +5,7 @@
 import { readFileSync } from "fs";
 import { GET } from "@/app/api/cron/weekly-recap-email/route";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
-import { resend } from "@/lib/mailer/client";
+import { sendEmail } from "@/lib/mailer/client";
 import { WeeklyRecapEmail } from "@/lib/mailer/templates/WeeklyRecapEmail";
 import { createEmailLogger } from "@/lib/services/email-logging-service";
 import { createResendRateLimiter } from "@/lib/utils/email-rate-limiter";
@@ -130,14 +130,14 @@ jest.mock("@/lib/supabase/server", () => ({
 }));
 
 jest.mock("@/lib/mailer/client", () => ({
-  resend: {
-    emails: {
-      send: jest.fn(),
-    },
-  },
+  sendEmail: jest.fn(),
   MAIL_FROM: "Quiver <from@example.com>",
   MAIL_REPLY_TO: "Quiver <reply@example.com>",
   getBaseUrl: jest.fn(() => "https://quiver.test"),
+}));
+
+jest.mock("@/lib/alerts/email-token", () => ({
+  generateEmailUnsubscribeToken: jest.fn(() => "test-unsubscribe-token"),
 }));
 
 jest.mock("@/lib/mailer/templates/WeeklyRecapEmail", () => ({
@@ -311,7 +311,7 @@ describe("weekly recap email cron route", () => {
     mockSupabaseQueries({ data: [], error: null });
     mockLogDelivery.mockResolvedValue(undefined);
     mockThrottle.mockResolvedValue(undefined);
-    (resend.emails.send as jest.Mock).mockResolvedValue({
+    (sendEmail as jest.Mock).mockResolvedValue({
       data: { id: "message-1" },
       error: null,
     });
@@ -353,7 +353,7 @@ describe("weekly recap email cron route", () => {
       timestamp: "2026-05-26T00:00:00.000Z",
     });
     expect(createSupabaseServiceRoleClient).not.toHaveBeenCalled();
-    expect(resend.emails.send).not.toHaveBeenCalled();
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 
   it("returns an empty weekly summary without fetching profiles when no sessions exist", async () => {
@@ -391,7 +391,7 @@ describe("weekly recap email cron route", () => {
     expect(typeof data.data.summary.durationMs).toBe("number");
     expect(createEmailLogger).not.toHaveBeenCalled();
     expect(createResendRateLimiter).not.toHaveBeenCalled();
-    expect(resend.emails.send).not.toHaveBeenCalled();
+    expect(sendEmail).not.toHaveBeenCalled();
   });
 
   it("sends and logs a weekly recap for an eligible active user", async () => {
@@ -470,12 +470,14 @@ describe("weekly recap email cron route", () => {
         topSpotImageUrl: "https://img.youtube.com/vi/abc123/mqdefault.jpg",
       })
     );
-    expect(resend.emails.send).toHaveBeenCalledWith(
+    expect(sendEmail).toHaveBeenCalledWith(
       expect.objectContaining({
         from: "Quiver <from@example.com>",
         replyTo: "Quiver <reply@example.com>",
         to: "surfer@example.com",
         subject: "Your Week in the Water: 2 Sessions",
+        unsubscribeUrl:
+          "https://quiver.test/api/alerts/unsubscribe-email?user_id=user-1&token=test-unsubscribe-token",
         react: {
           type: "WeeklyRecapEmail",
           props: expect.any(Object),
@@ -555,6 +557,6 @@ describe("weekly recap email cron route", () => {
     expect(WeeklyRecapEmail).toHaveBeenCalledWith(
       expect.objectContaining({ bestDays: [] })
     );
-    expect(resend.emails.send).toHaveBeenCalledTimes(1);
+    expect(sendEmail).toHaveBeenCalledTimes(1);
   });
 });

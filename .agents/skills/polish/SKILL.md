@@ -1,14 +1,9 @@
 ---
 name: polish
 description: Final quality pass before shipping. Fixes alignment, spacing, consistency, and detail issues that separate good from great.
-user-invokable: true
-args:
-  - name: target
-    description: The feature or area to polish (optional)
-    required: false
 ---
 
-**First**: Use the frontend-design skill for design principles and anti-patterns.
+Apply the Design Context in `CLAUDE.md` and the relevant frontend-design principles. Load the frontend-design skill only if those principles are not already available; do not invoke another model solely for this step.
 
 Perform a meticulous final pass to catch all the small details that separate good work from great work. The difference between shipped and polished.
 

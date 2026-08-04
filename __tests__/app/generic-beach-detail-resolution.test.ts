@@ -76,10 +76,6 @@ jest.mock("@/components/seo/faq-schema", () => ({
   FAQSchema: () => null,
 }));
 
-jest.mock("@/components/seo/review-schema", () => ({
-  ReviewSchema: () => null,
-}));
-
 jest.mock("@/components/seo/web-page-schema", () => ({
   WebPageSchema: () => null,
 }));
@@ -114,13 +110,6 @@ jest.mock("@/actions/beach/beach-location-actions", () => ({
     data: [],
   }),
   getAllCitiesWithBeachSkills: jest.fn(),
-}));
-
-jest.mock("@/actions/beach-review-actions", () => ({
-  getBeachReviews: jest.fn().mockResolvedValue({
-    success: true,
-    data: [],
-  }),
 }));
 
 // Prevent real Supabase client creation in CI (no env vars)

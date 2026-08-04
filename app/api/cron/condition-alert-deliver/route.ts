@@ -21,7 +21,7 @@ import { NextResponse } from "next/server";
 import { validateCronRequest } from "@/lib/middleware/api-wrappers";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/server";
 import { withCronObservability } from "@/lib/cron/observability";
-import { resend, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
+import { sendEmail, MAIL_FROM, MAIL_REPLY_TO, getBaseUrl } from "@/lib/mailer/client";
 import {
   buildConditionsLine,
   ConsolidatedAlertEmail,
@@ -1010,7 +1010,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                         : candidateEmailSubject;
                     const sendResult = emailHold || !emailDecision || !selectedEmailMatch
                       ? { data: null, error: null }
-                      : await resend.emails.send({
+                      : await sendEmail({
                           from: MAIL_FROM,
                           replyTo: MAIL_REPLY_TO,
                           to: profile.email,
@@ -1023,6 +1023,7 @@ export async function GET(request: Request): Promise<NextResponse> {
                             unsubscribeUrl,
                             baseUrl,
                           }),
+                          unsubscribeUrl,
                         });
                     const { data: sendData, error: sendError } = sendResult;
 

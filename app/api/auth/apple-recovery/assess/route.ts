@@ -49,6 +49,12 @@ export const assessHandler: AuthenticatedHandler = async (
     });
   } catch (error) {
     if (error instanceof AppleIdentityTokenError) {
+      if (error.code === "configuration_error") {
+        return jsonNoStore(
+          { status: "unavailable", reason: "configuration_error" },
+          503,
+        );
+      }
       return jsonNoStore(
         { status: "unavailable", reason: "invalid_apple_challenge" },
         400,

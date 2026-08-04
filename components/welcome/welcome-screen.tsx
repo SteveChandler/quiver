@@ -7,6 +7,11 @@ import { useAuth } from "@/context/auth-context";
 import { OrbitAnimation } from "./orbit-animation";
 import { AuthMethodPicker } from "./auth-method-picker";
 import { Button } from "@/components/ui/button";
+import { NativeAppFunnelCta } from "@/components/app-store/native-app-funnel-cta";
+import {
+  getFirstTouchPlatform,
+  type FirstTouchPlatform,
+} from "@/lib/analytics/web-context";
 
 /** Animation phase order for the splash sequence */
 type Phase = "splash" | "orbit" | "content" | "cta" | "auth";
@@ -27,6 +32,11 @@ export function WelcomeScreen() {
   const { isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>("splash");
+  const [platform, setPlatform] = useState<FirstTouchPlatform | null>(null);
+
+  useEffect(() => {
+    setPlatform(getFirstTouchPlatform());
+  }, []);
 
   // Redirect returning/authenticated users immediately.
   useEffect(() => {
@@ -159,6 +169,17 @@ export function WelcomeScreen() {
               >
                 Log In
               </Button>
+              {platform && platform !== "desktop" && (
+                <NativeAppFunnelCta
+                  platform={platform}
+                  source="welcome-screen"
+                  surface="welcome"
+                  placement="below-auth"
+                  className="mt-1 inline-flex w-full items-center justify-center text-sm font-medium text-blue-200/80 underline underline-offset-4 hover:text-white"
+                  iosLabel="Prefer the app? Get it on the App Store"
+                  androidLabel="On Android? Join the beta"
+                />
+              )}
             </motion.div>
           )}
         </AnimatePresence>

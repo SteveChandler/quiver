@@ -12,7 +12,7 @@ import { buildPageMetadata, formatMetaDate } from "@/lib/seo/meta";
 import { notFound } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
-import { getSpotSurfReport } from "@/actions/spot/spot-surf-report-actions";
+import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions";
 import { regionToSlug, cityToSlug } from "@/lib/utils/beach-url-utils";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
 import type { Beach } from "@/types/database";
@@ -30,8 +30,10 @@ import {
 const baseUrl =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.quiversurf.app";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// Personalization happens client-side; the server render stays cookie-free so
+// Vercel can cache public Mexico beach pages between explicit hold invalidations.
+export const dynamic = "force-static";
+export const revalidate = 3600;
 
 interface PageProps {
   params: Promise<{ region: string; city: string; beachSlug: string }>;
@@ -99,7 +101,7 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
 
     // Fetch surf report and nearby beaches in parallel
     const [surfReportResult, nearbyResult] = await Promise.all([
-      getSpotSurfReport(beach),
+      getSpotSurfReportPublic(beach),
       beach.lat && beach.lon
         ? getNearbyBeaches(beach.lat, beach.lon, 25)
         : Promise.resolve(null),
@@ -132,8 +134,6 @@ export default async function MexicoBeachDetailPage(props: PageProps) {
           description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
           latitude={beach.lat || 0}
           longitude={beach.lon || 0}
-          rating={(beach as any).average_rating || undefined}
-          reviewCount={(beach as any).review_count || undefined}
           city={beach.city || undefined}
           state={beach.state || undefined}
           country={beach.country || undefined}

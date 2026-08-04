@@ -22,7 +22,6 @@ The controlled refactor has completed 85 slices. Remaining production `@/lib/api
 
 ## Open Gaps
 
-- `social_share` is emitted to `/api/events` by share UI code but is not accepted by `VALID_EVENTS`; Slice 3 documented this, but did not change behavior.
 - Several focused Jest suites still print expected log output from mocked error paths. Tests pass, but logs create validation noise.
 - Wrapper-internal helper collapse is future work; Phase 13 intentionally left wrapper internals as the compatibility boundary.
 
@@ -35,8 +34,20 @@ The controlled refactor has completed 85 slices. Remaining production `@/lib/api
 - `lib/middleware/bot-blocker.ts` imports `DEFAULT_SECURITY_HEADERS` from `lib/middleware/api-wrappers/response-utils` instead of the top-level barrel to avoid a `bot-blocker.ts` -> barrel -> `bot-blocker.ts` cycle.
 - `VERCEL_ENV=preview yarn build` is required for slices touching route/runtime/build-sensitive surfaces.
 - Static analysis findings are leads, not proof; no deletion happens from analyzer output alone.
+- Web share UI uses the action-specific canonical events `share_started`, `share_completed`, `share_link_copied`, `share_image_saved`, and `cam_share`; `social_share` remains only as a historical/native database compatibility literal and is not a web emitter contract.
 
 ## Recent Progress
+
+### R5 - Canonical Share Taxonomy Closure (Complete 2026-07-30)
+
+The web share emitter audit found no production `social_share` emitter.
+`components/share/share-sheet.tsx`, `components/cams/cams-share-button.tsx`,
+`components/tools/tool-share-button.tsx`,
+`components/beach-detail/share-beach-button.tsx`, and
+`components/beach-detail/share-beach-pill.tsx` all use action-specific
+canonical share events. Characterization coverage now proves native share,
+copy, save, cancellation, and the absence of any `social_share` post or track
+path.
 
 ### Slice 82 - Session Confirm UUID Import (Complete 2026-05-31)
 
@@ -163,13 +174,13 @@ Rollback:
 
 Residual risks:
 
-- `social_share` remains a documented analytics taxonomy gap from Slice 3.
+- The database still retains `social_share` for historical/native compatibility; it is intentionally not accepted as a current web API event.
 - Wrapper-internal helper collapse is future work; the final guard intentionally excludes wrapper internals.
 
 ## Next Actions
 
 - Keep deploy, production mutation, outbound send, payment, and entitlement actions approval-gated.
-- Treat wrapper-internal helper collapse and the `social_share` taxonomy gap as future candidates, not part of this completed checkpoint.
+- Treat wrapper-internal helper collapse as future work.
 - Wait for user review or select the next future phase.
 
 ## Historical Notes

@@ -5,6 +5,7 @@ import { entitlementFromRow } from "@/lib/alerts/entitlements";
 import {
   createSuccessResponse,
   type AuthenticatedContext,
+  NO_STORE_CACHE_CONTROL,
   validateOrError,
   withAuth,
   withRateLimit,
@@ -16,7 +17,6 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 const DEFAULT_HORIZON_HOURS = 24;
-const NO_STORE = "private, no-store, no-cache, must-revalidate";
 
 function isValidTimezone(value: string): boolean {
   try {
@@ -130,6 +130,6 @@ export const GET = async (
 ): Promise<NextResponse> => {
   const response = await protectedGET(...args);
   response.headers.delete("ETag");
-  response.headers.set("Cache-Control", NO_STORE);
+  response.headers.set("Cache-Control", NO_STORE_CACHE_CONTROL);
   return response;
 };

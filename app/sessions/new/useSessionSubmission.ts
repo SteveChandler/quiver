@@ -151,28 +151,28 @@ export function useSessionSubmission({
         });
       }
 
-        // Analytics: session_log_submit (mark as conversion in GA UI)
-        try {
-          const wave = sessionData.waveQuality
-            ? parseInt(sessionData.waveQuality)
-            : undefined;
-          const crowd = sessionData.crowdLevel
-            ? parseInt(sessionData.crowdLevel)
-            : undefined;
-          let water: number | undefined;
-          if (sessionData.waterTemp) {
-            const m = String(sessionData.waterTemp).match(/(\d+)/);
-            water = m ? parseInt(m[1]) : undefined;
-          }
-          track("session_log_submit", {
-            beach_slug: sessionData.selectedBeach
-              ? slugify(sessionData.selectedBeach)
-              : sessionData.selectedBeachId,
-            wave_rating: isFinite(wave as number) ? wave : undefined,
-            crowd: isFinite(crowd as number) ? crowd : undefined,
-            water_temp: isFinite(water as number) ? water : undefined,
-          });
-        } catch (e) { console.error('[SessionSubmission] error:', e); }
+      // Submit-funnel telemetry only; session_created is the session-count event.
+      try {
+        const wave = sessionData.waveQuality
+          ? parseInt(sessionData.waveQuality)
+          : undefined;
+        const crowd = sessionData.crowdLevel
+          ? parseInt(sessionData.crowdLevel)
+          : undefined;
+        let water: number | undefined;
+        if (sessionData.waterTemp) {
+          const m = String(sessionData.waterTemp).match(/(\d+)/);
+          water = m ? parseInt(m[1]) : undefined;
+        }
+        track("session_log_submit", {
+          beach_slug: sessionData.selectedBeach
+            ? slugify(sessionData.selectedBeach)
+            : sessionData.selectedBeachId,
+          wave_rating: isFinite(wave as number) ? wave : undefined,
+          crowd: isFinite(crowd as number) ? crowd : undefined,
+          water_temp: isFinite(water as number) ? water : undefined,
+        });
+      } catch (e) { console.error('[SessionSubmission] error:', e); }
 
       // Analytics: success
       void createActivity("session_logged", "session", result.data.id, {

@@ -114,31 +114,44 @@ Quiver's email system drives the core engagement loop: sending targeted, valuabl
 - One clear call per email
 - Strict rate limiting to prevent fatigue
 
-**Email Types:**
+**Active scheduled email delivery (UTC):**
 
-| Email Type | Schedule | Purpose |
-|------------|----------|---------|
-| Welcome | On signup | Capture preferences, set expectations |
-| Forecast Digest | Mon/Thu 6 AM PT | Morning surf call with best windows |
-| Weekly Recap | Mon 6 PM PT | Session summary and stats |
-| Re-engagement | MWF 10 AM PT | Bring back inactive users when conditions are good |
+| Email Type | Vercel Schedule | Purpose |
+|------------|-----------------|---------|
+| Welcome fallback | `0 */6 * * *` | Deliver a delayed welcome to eligible users missed by the immediate signup path |
+| Weekly recap | `0 2 * * 1` | Summarize the prior week's sessions and stats |
+| Session prompt | `30 18 * * *` | Prompt eligible users to log a recent session |
+| First-session nudge | `30 */6 * * *` | Help new users log their first session |
+| Condition-alert delivery | `0 * * * *` | Deliver canonical queued surf-condition alerts |
+
+Immediate welcome delivery is initiated by
+`app/api/internal/send-welcome-email/route.ts`; the scheduled welcome job is
+its fallback. Forecast Digest is not an active send. Re-engagement and the
+legacy `conditions-alert-email` path are retired historical systems and have
+no Vercel cron entries. `condition-alert-deliver` is the canonical live
+condition-alert sender.
 
 **Components:**
-- **Cron Routes** (`app/api/cron/*-email/`): Vercel cron-triggered endpoints
+- **Cron Routes**: The five scheduled delivery routes listed above, configured in `vercel.json`
 - **Email Templates** (`lib/mailer/templates/`): React Email components
-- **Mailer Client** (`lib/mailer/client.ts`): Resend SDK wrapper
-- **Delivery Tracking** (`forecast_alert_deliveries`): Rate limiting and deduplication
+- **Mailer Client** (`lib/mailer/client.ts`): Resend wrapper and unsubscribe-header handling
+- **Provider Webhook** (`app/api/webhooks/resend/route.ts`): Signed Svix/Resend provider-event consumer
+- **Send Ledger** (`email_send_log`): Outbound send records, provider message IDs, summary delivery timestamps, deduplication, and send analytics
+- **Delivery Events** (`email_delivery_events`): Durable delivered, opened, clicked, and bounced provider events, idempotent by Svix webhook message ID
+- **Click Events** (`email_click_events`): First-party clicked-link and user-agent records; raw IP addresses are not stored
 
 **Rate Limiting:**
-- Per-type deduplication (24-72 hours depending on type)
-- Global cooldown (48 hours between any emails)
-- Atomic slot claiming prevents duplicate sends
+- Active routes apply their route-specific candidate, suppression, cooldown,
+  and deduplication rules.
+- Canonical condition-alert delivery atomically claims queued work before send.
+- Welcome and engagement sends use `email_send_log` for delivery logging and
+  deduplication.
 
 **Documentation:**
 | Document | Description |
 |----------|-------------|
 | [Email Core Loop Design](plans/completed/2026-01-20-email-core-loop-design.md) | Original design philosophy |
-| [Re-engagement Email](features/REENGAGEMENT_EMAIL.md) | Inactive user re-engagement system |
+| [Re-engagement Email](features/REENGAGEMENT_EMAIL.md) | Historical design for the retired re-engagement system |
 
 ---
 
@@ -341,7 +354,7 @@ Service health monitoring via `/api/health` with optional deep checks.
 - **Forecasting**: 10-day NOAA integration with confidence scoring; timezone-correct via `forecast_at` timestamptz column (Feb 2026), replacing legacy text-based `forecast_date`/`forecast_time`.
 - **ML Bias Correction**: XGBoost-corrected wave height forecasts.
 - **Terrain-Aware Scoring**: Beach-specific wind shelter and swell access factors.
-- **Email Engagement**: Automated forecast digests, re-engagement, and weekly recaps (Feb 2026).
+- **Email Engagement**: Welcome, weekly recap, session prompt, first-session nudge, and canonical condition-alert delivery.
 - **Media**: Photo upload, galleries, optimized storage.
 - **Session Management**: Logging, planning, rich metadata.
 - **Attribution**: UTM tracking and referral system for growth analytics.
@@ -384,7 +397,7 @@ For detailed algorithm documentation, see `lib/services/ARCHITECTURE.md`.
 | **Features** | [Attribution Tracking](features/ATTRIBUTION_TRACKING.md) | UTM and referral tracking |
 | **Features** | [City Editorial](features/CITY_EDITORIAL_CONTENT.md) | City page content system |
 | **Features** | [ML Bias Correction](features/ML_BIAS_CORRECTION.md) | Wave forecast ML correction |
-| **Features** | [Re-engagement Email](features/REENGAGEMENT_EMAIL.md) | Inactive user re-engagement emails |
+| **Features** | [Re-engagement Email](features/REENGAGEMENT_EMAIL.md) | Historical design for the retired re-engagement system |
 | **Guides** | [Adding States](guides/ADDING_NEW_STATES.md) | Regional expansion guide |
 | **Components** | [Intent Components](../components/intent/ARCHITECTURE.md) | Tide intent page components |
 | **Components** | [Beginner Components](../components/beginner/ARCHITECTURE.md) | Beginner page components |
@@ -407,7 +420,7 @@ Two mobile strategies coexist:
 - **Repo**: Separate Git repo — `quiver-native`
 - **Stack**: Expo 55, React Native 0.83, Tamagui, TanStack Query, Zustand, React Navigation 7
 - **Backend**: Shares same Supabase instance (DB + Auth + Storage). Also calls this repo's Next.js API routes for forecasts/surf calls.
-- **Docs**: Has its own `CLAUDE.md`, `docs/ARCHITECTURE.md`, and inline `ARCHITECTURE.md` files
+- **Docs**: Has its own `AGENTS.md`, model context, `docs/ARCHITECTURE.md`, and inline `ARCHITECTURE.md` files
 - **Build**: EAS Build (dev/preview/production profiles) or local `npx expo run:ios/android`
 - **Bundle ID**: `app.quiversurf.native`
 

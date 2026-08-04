@@ -4,9 +4,9 @@ import {
   createSuccessResponse,
   createValidationError,
   withErrorHandler,
-  type RouteHandler,
+  withNoStore,
 } from "@/lib/middleware/api-wrappers";
-import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import { getVerifiedProfileExperience } from "@/lib/profile/skill-level";
 import {
   buildDailyIntelMajorEventHoldCandidate,
   sanitizeDailyIntelForMajorEventHold,
@@ -18,7 +18,6 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 export const revalidate = 0;
 export const dynamic = "force-dynamic";
 
-const NO_STORE = "private, no-store, no-cache, must-revalidate";
 
 const QuerySchema = z.object({
   beachId: z.string().uuid("beachId must be a valid UUID"),
@@ -27,32 +26,8 @@ const QuerySchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/, "forecastDate must be YYYY-MM-DD"),
 });
 
-type ServerSupabaseClient = Awaited<
-  ReturnType<typeof createSupabaseServerClient>
->;
 
-async function getVerifiedProfileExperience(
-  supabase: ServerSupabaseClient
-): Promise<unknown> {
-  try {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-    if (error || !user) return null;
-    return await getProfileExperienceLevel(supabase, user.id);
-  } catch {
-    return null;
-  }
-}
 
-function withNoStore(handler: RouteHandler): RouteHandler {
-  return async (request, context) => {
-    const response = await handler(request, context);
-    response.headers.set("Cache-Control", NO_STORE);
-    return response;
-  };
-}
 
 /**
  * GET /api/beach-daily-intel?beachId=<uuid>&forecastDate=YYYY-MM-DD
@@ -174,7 +149,7 @@ async function getBeachDailyIntel(request: NextRequest): Promise<NextResponse> {
     beachTimeZone
   );
   const candidates = [candidate];
-  const profileExperience = await getVerifiedProfileExperience(supabase);
+  const { profileExperience } = await getVerifiedProfileExperience(supabase);
   const decisions = await evaluateMajorEventHoldCandidates({
     candidates,
     profileExperience,

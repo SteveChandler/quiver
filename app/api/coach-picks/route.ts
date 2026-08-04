@@ -4,9 +4,9 @@ import {
   createSuccessResponse,
   handleApiError,
   withRateLimit,
-  type RouteHandler,
+  withNoStore,
 } from "@/lib/middleware/api-wrappers";
-import { getProfileExperienceLevel } from "@/lib/profile/skill-level";
+import { getVerifiedProfileExperience } from "@/lib/profile/skill-level";
 import {
   buildCoachPicksMajorEventHoldCandidates,
   sanitizeCoachPicksForMajorEventHold,
@@ -21,37 +21,8 @@ import type { RecommendationAvailability } from "@/lib/recommendations/major-eve
 
 export const dynamic = "force-dynamic";
 
-const NO_STORE = "private, no-store, no-cache, must-revalidate";
 
-type ApiSupabaseClient = Awaited<ReturnType<typeof createAPIServerClient>>;
 
-async function getVerifiedProfileExperience(
-  supabase: ApiSupabaseClient,
-): Promise<{ userId: string | null; profileExperience: unknown }> {
-  try {
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-    if (error || !user) {
-      return { userId: null, profileExperience: null };
-    }
-    return {
-      userId: user.id,
-      profileExperience: await getProfileExperienceLevel(supabase, user.id),
-    };
-  } catch {
-    return { userId: null, profileExperience: null };
-  }
-}
-
-function withNoStore(handler: RouteHandler): RouteHandler {
-  return async (request, context) => {
-    const response = await handler(request, context);
-    response.headers.set("Cache-Control", NO_STORE);
-    return response;
-  };
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);

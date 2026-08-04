@@ -4,26 +4,32 @@
 
 Quiver web app: Next.js 16, React 19, TypeScript, Tailwind, Radix UI, Supabase, Playwright. App Router code in `app/`; shared UI in `components/`; server actions in `actions/`; business logic in `lib/`; hooks in `hooks/`; types in `types/`; assets in `public/`; migrations in `supabase/migrations/`; Jest tests in `__tests__/`; Playwright specs in `e2e/`.
 
-**49 `ARCHITECTURE.md` files exist throughout the codebase.** Always read the nearest one before editing a directory. Start at `docs/ARCHITECTURE.md`.
+**49 `ARCHITECTURE.md` files exist throughout the codebase.** Read the nearest relevant one before editing a directory; use `docs/ARCHITECTURE.md` as the top-level index.
 
 ## Build, Test, and Development Commands
 
 Yarn 1 with Node 22. `yarn dev` runs on `localhost:3000`. `yarn build` for production; `yarn build:clean` clears `.next` first. `yarn typecheck` runs `tsc --noEmit`. `yarn lint` runs ESLint — for focused work prefer `npx eslint --max-warnings=0 <files>` (full lint OOMs without `NODE_OPTIONS="--max-old-space-size=8192"`). `yarn test:unit` runs Jest, `yarn test` and `yarn test:e2e` run Playwright. Use `npx playwright test path/to/spec.ts` for targeted E2E.
 
-## MCP, Skills, Workflows & Memory
+## Optional Tools and Context
 
-`.mcp.json` exposes Figma, Supabase, Vercel, and Playwright. `.agent/mcp_recommendations.md` adds optional PostgreSQL, GitHub, and Sentry MCPs. Before SEO, CRO, copy, design, audit, hardening, or performance work, read the relevant `SKILL.md` in `.claude/skills/` or `.agent/skills/`. Use `.claude/product-marketing-context.md` for positioning/SEO/copy and `.claude/projects/*/memory/*.md` for retained strategy notes. Treat dated memory as context; verify against current code/data.
+`.mcp.json` exposes optional Figma, Supabase, Vercel, and Playwright integrations. Local skills may provide useful workflows for SEO, CRO, copy, design, audit, hardening, or performance work. Use them when relevant and available; no integration, skill, plugin, or named agent is required to complete ordinary work. The canonical project skill root is `.agents/skills`; `.claude/skills` and `.agent/skills` are compatibility symlinks and must not contain divergent copies. Use `.claude/product-marketing-context.md` for positioning, SEO, and copy. Treat dated memory as context and verify it against current code or data.
 
-## Default Codex Workflow
+## Model and Usage Efficiency
 
-For every non-trivial code task, use inspect → plan → review → execute → test → review → iterate.
+- Default to the least expensive model that can complete the work reliably; honor explicit user model choices.
+- Use lower-cost models for search, mechanical edits, documentation, summaries, and routine test triage.
+- Reserve stronger reasoning models for high-risk architecture, security, migrations, production incidents, difficult cross-cutting debugging, and high-risk final review.
+- Escalate only when risk demands it or a focused cheaper attempt leaves material uncertainty, then downgrade after the difficult reasoning is complete.
+- Avoid overlapping agents and repeated context. Delegate only bounded, independent work, and prefer deterministic local tools and checks over extra model calls.
 
-- Inspect first: read this file, `CLAUDE.md`, the nearest `ARCHITECTURE.md`, relevant README/docs, `package.json`, test config, and affected code before editing.
-- In inspect/plan, decide which local instructions, skills, and plugins apply. Use local repo files, scripts, package commands, `.mcp.json` tools, and existing helpers before external plugins, web search, or new tooling.
-- Create a concise execution plan, review it for gaps, risky assumptions, missing tests, and unnecessary scope, then revise before implementation when needed.
-- Execute minimal, high-confidence changes that follow existing Quiver patterns. Do not add unrelated features, refactors, or abstractions.
-- Run the smallest relevant tests first, then broaden to local push gates or build/E2E checks based on touched surface and risk.
-- Review the diff like a PR before finalizing. Fix every actionable finding, rerun relevant tests, and repeat review → fix → test until clean. Stop after 5 full cycles if findings remain and report them clearly.
+## Default Workflow
+
+Keep the process proportional to the task: inspect → implement → validate → review.
+
+- Inspect the affected code, nearest relevant architecture documentation, and nearby tests before editing. Use a written plan when complexity or risk warrants one.
+- Follow existing Quiver patterns and keep changes within the user's requested scope.
+- Run the smallest meaningful checks first, then broaden based on the touched surface and release risk.
+- Review the final diff for regressions, weak tests, user-data risk, and unrelated churn. Fix issues introduced by the change and rerun affected checks.
 - Never claim tests passed unless you actually ran the command and it passed.
 
 ## Coding Style & Naming Conventions
@@ -50,10 +56,17 @@ The system has VALID + ANONYMOUS_ALLOWED + PRE_AUTH_ONLY + DB CHECK constraint +
 Every CTA component shown to anonymous users must **independently check auth state** via `useAuth()` and hide/transform for logged-in users. Never rely solely on a parent's `publicMode` prop — auth state propagates at different speeds. Components: `PublicContentGate`, `InlineSignupCta`, `MatchScoreTeaser`, `PersonalizedForecastTeaser`, `StickySignupBar`.
 
 ### OAuth testing
-Test OAuth signup flows (Apple, Google) on **real iOS Safari** — cookie handling during cross-origin OAuth redirects differs from Chrome. `context/auth-context.tsx` uses `onAuthStateChange` which may not fire if session cookies aren't immediately visible after redirect. Apple Sign-In creates orphan Supabase users (≥11 affected as of 2026-05-03) — privaterelay or shared-email Apple signins create duplicates instead of linking. Permanent fix needed before iOS marketing push.
+OAuth signup changes (Apple, Google) require validation on **real iOS Safari** before release — cookie handling during cross-origin redirects differs from Chrome. If that environment is unavailable, complete the available checks and report the validation gap. `context/auth-context.tsx` uses `onAuthStateChange`, which may not fire if session cookies are not immediately visible after redirect. Apple Sign-In creates orphan Supabase users (≥11 affected as of 2026-05-03) — privaterelay or shared-email Apple signins create duplicates instead of linking. Permanent fix needed before iOS marketing push.
 
-### Native ↔ web auth boundary
+### Native ↔ web boundary
 **Native cannot call `"use server"` actions.** Server actions re-auth via cookies and silently drop native Bearer writes. Inline DB queries in the API route instead.
+
+**Mobile-consumed API routes are versioned contracts** (ratchet policy 2026-07-31, counterpart: `../quiver-native/AGENTS.md` §Architecture Ratchet). Installed native binaries live for months, so old JS keeps calling old shapes:
+
+- Shape changes must be **additive** — never rename, remove, or repurpose a response/request field in place. Add a field, or add a new route.
+- Failures must return real HTTP error statuses. Never wrap an error state in a 200 payload — native retry/error UI keys off status codes (the `/api/surf/call` `hold_state_unavailable` incident shipped errors as 200s).
+- Before changing any `/api/*` route, grep `../quiver-native/src` for the path to know whether native consumes it; if it does, verify both consumers.
+- Remember the blanket 60s `/api/*` cache in `next.config.mjs` — mutation routes native depends on need explicit no-store behavior.
 
 ## Routing & Coverage
 
@@ -79,17 +92,17 @@ The configured prod-gate workflow mirrors TypeScript, lint, Jest, build, and Pla
 - Annotate `waitForTimeout` with `// eslint-disable-next-line playwright/no-wait-for-timeout -- <reason>`
 - `BASE_URL=http://localhost:3000` for local; anon tests must be `guest-*.spec.ts`
 - Don't run parallel `yarn test:e2e:dev` — global-setup writes `state.json` and they corrupt each other. Run ONE command with multiple specs.
-- Before adding E2E tests, inspect existing nearby specs, `e2e/README.md`, `e2e/ARCHITECTURE.md`, helpers, fixtures, and `e2e/TEST_DEBT.md`.
+- Before adding E2E tests, inspect the nearby specs and the relevant portions of `e2e/README.md`, `e2e/ARCHITECTURE.md`, helpers, fixtures, and `e2e/TEST_DEBT.md`.
 - Prefer stable user-facing selectors and accessibility labels. Avoid arbitrary sleeps; use explicit waits tied to UI, app, network, or auth state.
 - Verify each assertion would fail if the feature broke. Avoid false positives, weak assertions, brittle selectors, overbroad mocks, and tests that only prove a page rendered.
 - Isolate test data, mark generated data clearly, and clean it up. Prevent leakage through auth state, shared accounts, or persistent rows.
-- Diagnose failures as product bug, test bug, flaky timing issue, missing setup, or environment issue. Fix actionable failures and rerun targeted E2E until passing or until the 5-cycle limit is reached.
+- Diagnose failures as product bug, test bug, flaky timing issue, missing setup, or environment issue. Fix actionable failures and rerun targeted E2E; report anything still unresolved.
 - Use `npx playwright test --list <files...>` for a cheap syntax/registration check before expensive runs on large touched E2E sets.
 - If localhost Playwright conflicts with another Next dev server, use `BASE_URL=https://dev.quiversurf.app` so `playwright.config.ts` skips the local `webServer`.
 
 ### Final response requirements
-- Include files changed, E2E tests reviewed, tests added or modified, production files changed, exact commands run, pass/fail status for each command, final E2E pass/fail status, unresolved findings, and remaining risks.
-- State clearly when tests were not run. Never claim tests passed unless they actually ran successfully.
+- Report the files changed, checks run with pass/fail status, unresolved findings, and remaining risks. For E2E work, state the specs reviewed or changed and the final E2E status.
+- If relevant tests were not run, say so clearly.
 
 ### Pre-flight before release PRs
 Run `yarn test:unit --bail=0` on main before opening release PRs. The prod gate runs jest only on release PRs to prod, so regressions accumulate silently on main between releases. Local `.env` and CI also diverge on warn-as-error tests — reproduce CI's env when they disagree.
@@ -147,7 +160,7 @@ Never commit secrets. Don't hand-edit `types/database.generated.ts`. RLS on all 
 ## Quality Standards
 
 - **Performance**: Lighthouse >90 all categories. LCP <2.5s, FID <100ms, CLS <0.1. API P95 <500ms, DB <100ms.
-- **Pre-merge**: code review, all tests passing (unit + E2E), CHANGELOG updated under `[Unreleased]`, no console errors/warnings.
+- **Pre-merge**: final diff reviewed, relevant checks passing, user-visible changes documented when appropriate, and no new console errors or warnings.
 
 ## Critical Don'ts
 
@@ -166,8 +179,8 @@ Never commit secrets. Don't hand-edit `types/database.generated.ts`. RLS on all 
 
 ## Calibration & Failure Modes
 
-- **Run `yarn typecheck` yourself** — never trust agent claims.
-- **Verify subagent "DONE"** with tests + `git status` + `git diff --cached`.
+- **Verify release claims in the current workspace** with the required local gates, `git status`, and the final diff.
+- **If delegated work is used**, verify its result with relevant tests and the actual worktree diff.
 - **Verify env values, not CHANGELOG comments** — verify via downstream traffic before claiming a kill switch is on/off.
 - **Audit full delivery chain before schema change** — `alert_queue` isn't the leaf; chain is queue → `delivery_attempts` FK → `notification_events` → registry channels.
 - **Audit existing primitives before proposing new utils/components** — grep ALL producers + check for an existing display primitive (e.g. `WaveHeightDisplay`) first.

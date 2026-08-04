@@ -61,24 +61,19 @@ jest.mock("@/lib/supabase/server", () => ({
 // Mock the Resend email client
 const mockEmailSend = jest.fn();
 jest.mock("@/lib/mailer/client", () => ({
-  resend: {
-    emails: {
-      send: jest.fn((...args) => mockEmailSend(...args)),
-    },
-  },
+  sendEmail: jest.fn((...args) => mockEmailSend(...args)),
   MAIL_FROM: "Quiver <test@quiversurf.app>",
   MAIL_REPLY_TO: "Quiver <test@quiversurf.app>",
 }));
 
 // Mock the welcome email template generator
 const mockGenerateWelcomeEmail = jest.fn();
-jest.mock("@/lib/email/templates/welcome-email", () => ({
+jest.mock("@/lib/mailer/welcome-email", () => ({
   generateWelcomeEmail: jest.fn((...args) => mockGenerateWelcomeEmail(...args)),
 }));
 
-// Mock the email token secret
-jest.mock("@/lib/utils/email-token", () => ({
-  getEmailTokenSecret: jest.fn(() => "test-secret-key"),
+jest.mock("@/lib/alerts/email-token", () => ({
+  generateEmailUnsubscribeToken: jest.fn(() => "test-unsubscribe-token"),
 }));
 
 // Import route handler after mocks are set up
@@ -111,7 +106,7 @@ describe("Cron: welcome-email", () => {
     // Default mock implementations
     mockGenerateWelcomeEmail.mockResolvedValue({
       subject: "Welcome to Quiver!",
-      html: "<html>Welcome</html>",
+      react: "Welcome",
       text: "Welcome to Quiver!",
     });
 
@@ -133,6 +128,8 @@ describe("Cron: welcome-email", () => {
   it("uses the API wrapper barrel for response helpers and cron request validation", () => {
     expect(routeSource).not.toContain("@/lib/api-utils");
     expect(routeSource).toContain("@/lib/middleware/api-wrappers");
+    expect(routeSource).toContain("@/lib/mailer/welcome-email");
+    expect(routeSource).not.toContain("getEmailTokenSecret");
   });
 
   // ==========================================================================
@@ -227,6 +224,10 @@ describe("Cron: welcome-email", () => {
         expect.objectContaining({
           to: "unconfirmed@example.com",
           subject: "Welcome to Quiver!",
+          react: "Welcome",
+          text: "Welcome to Quiver!",
+          unsubscribeUrl:
+            "https://quiversurf.app/api/alerts/unsubscribe-email?user_id=user-unconfirmed-24h&token=test-unsubscribe-token",
         })
       );
     });
@@ -268,8 +269,7 @@ describe("Cron: welcome-email", () => {
           homeBeachName: null,
           homeBeachSlug: null,
           messageInstanceId: expect.any(String),
-        }),
-        "test-secret-key"
+        })
       );
     });
 
@@ -305,8 +305,7 @@ describe("Cron: welcome-email", () => {
           homeBeachName: "Blacks",
           homeBeachSlug: "blacks",
           messageInstanceId: expect.any(String),
-        }),
-        "test-secret-key"
+        })
       );
     });
 

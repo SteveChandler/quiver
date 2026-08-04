@@ -198,18 +198,6 @@ export const submitConditionsReport = makeAuthenticatedAction(
           surface: "conditions-report",
         });
       }
-      void (async () => {
-        const { error: evtErr } = await supabase.from("user_events").insert({
-          user_id: user.id,
-          event_type: "session_log_submit",
-          beach_id: beachId,
-          metadata: {
-            source: "web-conditions-report",
-            session_id: sessionId,
-          },
-        });
-        if (evtErr) console.warn("[submitConditionsReport] user_events session insert failed:", evtErr);
-      })();
     }
 
     revalidatePath(`/beach/${beachId}`);

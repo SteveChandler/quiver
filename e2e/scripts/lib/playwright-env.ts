@@ -41,6 +41,16 @@ export function isLocalSupabaseUrl(url: string): boolean {
   return url.includes("127.0.0.1") || url.includes("localhost");
 }
 
+export function resolvePsqlExecutable(): string {
+  const commonInstallPaths = [
+    "/opt/homebrew/bin/psql",
+    "/usr/local/bin/psql",
+    "/Applications/Postgres.app/Contents/Versions/latest/bin/psql",
+  ];
+
+  return commonInstallPaths.find((candidate) => existsSync(candidate)) ?? "psql";
+}
+
 export function requireLocalSupabaseEnv(): LocalSupabaseEnv {
   const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
   if (!isLocalSupabaseUrl(url)) {

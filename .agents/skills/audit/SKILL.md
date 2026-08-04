@@ -1,16 +1,11 @@
 ---
 name: audit
 description: Perform comprehensive audit of interface quality across accessibility, performance, theming, and responsive design. Generates detailed report of issues with severity ratings and recommendations.
-user-invokable: true
-args:
-  - name: area
-    description: The feature or area to audit (optional)
-    required: false
 ---
 
 Run systematic quality checks and generate a comprehensive audit report with prioritized issues and actionable recommendations. Don't fix issues - document them for other commands to address.
 
-**First**: Use the frontend-design skill for design principles and anti-patterns.
+Apply the Design Context in `CLAUDE.md` and the relevant frontend-design principles. Load the frontend-design skill only if those principles are not already available; do not invoke another model solely for this step.
 
 ## Diagnostic Scan
 
@@ -44,7 +39,7 @@ Run comprehensive checks across multiple dimensions:
    - **Text scaling**: Layouts that break when text size increases
    - **Missing breakpoints**: No mobile/tablet variants
 
-5. **Anti-Patterns (CRITICAL)** - Check against ALL the **DON'T** guidelines in the frontend-design skill. Look for AI slop tells (AI color palette, gradient text, glassmorphism, hero metrics, card grids, generic fonts) and general design anti-patterns (gray on color, nested cards, bounce easing, redundant copy).
+5. **Anti-Patterns (CRITICAL)** - Check Quiver's anti-references and relevant frontend-design guidance. Look for generic AI color palettes, gradient text, glassmorphism, hero metrics, repetitive card grids, generic fonts, gray on color, nested cards, bounce easing, and redundant copy.
 
 **CRITICAL**: This is an audit, not a fix. Document issues thoroughly with clear explanations of impact. Use other commands (normalize, optimize, harden, etc.) to fix issues after audit.
 

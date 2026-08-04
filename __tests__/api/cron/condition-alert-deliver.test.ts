@@ -43,9 +43,7 @@ jest.mock("@/lib/middleware/api-wrappers", () => ({
 // ---- Mock mailer client ----
 const mockEmailsSend = jest.fn();
 jest.mock("@/lib/mailer/client", () => ({
-  resend: {
-    emails: { send: (...args: any[]) => mockEmailsSend(...args) },
-  },
+  sendEmail: (...args: any[]) => mockEmailsSend(...args),
   MAIL_FROM: "Quiver <test@quiversurf.app>",
   MAIL_REPLY_TO: "Quiver <test@quiversurf.app>",
   getBaseUrl: () => "https://quiversurf.app",
@@ -467,6 +465,20 @@ describe("condition-alert-deliver — kill switch + allowlist + per-attempt rows
     expect(res.status).toBe(200);
 
     expect(mockEmailsSend).toHaveBeenCalledTimes(1);
+    expect(mockEmailsSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        unsubscribeUrl:
+          `https://quiversurf.app/api/alerts/unsubscribe-email?user_id=${USER_A}` +
+          "&token=test-unsubscribe-token",
+      })
+    );
+    expect(mockConsolidatedAlertEmail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        unsubscribeUrl:
+          `https://quiversurf.app/api/alerts/unsubscribe-email?user_id=${USER_A}` +
+          "&token=test-unsubscribe-token",
+      })
+    );
     expect(mockSendPushNotifications).not.toHaveBeenCalled();
 
     expect(store.deliveryInserts).toHaveLength(1);

@@ -2,7 +2,7 @@
  * POST /api/webhooks/resend
  *
  * Receives Resend webhook events for email delivery tracking.
- * Updates email_send_log with delivery/open/click/bounce timestamps.
+ * Durably records provider events and updates email_send_log summary timestamps.
  *
  * Events handled:
  * - email.delivered -> delivered_at
@@ -96,25 +96,54 @@ async function recordClickEvent(
   }
 }
 
+async function recordDeliveryEvent(
+  supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>,
+  eventType: string,
+  eventTimestamp: string,
+  resendMessageId: string,
+  webhookMessageId: string,
+  emailSendLogId: number | null
+): Promise<{ code?: string; message?: string } | null> {
+  const { error } = await supabase
+    .from("email_delivery_events")
+    .insert({
+      email_send_log_id: emailSendLogId,
+      resend_message_id: resendMessageId,
+      webhook_message_id: webhookMessageId,
+      event_type: eventType,
+      event_at: eventTimestamp,
+    });
+
+  return error;
+}
+
 async function findEmailSendLogId(
   supabase: Awaited<ReturnType<typeof createSupabaseServiceRoleClient>>,
   resendMessageId: string
-): Promise<string | number | null> {
-  const { data, error } = await supabase
-    .from("email_send_log")
-    .select("id")
-    .eq("resend_message_id", resendMessageId)
-    .maybeSingle();
+): Promise<number | null> {
+  try {
+    const { data, error } = await supabase
+      .from("email_send_log")
+      .select("id")
+      .eq("resend_message_id", resendMessageId)
+      .maybeSingle();
 
-  if (error) {
+    if (error) {
+      console.error(
+        `${CONTEXT_TAG} Failed to resolve email_send_log id for ${resendMessageId}:`,
+        error
+      );
+      return null;
+    }
+
+    return data?.id ?? null;
+  } catch (err) {
     console.error(
       `${CONTEXT_TAG} Failed to resolve email_send_log id for ${resendMessageId}:`,
-      error
+      err
     );
     return null;
   }
-
-  return data?.id ?? null;
 }
 
 async function handler(request: NextRequest): Promise<NextResponse> {
@@ -173,7 +202,8 @@ async function handler(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ received: true, processed: false });
   }
 
-  // Update email_send_log -- only set if currently NULL (idempotent, first event wins)
+  let durableEventRecorded = false;
+
   try {
     const supabase = await createSupabaseServiceRoleClient();
 
@@ -182,6 +212,41 @@ async function handler(request: NextRequest): Promise<NextResponse> {
         ? normalizeClickTimestamp(payload)
         : payload.data.created_at || new Date().toISOString();
 
+    const emailSendLogId = await findEmailSendLogId(
+      supabase,
+      resendMessageId
+    );
+
+    const durableInsertError = await recordDeliveryEvent(
+      supabase,
+      payload.type,
+      eventTimestamp,
+      resendMessageId,
+      svixId,
+      emailSendLogId
+    );
+
+    if (durableInsertError && durableInsertError.code !== "23505") {
+      console.error(
+        `${CONTEXT_TAG} Failed to record durable event for ${resendMessageId}:`,
+        durableInsertError
+      );
+      return NextResponse.json(
+        {
+          received: true,
+          processed: false,
+          retryable: true,
+          error:
+            durableInsertError.message || "Failed to persist webhook event",
+        },
+        { status: 503 }
+      );
+    }
+
+    durableEventRecorded = true;
+
+    // Only set the summary timestamp when NULL. Replays continue through this
+    // update so a durable insert followed by a partial failure can heal.
     const { data, error } = await supabase
       .from("email_send_log")
       .update({ [column]: eventTimestamp })
@@ -215,8 +280,7 @@ async function handler(request: NextRequest): Promise<NextResponse> {
 
     const clickLink = normalizeClickLink(payload.data.click?.link);
     if (payload.type === "email.clicked" && clickLink) {
-      const emailSendLogId =
-        data?.[0]?.id ?? (await findEmailSendLogId(supabase, resendMessageId));
+      const clickEmailSendLogId = emailSendLogId ?? data?.[0]?.id ?? null;
 
       await recordClickEvent(
         supabase,
@@ -224,7 +288,7 @@ async function handler(request: NextRequest): Promise<NextResponse> {
         clickLink,
         resendMessageId,
         svixId,
-        emailSendLogId
+        clickEmailSendLogId
       );
     }
 
@@ -266,7 +330,18 @@ async function handler(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ received: true, processed: true });
   } catch (err) {
     console.error(`${CONTEXT_TAG} Unexpected error processing webhook:`, err);
-    // Always return 200 to prevent retries
+    if (!durableEventRecorded) {
+      return NextResponse.json(
+        {
+          received: true,
+          processed: false,
+          retryable: true,
+          error: "Failed to persist webhook event",
+        },
+        { status: 503 }
+      );
+    }
+
     return NextResponse.json({ received: true, processed: false });
   }
 }

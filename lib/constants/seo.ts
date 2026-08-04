@@ -192,22 +192,6 @@ export const SEO_CONFIG = {
       ],
     },
 
-    softwareApplication: {
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      name: "Quiver Surf App",
-      applicationCategory: "Sports & Recreation",
-      operatingSystem: "Web, iOS, Android",
-      offers: {
-        "@type": "Offer",
-        price: "0",
-        priceCurrency: "USD",
-      },
-      url: SITE_URL,
-      description:
-        "Surf reports and forecasts updated every 3 hours with real buoy data. Crowd levels, tide charts & best-time-to-surf windows for 279+ beaches. Free.",
-    },
-
     website: {
       "@context": "https://schema.org",
       "@type": "WebSite",

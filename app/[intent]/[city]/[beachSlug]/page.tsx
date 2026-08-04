@@ -5,6 +5,7 @@ import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spots";
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
+import { InstallAppCtaSection } from "@/components/app-store/install-app-cta-section";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
@@ -25,13 +26,11 @@ import type { BeachAmenities } from "@/types/amenities";
 import type { WaterQuality } from "@/components/beach-detail/water-quality-badge";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { FAQSchema } from "@/components/seo/faq-schema";
-import { ReviewSchema } from "@/components/seo/review-schema";
 import { pickBestUsaBeachMatch } from "@/lib/utils/beach-matching-utils";
 import { generateBeachFAQ } from "@/lib/utils/beach-faq-utils";
 import { getSpotSurfReportPublic } from "@/actions/spot/spot-surf-report-actions";
 import { getSpotFeaturedPhoto } from "@/actions/spot/spot-data-actions";
 import { getNearbyBeaches } from "@/actions/beach/beach-location-actions";
-import { getBeachReviews } from "@/actions/beach-review-actions";
 import {
   createPublicReadClient,
   createSupabaseServiceRoleClient,
@@ -46,8 +45,10 @@ import {
   type BeachEditorialDatabaseRecord,
 } from "@/lib/seo/indexability";
 
-export const dynamic = "force-dynamic";
-export const revalidate = 0;
+// Public beach data is cookie-free. Major-event hold transitions explicitly
+// revalidate affected paths, so hourly ISR remains safe between transitions.
+export const dynamic = "force-static";
+export const revalidate = 3600;
 
 const getCachedBeachCandidates = cache(async (slug: string) => {
   const { getBeachesBySlug } =
@@ -120,14 +121,12 @@ export default async function GenericBeachDetailPage(props: PageProps) {
     // enrichment streams below the tabs so it does not block the page shell.
     const [
       surfReportResult,
-      reviewsResult,
       amenitiesResult,
       waterQualityResult,
       cameraUrl,
       beachPhoto,
     ] = await Promise.all([
       getSpotSurfReportPublic(beach),
-      getBeachReviews(beach.id),
       (async () => {
         try {
           const supabase = createSupabaseServiceRoleClient();
@@ -174,7 +173,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
 
     const surfCallReport = surfReportResult?.report || null;
     const surfCallIsTomorrow = surfReportResult?.isTomorrow ?? false;
-    const reviews = reviewsResult.success ? (reviewsResult.data ?? []) : [];
 
     // Validate that the beach's state matches the URL state parameter
     const expectedStateSlug = stateToSlug(beach.state);
@@ -215,8 +213,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           description={`Surf conditions, tides, wind, swell and community intel for ${beach.name}.`}
           latitude={beach.lat || 0}
           longitude={beach.lon || 0}
-          rating={beach.average_rating || undefined}
-          reviewCount={beach.review_count || undefined}
           city={beach.city || undefined}
           state={beach.state || undefined}
           country={beach.country || undefined}
@@ -252,20 +248,6 @@ export default async function GenericBeachDetailPage(props: PageProps) {
 
         {/* FAQ structured data for rich snippets */}
         <FAQSchema items={generateBeachFAQ(beach)} />
-
-        {/* Review structured data */}
-        <ReviewSchema
-          beachName={beach.name}
-          beachUrl={`${baseUrl}${buildBeachUrl(beach)}`}
-          reviews={reviews.map((r) => ({
-            author: r.profiles?.full_name ?? "Anonymous",
-            datePublished: r.created_at ?? new Date().toISOString(),
-            reviewRating: r.overall_rating,
-            reviewBody: r.content ?? undefined,
-          }))}
-          aggregateRating={beach.average_rating ?? undefined}
-          reviewCount={beach.review_count ?? undefined}
-        />
 
         {/* WebPage structured data with dateModified for freshness signal */}
         <WebPageSchema
@@ -307,6 +289,12 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           }
           afterTabsContent={
             <div className="pt-2">
+              <InstallAppCtaSection
+                source={`beach-detail-${beachSlug}`}
+                surface="beach-detail"
+                placement="after-tabs"
+                beachName={beach.name}
+              />
               <Suspense fallback={null}>
                 <DeferredZineNearbySpots beach={beach} />
               </Suspense>
@@ -481,8 +469,4 @@ export async function generateMetadata(props: PageProps): Promise<Metadata> {
   };
 }
 
-// generateStaticParams deferred: the beach page has additional no-store fetches
-// (enrichBeachesWithConditions, getBeachForecastPreview) and a
-// useSearchParams() call without Suspense that prevent full SSG prerendering.
-// Fixing those is a follow-up task. Hold-sensitive recommendations keep this page
-// dynamic even though getSpotSurfReportPublic() no longer depends on cookies().
+// generateStaticParams is deferred; pages are generated on demand and cached via ISR.
