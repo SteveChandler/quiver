@@ -176,6 +176,7 @@ describe("GET /api/forecasts/current", () => {
         refreshAttempted: false,
         stale: false,
         missing: false,
+        availability: "fresh",
         dataSource: "OPEN_METEO",
       }),
     );
@@ -270,6 +271,108 @@ describe("GET /api/forecasts/current", () => {
     expect(body.data.metadata.stale).toBe(false);
   });
 
+  it("keeps the stale response byte-identical when includeStale is omitted", async () => {
+    const staleUpdatedAt = new Date(
+      NOW.getTime() - 13 * 60 * 60 * 1000,
+    ).toISOString();
+    setupQueries({
+      current: [{ data: currentRow(), error: null }],
+      latest: [
+        {
+          data: {
+            updated_at: staleUpdatedAt,
+            data_source: "OPEN_METEO",
+          },
+          error: null,
+        },
+      ],
+      tide: [{ data: { tide_ft: 2.7 }, error: null }],
+    });
+
+    const response = await callRoute(
+      `http://localhost:3000/api/forecasts/current?beachId=${BEACH_ID}`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.text()).toBe(
+      JSON.stringify({
+        success: true,
+        data: {
+          current: null,
+          metadata: {
+            refreshed: false,
+            refreshAttempted: false,
+            stale: true,
+            // Phase C deletes this assertion when the legacy `missing` semantics are corrected.
+            missing: true,
+            availability: "stale",
+            dataSource: "OPEN_METEO",
+            lastUpdated: staleUpdatedAt,
+            reason: "Data is 13.0h old (threshold: 6h)",
+          },
+        },
+        timestamp: NOW.toISOString(),
+      }),
+    );
+  });
+
+  it("includes a stale current row when includeStale is enabled", async () => {
+    setupQueries({
+      current: [{ data: currentRow(), error: null }],
+      latest: [
+        {
+          data: {
+            updated_at: new Date(
+              NOW.getTime() - 13 * 60 * 60 * 1000,
+            ).toISOString(),
+            data_source: "OPEN_METEO",
+          },
+          error: null,
+        },
+      ],
+      tide: [{ data: { tide_ft: 2.7 }, error: null }],
+    });
+
+    const response = await callRoute(
+      `http://localhost:3000/api/forecasts/current?beachId=${BEACH_ID}&includeStale=1`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.current).toEqual(
+      expect.objectContaining({
+        wave_height: "3-4 ft",
+        tide_height: "2.7 ft",
+      }),
+    );
+    expect(body.data.metadata.availability).toBe("stale");
+    expect(body.data.metadata.stale).toBe(true);
+    expect(body.data.metadata.missing).toBe(true);
+  });
+
+  it("withholds the current row when includeStale is enabled but data is unavailable", async () => {
+    setupQueries({
+      current: [{ data: null, error: null }],
+      latest: [{ data: null, error: null }],
+    });
+
+    const response = await callRoute(
+      `http://localhost:3000/api/forecasts/current?beachId=${BEACH_ID}&includeStale=1`,
+    );
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(body.data.current).toBeNull();
+    expect(body.data.metadata).toEqual(
+      expect.objectContaining({
+        stale: false,
+        missing: true,
+        availability: "unavailable",
+        reason: "No forecast data in cache",
+      }),
+    );
+  });
+
   it("returns unavailable metadata when refresh fails", async () => {
     mockUpdateBeachForecast.mockRejectedValueOnce(new Error("provider timeout"));
     setupQueries({
@@ -299,6 +402,7 @@ describe("GET /api/forecasts/current", () => {
         refreshAttempted: true,
         stale: true,
         missing: true,
+        availability: "unavailable",
         refreshError: "provider timeout",
       }),
     );
