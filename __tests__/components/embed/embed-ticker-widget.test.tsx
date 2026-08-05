@@ -32,7 +32,9 @@ const ALL_DATA: ConditionsData = {
 function renderWidget(
   data: ConditionsData,
   theme: "light" | "dark" = "light",
-  slug = SLUG
+  slug = SLUG,
+  status: "fresh" | "stale" | "unavailable" = "fresh",
+  staleAsOf?: string
 ) {
   return render(
     <EmbedTickerWidget
@@ -40,6 +42,8 @@ function renderWidget(
       beachUrl={BEACH_URL}
       slug={slug}
       data={data}
+      status={status}
+      staleAsOf={staleAsOf}
       theme={theme}
     />
   );
@@ -180,16 +184,19 @@ describe("EmbedTickerWidget - partial data", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. "no data" when ALL fields are null / empty object
+// 3. Unavailable state when ALL fields are null / empty object
 // ---------------------------------------------------------------------------
 
-describe("EmbedTickerWidget - no data", () => {
-  it("shows 'no data' text when data is an empty object", () => {
+describe("EmbedTickerWidget - unavailable", () => {
+  it("shows an unavailable message and forecast link for an empty object", () => {
     renderWidget({});
-    expect(screen.getByText("no data")).toBeInTheDocument();
+    const link = screen.getByRole("link", {
+      name: "Conditions temporarily unavailable · View forecast",
+    });
+    expect(link).toHaveAttribute("href", BEACH_URL);
   });
 
-  it("shows 'no data' when all fields are explicitly null", () => {
+  it("shows the unavailable message when all fields are explicitly null", () => {
     const emptyData: ConditionsData = {
       waveHeight: null,
       wavePeriod: null,
@@ -201,7 +208,9 @@ describe("EmbedTickerWidget - no data", () => {
       tideHeight: null,
     };
     renderWidget(emptyData);
-    expect(screen.getByText("no data")).toBeInTheDocument();
+    expect(
+      screen.getByText("Conditions temporarily unavailable · View forecast")
+    ).toBeInTheDocument();
   });
 
   it("does NOT render any card labels when there is no data", () => {
@@ -218,10 +227,35 @@ describe("EmbedTickerWidget - no data", () => {
     expect(screen.queryByText("Powered by Quiver")).not.toBeInTheDocument();
   });
 
-  it("includes the beach name in the no-data container's title attribute", () => {
+  it("includes the beach name in the unavailable link's title attribute", () => {
     renderWidget({});
-    const noDataSpan = screen.getByText("no data");
-    expect(noDataSpan).toHaveAttribute("title", BEACH_NAME);
+    const unavailableLink = screen.getByRole("link");
+    expect(unavailableLink).toHaveAttribute("title", BEACH_NAME);
+  });
+
+  it("uses the unavailable state even when data cards are present", () => {
+    renderWidget(ALL_DATA, "light", SLUG, "unavailable");
+    expect(
+      screen.getByText("Conditions temporarily unavailable · View forecast")
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Waves")).not.toBeInTheDocument();
+  });
+});
+
+describe("EmbedTickerWidget - stale", () => {
+  it("renders cards and the understated as-of label", () => {
+    renderWidget(
+      ALL_DATA,
+      "light",
+      SLUG,
+      "stale",
+      "Tue, Aug 4 at 11:30 PM"
+    );
+
+    expect(screen.getAllByText("Waves").length).toBeGreaterThan(0);
+    expect(
+      screen.getAllByText("as of Tue, Aug 4 at 11:30 PM").length
+    ).toBeGreaterThan(0);
   });
 });
 
