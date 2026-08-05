@@ -325,6 +325,7 @@ function canonicalStep(
 function resolveNativeRepoPath(...segments: string[]): string {
   const candidates = [
     join(process.cwd(), "..", "quiver-native"),
+    join(process.cwd(), "..", "..", "Desktop", "dev", "quiver-native"),
     join(process.cwd(), "..", "..", "..", "quiver-native"),
     join(__dirname, "..", "..", "..", "quiver-native"),
     join(__dirname, "..", "..", "..", "..", "..", "quiver-native"),

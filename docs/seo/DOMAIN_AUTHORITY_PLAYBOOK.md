@@ -156,19 +156,48 @@ This is Quiver's highest-leverage backlink channel. Every surf school that embed
 
 **Outreach email (surf schools):**
 
-> Subject: Free surf conditions widget for [School Name]'s website
+> Subject: A live [Beach Name] conditions panel for [School Name]
 >
 > Hi [Name],
 >
-> Quick one: we built a free embeddable surf conditions widget that shows live wave height, wind, tide, and water temperature for [specific beach they teach at]. No code knowledge needed — it's one line of HTML.
+> I built a live [Beach Name] conditions panel for your site.
 >
-> It auto-updates from NOAA and live buoy data, so parents and students can check conditions before lessons without leaving your site. Might reduce the "is it safe today?" calls you get.
+> https://www.quiversurf.app/embed/conditions/[beach-slug]
 >
-> Here's a preview for [Beach Name]: quiversurf.app/embed-for-surf-schools
+> It gives students the useful stuff before they head out:
+> - Wave height, wind, tide, and water temperature
+> - Live NOAA and buoy updates
+> - A clean view that works on mobile
 >
-> Takes about 60 seconds to set up. Would it be useful?
+> Cost: free. Setup: one line of HTML. No account or API key.
 >
-> [Name], Quiver
+> ```html
+> <iframe src="https://www.quiversurf.app/embed/conditions/[beach-slug]" width="100%" height="220" frameborder="0" title="[Beach Name] Conditions" loading="lazy"></iframe>
+> ```
+>
+> Paste that anywhere on the page and it updates itself. If you'd rather have tides, a compact ticker,
+> or a different break, tell me which and I'll send it over.
+>
+> Cheers,
+> Steven
+> Quiver — quiversurf.app
+
+**Template rules (2026-08-04 — these exist because the previous template broke in production):**
+
+1. **Link the recipient's own live panel**, `https://www.quiversurf.app/embed/conditions/<beach-slug>`.
+   The previous template pointed at `quiversurf.app/embed-for-surf-schools`, **a URL that never
+   existed**. Roughly ten pitches went out with a 404 as their primary call to action. A 308 redirect
+   now recovers them, but never link a path you have not loaded yourself.
+2. **Verify the slug before sending.** `curl -sL -o /dev/null -w "%{http_code}"` the exact embed URL and
+   confirm `200`. A bad slug also returns a clean 404, so this check is meaningful.
+3. **Include the iframe inline.** Do not close with "want me to send the snippet?" — that forces a reply
+   before anyone can install, and reply rates are low.
+4. **No accuracy claims and no link to `/forecast-accuracy`.** No "the only surf forecast that publishes
+   accuracy", no "shows its work" superiority framing. See `Brand-Vault/marketing/icp-and-positioning.md`.
+5. **No "ML-powered", "AI-powered", or "smart"** — forbidden tech-marketing tells. Say "live NOAA and
+   buoy updates".
+6. Snippet shape must match `components/beach-detail/embed-code-modal.tsx` (currently `height="220"`
+   for conditions, `300` for tides). If that component changes, update this template.
 
 **Follow-up sequence:**
 - Day 1: Initial email (personalized to their specific beach)

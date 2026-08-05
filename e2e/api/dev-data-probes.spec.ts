@@ -97,20 +97,19 @@ test.describe('Dev deployed data probes @infra @dev', () => {
     await api?.dispose();
   });
 
-  test('forecast accuracy page requires live metrics instead of building state', async () => {
+  test('forecast accuracy page publishes methodology without a ranking', async () => {
     const response = await api.get('/forecast-accuracy');
     const html = await response.text();
     const text = visibleText(html);
 
     expect(response.status()).toBe(200);
-    expect(text).toContain('The forecast that learns what you like.');
-    expect(text).toContain('More accurate than Surfline. Twice as sharp as NOAA.');
-    expect(text).toContain('0.30m');
-    expect(text).toContain('0.35m');
-    expect(text).toContain('0.67m');
-    expect(text).not.toContain('Accuracy rows are being verified.');
-    expect(text).not.toContain('Forecast accuracy metrics building');
-    expect(text).not.toContain('Accuracy rows are building; Quiver is not claiming lift yet.');
+    expect(text).toContain('How to judge a surf forecast.');
+    expect(text).toContain('Offshore wave height is not breaking face height.');
+    expect(text).toContain('No same-sample comparison. No accuracy ranking.');
+    expect(text).not.toContain('0.30m');
+    expect(text).not.toContain('0.35m');
+    expect(text).not.toContain('0.67m');
+    expect(text).not.toContain('WINNER');
   });
 
   test('South OC/Sano beaches expose guardrail flag and usable forecasts', async () => {

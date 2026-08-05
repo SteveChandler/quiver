@@ -14,6 +14,31 @@ function expectPermanentRedirect(configSource, source, destination) {
 }
 
 describe("SEO legacy redirects", () => {
+  it("permanently redirects retired embed outreach URLs", () => {
+    const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
+
+    expectPermanentRedirect(
+      configSource,
+      "/embed-for-surf-schools",
+      "/for-surf-schools",
+    );
+    expectPermanentRedirect(
+      configSource,
+      "/embed-for-surf-schools&source=:source",
+      "/for-surf-schools?source=:source",
+    );
+    expectPermanentRedirect(
+      configSource,
+      "/embed-for-businesses",
+      "/for-businesses",
+    );
+    expectPermanentRedirect(
+      configSource,
+      "/embed-for-businesses&source=:source",
+      "/for-businesses?source=:source",
+    );
+  });
+
   it("permanently redirects the retired Cocoa Beach Pier URL family", () => {
     const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
 
