@@ -9,6 +9,8 @@ interface EmbedConditionsWidgetProps {
   beachUrl: string;
   slug: string;
   conditions: ConditionsData;
+  status: "fresh" | "stale" | "unavailable";
+  staleAsOf?: string;
   theme: "light" | "dark";
 }
 
@@ -39,12 +41,17 @@ export function EmbedConditionsWidget({
   beachUrl,
   slug,
   conditions,
+  status,
+  staleAsOf,
   theme,
 }: EmbedConditionsWidgetProps) {
   useEmbedImpression("conditions", slug);
 
   const isDark = theme === "dark";
   const hasData = Object.values(conditions).some(Boolean);
+  const isUnavailable = status === "unavailable" || !hasData;
+  const staleLabel =
+    status === "stale" ? `as of ${staleAsOf ?? "an earlier update"}` : null;
 
   return (
     <div
@@ -64,46 +71,69 @@ export function EmbedConditionsWidget({
 
       {/* Conditions */}
       <div className="flex-1 min-h-0 px-3 overflow-auto">
-        {hasData ? (
-          <div
-            className={`divide-y ${isDark ? "divide-slate-700" : "divide-slate-100"}`}
-          >
-            <ConditionRow
-              label="Waves"
-              value={
-                conditions.waveHeight
-                  ? `${conditions.waveHeight}${conditions.wavePeriod ? ` @ ${conditions.wavePeriod}` : ""}${conditions.waveDirection ? ` ${conditions.waveDirection}` : ""}`
-                  : null
-              }
-              isDark={isDark}
-            />
-            <ConditionRow
-              label="Wind"
-              value={
-                conditions.windSpeed
-                  ? `${conditions.windSpeed}${conditions.windDirection ? ` ${conditions.windDirection}` : ""}`
-                  : null
-              }
-              isDark={isDark}
-            />
-            <ConditionRow
-              label="Water Temp"
-              value={conditions.waterTemp}
-              isDark={isDark}
-            />
-            <ConditionRow
-              label="Tide"
-              value={
-                conditions.tideStatus
-                  ? `${conditions.tideStatus}${conditions.tideHeight ? ` (${conditions.tideHeight})` : ""}`
-                  : null
-              }
-              isDark={isDark}
-            />
-          </div>
+        {!isUnavailable ? (
+          <>
+            <div
+              className={`divide-y ${isDark ? "divide-slate-700" : "divide-slate-100"}`}
+            >
+              <ConditionRow
+                label="Waves"
+                value={
+                  conditions.waveHeight
+                    ? `${conditions.waveHeight}${conditions.wavePeriod ? ` @ ${conditions.wavePeriod}` : ""}${conditions.waveDirection ? ` ${conditions.waveDirection}` : ""}`
+                    : null
+                }
+                isDark={isDark}
+              />
+              <ConditionRow
+                label="Wind"
+                value={
+                  conditions.windSpeed
+                    ? `${conditions.windSpeed}${conditions.windDirection ? ` ${conditions.windDirection}` : ""}`
+                    : null
+                }
+                isDark={isDark}
+              />
+              <ConditionRow
+                label="Water Temp"
+                value={conditions.waterTemp}
+                isDark={isDark}
+              />
+              <ConditionRow
+                label="Tide"
+                value={
+                  conditions.tideStatus
+                    ? `${conditions.tideStatus}${conditions.tideHeight ? ` (${conditions.tideHeight})` : ""}`
+                    : null
+                }
+                isDark={isDark}
+              />
+            </div>
+            {staleLabel && (
+              <p
+                className={`pt-1 text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"}`}
+              >
+                {staleLabel}
+              </p>
+            )}
+          </>
         ) : (
-          <div className="flex items-center justify-center h-full text-sm text-slate-400">
-            No conditions available
+          <div className="flex flex-col items-center justify-center gap-1 h-full text-center">
+            <p className="text-sm text-slate-400">
+              Conditions are temporarily unavailable.
+            </p>
+            <a
+              href={beachUrl}
+              target="_blank"
+              rel="noopener"
+              className={`text-xs font-medium hover:underline ${
+                isDark
+                  ? "text-slate-400 hover:text-slate-300"
+                  : "text-slate-500 hover:text-ocean-blue"
+              }`}
+            >
+              View {beachName} forecast
+            </a>
           </div>
         )}
       </div>

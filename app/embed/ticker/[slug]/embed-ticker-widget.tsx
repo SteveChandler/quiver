@@ -9,6 +9,8 @@ interface EmbedTickerWidgetProps {
   beachUrl: string;
   slug: string;
   data: ConditionsData;
+  status: "fresh" | "stale" | "unavailable";
+  staleAsOf?: string;
   theme: "light" | "dark";
 }
 
@@ -243,11 +245,23 @@ function BrandingCard({ beachUrl, isDark }: BrandingCardProps) {
   );
 }
 
+function StaleCard({ label, isDark }: { label: string; isDark: boolean }) {
+  return (
+    <span
+      className={`px-4 shrink-0 text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 export function EmbedTickerWidget({
   beachName,
   beachUrl,
   slug,
   data,
+  status,
+  staleAsOf,
   theme,
 }: EmbedTickerWidgetProps) {
   useEmbedImpression("ticker", slug);
@@ -255,15 +269,25 @@ export function EmbedTickerWidget({
   const isDark = theme === "dark";
   const cards = buildCards(data);
   const hasCards = cards.length > 0;
+  const staleLabel =
+    status === "stale" ? `as of ${staleAsOf ?? "an earlier update"}` : null;
 
-  if (!hasCards) {
+  if (status === "unavailable" || !hasCards) {
     return (
       <div
         className={`flex items-center justify-center h-[55px] w-full text-sm ${
           isDark ? "bg-slate-900 text-slate-400" : "bg-white text-slate-500"
         }`}
       >
-        <span title={beachName}>no data</span>
+        <a
+          href={beachUrl}
+          target="_blank"
+          rel="noopener"
+          title={beachName}
+          className="text-xs font-medium hover:underline"
+        >
+          Conditions temporarily unavailable · View forecast
+        </a>
       </div>
     );
   }
@@ -279,6 +303,12 @@ export function EmbedTickerWidget({
             {i < cards.length - 1 && <Divider isDark={isDark} />}
           </span>
         ))}
+        {staleLabel && (
+          <>
+            <Divider isDark={isDark} />
+            <StaleCard label={staleLabel} isDark={isDark} />
+          </>
+        )}
         <Divider isDark={isDark} />
         <BrandingCard beachUrl={beachUrl} isDark={isDark} />
         {/* trailing separator before the loop restarts */}
@@ -337,6 +367,12 @@ export function EmbedTickerWidget({
               {i < cards.length - 1 && <Divider isDark={isDark} />}
             </span>
           ))}
+          {staleLabel && (
+            <>
+              <Divider isDark={isDark} />
+              <StaleCard label={staleLabel} isDark={isDark} />
+            </>
+          )}
           <Divider isDark={isDark} />
           <BrandingCard beachUrl={beachUrl} isDark={isDark} />
         </div>

@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
 import { getFreshForecastFromCache } from "@/lib/utils/forecast-server-utils";
 import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
+import { formatBeachDateTime } from "@/lib/utils/date-time";
+import { resolveBeachTimezone } from "@/lib/utils/timezone-utils";
 import { EmbedTideWidget } from "./embed-tide-widget";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 
@@ -24,13 +26,41 @@ export default async function EmbedTidePage({
 
   // Fetch forecast data for tide chart
   let forecasts: EnhancedForecastEntity[] = [];
+  let forecastStatus: "fresh" | "stale" | "unavailable" = "unavailable";
+  let staleAsOf: string | undefined;
   try {
-    const result = await getFreshForecastFromCache(beach.id, 2);
-    if (result?.forecasts) {
+    const result = await getFreshForecastFromCache(beach.id, 24, {
+      allowStale: true,
+      maxStaleHours: 24,
+    });
+    if (
+      result.metadata.cached &&
+      !result.metadata.missing &&
+      result.forecasts.length > 0
+    ) {
       forecasts = result.forecasts;
+      forecastStatus = result.metadata.stale ? "stale" : "fresh";
+
+      if (result.metadata.stale && result.metadata.lastUpdated) {
+        const timezone = resolveBeachTimezone(beach.timezone);
+        const updatedDate = formatBeachDateTime(
+          result.metadata.lastUpdated,
+          timezone,
+          "EEE, MMM d"
+        );
+        const updatedTime = formatBeachDateTime(
+          result.metadata.lastUpdated,
+          timezone,
+          "h:mm a"
+        );
+        staleAsOf = `${updatedDate} at ${updatedTime}`;
+      }
     }
-  } catch {
-    // Render with empty data — chart will show "No tide data"
+  } catch (error) {
+    console.warn(
+      `[EmbedTidePage] Failed to load forecast for beach ${slug}:`,
+      error
+    );
   }
 
   const windowHours = hours ? parseInt(hours, 10) : 18;
@@ -50,6 +80,8 @@ export default async function EmbedTidePage({
       slug={slug}
       forecasts={forecasts}
       windowHours={validHours}
+      status={forecastStatus}
+      staleAsOf={staleAsOf}
       theme={theme === "dark" ? "dark" : "light"}
     />
   );
