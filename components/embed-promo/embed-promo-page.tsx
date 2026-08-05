@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionWrapper } from "@/components/ui/section-wrapper";
+import { resolvePreviewSlug } from "@/components/embed-promo/beach-selection";
 import { SITE_URL } from "@/lib/constants/seo";
 
 // ---------------------------------------------------------------------------
@@ -31,6 +32,8 @@ interface EmbedPromoPageProps {
   variant: "surf-schools" | "businesses";
   /** Pre-fetched beach options for the dropdown */
   beaches: BeachOption[];
+  /** Validated beach slug selected by the server page */
+  initialSlug?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -184,10 +187,14 @@ function CopyButton({ code }: { code: string }) {
 // Main Component
 // ---------------------------------------------------------------------------
 
-export function EmbedPromoPage({ variant, beaches }: EmbedPromoPageProps) {
+export function EmbedPromoPage({
+  variant,
+  beaches,
+  initialSlug,
+}: EmbedPromoPageProps) {
   const copy = VARIANT_COPY[variant];
-  const [selectedSlug, setSelectedSlug] = useState(
-    beaches[0]?.slug ?? "blacks"
+  const [selectedSlug, setSelectedSlug] = useState(() =>
+    resolvePreviewSlug(beaches, initialSlug)
   );
   const [widgetType, setWidgetType] = useState<WidgetType>("conditions");
 
