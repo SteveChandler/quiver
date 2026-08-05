@@ -235,7 +235,7 @@ describe("Sitemap Generation", () => {
       expect(route).not.toBeUndefined();
     });
 
-    it("should include /forecast-accuracy (curated comparison page)", async () => {
+    it("should include /forecast-accuracy (methodology page)", async () => {
       const result = await sitemap();
       const route = result.find((r) => r.url === `${baseUrl}/forecast-accuracy`);
 

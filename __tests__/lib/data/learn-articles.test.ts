@@ -17,7 +17,7 @@ const expectedLearnMetadata = [
     slug: "how-accurate-are-surf-forecasts",
     title: "How Accurate Are Surf Forecasts? 3-Day vs 10-Day Guide",
     description:
-      "How accurate are surf forecasts? See when 3-day forecasts are reliable, why 10-day outlooks drift, and how Quiver checks beach-level error.",
+      "How accurate are surf forecasts? Learn how lead time changes uncertainty, what buoys measure, and what a fair forecast comparison requires.",
   },
   {
     slug: "swell-period-explained",

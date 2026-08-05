@@ -1,18 +1,11 @@
 import { render, screen, within } from "@testing-library/react";
 import type React from "react";
 
-import ForecastAccuracyPage, {
-  metadata,
-} from "@/app/forecast-accuracy/page";
+import ForecastAccuracyPage, { metadata } from "@/app/forecast-accuracy/page";
 import { AccuracyComparison } from "@/components/forecast-accuracy/accuracy-comparison";
 import { AccuracyHero } from "@/components/forecast-accuracy/accuracy-hero";
-import { PersonalFitSection } from "@/components/forecast-accuracy/personal-fit-section";
-import {
-  CURATED_ACCURACY,
-  CURATED_MATCH,
-} from "@/lib/forecast-accuracy/curated-comparison";
 
-const HERO_HEADING = "The forecast that learns what you like.";
+const HERO_HEADING = "How to judge a surf forecast.";
 
 jest.mock("@/components/ui/scroll-reveal", () => ({
   ScrollReveal: ({ children }: { children: React.ReactNode }) => (
@@ -25,83 +18,87 @@ jest.mock("@/components/zine/quiver-sticker", () => ({
 }));
 
 jest.mock("@/components/seo/faq-section", () => ({
-  FAQSection: ({ items }: { items: { question: string }[] }) => (
+  FAQSection: ({
+    items,
+  }: {
+    items: { question: string; answer: string }[];
+  }) => (
     <div>
       {items.map((item) => (
-        <p key={item.question}>{item.question}</p>
+        <div key={item.question}>
+          <p>{item.question}</p>
+          <p>{item.answer}</p>
+        </div>
       ))}
     </div>
   ),
 }));
 
-describe("forecast accuracy page (curated marketing)", () => {
-  it("is indexable — no noindex robots directive", () => {
-    expect((metadata.robots as any)?.index).not.toBe(false);
-    expect(metadata.title).toMatchObject({
-      absolute: expect.stringMatching(/Surfline/i),
-    });
-    expect(metadata.title).toMatchObject({
-      absolute: expect.stringMatching(/NOAA/i),
-    });
+describe("forecast accuracy methodology page", () => {
+  it("stays indexable without ranking metadata", () => {
+    expect(
+      (metadata.robots as { index?: boolean } | undefined)?.index,
+    ).not.toBe(false);
+    expect(metadata.title).toBe("How Surf Forecast Accuracy Is Measured");
+    expect(metadata.description).toContain("no forecast accuracy ranking");
+    expect(metadata.description).not.toMatch(/beats|more accurate/i);
   });
 
-  it("renders the curated page with the 3-way comparison and the claim", () => {
+  it("renders the methodology and states the comparison limit", () => {
     render(<ForecastAccuracyPage />);
 
-    // All three contenders appear.
-    expect(screen.getAllByText("Quiver").length).toBeGreaterThan(0);
-    expect(screen.getByText("Surfline")).toBeInTheDocument();
-    expect(screen.getByText("NOAA")).toBeInTheDocument();
-
-    // The headline ad claim and the vs-NOAA number.
     expect(
       screen.getByRole("heading", { name: HERO_HEADING }),
     ).toBeInTheDocument();
     expect(
-      screen.getAllByText(`${CURATED_ACCURACY.vsNoaaImprovementPct}%`).length,
-    ).toBeGreaterThan(0);
-
-    // Personalization leads: the match concordance number is on the page.
+      screen.getByRole("heading", {
+        name: "Offshore wave height is not breaking face height.",
+      }),
+    ).toBeInTheDocument();
     expect(
-      screen.getAllByText(`${CURATED_MATCH.concordancePct}%`).length,
-    ).toBeGreaterThan(0);
-
-    // The Surfline head-to-head FAQ is present.
+      screen.getByRole("heading", {
+        name: "Measure the same thing on the same sample.",
+      }),
+    ).toBeInTheDocument();
     expect(
-      screen.getByText("Is Quiver really more accurate than Surfline?"),
+      screen.getAllByText(/No same-sample comparison/i).length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByText("Does Quiver claim an accuracy ranking over Surfline?"),
     ).toBeInTheDocument();
   });
 
-  it("leads with the personalization story and the real match number", () => {
-    render(<PersonalFitSection />);
-
-    expect(
-      screen.getByRole("heading", { name: /Quiver rates/i }),
-    ).toBeInTheDocument();
-    expect(screen.getByText(`${CURATED_MATCH.concordancePct}%`)).toBeInTheDocument();
-    expect(screen.getByText(/agreement on which day was better/i)).toBeInTheDocument();
-  });
-
-  it("marks Quiver as the winner in the comparison and shows MAE values", () => {
+  it("explains the two wave-height definitions without a winner bar", () => {
     const { container } = render(<AccuracyComparison />);
     const section = within(container);
 
-    expect(section.getByText("WINNER")).toBeInTheDocument();
-    expect(section.getByText("0.30m")).toBeInTheDocument();
-    expect(section.getByText("0.35m")).toBeInTheDocument();
-    expect(section.getByText("0.67m")).toBeInTheDocument();
+    expect(
+      section.getByText("Significant wave height offshore"),
+    ).toBeInTheDocument();
+    expect(
+      section.getByText("Breaking face height at the beach"),
+    ).toBeInTheDocument();
+    expect(section.queryByText(/winner|lowest error/i)).not.toBeInTheDocument();
   });
 
-  it("hero is self-contained and reads curated credibility stats", () => {
+  it("keeps the no-ranking statement in the hero", () => {
     render(<AccuracyHero />);
 
     expect(
       screen.getByRole("heading", { name: HERO_HEADING }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Beaches tracked")).toBeInTheDocument();
-    expect(screen.getByText("Buoy readings")).toBeInTheDocument();
-    // No building / confidence language leaks in.
-    expect(screen.queryByText(/building/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/Model only/i)).not.toBeInTheDocument();
+    expect(
+      screen.getByText("No same-sample comparison. No accuracy ranking."),
+    ).toBeInTheDocument();
+  });
+
+  it("does not render the retired comparison metrics", () => {
+    render(<ForecastAccuracyPage />);
+
+    expect(screen.queryByText("0.30m")).not.toBeInTheDocument();
+    expect(screen.queryByText("0.35m")).not.toBeInTheDocument();
+    expect(screen.queryByText("0.67m")).not.toBeInTheDocument();
+    expect(screen.queryByText("55%")).not.toBeInTheDocument();
+    expect(screen.queryByText("WINNER")).not.toBeInTheDocument();
   });
 });
