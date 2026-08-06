@@ -140,3 +140,5 @@ When adding new workflows:
 4. Include workflow_dispatch trigger for manual testing
 5. Add comprehensive error handling and logging
 6. Document any new required secrets in this README
+
+<!-- CI gate smoke test 4dbe62894 — delete this PR -->
