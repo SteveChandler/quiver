@@ -274,6 +274,62 @@ test.describe('Route HTML Contracts', () => {
   });
 
   test.describe('Redirect and status contracts', () => {
+    test('outreach embed aliases preserve query strings and reach live pages', async ({
+      request,
+    }) => {
+      const cases = [
+        {
+          source: '/embed-for-surf-schools',
+          sourceWithQuery: '/embed-for-surf-schools?source=school-outreach',
+          malformedSource: '/embed-for-surf-schools&source=school-outreach',
+          sourceWithTrailingSlash: '/embed-for-surf-schools/?source=school-outreach',
+          destination: '/for-surf-schools',
+          query: 'source=school-outreach',
+        },
+        {
+          source: '/embed-for-businesses',
+          sourceWithQuery: '/embed-for-businesses?source=business-outreach',
+          malformedSource: '/embed-for-businesses&source=business-outreach',
+          sourceWithTrailingSlash: '/embed-for-businesses/?source=business-outreach',
+          destination: '/for-businesses',
+          query: 'source=business-outreach',
+        },
+      ] as const;
+
+      for (const redirect of cases) {
+        const response = await getResponse(request, redirect.source, {
+          maxRedirects: 0,
+        });
+        const queryResponse = await getResponse(request, redirect.sourceWithQuery, {
+          maxRedirects: 0,
+        });
+        const malformedSourceResponse = await getResponse(
+          request,
+          redirect.malformedSource,
+          { maxRedirects: 0 },
+        );
+        const trailingSlashResponse = await getResponse(
+          request,
+          redirect.sourceWithTrailingSlash,
+        );
+
+        expect(response.status()).toBe(308);
+        expect(response.headers().location).toBe(redirect.destination);
+        expect(queryResponse.status()).toBe(308);
+        expect(queryResponse.headers().location).toBe(
+          `${redirect.destination}?${redirect.query}`,
+        );
+        expect(malformedSourceResponse.status()).toBe(308);
+        expect(malformedSourceResponse.headers().location).toBe(
+          `${redirect.destination}?${redirect.query}`,
+        );
+        expect(trailingSlashResponse.status()).toBe(200);
+        expect(trailingSlashResponse.url()).toContain(
+          `${redirect.destination}?${redirect.query}`,
+        );
+      }
+    });
+
     test('keyword alias redirects land on the canonical SEO pages', async ({
       request,
     }) => {

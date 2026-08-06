@@ -1,9 +1,8 @@
 /**
  * Forecast Accuracy Page
  *
- * Curated marketing comparison: Quiver vs Surfline vs NOAA on wave-height
- * accuracy (MAE vs buoy readings). Static content from the curated constant in
- * lib/forecast-accuracy/curated-comparison.ts — no live data fetch.
+ * Methodology page explaining what buoy validation can establish, what it
+ * cannot establish, and the requirements for a fair forecast comparison.
  *
  * URL: /forecast-accuracy
  */
@@ -18,7 +17,6 @@ import { ScrollReveal } from "@/components/ui/scroll-reveal";
 import { QuiverSticker, ZineSurface } from "@/components/zine";
 
 import { AccuracyHero } from "@/components/forecast-accuracy/accuracy-hero";
-import { PersonalFitSection } from "@/components/forecast-accuracy/personal-fit-section";
 import { AccuracyComparison } from "@/components/forecast-accuracy/accuracy-comparison";
 import { MethodologySection } from "@/components/forecast-accuracy/methodology-section";
 import { AccuracyFaq } from "@/components/forecast-accuracy/accuracy-faq";
@@ -29,19 +27,19 @@ const SITE_ORIGIN = (
 ).replace(/\/$/, "");
 
 export const metadata: Metadata = buildPageMetadata({
-  title: "Surf Forecast Accuracy: Quiver vs Surfline vs NOAA",
+  title: "How Surf Forecast Accuracy Is Measured",
   description:
-    "Quiver learns what you like from your logged sessions and matches forecasts to your taste — and its wave-height forecast beats Surfline and the NOAA baseline against real buoy readings. More accurate, more personal, for free.",
+    "Learn how Quiver checks wave-height forecasts against buoy observations, where that method falls short, and why no forecast accuracy ranking is claimed.",
   path: "/forecast-accuracy",
   image: "/api/og/forecast-accuracy",
   keywords: [
     "surf forecast accuracy",
     "wave prediction accuracy",
-    "quiver vs surfline accuracy",
-    "NOAA surf forecast comparison",
-    "most accurate surf forecast",
+    "surf forecast methodology",
     "surf forecast buoy validation",
     "how accurate are surf forecasts",
+    "significant wave height",
+    "breaking wave face height",
     "wave height forecast error",
   ],
 });
@@ -59,14 +57,14 @@ export default function ForecastAccuracyPage() {
         ]}
       />
       <WebPageSchema
-        name="Surf Forecast Accuracy: Quiver vs Surfline vs NOAA"
+        name="How Surf Forecast Accuracy Is Measured"
         url={`${SITE_ORIGIN}/forecast-accuracy`}
-        description="Quiver's surf forecast accuracy compared against Surfline and the NOAA baseline, measured as wave-height error against real buoy readings."
+        description="How Quiver evaluates wave-height forecasts against buoy observations, the limits of that ground truth, and the requirements for a fair comparison."
       />
 
       <ZineSurface
         sectionLabel="Forecast accuracy"
-        editionLabel="Checked against the buoys"
+        editionLabel="Method before ranking"
         data-testid="forecast-accuracy-zine-surface"
       >
         <main>
@@ -78,16 +76,10 @@ export default function ForecastAccuracyPage() {
               />
               <p className="label-black mb-5">Forecast accuracy</p>
               <p className="typewriter mb-6 max-w-2xl">
-                Buoy-checked receipts: Quiver vs Surfline vs the raw NOAA
-                baseline, plus the personal Match Score number.
+                How wave-height forecasts are checked, where buoy observations
+                help, and where they do not.
               </p>
               <AccuracyHero />
-            </div>
-          </ScrollReveal>
-
-          <ScrollReveal>
-            <div className="mt-12">
-              <PersonalFitSection />
             </div>
           </ScrollReveal>
 
@@ -146,7 +138,7 @@ export default function ForecastAccuracyPage() {
                   href="/vs/surfline"
                   className="inline-flex min-h-11 items-center rounded-full border-2 border-[#11100D] bg-[#FBF6E8] px-5 py-2 font-semibold text-[#11100D] shadow-[2px_2px_0_rgba(17,16,13,0.22)] transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0B3A75]"
                 >
-                  Compare Surfline
+                  Compare product features
                 </Link>
               </div>
             </section>

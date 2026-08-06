@@ -518,7 +518,7 @@ export default function BestFreeSurfForecastAppPage(): ReactElement {
                   href="/forecast-accuracy"
                   className="inline-flex items-center gap-2 font-bold text-[#252D6B] underline-offset-4 hover:text-[#9E5010] hover:underline"
                 >
-                  Check Quiver forecast accuracy
+                  Read the forecast accuracy method
                   <ArrowRight className="h-4 w-4" aria-hidden />
                 </Link>
                 <Link

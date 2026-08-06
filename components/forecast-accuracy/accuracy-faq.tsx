@@ -1,51 +1,46 @@
 /**
- * AccuracyFaq
- *
- * Server component: visible FAQ section with an interactive accordion
- * (client-side via FAQSection). FAQPage JSON-LD is intentionally suppressed.
+ * Visible methodology FAQ. FAQPage JSON-LD is intentionally suppressed by the
+ * shared FAQSection component.
  */
 
 import { FAQSection } from "@/components/seo/faq-section";
-import {
-  CURATED_ACCURACY,
-  CURATED_MATCH,
-} from "@/lib/forecast-accuracy/curated-comparison";
 
 export function AccuracyFaq() {
-  const { beachCount, vsNoaaImprovementPct } = CURATED_ACCURACY;
-
   const faqItems = [
     {
-      question: "Does Quiver predict which days I'll actually like?",
-      answer: `That's the whole idea. Surfline's star rating reflects the average surfer at a break — but a 3-star day for the average can be a great day for you, depending on your board, skill, and conditions you favor. Quiver builds a personal Match Score from the sessions you log. Across ${CURATED_MATCH.comparablePairs.toLocaleString("en-US")} pairs of rated sessions, when Quiver scored one day a stronger personal match than another, it was the one the surfer rated higher about ${CURATED_MATCH.concordancePct}% of the time — and it sharpens as you log more.`,
-    },
-    {
-      question: "How is forecast accuracy measured?",
+      question: "What does Quiver use as wave-height ground truth?",
       answer:
-        "We use Mean Absolute Error (MAE): the average absolute difference between a predicted wave height and the actual wave height recorded by a nearby IOOS buoy. Lower MAE means a more accurate forecast. We report MAE in meters and compare Quiver against both the raw NOAA marine baseline and Surfline.",
+        "For automated wave-height checks, Quiver pairs a saved forecast with a time-matched observation from a nearby IOOS or NOAA buoy. That observation is offshore significant wave height. The station, time window, forecast horizon, and missing-data rules must travel with any reported error score.",
     },
     {
-      question: "Is Quiver really more accurate than Surfline?",
+      question: "What is significant wave height?",
       answer:
-        "Yes. Against nearby buoy readings, Quiver's average wave-height miss came in lower than Surfline's — and Quiver is free. Surfline is a strong, established product; this isn't a strawman. Quiver simply tunes each break to local conditions and the buoy receipts back it up.",
+        "Significant wave height, often written as Hs, is a statistical description of the sea state around a buoy. It is not a direct measurement of the face of a wave breaking at a beach.",
     },
     {
-      question: "How much better is Quiver than the NOAA forecast?",
-      answer: `Quiver's wave-height error is about ${vsNoaaImprovementPct}% lower than the raw NOAA marine baseline — more than twice as sharp. NOAA publishes broad regional forecasts; Quiver corrects them per beach using local exposure, swell direction, and spot shape.`,
-    },
-    {
-      question: "Where does the ground truth data come from?",
+      question: "Why is breaking face height different?",
       answer:
-        "Ground truth comes from the Integrated Ocean Observing System (IOOS) buoy network, a national network of ocean sensors operated by NOAA. Buoys report significant wave height every 1–6 hours, and we match each forecast to the nearest buoy observation within a short window.",
+        "As swell reaches shore, exposure, bathymetry, refraction, tide, and the breaking point change the wave a surfer sees. A face-height forecast needs on-beach observations or a documented conversion before it can be validated against offshore Hs.",
     },
     {
-      question: "What is the NOAA baseline?",
+      question: "Does Quiver claim an accuracy ranking over Surfline?",
       answer:
-        "The NOAA baseline is the raw National Weather Service (NWS) marine wave-height forecast, unmodified — the regional average any surfer can access from weather.gov. Quiver starts from this baseline and applies per-beach corrections.",
+        "Quiver does not claim that ranking. A same-sample comparison has not been completed across identical beaches, timestamps, lead times, observations, and wave-height definitions.",
     },
     {
-      question: "How many beaches does Quiver track for accuracy?",
-      answer: `Quiver tracks forecast accuracy across ${beachCount}+ beaches, validating each against nearby buoy observations.`,
+      question: "What would make a forecast comparison fair?",
+      answer:
+        "Freeze every provider's forecast before conditions arrive, evaluate the same variable at the same places and times, use the same ground truth and exclusion rules, then publish the sample size, date range, forecast horizon, and missing data.",
+    },
+    {
+      question: "Do surfer reports train or calibrate production forecasts?",
+      answer:
+        "No. Session notes and condition reports are captured as field feedback and reviewed by operators. They do not automatically train or calibrate production forecasts.",
+    },
+    {
+      question: "How should I judge any surf forecast?",
+      answer:
+        "Check whether the forecast names the variable it predicts, saves predictions before the outcome, uses matching observations, separates offshore height from breaking surf height, and publishes misses as clearly as hits.",
     },
   ];
 

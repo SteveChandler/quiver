@@ -96,7 +96,7 @@ const FAQ_ITEMS = [
   {
     question: "How accurate is Quiver compared to Surfline?",
     answer:
-      "Quiver publishes beach-level accuracy data so you can judge the forecast spot by spot. Oracle builds beach-specific models from buoy data and improves the feedback loop with logged sessions and condition reports from surfers.",
+      "Quiver has not completed a same-sample comparison against Surfline, so it does not claim an accuracy ranking. The methodology page explains the identical beaches, timestamps, lead times, observations, and wave-height definitions a fair comparison requires.",
   },
   {
     question: "Does Quiver have surf cams?",
@@ -687,7 +687,7 @@ export default function VsSurflinePage() {
       </section>
 
       {/* ================================================================= */}
-      {/* Why Quiver Wins */}
+      {/* Where Quiver fits */}
       {/* ================================================================= */}
       <section className="px-4 py-10 md:py-16">
         <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[minmax(0,0.92fr)_minmax(360px,1.08fr)] lg:items-start">
@@ -705,8 +705,8 @@ export default function VsSurflinePage() {
             <p className="mt-5 text-base font-semibold leading-7 text-[#F4EBD8]/84 md:text-lg">
               NOAA data is open-ocean input. A 4ft offshore reading might mean
               2ft mush at a sheltered beach or 6ft surf at an exposed reef.
-              Quiver publishes its accuracy methodology and validates against
-              buoys as the sample grows.
+              Quiver publishes its accuracy methodology, including what buoy
+              checks can establish and where they stop.
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link

@@ -1194,7 +1194,7 @@ export const learnArticles: LearnArticle[] = [
     slug: "how-accurate-are-surf-forecasts",
     title: "How Accurate Are Surf Forecasts? 3-Day vs 10-Day Guide",
     description:
-      "How accurate are surf forecasts? See when 3-day forecasts are reliable, why 10-day outlooks drift, and how Quiver checks beach-level error.",
+      "How accurate are surf forecasts? Learn how lead time changes uncertainty, what buoys measure, and what a fair forecast comparison requires.",
     readingTimeMin: 3,
     datePublished: "2026-03-30",
     heroImage: "/images/learn/learn-misty-lineup.jpg",
@@ -1211,9 +1211,9 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>NOAA's WaveWatch III global wave model is accurate within <strong>±1-2 feet</strong> for significant wave height and <strong>±2-3 seconds</strong> for period, 0-3 days out. Beyond 5 days, accuracy drops to ±3+ feet. Quiver's per-beach XGBoost ML corrections — trained on <strong>30,000+ buoy observations</strong> from CDIP and NDBC — achieve a <strong>90.4% directional match rate</strong> and <strong>59% improvement</strong> over raw NOAA baseline. No forecast is perfect; buoys are always the ground truth.</p>`,
+        content: `<p>Forecast accuracy is not one universal number. It changes with lead time, location, the variable being predicted, and the observation used as ground truth. A fair test saves the forecast before conditions arrive, then checks the same variable at the same place and time. Offshore significant wave height from a buoy can validate an offshore-height forecast; it cannot validate breaking face height at a beach by itself. Quiver has not completed a same-sample comparison against other surf forecasts, so it does not claim an accuracy ranking.</p>`,
         keyTakeaway:
-          "Surf forecasts are ±1-2 feet accurate for 0-3 days. Quiver's ML corrections improve raw NOAA output by 59% at specific beaches.",
+          "Judge a forecast by its lead time, variable, ground truth, and saved sample — not by a ranking built from different measurements.",
         image: {
           src: "/images/learn/learn-misty-lineup.jpg",
           alt: "Surfer in misty conditions — forecast vs reality",
@@ -1223,9 +1223,9 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "detail",
         heading: "Where Forecasts Are Accurate — and Where They Fail",
-        content: `<p>WaveWatch III runs at <strong>0.5° resolution (~30 miles per grid cell)</strong>. It captures open-ocean swells well but misses the "last mile" — local bathymetry (underwater canyons, reefs, sandbars), coastal wind patterns, and swell refraction around headlands. That's why buoy readings at La Jolla's Scripps Pier can differ from WaveWatch III by 1-3 feet: the Scripps Canyon focuses and amplifies certain swell angles in ways the global model can't resolve.</p><p>Quiver's ML layer fixes this. Per-beach XGBoost models learn the <strong>systematic bias</strong> at each break — when the model consistently over-predicts at your spot, ML corrects it. This is evaluated against holdout data (data the model never saw during training) to prevent overfitting. The public accuracy dashboard at <strong>quiversurf.app/forecast-accuracy</strong> shows real-time metrics by region and beach.</p>`,
+        content: `<p>Global wave models describe the open ocean on a grid. They do not directly observe how a specific reef, canyon, sandbar, tide, or local wind turns that offshore energy into breaking surf. Buoys add real observations, but they still measure the sea state at the sensor rather than the wave face at the beach.</p><p>That is why a useful evaluation keeps two questions separate: did the forecast describe offshore significant wave height, and did the surf-height call match what broke at the beach? The first can use time-matched buoy observations. The second needs a documented conversion and consistent on-beach observations. The <strong>quiversurf.app/forecast-accuracy</strong> page explains the method and its limits.</p>`,
         keyTakeaway:
-          "Global models miss local effects. Quiver's ML learns each beach's systematic biases and corrects for them — see live metrics at /forecast-accuracy.",
+          "Buoys can check the offshore sea state. Breaking surf at the beach is a separate measurement problem.",
       },
       {
         id: "practical",
@@ -1239,17 +1239,17 @@ export const learnArticles: LearnArticle[] = [
       {
         question: "Why are some forecasts more accurate than others?",
         answer:
-          "Accuracy depends on data density. Beaches near CDIP or NDBC buoys get more ML training data and better corrections. Remote breaks far from buoys rely more on the global model, which misses local effects. Quiver's accuracy dashboard shows per-beach metrics.",
+          "Reliability changes with lead time, swell regime, local exposure, data coverage, and the variable being scored. A beach near a buoy may have stronger offshore ground truth, but that buoy still does not directly measure breaking face height.",
       },
       {
         question: "How does Quiver's ML correction work?",
         answer:
-          "Per-beach XGBoost models trained on 30,000+ buoy observations learn systematic forecast errors at each spot — when the model over-predicts height or misreads direction due to local bathymetry. The correction layer runs every 3 hours with fresh buoy data.",
+          "Quiver uses buoy history when evaluating forecast inputs and adjustments. A valid evaluation saves the forecast before the observation arrives, pairs it to a documented station and time window, and keeps offshore significant wave height separate from breaking face height.",
       },
       {
         question: "How does Quiver's forecast accuracy compare to other apps?",
         answer:
-          "Quiver publishes its accuracy metrics publicly at /forecast-accuracy. Most major apps don't publish comparable numbers. Our ML achieves a 90.4% match rate vs. observed buoy readings and 59% improvement over raw NOAA — judge for yourself.",
+          "Quiver has not completed a same-sample comparison against other surf forecasts. Without identical beaches, timestamps, lead times, observations, and wave-height definitions, Quiver does not claim an accuracy ranking.",
       },
       {
         question: "Should I trust a 10-day forecast?",
@@ -1259,10 +1259,10 @@ export const learnArticles: LearnArticle[] = [
     ],
     relatedLinks: [
       {
-        label: "Forecast Accuracy Dashboard",
+        label: "Forecast Accuracy Methodology",
         href: "/forecast-accuracy",
         description:
-          "See real-time accuracy metrics by region and beach.",
+          "See how wave-height forecasts should be checked and compared.",
       },
       {
         label: "How Surf Forecasts Work",
@@ -2632,7 +2632,7 @@ export const learnArticles: LearnArticle[] = [
     slug: "how-quiver-calibrates-your-beach",
     title: "How Quiver Calibrates Your Beach",
     description:
-      "Calibration means we compare our forecast to what real buoys actually measured, then correct the model for your specific beach. We publish the accuracy. We catch our own bugs. This is what 'calibrated' actually means in plain English — and why it's the part of the forecast that most apps don't show you.",
+      "Calibration starts by saving a forecast, matching it to a later observation, and keeping offshore buoy height separate from breaking surf at the beach.",
     readingTimeMin: 7,
     datePublished: "2026-04-30",
     heroImage: "/images/learn/learn-aerial-shore.jpg",
@@ -2645,15 +2645,15 @@ export const learnArticles: LearnArticle[] = [
       "personalized surf forecast per beach",
       "surf forecast transparency",
       "machine learning surf forecast",
-      "Quiver vs Surfline accuracy",
+      "surf forecast methodology",
     ],
     sections: [
       {
         id: "answer",
         heading: "The Short Answer",
-        content: `<p>Calibration means we don't just hand you the global model's guess. We compare every forecast to what the buoys actually measured at your beach, learn where the model runs hot or cold, and adjust the next prediction. That correction is per-beach — Ocean Beach behaves differently than Trestles, and the model needs to know. We also publish how well it's working at <a href="/forecast-accuracy">/forecast-accuracy</a> so you can audit the math instead of taking it on faith.</p>`,
+        content: `<p>Calibration starts by saving a forecast before conditions arrive, then matching it to a later observation using a fixed station and time-window rule. For buoy checks, the ground truth is offshore significant wave height at the sensor. That is not the same quantity as breaking face height at the beach. Quiver documents this method and its limits at <a href="/forecast-accuracy">/forecast-accuracy</a>; it does not publish an accuracy ranking against other forecasts.</p>`,
         keyTakeaway:
-          "Calibration = compare forecast to real buoy observations, correct per beach, publish the accuracy. It's the part most surf apps don't show.",
+          "Calibration requires a saved forecast, matching ground truth, and a clear definition of the wave height being scored.",
       },
       {
         id: "what-calibrated-means",
@@ -2665,7 +2665,7 @@ export const learnArticles: LearnArticle[] = [
       {
         id: "how-it-works",
         heading: "How It Works for Your Beach",
-        content: `<p>Here's the data flow, in plain English:</p><p><strong>1. Pull the forecast.</strong> We pull the raw global model output for the ocean grid cell closest to your beach — height, period, direction, wind, tide. That's the starting point every surf app uses.</p><p><strong>2. Pull the observations.</strong> We pull what the nearest NDBC and CDIP buoys actually measured at the same hour. Buoys don't lie — they record what the water did, not what a model predicted.</p><p><strong>3. Train a per-beach model.</strong> For each beach we cover, we train a small machine-learning model (XGBoost, in case the technical detail matters to you) on the history of "forecast said X, buoy measured Y." The model learns the pattern of how the global forecast under- and over-predicts at your specific beach.</p><p><strong>4. Apply the correction.</strong> When a fresh forecast comes in for your beach, we run it through the trained correction. The number you see is the model output adjusted by the bias we've measured.</p><p><strong>5. Re-train as new observations land.</strong> The buoys keep recording. The corrections keep updating. A beach that's been on Quiver for six months has more correction history than one we added last week, and you can see that reflected in the accuracy stats.</p><p>This is not magic and we don't pretend it is. It's a feedback loop: the model predicts, the ocean does whatever it does, we measure the gap, we use the gap to make the next prediction better. The longer we run it, the tighter it gets.</p>`,
+        content: `<p>Here's the data flow, in plain English:</p><p><strong>1. Save the forecast.</strong> Keep the raw model value and any adjusted value with the issue time, valid time, location, lead time, variable, and units.</p><p><strong>2. Pull the observation.</strong> Match the saved value to what a documented NDBC, CDIP, or IOOS buoy measured inside a fixed time window.</p><p><strong>3. Keep the definition straight.</strong> A buoy reports offshore significant wave height. Do not label that as observed breaking face height at the beach.</p><p><strong>4. Evaluate the adjustment.</strong> Compare the raw and adjusted offshore-height values on the same holdout sample. Keep the miss even when it is unfavorable.</p><p><strong>5. Report the limits.</strong> Publish the sample, date range, beaches, forecast horizon, missing data, and error formula before making a performance claim.</p><p>This is not magic. It is a testable loop: predict, observe, measure, and keep the result. A correction only earns trust when the saved evaluation shows that it helped on unseen data.</p>`,
         keyTakeaway:
           "Forecast in, real buoy reading in, learn the gap, apply the correction next time. Repeat per beach. That's the whole loop.",
         image: {
@@ -2676,15 +2676,15 @@ export const learnArticles: LearnArticle[] = [
       },
       {
         id: "what-we-publish",
-        heading: "What We Publish That Others Don't",
-        content: `<p>Calibration only matters if you can verify it. Otherwise it's marketing. So we publish the part most surf apps don't:</p><p><strong>Accuracy by beach, updated regularly.</strong> Visit <a href="/forecast-accuracy">/forecast-accuracy</a> to see how the corrected forecast is performing against real observations. Mean error, by beach, on the metrics that actually matter for whether you'd paddle out.</p><p><strong>The honest version, not the flattering one.</strong> When the model is wrong, we don't quietly rewrite the page. We log the prediction, log the observation, and let the gap show up in the stats. That's the only way the number means anything. If accuracy ever moves in the wrong direction, we want you to be able to see it.</p><p><strong>Comparisons against alternatives.</strong> Our <a href="/vs/surfline">/vs/surfline</a> page lays out where Quiver does the same thing as the big players, where we do something different, and where we don't claim to compete. The wedge isn't "we're more accurate." The wedge is "we show our work."</p><p>This isn't unique to us in principle — buoy verification is something serious forecasters have been doing for decades. What's unusual is making it part of the public-facing product. Most apps treat the forecast as an opaque output. We don't.</p>`,
+        heading: "What the Method Has to Publish",
+        content: `<p>Calibration only matters if it can be audited. The <a href="/forecast-accuracy">/forecast-accuracy</a> page now states the standard Quiver expects its own evaluation to meet:</p><p><strong>Preserve the forecast.</strong> The value must be saved before the observation arrives, with its timestamp, lead time, location, variable, and units.</p><p><strong>Name the ground truth.</strong> Offshore significant wave height from a buoy and breaking face height at a beach are different quantities. A report must say which one it scores.</p><p><strong>Use one sample for a comparison.</strong> Every provider must be evaluated across the same beaches, times, horizons, observations, and exclusion rules.</p><p><strong>State what is missing.</strong> Quiver has not completed a same-sample comparison against other surf forecasts, so it does not claim an accuracy ranking.</p>`,
         keyTakeaway:
-          "We publish the accuracy. We don't quietly rewrite predictions when they're wrong. The transparency is the wedge — not a claim to be more accurate.",
+          "A forecast score needs a saved sample, named ground truth, reproducible rules, and clear limits.",
       },
       {
         id: "the-day-i-caught-my-bug",
         heading: "The Day I Caught My Own Bug",
-        content: `<p>One thing about running a calibration loop is that it surfaces problems in your own code. You can't hide from it. The buoy is the buoy.</p><p>I shipped a forecast model, found a direction bug in our own data pipeline, fixed it, retrained it, and kept the old predictions honest instead of rewriting history. That's the difference: we check our own work.</p><p>The reason it matters is straightforward. If I'd quietly patched the model and pretended the old predictions had always been fine, the accuracy stats on this site would be a lie. The whole point of publishing them is that they reflect what we actually shipped, including the parts we got wrong and had to fix. A forecast you can't audit isn't a calibrated forecast — it's just a number.</p><p>This is also why I'm wary of "AI" framing in surf apps. The model is a tool. The discipline is the loop: predict, measure, correct, publish. If a forecast doesn't have that loop, it doesn't matter how sophisticated the underlying model is. And if it does have that loop, the underlying model gets pulled toward reality whether it wants to or not.</p><p>That's how Quiver works. That's how we'd like every surf forecast to work. Until that's the standard, the best thing we can do is run the loop ourselves and put the results where you can see them.</p>`,
+        content: `<p>One thing about running a calibration loop is that it surfaces problems in your own code. You can't hide from it. The buoy is the buoy.</p><p>I shipped a forecast model, found a direction bug in our own data pipeline, fixed it, retrained it, and kept the old predictions instead of rewriting history. That's the difference: we check our own work.</p><p>The reason it matters is straightforward. If I'd quietly patched the model and replaced the old predictions, the evaluation would no longer describe what actually shipped. A forecast you can't audit isn't calibrated — it is just a number.</p><p>The model is a tool. The discipline is the loop: predict, observe, measure, and preserve the result. The method matters more than the marketing label.</p>`,
         keyTakeaway:
           "The calibration loop catches your own bugs. We fix them, retrain, and keep the old predictions honest instead of rewriting history.",
       },
@@ -2696,24 +2696,24 @@ export const learnArticles: LearnArticle[] = [
           "A regular forecast hands you the global model's output and stops there. We take the same starting point — global model — and add a per-beach correction trained on what the local buoys actually measured. The forecast number you see has been adjusted for the systematic biases at your specific beach, not just the open ocean grid cell.",
       },
       {
-        question: "Why don't other apps publish accuracy?",
+        question: "What should an accuracy report publish?",
         answer:
-          "Mostly because publishing accuracy means publishing your misses. If you commit to the number, you can't quietly rewrite it when it's wrong. Most surf apps optimize for looking confident, not for being auditable. Showing the work is a different bet — it builds trust slower but it's the only kind of trust that survives a bad forecast.",
+          "At minimum: the saved forecast sample, date range, beaches, lead times, exact variable and units, observation source, matching window, missing-data rules, and error formula. A head-to-head also needs every provider evaluated on that same sample.",
       },
       {
         question: "What happens when the model is wrong?",
         answer:
-          "The buoy reading still goes into the training data, the gap shows up in the accuracy stats, and the next round of training pulls the model back toward reality. We don't delete the bad prediction or back-edit the page. Being wrong is part of the loop — pretending you weren't is what breaks it.",
+          "The saved forecast and its matched observation should stay in the evaluation set. Do not delete the miss or replace the original prediction after conditions arrive. Being wrong is part of a valid test; rewriting the sample breaks it.",
       },
       {
-        question: "Does calibration mean Quiver beats the big surf apps on accuracy?",
+        question: "Does calibration establish an accuracy ranking?",
         answer:
-          "We don't make that claim. Surfline runs sophisticated forecasting (LOTUS) with bathymetry-aware physics. Different approach, different tradeoffs. What we do differently is publish the accuracy and the methodology so you can audit it. The wedge is transparency, not a benchmark we haven't earned.",
+          "No. Quiver has not completed a same-sample comparison across identical beaches, timestamps, lead times, observations, and wave-height definitions. It does not claim an accuracy ranking.",
       },
       {
         question: "How long does it take a new beach to be well-calibrated?",
         answer:
-          "Calibration improves with observation history. A beach with months of forecast-vs-observation pairs has more correction signal than one we added last week. The /forecast-accuracy page reflects this — older beaches generally show tighter error bars. There's no hard cutoff, just a steady tightening as the loop runs.",
+          "There is no universal cutoff. Readiness depends on enough independent forecast-observation pairs across the conditions the beach receives, followed by holdout evaluation. More history alone does not prove that an adjustment improves the forecast.",
       },
     ],
     relatedLinks: [
@@ -2721,7 +2721,7 @@ export const learnArticles: LearnArticle[] = [
         label: "Forecast Accuracy",
         href: "/forecast-accuracy",
         description:
-          "See the published accuracy of the calibrated forecast against real buoy observations.",
+          "See the validation method, ground-truth limits, and comparison requirements.",
       },
       {
         label: "Quiver vs Surfline",

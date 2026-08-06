@@ -336,6 +336,26 @@ const nextConfig = {
         permanent: false, // 302 for flexibility
       },
       {
+        source: "/embed-for-surf-schools",
+        destination: "/for-surf-schools",
+        permanent: true,
+      },
+      {
+        source: "/embed-for-surf-schools&source=:source",
+        destination: "/for-surf-schools?source=:source",
+        permanent: true,
+      },
+      {
+        source: "/embed-for-businesses",
+        destination: "/for-businesses",
+        permanent: true,
+      },
+      {
+        source: "/embed-for-businesses&source=:source",
+        destination: "/for-businesses?source=:source",
+        permanent: true,
+      },
+      {
         source: "/surfline-alternative",
         destination: "/vs/surfline",
         permanent: true,
