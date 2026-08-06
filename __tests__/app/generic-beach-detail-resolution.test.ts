@@ -23,6 +23,10 @@ jest.mock("@/actions/beach/beach-query-actions", () => ({
   getBeachesBySlug: jest.fn(),
 }));
 
+jest.mock("next/headers", () => ({
+  headers: jest.fn(async () => new Headers()),
+}));
+
 jest.mock("next/navigation", () => ({
   notFound: jest.fn(() => {
     const err = new Error("NEXT_NOT_FOUND");
