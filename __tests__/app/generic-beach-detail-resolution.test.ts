@@ -22,6 +22,14 @@ jest.mock("@/actions/beach/beach-query-actions", () => ({
   getBeachesBySlug: jest.fn(),
 }));
 
+// The page reads the user agent to decide whether the iPhone Safari banner owns
+// the install ask (app/[intent]/[city]/[beachSlug]/page.tsx, added in #497).
+// Without this mock `headers()` throws "called outside a request scope" and every
+// case in this suite fails before reaching its assertion.
+jest.mock("next/headers", () => ({
+  headers: jest.fn(async () => new Headers()),
+}));
+
 jest.mock("next/navigation", () => ({
   notFound: jest.fn(() => {
     const err = new Error("NEXT_NOT_FOUND");
