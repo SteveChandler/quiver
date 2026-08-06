@@ -4,6 +4,8 @@ import { getStalenessThreshold } from "@/lib/config/forecast-staleness";
 import { extractForecastDate } from "@/lib/utils/forecast-at-adapter";
 import { fetchNowcastAnchors } from "@/lib/services/observations/nowcast-anchor";
 import { fetchSouthOcSanoShadowZoneSnapshot } from "@/lib/services/forecast/south-oc-sano-shadow-guardrail";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/supabase";
 import type { EnhancedForecastEntity } from "@/types/forecast";
 // Removed unused type import to satisfy TS6133
 
@@ -85,6 +87,115 @@ export function getStalenessDetails(
   };
 }
 
+type ForecastMetadataClient = Pick<SupabaseClient<Database>, "from">;
+
+export type LatestForecastMetadata =
+  | {
+      cached: false;
+      stale: false;
+      missing: true;
+      dataSource: null;
+      stalenessDataSource: null;
+      lastUpdated: null;
+      reason: "No forecast data in cache";
+      stalenessDetails: null;
+    }
+  | {
+      cached: true;
+      stale: false;
+      missing: false;
+      dataSource: string | null;
+      stalenessDataSource: string | null;
+      lastUpdated: string;
+      reason: null;
+      stalenessDetails: ReturnType<typeof getStalenessDetails>;
+    }
+  | {
+      cached: true;
+      stale: true;
+      missing: false;
+      dataSource: string | null;
+      stalenessDataSource: string | null;
+      lastUpdated: string;
+      reason: string;
+      stalenessDetails: ReturnType<typeof getStalenessDetails>;
+    };
+
+export interface LatestForecastMetadataOptions {
+  /** Substitute this source for null/empty view values when computing staleness. */
+  fallbackDataSource?: string;
+}
+
+/**
+ * Read the latest forecast write metadata and compute source-aware freshness.
+ *
+ * The latest view is the source of truth because forecast rows are ordered by
+ * forecast_at, not write time. Query errors are intentionally propagated so
+ * each caller can retain its existing error boundary.
+ */
+export async function readLatestForecastMetadata(
+  supabase: ForecastMetadataClient,
+  beachId: string,
+  options: LatestForecastMetadataOptions = {},
+): Promise<LatestForecastMetadata> {
+  const { data, error } = await supabase
+    .from("v_enhanced_forecast_latest")
+    .select("updated_at, data_source")
+    .eq("beach_id", beachId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data?.updated_at) {
+    return {
+      cached: false,
+      stale: false,
+      missing: true,
+      dataSource: null,
+      stalenessDataSource: null,
+      lastUpdated: null,
+      reason: "No forecast data in cache",
+      stalenessDetails: null,
+    };
+  }
+
+  const dataSource = data.data_source ?? null;
+  const stalenessDataSource =
+    dataSource === null || dataSource === ""
+      ? options.fallbackDataSource ?? dataSource
+      : dataSource;
+  const stalenessDetails = getStalenessDetails(
+    data.updated_at,
+    stalenessDataSource,
+  );
+
+  if (!stalenessDetails.isStale) {
+    return {
+      cached: true,
+      stale: false,
+      missing: false,
+      dataSource,
+      stalenessDataSource,
+      lastUpdated: data.updated_at,
+      reason: null,
+      stalenessDetails,
+    };
+  }
+
+  return {
+    cached: true,
+    stale: true,
+    missing: false,
+    dataSource,
+    stalenessDataSource,
+    lastUpdated: data.updated_at,
+    reason: `Data is ${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old (threshold: ${stalenessDetails.threshold}h)`,
+    stalenessDetails,
+  };
+}
+
 export interface ForecastCacheMetadata {
   cached: boolean;
   stale: boolean;
@@ -136,27 +247,14 @@ export async function getFreshForecastFromCache(
   const startTime = Date.now();
 
   try {
-    /**
-     * IMPORTANT:
-     * `fetchBeachForecasts()` returns rows ordered by forecast_at ASC,
-     * which is not a reliable proxy for the *latest write* time. Using `forecasts[0]`
-     * here can incorrectly flag fresh beaches as stale (it’s often the oldest row).
-     *
-     * Instead, use `v_enhanced_forecast_latest` (1 row/beach) as the source of truth
-     * for staleness checks.
-     */
     const supabase = await createSupabaseServiceRoleClient();
-    const latestResult = await supabase
-      .from("v_enhanced_forecast_latest")
-      .select("updated_at, data_source")
-      .eq("beach_id", beachId)
-      .maybeSingle();
+    const latestMetadata = await readLatestForecastMetadata(
+      supabase,
+      beachId,
+      { fallbackDataSource: "FALLBACK" },
+    );
 
-    if (latestResult.error) {
-      throw new Error(latestResult.error.message);
-    }
-
-    if (!latestResult.data || !(latestResult.data as any).updated_at) {
+    if (latestMetadata.missing) {
       console.warn(`⚠️ [getFreshForecastFromCache] No cached data for beach ${beachId}`);
       return {
         forecasts: [],
@@ -169,9 +267,8 @@ export async function getFreshForecastFromCache(
       };
     }
 
-    const latest = latestResult.data as { updated_at: string; data_source: string | null };
-    const dataSource = latest.data_source || "FALLBACK";
-    const stalenessDetails = getStalenessDetails(latest.updated_at, dataSource);
+    const dataSource = latestMetadata.stalenessDataSource;
+    const stalenessDetails = latestMetadata.stalenessDetails;
 
     const duration = Date.now() - startTime;
 
@@ -196,7 +293,7 @@ export async function getFreshForecastFromCache(
               missing: true,
               reason: "No forecast rows returned - waiting for background job",
               dataSource,
-              lastUpdated: latest.updated_at,
+              lastUpdated: latestMetadata.lastUpdated,
             },
           };
         }
@@ -212,10 +309,10 @@ export async function getFreshForecastFromCache(
             stale: true,
             missing: false,
             displayStale: true,
-            reason: `Data is ${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old (threshold: ${stalenessDetails.threshold}h) - serving cached forecast for display`,
+            reason: `${latestMetadata.reason} - serving cached forecast for display`,
             stalenessDetails,
             dataSource,
-            lastUpdated: latest.updated_at,
+            lastUpdated: latestMetadata.lastUpdated,
           },
         };
       }
@@ -229,10 +326,10 @@ export async function getFreshForecastFromCache(
           cached: true,
           stale: true,
           missing: false,
-          reason: `Data is ${stalenessDetails.hoursSinceUpdate.toFixed(1)}h old (threshold: ${stalenessDetails.threshold}h) - refusing to serve stale cache (waiting for background refresh)`,
+          reason: `${latestMetadata.reason} - refusing to serve stale cache (waiting for background refresh)`,
           stalenessDetails,
           dataSource,
-          lastUpdated: latest.updated_at,
+          lastUpdated: latestMetadata.lastUpdated,
         },
       };
     }
@@ -267,7 +364,7 @@ export async function getFreshForecastFromCache(
         reason: null,
         stalenessDetails,
         dataSource,
-        lastUpdated: latest.updated_at,
+        lastUpdated: latestMetadata.lastUpdated,
       },
     };
   } catch (error) {
