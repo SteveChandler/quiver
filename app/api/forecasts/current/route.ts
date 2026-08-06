@@ -19,6 +19,7 @@ export const maxDuration = 30;
 const QuerySchema = z.object({
   beachId: z.string().uuid({ message: "beachId must be a valid UUID" }),
   refresh: z.enum(["if-stale"]).optional(),
+  includeStale: z.enum(["1"]).optional(),
 });
 
 type CurrentForecastRow = EnhancedForecastEntity & {
@@ -32,6 +33,17 @@ type CurrentMetadata = {
   refreshAttempted: boolean;
   stale: boolean;
   missing: boolean;
+  /**
+   * Authoritative freshness state. Prefer this over `stale`/`missing`.
+   *
+   * fresh       — usable data within the staleness threshold
+   * stale       — usable data past the threshold. Render it WITH `lastUpdated`.
+   * unavailable — no usable data. Render an explicit empty state.
+   *
+   * `missing` is retained for pre-adoption native builds and currently also
+   * returns true for `stale`. It is corrected in a later phase.
+   */
+  availability: "fresh" | "stale" | "unavailable";
   dataSource: string | null;
   lastUpdated: string | null;
   reason: string | null;
@@ -154,11 +166,18 @@ function buildMetadata(args: {
   refreshError?: string;
 }): CurrentMetadata {
   const unavailable = args.current == null || args.freshness.missing || args.freshness.stale;
+  const availability =
+    args.current == null || args.freshness.missing
+      ? "unavailable"
+      : args.freshness.stale
+        ? "stale"
+        : "fresh";
   return {
     refreshed: args.refreshed,
     refreshAttempted: args.refreshAttempted,
     stale: args.freshness.stale,
     missing: unavailable,
+    availability,
     dataSource: args.freshness.dataSource,
     lastUpdated: args.freshness.lastUpdated,
     reason: unavailable
@@ -176,10 +195,11 @@ async function currentForecastHandler(
   const validation = validateOrError(QuerySchema, {
     beachId: searchParams.get("beachId") ?? undefined,
     refresh: searchParams.get("refresh") ?? undefined,
+    includeStale: searchParams.get("includeStale") ?? undefined,
   });
   if ("error" in validation) return validation.error;
 
-  const { beachId, refresh } = validation.data;
+  const { beachId, refresh, includeStale } = validation.data;
   const beachExists = await readBeachExists(supabase, beachId);
   if (!beachExists) {
     return createErrorResponse("Beach not found", null, 404);
@@ -211,7 +231,11 @@ async function currentForecastHandler(
     freshness,
     refreshError,
   });
-  const currentForDisplay = metadata.missing || metadata.stale ? null : current;
+  const shouldIncludeCurrent =
+    includeStale === "1"
+      ? metadata.availability !== "unavailable"
+      : !metadata.missing && !metadata.stale;
+  const currentForDisplay = shouldIncludeCurrent ? current : null;
   const response = createSuccessResponse({
     current: currentForDisplay,
     metadata,
