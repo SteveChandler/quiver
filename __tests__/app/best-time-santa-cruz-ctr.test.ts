@@ -2,11 +2,9 @@
  * @jest-environment node
  */
 
-import { readFileSync } from "fs";
-import { join } from "path";
-
 import {
   buildBestTimeLiveHandoffSteps,
+  buildBestTimeMetadataCopy,
   buildBestTimeTodayAnswerCopy,
   generateMetadata,
 } from "@/app/best-time-to-surf/[city]/page";
@@ -62,26 +60,16 @@ describe("best-time Santa Cruz CTR treatment", () => {
     });
   });
 
-  it("serves Santa Cruz-specific metadata, H1, and hero copy", async () => {
+  it("serves decision-first metadata and H1 for Santa Cruz", async () => {
     const metadata = await generateMetadata({
       params: Promise.resolve({ city: "santa-cruz" }),
     });
+    const copy = buildBestTimeMetadataCopy("Santa Cruz");
 
-    expect(metadata.title).toContain(
-      "Best Time to Surf Santa Cruz: Wind, Tide & Season",
-    );
-    expect(metadata.description).toContain("Steamer Lane");
-    expect(metadata.description).toContain("Cowell's and Capitola");
-    expect(metadata.description).toContain("water temperature");
-
-    const source = readFileSync(
-      join(process.cwd(), "app/best-time-to-surf/[city]/page.tsx"),
-      "utf8",
-    );
-
-    expect(source).toContain('h1: "Best Time to Surf Santa Cruz Today"');
-    expect(source).toContain(
-      'heroDek:\n      "Steamer Lane, Cowell\'s and Capitola windows, wind, tide, cold water, and season"',
+    expect(metadata.title).toBe(copy.title);
+    expect(metadata.description).toBe(copy.description);
+    expect(copy.h1).toBe(
+      "Best Santa Cruz surf window today: tide and conditions",
     );
   });
 
@@ -99,6 +87,9 @@ describe("best-time Santa Cruz CTR treatment", () => {
     });
 
     expect(copy.todayAnswer).toContain("Steamer Lane");
+    expect(copy.todayAnswer).toMatch(
+      /^Santa Cruz's best surf window today starts with the live report:/,
+    );
     expect(copy.todayAnswer).toContain("Cowell's");
     expect(copy.todayAnswer).toContain("Capitola");
     expect(copy.todayAnswer).toContain("wind");

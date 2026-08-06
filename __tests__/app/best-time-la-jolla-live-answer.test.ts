@@ -22,6 +22,9 @@ describe("best-time La Jolla live answer copy", () => {
       surfReportCue: expect.stringContaining("surf report"),
     });
     expect(copy.todayAnswer).toContain("La Jolla");
+    expect(copy.todayAnswer).toMatch(
+      /^La Jolla's best surf window today starts with the live report:/,
+    );
     expect(copy.todayAnswer).toContain("Scripps Pier");
     expect(copy.todayAnswer).toContain("2-4 ft");
     expect(copy.surfReportCue).toContain("Scripps Pier");
@@ -65,7 +68,9 @@ describe("best-time La Jolla live answer copy", () => {
       },
     });
 
-    expect(copy.todayAnswer).toContain("6:00 AM-9:00 AM");
+    expect(copy.todayAnswer).toMatch(
+      /^La Jolla's best surf window today is 6:00 AM-9:00 AM, with rising tide, light W wind, and 2-3 ft swell;/,
+    );
     expect(copy.todayAnswer).toContain("incoming tide, light winds");
     expect(copy.todayAnswer).toContain("La Jolla Shores");
     expect(copy.todayAnswer).toContain("2-3 ft");
