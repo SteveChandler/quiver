@@ -10,9 +10,11 @@ import { BeachFAQSchema, TideFAQSchema, WaterTempFAQSchema } from "@/components/
 import { TideDatasetSchema } from "@/components/seo/tide-dataset-schema";
 import { WaterTempDatasetSchema } from "@/components/seo/water-temp-dataset-schema";
 import Link from "next/link";
+import { headers } from "next/headers";
 
 import { BeachDetailClient } from "@/app/beach/[slug]/beach-detail-client";
 import { NearbyBeachesEnriched } from "@/components/beach-detail/nearby-spots-enriched";
+import { InstallAppCtaSection } from "@/components/app-store/install-app-cta-section";
 import { AlertCaptureCta } from "@/components/seo/alert-capture-cta";
 import { SeoFunnelNextSteps } from "@/components/seo/seo-funnel-next-steps";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
@@ -32,6 +34,7 @@ import { getWaterTempMetaData } from "@/lib/seo/water-temp-meta-data";
 import { notFound } from "next/navigation";
 import { getTimezoneFromCoords } from "@/lib/utils/timezone-utils.server";
 import { getBeachBySlugOrId } from "@/lib/utils/beach-lookup-utils";
+import { shouldShowBeachSubPageInstallCta } from "@/lib/app-store/beach-subpage-install-cta";
 import {
   buildBeachSubPageCrawlCopy,
   type BeachSubPageCrawlCopy,
@@ -86,24 +89,16 @@ const SUB_PAGE_CONFIGS: Record<SubPageType, SubPageConfig> = {
 const SUB_PAGE_CTA_CONFIGS: Record<SubPageType, {
   ctaText: string;
   supportingText: (beachName: string) => string;
-  inlineTitle: (beachName: string) => string;
-  inlineDescription: (beachName: string) => string;
   sourcePrefix: string;
 }> = {
   tides: {
     ctaText: "Get Alerts",
     supportingText: (beachName) => `Tide alerts for ${beachName}`,
-    inlineTitle: (beachName) => `Tide Alerts for ${beachName}`,
-    inlineDescription: (beachName) =>
-      `Get notified when optimal tide windows open at ${beachName}. Know the best times to paddle out without checking charts.`,
     sourcePrefix: "tides",
   },
   "water-temp": {
     ctaText: "Get Alerts",
     supportingText: (beachName) => `Water temp alerts for ${beachName}`,
-    inlineTitle: (beachName) => `Water Temp Alerts for ${beachName}`,
-    inlineDescription: (beachName) =>
-      `Track water temperatures at ${beachName} and get wetsuit recommendations so you always suit up right.`,
     sourcePrefix: "water-temp",
   },
 };
@@ -161,7 +156,12 @@ export async function renderBeachSubPage({
   const config = SUB_PAGE_CONFIGS[pageType];
   const ctaConfig = SUB_PAGE_CTA_CONFIGS[pageType];
   const ctaSource = `${ctaConfig.sourcePrefix}-${beachSlug}`;
+  const userAgent = (await headers()).get("user-agent") ?? "";
   const subPagePath = `${beachPath}/${pageType}`;
+  const shouldRenderInstallCta = shouldShowBeachSubPageInstallCta({
+    userAgent,
+    pathname: subPagePath,
+  });
 
   // Fetch dataset schema data in parallel with nearby beaches — uses React cache()
   // so no extra DB queries when generateBeachSubPageMetadata already called these.
@@ -190,6 +190,24 @@ export async function renderBeachSubPage({
     Boolean(tideMeta?.nextHighTime || tideMeta?.nextLowTime);
   const hasWaterTempHero = pageType === "water-temp" &&
     waterTempMeta?.tempF != null;
+  // One real figure from data this render already has (React-cached, no extra
+  // queries). A number the visitor can check beats a list of claims - but only
+  // when it is genuinely available, so this stays null rather than inventing one.
+  const installCtaProof =
+    pageType === "water-temp" && waterTempMeta?.tempF != null
+      ? { value: `${Math.round(waterTempMeta.tempF)}°F`, label: "Water temp now" }
+      : pageType === "tides" && tideMeta?.nextHighHeight != null
+        ? {
+            value: `${tideMeta.nextHighHeight.toFixed(1)} ft`,
+            // Carry the time: without it this is a strictly worse duplicate of
+            // the tide line further up the page, and a bare "ft" on a surf site
+            // reads as swell rather than tide.
+            label: tideMeta.nextHighTime
+              ? `Next high · ${tideMeta.nextHighTime}`
+              : "Next high tide",
+          }
+        : null;
+
   const crawlCopy = buildBeachSubPageCrawlCopy({
     beach,
     pageType,
@@ -273,14 +291,27 @@ export async function renderBeachSubPage({
         heroHeadingLevel="h2"
       />
 
-      <div className="container mx-auto px-4 py-8">
-        <AlertCaptureCta
-          pageContext={pageType}
-          beachId={beach.id}
-          beachName={beach.name}
-          source={`${ctaSource}-inline`}
-        />
-      </div>
+      {shouldRenderInstallCta ? (
+        <div className="container mx-auto px-4">
+          <InstallAppCtaSection
+            platform="ios"
+            source={ctaSource}
+            surface="beach-subpage"
+            placement={`${pageType}-${beachSlug}`}
+            beachName={beach.name}
+            proof={installCtaProof ?? undefined}
+          />
+        </div>
+      ) : (
+        <div className="container mx-auto px-4 py-8">
+          <AlertCaptureCta
+            pageContext={pageType}
+            beachId={beach.id}
+            beachName={beach.name}
+            source={`${ctaSource}-inline`}
+          />
+        </div>
+      )}
 
       <div className="container mx-auto px-4 pb-8">
         <SeoFunnelNextSteps
@@ -319,6 +350,7 @@ export async function renderBeachSubPage({
         />
       </div>
 
+      {shouldRenderInstallCta ? null : (
       <StickySignupBar
         source={ctaSource}
         ctaText={ctaConfig.ctaText}
@@ -335,6 +367,7 @@ export async function renderBeachSubPage({
               }
         }
       />
+      )}
     </>
   );
 }

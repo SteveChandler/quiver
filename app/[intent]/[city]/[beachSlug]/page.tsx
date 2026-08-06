@@ -6,6 +6,9 @@ import { ZineNearbySpots } from "@/components/beach-detail/zine/zine-nearby-spot
 import { enrichBeachesWithConditions } from "@/lib/utils/nearby-beach-enrichment";
 import { StickySignupBar } from "@/components/ui/sticky-signup-bar";
 import { InstallAppCtaSection } from "@/components/app-store/install-app-cta-section";
+import { iphoneBannerOwnsInstallAsk } from "@/lib/app-store/beach-subpage-install-cta";
+import { getFirstTouchPlatform } from "@/lib/analytics/web-context";
+import { headers } from "next/headers";
 import { InlineSignupCta } from "@/components/seo/inline-signup-cta";
 import { isFreeGrowthPhaseEnabled } from "@/lib/flags/free-growth-phase";
 
@@ -93,6 +96,16 @@ function isNextRouterSignal(error: unknown) {
 export default async function GenericBeachDetailPage(props: PageProps) {
   const params = await props.params;
   const { intent: stateParam, city, beachSlug } = params;
+
+  // The after-tabs install section and IphoneAppBanner are both install asks.
+  // Non-Safari iPhone gets the banner, so suppress the section there rather than
+  // showing the same ask twice. Every other visitor is unaffected.
+  const installCtaUserAgent = (await headers()).get("user-agent") ?? "";
+  const bannerOwnsInstallAsk = iphoneBannerOwnsInstallAsk({
+    userAgent: installCtaUserAgent,
+    pathname: `/${stateParam}/${city}/${beachSlug}`,
+  });
+  const installCtaPlatform = getFirstTouchPlatform(installCtaUserAgent);
 
   // Only handle requests where the first param is a valid state slug
   // This excludes intent slugs like "surf-forecast", "beginner", etc.
@@ -289,12 +302,15 @@ export default async function GenericBeachDetailPage(props: PageProps) {
           }
           afterTabsContent={
             <div className="pt-2">
-              <InstallAppCtaSection
-                source={`beach-detail-${beachSlug}`}
-                surface="beach-detail"
-                placement="after-tabs"
-                beachName={beach.name}
-              />
+              {!bannerOwnsInstallAsk && (
+                <InstallAppCtaSection
+                  platform={installCtaPlatform}
+                  source={`beach-detail-${beachSlug}`}
+                  surface="beach-detail"
+                  placement="after-tabs"
+                  beachName={beach.name}
+                />
+              )}
               <Suspense fallback={null}>
                 <DeferredZineNearbySpots beach={beach} />
               </Suspense>

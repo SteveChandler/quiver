@@ -24,6 +24,8 @@ Last checked: 2026-06-29 UTC from the 2026-06-28 SEO weekly report and live App 
 ## Component Boundaries
 
 - `IphoneAppBanner` renders only for eligible iPhone non-Safari browsers and suppresses itself for Safari so Apple's native smart banner can own the install affordance.
+- Apple's native Smart App Banner owns Safari on iPhone and iPad; `IphoneAppBanner` owns non-Safari iPhone. The flagged beach sub-page `InstallAppCtaSection` serves only Safari iOS visitors with no in-page ask, derived from `getIphoneAppBannerDecision` so the two custom surfaces cannot both fire on that page.
+- That exclusion is enforced by `shouldShowBeachSubPageInstallCta` (sub-pages, flag-gated + iOS-only) and by `iphoneBannerOwnsInstallAsk` (beach detail's after-tabs section, ungated). Both derive from the same `getIphoneAppBannerDecision` call, so a change to the banner's browser rules moves both surfaces together. The beach-detail section is deliberately **not** flag-gated and **not** iOS-only — Android and desktop still receive it; only the non-Safari iPhone duplicate is suppressed.
 - `HeroSection`, `ForecastSection`, and `CTASection` are landing components, but they share the same App Store constants and iOS CTA analytics helper.
 
 ## Asset Guidance
