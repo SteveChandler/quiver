@@ -1,5 +1,6 @@
 import { resolveMajorEventHolds } from "@/lib/recommendations/major-event-hold/repository";
 import type { MajorEventHoldCandidate } from "@/lib/recommendations/major-event-hold/types";
+import { expectConsoleErrors } from "@/__tests__/setup/test-utils";
 
 const BEACH_A = "11111111-1111-4111-8111-111111111111";
 const BEACH_B = "22222222-2222-4222-8222-222222222222";
@@ -60,6 +61,55 @@ function makeClient(data: unknown, error: unknown = null) {
   return {
     rpc: jest.fn().mockResolvedValue({ data, error }),
   };
+}
+
+const diagnosticContext = {
+  candidateCount: 3,
+  beachCount: 2,
+  asOf: "2026-07-19T12:00:00.000Z",
+};
+
+function expectSanitizedDiagnosticPayload(payload: unknown): void {
+  expect(payload).toEqual(expect.any(Object));
+
+  for (const [key, value] of Object.entries(
+    payload as Record<string, unknown>,
+  )) {
+    if (key !== "issues") {
+      expect(["number", "string"]).toContain(typeof value);
+      continue;
+    }
+
+    expect(Array.isArray(value)).toBe(true);
+    for (const issue of value as unknown[]) {
+      expect(issue).toEqual(expect.any(Object));
+      expect(Object.keys(issue as Record<string, unknown>).sort()).toEqual([
+        "message",
+        "path",
+      ]);
+      const { message, path } = issue as {
+        message: unknown;
+        path: unknown;
+      };
+      expect(typeof message).toBe("string");
+      expect(Array.isArray(path)).toBe(true);
+      for (const segment of path as unknown[]) {
+        expect(["number", "string"]).toContain(typeof segment);
+      }
+    }
+  }
+}
+
+function expectDiagnostic(
+  consoleErrorSpy: jest.SpyInstance,
+  tag: string,
+  payload: unknown,
+): void {
+  expect(consoleErrorSpy).toHaveBeenCalledTimes(1);
+  const [actualTag, actualPayload] = consoleErrorSpy.mock.calls[0];
+  expect(actualTag).toBe(tag);
+  expect(actualPayload).toEqual(payload);
+  expectSanitizedDiagnosticPayload(actualPayload);
 }
 
 describe("major-event hold repository", () => {
@@ -137,32 +187,233 @@ describe("major-event hold repository", () => {
     });
   });
 
+  it("logs a sanitized diagnostic when the RPC returns an error", async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const rawError = {
+      message: "database unavailable",
+      code: "08006",
+      details: { connection: "primary" },
+    };
+
+    try {
+      const resolution = await resolveMajorEventHolds(candidates, {
+        client: makeClient([], rawError),
+        asOf: new Date(diagnosticContext.asOf),
+      });
+
+      expect(resolution).toEqual({ state: "unresolved", holds: [] });
+      expectDiagnostic(
+        consoleErrorSpy,
+        "[major-event-hold:repository:rpc-error]",
+        {
+          ...diagnosticContext,
+          error: rawError.message,
+          code: rawError.code,
+        },
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("logs a sanitized diagnostic for a non-array RPC response", async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const rawResponse = { rows: [rpcRow] };
+
+    try {
+      const resolution = await resolveMajorEventHolds(candidates, {
+        client: makeClient(rawResponse),
+        asOf: new Date(diagnosticContext.asOf),
+      });
+
+      expect(resolution).toEqual({ state: "unresolved", holds: [] });
+      expectDiagnostic(
+        consoleErrorSpy,
+        "[major-event-hold:repository:invalid-response-shape]",
+        diagnosticContext,
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("logs sanitized validation issues for an invalid hold row", async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const invalidRow = { ...rpcRow, version: 0 };
+
+    try {
+      const resolution = await resolveMajorEventHolds(candidates, {
+        client: makeClient([invalidRow]),
+        asOf: new Date(diagnosticContext.asOf),
+      });
+
+      expect(resolution).toEqual({ state: "unresolved", holds: [] });
+      expectDiagnostic(
+        consoleErrorSpy,
+        "[major-event-hold:repository:invalid-hold-row]",
+        {
+          ...diagnosticContext,
+          issues: expect.arrayContaining([
+            expect.objectContaining({
+              path: ["version"],
+              message: expect.any(String),
+            }),
+          ]),
+        },
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("logs sanitized identifiers when a hold is invalidated", async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const invalidatedRow = {
+      ...rpcRow,
+      scope_exposure_classes: ["fully_exposed"],
+    };
+
+    try {
+      const resolution = await resolveMajorEventHolds(candidates, {
+        client: makeClient([invalidatedRow]),
+        asOf: new Date(diagnosticContext.asOf),
+      });
+
+      expect(resolution).toEqual({ state: "unresolved", holds: [] });
+      expectDiagnostic(
+        consoleErrorSpy,
+        "[major-event-hold:repository:hold-invalidated]",
+        {
+          ...diagnosticContext,
+          recordId: rpcRow.record_id,
+          holdId: rpcRow.hold_id,
+        },
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("logs a sanitized hold ID for duplicate resolver rows", async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+
+    try {
+      const resolution = await resolveMajorEventHolds(candidates, {
+        client: makeClient([
+          rpcRow,
+          {
+            ...rpcRow,
+            record_id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+          },
+        ]),
+        asOf: new Date(diagnosticContext.asOf),
+      });
+
+      expect(resolution).toEqual({ state: "unresolved", holds: [] });
+      expectDiagnostic(
+        consoleErrorSpy,
+        "[major-event-hold:repository:duplicate-hold-ids]",
+        {
+          ...diagnosticContext,
+          holdId: rpcRow.hold_id,
+        },
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
+  it("logs a sanitized diagnostic when resolution throws", async () => {
+    const consoleErrorSpy = jest
+      .spyOn(console, "error")
+      .mockImplementation(() => {});
+    const thrownError = Object.assign(new Error("network failure"), {
+      raw: { response: "do not log" },
+    });
+    const client = {
+      rpc: jest.fn().mockRejectedValue(thrownError),
+    };
+
+    try {
+      const resolution = await resolveMajorEventHolds(candidates, {
+        client,
+        asOf: new Date(diagnosticContext.asOf),
+      });
+
+      expect(resolution).toEqual({ state: "unresolved", holds: [] });
+      expectDiagnostic(
+        consoleErrorSpy,
+        "[major-event-hold:repository:resolution-threw]",
+        {
+          ...diagnosticContext,
+          error: thrownError.message,
+        },
+      );
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
+  });
+
   it.each([
-    ["non-array payload", {}, null],
-    ["RPC error", [], { message: "database unavailable" }],
-    ["malformed row", [{ ...rpcRow, version: 0 }], null],
-    ["non-active status", [{ ...rpcRow, status: "cancelled" }], null],
+    [
+      "non-array payload",
+      {},
+      null,
+      /\[major-event-hold:repository:invalid-response-shape\]/,
+    ],
+    [
+      "RPC error",
+      [],
+      { message: "database unavailable" },
+      /\[major-event-hold:repository:rpc-error\]/,
+    ],
+    [
+      "malformed row",
+      [{ ...rpcRow, version: 0 }],
+      null,
+      /\[major-event-hold:repository:invalid-hold-row\]/,
+    ],
+    [
+      "non-active status",
+      [{ ...rpcRow, status: "cancelled" }],
+      null,
+      /\[major-event-hold:repository:invalid-hold-row\]/,
+    ],
     [
       "duplicate cohort scope",
       [{ ...rpcRow, affected_cohorts: ["beginner", "beginner"] }],
       null,
+      /\[major-event-hold:repository:invalid-hold-row\]/,
     ],
     [
       "duplicate beach scope",
       [{ ...rpcRow, scope_beach_ids: [BEACH_A, BEACH_A] }],
       null,
+      /\[major-event-hold:repository:invalid-hold-row\]/,
     ],
     [
       "unresolvable exposure scope",
       [{ ...rpcRow, scope_exposure_classes: ["fully_exposed"] }],
       null,
+      /\[major-event-hold:repository:hold-invalidated\]/,
     ],
     [
       "expiry beyond seven days",
       [{ ...rpcRow, expires_at: "2026-07-27T10:00:00.001Z" }],
       null,
+      /\[major-event-hold:repository:invalid-hold-row\]/,
     ],
-  ])("returns unresolved for %s", async (_name, data, error) => {
+  ])("returns unresolved for %s", async (_name, data, error, errorTag) => {
     const client = makeClient(data, error);
     await expect(
       resolveMajorEventHolds(candidates, {
@@ -170,6 +421,7 @@ describe("major-event hold repository", () => {
         asOf: new Date("2026-07-19T12:00:00.000Z"),
       }),
     ).resolves.toEqual({ state: "unresolved", holds: [] });
+    expectConsoleErrors([errorTag]);
   });
 
   it("returns unresolved when the RPC throws", async () => {
@@ -182,6 +434,9 @@ describe("major-event hold repository", () => {
         asOf: new Date("2026-07-19T12:00:00.000Z"),
       }),
     ).resolves.toEqual({ state: "unresolved", holds: [] });
+    expectConsoleErrors([
+      /\[major-event-hold:repository:resolution-threw\]/,
+    ]);
   });
 
   it("rejects duplicate hold IDs as an impossible resolver shape", async () => {
@@ -198,6 +453,9 @@ describe("major-event hold repository", () => {
         asOf: new Date("2026-07-19T12:00:00.000Z"),
       }),
     ).resolves.toEqual({ state: "unresolved", holds: [] });
+    expectConsoleErrors([
+      /\[major-event-hold:repository:duplicate-hold-ids\]/,
+    ]);
   });
 
   it.each([
@@ -220,6 +478,9 @@ describe("major-event hold repository", () => {
         asOf: new Date("2026-07-19T12:00:00.000Z"),
       }),
     ).resolves.toEqual({ state: "unresolved", holds: [] });
+    expectConsoleErrors([
+      /\[major-event-hold:repository:invalid-hold-row\]/,
+    ]);
   });
 
   it("does not call the RPC for an invalid candidate", async () => {
