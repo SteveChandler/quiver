@@ -14,12 +14,12 @@
 import {
   toBin5,
   binToDeg,
-  clamp01,
   useTerrainFactors,
   TERRAIN_BINS,
   DEGREES_PER_BIN,
   BeachTerrainFields,
 } from '@/types/terrain'
+import { clamp01 } from '@/lib/surf/scoring'
 
 describe('Terrain Type Utilities', () => {
   describe('toBin5()', () => {
@@ -267,11 +267,8 @@ describe('Terrain Type Utilities', () => {
         expect(clamp01(1 + Number.EPSILON)).toBe(1)
       })
 
-      it('should handle NaN gracefully (Math.max/min with NaN returns NaN)', () => {
-        // Math.max(0, Math.min(1, NaN)) = Math.max(0, NaN) = NaN
-        // This is expected JavaScript behavior, not a bug
-        const result = clamp01(NaN)
-        expect(Number.isNaN(result)).toBe(true)
+      it('should map NaN to 0', () => {
+        expect(clamp01(NaN)).toBe(0)
       })
 
       it('should handle Infinity by returning 1', () => {

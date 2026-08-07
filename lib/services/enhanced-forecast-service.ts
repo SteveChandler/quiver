@@ -59,7 +59,7 @@ import {
   StorageError,
   isNoaaInvalidPointError,
   isNoaaMarineForecastNotSupportedError,
-  withErrorHandling,
+  withForecastErrorHandling,
   withRetry,
   logError,
 } from "@/lib/errors/forecast-errors";
@@ -137,7 +137,7 @@ export class EnhancedForecastService {
     nowcastAnchor: NowcastAnchor | null = null,
     southOcSanoShadowZoneSnapshot: SouthOcSanoShadowZoneSnapshot | null = null,
   ): Promise<ComprehensiveForecastDiagnosticResult> {
-    return withErrorHandling(
+    return withForecastErrorHandling(
       async () => {
         // Validate input
         if (!beach.id || !beach.lat || !beach.lon) {

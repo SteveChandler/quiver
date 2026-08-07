@@ -6,7 +6,7 @@ import { buildBeachUrl } from "@/lib/utils/beach-url-utils";
 import { isValidStateSlug } from "@/lib/utils/beach-url-utils";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
-  normalizeState,
+  normalizeStateSlug,
   RESERVED_ONE_SEGMENT_SLUGS,
   getDbStateCandidatesForStateSlug,
   getStateDisplayNameFromSlug,
@@ -25,7 +25,7 @@ type StateRootPageProps = {
 
 export async function generateMetadata(props: StateRootPageProps) {
   const params = await props.params;
-  const stateSlug = normalizeState(params.intent);
+  const stateSlug = normalizeStateSlug(params.intent);
   if (!isValidStateSlug(stateSlug)) {
     return buildPageMetadata({
       title: "Page Not Found",
@@ -56,7 +56,7 @@ export async function generateMetadata(props: StateRootPageProps) {
  */
 export default async function StateRootPage(props: StateRootPageProps) {
   const params = await props.params;
-  const normalized = normalizeState(params.intent);
+  const normalized = normalizeStateSlug(params.intent);
 
   // Prevent collisions with one-segment routes (even though static routes win).
   if (RESERVED_ONE_SEGMENT_SLUGS.has(normalized)) notFound();

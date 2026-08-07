@@ -281,7 +281,7 @@ export class StorageError extends ForecastError {
 /**
  * Wrap async functions with error handling
  */
-export function withErrorHandling<T extends any[], R>(
+export function withForecastErrorHandling<T extends any[], R>(
   fn: (...args: T) => Promise<R>,
   errorContext: ForecastErrorContext = {}
 ) {
