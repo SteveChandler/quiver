@@ -1,3 +1,12 @@
+# Retired Document
+
+Status: Retired
+Reason: Re-engagement email delivery was retired and its implementation plan is historical.
+Retired on: 2026-08-07
+Replacement: None
+
+---
+
 # Re-engagement Email System
 
 > Automated email system that brings inactive users back when their home beach has excellent conditions.

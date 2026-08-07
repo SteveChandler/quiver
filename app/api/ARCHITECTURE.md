@@ -680,7 +680,7 @@ export const GET = withAuth(handler);
 **Query Parameters**:
 
 - `beach`: Beach name (e.g., "Ocean Beach")
-- `lat`, `lng`: Geographic coordinates (alternative to beach name)
+- `lat`, `lon`: Geographic coordinates (alternative to beach name)
 
 #### `/surf/insights/route.ts`
 

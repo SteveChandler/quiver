@@ -2,7 +2,7 @@
 
 This document is the canonical, high-level overview of Quiver's architecture and an index to detailed docs. It summarizes core patterns, policies, and the current product strategy.
 
-**Last Updated:** February 2026
+**Last Updated:** August 7, 2026
 
 ---
 
@@ -15,7 +15,7 @@ This document is the canonical, high-level overview of Quiver's architecture and
 - **Python/FastAPI** (ML Service on Fly.io)
 
 **App Status**: Production-ready foundation with comprehensive tests.
-**Current Focus**: User acquisition and viral growth (7 -> 1,000 users).
+**Current Focus**: User acquisition and sustainable growth.
 
 ---
 
@@ -23,8 +23,7 @@ This document is the canonical, high-level overview of Quiver's architecture and
 
 **Mission**: A community-driven, trail-style surf app where surfers can plan sessions, share experiences, and build meaningful connections.
 
-**Critical Challenge**: Technical excellence achieved (performance, features, testing), but 7 active users.
-**Strategic Pivot**: Shift from feature perfection to **Growth Engineering**.
+**Strategic Focus**: Continue improving the product while prioritizing sustainable user growth.
 
 - **Phase 3A (Weeks 1-8)**: Viral Foundation (Social sharing, summary generation).
 - **Phase 3B (Weeks 9-16)**: Network Effects (Community features, buddy finder).
@@ -38,7 +37,6 @@ This document is the canonical, high-level overview of Quiver's architecture and
 - `components/` - Reusable UI, DRY form components (see `components/ARCHITECTURE.md`)
 - `hooks/` - Custom React hooks (see `hooks/ARCHITECTURE.md`)
 - `lib/` - Utilities, services, auth, Supabase clients (see `lib/ARCHITECTURE.md`)
-- `ml/` - Python ML service for bias correction (see `ml/ARCHITECTURE.md`)
 - `supabase/` - DB migrations, RLS, performance (see `supabase/ARCHITECTURE.md`)
 - `types/` - TypeScript domain models (see `types/ARCHITECTURE.md`)
 - `test-utils/` - Testing helpers (see `test-utils/ARCHITECTURE.md`)
@@ -147,14 +145,6 @@ condition-alert sender.
 - Welcome and engagement sends use `email_send_log` for delivery logging and
   deduplication.
 
-**Documentation:**
-| Document | Description |
-|----------|-------------|
-| [Email Core Loop Design](plans/completed/2026-01-20-email-core-loop-design.md) | Original design philosophy |
-| [Re-engagement Email](features/REENGAGEMENT_EMAIL.md) | Historical design for the retired re-engagement system |
-
----
-
 ### ML System
 
 **Status**: Production (Fly.io)
@@ -162,9 +152,8 @@ condition-alert sender.
 The ML bias correction pipeline improves NOAA wave height forecast accuracy using XGBoost v3 with terrain-aware features.
 
 **Components:**
-- **Python ML Service** (`ml/`): FastAPI service on Fly.io at `https://quiver-ml.fly.dev`
-- **TypeScript Parsers** (`lib/ml/`): NOAA text parsing utilities
-- **Cron Jobs** (`app/api/cron/ml/`): Batch correction, ground truth backfill, and weekly retrain
+- **External ML Service**: Seaside service on Fly.io at `https://quiver-ml.fly.dev`
+- **Forecast Data**: Forecast and observation data are stored in Supabase for serving and evaluation
 
 **Key Features (v3):**
 - **Terrain Factors**: `swell_access_factors` and `wind_exposure_factors` per-beach (72 directional bins)
@@ -184,9 +173,6 @@ NOAA Forecast -> Parse (TS) -> Correct (Python) -> Store (Supabase)
 | Document | Description |
 |----------|-------------|
 | [ML Bias Correction](features/ML_BIAS_CORRECTION.md) | Feature overview, schema, integration |
-| [ML Service](../ml/ARCHITECTURE.md) | Python FastAPI service, XGBoost model |
-| [TypeScript Module](../lib/ml/ARCHITECTURE.md) | Parsing utilities |
-| [Cron Jobs](../app/api/cron/ml/ARCHITECTURE.md) | Vercel cron configuration |
 
 ---
 
@@ -212,7 +198,6 @@ The terrain analysis system encodes beach-specific wind shelter and swell wrap b
 |----------|-------------|
 | [Terrain Architecture](../scripts/terrain/ARCHITECTURE.md) | Full system documentation |
 | [Surf Scoring](../lib/surf/ARCHITECTURE.md) | Scoring integration details |
-| [Design Document](plans/2026-01-20-terrain-geometry-scoring-design.md) | Original design specification |
 | [Type Definitions](../types/terrain.ts) | TypeScript types and constants |
 
 **Data Flow:**
@@ -397,7 +382,7 @@ For detailed algorithm documentation, see `lib/services/ARCHITECTURE.md`.
 | **Features** | [Attribution Tracking](features/ATTRIBUTION_TRACKING.md) | UTM and referral tracking |
 | **Features** | [City Editorial](features/CITY_EDITORIAL_CONTENT.md) | City page content system |
 | **Features** | [ML Bias Correction](features/ML_BIAS_CORRECTION.md) | Wave forecast ML correction |
-| **Features** | [Re-engagement Email](features/REENGAGEMENT_EMAIL.md) | Historical design for the retired re-engagement system |
+| **Features** | [Re-engagement Email](archive/REENGAGEMENT_EMAIL.md) | Historical design for the retired re-engagement system |
 | **Guides** | [Adding States](guides/ADDING_NEW_STATES.md) | Regional expansion guide |
 | **Components** | [Intent Components](../components/intent/ARCHITECTURE.md) | Tide intent page components |
 | **Components** | [Beginner Components](../components/beginner/ARCHITECTURE.md) | Beginner page components |
@@ -409,29 +394,29 @@ For detailed algorithm documentation, see `lib/services/ARCHITECTURE.md`.
 
 ### Mobile Architecture
 
-Two mobile strategies coexist:
+Two mobile surfaces coexist:
 
-#### Capacitor Web Wrapper (this repo)
-- **Approach**: Capacitor 8 shell wrapping the Next.js web app
-- **Key Components**: PWA manifest, Service Worker (forecast caching), Capacitor bridge
-- **Use case**: Full web feature parity on mobile, push notifications via FCM
+#### PWA Web App (this repo)
+- **Approach**: Next.js web app installable as a PWA
+- **Key Components**: PWA manifest, service worker, and web push APIs
+- **Use case**: Full web feature parity on mobile browsers and installed PWAs
 
 #### Expo Native App (`../quiver-native`)
 - **Repo**: Separate Git repo — `quiver-native`
-- **Stack**: Expo 55, React Native 0.83, Tamagui, TanStack Query, Zustand, React Navigation 7
+- **Stack**: Expo 55, React Native 0.83, TanStack Query, Zustand, React Navigation 7
 - **Backend**: Shares same Supabase instance (DB + Auth + Storage). Also calls this repo's Next.js API routes for forecasts/surf calls.
 - **Docs**: Has its own `AGENTS.md`, model context, `docs/ARCHITECTURE.md`, and inline `ARCHITECTURE.md` files
 - **Build**: EAS Build (dev/preview/production profiles) or local `npx expo run:ios/android`
 - **Bundle ID**: `app.quiversurf.native`
 
 **Key differences from web:**
-| Aspect | Web (Capacitor) | Native (Expo) |
+| Aspect | Web (PWA) | Native (Expo) |
 |--------|----------------|---------------|
 | Data fetching | `useDataFetcher` / SWR | TanStack Query |
-| Styling | Tailwind + Radix UI | Tamagui + StyleSheet |
+| Styling | Tailwind + Radix UI | React Native styling |
 | State | React Context | Zustand (auth) + TanStack Query (server) |
-| Coordinates | `center_lat`/`center_lng` (DB), `latitude`/`longitude` (props) | `lat`/`lon` |
-| Auth | Clerk + Supabase | Supabase Auth + SecureStore |
+| Coordinates | `lat`/`lon` for beach rows; `lon`/`longitude` in new API/component shapes | `lat`/`lon` |
+| Auth | Supabase Auth | Supabase Auth + SecureStore |
 
 ---
 
