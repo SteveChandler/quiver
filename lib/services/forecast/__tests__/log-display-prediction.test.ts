@@ -17,7 +17,16 @@ import { WAVE_HEIGHT_SOURCE_TAGS } from "@/lib/utils/wave-height-source";
 // Capture supabase calls. We swap the service-role factory so we observe the
 // .from("ml_predictions_log").upsert(payload, opts) flow.
 const upsertMock: jest.Mock = jest.fn();
-const fromMock: jest.Mock = jest.fn(() => ({ upsert: upsertMock }));
+// Phase 21 D-18: `update` is exposed on the stub ONLY so a test can prove the
+// writer never reaches for it. A mutation that reintroduced a trusted sidecar
+// UPDATE would call this.
+const updateMock: jest.Mock = jest.fn(() => ({
+  eq: jest.fn(() => ({ eq: jest.fn() })),
+}));
+const fromMock: jest.Mock = jest.fn(() => ({
+  upsert: upsertMock,
+  update: updateMock,
+}));
 
 jest.mock("@/lib/supabase", () => ({
   createServiceRoleClient: () => ({
@@ -592,5 +601,69 @@ describe("logDisplayPredictions", () => {
     expect(payload[0].offset_corrected_display_height_m).toBe(
       payload[0].raw_display_height_m
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 21 D-18/D-23: first-write snapshots are immutable and trusted-free.
+//
+// The trusted layer reads these rows and links them by `prediction_snapshot_id`
+// inside `persist_trusted_forecast_build`. It must never write back here, or a
+// snapshot stops being the honest record of what was displayed at issue time.
+// ---------------------------------------------------------------------------
+
+describe("first-write immutability against the trusted layer (D-18)", () => {
+  beforeEach(() => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
+    process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+    upsertMock.mockReset();
+    updateMock.mockClear();
+    fromMock.mockClear();
+    upsertMock.mockResolvedValue({ data: null, error: null });
+  });
+
+  it("never issues an UPDATE against ml_predictions_log", async () => {
+    await logDisplayPredictions([sampleRow(), sampleRow()]);
+
+    expect(upsertMock).toHaveBeenCalledTimes(1);
+    expect(updateMock).not.toHaveBeenCalled();
+    // The only conflict behaviour permitted is DO NOTHING.
+    expect(upsertMock.mock.calls[0][1]).toMatchObject({
+      ignoreDuplicates: true,
+    });
+  });
+
+  it("carries no trusted-forecast sidecar field into the snapshot payload", async () => {
+    await logDisplayPredictions([sampleRow()]);
+
+    const payload = upsertMock.mock.calls[0][0];
+    const serialized = JSON.stringify(payload);
+    for (const sentinel of [
+      "trusted",
+      "decision_id",
+      "application_id",
+      "build_key",
+      "policy_version",
+      "primary_issue_id",
+      "applied_delta_ft",
+      "provider_lineage",
+      "revision_hash",
+      "issue_identity_key",
+      "parser_version",
+      "wavecast",
+    ]) {
+      expect(serialized).not.toContain(sentinel);
+    }
+    for (const key of Object.keys(payload[0])) {
+      expect(key).not.toMatch(/trusted/i);
+    }
+  });
+
+  it("the module exports no trusted mutation helper", async () => {
+    const moduleExports = await import("../log-display-prediction");
+    expect(
+      Object.keys(moduleExports).filter((name) => /trusted/i.test(name)),
+    ).toEqual([]);
+    expect(moduleExports).not.toHaveProperty("syncTrustedForecastApplications");
   });
 });

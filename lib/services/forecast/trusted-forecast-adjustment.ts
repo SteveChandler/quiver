@@ -180,6 +180,66 @@ export function localDateInTimeZone(instant: Date, timeZone: string): string {
   return formatter.format(instant);
 }
 
+const LOCAL_HOUR_FORMATTERS = new Map<string, Intl.DateTimeFormat>();
+
+/**
+ * The beach's local clock hour for an instant, 0-23.
+ *
+ * Used only to place a slot inside a stated day part; the local *date* still
+ * comes from `localDateInTimeZone`, so DST-length days are unaffected.
+ */
+function localHourInTimeZone(instant: Date, timeZone: string): number {
+  let formatter = LOCAL_HOUR_FORMATTERS.get(timeZone);
+  if (formatter === undefined) {
+    formatter = new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      hour: "2-digit",
+      hour12: false,
+    });
+    LOCAL_HOUR_FORMATTERS.set(timeZone, formatter);
+  }
+  // "24" is the en-GB midnight rendering under hour12:false.
+  return Number(formatter.format(instant)) % 24;
+}
+
+/**
+ * Which stated day part a slot falls in, using the NWS public-forecast
+ * convention 21-01 stamps on `valid_start_at`/`valid_end_at`: day is
+ * 06:00-18:00 local, night is 18:00-06:00.
+ */
+export function slotDayPart(
+  instant: Date,
+  timeZone: string,
+): Exclude<TrustedForecastDayPart, "all_day"> {
+  const hour = localHourInTimeZone(instant, timeZone);
+  return hour >= 6 && hour < 18 ? "day" : "night";
+}
+
+/**
+ * D-17/D-14 pairing correction (21-03 critic ruling 2).
+ *
+ * `day_part` gated conflict eligibility but not application, so a `day`-only
+ * primary applied its delta to every night slot of the local day while a
+ * disjoint `night` row from another lineage stayed exempt from the conflict
+ * check — the engine ignored the night disagreement AND adjusted night slots
+ * with a day-only call. The exemption is correct on its own terms (NWS states
+ * "Today 2-4 ft" and "Tonight 8-12 ft" as two windows, not a 6-foot
+ * disagreement), so the application side is what is restricted here: a primary
+ * may only move the part of the day it actually spoke about.
+ *
+ * The comparison basis is deliberately unchanged — the trusted and Quiver
+ * maxima are both still taken across the whole local day, which is the rule the
+ * critic accepted; only its pairing with unrestricted application was rejected.
+ */
+export function slotIsInPrimaryDayPart(
+  slot: TrustedForecastSlot,
+  primaryDayPart: TrustedForecastDayPart,
+  timeZone: string,
+): boolean {
+  if (primaryDayPart === "all_day") return true;
+  return slotDayPart(slot.forecastAt, timeZone) === primaryDayPart;
+}
+
 /** D-16: raw hours, compared before any rounding. 0 and 168 are eligible. */
 export function isEligibleHorizon(forecastHorizonHours: number): boolean {
   return (
@@ -442,6 +502,7 @@ export function buildTrustedForecastDecisions(
     if (appliedDeltaFt === 0) continue;
 
     for (const slot of group.slots) {
+      if (!slotIsInPrimaryDayPart(slot, primary.dayPart, timeZone)) continue;
       const slotBaseline =
         slot.baselineMaxFaceFt === null ||
         !Number.isFinite(slot.baselineMaxFaceFt)

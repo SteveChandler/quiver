@@ -4,7 +4,14 @@ import type { ForecastInputs } from "../forecast-builder";
 import type { Beach } from "@/types/database";
 
 const insertMock: jest.Mock = jest.fn().mockResolvedValue({ data: null, error: null });
-const fromMock: jest.Mock = jest.fn(() => ({ insert: insertMock }));
+// The Phase 21 trusted layer resolves coverage beach slugs through the same
+// service-role client. Answering with no rows keeps this suite on the
+// "coverage unavailable -> baseline" path, which is what an unconfigured
+// environment does.
+const fromMock: jest.Mock = jest.fn(() => ({
+  insert: insertMock,
+  select: () => ({ in: async () => ({ data: [], error: null }) }),
+}));
 
 jest.mock("@/lib/supabase", () => ({
   createServiceRoleClient: () => ({

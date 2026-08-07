@@ -1844,3 +1844,154 @@ describe("fixture provenance ratchet", () => {
     ).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 21-04: day-part application restriction (21-03 critic ruling 2)
+//
+// `day_part` gated conflict eligibility but not APPLICATION, so a `day`-only
+// primary applied its delta to every night slot of the local day while a
+// disjoint `night` row from another lineage stayed exempt from the conflict
+// check. The exemption is right on its own terms, so the application side is
+// what 21-04 restricts.
+// ---------------------------------------------------------------------------
+
+describe("D-17/D-14: a primary may only move the part of the day it spoke about", () => {
+  /** 06:00 HST on the day the captured HFO morning product covers. */
+  const HAWAII_DAY_SLOT_HOURS = [0, 3, 6, 9, 12, 15, 18, 21];
+
+  function hawaiiSlots(): TrustedForecastSlot[] {
+    // 2026-08-06T10:00Z is 00:00 HST (Hawaii has no DST).
+    const midnightHst = Date.parse("2026-08-06T10:00:00Z");
+    return HAWAII_DAY_SLOT_HOURS.map((hour) => ({
+      forecastAt: new Date(midnightHst + hour * 3_600_000),
+      forecastHorizonHours: hour,
+      baselineMaxFaceFt: 5,
+    }));
+  }
+
+  const KAUAI_NORTH: TrustedForecastCoverageEntry = {
+    beachId: "77777777-7777-4777-8777-777777777777",
+    localTimezone: "Pacific/Honolulu",
+    spotRegionKeys: [],
+    regionalRegionKeys: ["hawaii"],
+    compatibleExposures: ["kauai/NORTH"],
+    regionalAuthorityLineages: ["nws_hfo"],
+  };
+
+  it("a day-only NWS primary claims only the local day slots, never the night ones", () => {
+    // Real row: kauai/NORTH, day_part 'day', 0-2 ft, valid 06:00-18:00 HST.
+    const dayRow = realIssueWhere("nws_hawaii_srf_live_morning_issuance", {
+      exposure: "kauai/NORTH",
+      dayPart: "day",
+      validLocalDate: "2026-08-06",
+    });
+    expect(dayRow.dayPart).toBe("day");
+
+    const result = buildTrustedForecastDecisions({
+      coverage: KAUAI_NORTH,
+      issues: [dayRow],
+      slots: hawaiiSlots(),
+      buildAnchorAt: new Date(dayRow.issuedAt.getTime() + 3_600_000),
+    });
+
+    expect(result.decisions).toHaveLength(1);
+    expect(result.decisions[0]).toMatchObject({
+      localDate: "2026-08-06",
+      status: "applied",
+      trustedMinFaceFt: 0,
+      trustedMaxFaceFt: 2,
+      appliedDeltaFt: -0.5,
+    });
+
+    // 06, 09, 12 and 15 HST are inside the stated window; 00, 03, 18 and 21 are
+    // not, and a day-only call must not move them.
+    const claimedHours = result.applications.map((application) =>
+      Number(
+        new Intl.DateTimeFormat("en-GB", {
+          timeZone: "Pacific/Honolulu",
+          hour: "2-digit",
+          hour12: false,
+        }).format(new Date(application.forecastAt)),
+      ) % 24,
+    );
+    expect(claimedHours.sort((a, b) => a - b)).toEqual([6, 9, 12, 15]);
+  });
+
+  it("a night-only primary claims only the night slots", () => {
+    const nightRow = realIssueWhere("nws_hawaii_srf_live_evening_issuance", {
+      exposure: "kauai/NORTH",
+      dayPart: "night",
+      validLocalDate: "2026-08-06",
+    });
+    expect(nightRow.dayPart).toBe("night");
+
+    const result = buildTrustedForecastDecisions({
+      coverage: KAUAI_NORTH,
+      issues: [nightRow],
+      slots: hawaiiSlots(),
+      buildAnchorAt: new Date(nightRow.issuedAt.getTime() + 3_600_000),
+    });
+
+    const claimedHours = result.applications
+      .map((application) =>
+        Number(
+          new Intl.DateTimeFormat("en-GB", {
+            timeZone: "Pacific/Honolulu",
+            hour: "2-digit",
+            hour12: false,
+          }).format(new Date(application.forecastAt)),
+        ) % 24,
+      )
+      .sort((a, b) => a - b);
+    expect(claimedHours).toEqual([0, 3, 18, 21]);
+  });
+
+  it("an all_day primary still claims every eligible slot", () => {
+    // WaveCast's regional Hawaii page states whole days, and nothing about the
+    // restriction may narrow those.
+    const allDayRow = realIssueWhere("wavecast_regional_live_hawaii", {
+      exposure: "NNW",
+      validLocalDate: "2026-08-06",
+    });
+    expect(allDayRow.dayPart).toBe("all_day");
+
+    const result = buildTrustedForecastDecisions({
+      coverage: {
+        ...KAUAI_NORTH,
+        compatibleExposures: ["NNW"],
+        regionalAuthorityLineages: [],
+      },
+      issues: [allDayRow],
+      slots: hawaiiSlots(),
+      buildAnchorAt: new Date(allDayRow.issuedAt.getTime() + 3_600_000),
+    });
+
+    expect(result.decisions[0]?.status).toBe("applied");
+    expect(result.applications).toHaveLength(HAWAII_DAY_SLOT_HOURS.length);
+  });
+
+  it("the daily maximum is still taken across the whole local day", () => {
+    // The critic accepted the daily-maximum rule and rejected only its pairing
+    // with unrestricted application, so the comparison basis must not narrow.
+    const dayRow = realIssueWhere("nws_hawaii_srf_live_morning_issuance", {
+      exposure: "kauai/NORTH",
+      dayPart: "day",
+      validLocalDate: "2026-08-06",
+    });
+    const slots = hawaiiSlots().map((slot, index) => ({
+      ...slot,
+      // Only a NIGHT slot carries the day's biggest baseline.
+      baselineMaxFaceFt: index === 0 ? 9 : 5,
+    }));
+
+    const result = buildTrustedForecastDecisions({
+      coverage: KAUAI_NORTH,
+      issues: [dayRow],
+      slots,
+      buildAnchorAt: new Date(dayRow.issuedAt.getTime() + 3_600_000),
+    });
+
+    expect(result.decisions[0]?.baselineMaxFaceFt).toBe(9);
+    expect(result.applications).toHaveLength(4);
+  });
+});

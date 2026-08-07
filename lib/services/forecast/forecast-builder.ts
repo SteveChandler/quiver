@@ -32,6 +32,41 @@ import {
   type DisplayPredictionRow,
 } from "./log-display-prediction";
 import {
+  buildTrustedForecastDecisions,
+  isEligibleHorizon,
+  isTrustedForecastAdjustmentEnabled,
+  localDateInTimeZone,
+  type TrustedForecastSlot,
+} from "./trusted-forecast-adjustment";
+import {
+  TRUSTED_FORECAST_POLICY_VERSION,
+  coverageEntryForBeach,
+  type TrustedForecastCoverageEntry,
+} from "./trusted-forecast-policy";
+import {
+  TrustedForecastCoverageError,
+  partitionIssuesByCoverageTimezone,
+  resolveTrustedForecastCoveragePolicy,
+  trustedForecastCoverageBeachSlugs,
+} from "./trusted-forecast-coverage";
+import {
+  TrustedForecastRepositoryError,
+  createSupabaseTrustedForecastReadStore,
+  loadBeachIdsBySlug,
+  loadEligibleTrustedForecastIssues,
+  loadTrustedForecastApplications,
+  loadTrustedForecastDecisions,
+  type TrustedForecastReadStore,
+} from "./trusted-forecast-repository";
+import {
+  TRUSTED_FORECAST_BUILD_SCHEMA_VERSION,
+  createSupabaseTrustedForecastPersistenceStore,
+  persistTrustedForecastBuild,
+  toTrustedForecastSnapshotPayload,
+  trustedForecastBuildKey,
+  type TrustedForecastPersistenceStore,
+} from "./trusted-forecast-persistence";
+import {
   buildGfsWaveShadowRows,
   logGfsWaveShadowRows,
   type GfsWaveShadowForecast,
@@ -240,9 +275,45 @@ export interface ForecastInputs {
   feedbackCalibrationCandidate?: FeedbackHeightCalibrationCandidate | null;
   /** Optional report-only GFS-Wave issue-time source shadow data. */
   gfsWaveData?: GfsWaveShadowForecast | null;
+  /**
+   * Server-private trusted-forecast stores. Both default to the service-role
+   * Supabase implementations; they exist as inputs so the receipt state machine
+   * is exercised without a live database.
+   */
+  trustedForecastReadStore?: TrustedForecastReadStore;
+  trustedForecastPersistenceStore?: TrustedForecastPersistenceStore;
+}
+
+/**
+ * One forecast slot as the trusted layer sees it: the post-offset display value
+ * (D-14's approved comparison layer), the raw horizon (D-16), and enough
+ * formatting context to re-render the public string without re-deriving it.
+ */
+interface TrustedSlotRecord {
+  /** Index into the forecasts array this slot produced. */
+  readonly forecastIndex: number;
+  readonly forecastAt: Date;
+  /** Raw, unrounded hours from the build anchor. Never pre-rounded (D-16). */
+  readonly forecastHorizonHours: number;
+  /** Display height after base transform, handoff blend and beach offset. */
+  readonly postOffsetFt: number | null;
+  readonly rangeSpread: number | null;
+  /** Index into the snapshot buffer, so an application can carry its snapshot. */
+  readonly snapshotIndex: number | null;
 }
 
 const log = createContextLogger("ForecastBuilder");
+
+let warnedTrustedServiceRoleMissing = false;
+/** Coverage is process-wide config, so one report per cause is enough. */
+const reportedTrustedCoverageFailures = new Set<string>();
+
+function hasServiceRoleConfig(): boolean {
+  return (
+    (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().length > 0 &&
+    (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim().length > 0
+  );
+}
 
 /**
  * Read the per-beach offset config from a Beach row. The columns
@@ -372,6 +443,10 @@ export class ForecastBuilder {
     // feedback-loop invariant) inside buildSingleForecast and flushed after
     // the row loop completes.
     const snapshotBuffer: DisplayPredictionRow[] = [];
+    // Post-offset, pre-feedback slot records for the trusted layer. Collected
+    // during the row loop; consumed only after the loop, so a trusted decision
+    // always sees the complete local day.
+    const trustedSlotBuffer: TrustedSlotRecord[] = [];
     const gfsWaveForecastTimes: Date[] = [];
     const handoffBlendEnabled = isForecastHandoffBlendEnabled();
     const handoffBlendState = createForecastHandoffBlendState();
@@ -483,6 +558,8 @@ export class ForecastBuilder {
         heightOffset: resolvedOffset ?? null,
         feedbackCalibrationCandidate: resolvedFeedbackCalibration ?? null,
         snapshotBuffer,
+        trustedSlotBuffer,
+        forecastIndex: i,
         calibrationCoverage,
         handoffBlendState,
         handoffBlendEnabled,
@@ -516,6 +593,20 @@ export class ForecastBuilder {
       }
     }
 
+    // Trusted external-forecaster adjustment. Runs AFTER the snapshot flush so
+    // a claimed slot's first-write row already exists, and after the whole row
+    // loop so a decision always sees the complete local day. Nothing public is
+    // mutated inside it until a matching build receipt is in hand (D-19..D-21).
+    await this.applyTrustedForecastAdjustments({
+      beach,
+      buildAnchorAt: now,
+      forecasts,
+      trustedSlots: trustedSlotBuffer,
+      snapshotBuffer,
+      readStore: inputs.trustedForecastReadStore,
+      persistenceStore: inputs.trustedForecastPersistenceStore,
+    });
+
     if (gfsWaveData) {
       const gfsRows = buildGfsWaveShadowRows({
         beachId: beach.id,
@@ -535,6 +626,237 @@ export class ForecastBuilder {
     }
 
     return forecasts;
+  }
+
+  /**
+   * Apply trusted external-forecaster adjustments to an already-built set of
+   * forecast rows (MFA-05, MFA-06, D-14 through D-24).
+   *
+   * Fail behaviour, in order of how it is decided:
+   *  - serving disabled by explicit `false`, no coverage for this beach, or no
+   *    eligible slots -> baseline, byte-identical;
+   *  - coverage that cannot be resolved -> named error log, baseline;
+   *  - a definite structured rejection from the RPC -> counted warn, baseline;
+   *  - anything else (transport ambiguity, uniqueness collision that cannot be
+   *    reconciled, unreadable private rows) -> the error propagates, because
+   *    serving baseline would silently claim the adjustment never happened.
+   */
+  private async applyTrustedForecastAdjustments(args: {
+    beach: Beach;
+    buildAnchorAt: Date;
+    forecasts: EnhancedForecastWithRawData[];
+    trustedSlots: TrustedSlotRecord[];
+    snapshotBuffer: DisplayPredictionRow[];
+    readStore?: TrustedForecastReadStore;
+    persistenceStore?: TrustedForecastPersistenceStore;
+  }): Promise<void> {
+    // D-24: serving defaults on and is independent of ingestion; only an
+    // explicit `false` disables it.
+    if (!isTrustedForecastAdjustmentEnabled()) return;
+
+    const eligibleSlots = args.trustedSlots.filter((slot) =>
+      isEligibleHorizon(slot.forecastHorizonHours),
+    );
+    if (eligibleSlots.length === 0) return;
+
+    // Mirrors logDisplayPredictions' env gate. `createServiceRoleClient()`
+    // throws outright when the service-role config is absent, and an
+    // unconfigured environment is "trusted serving is not set up here", not
+    // "private rows are unreadable" — the second is retriable, the first would
+    // only take forecast generation down with it.
+    if (args.readStore === undefined && !hasServiceRoleConfig()) {
+      if (!warnedTrustedServiceRoleMissing) {
+        warnedTrustedServiceRoleMissing = true;
+        log.warn("trusted_forecast_service_role_missing", {
+          beachId: args.beach.id,
+        });
+      }
+      return;
+    }
+
+    const readStore =
+      args.readStore ?? createSupabaseTrustedForecastReadStore();
+
+    let entry: TrustedForecastCoverageEntry | null;
+    try {
+      const beachIdBySlug = await loadBeachIdsBySlug(
+        readStore,
+        trustedForecastCoverageBeachSlugs(),
+      );
+      entry = coverageEntryForBeach(
+        resolveTrustedForecastCoveragePolicy(beachIdBySlug),
+        args.beach.id,
+      );
+    } catch (err) {
+      // Resolving coverage is CONFIGURATION lookup, not private trusted
+      // evidence: failing it means "trusted serving is not available here",
+      // which is a different thing from "private rows are unreadable". The
+      // evidence reads below keep their retriable throw. Either way it is loud
+      // and named — an unresolvable coverage table otherwise produces zero
+      // adjustments and no error, indistinguishable from having no evidence.
+      const code =
+        err instanceof TrustedForecastCoverageError
+          ? err.code
+          : err instanceof TrustedForecastRepositoryError
+            ? err.code
+            : null;
+      if (code === null) throw err;
+      if (!reportedTrustedCoverageFailures.has(code)) {
+        reportedTrustedCoverageFailures.add(code);
+        log.error("trusted_forecast_coverage_unavailable", { code });
+      }
+      return;
+    }
+    if (entry === null) return;
+
+    const timeZone = entry.localTimezone;
+    const localDates = [
+      ...new Set(
+        eligibleSlots.map((slot) =>
+          localDateInTimeZone(slot.forecastAt, timeZone),
+        ),
+      ),
+    ];
+
+    const [loadedIssues, existingDecisions] = await Promise.all([
+      loadEligibleTrustedForecastIssues(readStore, {
+        entry,
+        localDates,
+      }),
+      loadTrustedForecastDecisions(readStore, {
+        beachId: entry.beachId,
+        localDates,
+      }),
+    ]);
+
+    // D-13 soundness: slots are grouped by the beach's IANA date while
+    // `valid_local_date` is stamped in the source's zone and matched by string
+    // equality. A row from another zone is dropped rather than compared.
+    const { matched: issues, mismatchedCount } =
+      partitionIssuesByCoverageTimezone(entry, loadedIssues);
+    if (mismatchedCount > 0) {
+      log.warn("trusted_forecast_timezone_mismatch", {
+        beachId: entry.beachId,
+        mismatchedCount,
+      });
+    }
+
+    const engineSlots: TrustedForecastSlot[] = eligibleSlots.map((slot) => ({
+      forecastAt: slot.forecastAt,
+      forecastHorizonHours: slot.forecastHorizonHours,
+      baselineMaxFaceFt: slot.postOffsetFt,
+    }));
+
+    const result = buildTrustedForecastDecisions({
+      coverage: entry,
+      issues,
+      slots: engineSlots,
+      buildAnchorAt: args.buildAnchorAt,
+      existingDecisions,
+    });
+
+    const slotByInstant = new Map<string, TrustedSlotRecord>();
+    for (const slot of eligibleSlots) {
+      slotByInstant.set(slot.forecastAt.toISOString(), slot);
+    }
+
+    // A durable decision is reused exactly: the slots it already claimed and
+    // the delta it already applied come from `trusted_forecast_applications`,
+    // never from a recomputation, and no second application row is emitted.
+    const reusedForecastAts = result.reusedDecisions.flatMap((decision) =>
+      decision.status === "applied" ? [...decision.governedForecastAts] : [],
+    );
+    const durableApplications = await loadTrustedForecastApplications(
+      readStore,
+      { beachId: entry.beachId, forecastAts: reusedForecastAts },
+    );
+
+    if (result.decisions.length > 0) {
+      const snapshots = result.applications.flatMap((application) => {
+        const slot = slotByInstant.get(application.forecastAt);
+        if (slot?.snapshotIndex == null) return [];
+        const row = args.snapshotBuffer[slot.snapshotIndex];
+        return row === undefined ? [] : [toTrustedForecastSnapshotPayload(row)];
+      });
+
+      const payload = {
+        schemaVersion: TRUSTED_FORECAST_BUILD_SCHEMA_VERSION,
+        policyVersion: TRUSTED_FORECAST_POLICY_VERSION,
+        buildKey: trustedForecastBuildKey({
+          beachId: entry.beachId,
+          buildAnchorAt: args.buildAnchorAt,
+          policyVersion: TRUSTED_FORECAST_POLICY_VERSION,
+        }),
+        buildAnchorAt: args.buildAnchorAt.toISOString(),
+        decisions: result.decisions,
+        applications: result.applications,
+        alerts: result.alerts,
+        snapshots,
+        expectedDecisionCount: result.decisions.length,
+        expectedApplicationCount: result.applications.length,
+        expectedAlertCount: result.alerts.length,
+        expectedSnapshotCount: snapshots.length,
+      };
+
+      const outcome = await persistTrustedForecastBuild({
+        store:
+          args.persistenceStore ??
+          createSupabaseTrustedForecastPersistenceStore(),
+        payload,
+      });
+
+      if (outcome.kind === "definite_rejection") {
+        // Nothing was written and baseline is byte-identical, so serving it is
+        // safe — but it is never silent.
+        log.warn("trusted_forecast_build_rejected", {
+          beachId: entry.beachId,
+          code: outcome.code,
+          decisionCount: payload.expectedDecisionCount,
+          applicationCount: payload.expectedApplicationCount,
+          alertCount: payload.expectedAlertCount,
+        });
+        return;
+      }
+
+      for (const application of result.applications) {
+        this.applyTrustedSlotDelta(
+          args.forecasts,
+          slotByInstant.get(application.forecastAt),
+          application.appliedDeltaFt,
+        );
+      }
+    }
+
+    for (const [forecastAt, appliedDeltaFt] of durableApplications) {
+      if (appliedDeltaFt === 0) continue;
+      this.applyTrustedSlotDelta(
+        args.forecasts,
+        slotByInstant.get(forecastAt),
+        appliedDeltaFt,
+      );
+    }
+  }
+
+  /**
+   * Re-render one claimed slot from its post-offset baseline plus the approved
+   * delta.
+   *
+   * D-17: rebuilding from the post-offset value is what suppresses the session
+   * feedback layer on a claimed slot. Unclaimed slots are never touched, so
+   * their existing feedback behaviour is preserved exactly.
+   */
+  private applyTrustedSlotDelta(
+    forecasts: EnhancedForecastWithRawData[],
+    slot: TrustedSlotRecord | undefined,
+    appliedDeltaFt: number,
+  ): void {
+    if (slot === undefined || slot.postOffsetFt == null) return;
+    const forecast = forecasts[slot.forecastIndex];
+    if (forecast === undefined) return;
+    forecast.wave_height = formatDisplayHeightFt({
+      numericFt: Math.max(0, slot.postOffsetFt + appliedDeltaFt),
+      rangeSpread: slot.rangeSpread,
+    });
   }
 
   /**
@@ -593,6 +915,8 @@ export class ForecastBuilder {
     heightOffset: BeachHeightOffsetRow | null;
     feedbackCalibrationCandidate: FeedbackHeightCalibrationCandidate | null;
     snapshotBuffer: DisplayPredictionRow[];
+    trustedSlotBuffer: TrustedSlotRecord[];
+    forecastIndex: number;
     calibrationCoverage: CalibrationCoverage;
     handoffBlendState: ForecastHandoffBlendState;
     handoffBlendEnabled: boolean;
@@ -622,6 +946,8 @@ export class ForecastBuilder {
       heightOffset,
       feedbackCalibrationCandidate,
       snapshotBuffer,
+      trustedSlotBuffer,
+      forecastIndex,
       calibrationCoverage,
       handoffBlendState,
       handoffBlendEnabled,
@@ -803,6 +1129,7 @@ export class ForecastBuilder {
     // forecasts so 168h is more than enough lead time.
     const horizonInt = Math.max(0, Math.round(forecastHorizonHours));
     const forecastHorizonBucket = getForecastAccuracyHorizonBucket(horizonInt);
+    let snapshotIndex: number | null = null;
     if (
       rawDisplayHeightFt != null &&
       finalCorrectedFt != null &&
@@ -847,6 +1174,7 @@ export class ForecastBuilder {
           ? Number((rawInputHeightFt / METERS_TO_FEET).toFixed(3))
           : null;
 
+      snapshotIndex = snapshotBuffer.length;
       snapshotBuffer.push({
         beach_id: beach.id,
         predicted_at: forecastAt,
@@ -921,6 +1249,24 @@ export class ForecastBuilder {
         om_bucket: v5?.om_bucket ?? null,
       });
     }
+
+    // D-14: the trusted layer compares against the post-offset display height,
+    // captured here BEFORE the session-feedback layer so a claimed slot can be
+    // re-rendered from the approved baseline rather than from a feedback-shifted
+    // number (D-17).
+    trustedSlotBuffer.push({
+      forecastIndex,
+      // The SERVED instant, not the raw loop time: a slot's durable identity
+      // has to be the same `forecast_at` that reaches `enhanced_forecasts` and
+      // `ml_predictions_log.predicted_at`, or the RPC cannot link the
+      // application to its first-write snapshot. Eligibility below still uses
+      // the RAW horizon (D-16).
+      forecastAt: new Date(forecastAt),
+      forecastHorizonHours,
+      postOffsetFt: correctedFt,
+      rangeSpread: parsedDisplay.rangeSpread,
+      snapshotIndex,
+    });
 
     return {
       id: `forecast-${beach.id}-${forecastTime.getTime()}`,
