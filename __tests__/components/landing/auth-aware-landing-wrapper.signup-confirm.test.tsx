@@ -23,9 +23,6 @@ jest.mock("@/lib/utils/performance-utils", () => ({
 }));
 
 // Keep the wrapper test focused: mock the heavy landing sections.
-jest.mock("@/components/home-screen", () => ({
-  HomeScreen: () => <div data-testid="home-screen" />,
-}));
 jest.mock("@/components/oracle/oracle-home-screen", () => ({
   OracleHomeScreen: () => <div data-testid="home-screen" />,
 }));
@@ -69,9 +66,6 @@ jest.mock("@/components/landing-page/navbar", () => ({
 }));
 jest.mock("@/components/landing-page/surf-highlights-section", () => ({
   SurfHighlightsSection: () => <div data-testid="surf-highlights" />,
-}));
-jest.mock("@/components/landing-page/upgrade-session-section", () => ({
-  UpgradeSessionSection: () => <div data-testid="upgrade-session" />,
 }));
 jest.mock("@/components/landing-page/activities-section", () => ({
   ActivitiesSection: () => <div data-testid="activities" />,

@@ -68,10 +68,6 @@ jest.mock("@/app/beach/[slug]/beach-detail-client", () => ({
   BeachDetailClient: () => null,
 }));
 
-jest.mock("@/components/spots/spot-surf-report", () => ({
-  SpotSurfReportStream: () => null,
-}));
-
 jest.mock("@/components/seo/structured-data", () => ({
   BeachPageStructuredData: () => null,
 }));
@@ -98,10 +94,6 @@ jest.mock("@/components/beach-detail/nearby-spots-enriched", () => ({
 
 jest.mock("@/components/beach-detail/related-guides-section", () => ({
   RelatedGuidesSection: () => null,
-}));
-
-jest.mock("@/components/beach-detail/optimal-conditions-section", () => ({
-  OptimalConditionsSection: () => null,
 }));
 
 jest.mock("@/components/ui/sticky-signup-bar", () => ({

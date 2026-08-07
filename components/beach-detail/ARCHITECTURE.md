@@ -11,7 +11,6 @@ components/beach-detail/
 ├── amenities-badges.tsx         # Data-driven CCC amenity badges (grouped by category)
 ├── beach-header.tsx          # Sticky navigation header with back button
 ├── beach-hero.tsx            # Hero section with map image and beach info
-├── beach-quick-actions.tsx   # Plan/Log session buttons + favorite
 ├── cams-section.tsx          # Live camera feed (iframe, HLS, or video)
 ├── hls-video-player.tsx      # HLS video playback via hls.js / native
 ├── (deleted: todays-forecast.tsx — superseded by ConditionsTicker)
@@ -36,7 +35,6 @@ Beach Page → Individual Components → Actions/Navigation
 BeachDetailPage
 ├── BeachHeader (navigation)
 ├── BeachHero (visual header)
-├── BeachQuickActions (CTAs)
 ├── CamsSection (live camera feed)
 │   └── HLSVideoPlayer (dynamic import, SSR disabled)
 ├── AmenitiesBadges (CCC amenity data)
@@ -75,16 +73,6 @@ BeachDetailPage
   - Beach name, location, and star ratings
   - Hardcoded review count (128 reviews)
   - Responsive image handling
-
-### **BeachQuickActions**
-
-- **Purpose**: Primary action buttons for user engagement
-- **Props**: `beach: Beach, isAuthenticated: boolean`
-- **Features**:
-  - Plan Session / Log Session buttons
-  - Favorite button integration
-  - Authentication-aware routing
-  - Equal-width button layout
 
 ### **CamsSection**
 
