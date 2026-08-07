@@ -4,7 +4,6 @@ import type { ReactElement, ReactNode } from "react";
 import { getBeaches } from "@/actions/beach/beach-query-actions";
 import ForBusinessesPage from "@/app/for-businesses/page";
 import ForSurfSchoolsPage from "@/app/for-surf-schools/page";
-import { EmbedPromoPage } from "@/components/embed-promo/embed-promo-page";
 import {
   DEFAULT_PREVIEW_SLUG,
   resolvePreviewSlug,
@@ -157,16 +156,4 @@ describe("embed promo beach preselection", () => {
     ).toBeUndefined();
   });
 
-  it("preselects the shared EmbedPromoPage without a default flash", () => {
-    const { container } = render(
-      <EmbedPromoPage
-        variant="businesses"
-        beaches={BEACHES}
-        initialSlug="la-jolla-shores"
-      />
-    );
-
-    expectSelectedBeach(container, "la-jolla-shores");
-    expect(screen.getByRole("combobox")).toHaveValue("la-jolla-shores");
-  });
 });

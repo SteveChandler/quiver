@@ -292,8 +292,6 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
   'auth_redirect_completed',
   'auth_wall_dismissed',
   'auth_wall_shown',
-  'first_win_reminder_declined',
-  'first_win_reminder_enabled',
   'forecast_alerts_enabled',
   'install_pwa',
   'invite_friend_clicked',
@@ -313,10 +311,6 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
   'share_session_clicked',
   'share_sheet_opened',
   'user_signed_in',
-  'web_push_opt_in_attempt',
-  'web_push_opt_in_denied',
-  'web_push_opt_in_error',
-  'web_push_opt_in_success',
 ] as const;
 
 /**
