@@ -6,15 +6,13 @@
  * `lib/utils/timezone-utils.server.ts`.
  */
 
-/**
- * Default timezone fallback for when timezone is unknown.
- */
-export const DEFAULT_TIMEZONE = "America/Los_Angeles";
+import { DEFAULT_TIMEZONE } from "./timezone-constants";
+
+export { DEFAULT_TIMEZONE } from "./timezone-constants";
+export { getLocalHour, isNightHour } from "./timezone-utils.shared";
 
 /**
- * Resolve a beach timezone to a concrete IANA timezone string.
- * Centralises the `tz || DEFAULT_TIMEZONE` fallback so callers never
- * have to repeat it.
+ * Default timezone fallback for when timezone is unknown.
  */
 export function resolveBeachTimezone(tz?: string | null): string {
   return tz || DEFAULT_TIMEZONE;
@@ -64,67 +62,3 @@ export function getLocalDateString(
     return `${y}-${m}-${day}`;
   }
 }
-
-/**
- * Client-safe fallback for coordinate-to-timezone lookup.
- *
- * We cannot derive timezone from coordinates in the browser without shipping
- * heavy boundary data or calling an external API, so we return a safe default.
- */
-export function getTimezoneFromCoords(_lat: number, _lon: number): string {
-  return DEFAULT_TIMEZONE;
-}
-
-/**
- * Get the local hour (0-23) for a date in a specific timezone
- *
- * Uses Intl.DateTimeFormat for reliable timezone conversion without
- * requiring additional dependencies like date-fns-tz.
- *
- * @param date - The Date object to get the hour from
- * @param timezone - IANA timezone identifier
- * @returns Hour of the day (0-23) in the specified timezone
- *
- * @example
- * // If date is 2025-11-25T09:00:00Z (9 AM UTC):
- * getLocalHour(date, 'America/Los_Angeles') // → 1 (1 AM Pacific)
- * getLocalHour(date, 'America/New_York')    // → 4 (4 AM Eastern)
- * getLocalHour(date, 'Pacific/Honolulu')    // → 23 (11 PM Hawaii, previous day)
- */
-export function getLocalHour(date: Date, timezone: string): number {
-  try {
-    const formatter = new Intl.DateTimeFormat("en-US", {
-      timeZone: timezone,
-      hour: "numeric",
-      hour12: false,
-    });
-
-    const hourStr = formatter.format(date);
-    // Intl returns "24" for midnight in some locales, normalize to 0
-    const hour = parseInt(hourStr, 10);
-    return hour === 24 ? 0 : hour;
-  } catch (error) {
-    console.error(
-      `❌ [getLocalHour] Error converting to timezone ${timezone}:`,
-      error
-    );
-    // Fallback to UTC hour
-    return date.getUTCHours();
-  }
-}
-
-/**
- * Check if an hour is during nighttime (unrealistic for surfing)
- *
- * Night hours are defined as 9 PM to 5 AM (21:00 - 04:59)
- * This allows for:
- * - Dawn patrol sessions starting around 5-6 AM
- * - Evening glass-off sessions until sunset (varies by season, ~8 PM in summer)
- *
- * @param hour - Hour of the day (0-23)
- * @returns true if the hour is during nighttime
- */
-export function isNightHour(hour: number): boolean {
-  return hour >= 21 || hour < 5;
-}
-
