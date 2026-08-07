@@ -1,0 +1,22 @@
+# Extends the default gitleaks ruleset — every built-in rule still applies
+# everywhere else in the repo. This file only carves out one narrow, verified
+# false positive.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = """
+Trusted-forecast test fixture: 196 rows each carrying issue_identity_key,
+revision_hash and source_hash — SHA-256 content hashes of PUBLICLY PUBLISHED
+surf forecasts (NWS, WaveCast, Stormsurf). gitleaks' generic high-entropy rule
+reads 64-char hex as a credential; these are content digests used to prove
+idempotency and detect revisions. They authenticate nothing and grant no access.
+
+Scoped to this single path on purpose. Do not widen it: the same file lives
+beside real captures whose redaction (emptied <script> bodies, masked GA and
+AdSense IDs) is verified by a separate test, and that redaction must keep being
+enforced by the default rules.
+"""
+paths = [
+  '''lib/services/forecast/__tests__/fixtures/trusted-forecast-issues\.real\.json''',
+]
