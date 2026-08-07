@@ -4,7 +4,7 @@
 
 Quiver web app: Next.js 16, React 19, TypeScript, Tailwind, Radix UI, Supabase, Playwright. App Router code in `app/`; shared UI in `components/`; server actions in `actions/`; business logic in `lib/`; hooks in `hooks/`; types in `types/`; assets in `public/`; migrations in `supabase/migrations/`; Jest tests in `__tests__/`; Playwright specs in `e2e/`.
 
-**49 `ARCHITECTURE.md` files exist throughout the codebase.** Read the nearest relevant one before editing a directory; use `docs/ARCHITECTURE.md` as the top-level index.
+**58 `ARCHITECTURE.md` files exist throughout the codebase.** Read the nearest relevant one before editing a directory; use `docs/ARCHITECTURE.md` as the top-level index.
 
 ## Build, Test, and Development Commands
 

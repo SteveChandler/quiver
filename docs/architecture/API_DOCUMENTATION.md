@@ -484,7 +484,7 @@ Get list of beaches.
 - `country` (optional): Filter by country
 - `search` (optional): Search by beach name
 - `lat` (optional): Latitude for nearby search
-- `lng` (optional): Longitude for nearby search
+- `lon` (optional): Longitude for nearby search
 - `radius_km` (optional): Radius for nearby search (default: 50)
 
 **Response:** `200 OK`
@@ -823,7 +823,7 @@ Get forecast for a beach.
 **Parameters:**
 
 - `beachId` (path): Beach ID
-- `forecast_date` (query, optional): Date for forecast (default: today)
+- `forecast_at` (query, optional): Forecast valid-time lower bound (default: now)
 
 **Response:** `200 OK`
 
@@ -833,10 +833,10 @@ Get forecast for a beach.
   "data": {
     "beach_id": "uuid",
     "beach_name": "Manhattan Beach",
-    "forecast_date": "2025-10-28",
+    "forecast_at": "2025-10-28T00:00:00Z",
     "forecasts": [
       {
-        "forecast_time": "2025-10-28T06:00:00Z",
+        "forecast_at": "2025-10-28T06:00:00Z",
         "wave_height_ft": 3.2,
         "wave_period_s": 12,
         "wave_direction_deg": 225,

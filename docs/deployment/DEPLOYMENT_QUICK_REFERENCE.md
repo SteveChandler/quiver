@@ -76,7 +76,7 @@ curl -I "https://api.quiversurf.app/api/image-proxy?url=http://169.254.169.254"
 ```bash
 for i in {1..15}; do
   curl -s -o /dev/null -w "%{http_code}\n" \
-    "https://api.quiversurf.app/api/beaches/nearby?lat=34&lng=-118"
+    "https://api.quiversurf.app/api/beaches/nearby?lat=34&lon=-118"
 done
 ```
 

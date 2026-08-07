@@ -485,7 +485,7 @@ curl -X GET "https://api.quiversurf.app/api/image-proxy?url=http://169.254.169.2
 
 # Test rate limiting
 for i in {1..15}; do
-  curl -X GET https://api.quiversurf.app/api/beaches/nearby?lat=34&lng=-118
+  curl -X GET https://api.quiversurf.app/api/beaches/nearby?lat=34&lon=-118
 done
 # Expected: 429 after 10 requests
 
