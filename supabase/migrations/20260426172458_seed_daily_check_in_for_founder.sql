@@ -6,7 +6,7 @@
 -- Phase-4 promotion.
 --
 -- Founder user_id: 73040cff-afe9-4fa0-a874-2016203fc015
--- Spec: docs/superpowers/specs/2026-04-25-alerts-engine-fix-and-anon-capture-design.md A3
+-- Spec: docs/archive/superpowers/specs/2026-04-25-alerts-engine-fix-and-anon-capture-design.md A3
 
 BEGIN;
 

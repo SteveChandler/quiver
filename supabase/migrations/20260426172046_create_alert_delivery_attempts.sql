@@ -8,7 +8,7 @@
 -- outcomes or skipped attempts. This table is the source of truth for
 -- per-(queue_row × channel) outcomes, including all skip reasons.
 --
--- See docs/superpowers/specs/2026-04-25-alerts-engine-fix-and-anon-capture-design.md
+-- See docs/archive/superpowers/specs/2026-04-25-alerts-engine-fix-and-anon-capture-design.md
 -- section A1 for the full design and decision order.
 
 BEGIN;

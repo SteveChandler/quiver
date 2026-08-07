@@ -4,7 +4,7 @@
 -- introduced by the Alerts Engine Fix + Anon Capture work.
 --
 -- Spec section "Funnel events":
--- docs/superpowers/specs/2026-04-25-alerts-engine-fix-and-anon-capture-design.md
+-- docs/archive/superpowers/specs/2026-04-25-alerts-engine-fix-and-anon-capture-design.md
 --
 -- Strictly additive: every event_type from
 -- 20260425000400_add_roadmap_user_events.sql is preserved verbatim. Apply

@@ -281,7 +281,7 @@ describe("phase0-migration-preapply-check", () => {
 
   it("keeps the approval request document in sync with the canonical plan text", () => {
     const approvalRequest = readFileSync(
-      "docs/reports/2026-06-19-phase0-migration-approval-request.md",
+      "docs/research/2026-06-19-phase0-migration-approval-request.md",
       "utf8"
     );
     const planMatch = approvalRequest.match(

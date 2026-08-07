@@ -89,7 +89,7 @@ Visit [http://localhost:3000](http://localhost:3000) to see the app.
 
 | Document                                                                  | Description                                                             |
 | ------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| **[System Architecture Guide](docs/architecture/SYSTEM_ARCHITECTURE.md)** | Complete system overview, design decisions, and architecture principles |
+| **[System Architecture Guide](docs/ARCHITECTURE.md)** | Complete system overview, design decisions, and architecture principles |
 | **[API Documentation](docs/architecture/API_DOCUMENTATION.md)**           | Complete REST API reference with examples                               |
 | **[ARCHITECTURE.md](docs/ARCHITECTURE.md)**                               | Top-level index to all architecture documentation                       |
 

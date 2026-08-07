@@ -34,7 +34,7 @@
  * ```
  *
  * @see docs/API_MIDDLEWARE.md for patterns and usage
- * @see docs/API_MIDDLEWARE_REFERENCE.md for technical details
+ * @see docs/API_MIDDLEWARE.md#technical-reference-appendix for technical details
  */
 
 // =============================================================================

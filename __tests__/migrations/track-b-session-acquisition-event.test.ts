@@ -8,7 +8,7 @@ describe("Migration: Track B session acquisition event allowlist", () => {
   );
   const approvalRequestPath = join(
     __dirname,
-    "../../docs/reports/2026-06-20-track-b-session-acquisition-event-approval-request.md"
+    "../../docs/research/2026-06-20-track-b-session-acquisition-event-approval-request.md"
   );
   const preflightPath = join(
     __dirname,

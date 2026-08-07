@@ -127,7 +127,7 @@ four separate build keys, since counts are otherwise cross-validated against arr
 `app.phase0_forecast_accuracy_migration_approved` is set in-session, and the CLI cannot supply it
 (`ALTER ROLE` is wiped by reset, `ALTER SYSTEM` rejects the custom GUC, `PGOPTIONS` is not honored by the
 Go client). The remaining 40 migrations were applied via `psql -c "SET app.…" -f <file>` per
-`docs/reports/2026-06-19-phase0-migration-approval-request.md`. **Worth its own fix** — anyone running
+`docs/research/2026-06-19-phase0-migration-approval-request.md`. **Worth its own fix** — anyone running
 `yarn db:reset` today hits this.
 
 ## Deviations from the plan

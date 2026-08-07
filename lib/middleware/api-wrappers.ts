@@ -16,7 +16,7 @@
  * - Business logic remains clean and focused
  *
  * @see docs/API_MIDDLEWARE.md for patterns and usage
- * @see docs/API_MIDDLEWARE_REFERENCE.md for technical details
+ * @see docs/API_MIDDLEWARE.md#technical-reference-appendix for technical details
  */
 
 // Re-export everything from the modular implementation

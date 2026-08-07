@@ -139,7 +139,7 @@ export const GET = withAuth(handler);
 
 **See Also:**
 - `/docs/API_MIDDLEWARE.md` - Developer guide with patterns and usage
-- `/docs/API_MIDDLEWARE_REFERENCE.md` - Technical architecture and type definitions
+- `/docs/API_MIDDLEWARE.md#technical-reference-appendix` - Technical architecture and type definitions
 
 ---
 

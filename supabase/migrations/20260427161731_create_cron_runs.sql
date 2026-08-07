@@ -4,7 +4,7 @@
 -- whether a cron failed silently vs ran with empty input — a gap that
 -- hid the alerts-matcher bug for 30 days.
 --
--- Spec: docs/superpowers/specs/2026-04-27-alerts-matcher-fix-a4-design.md A4.1
+-- Spec: docs/archive/superpowers/specs/2026-04-27-alerts-matcher-fix-a4-design.md A4.1
 
 BEGIN;
 

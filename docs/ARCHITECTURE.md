@@ -375,8 +375,10 @@ For detailed algorithm documentation, see `lib/services/ARCHITECTURE.md`.
 | **API** | [API Overview](api/README.md) | REST API architecture and endpoints |
 | **API** | [Server Actions](api/SERVER_ACTIONS.md) | Next.js server action reference |
 | **API** | [RPC Functions](api/RPC_FUNCTIONS.md) | Supabase stored procedures |
+| **API** | [API Middleware](API_MIDDLEWARE.md) | Protection wrappers and technical reference appendix |
 | **Architecture** | [URL Routing](architecture/URL_ROUTING.md) | Hierarchical URL patterns |
 | **Architecture** | [Forecast Scoring](architecture/FORECAST_SCORING.md) | Surf scoring algorithm |
+| **Operations** | [Forecast Monitoring](forecast/README.md) | Forecast freshness, recovery, deployment, and cron runbooks |
 | **Architecture** | [Cache Strategy](architecture/CACHE_STRATEGY.md) | Multi-tier caching patterns |
 | **Architecture** | [Terrain Analysis](../scripts/terrain/ARCHITECTURE.md) | Terrain-aware geometry scoring |
 | **Features** | [Attribution Tracking](features/ATTRIBUTION_TRACKING.md) | UTM and referral tracking |
@@ -465,3 +467,63 @@ The Expo app's Weekend Scout uses a foreground device fix as its only geographic
 The Friday planning job accepts only location rows no older than 24 hours. It evaluates every eligible beach inside the user's configured drive range, applies canonical Week Scout scoring plus distance friction, and stores an immutable top-three snapshot. Home and saved beaches are labels only and receive no ranking bonus. Stored alert results and live refreshes are exposed separately so notification content remains reproducible when forecasts change.
 
 The cron runs hourly Thursday through Saturday UTC (`0 * * * 4-6`) and filters to exactly Friday 12 PM in each stored location timezone. Rollout preserves the existing `WEEKEND_WINDOW_ENABLED` and `WEEKEND_WINDOW_TEST_USER_IDS` controls. Migration `20260719120000_create_weekend_scout_location_snapshots.sql` is committed but requires a separately approved database application.
+
+---
+
+### Current System Boundaries and Decisions
+
+This section captures durable architecture guidance that was previously only in
+the archived system architecture guide. Claims from that guide about retired
+Capacitor mobile clients, old dependency choices, historical capacity numbers,
+and unverified cost or performance targets are intentionally not carried
+forward.
+
+#### Runtime containers
+
+- **Web application**: Next.js 16 App Router with React 19, TypeScript, Tailwind
+  CSS, Radix UI, Framer Motion, and Mapbox GL. The web app is installable as a
+  PWA.
+- **API layer**: Next.js API routes run in the same repository and are protected
+  with the shared middleware wrappers in `lib/middleware/api-wrappers/`.
+- **Native application**: Expo 55 / React Native 0.83 in the separate
+  `../quiver-native` repository. It shares Supabase Auth, database, and storage
+  and calls versioned web API routes where required. It is not a Capacitor shell.
+- **Backend platform**: Supabase provides PostgreSQL, Auth, RLS, Realtime, and
+  Storage. Vercel hosts the web application and serverless routes.
+
+#### Durable architecture decisions
+
+1. **Next.js App Router** is the web application boundary, providing route
+   rendering, API routes, and server actions in one codebase.
+2. **Supabase** is the shared data and authentication platform. User-data access
+   is enforced with RLS, and realtime consumers remove their channels on
+   cleanup.
+3. **Web/native contracts are additive.** Native-consumed API routes are
+   versioned contracts: fields are added rather than renamed, removed, or
+   repurposed in place, and failures use real HTTP error statuses.
+4. **Server actions are web-only.** Native clients use API routes for writes so
+   Bearer authentication is re-established at the route boundary.
+5. **Forecasting is service-oriented within the monolith.** Forecast ingestion,
+   transformation, storage, scoring, correction, and health monitoring remain
+   in the repository's forecast services and cron/API boundaries.
+
+#### Security boundary
+
+The active request path is defense in depth:
+
+1. HTTPS/Vercel edge delivery.
+2. Bot blocking and rate limiting where configured.
+3. Supabase cookie or Bearer authentication through API middleware.
+4. Route-level authorization and ownership checks.
+5. Supabase RLS for user-data access.
+
+The canonical middleware behavior, including Next.js 15+ Promise route-param
+resolution, is documented in [API Middleware](API_MIDDLEWARE.md). Coordinate
+validation is documented in [Coordinate Conventions](COORDINATE_CONVENTIONS.md).
+
+#### Deployment and verification boundary
+
+The repository uses Yarn 1.22.17 and Node 22. The normal local verification
+surface is TypeScript, Jest, scoped ESLint, and Playwright as appropriate to the
+change. Production deployment is Vercel-backed; remote GitHub Actions are not a
+substitute for the local gate because repository Actions are unavailable.
