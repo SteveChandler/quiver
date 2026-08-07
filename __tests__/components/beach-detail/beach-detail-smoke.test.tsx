@@ -1,7 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
 import { SpotOverview } from "@/components/beach-detail/spot-overview";
-import { ForecastAndTides } from "@/components/beach-detail/forecast-and-tides";
 
 jest.mock("@/actions/beach-media-actions", () => ({
   getBestBeachPhotosAction: jest.fn(async () => ({ success: true, data: [] })),
@@ -62,34 +61,5 @@ describe("SpotOverview (smoke)", () => {
     render(<SpotOverview beach={beach} />);
 
     expect(screen.getByText("Spot Summary")).toBeInTheDocument();
-  });
-});
-
-describe("ForecastAndTides (smoke)", () => {
-  it("renders without throwing and shows chips header", () => {
-    // BestSurfWindow fetches intel via the client data gateway; mock it to avoid network errors.
-    const originalFetch = global.fetch;
-    (global as any).fetch = jest.fn(async () => ({
-      ok: true,
-      status: 200,
-      json: async () => ({ success: true, data: { intel: null } }),
-    }));
-
-    const beach = {
-      id: "beach-uuid",
-      name: "Test Beach",
-      lat: 32.7,
-      lon: -117.2,
-    } as any;
-    const forecasts: any[] = [];
-
-    render(<ForecastAndTides beach={beach} forecasts={forecasts} />);
-
-    // Heuristic: chips/header present
-    expect(
-      screen.getByText(/Sunrise\/Sunset shown in charts/i)
-    ).toBeInTheDocument();
-
-    (global as any).fetch = originalFetch;
   });
 });

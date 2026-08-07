@@ -12,6 +12,7 @@ import {
   toFaceHeightRangeFeet,
   extractNumericWaveHeight,
   selectWaveHeightSource,
+  metersToFeet,
   roundWaveHeight,
   clampWaveHeight,
   WAVE_HEIGHT_NUMBER_PATTERN,
@@ -132,6 +133,22 @@ describe("wave-formatters", () => {
       // Even with min > max, should format without crashing
       const result = formatWaveRange([5, 3]);
       expect(typeof result).toBe("string");
+    });
+
+    it("characterizes the array arity used by forecast cards", () => {
+      expect(formatWaveRange([2.375, 2.375])).toBe("2.4ft");
+      expect(formatWaveRange([2.375, 4.625], "integer")).toBe("2-5ft");
+    });
+  });
+
+  describe("metersToFeet characterization", () => {
+    it("preserves raw conversion precision and undefined sentinels", () => {
+      expect(metersToFeet(1.83)).toBe(6.0039372);
+      expect(metersToFeet(0.2)).toBe(0.6561680000000001);
+      expect(metersToFeet(null)).toBeUndefined();
+      expect(metersToFeet(undefined)).toBeUndefined();
+      expect(metersToFeet(Number.NaN)).toBeUndefined();
+      expect(metersToFeet(Number.POSITIVE_INFINITY)).toBeUndefined();
     });
   });
 

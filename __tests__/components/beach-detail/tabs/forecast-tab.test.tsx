@@ -77,9 +77,6 @@ const mockUseAuth = jest.fn(() => ({ user: null as { id: string } | null }));
 jest.mock("@/context/auth-context", () => ({
   useAuth: () => mockUseAuth(),
 }));
-jest.mock("@/components/beach-detail/personalized-forecast-teaser", () => ({
-  PersonalizedForecastTeaser: (props: any) => <div data-testid="personalized-forecast-teaser" />,
-}));
 
 // Mock useTrackEvent hook
 const mockTrackEvent = jest.fn();

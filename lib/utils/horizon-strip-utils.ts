@@ -351,20 +351,7 @@ export function aggregateDayForecasts(
 /**
  * Format wave height range for display
  */
-export function formatWaveRange(minHeight: number, maxHeight: number): string {
-  if (minHeight <= 0 && maxHeight <= 0) {
-    return 'Flat';
-  }
-
-  const minInt = Math.max(0, Math.floor(minHeight));
-  const maxInt = Math.ceil(maxHeight);
-
-  if (minInt === maxInt) {
-    return `${minInt}ft`;
-  }
-
-  return `${minInt}-${maxInt}ft`;
-}
+export { formatWaveRange } from '@/lib/utils/wave-formatters';
 
 /**
  * Get tier label for accessibility
