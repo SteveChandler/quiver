@@ -2,9 +2,7 @@ import type { Beach } from "@/types/database";
 import type { ClusterPoint } from "@/hooks/use-beach-clustering";
 import type { MapDisplayMode } from "@/components/map/map-marker-builder";
 import { getBeachHrefSafe } from "@/lib/utils/beach-url-utils";
-import {
-  formatWaterTemp,
-} from "@/lib/utils/wave-formatters";
+import { formatWaterTemp } from "@/lib/formatters/surf-data";
 import { formatWaveHeightRange } from "@/lib/formatters/surf-data";
 import type { ForecastDisplay } from "@/lib/services/forecast/today-headline";
 
@@ -108,7 +106,7 @@ function formatBeachMeta(
   const waveHeight = waveHeightMap.get(beach.id);
   const condition =
     displayMode === "water-temp"
-      ? formatWaterTemp(waterTempMap?.get(beach.id))
+      ? formatWaterTemp(waterTempMap?.get(beach.id), "—")
       : displayForecastMap?.get(beach.id)?.label ??
         (waveHeightMap.has(beach.id)
         ? waveHeight == null

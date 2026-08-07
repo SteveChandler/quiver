@@ -83,4 +83,17 @@ describe("map cluster popup", () => {
     expect(content.textContent).not.toContain("Sandy Beach");
     expect(content.textContent).toContain("1 more spot in this group");
   });
+
+  it("preserves omission of missing water temperatures", () => {
+    const content = createClusterPopupContent({
+      cluster,
+      beaches,
+      displayMode: "water-temp",
+      waterTempMap: new Map([["beach-1", undefined], ["beach-2", "64°F"]]),
+      waveHeightMap: new Map(),
+    });
+
+    expect(content.textContent).not.toContain("—");
+    expect(content.textContent).toContain("64°F");
+  });
 });

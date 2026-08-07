@@ -124,6 +124,11 @@ describe('horizon-strip-utils', () => {
     it('shows range when min and max are different integers', () => {
       expect(formatWaveRange(3.0, 5.0)).toBe('3-5ft');
     });
+
+    it('characterizes the two-number arity used by horizon cards', () => {
+      expect(formatWaveRange(1.01, 1.99)).toBe('1-2ft');
+      expect(formatWaveRange(-1, 0.5)).toBe('0-1ft');
+    });
   });
 
   describe('getTierLabel', () => {
