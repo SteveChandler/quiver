@@ -591,6 +591,33 @@ describe('selectBestWindow', () => {
     expect(result?.timezone).toBe('America/Los_Angeles');
   });
 
+  it('should use the persisted timezone for a non-Pacific beach', () => {
+    const cocoaBeach: Partial<Beach> = {
+      ...mockBeach,
+      id: 'cocoa-beach',
+      name: 'Cocoa Beach',
+      lat: 28.32,
+      lon: -80.61,
+      timezone: 'America/New_York',
+    };
+    const forecasts = [
+      createForecast({
+        beach_id: 'cocoa-beach',
+        forecast_at: '2024-01-15T17:00:00Z',
+        forecast_date: '2024-01-15',
+        forecast_time: '12:00',
+        wave_height: '4',
+        wave_period: '12s',
+        confidence_score: 80,
+      }),
+    ];
+
+    const result = selectBestWindow(forecasts, cocoaBeach as Beach, null);
+
+    expect(result).not.toBeNull();
+    expect(result?.timezone).toBe('America/New_York');
+  });
+
   it('should work with options object syntax', () => {
     const forecasts = [
       createForecast({
