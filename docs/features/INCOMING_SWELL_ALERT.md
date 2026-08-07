@@ -122,7 +122,7 @@ The 56 "very wide" beaches are mostly correct (East Coast accepts wide swath of 
 
 - `app/api/cron/similarity-alerts/route.ts` — closest existing pattern; will share helpers
 - `lib/services/discovery/window-selector/window-selector-core.ts` — `scoreWindowWithEngine`, the per-slot scorer that handles tide/wind/break/swell-window
-- `docs/features/REENGAGEMENT_EMAIL.md` — adjacent reactivation surface; consider whether incoming-swell email digest is part of v1
+- `docs/archive/REENGAGEMENT_EMAIL.md` — adjacent reactivation surface; consider whether incoming-swell email digest is part of v1
 
 ## Picking this back up
 

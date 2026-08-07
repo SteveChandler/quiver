@@ -594,7 +594,9 @@ export async function createForecastSnapshotForSession(
     .from('enhanced_forecasts')
     .select('*')
     .eq('beach_id', beachId)
-    .eq('forecast_date', arrivalDate.toISOString().split('T')[0]);
+    .gte('forecast_at', arrivalDate.toISOString())
+    .order('forecast_at')
+    .limit(1);
 
   // Find closest forecast by time difference
   let closestForecast = findClosestForecast(forecasts, arrivalDate);
@@ -659,8 +661,8 @@ BEGIN
   SELECT to_jsonb(ef.*) INTO forecast_data
   FROM enhanced_forecasts ef
   WHERE ef.beach_id::uuid = NEW.beach_id::uuid
-    AND ef.forecast_date = NEW.arrival_time::date
-  ORDER BY ABS(EXTRACT(EPOCH FROM (ef.forecast_time::time - NEW.arrival_time::time))) ASC
+    AND ef.forecast_at IS NOT NULL
+  ORDER BY ABS(EXTRACT(EPOCH FROM (ef.forecast_at - NEW.arrival_time))) ASC
   LIMIT 1;
 
   -- Build actual conditions from session data
