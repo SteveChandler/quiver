@@ -7,7 +7,6 @@ Refactored landing page components following DRY principles.
 ```tsx
 import {
   HeroSection,
-  SocialFeedSection,
   ForecastSection,
   FeaturesSection,
   CTASection,
@@ -18,7 +17,6 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen">
       <HeroSection />
-      <SocialFeedSection />
       <ForecastSection />
       <FeaturesSection />
       <CTASection />
@@ -31,7 +29,6 @@ export default function LandingPage() {
 ## Components
 
 - **HeroSection** - Video background with CTA
-- **SocialFeedSection** - Social media preview grid
 - **ForecastSection** - Weather forecast cards
 - **FeaturesSection** - Product feature highlights
 - **CTASection** - Call-to-action banner

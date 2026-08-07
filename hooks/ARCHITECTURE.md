@@ -19,8 +19,6 @@ hooks/
 │
 ├── Beach & Location Services
 ├── use-beach-search.ts              # Beach search and filtering
-├── use-beach-reviews.ts             # Beach review system
-├── use-beach-card-data.ts           # Beach card display optimization
 ├── use-enhanced-beach-data.ts       # Comprehensive beach information
 ├── use-geolocation.ts                # Canonical user location services (geolocation)
 │
@@ -187,72 +185,6 @@ const { coords, requestLocation, source } = useGeolocation({
 // Map screen (auto request on mount):
 const { userLocation, getUserLocation } = useGeolocation();
 ```
-
-#### **useBeachCardData** (Display Optimization)
-
-- **Purpose**: Optimized beach card data processing
-- **Features**:
-  - Distance calculation from user location
-  - Map image URL generation
-  - Review statistics aggregation
-  - Responsive data formatting
-
-```typescript
-export function useBeachCardData(
-  beaches: Beach[],
-  options: UseBeachCardDataOptions = {}
-): {
-  beachCardData: BeachCardData[];
-  loading: boolean;
-  error: string | null;
-} {
-  const {
-    limit,
-    userLocation,
-    calculateDistance = defaultCalculateDistance,
-    defaultLocationText = "Unknown distance",
-    mapOptions = {},
-  } = options;
-
-  return useMemo(() => {
-    const processedBeaches = beaches.slice(0, limit).map((beach) => ({
-      id: beach.id,
-      name: beach.name,
-      rating: beach.average_rating || 0,
-      reviewCount: beach.review_count || 0,
-      distance: userLocation
-        ? calculateDistance(
-            userLocation.lat,
-            userLocation.lon,
-            beach.center_lat, // Map from database field
-            beach.center_lng // Map from database field
-          )
-        : defaultLocationText,
-      mapImageUrl: generateMapImageUrl(beach, mapOptions),
-      // Map database fields to component prop names
-      coordinates: {
-        latitude: beach.center_lat, // center_lat -> latitude
-        longitude: beach.center_lng, // center_lng -> longitude
-      },
-    }));
-
-    return {
-      beachCardData: processedBeaches,
-      loading: false,
-      error: null,
-    };
-  }, [
-    beaches,
-    limit,
-    userLocation,
-    calculateDistance,
-    defaultLocationText,
-    mapOptions,
-  ]);
-}
-```
-
-**Note**: See `/docs/COORDINATE_CONVENTIONS.md` for complete coordinate naming standards. Database fields use `center_lat`/`center_lng` but must be mapped to `latitude`/`longitude` for component props.
 
 ### **Session Management Hooks**
 

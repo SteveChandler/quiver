@@ -292,8 +292,6 @@ export const EXTERNAL_ANALYTICS_ONLY_EVENTS = [
   'auth_redirect_completed',
   'auth_wall_dismissed',
   'auth_wall_shown',
-  'conditions_report_duplicate',
-  'conditions_report_failed',
   'first_win_reminder_declined',
   'first_win_reminder_enabled',
   'forecast_alerts_enabled',

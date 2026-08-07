@@ -23,7 +23,6 @@ lib/utils/
 ├── loading-utils.tsx           # Loading state management utilities
 ├── map-utilities.ts            # Map positioning and viewport utilities
 ├── performance-utils.ts        # Performance monitoring and optimization
-├── posts-utils.ts              # Social post data transformation
 ├── rate-limiter.ts             # API rate limiting utilities
 ├── request-cache.ts            # Request caching implementation
 ├── session-utils.ts            # Session data formatting
@@ -43,7 +42,7 @@ UtilityCategories
 │   ├── Geographic (coordinate-parser, distance-utils, map-utilities)
 │   ├── Temporal (date-utils, current-forecast-utils)
 │   ├── Formatting (wave-height-formatter, wind-direction)
-│   ├── Transformation (beach-card-utils, posts-utils, wave-height-transformer)
+│   ├── Transformation (beach-card-utils, wave-height-transformer)
 │   └── Scoring (condition-tier-utils)
 ├── Search and Discovery
 │   ├── Search Logic (beach-search-utils)
