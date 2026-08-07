@@ -10,6 +10,9 @@ import {
 import { projectCanonicalDiscoverySurface } from "@/lib/recommendations/canonical-decision/client-projection";
 import type { SurfDiscoveryResponse, TimeSlot } from "@/types/personalization";
 
+/** Largest delay setTimeout can hold without overflowing to an immediate fire. */
+const MAX_TIMEOUT_DELAY_MS = 2_147_483_647;
+
 /**
  * Options for useSurfDiscovery hook
  */
@@ -387,7 +390,8 @@ export function useSurfDiscovery(
     }
 
     const expiresAt = Date.parse(decision.expiresAt);
-    if (!Number.isFinite(expiresAt)) {
+    const authoredAt = Date.parse(decision.createdAt);
+    if (!Number.isFinite(expiresAt) || !Number.isFinite(authoredAt)) {
       reset();
       return;
     }
@@ -399,13 +403,35 @@ export function useSurfDiscovery(
       }
       reset();
     };
-    const remainingMs = expiresAt - Date.now();
-    if (remainingMs <= 0) {
+    // A client clock behind the server would stretch `expiresAt - now` far past
+    // the authority the server actually granted. Both stamps are server-authored,
+    // so their difference is skew-independent — bound the grant by it.
+    const grantedMs = Math.min(expiresAt - Date.now(), expiresAt - authoredAt);
+    if (grantedMs <= 0) {
       expireAndRevalidate();
       return;
     }
 
-    const timeoutId = window.setTimeout(expireAndRevalidate, remainingMs);
+    // setTimeout coerces its delay to a signed 32-bit int, so authority running
+    // past ~24.8 days would fire immediately and revalidate in a loop. Re-arm in
+    // bounded hops, and let whichever limit runs out first end the grant: the
+    // wall clock catches a hop delayed by a suspended tab, while the budget spent
+    // down per hop catches a clock moved backward mid-session. Neither alone is
+    // enough, and both can only shorten the grant.
+    const deadline = Date.now() + grantedMs;
+    let budgetMs = grantedMs;
+    let timeoutId = 0;
+    const armExpiry = () => {
+      const remainingMs = Math.min(deadline - Date.now(), budgetMs);
+      if (remainingMs <= 0) {
+        expireAndRevalidate();
+        return;
+      }
+      const hopMs = Math.min(remainingMs, MAX_TIMEOUT_DELAY_MS);
+      budgetMs -= hopMs;
+      timeoutId = window.setTimeout(armExpiry, hopMs);
+    };
+    armExpiry();
     return () => window.clearTimeout(timeoutId);
   }, [enabled, freshData, immediate, refreshDiscovery, reset, user]);
 
