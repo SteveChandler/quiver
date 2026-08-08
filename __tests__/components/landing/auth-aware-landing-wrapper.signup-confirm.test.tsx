@@ -290,12 +290,30 @@ describe("AuthAwareLandingWrapper post-signup confirm email", () => {
     (useAuth as jest.Mock).mockReturnValue({ user: null, isLoading: false });
     (useSearchParams as jest.Mock).mockReturnValue(new URLSearchParams());
 
-    render(<AuthAwareLandingWrapper initialPlatform="ios" appFirst />);
+    // Platform is resolved from the client's own user agent after mount —
+    // reading it from the request server-side forced the whole route to render
+    // dynamically. `initialPlatform` is only the pre-hydration default now, so
+    // the browser's UA is the value that must reach the field guide.
+    const realUa = window.navigator.userAgent;
+    Object.defineProperty(window.navigator, "userAgent", {
+      value:
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Mobile/15E148 Safari/604.1",
+      configurable: true,
+    });
 
-    expect(screen.getByTestId("quiver-field-guide-landing")).toHaveAttribute(
-      "data-platform",
-      "ios",
-    );
+    try {
+      render(<AuthAwareLandingWrapper appFirst />);
+
+      expect(screen.getByTestId("quiver-field-guide-landing")).toHaveAttribute(
+        "data-platform",
+        "ios",
+      );
+    } finally {
+      Object.defineProperty(window.navigator, "userAgent", {
+        value: realUa,
+        configurable: true,
+      });
+    }
     expect(screen.getByTestId("quiver-field-guide-landing")).toHaveAttribute(
       "data-app-first",
       "true",

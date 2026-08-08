@@ -46,6 +46,11 @@ export interface TodaysWindowsProps {
   eveningTransition?: EveningTransition;
 }
 
+const INK = "#11100D";
+const STAMP_BLUE = "#0B3A75";
+/** Marker yellow, matching `.hl` in zine.css. */
+const HIGHLIGHT = "rgba(242,201,76,0.85)";
+
 const PREFERRED_TIME_TO_HOUR: Record<string, string> = {
   dawn_patrol: "5am",
   morning: "8am",
@@ -75,13 +80,21 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow,
 
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
-        <h2 className="flex items-center gap-1.5 font-heading text-lg font-semibold text-white">
-          {isTomorrow ? "Tomorrow's Windows" : "Today's Windows"}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        {/* The info affordance sits beside the black label, not inside it —
+            `.label-black` is an inline-block ink block, and an icon within it
+            wraps onto its own line. */}
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className="label-black">
+            {isTomorrow ? "Tomorrow's Windows" : "Today's Windows"}
+          </h2>
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <InfoIcon className="h-3.5 w-3.5 cursor-help text-muted-foreground" />
+                <InfoIcon
+                  className="h-3.5 w-3.5 shrink-0 cursor-help"
+                  style={{ color: INK, opacity: 0.5 }}
+                />
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs">
                 <p className="text-xs">
@@ -91,9 +104,20 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow,
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-        </h2>
+        </div>
         {forecastUrl && (
-          <Link href={forecastUrl} className="text-sm font-medium text-[#4A70D9] hover:text-[#4A70D9]/80 inline-flex items-center gap-0.5">
+          <Link
+            href={forecastUrl}
+            className="inline-flex items-center gap-0.5"
+            style={{
+              fontFamily: "var(--font-mono), monospace",
+              fontSize: 11,
+              letterSpacing: "0.14em",
+              textTransform: "uppercase",
+              fontWeight: 700,
+              color: STAMP_BLUE,
+            }}
+          >
             Full forecast <ChevronRight className="h-3.5 w-3.5" />
           </Link>
         )}
@@ -101,20 +125,39 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow,
 
       {eveningTransition?.active && eveningTransition.restOfToday.summary !== 'Done for today' && (
         <div className="mb-4">
-          <h3 className="text-sm font-semibold text-medium mb-2">Rest of Today</h3>
-          <div className="noise-texture rounded-lg border border-[#404C92] bg-[#2D357D] px-4 py-3 flex items-center justify-between">
+          <h3 className="typewriter mb-2" style={{ opacity: 0.7 }}>
+            Rest of Today
+          </h3>
+          <div
+            className="flex items-center justify-between px-4 py-3"
+            style={{
+              background: "#F0E5CC",
+              boxShadow: "2px 3px 0 rgba(0,0,0,0.16)",
+            }}
+          >
             <div>
-              <p className="text-sm font-semibold text-white">{eveningTransition.restOfToday.summary}</p>
-              <p className="text-xs text-medium mt-0.5">{eveningTransition.restOfToday.conditions}</p>
+              <p className="text-sm font-semibold" style={{ color: INK }}>
+                {eveningTransition.restOfToday.summary}
+              </p>
+              <p className="mt-0.5 text-xs" style={{ color: INK, opacity: 0.7 }}>
+                {eveningTransition.restOfToday.conditions}
+              </p>
             </div>
-            <span className="text-sm font-bold text-[#4A70D9] shrink-0 ml-3">
+            <span
+              className="ml-3 shrink-0"
+              style={{
+                fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+                fontSize: 18,
+                color: STAMP_BLUE,
+              }}
+            >
               {eveningTransition.restOfToday.waveHeight}
             </span>
           </div>
         </div>
       )}
 
-      <div className="noise-texture rounded-xl border border-[#404C92] bg-[#2D357D] p-5">
+      <div className="notebook">
         <div className="flex flex-col gap-2">
           {windows.map((window) => {
             const isPreferred = preferredHour !== null && window.time === preferredHour;
@@ -134,48 +177,56 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow,
             return (
               <div
                 key={window.time}
-                className={
+                className="p-1"
+                data-preferred={isPreferred ? "true" : undefined}
+                style={
                   isPreferred
-                    ? "rounded-lg p-1 ring-1 ring-[#FDB84B]/20"
-                    : "rounded-lg p-1"
+                    ? { boxShadow: `inset 0 0 0 1.5px ${HIGHLIGHT}` }
+                    : undefined
                 }
               >
                 <div className="flex items-center gap-3">
                   {/* Time label — 48px fixed width */}
                   <span
-                    className={
-                      window.isBest
-                        ? "w-12 shrink-0 font-heading text-sm font-bold text-[#FDB84B]"
-                        : "w-12 shrink-0 font-heading text-sm text-medium"
-                    }
+                    className="w-12 shrink-0 text-sm"
+                    data-best={window.isBest ? "true" : undefined}
+                    style={{
+                      fontFamily: "var(--font-mono), monospace",
+                      fontWeight: 700,
+                      color: INK,
+                      opacity: window.isBest ? 1 : 0.6,
+                    }}
                   >
                     {window.time}
                   </span>
 
                   {/* Quality bar container */}
-                  <div className="relative flex min-w-0 flex-1 items-center h-7 overflow-hidden">
-                    {/* Background bar — absolute, width driven by quality */}
+                  <div className="relative flex h-7 min-w-0 flex-1 items-center overflow-hidden">
+                    {/* Background bar — absolute, width driven by quality.
+                        Ink wash on paper; the best slot gets the marker
+                        highlight rather than a glow. */}
                     <div
-                      className={
-                        window.isBest
-                          ? "absolute inset-y-0 left-0 rounded-md bg-success/30 shadow-[0_0_12px_rgba(34,197,94,0.15)]"
-                          : "absolute inset-y-0 left-0 rounded-md bg-[#2D357D]"
-                      }
-                      style={{ width: `${barWidthPercent}%` }}
+                      className="absolute inset-y-0 left-0"
+                      style={{
+                        width: `${barWidthPercent}%`,
+                        background: window.isBest
+                          ? "rgba(242,201,76,0.62)"
+                          : "rgba(17,16,13,0.10)",
+                      }}
                     />
                     {/* Label — sits on top, left-aligned, truncates when space is tight */}
                     <span
-                      className={
-                        window.isBest
-                          ? "relative z-10 min-w-0 truncate px-2 text-xs font-semibold text-white"
-                          : "relative z-10 min-w-0 truncate px-2 text-xs font-semibold text-medium"
-                      }
+                      className="relative z-10 min-w-0 truncate px-2 text-xs font-semibold"
+                      style={{ color: INK, opacity: window.isBest ? 1 : 0.72 }}
                     >
                       {window.label}
                     </span>
                     {/* Conditions — inline right-aligned, hidden on very small screens */}
                     {conditionSegments.length > 0 && (
-                      <span className="relative z-10 ml-auto hidden gap-2 px-2 text-[10px] leading-tight text-medium/50 whitespace-nowrap sm:flex">
+                      <span
+                        className="relative z-10 ml-auto hidden gap-2 whitespace-nowrap px-2 text-[10px] leading-tight sm:flex"
+                        style={{ color: INK, opacity: 0.5 }}
+                      >
                         {conditionSegments.map((seg, i) => (
                           <span key={i}>{seg}</span>
                         ))}
@@ -188,14 +239,17 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow,
                       keeps visual rhythm consistent across all 5 cards
                       regardless of which range string the slot displays. */}
                   {window.height === "—" && !window.isBest ? (
-                    <span className="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-white/30">
+                    <span
+                      className="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold"
+                      style={{ color: INK, opacity: 0.3 }}
+                    >
                       —
                     </span>
                   ) : (
                     <WaveHeightDisplay
                       height={height}
                       showTooltip={false}
-                      className="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-high"
+                      className="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-[#0B3A75]"
                       isCalibrated={window.isCalibrated}
                     />
                   )}
@@ -205,7 +259,10 @@ export function TodaysWindows({ windows, preferredTime, forecastUrl, isTomorrow,
           })}
         </div>
         {windows.filter(w => w.height === "—").length >= 4 && (
-          <p className="text-white/40 text-xs text-center mt-3">
+          <p
+            className="mt-3 text-center text-xs"
+            style={{ color: INK, opacity: 0.55 }}
+          >
             Set your home beach for full forecast windows
           </p>
         )}

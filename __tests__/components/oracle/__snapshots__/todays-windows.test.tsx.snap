@@ -4,14 +4,18 @@ exports[`TodaysWindows captures the normal clean-day compact summary hierarchy 1
 <div>
   <div>
     <div
-      class="mb-3 flex items-center justify-between"
+      class="mb-4 flex items-center justify-between gap-3"
     >
-      <h2
-        class="flex items-center gap-1.5 font-heading text-lg font-semibold text-white"
+      <div
+        class="flex min-w-0 items-center gap-2"
       >
-        Today's Windows
+        <h2
+          class="label-black"
+        >
+          Today's Windows
+        </h2>
         <svg
-          class="lucide lucide-info h-3.5 w-3.5 cursor-help text-muted-foreground"
+          class="lucide lucide-info h-3.5 w-3.5 shrink-0 cursor-help"
           data-state="closed"
           fill="none"
           height="24"
@@ -19,6 +23,7 @@ exports[`TodaysWindows captures the normal clean-day compact summary hierarchy 1
           stroke-linecap="round"
           stroke-linejoin="round"
           stroke-width="2"
+          style="color: rgb(17, 16, 13); opacity: 0.5;"
           viewBox="0 0 24 24"
           width="24"
           xmlns="http://www.w3.org/2000/svg"
@@ -35,39 +40,43 @@ exports[`TodaysWindows captures the normal clean-day compact summary hierarchy 1
             d="M12 8h.01"
           />
         </svg>
-      </h2>
+      </div>
     </div>
     <div
-      class="noise-texture rounded-xl border border-[#404C92] bg-[#2D357D] p-5"
+      class="notebook"
     >
       <div
         class="flex flex-col gap-2"
       >
         <div
-          class="rounded-lg p-1"
+          class="p-1"
         >
           <div
             class="flex items-center gap-3"
           >
             <span
-              class="w-12 shrink-0 font-heading text-sm font-bold text-[#FDB84B]"
+              class="w-12 shrink-0 text-sm"
+              data-best="true"
+              style="font-family: var(--font-mono), monospace; font-weight: 700; color: rgb(17, 16, 13); opacity: 1;"
             >
               6am
             </span>
             <div
-              class="relative flex min-w-0 flex-1 items-center h-7 overflow-hidden"
+              class="relative flex h-7 min-w-0 flex-1 items-center overflow-hidden"
             >
               <div
-                class="absolute inset-y-0 left-0 rounded-md bg-success/30 shadow-[0_0_12px_rgba(34,197,94,0.15)]"
-                style="width: 86%;"
+                class="absolute inset-y-0 left-0"
+                style="width: 86%; background: rgba(242, 201, 76, 0.62);"
               />
               <span
-                class="relative z-10 min-w-0 truncate px-2 text-xs font-semibold text-white"
+                class="relative z-10 min-w-0 truncate px-2 text-xs font-semibold"
+                style="color: rgb(17, 16, 13); opacity: 1;"
               >
                 Clean early
               </span>
               <span
-                class="relative z-10 ml-auto hidden gap-2 px-2 text-[10px] leading-tight text-medium/50 whitespace-nowrap sm:flex"
+                class="relative z-10 ml-auto hidden gap-2 whitespace-nowrap px-2 text-[10px] leading-tight sm:flex"
+                style="color: rgb(17, 16, 13); opacity: 0.5;"
               >
                 <span>
                   Wind E 4 mph
@@ -81,7 +90,7 @@ exports[`TodaysWindows captures the normal clean-day compact summary hierarchy 1
               </span>
             </div>
             <span
-              class="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-high flex items-center"
+              class="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-[#0B3A75] flex items-center"
               data-testid="primary-wave-height"
             >
               3-4 ft
@@ -98,14 +107,18 @@ exports[`TodaysWindows captures tide-sensitive windows with tide visible in the 
 <div>
   <div>
     <div
-      class="mb-3 flex items-center justify-between"
+      class="mb-4 flex items-center justify-between gap-3"
     >
-      <h2
-        class="flex items-center gap-1.5 font-heading text-lg font-semibold text-white"
+      <div
+        class="flex min-w-0 items-center gap-2"
       >
-        Today's Windows
+        <h2
+          class="label-black"
+        >
+          Today's Windows
+        </h2>
         <svg
-          class="lucide lucide-info h-3.5 w-3.5 cursor-help text-muted-foreground"
+          class="lucide lucide-info h-3.5 w-3.5 shrink-0 cursor-help"
           data-state="closed"
           fill="none"
           height="24"
@@ -113,6 +126,7 @@ exports[`TodaysWindows captures tide-sensitive windows with tide visible in the 
           stroke-linecap="round"
           stroke-linejoin="round"
           stroke-width="2"
+          style="color: rgb(17, 16, 13); opacity: 0.5;"
           viewBox="0 0 24 24"
           width="24"
           xmlns="http://www.w3.org/2000/svg"
@@ -129,39 +143,43 @@ exports[`TodaysWindows captures tide-sensitive windows with tide visible in the 
             d="M12 8h.01"
           />
         </svg>
-      </h2>
+      </div>
     </div>
     <div
-      class="noise-texture rounded-xl border border-[#404C92] bg-[#2D357D] p-5"
+      class="notebook"
     >
       <div
         class="flex flex-col gap-2"
       >
         <div
-          class="rounded-lg p-1"
+          class="p-1"
         >
           <div
             class="flex items-center gap-3"
           >
             <span
-              class="w-12 shrink-0 font-heading text-sm font-bold text-[#FDB84B]"
+              class="w-12 shrink-0 text-sm"
+              data-best="true"
+              style="font-family: var(--font-mono), monospace; font-weight: 700; color: rgb(17, 16, 13); opacity: 1;"
             >
               10am
             </span>
             <div
-              class="relative flex min-w-0 flex-1 items-center h-7 overflow-hidden"
+              class="relative flex h-7 min-w-0 flex-1 items-center overflow-hidden"
             >
               <div
-                class="absolute inset-y-0 left-0 rounded-md bg-success/30 shadow-[0_0_12px_rgba(34,197,94,0.15)]"
-                style="width: 74%;"
+                class="absolute inset-y-0 left-0"
+                style="width: 74%; background: rgba(242, 201, 76, 0.62);"
               />
               <span
-                class="relative z-10 min-w-0 truncate px-2 text-xs font-semibold text-white"
+                class="relative z-10 min-w-0 truncate px-2 text-xs font-semibold"
+                style="color: rgb(17, 16, 13); opacity: 1;"
               >
                 Low tide window
               </span>
               <span
-                class="relative z-10 ml-auto hidden gap-2 px-2 text-[10px] leading-tight text-medium/50 whitespace-nowrap sm:flex"
+                class="relative z-10 ml-auto hidden gap-2 whitespace-nowrap px-2 text-[10px] leading-tight sm:flex"
+                style="color: rgb(17, 16, 13); opacity: 0.5;"
               >
                 <span>
                   Wind NE 6 mph
@@ -175,7 +193,7 @@ exports[`TodaysWindows captures tide-sensitive windows with tide visible in the 
               </span>
             </div>
             <span
-              class="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-high flex items-center"
+              class="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-[#0B3A75] flex items-center"
               data-testid="primary-wave-height"
             >
               2-3 ft
@@ -192,14 +210,18 @@ exports[`TodaysWindows normalizes broad raw ranges and keeps wave, wind, swell, 
 <div>
   <div>
     <div
-      class="mb-3 flex items-center justify-between"
+      class="mb-4 flex items-center justify-between gap-3"
     >
-      <h2
-        class="flex items-center gap-1.5 font-heading text-lg font-semibold text-white"
+      <div
+        class="flex min-w-0 items-center gap-2"
       >
-        Today's Windows
+        <h2
+          class="label-black"
+        >
+          Today's Windows
+        </h2>
         <svg
-          class="lucide lucide-info h-3.5 w-3.5 cursor-help text-muted-foreground"
+          class="lucide lucide-info h-3.5 w-3.5 shrink-0 cursor-help"
           data-state="closed"
           fill="none"
           height="24"
@@ -207,6 +229,7 @@ exports[`TodaysWindows normalizes broad raw ranges and keeps wave, wind, swell, 
           stroke-linecap="round"
           stroke-linejoin="round"
           stroke-width="2"
+          style="color: rgb(17, 16, 13); opacity: 0.5;"
           viewBox="0 0 24 24"
           width="24"
           xmlns="http://www.w3.org/2000/svg"
@@ -223,39 +246,43 @@ exports[`TodaysWindows normalizes broad raw ranges and keeps wave, wind, swell, 
             d="M12 8h.01"
           />
         </svg>
-      </h2>
+      </div>
     </div>
     <div
-      class="noise-texture rounded-xl border border-[#404C92] bg-[#2D357D] p-5"
+      class="notebook"
     >
       <div
         class="flex flex-col gap-2"
       >
         <div
-          class="rounded-lg p-1"
+          class="p-1"
         >
           <div
             class="flex items-center gap-3"
           >
             <span
-              class="w-12 shrink-0 font-heading text-sm font-bold text-[#FDB84B]"
+              class="w-12 shrink-0 text-sm"
+              data-best="true"
+              style="font-family: var(--font-mono), monospace; font-weight: 700; color: rgb(17, 16, 13); opacity: 1;"
             >
               8am
             </span>
             <div
-              class="relative flex min-w-0 flex-1 items-center h-7 overflow-hidden"
+              class="relative flex h-7 min-w-0 flex-1 items-center overflow-hidden"
             >
               <div
-                class="absolute inset-y-0 left-0 rounded-md bg-success/30 shadow-[0_0_12px_rgba(34,197,94,0.15)]"
-                style="width: 80%;"
+                class="absolute inset-y-0 left-0"
+                style="width: 80%; background: rgba(242, 201, 76, 0.62);"
               />
               <span
-                class="relative z-10 min-w-0 truncate px-2 text-xs font-semibold text-white"
+                class="relative z-10 min-w-0 truncate px-2 text-xs font-semibold"
+                style="color: rgb(17, 16, 13); opacity: 1;"
               >
                 Morning glass
               </span>
               <span
-                class="relative z-10 ml-auto hidden gap-2 px-2 text-[10px] leading-tight text-medium/50 whitespace-nowrap sm:flex"
+                class="relative z-10 ml-auto hidden gap-2 whitespace-nowrap px-2 text-[10px] leading-tight sm:flex"
+                style="color: rgb(17, 16, 13); opacity: 0.5;"
               >
                 <span>
                   Wind NW 8 mph
@@ -269,7 +296,7 @@ exports[`TodaysWindows normalizes broad raw ranges and keeps wave, wind, swell, 
               </span>
             </div>
             <span
-              class="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-high flex items-center"
+              class="w-16 shrink-0 whitespace-nowrap text-right text-sm font-semibold text-[#0B3A75] flex items-center"
               data-testid="primary-wave-height"
             >
               3ft

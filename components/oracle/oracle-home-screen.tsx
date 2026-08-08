@@ -1,11 +1,17 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useOracleData } from "@/hooks/use-oracle-data";
 import { useDataFetcher } from "@/hooks/use-data-fetcher";
 import { getLocalActivity } from "@/actions/oracle-actions";
-import { OracleHero } from "@/components/oracle/oracle-hero";
+import { HomeCallPlate } from "@/components/oracle/zine/home-call-plate";
+import { HomeZineShell } from "@/components/oracle/zine/home-zine-shell";
+import {
+  HomeZineEmpty,
+  HomeZineLoading,
+  HomeZineRechecking,
+} from "@/components/oracle/zine/home-zine-states";
 import { ContextualCTA } from "@/components/oracle/contextual-cta";
 import { TodaysWindows } from "@/components/oracle/todays-windows";
 import { NearbySpots } from "@/components/oracle/nearby-spots";
@@ -411,73 +417,6 @@ function transformActivityItems(raw: LocalActivityItem[]): ActivityItem[] {
 }
 
 // ============================================================================
-// Loading skeleton
-// ============================================================================
-
-function LoadingSkeleton() {
-  return (
-    <div className="min-h-screen bg-[#252D6B] animate-pulse">
-      {/* Hero placeholder */}
-      <div className="h-[420px] md:h-[480px] w-full bg-[#2D357D] rounded-2xl" />
-      {/* Content placeholders */}
-      <div className="space-y-6 px-6 py-4">
-        <div className="h-10 rounded-xl bg-[#2D357D]" />
-        <div className="h-32 rounded-xl bg-[#2D357D]" />
-        <div className="h-24 rounded-xl bg-[#2D357D]" />
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// Empty / error state — renders when discovery resolved with no usable data
-// ============================================================================
-
-function OracleHeroEmpty({
-  beachName,
-  reason,
-  onSetHomeBeach,
-  onRetry,
-}: {
-  beachName: string;
-  reason: string;
-  onSetHomeBeach?: () => void;
-  onRetry?: () => void;
-}) {
-  return (
-    <div className="min-h-screen bg-[#252D6B]">
-      <div className="mx-auto max-w-3xl md:max-w-6xl px-6 py-24">
-        <div className="rounded-2xl border border-white/10 bg-[#2D357D] p-8 text-center">
-          <h1 className="font-space-grotesk text-2xl text-white mb-2">
-            {beachName}
-          </h1>
-          <p className="text-white/60 text-sm mb-6">{reason}</p>
-          {onSetHomeBeach && (
-            <button
-              type="button"
-              onClick={onSetHomeBeach}
-              className="mb-3 inline-flex w-full items-center justify-center gap-2 rounded-full bg-[#F78E42] px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#D57835] sm:w-auto"
-            >
-              Set your home beach
-            </button>
-          )}
-          {onRetry && (
-            <button
-              type="button"
-              onClick={onRetry}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#F78E42] bg-[#F78E42]/10 px-5 py-2 text-sm font-semibold text-[#F78E42] transition-colors hover:bg-[#F78E42]/20 sm:w-auto"
-            >
-              Try again
-            </button>
-          )}
-        </div>
-      </div>
-      <BottomNav />
-    </div>
-  );
-}
-
-// ============================================================================
 // OracleHomeScreen
 // ============================================================================
 
@@ -540,6 +479,26 @@ export function OracleHomeScreen() {
 
   const heroRec = topRec;
   const heroBeach = heroRec?.beach;
+
+  // Latches once a real call has been on screen. Distinguishes a cold load
+  // (nothing has ever rendered) from a recheck (we had a call and discovery
+  // dropped it to re-verify), which want different empty-of-data pages.
+  //
+  // Scoped to the profile: signing in as someone else without remounting this
+  // component would otherwise inherit the previous user's latch and greet them
+  // with "rechecking" for a call they have never seen.
+  const hasShownCallRef = useRef(false);
+  const latchedProfileIdRef = useRef<string | null>(null);
+  const currentProfileId = profile?.id ?? null;
+  useEffect(() => {
+    if (latchedProfileIdRef.current !== currentProfileId) {
+      latchedProfileIdRef.current = currentProfileId;
+      hasShownCallRef.current = false;
+    }
+    if (heroRec) hasShownCallRef.current = true;
+  }, [heroRec, currentProfileId]);
+  const hasShownCall =
+    hasShownCallRef.current && latchedProfileIdRef.current === currentProfileId;
 
   const homeIsTopRec =
     !!homeBeach?.id &&
@@ -839,8 +798,21 @@ export function OracleHomeScreen() {
     oracle.discoveryLoading ||
     (!!oracle.profile && !hasDefinitiveDiscoveryAnswer);
 
+  // Two different situations hide behind "no hero yet", and they deserve
+  // different pages.
+  //
+  // A cold load has genuinely never shown anything. A recheck HAS — the user
+  // was looking at a call, switched tabs, and discovery dropped its payload on
+  // resume so a safety hold activated while they were away can't lose to the
+  // stale positive still on screen (see hooks/use-surf-discovery.ts). Both
+  // used to render the same full-bleed navy skeleton, so the recheck looked
+  // like the page had crashed and reloaded itself.
   if (!heroRec && isBootstrapping) {
-    return <LoadingSkeleton />;
+    return hasShownCall ? (
+      <HomeZineRechecking beachName={homeBeach?.name ?? null} />
+    ) : (
+      <HomeZineLoading />
+    );
   }
 
   // Empty / error state — bootstrap converged but no usable hero. Render an
@@ -853,7 +825,7 @@ export function OracleHomeScreen() {
         ? "We couldn't load conditions for your area."
         : "We couldn't find any surf spots near you right now.";
     return (
-      <OracleHeroEmpty
+      <HomeZineEmpty
         beachName={homeBeach?.name ?? "Your Surf"}
         reason={reason}
         onSetHomeBeach={
@@ -874,14 +846,12 @@ export function OracleHomeScreen() {
   // Render
   // ------------------------------------------------------------------
   return (
-    <div className="min-h-screen bg-[#252D6B]">
-    <div className="mx-auto max-w-3xl md:max-w-6xl">
-      <OracleHero
+    <HomeZineShell>
+      <HomeCallPlate
         beachName={beachName}
         heroPhotoUrl={oracle.heroPhotoUrl}
+        verdict={canonicalVerdict}
         waveHeight={waveHeight}
-        score={score}
-        decisionVerdict={canonicalVerdict}
         swellDirection={swellDir}
         swellPeriod={swellPeriod}
         tideHeight={tideH}
@@ -893,15 +863,10 @@ export function OracleHomeScreen() {
         bestWindowSubtitle={bestWindowSubtitle}
         bestWindowTime={bestWindowTime}
         isTomorrow={isTomorrow}
-        shouldAnimate={oracle.shouldAnimate}
-        onAnimationComplete={oracle.markAnimationPlayed}
+        greeting={oracle.discovery?.regionalCall || undefined}
         userName={profile?.display_name ?? profile?.full_name}
-        // TODO: wire windCondition when wind quality label is available in forecast data
-        // TODO: wire daysAbsent from user's last session timestamp
         levelTitle={oracleProfile?.level_title ?? null}
         xpTotal={oracleProfile?.xp_total ?? null}
-        timezone={heroTz}
-        regionalCall={oracle.discovery?.regionalCall}
         driveContext={driveContext}
       />
 
@@ -909,7 +874,7 @@ export function OracleHomeScreen() {
           different beach than the user's home. Click navigates to beach
           detail via the same handler NearbySpots uses. */}
       {showHomeCard && homeBeachRec && (
-        <div className="px-6 pt-4 md:px-6">
+        <div className="pt-6">
           <HomeBeachCard rec={homeBeachRec} onClick={handleViewSpot} />
         </div>
       )}
@@ -933,11 +898,11 @@ export function OracleHomeScreen() {
            hasFollows (check follows count) to enable "Share your session"
            and "Tell your crew" CTA branches. */}
       <div
-        className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-6 lg:px-6 lg:py-4"
+        className="mt-8 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-8"
         data-testid="oracle-home-content-grid"
       >
         {/* Left column: CTA + Today's Windows */}
-        <div className="min-w-0 space-y-6">
+        <div className="min-w-0 space-y-8">
           <ContextualCTA
             hasHomeBeach={!!homeBeach}
             hasSessionToday={false}
@@ -952,23 +917,23 @@ export function OracleHomeScreen() {
             onShareSession={handleShareSession}
           />
 
-          <div className="px-6 lg:px-0">
-            <TodaysWindows
-              windows={timeWindows}
-              preferredTime={preferredTime}
-              forecastUrl={forecastUrl}
-              isTomorrow={isTomorrow}
-              eveningTransition={oracle.discovery?.eveningTransition}
-            />
-          </div>
+          <TodaysWindows
+            windows={timeWindows}
+            preferredTime={preferredTime}
+            forecastUrl={forecastUrl}
+            isTomorrow={isTomorrow}
+            eveningTransition={oracle.discovery?.eveningTransition}
+          />
         </div>
 
         {/* Right column: Nearby Spots + Activity Feed */}
-        <div className="min-w-0 space-y-6 px-6 pb-24 lg:px-0 lg:pb-6">
+        <div className="mt-8 min-w-0 space-y-8 lg:mt-0">
           <NearbySpots
             spots={nearbySpots}
             onViewSpot={handleViewSpot}
-            loading={oracle.discoveryLoading}
+            // Only claim "loading" when there is nothing to show. A background
+            // revalidation must not swap resolved cards back to skeletons.
+            loading={oracle.discoveryLoading && nearbySpots.length === 0}
             onUseMyLocation={
               oracle.geoSource === "browser" ? undefined : oracle.requestLocation
             }
@@ -981,8 +946,10 @@ export function OracleHomeScreen() {
         </div>
       </div>
 
-      {!oracle.discoveryLoading && (
-        <div className="px-6 pb-24 md:pb-6">
+      {/* Keyed off having recommendations rather than the loading flag, so a
+          background refresh doesn't unmount the module and pop the layout. */}
+      {effectiveRecommendations.length > 0 && (
+        <div className="mt-8">
           <SessionIntelligenceModule
             recommendations={effectiveRecommendations}
             recommendationAvailability={
@@ -992,6 +959,7 @@ export function OracleHomeScreen() {
         </div>
       )}
 
+      <div className="pb-20 lg:pb-0" />
       <BottomNav />
 
       <InviteSheet
@@ -1012,7 +980,6 @@ export function OracleHomeScreen() {
           shareUrl={forecastUrl ? `${SITE_URL}${forecastUrl}` : undefined}
         />
       )}
-    </div>
-    </div>
+    </HomeZineShell>
   );
 }

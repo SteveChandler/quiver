@@ -108,9 +108,7 @@ describe("NearbySpots", () => {
       );
 
       // Skeletons are rendered as divs with animate-pulse; count the skeleton wrappers
-      const skeletonWrappers = container.querySelectorAll(
-        ".min-w-\\[280px\\].flex-shrink-0"
-      );
+      const skeletonWrappers = screen.getAllByTestId("nearby-spot-skeleton");
       expect(skeletonWrappers).toHaveLength(4);
     });
 
@@ -143,9 +141,7 @@ describe("NearbySpots", () => {
       expect(screen.queryByRole("img")).not.toBeInTheDocument();
 
       // The gradient placeholder div should exist
-      const placeholder = container.querySelector(
-        ".bg-gradient-to-br.from-\\[\\#1a3a4a\\]"
-      );
+      const placeholder = screen.queryByTestId("nearby-spot-photo-placeholder");
       expect(placeholder).toBeInTheDocument();
     });
   });

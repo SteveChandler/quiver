@@ -78,7 +78,7 @@ const clearAuthBootstrapSurfDiscover401 = (capture: ErrorCapture): void => {
  * Home Page E2E Tests
  *
  * Comprehensive testing of the authenticated OracleHomeScreen including:
- * - Oracle hero banner with beach name, wave height, score badge
+ * - Oracle hero banner with beach name, wave height, canonical decision
  * - Time-aware greeting with user name
  * - Conditions overlay (swell, tide, water temp)
  * - Best window callout card
@@ -141,18 +141,14 @@ test.describe('Home Page - Layout', () => {
       }
     });
 
-    test('should display score badge with x/10 format @smoke', async ({ page }) => {
+    test('should display the canonical decision badge @smoke', async ({ page }) => {
       const hero = page.locator('section[role="banner"]').first();
       const heroVisible = await isVisibleSafe(hero, { timeout: TIMEOUTS.medium });
 
       if (heroVisible) {
-        const scoreBadge = hero.locator(
-          '[data-testid="hero-score-badge"][data-score-pending="false"]'
-        );
-        await expect(scoreBadge).toBeVisible({ timeout: TIMEOUTS.long });
-
-        const badgeText = await scoreBadge.textContent();
-        expect(badgeText).toMatch(/\d+\.\d+\/10/);
+        const decisionBadge = hero.locator('[data-testid="hero-decision-badge"]');
+        await expect(decisionBadge).toBeVisible({ timeout: TIMEOUTS.long });
+        await expect(decisionBadge.locator('h1')).toHaveText(/^(Go|Maybe|No)$/);
       }
     });
 
@@ -209,8 +205,8 @@ test.describe('Home Page - Layout', () => {
       // If no greeting found (user has no name or hero not loaded), that's acceptable
       // The hero may still be in loading state; just verify the page has loaded
       if (!greetingFound) {
-        // Verify the page itself has loaded (the oracle home screen dark background)
-        const oracleScreen = page.locator('.min-h-screen.bg-\\[\\#252D6B\\]').first();
+        // Verify the page itself has loaded (the signed-in home's cream paper surface)
+        const oracleScreen = page.locator('.zine-page .zine-paper').first();
         const screenVisible = await isVisibleSafe(oracleScreen, { timeout: TIMEOUTS.medium });
         // Either greeting or oracle screen background must be present
         expect(screenVisible || greetingFound).toBe(true);
@@ -519,9 +515,9 @@ test.describe('Home Page - Layout', () => {
   });
 
   test.describe('Layout Order and Structure', () => {
-    test('should render Oracle home screen with dark background @smoke', async ({ page }) => {
-      // OracleHomeScreen root div has bg-[#252D6B] (deep twilight blue)
-      const oracleScreen = page.locator('.bg-\\[\\#252D6B\\]').first();
+    test('should render Oracle home screen on the zine paper surface @smoke', async ({ page }) => {
+      // The signed-in home renders cream paper on the twilight stage.
+      const oracleScreen = page.locator('.zine-page .zine-paper').first();
       await expect(oracleScreen).toBeVisible({ timeout: TIMEOUTS.medium });
 
       // Should have at least one section (hero or NearbySpots)
@@ -597,8 +593,8 @@ test.describe('Home Page - Layout', () => {
     test('should show loading skeleton then transition to content', async ({ page }) => {
       await page.reload();
 
-      // LoadingSkeleton renders: .min-h-screen.bg-[#252D6B].animate-pulse
-      const skeleton = page.locator('.animate-pulse.bg-\\[\\#252D6B\\]');
+      // The loading state renders ink placeholder bars on the paper surface.
+      const skeleton = page.locator('.zine-developing').first();
       const skeletonAppeared = await isVisibleSafe(skeleton, { timeout: TIMEOUTS.short });
 
       if (skeletonAppeared) {
