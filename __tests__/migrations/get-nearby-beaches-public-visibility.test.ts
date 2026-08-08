@@ -15,11 +15,20 @@ describe("get_nearby_beaches public visibility migration", () => {
     expect(sql).toContain("b.deleted_at IS NULL");
   });
 
+  // Ceilings sit at the widest any live caller legitimately asks for, not at
+  // the defaults: native's use-nearest-beach requests 160934 m, and discovery's
+  // candidate pool wants 60 rows. Clamping tighter returns zero beaches for
+  // users far from a break, in binaries already shipped.
   it("caps direct RPC calls to the public map contract", () => {
     expect(sql).toContain(
-      "LEAST(GREATEST(max_distance_meters, 0), 80467)",
+      "LEAST(GREATEST(max_distance_meters, 0), 160934)",
     );
-    expect(sql).toContain("LEAST(GREATEST(limit_count, 1), 50)");
+    expect(sql).toContain("LEAST(GREATEST(limit_count, 1), 100)");
+  });
+
+  it("leaves the narrower defaults in place for callers that omit arguments", () => {
+    expect(sql).toContain("max_distance_meters INTEGER DEFAULT 80467");
+    expect(sql).toContain("limit_count INTEGER DEFAULT 50");
   });
 
   it("does not grant execution to the implicit public role", () => {
