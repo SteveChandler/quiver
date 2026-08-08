@@ -101,6 +101,100 @@ describe("useExpandableSwellTimeline", () => {
     expect(loadChunk).toHaveBeenCalledWith(hydrated.nextStart, 48, expect.any(AbortSignal));
   });
 
+  it("expands a fast initial chunk to the requested ten-day background horizon", async () => {
+    const initial = makeTimeline(0, 48);
+    const backgroundChunk = deferred<HourlySwellTimeline>();
+    const loadChunk = jest.fn<Promise<HourlySwellTimeline>, [string, number, AbortSignal]>(
+      () => backgroundChunk.promise,
+    );
+    const { result } = renderHook(() => useExpandableSwellTimeline({
+      scopeKey: "a",
+      initial,
+      timezone: "Pacific/Honolulu",
+      loadChunk,
+      reducedMotion: false,
+      prefetchHours: 10 * 24,
+    }));
+
+    expect(result.current.timestamps).toHaveLength(48);
+    expect(loadChunk).toHaveBeenCalledTimes(1);
+    expect(loadChunk).toHaveBeenCalledWith(
+      initial.nextStart,
+      192,
+      expect.any(AbortSignal),
+    );
+
+    const expanded = makeTimeline(48, 192);
+    await act(async () => {
+      backgroundChunk.resolve(expanded);
+      await backgroundChunk.promise;
+    });
+
+    expect(result.current.timestamps).toHaveLength(10 * 24);
+    expect(result.current.isLoadingMore).toBe(false);
+    expect(result.current.isExhausted).toBe(true);
+    expect(loadChunk).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current.setIndex(result.current.timestamps.length - 1);
+    });
+    expect(loadChunk).toHaveBeenCalledTimes(1);
+  });
+
+  it("deduplicates edge prefetch while the ten-day background request is active", async () => {
+    const initial = makeTimeline(0, 48);
+    const backgroundChunk = deferred<HourlySwellTimeline>();
+    const loadChunk = jest.fn<Promise<HourlySwellTimeline>, [string, number, AbortSignal]>(
+      () => backgroundChunk.promise,
+    );
+    const { result } = renderHook(() => useExpandableSwellTimeline({
+      scopeKey: "a",
+      initial,
+      timezone: "Pacific/Honolulu",
+      loadChunk,
+      reducedMotion: false,
+      prefetchHours: 10 * 24,
+    }));
+
+    act(() => {
+      result.current.setIndex(47);
+    });
+
+    expect(loadChunk).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      backgroundChunk.resolve(makeTimeline(48, 192, { hasMore: false, nextStart: null }));
+      await backgroundChunk.promise;
+    });
+  });
+
+  it("keeps the fast initial chunk available when background expansion fails", async () => {
+    const initial = makeTimeline(0, 48);
+    const backgroundChunk = deferred<HourlySwellTimeline>();
+    const loadChunk = jest.fn(() => backgroundChunk.promise);
+    const { result } = renderHook(() => useExpandableSwellTimeline({
+      scopeKey: "a",
+      initial,
+      timezone: "Pacific/Honolulu",
+      loadChunk,
+      reducedMotion: false,
+      prefetchHours: 10 * 24,
+    }));
+
+    await act(async () => {
+      backgroundChunk.reject(new Error("Ten-day forecast unavailable"));
+      try {
+        await backgroundChunk.promise;
+      } catch {
+        // The controller preserves the loaded horizon and surfaces retry state.
+      }
+    });
+
+    expect(result.current.timestamps).toEqual(initial.timestamps);
+    expect(result.current.error).toBe("Ten-day forecast unavailable");
+    expect(result.current.isLoadingMore).toBe(false);
+  });
+
   it("hydrates corrected partitions when initial pagination metadata is unchanged", () => {
     const initial = makeTimeline(0, 2, { hasMore: false, nextStart: null });
     const corrected = {
@@ -307,6 +401,11 @@ describe("useExpandableSwellTimeline", () => {
     expect(result.current.timestamps).toEqual(initial.timestamps);
     expect(result.current.isPlaying).toBe(false);
     expect(result.current.error).toBe("Extension unavailable");
+
+    act(() => {
+      result.current.setIndex(7);
+    });
+    expect(loadChunk).toHaveBeenCalledTimes(1);
   });
 
   it("freezes at the loaded boundary until a deferred gapped extension merges", async () => {

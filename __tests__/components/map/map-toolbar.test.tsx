@@ -98,7 +98,35 @@ describe("MapToolbar", () => {
     await user.click(screen.getByRole("button", { name: "Filters" }));
 
     expect(screen.queryByText("Regions")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Beginner-friendly" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Beginner-friendly" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+    expect(screen.getByRole("button", { name: "beach" })).toHaveAttribute(
+      "aria-pressed",
+      "false",
+    );
+  });
+
+  it("exposes active filters as pressed toggle buttons", async () => {
+    const user = userEvent.setup();
+    render(
+      <MapToolbar
+        {...defaultProps}
+        filters={{ beginnerFriendly: true, breakTypes: new Set(["reef"]) }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Filters" }));
+
+    expect(screen.getByRole("button", { name: "Beginner-friendly" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByRole("button", { name: "reef" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("does not render the removed Map/List segmented control", () => {
@@ -123,6 +151,17 @@ describe("MapToolbar", () => {
     const actions = screen.getByTestId("map-toolbar-actions");
     expect(actions.className).toContain("grid-cols-3");
     expect(actions.className).not.toContain("grid-cols-1");
+  });
+
+  it("keeps search and toolbar actions at least 44px tall", () => {
+    render(<MapToolbar {...defaultProps} searchQuery="Black" />);
+
+    expect(screen.getByRole("combobox")).toHaveClass("h-11");
+    expect(screen.getByRole("button", { name: "Clear map search" })).toHaveClass(
+      "h-11",
+      "w-11",
+    );
+    expect(screen.getByRole("button", { name: "Filters" })).toHaveClass("h-11");
   });
 
   it("includes the field guide in the consolidated toolbar action row", async () => {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { applyBeachCoordinateCorrection } from "@/lib/beach-coordinate-corrections";
 import {
   createErrorResponse,
   createSuccessResponse,
@@ -107,7 +108,10 @@ async function fetchBeachById(beachId: string): Promise<NextResponse> {
         .is("deleted_at", null);
       reviewCount = count ?? 0;
     }
-    const beachWithCount = { ...data, review_count: reviewCount };
+    const beachWithCount = applyBeachCoordinateCorrection({
+      ...data,
+      review_count: reviewCount,
+    });
 
     // PERFORMANCE OPTIMIZATION: Cache beach data for 1 hour (3600s)
     // Beach metadata rarely changes

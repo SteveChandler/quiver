@@ -116,16 +116,36 @@ describe("MapContent", () => {
     );
 
     expect(screen.getByTestId("map-location-denied-prompt")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Search spots" })).toHaveClass("min-h-11");
     expect(
       screen.getByText("Location is off. Search your break."),
     ).toBeInTheDocument();
     expect(
-      screen.getByText("We are showing Mission Beach until you pick a spot."),
-    ).toBeInTheDocument();
+      screen.queryByText("We are showing Mission Beach until you pick a spot."),
+    ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /search spots/i }));
 
     expect(onSearchPromptClick).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("map-container")).toContainElement(
+      screen.getByTestId("map-location-denied-prompt"),
+    );
+    expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
+  });
+
+  it("should keep the denied-location prompt hidden after it is dismissed", () => {
+    render(
+      <MapContent
+        {...defaultProps}
+        locationError="Location access denied - using default location"
+        usingDefaultLocation={true}
+        locationDeniedPromptDismissed={true}
+      />,
+    );
+
+    expect(
+      screen.queryByTestId("map-location-denied-prompt"),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("interactive-map")).toBeInTheDocument();
   });
 

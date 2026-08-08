@@ -125,6 +125,17 @@ function renderHealthStatus(fps: number): "ok" | "degraded" {
   return fps >= DEGRADED_FPS_THRESHOLD ? "ok" : "degraded";
 }
 
+export function focusEmbedBeachMarker(beachId: string): boolean {
+  const markers = document.querySelectorAll<HTMLElement>('[data-testid="beach-marker"]');
+  const marker = Array.from(markers).find(
+    (candidate) => candidate.getAttribute("data-beach-id") === beachId,
+  );
+  const focusTarget = marker?.querySelector<HTMLElement>('[data-marker-badge="true"]') ?? marker;
+  if (!focusTarget) return false;
+  focusTarget.focus({ preventScroll: true });
+  return document.activeElement === focusTarget;
+}
+
 export function EmbedMapClient() {
   const searchParams = useSearchParams();
   const isHourlyTimeline = searchParams.get("timeline") === "hourly";
@@ -322,6 +333,9 @@ export function EmbedMapClient() {
           );
           return;
         }
+        case "focusSelectedSpot":
+          focusEmbedBeachMarker(command.payload.beachId);
+          return;
         case "startPlacement": {
           const point = command.payload?.lat !== undefined && command.payload?.lon !== undefined
             ? command.payload

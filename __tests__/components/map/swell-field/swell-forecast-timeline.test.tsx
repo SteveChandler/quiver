@@ -158,5 +158,12 @@ describe("SwellForecastTimeline", () => {
     expect(timeline.className).toContain("w-full");
     expect(timeline.className).not.toContain("absolute");
     expect(range.className).toContain("flex-1");
+    expect(range).toHaveClass("h-11");
+    expect(
+      screen.getByRole("button", { name: "Play forecast timeline" }),
+    ).toHaveClass("h-11", "w-11");
+    expect(
+      screen.getByRole("button", { name: "Previous forecast step" }),
+    ).toHaveClass("min-h-11", "min-w-11");
   });
 });

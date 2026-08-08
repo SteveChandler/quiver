@@ -81,7 +81,7 @@ export function SwellForecastTimeline({
         aria-label={isPlaying ? "Pause forecast timeline" : "Play forecast timeline"}
         disabled={!canPlay}
         onClick={() => setIsPlaying((playing) => !playing)}
-        className={`inline-flex h-7 w-7 items-center justify-center rounded-sm text-xs disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${SWELL_MAP_CTA_CLASS}`}
+        className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-sm text-xs disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${SWELL_MAP_CTA_CLASS}`}
       >
         {isPlaying ? (
           <Pause className="h-3.5 w-3.5" aria-hidden="true" />
@@ -94,7 +94,7 @@ export function SwellForecastTimeline({
         aria-label="Previous forecast step"
         disabled={nearestStep === 0}
         onClick={() => onIndexChange(Math.max(0, nearestStep - 1))}
-        className={`rounded-sm px-2 py-1 text-xs disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${SWELL_MAP_CTA_CLASS}`}
+        className={`min-h-11 min-w-11 rounded-sm px-2 py-1 text-xs disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${SWELL_MAP_CTA_CLASS}`}
       >
         ‹
       </button>
@@ -108,7 +108,7 @@ export function SwellForecastTimeline({
         aria-label="Forecast time"
         data-testid="swell-timeline-range"
         onChange={(e) => onIndexChange(Number(e.target.value))}
-        className={`h-1 cursor-pointer accent-[#F78E42] ${
+        className={`h-11 cursor-pointer accent-[#F78E42] ${
           isLegendPlacement ? "min-w-0 flex-1" : "w-40"
         }`}
       />
@@ -127,7 +127,7 @@ export function SwellForecastTimeline({
         aria-label="Next forecast step"
         disabled={nearestStep === steps.length - 1}
         onClick={() => onIndexChange(Math.min(steps.length - 1, nearestStep + 1))}
-        className={`rounded-sm px-2 py-1 text-xs disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${SWELL_MAP_CTA_CLASS}`}
+        className={`min-h-11 min-w-11 rounded-sm px-2 py-1 text-xs disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FDB84B] ${SWELL_MAP_CTA_CLASS}`}
       >
         ›
       </button>
