@@ -149,36 +149,67 @@ function resolveCTAs(props: ContextualCTAProps): {
   };
 }
 
+const INK = "#11100D";
+
 export function ContextualCTA(props: ContextualCTAProps) {
   const { primary, secondary, contextLine } = resolveCTAs(props);
 
   return (
-    <div className="px-6 py-4">
-      <div className="noise-texture rounded-xl border border-[#404C92] bg-[#2D357D] p-5">
-        {contextLine && (
-          <p className="text-medium mb-3 text-sm">{contextLine}</p>
-        )}
-        <div className="flex flex-col gap-3">
-          <Button
-            variant={primary.variant}
-            className="w-full py-4 bg-[#F78E42] hover:bg-[#D57835] text-white font-heading font-semibold text-base"
-            onClick={primary.handler}
-          >
-            {primary.label}
-          </Button>
+    <div className="utility-strip">
+      {contextLine && (
+        <p
+          className="mb-4"
+          style={{
+            fontFamily: "var(--font-handwritten), cursive",
+            fontSize: 21,
+            lineHeight: 1.2,
+            fontWeight: 700,
+            color: INK,
+            margin: "0 0 16px",
+          }}
+        >
+          {contextLine}
+        </p>
+      )}
+      <div className="flex flex-col gap-3">
+        {/* Charming Orange stays the single primary accent, but printed flat
+            with an offset block shadow rather than a rounded SaaS pill. */}
+        <Button
+          variant={primary.variant}
+          className="w-full rounded-none py-4 text-base font-semibold hover:bg-[#D57835]"
+          style={{
+            background: "#F78E42",
+            color: "#11100D",
+            fontFamily: "var(--font-zine-display), 'Bowlby One', sans-serif",
+            letterSpacing: "0.02em",
+            textTransform: "uppercase",
+            boxShadow: "3px 4px 0 rgba(17,16,13,0.35)",
+          }}
+          onClick={primary.handler}
+        >
+          {primary.label}
+        </Button>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
-            {secondary.map((action) => (
-              <Button
-                key={action.label}
-                variant="ghost"
-                className="w-full text-white/70 hover:text-white/90 hover:bg-white/[0.04] font-heading text-sm sm:flex-1"
-                onClick={action.handler}
-              >
-                {action.label}
-              </Button>
-            ))}
-          </div>
+        <div className="flex flex-col gap-2 sm:flex-row sm:gap-2">
+          {secondary.map((action) => (
+            <Button
+              key={action.label}
+              variant="ghost"
+              className="w-full rounded-none text-sm hover:bg-[rgba(17,16,13,0.06)] sm:flex-1"
+              style={{
+                fontFamily: "var(--font-mono), monospace",
+                fontSize: 12,
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                fontWeight: 700,
+                color: INK,
+                border: "1.5px dashed rgba(17,16,13,0.45)",
+              }}
+              onClick={action.handler}
+            >
+              {action.label}
+            </Button>
+          ))}
         </div>
       </div>
     </div>

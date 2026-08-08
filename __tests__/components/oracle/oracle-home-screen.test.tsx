@@ -473,7 +473,14 @@ describe("OracleHomeScreen", () => {
 
   it("renders wave height in the hero", () => {
     render(<OracleHomeScreen />);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("3-4ft");
+    expect(screen.getByTestId("hero-wave-height")).toHaveTextContent("3-4ft");
+  });
+
+  it("headlines the surf call itself, not the wave height", () => {
+    render(<OracleHomeScreen />);
+    // Quiver's position is that it makes the call rather than handing over a
+    // forecast, so the verdict is the h1.
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Maybe");
   });
 
   it("uses the embedded canonical decision without calling the legacy surf-call endpoint", () => {
@@ -614,6 +621,33 @@ describe("OracleHomeScreen", () => {
     render(<OracleHomeScreen />);
     // Skeleton does not render the hero role="banner"
     expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+  });
+
+  it("keeps the paper page and says it is rechecking after a resume drops the payload", () => {
+    // The signed-in home used to collapse to a full-bleed navy skeleton every
+    // time the tab regained focus: useSurfDiscovery clears its payload on
+    // resume (deliberately — a safety hold activated while you were away has
+    // to beat the positive call already on screen), and the screen rendered
+    // that window as a blank page. It read as a crash.
+    //
+    // Render a call first so the screen knows a call has been shown, then
+    // clear the payload the way a resume does.
+    const { rerender } = render(<OracleHomeScreen />);
+    expect(screen.getByRole("banner")).toBeInTheDocument();
+
+    mockOracleData = {
+      ...mockOracleData,
+      discoveryLoading: true,
+      topRecommendation: null,
+      discovery: null,
+    } as unknown as OracleData;
+    rerender(<OracleHomeScreen />);
+
+    // The verdict is gone — that is the safety contract, and it must hold.
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+    // But the page is still a page: cream paper, and honest about why.
+    expect(document.querySelector(".zine-paper")).toBeInTheDocument();
+    expect(screen.getByText(/Rechecking the call/i)).toBeInTheDocument();
   });
 
   it("renders even when discovery is loading but topRecommendation exists (data from cache)", () => {
@@ -879,7 +913,7 @@ describe("OracleHomeScreen", () => {
   it("uses waveHeightBadge from topRecommendation for display", () => {
     render(<OracleHomeScreen />);
     // waveHeightBadge = "3-4ft" from MOCK_TOP_REC
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("3-4ft");
+    expect(screen.getByTestId("hero-wave-height")).toHaveTextContent("3-4ft");
   });
 
   it("hides activity feed when no activity items exist", () => {
@@ -928,7 +962,8 @@ describe("OracleHomeScreen", () => {
       },
     } as unknown as OracleData;
     render(<OracleHomeScreen />);
-    expect(screen.getByText("5:45am")).toBeInTheDocument();
+    // Rendered inside the stamp's trail caption ("Best at 5:45am").
+    expect(screen.getByText(/\b5:45am\b/)).toBeInTheDocument();
   });
 
   it("uses slotForecasts wave heights for non-best time slots when provided", () => {
@@ -1185,10 +1220,10 @@ describe("OracleHomeScreen", () => {
     it("renders the topRec in the hero (not the home beach)", () => {
       setupHomeNeqTopRec();
       render(<OracleHomeScreen />);
-      // Hero <h1> shows the topRec wave height (3-4ft from MOCK_TOP_REC),
+      // Hero shows the topRec wave height (3-4ft from MOCK_TOP_REC),
       // NOT the home beach wave height (1-2ft from MOCK_HOME_REC).
-      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("3-4ft");
-      // Beach name in the conditions overlay is the topRec's name.
+      expect(screen.getByTestId("hero-wave-height")).toHaveTextContent("3-4ft");
+      // Beach name in the hero eyebrow is the topRec's name.
       const hero = screen.getByRole("banner");
       expect(within(hero).getByText("Blacks Beach")).toBeInTheDocument();
     });
