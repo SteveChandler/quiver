@@ -13,7 +13,25 @@ function expectPermanentRedirect(configSource, source, destination) {
       }`);
 }
 
+function expectTemporaryRedirect(configSource, source, destination) {
+  expect(configSource).toContain(`{
+        source: "${source}",
+        destination: "${destination}",
+        permanent: false,
+      }`);
+}
+
 describe("SEO legacy redirects", () => {
+  it("temporarily redirects the TikTok bio short link", () => {
+    const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
+
+    expectTemporaryRedirect(
+      configSource,
+      "/tiktok",
+      "/pbsc?utm_source=tiktok&utm_medium=bio",
+    );
+  });
+
   it("permanently redirects the retired Cocoa Beach Pier URL family", () => {
     const configSource = fs.readFileSync(path.join(process.cwd(), "next.config.mjs"), "utf8");
 

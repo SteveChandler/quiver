@@ -7,6 +7,7 @@ import type mapboxgl from "mapbox-gl";
 import type { Beach } from "@/types/database";
 import type { HourlySwellTimeline } from "@/app/api/forecasts/bulk/route";
 import type { SwellLayerId } from "@/components/map/swell-map-theme";
+import type { MapSpotConditions } from "@/components/map/interactive-map";
 import {
   parseEmbedMapCommand,
   serializeEmbedMapEvent,
@@ -411,7 +412,7 @@ export function EmbedMapClient() {
   }, [postEvent]);
 
   const handleBeachSelect = useCallback(
-    (beach: Beach): void => {
+    (beach: Beach, conditions?: MapSpotConditions): void => {
       postEvent({
         type: "spotSelected",
         payload: {
@@ -420,6 +421,15 @@ export function EmbedMapClient() {
           lat: beach.lat ?? initialCenter.lat,
           lon: beach.lon ?? initialCenter.lon,
           slug: beach.slug,
+          conditionSummary: conditions?.conditionSummary ?? null,
+          waveHeight: conditions?.waveHeight ?? null,
+          swellPeriod: conditions?.swellPeriod ?? null,
+          swellDirection: conditions?.swellDirection ?? null,
+          isCalibrated: conditions?.isCalibrated ?? null,
+          windSpeed: conditions?.windSpeed ?? null,
+          windDirection: conditions?.windDirection ?? null,
+          tideState: conditions?.tideState ?? null,
+          tideHeight: conditions?.tideHeight ?? null,
         },
       });
     },

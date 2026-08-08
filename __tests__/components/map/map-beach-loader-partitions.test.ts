@@ -23,6 +23,7 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
           waterTemps: {},
           conditionScores: {},
           conditionSummaries: {},
+          isCalibrated: { a: false },
           swellPartitions: {
             a: {
               s1Dir: 270,
@@ -56,6 +57,7 @@ describe("loadBeachesAndWaveHeights — swell partitions", () => {
       windDir: 310,
       windMph: 12,
     });
+    expect(result.isCalibratedMap.get("a")).toBe(false);
   });
 
   it("parses swellPartitionTimeline from the bulk response into partitionsTimelineMap", async () => {

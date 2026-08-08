@@ -36,7 +36,7 @@ type QueryChain<T> = {
     order: jest.Mock;
     limit: jest.Mock;
     eq: jest.Mock;
-    not: jest.Mock;
+    in: jest.Mock;
     maybeSingle: jest.Mock;
     then: Promise<QueryResult<T>>["then"];
   };
@@ -67,8 +67,8 @@ function createQueryChain<T>(result: QueryResult<T>): QueryChain<T> {
       calls.push({ method: "eq", args });
       return chain;
     }),
-    not: jest.fn((...args: unknown[]) => {
-      calls.push({ method: "not", args });
+    in: jest.fn((...args: unknown[]) => {
+      calls.push({ method: "in", args });
       return chain;
     }),
     maybeSingle: jest.fn(() => resolved),
@@ -79,37 +79,36 @@ function createQueryChain<T>(result: QueryResult<T>): QueryChain<T> {
 }
 
 function createSupabaseMock(options: {
+  canonicalRows?: Array<{
+    android_waitlist_source_links: Array<{ source_id: string }>;
+  }>;
   leadRows?: Array<{ email: string | null }>;
-  profileRows?: Array<{ email: string | null }>;
   claims?: Array<QueryResult<{ email: string } | null>>;
-  upsertResults?: Array<QueryResult<null>>;
   resetResults?: Array<QueryResult<null>>;
 }) {
+  const canonicalSelect = createQueryChain({
+    data: options.canonicalRows ?? [],
+    error: null,
+  });
   const leadSelect = createQueryChain({
     data: options.leadRows ?? [],
     error: null,
   });
-  const profileSelect = createQueryChain({
-    data: options.profileRows ?? [],
-    error: null,
-  });
   const claimChains: Array<QueryChain<{ email: string } | null>> = [];
   const resetChains: Array<QueryChain<null>> = [];
-  const upsertCalls: Array<{ row: unknown; options: unknown }> = [];
   const updatePayloads: unknown[] = [];
 
   const claims = [...(options.claims ?? [])];
-  const upsertResults = [...(options.upsertResults ?? [])];
   const resetResults = [...(options.resetResults ?? [])];
 
   const supabase = {
     from: jest.fn((table: string) => ({
       select: jest.fn((...args: unknown[]) => {
+        if (table === "android_waitlist_entries") {
+          return canonicalSelect.chain.select(...args);
+        }
         if (table === "android_beta_leads") {
           return leadSelect.chain.select(...args);
-        }
-        if (table === "profiles") {
-          return profileSelect.chain.select(...args);
         }
         throw new Error(`Unexpected select table: ${table}`);
       }),
@@ -129,20 +128,15 @@ function createSupabaseMock(options: {
         claimChains.push(chain);
         return chain.chain;
       }),
-      upsert: jest.fn((row: unknown, upsertOptions: unknown) => {
-        upsertCalls.push({ row, options: upsertOptions });
-        return Promise.resolve(upsertResults.shift() ?? { data: null, error: null });
-      }),
     })),
   };
 
   return {
     supabase,
+    canonicalSelect,
     leadSelect,
-    profileSelect,
     claimChains,
     resetChains,
-    upsertCalls,
     updatePayloads,
   };
 }
@@ -186,8 +180,12 @@ describe("scripts/email-android-beta-leads", () => {
       "10",
     ];
     const supabaseMock = createSupabaseMock({
+      canonicalRows: [
+        {
+          android_waitlist_source_links: [{ source_id: "lead-id-1" }],
+        },
+      ],
       leadRows: [{ email: "lead@example.com" }],
-      profileRows: [{ email: "profile@example.com" }],
     });
     (createClient as jest.Mock).mockReturnValue(supabaseMock.supabase);
 
@@ -197,28 +195,42 @@ describe("scripts/email-android-beta-leads", () => {
       "https://example.supabase.co",
       "service-role",
     );
+    expect(supabaseMock.canonicalSelect.calls).toContainEqual({
+      method: "eq",
+      args: ["android_waitlist_source_links.source_kind", "anonymous_lead"],
+    });
+    expect(supabaseMock.canonicalSelect.calls).toContainEqual({
+      method: "limit",
+      args: [10],
+    });
+    expect(supabaseMock.leadSelect.calls).toContainEqual({
+      method: "in",
+      args: ["id", ["lead-id-1"]],
+    });
     expect(supabaseMock.leadSelect.calls).toContainEqual({
       method: "is",
       args: ["instructions_sent_at", null],
     });
-    expect(supabaseMock.leadSelect.calls).toContainEqual({
-      method: "limit",
-      args: [10],
-    });
     expect(supabaseMock.updatePayloads).toEqual([]);
-    expect(supabaseMock.upsertCalls).toEqual([]);
     expect(sendAndroidBetaInstructionsEmail).not.toHaveBeenCalled();
     expect(consoleLogSpy).toHaveBeenCalledWith(
       expect.stringContaining('"mode": "dry-run"'),
     );
   });
 
-  it("claims unsent recipients and creates profile-only lead rows before sending", async () => {
+  it("claims and sends only canonical recipients with lead addresses", async () => {
     process.argv = ["node", "scripts/email-android-beta-leads.ts", "--send"];
     const supabaseMock = createSupabaseMock({
-      leadRows: [{ email: "lead@example.com" }],
-      profileRows: [
-        { email: "LEAD@example.com" },
+      canonicalRows: [
+        {
+          android_waitlist_source_links: [
+            { source_id: "lead-id-1" },
+            { source_id: "lead-id-2" },
+          ],
+        },
+      ],
+      leadRows: [
+        { email: "lead@example.com" },
         { email: "profile@example.com" },
       ],
       claims: [
@@ -234,17 +246,10 @@ describe("scripts/email-android-beta-leads", () => {
 
     await main();
 
-    expect(supabaseMock.upsertCalls).toEqual([
-      {
-        row: {
-          email: "profile@example.com",
-          source: "profile_android_access",
-          surface: "script",
-          placement: "bulk_android_beta_email",
-        },
-        options: { onConflict: "email", ignoreDuplicates: true },
-      },
-    ]);
+    expect(supabaseMock.leadSelect.calls).toContainEqual({
+      method: "in",
+      args: ["id", ["lead-id-1", "lead-id-2"]],
+    });
     expect(supabaseMock.updatePayloads).toHaveLength(2);
     expect(supabaseMock.updatePayloads).toEqual([
       { instructions_sent_at: expect.any(String) },
@@ -273,8 +278,12 @@ describe("scripts/email-android-beta-leads", () => {
   it("resets the sent-at claim when sending fails", async () => {
     process.argv = ["node", "scripts/email-android-beta-leads.ts", "--send"];
     const supabaseMock = createSupabaseMock({
+      canonicalRows: [
+        {
+          android_waitlist_source_links: [{ source_id: "lead-id-1" }],
+        },
+      ],
       leadRows: [{ email: "lead@example.com" }],
-      profileRows: [],
       claims: [{ data: { email: "lead@example.com" }, error: null }],
     });
     (createClient as jest.Mock).mockReturnValue(supabaseMock.supabase);
